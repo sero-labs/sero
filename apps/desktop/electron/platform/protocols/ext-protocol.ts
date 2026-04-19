@@ -22,6 +22,11 @@ const appRegistry = new Map<string, SeroAppManifest>();
 
 /** Register a discovered app so its assets can be served. */
 export function registerExtAssets(manifest: SeroAppManifest): void {
+  if (!manifest.uiEntry) {
+    appRegistry.delete(manifest.id);
+    return;
+  }
+
   appRegistry.set(manifest.id, manifest);
 }
 
@@ -36,9 +41,7 @@ export function hasRegisteredExtAssets(appId: string): boolean {
 /** Register multiple discovered apps. */
 export function registerAllExtAssets(manifests: SeroAppManifest[]): void {
   for (const manifest of manifests) {
-    if (manifest.uiEntry) {
-      appRegistry.set(manifest.id, manifest);
-    }
+    registerExtAssets(manifest);
   }
 }
 

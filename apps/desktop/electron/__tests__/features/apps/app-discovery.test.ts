@@ -325,4 +325,52 @@ describe('app discovery devPort handling', () => {
       await rm(tempRoot, { recursive: true, force: true });
     }
   });
+
+  it('discovers active plugin dev session paths and overlays remoteEntryOverride', async () => {
+    const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'sero-app-discovery-dev-session-'));
+    process.env.SERO_HOME_OVERRIDE = tempRoot;
+
+    try {
+      const packageDir = path.join(tempRoot, 'dev-plugin');
+      await mkdir(path.join(tempRoot, 'agent'), { recursive: true });
+      await writeManifestPackage(packageDir, 'dev-plugin', 'Dev Plugin', undefined, {
+        component: 'DevPluginApp',
+        ui: './dist/ui/remoteEntry.js',
+      });
+      await writeFile(
+        path.join(tempRoot, 'agent', 'settings.json'),
+        JSON.stringify({
+          sero: {
+            pluginDev: {
+              sessions: {
+                dev_1: {
+                  sessionId: 'dev_1',
+                  sourcePath: packageDir,
+                  expectedAppId: 'dev-plugin',
+                  lastKnownName: 'Dev Plugin',
+                  status: 'active',
+                  uiMode: 'dev-server',
+                  remoteEntryOverride: 'http://127.0.0.1:5193/mf-manifest.json',
+                  lastError: null,
+                  createdAt: '2026-04-19T20:00:00.000Z',
+                  updatedAt: '2026-04-19T20:05:00.000Z',
+                },
+              },
+            },
+          },
+        }, null, 2),
+      );
+
+      const { discoverApps } = await importAppDiscovery();
+      const manifest = (await discoverApps()).find((app) => app.id === 'dev-plugin');
+
+      expect(manifest).toMatchObject({
+        id: 'dev-plugin',
+        packagePath: packageDir,
+        remoteEntryOverride: 'http://127.0.0.1:5193/mf-manifest.json',
+      });
+    } finally {
+      await rm(tempRoot, { recursive: true, force: true });
+    }
+  });
 });

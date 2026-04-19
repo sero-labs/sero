@@ -1,0 +1,78 @@
+import os from 'os';
+import path from 'path';
+import { mkdir, mkdtemp, rm, writeFile } from 'fs/promises';
+import { afterEach, describe, expect, it } from 'vitest';
+import {
+  readPluginDevSourceManifest,
+  validatePluginDevSourceManifest,
+} from '@electron/features/plugins/dev-sessions/manifest';
+
+const tempRoots: string[] = [];
+
+async function createPluginSource(appId = 'dev-plugin', name = 'Dev Plugin'): Promise<string> {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'sero-plugin-dev-manifest-'));
+  tempRoots.push(tempRoot);
+
+  await mkdir(tempRoot, { recursive: true });
+  await writeFile(
+    path.join(tempRoot, 'package.json'),
+    JSON.stringify({
+      name: `@sero/${appId}`,
+      version: '1.0.0',
+      scripts: {
+        dev: 'vite',
+      },
+      sero: {
+        app: {
+          id: appId,
+          name,
+          icon: 'box',
+          stateFile: `.sero/apps/${appId}/state.json`,
+          component: 'DevPluginApp',
+          ui: './dist/ui/remoteEntry.js',
+          devPort: 5193,
+        },
+      },
+    }, null, 2),
+  );
+
+  return tempRoot;
+}
+
+afterEach(async () => {
+  await Promise.all(tempRoots.splice(0).map((dir) => rm(dir, { recursive: true, force: true })));
+});
+
+describe('plugin dev manifest validation', () => {
+  it('reads declared dev metadata from a valid local plugin source tree', async () => {
+    const sourcePath = await createPluginSource();
+
+    const result = await readPluginDevSourceManifest(sourcePath);
+
+    expect(result.sourcePath).toBe(sourcePath);
+    expect(result.manifest.id).toBe('dev-plugin');
+    expect(result.declaredDevPort).toBe(5193);
+    expect(result.hasDevScript).toBe(true);
+    expect(result.manifest.devPort).toBe(5193);
+  });
+
+  it('rejects app id drift against the persisted expected app id', async () => {
+    const sourcePath = await createPluginSource('renamed-plugin', 'Renamed Plugin');
+
+    await expect(validatePluginDevSourceManifest(sourcePath, {
+      expectedAppId: 'old-plugin',
+    })).rejects.toThrow(/app id drifted from "old-plugin" to "renamed-plugin"/);
+  });
+
+  it('rejects folders without a valid sero.app manifest', async () => {
+    const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'sero-plugin-dev-manifest-invalid-'));
+    tempRoots.push(tempRoot);
+
+    await writeFile(
+      path.join(tempRoot, 'package.json'),
+      JSON.stringify({ name: '@sero/invalid', version: '1.0.0' }, null, 2),
+    );
+
+    await expect(readPluginDevSourceManifest(tempRoot)).rejects.toThrow(/must define sero\.app\.id and sero\.app\.name/);
+  });
+});

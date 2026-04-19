@@ -618,6 +618,7 @@ Recommended refactors while implementing:
 
 ### LPD-03 — Implement manifest validation, conflict classification, and active-session projection
 - **Plan artifact:** `.pi/plans/2026-04-19-local-plugin-dev-sessions/plan.md`
+- **Status:** completed (2026-04-19)
 - **Files:**
   - new `apps/desktop/electron/features/plugins/dev-sessions/manifest.ts`
   - new `apps/desktop/electron/features/plugins/dev-sessions/conflicts.ts`
