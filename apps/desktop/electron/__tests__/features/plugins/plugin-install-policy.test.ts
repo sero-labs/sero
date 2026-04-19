@@ -19,6 +19,7 @@ function createManifest(
     scope: 'workspace',
     globalStatePath: null,
     uiEntry: null,
+    runtimeEntry: null,
     component: null,
     devPort: undefined,
     packagePath,

@@ -15,6 +15,7 @@ import { GitHubRepoOps } from '@electron/features/auth/github/repo-ops';
 import { ArtifactRegistry } from '@electron/features/container/registries/artifact-registry';
 import { SubagentManager } from '@electron/features/subagent';
 import { KanbanOrchestrator } from '@electron/features/kanban';
+import { appRuntimeManager } from '@electron/features/apps/runtime/manager';
 
 export const githubAuth = new GitHubAuthManager();
 
@@ -58,6 +59,8 @@ export const fileWatcherManager = new FileWatcherManager();
 export const lspManager = new LspManager(containerManager);
 
 export const subagentManager = new SubagentManager();
+
+export { appRuntimeManager };
 
 export const kanbanOrchestrator = new KanbanOrchestrator();
 

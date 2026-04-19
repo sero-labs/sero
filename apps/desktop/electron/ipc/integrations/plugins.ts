@@ -16,6 +16,7 @@ import { searchPlugins } from '@electron/features/plugins/discovery';
 import { reloadAllSessionResources } from '../agent';
 import { disposeAppSessionsForApp } from '../agent/handlers/app-agent';
 import { broadcastToWindows } from '../lib/window-broadcast';
+import { appRuntimeManager } from '@electron/shared/infra/shared-infra';
 
 function broadcastPluginEvent(event: PluginChangeEvent): void {
   broadcastToWindows(IpcChannels.plugins.event, event);
@@ -31,6 +32,7 @@ export function registerPluginHandlers(): void {
     async (_event, source: string): Promise<SeroAppManifest> => {
       const manifest = await installPlugin(source);
       disposeAppSessionsForApp(manifest.id);
+      await appRuntimeManager.reconcile();
       broadcastPluginEvent({ type: 'installed', manifest });
       reloadAllSessionResources().catch((err) => {
         console.warn('[plugins] Failed to reload active chat session resources after install:', err);
@@ -44,6 +46,7 @@ export function registerPluginHandlers(): void {
     async (_event, pluginId: string): Promise<void> => {
       await uninstallPlugin(pluginId);
       disposeAppSessionsForApp(pluginId);
+      await appRuntimeManager.reconcile();
       broadcastPluginEvent({ type: 'uninstalled', pluginId });
       reloadAllSessionResources().catch((err) => {
         console.warn('[plugins] Failed to reload active chat session resources after uninstall:', err);

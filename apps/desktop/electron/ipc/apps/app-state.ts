@@ -16,7 +16,7 @@ import { appStateManager } from '@electron/features/apps/state/manager';
 import { SERO_HOME } from '@electron/platform/env';
 import { gitWorkspaceStateManager } from '@electron/features/apps/git-app/manager';
 import type { KanbanState } from '@electron/features/kanban/core/types';
-import { kanbanOrchestrator, ensureInfra, workspaceManager, SERO_CONFIG_PATH, applyRuntimeSettings } from '@electron/shared/infra/shared-infra';
+import { appRuntimeManager, kanbanOrchestrator, ensureInfra, workspaceManager, SERO_CONFIG_PATH, applyRuntimeSettings } from '@electron/shared/infra/shared-infra';
 import { reloadAllSessionResources } from '../agent';
 
 const KANBAN_STATE_SUFFIX = '/apps/kanban/state.json';
@@ -25,6 +25,13 @@ const SETTINGS_RELOAD_COALESCE_MS = 75;
 
 let runtimeSettingsReloadPending = false;
 let runtimeSettingsReloadTask: Promise<void> | null = null;
+
+function notifyAppRuntimeManager(filePath: string, data: unknown): void {
+  if (!data) return;
+  appRuntimeManager.handleStateChange(filePath, data).catch((err) => {
+    console.error('[app-state] App runtime manager error:', err);
+  });
+}
 
 /** Notify the orchestrator immediately if this is a kanban state file. */
 function notifyKanbanOrchestrator(filePath: string, data: unknown): void {
@@ -94,6 +101,8 @@ export function registerAppStateHandlers(): void {
   // for ALL state changes — including direct writes from Pi extensions
   // that bypass the IPC layer.
   appStateManager.onFileChange((filePath, data) => {
+    notifyAppRuntimeManager(filePath, data);
+
     if (filePath.endsWith(KANBAN_STATE_SUFFIX) && data) {
       ensureInfra()
         .then(() => kanbanOrchestrator.onStateChange(filePath, data as KanbanState))
@@ -147,6 +156,7 @@ export function registerAppStateHandlers(): void {
     async (_event, filePath: string, data: unknown): Promise<void> => {
       await appStateManager.write(filePath, data);
       // Immediate notification for IPC-originated writes (no file watcher delay)
+      notifyAppRuntimeManager(filePath, data);
       notifyKanbanOrchestrator(filePath, data);
       await refreshRuntimeSettingsIfNeeded(filePath);
     },

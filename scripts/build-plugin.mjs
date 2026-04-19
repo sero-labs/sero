@@ -167,6 +167,21 @@ async function buildUiIfPresent(pkg) {
   });
 }
 
+async function bundleNodeEntry(sourcePath, outputPath, peerExternals) {
+  await fs.mkdir(path.dirname(outputPath), { recursive: true });
+  await esbuild.build({
+    entryPoints: [sourcePath],
+    outfile: outputPath,
+    bundle: true,
+    format: 'esm',
+    platform: 'node',
+    target: 'es2022',
+    external: peerExternals,
+    sourcemap: false,
+    legalComments: 'none',
+  });
+}
+
 async function bundleExtensions(pkg, outputDir) {
   const extensionEntries = Array.isArray(pkg.pi?.extensions) ? pkg.pi.extensions : [];
   const peerExternals = getPeerExternals(pkg);
@@ -178,23 +193,27 @@ async function bundleExtensions(pkg, outputDir) {
     const outputPath = path.join(outputDir, outputRelativePath);
 
     console.log(`  → Bundling extension ${entry}...`);
-    await fs.mkdir(path.dirname(outputPath), { recursive: true });
-    await esbuild.build({
-      entryPoints: [sourcePath],
-      outfile: outputPath,
-      bundle: true,
-      format: 'esm',
-      platform: 'node',
-      target: 'es2022',
-      external: peerExternals,
-      sourcemap: false,
-      legalComments: 'none',
-    });
-
+    await bundleNodeEntry(sourcePath, outputPath, peerExternals);
     compiledEntries.push(`./${toPosix(outputRelativePath)}`);
   }
 
   return compiledEntries;
+}
+
+async function bundleRuntimeIfPresent(pkg, outputDir) {
+  const runtimeEntry = typeof pkg.sero?.app?.runtime === 'string'
+    ? pkg.sero.app.runtime.trim()
+    : '';
+  if (!runtimeEntry) return null;
+
+  const peerExternals = getPeerExternals(pkg);
+  const sourcePath = path.resolve(packageDir, runtimeEntry);
+  const outputRelativePath = toJsRelativePath(runtimeEntry.replace(/^\.\//, ''));
+  const outputPath = path.join(outputDir, outputRelativePath);
+
+  console.log(`  → Bundling runtime ${runtimeEntry}...`);
+  await bundleNodeEntry(sourcePath, outputPath, peerExternals);
+  return `./${toPosix(outputRelativePath)}`;
 }
 
 async function transpileShared(outputDir) {
@@ -253,12 +272,19 @@ async function copyPackageResources(pkg, outputDir) {
   await copyIfExists(path.join(packageDir, 'LICENSE'), path.join(outputDir, 'LICENSE'));
 }
 
-function buildPublishedManifest(pkg, compiledExtensions, catalogs) {
+function buildPublishedManifest(pkg, compiledExtensions, compiledRuntimeEntry, catalogs) {
   const publishedAppManifest = pkg.sero?.app
-    ? {
-        ...pkg.sero.app,
-        devPort: undefined,
-      }
+    ? (() => {
+        const {
+          devPort: _ignoredDevPort,
+          runtime: _ignoredRuntime,
+          ...publishedAppBase
+        } = pkg.sero.app;
+        return {
+          ...publishedAppBase,
+          ...(compiledRuntimeEntry ? { runtime: compiledRuntimeEntry } : {}),
+        };
+      })()
     : undefined;
 
   const manifest = {
@@ -294,6 +320,7 @@ function buildPublishedManifest(pkg, compiledExtensions, catalogs) {
       'LICENSE',
       'dist/ui',
       'extension',
+      ...(compiledRuntimeEntry ? ['runtime'] : []),
       'shared',
       'prompts',
       'skills',
@@ -320,10 +347,11 @@ async function main() {
   console.log(`📦 Building plugin: ${appId} (${packageDir})`);
   await buildUiIfPresent(pkg);
   const compiledExtensions = await bundleExtensions(pkg, outputDir);
+  const compiledRuntimeEntry = await bundleRuntimeIfPresent(pkg, outputDir);
   await transpileShared(outputDir);
   await copyPackageResources(pkg, outputDir);
 
-  const publishedManifest = buildPublishedManifest(pkg, compiledExtensions, catalogs);
+  const publishedManifest = buildPublishedManifest(pkg, compiledExtensions, compiledRuntimeEntry, catalogs);
   await fs.writeFile(
     path.join(outputDir, 'package.json'),
     `${JSON.stringify(publishedManifest, null, 2)}\n`,

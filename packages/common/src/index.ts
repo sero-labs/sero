@@ -31,6 +31,14 @@ export type {
 } from './app-tools';
 
 export type {
+  AppRuntimeStateApi,
+  AppRuntimeHost,
+  AppRuntimeContext,
+  AppRuntime,
+  AppRuntimeModule,
+} from './app-runtime-background';
+
+export type {
   ExtensionRuntimeTextContent,
   ExtensionRuntimeImageContent,
   ExtensionRuntimeContentBlock,

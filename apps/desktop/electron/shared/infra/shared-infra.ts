@@ -24,6 +24,7 @@ import { SERO_AGENT_DIR } from '@electron/platform/env';
 import { migrateLegacyProfileRootConfigsSync } from '@electron/features/profile/agent-config-migration';
 import { applyRuntimeSettings, pickFirstAvailableModel } from './runtime-settings';
 import {
+  appRuntimeManager,
   artifactRegistry,
   buildContainerConfig,
   containerManager,
@@ -50,6 +51,7 @@ if (!process.env.VITEST && process.env.NODE_ENV !== 'test') {
 }
 
 export {
+  appRuntimeManager,
   artifactRegistry,
   buildContainerConfig,
   containerManager,
@@ -127,6 +129,7 @@ export async function ensureInfra(): Promise<SharedInfra> {
     });
   }
   applyRuntimeSettings(infra.settingsManager);
+  await appRuntimeManager.initialize();
 
   // Wire kanban orchestrator deps lazily
   kanbanOrchestrator.setDeps({

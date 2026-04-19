@@ -44,6 +44,7 @@ function createManifest(
     isPlugin: false,
     widgets: [],
     ...overrides,
+    runtimeEntry: overrides?.runtimeEntry ?? null,
   };
 }
 

@@ -19,6 +19,7 @@ interface PluginPackageJson {
   sero?: {
     app?: {
       ui?: string;
+      runtime?: string;
       devPort?: number;
     };
     plugin?: {

@@ -42,6 +42,8 @@ export interface SeroAppManifest {
   globalStatePath: string | null;
   /** Path to the module federation remoteEntry.js. Null if no UI. */
   uiEntry: string | null;
+  /** Absolute path to the app runtime entry. Null if no background runtime. */
+  runtimeEntry: string | null;
   /** Exported component name from the remote (e.g. "TodoApp"). */
   component: string | null;
   /** Dev server port for module federation (from sero.app.devPort). */

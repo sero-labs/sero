@@ -44,6 +44,7 @@ interface PkgSeroApp {
   stateFile: string;
   scope?: 'global' | 'workspace';
   ui?: string;
+  runtime?: string;
   component?: string;
   devPort?: number;
   widgets?: PkgWidgetDef[];
@@ -107,6 +108,11 @@ async function parseManifest(pkgJson: PkgJson, packagePath: string): Promise<Ser
     uiEntry = path.resolve(packagePath, app.ui);
   }
 
+  let runtimeEntry: string | null = null;
+  if (app.runtime) {
+    runtimeEntry = path.resolve(packagePath, app.runtime);
+  }
+
   const scope = app.scope === 'global' ? 'global' : 'workspace';
   const globalStatePath = scope === 'global'
     ? path.join(SERO_HOME, 'apps', app.id, 'state.json')
@@ -163,6 +169,7 @@ async function parseManifest(pkgJson: PkgJson, packagePath: string): Promise<Ser
     scope,
     globalStatePath,
     uiEntry,
+    runtimeEntry,
     component: app.component || null,
     devPort: getManifestDevPort(app.id, packagePath, app.devPort),
     packagePath,

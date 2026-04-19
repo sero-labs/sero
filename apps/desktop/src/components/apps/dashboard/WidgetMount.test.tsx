@@ -34,6 +34,7 @@ function createManifest(id: string, scope: SeroAppManifest['scope'] = 'workspace
     scope,
     globalStatePath: scope === 'global' ? `/tmp/${id}.json` : null,
     uiEntry: `sero-ext://${id}/mf-manifest.json`,
+    runtimeEntry: null,
     component: `${id}App`,
     devPort: 4100,
     packagePath: `/tmp/${id}`,

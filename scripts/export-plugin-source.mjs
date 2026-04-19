@@ -381,18 +381,30 @@ async function exportPackageSource(sourceDir, relativeDir = '.') {
   );
 }
 
-async function rewriteRootTypeScriptConfigs() {
-  const extensionTsconfigPath = path.join(outputDir, 'extension', 'tsconfig.json');
-  if (existsSync(extensionTsconfigPath) && existsSync(extensionTsconfigBasePath)) {
-    await fs.copyFile(extensionTsconfigBasePath, path.join(outputDir, 'tsconfig.extension.json'));
-    const extensionTsconfig = await readJson(extensionTsconfigPath);
-    extensionTsconfig.extends = '../tsconfig.extension.json';
-    await fs.writeFile(
-      extensionTsconfigPath,
-      `${JSON.stringify(extensionTsconfig, null, 2)}\n`,
-      'utf8',
-    );
+async function ensureRootExtensionTsconfig() {
+  if (!existsSync(extensionTsconfigBasePath)) return;
+  await fs.copyFile(extensionTsconfigBasePath, path.join(outputDir, 'tsconfig.extension.json'));
+}
+
+async function rewriteProjectTsconfig(projectDirName) {
+  const projectTsconfigPath = path.join(outputDir, projectDirName, 'tsconfig.json');
+  if (!existsSync(projectTsconfigPath) || !existsSync(extensionTsconfigBasePath)) {
+    return;
   }
+
+  await ensureRootExtensionTsconfig();
+  const projectTsconfig = await readJson(projectTsconfigPath);
+  projectTsconfig.extends = '../tsconfig.extension.json';
+  await fs.writeFile(
+    projectTsconfigPath,
+    `${JSON.stringify(projectTsconfig, null, 2)}\n`,
+    'utf8',
+  );
+}
+
+async function rewriteRootTypeScriptConfigs() {
+  await rewriteProjectTsconfig('extension');
+  await rewriteProjectTsconfig('runtime');
 
   const uiTsconfigPath = path.join(outputDir, 'ui', 'tsconfig.json');
   if (!existsSync(uiTsconfigPath)) {

@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => {
     settingsReload: vi.fn(),
     reloadAllSessionResources: vi.fn().mockResolvedValue(undefined),
     ensureInfra: vi.fn(),
+    appRuntimeHandleStateChange: vi.fn().mockResolvedValue(undefined),
     applyRuntimeSettings: vi.fn(),
     kanbanOnStateChange: vi.fn(),
     kanbanWatchWorkspace: vi.fn(),
@@ -48,6 +49,9 @@ vi.mock('@electron/shared/infra/shared-infra', () => ({
   SERO_CONFIG_PATH: '/tmp/sero-settings.json',
   ensureInfra: mocks.ensureInfra,
   applyRuntimeSettings: mocks.applyRuntimeSettings,
+  appRuntimeManager: {
+    handleStateChange: mocks.appRuntimeHandleStateChange,
+  },
   kanbanOrchestrator: {
     onStateChange: mocks.kanbanOnStateChange,
     watchWorkspace: mocks.kanbanWatchWorkspace,
@@ -78,6 +82,7 @@ describe('app-state settings reload coalescing', () => {
     mocks.reloadAllSessionResources.mockClear();
     mocks.ensureInfra.mockClear();
     mocks.applyRuntimeSettings.mockClear();
+    mocks.appRuntimeHandleStateChange.mockClear();
     mocks.kanbanOnStateChange.mockClear();
     mocks.kanbanWatchWorkspace.mockClear();
     mocks.workspaceFindByPath.mockClear();

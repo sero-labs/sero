@@ -1,6 +1,8 @@
+import { execFile as execFileCb } from 'child_process';
 import os from 'os';
 import path from 'path';
 import { mkdtemp, mkdir, readFile, rm, stat, writeFile } from 'fs/promises';
+import { promisify } from 'util';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -20,7 +22,11 @@ async function writePackageJson(dir: string, pkg: unknown): Promise<void> {
   await writeFile(path.join(dir, 'package.json'), `${JSON.stringify(pkg, null, 2)}\n`, 'utf8');
 }
 
+const execFile = promisify(execFileCb);
 const desktopRoot = path.resolve(__dirname, '../../../..');
+const repoRoot = path.resolve(desktopRoot, '..', '..');
+const buildPluginScript = path.join(repoRoot, 'scripts', 'build-plugin.mjs');
+const exportPluginSourceScript = path.join(repoRoot, 'scripts', 'export-plugin-source.mjs');
 const stagedWebPluginRoot = path.join(desktopRoot, 'dist/electron/builtin/plugins/sero-web-plugin');
 
 describe('plugin package build helpers', () => {
@@ -84,13 +90,91 @@ describe('plugin package build helpers', () => {
       sero: {
         app: {
           ui: './dist/ui/remoteEntry.js',
+          runtime: './runtime/index.ts',
           devPort: 5174,
         },
       },
     });
 
     expect(result.sero?.app?.ui).toBe('./dist/ui/remoteEntry.js');
+    expect(result.sero?.app?.runtime).toBe('./runtime/index.ts');
     expect(result.sero?.app).not.toHaveProperty('devPort');
+  });
+
+  it('builds pre-built plugin packages with compiled runtime entries', async () => {
+    const dir = await createTempPluginDir(tempDirs);
+    await mkdir(path.join(dir, 'runtime'), { recursive: true });
+    await writeFile(
+      path.join(dir, 'runtime', 'index.ts'),
+      'export function createAppRuntime() { return { async start() {}, async handleStateChange() {}, async dispose() {} }; }\n',
+      'utf8',
+    );
+    await writePackageJson(dir, {
+      name: '@acme/runtime-plugin',
+      version: '1.0.0',
+      sero: {
+        app: {
+          id: 'runtime-plugin',
+          name: 'Runtime Plugin',
+          stateFile: '.sero/apps/runtime-plugin/state.json',
+          runtime: './runtime/index.ts',
+        },
+      },
+      peerDependencies: {
+        '@mariozechner/pi-coding-agent': '^0.0.0',
+      },
+    });
+
+    await execFile(process.execPath, [buildPluginScript, dir], { cwd: repoRoot });
+
+    const builtPkg = JSON.parse(await readFile(path.join(dir, 'dist', 'plugin', 'package.json'), 'utf8')) as {
+      files?: string[];
+      sero?: { app?: { runtime?: string } };
+    };
+
+    expect(builtPkg.sero?.app?.runtime).toBe('./runtime/index.js');
+    expect(builtPkg.files).toContain('runtime');
+    await expect(stat(path.join(dir, 'dist', 'plugin', 'runtime', 'index.js'))).resolves.toBeDefined();
+  });
+
+  it('exports runtime source trees with npm-installable tsconfig rewrites', async () => {
+    const dir = await createTempPluginDir(tempDirs);
+    await mkdir(path.join(dir, 'runtime'), { recursive: true });
+    await writeFile(path.join(dir, 'runtime', 'index.ts'), 'export const runtime = true;\n', 'utf8');
+    await writeFile(
+      path.join(dir, 'runtime', 'tsconfig.json'),
+      `${JSON.stringify({ compilerOptions: { target: 'ES2022' }, include: ['./**/*'] }, null, 2)}\n`,
+      'utf8',
+    );
+    await writePackageJson(dir, {
+      name: '@acme/runtime-plugin',
+      version: '1.0.0',
+      sero: {
+        app: {
+          id: 'runtime-plugin',
+          name: 'Runtime Plugin',
+          stateFile: '.sero/apps/runtime-plugin/state.json',
+          runtime: './runtime/index.ts',
+        },
+        plugin: {
+          preBuilt: false,
+        },
+      },
+    });
+
+    await execFile(process.execPath, [exportPluginSourceScript, dir], { cwd: repoRoot });
+
+    const exportedPkg = JSON.parse(await readFile(path.join(dir, 'dist', 'plugin-source', 'package.json'), 'utf8')) as {
+      sero?: { app?: { runtime?: string } };
+    };
+    const runtimeTsconfig = JSON.parse(
+      await readFile(path.join(dir, 'dist', 'plugin-source', 'runtime', 'tsconfig.json'), 'utf8'),
+    ) as { extends?: string };
+
+    expect(exportedPkg.sero?.app?.runtime).toBe('./runtime/index.ts');
+    expect(runtimeTsconfig.extends).toBe('../tsconfig.extension.json');
+    await expect(stat(path.join(dir, 'dist', 'plugin-source', 'runtime', 'index.ts'))).resolves.toBeDefined();
+    await expect(stat(path.join(dir, 'dist', 'plugin-source', 'tsconfig.extension.json'))).resolves.toBeDefined();
   });
 
   it('builds git source plugins locally before install', async () => {

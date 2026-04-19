@@ -9,7 +9,7 @@ import {
 function makeContext(overrides?: Partial<SeroHostCompatibilityContext>): SeroHostCompatibilityContext {
   return {
     hostVersion: overrides?.hostVersion ?? '0.1.0',
-    capabilities: overrides?.capabilities ?? new Set(['appAgent.invokeTool', 'tool.cli']),
+    capabilities: overrides?.capabilities ?? new Set(['appAgent.invokeTool', 'tool.cli', 'appRuntime.background']),
   };
 }
 
@@ -19,7 +19,7 @@ describe('plugin compatibility', () => {
       category: 'integrations',
       tags: ['google'],
       minSeroVersion: '0.1.0',
-      requiredHostCapabilities: ['appAgent.invokeTool', 'tool.cli'],
+      requiredHostCapabilities: ['appAgent.invokeTool', 'tool.cli', 'appRuntime.background'],
     };
 
     expect(evaluatePluginCompatibility(plugin, makeContext())).toEqual({

@@ -20,6 +20,7 @@ async function writeManifestPackage(
     category: 'utilities',
     tags: ['test'],
   },
+  appOverrides: Record<string, unknown> = {},
 ): Promise<void> {
   await mkdir(packageDir, { recursive: true });
   await writeFile(
@@ -33,6 +34,7 @@ async function writeManifestPackage(
           name,
           icon: 'box',
           stateFile: `.sero/apps/${appId}/state.json`,
+          ...appOverrides,
         },
         plugin,
       },
@@ -162,9 +164,11 @@ describe('app discovery devPort handling', () => {
         category: 'utilities',
         tags: ['test', ' utilities '],
         minSeroVersion: '0.1.0',
-        requiredHostCapabilities: [' appAgent.invokeTool ', 'tool.cli'],
+        requiredHostCapabilities: [' appAgent.invokeTool ', 'tool.cli', ' appRuntime.background '],
         preBuilt: false,
         bridgeTools: [' tool_a ', 'tool_b'],
+      }, {
+        runtime: './runtime/index.ts',
       });
 
       const { discoverApps, registerAppPath, unregisterAppPath } = await importAppDiscovery();
@@ -179,10 +183,11 @@ describe('app discovery devPort handling', () => {
           category: 'utilities',
           tags: ['test', 'utilities'],
           minSeroVersion: '0.1.0',
-          requiredHostCapabilities: ['appAgent.invokeTool', 'tool.cli'],
+          requiredHostCapabilities: ['appAgent.invokeTool', 'tool.cli', 'appRuntime.background'],
           preBuilt: false,
           bridgeTools: ['tool_a', 'tool_b'],
         },
+        runtimeEntry: path.join(packageDir, 'runtime', 'index.ts'),
         hostCompatibility: {
           supported: true,
           hostVersion: '0.1.0',
