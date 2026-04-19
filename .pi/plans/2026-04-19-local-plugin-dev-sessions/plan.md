@@ -847,6 +847,7 @@ Recommended refactors while implementing:
 
 ### LPD-12 — Add renderer/Admin tests for remote override behavior and UI separation
 - **Plan artifact:** `.pi/plans/2026-04-19-local-plugin-dev-sessions/plan.md`
+- **Status:** completed (2026-04-20)
 - **Files:**
   - `apps/desktop/src/stores/app.test.ts`
   - new `apps/desktop/src/lib/federation-registry.test.ts` cases if needed

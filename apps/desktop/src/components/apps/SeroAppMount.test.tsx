@@ -66,7 +66,7 @@ describe('SeroAppMount', () => {
     expect(federationMocks.getFederatedComponent).not.toHaveBeenCalled();
   });
 
-  it('renders the existing placeholder without touching federation when UI is unavailable', () => {
+  it('renders the existing placeholder without touching federation when discovery suppresses UI for backend-only sessions', () => {
     useWorkspaceStore.setState({
       activeWorkspaceId: 'global',
       workspaces: [],

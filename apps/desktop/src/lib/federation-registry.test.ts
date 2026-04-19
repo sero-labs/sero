@@ -101,6 +101,30 @@ describe('federation registry remote retry behaviour', () => {
     );
   });
 
+  it('prefers remoteEntryOverride over legacy devPort candidates in development', async () => {
+    process.env.NODE_ENV = 'development';
+    runtimeMocks.fetch.mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      return { ok: url === 'http://127.0.0.1:5193/mf-manifest.json' ? false : true } as Response;
+    });
+
+    await preloadFederatedModule(
+      'todo',
+      'TodoApp',
+      4101,
+      'http://127.0.0.1:5193/mf-manifest.json',
+    );
+
+    expect(runtimeMocks.fetch.mock.calls.map(([input]) => String(input))).toEqual([
+      'http://127.0.0.1:5193/mf-manifest.json',
+    ]);
+    expect(runtimeMocks.registerRemotes).toHaveBeenCalledWith(
+      [{ name: 'sero_todo', entry: 'sero-ext://todo/mf-manifest.json' }],
+      { force: true },
+    );
+    expect(runtimeMocks.loadRemote).toHaveBeenCalledTimes(1);
+  });
+
   it('prefers remoteEntryOverride over legacy devPort remotes in production', async () => {
     process.env.NODE_ENV = 'production';
     runtimeMocks.fetch.mockImplementation(async (input: RequestInfo | URL) => {

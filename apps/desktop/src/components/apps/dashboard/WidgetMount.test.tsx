@@ -191,7 +191,7 @@ describe('WidgetMount', () => {
     expect(container.textContent).toContain('Widget unavailable');
   });
 
-  it('shows the existing fallback without touching federation when app UI is unavailable', async () => {
+  it('shows the existing fallback without touching federation when discovery suppresses UI for unavailable sessions', async () => {
     useWorkspaceStore.setState({
       activeWorkspaceId: 'global',
       workspaces: [],
