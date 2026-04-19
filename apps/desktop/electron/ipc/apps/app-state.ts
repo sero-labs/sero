@@ -83,6 +83,9 @@ export function registerAppStateHandlers(): void {
 
   // Watch settings.json so direct edits or package-manager writes that bypass
   // the IPC layer still refresh session resources and CLI-bridged tools.
+  // This watcher is registered before main.ts's non-blocking ensureInfra()
+  // bootstrap settles; early file changes are still safe because the reload
+  // path calls ensureInfra() lazily on demand.
   appStateManager.watch(SERO_CONFIG_PATH);
 
   // Read state file

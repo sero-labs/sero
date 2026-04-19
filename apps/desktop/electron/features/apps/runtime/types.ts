@@ -34,10 +34,17 @@ export interface AppRuntimeInstance {
   runtime: AppRuntime;
 }
 
+export interface LoadAppRuntimeModuleOptions {
+  externals?: string[];
+}
+
 export interface AppRuntimeManagerDeps {
   discoverApps: () => Promise<SeroAppManifest[]>;
   getOpenWorkspaces: () => Promise<AppRuntimeWorkspace[]>;
-  loadRuntimeModule: (runtimeEntryPath: string) => Promise<AppRuntimeModule>;
+  loadRuntimeModule: (
+    runtimeEntryPath: string,
+    options?: LoadAppRuntimeModuleOptions,
+  ) => Promise<AppRuntimeModule>;
   createHost: (target: AppRuntimeTarget) => AppRuntimeHost;
 }
 

@@ -93,6 +93,7 @@ If the plugin needs a **background runtime**, add `runtime/`, declare
 - `@sero-ai/app-runtime` in `devDependencies` (shared via MF singleton)
 - `@sero-ai/ui` in `devDependencies` (bundled at build time)
 - Use `@sero-ai/common` for renderer-safe contracts shared across multiple plugins or desktop packages; keep app-local types in `shared/`
+- Treat monorepo `packages/*` folders as shared package sources consumed by external plugins via published package names — do NOT point an external plugin at `../../packages/*` source paths, and do NOT move plugin-specific domain models into `packages/*`
 - `stateFile` remains required even for global apps — Sero ignores it there, but Pi CLI uses it as a fallback path
 - `ui`, `component`, and `devPort` are only needed when the plugin ships a web UI
 - `runtime` is only needed when the plugin ships a background runtime; if present, add `runtime/tsconfig.json` to the package `typecheck` script
@@ -114,6 +115,7 @@ If the plugin needs a **background runtime**, add `runtime/`, declare
 | Plugin needs host support for direct UI->tool calls | Declare `requiredHostCapabilities: ["appAgent.invokeTool"]` | Assume every host supports it without declaring it |
 | Plugin needs bridged CLI behavior | Declare `requiredHostCapabilities: ["tool.cli"]` | Rely on unstated host behavior |
 | Extracting a built-in plugin to external | Move plugin-specific logic into the plugin | Leave plugin-specific preload/IPC/types in the Sero host |
+| External plugin needs a plugin-specific state model or validator | Keep it in the plugin's own `shared/` layer (or a plugin-owned package) | Promote it into Sero monorepo `packages/*` just because multiple plugin files use it |
 
 ### Mini examples
 
@@ -200,6 +202,7 @@ Add these only when the plugin needs long-lived, workspace-scoped orchestration:
 
 Notes:
 - `sero.app.runtime` points at the source runtime entry in a source plugin repo
+- If the runtime imports native or otherwise non-bundle-safe packages, add `sero.app.runtimeExternals` so the TS runtime loader leaves them external
 - If the plugin also uses UI->tool calls or CLI bridging, include those capabilities too
 - Keep background-runtime behavior in `runtime/`, not in the host or renderer glue
 

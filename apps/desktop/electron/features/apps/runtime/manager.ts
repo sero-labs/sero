@@ -45,6 +45,8 @@ export class AppRuntimeManager {
   private readonly deps: AppRuntimeManagerDeps;
   private readonly instances = new Map<string, AppRuntimeInstance>();
   private initialized = false;
+  private initializationTask: Promise<void> | null = null;
+  private reconcileTail: Promise<void> = Promise.resolve();
 
   constructor(deps: AppRuntimeManagerDeps = createDefaultDeps()) {
     this.deps = deps;
@@ -52,11 +54,32 @@ export class AppRuntimeManager {
 
   async initialize(): Promise<void> {
     if (this.initialized) return;
-    this.initialized = true;
-    await this.reconcile();
+    if (this.initializationTask) {
+      return this.initializationTask;
+    }
+
+    this.initializationTask = (async () => {
+      await this.reconcile();
+      this.initialized = true;
+    })();
+
+    try {
+      await this.initializationTask;
+    } finally {
+      this.initializationTask = null;
+    }
   }
 
   async reconcile(options: ReconcileAppRuntimeOptions = {}): Promise<void> {
+    const task = this.reconcileTail
+      .catch(() => undefined)
+      .then(() => this.runReconcile(options));
+
+    this.reconcileTail = task.catch(() => undefined);
+    return task;
+  }
+
+  private async runReconcile(options: ReconcileAppRuntimeOptions): Promise<void> {
     const manifests = options.manifests ?? await this.deps.discoverApps();
     const workspaces = options.workspaces ?? await this.deps.getOpenWorkspaces();
     const desiredTargets = this.buildTargets(manifests, workspaces);
@@ -64,18 +87,28 @@ export class AppRuntimeManager {
       runtimeKey(target.manifest.id, target.workspace.id),
       target,
     ]));
+    const failedKeys = new Set<string>();
 
     for (const instance of [...this.instances.values()]) {
       const desired = desiredByKey.get(instance.key);
       if (!desired || requiresRestart(instance, desired)) {
-        await this.disposeInstance(instance.key);
+        try {
+          await this.disposeInstance(instance.key);
+        } catch (error) {
+          failedKeys.add(instance.key);
+          console.error(`[app-runtime] Failed to dispose runtime ${instance.key} during reconcile:`, error);
+        }
       }
     }
 
     for (const target of desiredTargets) {
       const key = runtimeKey(target.manifest.id, target.workspace.id);
-      if (this.instances.has(key)) continue;
-      await this.startInstance(key, target);
+      if (failedKeys.has(key) || this.instances.has(key)) continue;
+      try {
+        await this.startInstance(key, target);
+      } catch (error) {
+        console.error(`[app-runtime] Failed to start runtime ${key} during reconcile:`, error);
+      }
     }
   }
 
@@ -113,7 +146,12 @@ export class AppRuntimeManager {
         }
 
         const stateFilePath = resolveStateFilePath({ manifest, workspacePath: workspace.path });
-        if (!stateFilePath) continue;
+        if (!stateFilePath) {
+          if (manifest.scope === 'global') {
+            console.warn(`[app-runtime] Skipping global runtime ${manifest.id}: missing globalStatePath.`);
+          }
+          continue;
+        }
         targets.push({ manifest, workspace, stateFilePath });
       }
     }
@@ -128,7 +166,9 @@ export class AppRuntimeManager {
     host.appState.watch(target.stateFilePath);
 
     try {
-      const runtimeModule = await this.deps.loadRuntimeModule(target.manifest.runtimeEntry);
+      const runtimeModule = await this.deps.loadRuntimeModule(target.manifest.runtimeEntry, {
+        externals: target.manifest.runtimeExternals,
+      });
       const ctx: AppRuntimeContext = {
         appId: target.manifest.id,
         workspaceId: target.workspace.id,

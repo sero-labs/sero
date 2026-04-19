@@ -344,6 +344,7 @@ Critical rules:
 - `@sero-ai/app-runtime` is a `devDependency` (shared via MF at runtime)
 - `@sero-ai/ui` is a `devDependency` (bundled at build time)
 - Use `@sero-ai/common` for renderer-safe contracts shared across multiple plugins or desktop packages; keep app-local types in `shared/`
+- Treat the monorepo `packages/*` folders as host-owned shared package sources that external plugins consume via published package names — do NOT import `../../packages/*` source paths from an external plugin, and do NOT move plugin-specific domain models into `packages/*`
 - `stateFile` stays required even for global apps — Sero ignores it there, but Pi CLI uses it as the fallback path
 - `ui`, `component`, and `devPort` are required only when the plugin ships a web UI
 - `runtime` is required only when the plugin ships a background runtime; if present, add `runtime/tsconfig.json` to the package `typecheck` script
@@ -368,7 +369,8 @@ Rules:
 - Provide a `DEFAULT_STATE` constant
 - Keep the shape flat-ish
 - Include auto-incrementing ID fields for lists
-- If a type/helper stops being app-local, move that neutral contract into `@sero-ai/common` instead of duplicating it
+- If a type/helper stops being app-local, move that neutral **platform** contract into `@sero-ai/common` instead of duplicating it
+- If the type/helper is still plugin-specific, keep it in the plugin's own `shared/` layer (or a plugin-owned published package) rather than promoting it into Sero's monorepo `packages/*`
 
 ### Step 5: Mount the Plugin in the Workspace
 
@@ -413,6 +415,7 @@ Critical requirements:
 - add `sero.app.runtime: "./runtime/index.ts"` to `package.json`
 - add `runtime/tsconfig.json` and include it in the package `typecheck` script
 - declare `requiredHostCapabilities: ["appRuntime.background"]`
+- if the runtime imports native or otherwise non-bundle-safe packages, declare `sero.app.runtimeExternals: ["<package>"]` so the TS runtime loader leaves them external
 - export `createAppRuntime(ctx)` from `runtime/index.ts` and default-export `{ createAppRuntime }`
 - type against `@sero-ai/common` runtime contracts rather than desktop-host internals
 - keep Pi-safe logic in `extension/`; keep Sero-only orchestration in `runtime/`

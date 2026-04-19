@@ -1,13 +1,51 @@
 import { createHash } from 'crypto';
 import { existsSync } from 'fs';
-import { mkdir } from 'fs/promises';
+import { mkdir, readFile, stat, writeFile } from 'fs/promises';
 import path from 'path';
 import { pathToFileURL } from 'url';
 import { build } from 'esbuild';
-import type { AppRuntimeModule } from './types';
+import type { AppRuntimeModule, LoadAppRuntimeModuleOptions } from './types';
 
 const SUPPORTED_RUNTIME_EXTENSIONS = new Set(['.js', '.mjs', '.cjs', '.ts', '.mts', '.cts', '.tsx']);
 const TRANSPILED_RUNTIME_EXTENSIONS = new Set(['.ts', '.mts', '.cts', '.tsx']);
+const DEFAULT_RUNTIME_EXTERNALS = ['better-sqlite3', 'electron', 'keytar', 'node-pty'] as const;
+const RUNTIME_CACHE_VERSION = 2;
+
+interface RuntimeInputSnapshot {
+  path: string;
+  mtimeMs: number;
+  size: number;
+}
+
+interface RuntimeBuildCache {
+  version: number;
+  runtimeEntryPath: string;
+  transpiledRuntimePath: string;
+  externals: string[];
+  inputs: RuntimeInputSnapshot[];
+}
+
+interface RuntimeCachePaths {
+  cacheDir: string;
+  metadataPath: string;
+  outputPrefix: string;
+  packageDir: string;
+}
+
+function hashValue(value: string | Uint8Array): string {
+  return createHash('sha1').update(value).digest('hex').slice(0, 12);
+}
+
+function normalizeRuntimeExternals(externals: string[] | undefined): string[] {
+  return [...new Set([
+    ...DEFAULT_RUNTIME_EXTERNALS,
+    ...(externals ?? []).filter((entry): entry is string => typeof entry === 'string').map((entry) => entry.trim()).filter(Boolean),
+  ])].sort((a, b) => a.localeCompare(b));
+}
+
+function buildEsbuildExternalList(externals: string[]): string[] {
+  return externals.flatMap((external) => [external, `${external}/*`]);
+}
 
 function normalizeRuntimeModule(candidate: unknown, runtimeEntryPath: string): AppRuntimeModule {
   if (
@@ -41,7 +79,7 @@ function findRuntimePackageDir(runtimeEntryPath: string): string {
   }
 }
 
-function getTranspiledRuntimePath(runtimeEntryPath: string): string {
+function getRuntimeCachePaths(runtimeEntryPath: string): RuntimeCachePaths {
   const packageDir = findRuntimePackageDir(runtimeEntryPath);
   const relativeRuntimePath = path.relative(packageDir, runtimeEntryPath);
   const extensionlessRuntimePath = relativeRuntimePath.slice(
@@ -49,12 +87,146 @@ function getTranspiledRuntimePath(runtimeEntryPath: string): string {
     relativeRuntimePath.length - path.extname(relativeRuntimePath).length,
   );
   const safeRuntimeName = extensionlessRuntimePath.split(path.sep).join('__');
-  const runtimeHash = createHash('sha1').update(runtimeEntryPath).digest('hex').slice(0, 8);
+  const entryHash = hashValue(runtimeEntryPath);
+  const cacheDir = path.join(packageDir, 'node_modules', '.cache', 'sero-runtime-loader');
+  const outputPrefix = `${safeRuntimeName}-${entryHash}`;
 
-  return path.join(packageDir, 'node_modules', '.cache', 'sero-runtime-loader', `${safeRuntimeName}-${runtimeHash}.mjs`);
+  return {
+    cacheDir,
+    metadataPath: path.join(cacheDir, `${outputPrefix}.json`),
+    outputPrefix,
+    packageDir,
+  };
 }
 
-async function resolveRuntimeImportPath(runtimeEntryPath: string): Promise<string> {
+function resolveMetafileInputPath(inputPath: string, packageDir: string): string {
+  if (path.isAbsolute(inputPath)) {
+    return inputPath;
+  }
+  return path.resolve(packageDir, inputPath);
+}
+
+async function readRuntimeBuildCache(metadataPath: string): Promise<RuntimeBuildCache | null> {
+  try {
+    const raw = await readFile(metadataPath, 'utf8');
+    const parsed = JSON.parse(raw) as RuntimeBuildCache;
+    if (parsed.version !== RUNTIME_CACHE_VERSION) {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+async function captureInputSnapshots(inputPaths: string[]): Promise<RuntimeInputSnapshot[]> {
+  const snapshots = await Promise.all(
+    [...new Set(inputPaths)]
+      .sort((a, b) => a.localeCompare(b))
+      .map(async (inputPath) => {
+        const inputStat = await stat(inputPath);
+        return {
+          path: inputPath,
+          mtimeMs: inputStat.mtimeMs,
+          size: inputStat.size,
+        };
+      }),
+  );
+
+  return snapshots;
+}
+
+async function isRuntimeBuildCacheFresh(cache: RuntimeBuildCache, externals: string[]): Promise<boolean> {
+  if (cache.externals.length !== externals.length) {
+    return false;
+  }
+  if (cache.externals.some((external, index) => external !== externals[index])) {
+    return false;
+  }
+
+  if (!existsSync(cache.transpiledRuntimePath)) {
+    return false;
+  }
+
+  for (const input of cache.inputs) {
+    try {
+      const inputStat = await stat(input.path);
+      if (inputStat.mtimeMs !== input.mtimeMs || inputStat.size !== input.size) {
+        return false;
+      }
+    } catch {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+async function buildTranspiledRuntime(runtimeEntryPath: string, externals: string[]): Promise<string> {
+  const { cacheDir, metadataPath, outputPrefix, packageDir } = getRuntimeCachePaths(runtimeEntryPath);
+  await mkdir(cacheDir, { recursive: true });
+
+  const outfile = path.join(cacheDir, `${outputPrefix}.mjs`);
+
+  let result: Awaited<ReturnType<typeof build>>;
+  try {
+    result = await build({
+      entryPoints: [runtimeEntryPath],
+      outfile,
+      absWorkingDir: packageDir,
+      bundle: true,
+      packages: 'bundle',
+      external: buildEsbuildExternalList(externals),
+      format: 'esm',
+      platform: 'node',
+      target: 'es2022',
+      sourcemap: false,
+      legalComments: 'none',
+      logLevel: 'silent',
+      metafile: true,
+      write: false,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Failed to transpile app runtime entry ${runtimeEntryPath}: ${message}`);
+  }
+
+  const bundledOutput = result.outputFiles?.find((file) => path.extname(file.path) === '.mjs')
+    ?? result.outputFiles?.[0];
+  if (!bundledOutput) {
+    throw new Error(`Failed to transpile app runtime entry ${runtimeEntryPath}: esbuild produced no output.`);
+  }
+
+  const bundleHash = hashValue(bundledOutput.contents);
+  const transpiledRuntimePath = path.join(cacheDir, `${outputPrefix}-${bundleHash}.mjs`);
+  if (!existsSync(transpiledRuntimePath)) {
+    await writeFile(transpiledRuntimePath, bundledOutput.contents);
+  }
+
+  const metafile = result.metafile;
+  if (!metafile) {
+    throw new Error(`Failed to transpile app runtime entry ${runtimeEntryPath}: esbuild produced no metafile.`);
+  }
+
+  const inputPaths = Object.keys(metafile.inputs)
+    .map((inputPath) => resolveMetafileInputPath(inputPath, packageDir));
+  const cache: RuntimeBuildCache = {
+    version: RUNTIME_CACHE_VERSION,
+    runtimeEntryPath,
+    transpiledRuntimePath,
+    externals,
+    inputs: await captureInputSnapshots(inputPaths),
+  };
+  await writeFile(metadataPath, `${JSON.stringify(cache, null, 2)}\n`, 'utf8');
+
+  return transpiledRuntimePath;
+}
+
+async function resolveRuntimeImport(
+  runtimeEntryPath: string,
+  options?: LoadAppRuntimeModuleOptions,
+): Promise<{ runtimePath: string; runtimeUrl: string }> {
+  const externals = normalizeRuntimeExternals(options?.externals);
   const extension = path.extname(runtimeEntryPath).toLowerCase();
   if (!SUPPORTED_RUNTIME_EXTENSIONS.has(extension)) {
     throw new Error(
@@ -64,39 +236,38 @@ async function resolveRuntimeImportPath(runtimeEntryPath: string): Promise<strin
   }
 
   if (!TRANSPILED_RUNTIME_EXTENSIONS.has(extension)) {
-    return runtimeEntryPath;
+    const entryHash = hashValue(await readFile(runtimeEntryPath));
+    return {
+      runtimePath: runtimeEntryPath,
+      runtimeUrl: `${pathToFileURL(runtimeEntryPath).href}?v=${entryHash}`,
+    };
   }
 
-  const packageDir = findRuntimePackageDir(runtimeEntryPath);
-  const transpiledRuntimePath = getTranspiledRuntimePath(runtimeEntryPath);
-  await mkdir(path.dirname(transpiledRuntimePath), { recursive: true });
-
-  try {
-    await build({
-      entryPoints: [runtimeEntryPath],
-      outfile: transpiledRuntimePath,
-      absWorkingDir: packageDir,
-      bundle: true,
-      packages: 'bundle',
-      external: ['electron', 'node-pty'],
-      format: 'esm',
-      platform: 'node',
-      target: 'es2022',
-      sourcemap: false,
-      legalComments: 'none',
-      logLevel: 'silent',
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Failed to transpile app runtime entry ${runtimeEntryPath}: ${message}`);
+  const { metadataPath } = getRuntimeCachePaths(runtimeEntryPath);
+  const cachedBuild = await readRuntimeBuildCache(metadataPath);
+  if (
+    cachedBuild
+    && cachedBuild.runtimeEntryPath === runtimeEntryPath
+    && await isRuntimeBuildCacheFresh(cachedBuild, externals)
+  ) {
+    return {
+      runtimePath: cachedBuild.transpiledRuntimePath,
+      runtimeUrl: pathToFileURL(cachedBuild.transpiledRuntimePath).href,
+    };
   }
 
-  return transpiledRuntimePath;
+  const transpiledRuntimePath = await buildTranspiledRuntime(runtimeEntryPath, externals);
+  return {
+    runtimePath: transpiledRuntimePath,
+    runtimeUrl: pathToFileURL(transpiledRuntimePath).href,
+  };
 }
 
-export async function loadAppRuntimeModule(runtimeEntryPath: string): Promise<AppRuntimeModule> {
-  const resolvedRuntimePath = await resolveRuntimeImportPath(runtimeEntryPath);
-  const runtimeUrl = `${pathToFileURL(resolvedRuntimePath).href}?t=${Date.now()}`;
+export async function loadAppRuntimeModule(
+  runtimeEntryPath: string,
+  options?: LoadAppRuntimeModuleOptions,
+): Promise<AppRuntimeModule> {
+  const { runtimeUrl } = await resolveRuntimeImport(runtimeEntryPath, options);
   const imported = await import(runtimeUrl);
 
   if (typeof imported.createAppRuntime === 'function') {

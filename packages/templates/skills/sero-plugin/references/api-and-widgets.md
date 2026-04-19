@@ -124,7 +124,8 @@ Manifest requirements:
 {
   "sero": {
     "app": {
-      "runtime": "./runtime/index.ts"
+      "runtime": "./runtime/index.ts",
+      "runtimeExternals": ["better-sqlite3"]
     },
     "plugin": {
       "requiredHostCapabilities": ["appRuntime.background"]
@@ -132,6 +133,8 @@ Manifest requirements:
   }
 }
 ```
+
+Use `runtimeExternals` only when the runtime imports native or otherwise non-bundle-safe packages that must stay external to the transpiled runtime bundle.
 
 Minimal runtime entry:
 
@@ -179,6 +182,8 @@ Boundary rules:
 - keep Pi-safe tool logic in `extension/`
 - keep Sero-only orchestration in `runtime/`
 - type against `@sero-ai/common`, not desktop-internal aliases
+- treat monorepo `packages/*` as shared package sources consumed via published package names; external plugins should not import `../../packages/*` source files directly
+- keep plugin-specific domain contracts in the plugin's own `shared/` layer (or a plugin-owned package), not in Sero's monorepo `packages/*`
 
 ---
 

@@ -1,6 +1,4 @@
-import os from 'os';
 import path from 'path';
-import { mkdtemp, rm } from 'fs/promises';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { SeroAppManifest } from '@/types/ipc';
 import {
@@ -113,6 +111,14 @@ function createHostStub(
   };
 }
 
+function createDeferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+}
+
 describe('AppRuntimeManager', () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -180,6 +186,131 @@ describe('AppRuntimeManager', () => {
 
     expect(createdRuntimes[0]?.runtime.handleStateChange).toHaveBeenCalledWith({ ok: true });
     expect(createdRuntimes[1]?.runtime.handleStateChange).not.toHaveBeenCalled();
+  });
+
+  it('isolates per-target startup failures during reconcile', async () => {
+    const workspaces = [{ id: 'ws-1', path: '/repo-1' }];
+    const manifests = [createManifest('broken'), createManifest('healthy')];
+    const healthyRuntime = {
+      start: vi.fn(async () => {}),
+      handleStateChange: vi.fn(async () => {}),
+      dispose: vi.fn(async () => {}),
+    };
+    const watch = vi.fn<(filePath: string) => void>();
+    const unwatch = vi.fn<(filePath: string) => void>();
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const manager = new AppRuntimeManager({
+      discoverApps: async () => manifests,
+      getOpenWorkspaces: async () => workspaces,
+      loadRuntimeModule: vi.fn(async (runtimeEntryPath: string): Promise<AppRuntimeModule> => {
+        if (runtimeEntryPath.includes('/broken/')) {
+          throw new Error('broken runtime');
+        }
+        return { createAppRuntime: async () => healthyRuntime };
+      }),
+      createHost: () => createHostStub(watch, unwatch),
+    });
+
+    await expect(manager.initialize()).resolves.toBeUndefined();
+
+    expect(healthyRuntime.start).toHaveBeenCalledTimes(1);
+    expect(watch).toHaveBeenCalledWith(path.join('/repo-1', '.sero/apps/healthy/state.json'));
+    expect(errorSpy).toHaveBeenCalledWith(
+      '[app-runtime] Failed to start runtime broken:ws-1 during reconcile:',
+      expect.any(Error),
+    );
+  });
+
+  it('retries initialization after a failed reconcile', async () => {
+    const runtime = {
+      start: vi.fn(async () => {}),
+      handleStateChange: vi.fn(async () => {}),
+      dispose: vi.fn(async () => {}),
+    };
+    const watch = vi.fn<(filePath: string) => void>();
+    const unwatch = vi.fn<(filePath: string) => void>();
+    const workspaces = [{ id: 'ws-1', path: '/repo-1' }];
+    let discoverCalls = 0;
+
+    const manager = new AppRuntimeManager({
+      discoverApps: async () => {
+        discoverCalls += 1;
+        if (discoverCalls === 1) {
+          throw new Error('discovery failed');
+        }
+        return [createManifest('notes')];
+      },
+      getOpenWorkspaces: async () => workspaces,
+      loadRuntimeModule: async () => ({ createAppRuntime: async () => runtime }),
+      createHost: () => createHostStub(watch, unwatch),
+    });
+
+    await expect(manager.initialize()).rejects.toThrow('discovery failed');
+    await expect(manager.initialize()).resolves.toBeUndefined();
+
+    expect(discoverCalls).toBe(2);
+    expect(runtime.start).toHaveBeenCalledTimes(1);
+  });
+
+  it('serializes concurrent reconciles so each runtime starts once', async () => {
+    const moduleLoadReached = createDeferred<void>();
+    const moduleLoadReleased = createDeferred<AppRuntimeModule>();
+    const runtime = {
+      start: vi.fn(async () => {}),
+      handleStateChange: vi.fn(async () => {}),
+      dispose: vi.fn(async () => {}),
+    };
+    const watch = vi.fn<(filePath: string) => void>();
+    const unwatch = vi.fn<(filePath: string) => void>();
+    const manifests = [createManifest('notes')];
+    const workspaces = [{ id: 'ws-1', path: '/repo-1' }];
+    const loadRuntimeModule = vi.fn(async (): Promise<AppRuntimeModule> => {
+      moduleLoadReached.resolve();
+      return moduleLoadReleased.promise;
+    });
+
+    const manager = new AppRuntimeManager({
+      discoverApps: async () => manifests,
+      getOpenWorkspaces: async () => workspaces,
+      loadRuntimeModule,
+      createHost: () => createHostStub(watch, unwatch),
+    });
+
+    const firstReconcile = manager.reconcile({ manifests, workspaces });
+    await moduleLoadReached.promise;
+
+    const secondReconcile = manager.reconcile({ manifests, workspaces });
+    await Promise.resolve();
+
+    expect(loadRuntimeModule).toHaveBeenCalledTimes(1);
+
+    moduleLoadReleased.resolve({ createAppRuntime: async () => runtime });
+    await Promise.all([firstReconcile, secondReconcile]);
+
+    expect(loadRuntimeModule).toHaveBeenCalledTimes(1);
+    expect(runtime.start).toHaveBeenCalledTimes(1);
+  });
+
+  it('warns when a global runtime manifest is missing globalStatePath', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const manager = new AppRuntimeManager({
+      discoverApps: async () => [createManifest('notes', {
+        scope: 'global',
+        globalStatePath: null,
+      })],
+      getOpenWorkspaces: async () => [{ id: 'global', path: '/global' }],
+      loadRuntimeModule: async () => ({
+        createAppRuntime: async () => ({ start() {}, handleStateChange() {}, dispose() {} }),
+      }),
+      createHost: () => createHostStub(vi.fn(), vi.fn()),
+    });
+
+    await manager.reconcile();
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[app-runtime] Skipping global runtime notes: missing globalStatePath.',
+    );
   });
 
   it('disposes stale runtimes during reconcile', async () => {

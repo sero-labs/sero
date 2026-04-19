@@ -44,6 +44,8 @@ export interface SeroAppManifest {
   uiEntry: string | null;
   /** Absolute path to the app runtime entry. Null if no background runtime. */
   runtimeEntry: string | null;
+  /** Package names that the runtime loader should leave external when bundling TS runtimes. */
+  runtimeExternals?: string[];
   /** Exported component name from the remote (e.g. "TodoApp"). */
   component: string | null;
   /** Dev server port for module federation (from sero.app.devPort). */

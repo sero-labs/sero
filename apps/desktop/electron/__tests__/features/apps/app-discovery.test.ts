@@ -169,6 +169,7 @@ describe('app discovery devPort handling', () => {
         bridgeTools: [' tool_a ', 'tool_b'],
       }, {
         runtime: './runtime/index.ts',
+        runtimeExternals: [' better-sqlite3 ', 'keytar', 'better-sqlite3'],
       });
 
       const { discoverApps, registerAppPath, unregisterAppPath } = await importAppDiscovery();
@@ -188,6 +189,7 @@ describe('app discovery devPort handling', () => {
           bridgeTools: ['tool_a', 'tool_b'],
         },
         runtimeEntry: path.join(packageDir, 'runtime', 'index.ts'),
+        runtimeExternals: ['better-sqlite3', 'keytar'],
         hostCompatibility: {
           supported: true,
           hostVersion: '0.1.0',

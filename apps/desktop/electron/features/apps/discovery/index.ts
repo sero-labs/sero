@@ -45,6 +45,7 @@ interface PkgSeroApp {
   scope?: 'global' | 'workspace';
   ui?: string;
   runtime?: string;
+  runtimeExternals?: string[];
   component?: string;
   devPort?: number;
   widgets?: PkgWidgetDef[];
@@ -97,6 +98,16 @@ export function getManifestDevPort(appId: string, packagePath: string, devPort: 
   if (!devPort) return undefined;
   if (isInstalledPluginPackagePath(packagePath)) return undefined;
   return isPluginInDevMode(appId) ? devPort : undefined;
+}
+
+function normalizeRuntimeExternals(runtimeExternals: string[] | undefined): string[] {
+  if (!Array.isArray(runtimeExternals)) return [];
+  return [...new Set(
+    runtimeExternals
+      .filter((entry): entry is string => typeof entry === 'string')
+      .map((entry) => entry.trim())
+      .filter(Boolean),
+  )].sort((a, b) => a.localeCompare(b));
 }
 
 async function parseManifest(pkgJson: PkgJson, packagePath: string): Promise<SeroAppManifest | null> {
@@ -172,6 +183,7 @@ async function parseManifest(pkgJson: PkgJson, packagePath: string): Promise<Ser
     runtimeEntry,
     component: app.component || null,
     devPort: getManifestDevPort(app.id, packagePath, app.devPort),
+    runtimeExternals: normalizeRuntimeExternals(app.runtimeExternals),
     packagePath,
     isPlugin: pluginDeclared,
     plugin,

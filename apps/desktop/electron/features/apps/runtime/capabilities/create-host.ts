@@ -1,4 +1,3 @@
-import type { ToolDefinition } from '@mariozechner/pi-coding-agent';
 import { appStateManager } from '@electron/features/apps/state/manager';
 import { subagentManager } from '@electron/features/subagent/singleton';
 import { containerManager } from '@electron/features/container/core/singleton';
@@ -33,6 +32,7 @@ import {
   getPullRequestMergeError,
   getPullRequestMergeState,
 } from '@electron/features/vcs/worktree/merge-status';
+import { validateRuntimeCustomTools } from './custom-tools';
 import type { AppRuntimeTarget, AppRuntimeHost } from '../types';
 
 const worktreeManager = new WorktreeManager();
@@ -56,7 +56,7 @@ export function createAppRuntimeHost(_target: AppRuntimeTarget): AppRuntimeHost 
     subagents: {
       runStructured: async (params) => subagentManager.runSingleStructured({
         ...params,
-        customTools: params.customTools as ToolDefinition[] | undefined,
+        customTools: validateRuntimeCustomTools(params.customTools),
       }),
       onLiveOutput(workspaceId, parentSessionId, cb) {
         const handleLiveOutput = (id: string, text: string) => {

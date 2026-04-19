@@ -293,7 +293,7 @@ Use \`sero-cli\` for Sero platform actions instead of asking the user to do them
 ${sections.join('\n')}
 
 Run \`sero help <command>\` for details. Chain multiple commands (one per line).
-**Before calling any command that takes JSON parameters (e.g. \`question\`, \`questionnaire\`, \`interview\`, \`kanban\`), run \`sero help <command>\` first to check the exact schema.**
+**Before calling any command that takes JSON parameters (e.g. \`question\`, \`questionnaire\`, \`interview\`), run \`sero help <command>\` first to check the exact schema.**
 
 For \`sero app\`, skip help for common flows.
 - Screenshot directly: \`sero app screenshot --app "<name or id>" [--save <path>]\`
