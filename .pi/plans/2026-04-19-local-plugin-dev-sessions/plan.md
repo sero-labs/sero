@@ -678,6 +678,7 @@ Recommended refactors while implementing:
 
 ### LPD-05 — Implement watcher-driven refresh, soft/hard invalidity handling, and targeted runtime restart
 - **Plan artifact:** `.pi/plans/2026-04-19-local-plugin-dev-sessions/plan.md`
+- **Status:** completed (2026-04-19)
 - **Files:**
   - new `apps/desktop/electron/features/plugins/dev-sessions/watcher.ts`
   - new `apps/desktop/electron/features/plugins/dev-sessions/refresh.ts`

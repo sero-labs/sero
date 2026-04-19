@@ -314,6 +314,54 @@ describe('AppRuntimeManager', () => {
     );
   });
 
+  it('restarts only the targeted app runtimes', async () => {
+    const watch = vi.fn<(filePath: string) => void>();
+    const unwatch = vi.fn<(filePath: string) => void>();
+    const workspaces = [{ id: 'ws-1', path: '/repo-1' }];
+    const manifests = [createManifest('notes'), createManifest('calendar')];
+    const createdRuntimes: Array<{
+      ctx: AppRuntimeContext;
+      runtime: {
+        start: ReturnType<typeof vi.fn>;
+        handleStateChange: ReturnType<typeof vi.fn>;
+        dispose: ReturnType<typeof vi.fn>;
+      };
+    }> = [];
+
+    const manager = new AppRuntimeManager({
+      discoverApps: async () => manifests,
+      getOpenWorkspaces: async () => workspaces,
+      loadRuntimeModule: async (): Promise<AppRuntimeModule> => ({
+        createAppRuntime: async (ctx) => {
+          const runtime = {
+            start: vi.fn(async () => {}),
+            handleStateChange: vi.fn(async () => {}),
+            dispose: vi.fn(async () => {}),
+          };
+          createdRuntimes.push({ ctx, runtime });
+          return runtime;
+        },
+      }),
+      createHost: () => createHostStub(watch, unwatch),
+    });
+
+    await manager.initialize();
+
+    const initialNotesRuntime = createdRuntimes.find((entry) => entry.ctx.appId === 'notes')!.runtime;
+    const initialCalendarRuntime = createdRuntimes.find((entry) => entry.ctx.appId === 'calendar')!.runtime;
+
+    await manager.restartApp('notes');
+
+    const notesRuntimes = createdRuntimes.filter((entry) => entry.ctx.appId === 'notes');
+    const calendarRuntimes = createdRuntimes.filter((entry) => entry.ctx.appId === 'calendar');
+
+    expect(notesRuntimes).toHaveLength(2);
+    expect(calendarRuntimes).toHaveLength(1);
+    expect(initialNotesRuntime.dispose).toHaveBeenCalledTimes(1);
+    expect(notesRuntimes[1]?.runtime.start).toHaveBeenCalledTimes(1);
+    expect(initialCalendarRuntime.dispose).not.toHaveBeenCalled();
+  });
+
   it('disposes stale runtimes during reconcile', async () => {
     const runtime = {
       start: vi.fn(async () => {}),

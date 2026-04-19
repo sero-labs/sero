@@ -11,6 +11,51 @@ const mocks = vi.hoisted(() => ({
   classifyPluginDevConflicts: vi.fn(),
   ensurePluginDevServer: vi.fn(),
   reconcileActiveDevSessionProjection: vi.fn<() => Promise<void>>(),
+  createBrokenPluginDevSessionRecord: vi.fn(
+    (record: PluginDevSessionRecord, error: unknown): PluginDevSessionRecord => ({
+      ...record,
+      status: 'broken',
+      uiMode: 'unavailable',
+      remoteEntryOverride: null,
+      lastError: error instanceof Error ? error.message : 'unknown error',
+      updatedAt: '2026-04-19T21:00:00.000Z',
+    }),
+  ),
+  createValidatedPluginDevSessionRecord: vi.fn(
+    (
+      record: PluginDevSessionRecord,
+      options: {
+        manifest: SeroAppManifest;
+        remoteEntryOverride: string | null;
+        uiMode: PluginDevSessionRecord['uiMode'];
+        error?: string | null;
+      },
+    ): PluginDevSessionRecord => ({
+      ...record,
+      expectedAppId: options.manifest.id,
+      lastKnownName: options.manifest.name,
+      status: options.error ? 'needs-attention' : 'active',
+      uiMode: options.uiMode,
+      remoteEntryOverride: options.remoteEntryOverride,
+      lastError: options.error ?? null,
+      updatedAt: '2026-04-19T21:00:00.000Z',
+    }),
+  ),
+  createSoftFailurePluginDevSessionRecord: vi.fn(
+    (record: PluginDevSessionRecord, error: unknown): PluginDevSessionRecord => ({
+      ...record,
+      status: record.status === 'broken' ? 'broken' : 'needs-attention',
+      lastError: error instanceof Error ? error.message : 'unknown error',
+      updatedAt: '2026-04-19T21:00:00.000Z',
+    }),
+  ),
+  refreshPluginDevSession: vi.fn(),
+  applyPluginDevSessionRefreshEffects: vi.fn<() => Promise<void>>(),
+  watcher: {
+    watch: vi.fn<(sessionId: string, sourcePath: string) => void>(),
+    unwatch: vi.fn<(sessionId: string) => void>(),
+    dispose: vi.fn<() => void>(),
+  },
 }));
 
 vi.mock('@electron/features/apps/discovery', () => ({
@@ -37,6 +82,22 @@ vi.mock('@electron/features/plugins/dev-sessions/dev-server', () => ({
 
 vi.mock('@electron/features/plugins/dev-sessions/activation', () => ({
   reconcileActiveDevSessionProjection: mocks.reconcileActiveDevSessionProjection,
+}));
+
+vi.mock('@electron/features/plugins/dev-sessions/refresh', () => ({
+  createBrokenPluginDevSessionRecord: mocks.createBrokenPluginDevSessionRecord,
+  createValidatedPluginDevSessionRecord: mocks.createValidatedPluginDevSessionRecord,
+  createSoftFailurePluginDevSessionRecord: mocks.createSoftFailurePluginDevSessionRecord,
+  refreshPluginDevSession: mocks.refreshPluginDevSession,
+  applyPluginDevSessionRefreshEffects: mocks.applyPluginDevSessionRefreshEffects,
+}));
+
+vi.mock('@electron/features/plugins/dev-sessions/watcher', () => ({
+  PluginDevSessionWatcher: class {
+    constructor() {
+      return mocks.watcher;
+    }
+  },
 }));
 
 import { PluginDevSessionManager } from '@electron/features/plugins/dev-sessions/manager';
@@ -73,9 +134,11 @@ function createManifest(id: string, packagePath: string): SeroAppManifest {
     component: null,
     devPort: undefined,
     remoteEntryOverride: null,
+    runtimeExternals: [],
     packagePath,
     isPlugin: true,
     plugin: null,
+    hostCompatibility: null,
     widgets: [],
   };
 }
@@ -90,6 +153,14 @@ describe('PluginDevSessionManager', () => {
     mocks.classifyPluginDevConflicts.mockReset();
     mocks.ensurePluginDevServer.mockReset();
     mocks.reconcileActiveDevSessionProjection.mockReset();
+    mocks.createBrokenPluginDevSessionRecord.mockClear();
+    mocks.createValidatedPluginDevSessionRecord.mockClear();
+    mocks.createSoftFailurePluginDevSessionRecord.mockClear();
+    mocks.refreshPluginDevSession.mockReset();
+    mocks.applyPluginDevSessionRefreshEffects.mockReset();
+    mocks.watcher.watch.mockReset();
+    mocks.watcher.unwatch.mockReset();
+    mocks.watcher.dispose.mockReset();
 
     mocks.discoverAppCandidates.mockResolvedValue([]);
     mocks.applyPluginDevServerResultToManifest.mockImplementation((manifest: SeroAppManifest) => manifest);
@@ -134,6 +205,7 @@ describe('PluginDevSessionManager', () => {
     expect(mocks.writePluginDevSessionRecords).toHaveBeenCalledTimes(1);
     expect(mocks.ensurePluginDevServer).toHaveBeenCalledTimes(2);
     expect(mocks.reconcileActiveDevSessionProjection).toHaveBeenCalledTimes(1);
+    expect(mocks.watcher.watch).toHaveBeenCalledTimes(2);
     expect(list.map((record) => record.sessionId).sort()).toEqual(['dev_1', 'dev_2']);
 
     await manager.initialize();
@@ -168,6 +240,7 @@ describe('PluginDevSessionManager', () => {
     expect(mocks.reconcileActiveDevSessionProjection).toHaveBeenCalledWith([
       expect.objectContaining({ id: 'plugin-one', packagePath: '/tmp/plugin-one' }),
     ]);
+    expect(mocks.watcher.watch).toHaveBeenCalledWith('dev_1', '/tmp/plugin-one');
   });
 
   it('marks invalid persisted sessions broken and keeps valid ones projected', async () => {
@@ -208,6 +281,7 @@ describe('PluginDevSessionManager', () => {
     expect(mocks.reconcileActiveDevSessionProjection).toHaveBeenCalledWith([
       expect.objectContaining({ id: 'plugin-one', packagePath: '/tmp/plugin-one' }),
     ]);
+    expect(mocks.watcher.unwatch).toHaveBeenCalledWith('dev_2');
   });
 });
 

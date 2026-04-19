@@ -4,7 +4,7 @@
 
 import { ipcMain } from 'electron';
 import { IpcChannels } from '@/types/ipc-channels';
-import type { SeroAppManifest, InstalledPlugin, PluginChangeEvent, DiscoveredPlugin } from '@/types/ipc';
+import type { SeroAppManifest, InstalledPlugin, DiscoveredPlugin } from '@/types/ipc';
 import {
   installPlugin,
   uninstallPlugin,
@@ -15,12 +15,8 @@ import { reconcileInstalledPluginActivation } from '@electron/features/plugins/a
 import { searchPlugins } from '@electron/features/plugins/discovery';
 import { reloadAllSessionResources } from '../agent';
 import { disposeAppSessionsForApp } from '../agent/handlers/app-agent';
-import { broadcastToWindows } from '../lib/window-broadcast';
 import { appRuntimeManager } from '@electron/shared/infra/shared-infra';
-
-function broadcastPluginEvent(event: PluginChangeEvent): void {
-  broadcastToWindows(IpcChannels.plugins.event, event);
-}
+import { broadcastPluginEvent } from './plugin-events';
 
 export function registerPluginHandlers(): void {
   reconcileInstalledPluginActivation().catch((err) => {

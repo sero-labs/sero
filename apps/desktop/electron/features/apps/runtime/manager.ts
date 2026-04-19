@@ -71,9 +71,33 @@ export class AppRuntimeManager {
   }
 
   async reconcile(options: ReconcileAppRuntimeOptions = {}): Promise<void> {
+    return this.enqueueOperation(() => this.runReconcile(options));
+  }
+
+  async restartApp(appId: string): Promise<void> {
+    return this.enqueueOperation(() => this.runRestartApp(appId));
+  }
+
+  async handleStateChange(filePath: string, state: unknown): Promise<void> {
+    const matchingInstances = [...this.instances.values()]
+      .filter((instance) => instance.stateFilePath === filePath);
+
+    for (const instance of matchingInstances) {
+      await instance.runtime.handleStateChange(state);
+    }
+  }
+
+  async dispose(): Promise<void> {
+    for (const key of [...this.instances.keys()]) {
+      await this.disposeInstance(key);
+    }
+    this.initialized = false;
+  }
+
+  private enqueueOperation(taskFactory: () => Promise<void>): Promise<void> {
     const task = this.reconcileTail
       .catch(() => undefined)
-      .then(() => this.runReconcile(options));
+      .then(() => taskFactory());
 
     this.reconcileTail = task.catch(() => undefined);
     return task;
@@ -112,20 +136,32 @@ export class AppRuntimeManager {
     }
   }
 
-  async handleStateChange(filePath: string, state: unknown): Promise<void> {
-    const matchingInstances = [...this.instances.values()]
-      .filter((instance) => instance.stateFilePath === filePath);
+  private async runRestartApp(appId: string): Promise<void> {
+    const manifests = await this.deps.discoverApps();
+    const workspaces = await this.deps.getOpenWorkspaces();
+    const desiredTargets = this.buildTargets(manifests, workspaces)
+      .filter((target) => target.manifest.id === appId);
+    const desiredKeys = new Set(desiredTargets.map((target) => runtimeKey(target.manifest.id, target.workspace.id)));
 
-    for (const instance of matchingInstances) {
-      await instance.runtime.handleStateChange(state);
+    for (const instance of [...this.instances.values()]) {
+      if (instance.manifest.id !== appId) continue;
+      try {
+        await this.disposeInstance(instance.key);
+      } catch (error) {
+        console.error(`[app-runtime] Failed to dispose runtime ${instance.key} during restart:`, error);
+        desiredKeys.delete(instance.key);
+      }
     }
-  }
 
-  async dispose(): Promise<void> {
-    for (const key of [...this.instances.keys()]) {
-      await this.disposeInstance(key);
+    for (const target of desiredTargets) {
+      const key = runtimeKey(target.manifest.id, target.workspace.id);
+      if (!desiredKeys.has(key) || this.instances.has(key)) continue;
+      try {
+        await this.startInstance(key, target);
+      } catch (error) {
+        console.error(`[app-runtime] Failed to start runtime ${key} during restart:`, error);
+      }
     }
-    this.initialized = false;
   }
 
   private buildTargets(
