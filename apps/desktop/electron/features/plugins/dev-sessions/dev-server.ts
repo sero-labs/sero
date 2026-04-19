@@ -110,6 +110,10 @@ function createFallbackResult(
   };
 }
 
+function createUnownedServerError(sourcePath: string, declaredDevPort: number): string {
+  return `Refusing to reuse a pre-existing local plugin UI dev server on port ${declaredDevPort} for ${sourcePath} because Sero cannot verify that it belongs to this session.`;
+}
+
 async function probeRemoteEntry(remoteEntryOverride: string): Promise<boolean> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), HEALTH_REQUEST_TIMEOUT_MS);
@@ -151,6 +155,16 @@ function summarizeStartupFailure(command: string, entry?: ManagedPluginDevServer
     return `Dev server start failed for "${command}".`;
   }
   return `Dev server start failed for "${command}": ${output}`;
+}
+
+function hasMatchingManagedServer(
+  entry: ManagedPluginDevServer | undefined,
+  command: string,
+  declaredDevPort: number,
+): entry is ManagedPluginDevServer {
+  return !!entry
+    && entry.command === command
+    && entry.declaredDevPort === declaredDevPort;
 }
 
 export async function stopPluginDevServer(sourcePath: string): Promise<void> {
@@ -202,7 +216,14 @@ export async function ensurePluginDevServer(
   }
 
   const remoteEntryOverride = buildRemoteEntryOverride(options.declaredDevPort);
-  if (await probeRemoteEntry(remoteEntryOverride)) {
+  let entry = getManagedServer(sourcePath);
+
+  if (entry && !hasMatchingManagedServer(entry, options.command, options.declaredDevPort)) {
+    await stopPluginDevServer(sourcePath);
+    entry = undefined;
+  }
+
+  if (entry && await probeRemoteEntry(remoteEntryOverride)) {
     return {
       remoteEntryOverride,
       uiMode: 'dev-server',
@@ -210,12 +231,14 @@ export async function ensurePluginDevServer(
     };
   }
 
-  let entry = getManagedServer(sourcePath);
-  if (!entry || entry.command !== options.command || entry.declaredDevPort !== options.declaredDevPort) {
-    if (entry) {
-      await stopPluginDevServer(sourcePath);
-    }
+  if (!entry && await probeRemoteEntry(remoteEntryOverride)) {
+    return createFallbackResult(
+      builtUiAvailable,
+      createUnownedServerError(sourcePath, options.declaredDevPort),
+    );
+  }
 
+  if (!entry) {
     try {
       entry = startManagedServer(sourcePath, options.command, options.declaredDevPort);
     } catch (error) {
@@ -240,7 +263,9 @@ export async function ensurePluginDevServer(
 }
 
 export async function stopAllPluginDevServers(): Promise<void> {
-  await Promise.all([...managedServers.keys()].map((sourcePath) => stopPluginDevServer(sourcePath)));
+  await Promise.allSettled(
+    [...managedServers.keys()].map((sourcePath) => stopPluginDevServer(sourcePath)),
+  );
 }
 
 function sleep(ms: number): Promise<void> {

@@ -1,6 +1,7 @@
 import os from 'os';
 import path from 'path';
 import net from 'net';
+import { createServer, type Server } from 'http';
 import { mkdir, mkdtemp, rm, writeFile } from 'fs/promises';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
@@ -64,6 +65,24 @@ function buildFailingCommand(): string {
   return `${JSON.stringify(process.execPath)} -e ${JSON.stringify(script)}`;
 }
 
+async function startUnownedManifestServer(port: number): Promise<Server> {
+  return await new Promise((resolve, reject) => {
+    const server = createServer((req, res) => {
+      if (req.url === '/mf-manifest.json') {
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end('{"metaData":{}}');
+        return;
+      }
+
+      res.writeHead(404);
+      res.end('missing');
+    });
+
+    server.listen(port, '127.0.0.1', () => resolve(server));
+    server.on('error', reject);
+  });
+}
+
 afterEach(async () => {
   await stopAllPluginDevServers();
   await Promise.all(tempRoots.splice(0).map((dir) => rm(dir, { recursive: true, force: true })));
@@ -106,6 +125,32 @@ describe('ensurePluginDevServer', () => {
     expect(result.uiMode).toBe('built-fallback');
     expect(result.remoteEntryOverride).toBeNull();
     expect(result.error).toContain('Dev server start failed');
+  });
+
+  it('refuses to reuse an unrelated pre-existing localhost remote on the configured port', async () => {
+    const sourcePath = await createTempSource({ builtUi: true });
+    const port = await getFreePort();
+    const unrelatedServer = await startUnownedManifestServer(port);
+
+    try {
+      const result = await ensurePluginDevServer({
+        sourcePath,
+        declaredDevPort: port,
+        command: buildHealthyServerCommand(port),
+        hasDeclaredUi: true,
+        hasBuiltUi: true,
+      });
+
+      expect(result).toEqual({
+        remoteEntryOverride: null,
+        uiMode: 'built-fallback',
+        error: expect.stringContaining('Refusing to reuse a pre-existing local plugin UI dev server'),
+      });
+    } finally {
+      await new Promise<void>((resolve, reject) => {
+        unrelatedServer.close((error) => (error ? reject(error) : resolve()));
+      });
+    }
   });
 
   it('returns unavailable when no live or built UI is usable', async () => {

@@ -33,7 +33,15 @@ import { discoverApps, registerAppPath } from './features/apps/discovery';
 import { watchForNewApps } from './ipc/apps';
 import { ensureDefaultAgents, ensureDefaultSkills, ensureDefaultThemes, ensureProfileTemplates } from './features/profile/setup';
 import { handleProfileRegistryRecovery } from './features/profile/recovery';
-import { containerManager, ensureInfra, fileWatcherManager, lspManager, vcsManager, gatewayServer } from './shared/infra/shared-infra';
+import {
+  containerManager,
+  ensureInfra,
+  fileWatcherManager,
+  gatewayServer,
+  lspManager,
+  pluginDevSessionManager,
+  vcsManager,
+} from './shared/infra/shared-infra';
 import { startGateway, stopGateway } from './ipc/gateway';
 import { setupContentSecurityPolicy } from './platform/security/csp';
 import { discoverBuiltinPackagePaths, discoverBuiltinPluginPaths } from './platform/protocols/builtin-resources';
@@ -390,6 +398,12 @@ async function performGracefulShutdown(): Promise<void> {
     await disposeAllAgentSessions();
   } catch (err) {
     console.error('[sero] Error during agent shutdown cleanup:', err);
+  }
+
+  try {
+    await pluginDevSessionManager.dispose();
+  } catch (err) {
+    console.error('[sero] Error during plugin dev-session shutdown cleanup:', err);
   }
 
   // Stop gateway services

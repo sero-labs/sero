@@ -1,14 +1,30 @@
-import { randomUUID } from 'crypto';
-import path from 'path';
 import type { SeroAppManifest } from '@/types/ipc';
 import { discoverAppCandidates } from '@electron/features/apps/discovery';
+import { broadcastPluginEvent } from '@electron/ipc/integrations/plugin-events';
 import { reconcileActiveDevSessionProjection } from './activation';
+import {
+  buildBootstrapSessionEvent,
+  hasManifestProjectionChange,
+  hasSessionPresentationChange,
+  resolveBootstrapSessionState,
+} from './bootstrap';
 import { classifyPluginDevConflicts } from './conflicts';
-import { ensurePluginDevServer, stopPluginDevServer } from './dev-server';
+import {
+  ensurePluginDevServer,
+  stopAllPluginDevServers,
+  stopPluginDevServer,
+} from './dev-server';
 import {
   applyPluginDevServerResultToManifest,
   validatePluginDevSourceManifest,
 } from './manifest';
+import {
+  compareSessions,
+  cloneSession,
+  createSessionSeed,
+  isActiveSession,
+  normalizeSourcePath,
+} from './record-helpers';
 import {
   applyPluginDevSessionRefreshEffects,
   createBrokenPluginDevSessionRecord,
@@ -16,6 +32,7 @@ import {
   createValidatedPluginDevSessionRecord,
   refreshPluginDevSession,
   type RefreshPluginDevSessionOptions,
+  type RefreshPluginDevSessionResult,
 } from './refresh';
 import {
   readPluginDevSessionRecords,
@@ -23,58 +40,6 @@ import {
 } from './settings';
 import type { PluginDevSessionRecord } from './types';
 import { PluginDevSessionWatcher } from './watcher';
-
-function compareSessions(left: PluginDevSessionRecord, right: PluginDevSessionRecord): number {
-  const updatedDelta = Date.parse(right.updatedAt) - Date.parse(left.updatedAt);
-  if (updatedDelta !== 0) return updatedDelta;
-
-  const createdDelta = Date.parse(right.createdAt) - Date.parse(left.createdAt);
-  if (createdDelta !== 0) return createdDelta;
-
-  return left.sessionId.localeCompare(right.sessionId);
-}
-
-function cloneSession(record: PluginDevSessionRecord): PluginDevSessionRecord {
-  return { ...record };
-}
-
-function isActiveSession(record: PluginDevSessionRecord): boolean {
-  return record.status !== 'broken';
-}
-
-function normalizeSourcePath(sourcePath: string): string {
-  return path.resolve(sourcePath);
-}
-
-function createSessionId(): string {
-  return `dev_${randomUUID().replace(/-/g, '').slice(0, 8)}`;
-}
-
-function createSessionSeed(
-  sourcePath: string,
-  previousRecord?: PluginDevSessionRecord,
-): PluginDevSessionRecord {
-  if (previousRecord) {
-    return {
-      ...previousRecord,
-      sourcePath: normalizeSourcePath(sourcePath),
-    };
-  }
-
-  const now = new Date().toISOString();
-  return {
-    sessionId: createSessionId(),
-    sourcePath: normalizeSourcePath(sourcePath),
-    expectedAppId: null,
-    lastKnownName: null,
-    status: 'starting',
-    uiMode: 'unavailable',
-    remoteEntryOverride: null,
-    lastError: null,
-    createdAt: now,
-    updatedAt: now,
-  };
-}
 
 export class PluginDevSessionManager {
   private readonly sessions = new Map<string, PluginDevSessionRecord>();
@@ -84,9 +49,11 @@ export class PluginDevSessionManager {
       console.warn(`[plugin-dev] Auto-refresh failed for ${sessionId}:`, error);
     });
   });
-  private readonly refreshTasks = new Map<string, Promise<PluginDevSessionRecord>>();
+  private readonly sessionTasks = new Map<string, Promise<unknown>>();
+  private readonly bootstrapTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private initialized = false;
   private initializationTask: Promise<void> | null = null;
+  private disposed = false;
 
   async initialize(): Promise<void> {
     if (this.initialized) return;
@@ -94,11 +61,15 @@ export class PluginDevSessionManager {
       return this.initializationTask;
     }
 
-    this.initializationTask = this.bootstrapPersistedSessions();
+    this.disposed = false;
+    this.initializationTask = (async () => {
+      const bootstrapProbeSessionIds = await this.bootstrapPersistedSessions();
+      this.initialized = true;
+      this.scheduleBootstrapProbes(bootstrapProbeSessionIds);
+    })();
 
     try {
       await this.initializationTask;
-      this.initialized = true;
     } finally {
       this.initializationTask = null;
     }
@@ -188,6 +159,7 @@ export class PluginDevSessionManager {
 
     const record = this.getSessionOrThrow(sessionId);
     const activeManifest = this.activeManifests.get(sessionId) ?? null;
+    this.clearBootstrapProbe(sessionId);
 
     if (activeManifest) {
       const nextActiveManifests = new Map(this.activeManifests);
@@ -217,19 +189,40 @@ export class PluginDevSessionManager {
     options: RefreshPluginDevSessionOptions = { reason: 'manual' },
   ): Promise<PluginDevSessionRecord> {
     await this.initialize();
+    return this.enqueueSessionTask(sessionId, () => this.runRefresh(sessionId, options));
+  }
 
-    const previousTask = this.refreshTasks.get(sessionId) ?? Promise.resolve(this.getSessionOrThrow(sessionId));
+  async dispose(): Promise<void> {
+    this.disposed = true;
+    for (const timer of this.bootstrapTimers.values()) {
+      clearTimeout(timer);
+    }
+    this.bootstrapTimers.clear();
+    this.watcher.dispose();
+    this.sessions.clear();
+    this.activeManifests.clear();
+    this.sessionTasks.clear();
+    this.initialized = false;
+    this.initializationTask = null;
+    await stopAllPluginDevServers();
+  }
+
+  private async enqueueSessionTask<T>(
+    sessionId: string,
+    taskFactory: () => Promise<T>,
+  ): Promise<T> {
+    const previousTask = this.sessionTasks.get(sessionId) ?? Promise.resolve();
     const task = previousTask
       .catch(() => undefined)
-      .then(() => this.runRefresh(sessionId, options));
+      .then(() => taskFactory());
 
-    this.refreshTasks.set(sessionId, task);
+    this.sessionTasks.set(sessionId, task);
 
     try {
       return await task;
     } finally {
-      if (this.refreshTasks.get(sessionId) === task) {
-        this.refreshTasks.delete(sessionId);
+      if (this.sessionTasks.get(sessionId) === task) {
+        this.sessionTasks.delete(sessionId);
       }
     }
   }
@@ -253,6 +246,12 @@ export class PluginDevSessionManager {
   ): Promise<PluginDevSessionRecord> {
     const current = this.getSessionOrThrow(sessionId);
     const nextState = await refreshPluginDevSession(current, options);
+    const latest = this.sessions.get(sessionId);
+
+    if (this.disposed || latest !== current) {
+      this.stopPluginDevServerBestEffort(current.sourcePath);
+      return cloneSession(current);
+    }
 
     if (nextState.effect !== 'none' && nextState.appId) {
       const nextActiveManifests = new Map(this.activeManifests);
@@ -284,6 +283,108 @@ export class PluginDevSessionManager {
 
     this.persistSession(nextState.record);
     return cloneSession(nextState.record);
+  }
+
+  private scheduleBootstrapProbes(sessionIds: string[]): void {
+    for (const sessionId of sessionIds) {
+      if (this.bootstrapTimers.has(sessionId)) {
+        continue;
+      }
+
+      const timer = setTimeout(() => {
+        this.bootstrapTimers.delete(sessionId);
+        if (this.disposed) {
+          return;
+        }
+
+        void this.enqueueSessionTask(sessionId, () => this.runBootstrapProbe(sessionId)).catch((error) => {
+          console.warn(`[plugin-dev] Failed async bootstrap probe for ${sessionId}:`, error);
+        });
+      }, 0);
+
+      this.bootstrapTimers.set(sessionId, timer);
+    }
+  }
+
+  private clearBootstrapProbe(sessionId: string): void {
+    const timer = this.bootstrapTimers.get(sessionId);
+    if (!timer) {
+      return;
+    }
+    clearTimeout(timer);
+    this.bootstrapTimers.delete(sessionId);
+  }
+
+  private async runBootstrapProbe(sessionId: string): Promise<void> {
+    const current = this.sessions.get(sessionId);
+    if (!current || current.status !== 'starting') {
+      return;
+    }
+
+    const currentManifest = this.activeManifests.get(sessionId) ?? null;
+    const nextState = await refreshPluginDevSession(current, { reason: 'manual' });
+    const latest = this.sessions.get(sessionId);
+
+    if (this.disposed || latest !== current) {
+      this.stopPluginDevServerBestEffort(current.sourcePath);
+      return;
+    }
+
+    const nextManifest = this.resolveBootstrapNextManifest(currentManifest, nextState);
+    const nextActiveManifests = new Map(this.activeManifests);
+    if (nextManifest) {
+      nextActiveManifests.set(sessionId, nextManifest);
+    } else if (nextState.effect === 'deactivated') {
+      nextActiveManifests.delete(sessionId);
+    }
+
+    const manifestChanged = hasManifestProjectionChange(currentManifest, nextManifest);
+    const sessionChanged = hasSessionPresentationChange(current, nextState.record);
+    if (!manifestChanged && !sessionChanged) {
+      return;
+    }
+
+    this.persistSession(nextState.record);
+
+    if (manifestChanged && nextState.appId) {
+      try {
+        await applyPluginDevSessionRefreshEffects({
+          activeManifests: [...nextActiveManifests.values()],
+          appId: nextState.appId,
+          event: nextState.event ?? buildBootstrapSessionEvent(current, nextState.record, nextManifest),
+        });
+        this.replaceActiveManifests(nextActiveManifests);
+      } catch (error) {
+        console.warn(`[plugin-dev] Failed to apply bootstrap probe effects for ${sessionId}:`, error);
+        this.persistSession(current);
+        try {
+          await reconcileActiveDevSessionProjection([...this.activeManifests.values()]);
+        } catch (rollbackError) {
+          console.warn(`[plugin-dev] Failed to restore projection after bootstrap probe failure for ${sessionId}:`, rollbackError);
+        }
+      }
+      return;
+    }
+
+    this.replaceActiveManifests(nextActiveManifests);
+
+    const event = nextState.event ?? buildBootstrapSessionEvent(current, nextState.record, nextManifest);
+    if (event) {
+      broadcastPluginEvent(event);
+    }
+  }
+
+  private resolveBootstrapNextManifest(
+    currentManifest: SeroAppManifest | null,
+    nextState: RefreshPluginDevSessionResult,
+  ): SeroAppManifest | null {
+    if (nextState.effect === 'deactivated') {
+      return null;
+    }
+    if (nextState.activeManifest) {
+      return nextState.activeManifest;
+    }
+    return currentManifest;
   }
 
   private persistSession(record: PluginDevSessionRecord): void {
@@ -334,11 +435,12 @@ export class PluginDevSessionManager {
     });
   }
 
-  private async bootstrapPersistedSessions(): Promise<void> {
+  private async bootstrapPersistedSessions(): Promise<string[]> {
     const persistedRecords = readPluginDevSessionRecords();
     const discoveryCandidates = await discoverAppCandidates();
     const nextRecords: PluginDevSessionRecord[] = [];
     const activeManifests: Array<[string, SeroAppManifest]> = [];
+    const bootstrapProbeSessionIds: string[] = [];
 
     for (const record of persistedRecords) {
       if (record.status === 'broken') {
@@ -362,26 +464,12 @@ export class PluginDevSessionManager {
           throw new Error(conflicts[0]!.message);
         }
 
-        const devServerResult = await ensurePluginDevServer({
-          sourcePath: validated.sourcePath,
-          declaredDevPort: validated.declaredDevPort,
-          command: validated.devCommand,
-          hasDeclaredUi: validated.hasDeclaredUi,
-          hasBuiltUi: validated.hasBuiltUi,
-        });
-        const resolvedManifest = applyPluginDevServerResultToManifest(
-          validated.manifest,
-          devServerResult,
-        );
-        const nextRecord = createValidatedPluginDevSessionRecord(record, {
-          manifest: resolvedManifest,
-          remoteEntryOverride: devServerResult.remoteEntryOverride,
-          uiMode: devServerResult.uiMode,
-          error: devServerResult.error ?? null,
-        });
-
-        nextRecords.push(nextRecord);
-        activeManifests.push([record.sessionId, resolvedManifest]);
+        const nextState = resolveBootstrapSessionState(record, validated);
+        nextRecords.push(nextState.record);
+        activeManifests.push([record.sessionId, nextState.manifest]);
+        if (nextState.shouldProbeDevServer) {
+          bootstrapProbeSessionIds.push(record.sessionId);
+        }
       } catch (error) {
         nextRecords.push(createBrokenPluginDevSessionRecord(record, error));
       }
@@ -397,6 +485,7 @@ export class PluginDevSessionManager {
     }
 
     this.replaceActiveManifests(new Map(activeManifests));
+    return bootstrapProbeSessionIds;
   }
 }
 
