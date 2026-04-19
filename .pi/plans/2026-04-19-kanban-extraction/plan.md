@@ -592,7 +592,7 @@ Recommended switch:
 - **Acceptance:** generic git/PR primitives are available to the runtime capability bag; supports ISC-14, ISC-19.
 - **Status:** complete (2026-04-19)
 
-### KT-06 — Scaffold `plugins/sero-kanban-plugin/runtime/` and host capability interfaces
+### KT-06 ✅ — Scaffold `plugins/sero-kanban-plugin/runtime/` and host capability interfaces
 - **Plan artifact:** `.pi/plans/2026-04-19-kanban-extraction/plan.md`
 - **Files:**
   - `plugins/sero-kanban-plugin/package.json`
@@ -612,6 +612,7 @@ Recommended switch:
 - **Constraints:** runtime code may depend on host capabilities; `extension/` must remain Pi-CLI-safe.
 - **Do NOT:** import `@electron/features/kanban/**` into the plugin.
 - **Acceptance:** plugin runtime surface exists and typechecks; supports ISC-1, ISC-20.
+- **Status:** complete (2026-04-19)
 
 ### KT-07 — Port planning / implementation / review engines into plugin runtime
 - **Plan artifact:** `.pi/plans/2026-04-19-kanban-extraction/plan.md`

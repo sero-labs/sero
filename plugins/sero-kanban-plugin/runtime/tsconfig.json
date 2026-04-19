@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "types": ["node"],
+    "lib": ["ES2023"],
+    "paths": {
+      "@sero/common": ["../../../packages/common/src/index.ts"]
+    }
+  },
+  "include": ["./**/*", "../shared/**/*"]
+}

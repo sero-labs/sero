@@ -46,6 +46,58 @@ function createManifest(
   };
 }
 
+function createHostStub(
+  watch: (filePath: string) => void,
+  unwatch: (filePath: string) => void,
+) {
+  return {
+    appState: {
+      read: vi.fn(async () => null),
+      update: vi.fn(async () => {}),
+      watch: (filePath: string) => watch(filePath),
+      unwatch: (filePath: string) => unwatch(filePath),
+    },
+    subagents: {
+      runStructured: vi.fn(async () => ({ response: '' })),
+      onLiveOutput: vi.fn(() => () => {}),
+    },
+    workspace: {
+      runCommand: vi.fn(async () => ({ stdout: '', stderr: '', exitCode: 0 })),
+      refreshAfterSync: vi.fn(async () => ({ refreshed: false, dependenciesInstalled: false, restartedServerIds: [] })),
+    },
+    verification: {
+      detectCompileCommands: vi.fn(async () => []),
+      detectDependencyInstallCommand: vi.fn(async () => null),
+      detectDevServerCommand: vi.fn(async () => null),
+      detectVerificationCommands: vi.fn(async () => []),
+      runCommands: vi.fn(async () => ({ success: true, results: [] })),
+      summarizeFailure: vi.fn(() => 'failure'),
+    },
+    git: {
+      createWorktree: vi.fn(async () => ({ worktreePath: '', branchName: '', greenfield: false })),
+      removeWorktree: vi.fn(async () => {}),
+      syncWorktreeWithDefaultBranch: vi.fn(async () => ({ success: true, updated: false, resolvedConflicts: false })),
+      syncWorkspaceRootToDefaultBranch: vi.fn(async () => ({ synced: true })),
+      createCheckpoint: vi.fn(async () => null),
+      getDiffSummary: vi.fn(async () => ''),
+      getDiff: vi.fn(async () => ''),
+      pushBranch: vi.fn(async () => true),
+      ensureRemoteDefaultBranch: vi.fn(async () => 'main'),
+      createPr: vi.fn(async () => ({ success: true as const, url: '', number: 0 })),
+      mergePr: vi.fn(async () => ({ success: true as const, state: 'merged' as const })),
+      getPrMergeState: vi.fn(async () => 'unknown' as const),
+      getPrMergeError: vi.fn(async () => null),
+    },
+    devServers: {
+      startManaged: vi.fn(async () => ({ reason: 'not-used' })),
+      list: vi.fn(() => []),
+      stop: vi.fn(async () => false),
+      restart: vi.fn(async () => false),
+      unregister: vi.fn(() => false),
+    },
+  };
+}
+
 describe('AppRuntimeManager', () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -77,8 +129,8 @@ describe('AppRuntimeManager', () => {
         dispose: ReturnType<typeof vi.fn>;
       };
     }> = [];
-    const watch = vi.fn();
-    const unwatch = vi.fn();
+    const watch = vi.fn<(filePath: string) => void>();
+    const unwatch = vi.fn<(filePath: string) => void>();
     const loadRuntimeModule = vi.fn(async (): Promise<AppRuntimeModule> => ({
       createAppRuntime: async (ctx) => {
         const runtime = {
@@ -95,14 +147,7 @@ describe('AppRuntimeManager', () => {
       discoverApps: async () => manifests,
       getOpenWorkspaces: async () => workspaces,
       loadRuntimeModule,
-      createHost: () => ({
-        appState: {
-          read: vi.fn(async () => null),
-          update: vi.fn(async () => {}),
-          watch,
-          unwatch,
-        },
-      }),
+      createHost: () => createHostStub(watch, unwatch),
     });
 
     await manager.initialize();
@@ -128,8 +173,8 @@ describe('AppRuntimeManager', () => {
       handleStateChange: vi.fn(async () => {}),
       dispose: vi.fn(async () => {}),
     };
-    const watch = vi.fn();
-    const unwatch = vi.fn();
+    const watch = vi.fn<(filePath: string) => void>();
+    const unwatch = vi.fn<(filePath: string) => void>();
     const manifests = [createManifest('notes')];
     const workspaces = [{ id: 'ws-1', path: '/repo-1' }];
 
@@ -137,14 +182,7 @@ describe('AppRuntimeManager', () => {
       discoverApps: async () => manifests,
       getOpenWorkspaces: async () => workspaces,
       loadRuntimeModule: async () => ({ createAppRuntime: async () => runtime }),
-      createHost: () => ({
-        appState: {
-          read: vi.fn(async () => null),
-          update: vi.fn(async () => {}),
-          watch,
-          unwatch,
-        },
-      }),
+      createHost: () => createHostStub(watch, unwatch),
     });
 
     await manager.initialize();

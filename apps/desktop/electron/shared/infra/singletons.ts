@@ -13,7 +13,7 @@ import { LspManager } from '@electron/features/editor/lsp/lsp-manager';
 import { GitRunner, VcsManager, VcsOps, VcsPullRequestOps } from '@electron/features/vcs';
 import { GitHubRepoOps } from '@electron/features/auth/github/repo-ops';
 import { ArtifactRegistry } from '@electron/features/container/registries/artifact-registry';
-import { SubagentManager } from '@electron/features/subagent';
+import { subagentManager } from '@electron/features/subagent/singleton';
 import { KanbanOrchestrator } from '@electron/features/kanban';
 import { appRuntimeManager } from '@electron/features/apps/runtime/manager';
 
@@ -58,9 +58,7 @@ export const fileWatcherManager = new FileWatcherManager();
 
 export const lspManager = new LspManager(containerManager);
 
-export const subagentManager = new SubagentManager();
-
-export { appRuntimeManager };
+export { subagentManager, appRuntimeManager };
 
 export const kanbanOrchestrator = new KanbanOrchestrator();
 

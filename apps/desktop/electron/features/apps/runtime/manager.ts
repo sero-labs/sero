@@ -1,11 +1,10 @@
 import path from 'path';
-import { appStateManager } from '@electron/features/apps/state/manager';
 import { discoverApps } from '@electron/features/apps/discovery';
 import { workspaceManager } from '@electron/features/workspace/manager';
 import { loadAppRuntimeModule } from './loader';
+import { createAppRuntimeHost } from './capabilities/create-host';
 import type {
   AppRuntimeContext,
-  AppRuntimeHost,
   AppRuntimeInstance,
   AppRuntimeManagerDeps,
   AppRuntimeTarget,
@@ -33,23 +32,12 @@ function requiresRestart(current: AppRuntimeInstance, target: AppRuntimeTarget):
     || current.stateFilePath !== target.stateFilePath;
 }
 
-function createDefaultHost(target: AppRuntimeTarget): AppRuntimeHost {
-  return {
-    appState: {
-      read: async <T = unknown>(filePath: string) => appStateManager.read(filePath) as T | null,
-      update: <T = unknown>(filePath: string, updater: (current: T | null) => T) => appStateManager.update(filePath, updater),
-      watch: (filePath) => appStateManager.watch(filePath),
-      unwatch: (filePath) => appStateManager.unwatch(filePath),
-    },
-  };
-}
-
 function createDefaultDeps(): AppRuntimeManagerDeps {
   return {
     discoverApps,
     getOpenWorkspaces: () => workspaceManager.getOpenWorkspaces(),
     loadRuntimeModule: loadAppRuntimeModule,
-    createHost: createDefaultHost,
+    createHost: createAppRuntimeHost,
   };
 }
 
