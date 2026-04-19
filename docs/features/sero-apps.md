@@ -351,7 +351,14 @@ That includes:
 - built-in monorepo packages/apps
 - built-in monorepo plugins
 - installed optional plugins in `~/.sero-ui/agent/packages/`
+- active **Local Plugin Development** sessions for the current profile
 - explicitly configured package paths from settings
+
+An active local plugin dev session projects a checkout into discovery without
+turning it into an installed plugin. When that session has a live UI dev
+server, discovery can also expose a runtime `remoteEntryOverride` so the
+renderer prefers localhost UI before falling back to `sero-ext://` assets. See
+[`docs/features/local-plugin-development.md`](./local-plugin-development.md).
 
 So for normal app/plugin work, registration is manifest-driven — not something
 that should require hand-editing random Electron files.

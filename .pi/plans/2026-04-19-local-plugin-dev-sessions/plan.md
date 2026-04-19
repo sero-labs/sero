@@ -800,6 +800,7 @@ Recommended refactors while implementing:
 
 ### LPD-10 — Document the feature and the author workflow
 - **Plan artifact:** `.pi/plans/2026-04-19-local-plugin-dev-sessions/plan.md`
+- **Status:** completed (2026-04-19)
 - **Files:**
   - new `docs/features/local-plugin-development.md`
   - `docs/plugins/guide.md`
