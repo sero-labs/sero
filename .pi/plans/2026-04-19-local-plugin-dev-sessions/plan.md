@@ -779,6 +779,7 @@ Recommended refactors while implementing:
 
 ### LPD-09 — Rename linked-root product wording to Attached folders while keeping root semantics unchanged
 - **Plan artifact:** `.pi/plans/2026-04-19-local-plugin-dev-sessions/plan.md`
+- **Status:** completed (2026-04-19)
 - **Files:**
   - `plugins/sero-admin-plugin/ui/hooks/useLinkedRoots.ts` (or new `useAttachedFolders.ts` wrapper)
   - `plugins/sero-admin-plugin/ui/components/plugins/AttachedFoldersSection.tsx`

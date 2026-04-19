@@ -3,7 +3,7 @@ import { PlugZap } from 'lucide-react';
 import { useAppInfo } from '@sero-ai/app-runtime';
 import { Badge } from '@sero-ai/ui/components/ui/badge';
 import { ScrollArea } from '@sero-ai/ui/components/ui/scroll-area';
-import { useLinkedRoots } from '../hooks/useLinkedRoots';
+import { useAttachedFolders } from '../hooks/useAttachedFolders';
 import { usePluginDevSessions } from '../hooks/usePluginDevSessions';
 import { usePlugins } from '../hooks/usePlugins';
 import { AttachedFoldersSection } from './plugins/AttachedFoldersSection';
@@ -14,7 +14,7 @@ export const PluginsPanel = memo(function PluginsPanel() {
   const { workspaceId } = useAppInfo();
   const installed = usePlugins();
   const devSessions = usePluginDevSessions();
-  const linked = useLinkedRoots(workspaceId);
+  const attached = useAttachedFolders(workspaceId);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[var(--bg-base)]">
@@ -28,7 +28,8 @@ export const PluginsPanel = memo(function PluginsPanel() {
               <h2 className="text-sm font-semibold text-[var(--text-primary)]">Plugins</h2>
               <p className="max-w-3xl text-[11px] leading-5 text-[var(--text-muted)]">
                 Manage packaged plugin installs, local plugin development sessions for this profile,
-                and workspace-attached folders when you want local source trees visible in Explorer.
+                and Attached folders when you want local source trees visible in Explorer without
+                changing plugin activation.
               </p>
             </div>
           </div>
@@ -50,7 +51,7 @@ export const PluginsPanel = memo(function PluginsPanel() {
               variant="outline"
               className="border-[var(--collab-primary-border)] bg-[var(--collab-primary-muted)] text-[10px] text-[var(--collab-primary)]"
             >
-              {linked.linkedPlugins.length} attached folders
+              {attached.attachedFolders.length} attached folders
             </Badge>
           </div>
         </div>
@@ -84,13 +85,13 @@ export const PluginsPanel = memo(function PluginsPanel() {
 
           <AttachedFoldersSection
             workspaceId={workspaceId}
-            folders={linked.linkedPlugins}
-            loading={linked.loading}
-            busy={linked.busy}
-            error={linked.error}
-            onAttach={linked.linkPlugin}
-            onDetach={linked.unlink}
-            onReveal={linked.revealInFinder}
+            folders={attached.attachedFolders}
+            loading={attached.loading}
+            busy={attached.busy}
+            error={attached.error}
+            onAttach={attached.attachFolder}
+            onDetach={attached.detachFolder}
+            onReveal={attached.revealInFinder}
           />
         </div>
       </ScrollArea>

@@ -48,7 +48,7 @@ export const AttachedFoldersSection = memo(function AttachedFoldersSection({
               <p className="max-w-3xl text-[11px] leading-5 text-[var(--text-muted)]">
                 Attach folders when you want a source tree visible in Explorer and bind-mounted into
                 the current workspace container. Attachment is for visibility and editing only—it
-                does not activate a plugin.
+                does not activate a plugin or start local development.
               </p>
             </div>
           </div>

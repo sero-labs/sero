@@ -1,9 +1,9 @@
 /**
- * useLinkedRoots — manage `linked-plugin` workspace roots for the active workspace.
+ * useLinkedRoots — internal helper for `linked-plugin` workspace roots.
  *
- * Linked plugins surface external plugin source directories (like `sero/plugins/foo`)
- * inside the explorer for in-place plugin development. They are stored as additional
- * workspace roots and mirrored as container bind-mounts.
+ * These roots back the Attached folders UI in Admin. They expose external source
+ * directories in Explorer and mirror them as container bind-mounts, but they do not
+ * activate plugins or start local development sessions.
  */
 
 import { useCallback, useEffect, useState } from 'react';
@@ -49,7 +49,7 @@ export function useLinkedRoots(workspaceId: string | null) {
       if (!folder) {
         return false;
       }
-      const name = folder.split('/').filter(Boolean).pop() || 'linked';
+      const name = folder.split('/').filter(Boolean).pop() || 'attached-folder';
       await sero.workspace.addRoot(workspaceId, {
         name,
         path: folder,

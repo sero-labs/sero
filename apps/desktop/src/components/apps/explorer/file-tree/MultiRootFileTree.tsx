@@ -89,7 +89,7 @@ const RootSection = memo(function RootSection({
 }: RootSectionProps) {
   const [expanded, setExpanded] = useState(true);
   const isPrimary = root.kind === 'workspace';
-  const isLinked = root.kind === 'linked-plugin';
+  const isAttachedFolder = !isPrimary;
 
   const toggle = useCallback(() => setExpanded((v) => !v), []);
 
@@ -116,9 +116,9 @@ const RootSection = memo(function RootSection({
           />
           <span className="flex-1 truncate text-left">{root.name}</span>
         </button>
-        {isLinked && (
+        {isAttachedFolder && (
           <span className="rounded bg-[var(--bg-elevated)] px-1 py-px text-[9px] font-normal normal-case tracking-normal text-[var(--text-muted)]">
-            linked
+            attached
           </span>
         )}
         {!isPrimary && onRemoveRoot && (
@@ -126,8 +126,8 @@ const RootSection = memo(function RootSection({
             type="button"
             onClick={() => onRemoveRoot(root.id)}
             className="ml-1 rounded px-1 text-[var(--text-muted)] opacity-0 hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)] group-hover:opacity-100 focus-visible:opacity-100"
-            title="Remove root"
-            aria-label={`Remove root ${root.name}`}
+            title="Detach folder"
+            aria-label={`Detach folder ${root.name}`}
           >
             ×
           </button>
