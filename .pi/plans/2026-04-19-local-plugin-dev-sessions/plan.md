@@ -750,6 +750,7 @@ Recommended refactors while implementing:
 
 ### LPD-08 — Split the Admin Plugins screen and add the Local Plugin Development section
 - **Plan artifact:** `.pi/plans/2026-04-19-local-plugin-dev-sessions/plan.md`
+- **Status:** completed (2026-04-19)
 - **Files:**
   - `plugins/sero-admin-plugin/ui/components/PluginsPanel.tsx` (split/shrink)
   - new `plugins/sero-admin-plugin/ui/components/plugins/InstalledPluginsSection.tsx`

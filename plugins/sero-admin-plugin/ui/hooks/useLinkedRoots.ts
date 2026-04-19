@@ -38,7 +38,7 @@ export function useLinkedRoots(workspaceId: string | null) {
 
   const linkPlugin = useCallback(async (): Promise<boolean> => {
     if (!workspaceId) {
-      setError('No active workspace.');
+      setError('Open a workspace to attach folders.');
       return false;
     }
     setBusy(true);
@@ -58,7 +58,7 @@ export function useLinkedRoots(workspaceId: string | null) {
       await reload();
       return true;
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to link plugin folder');
+      setError(err instanceof Error ? err.message : 'Failed to attach folder');
       return false;
     } finally {
       setBusy(false);
@@ -73,7 +73,7 @@ export function useLinkedRoots(workspaceId: string | null) {
       await getSero().workspace.removeRoot(workspaceId, rootId);
       await reload();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to unlink root');
+      setError(err instanceof Error ? err.message : 'Failed to detach folder');
     } finally {
       setBusy(false);
     }
