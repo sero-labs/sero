@@ -1,6 +1,6 @@
 import os from 'os';
 import path from 'path';
-import { mkdtemp, rm, writeFile } from 'fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'fs/promises';
 import { afterEach, describe, expect, it } from 'vitest';
 import { loadAppRuntimeModule } from '@electron/features/apps/runtime/loader';
 
@@ -65,6 +65,57 @@ describe('loadAppRuntimeModule', () => {
     const runtimeModule = await loadAppRuntimeModule(runtimePath);
 
     expect(typeof runtimeModule.createAppRuntime).toBe('function');
+  });
+
+  it('loads TypeScript runtime entries that depend on packages exporting TypeScript source', async () => {
+    const dir = await createTempDir();
+    await writeFile(
+      path.join(dir, 'package.json'),
+      JSON.stringify({ name: '@acme/runtime-loader-test', version: '1.0.0' }, null, 2),
+      'utf8',
+    );
+
+    const packageDir = path.join(dir, 'node_modules', '@acme', 'shared-ts');
+    await mkdir(path.join(packageDir, 'src'), { recursive: true });
+    await writeFile(
+      path.join(packageDir, 'package.json'),
+      JSON.stringify({
+        name: '@acme/shared-ts',
+        version: '1.0.0',
+        type: 'module',
+        exports: {
+          '.': './src/index.ts',
+        },
+      }, null, 2),
+      'utf8',
+    );
+    await writeFile(
+      path.join(packageDir, 'src', 'index.ts'),
+      'export const sharedRuntimeValue: string = "ts-export-package";\n',
+      'utf8',
+    );
+
+    const runtimePath = path.join(dir, 'runtime.ts');
+    await writeFile(
+      runtimePath,
+      [
+        'import { sharedRuntimeValue } from "@acme/shared-ts";',
+        'export function createAppRuntime() {',
+        '  return {',
+        '    start() { return sharedRuntimeValue; },',
+        '    handleStateChange() {},',
+        '    dispose() {},',
+        '  };',
+        '}',
+        '',
+      ].join('\n'),
+      'utf8',
+    );
+
+    const runtimeModule = await loadAppRuntimeModule(runtimePath);
+    const runtime = await runtimeModule.createAppRuntime({} as never);
+
+    expect(runtime.start()).toBe('ts-export-package');
   });
 
   it('rejects unsupported runtime entry extensions', async () => {
