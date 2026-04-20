@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PluginDevSessionRecord } from '@electron/features/plugins/dev-sessions/types';
 import type { SeroAppManifest } from '@/types/ipc';
 
@@ -136,6 +136,17 @@ function createManifest(id = 'plugin-one'): SeroAppManifest {
   };
 }
 
+function createValidationResult(manifest = createManifest()) {
+  return {
+    sourcePath: manifest.packagePath,
+    manifest,
+    declaredDevPort: undefined,
+    devCommand: null,
+    hasDeclaredUi: false,
+    hasBuiltUi: false,
+  };
+}
+
 function createDeferred<T>() {
   let resolve!: (value: T | PromiseLike<T>) => void;
   let reject!: (reason?: unknown) => void;
@@ -146,28 +157,46 @@ function createDeferred<T>() {
   return { promise, resolve, reject };
 }
 
-describe('PluginDevSessionManager stop sequencing', () => {
+beforeEach(() => {
+  mocks.discoverAppCandidates.mockReset();
+  mocks.readPluginDevSessionRecords.mockReset();
+  mocks.writePluginDevSessionRecords.mockReset();
+  mocks.validatePluginDevSourceManifest.mockReset();
+  mocks.applyPluginDevServerResultToManifest.mockReset();
+  mocks.classifyPluginDevConflicts.mockReset();
+  mocks.ensurePluginDevServer.mockReset();
+  mocks.stopPluginDevServer.mockReset();
+  mocks.stopAllPluginDevServers.mockReset();
+  mocks.createBrokenPluginDevSessionRecord.mockClear();
+  mocks.createValidatedPluginDevSessionRecord.mockClear();
+  mocks.createSoftFailurePluginDevSessionRecord.mockClear();
+  mocks.refreshPluginDevSession.mockReset();
+  mocks.applyPluginDevSessionRefreshEffects.mockReset();
+  mocks.reconcileActiveDevSessionProjection.mockReset();
+  mocks.broadcastPluginEvent.mockReset();
+  mocks.watcher.watch.mockReset();
+  mocks.watcher.unwatch.mockReset();
+  mocks.watcher.dispose.mockReset();
+
+  mocks.discoverAppCandidates.mockResolvedValue([]);
+  mocks.readPluginDevSessionRecords.mockReturnValue([]);
+  mocks.applyPluginDevServerResultToManifest.mockImplementation((manifest: SeroAppManifest) => manifest);
+  mocks.classifyPluginDevConflicts.mockReturnValue([]);
+  mocks.ensurePluginDevServer.mockResolvedValue({
+    remoteEntryOverride: null,
+    uiMode: 'backend-only',
+    error: null,
+  });
+  mocks.stopPluginDevServer.mockResolvedValue();
+  mocks.stopAllPluginDevServers.mockResolvedValue();
+  mocks.applyPluginDevSessionRefreshEffects.mockResolvedValue();
+  mocks.reconcileActiveDevSessionProjection.mockResolvedValue();
+});
+
+describe('PluginDevSessionManager sequencing', () => {
   it('waits for an in-flight refresh before removing the session so it cannot be resurrected', async () => {
     const manifest = createManifest();
-    mocks.discoverAppCandidates.mockResolvedValue([]);
-    mocks.readPluginDevSessionRecords.mockReturnValue([]);
-    mocks.validatePluginDevSourceManifest.mockResolvedValue({
-      sourcePath: '/tmp/plugin-one',
-      manifest,
-      declaredDevPort: undefined,
-      devCommand: null,
-      hasDeclaredUi: false,
-      hasBuiltUi: false,
-    });
-    mocks.ensurePluginDevServer.mockResolvedValue({
-      remoteEntryOverride: null,
-      uiMode: 'backend-only',
-      error: null,
-    });
-    mocks.stopPluginDevServer.mockResolvedValue();
-    mocks.stopAllPluginDevServers.mockResolvedValue();
-    mocks.reconcileActiveDevSessionProjection.mockResolvedValue();
-    mocks.applyPluginDevSessionRefreshEffects.mockResolvedValue();
+    mocks.validatePluginDevSourceManifest.mockResolvedValue(createValidationResult(manifest));
 
     const manager = new PluginDevSessionManager();
     const started = await manager.start('/tmp/plugin-one');
@@ -214,5 +243,67 @@ describe('PluginDevSessionManager stop sequencing', () => {
     await expect(manager.list()).resolves.toEqual([]);
     expect(mocks.writePluginDevSessionRecords).toHaveBeenLastCalledWith([]);
     expect(mocks.watcher.unwatch).toHaveBeenCalledWith(started.sessionId);
+  });
+
+  it('serializes concurrent starts for the same source path so only one session record survives', async () => {
+    const manifest = createManifest();
+    const startEffects = createDeferred<void>();
+    mocks.validatePluginDevSourceManifest.mockResolvedValue(createValidationResult(manifest));
+    mocks.applyPluginDevSessionRefreshEffects
+      .mockImplementationOnce(() => startEffects.promise)
+      .mockResolvedValueOnce();
+
+    const manager = new PluginDevSessionManager();
+    const firstStart = manager.start('/tmp/plugin-one');
+    await vi.waitFor(() => {
+      expect(mocks.applyPluginDevSessionRefreshEffects).toHaveBeenCalledTimes(1);
+    });
+
+    const secondStart = manager.start('/tmp/plugin-one');
+    await Promise.resolve();
+    expect(mocks.validatePluginDevSourceManifest).toHaveBeenCalledTimes(1);
+
+    startEffects.resolve();
+    const [first, second] = await Promise.all([firstStart, secondStart]);
+
+    expect(first.sessionId).toBe(second.sessionId);
+    expect(mocks.applyPluginDevSessionRefreshEffects).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      event: expect.objectContaining({ reason: 'dev-session-started' }),
+    }));
+    expect(mocks.applyPluginDevSessionRefreshEffects).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      event: expect.objectContaining({ reason: 'dev-session-refreshed' }),
+    }));
+    expect(mocks.writePluginDevSessionRecords).toHaveBeenLastCalledWith([
+      expect.objectContaining({ sessionId: first.sessionId, sourcePath: '/tmp/plugin-one' }),
+    ]);
+    await expect(manager.list()).resolves.toEqual([
+      expect.objectContaining({ sessionId: first.sessionId, sourcePath: '/tmp/plugin-one' }),
+    ]);
+  });
+
+  it('stops a newly started dev server when start rolls back after refresh effects fail', async () => {
+    const manifest = createManifest();
+    mocks.validatePluginDevSourceManifest.mockResolvedValue({
+      ...createValidationResult(manifest),
+      declaredDevPort: 5193,
+      devCommand: 'pnpm run dev',
+      hasDeclaredUi: true,
+      hasBuiltUi: true,
+    });
+    mocks.ensurePluginDevServer.mockResolvedValue({
+      remoteEntryOverride: 'http://127.0.0.1:5193/mf-manifest.json',
+      uiMode: 'dev-server',
+      error: null,
+    });
+    mocks.applyPluginDevSessionRefreshEffects.mockRejectedValueOnce(new Error('refresh effects failed'));
+
+    const manager = new PluginDevSessionManager();
+    await expect(manager.start('/tmp/plugin-one')).rejects.toThrow('refresh effects failed');
+
+    await vi.waitFor(() => {
+      expect(mocks.stopPluginDevServer).toHaveBeenCalledWith('/tmp/plugin-one');
+    });
+    expect(mocks.writePluginDevSessionRecords).toHaveBeenLastCalledWith([]);
+    await expect(manager.list()).resolves.toEqual([]);
   });
 });

@@ -84,75 +84,79 @@ export class PluginDevSessionManager {
 
   async start(sourcePath: string): Promise<PluginDevSessionRecord> {
     await this.initialize();
-
-    const validated = await validatePluginDevSourceManifest(sourcePath);
-    const existingSession = this.findSessionBySourcePath(validated.sourcePath);
-    const conflicts = classifyPluginDevConflicts({
-      appId: validated.manifest.id,
-      sourcePath: validated.sourcePath,
-      ignoreSessionId: existingSession?.sessionId,
-      existingApps: await discoverAppCandidates(),
-      sessionRecords: [...this.sessions.values()],
-    });
-
-    if (conflicts.length > 0) {
-      throw new Error(`Cannot activate local plugin development: ${conflicts[0]!.message}`);
-    }
-
-    const devServerResult = await ensurePluginDevServer({
-      appId: validated.manifest.id,
-      sourcePath: validated.sourcePath,
-      declaredDevPort: validated.declaredDevPort,
-      command: validated.devCommand,
-      hasDeclaredUi: validated.hasDeclaredUi,
-      hasBuiltUi: validated.hasBuiltUi,
-    });
-    const resolvedManifest = applyPluginDevServerResultToManifest(
-      validated.manifest,
-      devServerResult,
-    );
-    const nextRecord = createValidatedPluginDevSessionRecord(
-      createSessionSeed(validated.sourcePath, existingSession),
-      {
-        manifest: resolvedManifest,
-        remoteEntryOverride: devServerResult.remoteEntryOverride,
-        uiMode: devServerResult.uiMode,
-        error: devServerResult.error ?? null,
-      },
-    );
-    const nextActiveManifests = new Map(this.activeManifests);
-    nextActiveManifests.set(nextRecord.sessionId, resolvedManifest);
-
-    this.persistSession(nextRecord);
-
-    try {
-      await applyPluginDevSessionRefreshEffects({
-        activeManifests: [...nextActiveManifests.values()],
-        appId: resolvedManifest.id,
-        event: {
-          type: 'changed',
-          pluginId: resolvedManifest.id,
-          manifest: resolvedManifest,
-          reason: existingSession ? 'dev-session-refreshed' : 'dev-session-started',
-        },
+    return this.enqueueSessionTask(normalizeSourcePath(sourcePath), async () => {
+      const validated = await validatePluginDevSourceManifest(sourcePath);
+      const existingSession = this.findSessionBySourcePath(validated.sourcePath);
+      const conflicts = classifyPluginDevConflicts({
+        appId: validated.manifest.id,
+        sourcePath: validated.sourcePath,
+        ignoreSessionId: existingSession?.sessionId,
+        existingApps: await discoverAppCandidates(),
+        sessionRecords: [...this.sessions.values()],
       });
-    } catch (error) {
-      this.restoreSessionState(nextRecord.sessionId, existingSession);
-      try {
-        await reconcileActiveDevSessionProjection([...this.activeManifests.values()]);
-      } catch (rollbackError) {
-        console.warn('[plugin-dev] Failed to restore projection after start failure:', rollbackError);
+
+      if (conflicts.length > 0) {
+        throw new Error(`Cannot activate local plugin development: ${conflicts[0]!.message}`);
       }
-      throw error;
-    }
 
-    this.replaceActiveManifests(nextActiveManifests);
+      const devServerResult = await ensurePluginDevServer({
+        appId: validated.manifest.id,
+        sourcePath: validated.sourcePath,
+        declaredDevPort: validated.declaredDevPort,
+        command: validated.devCommand,
+        hasDeclaredUi: validated.hasDeclaredUi,
+        hasBuiltUi: validated.hasBuiltUi,
+      });
+      const resolvedManifest = applyPluginDevServerResultToManifest(
+        validated.manifest,
+        devServerResult,
+      );
+      const nextRecord = createValidatedPluginDevSessionRecord(
+        createSessionSeed(validated.sourcePath, existingSession),
+        {
+          manifest: resolvedManifest,
+          remoteEntryOverride: devServerResult.remoteEntryOverride,
+          uiMode: devServerResult.uiMode,
+          error: devServerResult.error ?? null,
+        },
+      );
+      const nextActiveManifests = new Map(this.activeManifests);
+      nextActiveManifests.set(nextRecord.sessionId, resolvedManifest);
 
-    if (devServerResult.uiMode !== 'dev-server') {
-      this.stopPluginDevServerBestEffort(validated.sourcePath);
-    }
+      this.persistSession(nextRecord);
 
-    return cloneSession(nextRecord);
+      try {
+        await applyPluginDevSessionRefreshEffects({
+          activeManifests: [...nextActiveManifests.values()],
+          appId: resolvedManifest.id,
+          event: {
+            type: 'changed',
+            pluginId: resolvedManifest.id,
+            manifest: resolvedManifest,
+            reason: existingSession ? 'dev-session-refreshed' : 'dev-session-started',
+          },
+        });
+      } catch (error) {
+        this.restoreSessionState(nextRecord.sessionId, existingSession);
+        if (!existingSession && devServerResult.uiMode === 'dev-server') {
+          this.stopPluginDevServerBestEffort(validated.sourcePath);
+        }
+        try {
+          await reconcileActiveDevSessionProjection([...this.activeManifests.values()]);
+        } catch (rollbackError) {
+          console.warn('[plugin-dev] Failed to restore projection after start failure:', rollbackError);
+        }
+        throw error;
+      }
+
+      this.replaceActiveManifests(nextActiveManifests);
+
+      if (devServerResult.uiMode !== 'dev-server') {
+        this.stopPluginDevServerBestEffort(validated.sourcePath);
+      }
+
+      return cloneSession(nextRecord);
+    });
   }
 
   async stop(sessionId: string): Promise<void> {
