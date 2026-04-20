@@ -104,6 +104,10 @@ function isHttpEntry(entry: string): boolean {
   return entry.startsWith('http://') || entry.startsWith('https://');
 }
 
+function isManifestEntry(entry: string): boolean {
+  return /\.json(?=($|[?#]))/.test(entry);
+}
+
 /**
  * Best-effort remote-entry reachability check.
  *
@@ -148,8 +152,12 @@ function registerRemoteEntry(appId: string, entry: string): void {
   const currentEntry = registeredEntries.get(appId);
   if (currentEntry === entry) return;
 
+  const remoteRegistration = isManifestEntry(entry)
+    ? { name: remoteName, entry }
+    : { name: remoteName, entry, type: 'module', entryGlobalName: remoteName };
+
   try {
-    registerRemotes([{ name: remoteName, entry }], { force: true });
+    registerRemotes([remoteRegistration], { force: true });
     registeredEntries.set(appId, entry);
   } catch (err) {
     // Already registered by the MF plugin (e.g. if a static import exists)

@@ -96,7 +96,12 @@ describe('federation registry remote retry behaviour', () => {
 
     expect(runtimeMocks.loadRemote).toHaveBeenCalledTimes(2);
     expect(runtimeMocks.registerRemotes).toHaveBeenLastCalledWith(
-      [{ name: 'sero_todo', entry: 'http://localhost:4101/remoteEntry.js' }],
+      [{
+        name: 'sero_todo',
+        entry: 'http://localhost:4101/remoteEntry.js',
+        type: 'module',
+        entryGlobalName: 'sero_todo',
+      }],
       { force: true },
     );
   });
@@ -140,7 +145,12 @@ describe('federation registry remote retry behaviour', () => {
     );
 
     expect(runtimeMocks.registerRemotes).toHaveBeenCalledWith(
-      [{ name: 'sero_todo', entry: 'http://127.0.0.1:5193/remoteEntry.js' }],
+      [{
+        name: 'sero_todo',
+        entry: 'http://127.0.0.1:5193/remoteEntry.js',
+        type: 'module',
+        entryGlobalName: 'sero_todo',
+      }],
       { force: true },
     );
     expect(runtimeMocks.loadRemote).toHaveBeenCalledTimes(1);
@@ -166,12 +176,22 @@ describe('federation registry remote retry behaviour', () => {
 
     expect(runtimeMocks.registerRemotes).toHaveBeenNthCalledWith(
       1,
-      [{ name: 'sero_todo', entry: 'http://127.0.0.1:5193/remoteEntry.js?t=first' }],
+      [{
+        name: 'sero_todo',
+        entry: 'http://127.0.0.1:5193/remoteEntry.js?t=first',
+        type: 'module',
+        entryGlobalName: 'sero_todo',
+      }],
       { force: true },
     );
     expect(runtimeMocks.registerRemotes).toHaveBeenNthCalledWith(
       2,
-      [{ name: 'sero_todo', entry: 'http://127.0.0.1:5193/remoteEntry.js?t=second' }],
+      [{
+        name: 'sero_todo',
+        entry: 'http://127.0.0.1:5193/remoteEntry.js?t=second',
+        type: 'module',
+        entryGlobalName: 'sero_todo',
+      }],
       { force: true },
     );
     expect(runtimeMocks.loadRemote).toHaveBeenCalledTimes(2);
