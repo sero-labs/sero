@@ -25,6 +25,7 @@ import {
   applyPluginDevServerResultToManifest,
   validatePluginDevSourceManifest,
 } from './manifest';
+import { applyPluginDevSessionManifestRemoteEntry } from './remote-entry';
 import type { PluginDevSessionRecord } from './types';
 
 const RETRY_DELAY_MS = 300;
@@ -173,14 +174,20 @@ async function resolvePluginDevSession(
     await stopPluginDevServer(validated.sourcePath);
   }
 
-  return {
+  const nextRecord = createValidatedPluginDevSessionRecord(record, {
     manifest,
-    record: createValidatedPluginDevSessionRecord(record, {
+    remoteEntryOverride: devServerResult.remoteEntryOverride,
+    uiMode: devServerResult.uiMode,
+    error: devServerResult.error ?? null,
+  });
+
+  return {
+    manifest: applyPluginDevSessionManifestRemoteEntry(
       manifest,
-      remoteEntryOverride: devServerResult.remoteEntryOverride,
-      uiMode: devServerResult.uiMode,
-      error: devServerResult.error ?? null,
-    }),
+      nextRecord.remoteEntryOverride,
+      nextRecord.updatedAt,
+    ),
+    record: nextRecord,
   };
 }
 

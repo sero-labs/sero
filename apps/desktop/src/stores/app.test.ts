@@ -290,7 +290,11 @@ describe('discoverAndRegisterApps', () => {
 
     discover
       .mockResolvedValueOnce([installEvent.manifest])
-      .mockResolvedValueOnce([devSessionEvent.manifest!])
+      .mockResolvedValueOnce([
+        createManifest('todo', 'TodoApp', 4101, {
+          remoteEntryOverride: 'http://127.0.0.1:4101/mf-manifest.json?t=2026-04-20T10%3A00%3A00.000Z',
+        }),
+      ])
       .mockResolvedValueOnce([]);
 
     await handlePluginChange(installEvent);
@@ -302,6 +306,21 @@ describe('discoverAndRegisterApps', () => {
     ).toBeLessThan(federationMocks.registerDynamicRemote.mock.invocationCallOrder[0]);
     expect(useAppStore.getState().apps.some((app) => app.id === 'todo')).toBe(true);
 
+    useAppStore.setState({
+      ...useAppStore.getState(),
+      activeApp: 'todo',
+      apps: [
+        ...useAppStore.getState().apps.filter((app) => app.id !== 'todo'),
+        {
+          id: 'todo',
+          label: 'Todo',
+          icon: 'check-square',
+          builtin: false,
+          manifest: installEvent.manifest,
+        },
+      ],
+    });
+
     await handlePluginChange(devSessionEvent);
 
     expect(federationMocks.invalidateRemote).toHaveBeenCalledWith('todo');
@@ -309,6 +328,13 @@ describe('discoverAndRegisterApps', () => {
       'todo',
       4101,
       'http://127.0.0.1:4101/mf-manifest.json',
+    );
+    expect(federationMocks.refreshTransientRemote).toHaveBeenCalledWith('todo');
+    expect(federationMocks.preloadFederatedModule).toHaveBeenCalledWith(
+      'todo',
+      'TodoApp',
+      4101,
+      'http://127.0.0.1:4101/mf-manifest.json?t=2026-04-20T10%3A00%3A00.000Z',
     );
 
     await handlePluginChange({

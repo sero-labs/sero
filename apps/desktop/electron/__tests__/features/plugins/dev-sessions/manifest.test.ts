@@ -7,6 +7,10 @@ import {
   readPluginDevSourceManifest,
   validatePluginDevSourceManifest,
 } from '@electron/features/plugins/dev-sessions/manifest';
+import {
+  applyPluginDevSessionManifestRemoteEntry,
+  buildCacheBustedRemoteEntryOverride,
+} from '@electron/features/plugins/dev-sessions/remote-entry';
 
 const tempRoots: string[] = [];
 
@@ -109,6 +113,36 @@ describe('plugin dev manifest validation', () => {
       uiEntry: expect.stringContaining('/dist/ui/remoteEntry.js'),
       devPort: undefined,
       remoteEntryOverride: null,
+    }));
+  });
+
+  it('adds a cache-busting timestamp to live dev-server manifest URLs', async () => {
+    expect(buildCacheBustedRemoteEntryOverride(
+      'http://localhost:5175/mf-manifest.json',
+      '2026-04-20T10:00:00.000Z',
+    )).toBe('http://localhost:5175/mf-manifest.json?t=2026-04-20T10%3A00%3A00.000Z');
+
+    expect(applyPluginDevSessionManifestRemoteEntry({
+      id: 'calc',
+      name: 'Calc',
+      description: null,
+      version: '1.0.0',
+      packageName: '@sero/calc',
+      icon: 'box',
+      stateFile: '.sero/apps/calc/state.json',
+      scope: 'workspace',
+      globalStatePath: null,
+      uiEntry: '/tmp/calc/dist/ui/remoteEntry.js',
+      runtimeEntry: null,
+      component: 'CalcApp',
+      devPort: 5175,
+      remoteEntryOverride: 'http://localhost:5175/mf-manifest.json',
+      packagePath: '/tmp/calc',
+      isPlugin: true,
+      plugin: null,
+      widgets: [],
+    }, 'http://localhost:5175/mf-manifest.json', '2026-04-20T10:00:00.000Z')).toEqual(expect.objectContaining({
+      remoteEntryOverride: 'http://localhost:5175/mf-manifest.json?t=2026-04-20T10%3A00%3A00.000Z',
     }));
   });
 

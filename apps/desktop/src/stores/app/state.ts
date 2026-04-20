@@ -56,6 +56,7 @@ export interface AppState {
   /** The app currently being preloaded before activation. */
   pendingApp: string | null;
   setActiveApp: (app: string) => void;
+  reloadApp: (appId: string) => void;
 
   // Theme
   theme: Theme;
@@ -200,6 +201,21 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     set({ activeApp: app, pendingApp: null });
     persistLayout({ activeApp: app });
+  },
+  reloadApp: (appId) => {
+    const entry = get().apps.find((candidate) => candidate.id === appId);
+    if (!entry?.manifest?.component) {
+      return;
+    }
+
+    refreshTransientRemote(entry.manifest.id);
+    preloadAndActivateApp(
+      entry.manifest.id,
+      entry.manifest.component,
+      entry.manifest.devPort,
+      entry.manifest.remoteEntryOverride,
+      set,
+    );
   },
 
   // Theme — delegates to useThemeStore but keeps backward-compat surface

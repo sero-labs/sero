@@ -9,15 +9,9 @@ import {
   resolveBootstrapSessionState,
 } from './bootstrap';
 import { classifyPluginDevConflicts } from './conflicts';
-import {
-  ensurePluginDevServer,
-  stopAllPluginDevServers,
-  stopPluginDevServer,
-} from './dev-server';
-import {
-  applyPluginDevServerResultToManifest,
-  validatePluginDevSourceManifest,
-} from './manifest';
+import { ensurePluginDevServer, stopAllPluginDevServers, stopPluginDevServer } from './dev-server';
+import { applyPluginDevServerResultToManifest, validatePluginDevSourceManifest } from './manifest';
+import { applyPluginDevSessionManifestRemoteEntry } from './remote-entry';
 import {
   compareSessions,
   cloneSession,
@@ -34,10 +28,7 @@ import {
   type RefreshPluginDevSessionOptions,
   type RefreshPluginDevSessionResult,
 } from './refresh';
-import {
-  readPluginDevSessionRecords,
-  writePluginDevSessionRecords,
-} from './settings';
+import { readPluginDevSessionRecords, writePluginDevSessionRecords } from './settings';
 import type { PluginDevSessionRecord } from './types';
 import { PluginDevSessionWatcher } from './watcher';
 
@@ -120,19 +111,22 @@ export class PluginDevSessionManager {
           error: devServerResult.error ?? null,
         },
       );
+      const projectedManifest = applyPluginDevSessionManifestRemoteEntry(
+        resolvedManifest,
+        nextRecord.remoteEntryOverride,
+        nextRecord.updatedAt,
+      );
       const nextActiveManifests = new Map(this.activeManifests);
-      nextActiveManifests.set(nextRecord.sessionId, resolvedManifest);
-
+      nextActiveManifests.set(nextRecord.sessionId, projectedManifest);
       this.persistSession(nextRecord);
-
       try {
         await applyPluginDevSessionRefreshEffects({
           activeManifests: [...nextActiveManifests.values()],
-          appId: resolvedManifest.id,
+          appId: projectedManifest.id,
           event: {
             type: 'changed',
-            pluginId: resolvedManifest.id,
-            manifest: resolvedManifest,
+            pluginId: projectedManifest.id,
+            manifest: projectedManifest,
             reason: existingSession ? 'dev-session-refreshed' : 'dev-session-started',
           },
         });
@@ -148,9 +142,7 @@ export class PluginDevSessionManager {
         }
         throw error;
       }
-
       this.replaceActiveManifests(nextActiveManifests);
-
       if (devServerResult.uiMode !== 'dev-server') {
         this.stopPluginDevServerBestEffort(validated.sourcePath);
       }

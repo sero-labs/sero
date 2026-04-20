@@ -102,8 +102,12 @@ describe('app discovery local plugin dev sessions', () => {
         id: 'dev-plugin',
         packagePath: packageDir,
         devPort: 5193,
-        remoteEntryOverride: 'http://127.0.0.1:5193/mf-manifest.json',
       });
+      expect(manifest?.remoteEntryOverride).toBeTruthy();
+      expect(new URL(manifest!.remoteEntryOverride!).origin + new URL(manifest!.remoteEntryOverride!).pathname).toBe(
+        'http://127.0.0.1:5193/mf-manifest.json',
+      );
+      expect(new URL(manifest!.remoteEntryOverride!).searchParams.get('t')).toBe('2026-04-19T20:05:00.000Z');
     } finally {
       await rm(tempRoot, { recursive: true, force: true });
     }
@@ -151,8 +155,12 @@ describe('app discovery local plugin dev sessions', () => {
       expect(manifest).toMatchObject({
         id: 'projected-dev-plugin',
         packagePath: packageDir,
-        remoteEntryOverride: 'http://127.0.0.1:5193/mf-manifest.json',
       });
+      expect(manifest?.remoteEntryOverride).toBeTruthy();
+      expect(new URL(manifest!.remoteEntryOverride!).origin + new URL(manifest!.remoteEntryOverride!).pathname).toBe(
+        'http://127.0.0.1:5193/mf-manifest.json',
+      );
+      expect(new URL(manifest!.remoteEntryOverride!).searchParams.get('t')).toBe('2026-04-19T20:05:00.000Z');
     } finally {
       await rm(tempRoot, { recursive: true, force: true });
     }

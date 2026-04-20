@@ -12,6 +12,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import type { SeroAppManifest, SeroWidgetManifest, SettingsPackageSource } from '@/types/ipc';
 import type { PluginDevSessionRecord } from '@electron/features/plugins/dev-sessions/types';
+import { buildCacheBustedRemoteEntryOverride } from '@electron/features/plugins/dev-sessions/remote-entry';
 import { readPluginDevSessionRecords } from '@electron/features/plugins/dev-sessions/settings';
 import { SERO_AGENT_DIR, SERO_FIXED_ROOT, SERO_HOME } from '@electron/platform/env';
 import { evaluatePluginCompatibility } from '@electron/features/plugins/compatibility';
@@ -233,7 +234,9 @@ function getActiveDevSessionManifestOptions(
   return {
     useDeclaredDevPort: record?.uiMode === 'dev-server',
     suppressDevPort: !!record && record.uiMode !== 'dev-server',
-    remoteEntryOverride: record?.remoteEntryOverride ?? null,
+    remoteEntryOverride: record
+      ? buildCacheBustedRemoteEntryOverride(record.remoteEntryOverride, record.updatedAt)
+      : null,
     suppressUi: record?.uiMode === 'backend-only' || record?.uiMode === 'unavailable',
   };
 }
