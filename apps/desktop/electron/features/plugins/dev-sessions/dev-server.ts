@@ -157,6 +157,14 @@ function createUnexpectedRemoteError(
   return `Refusing to use the local plugin UI dev server on port ${declaredDevPort} for ${sourcePath} because it serves ${actualLabel} instead of "${expectedRemoteName}".`;
 }
 
+function createUnmanagedRemoteReuseError(
+  sourcePath: string,
+  declaredDevPort: number,
+  expectedRemoteName: string,
+): string {
+  return `Refusing to reuse an unmanaged local plugin UI dev server on port ${declaredDevPort} for ${sourcePath}, even though it serves "${expectedRemoteName}". Stop the existing server and let Sero relaunch it for this checkout.`;
+}
+
 async function probeRemoteEntry(
   remoteEntryOverride: string,
   expectedRemoteName?: string,
@@ -192,11 +200,14 @@ async function waitForRemoteEntry(
 
   while (Date.now() - startedAt < HEALTH_POLL_TIMEOUT_MS) {
     const probe = await probeRemoteEntry(remoteEntryOverride, expectedRemoteName);
-    if (probe.status !== 'unreachable') {
-      return probe;
-    }
 
     if (entry && (entry.child.exitCode !== null || entry.child.killed)) {
+      return probe.status === 'mismatch'
+        ? probe
+        : { status: 'unreachable', remoteName: null };
+    }
+
+    if (probe.status !== 'unreachable') {
       return probe;
     }
 
@@ -308,11 +319,14 @@ export async function ensurePluginDevServer(
   if (!entry) {
     const probe = await probeRemoteEntry(remoteEntryOverride, expectedRemoteName);
     if (probe.status === 'ready') {
-      return {
-        remoteEntryOverride,
-        uiMode: 'dev-server',
-        error: null,
-      };
+      return createFallbackResult(
+        builtUiAvailable,
+        createUnmanagedRemoteReuseError(
+          sourcePath,
+          options.declaredDevPort,
+          expectedRemoteName,
+        ),
+      );
     }
 
     if (probe.status === 'mismatch') {

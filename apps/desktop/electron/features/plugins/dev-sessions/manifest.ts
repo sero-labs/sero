@@ -4,6 +4,7 @@ import type { SeroAppManifest } from '@/types/ipc';
 import { readAppManifestFromPackagePath } from '@electron/features/apps/discovery';
 import { detectPackageManager } from '@electron/features/workspace/runtime/verification';
 import type { PluginDevServerResult } from './dev-server';
+import { createPluginDevSessionError } from './errors';
 
 const BUILT_UI_MANIFEST_PATH = path.join('dist', 'ui', 'mf-manifest.json');
 
@@ -54,15 +55,27 @@ async function readPluginDevPackageJson(sourcePath: string): Promise<PluginDevPa
   } catch (error) {
     const nodeError = error as NodeJS.ErrnoException;
     if (nodeError?.code === 'ENOENT') {
-      throw new Error(`Local plugin folder is missing package.json: ${sourcePath}`);
+      throw createPluginDevSessionError(
+        'source-package-json-missing',
+        `Local plugin folder is missing package.json: ${sourcePath}`,
+        { cause: error },
+      );
     }
-    throw new Error(`Failed to read package.json for local plugin folder ${sourcePath}: ${nodeError?.message ?? 'unknown error'}`);
+    throw createPluginDevSessionError(
+      'source-package-json-read-failed',
+      `Failed to read package.json for local plugin folder ${sourcePath}: ${nodeError?.message ?? 'unknown error'}`,
+      { cause: error },
+    );
   }
 
   try {
     return JSON.parse(rawPackageJson) as PluginDevPackageJson;
-  } catch {
-    throw new Error(`Local plugin folder has invalid package.json JSON: ${sourcePath}`);
+  } catch (error) {
+    throw createPluginDevSessionError(
+      'source-package-json-invalid',
+      `Local plugin folder has invalid package.json JSON: ${sourcePath}`,
+      { cause: error },
+    );
   }
 }
 
@@ -71,7 +84,8 @@ function validatePluginDevAppShape(pkgJson: PluginDevPackageJson, sourcePath: st
   const name = readString(pkgJson.sero?.app?.name);
 
   if (!appId || !name) {
-    throw new Error(
+    throw createPluginDevSessionError(
+      'source-app-declaration-invalid',
       `Local plugin folder must define sero.app.id and sero.app.name in package.json: ${sourcePath}`,
     );
   }
@@ -125,7 +139,10 @@ export async function readPluginDevSourceManifest(sourcePath: string): Promise<P
   });
 
   if (!manifest) {
-    throw new Error(`Failed to parse local plugin manifest from ${normalizedSourcePath}`);
+    throw createPluginDevSessionError(
+      'source-manifest-parse-failed',
+      `Failed to parse local plugin manifest from ${normalizedSourcePath}`,
+    );
   }
 
   return {
@@ -149,7 +166,8 @@ export async function validatePluginDevSourceManifest(
   const expectedAppId = readString(options.expectedAppId);
 
   if (expectedAppId && sourceManifest.manifest.id !== expectedAppId) {
-    throw new Error(
+    throw createPluginDevSessionError(
+      'app-id-drifted',
       `Local plugin folder app id drifted from "${expectedAppId}" to "${sourceManifest.manifest.id}" at ${sourceManifest.sourcePath}`,
     );
   }

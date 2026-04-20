@@ -18,6 +18,10 @@ import {
   stopPluginDevServer,
 } from './dev-server';
 import {
+  createPluginDevSessionError,
+  isPluginDevSessionError,
+} from './errors';
+import {
   applyPluginDevServerResultToManifest,
   validatePluginDevSourceManifest,
 } from './manifest';
@@ -114,34 +118,28 @@ async function classifyValidationFailure(
   record: PluginDevSessionRecord,
   error: unknown,
 ): Promise<ValidationFailureKind> {
-  const message = readErrorMessage(error);
-
-  if (message.includes('drifted from')) {
-    return 'hard';
-  }
-
-  if (message.includes('already used by built-in app') || message.includes('already used by installed plugin')) {
-    return 'hard';
-  }
-
-  if (message.includes('already owned by active local plugin development session')) {
-    return 'hard';
-  }
-
   if (!(await sourcePathExists(record.sourcePath))) {
     return 'hard';
   }
 
-  if (
-    message.includes('missing package.json')
-    || message.includes('invalid package.json JSON')
-    || message.includes('must define sero.app.id and sero.app.name')
-    || message.includes('Failed to parse local plugin manifest')
-  ) {
-    return 'retryable';
+  if (!isPluginDevSessionError(error)) {
+    return 'soft';
   }
 
-  return 'soft';
+  switch (error.code) {
+    case 'app-id-drifted':
+    case 'app-id-conflict-built-in':
+    case 'app-id-conflict-installed-plugin':
+    case 'app-id-conflict-active-dev-session':
+      return 'hard';
+    case 'source-package-json-missing':
+    case 'source-package-json-invalid':
+    case 'source-app-declaration-invalid':
+    case 'source-manifest-parse-failed':
+      return 'retryable';
+    default:
+      return 'soft';
+  }
 }
 
 async function resolvePluginDevSession(
@@ -158,7 +156,7 @@ async function resolvePluginDevSession(
   });
 
   if (conflicts.length > 0) {
-    throw new Error(conflicts[0]!.message);
+    throw createPluginDevSessionError(conflicts[0]!.code, conflicts[0]!.message);
   }
 
   const devServerResult = await ensurePluginDevServer({

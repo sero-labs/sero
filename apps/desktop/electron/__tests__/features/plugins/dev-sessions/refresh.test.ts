@@ -76,6 +76,7 @@ vi.mock('@electron/ipc/integrations/plugin-events', () => ({
   broadcastPluginEvent: mocks.broadcastPluginEvent,
 }));
 
+import { createPluginDevSessionError } from '@electron/features/plugins/dev-sessions/errors';
 import {
   applyPluginDevSessionRefreshEffects,
   refreshPluginDevSession,
@@ -177,7 +178,10 @@ describe('plugin-dev refresh', () => {
   it('deactivates on persistent manifest invalidity after a retry', async () => {
     const sourcePath = await createTempDir();
     mocks.validatePluginDevSourceManifest.mockRejectedValue(
-      new Error(`Local plugin folder has invalid package.json JSON: ${sourcePath}`),
+      createPluginDevSessionError(
+        'source-package-json-invalid',
+        `Local plugin folder has invalid package.json JSON: ${sourcePath}`,
+      ),
     );
 
     const result = await refreshPluginDevSession(createRecord(sourcePath), { reason: 'file-change' });
@@ -225,7 +229,10 @@ describe('plugin-dev refresh', () => {
   it('deactivates immediately when the source app id drifts', async () => {
     const sourcePath = await createTempDir();
     mocks.validatePluginDevSourceManifest.mockRejectedValue(
-      new Error(`Local plugin folder app id drifted from "plugin-one" to "plugin-renamed" at ${sourcePath}`),
+      createPluginDevSessionError(
+        'app-id-drifted',
+        `Local plugin folder app id drifted from "plugin-one" to "plugin-renamed" at ${sourcePath}`,
+      ),
     );
 
     const result = await refreshPluginDevSession(createRecord(sourcePath), { reason: 'file-change' });

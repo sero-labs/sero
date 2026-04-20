@@ -138,7 +138,7 @@ describe('ensurePluginDevServer', () => {
     expect(result.error).toContain('Dev server start failed');
   });
 
-  it('reuses a matching pre-existing localhost remote on the configured port', async () => {
+  it('refuses to reuse a matching pre-existing unmanaged localhost remote on the configured port', async () => {
     const sourcePath = await createTempSource({ builtUi: true });
     const port = await getFreePort();
     const appId = 'todo-plugin';
@@ -155,9 +155,9 @@ describe('ensurePluginDevServer', () => {
       });
 
       expect(result).toEqual({
-        remoteEntryOverride: `http://127.0.0.1:${port}/mf-manifest.json`,
-        uiMode: 'dev-server',
-        error: null,
+        remoteEntryOverride: null,
+        uiMode: 'built-fallback',
+        error: expect.stringContaining('Refusing to reuse an unmanaged local plugin UI dev server'),
       });
     } finally {
       await new Promise<void>((resolve, reject) => {

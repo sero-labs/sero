@@ -1,11 +1,13 @@
 import path from 'path';
 import type { SeroAppManifest } from '@/types/ipc';
 import { discoverAppCandidates, isInstalledPluginPackagePath } from '@electron/features/apps/discovery';
+import type { PluginDevSessionErrorCode } from './errors';
 import { readPluginDevSessionRecords } from './settings';
 import type { PluginDevSessionRecord } from './types';
 
 export interface PluginDevConflict {
   kind: 'built-in-app' | 'installed-plugin' | 'active-dev-session';
+  code: PluginDevSessionErrorCode;
   appId: string;
   ownerPath?: string;
   ownerSessionId?: string;
@@ -48,6 +50,9 @@ function createAppConflict(kind: PluginDevConflict['kind'], appId: string, owner
   const ownerLabel = kind === 'installed-plugin' ? 'installed plugin' : 'built-in app';
   return {
     kind,
+    code: kind === 'installed-plugin'
+      ? 'app-id-conflict-installed-plugin'
+      : 'app-id-conflict-built-in',
     appId,
     ownerPath,
     message: `app id "${appId}" is already used by ${ownerLabel} at ${ownerPath}.`,
@@ -57,6 +62,7 @@ function createAppConflict(kind: PluginDevConflict['kind'], appId: string, owner
 function createDevSessionConflict(appId: string, record: PluginDevSessionRecord): PluginDevConflict {
   return {
     kind: 'active-dev-session',
+    code: 'app-id-conflict-active-dev-session',
     appId,
     ownerPath: record.sourcePath,
     ownerSessionId: record.sessionId,
