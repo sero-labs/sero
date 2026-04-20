@@ -21,6 +21,7 @@ import { NewAppBanner } from '@/components/layout/NewAppBanner';
 import { useSessionAgent } from '@/hooks/useSessionAgent';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { CommandMenu } from '@/components/layout/CommandMenu';
+import { GitHubAuthDialog } from '@/components/layout/auth/github/GitHubAuthDialog';
 import { initAppControlBridge } from '@/lib/app-control-bridge';
 import { hydrateShellState } from '@/lib/app-startup';
 import { ActiveAppPanel } from '@/components/apps/ActiveAppPanel';
@@ -320,6 +321,7 @@ export function App() {
         </div>
 
         <CommandMenu />
+        <GitHubAuthDialog />
         <NewAppBanner />
         <OnboardingWizard />
         <StatusBar />

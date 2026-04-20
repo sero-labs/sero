@@ -410,7 +410,7 @@ Cover both the controller/dialog and the contextual integrations.
 - **Acceptance:** supports ISC-2, ISC-3, ISC-6, ISC-12, ISC-A-2.
 - **Status:** completed 2026-04-20.
 
-### GHA-02 — Add the globally mounted GitHub auth dialog host and extracted views
+### [x] GHA-02 — Add the globally mounted GitHub auth dialog host and extracted views
 - **Plan artifact:** `.pi/plans/2026-04-20-github-auth-unification/plan.md`
 - **Files:**
   - new `apps/desktop/src/components/layout/auth/github/GitHubAuthDialog.tsx`
@@ -448,6 +448,7 @@ Cover both the controller/dialog and the contextual integrations.
   - **Anti-pattern: Local Dialog Clones** — do not render separate GitHub auth dialogs inside Explorer/onboarding/publish.
   - **Anti-pattern: New Global Entry Point** — do not add a command/menu/sidebar button that opens GitHub auth outside contextual launchers.
 - **Acceptance:** supports ISC-2, ISC-3, ISC-6, ISC-9, ISC-11, ISC-A-2.
+- **Status:** completed 2026-04-20.
 
 ### GHA-03 — Create reusable inline launcher/status primitives and migrate Explorer to them
 - **Plan artifact:** `.pi/plans/2026-04-20-github-auth-unification/plan.md`
