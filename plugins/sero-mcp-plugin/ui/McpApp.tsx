@@ -40,11 +40,12 @@ export function McpApp() {
             <div className="flex items-center gap-2">
               <PlugZap className="h-4 w-4 text-primary" />
               <h1 className="text-base font-semibold">MCP</h1>
-              <Badge variant="secondary">foundation</Badge>
+              <Badge variant="secondary">connected</Badge>
             </div>
             <p className="max-w-3xl text-sm text-muted-foreground">
-              Sero-native MCP management is now scaffolded. The plugin can bootstrap its state, maintain Sero-aware
-              config paths, and surface configured servers while deeper lifecycle, auth, and viewer features are built.
+              Sero-native MCP management now supports snapshot bootstrap, connect/reconnect, eager and keep-alive
+              lifecycle startup, and cache-backed tool/resource metadata while deeper auth and embedded viewer flows are
+              still being built.
             </p>
           </div>
 
@@ -158,8 +159,8 @@ export function McpApp() {
             </CardHeader>
             <CardContent className="space-y-3 text-sm text-muted-foreground">
               <FeatureRow icon={Wrench} title="Plugin scaffold" body="Built-in plugin manifest, remote UI wiring, and extension entry point are in place." />
-              <FeatureRow icon={Server} title="Sero-aware storage" body="State, config, metadata cache, and OAuth token paths now resolve through Sero-aware helpers with Pi fallback behavior." />
-              <FeatureRow icon={PlugZap} title="Bootstrap + status" body="The MCP app can bootstrap its config snapshot, and the bridged mcp tool can report basic status/list output." />
+              <FeatureRow icon={Server} title="Sero-aware storage" body="State, config, metadata cache, and OAuth token paths resolve through Sero-aware helpers with Pi fallback behavior." />
+              <FeatureRow icon={PlugZap} title="Lifecycle bootstrap" body="Enabled eager and keep-alive servers now auto-connect on bootstrap and keep-alive servers retry in the background." />
             </CardContent>
           </Card>
         </section>

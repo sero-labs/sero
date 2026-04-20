@@ -164,16 +164,30 @@ export function McpServerCrudPanel({ servers }: { servers: McpServerSnapshot[] }
               return (
                 <div key={server.serverName} className="rounded-lg border border-border bg-card/60 p-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="space-y-1">
-                      <div className="font-medium text-foreground">{server.serverName}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {server.transport.toUpperCase()} · {server.lifecycle} lifecycle · auth {server.authMode}
+                    <div className="space-y-2">
+                      <div>
+                        <div className="font-medium text-foreground">{server.serverName}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {server.transport.toUpperCase()} · {server.lifecycle} lifecycle · auth {server.authMode}
+                        </div>
                       </div>
-                      <div className="flex flex-wrap gap-2 pt-1">
+                      <div className="flex flex-wrap gap-2">
                         <StatusPill label={server.enabled ? 'enabled' : 'disabled'} tone={server.enabled ? 'default' : 'muted'} />
-                        <StatusPill label={server.connectionStatus} tone={server.connectionStatus === 'needs-auth' ? 'warning' : 'muted'} />
+                        <StatusPill label={server.connectionStatus} tone={server.connectionStatus === 'connected' ? 'success' : server.connectionStatus === 'needs-auth' ? 'warning' : 'muted'} />
                         <StatusPill label={server.authStatus} tone={server.authStatus === 'authenticated' ? 'success' : server.authStatus === 'not-authenticated' ? 'warning' : 'muted'} />
                       </div>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                        <span>Tools: <strong className="text-foreground">{server.toolCount}</strong></span>
+                        <span>Resources: <strong className="text-foreground">{server.resourceCount}</strong></span>
+                        <span>UI tools: <strong className="text-foreground">{server.uiToolCount}</strong></span>
+                        {server.lastConnectedAt && <span>Last connected: <strong className="text-foreground">{formatCompactTimestamp(server.lastConnectedAt)}</strong></span>}
+                        {server.lastFailedAt && <span>Last failure: <strong className="text-foreground">{formatCompactTimestamp(server.lastFailedAt)}</strong></span>}
+                      </div>
+                      {server.lastError && (
+                        <div className="max-w-3xl text-xs text-destructive/90">
+                          Last error: {server.lastError}
+                        </div>
+                      )}
                     </div>
                     <div className="flex flex-wrap gap-2">
                       <Button type="button" variant="outline" size="sm" onClick={() => setDraft(createServerEditorInputFromSnapshot(server))}>
@@ -239,6 +253,19 @@ function StatusPill({ label, tone }: { label: string; tone: 'default' | 'success
       {label}
     </Badge>
   );
+}
+
+function formatCompactTimestamp(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return date.toLocaleString([], {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
 }
 
 export default McpServerCrudPanel;

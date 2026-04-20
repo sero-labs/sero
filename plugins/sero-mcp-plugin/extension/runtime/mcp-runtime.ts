@@ -11,7 +11,6 @@ import {
 import {
   ensureConfigFile,
   getConfigUpdatedAt,
-  normalizeConfigDocument,
   readRawConfig,
   writeConfig,
 } from '../config/io';
@@ -19,7 +18,16 @@ import type { McpConfigDocument, McpServerConfig } from '../config/types';
 import { McpServerManager } from '../manager/server-manager';
 import { buildSnapshot, type RuntimeServerStatus } from '../state/snapshot';
 import { getMcpConfigPath, getMcpStatePath } from '../state/paths';
-import { formatConnectMessage, reconcileConnection } from './runtime-connect';
+import { connectServerAction, saveRawConfigAction } from './runtime-actions';
+import { reconcileConnection } from './runtime-connect';
+import { createKeepAliveScheduler } from './runtime-keep-alive';
+import {
+  getAutoConnectServerEntries,
+  getChangedServerNames,
+  getKeepAliveServerEntries,
+  KEEP_ALIVE_HEALTHCHECK_INTERVAL_MS,
+  shouldAttemptAutoConnect,
+} from './runtime-lifecycle';
 import { writeState } from '../state/state-io';
 import {
   createToolResult,
@@ -34,6 +42,7 @@ import {
   formatStatusSummary,
   mutationErrorResult,
 } from './runtime-utils';
+import type { SyncedRuntimeState } from './runtime-types';
 
 interface ManagerActionOptions {
   cwd?: string;
@@ -57,15 +66,6 @@ export interface McpRuntime {
   executeProxyAction(action: ProxyAction, options?: { cwd?: string }): Promise<ToolResult>;
 }
 
-interface SyncedRuntimeState {
-  configPath: string;
-  statePath: string;
-  config: McpConfigDocument;
-  metadataCache: McpMetadataCacheDocument;
-  rawConfigUpdatedAt: string | null;
-  snapshot: Awaited<ReturnType<typeof buildSnapshot>>;
-}
-
 let runtimeSingleton: McpRuntime | null = null;
 
 export function getMcpRuntime(): McpRuntime {
@@ -82,10 +82,18 @@ function createMcpRuntime(): McpRuntime {
 
   const manager = new McpServerManager({ hasOAuthTokens });
   const runtimeStatuses = new Map<string, RuntimeServerStatus>();
+  const keepAliveScheduler = createKeepAliveScheduler({
+    intervalMs: KEEP_ALIVE_HEALTHCHECK_INTERVAL_MS,
+    isEnabled: () => sessionRefCount > 0,
+    onTick: async () => {
+      await runExclusive(async () => {
+        const config = lastState?.config ?? await ensureConfigFile(getMcpConfigPath());
+        await reconcileManagedServers(lastKnownCwd, config, 'keep-alive');
+      });
+    },
+  });
 
-  function attachPi(pi: ExtensionAPI): void {
-    attachedPi = pi;
-  }
+  function attachPi(pi: ExtensionAPI): void { attachedPi = pi; }
 
   function runExclusive<T>(operation: () => Promise<T>): Promise<T> {
     const previous = operationQueue;
@@ -100,16 +108,17 @@ function createMcpRuntime(): McpRuntime {
     });
   }
 
-  function handleSessionStart(ctx: { cwd: string }): Promise<void> {
-    return runExclusive(async () => {
-      sessionRefCount += 1;
-      await syncSnapshot(ctx.cwd);
-    });
-  }
+  function handleSessionStart(ctx: { cwd: string }): Promise<void> { return handleSessionActivation(ctx, true); }
+  function handleSessionSwitch(ctx: { cwd: string }): Promise<void> { return handleSessionActivation(ctx, false); }
 
-  function handleSessionSwitch(ctx: { cwd: string }): Promise<void> {
+  function handleSessionActivation(ctx: { cwd: string }, incrementRefCount: boolean): Promise<void> {
     return runExclusive(async () => {
-      await syncSnapshot(ctx.cwd);
+      if (incrementRefCount) {
+        sessionRefCount += 1;
+      }
+      const synced = await syncSnapshot(ctx.cwd);
+      keepAliveScheduler.start();
+      await reconcileManagedServers(ctx.cwd, synced.config, 'startup');
     });
   }
 
@@ -117,6 +126,7 @@ function createMcpRuntime(): McpRuntime {
     return runExclusive(async () => {
       sessionRefCount = Math.max(0, sessionRefCount - 1);
       if (sessionRefCount === 0) {
+        keepAliveScheduler.stop();
         await manager.closeAll();
         runtimeStatuses.clear();
         lastState = null;
@@ -150,6 +160,21 @@ function createMcpRuntime(): McpRuntime {
 
       const synced = await syncSnapshot(options.cwd);
 
+      if (action === 'bootstrap' || action === 'refresh') {
+        keepAliveScheduler.start();
+        const nextState = await reconcileManagedServers(options.cwd, synced.config, 'startup') ?? synced;
+        const prefix = action === 'refresh' ? 'Refreshed' : 'Initialized';
+        return createToolResult(
+          `${prefix} MCP app state for ${nextState.snapshot.summary.totalServers} configured server(s).`,
+          {
+            snapshotWritten: true,
+            configPath: nextState.configPath,
+            statePath: nextState.statePath,
+            serverCount: nextState.snapshot.summary.totalServers,
+          },
+        );
+      }
+
       if (action === 'get_raw_config') {
         const rawConfig = await readRawConfig(synced.configPath);
         return createToolResult(rawConfig.trim() || '{}', {
@@ -176,9 +201,8 @@ function createMcpRuntime(): McpRuntime {
         });
       }
 
-      const prefix = action === 'refresh' ? 'Refreshed' : 'Initialized';
       return createToolResult(
-        `${prefix} MCP app state for ${synced.snapshot.summary.totalServers} configured server(s).`,
+        `Initialized MCP app state for ${synced.snapshot.summary.totalServers} configured server(s).`,
         {
           snapshotWritten: true,
           configPath: synced.configPath,
@@ -210,28 +234,7 @@ function createMcpRuntime(): McpRuntime {
   }
 
   async function saveRawConfig(cwd: string | undefined, rawConfigInput?: string): Promise<ToolResult> {
-    if (!rawConfigInput?.trim()) {
-      return createToolResult('Error: Raw config cannot be empty.', { snapshotWritten: false });
-    }
-
-    try {
-      const normalized = normalizeConfigDocument(JSON.parse(rawConfigInput));
-      const synced = await writeConfigAndSyncSnapshot(cwd, normalized);
-      return createToolResult(
-        `Saved MCP config with ${synced.snapshot.summary.totalServers} configured server(s).`,
-        {
-          snapshotWritten: true,
-          configPath: synced.configPath,
-          statePath: synced.statePath,
-          rawConfig: `${JSON.stringify(normalized, null, 2)}\n`,
-        },
-      );
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      return createToolResult(`Error: Failed to save raw MCP config. ${message}`, {
-        snapshotWritten: false,
-      });
-    }
+    return saveRawConfigAction({ cwd, rawConfigInput, writeConfigAndSyncSnapshot });
   }
 
   async function upsertServer(cwd: string | undefined, serverInput?: McpServerEditorInput): Promise<ToolResult> {
@@ -350,44 +353,59 @@ function createMcpRuntime(): McpRuntime {
     serverName: string | undefined,
     reconnect: boolean,
   ): Promise<ToolResult> {
-    const normalizedServerName = serverName?.trim();
-    if (!normalizedServerName) {
-      return createToolResult('Error: Server name is required.', { snapshotWritten: false });
-    }
-
-    const synced = await syncSnapshot(cwd);
-    const serverConfig = synced.config.mcpServers[normalizedServerName];
-    if (!serverConfig) {
-      return createToolResult(`Error: Server "${normalizedServerName}" does not exist.`, { snapshotWritten: false });
-    }
-    if (serverConfig.enabled === false) {
-      return createToolResult(`Error: Server "${normalizedServerName}" is disabled. Enable it before connecting.`, { snapshotWritten: false });
-    }
-
-    const connection = reconnect
-      ? await manager.reconnect(normalizedServerName, serverConfig)
-      : await manager.connect(normalizedServerName, serverConfig);
-
-    const metadataCache = await readMetadataCache();
-    const { nextCache, runtimeStatus } = await reconcileConnection({
-      serverName: normalizedServerName,
-      serverConfig,
-      metadataCache,
-      connection,
+    return connectServerAction({
+      cwd,
+      serverName,
+      reconnect,
+      manager,
+      setRuntimeStatus: (name, status) => runtimeStatuses.set(name, status),
+      syncSnapshot,
     });
-    runtimeStatuses.set(normalizedServerName, runtimeStatus);
+  }
 
-    const nextState = await syncSnapshot(cwd, { config: synced.config, metadataCache: nextCache });
-    return createToolResult(formatConnectMessage(normalizedServerName, connection.status), {
-      snapshotWritten: true,
-      configPath: nextState.configPath,
-      statePath: nextState.statePath,
-      connectionStatus: runtimeStatus.connectionStatus,
-      authStatus: runtimeStatus.authStatus,
-      toolCount: nextState.snapshot.servers.find((server) => server.serverName === normalizedServerName)?.toolCount ?? 0,
-      resourceCount: nextState.snapshot.servers.find((server) => server.serverName === normalizedServerName)?.resourceCount ?? 0,
-      lastError: runtimeStatus.lastError ?? null,
-    });
+  async function reconcileManagedServers(
+    cwd: string | undefined,
+    config: McpConfigDocument,
+    mode: 'startup' | 'keep-alive',
+  ): Promise<SyncedRuntimeState | null> {
+    const entries = mode === 'keep-alive'
+      ? getKeepAliveServerEntries(config)
+      : getAutoConnectServerEntries(config);
+    if (entries.length === 0) {
+      return null;
+    }
+
+    let nextCache: McpMetadataCacheDocument | null = null;
+    let changed = false;
+
+    for (const [serverName, serverConfig] of entries) {
+      const shouldConnect = await shouldAttemptAutoConnect({
+        serverName,
+        serverConfig,
+        connection: manager.getConnection(serverName),
+        hasOAuthTokens,
+      });
+      if (!shouldConnect) {
+        continue;
+      }
+
+      const connection = await manager.connect(serverName, serverConfig);
+      const { nextCache: updatedCache, runtimeStatus } = await reconcileConnection({
+        serverName,
+        serverConfig,
+        metadataCache: nextCache ?? await readMetadataCache(),
+        connection,
+      });
+      runtimeStatuses.set(serverName, runtimeStatus);
+      nextCache = updatedCache;
+      changed = true;
+    }
+
+    if (!changed) {
+      return null;
+    }
+
+    return syncSnapshot(cwd, { config, metadataCache: nextCache ?? await readMetadataCache() });
   }
 
   async function mutateConfig(
@@ -418,13 +436,19 @@ function createMcpRuntime(): McpRuntime {
     metadataCacheOverride?: McpMetadataCacheDocument,
   ): Promise<SyncedRuntimeState> {
     const configPath = getMcpConfigPath();
+    const previousConfig = await ensureConfigFile(configPath);
+    let metadataCache = metadataCacheOverride ?? await readMetadataCache();
+
+    for (const serverName of getChangedServerNames(previousConfig, config)) {
+      await manager.close(serverName);
+      runtimeStatuses.delete(serverName);
+      metadataCache = removeMetadataCacheEntry(metadataCache, serverName);
+    }
+
     await writeConfig(config, configPath);
     const rawConfigUpdatedAt = await getConfigUpdatedAt(configPath);
-    return syncSnapshot(cwd, {
-      config,
-      rawConfigUpdatedAt,
-      metadataCache: metadataCacheOverride,
-    });
+    const synced = await syncSnapshot(cwd, { config, rawConfigUpdatedAt, metadataCache });
+    return await reconcileManagedServers(cwd, config, 'startup') ?? synced;
   }
 
   async function syncSnapshot(
