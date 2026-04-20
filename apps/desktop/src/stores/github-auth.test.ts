@@ -120,8 +120,32 @@ describe('useGitHubAuthStore', () => {
       message: 'Device flow failed',
     });
 
-    expect(githubBridge.cancel).not.toHaveBeenCalled();
+    expect(githubBridge.cancel).toHaveBeenCalledTimes(1);
     expect(useGitHubAuthStore.getState().open).toBe(false);
+  });
+
+  it('cancels an in-flight login even if the user closes the dialog before the device code arrives', async () => {
+    const resultPromise = useGitHubAuthStore.getState().openGitHubAuthDialog({ source: 'explorer' });
+
+    await vi.waitFor(() => {
+      expect(useGitHubAuthStore.getState().open).toBe(true);
+    });
+
+    useGitHubAuthStore.getState().startLogin();
+
+    expect(useGitHubAuthStore.getState().flow).toEqual({ step: 'idle' });
+
+    await useGitHubAuthStore.getState().dismissGitHubAuthDialog();
+
+    await expect(resultPromise).resolves.toEqual({
+      outcome: 'cancelled',
+      status: { authenticated: false },
+    });
+
+    expect(githubBridge.login).toHaveBeenCalledTimes(1);
+    expect(githubBridge.cancel).toHaveBeenCalledTimes(1);
+    expect(useGitHubAuthStore.getState().open).toBe(false);
+    expect(useGitHubAuthStore.getState().flow).toEqual({ step: 'idle' });
   });
 
   it('refreshes GitHub status after logout instead of trusting cached success state', async () => {

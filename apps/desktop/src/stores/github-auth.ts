@@ -248,12 +248,10 @@ export const useGitHubAuthStore = create<GitHubAuthStore>((set, get) => ({
     const flow = get().flow;
     const errorMessage = flow.step === 'error' ? flow.message : null;
 
-    if (isFlowInProgress(flow)) {
-      try {
-        await window.sero.github.cancel();
-      } catch {
-        // Best effort — auth status refresh below remains authoritative.
-      }
+    try {
+      await window.sero.github.cancel();
+    } catch {
+      // Best effort — auth status refresh below remains authoritative.
     }
 
     resetCopyFeedback();
