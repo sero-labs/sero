@@ -21,11 +21,17 @@
  */
 
 import { lazy } from 'react';
-import { loadRemote, registerRemotes } from '@module-federation/enhanced/runtime';
+import {
+  getInstance,
+  loadRemote,
+  registerRemotes,
+  type ModuleFederation,
+} from '@module-federation/enhanced/runtime';
 
 type LazyComponent = React.LazyExoticComponent<React.ComponentType>;
 type RemoteModule = { default: React.ComponentType };
 type LoadedRemoteModule = { entry: string; mod: RemoteModule };
+type RuntimeRemote = ModuleFederation['options']['remotes'][number];
 
 /** Maximum number of resolved modules to keep in memory. */
 const MAX_CACHED_MODULES = 5;
@@ -108,6 +114,48 @@ function isManifestEntry(entry: string): boolean {
   return /\.json(?=($|[?#]))/.test(entry);
 }
 
+function getRuntimeRemoteEntry(remote: RuntimeRemote): string | null {
+  return 'entry' in remote && typeof remote.entry === 'string'
+    ? remote.entry
+    : null;
+}
+
+function getRegisteredRuntimeRemote(
+  appId: string,
+): { instance: ModuleFederation; remote: RuntimeRemote } | null {
+  const instance = getInstance();
+  if (!instance) {
+    return null;
+  }
+
+  const remoteName = toRemoteName(appId);
+  const remote = instance.options.remotes.find((candidate) => candidate.name === remoteName);
+  return remote ? { instance, remote } : null;
+}
+
+function hasRemoteRemovalApi(value: unknown): value is {
+  removeRemote: (remote: RuntimeRemote) => void;
+} {
+  return typeof value === 'object'
+    && value !== null
+    && 'removeRemote' in value
+    && typeof Reflect.get(value, 'removeRemote') === 'function';
+}
+
+function removeRegisteredRuntimeRemote(appId: string): void {
+  const runtimeRemote = getRegisteredRuntimeRemote(appId);
+  if (!runtimeRemote) {
+    return;
+  }
+
+  const remoteHandler: unknown = runtimeRemote.instance.remoteHandler;
+  if (!hasRemoteRemovalApi(remoteHandler)) {
+    return;
+  }
+
+  remoteHandler.removeRemote(runtimeRemote.remote);
+}
+
 /**
  * Best-effort remote-entry reachability check.
  *
@@ -151,6 +199,16 @@ function registerRemoteEntry(appId: string, entry: string): void {
   const remoteName = toRemoteName(appId);
   const currentEntry = registeredEntries.get(appId);
   if (currentEntry === entry) return;
+
+  const existingRuntimeRemote = getRegisteredRuntimeRemote(appId);
+  if (existingRuntimeRemote && getRuntimeRemoteEntry(existingRuntimeRemote.remote) === entry) {
+    registeredEntries.set(appId, entry);
+    return;
+  }
+
+  if (existingRuntimeRemote) {
+    removeRegisteredRuntimeRemote(appId);
+  }
 
   const remoteRegistration = isManifestEntry(entry)
     ? { name: remoteName, entry }
