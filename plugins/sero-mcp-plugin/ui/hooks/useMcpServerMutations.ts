@@ -9,6 +9,7 @@ interface McpServerMutations {
   upsertServer: (input: McpServerEditorInput) => Promise<boolean>;
   removeServer: (serverName: string) => Promise<boolean>;
   toggleServer: (serverName: string, enabled: boolean) => Promise<boolean>;
+  connectServer: (serverName: string, reconnect?: boolean) => Promise<boolean>;
 }
 
 export function useMcpServerMutations(): McpServerMutations {
@@ -49,6 +50,13 @@ export function useMcpServerMutations(): McpServerMutations {
     });
   }, [execute]);
 
+  const connectServer = useCallback((serverName: string, reconnect = false) => {
+    return execute(`${reconnect ? 'reconnect' : 'connect'}:${serverName}`, {
+      action: reconnect ? 'reconnect_server' : 'connect_server',
+      serverName,
+    });
+  }, [execute]);
+
   return {
     pendingAction,
     error,
@@ -56,5 +64,6 @@ export function useMcpServerMutations(): McpServerMutations {
     upsertServer,
     removeServer,
     toggleServer,
+    connectServer,
   };
 }

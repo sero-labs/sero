@@ -159,6 +159,7 @@ export function McpServerCrudPanel({ servers }: { servers: McpServerSnapshot[] }
           ) : (
             sortedServers.map((server) => {
               const toggleAction = `${server.enabled ? 'disable' : 'enable'}:${server.serverName}`;
+              const connectAction = `${server.connectionStatus === 'connected' ? 'reconnect' : 'connect'}:${server.serverName}`;
               const removeAction = `remove:${server.serverName}`;
               return (
                 <div key={server.serverName} className="rounded-lg border border-border bg-card/60 p-4">
@@ -178,6 +179,16 @@ export function McpServerCrudPanel({ servers }: { servers: McpServerSnapshot[] }
                       <Button type="button" variant="outline" size="sm" onClick={() => setDraft(createServerEditorInputFromSnapshot(server))}>
                         <Pencil className="mr-2 h-4 w-4" />
                         Edit
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={!server.enabled || mutations.pendingAction === connectAction}
+                        onClick={() => void mutations.connectServer(server.serverName, server.connectionStatus === 'connected')}
+                      >
+                        <Server className="mr-2 h-4 w-4" />
+                        {server.connectionStatus === 'connected' ? 'Reconnect' : 'Connect'}
                       </Button>
                       <Button type="button" variant="outline" size="sm" disabled={mutations.pendingAction === toggleAction} onClick={() => void mutations.toggleServer(server.serverName, !server.enabled)}>
                         <Power className="mr-2 h-4 w-4" />

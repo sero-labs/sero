@@ -7,7 +7,9 @@ export type ManagerAction =
   | 'upsert_server'
   | 'remove_server'
   | 'enable_server'
-  | 'disable_server';
+  | 'disable_server'
+  | 'connect_server'
+  | 'reconnect_server';
 export type ProxyAction = 'status' | 'list';
 
 export type ToolResult = {

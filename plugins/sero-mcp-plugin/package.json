@@ -46,7 +46,10 @@
     }
   },
   "dependencies": {
-    "@sinclair/typebox": "catalog:"
+    "@modelcontextprotocol/ext-apps": "1.2.2",
+    "@modelcontextprotocol/sdk": "^1.27.1",
+    "@sinclair/typebox": "catalog:",
+    "zod": "catalog:"
   },
   "peerDependencies": {
     "@mariozechner/pi-ai": "catalog:peer",

@@ -16,6 +16,8 @@ const ManagerParams = Type.Object({
     'remove_server',
     'enable_server',
     'disable_server',
+    'connect_server',
+    'reconnect_server',
   ] as const),
   rawConfig: Type.Optional(Type.String({ description: 'Raw MCP config JSON for save_raw_config.' })),
   serverName: Type.Optional(Type.String({ description: 'Server name for remove/enable/disable actions.' })),
@@ -38,7 +40,7 @@ export function registerMcpManagerTool(pi: ExtensionAPI, runtime: McpRuntime): v
     name: 'mcp_manager',
     label: 'MCP Manager',
     description:
-      'Internal management surface for the MCP app UI. Actions: bootstrap, refresh, raw config, diagnostics, and server CRUD/toggle operations.',
+      'Internal management surface for the MCP app UI. Actions: bootstrap, refresh, raw config, diagnostics, server CRUD/toggle, and connect/reconnect operations.',
     parameters: ManagerParams,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const managerParams = params as Partial<McpServerEditorInput> & {

@@ -1,6 +1,27 @@
-import type { McpAppState, McpAuthStatus, McpConnectionStatus, McpServerSnapshot } from '../../shared/types';
-import type { McpMetadataCacheDocument } from '../cache/metadata-cache';
+import type {
+  McpAppState,
+  McpAuthMode,
+  McpAuthStatus,
+  McpConnectionStatus,
+  McpResourceSummary,
+  McpServerSnapshot,
+  McpUiToolSummary,
+} from '../../shared/types';
+import {
+  isMetadataCacheEntryValid,
+  type CachedMcpResource,
+  type CachedMcpTool,
+  type McpMetadataCacheDocument,
+} from '../cache/metadata-cache';
 import type { McpConfigDocument, McpServerConfig } from '../config/types';
+
+export interface RuntimeServerStatus {
+  connectionStatus?: McpConnectionStatus;
+  authStatus?: McpAuthStatus;
+  lastError?: string;
+  lastConnectedAt?: string | null;
+  lastFailedAt?: string | null;
+}
 
 interface BuildSnapshotOptions {
   configPath: string;
@@ -8,12 +29,13 @@ interface BuildSnapshotOptions {
   config: McpConfigDocument;
   metadataCache: McpMetadataCacheDocument;
   hasOAuthTokens: (serverName: string) => Promise<boolean>;
+  runtimeStatuses?: Map<string, RuntimeServerStatus>;
 }
 
 export async function buildSnapshot(options: BuildSnapshotOptions): Promise<McpAppState> {
   const servers = await Promise.all(
     Object.entries(options.config.mcpServers).map(([serverName, serverConfig]) => {
-      return createServerSnapshot(serverName, serverConfig, options.metadataCache, options.hasOAuthTokens);
+      return createServerSnapshot(serverName, serverConfig, options);
     }),
   );
 
@@ -46,12 +68,15 @@ export async function buildSnapshot(options: BuildSnapshotOptions): Promise<McpA
 async function createServerSnapshot(
   serverName: string,
   serverConfig: McpServerConfig,
-  metadataCache: McpMetadataCacheDocument,
-  hasOAuthTokens: (serverName: string) => Promise<boolean>,
+  options: BuildSnapshotOptions,
 ): Promise<McpServerSnapshot> {
   const enabled = serverConfig.enabled !== false;
-  const authStatus = await resolveAuthStatus(serverName, serverConfig, hasOAuthTokens);
-  const metadata = metadataCache.servers[serverName];
+  const runtimeStatus = options.runtimeStatuses?.get(serverName);
+  const derivedAuthStatus = await resolveAuthStatus(serverName, serverConfig, options.hasOAuthTokens);
+  const authStatus = runtimeStatus?.authStatus ?? derivedAuthStatus;
+  const metadata = getValidMetadata(serverName, serverConfig, options.metadataCache);
+  const uiTools = buildUiToolSummaries(metadata?.tools ?? []);
+  const resources = buildResourceSummaries(metadata?.resources ?? []);
 
   return {
     serverName,
@@ -59,11 +84,13 @@ async function createServerSnapshot(
     transport: resolveTransport(serverConfig),
     lifecycle: serverConfig.lifecycle ?? 'lazy',
     authMode: resolveAuthMode(serverConfig),
-    connectionStatus: resolveConnectionStatus(enabled, authStatus),
+    connectionStatus: enabled
+      ? runtimeStatus?.connectionStatus ?? resolveConnectionStatus(authStatus)
+      : 'disabled',
     authStatus,
     toolCount: metadata?.toolCount ?? 0,
     resourceCount: metadata?.resourceCount ?? 0,
-    uiToolCount: 0,
+    uiToolCount: uiTools.length,
     command: typeof serverConfig.command === 'string' ? serverConfig.command : undefined,
     argsText: Array.isArray(serverConfig.args) ? serverConfig.args.join('\n') : undefined,
     cwd: typeof serverConfig.cwd === 'string' ? serverConfig.cwd : undefined,
@@ -71,12 +98,21 @@ async function createServerSnapshot(
     bearerTokenEnv: typeof serverConfig.bearerTokenEnv === 'string' ? serverConfig.bearerTokenEnv : undefined,
     exposeResources: typeof serverConfig.exposeResources === 'boolean' ? serverConfig.exposeResources : true,
     debug: typeof serverConfig.debug === 'boolean' ? serverConfig.debug : false,
-    lastError: undefined,
-    lastConnectedAt: null,
-    lastFailedAt: null,
-    resources: [],
-    uiTools: [],
+    lastError: runtimeStatus?.lastError,
+    lastConnectedAt: runtimeStatus?.lastConnectedAt ?? null,
+    lastFailedAt: runtimeStatus?.lastFailedAt ?? null,
+    resources,
+    uiTools,
   };
+}
+
+function getValidMetadata(
+  serverName: string,
+  serverConfig: McpServerConfig,
+  metadataCache: McpMetadataCacheDocument,
+) {
+  const entry = metadataCache.servers[serverName];
+  return isMetadataCacheEntryValid(entry, serverConfig) ? entry : undefined;
 }
 
 async function resolveAuthStatus(
@@ -102,14 +138,31 @@ function resolveTransport(serverConfig: McpServerConfig): 'stdio' | 'http' {
   return typeof serverConfig.url === 'string' && serverConfig.url.length > 0 ? 'http' : 'stdio';
 }
 
-function resolveAuthMode(serverConfig: McpServerConfig): 'none' | 'oauth' | 'bearer' {
+function resolveAuthMode(serverConfig: McpServerConfig): McpAuthMode {
   if (serverConfig.auth === 'oauth') return 'oauth';
   if (serverConfig.auth === 'bearer') return 'bearer';
   return 'none';
 }
 
-function resolveConnectionStatus(enabled: boolean, authStatus: McpAuthStatus): McpConnectionStatus {
-  if (!enabled) return 'disabled';
+function resolveConnectionStatus(authStatus: McpAuthStatus): McpConnectionStatus {
   if (authStatus === 'not-authenticated') return 'needs-auth';
   return 'idle';
+}
+
+function buildUiToolSummaries(tools: CachedMcpTool[]): McpUiToolSummary[] {
+  return tools
+    .filter((tool) => !!tool.uiResourceUri)
+    .map((tool) => ({
+      name: tool.name,
+      description: tool.description,
+      inputSchema: tool.inputSchema,
+    }));
+}
+
+function buildResourceSummaries(resources: CachedMcpResource[]): McpResourceSummary[] {
+  return resources.map((resource) => ({
+    uri: resource.uri,
+    name: resource.name,
+    description: resource.description,
+  }));
 }
