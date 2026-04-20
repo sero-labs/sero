@@ -3,6 +3,7 @@
  * Used by Agents, Skills, and Prompts sections.
  */
 
+import { Plus, RefreshCw } from 'lucide-react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 
 interface ResourceSectionProps {
@@ -34,10 +35,10 @@ export function ResourceSection({
             {count} {label.toLowerCase()}{count !== 1 ? 's' : ''}
           </span>
           <Button variant="ghost" size="icon-sm" onClick={onRefresh} title="Refresh">
-            <span className="text-xs">↻</span>
+            <RefreshCw className="size-3" />
           </Button>
           <Button variant="ghost" size="icon-sm" onClick={onNew} title={`New ${label}`}>
-            <span className="text-xs">+</span>
+            <Plus className="size-3" />
           </Button>
         </div>
 
@@ -79,7 +80,8 @@ function EmptyState({ label, onNew }: { label: string; onNew: () => void }) {
         Select a {label.toLowerCase()} to edit, or create a new one
       </p>
       <Button variant="secondary" size="sm" onClick={onNew}>
-        + New {label}
+        <Plus className="size-3.5" />
+        New {label}
       </Button>
     </div>
   );

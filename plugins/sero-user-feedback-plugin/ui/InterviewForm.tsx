@@ -7,6 +7,7 @@
  */
 
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { Check } from 'lucide-react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { cn } from '@sero-ai/ui/lib/utils';
 import type {
@@ -127,7 +128,7 @@ function QuestionRow({
             : 'bg-[var(--bg-elevated)] text-[var(--text-muted)]',
         )}
       >
-        {hasValue ? '✓' : index + 1}
+        {hasValue ? <Check className="size-3" /> : index + 1}
       </span>
 
       {/* Question + input */}

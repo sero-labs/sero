@@ -7,6 +7,7 @@
  */
 
 import { useMemo, useRef, type KeyboardEvent } from 'react';
+import { FileCode2 } from 'lucide-react';
 import Editor from '@monaco-editor/react';
 import { EditorTabBar, type EditorTab } from './EditorTabBar';
 import { DevServerPreview, isDevServerTab } from './DevServerPreview';
@@ -26,7 +27,7 @@ import { useAppStore } from '@/stores/app';
 function EmptyEditorState() {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-2 text-[var(--text-muted)]">
-      <p className="text-4xl opacity-40">📝</p>
+      <FileCode2 className="size-10 opacity-40" />
       <p className="text-sm font-medium text-[var(--text-secondary)]">No file open</p>
       <p className="max-w-[260px] text-center text-xs leading-relaxed">
         Select a file from the explorer or let your agent create one

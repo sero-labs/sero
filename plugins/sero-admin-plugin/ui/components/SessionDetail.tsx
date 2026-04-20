@@ -8,6 +8,7 @@
  */
 
 import { useEffect, useMemo, useState, memo } from 'react';
+import { X } from 'lucide-react';
 import { cn } from '@sero-ai/ui/lib/utils';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { Badge } from '@sero-ai/ui/components/ui/badge';
@@ -247,7 +248,7 @@ const MessageDetailOverlay = memo(function MessageDetailOverlay({
             className="h-6 px-2 text-xs text-muted-foreground"
             onClick={onClose}
           >
-            ✕
+            <X className="size-3.5" />
           </Button>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto">

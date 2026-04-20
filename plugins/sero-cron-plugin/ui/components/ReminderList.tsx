@@ -3,6 +3,7 @@
  */
 
 import { useState, useMemo } from 'react';
+import { Bell, Plus } from 'lucide-react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { Badge } from '@sero-ai/ui/components/ui/badge';
 import { cn } from '@sero-ai/ui/lib/utils';
@@ -163,7 +164,7 @@ function getNextFireTime(r: Reminder): number {
 function EmptyState({ onAdd }: { onAdd: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center py-16 text-center animate-cron-fade-in">
-      <div className="mb-4 text-4xl">🔔</div>
+      <Bell className="mb-4 size-10 text-muted-foreground" />
       <h2 className="text-base font-medium text-foreground">
         No reminders yet
       </h2>
@@ -172,7 +173,8 @@ function EmptyState({ onAdd }: { onAdd: () => void }) {
         something like "Remind me in 1 hour to phone mum".
       </p>
       <Button size="sm" className="mt-4" onClick={onAdd}>
-        + New Reminder
+        <Plus className="size-3.5" />
+        New Reminder
       </Button>
     </div>
   );

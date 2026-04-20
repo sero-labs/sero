@@ -3,6 +3,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Save, Trash2 } from 'lucide-react';
 import {
   THINKING_LABELS,
   findModelByReference,
@@ -167,11 +168,17 @@ export function AgentEditor({ data, isNew, saving, onSave, onDelete, onChange }:
             className="text-destructive hover:text-destructive"
             onClick={() => onDelete(data.name)}
           >
-            🗑 Delete
+            <Trash2 className="size-3.5" />
+            Delete
           </Button>
         )}
         <Button type="submit" size="sm" disabled={!canSave || saving}>
-          {saving ? 'Saving…' : '💾 Save'}
+          {saving ? 'Saving…' : (
+            <>
+              <Save className="size-3.5" />
+              Save
+            </>
+          )}
         </Button>
       </div>
 

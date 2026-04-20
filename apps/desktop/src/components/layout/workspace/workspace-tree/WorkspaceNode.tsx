@@ -9,6 +9,7 @@ import {
   Monitor,
   Plus,
   Trash2,
+  X,
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { cn } from '@sero-ai/ui/lib/utils';
@@ -196,7 +197,7 @@ export function WorkspaceNode({ workspace, sessions }: WorkspaceNodeProps) {
                 className="rounded p-0.5 text-xs text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-base)] hover:text-[var(--text-primary)]"
                 title="Clear selection (Esc)"
               >
-                ✕
+                <X className="size-3" />
               </span>
             </span>
           ) : (

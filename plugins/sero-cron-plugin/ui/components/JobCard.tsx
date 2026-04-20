@@ -3,6 +3,7 @@
  */
 
 import { useState } from 'react';
+import { Pause, Play } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -126,7 +127,17 @@ export function JobCard({
             className="h-7 text-xs"
             onClick={() => onToggleEnabled(job.name)}
           >
-            {job.disabled ? '▶ Enable' : '⏸ Disable'}
+            {job.disabled ? (
+              <>
+                <Play className="size-3.5" />
+                Enable
+              </>
+            ) : (
+              <>
+                <Pause className="size-3.5" />
+                Disable
+              </>
+            )}
           </Button>
           <Button
             variant="ghost"
@@ -138,7 +149,8 @@ export function JobCard({
               schedulerActive ? 'Run now' : 'Start scheduler first'
             }
           >
-            ▶ Run
+            <Play className="size-3.5" />
+            Run
           </Button>
           <div className="flex-1" />
           <Button

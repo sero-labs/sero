@@ -6,7 +6,22 @@
  */
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { ChevronRight, Loader2, CheckCircle2, XCircle, AlertCircle, Clock, Square } from 'lucide-react';
+import {
+  AlertCircle,
+  CheckCircle2,
+  ChevronRight,
+  Clock,
+  FileText,
+  FolderOpen,
+  Loader2,
+  Pencil,
+  Search,
+  Square,
+  Terminal,
+  Wrench,
+  XCircle,
+  type LucideIcon,
+} from 'lucide-react';
 import { cn } from '@sero-ai/ui/lib/utils';
 import type { SubagentEntry, SubagentToolActivity } from '@/types/ipc';
 import { useSubagentStore } from '@/stores/subagent';
@@ -51,13 +66,19 @@ function formatCost(cost: number): string {
 
 // ── Tool activity icon ──────────────────────────────────────
 
-const TOOL_ICONS: Record<string, string> = {
-  read: '📖', bash: '📂', write: '✏️', edit: '✏️',
-  ls: '📁', find: '🔍', grep: '🔎',
+const TOOL_ICONS: Record<string, LucideIcon> = {
+  read: FileText,
+  bash: Terminal,
+  write: Pencil,
+  edit: Pencil,
+  ls: FolderOpen,
+  find: Search,
+  grep: Search,
 };
 
-function toolIcon(name: string): string {
-  return TOOL_ICONS[name] ?? '🔧';
+function ToolIcon({ name }: { name: string }) {
+  const Icon = TOOL_ICONS[name] ?? Wrench;
+  return <Icon className="size-3" />;
 }
 
 // ── Tool Activity Feed ──────────────────────────────────────
@@ -88,7 +109,7 @@ function ToolActivityFeed({ activity }: { activity: SubagentToolActivity[] }) {
           ) : (
             <span className="size-1.5 shrink-0 rounded-full bg-[var(--status-success)]" />
           )}
-          <span className="shrink-0 text-[10px]">{toolIcon(item.toolName)}</span>
+          <span className="shrink-0 text-[10px]"><ToolIcon name={item.toolName} /></span>
           <span className="shrink-0 text-[10px] font-medium text-[var(--text-muted)]">
             {item.toolName}
           </span>

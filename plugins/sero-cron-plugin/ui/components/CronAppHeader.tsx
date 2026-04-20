@@ -1,3 +1,4 @@
+import { Clock3, Plus } from 'lucide-react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 
 type CronAppTab = 'jobs' | 'reminders' | 'history';
@@ -20,7 +21,7 @@ export function CronAppHeader({
   return (
     <div className="mb-3 flex items-center justify-between">
       <div>
-        <h1 className="text-lg font-semibold text-foreground">⏰ Scheduler</h1>
+        <h1 className="inline-flex items-center gap-2 text-lg font-semibold text-foreground"><Clock3 className="size-5" />Scheduler</h1>
         <p className="mt-0.5 text-xs text-muted-foreground">
           Cron jobs, reminders, and notifications
         </p>
@@ -28,12 +29,14 @@ export function CronAppHeader({
       <div className="flex gap-2">
         {activeTab === 'reminders' && (
           <Button size="sm" onClick={onAddReminder}>
-            + Reminder
+            <Plus className="size-3.5" />
+            Reminder
           </Button>
         )}
         {activeTab === 'jobs' && (
           <Button size="sm" onClick={onAddJob}>
-            + Job
+            <Plus className="size-3.5" />
+            Job
           </Button>
         )}
         {activeTab === 'history' && historyCount > 0 && (

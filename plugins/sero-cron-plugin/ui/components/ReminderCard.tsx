@@ -3,6 +3,7 @@
  */
 
 import { useState } from 'react';
+import { Bell, Check, CheckCircle2, Clock3, Mail, Pause, Play, RefreshCw } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -72,8 +73,9 @@ export function ReminderCard({
               </Badge>
             )}
             {reminder.channel === 'email' && (
-              <Badge variant="outline" className="border-amber-500/30 text-[10px] text-amber-500">
-                📧 legacy email
+              <Badge variant="outline" className="inline-flex items-center gap-1 border-amber-500/30 text-[10px] text-amber-500">
+                <Mail className="size-3" />
+                legacy email
               </Badge>
             )}
           </div>
@@ -89,11 +91,15 @@ export function ReminderCard({
               </>
             )}
             {reminder.type === 'once' && reminder.fireAt && (
-              <span>🕐 {formatDateTime(reminder.fireAt)}</span>
+              <span className="inline-flex items-center gap-1">
+                <Clock3 className="size-3" />
+                {formatDateTime(reminder.fireAt)}
+              </span>
             )}
             {isSnoozed && reminder.snoozedUntil && (
-              <span className="text-amber-500">
-                💤 Until {formatDateTime(reminder.snoozedUntil)}
+              <span className="inline-flex items-center gap-1 text-amber-500">
+                <Pause className="size-3" />
+                Until {formatDateTime(reminder.snoozedUntil)}
               </span>
             )}
           </div>
@@ -124,7 +130,17 @@ export function ReminderCard({
                   variant="ghost" size="sm" className="h-7 text-xs"
                   onClick={() => onToggleEnabled(reminder.id)}
                 >
-                  {isDisabled ? '▶ Enable' : '⏸ Disable'}
+                  {isDisabled ? (
+                    <>
+                      <Play className="size-3.5" />
+                      Enable
+                    </>
+                  ) : (
+                    <>
+                      <Pause className="size-3.5" />
+                      Disable
+                    </>
+                  )}
                 </Button>
                 {!isDisabled && (
                   <div className="relative">
@@ -133,7 +149,8 @@ export function ReminderCard({
                       className="h-7 text-xs text-amber-500 hover:text-amber-600"
                       onClick={() => setShowSnoozeMenu(!showSnoozeMenu)}
                     >
-                      💤 Snooze
+                      <Pause className="size-3.5" />
+                      Snooze
                     </Button>
                     {showSnoozeMenu && (
                       <SnoozeDropdown
@@ -148,7 +165,8 @@ export function ReminderCard({
                   className="h-7 text-xs text-emerald-500 hover:text-emerald-600"
                   onClick={() => onComplete(reminder.id)}
                 >
-                  ✓ Done
+                  <Check className="size-3.5" />
+                  Done
                 </Button>
               </>
             )}
@@ -194,26 +212,30 @@ function StatusBadge({ status }: { status: Reminder['status'] }) {
   switch (status) {
     case 'active':
       return (
-        <Badge variant="outline" className="border-emerald-500/30 text-[10px] text-emerald-500">
-          🔔 Active
+        <Badge variant="outline" className="inline-flex items-center gap-1 border-emerald-500/30 text-[10px] text-emerald-500">
+          <Bell className="size-3" />
+          Active
         </Badge>
       );
     case 'snoozed':
       return (
-        <Badge variant="outline" className="border-amber-500/30 text-[10px] text-amber-500">
-          💤 Snoozed
+        <Badge variant="outline" className="inline-flex items-center gap-1 border-amber-500/30 text-[10px] text-amber-500">
+          <Pause className="size-3" />
+          Snoozed
         </Badge>
       );
     case 'completed':
       return (
-        <Badge variant="secondary" className="text-[10px]">
-          ✅ Done
+        <Badge variant="secondary" className="inline-flex items-center gap-1 text-[10px]">
+          <CheckCircle2 className="size-3" />
+          Done
         </Badge>
       );
     case 'disabled':
       return (
-        <Badge variant="secondary" className="text-[10px]">
-          ⏸ Paused
+        <Badge variant="secondary" className="inline-flex items-center gap-1 text-[10px]">
+          <Pause className="size-3" />
+          Paused
         </Badge>
       );
     default:
@@ -224,8 +246,9 @@ function StatusBadge({ status }: { status: Reminder['status'] }) {
 function TypeBadge({ type }: { type: Reminder['type'] }) {
   if (type === 'recurring') {
     return (
-      <Badge variant="outline" className="border-primary/30 text-[10px] text-primary">
-        🔄 Recurring
+      <Badge variant="outline" className="inline-flex items-center gap-1 border-primary/30 text-[10px] text-primary">
+        <RefreshCw className="size-3" />
+        Recurring
       </Badge>
     );
   }

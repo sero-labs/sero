@@ -10,7 +10,7 @@
 
 import { useState, useCallback } from 'react';
 import { motion } from 'motion/react';
-import { ChevronRight, X, Send, ShieldAlert } from 'lucide-react';
+import { ChevronRight, Pencil, X, Send, ShieldAlert } from 'lucide-react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { IconAction } from '@/components/ui/IconAction';
 import { cn } from '@sero-ai/ui/lib/utils';
@@ -228,7 +228,7 @@ function QuestionCardInner({ question }: { question: UserFeedbackPendingQuestion
             onClick={() => setCustomMode(true)}
             className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left hover:bg-[var(--bg-elevated)]/80"
           >
-            <span className="mt-px text-[11px] text-[var(--text-muted)]">✎</span>
+            <Pencil className="size-3 text-[var(--text-muted)]" />
             <span className="text-[13px] text-[var(--text-muted)]">Type something…</span>
           </button>
         )}

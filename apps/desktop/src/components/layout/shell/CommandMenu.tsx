@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Smartphone } from 'lucide-react';
+import { Monitor, Palette, Pencil, Smartphone } from 'lucide-react';
 import {
   CommandDialog,
   CommandEmpty,
@@ -105,15 +105,15 @@ export function CommandMenu() {
           </CommandGroup>
           <CommandGroup heading="Theme">
             <CommandItem value="Browse Themes" onSelect={handleOpenThemePanel}>
-              <span className="size-4 shrink-0 flex items-center justify-center">🎨</span>
+              <Palette className="size-4 shrink-0" />
               <span>Browse Themes</span>
             </CommandItem>
             <CommandItem value="Edit Current Theme" onSelect={handleEditCurrent}>
-              <span className="size-4 shrink-0 flex items-center justify-center">✏️</span>
+              <Pencil className="size-4 shrink-0" />
               <span>Edit Current Theme</span>
             </CommandItem>
             <CommandItem value="Toggle Theme Mode" onSelect={handleToggleMode}>
-              <span className="size-4 shrink-0 flex items-center justify-center">◑</span>
+              <Monitor className="size-4 shrink-0" />
               <span>Toggle Light / Dark / System</span>
             </CommandItem>
           </CommandGroup>

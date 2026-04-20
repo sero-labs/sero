@@ -7,6 +7,7 @@
  */
 
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import { Check, Settings2, Sparkles, X } from 'lucide-react';
 import {
   useAvailableModels,
   type AppModelInfo,
@@ -141,7 +142,7 @@ export function ModelPicker({ value, onChange, className }: ModelPickerProps) {
               {resolved.model.name}
             </span>
             {resolved.model.reasoning && (
-              <span className="text-[10px] text-amber-500">✦</span>
+              <Sparkles className="size-3 text-amber-500" />
             )}
           </>
         ) : value ? (
@@ -162,7 +163,7 @@ export function ModelPicker({ value, onChange, className }: ModelPickerProps) {
             className="ml-1 rounded p-0.5 text-muted-foreground hover:text-foreground"
             title="Reset to default"
           >
-            ✕
+            <X className="size-3" />
           </button>
         ) : (
           <svg className="size-3 text-muted-foreground" viewBox="0 0 12 12" fill="none">
@@ -227,9 +228,9 @@ export function ModelPicker({ value, onChange, className }: ModelPickerProps) {
                   : 'text-muted-foreground hover:bg-secondary/60 hover:text-foreground',
               )}
             >
-              <span className="size-4 text-center text-[10px]">⚙</span>
+              <Settings2 className="size-4" />
               <span className="font-medium">Use default model</span>
-              {!value && <span className="ml-auto text-emerald-500 text-[11px]">✓</span>}
+              {!value && <Check className="ml-auto size-3.5 text-emerald-500" />}
             </button>
           </div>
         </div>
@@ -282,14 +283,14 @@ function ProviderGroup({
             >
               <span className="size-3.5 text-center text-[11px]">
                 {isSelected ? (
-                  <span className="text-emerald-500">✓</span>
+                  <Check className="size-3 text-emerald-500" />
                 ) : (
                   <span className="inline-block size-1.5 rounded-full bg-border" />
                 )}
               </span>
               <span className="flex-1 truncate font-medium">{model.name}</span>
               {model.reasoning && (
-                <span className="text-[10px] text-amber-500/60">✦</span>
+                <Sparkles className="size-3 text-amber-500/60" />
               )}
             </button>
           );

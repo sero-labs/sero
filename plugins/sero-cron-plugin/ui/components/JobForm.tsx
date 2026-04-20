@@ -3,6 +3,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import { Check } from 'lucide-react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import {
   Dialog,
@@ -171,8 +172,9 @@ export function JobForm({ open, onClose, onSave, editingJob }: JobFormProps) {
                 {scheduleError}
               </p>
             ) : schedule.trim() ? (
-              <p className="mt-1 text-[11px] text-emerald-500">
-                ✓ {cronToHuman(schedule.trim())}
+              <p className="mt-1 inline-flex items-center gap-1 text-[11px] text-emerald-500">
+                <Check className="size-3" />
+                {cronToHuman(schedule.trim())}
               </p>
             ) : (
               <p className="mt-1 text-[11px] text-muted-foreground">

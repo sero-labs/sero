@@ -1,19 +1,29 @@
+import {
+  FileText,
+  FolderOpen,
+  Pencil,
+  Search,
+  Terminal,
+  Wrench,
+  type LucideIcon,
+} from 'lucide-react';
 import { cn } from '@sero-ai/ui/lib/utils';
 import type { SubagentEntry } from '@/types/ipc';
 
-const TOOL_ICONS: Record<string, string> = {
-  read: '📖',
-  bash: '📂',
-  write: '✏️',
-  edit: '✏️',
-  ls: '📁',
-  find: '🔍',
-  grep: '🔎',
-  glob: '🔍',
+const TOOL_ICONS: Record<string, LucideIcon> = {
+  read: FileText,
+  bash: Terminal,
+  write: Pencil,
+  edit: Pencil,
+  ls: FolderOpen,
+  find: Search,
+  grep: Search,
+  glob: Search,
 };
 
-function toolIcon(name: string): string {
-  return TOOL_ICONS[name] ?? '🔧';
+function ToolIcon({ name }: { name: string }) {
+  const Icon = TOOL_ICONS[name] ?? Wrench;
+  return <Icon className="size-3" />;
 }
 
 interface CollaborationLiveActivityProps {
@@ -72,7 +82,7 @@ export function CollaborationLiveActivity({
                     : 'bg-[var(--status-success)]',
                 )}
               />
-              <span className="text-[10px]">{toolIcon(currentToolActivity.toolName)}</span>
+              <ToolIcon name={currentToolActivity.toolName} />
               <span className="shrink-0 text-[10px] font-medium text-[var(--text-secondary)]/80">
                 {currentToolActivity.toolName}
               </span>

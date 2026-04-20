@@ -4,6 +4,7 @@
  */
 
 import { useCallback } from 'react';
+import { Save, Trash2 } from 'lucide-react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { Switch } from '@sero-ai/ui/components/ui/switch';
 import { cn } from '@sero-ai/ui/lib/utils';
@@ -61,11 +62,17 @@ export function SkillEditor({
             className="text-destructive hover:text-destructive"
             onClick={() => onDelete(data.filePath!)}
           >
-            🗑 Delete
+            <Trash2 className="size-3.5" />
+            Delete
           </Button>
         )}
         <Button type="submit" size="sm" disabled={!canSave || saving}>
-          {saving ? 'Saving…' : '💾 Save'}
+          {saving ? 'Saving…' : (
+            <>
+              <Save className="size-3.5" />
+              Save
+            </>
+          )}
         </Button>
       </div>
 

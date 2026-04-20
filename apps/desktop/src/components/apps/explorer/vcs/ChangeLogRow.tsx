@@ -6,6 +6,7 @@
  */
 
 import { memo } from 'react';
+import { CheckCircle2, Circle, XCircle } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn } from '@sero-ai/ui/lib/utils';
 import type { ChangeEntry } from '@sero-ai/common';
@@ -24,15 +25,15 @@ function ChangeGlyph({ entry }: { entry: ChangeEntry }) {
     return <span className="text-[11px] font-bold text-[var(--status-info)]">@</span>;
   }
   if (entry.immutable) {
-    return <span className="text-[11px] text-[var(--status-success)]">◆</span>;
+    return <CheckCircle2 className="size-3 text-[var(--status-success)]" />;
   }
   if (entry.conflict) {
-    return <span className="text-[11px] text-[var(--status-error)]">✖</span>;
+    return <XCircle className="size-3 text-[var(--status-error)]" />;
   }
   if (entry.empty) {
-    return <span className="text-[11px] text-[var(--text-muted)]/30">○</span>;
+    return <Circle className="size-3 text-[var(--text-muted)]/30" />;
   }
-  return <span className="text-[11px] text-[var(--text-muted)]/60">○</span>;
+  return <Circle className="size-3 text-[var(--text-muted)]/60" />;
 }
 
 export const ChangeLogRow = memo(function ChangeLogRow({ entry, index, isExpanded, onToggle }: Props) {
