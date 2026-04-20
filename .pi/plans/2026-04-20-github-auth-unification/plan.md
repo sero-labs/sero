@@ -547,7 +547,7 @@ Cover both the controller/dialog and the contextual integrations.
 - **Acceptance:** supports ISC-1, ISC-4, ISC-7, ISC-9, ISC-10, ISC-A-1, ISC-A-3.
 - **Status:** completed 2026-04-20.
 
-### GHA-06 — Replace titlebar publish dead ends with a direct connect path and safe auto-resume
+### [x] GHA-06 — Replace titlebar publish dead ends with a direct connect path and safe auto-resume
 - **Plan artifact:** `.pi/plans/2026-04-20-github-auth-unification/plan.md`
 - **Files:**
   - `apps/desktop/src/components/layout/titlebar/git/GitRemotePublishSection.tsx`
@@ -576,6 +576,7 @@ Cover both the controller/dialog and the contextual integrations.
   - **Anti-pattern: Shared-State Guessing** — do not trust old `githubStatus` without a fresh `refreshStatus()` before retry/resume.
   - **Anti-pattern: Copy Drift** — do not ship any “connect in the sidebar” or “go to Explorer” instruction here.
 - **Acceptance:** supports ISC-1, ISC-5, ISC-7, ISC-8, ISC-12, ISC-A-1, ISC-A-3.
+- **Status:** completed 2026-04-20.
 
 ### GHA-07 — Add/update tests for controller, dialog, onboarding, remote-origin, and publish flows
 - **Plan artifact:** `.pi/plans/2026-04-20-github-auth-unification/plan.md`

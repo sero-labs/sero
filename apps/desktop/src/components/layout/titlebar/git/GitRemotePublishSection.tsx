@@ -1,16 +1,15 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { Input } from '@sero-ai/ui/components/ui/input';
 import { cn } from '@sero-ai/ui/lib/utils';
 import { Globe, Github, Link2, Loader2, Lock, Rocket } from 'lucide-react';
-import type { GitHubAuthStatus } from '@/types/electron-services';
-import {
-  connectOrigin,
-  createGitHubOrigin,
-  defaultRepoName,
-  loadGitHubStatus,
-} from '../../git-remote/workflow';
+import { GitHubAuthOutcomeNote } from '@/components/layout/auth/github/GitHubAuthOutcomeNote';
+import { GitHubAuthSummary } from '@/components/layout/auth/github/GitHubAuthSummary';
+import type { GitHubAuthDialogResult } from '@/stores/github-auth';
+import { useGitHubAuthStore } from '@/stores/github-auth';
+import { connectOrigin, createGitHubOrigin, defaultRepoName } from '../../git-remote/workflow';
 
 interface PublishFeedback {
   tone: 'success' | 'error' | 'info';
@@ -24,44 +23,84 @@ interface GitRemotePublishSectionProps {
   onPublished: () => Promise<void> | void;
 }
 
+type PublishGitHubAuthOutcome = Extract<GitHubAuthDialogResult, { outcome: 'cancelled' | 'error' }>;
+
 export function GitRemotePublishSection({
   workspaceId,
   workspaceName,
   onPublished,
 }: GitRemotePublishSectionProps) {
+  const {
+    authStatus,
+    statusReady,
+    init,
+    openGitHubAuthDialog,
+    refreshStatus,
+  } = useGitHubAuthStore(
+    useShallow((state) => ({
+      authStatus: state.authStatus,
+      statusReady: state.statusReady,
+      init: state.init,
+      openGitHubAuthDialog: state.openGitHubAuthDialog,
+      refreshStatus: state.refreshStatus,
+    })),
+  );
   const [mode, setMode] = useState<'github' | 'existing'>('github');
   const [name, setName] = useState(defaultRepoName(workspaceName, workspaceId));
   const [visibility, setVisibility] = useState<'public' | 'private'>('private');
   const [remoteUrl, setRemoteUrl] = useState('');
   const [action, setAction] = useState<'github' | 'existing' | null>(null);
-  const [githubStatus, setGitHubStatus] = useState<GitHubAuthStatus | null>(null);
   const [feedback, setFeedback] = useState<PublishFeedback | null>(null);
+  const [authRequired, setAuthRequired] = useState(false);
+  const [lastAuthOutcome, setLastAuthOutcome] = useState<PublishGitHubAuthOutcome | null>(null);
+  const mountedRef = useRef(false);
+  const authLaunchInFlightRef = useRef(false);
+  const resumeBlockedPublishRef = useRef(false);
 
   useEffect(() => {
-    let active = true;
+    mountedRef.current = true;
+    void init();
+    return () => {
+      mountedRef.current = false;
+    };
+  }, [init]);
+
+  useEffect(() => {
     setFeedback(null);
     setName(defaultRepoName(workspaceName, workspaceId));
     setRemoteUrl('');
-
-    void loadGitHubStatus().then((status) => {
-      if (!active) return;
-      setGitHubStatus(status);
-    });
-
-    return () => {
-      active = false;
-    };
+    setAuthRequired(false);
+    setLastAuthOutcome(null);
+    resumeBlockedPublishRef.current = false;
   }, [workspaceId, workspaceName]);
 
-  const githubHint = useMemo(() => {
-    if (!githubStatus) return 'Checking GitHub login…';
-    if (githubStatus.authenticated) {
-      return githubStatus.username
-        ? `Connected as ${githubStatus.username}. Create and wire an origin in one step.`
+  useEffect(() => {
+    if (!authStatus?.authenticated) return;
+    setAuthRequired(false);
+    setLastAuthOutcome(null);
+  }, [authStatus?.authenticated]);
+
+  const githubNoticeDescription = useMemo(() => {
+    if (!statusReady) {
+      return 'Checking your GitHub connection before publishing this workspace.';
+    }
+
+    if (authStatus?.authenticated) {
+      return authStatus.username
+        ? `Connected as ${authStatus.username}. Create and wire an origin in one step.`
         : 'GitHub connected. Create and wire an origin in one step.';
     }
-    return 'Connect GitHub in the sidebar to create a repository from here.';
-  }, [githubStatus]);
+
+    if (authRequired) {
+      return 'Connect GitHub to finish creating and publishing this repository without leaving the title bar.';
+    }
+
+    return 'Connect GitHub now, or start publishing first and Sero will pause here until auth is ready.';
+  }, [authRequired, authStatus?.authenticated, authStatus?.username, statusReady]);
+
+  const githubDisconnectedCopy = authRequired
+    ? 'GitHub needs to be connected before Sero can create and publish this repository.'
+    : 'Connect GitHub to create and publish a repository from here.';
 
   const handleCreateGitHub = async () => {
     const trimmed = name.trim();
@@ -69,6 +108,7 @@ export function GitRemotePublishSection({
 
     setAction('github');
     setFeedback(null);
+    setLastAuthOutcome(null);
     try {
       const result = await createGitHubOrigin({
         workspaceId,
@@ -76,33 +116,86 @@ export function GitRemotePublishSection({
         visibility,
       });
 
+      if (!mountedRef.current) return;
+
       if (!result.ok) {
+        if (result.reason === 'auth') {
+          const status = await refreshStatus();
+          if (!mountedRef.current) return;
+          resumeBlockedPublishRef.current = !status.authenticated;
+          setAuthRequired(!status.authenticated);
+          return;
+        }
+
+        resumeBlockedPublishRef.current = false;
+        setAuthRequired(false);
         setFeedback({
           tone: 'error',
           message:
-            result.reason === 'auth'
-              ? 'GitHub is not connected. Connect it in the sidebar first, then retry.'
-              : result.reason === 'missing-url'
-                ? 'Repository was created, but Sero could not determine its URL. Refresh and reconnect if needed.'
-                : (result.message ?? 'Failed to publish to GitHub'),
+            result.reason === 'missing-url'
+              ? 'Repository was created, but Sero could not determine its URL. Refresh and reconnect if needed.'
+              : (result.message ?? 'Failed to publish to GitHub'),
           url: result.url,
         });
         return;
       }
 
+      resumeBlockedPublishRef.current = false;
+      setAuthRequired(false);
       await onPublished();
+      if (!mountedRef.current) return;
       setFeedback({
         tone: 'success',
         message: 'Repository published and origin connected.',
         url: result.url,
       });
     } catch (error) {
+      if (!mountedRef.current) return;
+      resumeBlockedPublishRef.current = false;
+      setAuthRequired(false);
       setFeedback({
         tone: 'error',
         message: error instanceof Error ? error.message : 'Failed to publish to GitHub',
       });
     } finally {
-      setAction(null);
+      if (mountedRef.current) {
+        setAction(null);
+      }
+    }
+  };
+
+  const handleConnectGitHub = async ({ resumeBlockedPublish }: { resumeBlockedPublish: boolean }) => {
+    if (authLaunchInFlightRef.current) return;
+
+    authLaunchInFlightRef.current = true;
+    resumeBlockedPublishRef.current = resumeBlockedPublish;
+    setFeedback(null);
+    setLastAuthOutcome(null);
+
+    try {
+      const result = await openGitHubAuthDialog({ source: 'publish' });
+      if (!mountedRef.current) return;
+
+      const status = await refreshStatus();
+      if (!mountedRef.current) return;
+
+      if (result.outcome !== 'success' || !status.authenticated) {
+        setAuthRequired(resumeBlockedPublish && !status.authenticated);
+        if (result.outcome !== 'success') {
+          setLastAuthOutcome(result);
+        }
+        return;
+      }
+
+      setAuthRequired(false);
+      if (!resumeBlockedPublishRef.current) {
+        return;
+      }
+
+      resumeBlockedPublishRef.current = false;
+      await handleCreateGitHub();
+    } finally {
+      authLaunchInFlightRef.current = false;
     }
   };
 
@@ -149,13 +242,48 @@ export function GitRemotePublishSection({
 
       {mode === 'github' ? (
         <div className="space-y-3">
-          <div className="rounded-lg border border-[var(--status-info-border)] bg-[var(--status-info-faint)] px-3 py-2 text-[11px] leading-relaxed text-[var(--text-secondary)]">
-            {githubHint}
+          <div
+            className={cn(
+              'space-y-3 rounded-lg border px-3 py-3',
+              authRequired
+                ? 'border-[var(--status-info-border)] bg-[var(--status-info-faint)]'
+                : 'border-[var(--border-subtle)] bg-[var(--bg-base)]',
+            )}
+          >
+            <div className="space-y-1">
+              <p className="text-[11px] font-medium text-[var(--text-primary)]">
+                {authRequired ? 'GitHub connection required' : 'GitHub connection'}
+              </p>
+              <p className="text-[11px] leading-relaxed text-[var(--text-secondary)]">
+                {githubNoticeDescription}
+              </p>
+            </div>
+
+            <GitHubAuthSummary
+              authStatus={authStatus}
+              statusReady={statusReady}
+              disconnectedCopy={githubDisconnectedCopy}
+              onConnect={() => {
+                void handleConnectGitHub({ resumeBlockedPublish: authRequired });
+              }}
+              className="bg-[var(--bg-elevated)]/30"
+            />
+
+            {!authStatus?.authenticated && lastAuthOutcome ? (
+              <GitHubAuthOutcomeNote
+                outcome={lastAuthOutcome.outcome}
+                message={lastAuthOutcome.outcome === 'error' ? lastAuthOutcome.message : undefined}
+                onRetry={() => {
+                  void handleConnectGitHub({ resumeBlockedPublish: authRequired });
+                }}
+              />
+            ) : null}
           </div>
 
           <label className="space-y-1 text-[10px] uppercase tracking-[0.16em] text-[var(--text-muted)]">
             <span>Repository name</span>
             <Input
+              id="publish-repo-name"
               value={name}
               onChange={(event) => setName(event.target.value)}
               placeholder="my-project"
@@ -197,6 +325,7 @@ export function GitRemotePublishSection({
           <label className="space-y-1 text-[10px] uppercase tracking-[0.16em] text-[var(--text-muted)]">
             <span>Remote URL</span>
             <Input
+              id="publish-remote-url"
               value={remoteUrl}
               onChange={(event) => setRemoteUrl(event.target.value)}
               placeholder="https://github.com/you/repo.git"
@@ -290,4 +419,3 @@ function VisibilityButton({
     </button>
   );
 }
-
