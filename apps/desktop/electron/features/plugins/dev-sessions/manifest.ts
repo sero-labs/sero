@@ -114,10 +114,18 @@ export function applyPluginDevServerResultToManifest(
   manifest: SeroAppManifest,
   result: PluginDevServerResult,
 ): SeroAppManifest {
-  if (result.uiMode === 'built-fallback' || result.uiMode === 'dev-server') {
+  if (result.uiMode === 'dev-server') {
     return {
       ...manifest,
       remoteEntryOverride: result.remoteEntryOverride,
+    };
+  }
+
+  if (result.uiMode === 'built-fallback') {
+    return {
+      ...manifest,
+      devPort: undefined,
+      remoteEntryOverride: null,
     };
   }
 
@@ -125,6 +133,7 @@ export function applyPluginDevServerResultToManifest(
     ...manifest,
     component: null,
     uiEntry: null,
+    devPort: undefined,
     remoteEntryOverride: null,
   };
 }

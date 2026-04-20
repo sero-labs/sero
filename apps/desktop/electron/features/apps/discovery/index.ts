@@ -58,6 +58,7 @@ interface PkgJson {
 
 export interface ReadAppManifestOptions {
   useDeclaredDevPort?: boolean;
+  suppressDevPort?: boolean;
   remoteEntryOverride?: string | null;
   suppressUi?: boolean;
 }
@@ -175,9 +176,11 @@ function buildManifest(
     uiEntry: suppressUi ? null : app.ui ? path.resolve(packagePath, app.ui) : null,
     runtimeEntry: app.runtime ? path.resolve(packagePath, app.runtime) : null,
     component: suppressUi ? null : app.component || null,
-    devPort: options.useDeclaredDevPort
-      ? normalizeDeclaredDevPort(app.devPort)
-      : getManifestDevPort(app.id, packagePath, normalizeDeclaredDevPort(app.devPort)),
+    devPort: options.suppressDevPort
+      ? undefined
+      : options.useDeclaredDevPort
+        ? normalizeDeclaredDevPort(app.devPort)
+        : getManifestDevPort(app.id, packagePath, normalizeDeclaredDevPort(app.devPort)),
     remoteEntryOverride: suppressUi ? null : options.remoteEntryOverride ?? null,
     runtimeExternals: normalizeRuntimeExternals(app.runtimeExternals),
     packagePath,
@@ -228,6 +231,8 @@ function getActiveDevSessionManifestOptions(
 ): ReadAppManifestOptions {
   const record = activeDevSessionRecordMap.get(path.resolve(packagePath));
   return {
+    useDeclaredDevPort: record?.uiMode === 'dev-server',
+    suppressDevPort: !!record && record.uiMode !== 'dev-server',
     remoteEntryOverride: record?.remoteEntryOverride ?? null,
     suppressUi: record?.uiMode === 'backend-only' || record?.uiMode === 'unavailable',
   };

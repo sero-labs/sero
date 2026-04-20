@@ -3,7 +3,7 @@ import path from 'path';
 import net from 'net';
 import { createServer, type Server } from 'http';
 import { mkdir, mkdtemp, rm, writeFile } from 'fs/promises';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   ensurePluginDevServer,
   stopAllPluginDevServers,
@@ -69,6 +69,11 @@ function buildFailingCommand(): string {
   return `${JSON.stringify(process.execPath)} -e ${JSON.stringify(script)}`;
 }
 
+function buildIdleCommand(): string {
+  const script = 'setInterval(() => {}, 1000);';
+  return `${JSON.stringify(process.execPath)} -e ${JSON.stringify(script)}`;
+}
+
 async function startUnmanagedManifestServer(port: number, remoteName: string): Promise<Server> {
   return await new Promise((resolve, reject) => {
     const server = createServer((req, res) => {
@@ -92,6 +97,7 @@ async function startUnmanagedManifestServer(port: number, remoteName: string): P
 }
 
 afterEach(async () => {
+  vi.restoreAllMocks();
   await stopAllPluginDevServers();
   await Promise.all(tempRoots.splice(0).map((dir) => rm(dir, { recursive: true, force: true })));
 });
@@ -136,6 +142,57 @@ describe('ensurePluginDevServer', () => {
     expect(result.uiMode).toBe('built-fallback');
     expect(result.remoteEntryOverride).toBeNull();
     expect(result.error).toContain('Dev server start failed');
+  });
+
+  it('accepts localhost loopback responders when the dev server is not reachable via 127.0.0.1', async () => {
+    const sourcePath = await createTempSource();
+    const port = await getFreePort();
+    const appId = 'todo-plugin';
+    const expectedRemoteName = toRemoteName(appId);
+    let fetchCallCount = 0;
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = typeof input === 'string'
+        ? input
+        : input instanceof URL
+          ? input.toString()
+          : input.url;
+      fetchCallCount += 1;
+
+      if (fetchCallCount <= 3) {
+        throw new TypeError(`Connection refused: ${url}`);
+      }
+
+      if (url === `http://localhost:${port}/mf-manifest.json`) {
+        return new Response(JSON.stringify({
+          id: expectedRemoteName,
+          name: expectedRemoteName,
+          metaData: { name: expectedRemoteName },
+        }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        });
+      }
+
+      throw new TypeError(`Connection refused: ${url}`);
+    });
+
+    const result = await ensurePluginDevServer({
+      appId,
+      sourcePath,
+      declaredDevPort: port,
+      command: buildIdleCommand(),
+      hasDeclaredUi: true,
+      hasBuiltUi: false,
+    });
+
+    expect(result).toEqual({
+      remoteEntryOverride: `http://localhost:${port}/mf-manifest.json`,
+      uiMode: 'dev-server',
+      error: null,
+    });
+
+    await stopPluginDevServer(sourcePath);
   });
 
   it('refuses to reuse a matching pre-existing unmanaged localhost remote on the configured port', async () => {

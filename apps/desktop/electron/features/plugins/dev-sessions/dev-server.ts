@@ -7,6 +7,7 @@ const HEALTH_POLL_INTERVAL_MS = 500;
 const HEALTH_POLL_TIMEOUT_MS = 20_000;
 const HEALTH_REQUEST_TIMEOUT_MS = 2_000;
 const OUTPUT_LIMIT = 4_000;
+const LOOPBACK_HOSTS = ['127.0.0.1', 'localhost'] as const;
 
 interface ManagedPluginDevServer {
   sourcePath: string;
@@ -46,8 +47,12 @@ function toRemoteName(appId: string): string {
   return `sero_${appId.replace(/-/g, '_')}`;
 }
 
-function buildRemoteEntryOverride(port: number): string {
-  return `http://127.0.0.1:${port}/mf-manifest.json`;
+function buildRemoteEntryOverride(host: (typeof LOOPBACK_HOSTS)[number], port: number): string {
+  return `http://${host}:${port}/mf-manifest.json`;
+}
+
+function getRemoteEntryOverrideCandidates(port: number): string[] {
+  return LOOPBACK_HOSTS.map((host) => buildRemoteEntryOverride(host, port));
 }
 
 function trimOutput(output: string): string {
@@ -191,30 +196,47 @@ async function probeRemoteEntry(
   }
 }
 
+async function probeRemoteEntryCandidates(
+  remoteEntryOverrides: string[],
+  expectedRemoteName?: string,
+): Promise<{ remoteEntryOverride: string; probe: RemoteEntryProbeResult } | null> {
+  let mismatch: { remoteEntryOverride: string; probe: RemoteEntryProbeResult } | null = null;
+
+  for (const remoteEntryOverride of remoteEntryOverrides) {
+    const probe = await probeRemoteEntry(remoteEntryOverride, expectedRemoteName);
+    if (probe.status === 'ready') {
+      return { remoteEntryOverride, probe };
+    }
+    if (probe.status === 'mismatch' && !mismatch) {
+      mismatch = { remoteEntryOverride, probe };
+    }
+  }
+
+  return mismatch;
+}
+
 async function waitForRemoteEntry(
-  remoteEntryOverride: string,
+  remoteEntryOverrides: string[],
   entry?: ManagedPluginDevServer,
   expectedRemoteName?: string,
-): Promise<RemoteEntryProbeResult> {
+): Promise<{ remoteEntryOverride: string; probe: RemoteEntryProbeResult } | null> {
   const startedAt = Date.now();
 
   while (Date.now() - startedAt < HEALTH_POLL_TIMEOUT_MS) {
-    const probe = await probeRemoteEntry(remoteEntryOverride, expectedRemoteName);
+    const resolvedProbe = await probeRemoteEntryCandidates(remoteEntryOverrides, expectedRemoteName);
 
     if (entry && (entry.child.exitCode !== null || entry.child.killed)) {
-      return probe.status === 'mismatch'
-        ? probe
-        : { status: 'unreachable', remoteName: null };
+      return resolvedProbe?.probe.status === 'mismatch' ? resolvedProbe : null;
     }
 
-    if (probe.status !== 'unreachable') {
-      return probe;
+    if (resolvedProbe) {
+      return resolvedProbe;
     }
 
     await sleep(HEALTH_POLL_INTERVAL_MS);
   }
 
-  return { status: 'unreachable', remoteName: null };
+  return null;
 }
 
 function summarizeStartupFailure(command: string, entry?: ManagedPluginDevServer): string {
@@ -284,7 +306,7 @@ export async function ensurePluginDevServer(
   }
 
   const expectedRemoteName = toRemoteName(options.appId);
-  const remoteEntryOverride = buildRemoteEntryOverride(options.declaredDevPort);
+  const remoteEntryOverrides = getRemoteEntryOverrideCandidates(options.declaredDevPort);
   let entry = getManagedServer(sourcePath);
 
   if (entry && !hasMatchingManagedServer(entry, options.command, options.declaredDevPort)) {
@@ -293,16 +315,16 @@ export async function ensurePluginDevServer(
   }
 
   if (entry) {
-    const probe = await probeRemoteEntry(remoteEntryOverride, expectedRemoteName);
-    if (probe.status === 'ready') {
+    const resolvedProbe = await probeRemoteEntryCandidates(remoteEntryOverrides, expectedRemoteName);
+    if (resolvedProbe?.probe.status === 'ready') {
       return {
-        remoteEntryOverride,
+        remoteEntryOverride: resolvedProbe.remoteEntryOverride,
         uiMode: 'dev-server',
         error: null,
       };
     }
 
-    if (probe.status === 'mismatch') {
+    if (resolvedProbe?.probe.status === 'mismatch') {
       await stopPluginDevServer(sourcePath);
       return createFallbackResult(
         builtUiAvailable,
@@ -310,15 +332,15 @@ export async function ensurePluginDevServer(
           sourcePath,
           options.declaredDevPort,
           expectedRemoteName,
-          probe.remoteName,
+          resolvedProbe.probe.remoteName,
         ),
       );
     }
   }
 
   if (!entry) {
-    const probe = await probeRemoteEntry(remoteEntryOverride, expectedRemoteName);
-    if (probe.status === 'ready') {
+    const resolvedProbe = await probeRemoteEntryCandidates(remoteEntryOverrides, expectedRemoteName);
+    if (resolvedProbe?.probe.status === 'ready') {
       return createFallbackResult(
         builtUiAvailable,
         createUnmanagedRemoteReuseError(
@@ -329,14 +351,14 @@ export async function ensurePluginDevServer(
       );
     }
 
-    if (probe.status === 'mismatch') {
+    if (resolvedProbe?.probe.status === 'mismatch') {
       return createFallbackResult(
         builtUiAvailable,
         createUnexpectedRemoteError(
           sourcePath,
           options.declaredDevPort,
           expectedRemoteName,
-          probe.remoteName,
+          resolvedProbe.probe.remoteName,
         ),
       );
     }
@@ -354,24 +376,24 @@ export async function ensurePluginDevServer(
     }
   }
 
-  const probe = await waitForRemoteEntry(remoteEntryOverride, entry, expectedRemoteName);
-  if (probe.status === 'ready') {
+  const resolvedProbe = await waitForRemoteEntry(remoteEntryOverrides, entry, expectedRemoteName);
+  if (resolvedProbe?.probe.status === 'ready') {
     return {
-      remoteEntryOverride,
+      remoteEntryOverride: resolvedProbe.remoteEntryOverride,
       uiMode: 'dev-server',
       error: null,
     };
   }
 
   await stopPluginDevServer(sourcePath);
-  if (probe.status === 'mismatch') {
+  if (resolvedProbe?.probe.status === 'mismatch') {
     return createFallbackResult(
       builtUiAvailable,
       createUnexpectedRemoteError(
         sourcePath,
         options.declaredDevPort,
         expectedRemoteName,
-        probe.remoteName,
+        resolvedProbe.probe.remoteName,
       ),
     );
   }

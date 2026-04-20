@@ -91,6 +91,23 @@ describe('plugin dev manifest validation', () => {
     })).toEqual(expect.objectContaining({
       component: null,
       uiEntry: null,
+      devPort: undefined,
+      remoteEntryOverride: null,
+    }));
+  });
+
+  it('clears legacy devPort fallback metadata when a session uses built UI fallback', async () => {
+    const sourcePath = await createPluginSource();
+    const manifest = (await readPluginDevSourceManifest(sourcePath)).manifest;
+
+    expect(applyPluginDevServerResultToManifest(manifest, {
+      remoteEntryOverride: null,
+      uiMode: 'built-fallback',
+      error: 'dev server unreachable',
+    })).toEqual(expect.objectContaining({
+      component: 'DevPluginApp',
+      uiEntry: expect.stringContaining('/dist/ui/remoteEntry.js'),
+      devPort: undefined,
       remoteEntryOverride: null,
     }));
   });
