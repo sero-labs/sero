@@ -450,7 +450,7 @@ Cover both the controller/dialog and the contextual integrations.
 - **Acceptance:** supports ISC-2, ISC-3, ISC-6, ISC-9, ISC-11, ISC-A-2.
 - **Status:** completed 2026-04-20.
 
-### GHA-03 — Create reusable inline launcher/status primitives and migrate Explorer to them
+### [x] GHA-03 — Create reusable inline launcher/status primitives and migrate Explorer to them
 - **Plan artifact:** `.pi/plans/2026-04-20-github-auth-unification/plan.md`
 - **Files:**
   - new `apps/desktop/src/components/layout/auth/github/GitHubAuthSummary.tsx`
@@ -478,6 +478,7 @@ Cover both the controller/dialog and the contextual integrations.
   - **Anti-pattern: Hidden Second Flow** — do not leave the old inline device-flow UI in Explorer while also adding the dialog.
   - **Anti-pattern: Surface-Specific Login Logic** — do not wire the Explorer button straight to `window.sero.github.login()`.
 - **Acceptance:** supports ISC-1, ISC-2, ISC-6, ISC-12, ISC-A-2.
+- **Status:** completed 2026-04-20.
 
 ### GHA-04 — Refactor onboarding to launch the shared dialog and return to a connected step
 - **Plan artifact:** `.pi/plans/2026-04-20-github-auth-unification/plan.md`
