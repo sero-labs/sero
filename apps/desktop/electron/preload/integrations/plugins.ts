@@ -4,7 +4,13 @@
 
 import { ipcRenderer } from 'electron';
 import { IpcChannels } from '@/types/ipc-channels';
-import type { SeroAppManifest, InstalledPlugin, PluginChangeEvent, DiscoveredPlugin } from '@/types/ipc';
+import type {
+  SeroAppManifest,
+  InstalledPlugin,
+  PluginChangeEvent,
+  PluginDevSessionIPC,
+  DiscoveredPlugin,
+} from '@/types/ipc';
 
 export const pluginsBridge = {
   install: (source: string): Promise<SeroAppManifest> =>
@@ -15,6 +21,18 @@ export const pluginsBridge = {
 
   list: (): Promise<InstalledPlugin[]> =>
     ipcRenderer.invoke(IpcChannels.plugins.list),
+
+  listDevSessions: (): Promise<PluginDevSessionIPC[]> =>
+    ipcRenderer.invoke(IpcChannels.plugins.listDevSessions),
+
+  startDevSession: (sourcePath?: string): Promise<PluginDevSessionIPC | null> =>
+    ipcRenderer.invoke(IpcChannels.plugins.startDevSession, sourcePath),
+
+  refreshDevSession: (sessionId: string): Promise<PluginDevSessionIPC> =>
+    ipcRenderer.invoke(IpcChannels.plugins.refreshDevSession, sessionId),
+
+  stopDevSession: (sessionId: string): Promise<void> =>
+    ipcRenderer.invoke(IpcChannels.plugins.stopDevSession, sessionId),
 
   isPlugin: (pluginId: string): Promise<boolean> =>
     ipcRenderer.invoke(IpcChannels.plugins.isPlugin, pluginId),

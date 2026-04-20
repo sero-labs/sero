@@ -417,11 +417,15 @@ export const IpcChannels = {
     uninstall: 'sero:plugins:uninstall',
     /** List all installed plugins. */
     list: 'sero:plugins:list',
+    listDevSessions: 'sero:plugins:list-dev-sessions',
+    startDevSession: 'sero:plugins:start-dev-session',
+    refreshDevSession: 'sero:plugins:refresh-dev-session',
+    stopDevSession: 'sero:plugins:stop-dev-session',
     /** Check if a specific app is an installed plugin. */
     isPlugin: 'sero:plugins:is-plugin',
     /** Search for public plugins on GitHub (topic) and npm (keyword). */
     search: 'sero:plugins:search',
-    /** Main → renderer push: plugin installed or uninstalled. */
+    /** Main → renderer push: plugin install and dev-session lifecycle changes. */
     event: 'sero:plugins:event',
   },
   appControl: {

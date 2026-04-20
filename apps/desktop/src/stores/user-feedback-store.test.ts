@@ -21,7 +21,12 @@ const federationMocks = vi.hoisted(() => {
       return preloadPromise;
     },
     preloadFederatedModule: vi.fn<
-      (appId: string, component: string, devPort: number | undefined) => Promise<void>
+      (
+        appId: string,
+        component: string,
+        devPort: number | undefined,
+        remoteEntryOverride: string | null,
+      ) => Promise<void>
     >(),
     refreshTransientRemote: vi.fn<(appId: string) => void>(),
     hasTransientRemote: vi.fn<(appId: string) => boolean>(),
@@ -56,6 +61,7 @@ function createManifest(id: string): SeroAppManifest {
     runtimeEntry: null,
     component: `${id}App`,
     devPort: 4100,
+    remoteEntryOverride: null,
     packagePath: `/tmp/${id}`,
     isPlugin: false,
     widgets: [],

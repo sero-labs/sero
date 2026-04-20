@@ -24,7 +24,12 @@ export function ActiveAppPanel({ app }: ActiveAppPanelProps) {
   } else if (app === 'explorer') {
     content = <ExplorerWorkspace />;
   } else if (entry?.manifest) {
-    content = <SeroAppMount manifest={entry.manifest} />;
+    const manifestKey = [
+      entry.manifest.id,
+      entry.manifest.remoteEntryOverride ?? entry.manifest.uiEntry ?? 'builtin',
+      entry.manifest.component ?? 'no-component',
+    ].join(':');
+    content = <SeroAppMount key={manifestKey} manifest={entry.manifest} />;
   } else {
     content = (
       <div className="flex h-full items-center justify-center bg-[var(--bg-base)]">

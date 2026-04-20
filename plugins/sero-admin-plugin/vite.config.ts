@@ -8,27 +8,33 @@ import react from '@vitejs/plugin-react';
 import { federation } from '@module-federation/vite';
 import tailwindcss from '@tailwindcss/vite';
 
+// Unit tests do not exercise module-federation wiring, and the MF plugin
+// interferes with direct TSX imports under Vitest.
+const isTest = process.env.VITEST === 'true';
+
 export default defineConfig({
   root: 'ui',
   base: process.env.NODE_ENV === 'production' ? './' : '/',
   plugins: [
     react(),
     tailwindcss(),
-    federation({
-      name: 'sero_admin',
-      filename: 'remoteEntry.js',
-      dts: false,
-      manifest: true,
-      exposes: {
-        './AdminApp': './ui/AdminApp.tsx',
-      },
-      shared: {
-        react: { singleton: true },
-        'react/': { singleton: true },
-        'react-dom': { singleton: true },
-        'react-dom/': { singleton: true },
-      },
-    }),
+    ...(isTest ? [] : [
+      federation({
+        name: 'sero_admin',
+        filename: 'remoteEntry.js',
+        dts: false,
+        manifest: true,
+        exposes: {
+          './AdminApp': './ui/AdminApp.tsx',
+        },
+        shared: {
+          react: { singleton: true },
+          'react/': { singleton: true },
+          'react-dom': { singleton: true },
+          'react-dom/': { singleton: true },
+        },
+      }),
+    ]),
   ],
   server: {
     port: 5193,

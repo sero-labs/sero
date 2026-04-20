@@ -2,17 +2,18 @@
  * App discovery — scans Pi packages for `sero.app` manifests.
  *
  * Looks in:
- *   1. ~/.sero-ui/agent/extensions/ (Sero extensions, may have sero.app)
- *   2. Packages listed in ~/.sero-ui/agent/settings.json
- *   3. Explicitly registered app paths (for local dev)
- *
- * Each package.json with a `sero.app` key is parsed into a SeroAppManifest.
+ *   1. ~/.sero-ui/agent/extensions/
+ *   2. Packages/extensions listed in ~/.sero-ui/agent/settings.json
+ *   3. Explicitly registered app paths
+ *   4. Active local plugin development session paths
  */
 
 import { promises as fs } from 'fs';
 import path from 'path';
 import type { SeroAppManifest, SeroWidgetManifest, SettingsPackageSource } from '@/types/ipc';
-
+import type { PluginDevSessionRecord } from '@electron/features/plugins/dev-sessions/types';
+import { buildCacheBustedRemoteEntryOverride } from '@electron/features/plugins/dev-sessions/remote-entry';
+import { readPluginDevSessionRecords } from '@electron/features/plugins/dev-sessions/settings';
 import { SERO_AGENT_DIR, SERO_FIXED_ROOT, SERO_HOME } from '@electron/platform/env';
 import { evaluatePluginCompatibility } from '@electron/features/plugins/compatibility';
 import {
@@ -24,8 +25,6 @@ import {
 
 const SERO_EXTENSIONS_DIR = path.join(SERO_AGENT_DIR, 'extensions');
 const SERO_PACKAGES_DIR = path.join(SERO_AGENT_DIR, 'packages');
-
-// ── Manifest parsing ─────────────────────────────────────────
 
 interface PkgWidgetDef {
   id?: string;
@@ -58,12 +57,12 @@ interface PkgJson {
   sero?: { app?: PkgSeroApp; plugin?: unknown };
 }
 
-// ── Selective plugin dev mode ─────────────────────────────────
-// SERO_DEV_PLUGINS controls which plugin manifests get dev ports.
-// Unset / ""     → no plugins run in dev mode (all use pre-built bundles)
-// "all"          → every plugin runs in dev mode
-// "admin,kanban" → only listed plugins run in dev mode
-// Keep in sync with the equivalent filter in vite.config.ts (Vite build process).
+export interface ReadAppManifestOptions {
+  useDeclaredDevPort?: boolean;
+  suppressDevPort?: boolean;
+  remoteEntryOverride?: string | null;
+  suppressUi?: boolean;
+}
 
 const devPluginsEnv = process.env.SERO_DEV_PLUGINS?.trim();
 const devPluginsFilter: Set<string> | 'all' =
@@ -94,6 +93,12 @@ export function isInstalledPluginPackagePath(packagePath: string): boolean {
   ));
 }
 
+function normalizeDeclaredDevPort(devPort: number | undefined): number | undefined {
+  return typeof devPort === 'number' && Number.isInteger(devPort) && devPort > 0
+    ? devPort
+    : undefined;
+}
+
 export function getManifestDevPort(appId: string, packagePath: string, devPort: number | undefined): number | undefined {
   if (!devPort) return undefined;
   if (isInstalledPluginPackagePath(packagePath)) return undefined;
@@ -110,63 +115,53 @@ function normalizeRuntimeExternals(runtimeExternals: string[] | undefined): stri
   )].sort((a, b) => a.localeCompare(b));
 }
 
-async function parseManifest(pkgJson: PkgJson, packagePath: string): Promise<SeroAppManifest | null> {
+function parseWidgets(app: PkgSeroApp): SeroWidgetManifest[] {
+  const widgets: SeroWidgetManifest[] = [];
+  if (!Array.isArray(app.widgets)) return widgets;
+
+  for (const widget of app.widgets) {
+    if (!widget.id || !widget.name || !widget.component) continue;
+    widgets.push({
+      id: widget.id,
+      name: widget.name,
+      component: widget.component,
+      defaultSize: {
+        w: typeof widget.defaultSize?.w === 'number' ? widget.defaultSize.w : 2,
+        h: typeof widget.defaultSize?.h === 'number' ? widget.defaultSize.h : 2,
+      },
+      minSize: widget.minSize ? {
+        w: typeof widget.minSize.w === 'number' ? widget.minSize.w : 1,
+        h: typeof widget.minSize.h === 'number' ? widget.minSize.h : 1,
+      } : undefined,
+      maxSize: widget.maxSize ? {
+        w: typeof widget.maxSize.w === 'number' ? widget.maxSize.w : 4,
+        h: typeof widget.maxSize.h === 'number' ? widget.maxSize.h : 4,
+      } : undefined,
+      description: typeof widget.description === 'string' ? widget.description : undefined,
+    });
+  }
+
+  return widgets;
+}
+
+function buildManifest(
+  pkgJson: PkgJson,
+  packagePath: string,
+  options: ReadAppManifestOptions,
+): SeroAppManifest | null {
   const app = pkgJson.sero?.app;
   if (!app || !app.id || !app.name) return null;
 
-  let uiEntry: string | null = null;
-  if (app.ui) {
-    uiEntry = path.resolve(packagePath, app.ui);
-  }
-
-  let runtimeEntry: string | null = null;
-  if (app.runtime) {
-    runtimeEntry = path.resolve(packagePath, app.runtime);
-  }
-
   const scope = app.scope === 'global' ? 'global' : 'workspace';
-  const globalStatePath = scope === 'global'
-    ? path.join(SERO_HOME, 'apps', app.id, 'state.json')
-    : null;
-
   const pluginDeclared = hasPluginDeclaration(pkgJson);
   const parsedPlugin = parsePluginMeta(pkgJson.sero?.plugin);
   const compatibilityRequirements = pluginDeclared
     ? extractPluginCompatibilityRequirements(pkgJson.sero?.plugin)
     : null;
+  const suppressUi = options.suppressUi === true;
+
   if (pluginDeclared) {
     warnInvalidPluginMeta(packagePath, parsedPlugin.warnings);
-  }
-
-  // Parse widget definitions
-  const plugin = parsedPlugin.meta;
-  const hostCompatibility = compatibilityRequirements
-    ? evaluatePluginCompatibility(compatibilityRequirements)
-    : null;
-
-  const widgets: SeroWidgetManifest[] = [];
-  if (Array.isArray(app.widgets)) {
-    for (const w of app.widgets) {
-      if (!w.id || !w.name || !w.component) continue;
-      widgets.push({
-        id: w.id,
-        name: w.name,
-        component: w.component,
-        defaultSize: {
-          w: typeof w.defaultSize?.w === 'number' ? w.defaultSize.w : 2,
-          h: typeof w.defaultSize?.h === 'number' ? w.defaultSize.h : 2,
-        },
-        minSize: w.minSize ? {
-          w: typeof w.minSize.w === 'number' ? w.minSize.w : 1,
-          h: typeof w.minSize.h === 'number' ? w.minSize.h : 1,
-        } : undefined,
-        maxSize: w.maxSize ? {
-          w: typeof w.maxSize.w === 'number' ? w.maxSize.w : 4,
-          h: typeof w.maxSize.h === 'number' ? w.maxSize.h : 4,
-        } : undefined,
-        description: typeof w.description === 'string' ? w.description : undefined,
-      });
-    }
   }
 
   return {
@@ -178,23 +173,27 @@ async function parseManifest(pkgJson: PkgJson, packagePath: string): Promise<Ser
     icon: app.icon || 'box',
     stateFile: app.stateFile,
     scope,
-    globalStatePath,
-    uiEntry,
-    runtimeEntry,
-    component: app.component || null,
-    devPort: getManifestDevPort(app.id, packagePath, app.devPort),
+    globalStatePath: scope === 'global' ? path.join(SERO_HOME, 'apps', app.id, 'state.json') : null,
+    uiEntry: suppressUi ? null : app.ui ? path.resolve(packagePath, app.ui) : null,
+    runtimeEntry: app.runtime ? path.resolve(packagePath, app.runtime) : null,
+    component: suppressUi ? null : app.component || null,
+    devPort: options.suppressDevPort
+      ? undefined
+      : options.useDeclaredDevPort
+        ? normalizeDeclaredDevPort(app.devPort)
+        : getManifestDevPort(app.id, packagePath, normalizeDeclaredDevPort(app.devPort)),
+    remoteEntryOverride: suppressUi ? null : options.remoteEntryOverride ?? null,
     runtimeExternals: normalizeRuntimeExternals(app.runtimeExternals),
     packagePath,
     isPlugin: pluginDeclared,
-    plugin,
-    hostCompatibility,
-    widgets,
+    plugin: parsedPlugin.meta,
+    hostCompatibility: compatibilityRequirements
+      ? evaluatePluginCompatibility(compatibilityRequirements)
+      : null,
+    widgets: parseWidgets(app),
   };
 }
 
-// ── Scanning ─────────────────────────────────────────────────
-
-/** Read and parse package.json from a directory. Returns null on failure. */
 async function readPkgJson(dir: string): Promise<PkgJson | null> {
   try {
     const raw = await fs.readFile(path.join(dir, 'package.json'), 'utf8');
@@ -204,85 +203,143 @@ async function readPkgJson(dir: string): Promise<PkgJson | null> {
   }
 }
 
-/** Scan a directory for subdirectories containing sero app manifests. */
-async function scanDir(dir: string): Promise<SeroAppManifest[]> {
-  const results: SeroAppManifest[] = [];
+export async function readAppManifestFromPackagePath(
+  packagePath: string,
+  options: ReadAppManifestOptions = {},
+): Promise<SeroAppManifest | null> {
+  const resolvedPath = path.resolve(packagePath);
+  const pkgJson = await readPkgJson(resolvedPath);
+  return pkgJson ? buildManifest(pkgJson, resolvedPath, options) : null;
+}
+
+function isActivePluginDevSessionRecord(record: PluginDevSessionRecord): boolean {
+  return record.status !== 'broken';
+}
+
+function getActivePluginDevSessionRecordMap(
+  records = readPluginDevSessionRecords(),
+): Map<string, PluginDevSessionRecord> {
+  return new Map(
+    records
+      .filter(isActivePluginDevSessionRecord)
+      .map((record) => [path.resolve(record.sourcePath), record]),
+  );
+}
+
+function getActiveDevSessionManifestOptions(
+  packagePath: string,
+  activeDevSessionRecordMap: Map<string, PluginDevSessionRecord>,
+): ReadAppManifestOptions {
+  const record = activeDevSessionRecordMap.get(path.resolve(packagePath));
+  return {
+    useDeclaredDevPort: record?.uiMode === 'dev-server',
+    suppressDevPort: !!record && record.uiMode !== 'dev-server',
+    remoteEntryOverride: record
+      ? buildCacheBustedRemoteEntryOverride(record.remoteEntryOverride, record.updatedAt)
+      : null,
+    suppressUi: record?.uiMode === 'backend-only' || record?.uiMode === 'unavailable',
+  };
+}
+
+async function appendManifestAtPath(
+  results: SeroAppManifest[],
+  seenPaths: Set<string>,
+  packagePath: string,
+  activeDevSessionRecordMap: Map<string, PluginDevSessionRecord>,
+  options: ReadAppManifestOptions = {},
+): Promise<void> {
+  const resolvedPath = path.resolve(packagePath);
+  if (seenPaths.has(resolvedPath)) return;
+  seenPaths.add(resolvedPath);
+
+  const manifest = await readAppManifestFromPackagePath(
+    resolvedPath,
+    {
+      ...getActiveDevSessionManifestOptions(resolvedPath, activeDevSessionRecordMap),
+      ...options,
+    },
+  );
+  if (manifest) {
+    results.push(manifest);
+  }
+}
+
+async function scanDir(
+  dir: string,
+  results: SeroAppManifest[],
+  seenPaths: Set<string>,
+  activeDevSessionRecordMap: Map<string, PluginDevSessionRecord>,
+  options: ReadAppManifestOptions = {},
+): Promise<void> {
   try {
     const entries = await fs.readdir(dir, { withFileTypes: true });
     for (const entry of entries) {
       if (!entry.isDirectory()) continue;
-      const pkgPath = path.join(dir, entry.name);
-      const pkg = await readPkgJson(pkgPath);
-      if (pkg) {
-        const manifest = await parseManifest(pkg, pkgPath);
-        if (manifest) results.push(manifest);
-      }
+      await appendManifestAtPath(
+        results,
+        seenPaths,
+        path.join(dir, entry.name),
+        activeDevSessionRecordMap,
+        options,
+      );
     }
   } catch {
-    // Directory doesn't exist — skip
+    // Directory doesn't exist — skip.
   }
-  return results;
 }
 
-/**
- * Read additional extension/package paths from Sero's settings.json.
- * These are absolute paths or npm: / git: references we resolve to disk.
- */
-async function scanSettingsPaths(): Promise<SeroAppManifest[]> {
-  const results: SeroAppManifest[] = [];
+async function appendSettingsPaths(
+  results: SeroAppManifest[],
+  seenPaths: Set<string>,
+  activeDevSessionRecordMap: Map<string, PluginDevSessionRecord>,
+): Promise<void> {
   try {
     const raw = await fs.readFile(path.join(SERO_AGENT_DIR, 'settings.json'), 'utf8');
-    const settings = JSON.parse(raw);
+    const settings = JSON.parse(raw) as {
+      packages?: SettingsPackageSource[];
+      extensions?: string[];
+    };
 
-    // Check "packages" array for local package paths
-    const packages: SettingsPackageSource[] = settings.packages ?? [];
-    for (const pkgSource of packages) {
+    for (const pkgSource of settings.packages ?? []) {
       const source = typeof pkgSource === 'string' ? pkgSource : pkgSource.source;
-      if (typeof source !== 'string' || !source) continue;
-      if (source.startsWith('npm:') || source.startsWith('git:')) continue;
-      const resolved = path.resolve(source);
-      const pkg = await readPkgJson(resolved);
-      if (pkg) {
-        const manifest = await parseManifest(pkg, resolved);
-        if (manifest) results.push(manifest);
-      }
+      if (typeof source !== 'string' || !source || source.startsWith('npm:') || source.startsWith('git:')) continue;
+      await appendManifestAtPath(results, seenPaths, source, activeDevSessionRecordMap);
     }
 
-    // Check "extensions" array for local paths
-    const extensions: string[] = settings.extensions ?? [];
-    for (const ext of extensions) {
-      if (ext.startsWith('npm:') || ext.startsWith('git:')) continue;
-      const resolved = path.resolve(ext);
-      const pkg = await readPkgJson(resolved);
-      if (pkg) {
-        const manifest = await parseManifest(pkg, resolved);
-        if (manifest) results.push(manifest);
-      }
+    for (const extensionPath of settings.extensions ?? []) {
+      if (extensionPath.startsWith('npm:') || extensionPath.startsWith('git:')) continue;
+      await appendManifestAtPath(results, seenPaths, extensionPath, activeDevSessionRecordMap);
     }
-
-    // Check installed packages in ~/.sero-ui/agent/packages/
-    const pkgDir = path.join(SERO_AGENT_DIR, 'packages');
-    const fromPkgs = await scanDir(pkgDir);
-    results.push(...fromPkgs);
   } catch {
-    // settings.json missing or malformed — skip
+    // settings.json missing or malformed — skip.
   }
-  return results;
+
+  await scanDir(path.join(SERO_AGENT_DIR, 'packages'), results, seenPaths, activeDevSessionRecordMap);
 }
 
-// ── Public API ───────────────────────────────────────────────
+async function appendActiveDevSessionPaths(
+  results: SeroAppManifest[],
+  seenPaths: Set<string>,
+  activeDevSessionRecordMap: Map<string, PluginDevSessionRecord>,
+): Promise<void> {
+  for (const record of activeDevSessionRecordMap.values()) {
+    await appendManifestAtPath(
+      results,
+      seenPaths,
+      record.sourcePath,
+      activeDevSessionRecordMap,
+    );
+  }
+}
 
-/** Manually registered paths for local development. */
 const registeredPaths: string[] = [];
 
-/** Register an additional path to scan for sero apps (e.g. workspace-local). */
 export function registerAppPath(absPath: string): void {
   if (!registeredPaths.includes(absPath)) {
     registeredPaths.push(absPath);
   }
 }
 
-/** Stop scanning a previously registered app path. */
 export function unregisterAppPath(absPath: string): void {
   const index = registeredPaths.indexOf(absPath);
   if (index !== -1) {
@@ -290,28 +347,26 @@ export function unregisterAppPath(absPath: string): void {
   }
 }
 
-/** Discover all Sero apps from all known locations. Deduplicates by app id. */
-export async function discoverApps(): Promise<SeroAppManifest[]> {
-  const all: SeroAppManifest[] = [];
+export async function discoverAppCandidates(): Promise<SeroAppManifest[]> {
+  const results: SeroAppManifest[] = [];
+  const seenPaths = new Set<string>();
+  const activeDevSessionRecordMap = getActivePluginDevSessionRecordMap();
 
-  // 1. Sero extensions directory
-  all.push(...await scanDir(SERO_EXTENSIONS_DIR));
+  await scanDir(SERO_EXTENSIONS_DIR, results, seenPaths, activeDevSessionRecordMap);
+  await appendSettingsPaths(results, seenPaths, activeDevSessionRecordMap);
 
-  // 2. Settings paths + installed packages
-  all.push(...await scanSettingsPaths());
-
-  // 3. Manually registered paths
-  for (const p of registeredPaths) {
-    const pkg = await readPkgJson(p);
-    if (pkg) {
-      const manifest = await parseManifest(pkg, p);
-      if (manifest) all.push(manifest);
-    }
+  for (const registeredPath of registeredPaths) {
+    await appendManifestAtPath(results, seenPaths, registeredPath, activeDevSessionRecordMap);
   }
 
-  // Deduplicate by app id (last wins — allows local dev overrides)
+  await appendActiveDevSessionPaths(results, seenPaths, activeDevSessionRecordMap);
+  return results;
+}
+
+export async function discoverApps(): Promise<SeroAppManifest[]> {
   const byId = new Map<string, SeroAppManifest>();
-  for (const app of all) {
+
+  for (const app of await discoverAppCandidates()) {
     if (byId.has(app.id)) {
       const existing = byId.get(app.id)!;
       if (existing.packagePath !== app.packagePath) {
@@ -324,5 +379,5 @@ export async function discoverApps(): Promise<SeroAppManifest[]> {
     byId.set(app.id, app);
   }
 
-  return Array.from(byId.values());
+  return [...byId.values()];
 }

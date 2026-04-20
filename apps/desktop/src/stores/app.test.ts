@@ -4,8 +4,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PluginChangeEvent, SeroAppManifest } from '@/types/ipc';
 
 const federationMocks = vi.hoisted(() => ({
-  preloadFederatedModule: vi.fn<(appId: string, component: string, devPort: number | undefined) => Promise<void>>(),
-  registerDynamicRemote: vi.fn<(appId: string, devPort: number | undefined) => void>(),
+  preloadFederatedModule: vi.fn<(
+    appId: string,
+    component: string,
+    devPort: number | undefined,
+    remoteEntryOverride: string | null,
+  ) => Promise<void>>(),
+  registerDynamicRemote: vi.fn<(
+    appId: string,
+    devPort: number | undefined,
+    remoteEntryOverride: string | null,
+  ) => void>(),
   invalidateRemote: vi.fn<(appId: string) => void>(),
   refreshTransientRemote: vi.fn<(appId: string) => void>(),
   hasTransientRemote: vi.fn<(appId: string) => boolean>(),
@@ -19,7 +28,12 @@ vi.mock('@/lib/federation-registry', () => ({
   hasTransientRemote: federationMocks.hasTransientRemote,
 }));
 
-import { discoverAndRegisterApps, handlePluginChange, useAppStore } from './app';
+import {
+  discoverAndRegisterApps,
+  handlePluginChange,
+  listenForNewApps,
+  useAppStore,
+} from './app';
 
 function createManifest(
   id: string,
@@ -40,6 +54,7 @@ function createManifest(
     uiEntry: component ? `sero-ext://${id}/mf-manifest.json` : null,
     component,
     devPort,
+    remoteEntryOverride: null,
     packagePath: `/tmp/${id}`,
     isPlugin: false,
     widgets: [],
@@ -212,26 +227,121 @@ describe('discoverAndRegisterApps', () => {
     ).toBeLessThan(federationMocks.preloadFederatedModule.mock.invocationCallOrder[0]);
   });
 
-  it('hot-refreshes runtime remotes after plugin install and uninstall events', async () => {
+  it('rediscovers apps when plugin-change events report dev-session updates', async () => {
+    let pluginChangedHandler: ((event: PluginChangeEvent) => void) | null = null;
+    const unsubscribePlugins = vi.fn();
+    const unsubscribeApps = vi.fn();
+
+    const onChangedMock = window.sero.plugins.onChanged as unknown as ReturnType<typeof vi.fn>;
+    const onNewAppDetectedMock = window.sero.apps.onNewAppDetected as unknown as ReturnType<typeof vi.fn>;
+
+    onChangedMock.mockImplementation((callback: (event: PluginChangeEvent) => void) => {
+      pluginChangedHandler = callback;
+      return unsubscribePlugins;
+    });
+    onNewAppDetectedMock.mockImplementation(() => unsubscribeApps);
+
+    discover.mockResolvedValue([
+      createManifest('todo', 'TodoApp', 4101, {
+        remoteEntryOverride: 'http://127.0.0.1:4101/mf-manifest.json',
+      }),
+    ]);
+
+    const unsubscribe = listenForNewApps();
+
+    await vi.waitFor(() => {
+      expect(pluginChangedHandler).not.toBeNull();
+    });
+
+    if (!pluginChangedHandler) {
+      throw new Error('Expected plugin change handler to be registered');
+    }
+
+    const emitPluginChanged = pluginChangedHandler as (event: PluginChangeEvent) => void;
+    emitPluginChanged({
+      type: 'changed',
+      pluginId: 'todo',
+      reason: 'dev-session-refreshed',
+    });
+
+    await vi.waitFor(() => {
+      expect(discover).toHaveBeenCalledTimes(1);
+      expect(useAppStore.getState().apps.some((app) => app.id === 'todo')).toBe(true);
+    });
+
+    unsubscribe();
+    expect(unsubscribeApps).toHaveBeenCalledTimes(1);
+    expect(unsubscribePlugins).toHaveBeenCalledTimes(1);
+  });
+
+  it('hot-refreshes runtime remotes after plugin install, dev-session refresh, and dev-session stop events', async () => {
     const installEvent: PluginChangeEvent = {
       type: 'installed',
       manifest: createManifest('todo', 'TodoApp', 4101),
     };
+    const devSessionEvent: PluginChangeEvent = {
+      type: 'changed',
+      pluginId: 'todo',
+      manifest: createManifest('todo', 'TodoApp', 4101, {
+        remoteEntryOverride: 'http://127.0.0.1:4101/mf-manifest.json',
+      }),
+      reason: 'dev-session-refreshed',
+    };
 
     discover
       .mockResolvedValueOnce([installEvent.manifest])
+      .mockResolvedValueOnce([
+        createManifest('todo', 'TodoApp', 4101, {
+          remoteEntryOverride: 'http://127.0.0.1:4101/mf-manifest.json?t=2026-04-20T10%3A00%3A00.000Z',
+        }),
+      ])
       .mockResolvedValueOnce([]);
 
     await handlePluginChange(installEvent);
 
     expect(federationMocks.invalidateRemote).toHaveBeenCalledWith('todo');
-    expect(federationMocks.registerDynamicRemote).toHaveBeenCalledWith('todo', 4101);
+    expect(federationMocks.registerDynamicRemote).toHaveBeenCalledWith('todo', 4101, null);
     expect(
       federationMocks.invalidateRemote.mock.invocationCallOrder[0],
     ).toBeLessThan(federationMocks.registerDynamicRemote.mock.invocationCallOrder[0]);
     expect(useAppStore.getState().apps.some((app) => app.id === 'todo')).toBe(true);
 
-    await handlePluginChange({ type: 'uninstalled', pluginId: 'todo' });
+    useAppStore.setState({
+      ...useAppStore.getState(),
+      activeApp: 'todo',
+      apps: [
+        ...useAppStore.getState().apps.filter((app) => app.id !== 'todo'),
+        {
+          id: 'todo',
+          label: 'Todo',
+          icon: 'check-square',
+          builtin: false,
+          manifest: installEvent.manifest,
+        },
+      ],
+    });
+
+    await handlePluginChange(devSessionEvent);
+
+    expect(federationMocks.invalidateRemote).toHaveBeenCalledWith('todo');
+    expect(federationMocks.registerDynamicRemote).toHaveBeenCalledWith(
+      'todo',
+      4101,
+      'http://127.0.0.1:4101/mf-manifest.json',
+    );
+    expect(federationMocks.refreshTransientRemote).toHaveBeenCalledWith('todo');
+    expect(federationMocks.preloadFederatedModule).toHaveBeenCalledWith(
+      'todo',
+      'TodoApp',
+      4101,
+      'http://127.0.0.1:4101/mf-manifest.json?t=2026-04-20T10%3A00%3A00.000Z',
+    );
+
+    await handlePluginChange({
+      type: 'changed',
+      pluginId: 'todo',
+      reason: 'dev-session-stopped',
+    });
 
     expect(federationMocks.invalidateRemote).toHaveBeenCalledWith('todo');
     expect(useAppStore.getState().apps.some((app) => app.id === 'todo')).toBe(false);

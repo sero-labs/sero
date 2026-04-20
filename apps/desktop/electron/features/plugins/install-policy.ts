@@ -1,4 +1,5 @@
 import type { SeroAppManifest } from '@/types/ipc';
+import { classifyPluginDevConflicts } from './dev-sessions/conflicts';
 
 /**
  * Prevent external plugins from shadowing an unrelated app id.
@@ -9,13 +10,15 @@ export function assertPluginInstallAllowed(
   pluginId: string,
   installPath: string,
 ): void {
-  const existing = existingApps.find((app) => app.id === pluginId);
-  if (!existing || existing.packagePath === installPath) {
+  const conflicts = classifyPluginDevConflicts({
+    appId: pluginId,
+    sourcePath: installPath,
+    existingApps,
+  });
+
+  if (conflicts.length === 0) {
     return;
   }
 
-  const sourceKind = existing.isPlugin ? 'another installed plugin' : 'an existing app';
-  throw new Error(
-    `Cannot install plugin "${pluginId}": that app id is already used by ${sourceKind} at ${existing.packagePath}.`,
-  );
+  throw new Error(`Cannot install plugin "${pluginId}": ${conflicts[0]!.message}`);
 }

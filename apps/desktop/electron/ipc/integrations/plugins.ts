@@ -1,10 +1,16 @@
 /**
- * Plugin IPC handlers — install, uninstall, list plugins.
+ * Plugin IPC handlers — install, uninstall, list plugins, and manage local
+ * plugin development sessions.
  */
 
-import { ipcMain } from 'electron';
+import { BrowserWindow, dialog, ipcMain } from 'electron';
 import { IpcChannels } from '@/types/ipc-channels';
-import type { SeroAppManifest, InstalledPlugin, PluginChangeEvent, DiscoveredPlugin } from '@/types/ipc';
+import type {
+  SeroAppManifest,
+  InstalledPlugin,
+  DiscoveredPlugin,
+  PluginDevSessionIPC,
+} from '@/types/ipc';
 import {
   installPlugin,
   uninstallPlugin,
@@ -13,13 +19,31 @@ import {
 } from '@electron/features/plugins/manager';
 import { reconcileInstalledPluginActivation } from '@electron/features/plugins/activation';
 import { searchPlugins } from '@electron/features/plugins/discovery';
+import { toPluginDevSessionIPC } from '@electron/features/plugins/dev-sessions/types';
 import { reloadAllSessionResources } from '../agent';
 import { disposeAppSessionsForApp } from '../agent/handlers/app-agent';
-import { broadcastToWindows } from '../lib/window-broadcast';
-import { appRuntimeManager } from '@electron/shared/infra/shared-infra';
+import {
+  appRuntimeManager,
+  pluginDevSessionManager,
+} from '@electron/shared/infra/shared-infra';
+import { broadcastPluginEvent } from './plugin-events';
 
-function broadcastPluginEvent(event: PluginChangeEvent): void {
-  broadcastToWindows(IpcChannels.plugins.event, event);
+async function pickPluginDevSourcePath(): Promise<string | null> {
+  const win = BrowserWindow.getFocusedWindow();
+  const result = win
+    ? await dialog.showOpenDialog(win, {
+        properties: ['openDirectory'],
+        title: 'Start Local Plugin Development',
+        buttonLabel: 'Start Development',
+      })
+    : await dialog.showOpenDialog({
+        properties: ['openDirectory'],
+        title: 'Start Local Plugin Development',
+        buttonLabel: 'Start Development',
+      });
+
+  if (result.canceled || result.filePaths.length === 0) return null;
+  return result.filePaths[0] ?? null;
 }
 
 export function registerPluginHandlers(): void {
@@ -58,6 +82,40 @@ export function registerPluginHandlers(): void {
     IpcChannels.plugins.list,
     async (): Promise<InstalledPlugin[]> => {
       return listInstalledPlugins();
+    },
+  );
+
+  ipcMain.handle(
+    IpcChannels.plugins.listDevSessions,
+    async (): Promise<PluginDevSessionIPC[]> => {
+      const sessions = await pluginDevSessionManager.list();
+      return sessions.map(toPluginDevSessionIPC);
+    },
+  );
+
+  ipcMain.handle(
+    IpcChannels.plugins.startDevSession,
+    async (_event, sourcePath?: string): Promise<PluginDevSessionIPC | null> => {
+      const nextSourcePath = sourcePath ?? await pickPluginDevSourcePath();
+      if (!nextSourcePath) return null;
+
+      const record = await pluginDevSessionManager.start(nextSourcePath);
+      return toPluginDevSessionIPC(record);
+    },
+  );
+
+  ipcMain.handle(
+    IpcChannels.plugins.refreshDevSession,
+    async (_event, sessionId: string): Promise<PluginDevSessionIPC> => {
+      const record = await pluginDevSessionManager.refresh(sessionId);
+      return toPluginDevSessionIPC(record);
+    },
+  );
+
+  ipcMain.handle(
+    IpcChannels.plugins.stopDevSession,
+    async (_event, sessionId: string): Promise<void> => {
+      await pluginDevSessionManager.stop(sessionId);
     },
   );
 

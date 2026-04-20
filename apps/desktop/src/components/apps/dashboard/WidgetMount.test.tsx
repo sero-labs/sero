@@ -22,7 +22,11 @@ import { WidgetMount } from './WidgetMount';
   globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
 ).IS_REACT_ACT_ENVIRONMENT = true;
 
-function createManifest(id: string, scope: SeroAppManifest['scope'] = 'workspace'): SeroAppManifest {
+function createManifest(
+  id: string,
+  scope: SeroAppManifest['scope'] = 'workspace',
+  overrides: Partial<SeroAppManifest> = {},
+): SeroAppManifest {
   return {
     id,
     name: id,
@@ -37,9 +41,11 @@ function createManifest(id: string, scope: SeroAppManifest['scope'] = 'workspace
     runtimeEntry: null,
     component: `${id}App`,
     devPort: 4100,
+    remoteEntryOverride: null,
     packagePath: `/tmp/${id}`,
     isPlugin: false,
     widgets: [],
+    ...overrides,
   };
 }
 
@@ -183,5 +189,29 @@ describe('WidgetMount', () => {
     });
 
     expect(container.textContent).toContain('Widget unavailable');
+  });
+
+  it('shows the existing fallback without touching federation when discovery suppresses UI for unavailable sessions', async () => {
+    useWorkspaceStore.setState({
+      activeWorkspaceId: 'global',
+      workspaces: [],
+      workspacesReady: true,
+    });
+
+    await act(async () => {
+      root?.render(
+        <WidgetMount
+          widget={createWidget()}
+          manifest={createManifest('notes', 'global', {
+            component: null,
+            uiEntry: null,
+          })}
+          widgetMeta={createWidgetMeta()}
+        />,
+      );
+    });
+
+    expect(container.textContent).toContain('Widget unavailable');
+    expect(federationMocks.getFederatedComponent).not.toHaveBeenCalled();
   });
 });

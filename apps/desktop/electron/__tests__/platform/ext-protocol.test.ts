@@ -39,6 +39,7 @@ function makeManifest(overrides: Partial<SeroAppManifest> & Pick<SeroAppManifest
     uiEntry: null,
     component: null,
     devPort: undefined,
+    remoteEntryOverride: null,
     packagePath,
     isPlugin: true,
     plugin: null,
@@ -67,6 +68,25 @@ describe('extension asset registry', () => {
     expect(hasRegisteredExtAssets('single-app')).toBe(true);
 
     unregisterExtAssets('single-app');
+    expect(hasRegisteredExtAssets('single-app')).toBe(false);
+  });
+
+  it('drops existing registrations when a manifest no longer exposes built UI assets', () => {
+    registerExtAssets(makeManifest({
+      id: 'single-app',
+      name: 'Single App',
+      packagePath: '/tmp/single-app',
+      uiEntry: 'dist/ui/remoteEntry.js',
+      component: 'SingleApp',
+    }));
+    registerExtAssets(makeManifest({
+      id: 'single-app',
+      name: 'Single App',
+      packagePath: '/tmp/single-app',
+      uiEntry: null,
+      component: null,
+    }));
+
     expect(hasRegisteredExtAssets('single-app')).toBe(false);
   });
 

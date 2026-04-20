@@ -18,7 +18,11 @@ vi.mock('@/lib/federation-registry', () => ({
 
 import { SeroAppMount } from './SeroAppMount';
 
-function createManifest(id: string, name: string): SeroAppManifest {
+function createManifest(
+  id: string,
+  name: string,
+  overrides: Partial<SeroAppManifest> = {},
+): SeroAppManifest {
   return {
     id,
     name,
@@ -33,9 +37,11 @@ function createManifest(id: string, name: string): SeroAppManifest {
     runtimeEntry: null,
     component: `${name}App`,
     devPort: 4100,
+    remoteEntryOverride: null,
     packagePath: `/tmp/${id}`,
     isPlugin: false,
     widgets: [],
+    ...overrides,
   };
 }
 
@@ -57,6 +63,32 @@ describe('SeroAppMount', () => {
 
     expect(html).toContain('Loading Todo');
     expect(html).not.toContain('No workspace selected');
+    expect(federationMocks.getFederatedComponent).not.toHaveBeenCalled();
+  });
+
+  it('renders the existing placeholder without touching federation when discovery suppresses UI for backend-only sessions', () => {
+    useWorkspaceStore.setState({
+      activeWorkspaceId: 'global',
+      workspaces: [],
+      workspacesReady: true,
+    });
+    useThemeStore.setState({
+      effectiveMode: 'dark',
+      activePresetId: 'default',
+    });
+
+    const html = renderToStaticMarkup(
+      <SeroAppMount
+        manifest={createManifest('todo', 'Todo', {
+          scope: 'global',
+          globalStatePath: '/tmp/todo.json',
+          component: null,
+          uiEntry: null,
+        })}
+      />,
+    );
+
+    expect(html).toContain('No UI module registered');
     expect(federationMocks.getFederatedComponent).not.toHaveBeenCalled();
   });
 });

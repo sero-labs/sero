@@ -4,7 +4,6 @@
  * Workspace tool interfaces (editor, filetree, LSP, debug, VCS) are in
  * electron-workspace.d.ts to keep each file under 500 LOC.
  */
-
 import type {
   SeroEditorAPI,
   SeroFileTreeAPI,
@@ -21,7 +20,6 @@ import type {
 } from './electron-services';
 import type { ThemePreset, ThemePresetMeta } from './theme';
 import type { SeroUserFeedbackBridge, WorkspaceRuntimeDiagnosticsIPC } from '@sero-ai/common';
-
 import type {
   ProfileInfo,
   WorkspaceInfo,
@@ -60,6 +58,7 @@ import type {
   SubagentAgentFile,
   InstalledPlugin,
   PluginChangeEvent,
+  PluginDevSessionIPC,
   DiscoveredPlugin,
   SkillSummary,
   AvailableSkillSummary,
@@ -438,7 +437,11 @@ interface SeroPluginsAPI {
   isPlugin(pluginId: string): Promise<boolean>;
   /** Search for public plugins on GitHub (topic) and npm (keyword). */
   search(query: string): Promise<DiscoveredPlugin[]>;
-  /** Subscribe to plugin install/uninstall events. */
+  listDevSessions(): Promise<PluginDevSessionIPC[]>;
+  startDevSession(sourcePath?: string): Promise<PluginDevSessionIPC | null>;
+  refreshDevSession(sessionId: string): Promise<PluginDevSessionIPC>;
+  stopDevSession(sessionId: string): Promise<void>;
+  /** Subscribe to plugin install/dev-session lifecycle events. */
   onChanged(callback: (event: PluginChangeEvent) => void): () => void;
 }
 

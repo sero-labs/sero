@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { InstalledPlugin } from '@sero-ai/common';
+import type { PluginChangeEventIPC, InstalledPlugin } from '@sero-ai/common';
 import { getSero } from './host';
 import { normalizeInstallSource, sortInstalledPlugins } from '../lib/plugins';
+
+function isInstalledPluginEvent(event: PluginChangeEventIPC): boolean {
+  return event.type === 'installed' || event.type === 'uninstalled';
+}
 
 export function usePlugins() {
   const [plugins, setPlugins] = useState<InstalledPlugin[]>([]);
@@ -29,8 +33,10 @@ export function usePlugins() {
   useEffect(() => {
     void reload();
 
-    return getSero().plugins.onChanged(() => {
-      void reload();
+    return getSero().plugins.onChanged((event) => {
+      if (isInstalledPluginEvent(event)) {
+        void reload();
+      }
     });
   }, [reload]);
 

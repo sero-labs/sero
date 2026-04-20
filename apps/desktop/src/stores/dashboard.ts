@@ -135,7 +135,7 @@ export function getAvailableWidgets(
   const manifestsById = new Map(manifests.map((manifest) => [manifest.id, manifest]));
 
   for (const manifest of manifests) {
-    if (!manifest.widgets || manifest.widgets.length === 0) continue;
+    if (!manifest.component || !manifest.widgets || manifest.widgets.length === 0) continue;
     for (const widget of manifest.widgets) {
       results.set(`${manifest.id}:${widget.id}`, {
         appId: manifest.id,

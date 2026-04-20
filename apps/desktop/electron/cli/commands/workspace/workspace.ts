@@ -67,7 +67,7 @@ async function handleMountPlugin(
   );
   if (already) {
     return ok(
-      `Plugin already mounted as root "${already.id}" (${already.path}).`,
+      `Folder already attached as root "${already.id}" (${already.path}).`,
     );
   }
 
@@ -84,9 +84,10 @@ async function handleMountPlugin(
   if (!skipPrompt) {
     const confirm = await askConfirm({
       prompt:
-        `Mount plugin folder "${displayName}" (${resolved}) ` +
-        `into workspace "${wsId}" so the agent can edit it directly?`,
-      yesLabel: 'Mount plugin',
+        `Attach folder "${displayName}" (${resolved}) to workspace "${wsId}" ` +
+        `so it is visible in Explorer and editable by the agent? ` +
+        `This does not activate the plugin.`,
+      yesLabel: 'Attach folder',
       noLabel: 'Cancel',
       signal: ctx.invocation.signal,
     });
@@ -94,11 +95,11 @@ async function handleMountPlugin(
     if (!confirm.bridged) {
       return fail(
         'Cannot prompt for confirmation — no UI bridge available. ' +
-          'Re-run with --yes to mount without confirmation.',
+          'Re-run with --yes to attach without confirmation.',
       );
     }
     if (confirm.cancelled || !confirm.confirmed) {
-      return ok(`Cancelled — plugin not mounted.`);
+      return ok(`Cancelled — folder not attached.`);
     }
   }
 
@@ -113,7 +114,7 @@ async function handleMountPlugin(
   await recreateContainerIfRunning(wsId);
 
   return ok(
-    `Mounted plugin "${root.name}" as root "${root.id}" → ${root.path}`,
+    `Attached folder "${root.name}" as root "${root.id}" → ${root.path}`,
   );
 }
 
@@ -181,8 +182,8 @@ export function registerWorkspaceCliCommands(registry: CliRegistry): void {
       '  info [id]                  Show workspace details (default: current)\n' +
       '  open <id>                  Open a workspace\n' +
       '  close <id>                 Close a workspace\n' +
-      '  mount-plugin <path>        Attach a Sero plugin source folder as a workspace root\n' +
-      '                             (asks the user to confirm before mounting).\n' +
+      '  mount-plugin <path>        Attach a Sero plugin source folder as an attached folder\n' +
+      '                             (Explorer visibility only; does not activate the plugin).\n' +
       '                             Flags: --name <display-name>, --yes (skip confirmation)\n',
     source: 'ipc',
     group: 'Builtin',

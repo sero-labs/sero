@@ -16,6 +16,8 @@ export type {
   PluginMeta,
   PluginRegistryEntry,
   DiscoveredPlugin,
+  PluginChangeEventReason,
+  PluginChangeEventIPC,
   PluginProviderAuthManifest,
   PluginProviderManifest,
   SeroProviderManifest,
@@ -202,6 +204,12 @@ export type {
   CronJob,
   CronState,
 } from './cron-contract';
+
+export type {
+  PluginDevSessionStatus,
+  PluginDevSessionUiMode,
+  PluginDevSessionIPC,
+} from './plugin-dev';
 
 export type {
   GlobalModelConfigStateIPC,

@@ -56,6 +56,7 @@ export interface ReconcileAppRuntimeOptions {
 export interface AppRuntimeManagerLike {
   initialize(): Promise<void>;
   reconcile(options?: ReconcileAppRuntimeOptions): Promise<void>;
+  restartApp(appId: string): Promise<void>;
   handleStateChange(filePath: string, state: unknown): Promise<void>;
   dispose(): Promise<void>;
 }

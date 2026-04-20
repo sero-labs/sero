@@ -129,7 +129,7 @@ describe('sero workspace mount-plugin', () => {
     expect(mocks.workspaceManager.addRoot).not.toHaveBeenCalled();
   });
 
-  it('mounts the plugin after the user confirms via the question UI', async () => {
+  it('attaches the folder after the user confirms via the question UI', async () => {
     await writeValidPluginPkg();
     mocks.askConfirm.mockResolvedValue({ bridged: true, confirmed: true, cancelled: false });
     mocks.workspaceManager.addRoot.mockResolvedValue({
@@ -142,9 +142,11 @@ describe('sero workspace mount-plugin', () => {
     const result = await registry.invoke(['mount-plugin', pluginDir], makeContext());
 
     expect(result.exitCode).toBe(0);
-    expect(result.output).toMatch(/Mounted plugin/);
+    expect(result.output).toMatch(/Attached folder/);
     expect(mocks.askConfirm).toHaveBeenCalledTimes(1);
     expect(mocks.askConfirm.mock.calls[0][0].prompt).toContain(pluginDir);
+    expect(mocks.askConfirm.mock.calls[0][0].prompt).toContain('does not activate the plugin');
+    expect(mocks.askConfirm.mock.calls[0][0].yesLabel).toBe('Attach folder');
     expect(mocks.workspaceManager.addRoot).toHaveBeenCalledWith('ws-1', {
       name: 'my-plugin',
       path: pluginDir,
@@ -256,7 +258,7 @@ describe('sero workspace mount-plugin', () => {
     const result = await registry.invoke(['mount-plugin', pluginDir], makeContext());
 
     expect(result.exitCode).toBe(0);
-    expect(result.output).toMatch(/already mounted/);
+    expect(result.output).toMatch(/already attached/);
     expect(mocks.askConfirm).not.toHaveBeenCalled();
     expect(mocks.workspaceManager.addRoot).not.toHaveBeenCalled();
   });

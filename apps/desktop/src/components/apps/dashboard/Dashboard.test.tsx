@@ -81,6 +81,7 @@ function createManifest(id: string, widgets: SeroAppManifest['widgets'] = []): S
     runtimeEntry: null,
     component: `${id}App`,
     devPort: 4100,
+    remoteEntryOverride: null,
     packagePath: `/tmp/${id}`,
     isPlugin: false,
     widgets,

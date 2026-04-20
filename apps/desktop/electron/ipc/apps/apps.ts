@@ -12,6 +12,7 @@ import path from 'path';
 import { IpcChannels } from '@/types/ipc-channels';
 import type { SeroAppManifest } from '@/types/ipc';
 import { discoverApps } from '@electron/features/apps/discovery';
+import { pluginDevSessionManager } from '@electron/shared/infra/singletons';
 import {
   resolveBuiltinPackagesDir,
   resolveBuiltinPluginsDir,
@@ -36,6 +37,7 @@ export function registerAppsHandlers(): void {
   ipcMain.handle(
     IpcChannels.apps.discover,
     async (): Promise<SeroAppManifest[]> => {
+      await pluginDevSessionManager.initialize();
       return discoverApps();
     },
   );

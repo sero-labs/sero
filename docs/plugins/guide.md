@@ -11,6 +11,7 @@ For internal architecture details, see
 - [Installing Plugins](#installing-plugins)
 - [Uninstalling Plugins](#uninstalling-plugins)
 - [Creating a Plugin](#creating-a-plugin)
+- [Local Plugin Development](#local-plugin-development)
 - [Plugin Manifest Reference](#plugin-manifest-reference)
 - [Building for Distribution](#building-for-distribution)
 - [Publishing](#publishing)
@@ -81,6 +82,10 @@ Local installs accept either:
 
 - a **pre-built bundle** (for example `dist/plugin/`), or
 - a **standalone source package** that Sero can `npm install` + build locally.
+
+> If you want Sero to run a checkout **directly from source without creating an
+> installed plugin**, use **Local Plugin Development** in Admin instead of the
+> install flow. See [`docs/features/local-plugin-development.md`](../features/local-plugin-development.md).
 
 Re-installing a plugin with the same `sero.app.id` replaces the existing plugin
 at that install path. A plugin may **not** shadow a different installed plugin
@@ -280,6 +285,55 @@ compatible.
 For a downstream-friendly migration checklist covering host capabilities,
 bridged CLI behavior, and manifest examples, see
 [`docs/plugins/host-compatibility.md`](./host-compatibility.md).
+
+## Local Plugin Development
+
+When you want to iterate on a real plugin checkout, use **Admin → Plugins →
+Local Plugin Development**.
+
+This is the recommended author workflow for running a plugin directly from a
+local folder in production Sero. It is distinct from both:
+
+- **Installed Plugins** — packaged plugin installs under the profile agent dir
+- **Attached folders** — workspace visibility/container mounts for Explorer and
+  editing
+
+Local Plugin Development is **profile scoped**. Starting a dev session:
+
+- does **not** create an installed plugin
+- does **not** require attaching the folder to a workspace
+- does activate the checkout directly for the current profile
+
+### Recommended workflow
+
+1. Keep a valid `package.json` with `sero.app.id` and `sero.app.name`.
+2. For live UI development, add both `scripts.dev` and `sero.app.devPort`.
+3. Keep `dist/ui` built when you want Sero to fall back to built UI assets.
+4. In Sero, start a session from **Local Plugin Development**.
+5. Confirm the session's current UI mode:
+   - **Live UI dev server**
+   - **Built UI fallback**
+   - **Backend only**
+   - **UI unavailable**
+6. Use **Refresh** / **Retry** when you change backend/runtime resources or fix
+   an error.
+7. Optionally add the same folder as an **Attached folder** when you also want
+   it visible in Explorer or mounted into the current workspace container.
+8. Stop the dev session before testing the packaged install form of the same app
+   ID, because install/dev conflicts fail closed.
+
+### Important notes for authors
+
+- Production local authoring does **not** depend on `SERO_DEV_PLUGINS`.
+- Sero can keep a session active through degradations by falling back to built
+  UI assets or backend-only behavior when possible.
+- Broken sessions are preserved for recovery instead of silently disappearing.
+- Some internal or older references may still mention `linked-plugin` or
+  `mount-plugin`; in product wording these are **Attached folders**, and they
+  are optional for local plugin activation.
+
+For the complete feature behavior, recovery model, and terminology, see
+[`docs/features/local-plugin-development.md`](../features/local-plugin-development.md).
 
 ## Plugin Manifest Reference
 
@@ -532,7 +586,8 @@ core apps or a different installed plugin.
 
 ### What's the `devPort` for in a published plugin?
 
-Published plugins don't use the dev port — they serve pre-built bundles via
-`sero-ext://`. The `devPort` is only active during development when the app
-runs a local Vite dev server. It's safe to include in the manifest; Sero
-ignores it for installed plugins.
+Published plugins don't use the dev port when they are installed normally —
+they serve pre-built bundles via `sero-ext://`. The `devPort` is used by
+**Local Plugin Development** when Sero runs a checkout directly and manages its
+local UI dev server. It's safe to include in the manifest; Sero ignores it for
+installed plugins.

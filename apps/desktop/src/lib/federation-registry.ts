@@ -21,11 +21,17 @@
  */
 
 import { lazy } from 'react';
-import { loadRemote, registerRemotes } from '@module-federation/enhanced/runtime';
+import {
+  getInstance,
+  loadRemote,
+  registerRemotes,
+  type ModuleFederation,
+} from '@module-federation/enhanced/runtime';
 
 type LazyComponent = React.LazyExoticComponent<React.ComponentType>;
 type RemoteModule = { default: React.ComponentType };
 type LoadedRemoteModule = { entry: string; mod: RemoteModule };
+type RuntimeRemote = ModuleFederation['options']['remotes'][number];
 
 /** Maximum number of resolved modules to keep in memory. */
 const MAX_CACHED_MODULES = 5;
@@ -45,7 +51,7 @@ const pinnedApps = new Set<string>();
 /** Track the currently registered remote entry for each app. */
 const registeredEntries = new Map<string, string>();
 
-/** Cache of manifest reachability checks keyed by remote entry URL. */
+/** Cache of remote-entry reachability checks keyed by entry URL. */
 const manifestReachable = new Map<string, boolean>();
 
 /** Apps whose current cache was populated from a fallback bundle. */
@@ -56,23 +62,102 @@ function toRemoteName(appId: string): string {
   return `sero_${appId.replace(/-/g, '_')}`;
 }
 
-/** Return the remote entry URL candidates for an app. */
-function getRemoteEntryCandidates(appId: string, devPort: number | undefined): string[] {
-  if (process.env.NODE_ENV === 'development' && devPort) {
-    return [
-      `http://localhost:${devPort}/mf-manifest.json`,
-      `sero-ext://${appId}/mf-manifest.json`,
-    ];
+function normalizeRuntimeRemoteEntry(remoteEntryOverride: string | null): string | null {
+  if (!remoteEntryOverride) {
+    return null;
   }
-  return [`sero-ext://${appId}/mf-manifest.json`];
+
+  try {
+    const url = new URL(remoteEntryOverride);
+    if (url.pathname.endsWith('/mf-manifest.json')) {
+      url.pathname = `${url.pathname.slice(0, -'/mf-manifest.json'.length)}/remoteEntry.js`;
+    }
+    return url.toString();
+  } catch {
+    return remoteEntryOverride.replace(/\/mf-manifest\.json(?=($|[?#]))/, '/remoteEntry.js');
+  }
+}
+
+function getRemoteCacheKey(
+  appId: string,
+  component: string,
+  devPort: number | undefined,
+  remoteEntryOverride: string | null,
+): string {
+  return `${appId}/${component}::${normalizeRuntimeRemoteEntry(remoteEntryOverride) ?? (devPort ? `dev:${devPort}` : 'default')}`;
+}
+
+/** Return the remote entry URL candidates for an app. */
+function getRemoteEntryCandidates(
+  appId: string,
+  devPort: number | undefined,
+  remoteEntryOverride: string | null,
+): string[] {
+  const candidates: string[] = [];
+  const normalizedOverride = normalizeRuntimeRemoteEntry(remoteEntryOverride);
+
+  if (normalizedOverride) {
+    candidates.push(normalizedOverride);
+  } else if (process.env.NODE_ENV === 'development' && devPort) {
+    candidates.push(`http://localhost:${devPort}/remoteEntry.js`);
+  }
+
+  candidates.push(`sero-ext://${appId}/mf-manifest.json`);
+  return [...new Set(candidates)];
 }
 
 function isHttpEntry(entry: string): boolean {
   return entry.startsWith('http://') || entry.startsWith('https://');
 }
 
+function isManifestEntry(entry: string): boolean {
+  return /\.json(?=($|[?#]))/.test(entry);
+}
+
+function getRuntimeRemoteEntry(remote: RuntimeRemote): string | null {
+  return 'entry' in remote && typeof remote.entry === 'string'
+    ? remote.entry
+    : null;
+}
+
+function getRegisteredRuntimeRemote(
+  appId: string,
+): { instance: ModuleFederation; remote: RuntimeRemote } | null {
+  const instance = getInstance();
+  if (!instance) {
+    return null;
+  }
+
+  const remoteName = toRemoteName(appId);
+  const remote = instance.options.remotes.find((candidate) => candidate.name === remoteName);
+  return remote ? { instance, remote } : null;
+}
+
+function hasRemoteRemovalApi(value: unknown): value is {
+  removeRemote: (remote: RuntimeRemote) => void;
+} {
+  return typeof value === 'object'
+    && value !== null
+    && 'removeRemote' in value
+    && typeof Reflect.get(value, 'removeRemote') === 'function';
+}
+
+function removeRegisteredRuntimeRemote(appId: string): void {
+  const runtimeRemote = getRegisteredRuntimeRemote(appId);
+  if (!runtimeRemote) {
+    return;
+  }
+
+  const remoteHandler: unknown = runtimeRemote.instance.remoteHandler;
+  if (!hasRemoteRemovalApi(remoteHandler)) {
+    return;
+  }
+
+  remoteHandler.removeRemote(runtimeRemote.remote);
+}
+
 /**
- * Best-effort manifest reachability check.
+ * Best-effort remote-entry reachability check.
  *
  * Only successful HTTP(S) probes are cached. Failures are intentionally
  * re-checked on the next load attempt so a slow-starting dev server can be
@@ -115,8 +200,22 @@ function registerRemoteEntry(appId: string, entry: string): void {
   const currentEntry = registeredEntries.get(appId);
   if (currentEntry === entry) return;
 
+  const existingRuntimeRemote = getRegisteredRuntimeRemote(appId);
+  if (existingRuntimeRemote && getRuntimeRemoteEntry(existingRuntimeRemote.remote) === entry) {
+    registeredEntries.set(appId, entry);
+    return;
+  }
+
+  if (existingRuntimeRemote) {
+    removeRegisteredRuntimeRemote(appId);
+  }
+
+  const remoteRegistration = isManifestEntry(entry)
+    ? { name: remoteName, entry }
+    : { name: remoteName, entry, type: 'module', entryGlobalName: remoteName };
+
   try {
-    registerRemotes([{ name: remoteName, entry }], { force: true });
+    registerRemotes([remoteRegistration], { force: true });
     registeredEntries.set(appId, entry);
   } catch (err) {
     // Already registered by the MF plugin (e.g. if a static import exists)
@@ -163,8 +262,14 @@ function clearAppCache(appId: string): void {
 }
 
 /** Mark whether an app should be treated as a transient fallback cache. */
-function updateTransientState(appId: string, devPort: number | undefined, entry: string): void {
-  if (devPort && !isHttpEntry(entry)) {
+function updateTransientState(
+  appId: string,
+  devPort: number | undefined,
+  remoteEntryOverride: string | null,
+  entry: string,
+): void {
+  const [preferredEntry] = getRemoteEntryCandidates(appId, devPort, remoteEntryOverride);
+  if (preferredEntry && preferredEntry !== entry) {
     transientApps.add(appId);
     return;
   }
@@ -172,9 +277,13 @@ function updateTransientState(appId: string, devPort: number | undefined, entry:
   transientApps.delete(appId);
 }
 
-/** Resolve the best remote entry for an app, preferring dev servers when they are reachable. */
-async function resolveRemoteEntry(appId: string, devPort: number | undefined): Promise<string> {
-  const candidates = getRemoteEntryCandidates(appId, devPort);
+/** Resolve the best remote entry for an app, preferring explicit overrides before legacy dev remotes. */
+async function resolveRemoteEntry(
+  appId: string,
+  devPort: number | undefined,
+  remoteEntryOverride: string | null,
+): Promise<string> {
+  const candidates = getRemoteEntryCandidates(appId, devPort, remoteEntryOverride);
   for (const entry of candidates) {
     if (await isRemoteEntryReachable(entry)) return entry;
   }
@@ -182,16 +291,17 @@ async function resolveRemoteEntry(appId: string, devPort: number | undefined): P
 }
 
 /**
- * Load a remote module, trying dev and built fallback entries if needed.
+ * Load a remote module, trying the preferred entry and built fallback if needed.
  */
 async function loadRemoteModule(
   appId: string,
   component: string,
   devPort: number | undefined,
+  remoteEntryOverride: string | null,
 ): Promise<LoadedRemoteModule | null> {
   const remoteName = toRemoteName(appId);
   const modulePath = `${remoteName}/${component}`;
-  const candidates = getRemoteEntryCandidates(appId, devPort);
+  const candidates = getRemoteEntryCandidates(appId, devPort, remoteEntryOverride);
 
   for (const entry of candidates) {
     if (!(await isRemoteEntryReachable(entry))) continue;
@@ -201,12 +311,12 @@ async function loadRemoteModule(
     try {
       const mod = await loadRemote<RemoteModule>(modulePath);
       if (mod?.default) {
-        updateTransientState(appId, devPort, entry);
+        updateTransientState(appId, devPort, remoteEntryOverride, entry);
         return { entry, mod };
       }
     } catch (err) {
-      // If this entry was a dev server and it disappeared between the probe
-      // and the load, clear the cached availability and try the fallback.
+      // If the preferred entry disappeared between the probe and the load,
+      // clear the cached availability and try the next fallback candidate.
       manifestReachable.delete(entry);
       console.warn(`[federation] Failed to load ${modulePath} from ${entry}:`, err);
     }
@@ -219,8 +329,8 @@ async function loadRemoteModule(
  * Refresh a transient fallback cache before activating an app.
  *
  * If the app was previously rendered from the bundled fallback because the
- * dev server was unreachable, this clears the stale cache so the next preload
- * can probe for the dev server again.
+ * preferred remote entry was unreachable, this clears the stale cache so the
+ * next preload can probe for the preferred entry again.
  */
 export function refreshTransientRemote(appId: string): void {
   if (!transientApps.has(appId)) return;
@@ -235,9 +345,13 @@ export function hasTransientRemote(appId: string): boolean {
   return transientApps.has(appId);
 }
 
-/** Register a dynamically-installed plugin remote. */
-export async function registerDynamicRemote(appId: string, devPort?: number): Promise<void> {
-  const entry = await resolveRemoteEntry(appId, devPort);
+/** Register a dynamically-discovered plugin remote. */
+export async function registerDynamicRemote(
+  appId: string,
+  devPort?: number,
+  remoteEntryOverride: string | null = null,
+): Promise<void> {
+  const entry = await resolveRemoteEntry(appId, devPort, remoteEntryOverride);
   registerRemoteEntry(appId, entry);
 }
 
@@ -256,11 +370,12 @@ export async function preloadFederatedModule(
   appId: string,
   component: string,
   devPort: number | undefined,
+  remoteEntryOverride: string | null = null,
 ): Promise<void> {
-  const cacheKey = `${appId}/${component}`;
+  const cacheKey = getRemoteCacheKey(appId, component, devPort, remoteEntryOverride);
   if (resolvedModules.has(cacheKey) || cache.has(cacheKey)) return;
 
-  const loaded = await loadRemoteModule(appId, component, devPort);
+  const loaded = await loadRemoteModule(appId, component, devPort, remoteEntryOverride);
   if (loaded?.mod.default) {
     resolvedModules.set(cacheKey, loaded.mod.default);
     touchLRU(cacheKey);
@@ -275,10 +390,11 @@ export function getFederatedComponent(
   appId: string,
   component: string | null,
   devPort: number | undefined,
+  remoteEntryOverride: string | null = null,
 ): LazyComponent | null {
   if (!component) return null;
 
-  const cacheKey = `${appId}/${component}`;
+  const cacheKey = getRemoteCacheKey(appId, component, devPort, remoteEntryOverride);
 
   const cached = cache.get(cacheKey);
   if (cached) {
@@ -295,7 +411,7 @@ export function getFederatedComponent(
   }
 
   const LazyComp = lazy(async () => {
-    const loaded = await loadRemoteModule(appId, component, devPort);
+    const loaded = await loadRemoteModule(appId, component, devPort, remoteEntryOverride);
     if (!loaded) {
       console.error(`[federation] Failed to load remote: ${toRemoteName(appId)}/${component}`);
       clearCacheKey(cacheKey);

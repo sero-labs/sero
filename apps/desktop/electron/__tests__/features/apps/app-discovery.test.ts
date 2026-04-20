@@ -325,4 +325,5 @@ describe('app discovery devPort handling', () => {
       await rm(tempRoot, { recursive: true, force: true });
     }
   });
+
 });
