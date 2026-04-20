@@ -7,6 +7,7 @@
  */
 
 import { useCallback } from 'react';
+import { Save, Trash2 } from 'lucide-react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { cn } from '@sero-ai/ui/lib/utils';
 import type { PromptTemplateFileData } from './types';
@@ -52,11 +53,17 @@ export function PromptEditor({ data, isNew, saving, onSave, onDelete, onChange }
             className="text-destructive hover:text-destructive"
             onClick={() => onDelete(data.filePath!)}
           >
-            🗑 Delete
+            <Trash2 className="size-3.5" />
+            Delete
           </Button>
         )}
         <Button type="submit" size="sm" disabled={!canSave || saving}>
-          {saving ? 'Saving…' : '💾 Save'}
+          {saving ? 'Saving…' : (
+            <>
+              <Save className="size-3.5" />
+              Save
+            </>
+          )}
         </Button>
       </div>
 

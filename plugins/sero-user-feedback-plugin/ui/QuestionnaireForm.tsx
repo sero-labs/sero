@@ -6,6 +6,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Check } from 'lucide-react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { Card } from '@sero-ai/ui/components/ui/card';
 import { cn } from '@sero-ai/ui/lib/utils';
@@ -148,7 +149,7 @@ export function QuestionnaireForm({ question, onSubmit, onCancel }: Props) {
                     : 'bg-secondary text-muted-foreground',
               )}
             >
-              {hasQuestionAnswer(answers, item.id) ? '✓' : index + 1} {item.label}
+              {hasQuestionAnswer(answers, item.id) ? <Check className="size-3" /> : index + 1} {item.label}
             </button>
           ))}
           <button

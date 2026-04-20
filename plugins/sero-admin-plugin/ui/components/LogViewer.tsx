@@ -7,6 +7,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef, memo } from 'react';
+import { RefreshCw } from 'lucide-react';
 import { cn } from '@sero-ai/ui/lib/utils';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { ScrollArea } from '@sero-ai/ui/components/ui/scroll-area';
@@ -235,7 +236,8 @@ function LogContent({ log }: { log: LogEntry }) {
             )}
             onClick={() => setAutoRefresh(!autoRefresh)}
           >
-            {autoRefresh ? '● Auto' : '○ Auto'}
+            <RefreshCw className={cn('size-3', autoRefresh && 'animate-spin')} />
+            Auto
           </Button>
           <Button
             variant="ghost"
@@ -302,7 +304,10 @@ function LogContent({ log }: { log: LogEntry }) {
         <p className="text-[10px] text-muted-foreground/40">
           {totalLines} lines
           {autoRefresh && (
-            <span className="ml-2 text-primary/50">● Refreshing every 3s</span>
+            <span className="ml-2 inline-flex items-center gap-1 text-primary/50">
+              <RefreshCw className="size-3 animate-spin" />
+              Refreshing every 3s
+            </span>
           )}
         </p>
       </div>

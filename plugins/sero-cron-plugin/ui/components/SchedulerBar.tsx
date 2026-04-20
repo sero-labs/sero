@@ -3,6 +3,7 @@
  * and start/stop button.
  */
 
+import { Bell, Pause, Play } from 'lucide-react';
 import { Badge } from '@sero-ai/ui/components/ui/badge';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { Switch } from '@sero-ai/ui/components/ui/switch';
@@ -76,9 +77,10 @@ export function SchedulerBar({
         {(reminderCount ?? 0) > 0 && (
           <Badge
             variant="outline"
-            className="border-amber-500/30 text-xs text-amber-500"
+            className="inline-flex items-center gap-1 border-amber-500/30 text-xs text-amber-500"
           >
-            🔔 {reminderCount} reminder{reminderCount === 1 ? '' : 's'}
+            <Bell className="size-3" />
+            {reminderCount} reminder{reminderCount === 1 ? '' : 's'}
           </Badge>
         )}
       </div>
@@ -114,7 +116,17 @@ export function SchedulerBar({
             'bg-emerald-600 text-white hover:bg-emerald-700',
         )}
       >
-        {active ? '⏸ Stop' : '▶ Start'}
+        {active ? (
+          <>
+            <Pause className="size-3.5" />
+            Stop
+          </>
+        ) : (
+          <>
+            <Play className="size-3.5" />
+            Start
+          </>
+        )}
       </Button>
     </div>
   );

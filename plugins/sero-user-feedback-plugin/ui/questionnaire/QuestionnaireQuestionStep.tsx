@@ -1,3 +1,4 @@
+import { Check, Pencil } from 'lucide-react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { cn } from '@sero-ai/ui/lib/utils';
 
@@ -70,7 +71,7 @@ export function QuestionnaireQuestionStep({
                     : 'border-[var(--border)] text-muted-foreground',
                 )}
               >
-                {question.multiSelect ? (isSelected ? '✓' : '') : index + 1}
+                {question.multiSelect ? (isSelected ? <Check className="size-3" /> : null) : index + 1}
               </span>
               <div className="min-w-0 flex-1">
                 <span className="text-sm text-foreground">{option.label}</span>
@@ -113,7 +114,7 @@ export function QuestionnaireQuestionStep({
             className="flex w-full items-center gap-3 rounded-md border border-transparent px-3 py-2.5 text-left hover:border-border hover:bg-secondary"
           >
             <span className="flex size-5 shrink-0 items-center justify-center rounded-full border border-[var(--border)] text-[10px] text-muted-foreground">
-              ✎
+              <Pencil className="size-3" />
             </span>
             <span className="text-sm text-muted-foreground">Type something…</span>
           </button>

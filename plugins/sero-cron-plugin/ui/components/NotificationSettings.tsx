@@ -6,6 +6,7 @@
  */
 
 import { useState } from 'react';
+import { Bell, BellOff } from 'lucide-react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { Switch } from '@sero-ai/ui/components/ui/switch';
 import {
@@ -40,7 +41,7 @@ export function NotificationSettings({
           className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
           title="Notification settings"
         >
-          {effective.soundEnabled ? '🔔' : '🔕'}
+          {effective.soundEnabled ? <Bell className="size-3.5" /> : <BellOff className="size-3.5" />}
         </Button>
       </PopoverTrigger>
 

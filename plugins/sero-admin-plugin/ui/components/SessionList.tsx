@@ -6,6 +6,7 @@
  */
 
 import { memo } from 'react';
+import { RefreshCw } from 'lucide-react';
 import { cn } from '@sero-ai/ui/lib/utils';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { ScrollArea } from '@sero-ai/ui/components/ui/scroll-area';
@@ -38,7 +39,7 @@ export const SessionList = memo(function SessionList({
           className="h-5 px-1.5 text-[10px] text-muted-foreground/40 hover:text-foreground"
           onClick={onReload}
         >
-          ↻
+          <RefreshCw className="size-3" />
         </Button>
       </div>
 

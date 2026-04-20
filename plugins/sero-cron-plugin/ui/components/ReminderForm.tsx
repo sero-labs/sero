@@ -3,6 +3,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import { Check, Clock3, Monitor, RefreshCw } from 'lucide-react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import {
   Dialog,
@@ -185,7 +186,17 @@ export function ReminderForm({
                       : 'border-border text-muted-foreground hover:bg-secondary',
                   )}
                 >
-                  {t === 'once' ? '🕐 One-time' : '🔄 Recurring'}
+                  {t === 'once' ? (
+                    <span className="inline-flex items-center gap-1.5">
+                      <Clock3 className="size-3.5" />
+                      One-time
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5">
+                      <RefreshCw className="size-3.5" />
+                      Recurring
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
@@ -222,8 +233,9 @@ export function ReminderForm({
               {scheduleError ? (
                 <p className="mt-1 text-[11px] text-destructive">{scheduleError}</p>
               ) : schedule.trim() ? (
-                <p className="mt-1 text-[11px] text-emerald-500">
-                  ✓ {cronToHuman(schedule.trim())}
+                <p className="mt-1 inline-flex items-center gap-1 text-[11px] text-emerald-500">
+                  <Check className="size-3" />
+                  {cronToHuman(schedule.trim())}
                 </p>
               ) : (
                 <p className="mt-1 text-[11px] text-muted-foreground">
@@ -273,7 +285,10 @@ export function ReminderForm({
               Notification Channel
             </label>
             <div className="rounded-md border border-border bg-secondary/30 px-3 py-2 text-xs text-foreground">
-              <div className="font-medium">🖥 Desktop notification</div>
+              <div className="inline-flex items-center gap-1.5 font-medium">
+                <Monitor className="size-3.5" />
+                Desktop notification
+              </div>
               <p className="mt-1 text-[11px] text-muted-foreground">
                 Email delivery is not supported yet. Saving this reminder will use the desktop notification path.
               </p>

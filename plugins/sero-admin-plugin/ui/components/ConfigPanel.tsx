@@ -6,6 +6,7 @@
  */
 
 import { useState, useEffect, useCallback, memo } from 'react';
+import { TriangleAlert } from 'lucide-react';
 import { cn } from '@sero-ai/ui/lib/utils';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { Badge } from '@sero-ai/ui/components/ui/badge';
@@ -267,7 +268,10 @@ function ConfigEditor({
             {configFile?.label ?? configKey}
           </span>
           {isSensitive && (
-            <span className="text-[10px] text-amber-400/70">⚠ Contains sensitive data</span>
+            <span className="inline-flex items-center gap-1 text-[10px] text-amber-400/70">
+              <TriangleAlert className="size-3" />
+              Contains sensitive data
+            </span>
           )}
         </div>
         <div className="flex items-center gap-1.5">
