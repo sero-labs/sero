@@ -58,7 +58,38 @@ describe('GitHubConnectCard', () => {
     expect(container.textContent).toContain('continue setup without it');
     expect(container.textContent).toContain('Try again');
     expect(container.textContent).not.toContain('Explorer');
+    expect(container.textContent).not.toContain('sidebar');
     expect(container.textContent).not.toContain('github.com/login/device');
+
+    await act(async () => {
+      findButton('Try again').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    expect(onConnect).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows generic auth failures with a retry path that stays inside onboarding', async () => {
+    const onConnect = vi.fn();
+
+    await act(async () => {
+      root?.render(
+        <GitHubConnectCard
+          authStatus={{ authenticated: false }}
+          statusReady
+          lastOutcome={{
+            outcome: 'error',
+            status: { authenticated: false },
+            message: 'GitHub login failed.',
+          }}
+          onConnect={onConnect}
+        />,
+      );
+    });
+
+    expect(container.textContent).toContain('GitHub login failed.');
+    expect(container.textContent).toContain('Try again');
+    expect(container.textContent).not.toContain('Explorer');
+    expect(container.textContent).not.toContain('sidebar');
 
     await act(async () => {
       findButton('Try again').dispatchEvent(new MouseEvent('click', { bubbles: true }));

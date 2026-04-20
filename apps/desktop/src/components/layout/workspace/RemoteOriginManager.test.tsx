@@ -233,6 +233,60 @@ describe('RemoteOriginManager', () => {
     expect(seroBridge.github.createRepo).not.toHaveBeenCalled();
   });
 
+  it('shows a retryable generic auth failure without losing create form values', async () => {
+    await renderManager();
+
+    await vi.waitFor(() => {
+      expect(document.body.textContent).toContain('Create new on GitHub');
+    });
+
+    await clickButton('Create new on GitHub');
+    await setInputValue('repo-name', 'alpha-repo');
+    await setInputValue('repo-desc', 'Alpha description');
+    await clickButton('Create Repository');
+
+    await vi.waitFor(() => {
+      expect(document.body.textContent).toContain('GitHub connection required');
+    });
+
+    await clickButton('Connect GitHub');
+
+    await vi.waitFor(() => {
+      expect(useGitHubAuthStore.getState().open).toBe(true);
+    });
+
+    await act(async () => {
+      useGitHubAuthStore.setState({
+        authStatus: { authenticated: false },
+        statusReady: true,
+        flow: { step: 'error', message: 'Device flow failed' },
+      });
+    });
+
+    await vi.waitFor(() => {
+      expect(document.body.textContent).toContain('GitHub authentication failed');
+      expect(document.body.textContent).toContain('Device flow failed');
+    });
+
+    await clickButton('Close', 1);
+
+    await vi.waitFor(() => {
+      expect(useGitHubAuthStore.getState().open).toBe(false);
+      expect(document.body.textContent).toContain('Device flow failed');
+      expect(document.body.textContent).toContain('Try again');
+    });
+
+    expect(findInput('repo-name').value).toBe('alpha-repo');
+    expect(findInput('repo-desc').value).toBe('Alpha description');
+    expect(seroBridge.github.createRepo).not.toHaveBeenCalled();
+
+    await clickButton('Try again');
+
+    await vi.waitFor(() => {
+      expect(useGitHubAuthStore.getState().open).toBe(true);
+    });
+  });
+
   it('resumes the blocked create action after successful auth without losing form values', async () => {
     seroBridge.github.createRepo.mockResolvedValue({
       success: true,

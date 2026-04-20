@@ -578,7 +578,7 @@ Cover both the controller/dialog and the contextual integrations.
 - **Acceptance:** supports ISC-1, ISC-5, ISC-7, ISC-8, ISC-12, ISC-A-1, ISC-A-3.
 - **Status:** completed 2026-04-20.
 
-### GHA-07 — Add/update tests for controller, dialog, onboarding, remote-origin, and publish flows
+### [x] GHA-07 — Add/update tests for controller, dialog, onboarding, remote-origin, and publish flows
 - **Plan artifact:** `.pi/plans/2026-04-20-github-auth-unification/plan.md`
 - **Files:**
   - new `apps/desktop/src/stores/github-auth.test.ts` or `apps/desktop/src/components/layout/auth/github/GitHubAuthDialog.test.tsx`
@@ -608,3 +608,4 @@ Cover both the controller/dialog and the contextual integrations.
   - **Anti-pattern: Manual-Only Verification** — do not rely on smoke tests alone for the new controller/dialog behavior.
   - **Anti-pattern: Implementation-Coupled Assertions** — prefer user-visible outcomes and action counts over brittle internal-state snapshots.
 - **Acceptance:** provides thorough regression coverage for ISC-1 through ISC-12 and ISC-A-1 through ISC-A-3.
+- **Status:** completed 2026-04-20.

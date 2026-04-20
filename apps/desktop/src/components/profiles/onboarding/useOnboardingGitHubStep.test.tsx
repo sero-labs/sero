@@ -277,4 +277,48 @@ describe('useOnboardingGitHubStep', () => {
     expect(container.firstElementChild?.getAttribute('data-authenticated')).toBe('false');
     expect(onContinue).not.toHaveBeenCalled();
   });
+
+  it('keeps users on the GitHub step with a retryable error outcome after the shared dialog fails', async () => {
+    const onContinue = vi.fn();
+
+    await act(async () => {
+      root?.render(<HookProbe onContinue={onContinue} />);
+    });
+
+    await vi.waitFor(() => {
+      expect(container.firstElementChild?.getAttribute('data-status-ready')).toBe('true');
+    });
+
+    await act(async () => {
+      findButton('Continue').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    await vi.waitFor(() => {
+      expect(readStep(container)).toBe('github');
+    });
+
+    await act(async () => {
+      findButton('Connect GitHub').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    await vi.waitFor(() => {
+      expect(useGitHubAuthStore.getState().open).toBe(true);
+    });
+
+    await act(async () => {
+      useGitHubAuthStore.getState().resolveGitHubAuthDialog({
+        outcome: 'error',
+        status: { authenticated: false },
+        message: 'GitHub login failed.',
+      });
+    });
+
+    await vi.waitFor(() => {
+      expect(container.firstElementChild?.getAttribute('data-last-outcome')).toBe('error');
+    });
+
+    expect(readStep(container)).toBe('github');
+    expect(container.firstElementChild?.getAttribute('data-authenticated')).toBe('false');
+    expect(onContinue).not.toHaveBeenCalled();
+  });
 });

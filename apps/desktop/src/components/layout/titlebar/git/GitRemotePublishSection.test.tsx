@@ -226,6 +226,57 @@ describe('GitRemotePublishSection', () => {
     expect(seroBridge.github.createRepo).not.toHaveBeenCalled();
   });
 
+  it('shows a retryable generic auth failure after a blocked publish attempt', async () => {
+    await renderSection();
+
+    await vi.waitFor(() => {
+      expect(document.body.textContent).toContain('Create repo + publish');
+    });
+
+    await setInputValue('publish-repo-name', 'alpha-repo');
+    await clickButton('Create repo + publish');
+
+    await vi.waitFor(() => {
+      expect(document.body.textContent).toContain('GitHub connection required');
+    });
+
+    await clickButton('Connect GitHub');
+
+    await vi.waitFor(() => {
+      expect(useGitHubAuthStore.getState().open).toBe(true);
+    });
+
+    await act(async () => {
+      useGitHubAuthStore.setState({
+        authStatus: { authenticated: false },
+        statusReady: true,
+        flow: { step: 'error', message: 'Device flow failed' },
+      });
+    });
+
+    await vi.waitFor(() => {
+      expect(document.body.textContent).toContain('GitHub authentication failed');
+      expect(document.body.textContent).toContain('Device flow failed');
+    });
+
+    await clickButton('Close', 1);
+
+    await vi.waitFor(() => {
+      expect(useGitHubAuthStore.getState().open).toBe(false);
+      expect(document.body.textContent).toContain('Device flow failed');
+      expect(document.body.textContent).toContain('Try again');
+    });
+
+    expect(findInput('publish-repo-name').value).toBe('alpha-repo');
+    expect(seroBridge.github.createRepo).not.toHaveBeenCalled();
+
+    await clickButton('Try again');
+
+    await vi.waitFor(() => {
+      expect(useGitHubAuthStore.getState().open).toBe(true);
+    });
+  });
+
   it('resumes the blocked create-and-publish action after successful auth', async () => {
     const onPublished = await renderSection();
 

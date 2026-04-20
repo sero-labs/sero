@@ -101,6 +101,29 @@ describe('useGitHubAuthStore', () => {
     expect(useGitHubAuthStore.getState().authStatus).toEqual({ authenticated: true, username: 'octocat' });
   });
 
+  it('resolves generic failures back to the launching surface when the shared dialog closes', async () => {
+    const resultPromise = useGitHubAuthStore.getState().openGitHubAuthDialog({ source: 'remote-origin' });
+
+    await vi.waitFor(() => {
+      expect(useGitHubAuthStore.getState().open).toBe(true);
+    });
+
+    useGitHubAuthStore.setState({
+      flow: { step: 'error', message: 'Device flow failed' },
+    });
+
+    await useGitHubAuthStore.getState().dismissGitHubAuthDialog();
+
+    await expect(resultPromise).resolves.toEqual({
+      outcome: 'error',
+      status: { authenticated: false },
+      message: 'Device flow failed',
+    });
+
+    expect(githubBridge.cancel).not.toHaveBeenCalled();
+    expect(useGitHubAuthStore.getState().open).toBe(false);
+  });
+
   it('refreshes GitHub status after logout instead of trusting cached success state', async () => {
     useGitHubAuthStore.setState({
       authStatus: { authenticated: true, username: 'octocat' },
