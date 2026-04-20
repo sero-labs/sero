@@ -31,7 +31,7 @@ import { useOnboardingGitHubStep } from './useOnboardingGitHubStep';
 
 const GITHUB_STEP_CONFIG = {
   title: 'Connect GitHub (optional)',
-  description: 'Strongly suggested if you work with repos. You can skip this for now and connect later from Explorer.',
+  description: 'Strongly suggested if you work with repos. Connect now or continue setup and add GitHub later when you need it.',
 } as const;
 
 const TIERS: readonly { key: ModelTier; label: string; description: string }[] = [
@@ -122,7 +122,9 @@ export function OnboardingSetupScreen({
     step,
     checkingGitHub,
     githubAuth,
+    lastOutcome,
     handleTierContinue,
+    handleConnectGitHub,
     handleBack,
     handleContinueFromGitHub,
   } = useOnboardingGitHubStep({
@@ -150,15 +152,10 @@ export function OnboardingSetupScreen({
         <GitHubConnectCard
           authStatus={githubAuth.authStatus}
           statusReady={githubAuth.statusReady}
-          flow={githubAuth.flow}
-          copied={githubAuth.copied}
-          copyFailed={githubAuth.copyFailed}
-          onStartLogin={githubAuth.startLogin}
-          onCancel={githubAuth.cancel}
-          onCopyCode={(code) => {
-            void githubAuth.copyCode(code);
+          lastOutcome={lastOutcome}
+          onConnect={() => {
+            void handleConnectGitHub();
           }}
-          showConnectedState
         />
 
         <div className="flex justify-between gap-2 pt-1">

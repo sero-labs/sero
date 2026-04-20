@@ -480,7 +480,7 @@ Cover both the controller/dialog and the contextual integrations.
 - **Acceptance:** supports ISC-1, ISC-2, ISC-6, ISC-12, ISC-A-2.
 - **Status:** completed 2026-04-20.
 
-### GHA-04 — Refactor onboarding to launch the shared dialog and return to a connected step
+### [x] GHA-04 — Refactor onboarding to launch the shared dialog and return to a connected step
 - **Plan artifact:** `.pi/plans/2026-04-20-github-auth-unification/plan.md`
 - **Files:**
   - `apps/desktop/src/components/profiles/onboarding/useOnboardingGitHubStep.ts`
@@ -509,6 +509,7 @@ Cover both the controller/dialog and the contextual integrations.
   - **Anti-pattern: Surprise Advance** — do not auto-continue onboarding immediately after successful auth.
   - **Anti-pattern: Explorer Dependency Copy** — do not retain any copy that tells users to go to Explorer later.
 - **Acceptance:** supports ISC-3, ISC-8, ISC-9, ISC-10, ISC-A-1, ISC-A-2.
+- **Status:** completed 2026-04-20.
 
 ### GHA-05 — Replace remote-origin auth dead ends with a direct connect path and safe auto-resume
 - **Plan artifact:** `.pi/plans/2026-04-20-github-auth-unification/plan.md`
