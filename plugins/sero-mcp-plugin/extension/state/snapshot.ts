@@ -56,7 +56,7 @@ async function createServerSnapshot(
   return {
     serverName,
     enabled,
-    transport: typeof serverConfig.url === 'string' && serverConfig.url.length > 0 ? 'http' : 'stdio',
+    transport: resolveTransport(serverConfig),
     lifecycle: serverConfig.lifecycle ?? 'lazy',
     authMode: resolveAuthMode(serverConfig),
     connectionStatus: resolveConnectionStatus(enabled, authStatus),
@@ -93,6 +93,13 @@ async function resolveAuthStatus(
   }
 
   return 'not-required';
+}
+
+function resolveTransport(serverConfig: McpServerConfig): 'stdio' | 'http' {
+  if (serverConfig.transport === 'stdio' || serverConfig.transport === 'http') {
+    return serverConfig.transport;
+  }
+  return typeof serverConfig.url === 'string' && serverConfig.url.length > 0 ? 'http' : 'stdio';
 }
 
 function resolveAuthMode(serverConfig: McpServerConfig): 'none' | 'oauth' | 'bearer' {

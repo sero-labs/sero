@@ -82,6 +82,39 @@ export interface McpServerEditorInput {
   debug: boolean;
 }
 
+export function validateServerEditorInput(input: McpServerEditorInput): string | null {
+  const serverName = input.serverName.trim();
+  if (!serverName) {
+    return 'Server name is required.';
+  }
+
+  if (input.transport === 'stdio') {
+    if (!input.command.trim()) {
+      return 'A stdio server needs a command.';
+    }
+  } else {
+    const rawUrl = input.url.trim();
+    if (!rawUrl) {
+      return 'An HTTP/SSE server needs a URL.';
+    }
+
+    try {
+      const parsed = new URL(rawUrl);
+      if (!['http:', 'https:'].includes(parsed.protocol)) {
+        return 'HTTP/SSE server URLs must use http or https.';
+      }
+    } catch {
+      return 'Enter a valid HTTP/SSE server URL.';
+    }
+  }
+
+  if (input.authMode === 'bearer' && !input.bearerTokenEnv.trim()) {
+    return 'Bearer auth requires an environment variable name.';
+  }
+
+  return null;
+}
+
 export const DEFAULT_MCP_SETTINGS: McpSettingsSnapshot = {
   idleTimeout: 10,
   toolPrefix: 'server',

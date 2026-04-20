@@ -9,7 +9,11 @@ import { Textarea } from '@sero-ai/ui/components/ui/textarea';
 import { cn } from '@sero-ai/ui/lib/utils';
 import { AlertCircle, Pencil, Plus, Power, Save, Server, Trash2, X } from 'lucide-react';
 import type { McpServerEditorInput, McpServerSnapshot } from '../../../shared/types';
-import { createEmptyServerEditorInput, createServerEditorInputFromSnapshot } from '../../../shared/types';
+import {
+  createEmptyServerEditorInput,
+  createServerEditorInputFromSnapshot,
+  validateServerEditorInput,
+} from '../../../shared/types';
 import { useMcpServerMutations } from '../../hooks/useMcpServerMutations';
 
 export function McpServerCrudPanel({ servers }: { servers: McpServerSnapshot[] }) {
@@ -17,7 +21,7 @@ export function McpServerCrudPanel({ servers }: { servers: McpServerSnapshot[] }
   const [draft, setDraft] = useState<McpServerEditorInput | null>(null);
 
   const sortedServers = useMemo(() => [...servers].sort((a, b) => a.serverName.localeCompare(b.serverName)), [servers]);
-
+  const validationError = useMemo(() => (draft ? validateServerEditorInput(draft) : null), [draft]);
   const title = draft?.originalServerName ? `Edit ${draft.originalServerName}` : 'Add MCP server';
 
   return (
@@ -40,11 +44,11 @@ export function McpServerCrudPanel({ servers }: { servers: McpServerSnapshot[] }
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {mutations.error && (
+        {(mutations.error || validationError) && (
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Server update failed</AlertTitle>
-            <AlertDescription>{mutations.error}</AlertDescription>
+            <AlertTitle>Server update blocked</AlertTitle>
+            <AlertDescription>{validationError ?? mutations.error}</AlertDescription>
           </Alert>
         )}
 
@@ -65,7 +69,7 @@ export function McpServerCrudPanel({ servers }: { servers: McpServerSnapshot[] }
                 <Button
                   type="button"
                   size="sm"
-                  disabled={mutations.pendingAction === 'save'}
+                  disabled={mutations.pendingAction === 'save' || !!validationError}
                   onClick={async () => {
                     const ok = await mutations.upsertServer(draft);
                     if (ok) {

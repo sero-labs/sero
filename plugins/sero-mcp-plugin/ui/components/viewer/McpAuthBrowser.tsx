@@ -169,10 +169,20 @@ function normalizeOrigin(origin: string): string | null {
 }
 
 function isAllowedUrl(url: URL, allowedOrigins: string[]): boolean {
+  if (isLoopbackUrl(url)) {
+    return true;
+  }
   if (!['https:', 'http:'].includes(url.protocol)) {
     return false;
   }
   return allowedOrigins.includes(url.origin);
+}
+
+function isLoopbackUrl(url: URL): boolean {
+  if (!['http:', 'https:'].includes(url.protocol)) {
+    return false;
+  }
+  return url.hostname === 'localhost' || url.hostname === '127.0.0.1' || url.hostname === '[::1]' || url.hostname === '::1';
 }
 
 export default McpAuthBrowser;

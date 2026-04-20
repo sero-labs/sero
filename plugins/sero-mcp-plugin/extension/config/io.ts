@@ -54,6 +54,7 @@ function normalizeServerConfig(value: unknown): McpServerConfig | null {
   if (!isRecord(value)) return null;
   const next: McpServerConfig = { ...value };
   if (typeof value.enabled === 'boolean') next.enabled = value.enabled;
+  if (value.transport === 'stdio' || value.transport === 'http') next.transport = value.transport;
   if (typeof value.command === 'string') next.command = value.command;
   if (typeof value.cwd === 'string') next.cwd = value.cwd;
   if (typeof value.url === 'string') next.url = value.url;

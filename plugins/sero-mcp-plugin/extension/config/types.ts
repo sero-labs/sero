@@ -10,6 +10,7 @@ export interface McpOAuthConfig extends Record<string, unknown> {
 
 export interface McpServerConfig extends Record<string, unknown> {
   enabled?: boolean;
+  transport?: 'stdio' | 'http';
   command?: string;
   args?: string[];
   env?: Record<string, string>;
