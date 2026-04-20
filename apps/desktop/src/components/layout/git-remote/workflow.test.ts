@@ -45,6 +45,23 @@ describe('git remote workflow', () => {
     expect(defaultRepoName('   ', 'workspace-1')).toBe('workspace-1');
   });
 
+  it('returns a structured auth failure before calling GitHub repo creation when disconnected', async () => {
+    seroBridge.github.status.mockResolvedValue({ authenticated: false });
+
+    const result = await createGitHubOrigin({
+      workspaceId: 'workspace-1',
+      name: 'my-workspace',
+      visibility: 'private',
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      authStatus: { authenticated: false },
+      reason: 'auth',
+    });
+    expect(seroBridge.github.createRepo).not.toHaveBeenCalled();
+  });
+
   it('falls back to the authenticated GitHub URL when repo creation omits url', async () => {
     seroBridge.github.status.mockResolvedValue({ authenticated: true, username: 'octocat' });
     seroBridge.github.createRepo.mockResolvedValue({ success: true, message: 'created' });

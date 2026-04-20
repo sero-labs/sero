@@ -4,7 +4,8 @@
  * Extracted to keep RemoteOriginManager.tsx under 500 LOC.
  */
 
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { Input } from '@sero-ai/ui/components/ui/input';
 import { Label } from '@sero-ai/ui/components/ui/label';
@@ -21,6 +22,7 @@ import {
 } from 'lucide-react';
 import { IconAction } from '@/components/ui/IconAction';
 import type { WorkspaceInfo } from '@/types/ipc';
+import { useGitHubAuthStore } from '@/stores/github-auth';
 import {
   connectOrigin,
   createGitHubOrigin,
@@ -30,6 +32,10 @@ import {
   type GitRemoteOriginInfo,
   type GitRemoteVisibility,
 } from '../git-remote/workflow';
+import {
+  RemoteOriginGitHubAuthNotice,
+  type RemoteOriginGitHubAuthOutcome,
+} from './RemoteOriginGitHubAuthNotice';
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -96,49 +102,121 @@ export function CreateGitHubView({
   onBack: () => void;
   onCreated: (url: string) => void;
 }) {
+  const {
+    authStatus,
+    statusReady,
+    openGitHubAuthDialog,
+    refreshStatus,
+  } = useGitHubAuthStore(
+    useShallow((state) => ({
+      authStatus: state.authStatus,
+      statusReady: state.statusReady,
+      openGitHubAuthDialog: state.openGitHubAuthDialog,
+      refreshStatus: state.refreshStatus,
+    })),
+  );
   const [name, setName] = useState(() => defaultRepoName(workspace.name, workspace.id));
   const [description, setDescription] = useState(workspace.description ?? '');
   const [visibility, setVisibility] = useState<Visibility>('private');
   const [isCreating, setIsCreating] = useState(false);
+  const [authRequired, setAuthRequired] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastAuthOutcome, setLastAuthOutcome] = useState<RemoteOriginGitHubAuthOutcome | null>(null);
+  const mountedRef = useRef(false);
+  const authLaunchInFlightRef = useRef(false);
 
-  const handleCreate = async () => {
-    const trimmed = name.trim();
-    if (!trimmed || isCreating) return;
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!authStatus?.authenticated) return;
+    setAuthRequired(false);
+    setLastAuthOutcome(null);
+  }, [authStatus?.authenticated]);
+
+  const handleCreate = useCallback(async () => {
+    const trimmedName = name.trim();
+    if (!trimmedName || isCreating) return;
 
     setIsCreating(true);
     setError(null);
+    setLastAuthOutcome(null);
+
     try {
       const result = await createGitHubOrigin({
         workspaceId: workspace.id,
-        name: trimmed,
+        name: trimmedName,
         description: description.trim() || undefined,
         visibility,
       });
 
+      if (!mountedRef.current) return;
+
       if (result.ok) {
+        setAuthRequired(false);
         onCreated(result.url);
         return;
       }
 
       if (result.reason === 'auth') {
-        setError('Not authenticated with GitHub. Connect your GitHub account in the sidebar first.');
-      } else if (result.reason === 'missing-url') {
+        await refreshStatus();
+        if (!mountedRef.current) return;
+        setAuthRequired(true);
+        return;
+      }
+
+      setAuthRequired(false);
+      if (result.reason === 'missing-url') {
         setError('Repository created, but Sero could not determine its URL. Refresh remotes and reconnect if needed.');
       } else {
         setError(result.message ?? 'Failed to create repository');
       }
     } catch (err) {
+      if (!mountedRef.current) return;
+      setAuthRequired(false);
       setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
-      setIsCreating(false);
+      if (mountedRef.current) {
+        setIsCreating(false);
+      }
     }
-  };
+  }, [description, isCreating, name, onCreated, refreshStatus, visibility, workspace.id]);
+
+  const handleConnectGitHub = useCallback(async () => {
+    if (authLaunchInFlightRef.current) return;
+
+    authLaunchInFlightRef.current = true;
+    setLastAuthOutcome(null);
+
+    try {
+      const result = await openGitHubAuthDialog({ source: 'remote-origin' });
+      if (!mountedRef.current) return;
+
+      const status = await refreshStatus();
+      if (!mountedRef.current) return;
+
+      if (result.outcome !== 'success' || !status.authenticated) {
+        setAuthRequired(!status.authenticated);
+        if (result.outcome !== 'success') {
+          setLastAuthOutcome(result);
+        }
+        return;
+      }
+
+      await handleCreate();
+    } finally {
+      authLaunchInFlightRef.current = false;
+    }
+  }, [handleCreate, openGitHubAuthDialog, refreshStatus]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !isCreating && name.trim()) {
       e.preventDefault();
-      handleCreate();
+      void handleCreate();
     }
   };
 
@@ -194,11 +272,24 @@ export function CreateGitHubView({
         </div>
       </div>
 
+      {authRequired ? (
+        <RemoteOriginGitHubAuthNotice
+          authStatus={authStatus}
+          statusReady={statusReady}
+          lastOutcome={lastAuthOutcome}
+          onConnect={() => {
+            void handleConnectGitHub();
+          }}
+        />
+      ) : null}
+
       {error && <ErrorBanner message={error} />}
 
       <div className="flex justify-end gap-2 pt-1">
         <Button variant="ghost" onClick={onBack} disabled={isCreating}>Cancel</Button>
-        <Button onClick={handleCreate} disabled={isCreating || !name.trim()}>
+        <Button onClick={() => {
+          void handleCreate();
+        }} disabled={isCreating || !name.trim()}>
           {isCreating ? (
             <><Loader2 className="mr-1.5 size-3.5 animate-spin" />Creating…</>
           ) : (

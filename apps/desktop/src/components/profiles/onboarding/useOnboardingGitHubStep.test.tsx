@@ -4,6 +4,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { GlobalModelConfigInput, ModelTierSettings } from '@/types/ipc';
+import { resetGitHubAuthStore, useGitHubAuthStore } from '@/stores/github-auth';
 import { useOnboardingGitHubStep } from './useOnboardingGitHubStep';
 
 (
@@ -54,7 +55,9 @@ function HookProbe({ onContinue }: { onContinue: (config: GlobalModelConfigInput
     step,
     checkingGitHub,
     githubAuth,
+    lastOutcome,
     handleTierContinue,
+    handleConnectGitHub,
     handleBack,
     handleContinueFromGitHub,
   } = useOnboardingGitHubStep({
@@ -69,8 +72,11 @@ function HookProbe({ onContinue }: { onContinue: (config: GlobalModelConfigInput
       data-step={step}
       data-checking={checkingGitHub ? 'true' : 'false'}
       data-status-ready={githubAuth.statusReady ? 'true' : 'false'}
+      data-authenticated={githubAuth.authStatus?.authenticated ? 'true' : 'false'}
+      data-last-outcome={lastOutcome?.outcome ?? ''}
     >
       <button onClick={() => void handleTierContinue()}>Continue</button>
+      <button onClick={() => void handleConnectGitHub()}>Connect GitHub</button>
       <button onClick={handleBack}>Back</button>
       <button onClick={handleContinueFromGitHub}>Skip GitHub</button>
     </div>
@@ -83,7 +89,9 @@ describe('useOnboardingGitHubStep', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    resetGitHubAuthStore();
     installSeroBridge();
+    githubBridge.status.mockResolvedValue({ authenticated: false });
     githubBridge.onEvent.mockReturnValue(vi.fn());
 
     container = document.createElement('div');
@@ -99,6 +107,8 @@ describe('useOnboardingGitHubStep', () => {
     }
     root = null;
     container.remove();
+
+    resetGitHubAuthStore();
 
     if (originalSeroDescriptor) {
       Object.defineProperty(window, 'sero', originalSeroDescriptor);
@@ -133,9 +143,8 @@ describe('useOnboardingGitHubStep', () => {
     expect(githubBridge.cancel).not.toHaveBeenCalled();
   });
 
-  it('shows the GitHub step for unauthenticated users and cancels in-flight device flow when leaving it', async () => {
+  it('shows the GitHub step for unauthenticated users and lets them go back or continue without cancelling a local device flow', async () => {
     const onContinue = vi.fn();
-    githubBridge.status.mockResolvedValue({ authenticated: false });
 
     await act(async () => {
       root?.render(<HookProbe onContinue={onContinue} />);
@@ -158,7 +167,7 @@ describe('useOnboardingGitHubStep', () => {
     });
 
     expect(readStep(container)).toBe('tiers');
-    expect(githubBridge.cancel).toHaveBeenCalledTimes(1);
+    expect(githubBridge.cancel).not.toHaveBeenCalled();
     expect(onContinue).not.toHaveBeenCalled();
 
     await act(async () => {
@@ -173,7 +182,143 @@ describe('useOnboardingGitHubStep', () => {
       findButton('Skip GitHub').dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
 
-    expect(githubBridge.cancel).toHaveBeenCalledTimes(2);
+    expect(githubBridge.cancel).not.toHaveBeenCalled();
     expect(onContinue).toHaveBeenCalledWith({ tiers });
+  });
+
+  it('launches the shared GitHub auth dialog and returns to a connected onboarding step without auto-continuing', async () => {
+    const onContinue = vi.fn();
+
+    await act(async () => {
+      root?.render(<HookProbe onContinue={onContinue} />);
+    });
+
+    await vi.waitFor(() => {
+      expect(container.firstElementChild?.getAttribute('data-status-ready')).toBe('true');
+    });
+
+    await act(async () => {
+      findButton('Continue').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    await vi.waitFor(() => {
+      expect(readStep(container)).toBe('github');
+    });
+
+    await act(async () => {
+      findButton('Connect GitHub').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    await vi.waitFor(() => {
+      expect(useGitHubAuthStore.getState().open).toBe(true);
+    });
+
+    expect(githubBridge.login).not.toHaveBeenCalled();
+
+    githubBridge.status.mockResolvedValueOnce({ authenticated: true, username: 'octocat' });
+
+    await act(async () => {
+      useGitHubAuthStore.getState().resolveGitHubAuthDialog({
+        outcome: 'success',
+        status: { authenticated: true, username: 'octocat' },
+      });
+    });
+
+    await vi.waitFor(() => {
+      expect(container.firstElementChild?.getAttribute('data-authenticated')).toBe('true');
+    });
+
+    expect(readStep(container)).toBe('github');
+    expect(container.firstElementChild?.getAttribute('data-last-outcome')).toBe('');
+    expect(onContinue).not.toHaveBeenCalled();
+  });
+
+  it('keeps users on the GitHub step with a retryable outcome after cancelling the shared dialog', async () => {
+    const onContinue = vi.fn();
+
+    await act(async () => {
+      root?.render(<HookProbe onContinue={onContinue} />);
+    });
+
+    await vi.waitFor(() => {
+      expect(container.firstElementChild?.getAttribute('data-status-ready')).toBe('true');
+    });
+
+    await act(async () => {
+      findButton('Continue').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    await vi.waitFor(() => {
+      expect(readStep(container)).toBe('github');
+    });
+
+    await act(async () => {
+      findButton('Connect GitHub').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    await vi.waitFor(() => {
+      expect(useGitHubAuthStore.getState().open).toBe(true);
+    });
+
+    expect(githubBridge.login).not.toHaveBeenCalled();
+
+    await act(async () => {
+      useGitHubAuthStore.getState().resolveGitHubAuthDialog({
+        outcome: 'cancelled',
+        status: { authenticated: false },
+      });
+    });
+
+    await vi.waitFor(() => {
+      expect(container.firstElementChild?.getAttribute('data-last-outcome')).toBe('cancelled');
+    });
+
+    expect(readStep(container)).toBe('github');
+    expect(container.firstElementChild?.getAttribute('data-authenticated')).toBe('false');
+    expect(onContinue).not.toHaveBeenCalled();
+  });
+
+  it('keeps users on the GitHub step with a retryable error outcome after the shared dialog fails', async () => {
+    const onContinue = vi.fn();
+
+    await act(async () => {
+      root?.render(<HookProbe onContinue={onContinue} />);
+    });
+
+    await vi.waitFor(() => {
+      expect(container.firstElementChild?.getAttribute('data-status-ready')).toBe('true');
+    });
+
+    await act(async () => {
+      findButton('Continue').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    await vi.waitFor(() => {
+      expect(readStep(container)).toBe('github');
+    });
+
+    await act(async () => {
+      findButton('Connect GitHub').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    await vi.waitFor(() => {
+      expect(useGitHubAuthStore.getState().open).toBe(true);
+    });
+
+    await act(async () => {
+      useGitHubAuthStore.getState().resolveGitHubAuthDialog({
+        outcome: 'error',
+        status: { authenticated: false },
+        message: 'GitHub login failed.',
+      });
+    });
+
+    await vi.waitFor(() => {
+      expect(container.firstElementChild?.getAttribute('data-last-outcome')).toBe('error');
+    });
+
+    expect(readStep(container)).toBe('github');
+    expect(container.firstElementChild?.getAttribute('data-authenticated')).toBe('false');
+    expect(onContinue).not.toHaveBeenCalled();
   });
 });
