@@ -104,7 +104,7 @@ describe('plugin manager discovery registration', () => {
     const { installPlugin, agentDir } = await importModules();
 
     await expect(installPlugin(sourceDir)).rejects.toThrow('Requires Sero 9.9.9 or newer');
-    await expect(fs.stat(path.join(agentDir, 'packages', 'future-plugin'))).rejects.toThrow();
+    await expect(fs.stat(path.join(agentDir, 'plugins', 'future-plugin'))).rejects.toThrow();
   });
 
   it('still blocks installs when compatibility requirements are present alongside invalid plugin metadata', async () => {
@@ -117,7 +117,7 @@ describe('plugin manager discovery registration', () => {
     const { installPlugin, agentDir } = await importModules();
 
     await expect(installPlugin(sourceDir)).rejects.toThrow('Requires Sero 9.9.9 or newer');
-    await expect(fs.stat(path.join(agentDir, 'packages', 'invalid-future-plugin'))).rejects.toThrow();
+    await expect(fs.stat(path.join(agentDir, 'plugins', 'invalid-future-plugin'))).rejects.toThrow();
   });
 
   it('blocks installs when an active local plugin development session already owns the app id', async () => {
@@ -154,15 +154,15 @@ describe('plugin manager discovery registration', () => {
     await expect(installPlugin(sourceDir)).rejects.toThrow(
       /already owned by active local plugin development session dev_1/,
     );
-    await expect(fs.stat(path.join(agentDir, 'packages', 'todo'))).rejects.toThrow();
+    await expect(fs.stat(path.join(agentDir, 'plugins', 'todo'))).rejects.toThrow();
   });
 
   it('reconciles installed plugin activation so unsupported plugins stay on disk but out of settings', async () => {
     tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'sero-plugin-manager-reconcile-'));
     const { reconcileInstalledPluginActivation, agentDir } = await importModules();
 
-    const compatiblePath = path.join(agentDir, 'packages', 'compatible-plugin');
-    const incompatiblePath = path.join(agentDir, 'packages', 'incompatible-plugin');
+    const compatiblePath = path.join(agentDir, 'plugins', 'compatible-plugin');
+    const incompatiblePath = path.join(agentDir, 'plugins', 'incompatible-plugin');
     await fs.mkdir(compatiblePath, { recursive: true });
     await fs.mkdir(incompatiblePath, { recursive: true });
 
@@ -228,8 +228,8 @@ describe('plugin manager discovery registration', () => {
     tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'sero-plugin-manager-order-'));
     const { reconcileInstalledPluginActivation, agentDir } = await importModules();
 
-    const zPluginPath = path.join(agentDir, 'packages', 'z-plugin');
-    const aPluginPath = path.join(agentDir, 'packages', 'a-plugin');
+    const zPluginPath = path.join(agentDir, 'plugins', 'z-plugin');
+    const aPluginPath = path.join(agentDir, 'plugins', 'a-plugin');
     const customPackagePath = path.join(tempRoot, 'custom-package');
     await fs.mkdir(zPluginPath, { recursive: true });
     await fs.mkdir(aPluginPath, { recursive: true });
@@ -321,7 +321,7 @@ describe('plugin manager discovery registration', () => {
     const { installPlugin, uninstallPlugin, discoverApps, agentDir } = await importModules();
 
     const manifest = await installPlugin(sourceDir);
-    const installPath = path.join(agentDir, 'packages', 'todo');
+    const installPath = path.join(agentDir, 'plugins', 'todo');
 
     expect(manifest.id).toBe('todo');
     expect(manifest.packagePath).toBe(installPath);

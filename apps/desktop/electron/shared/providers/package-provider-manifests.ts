@@ -136,7 +136,7 @@ function listCandidatePackageDirs(): string[] {
   for (const pkgPath of discoverBuiltinPackagePaths()) dirs.add(pkgPath);
   for (const pluginPath of discoverBuiltinPluginPaths()) dirs.add(pluginPath);
   for (const settingsPath of readSettingsPackagePaths()) dirs.add(settingsPath);
-  for (const installedPath of scanPackageDir(path.join(SERO_AGENT_DIR, 'packages'))) dirs.add(installedPath);
+  for (const installedPath of scanPackageDir(path.join(SERO_AGENT_DIR, 'plugins'))) dirs.add(installedPath);
   for (const extPath of scanPackageDir(path.join(SERO_AGENT_DIR, 'extensions'))) dirs.add(extPath);
 
   return [...dirs];

@@ -27,7 +27,7 @@ For user-facing plugin authoring instructions, see
 Sero supports **optional plugins** — apps that can be installed, updated, and
 removed without modifying the core codebase. Plugins are standard Sero apps
 (Pi extension + optional React UI) that are installed into
-`~/.sero-ui/agent/packages/`.
+`~/.sero-ui/agent/plugins/`.
 
 Distribution format depends on the source:
 
@@ -37,7 +37,7 @@ Distribution format depends on the source:
 
 The architecture leverages existing infrastructure:
 
-- **`app-discovery.ts`** already scans `~/.sero-ui/agent/packages/`
+- **`app-discovery.ts`** already scans `~/.sero-ui/agent/plugins/`
 - **`sero-ext://`** protocol already resolves from arbitrary package paths
 - **Module Federation** already supports runtime remote registration
 - **All extensions are independent** — zero cross-package dependencies
@@ -63,7 +63,7 @@ plugin-defined provider metadata via `sero.providers`.
 │  4. npm: verify pre-built dist/ui exists        │
 │     git/local: respect sero.plugin.preBuilt     │
 │     and build locally when required             │
-│  5. Move to ~/.sero-ui/agent/packages/<id>/     │
+│  5. Move to ~/.sero-ui/agent/plugins/<id>/     │
 │  6. Register in settings.json                   │
 │  7. Register with app-discovery + ext-protocol  │
 └──────────────┬──────────────────────────────────┘
@@ -252,13 +252,13 @@ installPlugin("npm:@sero/plugin-todo@latest")
   │  local → fs.cp to temp dir
   │
   ├─ Validate: sero.app.id exists in package.json
-  ├─ Resolve final install path ~/.sero-ui/agent/packages/<plugin-id>/
+  ├─ Resolve final install path ~/.sero-ui/agent/plugins/<plugin-id>/
   ├─ Reject conflicts with built-in apps or a different installed plugin
   ├─ npm: verify dist/ui/remoteEntry.js exists (if UI declared)
   ├─ git/local: if sero.plugin.preBuilt !== true, run npm install + npm run build
   ├─ Strip install-only fields (e.g. devPort) from staged package.json
   │
-  ├─ Move to ~/.sero-ui/agent/packages/<plugin-id>/
+  ├─ Move to ~/.sero-ui/agent/plugins/<plugin-id>/
   ├─ Add path to settings.json packages array
   │
   ├─ registerAppPath() → makes app-discovery aware
@@ -276,7 +276,7 @@ installPlugin("npm:@sero/plugin-todo@latest")
 ```
 uninstallPlugin("todo")
   │
-  ├─ Verify plugin exists at ~/.sero-ui/agent/packages/todo/
+  ├─ Verify plugin exists at ~/.sero-ui/agent/plugins/todo/
   ├─ fs.rm() the directory
   ├─ Remove path from settings.json packages array
   ├─ Dispose app-agent sessions for this app id
@@ -296,7 +296,7 @@ lives at `<workspace>/.sero/apps/<id>/state.json`; global state lives at
 
 1. `~/.sero-ui/agent/extensions/` — Sero extensions
 2. `settings.json` package + extension paths
-3. `~/.sero-ui/agent/packages/` — **installed plugins live here**
+3. `~/.sero-ui/agent/plugins/` — **installed plugins live here**
 4. manually registered package paths (used by built-in monorepo packages / dev)
 
 Plugins are just regular app packages in location 3. No special discovery
@@ -331,7 +331,7 @@ its `package.json`. This lets the renderer distinguish core apps from plugins
 ### Build-time (Vite config)
 
 `vite.config.ts` scans `plugins/sero-*-plugin/` for `sero.app` manifests and builds
-the MF remotes config. Plugins installed at `~/.sero-ui/agent/packages/`
+the MF remotes config. Plugins installed at `~/.sero-ui/agent/plugins/`
 are NOT known at build time — they use pre-built bundles.
 
 ### Runtime (federation-registry.ts)
@@ -571,7 +571,7 @@ The plugin manager validates:
 - `sero.app.id` exists and is well-formed
 - the app ID does not shadow a built-in app or a different installed plugin
 - `dist/ui/remoteEntry.js` exists if UI is declared
-- Installation path is within `~/.sero-ui/agent/packages/`
+- Installation path is within `~/.sero-ui/agent/plugins/`
 
 ### Build execution model
 

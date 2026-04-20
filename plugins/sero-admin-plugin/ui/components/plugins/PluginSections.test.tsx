@@ -17,7 +17,7 @@ function createInstalledPlugin(overrides: Partial<InstalledPlugin> = {}): Instal
     tags: ['weather', 'alerts'],
     source: 'npm:@sero/plugin-weather-pro@latest',
     installedAt: '2026-04-19T20:00:00.000Z',
-    packagePath: '/Users/daniel/.sero-ui/default/agent/packages/weather-pro',
+    packagePath: '/Users/daniel/.sero-ui/default/agent/plugins/weather-pro',
     hasUI: true,
     ...overrides,
   };

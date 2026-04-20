@@ -24,7 +24,7 @@ import {
 } from './plugin-meta';
 
 const SERO_EXTENSIONS_DIR = path.join(SERO_AGENT_DIR, 'extensions');
-const SERO_PACKAGES_DIR = path.join(SERO_AGENT_DIR, 'packages');
+const SERO_PLUGINS_DIR = path.join(SERO_AGENT_DIR, 'plugins');
 
 interface PkgWidgetDef {
   id?: string;
@@ -80,8 +80,8 @@ function isPluginInDevMode(appId: string): boolean {
 
 function getInstalledPluginPackageDirs(): string[] {
   return [...new Set([
-    path.resolve(SERO_PACKAGES_DIR),
-    path.resolve(SERO_FIXED_ROOT, 'agent', 'packages'),
+    path.resolve(SERO_PLUGINS_DIR),
+    path.resolve(SERO_FIXED_ROOT, 'agent', 'plugins'),
   ])];
 }
 
@@ -314,7 +314,7 @@ async function appendSettingsPaths(
     // settings.json missing or malformed — skip.
   }
 
-  await scanDir(path.join(SERO_AGENT_DIR, 'packages'), results, seenPaths, activeDevSessionRecordMap);
+  await scanDir(path.join(SERO_AGENT_DIR, 'plugins'), results, seenPaths, activeDevSessionRecordMap);
 }
 
 async function appendActiveDevSessionPaths(

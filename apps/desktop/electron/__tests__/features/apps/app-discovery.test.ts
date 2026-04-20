@@ -81,12 +81,12 @@ describe('app discovery devPort handling', () => {
     expect(getManifestDevPort('admin', builtinPluginPath, 5193)).toBe(5193);
   });
 
-  it('suppresses devPort for installed plugins under ~/.sero-ui/agent/packages', async () => {
+  it('suppresses devPort for installed plugins under ~/.sero-ui/agent/plugins', async () => {
     process.env.SERO_DEV_PLUGINS = 'admin';
 
     const { getManifestDevPort, isInstalledPluginPackagePath } = await importAppDiscovery();
-    const pluginPath = path.join('/tmp/fake-sero-home', 'agent', 'packages', 'admin');
-    const actualPluginPath = path.join(process.env.HOME ?? '/Users/test', '.sero-ui', 'agent', 'packages', 'admin');
+    const pluginPath = path.join('/tmp/fake-sero-home', 'agent', 'plugins', 'admin');
+    const actualPluginPath = path.join(process.env.HOME ?? '/Users/test', '.sero-ui', 'agent', 'plugins', 'admin');
 
     expect(isInstalledPluginPackagePath(pluginPath)).toBe(false);
     expect(isInstalledPluginPackagePath(actualPluginPath)).toBe(true);

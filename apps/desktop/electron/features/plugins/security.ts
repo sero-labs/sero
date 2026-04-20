@@ -29,7 +29,7 @@ export function ensurePathInsideDir(parentDir: string, targetPath: string): stri
   return resolvedTarget;
 }
 
-/** Resolve a plugin's install directory under ~/.sero-ui/agent/packages safely. */
+/** Resolve a plugin's install directory under ~/.sero-ui/agent/plugins safely. */
 export function resolvePluginInstallDir(pluginsDir: string, pluginId: string): string {
   const safePluginId = assertValidPluginId(pluginId);
   return ensurePathInsideDir(pluginsDir, path.join(pluginsDir, safePluginId));

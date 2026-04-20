@@ -106,7 +106,7 @@ Sero reconciles installed plugin activation against the current host build.
 That means an incompatible plugin can remain installed under:
 
 ```text
-~/.sero-ui/agent/packages/<plugin-id>
+~/.sero-ui/agent/plugins/<plugin-id>
 ```
 
 but it will be removed from the active `settings.json` package list until the

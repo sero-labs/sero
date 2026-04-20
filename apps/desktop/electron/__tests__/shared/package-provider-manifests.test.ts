@@ -21,7 +21,7 @@ vi.mock('@electron/shared/settings/settings-helpers', () => ({
 vi.mock('fs', () => ({
   existsSync: (targetPath: string) => {
     if (state.packageJsonByPath.has(targetPath)) return true;
-    if (targetPath === '/agent/packages' || targetPath === '/agent/extensions') return false;
+    if (targetPath === '/agent/plugins' || targetPath === '/agent/extensions') return false;
     if (targetPath === '/builtin/provider-package/package.json') return state.packageJsonByPath.has(targetPath);
     return false;
   },

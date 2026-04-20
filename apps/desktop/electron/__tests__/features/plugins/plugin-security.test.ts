@@ -19,17 +19,17 @@ describe('plugin security helpers', () => {
   });
 
   it('keeps resolved plugin install paths inside the plugins directory', () => {
-    expect(resolvePluginInstallDir('/tmp/sero/packages', 'todo')).toBe('/tmp/sero/packages/todo');
+    expect(resolvePluginInstallDir('/tmp/sero/plugins', 'todo')).toBe('/tmp/sero/plugins/todo');
   });
 
   it('rejects resolved paths outside the plugins directory', () => {
-    expect(() => ensurePathInsideDir('/tmp/sero/packages', '/tmp/evil')).toThrow(
+    expect(() => ensurePathInsideDir('/tmp/sero/plugins', '/tmp/evil')).toThrow(
       /escapes the plugins directory/,
     );
   });
 
   it('rejects the plugins directory itself as a target', () => {
-    expect(() => ensurePathInsideDir('/tmp/sero/packages', '/tmp/sero/packages')).toThrow(
+    expect(() => ensurePathInsideDir('/tmp/sero/plugins', '/tmp/sero/plugins')).toThrow(
       /plugins directory itself/,
     );
   });

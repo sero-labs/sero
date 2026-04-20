@@ -27,7 +27,7 @@ function createManifest(
     devPort: undefined,
     remoteEntryOverride: null,
     packagePath,
-    isPlugin: packagePath.includes('/agent/packages/'),
+    isPlugin: packagePath.includes('/agent/plugins/'),
     plugin: null,
     widgets: [],
   };
@@ -49,7 +49,7 @@ function createSession(overrides: Partial<PluginDevSessionRecord> = {}): PluginD
   };
 }
 
-const INSTALLED_PLUGIN_ROOT = path.join(process.env.HOME ?? '/Users/test', '.sero-ui', 'agent', 'packages');
+const INSTALLED_PLUGIN_ROOT = path.join(process.env.HOME ?? '/Users/test', '.sero-ui', 'agent', 'plugins');
 
 describe('plugin dev conflicts', () => {
   it('classifies built-in apps, installed plugins, and active dev sessions explicitly', () => {

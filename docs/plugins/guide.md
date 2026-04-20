@@ -38,7 +38,7 @@ tools, commands, hooks). The only difference is where they're stored:
 
 | | Core app | Plugin |
 |---|----------|--------|
-| **Location** | `plugins/sero-*-plugin/` in the monorepo | `~/.sero-ui/agent/packages/<id>/` |
+| **Location** | `plugins/sero-*-plugin/` in the monorepo | `~/.sero-ui/agent/plugins/<id>/` |
 | **Ships with Sero** | Yes | No — installed separately |
 | **Removable** | No | Yes |
 | **Source** | Monorepo | npm, git, or local path |
@@ -61,7 +61,7 @@ await window.sero.plugins.install('git:https://github.com/user/sero-plugin-todo.
 
 Git installs clone the **source repository**, run `npm install`, run the
 plugin's build script locally, and then install the built result into
-`~/.sero-ui/agent/packages/<id>/`.
+`~/.sero-ui/agent/plugins/<id>/`.
 
 For git installs, Sero treats `sero.plugin.preBuilt` as the switch that decides
 whether a local build is required:
@@ -99,7 +99,7 @@ required.
 All plugins are installed to:
 
 ```
-~/.sero-ui/agent/packages/<plugin-id>/
+~/.sero-ui/agent/plugins/<plugin-id>/
 ```
 
 This directory is automatically scanned by Sero's app discovery system on

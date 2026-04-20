@@ -1,7 +1,7 @@
 /**
  * Plugin Manager — install, uninstall, update, and list Sero plugins.
  *
- * Plugins are installed into ~/.sero-ui/agent/packages/<plugin-id>/
+ * Plugins are installed into ~/.sero-ui/agent/plugins/<plugin-id>/
  * and discovered at startup by app-discovery.ts (which already scans
  * that directory). This module handles the lifecycle operations.
  */
@@ -39,7 +39,7 @@ const execFile = promisify(execFileCb);
 export { reconcileInstalledPluginActivation } from './activation';
 
 /** Directory where plugins are installed. */
-const PLUGINS_DIR = path.join(SERO_AGENT_DIR, 'packages');
+const PLUGINS_DIR = path.join(SERO_AGENT_DIR, 'plugins');
 /** Temporary staging area for installs / backups. Not scanned by app discovery. */
 const PLUGIN_STAGING_DIR = path.join(SERO_AGENT_DIR, '.plugin-staging');
 /** Sidecar filename persisted alongside installed plugins. */
@@ -345,7 +345,7 @@ export async function uninstallPlugin(pluginId: string): Promise<void> {
 }
 
 /**
- * List all installed plugins (only from ~/.sero-ui/agent/packages/).
+ * List all installed plugins (only from ~/.sero-ui/agent/plugins/).
  */
 export async function listInstalledPlugins(): Promise<InstalledPlugin[]> {
   const results: InstalledPlugin[] = [];

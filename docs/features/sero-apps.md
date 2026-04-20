@@ -42,7 +42,7 @@ Sero apps can be shipped in two ways:
 | Kind | Location | Ships with desktop app | Removable |
 |---|---|---:|---:|
 | Built-in app | monorepo (`packages/`, `plugins/`) | Yes | No |
-| Optional plugin | `~/.sero-ui/agent/packages/<id>/` | No | Yes |
+| Optional plugin | `~/.sero-ui/agent/plugins/<id>/` | No | Yes |
 
 The runtime model is the same in both cases:
 
@@ -350,7 +350,7 @@ That includes:
 
 - built-in monorepo packages/apps
 - built-in monorepo plugins
-- installed optional plugins in `~/.sero-ui/agent/packages/`
+- installed optional plugins in `~/.sero-ui/agent/plugins/`
 - active **Local Plugin Development** sessions for the current profile
 - explicitly configured package paths from settings
 

@@ -10,7 +10,7 @@ import { SERO_AGENT_DIR } from '@electron/platform/env';
 import { getPackageCompatibilityForResourcePath } from './resource-compatibility';
 import { getPackagesArray, readSettings, writeSettings } from './settings';
 
-const PLUGINS_DIR = path.join(SERO_AGENT_DIR, 'packages');
+const PLUGINS_DIR = path.join(SERO_AGENT_DIR, 'plugins');
 const PLUGIN_META_FILENAME = '.sero-plugin-meta.json';
 
 interface PluginPackageJson {

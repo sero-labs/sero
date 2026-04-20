@@ -431,7 +431,7 @@ interface SeroPluginsAPI {
   install(source: string): Promise<SeroAppManifest>;
   /** Uninstall a plugin by ID. */
   uninstall(pluginId: string): Promise<void>;
-  /** List all installed plugins (from ~/.sero-ui/agent/packages/). */
+  /** List all installed plugins (from ~/.sero-ui/agent/plugins/). */
   list(): Promise<InstalledPlugin[]>;
   /** Check whether an app ID is an installed plugin (vs core). */
   isPlugin(pluginId: string): Promise<boolean>;
