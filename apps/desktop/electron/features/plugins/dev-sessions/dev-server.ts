@@ -2,6 +2,7 @@ import { spawn, type ChildProcess } from 'child_process';
 import path from 'path';
 import type { PluginDevSessionUiMode } from '@sero-ai/common';
 import { hasBuiltPluginDevUi } from './manifest';
+import { stopStalePortListenersForSourcePath } from './process-helpers';
 
 const HEALTH_POLL_INTERVAL_MS = 500;
 const HEALTH_POLL_TIMEOUT_MS = 20_000;
@@ -341,14 +342,20 @@ export async function ensurePluginDevServer(
   if (!entry) {
     const resolvedProbe = await probeRemoteEntryCandidates(remoteEntryOverrides, expectedRemoteName);
     if (resolvedProbe?.probe.status === 'ready') {
-      return createFallbackResult(
-        builtUiAvailable,
-        createUnmanagedRemoteReuseError(
-          sourcePath,
-          options.declaredDevPort,
-          expectedRemoteName,
-        ),
+      const stoppedStaleListeners = await stopStalePortListenersForSourcePath(
+        options.declaredDevPort,
+        sourcePath,
       );
+      if (!stoppedStaleListeners) {
+        return createFallbackResult(
+          builtUiAvailable,
+          createUnmanagedRemoteReuseError(
+            sourcePath,
+            options.declaredDevPort,
+            expectedRemoteName,
+          ),
+        );
+      }
     }
 
     if (resolvedProbe?.probe.status === 'mismatch') {

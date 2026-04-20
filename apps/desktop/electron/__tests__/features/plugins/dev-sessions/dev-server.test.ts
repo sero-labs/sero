@@ -47,8 +47,8 @@ function toRemoteName(appId: string): string {
   return `sero_${appId.replace(/-/g, '_')}`;
 }
 
-function buildHealthyServerCommand(port: number, remoteName: string): string {
-  const script = [
+function buildHealthyServerScript(port: number, remoteName: string, host = '127.0.0.1'): string {
+  return [
     "const http = require('http');",
     "const server = http.createServer((req, res) => {",
     "if (req.url === '/mf-manifest.json') {",
@@ -59,9 +59,12 @@ function buildHealthyServerCommand(port: number, remoteName: string): string {
     "res.writeHead(404);",
     "res.end('missing');",
     '});',
-    `server.listen(${port}, '127.0.0.1');`,
+    `server.listen(${port}, ${JSON.stringify(host)});`,
   ].join(' ');
-  return `${JSON.stringify(process.execPath)} -e ${JSON.stringify(script)}`;
+}
+
+function buildHealthyServerCommand(port: number, remoteName: string, host = '127.0.0.1'): string {
+  return `${JSON.stringify(process.execPath)} -e ${JSON.stringify(buildHealthyServerScript(port, remoteName, host))}`;
 }
 
 function buildFailingCommand(): string {
