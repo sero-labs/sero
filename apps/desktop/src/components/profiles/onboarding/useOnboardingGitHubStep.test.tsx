@@ -4,6 +4,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { GlobalModelConfigInput, ModelTierSettings } from '@/types/ipc';
+import { resetGitHubAuthStore } from '@/stores/github-auth';
 import { useOnboardingGitHubStep } from './useOnboardingGitHubStep';
 
 (
@@ -83,6 +84,7 @@ describe('useOnboardingGitHubStep', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    resetGitHubAuthStore();
     installSeroBridge();
     githubBridge.onEvent.mockReturnValue(vi.fn());
 
@@ -99,6 +101,8 @@ describe('useOnboardingGitHubStep', () => {
     }
     root = null;
     container.remove();
+
+    resetGitHubAuthStore();
 
     if (originalSeroDescriptor) {
       Object.defineProperty(window, 'sero', originalSeroDescriptor);

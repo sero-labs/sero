@@ -12,6 +12,7 @@ vi.mock('@/lib/copy-to-clipboard', () => ({
   copyTextToClipboard,
 }));
 
+import { resetGitHubAuthStore } from '@/stores/github-auth';
 import { useGitHubAuthFlow } from './useGitHubAuthFlow';
 
 (
@@ -59,6 +60,7 @@ describe('useGitHubAuthFlow', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers();
+    resetGitHubAuthStore();
     githubBridge.status.mockResolvedValue({ authenticated: false });
     githubBridge.onEvent.mockReturnValue(vi.fn());
 
@@ -82,6 +84,8 @@ describe('useGitHubAuthFlow', () => {
     }
     root = null;
     container.remove();
+
+    resetGitHubAuthStore();
 
     if (originalSeroDescriptor) {
       Object.defineProperty(window, 'sero', originalSeroDescriptor);
