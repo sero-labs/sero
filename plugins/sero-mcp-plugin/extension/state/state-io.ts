@@ -2,7 +2,6 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import type { McpAppState, McpAuthStatus, McpConnectionStatus, McpServerSnapshot } from '../../shared/types';
 import { createDefaultMcpState, EMPTY_MCP_SUMMARY } from '../../shared/types';
-import type { McpConfigDocument, McpServerConfig } from '../config/types';
 import { getMcpStatePath } from './paths';
 
 const stateWriteQueues = new Map<string, Promise<void>>();
@@ -151,64 +150,3 @@ export async function updateState<T>(
   }
 }
 
-export function createSnapshotFromConfig(
-  configPath: string,
-  config: McpConfigDocument,
-  rawConfigUpdatedAt: string | null,
-): McpAppState {
-  const servers = Object.entries(config.mcpServers).map(([serverName, serverConfig]) => {
-    return createServerSnapshot(serverName, serverConfig);
-  });
-
-  const enabledServers = servers.filter((server) => server.enabled).length;
-  const connectedServers = servers.filter((server) => server.connectionStatus === 'connected').length;
-  const needsAuthServers = servers.filter((server) => server.authStatus === 'not-authenticated').length;
-  const errorServers = servers.filter((server) => server.connectionStatus === 'error' || server.authStatus === 'error').length;
-
-  return {
-    initialized: true,
-    firstRun: servers.length === 0,
-    configPath,
-    rawConfigUpdatedAt,
-    servers,
-    settings: {
-      idleTimeout: config.settings?.idleTimeout ?? 10,
-      toolPrefix: config.settings?.toolPrefix ?? 'server',
-    },
-    lastRefreshedAt: new Date().toISOString(),
-    summary: {
-      totalServers: servers.length,
-      enabledServers,
-      connectedServers,
-      needsAuthServers,
-      errorServers,
-    },
-  };
-}
-
-function createServerSnapshot(serverName: string, serverConfig: McpServerConfig): McpServerSnapshot {
-  const enabled = serverConfig.enabled !== false;
-  return {
-    serverName,
-    enabled,
-    transport: typeof serverConfig.url === 'string' && serverConfig.url.length > 0 ? 'http' : 'stdio',
-    lifecycle: serverConfig.lifecycle ?? 'lazy',
-    connectionStatus: enabled ? 'idle' : 'disabled',
-    authStatus: resolveAuthStatus(serverConfig),
-    toolCount: 0,
-    resourceCount: 0,
-    uiToolCount: 0,
-    lastError: undefined,
-    lastConnectedAt: null,
-    lastFailedAt: null,
-    resources: [],
-    uiTools: [],
-  };
-}
-
-function resolveAuthStatus(serverConfig: McpServerConfig): McpAuthStatus {
-  if (serverConfig.auth === 'oauth' || serverConfig.auth === 'bearer') {
-    return 'not-authenticated';
-  }
-  return 'not-required';
-}

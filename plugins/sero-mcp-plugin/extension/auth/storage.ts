@@ -33,6 +33,10 @@ export async function writeOAuthTokens(serverName: string, tokens: McpStoredToke
   await writeJsonFile(getMcpOAuthTokenPath(serverName), tokens);
 }
 
+export async function hasOAuthTokens(serverName: string): Promise<boolean> {
+  return (await readOAuthTokens(serverName)) !== null;
+}
+
 export async function clearOAuthTokens(serverName: string): Promise<void> {
   await fs.rm(path.dirname(getMcpOAuthTokenPath(serverName)), { recursive: true, force: true });
 }

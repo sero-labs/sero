@@ -9,7 +9,9 @@ import { AlertCircle, PlugZap, RefreshCw, Server, ShieldCheck, Wrench } from 'lu
 import type { McpAppState } from '../shared/types';
 import { createDefaultMcpState } from '../shared/types';
 import { McpRawConfigPanel } from './components/config/McpRawConfigPanel';
+import { McpDiagnosticsPanel } from './components/diagnostics/McpDiagnosticsPanel';
 import { useMcpBootstrap } from './hooks/useMcpBootstrap';
+import { useMcpDiagnostics } from './hooks/useMcpDiagnostics';
 import { useMcpRawConfig } from './hooks/useMcpRawConfig';
 import './styles.css';
 
@@ -17,6 +19,7 @@ export function McpApp() {
   const initialState = useMemo(() => createDefaultMcpState(), []);
   const [state] = useAppState<McpAppState>(initialState);
   const bootstrap = useMcpBootstrap();
+  const diagnostics = useMcpDiagnostics();
   const rawConfig = useMcpRawConfig();
 
   const summaryCards = useMemo(() => {
@@ -45,6 +48,10 @@ export function McpApp() {
           </div>
 
           <div className="flex items-center gap-2">
+            <Button type="button" variant="outline" size="sm" onClick={() => void diagnostics.open()} disabled={diagnostics.loading}>
+              <AlertCircle className="mr-2 h-4 w-4" />
+              Diagnostics
+            </Button>
             <Button type="button" variant="outline" size="sm" onClick={() => void rawConfig.open()} disabled={rawConfig.loading || rawConfig.saving}>
               <Wrench className="mr-2 h-4 w-4" />
               Raw config
@@ -86,6 +93,7 @@ export function McpApp() {
           })}
         </section>
 
+        <McpDiagnosticsPanel state={diagnostics} />
         <McpRawConfigPanel state={rawConfig} />
 
         <section className="grid gap-4 xl:grid-cols-[1.3fr_0.9fr]">
