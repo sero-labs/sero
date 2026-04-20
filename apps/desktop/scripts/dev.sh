@@ -26,10 +26,19 @@ CHILD_PIDS=()
 # Match the top-level Electron browser process launched by `npx electron .`.
 # This avoids helper processes (`--type=...`) and survives app.relaunch().
 ELECTRON_MAIN_MATCH_PATTERN="Contents/MacOS/Electron \\."
+# Keep the relaunch grace window short so closing the app tears down Vite fast,
+# while still tolerating the brief gap during app.relaunch() for profile switches
+# and recovery flows.
+ELECTRON_RELAUNCH_GRACE_ATTEMPTS=6
+ELECTRON_RELAUNCH_GRACE_SLEEP=0.25
+CLEANUP_GRACE_SLEEP=0.25
 
 cleanup() {
+  local cleanup_started_at
+  cleanup_started_at=$(date +%s)
+
   echo ""
-  echo "Shutting down Sero dev processes..."
+  echo "[$(date +%H:%M:%S)] Shutting down Sero dev processes..."
 
   for pid in "${CHILD_PIDS[@]}"; do
     pkill -TERM -P "$pid" 2>/dev/null
@@ -41,14 +50,14 @@ cleanup() {
   done
   pkill -f "$ELECTRON_MAIN_MATCH_PATTERN" 2>/dev/null
 
-  sleep 1
+  sleep "$CLEANUP_GRACE_SLEEP"
   for pid in "${CHILD_PIDS[@]}"; do
     pkill -9 -P "$pid" 2>/dev/null
     kill -9 "$pid" 2>/dev/null
   done
 
   wait 2>/dev/null
-  echo "All dev processes stopped."
+  echo "[$(date +%H:%M:%S)] All dev processes stopped in $(( $(date +%s) - cleanup_started_at ))s."
 }
 
 # Keep the host/remotes alive across app.relaunch(). A relaunched Electron
@@ -68,8 +77,8 @@ monitor_electron_lifecycle() {
     fi
 
     relaunched=false
-    for attempt in {1..20}; do
-      sleep 0.25
+    for ((attempt = 1; attempt <= ELECTRON_RELAUNCH_GRACE_ATTEMPTS; attempt++)); do
+      sleep "$ELECTRON_RELAUNCH_GRACE_SLEEP"
       if electron_browser_running; then
         relaunched=true
         echo "Electron relaunched — keeping dev servers running."
@@ -77,7 +86,10 @@ monitor_electron_lifecycle() {
       fi
     done
 
-    $relaunched || break
+    $relaunched || {
+      echo "[$(date +%H:%M:%S)] Electron exited — starting dev cleanup."
+      break
+    }
   done
 }
 

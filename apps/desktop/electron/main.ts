@@ -57,6 +57,7 @@ registerExtProtocolScheme();
 
 let mainWindow: BrowserWindow | null = null;
 let isGracefullyShuttingDown = false;
+const SHUTDOWN_STEP_TIMEOUT_MS = 2_500;
 
 // Spotify Web Playback SDK needs autoplay + EME support in the renderer.
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
@@ -391,47 +392,70 @@ function hideAllWindowsForShutdown(): void {
   }
 }
 
+async function withShutdownTimeout(
+  label: string,
+  task: () => Promise<void>,
+  timeoutMs = SHUTDOWN_STEP_TIMEOUT_MS,
+): Promise<void> {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const startedAt = Date.now();
+  console.log(`[sero] Shutdown step start: ${label}`);
+
+  try {
+    await Promise.race([
+      task(),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => {
+          reject(new Error(`${label} timed out after ${timeoutMs}ms`));
+        }, timeoutMs);
+      }),
+    ]);
+    console.log(`[sero] Shutdown step done: ${label} (${Date.now() - startedAt}ms)`);
+  } catch (err) {
+    console.warn(`[sero] Shutdown step failed: ${label} (${Date.now() - startedAt}ms)`, err);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+async function stopRunningContainers(): Promise<void> {
+  const containers = await containerManager.list();
+  await Promise.allSettled(
+    containers.map((c) => {
+      const workspaceId = c.id.replace(/^sero-/, '');
+      return containerManager.stop(workspaceId);
+    }),
+  );
+}
+
 async function performGracefulShutdown(): Promise<void> {
+  const startedAt = Date.now();
   console.log('[sero] Shutting down — cleaning up containers, terminals, LSP, watchers...');
 
-  try {
-    await disposeAllAgentSessions();
-  } catch (err) {
-    console.error('[sero] Error during agent shutdown cleanup:', err);
-  }
-
-  try {
-    await pluginDevSessionManager.dispose();
-  } catch (err) {
-    console.error('[sero] Error during plugin dev-session shutdown cleanup:', err);
-  }
-
-  // Stop gateway services
-  if (gatewayServer.getStatus().running) {
-    await stopGateway();
-  }
-
-  // Dispose LSP servers and file watchers
-  await lspManager.disposeAll();
   fileWatcherManager.disposeAll();
+  console.log('[sero] Shutdown sync step done: file watchers');
   vcsManager.disposeAll();
-
-  // Dispose terminals and port forwards
+  console.log('[sero] Shutdown sync step done: vcs manager');
   containerManager.terminals.disposeAllTerminals();
-  await containerManager.disposeAllPortForwards();
+  console.log('[sero] Shutdown sync step done: terminals');
 
-  // Stop all sero-* containers
-  try {
-    const containers = await containerManager.list();
-    await Promise.allSettled(
-      containers.map((c) => {
-        const workspaceId = c.id.replace(/^sero-/, '');
-        return containerManager.stop(workspaceId);
-      }),
-    );
-  } catch (err) {
-    console.error('[sero] Error during shutdown cleanup:', err);
-  }
+  await Promise.allSettled([
+    withShutdownTimeout('agent sessions', disposeAllAgentSessions),
+    withShutdownTimeout('plugin dev sessions', () => pluginDevSessionManager.dispose()),
+    withShutdownTimeout(
+      'gateway',
+      async () => {
+        if (gatewayServer.getStatus().running) {
+          await stopGateway();
+        }
+      },
+    ),
+    withShutdownTimeout('language servers', () => lspManager.disposeAll()),
+    withShutdownTimeout('port forwards', () => containerManager.disposeAllPortForwards()),
+    withShutdownTimeout('containers', stopRunningContainers),
+  ]);
+
+  console.log(`[sero] Graceful shutdown complete (${Date.now() - startedAt}ms)`);
 }
 
 // ── Graceful shutdown ──────────────────────────────────────────
