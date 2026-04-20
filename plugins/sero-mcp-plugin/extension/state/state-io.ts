@@ -22,11 +22,19 @@ function normalizeServerSnapshot(value: unknown): McpServerSnapshot | null {
     transport: value.transport === 'http' ? 'http' : 'stdio',
     lifecycle:
       value.lifecycle === 'eager' || value.lifecycle === 'keep-alive' ? value.lifecycle : 'lazy',
+    authMode: normalizeAuthMode(value.authMode),
     connectionStatus: normalizeConnectionStatus(value.connectionStatus),
     authStatus: normalizeAuthStatus(value.authStatus),
     toolCount: typeof value.toolCount === 'number' ? value.toolCount : 0,
     resourceCount: typeof value.resourceCount === 'number' ? value.resourceCount : 0,
     uiToolCount: typeof value.uiToolCount === 'number' ? value.uiToolCount : 0,
+    command: typeof value.command === 'string' ? value.command : undefined,
+    argsText: typeof value.argsText === 'string' ? value.argsText : undefined,
+    cwd: typeof value.cwd === 'string' ? value.cwd : undefined,
+    url: typeof value.url === 'string' ? value.url : undefined,
+    bearerTokenEnv: typeof value.bearerTokenEnv === 'string' ? value.bearerTokenEnv : undefined,
+    exposeResources: typeof value.exposeResources === 'boolean' ? value.exposeResources : true,
+    debug: typeof value.debug === 'boolean' ? value.debug : false,
     lastError: typeof value.lastError === 'string' ? value.lastError : undefined,
     lastConnectedAt: typeof value.lastConnectedAt === 'string' ? value.lastConnectedAt : null,
     lastFailedAt: typeof value.lastFailedAt === 'string' ? value.lastFailedAt : null,
@@ -41,6 +49,16 @@ function normalizeServerSnapshot(value: unknown): McpServerSnapshot | null {
       inputSchema: tool.inputSchema,
     })).filter((tool) => tool.name.length > 0) : [],
   };
+}
+
+function normalizeAuthMode(value: unknown): 'none' | 'oauth' | 'bearer' {
+  switch (value) {
+    case 'oauth':
+    case 'bearer':
+      return value;
+    default:
+      return 'none';
+  }
 }
 
 function normalizeConnectionStatus(value: unknown): McpConnectionStatus {

@@ -58,11 +58,19 @@ async function createServerSnapshot(
     enabled,
     transport: typeof serverConfig.url === 'string' && serverConfig.url.length > 0 ? 'http' : 'stdio',
     lifecycle: serverConfig.lifecycle ?? 'lazy',
+    authMode: resolveAuthMode(serverConfig),
     connectionStatus: resolveConnectionStatus(enabled, authStatus),
     authStatus,
     toolCount: metadata?.toolCount ?? 0,
     resourceCount: metadata?.resourceCount ?? 0,
     uiToolCount: 0,
+    command: typeof serverConfig.command === 'string' ? serverConfig.command : undefined,
+    argsText: Array.isArray(serverConfig.args) ? serverConfig.args.join('\n') : undefined,
+    cwd: typeof serverConfig.cwd === 'string' ? serverConfig.cwd : undefined,
+    url: typeof serverConfig.url === 'string' ? serverConfig.url : undefined,
+    bearerTokenEnv: typeof serverConfig.bearerTokenEnv === 'string' ? serverConfig.bearerTokenEnv : undefined,
+    exposeResources: typeof serverConfig.exposeResources === 'boolean' ? serverConfig.exposeResources : true,
+    debug: typeof serverConfig.debug === 'boolean' ? serverConfig.debug : false,
     lastError: undefined,
     lastConnectedAt: null,
     lastFailedAt: null,
@@ -85,6 +93,12 @@ async function resolveAuthStatus(
   }
 
   return 'not-required';
+}
+
+function resolveAuthMode(serverConfig: McpServerConfig): 'none' | 'oauth' | 'bearer' {
+  if (serverConfig.auth === 'oauth') return 'oauth';
+  if (serverConfig.auth === 'bearer') return 'bearer';
+  return 'none';
 }
 
 function resolveConnectionStatus(enabled: boolean, authStatus: McpAuthStatus): McpConnectionStatus {

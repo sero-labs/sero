@@ -3,6 +3,7 @@ export type McpTransport = 'stdio' | 'http';
 export type McpLifecycle = 'lazy' | 'eager' | 'keep-alive';
 export type McpConnectionStatus = 'disabled' | 'idle' | 'connecting' | 'connected' | 'needs-auth' | 'error';
 export type McpAuthStatus = 'not-required' | 'not-authenticated' | 'authenticating' | 'authenticated' | 'expired' | 'error';
+export type McpAuthMode = 'none' | 'oauth' | 'bearer';
 
 export interface McpResourceSummary {
   uri: string;
@@ -21,11 +22,19 @@ export interface McpServerSnapshot {
   enabled: boolean;
   transport: McpTransport;
   lifecycle: McpLifecycle;
+  authMode: McpAuthMode;
   connectionStatus: McpConnectionStatus;
   authStatus: McpAuthStatus;
   toolCount: number;
   resourceCount: number;
   uiToolCount: number;
+  command?: string;
+  argsText?: string;
+  cwd?: string;
+  url?: string;
+  bearerTokenEnv?: string;
+  exposeResources?: boolean;
+  debug?: boolean;
   lastError?: string;
   lastConnectedAt?: string | null;
   lastFailedAt?: string | null;
@@ -57,6 +66,22 @@ export interface McpAppState {
   summary: McpSummary;
 }
 
+export interface McpServerEditorInput {
+  originalServerName?: string;
+  serverName: string;
+  enabled: boolean;
+  transport: McpTransport;
+  lifecycle: McpLifecycle;
+  authMode: McpAuthMode;
+  command: string;
+  argsText: string;
+  cwd: string;
+  url: string;
+  bearerTokenEnv: string;
+  exposeResources: boolean;
+  debug: boolean;
+}
+
 export const DEFAULT_MCP_SETTINGS: McpSettingsSnapshot = {
   idleTimeout: 10,
   toolPrefix: 'server',
@@ -80,6 +105,43 @@ export function createDefaultMcpState(): McpAppState {
     settings: { ...DEFAULT_MCP_SETTINGS },
     lastRefreshedAt: null,
     summary: { ...EMPTY_MCP_SUMMARY },
+  };
+}
+
+export function createEmptyServerEditorInput(): McpServerEditorInput {
+  return {
+    originalServerName: undefined,
+    serverName: '',
+    enabled: true,
+    transport: 'stdio',
+    lifecycle: 'lazy',
+    authMode: 'none',
+    command: '',
+    argsText: '',
+    cwd: '',
+    url: '',
+    bearerTokenEnv: '',
+    exposeResources: true,
+    debug: false,
+  };
+}
+
+export function createServerEditorInputFromSnapshot(server: McpServerSnapshot): McpServerEditorInput {
+  return {
+    ...createEmptyServerEditorInput(),
+    originalServerName: server.serverName,
+    serverName: server.serverName,
+    enabled: server.enabled,
+    transport: server.transport,
+    lifecycle: server.lifecycle,
+    authMode: server.authMode,
+    command: server.command ?? '',
+    argsText: server.argsText ?? '',
+    cwd: server.cwd ?? '',
+    url: server.url ?? '',
+    bearerTokenEnv: server.bearerTokenEnv ?? '',
+    exposeResources: server.exposeResources ?? true,
+    debug: server.debug ?? false,
   };
 }
 

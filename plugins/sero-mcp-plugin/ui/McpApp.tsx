@@ -10,6 +10,7 @@ import type { McpAppState } from '../shared/types';
 import { createDefaultMcpState } from '../shared/types';
 import { McpRawConfigPanel } from './components/config/McpRawConfigPanel';
 import { McpDiagnosticsPanel } from './components/diagnostics/McpDiagnosticsPanel';
+import { McpServerCrudPanel } from './components/servers/McpServerCrudPanel';
 import { useMcpBootstrap } from './hooks/useMcpBootstrap';
 import { useMcpDiagnostics } from './hooks/useMcpDiagnostics';
 import { useMcpRawConfig } from './hooks/useMcpRawConfig';
@@ -95,6 +96,7 @@ export function McpApp() {
 
         <McpDiagnosticsPanel state={diagnostics} />
         <McpRawConfigPanel state={rawConfig} />
+        <McpServerCrudPanel servers={state.servers} />
 
         <section className="grid gap-4 xl:grid-cols-[1.3fr_0.9fr]">
           {state.firstRun ? (

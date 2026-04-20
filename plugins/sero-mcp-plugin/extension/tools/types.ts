@@ -1,4 +1,13 @@
-export type ManagerAction = 'bootstrap' | 'refresh' | 'get_raw_config' | 'save_raw_config' | 'get_diagnostics';
+export type ManagerAction =
+  | 'bootstrap'
+  | 'refresh'
+  | 'get_raw_config'
+  | 'save_raw_config'
+  | 'get_diagnostics'
+  | 'upsert_server'
+  | 'remove_server'
+  | 'enable_server'
+  | 'disable_server';
 export type ProxyAction = 'status' | 'list';
 
 export type ToolResult = {
