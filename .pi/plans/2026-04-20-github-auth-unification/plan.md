@@ -511,7 +511,7 @@ Cover both the controller/dialog and the contextual integrations.
 - **Acceptance:** supports ISC-3, ISC-8, ISC-9, ISC-10, ISC-A-1, ISC-A-2.
 - **Status:** completed 2026-04-20.
 
-### GHA-05 — Replace remote-origin auth dead ends with a direct connect path and safe auto-resume
+### [x] GHA-05 — Replace remote-origin auth dead ends with a direct connect path and safe auto-resume
 - **Plan artifact:** `.pi/plans/2026-04-20-github-auth-unification/plan.md`
 - **Files:**
   - `apps/desktop/src/components/layout/workspace/remote-origin-views.tsx`
@@ -545,6 +545,7 @@ Cover both the controller/dialog and the contextual integrations.
   - **Anti-pattern: Lost Form Context** — do not reset name/description/visibility when the dialog opens or closes.
   - **Anti-pattern: Blind Resume** — do not auto-create a repo after a generic proactive connect click.
 - **Acceptance:** supports ISC-1, ISC-4, ISC-7, ISC-9, ISC-10, ISC-A-1, ISC-A-3.
+- **Status:** completed 2026-04-20.
 
 ### GHA-06 — Replace titlebar publish dead ends with a direct connect path and safe auto-resume
 - **Plan artifact:** `.pi/plans/2026-04-20-github-auth-unification/plan.md`
