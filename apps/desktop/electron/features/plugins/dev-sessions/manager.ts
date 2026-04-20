@@ -100,6 +100,7 @@ export class PluginDevSessionManager {
     }
 
     const devServerResult = await ensurePluginDevServer({
+      appId: validated.manifest.id,
       sourcePath: validated.sourcePath,
       declaredDevPort: validated.declaredDevPort,
       command: validated.devCommand,
@@ -156,32 +157,33 @@ export class PluginDevSessionManager {
 
   async stop(sessionId: string): Promise<void> {
     await this.initialize();
-
-    const record = this.getSessionOrThrow(sessionId);
-    const activeManifest = this.activeManifests.get(sessionId) ?? null;
     this.clearBootstrapProbe(sessionId);
+    await this.enqueueSessionTask(sessionId, async () => {
+      const record = this.getSessionOrThrow(sessionId);
+      const activeManifest = this.activeManifests.get(sessionId) ?? null;
 
-    if (activeManifest) {
-      const nextActiveManifests = new Map(this.activeManifests);
-      nextActiveManifests.delete(sessionId);
+      if (activeManifest) {
+        const nextActiveManifests = new Map(this.activeManifests);
+        nextActiveManifests.delete(sessionId);
 
-      await applyPluginDevSessionRefreshEffects({
-        activeManifests: [...nextActiveManifests.values()],
-        appId: activeManifest.id,
-        event: {
-          type: 'changed',
-          pluginId: activeManifest.id,
-          reason: 'dev-session-stopped',
-        },
-      });
+        await applyPluginDevSessionRefreshEffects({
+          activeManifests: [...nextActiveManifests.values()],
+          appId: activeManifest.id,
+          event: {
+            type: 'changed',
+            pluginId: activeManifest.id,
+            reason: 'dev-session-stopped',
+          },
+        });
 
-      this.replaceActiveManifests(nextActiveManifests);
-    }
+        this.replaceActiveManifests(nextActiveManifests);
+      }
 
-    this.sessions.delete(sessionId);
-    this.watcher.unwatch(sessionId);
-    this.persistSessions();
-    this.stopPluginDevServerBestEffort(record.sourcePath);
+      this.sessions.delete(sessionId);
+      this.watcher.unwatch(sessionId);
+      this.persistSessions();
+      this.stopPluginDevServerBestEffort(record.sourcePath);
+    });
   }
 
   async refresh(

@@ -16,7 +16,13 @@ interface ManagedPluginDevServer {
   output: string;
 }
 
+interface RemoteEntryProbeResult {
+  status: 'unreachable' | 'ready' | 'mismatch';
+  remoteName: string | null;
+}
+
 export interface EnsurePluginDevServerOptions {
+  appId: string;
   sourcePath: string;
   declaredDevPort: number | undefined;
   command: string | null;
@@ -36,6 +42,10 @@ function normalizeSourcePath(sourcePath: string): string {
   return path.resolve(sourcePath);
 }
 
+function toRemoteName(appId: string): string {
+  return `sero_${appId.replace(/-/g, '_')}`;
+}
+
 function buildRemoteEntryOverride(port: number): string {
   return `http://127.0.0.1:${port}/mf-manifest.json`;
 }
@@ -51,6 +61,33 @@ function trimOutput(output: string): string {
 function appendOutput(entry: ManagedPluginDevServer, chunk: unknown): void {
   const nextChunk = Buffer.isBuffer(chunk) ? chunk.toString('utf8') : String(chunk ?? '');
   entry.output = `${entry.output}\n${nextChunk}`.slice(-OUTPUT_LIMIT * 2);
+}
+
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function readRemoteManifestName(value: unknown): string | null {
+  if (!isObjectRecord(value)) {
+    return null;
+  }
+
+  if (typeof value.id === 'string' && value.id.trim()) {
+    return value.id.trim();
+  }
+
+  if (typeof value.name === 'string' && value.name.trim()) {
+    return value.name.trim();
+  }
+
+  const metaData = value.metaData;
+  if (!isObjectRecord(metaData)) {
+    return null;
+  }
+
+  return typeof metaData.name === 'string' && metaData.name.trim()
+    ? metaData.name.trim()
+    : null;
 }
 
 function getManagedServer(sourcePath: string): ManagedPluginDevServer | undefined {
@@ -110,19 +147,37 @@ function createFallbackResult(
   };
 }
 
-function createUnownedServerError(sourcePath: string, declaredDevPort: number): string {
-  return `Refusing to reuse a pre-existing local plugin UI dev server on port ${declaredDevPort} for ${sourcePath} because Sero cannot verify that it belongs to this session.`;
+function createUnexpectedRemoteError(
+  sourcePath: string,
+  declaredDevPort: number,
+  expectedRemoteName: string,
+  actualRemoteName: string | null,
+): string {
+  const actualLabel = actualRemoteName ? `"${actualRemoteName}"` : 'an unknown remote';
+  return `Refusing to use the local plugin UI dev server on port ${declaredDevPort} for ${sourcePath} because it serves ${actualLabel} instead of "${expectedRemoteName}".`;
 }
 
-async function probeRemoteEntry(remoteEntryOverride: string): Promise<boolean> {
+async function probeRemoteEntry(
+  remoteEntryOverride: string,
+  expectedRemoteName?: string,
+): Promise<RemoteEntryProbeResult> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), HEALTH_REQUEST_TIMEOUT_MS);
 
   try {
     const response = await fetch(remoteEntryOverride, { signal: controller.signal });
-    return response.ok;
+    if (!response.ok) {
+      return { status: 'unreachable', remoteName: null };
+    }
+
+    const remoteName = readRemoteManifestName(await response.json());
+    if (expectedRemoteName && remoteName !== expectedRemoteName) {
+      return { status: 'mismatch', remoteName };
+    }
+
+    return { status: 'ready', remoteName };
   } catch {
-    return false;
+    return { status: 'unreachable', remoteName: null };
   } finally {
     clearTimeout(timeout);
   }
@@ -131,22 +186,24 @@ async function probeRemoteEntry(remoteEntryOverride: string): Promise<boolean> {
 async function waitForRemoteEntry(
   remoteEntryOverride: string,
   entry?: ManagedPluginDevServer,
-): Promise<boolean> {
+  expectedRemoteName?: string,
+): Promise<RemoteEntryProbeResult> {
   const startedAt = Date.now();
 
   while (Date.now() - startedAt < HEALTH_POLL_TIMEOUT_MS) {
-    if (await probeRemoteEntry(remoteEntryOverride)) {
-      return true;
+    const probe = await probeRemoteEntry(remoteEntryOverride, expectedRemoteName);
+    if (probe.status !== 'unreachable') {
+      return probe;
     }
 
     if (entry && (entry.child.exitCode !== null || entry.child.killed)) {
-      return false;
+      return probe;
     }
 
     await sleep(HEALTH_POLL_INTERVAL_MS);
   }
 
-  return false;
+  return { status: 'unreachable', remoteName: null };
 }
 
 function summarizeStartupFailure(command: string, entry?: ManagedPluginDevServer): string {
@@ -215,6 +272,7 @@ export async function ensurePluginDevServer(
     );
   }
 
+  const expectedRemoteName = toRemoteName(options.appId);
   const remoteEntryOverride = buildRemoteEntryOverride(options.declaredDevPort);
   let entry = getManagedServer(sourcePath);
 
@@ -223,19 +281,51 @@ export async function ensurePluginDevServer(
     entry = undefined;
   }
 
-  if (entry && await probeRemoteEntry(remoteEntryOverride)) {
-    return {
-      remoteEntryOverride,
-      uiMode: 'dev-server',
-      error: null,
-    };
+  if (entry) {
+    const probe = await probeRemoteEntry(remoteEntryOverride, expectedRemoteName);
+    if (probe.status === 'ready') {
+      return {
+        remoteEntryOverride,
+        uiMode: 'dev-server',
+        error: null,
+      };
+    }
+
+    if (probe.status === 'mismatch') {
+      await stopPluginDevServer(sourcePath);
+      return createFallbackResult(
+        builtUiAvailable,
+        createUnexpectedRemoteError(
+          sourcePath,
+          options.declaredDevPort,
+          expectedRemoteName,
+          probe.remoteName,
+        ),
+      );
+    }
   }
 
-  if (!entry && await probeRemoteEntry(remoteEntryOverride)) {
-    return createFallbackResult(
-      builtUiAvailable,
-      createUnownedServerError(sourcePath, options.declaredDevPort),
-    );
+  if (!entry) {
+    const probe = await probeRemoteEntry(remoteEntryOverride, expectedRemoteName);
+    if (probe.status === 'ready') {
+      return {
+        remoteEntryOverride,
+        uiMode: 'dev-server',
+        error: null,
+      };
+    }
+
+    if (probe.status === 'mismatch') {
+      return createFallbackResult(
+        builtUiAvailable,
+        createUnexpectedRemoteError(
+          sourcePath,
+          options.declaredDevPort,
+          expectedRemoteName,
+          probe.remoteName,
+        ),
+      );
+    }
   }
 
   if (!entry) {
@@ -250,7 +340,8 @@ export async function ensurePluginDevServer(
     }
   }
 
-  if (await waitForRemoteEntry(remoteEntryOverride, entry)) {
+  const probe = await waitForRemoteEntry(remoteEntryOverride, entry, expectedRemoteName);
+  if (probe.status === 'ready') {
     return {
       remoteEntryOverride,
       uiMode: 'dev-server',
@@ -259,6 +350,18 @@ export async function ensurePluginDevServer(
   }
 
   await stopPluginDevServer(sourcePath);
+  if (probe.status === 'mismatch') {
+    return createFallbackResult(
+      builtUiAvailable,
+      createUnexpectedRemoteError(
+        sourcePath,
+        options.declaredDevPort,
+        expectedRemoteName,
+        probe.remoteName,
+      ),
+    );
+  }
+
   return createFallbackResult(builtUiAvailable, summarizeStartupFailure(options.command, entry));
 }
 

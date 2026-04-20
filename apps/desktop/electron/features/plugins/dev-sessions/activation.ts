@@ -10,6 +10,10 @@ function normalizePath(value: string): string {
   return path.resolve(value);
 }
 
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
 function getPackageEntrySource(entry: PackageSource): string | null {
   const source = typeof entry === 'string' ? entry : entry.source;
   return typeof source === 'string' && source ? source : null;
@@ -29,6 +33,45 @@ function uniquePaths(paths: Iterable<string>): string[] {
   return ordered;
 }
 
+function readPluginDevSettings(settings: Record<string, unknown>): Record<string, unknown> {
+  const seroSettings = settings.sero;
+  if (!isObjectRecord(seroSettings)) {
+    return {};
+  }
+
+  const pluginDevSettings = seroSettings.pluginDev;
+  return isObjectRecord(pluginDevSettings) ? pluginDevSettings : {};
+}
+
+function readProjectedPackagePaths(settings: Record<string, unknown>): string[] {
+  const projectedPackagePaths = readPluginDevSettings(settings).projectedPackagePaths;
+  if (!Array.isArray(projectedPackagePaths)) {
+    return [];
+  }
+
+  return uniquePaths(
+    projectedPackagePaths.filter((value): value is string => (
+      typeof value === 'string' && value.trim().length > 0
+    )),
+  );
+}
+
+function writeProjectedPackagePaths(
+  settings: Record<string, unknown>,
+  projectedPackagePaths: string[],
+): void {
+  const seroSettings = isObjectRecord(settings.sero) ? settings.sero : {};
+  const pluginDevSettings = readPluginDevSettings(settings);
+
+  settings.sero = {
+    ...seroSettings,
+    pluginDev: {
+      ...pluginDevSettings,
+      projectedPackagePaths,
+    },
+  };
+}
+
 export function getKnownPluginDevSessionSourcePaths(): string[] {
   return uniquePaths(readPluginDevSessionRecords().map((record) => record.sourcePath));
 }
@@ -40,26 +83,40 @@ export function getProjectedPluginDevSessionSourcePaths(): string[] {
 export async function reconcileActiveDevSessionPackages(activeSourcePaths: string[]): Promise<void> {
   const settings = readSettings();
   const packageEntries = getPackagesArray(settings) as PackageSource[];
-  const knownDevSessionPaths = new Set(getKnownPluginDevSessionSourcePaths());
-  const projectedActivePaths = uniquePaths(activeSourcePaths);
+  const projectedPackagePaths = readProjectedPackagePaths(settings);
+  const projectedPackagePathSet = new Set(projectedPackagePaths);
 
   const keptEntries = packageEntries.filter((entry) => {
     const source = getPackageEntrySource(entry);
-    return !source || !knownDevSessionPaths.has(normalizePath(source));
+    if (!source || typeof entry !== 'string') {
+      return true;
+    }
+    return !projectedPackagePathSet.has(normalizePath(source));
   });
 
-  const nextEntries: PackageSource[] = [...keptEntries, ...projectedActivePaths];
+  const keptSourcePaths = new Set(
+    keptEntries
+      .map(getPackageEntrySource)
+      .filter((source): source is string => typeof source === 'string')
+      .map(normalizePath),
+  );
+  const nextProjectedPackagePaths = uniquePaths(activeSourcePaths)
+    .filter((sourcePath) => !keptSourcePaths.has(normalizePath(sourcePath)));
+  const nextEntries: PackageSource[] = [...keptEntries, ...nextProjectedPackagePaths];
   const currentSources = packageEntries.map(getPackageEntrySource);
   const nextSources = nextEntries.map(getPackageEntrySource);
 
   if (
     currentSources.length === nextSources.length
     && currentSources.every((source, index) => source === nextSources[index])
+    && projectedPackagePaths.length === nextProjectedPackagePaths.length
+    && projectedPackagePaths.every((sourcePath, index) => sourcePath === nextProjectedPackagePaths[index])
   ) {
     return;
   }
 
   settings.packages = nextEntries;
+  writeProjectedPackagePaths(settings, nextProjectedPackagePaths);
   writeSettings(settings);
 }
 

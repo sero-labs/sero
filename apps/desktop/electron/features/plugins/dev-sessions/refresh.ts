@@ -162,6 +162,7 @@ async function resolvePluginDevSession(
   }
 
   const devServerResult = await ensurePluginDevServer({
+    appId: validated.manifest.id,
     sourcePath: validated.sourcePath,
     declaredDevPort: validated.declaredDevPort,
     command: validated.devCommand,

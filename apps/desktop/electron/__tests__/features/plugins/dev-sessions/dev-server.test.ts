@@ -43,13 +43,17 @@ async function getFreePort(): Promise<number> {
   });
 }
 
-function buildHealthyServerCommand(port: number): string {
+function toRemoteName(appId: string): string {
+  return `sero_${appId.replace(/-/g, '_')}`;
+}
+
+function buildHealthyServerCommand(port: number, remoteName: string): string {
   const script = [
     "const http = require('http');",
     "const server = http.createServer((req, res) => {",
     "if (req.url === '/mf-manifest.json') {",
     "res.writeHead(200, { 'content-type': 'application/json' });",
-    "res.end('{\\\"metaData\\\":{}}');",
+    `res.end(JSON.stringify({ id: ${JSON.stringify(remoteName)}, name: ${JSON.stringify(remoteName)}, metaData: { name: ${JSON.stringify(remoteName)} } }));`,
     'return;',
     '}',
     "res.writeHead(404);",
@@ -65,12 +69,16 @@ function buildFailingCommand(): string {
   return `${JSON.stringify(process.execPath)} -e ${JSON.stringify(script)}`;
 }
 
-async function startUnownedManifestServer(port: number): Promise<Server> {
+async function startUnmanagedManifestServer(port: number, remoteName: string): Promise<Server> {
   return await new Promise((resolve, reject) => {
     const server = createServer((req, res) => {
       if (req.url === '/mf-manifest.json') {
         res.writeHead(200, { 'content-type': 'application/json' });
-        res.end('{"metaData":{}}');
+        res.end(JSON.stringify({
+          id: remoteName,
+          name: remoteName,
+          metaData: { name: remoteName },
+        }));
         return;
       }
 
@@ -92,11 +100,13 @@ describe('ensurePluginDevServer', () => {
   it('starts a host-side dev server and resolves a localhost remote override', async () => {
     const sourcePath = await createTempSource();
     const port = await getFreePort();
+    const appId = 'todo-plugin';
 
     const result = await ensurePluginDevServer({
+      appId,
       sourcePath,
       declaredDevPort: port,
-      command: buildHealthyServerCommand(port),
+      command: buildHealthyServerCommand(port, toRemoteName(appId)),
       hasDeclaredUi: true,
       hasBuiltUi: false,
     });
@@ -115,6 +125,7 @@ describe('ensurePluginDevServer', () => {
     const port = await getFreePort();
 
     const result = await ensurePluginDevServer({
+      appId: 'todo-plugin',
       sourcePath,
       declaredDevPort: port,
       command: buildFailingCommand(),
@@ -127,16 +138,45 @@ describe('ensurePluginDevServer', () => {
     expect(result.error).toContain('Dev server start failed');
   });
 
-  it('refuses to reuse an unrelated pre-existing localhost remote on the configured port', async () => {
+  it('reuses a matching pre-existing localhost remote on the configured port', async () => {
     const sourcePath = await createTempSource({ builtUi: true });
     const port = await getFreePort();
-    const unrelatedServer = await startUnownedManifestServer(port);
+    const appId = 'todo-plugin';
+    const unmanagedServer = await startUnmanagedManifestServer(port, toRemoteName(appId));
 
     try {
       const result = await ensurePluginDevServer({
+        appId,
         sourcePath,
         declaredDevPort: port,
-        command: buildHealthyServerCommand(port),
+        command: buildHealthyServerCommand(port, toRemoteName(appId)),
+        hasDeclaredUi: true,
+        hasBuiltUi: true,
+      });
+
+      expect(result).toEqual({
+        remoteEntryOverride: `http://127.0.0.1:${port}/mf-manifest.json`,
+        uiMode: 'dev-server',
+        error: null,
+      });
+    } finally {
+      await new Promise<void>((resolve, reject) => {
+        unmanagedServer.close((error) => (error ? reject(error) : resolve()));
+      });
+    }
+  });
+
+  it('refuses to reuse an unrelated pre-existing localhost remote on the configured port', async () => {
+    const sourcePath = await createTempSource({ builtUi: true });
+    const port = await getFreePort();
+    const unrelatedServer = await startUnmanagedManifestServer(port, 'sero_other_plugin');
+
+    try {
+      const result = await ensurePluginDevServer({
+        appId: 'todo-plugin',
+        sourcePath,
+        declaredDevPort: port,
+        command: buildHealthyServerCommand(port, toRemoteName('todo-plugin')),
         hasDeclaredUi: true,
         hasBuiltUi: true,
       });
@@ -144,7 +184,7 @@ describe('ensurePluginDevServer', () => {
       expect(result).toEqual({
         remoteEntryOverride: null,
         uiMode: 'built-fallback',
-        error: expect.stringContaining('Refusing to reuse a pre-existing local plugin UI dev server'),
+        error: expect.stringContaining('Refusing to use the local plugin UI dev server'),
       });
     } finally {
       await new Promise<void>((resolve, reject) => {
@@ -157,6 +197,7 @@ describe('ensurePluginDevServer', () => {
     const sourcePath = await createTempSource();
 
     const result = await ensurePluginDevServer({
+      appId: 'todo-plugin',
       sourcePath,
       declaredDevPort: undefined,
       command: null,
@@ -175,6 +216,7 @@ describe('ensurePluginDevServer', () => {
     const sourcePath = await createTempSource();
 
     const result = await ensurePluginDevServer({
+      appId: 'todo-plugin',
       sourcePath,
       declaredDevPort: undefined,
       command: null,

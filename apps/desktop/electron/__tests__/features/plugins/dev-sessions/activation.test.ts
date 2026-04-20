@@ -79,13 +79,18 @@ describe('plugin dev activation projection', () => {
     mocks.unregisterExtAssets.mockReset();
   });
 
-  it('removes known dev-session paths from settings.packages and appends only active ones', async () => {
+  it('removes projected dev-session paths from settings.packages and appends only active ones', async () => {
     const settings = {
       packages: [
         '/tmp/kept-package',
         '/tmp/dev-plugin',
         '/tmp/broken-plugin',
       ],
+      sero: {
+        pluginDev: {
+          projectedPackagePaths: ['/tmp/dev-plugin', '/tmp/broken-plugin'],
+        },
+      },
     } satisfies Record<string, unknown>;
 
     mocks.readSettings.mockReturnValue(settings);
@@ -98,6 +103,49 @@ describe('plugin dev activation projection', () => {
 
     expect(mocks.writeSettings).toHaveBeenCalledWith({
       packages: ['/tmp/kept-package', '/tmp/dev-plugin'],
+      sero: {
+        pluginDev: {
+          projectedPackagePaths: ['/tmp/dev-plugin'],
+        },
+      },
+    });
+  });
+
+  it('preserves user-owned package entries when a dev session becomes inactive or broken', async () => {
+    const settings = {
+      packages: [
+        {
+          source: '/tmp/dev-plugin',
+          include: ['ui'],
+        },
+        '/tmp/projected-plugin',
+      ],
+      sero: {
+        pluginDev: {
+          projectedPackagePaths: ['/tmp/projected-plugin'],
+        },
+      },
+    } satisfies Record<string, unknown>;
+
+    mocks.readSettings.mockReturnValue(settings);
+    mocks.readPluginDevSessionRecords.mockReturnValue([
+      createSession({ status: 'broken' }),
+    ]);
+
+    await reconcileActiveDevSessionPackages([]);
+
+    expect(mocks.writeSettings).toHaveBeenCalledWith({
+      packages: [
+        {
+          source: '/tmp/dev-plugin',
+          include: ['ui'],
+        },
+      ],
+      sero: {
+        pluginDev: {
+          projectedPackagePaths: [],
+        },
+      },
     });
   });
 
