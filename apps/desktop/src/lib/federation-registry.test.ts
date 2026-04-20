@@ -96,7 +96,7 @@ describe('federation registry remote retry behaviour', () => {
 
     expect(runtimeMocks.loadRemote).toHaveBeenCalledTimes(2);
     expect(runtimeMocks.registerRemotes).toHaveBeenLastCalledWith(
-      [{ name: 'sero_todo', entry: 'http://localhost:4101/mf-manifest.json' }],
+      [{ name: 'sero_todo', entry: 'http://localhost:4101/remoteEntry.js' }],
       { force: true },
     );
   });
@@ -105,7 +105,7 @@ describe('federation registry remote retry behaviour', () => {
     process.env.NODE_ENV = 'development';
     runtimeMocks.fetch.mockImplementation(async (input: RequestInfo | URL) => {
       const url = String(input);
-      return { ok: url === 'http://127.0.0.1:5193/mf-manifest.json' ? false : true } as Response;
+      return { ok: url === 'http://127.0.0.1:5193/remoteEntry.js' ? false : true } as Response;
     });
 
     await preloadFederatedModule(
@@ -116,7 +116,7 @@ describe('federation registry remote retry behaviour', () => {
     );
 
     expect(runtimeMocks.fetch.mock.calls.map(([input]) => String(input))).toEqual([
-      'http://127.0.0.1:5193/mf-manifest.json',
+      'http://127.0.0.1:5193/remoteEntry.js',
     ]);
     expect(runtimeMocks.registerRemotes).toHaveBeenCalledWith(
       [{ name: 'sero_todo', entry: 'sero-ext://todo/mf-manifest.json' }],
@@ -129,7 +129,7 @@ describe('federation registry remote retry behaviour', () => {
     process.env.NODE_ENV = 'production';
     runtimeMocks.fetch.mockImplementation(async (input: RequestInfo | URL) => {
       const url = String(input);
-      return { ok: url === 'http://127.0.0.1:5193/mf-manifest.json' } as Response;
+      return { ok: url === 'http://127.0.0.1:5193/remoteEntry.js' } as Response;
     });
 
     await preloadFederatedModule(
@@ -140,10 +140,41 @@ describe('federation registry remote retry behaviour', () => {
     );
 
     expect(runtimeMocks.registerRemotes).toHaveBeenCalledWith(
-      [{ name: 'sero_todo', entry: 'http://127.0.0.1:5193/mf-manifest.json' }],
+      [{ name: 'sero_todo', entry: 'http://127.0.0.1:5193/remoteEntry.js' }],
       { force: true },
     );
     expect(runtimeMocks.loadRemote).toHaveBeenCalledTimes(1);
+  });
+
+  it('cache-busts manifest overrides into unique remoteEntry URLs', async () => {
+    process.env.NODE_ENV = 'production';
+    runtimeMocks.fetch.mockResolvedValue({ ok: true } as Response);
+
+    await preloadFederatedModule(
+      'todo',
+      'TodoApp',
+      4101,
+      'http://127.0.0.1:5193/mf-manifest.json?t=first',
+    );
+    invalidateRemote('todo');
+    await preloadFederatedModule(
+      'todo',
+      'TodoApp',
+      4101,
+      'http://127.0.0.1:5193/mf-manifest.json?t=second',
+    );
+
+    expect(runtimeMocks.registerRemotes).toHaveBeenNthCalledWith(
+      1,
+      [{ name: 'sero_todo', entry: 'http://127.0.0.1:5193/remoteEntry.js?t=first' }],
+      { force: true },
+    );
+    expect(runtimeMocks.registerRemotes).toHaveBeenNthCalledWith(
+      2,
+      [{ name: 'sero_todo', entry: 'http://127.0.0.1:5193/remoteEntry.js?t=second' }],
+      { force: true },
+    );
+    expect(runtimeMocks.loadRemote).toHaveBeenCalledTimes(2);
   });
 
   it('retries a failed lazy remote load on the next access without restart', async () => {

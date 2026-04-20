@@ -45,7 +45,7 @@ const pinnedApps = new Set<string>();
 /** Track the currently registered remote entry for each app. */
 const registeredEntries = new Map<string, string>();
 
-/** Cache of manifest reachability checks keyed by remote entry URL. */
+/** Cache of remote-entry reachability checks keyed by entry URL. */
 const manifestReachable = new Map<string, boolean>();
 
 /** Apps whose current cache was populated from a fallback bundle. */
@@ -56,6 +56,31 @@ function toRemoteName(appId: string): string {
   return `sero_${appId.replace(/-/g, '_')}`;
 }
 
+function normalizeRuntimeRemoteEntry(remoteEntryOverride: string | null): string | null {
+  if (!remoteEntryOverride) {
+    return null;
+  }
+
+  try {
+    const url = new URL(remoteEntryOverride);
+    if (url.pathname.endsWith('/mf-manifest.json')) {
+      url.pathname = `${url.pathname.slice(0, -'/mf-manifest.json'.length)}/remoteEntry.js`;
+    }
+    return url.toString();
+  } catch {
+    return remoteEntryOverride.replace(/\/mf-manifest\.json(?=($|[?#]))/, '/remoteEntry.js');
+  }
+}
+
+function getRemoteCacheKey(
+  appId: string,
+  component: string,
+  devPort: number | undefined,
+  remoteEntryOverride: string | null,
+): string {
+  return `${appId}/${component}::${normalizeRuntimeRemoteEntry(remoteEntryOverride) ?? (devPort ? `dev:${devPort}` : 'default')}`;
+}
+
 /** Return the remote entry URL candidates for an app. */
 function getRemoteEntryCandidates(
   appId: string,
@@ -63,11 +88,12 @@ function getRemoteEntryCandidates(
   remoteEntryOverride: string | null,
 ): string[] {
   const candidates: string[] = [];
+  const normalizedOverride = normalizeRuntimeRemoteEntry(remoteEntryOverride);
 
-  if (remoteEntryOverride) {
-    candidates.push(remoteEntryOverride);
+  if (normalizedOverride) {
+    candidates.push(normalizedOverride);
   } else if (process.env.NODE_ENV === 'development' && devPort) {
-    candidates.push(`http://localhost:${devPort}/mf-manifest.json`);
+    candidates.push(`http://localhost:${devPort}/remoteEntry.js`);
   }
 
   candidates.push(`sero-ext://${appId}/mf-manifest.json`);
@@ -79,7 +105,7 @@ function isHttpEntry(entry: string): boolean {
 }
 
 /**
- * Best-effort manifest reachability check.
+ * Best-effort remote-entry reachability check.
  *
  * Only successful HTTP(S) probes are cached. Failures are intentionally
  * re-checked on the next load attempt so a slow-starting dev server can be
@@ -280,7 +306,7 @@ export async function preloadFederatedModule(
   devPort: number | undefined,
   remoteEntryOverride: string | null = null,
 ): Promise<void> {
-  const cacheKey = `${appId}/${component}`;
+  const cacheKey = getRemoteCacheKey(appId, component, devPort, remoteEntryOverride);
   if (resolvedModules.has(cacheKey) || cache.has(cacheKey)) return;
 
   const loaded = await loadRemoteModule(appId, component, devPort, remoteEntryOverride);
@@ -302,7 +328,7 @@ export function getFederatedComponent(
 ): LazyComponent | null {
   if (!component) return null;
 
-  const cacheKey = `${appId}/${component}`;
+  const cacheKey = getRemoteCacheKey(appId, component, devPort, remoteEntryOverride);
 
   const cached = cache.get(cacheKey);
   if (cached) {
