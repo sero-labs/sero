@@ -8,13 +8,16 @@ import { cn } from '@sero-ai/ui/lib/utils';
 import { AlertCircle, PlugZap, RefreshCw, Server, ShieldCheck, Wrench } from 'lucide-react';
 import type { McpAppState } from '../shared/types';
 import { createDefaultMcpState } from '../shared/types';
+import { McpRawConfigPanel } from './components/config/McpRawConfigPanel';
 import { useMcpBootstrap } from './hooks/useMcpBootstrap';
+import { useMcpRawConfig } from './hooks/useMcpRawConfig';
 import './styles.css';
 
 export function McpApp() {
   const initialState = useMemo(() => createDefaultMcpState(), []);
   const [state] = useAppState<McpAppState>(initialState);
   const bootstrap = useMcpBootstrap();
+  const rawConfig = useMcpRawConfig();
 
   const summaryCards = useMemo(() => {
     return [
@@ -41,10 +44,16 @@ export function McpApp() {
             </p>
           </div>
 
-          <Button type="button" variant="outline" size="sm" onClick={() => void bootstrap.refresh()} disabled={bootstrap.loading}>
-            <RefreshCw className={cn('mr-2 h-4 w-4', bootstrap.loading && 'animate-spin')} />
-            Refresh
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button type="button" variant="outline" size="sm" onClick={() => void rawConfig.open()} disabled={rawConfig.loading || rawConfig.saving}>
+              <Wrench className="mr-2 h-4 w-4" />
+              Raw config
+            </Button>
+            <Button type="button" variant="outline" size="sm" onClick={() => void bootstrap.refresh()} disabled={bootstrap.loading}>
+              <RefreshCw className={cn('mr-2 h-4 w-4', bootstrap.loading && 'animate-spin')} />
+              Refresh
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -76,6 +85,8 @@ export function McpApp() {
             );
           })}
         </section>
+
+        <McpRawConfigPanel state={rawConfig} />
 
         <section className="grid gap-4 xl:grid-cols-[1.3fr_0.9fr]">
           {state.firstRun ? (

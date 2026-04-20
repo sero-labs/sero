@@ -3,19 +3,20 @@ import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
 import { Type } from '@sinclair/typebox';
 import { ensureOAuthDir } from './auth/storage';
 import { readMetadataCache, writeMetadataCache } from './cache/metadata-cache';
-import { ensureConfigFile, getConfigUpdatedAt, readRawConfig } from './config/io';
+import { ensureConfigFile, getConfigUpdatedAt, normalizeConfigDocument, readRawConfig, writeConfig } from './config/io';
 import { createSnapshotFromConfig, writeState } from './state/state-io';
 import { getMcpConfigPath, getMcpStatePath } from './state/paths';
 
 const ManagerParams = Type.Object({
-  action: StringEnum(['bootstrap', 'refresh', 'get_raw_config'] as const),
+  action: StringEnum(['bootstrap', 'refresh', 'get_raw_config', 'save_raw_config'] as const),
+  rawConfig: Type.Optional(Type.String({ description: 'Raw MCP config JSON for save_raw_config.' })),
 });
 
 const ProxyParams = Type.Object({
   action: Type.Optional(StringEnum(['status', 'list'] as const)),
 });
 
-type ManagerAction = 'bootstrap' | 'refresh' | 'get_raw_config';
+type ManagerAction = 'bootstrap' | 'refresh' | 'get_raw_config' | 'save_raw_config';
 type ProxyAction = 'status' | 'list';
 type ToolResult = {
   content: Array<{ type: 'text'; text: string }>;
@@ -53,11 +54,12 @@ export default function mcpExtension(pi: ExtensionAPI) {
     name: 'mcp_manager',
     label: 'MCP Manager',
     description:
-      'Internal management surface for the MCP app UI. Actions: bootstrap, refresh, get_raw_config.',
+      'Internal management surface for the MCP app UI. Actions: bootstrap, refresh, get_raw_config, save_raw_config.',
     parameters: ManagerParams,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-      const action = (params.action ?? 'bootstrap') as ManagerAction;
-      return runManagerAction(action, ctx?.cwd);
+      const managerParams = params as { action?: ManagerAction; rawConfig?: string };
+      const action = managerParams.action ?? 'bootstrap';
+      return runManagerAction(action, ctx?.cwd, managerParams.rawConfig);
     },
   });
 
@@ -94,7 +96,11 @@ function parseCliAction(args: string[]): ProxyAction {
   return 'status';
 }
 
-async function runManagerAction(action: ManagerAction, cwd?: string): Promise<ToolResult> {
+async function runManagerAction(action: ManagerAction, cwd?: string, rawConfigInput?: string): Promise<ToolResult> {
+  if (action === 'save_raw_config') {
+    return saveRawConfig(cwd, rawConfigInput);
+  }
+
   const synced = await syncSnapshot(cwd);
 
   if (action === 'get_raw_config') {
@@ -144,6 +150,31 @@ async function syncSnapshot(cwd?: string) {
   const snapshot = createSnapshotFromConfig(configPath, config, rawConfigUpdatedAt);
   await writeState(snapshot, statePath);
   return { configPath, statePath, snapshot };
+}
+
+async function saveRawConfig(cwd: string | undefined, rawConfigInput?: string): Promise<ToolResult> {
+  if (!rawConfigInput?.trim()) {
+    return toToolResult('Error: Raw config cannot be empty.', { snapshotWritten: false });
+  }
+
+  try {
+    const parsed = JSON.parse(rawConfigInput);
+    const normalized = normalizeConfigDocument(parsed);
+    const configPath = getMcpConfigPath();
+    await writeConfig(normalized, configPath);
+    const synced = await syncSnapshot(cwd);
+    return toToolResult(`Saved MCP config with ${synced.snapshot.summary.totalServers} configured server(s).`, {
+      snapshotWritten: true,
+      configPath: synced.configPath,
+      statePath: synced.statePath,
+      rawConfig: `${JSON.stringify(normalized, null, 2)}\n`,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return toToolResult(`Error: Failed to save raw MCP config. ${message}`, {
+      snapshotWritten: false,
+    });
+  }
 }
 
 function formatStatusSummary(snapshot: Awaited<ReturnType<typeof syncSnapshot>>['snapshot']): string {
