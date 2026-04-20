@@ -1,4 +1,5 @@
 import { Button } from '@sero-ai/ui/components/ui/button';
+import { cn } from '@sero-ai/ui/lib/utils';
 
 import {
   canSubmitQuestionnaire,
@@ -23,14 +24,37 @@ export function QuestionnaireReviewStep({
   onSubmit,
   onGoToStep,
 }: QuestionnaireReviewStepProps) {
+  const skippedCount = questions.filter(
+    (question) => getQuestionAnswers(answers, question.id).length === 0,
+  ).length;
+
   return (
     <div>
-      <p className="mb-4 text-sm font-medium text-foreground">Review your answers</p>
+      <p className="mb-1 text-sm font-medium text-foreground">Review your answers</p>
+      <p
+        className={cn(
+          'mb-4 text-xs',
+          skippedCount > 0
+            ? 'text-amber-700 dark:text-amber-300'
+            : 'text-emerald-700 dark:text-emerald-400',
+        )}
+      >
+        {skippedCount > 0
+          ? `${skippedCount} ${skippedCount === 1 ? 'question is' : 'questions are'} still skipped — edit anything in amber or submit when ready.`
+          : 'Everything is answered — submit when ready.'}
+      </p>
       <div className="space-y-3">
         {questions.map((question, index) => {
           const questionAnswers = getQuestionAnswers(answers, question.id);
+          const isSkipped = questionAnswers.length === 0;
           return (
-            <div key={question.id} className="rounded-md border border-border p-3">
+            <div
+              key={question.id}
+              className={cn(
+                'rounded-md border p-3',
+                isSkipped ? 'border-amber-500/25 bg-amber-500/5' : 'border-border',
+              )}
+            >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
                   <p className="text-xs font-medium text-muted-foreground">
@@ -40,7 +64,12 @@ export function QuestionnaireReviewStep({
                 </div>
                 <button
                   onClick={() => onGoToStep(index)}
-                  className="shrink-0 text-xs text-emerald-400 hover:underline"
+                  className={cn(
+                    'shrink-0 text-xs hover:underline',
+                    isSkipped
+                      ? 'text-amber-700 dark:text-amber-300'
+                      : 'text-emerald-400',
+                  )}
                 >
                   Edit
                 </button>
@@ -54,7 +83,7 @@ export function QuestionnaireReviewStep({
                   ))}
                 </div>
               ) : (
-                <p className="mt-2 text-xs text-muted-foreground">Skipped</p>
+                <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">Skipped</p>
               )}
             </div>
           );
@@ -62,7 +91,11 @@ export function QuestionnaireReviewStep({
       </div>
 
       <div className="mt-6 flex justify-end">
-        <Button onClick={onSubmit} disabled={!canSubmitQuestionnaire(questions, answers)}>
+        <Button
+          onClick={onSubmit}
+          disabled={!canSubmitQuestionnaire(questions, answers)}
+          className="bg-emerald-600 text-white hover:bg-emerald-700"
+        >
           Submit All Answers
         </Button>
       </div>

@@ -53,6 +53,17 @@ export function QuestionnaireForm({ question, onSubmit, onCancel }: Props) {
   const currentAnswers = currentQuestion
     ? getQuestionAnswers(answers, currentQuestion.id)
     : [];
+  const currentQuestionAnswered = currentQuestion
+    ? hasQuestionAnswer(answers, currentQuestion.id)
+    : false;
+  const advanceLabel = currentStep < questions.length - 1 ? 'Next' : 'Review';
+  const actionHint = isReview
+    ? allAnswered
+      ? 'Everything looks good — submit when ready.'
+      : 'Some questions are still skipped — edit anything in amber or submit your partial answers.'
+    : currentQuestionAnswered
+      ? `${advanceLabel} is ready when you want to continue.`
+      : 'Pick an answer, or use Skip if you want to leave this question unanswered.';
 
   const resetCustomInput = useCallback(() => {
     setCustomMode(false);
@@ -129,7 +140,9 @@ export function QuestionnaireForm({ question, onSubmit, onCancel }: Props) {
               className={cn(
                 'flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors',
                 index === currentStep && !isReview
-                  ? 'bg-emerald-500 text-white'
+                  ? hasQuestionAnswer(answers, item.id)
+                    ? 'bg-emerald-500 text-white'
+                    : 'bg-amber-500 text-white'
                   : hasQuestionAnswer(answers, item.id)
                     ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
                     : 'bg-secondary text-muted-foreground',
@@ -143,7 +156,9 @@ export function QuestionnaireForm({ question, onSubmit, onCancel }: Props) {
             className={cn(
               'rounded-full px-2.5 py-1 text-xs font-medium transition-colors',
               isReview
-                ? 'bg-emerald-500 text-white'
+                ? allAnswered
+                  ? 'bg-emerald-500 text-white'
+                  : 'bg-amber-500 text-white'
                 : allAnswered
                   ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
                   : 'bg-secondary text-muted-foreground',
@@ -189,45 +204,69 @@ export function QuestionnaireForm({ question, onSubmit, onCancel }: Props) {
         ) : null}
       </Card>
 
-      <div className="mt-3 flex items-center justify-between">
-        <Button variant="ghost" size="sm" onClick={() => onCancel(question.id)}>
-          Cancel
-        </Button>
-        <div className="flex gap-2">
-          {currentStep > 0 && (
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => {
-                setCurrentStep(currentStep - 1);
-                resetCustomInput();
-              }}
-            >
-              Back
-            </Button>
+      <div className="mt-3 border-t border-border/60 pt-3">
+        <p
+          className={cn(
+            'mb-2 min-h-5 text-xs transition-colors',
+            isReview
+              ? allAnswered
+                ? 'text-emerald-700 dark:text-emerald-400'
+                : 'text-amber-700 dark:text-amber-300'
+              : currentQuestionAnswered
+                ? 'text-emerald-700 dark:text-emerald-400'
+                : 'text-amber-700 dark:text-amber-300',
           )}
-          {!isReview && (
-            <>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setCurrentStep(currentStep + 1);
-                  resetCustomInput();
-                }}
-              >
-                Skip
-              </Button>
+        >
+          {actionHint}
+        </p>
+        <div className="flex items-center justify-between">
+          <Button variant="ghost" size="sm" onClick={() => onCancel(question.id)}>
+            Cancel
+          </Button>
+          <div className="flex gap-2">
+            {currentStep > 0 && (
               <Button
                 variant="secondary"
                 size="sm"
-                onClick={goToNextStep}
-                disabled={!currentQuestion || !hasQuestionAnswer(answers, currentQuestion.id)}
+                onClick={() => {
+                  setCurrentStep(currentStep - 1);
+                  resetCustomInput();
+                }}
               >
-                {currentStep < questions.length - 1 ? 'Next' : 'Review'}
+                Back
               </Button>
-            </>
-          )}
+            )}
+            {!isReview && (
+              <>
+                <Button
+                  variant={currentQuestionAnswered ? 'ghost' : 'secondary'}
+                  size="sm"
+                  onClick={() => {
+                    setCurrentStep(currentStep + 1);
+                    resetCustomInput();
+                  }}
+                  className={cn(
+                    !currentQuestionAnswered &&
+                      'border border-amber-500/30 bg-amber-500/10 text-amber-700 hover:bg-amber-500/20 hover:text-amber-800 dark:text-amber-300 dark:hover:bg-amber-500/15',
+                  )}
+                >
+                  Skip
+                </Button>
+                <Button
+                  variant={currentQuestionAnswered ? 'default' : 'secondary'}
+                  size="sm"
+                  onClick={goToNextStep}
+                  disabled={!currentQuestionAnswered}
+                  className={cn(
+                    currentQuestionAnswered &&
+                      'bg-emerald-600 text-white hover:bg-emerald-700',
+                  )}
+                >
+                  {advanceLabel}
+                </Button>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>
