@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { Search, Store, Loader2, Globe } from 'lucide-react';
 import { Input } from '@sero-ai/ui/components/ui/input';
+import { PluginSafetyDisclaimer } from '@sero-ai/ui/components/ui/plugin-safety-disclaimer';
 import { ScrollArea } from '@sero-ai/ui/components/ui/scroll-area';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@sero-ai/ui/components/ui/tabs';
 import {
@@ -206,13 +207,13 @@ export function AppStoreDialog({
           <TabsContent value="installed" className="mt-0 flex min-h-0 flex-1 flex-col">
             <div className="border-b border-[var(--border-default)] px-4 py-3">
               <div className="relative">
-                <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-[var(--text-muted)]" />
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-[var(--banner-primary)]" />
                 <Input
                   autoFocus
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
                   placeholder="Search installed apps…"
-                  className="pl-10"
+                  className="h-11 rounded-xl border-[var(--banner-primary-border)] bg-[var(--bg-base)] pl-10 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)]/75 focus-visible:border-[var(--border-focus)] focus-visible:ring-[var(--banner-primary-muted)]"
                 />
               </div>
             </div>
@@ -245,18 +246,17 @@ export function AppStoreDialog({
           </TabsContent>
 
           <TabsContent value="discover" className="mt-0 flex min-h-0 flex-1 flex-col">
-            <div className="border-b border-[var(--border-default)] px-4 py-3">
+            <div className="shrink-0 border-b border-[var(--border-default)] px-4 py-3">
               <div className="relative">
-                <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-[var(--text-muted)]" />
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-[var(--banner-primary)]" />
                 <Input
                   value={discoverQuery}
                   onChange={(event) => handleDiscoverQueryChange(event.target.value)}
                   placeholder="Search public plugins…"
-                  className="pl-10"
+                  className="h-11 rounded-xl border-[var(--banner-primary-border)] bg-[var(--bg-base)] pl-10 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)]/75 focus-visible:border-[var(--border-focus)] focus-visible:ring-[var(--banner-primary-muted)]"
                 />
               </div>
             </div>
-
             <ScrollArea className="min-h-0 flex-1">
               <div className="p-4">
                 {discoverLoading ? (
@@ -287,6 +287,8 @@ export function AppStoreDialog({
                 )}
               </div>
             </ScrollArea>
+
+            <PluginSafetyDisclaimer />
           </TabsContent>
         </Tabs>
       </DialogContent>

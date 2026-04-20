@@ -2,6 +2,7 @@ import { memo } from 'react';
 import { PlugZap } from 'lucide-react';
 import { useAppInfo } from '@sero-ai/app-runtime';
 import { Badge } from '@sero-ai/ui/components/ui/badge';
+import { PluginSafetyDisclaimer } from '@sero-ai/ui/components/ui/plugin-safety-disclaimer';
 import { ScrollArea } from '@sero-ai/ui/components/ui/scroll-area';
 import { useAttachedFolders } from '../hooks/useAttachedFolders';
 import { usePluginDevSessions } from '../hooks/usePluginDevSessions';
@@ -95,6 +96,8 @@ export const PluginsPanel = memo(function PluginsPanel() {
           />
         </div>
       </ScrollArea>
+
+      <PluginSafetyDisclaimer />
     </div>
   );
 });
