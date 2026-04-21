@@ -11,7 +11,7 @@ Current checkpoint: `420f251c`
 
 ## Remaining coverage work
 
-- [ ] MCP-10 — finish the remaining automated coverage *(runtime + CSP coverage already landed; remaining bridge/path coverage still open)* ([plan](./plan.md))
+- [x] MCP-10 — finish the remaining automated coverage *(runtime + CSP coverage already landed; remaining bridge/path coverage still open)* ([plan](./plan.md))
 - [ ] MCP-11 — add the planned UI test coverage ([plan](./plan.md))
 
 ## Final wrap-up
