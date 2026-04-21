@@ -5,6 +5,20 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ComponentPropsWithoutRef, ReactNode } from 'react';
 
+vi.mock('lucide-react', () => ({
+  Bot: () => <svg data-icon="bot" />,
+  Loader2: () => <svg data-icon="loader" />,
+  RotateCcw: () => <svg data-icon="undo" />,
+  User: () => <svg data-icon="user" />,
+  Settings2: () => <svg data-icon="settings" />,
+  Brain: () => <svg data-icon="brain" />,
+  Database: () => <svg data-icon="database" />,
+  MessageSquare: () => <svg data-icon="message-square" />,
+  Users: () => <svg data-icon="users" />,
+  Swords: () => <svg data-icon="swords" />,
+  ChevronDown: () => <svg data-icon="chevron-down" />,
+}));
+
 vi.mock('@sero-ai/ui/components/ai-elements/message', () => ({
   Message: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   MessageActions: ({ children }: { children: ReactNode }) => <div>{children}</div>,
@@ -97,5 +111,66 @@ describe('ChatMessageItem turn-undo affordance', () => {
     });
 
     expect(container.querySelector('button')).toBeNull();
+  });
+});
+
+describe('ChatMessageItem assistant chrome', () => {
+  let container: HTMLDivElement;
+  let root: Root | null = null;
+
+  beforeEach(() => {
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+  });
+
+  afterEach(async () => {
+    if (root) {
+      await act(async () => {
+        root?.unmount();
+      });
+    }
+    root = null;
+    container.remove();
+  });
+
+  it('hides the bot avatar for thinking-only assistant messages', async () => {
+    await act(async () => {
+      root?.render(
+        <ChatMessageItem
+          message={{
+            type: 'assistant',
+            id: 'assistant-1',
+            text: '',
+            thinking: 'Working through the next step',
+            isStreaming: true,
+          }}
+          showThinking
+        />,
+      );
+    });
+
+    expect(container.querySelector('[data-icon="bot"]')).toBeNull();
+  });
+
+  it('shows a spinner when thinking is hidden for a streaming assistant message', async () => {
+    await act(async () => {
+      root?.render(
+        <ChatMessageItem
+          message={{
+            type: 'assistant',
+            id: 'assistant-1',
+            text: '',
+            thinking: 'Working through the next step',
+            isStreaming: true,
+          }}
+          showThinking={false}
+        />,
+      );
+    });
+
+    expect(container.querySelector('[data-icon="loader"]')).not.toBeNull();
+    expect(container.querySelector('[data-icon="bot"]')).toBeNull();
+    expect(container.textContent).toContain('Thinking...');
   });
 });

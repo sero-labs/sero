@@ -1,5 +1,5 @@
 import { memo, useMemo } from 'react';
-import { Bot, Loader2, RotateCcw, User } from 'lucide-react';
+import { Bot, RotateCcw, User } from 'lucide-react';
 
 import {
   Message,
@@ -13,6 +13,7 @@ import { MessageAttachments } from './ChatAttachments';
 import { ThinkingBlock } from './ThinkingBlock';
 import { MemoryContextBlock } from './MemoryContextBlock';
 import { ResponseFeedback } from './ResponseFeedback';
+import { ThinkingIndicator } from './ChatPanelHelpers';
 import type { ChatMessage, ChatTurnUndoRef } from '@/types/ipc';
 
 function ChatAvatar({ kind }: { kind: 'user' | 'assistant' }) {
@@ -98,6 +99,12 @@ export const ChatMessageItem = memo(function ChatMessageItem({
     case 'assistant': {
       const isDone = !message.isStreaming;
       const hasContent = !!message.text?.trim();
+      const hasMemoryContext = !!(showMemory && message.memoryContext);
+      const hasThinkingBlock = !!(showThinking && message.thinking);
+      const showInlineThinkingIndicator = message.isStreaming
+        && !hasContent
+        && (!message.thinking || !showThinking);
+      const showAvatar = hasContent;
       const showFeedback = isDone && hasContent && !!sessionId;
 
       // Truncate excerpts for storage (keep feedback entries lean)
@@ -112,31 +119,31 @@ export const ChatMessageItem = memo(function ChatMessageItem({
 
       return (
         <Message from="assistant" className="group/msg flex-row items-start gap-2">
-          <ChatAvatar kind="assistant" />
+          {showAvatar ? <ChatAvatar kind="assistant" /> : null}
           <div className="flex min-w-0 flex-1 flex-col gap-2">
-            {showMemory && message.memoryContext && (
-              <MemoryContextBlock context={message.memoryContext} />
-            )}
-            {showThinking && message.thinking && (
+            {hasMemoryContext ? (
+              <MemoryContextBlock context={message.memoryContext!} />
+            ) : null}
+            {hasThinkingBlock ? (
               <ThinkingBlock
-                thinking={message.thinking}
-                isStreaming={message.isStreaming && !message.text}
+                thinking={message.thinking!}
+                isStreaming={message.isStreaming && !hasContent}
               />
-            )}
-            <MessageContent>
-              <MessageResponse>{message.text}</MessageResponse>
-              {message.isStreaming && message.text === '' && !message.thinking && (
-                <Loader2 className="size-4 animate-spin text-[var(--text-muted)]" />
-              )}
-            </MessageContent>
-            {showFeedback && (
+            ) : null}
+            {hasContent ? (
+              <MessageContent>
+                <MessageResponse>{message.text}</MessageResponse>
+              </MessageContent>
+            ) : null}
+            {showInlineThinkingIndicator ? <ThinkingIndicator /> : null}
+            {showFeedback ? (
               <ResponseFeedback
                 messageId={message.id}
                 sessionId={sessionId}
                 promptExcerpt={promptExcerpt}
                 responseExcerpt={responseExcerpt}
               />
-            )}
+            ) : null}
           </div>
         </Message>
       );

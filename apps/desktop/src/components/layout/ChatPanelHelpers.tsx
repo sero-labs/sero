@@ -5,10 +5,11 @@
  * - ThinkingBlocksToggle — toggle visibility of thinking blocks
  * - CollaborationToggle — toggle collaboration mode + strategy picker
  * - EmptyState — placeholder when no session / no messages
+ * - ThinkingIndicator — shared inline streaming indicator
  */
 
 import { useRef, useState, useCallback } from 'react';
-import { Settings2, Brain, Database, MessageSquare, Users, Swords, ChevronDown } from 'lucide-react';
+import { Settings2, Brain, Database, MessageSquare, Users, Swords, ChevronDown, Loader2 } from 'lucide-react';
 import {
   PromptInputActionMenuItem,
 } from '@sero-ai/ui/components/ai-elements/prompt-input';
@@ -262,6 +263,17 @@ export function CollaborationToggle({ disabled }: { disabled: boolean }) {
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+// ── Shared streaming indicator ────────────────────────────────
+
+export function ThinkingIndicator({ className }: { className?: string }) {
+  return (
+    <div className={cn('flex items-center gap-2 px-2 py-1', className)}>
+      <Loader2 className="size-3.5 animate-spin text-[var(--text-muted)]" />
+      <span className="text-xs text-[var(--text-muted)]">Thinking...</span>
     </div>
   );
 }

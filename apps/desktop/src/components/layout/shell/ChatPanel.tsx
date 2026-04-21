@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo } from 'react';
-import { Bot, Loader2, AlertCircle } from 'lucide-react';
+import { Bot, AlertCircle } from 'lucide-react';
 import {
   Conversation,
   ConversationContent,
@@ -16,7 +16,11 @@ import {
 import { useSessionStore } from '@/stores/sessions';
 import { useAppStore } from '@/stores/app';
 import { SessionBadge } from '@/components/layout/SessionBadge';
-import { groupMessages, ToolCallGroup } from '@/components/layout/ToolCallGroup';
+import {
+  groupMessages,
+  isToolGroupFinalized,
+  ToolCallGroup,
+} from '@/components/layout/ToolCallGroup';
 import { ChatMessageItem } from '@/components/layout/ChatMessageItem';
 import { CheckpointRestoreDialog } from '@/components/layout/CheckpointRestoreDialog';
 import { useFeedbackStore } from '@/stores/feedback';
@@ -27,7 +31,7 @@ import { useUserFeedbackInit } from '@/hooks/useUserFeedbackInit';
 import { createFilePathClickHandler } from '@/components/layout/ClickableFilePath';
 import { PendingQuestionCard } from '@/components/layout/PendingQuestionCard';
 import { QuestionnaireNotice, getFeedbackToolGroupDisposition } from '@/components/layout/QuestionnaireNotice';
-import { EmptyState } from '@/components/layout/ChatPanelHelpers';
+import { EmptyState, ThinkingIndicator } from '@/components/layout/ChatPanelHelpers';
 import { CollaborationDetails } from '@/components/layout/CollaborationResponse';
 import { CollaborationActivityPanel } from '@/components/layout/CollaborationActivityPanel';
 import {
@@ -179,8 +183,7 @@ export function ChatPanel() {
           <>
             {groupedItems.map((item, index) => {
               if (item.kind === 'tool-group') {
-                const isLast = index === groupedItems.length - 1;
-                const isFinalized = !isLast || !isStreaming;
+                const isFinalized = isToolGroupFinalized(groupedItems, index);
 
                 const feedbackDisposition = getFeedbackToolGroupDisposition(item.tools);
                 if (feedbackDisposition === 'hide') {
@@ -221,12 +224,7 @@ export function ChatPanel() {
           </>
         )}
 
-        {showThinking && (
-          <div className="flex items-center gap-2 px-2 py-1">
-            <Loader2 className="size-3.5 animate-spin text-[var(--text-muted)]" />
-            <span className="text-xs text-[var(--text-muted)]">Thinking…</span>
-          </div>
-        )}
+        {showThinking ? <ThinkingIndicator /> : null}
 
         {error && <ChatError error={error} />}
       </ConversationContent>

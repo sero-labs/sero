@@ -19,6 +19,15 @@ export type GroupedChatItem =
   | { kind: 'message'; message: ChatMessage }
   | { kind: 'tool-group'; tools: ChatToolCallMessage[]; id: string };
 
+function isStreamingThinkingOnlyAssistantMessage(message: ChatMessage): boolean {
+  return (
+    message.type === 'assistant'
+    && !message.text?.trim()
+    && Boolean(message.thinking)
+    && message.isStreaming
+  );
+}
+
 // ── Grouping utility ────────────────────────────────────────────
 
 /**
@@ -60,7 +69,7 @@ export function groupMessages(
 
     if (msg.type === 'assistant' && !msg.text?.trim()) {
       const isLastMessage = i === messages.length - 1;
-      const keepTrailingThinking = Boolean(msg.thinking) && msg.isStreaming && isLastMessage;
+      const keepTrailingThinking = isLastMessage && isStreamingThinkingOnlyAssistantMessage(msg);
       if (!keepTrailingThinking) {
         continue;
       }
@@ -74,12 +83,29 @@ export function groupMessages(
   return result;
 }
 
+/**
+ * A tool group is only finalized once a durable message follows it.
+ * Trailing streaming thinking is visible UI state, not a real turn boundary.
+ */
+export function isToolGroupFinalized(
+  items: GroupedChatItem[],
+  index: number,
+): boolean {
+  for (let i = index + 1; i < items.length; i++) {
+    const item = items[i];
+    if (item.kind === 'message' && isStreamingThinkingOnlyAssistantMessage(item.message)) {
+      continue;
+    }
+    return true;
+  }
+  return false;
+}
+
 // ── Main ToolCallGroup component ────────────────────────────────
 
 /**
  * @param tools       — tool messages in this group
- * @param isFinalized — true when no more tools will be added to this group
- *                      (a non-tool message follows it, or the session stopped streaming)
+ * @param isFinalized — true when a durable, non-ephemeral message follows this group
  * @param workspaceId — workspace ID for ctrl+click file path support
  */
 export const ToolCallGroup = memo(function ToolCallGroup({
@@ -115,18 +141,20 @@ export const ToolCallGroup = memo(function ToolCallGroup({
   const expanded = manualExpanded ?? autoExpanded;
 
   // Clear manual override when the group becomes finalized (final collapse)
-  // or when new tools start running (re-expand).
+  // or when new tools start running (re-expand), unless full details is pinned open.
   const prevFinalized = useRef(isFinalized);
   useEffect(() => {
-    if (isFinalized && !prevFinalized.current) {
+    if (!showDetails && isFinalized && !prevFinalized.current) {
       setManualExpanded(null);
     }
     prevFinalized.current = isFinalized;
-  }, [isFinalized]);
+  }, [isFinalized, showDetails]);
 
   useEffect(() => {
-    if (isRunning) setManualExpanded(null);
-  }, [isRunning]);
+    if (!showDetails && isRunning) {
+      setManualExpanded(null);
+    }
+  }, [isRunning, showDetails]);
 
   // Single tool: render with matching group-style wrapper
   if (tools.length === 1) {
@@ -201,6 +229,7 @@ export const ToolCallGroup = memo(function ToolCallGroup({
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
+                        setManualExpanded(true);
                         setShowDetails(true);
                       }}
                       className="text-[11px] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"

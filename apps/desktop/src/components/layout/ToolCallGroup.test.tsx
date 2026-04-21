@@ -15,7 +15,7 @@ vi.mock('@/components/layout/ImageLightbox', () => ({
   ImageLightbox: () => null,
 }));
 
-import { groupMessages, ToolCallGroup } from './ToolCallGroup';
+import { groupMessages, isToolGroupFinalized, ToolCallGroup } from './ToolCallGroup';
 import type { ChatAssistantMessage, ChatToolCallMessage } from '@/types/ipc';
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -44,6 +44,14 @@ function makeAssistant(overrides: Partial<ChatAssistantMessage>): ChatAssistantM
     isStreaming: false,
     ...overrides,
   };
+}
+
+function clickButtonByText(container: HTMLElement, text: string) {
+  const button = Array.from(container.querySelectorAll('button')).find((candidate) =>
+    candidate.textContent?.includes(text),
+  );
+  expect(button).toBeDefined();
+  button?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
 }
 
 describe('ToolCallGroup image previews', () => {
@@ -96,6 +104,48 @@ describe('ToolCallGroup image previews', () => {
     expect(container.textContent).toContain('/tmp/calc-shot.png');
     expect(container.querySelector('img')).not.toBeNull();
   });
+
+  it('keeps full details open when a live group later finalizes', async () => {
+    await act(async () => {
+      root?.render(
+        <ToolCallGroup
+          tools={[
+            makeTool({ id: 'tool-a', toolCallId: 'call-a', toolName: 'read' }),
+            makeTool({
+              id: 'tool-b',
+              toolCallId: 'call-b',
+              toolName: 'bash',
+              state: 'running',
+              output: 'running...',
+              isPartialOutput: true,
+            }),
+          ]}
+          workspaceId="ws-1"
+          isFinalized={false}
+        />,
+      );
+    });
+
+    await act(async () => {
+      clickButtonByText(container, 'Show full details');
+    });
+    expect(container.textContent).toContain('Collapse details');
+
+    await act(async () => {
+      root?.render(
+        <ToolCallGroup
+          tools={[
+            makeTool({ id: 'tool-a', toolCallId: 'call-a', toolName: 'read' }),
+            makeTool({ id: 'tool-b', toolCallId: 'call-b', toolName: 'bash' }),
+          ]}
+          workspaceId="ws-1"
+          isFinalized
+        />,
+      );
+    });
+
+    expect(container.textContent).toContain('Collapse details');
+  });
 });
 
 describe('groupMessages', () => {
@@ -132,5 +182,42 @@ describe('groupMessages', () => {
       expect(items[1].message.thinking).toBe('Checking one more file');
       expect(items[1].message.isStreaming).toBe(true);
     }
+  });
+});
+
+describe('isToolGroupFinalized', () => {
+  it('keeps a trailing tool group live while only streaming thinking follows it', () => {
+    const items = groupMessages([
+      makeTool({ id: 'tool-a', toolCallId: 'call-a', toolName: 'read' }),
+      makeAssistant({
+        id: 'assistant-thinking-live',
+        thinking: 'Checking one more file',
+        isStreaming: true,
+      }),
+    ]);
+
+    expect(isToolGroupFinalized(items, 0)).toBe(false);
+  });
+
+  it('keeps the latest tool group live when no durable response follows it yet', () => {
+    const items = groupMessages([
+      makeTool({ id: 'tool-a', toolCallId: 'call-a', toolName: 'read' }),
+      makeTool({ id: 'tool-b', toolCallId: 'call-b', toolName: 'bash' }),
+    ]);
+
+    expect(isToolGroupFinalized(items, 0)).toBe(false);
+  });
+
+  it('finalizes a tool group once a durable assistant response follows it', () => {
+    const items = groupMessages([
+      makeTool({ id: 'tool-a', toolCallId: 'call-a', toolName: 'read' }),
+      makeAssistant({
+        id: 'assistant-response',
+        text: 'Done.',
+        isStreaming: false,
+      }),
+    ]);
+
+    expect(isToolGroupFinalized(items, 0)).toBe(true);
   });
 });
