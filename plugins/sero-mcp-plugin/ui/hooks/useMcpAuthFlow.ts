@@ -14,6 +14,7 @@ export interface McpAuthFlowState {
   startAuth: (serverName: string) => Promise<boolean>;
   completeAuth: (serverName: string, callbackUrl: string) => Promise<boolean>;
   cancelAuth: (serverName: string) => Promise<boolean>;
+  clearAuth: (serverName: string) => Promise<boolean>;
 }
 
 export function useMcpAuthFlow(): McpAuthFlowState {
@@ -81,6 +82,25 @@ export function useMcpAuthFlow(): McpAuthFlowState {
     }
   }, [run]);
 
+  const clearAuth = useCallback(async (serverName: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await run('mcp_manager', { action: 'clear_auth', serverName });
+      if (result.isError) {
+        setError(result.text);
+        return false;
+      }
+      setSession((current) => current?.serverName === serverName ? null : current);
+      return true;
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }, [run]);
+
   return {
     loading,
     error,
@@ -89,5 +109,6 @@ export function useMcpAuthFlow(): McpAuthFlowState {
     startAuth,
     completeAuth,
     cancelAuth,
+    clearAuth,
   };
 }

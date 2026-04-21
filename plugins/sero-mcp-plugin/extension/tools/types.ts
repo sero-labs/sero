@@ -13,6 +13,7 @@ export type ManagerAction =
   | 'start_auth'
   | 'complete_auth'
   | 'cancel_auth'
+  | 'clear_auth'
   | 'read_resource';
 export type ProxyAction = 'status' | 'list';
 

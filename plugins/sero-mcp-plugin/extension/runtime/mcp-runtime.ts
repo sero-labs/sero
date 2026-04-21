@@ -12,6 +12,7 @@ import { getMcpConfigPath, getMcpStatePath } from '../state/paths';
 import { connectServerAction, saveRawConfigAction } from './runtime-actions';
 import {
   cancelServerAuthAction,
+  clearServerAuthAction,
   completeServerAuthAction,
   startServerAuthAction,
 } from './runtime-auth';
@@ -133,6 +134,8 @@ function createMcpRuntime(): McpRuntime {
           return completeServerAuth(options.cwd, options.serverName, options.callbackUrl);
         case 'cancel_auth':
           return cancelServerAuth(options.cwd, options.serverName);
+        case 'clear_auth':
+          return clearServerAuth(options.cwd, options.serverName);
         case 'read_resource':
           return readServerResource(options.cwd, options.serverName, options.resourceUri);
         default:
@@ -350,6 +353,16 @@ function createMcpRuntime(): McpRuntime {
       cwd,
       serverName,
       authCoordinator,
+      setRuntimeStatus: (name, status) => runtimeStatuses.set(name, status),
+      syncSnapshot,
+    });
+  }
+  async function clearServerAuth(cwd: string | undefined, serverName: string | undefined): Promise<ToolResult> {
+    return clearServerAuthAction({
+      cwd,
+      serverName,
+      authCoordinator,
+      manager,
       setRuntimeStatus: (name, status) => runtimeStatuses.set(name, status),
       syncSnapshot,
     });

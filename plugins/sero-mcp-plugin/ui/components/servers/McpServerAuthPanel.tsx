@@ -60,6 +60,10 @@ export function McpServerAuthPanel({ server }: { server: McpServerSnapshot }) {
               Cancel auth
             </Button>
           )}
+          <Button type="button" variant="outline" size="sm" disabled={authFlow.loading} onClick={() => void authFlow.clearAuth(server.serverName)}>
+            <X className="mr-2 h-4 w-4" />
+            Clear saved auth
+          </Button>
           <Button type="button" variant="outline" size="sm" disabled={!authFlow.error} onClick={() => promptAgent(helpPrompt)}>
             <LifeBuoy className="mr-2 h-4 w-4" />
             Ask Sero to help

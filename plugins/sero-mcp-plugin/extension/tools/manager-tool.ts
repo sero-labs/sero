@@ -21,6 +21,7 @@ const ManagerParams = Type.Object({
     'start_auth',
     'complete_auth',
     'cancel_auth',
+    'clear_auth',
     'read_resource',
   ] as const),
   rawConfig: Type.Optional(Type.String({ description: 'Raw MCP config JSON for save_raw_config.' })),
@@ -46,7 +47,7 @@ export function registerMcpManagerTool(pi: ExtensionAPI, runtime: McpRuntime): v
     name: 'mcp_manager',
     label: 'MCP Manager',
     description:
-      'Internal management surface for the MCP app UI. Actions: bootstrap, refresh, raw config, diagnostics, server CRUD/toggle, connect/reconnect, OAuth auth flow, and resource preview operations.',
+      'Internal management surface for the MCP app UI. Actions: bootstrap, refresh, raw config, diagnostics, server CRUD/toggle, connect/reconnect, OAuth auth flow and cleanup, and resource preview operations.',
     parameters: ManagerParams,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const managerParams = params as Partial<McpServerEditorInput> & {

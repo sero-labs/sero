@@ -1,3 +1,4 @@
+import { clearOAuthCredentials } from '../auth/storage';
 import { McpOAuthCoordinator } from '../auth/oauth-coordinator';
 import { readMetadataCache, type McpMetadataCacheDocument } from '../cache/metadata-cache';
 import type { McpConfigDocument } from '../config/types';
@@ -138,6 +139,47 @@ export async function cancelServerAuthAction(options: {
     snapshotWritten: true,
     serverName,
     authStatus: synced.snapshot.servers.find((server) => server.serverName === serverName)?.authStatus ?? 'not-authenticated',
+  });
+}
+
+export async function clearServerAuthAction(options: {
+  cwd?: string;
+  serverName?: string;
+  authCoordinator: McpOAuthCoordinator;
+  manager: McpServerManager;
+  setRuntimeStatus: (serverName: string, status: RuntimeServerStatus) => void;
+  syncSnapshot: (
+    cwd?: string,
+    options?: {
+      config?: McpConfigDocument;
+      metadataCache?: McpMetadataCacheDocument;
+      rawConfigUpdatedAt?: string | null;
+    },
+  ) => Promise<SyncedRuntimeState>;
+}): Promise<ToolResult> {
+  const serverName = options.serverName?.trim();
+  if (!serverName) {
+    return createToolResult('Error: Server name is required.', { snapshotWritten: false });
+  }
+
+  const synced = await options.syncSnapshot(options.cwd);
+  const serverConfig = synced.config.mcpServers[serverName];
+  if (!serverConfig) {
+    return createToolResult(`Error: Server "${serverName}" does not exist.`, { snapshotWritten: false });
+  }
+  if (serverConfig.auth !== 'oauth') {
+    return createToolResult(`Error: Server "${serverName}" is not configured for OAuth authentication.`, { snapshotWritten: false });
+  }
+
+  await options.authCoordinator.cancelAuth(serverName);
+  await options.manager.close(serverName);
+  await clearOAuthCredentials(serverName);
+  options.setRuntimeStatus(serverName, { authStatus: 'not-authenticated' });
+  const nextState = await options.syncSnapshot(options.cwd, { config: synced.config });
+  return createToolResult(`Cleared saved authentication for MCP server "${serverName}".`, {
+    snapshotWritten: true,
+    serverName,
+    authStatus: nextState.snapshot.servers.find((server) => server.serverName === serverName)?.authStatus ?? 'not-authenticated',
   });
 }
 
