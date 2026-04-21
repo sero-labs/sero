@@ -69,14 +69,25 @@ export async function reconcileConnection(options: {
 export function formatConnectMessage(
   serverName: string,
   status: ManagedConnection['status'],
+  options: {
+    reconnect?: boolean;
+    alreadyConnected?: boolean;
+  } = {},
 ): string {
   switch (status) {
     case 'connected':
-      return `Connected MCP server "${serverName}".`;
+      if (options.alreadyConnected) {
+        return `MCP server "${serverName}" is already connected.`;
+      }
+      return options.reconnect
+        ? `Reconnected MCP server "${serverName}".`
+        : `Connected MCP server "${serverName}".`;
     case 'needs-auth':
       return `Server "${serverName}" needs authentication before it can connect.`;
     case 'error':
-      return `Server "${serverName}" failed to connect.`;
+      return options.reconnect
+        ? `Server "${serverName}" failed to reconnect.`
+        : `Server "${serverName}" failed to connect.`;
     default:
       return `Server "${serverName}" is closed.`;
   }

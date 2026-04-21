@@ -50,9 +50,9 @@ const ManagerParams = Type.Object({
 export function registerMcpManagerTool(pi: ExtensionAPI, runtime: McpRuntime): void {
   pi.registerTool({
     name: 'mcp_manager',
-    label: 'MCP Manager',
+    label: 'MCP Internal Manager',
     description:
-      'Internal management surface for the MCP app UI. Actions: bootstrap, refresh, raw config, diagnostics, server CRUD/toggle, connect/reconnect, OAuth auth flow and cleanup, resource preview operations, and interactive viewer session hosting.',
+      'Internal MCP management surface for the MCP app UI. Prefer the `mcp` tool for normal agent work: status, discovery, resource reads, and tool calls. `mcp` auto-connects servers for live reads/calls, so this tool should usually be reserved for UI config/auth/viewer workflows and explicit server lifecycle changes.',
     parameters: ManagerParams,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const managerParams = params as Partial<McpServerEditorInput> & {

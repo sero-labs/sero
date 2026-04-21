@@ -69,9 +69,16 @@ export async function connectServerAction(options: {
     return createToolResult(`Error: Server "${normalizedServerName}" is disabled. Enable it before connecting.`, { snapshotWritten: false });
   }
 
-  const connection = options.reconnect
-    ? await options.manager.reconnect(normalizedServerName, serverConfig)
-    : await options.manager.connect(normalizedServerName, serverConfig);
+  const existingConnection = options.manager.getConnection(normalizedServerName);
+  const alreadyConnected = !options.reconnect && existingConnection?.status === 'connected';
+  let connection: Awaited<ReturnType<McpServerManager['connect']>>;
+  if (options.reconnect) {
+    connection = await options.manager.reconnect(normalizedServerName, serverConfig);
+  } else if (alreadyConnected && existingConnection) {
+    connection = existingConnection;
+  } else {
+    connection = await options.manager.connect(normalizedServerName, serverConfig);
+  }
 
   const metadataCache = await readMetadataCache();
   const { nextCache, runtimeStatus } = await reconcileConnection({
@@ -88,7 +95,10 @@ export async function connectServerAction(options: {
   });
   const nextServer = nextState.snapshot.servers.find((server) => server.serverName === normalizedServerName);
 
-  return createToolResult(formatConnectMessage(normalizedServerName, connection.status), {
+  return createToolResult(formatConnectMessage(normalizedServerName, connection.status, {
+    reconnect: options.reconnect,
+    alreadyConnected,
+  }), {
     snapshotWritten: true,
     configPath: nextState.configPath,
     statePath: nextState.statePath,
@@ -97,5 +107,6 @@ export async function connectServerAction(options: {
     toolCount: nextServer?.toolCount ?? 0,
     resourceCount: nextServer?.resourceCount ?? 0,
     lastError: runtimeStatus.lastError ?? null,
+    alreadyConnected,
   });
 }

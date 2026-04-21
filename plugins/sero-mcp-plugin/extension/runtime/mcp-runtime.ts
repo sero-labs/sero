@@ -103,7 +103,17 @@ function createMcpRuntime(): McpRuntime {
         await uiSessions.closeActive('runtime-shutdown');
         await manager.closeAll();
         runtimeStatuses.clear();
-        lastState = null;
+
+        if (lastState || lastKnownCwd) {
+          try {
+            await syncSnapshot(lastKnownCwd || process.cwd());
+          } catch (error) {
+            console.error('[mcp] Failed to persist idle snapshot on session shutdown', error);
+            lastState = null;
+          }
+        } else {
+          lastState = null;
+        }
       }
     });
   }

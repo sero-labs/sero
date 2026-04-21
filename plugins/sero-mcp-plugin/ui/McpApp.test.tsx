@@ -54,6 +54,7 @@ describe('McpApp', () => {
     await act(async () => {
       root?.unmount();
     });
+    vi.useRealTimers();
     container.remove();
     root = null;
     useAppStateMock.mockReset();
@@ -74,6 +75,27 @@ describe('McpApp', () => {
     expect(runMock).toHaveBeenCalledWith('mcp_manager', { action: 'bootstrap' });
     expect(container.textContent).toContain('setup-wizard');
     expect(container.textContent).not.toContain('search-workbench');
+  });
+
+  it('falls back to a periodic background refresh while mounted', async () => {
+    vi.useFakeTimers();
+    useAppStateMock.mockReturnValue([createState({ firstRun: false, servers: [] }), vi.fn()]);
+
+    await act(async () => {
+      root?.render(<McpApp />);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(runMock).toHaveBeenNthCalledWith(1, 'mcp_manager', { action: 'bootstrap' });
+
+    await act(async () => {
+      vi.advanceTimersByTime(30_000);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(runMock).toHaveBeenNthCalledWith(2, 'mcp_manager', { action: 'refresh' });
   });
 
   it('hides the wizard and shows the search workbench once servers exist', async () => {

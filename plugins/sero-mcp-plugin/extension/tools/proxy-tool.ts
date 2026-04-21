@@ -4,10 +4,25 @@ import { Type } from '@sinclair/typebox';
 import type { McpRuntime } from '../runtime/mcp-runtime';
 import type { CliContext, CliResult, ProxyAction } from './types';
 
+const MCP_TOOL_ACTIONS = [
+  'status',
+  'list',
+  'search',
+  'list_tools',
+  'list_resources',
+  'describe_tool',
+  'call_tool',
+  'read_resource',
+  'connect',
+  'reconnect',
+] as const;
+
+type McpToolAction = ProxyAction | 'connect' | 'reconnect';
+
 const ProxyParams = Type.Object({
-  action: Type.Optional(StringEnum(['status', 'list', 'search', 'list_tools', 'list_resources', 'describe_tool', 'call_tool', 'read_resource'] as const)),
+  action: Type.Optional(StringEnum(MCP_TOOL_ACTIONS)),
   query: Type.Optional(Type.String({ description: 'Search query for MCP tools and resources.' })),
-  serverName: Type.Optional(Type.String({ description: 'Server name for MCP tool inventory or calls.' })),
+  serverName: Type.Optional(Type.String({ description: 'Server name for MCP inventory, resource/tool calls, or connect/reconnect actions.' })),
   toolName: Type.Optional(Type.String({ description: 'Exact MCP tool name for describe_tool or call_tool.' })),
   resourceUri: Type.Optional(Type.String({ description: 'Resource URI for read_resource.' })),
   toolArguments: Type.Optional(Type.Record(Type.String(), Type.Any(), { description: 'Structured MCP tool arguments for call_tool.' })),
@@ -27,11 +42,11 @@ export function registerMcpProxyTool(pi: ExtensionAPI, runtime: McpRuntime): voi
     name: 'mcp',
     label: 'MCP',
     description:
-      'MCP proxy for Sero. Use it to inspect MCP server status, search cached MCP tools/resources, describe server tools, and call MCP tools through one bridged surface.',
+      'Preferred MCP surface for agents in Sero. Use it for status, discovery, resource reads, and tool calls. Live reads and tool calls auto-connect enabled servers when needed, so explicit connect actions are usually only needed when the user asks for lifecycle control.',
     parameters: ProxyParams,
     cli: {
-      summary: 'Inspect, search, and call MCP servers through one proxy surface',
-      help: 'sero mcp status | list | search <query> | tools <server> | resources <server> | read <server> <resourceUri> | describe <server> <tool> | call <server> <tool> [jsonArgs] | connect <server> | reconnect <server> | enable <server> | disable <server>',
+      summary: 'Inspect, search, connect, and call MCP servers through the preferred agent surface',
+      help: 'Preferred MCP surface: start with status/list/search/tools/resources/describe/call/read. Live read/call actions auto-connect enabled servers when needed. CLI: sero mcp status | list | search <query> | tools <server> | resources <server> | read <server> <resourceUri> | describe <server> <tool> | call <server> <tool> [jsonArgs] | connect <server> | reconnect <server> | enable <server> | disable <server>',
       async execute(args: string[], ctx: CliContext) {
         const action = parseCliCommand(args);
         if (action.kind === 'usage-error') {
@@ -57,7 +72,7 @@ export function registerMcpProxyTool(pi: ExtensionAPI, runtime: McpRuntime): voi
     },
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const proxyParams = params as {
-        action?: ProxyAction;
+        action?: McpToolAction;
         query?: string;
         serverName?: string;
         toolName?: string;
@@ -65,7 +80,14 @@ export function registerMcpProxyTool(pi: ExtensionAPI, runtime: McpRuntime): voi
         toolArguments?: Record<string, unknown>;
         argumentsJson?: string;
       };
-      return runtime.executeProxyAction(proxyParams.action ?? 'status', {
+      const action = proxyParams.action ?? 'status';
+      if (action === 'connect' || action === 'reconnect') {
+        return runtime.executeManagerAction(action === 'connect' ? 'connect_server' : 'reconnect_server', {
+          cwd: ctx?.cwd,
+          serverName: proxyParams.serverName,
+        });
+      }
+      return runtime.executeProxyAction(action, {
         cwd: ctx?.cwd,
         query: proxyParams.query,
         serverName: proxyParams.serverName,

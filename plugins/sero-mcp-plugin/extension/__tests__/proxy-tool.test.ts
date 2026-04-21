@@ -54,6 +54,19 @@ describe('registerMcpProxyTool CLI bridge', () => {
     expect(result).toEqual({ output: 'connected', exitCode: 0 });
   });
 
+  it('routes direct tool connect actions through the manager runtime action', async () => {
+    const { tool, runtime } = registerTool();
+    runtime.executeManagerAction.mockResolvedValue(createToolResult('connected'));
+
+    const result = await tool.execute('call-1', { action: 'connect', serverName: 'github' }, null, () => undefined, { cwd: '/tmp/ws' });
+
+    expect(runtime.executeManagerAction).toHaveBeenCalledWith('connect_server', {
+      cwd: '/tmp/ws',
+      serverName: 'github',
+    });
+    expect(result.content[0]?.text).toBe('connected');
+  });
+
   it('returns a usage error without touching the runtime when required args are missing', async () => {
     const { tool, runtime } = registerTool();
 
@@ -87,6 +100,13 @@ function registerTool() {
       cli: {
         execute: (args: string[], ctx: { cwd: string }) => Promise<{ output: string; exitCode: number }>;
       };
+      execute: (
+        toolCallId: string,
+        params: Record<string, unknown>,
+        signal: AbortSignal | null,
+        onUpdate: () => void,
+        ctx?: { cwd?: string },
+      ) => Promise<{ content: Array<{ type: 'text'; text: string }>; details: Record<string, unknown> }>;
     },
     runtime: {
       executeProxyAction,
