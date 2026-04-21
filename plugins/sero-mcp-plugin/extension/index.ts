@@ -26,6 +26,8 @@ export default function mcpExtension(pi: ExtensionAPI) {
     });
   });
 
-  registerMcpManagerTool(pi, runtime);
+  // Register the preferred agent-facing MCP tool first so tool listings
+  // present `mcp` before the more specialized management surface.
   registerMcpProxyTool(pi, runtime);
+  registerMcpManagerTool(pi, runtime);
 }

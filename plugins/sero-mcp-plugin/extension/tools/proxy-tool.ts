@@ -42,11 +42,11 @@ export function registerMcpProxyTool(pi: ExtensionAPI, runtime: McpRuntime): voi
     name: 'mcp',
     label: 'MCP',
     description:
-      'Preferred MCP surface for agents in Sero. Use it for status, discovery, resource reads, and tool calls. Live reads and tool calls auto-connect enabled servers when needed, so explicit connect actions are usually only needed when the user asks for lifecycle control.',
+      'Preferred MCP surface for agents in Sero. Start here for status, list/search, tool discovery, resource reads, and tool calls. Live reads and tool calls auto-connect enabled servers when needed. If the user says things like "using context7/github MCP ...", use this tool directly. Reach for `mcp_manager` only when the user explicitly wants to add/edit/remove/enable/disable/connect/reconnect/authenticate an MCP server or use MCP UI/viewer management actions.',
     parameters: ProxyParams,
     cli: {
-      summary: 'Inspect, search, connect, and call MCP servers through the preferred agent surface',
-      help: 'Preferred MCP surface: start with status/list/search/tools/resources/describe/call/read. Live read/call actions auto-connect enabled servers when needed. CLI: sero mcp status | list | search <query> | tools <server> | resources <server> | read <server> <resourceUri> | describe <server> <tool> | call <server> <tool> [jsonArgs] | connect <server> | reconnect <server> | enable <server> | disable <server>',
+      summary: 'Preferred MCP surface for status, discovery, and live MCP reads/calls',
+      help: 'Use this tool first for MCP status/list/search/tools/resources/describe/call/read. If the user asks to use a server like context7/github directly, start here rather than mcp_manager. Live read/call actions auto-connect enabled servers when needed. Use mcp_manager only for MCP config/lifecycle/auth/viewer actions. CLI: sero mcp status | list | search <query> | tools <server> | resources <server> | read <server> <resourceUri> | describe <server> <tool> | call <server> <tool> [jsonArgs] | connect <server> | reconnect <server> | enable <server> | disable <server>',
       async execute(args: string[], ctx: CliContext) {
         const action = parseCliCommand(args);
         if (action.kind === 'usage-error') {

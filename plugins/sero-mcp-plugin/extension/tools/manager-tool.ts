@@ -3,30 +3,12 @@ import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
 import { Type } from '@sinclair/typebox';
 import type { McpServerEditorInput } from '../../shared/types';
 import type { McpRuntime } from '../runtime/mcp-runtime';
-import type { ManagerAction } from './types';
+import { createToolResult, isManagerAction, MCP_MANAGER_ACTIONS, type ManagerAction } from './types';
 
 const ManagerParams = Type.Object({
-  action: StringEnum([
-    'bootstrap',
-    'refresh',
-    'get_raw_config',
-    'save_raw_config',
-    'get_diagnostics',
-    'upsert_server',
-    'remove_server',
-    'enable_server',
-    'disable_server',
-    'connect_server',
-    'reconnect_server',
-    'start_auth',
-    'complete_auth',
-    'cancel_auth',
-    'clear_auth',
-    'read_resource',
-    'open_resource',
-    'open_tool_ui',
-    'close_viewer',
-  ] as const),
+  action: Type.Optional(Type.String({
+    description: `Manager-only MCP action. Use this tool only for config/lifecycle/auth/viewer work: ${MCP_MANAGER_ACTIONS.join(', ')}. DO NOT use this tool for standard MCP status/list/search/tools/resources/describe/call/read; use the mcp tool instead. Legacy compatibility: action="status" is accepted but deprecated for agent work.`,
+  })),
   rawConfig: Type.Optional(Type.String({ description: 'Raw MCP config JSON for save_raw_config.' })),
   serverName: Type.Optional(Type.String({ description: 'Server name for server or resource actions.' })),
   resourceUri: Type.Optional(Type.String({ description: 'Resource URI for read_resource, open_resource, or open_tool_ui.' })),
@@ -52,7 +34,7 @@ export function registerMcpManagerTool(pi: ExtensionAPI, runtime: McpRuntime): v
     name: 'mcp_manager',
     label: 'MCP Internal Manager',
     description:
-      'Internal MCP management surface for the MCP app UI. Prefer the `mcp` tool for normal agent work: status, discovery, resource reads, and tool calls. `mcp` auto-connects servers for live reads/calls, so this tool should usually be reserved for UI config/auth/viewer workflows and explicit server lifecycle changes.',
+      'Specialized MCP management surface. DO NOT use this tool for standard MCP usage. Use `mcp` first for status, list/search, tool discovery, resource reads, and tool calls. Use `mcp_manager` only when you need to add/edit/remove servers, enable/disable/connect/reconnect servers, run auth flows, inspect raw config/diagnostics, or drive MCP UI/viewer actions. If the user says things like "using context7/github MCP ...", use `mcp`, not `mcp_manager`.',
     parameters: ManagerParams,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const managerParams = params as Partial<McpServerEditorInput> & {
@@ -64,7 +46,15 @@ export function registerMcpManagerTool(pi: ExtensionAPI, runtime: McpRuntime): v
         toolArguments?: Record<string, unknown>;
         callbackUrl?: string;
       };
-      const action = managerParams.action ?? 'bootstrap';
+      const actionText = typeof managerParams.action === 'string' ? managerParams.action.trim() : '';
+      const actionCandidate = actionText || 'bootstrap';
+      if (!isManagerAction(actionCandidate)) {
+        return createToolResult(
+          `Error: Unsupported mcp_manager action "${actionCandidate}". Use \`mcp\` for standard MCP status/list/search/tools/resources/describe/call/read, or one of these manager actions for config/lifecycle/auth/viewer work: ${MCP_MANAGER_ACTIONS.join(', ')}.`,
+          { isError: true },
+        );
+      }
+      const action: ManagerAction = actionCandidate;
       return runtime.executeManagerAction(action, {
         cwd: ctx?.cwd,
         rawConfig: managerParams.rawConfig,

@@ -2,7 +2,7 @@ import { readRawConfig } from '../config/io';
 import type { McpConfigDocument } from '../config/types';
 import { createToolResult, type ManagerAction, type ToolResult } from '../tools/types';
 import type { ManagerActionOptions, SyncedRuntimeState, SyncSnapshotOptions } from './runtime-types';
-import { formatDiagnostics } from './runtime-utils';
+import { formatDiagnostics, formatStatusSummary } from './runtime-utils';
 
 export interface ManagerActionRouterInput {
   action: ManagerAction;
@@ -38,6 +38,19 @@ export async function executeManagerActionRoute(input: ManagerActionRouterInput)
         configPath: nextState.configPath,
         statePath: nextState.statePath,
         serverCount: nextState.snapshot.summary.totalServers,
+      },
+    );
+  }
+
+  if (input.action === 'status') {
+    return createToolResult(
+      `Compatibility note: \`mcp_manager\` action="status" is deprecated for normal agent work. Use the \`mcp\` tool with action=\"status\" (or related \`mcp\` actions like list/search/tools/resources/describe/call/read) instead.\n\n${formatStatusSummary(synced.snapshot)}`,
+      {
+        snapshotWritten: true,
+        configPath: synced.configPath,
+        statePath: synced.statePath,
+        serverCount: synced.snapshot.summary.totalServers,
+        deprecatedAction: true,
       },
     );
   }
