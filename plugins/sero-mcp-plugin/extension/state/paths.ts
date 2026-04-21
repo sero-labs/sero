@@ -52,6 +52,18 @@ export function getMcpOAuthDir(): string {
   return path.join(getPiAgentDir(), 'mcp-oauth');
 }
 
+export function getMcpOAuthServerDir(serverName: string): string {
+  return path.join(getMcpOAuthDir(), encodeURIComponent(serverName));
+}
+
 export function getMcpOAuthTokenPath(serverName: string): string {
-  return path.join(getMcpOAuthDir(), encodeURIComponent(serverName), 'tokens.json');
+  return path.join(getMcpOAuthServerDir(serverName), 'tokens.json');
+}
+
+export function getMcpOAuthClientPath(serverName: string): string {
+  return path.join(getMcpOAuthServerDir(serverName), 'client.json');
+}
+
+export function getMcpOAuthFlowPath(serverName: string): string {
+  return path.join(getMcpOAuthServerDir(serverName), 'flow.json');
 }

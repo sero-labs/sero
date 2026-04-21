@@ -18,11 +18,15 @@ const ManagerParams = Type.Object({
     'disable_server',
     'connect_server',
     'reconnect_server',
+    'start_auth',
+    'complete_auth',
+    'cancel_auth',
     'read_resource',
   ] as const),
   rawConfig: Type.Optional(Type.String({ description: 'Raw MCP config JSON for save_raw_config.' })),
   serverName: Type.Optional(Type.String({ description: 'Server name for server or resource actions.' })),
   resourceUri: Type.Optional(Type.String({ description: 'Resource URI for read_resource.' })),
+  callbackUrl: Type.Optional(Type.String({ description: 'OAuth callback URL for complete_auth.' })),
   originalServerName: Type.Optional(Type.String({ description: 'Existing server name when renaming a server.' })),
   enabled: Type.Optional(Type.Boolean()),
   transport: Type.Optional(StringEnum(['stdio', 'http'] as const)),
@@ -42,7 +46,7 @@ export function registerMcpManagerTool(pi: ExtensionAPI, runtime: McpRuntime): v
     name: 'mcp_manager',
     label: 'MCP Manager',
     description:
-      'Internal management surface for the MCP app UI. Actions: bootstrap, refresh, raw config, diagnostics, server CRUD/toggle, connect/reconnect, and resource preview operations.',
+      'Internal management surface for the MCP app UI. Actions: bootstrap, refresh, raw config, diagnostics, server CRUD/toggle, connect/reconnect, OAuth auth flow, and resource preview operations.',
     parameters: ManagerParams,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const managerParams = params as Partial<McpServerEditorInput> & {
@@ -50,6 +54,7 @@ export function registerMcpManagerTool(pi: ExtensionAPI, runtime: McpRuntime): v
         rawConfig?: string;
         serverName?: string;
         resourceUri?: string;
+        callbackUrl?: string;
       };
       const action = managerParams.action ?? 'bootstrap';
       return runtime.executeManagerAction(action, {
@@ -57,6 +62,7 @@ export function registerMcpManagerTool(pi: ExtensionAPI, runtime: McpRuntime): v
         rawConfig: managerParams.rawConfig,
         serverName: managerParams.serverName,
         resourceUri: managerParams.resourceUri,
+        callbackUrl: managerParams.callbackUrl,
         serverInput: action === 'upsert_server' ? toServerEditorInput(managerParams) : undefined,
       });
     },

@@ -5,13 +5,6 @@ interface SetupMainWindowSecurityOptions {
 }
 
 const ALLOWED_PERMISSIONS = new Set(['media', 'clipboard-sanitized-write']);
-const ALLOWED_AUTH_WEBVIEW_ORIGINS = new Set([
-  'https://github.com',
-  'https://login.microsoftonline.com',
-  'https://login.live.com',
-  'https://accounts.google.com',
-  'https://auth.openai.com',
-]);
 
 export const MCP_AUTH_WEBVIEW_PARTITION = 'persist:sero-mcp-auth';
 
@@ -94,7 +87,7 @@ export function isAllowedMainWindowWebview(src: string, partition: string): bool
     if (isLoopbackCallbackUrl(parsed)) {
       return true;
     }
-    return parsed.protocol === 'https:' && ALLOWED_AUTH_WEBVIEW_ORIGINS.has(parsed.origin);
+    return parsed.protocol === 'https:';
   } catch {
     return false;
   }

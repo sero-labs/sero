@@ -13,10 +13,11 @@ import {
 } from '@electron/platform/security/window-security';
 
 describe('window security webview policy', () => {
-  it('allows only the MCP auth partition and trusted auth origins', () => {
+  it('allows only the MCP auth partition plus https and loopback auth sources', () => {
     expect(isAllowedMainWindowWebview('https://github.com/login/device', MCP_AUTH_WEBVIEW_PARTITION)).toBe(true);
+    expect(isAllowedMainWindowWebview('https://oauth.example.com/authorize', MCP_AUTH_WEBVIEW_PARTITION)).toBe(true);
     expect(isAllowedMainWindowWebview('http://127.0.0.1:3845/callback', MCP_AUTH_WEBVIEW_PARTITION)).toBe(true);
-    expect(isAllowedMainWindowWebview('https://evil.example.com', MCP_AUTH_WEBVIEW_PARTITION)).toBe(false);
+    expect(isAllowedMainWindowWebview('http://evil.example.com', MCP_AUTH_WEBVIEW_PARTITION)).toBe(false);
     expect(isAllowedMainWindowWebview('https://github.com/login/device', 'persist:other')).toBe(false);
   });
 

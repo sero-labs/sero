@@ -8,6 +8,7 @@ import { cn } from '@sero-ai/ui/lib/utils';
 import { AlertCircle, LifeBuoy, MonitorSmartphone, RefreshCw, ScrollText, X } from 'lucide-react';
 import type { McpResourcePreview, McpServerSnapshot } from '../../../shared/types';
 import { useMcpResourceReader } from '../../hooks/useMcpResourceReader';
+import { McpServerAuthPanel } from './McpServerAuthPanel';
 
 export function McpServerDetailPanel({ server }: { server: McpServerSnapshot | null }) {
   const promptAgent = useAgentPrompt();
@@ -67,6 +68,8 @@ export function McpServerDetailPanel({ server }: { server: McpServerSnapshot | n
 
         <div className="grid gap-4 xl:grid-cols-[0.95fr_1.25fr]">
           <section className="space-y-4">
+            <McpServerAuthPanel server={server} />
+
             <Card className="border-border/70 bg-muted/15 py-4">
               <CardHeader>
                 <CardTitle className="text-base">Resources</CardTitle>

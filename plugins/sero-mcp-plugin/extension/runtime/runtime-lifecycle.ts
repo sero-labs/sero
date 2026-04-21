@@ -4,7 +4,7 @@ import type { ManagedConnection } from '../manager/types';
 
 export const KEEP_ALIVE_HEALTHCHECK_INTERVAL_MS = 30_000;
 
-type OAuthTokenChecker = (serverName: string) => Promise<boolean>;
+type OAuthTokenChecker = (serverName: string, serverUrl?: string) => Promise<boolean>;
 
 export function getAutoConnectServerEntries(config: McpConfigDocument): Array<[string, McpServerConfig]> {
   return Object.entries(config.mcpServers).filter(([, serverConfig]) => {
@@ -35,7 +35,7 @@ export async function shouldAttemptAutoConnect(options: {
   }
 
   if (serverConfig.auth === 'oauth') {
-    return hasOAuthTokens(serverName);
+    return hasOAuthTokens(serverName, serverConfig.url);
   }
 
   if (serverConfig.auth === 'bearer') {

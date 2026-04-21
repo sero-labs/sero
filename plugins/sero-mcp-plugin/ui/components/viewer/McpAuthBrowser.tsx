@@ -17,6 +17,7 @@ export interface McpAuthBrowserProps {
   partition?: string;
   allowedOrigins?: string[];
   onBlockedNavigation?: (url: string) => void;
+  onCallbackUrl?: (url: string) => void;
   onLoadStateChange?: (loading: boolean) => void;
   onLoadError?: (message: string) => void;
 }
@@ -27,6 +28,7 @@ export function McpAuthBrowser({
   partition = 'persist:sero-mcp-auth',
   allowedOrigins = DEFAULT_ALLOWED_ORIGINS,
   onBlockedNavigation,
+  onCallbackUrl,
   onLoadStateChange,
   onLoadError,
 }: McpAuthBrowserProps) {
@@ -55,6 +57,14 @@ export function McpAuthBrowser({
     const handleWillNavigate = (event: WebviewNavigationEvent) => {
       try {
         const parsed = new URL(event.url);
+        if (isLoopbackUrl(parsed)) {
+          event.preventDefault();
+          setLoading(false);
+          setError(null);
+          onLoadStateChange?.(false);
+          onCallbackUrl?.(event.url);
+          return;
+        }
         if (isAllowedUrl(parsed, normalizedAllowedOrigins)) return;
       } catch {
         // Invalid navigation attempts are blocked below.
@@ -95,7 +105,7 @@ export function McpAuthBrowser({
       webview.removeEventListener('did-stop-loading', handleDidStopLoading);
       webview.removeEventListener('did-fail-load', handleDidFailLoad);
     };
-  }, [initialUrl, normalizedAllowedOrigins, onBlockedNavigation, onLoadError, onLoadStateChange]);
+  }, [initialUrl, normalizedAllowedOrigins, onBlockedNavigation, onCallbackUrl, onLoadError, onLoadStateChange]);
 
   if (!src) {
     return <AuthBrowserPlaceholder message="Authentication session not started yet." className={className} />;

@@ -28,7 +28,7 @@ interface BuildSnapshotOptions {
   rawConfigUpdatedAt: string | null;
   config: McpConfigDocument;
   metadataCache: McpMetadataCacheDocument;
-  hasOAuthTokens: (serverName: string) => Promise<boolean>;
+  hasOAuthTokens: (serverName: string, serverUrl?: string) => Promise<boolean>;
   runtimeStatuses?: Map<string, RuntimeServerStatus>;
 }
 
@@ -118,10 +118,10 @@ function getValidMetadata(
 async function resolveAuthStatus(
   serverName: string,
   serverConfig: McpServerConfig,
-  hasOAuthTokens: (serverName: string) => Promise<boolean>,
+  hasOAuthTokens: (serverName: string, serverUrl?: string) => Promise<boolean>,
 ): Promise<McpAuthStatus> {
   if (serverConfig.auth === 'oauth') {
-    return (await hasOAuthTokens(serverName)) ? 'authenticated' : 'not-authenticated';
+    return (await hasOAuthTokens(serverName, serverConfig.url)) ? 'authenticated' : 'not-authenticated';
   }
 
   if (serverConfig.auth === 'bearer') {

@@ -10,6 +10,9 @@ export type ManagerAction =
   | 'disable_server'
   | 'connect_server'
   | 'reconnect_server'
+  | 'start_auth'
+  | 'complete_auth'
+  | 'cancel_auth'
   | 'read_resource';
 export type ProxyAction = 'status' | 'list';
 

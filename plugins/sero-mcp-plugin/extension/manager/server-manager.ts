@@ -4,17 +4,18 @@ import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import type { ReadResourceResult } from '@modelcontextprotocol/sdk/types.js';
+import { McpOAuthProvider } from '../auth/oauth-provider';
 import type { McpServerConfig } from '../config/types';
 import type { ManagedConnection, ManagedResource, ManagedTool, ManagedTransport } from './types';
 
 interface McpServerManagerOptions {
-  hasOAuthTokens?: (serverName: string) => Promise<boolean>;
+  hasOAuthTokens?: (serverName: string, serverUrl?: string) => Promise<boolean>;
 }
 
 export class McpServerManager {
   private readonly connections = new Map<string, ManagedConnection>();
   private readonly connectPromises = new Map<string, Promise<ManagedConnection>>();
-  private readonly hasOAuthTokens: (serverName: string) => Promise<boolean>;
+  private readonly hasOAuthTokens: (serverName: string, serverUrl?: string) => Promise<boolean>;
 
   constructor(options: McpServerManagerOptions = {}) {
     this.hasOAuthTokens = options.hasOAuthTokens ?? (async () => false);
@@ -74,7 +75,7 @@ export class McpServerManager {
   }
 
   private async createConnection(name: string, definition: McpServerConfig): Promise<ManagedConnection> {
-    if (definition.auth === 'oauth' && !(await this.hasOAuthTokens(name))) {
+    if (definition.auth === 'oauth' && !(await this.hasOAuthTokens(name, definition.url))) {
       return this.createDisconnectedConnection(name, 'needs-auth', 'OAuth authentication is required before connecting.');
     }
 
@@ -122,9 +123,14 @@ export class McpServerManager {
   ): Promise<ManagedConnection> {
     const url = new URL(definition.url!);
     const requestInit = buildRequestInit(definition, bearerToken);
+    const authProvider = definition.auth === 'oauth'
+      ? new McpOAuthProvider(name, definition.url!, definition.oauth || {}, {
+          onRedirect: async () => {},
+        })
+      : undefined;
 
     const streamableClient = new Client({ name: `sero-mcp-${name}`, version: '0.1.0' });
-    const streamableTransport = new StreamableHTTPClientTransport(url, { requestInit });
+    const streamableTransport = new StreamableHTTPClientTransport(url, { requestInit, authProvider });
     try {
       await streamableClient.connect(streamableTransport);
       const tools = await this.fetchAllTools(streamableClient);
@@ -132,7 +138,7 @@ export class McpServerManager {
       return this.createConnectedConnection(name, streamableClient, streamableTransport, tools, resources);
     } catch (error) {
       await this.safeClose(streamableClient, streamableTransport);
-      if (error instanceof UnauthorizedError || definition.auth === 'oauth') {
+      if (error instanceof UnauthorizedError) {
         return this.createDisconnectedConnection(name, 'needs-auth', 'Authentication is required before connecting.');
       }
     }
