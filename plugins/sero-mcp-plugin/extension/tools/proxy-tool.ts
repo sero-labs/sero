@@ -20,13 +20,15 @@ const MCP_TOOL_ACTIONS = [
 type McpToolAction = ProxyAction | 'connect' | 'reconnect';
 
 const ProxyParams = Type.Object({
-  action: Type.Optional(StringEnum(MCP_TOOL_ACTIONS)),
+  action: Type.Optional(StringEnum(MCP_TOOL_ACTIONS, {
+    description: 'Preferred MCP action. Use this tool first for normal MCP status/discovery/read/call work. If the user already named a server and task, use this tool directly instead of starting with mcp_manager. When the exact tool or arguments are unclear, use list_tools or describe_tool first. Use connect/reconnect only for explicit lifecycle requests; live MCP reads and tool calls auto-connect enabled servers when needed.',
+  })),
   query: Type.Optional(Type.String({ description: 'Search query for MCP tools and resources.' })),
-  serverName: Type.Optional(Type.String({ description: 'Server name for MCP inventory, resource/tool calls, or connect/reconnect actions.' })),
-  toolName: Type.Optional(Type.String({ description: 'Exact MCP tool name for describe_tool or call_tool.' })),
-  resourceUri: Type.Optional(Type.String({ description: 'Resource URI for read_resource.' })),
-  toolArguments: Type.Optional(Type.Record(Type.String(), Type.Any(), { description: 'Structured MCP tool arguments for call_tool.' })),
-  argumentsJson: Type.Optional(Type.String({ description: 'JSON object string for MCP tool arguments when action is call_tool.' })),
+  serverName: Type.Optional(Type.String({ description: 'Server name for list_tools, list_resources, read_resource, describe_tool, call_tool, or explicit connect/reconnect requests.' })),
+  toolName: Type.Optional(Type.String({ description: 'Exact MCP tool name for describe_tool or call_tool. If unsure, use list_tools first.' })),
+  resourceUri: Type.Optional(Type.String({ description: 'Exact MCP resource URI for read_resource, usually taken from list_resources or known server docs/resource paths.' })),
+  toolArguments: Type.Optional(Type.Record(Type.String(), Type.Any(), { description: 'Preferred way to pass call_tool arguments: a structured object matching the MCP tool schema.' })),
+  argumentsJson: Type.Optional(Type.String({ description: 'Fallback for call_tool only: a valid JSON object string when structured toolArguments cannot be supplied. Example: {"query":"oauth"}.' })),
 });
 
 type ToolWithCli = Parameters<ExtensionAPI['registerTool']>[0] & {
@@ -42,11 +44,11 @@ export function registerMcpProxyTool(pi: ExtensionAPI, runtime: McpRuntime): voi
     name: 'mcp',
     label: 'MCP',
     description:
-      'Preferred MCP surface for agents in Sero. Start here for status, list/search, tool discovery, resource reads, and tool calls. Live reads and tool calls auto-connect enabled servers when needed. If the user says things like "using context7/github MCP ...", use this tool directly. Reach for `mcp_manager` only when the user explicitly wants to add/edit/remove/enable/disable/connect/reconnect/authenticate an MCP server or use MCP UI/viewer management actions.',
+      'Preferred MCP surface for agents in Sero. Start here for normal MCP status, list/search, tool discovery, resource reads, and tool calls. If the user says things like "use context7/github MCP to do X", use this tool directly instead of starting with `mcp_manager` status/config/diagnostics calls. When the exact tool name or arguments are unclear, use `list_tools` or `describe_tool` first, then `call_tool`. Prefer structured `toolArguments`; use `argumentsJson` only as a fallback. Live reads and tool calls auto-connect enabled servers when needed. Reach for `mcp_manager` only when the user explicitly wants server setup/admin/auth/viewer work.',
     parameters: ProxyParams,
     cli: {
       summary: 'Preferred MCP surface for status, discovery, and live MCP reads/calls',
-      help: 'Use this tool first for MCP status/list/search/tools/resources/describe/call/read. If the user asks to use a server like context7/github directly, start here rather than mcp_manager. Live read/call actions auto-connect enabled servers when needed. Use mcp_manager only for MCP config/lifecycle/auth/viewer actions. CLI: sero mcp status | list | search <query> | tools <server> | resources <server> | read <server> <resourceUri> | describe <server> <tool> | call <server> <tool> [jsonArgs] | connect <server> | reconnect <server> | enable <server> | disable <server>',
+      help: 'Use this tool first for MCP status/list/search/tools/resources/describe/call/read. If the user asks to use a server like context7/github directly, start here rather than mcp_manager. When the tool name or arguments are unclear, use tools/describe first; once known, call the tool directly. Live read/call actions auto-connect enabled servers when needed. Use mcp_manager only for MCP config/lifecycle/auth/viewer actions. CLI: sero mcp status | list | search <query> | tools <server> | resources <server> | read <server> <resourceUri> | describe <server> <tool> | call <server> <tool> [jsonArgs] | connect <server> | reconnect <server> | enable <server> | disable <server>',
       async execute(args: string[], ctx: CliContext) {
         const action = parseCliCommand(args);
         if (action.kind === 'usage-error') {

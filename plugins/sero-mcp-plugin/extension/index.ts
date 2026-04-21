@@ -1,4 +1,5 @@
 import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
+import { buildMcpPromptBlock } from './prompt';
 import { getMcpRuntime } from './runtime/mcp-runtime';
 import { registerMcpManagerTool } from './tools/manager-tool';
 import { registerMcpProxyTool } from './tools/proxy-tool';
@@ -7,6 +8,10 @@ const runtime = getMcpRuntime();
 
 export default function mcpExtension(pi: ExtensionAPI) {
   runtime.attachPi(pi);
+
+  pi.on('before_agent_start', async (event) => ({
+    systemPrompt: event.systemPrompt + buildMcpPromptBlock(),
+  }));
 
   pi.on('session_start', async (_event, ctx) => {
     await runtime.handleSessionStart({ cwd: ctx.cwd }).catch((error) => {
