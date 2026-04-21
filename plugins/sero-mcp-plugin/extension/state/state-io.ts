@@ -47,7 +47,8 @@ function normalizeServerSnapshot(value: unknown): McpServerSnapshot | null {
       name: typeof tool.name === 'string' ? tool.name : '',
       description: typeof tool.description === 'string' ? tool.description : undefined,
       inputSchema: tool.inputSchema,
-    })).filter((tool) => tool.name.length > 0) : [],
+      resourceUri: typeof tool.resourceUri === 'string' ? tool.resourceUri : '',
+    })).filter((tool) => tool.name.length > 0 && tool.resourceUri.length > 0) : [],
   };
 }
 

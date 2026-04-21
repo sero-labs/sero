@@ -151,11 +151,12 @@ function resolveConnectionStatus(authStatus: McpAuthStatus): McpConnectionStatus
 
 function buildUiToolSummaries(tools: CachedMcpTool[]): McpUiToolSummary[] {
   return tools
-    .filter((tool) => !!tool.uiResourceUri)
+    .filter((tool): tool is CachedMcpTool & { uiResourceUri: string } => !!tool.uiResourceUri)
     .map((tool) => ({
       name: tool.name,
       description: tool.description,
       inputSchema: tool.inputSchema,
+      resourceUri: tool.uiResourceUri,
     }));
 }
 

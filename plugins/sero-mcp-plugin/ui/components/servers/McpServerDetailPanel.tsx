@@ -40,7 +40,7 @@ export function McpServerDetailPanel({ server }: { server: McpServerSnapshot | n
               {server.serverName} details
             </CardTitle>
             <CardDescription>
-              Inspect discovered MCP resources and UI-capable tools. Resource previews stay inside Sero so you can troubleshoot without leaving context.
+              Inspect discovered MCP resources and UI-capable tools. Resources and advertised tool UIs open in the embedded viewer so you can troubleshoot without leaving context.
             </CardDescription>
           </div>
           <div className="flex flex-wrap gap-2 text-xs">
@@ -116,22 +116,40 @@ export function McpServerDetailPanel({ server }: { server: McpServerSnapshot | n
                   UI-capable tools
                 </CardTitle>
                 <CardDescription>
-                  Tools that advertised MCP UI metadata. Full interactive UI launching is the next slice; for now this view exposes what the server reported.
+                  Tools that advertised MCP UI metadata. Launching a tool reads its advertised UI resource and opens it in the embedded viewer.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
                 {sortedUiTools.length === 0 ? (
                   <EmptyState title="No UI-capable tools discovered" body="If this server exposes interactive MCP UIs, reconnect it and refresh metadata to repopulate the cache." />
                 ) : (
-                  sortedUiTools.map((tool) => (
-                    <div key={tool.name} className="rounded-lg border border-border bg-background/60 p-3">
-                      <div className="font-medium text-foreground">{tool.name}</div>
-                      {tool.description && <p className="mt-1 text-sm text-muted-foreground">{tool.description}</p>}
-                      <pre className="mt-3 overflow-x-auto rounded-md border border-border/70 bg-muted/20 p-3 text-xs leading-6 text-muted-foreground">
-                        {formatSchemaSummary(tool.inputSchema)}
-                      </pre>
-                    </div>
-                  ))
+                  sortedUiTools.map((tool) => {
+                    const isActive = resourceReader.activeResourceUri === tool.resourceUri;
+                    return (
+                      <div key={tool.name} className={cn('rounded-lg border border-border bg-background/60 p-3', isActive && 'border-primary/40 bg-primary/5')}>
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0 space-y-1">
+                            <div className="font-medium text-foreground">{tool.name}</div>
+                            <div className="break-all text-xs text-muted-foreground">{tool.resourceUri}</div>
+                            {tool.description && <p className="text-sm text-muted-foreground">{tool.description}</p>}
+                          </div>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={isActive ? 'default' : 'outline'}
+                            onClick={() => void resourceReader.loadResource(server.serverName, tool.resourceUri)}
+                            disabled={resourceReader.loading && isActive}
+                          >
+                            <MonitorSmartphone className="mr-2 h-4 w-4" />
+                            {isActive ? 'Reload UI' : 'Launch UI'}
+                          </Button>
+                        </div>
+                        <pre className="mt-3 overflow-x-auto rounded-md border border-border/70 bg-muted/20 p-3 text-xs leading-6 text-muted-foreground">
+                          {formatSchemaSummary(tool.inputSchema)}
+                        </pre>
+                      </div>
+                    );
+                  })
                 )}
               </CardContent>
             </Card>
@@ -141,9 +159,9 @@ export function McpServerDetailPanel({ server }: { server: McpServerSnapshot | n
             <CardHeader>
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <CardTitle className="text-base">Embedded resource preview</CardTitle>
+                  <CardTitle className="text-base">Embedded viewer</CardTitle>
                   <CardDescription>
-                    Current preview renders directly in the MCP app. HTML resources are sandboxed in an iframe; text and JSON resources stay copyable.
+                    Resource previews and launched tool UIs render directly in the MCP app. HTML content is sandboxed in an iframe; text and JSON content stay copyable.
                   </CardDescription>
                 </div>
                 {preview && (

@@ -7,11 +7,11 @@ function createResult(contents: Array<Record<string, unknown>>): ReadResourceRes
 }
 
 describe('normalizeResourcePreview', () => {
-  it('renders HTML resource previews from text content', () => {
+  it('renders HTML resource previews from MCP UI resources', () => {
     const preview = normalizeResourcePreview('demo', 'ui://demo/app', createResult([
       {
         uri: 'ui://demo/app',
-        mimeType: 'text/html',
+        mimeType: 'text/html;profile=mcp-app',
         text: '<html><body>Hello</body></html>',
       },
     ]));

@@ -15,6 +15,7 @@ export interface McpUiToolSummary {
   name: string;
   description?: string;
   inputSchema?: unknown;
+  resourceUri: string;
 }
 
 export type McpResourcePreviewKind = 'text' | 'json' | 'html' | 'image' | 'binary';
