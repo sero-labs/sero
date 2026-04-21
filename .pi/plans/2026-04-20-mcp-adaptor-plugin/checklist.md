@@ -2,7 +2,7 @@
 
 Reference plan: [`plan.md`](./plan.md)
 
-Current checkpoint: `420f251c`
+Current checkpoint: `MCP-12 complete`
 
 ## Remaining product work
 
@@ -16,4 +16,4 @@ Current checkpoint: `420f251c`
 
 ## Final wrap-up
 
-- [ ] MCP-12 — final README + validation refresh after the remaining work lands ([plan](./plan.md))
+- [x] MCP-12 — final README + validation refresh after the remaining work lands ([plan](./plan.md))
