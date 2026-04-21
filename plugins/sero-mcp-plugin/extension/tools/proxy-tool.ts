@@ -9,6 +9,7 @@ const ProxyParams = Type.Object({
   query: Type.Optional(Type.String({ description: 'Search query for MCP tools and resources.' })),
   serverName: Type.Optional(Type.String({ description: 'Server name for MCP tool inventory or calls.' })),
   toolName: Type.Optional(Type.String({ description: 'Exact MCP tool name for describe_tool or call_tool.' })),
+  toolArguments: Type.Optional(Type.Record(Type.String(), Type.Any(), { description: 'Structured MCP tool arguments for call_tool.' })),
   argumentsJson: Type.Optional(Type.String({ description: 'JSON object string for MCP tool arguments when action is call_tool.' })),
 });
 
@@ -41,6 +42,7 @@ export function registerMcpProxyTool(pi: ExtensionAPI, runtime: McpRuntime): voi
               query: action.query,
               serverName: action.serverName,
               toolName: action.toolName,
+              toolArguments: action.toolArguments,
               argumentsJson: action.argumentsJson,
             })
           : await runtime.executeManagerAction(action.action, { cwd: ctx.cwd, serverName: action.serverName });
@@ -57,6 +59,7 @@ export function registerMcpProxyTool(pi: ExtensionAPI, runtime: McpRuntime): voi
         query?: string;
         serverName?: string;
         toolName?: string;
+        toolArguments?: Record<string, unknown>;
         argumentsJson?: string;
       };
       return runtime.executeProxyAction(proxyParams.action ?? 'status', {
@@ -64,6 +67,7 @@ export function registerMcpProxyTool(pi: ExtensionAPI, runtime: McpRuntime): voi
         query: proxyParams.query,
         serverName: proxyParams.serverName,
         toolName: proxyParams.toolName,
+        toolArguments: proxyParams.toolArguments,
         argumentsJson: proxyParams.argumentsJson,
       });
     },
@@ -79,6 +83,7 @@ type CliCommand =
       query?: string;
       serverName?: string;
       toolName?: string;
+      toolArguments?: Record<string, unknown>;
       argumentsJson?: string;
     }
   | { kind: 'manager'; action: 'connect_server' | 'reconnect_server' | 'enable_server' | 'disable_server'; serverName: string }

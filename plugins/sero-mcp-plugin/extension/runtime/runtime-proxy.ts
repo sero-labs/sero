@@ -20,6 +20,7 @@ interface ProxyToolOptions {
   query?: string;
   serverName?: string;
   toolName?: string;
+  toolArguments?: Record<string, unknown>;
   argumentsJson?: string;
   manager: McpServerManager;
   setRuntimeStatus: (serverName: string, status: RuntimeServerStatus) => void;
@@ -251,7 +252,7 @@ async function callServerTool(options: ProxyToolOptions, synced: SyncedRuntimeSt
       toolName,
     });
   }
-  const toolArguments = parseToolArguments(options.argumentsJson);
+  const toolArguments = parseToolArguments(options.toolArguments, options.argumentsJson);
   if (toolArguments instanceof Error) {
     return createToolResult(`Error: ${toolArguments.message}`, { mode: 'call_tool', serverName, toolName });
   }
@@ -375,7 +376,13 @@ function getMissingMetadataMessage(serverName: string, synced: SyncedRuntimeStat
 function buildAuthRequiredMessage(serverName: string): string {
   return `Server "${serverName}" requires in-app authentication. Open the MCP app in Sero and authenticate there.`;
 }
-function parseToolArguments(argumentsJson: string | undefined): Record<string, unknown> | undefined | Error {
+function parseToolArguments(
+  toolArguments: Record<string, unknown> | undefined,
+  argumentsJson: string | undefined,
+): Record<string, unknown> | undefined | Error {
+  if (toolArguments) {
+    return toolArguments;
+  }
   const trimmed = argumentsJson?.trim();
   if (!trimmed) {
     return undefined;

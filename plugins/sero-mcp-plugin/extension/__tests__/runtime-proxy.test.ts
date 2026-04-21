@@ -192,7 +192,7 @@ describe('executeProxyAction', () => {
       action: 'call_tool',
       serverName: 'github',
       toolName: 'search_docs',
-      argumentsJson: '{"query":"auth"}',
+      toolArguments: { query: 'auth' },
       manager,
       setRuntimeStatus: () => {},
       syncSnapshot: async () => synced,

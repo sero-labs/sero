@@ -47,10 +47,10 @@ export interface McpRuntime {
   handleSessionSwitch(ctx: { cwd: string }): Promise<void>;
   handleSessionShutdown(): Promise<void>;
   executeManagerAction(action: ManagerAction, options?: ManagerActionOptions): Promise<ToolResult>;
-  executeProxyAction(
-    action: ProxyAction,
-    options?: { cwd?: string; query?: string; serverName?: string; toolName?: string; argumentsJson?: string },
-  ): Promise<ToolResult>;
+  executeProxyAction(action: ProxyAction, options?: {
+    cwd?: string; query?: string; serverName?: string; toolName?: string;
+    toolArguments?: Record<string, unknown>; argumentsJson?: string;
+  }): Promise<ToolResult>;
 }
 let runtimeSingleton: McpRuntime | null = null;
 export function getMcpRuntime(): McpRuntime {
@@ -195,16 +195,17 @@ function createMcpRuntime(): McpRuntime {
       );
     });
   }
-  function executeProxyAction(
-    action: ProxyAction,
-    options: { cwd?: string; query?: string; serverName?: string; toolName?: string; argumentsJson?: string } = {},
-  ): Promise<ToolResult> {
+  function executeProxyAction(action: ProxyAction, options: {
+    cwd?: string; query?: string; serverName?: string; toolName?: string;
+    toolArguments?: Record<string, unknown>; argumentsJson?: string;
+  } = {}): Promise<ToolResult> {
     return runExclusive(async () => executeProxyActionInternal({
       action,
       cwd: options.cwd,
       query: options.query,
       serverName: options.serverName,
       toolName: options.toolName,
+      toolArguments: options.toolArguments,
       argumentsJson: options.argumentsJson,
       manager,
       setRuntimeStatus: (name, status) => runtimeStatuses.set(name, status),
