@@ -116,6 +116,11 @@ export async function handlePluginChange(event: PluginChangeEvent): Promise<void
 
   await discoverAndRegisterApps();
 
+  if (event.type === 'installed') {
+    useAppStore.getState().setActiveApp(event.manifest.id);
+    return;
+  }
+
   const appState = useAppStore.getState();
   if (appId && appState.activeApp === appId) {
     appState.reloadApp(appId);
