@@ -44,8 +44,8 @@ export function McpApp() {
             </div>
             <p className="max-w-3xl text-sm text-muted-foreground">
               Sero-native MCP management now supports snapshot bootstrap, connect/reconnect, eager and keep-alive
-              lifecycle startup, cache-backed metadata, embedded resource previews, basic in-app UI-tool launching,
-              and in-app OAuth browser flows.
+              lifecycle startup, cache-backed metadata, a dedicated viewer/auth pane for resources and OAuth,
+              and basic in-app UI-tool launching.
             </p>
           </div>
 
@@ -161,8 +161,8 @@ export function McpApp() {
               <FeatureRow icon={Wrench} title="Plugin scaffold" body="Built-in plugin manifest, remote UI wiring, and extension entry point are in place." />
               <FeatureRow icon={Server} title="Sero-aware storage" body="State, config, metadata cache, and OAuth token paths resolve through Sero-aware helpers with Pi fallback behavior." />
               <FeatureRow icon={PlugZap} title="Lifecycle bootstrap" body="Enabled eager and keep-alive servers now auto-connect on bootstrap and keep-alive servers retry in the background." />
-              <FeatureRow icon={Wrench} title="Embedded viewers" body="Discovered resources and UI-capable tools can now open directly in the MCP app's embedded viewer pane." />
-              <FeatureRow icon={ShieldCheck} title="Embedded OAuth auth" body="OAuth servers can now launch an embedded auth browser inside Sero and complete loopback callbacks without leaving the app." />
+              <FeatureRow icon={Wrench} title="Viewer pane" body="Discovered resources and UI-capable tools now open in a dedicated MCP viewer pane instead of pushing you out to a popup or external browser." />
+              <FeatureRow icon={ShieldCheck} title="Embedded OAuth auth" body="OAuth servers now launch a hardened auth browser in the same viewer pane and complete loopback callbacks without leaving the app." />
             </CardContent>
           </Card>
         </section>

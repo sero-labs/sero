@@ -5,16 +5,16 @@ import { Badge } from '@sero-ai/ui/components/ui/badge';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@sero-ai/ui/components/ui/card';
 import { cn } from '@sero-ai/ui/lib/utils';
-import { AlertCircle, LifeBuoy, MonitorSmartphone, RefreshCw, ScrollText, X } from 'lucide-react';
-import type { McpResourcePreview, McpServerSnapshot } from '../../../shared/types';
-import { useMcpResourceReader } from '../../hooks/useMcpResourceReader';
+import { AlertCircle, LifeBuoy, MonitorSmartphone, RefreshCw, ScrollText } from 'lucide-react';
+import type { McpServerSnapshot } from '../../../shared/types';
+import { useMcpViewer } from '../../hooks/useMcpViewer';
 import { McpServerAuthPanel } from './McpServerAuthPanel';
 import { McpServerToolRunnerPanel } from './McpServerToolRunnerPanel';
+import { McpViewerPane } from '../viewer/McpViewerPane';
 
 export function McpServerDetailPanel({ server }: { server: McpServerSnapshot | null }) {
   const promptAgent = useAgentPrompt();
-  const resourceReader = useMcpResourceReader();
-  const preview = resourceReader.preview?.serverName === server?.serverName ? resourceReader.preview : null;
+  const viewer = useMcpViewer();
   const sortedResources = useMemo(() => [...(server?.resources ?? [])].sort((a, b) => a.name.localeCompare(b.name)), [server?.resources]);
   const sortedUiTools = useMemo(() => [...(server?.uiTools ?? [])].sort((a, b) => a.name.localeCompare(b.name)), [server?.uiTools]);
 
@@ -29,7 +29,7 @@ export function McpServerDetailPanel({ server }: { server: McpServerSnapshot | n
     );
   }
 
-  const helpPrompt = buildServerHelpPrompt(server, resourceReader.error, preview);
+  const helpPrompt = buildServerHelpPrompt(server, viewer.resourceError, viewer.preview?.serverName === server.serverName ? viewer.preview : null);
 
   return (
     <Card className="animate-mcp-fade-in py-4">
@@ -41,7 +41,7 @@ export function McpServerDetailPanel({ server }: { server: McpServerSnapshot | n
               {server.serverName} details
             </CardTitle>
             <CardDescription>
-              Inspect discovered MCP resources and UI-capable tools. Resources and advertised tool UIs open in the embedded viewer so you can troubleshoot without leaving context.
+              Inspect discovered MCP resources and UI-capable tools. Resources, tool UIs, and auth flows now open in the dedicated viewer pane so you can troubleshoot without leaving context.
             </CardDescription>
           </div>
           <div className="flex flex-wrap gap-2 text-xs">
@@ -53,12 +53,12 @@ export function McpServerDetailPanel({ server }: { server: McpServerSnapshot | n
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {resourceReader.error && (
+        {viewer.resourceError && viewer.pane?.serverName === server.serverName && (
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Resource preview failed</AlertTitle>
+            <AlertTitle>Resource or UI preview failed</AlertTitle>
             <AlertDescription className="space-y-3">
-              <p>{resourceReader.error}</p>
+              <p>{viewer.resourceError}</p>
               <Button type="button" size="sm" onClick={() => promptAgent(helpPrompt)}>
                 <LifeBuoy className="mr-2 h-4 w-4" />
                 Ask Sero to help
@@ -69,12 +69,12 @@ export function McpServerDetailPanel({ server }: { server: McpServerSnapshot | n
 
         <div className="grid gap-4 xl:grid-cols-[0.95fr_1.25fr]">
           <section className="space-y-4">
-            <McpServerAuthPanel server={server} />
+            <McpServerAuthPanel server={server} viewer={viewer} />
 
             <McpServerToolRunnerPanel
               server={server}
-              onOpenResource={(resourceUri) => {
-                void resourceReader.loadResource(server.serverName, resourceUri);
+              onOpenResource={(resourceUri, options) => {
+                void viewer.openResource(server.serverName, resourceUri, options);
               }}
             />
 
@@ -82,7 +82,7 @@ export function McpServerDetailPanel({ server }: { server: McpServerSnapshot | n
               <CardHeader>
                 <CardTitle className="text-base">Resources</CardTitle>
                 <CardDescription>
-                  Cached from the last successful metadata refresh. Click a resource to lazy-connect the server if needed and preview its current content.
+                  Cached from the last successful metadata refresh. Click a resource to lazy-connect the server if needed and preview its current content in the viewer pane.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
@@ -90,7 +90,9 @@ export function McpServerDetailPanel({ server }: { server: McpServerSnapshot | n
                   <EmptyState title="No resources discovered" body="Connect the server and refresh metadata if you expect resources here." />
                 ) : (
                   sortedResources.map((resource) => {
-                    const isActive = resourceReader.activeResourceUri === resource.uri;
+                    const isActive = viewer.pane?.kind === 'resource'
+                      && viewer.pane.serverName === server.serverName
+                      && viewer.activeResourceUri === resource.uri;
                     return (
                       <div key={resource.uri} className={cn('rounded-lg border border-border bg-background/60 p-3', isActive && 'border-primary/40 bg-primary/5')}>
                         <div className="flex items-start justify-between gap-3">
@@ -103,10 +105,10 @@ export function McpServerDetailPanel({ server }: { server: McpServerSnapshot | n
                             type="button"
                             size="sm"
                             variant={isActive ? 'default' : 'outline'}
-                            onClick={() => void resourceReader.loadResource(server.serverName, resource.uri)}
-                            disabled={resourceReader.loading && isActive}
+                            onClick={() => void viewer.openResource(server.serverName, resource.uri, { kind: 'resource', title: resource.name })}
+                            disabled={viewer.resourceLoading && isActive}
                           >
-                            <RefreshCw className={cn('mr-2 h-4 w-4', resourceReader.loading && isActive && 'animate-spin')} />
+                            <RefreshCw className={cn('mr-2 h-4 w-4', viewer.resourceLoading && isActive && 'animate-spin')} />
                             {isActive ? 'Reload' : 'Preview'}
                           </Button>
                         </div>
@@ -124,7 +126,7 @@ export function McpServerDetailPanel({ server }: { server: McpServerSnapshot | n
                   UI-capable tools
                 </CardTitle>
                 <CardDescription>
-                  Tools that advertised MCP UI metadata. Launching a tool reads its advertised UI resource and opens it in the embedded viewer.
+                  Tools that advertised MCP UI metadata. Launching a tool reads its advertised UI resource and opens it in the viewer pane.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
@@ -132,7 +134,9 @@ export function McpServerDetailPanel({ server }: { server: McpServerSnapshot | n
                   <EmptyState title="No UI-capable tools discovered" body="If this server exposes interactive MCP UIs, reconnect it and refresh metadata to repopulate the cache." />
                 ) : (
                   sortedUiTools.map((tool) => {
-                    const isActive = resourceReader.activeResourceUri === tool.resourceUri;
+                    const isActive = viewer.pane?.kind === 'tool-ui'
+                      && viewer.pane.serverName === server.serverName
+                      && viewer.activeResourceUri === tool.resourceUri;
                     return (
                       <div key={tool.name} className={cn('rounded-lg border border-border bg-background/60 p-3', isActive && 'border-primary/40 bg-primary/5')}>
                         <div className="flex items-start justify-between gap-3">
@@ -145,8 +149,8 @@ export function McpServerDetailPanel({ server }: { server: McpServerSnapshot | n
                             type="button"
                             size="sm"
                             variant={isActive ? 'default' : 'outline'}
-                            onClick={() => void resourceReader.loadResource(server.serverName, tool.resourceUri)}
-                            disabled={resourceReader.loading && isActive}
+                            onClick={() => void viewer.openResource(server.serverName, tool.resourceUri, { kind: 'tool-ui', title: tool.name })}
+                            disabled={viewer.resourceLoading && isActive}
                           >
                             <MonitorSmartphone className="mr-2 h-4 w-4" />
                             {isActive ? 'Reload UI' : 'Launch UI'}
@@ -163,81 +167,10 @@ export function McpServerDetailPanel({ server }: { server: McpServerSnapshot | n
             </Card>
           </section>
 
-          <Card className="border-border/70 bg-muted/15 py-4">
-            <CardHeader>
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <CardTitle className="text-base">Embedded viewer</CardTitle>
-                  <CardDescription>
-                    Resource previews and launched tool UIs render directly in the MCP app. HTML content is sandboxed in an iframe; text and JSON content stay copyable.
-                  </CardDescription>
-                </div>
-                {preview && (
-                  <Button type="button" variant="outline" size="sm" onClick={resourceReader.clearPreview}>
-                    <X className="mr-2 h-4 w-4" />
-                    Clear preview
-                  </Button>
-                )}
-              </div>
-            </CardHeader>
-            <CardContent>
-              <ResourcePreview preview={preview} loading={resourceReader.loading} />
-            </CardContent>
-          </Card>
+          <McpViewerPane viewer={viewer} />
         </div>
       </CardContent>
     </Card>
-  );
-}
-
-function ResourcePreview({ preview, loading }: { preview: McpResourcePreview | null; loading: boolean }) {
-  if (loading && !preview) {
-    return <PreviewPlaceholder body="Loading resource preview…" />;
-  }
-  if (!preview) {
-    return <PreviewPlaceholder body="Select a discovered resource to preview it here." />;
-  }
-
-  return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-        <ToneBadge label={preview.previewKind} tone="muted" />
-        <ToneBadge label={preview.mimeType ?? 'unknown mime'} tone="muted" />
-        <span className="rounded-full border border-border bg-background px-2 py-0.5">{preview.resolvedUri}</span>
-        {preview.truncated && <ToneBadge label="preview truncated" tone="warning" />}
-      </div>
-
-      {preview.previewKind === 'html' ? (
-        <iframe
-          title={preview.resolvedUri}
-          srcDoc={preview.html ?? ''}
-          sandbox="allow-scripts allow-forms"
-          className="h-[520px] w-full rounded-lg border border-border bg-white"
-        />
-      ) : preview.previewKind === 'image' ? (
-        <div className="overflow-hidden rounded-lg border border-border bg-background p-3">
-          {preview.dataUrl ? (
-            <img src={preview.dataUrl} alt={preview.resolvedUri} className="max-h-[520px] w-full object-contain" />
-          ) : (
-            <PreviewPlaceholder body="This image resource did not return a renderable payload." />
-          )}
-        </div>
-      ) : preview.previewKind === 'binary' ? (
-        <PreviewPlaceholder body="This resource returned binary content that cannot be previewed inline yet." />
-      ) : (
-        <pre className="max-h-[520px] overflow-auto rounded-lg border border-border bg-background p-4 text-xs leading-6 text-muted-foreground">
-          {preview.text || '(empty resource)'}
-        </pre>
-      )}
-    </div>
-  );
-}
-
-function PreviewPlaceholder({ body }: { body: string }) {
-  return (
-    <div className="flex min-h-[280px] items-center justify-center rounded-lg border border-dashed border-border bg-background/60 p-6 text-center text-sm text-muted-foreground">
-      <div className="max-w-md">{body}</div>
-    </div>
   );
 }
 
@@ -279,16 +212,16 @@ function formatSchemaSummary(schema: unknown): string {
 function buildServerHelpPrompt(
   server: McpServerSnapshot,
   error: string | null,
-  preview: McpResourcePreview | null,
+  preview: { resolvedUri: string } | null,
 ): string {
   return [
-    `Help me troubleshoot MCP resource viewing for server "${server.serverName}" in Sero.`,
+    `Help me troubleshoot MCP resource or UI viewing for server "${server.serverName}" in Sero.`,
     `Connection status: ${server.connectionStatus}`,
     `Auth status: ${server.authStatus}`,
     `Resources discovered: ${server.resourceCount}`,
     preview ? `Current resource URI: ${preview.resolvedUri}` : 'No resource preview is open.',
     '',
-    error ?? 'No explicit reader error was present; explain likely next checks and recovery steps.',
+    error ?? 'No explicit viewer error was present; explain likely next checks and recovery steps.',
   ].join('\n');
 }
 

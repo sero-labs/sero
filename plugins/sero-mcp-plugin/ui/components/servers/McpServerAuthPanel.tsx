@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import { useAgentPrompt } from '@sero-ai/app-runtime';
 import { Alert, AlertDescription, AlertTitle } from '@sero-ai/ui/components/ui/alert';
 import { Badge } from '@sero-ai/ui/components/ui/badge';
@@ -7,23 +6,21 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@sero
 import { cn } from '@sero-ai/ui/lib/utils';
 import { AlertCircle, LifeBuoy, LoaderCircle, ShieldCheck, X } from 'lucide-react';
 import type { McpServerSnapshot } from '../../../shared/types';
-import { useMcpAuthFlow } from '../../hooks/useMcpAuthFlow';
-import { McpAuthBrowser } from '../viewer/McpAuthBrowser';
+import type { McpViewerState } from '../../hooks/useMcpViewer';
 
-export function McpServerAuthPanel({ server }: { server: McpServerSnapshot }) {
+export function McpServerAuthPanel({
+  server,
+  viewer,
+}: {
+  server: McpServerSnapshot;
+  viewer: McpViewerState;
+}) {
   const promptAgent = useAgentPrompt();
-  const authFlow = useMcpAuthFlow();
   const isOAuth = server.authMode === 'oauth';
-  const activeSession = authFlow.session?.serverName === server.serverName ? authFlow.session : null;
-  const allowedOrigins = useMemo(() => {
-    if (!activeSession?.authUrl) return [];
-    try {
-      return [new URL(activeSession.authUrl).origin];
-    } catch {
-      return [];
-    }
-  }, [activeSession?.authUrl]);
-  const helpPrompt = buildAuthHelpPrompt(server, authFlow.error, activeSession?.authUrl ?? null);
+  const activeSession = viewer.authSession?.serverName === server.serverName ? viewer.authSession : null;
+  const authPaneActive = viewer.pane?.kind === 'auth' && viewer.pane.serverName === server.serverName;
+  const authError = viewer.pane?.serverName === server.serverName || activeSession ? viewer.authError : null;
+  const helpPrompt = buildAuthHelpPrompt(server, authError, activeSession?.authUrl ?? null, authPaneActive);
 
   if (!isOAuth) {
     return null;
@@ -39,7 +36,7 @@ export function McpServerAuthPanel({ server }: { server: McpServerSnapshot }) {
               OAuth authentication
             </CardTitle>
             <CardDescription>
-              Authenticate this MCP server entirely inside Sero. The browser rail is hardened and only allows the active auth origin plus the loopback callback.
+              Authenticate this MCP server entirely inside Sero. The active sign-in flow opens in the dedicated viewer pane instead of a popup or external browser.
             </CardDescription>
           </div>
           <div className="flex flex-wrap gap-2 text-xs">
@@ -50,52 +47,51 @@ export function McpServerAuthPanel({ server }: { server: McpServerSnapshot }) {
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex flex-wrap gap-2">
-          <Button type="button" size="sm" disabled={authFlow.loading} onClick={() => void authFlow.startAuth(server.serverName)}>
-            {authFlow.loading ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-2 h-4 w-4" />}
+          <Button type="button" size="sm" disabled={viewer.authLoading} onClick={() => void viewer.startAuth(server.serverName)}>
+            {viewer.authLoading ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-2 h-4 w-4" />}
             {server.authStatus === 'authenticated' ? 'Re-authenticate' : 'Authenticate'}
           </Button>
+          {activeSession && !authPaneActive && (
+            <Button type="button" variant="outline" size="sm" disabled={viewer.authLoading} onClick={viewer.focusAuthSession}>
+              <ShieldCheck className="mr-2 h-4 w-4" />
+              Show auth browser
+            </Button>
+          )}
           {activeSession && (
-            <Button type="button" variant="outline" size="sm" disabled={authFlow.loading} onClick={() => void authFlow.cancelAuth(server.serverName)}>
+            <Button type="button" variant="outline" size="sm" disabled={viewer.authLoading} onClick={() => void viewer.cancelAuth(server.serverName)}>
               <X className="mr-2 h-4 w-4" />
               Cancel auth
             </Button>
           )}
-          <Button type="button" variant="outline" size="sm" disabled={authFlow.loading} onClick={() => void authFlow.clearAuth(server.serverName)}>
+          <Button type="button" variant="outline" size="sm" disabled={viewer.authLoading} onClick={() => void viewer.clearAuth(server.serverName)}>
             <X className="mr-2 h-4 w-4" />
             Clear saved auth
           </Button>
-          <Button type="button" variant="outline" size="sm" disabled={!authFlow.error} onClick={() => promptAgent(helpPrompt)}>
+          <Button type="button" variant="outline" size="sm" disabled={!authError} onClick={() => promptAgent(helpPrompt)}>
             <LifeBuoy className="mr-2 h-4 w-4" />
             Ask Sero to help
           </Button>
         </div>
 
-        {authFlow.error && (
+        {authError && (
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>OAuth flow error</AlertTitle>
-            <AlertDescription>{authFlow.error}</AlertDescription>
+            <AlertDescription>{authError}</AlertDescription>
           </Alert>
         )}
 
-        <div className={cn(activeSession ? 'block' : 'hidden')}>
-          <McpAuthBrowser
-            src={activeSession?.authUrl ?? null}
-            allowedOrigins={allowedOrigins}
-            className="h-[460px]"
-            onBlockedNavigation={(url) => authFlow.setError(`Blocked auth navigation to ${url}`)}
-            onLoadError={(message) => authFlow.setError(message)}
-            onCallbackUrl={(callbackUrl) => {
-              void authFlow.completeAuth(server.serverName, callbackUrl);
-            }}
-          />
-        </div>
-
-        {!activeSession && !authFlow.error && server.authStatus !== 'authenticated' && (
-          <div className="rounded-lg border border-dashed border-border bg-background/40 p-4 text-sm text-muted-foreground">
-            Start authentication to open the provider sign-in flow in an embedded browser. When the provider redirects back to the loopback callback, Sero will complete the exchange automatically.
+        {activeSession ? (
+          <div className="rounded-lg border border-border bg-background/60 p-4 text-sm text-muted-foreground">
+            {authPaneActive
+              ? 'The provider sign-in flow is open in the viewer pane. Complete it there and Sero will finish the loopback callback automatically.'
+              : 'An authentication session is active for this server. Open the auth browser in the viewer pane to continue the sign-in flow.'}
           </div>
-        )}
+        ) : !authError && server.authStatus !== 'authenticated' ? (
+          <div className="rounded-lg border border-dashed border-border bg-background/40 p-4 text-sm text-muted-foreground">
+            Start authentication to open the provider sign-in flow in the viewer pane. When the provider redirects back to the loopback callback, Sero will complete the exchange automatically.
+          </div>
+        ) : null}
       </CardContent>
     </Card>
   );
@@ -117,12 +113,18 @@ function StatusBadge({ label, tone }: { label: string; tone: 'default' | 'succes
   );
 }
 
-function buildAuthHelpPrompt(server: McpServerSnapshot, error: string | null, authUrl: string | null): string {
+function buildAuthHelpPrompt(
+  server: McpServerSnapshot,
+  error: string | null,
+  authUrl: string | null,
+  authPaneActive: boolean,
+): string {
   return [
     `Help me troubleshoot OAuth authentication for MCP server "${server.serverName}" in Sero.`,
     `Connection status: ${server.connectionStatus}`,
     `Auth status: ${server.authStatus}`,
     authUrl ? `Current auth URL origin: ${safeOrigin(authUrl)}` : 'No auth browser is currently open.',
+    authPaneActive ? 'The auth browser is already open in the viewer pane.' : 'The auth browser is not currently focused in the viewer pane.',
     '',
     error ?? 'Explain the most likely next checks and recovery steps.',
   ].join('\n');

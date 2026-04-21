@@ -8,7 +8,7 @@ This plugin adapts the `pi-mcp-adapter` backend ideas into a **Sero-native, UI-f
 - authenticate OAuth-backed servers in-app
 - inspect connection/auth/metadata state
 - preview embedded MCP resources inside the plugin
-- launch basic UI-capable MCP tool resources in the embedded viewer
+- launch basic UI-capable MCP tool resources in the dedicated viewer pane
 - use a single bridged `mcp` proxy tool from Sero chat or the CLI
 
 ## Current v1 surface
@@ -23,6 +23,7 @@ The MCP app currently supports:
 - raw config editing
 - diagnostics
 - embedded OAuth browser flows
+- dedicated viewer/auth pane for resources, tool UIs, and OAuth flows
 - resource preview
 - basic UI-tool launching by opening the advertised UI resource
 - basic MCP tool runner in the server detail view
@@ -76,7 +77,7 @@ OAuth-backed HTTP MCP servers authenticate entirely inside Sero.
 Current behavior:
 
 - start auth from the MCP app
-- complete the provider redirect inside the embedded auth browser
+- complete the provider redirect inside the dedicated embedded auth browser pane
 - persist OAuth client info / tokens under the Sero agent profile
 - if a live MCP call or resource read becomes unauthorized, the plugin:
   - closes the stale connection
@@ -104,7 +105,7 @@ This keeps auth material aligned with the active Sero agent profile.
 Current v1 behavior is intentionally modest:
 
 - the plugin discovers tools that advertise `_meta.ui.resourceUri`
-- the server detail view can launch that advertised UI resource in the embedded viewer
+- the server detail view can launch that advertised UI resource in the dedicated viewer pane
 - the bridged `mcp` tool can describe and call those tools, but it does **not** yet host a full AppBridge-backed interactive MCP app session
 
 That fuller MCP UI hosting slice is still in progress.
