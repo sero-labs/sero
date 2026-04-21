@@ -73,3 +73,5 @@ from the agent (tool), the CLI (`sero notes <list|add|toggle|remove>`),
 the React UI, or the dashboard widget. The `/list-notes` slash command is a
 distinct name on purpose — it would otherwise shadow the bridged
 `sero notes ...` CLI entry point when tools and commands are both bridged.
+If you want a same-name slash shortcut such as `/notes`, ship a prompt
+template declared via `pi.prompts` instead of `pi.registerCommand('notes')`.

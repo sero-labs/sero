@@ -69,6 +69,15 @@ App tools are bridged into the single `sero-cli` tool — always use `pi.registe
 - `cli.overrideBuiltin: true` only when intentionally replacing a builtin command
 - Never register app tools as `customTools` in `createAgentSession()`
 - Bridged tools run against the current session's extension — don't capture registration-scoped `pi` state in tool logic
+- If a tool exposes CLI subcommands, keep them self-explanatory and consistent with any structured tool actions; support aliases when needed and return explicit errors for unknown subcommands rather than silently falling back to another action
+
+### Prompt templates, skills, and slash-command naming
+- Plugin-owned prompt templates and skills are **manifest-driven**. Declaring `prompts/` or `skills/` folders is not enough by itself.
+- Add prompt templates to `pi.prompts` in `package.json` (for example `"./prompts/myapp.md"`).
+- Add plugin skills to `pi.skills` in `package.json` (for example `"./skills"`).
+- If a bridged tool should also have a same-name slash shortcut (for example `/mcp` for the bridged `mcp` tool), prefer a prompt template declared in `pi.prompts`.
+- Keep `pi.registerCommand(...)` names **distinct** from bridged tool names unless you intentionally want to shadow/replace that CLI entry point.
+- After adding or changing `pi.prompts` / `pi.skills`, reload resources (`/reload`) or restart the session before testing the slash menu.
 
 ### Background runtime
 Use `runtime/` **only** for long-lived workspace-scoped behavior: startup
@@ -114,6 +123,8 @@ Decide up front:
 plugins/sero-<name>-plugin/
 ├── package.json
 ├── vite.config.ts            # UI only, at package root
+├── prompts/                  # optional prompt templates (declare in pi.prompts)
+├── skills/                   # optional plugin skills (declare in pi.skills)
 ├── shared/types.ts
 ├── extension/
 │   ├── index.ts
@@ -144,6 +155,8 @@ Critical:
 - `stateFile` is required even for global apps (Pi-CLI fallback)
 - `ui`, `component`, `devPort` only when the plugin ships a UI
 - `runtime` only when the plugin ships a runtime; add `runtime/tsconfig.json` to the `typecheck` script
+- Declare prompt templates in `pi.prompts` and plugin skills in `pi.skills`; folders alone are not auto-loaded
+- If you need a same-name slash shortcut for a bridged tool, use a prompt template in `pi.prompts` rather than `pi.registerCommand` with the same name
 - Declare `requiredHostCapabilities` only for seams you use
 - For extension-only plugins, drop the Vite `dev`/`build` scripts
 
@@ -223,7 +236,9 @@ Verify:
 1. Plugin appears in the sidebar
 2. UI mutations → `state.json` → UI re-renders
 3. Agent tool call → `state.json` → file watcher → UI updates
-4. If `runtime/`: starts on workspace open, reacts to state, cleans up on close
+4. If the plugin ships `pi.prompts` / `pi.skills`, reload resources (`/reload`) and confirm the slash menu shows them
+5. If tools are CLI-bridged, confirm no command name shadows the bridged entry point (`help <tool>` / `sero <tool> ...` still hit the real tool)
+6. If `runtime/`: starts on workspace open, reacts to state, cleans up on close
 
 ## Module Federation
 

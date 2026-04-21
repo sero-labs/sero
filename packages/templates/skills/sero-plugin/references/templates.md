@@ -13,6 +13,10 @@ If the plugin needs a **background runtime**, add `runtime/`, declare
 `sero.app.runtime`, and include `runtime/tsconfig.json` in the package
 `typecheck` script.
 
+If the plugin ships **prompt templates** or **skills**, add `prompts/` and/or
+`skills/` directories and declare them in `pi.prompts` / `pi.skills` inside
+`package.json`. The folders are not auto-loaded just because they exist.
+
 ## Table of Contents
 
 - [package.json](#packagejson)
@@ -44,7 +48,9 @@ If the plugin needs a **background runtime**, add `runtime/`, declare
     "typecheck": "tsc --noEmit -p ui/tsconfig.json && tsc --noEmit -p extension/tsconfig.json"
   },
   "pi": {
-    "extensions": ["./extension/index.ts"]
+    "extensions": ["./extension/index.ts"],
+    "prompts": ["./prompts/myapp.md"],
+    "skills": ["./skills"]
   },
   "sero": {
     "app": {
@@ -97,6 +103,7 @@ If the plugin needs a **background runtime**, add `runtime/`, declare
 - `stateFile` remains required even for global apps — Sero ignores it there, but Pi CLI uses it as a fallback path
 - `ui`, `component`, and `devPort` are only needed when the plugin ships a web UI
 - `runtime` is only needed when the plugin ships a background runtime; if present, add `runtime/tsconfig.json` to the package `typecheck` script
+- `pi.prompts` and `pi.skills` are optional, but when a plugin ships prompt templates or skills they must be declared there — folders alone are not discovered
 - For extension-only plugins, remove the Vite `dev` / `build` scripts and keep an extension-only `typecheck`
 - `devPort` must be unique — check existing plugins first
 - Omit `bridgeTools` in `sero.plugin` to bridge all tools by default
@@ -112,6 +119,9 @@ If the plugin needs a **background runtime**, add `runtime/`, declare
 | UI button needs to sign in, refresh, sync, or fetch data | Register a normal plugin tool and call it with `useAppTools().run(...)` | Ask the host for a custom API like `window.sero.myPlugin.signIn()` |
 | Plugin tool should also work as `sero mytool ...` | Use `sero.plugin.bridgeTools` | Add special host-side command wiring for that plugin |
 | Plugin CLI needs custom subcommands/help/raw args | Put that logic on the tool's `cli` field | Build a second parallel CLI implementation in the host |
+| Plugin needs a slash shortcut with the same visible name as a bridged tool | Add a prompt template in `prompts/` and declare it in `pi.prompts` | `pi.registerCommand('same-name-as-bridged-tool')` and shadow the bridged CLI/tool entry |
+| Plugin ships prompt templates or skills | Declare them in `pi.prompts` / `pi.skills` | Assume `prompts/` or `skills/` folders auto-load by convention |
+| Plugin CLI subcommands mirror structured tool actions | Keep names aligned or support explicit aliases, and error on unknown subcommands | Silently fall back to another action when a subcommand is misspelled or mixed-style |
 | Plugin needs host support for direct UI->tool calls | Declare `requiredHostCapabilities: ["appAgent.invokeTool"]` | Assume every host supports it without declaring it |
 | Plugin needs bridged CLI behavior | Declare `requiredHostCapabilities: ["tool.cli"]` | Rely on unstated host behavior |
 | Extracting a built-in plugin to external | Move plugin-specific logic into the plugin | Leave plugin-specific preload/IPC/types in the Sero host |
@@ -179,6 +189,34 @@ pi.registerTool({
 ```
 
 Result: users and the agent can invoke the bridged command as `sero myapp ...`.
+
+#### Example 2b: Plugin exposes `/myapp` as a slash shortcut without shadowing `sero myapp`
+
+Use this when you want a same-name slash shortcut for a bridged tool.
+Prefer a prompt template over `pi.registerCommand('myapp')` so the bridged CLI/tool entry keeps working.
+
+```json
+{
+  "pi": {
+    "extensions": ["./extension/index.ts"],
+    "prompts": ["./prompts/myapp.md"]
+  },
+  "sero": {
+    "plugin": {
+      "bridgeTools": ["myapp"]
+    }
+  }
+}
+```
+
+```md
+---
+description: Route this request through the myapp tool
+---
+Use the `myapp` tool for this request: $@
+```
+
+Result: `/myapp ...` appears in the slash menu while `sero myapp ...` still resolves to the real bridged tool.
 
 ### Optional background runtime additions
 
@@ -437,9 +475,12 @@ export default function (pi: ExtensionAPI) {
   });
 
   // -- Register a command (user-callable) --
+  // Keep the command name distinct from the bridged tool name (`myapp`).
+  // If you want `/myapp`, use a prompt template declared in `pi.prompts`
+  // instead of `pi.registerCommand('myapp')`.
 
-  pi.registerCommand('myapp', {
-    description: 'Show all items',
+  pi.registerCommand('list-myapp', {
+    description: 'Ask the agent to list all items',
     handler: async (_args, _ctx) => {
       pi.sendUserMessage('List all items using the myapp tool.');
     },
@@ -452,6 +493,8 @@ export default function (pi: ExtensionAPI) {
 - Resolve `statePath` from `ctx.cwd` in execute handlers (reliable) with session fallback
 - Atomic writes always (temp -> rename)
 - `session_start` is useful for warm fallback state resolution; do not depend on `session_switch` unless your target SDK surface explicitly guarantees it
+- Keep `pi.registerCommand(...)` names distinct from bridged tool names unless you intentionally want to replace/shadow that CLI entry point
+- If you want a same-name slash shortcut for a bridged tool, prefer a prompt template declared in `pi.prompts`
 - If a bridged tool needs current-session side effects, depend on the execution context instead of capturing a registration-scoped `pi` object inside tool logic
 
 **Optional: custom bridged CLI metadata**
@@ -478,6 +521,8 @@ pi.registerTool({
 
 Notes:
 - Keep `sero.plugin.bridgeTools` aligned with the tool names you want Sero to bridge
+- Keep CLI subcommands self-explanatory and consistent with structured tool actions; support aliases when mixed naming is unavoidable
+- Unknown CLI subcommands should return an explicit error, not silently fall back to another action
 - Declare `requiredHostCapabilities: ["tool.cli"]` when depending on custom tool `cli` behavior
 - Use `overrideBuiltin: true` only when the plugin intentionally replaces an existing builtin command
 - Custom CLI help/summary/execute behavior is refreshed from the live session tool definition on reload/reinstall
