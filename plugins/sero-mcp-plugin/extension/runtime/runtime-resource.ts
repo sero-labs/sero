@@ -18,7 +18,7 @@ interface ResourceContentRecord {
   blob?: string;
 }
 
-export async function readServerResourceAction(options: {
+interface ResourceActionOptions {
   cwd?: string;
   serverName?: string;
   resourceUri?: string;
@@ -32,93 +32,36 @@ export async function readServerResourceAction(options: {
       rawConfigUpdatedAt?: string | null;
     },
   ) => Promise<SyncedRuntimeState>;
-}): Promise<ToolResult> {
-  const serverName = options.serverName?.trim();
-  const resourceUri = options.resourceUri?.trim();
-  if (!serverName) {
-    return createToolResult('Error: Server name is required.', { snapshotWritten: false });
-  }
-  if (!resourceUri) {
-    return createToolResult('Error: Resource URI is required.', { snapshotWritten: false });
+}
+
+export async function readServerResourceAction(options: ResourceActionOptions): Promise<ToolResult> {
+  const resourceResult = await loadResourcePreview(options);
+  if ('errorResult' in resourceResult) {
+    return resourceResult.errorResult;
   }
 
-  const synced = await options.syncSnapshot(options.cwd);
-  const serverConfig = synced.config.mcpServers[serverName];
-  if (!serverConfig) {
-    return createToolResult(`Error: Server "${serverName}" does not exist.`, { snapshotWritten: false });
-  }
-  if (serverConfig.enabled === false) {
-    return createToolResult(`Error: Server "${serverName}" is disabled. Enable it before reading resources.`, {
-      snapshotWritten: false,
-    });
-  }
+  const { preview, snapshotWritten } = resourceResult;
+  return createToolResult(`Loaded resource "${preview.resolvedUri}" from "${preview.serverName}".`, {
+    snapshotWritten,
+    serverName: preview.serverName,
+    resourceUri: preview.resolvedUri,
+    resourcePreview: preview,
+  });
+}
 
-  let snapshotWritten = false;
-  const connection = options.manager.getConnection(serverName);
-  if (!connection || connection.status !== 'connected') {
-    const nextConnection = await options.manager.connect(serverName, serverConfig);
-    const metadataCache = await readMetadataCache();
-    const { nextCache, runtimeStatus } = await reconcileConnection({
-      serverName,
-      serverConfig,
-      metadataCache,
-      connection: nextConnection,
-    });
-    options.setRuntimeStatus(serverName, runtimeStatus);
-    await options.syncSnapshot(options.cwd, { config: synced.config, metadataCache: nextCache });
-    snapshotWritten = true;
-
-    if (nextConnection.status !== 'connected') {
-      return createToolResult(
-        nextConnection.status === 'needs-auth'
-          ? `Error: Server "${serverName}" needs authentication before resources can be opened.`
-          : `Error: Server "${serverName}" failed to connect before reading resources.`,
-        {
-          snapshotWritten,
-          connectionStatus: runtimeStatus.connectionStatus,
-          authStatus: runtimeStatus.authStatus,
-          lastError: runtimeStatus.lastError ?? null,
-        },
-      );
-    }
+export async function readProxyResourceAction(options: ResourceActionOptions): Promise<ToolResult> {
+  const resourceResult = await loadResourcePreview(options);
+  if ('errorResult' in resourceResult) {
+    return resourceResult.errorResult;
   }
 
-  try {
-    const result = await options.manager.readResource(serverName, resourceUri);
-    const preview = normalizeResourcePreview(serverName, resourceUri, result);
-    return createToolResult(`Loaded resource "${preview.resolvedUri}" from "${serverName}".`, {
-      snapshotWritten,
-      serverName,
-      resourceUri,
-      resourcePreview: preview,
-    });
-  } catch (error) {
-    if (error instanceof UnauthorizedError) {
-      const message = error.message || 'Authentication is required.';
-      await options.manager.close(serverName);
-      options.setRuntimeStatus(serverName, {
-        connectionStatus: 'needs-auth',
-        authStatus: 'not-authenticated',
-        lastError: message,
-        lastConnectedAt: null,
-        lastFailedAt: new Date().toISOString(),
-      });
-      await options.syncSnapshot(options.cwd, { config: synced.config });
-      return createToolResult(buildAuthRequiredMessage(serverName), {
-        snapshotWritten: true,
-        serverName,
-        resourceUri,
-        authRequired: true,
-      });
-    }
-
-    const message = error instanceof Error ? error.message : String(error);
-    return createToolResult(`Error: Failed to read resource "${resourceUri}" from "${serverName}". ${message}`, {
-      snapshotWritten,
-      serverName,
-      resourceUri,
-    });
-  }
+  const { preview, snapshotWritten } = resourceResult;
+  return createToolResult(formatProxyResourcePreview(preview), {
+    snapshotWritten,
+    serverName: preview.serverName,
+    resourceUri: preview.resolvedUri,
+    resourcePreview: preview,
+  });
 }
 
 export function normalizeResourcePreview(
@@ -231,4 +174,117 @@ function formatJsonPreview(value: string): string {
 
 function buildAuthRequiredMessage(serverName: string): string {
   return `Server "${serverName}" requires in-app authentication. Open the MCP app in Sero and authenticate there.`;
+}
+
+async function loadResourcePreview(options: ResourceActionOptions): Promise<
+  | { preview: McpResourcePreview; snapshotWritten: boolean }
+  | { errorResult: ToolResult }
+> {
+  const serverName = options.serverName?.trim();
+  const resourceUri = options.resourceUri?.trim();
+  if (!serverName) {
+    return { errorResult: createToolResult('Error: Server name is required.', { snapshotWritten: false }) };
+  }
+  if (!resourceUri) {
+    return { errorResult: createToolResult('Error: Resource URI is required.', { snapshotWritten: false }) };
+  }
+
+  const synced = await options.syncSnapshot(options.cwd);
+  const serverConfig = synced.config.mcpServers[serverName];
+  if (!serverConfig) {
+    return { errorResult: createToolResult(`Error: Server "${serverName}" does not exist.`, { snapshotWritten: false }) };
+  }
+  if (serverConfig.enabled === false) {
+    return {
+      errorResult: createToolResult(`Error: Server "${serverName}" is disabled. Enable it before reading resources.`, {
+        snapshotWritten: false,
+      }),
+    };
+  }
+
+  let snapshotWritten = false;
+  const connection = options.manager.getConnection(serverName);
+  if (!connection || connection.status !== 'connected') {
+    const nextConnection = await options.manager.connect(serverName, serverConfig);
+    const metadataCache = await readMetadataCache();
+    const { nextCache, runtimeStatus } = await reconcileConnection({
+      serverName,
+      serverConfig,
+      metadataCache,
+      connection: nextConnection,
+    });
+    options.setRuntimeStatus(serverName, runtimeStatus);
+    await options.syncSnapshot(options.cwd, { config: synced.config, metadataCache: nextCache });
+    snapshotWritten = true;
+
+    if (nextConnection.status !== 'connected') {
+      return {
+        errorResult: createToolResult(
+          nextConnection.status === 'needs-auth'
+            ? buildAuthRequiredMessage(serverName)
+            : `Error: Server "${serverName}" failed to connect before reading resources.`,
+          {
+            snapshotWritten,
+            connectionStatus: runtimeStatus.connectionStatus,
+            authStatus: runtimeStatus.authStatus,
+            lastError: runtimeStatus.lastError ?? null,
+            authRequired: nextConnection.status === 'needs-auth',
+          },
+        ),
+      };
+    }
+  }
+
+  try {
+    const result = await options.manager.readResource(serverName, resourceUri);
+    return {
+      preview: normalizeResourcePreview(serverName, resourceUri, result),
+      snapshotWritten,
+    };
+  } catch (error) {
+    if (error instanceof UnauthorizedError) {
+      const message = error.message || 'Authentication is required.';
+      await options.manager.close(serverName);
+      options.setRuntimeStatus(serverName, {
+        connectionStatus: 'needs-auth',
+        authStatus: 'not-authenticated',
+        lastError: message,
+        lastConnectedAt: null,
+        lastFailedAt: new Date().toISOString(),
+      });
+      await options.syncSnapshot(options.cwd, { config: synced.config });
+      return {
+        errorResult: createToolResult(buildAuthRequiredMessage(serverName), {
+          snapshotWritten: true,
+          serverName,
+          resourceUri,
+          authRequired: true,
+        }),
+      };
+    }
+
+    const message = error instanceof Error ? error.message : String(error);
+    return {
+      errorResult: createToolResult(`Error: Failed to read resource "${resourceUri}" from "${serverName}". ${message}`, {
+        snapshotWritten,
+        serverName,
+        resourceUri,
+      }),
+    };
+  }
+}
+
+function formatProxyResourcePreview(preview: McpResourcePreview): string {
+  const header = `MCP resource from ${preview.serverName}: ${preview.resolvedUri}`;
+  const metadata = `Kind: ${preview.previewKind}${preview.mimeType ? ` · ${preview.mimeType}` : ''}`;
+  if (preview.previewKind === 'image') {
+    return `${header}\n${metadata}\n\nThis resource is an image. Open it in the MCP app for the embedded visual preview.`;
+  }
+  if (preview.previewKind === 'binary') {
+    return `${header}\n${metadata}\n\nThis resource returned binary content that cannot be rendered inline by the bridged MCP proxy.`;
+  }
+
+  const body = preview.previewKind === 'html' ? preview.html ?? '' : preview.text ?? '(empty resource)';
+  const truncatedNote = preview.truncated ? '\n\nPreview truncated for proxy output.' : '';
+  return `${header}\n${metadata}\n\n${body}${truncatedNote}`;
 }

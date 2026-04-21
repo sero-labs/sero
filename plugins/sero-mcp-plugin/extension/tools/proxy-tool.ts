@@ -5,10 +5,11 @@ import type { McpRuntime } from '../runtime/mcp-runtime';
 import type { CliContext, CliResult, ProxyAction } from './types';
 
 const ProxyParams = Type.Object({
-  action: Type.Optional(StringEnum(['status', 'list', 'search', 'list_tools', 'list_resources', 'describe_tool', 'call_tool'] as const)),
+  action: Type.Optional(StringEnum(['status', 'list', 'search', 'list_tools', 'list_resources', 'describe_tool', 'call_tool', 'read_resource'] as const)),
   query: Type.Optional(Type.String({ description: 'Search query for MCP tools and resources.' })),
   serverName: Type.Optional(Type.String({ description: 'Server name for MCP tool inventory or calls.' })),
   toolName: Type.Optional(Type.String({ description: 'Exact MCP tool name for describe_tool or call_tool.' })),
+  resourceUri: Type.Optional(Type.String({ description: 'Resource URI for read_resource.' })),
   toolArguments: Type.Optional(Type.Record(Type.String(), Type.Any(), { description: 'Structured MCP tool arguments for call_tool.' })),
   argumentsJson: Type.Optional(Type.String({ description: 'JSON object string for MCP tool arguments when action is call_tool.' })),
 });
@@ -30,7 +31,7 @@ export function registerMcpProxyTool(pi: ExtensionAPI, runtime: McpRuntime): voi
     parameters: ProxyParams,
     cli: {
       summary: 'Inspect, search, and call MCP servers through one proxy surface',
-      help: 'sero mcp status | list | search <query> | tools <server> | resources <server> | describe <server> <tool> | call <server> <tool> [jsonArgs] | connect <server> | reconnect <server> | enable <server> | disable <server>',
+      help: 'sero mcp status | list | search <query> | tools <server> | resources <server> | read <server> <resourceUri> | describe <server> <tool> | call <server> <tool> [jsonArgs] | connect <server> | reconnect <server> | enable <server> | disable <server>',
       async execute(args: string[], ctx: CliContext) {
         const action = parseCliCommand(args);
         if (action.kind === 'usage-error') {
@@ -42,6 +43,7 @@ export function registerMcpProxyTool(pi: ExtensionAPI, runtime: McpRuntime): voi
               query: action.query,
               serverName: action.serverName,
               toolName: action.toolName,
+              resourceUri: action.resourceUri,
               toolArguments: action.toolArguments,
               argumentsJson: action.argumentsJson,
             })
@@ -59,6 +61,7 @@ export function registerMcpProxyTool(pi: ExtensionAPI, runtime: McpRuntime): voi
         query?: string;
         serverName?: string;
         toolName?: string;
+        resourceUri?: string;
         toolArguments?: Record<string, unknown>;
         argumentsJson?: string;
       };
@@ -67,6 +70,7 @@ export function registerMcpProxyTool(pi: ExtensionAPI, runtime: McpRuntime): voi
         query: proxyParams.query,
         serverName: proxyParams.serverName,
         toolName: proxyParams.toolName,
+        resourceUri: proxyParams.resourceUri,
         toolArguments: proxyParams.toolArguments,
         argumentsJson: proxyParams.argumentsJson,
       });
@@ -83,6 +87,7 @@ type CliCommand =
       query?: string;
       serverName?: string;
       toolName?: string;
+      resourceUri?: string;
       toolArguments?: Record<string, unknown>;
       argumentsJson?: string;
     }
@@ -111,6 +116,12 @@ function parseCliCommand(args: string[]): CliCommand {
     return serverName
       ? { kind: 'proxy', action: 'list_resources', serverName }
       : { kind: 'usage-error', message: 'Usage: sero mcp resources <server>' };
+  }
+  if (subcommand === 'read') {
+    const resourceUri = args.slice(2).join(' ').trim();
+    return serverName && resourceUri
+      ? { kind: 'proxy', action: 'read_resource', serverName, resourceUri }
+      : { kind: 'usage-error', message: 'Usage: sero mcp read <server> <resourceUri>' };
   }
   if (subcommand === 'describe') {
     const toolName = args[2]?.trim();

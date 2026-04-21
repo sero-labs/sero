@@ -50,6 +50,7 @@ sero mcp list
 sero mcp search <query>
 sero mcp tools <server>
 sero mcp resources <server>
+sero mcp read <server> <resourceUri>
 sero mcp describe <server> <tool>
 sero mcp call <server> <tool> [jsonArgs]
 sero mcp connect <server>
@@ -63,6 +64,7 @@ Examples:
 ```bash
 sero mcp search github
 sero mcp tools github
+sero mcp read github file://README.md
 sero mcp describe github search_docs
 sero mcp call github search_docs '{"query":"oauth"}'
 ```

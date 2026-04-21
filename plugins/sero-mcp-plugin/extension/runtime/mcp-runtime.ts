@@ -48,7 +48,7 @@ export interface McpRuntime {
   handleSessionShutdown(): Promise<void>;
   executeManagerAction(action: ManagerAction, options?: ManagerActionOptions): Promise<ToolResult>;
   executeProxyAction(action: ProxyAction, options?: {
-    cwd?: string; query?: string; serverName?: string; toolName?: string;
+    cwd?: string; query?: string; serverName?: string; toolName?: string; resourceUri?: string;
     toolArguments?: Record<string, unknown>; argumentsJson?: string;
   }): Promise<ToolResult>;
 }
@@ -196,7 +196,7 @@ function createMcpRuntime(): McpRuntime {
     });
   }
   function executeProxyAction(action: ProxyAction, options: {
-    cwd?: string; query?: string; serverName?: string; toolName?: string;
+    cwd?: string; query?: string; serverName?: string; toolName?: string; resourceUri?: string;
     toolArguments?: Record<string, unknown>; argumentsJson?: string;
   } = {}): Promise<ToolResult> {
     return runExclusive(async () => executeProxyActionInternal({
@@ -205,6 +205,7 @@ function createMcpRuntime(): McpRuntime {
       query: options.query,
       serverName: options.serverName,
       toolName: options.toolName,
+      resourceUri: options.resourceUri,
       toolArguments: options.toolArguments,
       argumentsJson: options.argumentsJson,
       manager,

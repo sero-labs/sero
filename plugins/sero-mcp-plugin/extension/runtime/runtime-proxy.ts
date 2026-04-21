@@ -12,6 +12,7 @@ import { McpServerManager } from '../manager/server-manager';
 import type { ManagedConnection, ManagedTool } from '../manager/types';
 import type { RuntimeServerStatus } from '../state/snapshot';
 import { createToolResult, type ProxyAction, type ToolResult } from '../tools/types';
+import { readProxyResourceAction } from './runtime-resource';
 import { reconcileConnection } from './runtime-connect';
 import { formatServerList, formatStatusSummary } from './runtime-utils';
 import type { SyncedRuntimeState } from './runtime-types';
@@ -20,6 +21,7 @@ interface ProxyToolOptions {
   query?: string;
   serverName?: string;
   toolName?: string;
+  resourceUri?: string;
   toolArguments?: Record<string, unknown>;
   argumentsJson?: string;
   manager: McpServerManager;
@@ -67,6 +69,8 @@ export async function executeProxyAction(options: ProxyToolOptions & { action: P
       return describeServerTool(options, synced);
     case 'call_tool':
       return callServerTool(options, synced);
+    case 'read_resource':
+      return readProxyResourceAction(options);
     default:
       return createToolResult('Error: Unsupported MCP proxy action.', { mode: 'unknown_action' });
   }

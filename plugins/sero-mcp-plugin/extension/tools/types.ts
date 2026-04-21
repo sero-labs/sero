@@ -15,7 +15,7 @@ export type ManagerAction =
   | 'cancel_auth'
   | 'clear_auth'
   | 'read_resource';
-export type ProxyAction = 'status' | 'list' | 'search' | 'list_tools' | 'list_resources' | 'describe_tool' | 'call_tool';
+export type ProxyAction = 'status' | 'list' | 'search' | 'list_tools' | 'list_resources' | 'describe_tool' | 'call_tool' | 'read_resource';
 
 export type ToolResult = {
   content: Array<{ type: 'text'; text: string }>;

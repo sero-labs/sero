@@ -144,6 +144,41 @@ describe('executeProxyAction', () => {
     ]);
   });
 
+  it('reads a live MCP resource through the bridged proxy', async () => {
+    const serverConfig: McpServerConfig = { command: 'node', args: ['server.js'] };
+    const synced = createSyncedState(serverConfig);
+    const manager = {
+      getConnection: () => ({
+        name: 'github',
+        client: null,
+        transport: null,
+        tools: [],
+        resources: [],
+        status: 'connected' as const,
+      }),
+      readResource: vi.fn(async () => ({
+        contents: [{
+          uri: 'file://README.md',
+          mimeType: 'text/plain',
+          text: 'hello from MCP',
+        }],
+      })),
+    } as unknown as McpServerManager;
+
+    const result = await executeProxyAction({
+      action: 'read_resource',
+      serverName: 'github',
+      resourceUri: 'file://README.md',
+      manager,
+      setRuntimeStatus: () => {},
+      syncSnapshot: async () => synced,
+    });
+
+    const text = result.content[0]?.text ?? '';
+    expect(text).toContain('MCP resource from github: file://README.md');
+    expect(text).toContain('hello from MCP');
+  });
+
   it('describes a cached tool including its input schema', async () => {
     const serverConfig: McpServerConfig = { command: 'node', args: ['server.js'] };
     const synced = createSyncedState(serverConfig);
