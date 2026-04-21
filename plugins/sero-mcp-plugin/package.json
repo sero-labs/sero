@@ -14,6 +14,9 @@
   "pi": {
     "extensions": [
       "./extension/index.ts"
+    ],
+    "prompts": [
+      "./prompts/mcp.md"
     ]
   },
   "sero": {

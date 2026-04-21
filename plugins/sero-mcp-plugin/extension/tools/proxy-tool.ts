@@ -48,7 +48,7 @@ export function registerMcpProxyTool(pi: ExtensionAPI, runtime: McpRuntime): voi
     parameters: ProxyParams,
     cli: {
       summary: 'Preferred MCP surface for status, discovery, and live MCP reads/calls',
-      help: 'Use this tool first for MCP status/list/search/tools/resources/describe/call/read. If the user asks to use a server like context7/github directly, start here rather than mcp_manager. When the tool name or arguments are unclear, use tools/describe first; once known, call the tool directly. Live read/call actions auto-connect enabled servers when needed. Use mcp_manager only for MCP config/lifecycle/auth/viewer actions. CLI: sero mcp status | list | search <query> | tools <server> | resources <server> | read <server> <resourceUri> | describe <server> <tool> | call <server> <tool> [jsonArgs] | connect <server> | reconnect <server> | enable <server> | disable <server>',
+      help: 'Use this tool first for MCP status/list/search/tools/resources/describe/call/read. If the user asks to use a server like context7/github directly, start here rather than mcp_manager. When the tool name or arguments are unclear, use tools/describe first; once known, call the tool directly. Live read/call actions auto-connect enabled servers when needed. Use mcp_manager only for MCP config/lifecycle/auth/viewer actions. CLI: sero mcp status | list | search <query> | tools <server> | resources <server> | read <server> <resourceUri> | describe <server> <tool> | call <server> <tool> [jsonArgs] | connect <server> | reconnect <server> | enable <server> | disable <server>. Action-style aliases are also accepted: list_tools, list_resources, describe_tool, call_tool, read_resource, connect_server, reconnect_server, enable_server, disable_server.',
       async execute(args: string[], ctx: CliContext) {
         const action = parseCliCommand(args);
         if (action.kind === 'usage-error') {
@@ -119,9 +119,12 @@ type CliCommand =
   | { kind: 'usage-error'; message: string };
 
 function parseCliCommand(args: string[]): CliCommand {
-  const subcommand = args[0]?.trim();
+  const subcommand = normalizeCliSubcommand(args[0]);
   const serverName = args[1]?.trim();
 
+  if (!subcommand || subcommand === 'status') {
+    return { kind: 'proxy', action: 'status' };
+  }
   if (subcommand === 'list') {
     return { kind: 'proxy', action: 'list' };
   }
@@ -180,5 +183,62 @@ function parseCliCommand(args: string[]): CliCommand {
       ? { kind: 'manager', action: 'disable_server', serverName }
       : { kind: 'usage-error', message: 'Usage: sero mcp disable <server>' };
   }
-  return { kind: 'proxy', action: 'status' };
+
+  return {
+    kind: 'usage-error',
+    message: `Unknown MCP subcommand: ${args[0]}. Use \`sero help mcp\` for usage.`,
+  };
+}
+
+function normalizeCliSubcommand(value: string | undefined): string {
+  const trimmed = value?.trim().toLowerCase();
+  switch (trimmed) {
+    case undefined:
+    case '':
+      return '';
+    case 'status':
+      return 'status';
+    case 'list':
+      return 'list';
+    case 'search':
+      return 'search';
+    case 'tools':
+    case 'list_tools':
+    case 'list-tools':
+      return 'tools';
+    case 'resources':
+    case 'list_resources':
+    case 'list-resources':
+      return 'resources';
+    case 'read':
+    case 'read_resource':
+    case 'read-resource':
+      return 'read';
+    case 'describe':
+    case 'describe_tool':
+    case 'describe-tool':
+      return 'describe';
+    case 'call':
+    case 'call_tool':
+    case 'call-tool':
+      return 'call';
+    case 'connect':
+    case 'connect_server':
+    case 'connect-server':
+      return 'connect';
+    case 'reconnect':
+    case 'reconnect_server':
+    case 'reconnect-server':
+      return 'reconnect';
+    case 'enable':
+    case 'enable_server':
+    case 'enable-server':
+      return 'enable';
+    case 'disable':
+    case 'disable_server':
+    case 'disable-server':
+      return 'disable';
+    default:
+      return trimmed;
+  }
 }

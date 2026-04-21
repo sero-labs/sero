@@ -23,6 +23,24 @@ describe('registerMcpProxyTool CLI bridge', () => {
     expect(result).toEqual({ output: 'status ok', exitCode: 0 });
   });
 
+  it('accepts action-style aliases for tool discovery commands', async () => {
+    const { tool, runtime } = registerTool();
+    runtime.executeProxyAction.mockResolvedValue(createToolResult('tools ok'));
+
+    const result = await tool.cli.execute(['list_tools', 'context7'], { cwd: '/tmp/ws' });
+
+    expect(runtime.executeProxyAction).toHaveBeenCalledWith('list_tools', {
+      cwd: '/tmp/ws',
+      query: undefined,
+      serverName: 'context7',
+      toolName: undefined,
+      resourceUri: undefined,
+      toolArguments: undefined,
+      argumentsJson: undefined,
+    });
+    expect(result).toEqual({ output: 'tools ok', exitCode: 0 });
+  });
+
   it('routes resource reads through the proxy runtime action', async () => {
     const { tool, runtime } = registerTool();
     runtime.executeProxyAction.mockResolvedValue(createToolResult('resource ok'));
@@ -45,7 +63,7 @@ describe('registerMcpProxyTool CLI bridge', () => {
     const { tool, runtime } = registerTool();
     runtime.executeManagerAction.mockResolvedValue(createToolResult('connected'));
 
-    const result = await tool.cli.execute(['connect', 'github'], { cwd: '/tmp/ws' });
+    const result = await tool.cli.execute(['connect_server', 'github'], { cwd: '/tmp/ws' });
 
     expect(runtime.executeManagerAction).toHaveBeenCalledWith('connect_server', {
       cwd: '/tmp/ws',
@@ -70,11 +88,21 @@ describe('registerMcpProxyTool CLI bridge', () => {
   it('returns a usage error without touching the runtime when required args are missing', async () => {
     const { tool, runtime } = registerTool();
 
-    const result = await tool.cli.execute(['read', 'github'], { cwd: '/tmp/ws' });
+    const result = await tool.cli.execute(['read_resource', 'github'], { cwd: '/tmp/ws' });
 
     expect(runtime.executeProxyAction).not.toHaveBeenCalled();
     expect(runtime.executeManagerAction).not.toHaveBeenCalled();
     expect(result).toEqual({ output: 'Usage: sero mcp read <server> <resourceUri>', exitCode: 1 });
+  });
+
+  it('returns an unknown-subcommand error instead of silently falling back to status', async () => {
+    const { tool, runtime } = registerTool();
+
+    const result = await tool.cli.execute(['list-toolz', 'context7'], { cwd: '/tmp/ws' });
+
+    expect(runtime.executeProxyAction).not.toHaveBeenCalled();
+    expect(runtime.executeManagerAction).not.toHaveBeenCalled();
+    expect(result).toEqual({ output: 'Unknown MCP subcommand: list-toolz. Use `sero help mcp` for usage.', exitCode: 1 });
   });
 });
 
