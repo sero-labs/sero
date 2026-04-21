@@ -6,13 +6,16 @@ import {
   readMetadataCache,
   type McpMetadataCacheDocument,
 } from '../cache/metadata-cache';
-import type { McpConfigDocument } from '../config/types';
+import {
+  isResourceExposureEnabled,
+  type McpConfigDocument,
+} from '../config/types';
 import { serializeResources, serializeTools } from '../manager/tool-metadata';
 import { McpServerManager } from '../manager/server-manager';
 import type { ManagedConnection, ManagedTool } from '../manager/types';
 import type { RuntimeServerStatus } from '../state/snapshot';
 import { createToolResult, type ProxyAction, type ToolResult } from '../tools/types';
-import { readProxyResourceAction } from './runtime-resource';
+import { buildResourcesDisabledMessage, readProxyResourceAction } from './runtime-resource';
 import { reconcileConnection } from './runtime-connect';
 import { formatServerList, formatStatusSummary } from './runtime-utils';
 import type { SyncedRuntimeState } from './runtime-types';
@@ -362,13 +365,18 @@ function getToolInventory(serverName: string, synced: SyncedRuntimeState, manage
   return [];
 }
 function getResourceInventory(serverName: string, synced: SyncedRuntimeState, manager: McpServerManager): ResourceInventoryEntry[] {
+  const serverConfig = synced.config.mcpServers[serverName];
+  if (!serverConfig || !isResourceExposureEnabled(serverConfig)) {
+    return [];
+  }
+
   const connection = manager.getConnection(serverName);
   if (connection?.status === 'connected') {
     return serializeResources(connection.resources);
   }
-  const serverConfig = synced.config.mcpServers[serverName];
-  const cachedEntry = serverConfig ? synced.metadataCache.servers[serverName] : undefined;
-  if (serverConfig && cachedEntry && isMetadataCacheEntryValid(cachedEntry, serverConfig)) {
+
+  const cachedEntry = synced.metadataCache.servers[serverName];
+  if (cachedEntry && isMetadataCacheEntryValid(cachedEntry, serverConfig)) {
     return cachedEntry.resources;
   }
   return [];
@@ -377,6 +385,9 @@ function getMissingMetadataMessage(serverName: string, synced: SyncedRuntimeStat
   const server = synced.snapshot.servers.find((entry) => entry.serverName === serverName);
   if (server?.connectionStatus === 'needs-auth' || server?.authStatus === 'not-authenticated') {
     return buildAuthRequiredMessage(serverName);
+  }
+  if (server?.exposeResources === false) {
+    return buildResourcesDisabledMessage(serverName);
   }
   return `No MCP metadata is cached for "${serverName}" yet. Connect or refresh this server in the MCP app first.`;
 }

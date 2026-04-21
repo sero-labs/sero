@@ -112,6 +112,39 @@ describe('normalizeResourcePreview', () => {
 });
 
 describe('readServerResourceAction', () => {
+  it('blocks resource reads when resource exposure is disabled', async () => {
+    const config: McpConfigDocument = {
+      mcpServers: {
+        demo: {
+          command: 'node',
+          args: ['server.js'],
+          exposeResources: false,
+        },
+      },
+    };
+    const synced = createSyncedState(config);
+    const readResource = vi.fn();
+
+    const result = await readServerResourceAction({
+      cwd: '/tmp',
+      serverName: 'demo',
+      resourceUri: 'file://README.md',
+      manager: {
+        getConnection: vi.fn(() => undefined),
+        connect: vi.fn(async () => {
+          throw new Error('connect should not be called');
+        }),
+        readResource,
+      } as unknown as McpServerManager,
+      setRuntimeStatus: vi.fn(),
+      syncSnapshot: async () => synced,
+    });
+
+    expect(readResource).not.toHaveBeenCalled();
+    expect(result.content[0]?.text).toContain('Resource exposure is disabled');
+    expect(result.details.resourceExposureEnabled).toBe(false);
+  });
+
   it('marks OAuth servers as needing auth again when a live resource read is unauthorized', async () => {
     const config: McpConfigDocument = {
       mcpServers: {

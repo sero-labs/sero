@@ -5,7 +5,7 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import type { CallToolResult, ReadResourceResult } from '@modelcontextprotocol/sdk/types.js';
 import { McpOAuthProvider } from '../auth/oauth-provider';
-import type { McpServerConfig } from '../config/types';
+import { resolveBearerTokenValue, type McpServerConfig } from '../config/types';
 import type { ManagedConnection, ManagedResource, ManagedTool, ManagedTransport } from './types';
 
 interface McpServerManagerOptions {
@@ -91,7 +91,7 @@ export class McpServerManager {
       return this.createDisconnectedConnection(name, 'needs-auth', 'OAuth authentication is required before connecting.');
     }
 
-    const bearerToken = resolveBearerToken(definition);
+    const bearerToken = resolveBearerTokenValue(definition);
     if (definition.auth === 'bearer' && !bearerToken) {
       return this.createDisconnectedConnection(name, 'needs-auth', 'Bearer authentication is configured but no token is available.');
     }
@@ -254,12 +254,6 @@ function resolveEnv(env: Record<string, string> | undefined): Record<string, str
 
 function expandEnvReferences(value: string): string {
   return value.replace(/\$\{([^}]+)\}/g, (_match, key: string) => process.env[key] ?? '');
-}
-
-function resolveBearerToken(definition: McpServerConfig): string | undefined {
-  if (definition.bearerToken) return definition.bearerToken;
-  if (definition.bearerTokenEnv) return process.env[definition.bearerTokenEnv];
-  return undefined;
 }
 
 function buildRequestInit(definition: McpServerConfig, bearerToken?: string): { headers?: Record<string, string> } | undefined {

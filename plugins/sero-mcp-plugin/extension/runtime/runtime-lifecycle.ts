@@ -1,5 +1,5 @@
 import { computeServerHash } from '../cache/metadata-cache';
-import type { McpConfigDocument, McpServerConfig } from '../config/types';
+import { hasBearerTokenValue, type McpConfigDocument, type McpServerConfig } from '../config/types';
 import type { ManagedConnection } from '../manager/types';
 
 export const KEEP_ALIVE_HEALTHCHECK_INTERVAL_MS = 30_000;
@@ -39,7 +39,7 @@ export async function shouldAttemptAutoConnect(options: {
   }
 
   if (serverConfig.auth === 'bearer') {
-    return Boolean(serverConfig.bearerToken || (serverConfig.bearerTokenEnv && process.env[serverConfig.bearerTokenEnv]));
+    return hasBearerTokenValue(serverConfig);
   }
 
   return true;

@@ -2,7 +2,10 @@ import { UnauthorizedError } from '@modelcontextprotocol/sdk/client/auth.js';
 import type { ReadResourceResult } from '@modelcontextprotocol/sdk/types.js';
 import type { McpResourcePreview } from '../../shared/types';
 import { readMetadataCache, type McpMetadataCacheDocument } from '../cache/metadata-cache';
-import type { McpConfigDocument } from '../config/types';
+import {
+  isResourceExposureEnabled,
+  type McpConfigDocument,
+} from '../config/types';
 import { McpServerManager } from '../manager/server-manager';
 import type { RuntimeServerStatus } from '../state/snapshot';
 import { createToolResult, type ToolResult } from '../tools/types';
@@ -176,6 +179,10 @@ function buildAuthRequiredMessage(serverName: string): string {
   return `Server "${serverName}" requires in-app authentication. Open the MCP app in Sero and authenticate there.`;
 }
 
+export function buildResourcesDisabledMessage(serverName: string): string {
+  return `Resource exposure is disabled for "${serverName}". Enable \"Expose resources\" in the MCP app to list or read resources.`;
+}
+
 async function loadResourcePreview(options: ResourceActionOptions): Promise<
   | { preview: McpResourcePreview; snapshotWritten: boolean }
   | { errorResult: ToolResult }
@@ -198,6 +205,16 @@ async function loadResourcePreview(options: ResourceActionOptions): Promise<
     return {
       errorResult: createToolResult(`Error: Server "${serverName}" is disabled. Enable it before reading resources.`, {
         snapshotWritten: false,
+      }),
+    };
+  }
+  if (!isResourceExposureEnabled(serverConfig)) {
+    return {
+      errorResult: createToolResult(buildResourcesDisabledMessage(serverName), {
+        snapshotWritten: false,
+        serverName,
+        resourceUri,
+        resourceExposureEnabled: false,
       }),
     };
   }

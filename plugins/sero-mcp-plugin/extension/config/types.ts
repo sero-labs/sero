@@ -44,3 +44,25 @@ export function createDefaultMcpConfig(): McpConfigDocument {
     mcpServers: {},
   };
 }
+
+export function isResourceExposureEnabled(serverConfig: McpServerConfig): boolean {
+  return serverConfig.exposeResources !== false;
+}
+
+export function resolveBearerTokenValue(serverConfig: McpServerConfig): string | undefined {
+  if (typeof serverConfig.bearerToken === 'string' && serverConfig.bearerToken.length > 0) {
+    return serverConfig.bearerToken;
+  }
+
+  const envName = serverConfig.bearerTokenEnv?.trim();
+  if (!envName) {
+    return undefined;
+  }
+
+  const envValue = process.env[envName];
+  return typeof envValue === 'string' && envValue.length > 0 ? envValue : undefined;
+}
+
+export function hasBearerTokenValue(serverConfig: McpServerConfig): boolean {
+  return !!resolveBearerTokenValue(serverConfig);
+}

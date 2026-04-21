@@ -60,13 +60,17 @@ function createSyncedState(serverConfig: McpServerConfig): SyncedRuntimeState {
           lifecycle: serverConfig.lifecycle ?? 'lazy',
           authMode: serverConfig.auth === 'oauth' ? 'oauth' : serverConfig.auth === 'bearer' ? 'bearer' : 'none',
           connectionStatus: serverConfig.auth === 'oauth' ? 'needs-auth' : 'idle',
-          authStatus: serverConfig.auth === 'oauth' ? 'not-authenticated' : 'not-required',
+          authStatus: serverConfig.auth === 'oauth'
+            ? 'not-authenticated'
+            : serverConfig.auth === 'bearer'
+              ? 'authenticated'
+              : 'not-required',
           toolCount: 2,
           resourceCount: 1,
           uiToolCount: 1,
           command: serverConfig.command,
           url: serverConfig.url,
-          exposeResources: true,
+          exposeResources: serverConfig.exposeResources ?? true,
           debug: false,
           lastConnectedAt: null,
           lastFailedAt: null,
@@ -142,6 +146,25 @@ describe('executeProxyAction', () => {
         description: 'Embedded GitHub dashboard',
       },
     ]);
+  });
+
+  it('hides resource inventory when resource exposure is disabled', async () => {
+    const serverConfig: McpServerConfig = {
+      command: 'node',
+      args: ['server.js'],
+      exposeResources: false,
+    };
+    const synced = createSyncedState(serverConfig);
+    const result = await executeProxyAction({
+      action: 'list_resources',
+      serverName: 'github',
+      manager: { getConnection: () => undefined } as unknown as McpServerManager,
+      setRuntimeStatus: () => {},
+      syncSnapshot: async () => synced,
+    });
+
+    expect(result.content[0]?.text).toContain('Resource exposure is disabled');
+    expect(result.details.resources).toEqual([]);
   });
 
   it('reads a live MCP resource through the bridged proxy', async () => {

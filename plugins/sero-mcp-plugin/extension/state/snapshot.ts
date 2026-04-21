@@ -13,7 +13,12 @@ import {
   type CachedMcpTool,
   type McpMetadataCacheDocument,
 } from '../cache/metadata-cache';
-import type { McpConfigDocument, McpServerConfig } from '../config/types';
+import {
+  hasBearerTokenValue,
+  isResourceExposureEnabled,
+  type McpConfigDocument,
+  type McpServerConfig,
+} from '../config/types';
 
 export interface RuntimeServerStatus {
   connectionStatus?: McpConnectionStatus;
@@ -76,7 +81,7 @@ async function createServerSnapshot(
   const authStatus = runtimeStatus?.authStatus ?? derivedAuthStatus;
   const metadata = getValidMetadata(serverName, serverConfig, options.metadataCache);
   const uiTools = buildUiToolSummaries(metadata?.tools ?? []);
-  const resources = buildResourceSummaries(metadata?.resources ?? []);
+  const resources = buildResourceSummaries(metadata?.resources ?? [], serverConfig);
 
   return {
     serverName,
@@ -89,7 +94,7 @@ async function createServerSnapshot(
       : 'disabled',
     authStatus,
     toolCount: metadata?.toolCount ?? 0,
-    resourceCount: metadata?.resourceCount ?? 0,
+    resourceCount: resources.length,
     uiToolCount: uiTools.length,
     command: typeof serverConfig.command === 'string' ? serverConfig.command : undefined,
     argsText: Array.isArray(serverConfig.args) ? serverConfig.args.join('\n') : undefined,
@@ -125,7 +130,7 @@ async function resolveAuthStatus(
   }
 
   if (serverConfig.auth === 'bearer') {
-    return serverConfig.bearerToken || serverConfig.bearerTokenEnv ? 'authenticated' : 'not-authenticated';
+    return hasBearerTokenValue(serverConfig) ? 'authenticated' : 'not-authenticated';
   }
 
   return 'not-required';
@@ -160,7 +165,14 @@ function buildUiToolSummaries(tools: CachedMcpTool[]): McpUiToolSummary[] {
     }));
 }
 
-function buildResourceSummaries(resources: CachedMcpResource[]): McpResourceSummary[] {
+function buildResourceSummaries(
+  resources: CachedMcpResource[],
+  serverConfig: McpServerConfig,
+): McpResourceSummary[] {
+  if (!isResourceExposureEnabled(serverConfig)) {
+    return [];
+  }
+
   return resources.map((resource) => ({
     uri: resource.uri,
     name: resource.name,

@@ -1,5 +1,8 @@
 import { readMetadataCache } from '../cache/metadata-cache';
-import type { McpConfigDocument } from '../config/types';
+import {
+  isResourceExposureEnabled,
+  type McpConfigDocument,
+} from '../config/types';
 import type { ManagedConnection, ManagedTool } from '../manager/types';
 import type { McpServerManager } from '../manager/server-manager';
 import type { RuntimeServerStatus } from '../state/snapshot';
@@ -7,7 +10,7 @@ import { createToolResult, type ToolResult } from '../tools/types';
 import type { McpUiSessionManager } from '../viewer/ui-session';
 import type { UiResourceHandler } from '../viewer/ui-resource-handler';
 import { reconcileConnection } from './runtime-connect';
-import { readServerResourceAction } from './runtime-resource';
+import { buildResourcesDisabledMessage, readServerResourceAction } from './runtime-resource';
 import type { SyncedRuntimeState } from './runtime-types';
 
 interface ViewerActionOptions {
@@ -40,7 +43,7 @@ export async function openViewerResourceAction(options: ViewerActionOptions): Pr
     return readServerResourceAction(options);
   }
 
-  const ensured = await ensureConnectedServer(options);
+  const ensured = await ensureConnectedServer(options, { requireExposedResources: true });
   if ('errorResult' in ensured) {
     return ensured.errorResult;
   }
@@ -145,6 +148,7 @@ interface EnsuredConnectedServer {
 
 async function ensureConnectedServer(
   options: ViewerActionOptions,
+  policy: { requireExposedResources?: boolean } = {},
 ): Promise<EnsuredConnectedServer | { errorResult: ToolResult }> {
   const serverName = options.serverName?.trim();
   if (!serverName) {
@@ -160,6 +164,16 @@ async function ensureConnectedServer(
     return {
       errorResult: createToolResult(`Error: Server "${serverName}" is disabled. Enable it before opening MCP UIs.`, {
         snapshotWritten: false,
+      }),
+    };
+  }
+  if (policy.requireExposedResources && !isResourceExposureEnabled(serverConfig)) {
+    return {
+      errorResult: createToolResult(buildResourcesDisabledMessage(serverName), {
+        snapshotWritten: false,
+        serverName,
+        resourceUri: options.resourceUri ?? null,
+        resourceExposureEnabled: false,
       }),
     };
   }

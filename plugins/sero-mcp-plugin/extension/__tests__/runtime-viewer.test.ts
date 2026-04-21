@@ -7,6 +7,8 @@ const readServerResourceActionMock = vi.fn();
 
 vi.mock('../runtime/runtime-resource', () => ({
   readServerResourceAction: (options: unknown) => readServerResourceActionMock(options),
+  buildResourcesDisabledMessage: (serverName: string) =>
+    `Resource exposure is disabled for "${serverName}". Enable \"Expose resources\" in the MCP app to list or read resources.`,
 }));
 
 describe('runtime-viewer', () => {
@@ -80,6 +82,22 @@ describe('runtime-viewer', () => {
 
     expect(readServerResourceActionMock).toHaveBeenCalled();
     expect(result.details.resourcePreview).toBeTruthy();
+  });
+
+  it('blocks direct ui-resource opens when resource exposure is disabled', async () => {
+    const result = await openViewerResourceAction({
+      cwd: '/tmp/workspace',
+      serverName: 'demo',
+      resourceUri: 'ui://demo/dashboard',
+      manager: createManager({ status: 'connected', tools: [], resources: [] }) as never,
+      uiResourceHandler: { readUiResource: vi.fn() } as never,
+      uiSessions: { open: vi.fn(), getActiveSession: vi.fn(), closeActive: vi.fn(async () => undefined) } as never,
+      setRuntimeStatus: vi.fn(),
+      syncSnapshot: vi.fn(async () => createSyncedState({ exposeResources: false })),
+    });
+
+    expect(result.content[0]?.text).toContain('Resource exposure is disabled');
+    expect(result.details.resourceExposureEnabled).toBe(false);
   });
 
   it('opens tool UIs using metadata-derived ui resource URIs', async () => {
@@ -186,7 +204,7 @@ function createManager({
   };
 }
 
-function createSyncedState(): SyncedRuntimeState {
+function createSyncedState(overrides: { exposeResources?: boolean } = {}): SyncedRuntimeState {
   return {
     configPath: '/tmp/sero/apps/mcp/config.json',
     statePath: '/tmp/sero/apps/mcp/state.json',
@@ -201,6 +219,7 @@ function createSyncedState(): SyncedRuntimeState {
           auth: false,
           command: 'npx',
           args: ['demo'],
+          exposeResources: overrides.exposeResources,
         },
       },
     },
