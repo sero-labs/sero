@@ -9,6 +9,7 @@ import { AlertCircle, LifeBuoy, MonitorSmartphone, RefreshCw, ScrollText, X } fr
 import type { McpResourcePreview, McpServerSnapshot } from '../../../shared/types';
 import { useMcpResourceReader } from '../../hooks/useMcpResourceReader';
 import { McpServerAuthPanel } from './McpServerAuthPanel';
+import { McpServerToolRunnerPanel } from './McpServerToolRunnerPanel';
 
 export function McpServerDetailPanel({ server }: { server: McpServerSnapshot | null }) {
   const promptAgent = useAgentPrompt();
@@ -69,6 +70,13 @@ export function McpServerDetailPanel({ server }: { server: McpServerSnapshot | n
         <div className="grid gap-4 xl:grid-cols-[0.95fr_1.25fr]">
           <section className="space-y-4">
             <McpServerAuthPanel server={server} />
+
+            <McpServerToolRunnerPanel
+              server={server}
+              onOpenResource={(resourceUri) => {
+                void resourceReader.loadResource(server.serverName, resourceUri);
+              }}
+            />
 
             <Card className="border-border/70 bg-muted/15 py-4">
               <CardHeader>

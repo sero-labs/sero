@@ -25,6 +25,7 @@ The MCP app currently supports:
 - embedded OAuth browser flows
 - resource preview
 - basic UI-tool launching by opening the advertised UI resource
+- basic MCP tool runner in the server detail view
 - auth clearing / re-auth / cancel-auth controls
 
 ### Bridged tool
