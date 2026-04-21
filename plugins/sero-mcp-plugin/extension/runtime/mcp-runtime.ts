@@ -17,6 +17,7 @@ import {
   startServerAuthAction,
 } from './runtime-auth';
 import { readServerResourceAction } from './runtime-resource';
+import { executeProxyAction as executeProxyActionInternal } from './runtime-proxy';
 import { reconcileConnection } from './runtime-connect';
 import { createKeepAliveScheduler } from './runtime-keep-alive';
 import {
@@ -25,7 +26,7 @@ import {
 } from './runtime-lifecycle';
 import { writeState } from '../state/state-io';
 import { createToolResult, type ManagerAction, type ProxyAction, type ToolResult } from '../tools/types';
-import { buildServerConfig, formatDiagnostics, formatServerList, formatStatusSummary, mutationErrorResult } from './runtime-utils';
+import { buildServerConfig, formatDiagnostics, mutationErrorResult } from './runtime-utils';
 import type { SyncedRuntimeState } from './runtime-types';
 interface ManagerActionOptions {
   cwd?: string;
@@ -46,7 +47,10 @@ export interface McpRuntime {
   handleSessionSwitch(ctx: { cwd: string }): Promise<void>;
   handleSessionShutdown(): Promise<void>;
   executeManagerAction(action: ManagerAction, options?: ManagerActionOptions): Promise<ToolResult>;
-  executeProxyAction(action: ProxyAction, options?: { cwd?: string }): Promise<ToolResult>;
+  executeProxyAction(
+    action: ProxyAction,
+    options?: { cwd?: string; query?: string; serverName?: string; toolName?: string; argumentsJson?: string },
+  ): Promise<ToolResult>;
 }
 let runtimeSingleton: McpRuntime | null = null;
 export function getMcpRuntime(): McpRuntime {
@@ -193,21 +197,19 @@ function createMcpRuntime(): McpRuntime {
   }
   function executeProxyAction(
     action: ProxyAction,
-    options: { cwd?: string } = {},
+    options: { cwd?: string; query?: string; serverName?: string; toolName?: string; argumentsJson?: string } = {},
   ): Promise<ToolResult> {
-    return runExclusive(async () => {
-      const synced = await syncSnapshot(options.cwd);
-      if (action === 'list') {
-        return createToolResult(formatServerList(synced.snapshot.servers), {
-          mode: 'list',
-          serverCount: synced.snapshot.summary.totalServers,
-        });
-      }
-      return createToolResult(formatStatusSummary(synced.snapshot), {
-        mode: 'status',
-        serverCount: synced.snapshot.summary.totalServers,
-      });
-    });
+    return runExclusive(async () => executeProxyActionInternal({
+      action,
+      cwd: options.cwd,
+      query: options.query,
+      serverName: options.serverName,
+      toolName: options.toolName,
+      argumentsJson: options.argumentsJson,
+      manager,
+      setRuntimeStatus: (name, status) => runtimeStatuses.set(name, status),
+      syncSnapshot,
+    }));
   }
   async function saveRawConfig(cwd: string | undefined, rawConfigInput?: string): Promise<ToolResult> {
     return saveRawConfigAction({ cwd, rawConfigInput, writeConfigAndSyncSnapshot });

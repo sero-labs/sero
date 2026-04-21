@@ -3,7 +3,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
-import type { ReadResourceResult } from '@modelcontextprotocol/sdk/types.js';
+import type { CallToolResult, ReadResourceResult } from '@modelcontextprotocol/sdk/types.js';
 import { McpOAuthProvider } from '../auth/oauth-provider';
 import type { McpServerConfig } from '../config/types';
 import type { ManagedConnection, ManagedResource, ManagedTool, ManagedTransport } from './types';
@@ -58,6 +58,18 @@ export class McpServerManager {
       throw new Error(`Server "${name}" is not connected.`);
     }
     return connection.client.readResource({ uri });
+  }
+
+  async callTool(name: string, toolName: string, toolArguments?: Record<string, unknown>): Promise<CallToolResult> {
+    const connection = this.connections.get(name);
+    if (!connection || connection.status !== 'connected' || !connection.client) {
+      throw new Error(`Server "${name}" is not connected.`);
+    }
+    const result = await connection.client.callTool({
+      name: toolName,
+      arguments: toolArguments,
+    });
+    return result as CallToolResult;
   }
 
   async close(name: string): Promise<void> {

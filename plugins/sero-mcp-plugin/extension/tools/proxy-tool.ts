@@ -5,7 +5,11 @@ import type { McpRuntime } from '../runtime/mcp-runtime';
 import type { CliContext, CliResult, ProxyAction } from './types';
 
 const ProxyParams = Type.Object({
-  action: Type.Optional(StringEnum(['status', 'list'] as const)),
+  action: Type.Optional(StringEnum(['status', 'list', 'search', 'list_tools', 'describe_tool', 'call_tool'] as const)),
+  query: Type.Optional(Type.String({ description: 'Search query for MCP tools and resources.' })),
+  serverName: Type.Optional(Type.String({ description: 'Server name for MCP tool inventory or calls.' })),
+  toolName: Type.Optional(Type.String({ description: 'Exact MCP tool name for describe_tool or call_tool.' })),
+  argumentsJson: Type.Optional(Type.String({ description: 'JSON object string for MCP tool arguments when action is call_tool.' })),
 });
 
 type ToolWithCli = Parameters<ExtensionAPI['registerTool']>[0] & {
@@ -21,29 +25,47 @@ export function registerMcpProxyTool(pi: ExtensionAPI, runtime: McpRuntime): voi
     name: 'mcp',
     label: 'MCP',
     description:
-      'Initial MCP control surface for Sero. The bridged tool reports status/list today, and the CLI also supports basic connect/reconnect/enable/disable actions.',
+      'MCP proxy for Sero. Use it to inspect MCP server status, search cached MCP tools/resources, describe server tools, and call MCP tools through one bridged surface.',
     parameters: ProxyParams,
     cli: {
-      summary: 'Inspect and control configured MCP servers',
-      help: 'sero mcp status | list | connect <server> | reconnect <server> | enable <server> | disable <server>',
+      summary: 'Inspect, search, and call MCP servers through one proxy surface',
+      help: 'sero mcp status | list | search <query> | tools <server> | describe <server> <tool> | call <server> <tool> [jsonArgs] | connect <server> | reconnect <server> | enable <server> | disable <server>',
       async execute(args: string[], ctx: CliContext) {
         const action = parseCliCommand(args);
         if (action.kind === 'usage-error') {
           return { output: action.message, exitCode: 1 };
         }
         const result = action.kind === 'proxy'
-          ? await runtime.executeProxyAction(action.action, { cwd: ctx.cwd })
+          ? await runtime.executeProxyAction(action.action, {
+              cwd: ctx.cwd,
+              query: action.query,
+              serverName: action.serverName,
+              toolName: action.toolName,
+              argumentsJson: action.argumentsJson,
+            })
           : await runtime.executeManagerAction(action.action, { cwd: ctx.cwd, serverName: action.serverName });
         const text = result.content[0]?.text ?? '';
         return {
           output: text,
-          exitCode: text.startsWith('Error:') ? 1 : 0,
+          exitCode: text.startsWith('Error:') || result.details.isError === true ? 1 : 0,
         };
       },
     },
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-      const proxyParams = params as { action?: ProxyAction };
-      return runtime.executeProxyAction(proxyParams.action ?? 'status', { cwd: ctx?.cwd });
+      const proxyParams = params as {
+        action?: ProxyAction;
+        query?: string;
+        serverName?: string;
+        toolName?: string;
+        argumentsJson?: string;
+      };
+      return runtime.executeProxyAction(proxyParams.action ?? 'status', {
+        cwd: ctx?.cwd,
+        query: proxyParams.query,
+        serverName: proxyParams.serverName,
+        toolName: proxyParams.toolName,
+        argumentsJson: proxyParams.argumentsJson,
+      });
     },
   };
 
@@ -51,7 +73,14 @@ export function registerMcpProxyTool(pi: ExtensionAPI, runtime: McpRuntime): voi
 }
 
 type CliCommand =
-  | { kind: 'proxy'; action: ProxyAction }
+  | {
+      kind: 'proxy';
+      action: ProxyAction;
+      query?: string;
+      serverName?: string;
+      toolName?: string;
+      argumentsJson?: string;
+    }
   | { kind: 'manager'; action: 'connect_server' | 'reconnect_server' | 'enable_server' | 'disable_server'; serverName: string }
   | { kind: 'usage-error'; message: string };
 
@@ -61,6 +90,30 @@ function parseCliCommand(args: string[]): CliCommand {
 
   if (subcommand === 'list') {
     return { kind: 'proxy', action: 'list' };
+  }
+  if (subcommand === 'search') {
+    const query = args.slice(1).join(' ').trim();
+    return query
+      ? { kind: 'proxy', action: 'search', query }
+      : { kind: 'usage-error', message: 'Usage: sero mcp search <query>' };
+  }
+  if (subcommand === 'tools') {
+    return serverName
+      ? { kind: 'proxy', action: 'list_tools', serverName }
+      : { kind: 'usage-error', message: 'Usage: sero mcp tools <server>' };
+  }
+  if (subcommand === 'describe') {
+    const toolName = args[2]?.trim();
+    return serverName && toolName
+      ? { kind: 'proxy', action: 'describe_tool', serverName, toolName }
+      : { kind: 'usage-error', message: 'Usage: sero mcp describe <server> <tool>' };
+  }
+  if (subcommand === 'call') {
+    const toolName = args[2]?.trim();
+    const argumentsJson = args.slice(3).join(' ').trim();
+    return serverName && toolName
+      ? { kind: 'proxy', action: 'call_tool', serverName, toolName, argumentsJson: argumentsJson || undefined }
+      : { kind: 'usage-error', message: 'Usage: sero mcp call <server> <tool> [jsonArgs]' };
   }
   if (subcommand === 'connect') {
     return serverName
