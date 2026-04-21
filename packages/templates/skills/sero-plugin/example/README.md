@@ -1,7 +1,17 @@
 # Canonical Sero Plugin Example — `sero-notes-plugin`
 
-Reference implementation for the `sero-plugin` skill. It is intentionally the
-simplest plugin that exercises **every** surface a Sero plugin can ship:
+Reference implementation for the `sero-plugin` skill. It is the smallest
+plugin that exercises **every** surface a Sero plugin can ship.
+
+> **Scope: in-repo built-in plugin.** This example is wired for the Sero
+> monorepo — `workspace:*` devDependencies and `../../../packages/*`
+> tsconfig paths — so it drops into `plugins/sero-<name>-plugin/` and
+> typechecks immediately. For **external** plugins that consume published
+> `@sero-ai/*` packages instead, use
+> [`sero-kanban-plugin`](https://github.com/monobyte/sero-kanban-plugin)
+> as the reference and read `docs/plugins/guide.md` in this repo.
+
+## File map
 
 | Surface | File | What it demonstrates |
 |---------|------|----------------------|
@@ -13,13 +23,13 @@ simplest plugin that exercises **every** surface a Sero plugin can ship:
 | Dashboard widget | `sero-notes-plugin/ui/widgets/NotesWidget.tsx` | Manifest-declared widget, compact layout, `h-full` wrapper contract |
 | Module Federation | `sero-notes-plugin/vite.config.ts` | `root: 'ui'`, `base: './'` for prod, singleton React, MF remote name `sero_notes`, `@sero-ai/app-runtime` excluded from `optimizeDeps` |
 | Styles | `sero-notes-plugin/ui/styles.css` | Tailwind 4 `@source` directives for plugin UI **and** `@sero-ai/ui` components, `@theme inline` mapping of semantic CSS variables |
-| TS configs | `extension/tsconfig.json`, `runtime/tsconfig.json`, `ui/tsconfig.json` | Self-contained compiler options with `paths` for workspace packages |
+| TS configs | `extension/tsconfig.json`, `runtime/tsconfig.json`, `ui/tsconfig.json` | Extension/runtime extend `packages/tsconfig.extension.json`; UI declares workspace `paths` |
 | CSS typings | `ui/vite-env.d.ts` | `vite/client` reference so `import './styles.css'` typechecks |
 | HTML shell | `ui/index.html` | Minimal entry required by `root: 'ui'` |
 
-## How to use this example
+## How to use this example (in-repo built-in plugin)
 
-1. Copy `sero-notes-plugin/` into `plugins/` (or an external plugin repo).
+1. Copy `sero-notes-plugin/` into `plugins/` at the monorepo root.
 2. Rename the directory, the npm package name, `sero.app.id`, the MF remote name
    in `vite.config.ts` (`sero_<id>`), the exported component, and the
    `devPort` (keep it unique — grep existing plugins first).
@@ -36,10 +46,30 @@ simplest plugin that exercises **every** surface a Sero plugin can ship:
      and set `bridgeTools: false`.
 4. Update `shared/types.ts` to model your actual state, then let the extension,
    runtime, and UI all import from there — it is the single source of truth.
+5. `pnpm install && pnpm --filter @sero-ai/plugin-<name> typecheck` — should
+   be green before you run `bash apps/desktop/scripts/dev.sh`.
+
+## How to port this to an external plugin
+
+External plugins live outside the Sero monorepo and consume
+`@sero-ai/app-runtime`, `@sero-ai/common`, `@sero-ai/ui` as published
+packages. Start from the in-repo copy above, then:
+
+1. Replace every `workspace:*` / `workspace:@sero-ai/app-runtime@*` with the
+   published semver range for the `@sero-ai/*` packages you depend on.
+2. Delete the `paths` mapping in `ui/tsconfig.json` — Node's module
+   resolution picks the installed package up from `node_modules/`.
+3. Replace `extends: "../../../packages/tsconfig.extension.json"` in
+   `extension/tsconfig.json` and `runtime/tsconfig.json` with an inline
+   compiler-options block (see `references/templates.md`).
+4. Ship the plugin pre-built if you want install-time consumers to skip
+   Vite (`sero.plugin.preBuilt: true`).
 
 ## What this plugin does
 
 `sero-notes-plugin` manages a list of short notes stored in
 `.sero/apps/notes/state.json`. Notes can be toggled done, removed, and listed
-from the agent (tool + CLI), the React UI, or the dashboard widget. It is
-deliberately trivial so each surface reads in a few minutes.
+from the agent (tool), the CLI (`sero notes <list|add|toggle|remove>`),
+the React UI, or the dashboard widget. The `/list-notes` slash command is a
+distinct name on purpose — it would otherwise shadow the bridged
+`sero notes ...` CLI entry point when tools and commands are both bridged.

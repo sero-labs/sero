@@ -204,9 +204,12 @@ export default function (pi: ExtensionAPI) {
     },
   });
 
-  // User-callable command — types the prompt for the agent.
-  pi.registerCommand('notes', {
-    description: 'Show all notes',
+  // User-callable slash command. Keep the command name distinct from the tool
+  // name ('notes'): when tools are bridged, Sero also bridges non-builtin
+  // commands into the CLI, and the command would otherwise shadow
+  // `sero notes ...` and bypass this tool's `cli.execute` handler.
+  pi.registerCommand('list-notes', {
+    description: 'Ask the agent to list all notes',
     handler: async () => {
       pi.sendUserMessage('List all notes using the notes tool.');
     },
