@@ -34,6 +34,7 @@ manifest in `package.json`. No manual registry edits.
 
 | Reference | When to read |
 |-----------|--------------|
+| `example/sero-notes-plugin/` | **Start here.** Canonical, minimal plugin that exercises every surface (extension + CLI bridge, background runtime, UI hooks, static + dynamic widgets, MF config). Copy and rename it as your starting point. See `example/README.md` for the file map. |
 | `references/templates.md` | Creating any file (package.json, extension, runtime, UI, Vite, styles). Also contains the Quick do/don't guide and mini examples. |
 | `references/api-and-widgets.md` | Using app-runtime hooks, background runtimes, dashboard widgets, manifest fields |
 | `references/conversion-guide.md` | Converting an existing Pi extension into a plugin |
@@ -252,6 +253,7 @@ Verify:
 
 | Plugin | Best for |
 |--------|----------|
+| `example/sero-notes-plugin/` (in this skill) | **Canonical minimal plugin.** Every surface (tool + CLI bridge, command, runtime, UI hooks, static + dynamic widgets) in the smallest possible footprint. |
 | `plugins/sero-git-plugin/` | Focused plugin with single tool + substantial UI |
 | `plugins/sero-admin-plugin/` | Multiple panels, settings, dashboard surfaces |
 | `plugins/sero-web-plugin/` | Converting an existing Pi extension |
