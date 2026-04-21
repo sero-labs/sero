@@ -13,12 +13,17 @@ vi.mock('electron', () => ({
 import { buildContentSecurityPolicy } from '@electron/platform/security/csp';
 
 describe('content security policy', () => {
-  it('keeps production script and frame sources tight', () => {
+  it('keeps production script sources tight while allowing only loopback viewer URLs', () => {
     const csp = buildContentSecurityPolicy({ isDevelopment: false });
 
     expect(csp).toContain("script-src 'self' 'wasm-unsafe-eval' blob: https://sdk.scdn.co https://cdn.jsdelivr.net sero-ext:");
     expect(csp).not.toContain("script-src 'self' 'unsafe-inline'");
-    expect(csp).toContain("frame-src 'self' blob: sero-ext:");
+    expect(csp).toContain("frame-src 'self' blob: http://localhost:* http://127.0.0.1:* http://[::1]:* sero-ext:");
+    expect(csp).toContain("child-src 'self' blob: http://localhost:* http://127.0.0.1:* http://[::1]:* sero-ext:");
+    expect(csp).toContain("connect-src 'self' blob:");
+    expect(csp).toContain('http://localhost:*');
+    expect(csp).toContain('http://127.0.0.1:*');
+    expect(csp).toContain('http://[::1]:*');
     expect(csp).not.toContain('frame-src http:');
     expect(csp).not.toContain('frame-src https:');
     expect(csp).not.toContain('child-src http:');

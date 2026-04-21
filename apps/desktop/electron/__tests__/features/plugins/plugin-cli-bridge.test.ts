@@ -179,4 +179,34 @@ describe('plugin CLI bridging', () => {
     expect(getCliRegistry().get('plugin_selective_keep')).toBeTruthy();
     expect(getCliRegistry().get('plugin_selective_skip')).toBeFalsy();
   });
+
+  it('keeps mcp_manager private when the MCP plugin bridges only mcp', async () => {
+    const pluginDir = path.join(tmpDir, 'plugin-mcp');
+    const extensionPath = path.join(pluginDir, 'extension', 'index.js');
+    await mkdir(path.dirname(extensionPath), { recursive: true });
+    await writeFile(extensionPath, 'export default {}\n', 'utf8');
+    await writeFile(
+      path.join(pluginDir, 'package.json'),
+      JSON.stringify({
+        name: '@sero-ai/plugin-mcp',
+        version: '1.0.0',
+        sero: {
+          plugin: {
+            category: 'developer-tools',
+            tags: ['mcp'],
+            bridgeTools: ['mcp'],
+          },
+        },
+      }, null, 2),
+      'utf8',
+    );
+
+    const base = createLoadExtensionsResult(extensionPath, ['mcp', 'mcp_manager']);
+    bridgeExtensionTools(base);
+
+    expect(base.extensions[0]?.tools.has('mcp')).toBe(false);
+    expect(base.extensions[0]?.tools.has('mcp_manager')).toBe(true);
+    expect(getCliRegistry().get('mcp')).toBeTruthy();
+    expect(getCliRegistry().get('mcp_manager')).toBeFalsy();
+  });
 });

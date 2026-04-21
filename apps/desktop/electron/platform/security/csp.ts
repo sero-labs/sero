@@ -9,7 +9,8 @@
  * Sources that must be allowed:
  * - Dev: localhost (Vite dev server + module federation remotes), ws: (HMR),
  *   and sero-ext: for selectively skipped apps loaded from built bundles
- * - Prod: sero-ext: (custom protocol for federated extension assets)
+ * - Prod: sero-ext: (custom protocol for federated extension assets) plus
+ *   tightly scoped loopback HTTP sources for embedded MCP viewers/auth rails
  * - Both: https://sdk.scdn.co (Spotify Web Playback SDK script),
  *   https://*.scdn.co + https://*.spotify.com (Spotify API/CDN),
  *   blob: (Vite/MF dynamic imports), data: (inline images),
@@ -23,6 +24,12 @@ interface BuildContentSecurityPolicyOptions {
 }
 
 /** Build the CSP directive string for the current environment. */
+const LOOPBACK_HTTP_SRC = [
+  'http://localhost:*',
+  'http://127.0.0.1:*',
+  'http://[::1]:*',
+];
+
 export function buildContentSecurityPolicy(
   options: BuildContentSecurityPolicyOptions = {},
 ): string {
@@ -30,6 +37,7 @@ export function buildContentSecurityPolicy(
   const extensionSrc = ['sero-ext:'];
   const devHttpSrc = isDevelopment ? ['http://localhost:*'] : [];
   const devConnectSrc = isDevelopment ? ['http://localhost:*', 'ws://localhost:*'] : [];
+  const prodLoopbackSrc = isDevelopment ? [] : LOOPBACK_HTTP_SRC;
 
   // -- script-src --
   // Dev keeps 'unsafe-inline' for Vite's injected dev runtime.
@@ -60,6 +68,7 @@ export function buildContentSecurityPolicy(
     'https://*.scdn.co',       // Spotify CDN
     'https://api.spotify.com',
     ...devConnectSrc,          // Vite HMR + dev servers
+    ...prodLoopbackSrc,        // In-plugin loopback viewers/auth rails in production
     ...extensionSrc,           // Federated extension manifests/assets
   ];
 
@@ -105,7 +114,7 @@ export function buildContentSecurityPolicy(
   const frameSrc = [
     "'self'",
     'blob:',
-    ...(isDevelopment ? ['http:', 'https:'] : []),
+    ...(isDevelopment ? ['http:', 'https:'] : prodLoopbackSrc),
     ...extensionSrc,
   ];
 

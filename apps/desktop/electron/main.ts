@@ -8,7 +8,7 @@ import {
 } from './platform/env';
 loadSeroEnv();
 
-import { app, components, BrowserWindow, session, shell } from 'electron';
+import { app, components, BrowserWindow, session } from 'electron';
 import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'fs';
 import path from 'path';
 import type { SettingsPackageSource } from '../src/types/ipc';
@@ -44,6 +44,7 @@ import {
 } from './shared/infra/shared-infra';
 import { startGateway, stopGateway } from './ipc/gateway';
 import { setupContentSecurityPolicy } from './platform/security/csp';
+import { setupMainWindowSecurity } from './platform/security/window-security';
 import { discoverBuiltinPackagePaths, discoverBuiltinPluginPaths } from './platform/protocols/builtin-resources';
 import {
   ensureConfiguredModelFallbackChain,
@@ -157,6 +158,7 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       plugins: true,
+      webviewTag: true,
     },
   });
 
@@ -175,52 +177,9 @@ function createWindow() {
     }
   });
 
-  // ── Security: navigation restrictions ──────────────────────────
-  // Block navigation to untrusted origins. Only allow the dev server
-  // (in development) and the production renderer HTML (file: protocol).
-  // All other navigation attempts (e.g., from XSS or malicious content)
-  // are blocked.
-  const isDev = process.env.NODE_ENV === 'development';
-  mainWindow.webContents.on('will-navigate', (event, navigationUrl) => {
-    try {
-      const parsed = new URL(navigationUrl);
-      // Production: only file: protocol (local renderer HTML) is allowed
-      if (parsed.protocol === 'file:') return;
-      // Development: allow the Vite dev server origin
-      if (isDev && parsed.origin === 'http://localhost:5173') return;
-      console.warn(`[security] Blocked navigation to untrusted origin: ${navigationUrl}`);
-      event.preventDefault();
-    } catch {
-      event.preventDefault();
-    }
+  setupMainWindowSecurity(mainWindow, {
+    isDevelopment: process.env.NODE_ENV === 'development',
   });
-
-  // Open external links (target="_blank", href to external domains) in the
-  // system browser instead of a new Electron window. This ensures the user's
-  // existing browser session (GitHub login, etc.) is used.
-  // Also blocks file:// and other dangerous protocols from opening new windows.
-  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith('http://') || url.startsWith('https://')) {
-      void shell.openExternal(url);
-    }
-    // Always deny new windows — external links open in system browser
-    return { action: 'deny' };
-  });
-
-  // ── Security: deny unnecessary permissions ──────────────────
-  // Block permission requests for capabilities Sero doesn't need.
-  // Allow media (Spotify) and clipboard-sanitized-write for in-app copy actions.
-  const allowedPermissions = new Set(['media', 'clipboard-sanitized-write']);
-  mainWindow.webContents.session.setPermissionRequestHandler(
-    (_webContents, permission, callback) => {
-      if (allowedPermissions.has(permission)) {
-        callback(true);
-      } else {
-        console.warn(`[security] Denied permission request: ${permission}`);
-        callback(false);
-      }
-    },
-  );
 
   // Give the file watcher manager access to the window for push events
   fileWatcherManager.setWindow(mainWindow);
