@@ -13,7 +13,7 @@ export function McpDiagnosticsPanel({ state }: { state: McpDiagnosticsState }) {
   if (!state.isOpen) return null;
 
   return (
-    <Card className="animate-mcp-fade-in py-4">
+    <Card className="animate-mcp-fade-in border-border/75 py-4">
       <CardHeader>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>

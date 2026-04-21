@@ -23,7 +23,7 @@ export function McpServerToolRunnerPanel({
   const helpPrompt = buildToolHelpPrompt(server, toolRunner.error, selectedTool?.name ?? null);
 
   return (
-    <Card className="border-border/70 bg-muted/15 py-4">
+    <Card className="border-border/70 bg-card py-4">
       <CardHeader>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -80,74 +80,70 @@ export function McpServerToolRunnerPanel({
               {selectedTool?.description && <p className="text-sm text-muted-foreground">{selectedTool.description}</p>}
             </div>
 
-            <div className="grid gap-4 xl:grid-cols-[1fr_0.95fr]">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between gap-3">
-                  <Label htmlFor={`mcp-tool-input-${server.serverName}`}>Tool input JSON</Label>
-                  <div className="flex gap-2">
-                    {(selectedTool?.uiResourceUri || toolRunner.result?.uiResourceUri) && (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={() => onOpenResource(selectedTool?.uiResourceUri ?? toolRunner.result?.uiResourceUri ?? '', {
-                          kind: 'tool-ui',
-                          title: selectedTool?.name ?? toolRunner.selectedToolName ?? 'Tool UI',
-                          toolName: selectedTool?.name ?? toolRunner.selectedToolName,
-                        })}
-                      >
-                        Open in viewer
-                      </Button>
-                    )}
-                    <Button type="button" size="sm" onClick={() => void toolRunner.runTool()} disabled={toolRunner.running || toolRunner.loadingDetails}>
-                      <Play className="mr-2 h-4 w-4" />
-                      {toolRunner.running ? 'Running…' : 'Run tool'}
-                    </Button>
-                  </div>
-                </div>
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div className="min-w-0 space-y-2">
+                <Label htmlFor={`mcp-tool-input-${server.serverName}`}>Tool input JSON</Label>
                 <Textarea
                   id={`mcp-tool-input-${server.serverName}`}
                   value={toolRunner.inputText}
                   onChange={(event) => toolRunner.setInputText(event.target.value)}
                   spellCheck={false}
-                  className="min-h-[220px] font-mono text-xs leading-6"
+                  className="min-h-[260px] w-full font-mono text-xs leading-6"
                   placeholder="{}"
                 />
+                <div className="flex flex-wrap gap-2">
+                  <Button type="button" size="sm" onClick={() => void toolRunner.runTool()} disabled={toolRunner.running || toolRunner.loadingDetails}>
+                    <Play className="mr-2 h-4 w-4" />
+                    {toolRunner.running ? 'Running…' : 'Run tool'}
+                  </Button>
+                  {(selectedTool?.uiResourceUri || toolRunner.result?.uiResourceUri) && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => onOpenResource(selectedTool?.uiResourceUri ?? toolRunner.result?.uiResourceUri ?? '', {
+                        kind: 'tool-ui',
+                        title: selectedTool?.name ?? toolRunner.selectedToolName ?? 'Tool UI',
+                        toolName: selectedTool?.name ?? toolRunner.selectedToolName,
+                      })}
+                    >
+                      Open in viewer
+                    </Button>
+                  )}
+                </div>
               </div>
 
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Input schema</Label>
-                  <pre className="max-h-[220px] overflow-auto rounded-lg border border-border bg-background p-4 text-xs leading-6 text-muted-foreground">
-                    {formatUnknown(toolRunner.inputSchema ?? '(no schema reported)')}
-                  </pre>
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between gap-3">
-                    <Label>Last result</Label>
-                    {toolRunner.result && (
-                      <Button type="button" variant="outline" size="sm" onClick={toolRunner.clearResult}>
-                        <X className="mr-2 h-4 w-4" />
-                        Clear result
-                      </Button>
-                    )}
-                  </div>
-                  <pre className="max-h-[220px] overflow-auto rounded-lg border border-border bg-background p-4 text-xs leading-6 text-muted-foreground">
-                    {toolRunner.result ? toolRunner.result.text : 'Run a tool to inspect its latest bridged result here.'}
-                  </pre>
-                </div>
-
-                {toolRunner.result?.structuredContent !== undefined && (
-                  <div className="space-y-2">
-                    <Label>Structured content</Label>
-                    <pre className="max-h-[220px] overflow-auto rounded-lg border border-border bg-background p-4 text-xs leading-6 text-muted-foreground">
-                      {formatUnknown(toolRunner.result.structuredContent)}
-                    </pre>
-                  </div>
-                )}
+              <div className="min-w-0 space-y-2">
+                <Label>Input schema</Label>
+                <pre className="max-h-[260px] w-full overflow-auto rounded-lg border border-border bg-background p-4 text-xs leading-6 text-muted-foreground">
+                  {formatUnknown(toolRunner.inputSchema ?? '(no schema reported)')}
+                </pre>
               </div>
             </div>
+
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <Label>Last result</Label>
+                {toolRunner.result && (
+                  <Button type="button" variant="outline" size="sm" onClick={toolRunner.clearResult}>
+                    <X className="mr-2 h-4 w-4" />
+                    Clear result
+                  </Button>
+                )}
+              </div>
+              <pre className="max-h-[260px] w-full overflow-auto rounded-lg border border-border bg-background p-4 text-xs leading-6 text-muted-foreground">
+                {toolRunner.result ? toolRunner.result.text : 'Run a tool to inspect its latest bridged result here.'}
+              </pre>
+            </div>
+
+            {toolRunner.result?.structuredContent !== undefined && (
+              <div className="space-y-2">
+                <Label>Structured content</Label>
+                <pre className="max-h-[260px] w-full overflow-auto rounded-lg border border-border bg-background p-4 text-xs leading-6 text-muted-foreground">
+                  {formatUnknown(toolRunner.result.structuredContent)}
+                </pre>
+              </div>
+            )}
           </>
         )}
       </CardContent>

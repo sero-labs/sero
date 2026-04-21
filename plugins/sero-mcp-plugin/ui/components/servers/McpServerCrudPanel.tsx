@@ -7,7 +7,7 @@ import { Input } from '@sero-ai/ui/components/ui/input';
 import { NativeSelect, NativeSelectOption } from '@sero-ai/ui/components/ui/native-select';
 import { Textarea } from '@sero-ai/ui/components/ui/textarea';
 import { cn } from '@sero-ai/ui/lib/utils';
-import { AlertCircle, Pencil, Plus, Power, Save, Server, Trash2, X } from 'lucide-react';
+import { AlertCircle, ChevronDown, ChevronUp, Pencil, Plus, Power, Save, Server, Trash2, X } from 'lucide-react';
 import type { McpServerEditorInput, McpServerSnapshot } from '../../../shared/types';
 import {
   createEmptyServerEditorInput,
@@ -24,7 +24,7 @@ export function McpServerCrudPanel({
 }: {
   servers: McpServerSnapshot[];
   selectedServerName?: string | null;
-  onSelectServerName?: (serverName: string) => void;
+  onSelectServerName?: (serverName: string | null) => void;
 }) {
   const mutations = useMcpServerMutations();
   const [draft, setDraft] = useState<McpServerEditorInput | null>(null);
@@ -33,15 +33,11 @@ export function McpServerCrudPanel({
   const sortedServers = useMemo(() => [...servers].sort((a, b) => a.serverName.localeCompare(b.serverName)), [servers]);
   const selectedServerName = controlledSelectedServerName ?? uncontrolledSelectedServerName;
   const setSelectedServerName = onSelectServerName ?? setUncontrolledSelectedServerName;
-  const selectedServer = useMemo(
-    () => sortedServers.find((server) => server.serverName === selectedServerName) ?? sortedServers[0] ?? null,
-    [selectedServerName, sortedServers],
-  );
   const validationError = useMemo(() => (draft ? validateServerEditorInput(draft) : null), [draft]);
   const title = draft?.originalServerName ? `Edit ${draft.originalServerName}` : 'Add MCP server';
 
   return (
-    <Card className="animate-mcp-fade-in py-4">
+    <Card className="animate-mcp-fade-in border-border/75 py-4">
       <CardHeader>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -69,7 +65,7 @@ export function McpServerCrudPanel({
         )}
 
         {draft && (
-          <div className="rounded-xl border border-border bg-muted/20 p-4">
+          <div className="rounded-xl border border-border bg-primary/5 p-4">
             <div className="mb-4 flex items-center justify-between gap-3">
               <div>
                 <div className="font-medium text-foreground">{title}</div>
@@ -177,8 +173,9 @@ export function McpServerCrudPanel({
               const toggleAction = `${server.enabled ? 'disable' : 'enable'}:${server.serverName}`;
               const connectAction = `${server.connectionStatus === 'connected' ? 'reconnect' : 'connect'}:${server.serverName}`;
               const removeAction = `remove:${server.serverName}`;
+              const isExpanded = selectedServerName === server.serverName;
               return (
-                <div key={server.serverName} className={cn('rounded-lg border border-border bg-card/60 p-4', selectedServer?.serverName === server.serverName && 'border-primary/40 bg-primary/5')}>
+                <div key={server.serverName} className={cn('rounded-lg border border-border bg-primary/5 p-4', isExpanded && 'border-primary/40')}>
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="space-y-2">
                       <div>
@@ -208,12 +205,13 @@ export function McpServerCrudPanel({
                     <div className="flex flex-wrap gap-2">
                       <Button
                         type="button"
-                        variant={selectedServer?.serverName === server.serverName ? 'default' : 'outline'}
+                        variant={isExpanded ? 'default' : 'outline'}
                         size="sm"
-                        onClick={() => setSelectedServerName(server.serverName)}
+                        onClick={() => setSelectedServerName(isExpanded ? null : server.serverName)}
+                        aria-expanded={isExpanded}
                       >
-                        <Server className="mr-2 h-4 w-4" />
-                        Details
+                        {isExpanded ? <ChevronUp className="mr-2 h-4 w-4" /> : <ChevronDown className="mr-2 h-4 w-4" />}
+                        {isExpanded ? 'Hide details' : 'Show details'}
                       </Button>
                       <Button type="button" variant="outline" size="sm" onClick={() => setDraft(createServerEditorInputFromSnapshot(server))}>
                         <Pencil className="mr-2 h-4 w-4" />
@@ -239,13 +237,16 @@ export function McpServerCrudPanel({
                       </Button>
                     </div>
                   </div>
+                  {isExpanded && (
+                    <div className="mt-4 border-t border-border/75 pt-4">
+                      <McpServerDetailPanel server={server} />
+                    </div>
+                  )}
                 </div>
               );
             })
           )}
         </div>
-
-        <McpServerDetailPanel server={selectedServer} />
       </CardContent>
     </Card>
   );

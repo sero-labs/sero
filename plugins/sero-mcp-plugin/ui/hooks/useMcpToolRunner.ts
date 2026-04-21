@@ -100,6 +100,7 @@ export function useMcpToolRunner(serverName: string | null | undefined): McpTool
     setLoadingInventory(true);
     setError(null);
 
+    let preferredTool: string | null = null;
     try {
       const toolResult = await run('mcp', {
         action: 'list_tools',
@@ -126,8 +127,7 @@ export function useMcpToolRunner(serverName: string | null | undefined): McpTool
         return;
       }
 
-      const preferredTool = nextTools.find((tool) => tool.name === selectedToolNameRef.current)?.name ?? nextTools[0]?.name ?? '';
-      await selectTool(preferredTool);
+      preferredTool = nextTools.find((tool) => tool.name === selectedToolNameRef.current)?.name ?? nextTools[0]?.name ?? null;
     } catch (cause) {
       if (requestId !== requestIdRef.current) {
         return;
@@ -140,6 +140,10 @@ export function useMcpToolRunner(serverName: string | null | undefined): McpTool
       if (requestId === requestIdRef.current) {
         setLoadingInventory(false);
       }
+    }
+
+    if (preferredTool) {
+      await selectTool(preferredTool);
     }
   }, [run, selectTool, serverName]);
 

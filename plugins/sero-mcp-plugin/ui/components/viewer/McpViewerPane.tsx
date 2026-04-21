@@ -35,7 +35,7 @@ export function McpViewerPane({ viewer }: { viewer: McpViewerState }) {
   });
 
   return (
-    <Card className="border-border/70 bg-muted/15 py-4">
+    <Card className="border-border/70 bg-card py-4">
       <CardHeader>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>

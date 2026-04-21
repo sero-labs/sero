@@ -1,74 +1,42 @@
 import { useMemo } from 'react';
 import { useAgentPrompt } from '@sero-ai/app-runtime';
 import { Alert, AlertDescription, AlertTitle } from '@sero-ai/ui/components/ui/alert';
-import { Badge } from '@sero-ai/ui/components/ui/badge';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@sero-ai/ui/components/ui/card';
 import { cn } from '@sero-ai/ui/lib/utils';
-import { AlertCircle, LifeBuoy, MonitorSmartphone, RefreshCw, ScrollText } from 'lucide-react';
+import { AlertCircle, LifeBuoy, MonitorSmartphone, RefreshCw } from 'lucide-react';
 import type { McpServerSnapshot } from '../../../shared/types';
 import { useMcpViewer } from '../../hooks/useMcpViewer';
 import { McpServerAuthPanel } from './McpServerAuthPanel';
 import { McpServerToolRunnerPanel } from './McpServerToolRunnerPanel';
 import { McpViewerPane } from '../viewer/McpViewerPane';
 
-export function McpServerDetailPanel({ server }: { server: McpServerSnapshot | null }) {
+export function McpServerDetailPanel({ server }: { server: McpServerSnapshot }) {
   const promptAgent = useAgentPrompt();
   const viewer = useMcpViewer();
-  const sortedResources = useMemo(() => [...(server?.resources ?? [])].sort((a, b) => a.name.localeCompare(b.name)), [server?.resources]);
-  const sortedUiTools = useMemo(() => [...(server?.uiTools ?? [])].sort((a, b) => a.name.localeCompare(b.name)), [server?.uiTools]);
-
-  if (!server) {
-    return (
-      <Card className="animate-mcp-fade-in py-4">
-        <CardHeader>
-          <CardTitle>Server details</CardTitle>
-          <CardDescription>Select a configured server to inspect its resources, UI-capable tools, and live preview details.</CardDescription>
-        </CardHeader>
-      </Card>
-    );
-  }
+  const sortedResources = useMemo(() => [...server.resources].sort((a, b) => a.name.localeCompare(b.name)), [server.resources]);
+  const sortedUiTools = useMemo(() => [...server.uiTools].sort((a, b) => a.name.localeCompare(b.name)), [server.uiTools]);
 
   const helpPrompt = buildServerHelpPrompt(server, viewer.resourceError, viewer.preview?.serverName === server.serverName ? viewer.preview : null);
 
   return (
-    <Card className="animate-mcp-fade-in py-4">
-      <CardHeader>
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <CardTitle className="flex items-center gap-2">
-              <ScrollText className="h-4 w-4 text-primary" />
-              {server.serverName} details
-            </CardTitle>
-            <CardDescription>
-              Inspect discovered MCP resources and UI-capable tools. Resources, tool UIs, and auth flows now open in the dedicated viewer pane so you can troubleshoot without leaving context.
-            </CardDescription>
-          </div>
-          <div className="flex flex-wrap gap-2 text-xs">
-            <ToneBadge label={server.connectionStatus} tone={server.connectionStatus === 'connected' ? 'success' : server.connectionStatus === 'needs-auth' ? 'warning' : 'muted'} />
-            <ToneBadge label={server.authStatus} tone={server.authStatus === 'authenticated' ? 'success' : server.authStatus === 'not-authenticated' ? 'warning' : 'muted'} />
-            <ToneBadge label={`${server.toolCount} tools`} tone="muted" />
-            <ToneBadge label={`${server.resourceCount} resources`} tone="muted" />
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {viewer.resourceError && viewer.pane?.serverName === server.serverName && (
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Resource or UI preview failed</AlertTitle>
-            <AlertDescription className="space-y-3">
-              <p>{viewer.resourceError}</p>
-              <Button type="button" size="sm" onClick={() => promptAgent(helpPrompt)}>
-                <LifeBuoy className="mr-2 h-4 w-4" />
-                Ask Sero to help
-              </Button>
-            </AlertDescription>
-          </Alert>
-        )}
+    <div className="space-y-4">
+      {viewer.resourceError && viewer.pane?.serverName === server.serverName && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Resource or UI preview failed</AlertTitle>
+          <AlertDescription className="space-y-3">
+            <p>{viewer.resourceError}</p>
+            <Button type="button" size="sm" onClick={() => promptAgent(helpPrompt)}>
+              <LifeBuoy className="mr-2 h-4 w-4" />
+              Ask Sero to help
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
 
-        <div className="grid gap-4 xl:grid-cols-[0.95fr_1.25fr]">
-          <section className="space-y-4">
+      <div className="grid gap-4 2xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.25fr)]">
+        <section className="min-w-0 space-y-4">
             <McpServerAuthPanel server={server} viewer={viewer} />
 
             <McpServerToolRunnerPanel
@@ -78,7 +46,7 @@ export function McpServerDetailPanel({ server }: { server: McpServerSnapshot | n
               }}
             />
 
-            <Card className="border-border/70 bg-muted/15 py-4">
+            <Card className="border-border/70 bg-card py-4">
               <CardHeader>
                 <CardTitle className="text-base">Resources</CardTitle>
                 <CardDescription>
@@ -120,7 +88,7 @@ export function McpServerDetailPanel({ server }: { server: McpServerSnapshot | n
               </CardContent>
             </Card>
 
-            <Card className="border-border/70 bg-muted/15 py-4">
+            <Card className="border-border/70 bg-card py-4">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
                   <MonitorSmartphone className="h-4 w-4 text-primary" />
@@ -168,10 +136,11 @@ export function McpServerDetailPanel({ server }: { server: McpServerSnapshot | n
             </Card>
           </section>
 
+        <div className="min-w-0">
           <McpViewerPane viewer={viewer} />
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 
@@ -181,21 +150,6 @@ function EmptyState({ title, body }: { title: string; body: string }) {
       <div className="font-medium text-foreground">{title}</div>
       <p className="mt-1 text-sm text-muted-foreground">{body}</p>
     </div>
-  );
-}
-
-function ToneBadge({ label, tone }: { label: string; tone: 'success' | 'warning' | 'muted' }) {
-  return (
-    <Badge
-      variant="outline"
-      className={cn(
-        tone === 'success' && 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300',
-        tone === 'warning' && 'border-amber-500/30 bg-amber-500/10 text-amber-300',
-        tone === 'muted' && 'border-border bg-background text-muted-foreground',
-      )}
-    >
-      {label}
-    </Badge>
   );
 }
 
