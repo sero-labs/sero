@@ -2,52 +2,30 @@ import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
 import type { McpServerEditorInput } from '../../shared/types';
 import { validateServerEditorInput } from '../../shared/types';
 import { ensureOAuthDir, hasOAuthTokens } from '../auth/storage';
-import {
-  readMetadataCache,
-  removeMetadataCacheEntry,
-  writeMetadataCache,
-  type McpMetadataCacheDocument,
-} from '../cache/metadata-cache';
-import {
-  ensureConfigFile,
-  getConfigUpdatedAt,
-  readRawConfig,
-  writeConfig,
-} from '../config/io';
+import { readMetadataCache, removeMetadataCacheEntry, writeMetadataCache, type McpMetadataCacheDocument } from '../cache/metadata-cache';
+import { ensureConfigFile, getConfigUpdatedAt, readRawConfig, writeConfig } from '../config/io';
 import type { McpConfigDocument, McpServerConfig } from '../config/types';
 import { McpServerManager } from '../manager/server-manager';
 import { buildSnapshot, type RuntimeServerStatus } from '../state/snapshot';
 import { getMcpConfigPath, getMcpStatePath } from '../state/paths';
 import { connectServerAction, saveRawConfigAction } from './runtime-actions';
+import { readServerResourceAction } from './runtime-resource';
 import { reconcileConnection } from './runtime-connect';
 import { createKeepAliveScheduler } from './runtime-keep-alive';
 import {
-  getAutoConnectServerEntries,
-  getChangedServerNames,
-  getKeepAliveServerEntries,
-  KEEP_ALIVE_HEALTHCHECK_INTERVAL_MS,
-  shouldAttemptAutoConnect,
+  getAutoConnectServerEntries, getChangedServerNames, getKeepAliveServerEntries,
+  KEEP_ALIVE_HEALTHCHECK_INTERVAL_MS, shouldAttemptAutoConnect,
 } from './runtime-lifecycle';
 import { writeState } from '../state/state-io';
-import {
-  createToolResult,
-  type ManagerAction,
-  type ProxyAction,
-  type ToolResult,
-} from '../tools/types';
-import {
-  buildServerConfig,
-  formatDiagnostics,
-  formatServerList,
-  formatStatusSummary,
-  mutationErrorResult,
-} from './runtime-utils';
+import { createToolResult, type ManagerAction, type ProxyAction, type ToolResult } from '../tools/types';
+import { buildServerConfig, formatDiagnostics, formatServerList, formatStatusSummary, mutationErrorResult } from './runtime-utils';
 import type { SyncedRuntimeState } from './runtime-types';
 
 interface ManagerActionOptions {
   cwd?: string;
   rawConfig?: string;
   serverName?: string;
+  resourceUri?: string;
   serverInput?: McpServerEditorInput;
 }
 
@@ -154,6 +132,8 @@ function createMcpRuntime(): McpRuntime {
           return connectServer(options.cwd, options.serverName, false);
         case 'reconnect_server':
           return connectServer(options.cwd, options.serverName, true);
+        case 'read_resource':
+          return readServerResource(options.cwd, options.serverName, options.resourceUri);
         default:
           break;
       }
@@ -357,6 +337,21 @@ function createMcpRuntime(): McpRuntime {
       cwd,
       serverName,
       reconnect,
+      manager,
+      setRuntimeStatus: (name, status) => runtimeStatuses.set(name, status),
+      syncSnapshot,
+    });
+  }
+
+  async function readServerResource(
+    cwd: string | undefined,
+    serverName: string | undefined,
+    resourceUri: string | undefined,
+  ): Promise<ToolResult> {
+    return readServerResourceAction({
+      cwd,
+      serverName,
+      resourceUri,
       manager,
       setRuntimeStatus: (name, status) => runtimeStatuses.set(name, status),
       syncSnapshot,

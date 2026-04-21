@@ -17,6 +17,20 @@ export interface McpUiToolSummary {
   inputSchema?: unknown;
 }
 
+export type McpResourcePreviewKind = 'text' | 'json' | 'html' | 'image' | 'binary';
+
+export interface McpResourcePreview {
+  serverName: string;
+  requestedUri: string;
+  resolvedUri: string;
+  mimeType?: string;
+  previewKind: McpResourcePreviewKind;
+  text?: string;
+  html?: string;
+  dataUrl?: string;
+  truncated: boolean;
+}
+
 export interface McpServerSnapshot {
   serverName: string;
   enabled: boolean;

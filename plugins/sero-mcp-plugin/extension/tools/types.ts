@@ -9,7 +9,8 @@ export type ManagerAction =
   | 'enable_server'
   | 'disable_server'
   | 'connect_server'
-  | 'reconnect_server';
+  | 'reconnect_server'
+  | 'read_resource';
 export type ProxyAction = 'status' | 'list';
 
 export type ToolResult = {

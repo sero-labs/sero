@@ -3,6 +3,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+import type { ReadResourceResult } from '@modelcontextprotocol/sdk/types.js';
 import type { McpServerConfig } from '../config/types';
 import type { ManagedConnection, ManagedResource, ManagedTool, ManagedTransport } from './types';
 
@@ -48,6 +49,14 @@ export class McpServerManager {
 
   getConnection(name: string): ManagedConnection | undefined {
     return this.connections.get(name);
+  }
+
+  async readResource(name: string, uri: string): Promise<ReadResourceResult> {
+    const connection = this.connections.get(name);
+    if (!connection || connection.status !== 'connected' || !connection.client) {
+      throw new Error(`Server "${name}" is not connected.`);
+    }
+    return connection.client.readResource({ uri });
   }
 
   async close(name: string): Promise<void> {

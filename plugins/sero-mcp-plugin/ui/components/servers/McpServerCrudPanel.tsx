@@ -15,12 +15,18 @@ import {
   validateServerEditorInput,
 } from '../../../shared/types';
 import { useMcpServerMutations } from '../../hooks/useMcpServerMutations';
+import { McpServerDetailPanel } from './McpServerDetailPanel';
 
 export function McpServerCrudPanel({ servers }: { servers: McpServerSnapshot[] }) {
   const mutations = useMcpServerMutations();
   const [draft, setDraft] = useState<McpServerEditorInput | null>(null);
+  const [selectedServerName, setSelectedServerName] = useState<string | null>(null);
 
   const sortedServers = useMemo(() => [...servers].sort((a, b) => a.serverName.localeCompare(b.serverName)), [servers]);
+  const selectedServer = useMemo(
+    () => sortedServers.find((server) => server.serverName === selectedServerName) ?? sortedServers[0] ?? null,
+    [selectedServerName, sortedServers],
+  );
   const validationError = useMemo(() => (draft ? validateServerEditorInput(draft) : null), [draft]);
   const title = draft?.originalServerName ? `Edit ${draft.originalServerName}` : 'Add MCP server';
 
@@ -162,7 +168,7 @@ export function McpServerCrudPanel({ servers }: { servers: McpServerSnapshot[] }
               const connectAction = `${server.connectionStatus === 'connected' ? 'reconnect' : 'connect'}:${server.serverName}`;
               const removeAction = `remove:${server.serverName}`;
               return (
-                <div key={server.serverName} className="rounded-lg border border-border bg-card/60 p-4">
+                <div key={server.serverName} className={cn('rounded-lg border border-border bg-card/60 p-4', selectedServer?.serverName === server.serverName && 'border-primary/40 bg-primary/5')}>
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="space-y-2">
                       <div>
@@ -190,6 +196,15 @@ export function McpServerCrudPanel({ servers }: { servers: McpServerSnapshot[] }
                       )}
                     </div>
                     <div className="flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        variant={selectedServer?.serverName === server.serverName ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setSelectedServerName(server.serverName)}
+                      >
+                        <Server className="mr-2 h-4 w-4" />
+                        Details
+                      </Button>
                       <Button type="button" variant="outline" size="sm" onClick={() => setDraft(createServerEditorInputFromSnapshot(server))}>
                         <Pencil className="mr-2 h-4 w-4" />
                         Edit
@@ -219,6 +234,8 @@ export function McpServerCrudPanel({ servers }: { servers: McpServerSnapshot[] }
             })
           )}
         </div>
+
+        <McpServerDetailPanel server={selectedServer} />
       </CardContent>
     </Card>
   );
