@@ -94,6 +94,7 @@ describe('McpViewerPane', () => {
 function createViewerState(overrides: Partial<McpViewerState>): McpViewerState {
   return {
     pane: null,
+    session: null,
     preview: null,
     activeResourceUri: null,
     resourceLoading: false,

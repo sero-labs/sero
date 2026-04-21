@@ -30,7 +30,7 @@ export function McpViewerPane({ viewer }: { viewer: McpViewerState }) {
     kind: activeKind,
     serverName: viewer.pane?.serverName ?? authSession?.serverName ?? viewer.preview?.serverName ?? null,
     error,
-    resourceUri: viewer.preview?.resolvedUri ?? viewer.activeResourceUri,
+    resourceUri: viewer.preview?.resolvedUri ?? viewer.session?.resourceUri ?? viewer.activeResourceUri,
     authOrigin,
   });
 
@@ -50,7 +50,7 @@ export function McpViewerPane({ viewer }: { viewer: McpViewerState }) {
             {viewer.pane?.serverName && <ToneBadge label={viewer.pane.serverName} tone="muted" />}
             {authSession && activeKind !== 'auth' && <ToneBadge label={`auth active for ${authSession.serverName}`} tone="warning" />}
             {viewer.pane && (
-              <Button type="button" variant="outline" size="sm" onClick={viewer.clearPane}>
+              <Button type="button" variant="outline" size="sm" onClick={() => viewer.clearPane()}>
                 <X className="mr-2 h-4 w-4" />
                 Clear pane
               </Button>
@@ -94,7 +94,7 @@ export function McpViewerPane({ viewer }: { viewer: McpViewerState }) {
             <PanePlaceholder message={viewer.authLoading ? 'Starting authentication session…' : 'Start authentication from an OAuth-backed server to open the sign-in flow here.'} />
           )
         ) : activeKind === 'resource' || activeKind === 'tool-ui' ? (
-          <McpResourceViewer preview={viewer.preview} loading={viewer.resourceLoading} kind={activeKind} />
+          <McpResourceViewer preview={viewer.preview} session={viewer.session} loading={viewer.resourceLoading} kind={activeKind} />
         ) : (
           <PanePlaceholder message="Resources, advertised tool UIs, and OAuth sign-in flows open here so you can stay inside Sero while managing MCP servers." />
         )}
@@ -140,9 +140,9 @@ function getPaneDescription(kind: McpViewerKind | null): string {
     case 'auth':
       return 'OAuth providers open in a hardened embedded browser so sign-in can complete without leaving Sero.';
     case 'tool-ui':
-      return 'Advertised MCP tool UIs render here from their backing resources so you can inspect tool surfaces in context.';
+      return 'Advertised MCP tool UIs render here through loopback AppBridge-style sessions so they can call tools and resources without leaving Sero.';
     case 'resource':
-      return 'Discovered MCP resources render here with inline previews for HTML, text, JSON, and images.';
+      return 'Discovered MCP resources render here with inline previews for text/image content and interactive hosting for MCP UI resources.';
     default:
       return 'Use the selected server detail view to open resources, launch advertised UIs, or complete OAuth authentication here.';
   }

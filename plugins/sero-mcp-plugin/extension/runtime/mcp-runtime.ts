@@ -18,6 +18,7 @@ import {
 } from './runtime-auth';
 import { readServerResourceAction } from './runtime-resource';
 import { executeProxyAction as executeProxyActionInternal } from './runtime-proxy';
+import { closeViewerAction, openToolUiAction, openViewerResourceAction } from './runtime-viewer';
 import { reconcileConnection } from './runtime-connect';
 import { createKeepAliveScheduler } from './runtime-keep-alive';
 import {
@@ -28,19 +29,10 @@ import { writeState } from '../state/state-io';
 import { createToolResult, type ManagerAction, type ProxyAction, type ToolResult } from '../tools/types';
 import { buildServerConfig, formatDiagnostics, mutationErrorResult } from './runtime-utils';
 import type { SyncedRuntimeState } from './runtime-types';
-interface ManagerActionOptions {
-  cwd?: string;
-  rawConfig?: string;
-  serverName?: string;
-  resourceUri?: string;
-  callbackUrl?: string;
-  serverInput?: McpServerEditorInput;
-}
-interface SyncSnapshotOptions {
-  config?: McpConfigDocument;
-  rawConfigUpdatedAt?: string | null;
-  metadataCache?: McpMetadataCacheDocument;
-}
+import { McpUiSessionManager } from '../viewer/ui-session';
+import { UiResourceHandler } from '../viewer/ui-resource-handler';
+interface ManagerActionOptions { cwd?: string; rawConfig?: string; serverName?: string; resourceUri?: string; toolName?: string; toolArguments?: Record<string, unknown>; callbackUrl?: string; serverInput?: McpServerEditorInput; }
+interface SyncSnapshotOptions { config?: McpConfigDocument; rawConfigUpdatedAt?: string | null; metadataCache?: McpMetadataCacheDocument; }
 export interface McpRuntime {
   attachPi(pi: ExtensionAPI): void;
   handleSessionStart(ctx: { cwd: string }): Promise<void>;
@@ -66,6 +58,8 @@ function createMcpRuntime(): McpRuntime {
   const manager = new McpServerManager({ hasOAuthTokens });
   const authCoordinator = new McpOAuthCoordinator();
   const runtimeStatuses = new Map<string, RuntimeServerStatus>();
+  const uiResourceHandler = new UiResourceHandler(manager);
+  const uiSessions = new McpUiSessionManager();
   const keepAliveScheduler = createKeepAliveScheduler({
     intervalMs: KEEP_ALIVE_HEALTHCHECK_INTERVAL_MS,
     isEnabled: () => sessionRefCount > 0,
@@ -106,16 +100,14 @@ function createMcpRuntime(): McpRuntime {
       if (sessionRefCount === 0) {
         keepAliveScheduler.stop();
         await authCoordinator.cancelAll();
+        await uiSessions.closeActive('runtime-shutdown');
         await manager.closeAll();
         runtimeStatuses.clear();
         lastState = null;
       }
     });
   }
-  function executeManagerAction(
-    action: ManagerAction,
-    options: ManagerActionOptions = {},
-  ): Promise<ToolResult> {
+  function executeManagerAction(action: ManagerAction, options: ManagerActionOptions = {}): Promise<ToolResult> {
     return runExclusive(async () => {
       switch (action) {
         case 'save_raw_config':
@@ -142,6 +134,12 @@ function createMcpRuntime(): McpRuntime {
           return clearServerAuth(options.cwd, options.serverName);
         case 'read_resource':
           return readServerResource(options.cwd, options.serverName, options.resourceUri);
+        case 'open_resource':
+          return openViewerResource(options);
+        case 'open_tool_ui':
+          return openToolUi(options);
+        case 'close_viewer':
+          return closeViewer();
         default:
           break;
       }
@@ -195,10 +193,7 @@ function createMcpRuntime(): McpRuntime {
       );
     });
   }
-  function executeProxyAction(action: ProxyAction, options: {
-    cwd?: string; query?: string; serverName?: string; toolName?: string; resourceUri?: string;
-    toolArguments?: Record<string, unknown>; argumentsJson?: string;
-  } = {}): Promise<ToolResult> {
+  function executeProxyAction(action: ProxyAction, options: { cwd?: string; query?: string; serverName?: string; toolName?: string; resourceUri?: string; toolArguments?: Record<string, unknown>; argumentsJson?: string; } = {}): Promise<ToolResult> {
     return runExclusive(async () => executeProxyActionInternal({
       action,
       cwd: options.cwd,
@@ -313,11 +308,7 @@ function createMcpRuntime(): McpRuntime {
       return mutationErrorResult(error);
     }
   }
-  async function connectServer(
-    cwd: string | undefined,
-    serverName: string | undefined,
-    reconnect: boolean,
-  ): Promise<ToolResult> {
+  async function connectServer(cwd: string | undefined, serverName: string | undefined, reconnect: boolean): Promise<ToolResult> {
     return connectServerAction({
       cwd,
       serverName,
@@ -337,11 +328,7 @@ function createMcpRuntime(): McpRuntime {
       syncSnapshot,
     });
   }
-  async function completeServerAuth(
-    cwd: string | undefined,
-    serverName: string | undefined,
-    callbackUrl: string | undefined,
-  ): Promise<ToolResult> {
+  async function completeServerAuth(cwd: string | undefined, serverName: string | undefined, callbackUrl: string | undefined): Promise<ToolResult> {
     return completeServerAuthAction({
       cwd,
       serverName,
@@ -371,11 +358,7 @@ function createMcpRuntime(): McpRuntime {
       syncSnapshot,
     });
   }
-  async function readServerResource(
-    cwd: string | undefined,
-    serverName: string | undefined,
-    resourceUri: string | undefined,
-  ): Promise<ToolResult> {
+  async function readServerResource(cwd: string | undefined, serverName: string | undefined, resourceUri: string | undefined): Promise<ToolResult> {
     return readServerResourceAction({
       cwd,
       serverName,
@@ -385,11 +368,36 @@ function createMcpRuntime(): McpRuntime {
       syncSnapshot,
     });
   }
-  async function reconcileManagedServers(
-    cwd: string | undefined,
-    config: McpConfigDocument,
-    mode: 'startup' | 'keep-alive',
-  ): Promise<SyncedRuntimeState | null> {
+  async function openViewerResource(options: ManagerActionOptions): Promise<ToolResult> {
+    return openViewerResourceAction({
+      cwd: options.cwd,
+      serverName: options.serverName,
+      resourceUri: options.resourceUri,
+      manager,
+      uiResourceHandler,
+      uiSessions,
+      setRuntimeStatus: (name, status) => runtimeStatuses.set(name, status),
+      syncSnapshot,
+    });
+  }
+  async function openToolUi(options: ManagerActionOptions): Promise<ToolResult> {
+    return openToolUiAction({
+      cwd: options.cwd,
+      serverName: options.serverName,
+      resourceUri: options.resourceUri,
+      toolName: options.toolName,
+      toolArguments: options.toolArguments,
+      manager,
+      uiResourceHandler,
+      uiSessions,
+      setRuntimeStatus: (name, status) => runtimeStatuses.set(name, status),
+      syncSnapshot,
+    });
+  }
+  async function closeViewer(): Promise<ToolResult> {
+    return closeViewerAction({ uiSessions });
+  }
+  async function reconcileManagedServers(cwd: string | undefined, config: McpConfigDocument, mode: 'startup' | 'keep-alive'): Promise<SyncedRuntimeState | null> {
     const entries = mode === 'keep-alive'
       ? getKeepAliveServerEntries(config)
       : getAutoConnectServerEntries(config);
@@ -424,11 +432,7 @@ function createMcpRuntime(): McpRuntime {
     }
     return syncSnapshot(cwd, { config, metadataCache: nextCache ?? await readMetadataCache() });
   }
-  async function mutateConfig(
-    cwd: string | undefined,
-    mutate: (config: McpConfigDocument) => void,
-    removeServerName?: string,
-  ): Promise<SyncedRuntimeState> {
+  async function mutateConfig(cwd: string | undefined, mutate: (config: McpConfigDocument) => void, removeServerName?: string): Promise<SyncedRuntimeState> {
     const configPath = getMcpConfigPath();
     const config = await ensureConfigFile(configPath);
     const nextConfig: McpConfigDocument = {
@@ -443,15 +447,12 @@ function createMcpRuntime(): McpRuntime {
     }
     return writeConfigAndSyncSnapshot(cwd, nextConfig, metadataCache);
   }
-  async function writeConfigAndSyncSnapshot(
-    cwd: string | undefined,
-    config: McpConfigDocument,
-    metadataCacheOverride?: McpMetadataCacheDocument,
-  ): Promise<SyncedRuntimeState> {
+  async function writeConfigAndSyncSnapshot(cwd: string | undefined, config: McpConfigDocument, metadataCacheOverride?: McpMetadataCacheDocument): Promise<SyncedRuntimeState> {
     const configPath = getMcpConfigPath();
     const previousConfig = await ensureConfigFile(configPath);
     let metadataCache = metadataCacheOverride ?? await readMetadataCache();
     for (const serverName of getChangedServerNames(previousConfig, config)) {
+      await uiSessions.closeIfServerMatches(serverName);
       await manager.close(serverName);
       runtimeStatuses.delete(serverName);
       metadataCache = removeMetadataCacheEntry(metadataCache, serverName);
@@ -461,10 +462,7 @@ function createMcpRuntime(): McpRuntime {
     const synced = await syncSnapshot(cwd, { config, rawConfigUpdatedAt, metadataCache });
     return await reconcileManagedServers(cwd, config, 'startup') ?? synced;
   }
-  async function syncSnapshot(
-    cwd?: string,
-    options: SyncSnapshotOptions = {},
-  ): Promise<SyncedRuntimeState> {
+  async function syncSnapshot(cwd?: string, options: SyncSnapshotOptions = {}): Promise<SyncedRuntimeState> {
     if (cwd) {
       lastKnownCwd = cwd;
     }

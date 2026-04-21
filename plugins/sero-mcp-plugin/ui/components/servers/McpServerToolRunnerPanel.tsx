@@ -15,7 +15,7 @@ export function McpServerToolRunnerPanel({
   onOpenResource,
 }: {
   server: McpServerSnapshot;
-  onOpenResource: (resourceUri: string, options?: { kind?: 'resource' | 'tool-ui'; title?: string }) => void;
+  onOpenResource: (resourceUri: string, options?: { kind?: 'resource' | 'tool-ui'; title?: string; toolName?: string }) => void;
 }) {
   const promptAgent = useAgentPrompt();
   const toolRunner = useMcpToolRunner(server.serverName);
@@ -93,6 +93,7 @@ export function McpServerToolRunnerPanel({
                         onClick={() => onOpenResource(selectedTool?.uiResourceUri ?? toolRunner.result?.uiResourceUri ?? '', {
                           kind: 'tool-ui',
                           title: selectedTool?.name ?? toolRunner.selectedToolName ?? 'Tool UI',
+                          toolName: selectedTool?.name ?? toolRunner.selectedToolName,
                         })}
                       >
                         Open in viewer

@@ -8,7 +8,7 @@ This plugin adapts the `pi-mcp-adapter` backend ideas into a **Sero-native, UI-f
 - authenticate OAuth-backed servers in-app
 - inspect connection/auth/metadata state
 - preview embedded MCP resources inside the plugin
-- launch basic UI-capable MCP tool resources in the dedicated viewer pane
+- launch interactive UI-capable MCP tool resources in the dedicated viewer pane
 - search cached MCP tools/resources across servers from a top-level workbench
 - use a single bridged `mcp` proxy tool from Sero chat or the CLI
 
@@ -27,7 +27,7 @@ The MCP app currently supports:
 - dedicated viewer/auth pane for resources, tool UIs, and OAuth flows
 - top-level MCP search workbench
 - resource preview
-- basic UI-tool launching by opening the advertised UI resource
+- interactive MCP UI hosting for advertised `ui://` resources and UI-capable tools
 - basic MCP tool runner in the server detail view
 - auth clearing / re-auth / cancel-auth controls
 
@@ -104,13 +104,14 @@ This keeps auth material aligned with the active Sero agent profile.
 
 ## Notes on UI-capable MCP tools
 
-Current v1 behavior is intentionally modest:
+Current v1 behavior is now more capable:
 
 - the plugin discovers tools that advertise `_meta.ui.resourceUri`
-- the server detail view can launch that advertised UI resource in the dedicated viewer pane
-- the bridged `mcp` tool can describe and call those tools, but it does **not** yet host a full AppBridge-backed interactive MCP app session
+- the server detail view can launch those advertised UI resources inside a loopback viewer session in the dedicated pane
+- `ui://` resources also open through that same in-plugin interactive host
+- the bridged `mcp` tool still remains the only agent-facing surface; interactive UI hosting stays entirely behind the UI-only `mcp_manager` tool
 
-That fuller MCP UI hosting slice is still in progress.
+The current host focuses on in-plugin AppBridge-style tool/resource access and ephemeral session URLs. It is intentionally not a browser-popup workflow.
 
 ## Troubleshooting
 
@@ -134,7 +135,7 @@ Connect or reconnect the server so metadata can be refreshed and cached.
 
 ### A resource or tool UI does not render
 
-Use the embedded **Ask Sero to help** recovery actions from the MCP app.
+Use the embedded **Ask Sero to help** recovery actions from the MCP app. Interactive MCP UIs now run through an ephemeral localhost viewer session, so clearing the pane and reopening the UI is also a useful first recovery step.
 
 ## Validation
 

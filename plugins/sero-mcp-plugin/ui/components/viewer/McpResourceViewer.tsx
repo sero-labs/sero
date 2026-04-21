@@ -1,19 +1,42 @@
 import { Badge } from '@sero-ai/ui/components/ui/badge';
 import { cn } from '@sero-ai/ui/lib/utils';
 import type { McpResourcePreview } from '../../../shared/types';
-import type { McpViewerKind } from '../../hooks/useMcpViewer';
+import type { McpViewerKind, McpViewerSession } from '../../hooks/useMcpViewer';
 
 export function McpResourceViewer({
   preview,
+  session,
   loading,
   kind,
 }: {
   preview: McpResourcePreview | null;
+  session: McpViewerSession | null;
   loading: boolean;
   kind: Exclude<McpViewerKind, 'auth'>;
 }) {
-  if (loading && !preview) {
+  if (loading && !preview && !session) {
     return <ViewerPlaceholder body="Loading MCP content…" />;
+  }
+
+  if (session) {
+    return (
+      <div className="space-y-3">
+        <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+          <ToneBadge label={kind === 'tool-ui' ? 'interactive tool ui' : 'interactive ui resource'} tone="success" />
+          <ToneBadge label={session.resourceUri} tone="muted" />
+        </div>
+        <div className="rounded-lg border border-border/70 bg-muted/20 p-3 text-xs leading-6 text-muted-foreground">
+          This MCP UI is running inside a loopback viewer session so AppBridge-style tool and resource calls stay in-plugin and ephemeral.
+        </div>
+        <iframe
+          title={session.resourceUri}
+          src={session.viewerUrl}
+          sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-downloads"
+          referrerPolicy="no-referrer"
+          className="h-[560px] w-full rounded-lg border border-border bg-background"
+        />
+      </div>
+    );
   }
 
   if (!preview) {
@@ -21,7 +44,7 @@ export function McpResourceViewer({
       <ViewerPlaceholder
         body={
           kind === 'tool-ui'
-            ? 'Launch a UI-capable tool or open an advertised MCP UI resource to render it here.'
+            ? 'Launch a UI-capable tool to host its interactive MCP UI here.'
             : 'Select a discovered resource to preview it here.'
         }
       />
@@ -31,18 +54,12 @@ export function McpResourceViewer({
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-        <ToneBadge label={kind === 'tool-ui' ? 'tool ui' : preview.previewKind} tone="muted" />
+        <ToneBadge label={kind === 'tool-ui' ? 'tool ui preview' : preview.previewKind} tone="muted" />
         {kind === 'tool-ui' && <ToneBadge label={preview.previewKind} tone="muted" />}
         <ToneBadge label={preview.mimeType ?? 'unknown mime'} tone="muted" />
         <span className="rounded-full border border-border bg-background px-2 py-0.5">{preview.resolvedUri}</span>
         {preview.truncated && <ToneBadge label="preview truncated" tone="warning" />}
       </div>
-
-      {kind === 'tool-ui' && (
-        <div className="rounded-lg border border-border/70 bg-muted/20 p-3 text-xs leading-6 text-muted-foreground">
-          This UI is currently rendered from the tool&apos;s advertised MCP resource. Full AppBridge-backed interactive hosting is a larger follow-on slice.
-        </div>
-      )}
 
       {preview.previewKind === 'html' ? (
         <iframe
@@ -83,11 +100,12 @@ function ViewerPlaceholder({ body, compact = false }: { body: string; compact?: 
   );
 }
 
-function ToneBadge({ label, tone }: { label: string; tone: 'warning' | 'muted' }) {
+function ToneBadge({ label, tone }: { label: string; tone: 'success' | 'warning' | 'muted' }) {
   return (
     <Badge
       variant="outline"
       className={cn(
+        tone === 'success' && 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300',
         tone === 'warning' && 'border-amber-500/30 bg-amber-500/10 text-amber-300',
         tone === 'muted' && 'border-border bg-background text-muted-foreground',
       )}

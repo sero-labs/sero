@@ -14,7 +14,10 @@ export type ManagerAction =
   | 'complete_auth'
   | 'cancel_auth'
   | 'clear_auth'
-  | 'read_resource';
+  | 'read_resource'
+  | 'open_resource'
+  | 'open_tool_ui'
+  | 'close_viewer';
 export type ProxyAction = 'status' | 'list' | 'search' | 'list_tools' | 'list_resources' | 'describe_tool' | 'call_tool' | 'read_resource';
 
 export type ToolResult = {

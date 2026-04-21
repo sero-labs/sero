@@ -82,7 +82,7 @@ export function McpServerDetailPanel({ server }: { server: McpServerSnapshot | n
               <CardHeader>
                 <CardTitle className="text-base">Resources</CardTitle>
                 <CardDescription>
-                  Cached from the last successful metadata refresh. Click a resource to lazy-connect the server if needed and preview its current content in the viewer pane.
+                  Cached from the last successful metadata refresh. Standard resources open as inline previews, while `ui://` resources launch an interactive loopback viewer session in the pane.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
@@ -90,6 +90,7 @@ export function McpServerDetailPanel({ server }: { server: McpServerSnapshot | n
                   <EmptyState title="No resources discovered" body="Connect the server and refresh metadata if you expect resources here." />
                 ) : (
                   sortedResources.map((resource) => {
+                    const isUiResource = resource.uri.startsWith('ui://');
                     const isActive = viewer.pane?.kind === 'resource'
                       && viewer.pane.serverName === server.serverName
                       && viewer.activeResourceUri === resource.uri;
@@ -109,7 +110,7 @@ export function McpServerDetailPanel({ server }: { server: McpServerSnapshot | n
                             disabled={viewer.resourceLoading && isActive}
                           >
                             <RefreshCw className={cn('mr-2 h-4 w-4', viewer.resourceLoading && isActive && 'animate-spin')} />
-                            {isActive ? 'Reload' : 'Preview'}
+                            {isActive ? (isUiResource ? 'Reload UI' : 'Reload') : (isUiResource ? 'Open UI' : 'Preview')}
                           </Button>
                         </div>
                       </div>
@@ -126,7 +127,7 @@ export function McpServerDetailPanel({ server }: { server: McpServerSnapshot | n
                   UI-capable tools
                 </CardTitle>
                 <CardDescription>
-                  Tools that advertised MCP UI metadata. Launching a tool reads its advertised UI resource and opens it in the viewer pane.
+                  Tools that advertised MCP UI metadata. Launching a tool now hosts its advertised UI resource in a loopback AppBridge-style viewer session inside Sero.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
@@ -149,7 +150,7 @@ export function McpServerDetailPanel({ server }: { server: McpServerSnapshot | n
                             type="button"
                             size="sm"
                             variant={isActive ? 'default' : 'outline'}
-                            onClick={() => void viewer.openResource(server.serverName, tool.resourceUri, { kind: 'tool-ui', title: tool.name })}
+                            onClick={() => void viewer.openResource(server.serverName, tool.resourceUri, { kind: 'tool-ui', title: tool.name, toolName: tool.name })}
                             disabled={viewer.resourceLoading && isActive}
                           >
                             <MonitorSmartphone className="mr-2 h-4 w-4" />

@@ -23,10 +23,15 @@ const ManagerParams = Type.Object({
     'cancel_auth',
     'clear_auth',
     'read_resource',
+    'open_resource',
+    'open_tool_ui',
+    'close_viewer',
   ] as const),
   rawConfig: Type.Optional(Type.String({ description: 'Raw MCP config JSON for save_raw_config.' })),
   serverName: Type.Optional(Type.String({ description: 'Server name for server or resource actions.' })),
-  resourceUri: Type.Optional(Type.String({ description: 'Resource URI for read_resource.' })),
+  resourceUri: Type.Optional(Type.String({ description: 'Resource URI for read_resource, open_resource, or open_tool_ui.' })),
+  toolName: Type.Optional(Type.String({ description: 'Tool name for open_tool_ui.' })),
+  toolArguments: Type.Optional(Type.Record(Type.String(), Type.Any(), { description: 'Structured tool arguments for open_tool_ui.' })),
   callbackUrl: Type.Optional(Type.String({ description: 'OAuth callback URL for complete_auth.' })),
   originalServerName: Type.Optional(Type.String({ description: 'Existing server name when renaming a server.' })),
   enabled: Type.Optional(Type.Boolean()),
@@ -47,7 +52,7 @@ export function registerMcpManagerTool(pi: ExtensionAPI, runtime: McpRuntime): v
     name: 'mcp_manager',
     label: 'MCP Manager',
     description:
-      'Internal management surface for the MCP app UI. Actions: bootstrap, refresh, raw config, diagnostics, server CRUD/toggle, connect/reconnect, OAuth auth flow and cleanup, and resource preview operations.',
+      'Internal management surface for the MCP app UI. Actions: bootstrap, refresh, raw config, diagnostics, server CRUD/toggle, connect/reconnect, OAuth auth flow and cleanup, resource preview operations, and interactive viewer session hosting.',
     parameters: ManagerParams,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const managerParams = params as Partial<McpServerEditorInput> & {
@@ -55,6 +60,8 @@ export function registerMcpManagerTool(pi: ExtensionAPI, runtime: McpRuntime): v
         rawConfig?: string;
         serverName?: string;
         resourceUri?: string;
+        toolName?: string;
+        toolArguments?: Record<string, unknown>;
         callbackUrl?: string;
       };
       const action = managerParams.action ?? 'bootstrap';
@@ -63,6 +70,8 @@ export function registerMcpManagerTool(pi: ExtensionAPI, runtime: McpRuntime): v
         rawConfig: managerParams.rawConfig,
         serverName: managerParams.serverName,
         resourceUri: managerParams.resourceUri,
+        toolName: managerParams.toolName,
+        toolArguments: managerParams.toolArguments,
         callbackUrl: managerParams.callbackUrl,
         serverInput: action === 'upsert_server' ? toServerEditorInput(managerParams) : undefined,
       });
