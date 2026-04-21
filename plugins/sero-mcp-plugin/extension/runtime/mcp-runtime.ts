@@ -4,7 +4,7 @@ import { validateServerEditorInput } from '../../shared/types';
 import { ensureOAuthDir, hasOAuthTokens } from '../auth/storage';
 import { McpOAuthCoordinator } from '../auth/oauth-coordinator';
 import { readMetadataCache, removeMetadataCacheEntry, writeMetadataCache, type McpMetadataCacheDocument } from '../cache/metadata-cache';
-import { ensureConfigFile, getConfigUpdatedAt, readRawConfig, writeConfig } from '../config/io';
+import { ensureConfigFile, getConfigUpdatedAt, writeConfig } from '../config/io';
 import type { McpConfigDocument, McpServerConfig } from '../config/types';
 import { McpServerManager } from '../manager/server-manager';
 import { buildSnapshot, type RuntimeServerStatus } from '../state/snapshot';
@@ -27,12 +27,12 @@ import {
 } from './runtime-lifecycle';
 import { writeState } from '../state/state-io';
 import { createToolResult, type ManagerAction, type ProxyAction, type ToolResult } from '../tools/types';
-import { buildServerConfig, formatDiagnostics, mutationErrorResult } from './runtime-utils';
-import type { SyncedRuntimeState } from './runtime-types';
+import { buildServerConfig, mutationErrorResult } from './runtime-utils';
+import { executeManagerActionRoute } from './runtime-manager-router';
+import type { ManagerActionOptions, SyncedRuntimeState, SyncSnapshotOptions } from './runtime-types';
 import { McpUiSessionManager } from '../viewer/ui-session';
 import { UiResourceHandler } from '../viewer/ui-resource-handler';
-interface ManagerActionOptions { cwd?: string; rawConfig?: string; serverName?: string; resourceUri?: string; toolName?: string; toolArguments?: Record<string, unknown>; callbackUrl?: string; serverInput?: McpServerEditorInput; }
-interface SyncSnapshotOptions { config?: McpConfigDocument; rawConfigUpdatedAt?: string | null; metadataCache?: McpMetadataCacheDocument; }
+
 export interface McpRuntime {
   attachPi(pi: ExtensionAPI): void;
   handleSessionStart(ctx: { cwd: string }): Promise<void>;
@@ -108,90 +108,32 @@ function createMcpRuntime(): McpRuntime {
     });
   }
   function executeManagerAction(action: ManagerAction, options: ManagerActionOptions = {}): Promise<ToolResult> {
-    return runExclusive(async () => {
-      switch (action) {
-        case 'save_raw_config':
-          return saveRawConfig(options.cwd, options.rawConfig);
-        case 'upsert_server':
-          return upsertServer(options.cwd, options.serverInput);
-        case 'remove_server':
-          return removeServer(options.cwd, options.serverName);
-        case 'enable_server':
-          return toggleServer(options.cwd, options.serverName, true);
-        case 'disable_server':
-          return toggleServer(options.cwd, options.serverName, false);
-        case 'connect_server':
-          return connectServer(options.cwd, options.serverName, false);
-        case 'reconnect_server':
-          return connectServer(options.cwd, options.serverName, true);
-        case 'start_auth':
-          return startServerAuth(options.cwd, options.serverName);
-        case 'complete_auth':
-          return completeServerAuth(options.cwd, options.serverName, options.callbackUrl);
-        case 'cancel_auth':
-          return cancelServerAuth(options.cwd, options.serverName);
-        case 'clear_auth':
-          return clearServerAuth(options.cwd, options.serverName);
-        case 'read_resource':
-          return readServerResource(options.cwd, options.serverName, options.resourceUri);
-        case 'open_resource':
-          return openViewerResource(options);
-        case 'open_tool_ui':
-          return openToolUi(options);
-        case 'close_viewer':
-          return closeViewer();
-        default:
-          break;
-      }
-      const synced = await syncSnapshot(options.cwd);
-      if (action === 'bootstrap' || action === 'refresh') {
-        keepAliveScheduler.start();
-        const nextState = await reconcileManagedServers(options.cwd, synced.config, 'startup') ?? synced;
-        const prefix = action === 'refresh' ? 'Refreshed' : 'Initialized';
-        return createToolResult(
-          `${prefix} MCP app state for ${nextState.snapshot.summary.totalServers} configured server(s).`,
-          {
-            snapshotWritten: true,
-            configPath: nextState.configPath,
-            statePath: nextState.statePath,
-            serverCount: nextState.snapshot.summary.totalServers,
-          },
-        );
-      }
-      if (action === 'get_raw_config') {
-        const rawConfig = await readRawConfig(synced.configPath);
-        return createToolResult(rawConfig.trim() || '{}', {
-          snapshotWritten: true,
-          configPath: synced.configPath,
-          statePath: synced.statePath,
-          rawConfig,
-        });
-      }
-      if (action === 'get_diagnostics') {
-        return createToolResult(formatDiagnostics({
-          configPath: synced.configPath,
-          statePath: synced.statePath,
-          rawConfigUpdatedAt: synced.rawConfigUpdatedAt,
-          snapshot: synced.snapshot,
-          sessionRefCount,
-          hasAttachedPi: !!attachedPi,
-        }), {
-          snapshotWritten: true,
-          configPath: synced.configPath,
-          statePath: synced.statePath,
-          metadataCache: synced.metadataCache,
-        });
-      }
-      return createToolResult(
-        `Initialized MCP app state for ${synced.snapshot.summary.totalServers} configured server(s).`,
-        {
-          snapshotWritten: true,
-          configPath: synced.configPath,
-          statePath: synced.statePath,
-          serverCount: synced.snapshot.summary.totalServers,
-        },
-      );
-    });
+    return runExclusive(async () => executeManagerActionRoute({
+      action,
+      options,
+      handlers: {
+        save_raw_config: () => saveRawConfig(options.cwd, options.rawConfig),
+        upsert_server: () => upsertServer(options.cwd, options.serverInput),
+        remove_server: () => removeServer(options.cwd, options.serverName),
+        enable_server: () => toggleServer(options.cwd, options.serverName, true),
+        disable_server: () => toggleServer(options.cwd, options.serverName, false),
+        connect_server: () => connectServer(options.cwd, options.serverName, false),
+        reconnect_server: () => connectServer(options.cwd, options.serverName, true),
+        start_auth: () => startServerAuth(options.cwd, options.serverName),
+        complete_auth: () => completeServerAuth(options.cwd, options.serverName, options.callbackUrl),
+        cancel_auth: () => cancelServerAuth(options.cwd, options.serverName),
+        clear_auth: () => clearServerAuth(options.cwd, options.serverName),
+        read_resource: () => readServerResource(options.cwd, options.serverName, options.resourceUri),
+        open_resource: () => openViewerResource(options),
+        open_tool_ui: () => openToolUi(options),
+        close_viewer: () => closeViewer(),
+      },
+      syncSnapshot,
+      reconcileManagedServers,
+      startKeepAliveScheduler: () => keepAliveScheduler.start(),
+      sessionRefCount,
+      hasAttachedPi: !!attachedPi,
+    }));
   }
   function executeProxyAction(action: ProxyAction, options: { cwd?: string; query?: string; serverName?: string; toolName?: string; resourceUri?: string; toolArguments?: Record<string, unknown>; argumentsJson?: string; } = {}): Promise<ToolResult> {
     return runExclusive(async () => executeProxyActionInternal({

@@ -80,6 +80,9 @@ async function searchProxyInventory(options: ProxyToolOptions, synced: SyncedRun
   if (!query) {
     return createToolResult('Error: Search query is required.', { mode: 'search' });
   }
+  // Search stays intentionally broad: whitespace-separated query tokens are
+  // treated as OR terms so short discovery prompts like "read file" or
+  // "github issue" still surface likely matches from cached MCP inventory.
   const pattern = new RegExp(query.split(/\s+/).filter(Boolean).map(escapeRegex).join('|'), 'i');
   const matches: Array<Record<string, unknown>> = [];
   const servers = options.serverName?.trim() ? [options.serverName.trim()] : Object.keys(synced.config.mcpServers);

@@ -1,4 +1,9 @@
+import { LATEST_PROTOCOL_VERSION } from '@modelcontextprotocol/ext-apps/app-bridge';
 import type { UiResourceContent, UiToolInfo } from './types';
+
+// Keep this aligned with the desktop host version until the shell exposes a
+// runtime version constant to plugin extensions.
+const SERO_HOST_VERSION = '0.1.0';
 
 export function buildHostHtmlTemplate(input: {
   sessionId: string;
@@ -63,7 +68,7 @@ export function buildHostHtmlTemplate(input: {
     const ALLOW_ATTRIBUTE = ${safeInlineJson(input.allowAttribute)};
     const iframe = document.getElementById('mcp-ui');
     const statusBadge = document.getElementById('status-badge');
-    const hostInfo = { name: 'Sero', version: '0.1.0' };
+    const hostInfo = { name: 'Sero', version: ${safeInlineJson(SERO_HOST_VERSION)} };
     const hostCapabilities = {
       openLinks: {},
       downloadFile: {},
@@ -111,7 +116,7 @@ export function buildHostHtmlTemplate(input: {
 
       try {
         if (method === 'ui/initialize' && isRequest) {
-          sendResult(id, { protocolVersion: '2026-01-26', hostInfo, hostCapabilities, hostContext: HOST_CONTEXT });
+          sendResult(id, { protocolVersion: ${safeInlineJson(LATEST_PROTOCOL_VERSION)}, hostInfo, hostCapabilities, hostContext: HOST_CONTEXT });
           return;
         }
         if (method === 'ping' && isRequest) {
@@ -225,11 +230,29 @@ export function buildHostHtmlTemplate(input: {
     if (ALLOW_ATTRIBUTE) {
       iframe.setAttribute('allow', ALLOW_ATTRIBUTE);
     }
-    iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-popups allow-downloads');
+    // Deliberately omit allow-same-origin so embedded MCP UIs cannot reach back
+    // into the host frame directly; they must go through the AppBridge-style
+    // postMessage contract exposed by this viewer shell.
+    iframe.setAttribute('sandbox', 'allow-scripts allow-forms allow-popups allow-downloads');
     iframe.src = '/ui-app?session=' + encodeURIComponent(SESSION_ID);
   </script>
 </body>
 </html>`;
+}
+
+export function buildViewerHostCspContent(): string {
+  return [
+    "default-src 'none'",
+    "script-src 'unsafe-inline'",
+    "style-src 'unsafe-inline'",
+    "img-src 'self' data:",
+    "connect-src 'self'",
+    "frame-src 'self'",
+    "font-src 'none'",
+    "object-src 'none'",
+    "base-uri 'none'",
+    "form-action 'none'",
+  ].join('; ');
 }
 
 export function buildCspMetaContent(csp: UiResourceContent['meta']['csp']): string | undefined {

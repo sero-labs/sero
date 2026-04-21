@@ -4,7 +4,7 @@ import { buildAllowAttribute } from '@modelcontextprotocol/ext-apps/app-bridge';
 import { UnauthorizedError } from '@modelcontextprotocol/sdk/client/auth.js';
 import type { CallToolResult, ReadResourceResult } from '@modelcontextprotocol/sdk/types.js';
 import type { McpServerManager } from '../manager/server-manager';
-import { applyCspMeta, buildCspMetaContent, buildHostHtmlTemplate } from './host-template';
+import { applyCspMeta, buildCspMetaContent, buildHostHtmlTemplate, buildViewerHostCspContent } from './host-template';
 import type { UiResourceContent, UiToolInfo } from './types';
 
 const MAX_BODY_SIZE = 2 * 1024 * 1024;
@@ -54,21 +54,26 @@ export async function startUiServer(options: UiServerOptions): Promise<UiServerH
 
       if (method === 'GET' && url.pathname === '/') {
         if (!validateSessionQuery(url, sessionId, response)) return;
-        sendHtml(response, buildHostHtmlTemplate({
-          sessionId,
-          serverName: options.serverName,
-          resourceUri: options.resourceUri,
-          title: options.title,
-          allowAttribute: buildAllowAttribute(options.resource.meta.permissions),
-          toolArgs: options.toolArgs ?? {},
-          toolInfo: options.toolInfo,
-        }));
+        sendHtml(
+          response,
+          buildHostHtmlTemplate({
+            sessionId,
+            serverName: options.serverName,
+            resourceUri: options.resourceUri,
+            title: options.title,
+            allowAttribute: buildAllowAttribute(options.resource.meta.permissions),
+            toolArgs: options.toolArgs ?? {},
+            toolInfo: options.toolInfo,
+          }),
+          buildViewerHostCspContent(),
+        );
         return;
       }
 
       if (method === 'GET' && url.pathname === '/ui-app') {
         if (!validateSessionQuery(url, sessionId, response)) return;
-        sendHtml(response, applyCspMeta(options.resource.html, buildCspMetaContent(options.resource.meta.csp)));
+        const csp = buildCspMetaContent(options.resource.meta.csp);
+        sendHtml(response, applyCspMeta(options.resource.html, csp), csp);
         return;
       }
 
@@ -245,10 +250,11 @@ async function readBody(request: IncomingMessage): Promise<unknown> {
   return JSON.parse(bodyText);
 }
 
-function sendHtml(response: ServerResponse, html: string): void {
+function sendHtml(response: ServerResponse, html: string, csp?: string): void {
   response.writeHead(200, {
     'Content-Type': 'text/html; charset=utf-8',
     'Cache-Control': 'no-store',
+    ...(csp ? { 'Content-Security-Policy': csp } : {}),
   });
   response.end(html);
 }
@@ -290,28 +296,3 @@ function listen(server: http.Server): Promise<number> {
   });
 }
 
-function safeInlineJson(value: unknown): string {
-  return JSON.stringify(value)
-    .replace(/</g, '\\u003c')
-    .replace(/>/g, '\\u003e')
-    .replace(/&/g, '\\u0026')
-    .replace(/\u2028/g, '\\u2028')
-    .replace(/\u2029/g, '\\u2029');
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
-function escapeHtmlAttribute(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/"/g, '&quot;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-}

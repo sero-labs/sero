@@ -30,6 +30,9 @@ export function setupMainWindowSecurity(
     hardenMainWindowWebviewPreferences(webPreferences);
 
     const src = typeof params.src === 'string' ? params.src : '';
+    // The renderer must opt into the dedicated MCP auth partition explicitly.
+    // Once accepted, we still force the hardened partition here so the final
+    // webview prefs cannot be swapped by renderer-controlled attributes.
     const partition = typeof params.partition === 'string' ? params.partition : '';
     if (!isAllowedMainWindowWebview(src, partition)) {
       console.warn(`[security] Blocked webview attachment for ${src || '<missing src>'}`);

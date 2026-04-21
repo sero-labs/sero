@@ -31,7 +31,7 @@ export function McpResourceViewer({
         <iframe
           title={session.resourceUri}
           src={session.viewerUrl}
-          sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-downloads"
+          sandbox="allow-scripts allow-forms allow-popups allow-downloads"
           referrerPolicy="no-referrer"
           className="h-[560px] w-full rounded-lg border border-border bg-background"
         />
