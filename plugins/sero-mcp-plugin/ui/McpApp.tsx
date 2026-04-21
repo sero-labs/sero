@@ -1,4 +1,4 @@
-import { useMemo, type ComponentType } from 'react';
+import { useMemo, useState, type ComponentType } from 'react';
 import { useAppState } from '@sero-ai/app-runtime';
 import { Alert, AlertDescription, AlertTitle } from '@sero-ai/ui/components/ui/alert';
 import { Badge } from '@sero-ai/ui/components/ui/badge';
@@ -10,6 +10,7 @@ import type { McpAppState } from '../shared/types';
 import { createDefaultMcpState } from '../shared/types';
 import { McpRawConfigPanel } from './components/config/McpRawConfigPanel';
 import { McpDiagnosticsPanel } from './components/diagnostics/McpDiagnosticsPanel';
+import { McpSearchWorkbenchPanel } from './components/search/McpSearchWorkbenchPanel';
 import { McpServerCrudPanel } from './components/servers/McpServerCrudPanel';
 import { useMcpBootstrap } from './hooks/useMcpBootstrap';
 import { useMcpDiagnostics } from './hooks/useMcpDiagnostics';
@@ -22,6 +23,14 @@ export function McpApp() {
   const bootstrap = useMcpBootstrap();
   const diagnostics = useMcpDiagnostics();
   const rawConfig = useMcpRawConfig();
+  const [selectedServerName, setSelectedServerName] = useState<string | null>(null);
+
+  const resolvedSelectedServerName = useMemo(() => {
+    if (selectedServerName && state.servers.some((server) => server.serverName === selectedServerName)) {
+      return selectedServerName;
+    }
+    return state.servers[0]?.serverName ?? null;
+  }, [selectedServerName, state.servers]);
 
   const summaryCards = useMemo(() => {
     return [
@@ -45,7 +54,7 @@ export function McpApp() {
             <p className="max-w-3xl text-sm text-muted-foreground">
               Sero-native MCP management now supports snapshot bootstrap, connect/reconnect, eager and keep-alive
               lifecycle startup, cache-backed metadata, a dedicated viewer/auth pane for resources and OAuth,
-              and basic in-app UI-tool launching.
+              a cross-server search workbench, and basic in-app UI-tool launching.
             </p>
           </div>
 
@@ -97,7 +106,18 @@ export function McpApp() {
 
         <McpDiagnosticsPanel state={diagnostics} />
         <McpRawConfigPanel state={rawConfig} />
-        <McpServerCrudPanel servers={state.servers} />
+        {state.servers.length > 0 && (
+          <McpSearchWorkbenchPanel
+            servers={state.servers}
+            selectedServerName={resolvedSelectedServerName}
+            onSelectServer={setSelectedServerName}
+          />
+        )}
+        <McpServerCrudPanel
+          servers={state.servers}
+          selectedServerName={resolvedSelectedServerName}
+          onSelectServerName={setSelectedServerName}
+        />
 
         <section className="grid gap-4 xl:grid-cols-[1.3fr_0.9fr]">
           {state.firstRun ? (
@@ -105,8 +125,8 @@ export function McpApp() {
               <CardHeader>
                 <CardTitle>Start with a first MCP server</CardTitle>
                 <CardDescription>
-                  The plugin has created its config and state files. Next slices will add the full setup wizard,
-                  forms-first server creation, and in-plugin auth/resource flows.
+                  The plugin has created its config and state files. Use the Add server flow above to create the
+                  first MCP server, then use the viewer/auth pane once resources or OAuth flows are available.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3 text-sm text-muted-foreground">
@@ -118,7 +138,7 @@ export function McpApp() {
                   <strong>{state.settings.toolPrefix}</strong>.
                 </p>
                 <p>
-                  For now, you can refresh this view after editing the config file manually while the CRUD UI is under construction.
+                  You can still inspect and edit the raw config directly if you want to seed a more advanced setup before using the forms-first management flow.
                 </p>
               </CardContent>
             </Card>
@@ -162,6 +182,7 @@ export function McpApp() {
               <FeatureRow icon={Server} title="Sero-aware storage" body="State, config, metadata cache, and OAuth token paths resolve through Sero-aware helpers with Pi fallback behavior." />
               <FeatureRow icon={PlugZap} title="Lifecycle bootstrap" body="Enabled eager and keep-alive servers now auto-connect on bootstrap and keep-alive servers retry in the background." />
               <FeatureRow icon={Wrench} title="Viewer pane" body="Discovered resources and UI-capable tools now open in a dedicated MCP viewer pane instead of pushing you out to a popup or external browser." />
+              <FeatureRow icon={AlertCircle} title="Search workbench" body="Search cached MCP tools and resources across servers, then jump directly into the matching server detail view." />
               <FeatureRow icon={ShieldCheck} title="Embedded OAuth auth" body="OAuth servers now launch a hardened auth browser in the same viewer pane and complete loopback callbacks without leaving the app." />
             </CardContent>
           </Card>

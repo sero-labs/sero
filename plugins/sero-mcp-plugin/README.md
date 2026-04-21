@@ -9,6 +9,7 @@ This plugin adapts the `pi-mcp-adapter` backend ideas into a **Sero-native, UI-f
 - inspect connection/auth/metadata state
 - preview embedded MCP resources inside the plugin
 - launch basic UI-capable MCP tool resources in the dedicated viewer pane
+- search cached MCP tools/resources across servers from a top-level workbench
 - use a single bridged `mcp` proxy tool from Sero chat or the CLI
 
 ## Current v1 surface
@@ -24,6 +25,7 @@ The MCP app currently supports:
 - diagnostics
 - embedded OAuth browser flows
 - dedicated viewer/auth pane for resources, tool UIs, and OAuth flows
+- top-level MCP search workbench
 - resource preview
 - basic UI-tool launching by opening the advertised UI resource
 - basic MCP tool runner in the server detail view

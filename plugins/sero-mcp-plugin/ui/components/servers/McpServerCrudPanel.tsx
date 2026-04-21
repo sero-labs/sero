@@ -17,12 +17,22 @@ import {
 import { useMcpServerMutations } from '../../hooks/useMcpServerMutations';
 import { McpServerDetailPanel } from './McpServerDetailPanel';
 
-export function McpServerCrudPanel({ servers }: { servers: McpServerSnapshot[] }) {
+export function McpServerCrudPanel({
+  servers,
+  selectedServerName: controlledSelectedServerName,
+  onSelectServerName,
+}: {
+  servers: McpServerSnapshot[];
+  selectedServerName?: string | null;
+  onSelectServerName?: (serverName: string) => void;
+}) {
   const mutations = useMcpServerMutations();
   const [draft, setDraft] = useState<McpServerEditorInput | null>(null);
-  const [selectedServerName, setSelectedServerName] = useState<string | null>(null);
+  const [uncontrolledSelectedServerName, setUncontrolledSelectedServerName] = useState<string | null>(null);
 
   const sortedServers = useMemo(() => [...servers].sort((a, b) => a.serverName.localeCompare(b.serverName)), [servers]);
+  const selectedServerName = controlledSelectedServerName ?? uncontrolledSelectedServerName;
+  const setSelectedServerName = onSelectServerName ?? setUncontrolledSelectedServerName;
   const selectedServer = useMemo(
     () => sortedServers.find((server) => server.serverName === selectedServerName) ?? sortedServers[0] ?? null,
     [selectedServerName, sortedServers],
