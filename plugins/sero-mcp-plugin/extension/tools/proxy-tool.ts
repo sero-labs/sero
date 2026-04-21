@@ -5,7 +5,7 @@ import type { McpRuntime } from '../runtime/mcp-runtime';
 import type { CliContext, CliResult, ProxyAction } from './types';
 
 const ProxyParams = Type.Object({
-  action: Type.Optional(StringEnum(['status', 'list', 'search', 'list_tools', 'describe_tool', 'call_tool'] as const)),
+  action: Type.Optional(StringEnum(['status', 'list', 'search', 'list_tools', 'list_resources', 'describe_tool', 'call_tool'] as const)),
   query: Type.Optional(Type.String({ description: 'Search query for MCP tools and resources.' })),
   serverName: Type.Optional(Type.String({ description: 'Server name for MCP tool inventory or calls.' })),
   toolName: Type.Optional(Type.String({ description: 'Exact MCP tool name for describe_tool or call_tool.' })),
@@ -29,7 +29,7 @@ export function registerMcpProxyTool(pi: ExtensionAPI, runtime: McpRuntime): voi
     parameters: ProxyParams,
     cli: {
       summary: 'Inspect, search, and call MCP servers through one proxy surface',
-      help: 'sero mcp status | list | search <query> | tools <server> | describe <server> <tool> | call <server> <tool> [jsonArgs] | connect <server> | reconnect <server> | enable <server> | disable <server>',
+      help: 'sero mcp status | list | search <query> | tools <server> | resources <server> | describe <server> <tool> | call <server> <tool> [jsonArgs] | connect <server> | reconnect <server> | enable <server> | disable <server>',
       async execute(args: string[], ctx: CliContext) {
         const action = parseCliCommand(args);
         if (action.kind === 'usage-error') {
@@ -101,6 +101,11 @@ function parseCliCommand(args: string[]): CliCommand {
     return serverName
       ? { kind: 'proxy', action: 'list_tools', serverName }
       : { kind: 'usage-error', message: 'Usage: sero mcp tools <server>' };
+  }
+  if (subcommand === 'resources') {
+    return serverName
+      ? { kind: 'proxy', action: 'list_resources', serverName }
+      : { kind: 'usage-error', message: 'Usage: sero mcp resources <server>' };
   }
   if (subcommand === 'describe') {
     const toolName = args[2]?.trim();

@@ -15,7 +15,6 @@ import { createToolResult, type ProxyAction, type ToolResult } from '../tools/ty
 import { reconcileConnection } from './runtime-connect';
 import { formatServerList, formatStatusSummary } from './runtime-utils';
 import type { SyncedRuntimeState } from './runtime-types';
-
 interface ProxyToolOptions {
   cwd?: string;
   query?: string;
@@ -33,23 +32,19 @@ interface ProxyToolOptions {
     },
   ) => Promise<SyncedRuntimeState>;
 }
-
 interface ToolInventoryEntry {
   name: string;
   description?: string;
   inputSchema?: unknown;
   uiResourceUri?: string;
 }
-
 interface ResourceInventoryEntry {
   uri: string;
   name: string;
   description?: string;
 }
-
 export async function executeProxyAction(options: ProxyToolOptions & { action: ProxyAction }): Promise<ToolResult> {
   const synced = await options.syncSnapshot(options.cwd);
-
   switch (options.action) {
     case 'status':
       return createToolResult(formatStatusSummary(synced.snapshot), {
@@ -65,6 +60,8 @@ export async function executeProxyAction(options: ProxyToolOptions & { action: P
       return searchProxyInventory(options, synced);
     case 'list_tools':
       return listServerTools(options, synced);
+    case 'list_resources':
+      return listServerResources(options, synced);
     case 'describe_tool':
       return describeServerTool(options, synced);
     case 'call_tool':
@@ -73,21 +70,17 @@ export async function executeProxyAction(options: ProxyToolOptions & { action: P
       return createToolResult('Error: Unsupported MCP proxy action.', { mode: 'unknown_action' });
   }
 }
-
 async function searchProxyInventory(options: ProxyToolOptions, synced: SyncedRuntimeState): Promise<ToolResult> {
   const query = options.query?.trim();
   if (!query) {
     return createToolResult('Error: Search query is required.', { mode: 'search' });
   }
-
   const pattern = new RegExp(query.split(/\s+/).filter(Boolean).map(escapeRegex).join('|'), 'i');
   const matches: Array<Record<string, unknown>> = [];
   const servers = options.serverName?.trim() ? [options.serverName.trim()] : Object.keys(synced.config.mcpServers);
-
   for (const serverName of servers) {
     const toolInventory = getToolInventory(serverName, synced, options.manager);
     const resourceInventory = getResourceInventory(serverName, synced, options.manager);
-
     for (const tool of toolInventory) {
       if (pattern.test(tool.name) || pattern.test(tool.description ?? '')) {
         matches.push({
@@ -99,7 +92,6 @@ async function searchProxyInventory(options: ProxyToolOptions, synced: SyncedRun
         });
       }
     }
-
     for (const resource of resourceInventory) {
       if (pattern.test(resource.name) || pattern.test(resource.description ?? '') || pattern.test(resource.uri)) {
         matches.push({
@@ -112,14 +104,12 @@ async function searchProxyInventory(options: ProxyToolOptions, synced: SyncedRun
       }
     }
   }
-
   if (matches.length === 0) {
     return createToolResult(
       `No MCP tools or resources matched "${query}". Connect or refresh servers in the MCP app if metadata has not been loaded yet.`,
       { mode: 'search', query, matches: [] },
     );
   }
-
   const lines = [`Found ${matches.length} MCP match(es) for "${query}":`, ''];
   for (const match of matches) {
     if (match.kind === 'tool') {
@@ -132,26 +122,21 @@ async function searchProxyInventory(options: ProxyToolOptions, synced: SyncedRun
       }
       continue;
     }
-
     lines.push(`- [resource] ${match.serverName as string} ${match.uri as string}`);
     if (typeof match.description === 'string' && match.description) {
       lines.push(`  ${match.description}`);
     }
   }
-
   return createToolResult(lines.join('\n'), { mode: 'search', query, matches });
 }
-
 async function listServerTools(options: ProxyToolOptions, synced: SyncedRuntimeState): Promise<ToolResult> {
   const serverName = options.serverName?.trim();
   if (!serverName) {
     return createToolResult('Error: Server name is required.', { mode: 'list_tools' });
   }
-
   if (!synced.config.mcpServers[serverName]) {
     return createToolResult(`Error: Server "${serverName}" does not exist.`, { mode: 'list_tools', serverName });
   }
-
   const tools = getToolInventory(serverName, synced, options.manager);
   if (tools.length === 0) {
     return createToolResult(getMissingMetadataMessage(serverName, synced), {
@@ -160,7 +145,6 @@ async function listServerTools(options: ProxyToolOptions, synced: SyncedRuntimeS
       tools: [],
     });
   }
-
   const lines = [`${serverName} tools (${tools.length}):`, ''];
   for (const tool of tools) {
     lines.push(`- ${tool.name}${tool.uiResourceUri ? ' [UI]' : ''}`);
@@ -168,7 +152,6 @@ async function listServerTools(options: ProxyToolOptions, synced: SyncedRuntimeS
       lines.push(`  ${tool.description}`);
     }
   }
-
   return createToolResult(lines.join('\n'), {
     mode: 'list_tools',
     serverName,
@@ -179,7 +162,40 @@ async function listServerTools(options: ProxyToolOptions, synced: SyncedRuntimeS
     })),
   });
 }
-
+async function listServerResources(options: ProxyToolOptions, synced: SyncedRuntimeState): Promise<ToolResult> {
+  const serverName = options.serverName?.trim();
+  if (!serverName) {
+    return createToolResult('Error: Server name is required.', { mode: 'list_resources' });
+  }
+  if (!synced.config.mcpServers[serverName]) {
+    return createToolResult(`Error: Server "${serverName}" does not exist.`, { mode: 'list_resources', serverName });
+  }
+  const resources = getResourceInventory(serverName, synced, options.manager);
+  if (resources.length === 0) {
+    return createToolResult(getMissingMetadataMessage(serverName, synced), {
+      mode: 'list_resources',
+      serverName,
+      resources: [],
+    });
+  }
+  const lines = [`${serverName} resources (${resources.length}):`, ''];
+  for (const resource of resources) {
+    lines.push(`- ${resource.name}`);
+    lines.push(`  ${resource.uri}`);
+    if (resource.description) {
+      lines.push(`  ${resource.description}`);
+    }
+  }
+  return createToolResult(lines.join('\n'), {
+    mode: 'list_resources',
+    serverName,
+    resources: resources.map((resource) => ({
+      uri: resource.uri,
+      name: resource.name,
+      description: resource.description ?? null,
+    })),
+  });
+}
 async function describeServerTool(options: ProxyToolOptions, synced: SyncedRuntimeState): Promise<ToolResult> {
   const serverName = options.serverName?.trim();
   const toolName = options.toolName?.trim();
@@ -192,7 +208,6 @@ async function describeServerTool(options: ProxyToolOptions, synced: SyncedRunti
   if (!synced.config.mcpServers[serverName]) {
     return createToolResult(`Error: Server "${serverName}" does not exist.`, { mode: 'describe_tool', serverName });
   }
-
   const tool = getToolInventory(serverName, synced, options.manager).find((entry) => entry.name === toolName);
   if (!tool) {
     return createToolResult(
@@ -200,7 +215,6 @@ async function describeServerTool(options: ProxyToolOptions, synced: SyncedRunti
       { mode: 'describe_tool', serverName, toolName },
     );
   }
-
   const lines = [`Tool: ${serverName}.${tool.name}`];
   if (tool.description) {
     lines.push('', tool.description);
@@ -209,7 +223,6 @@ async function describeServerTool(options: ProxyToolOptions, synced: SyncedRunti
     lines.push('', `UI resource: ${tool.uiResourceUri}`);
   }
   lines.push('', 'Input schema:', formatUnknown(tool.inputSchema ?? '(no schema reported)'));
-
   return createToolResult(lines.join('\n'), {
     mode: 'describe_tool',
     serverName,
@@ -218,7 +231,6 @@ async function describeServerTool(options: ProxyToolOptions, synced: SyncedRunti
     uiResourceUri: tool.uiResourceUri ?? null,
   });
 }
-
 async function callServerTool(options: ProxyToolOptions, synced: SyncedRuntimeState): Promise<ToolResult> {
   const serverName = options.serverName?.trim();
   const toolName = options.toolName?.trim();
@@ -228,7 +240,6 @@ async function callServerTool(options: ProxyToolOptions, synced: SyncedRuntimeSt
   if (!toolName) {
     return createToolResult('Error: Tool name is required.', { mode: 'call_tool', serverName });
   }
-
   const serverConfig = synced.config.mcpServers[serverName];
   if (!serverConfig) {
     return createToolResult(`Error: Server "${serverName}" does not exist.`, { mode: 'call_tool', serverName, toolName });
@@ -240,12 +251,10 @@ async function callServerTool(options: ProxyToolOptions, synced: SyncedRuntimeSt
       toolName,
     });
   }
-
   const toolArguments = parseToolArguments(options.argumentsJson);
   if (toolArguments instanceof Error) {
     return createToolResult(`Error: ${toolArguments.message}`, { mode: 'call_tool', serverName, toolName });
   }
-
   const connection = await ensureConnectedServer(options, synced, serverName);
   if (connection.status === 'needs-auth') {
     return createToolResult(buildAuthRequiredMessage(serverName), {
@@ -261,7 +270,6 @@ async function callServerTool(options: ProxyToolOptions, synced: SyncedRuntimeSt
       { mode: 'call_tool', serverName, toolName },
     );
   }
-
   const liveTool = connection.tools.find((tool) => tool.name === toolName);
   if (!liveTool) {
     const availableTools = connection.tools.map((tool) => tool.name).sort();
@@ -270,7 +278,6 @@ async function callServerTool(options: ProxyToolOptions, synced: SyncedRuntimeSt
       { mode: 'call_tool', serverName, toolName, availableTools },
     );
   }
-
   try {
     const result = await options.manager.callTool(serverName, toolName, toolArguments);
     const text = formatCallToolResult(serverName, liveTool, result);
@@ -302,7 +309,6 @@ async function callServerTool(options: ProxyToolOptions, synced: SyncedRuntimeSt
         snapshotWritten: true,
       });
     }
-
     const message = error instanceof Error ? error.message : String(error);
     return createToolResult(`Error: Failed to call MCP tool "${toolName}" on "${serverName}". ${message}`, {
       mode: 'call_tool',
@@ -311,7 +317,6 @@ async function callServerTool(options: ProxyToolOptions, synced: SyncedRuntimeSt
     });
   }
 }
-
 async function ensureConnectedServer(
   options: ProxyToolOptions,
   synced: SyncedRuntimeState,
@@ -321,7 +326,6 @@ async function ensureConnectedServer(
   if (existing?.status === 'connected' || existing?.status === 'needs-auth') {
     return existing;
   }
-
   const serverConfig = synced.config.mcpServers[serverName];
   const connection = existing
     ? await options.manager.reconnect(serverName, serverConfig)
@@ -337,37 +341,30 @@ async function ensureConnectedServer(
   await options.syncSnapshot(options.cwd, { config: synced.config, metadataCache: nextCache });
   return connection;
 }
-
 function getToolInventory(serverName: string, synced: SyncedRuntimeState, manager: McpServerManager): ToolInventoryEntry[] {
   const connection = manager.getConnection(serverName);
   if (connection?.status === 'connected') {
     return serializeTools(connection.tools);
   }
-
   const serverConfig = synced.config.mcpServers[serverName];
   const cachedEntry = serverConfig ? synced.metadataCache.servers[serverName] : undefined;
   if (serverConfig && cachedEntry && isMetadataCacheEntryValid(cachedEntry, serverConfig)) {
     return cachedEntry.tools;
   }
-
   return [];
 }
-
 function getResourceInventory(serverName: string, synced: SyncedRuntimeState, manager: McpServerManager): ResourceInventoryEntry[] {
   const connection = manager.getConnection(serverName);
   if (connection?.status === 'connected') {
     return serializeResources(connection.resources);
   }
-
   const serverConfig = synced.config.mcpServers[serverName];
   const cachedEntry = serverConfig ? synced.metadataCache.servers[serverName] : undefined;
   if (serverConfig && cachedEntry && isMetadataCacheEntryValid(cachedEntry, serverConfig)) {
     return cachedEntry.resources;
   }
-
   return [];
 }
-
 function getMissingMetadataMessage(serverName: string, synced: SyncedRuntimeState): string {
   const server = synced.snapshot.servers.find((entry) => entry.serverName === serverName);
   if (server?.connectionStatus === 'needs-auth' || server?.authStatus === 'not-authenticated') {
@@ -375,17 +372,14 @@ function getMissingMetadataMessage(serverName: string, synced: SyncedRuntimeStat
   }
   return `No MCP metadata is cached for "${serverName}" yet. Connect or refresh this server in the MCP app first.`;
 }
-
 function buildAuthRequiredMessage(serverName: string): string {
   return `Server "${serverName}" requires in-app authentication. Open the MCP app in Sero and authenticate there.`;
 }
-
 function parseToolArguments(argumentsJson: string | undefined): Record<string, unknown> | undefined | Error {
   const trimmed = argumentsJson?.trim();
   if (!trimmed) {
     return undefined;
   }
-
   try {
     const parsed = JSON.parse(trimmed) as unknown;
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
@@ -396,14 +390,12 @@ function parseToolArguments(argumentsJson: string | undefined): Record<string, u
     return new Error('Tool arguments must be valid JSON.');
   }
 }
-
 function formatCallToolResult(serverName: string, tool: ManagedTool, result: CallToolResult): string {
   const lines = extractResultContentLines(result);
   const text = lines.join('\n').trim();
   const uiResourceUri = getToolUiResourceUri({ _meta: tool._meta });
   const structured = formatStructuredContent(result.structuredContent);
   const sections = [text || (result.isError ? 'Tool execution failed.' : '(empty result)')];
-
   if (structured) {
     sections.push(`Structured content:\n${structured}`);
   }
@@ -413,20 +405,17 @@ function formatCallToolResult(serverName: string, tool: ManagedTool, result: Cal
   if (result.isError && tool.inputSchema) {
     sections.push(`Expected input schema:\n${formatUnknown(tool.inputSchema)}`);
   }
-
   const body = sections.join('\n\n');
   return result.isError
     ? `Error: MCP tool ${serverName}.${tool.name} failed.\n\n${body}`
     : `MCP tool result from ${serverName}.${tool.name}:\n\n${body}`;
 }
-
 function extractResultContentLines(result: CallToolResult): string[] {
   const contents = Array.isArray(result.content) ? result.content : [];
   return contents.map((entry) => {
     if (!entry || typeof entry !== 'object') {
       return '[unknown MCP content]';
     }
-
     const block = entry as Record<string, unknown>;
     if (block.type === 'text' && typeof block.text === 'string') {
       return block.text;
@@ -447,14 +436,12 @@ function extractResultContentLines(result: CallToolResult): string[] {
     return `[${typeof block.type === 'string' ? block.type : 'unknown'} content]`;
   });
 }
-
 function formatStructuredContent(value: unknown): string {
   if (value === undefined) {
     return '';
   }
   return formatUnknown(value);
 }
-
 function formatUnknown(value: unknown): string {
   if (typeof value === 'string') {
     return value;
@@ -465,7 +452,6 @@ function formatUnknown(value: unknown): string {
     return String(value);
   }
 }
-
 function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

@@ -121,6 +121,29 @@ describe('executeProxyAction', () => {
     expect(result.details.matches).toHaveLength(2);
   });
 
+  it('lists cached server resources', async () => {
+    const serverConfig: McpServerConfig = { command: 'node', args: ['server.js'] };
+    const synced = createSyncedState(serverConfig);
+    const result = await executeProxyAction({
+      action: 'list_resources',
+      serverName: 'github',
+      manager: { getConnection: () => undefined } as unknown as McpServerManager,
+      setRuntimeStatus: () => {},
+      syncSnapshot: async () => synced,
+    });
+
+    const text = result.content[0]?.text ?? '';
+    expect(text).toContain('github resources (1):');
+    expect(text).toContain('ui://github/dashboard');
+    expect(result.details.resources).toEqual([
+      {
+        uri: 'ui://github/dashboard',
+        name: 'Dashboard',
+        description: 'Embedded GitHub dashboard',
+      },
+    ]);
+  });
+
   it('describes a cached tool including its input schema', async () => {
     const serverConfig: McpServerConfig = { command: 'node', args: ['server.js'] };
     const synced = createSyncedState(serverConfig);
