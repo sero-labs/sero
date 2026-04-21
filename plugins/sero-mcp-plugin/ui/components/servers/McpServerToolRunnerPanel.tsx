@@ -85,8 +85,13 @@ export function McpServerToolRunnerPanel({
                 <div className="flex items-center justify-between gap-3">
                   <Label htmlFor={`mcp-tool-input-${server.serverName}`}>Tool input JSON</Label>
                   <div className="flex gap-2">
-                    {toolRunner.result?.uiResourceUri && (
-                      <Button type="button" size="sm" variant="outline" onClick={() => onOpenResource(toolRunner.result!.uiResourceUri!)}>
+                    {(selectedTool?.uiResourceUri || toolRunner.result?.uiResourceUri) && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => onOpenResource(selectedTool?.uiResourceUri ?? toolRunner.result?.uiResourceUri ?? '')}
+                      >
                         Open advertised UI
                       </Button>
                     )}
@@ -124,10 +129,19 @@ export function McpServerToolRunnerPanel({
                       </Button>
                     )}
                   </div>
-                  <pre className="max-h-[260px] overflow-auto rounded-lg border border-border bg-background p-4 text-xs leading-6 text-muted-foreground">
+                  <pre className="max-h-[220px] overflow-auto rounded-lg border border-border bg-background p-4 text-xs leading-6 text-muted-foreground">
                     {toolRunner.result ? toolRunner.result.text : 'Run a tool to inspect its latest bridged result here.'}
                   </pre>
                 </div>
+
+                {toolRunner.result?.structuredContent !== undefined && (
+                  <div className="space-y-2">
+                    <Label>Structured content</Label>
+                    <pre className="max-h-[220px] overflow-auto rounded-lg border border-border bg-background p-4 text-xs leading-6 text-muted-foreground">
+                      {formatUnknown(toolRunner.result.structuredContent)}
+                    </pre>
+                  </div>
+                )}
               </div>
             </div>
           </>
