@@ -1,3 +1,4 @@
+import { UnauthorizedError } from '@modelcontextprotocol/sdk/client/auth.js';
 import { describe, expect, it, vi } from 'vitest';
 import { computeServerHash } from '../cache/metadata-cache';
 import type { McpServerConfig } from '../config/types';
@@ -208,6 +209,47 @@ describe('executeProxyAction', () => {
       syncSnapshot: async () => synced,
     });
 
+    expect(result.content[0]?.text).toContain('requires in-app authentication');
+    expect(result.details.authRequired).toBe(true);
+  });
+
+  it('downgrades a connected OAuth server back to auth-required when a live tool call is unauthorized', async () => {
+    const serverConfig: McpServerConfig = {
+      url: 'https://example.com/mcp',
+      transport: 'http',
+      auth: 'oauth',
+    };
+    const synced = createSyncedState(serverConfig);
+    const close = vi.fn(async () => {});
+    const setRuntimeStatus = vi.fn();
+    const result = await executeProxyAction({
+      action: 'call_tool',
+      serverName: 'github',
+      toolName: 'search_docs',
+      manager: {
+        getConnection: () => ({
+          name: 'github',
+          client: null,
+          transport: null,
+          tools: [{ name: 'search_docs', inputSchema: { type: 'object' } }],
+          resources: [],
+          status: 'connected' as const,
+        }),
+        callTool: vi.fn(async () => {
+          throw new UnauthorizedError('Expired token');
+        }),
+        close,
+      } as unknown as McpServerManager,
+      setRuntimeStatus,
+      syncSnapshot: async () => synced,
+    });
+
+    expect(close).toHaveBeenCalledWith('github');
+    expect(setRuntimeStatus).toHaveBeenCalledWith('github', expect.objectContaining({
+      connectionStatus: 'needs-auth',
+      authStatus: 'not-authenticated',
+      lastError: 'Expired token',
+    }));
     expect(result.content[0]?.text).toContain('requires in-app authentication');
     expect(result.details.authRequired).toBe(true);
   });

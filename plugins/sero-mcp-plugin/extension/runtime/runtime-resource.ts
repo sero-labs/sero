@@ -1,3 +1,4 @@
+import { UnauthorizedError } from '@modelcontextprotocol/sdk/client/auth.js';
 import type { ReadResourceResult } from '@modelcontextprotocol/sdk/types.js';
 import type { McpResourcePreview } from '../../shared/types';
 import { readMetadataCache, type McpMetadataCacheDocument } from '../cache/metadata-cache';
@@ -92,6 +93,25 @@ export async function readServerResourceAction(options: {
       resourcePreview: preview,
     });
   } catch (error) {
+    if (error instanceof UnauthorizedError) {
+      const message = error.message || 'Authentication is required.';
+      await options.manager.close(serverName);
+      options.setRuntimeStatus(serverName, {
+        connectionStatus: 'needs-auth',
+        authStatus: 'not-authenticated',
+        lastError: message,
+        lastConnectedAt: null,
+        lastFailedAt: new Date().toISOString(),
+      });
+      await options.syncSnapshot(options.cwd, { config: synced.config });
+      return createToolResult(buildAuthRequiredMessage(serverName), {
+        snapshotWritten: true,
+        serverName,
+        resourceUri,
+        authRequired: true,
+      });
+    }
+
     const message = error instanceof Error ? error.message : String(error);
     return createToolResult(`Error: Failed to read resource "${resourceUri}" from "${serverName}". ${message}`, {
       snapshotWritten,
@@ -207,4 +227,8 @@ function formatJsonPreview(value: string): string {
   } catch {
     return value;
   }
+}
+
+function buildAuthRequiredMessage(serverName: string): string {
+  return `Server "${serverName}" requires in-app authentication. Open the MCP app in Sero and authenticate there.`;
 }

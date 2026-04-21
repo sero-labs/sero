@@ -1,9 +1,60 @@
-import { describe, expect, it } from 'vitest';
+import { UnauthorizedError } from '@modelcontextprotocol/sdk/client/auth.js';
+import { describe, expect, it, vi } from 'vitest';
 import type { ReadResourceResult } from '@modelcontextprotocol/sdk/types.js';
-import { normalizeResourcePreview } from '../runtime/runtime-resource';
+import { createEmptyMetadataCache } from '../cache/metadata-cache';
+import type { McpConfigDocument } from '../config/types';
+import type { McpServerManager } from '../manager/server-manager';
+import { normalizeResourcePreview, readServerResourceAction } from '../runtime/runtime-resource';
+import type { SyncedRuntimeState } from '../runtime/runtime-types';
 
 function createResult(contents: Array<Record<string, unknown>>): ReadResourceResult {
   return { contents } as unknown as ReadResourceResult;
+}
+
+function createSyncedState(config: McpConfigDocument): SyncedRuntimeState {
+  return {
+    configPath: '/tmp/mcp.json',
+    statePath: '/tmp/mcp-state.json',
+    config,
+    metadataCache: createEmptyMetadataCache(),
+    rawConfigUpdatedAt: null,
+    snapshot: {
+      initialized: true,
+      firstRun: false,
+      configPath: '/tmp/mcp.json',
+      rawConfigUpdatedAt: null,
+      servers: [
+        {
+          serverName: 'demo',
+          enabled: true,
+          transport: 'http',
+          lifecycle: 'lazy',
+          authMode: config.mcpServers.demo?.auth === 'oauth' ? 'oauth' : 'none',
+          connectionStatus: 'connected',
+          authStatus: config.mcpServers.demo?.auth === 'oauth' ? 'authenticated' : 'not-required',
+          toolCount: 0,
+          resourceCount: 0,
+          uiToolCount: 0,
+          url: config.mcpServers.demo?.url,
+          exposeResources: true,
+          debug: false,
+          lastConnectedAt: null,
+          lastFailedAt: null,
+          resources: [],
+          uiTools: [],
+        },
+      ],
+      settings: { idleTimeout: 10, toolPrefix: 'server' },
+      lastRefreshedAt: null,
+      summary: {
+        totalServers: 1,
+        enabledServers: 1,
+        connectedServers: 1,
+        needsAuthServers: 0,
+        errorServers: 0,
+      },
+    },
+  };
 }
 
 describe('normalizeResourcePreview', () => {
@@ -57,5 +108,53 @@ describe('normalizeResourcePreview', () => {
 
     expect(preview.previewKind).toBe('binary');
     expect(preview.text).toBeUndefined();
+  });
+});
+
+describe('readServerResourceAction', () => {
+  it('marks OAuth servers as needing auth again when a live resource read is unauthorized', async () => {
+    const config: McpConfigDocument = {
+      mcpServers: {
+        demo: {
+          url: 'https://example.com/mcp',
+          transport: 'http',
+          auth: 'oauth',
+        },
+      },
+    };
+    const synced = createSyncedState(config);
+    const close = vi.fn(async () => {});
+    const setRuntimeStatus = vi.fn();
+
+    const result = await readServerResourceAction({
+      cwd: '/tmp',
+      serverName: 'demo',
+      resourceUri: 'ui://demo/app',
+      manager: {
+        getConnection: () => ({
+          name: 'demo',
+          client: null,
+          transport: null,
+          tools: [],
+          resources: [],
+          status: 'connected' as const,
+        }),
+        readResource: vi.fn(async () => {
+          throw new UnauthorizedError('Expired token');
+        }),
+        close,
+      } as unknown as McpServerManager,
+      setRuntimeStatus,
+      syncSnapshot: async () => synced,
+    });
+
+    expect(close).toHaveBeenCalledWith('demo');
+    expect(setRuntimeStatus).toHaveBeenCalledWith('demo', expect.objectContaining({
+      connectionStatus: 'needs-auth',
+      authStatus: 'not-authenticated',
+      lastError: 'Expired token',
+    }));
+    expect(result.content[0]?.text).toContain('requires in-app authentication');
+    expect(result.details.authRequired).toBe(true);
   });
 });

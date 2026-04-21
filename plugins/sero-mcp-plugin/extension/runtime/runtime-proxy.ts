@@ -1,4 +1,5 @@
 import { getToolUiResourceUri } from '@modelcontextprotocol/ext-apps/app-bridge';
+import { UnauthorizedError } from '@modelcontextprotocol/sdk/client/auth.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import {
   isMetadataCacheEntryValid,
@@ -282,6 +283,26 @@ async function callServerTool(options: ProxyToolOptions, synced: SyncedRuntimeSt
       uiResourceUri: getToolUiResourceUri({ _meta: liveTool._meta }) ?? null,
     });
   } catch (error) {
+    if (error instanceof UnauthorizedError) {
+      const message = error.message || 'Authentication is required.';
+      await options.manager.close(serverName);
+      options.setRuntimeStatus(serverName, {
+        connectionStatus: 'needs-auth',
+        authStatus: 'not-authenticated',
+        lastError: message,
+        lastConnectedAt: null,
+        lastFailedAt: new Date().toISOString(),
+      });
+      await options.syncSnapshot(options.cwd, { config: synced.config });
+      return createToolResult(buildAuthRequiredMessage(serverName), {
+        mode: 'call_tool',
+        serverName,
+        toolName,
+        authRequired: true,
+        snapshotWritten: true,
+      });
+    }
+
     const message = error instanceof Error ? error.message : String(error);
     return createToolResult(`Error: Failed to call MCP tool "${toolName}" on "${serverName}". ${message}`, {
       mode: 'call_tool',
