@@ -12,6 +12,7 @@ import { McpRawConfigPanel } from './components/config/McpRawConfigPanel';
 import { McpDiagnosticsPanel } from './components/diagnostics/McpDiagnosticsPanel';
 import { McpSearchWorkbenchPanel } from './components/search/McpSearchWorkbenchPanel';
 import { McpServerCrudPanel } from './components/servers/McpServerCrudPanel';
+import { McpSetupWizard } from './components/wizard/McpSetupWizard';
 import { useMcpBootstrap } from './hooks/useMcpBootstrap';
 import { useMcpDiagnostics } from './hooks/useMcpDiagnostics';
 import { useMcpRawConfig } from './hooks/useMcpRawConfig';
@@ -121,27 +122,11 @@ export function McpApp() {
 
         <section className="grid gap-4 xl:grid-cols-[1.3fr_0.9fr]">
           {state.firstRun ? (
-            <Card className="animate-mcp-fade-in py-4">
-              <CardHeader>
-                <CardTitle>Start with a first MCP server</CardTitle>
-                <CardDescription>
-                  The plugin has created its config and state files. Use the Add server flow above to create the
-                  first MCP server, then use the viewer/auth pane once resources or OAuth flows are available.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3 text-sm text-muted-foreground">
-                <p>
-                  Config path: <span className="font-mono text-foreground">{state.configPath ?? 'pending bootstrap'}</span>
-                </p>
-                <p>
-                  Current defaults: idle timeout <strong>{state.settings.idleTimeout}m</strong>, tool prefix{' '}
-                  <strong>{state.settings.toolPrefix}</strong>.
-                </p>
-                <p>
-                  You can still inspect and edit the raw config directly if you want to seed a more advanced setup before using the forms-first management flow.
-                </p>
-              </CardContent>
-            </Card>
+            <McpSetupWizard
+              configPath={state.configPath}
+              settings={state.settings}
+              onCreated={setSelectedServerName}
+            />
           ) : (
             <Card className="animate-mcp-fade-in py-4">
               <CardHeader>

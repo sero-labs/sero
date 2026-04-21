@@ -6,7 +6,7 @@ Current checkpoint: `420f251c`
 
 ## Remaining product work
 
-- [ ] MCP-07 — finish the first-run wizard ([plan](./plan.md))
+- [x] MCP-07 — finish the first-run wizard ([plan](./plan.md))
 - [ ] MCP-09 — finish full viewer / AppBridge UI hosting *(current viewer/auth pane is a partial step)* ([plan](./plan.md))
 
 ## Remaining coverage work
