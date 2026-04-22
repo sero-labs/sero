@@ -91,6 +91,8 @@ Notes:
 - `pnpm test` currently runs the desktop Vitest suite.
 - `pnpm test:ci` mirrors the current alpha PR gate: typecheck, build, desktop
   tests, and desktop CI e2e.
+- package/plugin-local Vitest suites outside `@sero/desktop` remain explicitly
+  outside repo-level CI today and are run manually when relevant.
 - If Apple containers are unavailable, Sero can continue in host mode with a
   reduced feature set.
 - If native terminal support breaks, see the node-pty troubleshooting guide

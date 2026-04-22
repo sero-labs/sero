@@ -36,6 +36,7 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
 - [x] Complete public secret-handling docs sanitization wave
 - [x] Complete alpha support-scope documentation wave
 - [x] Complete troubleshooting flow docs wave
+- [x] Complete CI exclusion documentation wave
 
 ## Phase 0 — Preservation First
 
@@ -84,7 +85,7 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
 - [x] Add root `pnpm test`
 - [x] Add root `pnpm test:ci`
 - [ ] Add `turbo` `test` task if appropriate
-- [ ] Integrate package/plugin tests into repo-level CI or explicitly document exclusions
+- [x] Integrate package/plugin tests into repo-level CI or explicitly document exclusions
 - [ ] Ensure eval coverage still matches actual risk areas
 
 ## Phase 4 — Developer Workflow & Scripts
