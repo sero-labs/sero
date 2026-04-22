@@ -18,6 +18,9 @@ Current release posture:
 - **supported fallback:** host mode with reduced capabilities
 - **stability:** plugin/runtime contracts may still evolve during alpha
 
+Canonical alpha support matrix:
+- [`Support Scope`](./apps/docs-site/docs/reference/support-scope.md)
+
 Sero does **not** currently promise:
 - Linux support
 - Windows support
@@ -164,6 +167,9 @@ Current alpha caveats include:
 - host mode is supported, but it is intentionally a reduced experience
 - some CI/test/eval coverage is still being rationalized for public alpha
 - some plugin and internal runtime contracts may change during the alpha period
+
+For the canonical current support contract, see
+[`Support Scope`](./apps/docs-site/docs/reference/support-scope.md).
 
 ## Contributing and support
 

@@ -36,5 +36,9 @@ Current alpha posture:
 - fall back to host mode when containers are unavailable
 - expect some plugin and runtime contracts to evolve during alpha
 
+For the canonical current support contract, see
+[Support Scope](/reference/support-scope).
+
 See the guide pages for setup and the reference pages for architecture,
-plugins, testing, security, troubleshooting, and known limitations.
+support scope, plugins, testing, security, troubleshooting, and known
+limitations.

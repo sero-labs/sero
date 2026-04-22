@@ -2,6 +2,9 @@
 
 Sero OSS alpha is intentionally narrow.
 
+For the canonical supported / not-supported matrix, see
+[Support Scope](/reference/support-scope).
+
 ## Platform scope
 
 Current supported target:

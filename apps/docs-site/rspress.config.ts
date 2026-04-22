@@ -15,6 +15,7 @@ export default defineConfig({
         text: 'Reference',
         items: [
           { text: 'Architecture', link: '/reference/architecture' },
+          { text: 'Support Scope', link: '/reference/support-scope' },
           { text: 'Plugins', link: '/reference/plugins' },
           { text: 'Plugin Quickstart', link: '/reference/plugin-quickstart' },
           { text: 'Testing / Evals', link: '/reference/testing-evals' },
@@ -51,6 +52,7 @@ export default defineConfig({
           text: 'Concepts',
           items: [
             { text: 'Architecture', link: '/reference/architecture' },
+            { text: 'Support Scope', link: '/reference/support-scope' },
             { text: 'Plugins', link: '/reference/plugins' },
             { text: 'Plugin Quickstart', link: '/reference/plugin-quickstart' }
           ]

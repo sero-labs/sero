@@ -34,6 +34,7 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
 - [x] Complete clean-clone baseline validation wave
 - [x] Complete clean-clone desktop launch validation wave
 - [x] Complete public secret-handling docs sanitization wave
+- [x] Complete alpha support-scope documentation wave
 
 ## Phase 0 — Preservation First
 
@@ -162,10 +163,10 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
 
 ## Phase 11 — Final Go/No-Go Review
 
-- [ ] Known limitations list is explicit and public
+- [x] Known limitations list is explicit and public
 - [ ] Public docs are current and non-contradictory
 - [ ] CI is green on required gates
-- [ ] Maintainer knows exactly what is supported in alpha
+- [x] Maintainer knows exactly what is supported in alpha
 - [ ] Support/triage plan for early issues is documented
 - [ ] Launch copy and links are ready
 - [ ] Final go/no-go review completed

@@ -29,7 +29,8 @@ The container is the body. The Electron UI is the face. Pi is the mind.
 
 ## Platform & Constraints
 
-- **macOS 26 Tahoe+**, Apple Silicon exclusive
+- **Supported alpha target:** macOS on Apple Silicon
+- **Current maintainer-validated baseline:** macOS 26 Tahoe+
 - **Electron 33** (TypeScript + React)
 - **Apple Container CLI** (`container` v0.8.0+) is **strongly recommended** for per-project Linux VM sandboxes and the full Sero feature set
 - **Pi SDK** (`@mariozechner/pi-coding-agent`) as the AI agent core

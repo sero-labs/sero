@@ -33,6 +33,7 @@ pnpm eval:snapshot
 
 - [Installation / Requirements](/guide/installation-requirements)
 - [Development Setup](/guide/development-setup)
+- [Support Scope](/reference/support-scope)
 - [Architecture](/reference/architecture)
 - [Troubleshooting](/reference/troubleshooting)
 
