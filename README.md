@@ -138,7 +138,9 @@ A plugin can provide:
 - optional provider metadata for model integration
 
 See [`docs/plugins/guide.md`](./docs/plugins/guide.md) for packaging,
-distribution, installation, and local development workflows.
+distribution, installation, and local development workflows, and
+[`docs/plugins/quickstart.md`](./docs/plugins/quickstart.md) for a minimal
+starter path.
 
 ## Containers and runtime modes
 

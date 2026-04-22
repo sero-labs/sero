@@ -31,9 +31,18 @@ During alpha:
 - expect plugin/runtime contracts to continue evolving
 - keep packaging metadata and compatibility requirements explicit
 
+## Starter author path
+
+The canonical minimal starter example is the external **Daily Quote** plugin:
+- `https://github.com/monobyte/sero-daily-quote-plugin`
+
+For a concise walkthrough of the minimal file layout and author command surface,
+see `docs/plugins/quickstart.md` in the repo source material.
+
 ## See also
 
 Current detailed source material:
+- `docs/plugins/quickstart.md`
 - `docs/plugins/guide.md`
 - `docs/plugins/host-compatibility.md`
 - `docs/features/local-plugin-development.md`

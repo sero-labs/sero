@@ -27,6 +27,7 @@ Some files under `docs/**` are strong canonical references already, especially:
 - `docs/decisions.md`
 - `docs/reference/state-and-folders.md`
 - `docs/plugins/guide.md`
+- `docs/plugins/quickstart.md`
 - `docs/plugins/technical.md`
 - `docs/security/**`
 - `docs/node-pty-setup.md`

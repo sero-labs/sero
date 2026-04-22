@@ -30,6 +30,7 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
 - [x] Complete docs policy / boundary wave
 - [x] Complete public-surface sanitization wave
 - [x] Complete state/logs/privacy posture doc wave
+- [x] Complete plugin quickstart wave
 
 ## Phase 0 — Preservation First
 
@@ -142,8 +143,8 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
 
 ## Phase 9 — Ecosystem Onboarding
 
-- [ ] Create at least one plugin example or starter path
-- [ ] Publish a plugin author quickstart
+- [x] Create at least one plugin example or starter path
+- [x] Publish a plugin author quickstart
 - [ ] Publish a minimal end-to-end example for UI + extension + runtime if relevant
 
 ## Phase 10 — Release Engineering

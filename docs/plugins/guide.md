@@ -2,6 +2,9 @@
 
 How to create, distribute, install, and manage Sero plugins.
 
+For the fastest author-oriented starter path, see
+[quickstart.md](quickstart.md).
+
 For internal architecture details, see
 [technical.md](technical.md).
 
