@@ -53,6 +53,7 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
 - [x] Define canonical destinations for harvested information
 - [x] Choose archive strategy for removed docs (private mirror/branch snapshot + migration map)
 - [ ] Remove only those public docs whose durable information has already been extracted or intentionally discarded
+  - prune sequencing/preconditions recorded in `public-tree-prune-plan.md`
 
 ## Phase 1 — Public Repo Hygiene
 
@@ -63,6 +64,7 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
 - [x] Decide whether `.pi/plans/**` remains in the public repo
 - [x] Decide whether `.claude/`, `AGENTS.md`, and similar maintainer-facing files stay public as-is
 - [ ] Remove or relocate non-public artifacts from the public tree
+  - batched execution order prepared in `public-tree-prune-plan.md`; actual archive/remove wave still pending
 
 ## Phase 2 — OSS Project Basics
 
