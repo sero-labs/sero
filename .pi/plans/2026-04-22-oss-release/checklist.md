@@ -25,6 +25,7 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
 - [x] Complete root `pnpm test` / `pnpm test:ci` command wave
 - [x] Complete PR workflow alignment wave
 - [x] Complete hygiene scan wave (`gitleaks` + path audit)
+- [x] Complete alpha changelog/versioning decision wave
 
 ## Phase 0 — Preservation First
 
@@ -59,7 +60,7 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
 - [x] Add `.github/CODEOWNERS`
 - [x] Add issue templates
 - [x] Add PR template
-- [ ] Decide on changelog/versioning workflow
+- [x] Decide on changelog/versioning workflow
 - [x] Review whether `NOTICE` or `THIRD_PARTY_NOTICES` is needed
 
 ## Phase 3 — Testing, E2E, and Evals
@@ -143,10 +144,10 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
 
 ## Phase 10 — Release Engineering
 
-- [ ] Define alpha versioning scheme
-- [ ] Define release checklist owner/responsibilities
-- [ ] Define tagged release process
-- [ ] Define changelog process
+- [x] Define alpha versioning scheme
+- [x] Define release checklist owner/responsibilities
+- [x] Define tagged release process
+- [x] Define changelog process
 - [ ] Validate clean clone -> install -> run on a supported machine
 - [ ] Validate clean clone -> test on a supported machine
 - [ ] Validate packaging flow if binaries are shipped

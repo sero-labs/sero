@@ -121,6 +121,15 @@ Good feature requests usually explain:
 - the proposed direction
 - trade-offs or alternatives considered
 
+## Release and versioning notes
+
+During OSS alpha:
+- release notes are tracked in the repo-level [`CHANGELOG.md`](./CHANGELOG.md)
+- public alpha tags are expected to use a form like `v0.1.0-alpha.1`
+- releases are maintainer-run from `main`
+- package versions inside the monorepo may still serve internal compatibility
+  and packaging purposes, not a full independently published package train
+
 ## Contributor license expectations
 
 By submitting a contribution, you agree that your contribution may be licensed

@@ -243,6 +243,19 @@ Inputs:
 - Rationale:
   - This preserves knowledge without forcing an early trim of mixed-purpose docs.
 
+### D-0203 — Alpha changelog and versioning workflow
+- Status: Accepted
+- Decision:
+  - Use a **single repo-wide `CHANGELOG.md`** for public alpha release notes.
+  - Use manual **SemVer prerelease tags** in the form `v0.1.0-alpha.N`.
+  - Treat the **repo + desktop app** as the public alpha release unit; other workspace package versions remain package metadata / compatibility markers during alpha, not an independently published release train.
+  - Alpha releases are maintainer-run only, cut from `main`, and remain **source-only**.
+  - Do not add Changesets, release-please, semantic-release, or npm publishing automation yet.
+- Coordination artifact:
+  - `.pi/plans/2026-04-22-oss-release/release-versioning.md`
+- Rationale:
+  - This is the smallest credible release workflow that matches the current monorepo, low-maintainer-load alpha posture, and source-only distribution decision.
+
 ## Phase 2 handoff reference
 - Coordination artifact: `.pi/plans/2026-04-22-oss-release/phase-2-handoff.md`
 - Cleanup remains blocked until later gates; Phase 2 may proceed only on newly owned surfaces and approved shared-file lanes.

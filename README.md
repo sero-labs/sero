@@ -169,6 +169,7 @@ Public alpha contribution and support surfaces are currently:
 
 Please read:
 - [`CONTRIBUTING.md`](./CONTRIBUTING.md)
+- [`CHANGELOG.md`](./CHANGELOG.md)
 - [`CODE_OF_CONDUCT.md`](./CODE_OF_CONDUCT.md)
 - [`SECURITY.md`](./SECURITY.md)
 
