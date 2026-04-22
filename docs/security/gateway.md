@@ -43,7 +43,7 @@ PRs, etc. Treat the gateway token like a root password.
 | Channel | Exposure | Authentication | Risk |
 |---------|----------|----------------|------|
 | **WebSocket (localhost)** | `127.0.0.1:18800` only | 64-char hex token, timing-safe comparison | Low — local processes only |
-| **Web chat (localhost)** | `127.0.0.1:18801` + embedded in `:18800` | Token via URL param or login prompt | Low — local only |
+| **Web chat (localhost)** | `127.0.0.1:18801` + embedded in `:18800` | Login prompt preferred; URL-token flow is legacy and discouraged | Low — local only |
 | **Tailscale** | Private tailnet only (`tailscale serve`, NOT `funnel`) | Tailscale device auth + gateway token | Medium — all tailnet devices can reach the port |
 | **Discord** | Public (anyone who can DM the bot) | `allowedUsers` whitelist (empty = allow ALL) | **High if misconfigured** |
 
@@ -106,13 +106,18 @@ Gateway clients get the same tool access as the desktop UI. The agent can
 run bash commands, read/write files, use the browser tool, etc. All execution
 happens inside containers, but container escape is a theoretical risk.
 
-### ⚠️ Token in URL query string
-The web chat supports `?token=<token>` for convenience. This means the token
-may appear in:
+### ⚠️ Avoid token URLs
+Some web chat flows may still accept `?token=<token>`, but public guidance
+should treat that path as discouraged and avoid it outside short-lived local
+diagnostics. Token URLs may leak into:
 - Browser history
 - Browser autocomplete suggestions
 - HTTP `Referer` headers (mitigated by Tailscale TLS)
 - Shared screenshots of the browser address bar
+
+Prefer the login prompt for browser access. For CLI verification, use an
+ephemeral shell variable instead of putting the token in a URL or command
+history.
 
 ### ⚠️ Discord bot token = full bot control
 If the Discord bot token in `.env` is leaked, an attacker can impersonate
@@ -145,8 +150,9 @@ cd apps/desktop
 SERO_GATEWAY=1 bash scripts/dev.sh
 ```
 
-Later verification steps read the gateway token from disk directly without
-printing it to the terminal.
+When a verification step needs the gateway token, prefer an ephemeral shell
+variable populated via a hidden prompt. Avoid printing the token, storing it in
+shell history, or sharing token URLs.
 
 ### Test 1: Gateway not reachable from network
 
@@ -210,12 +216,19 @@ then `closed: 4003 Authentication failed`.
 
 **What:** Verify correct token allows access.
 
+First, load the token into a temporary shell variable without echoing it:
+
+```bash
+read -s GATEWAY_TOKEN && export GATEWAY_TOKEN
+printf '\n'
+```
+
+Then verify authentication succeeds:
+
 ```bash
 node -e "
-  const fs = require('fs');
-  const seroHome = process.env.SERO_HOME;
-  if (!seroHome) throw new Error('Set SERO_HOME first');
-  const token = fs.readFileSync(seroHome + '/agent/gateway-token', 'utf8').trim();
+  const token = process.env.GATEWAY_TOKEN;
+  if (!token) throw new Error('Run: read -s GATEWAY_TOKEN && export GATEWAY_TOKEN');
   const ws = new (require('ws'))('ws://127.0.0.1:18800');
   ws.on('open', () => {
     ws.send(JSON.stringify({ type: 'connect', token, clientType: 'cli' }));
@@ -268,9 +281,8 @@ stat -f "%Sp %N" "${SERO_HOME}/agent/.env"
 ```bash
 node -e "
   const fs = require('fs');
-  const seroHome = process.env.SERO_HOME;
-  if (!seroHome) throw new Error('Set SERO_HOME first');
-  const token = fs.readFileSync(seroHome + '/agent/gateway-token', 'utf8').trim();
+  const token = process.env.GATEWAY_TOKEN;
+  if (!token) throw new Error('Run: read -s GATEWAY_TOKEN && export GATEWAY_TOKEN');
   const log = fs.readFileSync('/tmp/sero-electron.log', 'utf8');
   console.log(log.includes(token) ? 'FOUND_TOKEN_IN_LOG' : 'token-not-found');
 "
@@ -278,6 +290,12 @@ node -e "
 
 **Expected:** `token-not-found`. The log should only contain the redacted form
 (`5ed54100…445d`).
+
+When finished, clear the temporary shell variable:
+
+```bash
+unset GATEWAY_TOKEN
+```
 
 ---
 
@@ -343,8 +361,8 @@ lsof -i :18801 -P 2>/dev/null | grep LISTEN
    # Restart Sero — a new token is generated
    ```
 
-3. **Don't share token URLs** in screenshots or messages. Use the login
-   prompt instead of `?token=` when possible.
+3. **Don't use or share token URLs.** Use the login prompt for browser access,
+   or an ephemeral shell variable for CLI verification.
 
 4. **Stop Tailscale serve when not needed:**
    ```bash

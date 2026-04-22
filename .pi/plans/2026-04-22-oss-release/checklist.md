@@ -33,6 +33,7 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
 - [x] Complete plugin quickstart wave
 - [x] Complete clean-clone baseline validation wave
 - [x] Complete clean-clone desktop launch validation wave
+- [x] Complete public secret-handling docs sanitization wave
 
 ## Phase 0 — Preservation First
 
@@ -122,8 +123,8 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
 - [x] Document what is local vs remote
 - [x] Document how secrets are stored and what risks remain
 - [x] Document gateway/token behavior if publicly exposed
-- [ ] Ensure examples/config samples are sanitized
-- [ ] Ensure public docs do not encourage unsafe handling of secrets
+- [x] Ensure examples/config samples are sanitized
+- [x] Ensure public docs do not encourage unsafe handling of secrets
 
 ## Phase 7 — Legal and Distribution Readiness
 
