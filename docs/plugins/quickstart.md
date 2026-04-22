@@ -6,6 +6,10 @@ plugin reference.
 For the full install, packaging, manifest, and distribution story, see
 [`guide.md`](./guide.md).
 
+If you need a runtime-enabled example that shows **UI + extension + background
+runtime** together, also see
+[`end-to-end-example.md`](./end-to-end-example.md).
+
 ## Canonical starter example
 
 Use the **Daily Quote** plugin as the canonical small complete reference

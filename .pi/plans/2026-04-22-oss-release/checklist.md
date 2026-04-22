@@ -154,7 +154,7 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
 
 - [x] Create at least one plugin example or starter path
 - [x] Publish a plugin author quickstart
-- [ ] Publish a minimal end-to-end example for UI + extension + runtime if relevant
+- [x] Publish a minimal end-to-end example for UI + extension + runtime if relevant
 
 ## Phase 10 — Release Engineering
 

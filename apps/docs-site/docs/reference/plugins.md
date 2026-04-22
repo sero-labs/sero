@@ -43,6 +43,10 @@ shared types, UI entry, and Vite federation config.
 For the published quickstart walkthrough, see
 [Plugin Quickstart](/reference/plugin-quickstart).
 
+If you need the smallest example that shows **UI + extension + background
+runtime** together, see
+[Plugin End-to-End Example](/reference/plugin-end-to-end-example).
+
 ## See also
 
 Current detailed source material:

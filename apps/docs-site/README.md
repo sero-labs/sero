@@ -11,6 +11,7 @@ Keep this site limited to the approved alpha IA:
 - Development Setup
 - Architecture
 - Plugins
+- Plugin End-to-End Example
 - Testing / Evals
 - Security / Privacy
 - Troubleshooting

@@ -18,6 +18,7 @@ export default defineConfig({
           { text: 'Support Scope', link: '/reference/support-scope' },
           { text: 'Plugins', link: '/reference/plugins' },
           { text: 'Plugin Quickstart', link: '/reference/plugin-quickstart' },
+          { text: 'Plugin End-to-End Example', link: '/reference/plugin-end-to-end-example' },
           { text: 'Testing / Evals', link: '/reference/testing-evals' },
           { text: 'Security / Privacy', link: '/reference/security-privacy' },
           { text: 'Troubleshooting', link: '/reference/troubleshooting' },
@@ -54,7 +55,8 @@ export default defineConfig({
             { text: 'Architecture', link: '/reference/architecture' },
             { text: 'Support Scope', link: '/reference/support-scope' },
             { text: 'Plugins', link: '/reference/plugins' },
-            { text: 'Plugin Quickstart', link: '/reference/plugin-quickstart' }
+            { text: 'Plugin Quickstart', link: '/reference/plugin-quickstart' },
+            { text: 'Plugin End-to-End Example', link: '/reference/plugin-end-to-end-example' }
           ]
         },
         {
