@@ -315,6 +315,30 @@ describe('plugin manager discovery registration', () => {
     expect(settings).not.toContain(sourceDir);
   });
 
+  it('preserves built-in package paths during installed-plugin reconciliation', async () => {
+    tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'sero-plugin-manager-builtin-'));
+    const { reconcileInstalledPluginActivation, agentDir } = await importModules();
+
+    const memoryPluginPath = path.resolve(__dirname, '../../../../../plugins/sero-memory-plugin');
+    const alibabaPluginPath = path.resolve(__dirname, '../../../../../plugins/sero-alibaba-plugin');
+
+    await fs.mkdir(agentDir, { recursive: true });
+    await fs.writeFile(
+      path.join(agentDir, 'settings.json'),
+      JSON.stringify({
+        packages: [memoryPluginPath, alibabaPluginPath],
+      }, null, 2),
+      'utf8',
+    );
+
+    await reconcileInstalledPluginActivation();
+
+    const settings = JSON.parse(await fs.readFile(path.join(agentDir, 'settings.json'), 'utf8')) as {
+      packages: string[];
+    };
+    expect(settings.packages).toEqual([memoryPluginPath, alibabaPluginPath]);
+  });
+
   it('removes uninstalled plugins from discovery state without requiring a restart', async () => {
     tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'sero-plugin-manager-'));
     const sourceDir = await createPluginSource('todo');

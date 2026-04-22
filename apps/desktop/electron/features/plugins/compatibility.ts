@@ -1,4 +1,4 @@
-import { readFileSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import path from 'path';
 
 import type {
@@ -23,14 +23,27 @@ interface PluginCompatibilityRequirements {
 
 let desktopPackageVersion: string | null = null;
 
+const DESKTOP_PACKAGE_JSON_CANDIDATES = [
+  // Source/runtime path when this module executes from apps/desktop/electron/features/plugins/
+  path.resolve(__dirname, '../../../package.json'),
+  // Bundled main-process path when esbuild inlines modules into dist/electron/main.mjs
+  path.resolve(__dirname, '../../package.json'),
+];
+
 function getDesktopPackageVersion(): string {
   if (desktopPackageVersion) return desktopPackageVersion;
 
-  const packageJsonPath = path.resolve(__dirname, '../../../package.json');
-  const pkg = JSON.parse(readFileSync(packageJsonPath, 'utf8')) as DesktopPackageJson;
-  desktopPackageVersion = typeof pkg.version === 'string' && pkg.version.trim()
-    ? pkg.version.trim()
-    : '0.0.0';
+  for (const packageJsonPath of DESKTOP_PACKAGE_JSON_CANDIDATES) {
+    if (!existsSync(packageJsonPath)) continue;
+    const pkg = JSON.parse(readFileSync(packageJsonPath, 'utf8')) as DesktopPackageJson;
+    const version = typeof pkg.version === 'string' ? pkg.version.trim() : '';
+    if (version) {
+      desktopPackageVersion = version;
+      return desktopPackageVersion;
+    }
+  }
+
+  desktopPackageVersion = '0.0.0';
   return desktopPackageVersion;
 }
 
@@ -39,8 +52,9 @@ function getRuntimeElectronVersion(): string | null {
     const electronModule = require('electron') as { app?: { getVersion?: () => string } } | string;
     if (typeof electronModule === 'object' && electronModule !== null) {
       const version = electronModule.app?.getVersion?.();
-      if (typeof version === 'string' && version.trim()) {
-        return version.trim();
+      const normalized = typeof version === 'string' ? version.trim() : '';
+      if (normalized && normalized !== '0.0.0') {
+        return normalized;
       }
     }
   } catch {

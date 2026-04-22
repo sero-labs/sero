@@ -1,4 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'fs';
+import path from 'path';
+import { describe, expect, it, vi } from 'vitest';
 import type { PluginMeta } from '@sero-ai/common';
 
 import {
@@ -14,6 +16,25 @@ function makeContext(overrides?: Partial<SeroHostCompatibilityContext>): SeroHos
 }
 
 describe('plugin compatibility', () => {
+  it('falls back to the desktop package version when Electron reports 0.0.0', async () => {
+    vi.resetModules();
+    vi.doMock('electron', () => ({
+      app: {
+        getVersion: () => '0.0.0',
+      },
+    }));
+
+    const desktopPackageJson = JSON.parse(
+      readFileSync(path.resolve(__dirname, '../../../../package.json'), 'utf8'),
+    ) as { version: string };
+
+    const { getSeroHostCompatibilityContext } = await import('@electron/features/plugins/compatibility');
+    expect(getSeroHostCompatibilityContext().hostVersion).toBe(desktopPackageJson.version);
+
+    vi.doUnmock('electron');
+    vi.resetModules();
+  });
+
   it('accepts plugins whose version and capability requirements are satisfied', () => {
     const plugin: PluginMeta = {
       category: 'integrations',
