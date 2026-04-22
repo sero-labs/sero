@@ -23,6 +23,7 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
 - [x] Complete OSS-0204 docs platform skeleton wave
 - [x] Complete OSS-0205 README skeleton wave
 - [x] Complete root `pnpm test` / `pnpm test:ci` command wave
+- [x] Complete hygiene scan wave (`gitleaks` + path audit)
 
 ## Phase 0 — Preservation First
 
@@ -39,9 +40,9 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
 
 ## Phase 1 — Public Repo Hygiene
 
-- [ ] Run working-tree secret scan
-- [ ] Run git-history secret scan
-- [ ] Audit repo for absolute local paths and machine-specific references
+- [x] Run working-tree secret scan
+- [x] Run git-history secret scan
+- [x] Audit repo for absolute local paths and machine-specific references
 - [x] Audit public docs for stale internal references, scratch notes, and internal-only assumptions
 - [x] Decide whether `.pi/plans/**` remains in the public repo
 - [x] Decide whether `.claude/`, `AGENTS.md`, and similar maintainer-facing files stay public as-is
@@ -130,7 +131,7 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
 - [ ] Add screenshots and/or GIFs
 - [x] Add supported-platform statement
 - [x] Add alpha limitations statement
-- [ ] Add placeholder landing page
+- [x] Add placeholder landing page
 - [x] Add “Why Sero?” / differentiation summary
 
 ## Phase 9 — Ecosystem Onboarding
