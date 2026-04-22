@@ -108,7 +108,7 @@ export function hasModelTiers(settings: Record<string, unknown>): boolean {
 
 - [ ] **Step 3: Run typecheck**
 
-Run: `cd /Users/danielcarter/Documents/Dev/projects/sero/sero && pnpm typecheck`
+Run: `cd <repo-root> && pnpm typecheck`
 Expected: PASS with zero errors
 
 - [ ] **Step 4: Commit**
@@ -248,7 +248,7 @@ export function resolveTierModel(
 
 - [ ] **Step 2: Run typecheck**
 
-Run: `cd /Users/danielcarter/Documents/Dev/projects/sero/sero && pnpm typecheck`
+Run: `cd <repo-root> && pnpm typecheck`
 Expected: PASS with zero errors
 
 - [ ] **Step 3: Commit**
@@ -348,7 +348,7 @@ With:
 
 - [ ] **Step 4: Run typecheck**
 
-Run: `cd /Users/danielcarter/Documents/Dev/projects/sero/sero && pnpm typecheck`
+Run: `cd <repo-root> && pnpm typecheck`
 Expected: May see type errors in files that consume `AgentConfig.model` as `string`. Fix them in the next task.
 
 - [ ] **Step 5: Commit**
@@ -494,7 +494,7 @@ function firstDefinedNumber(...values: (number | null | undefined)[]): number {
 
 - [ ] **Step 2: Run typecheck**
 
-Run: `cd /Users/danielcarter/Documents/Dev/projects/sero/sero && pnpm typecheck`
+Run: `cd <repo-root> && pnpm typecheck`
 Expected: PASS — the output shape (`ResolvedConfig`) hasn't changed, just the input handling.
 
 - [ ] **Step 3: Commit**
@@ -564,7 +564,7 @@ With:
 
 - [ ] **Step 2: Run typecheck**
 
-Run: `cd /Users/danielcarter/Documents/Dev/projects/sero/sero && pnpm typecheck`
+Run: `cd <repo-root> && pnpm typecheck`
 Expected: PASS
 
 - [ ] **Step 3: Commit**
@@ -615,7 +615,7 @@ const DEFAULT_FALLBACK_CHAIN = [
 
 - [ ] **Step 2: Run typecheck**
 
-Run: `cd /Users/danielcarter/Documents/Dev/projects/sero/sero && pnpm typecheck`
+Run: `cd <repo-root> && pnpm typecheck`
 Expected: PASS
 
 - [ ] **Step 3: Commit**
@@ -803,7 +803,7 @@ And update the infra object construction:
 
 The `model` field is now nullable. Check callers of `ensureInfra()` that access `.model` — notably `adhoc-agent.ts` at line 36 uses `infra.model` as a fallback. This will be updated in Task 8.
 
-Run: `cd /Users/danielcarter/Documents/Dev/projects/sero/sero && pnpm typecheck`
+Run: `cd <repo-root> && pnpm typecheck`
 Expected: Type errors in files consuming `SharedInfra.model` (adhoc-agent.ts, possibly runner.ts). Note them — they'll be fixed in subsequent tasks.
 
 - [ ] **Step 5: Remove unused getModel import if no longer needed**
@@ -965,7 +965,7 @@ function selectFastModel(
 
 - [ ] **Step 2: Run typecheck**
 
-Run: `cd /Users/danielcarter/Documents/Dev/projects/sero/sero && pnpm typecheck`
+Run: `cd <repo-root> && pnpm typecheck`
 Expected: PASS
 
 - [ ] **Step 3: Commit**
@@ -1033,7 +1033,7 @@ function pickFallbackModel(
 
 - [ ] **Step 2: Run typecheck**
 
-Run: `cd /Users/danielcarter/Documents/Dev/projects/sero/sero && pnpm typecheck`
+Run: `cd <repo-root> && pnpm typecheck`
 Expected: PASS
 
 - [ ] **Step 3: Commit**
@@ -1165,7 +1165,7 @@ modelTiers: {
 
 - [ ] **Step 6: Run typecheck**
 
-Run: `cd /Users/danielcarter/Documents/Dev/projects/sero/sero && pnpm typecheck`
+Run: `cd <repo-root> && pnpm typecheck`
 Expected: PASS
 
 - [ ] **Step 7: Commit**
@@ -1244,7 +1244,7 @@ Apply the same pattern for the API key section — when `p.id === 'anthropic'`, 
 
 - [ ] **Step 2: Run typecheck**
 
-Run: `cd /Users/danielcarter/Documents/Dev/projects/sero/sero && pnpm typecheck`
+Run: `cd <repo-root> && pnpm typecheck`
 Expected: PASS
 
 - [ ] **Step 3: Commit**
@@ -1464,7 +1464,7 @@ export function TierPicker({ onComplete, onSkip }: TierPickerProps) {
 
 - [ ] **Step 2: Run typecheck**
 
-Run: `cd /Users/danielcarter/Documents/Dev/projects/sero/sero && pnpm typecheck`
+Run: `cd <repo-root> && pnpm typecheck`
 Expected: PASS (or minor issues with the `window.sero.models.list()` return type — adjust to match actual type)
 
 - [ ] **Step 3: Commit**
@@ -1606,7 +1606,7 @@ Add the tiers dialog before the auth dialog in the JSX return:
 
 - [ ] **Step 2: Run typecheck**
 
-Run: `cd /Users/danielcarter/Documents/Dev/projects/sero/sero && pnpm typecheck`
+Run: `cd <repo-root> && pnpm typecheck`
 Expected: PASS
 
 - [ ] **Step 3: Commit**
@@ -1718,7 +1718,7 @@ The spec describes an inline model picker UI that appears in the chat area when 
 
 - [ ] **Step 1: Full typecheck**
 
-Run: `cd /Users/danielcarter/Documents/Dev/projects/sero/sero && pnpm typecheck`
+Run: `cd <repo-root> && pnpm typecheck`
 Expected: PASS with zero errors across all packages
 
 - [ ] **Step 2: Verify no remaining hardcoded Claude defaults**
@@ -1788,7 +1788,7 @@ models: {
 
 - [ ] **Step 3: Run typecheck**
 
-Run: `cd /Users/danielcarter/Documents/Dev/projects/sero/sero && pnpm typecheck`
+Run: `cd <repo-root> && pnpm typecheck`
 Expected: PASS
 
 - [ ] **Step 4: Commit if changes were needed**

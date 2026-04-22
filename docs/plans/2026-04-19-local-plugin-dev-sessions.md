@@ -208,7 +208,7 @@ Example:
           "sessionId": "dev_9f3a7f2b",
           "expectedAppId": "google",
           "lastKnownName": "Google",
-          "sourcePath": "/Users/daniel/Code/sero-google-plugin",
+          "sourcePath": "<plugin-checkout-path>",
           "linkedAt": "2026-04-19T12:34:56.000Z",
           "status": "active",
           "ui": {

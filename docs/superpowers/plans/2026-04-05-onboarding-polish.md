@@ -56,7 +56,7 @@ The `ModelTierEntry` type import stays since `parseModelKey` returns `{ provider
 
 - [ ] **Step 4: Typecheck**
 
-Run: `cd /Users/danielcarter/Documents/Dev/projects/sero/sero && pnpm typecheck`
+Run: `cd <repo-root> && pnpm typecheck`
 Expected: zero errors
 
 - [ ] **Step 5: Commit**
@@ -151,7 +151,7 @@ import { readSettings } from '../../shared/settings/settings-helpers';
 
 - [ ] **Step 7: Typecheck**
 
-Run: `cd /Users/danielcarter/Documents/Dev/projects/sero/sero && pnpm typecheck`
+Run: `cd <repo-root> && pnpm typecheck`
 Expected: zero errors
 
 - [ ] **Step 8: Commit**
@@ -186,7 +186,7 @@ const failedName = getDisplayProviderName(refreshedState, failedProvider);
 
 - [ ] **Step 2: Typecheck**
 
-Run: `cd /Users/danielcarter/Documents/Dev/projects/sero/sero && pnpm typecheck`
+Run: `cd <repo-root> && pnpm typecheck`
 Expected: zero errors
 
 - [ ] **Step 3: Commit**
@@ -319,7 +319,7 @@ To:
 
 - [ ] **Step 8: Typecheck**
 
-Run: `cd /Users/danielcarter/Documents/Dev/projects/sero/sero && pnpm typecheck`
+Run: `cd <repo-root> && pnpm typecheck`
 Expected: zero errors
 
 - [ ] **Step 9: Commit**
@@ -511,7 +511,7 @@ Note: the `onboardingState` dependency is removed from the callback since we now
 
 - [ ] **Step 5: Typecheck**
 
-Run: `cd /Users/danielcarter/Documents/Dev/projects/sero/sero && pnpm typecheck`
+Run: `cd <repo-root> && pnpm typecheck`
 Expected: zero errors
 
 - [ ] **Step 6: Manual test**
@@ -540,7 +540,7 @@ git commit -m "feat(onboarding): use dedicated low-thinking session for memory s
 
 - [ ] **Step 1: Full typecheck**
 
-Run: `cd /Users/danielcarter/Documents/Dev/projects/sero/sero && pnpm typecheck`
+Run: `cd <repo-root> && pnpm typecheck`
 Expected: zero errors across all packages
 
 - [ ] **Step 2: Check file sizes**

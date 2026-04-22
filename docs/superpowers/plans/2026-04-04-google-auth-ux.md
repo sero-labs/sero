@@ -102,7 +102,7 @@ import { readFileSync, writeFileSync, chmodSync, existsSync } from 'node:fs';
 
 - [ ] **Step 4: Verify the file compiles**
 
-Run: `cd /Users/danielcarter/Documents/Dev/projects/sero/sero && pnpm typecheck`
+Run: `cd <repo-root> && pnpm typecheck`
 Expected: No new errors in `auth-manager.ts`.
 
 - [ ] **Step 5: Commit**
@@ -193,7 +193,7 @@ this.statusCache = null;
 
 - [ ] **Step 4: Verify the file compiles**
 
-Run: `cd /Users/danielcarter/Documents/Dev/projects/sero/sero && pnpm typecheck`
+Run: `cd <repo-root> && pnpm typecheck`
 Expected: No new errors.
 
 - [ ] **Step 5: Commit**
@@ -259,7 +259,7 @@ interface SeroGoogleAPI {
 
 - [ ] **Step 3: Verify types compile**
 
-Run: `cd /Users/danielcarter/Documents/Dev/projects/sero/sero && pnpm typecheck`
+Run: `cd <repo-root> && pnpm typecheck`
 Expected: No new errors.
 
 - [ ] **Step 4: Commit**
@@ -335,7 +335,7 @@ export const googleBridge = {
 
 - [ ] **Step 3: Verify types compile**
 
-Run: `cd /Users/danielcarter/Documents/Dev/projects/sero/sero && pnpm typecheck`
+Run: `cd <repo-root> && pnpm typecheck`
 Expected: No new errors.
 
 - [ ] **Step 4: Commit**
@@ -473,7 +473,7 @@ return useMemo(() => ({
 
 - [ ] **Step 6: Verify types compile**
 
-Run: `cd /Users/danielcarter/Documents/Dev/projects/sero/sero && pnpm typecheck`
+Run: `cd <repo-root> && pnpm typecheck`
 Expected: No new errors.
 
 - [ ] **Step 7: Commit**
@@ -743,7 +743,7 @@ function GoogleLogo() {
 
 - [ ] **Step 2: Verify types compile**
 
-Run: `cd /Users/danielcarter/Documents/Dev/projects/sero/sero && pnpm typecheck`
+Run: `cd <repo-root> && pnpm typecheck`
 Expected: No new errors.
 
 - [ ] **Step 3: Commit**
@@ -762,17 +762,17 @@ git commit -m "feat(google): replace not-configured warning with setup form and 
 
 - [ ] **Step 1: Run full monorepo typecheck**
 
-Run: `cd /Users/danielcarter/Documents/Dev/projects/sero/sero && pnpm typecheck`
+Run: `cd <repo-root> && pnpm typecheck`
 Expected: All packages pass with zero errors.
 
 - [ ] **Step 2: Build the Google plugin**
 
-Run: `cd /Users/danielcarter/Documents/Dev/projects/sero/sero/plugins/sero-google-plugin && pnpm build`
+Run: `cd <repo-root>/plugins/sero-google-plugin && pnpm build`
 Expected: Build succeeds.
 
 - [ ] **Step 3: Build Electron main process**
 
-Run: `cd /Users/danielcarter/Documents/Dev/projects/sero/sero/apps/desktop && node scripts/build-electron.mjs`
+Run: `cd <repo-root>/apps/desktop && node scripts/build-electron.mjs`
 Expected: Build succeeds without errors.
 
 - [ ] **Step 4: Verify no file exceeds 500 lines**

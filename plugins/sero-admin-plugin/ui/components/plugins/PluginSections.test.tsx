@@ -17,7 +17,7 @@ function createInstalledPlugin(overrides: Partial<InstalledPlugin> = {}): Instal
     tags: ['weather', 'alerts'],
     source: 'npm:@sero/plugin-weather-pro@latest',
     installedAt: '2026-04-19T20:00:00.000Z',
-    packagePath: '/Users/daniel/.sero-ui/default/agent/plugins/weather-pro',
+    packagePath: '/Users/example/.sero-ui/default/agent/plugins/weather-pro',
     hasUI: true,
     ...overrides,
   };
@@ -28,7 +28,7 @@ function createSession(overrides: Partial<PluginDevSessionIPC> = {}): PluginDevS
     sessionId: 'dev_weather',
     appId: 'weather-pro',
     name: 'Weather Pro Dev',
-    sourcePath: '/Users/daniel/Code/sero-weather-plugin',
+    sourcePath: '/Users/example/Code/sero-weather-plugin',
     status: 'active',
     uiMode: 'dev-server',
     remoteEntryOverride: 'http://127.0.0.1:5193/mf-manifest.json',
@@ -42,7 +42,7 @@ function createAttachedFolder(overrides: Partial<WorkspaceRootIPC> = {}): Worksp
   return {
     id: 'root_docs',
     name: 'Reference Docs',
-    path: '/Users/daniel/Code/reference-docs',
+    path: '/Users/example/Code/reference-docs',
     kind: 'linked-plugin',
     ...overrides,
   };
@@ -96,12 +96,12 @@ describe('plugin management sections', () => {
     expect(html).toContain('Start local development');
     expect(html).toContain('Profile scoped');
     expect(html).toContain('Dev sessions do not');
-    expect(html).toContain('/Users/daniel/Code/sero-weather-plugin');
+    expect(html).toContain('/Users/example/Code/sero-weather-plugin');
 
     expect(html).toContain('Attached folders');
     expect(html).toContain('Attach folder');
     expect(html).toContain('Workspace scoped');
     expect(html).toContain('does not activate a plugin or start local development');
-    expect(html).toContain('/Users/daniel/Code/reference-docs');
+    expect(html).toContain('/Users/example/Code/reference-docs');
   });
 });

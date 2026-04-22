@@ -909,7 +909,7 @@ export function ModelDefaultsPanel() {
 - [ ] **Step 2: Verify typecheck**
 
 ```bash
-cd /Users/danielcarter/Documents/Dev/projects/sero/sero && pnpm --filter @sero-ai/plugin-admin typecheck
+cd <repo-root> && pnpm --filter @sero-ai/plugin-admin typecheck
 ```
 
 Fix any type errors before proceeding.
@@ -957,7 +957,7 @@ modelDefaults: 'Providers',
 - [ ] **Step 3: Verify typecheck**
 
 ```bash
-cd /Users/danielcarter/Documents/Dev/projects/sero/sero && pnpm --filter @sero-ai/plugin-admin typecheck
+cd <repo-root> && pnpm --filter @sero-ai/plugin-admin typecheck
 ```
 
 - [ ] **Step 4: Commit**
@@ -974,7 +974,7 @@ git commit -m "refactor(admin): rename Defaults → Providers in nav sidebar and
 - [ ] **Step 1: Build the admin plugin**
 
 ```bash
-cd /Users/danielcarter/Documents/Dev/projects/sero/sero && pnpm --filter @sero-ai/plugin-admin build
+cd <repo-root> && pnpm --filter @sero-ai/plugin-admin build
 ```
 
 Expected: Build completes without errors.
@@ -982,7 +982,7 @@ Expected: Build completes without errors.
 - [ ] **Step 2: Build full monorepo**
 
 ```bash
-cd /Users/danielcarter/Documents/Dev/projects/sero/sero && pnpm build
+cd <repo-root> && pnpm build
 ```
 
 Expected: All packages build without errors.
@@ -990,7 +990,7 @@ Expected: All packages build without errors.
 - [ ] **Step 3: Manual smoke test**
 
 ```bash
-cd /Users/danielcarter/Documents/Dev/projects/sero/sero/apps/desktop && bash scripts/dev.sh
+cd <repo-root>/apps/desktop && bash scripts/dev.sh
 ```
 
 Verify:

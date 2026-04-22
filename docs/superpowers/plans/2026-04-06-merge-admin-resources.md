@@ -94,7 +94,7 @@ Remove the `AdminTab` export entirely — it's replaced by `AdminSection`.
 
 - [ ] **Step 2: Verify typecheck fails (expected — AdminApp still references AdminTab)**
 
-Run: `cd /Users/danielcarter/Documents/Dev/projects/sero/sero && pnpm --filter @sero-ai/plugin-admin typecheck 2>&1 | head -20`
+Run: `cd <repo-root> && pnpm --filter @sero-ai/plugin-admin typecheck 2>&1 | head -20`
 
 Expected: Type errors referencing `AdminTab` in AdminApp.tsx and other files. This is expected — we'll fix them in later tasks.
 
@@ -1211,7 +1211,7 @@ export default AdminApp;
 
 - [ ] **Step 2: Verify typecheck passes**
 
-Run: `cd /Users/danielcarter/Documents/Dev/projects/sero/sero && pnpm --filter @sero-ai/plugin-admin typecheck`
+Run: `cd <repo-root> && pnpm --filter @sero-ai/plugin-admin typecheck`
 
 Expected: 0 errors. If there are errors, fix them before proceeding.
 
@@ -1247,7 +1247,7 @@ rm plugins/sero-admin-plugin/ui/components/SkillsPanel.tsx
 
 - [ ] **Step 2: Verify typecheck still passes**
 
-Run: `cd /Users/danielcarter/Documents/Dev/projects/sero/sero && pnpm --filter @sero-ai/plugin-admin typecheck`
+Run: `cd <repo-root> && pnpm --filter @sero-ai/plugin-admin typecheck`
 
 Expected: 0 errors (SkillsPanel is no longer imported by AdminApp).
 
@@ -1304,14 +1304,14 @@ rm -rf plugins/sero-resources-plugin
 - [ ] **Step 2: Update pnpm lockfile**
 
 ```bash
-cd /Users/danielcarter/Documents/Dev/projects/sero/sero && pnpm install
+cd <repo-root> && pnpm install
 ```
 
 This regenerates the lockfile without the resources plugin.
 
 - [ ] **Step 3: Verify full monorepo typecheck**
 
-Run: `cd /Users/danielcarter/Documents/Dev/projects/sero/sero && pnpm typecheck`
+Run: `cd <repo-root> && pnpm typecheck`
 
 Expected: All packages pass with 0 errors.
 
@@ -1361,7 +1361,7 @@ git commit -m "docs: update plugin table — resources merged into admin"
 - [ ] **Step 1: Build the admin plugin**
 
 ```bash
-cd /Users/danielcarter/Documents/Dev/projects/sero/sero && pnpm --filter @sero-ai/plugin-admin build
+cd <repo-root> && pnpm --filter @sero-ai/plugin-admin build
 ```
 
 Expected: Build completes without errors.
@@ -1369,7 +1369,7 @@ Expected: Build completes without errors.
 - [ ] **Step 2: Build the full monorepo**
 
 ```bash
-cd /Users/danielcarter/Documents/Dev/projects/sero/sero && pnpm build
+cd <repo-root> && pnpm build
 ```
 
 Expected: All packages build without errors.
@@ -1377,7 +1377,7 @@ Expected: All packages build without errors.
 - [ ] **Step 3: Run the dev server and test manually**
 
 ```bash
-cd /Users/danielcarter/Documents/Dev/projects/sero/sero/apps/desktop && bash scripts/dev.sh
+cd <repo-root>/apps/desktop && bash scripts/dev.sh
 ```
 
 Manual checks:
