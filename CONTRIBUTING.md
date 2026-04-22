@@ -33,6 +33,9 @@ Important current constraints:
 - supported fallback: **host mode** with reduced capabilities
 - current public distribution model: **build from source**
 
+For the canonical current support contract and validated baseline, defer to
+[`apps/docs-site/docs/reference/support-scope.md`](./apps/docs-site/docs/reference/support-scope.md).
+
 ## Development setup
 
 From the repo root:

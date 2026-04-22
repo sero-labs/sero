@@ -7,6 +7,9 @@ Sero currently supports:
 - **Node.js 22**
 - **pnpm 10**
 
+For the canonical current support contract and exact validated baseline, see
+[Support Scope](/reference/support-scope).
+
 ## Recommended runtime requirement
 
 For the full intended experience, install Apple's `container` CLI and make sure

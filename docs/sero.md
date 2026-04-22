@@ -36,6 +36,10 @@ The container is the body. The Electron UI is the face. Pi is the mind.
 - **Pi SDK** (`@mariozechner/pi-coding-agent`) as the AI agent core
 - **Supported fallback:** Sero can continue in a reduced host mode when containers are unavailable or intentionally disabled for a workspace
 
+For the canonical public alpha support contract, prefer
+`apps/docs-site/docs/reference/support-scope.md` when wording needs to stay in
+sync across surfaces.
+
 ## Runtime modes
 
 ### Preferred: container runtime

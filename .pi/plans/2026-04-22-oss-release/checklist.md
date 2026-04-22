@@ -39,6 +39,7 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
 - [x] Complete CI exclusion documentation wave
 - [x] Complete support/triage documentation wave
 - [x] Complete third-party license review wave
+- [x] Complete public-docs consistency harmonization wave
 
 ## Phase 0 — Preservation First
 
@@ -168,7 +169,7 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
 ## Phase 11 — Final Go/No-Go Review
 
 - [x] Known limitations list is explicit and public
-- [ ] Public docs are current and non-contradictory
+- [x] Public docs are current and non-contradictory
 - [ ] CI is green on required gates
 - [x] Maintainer knows exactly what is supported in alpha
 - [x] Support/triage plan for early issues is documented

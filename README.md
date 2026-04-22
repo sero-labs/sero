@@ -18,7 +18,7 @@ Current release posture:
 - **supported fallback:** host mode with reduced capabilities
 - **stability:** plugin/runtime contracts may still evolve during alpha
 
-Canonical alpha support matrix:
+Canonical alpha support matrix and validated baseline:
 - [`Support Scope`](./apps/docs-site/docs/reference/support-scope.md)
 
 Sero does **not** currently promise:
@@ -65,6 +65,9 @@ Key ideas:
 - pnpm 10
 - optional but strongly recommended: Apple's `container` CLI for the full
   container-backed experience
+
+For the exact currently validated baseline and support contract, see
+[`Support Scope`](./apps/docs-site/docs/reference/support-scope.md).
 
 ### Run from source
 
