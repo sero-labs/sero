@@ -160,9 +160,10 @@ hydrate the ChatPanel. The `Conversation` component uses `key={sessionId}` +
 `initial="instant"` so switching sessions shows the latest messages immediately
 without scroll animation.
 
-**Auth:** Sero reads OAuth tokens directly from PI's `~/.pi/agent/auth.json`
-(single source of truth). No separate Sero auth file — PI CLI handles `/login`
-and token refresh, both apps share the same credentials.
+**Auth:** Sero reads OAuth tokens directly from Pi's managed auth store at
+`PI_CODING_AGENT_DIR/auth.json` (`~/.sero-ui/agent/auth.json` in Sero's default
+profile). No separate Sero auth file — Pi CLI handles `/login` and token
+refresh, and both environments share the same underlying credential model.
 
 ## AD-017: Session Deletion Confirmation
 

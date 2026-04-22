@@ -106,7 +106,7 @@ export function createSeroExtensionFactory(
     // to absolute paths before the LLM sees them.
     //
     // Example: @ws:global/finance/portfolio.json
-    //       → /Users/dan/.sero-ui/workspaces/global/finance/portfolio.json
+    //       → /path/to/sero-home/workspaces/global/finance/portfolio.json
 
     pi.on('input', async (event) => {
       const expanded = expandWsRefs(event.text, wsManager);

@@ -40,13 +40,13 @@ All profiles are tracked in a single fixed file:
     {
       "id": "abc-123",
       "name": "Personal",
-      "path": "/Users/you/.sero-ui",
+      "path": "<default-profile-root>",
       "createdAt": "2026-03-08T12:00:00.000Z"
     },
     {
       "id": "def-456",
       "name": "Work",
-      "path": "/Users/you/work-sero",
+      "path": "<custom-profile-root>",
       "createdAt": "2026-03-08T13:00:00.000Z"
     }
   ]
@@ -79,7 +79,8 @@ This ensures:
 
 Profiles can be stored anywhere on the filesystem. When creating a profile,
 you can pick a custom folder. The profile name is independent of the folder
-name — you can name a profile "Work" even if it's stored at `/data/sero-prod`.
+name — you can name a profile "Work" even if it's stored at
+`<custom-profile-root>`.
 
 ## UI
 

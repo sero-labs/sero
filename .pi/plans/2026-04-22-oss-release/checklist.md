@@ -28,6 +28,7 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
 - [x] Complete alpha changelog/versioning decision wave
 - [x] Complete transient-doc inventory / migration-map wave
 - [x] Complete docs policy / boundary wave
+- [x] Complete public-surface sanitization wave
 
 ## Phase 0 — Preservation First
 

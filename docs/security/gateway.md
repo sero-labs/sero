@@ -136,10 +136,10 @@ outcome — if the actual outcome differs, there is a security issue.
 pkill -f "vite"; pkill -f "electron"
 cd apps/desktop
 SERO_GATEWAY=1 bash scripts/dev.sh
-
-# Get the auth token
-cat ~/.sero-ui/gateway-token
 ```
+
+Later verification steps read the gateway token from disk directly without
+printing it to the terminal.
 
 ### Test 1: Gateway not reachable from network
 
@@ -204,11 +204,12 @@ then `closed: 4003 Authentication failed`.
 **What:** Verify correct token allows access.
 
 ```bash
-TOKEN=$(cat ~/.sero-ui/gateway-token)
 node -e "
+  const fs = require('fs');
+  const token = fs.readFileSync(process.env.HOME + '/.sero-ui/gateway-token', 'utf8').trim();
   const ws = new (require('ws'))('ws://127.0.0.1:18800');
   ws.on('open', () => {
-    ws.send(JSON.stringify({ type: 'connect', token: '$TOKEN', clientType: 'cli' }));
+    ws.send(JSON.stringify({ type: 'connect', token, clientType: 'cli' }));
   });
   ws.on('message', (d) => {
     console.log(JSON.parse(d));
@@ -256,11 +257,15 @@ stat -f "%Sp %N" ~/.sero-ui/agent/.env
 ### Test 7: Token not in logs (full form)
 
 ```bash
-TOKEN=$(cat ~/.sero-ui/gateway-token)
-grep "$TOKEN" /tmp/sero-electron.log
+node -e "
+  const fs = require('fs');
+  const token = fs.readFileSync(process.env.HOME + '/.sero-ui/gateway-token', 'utf8').trim();
+  const log = fs.readFileSync('/tmp/sero-electron.log', 'utf8');
+  console.log(log.includes(token) ? 'FOUND_TOKEN_IN_LOG' : 'token-not-found');
+"
 ```
 
-**Expected:** No matches. The log should only contain the redacted form
+**Expected:** `token-not-found`. The log should only contain the redacted form
 (`5ed54100…445d`).
 
 ---
@@ -276,7 +281,7 @@ your tailnet" — NOT "Available on the internet".
 
 ```bash
 # From a device NOT on your tailnet:
-curl -s https://daniels-macbook-pro-2.tail5e9b48.ts.net/health --connect-timeout 5
+curl -s https://<your-tailnet-hostname>/health --connect-timeout 5
 ```
 
 **Expected:** Connection refused or timeout — NOT `{"ok":true}`.
