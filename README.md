@@ -98,16 +98,19 @@ Notes:
 ```text
 sero/
 ├── apps/desktop/     # Electron + React desktop shell
+├── apps/docs-site/   # RSPress public docs app
 ├── packages/         # shared runtime, UI, and common packages
 ├── plugins/          # built-in Sero plugins and in-repo examples
-├── docs/             # architecture, guides, plugins, security, testing
+├── docs/             # canonical source material and deeper reference docs
 ├── eval/             # Promptfoo-based eval harness
 └── scripts/          # shared tooling and release helpers
 ```
 
 ## Documentation
 
-Current canonical docs live in `docs/`.
+The curated public docs site source now lives in `apps/docs-site/`.
+The current canonical source material still lives in `docs/` while migration is
+in progress.
 
 Start here:
 - [`docs/sero.md`](./docs/sero.md) — vision, platform constraints, runtime modes
@@ -119,8 +122,8 @@ Start here:
 - [`docs/node-pty-setup.md`](./docs/node-pty-setup.md) — native terminal troubleshooting
 - [`SECURITY.md`](./SECURITY.md) — vulnerability reporting policy
 
-A dedicated public docs site is planned as part of the OSS alpha work, but the
-files above are the current source of truth.
+The docs site is intentionally small for alpha and is being populated from the
+repo docs above rather than from historical plans or internal runbooks.
 
 ## Plugins and ecosystem
 

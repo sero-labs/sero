@@ -212,6 +212,37 @@ Inputs:
 - Rationale:
   - This gives contributors a small, honest command surface and follows the scripts/devflow audit recommendations.
 
+## Phase 2 implementation decisions
+
+### D-0201 — Public docs platform location and scope
+- Status: Accepted
+- Decision:
+  - The public docs platform lives in `apps/docs-site/` as a standalone **RSPress** app.
+  - The alpha docs site is intentionally limited to the approved IA only:
+    - Overview
+    - Getting Started
+    - Installation / Requirements
+    - Development Setup
+    - Architecture
+    - Plugins
+    - Testing / Evals
+    - Security / Privacy
+    - Troubleshooting
+    - Known Limitations
+  - The public docs nav must not link historical/internal trees such as `.pi/plans/**`, `docs/plans/**`, `docs/superpowers/**`, `docs/deslopify/**`, `.claude/**`, or `AGENTS.md`.
+- Rationale:
+  - This keeps the docs platform aligned with G1 while giving later docs work a single owned app surface.
+
+### D-0202 — Canonical docs during migration
+- Status: Accepted
+- Decision:
+  - During Phase 2/3 migration, `apps/docs-site/docs/**` is the curated public-doc surface.
+  - Existing repo `docs/**` remains the source-material pool and deeper reference set until later migration/cleanup gates.
+  - Architecture decision source material remains rooted in `docs/architecture.md` and `docs/decisions.md` until selectively migrated.
+  - Release/process coordination remains under `.pi/plans/2026-04-22-oss-release/**` until a later public process/release-doc destination is finalized.
+- Rationale:
+  - This preserves knowledge without forcing an early trim of mixed-purpose docs.
+
 ## Phase 2 handoff reference
 - Coordination artifact: `.pi/plans/2026-04-22-oss-release/phase-2-handoff.md`
 - Cleanup remains blocked until later gates; Phase 2 may proceed only on newly owned surfaces and approved shared-file lanes.

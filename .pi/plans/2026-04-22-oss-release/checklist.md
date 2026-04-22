@@ -20,6 +20,7 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
 - [x] Complete G1 discovery synthesis in `decision-log.md`
 - [x] Publish `phase-2-handoff.md`
 - [x] Complete OSS-0201 governance file wave
+- [x] Complete OSS-0204 docs platform skeleton wave
 - [x] Complete OSS-0205 README skeleton wave
 - [x] Complete root `pnpm test` / `pnpm test:ci` command wave
 
@@ -89,21 +90,21 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
 - [x] Decide on RSPress as the public docs stack
 - [x] Define docs information architecture
 - [ ] Separate durable public docs from internal/transient docs
-- [ ] Decide where architecture decisions live
-- [ ] Decide where process/release docs live
+- [x] Decide where architecture decisions live
+- [x] Decide where process/release docs live
 - [ ] Define minimal inline API doc standard (public/exported APIs only)
 - [ ] Avoid broad inline-doc requirements that pressure the 500 LOC rule
-- [ ] Publish core docs pages:
-  - [ ] Overview
-  - [ ] Getting Started
-  - [ ] Installation / Requirements
-  - [ ] Development Setup
-  - [ ] Architecture
-  - [ ] Plugins
-  - [ ] Testing / Evals
-  - [ ] Security / Privacy
-  - [ ] Troubleshooting
-  - [ ] Known Limitations
+- [x] Publish core docs pages:
+  - [x] Overview
+  - [x] Getting Started
+  - [x] Installation / Requirements
+  - [x] Development Setup
+  - [x] Architecture
+  - [x] Plugins
+  - [x] Testing / Evals
+  - [x] Security / Privacy
+  - [x] Troubleshooting
+  - [x] Known Limitations
 
 ## Phase 6 — Security, Privacy, and Local Data Posture
 
