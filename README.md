@@ -179,6 +179,9 @@ Public alpha contribution and support surfaces are currently:
 - GitHub Issues
 - Pull Requests
 
+For the canonical early-alpha support contract and triage expectations, see
+[`Support Scope`](./apps/docs-site/docs/reference/support-scope.md).
+
 Please read:
 - [`CONTRIBUTING.md`](./CONTRIBUTING.md)
 - [`CHANGELOG.md`](./CHANGELOG.md)

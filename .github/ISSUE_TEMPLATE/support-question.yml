@@ -9,6 +9,9 @@ body:
       value: |
         Use this template for setup, install, or troubleshooting questions.
 
+        Before filing, review the current support matrix and early-triage guidance:
+        https://github.com/monobyte/sero/blob/main/apps/docs-site/docs/reference/support-scope.md
+
         Please redact tokens, auth files, private paths, and other sensitive data.
         For security issues, use the private process in `SECURITY.md`.
   - type: textarea

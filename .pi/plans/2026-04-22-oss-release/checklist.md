@@ -37,6 +37,7 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
 - [x] Complete alpha support-scope documentation wave
 - [x] Complete troubleshooting flow docs wave
 - [x] Complete CI exclusion documentation wave
+- [x] Complete support/triage documentation wave
 
 ## Phase 0 — Preservation First
 
@@ -169,6 +170,6 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
 - [ ] Public docs are current and non-contradictory
 - [ ] CI is green on required gates
 - [x] Maintainer knows exactly what is supported in alpha
-- [ ] Support/triage plan for early issues is documented
+- [x] Support/triage plan for early issues is documented
 - [ ] Launch copy and links are ready
 - [ ] Final go/no-go review completed

@@ -70,6 +70,40 @@ When filing a bug, include which support surface you were using:
 - runtime mode: container-backed or host mode
 - whether the issue happened in source-built alpha or a local experimental build
 
+## Early alpha support / triage plan
+
+Use the public support surfaces like this:
+- **Bug report** — regressions, broken supported workflows, or behavior that no
+  longer matches the documented alpha support scope
+- **Support question** — setup help, troubleshooting, confusing docs, or
+  uncertainty about runtime/configuration
+- **Pull request** — small fixes, docs improvements, or targeted corrections
+  when you already know the change
+- **Private security reporting** — anything security-sensitive; follow
+  `SECURITY.md` instead of filing publicly
+
+What maintainers will triage first during alpha:
+- issues on the supported baseline (`macOS` on Apple Silicon, source build)
+- install / launch / data-loss / security-sensitive regressions
+- container-backed runtime problems and documented host-mode fallback problems
+- docs gaps that block setup or truthful usage of the alpha
+
+What reporters should expect:
+- **best-effort handling during alpha** — there is no response SLA yet
+- maintainers may ask for a minimal repro, commit SHA, runtime mode, and
+  redacted logs before acting
+- unsupported platforms, unsupported binary expectations, heavily modified local
+  builds, and third-party plugin issues may be redirected or closed as out of
+  scope
+- issues without enough detail to reproduce may be closed until more
+  information is available
+
+A good first signal for early triage is:
+- the exact command or workflow that failed
+- whether you were using container-backed runtime or host mode
+- the commit, branch, or tag you tested
+- the smallest redacted log excerpt that shows the failure
+
 ## Related docs
 
 - [Known Limitations](/reference/known-limitations)

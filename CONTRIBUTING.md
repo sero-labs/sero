@@ -16,6 +16,9 @@ Please use issues for bug reports, regressions, feature requests, and setup
 questions. For security issues, follow [`SECURITY.md`](./SECURITY.md) instead
 of opening a public issue.
 
+For the canonical alpha support matrix and early-triage expectations, see
+[`apps/docs-site/docs/reference/support-scope.md`](./apps/docs-site/docs/reference/support-scope.md).
+
 ## Before you start
 
 Please read these first:
@@ -102,6 +105,9 @@ If you touch plugin packaging or authoring flows, keep external-plugin guidance
 consistent with [`docs/plugins/guide.md`](./docs/plugins/guide.md).
 
 ## Reporting bugs
+
+Before filing, check the support/triage guidance in
+[`apps/docs-site/docs/reference/support-scope.md`](./apps/docs-site/docs/reference/support-scope.md).
 
 Please include:
 - what you expected
