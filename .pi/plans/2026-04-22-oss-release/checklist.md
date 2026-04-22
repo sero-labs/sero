@@ -17,6 +17,8 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
   - [x] OSS-0103 scripts / devflow audit
   - [x] OSS-0104 security / public audit
   - [x] OSS-0105 legal / license / distribution audit
+- [x] Complete G1 discovery synthesis in `decision-log.md`
+- [x] Publish `phase-2-handoff.md`
 
 ## Phase 0 — Preservation First
 
@@ -28,7 +30,7 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
   - [ ] transient with reusable facts
   - [ ] disposable/stale
 - [ ] Define canonical destinations for harvested information
-- [ ] Choose archive strategy for removed docs (private branch, private mirror, tarball, or equivalent)
+- [x] Choose archive strategy for removed docs (private mirror/branch snapshot + migration map)
 - [ ] Remove only those public docs whose durable information has already been extracted or intentionally discarded
 
 ## Phase 1 — Public Repo Hygiene
@@ -36,9 +38,9 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
 - [ ] Run working-tree secret scan
 - [ ] Run git-history secret scan
 - [ ] Audit repo for absolute local paths and machine-specific references
-- [ ] Audit public docs for stale internal references, scratch notes, and internal-only assumptions
-- [ ] Decide whether `.pi/plans/**` remains in the public repo
-- [ ] Decide whether `.claude/`, `AGENTS.md`, and similar maintainer-facing files stay public as-is
+- [x] Audit public docs for stale internal references, scratch notes, and internal-only assumptions
+- [x] Decide whether `.pi/plans/**` remains in the public repo
+- [x] Decide whether `.claude/`, `AGENTS.md`, and similar maintainer-facing files stay public as-is
 - [ ] Remove or relocate non-public artifacts from the public tree
 
 ## Phase 2 — OSS Project Basics
@@ -56,12 +58,12 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
 
 ## Phase 3 — Testing, E2E, and Evals
 
-- [ ] Define test taxonomy: unit / integration / e2e / eval / release smoke
-- [ ] Inventory all existing test suites and map them to the taxonomy
+- [x] Define test taxonomy: unit / integration / e2e / eval / release smoke
+- [x] Inventory all existing test suites and map them to the taxonomy
 - [ ] Identify stale, redundant, flaky, or low-value tests
-- [ ] Define PR quality gates
-- [ ] Define nightly/manual quality gates
-- [ ] Define release-only smoke tests
+- [x] Define PR quality gates
+- [x] Define nightly/manual quality gates
+- [x] Define release-only smoke tests
 - [ ] Add root `pnpm test`
 - [ ] Add root `pnpm test:ci`
 - [ ] Add `turbo` `test` task if appropriate
@@ -70,19 +72,19 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
 
 ## Phase 4 — Developer Workflow & Scripts
 
-- [ ] Inventory root and app-level scripts
-- [ ] Identify duplicate wrapper scripts
-- [ ] Define minimal public command surface
+- [x] Inventory root and app-level scripts
+- [x] Identify duplicate wrapper scripts
+- [x] Define minimal public command surface
 - [ ] Document setup from the repo root
 - [ ] Document the canonical dev flow
 - [ ] Document the canonical test flow
 - [ ] Document common troubleshooting flows
-- [ ] Consider adding `pnpm doctor`
+- [x] Consider adding `pnpm doctor`
 
 ## Phase 5 — Documentation Architecture
 
-- [ ] Decide on RSPress as the public docs stack
-- [ ] Define docs information architecture
+- [x] Decide on RSPress as the public docs stack
+- [x] Define docs information architecture
 - [ ] Separate durable public docs from internal/transient docs
 - [ ] Decide where architecture decisions live
 - [ ] Decide where process/release docs live
@@ -111,12 +113,12 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
 
 ## Phase 7 — Legal and Distribution Readiness
 
-- [ ] Choose license
+- [x] Choose license
 - [ ] Review third-party dependency licenses
-- [ ] Review castlabs/Widevine/Spotify-related distribution constraints
-- [ ] Decide whether alpha is source-only or includes binaries
-- [ ] Define packaging/signing/notarization expectations
-- [ ] Define release artifact policy
+- [x] Review castlabs/Widevine/Spotify-related distribution constraints
+- [x] Decide whether alpha is source-only or includes binaries
+- [x] Define packaging/signing/notarization expectations
+- [x] Define release artifact policy
 
 ## Phase 8 — Product Presentation
 

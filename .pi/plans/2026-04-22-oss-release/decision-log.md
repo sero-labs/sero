@@ -76,21 +76,146 @@ Phase 1 audit lanes must treat this file as **read-only**. Only the lead integra
 - Status: Accepted
 - Decision: The execution-pack filenames under `slices/**` are the authoritative artifact paths for Phase 1, even where they are slightly more specific than the draft placeholder names in `plan.md`.
 
-## G1 decision queue
+## G1 discovery synthesis
 
-These decisions are intentionally deferred until the five Phase 1 audit outputs exist:
+Status: Complete
+Date: 2026-04-22
+Inputs:
+- `.pi/plans/2026-04-22-oss-release/slices/01-docs-plans-audit.md`
+- `.pi/plans/2026-04-22-oss-release/slices/02-test-ci-eval-audit.md`
+- `.pi/plans/2026-04-22-oss-release/slices/03-scripts-devflow-audit.md`
+- `.pi/plans/2026-04-22-oss-release/slices/04-security-public-audit.md`
+- `.pi/plans/2026-04-22-oss-release/slices/05-legal-license-distribution-audit.md`
 
-1. Public vs internal docs boundary
-2. Archive strategy for removed transient docs
-3. Whether `.pi/plans/**` remains public, moves, or is split
-4. Whether `.claude/**` and `AGENTS.md` remain public as-is
-5. Alpha license choice
-6. Source-only alpha vs binary alpha
-7. Public support/community surface
-8. Docs-site scope for alpha
-9. CI gate tiering for PR vs nightly/manual vs release
-10. Root public command surface for contributors
+### D-0101 — Public vs internal docs boundary
+- Status: Accepted
+- Decision:
+  - Public alpha docs are limited to intentional, maintained contributor/user surfaces: `README.md`, root OSS/community files, the future docs site, and selected sanitized canonical docs under `docs/`.
+  - Canonical public-doc candidates include `docs/sero.md`, `docs/architecture.md`, `docs/decisions.md`, selected `docs/features/**`, selected `docs/plugins/**`, selected `docs/security/**`, and selected `docs/reference/**`.
+  - The following are **not** part of the public product surface and should be treated as internal/historical material even if still temporarily tracked during this program: `.pi/plans/**`, `docs/plans/**`, `docs/superpowers/**`, `docs/deslopify/**`, security hardening backlogs, maintainer tasklists, agent prompt/skill docs, `AGENTS.md`, and `.claude/**`.
+  - No protected docs move yet. Phase 3/4 must harvest durable facts first.
+- Rationale:
+  - Phase 1 found documentation sprawl, path leakage, and many plan/spec artifacts that are useful source material but poor canonical public docs.
+
+### D-0102 — Archive strategy for removed transient docs
+- Status: Accepted
+- Decision:
+  - The canonical archive is a **private git mirror/branch snapshot** taken immediately before Phase 4 cleanup.
+  - `migration-map.md` will record every removed or relocated artifact, its classification, harvested destination, and final action.
+  - Tarballs are optional backup artifacts only; they are not the primary archive format.
+- Guardrails:
+  - Preserve-before-prune remains in force through G3.
+  - No delete/move of protected docs before canonical public docs exist for harvested facts.
+
+### D-0103 — `.pi/plans/**` policy
+- Status: Accepted
+- Decision:
+  - Use a **split policy**.
+  - `.pi/plans/2026-04-22-oss-release/**` remains temporarily tracked as the active coordination hub for this release effort.
+  - Legacy `.pi/plans/**` is internal/transient by default and is targeted for harvest + private archive + later removal from the public tree during Phase 4.
+  - Future public-facing roadmap/process material should live in canonical docs or GitHub surfaces, not ad hoc `.pi/plans/**` dumps.
+- Rationale:
+  - The audits showed real reusable facts inside plans, but not a repo-wide case for keeping historical plan trees as part of the curated OSS surface.
+
+### D-0104 — `.claude/**` and `AGENTS.md` policy
+- Status: Accepted
+- Decision:
+  - Neither surface remains public as-is.
+  - `AGENTS.md` should later be split into:
+    - public contributor guidance that belongs in `CONTRIBUTING.md` and/or public docs
+    - private maintainer/agent operating rules that should leave the public tree before cleanup completes
+  - `.claude/**` is internal-only and should not be part of the curated public alpha repo.
+  - If any agent workflow examples are worth sharing publicly later, publish sanitized examples separately instead of exposing the raw internal tree.
+- Rationale:
+  - These files are operational instructions for maintainers/agents, not durable end-user or contributor docs.
+
+### D-0105 — Recommended license direction
+- Status: Accepted
+- Decision:
+  - Use **Apache-2.0** for the repo source at alpha.
+  - Pair it later with a lightweight top-level `NOTICE` and a packaging-time `THIRD_PARTY_NOTICES` artifact if/when official binary distribution is enabled.
+- Rationale:
+  - This is the best current balance of permissive OSS posture plus explicit patent grant for a plugin/extensible tooling platform.
+
+### D-0106 — Alpha distribution posture
+- Status: Accepted
+- Decision:
+  - Alpha launch is **source-first and source-only by default**.
+  - Do not promise official public binaries at alpha.
+  - Local packaging/release scripts may remain in-tree for maintainers, but signed/notarized public binaries stay out of scope until castlabs/Widevine/Spotify redistribution obligations are confirmed.
+  - Public docs should explicitly position alpha support as macOS Apple Silicon source builds, with containers recommended and host mode a documented fallback.
+- Rationale:
+  - The legal audit surfaced unresolved third-party binary constraints; a source-only alpha keeps the release credible without overcommitting on DRM-enabled binaries.
+
+### D-0107 — Public support/community surface
+- Status: Accepted
+- Decision:
+  - Public alpha support is **GitHub Issues + Pull Requests only**.
+  - No GitHub Discussions, Discord, or forum commitment at alpha.
+  - `SECURITY.md` will define a private security-reporting path separate from public issues.
+  - `CONTRIBUTING.md` should set best-effort maintainer response expectations and explicitly scope alpha support.
+- Rationale:
+  - This keeps maintainer load realistic and matches the current governance maturity.
+
+### D-0108 — Docs-site scope for alpha
+- Status: Accepted
+- Decision:
+  - Use **RSPress** as the public docs stack.
+  - Alpha docs-site scope is intentionally small:
+    - Overview
+    - Getting Started
+    - Installation / Requirements
+    - Development Setup
+    - Architecture
+    - Plugins
+    - Testing / Evals
+    - Security / Privacy
+    - Troubleshooting
+    - Known Limitations
+  - Historical plans, superpowers docs, deslopify docs, and maintainer runbooks do not get linked from the public docs site.
+- Rationale:
+  - This is enough to support contributors without turning the docs site into a mirror of internal planning history.
+
+### D-0109 — Test taxonomy and quality-gate tiering
+- Status: Accepted
+- Decision:
+  - Adopt the following test taxonomy for alpha: **unit, integration, e2e, eval, release smoke**.
+  - PR gate:
+    - `pnpm typecheck`
+    - `pnpm build`
+    - `pnpm --filter @sero/desktop test -- --run`
+    - `pnpm --filter @sero/desktop test:e2e` using the Playwright CI project
+  - Nightly/manual gate:
+    - `pnpm eval:snapshot`
+    - selected package/plugin test suites not yet covered by the PR gate
+    - full-render and container-dependent Playwright coverage via `test:e2e:local`
+    - full `pnpm eval` when credentials and budget are available
+  - Release gate:
+    - PR gate plus working-tree secret scan, git-history secret scan, docs build, clean-clone install/run smoke, and a small manual smoke set covering app launch, one workspace action, one agent/tool round trip, and one plugin load path
+  - Container-heavy tests and DRM/binary packaging checks remain non-blocking until dedicated infra and legal posture exist.
+- Rationale:
+  - This matches the actual current test surface without overstating CI coverage.
+
+### D-0110 — Root public command surface
+- Status: Accepted
+- Decision:
+  - Canonical contributor commands to expose from the repo root:
+    - `pnpm install`
+    - `pnpm dev`
+    - `pnpm typecheck`
+    - `pnpm build`
+    - `pnpm test`
+    - `pnpm test:ci`
+  - `pnpm dev` is the only first-class “start the app” command for public docs. `apps/desktop/scripts/dev.sh` remains an implementation detail and troubleshooting fallback, not a README-level entrypoint.
+  - Advanced or maintainer-only commands stay out of the quickstart: `clean`, `eval*`, `rebuild-electron`, release/signing/container helpers, `knip*`, and plugin export/build wrappers.
+  - `pnpm doctor` is approved as a Phase 2 follow-up, but it is not an alpha gate.
+- Rationale:
+  - This gives contributors a small, honest command surface and follows the scripts/devflow audit recommendations.
+
+## Phase 2 handoff reference
+- Coordination artifact: `.pi/plans/2026-04-22-oss-release/phase-2-handoff.md`
+- Cleanup remains blocked until later gates; Phase 2 may proceed only on newly owned surfaces and approved shared-file lanes.
 
 ## Notes
 - If subagents are unavailable in a future session, the same slice and prompt files can be used manually.
-- This log is intentionally lightweight until G1 synthesis begins.
+- G1 is now closed; later work should treat the decisions above as the default unless this log is explicitly amended.
