@@ -176,4 +176,5 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
 - [x] Maintainer knows exactly what is supported in alpha
 - [x] Support/triage plan for early issues is documented
 - [x] Launch copy and links are ready
-- [ ] Final go/no-go review completed
+- [x] Final go/no-go review completed
+  - current verdict: conditional GO / public-promotion NO-GO until remote required CI is observed green (`go-no-go-review.md`)
