@@ -27,6 +27,7 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
 - [x] Complete hygiene scan wave (`gitleaks` + path audit)
 - [x] Complete alpha changelog/versioning decision wave
 - [x] Complete transient-doc inventory / migration-map wave
+- [x] Complete docs policy / boundary wave
 
 ## Phase 0 — Preservation First
 
@@ -93,11 +94,11 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
 
 - [x] Decide on RSPress as the public docs stack
 - [x] Define docs information architecture
-- [ ] Separate durable public docs from internal/transient docs
+- [x] Separate durable public docs from internal/transient docs
 - [x] Decide where architecture decisions live
 - [x] Decide where process/release docs live
-- [ ] Define minimal inline API doc standard (public/exported APIs only)
-- [ ] Avoid broad inline-doc requirements that pressure the 500 LOC rule
+- [x] Define minimal inline API doc standard (public/exported APIs only)
+- [x] Avoid broad inline-doc requirements that pressure the 500 LOC rule
 - [x] Publish core docs pages:
   - [x] Overview
   - [x] Getting Started

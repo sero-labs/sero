@@ -113,6 +113,7 @@ The current canonical source material still lives in `docs/` while migration is
 in progress.
 
 Start here:
+- [`docs/README.md`](./docs/README.md) — documentation model and public/internal boundary
 - [`docs/sero.md`](./docs/sero.md) — vision, platform constraints, runtime modes
 - [`docs/architecture.md`](./docs/architecture.md) — shell and subsystem overview
 - [`docs/guides/macos-containers.md`](./docs/guides/macos-containers.md) — Apple container setup
