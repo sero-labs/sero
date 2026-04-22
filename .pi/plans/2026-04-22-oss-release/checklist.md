@@ -35,6 +35,7 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
 - [x] Complete clean-clone desktop launch validation wave
 - [x] Complete public secret-handling docs sanitization wave
 - [x] Complete alpha support-scope documentation wave
+- [x] Complete troubleshooting flow docs wave
 
 ## Phase 0 — Preservation First
 
@@ -94,7 +95,7 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
 - [x] Document setup from the repo root
 - [x] Document the canonical dev flow
 - [x] Document the canonical test flow
-- [ ] Document common troubleshooting flows
+- [x] Document common troubleshooting flows
 - [x] Consider adding `pnpm doctor`
 
 ## Phase 5 — Documentation Architecture
