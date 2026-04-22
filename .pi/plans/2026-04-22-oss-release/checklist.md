@@ -29,6 +29,7 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
 - [x] Complete transient-doc inventory / migration-map wave
 - [x] Complete docs policy / boundary wave
 - [x] Complete public-surface sanitization wave
+- [x] Complete state/logs/privacy posture doc wave
 
 ## Phase 0 — Preservation First
 
@@ -114,10 +115,10 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
 
 ## Phase 6 — Security, Privacy, and Local Data Posture
 
-- [ ] Document where auth/config/state/logs live
-- [ ] Document what is local vs remote
-- [ ] Document how secrets are stored and what risks remain
-- [ ] Document gateway/token behavior if publicly exposed
+- [x] Document where auth/config/state/logs live
+- [x] Document what is local vs remote
+- [x] Document how secrets are stored and what risks remain
+- [x] Document gateway/token behavior if publicly exposed
 - [ ] Ensure examples/config samples are sanitized
 - [ ] Ensure public docs do not encourage unsafe handling of secrets
 

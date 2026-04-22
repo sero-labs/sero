@@ -51,7 +51,7 @@ PRs, etc. Treat the gateway token like a root password.
 
 ## Security Controls
 
-### 1. Gateway token (`~/.sero-ui/gateway-token`)
+### 1. Gateway token (`~/.sero-ui/agent/gateway-token`)
 
 - **Generated:** 32 random bytes → 64-char hex (256 bits of entropy)
 - **Stored:** file mode `0600` (owner read/write only)
@@ -82,7 +82,7 @@ PRs, etc. Treat the gateway token like a root password.
 
 | Secret | Location | Permissions |
 |--------|----------|-------------|
-| Gateway token | `~/.sero-ui/gateway-token` | `0600` |
+| Gateway token | `~/.sero-ui/agent/gateway-token` | `0600` |
 | Discord bot token | `~/.sero-ui/agent/.env` | `0600` |
 | API keys | `~/.sero-ui/agent/.env` | `0600` |
 
@@ -206,7 +206,7 @@ then `closed: 4003 Authentication failed`.
 ```bash
 node -e "
   const fs = require('fs');
-  const token = fs.readFileSync(process.env.HOME + '/.sero-ui/gateway-token', 'utf8').trim();
+  const token = fs.readFileSync(process.env.HOME + '/.sero-ui/agent/gateway-token', 'utf8').trim();
   const ws = new (require('ws'))('ws://127.0.0.1:18800');
   ws.on('open', () => {
     ws.send(JSON.stringify({ type: 'connect', token, clientType: 'cli' }));
@@ -246,7 +246,7 @@ node -e "
 ### Test 6: Token file permissions
 
 ```bash
-stat -f "%Sp %N" ~/.sero-ui/gateway-token
+stat -f "%Sp %N" ~/.sero-ui/agent/gateway-token
 stat -f "%Sp %N" ~/.sero-ui/agent/.env
 ```
 
@@ -259,7 +259,7 @@ stat -f "%Sp %N" ~/.sero-ui/agent/.env
 ```bash
 node -e "
   const fs = require('fs');
-  const token = fs.readFileSync(process.env.HOME + '/.sero-ui/gateway-token', 'utf8').trim();
+  const token = fs.readFileSync(process.env.HOME + '/.sero-ui/agent/gateway-token', 'utf8').trim();
   const log = fs.readFileSync('/tmp/sero-electron.log', 'utf8');
   console.log(log.includes(token) ? 'FOUND_TOKEN_IN_LOG' : 'token-not-found');
 "
@@ -328,7 +328,7 @@ lsof -i :18801 -P 2>/dev/null | grep LISTEN
 
 2. **Rotate the gateway token** periodically:
    ```bash
-   rm ~/.sero-ui/gateway-token
+   rm ~/.sero-ui/agent/gateway-token
    # Restart Sero — a new token is generated
    ```
 

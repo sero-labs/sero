@@ -25,6 +25,7 @@ reference set while migration is in progress.
 Some files under `docs/**` are strong canonical references already, especially:
 - `docs/architecture.md`
 - `docs/decisions.md`
+- `docs/reference/state-and-folders.md`
 - `docs/plugins/guide.md`
 - `docs/plugins/technical.md`
 - `docs/security/**`

@@ -116,6 +116,7 @@ Start here:
 - [`docs/README.md`](./docs/README.md) — documentation model and public/internal boundary
 - [`docs/sero.md`](./docs/sero.md) — vision, platform constraints, runtime modes
 - [`docs/architecture.md`](./docs/architecture.md) — shell and subsystem overview
+- [`docs/reference/state-and-folders.md`](./docs/reference/state-and-folders.md) — profile/state/auth/log storage reference
 - [`docs/guides/macos-containers.md`](./docs/guides/macos-containers.md) — Apple container setup
 - [`docs/plugins/guide.md`](./docs/plugins/guide.md) — plugin author and user guide
 - [`docs/features/local-plugin-development.md`](./docs/features/local-plugin-development.md) — running plugin checkouts directly
