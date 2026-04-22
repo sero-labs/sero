@@ -68,5 +68,5 @@ Release confidence should include:
 ## See also
 
 Detailed source material:
-- `docs/testing/eval-guide.md`
-- `.github/workflows/test.yml`
+- [`docs/testing/eval-guide.md`](https://github.com/monobyte/sero/blob/main/docs/testing/eval-guide.md)
+- [`.github/workflows/test.yml`](https://github.com/monobyte/sero/blob/main/.github/workflows/test.yml)

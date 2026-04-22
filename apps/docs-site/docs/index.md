@@ -60,6 +60,15 @@ Current alpha posture:
 For the canonical current support contract, see
 [Support Scope](/reference/support-scope).
 
+## Start here
+
+- [Getting Started](/guide/getting-started)
+- [Support Scope](/reference/support-scope)
+- [Architecture](/reference/architecture)
+- [Contributing](https://github.com/monobyte/sero/blob/main/CONTRIBUTING.md)
+- [Security Policy](https://github.com/monobyte/sero/blob/main/SECURITY.md)
+- [Open an Issue](https://github.com/monobyte/sero/issues/new/choose)
+
 See the guide pages for setup and the reference pages for architecture,
 support scope, plugins, testing, security, troubleshooting, and known
 limitations.

@@ -65,5 +65,5 @@ A good first plugin has:
 For the full packaging, install, compatibility, and local-development story,
 continue with:
 - [Plugins](/reference/plugins)
-- `docs/plugins/guide.md` in the repo source material
-- `docs/plugins/host-compatibility.md` in the repo source material
+- [`docs/plugins/guide.md`](https://github.com/monobyte/sero/blob/main/docs/plugins/guide.md) in the repo source material
+- [`docs/plugins/host-compatibility.md`](https://github.com/monobyte/sero/blob/main/docs/plugins/host-compatibility.md) in the repo source material

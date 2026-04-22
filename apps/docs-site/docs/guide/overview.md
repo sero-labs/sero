@@ -35,8 +35,8 @@ support, or fully stable internal runtime/plugin contracts.
 
 This docs site is the curated public surface for alpha. The current source
 material it draws from includes:
-- `docs/sero.md`
-- `docs/architecture.md`
-- `docs/plugins/guide.md`
-- `docs/testing/eval-guide.md`
-- `docs/security/gateway.md`
+- [`docs/sero.md`](https://github.com/monobyte/sero/blob/main/docs/sero.md)
+- [`docs/architecture.md`](https://github.com/monobyte/sero/blob/main/docs/architecture.md)
+- [`docs/plugins/guide.md`](https://github.com/monobyte/sero/blob/main/docs/plugins/guide.md)
+- [`docs/testing/eval-guide.md`](https://github.com/monobyte/sero/blob/main/docs/testing/eval-guide.md)
+- [`docs/security/gateway.md`](https://github.com/monobyte/sero/blob/main/docs/security/gateway.md)

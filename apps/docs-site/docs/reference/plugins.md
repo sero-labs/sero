@@ -46,7 +46,7 @@ For the published quickstart walkthrough, see
 ## See also
 
 Current detailed source material:
-- `docs/plugins/quickstart.md`
-- `docs/plugins/guide.md`
-- `docs/plugins/host-compatibility.md`
-- `docs/features/local-plugin-development.md`
+- [`docs/plugins/quickstart.md`](https://github.com/monobyte/sero/blob/main/docs/plugins/quickstart.md)
+- [`docs/plugins/guide.md`](https://github.com/monobyte/sero/blob/main/docs/plugins/guide.md)
+- [`docs/plugins/host-compatibility.md`](https://github.com/monobyte/sero/blob/main/docs/plugins/host-compatibility.md)
+- [`docs/features/local-plugin-development.md`](https://github.com/monobyte/sero/blob/main/docs/features/local-plugin-development.md)

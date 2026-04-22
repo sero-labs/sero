@@ -67,8 +67,8 @@ multi-tenant security boundary.
 ## See also
 
 Current source material:
-- `SECURITY.md`
-- `docs/reference/state-and-folders.md`
-- `docs/security/gateway.md`
-- `docs/features/memory.md`
-- `docs/features/profiles.md`
+- [`SECURITY.md`](https://github.com/monobyte/sero/blob/main/SECURITY.md)
+- [`docs/reference/state-and-folders.md`](https://github.com/monobyte/sero/blob/main/docs/reference/state-and-folders.md)
+- [`docs/security/gateway.md`](https://github.com/monobyte/sero/blob/main/docs/security/gateway.md)
+- [`docs/features/memory.md`](https://github.com/monobyte/sero/blob/main/docs/features/memory.md)
+- [`docs/features/profiles.md`](https://github.com/monobyte/sero/blob/main/docs/features/profiles.md)

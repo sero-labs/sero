@@ -36,6 +36,6 @@ pnpm test:ci
 
 For contribution workflow, PR expectations, and security reporting, see the
 root OSS files in the repository:
-- `CONTRIBUTING.md`
-- `SECURITY.md`
-- `CODE_OF_CONDUCT.md`
+- [`CONTRIBUTING.md`](https://github.com/monobyte/sero/blob/main/CONTRIBUTING.md)
+- [`SECURITY.md`](https://github.com/monobyte/sero/blob/main/SECURITY.md)
+- [`CODE_OF_CONDUCT.md`](https://github.com/monobyte/sero/blob/main/CODE_OF_CONDUCT.md)

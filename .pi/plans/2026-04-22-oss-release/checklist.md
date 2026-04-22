@@ -175,5 +175,5 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
   - [ ] Remote required CI run observed green
 - [x] Maintainer knows exactly what is supported in alpha
 - [x] Support/triage plan for early issues is documented
-- [ ] Launch copy and links are ready
+- [x] Launch copy and links are ready
 - [ ] Final go/no-go review completed
