@@ -1,5 +1,7 @@
-import { memo, useMemo } from 'react';
-import { Bot, RotateCcw, User } from 'lucide-react';
+import { memo, useCallback, useMemo } from 'react';
+import { Bot, Check, Copy, RotateCcw, User } from 'lucide-react';
+import { useTransientFlag } from '@/components/apps/explorer/useTransientUiState';
+import { copyTextToClipboard } from '@/lib/copy-to-clipboard';
 
 import {
   Message,
@@ -15,6 +17,30 @@ import { MemoryContextBlock } from './MemoryContextBlock';
 import { ResponseFeedback } from './ResponseFeedback';
 import { ThinkingIndicator } from './ChatPanelHelpers';
 import type { ChatMessage, ChatTurnUndoRef } from '@/types/ipc';
+
+function UserCopyButton({ text }: { text: string }) {
+  const [copied, showCopied] = useTransientFlag(2000);
+  const handleCopy = useCallback(async () => {
+    if (!(await copyTextToClipboard(text))) return;
+    showCopied();
+  }, [text, showCopied]);
+
+  return (
+    <div className="ml-auto flex items-center gap-0.5 opacity-0 transition-opacity duration-150 group-hover/msg:opacity-100">
+      <button
+        onClick={handleCopy}
+        className="rounded-md p-1 transition-colors duration-100 text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]"
+        title="Copy to clipboard"
+      >
+        {copied ? (
+          <Check className="size-3 text-[var(--status-success)]" />
+        ) : (
+          <Copy className="size-3" />
+        )}
+      </button>
+    </div>
+  );
+}
 
 function ChatAvatar({ kind }: { kind: 'user' | 'assistant' }) {
   const Icon = kind === 'user' ? User : Bot;
@@ -62,33 +88,36 @@ export const ChatMessageItem = memo(function ChatMessageItem({
       const canRestore = !!turnUndo && !!onRestoreTurnUndo;
 
       return (
-        <Message from="user">
+        <Message from="user" className="group/msg">
           <div className="ml-auto flex w-fit max-w-full items-start gap-2">
-            <div className="relative min-w-0">
-              <MessageContent
-                className={cn(
-                  'group-[.is-user]:bg-[var(--bg-elevated)]',
-                  canRestore && 'pr-8',
-                )}
-              >
-                <MessageResponse>{message.text}</MessageResponse>
-                {message.attachments?.length ? (
-                  <MessageAttachments attachments={message.attachments} />
-                ) : null}
-              </MessageContent>
+            <div className="flex min-w-0 flex-col">
+              <div className="relative min-w-0">
+                <MessageContent
+                  className={cn(
+                    'group-[.is-user]:bg-[var(--bg-elevated)]',
+                    canRestore && 'pr-8',
+                  )}
+                >
+                  <MessageResponse>{message.text}</MessageResponse>
+                  {message.attachments?.length ? (
+                    <MessageAttachments attachments={message.attachments} />
+                  ) : null}
+                </MessageContent>
 
-              {canRestore && turnUndo && onRestoreTurnUndo ? (
-                <MessageActions className="absolute top-1/2 right-0 -translate-y-1/2 translate-x-1/2">
-                  <MessageAction
-                    tooltip="Undo this turn"
-                    label="Undo this turn"
-                    className="h-7 w-7 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-[var(--text-muted)] shadow-sm hover:text-[var(--text-primary)]"
-                    onClick={() => onRestoreTurnUndo(turnUndo)}
-                  >
-                    <RotateCcw className="size-3.5" />
-                  </MessageAction>
-                </MessageActions>
-              ) : null}
+                {canRestore && turnUndo && onRestoreTurnUndo ? (
+                  <MessageActions className="absolute top-1/2 right-0 -translate-y-1/2 translate-x-1/2">
+                    <MessageAction
+                      tooltip="Undo this turn"
+                      label="Undo this turn"
+                      className="h-7 w-7 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-[var(--text-muted)] shadow-sm hover:text-[var(--text-primary)]"
+                      onClick={() => onRestoreTurnUndo(turnUndo)}
+                    >
+                      <RotateCcw className="size-3.5" />
+                    </MessageAction>
+                  </MessageActions>
+                ) : null}
+              </div>
+              {message.text ? <UserCopyButton text={message.text} /> : null}
             </div>
             <ChatAvatar kind="user" />
           </div>
@@ -142,6 +171,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
                 sessionId={sessionId}
                 promptExcerpt={promptExcerpt}
                 responseExcerpt={responseExcerpt}
+                responseText={message.text}
               />
             ) : null}
           </div>
