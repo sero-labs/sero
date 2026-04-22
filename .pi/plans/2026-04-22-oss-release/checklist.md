@@ -20,6 +20,7 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
 - [x] Complete G1 discovery synthesis in `decision-log.md`
 - [x] Publish `phase-2-handoff.md`
 - [x] Complete OSS-0201 governance file wave
+- [x] Complete OSS-0205 README skeleton wave
 
 ## Phase 0 — Preservation First
 
@@ -46,7 +47,7 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
 
 ## Phase 2 — OSS Project Basics
 
-- [ ] Add `README.md`
+- [x] Add `README.md`
 - [x] Add `LICENSE`
 - [x] Add `CONTRIBUTING.md`
 - [x] Add `SECURITY.md`
@@ -76,9 +77,9 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
 - [x] Inventory root and app-level scripts
 - [x] Identify duplicate wrapper scripts
 - [x] Define minimal public command surface
-- [ ] Document setup from the repo root
-- [ ] Document the canonical dev flow
-- [ ] Document the canonical test flow
+- [x] Document setup from the repo root
+- [x] Document the canonical dev flow
+- [x] Document the canonical test flow
 - [ ] Document common troubleshooting flows
 - [x] Consider adding `pnpm doctor`
 
@@ -123,12 +124,12 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
 
 ## Phase 8 — Product Presentation
 
-- [ ] Write README hero section and value proposition
+- [x] Write README hero section and value proposition
 - [ ] Add screenshots and/or GIFs
-- [ ] Add supported-platform statement
-- [ ] Add alpha limitations statement
+- [x] Add supported-platform statement
+- [x] Add alpha limitations statement
 - [ ] Add placeholder landing page
-- [ ] Add “Why Sero?” / differentiation summary
+- [x] Add “Why Sero?” / differentiation summary
 
 ## Phase 9 — Ecosystem Onboarding
 
