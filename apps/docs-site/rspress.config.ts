@@ -16,6 +16,7 @@ export default defineConfig({
         items: [
           { text: 'Architecture', link: '/reference/architecture' },
           { text: 'Plugins', link: '/reference/plugins' },
+          { text: 'Plugin Quickstart', link: '/reference/plugin-quickstart' },
           { text: 'Testing / Evals', link: '/reference/testing-evals' },
           { text: 'Security / Privacy', link: '/reference/security-privacy' },
           { text: 'Troubleshooting', link: '/reference/troubleshooting' },
@@ -50,7 +51,8 @@ export default defineConfig({
           text: 'Concepts',
           items: [
             { text: 'Architecture', link: '/reference/architecture' },
-            { text: 'Plugins', link: '/reference/plugins' }
+            { text: 'Plugins', link: '/reference/plugins' },
+            { text: 'Plugin Quickstart', link: '/reference/plugin-quickstart' }
           ]
         },
         {

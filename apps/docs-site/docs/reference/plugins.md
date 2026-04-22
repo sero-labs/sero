@@ -33,11 +33,15 @@ During alpha:
 
 ## Starter author path
 
-The canonical minimal starter example is the external **Daily Quote** plugin:
+The canonical starter example is the external **Daily Quote** plugin:
 - `https://github.com/monobyte/sero-daily-quote-plugin`
 
-For a concise walkthrough of the minimal file layout and author command surface,
-see `docs/plugins/quickstart.md` in the repo source material.
+Treat it as a **small complete reference plugin**, not a visually minimal one.
+Its structure is the main thing to copy: manifest shape, extension entry,
+shared types, UI entry, and Vite federation config.
+
+For the published quickstart walkthrough, see
+[Plugin Quickstart](/reference/plugin-quickstart).
 
 ## See also
 

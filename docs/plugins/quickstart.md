@@ -1,13 +1,15 @@
 # Sero Plugin Author Quickstart
 
-This is the fastest path to understanding the shape of a minimal Sero plugin.
+This is the fastest path to understanding the shape of a small complete Sero
+plugin reference.
 
 For the full install, packaging, manifest, and distribution story, see
 [`guide.md`](./guide.md).
 
 ## Canonical starter example
 
-Use the **Daily Quote** plugin as the minimal starter example:
+Use the **Daily Quote** plugin as the canonical small complete reference
+plugin:
 
 - GitHub: `https://github.com/monobyte/sero-daily-quote-plugin`
 - local adjacent checkout example: `../plugins/sero-daily-quote-plugin/`
@@ -16,6 +18,9 @@ Why this example:
 - it is small and complete
 - it has one extension, one UI component, and one shared state contract
 - it shows the standard Sero plugin shape without extra runtime complexity
+- it is **structurally minimal, not visually minimal** — the UI is more polished
+  than the smallest possible starter, so copy the manifest/layout/contracts,
+  not the presentation complexity
 
 ## Minimal file shape
 
@@ -34,6 +39,9 @@ sero-daily-quote-plugin/
 ```
 
 These are the first files to study.
+
+The point is to understand the plugin contract surface, not to reproduce the
+Daily Quote app's visual styling one-for-one.
 
 ## What each file is doing
 
