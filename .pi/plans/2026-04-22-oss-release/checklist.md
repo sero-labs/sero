@@ -32,6 +32,7 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
 - [x] Complete state/logs/privacy posture doc wave
 - [x] Complete plugin quickstart wave
 - [x] Complete clean-clone baseline validation wave
+- [x] Complete clean-clone desktop launch validation wave
 
 ## Phase 0 — Preservation First
 
@@ -154,7 +155,7 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
 - [x] Define release checklist owner/responsibilities
 - [x] Define tagged release process
 - [x] Define changelog process
-- [ ] Validate clean clone -> install -> run on a supported machine
+- [x] Validate clean clone -> install -> run on a supported machine
 - [x] Validate clean clone -> test on a supported machine
 - [ ] Validate packaging flow if binaries are shipped
 
