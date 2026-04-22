@@ -287,6 +287,48 @@ describe('bridged extension sessions', () => {
     expect(sendUserMessage).toHaveBeenCalledWith('/memory list', { deliverAs: 'followUp' });
   });
 
+  it('prefers a bridged tool over a same-name slash command in the same session', async () => {
+    installSessionBridge(['session-1']);
+
+    const toolSpy = vi.fn<ToolDefinition['execute']>(async () => ({
+      content: [{ type: 'text', text: 'memory tool executed' }],
+      details: null,
+    }));
+    const commandSpy = vi.fn(async () => undefined);
+
+    bridgeExtensionTools(
+      makeLoadExtensionsResult({
+        extensionPath: '/tmp/plugin-memory/extension/index.ts',
+        tools: [{
+          name: 'memory',
+          label: 'Memory',
+          description: 'Memory tool.',
+          parameters: Type.Object({}),
+          execute: toolSpy,
+        }],
+        commands: [{
+          name: 'memory',
+          description: 'Memory slash command.',
+          handler: commandSpy,
+        }],
+      }),
+      { sessionId: 'session-1' },
+    );
+
+    const tool = createSeroCliTool(getCliRegistry(), 'ws-1', 'session-1');
+    const result = await tool.execute(
+      'tool-1',
+      { command: 'memory write --target memory' },
+      undefined,
+      undefined,
+      { cwd: '/tmp/ws-1' } as never,
+    );
+
+    expect(toolSpy).toHaveBeenCalledOnce();
+    expect(commandSpy).not.toHaveBeenCalled();
+    expect(result.content).toEqual([{ type: 'text', text: 'memory tool executed' }]);
+  });
+
   it('does not resolve another session\'s bridged commands', async () => {
     installSessionBridge(['session-1', 'session-2']);
 

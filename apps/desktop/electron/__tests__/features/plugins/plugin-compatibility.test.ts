@@ -35,6 +35,42 @@ describe('plugin compatibility', () => {
     vi.resetModules();
   });
 
+  it('falls back to the desktop package version when Electron reports its own runtime version', async () => {
+    vi.resetModules();
+
+    const originalVersions = process.versions;
+    Object.defineProperty(process, 'versions', {
+      value: {
+        ...process.versions,
+        electron: '33.4.11',
+      },
+      configurable: true,
+    });
+
+    vi.doMock('electron', () => ({
+      app: {
+        getVersion: () => '33.4.11+wvcus',
+        getAppPath: () => path.resolve(__dirname, '../../../dist/electron'),
+      },
+    }));
+
+    const desktopPackageJson = JSON.parse(
+      readFileSync(path.resolve(__dirname, '../../../../package.json'), 'utf8'),
+    ) as { version: string };
+
+    try {
+      const { getSeroHostCompatibilityContext } = await import('@electron/features/plugins/compatibility');
+      expect(getSeroHostCompatibilityContext().hostVersion).toBe(desktopPackageJson.version);
+    } finally {
+      Object.defineProperty(process, 'versions', {
+        value: originalVersions,
+        configurable: true,
+      });
+      vi.doUnmock('electron');
+      vi.resetModules();
+    }
+  });
+
   it('accepts plugins whose version and capability requirements are satisfied', () => {
     const plugin: PluginMeta = {
       category: 'integrations',
