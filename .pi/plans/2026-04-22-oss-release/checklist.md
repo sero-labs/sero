@@ -10,8 +10,13 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
 - [x] Create `slices/README.md`
 - [x] Create Phase 1 slice placeholders
 - [x] Create Phase 1 concurrent audit prompts
-- [ ] Launch the 5 Phase 1 audit lanes
+- [x] Launch the 5 Phase 1 audit lanes
 - [ ] Complete the 5 Phase 1 audit slices
+  - [x] OSS-0101 docs / plans audit
+  - [x] OSS-0102 test / CI / eval audit
+  - [ ] OSS-0103 scripts / devflow audit
+  - [ ] OSS-0104 security / public audit
+  - [ ] OSS-0105 legal / license / distribution audit
 
 ## Phase 0 — Preservation First
 
