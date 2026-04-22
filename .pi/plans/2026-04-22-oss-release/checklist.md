@@ -15,7 +15,7 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
   - [x] OSS-0101 docs / plans audit
   - [x] OSS-0102 test / CI / eval audit
   - [ ] OSS-0103 scripts / devflow audit
-  - [ ] OSS-0104 security / public audit
+  - [x] OSS-0104 security / public audit
   - [ ] OSS-0105 legal / license / distribution audit
 
 ## Phase 0 — Preservation First
