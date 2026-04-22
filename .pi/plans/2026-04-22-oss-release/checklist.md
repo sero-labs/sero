@@ -23,6 +23,7 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
 - [x] Complete OSS-0204 docs platform skeleton wave
 - [x] Complete OSS-0205 README skeleton wave
 - [x] Complete root `pnpm test` / `pnpm test:ci` command wave
+- [x] Complete PR workflow alignment wave
 - [x] Complete hygiene scan wave (`gitleaks` + path audit)
 
 ## Phase 0 — Preservation First

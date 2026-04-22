@@ -19,11 +19,14 @@ pnpm eval:snapshot
 
 ### PR gate
 
-Current alpha PR-gate shape:
+GitHub Actions currently uses the single root command `pnpm test:ci` as the
+alpha PR gate.
+
+That gate expands to:
 - `pnpm typecheck`
 - `pnpm build`
 - `pnpm test`
-- desktop Playwright CI e2e via `pnpm test:ci`
+- desktop Playwright CI e2e
 
 ### Nightly/manual
 
