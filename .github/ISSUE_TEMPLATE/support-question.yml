@@ -1,0 +1,52 @@
+name: Support question
+description: Ask for setup help or troubleshooting guidance for the current OSS alpha.
+title: "support: "
+labels:
+  - question
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template for setup, install, or troubleshooting questions.
+
+        Please redact tokens, auth files, private paths, and other sensitive data.
+        For security issues, use the private process in `SECURITY.md`.
+  - type: textarea
+    id: goal
+    attributes:
+      label: What are you trying to do?
+      placeholder: e.g. Run the desktop app locally, build a plugin, or recover a broken setup.
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What is blocking you?
+      placeholder: Describe the symptom, error, or confusing step.
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: Platform
+      placeholder: macOS 26 / Apple Silicon
+    validations:
+      required: true
+  - type: dropdown
+    id: runtime
+    attributes:
+      label: Runtime mode
+      options:
+        - Container-backed
+        - Host mode
+        - Not sure
+  - type: textarea
+    id: tried
+    attributes:
+      label: What have you already tried?
+      placeholder: Include commands or docs you followed.
+  - type: textarea
+    id: context
+    attributes:
+      label: Extra context
+      description: Logs and screenshots are welcome if they are redacted.

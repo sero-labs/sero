@@ -19,6 +19,7 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
   - [x] OSS-0105 legal / license / distribution audit
 - [x] Complete G1 discovery synthesis in `decision-log.md`
 - [x] Publish `phase-2-handoff.md`
+- [x] Complete OSS-0201 governance file wave
 
 ## Phase 0 — Preservation First
 
@@ -46,15 +47,15 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
 ## Phase 2 — OSS Project Basics
 
 - [ ] Add `README.md`
-- [ ] Add `LICENSE`
-- [ ] Add `CONTRIBUTING.md`
-- [ ] Add `SECURITY.md`
-- [ ] Add `CODE_OF_CONDUCT.md`
-- [ ] Add `.github/CODEOWNERS`
-- [ ] Add issue templates
-- [ ] Add PR template
+- [x] Add `LICENSE`
+- [x] Add `CONTRIBUTING.md`
+- [x] Add `SECURITY.md`
+- [x] Add `CODE_OF_CONDUCT.md`
+- [x] Add `.github/CODEOWNERS`
+- [x] Add issue templates
+- [x] Add PR template
 - [ ] Decide on changelog/versioning workflow
-- [ ] Review whether `NOTICE` or `THIRD_PARTY_NOTICES` is needed
+- [x] Review whether `NOTICE` or `THIRD_PARTY_NOTICES` is needed
 
 ## Phase 3 — Testing, E2E, and Evals
 
