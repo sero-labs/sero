@@ -1,12 +1,21 @@
 # Sero OSS Alpha Readiness Checklist
 
-Status: Draft
+Status: Active
 Date: 2026-04-22
 Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
 
+## Execution tracking
+
+- [x] Create `decision-log.md`
+- [x] Create `slices/README.md`
+- [x] Create Phase 1 slice placeholders
+- [x] Create Phase 1 concurrent audit prompts
+- [ ] Launch the 5 Phase 1 audit lanes
+- [ ] Complete the 5 Phase 1 audit slices
+
 ## Phase 0 — Preservation First
 
-- [ ] Freeze blind deletion of `.pi/plans/**`, `docs/plans/**`, `docs/superpowers/**`, and similar transient folders until triage starts
+- [x] Freeze blind deletion of `.pi/plans/**`, `docs/plans/**`, `docs/superpowers/**`, and similar transient folders until triage starts
 - [ ] Create an inventory of transient/internal docs
 - [ ] Classify each candidate-for-removal item as:
   - [ ] durable public
