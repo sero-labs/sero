@@ -44,8 +44,8 @@ Other common commands:
 ```bash
 pnpm typecheck
 pnpm build
-pnpm --filter @sero/desktop test -- --run
-pnpm --filter @sero/desktop test:e2e
+pnpm test
+pnpm test:ci
 ```
 
 Notes:
@@ -72,9 +72,9 @@ pnpm typecheck
 Also run any relevant targeted checks for the area you touched, for example:
 
 ```bash
-pnpm build
-pnpm --filter @sero/desktop test -- --run
-pnpm --filter @sero/desktop test:e2e
+pnpm test
+pnpm test:ci
+pnpm --filter @sero/desktop test:e2e:local
 ```
 
 If your change affects docs, public commands, plugin flows, auth/storage, or

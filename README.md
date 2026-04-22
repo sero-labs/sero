@@ -77,14 +77,17 @@ This starts the desktop app from the monorepo root.
 ```bash
 pnpm typecheck
 pnpm build
-pnpm --filter @sero/desktop test -- --run
-pnpm --filter @sero/desktop test:e2e
+pnpm test
+pnpm test:ci
 pnpm eval:snapshot
 ```
 
 Notes:
 - `pnpm install` runs native-module repair hooks for `node-pty` and
   `better-sqlite3`.
+- `pnpm test` currently runs the desktop Vitest suite.
+- `pnpm test:ci` mirrors the current alpha PR gate: typecheck, build, desktop
+  tests, and desktop CI e2e.
 - If Apple containers are unavailable, Sero can continue in host mode with a
   reduced feature set.
 - If native terminal support breaks, see the node-pty troubleshooting guide

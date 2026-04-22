@@ -21,6 +21,7 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
 - [x] Publish `phase-2-handoff.md`
 - [x] Complete OSS-0201 governance file wave
 - [x] Complete OSS-0205 README skeleton wave
+- [x] Complete root `pnpm test` / `pnpm test:ci` command wave
 
 ## Phase 0 — Preservation First
 
@@ -66,8 +67,8 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
 - [x] Define PR quality gates
 - [x] Define nightly/manual quality gates
 - [x] Define release-only smoke tests
-- [ ] Add root `pnpm test`
-- [ ] Add root `pnpm test:ci`
+- [x] Add root `pnpm test`
+- [x] Add root `pnpm test:ci`
 - [ ] Add `turbo` `test` task if appropriate
 - [ ] Integrate package/plugin tests into repo-level CI or explicitly document exclusions
 - [ ] Ensure eval coverage still matches actual risk areas
