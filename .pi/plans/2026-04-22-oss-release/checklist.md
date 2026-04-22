@@ -38,6 +38,7 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
 - [x] Complete troubleshooting flow docs wave
 - [x] Complete CI exclusion documentation wave
 - [x] Complete support/triage documentation wave
+- [x] Complete third-party license review wave
 
 ## Phase 0 — Preservation First
 
@@ -133,7 +134,7 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
 ## Phase 7 — Legal and Distribution Readiness
 
 - [x] Choose license
-- [ ] Review third-party dependency licenses
+- [x] Review third-party dependency licenses
 - [x] Review castlabs/Widevine/Spotify-related distribution constraints
 - [x] Decide whether alpha is source-only or includes binaries
 - [x] Define packaging/signing/notarization expectations
