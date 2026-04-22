@@ -25,6 +25,27 @@ features:
     icon: 🧩
 ---
 
+## Current alpha preview
+
+These screenshots were captured from the current **source-only alpha** on the
+currently supported platform baseline: **macOS on Apple Silicon**.
+
+### Desktop shell overview
+
+![Desktop shell overview](./assets/desktop-shell-overview.png)
+
+*Explorer workspace in the main panel, the app/workspace sidebar on the left,
+and the global agent chat on the right. See [Architecture](/reference/architecture)
+and [Support Scope](/reference/support-scope).*
+
+### Example workflow
+
+![Memory workflow in the chat panel](./assets/memory-workflow.png)
+
+*Direct `sero memory` commands running inside a live session via the chat
+panel. See [Getting Started](/guide/getting-started) and
+[Support Scope](/reference/support-scope).*
+
 ## OSS alpha status
 
 Sero is currently a **source-only OSS alpha** focused on **macOS on Apple

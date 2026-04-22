@@ -56,6 +56,27 @@ Key ideas:
 - local plugin development flow for running plugin checkouts directly
 - eval and e2e infrastructure for prompt, tooling, and desktop behavior
 
+## Screenshots
+
+Captured from the current **source-only alpha** on the currently supported
+platform baseline (**macOS on Apple Silicon**).
+
+**Desktop shell overview**
+
+![Desktop shell overview](./apps/docs-site/docs/assets/desktop-shell-overview.png)
+
+*Explorer workspace in the main panel, the app/workspace sidebar on the left,
+and the global agent chat on the right. See [`Architecture`](./docs/architecture.md)
+and the canonical [`Support Scope`](./apps/docs-site/docs/reference/support-scope.md).*
+
+**Example workflow**
+
+![Memory workflow in the chat panel](./apps/docs-site/docs/assets/memory-workflow.png)
+
+*Direct `sero memory` commands running inside a live session via the chat
+panel. See [`Getting Started`](./apps/docs-site/docs/guide/getting-started.md)
+and [`Support Scope`](./apps/docs-site/docs/reference/support-scope.md).*
+
 ## Quick start
 
 ### Requirements

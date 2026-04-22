@@ -144,7 +144,7 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
 ## Phase 8 — Product Presentation
 
 - [x] Write README hero section and value proposition
-- [ ] Add screenshots and/or GIFs
+- [x] Add screenshots and/or GIFs
 - [x] Add supported-platform statement
 - [x] Add alpha limitations statement
 - [x] Add placeholder landing page
