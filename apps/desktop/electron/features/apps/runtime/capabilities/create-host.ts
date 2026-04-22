@@ -1,6 +1,7 @@
 import { appStateManager } from '@electron/features/apps/state/manager';
 import { subagentManager } from '@electron/features/subagent/singleton';
 import { containerManager } from '@electron/features/container/core/singleton';
+import { showNotification } from '@electron/platform/desktop/notifications';
 import { runWorkspaceCommand } from '@electron/features/workspace/runtime/run-workspace-command';
 import { refreshWorkspaceRuntimeAfterSync } from '@electron/features/workspace/runtime/refresh-after-sync';
 import { resolveWorkspaceRuntime } from '@electron/features/workspace/runtime-resolution';
@@ -120,6 +121,11 @@ export function createAppRuntimeHost(_target: AppRuntimeTarget): AppRuntimeHost 
       stop: (serverId) => containerManager.devServers.stop(serverId),
       restart: (serverId) => containerManager.devServers.restart(serverId),
       unregister: (serverId) => containerManager.devServers.unregister(serverId),
+    },
+    notifications: {
+      notify: (options) => {
+        showNotification(options);
+      },
     },
   };
 }
