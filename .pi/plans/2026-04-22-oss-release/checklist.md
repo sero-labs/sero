@@ -171,6 +171,8 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
 - [x] Known limitations list is explicit and public
 - [x] Public docs are current and non-contradictory
 - [ ] CI is green on required gates
+  - [x] Local required gate revalidated: root `pnpm test:ci` passed on 2026-04-22 (`required-gate-report.md`)
+  - [ ] Remote required CI run observed green
 - [x] Maintainer knows exactly what is supported in alpha
 - [x] Support/triage plan for early issues is documented
 - [ ] Launch copy and links are ready
