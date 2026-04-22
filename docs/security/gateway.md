@@ -51,7 +51,10 @@ PRs, etc. Treat the gateway token like a root password.
 
 ## Security Controls
 
-### 1. Gateway token (`~/.sero-ui/agent/gateway-token`)
+All paths below are **profile-scoped**. Replace `<SERO_HOME>` with your active
+profile root. For the default profile, that is typically `~/.sero-ui`.
+
+### 1. Gateway token (`<SERO_HOME>/agent/gateway-token`)
 
 - **Generated:** 32 random bytes → 64-char hex (256 bits of entropy)
 - **Stored:** file mode `0600` (owner read/write only)
@@ -82,9 +85,9 @@ PRs, etc. Treat the gateway token like a root password.
 
 | Secret | Location | Permissions |
 |--------|----------|-------------|
-| Gateway token | `~/.sero-ui/agent/gateway-token` | `0600` |
-| Discord bot token | `~/.sero-ui/agent/.env` | `0600` |
-| API keys | `~/.sero-ui/agent/.env` | `0600` |
+| Gateway token | `<SERO_HOME>/agent/gateway-token` | `0600` |
+| Discord bot token | `<SERO_HOME>/agent/.env` | `0600` |
+| API keys | `<SERO_HOME>/agent/.env` | `0600` |
 
 ---
 
@@ -132,6 +135,10 @@ outcome — if the actual outcome differs, there is a security issue.
 ### Prerequisites
 
 ```bash
+# Set this to your active profile root.
+# Default-profile example:
+export SERO_HOME="${HOME}/.sero-ui"
+
 # Start gateway
 pkill -f "vite"; pkill -f "electron"
 cd apps/desktop
@@ -206,7 +213,9 @@ then `closed: 4003 Authentication failed`.
 ```bash
 node -e "
   const fs = require('fs');
-  const token = fs.readFileSync(process.env.HOME + '/.sero-ui/agent/gateway-token', 'utf8').trim();
+  const seroHome = process.env.SERO_HOME;
+  if (!seroHome) throw new Error('Set SERO_HOME first');
+  const token = fs.readFileSync(seroHome + '/agent/gateway-token', 'utf8').trim();
   const ws = new (require('ws'))('ws://127.0.0.1:18800');
   ws.on('open', () => {
     ws.send(JSON.stringify({ type: 'connect', token, clientType: 'cli' }));
@@ -246,8 +255,8 @@ node -e "
 ### Test 6: Token file permissions
 
 ```bash
-stat -f "%Sp %N" ~/.sero-ui/agent/gateway-token
-stat -f "%Sp %N" ~/.sero-ui/agent/.env
+stat -f "%Sp %N" "${SERO_HOME}/agent/gateway-token"
+stat -f "%Sp %N" "${SERO_HOME}/agent/.env"
 ```
 
 **Expected:** Both show `-rw-------` (owner read/write only).
@@ -259,7 +268,9 @@ stat -f "%Sp %N" ~/.sero-ui/agent/.env
 ```bash
 node -e "
   const fs = require('fs');
-  const token = fs.readFileSync(process.env.HOME + '/.sero-ui/agent/gateway-token', 'utf8').trim();
+  const seroHome = process.env.SERO_HOME;
+  if (!seroHome) throw new Error('Set SERO_HOME first');
+  const token = fs.readFileSync(seroHome + '/agent/gateway-token', 'utf8').trim();
   const log = fs.readFileSync('/tmp/sero-electron.log', 'utf8');
   console.log(log.includes(token) ? 'FOUND_TOKEN_IN_LOG' : 'token-not-found');
 "
@@ -292,7 +303,7 @@ curl -s https://<your-tailnet-hostname>/health --connect-timeout 5
 
 **What:** Verify `SERO_DISCORD_USERS` blocks unauthorized users.
 
-1. Set `SERO_DISCORD_USERS=000000000000000000` (a fake ID) in `~/.sero-ui/agent/.env`
+1. Set `SERO_DISCORD_USERS=000000000000000000` (a fake ID) in `${SERO_HOME}/agent/.env`
 2. Restart Sero with `SERO_GATEWAY=1`
 3. DM the bot from your real Discord account
 
@@ -328,7 +339,7 @@ lsof -i :18801 -P 2>/dev/null | grep LISTEN
 
 2. **Rotate the gateway token** periodically:
    ```bash
-   rm ~/.sero-ui/agent/gateway-token
+   rm "${SERO_HOME}/agent/gateway-token"
    # Restart Sero — a new token is generated
    ```
 
