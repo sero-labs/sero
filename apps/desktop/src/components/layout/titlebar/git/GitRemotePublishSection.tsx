@@ -292,7 +292,7 @@ export function GitRemotePublishSection({
             />
           </label>
 
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-2 mt-4">
             <VisibilityButton
               active={visibility === 'private'}
               label="Private"
