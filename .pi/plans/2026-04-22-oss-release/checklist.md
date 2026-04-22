@@ -26,17 +26,18 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
 - [x] Complete PR workflow alignment wave
 - [x] Complete hygiene scan wave (`gitleaks` + path audit)
 - [x] Complete alpha changelog/versioning decision wave
+- [x] Complete transient-doc inventory / migration-map wave
 
 ## Phase 0 — Preservation First
 
 - [x] Freeze blind deletion of `.pi/plans/**`, `docs/plans/**`, `docs/superpowers/**`, and similar transient folders until triage starts
-- [ ] Create an inventory of transient/internal docs
-- [ ] Classify each candidate-for-removal item as:
-  - [ ] durable public
-  - [ ] durable internal
-  - [ ] transient with reusable facts
-  - [ ] disposable/stale
-- [ ] Define canonical destinations for harvested information
+- [x] Create an inventory of transient/internal docs
+- [x] Classify each candidate-for-removal item as:
+  - [x] durable public
+  - [x] durable internal
+  - [x] transient with reusable facts
+  - [x] disposable/stale
+- [x] Define canonical destinations for harvested information
 - [x] Choose archive strategy for removed docs (private mirror/branch snapshot + migration map)
 - [ ] Remove only those public docs whose durable information has already been extracted or intentionally discarded
 
