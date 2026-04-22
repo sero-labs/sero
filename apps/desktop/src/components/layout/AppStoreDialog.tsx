@@ -148,6 +148,7 @@ export function AppStoreDialog({
     if (!dialogOpenRef.current) return;
 
     setDiscoverResults((results) => markPluginInstalled(results, plugin, manifest.id));
+    handleOpenChange(false);
   };
 
   const handleUninstallPlugin = async (plugin: DiscoveredPlugin) => {

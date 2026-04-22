@@ -274,6 +274,27 @@ describe('discoverAndRegisterApps', () => {
     expect(unsubscribePlugins).toHaveBeenCalledTimes(1);
   });
 
+  it('activates newly installed plugins after discovery completes', async () => {
+    const installEvent: PluginChangeEvent = {
+      type: 'installed',
+      manifest: createManifest('todo', 'TodoApp', 4101),
+    };
+
+    useAppStore.setState({
+      ...useAppStore.getState(),
+      activeApp: 'dashboard',
+      favouriteApps: [],
+    });
+    discover.mockResolvedValue([installEvent.manifest]);
+
+    await handlePluginChange(installEvent);
+
+    await vi.waitFor(() => {
+      expect(useAppStore.getState().activeApp).toBe('todo');
+      expect(useAppStore.getState().pendingApp).toBeNull();
+    });
+  });
+
   it('hot-refreshes runtime remotes after plugin install, dev-session refresh, and dev-session stop events', async () => {
     const installEvent: PluginChangeEvent = {
       type: 'installed',

@@ -287,6 +287,20 @@ export interface AppRuntimeDevServersApi {
   unregister(serverId: string): boolean;
 }
 
+export type AppRuntimeNotificationType = 'info' | 'warning' | 'error';
+
+export interface AppRuntimeNotificationOptions {
+  message: string;
+  type?: AppRuntimeNotificationType;
+  source?: string;
+  sound?: string | boolean;
+  subtitle?: string;
+}
+
+export interface AppRuntimeNotificationsApi {
+  notify(options: AppRuntimeNotificationOptions): void;
+}
+
 export interface AppRuntimeHost {
   appState: AppRuntimeStateApi;
   subagents: AppRuntimeSubagentsApi;
@@ -294,6 +308,7 @@ export interface AppRuntimeHost {
   verification: AppRuntimeVerificationApi;
   git: AppRuntimeGitApi;
   devServers: AppRuntimeDevServersApi;
+  notifications: AppRuntimeNotificationsApi;
 }
 
 export interface AppRuntimeContext {

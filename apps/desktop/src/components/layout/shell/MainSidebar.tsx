@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Grid2x2Plus, Search } from 'lucide-react';
+import { Grid2x2Plus, Search, X } from 'lucide-react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { Input } from '@sero-ai/ui/components/ui/input';
 import { Separator } from '@sero-ai/ui/components/ui/separator';
@@ -15,6 +15,7 @@ import { openApp } from '@/lib/open-app';
 import { WorkspaceTree } from '@/components/layout/WorkspaceTree';
 import { cn } from '@sero-ai/ui/lib/utils';
 import { AppStoreDialog } from '@/components/layout/AppStoreDialog';
+import { IconAction } from '@/components/ui/IconAction';
 
 /**
  * MainSidebar — the primary navigation sidebar.
@@ -61,6 +62,7 @@ export function MainSidebar() {
               entry={app}
               active={activeApp === app.id}
               onClick={() => openApp(app.id)}
+              onRemoveFavourite={app.builtin ? undefined : () => toggleFavourite(app.id)}
             />
           ))}
         </div>
@@ -116,10 +118,12 @@ function AppItem({
   entry,
   active,
   onClick,
+  onRemoveFavourite,
 }: {
   entry: AppEntry;
   active: boolean;
   onClick: () => void;
+  onRemoveFavourite?: () => void;
 }) {
   const Icon = getAppIcon(entry.icon);
 
@@ -127,14 +131,41 @@ function AppItem({
     <button
       onClick={onClick}
       className={cn(
-        'flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors',
+        'group flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors',
         active
           ? 'bg-[var(--bg-elevated)] text-[var(--text-primary)]'
           : 'text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]',
       )}
     >
-      <Icon className={cn('size-4 shrink-0', active && 'text-[var(--status-success)]')} />
-      <span className="truncate">{entry.label}</span>
+      <span className="flex min-w-0 flex-1 items-center gap-2">
+        <Icon className={cn('size-4 shrink-0', active && 'text-[var(--status-success)]')} />
+        <span className="truncate">{entry.label}</span>
+      </span>
+
+      {onRemoveFavourite ? (
+        <span className="pointer-events-none flex shrink-0 items-center opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100">
+          <IconAction
+            as="span"
+            role="button"
+            tabIndex={-1}
+            onClick={(event) => {
+              event.stopPropagation();
+              onRemoveFavourite();
+            }}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                event.stopPropagation();
+                onRemoveFavourite();
+              }
+            }}
+            title={`Remove ${entry.label} from favourites`}
+            aria-label={`Remove ${entry.label} from favourites`}
+          >
+            <X className="size-3" />
+          </IconAction>
+        </span>
+      ) : null}
     </button>
   );
 }
