@@ -48,8 +48,8 @@ Nothing listed here should be deleted or moved from the public tree until:
 | `docs/plans/2026-04-06-unified-model-selection.md` | historical implementation/design plan | transient with reusable facts | `docs/decisions.md`, relevant feature docs | harvest + archive |
 | `docs/plans/2026-04-08-agent-browser-migration-plan.md` | feature migration plan | transient with reusable facts | `docs/architecture.md`, relevant feature docs | harvest + archive |
 | `docs/plans/2026-04-10-multi-root-workspaces-for-plugin-dev.md` | workspace/plugin-dev planning | transient with reusable facts | `docs/plugins/guide.md`, `docs/features/**`, `docs/decisions.md` | harvest + archive |
-| `docs/plans/2026-04-12-pr-136-followups.md` | follow-up task list | transient / possibly disposable | none unless a durable decision is hidden inside | review quickly, then archive or delete |
-| `docs/plans/2026-04-12-pr-137-followups.md` | follow-up task list | transient / possibly disposable | none unless a durable decision is hidden inside | review quickly, then archive or delete |
+| `docs/plans/2026-04-12-pr-136-followups.md` | follow-up task list | transient / possibly disposable | none unless a durable decision is hidden inside | archived on `private-archive/batch-c1-pre-prune-2026-04-23`; removed from public tree in Batch C step 1 |
+| `docs/plans/2026-04-12-pr-137-followups.md` | follow-up task list | transient / possibly disposable | none unless a durable decision is hidden inside | archived on `private-archive/batch-c1-pre-prune-2026-04-23`; removed from public tree in Batch C step 1 |
 | `docs/plans/2026-04-13-apps-desktop-wave-f-periphery-closeout.md` | implementation closeout notes | transient with reusable facts | `docs/architecture.md`, `docs/decisions.md` if lasting decisions exist | harvest + archive |
 | `docs/plans/2026-04-17-chat-turn-undo-and-snapshot-separation.md` | feature/history plan | transient with reusable facts | `docs/features/**`, `docs/decisions.md` | harvest + archive |
 | `docs/plans/2026-04-17-gateway-owner-wide-qr-access.md` | gateway feature plan | transient with reusable facts | `docs/security/**`, `docs/features/**` | harvest + archive |

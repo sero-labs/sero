@@ -88,10 +88,14 @@ Why this batch was safe:
 
 ### Batch C — `docs/plans/**` historical plan docs
 
-Suggested order inside this batch:
+Status: **in progress**
+
+Completed so far:
 1. obviously transient follow-up/tasklist docs
-   - `2026-04-12-pr-136-followups.md`
-   - `2026-04-12-pr-137-followups.md`
+   - `2026-04-12-pr-136-followups.md` ✅ removed in Batch C step 1 (`private-archive/batch-c1-pre-prune-2026-04-23`)
+   - `2026-04-12-pr-137-followups.md` ✅ removed in Batch C step 1 (`private-archive/batch-c1-pre-prune-2026-04-23`)
+
+Remaining suggested order inside this batch:
 2. implementation closeout/history docs
    - `2026-04-13-apps-desktop-wave-f-periphery-closeout.md`
 3. feature plans whose durable facts already have better homes
