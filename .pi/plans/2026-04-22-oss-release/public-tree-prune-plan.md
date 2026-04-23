@@ -103,7 +103,7 @@ Remaining suggested order inside this batch:
    - gateway-owner-wide QR access ✅ removed in Batch C step 3 (`private-archive/batch-c3-pre-prune-2026-04-23`)
    - chat turn undo / snapshot separation
    - unified model selection
-   - agent browser migration
+   - agent browser migration ✅ removed in Batch C step 4 (`private-archive/batch-c4-pre-prune-2026-04-23`)
 4. internal index/tasklists last
    - `docs/plans/index.md`
    - deslopify tasklists
