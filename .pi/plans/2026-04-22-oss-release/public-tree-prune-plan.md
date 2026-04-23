@@ -101,7 +101,7 @@ Remaining suggested order inside this batch:
 3. feature plans whose durable facts already have better homes
    - local plugin development
    - gateway-owner-wide QR access ✅ removed in Batch C step 3 (`private-archive/batch-c3-pre-prune-2026-04-23`)
-   - chat turn undo / snapshot separation
+   - chat turn undo / snapshot separation ✅ removed in Batch C step 5 (`private-archive/batch-c5-pre-prune-2026-04-23`)
    - unified model selection
    - agent browser migration ✅ removed in Batch C step 4 (`private-archive/batch-c4-pre-prune-2026-04-23`)
 4. internal index/tasklists last

@@ -2,7 +2,6 @@
 
 Ad-hoc planning documents and implementation backlogs.
 
-- [2026-04-17 — Chat Turn Undo, Snapshot Separation, and Git Live Refresh Plan](./2026-04-17-chat-turn-undo-and-snapshot-separation.md)
 - [2026-04-10 — Multi-Root Workspaces & Linked Plugin Sources](./2026-04-10-multi-root-workspaces-for-plugin-dev.md)
 - [2026-04-06 — Unified Model Selection](./2026-04-06-unified-model-selection.md)
 - [Desktop Packages + Plugins Deslopify Tasklist](./desktop-packages-plugins-deslopify-tasklist.md)
