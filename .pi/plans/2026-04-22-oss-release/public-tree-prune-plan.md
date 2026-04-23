@@ -131,6 +131,7 @@ Status: **in progress**
 Completed so far:
 1. narrow historical plan removals
    - `docs/superpowers/plans/2026-04-04-google-auth-ux.md` ✅ removed in Batch D step 1 (`private-archive/batch-d1-pre-prune-2026-04-24`)
+   - `docs/superpowers/specs/2026-04-04-google-auth-ux-design.md` ✅ removed in Batch D step 2 (`private-archive/batch-d2-pre-prune-2026-04-24`)
 
 Remaining targets:
 - `docs/superpowers/plans/**`

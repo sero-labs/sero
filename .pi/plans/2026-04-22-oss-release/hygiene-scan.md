@@ -35,7 +35,6 @@ surfaces for:
 1. Public-facing maintainer contact references still exist in:
    - `SECURITY.md`
    - `CODE_OF_CONDUCT.md`
-   - `docs/superpowers/specs/2026-04-04-google-auth-ux-design.md`
 2. Some docs/examples still contain illustrative absolute paths such as:
    - `/Users/you/...`
    - `/Users/dan/...`
