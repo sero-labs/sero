@@ -65,6 +65,7 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
   - Batch C tail decision: keep `docs/plans/index.md` and the two deslopify tasklists as durable internal records for now
   - Batch D step 1 completed: removed `docs/superpowers/plans/2026-04-04-google-auth-ux.md` after archive snapshot
   - Batch D step 2 completed: removed `docs/superpowers/specs/2026-04-04-google-auth-ux-design.md` after archive snapshot
+  - Batch D step 3 completed: removed `docs/superpowers/plans/2026-04-04-dynamic-model-provider.md` after archive snapshot
   - broader docs-plan/superpowers pruning still pending
   - prune sequencing/preconditions recorded in `public-tree-prune-plan.md`
 
@@ -91,6 +92,7 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
   - [x] Batch C tail reviewed: keep `docs/plans/index.md`, `docs/plans/apps-desktop-deslopify-tasklist.md`, and `docs/plans/desktop-packages-plugins-deslopify-tasklist.md` for now
   - [x] Batch D step 1 completed: archived on local branch `private-archive/batch-d1-pre-prune-2026-04-24` and removed `docs/superpowers/plans/2026-04-04-google-auth-ux.md`
   - [x] Batch D step 2 completed: archived on local branch `private-archive/batch-d2-pre-prune-2026-04-24` and removed `docs/superpowers/specs/2026-04-04-google-auth-ux-design.md`
+  - [x] Batch D step 3 completed: archived on local branch `private-archive/batch-d3-pre-prune-2026-04-24` and removed `docs/superpowers/plans/2026-04-04-dynamic-model-provider.md`
   - [ ] Batch D remaining steps still pending per `public-tree-prune-plan.md`
 
 ## Phase 2 — OSS Project Basics

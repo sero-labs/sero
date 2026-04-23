@@ -3,10 +3,12 @@
 **Branch:** `feat/dynamic-model-selection`
 **Date:** 2026-04-04
 
-## Completed Tasks (all 17 from the plan)
+## Completed Tasks (all 17 from the implementation plan)
 
-All implementation tasks from `docs/superpowers/plans/2026-04-04-dynamic-model-provider.md`
-are complete and passing typecheck:
+All implementation tasks for the Dynamic Model Provider system are complete and
+passing typecheck. See
+`docs/superpowers/specs/2026-04-04-dynamic-model-provider-design.md` for the
+surviving design context:
 
 1. Model tier types and settings helpers (`model-tiers.ts`, `ipc.ts`)
 2. Tier-aware model resolver (`resolve-tier-model.ts`)
