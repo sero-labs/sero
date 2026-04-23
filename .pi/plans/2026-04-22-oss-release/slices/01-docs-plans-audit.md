@@ -1,5 +1,10 @@
 # OSS-0101 Docs / Plans Audit
 
+> Note (2026-04-23): Batch B of the prune plan has since removed the legacy
+> `.pi/plans/2026-04-19*` / `2026-04-20*` folders from this branch after taking
+> the archive snapshot branch `private-archive/batch-b-pre-prune-2026-04-23`.
+> References below to those paths remain as historical audit evidence.
+
 ## Executive summary
 - The repo’s public-facing risk is mostly **documentation sprawl and path leakage**, not active secret leakage.
 - `docs/security/**` and several root docs are strong candidates for **durable public** status; they already encode reusable security and gateway facts.

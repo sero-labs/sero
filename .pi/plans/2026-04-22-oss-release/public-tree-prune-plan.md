@@ -42,11 +42,10 @@ These items remain **open** until actual archive/remove work lands.
 ## Current inventory snapshot
 
 Approximate tracked surfaces to prune later:
-- legacy `.pi/plans/*` release/feature folders: **5 directories**
+- legacy `.pi/plans/*` release/feature folders: **0 remaining** on this branch after Batch B (`private-archive/batch-b-pre-prune-2026-04-23` preserves the pre-prune snapshot)
 - `docs/plans/*`: **12 files**
 - `docs/superpowers/**`: **14 files**
-- `.claude/**`: maintainer-only command/skill tree
-- `AGENTS.md` + `CLAUDE.md`: maintainer/agent operating guidance
+- `AGENTS.md`: temporarily retained maintainer/agent operating guidance for Pi CLI compatibility
 
 ## Recommended execution batches
 
@@ -70,21 +69,22 @@ Checks before execution:
 
 ### Batch B — legacy `.pi/plans/**` folders except the active OSS release hub
 
-Targets:
+Status: **completed on 2026-04-23**
+
+Archived snapshot branch:
+- `private-archive/batch-b-pre-prune-2026-04-23`
+
+Removed targets:
 - `.pi/plans/2026-04-19-kanban-extraction/**`
 - `.pi/plans/2026-04-19-local-plugin-dev-sessions/**`
 - `.pi/plans/2026-04-20-emoji-to-lucide-icons/**`
 - `.pi/plans/2026-04-20-github-auth-unification/**`
 - `.pi/plans/2026-04-20-mcp-adaptor-plugin/**`
 
-Why second:
-- these are clearly transient implementation/review artifacts
-- migration-map classification already exists
-- many durable facts have already been harvested or deprioritized
-
-Checks before execution:
-- confirm no still-needed release fact depends only on one of these folders
-- update `migration-map.md` with final archive/remove action per folder
+Why this batch was safe:
+- these were clearly transient implementation/review artifacts
+- migration-map classification already existed
+- curated/public docs had no live references to these folders
 
 ### Batch C — `docs/plans/**` historical plan docs
 
