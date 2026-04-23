@@ -64,7 +64,8 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
 - [x] Decide whether `.pi/plans/**` remains in the public repo
 - [x] Decide whether `.claude/`, `AGENTS.md`, and similar maintainer-facing files stay public as-is
 - [ ] Remove or relocate non-public artifacts from the public tree
-  - batched execution order prepared in `public-tree-prune-plan.md`; actual archive/remove wave still pending
+  - [x] Batch A completed: archived on local branch `private-archive/batch-a-pre-prune-2026-04-23` and removed `.claude/**`, `AGENTS.md`, and `CLAUDE.md`
+  - [ ] Batch B-D still pending per `public-tree-prune-plan.md`
 
 ## Phase 2 — OSS Project Basics
 

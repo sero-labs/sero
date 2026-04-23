@@ -27,8 +27,8 @@ Keep this site limited to the approved alpha IA:
   - `docs/plans/**`
   - `docs/superpowers/**`
   - `docs/deslopify/**`
-  - `.claude/**`
-  - `AGENTS.md`
+- Keep maintainer-only/archive surfaces out of the public nav even if related
+  historical material still exists elsewhere in the repo.
 - Prefer concise public explanations over copying internal plan language.
 - Preserve before prune: do not delete or move the older docs as part of docs
   site work unless the release plan explicitly calls for it.

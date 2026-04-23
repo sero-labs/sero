@@ -59,11 +59,11 @@ Nothing listed here should be deleted or moved from the public tree until:
 | `docs/superpowers/plans/**` | historical feature planning docs | transient with reusable facts | `docs/features/**`, `docs/architecture.md`, `docs/decisions.md` | harvest + archive |
 | `docs/superpowers/specs/**` | higher-fidelity design/spec docs | durable internal if still referenced; otherwise transient with reusable facts | `docs/features/**`, `docs/architecture.md`, `docs/decisions.md` | keep internal until triaged; harvest + archive where stale |
 | `docs/deslopify/**` | technical review lineage and refactor facts/plans | durable internal | `docs/deslopify/**` | keep internal |
-| `.claude/commands/**` | local agent command helpers | durable internal | none by default; mirror only repo-wide conventions if needed | keep internal; later remove from public tree |
-| `.claude/skills/**` | local agent skill definitions | durable internal | none by default; mirror only durable conventions | keep internal; later remove from public tree |
-| `.claude/settings.local.json` | local machine config | disposable / local-only | none | ensure not part of curated public tree |
-| `AGENTS.md` | repo operating rules and maintainer guidance | durable internal | selective public mirrors in `CONTRIBUTING.md`, `README.md`, `apps/docs-site/docs/**` | split later; remove raw internal version from curated public tree |
-| `CLAUDE.md` | symlink/alias to internal operating rules | durable internal | same as `AGENTS.md` | remove from curated public tree when `AGENTS.md` is split |
+| `.claude/commands/**` | local agent command helpers | durable internal | none by default; mirror only repo-wide conventions if needed | archived on `private-archive/batch-a-pre-prune-2026-04-23`; removed from public tree in Batch A |
+| `.claude/skills/**` | local agent skill definitions | durable internal | none by default; mirror only durable conventions | archived on `private-archive/batch-a-pre-prune-2026-04-23`; removed from public tree in Batch A |
+| `.claude/settings.local.json` | local machine config | disposable / local-only | none | archived on `private-archive/batch-a-pre-prune-2026-04-23`; removed from public tree in Batch A |
+| `AGENTS.md` | repo operating rules and maintainer guidance | durable internal | selective public mirrors in `CONTRIBUTING.md`, `README.md`, `apps/docs-site/docs/**` | archived on `private-archive/batch-a-pre-prune-2026-04-23`; removed from public tree in Batch A |
+| `CLAUDE.md` | symlink/alias to internal operating rules | durable internal | same as `AGENTS.md` | archived on `private-archive/batch-a-pre-prune-2026-04-23`; removed from public tree in Batch A |
 
 ## Triage notes by subtree
 
@@ -85,9 +85,11 @@ Nothing listed here should be deleted or moved from the public tree until:
 - Keep as the long-lived internal review archive.
 - Do not prune as part of the first public-doc cleanup wave.
 
-### `.claude/**` and `AGENTS.md`
-- Internal tooling/operating surfaces only.
-- Split and mirror only the contributor-facing parts later.
+### `.claude/**`, `AGENTS.md`, and `CLAUDE.md`
+- Batch A completed on 2026-04-23.
+- Private archive snapshot branch: `private-archive/batch-a-pre-prune-2026-04-23`.
+- Raw maintainer/agent surfaces were removed from the public tree after the
+  contributor-facing guidance was mirrored into canonical docs.
 
 ## Next recommended serial follow-ups
 
