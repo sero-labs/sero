@@ -36,6 +36,7 @@ import { AuthLoginDialog } from './AuthLoginDialog';
 import { ContextEditor } from './ContextEditor';
 import { VoiceTranscriptionControl } from './VoiceTranscriptionControl';
 import { ContextEditorMenuItem, ThinkingBlocksToggle, MemoryBlocksToggle, CollaborationToggle } from './ChatPanelHelpers';
+import { WorkspaceSnapshotMenuItem } from './WorkspaceSnapshotMenuItem';
 import { useMessageQueue } from '@/hooks/useMessageQueue';
 import { useChatPromptInput } from '@/hooks/useChatPromptInput';
 import type { ChatComposerPrefill } from '@/types/ipc';
@@ -182,6 +183,7 @@ export const ChatPromptArea = memo(function ChatPromptArea({
                 />
                 <PromptInputActionMenuContent>
                   <PromptInputActionAddAttachments />
+                  <WorkspaceSnapshotMenuItem disabled={isStreaming || !hasSession} />
                   <ContextEditorMenuItem sessionId={sessionId} disabled={isStreaming} />
                 </PromptInputActionMenuContent>
               </PromptInputActionMenu>
