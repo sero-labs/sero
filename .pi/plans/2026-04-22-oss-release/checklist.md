@@ -59,6 +59,7 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
   - Batch C step 3 completed: removed `docs/plans/2026-04-17-gateway-owner-wide-qr-access.md` after archive snapshot
   - Batch C step 4 completed: removed `docs/plans/2026-04-08-agent-browser-migration-plan.md` after archive snapshot
   - Batch C step 5 completed: removed `docs/plans/2026-04-17-chat-turn-undo-and-snapshot-separation.md` after archive snapshot
+  - Batch C step 6 completed: removed `docs/plans/2026-04-06-unified-model-selection.md` after archive snapshot
   - broader docs-plan/superpowers pruning still pending
   - prune sequencing/preconditions recorded in `public-tree-prune-plan.md`
 
@@ -79,6 +80,7 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
   - [x] Batch C step 3 completed: archived on local branch `private-archive/batch-c3-pre-prune-2026-04-23` and removed `docs/plans/2026-04-17-gateway-owner-wide-qr-access.md`
   - [x] Batch C step 4 completed: archived on local branch `private-archive/batch-c4-pre-prune-2026-04-23` and removed `docs/plans/2026-04-08-agent-browser-migration-plan.md`
   - [x] Batch C step 5 completed: archived on local branch `private-archive/batch-c5-pre-prune-2026-04-23` and removed `docs/plans/2026-04-17-chat-turn-undo-and-snapshot-separation.md`
+  - [x] Batch C step 6 completed: archived on local branch `private-archive/batch-c6-pre-prune-2026-04-23` and removed `docs/plans/2026-04-06-unified-model-selection.md`
   - [ ] Batch C remaining steps + Batch D still pending per `public-tree-prune-plan.md`
 
 ## Phase 2 — OSS Project Basics
