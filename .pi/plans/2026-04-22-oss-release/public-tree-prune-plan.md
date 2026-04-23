@@ -134,6 +134,7 @@ Completed so far:
    - `docs/superpowers/specs/2026-04-04-google-auth-ux-design.md` ✅ removed in Batch D step 2 (`private-archive/batch-d2-pre-prune-2026-04-24`)
    - `docs/superpowers/plans/2026-04-04-dynamic-model-provider.md` ✅ removed in Batch D step 3 (`private-archive/batch-d3-pre-prune-2026-04-24`)
    - `docs/superpowers/plans/2026-04-05-onboarding-polish.md` ✅ removed in Batch D step 4 (`private-archive/batch-d4-pre-prune-2026-04-24`)
+   - `docs/superpowers/specs/2026-04-05-onboarding-polish-design.md` ✅ removed in Batch D step 5 (`private-archive/batch-d5-pre-prune-2026-04-24`)
 
 Remaining targets:
 - `docs/superpowers/plans/**`
