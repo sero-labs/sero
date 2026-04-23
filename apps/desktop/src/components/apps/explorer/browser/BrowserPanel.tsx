@@ -13,9 +13,11 @@
 import { useEffect, useLayoutEffect, useRef } from 'react';
 import { Globe } from 'lucide-react';
 import { Button } from '@sero-ai/ui/components/ui/button';
+import { BookmarksBar } from './BookmarksBar';
 import { BrowserTabs } from './BrowserTabs';
 import { BrowserToolbar } from './BrowserToolbar';
 import { useBrowserStore } from '@/stores/browser';
+import { useBrowserShortcuts } from '@/hooks/useBrowserShortcuts';
 
 export function BrowserPanel() {
   const tabs = useBrowserStore((s) => s.tabs);
@@ -31,6 +33,8 @@ export function BrowserPanel() {
   const stop = useBrowserStore((s) => s.stop);
 
   const viewportRef = useRef<HTMLDivElement | null>(null);
+
+  useBrowserShortcuts();
 
   // Ensure all persisted tabs have WebContentsViews in main on mount.
   useEffect(() => {
@@ -109,6 +113,7 @@ export function BrowserPanel() {
         onReload={() => reload(activeTab.id)}
         onStop={() => stop(activeTab.id)}
       />
+      <BookmarksBar onNavigate={(url) => navigate(activeTab.id, url)} />
       {/*
         Native WebContentsView renders on top of this div at the bounds we
         report. The div itself stays blank — it only exists to reserve space

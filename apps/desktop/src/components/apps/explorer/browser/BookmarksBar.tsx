@@ -1,0 +1,138 @@
+/**
+ * BookmarksBar — horizontal strip of user bookmarks below the toolbar.
+ *
+ * Click → navigate active tab. Middle-click or ⌘-click → open in new tab.
+ * Right-click → rename / delete via context menu.
+ */
+
+import { useState } from 'react';
+import { Globe, Star } from 'lucide-react';
+import { cn } from '@sero-ai/ui/lib/utils';
+import {
+  ContextMenu, ContextMenuTrigger, ContextMenuContent, ContextMenuItem,
+} from '@sero-ai/ui/components/ui/context-menu';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from '@sero-ai/ui/components/ui/dialog';
+import { Button } from '@sero-ai/ui/components/ui/button';
+import { Input } from '@sero-ai/ui/components/ui/input';
+import { useBrowserStore } from '@/stores/browser';
+import type { BrowserBookmark } from '@/types/browser';
+
+interface BookmarksBarProps {
+  /** Called when a bookmark should replace the active tab's URL. */
+  onNavigate: (url: string) => void;
+}
+
+export function BookmarksBar({ onNavigate }: BookmarksBarProps) {
+  const bookmarks = useBrowserStore((s) => s.bookmarks);
+  const createTab = useBrowserStore((s) => s.createTab);
+  const removeBookmark = useBrowserStore((s) => s.removeBookmark);
+  const updateBookmark = useBrowserStore((s) => s.updateBookmark);
+
+  const [editing, setEditing] = useState<BrowserBookmark | null>(null);
+
+  if (bookmarks.length === 0) {
+    return (
+      <div className="flex h-7 shrink-0 items-center gap-1.5 border-b border-[var(--border-subtle)] bg-[var(--bg-base)] px-2 text-[11px] text-[var(--text-muted)]">
+        <Star className="size-3" />
+        <span>No bookmarks yet — press ⌘D on any page to save it here.</span>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="flex h-7 shrink-0 items-center gap-0.5 overflow-x-auto border-b border-[var(--border-subtle)] bg-[var(--bg-base)] px-1 scrollbar-none">
+        {bookmarks.map((bm) => (
+          <ContextMenu key={bm.id}>
+            <ContextMenuTrigger asChild>
+              <button
+                onClick={(e) => {
+                  if (e.metaKey || e.ctrlKey) createTab(bm.url);
+                  else onNavigate(bm.url);
+                }}
+                onMouseDown={(e) => {
+                  if (e.button === 1) {
+                    e.preventDefault();
+                    createTab(bm.url);
+                  }
+                }}
+                className={cn(
+                  'flex h-5 shrink-0 items-center gap-1.5 rounded px-1.5 text-[11px]',
+                  'text-[var(--text-muted)] transition-colors',
+                  'hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]',
+                )}
+                title={`${bm.title}\n${bm.url}`}
+              >
+                {bm.favicon ? (
+                  <img src={bm.favicon} alt="" className="size-3 shrink-0 rounded-sm" />
+                ) : (
+                  <Globe className="size-3 shrink-0 opacity-60" />
+                )}
+                <span className="max-w-[140px] truncate">{bm.title}</span>
+              </button>
+            </ContextMenuTrigger>
+            <ContextMenuContent className="w-48">
+              <ContextMenuItem onSelect={() => onNavigate(bm.url)}>Open</ContextMenuItem>
+              <ContextMenuItem onSelect={() => createTab(bm.url)}>Open in New Tab</ContextMenuItem>
+              <ContextMenuItem onSelect={() => setEditing(bm)}>Edit…</ContextMenuItem>
+              <ContextMenuItem onSelect={() => removeBookmark(bm.id)}>Delete</ContextMenuItem>
+            </ContextMenuContent>
+          </ContextMenu>
+        ))}
+      </div>
+
+      {editing && (
+        <EditBookmarkDialog
+          bookmark={editing}
+          onClose={() => setEditing(null)}
+          onSave={(patch) => {
+            updateBookmark(editing.id, patch);
+            setEditing(null);
+          }}
+        />
+      )}
+    </>
+  );
+}
+
+interface EditBookmarkDialogProps {
+  bookmark: BrowserBookmark;
+  onClose: () => void;
+  onSave: (patch: { title: string; url: string }) => void;
+}
+
+function EditBookmarkDialog({ bookmark, onClose, onSave }: EditBookmarkDialogProps) {
+  const [title, setTitle] = useState(bookmark.title);
+  const [url, setUrl] = useState(bookmark.url);
+
+  return (
+    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Edit bookmark</DialogTitle>
+        </DialogHeader>
+        <div className="flex flex-col gap-3 py-2">
+          <label className="flex flex-col gap-1 text-xs text-[var(--text-muted)]">
+            Name
+            <Input value={title} onChange={(e) => setTitle(e.target.value)} autoFocus />
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-[var(--text-muted)]">
+            URL
+            <Input value={url} onChange={(e) => setUrl(e.target.value)} />
+          </label>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
+          <Button
+            size="sm"
+            onClick={() => onSave({ title: title.trim() || bookmark.title, url: url.trim() || bookmark.url })}
+          >
+            Save
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}

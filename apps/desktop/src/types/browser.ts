@@ -17,6 +17,13 @@ export interface BrowserTab {
   canGoForward: boolean;
 }
 
+export interface BrowserBookmark {
+  id: string;
+  title: string;
+  url: string;
+  favicon?: string;
+}
+
 export interface BrowserViewBounds {
   x: number;
   y: number;

@@ -45,6 +45,7 @@ function isLayoutState(value: unknown): value is LoadedLayoutState {
   if (!isOptionalArray(c.hiddenModels)) return false;
   if (!isOptionalArray(c.hiddenProviders)) return false;
   if (!isOptionalArray(c.browserTabs)) return false;
+  if (!isOptionalArray(c.browserBookmarks)) return false;
   // Optional numeric panel sizes
   if (!isOptionalNumber(c.mainSidebarSizePct)) return false;
   if (!isOptionalNumber(c.chatPanelSizePct)) return false;
@@ -73,6 +74,19 @@ function sanitizeBrowserTabs(value: unknown): import('@/types/layout').Persisted
   return out;
 }
 
+function sanitizeBookmarks(value: unknown): import('@/types/layout').PersistedBrowserBookmark[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const out: import('@/types/layout').PersistedBrowserBookmark[] = [];
+  for (const entry of value) {
+    if (!entry || typeof entry !== 'object') continue;
+    const e = entry as Record<string, unknown>;
+    if (typeof e.id !== 'string' || typeof e.url !== 'string' || typeof e.title !== 'string') continue;
+    const favicon = typeof e.favicon === 'string' ? e.favicon : undefined;
+    out.push({ id: e.id, title: e.title, url: e.url, ...(favicon !== undefined ? { favicon } : {}) });
+  }
+  return out;
+}
+
 /** Parse layout JSON. Returns the state if valid, null otherwise. */
 function parseLayoutState(raw: string): LoadedLayoutState | null {
   try {
@@ -85,6 +99,7 @@ function parseLayoutState(raw: string): LoadedLayoutState | null {
       hiddenModels: sanitizeStringArray(parsed.hiddenModels),
       hiddenProviders: sanitizeStringArray(parsed.hiddenProviders),
       browserTabs: sanitizeBrowserTabs(parsed.browserTabs),
+      browserBookmarks: sanitizeBookmarks(parsed.browserBookmarks),
     };
   } catch {
     return null;

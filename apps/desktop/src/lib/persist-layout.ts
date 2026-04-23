@@ -65,6 +65,7 @@ function buildLayoutState(partial: Partial<LayoutState>): LayoutState {
       partial.activeBrowserTabId !== undefined
         ? partial.activeBrowserTabId
         : useBrowserStore.getState().activeTabId,
+    browserBookmarks: partial.browserBookmarks ?? useBrowserStore.getState().bookmarks,
   };
 }
 

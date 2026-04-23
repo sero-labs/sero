@@ -67,7 +67,11 @@ export async function loadLayout(): Promise<void> {
 
       // Hydrate browser tabs (WebContentsViews are created lazily when the
       // user opens the browser panel, not eagerly here).
-      useBrowserStore.getState().hydrate(state.browserTabs, state.activeBrowserTabId ?? null);
+      useBrowserStore.getState().hydrate({
+        tabs: state.browserTabs,
+        activeId: state.activeBrowserTabId ?? null,
+        bookmarks: state.browserBookmarks,
+      });
 
       return;
     }

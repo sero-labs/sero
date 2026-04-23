@@ -7,7 +7,7 @@
  */
 
 import type { DashboardLayoutState } from './dashboard';
-import type { BrowserTab } from './browser';
+import type { BrowserBookmark, BrowserTab } from './browser';
 
 /** Subset of a BrowserTab that is safe to persist across restarts. */
 export interface PersistedBrowserTab {
@@ -15,6 +15,9 @@ export interface PersistedBrowserTab {
   url: string;
   title?: string;
 }
+
+/** Bookmarks persist whole (favicons are optional and small). */
+export type PersistedBrowserBookmark = BrowserBookmark;
 
 /** Full layout state persisted to ~/.sero-ui/layout.json. */
 export interface LayoutState {
@@ -47,11 +50,13 @@ export interface LayoutState {
   browserTabs?: PersistedBrowserTab[];
   /** Active browser tab id. */
   activeBrowserTabId?: string | null;
+  /** User-saved bookmarks. */
+  browserBookmarks?: PersistedBrowserBookmark[];
 }
 
 // Re-export so callers can import the canonical runtime tab shape
 // alongside the persisted shape.
-export type { BrowserTab };
+export type { BrowserBookmark, BrowserTab };
 
 /**
  * Shape returned by layout.load() — same fields but favouriteApps
