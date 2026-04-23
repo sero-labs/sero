@@ -114,6 +114,8 @@ interface BrowserState {
   goForward: (id: string) => void;
   reload: (id: string) => void;
   stop: (id: string) => void;
+  /** Extract the tab's page (title + plain text) and prefill the chat composer. */
+  sharePageWithChat: (id: string) => Promise<void>;
 
   addBookmark: (input: { title: string; url: string; favicon?: string }) => void;
   removeBookmark: (id: string) => void;
@@ -311,6 +313,23 @@ export const useBrowserStore = create<BrowserState>((set, get) => ({
   goForward: (id) => { void window.sero.browser.goForward(id); },
   reload: (id) => { void window.sero.browser.reload(id); },
   stop: (id) => { void window.sero.browser.stop(id); },
+
+  sharePageWithChat: async (id) => {
+    const result = await window.sero.browser.extractPage(id);
+    if (!result) {
+      console.warn('[browser] Page extraction returned nothing.');
+      return;
+    }
+    const { title, url, text } = result;
+    const heading = title.trim() ? `# ${title.trim()}\n\n` : '';
+    // Trim very long page captures — the composer prefill path overwrites
+    // the draft, and agent token budgets are finite. 12k chars ~= 3k tokens
+    // and is enough to carry most articles' salient content.
+    const MAX = 12000;
+    const body = text.length > MAX ? `${text.slice(0, MAX)}\n\n[…truncated…]` : text;
+    const attribution = `— ${url}`;
+    prefillChatComposer(`${heading}${body}\n\n${attribution}\n\n`);
+  },
 
   addBookmark: (input) => {
     const { bookmarks } = get();

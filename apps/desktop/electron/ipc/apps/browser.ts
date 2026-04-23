@@ -60,4 +60,15 @@ export function registerBrowserHandlers(): void {
   ipcMain.handle(IpcChannels.browser.stop, (_e, tabId: string) => {
     browserViewManager.stop(tabId);
   });
+
+  ipcMain.handle(IpcChannels.browser.extractPage, (_e, tabId: string) => {
+    return browserViewManager.extractPage(tabId);
+  });
+
+  ipcMain.handle(
+    IpcChannels.browser.capturePage,
+    (_e, tabId: string, rect?: { x: number; y: number; width: number; height: number }) => {
+      return browserViewManager.capturePage(tabId, rect);
+    },
+  );
 }

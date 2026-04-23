@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent, type KeyboardEvent } from 'react';
-import { ArrowLeft, ArrowRight, RotateCw, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Camera, MessageSquareQuote, RotateCw, X } from 'lucide-react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { cn } from '@sero-ai/ui/lib/utils';
 import type { BrowserTab } from '@/types/browser';
@@ -11,10 +11,12 @@ interface BrowserToolbarProps {
   onForward: () => void;
   onReload: () => void;
   onStop: () => void;
+  onSharePage: () => void;
+  onCaptureArea: () => void;
 }
 
 export function BrowserToolbar({
-  tab, onNavigate, onBack, onForward, onReload, onStop,
+  tab, onNavigate, onBack, onForward, onReload, onStop, onSharePage, onCaptureArea,
 }: BrowserToolbarProps) {
   // Mirror the tab URL into the input but let the user edit freely. When the
   // tab navigates elsewhere (e.g. clicking a link), the field refreshes to
@@ -98,6 +100,26 @@ export function BrowserToolbar({
           'focus:border-[var(--border-default)] focus:outline-none',
         )}
       />
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        onClick={onSharePage}
+        title="Share page with chat"
+        className="text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
+      >
+        <MessageSquareQuote className="size-[14px]" />
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        onClick={onCaptureArea}
+        title="Screenshot area to chat"
+        className="text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
+      >
+        <Camera className="size-[14px]" />
+      </Button>
     </form>
   );
 }

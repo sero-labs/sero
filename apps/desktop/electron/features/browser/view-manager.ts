@@ -176,6 +176,70 @@ class BrowserViewManager {
     this.views.get(tabId)?.webContents.stop();
   }
 
+  /**
+   * Run a cleanup script in the tab and return the page's title + plain
+   * text. We do the extraction inside the page so we have a real DOM; the
+   * main process has none without jsdom. Readability-quality markdown is
+   * a deliberate non-goal for v1 — this gets ~90% of the value with a
+   * fraction of the code.
+   */
+  async extractPage(
+    tabId: string,
+  ): Promise<{ title: string; url: string; text: string } | null> {
+    const wc = this.views.get(tabId)?.webContents;
+    if (!wc) return null;
+    const script = `(() => {
+      try {
+        const title = document.title || '';
+        const url = location.href;
+        const body = document.body ? document.body.cloneNode(true) : null;
+        if (!body) return { title, url, text: '' };
+        const drop = ['script','style','noscript','nav','header','footer','aside','iframe','svg','canvas','form'];
+        for (const sel of drop) {
+          for (const el of body.querySelectorAll(sel)) el.remove();
+        }
+        // innerText is better than textContent — respects visibility and block breaks.
+        const raw = body.innerText || '';
+        const text = raw
+          .split('\\n')
+          .map((l) => l.trim())
+          .filter((l, i, a) => !(l === '' && a[i - 1] === ''))
+          .join('\\n')
+          .trim();
+        return { title, url, text };
+      } catch (err) {
+        return { title: document.title || '', url: location.href, text: '' };
+      }
+    })()`;
+    try {
+      const result = await wc.executeJavaScript(script, true);
+      if (!result || typeof result !== 'object') return null;
+      return result as { title: string; url: string; text: string };
+    } catch (err) {
+      console.warn('[browser] extractPage failed:', err);
+      return null;
+    }
+  }
+
+  /**
+   * Capture the tab as a PNG. Returns a base64 string (no data URI prefix).
+   * The optional rect is in CSS pixels relative to the view's top-left.
+   */
+  async capturePage(
+    tabId: string,
+    rect?: { x: number; y: number; width: number; height: number },
+  ): Promise<string | null> {
+    const wc = this.views.get(tabId)?.webContents;
+    if (!wc) return null;
+    try {
+      const image = rect ? await wc.capturePage(rect) : await wc.capturePage();
+      return image.toPNG().toString('base64');
+    } catch (err) {
+      console.warn('[browser] capturePage failed:', err);
+      return null;
+    }
+  }
+
   private wireViewEvents(tabId: string, view: WebContentsView, workspaceId: string): void {
     const wc = view.webContents;
 

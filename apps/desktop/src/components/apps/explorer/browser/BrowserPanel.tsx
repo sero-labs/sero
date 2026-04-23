@@ -13,18 +13,21 @@
  * between projects.
  */
 
-import { useEffect, useLayoutEffect, useRef } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Globe } from 'lucide-react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { BookmarksBar } from './BookmarksBar';
 import { BrowserTabs } from './BrowserTabs';
 import { BrowserToolbar } from './BrowserToolbar';
+import { ScreenshotOverlay } from './ScreenshotOverlay';
 import {
   useActiveBrowserTabId,
   useBrowserStore,
   useWorkspaceBrowserTabs,
 } from '@/stores/browser';
 import { useBrowserShortcuts } from '@/hooks/useBrowserShortcuts';
+import { useAppStore } from '@/stores/app';
+import { useComposerAttachmentQueue } from '@/stores/composer-attachments';
 
 interface BrowserPanelProps {
   workspaceId: string;
@@ -42,8 +45,17 @@ export function BrowserPanel({ workspaceId }: BrowserPanelProps) {
   const goForward = useBrowserStore((s) => s.goForward);
   const reload = useBrowserStore((s) => s.reload);
   const stop = useBrowserStore((s) => s.stop);
+  const sharePageWithChat = useBrowserStore((s) => s.sharePageWithChat);
 
   const viewportRef = useRef<HTMLDivElement | null>(null);
+
+  // Capture mode: we fetch a full-page PNG, hide the native view, and let
+  // the user draw a rect over a renderer-side image. On confirm, the
+  // cropped PNG is pushed into the composer attachment queue.
+  const [capture, setCapture] = useState<{
+    pngBase64: string;
+    viewRect: { x: number; y: number; width: number; height: number };
+  } | null>(null);
 
   useBrowserShortcuts(workspaceId);
 
@@ -68,11 +80,17 @@ export function BrowserPanel({ workspaceId }: BrowserPanelProps) {
   // Track the placeholder element's screen rect and push it to main so the
   // active view stays glued to the visible area. Runs on mount, tab change,
   // and whenever the element resizes (window / sidebar / chat panel toggle).
+  // While in capture mode the view is intentionally parked off-screen so
+  // the overlay can receive mouse events on top of the PNG.
   useLayoutEffect(() => {
     const el = viewportRef.current;
     if (!el) return;
 
     const sync = () => {
+      if (capture) {
+        void window.sero.browser.hideAll();
+        return;
+      }
       const rect = el.getBoundingClientRect();
       const width = Math.max(0, Math.round(rect.width));
       const height = Math.max(0, Math.round(rect.height));
@@ -93,7 +111,40 @@ export function BrowserPanel({ workspaceId }: BrowserPanelProps) {
       observer.disconnect();
       window.removeEventListener('resize', sync);
     };
-  }, [activeTabId]);
+  }, [activeTabId, capture]);
+
+  const startCapture = useCallback(async () => {
+    if (!activeTab) return;
+    const el = viewportRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const pngBase64 = await window.sero.browser.capturePage(activeTab.id);
+    if (!pngBase64) {
+      console.warn('[browser] capturePage returned nothing.');
+      return;
+    }
+    setCapture({
+      pngBase64,
+      viewRect: {
+        x: Math.round(r.left),
+        y: Math.round(r.top),
+        width: Math.round(r.width),
+        height: Math.round(r.height),
+      },
+    });
+  }, [activeTab]);
+
+  const handleCaptureConfirm = useCallback(
+    (blob: Blob) => {
+      const file = new File([blob], `tab-${Date.now()}.png`, { type: 'image/png' });
+      useComposerAttachmentQueue.getState().push(file);
+      if (!useAppStore.getState().chatPanelOpen) {
+        useAppStore.getState().setChatPanelOpen(true);
+      }
+      setCapture(null);
+    },
+    [],
+  );
 
   // Empty state — no tabs yet in this workspace.
   if (tabs.length === 0 || !activeTab) {
@@ -122,6 +173,8 @@ export function BrowserPanel({ workspaceId }: BrowserPanelProps) {
         onForward={() => goForward(activeTab.id)}
         onReload={() => reload(activeTab.id)}
         onStop={() => stop(activeTab.id)}
+        onSharePage={() => { void sharePageWithChat(activeTab.id); }}
+        onCaptureArea={() => { void startCapture(); }}
       />
       <BookmarksBar onNavigate={(url) => navigate(activeTab.id, url)} workspaceId={workspaceId} />
       {/*
@@ -130,6 +183,14 @@ export function BrowserPanel({ workspaceId }: BrowserPanelProps) {
         and give the ResizeObserver something to track.
       */}
       <div ref={viewportRef} className="min-h-0 flex-1" />
+      {capture && (
+        <ScreenshotOverlay
+          pngBase64={capture.pngBase64}
+          viewRect={capture.viewRect}
+          onCapture={handleCaptureConfirm}
+          onCancel={() => setCapture(null)}
+        />
+      )}
     </div>
   );
 }

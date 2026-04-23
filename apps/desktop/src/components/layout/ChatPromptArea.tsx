@@ -30,6 +30,7 @@ import {
 import { SlashCommandMenu } from './SlashCommandMenu';
 import { FileReferenceMenu } from './FileReferenceMenu';
 import { PromptAttachmentsBar } from './ChatAttachments';
+import { ComposerAttachmentBridge } from './ComposerAttachmentBridge';
 import { ModelSelector } from './ModelSelector';
 import { AuthLoginDialog } from './AuthLoginDialog';
 import { ContextEditor } from './ContextEditor';
@@ -128,6 +129,8 @@ export const ChatPromptArea = memo(function ChatPromptArea({
           multiple
           globalDrop={hasSession}
         >
+          {/* Pulls files pushed to useComposerAttachmentQueue (screenshots, etc.). */}
+          <ComposerAttachmentBridge />
           <PromptInputHeader>
             <PromptAttachmentsBar />
             {messageQueue.hasQueued && (

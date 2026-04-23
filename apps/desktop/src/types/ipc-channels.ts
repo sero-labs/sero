@@ -251,6 +251,10 @@ export const IpcChannels = {
     goForward: 'sero:browser:go-forward',
     reload: 'sero:browser:reload',
     stop: 'sero:browser:stop',
+    /** Extract the active page's title + plain text for "Share with chat". */
+    extractPage: 'sero:browser:extract-page',
+    /** Capture the tab as a PNG (optionally cropped). Returns base64 PNG. */
+    capturePage: 'sero:browser:capture-page',
     /** Main → renderer push: navigation / load / title / favicon events. */
     event: 'sero:browser:event',
   },

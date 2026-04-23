@@ -457,6 +457,11 @@ export interface SeroBrowserAPI {
   goForward(tabId: string): Promise<void>;
   reload(tabId: string): Promise<void>;
   stop(tabId: string): Promise<void>;
+  extractPage(tabId: string): Promise<{ title: string; url: string; text: string } | null>;
+  capturePage(
+    tabId: string,
+    rect?: { x: number; y: number; width: number; height: number },
+  ): Promise<string | null>;
   onEvent(callback: (event: BrowserEvent) => void): () => void;
 }
 

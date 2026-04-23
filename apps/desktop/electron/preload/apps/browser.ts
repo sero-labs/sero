@@ -24,6 +24,13 @@ export const browserBridge = {
     ipcRenderer.invoke(IpcChannels.browser.reload, tabId),
   stop: (tabId: string): Promise<void> =>
     ipcRenderer.invoke(IpcChannels.browser.stop, tabId),
+  extractPage: (tabId: string): Promise<{ title: string; url: string; text: string } | null> =>
+    ipcRenderer.invoke(IpcChannels.browser.extractPage, tabId),
+  capturePage: (
+    tabId: string,
+    rect?: { x: number; y: number; width: number; height: number },
+  ): Promise<string | null> =>
+    ipcRenderer.invoke(IpcChannels.browser.capturePage, tabId, rect),
   onEvent: (callback: (event: BrowserEvent) => void): (() => void) => {
     const listener = (_e: IpcRendererEvent, event: BrowserEvent) => callback(event);
     ipcRenderer.on(IpcChannels.browser.event, listener);
