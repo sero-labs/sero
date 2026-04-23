@@ -21,7 +21,17 @@ import type { ContextMenuParams, MenuItemConstructorOptions, WebContents } from 
 import { IpcChannels } from '@/types/ipc-channels';
 import type { BrowserEvent, BrowserViewBounds } from '@/types/browser';
 
-const BROWSER_PARTITION = 'persist:sero-browser';
+const BROWSER_PARTITION_PREFIX = 'persist:sero-browser';
+
+/**
+ * Compute the persistent session partition for a workspace. Workspace ids
+ * are kebab-case slugs already, so they're safe to embed in a partition
+ * string directly — but we still strip anything unexpected defensively.
+ */
+function partitionFor(workspaceId: string): string {
+  const safe = workspaceId.replace(/[^a-zA-Z0-9._-]/g, '_') || 'global';
+  return `${BROWSER_PARTITION_PREFIX}:${safe}`;
+}
 
 /** Position used to "hide" a view without destroying it. */
 const HIDDEN_BOUNDS = { x: 0, y: 0, width: 0, height: 0 } as const;
@@ -46,7 +56,7 @@ class BrowserViewManager {
    * Create a view for a tab id and load the URL. If the tab already exists,
    * navigate the existing view (idempotent for startup rehydration).
    */
-  openTab(tabId: string, url: string): void {
+  openTab(tabId: string, url: string, workspaceId: string): void {
     if (!this.window) return;
     const existing = this.views.get(tabId);
     if (existing) {
@@ -58,9 +68,10 @@ class BrowserViewManager {
       return;
     }
 
+    const partition = partitionFor(workspaceId);
     const view = new WebContentsView({
       webPreferences: {
-        partition: BROWSER_PARTITION,
+        partition,
         contextIsolation: true,
         nodeIntegration: false,
         sandbox: true,
@@ -68,13 +79,13 @@ class BrowserViewManager {
       },
     });
 
-    this.wireViewEvents(tabId, view);
+    this.wireViewEvents(tabId, view, workspaceId);
 
     // Use a clean Chrome UA (strip "Electron/<version>") so sites don't
     // treat us as an embedded browser and block Widevine / logins.
     try {
       const cleanUA = session
-        .fromPartition(BROWSER_PARTITION)
+        .fromPartition(partition)
         .getUserAgent()
         .replace(/\sElectron\/[\S]+/, '')
         .replace(/\s+sero\/[\S]+/i, '');
@@ -165,14 +176,15 @@ class BrowserViewManager {
     this.views.get(tabId)?.webContents.stop();
   }
 
-  private wireViewEvents(tabId: string, view: WebContentsView): void {
+  private wireViewEvents(tabId: string, view: WebContentsView, workspaceId: string): void {
     const wc = view.webContents;
 
     // Security: open new windows (target=_blank, window.open) as new tabs
-    // within Sero rather than spawning OS browser windows.
+    // within Sero rather than spawning OS browser windows. New tab stays
+    // on the same workspace as the opener.
     wc.setWindowOpenHandler(({ url }) => {
       if (/^https?:\/\//i.test(url) || /^about:blank$/i.test(url)) {
-        this.emit({ tabId, kind: 'new-tab-request', url });
+        this.emit({ tabId, workspaceId, kind: 'new-tab-request', url });
       } else {
         // Hand off exotic schemes (mailto:, tel:, …) to the OS.
         void shell.openExternal(url).catch(() => undefined);
@@ -193,14 +205,15 @@ class BrowserViewManager {
     });
 
     wc.on('did-start-loading', () => {
-      this.emit({ tabId, kind: 'did-start-loading' });
+      this.emit({ tabId, workspaceId, kind: 'did-start-loading' });
     });
     wc.on('did-stop-loading', () => {
-      this.emit({ tabId, kind: 'did-stop-loading' });
+      this.emit({ tabId, workspaceId, kind: 'did-stop-loading' });
     });
     wc.on('did-navigate', (_e, url) => {
       this.emit({
         tabId,
+        workspaceId,
         kind: 'did-navigate',
         url,
         canGoBack: wc.navigationHistory.canGoBack(),
@@ -210,6 +223,7 @@ class BrowserViewManager {
     wc.on('did-navigate-in-page', (_e, url) => {
       this.emit({
         tabId,
+        workspaceId,
         kind: 'did-navigate',
         url,
         canGoBack: wc.navigationHistory.canGoBack(),
@@ -217,19 +231,19 @@ class BrowserViewManager {
       });
     });
     wc.on('page-title-updated', (_e, title) => {
-      this.emit({ tabId, kind: 'title-updated', title });
+      this.emit({ tabId, workspaceId, kind: 'title-updated', title });
     });
     wc.on('page-favicon-updated', (_e, favicons) => {
-      this.emit({ tabId, kind: 'favicon-updated', favicon: favicons[0] });
+      this.emit({ tabId, workspaceId, kind: 'favicon-updated', favicon: favicons[0] });
     });
     wc.on('did-fail-load', (_e, _code, errorDescription, _url, isMainFrame) => {
       if (!isMainFrame) return;
-      this.emit({ tabId, kind: 'did-fail-load', errorDescription });
+      this.emit({ tabId, workspaceId, kind: 'did-fail-load', errorDescription });
     });
 
     // The WebContentsView has no built-in chrome — we own the context menu.
     wc.on('context-menu', (_e, params) => {
-      this.showContextMenu(tabId, view, params);
+      this.showContextMenu(tabId, view, params, workspaceId);
     });
   }
 
@@ -237,6 +251,7 @@ class BrowserViewManager {
     tabId: string,
     view: WebContentsView,
     params: ContextMenuParams,
+    workspaceId: string,
   ): void {
     const wc = view.webContents;
     const items: MenuItemConstructorOptions[] = [];
@@ -247,7 +262,21 @@ class BrowserViewManager {
         click: () => {
           this.emit({
             tabId,
+            workspaceId,
             kind: 'selection-to-chat',
+            selection: params.selectionText,
+            pageUrl: wc.getURL(),
+            pageTitle: wc.getTitle(),
+          });
+        },
+      });
+      items.push({
+        label: 'Save to Memory',
+        click: () => {
+          this.emit({
+            tabId,
+            workspaceId,
+            kind: 'selection-to-memory',
             selection: params.selectionText,
             pageUrl: wc.getURL(),
             pageTitle: wc.getTitle(),
@@ -263,7 +292,7 @@ class BrowserViewManager {
       items.push({
         label: 'Open Link in New Tab',
         click: () => {
-          this.emit({ tabId, kind: 'new-tab-request', url: params.linkURL });
+          this.emit({ tabId, workspaceId, kind: 'new-tab-request', url: params.linkURL });
         },
       });
       items.push({
@@ -277,7 +306,7 @@ class BrowserViewManager {
       items.push({
         label: 'Open Image in New Tab',
         click: () => {
-          this.emit({ tabId, kind: 'new-tab-request', url: params.srcURL });
+          this.emit({ tabId, workspaceId, kind: 'new-tab-request', url: params.srcURL });
         },
       });
       items.push({

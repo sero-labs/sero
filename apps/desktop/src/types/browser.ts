@@ -5,6 +5,8 @@
 
 export interface BrowserTab {
   id: string;
+  /** Workspace this tab belongs to. Cookies/sessions are isolated per workspace. */
+  workspaceId: string;
   url: string;
   /** Page title (defaults to URL until the page loads). */
   title: string;
@@ -35,21 +37,24 @@ export interface BrowserViewBounds {
  * Events emitted by the main-process view manager to the renderer so the
  * store can keep tab metadata in sync with what the WebContentsView reports.
  */
+/**
+ * Events pushed from the main-process view manager. Every event carries the
+ * owning `workspaceId` so the renderer can route it correctly even when the
+ * user has switched workspaces between emission and delivery.
+ */
 export type BrowserEvent =
-  | { tabId: string; kind: 'did-navigate'; url: string; canGoBack: boolean; canGoForward: boolean }
-  | { tabId: string; kind: 'did-start-loading' }
-  | { tabId: string; kind: 'did-stop-loading' }
-  | { tabId: string; kind: 'title-updated'; title: string }
-  | { tabId: string; kind: 'favicon-updated'; favicon: string | undefined }
-  | { tabId: string; kind: 'did-fail-load'; errorDescription: string }
+  | { tabId: string; workspaceId: string; kind: 'did-navigate'; url: string; canGoBack: boolean; canGoForward: boolean }
+  | { tabId: string; workspaceId: string; kind: 'did-start-loading' }
+  | { tabId: string; workspaceId: string; kind: 'did-stop-loading' }
+  | { tabId: string; workspaceId: string; kind: 'title-updated'; title: string }
+  | { tabId: string; workspaceId: string; kind: 'favicon-updated'; favicon: string | undefined }
+  | { tabId: string; workspaceId: string; kind: 'did-fail-load'; errorDescription: string }
   /** Renderer should open a new tab (triggered by window.open / target=_blank). */
-  | { tabId: string; kind: 'new-tab-request'; url: string }
-  /**
-   * User picked "Add to Sero Chat" from the page's context menu — the
-   * selection (and the page metadata) should be quoted into the chat
-   * composer of the focused session.
-   */
-  | { tabId: string; kind: 'selection-to-chat'; selection: string; pageUrl: string; pageTitle: string };
+  | { tabId: string; workspaceId: string; kind: 'new-tab-request'; url: string }
+  /** User picked "Add to Sero Chat" from the page's context menu. */
+  | { tabId: string; workspaceId: string; kind: 'selection-to-chat'; selection: string; pageUrl: string; pageTitle: string }
+  /** User picked "Save to Memory" from the page's context menu. */
+  | { tabId: string; workspaceId: string; kind: 'selection-to-memory'; selection: string; pageUrl: string; pageTitle: string };
 
 /** Default home page for a new empty tab. */
 export const BROWSER_HOME_URL = 'https://duckduckgo.com/';

@@ -19,7 +19,11 @@ import {
   ContextMenu, ContextMenuTrigger, ContextMenuContent,
   ContextMenuItem, ContextMenuSeparator,
 } from '@sero-ai/ui/components/ui/context-menu';
-import { useBrowserStore } from '@/stores/browser';
+import {
+  useActiveBrowserTabId,
+  useBrowserStore,
+  useWorkspaceBrowserTabs,
+} from '@/stores/browser';
 import type { BrowserTab } from '@/types/browser';
 
 /* ── Single sortable tab ──────────────────────────────────── */
@@ -109,9 +113,13 @@ function SortableBrowserTab({
 
 /* ── Tab bar ──────────────────────────────────────────────── */
 
-export function BrowserTabs() {
-  const tabs = useBrowserStore((s) => s.tabs);
-  const activeTabId = useBrowserStore((s) => s.activeTabId);
+interface BrowserTabsProps {
+  workspaceId: string;
+}
+
+export function BrowserTabs({ workspaceId }: BrowserTabsProps) {
+  const tabs = useWorkspaceBrowserTabs(workspaceId);
+  const activeTabId = useActiveBrowserTabId(workspaceId);
   const setActive = useBrowserStore((s) => s.setActive);
   const closeTab = useBrowserStore((s) => s.closeTab);
   const closeOtherTabs = useBrowserStore((s) => s.closeOtherTabs);
@@ -160,8 +168,8 @@ export function BrowserTabs() {
     const oldIdx = ids.indexOf(active.id as string);
     const newIdx = ids.indexOf(over.id as string);
     if (oldIdx < 0 || newIdx < 0) return;
-    reorderTabs(arrayMove(ids, oldIdx, newIdx));
-  }, [tabs, reorderTabs]);
+    reorderTabs(workspaceId, arrayMove(ids, oldIdx, newIdx));
+  }, [tabs, reorderTabs, workspaceId]);
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent, id: string) => {
@@ -199,7 +207,7 @@ export function BrowserTabs() {
                   onSelect={() => setActive(tab.id)}
                   onClose={() => closeTab(tab.id)}
                   onCloseOthers={() => closeOtherTabs(tab.id)}
-                  onCloseAll={closeAllTabs}
+                  onCloseAll={() => closeAllTabs(workspaceId)}
                   onBookmark={() =>
                     addBookmark({ title: tab.title || tab.url, url: tab.url, favicon: tab.favicon })
                   }
@@ -217,7 +225,7 @@ export function BrowserTabs() {
         </SortableContext>
       </DndContext>
       <button
-        onClick={() => createTab()}
+        onClick={() => createTab(workspaceId)}
         className={cn(
           'flex h-full shrink-0 items-center border-l border-[var(--border-subtle)] px-2.5',
           'text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]',

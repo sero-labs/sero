@@ -4,8 +4,8 @@ import { IpcChannels } from '@/types/ipc-channels';
 import type { BrowserEvent, BrowserViewBounds } from '@/types/browser';
 
 export const browserBridge = {
-  openTab: (tabId: string, url: string): Promise<void> =>
-    ipcRenderer.invoke(IpcChannels.browser.openTab, tabId, url),
+  openTab: (tabId: string, url: string, workspaceId: string): Promise<void> =>
+    ipcRenderer.invoke(IpcChannels.browser.openTab, tabId, url, workspaceId),
   closeTab: (tabId: string): Promise<void> =>
     ipcRenderer.invoke(IpcChannels.browser.closeTab, tabId),
   setActive: (tabId: string | null): Promise<void> =>

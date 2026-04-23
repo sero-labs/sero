@@ -58,13 +58,12 @@ function buildLayoutState(partial: Partial<LayoutState>): LayoutState {
     },
     browserTabs: partial.browserTabs ?? useBrowserStore.getState().tabs.map((t) => ({
       id: t.id,
+      workspaceId: t.workspaceId,
       url: t.url,
       title: t.title,
     })),
-    activeBrowserTabId:
-      partial.activeBrowserTabId !== undefined
-        ? partial.activeBrowserTabId
-        : useBrowserStore.getState().activeTabId,
+    activeBrowserTabIds:
+      partial.activeBrowserTabIds ?? useBrowserStore.getState().activeTabIds,
     browserBookmarks: partial.browserBookmarks ?? useBrowserStore.getState().bookmarks,
   };
 }

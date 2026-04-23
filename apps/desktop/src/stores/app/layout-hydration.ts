@@ -69,7 +69,8 @@ export async function loadLayout(): Promise<void> {
       // user opens the browser panel, not eagerly here).
       useBrowserStore.getState().hydrate({
         tabs: state.browserTabs,
-        activeId: state.activeBrowserTabId ?? null,
+        activeIds: state.activeBrowserTabIds,
+        legacyActiveId: state.activeBrowserTabId ?? null,
         bookmarks: state.browserBookmarks,
       });
 

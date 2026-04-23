@@ -211,7 +211,7 @@ export function ExplorerWorkspace() {
               <ResizablePanel id="explorer-editor" minSize={200} className="min-w-0">
                 <div className="flex h-full min-h-0 min-w-0 flex-col bg-[var(--bg-base)]">
                   {activePanel === 'browser' ? (
-                    <BrowserPanel />
+                    <BrowserPanel workspaceId={workspaceId} />
                   ) : diffState ? (
                     <>
                       {/* Diff mode: show a minimal tab bar with close action */}

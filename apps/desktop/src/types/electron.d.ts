@@ -447,7 +447,7 @@ interface SeroPluginsAPI {
 }
 
 export interface SeroBrowserAPI {
-  openTab(tabId: string, url: string): Promise<void>;
+  openTab(tabId: string, url: string, workspaceId: string): Promise<void>;
   closeTab(tabId: string): Promise<void>;
   setActive(tabId: string | null): Promise<void>;
   setBounds(bounds: BrowserViewBounds): Promise<void>;

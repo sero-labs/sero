@@ -20,11 +20,13 @@ import { useBrowserStore } from '@/stores/browser';
 import type { BrowserBookmark } from '@/types/browser';
 
 interface BookmarksBarProps {
+  /** Workspace a new-tab bookmark should land in. */
+  workspaceId: string;
   /** Called when a bookmark should replace the active tab's URL. */
   onNavigate: (url: string) => void;
 }
 
-export function BookmarksBar({ onNavigate }: BookmarksBarProps) {
+export function BookmarksBar({ workspaceId, onNavigate }: BookmarksBarProps) {
   const bookmarks = useBrowserStore((s) => s.bookmarks);
   const createTab = useBrowserStore((s) => s.createTab);
   const removeBookmark = useBrowserStore((s) => s.removeBookmark);
@@ -49,13 +51,13 @@ export function BookmarksBar({ onNavigate }: BookmarksBarProps) {
             <ContextMenuTrigger asChild>
               <button
                 onClick={(e) => {
-                  if (e.metaKey || e.ctrlKey) createTab(bm.url);
+                  if (e.metaKey || e.ctrlKey) createTab(workspaceId, bm.url);
                   else onNavigate(bm.url);
                 }}
                 onMouseDown={(e) => {
                   if (e.button === 1) {
                     e.preventDefault();
-                    createTab(bm.url);
+                    createTab(workspaceId, bm.url);
                   }
                 }}
                 className={cn(
@@ -75,7 +77,7 @@ export function BookmarksBar({ onNavigate }: BookmarksBarProps) {
             </ContextMenuTrigger>
             <ContextMenuContent className="w-48">
               <ContextMenuItem onSelect={() => onNavigate(bm.url)}>Open</ContextMenuItem>
-              <ContextMenuItem onSelect={() => createTab(bm.url)}>Open in New Tab</ContextMenuItem>
+              <ContextMenuItem onSelect={() => createTab(workspaceId, bm.url)}>Open in New Tab</ContextMenuItem>
               <ContextMenuItem onSelect={() => setEditing(bm)}>Edit…</ContextMenuItem>
               <ContextMenuItem onSelect={() => removeBookmark(bm.id)}>Delete</ContextMenuItem>
             </ContextMenuContent>

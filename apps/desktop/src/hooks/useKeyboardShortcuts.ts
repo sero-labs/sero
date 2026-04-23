@@ -41,7 +41,7 @@ export function useKeyboardShortcuts() {
           useExplorerStore
             .getState()
             .set(workspaceId, { activePanel: 'browser', sidebarOpen: true });
-          useBrowserStore.getState().createTab();
+          useBrowserStore.getState().createTab(workspaceId);
           break;
         }
       }

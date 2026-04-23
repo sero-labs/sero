@@ -8,6 +8,9 @@
  *      to the main process so the active view is positioned over it.
  *   3. Subscribes to main → renderer events to keep the store in sync.
  *   4. Calls `hideAll` on unmount so views don't bleed onto other panels.
+ *
+ * Tabs are scoped to the active workspace so cookies/logins don't leak
+ * between projects.
  */
 
 import { useEffect, useLayoutEffect, useRef } from 'react';
@@ -16,12 +19,20 @@ import { Button } from '@sero-ai/ui/components/ui/button';
 import { BookmarksBar } from './BookmarksBar';
 import { BrowserTabs } from './BrowserTabs';
 import { BrowserToolbar } from './BrowserToolbar';
-import { useBrowserStore } from '@/stores/browser';
+import {
+  useActiveBrowserTabId,
+  useBrowserStore,
+  useWorkspaceBrowserTabs,
+} from '@/stores/browser';
 import { useBrowserShortcuts } from '@/hooks/useBrowserShortcuts';
 
-export function BrowserPanel() {
-  const tabs = useBrowserStore((s) => s.tabs);
-  const activeTabId = useBrowserStore((s) => s.activeTabId);
+interface BrowserPanelProps {
+  workspaceId: string;
+}
+
+export function BrowserPanel({ workspaceId }: BrowserPanelProps) {
+  const tabs = useWorkspaceBrowserTabs(workspaceId);
+  const activeTabId = useActiveBrowserTabId(workspaceId);
   const activeTab = tabs.find((t) => t.id === activeTabId) ?? null;
   const ensureViewsOpen = useBrowserStore((s) => s.ensureViewsOpen);
   const applyEvent = useBrowserStore((s) => s.applyEvent);
@@ -34,18 +45,17 @@ export function BrowserPanel() {
 
   const viewportRef = useRef<HTMLDivElement | null>(null);
 
-  useBrowserShortcuts();
+  useBrowserShortcuts(workspaceId);
 
-  // Ensure all persisted tabs have WebContentsViews in main on mount.
+  // Ensure all persisted tabs have WebContentsViews in main when the panel
+  // mounts or the active workspace changes, and snap the active view to
+  // the workspace's last active tab.
   useEffect(() => {
-    ensureViewsOpen();
+    ensureViewsOpen(workspaceId);
     return () => {
-      // When the panel unmounts (user switches to another ActivityBar panel
-      // or the whole Explorer is destroyed), park every view off-screen so
-      // they don't sit on top of the editor / other panels.
       void window.sero.browser.hideAll();
     };
-  }, [ensureViewsOpen]);
+  }, [workspaceId, ensureViewsOpen]);
 
   // Subscribe once to main-process events.
   useEffect(() => {
@@ -85,16 +95,16 @@ export function BrowserPanel() {
     };
   }, [activeTabId]);
 
-  // Empty state — no tabs yet.
+  // Empty state — no tabs yet in this workspace.
   if (tabs.length === 0 || !activeTab) {
     return (
       <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-[var(--bg-base)]">
         <Globe className="size-10 text-[var(--text-muted)] opacity-40" />
-        <div className="text-sm text-[var(--text-muted)]">No browser tabs open</div>
+        <div className="text-sm text-[var(--text-muted)]">No browser tabs open in this workspace</div>
         <Button
           variant="outline"
           size="sm"
-          onClick={() => createTab()}
+          onClick={() => createTab(workspaceId)}
         >
           New tab
         </Button>
@@ -104,7 +114,7 @@ export function BrowserPanel() {
 
   return (
     <div className="flex h-full w-full flex-col bg-[var(--bg-base)]">
-      <BrowserTabs />
+      <BrowserTabs workspaceId={workspaceId} />
       <BrowserToolbar
         tab={activeTab}
         onNavigate={(url) => navigate(activeTab.id, url)}
@@ -113,7 +123,7 @@ export function BrowserPanel() {
         onReload={() => reload(activeTab.id)}
         onStop={() => stop(activeTab.id)}
       />
-      <BookmarksBar onNavigate={(url) => navigate(activeTab.id, url)} />
+      <BookmarksBar onNavigate={(url) => navigate(activeTab.id, url)} workspaceId={workspaceId} />
       {/*
         Native WebContentsView renders on top of this div at the bounds we
         report. The div itself stays blank — it only exists to reserve space

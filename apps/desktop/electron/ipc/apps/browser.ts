@@ -11,8 +11,8 @@ import { browserViewManager } from '@electron/features/browser/view-manager';
 export function registerBrowserHandlers(): void {
   ipcMain.handle(
     IpcChannels.browser.openTab,
-    (_e, tabId: string, url: string) => {
-      browserViewManager.openTab(tabId, url);
+    (_e, tabId: string, url: string, workspaceId: string) => {
+      browserViewManager.openTab(tabId, url, workspaceId);
     },
   );
 

@@ -16,14 +16,14 @@
 import { useEffect } from 'react';
 import { useBrowserStore } from '@/stores/browser';
 
-export function useBrowserShortcuts() {
+export function useBrowserShortcuts(workspaceId: string) {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (!e.metaKey && !e.ctrlKey) return;
       if (e.altKey) return;
 
       const store = useBrowserStore.getState();
-      const activeId = store.activeTabId;
+      const activeId = store.activeTabIds[workspaceId] ?? null;
       const key = e.key.toLowerCase();
 
       // ⌘Shift+… combinations first so plain ⌘+… doesn't swallow them.
@@ -31,15 +31,15 @@ export function useBrowserShortcuts() {
         switch (key) {
           case 't':
             e.preventDefault();
-            store.reopenClosedTab();
+            store.reopenClosedTab(workspaceId);
             return;
           case '[':
             e.preventDefault();
-            store.cycleActive(-1);
+            store.cycleActive(workspaceId, -1);
             return;
           case ']':
             e.preventDefault();
-            store.cycleActive(1);
+            store.cycleActive(workspaceId, 1);
             return;
         }
         return;
@@ -48,7 +48,7 @@ export function useBrowserShortcuts() {
       switch (key) {
         case 't':
           e.preventDefault();
-          store.createTab();
+          store.createTab(workspaceId);
           return;
         case 'w':
           if (activeId) {
@@ -93,12 +93,13 @@ export function useBrowserShortcuts() {
       if (/^[1-9]$/.test(e.key)) {
         e.preventDefault();
         const digit = parseInt(e.key, 10);
-        if (digit === 9) store.setActiveByIndex(store.tabs.length - 1);
-        else store.setActiveByIndex(digit - 1);
+        const wsTabs = store.tabs.filter((t) => t.workspaceId === workspaceId);
+        if (digit === 9) store.setActiveByIndex(workspaceId, wsTabs.length - 1);
+        else store.setActiveByIndex(workspaceId, digit - 1);
       }
     };
 
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, []);
+  }, [workspaceId]);
 }

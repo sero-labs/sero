@@ -58,6 +58,7 @@ function isLayoutState(value: unknown): value is LoadedLayoutState {
   if (c.activeWorkspaceId !== undefined && c.activeWorkspaceId !== null && typeof c.activeWorkspaceId !== 'string') return false;
   if (c.activeSessionId !== undefined && c.activeSessionId !== null && typeof c.activeSessionId !== 'string') return false;
   if (c.activeBrowserTabId !== undefined && c.activeBrowserTabId !== null && typeof c.activeBrowserTabId !== 'string') return false;
+  if (c.activeBrowserTabIds !== undefined && (typeof c.activeBrowserTabIds !== 'object' || c.activeBrowserTabIds === null || Array.isArray(c.activeBrowserTabIds))) return false;
   return true;
 }
 
@@ -69,7 +70,23 @@ function sanitizeBrowserTabs(value: unknown): import('@/types/layout').Persisted
     const e = entry as Record<string, unknown>;
     if (typeof e.id !== 'string' || typeof e.url !== 'string') continue;
     const title = typeof e.title === 'string' ? e.title : undefined;
-    out.push({ id: e.id, url: e.url, ...(title !== undefined ? { title } : {}) });
+    const workspaceId = typeof e.workspaceId === 'string' ? e.workspaceId : undefined;
+    out.push({
+      id: e.id,
+      url: e.url,
+      ...(title !== undefined ? { title } : {}),
+      ...(workspaceId !== undefined ? { workspaceId } : {}),
+    });
+  }
+  return out;
+}
+
+function sanitizeActiveBrowserTabIds(value: unknown): Record<string, string | null> | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  const out: Record<string, string | null> = {};
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    if (typeof k !== 'string') continue;
+    if (v === null || typeof v === 'string') out[k] = v;
   }
   return out;
 }
@@ -99,6 +116,7 @@ function parseLayoutState(raw: string): LoadedLayoutState | null {
       hiddenModels: sanitizeStringArray(parsed.hiddenModels),
       hiddenProviders: sanitizeStringArray(parsed.hiddenProviders),
       browserTabs: sanitizeBrowserTabs(parsed.browserTabs),
+      activeBrowserTabIds: sanitizeActiveBrowserTabIds(parsed.activeBrowserTabIds),
       browserBookmarks: sanitizeBookmarks(parsed.browserBookmarks),
     };
   } catch {

@@ -12,6 +12,8 @@ import type { BrowserBookmark, BrowserTab } from './browser';
 /** Subset of a BrowserTab that is safe to persist across restarts. */
 export interface PersistedBrowserTab {
   id: string;
+  /** Workspace the tab belongs to. Omitted = pre-multi-workspace tabs; hydration defaults to 'global'. */
+  workspaceId?: string;
   url: string;
   title?: string;
 }
@@ -48,7 +50,9 @@ export interface LayoutState {
   dashboardLayout?: DashboardLayoutState;
   /** Open browser tabs (restored on app start). */
   browserTabs?: PersistedBrowserTab[];
-  /** Active browser tab id. */
+  /** Active browser tab id per workspace. */
+  activeBrowserTabIds?: Record<string, string | null>;
+  /** Legacy: single active browser tab id (pre-per-workspace). */
   activeBrowserTabId?: string | null;
   /** User-saved bookmarks. */
   browserBookmarks?: PersistedBrowserBookmark[];
