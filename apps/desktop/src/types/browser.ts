@@ -54,7 +54,11 @@ export type BrowserEvent =
   /** User picked "Add to Sero Chat" from the page's context menu. */
   | { tabId: string; workspaceId: string; kind: 'selection-to-chat'; selection: string; pageUrl: string; pageTitle: string }
   /** User picked "Save to Memory" from the page's context menu. */
-  | { tabId: string; workspaceId: string; kind: 'selection-to-memory'; selection: string; pageUrl: string; pageTitle: string };
+  | { tabId: string; workspaceId: string; kind: 'selection-to-memory'; selection: string; pageUrl: string; pageTitle: string }
+  /** A new tab was opened by the host (CLI bridge, agent). Renderer store should mirror it. */
+  | { tabId: string; workspaceId: string; kind: 'host-tab-opened'; url: string }
+  /** A tab was closed by the host. Renderer store should remove it. */
+  | { tabId: string; workspaceId: string; kind: 'host-tab-closed' };
 
 /** Default home page for a new empty tab. */
 export const BROWSER_HOME_URL = 'https://duckduckgo.com/';

@@ -16,10 +16,11 @@
  *   - the main window is closed (each view's wc is destroyed with the parent)
  */
 
-import { BrowserWindow, Menu, WebContentsView, clipboard, shell, session } from 'electron';
-import type { ContextMenuParams, MenuItemConstructorOptions, WebContents } from 'electron';
+import { BrowserWindow, WebContentsView, shell, session } from 'electron';
+import type { WebContents } from 'electron';
 import { IpcChannels } from '@/types/ipc-channels';
 import type { BrowserEvent, BrowserViewBounds } from '@/types/browser';
+import { showBrowserContextMenu } from './context-menu';
 
 const BROWSER_PARTITION_PREFIX = 'persist:sero-browser';
 
@@ -36,9 +37,22 @@ function partitionFor(workspaceId: string): string {
 /** Position used to "hide" a view without destroying it. */
 const HIDDEN_BOUNDS = { x: 0, y: 0, width: 0, height: 0 } as const;
 
+/** Public snapshot of a loaded tab, returned by listLoadedTabs. */
+export interface LoadedTabInfo {
+  id: string;
+  workspaceId: string;
+  url: string;
+  title: string;
+  isActive: boolean;
+}
+
 class BrowserViewManager {
   private window: BrowserWindow | null = null;
   private readonly views = new Map<string, WebContentsView>();
+  /** Tracks the workspace each view belongs to (mirror of wireViewEvents closure). */
+  private readonly viewWorkspaces = new Map<string, string>();
+  /** Most-recently-activated tab per workspace, updated by setActive. */
+  private readonly lastActivePerWorkspace = new Map<string, string>();
   private activeTabId: string | null = null;
   private currentBounds: BrowserViewBounds = { ...HIDDEN_BOUNDS };
 
@@ -47,6 +61,8 @@ class BrowserViewManager {
     window.on('closed', () => {
       // Views are destroyed with the window; just drop our refs.
       this.views.clear();
+      this.viewWorkspaces.clear();
+      this.lastActivePerWorkspace.clear();
       this.window = null;
       this.activeTabId = null;
     });
@@ -95,6 +111,7 @@ class BrowserViewManager {
     }
 
     this.views.set(tabId, view);
+    this.viewWorkspaces.set(tabId, workspaceId);
 
     // Park off-screen until explicitly shown. addChildView places it on top,
     // but zero-size bounds keep it invisible.
@@ -109,7 +126,12 @@ class BrowserViewManager {
   closeTab(tabId: string): void {
     const view = this.views.get(tabId);
     if (!view) return;
+    const workspaceId = this.viewWorkspaces.get(tabId);
     this.views.delete(tabId);
+    this.viewWorkspaces.delete(tabId);
+    if (workspaceId && this.lastActivePerWorkspace.get(workspaceId) === tabId) {
+      this.lastActivePerWorkspace.delete(workspaceId);
+    }
     if (this.activeTabId === tabId) {
       this.activeTabId = null;
     }
@@ -125,6 +147,10 @@ class BrowserViewManager {
   /** Show the given tab's view at the current panel bounds, hide all others. */
   setActive(tabId: string | null): void {
     this.activeTabId = tabId;
+    if (tabId) {
+      const workspaceId = this.viewWorkspaces.get(tabId);
+      if (workspaceId) this.lastActivePerWorkspace.set(workspaceId, tabId);
+    }
     for (const [id, view] of this.views) {
       if (id === tabId) {
         view.setBounds(this.currentBounds);
@@ -222,6 +248,63 @@ class BrowserViewManager {
   }
 
   /**
+   * Open a new tab from the host (CLI bridge, agent tools). Assigns a
+   * fresh id, creates the view, and emits `host-tab-opened` so the
+   * renderer store mirrors it in its tab list. Returns the new tab id.
+   */
+  openTabForHost(url: string, workspaceId: string): string {
+    const tabId = `tab_host_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+    this.openTab(tabId, url, workspaceId);
+    this.emit({ tabId, workspaceId, kind: 'host-tab-opened', url });
+    return tabId;
+  }
+
+  /**
+   * Close a tab from the host. Emits `host-tab-closed` so the renderer
+   * store removes its entry. Returns false if the tab is unknown.
+   */
+  closeTabForHost(tabId: string): boolean {
+    const workspaceId = this.viewWorkspaces.get(tabId);
+    if (!workspaceId) return false;
+    this.closeTab(tabId);
+    this.emit({ tabId, workspaceId, kind: 'host-tab-closed' });
+    return true;
+  }
+
+  /** Snapshot of currently-loaded tabs, optionally filtered by workspace. */
+  listLoadedTabs(workspaceId?: string): LoadedTabInfo[] {
+    const out: LoadedTabInfo[] = [];
+    for (const [id, view] of this.views) {
+      const ws = this.viewWorkspaces.get(id) ?? 'global';
+      if (workspaceId && ws !== workspaceId) continue;
+      const wc = view.webContents;
+      out.push({
+        id,
+        workspaceId: ws,
+        url: wc.getURL(),
+        title: wc.getTitle(),
+        isActive: this.lastActivePerWorkspace.get(ws) === id,
+      });
+    }
+    return out;
+  }
+
+  /** Most-recently-activated tab id for a workspace, or null. */
+  resolveActiveTabForWorkspace(workspaceId: string): string | null {
+    return this.lastActivePerWorkspace.get(workspaceId) ?? null;
+  }
+
+  /** Whether a given tab id exists as a loaded WebContentsView. */
+  hasTab(tabId: string): boolean {
+    return this.views.has(tabId);
+  }
+
+  /** Workspace a tab belongs to, or null if unknown. */
+  workspaceForTab(tabId: string): string | null {
+    return this.viewWorkspaces.get(tabId) ?? null;
+  }
+
+  /**
    * Capture the tab as a PNG. Returns a base64 string (no data URI prefix).
    * The optional rect is in CSS pixels relative to the view's top-left.
    */
@@ -307,107 +390,15 @@ class BrowserViewManager {
 
     // The WebContentsView has no built-in chrome — we own the context menu.
     wc.on('context-menu', (_e, params) => {
-      this.showContextMenu(tabId, view, params, workspaceId);
+      showBrowserContextMenu({
+        tabId,
+        workspaceId,
+        view,
+        params,
+        window: this.window,
+        emit: (event) => this.emit(event),
+      });
     });
-  }
-
-  private showContextMenu(
-    tabId: string,
-    view: WebContentsView,
-    params: ContextMenuParams,
-    workspaceId: string,
-  ): void {
-    const wc = view.webContents;
-    const items: MenuItemConstructorOptions[] = [];
-
-    if (params.selectionText && params.selectionText.trim()) {
-      items.push({
-        label: 'Add to Sero Chat',
-        click: () => {
-          this.emit({
-            tabId,
-            workspaceId,
-            kind: 'selection-to-chat',
-            selection: params.selectionText,
-            pageUrl: wc.getURL(),
-            pageTitle: wc.getTitle(),
-          });
-        },
-      });
-      items.push({
-        label: 'Save to Memory',
-        click: () => {
-          this.emit({
-            tabId,
-            workspaceId,
-            kind: 'selection-to-memory',
-            selection: params.selectionText,
-            pageUrl: wc.getURL(),
-            pageTitle: wc.getTitle(),
-          });
-        },
-      });
-      items.push({ type: 'separator' });
-      items.push({ label: 'Copy', role: 'copy', enabled: params.editFlags.canCopy });
-    }
-
-    if (params.linkURL) {
-      if (items.length) items.push({ type: 'separator' });
-      items.push({
-        label: 'Open Link in New Tab',
-        click: () => {
-          this.emit({ tabId, workspaceId, kind: 'new-tab-request', url: params.linkURL });
-        },
-      });
-      items.push({
-        label: 'Copy Link Address',
-        click: () => clipboard.writeText(params.linkURL),
-      });
-    }
-
-    if (params.srcURL && params.mediaType === 'image') {
-      if (items.length) items.push({ type: 'separator' });
-      items.push({
-        label: 'Open Image in New Tab',
-        click: () => {
-          this.emit({ tabId, workspaceId, kind: 'new-tab-request', url: params.srcURL });
-        },
-      });
-      items.push({
-        label: 'Copy Image Address',
-        click: () => clipboard.writeText(params.srcURL),
-      });
-    }
-
-    if (params.isEditable) {
-      if (items.length) items.push({ type: 'separator' });
-      items.push({ label: 'Cut', role: 'cut', enabled: params.editFlags.canCut });
-      items.push({ label: 'Copy', role: 'copy', enabled: params.editFlags.canCopy });
-      items.push({ label: 'Paste', role: 'paste', enabled: params.editFlags.canPaste });
-      items.push({ label: 'Select All', role: 'selectAll', enabled: params.editFlags.canSelectAll });
-    }
-
-    if (items.length) items.push({ type: 'separator' });
-    items.push({
-      label: 'Back',
-      enabled: wc.navigationHistory.canGoBack(),
-      click: () => wc.navigationHistory.goBack(),
-    });
-    items.push({
-      label: 'Forward',
-      enabled: wc.navigationHistory.canGoForward(),
-      click: () => wc.navigationHistory.goForward(),
-    });
-    items.push({ label: 'Reload', click: () => wc.reload() });
-
-    items.push({ type: 'separator' });
-    items.push({
-      label: 'Inspect Element',
-      click: () => wc.inspectElement(params.x, params.y),
-    });
-
-    const menu = Menu.buildFromTemplate(items);
-    menu.popup({ window: this.window ?? undefined });
   }
 
   private emit(event: BrowserEvent): void {

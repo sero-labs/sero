@@ -11,9 +11,11 @@
 import { create } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
 import { persistLayout } from '@/lib/persist-layout';
-import { useAgentStore } from '@/stores/agent';
-import { useAppStore } from '@/stores/app';
-import { useSessionStore } from '@/stores/sessions';
+import {
+  formatSelectionForChat,
+  formatSelectionForMemory,
+  prefillChatComposer,
+} from './browser-helpers';
 import {
   BROWSER_HOME_URL,
   resolveAddressBarInput,
@@ -33,61 +35,6 @@ interface ClosedTab {
 }
 
 const MAX_RECENTLY_CLOSED = 10;
-
-/**
- * Format a page selection as a markdown blockquote with an attribution
- * line. Two trailing newlines leave the cursor on a fresh line so the user
- * can start typing their question immediately.
- */
-function formatSelectionForChat(
-  selection: string,
-  pageUrl: string,
-  pageTitle: string,
-): string {
-  const trimmed = selection.replace(/\s+$/, '');
-  const quoted = trimmed.split('\n').map((line) => `> ${line}`).join('\n');
-  const title = pageTitle.trim();
-  const attribution = title ? `— ${title} — ${pageUrl}` : `— ${pageUrl}`;
-  return `${quoted}\n\n${attribution}\n\n`;
-}
-
-/** "Please save this to memory" template that nudges the agent to call the memory tool. */
-function formatSelectionForMemory(
-  selection: string,
-  pageUrl: string,
-  pageTitle: string,
-): string {
-  const trimmed = selection.replace(/\s+$/, '');
-  const quoted = trimmed.split('\n').map((line) => `> ${line}`).join('\n');
-  const title = pageTitle.trim();
-  const attribution = title ? `— ${title} — ${pageUrl}` : `— ${pageUrl}`;
-  return `Please save this to memory:\n\n${quoted}\n\n${attribution}\n\n`;
-}
-
-function resolveActiveSessionId(): string | null {
-  return (
-    useAgentStore.getState().focusedSessionId ??
-    useSessionStore.getState().activeSessionId ??
-    null
-  );
-}
-
-/** Drop formatted text into the focused (or active) chat session's composer. */
-function prefillChatComposer(text: string): void {
-  const sessionId = resolveActiveSessionId();
-  if (!sessionId) {
-    console.warn('[browser] No chat session available — selection ignored.');
-    return;
-  }
-  useAgentStore.getState().setComposerPrefill(sessionId, {
-    requestId: generateId('sel'),
-    text,
-    source: 'system',
-  });
-  if (!useAppStore.getState().chatPanelOpen) {
-    useAppStore.getState().setChatPanelOpen(true);
-  }
-}
 
 interface BrowserState {
   tabs: BrowserTab[];
@@ -461,6 +408,47 @@ export const useBrowserStore = create<BrowserState>((set, get) => ({
 
     if (event.kind === 'selection-to-memory') {
       prefillChatComposer(formatSelectionForMemory(event.selection, event.pageUrl, event.pageTitle));
+      return;
+    }
+
+    if (event.kind === 'host-tab-opened') {
+      // Mirror the host-created tab into the renderer store so it shows up
+      // in the tab strip. The view already exists in main; don't re-open it.
+      if (get().tabs.some((t) => t.id === event.tabId)) return;
+      const tab: BrowserTab = {
+        id: event.tabId,
+        workspaceId: event.workspaceId,
+        url: event.url,
+        title: event.url,
+        isLoading: true,
+        canGoBack: false,
+        canGoForward: false,
+      };
+      set((s) => ({
+        tabs: [...s.tabs, tab],
+        activeTabIds: { ...s.activeTabIds, [event.workspaceId]: event.tabId },
+      }));
+      persistLayout({
+        browserTabs: toPersistedTabs(get().tabs),
+        activeBrowserTabIds: get().activeTabIds,
+      });
+      return;
+    }
+
+    if (event.kind === 'host-tab-closed') {
+      if (!get().tabs.some((t) => t.id === event.tabId)) return;
+      const nextTabs = get().tabs.filter((t) => t.id !== event.tabId);
+      const ws = event.workspaceId;
+      const activeIds = { ...get().activeTabIds };
+      if (activeIds[ws] === event.tabId) {
+        const replacement = nextTabs.find((t) => t.workspaceId === ws) ?? null;
+        activeIds[ws] = replacement ? replacement.id : null;
+      }
+      set({ tabs: nextTabs, activeTabIds: activeIds });
+      persistLayout({
+        browserTabs: toPersistedTabs(nextTabs),
+        activeBrowserTabIds: activeIds,
+      });
       return;
     }
 
