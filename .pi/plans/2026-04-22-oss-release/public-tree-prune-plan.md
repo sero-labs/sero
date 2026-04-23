@@ -54,7 +54,7 @@ Approximate tracked surfaces to prune later:
 
 Targets:
 - `.claude/**`
-- `AGENTS.md`
+- `AGENTS.md` *(defer actual deletion while current Pi CLI sessions still rely on it)*
 - `CLAUDE.md`
 
 Why first:
@@ -65,6 +65,8 @@ Why first:
 Checks before execution:
 - confirm no curated public doc links depend on these files
 - keep any truly reusable contributor guidance in `CONTRIBUTING.md` / docs
+- do **not** auto-delete `AGENTS.md` while the current Pi CLI/session harness
+  still depends on it; let the user remove it manually later
 
 ### Batch B — legacy `.pi/plans/**` folders except the active OSS release hub
 

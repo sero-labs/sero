@@ -10,6 +10,10 @@ Execute Batch A from `public-tree-prune-plan.md`:
 - `AGENTS.md`
 - `CLAUDE.md`
 
+Important follow-up: `AGENTS.md` was restored immediately afterward because the
+current Pi CLI session harness still relies on it. Do not auto-delete it again
+in this cleanup wave.
+
 ## Archive snapshot
 
 Created local archive branch before removal:
@@ -35,8 +39,10 @@ references to workspace-level AGENTS discovery rather than the repo-root file.
 
 Removed from the public tree:
 - `.claude/`
-- `AGENTS.md`
 - `CLAUDE.md`
+
+Restored after the prune:
+- `AGENTS.md`
 
 Updated docs/metadata:
 - `docs/README.md`
@@ -49,7 +55,9 @@ Updated docs/metadata:
 This does **not** complete the full prune program.
 
 Truthful current state:
-- Batch A is complete
+- Batch A is only partially complete
+- `.claude/**` and `CLAUDE.md` were removed
+- `AGENTS.md` is still temporarily retained for Pi CLI compatibility
 - Batch B-D remain pending
 - `Remove or relocate non-public artifacts from the public tree` stays open
   until the broader prune/archive wave is finished
@@ -57,4 +65,5 @@ Truthful current state:
 ## Validation
 
 - `pnpm typecheck` ✅
-- `git ls-files AGENTS.md CLAUDE.md .claude` → no tracked files remain ✅
+- `git ls-files CLAUDE.md .claude` → no tracked files remain ✅
+- `AGENTS.md` intentionally restored and re-tracked for now ✅

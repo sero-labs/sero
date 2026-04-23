@@ -27,6 +27,7 @@ Keep this site limited to the approved alpha IA:
   - `docs/plans/**`
   - `docs/superpowers/**`
   - `docs/deslopify/**`
+  - `AGENTS.md` while it remains temporarily tracked for Pi CLI compatibility
 - Keep maintainer-only/archive surfaces out of the public nav even if related
   historical material still exists elsewhere in the repo.
 - Prefer concise public explanations over copying internal plan language.

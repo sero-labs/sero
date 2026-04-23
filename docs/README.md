@@ -43,11 +43,12 @@ These surfaces are **not** part of the curated public docs set:
 - `docs/plans/**`
 - `docs/superpowers/**`
 - `docs/deslopify/**`
+- `AGENTS.md` (temporarily retained because current Pi CLI sessions still rely
+  on it)
 
-Legacy maintainer/agent scaffolding has already been pruned from the public
-tree and should stay out of curated docs in future. The remaining internal or
-transient surfaces may still contain valuable facts, but those facts should be
-harvested into canonical docs before any cleanup happens.
+Legacy maintainer/agent scaffolding should stay out of curated docs. The
+remaining internal or transient surfaces may still contain valuable facts, but
+those facts should be harvested into canonical docs before any cleanup happens.
 
 ## Where durable facts should live
 

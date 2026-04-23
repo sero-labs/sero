@@ -64,7 +64,8 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
 - [x] Decide whether `.pi/plans/**` remains in the public repo
 - [x] Decide whether `.claude/`, `AGENTS.md`, and similar maintainer-facing files stay public as-is
 - [ ] Remove or relocate non-public artifacts from the public tree
-  - [x] Batch A completed: archived on local branch `private-archive/batch-a-pre-prune-2026-04-23` and removed `.claude/**`, `AGENTS.md`, and `CLAUDE.md`
+  - [x] Batch A partially completed: archived on local branch `private-archive/batch-a-pre-prune-2026-04-23` and removed `.claude/**` + `CLAUDE.md`
+  - [ ] `AGENTS.md` is still temporarily retained because current Pi CLI sessions rely on it; do not auto-delete it in this cleanup wave
   - [ ] Batch B-D still pending per `public-tree-prune-plan.md`
 
 ## Phase 2 — OSS Project Basics

@@ -62,7 +62,7 @@ Nothing listed here should be deleted or moved from the public tree until:
 | `.claude/commands/**` | local agent command helpers | durable internal | none by default; mirror only repo-wide conventions if needed | archived on `private-archive/batch-a-pre-prune-2026-04-23`; removed from public tree in Batch A |
 | `.claude/skills/**` | local agent skill definitions | durable internal | none by default; mirror only durable conventions | archived on `private-archive/batch-a-pre-prune-2026-04-23`; removed from public tree in Batch A |
 | `.claude/settings.local.json` | local machine config | disposable / local-only | none | archived on `private-archive/batch-a-pre-prune-2026-04-23`; removed from public tree in Batch A |
-| `AGENTS.md` | repo operating rules and maintainer guidance | durable internal | selective public mirrors in `CONTRIBUTING.md`, `README.md`, `apps/docs-site/docs/**` | archived on `private-archive/batch-a-pre-prune-2026-04-23`; removed from public tree in Batch A |
+| `AGENTS.md` | repo operating rules and maintainer guidance | durable internal | selective public mirrors in `CONTRIBUTING.md`, `README.md`, `apps/docs-site/docs/**` | archive snapshot captured on `private-archive/batch-a-pre-prune-2026-04-23`; temporarily retained because current Pi CLI sessions still rely on it; user will remove manually later |
 | `CLAUDE.md` | symlink/alias to internal operating rules | durable internal | same as `AGENTS.md` | archived on `private-archive/batch-a-pre-prune-2026-04-23`; removed from public tree in Batch A |
 
 ## Triage notes by subtree
@@ -86,10 +86,11 @@ Nothing listed here should be deleted or moved from the public tree until:
 - Do not prune as part of the first public-doc cleanup wave.
 
 ### `.claude/**`, `AGENTS.md`, and `CLAUDE.md`
-- Batch A completed on 2026-04-23.
+- Batch A ran on 2026-04-23.
 - Private archive snapshot branch: `private-archive/batch-a-pre-prune-2026-04-23`.
-- Raw maintainer/agent surfaces were removed from the public tree after the
-  contributor-facing guidance was mirrored into canonical docs.
+- `.claude/**` and `CLAUDE.md` were removed from the public tree.
+- `AGENTS.md` was restored immediately afterward because current Pi CLI
+  sessions still rely on it; do not auto-delete it again in this cleanup wave.
 
 ## Next recommended serial follow-ups
 
