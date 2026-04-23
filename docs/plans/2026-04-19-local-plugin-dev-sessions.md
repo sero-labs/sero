@@ -17,7 +17,6 @@ related:
   - packages/common/src/admin-bridge.ts
   - docs/plugins/guide.md
   - docs/plugins/technical.md
-  - docs/plans/2026-04-10-multi-root-workspaces-for-plugin-dev.md
 ---
 
 # Local Plugin Dev Sessions Plan
