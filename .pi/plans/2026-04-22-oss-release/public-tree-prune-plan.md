@@ -126,7 +126,7 @@ Checks before execution:
 
 ### Batch D — `docs/superpowers/**` plans/specs
 
-Status: **in progress**
+Status: **completed for now**
 
 Completed so far:
 1. narrow historical plan removals
@@ -144,7 +144,12 @@ Completed so far:
    - `docs/superpowers/specs/2026-04-06-providers-panel-design.md` ✅ removed in Batch D step 12 (`private-archive/batch-d12-pre-prune-2026-04-24`)
 
 Remaining targets:
-- `docs/superpowers/specs/**`
+- none in this release wave
+
+Tail decision:
+- retain as durable internal records for now:
+  - `docs/superpowers/specs/2026-04-04-dynamic-model-provider-design.md`
+  - `docs/superpowers/specs/2026-04-04-onboarding-resilience-analysis.md`
 
 Why last:
 - these files are dense and often contain higher-fidelity design reasoning

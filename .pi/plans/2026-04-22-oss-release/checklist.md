@@ -75,7 +75,8 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
   - Batch D step 10 completed: removed `docs/superpowers/specs/2026-04-04-onboarding-simplification-implementation-spec.md` after archive snapshot
   - Batch D step 11 completed: removed `docs/superpowers/specs/2026-04-06-merge-admin-resources-design.md` after archive snapshot
   - Batch D step 12 completed: removed `docs/superpowers/specs/2026-04-06-providers-panel-design.md` after archive snapshot
-  - broader docs-plan/superpowers pruning still pending
+  - Batch D tail decision: keep `docs/superpowers/specs/2026-04-04-dynamic-model-provider-design.md` and `docs/superpowers/specs/2026-04-04-onboarding-resilience-analysis.md` as durable internal records for now
+  - docs-plan/superpowers prune waves are complete for now
   - prune sequencing/preconditions recorded in `public-tree-prune-plan.md`
 
 ## Phase 1 — Public Repo Hygiene
@@ -111,7 +112,7 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
   - [x] Batch D step 10 completed: archived on local branch `private-archive/batch-d10-pre-prune-2026-04-24` and removed `docs/superpowers/specs/2026-04-04-onboarding-simplification-implementation-spec.md`
   - [x] Batch D step 11 completed: archived on local branch `private-archive/batch-d11-pre-prune-2026-04-24` and removed `docs/superpowers/specs/2026-04-06-merge-admin-resources-design.md`
   - [x] Batch D step 12 completed: archived on local branch `private-archive/batch-d12-pre-prune-2026-04-24` and removed `docs/superpowers/specs/2026-04-06-providers-panel-design.md`
-  - [ ] Batch D remaining steps still pending per `public-tree-prune-plan.md`
+  - [x] Batch D tail reviewed: keep `docs/superpowers/specs/2026-04-04-dynamic-model-provider-design.md` and `docs/superpowers/specs/2026-04-04-onboarding-resilience-analysis.md` for now
 
 ## Phase 2 — OSS Project Basics
 
