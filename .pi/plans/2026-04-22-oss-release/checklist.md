@@ -55,6 +55,7 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
 - [ ] Remove only those public docs whose durable information has already been extracted or intentionally discarded
   - Batch B (`.pi/plans/2026-04-19*` / `2026-04-20*`) completed after archive snapshot
   - Batch C step 1 completed: removed `docs/plans/2026-04-12-pr-136-followups.md` and `docs/plans/2026-04-12-pr-137-followups.md` after archive snapshot
+  - Batch C step 2 completed: removed `docs/plans/2026-04-13-apps-desktop-wave-f-periphery-closeout.md` after archive snapshot
   - broader docs-plan/superpowers pruning still pending
   - prune sequencing/preconditions recorded in `public-tree-prune-plan.md`
 
@@ -71,6 +72,7 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
   - [ ] `AGENTS.md` is still temporarily retained because current Pi CLI sessions rely on it; do not auto-delete it in this cleanup wave
   - [x] Batch B completed: archived on local branch `private-archive/batch-b-pre-prune-2026-04-23` and removed legacy `.pi/plans/2026-04-19*` / `2026-04-20*` folders
   - [x] Batch C step 1 completed: archived on local branch `private-archive/batch-c1-pre-prune-2026-04-23` and removed the two disposable PR follow-up docs from `docs/plans/`
+  - [x] Batch C step 2 completed: archived on local branch `private-archive/batch-c2-pre-prune-2026-04-23` and removed `docs/plans/2026-04-13-apps-desktop-wave-f-periphery-closeout.md`
   - [ ] Batch C remaining steps + Batch D still pending per `public-tree-prune-plan.md`
 
 ## Phase 2 — OSS Project Basics

@@ -97,7 +97,7 @@ Completed so far:
 
 Remaining suggested order inside this batch:
 2. implementation closeout/history docs
-   - `2026-04-13-apps-desktop-wave-f-periphery-closeout.md`
+   - `2026-04-13-apps-desktop-wave-f-periphery-closeout.md` ✅ removed in Batch C step 2 (`private-archive/batch-c2-pre-prune-2026-04-23`)
 3. feature plans whose durable facts already have better homes
    - local plugin development
    - gateway-owner-wide QR access
