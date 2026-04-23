@@ -73,6 +73,7 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
   - Batch D step 8 completed: removed `docs/superpowers/plans/2026-04-04-onboarding-simplification-plan.md` after archive snapshot
   - Batch D step 9 completed: removed `docs/superpowers/specs/2026-04-04-dynamic-model-provider-progress.md` after archive snapshot
   - Batch D step 10 completed: removed `docs/superpowers/specs/2026-04-04-onboarding-simplification-implementation-spec.md` after archive snapshot
+  - Batch D step 11 completed: removed `docs/superpowers/specs/2026-04-06-merge-admin-resources-design.md` after archive snapshot
   - broader docs-plan/superpowers pruning still pending
   - prune sequencing/preconditions recorded in `public-tree-prune-plan.md`
 
@@ -107,6 +108,7 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
   - [x] Batch D step 8 completed: archived on local branch `private-archive/batch-d8-pre-prune-2026-04-24` and removed `docs/superpowers/plans/2026-04-04-onboarding-simplification-plan.md`
   - [x] Batch D step 9 completed: archived on local branch `private-archive/batch-d9-pre-prune-2026-04-24` and removed `docs/superpowers/specs/2026-04-04-dynamic-model-provider-progress.md`
   - [x] Batch D step 10 completed: archived on local branch `private-archive/batch-d10-pre-prune-2026-04-24` and removed `docs/superpowers/specs/2026-04-04-onboarding-simplification-implementation-spec.md`
+  - [x] Batch D step 11 completed: archived on local branch `private-archive/batch-d11-pre-prune-2026-04-24` and removed `docs/superpowers/specs/2026-04-06-merge-admin-resources-design.md`
   - [ ] Batch D remaining steps still pending per `public-tree-prune-plan.md`
 
 ## Phase 2 — OSS Project Basics
