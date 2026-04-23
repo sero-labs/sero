@@ -138,6 +138,7 @@ Completed so far:
    - `docs/superpowers/plans/2026-04-06-merge-admin-resources.md` ✅ removed in Batch D step 6 (`private-archive/batch-d6-pre-prune-2026-04-24`)
    - `docs/superpowers/plans/2026-04-06-providers-panel.md` ✅ removed in Batch D step 7 (`private-archive/batch-d7-pre-prune-2026-04-24`)
    - `docs/superpowers/plans/2026-04-04-onboarding-simplification-plan.md` ✅ removed in Batch D step 8 (`private-archive/batch-d8-pre-prune-2026-04-24`)
+   - `docs/superpowers/specs/2026-04-04-dynamic-model-provider-progress.md` ✅ removed in Batch D step 9 (`private-archive/batch-d9-pre-prune-2026-04-24`)
 
 Remaining targets:
 - `docs/superpowers/specs/**`
