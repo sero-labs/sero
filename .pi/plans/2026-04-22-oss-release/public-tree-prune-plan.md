@@ -100,6 +100,7 @@ Remaining suggested order inside this batch:
    - `2026-04-13-apps-desktop-wave-f-periphery-closeout.md` ✅ removed in Batch C step 2 (`private-archive/batch-c2-pre-prune-2026-04-23`)
 3. feature plans whose durable facts already have better homes
    - local plugin development / multi-root workspaces ✅ removed in Batch C step 7 (`private-archive/batch-c7-pre-prune-2026-04-23`)
+   - local plugin dev sessions ✅ removed in Batch C step 8 (`private-archive/batch-c8-pre-prune-2026-04-24`)
    - gateway-owner-wide QR access ✅ removed in Batch C step 3 (`private-archive/batch-c3-pre-prune-2026-04-23`)
    - chat turn undo / snapshot separation ✅ removed in Batch C step 5 (`private-archive/batch-c5-pre-prune-2026-04-23`)
    - unified model selection ✅ removed in Batch C step 6 (`private-archive/batch-c6-pre-prune-2026-04-23`)
