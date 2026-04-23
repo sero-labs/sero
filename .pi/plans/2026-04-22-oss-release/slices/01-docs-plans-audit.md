@@ -63,7 +63,7 @@ Reviewed major trees and representative files under:
 | `docs/plans/apps-desktop-deslopify-tasklist.md` | durable internal | Similar cleanup tasklist for a specific area. | Keep internal; archive only after durable lessons are captured. |
 | `docs/superpowers/plans/2026-04-06-merge-admin-resources.md` | transient with reusable facts | Large implementation plan with lots of concrete file/path details. | Harvest reusable architecture/UX facts, then archive. |
 | `docs/superpowers/plans/2026-04-06-providers-panel.md` | transient with reusable facts | Large implementation plan; valuable as provenance, not a current doc. | Archive after extracting durable model/UX rules. |
-| `docs/superpowers/plans/2026-04-05-onboarding-polish.md` | transient with reusable facts | Implementation plan with concrete onboarding insights. | Keep only if still active; otherwise archive after harvesting. |
+| `docs/superpowers/plans/2026-04-05-onboarding-polish.md` | transient with reusable facts | Implementation plan with concrete onboarding insights. | Archived on `private-archive/batch-d4-pre-prune-2026-04-24`; removed from this branch after harvest review. |
 | `docs/superpowers/plans/2026-04-04-google-auth-ux.md` | transient with reusable facts | Design/implementation plan for auth UX. | Archive after extracting stable UX/security facts. |
 
 ## Absolute-path / private-reference findings
@@ -81,7 +81,7 @@ Reviewed major trees and representative files under:
 | `.pi/plans/2026-04-22-oss-release/spec.md` | Earlier release plan references `/Users/danielcarter/...` in examples. | medium | Normalize to generic placeholders before public reuse. |
 | `docs/plans/2026-04-19-local-plugin-dev-sessions.md` | Example session path uses `/Users/daniel/.../sero-google-plugin`. | high | Sanitize to `<plugin-checkout-path>` or a repo-relative example. |
 | `docs/superpowers/plans/2026-04-04-dynamic-model-provider.md` | Repeated command examples used `/Users/danielcarter/Documents/Dev/projects/sero/sero`. | medium | Archived on `private-archive/batch-d3-pre-prune-2026-04-24`; removed from this branch after prior sanitization review. |
-| `docs/superpowers/plans/2026-04-05-onboarding-polish.md` | Same hardcoded repo root in command examples. | medium | Use relative path or environment-variable placeholder. |
+| `docs/superpowers/plans/2026-04-05-onboarding-polish.md` | Same hardcoded repo root in command examples. | medium | Archived on `private-archive/batch-d4-pre-prune-2026-04-24`; removed from this branch after prior sanitization review. |
 | `docs/superpowers/plans/2026-04-06-merge-admin-resources.md` | Same hardcoded repo root in command examples. | medium | Replace with generic placeholder. |
 | `docs/superpowers/plans/2026-04-06-providers-panel.md` | Same hardcoded repo root in command examples. | medium | Replace with generic placeholder. |
 | `.claude/skills/deslopify/SKILL.md` | Mentions `~/.pi/agent/` as an anti-pattern; this is private-path reference material and can be confusing in public docs. | low | If surfaced publicly, reword to Sero’s `~/.sero-ui/agent/` convention and frame the PI path only as historical/internal drift. |

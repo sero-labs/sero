@@ -66,6 +66,7 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
   - Batch D step 1 completed: removed `docs/superpowers/plans/2026-04-04-google-auth-ux.md` after archive snapshot
   - Batch D step 2 completed: removed `docs/superpowers/specs/2026-04-04-google-auth-ux-design.md` after archive snapshot
   - Batch D step 3 completed: removed `docs/superpowers/plans/2026-04-04-dynamic-model-provider.md` after archive snapshot
+  - Batch D step 4 completed: removed `docs/superpowers/plans/2026-04-05-onboarding-polish.md` after archive snapshot
   - broader docs-plan/superpowers pruning still pending
   - prune sequencing/preconditions recorded in `public-tree-prune-plan.md`
 
@@ -93,6 +94,7 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
   - [x] Batch D step 1 completed: archived on local branch `private-archive/batch-d1-pre-prune-2026-04-24` and removed `docs/superpowers/plans/2026-04-04-google-auth-ux.md`
   - [x] Batch D step 2 completed: archived on local branch `private-archive/batch-d2-pre-prune-2026-04-24` and removed `docs/superpowers/specs/2026-04-04-google-auth-ux-design.md`
   - [x] Batch D step 3 completed: archived on local branch `private-archive/batch-d3-pre-prune-2026-04-24` and removed `docs/superpowers/plans/2026-04-04-dynamic-model-provider.md`
+  - [x] Batch D step 4 completed: archived on local branch `private-archive/batch-d4-pre-prune-2026-04-24` and removed `docs/superpowers/plans/2026-04-05-onboarding-polish.md`
   - [ ] Batch D remaining steps still pending per `public-tree-prune-plan.md`
 
 ## Phase 2 — OSS Project Basics

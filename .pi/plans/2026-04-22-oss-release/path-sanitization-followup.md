@@ -14,7 +14,7 @@ Docs / historical plans:
 - `docs/plans/2026-04-19-local-plugin-dev-sessions.md`
 - `docs/superpowers/plans/2026-04-04-dynamic-model-provider.md`
 - `docs/superpowers/plans/2026-04-04-google-auth-ux.md`
-- `docs/superpowers/plans/2026-04-05-onboarding-polish.md`
+- `docs/superpowers/plans/2026-04-05-onboarding-polish.md` *(later archived on `private-archive/batch-d4-pre-prune-2026-04-24` and removed from this branch in Batch D step 4)*
 - `docs/superpowers/plans/2026-04-06-merge-admin-resources.md`
 - `docs/superpowers/plans/2026-04-06-providers-panel.md`
 
