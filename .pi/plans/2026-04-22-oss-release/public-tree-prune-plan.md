@@ -88,7 +88,7 @@ Why this batch was safe:
 
 ### Batch C — `docs/plans/**` historical plan docs
 
-Status: **in progress**
+Status: **completed for now**
 
 Completed so far:
 1. obviously transient follow-up/tasklist docs
@@ -106,12 +106,19 @@ Remaining suggested order inside this batch:
    - unified model selection ✅ removed in Batch C step 6 (`private-archive/batch-c6-pre-prune-2026-04-23`)
    - agent browser migration ✅ removed in Batch C step 4 (`private-archive/batch-c4-pre-prune-2026-04-23`)
 4. internal index/tasklists last
-   - `docs/plans/index.md`
-   - deslopify tasklists
+   - `docs/plans/index.md` *(retained as the internal navigation hub for the remaining planning artifacts)*
+   - deslopify tasklists *(retained as durable internal records for the still-live cleanup lineage)*
 
 Why third:
 - this tree is mixed and needs the most judgment
 - some files are closer to durable internal history than pure disposable plans
+
+Tail decision:
+- Batch C tail is **not safe to prune yet** in this OSS release wave.
+- Keep:
+  - `docs/plans/index.md`
+  - `docs/plans/apps-desktop-deslopify-tasklist.md`
+  - `docs/plans/desktop-packages-plugins-deslopify-tasklist.md`
 
 Checks before execution:
 - verify each file's durable facts are harvested or intentionally dropped

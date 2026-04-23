@@ -62,6 +62,7 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
   - Batch C step 6 completed: removed `docs/plans/2026-04-06-unified-model-selection.md` after archive snapshot
   - Batch C step 7 completed: removed `docs/plans/2026-04-10-multi-root-workspaces-for-plugin-dev.md` after archive snapshot
   - Batch C step 8 completed: removed `docs/plans/2026-04-19-local-plugin-dev-sessions.md` after archive snapshot
+  - Batch C tail decision: keep `docs/plans/index.md` and the two deslopify tasklists as durable internal records for now
   - broader docs-plan/superpowers pruning still pending
   - prune sequencing/preconditions recorded in `public-tree-prune-plan.md`
 
@@ -85,7 +86,8 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
   - [x] Batch C step 6 completed: archived on local branch `private-archive/batch-c6-pre-prune-2026-04-23` and removed `docs/plans/2026-04-06-unified-model-selection.md`
   - [x] Batch C step 7 completed: archived on local branch `private-archive/batch-c7-pre-prune-2026-04-23` and removed `docs/plans/2026-04-10-multi-root-workspaces-for-plugin-dev.md`
   - [x] Batch C step 8 completed: archived on local branch `private-archive/batch-c8-pre-prune-2026-04-24` and removed `docs/plans/2026-04-19-local-plugin-dev-sessions.md`
-  - [ ] Batch C remaining steps + Batch D still pending per `public-tree-prune-plan.md`
+  - [x] Batch C tail reviewed: keep `docs/plans/index.md`, `docs/plans/apps-desktop-deslopify-tasklist.md`, and `docs/plans/desktop-packages-plugins-deslopify-tasklist.md` for now
+  - [ ] Batch D still pending per `public-tree-prune-plan.md`
 
 ## Phase 2 — OSS Project Basics
 
