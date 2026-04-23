@@ -25,13 +25,28 @@ import type { CliRegistry } from '@electron/cli/core/registry';
 import type { CliCommandContext, CliResult } from '@electron/cli/core/types';
 import { fail, ok, parseFlags } from '@electron/cli/lib/utils';
 
+/**
+ * Resolve an agent-supplied tab reference to a concrete id, enforcing
+ * workspace ownership. An explicit `--tab <id>` is accepted only if the
+ * tab actually belongs to the invoking workspace — otherwise an agent
+ * that learned a tab id through `list --all` could reach across workspace
+ * boundaries.
+ */
 function resolveTabId(
   explicit: string | undefined,
   ctx: CliCommandContext,
 ): { tabId: string } | { error: string } {
   if (explicit) {
-    if (!browserViewManager.hasTab(explicit)) {
+    const owner = browserViewManager.workspaceForTab(explicit);
+    if (!owner) {
       return { error: `Unknown or unloaded tab: ${explicit}` };
+    }
+    if (owner !== ctx.workspaceId) {
+      return {
+        error:
+          `Tab ${explicit} belongs to workspace "${owner}", not the current ` +
+          `workspace "${ctx.workspaceId}". Switch workspaces to access it.`,
+      };
     }
     return { tabId: explicit };
   }
@@ -99,8 +114,19 @@ async function handleBrowser(
     case 'close': {
       const tabId = positionals[0];
       if (!tabId) return fail('Usage: sero browser close <tab-id>');
-      const closed = browserViewManager.closeTabForHost(tabId);
-      if (!closed) return fail(`Unknown or already-closed tab: ${tabId}`);
+      // closeTabForHost now enforces workspace ownership itself; check first
+      // so we can return a precise error instead of a silent no-op.
+      const owner = browserViewManager.workspaceForTab(tabId);
+      if (!owner) return fail(`Unknown or already-closed tab: ${tabId}`);
+      if (owner !== ctx.workspaceId) {
+        return fail(
+          `Tab ${tabId} belongs to workspace "${owner}", not "${ctx.workspaceId}". ` +
+            `Refusing to close.`,
+        );
+      }
+      if (!browserViewManager.closeTabForHost(tabId, ctx.workspaceId)) {
+        return fail(`Failed to close tab ${tabId}`);
+      }
       return ok(`Closed tab ${tabId}`);
     }
 
@@ -108,15 +134,20 @@ async function handleBrowser(
       const tabId = positionals[0];
       const url = positionals[1];
       if (!tabId || !url) return fail('Usage: sero browser navigate <tab-id> <url>');
-      if (!browserViewManager.hasTab(tabId)) {
-        return fail(`Unknown or unloaded tab: ${tabId}`);
+      const owner = browserViewManager.workspaceForTab(tabId);
+      if (!owner) return fail(`Unknown or unloaded tab: ${tabId}`);
+      if (owner !== ctx.workspaceId) {
+        return fail(
+          `Tab ${tabId} belongs to workspace "${owner}", not "${ctx.workspaceId}". ` +
+            `Refusing to navigate.`,
+        );
       }
       try {
         new URL(url);
       } catch {
         return fail(`Not a valid URL: ${url}`);
       }
-      browserViewManager.navigate(tabId, url);
+      browserViewManager.navigate(tabId, url, ctx.workspaceId);
       return ok(`Navigating tab ${tabId} → ${url}`);
     }
 
@@ -126,7 +157,7 @@ async function handleBrowser(
         ctx,
       );
       if ('error' in resolved) return fail(resolved.error);
-      const page = await browserViewManager.extractPage(resolved.tabId);
+      const page = await browserViewManager.extractPage(resolved.tabId, ctx.workspaceId);
       if (!page) return fail(`Failed to extract text from tab ${resolved.tabId}`);
       const header = page.title
         ? `# ${page.title}\n\n_${page.url}_\n\n`
@@ -140,7 +171,7 @@ async function handleBrowser(
         ctx,
       );
       if ('error' in resolved) return fail(resolved.error);
-      const base64 = await browserViewManager.capturePage(resolved.tabId);
+      const base64 = await browserViewManager.capturePage(resolved.tabId, ctx.workspaceId);
       if (!base64) return fail(`Failed to capture tab ${resolved.tabId}`);
       return {
         output: `Captured tab ${resolved.tabId}`,

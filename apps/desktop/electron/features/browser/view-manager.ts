@@ -123,13 +123,13 @@ class BrowserViewManager {
     });
   }
 
-  closeTab(tabId: string): void {
+  closeTab(tabId: string, workspaceId: string): void {
+    if (!this.ownsTab(tabId, workspaceId, 'closeTab')) return;
     const view = this.views.get(tabId);
     if (!view) return;
-    const workspaceId = this.viewWorkspaces.get(tabId);
     this.views.delete(tabId);
     this.viewWorkspaces.delete(tabId);
-    if (workspaceId && this.lastActivePerWorkspace.get(workspaceId) === tabId) {
+    if (this.lastActivePerWorkspace.get(workspaceId) === tabId) {
       this.lastActivePerWorkspace.delete(workspaceId);
     }
     if (this.activeTabId === tabId) {
@@ -144,12 +144,17 @@ class BrowserViewManager {
     wc.destroy?.();
   }
 
-  /** Show the given tab's view at the current panel bounds, hide all others. */
-  setActive(tabId: string | null): void {
+  /**
+   * Show the given tab's view at the current panel bounds, hide all others.
+   * Pass `tabId = null` (and the caller's workspace) to deactivate.
+   */
+  setActive(tabId: string | null, workspaceId: string): void {
+    if (tabId && !this.ownsTab(tabId, workspaceId, 'setActive')) return;
     this.activeTabId = tabId;
     if (tabId) {
-      const workspaceId = this.viewWorkspaces.get(tabId);
-      if (workspaceId) this.lastActivePerWorkspace.set(workspaceId, tabId);
+      this.lastActivePerWorkspace.set(workspaceId, tabId);
+    } else {
+      this.lastActivePerWorkspace.delete(workspaceId);
     }
     for (const [id, view] of this.views) {
       if (id === tabId) {
@@ -176,7 +181,8 @@ class BrowserViewManager {
     }
   }
 
-  navigate(tabId: string, url: string): void {
+  navigate(tabId: string, url: string, workspaceId: string): void {
+    if (!this.ownsTab(tabId, workspaceId, 'navigate')) return;
     const view = this.views.get(tabId);
     if (!view) return;
     void view.webContents.loadURL(url).catch(() => {
@@ -184,21 +190,25 @@ class BrowserViewManager {
     });
   }
 
-  goBack(tabId: string): void {
+  goBack(tabId: string, workspaceId: string): void {
+    if (!this.ownsTab(tabId, workspaceId, 'goBack')) return;
     const wc = this.views.get(tabId)?.webContents;
     if (wc?.navigationHistory?.canGoBack()) wc.navigationHistory.goBack();
   }
 
-  goForward(tabId: string): void {
+  goForward(tabId: string, workspaceId: string): void {
+    if (!this.ownsTab(tabId, workspaceId, 'goForward')) return;
     const wc = this.views.get(tabId)?.webContents;
     if (wc?.navigationHistory?.canGoForward()) wc.navigationHistory.goForward();
   }
 
-  reload(tabId: string): void {
+  reload(tabId: string, workspaceId: string): void {
+    if (!this.ownsTab(tabId, workspaceId, 'reload')) return;
     this.views.get(tabId)?.webContents.reload();
   }
 
-  stop(tabId: string): void {
+  stop(tabId: string, workspaceId: string): void {
+    if (!this.ownsTab(tabId, workspaceId, 'stop')) return;
     this.views.get(tabId)?.webContents.stop();
   }
 
@@ -211,7 +221,9 @@ class BrowserViewManager {
    */
   async extractPage(
     tabId: string,
+    workspaceId: string,
   ): Promise<{ title: string; url: string; text: string } | null> {
+    if (!this.ownsTab(tabId, workspaceId, 'extractPage')) return null;
     const wc = this.views.get(tabId)?.webContents;
     if (!wc) return null;
     const script = `(() => {
@@ -260,13 +272,14 @@ class BrowserViewManager {
   }
 
   /**
-   * Close a tab from the host. Emits `host-tab-closed` so the renderer
-   * store removes its entry. Returns false if the tab is unknown.
+   * Close a tab from the host. Validates that the tab belongs to the
+   * caller's workspace, then emits `host-tab-closed` so the renderer
+   * store removes its entry. Returns false if the tab is unknown or
+   * belongs to a different workspace.
    */
-  closeTabForHost(tabId: string): boolean {
-    const workspaceId = this.viewWorkspaces.get(tabId);
-    if (!workspaceId) return false;
-    this.closeTab(tabId);
+  closeTabForHost(tabId: string, workspaceId: string): boolean {
+    if (!this.ownsTab(tabId, workspaceId, 'closeTabForHost')) return false;
+    this.closeTab(tabId, workspaceId);
     this.emit({ tabId, workspaceId, kind: 'host-tab-closed' });
     return true;
   }
@@ -305,13 +318,38 @@ class BrowserViewManager {
   }
 
   /**
+   * Authorization gate for every tab-scoped operation. Returns true iff
+   * `tabId` exists and belongs to `workspaceId`. Mismatches are logged —
+   * they indicate either a renderer bug or a tampered IPC call and should
+   * never happen in normal use.
+   */
+  private ownsTab(tabId: string, workspaceId: string, op: string): boolean {
+    const owner = this.viewWorkspaces.get(tabId);
+    if (!owner) {
+      // Unknown tab — operation silently dropped. Not logged because this
+      // fires normally during race conditions (e.g. close + late reload).
+      return false;
+    }
+    if (owner !== workspaceId) {
+      console.warn(
+        `[browser] ${op}: tab ${tabId} belongs to workspace "${owner}" but ` +
+          `caller claimed "${workspaceId}" — rejecting.`,
+      );
+      return false;
+    }
+    return true;
+  }
+
+  /**
    * Capture the tab as a PNG. Returns a base64 string (no data URI prefix).
    * The optional rect is in CSS pixels relative to the view's top-left.
    */
   async capturePage(
     tabId: string,
+    workspaceId: string,
     rect?: { x: number; y: number; width: number; height: number },
   ): Promise<string | null> {
+    if (!this.ownsTab(tabId, workspaceId, 'capturePage')) return null;
     const wc = this.views.get(tabId)?.webContents;
     if (!wc) return null;
     try {

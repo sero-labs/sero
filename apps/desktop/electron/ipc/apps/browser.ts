@@ -1,6 +1,9 @@
 /**
- * IPC handlers for the in-app browser. Thin passthrough to
- * `browserViewManager` in the main process.
+ * IPC handlers for the in-app browser. Every tab-scoped call carries the
+ * renderer's claimed workspaceId and is validated against the tab's
+ * actual workspace in the view manager — we don't trust the tab id
+ * alone, because a compromised renderer could otherwise target tabs in
+ * other workspaces.
  */
 
 import { ipcMain } from 'electron';
@@ -16,14 +19,17 @@ export function registerBrowserHandlers(): void {
     },
   );
 
-  ipcMain.handle(IpcChannels.browser.closeTab, (_e, tabId: string) => {
-    browserViewManager.closeTab(tabId);
-  });
+  ipcMain.handle(
+    IpcChannels.browser.closeTab,
+    (_e, tabId: string, workspaceId: string) => {
+      browserViewManager.closeTab(tabId, workspaceId);
+    },
+  );
 
   ipcMain.handle(
     IpcChannels.browser.setActive,
-    (_e, tabId: string | null) => {
-      browserViewManager.setActive(tabId);
+    (_e, tabId: string | null, workspaceId: string) => {
+      browserViewManager.setActive(tabId, workspaceId);
     },
   );
 
@@ -40,35 +46,55 @@ export function registerBrowserHandlers(): void {
 
   ipcMain.handle(
     IpcChannels.browser.navigate,
-    (_e, tabId: string, url: string) => {
-      browserViewManager.navigate(tabId, url);
+    (_e, tabId: string, url: string, workspaceId: string) => {
+      browserViewManager.navigate(tabId, url, workspaceId);
     },
   );
 
-  ipcMain.handle(IpcChannels.browser.goBack, (_e, tabId: string) => {
-    browserViewManager.goBack(tabId);
-  });
+  ipcMain.handle(
+    IpcChannels.browser.goBack,
+    (_e, tabId: string, workspaceId: string) => {
+      browserViewManager.goBack(tabId, workspaceId);
+    },
+  );
 
-  ipcMain.handle(IpcChannels.browser.goForward, (_e, tabId: string) => {
-    browserViewManager.goForward(tabId);
-  });
+  ipcMain.handle(
+    IpcChannels.browser.goForward,
+    (_e, tabId: string, workspaceId: string) => {
+      browserViewManager.goForward(tabId, workspaceId);
+    },
+  );
 
-  ipcMain.handle(IpcChannels.browser.reload, (_e, tabId: string) => {
-    browserViewManager.reload(tabId);
-  });
+  ipcMain.handle(
+    IpcChannels.browser.reload,
+    (_e, tabId: string, workspaceId: string) => {
+      browserViewManager.reload(tabId, workspaceId);
+    },
+  );
 
-  ipcMain.handle(IpcChannels.browser.stop, (_e, tabId: string) => {
-    browserViewManager.stop(tabId);
-  });
+  ipcMain.handle(
+    IpcChannels.browser.stop,
+    (_e, tabId: string, workspaceId: string) => {
+      browserViewManager.stop(tabId, workspaceId);
+    },
+  );
 
-  ipcMain.handle(IpcChannels.browser.extractPage, (_e, tabId: string) => {
-    return browserViewManager.extractPage(tabId);
-  });
+  ipcMain.handle(
+    IpcChannels.browser.extractPage,
+    (_e, tabId: string, workspaceId: string) => {
+      return browserViewManager.extractPage(tabId, workspaceId);
+    },
+  );
 
   ipcMain.handle(
     IpcChannels.browser.capturePage,
-    (_e, tabId: string, rect?: { x: number; y: number; width: number; height: number }) => {
-      return browserViewManager.capturePage(tabId, rect);
+    (
+      _e,
+      tabId: string,
+      workspaceId: string,
+      rect?: { x: number; y: number; width: number; height: number },
+    ) => {
+      return browserViewManager.capturePage(tabId, workspaceId, rect);
     },
   );
 }

@@ -113,7 +113,7 @@ export const useBrowserStore = create<BrowserState>((set, get) => ({
       activeTabIds: { ...s.activeTabIds, [workspaceId]: tab.id },
     }));
     void window.sero.browser.openTab(tab.id, url, workspaceId);
-    void window.sero.browser.setActive(tab.id);
+    void window.sero.browser.setActive(tab.id, workspaceId);
     persistLayout({
       browserTabs: toPersistedTabs(get().tabs),
       activeBrowserTabIds: get().activeTabIds,
@@ -156,8 +156,8 @@ export const useBrowserStore = create<BrowserState>((set, get) => ({
       activeTabIds: { ...activeTabIds, [ws]: nextActive },
       recentlyClosed: nextClosed,
     });
-    void window.sero.browser.closeTab(id);
-    void window.sero.browser.setActive(nextActive);
+    void window.sero.browser.closeTab(id, ws);
+    void window.sero.browser.setActive(nextActive, ws);
     persistLayout({
       browserTabs: toPersistedTabs(nextTabs),
       activeBrowserTabIds: get().activeTabIds,
@@ -196,7 +196,7 @@ export const useBrowserStore = create<BrowserState>((set, get) => ({
     set((s) => ({
       activeTabIds: { ...s.activeTabIds, [tab.workspaceId]: id },
     }));
-    void window.sero.browser.setActive(id);
+    void window.sero.browser.setActive(id, tab.workspaceId);
     persistLayout({ activeBrowserTabIds: get().activeTabIds });
   },
 
@@ -248,21 +248,37 @@ export const useBrowserStore = create<BrowserState>((set, get) => ({
   },
 
   navigate: (id, urlOrQuery) => {
+    const tab = get().tabs.find((t) => t.id === id);
+    if (!tab) return;
     const url = resolveAddressBarInput(urlOrQuery);
     set((s) => ({
       tabs: s.tabs.map((t) => (t.id === id ? { ...t, url, isLoading: true } : t)),
     }));
-    void window.sero.browser.navigate(id, url);
+    void window.sero.browser.navigate(id, url, tab.workspaceId);
     persistLayout({ browserTabs: toPersistedTabs(get().tabs) });
   },
 
-  goBack: (id) => { void window.sero.browser.goBack(id); },
-  goForward: (id) => { void window.sero.browser.goForward(id); },
-  reload: (id) => { void window.sero.browser.reload(id); },
-  stop: (id) => { void window.sero.browser.stop(id); },
+  goBack: (id) => {
+    const ws = get().tabs.find((t) => t.id === id)?.workspaceId;
+    if (ws) void window.sero.browser.goBack(id, ws);
+  },
+  goForward: (id) => {
+    const ws = get().tabs.find((t) => t.id === id)?.workspaceId;
+    if (ws) void window.sero.browser.goForward(id, ws);
+  },
+  reload: (id) => {
+    const ws = get().tabs.find((t) => t.id === id)?.workspaceId;
+    if (ws) void window.sero.browser.reload(id, ws);
+  },
+  stop: (id) => {
+    const ws = get().tabs.find((t) => t.id === id)?.workspaceId;
+    if (ws) void window.sero.browser.stop(id, ws);
+  },
 
   sharePageWithChat: async (id) => {
-    const result = await window.sero.browser.extractPage(id);
+    const tab = get().tabs.find((t) => t.id === id);
+    if (!tab) return;
+    const result = await window.sero.browser.extractPage(id, tab.workspaceId);
     if (!result) {
       console.warn('[browser] Page extraction returned nothing.');
       return;
@@ -364,7 +380,7 @@ export const useBrowserStore = create<BrowserState>((set, get) => ({
       // the tab already has one.
       void window.sero.browser.openTab(tab.id, tab.url, tab.workspaceId);
     }
-    void window.sero.browser.setActive(activeTabIds[workspaceId] ?? null);
+    void window.sero.browser.setActive(activeTabIds[workspaceId] ?? null, workspaceId);
   },
 
   applyEvent: (event) => {

@@ -118,7 +118,7 @@ export function BrowserPanel({ workspaceId }: BrowserPanelProps) {
     const el = viewportRef.current;
     if (!el) return;
     const r = el.getBoundingClientRect();
-    const pngBase64 = await window.sero.browser.capturePage(activeTab.id);
+    const pngBase64 = await window.sero.browser.capturePage(activeTab.id, activeTab.workspaceId);
     if (!pngBase64) {
       console.warn('[browser] capturePage returned nothing.');
       return;
