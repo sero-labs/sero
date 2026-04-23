@@ -31,6 +31,7 @@ import {
   devServerBridge,
   githubBridge,
 } from './apps/app-domain';
+import { browserBridge } from './apps/browser';
 import { pluginsBridge } from './integrations/plugins';
 import {
   agentBridge,
@@ -55,6 +56,7 @@ export const seroPreloadApi = {
   appAgent: appAgentBridge,
   gitApp: gitAppBridge,
   webApp: webAppBridge,
+  browser: browserBridge,
   appControl: appControlBridge,
   models: modelsBridge,
   localModels: localModelsBridge,

@@ -44,6 +44,7 @@ function isLayoutState(value: unknown): value is LoadedLayoutState {
   if (!isOptionalArray(c.favouriteModels)) return false;
   if (!isOptionalArray(c.hiddenModels)) return false;
   if (!isOptionalArray(c.hiddenProviders)) return false;
+  if (!isOptionalArray(c.browserTabs)) return false;
   // Optional numeric panel sizes
   if (!isOptionalNumber(c.mainSidebarSizePct)) return false;
   if (!isOptionalNumber(c.chatPanelSizePct)) return false;
@@ -55,7 +56,21 @@ function isLayoutState(value: unknown): value is LoadedLayoutState {
   // Nullable strings
   if (c.activeWorkspaceId !== undefined && c.activeWorkspaceId !== null && typeof c.activeWorkspaceId !== 'string') return false;
   if (c.activeSessionId !== undefined && c.activeSessionId !== null && typeof c.activeSessionId !== 'string') return false;
+  if (c.activeBrowserTabId !== undefined && c.activeBrowserTabId !== null && typeof c.activeBrowserTabId !== 'string') return false;
   return true;
+}
+
+function sanitizeBrowserTabs(value: unknown): import('@/types/layout').PersistedBrowserTab[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const out: import('@/types/layout').PersistedBrowserTab[] = [];
+  for (const entry of value) {
+    if (!entry || typeof entry !== 'object') continue;
+    const e = entry as Record<string, unknown>;
+    if (typeof e.id !== 'string' || typeof e.url !== 'string') continue;
+    const title = typeof e.title === 'string' ? e.title : undefined;
+    out.push({ id: e.id, url: e.url, ...(title !== undefined ? { title } : {}) });
+  }
+  return out;
 }
 
 /** Parse layout JSON. Returns the state if valid, null otherwise. */
@@ -69,6 +84,7 @@ function parseLayoutState(raw: string): LoadedLayoutState | null {
       favouriteModels: sanitizeStringArray(parsed.favouriteModels),
       hiddenModels: sanitizeStringArray(parsed.hiddenModels),
       hiddenProviders: sanitizeStringArray(parsed.hiddenProviders),
+      browserTabs: sanitizeBrowserTabs(parsed.browserTabs),
     };
   } catch {
     return null;

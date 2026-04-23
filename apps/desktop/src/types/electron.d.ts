@@ -12,6 +12,7 @@ import type {
   SeroVcsAPI,
 } from './electron-workspace';
 import type { LayoutState, LoadedLayoutState } from './layout';
+import type { BrowserEvent, BrowserViewBounds } from './browser';
 import type {
   SeroGatewayAPI,
   SeroGitHubAPI,
@@ -445,6 +446,20 @@ interface SeroPluginsAPI {
   onChanged(callback: (event: PluginChangeEvent) => void): () => void;
 }
 
+export interface SeroBrowserAPI {
+  openTab(tabId: string, url: string): Promise<void>;
+  closeTab(tabId: string): Promise<void>;
+  setActive(tabId: string | null): Promise<void>;
+  setBounds(bounds: BrowserViewBounds): Promise<void>;
+  hideAll(): Promise<void>;
+  navigate(tabId: string, url: string): Promise<void>;
+  goBack(tabId: string): Promise<void>;
+  goForward(tabId: string): Promise<void>;
+  reload(tabId: string): Promise<void>;
+  stop(tabId: string): Promise<void>;
+  onEvent(callback: (event: BrowserEvent) => void): () => void;
+}
+
 export interface SeroAPI {
   platform: string;
   shell: SeroShellAPI;
@@ -460,6 +475,7 @@ export interface SeroAPI {
   appAgent: SeroAppAgentAPI;
   gitApp: SeroGitAppAPI;
   webApp: SeroWebAppAPI;
+  browser: SeroBrowserAPI;
   voice: SeroVoiceAPI;
   auth: SeroAuthAPI;
   container: SeroContainerAPI;

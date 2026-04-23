@@ -7,6 +7,14 @@
  */
 
 import type { DashboardLayoutState } from './dashboard';
+import type { BrowserTab } from './browser';
+
+/** Subset of a BrowserTab that is safe to persist across restarts. */
+export interface PersistedBrowserTab {
+  id: string;
+  url: string;
+  title?: string;
+}
 
 /** Full layout state persisted to ~/.sero-ui/layout.json. */
 export interface LayoutState {
@@ -35,7 +43,15 @@ export interface LayoutState {
   hiddenProviders?: string[];
   /** Dashboard widget grid layout. */
   dashboardLayout?: DashboardLayoutState;
+  /** Open browser tabs (restored on app start). */
+  browserTabs?: PersistedBrowserTab[];
+  /** Active browser tab id. */
+  activeBrowserTabId?: string | null;
 }
+
+// Re-export so callers can import the canonical runtime tab shape
+// alongside the persisted shape.
+export type { BrowserTab };
 
 /**
  * Shape returned by layout.load() — same fields but favouriteApps

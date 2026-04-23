@@ -22,6 +22,7 @@ import { useWorkspaceStore } from '@/stores/workspace';
 import { useSessionStore } from '@/stores/sessions';
 import { useModelPreferences } from '@/stores/model-preferences';
 import { useDashboardStore } from '@/stores/dashboard';
+import { useBrowserStore } from '@/stores/browser';
 
 // Re-export the canonical type so callers don't need a second import.
 export type { LayoutState };
@@ -55,6 +56,15 @@ function buildLayoutState(partial: Partial<LayoutState>): LayoutState {
       widgets: useDashboardStore.getState().widgets,
       layouts: useDashboardStore.getState().layouts,
     },
+    browserTabs: partial.browserTabs ?? useBrowserStore.getState().tabs.map((t) => ({
+      id: t.id,
+      url: t.url,
+      title: t.title,
+    })),
+    activeBrowserTabId:
+      partial.activeBrowserTabId !== undefined
+        ? partial.activeBrowserTabId
+        : useBrowserStore.getState().activeTabId,
   };
 }
 

@@ -11,6 +11,7 @@ import { TerminalTabs } from './TerminalTabs';
 import { TerminalPanel } from './TerminalPanel';
 import { EditorPanel } from './editor/EditorPanel';
 import { DiffTab } from './editor/DiffTab';
+import { BrowserPanel } from './browser/BrowserPanel';
 import { usePanelOpenSync } from './usePanelOpenSync';
 import { useExplorerRoots } from './useExplorerRoots';
 import { useExplorerEditorState } from './useExplorerEditorState';
@@ -209,7 +210,9 @@ export function ExplorerWorkspace() {
               {/* ── Editor fills all remaining space ─────────────── */}
               <ResizablePanel id="explorer-editor" minSize={200} className="min-w-0">
                 <div className="flex h-full min-h-0 min-w-0 flex-col bg-[var(--bg-base)]">
-                  {diffState ? (
+                  {activePanel === 'browser' ? (
+                    <BrowserPanel />
+                  ) : diffState ? (
                     <>
                       {/* Diff mode: show a minimal tab bar with close action */}
                       <div className="flex h-8 shrink-0 items-center border-b border-[var(--border-subtle)] bg-[var(--bg-base)] px-2">

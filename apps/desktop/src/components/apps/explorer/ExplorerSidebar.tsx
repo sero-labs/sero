@@ -8,6 +8,7 @@ const panelTitles: Record<ExplorerPanel, string> = {
   explorer: 'Explorer',
   git: 'Source Control',
   orchestration: 'Orchestration',
+  browser: 'Browser',
   terminal: 'Terminal',
 };
 

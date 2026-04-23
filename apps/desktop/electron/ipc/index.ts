@@ -14,6 +14,7 @@ import { registerAgentHandlers } from './agent';
 import { registerAppAgentHandlers } from './agent/handlers/app-agent';
 import { registerGitAppHandlers } from './apps/git-app';
 import { registerWebAppHandlers } from './apps/web-app';
+import { registerBrowserHandlers } from './apps/browser';
 import { registerVoiceHandlers } from './agent/handlers/voice';
 import { registerShellHandlers } from './platform/system';
 import { registerAppStateHandlers } from './apps/app-state';
@@ -56,6 +57,7 @@ export function registerAllIpcHandlers(): void {
   registerAppAgentHandlers();
   registerGitAppHandlers();
   registerWebAppHandlers();
+  registerBrowserHandlers();
   registerVoiceHandlers();
   registerShellHandlers();
   registerAppStateHandlers();
