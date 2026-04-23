@@ -16,8 +16,8 @@
  *   - the main window is closed (each view's wc is destroyed with the parent)
  */
 
-import { BrowserWindow, WebContentsView, shell, session } from 'electron';
-import type { WebContents } from 'electron';
+import { BrowserWindow, Menu, WebContentsView, clipboard, shell, session } from 'electron';
+import type { ContextMenuParams, MenuItemConstructorOptions, WebContents } from 'electron';
 import { IpcChannels } from '@/types/ipc-channels';
 import type { BrowserEvent, BrowserViewBounds } from '@/types/browser';
 
@@ -226,6 +226,95 @@ class BrowserViewManager {
       if (!isMainFrame) return;
       this.emit({ tabId, kind: 'did-fail-load', errorDescription });
     });
+
+    // The WebContentsView has no built-in chrome — we own the context menu.
+    wc.on('context-menu', (_e, params) => {
+      this.showContextMenu(tabId, view, params);
+    });
+  }
+
+  private showContextMenu(
+    tabId: string,
+    view: WebContentsView,
+    params: ContextMenuParams,
+  ): void {
+    const wc = view.webContents;
+    const items: MenuItemConstructorOptions[] = [];
+
+    if (params.selectionText && params.selectionText.trim()) {
+      items.push({
+        label: 'Add to Sero Chat',
+        click: () => {
+          this.emit({
+            tabId,
+            kind: 'selection-to-chat',
+            selection: params.selectionText,
+            pageUrl: wc.getURL(),
+            pageTitle: wc.getTitle(),
+          });
+        },
+      });
+      items.push({ type: 'separator' });
+      items.push({ label: 'Copy', role: 'copy', enabled: params.editFlags.canCopy });
+    }
+
+    if (params.linkURL) {
+      if (items.length) items.push({ type: 'separator' });
+      items.push({
+        label: 'Open Link in New Tab',
+        click: () => {
+          this.emit({ tabId, kind: 'new-tab-request', url: params.linkURL });
+        },
+      });
+      items.push({
+        label: 'Copy Link Address',
+        click: () => clipboard.writeText(params.linkURL),
+      });
+    }
+
+    if (params.srcURL && params.mediaType === 'image') {
+      if (items.length) items.push({ type: 'separator' });
+      items.push({
+        label: 'Open Image in New Tab',
+        click: () => {
+          this.emit({ tabId, kind: 'new-tab-request', url: params.srcURL });
+        },
+      });
+      items.push({
+        label: 'Copy Image Address',
+        click: () => clipboard.writeText(params.srcURL),
+      });
+    }
+
+    if (params.isEditable) {
+      if (items.length) items.push({ type: 'separator' });
+      items.push({ label: 'Cut', role: 'cut', enabled: params.editFlags.canCut });
+      items.push({ label: 'Copy', role: 'copy', enabled: params.editFlags.canCopy });
+      items.push({ label: 'Paste', role: 'paste', enabled: params.editFlags.canPaste });
+      items.push({ label: 'Select All', role: 'selectAll', enabled: params.editFlags.canSelectAll });
+    }
+
+    if (items.length) items.push({ type: 'separator' });
+    items.push({
+      label: 'Back',
+      enabled: wc.navigationHistory.canGoBack(),
+      click: () => wc.navigationHistory.goBack(),
+    });
+    items.push({
+      label: 'Forward',
+      enabled: wc.navigationHistory.canGoForward(),
+      click: () => wc.navigationHistory.goForward(),
+    });
+    items.push({ label: 'Reload', click: () => wc.reload() });
+
+    items.push({ type: 'separator' });
+    items.push({
+      label: 'Inspect Element',
+      click: () => wc.inspectElement(params.x, params.y),
+    });
+
+    const menu = Menu.buildFromTemplate(items);
+    menu.popup({ window: this.window ?? undefined });
   }
 
   private emit(event: BrowserEvent): void {

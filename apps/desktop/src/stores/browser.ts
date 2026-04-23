@@ -10,6 +10,9 @@
 
 import { create } from 'zustand';
 import { persistLayout } from '@/lib/persist-layout';
+import { useAgentStore } from '@/stores/agent';
+import { useAppStore } from '@/stores/app';
+import { useSessionStore } from '@/stores/sessions';
 import {
   BROWSER_HOME_URL,
   resolveAddressBarInput,
@@ -18,6 +21,48 @@ import {
   type BrowserTab,
 } from '@/types/browser';
 import type { PersistedBrowserBookmark, PersistedBrowserTab } from '@/types/layout';
+
+/**
+ * Format a page selection as a markdown blockquote with an attribution
+ * line, ready to be inserted into the chat composer. Two trailing newlines
+ * leave the cursor on a fresh line so the user can start typing their
+ * question immediately.
+ */
+function formatSelectionForChat(
+  selection: string,
+  pageUrl: string,
+  pageTitle: string,
+): string {
+  const trimmed = selection.replace(/\s+$/, '');
+  const quoted = trimmed.split('\n').map((line) => `> ${line}`).join('\n');
+  const title = pageTitle.trim();
+  const attribution = title ? `— ${title} — ${pageUrl}` : `— ${pageUrl}`;
+  return `${quoted}\n\n${attribution}\n\n`;
+}
+
+/** Drop a page selection into the focused (or active) chat session's composer. */
+function dropSelectionInChat(
+  selection: string,
+  pageUrl: string,
+  pageTitle: string,
+): void {
+  const sessionId =
+    useAgentStore.getState().focusedSessionId ??
+    useSessionStore.getState().activeSessionId;
+  if (!sessionId) {
+    console.warn('[browser] No chat session available — selection ignored.');
+    return;
+  }
+  useAgentStore.getState().setComposerPrefill(sessionId, {
+    requestId: generateId('sel'),
+    text: formatSelectionForChat(selection, pageUrl, pageTitle),
+    source: 'system',
+  });
+  // Make sure the panel is visible so the user can see the prefill.
+  if (!useAppStore.getState().chatPanelOpen) {
+    useAppStore.getState().setChatPanelOpen(true);
+  }
+}
 
 /** Snapshot of a tab the user just closed, kept in-memory for ⌘Shift+T. */
 interface ClosedTab {
@@ -308,6 +353,11 @@ export const useBrowserStore = create<BrowserState>((set, get) => ({
     // a fresh tab with the requested URL.
     if (event.kind === 'new-tab-request') {
       get().createTab(event.url);
+      return;
+    }
+
+    if (event.kind === 'selection-to-chat') {
+      dropSelectionInChat(event.selection, event.pageUrl, event.pageTitle);
       return;
     }
 

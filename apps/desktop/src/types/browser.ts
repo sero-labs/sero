@@ -43,7 +43,13 @@ export type BrowserEvent =
   | { tabId: string; kind: 'favicon-updated'; favicon: string | undefined }
   | { tabId: string; kind: 'did-fail-load'; errorDescription: string }
   /** Renderer should open a new tab (triggered by window.open / target=_blank). */
-  | { tabId: string; kind: 'new-tab-request'; url: string };
+  | { tabId: string; kind: 'new-tab-request'; url: string }
+  /**
+   * User picked "Add to Sero Chat" from the page's context menu — the
+   * selection (and the page metadata) should be quoted into the chat
+   * composer of the focused session.
+   */
+  | { tabId: string; kind: 'selection-to-chat'; selection: string; pageUrl: string; pageTitle: string };
 
 /** Default home page for a new empty tab. */
 export const BROWSER_HOME_URL = 'https://duckduckgo.com/';
