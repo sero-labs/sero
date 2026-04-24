@@ -1,8 +1,6 @@
 /**
  * Types for the `window.sero` API exposed by the preload script.
  *
- * Workspace tool interfaces (editor, filetree, LSP, debug, VCS) are in
- * electron-workspace.d.ts to keep each file under 500 LOC.
  */
 import type {
   SeroEditorAPI,
@@ -12,7 +10,7 @@ import type {
   SeroVcsAPI,
 } from './electron-workspace';
 import type { LayoutState, LoadedLayoutState } from './layout';
-import type { BrowserEvent, BrowserViewBounds } from './browser';
+import type { SeroBrowserAPI } from './electron-browser';
 import type {
   SeroGatewayAPI,
   SeroGitHubAPI,
@@ -444,29 +442,6 @@ interface SeroPluginsAPI {
   stopDevSession(sessionId: string): Promise<void>;
   /** Subscribe to plugin install/dev-session lifecycle events. */
   onChanged(callback: (event: PluginChangeEvent) => void): () => void;
-}
-
-export interface SeroBrowserAPI {
-  openTab(tabId: string, url: string, workspaceId: string): Promise<void>;
-  closeTab(tabId: string, workspaceId: string): Promise<void>;
-  setActive(tabId: string | null, workspaceId: string): Promise<void>;
-  setBounds(bounds: BrowserViewBounds): Promise<void>;
-  hideAll(): Promise<void>;
-  navigate(tabId: string, url: string, workspaceId: string): Promise<void>;
-  goBack(tabId: string, workspaceId: string): Promise<void>;
-  goForward(tabId: string, workspaceId: string): Promise<void>;
-  reload(tabId: string, workspaceId: string): Promise<void>;
-  stop(tabId: string, workspaceId: string): Promise<void>;
-  extractPage(
-    tabId: string,
-    workspaceId: string,
-  ): Promise<{ title: string; url: string; text: string } | null>;
-  capturePage(
-    tabId: string,
-    workspaceId: string,
-    rect?: { x: number; y: number; width: number; height: number },
-  ): Promise<string | null>;
-  onEvent(callback: (event: BrowserEvent) => void): () => void;
 }
 
 export interface SeroAPI {

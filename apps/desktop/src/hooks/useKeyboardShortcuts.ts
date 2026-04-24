@@ -40,7 +40,7 @@ export function useKeyboardShortcuts() {
             useWorkspaceStore.getState().activeWorkspaceId ?? 'global';
           useExplorerStore
             .getState()
-            .set(workspaceId, { activePanel: 'browser', sidebarOpen: true });
+            .set(workspaceId, { activePanel: 'browser', sidebarOpen: false });
           useBrowserStore.getState().createTab(workspaceId);
           break;
         }

@@ -102,12 +102,8 @@ async function handleBrowser(
     case 'open': {
       const url = positionals[0];
       if (!url) return fail('Usage: sero browser open <url>');
-      try {
-        new URL(url);
-      } catch {
-        return fail(`Not a valid URL: ${url}`);
-      }
       const tabId = browserViewManager.openTabForHost(url, ctx.workspaceId);
+      if (!tabId) return fail(`Unsupported browser URL: ${url}. Use http(s) URLs only.`);
       return ok(`Opened tab ${tabId} in workspace "${ctx.workspaceId}" → ${url}`);
     }
 
@@ -143,7 +139,10 @@ async function handleBrowser(
         );
       }
       try {
-        new URL(url);
+        const parsed = new URL(url);
+        if (!['http:', 'https:'].includes(parsed.protocol)) {
+          return fail(`Unsupported browser URL: ${url}. Use http(s) URLs only.`);
+        }
       } catch {
         return fail(`Not a valid URL: ${url}`);
       }

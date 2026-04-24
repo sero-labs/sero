@@ -451,6 +451,15 @@ export const useBrowserStore = create<BrowserState>((set, get) => ({
       return;
     }
 
+    if (event.kind === 'host-tab-activated') {
+      if (!get().tabs.some((t) => t.id === event.tabId && t.workspaceId === event.workspaceId)) return;
+      set((s) => ({
+        activeTabIds: { ...s.activeTabIds, [event.workspaceId]: event.tabId },
+      }));
+      persistLayout({ activeBrowserTabIds: get().activeTabIds });
+      return;
+    }
+
     if (event.kind === 'host-tab-closed') {
       if (!get().tabs.some((t) => t.id === event.tabId)) return;
       const nextTabs = get().tabs.filter((t) => t.id !== event.tabId);

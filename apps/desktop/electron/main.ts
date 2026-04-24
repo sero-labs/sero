@@ -350,6 +350,7 @@ app.on('activate', () => {
 });
 
 function hideAllWindowsForShutdown(): void {
+  browserViewManager.hideAll();
   for (const window of BrowserWindow.getAllWindows()) {
     if (window.isDestroyed()) continue;
     window.hide();
@@ -422,6 +423,15 @@ async function performGracefulShutdown(): Promise<void> {
   console.log(`[sero] Graceful shutdown complete (${Date.now() - startedAt}ms)`);
 }
 
+function requestGracefulAppQuit(): void {
+  if (isGracefullyShuttingDown) return;
+  if (app.isReady()) {
+    app.quit();
+  } else {
+    app.exit(0);
+  }
+}
+
 // ── Graceful shutdown ──────────────────────────────────────────
 app.on('before-quit', (e) => {
   if (isGracefullyShuttingDown) return;
@@ -438,6 +448,9 @@ app.on('before-quit', (e) => {
       app.exit(0);
     });
 });
+
+process.once('SIGTERM', requestGracefulAppQuit);
+process.once('SIGINT', requestGracefulAppQuit);
 
 // ── Orphan cleanup ─────────────────────────────────────────────
 /**

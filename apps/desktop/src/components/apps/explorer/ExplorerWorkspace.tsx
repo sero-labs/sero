@@ -42,6 +42,7 @@ export function ExplorerWorkspace() {
   const workspaceId = activeWorkspace?.id ?? 'global';
   const { sidebarOpen, activePanel, terminalOpen, explorerSidebarSizePct, terminalSizePct } =
     useWorkspaceExplorer(workspaceId);
+  const showSidebar = sidebarOpen && activePanel !== 'browser';
   const setExplorer = useExplorerStore((state) => state.set);
   const termTabs = useWorkspaceTerminals(workspaceId);
   const activeTerminalId = useActiveTerminalId(workspaceId);
@@ -88,7 +89,10 @@ export function ExplorerWorkspace() {
         return;
       }
 
-      setExplorer(workspaceId, { activePanel: panel, sidebarOpen: true });
+      setExplorer(workspaceId, {
+        activePanel: panel,
+        sidebarOpen: panel !== 'browser',
+      });
     },
     [workspaceId, activePanel, sidebarOpen, terminalOpen, termTabs.length, setExplorer],
   );
@@ -105,7 +109,7 @@ export function ExplorerWorkspace() {
   usePanelOpenSync(
     sidebarPanelRef,
     isSidebarProgrammaticRef,
-    sidebarOpen,
+    showSidebar,
     explorerSidebarLastExpandedPctRef.current || undefined,
   );
 
@@ -157,7 +161,7 @@ export function ExplorerWorkspace() {
       <div className="flex min-h-0 flex-1">
         <ActivityBar
           activePanel={activePanel}
-          sidebarOpen={sidebarOpen}
+          sidebarOpen={showSidebar}
           terminalOpen={terminalOpen}
           onPanelClick={handlePanelClick}
           workspaceId={workspaceId}
@@ -184,7 +188,7 @@ export function ExplorerWorkspace() {
                 onResize={handleSidebarResize}
                 style={{ overflow: 'hidden' }}
               >
-                {sidebarOpen && (
+                {showSidebar && (
                   <ExplorerSidebar
                     activePanel={activePanel}
                     workspaceId={workspaceId}
@@ -203,8 +207,8 @@ export function ExplorerWorkspace() {
               </ResizablePanel>
 
               <ResizableHandle
-                disabled={!sidebarOpen}
-                className={!sidebarOpen ? 'pointer-events-none opacity-0' : undefined}
+                disabled={!showSidebar}
+                className={!showSidebar ? 'pointer-events-none opacity-0' : undefined}
               />
 
               {/* ── Editor fills all remaining space ─────────────── */}

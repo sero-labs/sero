@@ -1,43 +1,31 @@
-/**
- * Main-process manager for the in-app web browser.
- *
- * One WebContentsView is created per tab and stacked as a child of the
- * main window's contentView. Only the active tab's view is placed at the
- * panel rect — all others are parked off-screen (width/height = 0) so they
- * keep running (audio, timers) but don't render.
- *
- * Why WebContentsView over <webview>:
- *   - no CSP `frame-src` headaches (it's a native sibling, not an iframe)
- *   - main-process controls navigation lifecycle + security
- *   - renderer can't spoof webPreferences via attributes
- *
- * Views are torn down when:
- *   - `closeTab` is invoked
- *   - the main window is closed (each view's wc is destroyed with the parent)
- */
-
 import { BrowserWindow, WebContentsView, shell, session } from 'electron';
 import type { WebContents } from 'electron';
 import { IpcChannels } from '@/types/ipc-channels';
 import type { BrowserEvent, BrowserViewBounds } from '@/types/browser';
+import { BROWSER_HOME_URL } from '@/types/browser';
 import { showBrowserContextMenu } from './context-menu';
 
 const BROWSER_PARTITION_PREFIX = 'persist:sero-browser';
+const ALLOWED_BROWSER_PROTOCOLS = new Set(['http:', 'https:']);
 
-/**
- * Compute the persistent session partition for a workspace. Workspace ids
- * are kebab-case slugs already, so they're safe to embed in a partition
- * string directly — but we still strip anything unexpected defensively.
- */
+function normalizeBrowserUrl(raw: string): string | null {
+  if (raw === 'about:blank') return raw;
+  try {
+    const parsed = new URL(raw);
+    if (!ALLOWED_BROWSER_PROTOCOLS.has(parsed.protocol)) return null;
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
+
 function partitionFor(workspaceId: string): string {
   const safe = workspaceId.replace(/[^a-zA-Z0-9._-]/g, '_') || 'global';
   return `${BROWSER_PARTITION_PREFIX}:${safe}`;
 }
 
-/** Position used to "hide" a view without destroying it. */
 const HIDDEN_BOUNDS = { x: 0, y: 0, width: 0, height: 0 } as const;
 
-/** Public snapshot of a loaded tab, returned by listLoadedTabs. */
 export interface LoadedTabInfo {
   id: string;
   workspaceId: string;
@@ -49,17 +37,17 @@ export interface LoadedTabInfo {
 class BrowserViewManager {
   private window: BrowserWindow | null = null;
   private readonly views = new Map<string, WebContentsView>();
-  /** Tracks the workspace each view belongs to (mirror of wireViewEvents closure). */
   private readonly viewWorkspaces = new Map<string, string>();
-  /** Most-recently-activated tab per workspace, updated by setActive. */
   private readonly lastActivePerWorkspace = new Map<string, string>();
   private activeTabId: string | null = null;
   private currentBounds: BrowserViewBounds = { ...HIDDEN_BOUNDS };
 
   setWindow(window: BrowserWindow): void {
     this.window = window;
+    window.webContents.on('did-start-loading', () => {
+      this.hideAll();
+    });
     window.on('closed', () => {
-      // Views are destroyed with the window; just drop our refs.
       this.views.clear();
       this.viewWorkspaces.clear();
       this.lastActivePerWorkspace.clear();
@@ -68,17 +56,17 @@ class BrowserViewManager {
     });
   }
 
-  /**
-   * Create a view for a tab id and load the URL. If the tab already exists,
-   * navigate the existing view (idempotent for startup rehydration).
-   */
   openTab(tabId: string, url: string, workspaceId: string): void {
     if (!this.window) return;
+    const safeUrl = normalizeBrowserUrl(url);
+    if (!safeUrl) {
+      console.warn(`[browser] Refusing to load unsupported URL: ${url}`);
+      return;
+    }
     const existing = this.views.get(tabId);
     if (existing) {
-      if (existing.webContents.getURL() !== url) {
-        void existing.webContents.loadURL(url).catch(() => {
-          // Navigation errors surface via did-fail-load; ignore the promise rejection.
+      if (existing.webContents.getURL() !== safeUrl) {
+        void existing.webContents.loadURL(safeUrl).catch(() => {
         });
       }
       return;
@@ -118,7 +106,7 @@ class BrowserViewManager {
     view.setBounds({ ...HIDDEN_BOUNDS });
     this.window.contentView.addChildView(view);
 
-    void view.webContents.loadURL(url).catch(() => {
+    void view.webContents.loadURL(safeUrl).catch(() => {
       // see above
     });
   }
@@ -153,6 +141,7 @@ class BrowserViewManager {
     this.activeTabId = tabId;
     if (tabId) {
       this.lastActivePerWorkspace.set(workspaceId, tabId);
+      this.emit({ tabId, workspaceId, kind: 'host-tab-activated' });
     } else {
       this.lastActivePerWorkspace.delete(workspaceId);
     }
@@ -183,9 +172,14 @@ class BrowserViewManager {
 
   navigate(tabId: string, url: string, workspaceId: string): void {
     if (!this.ownsTab(tabId, workspaceId, 'navigate')) return;
+    const safeUrl = normalizeBrowserUrl(url);
+    if (!safeUrl) {
+      console.warn(`[browser] Refusing to navigate to unsupported URL: ${url}`);
+      return;
+    }
     const view = this.views.get(tabId);
     if (!view) return;
-    void view.webContents.loadURL(url).catch(() => {
+    void view.webContents.loadURL(safeUrl).catch(() => {
       // surfaced via did-fail-load
     });
   }
@@ -264,10 +258,13 @@ class BrowserViewManager {
    * fresh id, creates the view, and emits `host-tab-opened` so the
    * renderer store mirrors it in its tab list. Returns the new tab id.
    */
-  openTabForHost(url: string, workspaceId: string): string {
+  openTabForHost(url: string, workspaceId: string): string | null {
+    const safeUrl = normalizeBrowserUrl(url);
+    if (!safeUrl) return null;
     const tabId = `tab_host_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-    this.openTab(tabId, url, workspaceId);
-    this.emit({ tabId, workspaceId, kind: 'host-tab-opened', url });
+    this.openTab(tabId, safeUrl, workspaceId);
+    this.setActive(tabId, workspaceId);
+    this.emit({ tabId, workspaceId, kind: 'host-tab-opened', url: safeUrl });
     return tabId;
   }
 
@@ -305,6 +302,15 @@ class BrowserViewManager {
   /** Most-recently-activated tab id for a workspace, or null. */
   resolveActiveTabForWorkspace(workspaceId: string): string | null {
     return this.lastActivePerWorkspace.get(workspaceId) ?? null;
+  }
+
+  private activateByOffset(workspaceId: string, delta: number): void {
+    const tabs = this.listLoadedTabs(workspaceId);
+    if (tabs.length === 0) return;
+    const activeId = this.resolveActiveTabForWorkspace(workspaceId);
+    const index = tabs.findIndex((tab) => tab.id === activeId);
+    const next = index < 0 ? 0 : ((index + delta) % tabs.length + tabs.length) % tabs.length;
+    this.setActive(tabs[next].id, workspaceId);
   }
 
   /** Whether a given tab id exists as a loaded WebContentsView. */
@@ -364,14 +370,64 @@ class BrowserViewManager {
   private wireViewEvents(tabId: string, view: WebContentsView, workspaceId: string): void {
     const wc = view.webContents;
 
+    wc.on('before-input-event', (event, input) => {
+      if (input.type !== 'keyDown' || (!input.meta && !input.control) || input.alt) return;
+      const key = input.key.toLowerCase();
+      const loaded = this.listLoadedTabs(workspaceId);
+      const activeId = this.resolveActiveTabForWorkspace(workspaceId) ?? tabId;
+      const activeView = this.views.get(activeId);
+
+      if (input.shift && (key === '[' || key === ']')) {
+        event.preventDefault();
+        this.activateByOffset(workspaceId, key === '[' ? -1 : 1);
+        return;
+      }
+      if (input.shift) return;
+
+      if (/^[1-9]$/.test(key)) {
+        event.preventDefault();
+        const index = key === '9' ? loaded.length - 1 : Number(key) - 1;
+        const target = loaded[index];
+        if (target) this.setActive(target.id, workspaceId);
+        return;
+      }
+
+      switch (key) {
+        case 't':
+          event.preventDefault();
+          this.openTabForHost(BROWSER_HOME_URL, workspaceId);
+          return;
+        case 'w':
+          event.preventDefault();
+          this.closeTabForHost(activeId, workspaceId);
+          return;
+        case 'r':
+          event.preventDefault();
+          activeView?.webContents.reload();
+          return;
+        case '[':
+          if (activeView?.webContents.navigationHistory.canGoBack()) {
+            event.preventDefault();
+            activeView.webContents.navigationHistory.goBack();
+          }
+          return;
+        case ']':
+          if (activeView?.webContents.navigationHistory.canGoForward()) {
+            event.preventDefault();
+            activeView.webContents.navigationHistory.goForward();
+          }
+          return;
+      }
+    });
+
     // Security: open new windows (target=_blank, window.open) as new tabs
     // within Sero rather than spawning OS browser windows. New tab stays
     // on the same workspace as the opener.
     wc.setWindowOpenHandler(({ url }) => {
-      if (/^https?:\/\//i.test(url) || /^about:blank$/i.test(url)) {
-        this.emit({ tabId, workspaceId, kind: 'new-tab-request', url });
-      } else {
-        // Hand off exotic schemes (mailto:, tel:, …) to the OS.
+      const safeUrl = normalizeBrowserUrl(url);
+      if (safeUrl) {
+        this.emit({ tabId, workspaceId, kind: 'new-tab-request', url: safeUrl });
+      } else if (/^(mailto|tel):/i.test(url)) {
         void shell.openExternal(url).catch(() => undefined);
       }
       return { action: 'deny' };
@@ -379,12 +435,7 @@ class BrowserViewManager {
 
     // Block file:// and other local-filesystem navigations inside the view.
     wc.on('will-navigate', (event, navigationUrl) => {
-      try {
-        const parsed = new URL(navigationUrl);
-        if (parsed.protocol === 'file:') {
-          event.preventDefault();
-        }
-      } catch {
+      if (!normalizeBrowserUrl(navigationUrl)) {
         event.preventDefault();
       }
     });

@@ -77,6 +77,12 @@ export function BrowserPanel({ workspaceId }: BrowserPanelProps) {
     return off;
   }, [applyEvent]);
 
+  // Keep native WebContentsView activation aligned with renderer state,
+  // including tabs created by the host/CLI while this panel is mounted.
+  useEffect(() => {
+    void window.sero.browser.setActive(activeTabId, workspaceId);
+  }, [activeTabId, workspaceId]);
+
   // Track the placeholder element's screen rect and push it to main so the
   // active view stays glued to the visible area. Runs on mount, tab change,
   // and whenever the element resizes (window / sidebar / chat panel toggle).

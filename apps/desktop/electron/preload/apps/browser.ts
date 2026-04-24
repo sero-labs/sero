@@ -1,7 +1,12 @@
 import { ipcRenderer, type IpcRendererEvent } from 'electron';
 
 import { IpcChannels } from '@/types/ipc-channels';
-import type { BrowserEvent, BrowserViewBounds } from '@/types/browser';
+import type {
+  BrowserBookmarkContextAction,
+  BrowserEvent,
+  BrowserTabContextAction,
+  BrowserViewBounds,
+} from '@/types/browser';
 
 /**
  * Every tab-scoped bridge method takes a `workspaceId` alongside the tab
@@ -41,6 +46,10 @@ export const browserBridge = {
     rect?: { x: number; y: number; width: number; height: number },
   ): Promise<string | null> =>
     ipcRenderer.invoke(IpcChannels.browser.capturePage, tabId, workspaceId, rect),
+  showTabContextMenu: (tabId: string, workspaceId: string): Promise<BrowserTabContextAction | null> =>
+    ipcRenderer.invoke(IpcChannels.browser.showTabContextMenu, tabId, workspaceId),
+  showBookmarkContextMenu: (): Promise<BrowserBookmarkContextAction | null> =>
+    ipcRenderer.invoke(IpcChannels.browser.showBookmarkContextMenu),
   onEvent: (callback: (event: BrowserEvent) => void): (() => void) => {
     const listener = (_e: IpcRendererEvent, event: BrowserEvent) => callback(event);
     ipcRenderer.on(IpcChannels.browser.event, listener);

@@ -33,6 +33,19 @@ export interface BrowserViewBounds {
   height: number;
 }
 
+export type BrowserTabContextAction =
+  | 'bookmark'
+  | 'copy-url'
+  | 'close'
+  | 'close-others'
+  | 'close-all';
+
+export type BrowserBookmarkContextAction =
+  | 'open'
+  | 'open-new-tab'
+  | 'edit'
+  | 'delete';
+
 /**
  * Events emitted by the main-process view manager to the renderer so the
  * store can keep tab metadata in sync with what the WebContentsView reports.
@@ -58,7 +71,9 @@ export type BrowserEvent =
   /** A new tab was opened by the host (CLI bridge, agent). Renderer store should mirror it. */
   | { tabId: string; workspaceId: string; kind: 'host-tab-opened'; url: string }
   /** A tab was closed by the host. Renderer store should remove it. */
-  | { tabId: string; workspaceId: string; kind: 'host-tab-closed' };
+  | { tabId: string; workspaceId: string; kind: 'host-tab-closed' }
+  /** A tab was activated by the host/native WebContents shortcut. */
+  | { tabId: string; workspaceId: string; kind: 'host-tab-activated' };
 
 /** Default home page for a new empty tab. */
 export const BROWSER_HOME_URL = 'https://duckduckgo.com/';
@@ -74,7 +89,9 @@ export const BROWSER_HOME_URL = 'https://duckduckgo.com/';
 export function resolveAddressBarInput(raw: string): string {
   const trimmed = raw.trim();
   if (!trimmed) return BROWSER_HOME_URL;
-  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed)) return trimmed;
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  // Unsupported schemes (file:, data:, chrome:, …) are treated as searches;
+  // the main process enforces the same http(s)-only policy before loadURL.
   // Looks like a bare host (has a dot, no spaces, no path-like characters)
   if (/^[^\s]+\.[^\s]+$/.test(trimmed) && !/\s/.test(trimmed)) {
     return `https://${trimmed}`;

@@ -6,10 +6,57 @@
  * other workspaces.
  */
 
-import { ipcMain } from 'electron';
+import { BrowserWindow, Menu, ipcMain, type MenuItemConstructorOptions } from 'electron';
 import { IpcChannels } from '@/types/ipc-channels';
-import type { BrowserViewBounds } from '@/types/browser';
+import type {
+  BrowserBookmarkContextAction,
+  BrowserTabContextAction,
+  BrowserViewBounds,
+} from '@/types/browser';
 import { browserViewManager } from '@electron/features/browser/view-manager';
+
+function popupActionMenu<T extends string>(
+  window: BrowserWindow | null,
+  items: MenuItemConstructorOptions[],
+): Promise<T | null> {
+  if (!window) return Promise.resolve(null);
+  return new Promise((resolve) => {
+    let selected: T | null = null;
+    const withPick = items.map((item) => {
+      if (!('id' in item) || !item.id) return item;
+      return {
+        ...item,
+        click: () => {
+          selected = item.id as T;
+          resolve(selected);
+        },
+      };
+    });
+    const menu = Menu.buildFromTemplate(withPick);
+    menu.popup({ window, callback: () => { if (!selected) resolve(null); } });
+  });
+}
+
+function showTabContextMenu(window: BrowserWindow | null): Promise<BrowserTabContextAction | null> {
+  return popupActionMenu<BrowserTabContextAction>(window, [
+    { id: 'bookmark', label: 'Bookmark Tab' },
+    { id: 'copy-url', label: 'Copy URL' },
+    { type: 'separator' },
+    { id: 'close', label: 'Close' },
+    { id: 'close-others', label: 'Close Others' },
+    { id: 'close-all', label: 'Close All' },
+  ]);
+}
+
+function showBookmarkContextMenu(window: BrowserWindow | null): Promise<BrowserBookmarkContextAction | null> {
+  return popupActionMenu<BrowserBookmarkContextAction>(window, [
+    { id: 'open', label: 'Open' },
+    { id: 'open-new-tab', label: 'Open in New Tab' },
+    { type: 'separator' },
+    { id: 'edit', label: 'Edit…' },
+    { id: 'delete', label: 'Delete' },
+  ]);
+}
 
 export function registerBrowserHandlers(): void {
   ipcMain.handle(
@@ -97,4 +144,16 @@ export function registerBrowserHandlers(): void {
       return browserViewManager.capturePage(tabId, workspaceId, rect);
     },
   );
+
+  ipcMain.handle(
+    IpcChannels.browser.showTabContextMenu,
+    (event, tabId: string, workspaceId: string) => {
+      if (browserViewManager.workspaceForTab(tabId) !== workspaceId) return null;
+      return showTabContextMenu(BrowserWindow.fromWebContents(event.sender));
+    },
+  );
+
+  ipcMain.handle(IpcChannels.browser.showBookmarkContextMenu, (event) => {
+    return showBookmarkContextMenu(BrowserWindow.fromWebContents(event.sender));
+  });
 }

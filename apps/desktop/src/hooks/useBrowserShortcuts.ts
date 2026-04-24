@@ -7,7 +7,7 @@
  * ⌘W          Close active tab
  * ⌘Shift+T    Reopen last closed tab
  * ⌘R          Reload active tab
- * ⌘D          Bookmark active tab
+ * ⌘B          Bookmark active tab
  * ⌘[ / ⌘]     Back / forward
  * ⌘1..⌘9      Jump to tab N (⌘9 jumps to the last tab, mirroring Chrome)
  * ⌘Shift+[/]  Cycle active tab left / right
@@ -62,7 +62,7 @@ export function useBrowserShortcuts(workspaceId: string) {
             store.reload(activeId);
           }
           return;
-        case 'd':
+        case 'b':
           if (activeId) {
             const tab = store.tabs.find((t) => t.id === activeId);
             if (tab) {

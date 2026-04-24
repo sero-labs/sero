@@ -86,13 +86,13 @@ export function buildContentSecurityPolicy(
   ];
 
   // -- img-src --
+  // Browser tabs mirror remote favicons into React chrome, so images need
+  // broad HTTPS access even though script/connect stay tightly scoped.
   const imgSrc = [
     "'self'",
     'data:',
     'blob:',
-    'https://*.scdn.co',       // Spotify album art
-    'https://*.spotifycdn.com',
-    'https://models.dev',      // AI model provider logos
+    'https:',
     ...devHttpSrc,
     ...extensionSrc,
   ];

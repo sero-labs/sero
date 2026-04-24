@@ -5,12 +5,9 @@
  * Right-click → rename / delete via context menu.
  */
 
-import { useState } from 'react';
+import { useState, type MouseEvent } from 'react';
 import { Globe, Star } from 'lucide-react';
 import { cn } from '@sero-ai/ui/lib/utils';
-import {
-  ContextMenu, ContextMenuTrigger, ContextMenuContent, ContextMenuItem,
-} from '@sero-ai/ui/components/ui/context-menu';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@sero-ai/ui/components/ui/dialog';
@@ -34,11 +31,31 @@ export function BookmarksBar({ workspaceId, onNavigate }: BookmarksBarProps) {
 
   const [editing, setEditing] = useState<BrowserBookmark | null>(null);
 
+  const handleBookmarkContextMenu = async (event: MouseEvent, bm: BrowserBookmark) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const action = await window.sero.browser.showBookmarkContextMenu();
+    switch (action) {
+      case 'open':
+        onNavigate(bm.url);
+        break;
+      case 'open-new-tab':
+        createTab(workspaceId, bm.url);
+        break;
+      case 'edit':
+        setEditing(bm);
+        break;
+      case 'delete':
+        removeBookmark(bm.id);
+        break;
+    }
+  };
+
   if (bookmarks.length === 0) {
     return (
       <div className="flex h-7 shrink-0 items-center gap-1.5 border-b border-[var(--border-subtle)] bg-[var(--bg-base)] px-2 text-[11px] text-[var(--text-muted)]">
         <Star className="size-3" />
-        <span>No bookmarks yet — press ⌘D on any page to save it here.</span>
+        <span>No bookmarks yet — press ⌘B on any page to save it here.</span>
       </div>
     );
   }
@@ -47,41 +64,33 @@ export function BookmarksBar({ workspaceId, onNavigate }: BookmarksBarProps) {
     <>
       <div className="flex h-7 shrink-0 items-center gap-0.5 overflow-x-auto border-b border-[var(--border-subtle)] bg-[var(--bg-base)] px-1 scrollbar-none">
         {bookmarks.map((bm) => (
-          <ContextMenu key={bm.id}>
-            <ContextMenuTrigger asChild>
-              <button
-                onClick={(e) => {
-                  if (e.metaKey || e.ctrlKey) createTab(workspaceId, bm.url);
-                  else onNavigate(bm.url);
-                }}
-                onMouseDown={(e) => {
-                  if (e.button === 1) {
-                    e.preventDefault();
-                    createTab(workspaceId, bm.url);
-                  }
-                }}
-                className={cn(
-                  'flex h-5 shrink-0 items-center gap-1.5 rounded px-1.5 text-[11px]',
-                  'text-[var(--text-muted)] transition-colors',
-                  'hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]',
-                )}
-                title={`${bm.title}\n${bm.url}`}
-              >
-                {bm.favicon ? (
-                  <img src={bm.favicon} alt="" className="size-3 shrink-0 rounded-sm" />
-                ) : (
-                  <Globe className="size-3 shrink-0 opacity-60" />
-                )}
-                <span className="max-w-[140px] truncate">{bm.title}</span>
-              </button>
-            </ContextMenuTrigger>
-            <ContextMenuContent className="w-48">
-              <ContextMenuItem onSelect={() => onNavigate(bm.url)}>Open</ContextMenuItem>
-              <ContextMenuItem onSelect={() => createTab(workspaceId, bm.url)}>Open in New Tab</ContextMenuItem>
-              <ContextMenuItem onSelect={() => setEditing(bm)}>Edit…</ContextMenuItem>
-              <ContextMenuItem onSelect={() => removeBookmark(bm.id)}>Delete</ContextMenuItem>
-            </ContextMenuContent>
-          </ContextMenu>
+          <button
+            key={bm.id}
+            onClick={(e) => {
+              if (e.metaKey || e.ctrlKey) createTab(workspaceId, bm.url);
+              else onNavigate(bm.url);
+            }}
+            onMouseDown={(e) => {
+              if (e.button === 1) {
+                e.preventDefault();
+                createTab(workspaceId, bm.url);
+              }
+            }}
+            onContextMenu={(e) => { void handleBookmarkContextMenu(e, bm); }}
+            className={cn(
+              'flex h-5 shrink-0 items-center gap-1.5 rounded px-1.5 text-[11px]',
+              'text-[var(--text-muted)] transition-colors',
+              'hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]',
+            )}
+            title={`${bm.title}\n${bm.url}`}
+          >
+            {bm.favicon ? (
+              <img src={bm.favicon} alt="" className="size-3 shrink-0 rounded-sm" />
+            ) : (
+              <Globe className="size-3 shrink-0 opacity-60" />
+            )}
+            <span className="max-w-[140px] truncate">{bm.title}</span>
+          </button>
         ))}
       </div>
 

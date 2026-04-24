@@ -6,6 +6,7 @@
  */
 
 import { appAgentIpcChannels } from './ipc-channels-app-agent';
+import { browserIpcChannels } from './ipc-channels-browser';
 import { localModelsIpcChannels } from './ipc-channels-local-models';
 import {
   feedbackIpcChannels,
@@ -233,31 +234,7 @@ export const IpcChannels = {
     /** Load UI layout state. */
     load: 'sero:layout:load',
   },
-  browser: {
-    /** Create a WebContentsView for a tab id and load a URL. */
-    openTab: 'sero:browser:open-tab',
-    /** Destroy the WebContentsView for a tab id. */
-    closeTab: 'sero:browser:close-tab',
-    /** Show a tab's view on top; hide all others. */
-    setActive: 'sero:browser:set-active',
-    /** Position the active view within the main window, or hide all. */
-    setBounds: 'sero:browser:set-bounds',
-    /** Hide all browser views (panel no longer visible). */
-    hideAll: 'sero:browser:hide-all',
-    /** Navigate the given tab to a URL. */
-    navigate: 'sero:browser:navigate',
-    /** History controls. */
-    goBack: 'sero:browser:go-back',
-    goForward: 'sero:browser:go-forward',
-    reload: 'sero:browser:reload',
-    stop: 'sero:browser:stop',
-    /** Extract the active page's title + plain text for "Share with chat". */
-    extractPage: 'sero:browser:extract-page',
-    /** Capture the tab as a PNG (optionally cropped). Returns base64 PNG. */
-    capturePage: 'sero:browser:capture-page',
-    /** Main → renderer push: navigation / load / title / favicon events. */
-    event: 'sero:browser:event',
-  },
+  browser: browserIpcChannels,
   themes: {
     /** List all available theme presets (built-in + custom). */
     list: 'sero:themes:list',

@@ -16,10 +16,6 @@ import { CSS } from '@dnd-kit/utilities';
 import { Globe, Plus } from 'lucide-react';
 import { cn } from '@sero-ai/ui/lib/utils';
 import {
-  ContextMenu, ContextMenuTrigger, ContextMenuContent,
-  ContextMenuItem, ContextMenuSeparator,
-} from '@sero-ai/ui/components/ui/context-menu';
-import {
   useActiveBrowserTabId,
   useBrowserStore,
   useWorkspaceBrowserTabs,
@@ -38,11 +34,12 @@ interface SortableBrowserTabProps {
   onBookmark: () => void;
   onCopyUrl: () => void;
   onMouseDown: (e: React.MouseEvent) => void;
+  onContextMenu: (e: React.MouseEvent) => void;
 }
 
 function SortableBrowserTab({
   tab, isActive, onSelect, onClose, onCloseOthers, onCloseAll,
-  onBookmark, onCopyUrl, onMouseDown,
+  onBookmark, onCopyUrl, onMouseDown, onContextMenu,
 }: SortableBrowserTabProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: tab.id });
   const style: React.CSSProperties = {
@@ -54,60 +51,49 @@ function SortableBrowserTab({
   const label = tab.isLoading && !tab.title ? 'Loading…' : (tab.title || tab.url);
 
   return (
-    <ContextMenu>
-      <ContextMenuTrigger asChild>
-        <div
-          ref={setNodeRef} style={style}
-          className={cn(
-            'group flex items-center gap-1.5 px-2.5 h-full cursor-pointer shrink-0 select-none',
-            'border-r border-[var(--border-subtle)] text-xs whitespace-nowrap transition-colors',
-            'text-[var(--text-muted)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]',
-            isActive && 'bg-[var(--bg-elevated)] text-[var(--text-primary)] relative',
-          )}
-          data-tab-id={tab.id}
-          {...attributes} {...listeners}
-          onClick={onSelect}
-          onMouseDown={onMouseDown}
-          title={tab.title ? `${tab.title}\n${tab.url}` : tab.url}
-        >
-          {tab.favicon ? (
-            <img src={tab.favicon} alt="" className="size-3.5 shrink-0 rounded-sm" />
-          ) : (
-            <Globe className="size-3.5 shrink-0 text-[var(--text-muted)] opacity-60" />
-          )}
-          <span className={cn('font-normal max-w-[180px] truncate', isActive && 'font-medium')}>
-            {label}
-          </span>
-          {tab.isLoading && (
-            <span
-              aria-hidden
-              className="size-2 shrink-0 rounded-full border border-[var(--text-muted)] border-t-transparent animate-spin"
-            />
-          )}
-          <button
-            className={cn(
-              'flex items-center justify-center size-4 border-none bg-transparent',
-              'text-[var(--text-muted)] text-sm leading-none cursor-pointer rounded-sm',
-              'ml-0.5 opacity-0 transition-opacity shrink-0',
-              'group-hover:opacity-60 hover:!opacity-100 hover:bg-[var(--bg-muted)] hover:text-[var(--text-primary)]',
-              isActive && 'opacity-60',
-            )}
-            onClick={(e) => { e.stopPropagation(); onClose(); }}
-            onMouseDown={(e) => e.stopPropagation()}
-            title="Close"
-          >×</button>
-          {isActive && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--accent-primary)]" />}
-        </div>
-      </ContextMenuTrigger>
-      <ContextMenuContent className="w-52">
-        <ContextMenuItem onSelect={onBookmark}>Bookmark Tab</ContextMenuItem>
-        <ContextMenuItem onSelect={onCopyUrl}>Copy URL</ContextMenuItem>
-        <ContextMenuSeparator />
-        <ContextMenuItem onSelect={onClose}>Close</ContextMenuItem>
-        <ContextMenuItem onSelect={onCloseOthers}>Close Others</ContextMenuItem>
-        <ContextMenuItem onSelect={onCloseAll}>Close All</ContextMenuItem>
-      </ContextMenuContent>
-    </ContextMenu>
+    <div
+      ref={setNodeRef} style={style}
+      className={cn(
+        'group flex items-center gap-1.5 px-2.5 h-full cursor-pointer shrink-0 select-none',
+        'border-r border-[var(--border-subtle)] text-xs whitespace-nowrap transition-colors',
+        'text-[var(--text-muted)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]',
+        isActive && 'bg-[var(--bg-elevated)] text-[var(--text-primary)] relative',
+      )}
+      data-tab-id={tab.id}
+      {...attributes} {...listeners}
+      onClick={onSelect}
+      onMouseDown={onMouseDown}
+      onContextMenu={onContextMenu}
+      title={tab.title ? `${tab.title}\n${tab.url}` : tab.url}
+    >
+      {tab.favicon ? (
+        <img src={tab.favicon} alt="" className="size-3.5 shrink-0 rounded-sm" />
+      ) : (
+        <Globe className="size-3.5 shrink-0 text-[var(--text-muted)] opacity-60" />
+      )}
+      <span className={cn('font-normal max-w-[180px] truncate', isActive && 'font-medium')}>
+        {label}
+      </span>
+      {tab.isLoading && (
+        <span
+          aria-hidden
+          className="size-2 shrink-0 rounded-full border border-[var(--text-muted)] border-t-transparent animate-spin"
+        />
+      )}
+      <button
+        className={cn(
+          'flex items-center justify-center size-4 border-none bg-transparent',
+          'text-[var(--text-muted)] text-sm leading-none cursor-pointer rounded-sm',
+          'ml-0.5 opacity-0 transition-opacity shrink-0',
+          'group-hover:opacity-60 hover:!opacity-100 hover:bg-[var(--bg-muted)] hover:text-[var(--text-primary)]',
+          isActive && 'opacity-60',
+        )}
+        onClick={(e) => { e.stopPropagation(); onClose(); }}
+        onMouseDown={(e) => e.stopPropagation()}
+        title="Close"
+      >×</button>
+      {isActive && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--accent-primary)]" />}
+    </div>
   );
 }
 
@@ -171,6 +157,32 @@ export function BrowserTabs({ workspaceId }: BrowserTabsProps) {
     reorderTabs(workspaceId, arrayMove(ids, oldIdx, newIdx));
   }, [tabs, reorderTabs, workspaceId]);
 
+  const handleTabContextMenu = useCallback(
+    async (event: React.MouseEvent, tab: BrowserTab) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const action = await window.sero.browser.showTabContextMenu(tab.id, workspaceId);
+      switch (action) {
+        case 'bookmark':
+          addBookmark({ title: tab.title || tab.url, url: tab.url, favicon: tab.favicon });
+          break;
+        case 'copy-url':
+          await window.sero.clipboard.writeText(tab.url);
+          break;
+        case 'close':
+          closeTab(tab.id);
+          break;
+        case 'close-others':
+          closeOtherTabs(tab.id);
+          break;
+        case 'close-all':
+          closeAllTabs(workspaceId);
+          break;
+      }
+    },
+    [addBookmark, closeAllTabs, closeOtherTabs, closeTab, workspaceId],
+  );
+
   const handleMouseDown = useCallback(
     (e: React.MouseEvent, id: string) => {
       // Middle-click closes the tab (universal browser convention).
@@ -215,6 +227,7 @@ export function BrowserTabs({ workspaceId }: BrowserTabsProps) {
                     void window.sero.clipboard.writeText(tab.url);
                   }}
                   onMouseDown={(e) => handleMouseDown(e, tab.id)}
+                  onContextMenu={(e) => { void handleTabContextMenu(e, tab); }}
                 />
               ))}
             </div>
