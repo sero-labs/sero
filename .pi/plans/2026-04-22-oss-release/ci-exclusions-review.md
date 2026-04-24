@@ -18,11 +18,17 @@ into repo-level CI or explicitly documenting the current exclusions.
 Repo-level CI currently runs only the root alpha gate:
 - `.github/workflows/test.yml` → `pnpm test:ci`
 
+To reduce spend, that workflow now runs on:
+- pushes to `main`
+- PR open/reopen when the PR is not draft
+- `ready_for_review`
+- manual `workflow_dispatch`
+
 That gate currently covers:
 - `pnpm typecheck`
 - `pnpm build`
 - `pnpm test` → desktop Vitest only
-- `pnpm --filter @sero/desktop test:e2e` → desktop Playwright CI e2e
+- `pnpm --filter @sero/desktop test:e2e:ci` → desktop Playwright CI e2e
 
 ## Explicitly documented exclusions after this wave
 

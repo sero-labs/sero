@@ -34,7 +34,7 @@
 | Monorepo typecheck | `pnpm typecheck` (`turbo run typecheck`) | other | yes | Workflow runs this before build/tests; depends on package build tasks.
 | Monorepo build | `pnpm build` (`turbo run build`) | other | yes | Used both in unit job and e2e job; likely the main breadth check for packages.
 | Desktop unit tests | `pnpm --filter @sero/desktop test -- --run` | unit | yes | Workflow only targets desktop package, not all package-level `test` scripts.
-| Desktop Playwright CI e2e | `pnpm --filter @sero/desktop test:e2e` → `npx playwright test --project=ci` | e2e | yes | CI project excludes container / full-render specs.
+| Desktop Playwright CI e2e | `pnpm --filter @sero/desktop test:e2e:ci` → `npx playwright test --project=ci` | e2e | yes | CI project excludes container / full-render specs.
 | Desktop Playwright local e2e | `pnpm --filter @sero/desktop test:e2e:local` → `npx playwright test --project=local` | e2e | no | Includes container lifecycle and UI-rendering specs; expensive and environment-sensitive.
 | Desktop Playwright headed e2e | `pnpm --filter @sero/desktop test:e2e:headed` | e2e | no | Manual debugging path only.
 | Container e2e | `apps/desktop/e2e/container.spec.ts` | integration | no | Explicitly skipped in CI by Playwright config; container-dependent.
@@ -72,7 +72,7 @@
 - `pnpm typecheck`
 - `pnpm build`
 - `pnpm --filter @sero/desktop test -- --run`
-- `pnpm --filter @sero/desktop test:e2e` (`project=ci` only)
+- `pnpm --filter @sero/desktop test:e2e:ci` (`project=ci` only)
 - Optional fast eval: `pnpm eval:snapshot` if the team wants prompt-cache drift caught on every PR
 
 ### Nightly/manual

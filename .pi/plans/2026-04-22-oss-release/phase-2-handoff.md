@@ -52,7 +52,7 @@ This is the agreed minimum docs-site scope:
 - `pnpm typecheck`
 - `pnpm build`
 - `pnpm --filter @sero/desktop test -- --run`
-- `pnpm --filter @sero/desktop test:e2e`
+- `pnpm --filter @sero/desktop test:e2e:ci`
 
 ### Nightly/manual gate
 - `pnpm eval:snapshot`

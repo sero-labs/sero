@@ -114,7 +114,11 @@ Notes:
   `better-sqlite3`.
 - `pnpm test` currently runs the desktop Vitest suite.
 - `pnpm test:ci` mirrors the current alpha PR gate: typecheck, build, desktop
-  tests, and desktop CI e2e.
+  tests, and desktop CI e2e (`pnpm --filter @sero/desktop test:e2e:ci`).
+- GitHub Actions does **not** run this gate on every PR commit update. The
+  alpha workflow currently runs on pushes to `main`, when a PR is opened
+  non-draft / reopened / marked ready for review, or via manual
+  `workflow_dispatch`.
 - package/plugin-local Vitest suites outside `@sero/desktop` remain explicitly
   outside repo-level CI today and are run manually when relevant.
 - If Apple containers are unavailable, Sero can continue in host mode with a

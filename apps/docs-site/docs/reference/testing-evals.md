@@ -30,7 +30,14 @@ That gate expands to:
 - `pnpm typecheck`
 - `pnpm build`
 - `pnpm test` (**desktop Vitest only**)
-- desktop Playwright CI e2e
+- `pnpm --filter @sero/desktop test:e2e:ci`
+
+To control spend, this workflow does **not** run on every PR commit update.
+It currently runs on:
+- pushes to `main`
+- PR open/reopen when the PR is not draft
+- `ready_for_review`
+- manual `workflow_dispatch`
 
 ### Nightly/manual
 

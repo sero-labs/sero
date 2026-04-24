@@ -184,7 +184,7 @@ Inputs:
     - `pnpm typecheck`
     - `pnpm build`
     - `pnpm --filter @sero/desktop test -- --run`
-    - `pnpm --filter @sero/desktop test:e2e` using the Playwright CI project
+    - `pnpm --filter @sero/desktop test:e2e:ci` using the Playwright CI project
   - Nightly/manual gate:
     - `pnpm eval:snapshot`
     - selected package/plugin test suites not yet covered by the PR gate
