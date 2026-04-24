@@ -1,4 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'fs';
+import path from 'path';
+import { describe, expect, it, vi } from 'vitest';
 import type { PluginMeta } from '@sero-ai/common';
 
 import {
@@ -14,6 +16,61 @@ function makeContext(overrides?: Partial<SeroHostCompatibilityContext>): SeroHos
 }
 
 describe('plugin compatibility', () => {
+  it('falls back to the desktop package version when Electron reports 0.0.0', async () => {
+    vi.resetModules();
+    vi.doMock('electron', () => ({
+      app: {
+        getVersion: () => '0.0.0',
+      },
+    }));
+
+    const desktopPackageJson = JSON.parse(
+      readFileSync(path.resolve(__dirname, '../../../../package.json'), 'utf8'),
+    ) as { version: string };
+
+    const { getSeroHostCompatibilityContext } = await import('@electron/features/plugins/compatibility');
+    expect(getSeroHostCompatibilityContext().hostVersion).toBe(desktopPackageJson.version);
+
+    vi.doUnmock('electron');
+    vi.resetModules();
+  });
+
+  it('falls back to the desktop package version when Electron reports its own runtime version', async () => {
+    vi.resetModules();
+
+    const originalVersions = process.versions;
+    Object.defineProperty(process, 'versions', {
+      value: {
+        ...process.versions,
+        electron: '33.4.11',
+      },
+      configurable: true,
+    });
+
+    vi.doMock('electron', () => ({
+      app: {
+        getVersion: () => '33.4.11+wvcus',
+        getAppPath: () => path.resolve(__dirname, '../../../dist/electron'),
+      },
+    }));
+
+    const desktopPackageJson = JSON.parse(
+      readFileSync(path.resolve(__dirname, '../../../../package.json'), 'utf8'),
+    ) as { version: string };
+
+    try {
+      const { getSeroHostCompatibilityContext } = await import('@electron/features/plugins/compatibility');
+      expect(getSeroHostCompatibilityContext().hostVersion).toBe(desktopPackageJson.version);
+    } finally {
+      Object.defineProperty(process, 'versions', {
+        value: originalVersions,
+        configurable: true,
+      });
+      vi.doUnmock('electron');
+      vi.resetModules();
+    }
+  });
+
   it('accepts plugins whose version and capability requirements are satisfied', () => {
     const plugin: PluginMeta = {
       category: 'integrations',

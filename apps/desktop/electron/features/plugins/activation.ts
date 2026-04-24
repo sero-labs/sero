@@ -7,6 +7,10 @@ import {
   SettingsManager,
 } from '@mariozechner/pi-coding-agent';
 import { SERO_AGENT_DIR } from '@electron/platform/env';
+import {
+  discoverBuiltinPackagePaths,
+  discoverBuiltinPluginPaths,
+} from '@electron/platform/protocols/builtin-resources';
 import { getPackageCompatibilityForResourcePath } from './resource-compatibility';
 import { getPackagesArray, readSettings, writeSettings } from './settings';
 
@@ -84,15 +88,31 @@ function resolvePackageEntryPath(
   return packageManager.getInstalledPath(source, 'user') ?? null;
 }
 
+function getBuiltinPackageSourcePaths(): Set<string> {
+  return new Set(
+    [...discoverBuiltinPackagePaths(), ...discoverBuiltinPluginPaths()]
+      .map((packagePath) => path.resolve(packagePath)),
+  );
+}
+
 function shouldKeepPackageEntry(
   packageManager: DefaultPackageManager,
   entry: PackageSource,
+  builtinPackageSourcePaths: Set<string>,
 ): boolean {
   const source = getPackageEntrySource(entry);
   if (!source) return true;
 
+  if (builtinPackageSourcePaths.has(path.resolve(source))) {
+    return true;
+  }
+
   const resolvedPath = resolvePackageEntryPath(packageManager, source);
   if (!resolvedPath) return true;
+
+  if (builtinPackageSourcePaths.has(path.resolve(resolvedPath))) {
+    return true;
+  }
 
   return getPackageCompatibilityForResourcePath(resolvedPath)?.supported !== false;
 }
@@ -127,7 +147,9 @@ export async function reconcileInstalledPluginActivation(): Promise<void> {
   const settings = readSettings();
   const packageEntries = getPackagesArray(settings) as PackageSource[];
   const packageManager = createPackageManager(settings);
-  const keptEntries = packageEntries.filter((entry) => shouldKeepPackageEntry(packageManager, entry));
+  const builtinPackageSourcePaths = getBuiltinPackageSourcePaths();
+  const keptEntries = packageEntries.filter((entry) =>
+    shouldKeepPackageEntry(packageManager, entry, builtinPackageSourcePaths));
 
   const managedActivePaths = new Set(
     keptEntries

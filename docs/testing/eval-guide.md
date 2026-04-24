@@ -65,6 +65,35 @@ These assemble an approximation of the full Sero session prompt by calling the p
 - The provider applies env credentials as runtime overrides before falling back to `~/.sero-ui/agent/auth.json`
 - This prevents stale OAuth entries in `auth.json` from breaking evals that should use an API key
 
+## Current Risk Map
+
+Evals in Sero are meant to cover the parts of the system where a structured
+prompt- or agent-behavior check is the best signal. They are **not** intended
+to replace desktop unit tests, Playwright coverage, or clean-launch smoke.
+
+| Risk area | Best current signal | Why |
+|---|---|---|
+| Prompt block drift / cache invalidation | `pnpm eval:snapshot` | Snapshot evals assemble the real system prompt and verify block presence, order, and size |
+| Agent file-tool behavior | `pnpm eval` | Real LLM runs exercise `read` / `write` / `edit` in isolated temp workspaces |
+| Agent CLI behavior | `pnpm eval` | The eval harness checks that the agent prefers `sero-cli` for supported platform actions |
+| Desktop launch / session wiring | desktop unit tests + Playwright | Better validated in repo tests than promptfoo |
+| Plugin/runtime bridge regressions | desktop unit tests + focused e2e | Better caught by package/unit/e2e coverage than generic eval prompts |
+| Container lifecycle / full-render UX | local Playwright runs | Environment-sensitive and intentionally outside promptfoo |
+
+### Non-goals of the eval layer
+
+The eval layer does **not** currently aim to prove:
+- full desktop UI correctness
+- full plugin/runtime compatibility across all packages
+- container lifecycle reliability in CI
+- that every source test suite in the repo has run
+
+That is why:
+- `pnpm eval:snapshot` is the best low-cost prompt-stability check
+- `pnpm eval` is a manual/nightly release-confidence layer
+- repo unit/e2e coverage remains the primary regression net for desktop and
+  plugin integration behavior
+
 ## File Layout
 
 ```

@@ -205,6 +205,7 @@ export function bridgeExtensionTools(
           extensionPath: ext.resolvedPath,
         }
       : null;
+    const bridgedToolNames = new Set<string>();
 
     // Bridge tools → CLI (removes from agent tool list)
     for (const [name, registered] of [...ext.tools]) {
@@ -227,12 +228,13 @@ export function bridgeExtensionTools(
       } else {
         reg.register(command);
       }
+      bridgedToolNames.add(name);
       ext.tools.delete(name);
     }
 
     // Bridge commands → CLI (keeps in extension for user slash commands)
     for (const [name, registered] of ext.commands) {
-      if (BUILTIN_COMMANDS.has(name)) continue;
+      if (BUILTIN_COMMANDS.has(name) || bridgedToolNames.has(name)) continue;
       const existing = reg.get(name, owner ? { sessionId: options?.sessionId } : undefined);
       if (existing && existing.source !== 'app') continue;
 

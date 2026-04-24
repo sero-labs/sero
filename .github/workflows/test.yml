@@ -5,17 +5,26 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+    types: [opened, reopened, ready_for_review]
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  # ── Unit tests + typecheck ──────────────────────────────────
-  unit:
-    name: Unit Tests & Typecheck
+  # The authoritative alpha PR gate is the root `pnpm test:ci` command.
+  # That command currently covers:
+  # - `pnpm typecheck`
+  # - `pnpm build`
+  # - `pnpm test` (desktop Vitest suite)
+  # - desktop Playwright CI e2e
+  # Broader package/plugin suites and heavier coverage remain nightly/manual.
+  pr-gate:
+    name: PR Gate
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: macos-latest
-    timeout-minutes: 20
+    timeout-minutes: 40
 
     steps:
       - uses: actions/checkout@v4
@@ -30,50 +39,21 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Typecheck (all packages)
-        run: pnpm typecheck
-
-      - name: Build (required by packaging tests)
-        run: pnpm build
-
-      - name: Unit tests
-        run: pnpm --filter @sero/desktop test -- --run
-
-  # ── Playwright e2e (CI mode — no containers) ────────────────
-  # The `ci` project skips UI-rendering specs (layout, file-tree,
-  # scroll-fix, container) that need a fully rendered Electron window.
-  # IPC-only specs (agent bridge, VCS, memory) run normally.
-  e2e:
-    name: E2E Tests (CI)
-    runs-on: macos-latest
-    timeout-minutes: 30
-    needs: unit
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v4
-
-      - uses: actions/setup-node@v4
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
         with:
-          node-version: 22
-          cache: pnpm
+          path: ~/Library/Caches/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('pnpm-lock.yaml') }}
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - name: Install Playwright browser
+        run: pnpm --filter @sero/desktop exec playwright install chromium
 
-      - name: Build all packages
-        run: pnpm build
-
-      - name: Install Playwright
-        run: npx playwright install --with-deps
-
-      - name: Run e2e tests (CI project — no containers)
-        run: pnpm --filter @sero/desktop test:e2e
+      - name: Run alpha PR gate
+        run: pnpm test:ci
         env:
           CI: true
 
-      - name: Upload test artifacts
+      - name: Upload Playwright artifacts
         if: failure()
         uses: actions/upload-artifact@v4
         with:
@@ -81,4 +61,5 @@ jobs:
           path: |
             apps/desktop/test-results/
             apps/desktop/playwright-report/
+          if-no-files-found: ignore
           retention-days: 7

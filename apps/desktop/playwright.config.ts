@@ -11,7 +11,8 @@ import { defineConfig } from '@playwright/test';
  *               container lifecycle, terminals, file I/O, and port forwarding.
  *
  * Usage:
- *   npm run test:e2e            # CI mode (no containers)
+ *   npm run test:e2e            # Build + CI mode (no containers)
+ *   npm run test:e2e:ci         # CI mode only, assumes desktop build already exists
  *   npm run test:e2e:local      # Local mode (with containers)
  *   npm run test:e2e:headed     # Local mode, visible window
  *

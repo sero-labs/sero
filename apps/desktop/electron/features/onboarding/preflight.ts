@@ -26,7 +26,7 @@ interface BuildOnboardingStateOptions {
   applyRepairs: boolean;
 }
 
-const MACOS_CONTAINERS_DOC_URL = 'https://github.com/monobyte/sero/blob/main/docs/guides/macos-containers.md';
+const MACOS_CONTAINERS_DOC_URL = 'https://github.com/sero-labs/sero/blob/main/docs/guides/macos-containers.md';
 
 function readLegacyDefaultProvider(settings: Record<string, unknown>): string | null {
   const sero = settings.sero;

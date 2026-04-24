@@ -42,12 +42,12 @@ describe('GitHubRepoOps', () => {
         originChecks += 1;
         return originChecks === 1
           ? fail('no origin')
-          : ok('https://github.com/monobyte/helloworld3.git/\n');
+          : ok('https://github.com/sero-labs/helloworld3.git/\n');
       }
       if (command === 'symbolic-ref HEAD refs/heads/main') return ok();
       if (command === 'add -- .gitignore') return ok();
       if (command === 'commit --allow-empty -m Initial commit') return ok('[main (root-commit) abc123] Initial commit');
-      if (command === 'remote set-url origin https://github.com/monobyte/helloworld3.git') return ok();
+      if (command === 'remote set-url origin https://github.com/sero-labs/helloworld3.git') return ok();
       if (command === 'rev-parse --verify main') return ok('abc123\n');
       if (command === 'push -u origin main') return ok();
       if (command === 'remote set-head origin main') return ok();
@@ -60,7 +60,7 @@ describe('GitHubRepoOps', () => {
       }
 
       if (args.slice(0, 2).join(' ') === 'repo create') {
-        return ok('https://github.com/monobyte/helloworld3\n');
+        return ok('https://github.com/sero-labs/helloworld3\n');
       }
       if (args.slice(0, 2).join(' ') === 'repo edit') {
         return ok();
@@ -88,13 +88,13 @@ describe('GitHubRepoOps', () => {
 
     expect(result).toMatchObject({
       success: true,
-      url: 'https://github.com/monobyte/helloworld3',
+      url: 'https://github.com/sero-labs/helloworld3',
     });
     expect(runner.ensureRepoInitialized).toHaveBeenCalledWith('helloworld3');
     expect(run).toHaveBeenCalledWith('helloworld3', ['add', '--', '.gitignore'], 10_000);
     expect(run).toHaveBeenCalledWith(
       'helloworld3',
-      ['remote', 'set-url', 'origin', 'https://github.com/monobyte/helloworld3.git'],
+      ['remote', 'set-url', 'origin', 'https://github.com/sero-labs/helloworld3.git'],
       10_000,
     );
     expect(run).toHaveBeenCalledWith('helloworld3', ['push', '-u', 'origin', 'main'], 60_000);
@@ -111,8 +111,8 @@ describe('GitHubRepoOps', () => {
       const command = args.join(' ');
 
       if (command === 'rev-parse HEAD') return ok('abc123\n');
-      if (command === 'remote get-url origin') return ok('git@github.com:monobyte/old-repo.git\n');
-      if (command === 'remote set-url origin https://github.com/monobyte/new-repo.git') return ok();
+      if (command === 'remote get-url origin') return ok('git@github.com:sero-labs/old-repo.git\n');
+      if (command === 'remote set-url origin https://github.com/sero-labs/new-repo.git') return ok();
       if (command === 'rev-parse --verify main') return ok('abc123\n');
       if (command === 'push -u origin main') return ok();
       if (command === 'remote set-head origin main') return ok();
@@ -125,7 +125,7 @@ describe('GitHubRepoOps', () => {
       }
 
       if (args.slice(0, 2).join(' ') === 'repo create') {
-        return ok('https://github.com/monobyte/new-repo\n');
+        return ok('https://github.com/sero-labs/new-repo\n');
       }
       if (args.slice(0, 2).join(' ') === 'repo edit') {
         return ok();
@@ -153,11 +153,11 @@ describe('GitHubRepoOps', () => {
 
     expect(result).toMatchObject({
       success: true,
-      url: 'https://github.com/monobyte/new-repo',
+      url: 'https://github.com/sero-labs/new-repo',
     });
     expect(run).toHaveBeenCalledWith(
       'workspace-1',
-      ['remote', 'set-url', 'origin', 'https://github.com/monobyte/new-repo.git'],
+      ['remote', 'set-url', 'origin', 'https://github.com/sero-labs/new-repo.git'],
       10_000,
     );
     expect(run).toHaveBeenCalledWith('workspace-1', ['push', '-u', 'origin', 'main'], 60_000);

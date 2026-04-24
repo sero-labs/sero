@@ -1,4 +1,4 @@
-import { readFileSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import path from 'path';
 
 import type {
@@ -23,15 +23,68 @@ interface PluginCompatibilityRequirements {
 
 let desktopPackageVersion: string | null = null;
 
+const DESKTOP_PACKAGE_JSON_CANDIDATES = [
+  // Source/runtime path when this module executes from apps/desktop/electron/features/plugins/
+  path.resolve(__dirname, '../../../package.json'),
+  // Bundled main-process path when esbuild inlines modules into dist/electron/main.mjs
+  path.resolve(__dirname, '../../package.json'),
+  // Dev/test launches keep cwd at apps/desktop/.
+  path.resolve(process.cwd(), 'package.json'),
+];
+
+function getElectronAppPackageJsonCandidates(): string[] {
+  try {
+    const electronModule = require('electron') as { app?: { getAppPath?: () => string } } | string;
+    if (typeof electronModule !== 'object' || electronModule === null) {
+      return [];
+    }
+
+    const appPath = electronModule.app?.getAppPath?.();
+    if (!appPath) return [];
+
+    return [
+      path.resolve(appPath, '../package.json'),
+      path.resolve(appPath, '../../package.json'),
+    ];
+  } catch {
+    return [];
+  }
+}
+
 function getDesktopPackageVersion(): string {
   if (desktopPackageVersion) return desktopPackageVersion;
 
-  const packageJsonPath = path.resolve(__dirname, '../../../package.json');
-  const pkg = JSON.parse(readFileSync(packageJsonPath, 'utf8')) as DesktopPackageJson;
-  desktopPackageVersion = typeof pkg.version === 'string' && pkg.version.trim()
-    ? pkg.version.trim()
-    : '0.0.0';
+  const candidates = [
+    ...getElectronAppPackageJsonCandidates(),
+    ...DESKTOP_PACKAGE_JSON_CANDIDATES,
+  ];
+  const seen = new Set<string>();
+
+  for (const packageJsonPath of candidates) {
+    if (seen.has(packageJsonPath)) continue;
+    seen.add(packageJsonPath);
+    if (!existsSync(packageJsonPath)) continue;
+
+    const pkg = JSON.parse(readFileSync(packageJsonPath, 'utf8')) as DesktopPackageJson;
+    const version = typeof pkg.version === 'string' ? pkg.version.trim() : '';
+    if (version) {
+      desktopPackageVersion = version;
+      return desktopPackageVersion;
+    }
+  }
+
+  desktopPackageVersion = '0.0.0';
   return desktopPackageVersion;
+}
+
+function stripVersionBuildMetadata(version: string): string {
+  return version.trim().split('+', 1)[0]?.trim() ?? version.trim();
+}
+
+function isElectronRuntimeVersion(version: string): boolean {
+  const electronVersion = process.versions.electron?.trim();
+  if (!electronVersion) return false;
+  return stripVersionBuildMetadata(version) === electronVersion;
 }
 
 function getRuntimeElectronVersion(): string | null {
@@ -39,8 +92,9 @@ function getRuntimeElectronVersion(): string | null {
     const electronModule = require('electron') as { app?: { getVersion?: () => string } } | string;
     if (typeof electronModule === 'object' && electronModule !== null) {
       const version = electronModule.app?.getVersion?.();
-      if (typeof version === 'string' && version.trim()) {
-        return version.trim();
+      const normalized = typeof version === 'string' ? version.trim() : '';
+      if (normalized && normalized !== '0.0.0' && !isElectronRuntimeVersion(normalized)) {
+        return normalized;
       }
     }
   } catch {
@@ -61,7 +115,7 @@ function parseVersion(version: string): number[] | null {
   const normalized = version.trim();
   if (!normalized) return null;
 
-  const main = normalized.split('-', 1)[0]?.trim() ?? '';
+  const main = normalized.split(/[+-]/, 1)[0]?.trim() ?? '';
   if (!/^\d+(?:\.\d+){0,2}$/.test(main)) {
     return null;
   }

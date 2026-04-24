@@ -43,7 +43,7 @@ PRs, etc. Treat the gateway token like a root password.
 | Channel | Exposure | Authentication | Risk |
 |---------|----------|----------------|------|
 | **WebSocket (localhost)** | `127.0.0.1:18800` only | 64-char hex token, timing-safe comparison | Low — local processes only |
-| **Web chat (localhost)** | `127.0.0.1:18801` + embedded in `:18800` | Token via URL param or login prompt | Low — local only |
+| **Web chat (localhost)** | `127.0.0.1:18801` + embedded in `:18800` | Login prompt preferred; URL-token flow is legacy and discouraged | Low — local only |
 | **Tailscale** | Private tailnet only (`tailscale serve`, NOT `funnel`) | Tailscale device auth + gateway token | Medium — all tailnet devices can reach the port |
 | **Discord** | Public (anyone who can DM the bot) | `allowedUsers` whitelist (empty = allow ALL) | **High if misconfigured** |
 
@@ -51,7 +51,10 @@ PRs, etc. Treat the gateway token like a root password.
 
 ## Security Controls
 
-### 1. Gateway token (`~/.sero-ui/gateway-token`)
+All paths below are **profile-scoped**. Replace `<SERO_HOME>` with your active
+profile root. For the default profile, that is typically `~/.sero-ui`.
+
+### 1. Gateway token (`<SERO_HOME>/agent/gateway-token`)
 
 - **Generated:** 32 random bytes → 64-char hex (256 bits of entropy)
 - **Stored:** file mode `0600` (owner read/write only)
@@ -82,9 +85,9 @@ PRs, etc. Treat the gateway token like a root password.
 
 | Secret | Location | Permissions |
 |--------|----------|-------------|
-| Gateway token | `~/.sero-ui/gateway-token` | `0600` |
-| Discord bot token | `~/.sero-ui/agent/.env` | `0600` |
-| API keys | `~/.sero-ui/agent/.env` | `0600` |
+| Gateway token | `<SERO_HOME>/agent/gateway-token` | `0600` |
+| Discord bot token | `<SERO_HOME>/agent/.env` | `0600` |
+| API keys | `<SERO_HOME>/agent/.env` | `0600` |
 
 ---
 
@@ -103,13 +106,18 @@ Gateway clients get the same tool access as the desktop UI. The agent can
 run bash commands, read/write files, use the browser tool, etc. All execution
 happens inside containers, but container escape is a theoretical risk.
 
-### ⚠️ Token in URL query string
-The web chat supports `?token=<token>` for convenience. This means the token
-may appear in:
+### ⚠️ Avoid token URLs
+Some web chat flows may still accept `?token=<token>`, but public guidance
+should treat that path as discouraged and avoid it outside short-lived local
+diagnostics. Token URLs may leak into:
 - Browser history
 - Browser autocomplete suggestions
 - HTTP `Referer` headers (mitigated by Tailscale TLS)
 - Shared screenshots of the browser address bar
+
+Prefer the login prompt for browser access. For CLI verification, use an
+ephemeral shell variable instead of putting the token in a URL or command
+history.
 
 ### ⚠️ Discord bot token = full bot control
 If the Discord bot token in `.env` is leaked, an attacker can impersonate
@@ -132,14 +140,19 @@ outcome — if the actual outcome differs, there is a security issue.
 ### Prerequisites
 
 ```bash
+# Set this to your active profile root.
+# Default-profile example:
+export SERO_HOME="${HOME}/.sero-ui"
+
 # Start gateway
 pkill -f "vite"; pkill -f "electron"
 cd apps/desktop
 SERO_GATEWAY=1 bash scripts/dev.sh
-
-# Get the auth token
-cat ~/.sero-ui/gateway-token
 ```
+
+When a verification step needs the gateway token, prefer an ephemeral shell
+variable populated via a hidden prompt. Avoid printing the token, storing it in
+shell history, or sharing token URLs.
 
 ### Test 1: Gateway not reachable from network
 
@@ -203,12 +216,22 @@ then `closed: 4003 Authentication failed`.
 
 **What:** Verify correct token allows access.
 
+First, load the token into a temporary shell variable without echoing it:
+
 ```bash
-TOKEN=$(cat ~/.sero-ui/gateway-token)
+read -s GATEWAY_TOKEN && export GATEWAY_TOKEN
+printf '\n'
+```
+
+Then verify authentication succeeds:
+
+```bash
 node -e "
+  const token = process.env.GATEWAY_TOKEN;
+  if (!token) throw new Error('Run: read -s GATEWAY_TOKEN && export GATEWAY_TOKEN');
   const ws = new (require('ws'))('ws://127.0.0.1:18800');
   ws.on('open', () => {
-    ws.send(JSON.stringify({ type: 'connect', token: '$TOKEN', clientType: 'cli' }));
+    ws.send(JSON.stringify({ type: 'connect', token, clientType: 'cli' }));
   });
   ws.on('message', (d) => {
     console.log(JSON.parse(d));
@@ -245,8 +268,8 @@ node -e "
 ### Test 6: Token file permissions
 
 ```bash
-stat -f "%Sp %N" ~/.sero-ui/gateway-token
-stat -f "%Sp %N" ~/.sero-ui/agent/.env
+stat -f "%Sp %N" "${SERO_HOME}/agent/gateway-token"
+stat -f "%Sp %N" "${SERO_HOME}/agent/.env"
 ```
 
 **Expected:** Both show `-rw-------` (owner read/write only).
@@ -256,12 +279,23 @@ stat -f "%Sp %N" ~/.sero-ui/agent/.env
 ### Test 7: Token not in logs (full form)
 
 ```bash
-TOKEN=$(cat ~/.sero-ui/gateway-token)
-grep "$TOKEN" /tmp/sero-electron.log
+node -e "
+  const fs = require('fs');
+  const token = process.env.GATEWAY_TOKEN;
+  if (!token) throw new Error('Run: read -s GATEWAY_TOKEN && export GATEWAY_TOKEN');
+  const log = fs.readFileSync('/tmp/sero-electron.log', 'utf8');
+  console.log(log.includes(token) ? 'FOUND_TOKEN_IN_LOG' : 'token-not-found');
+"
 ```
 
-**Expected:** No matches. The log should only contain the redacted form
+**Expected:** `token-not-found`. The log should only contain the redacted form
 (`5ed54100…445d`).
+
+When finished, clear the temporary shell variable:
+
+```bash
+unset GATEWAY_TOKEN
+```
 
 ---
 
@@ -276,7 +310,7 @@ your tailnet" — NOT "Available on the internet".
 
 ```bash
 # From a device NOT on your tailnet:
-curl -s https://daniels-macbook-pro-2.tail5e9b48.ts.net/health --connect-timeout 5
+curl -s https://<your-tailnet-hostname>/health --connect-timeout 5
 ```
 
 **Expected:** Connection refused or timeout — NOT `{"ok":true}`.
@@ -287,7 +321,7 @@ curl -s https://daniels-macbook-pro-2.tail5e9b48.ts.net/health --connect-timeout
 
 **What:** Verify `SERO_DISCORD_USERS` blocks unauthorized users.
 
-1. Set `SERO_DISCORD_USERS=000000000000000000` (a fake ID) in `~/.sero-ui/agent/.env`
+1. Set `SERO_DISCORD_USERS=000000000000000000` (a fake ID) in `${SERO_HOME}/agent/.env`
 2. Restart Sero with `SERO_GATEWAY=1`
 3. DM the bot from your real Discord account
 
@@ -323,12 +357,12 @@ lsof -i :18801 -P 2>/dev/null | grep LISTEN
 
 2. **Rotate the gateway token** periodically:
    ```bash
-   rm ~/.sero-ui/gateway-token
+   rm "${SERO_HOME}/agent/gateway-token"
    # Restart Sero — a new token is generated
    ```
 
-3. **Don't share token URLs** in screenshots or messages. Use the login
-   prompt instead of `?token=` when possible.
+3. **Don't use or share token URLs.** Use the login prompt for browser access,
+   or an ephemeral shell variable for CLI verification.
 
 4. **Stop Tailscale serve when not needed:**
    ```bash

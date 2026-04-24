@@ -70,7 +70,7 @@ describe('ContainerRuntimeNotice', () => {
         status: 'missing_binary',
         message: 'Install Apple containers.',
         recommended: true,
-        docsUrl: 'https://github.com/monobyte/sero/blob/main/docs/guides/macos-containers.md',
+        docsUrl: 'https://github.com/sero-labs/sero/blob/main/docs/guides/macos-containers.md',
       }));
     });
 
@@ -79,7 +79,7 @@ describe('ContainerRuntimeNotice', () => {
     });
 
     expect(shellBridge.openExternal).toHaveBeenCalledWith(
-      'https://github.com/monobyte/sero/blob/main/docs/guides/macos-containers.md',
+      'https://github.com/sero-labs/sero/blob/main/docs/guides/macos-containers.md',
     );
     expect(document.body.textContent).toContain('Sero can still continue in host mode');
   });

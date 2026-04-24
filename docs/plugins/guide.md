@@ -2,6 +2,13 @@
 
 How to create, distribute, install, and manage Sero plugins.
 
+For the fastest author-oriented starter path, see
+[quickstart.md](quickstart.md).
+
+For the smallest runtime-enabled reference that shows **UI + extension +
+background runtime** together, see
+[end-to-end-example.md](end-to-end-example.md).
+
 For internal architecture details, see
 [technical.md](technical.md).
 

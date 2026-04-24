@@ -8,7 +8,7 @@ function createSession(overrides: Partial<PluginDevSessionIPC> = {}): PluginDevS
     sessionId: 'dev_weather',
     appId: 'weather-pro',
     name: 'Weather Pro Dev',
-    sourcePath: '/Users/daniel/Code/sero-weather-plugin',
+    sourcePath: '/Users/example/Code/sero-weather-plugin',
     status: 'active',
     uiMode: 'dev-server',
     remoteEntryOverride: 'http://127.0.0.1:5193/mf-manifest.json',
