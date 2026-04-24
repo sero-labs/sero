@@ -6,9 +6,9 @@ together, use the in-repo **Notes** reference plugin.
 ## Canonical example
 
 - example folder:
-  [`packages/templates/skills/sero-plugin/example/sero-notes-plugin/`](https://github.com/monobyte/sero/tree/main/packages/templates/skills/sero-plugin/example/sero-notes-plugin)
+  [`packages/templates/skills/sero-plugin/example/sero-notes-plugin/`](https://github.com/sero-labs/sero/tree/main/packages/templates/skills/sero-plugin/example/sero-notes-plugin)
 - walkthrough:
-  [`packages/templates/skills/sero-plugin/example/README.md`](https://github.com/monobyte/sero/blob/main/packages/templates/skills/sero-plugin/example/README.md)
+  [`packages/templates/skills/sero-plugin/example/README.md`](https://github.com/sero-labs/sero/blob/main/packages/templates/skills/sero-plugin/example/README.md)
 
 This is the best reference when you need to understand how a Sero plugin can
 ship all of these together:
@@ -57,7 +57,7 @@ See [Plugin Quickstart](/reference/plugin-quickstart).
 ## Source-material version
 
 For the deeper repo-side writeup, see:
-- [`docs/plugins/end-to-end-example.md`](https://github.com/monobyte/sero/blob/main/docs/plugins/end-to-end-example.md)
+- [`docs/plugins/end-to-end-example.md`](https://github.com/sero-labs/sero/blob/main/docs/plugins/end-to-end-example.md)
 
 ## See also
 

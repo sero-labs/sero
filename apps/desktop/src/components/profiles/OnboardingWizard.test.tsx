@@ -127,7 +127,7 @@ describe('OnboardingWizard', () => {
           status: 'missing_binary',
           message: 'Install Apple containers.',
           recommended: true,
-          docsUrl: 'https://github.com/monobyte/sero/blob/main/docs/guides/macos-containers.md',
+          docsUrl: 'https://github.com/sero-labs/sero/blob/main/docs/guides/macos-containers.md',
         },
       },
     }));
@@ -153,7 +153,7 @@ describe('OnboardingWizard', () => {
           status: 'system_unavailable',
           message: 'Container system is not running.',
           recommended: true,
-          docsUrl: 'https://github.com/monobyte/sero/blob/main/docs/guides/macos-containers.md',
+          docsUrl: 'https://github.com/sero-labs/sero/blob/main/docs/guides/macos-containers.md',
         },
       },
     });

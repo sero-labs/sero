@@ -1,6 +1,6 @@
 # PR #147 review checklist
 
-Context: validated against `refactor/extract-kanban-plugin` for PR [#147](https://github.com/monobyte/sero/pull/147).
+Context: validated against `refactor/extract-kanban-plugin` for PR [#147](https://github.com/sero-labs/sero/pull/147).
 
 ## Merge blockers
 

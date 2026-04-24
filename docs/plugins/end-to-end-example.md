@@ -15,9 +15,9 @@ For the smaller UI + extension-only starter, keep using
 Use the in-repo **Notes** reference plugin:
 
 - repo folder:
-  [`packages/templates/skills/sero-plugin/example/sero-notes-plugin/`](https://github.com/monobyte/sero/tree/main/packages/templates/skills/sero-plugin/example/sero-notes-plugin)
+  [`packages/templates/skills/sero-plugin/example/sero-notes-plugin/`](https://github.com/sero-labs/sero/tree/main/packages/templates/skills/sero-plugin/example/sero-notes-plugin)
 - example walkthrough:
-  [`packages/templates/skills/sero-plugin/example/README.md`](https://github.com/monobyte/sero/blob/main/packages/templates/skills/sero-plugin/example/README.md)
+  [`packages/templates/skills/sero-plugin/example/README.md`](https://github.com/sero-labs/sero/blob/main/packages/templates/skills/sero-plugin/example/README.md)
 
 Important framing:
 - it is a **template/reference plugin**, not a public installable starter repo

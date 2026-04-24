@@ -53,5 +53,5 @@ trusted sources.
 ## See also
 
 The deeper architecture source material currently lives in the repository under:
-- [`docs/architecture.md`](https://github.com/monobyte/sero/blob/main/docs/architecture.md)
-- [`docs/decisions.md`](https://github.com/monobyte/sero/blob/main/docs/decisions.md)
+- [`docs/architecture.md`](https://github.com/sero-labs/sero/blob/main/docs/architecture.md)
+- [`docs/decisions.md`](https://github.com/sero-labs/sero/blob/main/docs/decisions.md)

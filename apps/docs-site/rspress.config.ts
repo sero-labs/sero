@@ -30,7 +30,7 @@ export default defineConfig({
       {
         icon: 'github',
         mode: 'link',
-        content: 'https://github.com/monobyte/sero'
+        content: 'https://github.com/sero-labs/sero'
       }
     ],
     sidebar: {

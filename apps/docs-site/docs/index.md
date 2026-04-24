@@ -65,9 +65,9 @@ For the canonical current support contract, see
 - [Getting Started](/guide/getting-started)
 - [Support Scope](/reference/support-scope)
 - [Architecture](/reference/architecture)
-- [Contributing](https://github.com/monobyte/sero/blob/main/CONTRIBUTING.md)
-- [Security Policy](https://github.com/monobyte/sero/blob/main/SECURITY.md)
-- [Open an Issue](https://github.com/monobyte/sero/issues/new/choose)
+- [Contributing](https://github.com/sero-labs/sero/blob/main/CONTRIBUTING.md)
+- [Security Policy](https://github.com/sero-labs/sero/blob/main/SECURITY.md)
+- [Open an Issue](https://github.com/sero-labs/sero/issues/new/choose)
 
 See the guide pages for setup and the reference pages for architecture,
 support scope, plugins, testing, security, troubleshooting, and known

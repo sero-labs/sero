@@ -34,7 +34,7 @@ During alpha:
 ## Starter author path
 
 The canonical starter example is the external **Daily Quote** plugin:
-- `https://github.com/monobyte/sero-daily-quote-plugin`
+- `https://github.com/sero-labs/sero-daily-quote-plugin`
 
 Treat it as a **small complete reference plugin**, not a visually minimal one.
 Its structure is the main thing to copy: manifest shape, extension entry,
@@ -50,7 +50,7 @@ runtime** together, see
 ## See also
 
 Current detailed source material:
-- [`docs/plugins/quickstart.md`](https://github.com/monobyte/sero/blob/main/docs/plugins/quickstart.md)
-- [`docs/plugins/guide.md`](https://github.com/monobyte/sero/blob/main/docs/plugins/guide.md)
-- [`docs/plugins/host-compatibility.md`](https://github.com/monobyte/sero/blob/main/docs/plugins/host-compatibility.md)
-- [`docs/features/local-plugin-development.md`](https://github.com/monobyte/sero/blob/main/docs/features/local-plugin-development.md)
+- [`docs/plugins/quickstart.md`](https://github.com/sero-labs/sero/blob/main/docs/plugins/quickstart.md)
+- [`docs/plugins/guide.md`](https://github.com/sero-labs/sero/blob/main/docs/plugins/guide.md)
+- [`docs/plugins/host-compatibility.md`](https://github.com/sero-labs/sero/blob/main/docs/plugins/host-compatibility.md)
+- [`docs/features/local-plugin-development.md`](https://github.com/sero-labs/sero/blob/main/docs/features/local-plugin-development.md)

@@ -151,5 +151,5 @@ pretending they are the whole quality story.
 ## See also
 
 Detailed source material:
-- [`docs/testing/eval-guide.md`](https://github.com/monobyte/sero/blob/main/docs/testing/eval-guide.md)
-- [`.github/workflows/test.yml`](https://github.com/monobyte/sero/blob/main/.github/workflows/test.yml)
+- [`docs/testing/eval-guide.md`](https://github.com/sero-labs/sero/blob/main/docs/testing/eval-guide.md)
+- [`.github/workflows/test.yml`](https://github.com/sero-labs/sero/blob/main/.github/workflows/test.yml)

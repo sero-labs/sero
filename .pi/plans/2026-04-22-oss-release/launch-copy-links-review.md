@@ -14,8 +14,8 @@ published docs and README.
 ### README
 
 Updated the public support surface bullets to use direct GitHub links:
-- issue entry: `https://github.com/monobyte/sero/issues/new/choose`
-- pull request list: `https://github.com/monobyte/sero/pulls`
+- issue entry: `https://github.com/sero-labs/sero/issues/new/choose`
+- pull request list: `https://github.com/sero-labs/sero/pulls`
 
 ### Docs-site homepage
 

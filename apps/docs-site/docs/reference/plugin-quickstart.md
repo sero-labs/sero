@@ -6,7 +6,7 @@ Sero plugin.
 ## Canonical starter example
 
 Use the external **Daily Quote** plugin as the reference example:
-- `https://github.com/monobyte/sero-daily-quote-plugin`
+- `https://github.com/sero-labs/sero-daily-quote-plugin`
 
 Important framing:
 - it is **structurally minimal**
@@ -66,5 +66,5 @@ For the full packaging, install, compatibility, and local-development story,
 continue with:
 - [Plugins](/reference/plugins)
 - [Plugin End-to-End Example](/reference/plugin-end-to-end-example)
-- [`docs/plugins/guide.md`](https://github.com/monobyte/sero/blob/main/docs/plugins/guide.md) in the repo source material
-- [`docs/plugins/host-compatibility.md`](https://github.com/monobyte/sero/blob/main/docs/plugins/host-compatibility.md) in the repo source material
+- [`docs/plugins/guide.md`](https://github.com/sero-labs/sero/blob/main/docs/plugins/guide.md) in the repo source material
+- [`docs/plugins/host-compatibility.md`](https://github.com/sero-labs/sero/blob/main/docs/plugins/host-compatibility.md) in the repo source material

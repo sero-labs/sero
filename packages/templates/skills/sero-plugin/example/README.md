@@ -8,7 +8,7 @@ plugin that exercises **every** surface a Sero plugin can ship.
 > tsconfig paths — so it drops into `plugins/sero-<name>-plugin/` and
 > typechecks immediately. For **external** plugins that consume published
 > `@sero-ai/*` packages instead, use
-> [`sero-kanban-plugin`](https://github.com/monobyte/sero-kanban-plugin)
+> [`sero-kanban-plugin`](https://github.com/sero-labs/sero-kanban-plugin)
 > as the reference and read `docs/plugins/guide.md` in this repo.
 
 ## File map

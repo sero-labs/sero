@@ -15,7 +15,7 @@ runtime** together, also see
 Use the **Daily Quote** plugin as the canonical small complete reference
 plugin:
 
-- GitHub: `https://github.com/monobyte/sero-daily-quote-plugin`
+- GitHub: `https://github.com/sero-labs/sero-daily-quote-plugin`
 - local adjacent checkout example: `../plugins/sero-daily-quote-plugin/`
 
 Why this example:

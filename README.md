@@ -204,8 +204,8 @@ For the canonical current support contract, see
 ## Contributing and support
 
 Public alpha contribution and support surfaces are currently:
-- [Open a GitHub Issue](https://github.com/monobyte/sero/issues/new/choose)
-- [Browse Pull Requests](https://github.com/monobyte/sero/pulls)
+- [Open a GitHub Issue](https://github.com/sero-labs/sero/issues/new/choose)
+- [Browse Pull Requests](https://github.com/sero-labs/sero/pulls)
 
 For the canonical early-alpha support contract and triage expectations, see
 [`Support Scope`](./apps/docs-site/docs/reference/support-scope.md).
