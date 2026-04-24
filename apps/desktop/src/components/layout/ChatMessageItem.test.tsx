@@ -7,6 +7,8 @@ import type { ComponentPropsWithoutRef, ReactNode } from 'react';
 
 vi.mock('lucide-react', () => ({
   Bot: () => <svg data-icon="bot" />,
+  Check: () => <svg data-icon="check" />,
+  Copy: () => <svg data-icon="copy" />,
   Loader2: () => <svg data-icon="loader" />,
   RotateCcw: () => <svg data-icon="undo" />,
   User: () => <svg data-icon="user" />,
@@ -110,7 +112,8 @@ describe('ChatMessageItem turn-undo affordance', () => {
       );
     });
 
-    expect(container.querySelector('button')).toBeNull();
+    expect(container.querySelector('button[aria-label="Undo this turn"]')).toBeNull();
+    expect(container.querySelector('button[aria-label="Copy message to clipboard"]')).not.toBeNull();
   });
 });
 

@@ -61,8 +61,14 @@ export function ResponseFeedback({
   );
 
   return (
-    <div className="flex items-center gap-0.5 opacity-0 transition-opacity duration-150 group-hover/msg:opacity-100 has-[button[data-active=true]]:opacity-100">
+    <div
+      className={cn(
+        'flex items-center gap-0.5 opacity-0 transition-opacity duration-150 group-hover/msg:opacity-100 focus-within:opacity-100 has-[button[data-active=true]]:opacity-100',
+        copied && 'opacity-100',
+      )}
+    >
       <button
+        type="button"
         data-active={rating === 'good'}
         onClick={() => handleRate('good')}
         className={cn(
@@ -76,6 +82,7 @@ export function ResponseFeedback({
         <ThumbsUp className="size-3" />
       </button>
       <button
+        type="button"
         data-active={rating === 'bad'}
         onClick={() => handleRate('bad')}
         className={cn(
@@ -89,6 +96,8 @@ export function ResponseFeedback({
         <ThumbsDown className="size-3" />
       </button>
       <button
+        type="button"
+        aria-label="Copy response to clipboard"
         onClick={handleCopy}
         className="rounded-md p-1 transition-colors duration-100 text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]"
         title="Copy to clipboard"

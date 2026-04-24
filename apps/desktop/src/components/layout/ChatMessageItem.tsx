@@ -26,8 +26,15 @@ function UserCopyButton({ text }: { text: string }) {
   }, [text, showCopied]);
 
   return (
-    <div className="ml-auto flex items-center gap-0.5 opacity-0 transition-opacity duration-150 group-hover/msg:opacity-100">
+    <div
+      className={cn(
+        'ml-auto flex items-center gap-0.5 opacity-0 transition-opacity duration-150 group-hover/msg:opacity-100 focus-within:opacity-100',
+        copied && 'opacity-100',
+      )}
+    >
       <button
+        type="button"
+        aria-label="Copy message to clipboard"
         onClick={handleCopy}
         className="rounded-md p-1 transition-colors duration-100 text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]"
         title="Copy to clipboard"
