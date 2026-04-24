@@ -1,11 +1,15 @@
 import { useEffect } from 'react';
 import { useAppStore } from '@/stores/app';
+import { useBrowserStore } from '@/stores/browser';
+import { useExplorerStore } from '@/stores/explorer';
+import { useWorkspaceStore } from '@/stores/workspace';
 
 /**
  * Global keyboard shortcuts.
  *
  * ⌘B — Toggle main sidebar
  * ⌘L — Toggle chat panel
+ * ⌘N — New browser tab (opens the Browser panel if not already active)
  */
 export function useKeyboardShortcuts() {
   const toggleMainSidebar = useAppStore((s) => s.toggleMainSidebar);
@@ -27,6 +31,19 @@ export function useKeyboardShortcuts() {
           e.preventDefault();
           toggleChatPanel();
           break;
+        case 'n': {
+          // Only handle ⌘N when the Explorer workspace is the active app,
+          // so it doesn't hijack shortcuts inside other apps.
+          if (useAppStore.getState().activeApp !== 'explorer') return;
+          e.preventDefault();
+          const workspaceId =
+            useWorkspaceStore.getState().activeWorkspaceId ?? 'global';
+          useExplorerStore
+            .getState()
+            .set(workspaceId, { activePanel: 'browser', sidebarOpen: false });
+          useBrowserStore.getState().createTab(workspaceId);
+          break;
+        }
       }
     };
 

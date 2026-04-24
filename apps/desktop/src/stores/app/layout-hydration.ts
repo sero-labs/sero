@@ -3,6 +3,7 @@ import { useModelPreferences } from '@/stores/model-preferences';
 import { useSessionStore } from '@/stores/sessions';
 import { hydrateThemeStore, useThemeStore } from '@/stores/theme';
 import { useWorkspaceStore } from '@/stores/workspace';
+import { useBrowserStore } from '@/stores/browser';
 import { normaliseFavouriteApps } from './shared';
 import type { AppState } from './state';
 import { useAppStore } from './state';
@@ -62,6 +63,15 @@ export async function loadLayout(): Promise<void> {
         favouriteModels: state.favouriteModels,
         hiddenModels: state.hiddenModels,
         hiddenProviders: state.hiddenProviders,
+      });
+
+      // Hydrate browser tabs (WebContentsViews are created lazily when the
+      // user opens the browser panel, not eagerly here).
+      useBrowserStore.getState().hydrate({
+        tabs: state.browserTabs,
+        activeIds: state.activeBrowserTabIds,
+        legacyActiveId: state.activeBrowserTabId ?? null,
+        bookmarks: state.browserBookmarks,
       });
 
       return;

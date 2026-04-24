@@ -6,6 +6,7 @@
  */
 
 import { appAgentIpcChannels } from './ipc-channels-app-agent';
+import { browserIpcChannels } from './ipc-channels-browser';
 import { localModelsIpcChannels } from './ipc-channels-local-models';
 import {
   feedbackIpcChannels,
@@ -233,6 +234,7 @@ export const IpcChannels = {
     /** Load UI layout state. */
     load: 'sero:layout:load',
   },
+  browser: browserIpcChannels,
   themes: {
     /** List all available theme presets (built-in + custom). */
     list: 'sero:themes:list',

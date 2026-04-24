@@ -7,6 +7,19 @@
  */
 
 import type { DashboardLayoutState } from './dashboard';
+import type { BrowserBookmark, BrowserTab } from './browser';
+
+/** Subset of a BrowserTab that is safe to persist across restarts. */
+export interface PersistedBrowserTab {
+  id: string;
+  /** Workspace the tab belongs to. Omitted = pre-multi-workspace tabs; hydration defaults to 'global'. */
+  workspaceId?: string;
+  url: string;
+  title?: string;
+}
+
+/** Bookmarks persist whole (favicons are optional and small). */
+export type PersistedBrowserBookmark = BrowserBookmark;
 
 /** Full layout state persisted to ~/.sero-ui/layout.json. */
 export interface LayoutState {
@@ -35,7 +48,19 @@ export interface LayoutState {
   hiddenProviders?: string[];
   /** Dashboard widget grid layout. */
   dashboardLayout?: DashboardLayoutState;
+  /** Open browser tabs (restored on app start). */
+  browserTabs?: PersistedBrowserTab[];
+  /** Active browser tab id per workspace. */
+  activeBrowserTabIds?: Record<string, string | null>;
+  /** Legacy: single active browser tab id (pre-per-workspace). */
+  activeBrowserTabId?: string | null;
+  /** User-saved bookmarks. */
+  browserBookmarks?: PersistedBrowserBookmark[];
 }
+
+// Re-export so callers can import the canonical runtime tab shape
+// alongside the persisted shape.
+export type { BrowserBookmark, BrowserTab };
 
 /**
  * Shape returned by layout.load() — same fields but favouriteApps

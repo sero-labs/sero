@@ -4,9 +4,10 @@
   "description": "Zero context switch, zero sprawl - an agent-first workspace for macOS",
   "main": "dist/electron/main.mjs",
   "scripts": {
-    "dev": "concurrently \"npm run dev:renderer\" \"npm run dev:electron\"",
+    "dev": "bash scripts/dev.sh",
     "dev:renderer": "vite",
     "dev:electron": "npm run build:electron && NODE_ENV=development electron .",
+    "dev:raw": "concurrently --kill-others \"npm run dev:renderer\" \"npm run dev:electron\"",
     "build:electron": "node scripts/build-electron.mjs",
     "build": "npm run build:electron && vite build",
     "start": "electron .",

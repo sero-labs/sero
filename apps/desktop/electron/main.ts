@@ -45,6 +45,7 @@ import {
 import { startGateway, stopGateway } from './ipc/gateway';
 import { setupContentSecurityPolicy } from './platform/security/csp';
 import { setupMainWindowSecurity } from './platform/security/window-security';
+import { browserViewManager } from './features/browser/view-manager';
 import { discoverBuiltinPackagePaths, discoverBuiltinPluginPaths } from './platform/protocols/builtin-resources';
 import {
   ensureConfiguredModelFallbackChain,
@@ -183,6 +184,10 @@ function createWindow() {
 
   // Give the file watcher manager access to the window for push events
   fileWatcherManager.setWindow(mainWindow);
+
+  // Attach the in-app browser's view manager so new WebContentsViews land
+  // on top of the renderer at the bounds the BrowserPanel reports.
+  browserViewManager.setWindow(mainWindow);
 
   mainWindow.once('ready-to-show', () => {
     mainWindow?.show();
@@ -345,6 +350,7 @@ app.on('activate', () => {
 });
 
 function hideAllWindowsForShutdown(): void {
+  browserViewManager.hideAll();
   for (const window of BrowserWindow.getAllWindows()) {
     if (window.isDestroyed()) continue;
     window.hide();
@@ -417,6 +423,15 @@ async function performGracefulShutdown(): Promise<void> {
   console.log(`[sero] Graceful shutdown complete (${Date.now() - startedAt}ms)`);
 }
 
+function requestGracefulAppQuit(): void {
+  if (isGracefullyShuttingDown) return;
+  if (app.isReady()) {
+    app.quit();
+  } else {
+    app.exit(0);
+  }
+}
+
 // ── Graceful shutdown ──────────────────────────────────────────
 app.on('before-quit', (e) => {
   if (isGracefullyShuttingDown) return;
@@ -433,6 +448,9 @@ app.on('before-quit', (e) => {
       app.exit(0);
     });
 });
+
+process.once('SIGTERM', requestGracefulAppQuit);
+process.once('SIGINT', requestGracefulAppQuit);
 
 // ── Orphan cleanup ─────────────────────────────────────────────
 /**

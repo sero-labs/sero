@@ -11,6 +11,7 @@ import { TerminalTabs } from './TerminalTabs';
 import { TerminalPanel } from './TerminalPanel';
 import { EditorPanel } from './editor/EditorPanel';
 import { DiffTab } from './editor/DiffTab';
+import { BrowserPanel } from './browser/BrowserPanel';
 import { usePanelOpenSync } from './usePanelOpenSync';
 import { useExplorerRoots } from './useExplorerRoots';
 import { useExplorerEditorState } from './useExplorerEditorState';
@@ -41,6 +42,7 @@ export function ExplorerWorkspace() {
   const workspaceId = activeWorkspace?.id ?? 'global';
   const { sidebarOpen, activePanel, terminalOpen, explorerSidebarSizePct, terminalSizePct } =
     useWorkspaceExplorer(workspaceId);
+  const showSidebar = sidebarOpen && activePanel !== 'browser';
   const setExplorer = useExplorerStore((state) => state.set);
   const termTabs = useWorkspaceTerminals(workspaceId);
   const activeTerminalId = useActiveTerminalId(workspaceId);
@@ -87,7 +89,10 @@ export function ExplorerWorkspace() {
         return;
       }
 
-      setExplorer(workspaceId, { activePanel: panel, sidebarOpen: true });
+      setExplorer(workspaceId, {
+        activePanel: panel,
+        sidebarOpen: panel !== 'browser',
+      });
     },
     [workspaceId, activePanel, sidebarOpen, terminalOpen, termTabs.length, setExplorer],
   );
@@ -104,7 +109,7 @@ export function ExplorerWorkspace() {
   usePanelOpenSync(
     sidebarPanelRef,
     isSidebarProgrammaticRef,
-    sidebarOpen,
+    showSidebar,
     explorerSidebarLastExpandedPctRef.current || undefined,
   );
 
@@ -156,7 +161,7 @@ export function ExplorerWorkspace() {
       <div className="flex min-h-0 flex-1">
         <ActivityBar
           activePanel={activePanel}
-          sidebarOpen={sidebarOpen}
+          sidebarOpen={showSidebar}
           terminalOpen={terminalOpen}
           onPanelClick={handlePanelClick}
           workspaceId={workspaceId}
@@ -183,7 +188,7 @@ export function ExplorerWorkspace() {
                 onResize={handleSidebarResize}
                 style={{ overflow: 'hidden' }}
               >
-                {sidebarOpen && (
+                {showSidebar && (
                   <ExplorerSidebar
                     activePanel={activePanel}
                     workspaceId={workspaceId}
@@ -202,14 +207,16 @@ export function ExplorerWorkspace() {
               </ResizablePanel>
 
               <ResizableHandle
-                disabled={!sidebarOpen}
-                className={!sidebarOpen ? 'pointer-events-none opacity-0' : undefined}
+                disabled={!showSidebar}
+                className={!showSidebar ? 'pointer-events-none opacity-0' : undefined}
               />
 
               {/* ── Editor fills all remaining space ─────────────── */}
               <ResizablePanel id="explorer-editor" minSize={200} className="min-w-0">
                 <div className="flex h-full min-h-0 min-w-0 flex-col bg-[var(--bg-base)]">
-                  {diffState ? (
+                  {activePanel === 'browser' ? (
+                    <BrowserPanel workspaceId={workspaceId} />
+                  ) : diffState ? (
                     <>
                       {/* Diff mode: show a minimal tab bar with close action */}
                       <div className="flex h-8 shrink-0 items-center border-b border-[var(--border-subtle)] bg-[var(--bg-base)] px-2">

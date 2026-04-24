@@ -1,12 +1,12 @@
 import { useMemo } from 'react';
-import { Files, GitBranch, Terminal, Network } from 'lucide-react';
+import { Files, GitBranch, Terminal, Network, Globe } from 'lucide-react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@sero-ai/ui/components/ui/tooltip';
 import { cn } from '@sero-ai/ui/lib/utils';
 import { useSubagentStore } from '@/stores/subagent';
 
 // ── Types ──────────────────────────────────────────────────────
-export type ExplorerPanel = 'explorer' | 'git' | 'orchestration' | 'terminal';
+export type ExplorerPanel = 'explorer' | 'git' | 'orchestration' | 'browser' | 'terminal';
 
 interface ActivityItem {
   id: ExplorerPanel;
@@ -20,6 +20,7 @@ const items: ActivityItem[] = [
   { id: 'explorer', label: 'Explorer', icon: <Files className="size-[18px]" /> },
   { id: 'git', label: 'Source Control', icon: <GitBranch className="size-[18px]" /> },
   { id: 'orchestration', label: 'Orchestration', icon: <Network className="size-[18px]" /> },
+  { id: 'browser', label: 'Browser', icon: <Globe className="size-[18px]" /> },
   { id: 'terminal', label: 'Terminal', icon: <Terminal className="size-[18px]" />, bottom: true },
 ];
 

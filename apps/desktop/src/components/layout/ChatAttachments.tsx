@@ -1,4 +1,5 @@
 import { useCallback, useMemo } from 'react';
+import { Trash2 } from 'lucide-react';
 import {
   Attachments,
   Attachment,
@@ -18,26 +19,46 @@ import { useLightbox, type LightboxImage } from './ImageLightbox';
  * Renders queued attachments inside the PromptInput header.
  * Uses the `inline` variant — compact badges with hover-reveal remove buttons.
  * Must be rendered inside a <PromptInput> context.
+ *
+ * Shows a compact count + "Clear all" affordance above the badges when more
+ * than one item is queued so the user can reset without clicking each ×.
  */
 export function PromptAttachmentsBar() {
   const attachments = usePromptInputAttachments();
 
-  if (attachments.files.length === 0) return null;
+  const count = attachments.files.length;
+  if (count === 0) return null;
 
   return (
-    <Attachments variant="inline" className="px-1 pb-1">
-      {attachments.files.map((file) => (
-        <Attachment
-          key={file.id}
-          data={file}
-          onRemove={() => attachments.remove(file.id)}
-        >
-          <AttachmentPreview />
-          <AttachmentInfo />
-          <AttachmentRemove />
-        </Attachment>
-      ))}
-    </Attachments>
+    <div className="flex flex-col gap-1 px-1 pb-1">
+      {count > 1 && (
+        <div className="flex items-center justify-between px-1 text-[10px] uppercase tracking-wider text-[var(--text-muted)]">
+          <span>{count} attachments</span>
+          <button
+            type="button"
+            onClick={() => attachments.clear()}
+            className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]"
+            title="Remove all attachments"
+          >
+            <Trash2 className="size-3" />
+            Clear all
+          </button>
+        </div>
+      )}
+      <Attachments variant="inline">
+        {attachments.files.map((file) => (
+          <Attachment
+            key={file.id}
+            data={file}
+            onRemove={() => attachments.remove(file.id)}
+          >
+            <AttachmentPreview />
+            <AttachmentInfo />
+            <AttachmentRemove />
+          </Attachment>
+        ))}
+      </Attachments>
+    </div>
   );
 }
 

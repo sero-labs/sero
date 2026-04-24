@@ -1,8 +1,6 @@
 /**
  * Types for the `window.sero` API exposed by the preload script.
  *
- * Workspace tool interfaces (editor, filetree, LSP, debug, VCS) are in
- * electron-workspace.d.ts to keep each file under 500 LOC.
  */
 import type {
   SeroEditorAPI,
@@ -12,6 +10,7 @@ import type {
   SeroVcsAPI,
 } from './electron-workspace';
 import type { LayoutState, LoadedLayoutState } from './layout';
+import type { SeroBrowserAPI } from './electron-browser';
 import type {
   SeroGatewayAPI,
   SeroGitHubAPI,
@@ -460,6 +459,7 @@ export interface SeroAPI {
   appAgent: SeroAppAgentAPI;
   gitApp: SeroGitAppAPI;
   webApp: SeroWebAppAPI;
+  browser: SeroBrowserAPI;
   voice: SeroVoiceAPI;
   auth: SeroAuthAPI;
   container: SeroContainerAPI;
