@@ -223,11 +223,11 @@ Related spec: `.pi/plans/2026-04-22-oss-release/spec.md`
 
 - [x] Known limitations list is explicit and public
 - [x] Public docs are current and non-contradictory
-- [ ] CI is green on required gates
+- [x] CI is green on required gates
   - [x] Local required gate revalidated: root `pnpm test:ci` passed on 2026-04-22 (`required-gate-report.md`)
-  - [ ] Remote required CI run observed green
+  - [x] Remote required CI run observed green: GitHub Actions `test.yml` / `PR Gate` succeeded for PR `#156` on 2026-04-24 via `ready_for_review` trigger (`required-gate-report.md`)
 - [x] Maintainer knows exactly what is supported in alpha
 - [x] Support/triage plan for early issues is documented
 - [x] Launch copy and links are ready
 - [x] Final go/no-go review completed
-  - current verdict: conditional GO / public-promotion NO-GO until remote required CI is observed green (`go-no-go-review.md`)
+  - blocker cleared on 2026-04-24: remote required CI observed green; current verdict is GO for source-only OSS alpha promotion (`go-no-go-review.md`)

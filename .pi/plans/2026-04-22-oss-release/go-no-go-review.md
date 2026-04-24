@@ -2,9 +2,9 @@
 
 Date: 2026-04-22
 Branch: `feat/release-prep`
-Status: Completed review
-Recommendation: **Conditional GO after one remaining blocker is cleared**
-Current public-promotion verdict: **NO-GO until remote required CI is observed green**
+Status: Completed review; blocker cleared on 2026-04-24
+Recommendation: **GO for source-only OSS alpha promotion**
+Current public-promotion verdict: **GO**
 
 ## Scope
 
@@ -88,21 +88,28 @@ For the current source-only alpha posture, the repo now has enough grounding in:
 - dependency license review
 - support / triage expectations
 
-## Remaining blocker
+## Blocker status update
 
-### Remote required CI run not yet observed green
-Current truth:
+### Remote required CI blocker is now cleared
+Updated truth as of 2026-04-24:
 - the **local** required gate is green
-- the **remote required CI run** has **not yet been observed green** in GitHub
+- the **remote required CI run** has now been observed green in GitHub
 
-Because the checklist item is specifically:
+Observed remote evidence:
+- workflow: `.github/workflows/test.yml`
+- job: `PR Gate`
+- trigger: `pull_request` via `ready_for_review`
+- PR: `#156`
+- result: **success**
+- total duration: `4m 52s`
+- Playwright summary shown in GitHub UI: `33 passed`, `10 skipped`
+
+This clears the checklist item:
 - `CI is green on required gates`
-
-that item must remain open until an actual required remote run is seen passing.
 
 ## Deferred but acceptable for this alpha wave
 These remain open in the master checklist, but they do **not** currently block a
-source-only alpha once the remote CI blocker is cleared:
+source-only alpha:
 
 - public-tree pruning / relocation work under preserve-before-prune rules
 - stale/redundant/flaky test audit
@@ -114,18 +121,15 @@ source-only alpha once the remote CI blocker is cleared:
 ## Verdict
 
 ### Operational verdict
-**Conditional GO**
+**GO**
 
 ### Public-promotion verdict right now
-**NO-GO** until this is cleared:
-- observe one real remote required CI run green for the current branch / merge path
+**GO for source-only OSS alpha promotion**
 
-### Expected flip condition
-Once maintainers have:
-1. a real green required CI run, and
-2. no newly introduced contradictions in the public launch surface,
-
-this review can be treated as a **GO for source-only OSS alpha promotion**.
+### Basis
+Maintainers now have:
+1. a real green required remote CI run, and
+2. no newly introduced contradictions in the public launch surface.
 
 ## Maintainer answer sheet
 
@@ -147,10 +151,14 @@ this review can be treated as a **GO for source-only OSS alpha promotion**.
 - full feature parity without Apple containers
 - frozen internal extension/runtime contracts
 
-## Next required action
+## Next action
 
-Before public promotion, do exactly this:
-- observe a green required remote CI run
+No further blocker-clearing action is required for the current source-only OSS
+alpha posture.
 
-After that, the remaining open checklist items are either intentionally deferred
-or non-blocking for the current source-only alpha posture.
+From here, maintainers can either:
+- proceed with public promotion, or
+- continue landing optional/non-blocking cleanup work
+
+The remaining open checklist items are intentionally deferred or non-blocking
+for this alpha posture.
