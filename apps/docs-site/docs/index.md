@@ -6,7 +6,7 @@ hero:
   text: Agent-first local development for macOS
   tagline: One desktop shell for workspaces, agent chat, plugins, terminals, and previews.
   image:
-    src: /assets/phoenix.svg
+    src: /assets/phoenix2.svg
     alt: Sero phoenix mark
   actions:
     - theme: brand
