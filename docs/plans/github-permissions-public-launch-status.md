@@ -92,9 +92,30 @@ Implementation notes:
 - The placeholder `sero-labs` teams created in Phase 1 are not yet granted repository permissions. This is intentional while the project is owner-operated.
 - When collaborators are added later, grant access through teams rather than direct per-user repository permissions.
 
+## Phase 4 — Protect the Default Branch
+
+Status: Complete
+
+Applied classic branch protection to the default branch of every repository in scope.
+
+Applied settings:
+
+- Default branch protected: `main` for all repositories in scope.
+- Pull request review protection enabled.
+- Stale reviews are dismissed after new commits.
+- Required approving review count is `0` for the solo-maintainer phase.
+- Required conversation resolution is enabled.
+- Force pushes are disabled.
+- Branch deletion is disabled.
+- Admin enforcement is disabled so the owner can bypass during the solo-maintainer phase if necessary.
+
+Rationale:
+
+- This is intentionally solo-maintainer friendly. It establishes the protected-branch structure now without locking the sole maintainer out of emergency fixes.
+- When additional maintainers join, increase required approvals to `1` or `2` and consider enabling code owner review.
+
 ## Remaining Phases
 
-- Phase 4 — Protect the default branch
 - Phase 5 — Define required checks
 - Phase 6 — Add ownership metadata
 - Phase 7 — Lock down GitHub Actions and secrets
