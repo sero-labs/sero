@@ -19,11 +19,8 @@ problems.
 Use one of these private channels:
 1. **Preferred:** GitHub private vulnerability reporting / security advisories,
    if enabled for the repository.
-2. **Fallback:** email `security@sero.ai` with the subject line
+2. **Fallback:** email `security@sero-ai.dev` with the subject line
    `[Sero Security]`.
-
-> Launch note: `security@sero.ai` is the intended public security contact.
-> Confirm the mailbox exists before announcing the repository publicly.
 
 Please include:
 - a clear description of the issue

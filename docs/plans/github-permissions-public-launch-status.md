@@ -20,7 +20,7 @@ Implemented for `sero-labs`:
 
 Notes:
 
-- Attempted to enable the organisation two-factor-authentication requirement through the GitHub API. The API accepted the request but the organisation still reports `two_factor_requirement_enabled: false`. This likely needs verification in the GitHub web UI under organisation security settings.
+- Organisation two-factor authentication was confirmed enabled in the GitHub web UI.
 - Because the organisation currently has only one owner/member, the main benefit of this phase is future-proofing before collaborators are invited.
 
 ## Phase 2 — Classify Repositories by Risk
@@ -207,8 +207,8 @@ Verified main repo public-facing files exist:
 
 Implemented:
 
-- Updated `SECURITY.md` to use the intended placeholder public security contact: `security@sero.ai`.
-- Added a launch note to confirm the security mailbox exists before public announcement.
+- Updated `SECURITY.md` to use the public security contact: `security@sero-ai.dev`.
+- Configured and activated `security@sero-ai.dev` in Proton Mail for the `sero-ai.dev` domain.
 - Expanded the PR template with a safety checklist for secrets, unsafe TypeScript suppressions/casts, and the 500 LOC source-file guideline.
 - Enabled private vulnerability reporting on all public external plugin repositories.
 
@@ -243,8 +243,7 @@ Notes:
 
 Before public announcement:
 
-- Confirm the `security@sero.ai` mailbox exists and is monitored, or replace it with the desired public security contact.
-- Revisit organisation 2FA in the GitHub web UI; the API did not successfully enable/report it.
+- Send an external test email to `security@sero-ai.dev` and verify inbound and outbound delivery.
 - Consider installing TruffleHog and running a second verified-secret scan.
 - Make `sero-labs/sero` public only when ready.
 - After `sero-labs/sero` is public, enable private vulnerability reporting for it.
