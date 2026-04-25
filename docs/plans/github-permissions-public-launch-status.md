@@ -114,9 +114,28 @@ Rationale:
 - This is intentionally solo-maintainer friendly. It establishes the protected-branch structure now without locking the sole maintainer out of emergency fixes.
 - When additional maintainers join, increase required approvals to `1` or `2` and consider enabling code owner review.
 
+## Phase 5 — Define Required Checks
+
+Status: Complete for current available CI
+
+Implemented:
+
+- Updated the main repo PR workflow trigger to include `synchronize`, so the PR gate reruns when new commits are pushed to an open PR.
+- Required the `PR Gate` status check on `sero-labs/sero:main`.
+- Enabled strict required status checks on `sero-labs/sero:main`, requiring branches to be up to date before merge.
+
+Plugin repository findings:
+
+- The external plugin repositories currently do not expose `.github/workflows` files through the GitHub API.
+- Because there are no stable CI check names to require yet, plugin branch protection remains without required status checks for now.
+
+Follow-up:
+
+- Add a standard plugin CI workflow to each plugin repository.
+- After those workflows have run at least once and check names are stable, require the plugin check on each protected `main` branch.
+
 ## Remaining Phases
 
-- Phase 5 — Define required checks
 - Phase 6 — Add ownership metadata
 - Phase 7 — Lock down GitHub Actions and secrets
 - Phase 8 — Perform a secret and history audit
