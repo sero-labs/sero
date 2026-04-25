@@ -190,7 +190,32 @@ Notes:
 - The gitleaks report is empty because no leaks were found.
 - If extra assurance is desired before flipping `sero-labs/sero` public, install TruffleHog and rerun the verified-secret scan.
 
+## Phase 9 — Prepare Public-Facing Project Files
+
+Status: Complete for the main repository
+
+Verified main repo public-facing files exist:
+
+- `README.md`
+- `LICENSE`
+- `CONTRIBUTING.md`
+- `SECURITY.md`
+- `CODE_OF_CONDUCT.md`
+- `.github/pull_request_template.md`
+- `.github/ISSUE_TEMPLATE/`
+- `.github/CODEOWNERS`
+
+Implemented:
+
+- Updated `SECURITY.md` to use the intended placeholder public security contact: `security@sero.ai`.
+- Added a launch note to confirm the security mailbox exists before public announcement.
+- Expanded the PR template with a safety checklist for secrets, unsafe TypeScript suppressions/casts, and the 500 LOC source-file guideline.
+- Enabled private vulnerability reporting on all public external plugin repositories.
+
+Notes:
+
+- Enabling private vulnerability reporting for `sero-labs/sero` returned `404`, likely because the repository is still private. Revisit this immediately after making the main repository public.
+
 ## Remaining Phases
 
-- Phase 9 — Prepare public-facing project files
 - Phase 10 — Standardise plugin repository settings
