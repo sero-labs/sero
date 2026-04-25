@@ -74,9 +74,26 @@ Policy target:
 - Solo-maintainer-friendly bypass while there is only one maintainer.
 - README should clearly indicate experimental/demo status where applicable.
 
+## Phase 3 — Audit Human Access
+
+Status: Complete
+
+Audited human/team access across all repositories in scope.
+
+Findings:
+
+- Only `monobyte` appears as a collaborator/admin on the repositories in scope.
+- No unexpected outside collaborators were found.
+- No repository teams currently have access to the repositories in scope.
+- This matches the current solo-maintainer ownership model.
+
+Implementation notes:
+
+- The placeholder `sero-labs` teams created in Phase 1 are not yet granted repository permissions. This is intentional while the project is owner-operated.
+- When collaborators are added later, grant access through teams rather than direct per-user repository permissions.
+
 ## Remaining Phases
 
-- Phase 3 — Audit human access
 - Phase 4 — Protect the default branch
 - Phase 5 — Define required checks
 - Phase 6 — Add ownership metadata
