@@ -14,7 +14,7 @@
 - `docs/plans/**` is a mixed bucket: some files are useful as durable migration history, but many are now **stale plan artifacts** that should be harvested and archived rather than kept as current truth.
 - `docs/superpowers/**` is mostly **transient/internal design history** with reusable implementation facts; it is valuable for provenance, but not a polished public docs surface.
 - `docs/deslopify/**` is best treated as **durable internal**: a living engineering-maintenance record that should not be promoted as user-facing documentation.
-- The biggest sanitization issue is repeated hardcoded local paths like `/Users/danielcarter/...` in plans and specs, plus some direct references to `~/.pi/agent/` that conflict with Sero’s own agent-directory convention.
+- The biggest sanitization issue is repeated hardcoded local paths like `/Users/{user}/...` in plans and specs, plus some direct references to `~/.pi/agent/` that conflict with Sero’s own agent-directory convention.
 - `AGENTS.md` is clearly internal operating guidance and should remain internal unless the team explicitly chooses to publish contributor ops conventions.
 - There is no evidence in the scanned docs of live secret material; the concern is **exposing machine-specific paths, internal workflows, and stale plans**.
 - The release should define a clear public docs boundary now, before any pruning, and harvest durable facts into canonical docs later.
@@ -70,17 +70,17 @@ Reviewed major trees and representative files under:
 
 | path | issue | severity | suggested sanitization |
 |---|---|---|---|
-| `.pi/plans/2026-04-19-local-plugin-dev-sessions/plan.md` | Hardcoded local directory `/Users/danielcarter/Documents/Dev/projects/sero/sero` and example `/Users/daniel/Code/sero-my-plugin`. | high | Replace with repo-relative references or sanitized placeholders like `<repo-root>` / `<plugin-checkout-path>`. |
+| `.pi/plans/2026-04-19-local-plugin-dev-sessions/plan.md` | Hardcoded local directory `/Users/{user}/Documents/Dev/projects/sero/sero` and example `/Users/daniel/Code/sero-my-plugin`. | high | Replace with repo-relative references or sanitized placeholders like `<repo-root>` / `<plugin-checkout-path>`. |
 | `.pi/plans/2026-04-19-local-plugin-dev-sessions/spec.md` | Same machine-specific root path leakage. | high | Remove absolute local path; use repo-relative or generic examples only. |
-| `.pi/plans/2026-04-20-github-auth-unification/plan.md` | Hardcoded repo root `/Users/danielcarter/Documents/Dev/projects/sero/sero`. | medium | Convert to relative references or `<repo-root>`. |
+| `.pi/plans/2026-04-20-github-auth-unification/plan.md` | Hardcoded repo root `/Users/{user}/Documents/Dev/projects/sero/sero`. | medium | Convert to relative references or `<repo-root>`. |
 | `.pi/plans/2026-04-20-github-auth-unification/spec.md` | Hardcoded repo root path in frontmatter/body. | medium | Replace with relative path or generic placeholder. |
 | `.pi/plans/2026-04-20-mcp-adaptor-plugin/plan.md` | Hardcoded repo root path. | medium | Replace with relative path or placeholder. |
 | `.pi/plans/2026-04-20-mcp-adaptor-plugin/scout-context.md` | Hardcoded repo root path. | medium | Replace with relative path or placeholder. |
 | `.pi/plans/2026-04-20-mcp-adaptor-plugin/spec.md` | Hardcoded repo root path. | medium | Replace with relative path or placeholder. |
 | `.pi/plans/2026-04-22-oss-release/scout-context.md` | Hardcoded repo root path in the release-context note. | medium | Use repo-relative path or `<repo-root>`. |
-| `.pi/plans/2026-04-22-oss-release/spec.md` | Earlier release plan references `/Users/danielcarter/...` in examples. | medium | Normalize to generic placeholders before public reuse. |
+| `.pi/plans/2026-04-22-oss-release/spec.md` | Earlier release plan references `/Users/{user}/...` in examples. | medium | Normalize to generic placeholders before public reuse. |
 | `docs/plans/2026-04-19-local-plugin-dev-sessions.md` | Example session path uses `/Users/daniel/.../sero-google-plugin`. | high | Sanitize to `<plugin-checkout-path>` or a repo-relative example. |
-| `docs/superpowers/plans/2026-04-04-dynamic-model-provider.md` | Repeated command examples used `/Users/danielcarter/Documents/Dev/projects/sero/sero`. | medium | Archived on `private-archive/batch-d3-pre-prune-2026-04-24`; removed from this branch after prior sanitization review. |
+| `docs/superpowers/plans/2026-04-04-dynamic-model-provider.md` | Repeated command examples used `/Users/{user}/Documents/Dev/projects/sero/sero`. | medium | Archived on `private-archive/batch-d3-pre-prune-2026-04-24`; removed from this branch after prior sanitization review. |
 | `docs/superpowers/plans/2026-04-05-onboarding-polish.md` | Same hardcoded repo root in command examples. | medium | Archived on `private-archive/batch-d4-pre-prune-2026-04-24`; removed from this branch after prior sanitization review. |
 | `docs/superpowers/plans/2026-04-06-merge-admin-resources.md` | Same hardcoded repo root in command examples. | medium | Archived on `private-archive/batch-d6-pre-prune-2026-04-24`; removed from this branch after prior sanitization review. |
 | `docs/superpowers/plans/2026-04-06-providers-panel.md` | Same hardcoded repo root in command examples. | medium | Archived on `private-archive/batch-d7-pre-prune-2026-04-24`; removed from this branch after prior sanitization review. |

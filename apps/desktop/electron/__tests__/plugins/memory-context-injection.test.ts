@@ -87,12 +87,12 @@ describe('Test 12 — Context injection', () => {
   });
 
   it('injects USER.md when present', async () => {
-    await writeFile('USER.md', '<!-- last updated: 2026-04-01 -->\n# User\n\n- **Name:** Daniel\n- **Role:** Developer');
+    await writeFile('USER.md', '<!-- last updated: 2026-04-01 -->\n# User\n\n- **Name:** Dan\n- **Role:** Developer');
 
     const context = await buildPriorityContext(root, 'hello');
 
     expect(context).toContain('USER.md');
-    expect(context).toContain('Daniel');
+    expect(context).toContain('Dan');
   });
 
   it('returns empty string when no memory files exist', async () => {
@@ -115,7 +115,7 @@ describe('Test 12 — Context injection', () => {
 describe('Frozen snapshot mode', () => {
   it('keeps long-term memory stable across turns in frozen mode', async () => {
     await writeFile('IDENTITY.md', '# Identity\n\n- **Name:** Sero');
-    await writeFile('USER.md', '# User\n\n- **Name:** Daniel');
+    await writeFile('USER.md', '# User\n\n- **Name:** Dan');
     await seedMemory([
       { type: 'preference', text: 'TypeScript over JavaScript' },
     ]);
@@ -134,7 +134,7 @@ describe('Frozen snapshot mode', () => {
 
   it('rebuilds long-term memory on each turn in live mode', async () => {
     await writeFile('IDENTITY.md', '# Identity\n\n- **Name:** Sero');
-    await writeFile('USER.md', '# User\n\n- **Name:** Daniel');
+    await writeFile('USER.md', '# User\n\n- **Name:** Dan');
     await seedMemory([
       { type: 'preference', text: 'TypeScript over JavaScript' },
     ]);

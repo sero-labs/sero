@@ -1,0 +1,346 @@
+@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Geist+Mono:wght@500;600&display=swap");
+
+:root {
+  --sero-font-display: "Outfit", "Avenir Next", "Helvetica Neue", ui-sans-serif, system-ui, sans-serif;
+  --sero-font-body: "Outfit", "Avenir Next", "Helvetica Neue", ui-sans-serif, system-ui, sans-serif;
+  --sero-font-mono: "Geist Mono", "SFMono-Regular", ui-monospace, monospace;
+  --sero-bg: #f3f7f2;
+  --sero-panel: #fbfff9;
+  --sero-panel-soft: #ffffff;
+  --sero-text: #13211b;
+  --sero-muted: rgba(19, 33, 27, 0.66);
+  --sero-line: rgba(10, 80, 58, 0.15);
+  --sero-nav-bg: rgba(243, 247, 242, 0.84);
+  --sero-nav-text: rgba(19, 33, 27, 0.86);
+  --sero-kicker: rgba(19, 33, 27, 0.68);
+  --sero-logo-filter: none;
+  --sero-page-aura: linear-gradient(135deg, rgba(255, 255, 255, 0.55), transparent 38%);
+  --sero-card-gradient: linear-gradient(145deg, rgba(255, 255, 255, 0.86), rgba(236, 253, 245, 0.58));
+  --sero-card-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75), 0 18px 42px rgba(6, 78, 59, 0.1);
+  --sero-first-card-aura: radial-gradient(circle at 18% 20%, rgba(16, 185, 129, 0.15), transparent 12rem);
+  --sero-hero-halo: radial-gradient(circle, rgba(16, 185, 129, 0.16), transparent 62%);
+  --sero-phoenix-shadow: drop-shadow(0 24px 56px rgba(6, 78, 59, 0.18));
+  --sero-button-bg: #5bbf93;
+  --sero-button-text: #ffffff;
+  --sero-button-alt-bg: #e7f5ee;
+  --sero-button-alt-text: #173f31;
+  --sero-ember: #047857;
+  --rp-c-brand: var(--sero-ember);
+  --rp-c-brand-dark: #065f46;
+  --rp-c-brand-light: #10b981;
+  --rp-nav-height: 68px;
+}
+
+.dark {
+  --sero-bg: #111417;
+  --sero-panel: #1a1d21;
+  --sero-panel-soft: #22262b;
+  --sero-text: #f3efe7;
+  --sero-muted: rgba(243, 239, 231, 0.64);
+  --sero-line: rgba(243, 239, 231, 0.1);
+  --sero-nav-bg: rgba(17, 20, 23, 0.84);
+  --sero-nav-text: rgba(243, 239, 231, 0.86);
+  --sero-kicker: rgba(243, 239, 231, 0.72);
+  --sero-logo-filter: brightness(0) invert(1);
+  --sero-page-aura:
+    radial-gradient(circle at 82% 26%, rgba(16, 185, 129, 0.14), transparent 24rem),
+    radial-gradient(circle at 20% 80%, rgba(6, 78, 59, 0.28), transparent 31rem),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.035), transparent 36%);
+  --sero-card-gradient: linear-gradient(145deg, rgba(255, 255, 255, 0.052), rgba(255, 255, 255, 0.018));
+  --sero-card-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 18px 44px rgba(0, 0, 0, 0.16);
+  --sero-first-card-aura: radial-gradient(circle at 18% 20%, rgba(16, 185, 129, 0.12), transparent 12rem);
+  --sero-hero-halo: radial-gradient(circle, rgba(16, 185, 129, 0.14), transparent 62%);
+  --sero-phoenix-shadow: drop-shadow(0 24px 56px rgba(0, 0, 0, 0.3));
+  --sero-button-bg: #10b981;
+  --sero-button-text: #ffffff;
+  --sero-button-alt-bg: rgba(255, 255, 255, 0.08);
+  --sero-button-alt-text: var(--sero-text);
+  --sero-ember: #10b981;
+  --rp-c-brand-dark: #059669;
+  --rp-c-brand-light: #34d399;
+}
+
+html,
+body {
+  background: var(--sero-bg);
+}
+
+body {
+  font-family: var(--sero-font-body);
+  font-feature-settings: "ss01" 1, "cv01" 1, "cv03" 1;
+  text-rendering: geometricPrecision;
+}
+
+body::before {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  content: "";
+  background: var(--sero-page-aura);
+}
+
+.rspress-nav {
+  height: var(--rp-nav-height) !important;
+  border-bottom: 1px solid var(--sero-line) !important;
+  background: var(--sero-nav-bg) !important;
+  backdrop-filter: blur(18px);
+}
+
+.rspress-logo {
+  width: 70px;
+  height: auto;
+  filter: var(--sero-logo-filter);
+}
+
+.rspress-nav-menu-item,
+.rspress-nav-menu-group-button {
+  color: var(--sero-nav-text) !important;
+  font-family: var(--sero-font-body) !important;
+  font-size: 0.86rem !important;
+  font-weight: 650 !important;
+  letter-spacing: -0.015em;
+}
+
+.rspress-home-hero-text,
+.rspress-home-feature-title,
+section h1 span {
+  font-family: var(--sero-font-display) !important;
+}
+
+.rspress-home-hero-tagline,
+.rspress-home-feature-detail,
+.button_e8e0d {
+  font-family: var(--sero-font-body) !important;
+}
+
+section > div[style*="min-height"] {
+  min-height: calc(100dvh - var(--rp-nav-height)) !important;
+  overflow: hidden;
+  padding-bottom: 16px !important;
+}
+
+section > div[style*="min-height"] > div.pb-12 {
+  padding-bottom: 0 !important;
+}
+
+section > div[style*="min-height"] > div.pb-12 > div.relative {
+  padding: 1.25rem 2rem 0.75rem !important;
+}
+
+section div:has(> div > .rspress-home-hero-image) {
+  min-height: 34vh !important;
+  max-width: 1180px !important;
+  margin-top: 0 !important;
+}
+
+section div:has(> div > .rspress-home-hero-image) > div:first-child {
+  align-items: flex-start !important;
+  justify-content: center !important;
+  text-align: left !important;
+}
+
+section h1 {
+  display: none !important;
+}
+
+section h1 span {
+  background: none !important;
+  color: var(--sero-kicker) !important;
+  -webkit-text-fill-color: var(--sero-kicker) !important;
+}
+
+.rspress-home-hero-text {
+  max-width: 640px !important;
+  color: var(--sero-text) !important;
+  font-size: clamp(2.3rem, 4.25vw, 4.25rem) !important;
+  font-weight: 780 !important;
+  letter-spacing: -0.058em;
+  line-height: 0.96 !important;
+  text-align: left !important;
+}
+
+.rspress-home-hero-tagline {
+  max-width: 560px !important;
+  padding-top: 0.85rem !important;
+  color: var(--sero-muted) !important;
+  font-size: clamp(0.94rem, 1.1vw, 1.05rem) !important;
+  font-weight: 500 !important;
+  letter-spacing: -0.02em;
+  line-height: 1.45 !important;
+  text-align: left !important;
+}
+
+.rspress-home-hero-tagline + div {
+  justify-content: flex-start !important;
+  padding-top: 1rem !important;
+  gap: 0.65rem !important;
+}
+
+.rspress-home-hero-tagline + div a {
+  min-height: 2.65rem !important;
+  padding: 0.58rem 1.3rem !important;
+  font-size: 0.88rem !important;
+  font-weight: 700 !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+.rspress-home-hero-tagline + div > div:first-child a {
+  border-color: transparent !important;
+  background-color: var(--sero-button-bg) !important;
+  color: var(--sero-button-text) !important;
+}
+
+.rspress-home-hero-tagline + div > div:not(:first-child) a {
+  border-color: var(--sero-line) !important;
+  background-color: var(--sero-button-alt-bg) !important;
+  color: var(--sero-button-alt-text) !important;
+}
+
+.rspress-home-hero-image {
+  position: relative;
+  padding: 0.25rem 1rem;
+}
+
+.rspress-home-hero-image::before {
+  position: absolute;
+  inset: 15%;
+  z-index: -1;
+  content: "";
+  border: 1px solid rgba(16, 185, 129, 0.14);
+  border-radius: 999px;
+  background: var(--sero-hero-halo);
+  transform: rotate(-10deg);
+}
+
+.rspress-home-hero-image img {
+  width: min(280px, 24vw);
+  max-height: 260px;
+  object-fit: contain;
+  filter: var(--sero-phoenix-shadow);
+}
+
+.rspress-home-hero-image img.dark\:hidden {
+  display: block !important;
+}
+
+.rspress-home-hero-image img.hidden.dark\:block {
+  display: none !important;
+}
+
+section div:has(> div > div > article.rspress-home-feature-card) {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.96fr) minmax(0, 0.96fr);
+  max-width: 1180px !important;
+  gap: 12px;
+  overflow: visible !important;
+}
+
+section div:has(> div > div > article.rspress-home-feature-card) > div {
+  width: auto !important;
+  max-width: none !important;
+}
+
+.rspress-home-feature-card {
+  min-height: 100%;
+  padding: 1rem 1.15rem !important;
+  border: 1px solid var(--sero-line) !important;
+  border-radius: 1.18rem !important;
+  background:
+    var(--sero-card-gradient),
+    var(--sero-panel) !important;
+  box-shadow: var(--sero-card-shadow);
+  transition: transform 260ms cubic-bezier(0.16, 1, 0.3, 1), border-color 260ms ease;
+}
+
+.rspress-home-feature-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(16, 185, 129, 0.34) !important;
+}
+
+section div:has(> div > div > article.rspress-home-feature-card) > div:first-child article {
+  background:
+    var(--sero-first-card-aura),
+    var(--sero-card-gradient),
+    var(--sero-panel-soft) !important;
+}
+
+section div:has(> div > div > article.rspress-home-feature-card) article {
+  min-height: 9rem;
+}
+
+.rspress-home-feature-card .flex-center {
+  justify-content: flex-start !important;
+}
+
+.rspress-home-feature-icon {
+  width: 2rem !important;
+  height: 2rem !important;
+  color: var(--sero-ember) !important;
+}
+
+.rspress-home-feature-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.rspress-home-feature-title {
+  color: var(--sero-text) !important;
+  font-size: 0.95rem !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.018em;
+  line-height: 1.15 !important;
+  text-align: left !important;
+}
+
+.rspress-home-feature-detail {
+  max-width: 50ch;
+  margin-right: 0;
+  margin-left: 0;
+  color: var(--sero-muted) !important;
+  font-size: 0.77rem !important;
+  font-weight: 500;
+  letter-spacing: -0.006em;
+  line-height: 1.38 !important;
+  text-align: left;
+}
+
+@media (max-width: 760px) {
+  :root {
+    --rp-nav-height: 64px;
+  }
+
+  section > div[style*="min-height"] {
+    overflow: visible;
+  }
+
+  .rspress-logo {
+    width: 62px;
+  }
+
+  section div:has(> div > .rspress-home-hero-image) {
+    min-height: auto !important;
+  }
+
+  .rspress-home-hero-text {
+    font-size: clamp(2rem, 10vw, 3.1rem) !important;
+    letter-spacing: -0.055em;
+  }
+
+  .rspress-home-hero-image {
+    padding: 0 0 0.75rem;
+  }
+
+  .rspress-home-hero-image img {
+    width: min(240px, 62vw);
+  }
+
+  section div:has(> div > div > article.rspress-home-feature-card) {
+    grid-template-columns: 1fr;
+    padding-inline: 1rem;
+  }
+
+  section div:has(> div > div > article.rspress-home-feature-card) article {
+    min-height: auto;
+  }
+}

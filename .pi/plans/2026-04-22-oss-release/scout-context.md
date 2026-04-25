@@ -1,7 +1,7 @@
 # OSS Alpha Release Readiness — Scout Context
 
 Date: 2026-04-22
-Repo: `/Users/danielcarter/Documents/Dev/projects/sero/sero`
+Repo: `/Users/{user}/Documents/Dev/projects/sero/sero`
 
 ## Quick findings
 
@@ -11,7 +11,7 @@ Repo: `/Users/danielcarter/Documents/Dev/projects/sero/sero`
   - `docs/deslopify/` — 88 files
   - `docs/plans/` — 12 files
   - `docs/superpowers/` — 14 files
-- Tracked `.pi/plans/**` files exist and include absolute local paths like `/Users/danielcarter/...`.
+- Tracked `.pi/plans/**` files exist and include absolute local paths like `/Users/{user}/...`.
 - `docs/superpowers/**` and some plan/spec files also contain machine-specific absolute paths and transient planning content.
 
 ### Tests/evals

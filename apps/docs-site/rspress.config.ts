@@ -1,9 +1,16 @@
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'rspress/config';
 
+const currentDir = path.dirname(fileURLToPath(import.meta.url));
+
 export default defineConfig({
+  globalStyles: path.resolve(currentDir, 'docs/styles.css'),
   root: 'docs',
   outDir: 'dist',
   base: '/',
+  logo: '/assets/logo.svg',
+  logoText: '',
   title: 'Sero',
   description: 'Local-first, agent-first desktop workspace for macOS.',
   lang: 'en-US',

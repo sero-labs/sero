@@ -40,6 +40,6 @@ It does, however, remove obvious machine-specific path leakage from:
 
 ## Validation
 
-- `rg -n '/Users/danielcarter|/Users/daniel/' . -g '!**/node_modules/**' -g '!**/dist/**' -g '!**/release/**' -g '!**/.git/**'` → no matches
+- `rg -n '/Users/{user}|/Users/daniel/' . -g '!**/node_modules/**' -g '!**/dist/**' -g '!**/release/**' -g '!**/.git/**'` → no matches
 - `cd plugins/sero-admin-plugin && pnpm exec vitest run ui/components/plugins/PluginSections.test.tsx ui/components/plugins/PluginDevSessionCard.test.tsx` ✅
 - `pnpm typecheck` ✅
