@@ -216,6 +216,36 @@ Notes:
 
 - Enabling private vulnerability reporting for `sero-labs/sero` returned `404`, likely because the repository is still private. Revisit this immediately after making the main repository public.
 
-## Remaining Phases
+## Phase 10 — Standardise Plugin Repository Settings
 
-- Phase 10 — Standardise plugin repository settings
+Status: Complete for baseline repository settings and public files
+
+Implemented across all external plugin repositories in scope:
+
+- Confirmed visibility is public.
+- Confirmed default branch is `main`.
+- Protected `main` in Phase 4.
+- Confirmed workflow token permissions are read-only in Phase 7.
+- Added `.github/CODEOWNERS` in Phase 6.
+- Enabled private vulnerability reporting in Phase 9.
+- Added standard public repository files:
+  - `LICENSE`
+  - `SECURITY.md`
+  - `CONTRIBUTING.md`
+  - `.github/pull_request_template.md`
+
+Notes:
+
+- Plugin repositories still need standard CI workflows before required plugin status checks can be enabled.
+- The main repo remains private. Do not flip it public until the final manual launch checks are complete.
+
+## Final Manual Launch Checks
+
+Before public announcement:
+
+- Confirm the `security@sero.ai` mailbox exists and is monitored, or replace it with the desired public security contact.
+- Revisit organisation 2FA in the GitHub web UI; the API did not successfully enable/report it.
+- Consider installing TruffleHog and running a second verified-secret scan.
+- Make `sero-labs/sero` public only when ready.
+- After `sero-labs/sero` is public, enable private vulnerability reporting for it.
+- After plugin CI workflows exist and have run, enable required plugin status checks.
