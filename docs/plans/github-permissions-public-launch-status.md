@@ -172,8 +172,25 @@ Notes:
 - Allowed actions are currently set to `all`. This avoids breaking the existing `pnpm/action-setup` and other third-party workflow actions during the solo-maintainer phase.
 - If/when release workflows or publish secrets are added, protect them with GitHub Environments and reviewer approval.
 
+## Phase 8 — Perform a Secret and History Audit
+
+Status: Complete for the local main repository
+
+Implemented:
+
+- Ran `gitleaks detect --source . --redact` against the local repository history.
+- Gitleaks scanned 1028 commits and reported no leaks.
+- Attempted a TruffleHog verified-secret scan. TruffleHog was not installed in this environment, so the TruffleHog step was recorded as skipped.
+- Saved scan artifacts under `docs/plans/artifacts/`:
+  - `gitleaks-public-launch-report.json`
+  - `trufflehog-public-launch-report.json`
+
+Notes:
+
+- The gitleaks report is empty because no leaks were found.
+- If extra assurance is desired before flipping `sero-labs/sero` public, install TruffleHog and rerun the verified-secret scan.
+
 ## Remaining Phases
 
-- Phase 8 — Perform a secret and history audit
 - Phase 9 — Prepare public-facing project files
 - Phase 10 — Standardise plugin repository settings
