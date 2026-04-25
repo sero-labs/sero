@@ -134,9 +134,28 @@ Follow-up:
 - Add a standard plugin CI workflow to each plugin repository.
 - After those workflows have run at least once and check names are stable, require the plugin check on each protected `main` branch.
 
+## Phase 6 — Add Ownership Metadata
+
+Status: Complete
+
+Implemented:
+
+- Replaced the main repo placeholder CODEOWNERS file with a solo-maintainer ownership map using `@monobyte`.
+- Added ownership entries for repository governance files, security-sensitive desktop/runtime areas, shared packages, built-in plugins, and public project policy docs.
+- Added `.github/CODEOWNERS` to every external plugin repository in scope.
+
+Rationale:
+
+- `@monobyte` is the valid current code owner while the organisation is solo-maintainer operated.
+- The placeholder `sero-labs` teams do not yet have repository access, so they should not be used as active CODEOWNERS until future maintainers are added and team permissions are granted.
+
+Follow-up:
+
+- When collaborators join, grant access through `sero-labs` teams and replace relevant `@monobyte` CODEOWNERS entries with team handles.
+- After team ownership is valid, enable required code owner review on protected branches.
+
 ## Remaining Phases
 
-- Phase 6 — Add ownership metadata
 - Phase 7 — Lock down GitHub Actions and secrets
 - Phase 8 — Perform a secret and history audit
 - Phase 9 — Prepare public-facing project files
