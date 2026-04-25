@@ -154,9 +154,26 @@ Follow-up:
 - When collaborators join, grant access through `sero-labs` teams and replace relevant `@monobyte` CODEOWNERS entries with team handles.
 - After team ownership is valid, enable required code owner review on protected branches.
 
+## Phase 7 — Lock Down GitHub Actions and Secrets
+
+Status: Complete for current repository state
+
+Implemented:
+
+- Confirmed repository workflow token defaults are read-only across all repositories in scope.
+- Explicitly set repository workflow token defaults to read-only across all repositories in scope.
+- Confirmed GitHub Actions cannot approve pull request reviews across all repositories in scope.
+- Added explicit `permissions: contents: read` to the main repo PR gate workflow.
+- Confirmed there are currently no repository-level GitHub Actions secrets in any repository in scope.
+
+Notes:
+
+- Actions remain enabled.
+- Allowed actions are currently set to `all`. This avoids breaking the existing `pnpm/action-setup` and other third-party workflow actions during the solo-maintainer phase.
+- If/when release workflows or publish secrets are added, protect them with GitHub Environments and reviewer approval.
+
 ## Remaining Phases
 
-- Phase 7 — Lock down GitHub Actions and secrets
 - Phase 8 — Perform a secret and history audit
 - Phase 9 — Prepare public-facing project files
 - Phase 10 — Standardise plugin repository settings
