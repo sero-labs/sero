@@ -410,7 +410,7 @@ Expected candidates:
 
 #### OSS-0404 [Serial] — Sanitize remaining public references
 - replace local absolute paths with sanitized examples
-- remove stale “do this on Daniel’s machine” style references
+- remove stale “do this on Dan’s machine” style references
 - update links after moves/removals
 
 ### Gate G4 — Public Surface Ready [Serial]

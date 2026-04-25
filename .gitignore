@@ -20,3 +20,5 @@ playwright-report/
 
 apps/desktop/release/
 apps/desktop/sero-desktop-*.tgz
+
+.claude/

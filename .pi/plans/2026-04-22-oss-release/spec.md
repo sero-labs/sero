@@ -2,7 +2,7 @@
 
 Status: Draft
 Date: 2026-04-22
-Owner: Daniel Carter
+Owner: Dan Carter
 Scope: Prepare the Sero monorepo, docs, workflows, and release artifacts for a professional public open-source alpha release.
 
 ## 1. Objective

@@ -19,7 +19,7 @@ problems.
 Use one of these private channels:
 1. **Preferred:** GitHub private vulnerability reporting / security advisories,
    if enabled for the repository.
-2. **Fallback:** email `danielrosscarter@gmail.com` with the subject line
+2. **Fallback:** email `sero_ai@pm.me` with the subject line
    `[Sero Security]`.
 
 Please include:

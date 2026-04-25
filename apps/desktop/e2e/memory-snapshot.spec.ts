@@ -58,7 +58,7 @@ async function seedManagedFiles(
   );
   await fs.writeFile(
     path.join(root, 'USER.md'),
-    '# User\n\n- **Name:** Daniel\n- **Role:** Developer',
+    '# User\n\n- **Name:** Dan\n- **Role:** Developer',
     'utf8',
   );
 
