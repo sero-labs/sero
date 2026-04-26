@@ -20,6 +20,19 @@ The project goal is not just “AI in an editor.” It is a workspace layer wher
 - runtime mode can be container-backed or host-based
 - plugins can extend both UI and agent capabilities
 
+## Core guides
+
+- [Workspace and Chat](/guide/workspace-and-chat) explains the shell, sidebar,
+  workspaces, sessions, and global chat panel.
+- [Memory](/guide/memory) explains durable local context, scratchpad workflows,
+  storage, and recall limits.
+- [Web Access](/guide/web-access) explains web search, content fetching,
+  bookmarks, provider prerequisites, and workspace-scoped web state.
+- [Scheduler and Reminders](/guide/scheduler-reminders) explains recurring
+  agent jobs, reminders, notification caveats, and conservative recovery.
+- [Plugins and Apps](/guide/plugins-and-apps) explains built-in vs installed
+  plugins, App Store/favorites behavior, and app-runtime concepts.
+
 ## Current alpha scope
 
 The current OSS alpha is intentionally narrow:

@@ -29,6 +29,21 @@ pnpm test:ci
 pnpm eval:snapshot
 ```
 
+## Learn the workspace
+
+After the repo boots, these guides explain the main product surfaces:
+
+- [Workspace and Chat](/guide/workspace-and-chat) — shell layout, apps,
+  workspaces, sessions, and the global chat panel
+- [Memory](/guide/memory) — durable context, scratchpad, memory tools, and
+  privacy limits
+- [Web Access](/guide/web-access) — web search, fetch, bookmarks, provider
+  prerequisites, and workspace-scoped web state
+- [Scheduler and Reminders](/guide/scheduler-reminders) — recurring agent jobs,
+  reminders, notifications, and missed-run caveats
+- [Plugins and Apps](/guide/plugins-and-apps) — using trusted plugins and
+  building plugin apps during alpha
+
 ## What to read next
 
 - [Installation / Requirements](/guide/installation-requirements)

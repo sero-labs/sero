@@ -38,16 +38,16 @@ currently supported platform baseline: **macOS on Apple Silicon**.
 ![Desktop shell overview](./assets/desktop-shell-overview.png)
 
 *Explorer workspace in the main panel, the app/workspace sidebar on the left,
-and the global agent chat on the right. See [Architecture](/reference/architecture)
-and [Support Scope](/reference/support-scope).*
+and the global agent chat on the right. See [Workspace and Chat](/guide/workspace-and-chat),
+[Architecture](/reference/architecture), and [Support Scope](/reference/support-scope).*
 
 ### Example workflow
 
 ![Memory workflow in the chat panel](./assets/memory-workflow.png)
 
 *Direct `sero memory` commands running inside a live session via the chat
-panel. See [Getting Started](/guide/getting-started) and
-[Support Scope](/reference/support-scope).*
+panel. See [Memory](/guide/memory), [Getting Started](/guide/getting-started),
+and [Support Scope](/reference/support-scope).*
 
 ## OSS alpha status
 
@@ -66,6 +66,11 @@ For the canonical current support contract, see
 ## Start here
 
 - [Getting Started](/guide/getting-started)
+- [Workspace and Chat](/guide/workspace-and-chat)
+- [Memory](/guide/memory)
+- [Web Access](/guide/web-access)
+- [Scheduler and Reminders](/guide/scheduler-reminders)
+- [Plugins and Apps](/guide/plugins-and-apps)
 - [Support Scope](/reference/support-scope)
 - [Architecture](/reference/architecture)
 - [Contributing](https://github.com/sero-labs/sero/blob/main/CONTRIBUTING.md)
