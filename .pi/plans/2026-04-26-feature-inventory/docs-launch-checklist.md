@@ -30,6 +30,8 @@ This checklist tracks publication readiness for the docs-site feature guides cre
 
 ## Screenshot/demo needs before broader polish
 
+Capture protocol is now defined in `screenshot-demo-pass-plan.md`; screenshots remain deferred to a later synthetic-data pass.
+
 - [ ] Fresh desktop shell overview screenshot showing sidebar, active app, chat panel, and status bar.
 - [ ] Memory workflow screenshot using synthetic data, ideally including visible memory-context block if available.
 - [ ] Web app screenshot showing History and Bookmarks with synthetic/non-sensitive sources.
@@ -73,6 +75,8 @@ _All current P0 feature-guide candidates from the launch checklist have a conser
 - [ ] Release-note candidates — candidate notes complete in `release-note-candidates.md`; final changelog/release notes still blocked on release owner mapping to a real version/milestone.
 
 ## Runtime checks still recommended
+
+Runtime-test protocol is now defined in `runtime-tutorial-test-plan.md`; these checks remain required before converting overviews into step-by-step tutorials.
 
 - [ ] Memory: QMD unavailable vs available behavior, memory-context visibility, and scratchpad examples.
 - [ ] Web Access: representative Exa/Perplexity/Gemini provider setup/failure paths and fetch examples for HTML/PDF/GitHub/video.
@@ -119,6 +123,6 @@ _All current P0 feature-guide candidates from the launch checklist have a conser
 
 1. Get product/copy approval for Website/README positioning, or leave that work deferred.
 2. Get support/security owner review before publishing Admin, external plugin catalog, detailed Web provider matrix, or release-note pages from the scout artifacts.
-3. Runtime-test Web Access and Scheduler examples before turning them into step-by-step tutorials.
-4. Keep screenshots deferred to the single screenshot/demo pass.
+3. Execute `runtime-tutorial-test-plan.md` before turning overviews into step-by-step tutorials.
+4. Execute `screenshot-demo-pass-plan.md` for the deferred synthetic screenshot/demo pass.
 5. Run one final docs-site link/screenshot review before public launch.
