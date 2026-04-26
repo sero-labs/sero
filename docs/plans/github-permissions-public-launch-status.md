@@ -234,10 +234,22 @@ Implemented across all external plugin repositories in scope:
   - `SECURITY.md`
   - `CONTRIBUTING.md`
   - `.github/pull_request_template.md`
+- Added `.github/workflows/ci.yml` to each plugin repository.
+
+Plugin CI workflow policy:
+
+- Runs on pull requests targeting `main`.
+- Runs manually via `workflow_dispatch`.
+- Does not run on every push.
+- Skips draft pull requests.
+- Cancels superseded in-progress runs for the same PR/ref.
+- Uses read-only workflow token permissions.
+- Runs `npm ci`, then `npm run typecheck` and `npm run build` when those scripts exist.
 
 Notes:
 
-- Plugin repositories still need standard CI workflows before required plugin status checks can be enabled.
+- Plugin CI workflows are now present, but required plugin status checks have not been enabled yet. Wait until each workflow has run at least once and the check name is confirmed stable.
+- The expected stable check name is `Plugin CI`.
 - The main repo remains private. Do not flip it public until the final manual launch checks are complete.
 
 ## Final Manual Launch Checks
@@ -247,4 +259,4 @@ Before public announcement:
 - `security@sero-ai.dev` has been tested and inbound delivery is confirmed.
 - Make `sero-labs/sero` public only when ready.
 - After `sero-labs/sero` is public, enable private vulnerability reporting for it.
-- After plugin CI workflows exist and have run, enable required plugin status checks.
+- After plugin CI workflows have run successfully at least once, enable required plugin status checks for `Plugin CI`.
