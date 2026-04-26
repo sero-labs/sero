@@ -55,10 +55,11 @@ Screenshot capture is intentionally deferred to a later single screenshot pass. 
 - [x] Explorer Workspace guide — `apps/docs-site/docs/guide/explorer-workspace.md`
 - [x] Web Remote guide — `apps/docs-site/docs/guide/web-remote.md`
 - [x] App Store, Favorites, and Installed Plugins guide — `apps/docs-site/docs/guide/app-store-favorites.md`
+- [x] Plugin Author Quick Path reference — `apps/docs-site/docs/reference/plugin-author-quick-path.md`
 
 ### P0 / next high-value feature guides
 
-- [ ] Plugin author quick path / app-runtime API guide — expand beyond the current Plugins and Apps overview with a minimal UI + extension + state example, supported hooks, widget registration, file-backed state, and alpha API caveats. Blocked by owner approval of public app-runtime stability wording and host capability boundaries.
+_All current P0 feature-guide candidates from the launch checklist have a conservative docs-site draft._
 
 ### P1 / important follow-up guides
 
@@ -84,7 +85,7 @@ Screenshot capture is intentionally deferred to a later single screenshot pass. 
 - [ ] Which external/local plugins may be mentioned publicly and under what support label.
 - [ ] Public Web provider matrix and credential setup language.
 - [ ] Optional Web Remote runtime pairing/deployment polish beyond conservative guide.
-- [ ] Plugin/app-runtime API stability wording for public author docs.
+- [ ] Plugin/app-runtime API stability wording for public author docs beyond the conservative quick path.
 - [ ] Release-note scope: product changes vs docs-only highlights.
 - [ ] Homepage/README positioning approval for partially verified built-in capabilities.
 
@@ -115,7 +116,7 @@ Screenshot capture is intentionally deferred to a later single screenshot pass. 
 
 ## Next recommended actions
 
-1. Pick the next feature guide from the outstanding list; recommended order is plugin author quick path if public API wording is approved, otherwise defer to product-approved Website/README positioning.
+1. Remaining docs launch items are product/support gated: Website/README positioning, Admin guide, external plugin catalog, detailed Web provider matrix, and release notes.
 2. Runtime-test Web Access and Scheduler examples before turning them into step-by-step tutorials.
 3. Keep screenshots deferred to the single screenshot/demo pass.
 4. Run one final docs-site link/screenshot review before public launch.
