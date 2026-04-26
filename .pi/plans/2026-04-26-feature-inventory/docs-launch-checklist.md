@@ -100,6 +100,7 @@ _All current P0 feature-guide candidates from the launch checklist have a conser
 - Git Manager guide as a conservative overview, not a step-by-step verified disposable-repo tutorial.
 - Plugins and Apps guide as an alpha overview, not a stable marketplace/API promise.
 - App Store, Favorites, and Installed Plugins guide as a user-management overview, not a stable marketplace or reviewed-plugin claim.
+- Plugin Author Quick Path reference as a conservative alpha authoring guide, not a frozen app-runtime/API stability guarantee.
 - State and Folders reference as the canonical profile/path map for the docs site.
 - Security / Privacy reference as practical alpha security guidance, not a hardening guarantee.
 - Containers and Host Mode reference as support-scope guidance, not host/container parity or security-boundary claims.
