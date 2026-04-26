@@ -144,9 +144,7 @@ Memory debug logs live under:
 
 `<SERO_HOME>` is profile-resolved. For the default profile it is usually
 `~/.sero-ui/`, but custom profiles can use another root. For the canonical
-storage map, see the source reference
-[`docs/reference/state-and-folders.md`](https://github.com/sero-labs/sero/blob/main/docs/reference/state-and-folders.md)
-on GitHub.
+storage map, see [State and Folders](/reference/state-and-folders).
 
 ## Privacy and safety
 

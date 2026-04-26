@@ -40,6 +40,7 @@ These can talk to external systems, but their stored state still lives locally:
 | GitHub auth | `<SERO_HOME>/agent/github-auth.json` |
 | gateway token | `<SERO_HOME>/agent/gateway-token` |
 | gateway config | `<SERO_HOME>/agent/gateway-config.json` |
+| gateway web tokens | `<SERO_HOME>/agent/gateway-web-tokens.json` |
 | layout and UI state | `<SERO_HOME>/agent/layout.json` |
 | workspace registry | `<SERO_HOME>/agent/workspaces.json` |
 
@@ -65,6 +66,9 @@ be understood in the context of a local developer tool, not a hardened
 multi-tenant security boundary.
 
 ## See also
+
+- [State and Folders](/reference/state-and-folders)
+- [Support Scope](/reference/support-scope)
 
 Current source material:
 - [`SECURITY.md`](https://github.com/sero-labs/sero/blob/main/SECURITY.md)

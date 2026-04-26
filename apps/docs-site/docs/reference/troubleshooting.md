@@ -129,6 +129,7 @@ Before sharing logs, redact tokens, auth files, and private local paths.
 ## See also
 
 - [Support Scope](/reference/support-scope)
+- [State and Folders](/reference/state-and-folders)
 - [`docs/node-pty-setup.md`](https://github.com/sero-labs/sero/blob/main/docs/node-pty-setup.md)
 - [`docs/guides/native-modules.md`](https://github.com/sero-labs/sero/blob/main/docs/guides/native-modules.md)
 - [`docs/guides/macos-containers.md`](https://github.com/sero-labs/sero/blob/main/docs/guides/macos-containers.md)

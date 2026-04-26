@@ -23,6 +23,7 @@ export default defineConfig({
         items: [
           { text: 'Architecture', link: '/reference/architecture' },
           { text: 'Support Scope', link: '/reference/support-scope' },
+          { text: 'State and Folders', link: '/reference/state-and-folders' },
           { text: 'Plugins', link: '/reference/plugins' },
           { text: 'Plugin Quickstart', link: '/reference/plugin-quickstart' },
           { text: 'Plugin End-to-End Example', link: '/reference/plugin-end-to-end-example' },
@@ -67,6 +68,7 @@ export default defineConfig({
           items: [
             { text: 'Architecture', link: '/reference/architecture' },
             { text: 'Support Scope', link: '/reference/support-scope' },
+            { text: 'State and Folders', link: '/reference/state-and-folders' },
             { text: 'Plugins', link: '/reference/plugins' },
             { text: 'Plugin Quickstart', link: '/reference/plugin-quickstart' },
             { text: 'Plugin End-to-End Example', link: '/reference/plugin-end-to-end-example' }

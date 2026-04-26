@@ -218,14 +218,14 @@ possible missed schedule. It is intentionally conservative.
 ## State and storage
 
 Scheduler state is stored as app state for the built-in `cron` plugin. When
-`SERO_HOME` is available, the state file resolves to:
+`SERO_HOME` is available, the state file resolves to the active profile root:
 
 ```text
-~/.sero-ui/apps/cron/state.json
+<SERO_HOME>/apps/cron/state.json
 ```
 
-If `SERO_HOME` is not present, the plugin falls back to a workspace-relative
-path:
+For the default profile, `<SERO_HOME>` is usually `~/.sero-ui/`. If `SERO_HOME`
+is not present, the plugin falls back to a workspace-relative path:
 
 ```text
 ./.sero/apps/cron/state.json
