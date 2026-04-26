@@ -48,10 +48,10 @@ Screenshot capture is intentionally deferred to a later single screenshot pass. 
 - [x] Web Access overview — `apps/docs-site/docs/guide/web-access.md`
 - [x] Scheduler and Reminders overview — `apps/docs-site/docs/guide/scheduler-reminders.md`
 - [x] Plugins and Apps overview — `apps/docs-site/docs/guide/plugins-and-apps.md`
+- [x] Git Manager guide — `apps/docs-site/docs/guide/git-manager.md`
 
 ### P0 / next high-value feature guides
 
-- [ ] Git Manager guide — distinguish visual Git Manager, `git_manager`/`/git`, repository mutation risks, worktree/branch actions, and Explorer/JJ Source Control differences. Blocked by disposable-repo runtime verification of status, diff, stage, commit, stash, branch, fetch/pull/push, merge/cherry-pick, and worktree flows.
 - [ ] Plugin author quick path / app-runtime API guide — expand beyond the current Plugins and Apps overview with a minimal UI + extension + state example, supported hooks, widget registration, file-backed state, and alpha API caveats. Blocked by owner approval of public app-runtime stability wording and host capability boundaries.
 
 ### P1 / important follow-up guides
@@ -101,14 +101,14 @@ Screenshot capture is intentionally deferred to a later single screenshot pass. 
 - External/local integration pages.
 - Detailed provider setup matrix.
 - Web Remote usage/deployment guide.
-- Git Manager how-to guide without disposable-repo runtime verification.
+- Polished Git Manager step-by-step UI how-to claims without disposable-repo runtime verification.
 - Admin operations guide without support/security owner review.
 - Security/permission prompt reference without runtime prompt review.
 - Release notes not tied to a real version/milestone.
 
 ## Next recommended actions
 
-1. Pick the next feature guide from the outstanding list; recommended order is Git Manager, then State/Folders or Security depending on release risk.
+1. Pick the next feature guide from the outstanding list; recommended order is State/Folders or Security depending on release risk.
 2. Runtime-test Web Access and Scheduler examples before turning them into step-by-step tutorials.
 3. Keep screenshots deferred to the single screenshot/demo pass.
 4. Run one final docs-site link/screenshot review before public launch.
