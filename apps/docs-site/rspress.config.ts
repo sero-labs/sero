@@ -51,6 +51,7 @@ export default defineConfig({
             { text: 'Memory', link: '/guide/memory' },
             { text: 'Web Access', link: '/guide/web-access' },
             { text: 'Scheduler and Reminders', link: '/guide/scheduler-reminders' },
+            { text: 'Git Manager', link: '/guide/git-manager' },
             { text: 'Plugins and Apps', link: '/guide/plugins-and-apps' },
             {
               text: 'Installation / Requirements',
