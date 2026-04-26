@@ -256,9 +256,8 @@ Notes:
 
 ## Final Manual Launch Checks
 
-Before public announcement:
+The remaining public announcement tasks have been moved into:
 
-- `security@sero-ai.dev` has been tested and inbound delivery is confirmed.
-- Make `sero-labs/sero` public only when ready.
-- After `sero-labs/sero` is public, enable private vulnerability reporting for it.
-- After `sero-labs/sero` is public, confirm required checks and private vulnerability reporting remain enabled as expected.
+- `docs/plans/public-launch-final-checklist.md`
+
+Use that checklist for go-live tracking from this point forward.
