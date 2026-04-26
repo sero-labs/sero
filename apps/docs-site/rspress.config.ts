@@ -57,6 +57,7 @@ export default defineConfig({
             { text: 'Scheduler and Reminders', link: '/guide/scheduler-reminders' },
             { text: 'Git Manager', link: '/guide/git-manager' },
             { text: 'Plugins and Apps', link: '/guide/plugins-and-apps' },
+            { text: 'App Store and Favorites', link: '/guide/app-store-favorites' },
             {
               text: 'Installation / Requirements',
               link: '/guide/installation-requirements'

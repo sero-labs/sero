@@ -10,13 +10,16 @@ bundled Sero features.
 
 ## Using plugins
 
-### Built-in apps vs installed plugins
+### Core apps, bundled plugins, and installed plugins
 
-Sero has two plugin-like categories that users should keep separate:
+Sero has a few app/plugin categories that users should keep separate:
 
-- **Built-in apps/plugins** live in the Sero monorepo and ship with the app.
-  They are part of the local source checkout and are not removable like an
-  installed third-party plugin.
+- **Core shell apps** such as Dashboard and Explorer are built into the desktop
+  shell and are always present.
+- **Bundled plugin apps** live in the Sero monorepo and ship with the local
+  source checkout. They may appear through the same discovered-app/favorites path
+  as other plugin-backed app surfaces, but they are not removed like an installed
+  third-party plugin.
 - **Installed, external, or local plugins** live outside the core app. During
   alpha, install them only from sources you trust.
 
@@ -28,7 +31,8 @@ A plugin can provide one or more surfaces:
 - background/runtime behavior
 - provider metadata for model or service integrations
 
-For the canonical overview, see [Plugins](/reference/plugins).
+For the canonical overview, see [Plugins](/reference/plugins). For the
+end-user management flow, see [App Store, Favorites, and Installed Plugins](/guide/app-store-favorites).
 
 ### App Store and discovery
 
@@ -50,14 +54,16 @@ Keep the alpha caveats in mind:
 
 ### Favorites and the sidebar
 
-The main sidebar shows built-in apps plus favorited discovered apps that the host
-supports. Discovered apps are not all shown by default.
+The main sidebar shows core shell apps plus favorited discovered apps that the
+host supports. Discovered apps are not all shown by default.
 
 Favorites are a convenience for keeping frequent plugin apps close at hand:
 
-- built-in apps are always available and are not favorited/unfavorited the same
-  way external apps are
-- favorited discovered apps can appear alongside built-ins in the sidebar
+- core shell apps such as Dashboard and Explorer are always available and are not
+  favorited/unfavorited the same way plugin-backed apps are
+- bundled plugin apps may be seeded as favorites and can be removed from the
+  sidebar without being uninstalled from Sero
+- favorited discovered apps can appear alongside core shell apps in the sidebar
 - app launch goes through Sero's normal app-opening flow
 
 If a plugin is installed but does not appear where expected, it may be hidden by
@@ -182,8 +188,9 @@ Avoid these claims unless a later product decision and runtime test confirm them
 
 ## Next steps
 
-If you want to **use** plugins, start with [Plugins](/reference/plugins) and the
-App Store in Sero.
+If you want to **use** plugins, start with
+[App Store, Favorites, and Installed Plugins](/guide/app-store-favorites), then
+read [Plugins](/reference/plugins) for the broader model.
 
 If you want to **build** a plugin, start with
 [Plugin Quickstart](/reference/plugin-quickstart), then read the

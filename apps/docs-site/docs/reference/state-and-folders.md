@@ -194,6 +194,7 @@ These may talk to remote systems, while still storing state locally:
 - GitHub auth and repository access
 - gateway remote-control clients when enabled
 - plugin installs from npm, git, or local source paths
+- App Store discovery and installed-plugin management
 - third-party plugin integrations
 
 For security posture and remote-control caveats, see

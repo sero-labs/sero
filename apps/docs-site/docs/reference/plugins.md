@@ -40,6 +40,9 @@ Treat it as a **small complete reference plugin**, not a visually minimal one.
 Its structure is the main thing to copy: manifest shape, extension entry,
 shared types, UI entry, and Vite federation config.
 
+For the end-user App Store and sidebar flow, see
+[App Store, Favorites, and Installed Plugins](/guide/app-store-favorites).
+
 For the published quickstart walkthrough, see
 [Plugin Quickstart](/reference/plugin-quickstart).
 
