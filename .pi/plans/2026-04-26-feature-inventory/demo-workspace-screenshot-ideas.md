@@ -636,3 +636,333 @@ Desktop shell → Explorer → Memory → Web → Scheduler → App Store → Gi
 ```
 
 That gives a coherent, polished screenshot story without relying on real data.
+
+# Copy/paste Sero prompts to generate the demo workspaces
+
+Use these prompts inside Sero after opening the corresponding empty workspace. They are designed to create synthetic, screenshot-safe files and sessions without real credentials, private paths, or customer data.
+
+## Prompt for `phoenix-shop`
+
+Run this in an empty workspace at:
+
+```text
+~/SeroDemo/phoenix-shop
+```
+
+Recommended session name:
+
+```text
+Polish the launch dashboard
+```
+
+Prompt:
+
+```text
+Create a small synthetic demo project called Phoenix Shop for Sero documentation screenshots.
+
+Important constraints:
+- Use only fake/synthetic data.
+- Do not include real API keys, tokens, real URLs, private paths, real emails, or real customer names.
+- Keep files small and readable in screenshots.
+- Make the project feel like a believable local TypeScript/React product dashboard, but it does not need to run perfectly.
+- Prefer clear filenames and concise content over completeness.
+
+Create this file structure:
+
+phoenix-shop/
+├── README.md
+├── package.json
+├── src/
+│   ├── App.tsx
+│   ├── data/products.ts
+│   ├── lib/pricing.ts
+│   └── styles.css
+├── docs/
+│   ├── launch-plan.md
+│   ├── qa-checklist.md
+│   └── customer-notes.md
+├── scripts/
+│   └── seed-demo-data.ts
+└── tests/
+    └── pricing.test.ts
+
+Content requirements:
+- README.md should describe Phoenix Shop as a fictional spring launch dashboard for Phoenix Supply Co.
+- src/App.tsx should render a simple dashboard with a heading, launch status, a few product cards, and a short checklist.
+- src/data/products.ts should export fake products: Ember Desk Lamp, Copper Field Notebook, Nomad Cable Kit, Solstice Mug.
+- src/lib/pricing.ts should include a simple subtotal/discount helper. Leave one small obvious TODO or edge-case note so the Git/diff screenshot has something plausible.
+- tests/pricing.test.ts should include a couple of lightweight tests or pseudo-tests for the pricing helper.
+- docs/launch-plan.md should have sections: Goals, Demo Scope, Risks, Screenshot Checklist.
+- docs/qa-checklist.md should have checkboxes for demo readiness.
+- docs/customer-notes.md should contain only synthetic feedback from fake people: Avery Chen, Morgan Lee, Riley Stone, Casey Hart.
+- scripts/seed-demo-data.ts should be a small illustrative script with fake data only.
+
+After creating files:
+1. Initialize a git repo if one does not already exist.
+2. Create an initial commit with message: "chore: create phoenix shop demo".
+3. Create a branch named `demo/docs-polish`.
+4. Add one small uncommitted change to docs/qa-checklist.md: add a checkbox for "Verify screenshots contain synthetic data only".
+5. Show me a concise summary of what you created and suggest 3 screenshot moments from this workspace.
+```
+
+Follow-up prompts for `phoenix-shop` sessions:
+
+```text
+Review the Phoenix Shop README and docs/launch-plan.md. Suggest a clean launch checklist for the demo, keeping it concise enough to show in a screenshot.
+```
+
+```text
+Check src/lib/pricing.ts and tests/pricing.test.ts. Why might the bundle discount need one more edge-case test?
+```
+
+```text
+Review the current git diff and suggest a concise commit message. Do not commit yet.
+```
+
+## Prompt for `atlas-notes`
+
+Run this in an empty workspace at:
+
+```text
+~/SeroDemo/atlas-notes
+```
+
+Recommended session name:
+
+```text
+Build demo memory context
+```
+
+Prompt:
+
+```text
+Create a lightweight synthetic notes workspace called Atlas Notes for Sero documentation screenshots.
+
+Important constraints:
+- Use only synthetic data.
+- Do not include real API keys, tokens, internal URLs, private paths, real browsing history, real customer names, or real emails.
+- Make the notes useful for Memory, Web Access, Scheduler, and workspace/chat screenshots.
+- Keep the content short and readable.
+
+Create this file structure:
+
+atlas-notes/
+├── README.md
+├── notes/
+│   ├── demo-brief.md
+│   ├── research-questions.md
+│   ├── meeting-summary.md
+│   └── open-decisions.md
+├── web/
+│   ├── bookmarks.md
+│   └── sources-to-review.md
+└── schedule/
+    ├── reminders.md
+    └── weekly-review.md
+
+Content requirements:
+- README.md should explain that Atlas Notes is a fake product-research notebook for planning Sero docs screenshots.
+- notes/demo-brief.md should describe the screenshot story: Phoenix Shop is the main project, Atlas Notes is the planning/research workspace, Plugin Lab is the authoring sandbox.
+- notes/research-questions.md should list safe public research questions about developer-tool docs homepages, onboarding, and screenshots.
+- notes/meeting-summary.md should contain a fake meeting summary with fake participants Avery, Morgan, Riley, and Casey.
+- notes/open-decisions.md should list decisions like screenshot order, whether to include Web Remote, and what to defer.
+- web/bookmarks.md should list safe public docs sources to bookmark: React docs, Vite docs, Tailwind docs, Electron docs, GitHub Docs.
+- web/sources-to-review.md should include suggested non-sensitive search queries.
+- schedule/reminders.md should include synthetic reminders for screenshot review, redaction pass, and docs-site build check.
+- schedule/weekly-review.md should outline a fictional weekly docs review job.
+
+After creating files:
+1. Initialize a git repo if one does not already exist.
+2. Create an initial commit with message: "chore: create atlas notes demo".
+3. Show me a concise summary and suggest which file to open for a Memory screenshot.
+```
+
+Follow-up prompts for `atlas-notes` sessions:
+
+```text
+Remember that the demo profile must only contain synthetic data, Phoenix Shop is the primary screenshot workspace, Atlas Notes is for research and scheduling examples, and Plugin Lab is for plugin-author screenshots.
+```
+
+```text
+Add a scratchpad note: before screenshots, verify no real tokens, private paths, browser history, account names, or customer data are visible.
+```
+
+```text
+What should I double-check before capturing launch screenshots? Answer as a short redaction checklist.
+```
+
+```text
+Use web search to find public examples of clear developer-tool documentation homepages. Summarize three patterns we could borrow for Sero docs. Use only public documentation websites.
+```
+
+```text
+Create a reminder for tomorrow at 9 AM to review the demo screenshots, and suggest a weekly docs review job. Use synthetic wording only.
+```
+
+## Prompt for `plugin-lab`
+
+Run this in an empty workspace at:
+
+```text
+~/SeroDemo/plugin-lab
+```
+
+Recommended session name:
+
+```text
+Design a tiny plugin
+```
+
+Prompt:
+
+```text
+Create a small synthetic plugin-authoring sandbox called Plugin Lab for Sero documentation screenshots.
+
+Important constraints:
+- Use only fake/synthetic data.
+- This is a documentation demo, not a production plugin.
+- Do not include real API keys, tokens, private package names, internal URLs, or real user data.
+- Keep files small and readable in Explorer screenshots.
+- Make the structure resemble a Sero plugin enough to support Plugin Author Quick Path screenshots, but avoid claiming it is complete or ready to publish.
+
+Create this file structure:
+
+plugin-lab/
+├── README.md
+├── package.json
+├── shared/
+│   └── types.ts
+├── extension/
+│   └── index.ts
+├── ui/
+│   ├── DailyStandupApp.tsx
+│   └── styles.css
+└── docs/
+    ├── plugin-plan.md
+    └── compatibility-notes.md
+
+Content requirements:
+- README.md should describe a fictional "Daily Standup" Sero plugin concept.
+- package.json should be illustrative and clearly marked as a demo. Include plausible `pi.extensions`, `sero.app`, and `sero.plugin` fields, but avoid pretending it is published.
+- shared/types.ts should define a JSON-serialisable DailyStandupState and DEFAULT_STATE.
+- extension/index.ts should contain a small illustrative Pi extension skeleton with a fake `standup_add_note` tool. It can be pseudo-code if needed, but keep it TypeScript-looking and readable.
+- ui/DailyStandupApp.tsx should show a simple React component using `useAppInfo` and `useAppState` from `@sero-ai/app-runtime`.
+- ui/styles.css should contain minimal styles.
+- docs/plugin-plan.md should explain extension, UI, shared state, and optional widget ideas.
+- docs/compatibility-notes.md should mention alpha caveats: requiredHostCapabilities, file-backed app state, no localStorage, and production `base: './'`.
+
+After creating files:
+1. Initialize a git repo if one does not already exist.
+2. Create an initial commit with message: "chore: create plugin lab demo".
+3. Add one small uncommitted TODO to docs/plugin-plan.md about verifying host capabilities before publishing.
+4. Show me a concise summary and suggest which files to open for Plugin Author Quick Path screenshots.
+```
+
+Follow-up prompts for `plugin-lab` sessions:
+
+```text
+Help me outline a tiny Sero plugin called Daily Standup. It should have shared state, a UI card, and one agent tool for adding a standup note. Keep the answer screenshot-friendly.
+```
+
+```text
+Review this package.json and tell me which Sero plugin manifest fields are most important for an alpha plugin author to understand.
+```
+
+```text
+Review the DailyStandupApp.tsx file and explain how it uses file-backed app state instead of browser localStorage.
+```
+
+## One-shot prompt if you want Sero to create all three workspaces from a parent folder
+
+Run this from a parent workspace/folder such as:
+
+```text
+~/SeroDemo
+```
+
+Prompt:
+
+```text
+Create three synthetic demo workspaces for Sero documentation screenshots under the current folder:
+
+1. phoenix-shop — fictional TypeScript/React commerce dashboard for Phoenix Supply Co.
+2. atlas-notes — fictional markdown research/planning notebook for docs launch screenshots.
+3. plugin-lab — fictional Sero plugin-authoring sandbox for a Daily Standup plugin concept.
+
+Critical constraints:
+- Use only fake/synthetic data.
+- Do not include real API keys, tokens, OAuth values, real emails, private URLs, internal domains, private local paths, or real customer names.
+- Keep files concise and screenshot-readable.
+- Each workspace should be plausible but small.
+- Initialize a separate git repo in each workspace and create one initial commit per workspace.
+- Leave one small uncommitted, screenshot-safe change in phoenix-shop and plugin-lab so Git Manager can show a diff.
+
+For phoenix-shop, create:
+- README.md
+- package.json
+- src/App.tsx
+- src/data/products.ts
+- src/lib/pricing.ts
+- src/styles.css
+- docs/launch-plan.md
+- docs/qa-checklist.md
+- docs/customer-notes.md
+- scripts/seed-demo-data.ts
+- tests/pricing.test.ts
+
+For atlas-notes, create:
+- README.md
+- notes/demo-brief.md
+- notes/research-questions.md
+- notes/meeting-summary.md
+- notes/open-decisions.md
+- web/bookmarks.md
+- web/sources-to-review.md
+- schedule/reminders.md
+- schedule/weekly-review.md
+
+For plugin-lab, create:
+- README.md
+- package.json
+- shared/types.ts
+- extension/index.ts
+- ui/DailyStandupApp.tsx
+- ui/styles.css
+- docs/plugin-plan.md
+- docs/compatibility-notes.md
+
+After creating everything:
+1. Print a tree of the created files.
+2. Print the git status for each workspace.
+3. Suggest the best file/session combinations for screenshots.
+4. Remind me to open the workspaces in the serodemo profile and verify all screenshots are free of sensitive data.
+```
+
+## Prompt for setting up screenshot-oriented sessions after files exist
+
+Run this in Sero after the workspaces exist and are added to the `serodemo` profile:
+
+```text
+Help me set up screenshot-friendly Sero sessions for these synthetic demo workspaces:
+
+- phoenix-shop
+- atlas-notes
+- plugin-lab
+
+Create a concise plan for the following sessions, including the first prompt I should send in each one:
+
+1. phoenix-shop / Polish the launch dashboard
+2. phoenix-shop / Investigate pricing bug
+3. phoenix-shop / Prepare release notes
+4. atlas-notes / Build demo memory context
+5. atlas-notes / Research docs launch examples
+6. atlas-notes / Plan weekly review reminders
+7. plugin-lab / Design a tiny plugin
+8. plugin-lab / Review plugin manifest
+
+Constraints:
+- Keep all prompts synthetic and screenshot-safe.
+- Avoid real provider credentials, private URLs, real people, or private repo names.
+- Prefer prompts that produce short, readable responses suitable for screenshots.
+- For each session, tell me which app surface would make the best screenshot: Explorer, Chat, Web, Scheduler, Git, or App Store.
+```
