@@ -50,6 +50,7 @@ export default defineConfig({
             { text: 'Workspace and Chat', link: '/guide/workspace-and-chat' },
             { text: 'Memory', link: '/guide/memory' },
             { text: 'Web Access', link: '/guide/web-access' },
+            { text: 'Scheduler and Reminders', link: '/guide/scheduler-reminders' },
             {
               text: 'Installation / Requirements',
               link: '/guide/installation-requirements'
