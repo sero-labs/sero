@@ -55,8 +55,8 @@ Sero starts with core built-in apps:
 
 Use the sidebar to switch between built-in apps and pinned or discovered apps.
 Explorer is central to development workflows, but this page only covers the
-workspace mental model. Do not assume every IDE-like, dev-server, or container
-workflow is fully documented from this guide alone.
+workspace mental model. For file tree, editor, terminal, browser, and dev-server
+surfaces, see [Explorer Workspace](/guide/explorer-workspace).
 
 ## Workspaces and sessions
 
@@ -125,6 +125,7 @@ same profile before filing an issue.
 ## What to read next
 
 - [Getting Started](/guide/getting-started)
+- [Explorer Workspace](/guide/explorer-workspace)
 - [Memory](/guide/memory)
 - [Support Scope](/reference/support-scope)
 - [Architecture](/reference/architecture)

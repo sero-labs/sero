@@ -131,6 +131,7 @@ Before sharing logs, redact tokens, auth files, and private local paths.
 ## See also
 
 - [Support Scope](/reference/support-scope)
+- [Explorer Workspace](/guide/explorer-workspace)
 - [Containers and Host Mode](/reference/containers-host-mode)
 - [State and Folders](/reference/state-and-folders)
 - [`docs/node-pty-setup.md`](https://github.com/sero-labs/sero/blob/main/docs/node-pty-setup.md)

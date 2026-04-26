@@ -148,6 +148,7 @@ mode is a practical fallback for core work.
 
 ## Related docs
 
+- [Explorer Workspace](/guide/explorer-workspace)
 - [Support Scope](/reference/support-scope)
 - [Troubleshooting](/reference/troubleshooting)
 - [Architecture](/reference/architecture)

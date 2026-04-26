@@ -50,6 +50,7 @@ export default defineConfig({
             { text: 'Overview', link: '/guide/overview' },
             { text: 'Getting Started', link: '/guide/getting-started' },
             { text: 'Workspace and Chat', link: '/guide/workspace-and-chat' },
+            { text: 'Explorer Workspace', link: '/guide/explorer-workspace' },
             { text: 'Memory', link: '/guide/memory' },
             { text: 'Web Access', link: '/guide/web-access' },
             { text: 'Scheduler and Reminders', link: '/guide/scheduler-reminders' },
