@@ -53,6 +53,7 @@ export default defineConfig({
             { text: 'Explorer Workspace', link: '/guide/explorer-workspace' },
             { text: 'Memory', link: '/guide/memory' },
             { text: 'Web Access', link: '/guide/web-access' },
+            { text: 'Web Remote', link: '/guide/web-remote' },
             { text: 'Scheduler and Reminders', link: '/guide/scheduler-reminders' },
             { text: 'Git Manager', link: '/guide/git-manager' },
             { text: 'Plugins and Apps', link: '/guide/plugins-and-apps' },

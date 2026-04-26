@@ -173,17 +173,23 @@ access.
 The gateway is **off by default**. It only starts when explicitly enabled with
 `SERO_GATEWAY=1`.
 
-When enabled, an authenticated gateway client has the same effective power as
-the desktop UI. It can open sessions on any workspace, send prompts, steer or
-abort agent turns, and list workspaces and sessions. Because prompts can lead the
-agent to run tools, treat the gateway token like a high-privilege secret.
+When enabled, a master-token gateway client has the same effective power as the
+desktop UI. It can open sessions on any workspace, send prompts, steer or abort
+agent turns, and list workspaces and sessions. Scoped web tokens may limit
+supported gateway workspace/session/file/artifact access to explicit workspace
+IDs, but that is not a comprehensive per-tool or agent-action permission system.
+Because prompts can lead the agent to run tools, treat gateway credentials like
+high-privilege secrets.
 
 Important gateway caveats during alpha:
 
-- the token is profile-scoped and should be stored/handled like a root password
-- there is no per-workspace access control for authenticated gateway clients
-- there are no gateway-specific tool restrictions beyond the normal Sero/Pi tool
-  behavior and focused `bash` permission gate described above
+- the master token is profile-scoped and should be stored/handled like a root
+  password
+- scoped web tokens may limit supported gateway workspace/session/file/artifact
+  APIs to explicit workspace IDs, but master-token clients remain profile-wide
+- there are no comprehensive gateway-specific tool restrictions beyond the
+  normal Sero/Pi tool behavior and focused `bash` permission gate described
+  above
 - there is no rate limiting; an authenticated client can consume API credits
 - Tailscale exposure depends on tailnet trust and should use `tailscale serve`,
   not public funneling
@@ -206,7 +212,8 @@ The public alpha does **not** claim:
 - cryptographic isolation between profiles
 - that containers are a complete security boundary against malicious code
 - that Admin or MCP UI-only management is a hard access-control boundary
-- that gateway clients can be restricted per workspace or per tool
+- that gateway access is a comprehensive per-workspace, per-tool, or
+  per-agent-action permission system
 - that third-party plugins are reviewed or sandboxed to a production security
   standard
 
@@ -216,6 +223,7 @@ credentials accordingly.
 
 ## See also
 
+- [Web Remote](/guide/web-remote)
 - [State and Folders](/reference/state-and-folders)
 - [Support Scope](/reference/support-scope)
 

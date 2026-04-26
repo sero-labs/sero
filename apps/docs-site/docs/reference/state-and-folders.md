@@ -197,4 +197,5 @@ These may talk to remote systems, while still storing state locally:
 - third-party plugin integrations
 
 For security posture and remote-control caveats, see
-[Security / Privacy](/reference/security-privacy).
+[Security / Privacy](/reference/security-privacy) and
+[Web Remote](/guide/web-remote).
