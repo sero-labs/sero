@@ -47,6 +47,7 @@ export default defineConfig({
           items: [
             { text: 'Overview', link: '/guide/overview' },
             { text: 'Getting Started', link: '/guide/getting-started' },
+            { text: 'Workspace and Chat', link: '/guide/workspace-and-chat' },
             { text: 'Memory', link: '/guide/memory' },
             {
               text: 'Installation / Requirements',
