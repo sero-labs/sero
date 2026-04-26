@@ -49,6 +49,7 @@ Screenshot capture is intentionally deferred to a later single screenshot pass. 
 - [x] Scheduler and Reminders overview — `apps/docs-site/docs/guide/scheduler-reminders.md`
 - [x] Plugins and Apps overview — `apps/docs-site/docs/guide/plugins-and-apps.md`
 - [x] Git Manager guide — `apps/docs-site/docs/guide/git-manager.md`
+- [x] State and Folders reference — `apps/docs-site/docs/reference/state-and-folders.md`
 
 ### P0 / next high-value feature guides
 
@@ -60,7 +61,6 @@ Screenshot capture is intentionally deferred to a later single screenshot pass. 
 - [ ] Explorer workspace basics and dev-server surfaces — map Explorer file/editor/browser/diff/terminal surfaces, file-tree refresh, multi-root/mounts, and DevServerPanel controls conservatively. Blocked by runtime review of Explorer and dev-server workflows.
 - [ ] Containers and host-mode runtime guide — explain preferred Apple-container mode, reduced host-mode fallback, setup/preflight, proxy/cleanup support behavior, and troubleshooting. Blocked by review of existing macOS container docs plus runtime tests with/without containers.
 - [ ] App Store, favorites, and installed plugins user guide — split user-facing plugin management from author docs, covering built-in vs installed plugins, trust caveats, favorites/sidebar behavior, install/uninstall, compatibility, and state retention. Blocked by App Store/favorites runtime inspection.
-- [ ] State, folders, profiles, and storage map updates — update/link the canonical storage map for profile roots, layout, workspaces, app state, memory, auth, gateway files, and sensitive local data. Blocked only by confirming any newly documented plugin-specific paths and stale path wording.
 - [ ] Security, permissions, and sensitive-action prompts reference — cover renderer safeguards, dangerous `bash` approval prompts, user-feedback prompts, Admin/MCP boundaries, and realistic security limits. Blocked by review of `SECURITY.md`, `docs/security/**`, prompt runtime behavior, and security owner wording.
 - [ ] Website/README feature pillars brief/update — turn verified built-in pillars into public positioning while preserving source-only/macOS alpha caveats. Blocked by product/copy approval and decisions on partially verified features.
 
@@ -108,7 +108,7 @@ Screenshot capture is intentionally deferred to a later single screenshot pass. 
 
 ## Next recommended actions
 
-1. Pick the next feature guide from the outstanding list; recommended order is State/Folders or Security depending on release risk.
+1. Pick the next feature guide from the outstanding list; recommended order is Security, then Containers or Explorer depending on release risk.
 2. Runtime-test Web Access and Scheduler examples before turning them into step-by-step tutorials.
 3. Keep screenshots deferred to the single screenshot/demo pass.
 4. Run one final docs-site link/screenshot review before public launch.
