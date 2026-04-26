@@ -103,7 +103,9 @@ Host mode is **not** the supported path for:
 If you hit one of those gaps, check whether the workspace should be running in
 container-backed mode instead.
 
-See [Support Scope](/reference/support-scope) for the canonical matrix.
+See [Support Scope](/reference/support-scope) for the canonical matrix and
+[Containers and Host Mode](/reference/containers-host-mode) for runtime-specific
+guidance.
 
 ## Quick baseline before filing an issue
 
@@ -129,6 +131,7 @@ Before sharing logs, redact tokens, auth files, and private local paths.
 ## See also
 
 - [Support Scope](/reference/support-scope)
+- [Containers and Host Mode](/reference/containers-host-mode)
 - [State and Folders](/reference/state-and-folders)
 - [`docs/node-pty-setup.md`](https://github.com/sero-labs/sero/blob/main/docs/node-pty-setup.md)
 - [`docs/guides/native-modules.md`](https://github.com/sero-labs/sero/blob/main/docs/guides/native-modules.md)

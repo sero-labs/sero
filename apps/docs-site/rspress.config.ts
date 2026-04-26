@@ -23,6 +23,7 @@ export default defineConfig({
         items: [
           { text: 'Architecture', link: '/reference/architecture' },
           { text: 'Support Scope', link: '/reference/support-scope' },
+          { text: 'Containers and Host Mode', link: '/reference/containers-host-mode' },
           { text: 'State and Folders', link: '/reference/state-and-folders' },
           { text: 'Plugins', link: '/reference/plugins' },
           { text: 'Plugin Quickstart', link: '/reference/plugin-quickstart' },
@@ -68,6 +69,7 @@ export default defineConfig({
           items: [
             { text: 'Architecture', link: '/reference/architecture' },
             { text: 'Support Scope', link: '/reference/support-scope' },
+            { text: 'Containers and Host Mode', link: '/reference/containers-host-mode' },
             { text: 'State and Folders', link: '/reference/state-and-folders' },
             { text: 'Plugins', link: '/reference/plugins' },
             { text: 'Plugin Quickstart', link: '/reference/plugin-quickstart' },

@@ -42,7 +42,8 @@ Use Apple containers for:
 
 Host mode keeps core workflows available, but it is intentionally reduced.
 Expect limits around browser automation, containerized tooling, and some managed
-preview/runtime behavior.
+preview/runtime behavior. See [Containers and Host Mode](/reference/containers-host-mode)
+for runtime-specific guidance.
 
 ## Plugins
 

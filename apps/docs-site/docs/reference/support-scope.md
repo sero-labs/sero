@@ -107,6 +107,7 @@ A good first signal for early triage is:
 ## Related docs
 
 - [Known Limitations](/reference/known-limitations)
+- [Containers and Host Mode](/reference/containers-host-mode)
 - [Installation / Requirements](/guide/installation-requirements)
 - [Troubleshooting](/reference/troubleshooting)
 - [Security / Privacy](/reference/security-privacy)
