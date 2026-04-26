@@ -26,6 +26,7 @@ export default defineConfig({
           { text: 'Containers and Host Mode', link: '/reference/containers-host-mode' },
           { text: 'State and Folders', link: '/reference/state-and-folders' },
           { text: 'Plugins', link: '/reference/plugins' },
+          { text: 'Plugin Author Quick Path', link: '/reference/plugin-author-quick-path' },
           { text: 'Plugin Quickstart', link: '/reference/plugin-quickstart' },
           { text: 'Plugin End-to-End Example', link: '/reference/plugin-end-to-end-example' },
           { text: 'Testing / Evals', link: '/reference/testing-evals' },
@@ -75,6 +76,7 @@ export default defineConfig({
             { text: 'Containers and Host Mode', link: '/reference/containers-host-mode' },
             { text: 'State and Folders', link: '/reference/state-and-folders' },
             { text: 'Plugins', link: '/reference/plugins' },
+            { text: 'Plugin Author Quick Path', link: '/reference/plugin-author-quick-path' },
             { text: 'Plugin Quickstart', link: '/reference/plugin-quickstart' },
             { text: 'Plugin End-to-End Example', link: '/reference/plugin-end-to-end-example' }
           ]

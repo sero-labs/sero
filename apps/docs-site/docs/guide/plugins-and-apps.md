@@ -97,6 +97,7 @@ A Sero plugin usually combines a few pieces:
 
 The best starting points are:
 
+- [Plugin Author Quick Path](/reference/plugin-author-quick-path)
 - [Plugin Quickstart](/reference/plugin-quickstart)
 - [Plugin End-to-End Example](/reference/plugin-end-to-end-example)
 - [Plugins](/reference/plugins)
@@ -193,6 +194,7 @@ If you want to **use** plugins, start with
 read [Plugins](/reference/plugins) for the broader model.
 
 If you want to **build** a plugin, start with
-[Plugin Quickstart](/reference/plugin-quickstart), then read the
+[Plugin Author Quick Path](/reference/plugin-author-quick-path), then continue to
+[Plugin Quickstart](/reference/plugin-quickstart) and
 [Plugin End-to-End Example](/reference/plugin-end-to-end-example) for UI,
 extension, runtime, and widget structure.

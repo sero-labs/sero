@@ -43,7 +43,11 @@ shared types, UI entry, and Vite federation config.
 For the end-user App Store and sidebar flow, see
 [App Store, Favorites, and Installed Plugins](/guide/app-store-favorites).
 
-For the published quickstart walkthrough, see
+For the shortest author-oriented path through manifests, app-runtime hooks,
+file-backed state, host capabilities, and Module Federation, see
+[Plugin Author Quick Path](/reference/plugin-author-quick-path).
+
+For the published starter walkthrough, see
 [Plugin Quickstart](/reference/plugin-quickstart).
 
 If you need the smallest example that shows **UI + extension + background
