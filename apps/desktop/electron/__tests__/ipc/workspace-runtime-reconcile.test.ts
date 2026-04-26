@@ -45,6 +45,7 @@ const mocks = vi.hoisted(() => {
     assertIsSeroPluginFolder: vi.fn(async () => {}),
     recreateContainerIfRunning: vi.fn(async () => {}),
     appRuntimeReconcile: vi.fn(async () => {}),
+    broadcastToWindows: vi.fn(),
   };
 });
 
@@ -82,6 +83,10 @@ vi.mock('@electron/shared/infra/shared-infra', () => ({
   },
 }));
 
+vi.mock('@electron/ipc/lib/window-broadcast', () => ({
+  broadcastToWindows: mocks.broadcastToWindows,
+}));
+
 describe('workspace IPC runtime reconcile', () => {
   beforeEach(() => {
     vi.resetModules();
@@ -109,6 +114,7 @@ describe('workspace IPC runtime reconcile', () => {
     mocks.assertIsSeroPluginFolder.mockClear();
     mocks.recreateContainerIfRunning.mockClear();
     mocks.appRuntimeReconcile.mockClear();
+    mocks.broadcastToWindows.mockClear();
   });
 
   it('reconciles app runtimes after workspace create/add/remove/close', async () => {
@@ -144,6 +150,8 @@ describe('workspace IPC runtime reconcile', () => {
     expect(mocks.workspaceManager.remove).toHaveBeenCalledWith('ws-1');
     expect(mocks.workspaceManager.close).toHaveBeenCalledWith('ws-1');
     expect(mocks.appRuntimeReconcile).toHaveBeenCalledTimes(4);
+    expect(mocks.broadcastToWindows).toHaveBeenCalledTimes(4);
+    expect(mocks.broadcastToWindows).toHaveBeenCalledWith(IpcChannels.workspace.changed);
   });
 
   it('does not reconcile app runtimes for non-lifecycle workspace mutations', async () => {

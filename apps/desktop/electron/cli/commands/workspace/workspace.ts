@@ -1,12 +1,25 @@
 import path from 'path';
 
-import { workspaceManager } from '@electron/shared/infra/shared-infra';
+import { appRuntimeManager, workspaceManager } from '@electron/shared/infra/shared-infra';
 import { assertIsSeroPluginFolder } from '@electron/features/workspace/plugin-validation';
 import { recreateContainerIfRunning } from '@electron/features/workspace/container-sync';
 import type { CliRegistry } from '@electron/cli/core/registry';
 import type { CliCommandContext } from '@electron/cli/core/types';
 import { askConfirm } from '@electron/cli/lib/ask-confirm';
 import { fail, ok, parseFlags } from '@electron/cli/lib/utils';
+import { broadcastToWindows } from '@electron/ipc/lib/window-broadcast';
+
+function notifyWorkspaceChanged(): void {
+  broadcastToWindows('sero:workspace:changed');
+}
+
+async function reconcileAppRuntimes(reason: string): Promise<void> {
+  try {
+    await appRuntimeManager.reconcile();
+  } catch (error) {
+    console.error(`[workspace] Failed to reconcile app runtimes after ${reason}:`, error);
+  }
+}
 
 function formatWorkspaceList(currentWorkspaceId: string) {
   return async () => {
@@ -112,6 +125,7 @@ async function handleMountPlugin(
   // Container parity: roots are merged into bind-mounts at container
   // build time, so recreate the container to pick up the new mount.
   await recreateContainerIfRunning(wsId);
+  notifyWorkspaceChanged();
 
   return ok(
     `Attached folder "${root.name}" as root "${root.id}" → ${root.path}`,
@@ -145,9 +159,34 @@ async function handleWorkspaceCommand(args: string[], ctx: CliCommandContext) {
         return ok(lines.join('\n'));
       }
 
+      case 'create': {
+        const { positionals, flags } = parseFlags(rest);
+        const name = positionals.join(' ').trim();
+        if (!name) return fail('Usage: sero workspace create <name> [--parent <path>]');
+        const parentFlag = flags.get('parent');
+        const parentPath = typeof parentFlag === 'string' ? parentFlag : undefined;
+        const workspace = await workspaceManager.create(name, parentPath);
+        await reconcileAppRuntimes('workspace create');
+        notifyWorkspaceChanged();
+        return ok(`Created workspace: ${workspace.name} (${workspace.id})\n  ${workspace.path}`);
+      }
+
+      case 'add-folder': {
+        const { positionals, flags } = parseFlags(rest);
+        const folderPath = positionals[0];
+        if (!folderPath) return fail('Usage: sero workspace add-folder <path> [--name <display-name>]');
+        const nameFlag = flags.get('name');
+        const name = typeof nameFlag === 'string' ? nameFlag : undefined;
+        const workspace = await workspaceManager.addFolder(path.resolve(ctx.cwd, folderPath), name);
+        await reconcileAppRuntimes('workspace add-folder');
+        notifyWorkspaceChanged();
+        return ok(`Added workspace: ${workspace.name} (${workspace.id})\n  ${workspace.path}`);
+      }
+
       case 'open': {
         if (!rest[0]) return fail('Usage: sero workspace open <id>');
         await workspaceManager.open(rest[0]);
+        notifyWorkspaceChanged();
         return ok(`Expanded workspace: ${rest[0]}`);
       }
 
@@ -155,7 +194,9 @@ async function handleWorkspaceCommand(args: string[], ctx: CliCommandContext) {
         if (!rest[0]) return fail('Usage: sero workspace close <id>');
         if (rest[0] === 'global') return fail('Cannot close the default workspace');
         await workspaceManager.close(rest[0]);
-        return ok(`Closed workspace: ${rest[0]} (re-add via addFolder to restore)`);
+        await reconcileAppRuntimes('workspace close');
+        notifyWorkspaceChanged();
+        return ok(`Closed workspace: ${rest[0]} (re-add via add-folder to restore)`);
       }
 
       case 'mount-plugin':
@@ -173,14 +214,18 @@ async function handleWorkspaceCommand(args: string[], ctx: CliCommandContext) {
 export function registerWorkspaceCliCommands(registry: CliRegistry): void {
   registry.register({
     name: 'workspace',
-    summary: 'Manage workspaces (list, info, open, close, mount-plugin)',
+    summary: 'Manage workspaces (list, info, create, add-folder, open, close, mount-plugin)',
     help:
       'workspace — Manage workspaces\n\n' +
       'Usage: sero workspace <action> [args]\n\n' +
       'Actions:\n' +
       '  list                       List workspaces\n' +
       '  info [id]                  Show workspace details (default: current)\n' +
-      '  open <id>                  Open a workspace\n' +
+      '  create <name>              Create and register a new workspace\n' +
+      '                             Flags: --parent <path>\n' +
+      '  add-folder <path>          Register an existing folder as a workspace\n' +
+      '                             Flags: --name <display-name>\n' +
+      '  open <id>                  Open/expand a workspace\n' +
       '  close <id>                 Close a workspace\n' +
       '  mount-plugin <path>        Attach a Sero plugin source folder as an attached folder\n' +
       '                             (Explorer visibility only; does not activate the plugin).\n' +

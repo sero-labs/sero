@@ -330,6 +330,9 @@ export class WorkspaceManager {
 
   /** Expand a workspace tree node. Used by federated apps after creating a workspace. */
   async open(id: string): Promise<void> {
+    if (!this.findEntry(id)) {
+      throw new Error(`Workspace not found: ${id}`);
+    }
     await this.setExpanded(id, true);
   }
 

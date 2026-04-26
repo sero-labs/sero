@@ -13,21 +13,31 @@ const mocks = vi.hoisted(() => ({
     list: vi.fn(),
     getConfig: vi.fn(),
     isContainerEnabled: vi.fn(),
+    create: vi.fn(),
+    addFolder: vi.fn(),
     open: vi.fn(),
     close: vi.fn(),
   },
+  appRuntimeManager: {
+    reconcile: vi.fn(),
+  },
   recreateContainerIfRunning: vi.fn(),
+  broadcastToWindows: vi.fn(),
   askConfirm: vi.fn(),
 }));
 
 vi.mock('@electron/shared/infra/shared-infra', () => ({
   workspaceManager: mocks.workspaceManager,
+  appRuntimeManager: mocks.appRuntimeManager,
 }));
 vi.mock('@electron/features/workspace/container-sync', () => ({
   recreateContainerIfRunning: mocks.recreateContainerIfRunning,
 }));
 vi.mock('@electron/cli/lib/ask-confirm', () => ({
   askConfirm: mocks.askConfirm,
+}));
+vi.mock('@electron/ipc/lib/window-broadcast', () => ({
+  broadcastToWindows: mocks.broadcastToWindows,
 }));
 
 // Import AFTER the mocks so the mocked modules wire up correctly.
@@ -90,7 +100,9 @@ describe('sero workspace mount-plugin', () => {
     await mkdir(pluginDir);
 
     Object.values(mocks.workspaceManager).forEach((fn) => fn.mockReset());
+    mocks.appRuntimeManager.reconcile.mockReset().mockResolvedValue(undefined);
     mocks.recreateContainerIfRunning.mockReset().mockResolvedValue(undefined);
+    mocks.broadcastToWindows.mockReset();
     mocks.askConfirm.mockReset();
 
     mocks.workspaceManager.getPath.mockReturnValue('/host/ws');
@@ -153,6 +165,45 @@ describe('sero workspace mount-plugin', () => {
       kind: 'linked-plugin',
     });
     expect(mocks.recreateContainerIfRunning).toHaveBeenCalledWith('ws-1');
+    expect(mocks.broadcastToWindows).toHaveBeenCalledWith('sero:workspace:changed');
+  });
+
+  it('creates a new workspace and notifies the renderer', async () => {
+    mocks.workspaceManager.create.mockResolvedValue({
+      id: 'phoenix-shop',
+      name: 'phoenix-shop',
+      path: '/home/me/.sero-ui/workspaces/phoenix-shop',
+    });
+
+    const result = await registry.invoke(['create', 'phoenix-shop'], makeContext());
+
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toContain('Created workspace: phoenix-shop (phoenix-shop)');
+    expect(mocks.workspaceManager.create).toHaveBeenCalledWith('phoenix-shop', undefined);
+    expect(mocks.appRuntimeManager.reconcile).toHaveBeenCalled();
+    expect(mocks.broadcastToWindows).toHaveBeenCalledWith('sero:workspace:changed');
+  });
+
+  it('passes --parent when creating a workspace', async () => {
+    mocks.workspaceManager.create.mockResolvedValue({
+      id: 'plugin-lab',
+      name: 'plugin-lab',
+      path: '/home/me/projects/plugin-lab',
+    });
+
+    await registry.invoke(['create', 'plugin-lab', '--parent', '/home/me/projects'], makeContext());
+
+    expect(mocks.workspaceManager.create).toHaveBeenCalledWith('plugin-lab', '/home/me/projects');
+  });
+
+  it('surfaces an error when opening an unknown workspace', async () => {
+    mocks.workspaceManager.open.mockRejectedValue(new Error('Workspace not found: atlas-notes'));
+
+    const result = await registry.invoke(['open', 'atlas-notes'], makeContext());
+
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toBe('ERROR: Workspace not found: atlas-notes');
+    expect(mocks.broadcastToWindows).not.toHaveBeenCalled();
   });
 
   it('uses the --name flag as the display name', async () => {

@@ -20,6 +20,10 @@ import type {
   WorkspaceRoot,
 } from '@/types/ipc';
 
+ipcRenderer.on(IpcChannels.workspace.changed, () => {
+  window.dispatchEvent(new Event('sero:workspace-changed'));
+});
+
 export const shellBridge = {
   showItemInFolder: (fullPath: string): Promise<void> =>
     ipcRenderer.invoke(IpcChannels.shell.showItemInFolder, fullPath),

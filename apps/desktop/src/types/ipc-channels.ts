@@ -46,6 +46,8 @@ export const IpcChannels = {
     removeMount: 'sero:workspace:remove-mount',
     /** Set expanded/collapsed state for a workspace tree node. */
     setExpanded: 'sero:workspace:set-expanded',
+    /** Main → renderer: workspace registry changed. */
+    changed: 'sero:workspace:changed',
     /** List additional roots attached to a workspace. */
     listRoots: 'sero:workspace:list-roots',
     /** Add an additional root to a workspace. Args: id, { name, path, kind? }. */

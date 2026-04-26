@@ -13,6 +13,11 @@ import { resolveWorkspaceRuntime } from '@electron/features/workspace/runtime-re
 import { assertIsSeroPluginFolder } from '@electron/features/workspace/plugin-validation';
 import { recreateContainerIfRunning } from '@electron/features/workspace/container-sync';
 import { appRuntimeManager } from '@electron/shared/infra/shared-infra';
+import { broadcastToWindows } from '@electron/ipc/lib/window-broadcast';
+
+function notifyWorkspaceChanged(): void {
+  broadcastToWindows(IpcChannels.workspace.changed);
+}
 
 async function reconcileAppRuntimes(reason: string): Promise<void> {
   try {
@@ -42,6 +47,7 @@ export function registerWorkspaceHandlers(): void {
     async (_event, name: string, parentPath?: string): Promise<WorkspaceInfo> => {
       const workspace = await workspaceManager.create(name, parentPath);
       await reconcileAppRuntimes('workspace create');
+      notifyWorkspaceChanged();
       return workspace;
     },
   );
@@ -52,6 +58,7 @@ export function registerWorkspaceHandlers(): void {
     async (_event, id: string): Promise<void> => {
       await workspaceManager.remove(id);
       await reconcileAppRuntimes('workspace remove');
+      notifyWorkspaceChanged();
     },
   );
 
@@ -69,6 +76,7 @@ export function registerWorkspaceHandlers(): void {
     async (_event, folderPath: string, name?: string): Promise<WorkspaceInfo> => {
       const workspace = await workspaceManager.addFolder(folderPath, name);
       await reconcileAppRuntimes('workspace addFolder');
+      notifyWorkspaceChanged();
       return workspace;
     },
   );
@@ -77,7 +85,8 @@ export function registerWorkspaceHandlers(): void {
   ipcMain.handle(
     IpcChannels.workspace.open,
     async (_event, id: string): Promise<void> => {
-      return workspaceManager.open(id);
+      await workspaceManager.open(id);
+      notifyWorkspaceChanged();
     },
   );
 
@@ -87,6 +96,7 @@ export function registerWorkspaceHandlers(): void {
     async (_event, id: string): Promise<void> => {
       await workspaceManager.close(id);
       await reconcileAppRuntimes('workspace close');
+      notifyWorkspaceChanged();
     },
   );
 
