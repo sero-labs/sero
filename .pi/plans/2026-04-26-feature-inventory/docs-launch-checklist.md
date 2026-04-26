@@ -67,10 +67,10 @@ _All current P0 feature-guide candidates from the launch checklist have a conser
 
 ### P2 / defer until product/support decisions
 
-- [ ] Admin app operational guide — describe config/log/session/support surfaces only after Admin UI inspection and security/support review.
-- [ ] External/local plugin examples catalog — catalog Google, Spotify, Starling, Kanban, Plan Mode, Research, Todo, Notes, ImageGen, Humanizer, and other examples only after product decides support labels and runtime smoke-test expectations.
-- [ ] Detailed Web provider setup matrix — document Exa, Perplexity, Gemini API, Gemini Web, credentials, sign-in, failure modes, and extraction limits only after provider/runtime testing.
-- [ ] Release-note candidates — create final changelog/release notes only after release owner maps each note to a real version/milestone and confirms whether each item is a product change or docs-only highlight.
+- [ ] Admin app operational guide — scout complete in `admin-operational-doc-scout.md`; public guide still blocked on security/support owner review.
+- [ ] External/local plugin examples catalog — scout complete in `external-plugin-catalog-doc-scout.md`; public catalog still blocked on support labels and runtime smoke tests.
+- [ ] Detailed Web provider setup matrix — scout complete in `web-provider-matrix-doc-scout.md`; public matrix still blocked on provider/runtime testing and support wording.
+- [ ] Release-note candidates — candidate notes complete in `release-note-candidates.md`; final changelog/release notes still blocked on release owner mapping to a real version/milestone.
 
 ## Runtime checks still recommended
 
@@ -117,7 +117,8 @@ _All current P0 feature-guide candidates from the launch checklist have a conser
 
 ## Next recommended actions
 
-1. Remaining docs launch items are product/support gated: Website/README positioning, Admin guide, external plugin catalog, detailed Web provider matrix, and release notes.
-2. Runtime-test Web Access and Scheduler examples before turning them into step-by-step tutorials.
-3. Keep screenshots deferred to the single screenshot/demo pass.
-4. Run one final docs-site link/screenshot review before public launch.
+1. Get product/copy approval for Website/README positioning, or leave that work deferred.
+2. Get support/security owner review before publishing Admin, external plugin catalog, detailed Web provider matrix, or release-note pages from the scout artifacts.
+3. Runtime-test Web Access and Scheduler examples before turning them into step-by-step tutorials.
+4. Keep screenshots deferred to the single screenshot/demo pass.
+5. Run one final docs-site link/screenshot review before public launch.
