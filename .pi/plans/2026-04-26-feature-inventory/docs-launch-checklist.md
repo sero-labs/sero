@@ -52,6 +52,7 @@ Screenshot capture is intentionally deferred to a later single screenshot pass. 
 - [x] State and Folders reference — `apps/docs-site/docs/reference/state-and-folders.md`
 - [x] Security, Privacy, and Permissions reference — `apps/docs-site/docs/reference/security-privacy.md`
 - [x] Containers and Host Mode reference — `apps/docs-site/docs/reference/containers-host-mode.md`
+- [x] Explorer Workspace guide — `apps/docs-site/docs/guide/explorer-workspace.md`
 
 ### P0 / next high-value feature guides
 
@@ -60,7 +61,6 @@ Screenshot capture is intentionally deferred to a later single screenshot pass. 
 ### P1 / important follow-up guides
 
 - [ ] Optional Web Remote guide — document optional `SERO_GATEWAY=1`, token-gated access, workspace/session/chat/file/artifact scope, and local-network/security caveats. Blocked by runtime pairing test and security/deployment guidance.
-- [ ] Explorer workspace basics and dev-server surfaces — map Explorer file/editor/browser/diff/terminal surfaces, file-tree refresh, multi-root/mounts, and DevServerPanel controls conservatively. Blocked by runtime review of Explorer and dev-server workflows.
 - [ ] App Store, favorites, and installed plugins user guide — split user-facing plugin management from author docs, covering built-in vs installed plugins, trust caveats, favorites/sidebar behavior, install/uninstall, compatibility, and state retention. Blocked by App Store/favorites runtime inspection.
 - [ ] Website/README feature pillars brief/update — turn verified built-in pillars into public positioning while preserving source-only/macOS alpha caveats. Blocked by product/copy approval and decisions on partially verified features.
 
@@ -108,7 +108,7 @@ Screenshot capture is intentionally deferred to a later single screenshot pass. 
 
 ## Next recommended actions
 
-1. Pick the next feature guide from the outstanding list; recommended order is Explorer, then Web Remote or App Store depending on release risk.
+1. Pick the next feature guide from the outstanding list; recommended order is Web Remote or App Store depending on release risk.
 2. Runtime-test Web Access and Scheduler examples before turning them into step-by-step tutorials.
 3. Keep screenshots deferred to the single screenshot/demo pass.
 4. Run one final docs-site link/screenshot review before public launch.
