@@ -24,14 +24,23 @@ The project goal is not just “AI in an editor.” It is a workspace layer wher
 
 - [Workspace and Chat](/guide/workspace-and-chat) explains the shell, sidebar,
   workspaces, sessions, and global chat panel.
+- [Explorer Workspace](/guide/explorer-workspace) maps files, editor previews,
+  browser tabs, terminals, and dev-server surfaces.
 - [Memory](/guide/memory) explains durable local context, scratchpad workflows,
   storage, and recall limits.
 - [Web Access](/guide/web-access) explains web search, content fetching,
   bookmarks, provider prerequisites, and workspace-scoped web state.
+- [Web Remote](/guide/web-remote) explains the optional, security-sensitive
+  gateway pairing surface.
 - [Scheduler and Reminders](/guide/scheduler-reminders) explains recurring
   agent jobs, reminders, notification caveats, and conservative recovery.
-- [Plugins and Apps](/guide/plugins-and-apps) explains built-in vs installed
-  plugins, App Store/favorites behavior, and app-runtime concepts.
+- [Git Manager](/guide/git-manager) explains repository status, changes, branch
+  context, and conservative agent/Git workflows.
+- [Plugins and Apps](/guide/plugins-and-apps) explains core apps, bundled
+  plugins, installed plugins, and app-runtime concepts.
+- [App Store and Favorites](/guide/app-store-favorites) explains plugin
+  discovery, sidebar favorites, compatibility, install/uninstall, and retained
+  state.
 
 ## Current alpha scope
 

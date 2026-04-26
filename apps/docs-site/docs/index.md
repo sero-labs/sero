@@ -67,10 +67,14 @@ For the canonical current support contract, see
 
 - [Getting Started](/guide/getting-started)
 - [Workspace and Chat](/guide/workspace-and-chat)
+- [Explorer Workspace](/guide/explorer-workspace)
 - [Memory](/guide/memory)
 - [Web Access](/guide/web-access)
+- [Web Remote](/guide/web-remote) — optional and security-sensitive
 - [Scheduler and Reminders](/guide/scheduler-reminders)
+- [Git Manager](/guide/git-manager)
 - [Plugins and Apps](/guide/plugins-and-apps)
+- [App Store and Favorites](/guide/app-store-favorites)
 - [Support Scope](/reference/support-scope)
 - [Architecture](/reference/architecture)
 - [Contributing](https://github.com/sero-labs/sero/blob/main/CONTRIBUTING.md)

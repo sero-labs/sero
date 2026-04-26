@@ -91,10 +91,17 @@ Screenshot capture is intentionally deferred to a later single screenshot pass. 
 ## Safe to publish now, with existing caveats
 
 - Workspace and Chat overview guide.
+- Explorer Workspace guide as a conservative surface map, not a full IDE/dev-server parity promise.
 - Memory user guide.
 - Web Access guide as a conservative feature overview, not provider setup reference.
+- Web Remote guide as a conservative optional alpha overview, not deployment hardening guidance.
 - Scheduler and Reminders guide as a conservative feature overview, not a reliability guarantee.
+- Git Manager guide as a conservative overview, not a step-by-step verified disposable-repo tutorial.
 - Plugins and Apps guide as an alpha overview, not a stable marketplace/API promise.
+- App Store, Favorites, and Installed Plugins guide as a user-management overview, not a stable marketplace or reviewed-plugin claim.
+- State and Folders reference as the canonical profile/path map for the docs site.
+- Security / Privacy reference as practical alpha security guidance, not a hardening guarantee.
+- Containers and Host Mode reference as support-scope guidance, not host/container parity or security-boundary claims.
 
 ## Do not publish as final claims yet
 
