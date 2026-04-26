@@ -1,406 +1,480 @@
-# Demo screenshot scenario prompts
+# Demo project prompts for Sero
 
 **Demo profile:** `/Users/danielcarter/.sero-ui/profiles/serodemo`
 
-Use this document to create interesting screenshot/demo workspaces from inside
-Sero. The goal is to let the agent choose tasteful implementation details while
-keeping all content synthetic, safe, and visually useful for docs screenshots.
+Use these prompts inside Sero to create polished, synthetic demo projects. The
+agent does not need to know these are for screenshots; the goal is simply to
+create interesting workspaces and sessions that naturally show Sero well.
 
-## Ground rules for every scenario
+All demos should use fake data only. Do not include real customers, personal
+facts, private URLs, API keys, tokens, real emails, private repo names, or
+sensitive local paths.
 
-Before starting, use a fresh workspace/session under the demo profile.
+## Recommended demo set
 
-Use prompts that tell the agent:
+Create these as separate workspaces or separate sessions inside one demo profile:
 
-- all data must be synthetic
-- no real names, emails, tokens, customers, repo URLs, API keys, private paths,
-  or personal notes
-- prefer visually readable files, UI labels, and commit messages
-- keep examples small enough to understand in screenshots
-- choose frameworks/tools that make the UI look good in Sero screenshots
-- avoid depending on paid credentials or real external services unless you
-  explicitly choose to configure them
-- write short README notes inside each workspace explaining what the demo shows
+1. **Phoenix Studio** — Vite + React + Tailwind product dashboard
+2. **Orbit Docs** — Astro documentation site
+3. **Signal CLI** — TypeScript command-line tool with tests
+4. **Harbor API** — Fastify TypeScript API with sample data
+5. **Atlas Design Tokens** — small design-system package
+6. **Launch Notes Repo** — disposable Git workflow repo
+7. **Ops Planner** — synthetic scheduler/reminder planning project
+8. **Plugin Lab** — tiny Sero plugin concept workspace
 
-When a scenario is ready, capture screenshots according to:
+---
+
+# Global setup prompt
+
+Use this once at the start of the demo profile.
 
 ```text
-.pi/plans/2026-04-26-feature-inventory/screenshot-demo-pass-plan.md
+I am setting up a clean demo profile with synthetic projects. Help me create polished, realistic demo workspaces that are safe to show publicly.
+
+General rules:
+- all content must be fictional and synthetic
+- do not use real names, real emails, private URLs, credentials, API keys, customer data, or personal notes
+- prefer clear file names, short README files, and readable examples
+- choose modern frameworks that are easy to run locally
+- keep each project small but complete enough to inspect, run, and modify
+- add helpful scripts where appropriate
+- make the projects visually and structurally interesting, not generic placeholders
+- summarize how to open, run, test, and modify each project
+
+If you need to make a choice, choose the option that creates the clearest local development demo.
 ```
 
 ---
 
-# Scenario 1 — Desktop shell / Explorer overview
+# Scenario 1 — Phoenix Studio
 
-## Purpose
+## Framework
 
-Create a workspace that makes the Sero shell look immediately understandable:
-sidebar, Explorer file tree, editor/preview, terminal, and chat panel.
+Use **Vite + React + TypeScript + Tailwind**.
 
-## Suggested session name
+## Goal
 
-`Demo: Product Studio Workspace`
+Create a small product dashboard for a fictional design/operations studio. It
+should have enough visual structure to make the workspace feel real: components,
+mock data, routes or tabs, and a nice landing/dashboard screen.
 
-## Prompt to paste into Sero
+## Suggested workspace/session name
 
-```text
-Create a polished synthetic demo workspace for screenshots of Sero's desktop shell and Explorer.
+`Phoenix Studio`
 
-Please choose whatever lightweight framework, file layout, and content will make the screenshots look good. The workspace should feel like a small product studio or design/engineering project, but all content must be fake and safe to show publicly.
-
-General goals:
-- create a visually interesting but small project
-- include a README that explains the demo project in a few lines
-- include a few source files with readable names
-- include at least one file that looks good open in the editor
-- include a simple local preview or mock app if practical
-- include a terminal-friendly command that prints a useful synthetic status summary
-- keep everything deterministic and easy to inspect
-
-Please avoid real company names, real customer data, real URLs, secrets, API keys, personal paths, or anything that looks private.
-
-When done, summarize what files/views are best to open for screenshots: file tree, editor tab, preview/browser, terminal command, and chat prompt.
-```
-
-## Follow-up prompt after creation
+## Prompt
 
 ```text
-Prepare this workspace for a full-shell screenshot. Open or suggest the most visually useful file, the best preview surface if available, and a terminal command that produces short readable output. Keep the layout focused on showing Sero's sidebar, Explorer, terminal, and chat panel clearly.
+Create a new demo project called Phoenix Studio using Vite, React, TypeScript, and Tailwind.
+
+Make it a polished fictional product dashboard for a small design/operations studio. Let the details be synthetic and tasteful.
+
+Please include:
+- a clean project structure
+- a short README explaining the fictional product
+- mock data for projects, tasks, metrics, and activity
+- reusable React components with clear names
+- a visually interesting main dashboard
+- at least one secondary view or tab, such as Projects, Activity, or Insights
+- scripts for install/dev/build/check if appropriate
+- a short terminal command or npm script that prints a useful synthetic status summary
+
+Keep the implementation lightweight and local. Do not use real services, real companies, real customer names, credentials, private URLs, or personal data.
+
+When done, summarize:
+- how to run it
+- which files are most useful to inspect
+- what small change would be good for a follow-up coding task
 ```
 
-## Screenshot targets
+## Follow-up task prompt
 
-- Full shell with left sidebar, Explorer, terminal, right chat panel, status bar
-- Optional tighter Explorer shot with file tree + editor/preview + terminal
+```text
+Make one small improvement to Phoenix Studio that shows a realistic development workflow. Choose a focused change, update the code cleanly, and explain what changed. Prefer a change that creates a readable diff and improves the visible UI.
+```
 
 ---
 
-# Scenario 2 — Memory workflow
+# Scenario 2 — Orbit Docs
 
-## Purpose
+## Framework
 
-Create synthetic memory/scratchpad content that demonstrates durable context
-without exposing anything personal.
+Use **Astro + TypeScript + Markdown/MDX**.
 
-## Suggested session name
+## Goal
 
-`Demo: Memory Workflow`
+Create a fictional internal documentation site for a small product team. It
+should show docs navigation, structured content, and a tasteful static-site
+project.
 
-## Prompt to paste into Sero
+## Suggested workspace/session name
 
-```text
-Create a synthetic memory demo for Sero documentation screenshots.
+`Orbit Docs`
 
-Please generate a small set of fake project preferences, working notes, and scratchpad items that would make sense for a demo product workspace. Use only fictional content. Do not include any real names, emails, tokens, URLs, customer details, personal facts, or private paths.
-
-I want the screenshot to show how memory can help a future agent turn. Please:
-- create a few concise synthetic memory items or scratchpad notes using the available Sero memory workflows/tools
-- make the content visually readable in chat
-- include one future prompt idea that should cause the agent to use or reference the stored context
-- keep the memory content obviously fake and safe for public docs
-
-When done, tell me exactly what prompt I should send next to produce a nice screenshot showing memory context or recall behavior, if that is available in the current build.
-```
-
-## Follow-up prompt for screenshot moment
+## Prompt
 
 ```text
-Using the synthetic demo memory we just created, help me produce a screenshot-friendly response that references the relevant saved context. Keep the answer concise and visually readable. If a memory-context block appears, make sure the content is safe and easy to understand.
+Create a new demo project called Orbit Docs using Astro, TypeScript, and Markdown or MDX.
+
+Make it a fictional internal documentation site for a product team. The content should be safe, synthetic, and useful-looking.
+
+Please include:
+- a short README
+- a homepage
+- at least three docs pages, such as Getting Started, Release Process, and Design Principles
+- a small navigation structure
+- clean styling that feels polished but not overbuilt
+- fake examples, fake teams, and fake process notes only
+- scripts to run and build the site
+
+Do not use real company names, private project details, real URLs, secrets, credentials, or personal information.
+
+When done, summarize:
+- how to run the docs locally
+- what pages were created
+- what would make a good follow-up writing or editing task
 ```
 
-## Screenshot targets
+## Follow-up task prompt
 
-- Chat panel with memory write/read/search or memory-context behavior
-- Optional visible memory context block if it appears naturally
+```text
+Review Orbit Docs like a documentation maintainer. Improve one page for clarity, add one small cross-link, and explain the editorial change. Keep everything synthetic.
+```
 
 ---
 
-# Scenario 3 — Web Access history/bookmarks
+# Scenario 3 — Signal CLI
 
-## Purpose
+## Framework
 
-Populate Web Access with safe, synthetic-looking research activity and bookmarks.
-Avoid depending on real private browsing history.
+Use **Node.js + TypeScript + Vitest**.
 
-## Suggested session name
+## Goal
 
-`Demo: Web Research Board`
+Create a small command-line utility that analyzes synthetic project notes or task
+entries. It should be easy to run in a terminal and produce readable output.
 
-## Prompt to paste into Sero
+## Suggested workspace/session name
 
-```text
-Create a safe Web Access demo for screenshots.
+`Signal CLI`
 
-Use public, harmless topics only. Pick a lightweight research theme that will look good in docs, such as comparing public design-system documentation, open-source release notes, or general web platform references. Avoid private URLs, accounts, credentials, customer data, personal searches, or anything sensitive.
-
-Please use the available web/search/fetch/bookmark workflows to create a screenshot-friendly state if the configured providers allow it. If providers are unavailable, create a graceful fallback plan that still gives me a useful Web app screenshot without pretending provider setup works.
-
-Goals:
-- produce a few safe search/history entries
-- save a few bookmarks with clean titles
-- optionally fetch one or two public pages if available
-- keep titles short and readable
-- avoid controversial or personal topics
-
-When done, summarize the best Web app views to open for screenshots, especially History, Bookmarks, and Downloads if populated.
-```
-
-## Follow-up prompt if providers fail
+## Prompt
 
 ```text
-The web provider path appears unavailable or partially configured. Please help me stage a safe screenshot plan that honestly shows the Web app surface without claiming provider success. Use only local/synthetic state if appropriate, and tell me which parts should not be represented as verified provider behavior.
+Create a new demo project called Signal CLI using Node.js, TypeScript, and Vitest.
+
+Make it a small command-line tool that reads synthetic project/task data and prints useful summaries. The tool should be simple, well-structured, and easy to test.
+
+Please include:
+- a short README
+- TypeScript source files with clear names
+- synthetic fixture data
+- at least two CLI commands or modes, such as summary and risks
+- unit tests with Vitest
+- package scripts for build, test, and running the CLI
+- readable terminal output
+
+All data must be fictional. Do not use real projects, real people, real paths, real URLs, credentials, or private details.
+
+When done, summarize:
+- how to run the CLI
+- how to run tests
+- which files are best to inspect
+- one good follow-up feature idea
 ```
 
-## Screenshot targets
+## Follow-up task prompt
 
-- Web app with History visible
-- Web app with Bookmarks visible
-- Optional Downloads/fetched content if naturally available
+```text
+Add one small feature to Signal CLI. Choose something useful, such as filtering by priority, grouping by area, or exporting a short markdown summary. Include tests and explain the change.
+```
 
 ---
 
-# Scenario 4 — Scheduler and reminders
+# Scenario 4 — Harbor API
 
-## Purpose
+## Framework
 
-Create synthetic jobs/reminders that make the Scheduler app legible.
+Use **Fastify + TypeScript + Zod**.
 
-## Suggested session name
+## Goal
 
-`Demo: Scheduler Board`
+Create a small local API for fictional workspace data. It should demonstrate
+backend code, validation, routes, sample data, and a simple local run flow.
 
-## Prompt to paste into Sero
+## Suggested workspace/session name
 
-```text
-Create a synthetic Scheduler and Reminders demo for screenshots.
+`Harbor API`
 
-All entries must be fake and safe to show publicly. Please create a small set of demo reminders and recurring jobs that look useful but do not imply real obligations, personal schedules, customers, incidents, or credentials.
-
-Examples of acceptable themes:
-- daily demo workspace review
-- weekly synthetic project summary
-- stretch break reminder
-- check docs screenshot checklist
-- summarize fake release notes
-
-Please use the available Scheduler/cron/reminder workflows in the safest way. Keep scheduled times easy to understand and avoid creating noisy real notifications unless I explicitly ask.
-
-Goals:
-- create at least one reminder
-- create at least one recurring job or scheduled agent task if supported
-- include clear titles and short descriptions
-- leave the Scheduler app in a screenshot-friendly state
-- tell me what view/settings should be open for the screenshot
-
-When done, summarize what was created and how to clean it up after screenshots.
-```
-
-## Follow-up prompt for notification/widget shot
+## Prompt
 
 ```text
-Prepare the Scheduler demo state for screenshots. If a dashboard widget or notification-related state is available, tell me the safest way to show it with synthetic data. Do not trigger repeated or noisy notifications unless I confirm.
+Create a new demo project called Harbor API using Fastify, TypeScript, and Zod.
+
+Make it a small local API for fictional workspace/project data. Keep it lightweight and runnable without external services.
+
+Please include:
+- a short README
+- a Fastify server entry point
+- route modules with clear names
+- Zod schemas for validation
+- synthetic in-memory data
+- endpoints such as health, projects, tasks, and activity
+- package scripts for dev, build, and test or check
+- example curl commands in the README
+
+Do not use real services, databases, credentials, personal data, customer names, private URLs, or private paths.
+
+When done, summarize:
+- how to run the API
+- what endpoints exist
+- which file would be best for a small follow-up change
 ```
 
-## Screenshot targets
+## Follow-up task prompt
 
-- Scheduler app with Jobs and Reminders
-- Notification settings if visible
-- Scheduler dashboard widget if available
+```text
+Add a small validated endpoint to Harbor API. Choose a useful endpoint based on the existing synthetic data, update the README examples, and explain how to test it locally.
+```
 
 ---
 
-# Scenario 5 — Git Manager with disposable repo
+# Scenario 5 — Atlas Design Tokens
 
-## Purpose
+## Framework
 
-Create a synthetic Git repository with readable diffs/branches/commits for Git
-Manager screenshots.
+Use **TypeScript package + CSS variables + simple preview page**. Use Vite only
+if useful for the preview.
 
-## Suggested session name
+## Goal
 
-`Demo: Git Manager Repo`
+Create a small design-token package with colors, spacing, type scale, and a
+preview page. This is useful for showing file structure, code, docs, and visual
+preview.
 
-## Prompt to paste into Sero
+## Suggested workspace/session name
 
-```text
-Create a disposable synthetic Git demo repository for Sero Git Manager screenshots.
+`Atlas Design Tokens`
 
-Please choose a small project theme and file layout that will produce readable Git status, branch, diff, and commit views. All content must be fake and safe to show publicly.
-
-General goals:
-- initialize or use a disposable Git repo only
-- create a clean initial commit
-- create one feature branch with a small readable change
-- leave at least one staged or unstaged change that looks good in a diff
-- use short synthetic commit messages
-- avoid real remotes, real repo URLs, real customer names, secrets, or private paths
-- include a README explaining this is a screenshot demo repo
-
-Please be careful: do not mutate any real repository. If the workspace is not disposable, stop and ask me to create a disposable workspace first.
-
-When done, tell me which Git Manager views are best for screenshots: status, branches, diff, log, or commit details.
-```
-
-## Follow-up prompt for screenshot moment
+## Prompt
 
 ```text
-Prepare the disposable repo for a Git Manager screenshot. I want a clean, readable state that shows branch context and a small diff without implying any real project. Recommend which Git Manager view to open first and what should be visible.
+Create a new demo project called Atlas Design Tokens.
+
+Make it a small design-token package using TypeScript and CSS variables. Add a simple local preview page if it helps show the tokens clearly.
+
+Please include:
+- a short README
+- token definitions for colors, spacing, radius, typography, and elevation
+- generated or hand-authored CSS variables
+- a simple preview page with swatches and examples
+- package scripts for build/check/preview if appropriate
+- fictional naming only
+
+Keep it polished, compact, and easy to inspect. Do not use real brand names, private design systems, customer names, tokens, credentials, or private URLs.
+
+When done, summarize:
+- how the token package is structured
+- how to preview it
+- which files are most useful to open
+- one good follow-up refactor or design task
 ```
 
-## Screenshot targets
+## Follow-up task prompt
 
-- Git Manager status/changes
-- Branch context
-- Small readable diff
-- Optional log/commit detail
+```text
+Improve Atlas Design Tokens by adding one cohesive theme variation or one new component example. Keep the design tasteful and explain the change clearly.
+```
 
 ---
 
-# Scenario 6 — App Store and Favorites
+# Scenario 6 — Launch Notes Repo
 
-## Purpose
+## Framework
 
-Show the App Store/favorites/sidebar model without implying a stable marketplace
-or reviewed plugin catalog.
+Use a **plain Git repository with Markdown and small TypeScript or JSON files**.
 
-## Suggested session name
+## Goal
 
-`Demo: App Store Favorites`
+Create a disposable repo with meaningful branches, commits, and diffs. It should
+be safe for Git Manager demos and agent-assisted Git workflows.
 
-## Prompt to paste into Sero
+## Suggested workspace/session name
 
-```text
-Help me prepare a safe App Store and Favorites screenshot for Sero docs.
+`Launch Notes Repo`
 
-Please inspect the current App Store / plugin management UI state and recommend a screenshot composition that clearly shows:
-- core shell apps vs plugin-backed apps where visible
-- installed apps
-- favorites/sidebar behavior
-- any compatibility labels if present
-
-Do not install untrusted plugins or make marketplace/support claims. If installing a plugin would improve the screenshot, suggest only a safe local or trusted demo option and ask for confirmation before installing anything.
-
-All visible app/plugin names should be safe to show publicly. Avoid exposing local paths, private source locations, tokens, unsupported claims, or personal profile details.
-
-When done, tell me which App Store tab/view and sidebar state would make the clearest screenshot.
-```
-
-## Follow-up prompt if a local demo plugin is needed
+## Prompt
 
 ```text
-If a local demo plugin would make the App Store screenshot clearer, propose a minimal safe approach first. Do not install or modify anything until I confirm. The goal is only to show installed/favorite/sidebar behavior, not to claim external plugin support.
+Create a disposable Git demo repository called Launch Notes Repo.
+
+This repo should be safe for experimenting with Git workflows. Use only synthetic content.
+
+Please include:
+- a short README explaining that it is a demo repo
+- a few markdown files for fictional release notes, launch checklist, or product notes
+- one or two small TypeScript or JSON files if useful
+- an initial clean commit
+- a feature branch with a small readable change
+- one intentionally unstaged or staged change that creates a clean, readable diff
+- short synthetic commit messages
+
+Do not add a real remote. Do not use real customer names, real product roadmap details, real URLs, credentials, or private data.
+
+When done, summarize:
+- current branch state
+- what changed
+- which Git views would be interesting to inspect
+- safe next Git tasks I can ask the agent to do
 ```
 
-## Screenshot targets
+## Follow-up task prompt
 
-- App Store Installed tab
-- Discover tab if safe and non-sensitive
-- Sidebar with favorited plugin-backed apps
+```text
+Use this disposable repo to demonstrate a safe Git workflow. Choose a small operation such as staging a change, writing a commit, comparing branches, or creating a cleanup branch. Avoid destructive operations unless you ask first.
+```
 
 ---
 
-# Scenario 7 — Web Remote pairing
+# Scenario 7 — Ops Planner
 
-## Purpose
+## Framework
 
-Optionally show Web Remote as an advanced/security-sensitive surface. Only do
-this if you are comfortable enabling the gateway in the demo profile.
+Use **Markdown + JSON/YAML + optional tiny TypeScript helper**.
 
-## Suggested session name
+## Goal
 
-`Demo: Web Remote Pairing`
+Create a project that naturally supports reminders, recurring tasks, and planning
+sessions without needing real obligations or sensitive schedules.
 
-## Prompt to paste into Sero
+## Suggested workspace/session name
 
-```text
-Help me plan a safe Web Remote screenshot using this demo profile.
+`Ops Planner`
 
-Do not reveal or print gateway tokens, QR payloads, full login URLs, secrets, private workspace names, or real local paths. Treat Web Remote as optional and security-sensitive.
-
-Please inspect what Web Remote / connect-device surfaces are available in the current build and recommend a screenshot composition that communicates pairing without exposing credentials. If the gateway is not enabled, explain the safe launch prerequisite but do not imply it is active.
-
-The screenshot should make clear that this is an optional alpha feature, not a production remote-admin guarantee.
-```
-
-## Follow-up prompt after launching with `SERO_GATEWAY=1`
+## Prompt
 
 ```text
-The gateway is enabled for this demo profile. Help me stage a safe Web Remote pairing screenshot. Do not show raw tokens, full URLs, QR contents, or secrets. Recommend what to crop or hide, and include cleanup steps to revoke/disable access afterward.
+Create a synthetic planning workspace called Ops Planner.
+
+Make it a fictional operations planning repo with enough structure to support reminders, recurring review tasks, and lightweight planning sessions.
+
+Please include:
+- a README
+- a weekly plan document
+- a recurring review checklist
+- a small JSON or YAML file with fake tasks/milestones
+- optional tiny TypeScript helper script if useful
+- suggested safe reminder/job ideas I can create in Sero later
+
+All dates, tasks, people, projects, and milestones must be fictional. Do not use real schedules, personal reminders, customer details, credentials, or private URLs.
+
+When done, summarize:
+- what planning documents exist
+- what reminders or recurring jobs would make sense to create
+- how to clean up those reminders later
 ```
 
-## Screenshot targets
+## Follow-up task prompt
 
-- Connect remote device dialog or pairing surface
-- Optional paired web UI only if tokens/URLs can be safely hidden
+```text
+Using the synthetic Ops Planner workspace, suggest a small set of safe reminders and recurring review jobs I can create in Sero. Keep them generic, clearly fictional, and easy to delete later.
+```
 
 ---
 
-# Scenario 8 — End-to-end launch-story workspace
+# Scenario 8 — Plugin Lab
 
-## Purpose
+## Framework
 
-Create one visually coherent workspace that can tie several screenshots together
-with consistent fictional branding.
+Use **documentation-first plugin planning**. Do not create a full plugin unless
+asked. If creating code, use **TypeScript** and follow the Sero plugin docs.
 
-## Suggested session name
+## Goal
 
-`Demo: Phoenix Launch Kit`
+Create a small workspace that explores a fictional Sero plugin idea: manifest,
+state shape, UI concept, and tool contract. This is useful for plugin author docs
+without needing to install an external plugin.
 
-## Prompt to paste into Sero
+## Suggested workspace/session name
 
-```text
-Create a cohesive synthetic demo workspace that can support multiple Sero docs screenshots.
+`Plugin Lab`
 
-Let the agent choose the framework and details that will look best. The workspace should feel like a small fictional product launch kit, with files, tasks, notes, and optional preview UI that are visually clear in screenshots.
-
-Please create only fake/safe data. No real customers, companies, emails, secrets, tokens, private URLs, or personal paths.
-
-Desired outputs:
-- a small project structure with readable filenames
-- a README describing the fictional project
-- a simple app or preview if practical
-- a few synthetic docs/notes that look good in Explorer
-- a terminal command that prints a short project status
-- suggested memory notes for this fictional project
-- suggested scheduler reminders/jobs for this fictional project
-- optional Git branch/change ideas for a disposable repo
-
-Keep it compact and screenshot-friendly. When done, tell me how to use this one workspace across Shell, Explorer, Memory, Scheduler, Git, and Web screenshots.
-```
-
-## Follow-up prompt for staging all screenshots
+## Prompt
 
 ```text
-Using this synthetic launch-kit workspace, help me stage the next screenshot in the sequence. Choose the most visually useful Sero surface, explain what should be visible, and keep all content safe and fictional.
+Create a synthetic plugin planning workspace called Plugin Lab.
+
+Do not build or install a real plugin yet. Instead, create a documentation-first plan for a fictional Sero plugin that would be safe and useful as an example.
+
+Please include:
+- a README explaining the fictional plugin idea
+- a draft package manifest outline
+- a shared state shape in TypeScript or markdown
+- a UI concept document
+- a Pi extension/tool contract document
+- a host capability checklist
+- notes about what should be tested before implementation
+
+Use only fake data. Do not use real service credentials, private APIs, real external plugin claims, customer names, or private URLs.
+
+When done, summarize:
+- what the plugin would do
+- which files describe the UI, state, and tools
+- what would be the first safe implementation step
 ```
 
-## Screenshot targets
+## Follow-up task prompt
 
-- Can support Shell, Explorer, Memory, Scheduler, Git, and maybe Web screenshots
-- Useful if you want consistent names/content across the whole docs launch set
+```text
+Review the Plugin Lab plan against Sero's plugin author guidance. Improve the manifest outline, state shape, and host capability checklist. Keep it documentation-only unless I explicitly ask you to implement code.
+```
 
 ---
 
-# Recommended capture order using these scenarios
+# Suggested order to create the workspaces
 
-1. Create Scenario 8 first if you want a unified fictional theme.
-2. Use Scenario 1 for the main shell/Explorer screenshot.
-3. Use Scenario 5 for Git Manager if Git needs a richer disposable repo state.
-4. Use Scenario 2 for Memory.
-5. Use Scenario 4 for Scheduler.
-6. Use Scenario 3 for Web Access.
-7. Use Scenario 6 for App Store/Favorites.
-8. Use Scenario 7 only if you intentionally want Web Remote screenshots and can keep credentials hidden.
+1. **Phoenix Studio** first — best general-purpose visual workspace.
+2. **Launch Notes Repo** second — best for Git workflows.
+3. **Signal CLI** third — best for terminal/test output.
+4. **Harbor API** fourth — best for backend/dev-server examples.
+5. **Orbit Docs** fifth — best for docs/navigation examples.
+6. **Atlas Design Tokens** sixth — best for visual preview and file structure.
+7. **Ops Planner** seventh — best for Scheduler/reminders.
+8. **Plugin Lab** eighth — best for plugin authoring discussions.
 
-# Cleanup prompts
+# General follow-up prompts
 
-Use these after screenshots to return the demo profile/workspaces to a clean
-state.
+Use these in any workspace.
+
+## Ask for a readable status summary
 
 ```text
-Review this demo workspace/profile state and list what synthetic data was created for screenshots. Suggest safe cleanup steps for reminders, scheduled jobs, temporary web bookmarks/history, demo plugin installs, gateway/web tokens, and disposable Git branches. Do not delete anything until I confirm.
+Give me a concise status summary of this demo workspace: what it is, how to run it, which files are most important, and one safe next task.
 ```
 
+## Ask for a small coding change
+
 ```text
-Proceed with the safe cleanup steps we just reviewed. Preserve only the files that are useful as reusable synthetic demo fixtures, and remove temporary reminders/jobs/tokens/history that should not persist.
+Make one small, well-scoped improvement to this demo project. Choose the change yourself based on what would be most useful. Keep the diff readable, update docs if needed, and explain how to verify it.
+```
+
+## Ask for cleanup guidance
+
+```text
+Review this demo workspace for temporary state or generated files. Suggest safe cleanup steps, but do not delete anything until I confirm.
+```
+
+## Ask for a session title/summary
+
+```text
+Create a short session title and two-sentence summary for this demo workspace. Keep it fictional, readable, and safe to show publicly.
+```
+
+# Cleanup prompt for the full demo profile
+
+Use this when you are done creating demo material.
+
+```text
+Review the demo profile/workspaces we created and list cleanup recommendations. Include temporary reminders, scheduled jobs, web bookmarks/history, demo plugin installs, gateway/web tokens, generated build folders, and disposable Git branches. Do not delete anything until I confirm.
 ```
