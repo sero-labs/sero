@@ -180,7 +180,8 @@ Implemented:
 
 - Ran `gitleaks detect --source . --redact` against the local repository history.
 - Gitleaks scanned 1028 commits and reported no leaks.
-- Attempted a TruffleHog verified-secret scan. TruffleHog was not installed in this environment, so the TruffleHog step was recorded as skipped.
+- Ran `trufflehog git file://$PWD --only-verified --json` against the local repository history.
+- TruffleHog scanned 26,345 chunks / 27,327,246 bytes and reported 0 verified secrets and 0 unverified secrets.
 - Saved scan artifacts under `docs/plans/artifacts/`:
   - `gitleaks-public-launch-report.json`
   - `trufflehog-public-launch-report.json`
@@ -188,7 +189,7 @@ Implemented:
 Notes:
 
 - The gitleaks report is empty because no leaks were found.
-- If extra assurance is desired before flipping `sero-labs/sero` public, install TruffleHog and rerun the verified-secret scan.
+- Both gitleaks and TruffleHog completed without finding secrets.
 
 ## Phase 9 — Prepare Public-Facing Project Files
 
@@ -243,8 +244,7 @@ Notes:
 
 Before public announcement:
 
-- Send an external test email to `security@sero-ai.dev` and verify inbound and outbound delivery.
-- Consider installing TruffleHog and running a second verified-secret scan.
+- `security@sero-ai.dev` has been tested and inbound delivery is confirmed.
 - Make `sero-labs/sero` public only when ready.
 - After `sero-labs/sero` is public, enable private vulnerability reporting for it.
 - After plugin CI workflows exist and have run, enable required plugin status checks.
