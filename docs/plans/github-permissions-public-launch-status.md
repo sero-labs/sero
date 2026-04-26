@@ -248,8 +248,10 @@ Plugin CI workflow policy:
 
 Notes:
 
-- Plugin CI workflows are now present, but required plugin status checks have not been enabled yet. Wait until each workflow has run at least once and the check name is confirmed stable.
-- The expected stable check name is `Plugin CI`.
+- Plugin CI workflows were manually dispatched once for every external plugin repository.
+- All 15 plugin CI workflow runs completed successfully.
+- Required `Plugin CI` status checks are now enabled on every external plugin repository's protected `main` branch.
+- Required status checks are strict, so protected branches must be up to date before merge.
 - The main repo remains private. Do not flip it public until the final manual launch checks are complete.
 
 ## Final Manual Launch Checks
@@ -259,4 +261,4 @@ Before public announcement:
 - `security@sero-ai.dev` has been tested and inbound delivery is confirmed.
 - Make `sero-labs/sero` public only when ready.
 - After `sero-labs/sero` is public, enable private vulnerability reporting for it.
-- After plugin CI workflows have run successfully at least once, enable required plugin status checks for `Plugin CI`.
+- After `sero-labs/sero` is public, confirm required checks and private vulnerability reporting remain enabled as expected.
