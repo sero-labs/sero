@@ -49,6 +49,7 @@ export default defineConfig({
             { text: 'Getting Started', link: '/guide/getting-started' },
             { text: 'Workspace and Chat', link: '/guide/workspace-and-chat' },
             { text: 'Memory', link: '/guide/memory' },
+            { text: 'Web Access', link: '/guide/web-access' },
             {
               text: 'Installation / Requirements',
               link: '/guide/installation-requirements'
