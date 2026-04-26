@@ -54,6 +54,7 @@ Screenshot capture is intentionally deferred to a later single screenshot pass. 
 - [x] Containers and Host Mode reference — `apps/docs-site/docs/reference/containers-host-mode.md`
 - [x] Explorer Workspace guide — `apps/docs-site/docs/guide/explorer-workspace.md`
 - [x] Web Remote guide — `apps/docs-site/docs/guide/web-remote.md`
+- [x] App Store, Favorites, and Installed Plugins guide — `apps/docs-site/docs/guide/app-store-favorites.md`
 
 ### P0 / next high-value feature guides
 
@@ -61,7 +62,6 @@ Screenshot capture is intentionally deferred to a later single screenshot pass. 
 
 ### P1 / important follow-up guides
 
-- [ ] App Store, favorites, and installed plugins user guide — split user-facing plugin management from author docs, covering built-in vs installed plugins, trust caveats, favorites/sidebar behavior, install/uninstall, compatibility, and state retention. Blocked by App Store/favorites runtime inspection.
 - [ ] Website/README feature pillars brief/update — turn verified built-in pillars into public positioning while preserving source-only/macOS alpha caveats. Blocked by product/copy approval and decisions on partially verified features.
 
 ### P2 / defer until product/support decisions
@@ -108,7 +108,7 @@ Screenshot capture is intentionally deferred to a later single screenshot pass. 
 
 ## Next recommended actions
 
-1. Pick the next feature guide from the outstanding list; recommended order is App Store/favorites, then plugin author quick path if public API wording is approved.
+1. Pick the next feature guide from the outstanding list; recommended order is plugin author quick path if public API wording is approved, otherwise defer to product-approved Website/README positioning.
 2. Runtime-test Web Access and Scheduler examples before turning them into step-by-step tutorials.
 3. Keep screenshots deferred to the single screenshot/demo pass.
 4. Run one final docs-site link/screenshot review before public launch.
