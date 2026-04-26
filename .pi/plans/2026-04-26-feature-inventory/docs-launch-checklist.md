@@ -53,6 +53,7 @@ Screenshot capture is intentionally deferred to a later single screenshot pass. 
 - [x] Security, Privacy, and Permissions reference — `apps/docs-site/docs/reference/security-privacy.md`
 - [x] Containers and Host Mode reference — `apps/docs-site/docs/reference/containers-host-mode.md`
 - [x] Explorer Workspace guide — `apps/docs-site/docs/guide/explorer-workspace.md`
+- [x] Web Remote guide — `apps/docs-site/docs/guide/web-remote.md`
 
 ### P0 / next high-value feature guides
 
@@ -60,7 +61,6 @@ Screenshot capture is intentionally deferred to a later single screenshot pass. 
 
 ### P1 / important follow-up guides
 
-- [ ] Optional Web Remote guide — document optional `SERO_GATEWAY=1`, token-gated access, workspace/session/chat/file/artifact scope, and local-network/security caveats. Blocked by runtime pairing test and security/deployment guidance.
 - [ ] App Store, favorites, and installed plugins user guide — split user-facing plugin management from author docs, covering built-in vs installed plugins, trust caveats, favorites/sidebar behavior, install/uninstall, compatibility, and state retention. Blocked by App Store/favorites runtime inspection.
 - [ ] Website/README feature pillars brief/update — turn verified built-in pillars into public positioning while preserving source-only/macOS alpha caveats. Blocked by product/copy approval and decisions on partially verified features.
 
@@ -83,7 +83,7 @@ Screenshot capture is intentionally deferred to a later single screenshot pass. 
 
 - [ ] Which external/local plugins may be mentioned publicly and under what support label.
 - [ ] Public Web provider matrix and credential setup language.
-- [ ] Optional Web Remote security/deployment guidance.
+- [ ] Optional Web Remote runtime pairing/deployment polish beyond conservative guide.
 - [ ] Plugin/app-runtime API stability wording for public author docs.
 - [ ] Release-note scope: product changes vs docs-only highlights.
 - [ ] Homepage/README positioning approval for partially verified built-in capabilities.
@@ -100,7 +100,7 @@ Screenshot capture is intentionally deferred to a later single screenshot pass. 
 
 - External/local integration pages.
 - Detailed provider setup matrix.
-- Web Remote usage/deployment guide.
+- Polished Web Remote deployment guide beyond the conservative alpha overview.
 - Polished Git Manager step-by-step UI how-to claims without disposable-repo runtime verification.
 - Admin operations guide without support/security owner review.
 - Polished security/permission prompt UI how-to claims without runtime prompt review.
@@ -108,7 +108,7 @@ Screenshot capture is intentionally deferred to a later single screenshot pass. 
 
 ## Next recommended actions
 
-1. Pick the next feature guide from the outstanding list; recommended order is Web Remote or App Store depending on release risk.
+1. Pick the next feature guide from the outstanding list; recommended order is App Store/favorites, then plugin author quick path if public API wording is approved.
 2. Runtime-test Web Access and Scheduler examples before turning them into step-by-step tutorials.
 3. Keep screenshots deferred to the single screenshot/demo pass.
 4. Run one final docs-site link/screenshot review before public launch.
