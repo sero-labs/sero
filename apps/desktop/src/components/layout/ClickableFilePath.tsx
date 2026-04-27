@@ -33,6 +33,22 @@ export function looksLikeFilePath(text: string): boolean {
 }
 
 /**
+ * Convert a chat/tool-rendered path into the editor's virtual path format.
+ *
+ * The editor treats the first segment of an absolute virtual path as a root id
+ * (`/workspace/foo`, `/sero-source/bar`). Tool summaries commonly emit project
+ * relative paths like `docs/foo.md`; opening those as `/docs/foo.md` makes
+ * `docs` look like an unknown root. Bare and `./` paths belong to the primary
+ * workspace root.
+ */
+export function toEditorVirtualPath(text: string): string {
+  const filePath = text.trim();
+  if (filePath.startsWith('/')) return filePath;
+  if (filePath.startsWith('./')) return `/workspace/${filePath.slice(2)}`;
+  return `/workspace/${filePath}`;
+}
+
+/**
  * Installs a delegated click handler on a container element that
  * intercepts ctrl+clicks on file paths and opens them in the editor.
  *
@@ -53,8 +69,7 @@ export function createFilePathClickHandler(
     if (looksLikeFilePath(text)) {
       e.preventDefault();
       e.stopPropagation();
-      const filePath = text.startsWith('/') ? text : `/${text}`;
-      requestOpenFile(workspaceId, filePath);
+      requestOpenFile(workspaceId, toEditorVirtualPath(text));
     }
   };
 }

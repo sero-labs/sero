@@ -102,7 +102,7 @@ export function ModelManagerDialog({ open, onOpenChange }: ModelManagerDialogPro
         </div>
 
         {activeTab === 'local' ? (
-          <div className="max-h-[400px] min-h-[200px] overflow-y-auto">
+          <div className="max-h-[500px] min-h-[200px] overflow-y-auto">
             <LocalModelsPanel localModels={localModels} />
           </div>
         ) : (
@@ -139,7 +139,7 @@ export function ModelManagerDialog({ open, onOpenChange }: ModelManagerDialogPro
               </div>
             ) : null}
 
-            <div className="max-h-[400px] min-h-[200px] overflow-y-auto px-2 py-1">
+            <div className="max-h-[500px] min-h-[200px] overflow-y-auto px-2 py-1">
               <AnimatePresence mode="popLayout">
                 {displayGroups.length === 0 ? (
                   <motion.div

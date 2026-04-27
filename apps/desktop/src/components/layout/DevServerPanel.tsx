@@ -26,6 +26,10 @@ import {
   TooltipTrigger,
 } from '@sero-ai/ui/components/ui/tooltip';
 import { useDevServers, useRunningDevServerCount } from '@/stores/dev-server';
+import { useAppStore } from '@/stores/app';
+import { useBrowserStore } from '@/stores/browser';
+import { useExplorerStore } from '@/stores/explorer';
+import { useWorkspaceStore } from '@/stores/workspace';
 import type { DevServer } from '@/types/ipc';
 
 // ── Status indicator dot ────────────────────────────────────
@@ -70,9 +74,16 @@ function ServerRow({ server }: { server: DevServer }) {
         case 'unregister':
           await window.sero.devServer.unregister(server.id);
           break;
-        case 'open':
-          await window.sero.devServer.openInBrowser(server.id);
+        case 'open': {
+          useWorkspaceStore.getState().setActiveWorkspace(server.workspaceId);
+          useAppStore.getState().setActiveApp('explorer');
+          useExplorerStore.getState().set(server.workspaceId, {
+            activePanel: 'browser',
+            sidebarOpen: false,
+          });
+          useBrowserStore.getState().createTab(server.workspaceId, server.url);
           break;
+        }
       }
     } catch (err) {
       console.error(`[dev-server] ${action} failed:`, err);
@@ -105,7 +116,7 @@ function ServerRow({ server }: { server: DevServer }) {
           <button
             className="truncate hover:text-[var(--text-secondary)] hover:underline"
             onClick={() => handleAction('open')}
-            title="Open in browser"
+            title="Open in Sero browser"
           >
             {server.url}
           </button>
@@ -116,7 +127,7 @@ function ServerRow({ server }: { server: DevServer }) {
       <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
         <ActionButton
           icon={<ExternalLink className="size-3" />}
-          tooltip="Open in browser"
+          tooltip="Open in Sero browser"
           onClick={() => handleAction('open')}
           loading={isActionLoading('open')}
         />

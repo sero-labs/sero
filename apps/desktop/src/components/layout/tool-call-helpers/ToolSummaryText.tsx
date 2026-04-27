@@ -1,7 +1,7 @@
 import { useCallback, useMemo, type MouseEvent } from 'react';
 import { cn } from '@sero-ai/ui/lib/utils';
 import { useEditorBridge } from '@/stores/editor-bridge';
-import { looksLikeFilePath } from '../ClickableFilePath';
+import { looksLikeFilePath, toEditorVirtualPath } from '../ClickableFilePath';
 
 const FILE_PATH_TOOLS = new Set(['edit', 'read', 'write']);
 
@@ -29,7 +29,7 @@ export function ToolSummaryText({
       if (!(event.ctrlKey || event.metaKey) || !isFilePath || !workspaceId) return;
       event.preventDefault();
       event.stopPropagation();
-      requestOpenFile(workspaceId, summary.startsWith('/') ? summary : `/${summary}`);
+      requestOpenFile(workspaceId, toEditorVirtualPath(summary));
     },
     [isFilePath, requestOpenFile, summary, workspaceId],
   );

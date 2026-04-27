@@ -8,7 +8,7 @@ import {
   ResizableHandle,
 } from '@sero-ai/ui/components/ui/resizable';
 import { TitleBar } from '@/components/layout/TitleBar';
-import { MainSidebar } from '@/components/layout/MainSidebar';
+import { MainSidebar } from '@/components/layout/shell/MainSidebar';
 import { StatusBar } from '@/components/layout/StatusBar';
 import { ChatPanel } from '@/components/layout/ChatPanel';
 import { useAppStore, listenForNewApps } from '@/stores/app';
