@@ -27,6 +27,8 @@ Remember that this demo project uses pnpm and prefers small focused PRs.
 Avoid storing secrets, access tokens, private customer data, or anything you
 would not want included in local profile state or debug output.
 
+![Memory](../assets/images/memory.jpg)
+
 ## How memory appears in chat
 
 Before an agent turn starts, the Memory plugin can add selected memory context
@@ -44,6 +46,8 @@ At a high level:
 When the renderer exposes memory context for a message, it may appear as a
 collapsed memory-context block in the chat UI. Use that as a debugging aid: it
 shows what context was attached to that turn, not everything Sero knows.
+
+![Memories in Chat](../assets/images/memory-chat.jpg)
 
 ## Inspect and update memory
 
@@ -123,6 +127,8 @@ Examples:
 
 Slash commands route through the agent/session flow. Exact UI presentation may
 change during alpha.
+
+![Slash Commands](../assets/images/slash-commands.jpg)
 
 ## Where the data lives
 

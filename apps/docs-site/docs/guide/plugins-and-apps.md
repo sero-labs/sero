@@ -34,6 +34,8 @@ A plugin can provide one or more surfaces:
 For the canonical overview, see [Plugins](/reference/plugins). For the
 end-user management flow, see [App Store, Favorites, and Installed Plugins](/guide/app-store-favorites).
 
+![Local Plugin Management](../assets/images/local-plugin-preview.jpg)
+
 ### App Store and discovery
 
 The App Store dialog is the current discovery and management surface for plugin

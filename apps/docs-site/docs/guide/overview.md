@@ -15,7 +15,7 @@ Sero is built for users who want fewer context switches between editor,
 terminals, AI tooling, app-specific workflows, and project coordination.
 
 The project goal is not just “AI in an editor.” It is a workspace layer where:
-- Pi is the intelligence layer
+- PI is the coding agent
 - workspaces are first-class
 - runtime mode can be container-backed or host-based
 - plugins can extend both UI and agent capabilities

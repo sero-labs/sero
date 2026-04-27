@@ -1,4 +1,4 @@
-# Web Remote
+# Web Remote (via Tailscale)
 
 Web Remote is Sero's optional gateway for pairing a browser or remote client to
 your local desktop session. It is intended for controlled, local-first remote

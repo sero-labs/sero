@@ -8,6 +8,8 @@ Sero is still a **source-only OSS alpha**. Treat Git Manager as a practical
 workspace tool, not a replacement for understanding Git. Mutating actions run
 against the real repository in the active workspace.
 
+![Git Manager](../assets/images/git-management.jpg)
+
 ## Git Manager vs Explorer Source Control
 
 Sero currently has more than one version-control surface:
@@ -68,6 +70,8 @@ This guide does **not** claim that every `git_manager` action has a polished,
 first-class visual control. Some actions are primarily agent/tool-driven, and
 screenshots plus runtime verification are still needed before publishing precise
 step-by-step UI how-to instructions.
+
+![Git Ship Deck](../assets/images/git-ship-deck.jpg)
 
 ## Read-only actions
 

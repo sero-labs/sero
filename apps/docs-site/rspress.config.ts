@@ -6,6 +6,7 @@ const currentDir = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   globalStyles: path.resolve(currentDir, 'docs/styles.css'),
+  globalUIComponents: [path.resolve(currentDir, 'src/NativeImageSize.ts')],
   root: 'docs',
   outDir: 'dist',
   base: '/',

@@ -1,11 +1,13 @@
-# Explorer Workspace
+# Explorer
 
-Explorer is Sero's project workspace surface. It brings together files, editor
+Explorer is Sero's project workspace editor. It brings together files, editor
 previews, browser/preview tabs, source-control views, and workspace terminals
 around the active workspace and agent session.
 
 Explorer is useful today, but it is not a promise of full IDE parity during the
 alpha. For runtime expectations, see [Containers and Host Mode](/reference/containers-host-mode).
+
+![Explorer](../assets/images/explorer.jpg)
 
 ## Where Explorer fits
 
@@ -64,6 +66,8 @@ Keep these alpha caveats in mind:
 - Avoid using Explorer as the only copy of important work until you are
   comfortable with the current alpha behavior.
 
+![Workspace references](../assets/images/workspace-references.jpg)
+
 ## Editor and previews
 
 Explorer's main area can show several kinds of tabs:
@@ -76,6 +80,10 @@ Explorer's main area can show several kinds of tabs:
 
 The diff view is designed around comparing Git revisions and changed files. Do
 not treat it as a complete arbitrary file-comparison product.
+
+![Explorer editor](../assets/images/explorer-editor.jpg)
+
+![Explorer diff](../assets/images/explorer-diff.jpg)
 
 ## Browser and preview tabs
 
@@ -94,6 +102,8 @@ This browser surface is part of Sero's local development workflow. It should not
 be described as a general-purpose hardened browser or a guarantee that every web
 app behaves like it would in your default browser.
 
+![Explorer Browser](../assets/images/explorer-browser.jpg)
+
 ## Terminal panel
 
 The terminal panel is workspace-scoped. Terminal tabs are created and opened for
@@ -107,6 +117,8 @@ Runtime matters:
 
 If terminal behavior differs between runtimes, include the runtime mode when
 filing an issue.
+
+![Explorer Terminal](../assets/images/explorer-terminal.jpg)
 
 ## Dev servers
 
@@ -125,6 +137,8 @@ automatically discover, start, or manage every project server. Container-backed
 runtime is the preferred path for managed preview and dev-server flows. Host
 mode is reduced and should not be treated as feature-equivalent for dev-server
 automation.
+
+![Explorer Dev Servers](../assets/images/explorer-dev-servers.jpg)
 
 ## Runtime caveats
 

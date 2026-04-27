@@ -8,6 +8,8 @@ This is an alpha management surface, not a stable commercial marketplace. Treat
 third-party plugins as trusted source code and install only from sources you are
 comfortable running locally.
 
+![App Store](../assets/images/app-store.jpg)
+
 ## Core apps, bundled plugins, and installed plugins
 
 Sero shows a few categories of app-like surfaces:
@@ -53,6 +55,8 @@ Use Discover carefully:
 - expect compatibility and packaging behavior to evolve during alpha
 - do not assume every external example is supported by maintainers
 
+![App Discovery](../assets/images/app-discovery.jpg)
+
 ## Favorites and the sidebar
 
 The main sidebar intentionally stays small. It shows core shell apps first, then
@@ -75,6 +79,8 @@ Practical expectations:
 If an installed plugin does not appear in the sidebar, check whether it is
 favorited, compatible with the current host, and actually exposes an app UI.
 
+![Favourites Menu](../assets/images/favourites-menu.jpg)
+
 ## Installing plugins
 
 Sero can install plugins through the plugin management bridge. Public plugin
@@ -93,6 +99,8 @@ During alpha:
 Install/uninstall changes trigger host-side reconciliation and active-session
 resource reloads. In normal cases, Sero should refresh discovered apps and agent
 resources quickly, but this is not a guarantee of universal update reliability.
+
+![Plugin Management](../assets/images/plugin-management.jpg)
 
 ## Uninstalling and retained state
 

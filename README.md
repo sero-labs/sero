@@ -4,7 +4,7 @@
 
 Sero is a **local-first, agent-first desktop workspace for macOS**. It brings
 project workspaces, agent chat, plugin apps, terminals, previews, and runtime
-integration into one application, with **Pi** as the intelligence layer behind
+integration into one application, with **Pi** as the coding agnet behind
 the system.
 
 ## Alpha status

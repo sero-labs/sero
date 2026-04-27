@@ -305,6 +305,12 @@ section div:has(> div > div > article.rspress-home-feature-card) article {
   text-align: left;
 }
 
+.rspress-doc p > img {
+  width: auto;
+  max-width: 100%;
+  height: auto;
+}
+
 @media (max-width: 760px) {
   :root {
     --rp-nav-height: 64px;

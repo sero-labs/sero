@@ -8,6 +8,8 @@ This guide explains the basic mental model. It intentionally avoids detailed
 Explorer workflows, attachment types, and slash-command catalogs because those
 surfaces are still being documented and verified during alpha.
 
+![Workspace desktop shell overview](../assets/images/explorer-view.jpg)
+
 ## Alpha expectations
 
 Sero is currently a **source-only OSS alpha** for **macOS on Apple Silicon**.
@@ -29,6 +31,10 @@ Practical expectations:
 - Do not put secrets in screenshots, logs, memory, or support reports.
 - Exact onboarding screens may change during alpha.
 - Profiles are useful separation, not a hardened multi-tenant security boundary.
+
+![Create profile dialog](../assets/images/create-profile.jpg)
+
+![Profile selection dialog](../assets/images/create-profile-2.jpg)
 
 ## Shell regions
 
@@ -73,6 +79,8 @@ In the session tree you can expect to:
 The workspace registry is profile-scoped local state. It is not browser storage
 and it is restored when you relaunch Sero with that profile.
 
+![Profile selection dialog](../assets/images/workspace-sessions.jpg)
+
 ## Global chat mental model
 
 The chat panel is global to the shell, not tied to one app view. You can switch
@@ -106,6 +114,8 @@ current public-safe mental model is:
 On macOS, the usual shortcut is `⌘K`; on other keyboard layouts or environments
 it may appear as `Ctrl+K`. Do not treat the command menu as a complete catalog
 of agent slash commands or every possible action in Sero.
+
+![Command Menu](../assets/images/command-menu.jpg)
 
 ## Layout persistence
 
