@@ -1,4 +1,4 @@
-# Web Access
+# Web
 
 Sero's Web plugin is a built-in plugin for bringing web context into an agent
 session. It can search the web, fetch readable content from sources you provide,

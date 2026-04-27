@@ -1,20 +1,20 @@
-# Git Manager
+# Git Integration
 
-Sero's **Git** app is a built-in Git Manager for developers working in a Git
+Sero's **Git** app is a built-in Git Integration for developers working in a Git
 repository. It gives the agent and the app UI a shared view of repository status,
 branches, commits, diffs, stashes, and selected Git operations.
 
-Sero is still a **source-only OSS alpha**. Treat Git Manager as a practical
+Sero is still a **source-only OSS alpha**. Treat Git Integration as a practical
 workspace tool, not a replacement for understanding Git. Mutating actions run
 against the real repository in the active workspace.
 
-![Git Manager](../assets/images/git-management.jpg)
+![Git Integration](../assets/images/git-management.jpg)
 
-## Git Manager vs Explorer Source Control
+## Git Integration vs Explorer Source Control
 
 Sero currently has more than one version-control surface:
 
-- **Git Manager** is the built-in app named **Git** with app id `git`. It is
+- **Git Integration** is the built-in app named **Git** with app id `git`. It is
   Git-native and centered on branches, staging, commits, stashes, remotes,
   worktrees, commit history, and diffs.
 - **Explorer Source Control** is a separate Explorer workflow documented in the
@@ -23,12 +23,12 @@ Sero currently has more than one version-control surface:
   Copy, Bookmarks, Pull Request, Changes, and Remotes.
 
 Do not assume actions or wording from one surface apply directly to the other.
-For example, Git Manager talks about Git branches and staging, while the
+For example, Git Integration talks about Git branches and staging, while the
 Explorer guide talks about JJ bookmarks and manual checkpoints.
 
-## Where you interact with Git Manager
+## Where you interact with Git Integration
 
-You can use Git Manager from two main surfaces:
+You can use Git Integration from two main surfaces:
 
 - **Git app** — a visual app surface for inspecting and operating on repository
   state.
@@ -144,7 +144,7 @@ reviewed the diff and know the target remote/branch.
 
 ## Branch and worktree safety
 
-Git Manager includes guardrails, but guardrails are not a guarantee that an
+Git Integration includes guardrails, but guardrails are not a guarantee that an
 action is risk-free.
 
 Known source-supported protections include:
@@ -177,11 +177,11 @@ If an operation fails:
 1. Stop and inspect `git status` before trying another mutating action.
 2. Resolve conflicts manually if Git asks you to.
 3. Continue or abort using normal Git commands when needed.
-4. Refresh Git Manager after command-line resolution so the app state catches up.
+4. Refresh Git Integration after command-line resolution so the app state catches up.
 
 ## State and storage
 
-Git Manager stores workspace-local app state at:
+Git Integration stores workspace-local app state at:
 
 ```text
 <workspace>/.sero/apps/git/state.json
@@ -191,7 +191,7 @@ That state is used by the Git app and agent bridge to keep a shared view of the
 repository. Missing state falls back to an empty/default state. Malformed state
 may need repair or removal.
 
-Git Manager also adds an ignore rule for the state folder so the app state does
+Git Integration also adds an ignore rule for the state folder so the app state does
 not appear as an untracked change in the repository:
 
 ```text
@@ -220,12 +220,12 @@ Practical habits:
 ### The Git app shows no repository
 
 Confirm the active workspace is inside a Git repository and refresh the Git app.
-If you are in the wrong workspace or outside a repo, Git Manager will not have
+If you are in the wrong workspace or outside a repo, Git Integration will not have
 normal branch/status data to show.
 
 ### The UI and command line disagree
 
-Run a refresh from the Git app or ask `git_manager` to `refresh`. Git Manager's
+Run a refresh from the Git app or ask `git_manager` to `refresh`. Git Integration's
 view is file-backed state, so command-line changes may need a refresh before the
 UI reflects them.
 

@@ -18,7 +18,7 @@ Sero shows a few categories of app-like surfaces:
   shell and are always present.
 - **Bundled plugin apps** ship with the Sero source tree but are still surfaced
   through the plugin/discovered-app path. Examples can include internal apps
-  such as Admin, Scheduler, or Git Manager depending on the current build.
+  such as Admin, Scheduler, or Git Integration depending on the current build.
 - **Installed plugins** are separate packages stored in your active Sero profile.
   They may come from npm, git, or local source paths when supported by the
   installer.

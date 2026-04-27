@@ -69,10 +69,10 @@ For the canonical current support contract, see
 - [Workspace and Chat](/guide/workspace-and-chat)
 - [Explorer Workspace](/guide/explorer-workspace)
 - [Memory](/guide/memory)
-- [Web Access](/guide/web-access)
-- [Web Remote](/guide/web-remote) — optional and security-sensitive
+- [Web](/guide/web)
+- [Remote Control](/guide/remote-control) — optional and security-sensitive
 - [Scheduler and Reminders](/guide/scheduler-reminders)
-- [Git Manager](/guide/git-manager)
+- [Git Integration](/guide/git-integration)
 - [Plugins and Apps](/guide/plugins-and-apps)
 - [App Store and Favorites](/guide/app-store-favorites)
 - [Support Scope](/reference/support-scope)

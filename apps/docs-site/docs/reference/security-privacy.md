@@ -223,7 +223,7 @@ credentials accordingly.
 
 ## See also
 
-- [Web Remote](/guide/web-remote)
+- [Remote Control](/guide/remote-control)
 - [State and Folders](/reference/state-and-folders)
 - [Support Scope](/reference/support-scope)
 

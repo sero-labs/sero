@@ -39,13 +39,13 @@ After the repo boots, these guides explain the main product surfaces:
   browser tabs, terminals, and dev-server surfaces
 - [Memory](/guide/memory) — durable context, scratchpad, memory tools, and
   privacy limits
-- [Web Access](/guide/web-access) — web search, fetch, bookmarks, provider
+- [Web](/guide/web) — web search, fetch, bookmarks, provider
   prerequisites, and workspace-scoped web state
-- [Web Remote](/guide/web-remote) — optional gateway pairing and remote-access
+- [Remote Control](/guide/remote-control) — optional gateway pairing and remote-access
   caveats
 - [Scheduler and Reminders](/guide/scheduler-reminders) — recurring agent jobs,
   reminders, notifications, and missed-run caveats
-- [Git Manager](/guide/git-manager) — repository status, changes, branch
+- [Git Integration](/guide/git-integration) — repository status, changes, branch
   context, and agent/Git workflows
 - [Plugins and Apps](/guide/plugins-and-apps) — using trusted plugins and
   building plugin apps during alpha

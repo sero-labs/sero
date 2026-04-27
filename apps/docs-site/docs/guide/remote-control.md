@@ -1,6 +1,6 @@
-# Web Remote (via Tailscale)
+# Remote Control (via Tailscale)
 
-Web Remote is Sero's optional gateway for pairing a browser or remote client to
+Remote Control is Sero's optional gateway for pairing a browser or remote client to
 your local desktop session. It is intended for controlled, local-first remote
 access during the OSS alpha, not as a production remote-admin service.
 
@@ -13,7 +13,7 @@ SERO_GATEWAY=1
 
 Read [Security / Privacy](/reference/security-privacy) before enabling it.
 
-## What Web Remote can access
+## What Remote Control can access
 
 An authenticated gateway client can interact with the same local Sero profile
 that your desktop app is using. Current gateway capabilities include:
@@ -30,7 +30,7 @@ that your desktop app is using. Current gateway capabilities include:
   token
 
 Because prompts can cause the agent to use tools, a paired client can have
-high-impact effects on your workspaces. Treat Web Remote access like access to
+high-impact effects on your workspaces. Treat Remote Control access like access to
 the desktop UI.
 
 ## Authentication model
@@ -102,7 +102,7 @@ autocomplete, screenshots, referrers, logs, or shared terminal output.
 
 ## Known alpha limitations
 
-During the current source-only alpha, Web Remote does **not** promise:
+During the current source-only alpha, Remote Control does **not** promise:
 
 - hardened remote administration
 - production deployment support
@@ -119,7 +119,7 @@ but that is not the same as a comprehensive per-tool permission system.
 
 ## What to include in support reports
 
-If Web Remote behaves unexpectedly, include:
+If Remote Control behaves unexpectedly, include:
 
 - whether the gateway was enabled with `SERO_GATEWAY=1`
 - whether the client used localhost, Tailscale, Discord, or another path

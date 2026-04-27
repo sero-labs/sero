@@ -116,10 +116,10 @@ Examples from the current guides:
 
 | App | State path |
 | --- | --- |
-| Web Access | `<workspace>/.sero/apps/web/state.json` |
-| Git Manager | `<workspace>/.sero/apps/git/state.json` |
+| Web | `<workspace>/.sero/apps/web/state.json` |
+| Git Integration | `<workspace>/.sero/apps/git/state.json` |
 
-Git Manager also ignores its state folder with this pattern so the app state does
+Git Integration also ignores its state folder with this pattern so the app state does
 not appear as an untracked repository change:
 
 ```text
@@ -199,4 +199,4 @@ These may talk to remote systems, while still storing state locally:
 
 For security posture and remote-control caveats, see
 [Security / Privacy](/reference/security-privacy) and
-[Web Remote](/guide/web-remote).
+[Remote Control](/guide/remote-control).

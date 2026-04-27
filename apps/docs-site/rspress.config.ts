@@ -4,6 +4,63 @@ import { defineConfig } from 'rspress/config';
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 
+const guideStart = [
+  { text: 'Guide Home', link: '/guide/' },
+  { text: 'Overview', link: '/guide/overview' },
+  { text: 'Getting Started', link: '/guide/getting-started' }
+];
+
+const guideWorkspace = [
+  { text: 'Workspace and Chat', link: '/guide/workspace-and-chat' },
+  { text: 'Explorer Workspace', link: '/guide/explorer-workspace' }
+];
+
+const guideCapabilities = [
+  { text: 'Memory', link: '/guide/memory' },
+  { text: 'Web', link: '/guide/web' },
+  { text: 'Remote Control', link: '/guide/remote-control' },
+  { text: 'Scheduler and Reminders', link: '/guide/scheduler-reminders' },
+  { text: 'Git Integration', link: '/guide/git-integration' }
+];
+
+const guidePlugins = [
+  { text: 'Plugins and Apps', link: '/guide/plugins-and-apps' },
+  { text: 'App Store and Favorites', link: '/guide/app-store-favorites' }
+];
+
+const guideSetup = [
+  { text: 'Installation / Requirements', link: '/guide/installation-requirements' },
+  { text: 'Development Setup', link: '/guide/development-setup' }
+];
+
+const referenceFoundations = [
+  { text: 'Reference Home', link: '/reference/' },
+  { text: 'Architecture', link: '/reference/architecture' },
+  { text: 'Support Scope', link: '/reference/support-scope' }
+];
+
+const referenceRuntime = [
+  { text: 'Containers and Host Mode', link: '/reference/containers-host-mode' },
+  { text: 'State and Folders', link: '/reference/state-and-folders' }
+];
+
+const referencePluginAuthors = [
+  { text: 'Plugins', link: '/reference/plugins' },
+  { text: 'Plugin Author Quick Path', link: '/reference/plugin-author-quick-path' },
+  { text: 'Plugin Quickstart', link: '/reference/plugin-quickstart' },
+  { text: 'Plugin End-to-End Example', link: '/reference/plugin-end-to-end-example' }
+];
+
+const referenceQualitySafety = [
+  { text: 'Testing / Evals', link: '/reference/testing-evals' },
+  { text: 'Security / Privacy', link: '/reference/security-privacy' }
+];
+
+const referenceHelp = [
+  { text: 'Troubleshooting', link: '/reference/troubleshooting' },
+  { text: 'Known Limitations', link: '/reference/known-limitations' }
+];
+
 export default defineConfig({
   globalStyles: path.resolve(currentDir, 'docs/styles.css'),
   globalUIComponents: [path.resolve(currentDir, 'src/NativeImageSize.ts')],
@@ -20,20 +77,24 @@ export default defineConfig({
       { text: 'Overview', link: '/guide/overview' },
       { text: 'Getting Started', link: '/guide/getting-started' },
       {
+        text: 'Guide',
+        items: [
+          { text: 'Guide Home', link: '/guide/' },
+          { text: 'Workspace', link: '/guide/workspace-and-chat' },
+          { text: 'Capabilities', link: '/guide/memory' },
+          { text: 'Plugins and Apps', link: '/guide/plugins-and-apps' },
+          { text: 'Setup', link: '/guide/installation-requirements' }
+        ]
+      },
+      {
         text: 'Reference',
         items: [
-          { text: 'Architecture', link: '/reference/architecture' },
-          { text: 'Support Scope', link: '/reference/support-scope' },
-          { text: 'Containers and Host Mode', link: '/reference/containers-host-mode' },
-          { text: 'State and Folders', link: '/reference/state-and-folders' },
-          { text: 'Plugins', link: '/reference/plugins' },
-          { text: 'Plugin Author Quick Path', link: '/reference/plugin-author-quick-path' },
-          { text: 'Plugin Quickstart', link: '/reference/plugin-quickstart' },
-          { text: 'Plugin End-to-End Example', link: '/reference/plugin-end-to-end-example' },
-          { text: 'Testing / Evals', link: '/reference/testing-evals' },
-          { text: 'Security / Privacy', link: '/reference/security-privacy' },
-          { text: 'Troubleshooting', link: '/reference/troubleshooting' },
-          { text: 'Known Limitations', link: '/reference/known-limitations' }
+          { text: 'Reference Home', link: '/reference/' },
+          { text: 'Foundations', link: '/reference/architecture' },
+          { text: 'Runtime and State', link: '/reference/containers-host-mode' },
+          { text: 'Plugin Authors', link: '/reference/plugins' },
+          { text: 'Quality and Safety', link: '/reference/testing-evals' },
+          { text: 'Help and Limits', link: '/reference/troubleshooting' }
         ]
       }
     ],
@@ -48,64 +109,45 @@ export default defineConfig({
       '/guide/': [
         {
           text: 'Start Here',
-          items: [
-            { text: 'Overview', link: '/guide/overview' },
-            { text: 'Getting Started', link: '/guide/getting-started' },
-            { text: 'Workspace and Chat', link: '/guide/workspace-and-chat' },
-            { text: 'Explorer Workspace', link: '/guide/explorer-workspace' },
-            { text: 'Memory', link: '/guide/memory' },
-            { text: 'Web Access', link: '/guide/web-access' },
-            { text: 'Web Remote', link: '/guide/web-remote' },
-            { text: 'Scheduler and Reminders', link: '/guide/scheduler-reminders' },
-            { text: 'Git Manager', link: '/guide/git-manager' },
-            { text: 'Plugins and Apps', link: '/guide/plugins-and-apps' },
-            { text: 'App Store and Favorites', link: '/guide/app-store-favorites' },
-            {
-              text: 'Installation / Requirements',
-              link: '/guide/installation-requirements'
-            },
-            { text: 'Development Setup', link: '/guide/development-setup' }
-          ]
+          items: guideStart
+        },
+        {
+          text: 'Core Workspace',
+          items: guideWorkspace
+        },
+        {
+          text: 'Built-in Capabilities',
+          items: guideCapabilities
+        },
+        {
+          text: 'Plugins and Apps',
+          items: guidePlugins
+        },
+        {
+          text: 'Setup and Development',
+          items: guideSetup
         }
       ],
       '/reference/': [
         {
-          text: 'Concepts',
-          items: [
-            { text: 'Architecture', link: '/reference/architecture' },
-            { text: 'Support Scope', link: '/reference/support-scope' },
-            { text: 'Containers and Host Mode', link: '/reference/containers-host-mode' },
-            { text: 'State and Folders', link: '/reference/state-and-folders' },
-            { text: 'Plugins', link: '/reference/plugins' },
-            { text: 'Plugin Author Quick Path', link: '/reference/plugin-author-quick-path' },
-            { text: 'Plugin Quickstart', link: '/reference/plugin-quickstart' },
-            { text: 'Plugin End-to-End Example', link: '/reference/plugin-end-to-end-example' }
-          ]
+          text: 'Foundations',
+          items: referenceFoundations
         },
         {
-          text: 'Quality',
-          items: [
-            { text: 'Testing / Evals', link: '/reference/testing-evals' }
-          ]
+          text: 'Runtime and State',
+          items: referenceRuntime
         },
         {
-          text: 'Safety',
-          items: [
-            {
-              text: 'Security / Privacy',
-              link: '/reference/security-privacy'
-            }
-          ]
+          text: 'Plugin Authors',
+          items: referencePluginAuthors
         },
         {
-          text: 'Help',
-          items: [
-            { text: 'Troubleshooting', link: '/reference/troubleshooting' },
-            {
-              text: 'Known Limitations',
-              link: '/reference/known-limitations'
-            }
-          ]
+          text: 'Quality and Safety',
+          items: referenceQualitySafety
+        },
+        {
+          text: 'Help and Limits',
+          items: referenceHelp
         }
       ]
     }
