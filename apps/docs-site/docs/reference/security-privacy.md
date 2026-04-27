@@ -202,6 +202,12 @@ Prefer login prompts or ephemeral shell variables over putting tokens in URLs or
 command history. Stop Tailscale serve, disable the gateway, and rotate tokens
 when remote access is no longer needed.
 
+![Remote web pairing dialog showing profile-wide access and expiry](../assets/images/remote-web-connect.png)
+
+The pairing dialog is security-relevant because it shows both the access scope
+and expiry for a remote web device. Treat real QR codes and login URLs from this
+screen as secrets; redact them from screenshots and rotate exposed tokens.
+
 ## What Sero does not claim during alpha
 
 The public alpha does **not** claim:

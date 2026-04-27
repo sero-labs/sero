@@ -24,6 +24,12 @@ Sero also supports running a plugin checkout directly in production Sero through
 its local plugin development flow. That is distinct from both installed plugins
 and attached folders.
 
+![Local plugin development sessions and attached folders](../assets/images/local-plugin-preview.jpg)
+
+Use this Admin plugin surface when you want to run a local plugin checkout for
+the active profile. Use attached folders only when you also want the source tree
+visible/editable in the current workspace.
+
 ## Alpha guidance
 
 During alpha:

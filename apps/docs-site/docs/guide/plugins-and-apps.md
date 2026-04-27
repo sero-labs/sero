@@ -71,6 +71,40 @@ Favorites are a convenience for keeping frequent plugin apps close at hand:
 If a plugin is installed but does not appear where expected, it may be hidden by
 compatibility checks, missing capabilities, or alpha discovery behavior.
 
+![Plugin app](../assets/images/plugin.jpg)
+
+### Example plugin surfaces
+
+Bundled and installed plugins can provide focused app UIs. Examples include
+Kanban boards, image generation, debate/review workflows, and research-oriented
+surfaces. Treat these as examples of the plugin model rather than a promise that
+every profile has every plugin installed or enabled.
+
+A Kanban-style plugin can use Sero's app surface for project-specific planning
+without becoming part of the core shell.
+
+![Kanban board](../assets/images/kanban.jpg)
+
+Detail views let a plugin expose richer state for one item while still keeping
+that state inside the plugin's own model.
+
+![Kanban detail](../assets/images/kanban2.jpg)
+
+Plugin-specific options belong inside the plugin UI unless they need a host-level
+capability or permission.
+
+![Kanban options](../assets/images/kanban-options.jpg)
+
+Other plugins may focus on agent-assisted generation workflows rather than
+project management.
+
+![Image generation](../assets/images/imagegen.jpg)
+
+Review or debate-style plugins are another example of the same extension model:
+a focused UI paired with agent/tool behavior.
+
+![Debate workflow](../assets/images/debate.jpg)
+
 ### Compatibility and trust
 
 Plugins can declare compatibility requirements such as a minimum Sero version or

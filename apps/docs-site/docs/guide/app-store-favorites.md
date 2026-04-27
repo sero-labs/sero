@@ -8,6 +8,9 @@ This is an alpha management surface, not a stable commercial marketplace. Treat
 third-party plugins as trusted source code and install only from sources you are
 comfortable running locally.
 
+The App Store view is the high-level entry point for installed app surfaces,
+discovery, favorites, and plugin management.
+
 ![App Store](../assets/images/app-store.jpg)
 
 ## Core apps, bundled plugins, and installed plugins
@@ -99,6 +102,9 @@ During alpha:
 Install/uninstall changes trigger host-side reconciliation and active-session
 resource reloads. In normal cases, Sero should refresh discovered apps and agent
 resources quickly, but this is not a guarantee of universal update reliability.
+
+The management view is where install and uninstall actions become explicit. Use
+it when you need to verify what is actually installed in the active profile.
 
 ![Plugin Management](../assets/images/plugin-management.jpg)
 

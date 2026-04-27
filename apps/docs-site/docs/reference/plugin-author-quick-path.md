@@ -42,7 +42,8 @@ In this checkout, useful in-repo references include:
 - `plugins/sero-cron-plugin` — UI + extension + widget metadata
 
 Treat these as examples of current implementation patterns, not as a frozen
-public API contract.
+public API contract. For example, the Scheduler/Cron plugin demonstrates how a
+plugin can combine a dedicated UI with tools, commands, and widget metadata.
 
 ## Minimal plugin shape
 

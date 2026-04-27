@@ -71,7 +71,15 @@ first-class visual control. Some actions are primarily agent/tool-driven, and
 screenshots plus runtime verification are still needed before publishing precise
 step-by-step UI how-to instructions.
 
+The main Git surface is meant for scanning branch, staging, and history context
+before making a repository-changing decision.
+
 ![Git Ship Deck](../assets/images/git-ship-deck.jpg)
+
+GitHub connection can happen during onboarding or later when a workflow needs
+repository-host access that is not available from the local Git checkout alone.
+See [Workspace and Chat](/guide/workspace-and-chat#first-run-and-profiles) for
+the onboarding flow.
 
 ## Read-only actions
 
@@ -141,6 +149,25 @@ Use git_manager to create_branch named demo/git-manager-guide in this throwaway 
 
 Avoid prompts such as "stage everything and push" unless you have already
 reviewed the diff and know the target remote/branch.
+
+### Remote origin setup
+
+When a workspace has no remote origin, Sero can prompt you to either create a
+new GitHub repository or connect an existing repository URL as the origin. Treat
+this as a repository-changing setup step: confirm the target account,
+organization, visibility, and remote URL before continuing.
+
+![Workspace repository remote origin](../assets/images/workspace-repo.jpg)
+
+If you create a new GitHub repository from Sero, review the generated repository
+name, optional description, and visibility before creating it.
+
+![Create GitHub repository](../assets/images/workspace-remote.jpg)
+
+After a remote is configured, Sero can show the resolved owner/repository and URL
+so you can confirm which remote the workspace will use.
+
+![Configured remote origin](../assets/images/workspace-remote-2.jpg)
 
 ## Branch and worktree safety
 

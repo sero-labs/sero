@@ -55,6 +55,15 @@ The widget can show whether the scheduler is active or paused, counts for jobs
 and reminders, a few upcoming items, and recent job-result dots. Treat widget
 countdowns as a quick summary, not a full scheduling explanation.
 
+The Jobs view is where recurring agent prompts are listed and reviewed.
+
+![Cron jobs](../assets/images/cron-jobs.jpg)
+
+The editor view is where schedule, prompt, model, and missed-run behavior become
+explicit. Review these fields carefully before enabling a job.
+
+![Cron jobs editor](../assets/images/cron-jobs-editor.jpg)
+
 ## Start, stop, and check status with `/cron`
 
 The Scheduler plugin registers the `/cron` command.
@@ -195,6 +204,8 @@ Important caveats:
 
 Do not use Scheduler as the only alarm for safety-critical, financial, medical,
 or production incident workflows.
+
+![Cron reminder](../assets/images/cron-reminder.jpg)
 
 ## Missed-run recovery
 

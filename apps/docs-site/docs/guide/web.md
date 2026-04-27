@@ -54,6 +54,8 @@ Use web_search with 2-4 varied queries about Electron context isolation best pra
 Search results are added to the session and mirrored into the Web app's
 workspace state so they can be revisited later.
 
+![Research results](../assets/images/research.jpg)
+
 ## Fetch and extract content with `fetch_content`
 
 Use `fetch_content` when you already have a URL or source and want the agent to

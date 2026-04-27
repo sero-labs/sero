@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="23.7 -1.4 53.6 71.5">
 <!-- SVG created with Arrow, by QuiverAI (https://quiver.ai) -->
-  <style type="text/css">.cls-0 {fill:#490811;}
+  <style type="text/css">.cls-0 {fill:#7A2020;}
 .cls-1 {fill:url(#SVGID_1_);}
 .cls-2 {fill:url(#SVGID_2_);}
 .cls-3 {fill:#010101;}</style>
@@ -11,7 +11,7 @@
   </linearGradient>
   <path class="cls-1" d="m47.8 21c-5.3-4-7.9-6.9-8.6-9.7-0.5-2.1 0-4.6 0-4.6-1.9 1.5-2.6 3.6-2.3 6.2-1.3-1.8-3.5-6.7-1.6-12.3-1.6 1.2-4.4 4.1-4.4 8.2-0.1 4.8 3.1 8.8 3.5 9.2-1.9-1-5-3.2-7-6.7 0.3 8.3 6.7 12.6 12.5 14.1-2.7 0.3-7.1-0.4-11.5-3.5 1.2 4.1 5.4 9.1 12.2 8.9h1.7c-1.1 0.8-3.5 1.9-6.4 1.5 1.6 1.7 4 3.1 8.6 2.4 1.6-0.3 3-0.3 3.9 1.4 1 1.7 0.1 5.6-2.5 7.1 2.1 0.1 4.7-0.7 6.2-2.1 1.8-1.9 2.6-4.3 2.6-7.2-0.1-4.8-3.3-10-6.9-12.9z"/>
   <linearGradient id="SVGID_2_" x1="34.3" x2="55.94" y1="79.41" y2="36.15" gradientTransform="matrix(1 0 0 -1 0 102)" gradientUnits="userSpaceOnUse">
-    <stop stop-color="#490811" offset=".3"/>
+    <stop stop-color="#7A2020" offset=".3"/>
     <stop stop-color="#9F3123" offset=".5"/>
     <stop stop-color="#F05523" offset=".7"/>
   </linearGradient>

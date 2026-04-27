@@ -10,8 +10,8 @@ hero:
     alt: Sero phoenix mark
   actions:
     - theme: brand
-      text: Get Started
-      link: /guide/getting-started
+      text: Start Here
+      link: /guide/overview
     - theme: alt
       text: Architecture
       link: /reference/architecture
@@ -46,8 +46,8 @@ and the global agent chat on the right. See [Workspace and Chat](/guide/workspac
 ![Memory workflow in the chat panel](./assets/memory-workflow.png)
 
 *Direct `sero memory` commands running inside a live session via the chat
-panel. See [Memory](/guide/memory), [Getting Started](/guide/getting-started),
-and [Support Scope](/reference/support-scope).*
+panel. See [Memory](/guide/memory), [Start Here](/guide/overview), and
+[Support Scope](/reference/support-scope).*
 
 ## OSS alpha status
 
@@ -65,7 +65,7 @@ For the canonical current support contract, see
 
 ## Start here
 
-- [Getting Started](/guide/getting-started)
+- [Start Here](/guide/overview)
 - [Workspace and Chat](/guide/workspace-and-chat)
 - [Explorer Workspace](/guide/explorer-workspace)
 - [Memory](/guide/memory)

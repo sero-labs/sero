@@ -1,16 +1,19 @@
 # Guide
 
-Use the guide when you want task-oriented help for using Sero. Start with the first-run pages, then follow the feature areas that match what you are trying to do.
+Use the guide when you want task-oriented help for using Sero. Start with the brief intro, overview, and setup path, then follow the feature areas that match what you are trying to do.
 
 ## Start here
 
-- [Overview](/guide/overview) — what Sero is, the alpha scope, and the core reading path.
-- [Getting Started](/guide/getting-started) — fastest path through install, first run, and the main concepts.
+- [Start Here](/guide/overview) — brief intro, product overview, alpha scope, fast setup path, and recommended next reading.
 
 ## Core workspace
 
 - [Workspace and Chat](/guide/workspace-and-chat) — shell layout, workspaces, sessions, chat, and the command menu.
 - [Explorer Workspace](/guide/explorer-workspace) — files, editor previews, browser tabs, terminals, and dev servers.
+- [Settings and Admin](/guide/settings-models-admin) — Admin configuration, agents, skills, prompts, and sessions.
+- [Models and Providers](/guide/models-and-providers) — model/provider setup, local models, tiers, and chat context controls.
+- [Themes](/guide/themes) — profile-scoped theme selection and editing.
+- [MCP](/guide/mcp) — MCP server management and sensitive server configuration.
 
 ## Built-in capabilities
 

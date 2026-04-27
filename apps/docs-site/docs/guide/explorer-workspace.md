@@ -66,7 +66,15 @@ Keep these alpha caveats in mind:
 - Avoid using Explorer as the only copy of important work until you are
   comfortable with the current alpha behavior.
 
+Workspace references make attached roots and related project context visible
+without requiring every path to be part of the primary root.
+
 ![Workspace references](../assets/images/workspace-references.jpg)
+
+Explorer's source-control panel gives a quick view of repository state alongside
+the file tree.
+
+![Explorer source control](../assets/images/explorer-vcs.jpg)
 
 ## Editor and previews
 
@@ -81,7 +89,13 @@ Explorer's main area can show several kinds of tabs:
 The diff view is designed around comparing Git revisions and changed files. Do
 not treat it as a complete arbitrary file-comparison product.
 
+The editor view is the normal path for reading and changing text files in the
+active workspace.
+
 ![Explorer editor](../assets/images/explorer-editor.jpg)
+
+Diff tabs are for reviewing changes and revisions before asking the agent or Git
+surfaces to act on them.
 
 ![Explorer diff](../assets/images/explorer-diff.jpg)
 
@@ -102,7 +116,14 @@ This browser surface is part of Sero's local development workflow. It should not
 be described as a general-purpose hardened browser or a guarantee that every web
 app behaves like it would in your default browser.
 
+The browser surface keeps local preview navigation inside the workspace context.
+
 ![Explorer Browser](../assets/images/explorer-browser.jpg)
+
+Preview tabs are useful when Sero can render a file or dev-server output more
+naturally than raw text.
+
+![Explorer preview](../assets/images/explorer-preview-2.jpg)
 
 ## Terminal panel
 

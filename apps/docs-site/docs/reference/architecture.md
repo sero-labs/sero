@@ -20,6 +20,8 @@ The shell centers around:
 - a chat panel for the focused agent session
 - a status bar for current state
 
+![Sero shell with sidebar, active Explorer app, and agent chat panel](../assets/images/explorer-view.jpg)
+
 ## Workspaces
 
 Workspaces are the main organizing unit. Each workspace has:

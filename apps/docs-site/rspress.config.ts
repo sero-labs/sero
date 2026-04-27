@@ -5,32 +5,31 @@ import { defineConfig } from 'rspress/config';
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 
 const guideStart = [
-  { text: 'Guide Home', link: '/guide/' },
   { text: 'Overview', link: '/guide/overview' },
-  { text: 'Getting Started', link: '/guide/getting-started' }
+  { text: 'Installation / Requirements', link: '/guide/installation-requirements' },
+  { text: 'Development Setup', link: '/guide/development-setup' }
 ];
 
 const guideWorkspace = [
-  { text: 'Workspace and Chat', link: '/guide/workspace-and-chat' },
-  { text: 'Explorer Workspace', link: '/guide/explorer-workspace' }
+  { text: 'Workspaces and Chat', link: '/guide/workspace-and-chat' },
+  { text: 'Explorer Workspace', link: '/guide/explorer-workspace' },
+  { text: 'Settings and Admin', link: '/guide/settings-models-admin' },
+  { text: 'Models and Providers', link: '/guide/models-and-providers' },
+  { text: 'MCP Support', link: '/guide/mcp' },
+  { text: 'Themes', link: '/guide/themes' }
 ];
 
 const guideCapabilities = [
   { text: 'Memory', link: '/guide/memory' },
-  { text: 'Web', link: '/guide/web' },
   { text: 'Remote Control', link: '/guide/remote-control' },
   { text: 'Scheduler and Reminders', link: '/guide/scheduler-reminders' },
-  { text: 'Git Integration', link: '/guide/git-integration' }
+  { text: 'Git Integration', link: '/guide/git-integration' },
+  { text: 'Web', link: '/guide/web' }
 ];
 
 const guidePlugins = [
   { text: 'Plugins and Apps', link: '/guide/plugins-and-apps' },
   { text: 'App Store and Favorites', link: '/guide/app-store-favorites' }
-];
-
-const guideSetup = [
-  { text: 'Installation / Requirements', link: '/guide/installation-requirements' },
-  { text: 'Development Setup', link: '/guide/development-setup' }
 ];
 
 const referenceFoundations = [
@@ -74,12 +73,10 @@ export default defineConfig({
   lang: 'en-US',
   themeConfig: {
     nav: [
-      { text: 'Overview', link: '/guide/overview' },
-      { text: 'Getting Started', link: '/guide/getting-started' },
+      { text: 'Start Here', link: '/guide/overview' },
       {
         text: 'Guide',
         items: [
-          { text: 'Guide Home', link: '/guide/' },
           { text: 'Workspace', link: '/guide/workspace-and-chat' },
           { text: 'Capabilities', link: '/guide/memory' },
           { text: 'Plugins and Apps', link: '/guide/plugins-and-apps' },
@@ -112,7 +109,7 @@ export default defineConfig({
           items: guideStart
         },
         {
-          text: 'Core Workspace',
+          text: 'Core Functionality',
           items: guideWorkspace
         },
         {
@@ -122,10 +119,6 @@ export default defineConfig({
         {
           text: 'Plugins and Apps',
           items: guidePlugins
-        },
-        {
-          text: 'Setup and Development',
-          items: guideSetup
         }
       ],
       '/reference/': [

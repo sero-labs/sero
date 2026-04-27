@@ -32,9 +32,40 @@ Practical expectations:
 - Exact onboarding screens may change during alpha.
 - Profiles are useful separation, not a hardened multi-tenant security boundary.
 
+The first-run profile dialog establishes the local environment Sero should use
+for profile-scoped state.
+
 ![Create profile dialog](../assets/images/create-profile.jpg)
 
+When multiple profiles exist, profile selection determines which local Sero home,
+settings, workspaces, and sessions are loaded.
+
 ![Profile selection dialog](../assets/images/create-profile-2.jpg)
+
+After the profile exists, onboarding checks whether at least one model provider
+is available. If the recommended provider is not connected, Sero opens provider
+authentication so you can sign in with OAuth or add an API key before choosing
+model defaults.
+
+![Provider authentication](../assets/images/provider-list.jpg)
+
+The next setup step asks you to pick default LOW, MED, and HIGH model tiers and
+the thinking level each tier should use. These tiers become the profile defaults
+for lightweight, general-purpose, and deeper reasoning work.
+
+![Model tier defaults](../assets/images/model-tiers.jpg)
+
+GitHub connection is optional during onboarding, but recommended if you work
+with repositories. Connecting it enables repository workflows such as clone,
+fetch, push, and pull-request-related actions from Sero.
+
+![GitHub onboarding connection](../assets/images/github-connect.jpg)
+
+GitHub uses a browser-based device login. Copy or open the one-time code flow,
+finish authorization in GitHub, and return to Sero; the connection completes
+automatically when the device flow succeeds.
+
+![GitHub device login](../assets/images/github-connect-2.jpg)
 
 ## Shell regions
 
@@ -48,8 +79,9 @@ The desktop shell has a few stable regions:
   focused session.
 - **Status bar** — current workspace/runtime state and related status.
 
-The sidebar and chat panel can be collapsed. Panel sizes and open/closed state
-are restored between launches for the active profile.
+The sidebar and chat panel can be collapsed. Use `Ctrl+B` to hide or show the
+main sidebar, and use `Ctrl+L` to hide or show the chat panel. Panel sizes and
+open/closed state are restored between launches for the active profile.
 
 ## Apps: Dashboard and Explorer
 
@@ -79,7 +111,7 @@ In the session tree you can expect to:
 The workspace registry is profile-scoped local state. It is not browser storage
 and it is restored when you relaunch Sero with that profile.
 
-![Profile selection dialog](../assets/images/workspace-sessions.jpg)
+![Workspace sessions](../assets/images/workspace-sessions.jpg)
 
 ## Global chat mental model
 
@@ -95,12 +127,22 @@ Useful habits:
 
 - Create separate sessions for separate tasks.
 - Resume an existing session when the history matters.
-- Collapse the chat panel when you need more room for the active app.
+- Press `Ctrl+L` to collapse the chat panel when you need more room for the active app.
 - Keep important current context in the prompt; memory and history are helpful,
   but not a guarantee that every detail is included in every turn.
 
 Detailed attachment behavior, model controls, prompt steering, abort states, and
 slash-command catalogs are intentionally out of scope for this overview.
+
+The chat panel stays available across app switches so the current agent session
+can remain in view while you inspect files, plugins, or settings.
+
+![Chat panel](../assets/images/chat.jpg)
+
+The chat menu collects session-level actions and controls that do not need to be
+visible in the main composer all the time.
+
+![Chat menu](../assets/images/chat-menu.jpg)
 
 ## Command menu
 
@@ -134,7 +176,7 @@ same profile before filing an issue.
 
 ## What to read next
 
-- [Getting Started](/guide/getting-started)
+- [Start Here](/guide/overview)
 - [Explorer Workspace](/guide/explorer-workspace)
 - [Memory](/guide/memory)
 - [Support Scope](/reference/support-scope)
