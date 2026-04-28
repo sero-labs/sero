@@ -30,5 +30,6 @@ and confirming what the active profile can expose to agent workflows.
 - [Settings and Admin](/guide/settings-models-admin)
 - [Models and Providers](/guide/models-and-providers)
 - [Plugins and Apps](/guide/plugins-and-apps)
+- [Plugin Catalog](/plugins/catalog)
 - [State and Folders](/reference/state-and-folders)
 - [Security / Privacy](/reference/security-privacy)

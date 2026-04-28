@@ -4,9 +4,9 @@ Sero opens into a persistent desktop workspace: a left navigation sidebar, a
 central app surface, and a global chat panel that can stay available while you
 move between apps.
 
-This guide explains the basic mental model. It intentionally avoids detailed
-Explorer workflows, attachment types, and slash-command catalogs because those
-surfaces are still being documented and verified during alpha.
+This guide explains the basic mental model. For the detailed chat composer,
+attachments, context editor, slash commands, steering, queued follow-ups, and
+voice input, see [Agent Sessions and Context](/guide/agent-sessions-and-context).
 
 ![Workspace desktop shell overview](../assets/images/explorer-view.jpg)
 
@@ -21,37 +21,28 @@ For the high-level implementation model, see [Architecture](/reference/architect
 
 ## First run and profiles
 
-On first launch, Sero asks you to set up or choose a profile before entering the
-workspace. A profile owns the local Sero home, workspace registry, app state,
-layout state, and profile-scoped browser data.
+On first launch, Sero asks you to create or choose a profile before entering the
+workspace. A profile owns its own `<SERO_HOME>` and profile-scoped
+`<SERO_HOME>/agent/` directory for settings, auth, workspaces, layout, sessions,
+and local model configuration.
 
-Practical expectations:
+Use profiles to separate local working environments such as Work and Personal.
+They are useful separation, not a cryptographic security boundary, and exact
+onboarding screens may change during alpha.
 
-- Treat each profile as its own local working environment.
-- Do not put secrets in screenshots, logs, memory, or support reports.
-- Exact onboarding screens may change during alpha.
-- Profiles are useful separation, not a hardened multi-tenant security boundary.
-
-The first-run profile dialog establishes the local environment Sero should use
-for profile-scoped state.
+For the complete profile flow, custom locations, restart-on-switch behavior,
+transferable credentials, deletion semantics, and redaction checklist, see
+[Profiles and Onboarding](/guide/profiles-and-onboarding).
 
 ![Create profile dialog](../assets/images/create-profile.jpg)
-
-When multiple profiles exist, profile selection determines which local Sero home,
-settings, workspaces, and sessions are loaded.
 
 ![Profile selection dialog](../assets/images/create-profile-2.jpg)
 
 After the profile exists, onboarding checks whether at least one model provider
-is available. If the recommended provider is not connected, Sero opens provider
-authentication so you can sign in with OAuth or add an API key before choosing
-model defaults.
+is available, then asks you to choose LOW, MED, and HIGH model defaults. For the
+provider catalog and tier behavior, see [Models and Providers](/guide/models-and-providers).
 
 ![Provider authentication](../assets/images/provider-list.jpg)
-
-The next setup step asks you to pick default LOW, MED, and HIGH model tiers and
-the thinking level each tier should use. These tiers become the profile defaults
-for lightweight, general-purpose, and deeper reasoning work.
 
 ![Model tier defaults](../assets/images/model-tiers.jpg)
 
@@ -87,7 +78,9 @@ open/closed state are restored between launches for the active profile.
 
 Sero starts with core built-in apps:
 
-- **Dashboard** — a home surface for workspace/app summaries and widgets.
+- **Dashboard** — a home surface for workspace/app summaries and widgets. See
+  [Dashboard and Widgets](/guide/dashboard-widgets) for adding, moving, and
+  resizing widgets.
 - **Explorer** — the project workspace surface for files, editors, previews,
   diffs, and terminal-related work.
 
@@ -131,8 +124,9 @@ Useful habits:
 - Keep important current context in the prompt; memory and history are helpful,
   but not a guarantee that every detail is included in every turn.
 
-Detailed attachment behavior, model controls, prompt steering, abort states, and
-slash-command catalogs are intentionally out of scope for this overview.
+For detailed attachment behavior, model controls, prompt steering, abort states,
+queued follow-ups, context presets, workspace snapshots, slash commands, and
+voice input, see [Agent Sessions and Context](/guide/agent-sessions-and-context).
 
 The chat panel stays available across app switches so the current agent session
 can remain in view while you inspect files, plugins, or settings.
@@ -168,7 +162,7 @@ can include things like:
 - sidebar and chat panel sizes
 - active app, workspace, and session
 - theme-related choices
-- dashboard and browser-related layout state
+- dashboard widget layout and browser-related layout state
 
 This is meant to make restarts feel continuous. If a layout looks wrong during
 alpha, try switching apps, collapsing/reopening panels, or restarting from the
@@ -177,6 +171,10 @@ same profile before filing an issue.
 ## What to read next
 
 - [Start Here](/guide/overview)
+- [Profiles and Onboarding](/guide/profiles-and-onboarding)
+- [Models and Providers](/guide/models-and-providers)
+- [Agent Sessions and Context](/guide/agent-sessions-and-context)
+- [Dashboard and Widgets](/guide/dashboard-widgets)
 - [Explorer Workspace](/guide/explorer-workspace)
 - [Memory](/guide/memory)
 - [Support Scope](/reference/support-scope)

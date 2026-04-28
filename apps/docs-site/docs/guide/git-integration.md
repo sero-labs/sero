@@ -24,7 +24,9 @@ Sero currently has more than one version-control surface:
 
 Do not assume actions or wording from one surface apply directly to the other.
 For example, Git Integration talks about Git branches and staging, while the
-Explorer guide talks about JJ bookmarks and manual checkpoints.
+Explorer guide talks about JJ bookmarks and manual checkpoints. For the shared
+recovery model across manual checkpoints, chat turn undo, restore checkpoint,
+and source-control operations, see [Checkpoints and Undo](/guide/checkpoints-and-undo).
 
 ## Where you interact with Git Integration
 
@@ -228,6 +230,14 @@ not appear as an untracked change in the repository:
 Treat this state as local workspace metadata. It can include branch names, file
 paths, commit metadata, status summaries, and timestamps.
 
+## Checkpoints, undo, and recovery
+
+Git Integration is not the same thing as Sero's checkpoint/turn-undo system.
+Manual checkpoints and chat turn undo restore workspace files through Sero's
+checkpoint layer; Git operations modify the real repository. Use
+[Checkpoints and Undo](/guide/checkpoints-and-undo) as the canonical recovery
+matrix before mixing these tools.
+
 ## Privacy and safety
 
 Practical habits:
@@ -285,5 +295,7 @@ verified.
 
 - [Workspace and Chat](/guide/workspace-and-chat)
 - [Plugins and Apps](/guide/plugins-and-apps)
+- [Plugin Catalog](/plugins/catalog)
+- [Checkpoints and Undo](/guide/checkpoints-and-undo)
 - [Source Control User Flow](https://github.com/sero-labs/sero/blob/main/docs/guides/version-control-user-flow.md)
   for the separate JJ-backed Explorer Source Control workflow.

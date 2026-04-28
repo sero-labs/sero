@@ -27,11 +27,12 @@ Sero shows a few categories of app-like surfaces:
   installer.
 
 A plugin, whether bundled or installed, can provide an app UI, agent tools,
-commands, background behavior, provider metadata, or dashboard widgets. Not every
+commands, background behavior, provider metadata, or dashboard widgets. See
+[Dashboard and Widgets](/guide/dashboard-widgets) for the dashboard user flow. Not every
 plugin provides every kind of surface.
 
-For the broader plugin model, see [Plugins and Apps](/guide/plugins-and-apps)
-and [Plugins](/reference/plugins).
+For the broader plugin model, see [Plugins and Apps](/guide/plugins-and-apps),
+the [Plugin Catalog](/plugins/catalog), and [Plugins](/reference/plugins).
 
 ## App Store tabs
 
@@ -186,6 +187,7 @@ Useful logs can include:
 ## Related docs
 
 - [Plugins and Apps](/guide/plugins-and-apps)
+- [Plugin Catalog](/plugins/catalog)
 - [Plugins](/reference/plugins)
 - [Security / Privacy](/reference/security-privacy)
 - [State and Folders](/reference/state-and-folders)

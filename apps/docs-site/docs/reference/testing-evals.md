@@ -1,155 +1,108 @@
 # Testing / Evals
 
-## Alpha quality model
+Sero uses repository tests and promptfoo evals as separate quality signals. The current alpha model is truthful rather than exhaustive: not every suite is a PR gate, and real LLM evals are usually manual/nightly/release-confidence checks.
 
-Sero currently uses a tiered quality model:
-- **PR gate** for fast required checks
-- **nightly/manual** for broader or more expensive coverage
-- **release smoke** for final confidence checks
-
-The important alpha truth is that **not every test in the repo runs in the PR
-gate**. The public contract is the gate we actually run, plus explicit notes
-about what still lives outside it.
+Source checked: `package.json`, `.github/workflows/test.yml`, `docs/testing/eval-guide.md`, `promptfooconfig.yaml`, `eval/promptfoo-snapshot.yaml`, `eval/scenarios/**`, and `apps/desktop/electron/__tests__/**`.
 
 ## Current root command surface
 
 ```bash
+pnpm typecheck
+pnpm build
 pnpm test
 pnpm test:ci
 pnpm eval:snapshot
+pnpm eval
+pnpm eval:view
 ```
 
-## What runs where
+Do not describe a repo-wide `turbo run test` public contract for the alpha; the root public test commands are the ones above.
 
-### PR gate
+## PR gate
 
-GitHub Actions currently uses the single root command `pnpm test:ci` as the
-alpha PR gate.
+GitHub Actions currently uses the root command:
 
-That gate expands to:
-- `pnpm typecheck`
-- `pnpm build`
-- `pnpm test` (**desktop Vitest only**)
-- `pnpm --filter @sero/desktop test:e2e:ci`
+```bash
+pnpm test:ci
+```
 
-To control spend, this workflow does **not** run on every PR commit update.
-It currently runs on:
-- pushes to `main`
-- PR open/reopen when the PR is not draft
-- `ready_for_review`
-- manual `workflow_dispatch`
+That expands to:
 
-### Nightly/manual
+1. `pnpm typecheck`
+2. `pnpm build`
+3. `pnpm test` (desktop Vitest, non-watch)
+4. `pnpm --filter @sero/desktop test:e2e:ci`
 
-Representative manual or broader coverage includes:
-- `pnpm eval:snapshot`
-- package/plugin tests not yet in the PR gate
-- `pnpm --filter @sero/desktop test:e2e:local`
-- full `pnpm eval` when credentials and budget are available
+This is the current alpha PR-gate shape. It does not run every package/plugin suite or every eval.
 
-### Release smoke
+## Evals command reference
 
-Release confidence should include:
-- clean clone install/run smoke
-- docs build
-- secret scanning
-- a small manual smoke path through app launch, workspace action, agent/tool
-  round trip, and plugin load
+| Command | Source script | When to use | Cost/auth |
+| --- | --- | --- | --- |
+| `pnpm eval:snapshot` | `node eval/patch-drizzle.cjs && node scripts/run-promptfoo.mjs eval --config eval/promptfoo-snapshot.yaml --no-cache` | Fast prompt assembly/cache drift check | No live LLM calls; low/no provider cost. |
+| `pnpm eval` | `node eval/patch-drizzle.cjs && node scripts/run-promptfoo.mjs eval` | Real agent behavior checks | Requires credentials and may cost money. |
+| `pnpm eval:view` | `node scripts/run-promptfoo.mjs view` | Inspect saved promptfoo results | No new model calls. |
 
-## Current test triage for alpha
+## Snapshot evals
 
-### Valuable and required in the PR gate
+Snapshot evals use `eval/promptfoo-snapshot.yaml` and `eval/snapshotProvider.ts`. They assemble an approximation of the full Sero session prompt from real prompt-building functions and check:
 
-These are the checks we currently treat as the minimum required regression net:
-- monorepo typecheck
-- monorepo build
-- desktop Vitest coverage
-- desktop Playwright CI coverage
+- SDK/base prompt block presence
+- CLI prompt block presence
+- container/subagent prompt guidance where applicable
+- prompt block ordering for cache stability
+- full prompt size against baseline
+- metadata completeness
 
-### Valuable but intentionally outside the PR gate
+Run snapshot evals before committing changes to prompt assembly, CLI instructions, container prompt blocks, subagent guidance, or session setup.
 
-These suites are real and useful, but they are currently better treated as
-nightly/manual/release coverage than required PR blockers:
-- `pnpm --filter @sero/web-remote test`
-- plugin package test suites under `plugins/sero-*-plugin`
-- `pnpm --filter @sero/desktop test:e2e:local`
-- headed/local debugging flows
-- full promptfoo evals via `pnpm eval`
+## Real LLM evals
 
-Why they stay outside the PR gate today:
-- some are environment-sensitive
-- some are expensive relative to alpha PR feedback speed
-- some need credentials or local runtime capabilities
-- repo-level CI is intentionally narrower than “run every workspace test”
+Real evals use `promptfooconfig.yaml` and `eval/seroProvider.ts`. They run through promptfoo with actual model calls. The default config uses the Sero provider with a 120s timeout and an Anthropic grading provider for rubric assertions.
 
-### Noisy or low-value surfaces for release-readiness auditing
+Auth/cost notes:
 
-The main currently identified **low-value/noisy** surfaces are not source-owned
-unit tests that need deletion. They are mostly **audit noise**:
-- copied test files inside build artifacts such as `apps/desktop/dist/**`
-- copied test files inside packaged output such as `apps/desktop/release/**`
+- `pnpm eval` can consume paid provider tokens.
+- It expects provider credentials such as `ANTHROPIC_API_KEY` from the shell or eval environment handling.
+- The eval provider can apply env credentials as runtime API-key overrides before falling back to `~/.sero-ui/agent/auth.json`.
+- Do not run live evals in CI or on PRs unless budget and credentials are explicitly intended.
 
-Those files should be ignored when reasoning about source coverage. They do not
-represent additional maintained test suites.
+## Scenario matrix
 
-For current alpha planning, the more important distinction is:
-- **high-value but PR-unsuitable** coverage, such as local container/full-render
-  Playwright runs
-- versus truly **noisy** artifact copies that should not drive decisions
+| Scenario file | Tests | Mode | Coverage |
+| --- | ---: | --- | --- |
+| `eval/scenarios/prompt-stability.yaml` | 7 | Snapshot | Prompt block presence, ordering, size, and metadata. |
+| `eval/scenarios/file-ops.yaml` | 3 | Real LLM | Create/read/edit file behavior and latency. |
+| `eval/scenarios/coding-tasks.yaml` | 3 | Real LLM | TypeScript/React generation, null-safety fixes, utility generation. |
+| `eval/scenarios/cli-ops.yaml` | 4 | Real LLM | `sero-cli` use for todos, workspace info, batch commands, and VCS status. |
 
-## Why there is no monorepo `turbo run test` task yet
+To add scenarios, create/edit a YAML file under `eval/scenarios/` and add it to the relevant promptfoo config.
 
-Sero does **not** currently expose a repo-wide `turbo run test` task as part of
-its public alpha command surface.
+## Failure interpretation
 
-That is intentional for now.
+| Failure | Likely next step |
+| --- | --- |
+| Snapshot says a block is missing | Inspect prompt assembly source and confirm the block is still intentionally included. |
+| Snapshot ordering fails | Treat as cache-sensitive; confirm the prompt order change was intentional. |
+| Prompt size growth fails | Remove accidental verbosity or update the baseline with an intentional prompt change. |
+| `pnpm eval` auth fails | Check env credentials and stale profile auth under `~/.sero-ui/agent/auth.json`. |
+| Real eval times out | Inspect provider latency and scenario complexity; adjust timeout only when justified. |
+| Tool-sequence assertion fails | Inspect `context.providerResponse.metadata.toolCalls` in the result viewer. |
+| LLM rubric fails | Read the output; rubrics are useful but can be noisy. |
 
-Reasons:
-- `@sero/desktop` still uses a watch-first package `test` script (`vitest`)
-  rather than a universally non-interactive `test` entry
-- several workspace packages intentionally rely on typecheck/build coverage and
-  do not have dedicated `test` scripts
-- package test commands are not yet normalized enough to make a monorepo-wide
-  `turbo run test` a truthful, low-surprise public contract
-- the alpha PR gate is intentionally narrower than “run every test script in
-  every workspace package”
-
-For now, the canonical public commands remain:
-- `pnpm test`
-- `pnpm test:ci`
-
-## Eval coverage vs actual risk areas
-
-Evals cover a **specific subset** of Sero’s risk profile. They are not a
-replacement for unit tests or desktop e2e.
+## Relationship to other tests
 
 | Risk area | Best current signal | Notes |
-|---|---|---|
-| Prompt assembly / cache stability | `pnpm eval:snapshot` | Best low-cost check for prompt block drift, ordering drift, and size regressions |
-| Agent file-editing behavior | `pnpm eval` | Exercises real tool use in isolated temp workspaces |
-| Agent CLI usage patterns | `pnpm eval` | Verifies the agent prefers `sero-cli` behavior in supported scenarios |
-| Desktop startup and session wiring | desktop unit tests + Playwright CI e2e | Not primarily an eval concern |
-| Plugin compatibility / bridge regressions | desktop unit tests + focused e2e | Covered better by repo tests than promptfoo |
-| Container lifecycle / full-render UX | local Playwright runs | Valuable, but currently local/nightly/manual only |
+| --- | --- | --- |
+| Prompt assembly / cache stability | `pnpm eval:snapshot` | Low-cost check for prompt block drift, ordering drift, and size regressions. |
+| Agent file-editing behavior | `pnpm eval` | Exercises real tool use in isolated temp workspaces. |
+| Agent CLI usage patterns | `pnpm eval` | Checks that the agent prefers `sero-cli` in supported scenarios. |
+| Desktop startup/session wiring | desktop Vitest + Playwright CI | Not primarily an eval concern. |
+| Plugin/runtime bridge regressions | package tests + focused e2e | Better covered by targeted source tests. |
+| Container lifecycle/full-render UX | local/manual Playwright runs | Environment-sensitive and not a generic promptfoo check. |
 
-### What evals are good at
+## Related docs
 
-- catching prompt-caching drift
-- catching regression in agent tool-selection patterns
-- checking a small set of realistic coding/file/CLI behaviors
-
-### What evals are not meant to prove
-
-- full desktop UI correctness
-- full plugin/runtime compatibility across the repo
-- container lifecycle reliability in CI
-- every interaction that matters for release confidence
-
-That is why Sero keeps evals as one layer in a broader test stack rather than
-pretending they are the whole quality story.
-
-## See also
-
-Detailed source material:
-- [`docs/testing/eval-guide.md`](https://github.com/sero-labs/sero/blob/main/docs/testing/eval-guide.md)
-- [`.github/workflows/test.yml`](https://github.com/sero-labs/sero/blob/main/.github/workflows/test.yml)
+- [Running Evals](/guide/running-evals)
+- [Development Setup](/guide/development-setup)
+- [Troubleshooting](/reference/troubleshooting)

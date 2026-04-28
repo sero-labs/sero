@@ -5,8 +5,7 @@ Host mode is supported as a reduced fallback so the alpha can still run when the
 container runtime is unavailable or a workspace is explicitly configured to use
 the host.
 
-This page explains the current runtime expectations. For the canonical support
-matrix, see [Support Scope](/reference/support-scope).
+This page explains the current runtime expectations. For task-oriented dev-server setup, see [Containers and Dev Servers](/guide/containers-dev-servers). For lifecycle, mounts, and networking details, see [Container Isolation](/reference/container-isolation). For the canonical support matrix, see [Support Scope](/reference/support-scope).
 
 ## Runtime modes
 
@@ -18,7 +17,7 @@ is intended for:
 - containerized workspace execution
 - containerized tooling and language servers
 - browser automation
-- managed preview and dev-server flows with container assumptions
+- managed preview and dev-server flows that can expose container-IP URLs without occupying the same host port
 - Linux/container parity and container networking semantics
 
 ### Host mode
@@ -39,6 +38,8 @@ Host mode is not currently the supported path for:
 - feature-equivalent managed preview or dev-server automation
 - Linux/container networking semantics
 - full container isolation
+
+Host mode can still run a normal host dev server. The distinction is that Sero's managed container preview/dev-server registry behavior is reduced outside container-backed workspaces.
 
 If a workflow works in containers but fails in host mode, check whether that
 workflow depends on container-only capabilities.
@@ -148,6 +149,8 @@ mode is a practical fallback for core work.
 
 ## Related docs
 
+- [Containers and Dev Servers](/guide/containers-dev-servers)
+- [Container Isolation](/reference/container-isolation)
 - [Explorer Workspace](/guide/explorer-workspace)
 - [Support Scope](/reference/support-scope)
 - [Troubleshooting](/reference/troubleshooting)

@@ -1,9 +1,11 @@
 # Scheduler and Reminders
 
-Sero's Scheduler is a built-in plugin for simple automations: recurring agent
-prompts, one-time reminders, and recurring reminders. It is useful for lightweight
-checks such as "summarize this demo inbox every weekday" or "remind me to review
-this synthetic plan tomorrow."
+Sero's Scheduler is a built-in plugin (`@sero-ai/plugin-cron`) for simple
+automations: recurring agent prompts, one-time reminders, and recurring
+reminders. It is useful for lightweight checks such as "summarize this demo inbox
+every weekday" or "remind me to review this synthetic plan tomorrow." Source
+checked: `plugins/sero-cron-plugin/package.json` and README. See the
+[Plugin Catalog](/plugins/catalog) for the built-in plugin inventory.
 
 Sero is still a **source-only OSS alpha**. Treat scheduler behavior as helpful
 local automation, not guaranteed delivery or a replacement for a dedicated

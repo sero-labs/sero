@@ -4,60 +4,84 @@ import { defineConfig } from 'rspress/config';
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 
-const guideStart = [
+const startSetup = [
   { text: 'Overview', link: '/guide/overview' },
   { text: 'Installation / Requirements', link: '/guide/installation-requirements' },
+  { text: 'Profiles and Onboarding', link: '/guide/profiles-and-onboarding' },
+  { text: 'Models and Providers', link: '/guide/models-and-providers' },
+  { text: 'Local LLMs with LM Studio', link: '/guide/local-llms-lm-studio' },
   { text: 'Development Setup', link: '/guide/development-setup' }
 ];
 
-const guideWorkspace = [
+const workspaceRuntime = [
   { text: 'Workspaces and Chat', link: '/guide/workspace-and-chat' },
   { text: 'Explorer Workspace', link: '/guide/explorer-workspace' },
-  { text: 'Settings and Admin', link: '/guide/settings-models-admin' },
-  { text: 'Models and Providers', link: '/guide/models-and-providers' },
-  { text: 'MCP Support', link: '/guide/mcp' },
+  { text: 'Containers and Dev Servers', link: '/guide/containers-dev-servers' },
+  { text: 'Browser and Capture', link: '/guide/browser-and-capture' },
+  { text: 'Checkpoints and Undo', link: '/guide/checkpoints-and-undo' },
   { text: 'Themes', link: '/guide/themes' }
 ];
 
-const guideCapabilities = [
+const agentsAutomation = [
+  { text: 'Agent Sessions and Context', link: '/guide/agent-sessions-and-context' },
+  { text: 'Subagents and Collaboration', link: '/guide/subagents' },
   { text: 'Memory', link: '/guide/memory' },
-  { text: 'Remote Control', link: '/guide/remote-control' },
   { text: 'Scheduler and Reminders', link: '/guide/scheduler-reminders' },
-  { text: 'Git Integration', link: '/guide/git-integration' },
-  { text: 'Web', link: '/guide/web' }
+  { text: 'Running Evals', link: '/guide/running-evals' }
 ];
 
-const guidePlugins = [
+const appsIntegrations = [
   { text: 'Plugins and Apps', link: '/guide/plugins-and-apps' },
-  { text: 'App Store and Favorites', link: '/guide/app-store-favorites' }
-];
-
-const referenceFoundations = [
-  { text: 'Reference Home', link: '/reference/' },
-  { text: 'Architecture', link: '/reference/architecture' },
-  { text: 'Support Scope', link: '/reference/support-scope' }
+  { text: 'Plugin Catalog', link: '/plugins/catalog' },
+  { text: 'Dashboard and Widgets', link: '/guide/dashboard-widgets' },
+  { text: 'App Store and Favorites', link: '/guide/app-store-favorites' },
+  { text: 'Settings and Admin', link: '/guide/settings-models-admin' },
+  { text: 'Git Integration', link: '/guide/git-integration' },
+  { text: 'MCP', link: '/guide/mcp' },
+  { text: 'Web', link: '/guide/web' },
+  { text: 'Remote Control', link: '/guide/remote-control' }
 ];
 
 const referenceRuntime = [
+  { text: 'Architecture', link: '/reference/architecture' },
   { text: 'Containers and Host Mode', link: '/reference/containers-host-mode' },
-  { text: 'State and Folders', link: '/reference/state-and-folders' }
+  { text: 'Container Isolation', link: '/reference/container-isolation' },
+  { text: 'Sero CLI', link: '/reference/sero-cli' },
+  { text: 'State and Folders', link: '/reference/state-and-folders' },
+  { text: 'models.json', link: '/reference/models-json' },
+  { text: 'Agent Definitions', link: '/reference/agent-definitions' }
 ];
 
-const referencePluginAuthors = [
+const referenceAuthors = [
   { text: 'Plugins', link: '/reference/plugins' },
+  { text: 'App Runtime', link: '/reference/app-runtime' },
   { text: 'Plugin Author Quick Path', link: '/reference/plugin-author-quick-path' },
   { text: 'Plugin Quickstart', link: '/reference/plugin-quickstart' },
   { text: 'Plugin End-to-End Example', link: '/reference/plugin-end-to-end-example' }
 ];
 
-const referenceQualitySafety = [
+const referenceQuality = [
+  { text: 'Coverage Audit', link: '/reference/coverage-audit' },
   { text: 'Testing / Evals', link: '/reference/testing-evals' },
-  { text: 'Security / Privacy', link: '/reference/security-privacy' }
+  { text: 'Security / Privacy', link: '/reference/security-privacy' },
+  { text: 'Troubleshooting', link: '/reference/troubleshooting' },
+  { text: 'Known Limitations', link: '/reference/known-limitations' },
+  { text: 'Support Scope', link: '/reference/support-scope' }
 ];
 
-const referenceHelp = [
-  { text: 'Troubleshooting', link: '/reference/troubleshooting' },
-  { text: 'Known Limitations', link: '/reference/known-limitations' }
+const selectedPlugins = [
+  { text: 'Plugin Catalog', link: '/plugins/catalog' },
+  { text: 'User Feedback', link: '/plugins/user-feedback' },
+  { text: 'Google', link: '/plugins/google' },
+  { text: 'Kanban', link: '/plugins/kanban' },
+  { text: 'Notes', link: '/plugins/notes' },
+  { text: 'Todo', link: '/plugins/todo' },
+  { text: 'Research', link: '/plugins/research' },
+  { text: 'Plan Mode', link: '/plugins/plan-mode' },
+  { text: 'Spotify', link: '/plugins/spotify' },
+  { text: 'ImageGen', link: '/plugins/imagegen' },
+  { text: 'Starling Bank', link: '/plugins/starling' },
+  { text: 'Weight Tracker', link: '/plugins/weight-tracker' }
 ];
 
 export default defineConfig({
@@ -74,26 +98,10 @@ export default defineConfig({
   themeConfig: {
     nav: [
       { text: 'Start Here', link: '/guide/overview' },
-      {
-        text: 'Guide',
-        items: [
-          { text: 'Workspace', link: '/guide/workspace-and-chat' },
-          { text: 'Capabilities', link: '/guide/memory' },
-          { text: 'Plugins and Apps', link: '/guide/plugins-and-apps' },
-          { text: 'Setup', link: '/guide/installation-requirements' }
-        ]
-      },
-      {
-        text: 'Reference',
-        items: [
-          { text: 'Reference Home', link: '/reference/' },
-          { text: 'Foundations', link: '/reference/architecture' },
-          { text: 'Runtime and State', link: '/reference/containers-host-mode' },
-          { text: 'Plugin Authors', link: '/reference/plugins' },
-          { text: 'Quality and Safety', link: '/reference/testing-evals' },
-          { text: 'Help and Limits', link: '/reference/troubleshooting' }
-        ]
-      }
+      { text: 'Workspace', link: '/guide/workspace-and-chat' },
+      { text: 'Agents', link: '/guide/agent-sessions-and-context' },
+      { text: 'Plugins', link: '/plugins/catalog' },
+      { text: 'Reference', link: '/reference/' }
     ],
     socialLinks: [
       {
@@ -104,44 +112,18 @@ export default defineConfig({
     ],
     sidebar: {
       '/guide/': [
-        {
-          text: 'Start Here',
-          items: guideStart
-        },
-        {
-          text: 'Core Functionality',
-          items: guideWorkspace
-        },
-        {
-          text: 'Built-in Capabilities',
-          items: guideCapabilities
-        },
-        {
-          text: 'Plugins and Apps',
-          items: guidePlugins
-        }
+        { text: 'Start / Setup', items: startSetup },
+        { text: 'Workspace / Runtime', items: workspaceRuntime },
+        { text: 'Agents / Automation', items: agentsAutomation },
+        { text: 'Apps / Integrations', items: appsIntegrations }
+      ],
+      '/plugins/': [
+        { text: 'Plugin Catalog', items: selectedPlugins }
       ],
       '/reference/': [
-        {
-          text: 'Foundations',
-          items: referenceFoundations
-        },
-        {
-          text: 'Runtime and State',
-          items: referenceRuntime
-        },
-        {
-          text: 'Plugin Authors',
-          items: referencePluginAuthors
-        },
-        {
-          text: 'Quality and Safety',
-          items: referenceQualitySafety
-        },
-        {
-          text: 'Help and Limits',
-          items: referenceHelp
-        }
+        { text: 'Runtime Reference', items: referenceRuntime },
+        { text: 'Plugin Authors', items: referenceAuthors },
+        { text: 'Quality / Safety / Help', items: referenceQuality }
       ]
     }
   }

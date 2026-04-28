@@ -4,18 +4,16 @@ This app is the curated **public docs platform** for the Sero OSS alpha.
 
 ## Scope
 
-Keep this site limited to the approved alpha IA:
-- Overview
-- Getting Started
-- Installation / Requirements
-- Development Setup
-- Architecture
-- Plugins
-- Plugin End-to-End Example
-- Testing / Evals
-- Security / Privacy
-- Troubleshooting
-- Known Limitations
+Keep this site focused on current, public Sero behavior. The docs site is the curated surface for beginner-friendly guides and exact reference material across:
+
+- Start/setup: overview, installation, requirements, development setup, profiles, onboarding, providers, and local models.
+- Workspace/runtime: workspaces, Explorer, editor, terminal, containers, dev servers, browser previews, checkpoints, and state locations.
+- Agents: chat sessions, composer controls, context, voice, memory, scheduler, subagents, collaboration, and related safeguards.
+- Apps/plugins: built-in apps, dashboard widgets, app store/favorites, plugin catalog, external/local plugins, and plugin-author workflows.
+- Integrations and operator workflows: Git, MCP, Web, remote control, browser/app capture, CLI, and local runtime troubleshooting.
+- Quality/safety/reference: architecture, testing/evals, security/privacy, support scope, known limitations, troubleshooting, and source-checked coverage audits.
+
+The public information architecture may evolve as these categories fill in. Keep index pages and navigation curated around reader journeys instead of mirroring every implementation directory.
 
 ## Content rules
 

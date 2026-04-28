@@ -13,8 +13,8 @@ hero:
       text: Start Here
       link: /guide/overview
     - theme: alt
-      text: Architecture
-      link: /reference/architecture
+      text: Plugin Catalog
+      link: /plugins/catalog
 
 features:
   - title: Agent-first local development
@@ -65,22 +65,22 @@ For the canonical current support contract, see
 
 ## Start here
 
-- [Start Here](/guide/overview)
-- [Workspace and Chat](/guide/workspace-and-chat)
-- [Explorer Workspace](/guide/explorer-workspace)
-- [Memory](/guide/memory)
-- [Web](/guide/web)
-- [Remote Control](/guide/remote-control) — optional and security-sensitive
-- [Scheduler and Reminders](/guide/scheduler-reminders)
-- [Git Integration](/guide/git-integration)
-- [Plugins and Apps](/guide/plugins-and-apps)
-- [App Store and Favorites](/guide/app-store-favorites)
-- [Support Scope](/reference/support-scope)
-- [Architecture](/reference/architecture)
+- [Overview](/guide/overview) — product shape, alpha scope, and first reading path.
+- [Installation / Requirements](/guide/installation-requirements) — supported macOS baseline and local dependencies.
+- [Profiles and Onboarding](/guide/profiles-and-onboarding) — first-run setup, profile state, and deletion caveats.
+- [Models and Providers](/guide/models-and-providers) — provider auth, tiers, local models, and recovery.
+- [Workspace and Chat](/guide/workspace-and-chat) — shell layout, sessions, chat, and the command menu.
+- [Explorer Workspace](/guide/explorer-workspace) — files, editor, terminal, previews, and source control.
+- [Agent Sessions and Context](/guide/agent-sessions-and-context) — composer controls, context, voice, steering, and queues.
+- [Containers and Dev Servers](/guide/containers-dev-servers) — workspace runtime, container previews, and host fallback.
+- [Plugins and Apps](/guide/plugins-and-apps) — installed apps, local development sessions, widgets, and plugin concepts.
+- [Plugin Catalog](/plugins/catalog) — built-in and external/local plugins at a glance.
+- [Reference](/reference/) — architecture, CLI, state, plugin authoring, evals, security, and troubleshooting.
+- [Support Scope](/reference/support-scope) — current alpha support contract.
 - [Contributing](https://github.com/sero-labs/sero/blob/main/CONTRIBUTING.md)
 - [Security Policy](https://github.com/sero-labs/sero/blob/main/SECURITY.md)
 - [Open an Issue](https://github.com/sero-labs/sero/issues/new/choose)
 
-See the guide pages for setup and the reference pages for architecture,
-support scope, plugins, testing, security, troubleshooting, and known
+Use the guide pages for workflows and the reference pages for exact behavior,
+state paths, plugin authoring, testing, security, troubleshooting, and known
 limitations.

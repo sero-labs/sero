@@ -1,9 +1,11 @@
 # Memory
 
-Sero Memory is a built-in plugin that gives the agent durable context across
-sessions. It is meant for practical recall: preferences, project notes,
-identity/profile details, scratchpad items, and daily work logs that help future
-conversations start with less repeated setup.
+Sero Memory is a built-in plugin (`@sero-ai/plugin-memory`) that gives the agent
+durable context across sessions. It is meant for practical recall: preferences,
+project notes, identity/profile details, scratchpad items, and daily work logs
+that help future conversations start with less repeated setup. Source checked:
+`plugins/sero-memory-plugin/package.json`; see the [Plugin Catalog](/plugins/catalog)
+for the built-in plugin inventory.
 
 Sero is still a **source-only OSS alpha**. Treat memory as helpful local context,
 not perfect recall or a complete audit log.

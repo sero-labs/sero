@@ -7,7 +7,9 @@ pretending the plugin API is frozen.
 
 If you only want to install or manage plugins, start with
 [App Store, Favorites, and Installed Plugins](/guide/app-store-favorites). If you
-want the broad model first, read [Plugins and Apps](/guide/plugins-and-apps).
+want the broad model first, read [Plugins and Apps](/guide/plugins-and-apps). Use
+[App Runtime Reference](/reference/app-runtime) for the source-checked hook/API
+table.
 
 ## Alpha expectations
 
@@ -144,7 +146,9 @@ manifest describe the bridge policy.
 ## React UI and app-runtime hooks
 
 Plugin UIs are React modules loaded by Sero as federated remotes. Current
-alpha-safe app-runtime hooks include:
+alpha-safe app-runtime hooks include the table below; see
+[App Runtime Reference](/reference/app-runtime) for source paths, host caveats,
+and widget registry APIs.
 
 | Hook | Use for |
 | --- | --- |
@@ -303,6 +307,8 @@ Do not claim during alpha that:
 - [Plugins and Apps](/guide/plugins-and-apps)
 - [App Store, Favorites, and Installed Plugins](/guide/app-store-favorites)
 - [Plugins](/reference/plugins)
+- [Plugin Catalog](/plugins/catalog)
+- [App Runtime Reference](/reference/app-runtime)
 - [Plugin Quickstart](/reference/plugin-quickstart)
 - [Plugin End-to-End Example](/reference/plugin-end-to-end-example)
 - [State and Folders](/reference/state-and-folders)

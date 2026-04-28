@@ -5,6 +5,7 @@ Most Sero OSS alpha setup problems fall into one of these buckets:
 - dev launcher startup failure
 - Apple container runtime unavailable
 - host mode being used for a workflow that still expects containers
+- dev-server preview URL, container IP, or browser/app capture mismatch
 
 ## `pnpm install` finished, but terminals or memory features still fail
 
@@ -103,9 +104,70 @@ Host mode is **not** the supported path for:
 If you hit one of those gaps, check whether the workspace should be running in
 container-backed mode instead.
 
-See [Support Scope](/reference/support-scope) for the canonical matrix and
+See [Support Scope](/reference/support-scope) for the canonical matrix,
 [Containers and Host Mode](/reference/containers-host-mode) for runtime-specific
-guidance.
+guidance, and [Containers and Dev Servers](/guide/containers-dev-servers) for the dev-server quick path.
+
+## Dev server works in terminal but not in preview
+
+Check the server binding first. Many frameworks default to `localhost`, which can make the server reachable from inside the container shell but not from Sero's preview URL. Prefer binding to all interfaces:
+
+```bash
+npm run dev -- --host 0.0.0.0
+```
+
+Then register or re-register the server:
+
+```bash
+sero devserver register --name "Web app" --port 3000 --command "npm run dev -- --host 0.0.0.0" --framework vite
+sero devserver list
+```
+
+Use the URL reported by `sero devserver list`. In container-backed workspaces, that URL may use the container IP rather than `localhost`.
+
+## Host port is already used
+
+Container-backed dev servers reduce host port conflicts because the server listens inside the workspace container. Two workspaces can often use the same container port without both claiming the same host port.
+
+This is not a guarantee that every network issue is solved. If the preview still fails, confirm container health, server binding, proxy/DNS behavior, and the URL reported by the registry.
+
+## Container IP changed or preview URL went stale
+
+The dev-server registry is in memory and URLs can change after container restart/recreation. Run:
+
+```bash
+sero devserver list
+```
+
+If the listed URL differs from the one in your browser or preview tab, open the fresh URL or register the server again. If no servers are listed, start and register the dev server again.
+
+## Browser or app capture fails
+
+`sero browser ...` commands operate on visible in-app browser tabs. `sero app ...` screenshot, interaction, preview, and recording commands use the UI-backed app-control bridge. Both depend on the relevant panel being loaded and visible.
+
+Quick recovery:
+
+```bash
+sero browser list
+sero app list
+sero app open explorer
+sero app screenshot --save ./debug.png
+```
+
+If screenshots say the app panel is not found or not visible, switch to the target app and retry after it renders. See [Browser and Capture](/guide/browser-and-capture).
+
+## Checkpoint restore or turn undo fails
+
+Checkpoint and undo operations can restore files, and turn undo can also rewind
+the chat/session tree. If recovery does not behave as expected:
+
+- stop any active streaming agent turn before restoring
+- confirm you are in the intended workspace/session
+- review current diffs so you know what may be overwritten
+- refresh Git/source-control views after restore
+- distinguish VCS-only restore from **Undo this turn**
+
+See [Checkpoints and Undo](/guide/checkpoints-and-undo) for the recovery matrix.
 
 ## Quick baseline before filing an issue
 
@@ -132,7 +194,12 @@ Before sharing logs, redact tokens, auth files, and private local paths.
 
 - [Support Scope](/reference/support-scope)
 - [Explorer Workspace](/guide/explorer-workspace)
+- [Containers and Dev Servers](/guide/containers-dev-servers)
+- [Browser and Capture](/guide/browser-and-capture)
+- [Checkpoints and Undo](/guide/checkpoints-and-undo)
 - [Containers and Host Mode](/reference/containers-host-mode)
+- [Container Isolation](/reference/container-isolation)
+- [Sero CLI](/reference/sero-cli)
 - [State and Folders](/reference/state-and-folders)
 - [`docs/node-pty-setup.md`](https://github.com/sero-labs/sero/blob/main/docs/node-pty-setup.md)
 - [`docs/guides/native-modules.md`](https://github.com/sero-labs/sero/blob/main/docs/guides/native-modules.md)

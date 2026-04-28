@@ -5,7 +5,8 @@ artifacts during the OSS alpha. Use it when troubleshooting, filing issues, or
 checking what should be redacted from screenshots and logs.
 
 Sero is local-first, but local state can still be sensitive. Treat the active
-profile directory as private developer-machine data.
+profile directory as private developer-machine data. For the user-facing setup
+flow, see [Profiles and Onboarding](/guide/profiles-and-onboarding).
 
 ## Core path model
 
@@ -31,7 +32,7 @@ Inside the active profile, Sero uses an agent directory:
 ```
 
 Sero sets `PI_CODING_AGENT_DIR` to this path so Pi uses Sero's profile-scoped
-agent directory instead of `~/.pi/agent`.
+agent directory instead of a separate non-Sero agent directory.
 
 ## Important profile files
 
@@ -40,8 +41,9 @@ agent directory instead of `~/.pi/agent`.
 | `~/.sero-ui/profiles.json` | Fixed profile registry and active profile ID |
 | `<SERO_HOME>/agent/auth.json` | Pi-managed provider auth/OAuth store |
 | `<SERO_HOME>/agent/settings.json` | Profile-scoped settings and package/plugin config |
-| `<SERO_HOME>/agent/layout.json` | Shell layout, theme, active workspace/session, dashboard/browser state |
+| `<SERO_HOME>/agent/layout.json` | Shell layout, theme, active workspace/session, dashboard widget layout/browser state |
 | `<SERO_HOME>/agent/.env` | Profile-local environment variables and local secret config |
+| `<SERO_HOME>/agent/models.json` | Local/custom model provider configuration |
 | `<SERO_HOME>/agent/workspaces.json` | Workspace registry for the active profile |
 | `<SERO_HOME>/agent/github-auth.json` | GitHub device-flow auth token store |
 | `<SERO_HOME>/agent/gateway-token` | Gateway master token |
@@ -49,16 +51,16 @@ agent directory instead of `~/.pi/agent`.
 | `<SERO_HOME>/agent/gateway-web-tokens.json` | Scoped web/gateway tokens |
 | `<SERO_HOME>/agent/plugins/` | Installed optional plugins |
 | `<SERO_HOME>/agent/extensions/` | Additional extension packages/resources |
-| `<SERO_HOME>/agent/agents/` | Subagent definitions |
+| `<SERO_HOME>/agent/agents/` | Subagent definition Markdown files; see [Agent Definitions](/reference/agent-definitions) |
 | `<SERO_HOME>/agent/skills/` | Installed skills |
 | `<SERO_HOME>/agent/prompts/` | Prompt templates |
 | `<SERO_HOME>/themes/` | User theme presets |
 | `<SERO_HOME>/debug/memory/` | Memory plugin debug logs |
 
-Older notes may mention paths such as `~/.sero-ui/layout.json`,
-`~/.sero-ui/github-auth.json`, or `~/.pi/agent`. For current Sero alpha docs,
-prefer the profile-scoped `<SERO_HOME>/agent/...` paths above unless a page is
-explicitly describing legacy migration behavior.
+Older notes may mention paths such as `~/.sero-ui/layout.json` or
+`~/.sero-ui/github-auth.json`. For current Sero alpha docs, prefer the
+profile-scoped `<SERO_HOME>/agent/...` paths above unless a page is explicitly
+describing legacy migration behavior.
 
 ## Workspaces
 
@@ -146,6 +148,39 @@ Memory debug logs live at:
 
 For the user-facing overview, see [Memory](/guide/memory).
 
+## Agent definitions and dashboard layout
+
+Subagent definitions live in:
+
+```text
+<SERO_HOME>/agent/agents/
+```
+
+The default profile path is usually `~/.sero-ui/agent/agents/`. Definitions can
+include private workflow instructions and model preferences, so redact them like
+prompt templates. For the exact format, see [Agent Definitions](/reference/agent-definitions).
+
+Dashboard widget placement and instances are part of profile layout state:
+
+```text
+<SERO_HOME>/agent/layout.json
+```
+
+See [Dashboard and Widgets](/guide/dashboard-widgets) for the user workflow.
+
+## Local/custom model configuration
+
+Local and custom model providers are configured in:
+
+```text
+<SERO_HOME>/agent/models.json
+```
+
+This file can include local endpoints, API keys, environment variable names,
+command-backed secret lookups, headers, model IDs, and model metadata. Treat it
+as sensitive when it contains private endpoints or credentials. For the exact
+supported schema, see [`models.json` Reference](/reference/models-json).
+
 ## Temporary runtime logs
 
 Some development/runtime logs are written outside the profile tree under `/tmp/`:
@@ -169,11 +204,13 @@ Redact or avoid sharing raw copies of:
 - `<SERO_HOME>/agent/auth.json`
 - `<SERO_HOME>/agent/.env`
 - `<SERO_HOME>/agent/github-auth.json`
+- `<SERO_HOME>/agent/models.json`
 - `<SERO_HOME>/agent/gateway-token`
 - `<SERO_HOME>/agent/gateway-config.json`
 - `<SERO_HOME>/agent/gateway-web-tokens.json`
 - `<SERO_HOME>/agent/layout.json`
 - `<SERO_HOME>/agent/workspaces.json`
+- `<SERO_HOME>/agent/agents/`
 - memory files under `<SERO_HOME>/workspaces/global/`
 - app state under `<SERO_HOME>/apps/` or `<workspace>/.sero/apps/`
 - debug/runtime logs that include private paths, prompts, tokens, or project data
@@ -198,5 +235,7 @@ These may talk to remote systems, while still storing state locally:
 - third-party plugin integrations
 
 For security posture and remote-control caveats, see
-[Security / Privacy](/reference/security-privacy) and
-[Remote Control](/guide/remote-control).
+[Security / Privacy](/reference/security-privacy),
+[Profiles and Onboarding](/guide/profiles-and-onboarding), and
+[Remote Control](/guide/remote-control), [Agent Definitions](/reference/agent-definitions),
+and [Dashboard and Widgets](/guide/dashboard-widgets).

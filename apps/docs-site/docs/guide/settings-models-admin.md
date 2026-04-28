@@ -1,8 +1,14 @@
 # Settings and Admin
 
-Sero's Admin app collects profile-level configuration, local agent resources,
-session inspection, and other support-oriented surfaces. Use this page as the
-entry point for Admin-related documentation.
+Sero's Admin app is provided by the built-in `@sero-ai/plugin-admin` package. It
+collects profile-level configuration, local agent resources, session inspection,
+and other support-oriented surfaces. Use this page as the entry point for
+Admin-related documentation.
+
+Source checked: `plugins/sero-admin-plugin/package.json` declares app id
+`admin`, global scope, state file `.sero/apps/admin/state.json`, component
+`AdminApp`, and developer-tools tags for settings, sessions, logs, agents,
+skills, and prompts.
 
 These screens are useful for understanding what the local profile is using, but
 they remain alpha UI and should not be treated as a stable public API.
@@ -12,10 +18,21 @@ they remain alpha UI and should not be treated as a stable public API.
 Admin-related docs are split into a few focused pages:
 
 - **This page** — configuration files, agents, skills, prompts, and sessions.
-- [Models and Providers](/guide/models-and-providers) — model selection,
-  provider lists, local models, tiers, and chat context controls.
+- [Agent Sessions and Context](/guide/agent-sessions-and-context) — composer
+  controls, context editor, workspace snapshots, steering, queues, and voice.
+- [Subagents and Collaboration](/guide/subagents) — user workflows for
+  delegation, collaboration, and debate.
+- [Agent Definitions](/reference/agent-definitions) — profile-scoped agent
+  definition file format.
+- [Models and Providers](/guide/models-and-providers) — provider catalog,
+  provider health, auth modes, model selection, tiers, and recovery.
+- [Local LLMs with LM Studio](/guide/local-llms-lm-studio) — task guide for
+  configuring a local OpenAI-compatible LM Studio server.
+- [`models.json` Reference](/reference/models-json) — exact local/custom model
+  provider schema.
 - [Themes](/guide/themes) — theme selection and editing.
 - [MCP](/guide/mcp) — MCP server management.
+- [Plugin Catalog](/plugins/catalog) — built-in versus external/local plugin inventory.
 
 ## Configuration files
 
@@ -28,9 +45,13 @@ screenshots or support reports.
 
 ## Agents, skills, and prompts
 
-Agent resources live under the Sero agent directory for the active profile. The
-Admin app can help inspect configured agents, installed skills, and prompt
-templates without leaving the desktop shell.
+Agent resources live under the Sero agent directory for the active profile:
+`<SERO_HOME>/agent/`. Agent definitions are Markdown files under
+`<SERO_HOME>/agent/agents/` (default `~/.sero-ui/agent/agents/`). The Admin app
+can help inspect configured agents, installed skills, and prompt templates
+without leaving the desktop shell. See [Agent Definitions](/reference/agent-definitions)
+for the file format and [Subagents and Collaboration](/guide/subagents) for the
+user workflow.
 
 The Agents view shows the configured agent definitions available to the active
 profile.
@@ -55,9 +76,23 @@ paths, outputs, and tool activity, so redact it carefully before sharing.
 
 ![Admin sessions](../assets/images/admin-sessions.jpg)
 
+## Built-in plugin notes
+
+Admin is built in to the Sero source tree. It can be hidden or unfavorited like
+other app surfaces, but it is not a third-party plugin that users remove through
+Plugin Manager. Admin state and screenshots can expose private paths, prompts,
+model names, and configuration values; redact them before sharing.
+
 ## Related docs
 
+- [Plugin Catalog](/plugins/catalog)
+- [Profiles and Onboarding](/guide/profiles-and-onboarding)
 - [Models and Providers](/guide/models-and-providers)
+- [Agent Sessions and Context](/guide/agent-sessions-and-context)
+- [Subagents and Collaboration](/guide/subagents)
+- [Agent Definitions](/reference/agent-definitions)
+- [Local LLMs with LM Studio](/guide/local-llms-lm-studio)
+- [`models.json` Reference](/reference/models-json)
 - [Themes](/guide/themes)
 - [MCP](/guide/mcp)
 - [Workspace and Chat](/guide/workspace-and-chat)

@@ -27,12 +27,14 @@ A plugin can provide one or more surfaces:
 
 - an app in the Sero sidebar
 - tools or commands the agent can use
-- dashboard widgets
+- dashboard widgets (see [Dashboard and Widgets](/guide/dashboard-widgets))
 - background/runtime behavior
 - provider metadata for model or service integrations
 
-For the canonical overview, see [Plugins](/reference/plugins). For the
-end-user management flow, see [App Store, Favorites, and Installed Plugins](/guide/app-store-favorites).
+For the at-a-glance list of built-in and external/local plugins, see the
+[Plugin Catalog](/plugins/catalog). For the canonical overview, see
+[Plugins](/reference/plugins). For the end-user management flow, see
+[App Store, Favorites, and Installed Plugins](/guide/app-store-favorites).
 
 ![Local Plugin Management](../assets/images/local-plugin-preview.jpg)
 
@@ -134,6 +136,7 @@ A Sero plugin usually combines a few pieces:
 The best starting points are:
 
 - [Plugin Author Quick Path](/reference/plugin-author-quick-path)
+- [App Runtime Reference](/reference/app-runtime)
 - [Plugin Quickstart](/reference/plugin-quickstart)
 - [Plugin End-to-End Example](/reference/plugin-end-to-end-example)
 - [Plugins](/reference/plugins)
@@ -155,8 +158,9 @@ plugin packaging metadata explicit and follow the current quickstart.
 
 ### App runtime hooks
 
-`@sero-ai/app-runtime` gives federated app modules a small host bridge. Current
-public-facing concepts include:
+`@sero-ai/app-runtime` gives federated app modules a small host bridge. See the
+[App Runtime Reference](/reference/app-runtime) for the source-checked hook/API
+table. Current public-facing concepts include:
 
 - `useAppInfo` — read app and workspace identity
 - `useAppState` — read and update file-backed app state through Sero
@@ -188,6 +192,9 @@ it.
 Plugins can expose dashboard widgets through static manifest metadata or runtime
 registration. Widgets are intended for compact summaries such as recent activity,
 counts, or quick status — not as full replacement app surfaces.
+
+For the user workflow to add, remove, drag, resize, and troubleshoot widgets,
+see [Dashboard and Widgets](/guide/dashboard-widgets).
 
 When documenting widgets, keep claims scoped:
 
@@ -227,7 +234,9 @@ Avoid these claims unless a later product decision and runtime test confirm them
 
 If you want to **use** plugins, start with
 [App Store, Favorites, and Installed Plugins](/guide/app-store-favorites), then
-read [Plugins](/reference/plugins) for the broader model.
+use the [Plugin Catalog](/plugins/catalog) to distinguish built-in plugins from
+external/local examples, read [Dashboard and Widgets](/guide/dashboard-widgets)
+for widget behavior, and [Plugins](/reference/plugins) for the broader model.
 
 If you want to **build** a plugin, start with
 [Plugin Author Quick Path](/reference/plugin-author-quick-path), then continue to

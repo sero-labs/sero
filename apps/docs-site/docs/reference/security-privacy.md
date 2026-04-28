@@ -48,6 +48,7 @@ Common sensitive paths include:
 | provider auth store | `<SERO_HOME>/agent/auth.json` |
 | profile-local env vars | `<SERO_HOME>/agent/.env` |
 | GitHub auth | `<SERO_HOME>/agent/github-auth.json` |
+| local/custom model config | `<SERO_HOME>/agent/models.json` |
 | gateway token | `<SERO_HOME>/agent/gateway-token` |
 | gateway config | `<SERO_HOME>/agent/gateway-config.json` |
 | gateway web tokens | `<SERO_HOME>/agent/gateway-web-tokens.json` |
@@ -67,7 +68,9 @@ Before sharing diagnostics:
 
 Profile-scoped storage helps keep Sero state organized, but it is not a
 cryptographic boundary. Someone who can read your active profile files may be
-able to recover useful secrets or steer connected integrations.
+able to recover useful secrets or steer connected integrations. For setup,
+custom profile locations, switching, deletion, and credential-copy behavior, see
+[Profiles and Onboarding](/guide/profiles-and-onboarding).
 
 ## Local vs remote/networked surfaces
 
@@ -77,7 +80,7 @@ These surfaces are local/profile-scoped unless you explicitly copy, sync, or
 expose them elsewhere:
 
 - profiles and the profile registry
-- provider auth/settings under `<SERO_HOME>/agent/`
+- provider auth/settings and local/custom model config under `<SERO_HOME>/agent/`
 - workspaces under `<SERO_HOME>/workspaces/`
 - global app state under `<SERO_HOME>/apps/`
 - installed plugins under `<SERO_HOME>/agent/plugins/`
@@ -229,6 +232,7 @@ credentials accordingly.
 
 ## See also
 
+- [Profiles and Onboarding](/guide/profiles-and-onboarding)
 - [Remote Control](/guide/remote-control)
 - [State and Folders](/reference/state-and-folders)
 - [Support Scope](/reference/support-scope)

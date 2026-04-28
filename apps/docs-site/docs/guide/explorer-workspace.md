@@ -5,7 +5,7 @@ previews, browser/preview tabs, source-control views, and workspace terminals
 around the active workspace and agent session.
 
 Explorer is useful today, but it is not a promise of full IDE parity during the
-alpha. For runtime expectations, see [Containers and Host Mode](/reference/containers-host-mode).
+alpha. For runtime expectations, see [Containers and Host Mode](/reference/containers-host-mode); for dev-server setup, see [Containers and Dev Servers](/guide/containers-dev-servers).
 
 ![Explorer](../assets/images/explorer.jpg)
 
@@ -72,7 +72,8 @@ without requiring every path to be part of the primary root.
 ![Workspace references](../assets/images/workspace-references.jpg)
 
 Explorer's source-control panel gives a quick view of repository state alongside
-the file tree.
+the file tree. For manual checkpoints, turn undo, and restore safety, see
+[Checkpoints and Undo](/guide/checkpoints-and-undo).
 
 ![Explorer source control](../assets/images/explorer-vcs.jpg)
 
@@ -112,9 +113,7 @@ Current safe expectations include:
 - bookmarks can be used from the browser UI
 - page sharing and screenshot capture can feed chat attachments where supported
 
-This browser surface is part of Sero's local development workflow. It should not
-be described as a general-purpose hardened browser or a guarantee that every web
-app behaves like it would in your default browser.
+This browser surface is part of Sero's local development workflow. It is the visible in-app browser, separate from Sero's UI-backed app screenshot/recording bridge. It should not be described as a general-purpose hardened browser or a guarantee that every web app behaves like it would in your default browser. See [Browser and Capture](/guide/browser-and-capture) for screenshots, interactions, and recording.
 
 The browser surface keeps local preview navigation inside the workspace context.
 
@@ -155,9 +154,15 @@ Current actions include:
 
 This panel reflects registered dev servers; it is not a guarantee that Sero will
 automatically discover, start, or manage every project server. Container-backed
-runtime is the preferred path for managed preview and dev-server flows. Host
-mode is reduced and should not be treated as feature-equivalent for dev-server
-automation.
+runtime is the preferred path for managed preview and dev-server flows because previews can use container-IP URLs instead of binding every server to a host port. This reduces host port conflicts, but it does not guarantee that every network, proxy, DNS, or framework binding issue disappears. Host mode is reduced and should not be treated as feature-equivalent for dev-server automation.
+
+Typical command flow:
+
+```bash
+sero devserver register --name "Web app" --port 3000 --command "npm run dev -- --host 0.0.0.0" --framework vite
+sero devserver list
+sero app preview http://<container-ip>:3000
+```
 
 ![Explorer Dev Servers](../assets/images/explorer-dev-servers.jpg)
 
@@ -186,7 +191,8 @@ When Explorer behavior is confusing:
    [Containers and Host Mode](/reference/containers-host-mode).
 4. If a dev server is missing from the status panel, confirm the project server
    is actually registered/running rather than assuming Sero auto-discovered it.
-5. Check logs before filing an issue:
+5. If a preview fails, confirm the server binds `0.0.0.0`, use the current URL from `sero devserver list`, and re-register after container restarts if needed.
+6. Check logs before filing an issue:
 
 ```text
 /tmp/sero-vite.log
@@ -201,6 +207,11 @@ redacted log excerpt that shows the failure.
 ## Related docs
 
 - [Workspace and Chat](/guide/workspace-and-chat)
+- [Containers and Dev Servers](/guide/containers-dev-servers)
+- [Browser and Capture](/guide/browser-and-capture)
+- [Checkpoints and Undo](/guide/checkpoints-and-undo)
 - [Containers and Host Mode](/reference/containers-host-mode)
+- [Container Isolation](/reference/container-isolation)
+- [Sero CLI](/reference/sero-cli)
 - [Support Scope](/reference/support-scope)
 - [Troubleshooting](/reference/troubleshooting)
