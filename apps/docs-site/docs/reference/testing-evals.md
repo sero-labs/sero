@@ -2,8 +2,6 @@
 
 Sero uses repository tests and promptfoo evals as separate quality signals. The current alpha model is truthful rather than exhaustive: not every suite is a PR gate, and real LLM evals are usually manual/nightly/release-confidence checks.
 
-Source checked: `package.json`, `.github/workflows/test.yml`, `docs/testing/eval-guide.md`, `promptfooconfig.yaml`, `eval/promptfoo-snapshot.yaml`, `eval/scenarios/**`, and `apps/desktop/electron/__tests__/**`.
-
 ## Current root command surface
 
 ```bash

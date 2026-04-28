@@ -15,8 +15,6 @@ Profiles are practical local separation, not cryptographic isolation. Someone wh
 7. Optionally connect GitHub.
 8. Open or create a workspace.
 
-Source checked: `docs/features/profiles.md`, `apps/desktop/src/components/profiles/**`, `apps/desktop/electron/features/profile/**`, and the profile channels in `apps/desktop/src/types/ipc-channels.ts`.
-
 ## What a profile owns
 
 | State | Typical location |
@@ -57,7 +55,7 @@ If switching fails, the UI keeps the profile action visible and reports the rest
 
 ## Copying credentials and model preferences
 
-When creating a new profile from an existing active profile, Sero can offer to copy transferable credentials and model preferences. Source checked: `apps/desktop/electron/features/profile/copy-profile-data.ts`.
+When creating a new profile from an existing active profile, Sero can offer to copy transferable credentials and model preferences. 
 
 The copy flow can include these profile-agent files when they have meaningful content:
 
@@ -75,7 +73,7 @@ Only use this option when the new profile should trust the same providers, local
 
 ## Deleting profiles
 
-Deleting a profile unregisters it from `~/.sero-ui/profiles.json`. Source checked: `apps/desktop/electron/features/profile/manager.ts`.
+Deleting a profile unregisters it from `~/.sero-ui/profiles.json`.
 
 Current behavior:
 

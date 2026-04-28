@@ -2,8 +2,6 @@
 
 Use Sero evals when you need a structured signal about prompt assembly or agent behavior. Snapshot evals are fast and local. Real LLM evals call providers and can cost money.
 
-Source checked: `docs/testing/eval-guide.md`, `package.json`, `promptfooconfig.yaml`, `eval/promptfoo-snapshot.yaml`, and `eval/scenarios/**`.
-
 ## Pick the right command
 
 | Command | When to use | Cost/auth |

@@ -2,8 +2,6 @@
 
 Container-backed workspaces are Sero's preferred runtime on macOS Apple Silicon. They isolate workspace execution from the host enough to provide reproducible tooling, container networking, and per-workspace dev-server previews, but they are not documented as a hardened multi-tenant security boundary.
 
-Source checked: `apps/desktop/electron/features/container/**`, `apps/desktop/electron/cli/commands/container/devserver.ts`, `docs/guides/macos-containers.md`, and AD-018 in `docs/decisions.md`. AD-019 was used only as historical context because the current code differs for registry ids and stop behavior.
-
 ## Lifecycle
 
 | Behavior | Current implementation |

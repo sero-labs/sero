@@ -2,8 +2,6 @@
 
 Subagents let the main Sero agent delegate bounded work to specialist child sessions. Use them when one task can be split into independent research, review, testing, or implementation tracks. Collaboration mode is related but distinct: it runs a fixed multi-agent collaboration/debate flow for one prompt.
 
-Source checked: `docs/features/subagents.md`, `docs/specs/subagents.md`, `apps/desktop/electron/features/subagent/**`, `apps/desktop/electron/features/collaboration/**`, `apps/desktop/src/components/layout/CollaborationActivityPanel.tsx`, `apps/desktop/src/types/subagent.ts`, and `apps/desktop/src/types/collaboration.ts`.
-
 ## Quick path
 
 1. Start in a normal workspace chat session.

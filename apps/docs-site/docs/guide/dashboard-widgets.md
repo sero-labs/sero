@@ -2,8 +2,6 @@
 
 Dashboard is Sero's home surface for compact app and workspace summaries. Widgets are small panels contributed by the host or by installed apps/plugins; they are useful for status at a glance, not a replacement for opening the full app.
 
-Source checked: `apps/desktop/src/components/apps/dashboard/Dashboard.tsx`, `AddWidgetDialog.tsx`, `DashboardWidget.tsx`, `WidgetMount.tsx`, `apps/desktop/src/stores/dashboard.ts`, `apps/desktop/src/types/layout.ts`, and `packages/app-runtime/src/use-widget-registration.ts`.
-
 ## Add a widget
 
 1. Open **Dashboard** from the app sidebar or command menu.

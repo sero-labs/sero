@@ -2,8 +2,6 @@
 
 Agent definitions are profile-scoped Markdown files that describe named subagents. The Markdown body becomes the subagent system prompt; JSON frontmatter supplies metadata such as name, description, model, thinking, and timeout.
 
-Source checked: `apps/desktop/electron/features/subagent/runtime/discovery.ts`, `apps/desktop/src/types/subagent.ts`, `docs/specs/subagents.md`, and `docs/features/subagents.md`.
-
 ## Location
 
 Sero reads `.md` files from:

@@ -33,7 +33,7 @@ For container networking details, see [Containers and Dev Servers](/guide/contai
 
 ## Visible browser
 
-The `browser` namespace controls loaded in-app browser tabs. Source checked: `apps/desktop/electron/cli/commands/browser/browser.ts`.
+The `browser` namespace controls loaded in-app browser tabs.
 
 ```bash
 sero browser open https://example.com
@@ -54,7 +54,7 @@ Use the visible browser for normal preview and page-reading workflows. Use `sero
 
 ## App navigation and screenshots
 
-The `app` namespace goes through Sero's renderer bridge. Source checked: `apps/desktop/electron/cli/commands/apps/app-control*.ts` and `apps/desktop/src/lib/app-control-bridge.ts`.
+The `app` namespace goes through Sero's renderer bridge.
 
 ```bash
 sero app list
@@ -70,7 +70,7 @@ Failures usually mean the app panel is not available or not visible. Open the ta
 
 ## DOM interactions
 
-Sero can perform simple interactions against the currently visible app panel. Source checked: `apps/desktop/src/lib/app-control/dom-interactions.ts`.
+Sero can perform simple interactions against the currently visible app panel.
 
 ```bash
 sero app click "button[data-testid='save']"

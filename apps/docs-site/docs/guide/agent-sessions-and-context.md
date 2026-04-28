@@ -2,8 +2,6 @@
 
 The chat panel is where you ask Sero to plan, inspect files, edit code, use tools, and explain what it is doing. This guide covers the day-to-day composer controls that help you give the agent useful context without assuming that every saved detail is included on every turn.
 
-Source checked: `apps/desktop/src/components/layout/ChatPromptArea.tsx`, `ContextEditor.tsx`, `WorkspaceSnapshotMenuItem.tsx`, `SlashCommandMenu.tsx`, `FileReferenceMenu.tsx`, `VoiceTranscriptionControl.tsx`, `apps/desktop/electron/features/agent/assistants/voice-transcription.ts`, and `apps/desktop/src/hooks/useMessageQueue.ts`.
-
 ## Fast path: include a file and a workspace snapshot
 
 1. Open or create a workspace session.

@@ -4,7 +4,7 @@ Sero's Web plugin is a built-in plugin (`@sero-ai/plugin-web`) for bringing web
 context into an agent session. It can search the web, fetch readable content from
 sources you provide, retrieve previously stored search/fetch content, run
 code-oriented web lookups, and keep workspace-scoped bookmarks and activity for
-later review. Source checked: `plugins/sero-web-plugin/package.json`; see the
+later review. See the
 [Plugin Catalog](/plugins/catalog) for the built-in plugin inventory.
 
 Sero is still a **source-only OSS alpha**. Web access depends on configured

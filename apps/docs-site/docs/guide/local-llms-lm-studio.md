@@ -15,8 +15,6 @@ Local models still need enough memory and GPU/CPU capacity on your machine. They
 7. Use API key `lm-studio` or `none` unless your server requires a specific key.
 8. Test the connection, fetch models, save the provider, then assign LOW/MED/HIGH tiers.
 
-Source checked: `apps/desktop/src/types/local-models.ts`, `apps/desktop/electron/ipc/agent/handlers/local-models.ts`, and `apps/desktop/src/components/layout/models/model-manager/local-models/presets.ts`.
-
 ## Set up LM Studio
 
 In LM Studio:

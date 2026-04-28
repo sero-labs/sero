@@ -5,11 +5,6 @@ collects profile-level configuration, local agent resources, session inspection,
 and other support-oriented surfaces. Use this page as the entry point for
 Admin-related documentation.
 
-Source checked: `plugins/sero-admin-plugin/package.json` declares app id
-`admin`, global scope, state file `.sero/apps/admin/state.json`, component
-`AdminApp`, and developer-tools tags for settings, sessions, logs, agents,
-skills, and prompts.
-
 These screens are useful for understanding what the local profile is using, but
 they remain alpha UI and should not be treated as a stable public API.
 

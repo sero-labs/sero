@@ -2,8 +2,6 @@
 
 This catalog is the public index for Sero plugin coverage. It separates **built-in** plugins from **external/local** plugins so readers do not mistake example or local development packages for bundled Sero features.
 
-Source checked: built-in manifests under `plugins/sero-*-plugin/package.json`; external/local manifests under `../plugins/*/package.json`; READMEs were used where noted by the page links.
-
 ## How to read the catalog
 
 | Field | Meaning |

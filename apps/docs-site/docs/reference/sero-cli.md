@@ -2,8 +2,6 @@
 
 `sero-cli` is Sero's workspace/session command surface. Agents call it as a tool, and operators can use the same syntax in Sero-aware terminal contexts.
 
-Source checked: `apps/desktop/electron/cli/index.ts`, `core/registry.ts`, `core/types.ts`, `core/batch-executor.ts`, and `apps/desktop/electron/cli/commands/**`.
-
 ## Scope and syntax
 
 - A leading `sero` token is optional for command resolution, but examples use it for clarity.
@@ -161,7 +159,7 @@ Tabs are workspace-owned and loaded lazily through the browser panel. Explicit t
 
 ## Plugin-bridged commands
 
-Sero bridges selected extension tools and commands into `sero-cli` so agents use one command surface. Source checked: `apps/desktop/electron/cli/index.ts` and `bridges/extension-session-bridge.ts`.
+Sero bridges selected extension tools and commands into `sero-cli` so agents use one command surface.
 
 - Core tools such as `todo`, `memory`, `question`, `cron`, `git_manager`, and others are allowlisted.
 - Plugin packages can opt into bridging with `sero.plugin.bridgeTools` metadata.

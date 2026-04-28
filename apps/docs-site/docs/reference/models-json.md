@@ -8,8 +8,6 @@
 
 For the default profile, that is usually `~/.sero-ui/agent/models.json`. Sero reads and writes this file through the local models UI, then refreshes model availability.
 
-Source checked: `apps/desktop/src/types/local-models.ts`, `apps/desktop/electron/ipc/agent/handlers/local-models.ts`, and `apps/desktop/electron/shared/infra/shared-infra.ts`.
-
 ## Minimal shape
 
 ```json
@@ -81,8 +79,6 @@ When specified on a model, `cost` uses numbers per million tokens:
 Model overrides can use partial cost objects, so only the fields you need to override are required there.
 
 ## Supported API shapes and discovery
-
-Source checked: `apps/desktop/electron/ipc/agent/handlers/local-models.ts`.
 
 | `api` value | Discovery behavior | Auth behavior |
 | --- | --- | --- |

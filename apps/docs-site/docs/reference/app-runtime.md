@@ -2,8 +2,6 @@
 
 `@sero-ai/app-runtime` is the renderer-side bridge for Sero plugin app UIs. It is intended for React modules loaded inside the Sero shell, not for standalone browser apps.
 
-Source checked: `packages/app-runtime/src/index.ts`, `use-app-info.ts`, `use-app-state.ts`, `use-agent-prompt.ts`, `use-ai.ts`, `use-app-tools.ts`, `use-available-models.ts`, `use-theme.ts`, `use-widget-registration.ts`, `widget-registry.ts`, `sero-bridge.ts`, and `packages/app-runtime/README.md`.
-
 ## Hook and API table
 
 | Hook/API | Use it for | Requires app context? | Host/bridge caveat | Source |

@@ -32,9 +32,6 @@ and attached folders.
 | Local plugin development | A source checkout activated from **Admin → Plugins → Local Plugin Development** for the active profile. |
 | Attached folder | A workspace-visible folder/reference; it does not activate a plugin. |
 
-Source checked: `docs/features/local-plugin-development.md` and
-`apps/desktop/electron/features/plugins/dev-sessions/**`.
-
 ![Local plugin development sessions and attached folders](../assets/images/local-plugin-preview.jpg)
 
 Use this Admin plugin surface when you want to run a local plugin checkout for

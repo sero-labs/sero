@@ -2,8 +2,6 @@
 
 Sero has more than one recovery tool. Manual checkpoints restore workspace files. Chat turn undo restores files and rewinds the session tree for a specific agent turn. Git/JJ source-control operations are separate repository operations.
 
-Source checked: `docs/guides/version-control-user-flow.md`, `apps/desktop/src/hooks/useCheckpointRestore.ts`, `apps/desktop/src/components/layout/CheckpointRestoreDialog.tsx`, `apps/desktop/electron/ipc/agent/core/agent-checkpoint.ts`, `apps/desktop/electron/ipc/integrations/vcs.ts`, and `apps/desktop/src/types/ipc-channels.ts`.
-
 ## Which tool should I use?
 
 | Action | Restores files? | Rewinds chat/session? | Typical use |

@@ -43,7 +43,7 @@ Sero dev-server registry exposes URL using detected port/container IP
 Explorer browser or in-app preview displays the app
 ```
 
-Sero creates one container per workspace when container mode is enabled and a runtime action needs it. Source checked: `apps/desktop/electron/features/container/core/types.ts`, `core/lifecycle.ts`, and `features/container/index.ts`.
+Sero creates one container per workspace when container mode is enabled and a runtime action needs it.
 
 ## Why this helps with ports
 

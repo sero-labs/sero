@@ -12,8 +12,6 @@ Sero does **not** bundle third-party credentials. You connect your own accounts,
 4. Pick LOW, MED, and HIGH defaults.
 5. Use the chat model selector only when you need a session-specific override. For the broader composer/context workflow, see [Agent Sessions and Context](/guide/agent-sessions-and-context).
 
-Source checked: `apps/desktop/electron/shared/auth/provider-catalog.ts`, `apps/desktop/electron/features/onboarding/provider-health.ts`, `apps/desktop/electron/features/onboarding/model-groups.ts`, `docs/guides/combined-model-selection.md`, and `plugins/sero-alibaba-plugin/package.json`.
-
 ## Provider types
 
 | Provider type | How it is configured | Typical status |
@@ -24,8 +22,6 @@ Source checked: `apps/desktop/electron/shared/auth/provider-catalog.ts`, `apps/d
 | Local/custom provider | Configure `<SERO_HOME>/agent/models.json` through Local models or by editing the file. | `local`, `healthy`, `missing`, or `unknown` depending on registry results |
 
 ## Supported API-key providers
-
-Source checked: `apps/desktop/electron/shared/auth/provider-catalog.ts`.
 
 | Provider | Provider ID | Auth mode | Notes |
 | --- | --- | --- | --- |
@@ -50,8 +46,6 @@ Environment-backed keys are detected through Pi's provider env handling. They ar
 
 Packages can add provider metadata through `sero.providers` in their manifest. Sero scans compatible built-in packages, installed profile plugins under `<SERO_HOME>/agent/plugins/`, extensions under `<SERO_HOME>/agent/extensions/`, and configured local package paths.
 
-Source checked: `apps/desktop/electron/shared/providers/package-provider-manifests.ts`.
-
 | Provider | Provider ID | Source | Auth mode | Notes |
 | --- | --- | --- | --- | --- |
 | Alibaba Coding Plan | `alibaba-coding-plan` | `plugins/sero-alibaba-plugin/package.json` | API key; env var `ALIBABA_CODING_PLAN_KEY` | Plugin manifest declares default tiers for Qwen-family models. Present when the package manifest is available and compatible. |
@@ -59,8 +53,6 @@ Source checked: `apps/desktop/electron/shared/providers/package-provider-manifes
 Plugin-defined providers follow the same health/reconnect behavior as other API-key providers when their manifest declares `auth.type: "apiKey"`.
 
 ## Provider health statuses
-
-Source checked: `apps/desktop/electron/features/onboarding/provider-health.ts`.
 
 | Status | Meaning | What to do |
 | --- | --- | --- |
