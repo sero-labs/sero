@@ -1,0 +1,196 @@
+/* Mockups index + variant bar — neutral dark frame around each variant. */
+
+* { box-sizing: border-box; }
+body { color: #e8e6df; }
+
+.variant-bar {
+	position: fixed;
+	top: 12px;
+	left: 12px;
+	right: 12px;
+	height: 36px;
+	z-index: 1000;
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 0 12px;
+	background: rgba(8, 8, 8, 0.72);
+	backdrop-filter: blur(14px) saturate(140%);
+	-webkit-backdrop-filter: blur(14px) saturate(140%);
+	border: 1px solid rgba(255, 255, 255, 0.06);
+	border-radius: 999px;
+	font: 12px/1 "JetBrains Mono", ui-monospace, monospace;
+	color: #cfcabd;
+	letter-spacing: 0.02em;
+}
+.variant-bar__home {
+	color: #cfcabd;
+	text-decoration: none;
+	padding: 4px 8px;
+	border-radius: 999px;
+}
+.variant-bar__home:hover { background: rgba(255, 255, 255, 0.06); }
+.variant-bar__sep { opacity: 0.4; }
+.variant-bar__num { color: #8b8472; }
+.variant-bar__name { color: #efe9dc; font-weight: 500; }
+.variant-bar__spacer { flex: 1; }
+.variant-bar__nav { display: flex; gap: 4px; }
+.variant-bar__nav a {
+	display: inline-flex;
+	width: 26px;
+	height: 26px;
+	align-items: center;
+	justify-content: center;
+	border-radius: 999px;
+	color: #8b8472;
+	text-decoration: none;
+	transition: background 120ms ease, color 120ms ease;
+}
+.variant-bar__nav a:hover { background: rgba(255, 255, 255, 0.06); color: #efe9dc; }
+.variant-bar__nav a[aria-current="page"] {
+	background: #efe9dc;
+	color: #0c0c0a;
+}
+
+/* ── index page ─────────────────────────────────────────────────────── */
+
+.index {
+	min-height: 100vh;
+	background:
+		radial-gradient(1200px 600px at 75% -10%, rgba(170, 140, 90, 0.08), transparent 60%),
+		radial-gradient(900px 500px at 10% 110%, rgba(120, 150, 110, 0.06), transparent 60%),
+		#0a0a09;
+	color: #efe9dc;
+	font-family: "Mona Sans", system-ui, -apple-system, sans-serif;
+	padding: 96px 32px 64px;
+}
+.index__inner { max-width: 1280px; margin: 0 auto; }
+.index__header { max-width: 820px; margin-bottom: 56px; }
+.index__eyebrow {
+	font-family: "JetBrains Mono", monospace;
+	font-size: 11px;
+	letter-spacing: 0.18em;
+	text-transform: uppercase;
+	color: #8b8472;
+	margin-bottom: 24px;
+}
+.index__title {
+	font-family: "Bricolage Grotesque", serif;
+	font-weight: 500;
+	font-size: clamp(36px, 5vw, 64px);
+	line-height: 1.04;
+	letter-spacing: -0.02em;
+	margin: 0 0 20px;
+	color: #f5f1e6;
+}
+.index__title em {
+	font-family: "Instrument Serif", serif;
+	font-style: italic;
+	font-weight: 400;
+	color: #c9b78e;
+}
+.index__sub {
+	font-size: 17px;
+	line-height: 1.5;
+	color: #a8a294;
+	max-width: 640px;
+	margin: 0;
+}
+
+.index__grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 16px;
+	margin-bottom: 48px;
+}
+@media (max-width: 720px) {
+	.index__grid { grid-template-columns: 1fr; }
+}
+
+.card {
+	display: block;
+	position: relative;
+	padding: 28px 28px 24px;
+	border-radius: 18px;
+	text-decoration: none;
+	color: #efe9dc;
+	min-height: 220px;
+	border: 1px solid rgba(255, 255, 255, 0.06);
+	overflow: hidden;
+	transition: transform 200ms ease, border-color 200ms ease;
+	isolation: isolate;
+}
+.card::before {
+	content: "";
+	position: absolute;
+	inset: 0;
+	z-index: -1;
+	opacity: 0.85;
+}
+.card:hover { transform: translateY(-2px); border-color: rgba(255, 255, 255, 0.16); }
+.card__num {
+	font-family: "JetBrains Mono", monospace;
+	font-size: 11px;
+	letter-spacing: 0.18em;
+	color: #8b8472;
+	margin-bottom: 12px;
+}
+.card__name {
+	font-family: "Bricolage Grotesque", serif;
+	font-weight: 500;
+	font-size: 26px;
+	letter-spacing: -0.01em;
+	margin-bottom: 8px;
+}
+.card__tag {
+	font-size: 14px;
+	color: #a8a294;
+	margin-bottom: 32px;
+}
+.card__cta {
+	font-family: "JetBrains Mono", monospace;
+	font-size: 12px;
+	color: #c9b78e;
+	letter-spacing: 0.04em;
+}
+
+.card--workshop::before {
+	background:
+		radial-gradient(600px 200px at 90% 10%, rgba(170, 130, 70, 0.18), transparent 60%),
+		linear-gradient(180deg, #14110d 0%, #0d0b08 100%);
+}
+.card--theatre::before {
+	background:
+		radial-gradient(500px 260px at 20% 110%, rgba(110, 130, 100, 0.18), transparent 60%),
+		linear-gradient(180deg, #0d0e0c 0%, #08090a 100%);
+}
+.card--bento::before {
+	background:
+		radial-gradient(700px 240px at 110% 0%, rgba(90, 120, 110, 0.20), transparent 55%),
+		linear-gradient(180deg, #0e1011 0%, #0a0c0e 100%);
+}
+.card--terminal::before {
+	background:
+		repeating-linear-gradient(180deg, rgba(255,255,255,0.018) 0 1px, transparent 1px 3px),
+		linear-gradient(180deg, #060605 0%, #040403 100%);
+}
+
+.index__footer {
+	font-family: "JetBrains Mono", monospace;
+	font-size: 12px;
+	color: #6e6859;
+	border-top: 1px solid rgba(255, 255, 255, 0.06);
+	padding-top: 20px;
+}
+.index__footer code {
+	color: #c9b78e;
+}
+.index__footer kbd {
+	display: inline-block;
+	padding: 1px 6px;
+	border: 1px solid rgba(255, 255, 255, 0.12);
+	border-radius: 4px;
+	font-size: 11px;
+	color: #cfcabd;
+	margin: 0 1px;
+}
