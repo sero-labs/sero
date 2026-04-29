@@ -7,7 +7,7 @@
     "dev": "pnpm --filter @sero/desktop dev",
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
-    "test": "pnpm --filter @sero/desktop test -- --run",
+    "test": "turbo run test --concurrency=1",
     "test:ci": "pnpm typecheck && pnpm build && pnpm test && pnpm --filter @sero/desktop test:e2e:ci",
     "knip:apps": "pnpm dlx knip --directory apps/desktop --config knip.json --include files,dependencies,unlisted,binaries,exports --no-progress && pnpm dlx knip --workspace apps/web-remote --include files,dependencies,unlisted,binaries,exports --no-progress",
     "rebuild-electron": "bash apps/desktop/scripts/rebuild-electron.sh",

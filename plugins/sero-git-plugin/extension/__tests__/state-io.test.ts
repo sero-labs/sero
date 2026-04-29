@@ -21,7 +21,13 @@ describe('git state I/O', () => {
 
   it('returns the default state when the file is missing', async () => {
     const state = await readState(statePath);
-    expect(state).toEqual(createDefaultGitState());
+    const expected = createDefaultGitState();
+
+    expect(state).toMatchObject({
+      ...expected,
+      lastRefresh: expect.any(String),
+    });
+    expect(Date.parse(state.lastRefresh)).not.toBeNaN();
   });
 
   it('fails loud when persisted state is malformed', async () => {

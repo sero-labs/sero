@@ -12,6 +12,9 @@
     "typecheck": {
       "dependsOn": ["^build"]
     },
+    "test": {
+      "outputs": []
+    },
     "eval": {
       "cache": false,
       "dependsOn": ["build"]
