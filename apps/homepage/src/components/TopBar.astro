@@ -1,12 +1,13 @@
 ---
-import { SeroEmblem, SeroLogo } from "./brand/SeroBrand";
+import SeroEmblem from "./brand/SeroEmblem.astro";
+import SeroLogo from "./brand/SeroLogo.astro";
 import { navLinks, links, site } from "../content/copy";
 ---
 <nav class="top" aria-label="Primary">
 	<div class="top__inner">
 		<a class="top__brand" href={site.url} aria-label={site.name}>
-			<SeroEmblem className="top__emblem" />
-			<SeroLogo className="top__logo" />
+			<SeroEmblem class="top__emblem" />
+			<SeroLogo class="top__logo" />
 		</a>
 		<span class="top__sep">/</span>
 		<span class="top__path">~/marketing/landing</span>

@@ -1,7 +1,6 @@
 import { defineConfig } from "astro/config";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import react from "@astrojs/react";
 import sitemap from "@astrojs/sitemap";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -12,10 +11,7 @@ export default defineConfig({
 	site: "https://sero-ai.dev",
 	output: "static",
 	trailingSlash: "ignore",
-	integrations: [
-		react(),
-		sitemap(),
-	],
+	integrations: [sitemap()],
 	vite: {
 		resolve: {
 			alias: {

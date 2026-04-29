@@ -12,17 +12,12 @@
     "astro": "astro"
   },
   "dependencies": {
-    "@astrojs/react": "^4.4.0",
     "@astrojs/sitemap": "^3.6.0",
     "@fontsource-variable/jetbrains-mono": "^5.2.8",
-    "astro": "^5.18.0",
-    "react": "catalog:",
-    "react-dom": "catalog:"
+    "astro": "^5.18.0"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.9",
-    "@types/react": "catalog:",
-    "@types/react-dom": "catalog:",
     "typescript": "catalog:"
   }
 }

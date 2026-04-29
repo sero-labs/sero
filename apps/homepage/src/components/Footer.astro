@@ -1,13 +1,14 @@
 ---
-import { SeroEmblem, SeroLogo } from "./brand/SeroBrand";
+import SeroEmblem from "./brand/SeroEmblem.astro";
+import SeroLogo from "./brand/SeroLogo.astro";
 import { footer, site } from "../content/copy";
 ---
 <footer class="footer">
 	<div class="footer__rule" aria-hidden="true" />
 	<div class="footer__row">
 		<a class="footer__brand" href={site.url} aria-label={site.name}>
-			<SeroEmblem className="footer__emblem" />
-			<SeroLogo className="footer__logo" />
+			<SeroEmblem class="footer__emblem" />
+			<SeroLogo class="footer__logo" />
 		</a>
 		<div class="footer__meta">{footer.tagline}</div>
 	</div>
