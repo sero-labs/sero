@@ -1,0 +1,82 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+# Cancel in-flight runs for the same branch if a new commit arrives.
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ── Homepage ────────────────────────────────────────────────────────────────
+  homepage:
+    name: Deploy homepage → sero-ai.dev
+    runs-on: ubuntu-latest
+    # Only rebuild when homepage source or shared lock file changes.
+    # Skip when only docs-site files changed.
+    if: |
+      contains(github.event.head_commit.modified, 'apps/homepage/') ||
+      contains(github.event.head_commit.modified, 'pnpm-lock.yaml') ||
+      contains(github.event.head_commit.modified, 'pnpm-workspace.yaml') ||
+      github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build homepage
+        run: pnpm --filter @sero/homepage build
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy apps/homepage/dist --project-name=sero-homepage --branch=main
+
+  # ── Docs ────────────────────────────────────────────────────────────────────
+  docs:
+    name: Deploy docs → docs.sero-ai.dev
+    runs-on: ubuntu-latest
+    # Only rebuild when docs-site source or shared lock file changes.
+    if: |
+      contains(github.event.head_commit.modified, 'apps/docs-site/') ||
+      contains(github.event.head_commit.modified, 'pnpm-lock.yaml') ||
+      contains(github.event.head_commit.modified, 'pnpm-workspace.yaml') ||
+      github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build docs
+        run: pnpm --filter @sero/docs-site build
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy apps/docs-site/dist --project-name=sero-docs --branch=main
