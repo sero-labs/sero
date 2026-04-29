@@ -1,0 +1,131 @@
+---
+import { Image } from "astro:assets";
+import SectionHead from "./SectionHead.astro";
+import { features } from "../content/copy";
+---
+<section class="section" id="what-it-is">
+	<SectionHead idx="04" label="what_it_can_do" />
+	<h2 class="h2">a few things worth knowing.</h2>
+
+	<div class="features">
+		{features.map((f) => (
+			<article class="feature">
+				<figure class="feature__shot">
+					<Image
+						src={f.image}
+						widths={[640, 960, 1280]}
+						sizes="(max-width: 820px) 100vw, 60vw"
+						format="webp"
+						alt={f.imageAlt}
+						loading="lazy"
+						decoding="async"
+					/>
+				</figure>
+				<div class="feature__copy">
+					<h3 class="feature__title">{f.title}</h3>
+					<p class="feature__body">{f.body}</p>
+				</div>
+			</article>
+		))}
+	</div>
+</section>
+
+<style>
+.features {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	margin-top: 24px;
+	border: 1px solid var(--rule);
+}
+
+.feature {
+	display: grid;
+	grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+	gap: 0;
+	border-bottom: 1px solid var(--rule);
+}
+
+.feature:last-child {
+	border-bottom: 0;
+}
+
+/* alternate image / text sides */
+.feature:nth-child(even) {
+	grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr);
+}
+
+.feature:nth-child(even) .feature__shot {
+	order: 2;
+}
+
+.feature:nth-child(even) .feature__copy {
+	order: 1;
+	border-left: 0;
+	border-right: 1px solid var(--rule);
+}
+
+.feature__shot {
+	margin: 0;
+	overflow: hidden;
+	background: var(--bg-2);
+}
+
+.feature__shot img {
+	display: block;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	object-position: top left;
+	opacity: 0.9;
+	transition: opacity 200ms ease, transform 600ms ease;
+}
+
+.feature:hover .feature__shot img {
+	opacity: 1;
+	transform: scale(1.01);
+}
+
+.feature__copy {
+	padding: 36px 32px;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	gap: 14px;
+	border-left: 1px solid var(--rule);
+}
+
+.feature__title {
+	font-family: var(--font-mono);
+	font-weight: 500;
+	font-size: clamp(16px, 2vw, 22px);
+	line-height: 1.2;
+	letter-spacing: -0.02em;
+	color: var(--ink);
+	text-transform: lowercase;
+	margin: 0;
+}
+
+.feature__body {
+	font-size: 13.5px;
+	line-height: 1.65;
+	color: var(--ink-2);
+	margin: 0;
+}
+
+@media (max-width: 820px) {
+	.feature,
+	.feature:nth-child(even) {
+		grid-template-columns: 1fr;
+	}
+
+	.feature__shot {
+		aspect-ratio: 16 / 9;
+		height: auto;
+	}
+
+	.feature:nth-child(even) .feature__shot { order: 0; }
+	.feature:nth-child(even) .feature__copy { order: 1; border-right: 0; border-left: 0; }
+	.feature__copy { border-left: 0; }
+}
+</style>

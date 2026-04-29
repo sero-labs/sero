@@ -4,7 +4,8 @@
 
 import type { ImageMetadata } from "astro";
 import seroChat from "@docs-images/sero-chat.jpg";
-import explorerBrowser from "@docs-images/explorer.jpg";
+import explorerBrowser from "@docs-images/explorer-browser.jpg";
+import explorerDevServers from "@docs-images/explorer-dev-servers.jpg";
 import gitShipDeck from "@docs-images/git-ship-deck.jpg";
 import cronJobs from "@docs-images/cron-jobs-editor-crop.jpg";
 import research from "@docs-images/research.jpg";
@@ -12,7 +13,7 @@ import kanban from "@docs-images/kanban.jpg";
 import memory from "@docs-images/memory.jpg";
 import cronJobsEditor from "@docs-images/cron-jobs-editor.jpg";
 import gitManagement from "@docs-images/git-management.jpg";
-import mcpManager from "@docs-images/mcp-manager.jpg";
+import mcpManager from "@docs-images/mcp.jpg";
 import adminAgents from "@docs-images/admin-agents.jpg";
 
 export const site = {
@@ -37,6 +38,7 @@ export const links = {
 export const images = {
 	seroChat,
 	explorerBrowser,
+	explorerDevServers,
 	gitShipDeck,
 	cronJobs,
 	research,
@@ -136,6 +138,8 @@ export type BecomePanel = {
 	image: ImageMetadata;
 };
 
+export const becomeNote = "Examples — your Sero will be different.";
+
 export const become: BecomePanel[] = [
 	{
 		id: "coding",
@@ -175,15 +179,36 @@ export const become: BecomePanel[] = [
 	},
 ];
 
-export const pluginAnatomy = [
-	{ slot: "ui", label: "UI panel", note: "A panel that keeps its state" },
-	{ slot: "tools", label: "Agent tools", note: "Functions the agent can call" },
-	{ slot: "commands", label: "Commands", note: "Actions you invoke directly" },
-	{ slot: "state", label: "Shared state", note: "Stored on disk, per profile" },
-	{ slot: "runtime", label: "Background runtime", note: "Jobs that run continuously" },
-	{ slot: "widgets", label: "Dashboard widgets", note: "Surfaces on the dashboard" },
-	{ slot: "prompts", label: "Prompts / skills", note: "Reusable agent instructions" },
-	{ slot: "provider", label: "Provider / integration", note: "External services and APIs" },
+export type Feature = {
+	id: string;
+	title: string;
+	body: string;
+	image: ImageMetadata;
+	imageAlt: string;
+};
+
+export const features: Feature[] = [
+	{
+		id: "containers",
+		title: "Three projects on port 3000. No conflicts.",
+		body: "Each workspace runs in its own container. Dev servers listen on isolated network addresses, so projects never step on each other’s ports. Containers start in seconds and switch instantly.",
+		image: images.explorerDevServers,
+		imageAlt: "Dev Servers panel showing three projects all running on port 3000 with different container IPs",
+	},
+	{
+		id: "agents",
+		title: "Built-in specialists. Or make your own.",
+		body: "Scout, reviewer, test-writer, and more ship by default. Each is a plain Markdown file you can edit, customise, or duplicate. You can also ask Sero to create a new specialist agent from scratch.",
+		image: images.adminAgents,
+		imageAlt: "Admin panel showing a list of custom agent definitions with model and thinking tier badges",
+	},
+	{
+		id: "browser",
+		title: "The agent can see your running app.",
+		body: "Sero has a built-in browser that opens dev servers and any URL. The agent can take screenshots, record short clips, and check its own work visually — without you having to describe what you see.",
+		image: images.explorerBrowser,
+		imageAlt: "Sero workspace with the in-app browser showing a live dev server preview alongside the agent chat",
+	},
 ];
 
 export const builtins = [
