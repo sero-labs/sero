@@ -97,6 +97,10 @@ export default defineConfig({
   lang: 'en-US',
   themeConfig: {
     nav: [
+      // Cross-link back to the marketing homepage (deployed separately at
+      // sero-ai.dev). Rspress 1.47's `logo` config doesn't support a custom
+      // link target, so this nav item is the canonical "go home" affordance.
+      { text: '← sero-ai.dev', link: 'https://sero-ai.dev' },
       { text: 'Start Here', link: '/guide/overview' },
       { text: 'Workspace', link: '/guide/workspace-and-chat' },
       { text: 'Agents', link: '/guide/agent-sessions-and-context' },
