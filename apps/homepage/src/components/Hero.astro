@@ -1,0 +1,44 @@
+---
+import { Picture } from "astro:assets";
+import SeroEmblem from "./brand/SeroEmblem.astro";
+import SeroLogo from "./brand/SeroLogo.astro";
+import { hero, images } from "../content/copy";
+---
+<header class="hero">
+	<div class="brand" aria-label={`Sero — ${hero.support}`}>
+		<div class="brand__row">
+			<SeroEmblem class="brand__emblem" aria-label="Sero phoenix emblem" />
+			<SeroLogo class="brand__logo" aria-label="Sero" />
+		</div>
+		<div class="brand__tag">
+			<span class="brand__bullet" aria-hidden="true" />
+			a workshop OS for agents
+		</div>
+	</div>
+
+	<h1 class="h1">
+		<span class="h1__line">build the agent</span>
+		<span class="h1__line h1__line--accent">only_you_need</span>
+	</h1>
+	<p class="lede">{hero.sub}</p>
+
+	<div class="cta-row">
+		<a class="btn btn--primary" href={hero.primary.href}>
+			<span aria-hidden="true">▸</span> {hero.primary.label}
+		</a>
+		<a class="btn btn--ghost" href={hero.secondary.href}>{hero.secondary.label}</a>
+	</div>
+
+	<figure class="shot" aria-label="A live Sero session: agent chat panel beside an HTML preview.">
+		<Picture
+			src={images.seroChat}
+			formats={["avif", "webp"]}
+			widths={[800, 1200, 1600, images.seroChat.width]}
+			sizes="(max-width: 1240px) 100vw, 1160px"
+			alt="Sero workspace with the agent chat panel on the right showing a multi-step plan to scaffold a landing page."
+			loading="eager"
+			fetchpriority="high"
+			decoding="async"
+		/>
+	</figure>
+</header>

@@ -1,0 +1,27 @@
+@import "@sero-ai/ui/styles/globals.css";
+@import "streamdown/styles.css";
+
+@source "../../node_modules/streamdown/dist/*.js";
+
+/* Scan federated plugin UIs so the host generates Tailwind utilities
+   (including arbitrary values) used by remote app surfaces. */
+@source "../../../../plugins/sero-*-plugin/ui/**/*.{ts,tsx,js,jsx}";
+
+/* ── Desktop-specific styles ─────────────────────────────────── */
+
+/* ── Drag region (macOS title bar) ──────────────────────────── */
+.drag-region {
+  -webkit-app-region: drag;
+}
+
+.no-drag {
+  -webkit-app-region: no-drag;
+}
+
+/* ── react-grid-layout overrides ────────────────────────────── */
+
+/* Replace the library's hard-coded red placeholder with the theme accent. */
+.react-grid-item.react-grid-placeholder {
+  background: var(--accent-primary);
+  border-radius: var(--radius-lg, 0.5rem);
+}

@@ -1,0 +1,1 @@
+export { registerEditorCliCommands } from './editor';

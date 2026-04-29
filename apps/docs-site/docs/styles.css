@@ -1,0 +1,391 @@
+/* Sero docs — global styles
+   Font + palette aligned with apps/homepage (Terminal Field Notes direction).
+   Self-hosted JetBrains Mono Variable (Latin only, 39 KB).
+   Light mode: warm cream palette.  Dark mode: exact homepage dark palette.
+   ─────────────────────────────────────────────────────────────────────── */
+
+@font-face {
+  font-family: "JetBrains Mono Variable";
+  src: url("./fonts/jetbrains-mono-variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ── Shared tokens ────────────────────────────────────────────────────── */
+:root {
+  /* font */
+  --sero-font: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace,
+    SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* emerald-600 — matches homepage accent exactly */
+  --sero-emerald:     #059669;
+  --sero-emerald-ok:  oklch(59.6% 0.145 163.225);
+  --sero-emerald-dim: rgba(5, 150, 105, 0.15);
+  --sero-copper: #c69969;
+
+  /* light-mode palette — warm cream */
+  --sero-bg:          #F7F4ED;
+  --sero-bg-alt:      #F0ECE3;
+  --sero-bg-soft:     #EDE8DF;
+  --sero-panel:       #FAF8F3;
+  --sero-text:        #1C1814;
+  --sero-text-2:      #3D352D;
+  --sero-muted:       #746F67;
+  --sero-border:      rgba(28, 24, 20, 0.10);
+  --sero-border-mid:  rgba(28, 24, 20, 0.18);
+  --sero-nav-bg:      rgba(247, 244, 237, 0.88);
+  --sero-code-bg:     #EDE8DF;
+  --sero-code-text:   #1C1814;
+
+  /* rspress core variable overrides */
+  --rp-font-family-base: var(--sero-font);
+  --rp-font-family-mono: var(--sero-font);
+  --rp-c-brand:         var(--sero-emerald);
+  --rp-c-brand-dark:    #047857;
+  --rp-c-brand-darker:  #065f46;
+  --rp-c-brand-light:   #10b981;
+  --rp-c-brand-lighter: #34d399;
+  --rp-c-brand-tint:    var(--sero-emerald-dim);
+  --rp-c-bg:            var(--sero-bg);
+  --rp-c-bg-alt:        var(--sero-bg-alt);
+  --rp-c-bg-soft:       var(--sero-bg-soft);
+  --rp-c-bg-mute:       var(--sero-bg-alt);
+  --rp-c-text:          var(--sero-text);
+  --rp-c-text-1:        var(--sero-text);
+  --rp-c-text-2:        var(--sero-text-2);
+  --rp-c-text-3:        var(--sero-muted);
+  --rp-c-border:        var(--sero-border);
+  --rp-c-divider:       var(--sero-border);
+  --rp-c-divider-light: var(--sero-border);
+  --rp-c-link:          var(--sero-emerald);
+  --rp-code-block-bg:   var(--sero-code-bg);
+  --rp-code-block-color: var(--sero-code-text);
+  --rp-c-text-code:     var(--sero-text);
+  --rp-c-text-code-bg:  var(--sero-code-bg);
+  --rp-nav-height: 60px;
+}
+
+/* ── Dark mode palette — exact homepage tokens ────────────────────────── */
+.dark {
+  --sero-bg:          #050605;
+  --sero-bg-alt:      #0a0b0a;
+  --sero-bg-soft:     #0f100f;
+  --sero-panel:       #0a0b0a;
+  --sero-text:        #e6e3d8;
+  --sero-text-2:      #c2bfb3;
+  --sero-muted:       #7d7a6f;
+  --sero-border:      rgba(230, 227, 216, 0.10);
+  --sero-border-mid:  rgba(230, 227, 216, 0.20);
+  --sero-nav-bg:      rgba(5, 6, 5, 0.88);
+  --sero-code-bg:     #0a0b0a;
+  --sero-code-text:   #e6e3d8;
+
+  /* brand stays emerald — slightly brighter in dark for contrast */
+  --rp-c-brand:         #059669;
+  --rp-c-brand:         oklch(59.6% 0.145 163.225);
+  --rp-c-brand-dark:    #047857;
+  --rp-c-brand-light:   #34d399;
+  --rp-c-link:          oklch(59.6% 0.145 163.225);
+  --rp-c-link:          #059669;
+}
+
+/* ── Base ─────────────────────────────────────────────────────────────── */
+html, body {
+  background-color: var(--sero-bg);
+}
+
+body {
+  font-family: var(--sero-font);
+  font-size: 13px;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* slightly warmer scanline in dark (matches homepage body bg) */
+.dark body::before {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  content: "";
+  background: repeating-linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.012) 0 1px,
+    transparent 1px 3px
+  );
+  z-index: 0;
+}
+
+/* ── Nav ──────────────────────────────────────────────────────────────── */
+.rspress-nav {
+  height: var(--rp-nav-height) !important;
+  border-bottom: 1px solid var(--sero-border) !important;
+  background: var(--sero-nav-bg) !important;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.rspress-logo {
+  width: 64px;
+  height: auto;
+}
+
+.dark .rspress-logo {
+  filter: brightness(0) invert(1);
+}
+
+.rspress-nav-menu-item,
+.rspress-nav-menu-group-button {
+  font-family: var(--sero-font) !important;
+  font-size: 12.5px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.01em;
+}
+
+/* ── Sidebar ──────────────────────────────────────────────────────────── */
+.rspress-sidebar {
+  font-family: var(--sero-font) !important;
+  font-size: 12.5px !important;
+}
+
+/* ── Doc content ──────────────────────────────────────────────────────── */
+.rspress-doc {
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.rspress-doc h1,
+.rspress-doc h2,
+.rspress-doc h3,
+.rspress-doc h4 {
+  font-family: var(--sero-font);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.rspress-doc h1 { font-size: clamp(22px, 3vw, 32px); }
+.rspress-doc h2 { font-size: clamp(18px, 2.2vw, 24px); }
+.rspress-doc h3 { font-size: 16px; }
+
+/* inline code */
+.rspress-doc :not(pre) > code {
+  font-family: var(--sero-font);
+  font-size: 12.5px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--sero-code-bg);
+  border: 1px solid var(--sero-border);
+  color: var(--sero-text);
+}
+
+.dark .rspress-doc :not(pre) > code {
+  color: var(--rp-c-brand);
+  border-color: rgba(5, 150, 105, 0.22);
+  background: rgba(5, 150, 105, 0.08);
+}
+
+/* code blocks */
+.rspress-doc pre,
+[class*="shiki"] {
+  font-family: var(--sero-font) !important;
+  font-size: 12.5px !important;
+  border-radius: 0 !important;
+  border: 1px solid var(--sero-border) !important;
+}
+
+.dark .rspress-doc pre,
+.dark [class*="shiki"] {
+  background: var(--sero-code-bg) !important;
+}
+
+/* tables — scroll horizontally instead of clipping */
+.rspress-doc table {
+  display: block;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.rspress-doc th {
+  white-space: nowrap;
+  font-size: 11.5px;
+}
+
+.rspress-doc td {
+  overflow-wrap: break-word;
+  min-width: 6rem;
+  font-size: 12px;
+}
+
+/* images */
+.rspress-doc p > img {
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+  border: 1px solid var(--sero-border);
+}
+
+/* ── Home page ────────────────────────────────────────────────────────── */
+/* Hero */
+section > div[style*="min-height"] {
+  min-height: calc(100dvh - var(--rp-nav-height)) !important;
+  overflow: hidden;
+  padding-bottom: 16px !important;
+}
+
+section > div[style*="min-height"] > div.pb-12 {
+  padding-bottom: 0 !important;
+}
+
+section > div[style*="min-height"] > div.pb-12 > div.relative {
+  padding: 1.25rem 2rem 0.75rem !important;
+}
+
+section div:has(> div > .rspress-home-hero-image) {
+  min-height: 34vh !important;
+  max-width: 1180px !important;
+  margin-top: 0 !important;
+}
+
+section div:has(> div > .rspress-home-hero-image) > div:first-child {
+  align-items: flex-start !important;
+  justify-content: center !important;
+  text-align: left !important;
+}
+
+section h1 { display: none !important; }
+
+.rspress-home-hero-text {
+  max-width: 640px !important;
+  color: var(--sero-text) !important;
+  font-family: var(--sero-font) !important;
+  font-size: clamp(2rem, 4vw, 4rem) !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.04em;
+  line-height: 1.0 !important;
+  text-align: left !important;
+}
+
+.rspress-home-hero-tagline {
+  max-width: 560px !important;
+  padding-top: 0.85rem !important;
+  color: var(--sero-muted) !important;
+  font-family: var(--sero-font) !important;
+  font-size: clamp(0.82rem, 1.1vw, 0.92rem) !important;
+  font-weight: 400 !important;
+  line-height: 1.6 !important;
+  text-align: left !important;
+}
+
+.rspress-home-hero-tagline + div {
+  justify-content: flex-start !important;
+  padding-top: 1rem !important;
+  gap: 0.65rem !important;
+}
+
+.rspress-home-hero-tagline + div a {
+  font-family: var(--sero-font) !important;
+  min-height: 2.5rem !important;
+  padding: 0.5rem 1.2rem !important;
+  font-size: 12.5px !important;
+  font-weight: 600 !important;
+  border-radius: 0 !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  letter-spacing: 0.02em;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+
+.rspress-home-hero-tagline + div > div:first-child a {
+  border-color: transparent !important;
+  background-color: var(--sero-emerald) !important;
+  color: #fff !important;
+}
+
+.rspress-home-hero-tagline + div > div:not(:first-child) a {
+  border: 1px solid var(--sero-border-mid) !important;
+  background-color: transparent !important;
+  color: var(--sero-text) !important;
+}
+
+.rspress-home-hero-tagline + div > div:not(:first-child) a:hover {
+  border-color: var(--sero-emerald) !important;
+  color: var(--sero-emerald) !important;
+}
+
+.rspress-home-hero-image img {
+  width: min(280px, 24vw);
+  max-height: 260px;
+  object-fit: contain;
+}
+
+/* Feature cards */
+section div:has(> div > div > article.rspress-home-feature-card) {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.96fr) minmax(0, 0.96fr);
+  max-width: 1180px !important;
+  gap: 10px;
+  overflow: visible !important;
+}
+
+section div:has(> div > div > article.rspress-home-feature-card) > div {
+  width: auto !important;
+  max-width: none !important;
+}
+
+.rspress-home-feature-card {
+  min-height: 100%;
+  padding: 1rem 1.15rem !important;
+  border: 1px solid var(--sero-border) !important;
+  border-radius: 0 !important;
+  background: var(--sero-bg-alt) !important;
+  box-shadow: none;
+  transition: border-color 150ms ease;
+}
+
+.rspress-home-feature-card:hover {
+  border-color: var(--sero-emerald) !important;
+}
+
+.rspress-home-feature-icon { color: var(--sero-emerald) !important; }
+
+.rspress-home-feature-title {
+  font-family: var(--sero-font) !important;
+  color: var(--sero-text) !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.01em;
+  text-align: left !important;
+}
+
+.rspress-home-feature-detail {
+  font-family: var(--sero-font) !important;
+  color: var(--sero-muted) !important;
+  font-size: 12.5px !important;
+  font-weight: 400;
+  line-height: 1.55 !important;
+  text-align: left;
+}
+
+/* ── Mobile ───────────────────────────────────────────────────────────── */
+@media (max-width: 760px) {
+  :root { --rp-nav-height: 56px; }
+
+  section > div[style*="min-height"] { overflow: visible; }
+
+  .rspress-logo { width: 56px; }
+
+  section div:has(> div > .rspress-home-hero-image) {
+    min-height: auto !important;
+  }
+
+  .rspress-home-hero-text {
+    font-size: clamp(1.8rem, 9vw, 2.8rem) !important;
+  }
+
+  section div:has(> div > div > article.rspress-home-feature-card) {
+    grid-template-columns: 1fr;
+    padding-inline: 1rem;
+  }
+}

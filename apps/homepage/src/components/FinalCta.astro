@@ -1,0 +1,28 @@
+---
+import { Image } from "astro:assets";
+import SectionHead from "./SectionHead.astro";
+import { cta, images } from "../content/copy";
+---
+<section class="section section--cta" id="get-sero">
+	<SectionHead idx="07" label="make_it_yours" />
+	<h2 class="h2 cta__h">{cta.headline.toLowerCase()}</h2>
+	<p class="prose cta__sub">{cta.sub}</p>
+	<div class="cta-row">
+		<a class="btn btn--primary" href={cta.primary.href}>
+			<span aria-hidden="true">▸</span> {cta.primary.label}
+		</a>
+		<a class="btn btn--ghost" href={cta.secondary.href}>{cta.secondary.label}</a>
+		<a class="btn btn--ghost" href={cta.tertiary.href}>{cta.tertiary.label}</a>
+	</div>
+	<figure class="proof" aria-hidden="true">
+		<Image
+			src={images.explorerBrowser}
+			widths={[800, 1200]}
+			sizes="(max-width: 1240px) 100vw, 1160px"
+			format="webp"
+			alt=""
+			loading="lazy"
+			decoding="async"
+		/>
+	</figure>
+</section>

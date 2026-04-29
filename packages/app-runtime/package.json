@@ -1,0 +1,31 @@
+{
+  "name": "@sero-ai/app-runtime",
+  "version": "0.1.2",
+  "description": "Hooks for Sero federated app modules — useAppState, useAppInfo, useAgentPrompt, useAppTools",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "peerDependencies": {
+    "@sero-ai/common": ">=0.1.0",
+    "react": ">=19.0.0"
+  },
+  "devDependencies": {
+    "@sero-ai/common": "workspace:*",
+    "@types/react": "^19.2.13",
+    "typescript": "^5.9.3"
+  }
+}

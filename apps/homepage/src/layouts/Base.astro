@@ -1,0 +1,66 @@
+---
+// Self-hosted JetBrains Mono — single variable font file, all weights covered.
+// Replaces the render-blocking fonts.googleapis.com link.
+import "@fontsource-variable/jetbrains-mono";
+import "../styles/global.css";
+import { site, hero } from "../content/copy";
+
+interface Props {
+	title?: string;
+	description?: string;
+	canonical?: string;
+}
+
+const {
+	title = `${site.name} — ${hero.headline}`,
+	description = site.description,
+	canonical = Astro.site?.toString() ?? site.url,
+} = Astro.props;
+
+const ogImage = `${site.url}/og-image.png`;
+
+const jsonLd = {
+	"@context": "https://schema.org",
+	"@type": "SoftwareApplication",
+	name: site.name,
+	applicationCategory: "DeveloperApplication",
+	operatingSystem: "macOS",
+	url: site.url,
+	description,
+};
+---
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>{title}</title>
+		<meta name="description" content={description} />
+		<link rel="canonical" href={canonical} />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+		<meta name="theme-color" content="#050605" />
+
+		<!-- Open Graph -->
+		<meta property="og:type" content="website" />
+		<meta property="og:title" content={title} />
+		<meta property="og:description" content={description} />
+		<meta property="og:url" content={canonical} />
+		<meta property="og:image" content={ogImage} />
+		<meta property="og:site_name" content={site.name} />
+
+		<!-- Twitter -->
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="twitter:title" content={title} />
+		<meta name="twitter:description" content={description} />
+		<meta name="twitter:image" content={ogImage} />
+
+
+		<!-- JSON-LD -->
+		<script is:inline type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+	</head>
+	<body>
+		<a href="#main" class="skip-to-content">Skip to content</a>
+		<slot />
+	</body>
+</html>

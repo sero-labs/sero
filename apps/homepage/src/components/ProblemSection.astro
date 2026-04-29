@@ -1,0 +1,16 @@
+---
+import SectionHead from "./SectionHead.astro";
+import { problem } from "../content/copy";
+---
+<section class="section" id="problem">
+	<SectionHead idx="01" label="the_pain" />
+	<div class="cols">
+		<div>
+			<h2 class="h2">{problem.headline}</h2>
+		</div>
+		<div>
+			<p class="prose">{problem.body}</p>
+			<p class="prose prose--lift">→ {problem.resolution}</p>
+		</div>
+	</div>
+</section>

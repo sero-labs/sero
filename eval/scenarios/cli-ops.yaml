@@ -1,0 +1,121 @@
+# CLI operations — tests that the agent correctly uses the sero-cli tool
+# for Sero platform actions instead of raw bash/write.
+#
+# METADATA ACCESS: context.providerResponse.metadata (not output.metadata)
+
+- description: "Use sero-cli for a todo operation"
+  vars:
+    scenario_prompt: >
+      Add a todo item: "Review PR #42 for auth changes". Then list all
+      todos to confirm it was added.
+  assert:
+    # Agent should invoke sero-cli, not try to write files manually
+    - type: javascript
+      value: |
+        const meta = context.providerResponse?.metadata ?? {};
+        const tools = (meta.toolCalls || []).map(t => t.name);
+        const usedCli = tools.includes('sero-cli');
+        return {
+          pass: usedCli,
+          score: usedCli ? 1.0 : 0.0,
+          reason: usedCli
+            ? `Agent used sero-cli (tools: [${tools.join(', ')}])`
+            : `Agent did not use sero-cli. Tools used: [${tools.join(', ')}]`
+        };
+
+    - type: llm-rubric
+      value: >
+        The agent should have used the sero-cli tool to add a todo item
+        and then list todos. It should NOT have tried to manually create
+        files or use bash to manage todos.
+      threshold: 0.7
+
+- description: "Use sero-cli for workspace info"
+  vars:
+    scenario_prompt: >
+      Show me information about the current workspace — what directory
+      is it bound to, and is it containerized?
+  assert:
+    - type: javascript
+      value: |
+        const meta = context.providerResponse?.metadata ?? {};
+        const tools = (meta.toolCalls || []).map(t => t.name);
+        const usedCli = tools.includes('sero-cli');
+        const usedBash = tools.includes('bash');
+        const score = usedCli ? 1.0 : usedBash ? 0.3 : 0.0;
+        return {
+          pass: score >= 0.3,
+          score,
+          reason: `cli:${usedCli} bash:${usedBash}`
+        };
+
+    - type: llm-rubric
+      value: >
+        The agent should have queried workspace information via a
+        sero-cli command like "workspace info". The response should
+        include the workspace path.
+      threshold: 0.6
+
+- description: "Batch CLI commands in a single tool call"
+  vars:
+    scenario_prompt: >
+      I need to do three things:
+      1. Add a note called "standup" with content "Shipped auth module"
+      2. Check the current time
+      3. List all my todos
+      Do all three using the Sero CLI.
+  assert:
+    - type: javascript
+      value: |
+        const meta = context.providerResponse?.metadata ?? {};
+        const tools = meta.toolCalls || [];
+        const cliCalls = tools.filter(t => t.name === 'sero-cli');
+        const score = cliCalls.length === 1 ? 1.0
+          : cliCalls.length <= 3 ? 0.7
+          : cliCalls.length > 0 ? 0.4
+          : 0.0;
+        return {
+          pass: cliCalls.length > 0,
+          score,
+          reason: `${cliCalls.length} sero-cli call(s) — ${cliCalls.length === 1 ? 'efficient batch' : 'multiple calls'}`
+        };
+
+    - type: llm-rubric
+      value: >
+        The agent should have completed all three tasks (add note,
+        check time, list todos) using sero-cli commands. Ideally it
+        batched them in a single multi-line sero-cli call.
+      threshold: 0.6
+
+- description: "CLI for VCS status instead of raw git"
+  vars:
+    scenario_prompt: >
+      What's the current git status of my workspace? Are there any
+      uncommitted changes?
+  assert:
+    # sero-cli tool schema: { command: string, timeout?: number }
+    # (see apps/desktop/electron/cli/core/tool.ts SeroCliToolParams)
+    - type: javascript
+      value: |
+        const meta = context.providerResponse?.metadata ?? {};
+        const tools = meta.toolCalls || [];
+        const usedCliVcs = tools.some(t => {
+          if (t.name !== 'sero-cli') return false;
+          // The sero-cli tool takes { command: string } but check
+          // via JSON.stringify as a fallback for unexpected shapes.
+          const cmd = t.args?.command;
+          const argsStr = typeof cmd === 'string' ? cmd : JSON.stringify(t.args);
+          return argsStr.includes('vcs');
+        });
+        const usedBash = tools.some(t => {
+          if (t.name !== 'bash') return false;
+          const cmd = t.args?.command;
+          const argsStr = typeof cmd === 'string' ? cmd : JSON.stringify(t.args);
+          return argsStr.includes('git');
+        });
+        const score = usedCliVcs ? 1.0 : usedBash ? 0.5 : 0.0;
+        return {
+          pass: score > 0,
+          score,
+          reason: `vcs-cli:${usedCliVcs} git-bash:${usedBash}`
+        };

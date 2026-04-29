@@ -1,0 +1,71 @@
+/**
+ * GitHub auth IPC handlers — device flow login, logout, status.
+ */
+
+import { ipcMain } from 'electron';
+import { IpcChannels } from '@/types/ipc-channels';
+import type { CreateGitHubRepoInput, CreateGitHubRepoResult } from '@/types/ipc';
+import type { DeviceFlowProgress, GitHubAuthStatus } from '@electron/features/auth/github/auth-manager';
+import { githubAuth, githubRepoOps } from '@electron/shared/infra/shared-infra';
+import { broadcastToWindows } from '../lib/window-broadcast';
+
+const Ch = IpcChannels.github;
+
+let loginAbort: AbortController | null = null;
+
+function broadcast(channel: string, data: unknown): void {
+  broadcastToWindows(channel, data);
+}
+
+export function registerGitHubHandlers(): void {
+  ipcMain.handle(Ch.status, async (): Promise<GitHubAuthStatus> => {
+    return githubAuth.getStatus();
+  });
+
+  ipcMain.handle(Ch.login, async (): Promise<void> => {
+    // Cancel any in-flight login
+    if (loginAbort) {
+      loginAbort.abort();
+      loginAbort = null;
+    }
+
+    loginAbort = new AbortController();
+
+    try {
+      await githubAuth.login(
+        (event: DeviceFlowProgress) => {
+          broadcast(Ch.event, event);
+        },
+        loginAbort.signal,
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg !== 'AbortError' && !msg.includes('aborted')) {
+        broadcast(Ch.event, {
+          type: 'error' as const,
+          message: msg,
+        });
+      }
+    } finally {
+      loginAbort = null;
+    }
+  });
+
+  ipcMain.handle(Ch.logout, async (): Promise<void> => {
+    githubAuth.logout();
+  });
+
+  ipcMain.handle(Ch.cancel, async (): Promise<void> => {
+    if (loginAbort) {
+      loginAbort.abort();
+      loginAbort = null;
+    }
+  });
+
+  ipcMain.handle(
+    Ch.createRepo,
+    async (_event, workspaceId: string, input: CreateGitHubRepoInput): Promise<CreateGitHubRepoResult> => {
+      return githubRepoOps.createRepo(workspaceId, input);
+    },
+  );
+}

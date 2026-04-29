@@ -1,0 +1,28 @@
+---
+import SectionHead from "./SectionHead.astro";
+import { loop } from "../content/copy";
+---
+<section class="section" id="loop">
+	<SectionHead idx="02" label="self_extension_loop" />
+	<h2 class="h2">{loop.headline}</h2>
+	<p class="tag">// {loop.tagline}</p>
+
+	<div class="loop">
+		{loop.steps.map((s, i) => (
+			<div class="loop__row">
+				<div class="loop__gutter">
+					<span class="loop__n">{s.n}</span>
+					{i < loop.steps.length - 1 && <span class="loop__pipe" aria-hidden="true">│</span>}
+				</div>
+				<div class="loop__content">
+					<div class="loop__head">
+						<span class="loop__label">{s.label}</span>
+						<span class="loop__sep">·</span>
+						<span class="loop__receipt">{s.receipt}</span>
+					</div>
+					<p class="loop__body">{s.body}</p>
+				</div>
+			</div>
+		))}
+	</div>
+</section>

@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
+description: "Sero agent evaluation suite"
+
+providers:
+  - id: file://./eval/seroProvider.ts
+    label: "Sero (default model)"
+    config:
+      timeout: 120000
+
+  # Uncomment to compare models side-by-side (model override is passed
+  # to session.setModel() in seroProvider.ts):
+  # - id: file://./eval/seroProvider.ts
+  #   label: "Sero (Haiku)"
+  #   config:
+  #     model: claude-haiku-4-5-20251001
+  #     timeout: 60000
+
+prompts:
+  - "{{scenario_prompt}}"
+
+# Agent scenarios — require ANTHROPIC_API_KEY (real LLM calls)
+tests:
+  - file://./eval/scenarios/file-ops.yaml
+  - file://./eval/scenarios/coding-tasks.yaml
+  - file://./eval/scenarios/cli-ops.yaml
+
+# Grading provider for llm-rubric assertions (NOT the test execution provider).
+# Tests execute through seroProvider.ts above; this only controls which model
+# scores the llm-rubric judgments.
+defaultTest:
+  options:
+    provider:
+      id: anthropic:messages:claude-sonnet-4-6

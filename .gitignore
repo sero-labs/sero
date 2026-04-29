@@ -1,0 +1,25 @@
+node_modules/
+dist/
+**/.DS_Store
+*.log
+.env
+.env.local
+.vite/
+.__mf__temp/
+.turbo/
+*.tgz
+
+# Playwright
+test-results/
+playwright-report/
+.playwright-cli/
+.sero-test-data/
+
+# Local agent scratch data
+.superpowers/
+.pi/
+
+apps/desktop/release/
+apps/desktop/sero-desktop-*.tgz
+
+.claude/
