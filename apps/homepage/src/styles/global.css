@@ -132,8 +132,11 @@ a { color: inherit; }
 .pick__defaults { list-style: none; padding: 0; margin: 0 0 14px; font-size: 12.5px; color: var(--ink-2); }
 .pick__defaults li { padding: 3px 0; }
 .pick__defaults li::first-letter { color: var(--phos); }
+.pick__quoteWrap { display: flex; flex-direction: column; gap: 6px; }
+.pick__quoteLabel { font-size: 10.5px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--mute); }
 .pick__quote { padding: 12px 14px; background: var(--bg); border: 1px solid var(--rule); font-size: 13px; color: var(--ink); }
 .pick__corner { position: absolute; top: 14px; right: 16px; color: var(--mute); font-size: 12px; }
+.pick__note { margin-top: -16px; }
 
 /* anatomy */
 .anatomy { margin-top: 24px; display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 24px; }

@@ -101,7 +101,7 @@ export const loop = {
 		{
 			n: "02",
 			label: "Build",
-			body: "Sero scaffolds a plugin: shared state, tools, UI, runtime.",
+			body: "Sero helps scaffold a plugin: shared state, tools, UI, runtime — files you can keep iterating on.",
 			receipt: "plugins/weekly-planner/{manifest, tool.ts, App.tsx}",
 		},
 		{
@@ -133,6 +133,8 @@ export type BecomePanel = {
 	mineExample: string;
 	image: ImageMetadata;
 };
+
+export const becomeNote = "Examples — your Sero will be different.";
 
 export const become: BecomePanel[] = [
 	{
