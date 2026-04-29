@@ -61,55 +61,55 @@ export const hero = {
 	headline: "Build the agent only you need.",
 	sub: site.description,
 	support:
-		"Start with a capable agent workspace. Add the plugins, agents, and skills your work actually needs — a coding partner, research desk, or project cockpit shaped around you.",
+		"Start with a capable workspace for coding, research, and day-to-day tasks. Add plugins and agents to make it work the way you do.",
 	primary: { label: "Get the macOS alpha", href: links.install },
 	secondary: { label: "See how Sero grows", href: "#loop" },
 };
 
 export const problem = {
-	headline: "Generic agents make you carry the workflow.",
-	body: "You paste the same context, repeat the same instructions, reopen the same tools, and keep the useful parts in your head. A chat can help with one task, but it rarely becomes part of how you work.",
-	resolution: "Sero turns useful workflows into durable workspace capabilities.",
+	headline: "Most AI tools don't know your project.",
+	body: "They run in a separate tab, start fresh every session, and need you to explain yourself from scratch. You end up bridging the gap manually — copying context, switching windows, repeating yourself.",
+	resolution: "Sero puts the agent inside your workspace, where it can see your files, run tools, and remember what matters.",
 };
 
 export const thesis = {
-	headline: "Your Sero can become different from mine.",
+	headline: "One workspace, shaped around how you work.",
 	pillars: [
 		{
-			title: "Shape the agent",
-			body: "Edit memory, identity, prompts, skills, specialist agents, models, and profiles.",
+			title: "Customise the agent",
+			body: "Set up memory, identity, custom prompts, specialist agents, and the models you want to use.",
 		},
 		{
-			title: "Shape the tools",
-			body: "Add plugins with tools, commands, UI, widgets, runtimes, providers, and external integrations.",
+			title: "Add new capabilities",
+			body: "Install plugins that add panels, agent tools, commands, background jobs, and external integrations.",
 		},
 		{
-			title: "Shape the workspace",
-			body: "Keep projects, sessions, runtime, context, and plugin state together.",
+			title: "Keep everything together",
+			body: "Projects, sessions, tool state, and context all live in the same place — not scattered across tabs.",
 		},
 	],
 };
 
 export const loop = {
-	headline: "When Sero is missing a capability, ask it to make one.",
-	tagline: "Ask for a capability. Turn it into a plugin. Keep it forever.",
+	headline: "Need something Sero doesn't do yet? You can add it.",
+	tagline: "Ask. Build a plugin. Use it straight away.",
 	steps: [
 		{
 			n: "01",
 			label: "Ask",
-			body: "“I need a weekly planning assistant for this project.”",
-			receipt: "chat → request capability",
+			body: "Tell Sero what you need: “I want a weekly planner for this project.”",
+			receipt: "chat → describe the capability",
 		},
 		{
 			n: "02",
 			label: "Build",
-			body: "Sero helps scaffold a plugin: shared state, tools, UI, runtime — files you can keep iterating on.",
+			body: "Sero helps you scaffold a plugin — a manifest, some tools, and optionally a UI panel.",
 			receipt: "plugins/weekly-planner/{manifest, tool.ts, App.tsx}",
 		},
 		{
 			n: "03",
 			label: "Activate",
-			body: "Local Plugin Development runs the checkout directly in Sero.",
+			body: "Load it in Admin → Local Plugin Development. It’s live inside Sero immediately.",
 			receipt: "Admin → Plugins → Local · status: live",
 		},
 		{
@@ -178,14 +178,14 @@ export const become: BecomePanel[] = [
 ];
 
 export const pluginAnatomy = [
-	{ slot: "ui", label: "UI panel", note: "React surface, persistent" },
-	{ slot: "tools", label: "Agent tools", note: "Pi-callable functions" },
-	{ slot: "commands", label: "Commands", note: "User-invoked actions" },
-	{ slot: "state", label: "Shared state", note: "File-backed, profile-scoped" },
-	{ slot: "runtime", label: "Background runtime", note: "Long-running jobs" },
-	{ slot: "widgets", label: "Dashboard widgets", note: "Composable surfaces" },
-	{ slot: "prompts", label: "Prompts / skills", note: "Reusable behaviors" },
-	{ slot: "provider", label: "Provider / integration", note: "External services" },
+	{ slot: "ui", label: "UI panel", note: "A panel that keeps its state" },
+	{ slot: "tools", label: "Agent tools", note: "Functions the agent can call" },
+	{ slot: "commands", label: "Commands", note: "Actions you invoke directly" },
+	{ slot: "state", label: "Shared state", note: "Stored on disk, per profile" },
+	{ slot: "runtime", label: "Background runtime", note: "Jobs that run continuously" },
+	{ slot: "widgets", label: "Dashboard widgets", note: "Surfaces on the dashboard" },
+	{ slot: "prompts", label: "Prompts / skills", note: "Reusable agent instructions" },
+	{ slot: "provider", label: "Provider / integration", note: "External services and APIs" },
 ];
 
 export const builtins = [
@@ -199,14 +199,14 @@ export const builtins = [
 
 export const cta = {
 	headline: "Make Sero yours.",
-	sub: "Start with a local agent workspace. Then teach it the tools, assistants, and workflows you want to keep.",
+	sub: "Start with a solid agent workspace. Add what you need as you go.",
 	primary: { label: "Get Sero", href: links.install },
 	secondary: { label: "Read plugin docs", href: links.pluginDocs },
 	tertiary: { label: "View source", href: links.github },
 };
 
 export const footer = {
-	tagline: "workshop OS · alpha · local-first · macOS apple silicon",
+	tagline: "alpha · macOS · local-first",
 	bottomLeft: "plugins are how sero learns new work.",
 	bottomRight: "© sero · source-only OSS",
 	links: [
