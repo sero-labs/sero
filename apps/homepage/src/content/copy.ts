@@ -136,8 +136,6 @@ export type BecomePanel = {
 	image: ImageMetadata;
 };
 
-export const becomeNote = "Examples — your Sero will be different.";
-
 export const become: BecomePanel[] = [
 	{
 		id: "coding",
@@ -207,7 +205,7 @@ export const cta = {
 
 export const footer = {
 	tagline: "alpha · macOS · local-first",
-	bottomLeft: "plugins are how sero learns new work.",
+	bottomLeft: "",
 	bottomRight: "© sero · source-only OSS",
 	links: [
 		{ label: "Docs", href: links.docs },
