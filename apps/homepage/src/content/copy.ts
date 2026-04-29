@@ -11,7 +11,7 @@ import cronJobs from "@docs-images/cron-jobs-editor-crop.jpg";
 import research from "@docs-images/research.jpg";
 import kanban from "@docs-images/kanban.jpg";
 import memory from "@docs-images/memory.jpg";
-import cronJobsEditor from "@docs-images/cron-jobs-editor.jpg";
+import cronJobsEditor from "@docs-images/cron-jobs-editor-crop.jpg";
 import gitManagement from "@docs-images/git-management.jpg";
 import mcpManager from "@docs-images/mcp.jpg";
 import adminAgents from "@docs-images/admin-agents.jpg";
