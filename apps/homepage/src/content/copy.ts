@@ -4,8 +4,9 @@
 
 import type { ImageMetadata } from "astro";
 import seroChat from "@docs-images/sero-chat.jpg";
+import explorerBrowser from "@docs-images/explorer.jpg";
 import gitShipDeck from "@docs-images/git-ship-deck.jpg";
-import cronJobs from "@docs-images/cron-jobs.jpg";
+import cronJobs from "@docs-images/cron-jobs-editor-crop.jpg";
 import research from "@docs-images/research.jpg";
 import kanban from "@docs-images/kanban.jpg";
 import memory from "@docs-images/memory.jpg";
@@ -35,6 +36,7 @@ export const links = {
 
 export const images = {
 	seroChat,
+	explorerBrowser,
 	gitShipDeck,
 	cronJobs,
 	research,

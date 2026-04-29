@@ -57,7 +57,7 @@ a { color: inherit; }
 .top__inner { max-width: 1200px; margin: 0 auto; padding: 10px 20px; display: flex; align-items: center; gap: 14px; border: 1px solid var(--rule); background: rgba(8, 9, 8, 0.92); font-size: 12px; color: var(--ink-2); letter-spacing: 0.02em; }
 .top__brand { display: inline-flex; align-items: center; gap: 8px; color: var(--ink); text-decoration: none; }
 .top__emblem { width: 18px; height: auto; flex-shrink: 0; filter: drop-shadow(0 0 6px rgba(240, 85, 35, 0.20)); }
-.top__logo { height: 14px; width: auto; color: var(--ink); }
+.top__logo { height: 27px; width: auto; color: var(--ink); }
 .top__sep { color: var(--mute); }
 .top__path { color: var(--mute); }
 .top__spacer { flex: 1; }

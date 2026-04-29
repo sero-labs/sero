@@ -21,7 +21,6 @@ Install or activate the external checkout, install `gogcli` as the README requir
 | --- | --- |
 | Package | `@sero-ai/plugin-google` |
 | Status | external/local |
-| Source checked | `../plugins/sero-google-plugin/package.json, README` |
 | App state | Manifest declares plugin-owned state under `.sero/apps/<app-id>/...` when an app is present. |
 
 ## Privacy, secrets, and recovery

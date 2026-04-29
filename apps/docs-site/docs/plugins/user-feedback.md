@@ -21,7 +21,6 @@ When Sero asks for input, answer in the pending question/questionnaire surface r
 | --- | --- |
 | Package | `@sero-ai/plugin-user-feedback` |
 | Status | built-in |
-| Source checked | `plugins/sero-user-feedback-plugin/package.json` |
 | App state | Manifest declares plugin-owned state under `.sero/apps/<app-id>/...` when an app is present. |
 
 ## Privacy, secrets, and recovery

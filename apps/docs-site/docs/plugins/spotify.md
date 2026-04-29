@@ -21,7 +21,6 @@ Activate the plugin, complete Spotify OAuth with a test/personal account you are
 | --- | --- |
 | Package | `@sero-ai/plugin-spotify` |
 | Status | external/local |
-| Source checked | `../plugins/sero-spotify-plugin/package.json, README` |
 | App state | Manifest declares plugin-owned state under `.sero/apps/<app-id>/...` when an app is present. |
 
 ## Privacy, secrets, and recovery

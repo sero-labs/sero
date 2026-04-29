@@ -59,8 +59,6 @@ This reduces host port conflicts, but it does not eliminate every networking iss
 
 ## Register, list, and stop servers
 
-The public command surface is source checked from `apps/desktop/electron/cli/commands/container/devserver.ts`.
-
 | Command | Use it for |
 |---|---|
 | `sero devserver list` | List registered servers for the current workspace. |

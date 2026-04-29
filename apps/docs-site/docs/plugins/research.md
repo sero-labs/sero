@@ -21,7 +21,6 @@ Use a public, low-risk question, approve a small plan, watch progress, and revie
 | --- | --- |
 | Package | `@sero-ai/plugin-research` |
 | Status | external/local |
-| Source checked | `../plugins/sero-research-plugin/package.json, README` |
 | App state | Manifest declares plugin-owned state under `.sero/apps/<app-id>/...` when an app is present. |
 
 ## Privacy, secrets, and recovery

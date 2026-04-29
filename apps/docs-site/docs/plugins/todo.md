@@ -21,7 +21,6 @@ Activate the plugin, open Todo, create a few fake tasks, then ask Sero to list o
 | --- | --- |
 | Package | `@sero-ai/todo-plugin` |
 | Status | external/local |
-| Source checked | `../plugins/sero-todo-plugin-main/package.json` |
 | App state | Manifest declares plugin-owned state under `.sero/apps/<app-id>/...` when an app is present. |
 
 ## Privacy, secrets, and recovery

@@ -21,7 +21,6 @@ Use a harmless demo prompt, generate one image, view it in the gallery, and atta
 | --- | --- |
 | Package | `@sero-ai/plugin-imagegen` |
 | Status | external/local |
-| Source checked | `../plugins/sero-imagegen-plugin/package.json, README` |
 | App state | Manifest declares plugin-owned state under `.sero/apps/<app-id>/...` when an app is present. |
 
 ## Privacy, secrets, and recovery

@@ -21,7 +21,6 @@ Activate the plugin in a disposable git-backed workspace, open Kanban, create a 
 | --- | --- |
 | Package | `@sero-ai/plugin-kanban` |
 | Status | external/local |
-| Source checked | `../plugins/sero-kanban-plugin/package.json, README` |
 | App state | Manifest declares plugin-owned state under `.sero/apps/<app-id>/...` when an app is present. |
 
 ## Privacy, secrets, and recovery

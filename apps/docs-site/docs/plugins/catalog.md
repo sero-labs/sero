@@ -7,7 +7,7 @@ This catalog is the public index for Sero plugin coverage. It separates **built-
 | Field | Meaning |
 | --- | --- |
 | Status | `Built-in` ships in the Sero source tree; `External/local` must be installed or activated separately. |
-| Docs | `Full page` links to a dedicated page; `Guide` links to an existing guide; `Catalog` means this row is the lightweight coverage. |
+| Docs | `Docs` links to a dedicated page; `Guide` links to an existing guide; `Catalog` means this row is the lightweight coverage. |
 
 Built-in plugins may appear in app discovery or favorites, but they are not third-party packages that users remove through Plugin Manager. External/local plugins are trusted source code and do not ship with Sero unless you install or activate them.
 
@@ -28,16 +28,16 @@ Built-in plugins may appear in app discovery or favorites, but they are not thir
 
 | Plugin | Package | Docs | Notes |
 | --- | --- | --- | --- |
-| Google | `@sero-ai/plugin-google` | [Full page](/plugins/google) | Gmail/Calendar via `gogcli`; OAuth credentials required. |
-| Kanban | `@sero-ai/plugin-kanban` | [Full page](/plugins/kanban) | Dev board; git-backed workflow caveats. |
-| Notes | `@sero-ai/plugin-notes` | [Full page](/plugins/notes) | Global note-taking app/tool. |
-| Todo | `@sero-ai/todo-plugin` | [Full page](/plugins/todo) | Optional task app and Pi extension. |
-| Research | `@sero-ai/plugin-research` | [Full page](/plugins/research) | Multi-agent research orchestration. |
-| Plan Mode | `@sero-ai/plugin-plan-mode` | [Full page](/plugins/plan-mode) | Read-only planning and execution tracking. |
-| Spotify | `@sero-ai/plugin-spotify` | [Full page](/plugins/spotify) | Spotify OAuth/PKCE plus Web Playback SDK caveats. |
-| ImageGen | `@sero-ai/plugin-imagegen` | [Full page](/plugins/imagegen) | Gemini-powered image generation; verify storage before sharing outputs. |
-| Starling Bank | `@sero-ai/plugin-starling` | [Full page](/plugins/starling) | Banking data; use fake/demo examples in support. |
-| Weight | `@sero-ai/plugin-weight-tracker` | [Full page](/plugins/weight-tracker) | Personal health data; use fake/demo examples. |
+| Google | `@sero-ai/plugin-google` | [Docs](/plugins/google) | Gmail/Calendar via `gogcli`; OAuth credentials required. |
+| Kanban | `@sero-ai/plugin-kanban` | [Docs](/plugins/kanban) | Dev board; git-backed workflow caveats. |
+| Notes | `@sero-ai/plugin-notes` | [Docs](/plugins/notes) | Global note-taking app/tool. |
+| Todo | `@sero-ai/todo-plugin` | [Docs](/plugins/todo) | Optional task app and Pi extension. |
+| Research | `@sero-ai/plugin-research` | [Docs](/plugins/research) | Multi-agent research orchestration. |
+| Plan Mode | `@sero-ai/plugin-plan-mode` | [Docs](/plugins/plan-mode) | Read-only planning and execution tracking. |
+| Spotify | `@sero-ai/plugin-spotify` | [Docs](/plugins/spotify) | Spotify OAuth/PKCE plus Web Playback SDK caveats. |
+| ImageGen | `@sero-ai/plugin-imagegen` | [Docs](/plugins/imagegen) | Gemini-powered image generation; verify storage before sharing outputs. |
+| Starling Bank | `@sero-ai/plugin-starling` | [Docs](/plugins/starling) | Banking data; use fake/demo examples in support. |
+| Weight | `@sero-ai/plugin-weight-tracker` | [Docs](/plugins/weight-tracker) | Personal health data; use fake/demo examples. |
 
 ## External/local catalog-only plugins
 

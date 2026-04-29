@@ -6,11 +6,8 @@ import { navLinks, links, site } from "../content/copy";
 <nav class="top" aria-label="Primary">
 	<div class="top__inner">
 		<a class="top__brand" href={site.url} aria-label={site.name}>
-			<SeroEmblem class="top__emblem" />
 			<SeroLogo class="top__logo" />
 		</a>
-		<span class="top__sep">/</span>
-		<span class="top__path">~/marketing/landing</span>
 		<span class="top__spacer" />
 		{navLinks.map((l) => (
 			<a class="top__link" href={l.href}>[{l.label.toLowerCase()}]</a>

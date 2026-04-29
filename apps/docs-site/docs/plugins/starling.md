@@ -21,7 +21,6 @@ Use fake/demo descriptions in docs and support. If testing for real, use a dispo
 | --- | --- |
 | Package | `@sero-ai/plugin-starling` |
 | Status | external/local |
-| Source checked | `../plugins/sero-starling-plugin/package.json, README` |
 | App state | Manifest declares plugin-owned state under `.sero/apps/<app-id>/...` when an app is present. |
 
 ## Privacy, secrets, and recovery

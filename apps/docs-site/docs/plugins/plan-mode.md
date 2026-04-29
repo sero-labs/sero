@@ -21,7 +21,6 @@ Run `/plan` on a toy repository or fake task, review the generated plan, then on
 | --- | --- |
 | Package | `@sero-ai/plugin-plan-mode` |
 | Status | external/local |
-| Source checked | `../plugins/sero-plan-mode-plugin/package.json, README` |
 | App state | Manifest declares plugin-owned state under `.sero/apps/<app-id>/...` when an app is present. |
 
 ## Privacy, secrets, and recovery

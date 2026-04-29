@@ -21,7 +21,6 @@ Activate the plugin, open Notes, add a fake note, pin it, then ask Sero to list 
 | --- | --- |
 | Package | `@sero-ai/plugin-notes` |
 | Status | external/local |
-| Source checked | `../plugins/sero-notes-plugin/package.json, README` |
 | App state | Manifest declares plugin-owned state under `.sero/apps/<app-id>/...` when an app is present. |
 
 ## Privacy, secrets, and recovery

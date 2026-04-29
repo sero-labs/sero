@@ -21,7 +21,6 @@ Create fake entries such as `70.0 kg`, set a demo goal, and inspect the chart.
 | --- | --- |
 | Package | `@sero-ai/plugin-weight-tracker` |
 | Status | external/local |
-| Source checked | `../plugins/sero-weight-tracker-plugin/package.json, README` |
 | App state | Manifest declares plugin-owned state under `.sero/apps/<app-id>/...` when an app is present. |
 
 ## Privacy, secrets, and recovery
