@@ -22,10 +22,10 @@
 	--copper: #c69969;
 	--alert: #d97757;
 
-	/* type */
-	--font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-	--font-display: "JetBrains Mono", ui-monospace, monospace;
-	--font-body: "JetBrains Mono", ui-monospace, monospace;
+	/* type — JetBrains Mono Variable, self-hosted via @fontsource-variable. */
+	--font-mono: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+	--font-display: var(--font-mono);
+	--font-body: var(--font-mono);
 
 	/* motion */
 	--ease-out: cubic-bezier(0.16, 1, 0.3, 1);

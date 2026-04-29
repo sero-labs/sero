@@ -1,4 +1,7 @@
 ---
+// Self-hosted JetBrains Mono — single variable font file, all weights covered.
+// Replaces the render-blocking fonts.googleapis.com link.
+import "@fontsource-variable/jetbrains-mono";
 import "../styles/global.css";
 import { site, hero } from "../content/copy";
 
@@ -51,13 +54,6 @@ const jsonLd = {
 		<meta name="twitter:description" content={description} />
 		<meta name="twitter:image" content={ogImage} />
 
-		<!-- Fonts (TODO: self-host post-launch — currently CDN-loaded) -->
-		<link rel="preconnect" href="https://fonts.googleapis.com" />
-		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-		<link
-			rel="stylesheet"
-			href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap"
-		/>
 
 		<!-- JSON-LD -->
 		<script is:inline type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
