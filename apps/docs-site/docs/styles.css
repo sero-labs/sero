@@ -97,7 +97,7 @@ html, body {
 
 body {
   font-family: var(--sero-font);
-  font-size: 13.5px;
+  font-size: 13px;
   line-height: 1.65;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -151,7 +151,7 @@ body {
 
 /* ── Doc content ──────────────────────────────────────────────────────── */
 .rspress-doc {
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1.7;
 }
 
@@ -197,6 +197,24 @@ body {
 .dark .rspress-doc pre,
 .dark [class*="shiki"] {
   background: var(--sero-code-bg) !important;
+}
+
+/* tables — scroll horizontally instead of clipping */
+.rspress-doc table {
+  display: block;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.rspress-doc th {
+  white-space: nowrap;
+  font-size: 11.5px;
+}
+
+.rspress-doc td {
+  overflow-wrap: break-word;
+  min-width: 6rem;
+  font-size: 12px;
 }
 
 /* images */
