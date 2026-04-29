@@ -1,0 +1,21 @@
+---
+import SectionHead from "./SectionHead.astro";
+import { builtins } from "../content/copy";
+---
+<section class="section" id="builtins">
+	<SectionHead idx="05" label="starting_abilities" />
+	<h2 class="h2">useful from the start. yours over time.</h2>
+	<div class="builtins">
+		{builtins.map((b) => (
+			<article class="builtin">
+				<figure>
+					<img src={b.img.src} width={b.img.width} height={b.img.height} alt="" loading="lazy" decoding="async" />
+				</figure>
+				<div class="builtin__copy">
+					<span class="builtin__name">[{b.name.toLowerCase()}]</span>
+					<p>{b.desc}</p>
+				</div>
+			</article>
+		))}
+	</div>
+</section>

@@ -1,0 +1,88 @@
+// Sero brand assets inlined as React components so they can be coloured via
+// `currentColor` and animated alongside variant theming. Source SVGs live at
+// apps/docs-site/docs/public/assets/{logo,phoenix2}.svg.
+
+import type { JSX } from "react";
+
+type SvgProps = {
+	className?: string;
+	"aria-label"?: string;
+};
+
+/** Sero word-mark logo. Original fill (#010101) replaced with currentColor. */
+export function SeroLogo({ className, ...rest }: SvgProps): JSX.Element {
+	return (
+		<svg
+			xmlns="http://www.w3.org/2000/svg"
+			viewBox="13.7 70.1 72.4 31.6"
+			className={className}
+			aria-hidden={!rest["aria-label"]}
+			role={rest["aria-label"] ? "img" : undefined}
+			{...rest}
+		>
+			<path
+				fill="currentColor"
+				d="m35 81.2-19.3 18.5h14.2c4.2 0 9.9-2.7 10.1-9.1 0.1-4.1-2.1-7-5-9.4zm-5.1 15.7h-7.3l12.3-11.7c1.5 1.2 2.2 3.2 2.1 5.4-0.3 3.3-2.6 6.1-7.1 6.3z"
+			/>
+			<path
+				fill="currentColor"
+				d="m28.4 72.1c-2 0-4.5 0.3-6.5 1.7-2.4 1.7-4.4 4.6-4.4 8.1 0 4.2 2.5 6.7 5.1 9l19.3-18.8h-13.5zm-5.8 15c-1.2-1-2.3-2.7-2.3-5.2 0-3.5 2.8-6.8 7.4-6.8h7.6l-12.7 12z"
+			/>
+			<path
+				fill="currentColor"
+				d="m49.4 80.3c-3.8 0-7.7 2.4-7.7 8.3 0 4.8 3.2 7.9 7.9 7.9 2.6 0 4.1-0.7 5-1.4 1.4-1.1 1.9-2.1 1.9-3.6h-3.4c-0.2 1.5-1.7 2.3-3.5 2.3-2.5 0-4.4-1.5-4.5-4.3h11.4c0.1-1.4 0.1-3.3-0.8-5.3-0.8-1.5-2.3-3.9-6.3-3.9zm-4.3 6.8c0.3-2.5 1.6-4 4-4 2 0 4 1.3 3.9 3.9l-7.9 0.1z"
+			/>
+			<path
+				fill="currentColor"
+				d="m59.2 82.9v13.3h3.4v-12.6h5.6v-3h-6.5l-2.5 2.3z"
+			/>
+			<path
+				fill="currentColor"
+				d="m76.4 80.3c-4.3 0.1-7.8 3.1-7.8 8.3 0 4.4 2.5 7.9 7.8 7.9 4.8 0 7.7-2.7 7.7-7.7 0-4.7-2.7-8.5-7.7-8.5zm0 13.4c-2.5 0-4.2-2-4.2-5.1 0-3.5 1.9-5.4 4.2-5.4 2.2 0 4.1 1.8 4.1 5.2 0 3.5-1.9 5.3-4.1 5.3z"
+			/>
+		</svg>
+	);
+}
+
+/** Sero phoenix emblem. Brand gradients (red→orange) preserved. */
+export function SeroEmblem({ className, ...rest }: SvgProps): JSX.Element {
+	const id = "sero-emblem-grad";
+	return (
+		<svg
+			xmlns="http://www.w3.org/2000/svg"
+			viewBox="23.7 -1.4 53.6 71.5"
+			className={className}
+			aria-hidden={!rest["aria-label"]}
+			role={rest["aria-label"] ? "img" : undefined}
+			{...rest}
+		>
+			<defs>
+				<linearGradient id={`${id}-1`} x1="40.41" x2="40.41" y1="99.94" y2="64.67" gradientTransform="matrix(1 0 0 -1 0 102)" gradientUnits="userSpaceOnUse">
+					<stop stopColor="#F89621" offset="0" />
+					<stop stopColor="#F05523" offset="1" />
+				</linearGradient>
+				<linearGradient id={`${id}-2`} x1="34.3" x2="55.94" y1="79.41" y2="36.15" gradientTransform="matrix(1 0 0 -1 0 102)" gradientUnits="userSpaceOnUse">
+					<stop stopColor="#7A2020" offset=".3" />
+					<stop stopColor="#9F3123" offset=".5" />
+					<stop stopColor="#F05523" offset=".7" />
+				</linearGradient>
+			</defs>
+			<path
+				fill="#7A2020"
+				d="m66.8 25.7-0.3 2.5c3.3 3.3 6.7 8.3 6.7 15.8 0 9.6-7.2 20.3-21.1 22 1 0.6 2.1 1.1 3.6 1.5 9.7-1.8 19.6-10 19.6-23.3 0-6.8-3-13.4-8.5-18.5z"
+			/>
+			<path
+				fill={`url(#${id}-1)`}
+				d="m47.8 21c-5.3-4-7.9-6.9-8.6-9.7-0.5-2.1 0-4.6 0-4.6-1.9 1.5-2.6 3.6-2.3 6.2-1.3-1.8-3.5-6.7-1.6-12.3-1.6 1.2-4.4 4.1-4.4 8.2-0.1 4.8 3.1 8.8 3.5 9.2-1.9-1-5-3.2-7-6.7 0.3 8.3 6.7 12.6 12.5 14.1-2.7 0.3-7.1-0.4-11.5-3.5 1.2 4.1 5.4 9.1 12.2 8.9h1.7c-1.1 0.8-3.5 1.9-6.4 1.5 1.6 1.7 4 3.1 8.6 2.4 1.6-0.3 3-0.3 3.9 1.4 1 1.7 0.1 5.6-2.5 7.1 2.1 0.1 4.7-0.7 6.2-2.1 1.8-1.9 2.6-4.3 2.6-7.2-0.1-4.8-3.3-10-6.9-12.9z"
+			/>
+			<path
+				fill={`url(#${id}-2)`}
+				d="m62.6 18.7c0.3-2.3-2.3-3.3-4.5-4-3-0.9-5.3-1.3-7-4.8-0.5 2.3 0.9 4.1 1.5 4.9-1.3-0.6-3-1.6-4.1-3.4-0.3 3.1 2 5.5 6.1 6.3-1.5 0.3-3 1.7-4 3.3 3.3 2.9 5.5 6.8 5.5 10.6 0 4.6-2.9 8.3-6.1 10.4-1.1 0.6-2.3 0.9-3.9 1.1-3.1 1.2-5.6 0.5-8.6 2.5-1.7 1-2.7 2.4-3.2 3.3 1.8-1.3 4.8-2.1 7.5-1.9-2.7 1.1-7.6 4.4-7.6 10.5 0 2.2 0.7 4.4 2.2 6 0.8 0.6 1.7 1.3 2.9 1.9-0.9-2.4-1.6-8.1 1.9-12.5 0.7-0.9 1.5-1.9 2.4-2.7-1.6 3.5-2.7 7.4-1 11.8 1.1 2.6 3.8 6.1 9.8 6.1 1 0 2.2-0.2 3.3-0.5-1.3-0.4-2.5-0.9-3.6-1.7-3.4-2.1-6.2-6.3-5.9-12.1 0.5 2.8 2.4 4.8 4.8 4.8 2.5 0 3.7-2 3.9-2.5-2.8 1.1-6.6-1.5-6.7-5.5 0-2.6 1.9-4.9 4.9-6.4 2.6-1.4 9.3-4.4 8.3-10.3l-0.2-2.6s1.6 1.8 1.7 4.9c0.7-1.2 1.2-2.8 0.9-5.2-0.7-3.2-3.7-4.8-3.7-7.8 0.1-3.5 4.3-1.7 5.3 0.1 0-1.4 0-3.1-2.8-4.6z"
+			/>
+			<path
+				fill="#7A2020"
+				d="m34.5 59.4c-3.4-3.2-6.7-8.7-6.7-15.3 0-3.9 1-7.4 2.9-11.4l-1.5-1.7c-2.1 3.7-3.5 7.7-3.5 13.1 0.1 7.5 3.7 14.8 10.7 19.3-0.8-1-1.6-2.4-1.9-4z"
+			/>
+		</svg>
+	);
+}

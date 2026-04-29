@@ -1,0 +1,36 @@
+---
+import SectionHead from "./SectionHead.astro";
+import { become } from "../content/copy";
+---
+<section class="section" id="become">
+	<SectionHead idx="03" label="what_can_it_become" />
+	<h2 class="h2">build the agent you actually wanted.</h2>
+
+	<div class="pick">
+		<div class="pick__prompt">
+			<span class="shell-user">$</span> sero shape{" "}
+			<span class="pick__placeholder">[ pick one ]</span>
+		</div>
+		<div class="pick__grid">
+			{become.map((b, i) => (
+				<article class="pick__card">
+					<div class="pick__head">
+						<span class="pick__idx">--{b.id}</span>
+						<span class="pick__name">{b.title}</span>
+					</div>
+					<figure>
+						<img src={b.image.src} width={b.image.width} height={b.image.height} alt="" loading="lazy" decoding="async" />
+					</figure>
+					<p class="pick__tag">{b.tagline}</p>
+					<ul class="pick__defaults">
+						{b.defaults.map((d) => <li>+ {d}</li>)}
+					</ul>
+					<div class="pick__quote">
+						<span class="shell-user">{">"}</span> {b.mineExample}
+					</div>
+					<span class="pick__corner" aria-hidden="true">0{i + 1}</span>
+				</article>
+			))}
+		</div>
+	</div>
+</section>

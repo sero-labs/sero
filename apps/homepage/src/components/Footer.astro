@@ -1,0 +1,22 @@
+---
+import { SeroEmblem, SeroLogo } from "./brand/SeroBrand";
+import { footer, site } from "../content/copy";
+---
+<footer class="footer">
+	<div class="footer__rule" aria-hidden="true" />
+	<div class="footer__row">
+		<a class="footer__brand" href={site.url} aria-label={site.name}>
+			<SeroEmblem className="footer__emblem" />
+			<SeroLogo className="footer__logo" />
+		</a>
+		<div class="footer__meta">{footer.tagline}</div>
+	</div>
+	<div class="footer__row footer__row--bot">
+		<span>{footer.bottomLeft}</span>
+		<div class="footer__links">
+			{footer.links.map((l) => <a href={l.href}>{l.label}</a>)}
+		</div>
+		<span>{footer.bottomRight}</span>
+	</div>
+	<div class="footer__rule" aria-hidden="true" />
+</footer>
