@@ -1,4 +1,5 @@
 ---
+import { Picture } from "astro:assets";
 import SeroEmblem from "./brand/SeroEmblem.astro";
 import SeroLogo from "./brand/SeroLogo.astro";
 import { hero, images } from "../content/copy";
@@ -29,12 +30,14 @@ import { hero, images } from "../content/copy";
 	</div>
 
 	<figure class="shot" aria-label="A live Sero session: agent chat panel beside an HTML preview.">
-		<img
-			src={images.seroChat.src}
-			width={images.seroChat.width}
-			height={images.seroChat.height}
+		<Picture
+			src={images.seroChat}
+			formats={["avif", "webp"]}
+			widths={[800, 1200, 1600, images.seroChat.width]}
+			sizes="(max-width: 1240px) 100vw, 1160px"
 			alt="Sero workspace with the agent chat panel on the right showing a multi-step plan to scaffold a landing page."
 			loading="eager"
+			fetchpriority="high"
 			decoding="async"
 		/>
 	</figure>

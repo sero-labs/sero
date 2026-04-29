@@ -1,4 +1,5 @@
 ---
+import { Image } from "astro:assets";
 import SectionHead from "./SectionHead.astro";
 import { cta, images } from "../content/copy";
 ---
@@ -14,10 +15,11 @@ import { cta, images } from "../content/copy";
 		<a class="btn btn--ghost" href={cta.tertiary.href}>{cta.tertiary.label}</a>
 	</div>
 	<figure class="proof" aria-hidden="true">
-		<img
-			src={images.seroChat.src}
-			width={images.seroChat.width}
-			height={images.seroChat.height}
+		<Image
+			src={images.seroChat}
+			widths={[800, 1200]}
+			sizes="(max-width: 1240px) 100vw, 1160px"
+			format="webp"
 			alt=""
 			loading="lazy"
 			decoding="async"

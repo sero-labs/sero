@@ -7,6 +7,7 @@ onlyBuiltDependencies:
   - electron
   - esbuild
   - node-pty
+  - sharp
 
 # ── Default catalog ────────────────────────────────────────────
 # Single source of truth for shared dependency versions.
