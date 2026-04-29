@@ -3,6 +3,13 @@ name: Deploy
 on:
   push:
     branches: [main]
+    paths:
+      - 'apps/homepage/**'
+      - 'apps/docs-site/**'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - '.github/workflows/deploy.yml'
+  workflow_dispatch:
 
 # Cancel in-flight runs for the same branch if a new commit arrives.
 concurrency:
@@ -10,17 +17,47 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    name: Detect deploy targets
+    runs-on: ubuntu-latest
+    outputs:
+      homepage: ${{ steps.filter.outputs.homepage }}
+      docs: ${{ steps.filter.outputs.docs }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - id: filter
+        name: Detect changed projects
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "homepage=true" >> "$GITHUB_OUTPUT"
+            echo "docs=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          changed_files="$(git diff --name-only "${{ github.event.before }}" "${{ github.sha }}")"
+
+          if grep -Eq '^(apps/homepage/|pnpm-lock\.yaml$|pnpm-workspace\.yaml$|\.github/workflows/deploy\.yml$)' <<< "$changed_files"; then
+            echo "homepage=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "homepage=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          if grep -Eq '^(apps/docs-site/|pnpm-lock\.yaml$|pnpm-workspace\.yaml$|\.github/workflows/deploy\.yml$)' <<< "$changed_files"; then
+            echo "docs=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "docs=false" >> "$GITHUB_OUTPUT"
+          fi
+
   # ── Homepage ────────────────────────────────────────────────────────────────
   homepage:
     name: Deploy homepage → sero-ai.dev
     runs-on: ubuntu-latest
-    # Only rebuild when homepage source or shared lock file changes.
-    # Skip when only docs-site files changed.
-    if: |
-      contains(github.event.head_commit.modified, 'apps/homepage/') ||
-      contains(github.event.head_commit.modified, 'pnpm-lock.yaml') ||
-      contains(github.event.head_commit.modified, 'pnpm-workspace.yaml') ||
-      github.event_name == 'workflow_dispatch'
+    needs: changes
+    if: needs.changes.outputs.homepage == 'true'
     steps:
       - uses: actions/checkout@v4
 
@@ -50,12 +87,8 @@ jobs:
   docs:
     name: Deploy docs → docs.sero-ai.dev
     runs-on: ubuntu-latest
-    # Only rebuild when docs-site source or shared lock file changes.
-    if: |
-      contains(github.event.head_commit.modified, 'apps/docs-site/') ||
-      contains(github.event.head_commit.modified, 'pnpm-lock.yaml') ||
-      contains(github.event.head_commit.modified, 'pnpm-workspace.yaml') ||
-      github.event_name == 'workflow_dispatch'
+    needs: changes
+    if: needs.changes.outputs.docs == 'true'
     steps:
       - uses: actions/checkout@v4
 

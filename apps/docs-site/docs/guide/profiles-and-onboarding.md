@@ -55,7 +55,7 @@ If switching fails, the UI keeps the profile action visible and reports the rest
 
 ## Copying credentials and model preferences
 
-When creating a new profile from an existing active profile, Sero can offer to copy transferable credentials and model preferences. 
+When creating a new profile from an existing active profile, Sero can offer to copy transferable credentials and model preferences.
 
 The copy flow can include these profile-agent files when they have meaningful content:
 

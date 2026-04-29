@@ -220,19 +220,19 @@ This loop should be the centerpiece of the landing page.
 
 ### The Sero loop
 
-1. **Ask**  
+1. **Ask**
    Tell Sero what you want to be able to do.
 
-2. **Build**  
+2. **Build**
    Sero helps create or modify a plugin: shared state, tools, UI, runtime, prompts, or skills.
 
-3. **Activate**  
+3. **Activate**
    Run the plugin through Local Plugin Development or install it from a package/source.
 
-4. **Use**  
+4. **Use**
    The new capability appears as an app, tool, command, widget, or background behavior.
 
-5. **Keep improving**  
+5. **Keep improving**
    The next time the workflow changes, ask Sero to extend it again.
 
 Short marketing version:
