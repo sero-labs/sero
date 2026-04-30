@@ -15,6 +15,7 @@ import {
 } from '../ToolCallState';
 import { ToolDetail } from './ToolDetail';
 import { ToolImages } from './ToolImages';
+import { ToolFileLinks } from './ToolFileLinks';
 import { ToolSummaryText } from './ToolSummaryText';
 
 export function SingleToolCall({
@@ -29,13 +30,14 @@ export function SingleToolCall({
   const isComplete = tool.state === 'completed' || tool.state === 'error';
   const isCancelled = tool.state === 'cancelled';
   const hasImages = !!tool.images?.length;
+  const hasFileLinks = Array.isArray(tool.details?.imagePaths) && tool.details.imagePaths.length > 0;
   const progressModel = buildToolProgressModel(tool);
   const [expanded, setExpanded] = useState(() => isRunning);
   const [showDetails, setShowDetails] = useState(false);
 
   const summary = useMemo(() => getCollapsedToolSummary(tool), [tool]);
   const effectiveToolName = useMemo(() => getEffectiveToolName(tool), [tool]);
-  const hasSummaryContent = !!progressModel || (isComplete && hasImages) || isCancelled;
+  const hasSummaryContent = !!progressModel || (isComplete && (hasImages || hasFileLinks)) || isCancelled;
 
   return (
     <motion.div
@@ -96,6 +98,12 @@ export function SingleToolCall({
         </div>
       ) : null}
 
+      {hasFileLinks && !expanded ? (
+        <div className="border-t border-[var(--border-subtle)]">
+          <ToolFileLinks details={tool.details} workspaceId={workspaceId} />
+        </div>
+      ) : null}
+
       <AnimatePresence>
         {expanded ? (
           <motion.div
@@ -113,6 +121,9 @@ export function SingleToolCall({
                       {progressModel ? <ToolCallProgress tool={tool} /> : null}
                       {!progressModel && isComplete && hasImages ? (
                         <ToolImages images={tool.images!} workspaceId={workspaceId} />
+                      ) : null}
+                      {!progressModel && isComplete ? (
+                        <ToolFileLinks details={tool.details} workspaceId={workspaceId} />
                       ) : null}
                       {isCancelled ? (
                         <div className="text-xs italic text-[var(--status-warning)]">

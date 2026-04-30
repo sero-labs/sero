@@ -209,7 +209,7 @@ export class AppStateManager {
 
   private async ensureFileExists(filePath: string): Promise<void> {
     try {
-      await fs.writeFile(filePath, '', { flag: 'wx' });
+      await fs.writeFile(filePath, '{}', { flag: 'wx' });
     } catch (err) {
       if (!isAlreadyExistsError(err)) {
         throw err;

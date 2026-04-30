@@ -97,7 +97,29 @@ export function getBridgedExtensionCommand(
     };
   }
 
-  return sessionItems.get(resolved.sessionId)?.commands.get(name);
+  const registered = sessionItems.get(resolved.sessionId)?.commands.get(name);
+  if (!registered) return undefined;
+
+  if (!liveRunner) {
+    // No live runner is available in some test/direct CLI contexts. Return the
+    // session-scoped registration; bridgeCommand will still provide a
+    // session-backed command context with sessionRuntime.
+    return registered;
+  }
+
+  // Some bridged extension commands are removed from the live runner command
+  // map, but their handlers are still valid if executed with the live runner's
+  // context. Never call them with the load-time context captured during
+  // extension discovery when a live runner is available; Pi action methods are
+  // unavailable there.
+  return {
+    ...registered,
+    handler: (args, _ctx) => registered.handler(args, {
+      ...(context.agentContext ? { ...context.agentContext } : {}),
+      ...liveRunner.createCommandContext(),
+      sessionRuntime: context.sessionRuntime,
+    } as Parameters<typeof registered.handler>[1]),
+  };
 }
 
 export function clearBridgedExtensionSessionItemsForSession(sessionId: string): void {
