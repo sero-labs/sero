@@ -43,17 +43,27 @@ interface DevServerStore {
   clear: () => void;
 }
 
+function getGatewayHttpOrigin(): string {
+  const envUrl = import.meta.env.VITE_GATEWAY_URL as string | undefined;
+  if (envUrl) {
+    const url = new URL(envUrl);
+    url.protocol = url.protocol === 'wss:' ? 'https:' : 'http:';
+    return url.origin;
+  }
+
+  if (import.meta.env.DEV) {
+    return `${window.location.protocol}//${window.location.hostname}:18800`;
+  }
+
+  return window.location.origin;
+}
+
 function buildPreviewUrl(
   workspaceId: string,
   port: number,
   ticket: string,
 ): string {
-  // The gateway listens on the same origin as the SPA in production;
-  // in Vite dev mode the SPA is served by Vite, so we need to point at
-  // the gateway's listener instead. The dispatcher always uses the
-  // page origin in production (which routes through Tailscale when
-  // accessed via the *.ts.net hostname), so location-relative is correct.
-  const base = `${window.location.origin}/p/${encodeURIComponent(workspaceId)}/${port}/`;
+  const base = `${getGatewayHttpOrigin()}/p/${encodeURIComponent(workspaceId)}/${port}/`;
   const url = new URL(base);
   url.searchParams.set('t', ticket);
   return url.toString();

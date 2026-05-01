@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { parseDevProxyPath } from '@electron/features/gateway/server/devserver-proxy';
+import {
+  buildProxyLocation,
+  readQueryTicket,
+  rewriteProxyBody,
+} from '@electron/features/gateway/server/devserver-proxy-utils';
 
 describe('parseDevProxyPath', () => {
   it('parses a basic preview URL', () => {
@@ -41,5 +46,33 @@ describe('parseDevProxyPath', () => {
       port: 3000,
       rest: '/',
     });
+  });
+
+  it('removes query tickets while preserving the rest of the URL', () => {
+    const parsed = parseDevProxyPath('/p/ws-1/5173/dashboard?t=secret&tab=1');
+    expect(parsed).not.toBeNull();
+    const result = readQueryTicket(parsed!.rest);
+    expect(result).toEqual({ ticket: 'secret', restWithoutTicket: '/dashboard?tab=1' });
+    expect(buildProxyLocation(parsed!, result.restWithoutTicket)).toBe(
+      '/p/ws-1/5173/dashboard?tab=1',
+    );
+  });
+
+  it('rewrites root-absolute dev server asset paths under the proxy prefix', () => {
+    const body = `
+      <script type="module" src="/@vite/client"></script>
+      <script type="module" src="/src/main.tsx"></script>
+      <img srcset="/a.png 1x, /b.png 2x" />
+      <style>.hero{background:url('/assets/bg.png')}</style>
+      <script>import RefreshRuntime from "/@react-refresh"; fetch('/api/me')</script>
+    `;
+    const rewritten = rewriteProxyBody(body, '/p/ws-1/5173');
+
+    expect(rewritten).toContain('src="/p/ws-1/5173/@vite/client"');
+    expect(rewritten).toContain('src="/p/ws-1/5173/src/main.tsx"');
+    expect(rewritten).toContain('/p/ws-1/5173/a.png 1x');
+    expect(rewritten).toContain("url('/p/ws-1/5173/assets/bg.png')");
+    expect(rewritten).toContain('"/p/ws-1/5173/@react-refresh"');
+    expect(rewritten).toContain("'/p/ws-1/5173/api/me'");
   });
 });
