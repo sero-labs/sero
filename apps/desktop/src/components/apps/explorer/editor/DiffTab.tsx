@@ -25,7 +25,7 @@ import {
 import { cn } from '@sero-ai/ui/lib/utils';
 import { useAppStore } from '@/stores/app';
 import { useThemeStore } from '@/stores/theme';
-import { resolveMonacoThemeName } from './monaco-themes';
+import { registerCustomEditorThemes, resolveMonacoThemeName } from './monaco-themes';
 import type { FileDiffEntry } from '@sero-ai/common';
 import { statusCode, statusColor, basename, langFromPath } from '@/components/apps/explorer/vcs/vcs-utils';
 
@@ -243,6 +243,7 @@ function DiffFileView({
       modified={right}
       language={language}
       theme={theme}
+      beforeMount={registerCustomEditorThemes}
       onMount={handleDiffMount}
       keepCurrentOriginalModel
       keepCurrentModifiedModel

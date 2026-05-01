@@ -5,7 +5,7 @@
  * Markdown preview intentionally continues to use Streamdown.
  */
 
-import { useEffect, useRef, useState, type SyntheticEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type SyntheticEvent } from 'react';
 import {
   AlertCircle,
   FileText,
@@ -15,10 +15,13 @@ import {
   Video,
 } from 'lucide-react';
 import { Streamdown } from 'streamdown';
-import { code } from '@streamdown/code';
+import { createCodePlugin } from '@streamdown/code';
 import { math } from '@streamdown/math';
 import { mermaid } from '@streamdown/mermaid';
 import { HtmlPreview } from './HtmlPreview';
+import { resolveEditorThemePalette, resolveMarkdownCodeThemes } from './monaco-themes';
+import { useAppStore } from '@/stores/app';
+import { useThemeStore } from '@/stores/theme';
 import type {
   BinaryPreviewKind,
   BinaryPreviewSpec,
@@ -203,17 +206,38 @@ function BinaryFilePreview({ workspaceId, filePath, spec }: BinaryFilePreviewPro
 }
 
 export function FilePreviewPane({ workspaceId, filePath, content, spec }: Props) {
+  const editorThemeId = useAppStore((state) => state.editorThemeId);
+  const effectiveMode = useThemeStore((state) => state.effectiveMode);
+  const markdownPalette = useMemo(
+    () => resolveEditorThemePalette(editorThemeId, effectiveMode),
+    [editorThemeId, effectiveMode],
+  );
+  const markdownPlugins = useMemo(
+    () => ({
+      code: createCodePlugin({ themes: resolveMarkdownCodeThemes(editorThemeId) }),
+      math,
+      mermaid,
+    }),
+    [editorThemeId],
+  );
+
   if (spec.source === 'text') {
     if (spec.kind === 'html') {
       return <HtmlPreview content={content} filePath={filePath} />;
     }
 
     return (
-      <div className="h-full overflow-auto">
+      <div
+        className="h-full overflow-auto"
+        style={{
+          backgroundColor: markdownPalette.background,
+          color: markdownPalette.foreground,
+        }}
+      >
         <div className="mx-auto w-full max-w-[920px] px-6 py-5">
           <Streamdown
             mode="static"
-            plugins={{ code, math, mermaid }}
+            plugins={markdownPlugins}
           >
             {content}
           </Streamdown>

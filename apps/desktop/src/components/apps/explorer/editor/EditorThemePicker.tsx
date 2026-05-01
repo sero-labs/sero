@@ -62,7 +62,7 @@ export function EditorThemePicker() {
       >
         <ThemeOption
           id={AUTO_EDITOR_THEME_ID}
-          label="Auto (follow UI)"
+          label="Auto (system)"
           active={editorThemeId === AUTO_EDITOR_THEME_ID}
           onSelect={() => {
             setEditorThemeId(AUTO_EDITOR_THEME_ID);

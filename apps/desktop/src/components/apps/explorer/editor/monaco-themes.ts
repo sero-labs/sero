@@ -11,6 +11,7 @@
  */
 
 import type * as monacoApi from 'monaco-editor';
+import type { ThemeInput } from '@streamdown/code';
 
 export type EditorThemeKind = 'light' | 'dark';
 
@@ -25,6 +26,11 @@ export interface EditorThemeEntry {
   monacoName: string;
   /** Custom theme definition. Omit for built-in themes (vs, vs-dark, etc.). */
   data?: monacoApi.editor.IStandaloneThemeData;
+}
+
+export interface EditorThemePalette {
+  background: string;
+  foreground: string;
 }
 
 export const AUTO_EDITOR_THEME_ID = 'auto';
@@ -300,6 +306,70 @@ export function resolveMonacoThemeName(
   const entry = THEME_BY_ID.get(id);
   if (!entry) return effectiveMode === 'dark' ? 'vs-dark' : 'vs';
   return entry.monacoName;
+}
+
+function getBuiltInPalette(id: string): EditorThemePalette | null {
+  switch (id) {
+    case 'vs':
+      return { background: '#ffffff', foreground: '#000000' };
+    case 'vs-dark':
+      return { background: '#1e1e1e', foreground: '#d4d4d4' };
+    case 'hc-light':
+      return { background: '#ffffff', foreground: '#000000' };
+    case 'hc-black':
+      return { background: '#000000', foreground: '#ffffff' };
+    default:
+      return null;
+  }
+}
+
+export function resolveEditorThemePalette(
+  id: string,
+  effectiveMode: 'light' | 'dark',
+): EditorThemePalette {
+  const resolvedId = id === AUTO_EDITOR_THEME_ID
+    ? effectiveMode === 'dark' ? 'vs-dark' : 'vs'
+    : id;
+  const builtIn = getBuiltInPalette(resolvedId);
+  if (builtIn) return builtIn;
+
+  const colors = THEME_BY_ID.get(resolvedId)?.data?.colors;
+  return {
+    background: colors?.['editor.background'] ?? (effectiveMode === 'dark' ? '#1e1e1e' : '#ffffff'),
+    foreground: colors?.['editor.foreground'] ?? (effectiveMode === 'dark' ? '#d4d4d4' : '#000000'),
+  };
+}
+
+export function resolveMarkdownCodeThemes(id: string): [ThemeInput, ThemeInput] {
+  switch (id) {
+    case 'vs':
+      return ['light-plus', 'light-plus'];
+    case 'vs-dark':
+      return ['dark-plus', 'dark-plus'];
+    case 'hc-light':
+      return ['github-light-high-contrast', 'github-light-high-contrast'];
+    case 'hc-black':
+      return ['github-dark-high-contrast', 'github-dark-high-contrast'];
+    case 'one-dark':
+      return ['one-dark-pro', 'one-dark-pro'];
+    case 'github-light':
+      return ['github-light', 'github-light'];
+    case 'github-dark':
+      return ['github-dark', 'github-dark'];
+    case 'dracula':
+      return ['dracula', 'dracula'];
+    case 'monokai':
+      return ['monokai', 'monokai'];
+    case 'solarized-light':
+      return ['solarized-light', 'solarized-light'];
+    case 'solarized-dark':
+      return ['solarized-dark', 'solarized-dark'];
+    case 'nord':
+      return ['nord', 'nord'];
+    case AUTO_EDITOR_THEME_ID:
+    default:
+      return ['github-light', 'github-dark'];
+  }
 }
 
 /**
