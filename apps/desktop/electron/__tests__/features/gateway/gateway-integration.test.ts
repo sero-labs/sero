@@ -169,6 +169,9 @@ function createAgentOps(): GatewayAgentOps {
       assertSessionWorkspace(workspaceId, sessionId);
       return historyBySession.get(sessionId) ?? [];
     },
+    listDevServers: async () => [],
+    resolveDevServerTarget: async () => null,
+    onDevServerChange: () => () => {},
   };
 }
 

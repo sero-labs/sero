@@ -34,8 +34,10 @@ export interface GatewayPushEvent {
     | 'thinking_delta'
     | 'tool_start'
     | 'tool_end'
-    | 'artifact_added';
-  sessionId: string;
+    | 'artifact_added'
+    | 'dev_server_changed';
+  /** Present on session-bound events; absent on workspace-bound events like dev_server_changed. */
+  sessionId?: string;
   [key: string]: unknown;
 }
 
@@ -257,6 +259,23 @@ export class GatewayClient {
   /** Revoke a web token. */
   revokeWebToken(tokenId: string): void {
     this.send({ type: 'revoke_web_token', tokenId });
+  }
+
+  /** List dev servers, optionally filtered to a single workspace. */
+  listDevServers(workspaceId?: string): void {
+    this.send(
+      workspaceId
+        ? { type: 'list_dev_servers', workspaceId }
+        : { type: 'list_dev_servers' },
+    );
+  }
+
+  /**
+   * Mint a short-lived ticket authorising HTTP/WS access to a dev server
+   * via the gateway's `/p/<workspace>/<port>/...` proxy.
+   */
+  createDevServerTicket(workspaceId: string, port: number): void {
+    this.send({ type: 'create_devserver_ticket', workspaceId, port });
   }
 
   // ── Internal ──────────────────────────────────────────────────

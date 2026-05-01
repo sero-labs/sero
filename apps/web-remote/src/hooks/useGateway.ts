@@ -9,6 +9,7 @@ import { useWorkspaceStore } from '@/stores/workspace';
 import { useChatStore } from '@/stores/chat';
 import { useFileStore } from '@/stores/files';
 import { useArtifactStore } from '@/stores/artifacts';
+import { useDevServerStore } from '@/stores/dev-servers';
 import type { GatewayMessage } from '@/lib/gateway-client';
 
 /**
@@ -26,6 +27,7 @@ export function useGatewayDispatcher(): void {
       useChatStore.getState().handleMessage(msg);
       useFileStore.getState().handleMessage(msg);
       useArtifactStore.getState().handleMessage(msg);
+      useDevServerStore.getState().handleMessage(msg);
     };
 
     const unsub = client.onMessage(handler);

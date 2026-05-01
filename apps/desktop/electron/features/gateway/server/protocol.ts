@@ -101,6 +101,18 @@ export interface GatewayGetSessionHistoryRequest {
   sessionId: string;
 }
 
+export interface GatewayListDevServersRequest {
+  type: 'list_dev_servers';
+  /** Filter to a specific workspace. Omit to list all servers in scope. */
+  workspaceId?: string;
+}
+
+export interface GatewayCreateDevProxyTicketRequest {
+  type: 'create_devserver_ticket';
+  workspaceId: string;
+  port: number;
+}
+
 export type GatewayRequest =
   | GatewayConnectRequest
   | GatewayPromptRequest
@@ -117,7 +129,9 @@ export type GatewayRequest =
   | GatewayCreateWebTokenRequest
   | GatewayListWebTokensRequest
   | GatewayRevokeWebTokenRequest
-  | GatewayGetSessionHistoryRequest;
+  | GatewayGetSessionHistoryRequest
+  | GatewayListDevServersRequest
+  | GatewayCreateDevProxyTicketRequest;
 
 // ── Gateway → Client responses ──────────────────────────────
 
@@ -186,6 +200,25 @@ export interface GatewayArtifactEvent {
   title: string;
 }
 
+/**
+ * Dev server lifecycle event. The `server` shape mirrors `DevServer`
+ * from the IPC types but is treated as opaque JSON here so the protocol
+ * stays decoupled from the host registry.
+ */
+export interface GatewayDevServerChangedEvent {
+  type: 'dev_server_changed';
+  /** The workspace the affected server belongs to. Used for scope filtering. */
+  workspaceId: string;
+  change:
+    | { type: 'registered'; server: Record<string, unknown> }
+    | { type: 'unregistered'; serverId: string }
+    | {
+        type: 'status_changed';
+        serverId: string;
+        status: 'running' | 'stopped' | 'starting';
+      };
+}
+
 export type GatewayPushEvent =
   | GatewayAgentStartEvent
   | GatewayAgentEndEvent
@@ -193,7 +226,8 @@ export type GatewayPushEvent =
   | GatewayThinkingDeltaEvent
   | GatewayToolStartEvent
   | GatewayToolEndEvent
-  | GatewayArtifactEvent;
+  | GatewayArtifactEvent
+  | GatewayDevServerChangedEvent;
 
 // ── Validation ──────────────────────────────────────────────
 
@@ -214,6 +248,8 @@ const VALID_REQUEST_TYPES = new Set<GatewayRequest['type']>([
   'list_web_tokens',
   'revoke_web_token',
   'get_session_history',
+  'list_dev_servers',
+  'create_devserver_ticket',
 ]);
 
 const VALID_CLIENT_TYPES = new Set<GatewayConnectRequest['clientType']>(['web', 'discord', 'cli']);
@@ -388,6 +424,29 @@ export function validateRequest(data: unknown): GatewayRequest | null {
       return workspaceId && sessionId
         ? { type: 'get_session_history', workspaceId, sessionId }
         : null;
+    }
+
+    case 'list_dev_servers': {
+      const workspaceId = readOptionalString(data, 'workspaceId');
+      if (workspaceId === null) return null;
+      return workspaceId
+        ? { type: 'list_dev_servers', workspaceId }
+        : { type: 'list_dev_servers' };
+    }
+
+    case 'create_devserver_ticket': {
+      const workspaceId = readRequiredString(data, 'workspaceId');
+      const port = data.port;
+      if (
+        !workspaceId ||
+        typeof port !== 'number' ||
+        !Number.isInteger(port) ||
+        port < 1 ||
+        port > 65535
+      ) {
+        return null;
+      }
+      return { type: 'create_devserver_ticket', workspaceId, port };
     }
   }
 

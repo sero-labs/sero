@@ -12,6 +12,7 @@ import { ChatPanel } from './ChatPanel';
 import { FileBrowser } from './FileBrowser';
 import { FilePreview } from './FilePreview';
 import { ArtifactGallery } from './ArtifactGallery';
+import { PreviewPanel } from './PreviewPanel';
 import { StatusBar } from './StatusBar';
 import { AccessBanner } from './AccessBanner';
 import { useArtifactStore } from '@/stores/artifacts';
@@ -29,9 +30,10 @@ import {
   FolderTree,
   Image as ImageIcon,
   Menu,
+  Monitor,
 } from 'lucide-react';
 
-type RightPanel = 'files' | 'artifacts' | null;
+type RightPanel = 'files' | 'artifacts' | 'preview' | null;
 
 export function Layout() {
   const isMobile = useIsMobile();
@@ -45,7 +47,7 @@ export function Layout() {
   const toggleSidebar = useCallback(() => setSidebarOpen((v) => !v), []);
 
   const toggleRightPanel = useCallback(
-    (panel: 'files' | 'artifacts') => {
+    (panel: 'files' | 'artifacts' | 'preview') => {
       setRightPanel((current) => (current === panel ? null : panel));
     },
     [],
@@ -89,6 +91,14 @@ export function Layout() {
           >
             <ImageIcon className="size-4" />
           </Button>
+          <Button
+            onClick={() => toggleRightPanel('preview')}
+            variant={rightPanel === 'preview' ? 'secondary' : 'ghost'}
+            size="icon-xs"
+            title="Dev Server Preview"
+          >
+            <Monitor className="size-4" />
+          </Button>
         </div>
       </header>
 
@@ -110,9 +120,12 @@ export function Layout() {
 
         {/* Desktop right panel — inline panel */}
         {!isMobile && rightPanel && (
-          <div className="w-80 border-l border-border bg-card shrink-0 overflow-hidden">
+          <div
+            className={`${rightPanel === 'preview' ? 'w-[28rem]' : 'w-80'} border-l border-border bg-card shrink-0 overflow-hidden`}
+          >
             {rightPanel === 'files' && <FilesPanel />}
             {rightPanel === 'artifacts' && <ArtifactPanelConnected />}
+            {rightPanel === 'preview' && <PreviewPanel />}
           </div>
         )}
       </div>
@@ -140,15 +153,24 @@ export function Layout() {
           open={rightPanel !== null}
           onOpenChange={(open) => { if (!open) setRightPanel(null); }}
         >
-          <SheetContent side="right" className="w-80 p-0" showCloseButton={false}>
+          <SheetContent
+            side="right"
+            className={rightPanel === 'preview' ? 'w-[95vw] p-0' : 'w-80 p-0'}
+            showCloseButton={false}
+          >
             <SheetHeader className="px-3 py-2 border-b border-border">
               <SheetTitle className="text-sm">
-                {rightPanel === 'files' ? 'Files' : 'Artifacts'}
+                {rightPanel === 'files'
+                  ? 'Files'
+                  : rightPanel === 'artifacts'
+                    ? 'Artifacts'
+                    : 'Dev Servers'}
               </SheetTitle>
             </SheetHeader>
             <div className="flex-1 overflow-hidden">
               {rightPanel === 'files' && <FilesPanel />}
               {rightPanel === 'artifacts' && <ArtifactPanelConnected />}
+              {rightPanel === 'preview' && <PreviewPanel />}
             </div>
           </SheetContent>
         </Sheet>

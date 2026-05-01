@@ -65,6 +65,10 @@ class FakeGatewayClient implements GatewayClientLike {
 
   getArtifact(): void {}
 
+  listDevServers(): void {}
+
+  createDevServerTicket(): void {}
+
   emitState(state: ConnectionState): void {
     for (const handler of this.stateHandlers) {
       handler(state);

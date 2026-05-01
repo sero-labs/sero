@@ -14,10 +14,28 @@ import { sendResponse, routeAgentRequest, disposeIdempotencyStore } from './serv
 import { primeStaticFileCache, tryServeStaticFile } from './server/static-files';
 import { redactSecrets } from '@electron/shared/lib/secret-redact';
 import { validateRequest, type GatewayRequest, type GatewayResponse, type GatewayPushEvent } from './server/protocol';
-import type { GatewayConfig, GatewayAgentOps } from './server/types';
-import { authorizeArtifactFromSession, hasSessionAccess, type GatewayAccessScope } from './server/access-control';
+import type { GatewayConfig, GatewayAgentOps, GatewayDevServerChange } from './server/types';
+import { hasWorkspaceAccess, authorizeArtifactFromSession, hasSessionAccess, type GatewayAccessScope } from './server/access-control';
+import {
+  DevProxyTicketManager,
+  generateTicketSecret,
+} from './security/devserver-ticket';
+import {
+  DEV_PROXY_PREFIX,
+  handleDevProxyRequest,
+  handleDevProxyUpgrade,
+  toDevServerChangedEvent,
+} from './server/devserver-proxy';
 
-export type { GatewayConfig, GatewayAgentOps, GatewayFileEntry, GatewayFileContent } from './server/types';
+export type {
+  GatewayConfig,
+  GatewayAgentOps,
+  GatewayFileEntry,
+  GatewayFileContent,
+  GatewayDevServerInfo,
+  GatewayDevServerTarget,
+  GatewayDevServerChange,
+} from './server/types';
 
 /** Maximum WebSocket message payload (1 MB). */
 const MAX_PAYLOAD_BYTES = 1 * 1024 * 1024;
@@ -73,6 +91,8 @@ export class GatewayServer {
   private config: GatewayConfig;
   private webChatHtml: WebChatHtmlProvider | null = null;
   private idleCheckTimer: ReturnType<typeof setInterval> | null = null;
+  private devProxyTickets: DevProxyTicketManager;
+  private devServerUnsubscribe: (() => void) | null = null;
 
   private authLimiter = new RateLimiter({
     maxAttempts: 5,
@@ -87,11 +107,22 @@ export class GatewayServer {
     this.config = config;
     this.auth = new GatewayAuth(config.tokenPath);
     this.costTracker = new CostTracker(config.configDir);
+    // Tickets are signed with a process-bound secret. We don't persist
+    // it: a gateway restart invalidates outstanding tickets, which is
+    // the desired behaviour for short-lived preview credentials.
+    this.devProxyTickets = new DevProxyTicketManager(generateTicketSecret());
   }
 
   /** Register agent operations handler (call before start). */
   setAgentOps(ops: GatewayAgentOps): void {
     this.agentOps = ops;
+    if (this.devServerUnsubscribe) {
+      this.devServerUnsubscribe();
+      this.devServerUnsubscribe = null;
+    }
+    this.devServerUnsubscribe = ops.onDevServerChange((change) => {
+      this.broadcastDevServerChange(change);
+    });
   }
 
   /**
@@ -111,15 +142,38 @@ export class GatewayServer {
     primeStaticFileCache(__dirname);
 
     this.httpServer = http.createServer((req, res) => {
-      // Security headers on all responses
-      res.setHeader('Referrer-Policy', 'no-referrer');
-      res.setHeader('X-Content-Type-Options', 'nosniff');
-      res.setHeader(
-        'Content-Security-Policy',
-        "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' ws: wss:",
-      );
+      const rawUrl = req.url ?? '/';
+      const pathname = rawUrl.split('?')[0];
+      const isProxyRequest = pathname.startsWith(DEV_PROXY_PREFIX);
 
-      const pathname = (req.url ?? '/').split('?')[0];
+      // Security headers on all responses except the proxy: the proxy
+      // streams whatever the upstream sends and adding our CSP would
+      // break framework dev servers (Vite/Next inject their own scripts).
+      if (!isProxyRequest) {
+        res.setHeader('Referrer-Policy', 'no-referrer');
+        res.setHeader('X-Content-Type-Options', 'nosniff');
+        res.setHeader(
+          'Content-Security-Policy',
+          // frame-src 'self' lets the SPA iframe /p/... previews on the same origin.
+          "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' ws: wss:; frame-src 'self'",
+        );
+      }
+
+      // Dev server reverse proxy — must run before the SPA fallback.
+      if (isProxyRequest) {
+        void handleDevProxyRequest(req, res, this.proxyDeps()).then((handled) => {
+          if (!handled) {
+            res.writeHead(404);
+            res.end('Not Found');
+          }
+        }).catch((err) => {
+          if (!res.headersSent) {
+            res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
+          }
+          res.end(err instanceof Error ? err.message : 'Dev proxy error');
+        });
+        return;
+      }
 
       // Server-side routes must come before the SPA static fallback.
       if (pathname === '/basic' && this.webChatHtml) {
@@ -139,9 +193,26 @@ export class GatewayServer {
       res.end('Not Found');
     });
 
+    // The 'ws' library handles upgrades for paths it owns, but we need to
+    // intercept upgrades to /p/... before the WebSocketServer does. Setting
+    // `noServer: true` and binding 'upgrade' manually keeps both endpoints
+    // on the same listener.
     this.wss = new WebSocketServer({
-      server: this.httpServer,
+      noServer: true,
       maxPayload: MAX_PAYLOAD_BYTES,
+    });
+
+    this.httpServer.on('upgrade', (req, socket, head) => {
+      const path = (req.url ?? '/').split('?')[0];
+      if (path.startsWith(DEV_PROXY_PREFIX)) {
+        void handleDevProxyUpgrade(req, socket, head, this.proxyDeps()).catch(() => {
+          socket.destroy();
+        });
+        return;
+      }
+      this.wss!.handleUpgrade(req, socket, head, (ws) => {
+        this.wss!.emit('connection', ws, req);
+      });
     });
 
     this.wss.on('connection', (ws, req) => this.handleConnection(ws, req));
@@ -169,6 +240,10 @@ export class GatewayServer {
     if (this.idleCheckTimer) {
       clearInterval(this.idleCheckTimer);
       this.idleCheckTimer = null;
+    }
+    if (this.devServerUnsubscribe) {
+      this.devServerUnsubscribe();
+      this.devServerUnsubscribe = null;
     }
     this.authLimiter.dispose();
     disposeIdempotencyStore();
@@ -247,6 +322,29 @@ export class GatewayServer {
   /** Get the auth manager (for web token operations from the request handler). */
   getAuth(): GatewayAuth {
     return this.auth;
+  }
+
+  /**
+   * Push a dev server change to clients authorized for the affected
+   * workspace. Master-token clients see everything; scoped clients
+   * only see workspaces in their authorization set.
+   */
+  broadcastDevServerChange(change: GatewayDevServerChange): void {
+    const payload = JSON.stringify(toDevServerChangedEvent(change));
+    for (const [ws, client] of this.clients) {
+      if (!client.authenticated) continue;
+      if (!hasWorkspaceAccess(client, change.workspaceId)) continue;
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(payload);
+      }
+    }
+  }
+
+  private proxyDeps() {
+    return {
+      agentOps: () => this.agentOps,
+      tickets: this.devProxyTickets,
+    };
   }
 
   private canReceiveSessionEvent(client: ConnectedClient, sessionId: string): boolean {
@@ -492,6 +590,7 @@ export class GatewayServer {
       this.costTracker,
       this.auth,
       client.isMasterAuth,
+      this.devProxyTickets,
     );
   }
 }

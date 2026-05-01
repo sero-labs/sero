@@ -10,6 +10,7 @@ import type { GatewayRequest, GatewayResponse } from './protocol';
 import type { GatewayAgentOps } from '..';
 import type { CostTracker } from './cost-tracker';
 import type { GatewayAuth } from '../security/auth';
+import type { DevProxyTicketManager } from '../security/devserver-ticket';
 import {
   authorizeSessionFromWorkspace,
   authorizeSessionsFromWorkspace,
@@ -82,6 +83,7 @@ export async function routeAgentRequest(
   costTracker: CostTracker,
   auth?: GatewayAuth,
   isMasterAuth?: boolean,
+  devProxyTickets?: DevProxyTicketManager | null,
 ): Promise<void> {
   // Try extended handlers first (file ops, artifacts, web tokens, sessions)
   if (auth) {
@@ -93,6 +95,7 @@ export async function routeAgentRequest(
       subscribeToSession,
       auth,
       isMasterAuth ?? false,
+      devProxyTickets ?? null,
     );
     if (handled) return;
   }
