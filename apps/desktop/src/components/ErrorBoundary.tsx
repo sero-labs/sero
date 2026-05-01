@@ -1,8 +1,45 @@
 import { Component } from 'react';
 import type { ErrorInfo, ReactNode } from 'react';
-import { AlertTriangle, RotateCcw, Copy, Check } from 'lucide-react';
+import { AlertTriangle, RotateCcw, RefreshCw, Copy, Check } from 'lucide-react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { copyTextToClipboard } from '@/lib/copy-to-clipboard';
+
+// Dev-time hazard: when Vite re-optimizes deps (lockfile churn, new transitive
+// imports, restart) the hashed chunk filenames under node_modules/.vite/deps/
+// rotate. Already-loaded pages still hold the old URLs and 404 on the next
+// lazy() render. We detect that specific failure mode so we can recover by
+// reloading the page rather than crashing the whole region permanently.
+function isDynamicImportError(error: Error): boolean {
+  if (error.name === 'ChunkLoadError') return true;
+  const msg = `${error.message}`.toLowerCase();
+  return (
+    msg.includes('failed to fetch dynamically imported module') ||
+    msg.includes('error loading dynamically imported module') ||
+    msg.includes('importing a module script failed')
+  );
+}
+
+const RELOAD_TIMESTAMP_KEY = '__sero_chunk_reload_at';
+// Cooldown — if we reloaded recently and still hit the same failure, the reload
+// didn't help; fall through to the manual UI instead of looping.
+const RELOAD_COOLDOWN_MS = 30_000;
+
+function reloadedRecently(): boolean {
+  try {
+    const ts = Number(sessionStorage.getItem(RELOAD_TIMESTAMP_KEY) ?? '0');
+    return ts > 0 && Date.now() - ts < RELOAD_COOLDOWN_MS;
+  } catch {
+    return true;
+  }
+}
+
+function markReloaded(): void {
+  try {
+    sessionStorage.setItem(RELOAD_TIMESTAMP_KEY, String(Date.now()));
+  } catch {
+    /* sessionStorage unavailable — fall through to manual reload UI */
+  }
+}
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -38,10 +75,23 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error(`[ErrorBoundary${this.props.region ? `:${this.props.region}` : ''}]`, error, errorInfo);
     this.props.onError?.(error, errorInfo);
+
+    if (isDynamicImportError(error) && !reloadedRecently()) {
+      markReloaded();
+      // Defer past the current render so React's commit phase finishes cleanly
+      // before navigation tears the document down.
+      setTimeout(() => {
+        if (typeof window !== 'undefined') window.location.reload();
+      }, 0);
+    }
   }
 
   private handleRetry = () => {
     this.setState({ error: null, copied: false });
+  };
+
+  private handleReload = () => {
+    if (typeof window !== 'undefined') window.location.reload();
   };
 
   private handleCopy = () => {
@@ -62,18 +112,30 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
     const { error, copied } = this.state;
     const { region, compact } = this.props;
+    const isChunkError = isDynamicImportError(error);
 
     if (compact) {
       return (
         <div className="flex h-full flex-col items-center justify-center gap-2 p-4 text-center">
           <AlertTriangle className="size-5 text-[var(--text-muted)]" />
           <p className="text-xs text-[var(--text-muted)]">
-            {region ? `${region} crashed` : 'Something went wrong'}
+            {isChunkError
+              ? 'Stale module — reload to recover'
+              : region
+                ? `${region} crashed`
+                : 'Something went wrong'}
           </p>
-          <Button variant="ghost" size="xs" onClick={this.handleRetry}>
-            <RotateCcw className="size-3" />
-            Retry
-          </Button>
+          {isChunkError ? (
+            <Button variant="ghost" size="xs" onClick={this.handleReload}>
+              <RefreshCw className="size-3" />
+              Reload
+            </Button>
+          ) : (
+            <Button variant="ghost" size="xs" onClick={this.handleRetry}>
+              <RotateCcw className="size-3" />
+              Retry
+            </Button>
+          )}
         </div>
       );
     }
@@ -85,11 +147,16 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             <AlertTriangle className="mt-0.5 size-5 shrink-0 text-[var(--text-danger)]" />
             <div className="min-w-0">
               <h3 className="text-sm font-medium text-[var(--text-default)]">
-                {region ? `${region} crashed` : 'Something went wrong'}
+                {isChunkError
+                  ? 'Stale module detected'
+                  : region
+                    ? `${region} crashed`
+                    : 'Something went wrong'}
               </h3>
               <p className="mt-1 text-xs text-[var(--text-muted)]">
-                An unhandled error occurred. You can retry to recover, or copy
-                the error details for debugging.
+                {isChunkError
+                  ? 'A dynamically loaded module failed to fetch. This usually means dependencies were re-bundled. Reload to recover.'
+                  : 'An unhandled error occurred. You can retry to recover, or copy the error details for debugging.'}
               </p>
             </div>
           </div>
@@ -108,10 +175,17 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
           </pre>
 
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={this.handleRetry}>
-              <RotateCcw className="size-3.5" />
-              Retry
-            </Button>
+            {isChunkError ? (
+              <Button variant="outline" size="sm" onClick={this.handleReload}>
+                <RefreshCw className="size-3.5" />
+                Reload
+              </Button>
+            ) : (
+              <Button variant="outline" size="sm" onClick={this.handleRetry}>
+                <RotateCcw className="size-3.5" />
+                Retry
+              </Button>
+            )}
             <Button variant="ghost" size="sm" onClick={this.handleCopy}>
               {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
               {copied ? 'Copied' : 'Copy error'}
