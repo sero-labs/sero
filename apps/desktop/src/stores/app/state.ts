@@ -62,6 +62,10 @@ export interface AppState {
   theme: Theme;
   setTheme: (theme: Theme) => void;
   toggleTheme: () => void;
+
+  // Monaco editor theme (separate from UI theme)
+  editorThemeId: string;
+  setEditorThemeId: (id: string) => void;
 }
 
 function preloadAndActivateApp(
@@ -228,5 +232,12 @@ export const useAppStore = create<AppState>((set, get) => ({
     useThemeStore.getState().toggleMode();
     const effective = useThemeStore.getState().effectiveMode;
     set({ theme: effective });
+  },
+
+  // Monaco editor theme — defaults to 'auto' which follows the UI mode.
+  editorThemeId: 'auto',
+  setEditorThemeId: (id) => {
+    set({ editorThemeId: id });
+    persistLayout({ editorThemeId: id });
   },
 }));

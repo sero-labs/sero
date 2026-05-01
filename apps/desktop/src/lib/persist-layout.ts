@@ -42,6 +42,7 @@ function buildLayoutState(partial: Partial<LayoutState>): LayoutState {
       partial.chatCollaborationSizePct ?? app.chatCollaborationSizePct,
     theme: partial.theme ?? app.theme,
     activeThemeId: partial.activeThemeId ?? useThemeStore.getState().activePresetId,
+    editorThemeId: partial.editorThemeId ?? app.editorThemeId,
     activeWorkspaceId: partial.activeWorkspaceId !== undefined
       ? partial.activeWorkspaceId
       : ws.activeWorkspaceId,
@@ -70,8 +71,11 @@ function buildLayoutState(partial: Partial<LayoutState>): LayoutState {
 
 /** Flush layout state to disk (un-debounced). */
 function flushLayout(partial: Partial<LayoutState>): void {
+  const seroLayout = globalThis.window?.sero?.layout;
+  if (!seroLayout) return;
+
   const state = buildLayoutState(partial);
-  window.sero.layout.save(state).catch((err) => {
+  seroLayout.save(state).catch((err) => {
     console.warn('[persist-layout] Failed to persist layout:', err);
   });
 }

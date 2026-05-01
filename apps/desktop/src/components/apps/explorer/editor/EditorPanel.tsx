@@ -14,6 +14,8 @@ import { DevServerPreview, isDevServerTab } from './DevServerPreview';
 import { FilePreviewPane } from './FilePreviewPane';
 import { getFilePreviewSpec } from './file-preview-registry';
 import { ViewModeToggle } from './ViewModeToggle';
+import { EditorThemePicker } from './EditorThemePicker';
+import { resolveMonacoThemeName } from './monaco-themes';
 import {
   type EditorPanelProps,
 } from './editor-panel-shared';
@@ -23,6 +25,7 @@ import { useEditorRuntimeSync } from './useEditorRuntimeSync';
 import { useMonacoNavigation } from './useMonacoNavigation';
 import { useLsp } from '@/lsp/use-lsp';
 import { useAppStore } from '@/stores/app';
+import { useThemeStore } from '@/stores/theme';
 
 function EmptyEditorState() {
   return (
@@ -106,7 +109,9 @@ export function EditorPanel({
     setDirtyPaths: documentState.setDirtyPaths,
   });
 
-  const appTheme = useAppStore((state) => state.theme);
+  const effectiveMode = useThemeStore((state) => state.effectiveMode);
+  const editorThemeId = useAppStore((state) => state.editorThemeId);
+  const monacoThemeName = resolveMonacoThemeName(editorThemeId, effectiveMode);
   const previewSpec = activeTab ? getFilePreviewSpec(activeTab) : null;
   const isDevServer = !!activeTab && isDevServerTab(activeTab);
   const supportsCodeView = !!previewSpec?.supportsCodeView;
@@ -133,12 +138,15 @@ export function EditorPanel({
         onCloseAllTabs={documentState.handleCloseAllTabs}
         onReorderTabs={onReorderTabs}
         rightSlot={
-          supportsCodeView ? (
-            <ViewModeToggle
-              viewMode={documentState.viewMode}
-              onModeChange={documentState.handleViewModeChange}
-            />
-          ) : undefined
+          <div className="flex h-full items-center">
+            {supportsCodeView ? (
+              <ViewModeToggle
+                viewMode={documentState.viewMode}
+                onModeChange={documentState.handleViewModeChange}
+              />
+            ) : null}
+            <EditorThemePicker />
+          </div>
         }
       />
       {statusNotice ? (
@@ -166,7 +174,7 @@ export function EditorPanel({
               onChange={documentState.handleChange}
               beforeMount={monacoState.handleBeforeMount}
               onMount={monacoState.handleEditorMount}
-              theme={appTheme === 'dark' ? 'vs-dark' : 'vs'}
+              theme={monacoThemeName}
               options={{
                 fontSize: 13,
                 fontFamily: "'SF Mono', 'Fira Code', 'JetBrains Mono', monospace",

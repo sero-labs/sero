@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from 'react';
 import * as monacoApi from 'monaco-editor';
 import type { editor as MonacoEditor } from 'monaco-editor';
 import { applyGoto, type PendingGoto } from './editor-panel-shared';
+import { registerCustomEditorThemes } from './monaco-themes';
 
 export function useEditorMonacoState() {
   const editorRef = useRef<MonacoEditor.IStandaloneCodeEditor | null>(null);
@@ -60,6 +61,7 @@ export function useEditorMonacoState() {
       noSemanticValidation: true,
       noSyntaxValidation: true,
     });
+    registerCustomEditorThemes(monaco);
   }, []);
 
   const handleEditorMount = useCallback(
