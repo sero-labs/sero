@@ -9,9 +9,15 @@ RUN apt-get update -qq && \
       git gh openssh-client curl wget build-essential ca-certificates \
       procps less vim jq \
       iproute2 net-tools dnsutils \
-      python3 python3-pip python3-venv && \
+      python3 python3-pip python3-venv \
+      ripgrep fd-find unzip zip xz-utils sqlite3 && \
+    ln -sf /usr/bin/fdfind /usr/local/bin/fd && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
+
+# Pin the package manager declared by the monorepo so container-backed
+# workflows do not depend on whatever Corepack happens to expose by default.
+RUN corepack enable && corepack prepare pnpm@10.11.0 --activate
 
 # Configure Git defaults for non-interactive agent use
 RUN git config --global user.name "Sero" && \
@@ -20,7 +26,8 @@ RUN git config --global user.name "Sero" && \
 
 # agent-browser + matching Playwright browser assets for browser automation/recording.
 RUN npm install -g agent-browser && \
-    npx -y playwright@1.57.0 install chromium ffmpeg
+    npx -y playwright@1.57.0 install --with-deps chromium ffmpeg && \
+    rm -rf /var/lib/apt/lists/*
 
 # Use tini as PID 1 — reaps zombie processes automatically
 ENTRYPOINT ["/usr/bin/tini", "--"]

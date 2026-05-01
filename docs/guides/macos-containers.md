@@ -54,6 +54,21 @@ Sero expects the workspace image:
 sero-node:latest
 ```
 
+For local development, build it with:
+
+```bash
+cd apps/desktop
+pnpm container:build-image
+```
+
+Public releases publish the same Dockerfile to GitHub Container Registry as:
+
+```text
+ghcr.io/<owner>/sero-node:latest
+ghcr.io/<owner>/sero-node:<version>
+ghcr.io/<owner>/sero-node:sha-<git-sha>
+```
+
 If you changed `apps/desktop/images/Dockerfile.sero-node` or container-installed tools, rebuild the image and recreate affected workspace containers.
 
 ## Common problems

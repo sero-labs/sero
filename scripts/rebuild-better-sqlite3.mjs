@@ -117,6 +117,11 @@ function rebuild(sqlite3Dir, electronVersion) {
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 function main() {
+  if (process.env.SERO_SKIP_NATIVE_REBUILD === '1') {
+    console.log('[better-sqlite3] Skipping native rebuild because SERO_SKIP_NATIVE_REBUILD=1.');
+    process.exit(0);
+  }
+
   console.log('[better-sqlite3] Checking native binary for Electron...');
 
   const sqlite3Dir = findBetterSqlite3();

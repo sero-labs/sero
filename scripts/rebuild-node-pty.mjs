@@ -89,6 +89,11 @@ function rebuild(ptyDir) {
 // ── Main ────────────────────────────────────────────────────
 
 function main() {
+  if (process.env.SERO_SKIP_NATIVE_REBUILD === '1') {
+    console.log('[node-pty] Skipping native rebuild because SERO_SKIP_NATIVE_REBUILD=1.');
+    process.exit(0);
+  }
+
   console.log('[node-pty] Checking native binary...');
 
   const ptyDir = findNodePtyDir();
