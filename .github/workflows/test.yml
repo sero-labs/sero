@@ -129,7 +129,7 @@ jobs:
   fast-checks:
     name: Fast checks
     needs: changes
-    if: needs.changes.result == 'success'
+    if: needs.changes.result == 'success' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -164,7 +164,7 @@ jobs:
   desktop-e2e:
     name: Desktop e2e
     needs: changes
-    if: needs.changes.result == 'success' && needs.changes.outputs.desktop_e2e == 'true'
+    if: needs.changes.result == 'success' && needs.changes.outputs.desktop_e2e == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: macos-latest
     timeout-minutes: 25
     steps:
@@ -221,6 +221,12 @@ jobs:
             echo "Change detection failed or was cancelled."
             exit 1
           fi
+
+          if [[ "${{ github.event_name }}" == "pull_request" && "${{ github.event.pull_request.head.repo.full_name }}" != "${{ github.repository }}" ]]; then
+            echo "External fork PR detected; repository compute-heavy checks are skipped until a maintainer reviews or syncs the branch."
+            exit 0
+          fi
+
           if [[ "${{ needs.fast-checks.result }}" != "success" ]]; then
             echo "Fast checks failed or were cancelled."
             exit 1
