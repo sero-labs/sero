@@ -24,6 +24,8 @@ import {
 } from 'lucide-react';
 import { cn } from '@sero-ai/ui/lib/utils';
 import { useAppStore } from '@/stores/app';
+import { useThemeStore } from '@/stores/theme';
+import { resolveMonacoThemeName } from './monaco-themes';
 import type { FileDiffEntry } from '@sero-ai/common';
 import { statusCode, statusColor, basename, langFromPath } from '@/components/apps/explorer/vcs/vcs-utils';
 
@@ -41,7 +43,9 @@ interface Props {
 
 export function DiffTab({ state }: Props) {
   const { workspaceId, fromRev, toRev, initialPath } = state;
-  const theme = useAppStore((s) => s.theme);
+  const effectiveMode = useThemeStore((s) => s.effectiveMode);
+  const editorThemeId = useAppStore((s) => s.editorThemeId);
+  const monacoThemeName = resolveMonacoThemeName(editorThemeId, effectiveMode);
 
   const [files, setFiles] = useState<FileDiffEntry[]>([]);
   const [activePath, setActivePath] = useState<string | null>(initialPath ?? null);
@@ -152,7 +156,7 @@ export function DiffTab({ state }: Props) {
               toRev={toRev}
               path={activePath}
               language={language}
-              theme={theme === 'dark' ? 'vs-dark' : 'vs'}
+              theme={monacoThemeName}
               sideBySide={sideBySide}
             />
           ) : (

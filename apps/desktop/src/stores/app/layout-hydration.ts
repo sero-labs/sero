@@ -38,6 +38,10 @@ export async function loadLayout(): Promise<void> {
       const effective = useThemeStore.getState().effectiveMode;
       update.theme = effective;
 
+      if (typeof state.editorThemeId === 'string' && state.editorThemeId.length > 0) {
+        update.editorThemeId = state.editorThemeId;
+      }
+
       // Hydrate active app
       if (state.activeApp && typeof state.activeApp === 'string') {
         update.activeApp = state.activeApp;

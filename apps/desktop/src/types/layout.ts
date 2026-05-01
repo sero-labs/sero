@@ -34,6 +34,8 @@ export interface LayoutState {
   theme?: string;
   /** Active theme preset ID. */
   activeThemeId?: string;
+  /** Selected Monaco editor theme ID (defaults to 'auto' which follows the UI mode). */
+  editorThemeId?: string;
   /** Last active workspace ID. */
   activeWorkspaceId?: string | null;
   /** Last active app tab. */

@@ -42,6 +42,7 @@ function buildLayoutState(partial: Partial<LayoutState>): LayoutState {
       partial.chatCollaborationSizePct ?? app.chatCollaborationSizePct,
     theme: partial.theme ?? app.theme,
     activeThemeId: partial.activeThemeId ?? useThemeStore.getState().activePresetId,
+    editorThemeId: partial.editorThemeId ?? app.editorThemeId,
     activeWorkspaceId: partial.activeWorkspaceId !== undefined
       ? partial.activeWorkspaceId
       : ws.activeWorkspaceId,
