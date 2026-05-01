@@ -32,9 +32,18 @@
           "name": "Web Activity",
           "component": "WebWidget",
           "description": "Recent web searches and fetches",
-          "defaultSize": { "w": 2, "h": 2 },
-          "minSize": { "w": 2, "h": 2 },
-          "maxSize": { "w": 4, "h": 3 }
+          "defaultSize": {
+            "w": 2,
+            "h": 2
+          },
+          "minSize": {
+            "w": 2,
+            "h": 2
+          },
+          "maxSize": {
+            "w": 4,
+            "h": 3
+          }
         }
       ]
     },
@@ -52,13 +61,13 @@
     }
   },
   "dependencies": {
-    "@sinclair/typebox": "catalog:",
     "@mozilla/readability": "^0.5.0",
+    "@sinclair/typebox": "catalog:",
+    "better-sqlite3": "^12.8.0",
     "linkedom": "^0.16.0",
     "p-limit": "^6.1.0",
-    "turndown": "^7.2.0",
-    "unpdf": "^1.4.0",
-    "better-sqlite3": "^12.8.0"
+    "turndown": "^7.2.4",
+    "unpdf": "^1.4.0"
   },
   "peerDependencies": {
     "@mariozechner/pi-ai": "catalog:peer",
@@ -69,8 +78,8 @@
   "devDependencies": {
     "@module-federation/vite": "catalog:",
     "@sero-ai/app-runtime": "workspace:@sero-ai/app-runtime@*",
-    "@sero-ai/ui": "workspace:*",
     "@sero-ai/common": "workspace:*",
+    "@sero-ai/ui": "workspace:*",
     "@tailwindcss/vite": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
