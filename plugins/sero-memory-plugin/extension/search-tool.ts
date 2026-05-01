@@ -55,6 +55,20 @@ function text(t: string, isError = false) {
   };
 }
 
+function noResultsHint(scope: MemorySearchScope, mode: 'keyword' | 'semantic' | 'deep'): string[] {
+  const hints = [
+    'If this was a conversation-recall request, retry with `--scope sessions` and a shorter query using likely original wording rather than meta words like "remember".',
+    'Examples: `joke`, `tell me a joke`, `example`, or the specific topic/person/place the user asked about.',
+  ];
+  if (scope === 'memory') {
+    hints.unshift('This search only covered curated memory files. Use `--scope sessions` for past chat transcripts.');
+  }
+  if (mode === 'keyword') {
+    hints.push('If wording may differ, retry with `--mode semantic` or `--mode deep`.');
+  }
+  return hints;
+}
+
 // ── Register ───────────────────────────────────────────────────
 
 export function registerSearchTool(pi: ExtensionAPI): void {
@@ -75,8 +89,9 @@ export function registerSearchTool(pi: ExtensionAPI): void {
       "- 'memory': search MEMORY.md, USER.md, IDENTITY.md, SCRATCHPAD.md, and daily logs only.",
       "- 'sessions': search exported past conversations only.",
       '',
+      'For user questions like "what do you remember", "what did you tell me", "what jokes/examples/advice did you give", or anything about another session, call this tool before answering. Prefer scope: sessions for conversation recall.',
       'Start with one precise query. If the first search already returns a direct answer, answer from it instead of immediately searching again.',
-      'Only rephrase or switch modes if the first search misses or is ambiguous.',
+      'Only rephrase or switch modes if the first search misses or is ambiguous. For recall misses, retry with likely original wording and fewer meta words (for example "joke" or "tell me a joke" rather than "what jokes do you remember telling me").',
       'Use #tags and [[links]] in memory content to improve keyword recall.',
     ].join('\n'),
     parameters: SearchParams,
@@ -149,6 +164,7 @@ export function registerSearchTool(pi: ExtensionAPI): void {
           return text([
             backfillMessage,
             `No results for "${query}" (mode: ${mode}, scope: ${scope}).`,
+            ...noResultsHint(scope, mode),
           ].filter(Boolean).join('\n\n'));
         }
 

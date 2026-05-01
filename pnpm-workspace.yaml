@@ -13,17 +13,21 @@ onlyBuiltDependencies:
 # Single source of truth for shared dependency versions.
 # Use "catalog:" in any package.json to reference these.
 catalog:
-  # React
+  # React — keep both this catalog and `catalogs.peer` (below) on the SAME
+  # range. Mismatched specs (e.g. exact here + ">=" peer) cause pnpm to
+  # resolve transitive consumers (radix-ui, streamdown, recharts, …) against
+  # a different react version than the apps, splitting the install into two
+  # react copies and breaking hooks at runtime.
   react: "^19.2.4"
   react-dom: "^19.2.4"
 
   # Build tooling
-  tailwindcss: "^4.1.18"
-  "@tailwindcss/vite": "^4.1.18"
+  tailwindcss: "4.1.18"
+  "@tailwindcss/vite": "4.1.18"
   typescript: "^5.9.3"
-  vite: "^6.4.1"
+  vite: "6.4.1"
   "@vitejs/plugin-react": "^4.7.0"
-  "@module-federation/vite": "^1.11.0"
+  "@module-federation/vite": "1.11.0"
 
   # Types
   "@types/react": "^19.2.13"
@@ -40,10 +44,10 @@ catalog:
   zod: "^4.3.6"
 
   # Shared libraries
-  "@sinclair/typebox": "^0.34.48"
+  "@sinclair/typebox": "^0.34.49"
   lucide-react: "^0.563.0"
   motion: "^12.34.0"
-  streamdown: "^2.4.0"
+  streamdown: "^2.5.0"
   vitest: "^4.0.18"
 
 # ── Named catalogs ─────────────────────────────────────────────
@@ -54,6 +58,8 @@ catalogs:
     "@mariozechner/pi-ai": ">=0.61.1"
     "@mariozechner/pi-coding-agent": ">=0.61.1"
     "@mariozechner/pi-tui": ">=0.61.1"
-    react: ">=19.0.0"
-    react-dom: ">=19.0.0"
+    # Mirror the strict catalog above. See the comment there for why these
+    # MUST stay aligned.
+    react: "^19.2.4"
+    react-dom: "^19.2.4"
     zod: ">=4.0.0"

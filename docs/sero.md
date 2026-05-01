@@ -13,10 +13,9 @@ agents are woven into the workspace OS.
 ## Core Principle: Pi is the Brain
 
 Pi is not a plugin, integration, or service that Sero calls. **Pi provides the
-intelligence layer that Sero is built on.** Every decision the workspace makes
+agentic harness that Sero is built on.** Every decision the workspace makes
 on behalf of the user flows through Pi.
 
-- **Pi decides what to do**, containers execute it
 - **Pi's extension system** is how Sero registers its special capabilities —
   not a separate plugin framework
 - **Pi's event stream** drives the entire UI: agent chat, tool feedback, status

@@ -12,6 +12,7 @@ import {
   ToolImages,
   SingleToolCall,
 } from './ToolCallHelpers';
+import { getImagePaths, ToolFileLinks } from './tool-call-helpers/ToolFileLinks';
 
 // ── Types ───────────────────────────────────────────────────────
 
@@ -123,6 +124,10 @@ export const ToolCallGroup = memo(function ToolCallGroup({
     () => [...tools].reverse().find((tool) => tool.images?.length),
     [tools],
   );
+  const fileLinkPaths = useMemo(
+    () => [...new Set(tools.flatMap((tool) => getImagePaths(tool.details)))],
+    [tools],
+  );
 
   const [showDetails, setShowDetails] = useState(false);
 
@@ -202,6 +207,12 @@ export const ToolCallGroup = memo(function ToolCallGroup({
         </div>
       ) : null}
 
+      {!expanded && fileLinkPaths.length ? (
+        <div className="border-t border-[var(--border-subtle)]">
+          <ToolFileLinks imagePaths={fileLinkPaths} workspaceId={workspaceId} />
+        </div>
+      ) : null}
+
       {/* Expanded: list of tool lines */}
       <AnimatePresence>
         {expanded && (
@@ -223,6 +234,11 @@ export const ToolCallGroup = memo(function ToolCallGroup({
                   {latestImageTool?.images?.length ? (
                     <div className="border-t border-[var(--border-subtle)] px-3 py-2">
                       <ToolImages images={latestImageTool.images} workspaceId={workspaceId} />
+                    </div>
+                  ) : null}
+                  {fileLinkPaths.length ? (
+                    <div className="border-t border-[var(--border-subtle)]">
+                      <ToolFileLinks imagePaths={fileLinkPaths} workspaceId={workspaceId} />
                     </div>
                   ) : null}
                   <div className="border-t border-[var(--border-subtle)]/60 px-3 py-1.5">

@@ -53,15 +53,6 @@ export interface ImageGenResult {
   error?: string;
 }
 
-export type ImageGenerator = (
-  params: ImageGenParams,
-  imagesDir: string,
-) => Promise<ImageGenResult>;
-
-declare global {
-  var __seroImageGen: ImageGenerator | undefined;
-}
-
 // ── Auth providers to try in order ──
 
 const AUTH_PROVIDERS = ['google-gemini-cli', 'google', 'google-vertex'] as const;
@@ -191,8 +182,3 @@ function mimeToExt(mime: string): string {
   return 'png';
 }
 
-// ── Expose on globalThis for compatibility with legacy bridge consumers ──
-
-export function exposeImageAgent(): void {
-  globalThis.__seroImageGen = generateImages;
-}

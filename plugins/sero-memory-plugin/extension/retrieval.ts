@@ -43,7 +43,7 @@ const TOKEN_EXPANSIONS: Record<string, string> = {
 };
 
 const SESSION_RECALL_PATTERN =
-  /\b(discuss(?:ed)?|said|conversation|talked about|remember when|last week|last month|quote|recap|what did we)\b/i;
+  /\b(discuss(?:ed)?|said|conversation|talked about|remember(?:ed|ing)?|recall|last week|last month|previous session|another session|quote|recap|what did we|what (?:did you|have you) (?:tell|told|say|said|give|gave)|(?:told|telling) me)\b/i;
 const EXCERPT_MAX_CHARS = 480;
 const EXCERPT_CONTEXT_CHARS = 180;
 

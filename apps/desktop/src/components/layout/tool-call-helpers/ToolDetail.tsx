@@ -14,6 +14,7 @@ import {
 } from '../ToolCallProgress';
 import { mapToolState } from '../ToolCallState';
 import { ToolImages } from './ToolImages';
+import { ToolFileLinks } from './ToolFileLinks';
 
 export function ToolDetail({
   tool,
@@ -47,6 +48,7 @@ export function ToolDetail({
         {isComplete && tool.images?.length ? (
           <ToolImages images={tool.images} workspaceId={workspaceId} />
         ) : null}
+        {isComplete ? <ToolFileLinks details={tool.details} workspaceId={workspaceId} /> : null}
         {progressModel ? <ToolCallProgress tool={tool} /> : null}
         {isComplete || (hasOutput && !progressModel) ? (
           <>

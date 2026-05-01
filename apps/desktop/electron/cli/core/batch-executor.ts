@@ -227,6 +227,7 @@ export async function executeCliBatch(
   const sections: string[] = [];
   let finalExitCode = 0;
   let richOutputFallback = false;
+  const imagePaths: string[] = [];
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!;
@@ -294,6 +295,12 @@ export async function executeCliBatch(
     }
 
     finalExitCode = result.exitCode ?? 0;
+    if (result.details && typeof result.details === 'object') {
+      const paths = (result.details as { imagePaths?: unknown }).imagePaths;
+      if (Array.isArray(paths)) {
+        imagePaths.push(...paths.filter((value): value is string => typeof value === 'string'));
+      }
+    }
     const hasLegacyInlineImage = !!contentFromLegacyImageJson(result.output);
     if (!single && (
       (Array.isArray(result.content) && result.content.some((block) => block.type !== 'text')) ||
@@ -327,7 +334,12 @@ export async function executeCliBatch(
 
   const joined = sections.join('\n\n');
   const output = context.invocation.source === 'terminal' ? joined : truncateOutput(joined);
-  return { output, exitCode: finalExitCode, richOutputFallback };
+  return {
+    output,
+    exitCode: finalExitCode,
+    richOutputFallback,
+    ...(imagePaths.length ? { details: { imagePaths } } : {}),
+  };
 }
 
 export function getSingleResultContent(batch: CliBatchResult): CliContentBlock[] {

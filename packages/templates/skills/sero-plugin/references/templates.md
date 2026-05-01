@@ -658,7 +658,10 @@ import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
   base: process.env.NODE_ENV === 'production' ? './' : '/',
-  root: 'ui',                          // Vite serves from ui/
+  // Keep Vite root at the package root. @module-federation/vite writes
+  // physical virtual modules under node_modules; `root: 'ui'` can break
+  // clean installs by generating them in ui/node_modules while Rollup looks
+  // in package-root node_modules.
   plugins: [
     react(),
     tailwindcss(),
@@ -690,17 +693,20 @@ export default defineConfig({
   },
   build: {
     target: 'esnext',
-    outDir: '../dist/ui',              // Relative to root (ui/) -> dist/ui/
+    outDir: 'dist/ui',
     emptyOutDir: true,
+    rollupOptions: {
+      input: 'ui/index.html',
+    },
   },
 });
 ```
 
 **Key points:**
 - `base: './'` in production is required so installed plugin remotes resolve correctly via `sero-ext://`
-- `root: 'ui'` — Vite HTML entry is in `ui/`
-- `exposes` paths relative to **config file** (package root), not `root`
-- `outDir: '../dist/ui'` relative to `root`
+- Keep Vite's root at the package root; point Rollup at `ui/index.html` with `build.rollupOptions.input`
+- `exposes` paths relative to **config file** (package root)
+- `outDir: 'dist/ui'` relative to package root
 - `server.port` MUST match `devPort` in package.json
 - Do NOT alias `@sero-ai/app-runtime`
 - Do NOT add `@sero-ai/ui` to `optimizeDeps.exclude`
@@ -947,7 +953,7 @@ Add this when the UI imports CSS via side-effect imports such as `import './styl
 
 ## ui/index.html
 
-Required because `vite.config.ts` sets `root: 'ui'`.
+Required because `vite.config.ts` uses `build.rollupOptions.input: 'ui/index.html'`.
 
 ```html
 <!DOCTYPE html>

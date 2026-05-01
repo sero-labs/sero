@@ -32,6 +32,17 @@ describe('web state sync', () => {
     await expect(readState(statePath)).resolves.toEqual(DEFAULT_STATE);
   });
 
+  it('treats empty state files as uninitialized state', async () => {
+    const statePath = await createTempStatePath();
+    await writeFile(statePath, '', 'utf8');
+
+    await expect(readState(statePath)).resolves.toEqual(DEFAULT_STATE);
+    await expect(addBookmark(statePath, 'https://sero.dev', 'Sero')).resolves.toMatchObject({
+      url: 'https://sero.dev',
+      title: 'Sero',
+    });
+  });
+
   it('dedupes bookmarks by URL instead of creating duplicate entries', async () => {
     const statePath = await createTempStatePath();
 

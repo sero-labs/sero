@@ -22,6 +22,6 @@
     "@sinclair/typebox": "catalog:",
     "husky": "^9.1.7",
     "promptfoo": "0.103.5",
-    "turbo": "^2.8.17"
+    "turbo": "^2.9.7"
   }
 }

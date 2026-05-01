@@ -43,16 +43,17 @@ function createStateReadError(filePath: string, error: unknown): Error {
 	);
 }
 
-function normalizeState(parsed: Partial<WebAccessState>): WebAccessState {
+function normalizeState(parsed: Partial<WebAccessState> | null | undefined): WebAccessState {
+	const state = parsed ?? {};
 	return {
 		...DEFAULT_STATE,
-		...parsed,
-		entries: Array.isArray(parsed.entries) ? parsed.entries : [],
-		bookmarks: Array.isArray(parsed.bookmarks) ? parsed.bookmarks : [],
-		downloads: Array.isArray(parsed.downloads) ? parsed.downloads : [],
+		...state,
+		entries: Array.isArray(state.entries) ? state.entries : [],
+		bookmarks: Array.isArray(state.bookmarks) ? state.bookmarks : [],
+		downloads: Array.isArray(state.downloads) ? state.downloads : [],
 		historyClearedAt:
-			typeof parsed.historyClearedAt === "number" && Number.isFinite(parsed.historyClearedAt)
-				? parsed.historyClearedAt
+			typeof state.historyClearedAt === "number" && Number.isFinite(state.historyClearedAt)
+				? state.historyClearedAt
 				: 0,
 	};
 }
@@ -60,7 +61,8 @@ function normalizeState(parsed: Partial<WebAccessState>): WebAccessState {
 export async function readState(filePath: string): Promise<WebAccessState> {
 	try {
 		const raw = await fs.readFile(filePath, "utf8");
-		return normalizeState(JSON.parse(raw) as Partial<WebAccessState>);
+		if (raw.trim() === "") return normalizeState(DEFAULT_STATE);
+		return normalizeState(JSON.parse(raw) as Partial<WebAccessState> | null);
 	} catch (error) {
 		if (isMissingFileError(error)) {
 			return normalizeState(DEFAULT_STATE);

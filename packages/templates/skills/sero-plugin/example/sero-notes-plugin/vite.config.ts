@@ -1,5 +1,7 @@
 // Vite config lives at the package root (not inside ui/).
-// `root: 'ui'` tells Vite the HTML entry + source live in ui/.
+// Keep Vite's root at the package root: @module-federation/vite writes
+// physical virtual modules under node_modules, and `root: 'ui'` makes clean
+// installs look for the generated host-init entry in the wrong place.
 // `base: './'` in production is required so installed plugin remotes resolve
 // assets via the `sero-ext://` scheme.
 
@@ -10,7 +12,6 @@ import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
   base: process.env.NODE_ENV === 'production' ? './' : '/',
-  root: 'ui',
   plugins: [
     react(),
     tailwindcss(),
@@ -47,8 +48,10 @@ export default defineConfig({
   },
   build: {
     target: 'esnext',
-    // Relative to `root` (ui/) -> writes into <pkg>/dist/ui/.
-    outDir: '../dist/ui',
+    outDir: 'dist/ui',
     emptyOutDir: true,
+    rollupOptions: {
+      input: 'ui/index.html',
+    },
   },
 });

@@ -14,7 +14,6 @@ import { IpcChannels } from '@/types/ipc-channels';
 import { workspaceManager } from '@electron/features/workspace/manager';
 import {
   generateImages,
-  exposeImageAgent,
   type ImageGenParams,
   type ImageGenResult,
 } from '@electron/features/agent/assistants/image-agent';
@@ -59,9 +58,6 @@ async function writeState(statePath: string, state: ImageGenState): Promise<void
 // ── Registration ──
 
 export function registerImagegenHandlers(): void {
-  // Expose the image agent on globalThis for extension bridge
-  exposeImageAgent();
-
   ipcMain.handle(
     IpcChannels.imagegen.generate,
     async (

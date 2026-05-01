@@ -28,6 +28,7 @@ import {
 import { useBrowserShortcuts } from '@/hooks/useBrowserShortcuts';
 import { useAppStore } from '@/stores/app';
 import { useComposerAttachmentQueue } from '@/stores/composer-attachments';
+import { useLightbox } from '@/components/layout/ImageLightbox';
 
 interface BrowserPanelProps {
   workspaceId: string;
@@ -46,6 +47,7 @@ export function BrowserPanel({ workspaceId }: BrowserPanelProps) {
   const reload = useBrowserStore((s) => s.reload);
   const stop = useBrowserStore((s) => s.stop);
   const sharePageWithChat = useBrowserStore((s) => s.sharePageWithChat);
+  const lightboxOpen = useLightbox((s) => s.open);
 
   const viewportRef = useRef<HTMLDivElement | null>(null);
 
@@ -86,14 +88,15 @@ export function BrowserPanel({ workspaceId }: BrowserPanelProps) {
   // Track the placeholder element's screen rect and push it to main so the
   // active view stays glued to the visible area. Runs on mount, tab change,
   // and whenever the element resizes (window / sidebar / chat panel toggle).
-  // While in capture mode the view is intentionally parked off-screen so
-  // the overlay can receive mouse events on top of the PNG.
+  // While in capture mode or while the global image lightbox is open, the
+  // native view is intentionally parked off-screen so renderer overlays can
+  // receive mouse events and remain visually above the browser contents.
   useLayoutEffect(() => {
     const el = viewportRef.current;
     if (!el) return;
 
     const sync = () => {
-      if (capture) {
+      if (capture || lightboxOpen) {
         void window.sero.browser.hideAll();
         return;
       }
@@ -117,7 +120,7 @@ export function BrowserPanel({ workspaceId }: BrowserPanelProps) {
       observer.disconnect();
       window.removeEventListener('resize', sync);
     };
-  }, [activeTabId, capture]);
+  }, [activeTabId, capture, lightboxOpen]);
 
   const startCapture = useCallback(async () => {
     if (!activeTab) return;

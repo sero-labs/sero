@@ -98,6 +98,19 @@ describe('AppStateManager watch bootstrap', () => {
     manager.dispose();
   });
 
+  it('creates valid JSON placeholder files during watch bootstrap', async () => {
+    const { AppStateManager } = await import('@electron/features/apps/state/manager');
+    const manager = new AppStateManager();
+    const filePath = '/tmp/sero-valid-placeholder-state.json';
+
+    manager.watch(filePath);
+    await flushPromises();
+
+    expect(mocks.writeFile).toHaveBeenCalledWith(filePath, '{}', { flag: 'wx' });
+
+    manager.dispose();
+  });
+
   it('drops failed bootstrap entries so a later watch can retry', async () => {
     mocks.watch
       .mockImplementationOnce(() => {

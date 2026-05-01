@@ -21,7 +21,7 @@
   },
   "peerDependencies": {
     "@sero-ai/common": ">=0.1.0",
-    "react": ">=19.0.0"
+    "react": "catalog:peer"
   },
   "devDependencies": {
     "@sero-ai/common": "workspace:*",

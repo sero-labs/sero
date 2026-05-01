@@ -286,13 +286,14 @@ Verify:
 
 | Problem | Fix |
 |---------|-----|
-| Build fails: "Could not resolve entry module" | Add `ui/index.html` |
+| Build fails: `Could not resolve entry module "node_modules/__mf__virtual/...hostAutoInit..."` | Keep Vite root at the package root; use `build.rollupOptions.input: 'ui/index.html'` instead of `root: 'ui'` |
 | App not in sidebar | Check `sero.app.id`/`name` in package.json, run `pnpm install` |
 | Agent missing tool | Restart dev server, check `pi.extensions` field |
 | UI changes not showing | Check remote Vite running; extension changes need full restart |
 | External plugin missing styles | Import `./styles.css` from every exposed MF entry; verify `@source` paths in `ui/styles.css` |
 | `Cannot find module './styles.css'` | Add `ui/vite-env.d.ts` with `/// <reference types="vite/client" />` |
 | Runtime never starts | Declare `sero.app.runtime` + `requiredHostCapabilities: ["appRuntime.background"]`; check `/tmp/sero-electron.log` |
+| Build fails because no HTML entry exists | Add `ui/index.html` |
 | "No UI module registered" | Set `sero.app.component` and `devPort` |
 | "No workspace selected" | Pick one, or set `scope: "global"` |
 | State not syncing | Verify same `stateFile` path, use atomic writes |

@@ -32,6 +32,13 @@ export function looksLikeFilePath(text: string): boolean {
   return /^\.{0,2}\/|[\w.-]+\/[\w.-]+|[\w.-]+\.\w{1,10}$/.test(text);
 }
 
+export function extractFilePaths(text: string): string[] {
+  const matches = [...text.matchAll(FILE_PATH_RE)]
+    .map((match) => match[1])
+    .filter((value): value is string => !!value && looksLikeFilePath(value));
+  return [...new Set(matches)];
+}
+
 /**
  * Convert a chat/tool-rendered path into the editor's virtual path format.
  *
