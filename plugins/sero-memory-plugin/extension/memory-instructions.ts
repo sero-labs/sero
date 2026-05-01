@@ -37,17 +37,19 @@ function getMemoryRetrievalInstructions(hasSearch: boolean): string[] {
     '- `sero memory_search --query "X" --scope sessions` — search transcripts only',
     '- `sero memory_search --query "X" --scope memory` — search memory files only',
     '',
-    'Start with ONE precise query. If it answers the question, stop. Only broaden if the first search misses.',
+    '**Conversation recall rule:** If the user asks what you remember, what you said/told them, what happened in another session, or asks about prior jokes/examples/advice, you MUST run `sero memory_search` before answering unless the answer is already present in the current visible transcript. Prefer `--scope sessions` for those requests.',
+    'Start with ONE precise query. If it answers the question, stop. If it misses, retry with a shorter query that uses likely original wording (for example `joke` or `tell me a joke` rather than the meta-question `what jokes do you remember telling me`).',
   ];
 
   if (hasSearch) {
-    lines.push('Modes: `keyword` (default) → `semantic` → `deep`. Escalate only if needed.');
+    lines.push('Modes: `keyword` (default) → `semantic` → `deep`. Escalate only if needed; use `semantic`/`deep` when wording may differ across sessions.');
   } else {
     lines.push('If search indexing is unavailable, report that to the user — do NOT fall back to bash/read.');
   }
 
   lines.push(
     '',
+    'If `memory_search` returns no useful results after reasonable query/mode retries, say you searched memory and found nothing relevant. Do not pretend recall, and do not claim memory is unavailable without first using the tool.',
     'To view full file contents: `sero memory read --target memory|identity|user|daily` (add `--with_ids true` before replace/remove).',
     'For quick text grep (no transcripts): `sero memory search --query "..."`.',
     'For scratchpad: `sero scratchpad list`.',
