@@ -76,10 +76,11 @@ export function createSeroCliTool(
           : getMultiCommandFallbackContent(batch, richOutputFallback),
         details: {
           exitCode: batch.exitCode,
-          ...(isSingleCommand ? (batch.details && typeof batch.details === 'object' ? batch.details as Record<string, unknown> : {}) : {
+          ...(batch.details && typeof batch.details === 'object' ? batch.details as Record<string, unknown> : {}),
+          ...(!isSingleCommand ? {
             richOutputFallback,
             fallbackReason: 'multi-command batches return text-only content to avoid dropping or interleaving rich blocks',
-          }),
+          } : {}),
         },
       };
     },

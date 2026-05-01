@@ -19,25 +19,25 @@ function isDynamicImportError(error: Error): boolean {
   );
 }
 
-const RELOAD_TIMESTAMP_KEY = '__sero_chunk_reload_at';
-// Cooldown — if we reloaded recently and still hit the same failure, the reload
-// didn't help; fall through to the manual UI instead of looping.
-const RELOAD_COOLDOWN_MS = 30_000;
+const CHUNK_RELOAD_MARKER_PARAM = 'seroChunkReload';
 
-function reloadedRecently(): boolean {
+function hasChunkReloadMarker(): boolean {
+  if (typeof window === 'undefined') return true;
   try {
-    const ts = Number(sessionStorage.getItem(RELOAD_TIMESTAMP_KEY) ?? '0');
-    return ts > 0 && Date.now() - ts < RELOAD_COOLDOWN_MS;
+    return new URL(window.location.href).searchParams.has(CHUNK_RELOAD_MARKER_PARAM);
   } catch {
     return true;
   }
 }
 
-function markReloaded(): void {
+function reloadWithChunkMarker(): void {
+  if (typeof window === 'undefined') return;
   try {
-    sessionStorage.setItem(RELOAD_TIMESTAMP_KEY, String(Date.now()));
+    const url = new URL(window.location.href);
+    url.searchParams.set(CHUNK_RELOAD_MARKER_PARAM, '1');
+    window.location.replace(url.toString());
   } catch {
-    /* sessionStorage unavailable — fall through to manual reload UI */
+    window.location.reload();
   }
 }
 
@@ -76,13 +76,12 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     console.error(`[ErrorBoundary${this.props.region ? `:${this.props.region}` : ''}]`, error, errorInfo);
     this.props.onError?.(error, errorInfo);
 
-    if (isDynamicImportError(error) && !reloadedRecently()) {
-      markReloaded();
+    if (isDynamicImportError(error) && !hasChunkReloadMarker()) {
       // Defer past the current render so React's commit phase finishes cleanly
-      // before navigation tears the document down.
-      setTimeout(() => {
-        if (typeof window !== 'undefined') window.location.reload();
-      }, 0);
+      // before navigation tears the document down. The URL marker survives the
+      // reload without using renderer storage, so a persistent failure falls
+      // through to the manual reload UI instead of looping.
+      setTimeout(reloadWithChunkMarker, 0);
     }
   }
 

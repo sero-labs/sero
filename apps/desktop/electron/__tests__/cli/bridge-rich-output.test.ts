@@ -67,7 +67,7 @@ describe('CLI bridge rich output', () => {
           { type: 'text', text: 'Screenshot ready' },
           { type: 'image', data: 'abc123', mimeType: 'image/png' },
         ],
-        details: { source: 'plugin' },
+        details: { source: 'plugin', imagePaths: ['/tmp/capture.png'] },
       }),
     });
     registry.register({
@@ -93,6 +93,7 @@ describe('CLI bridge rich output', () => {
     ]);
     expect(result.details).toEqual({
       exitCode: 0,
+      imagePaths: ['/tmp/capture.png'],
       richOutputFallback: true,
       fallbackReason: 'multi-command batches return text-only content to avoid dropping or interleaving rich blocks',
     });

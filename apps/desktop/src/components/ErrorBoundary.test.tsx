@@ -16,13 +16,14 @@ function CrashyPanel({ shouldThrow, error }: { shouldThrow: boolean; error?: Err
   return <div>healthy panel</div>;
 }
 
-const RELOAD_KEY = '__sero_chunk_reload_at';
+const RELOAD_MARKER = 'seroChunkReload=1';
 
 describe('ErrorBoundary', () => {
   let container: HTMLDivElement;
   let root: Root | null = null;
   let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
   let reloadSpy: ReturnType<typeof vi.fn>;
+  let replaceSpy: ReturnType<typeof vi.fn>;
   let originalLocation: Location;
 
   beforeEach(() => {
@@ -30,14 +31,14 @@ describe('ErrorBoundary', () => {
     document.body.appendChild(container);
     root = createRoot(container);
     consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    sessionStorage.removeItem(RELOAD_KEY);
     reloadSpy = vi.fn();
+    replaceSpy = vi.fn();
     originalLocation = window.location;
-    // jsdom marks Location.reload as non-configurable, so replace the whole
+    // jsdom marks Location methods as non-configurable, so replace the whole
     // location descriptor for the duration of these tests.
     Object.defineProperty(window, 'location', {
       configurable: true,
-      value: { ...originalLocation, reload: reloadSpy },
+      value: { href: 'http://localhost/', reload: reloadSpy, replace: replaceSpy },
       writable: true,
     });
     vi.useFakeTimers();
@@ -50,7 +51,6 @@ describe('ErrorBoundary', () => {
       value: originalLocation,
       writable: true,
     });
-    sessionStorage.removeItem(RELOAD_KEY);
     consoleErrorSpy.mockRestore();
     if (root) {
       await act(async () => {
@@ -102,12 +102,17 @@ describe('ErrorBoundary', () => {
       vi.runAllTimers();
     });
 
-    expect(reloadSpy).toHaveBeenCalledTimes(1);
-    expect(sessionStorage.getItem(RELOAD_KEY)).not.toBeNull();
+    expect(replaceSpy).toHaveBeenCalledTimes(1);
+    expect(replaceSpy.mock.calls[0]?.[0]).toContain(RELOAD_MARKER);
+    expect(reloadSpy).not.toHaveBeenCalled();
   });
 
-  it('shows a manual Reload action when chunk errors recur within the cooldown', async () => {
-    sessionStorage.setItem(RELOAD_KEY, String(Date.now()));
+  it('shows a manual Reload action when chunk errors recur after the marked reload', async () => {
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: { href: `http://localhost/?${RELOAD_MARKER}`, reload: reloadSpy, replace: replaceSpy },
+      writable: true,
+    });
     const chunkError = new Error(
       'Failed to fetch dynamically imported module: /assets/chunk-abc.js',
     );
