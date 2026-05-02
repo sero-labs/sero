@@ -48,25 +48,22 @@ describe('gateway static file serving', () => {
     vi.restoreAllMocks();
   });
 
-  it('primes the cache and avoids request-time exists/stat sync checks', async () => {
+  it('picks up rebuilt asset files after startup without re-priming', async () => {
     tmpDir = await mkdtemp(path.join(os.tmpdir(), 'gateway-static-files-test-'));
     const webDistDir = path.join(tmpDir, 'web-dist');
     await mkdir(path.join(webDistDir, 'assets'), { recursive: true });
     await writeFile(path.join(webDistDir, 'index.html'), '<html>gateway</html>');
-    await writeFile(path.join(webDistDir, 'assets', 'app.js'), 'console.log("ok")');
-
-    const existsSpy = vi.spyOn(fs, 'existsSync');
-    const statSpy = vi.spyOn(fs, 'statSync');
 
     primeStaticFileCache(tmpDir);
-    const existsAfterPrime = existsSpy.mock.calls.length;
-    const statAfterPrime = statSpy.mock.calls.length;
 
-    const { response } = createMockResponse();
-    expect(tryServeStaticFile('/assets/missing.js', response, tmpDir)).toBe(false);
+    await writeFile(path.join(webDistDir, 'assets', 'rebuilt.js'), 'console.log("rebuilt")');
+    const { response, writeHead, body } = createMockResponse();
+    expect(tryServeStaticFile('/assets/rebuilt.js', response, tmpDir)).toBe(true);
 
-    expect(existsSpy.mock.calls.length).toBe(existsAfterPrime);
-    expect(statSpy.mock.calls.length).toBe(statAfterPrime);
+    expect(writeHead).toHaveBeenCalledWith(200, {
+      'Content-Type': 'application/javascript',
+    });
+    await expect(body).resolves.toContain('rebuilt');
   });
 
   it('serves index.html as SPA fallback for non-asset routes', async () => {

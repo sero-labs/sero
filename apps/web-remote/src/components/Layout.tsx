@@ -7,6 +7,7 @@
  */
 
 import { useState, useCallback } from 'react';
+import seroLogoUrl from '@assets/logo.svg';
 import { WorkspacePicker } from './WorkspacePicker';
 import { ChatPanel } from './ChatPanel';
 import { FileBrowser } from './FileBrowser';
@@ -16,7 +17,10 @@ import { PreviewPanel } from './PreviewPanel';
 import { StatusBar } from './StatusBar';
 import { AccessBanner } from './AccessBanner';
 import { useArtifactStore } from '@/stores/artifacts';
+import { useDevServerStore } from '@/stores/dev-servers';
+import { useWorkspaceStore } from '@/stores/workspace';
 import { Button } from '@sero-ai/ui/components/ui/button';
+import { cn } from '@sero-ai/ui';
 import { useIsMobile } from '@sero-ai/ui/hooks/use-mobile';
 import {
   Sheet,
@@ -43,6 +47,14 @@ export function Layout() {
       : true,
   );
   const [rightPanel, setRightPanel] = useState<RightPanel>(null);
+  const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
+  const hasRunningDevServers = useDevServerStore((s) =>
+    s.servers.some(
+      (server) =>
+        server.status !== 'stopped' &&
+        (!activeWorkspaceId || server.workspaceId === activeWorkspaceId),
+    ),
+  );
 
   const toggleSidebar = useCallback(() => setSidebarOpen((v) => !v), []);
 
@@ -58,10 +70,16 @@ export function Layout() {
       {/* Title bar — always pinned at top */}
       <header className="h-11 px-3 bg-card border-b border-border flex items-center justify-between shrink-0 z-10">
         <div className="flex items-center gap-2">
+          <img
+            src={seroLogoUrl}
+            alt="Sero"
+            className="h-5 w-auto invert"
+          />
           <Button
             onClick={toggleSidebar}
             variant="ghost"
             size="icon-xs"
+            title={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
           >
             {isMobile ? (
               <Menu className="size-4" />
@@ -71,7 +89,6 @@ export function Layout() {
               <PanelLeftOpen className="size-4" />
             )}
           </Button>
-          <h1 className="text-sm font-semibold">Sero Remote</h1>
         </div>
 
         <div className="flex items-center gap-1">
@@ -96,6 +113,10 @@ export function Layout() {
             variant={rightPanel === 'preview' ? 'secondary' : 'ghost'}
             size="icon-xs"
             title="Dev Server Preview"
+            className={cn(
+              hasRunningDevServers &&
+                'text-emerald-500 hover:text-emerald-400 data-[state=open]:text-emerald-400',
+            )}
           >
             <Monitor className="size-4" />
           </Button>

@@ -26,7 +26,6 @@ const MIME_TYPES: Record<string, string> = {
 
 interface StaticFileCacheEntry {
   webDistDir: string;
-  availableFiles: Set<string>;
 }
 
 const staticFileCache = new Map<string, StaticFileCacheEntry | null>();
@@ -49,39 +48,10 @@ function resolveWebDistDir(gatewayDir: string): string | null {
   return null;
 }
 
-function collectFiles(rootDir: string): Set<string> {
-  const files = new Set<string>();
-  const queue = [rootDir];
-
-  while (queue.length > 0) {
-    const current = queue.pop();
-    if (!current) continue;
-
-    const entries = fs.readdirSync(current, { withFileTypes: true });
-    for (const entry of entries) {
-      const fullPath = path.join(current, entry.name);
-      if (entry.isDirectory()) {
-        queue.push(fullPath);
-        continue;
-      }
-      if (!entry.isFile()) continue;
-
-      const relativePath = path.relative(rootDir, fullPath).split(path.sep).join('/');
-      files.add(relativePath);
-    }
-  }
-
-  return files;
-}
-
 function buildCache(gatewayDir: string): StaticFileCacheEntry | null {
   const webDistDir = resolveWebDistDir(gatewayDir);
   if (!webDistDir) return null;
-
-  return {
-    webDistDir,
-    availableFiles: collectFiles(webDistDir),
-  };
+  return { webDistDir };
 }
 
 function getCache(gatewayDir: string): StaticFileCacheEntry | null {
@@ -107,20 +77,22 @@ function normalizeRequestPath(pathname: string): string | null {
   return normalized;
 }
 
-function resolveAssetPath(requestPath: string, availableFiles: Set<string>): string | null {
-  if (availableFiles.has(requestPath)) {
+function resolveAssetPath(requestPath: string, webDistDir: string): string | null {
+  const directPath = path.join(webDistDir, requestPath);
+  if (fs.existsSync(directPath) && fs.statSync(directPath).isFile()) {
     return requestPath;
   }
 
   const ext = path.posix.extname(requestPath);
-  if (!ext || ext === '.html') {
-    return availableFiles.has('index.html') ? 'index.html' : null;
+  const indexPath = path.join(webDistDir, 'index.html');
+  if ((!ext || ext === '.html') && fs.existsSync(indexPath)) {
+    return 'index.html';
   }
 
   return null;
 }
 
-/** Prime static-file metadata once at startup so request paths stay non-blocking. */
+/** Prime static-file directory resolution once at startup. Asset paths are checked per request so rebuilt bundles work without restarting Sero. */
 export function primeStaticFileCache(gatewayDir: string): void {
   getCache(gatewayDir);
 }
@@ -143,7 +115,7 @@ export function tryServeStaticFile(
   const requestPath = normalizeRequestPath(pathname);
   if (!requestPath) return false;
 
-  const assetPath = resolveAssetPath(requestPath, cache.availableFiles);
+  const assetPath = resolveAssetPath(requestPath, cache.webDistDir);
   if (!assetPath) return false;
 
   const filePath = path.join(cache.webDistDir, assetPath);

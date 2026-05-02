@@ -30,6 +30,8 @@ import {
 
 export { DEV_PROXY_PREFIX, parseDevProxyPath } from './devserver-proxy-utils';
 
+const MAX_REWRITE_BODY_BYTES = 5 * 1024 * 1024;
+
 /** Convert an internal dev-server registry change to the wire event. */
 export function toDevServerChangedEvent(
   change: GatewayDevServerChange,
@@ -137,19 +139,36 @@ function pipeUpstreamResponse(
   res: http.ServerResponse,
   proxyBase: string,
 ): void {
-  const rewrite = shouldRewriteResponse(upstreamRes.headers['content-type']) &&
-    !upstreamRes.headers['content-encoding'];
+  const contentLength = Number.parseInt(String(upstreamRes.headers['content-length'] ?? ''), 10);
+  const canRewrite = shouldRewriteResponse(upstreamRes.headers['content-type']) &&
+    !upstreamRes.headers['content-encoding'] &&
+    (!Number.isFinite(contentLength) || contentLength <= MAX_REWRITE_BODY_BYTES);
   const responseHeaders = copyUpstreamHeaders(upstreamRes, proxyBase, null);
-  res.writeHead(upstreamRes.statusCode ?? 502, responseHeaders);
 
-  if (!rewrite) {
+  if (!canRewrite) {
+    res.writeHead(upstreamRes.statusCode ?? 502, responseHeaders);
     upstreamRes.pipe(res);
     return;
   }
 
   const chunks: Buffer[] = [];
-  upstreamRes.on('data', (chunk: Buffer) => chunks.push(chunk));
+  let totalBytes = 0;
+  let streaming = false;
+
+  upstreamRes.on('data', (chunk: Buffer) => {
+    if (streaming) return;
+    totalBytes += chunk.length;
+    chunks.push(chunk);
+    if (totalBytes > MAX_REWRITE_BODY_BYTES) {
+      streaming = true;
+      res.writeHead(upstreamRes.statusCode ?? 502, responseHeaders);
+      for (const buffered of chunks) res.write(buffered);
+      upstreamRes.pipe(res);
+    }
+  });
   upstreamRes.on('end', () => {
+    if (streaming) return;
+    res.writeHead(upstreamRes.statusCode ?? 502, responseHeaders);
     const body = Buffer.concat(chunks).toString('utf8');
     res.end(rewriteProxyBody(body, proxyBase));
   });
