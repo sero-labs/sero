@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<title>Sero OG card source</title>
+		<style>
+			:root {
+				--bg: #050605;
+				--ink: #e6e3d8;
+				--mute: #7d7a6f;
+				--phos: oklch(59.6% 0.145 163.225);
+				--phos-fb: #059669;
+				--rule: rgba(230, 227, 216, 0.12);
+				--rule-strong: rgba(230, 227, 216, 0.22);
+			}
+			* { box-sizing: border-box; margin: 0; padding: 0; }
+			html, body { width: 1200px; height: 630px; overflow: hidden; }
+			body {
+				background:
+					repeating-linear-gradient(180deg, rgba(255,255,255,0.014) 0 1px, transparent 1px 3px),
+					radial-gradient(900px 500px at 80% -100px, rgba(5, 150, 105, 0.10), transparent 60%),
+					radial-gradient(700px 400px at 100% 110%, rgba(240, 85, 35, 0.10), transparent 60%),
+					var(--bg);
+				color: var(--ink);
+				font-family: "JetBrains Mono", ui-monospace, monospace;
+				display: grid;
+				grid-template-rows: 1fr auto;
+				padding: 60px 72px;
+			}
+			.brand { display: flex; align-items: center; gap: 28px; margin-bottom: 24px; }
+			.brand svg.emblem {
+				width: 96px;
+				height: auto;
+				filter: drop-shadow(0 0 22px rgba(240, 85, 35, 0.40)) drop-shadow(0 0 80px rgba(240, 85, 35, 0.20));
+			}
+			.brand svg.logo { height: 56px; width: auto; color: var(--ink); }
+			.tag {
+				display: inline-flex; align-items: center; gap: 10px;
+				font-size: 14px; color: var(--mute); letter-spacing: 0.06em;
+				padding-top: 6px; border-top: 1px dashed var(--rule);
+				width: fit-content; padding-right: 14px; margin-bottom: 36px;
+			}
+			.tag .dot { width: 8px; height: 8px; background: var(--phos-fb); background: var(--phos); box-shadow: 0 0 10px rgba(5,150,105,0.7); }
+			h1 {
+				font-family: "JetBrains Mono", ui-monospace, monospace;
+				font-weight: 500;
+				font-size: 92px;
+				line-height: 0.96;
+				letter-spacing: -0.04em;
+				text-transform: lowercase;
+				margin-top: auto;
+			}
+			h1 .accent { color: var(--phos-fb); color: var(--phos); display: block; margin-top: 4px; }
+			footer {
+				display: flex; align-items: center; justify-content: space-between;
+				padding-top: 32px; border-top: 1px solid var(--rule);
+				font-size: 16px; color: var(--mute); letter-spacing: 0.04em;
+			}
+			footer .url { color: var(--ink); }
+			footer .meta { color: var(--mute); }
+		</style>
+	</head>
+	<body>
+		<div class="head">
+			<div class="brand">
+				<!-- phoenix emblem -->
+				<svg class="emblem" xmlns="http://www.w3.org/2000/svg" viewBox="23.7 -1.4 53.6 71.5">
+					<defs>
+						<linearGradient id="g1" x1="40.41" x2="40.41" y1="99.94" y2="64.67" gradientTransform="matrix(1 0 0 -1 0 102)" gradientUnits="userSpaceOnUse">
+							<stop stop-color="#F89621" offset="0"/>
+							<stop stop-color="#F05523" offset="1"/>
+						</linearGradient>
+						<linearGradient id="g2" x1="34.3" x2="55.94" y1="79.41" y2="36.15" gradientTransform="matrix(1 0 0 -1 0 102)" gradientUnits="userSpaceOnUse">
+							<stop stop-color="#7A2020" offset=".3"/>
+							<stop stop-color="#9F3123" offset=".5"/>
+							<stop stop-color="#F05523" offset=".7"/>
+						</linearGradient>
+					</defs>
+					<path fill="#7A2020" d="m66.8 25.7-0.3 2.5c3.3 3.3 6.7 8.3 6.7 15.8 0 9.6-7.2 20.3-21.1 22 1 0.6 2.1 1.1 3.6 1.5 9.7-1.8 19.6-10 19.6-23.3 0-6.8-3-13.4-8.5-18.5z"/>
+					<path fill="url(#g1)" d="m47.8 21c-5.3-4-7.9-6.9-8.6-9.7-0.5-2.1 0-4.6 0-4.6-1.9 1.5-2.6 3.6-2.3 6.2-1.3-1.8-3.5-6.7-1.6-12.3-1.6 1.2-4.4 4.1-4.4 8.2-0.1 4.8 3.1 8.8 3.5 9.2-1.9-1-5-3.2-7-6.7 0.3 8.3 6.7 12.6 12.5 14.1-2.7 0.3-7.1-0.4-11.5-3.5 1.2 4.1 5.4 9.1 12.2 8.9h1.7c-1.1 0.8-3.5 1.9-6.4 1.5 1.6 1.7 4 3.1 8.6 2.4 1.6-0.3 3-0.3 3.9 1.4 1 1.7 0.1 5.6-2.5 7.1 2.1 0.1 4.7-0.7 6.2-2.1 1.8-1.9 2.6-4.3 2.6-7.2-0.1-4.8-3.3-10-6.9-12.9z"/>
+					<path fill="url(#g2)" d="m62.6 18.7c0.3-2.3-2.3-3.3-4.5-4-3-0.9-5.3-1.3-7-4.8-0.5 2.3 0.9 4.1 1.5 4.9-1.3-0.6-3-1.6-4.1-3.4-0.3 3.1 2 5.5 6.1 6.3-1.5 0.3-3 1.7-4 3.3 3.3 2.9 5.5 6.8 5.5 10.6 0 4.6-2.9 8.3-6.1 10.4-1.1 0.6-2.3 0.9-3.9 1.1-3.1 1.2-5.6 0.5-8.6 2.5-1.7 1-2.7 2.4-3.2 3.3 1.8-1.3 4.8-2.1 7.5-1.9-2.7 1.1-7.6 4.4-7.6 10.5 0 2.2 0.7 4.4 2.2 6 0.8 0.6 1.7 1.3 2.9 1.9-0.9-2.4-1.6-8.1 1.9-12.5 0.7-0.9 1.5-1.9 2.4-2.7-1.6 3.5-2.7 7.4-1 11.8 1.1 2.6 3.8 6.1 9.8 6.1 1 0 2.2-0.2 3.3-0.5-1.3-0.4-2.5-0.9-3.6-1.7-3.4-2.1-6.2-6.3-5.9-12.1 0.5 2.8 2.4 4.8 4.8 4.8 2.5 0 3.7-2 3.9-2.5-2.8 1.1-6.6-1.5-6.7-5.5 0-2.6 1.9-4.9 4.9-6.4 2.6-1.4 9.3-4.4 8.3-10.3l-0.2-2.6s1.6 1.8 1.7 4.9c0.7-1.2 1.2-2.8 0.9-5.2-0.7-3.2-3.7-4.8-3.7-7.8 0.1-3.5 4.3-1.7 5.3 0.1 0-1.4 0-3.1-2.8-4.6z"/>
+					<path fill="#7A2020" d="m34.5 59.4c-3.4-3.2-6.7-8.7-6.7-15.3 0-3.9 1-7.4 2.9-11.4l-1.5-1.7c-2.1 3.7-3.5 7.7-3.5 13.1 0.1 7.5 3.7 14.8 10.7 19.3-0.8-1-1.6-2.4-1.9-4z"/>
+				</svg>
+				<!-- Sero word-mark -->
+				<svg class="logo" xmlns="http://www.w3.org/2000/svg" viewBox="13.7 70.1 72.4 31.6">
+					<path fill="currentColor" d="m35 81.2-19.3 18.5h14.2c4.2 0 9.9-2.7 10.1-9.1 0.1-4.1-2.1-7-5-9.4zm-5.1 15.7h-7.3l12.3-11.7c1.5 1.2 2.2 3.2 2.1 5.4-0.3 3.3-2.6 6.1-7.1 6.3z"/>
+					<path fill="currentColor" d="m28.4 72.1c-2 0-4.5 0.3-6.5 1.7-2.4 1.7-4.4 4.6-4.4 8.1 0 4.2 2.5 6.7 5.1 9l19.3-18.8h-13.5zm-5.8 15c-1.2-1-2.3-2.7-2.3-5.2 0-3.5 2.8-6.8 7.4-6.8h7.6l-12.7 12z"/>
+					<path fill="currentColor" d="m49.4 80.3c-3.8 0-7.7 2.4-7.7 8.3 0 4.8 3.2 7.9 7.9 7.9 2.6 0 4.1-0.7 5-1.4 1.4-1.1 1.9-2.1 1.9-3.6h-3.4c-0.2 1.5-1.7 2.3-3.5 2.3-2.5 0-4.4-1.5-4.5-4.3h11.4c0.1-1.4 0.1-3.3-0.8-5.3-0.8-1.5-2.3-3.9-6.3-3.9zm-4.3 6.8c0.3-2.5 1.6-4 4-4 2 0 4 1.3 3.9 3.9l-7.9 0.1z"/>
+					<path fill="currentColor" d="m59.2 82.9v13.3h3.4v-12.6h5.6v-3h-6.5l-2.5 2.3z"/>
+					<path fill="currentColor" d="m76.4 80.3c-4.3 0.1-7.8 3.1-7.8 8.3 0 4.4 2.5 7.9 7.8 7.9 4.8 0 7.7-2.7 7.7-7.7 0-4.7-2.7-8.5-7.7-8.5zm0 13.4c-2.5 0-4.2-2-4.2-5.1 0-3.5 1.9-5.4 4.2-5.4 2.2 0 4.1 1.8 4.1 5.2 0 3.5-1.9 5.3-4.1 5.3z"/>
+				</svg>
+			</div>
+			<div class="tag"><span class="dot"></span>a workshop OS for agents</div>
+		</div>
+		<h1>
+			build the agent
+			<span class="accent">only_you_need</span>
+		</h1>
+		<footer>
+			<span class="url">sero-ai.dev</span>
+			<span class="meta">macOS · alpha · local-first</span>
+		</footer>
+	</body>
+</html>

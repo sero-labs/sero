@@ -1,0 +1,13 @@
+@import "@sero-ai/ui/styles/globals.css";
+
+/* Scan this app's own component sources for Tailwind utility classes */
+@source "./components";
+
+/* Mobile viewport height fix — ensures 100dvh works on mobile browsers
+   where the address bar eats into 100vh */
+html,
+body,
+#root {
+  height: 100%;
+  overflow: hidden;
+}

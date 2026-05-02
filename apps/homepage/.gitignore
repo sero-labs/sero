@@ -1,0 +1,12 @@
+# Astro
+.astro/
+dist/
+
+# Build artifacts
+*.tsbuildinfo
+
+# Logs
+*.log
+
+# OS
+.DS_Store

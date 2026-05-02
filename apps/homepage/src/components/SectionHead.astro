@@ -1,0 +1,13 @@
+---
+interface Props {
+	idx: string;
+	label: string;
+}
+const { idx, label } = Astro.props;
+---
+<div class="secHead">
+	<span class="secHead__bracket">§</span>
+	<span class="secHead__idx">{idx}</span>
+	<span class="secHead__rule" />
+	<span class="secHead__label">{label}</span>
+</div>

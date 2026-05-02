@@ -1,0 +1,120 @@
+/**
+ * Apps IPC handlers — discovery + new-app detection.
+ *
+ * Watches workspace app directories for new sero app packages created while
+ * Sero is running (e.g. by the agent). Sends a push event to the renderer so
+ * a restart banner can be shown.
+ */
+
+import { ipcMain } from 'electron';
+import { promises as fs, watch, existsSync } from 'fs';
+import path from 'path';
+import { IpcChannels } from '@/types/ipc-channels';
+import type { SeroAppManifest } from '@/types/ipc';
+import { discoverApps } from '@electron/features/apps/discovery';
+import { pluginDevSessionManager } from '@electron/shared/infra/singletons';
+import {
+  resolveBuiltinPackagesDir,
+  resolveBuiltinPluginsDir,
+} from '@electron/platform/protocols/builtin-resources';
+import { broadcastToWindows } from '../lib/window-broadcast';
+
+const APP_ROOTS = [
+  {
+    dir: resolveBuiltinPackagesDir(),
+    matchesDirName: (dir: string) => dir.startsWith('pi-'),
+  },
+  {
+    dir: resolveBuiltinPluginsDir(),
+    matchesDirName: (dir: string) => dir.startsWith('sero-') && dir.endsWith('-plugin'),
+  },
+] satisfies Array<{
+  dir: string | null;
+  matchesDirName: (dir: string) => boolean;
+}>;
+
+export function registerAppsHandlers(): void {
+  ipcMain.handle(
+    IpcChannels.apps.discover,
+    async (): Promise<SeroAppManifest[]> => {
+      await pluginDevSessionManager.initialize();
+      return discoverApps();
+    },
+  );
+}
+
+/**
+ * Watch workspace app directories for new sero app packages.
+ *
+ * Records known app IDs at startup, then watches the packages/ and plugins/
+ * directories for changes. When a new app directory gains a package.json with a
+ * sero.app manifest, pushes a notification to the renderer.
+ *
+ * @param knownAppIds Set of app IDs discovered at startup
+ */
+export function watchForNewApps(knownAppIds: Set<string>): void {
+  const notified = new Set<string>();
+
+  for (const root of APP_ROOTS) {
+    const rootDir = root.dir;
+    if (!rootDir || !existsSync(rootDir)) continue;
+
+    let debounce: ReturnType<typeof setTimeout> | null = null;
+
+    watch(rootDir, { recursive: true }, (_eventType, filename) => {
+      if (!filename || !filename.includes('package.json')) return;
+
+      const [topLevelDir] = filename.split(path.sep);
+      if (!topLevelDir || !root.matchesDirName(topLevelDir)) return;
+
+      if (debounce) clearTimeout(debounce);
+      debounce = setTimeout(() => {
+        void checkForNewApps(rootDir, root.matchesDirName, knownAppIds, notified);
+      }, 2000);
+    });
+  }
+
+  console.log('[app-watcher] Watching for new app packages');
+}
+
+async function checkForNewApps(
+  rootDir: string,
+  matchesDirName: (dir: string) => boolean,
+  knownAppIds: Set<string>,
+  notified: Set<string>,
+): Promise<void> {
+  try {
+    const dirs = await fs.readdir(rootDir);
+
+    for (const dir of dirs) {
+      if (!matchesDirName(dir)) continue;
+
+      const pkgPath = path.join(rootDir, dir, 'package.json');
+      if (!existsSync(pkgPath)) continue;
+
+      try {
+        const rawPackage = await fs.readFile(pkgPath, 'utf8');
+        const pkg = JSON.parse(rawPackage) as {
+          sero?: {
+            app?: {
+              id?: string;
+              name?: string;
+            };
+          };
+        };
+        const app = pkg.sero?.app;
+        if (!app?.id || !app?.name) continue;
+
+        if (knownAppIds.has(app.id) || notified.has(app.id)) continue;
+
+        notified.add(app.id);
+        console.log(`[app-watcher] New app detected: ${app.name} (${app.id})`);
+        broadcastToWindows(IpcChannels.apps.newAppDetected, app.name);
+      } catch {
+        // package.json not yet valid JSON (still being written)
+      }
+    }
+  } catch (err) {
+    console.error('[app-watcher] Scan error:', err);
+  }
+}

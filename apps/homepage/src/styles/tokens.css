@@ -1,0 +1,38 @@
+/* Design tokens — palette, typography scale, motion. Carried from the
+   Terminal Field Notes mockup variant.                                  */
+
+:root {
+	/* surface */
+	--bg: #050605;
+	--bg-2: #0a0b0a;
+	--ink: #e6e3d8;
+	--ink-2: #c2bfb3;
+	--mute: #7d7a6f;
+
+	/* rules */
+	--rule: rgba(230, 227, 216, 0.10);
+	--rule-strong: rgba(230, 227, 216, 0.22);
+
+	/* accent — Tailwind emerald-600 (oklch with hex fallback) */
+	--phos: #059669;
+	--phos: oklch(59.6% 0.145 163.225);
+	--phos-rgb: 5, 150, 105;
+
+	/* secondary accents */
+	--copper: #c69969;
+	--alert: #d97757;
+
+	/* type — JetBrains Mono Variable, self-hosted via @fontsource-variable. */
+	--font-mono: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+	--font-display: var(--font-mono);
+	--font-body: var(--font-mono);
+
+	/* motion */
+	--ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@supports not (color: oklch(0% 0 0)) {
+	:root { --phos: #059669; }
+}
+
+::selection { background: var(--phos); color: var(--bg); }

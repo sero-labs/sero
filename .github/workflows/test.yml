@@ -1,0 +1,238 @@
+name: Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+    types: [opened, reopened, synchronize, ready_for_review]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CI: true
+  TURBO_TELEMETRY_DISABLED: 1
+  TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+  TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
+
+jobs:
+  changes:
+    name: Detect changes
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    outputs:
+      full: ${{ steps.filter.outputs.full }}
+      desktop: ${{ steps.filter.outputs.desktop }}
+      docs: ${{ steps.filter.outputs.docs }}
+      homepage: ${{ steps.filter.outputs.homepage }}
+      webremote: ${{ steps.filter.outputs.webremote }}
+      filters: ${{ steps.filter.outputs.filters }}
+      desktop_e2e: ${{ steps.filter.outputs.desktop_e2e }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - id: filter
+        name: Classify changed paths
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            base="${{ github.event.pull_request.base.sha }}"
+            head="${{ github.event.pull_request.head.sha }}"
+          elif [[ "${{ github.event_name }}" == "push" ]]; then
+            base="${{ github.event.before }}"
+            head="${{ github.sha }}"
+          else
+            base=""
+            head="${{ github.sha }}"
+          fi
+
+          if [[ -n "$base" && "$base" != "0000000000000000000000000000000000000000" ]]; then
+            changed_files="$(git diff --name-only "$base" "$head")"
+          else
+            changed_files="$(git ls-files)"
+          fi
+
+          echo "Changed files:"
+          printf '%s\n' "$changed_files"
+
+          full=false
+          desktop=false
+          docs=false
+          homepage=false
+          webremote=false
+
+          while IFS= read -r file; do
+            [[ -z "$file" ]] && continue
+            case "$file" in
+              apps/desktop/*|apps/desktop/**)
+                desktop=true
+                ;;
+              apps/docs-site/*|apps/docs-site/**|docs/*|docs/**)
+                docs=true
+                ;;
+              apps/homepage/*|apps/homepage/**)
+                homepage=true
+                ;;
+              apps/web-remote/*|apps/web-remote/**)
+                webremote=true
+                ;;
+              packages/*|packages/**|plugins/*|plugins/**|scripts/*|scripts/**|package.json|pnpm-lock.yaml|pnpm-workspace.yaml|turbo.json|.github/workflows/test.yml)
+                full=true
+                ;;
+              *)
+                full=true
+                ;;
+            esac
+          done <<< "$changed_files"
+
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            full=true
+          fi
+
+          filters=""
+          if [[ "$full" == "false" ]]; then
+            [[ "$desktop" == "true" ]] && filters="$filters --filter=@sero/desktop"
+            [[ "$docs" == "true" ]] && filters="$filters --filter=@sero/docs-site"
+            [[ "$homepage" == "true" ]] && filters="$filters --filter=@sero/homepage"
+            [[ "$webremote" == "true" ]] && filters="$filters --filter=@sero/web-remote"
+          fi
+
+          if [[ "$full" == "false" && -z "${filters// }" ]]; then
+            full=true
+          fi
+
+          desktop_e2e=false
+          if [[ "$full" == "true" || "$desktop" == "true" ]]; then
+            desktop_e2e=true
+          fi
+
+          {
+            echo "full=$full"
+            echo "desktop=$desktop"
+            echo "docs=$docs"
+            echo "homepage=$homepage"
+            echo "webremote=$webremote"
+            echo "filters=${filters# }"
+            echo "desktop_e2e=$desktop_e2e"
+          } >> "$GITHUB_OUTPUT"
+
+  fast-checks:
+    name: Fast checks
+    needs: changes
+    if: needs.changes.result == 'success' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        env:
+          SERO_SKIP_NATIVE_REBUILD: 1
+
+      - name: Run affected checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ needs.changes.outputs.full }}" == "true" ]]; then
+            pnpm typecheck
+            pnpm build
+            pnpm test
+          else
+            pnpm turbo run typecheck build test ${{ needs.changes.outputs.filters }}
+          fi
+
+  desktop-e2e:
+    name: Desktop e2e
+    needs: changes
+    if: needs.changes.result == 'success' && needs.changes.outputs.desktop_e2e == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: macos-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Install Playwright browser
+        run: pnpm --filter @sero/desktop exec playwright install chromium
+
+      - name: Build desktop
+        run: pnpm --filter @sero/desktop build
+
+      - name: Run desktop Playwright e2e
+        run: pnpm --filter @sero/desktop test:e2e:ci
+
+      - name: Upload Playwright artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            apps/desktop/test-results/
+            apps/desktop/playwright-report/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  pr-gate:
+    name: PR Gate
+    needs: [changes, fast-checks, desktop-e2e]
+    if: always() && (github.event_name != 'pull_request' || !github.event.pull_request.draft)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check required jobs
+        shell: bash
+        run: |
+          if [[ "${{ needs.changes.result }}" != "success" ]]; then
+            echo "Change detection failed or was cancelled."
+            exit 1
+          fi
+
+          if [[ "${{ github.event_name }}" == "pull_request" && "${{ github.event.pull_request.head.repo.full_name }}" != "${{ github.repository }}" ]]; then
+            echo "External fork PR detected; repository compute-heavy checks are skipped until a maintainer reviews or syncs the branch."
+            exit 0
+          fi
+
+          if [[ "${{ needs.fast-checks.result }}" != "success" ]]; then
+            echo "Fast checks failed or were cancelled."
+            exit 1
+          fi
+          if [[ "${{ needs['desktop-e2e'].result }}" != "success" && "${{ needs['desktop-e2e'].result }}" != "skipped" ]]; then
+            echo "Desktop e2e failed or was cancelled."
+            exit 1
+          fi
+          echo "PR gate passed."

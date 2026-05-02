@@ -1,0 +1,17 @@
+---
+import SeroEmblem from "./brand/SeroEmblem.astro";
+import SeroLogo from "./brand/SeroLogo.astro";
+import { navLinks, links, site } from "../content/copy";
+---
+<nav class="top" aria-label="Primary">
+	<div class="top__inner">
+		<a class="top__brand" href={site.url} aria-label={site.name}>
+			<SeroLogo class="top__logo" />
+		</a>
+		<span class="top__spacer" />
+		{navLinks.map((l) => (
+			<a class="top__link" href={l.href}>[{l.label.toLowerCase()}]</a>
+		))}
+		<a class="top__cta" href={links.install}>[ join alpha ]</a>
+	</div>
+</nav>

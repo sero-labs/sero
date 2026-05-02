@@ -1,0 +1,90 @@
+# Sero — electron-builder configuration
+# Docs: https://www.electron.build/configuration
+
+appId: app.sero
+productName: Sero
+copyright: Copyright © 2025-2026 Sero
+
+# ── Output ────────────────────────────────────────────────────
+directories:
+  output: release
+  buildResources: build
+
+# ── Files to include in the app bundle ────────────────────────
+# electron-builder copies these into the .app/Contents/Resources/app/
+files:
+  - dist/electron/**/*
+  - dist/renderer/**/*
+  - package.json
+  # Native modules — electron-builder rebuilds these for the target
+  - node_modules/node-pty/**/*
+  - node_modules/better-sqlite3/**/*
+  # Pi SDK + dependencies (externalized by esbuild)
+  - node_modules/@mariozechner/**/*
+  - node_modules/@sinclair/**/*
+  - node_modules/@google/**/*
+  - node_modules/ws/**/*
+  - node_modules/discord.js/**/*
+  - node_modules/@discordjs/**/*
+  # Exclude dev/build artifacts
+  - "!**/{test,tests,__tests__,__mocks__}/**"
+  # Keep .ts sources: Pi package extensions are loaded via jiti at runtime,
+  # including the built-in packages staged under dist/electron/builtin/.
+  - "!**/*.{tsx,map}"
+  - "!**/node_modules/.cache/**"
+
+# ── asar ──────────────────────────────────────────────────────
+asar: true
+asarUnpack:
+  # Native modules must be unpacked (they contain .node binaries)
+  - node_modules/node-pty/**/*
+  - node_modules/better-sqlite3/**/*
+
+# ── macOS ─────────────────────────────────────────────────────
+mac:
+  target:
+    - target: dmg
+      arch:
+        - arm64
+    - target: zip
+      arch:
+        - arm64
+  category: public.app-category.developer-tools
+  # Icon auto-discovered from build/ directory.
+  # Generate with: bash scripts/generate-icon.sh path/to/1024x1024.png
+  # icon: build/icon.icns
+  darkModeSupport: true
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+
+# ── DMG options ───────────────────────────────────────────────
+dmg:
+  title: "${productName} ${version}"
+  artifactName: "${productName}-${version}-${arch}.${ext}"
+
+# ── Code signing — set CSC_LINK / CSC_KEY_PASSWORD env vars ──
+# When not set, the app is built unsigned (fine for local dev).
+# For distribution, export your Developer ID certificate as .p12
+# and set:
+#   CSC_LINK=path/to/cert.p12
+#   CSC_KEY_PASSWORD=your-password
+#
+# Notarization (optional, for distribution outside App Store):
+#   APPLE_ID=your@apple.id
+#   APPLE_APP_SPECIFIC_PASSWORD=app-specific-password
+#   APPLE_TEAM_ID=your-team-id
+afterSign: null
+
+# ── Native module rebuild ─────────────────────────────────────
+# Disabled here because pnpm workspace symlinks break electron-builder's
+# built-in rebuild. Native modules (node-pty, better-sqlite3) are rebuilt
+# manually via `electron-rebuild` in build-release.sh (step 5) instead.
+npmRebuild: false
+nodeGypRebuild: false
+buildDependenciesFromSource: false
+
+# Use the locally installed castlabs Electron fork instead of trying
+# to download a stock Electron build for the +wvcus version.
+electronDist: node_modules/electron/dist

@@ -1,0 +1,30 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "outDir": "dist/electron",
+    /* Widened to the monorepo root so Electron typecheck can resolve shared
+       workspace packages and plugin aliases during `tsc --noEmit`. Safe: the
+       production Electron build still uses esbuild entry bundling instead. */
+    "rootDir": "../..",
+    "lib": ["ES2022"],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@electron/*": ["electron/*"],
+      "@plugins/*": ["../../plugins/*"],
+      "@packages/*": ["../../packages/*"],
+      "@sero-ai/common": ["../../packages/common/src/index.ts"],
+      // Subpath export — not resolvable under moduleResolution:node without this mapping
+      "@mariozechner/pi-ai/oauth": ["./node_modules/@mariozechner/pi-ai/dist/oauth"]
+    }
+  },
+  "include": ["electron/**/*", "src/types/ipc.ts", "src/types/ipc-channels.ts"],
+  "exclude": ["node_modules", "dist"]
+}

@@ -1,0 +1,1 @@
+export { registerWorkspaceCliCommands } from './workspace';

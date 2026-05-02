@@ -1,0 +1,123 @@
+@import "tailwindcss";
+
+@source "../../ui/src/components";
+@source "./components";
+@source "./hooks";
+@source "./lib";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+}
+
+/* ── Content fade-in (keyed remount) ────────────────────── */
+/* Applied via `key` prop — React unmounts the old div and mounts
+   a new one, which plays the animation once on entry. Only the
+   detail/content panel fades; header, tabs, sidebar stay put. */
+
+@keyframes admin-enter {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.admin-fade-in {
+  animation: admin-enter 0.15s ease;
+}
+
+/* ── Accent glow background ──────────────────────────── */
+
+.admin-config-pane {
+  background: linear-gradient(
+    135deg,
+    hsl(var(--primary) / 0.03) 0%,
+    transparent 50%,
+    hsl(var(--primary) / 0.02) 100%
+  );
+}
+
+/* ── JSON editor styling ──────────────────────────────── */
+
+.admin-editor {
+  font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
+  font-feature-settings: 'kern' 1, 'liga' 1;
+  -webkit-font-smoothing: antialiased;
+  tab-size: 2;
+  outline: none !important;
+}
+
+.admin-editor:focus-visible {
+  outline: none !important;
+}
+
+.admin-editor::selection {
+  background: hsl(var(--primary) / 0.2);
+}
+
+/* ── content-visibility for all repeated rows ─────────── */
+/* Skips layout + paint for off-screen items. `auto` in
+   contain-intrinsic-size means "use real height once measured". */
+
+.admin-log-line {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 20px;
+}
+
+.admin-log-line:hover {
+  background: hsl(var(--primary) / 0.04);
+}
+
+.admin-sidebar-item {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 52px;
+}
+
+.admin-message-card {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 48px;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.admin-message-card:hover {
+  border-color: hsl(var(--primary) / 0.2);
+}
+
+/* ── Loading pulse ────────────────────────────────────── */
+
+@keyframes admin-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+.admin-loading {
+  animation: admin-pulse 1.5s ease-in-out infinite;
+}
+
+/* ── Nav sidebar items ─────────────────────────────────── */
+
+.admin-nav-item {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 32px;
+}

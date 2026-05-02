@@ -1,0 +1,102 @@
+# Code generation — tests quality of generated TypeScript / React code.
+#
+# METADATA ACCESS: context.providerResponse.metadata (not output.metadata)
+
+- description: "Generate a React component with props"
+  vars:
+    scenario_prompt: >
+      Create a React component called SessionPicker in SessionPicker.tsx.
+      It should accept these props:
+        - sessions: Array<{ id: string; name: string; lastModified: Date }>
+        - onSelect: (sessionId: string) => void
+      Render each session as a clickable card showing name and date.
+      Use TypeScript and Tailwind CSS classes for styling.
+  assert:
+    - type: contains
+      value: "SessionPicker"
+
+    - type: llm-rubric
+      value: >
+        The generated code should be a valid TypeScript React functional
+        component. It must accept sessions and onSelect props with correct
+        types, render a list of cards, and handle click events to call
+        onSelect with the session id. It should use Tailwind CSS classes.
+      threshold: 0.7
+
+    - type: javascript
+      value: |
+        const hasTS = output.includes('interface') || output.includes(': React') || output.includes('Props');
+        const hasTW = output.includes('className');
+        const hasOnSelect = output.includes('onSelect');
+        const score = [hasTS, hasTW, hasOnSelect].filter(Boolean).length / 3;
+        return {
+          pass: score >= 0.66,
+          score,
+          reason: `TS:${hasTS} Tailwind:${hasTW} onSelect:${hasOnSelect}`
+        };
+
+- description: "Fix a null-safety bug from an error message"
+  vars:
+    scenario_prompt: >
+      I have this component but it crashes:
+
+        function UserList({ users }) {
+          return (
+            <ul>
+              {users.map(u => <li key={u.id}>{u.name}</li>)}
+            </ul>
+          );
+        }
+
+      Error: TypeError: Cannot read properties of undefined (reading 'map')
+
+      The users prop might be undefined on first render. Fix this file
+      defensively. Write the fix to UserList.tsx.
+  assert:
+    - type: llm-rubric
+      value: >
+        The fix should handle the case where users is undefined or null.
+        Acceptable approaches: optional chaining (users?.map), default
+        parameter (users = []), guard clause, or nullish coalescing.
+        The agent should NOT use a non-null assertion (!).
+      threshold: 0.8
+
+    - type: javascript
+      value: |
+        const hasGuard = output.includes('?.map') || output.includes('= []')
+          || output.includes('?? []') || output.includes('|| []');
+        return {
+          pass: hasGuard,
+          score: hasGuard ? 1.0 : 0.0,
+          reason: hasGuard
+            ? 'Contains null-safety pattern'
+            : 'No null-safety pattern found'
+        };
+
+- description: "Generate a Node.js utility function with tests"
+  vars:
+    scenario_prompt: >
+      Create a file called slugify.ts that exports a function slugify(input: string): string.
+      It should convert a string to a URL-friendly slug: lowercase, spaces to hyphens,
+      strip non-alphanumeric characters (except hyphens), collapse consecutive hyphens.
+      Include at least 3 inline examples as comments showing input → output.
+  assert:
+    - type: contains
+      value: "slugify"
+
+    - type: llm-rubric
+      value: >
+        The function should correctly handle: spaces to hyphens, lowercasing,
+        stripping special characters, and collapsing consecutive hyphens.
+        The code should include at least 3 example comments.
+      threshold: 0.7
+
+    - type: javascript
+      value: |
+        const meta = context.providerResponse?.metadata ?? {};
+        const ms = meta.latencyMs || 0;
+        return {
+          pass: ms < 90000,
+          score: Math.max(0, 1 - (ms / 90000)),
+          reason: `Completed in ${(ms / 1000).toFixed(1)}s`
+        };

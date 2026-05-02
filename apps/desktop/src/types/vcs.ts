@@ -1,0 +1,25 @@
+// Compatibility barrel for legacy `@/types/vcs` imports.
+// Canonical VCS contracts live in @sero-ai/common.
+export type {
+  VcsCheckpointSource,
+  VcsCheckpoint,
+  VcsWorkspaceState,
+  ChangeEntry,
+  FileStatus,
+  StatusFile,
+  WorkingCopyStatus,
+  FileDiffEntry,
+  BookmarkRemoteStatus,
+  Bookmark,
+  Remote,
+  OperationEntry,
+  PushPreview,
+  SyncResult,
+  PullRequestRef,
+  PullRequestState,
+  PullRequestPreview,
+  PullRequestDraft,
+  CreatePullRequestInput,
+  CreatePullRequestResult,
+  VcsEvent,
+} from '@sero-ai/common';

@@ -1,0 +1,20 @@
+# Current solo-maintainer ownership
+* @monobyte
+
+# Repository governance and automation
+/.github/ @monobyte
+
+# Security-sensitive desktop/runtime areas
+/apps/desktop/electron/ @monobyte
+/apps/desktop/images/ @monobyte
+/apps/desktop/scripts/ @monobyte
+
+# Shared platform packages and built-in plugins
+/packages/ @monobyte
+/plugins/ @monobyte
+
+# Documentation and public project policy
+/docs/ @monobyte
+/SECURITY.md @monobyte
+/CONTRIBUTING.md @monobyte
+/CODE_OF_CONDUCT.md @monobyte

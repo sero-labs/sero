@@ -1,0 +1,44 @@
+name: Feature request
+description: Propose an improvement to Sero's product, platform, or contributor workflow.
+title: "feat: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or opportunity
+      description: What workflow or user need is not well served today?
+      placeholder: Describe the gap or pain point.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed direction
+      description: What would you like Sero to do?
+      placeholder: Describe the behavior, UX, or API you want.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What workarounds or other designs have you considered?
+  - type: textarea
+    id: impact
+    attributes:
+      label: Why this matters
+      description: Who benefits, and how?
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Desktop app
+        - Plugins / ecosystem
+        - Dev workflow
+        - Docs
+        - Testing / CI / evals
+        - Security / privacy
+        - Other

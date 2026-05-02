@@ -1,0 +1,82 @@
+{
+  "name": "@sero-ai/plugin-mcp",
+  "version": "0.1.0",
+  "description": "Built-in MCP control center for Sero",
+  "keywords": [
+    "pi-package"
+  ],
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit -p ui/tsconfig.json && tsc --noEmit -p extension/tsconfig.json",
+    "test": "pnpm exec vitest run --root ."
+  },
+  "pi": {
+    "extensions": [
+      "./extension/index.ts"
+    ],
+    "prompts": [
+      "./prompts/mcp.md"
+    ]
+  },
+  "sero": {
+    "app": {
+      "id": "mcp",
+      "name": "MCP",
+      "icon": "plug",
+      "scope": "global",
+      "stateFile": ".sero/apps/mcp/state.json",
+      "ui": "./dist/ui/remoteEntry.js",
+      "component": "McpApp",
+      "devPort": 5196
+    },
+    "plugin": {
+      "category": "developer-tools",
+      "tags": [
+        "mcp",
+        "servers",
+        "oauth",
+        "resources"
+      ],
+      "minSeroVersion": "0.1.0",
+      "requiredHostCapabilities": [
+        "appAgent.invokeTool",
+        "tool.cli"
+      ],
+      "bridgeTools": [
+        "mcp"
+      ],
+      "preBuilt": false
+    }
+  },
+  "dependencies": {
+    "@modelcontextprotocol/ext-apps": "1.2.2",
+    "@modelcontextprotocol/sdk": "^1.27.1",
+    "@sinclair/typebox": "catalog:",
+    "zod": "catalog:"
+  },
+  "peerDependencies": {
+    "@mariozechner/pi-ai": "catalog:peer",
+    "@mariozechner/pi-coding-agent": "catalog:peer",
+    "@mariozechner/pi-tui": "catalog:peer"
+  },
+  "devDependencies": {
+    "@module-federation/vite": "catalog:",
+    "@sero-ai/app-runtime": "workspace:@sero-ai/app-runtime@*",
+    "@sero-ai/common": "workspace:*",
+    "@sero-ai/ui": "workspace:*",
+    "@tailwindcss/vite": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "jsdom": "^26.1.0",
+    "lucide-react": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "tailwindcss": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}
