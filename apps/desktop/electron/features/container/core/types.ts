@@ -9,7 +9,7 @@ import path from 'path';
 import os from 'os';
 
 export const CONTAINER_BIN = '/usr/local/bin/container';
-export const DEFAULT_IMAGE = 'sero-node:latest';
+export const DEFAULT_IMAGE = 'ghcr.io/sero-labs/sero-node:latest';
 export const DEFAULT_CPUS = 2;
 export const DEFAULT_MEMORY_MB = 1024;
 export const WORKSPACE_MOUNT = '/workspace';
