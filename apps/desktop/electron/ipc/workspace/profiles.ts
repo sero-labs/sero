@@ -8,6 +8,7 @@
 import { app, dialog, ipcMain } from 'electron';
 import { IpcChannels } from '@/types/ipc-channels';
 import { profileManager } from '@electron/features/profile/manager';
+import { clearLoadedProfileEnvForRelaunch } from '@electron/platform/env';
 import {
   applyLegacyProviderDefaultsMigration,
   buildGlobalModelConfigState,
@@ -91,7 +92,11 @@ export function registerProfileHandlers(): void {
     async (_e, id: string): Promise<void> => {
       await profileManager.setActive(id);
 
-      // Relaunch the app so env.ts picks up the new active profile
+      // Relaunch the app so env.ts picks up the new active profile.
+      // Drop keys injected from the previous profile's agent/.env first;
+      // otherwise Electron's child process inherits provider credentials and
+      // a fresh profile can incorrectly look configured during onboarding.
+      clearLoadedProfileEnvForRelaunch();
       app.relaunch();
       app.exit(0);
     },

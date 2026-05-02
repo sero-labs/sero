@@ -172,6 +172,8 @@ function applyProcessEnv(seroHome: string, seroAgentDir: string): void {
   process.env.SERO_HOME = seroHome;
 }
 
+const loadedProfileEnvKeys = new Set<string>();
+
 function loadProfileDotEnv(envPath: string): void {
   let content: string;
   try {
@@ -199,8 +201,16 @@ function loadProfileDotEnv(envPath: string): void {
 
     if (key && !(key in process.env)) {
       process.env[key] = value;
+      loadedProfileEnvKeys.add(key);
     }
   }
+}
+
+export function clearLoadedProfileEnvForRelaunch(): void {
+  for (const key of loadedProfileEnvKeys) {
+    delete process.env[key];
+  }
+  loadedProfileEnvKeys.clear();
 }
 
 const resolvedEnv = resolveStartupEnv();

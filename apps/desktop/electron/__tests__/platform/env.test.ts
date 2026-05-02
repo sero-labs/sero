@@ -31,6 +31,7 @@ describe('staged env bootstrap', () => {
     delete process.env.SERO_HOME;
     delete process.env.PI_CODING_AGENT_DIR;
     delete process.env.OPENAI_API_KEY;
+    delete process.env.ANTHROPIC_API_KEY;
     process.env.SERO_HOME_OVERRIDE = '/tmp/sero-profile';
 
     mocks.readFileSync.mockReset().mockImplementation((filePath: string) => {
@@ -59,5 +60,26 @@ describe('staged env bootstrap', () => {
     expect(process.env.SERO_HOME).toBe('/tmp/sero-profile');
     expect(process.env.PI_CODING_AGENT_DIR).toBe('/tmp/sero-profile/agent');
     expect(process.env.OPENAI_API_KEY).toBe('test-key');
+  });
+
+  it('clears only profile-loaded env values before profile relaunch', async () => {
+    process.env.ANTHROPIC_API_KEY = 'shell-key';
+    mocks.readFileSync.mockReset().mockImplementation((filePath: string) => {
+      if (filePath === '/tmp/sero-profile/agent/.env') {
+        return 'OPENAI_API_KEY=test-key\nANTHROPIC_API_KEY=profile-should-not-override\n';
+      }
+      throw new Error(`Unexpected read: ${filePath}`);
+    });
+
+    const env = await import('@electron/platform/env');
+    env.loadSeroEnv();
+
+    expect(process.env.OPENAI_API_KEY).toBe('test-key');
+    expect(process.env.ANTHROPIC_API_KEY).toBe('shell-key');
+
+    env.clearLoadedProfileEnvForRelaunch();
+
+    expect(process.env.OPENAI_API_KEY).toBeUndefined();
+    expect(process.env.ANTHROPIC_API_KEY).toBe('shell-key');
   });
 });
