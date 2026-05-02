@@ -24,7 +24,7 @@ export const site = {
 	github: "https://github.com/sero-labs/sero",
 	tagline: "An agent you can make your own.",
 	description:
-		"A local-first macOS workspace bringing your coding agents, tools, memory, and apps together — extensible through plugins as your work changes.",
+		"A local-first macOS workspace built on the Pi SDK — bringing your coding agents, tools, memory, and apps together as your work changes.",
 };
 
 export const links = {
@@ -63,7 +63,7 @@ export const hero = {
 	headline: "Build the agent only you need.",
 	sub: site.description,
 	support:
-		"Start with a capable workspace for coding, research, and day-to-day tasks. Add plugins and agents to make it work the way you do.",
+		"Start with Pi's proven agent loop, then add Sero's desktop shell for coding, research, plugins, memory, and day-to-day tasks.",
 	primary: { label: "Get the macOS alpha", href: links.install },
 	secondary: { label: "See how Sero grows", href: "#loop" },
 };
@@ -197,8 +197,8 @@ export const features: Feature[] = [
 	},
 	{
 		id: "agents",
-		title: "Built-in specialists. Or make your own.",
-		body: "Scout, reviewer, test-writer, and more ship by default. Each is a plain Markdown file you can edit, customise, or duplicate. You can also ask Sero to create a new specialist agent from scratch.",
+		title: "Built on Pi's agent harness.",
+		body: "Sero builds on Pi's tools, skills, prompts, agents, and extension model — then adds the macOS workspace around them. Built-in specialists like scout, reviewer, and test-writer are plain Markdown files you can edit, customise, or duplicate.",
 		image: images.adminAgents,
 		imageAlt: "Admin panel showing a list of custom agent definitions with model and thinking tier badges",
 	},
@@ -231,7 +231,7 @@ export const cta = {
 export const footer = {
 	tagline: "alpha · macOS · local-first",
 	bottomLeft: "",
-	bottomRight: "© sero · source-only OSS",
+	bottomRight: "© sero",
 	links: [
 		{ label: "Docs", href: links.docs },
 		{ label: "GitHub", href: links.github },

@@ -10,15 +10,23 @@ import { builtins } from "../content/copy";
 		{builtins.map((b) => (
 			<article class="builtin">
 				<figure>
-					<Image
-						src={b.img}
-						widths={[400, 600, 800]}
-						sizes="(max-width: 820px) 50vw, 380px"
-						format="webp"
-						alt=""
-						loading="lazy"
-						decoding="async"
-					/>
+					<a
+						class="lightbox-trigger"
+						href={b.img.src}
+						data-lightbox
+						data-lightbox-caption={b.name}
+						data-lightbox-alt={`${b.name} plugin screenshot`}
+					>
+						<Image
+							src={b.img}
+							widths={[400, 600, 800]}
+							sizes="(max-width: 820px) 50vw, 380px"
+							format="webp"
+							alt=""
+							loading="lazy"
+							decoding="async"
+						/>
+					</a>
 				</figure>
 				<div class="builtin__copy">
 					<span class="builtin__name">[{b.name.toLowerCase()}]</span>

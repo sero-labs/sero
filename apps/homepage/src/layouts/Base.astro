@@ -3,6 +3,7 @@
 // Replaces the render-blocking fonts.googleapis.com link.
 import "@fontsource-variable/jetbrains-mono";
 import "../styles/global.css";
+import Lightbox from "../components/Lightbox.astro";
 import { site, hero } from "../content/copy";
 
 interface Props {
@@ -62,5 +63,6 @@ const jsonLd = {
 	<body>
 		<a href="#main" class="skip-to-content">Skip to content</a>
 		<slot />
+		<Lightbox />
 	</body>
 </html>

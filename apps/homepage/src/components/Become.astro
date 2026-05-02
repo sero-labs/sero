@@ -16,15 +16,23 @@ import { become, becomeNote } from "../content/copy";
 						<span class="pick__name">{b.title}</span>
 					</div>
 					<figure>
-						<Image
-							src={b.image}
-							widths={[480, 720, 960]}
-							sizes="(max-width: 820px) 100vw, 50vw"
-							format="webp"
-							alt=""
-							loading="lazy"
-							decoding="async"
-						/>
+						<a
+							class="lightbox-trigger"
+							href={b.image.src}
+							data-lightbox
+							data-lightbox-caption={b.title}
+							data-lightbox-alt={`${b.title} screenshot`}
+						>
+							<Image
+								src={b.image}
+								widths={[480, 720, 960]}
+								sizes="(max-width: 820px) 100vw, 50vw"
+								format="webp"
+								alt=""
+								loading="lazy"
+								decoding="async"
+							/>
+						</a>
 					</figure>
 					<p class="pick__tag">{b.tagline}</p>
 					<ul class="pick__defaults">

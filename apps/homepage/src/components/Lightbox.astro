@@ -1,0 +1,156 @@
+<dialog class="lightbox" aria-label="Image preview">
+	<button class="lightbox__close" type="button" aria-label="Close image preview">×</button>
+	<img class="lightbox__image" alt="" />
+	<p class="lightbox__caption"></p>
+</dialog>
+
+<script is:inline>
+	const lightbox = document.querySelector(".lightbox");
+	const image = lightbox?.querySelector(".lightbox__image");
+	const caption = lightbox?.querySelector(".lightbox__caption");
+	const close = lightbox?.querySelector(".lightbox__close");
+
+	document.addEventListener("click", (event) => {
+		const trigger = event.target.closest("[data-lightbox]");
+		if (!trigger || !lightbox || !image || !caption) return;
+
+		event.preventDefault();
+		const src = trigger.getAttribute("href") || trigger.dataset.lightboxSrc;
+		if (!src) return;
+
+		image.src = src;
+		image.alt = trigger.dataset.lightboxAlt || "Sero screenshot";
+		caption.textContent = trigger.dataset.lightboxCaption || "";
+		lightbox.showModal();
+	});
+
+	const closeLightbox = () => {
+		if (!lightbox?.open) return;
+		lightbox.classList.add("is-closing");
+		window.setTimeout(() => lightbox.close(), 150);
+	};
+
+	close?.addEventListener("click", closeLightbox);
+	lightbox?.addEventListener("click", (event) => {
+		if (event.target === lightbox) closeLightbox();
+	});
+	lightbox?.addEventListener("cancel", (event) => {
+		event.preventDefault();
+		closeLightbox();
+	});
+	lightbox?.addEventListener("close", () => {
+		lightbox.classList.remove("is-closing");
+		if (image) image.src = "";
+	});
+</script>
+
+<style>
+.lightbox {
+	width: min(92vw, 1280px);
+	max-height: 92vh;
+	padding: 0;
+	border: 1px solid rgba(var(--phos-rgb), 0.35);
+	background:
+		linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 22%),
+		var(--bg);
+	color: var(--ink);
+	box-shadow:
+		0 0 0 1px rgba(255, 255, 255, 0.04) inset,
+		0 32px 120px rgba(0, 0, 0, 0.72),
+		0 0 80px rgba(var(--phos-rgb), 0.12);
+	overflow: hidden;
+}
+
+.lightbox[open] {
+	animation: lightboxIn 180ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.lightbox.is-closing {
+	animation: lightboxOut 150ms ease both;
+}
+
+.lightbox::backdrop {
+	background:
+		radial-gradient(circle at 50% 20%, rgba(var(--phos-rgb), 0.14), transparent 34%),
+		rgba(0, 0, 0, 0.78);
+	backdrop-filter: blur(12px) saturate(0.8);
+}
+
+.lightbox[open]::backdrop {
+	animation: backdropIn 180ms ease both;
+}
+
+.lightbox.is-closing::backdrop {
+	animation: backdropOut 150ms ease both;
+}
+
+.lightbox__close {
+	position: absolute;
+	top: 12px;
+	right: 12px;
+	z-index: 1;
+	width: 38px;
+	height: 38px;
+	border: 1px solid rgba(255, 255, 255, 0.18);
+	background: rgba(8, 9, 8, 0.72);
+	color: var(--ink);
+	font-size: 24px;
+	line-height: 1;
+	cursor: pointer;
+	backdrop-filter: blur(10px);
+	transition: border-color 120ms ease, color 120ms ease, transform 120ms ease;
+}
+
+.lightbox__close:hover {
+	border-color: var(--phos);
+	color: var(--phos);
+	transform: translateY(-1px);
+}
+
+.lightbox__image {
+	display: block;
+	width: 100%;
+	max-height: calc(92vh - 48px);
+	object-fit: contain;
+	background:
+		repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.018) 0 1px, transparent 1px 8px),
+		#050605;
+}
+
+.lightbox__caption {
+	margin: 0;
+	padding: 12px 16px;
+	border-top: 1px solid var(--rule);
+	background: rgba(8, 9, 8, 0.84);
+	color: var(--ink-2);
+	font-size: 12.5px;
+	line-height: 1.5;
+}
+
+@keyframes lightboxIn {
+	from { opacity: 0; transform: translateY(10px) scale(0.985); }
+	to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes lightboxOut {
+	from { opacity: 1; transform: translateY(0) scale(1); }
+	to { opacity: 0; transform: translateY(8px) scale(0.985); }
+}
+
+@keyframes backdropIn {
+	from { opacity: 0; }
+	to { opacity: 1; }
+}
+
+@keyframes backdropOut {
+	from { opacity: 1; }
+	to { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.lightbox,
+	.lightbox::backdrop {
+		animation: none !important;
+	}
+}
+</style>

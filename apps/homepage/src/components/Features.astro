@@ -11,15 +11,23 @@ import { features } from "../content/copy";
 		{features.map((f) => (
 			<article class="feature">
 				<figure class="feature__shot">
-					<Image
-						src={f.image}
-						widths={[640, 960, 1280]}
-						sizes="(max-width: 820px) 100vw, 60vw"
-						format="webp"
-						alt={f.imageAlt}
-						loading="lazy"
-						decoding="async"
-					/>
+					<a
+						class="lightbox-trigger"
+						href={f.image.src}
+						data-lightbox
+						data-lightbox-caption={f.title}
+						data-lightbox-alt={f.imageAlt}
+					>
+						<Image
+							src={f.image}
+							widths={[640, 960, 1280]}
+							sizes="(max-width: 820px) 100vw, 60vw"
+							format="webp"
+							alt={f.imageAlt}
+							loading="lazy"
+							decoding="async"
+						/>
+					</a>
 				</figure>
 				<div class="feature__copy">
 					<h3 class="feature__title">{f.title}</h3>

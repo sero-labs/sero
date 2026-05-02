@@ -12,7 +12,7 @@ import { hero, images } from "../content/copy";
 		</div>
 		<div class="brand__tag">
 			<span class="brand__bullet" aria-hidden="true" />
-			a workshop OS for agents
+			a workshop OS for Pi agents
 		</div>
 	</div>
 
@@ -30,15 +30,23 @@ import { hero, images } from "../content/copy";
 	</div>
 
 	<figure class="shot" aria-label="A live Sero session: agent chat panel beside an HTML preview.">
-		<Picture
-			src={images.seroChat}
-			formats={["avif", "webp"]}
-			widths={[800, 1200, 1600, images.seroChat.width]}
-			sizes="(max-width: 1240px) 100vw, 1160px"
-			alt="Sero workspace with the agent chat panel on the right showing a multi-step plan to scaffold a landing page."
-			loading="eager"
-			fetchpriority="high"
-			decoding="async"
-		/>
+		<a
+			class="lightbox-trigger"
+			href={images.seroChat.src}
+			data-lightbox
+			data-lightbox-caption="Sero workspace with the agent chat panel beside an HTML preview."
+			data-lightbox-alt="Sero workspace with the agent chat panel on the right showing a multi-step plan to scaffold a landing page."
+		>
+			<Picture
+				src={images.seroChat}
+				formats={["avif", "webp"]}
+				widths={[800, 1200, 1600, images.seroChat.width]}
+				sizes="(max-width: 1240px) 100vw, 1160px"
+				alt="Sero workspace with the agent chat panel on the right showing a multi-step plan to scaffold a landing page."
+				loading="eager"
+				fetchpriority="high"
+				decoding="async"
+			/>
+		</a>
 	</figure>
 </header>

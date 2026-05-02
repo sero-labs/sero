@@ -14,15 +14,23 @@ import { cta, images } from "../content/copy";
 		<a class="btn btn--ghost" href={cta.secondary.href}>{cta.secondary.label}</a>
 		<a class="btn btn--ghost" href={cta.tertiary.href}>{cta.tertiary.label}</a>
 	</div>
-	<figure class="proof" aria-hidden="true">
-		<Image
-			src={images.explorerBrowser}
-			widths={[800, 1200]}
-			sizes="(max-width: 1240px) 100vw, 1160px"
-			format="webp"
-			alt=""
-			loading="lazy"
-			decoding="async"
-		/>
+	<figure class="proof" aria-label="Sero explorer browser screenshot">
+		<a
+			class="lightbox-trigger"
+			href={images.explorerBrowser.src}
+			data-lightbox
+			data-lightbox-caption="Sero explorer browser"
+			data-lightbox-alt="Sero workspace with the in-app browser showing a live dev server preview"
+		>
+			<Image
+				src={images.explorerBrowser}
+				widths={[800, 1200]}
+				sizes="(max-width: 1240px) 100vw, 1160px"
+				format="webp"
+				alt=""
+				loading="lazy"
+				decoding="async"
+			/>
+		</a>
 	</figure>
 </section>
