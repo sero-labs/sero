@@ -28,7 +28,7 @@
 ## What is Sero?
 
 Sero is the dedicated **macOS Workshop OS** built directly on the
-[Pi](https://github.com/badlogic/pi) coding harness.
+[Pi](https://github.com/badlogic/pi) coding agent.
 
 Pi gives you the minimal, stable agent loop. Sero adds the always-on macOS
 shell: visual browser, container isolation, persistent project memory,
