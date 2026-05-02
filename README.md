@@ -27,10 +27,49 @@
 
 ## What is Sero?
 
-Sero is an **open-source, source-only alpha** desktop workspace for agent-assisted
-software work. It combines project workspaces, agent chat, plugin apps,
-terminals, previews, browser/capture workflows, and runtime integration in one
-local application.
+Sero is the dedicated **macOS Workshop OS** built directly on the
+[Pi](https://github.com/badlogic/pi) coding harness.
+
+Pi gives you the minimal, stable agent loop. Sero adds the always-on macOS
+shell: visual browser, container isolation, persistent project memory,
+self-building plugins, and one unified workspace.
+
+Put simply: Sero is where agent-assisted software work happens when the agent
+needs more than a chat box.
+
+## Features
+
+- **Unified macOS desktop shell** — chat, terminals, previews, plugins, files,
+  browser flows, and full workspace context in one place.
+- **Built-in visual browser** — run your dev server or app inside Sero so the
+  agent can inspect pages, capture screenshots/video, and reason about what is
+  actually on screen.
+- **Self-building plugins** — use the loop Sero is designed for: ask for a
+  workflow, build the plugin, use it immediately, then improve it with the agent.
+- **Container-backed workspaces** — Apple Silicon native isolation with a path
+  toward Linux parity for development environments.
+- **Plugin-first Pi support** — plugins can expose Pi tools, slash commands,
+  React UI, widgets, background jobs, and provider integrations.
+- **Persistent project memory** — project-level context can carry across agent
+  sessions instead of starting from scratch every time.
+
+Technical rationale:
+
+Modern agent workflows often scatter across your editor, terminal, browser,
+MCP/tools, local scripts, dashboards, plugin UIs, and long-running agent context.
+Sero's goal is to pull those pieces into one local, agent-native workspace where
+UI, tools, runtime state, and project context can work together.
+
+In practical terms, Sero is exploring:
+
+- **Agent-native app composition** — plugins can bring their own UI, tools,
+  commands, and background behavior instead of being limited to chat text.
+- **Less context switching** — project files, terminals, previews, browser flows,
+  VCS, and agent sessions live in one shell.
+- **Local-first control** — workspace state, logs, auth, and runtime integration
+  are designed to stay on your machine unless you opt into external services.
+- **A proving ground for Pi-powered extensions** — Sero is built around Pi
+  primitives rather than wrapping an agent in a conventional desktop UI.
 
 Public links:
 
@@ -38,7 +77,38 @@ Public links:
 - Docs: <https://docs.sero-ai.dev/>
 
 Sero is built on [Pi](https://github.com/badlogic/pi), the open-source coding
-agent platform, rather than treating the agent as a bolt-on chat box.
+agent platform. The current pinned Pi SDK baseline is **0.61.1**
+(`@mariozechner/pi-*` packages in `pnpm-workspace.yaml`). This will be updated
+during alpha: later Pi releases include breaking Extension API changes that Sero
+needs to adopt before plugin contracts can settle.
+
+## What Sero is not
+
+Sero is intentionally not trying to be everything at once:
+
+- It is **not** a replacement for your editor, terminal, browser, or Git client.
+  It aims to coordinate them around agent workflows, not fully subsume every
+  expert tool.
+- It is **not** a general-purpose low-code app builder or consumer automation
+  product.
+- It is **not** a hosted agent platform, SaaS IDE, or cloud execution service.
+  The default direction is local-first desktop software.
+- It is **not** API-stable yet. Plugin, runtime, and Extension API surfaces are
+  still expected to change during alpha.
+- It is **not** polished end-user software today. The current builds are for
+  early adopters, contributors, and people interested in the direction.
+
+## Gratitude to Pi and extension authors
+
+Sero exists because [Pi](https://github.com/badlogic/pi) exists. Huge thanks to
+[Mario Zechner](https://x.com/badlogicgames), Pi's creator, for building the
+open-source agent platform that makes Sero possible and for continuing to push
+the underlying extension model forward.
+
+Sero has also benefited enormously from Pi extension work in the community —
+especially [Nico Bailon](https://x.com/nicopreme), whose extensions and ecosystem
+experiments helped show what agent-native desktop workflows can become. Thank
+you to everyone building in the Pi ecosystem.
 
 ## Alpha status
 
@@ -51,6 +121,10 @@ Current release posture:
 - **Preferred runtime:** Apple container-backed workspaces
 - **Fallback runtime:** host mode with reduced capabilities
 - **Stability:** plugin/runtime contracts may change during alpha
+- **UX polish:** rough and actively changing; layout, flows, and accessibility
+  need refinement
+- **Theming:** CSS/theme support is patchy and will be normalized as the shell
+  and plugin contracts mature
 
 Sero does **not** currently promise Linux support, Windows support, official
 public binaries, stable internal APIs, or full feature parity without
@@ -65,26 +139,28 @@ an attempt to bring those pieces into one coherent desktop shell.
 
 Key ideas:
 
-- **One workspace for the whole loop** — code, chat, terminal, previews, plugins,
+- **Keep the loop together** — code, chat, terminal, visual inspection, plugins,
   and supporting tools share context.
-- **Local-first execution** — project files, app state, logs, and runtime state
-  stay on your machine unless you explicitly connect external services.
-- **Container-backed development** — preferred workspace execution uses Apple
-  containers for isolation and Linux parity where available.
-- **Host-mode fallback** — core work can continue when containers are not
-  available, with reduced isolation/capabilities.
-- **Plugin-first extensibility** — Sero plugins can ship React UI, Pi tools,
-  slash commands, background/runtime behavior, and provider integrations.
-- **Pi-native agent model** — sessions, tools, skills, prompts, and extensions
-  are built around Pi primitives.
+- **Let the agent see the product** — browser and screenshot workflows make UI
+  work less blind than text-only coding loops.
+- **Make extension a normal workflow** — Sero treats new tools and plugin UIs as
+  things you can build with the agent, not separate platform projects.
+- **Stay local-first** — project files, app state, logs, memory, and runtime
+  state stay on your machine unless you explicitly connect external services.
+- **Use Pi directly** — sessions, tools, skills, prompts, and extensions are
+  built around Pi primitives.
 
 ## Highlights
 
 - Electron + React desktop shell for agent-assisted development
-- Workspace model with per-workspace runtime control
 - Integrated Pi-backed chat sessions
-- Explorer workspace with editor, terminal, browser, preview, and VCS surfaces
-- Built-in plugin architecture for UI apps, tools, commands, and widgets
+- Explorer workspace with editor, terminal, visual browser, preview, and VCS
+  surfaces
+- Workspace model with per-workspace runtime control
+- Apple container-backed workspace execution, with host-mode fallback
+- Built-in plugin architecture for UI apps, tools, commands, widgets, and
+  background behavior
+- Persistent memory system for project context across sessions
 - Local plugin development flow for running plugin checkouts directly
 - Prompt/eval and desktop test infrastructure for safer iteration
 - Public docs site source under `apps/docs-site/`
@@ -204,6 +280,12 @@ Sero supports built-in and external plugins. A plugin can provide:
 - Optional runtime/background behavior
 - Optional model/provider metadata
 
+**External plugin disclaimer:** the current external plugins are very alpha and
+mostly throwaway. They exist to prove out the plugin system, Pi tool bridging,
+Module Federation loading, and local development workflow. Treat them as
+experiments, not production-quality apps. More realistic real-world apps are
+planned as the alpha hardens.
+
 See [`docs/plugins/guide.md`](./docs/plugins/guide.md) and
 [`docs/plugins/quickstart.md`](./docs/plugins/quickstart.md) for packaging,
 installation, and local development workflows.
@@ -242,12 +324,14 @@ Useful links:
 
 Sero would not exist without **Pi** and its open-source community.
 
-Special thanks to [Mario Zechner](https://x.com/badlogicgames), creator of Pi,
-for building and sharing the agent platform that Sero is built on.
+With deep gratitude: thank you to [Mario Zechner](https://x.com/badlogicgames),
+creator of Pi, for building and sharing the open-source agent platform that Sero
+is built on.
 
-Thanks also to the Pi open-source community, particularly
-[Nico Bailon](https://x.com/nicopreme), for excellent extensions and ecosystem
-work that helped shape what agent-native desktop workflows can feel like.
+Thank you also to the Pi open-source community, particularly
+[Nico Bailon](https://x.com/nicopreme), for excellent extension development and
+ecosystem work that helped shape what agent-native desktop workflows can feel
+like.
 
 ## License
 
