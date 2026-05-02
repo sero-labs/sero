@@ -8,11 +8,12 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src'),
+      '@assets': path.resolve(__dirname, '../../assets'),
       '@sero-ai/ui': path.resolve(__dirname, '../../packages/ui/src'),
     },
   },
   build: {
-    outDir: path.resolve(__dirname, '../desktop/electron/gateway/web-dist'),
+    outDir: path.resolve(__dirname, '../desktop/electron/features/gateway/web-dist'),
     emptyOutDir: true,
   },
   server: {

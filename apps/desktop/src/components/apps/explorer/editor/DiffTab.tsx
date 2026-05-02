@@ -18,8 +18,6 @@ import {
   FileText,
   Columns2,
   Rows2,
-  ChevronUp,
-  ChevronDown,
   Loader2,
 } from 'lucide-react';
 import { cn } from '@sero-ai/ui/lib/utils';

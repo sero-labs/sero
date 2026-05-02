@@ -7,6 +7,7 @@ import { WebSocket } from 'ws';
 import type { GatewayRequest } from './protocol';
 import type { GatewayAgentOps } from '..';
 import type { GatewayAuth } from '../security/auth';
+import type { DevProxyTicketManager } from '../security/devserver-ticket';
 import {
   authorizeArtifactsFromSession,
   authorizeSessionFromWorkspace,
@@ -41,6 +42,7 @@ export async function routeExtendedRequest(
   subscribeToSession: (sessionId: string) => void,
   auth: GatewayAuth,
   isMasterAuth: boolean,
+  devProxyTickets: DevProxyTicketManager | null,
 ): Promise<boolean> {
   switch (request.type) {
     case 'create_session': {
@@ -316,6 +318,77 @@ export async function routeExtendedRequest(
           type: 'error',
           requestType: 'revoke_web_token',
           message: err instanceof Error ? err.message : 'Revoke web token failed',
+        });
+      }
+      return true;
+    }
+
+    case 'list_dev_servers': {
+      try {
+        const all = await agentOps.listDevServers(request.workspaceId);
+        const filtered = all.filter((s) => hasWorkspaceAccess(accessScope, s.workspaceId));
+        sendResponse(ws, {
+          type: 'ok',
+          requestType: 'list_dev_servers',
+          data: filtered,
+        });
+      } catch (err) {
+        sendResponse(ws, {
+          type: 'error',
+          requestType: 'list_dev_servers',
+          message: err instanceof Error ? err.message : 'List dev servers failed',
+        });
+      }
+      return true;
+    }
+
+    case 'create_devserver_ticket': {
+      if (!devProxyTickets) {
+        sendResponse(ws, {
+          type: 'error',
+          requestType: 'create_devserver_ticket',
+          message: 'Dev server proxy is not enabled',
+        });
+        return true;
+      }
+      if (!hasWorkspaceAccess(accessScope, request.workspaceId)) {
+        sendResponse(ws, {
+          type: 'error',
+          requestType: 'create_devserver_ticket',
+          message: `Workspace not authorized: ${request.workspaceId}`,
+        });
+        return true;
+      }
+      try {
+        const target = await agentOps.resolveDevServerTarget(
+          request.workspaceId,
+          request.port,
+        );
+        if (!target) {
+          sendResponse(ws, {
+            type: 'error',
+            requestType: 'create_devserver_ticket',
+            message:
+              'No registered dev server is listening on that port for this workspace',
+          });
+          return true;
+        }
+        const issued = devProxyTickets.issue(request.workspaceId, request.port);
+        sendResponse(ws, {
+          type: 'ok',
+          requestType: 'create_devserver_ticket',
+          data: {
+            ticket: issued.ticket,
+            expiresAt: issued.expiresAt,
+            workspaceId: issued.workspaceId,
+            port: issued.port,
+          },
+        });
+      } catch (err) {
+        sendResponse(ws, {
+          type: 'error',
+          requestType: 'create_devserver_ticket',
+          message: err instanceof Error ? err.message : 'Ticket creation failed',
         });
       }
       return true;

@@ -24,7 +24,13 @@ import {
 import { listContainerFiles, readContainerFile } from '@electron/features/container/filesystem/files';
 import { convertSessionMessages } from '../agent/core/agent-helpers';
 import { convertToGatewayHistory } from './gateway-history';
-import type { GatewayAgentOps } from '@electron/features/gateway/server/types';
+import type {
+  GatewayAgentOps,
+  GatewayDevServerInfo,
+  GatewayDevServerTarget,
+  GatewayDevServerChange,
+} from '@electron/features/gateway/server/types';
+import type { DevServer } from '@/types/ipc';
 
 /**
  * Validate that a resolved path stays within the workspace root.
@@ -56,6 +62,18 @@ interface SessionPool {
     session: AgentSession;
     workspaceId: string;
   } | undefined;
+}
+
+function toGatewayDevServerInfo(server: DevServer): GatewayDevServerInfo {
+  return {
+    id: server.id,
+    workspaceId: server.workspaceId,
+    name: server.name,
+    port: server.port,
+    framework: server.framework,
+    status: server.status,
+    registeredAt: server.registeredAt,
+  };
 }
 
 async function findSessionInfo(workspaceId: string, sessionId: string): Promise<{
@@ -199,6 +217,70 @@ export function buildGatewayOps(
       if (!a) return null;
       return { base64: a.base64 ?? '', mimeType: a.mimeType, title: a.title };
     },
+    listDevServers: async (workspaceId): Promise<GatewayDevServerInfo[]> => {
+      return containerManager.devServers.list(workspaceId).map(toGatewayDevServerInfo);
+    },
+
+    resolveDevServerTarget: async (
+      workspaceId,
+      port,
+    ): Promise<GatewayDevServerTarget | null> => {
+      // Only registered dev servers are reachable through the proxy. This
+      // prevents the proxy from being used to scan arbitrary container ports.
+      const matching = containerManager.devServers
+        .list(workspaceId)
+        .find((s) => s.port === port);
+      if (!matching) return null;
+
+      const containerIp = containerManager.portScanner.getIp(workspaceId);
+      if (!containerIp) return null;
+
+      // The port scanner already knows whether to use a bridge port for
+      // localhost-only servers — fall back to the original port if the
+      // scanner hasn't seen it yet (server may be starting up).
+      const detected = containerManager.portScanner
+        .getPorts(workspaceId)
+        .find((p) => p.port === port);
+      if (!detected) return null;
+
+      const upstreamUrl = new URL(detected.url);
+      const upstreamPort = Number.parseInt(upstreamUrl.port, 10) || port;
+      return {
+        workspaceId,
+        port,
+        host: upstreamUrl.hostname || containerIp,
+        upstreamPort,
+      };
+    },
+
+    onDevServerChange: (cb: (change: GatewayDevServerChange) => void) => {
+      return containerManager.devServers.onChange((event) => {
+        if (event.type === 'registered') {
+          cb({
+            type: 'registered',
+            workspaceId: event.server.workspaceId,
+            server: toGatewayDevServerInfo(event.server),
+          });
+          return;
+        }
+        const tracked = containerManager.devServers.get(event.serverId);
+        // The registry sometimes emits unregister/status events after the
+        // entry has already been removed; recover the workspaceId from the
+        // serverId format `${workspaceId}:${scope}:${cardId}:${port}`.
+        const workspaceId = tracked?.workspaceId ?? event.serverId.split(':')[0] ?? '';
+        if (event.type === 'unregistered') {
+          cb({ type: 'unregistered', serverId: event.serverId, workspaceId });
+        } else {
+          cb({
+            type: 'status_changed',
+            serverId: event.serverId,
+            workspaceId,
+            status: event.status,
+          });
+        }
+      });
+    },
+
     getSessionHistory: async (workspaceId, sessionId) => {
       // If session is already open in the pool, read from live state.
       // Still enforce the workspace/session binding so a scoped token cannot

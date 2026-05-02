@@ -42,6 +42,8 @@ export interface GatewayClientLike {
   readFile: (workspaceId: string, filePath: string) => void;
   listArtifacts: (sessionId: string) => void;
   getArtifact: (artifactId: string) => void;
+  listDevServers: (workspaceId?: string) => void;
+  createDevServerTicket: (workspaceId: string, port: number) => void;
 }
 
 interface ConnectionStore {

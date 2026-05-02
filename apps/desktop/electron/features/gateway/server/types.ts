@@ -31,6 +31,45 @@ export interface GatewayFileContent {
   size: number;
 }
 
+/**
+ * Information about a registered dev server, returned to gateway clients.
+ * Mirrors the shape of `DevServer` from the desktop IPC types.
+ */
+export interface GatewayDevServerInfo {
+  id: string;
+  workspaceId: string;
+  name: string;
+  port: number;
+  framework?: string;
+  status: 'running' | 'stopped' | 'starting';
+  registeredAt: string;
+}
+
+/**
+ * Resolved upstream target for proxying a workspace dev server.
+ * Returned by `resolveDevServerTarget` only when the server is registered
+ * AND the port scanner has a fresh listening port for it.
+ */
+export interface GatewayDevServerTarget {
+  workspaceId: string;
+  port: number;
+  /** Container IP. */
+  host: string;
+  /** Effective port — either the original port or the bridge offset port. */
+  upstreamPort: number;
+}
+
+/** Lightweight change event mirrored from the dev server registry. */
+export type GatewayDevServerChange =
+  | { type: 'registered'; workspaceId: string; server: GatewayDevServerInfo }
+  | { type: 'unregistered'; serverId: string; workspaceId: string }
+  | {
+      type: 'status_changed';
+      serverId: string;
+      workspaceId: string;
+      status: GatewayDevServerInfo['status'];
+    };
+
 /** Operations the gateway can delegate to the agent pool. */
 export interface GatewayAgentOps {
   /** Open or get an existing agent session. Returns session path. */
@@ -83,4 +122,29 @@ export interface GatewayAgentOps {
     }>;
     timestamp: number;
   }>>;
+
+  /**
+   * List dev servers registered by agents. Used to populate the
+   * remote preview UI. Filtering by workspace is optional; callers
+   * still apply per-workspace authorization on top.
+   */
+  listDevServers(workspaceId?: string): Promise<GatewayDevServerInfo[]>;
+
+  /**
+   * Resolve a registered dev server to a reachable upstream target.
+   * Returns null when the port is not registered for this workspace
+   * or the port scanner has no live listener for it. The proxy uses
+   * this to refuse arbitrary ports — only registered ones are exposed.
+   */
+  resolveDevServerTarget(
+    workspaceId: string,
+    port: number,
+  ): Promise<GatewayDevServerTarget | null>;
+
+  /**
+   * Subscribe to dev server registry changes. Returns an unsubscribe.
+   * The gateway forwards these to clients as `dev_server_changed`
+   * push events, scoped by workspace authorization.
+   */
+  onDevServerChange(cb: (change: GatewayDevServerChange) => void): () => void;
 }

@@ -11,13 +11,28 @@ import { GatewayAuth, type GatewayAuthResult } from './security/auth';
 import { CostTracker } from './server/cost-tracker';
 import { RateLimiter } from './security/rate-limiter';
 import { sendResponse, routeAgentRequest, disposeIdempotencyStore } from './server/request-handler';
-import { primeStaticFileCache, tryServeStaticFile } from './server/static-files';
+import { primeStaticFileCache } from './server/static-files';
 import { redactSecrets } from '@electron/shared/lib/secret-redact';
 import { validateRequest, type GatewayRequest, type GatewayResponse, type GatewayPushEvent } from './server/protocol';
-import type { GatewayConfig, GatewayAgentOps } from './server/types';
-import { authorizeArtifactFromSession, hasSessionAccess, type GatewayAccessScope } from './server/access-control';
+import type { GatewayConfig, GatewayAgentOps, GatewayDevServerChange } from './server/types';
+import { hasWorkspaceAccess, authorizeArtifactFromSession, hasSessionAccess, type GatewayAccessScope } from './server/access-control';
+import {
+  DevProxyTicketManager,
+  generateTicketSecret,
+} from './security/devserver-ticket';
+import { toDevServerChangedEvent } from './server/devserver-proxy';
+import { createGatewayHttpServer } from './server/http-app';
+import { getClientIp, isOriginAllowed } from './server/connection-security';
 
-export type { GatewayConfig, GatewayAgentOps, GatewayFileEntry, GatewayFileContent } from './server/types';
+export type {
+  GatewayConfig,
+  GatewayAgentOps,
+  GatewayFileEntry,
+  GatewayFileContent,
+  GatewayDevServerInfo,
+  GatewayDevServerTarget,
+  GatewayDevServerChange,
+} from './server/types';
 
 /** Maximum WebSocket message payload (1 MB). */
 const MAX_PAYLOAD_BYTES = 1 * 1024 * 1024;
@@ -29,24 +44,6 @@ const MAX_CONNECTIONS_PER_IP = 10;
 const IDLE_TIMEOUT_MS = 30 * 60 * 1000;
 /** Auth timeout for unauthenticated connections (10 seconds). */
 const AUTH_TIMEOUT_MS = 10_000;
-/**
- * Allowed origins for WebSocket connections (non-Tailscale).
- * Populated at construction time from the gateway config port.
- */
-const STATIC_ALLOWED_ORIGINS = new Set([
-  'http://127.0.0.1:18800',
-  'http://localhost:18800',
-  'http://127.0.0.1:18801',
-  'http://localhost:18801',
-  // web-remote dev server port range (Vite auto-increments if port is taken)
-  'http://127.0.0.1:5174',
-  'http://localhost:5174',
-  'http://127.0.0.1:5175',
-  'http://localhost:5175',
-  'http://127.0.0.1:5176',
-  'http://localhost:5176',
-]);
-
 type WebChatHtmlProvider = () => string;
 
 interface ConnectedClient extends GatewayAccessScope {
@@ -73,6 +70,8 @@ export class GatewayServer {
   private config: GatewayConfig;
   private webChatHtml: WebChatHtmlProvider | null = null;
   private idleCheckTimer: ReturnType<typeof setInterval> | null = null;
+  private devProxyTickets: DevProxyTicketManager;
+  private devServerUnsubscribe: (() => void) | null = null;
 
   private authLimiter = new RateLimiter({
     maxAttempts: 5,
@@ -87,11 +86,22 @@ export class GatewayServer {
     this.config = config;
     this.auth = new GatewayAuth(config.tokenPath);
     this.costTracker = new CostTracker(config.configDir);
+    // Tickets are signed with a process-bound secret. We don't persist
+    // it: a gateway restart invalidates outstanding tickets, which is
+    // the desired behaviour for short-lived preview credentials.
+    this.devProxyTickets = new DevProxyTicketManager(generateTicketSecret());
   }
 
   /** Register agent operations handler (call before start). */
   setAgentOps(ops: GatewayAgentOps): void {
     this.agentOps = ops;
+    if (this.devServerUnsubscribe) {
+      this.devServerUnsubscribe();
+      this.devServerUnsubscribe = null;
+    }
+    this.devServerUnsubscribe = ops.onDevServerChange((change) => {
+      this.broadcastDevServerChange(change);
+    });
   }
 
   /**
@@ -110,39 +120,26 @@ export class GatewayServer {
 
     primeStaticFileCache(__dirname);
 
-    this.httpServer = http.createServer((req, res) => {
-      // Security headers on all responses
-      res.setHeader('Referrer-Policy', 'no-referrer');
-      res.setHeader('X-Content-Type-Options', 'nosniff');
-      res.setHeader(
-        'Content-Security-Policy',
-        "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' ws: wss:",
-      );
-
-      const pathname = (req.url ?? '/').split('?')[0];
-
-      // Server-side routes must come before the SPA static fallback.
-      if (pathname === '/basic' && this.webChatHtml) {
-        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        res.end(this.webChatHtml());
-        return;
-      }
-      if (pathname === '/health') {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ ok: true }));
-        return;
-      }
-
-      if (tryServeStaticFile(pathname, res, __dirname)) return;
-
-      res.writeHead(404);
-      res.end('Not Found');
+    this.httpServer = createGatewayHttpServer({
+      staticRoot: __dirname,
+      getWebChatHtml: () => this.webChatHtml,
+      getProxyDeps: () => this.proxyDeps(),
+      upgradeWebSocket: (req, socket, head) => {
+        this.wss!.handleUpgrade(req, socket, head, (ws) => {
+          this.wss!.emit('connection', ws, req);
+        });
+      },
     });
 
+    // The 'ws' library handles upgrades for paths it owns, but we need to
+    // intercept upgrades to /p/... before the WebSocketServer does. Setting
+    // `noServer: true` and binding 'upgrade' manually keeps both endpoints
+    // on the same listener.
     this.wss = new WebSocketServer({
-      server: this.httpServer,
+      noServer: true,
       maxPayload: MAX_PAYLOAD_BYTES,
     });
+
 
     this.wss.on('connection', (ws, req) => this.handleConnection(ws, req));
     this.wss.on('error', (err) => {
@@ -169,6 +166,10 @@ export class GatewayServer {
     if (this.idleCheckTimer) {
       clearInterval(this.idleCheckTimer);
       this.idleCheckTimer = null;
+    }
+    if (this.devServerUnsubscribe) {
+      this.devServerUnsubscribe();
+      this.devServerUnsubscribe = null;
     }
     this.authLimiter.dispose();
     disposeIdempotencyStore();
@@ -249,6 +250,29 @@ export class GatewayServer {
     return this.auth;
   }
 
+  /**
+   * Push a dev server change to clients authorized for the affected
+   * workspace. Master-token clients see everything; scoped clients
+   * only see workspaces in their authorization set.
+   */
+  broadcastDevServerChange(change: GatewayDevServerChange): void {
+    const payload = JSON.stringify(toDevServerChangedEvent(change));
+    for (const [ws, client] of this.clients) {
+      if (!client.authenticated) continue;
+      if (!hasWorkspaceAccess(client, change.workspaceId)) continue;
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(payload);
+      }
+    }
+  }
+
+  private proxyDeps() {
+    return {
+      agentOps: () => this.agentOps,
+      tickets: this.devProxyTickets,
+    };
+  }
+
   private canReceiveSessionEvent(client: ConnectedClient, sessionId: string): boolean {
     return hasSessionAccess(client, sessionId);
   }
@@ -272,16 +296,6 @@ export class GatewayServer {
 
   // ── Internal ──────────────────────────────────────────────
 
-  /**
-   * Extract client IP from the HTTP upgrade request.
-   * Always uses the socket address — never trusts X-Forwarded-For since
-   * the gateway can be directly exposed (e.g. via Tailscale) and clients
-   * could spoof XFF to bypass rate limiting and per-IP connection limits.
-   */
-  private getClientIp(req: http.IncomingMessage): string {
-    return req.socket.remoteAddress ?? 'unknown';
-  }
-
   /** Count connections from a specific IP. */
   private countConnectionsFromIp(ip: string): number {
     let count = 0;
@@ -289,31 +303,6 @@ export class GatewayServer {
       if (client.remoteIp === ip) count++;
     }
     return count;
-  }
-
-  /** Validate the Origin header for non-localhost connections. */
-  private isOriginAllowed(req: http.IncomingMessage): boolean {
-    const origin = req.headers.origin;
-    // No origin header (non-browser clients like wscat, Discord bot) — allow
-    if (!origin) return true;
-    // Static allow-list (known dev/prod ports)
-    if (STATIC_ALLOWED_ORIGINS.has(origin)) return true;
-    // Allow connections from the gateway's own serving origin (SPA served by this server)
-    const selfPort = this.config.port;
-    if (
-      origin === `http://127.0.0.1:${selfPort}` ||
-      origin === `http://localhost:${selfPort}`
-    ) {
-      return true;
-    }
-    // Tailscale origins (*.ts.net) are allowed
-    try {
-      const url = new URL(origin);
-      if (url.hostname.endsWith('.ts.net')) return true;
-    } catch {
-      // Invalid origin URL
-    }
-    return false;
   }
 
   /** Close idle authenticated connections. */
@@ -330,7 +319,7 @@ export class GatewayServer {
   }
 
   private handleConnection(ws: WebSocket, req: http.IncomingMessage): void {
-    const remoteIp = this.getClientIp(req);
+    const remoteIp = getClientIp(req);
 
     // Enforce total connection limit
     if (this.clients.size >= MAX_TOTAL_CONNECTIONS) {
@@ -347,7 +336,7 @@ export class GatewayServer {
     }
 
     // Validate Origin header
-    if (!this.isOriginAllowed(req)) {
+    if (!isOriginAllowed(req, this.config.port)) {
       const origin = req.headers.origin ?? 'unknown';
       console.warn(`[gateway] Connection rejected: unauthorized origin "${origin}" from ${remoteIp}`);
       ws.close(4003, 'Origin not allowed');
@@ -492,6 +481,7 @@ export class GatewayServer {
       this.costTracker,
       this.auth,
       client.isMasterAuth,
+      this.devProxyTickets,
     );
   }
 }

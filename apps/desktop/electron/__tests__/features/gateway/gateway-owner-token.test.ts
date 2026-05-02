@@ -188,6 +188,9 @@ function createAgentOps(): TestHarness['state'] & { ops: GatewayAgentOps } {
       return artifactsBySession.get(sessionId) ?? null;
     },
     getSessionHistory: async (_workspaceId, sessionId) => historyBySession.get(sessionId) ?? [],
+    listDevServers: async () => [],
+    resolveDevServerTarget: async () => null,
+    onDevServerChange: () => () => {},
   };
 
   return {
