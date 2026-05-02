@@ -1,6 +1,5 @@
 /**
  * Pure state helpers and tiny JSX primitives for tool call display.
- * Extracted from ToolCallHelpers.tsx to keep component files under 500 LOC.
  */
 import { Loader2, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
 import type { ChatToolCallMessage } from '@/types/ipc';

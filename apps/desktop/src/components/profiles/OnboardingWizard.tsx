@@ -6,7 +6,7 @@
  */
 
 import { Dialog, DialogContent } from '@sero-ai/ui/components/ui/dialog';
-import { AuthLoginDialog } from '@/components/layout/AuthLoginDialog';
+import { AuthLoginDialog } from '@/components/layout/auth/AuthLoginDialog';
 import { useUserFeedbackStore } from '@/stores/user-feedback-store';
 import {
   AuthScreen,

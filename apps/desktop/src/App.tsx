@@ -7,20 +7,20 @@ import {
   ResizablePanel,
   ResizableHandle,
 } from '@sero-ai/ui/components/ui/resizable';
-import { TitleBar } from '@/components/layout/TitleBar';
+import { TitleBar } from '@/components/layout/shell/TitleBar';
 import { MainSidebar } from '@/components/layout/shell/MainSidebar';
-import { StatusBar } from '@/components/layout/StatusBar';
-import { ChatPanel } from '@/components/layout/ChatPanel';
+import { StatusBar } from '@/components/layout/shell/StatusBar';
+import { ChatPanel } from '@/components/layout/shell/ChatPanel';
 import { useAppStore, listenForNewApps } from '@/stores/app';
 import { listenForSystemThemeChanges } from '@/stores/theme';
 import { useProfileStore, loadProfiles } from '@/stores/profiles';
 import { ProfileSetup } from '@/components/profiles/ProfileSetup';
 import { OnboardingWizard } from '@/components/profiles/OnboardingWizard';
 import { subscribeDevServerEvents } from '@/stores/dev-server';
-import { NewAppBanner } from '@/components/layout/NewAppBanner';
+import { NewAppBanner } from '@/components/layout/shell/NewAppBanner';
 import { useSessionAgent } from '@/hooks/useSessionAgent';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
-import { CommandMenu } from '@/components/layout/CommandMenu';
+import { CommandMenu } from '@/components/layout/shell/CommandMenu';
 import { GitHubAuthDialog } from '@/components/layout/auth/github/GitHubAuthDialog';
 import { initAppControlBridge } from '@/lib/app-control-bridge';
 import { hydrateShellState } from '@/lib/app-startup';

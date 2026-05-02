@@ -1,7 +1,7 @@
 import { Settings2 } from 'lucide-react';
 import { Popover, PopoverContent } from '@sero-ai/ui/components/ui/popover';
 import { SearchInput } from '@sero-ai/ui/components/ui/search-input';
-import { ModelManagerDialog } from './model-manager';
+import { ModelManagerDialog } from './model-manager/ModelManagerDialog';
 import { ModelSelectorList } from './model-selector/ModelSelectorList';
 import { MemoizedModelSelectorTrigger } from './model-selector/ModelSelectorTrigger';
 import { ThinkingPicker } from './model-selector/ThinkingPicker';

@@ -7,12 +7,12 @@ import {
   deriveGroupStatus,
   groupStatusIcon,
   groupStatusLabel,
-  ToolLine,
-  ToolDetail,
-  ToolImages,
-  SingleToolCall,
-} from './ToolCallHelpers';
+} from './ToolCallState';
+import { SingleToolCall } from './tool-call-helpers/SingleToolCall';
+import { ToolDetail } from './tool-call-helpers/ToolDetail';
 import { getImagePaths, ToolFileLinks } from './tool-call-helpers/ToolFileLinks';
+import { ToolImages } from './tool-call-helpers/ToolImages';
+import { ToolLine } from './tool-call-helpers/ToolLine';
 
 // ── Types ───────────────────────────────────────────────────────
 

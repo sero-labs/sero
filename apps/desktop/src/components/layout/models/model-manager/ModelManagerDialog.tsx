@@ -15,7 +15,7 @@ import { modelKey } from '@/stores/model-preferences';
 import { ModelManagerItem } from './ModelManagerItem';
 import { ModelManagerProvider } from './ModelManagerProvider';
 import { ModelManagerTabBar } from './ModelManagerTabBar';
-import { LocalModelsPanel } from './local-models';
+import { LocalModelsPanel } from './local-models/LocalModelsPanel';
 import { useModelManagerState } from './useModelManagerState';
 
 interface ModelManagerDialogProps {

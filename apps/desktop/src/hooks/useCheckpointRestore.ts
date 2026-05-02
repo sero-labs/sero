@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 
 import { useVcsStore } from '@/stores/vcs';
-import { summarizeDiffFiles, type RestorePreviewFileChange } from '@/components/layout/CheckpointRestoreDialog';
+import { summarizeDiffFiles, type RestorePreviewFileChange } from '@/components/layout/workspace/CheckpointRestoreDialog';
 import type { ChatTurnUndoRef } from '@/types/ipc';
 
 interface CheckpointRestoreState {

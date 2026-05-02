@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAgentStore } from '@/stores/agent';
 import { useFocusedModelState, useFocusedSessionId } from '@/stores/agent-selectors';
 import { useModelPreferences } from '@/stores/model-preferences';
-import { findGroup, findModel, THINKING_LABELS } from '../model-config';
+import { findGroup, findModel, THINKING_LABELS } from '@sero-ai/common';
 import { applyPreferences, buildFavourites, filterGroups } from './filtering';
 
 export function useModelSelectorState() {

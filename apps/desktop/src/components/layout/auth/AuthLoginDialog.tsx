@@ -23,13 +23,13 @@ import { useAgentStore } from '@/stores/agent';
 import { ErrorSurface } from '../ErrorSurface';
 import { toErrorMessage } from '../error-utils';
 import {
-  ProviderListView,
-  AuthenticatingView,
-  WaitingView,
-  PromptView,
   ApiKeyEntryView,
+  AuthenticatingView,
+  PromptView,
   ResultView,
-} from './AuthLoginViews';
+  WaitingView,
+} from './auth-login-views/AuthFlowViews';
+import { ProviderListView } from './auth-login-views/ProviderListView';
 
 // ── Types ────────────────────────────────────────────────────
 

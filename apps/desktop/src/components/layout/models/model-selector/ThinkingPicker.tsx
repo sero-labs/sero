@@ -1,6 +1,6 @@
 import { Brain } from 'lucide-react';
 import { motion } from 'motion/react';
-import { THINKING_LABELS, THINKING_LEVELS, type ThinkingLevel } from '../model-config';
+import { THINKING_LABELS, THINKING_LEVELS, type ThinkingLevel } from '@sero-ai/common';
 
 export function ThinkingPicker({
   available,

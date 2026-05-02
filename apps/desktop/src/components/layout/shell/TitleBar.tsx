@@ -4,7 +4,7 @@ import { PanelLeft, PanelRight } from 'lucide-react';
 import { useAppStore } from '@/stores/app';
 import { useActiveWorkspace } from '@/stores/workspace';
 import { ProfileSwitcher } from '@/components/profiles/ProfileSwitcher';
-import { GitTitleBarControls } from '@/components/layout/titlebar/GitTitleBarControls';
+import { GitTitleBarControls } from '@/components/layout/titlebar/git/GitTitleBarControls';
 
 /**
  * TitleBar — macOS-style custom title bar.

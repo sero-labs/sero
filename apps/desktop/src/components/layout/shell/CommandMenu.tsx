@@ -12,9 +12,9 @@ import { useAppStore } from '@/stores/app';
 import { useThemeStore } from '@/stores/theme';
 import { getAppIcon } from '@/lib/app-icons';
 import { openApp } from '@/lib/open-app';
-import { ThemePanel } from '@/components/layout/ThemePanel';
-import { ThemeEditorSheet } from '@/components/layout/ThemeEditorSheet';
-import { ConnectDeviceDialog } from '@/components/layout/ConnectDeviceDialog';
+import { ThemePanel } from '@/components/layout/theme/ThemePanel';
+import { ThemeEditorSheet } from '@/components/layout/theme/ThemeEditorSheet';
+import { ConnectDeviceDialog } from '@/components/layout/device/ConnectDeviceDialog';
 
 /**
  * CommandMenu — ⌘K command palette for quick app switching.

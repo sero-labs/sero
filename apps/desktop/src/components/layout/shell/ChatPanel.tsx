@@ -22,7 +22,7 @@ import {
   ToolCallGroup,
 } from '@/components/layout/ToolCallGroup';
 import { ChatMessageItem } from '@/components/layout/ChatMessageItem';
-import { CheckpointRestoreDialog } from '@/components/layout/CheckpointRestoreDialog';
+import { CheckpointRestoreDialog } from '@/components/layout/workspace/CheckpointRestoreDialog';
 import { useFeedbackStore } from '@/stores/feedback';
 import { useCheckpointRestore } from '@/hooks/useCheckpointRestore';
 import { useDebouncedCallback } from '@/hooks/useDebouncedCallback';

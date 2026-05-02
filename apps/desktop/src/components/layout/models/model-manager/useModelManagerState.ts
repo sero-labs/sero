@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAgentStore } from '@/stores/agent';
 import { useFocusedModelState, useFocusedSessionId } from '@/stores/agent-selectors';
 import { modelKey, useModelPreferences } from '@/stores/model-preferences';
-import { useLocalModels } from './local-models';
+import { useLocalModels } from './local-models/use-local-models';
 import type { ManagerTab } from './types';
 import {
   buildManagerCollections,

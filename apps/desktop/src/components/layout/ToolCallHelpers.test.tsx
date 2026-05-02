@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ChatToolCallMessage } from '@/types/ipc';
-import { getCollapsedToolSummary } from './ToolCallHelpers';
+import { getCollapsedToolSummary } from './ToolCallState';
 
 function makeTool(overrides: Partial<ChatToolCallMessage>): ChatToolCallMessage {
   return {

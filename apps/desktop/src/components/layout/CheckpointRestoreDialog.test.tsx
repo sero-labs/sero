@@ -25,7 +25,7 @@ vi.mock('@sero-ai/ui/components/ui/button', () => ({
   ),
 }));
 
-import { CheckpointRestoreDialog } from './CheckpointRestoreDialog';
+import { CheckpointRestoreDialog } from './workspace/CheckpointRestoreDialog';
 
 (
   globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
