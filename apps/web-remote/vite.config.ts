@@ -15,6 +15,14 @@ export default defineConfig({
   build: {
     outDir: path.resolve(__dirname, '../desktop/electron/features/gateway/web-dist'),
     emptyOutDir: true,
+    cssCodeSplit: false,
+    rollupOptions: {
+      output: {
+        inlineDynamicImports: true,
+        entryFileNames: 'assets/index.js',
+        assetFileNames: 'assets/[name][extname]',
+      },
+    },
   },
   server: {
     port: 5174,
