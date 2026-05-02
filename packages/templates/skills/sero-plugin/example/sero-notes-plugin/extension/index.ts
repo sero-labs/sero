@@ -1,12 +1,12 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { StringEnum } from '@mariozechner/pi-ai';
-import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
+import type { ExtensionAPI, ToolDefinition } from '@mariozechner/pi-coding-agent';
 import { Text } from '@mariozechner/pi-tui';
 import { Type } from '@sinclair/typebox';
 
 import type { Note, NotesState } from '../shared/types';
-import { DEFAULT_STATE } from '../shared/types';
+import { DEFAULT_STATE, normalizeNotesState } from '../shared/types';
 
 const STATE_REL_PATH = path.join('.sero', 'apps', 'notes', 'state.json');
 
@@ -17,7 +17,7 @@ function resolveStatePath(cwd: string): string {
 async function readState(filePath: string): Promise<NotesState> {
   try {
     const raw = await fs.readFile(filePath, 'utf8');
-    return JSON.parse(raw) as NotesState;
+    return normalizeNotesState(JSON.parse(raw));
   } catch {
     return { ...DEFAULT_STATE };
   }
@@ -37,6 +37,30 @@ const Params = Type.Object({
   id: Type.Optional(Type.Number({ description: 'Note id (for toggle/remove)' })),
 });
 
+type CliResult = {
+  output: string;
+  exitCode: number;
+};
+
+type SeroToolCli = {
+  summary: string;
+  help: string;
+  group: string;
+  execute(
+    args: readonly string[],
+    context: { cwd?: string },
+    signal?: AbortSignal,
+  ): Promise<CliResult>;
+};
+
+function resolveCliStatePath(context: { cwd?: string }): string {
+  return resolveStatePath(context.cwd ?? process.cwd());
+}
+
+type SeroCliTool<T> = T & {
+  cli: SeroToolCli;
+};
+
 export default function (pi: ExtensionAPI) {
   let statePath = '';
 
@@ -44,7 +68,7 @@ export default function (pi: ExtensionAPI) {
     statePath = resolveStatePath(ctx.cwd);
   });
 
-  pi.registerTool({
+  const notesTool: SeroCliTool<ToolDefinition<typeof Params>> = {
     name: 'notes',
     label: 'Notes',
     description:
@@ -169,13 +193,12 @@ export default function (pi: ExtensionAPI) {
       summary: 'Manage notes from the CLI',
       help: 'sero notes <list|add|toggle|remove> [title|id]',
       group: 'Apps',
-      async execute(args, _context) {
+      async execute(args, context) {
         const [subcommand, ...rest] = args;
         if (!subcommand) {
           return { output: 'Usage: sero notes <list|add|toggle|remove>', exitCode: 1 };
         }
-        const cwd = process.cwd();
-        const filePath = resolveStatePath(cwd);
+        const filePath = resolveCliStatePath(context);
         const state = await readState(filePath);
 
         if (subcommand === 'list') {
@@ -186,6 +209,7 @@ export default function (pi: ExtensionAPI) {
             : 'No notes yet.';
           return { output: out, exitCode: 0 };
         }
+
         if (subcommand === 'add') {
           const title = rest.join(' ').trim();
           if (!title) return { output: 'Error: title is required', exitCode: 1 };
@@ -199,10 +223,35 @@ export default function (pi: ExtensionAPI) {
           await writeState(filePath, state);
           return { output: `Added #${state.nextId - 1}: ${title}`, exitCode: 0 };
         }
+
+        if (subcommand === 'toggle') {
+          const id = Number(rest[0]);
+          if (!Number.isInteger(id)) return { output: 'Error: id is required', exitCode: 1 };
+          const note = state.notes.find((n) => n.id === id);
+          if (!note) return { output: `Error: no note #${id}`, exitCode: 1 };
+          note.done = !note.done;
+          await writeState(filePath, state);
+          return { output: `Toggled #${id} -> ${note.done ? 'done' : 'open'}`, exitCode: 0 };
+        }
+
+        if (subcommand === 'remove') {
+          const id = Number(rest[0]);
+          if (!Number.isInteger(id)) return { output: 'Error: id is required', exitCode: 1 };
+          const before = state.notes.length;
+          state.notes = state.notes.filter((n) => n.id !== id);
+          if (state.notes.length === before) {
+            return { output: `Error: no note #${id}`, exitCode: 1 };
+          }
+          await writeState(filePath, state);
+          return { output: `Removed #${id}`, exitCode: 0 };
+        }
+
         return { output: `Unknown subcommand: ${subcommand}`, exitCode: 1 };
       },
     },
-  });
+  };
+
+  pi.registerTool(notesTool);
 
   // User-callable slash command. Keep the command name distinct from the tool
   // name ('notes'): when tools are bridged, Sero also bridges non-builtin

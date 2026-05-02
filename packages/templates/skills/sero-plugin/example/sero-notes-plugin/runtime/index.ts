@@ -5,6 +5,7 @@ import type {
 } from '@sero-ai/common';
 
 import type { NotesState } from '../shared/types';
+import { normalizeNotesState } from '../shared/types';
 
 // A background runtime is optional. Use it only for long-lived, workspace-scoped
 // orchestration (startup reconcile, subagent workflows, watchers beyond simple
@@ -21,8 +22,7 @@ class NotesRuntime implements AppRuntime {
   }
 
   async handleStateChange(state: unknown): Promise<void> {
-    const current = state as NotesState | null;
-    if (!current) return;
+    const current = normalizeNotesState(state);
 
     // Example orchestration: auto-prune notes flagged done for > 30 days.
     // Kept as a pure read for the reference; a real runtime would mutate state

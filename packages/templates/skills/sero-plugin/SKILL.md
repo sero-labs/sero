@@ -205,7 +205,7 @@ React component in `ui/<Name>App.tsx`. Template in `references/templates.md`.
 
 Required:
 - **Both** exports: `export function MyApp()` AND `export default MyApp`
-- Import components from `@sero-ai/ui/components/ui/*`
+- Import UI components from `@sero-ai/ui`
 - Import `./styles.css` from **every** exposed MF entry (main app, widgets, etc.)
 - Tailwind semantic colors (`bg-background`, `text-foreground`, etc.)
 - Do not alias `@sero-ai/app-runtime`

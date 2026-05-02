@@ -1,14 +1,15 @@
 import { useAppState } from '@sero-ai/app-runtime';
 
 import type { NotesState } from '../../shared/types';
-import { DEFAULT_STATE } from '../../shared/types';
+import { DEFAULT_STATE, normalizeNotesState } from '../../shared/types';
 // Every directly-exposed MF entry must import its own stylesheet so external
 // remotes ship their own CSS assets.
 import '../styles.css';
 
 export function NotesWidget() {
   const [state] = useAppState<NotesState>(DEFAULT_STATE);
-  const open = state.notes.filter((n) => !n.done);
+  const currentState = normalizeNotesState(state);
+  const open = currentState.notes.filter((n) => !n.done);
 
   return (
     <div className="flex h-full flex-col gap-2 p-3">
@@ -17,7 +18,7 @@ export function NotesWidget() {
           {open.length}
         </span>
         <span className="text-xs text-muted-foreground">
-          open / {state.notes.length} total
+          open / {currentState.notes.length} total
         </span>
       </div>
 

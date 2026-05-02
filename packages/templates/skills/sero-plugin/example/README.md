@@ -4,10 +4,10 @@ Reference implementation for the `sero-plugin` skill. It is the smallest
 plugin that exercises **every** surface a Sero plugin can ship.
 
 > **Scope: in-repo built-in plugin.** This example is wired for the Sero
-> monorepo — `workspace:*` devDependencies and `../../../packages/*`
-> tsconfig paths — so it drops into `plugins/sero-<name>-plugin/` and
-> typechecks immediately. For **external** plugins that consume published
-> `@sero-ai/*` packages instead, use
+> monorepo — `workspace:*` devDependencies and source `paths` pointing back
+> to the root `packages/*` workspaces — so it drops into
+> `plugins/sero-<name>-plugin/` and typechecks immediately. For **external**
+> plugins that consume published `@sero-ai/*` packages instead, use
 > [`sero-kanban-plugin`](https://github.com/sero-labs/sero-kanban-plugin)
 > as the reference and read `docs/plugins/guide.md` in this repo.
 
@@ -59,9 +59,9 @@ packages. Start from the in-repo copy above, then:
    published semver range for the `@sero-ai/*` packages you depend on.
 2. Delete the `paths` mapping in `ui/tsconfig.json` — Node's module
    resolution picks the installed package up from `node_modules/`.
-3. Replace `extends: "../../../packages/tsconfig.extension.json"` in
-   `extension/tsconfig.json` and `runtime/tsconfig.json` with an inline
-   compiler-options block (see `references/templates.md`).
+3. Replace the monorepo `extends` path in `extension/tsconfig.json` and
+   `runtime/tsconfig.json` with an inline compiler-options block (see
+   `references/templates.md`).
 4. Ship the plugin pre-built if you want install-time consumers to skip
    Vite (`sero.plugin.preBuilt: true`).
 

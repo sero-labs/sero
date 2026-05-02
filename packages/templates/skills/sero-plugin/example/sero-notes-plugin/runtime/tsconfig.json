@@ -1,4 +1,4 @@
 {
-  "extends": "../../../packages/tsconfig.extension.json",
+  "extends": "../../../../../../../packages/tsconfig.extension.json",
   "include": ["./**/*", "../shared/**/*"]
 }
