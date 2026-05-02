@@ -41,7 +41,7 @@ describe('createFreshContainer', () => {
     const execFn = vi.fn(async () => ({ stdout: '', stderr: '', exitCode: 0 }));
     const inspectState: ContainerState = {
       id: 'sero-ws-1',
-      image: 'sero-node:latest',
+      image: 'ghcr.io/sero-labs/sero-node:latest',
       state: 'running',
       ipAddress: '192.168.64.2',
       cpus: 2,

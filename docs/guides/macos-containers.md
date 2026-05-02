@@ -48,13 +48,13 @@ Verify it reports `running` before retrying container-backed workflows in Sero.
 
 ## Verify Sero's image
 
-Sero expects the workspace image:
+Sero defaults to the public workspace image:
 
 ```text
-sero-node:latest
+ghcr.io/sero-labs/sero-node:latest
 ```
 
-For local development, build it with:
+Sero pulls this image automatically when it is missing locally. For local development, build the same tag with:
 
 ```bash
 cd apps/desktop
@@ -64,9 +64,9 @@ pnpm container:build-image
 Public releases publish the same Dockerfile to GitHub Container Registry as:
 
 ```text
-ghcr.io/<owner>/sero-node:latest
-ghcr.io/<owner>/sero-node:<version>
-ghcr.io/<owner>/sero-node:sha-<git-sha>
+ghcr.io/sero-labs/sero-node:latest
+ghcr.io/sero-labs/sero-node:<version>
+ghcr.io/sero-labs/sero-node:sha-<git-sha>
 ```
 
 If you changed `apps/desktop/images/Dockerfile.sero-node` or container-installed tools, rebuild the image and recreate affected workspace containers.
@@ -97,7 +97,7 @@ Fix:
 
 Fix:
 - recreate the affected workspace container after fixing the runtime
-- if you changed the base image, rebuild `sero-node:latest` first
+- if you changed the base image, rebuild `ghcr.io/sero-labs/sero-node:latest` first
 
 ## What still works in host mode
 

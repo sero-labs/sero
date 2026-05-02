@@ -20,7 +20,7 @@
     "test:e2e:headed": "npm run build && npx playwright test --project=local --headed",
     "container:nat": "sudo ./scripts/setup-container-nat.sh",
     "container:nat:teardown": "sudo ./scripts/setup-container-nat.sh --teardown",
-    "container:build-image": "cd images && container build -t sero-node:latest -f Dockerfile.sero-node .",
+    "container:build-image": "cd images && container build -t ghcr.io/sero-labs/sero-node:latest -f Dockerfile.sero-node .",
     "sign-vmp": "bash scripts/sign-vmp.sh",
     "release": "bash scripts/build-release.sh",
     "release:signed": "bash scripts/build-release.sh --sign",
