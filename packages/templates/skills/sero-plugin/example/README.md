@@ -4,10 +4,10 @@ Reference implementation for the `sero-plugin` skill. It is the smallest
 plugin that exercises **every** surface a Sero plugin can ship.
 
 > **Scope: in-repo built-in plugin.** This example is wired for the Sero
-> monorepo — `workspace:*` devDependencies and source `paths` pointing back
-> to the root `packages/*` workspaces — so it drops into
-> `plugins/sero-<name>-plugin/` and typechecks immediately. For **external**
-> plugins that consume published `@sero-ai/*` packages instead, use
+> monorepo — `workspace:*` devDependencies for local `@sero-ai/*` packages
+> and catalog-managed shared versions — so it drops into
+> `plugins/sero-<name>-plugin/` and typechecks immediately after `pnpm install`.
+> For **external** plugins that consume published `@sero-ai/*` packages instead, use
 > [`sero-kanban-plugin`](https://github.com/sero-labs/sero-kanban-plugin)
 > as the reference and read `docs/plugins/guide.md` in this repo.
 
@@ -23,7 +23,7 @@ plugin that exercises **every** surface a Sero plugin can ship.
 | Dashboard widget | `sero-notes-plugin/ui/widgets/NotesWidget.tsx` | Manifest-declared widget, compact layout, `h-full` wrapper contract |
 | Module Federation | `sero-notes-plugin/vite.config.ts` | package-root Vite root, `ui/index.html` Rollup input, `base: './'` for prod, singleton React, MF remote name `sero_notes`, `@sero-ai/app-runtime` excluded from `optimizeDeps` |
 | Styles | `sero-notes-plugin/ui/styles.css` | Tailwind 4 `@source` directives for plugin UI **and** `@sero-ai/ui` components, `@theme inline` mapping of semantic CSS variables |
-| TS configs | `extension/tsconfig.json`, `runtime/tsconfig.json`, `ui/tsconfig.json` | Extension/runtime extend `packages/tsconfig.extension.json`; UI declares workspace `paths` |
+| TS configs | `extension/tsconfig.json`, `runtime/tsconfig.json`, `ui/tsconfig.json` | Self-contained compiler options; package resolution comes from workspace dependencies, not brittle relative `paths` |
 | CSS typings | `ui/vite-env.d.ts` | `vite/client` reference so `import './styles.css'` typechecks |
 | HTML shell | `ui/index.html` | Minimal entry used by `build.rollupOptions.input` |
 
@@ -55,14 +55,11 @@ External plugins live outside the Sero monorepo and consume
 `@sero-ai/app-runtime`, `@sero-ai/common`, `@sero-ai/ui` as published
 packages. Start from the in-repo copy above, then:
 
-1. Replace every `workspace:*` / `workspace:@sero-ai/app-runtime@*` with the
-   published semver range for the `@sero-ai/*` packages you depend on.
-2. Delete the `paths` mapping in `ui/tsconfig.json` — Node's module
-   resolution picks the installed package up from `node_modules/`.
-3. Replace the monorepo `extends` path in `extension/tsconfig.json` and
-   `runtime/tsconfig.json` with an inline compiler-options block (see
-   `references/templates.md`).
-4. Ship the plugin pre-built if you want install-time consumers to skip
+1. Replace every `workspace:*` with the published semver range for the
+   `@sero-ai/*` packages you depend on.
+2. Replace every `catalog:` / `catalog:peer` spec with the concrete published
+   semver range you support.
+3. Ship the plugin pre-built if you want install-time consumers to skip
    Vite (`sero.plugin.preBuilt: true`).
 
 ## What this plugin does

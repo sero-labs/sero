@@ -46,29 +46,29 @@
     }
   },
   "dependencies": {
-    "@sinclair/typebox": "^0.34.48"
+    "@sinclair/typebox": "catalog:"
   },
   "peerDependencies": {
-    "@mariozechner/pi-ai": ">=0.61.1",
-    "@mariozechner/pi-coding-agent": ">=0.61.1",
-    "@mariozechner/pi-tui": ">=0.61.1",
-    "zod": ">=4.0.0"
+    "@mariozechner/pi-ai": "catalog:peer",
+    "@mariozechner/pi-coding-agent": "catalog:peer",
+    "@mariozechner/pi-tui": "catalog:peer",
+    "zod": "catalog:peer"
   },
   "devDependencies": {
-    "@module-federation/vite": "^1.11.0",
-    "@sero-ai/app-runtime": "latest",
-    "@sero-ai/common": "latest",
-    "@sero-ai/ui": "latest",
-    "@tailwindcss/vite": "^4.1.18",
+    "@module-federation/vite": "catalog:",
+    "@sero-ai/app-runtime": "workspace:*",
+    "@sero-ai/common": "workspace:*",
+    "@sero-ai/ui": "workspace:*",
+    "@tailwindcss/vite": "catalog:",
     "@testing-library/react": "^16.3.2",
-    "@types/node": "^22.19.11",
-    "@types/react": "^19.2.13",
-    "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^4.7.0",
-    "react": "^19.2.4",
-    "react-dom": "^19.2.4",
-    "tailwindcss": "^4.1.18",
-    "typescript": "^5.9.3",
-    "vite": "^6.4.1"
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "tailwindcss": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:"
   }
 }
