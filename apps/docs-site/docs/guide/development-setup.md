@@ -4,10 +4,11 @@
 
 ```bash
 pnpm install
+pnpm build
 pnpm dev
 ```
 
-`pnpm dev` is the public first-run command surface for the OSS alpha.
+`pnpm dev` will start Sero desktop
 
 ## Common contributor checks
 

@@ -46,8 +46,8 @@ From inside the starter plugin repo:
 
 ```bash
 pnpm install
-pnpm dev
 pnpm build
+pnpm dev
 pnpm typecheck
 ```
 

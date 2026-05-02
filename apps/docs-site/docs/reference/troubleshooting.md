@@ -40,6 +40,7 @@ This is the right next step if Electron logs mention `ERR_DLOPEN_FAILED`,
 From the repo root, the canonical first-run command is:
 
 ```bash
+pnpm build
 pnpm dev
 ```
 
