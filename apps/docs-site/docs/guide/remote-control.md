@@ -1,11 +1,15 @@
 # Remote Control
 
 Remote Control lets you operate your local Sero desktop session from another
-client. It has two separate integration paths:
+client. It has three related integration paths:
 
 - **Remote web access over Tailscale** — a browser UI called **Sero Remote** can
   connect to your local Sero gateway from another trusted device on your
   Tailscale tailnet.
+- **Remote dev-server previews** — dev servers started and registered inside
+  Sero desktop can be opened through Sero Remote, so a Vite/Next/Express/etc.
+  preview running on your Mac or workspace container is reachable from another
+  trusted tailnet browser.
 - **Optional Discord bot** — a configured Discord bot can forward allowed DMs or
   mentions into Sero as prompts.
 
@@ -32,34 +36,20 @@ Read [Security / Privacy](/reference/security-privacy) before enabling it.
 | --- | --- | --- |
 | **Local web gateway** | Serves Sero Remote locally for testing and pairing | Localhost only |
 | **Sero Remote over Tailscale** | Lets another browser/device on your tailnet use the web UI | Tailscale VPN / `tailscale serve` |
+| **Dev-server proxy** | Lets Sero Remote open registered workspace dev servers through the same gateway | Tailscale VPN / `tailscale serve` plus a running registered dev server |
 | **Discord bot** | Lets allowed Discord users send prompts by DM or mention | Discord bot token and allowlist |
 
 Use Tailscale **serve** for tailnet-only exposure. Do not use public Tailscale
 funneling or direct public-internet exposure during the alpha.
-
-```mermaid
-flowchart LR
-  Desktop[Sero desktop on Mac] --> Gateway["Local gateway<br/>SERO_GATEWAY=1"]
-
-  BrowserLocal[Local browser] --> Gateway
-  BrowserRemote[Trusted browser/device] --> Tailscale[Tailscale serve]
-  Tailscale --> Gateway
-
-  Discord[Allowed Discord user] --> Bot[Discord bot adapter]
-  Bot --> Gateway
-
-  Gateway --> Profile[Active local Sero profile]
-  Gateway --> Sessions[Workspaces and sessions]
-  Gateway --> Agent[Agent prompts and actions]
-```
 
 ![Remote Control access paths](../assets/generated/img9.jpg)
 
 ## Sero Remote web access
 
 Sero Remote is the browser-based remote UI. It can show workspaces and sessions,
-send prompts, display streamed responses/tool activity, and expose remote panels
-such as files or artifacts where supported.
+send prompts, display streamed responses/tool activity, expose remote panels
+such as files or artifacts where supported, and open registered workspace dev
+servers as remote previews.
 
 ![Sero Remote chat](../assets/images/remote-web-1.jpg)
 
@@ -84,6 +74,44 @@ A basic/legacy local web UI may also be available on:
 For remote web access, Tailscale is the recommended transport. Sero can expose
 the gateway to your private tailnet through `tailscale serve`; a paired browser
 then uses the tailnet URL and a temporary web token/login flow.
+
+## Remote dev-server previews
+
+Sero desktop tracks dev servers that are started through its workspace tooling or
+registered by the agent/CLI. When the gateway is enabled, Sero Remote can list
+those registered servers and open them through the gateway's built-in reverse
+proxy. This makes a dev server running in the local desktop session available to
+a trusted browser on your tailnet without exposing the dev server itself as a
+separate public or tailnet service.
+
+The proxy is path-based on the gateway origin:
+
+```text
+/p/<workspaceId>/<port>/...
+```
+
+Sero Remote obtains a short-lived dev-proxy ticket over its already
+authenticated WebSocket connection before navigating to that path. The first
+navigation may include the ticket as `?t=...`; the gateway immediately promotes
+it to an `HttpOnly` cookie scoped to that workspace/port proxy path. Tickets are
+bound to one workspace and one port and expire automatically.
+
+Practical behavior:
+
+- only dev servers registered in Sero's dev-server registry are reachable; the
+  proxy is not an arbitrary port scanner
+- workspace-scoped web tokens can only create proxy tickets for workspaces they
+  are allowed to access
+- HTTP requests and WebSocket upgrades are proxied, so common HMR sockets can
+  work through the remote preview
+- HTML/CSS/JavaScript responses and redirect/cookie paths are rewritten where
+  possible so absolute paths continue to work under `/p/<workspaceId>/<port>/`
+- the upstream dev server continues to run on your Mac/workspace container; the
+  remote browser talks only to the Sero gateway URL served over Tailscale
+
+If a preview does not appear, confirm that the desktop app shows the dev server
+as registered/running for the target workspace and that the paired web client has
+access to that workspace.
 
 ## Discord bot access
 
@@ -117,6 +145,8 @@ that your desktop app is using. Current gateway capabilities include:
 - reading session history
 - listing and reading files through supported gateway file APIs
 - listing and fetching artifacts
+- listing registered dev servers
+- creating short-lived proxy tickets for registered dev-server previews
 - creating, listing, and revoking web tokens when authenticated with the master
   token
 
@@ -143,8 +173,14 @@ Current web-token behavior includes:
 - tokens can be scoped to explicit workspace IDs or act as owner/profile tokens
 - paired-device flows may grant access to all current workspaces and future
   workspaces in the profile
+- scoped tokens can only request dev-server proxy tickets for authorized
+  workspaces
 - default expiry is time-limited
 - only a limited number of active web tokens are retained
+
+Dev-server proxy tickets are separate short-lived HMAC-signed bearers. They are
+issued only after gateway authentication, bind one `(workspaceId, port)` pair,
+and are stored as path-scoped cookies after the initial preview navigation.
 
 Do not paste gateway tokens, web-token files, login URLs, QR codes, Discord bot
 tokens, or Discord allowlists into bug reports, screenshots, chat transcripts, or
@@ -180,6 +216,8 @@ During the current source-only alpha, Remote Control does **not** promise:
 - safe public-internet exposure
 - full per-tool restrictions for gateway clients
 - a complete security boundary around agent actions
+- compatibility with every dev server, framework, CSP, HMR setup, or absolute
+  URL pattern through the path-prefix proxy
 - feature parity between the web UI and the desktop UI
 - feature parity between Discord bot prompts and the web UI
 
@@ -198,6 +236,9 @@ If Remote Control behaves unexpectedly, include:
 - whether Tailscale `serve` was active, and whether public funneling was avoided
 - whether the issue involved a master token or a web token
 - whether the web token was intended to be workspace-scoped
+- for dev-server preview issues: workspace ID, port, framework, whether the
+  server was registered/running in Sero desktop, and whether HTTP or HMR/WebSocket
+  traffic failed
 - whether Discord was configured with `SERO_DISCORD_TOKEN` and an explicit
   `SERO_DISCORD_USERS` allowlist
 - the active platform and source build details from
