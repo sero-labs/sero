@@ -76,6 +76,7 @@ const selectedPlugins = [
   { text: 'Notes', link: '/plugins/notes' },
   { text: 'Todo', link: '/plugins/todo' },
   { text: 'Research', link: '/plugins/research' },
+  { text: 'Signal Desk', link: '/plugins/signal-desk' },
   { text: 'Plan Mode', link: '/plugins/plan-mode' },
   { text: 'Spotify', link: '/plugins/spotify' },
   { text: 'ImageGen', link: '/plugins/imagegen' },

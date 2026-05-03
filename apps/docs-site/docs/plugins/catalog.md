@@ -33,6 +33,7 @@ Built-in plugins may appear in app discovery or favorites, but they are not thir
 | Notes | `@sero-ai/plugin-notes` | [Docs](/plugins/notes) | Global note-taking app/tool. |
 | Todo | `@sero-ai/todo-plugin` | [Docs](/plugins/todo) | Optional task app and Pi extension. |
 | Research | `@sero-ai/plugin-research` | [Docs](/plugins/research) | Multi-agent research orchestration. |
+| Signal Desk | `@sero-ai/plugin-signal-desk` | [Docs](/plugins/signal-desk) | RSS-first intelligence desk for sources, watchlists, story clusters, briefings, insights, and actions. |
 | Plan Mode | `@sero-ai/plugin-plan-mode` | [Docs](/plugins/plan-mode) | Read-only planning and execution tracking. |
 | Spotify | `@sero-ai/plugin-spotify` | [Docs](/plugins/spotify) | Spotify OAuth/PKCE plus Web Playback SDK caveats. |
 | ImageGen | `@sero-ai/plugin-imagegen` | [Docs](/plugins/imagegen) | Gemini-powered image generation; verify storage before sharing outputs. |
