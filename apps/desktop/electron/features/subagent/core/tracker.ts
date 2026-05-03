@@ -6,6 +6,20 @@
 import { EventEmitter } from 'events';
 import type { SubagentEntry, SubagentUsage, SubagentStatus, SubagentToolActivity } from './types';
 
+const MAX_TOOLS = 10;
+const MAX_LIVE_OUTPUT_CHARS = 20_000;
+const MAX_TOOL_ARGS_CHARS = 1_000;
+
+function truncateHead(text: string, maxChars: number): string {
+  if (text.length <= maxChars) return text;
+  return `${text.slice(0, Math.max(0, maxChars - 1))}…`;
+}
+
+function truncateTail(text: string, maxChars: number): string {
+  if (text.length <= maxChars) return text;
+  return `…${text.slice(-Math.max(0, maxChars - 1))}`;
+}
+
 // ── Event Types ──────────────────────────────────────────────
 
 export interface SubagentTrackerEvents {
@@ -71,10 +85,10 @@ export class SubagentTracker {
     const entry = this.entries.get(id);
     if (!entry) return;
 
-    const MAX_TOOLS = 10;
+    const safeArgsSummary = truncateHead(argsSummary, MAX_TOOL_ARGS_CHARS);
     if (running) {
       // Add new running tool
-      entry.toolActivity.push({ toolName, argsSummary, running: true });
+      entry.toolActivity.push({ toolName, argsSummary: safeArgsSummary, running: true });
       if (entry.toolActivity.length > MAX_TOOLS) {
         entry.toolActivity = entry.toolActivity.slice(-MAX_TOOLS);
       }
@@ -94,7 +108,7 @@ export class SubagentTracker {
   appendLiveOutput(id: string, delta: string): void {
     const entry = this.entries.get(id);
     if (!entry) return;
-    entry.liveOutput += delta;
+    entry.liveOutput = truncateTail(entry.liveOutput + delta, MAX_LIVE_OUTPUT_CHARS);
     // Only emit periodically — throttled in the IPC layer
     this.emitter.emit('subagent_live_output', id, entry.liveOutput);
   }

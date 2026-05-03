@@ -103,6 +103,9 @@ export function ExplorerWorkspace() {
   const isTerminalProgrammaticRef = useRef(true);
   const terminalLastExpandedPctRef = useRef(terminalSizePct || 30);
   const terminalDefaultRef = useRef(terminalOpen ? `${terminalSizePct || 30}%` : 0);
+  const sidebarDefaultRef = useRef(
+    explorerSidebarSizePct > 0 ? `${explorerSidebarSizePct}%` : '220px',
+  );
   const explorerSidebarLastExpandedPctRef = useRef(explorerSidebarSizePct || 0);
 
   // Sync sidebar panel collapse/expand with sidebarOpen state.
@@ -181,7 +184,7 @@ export function ExplorerWorkspace() {
               <ResizablePanel
                 id="explorer-sidebar"
                 panelRef={sidebarPanelRef}
-                defaultSize="220px"
+                defaultSize={sidebarDefaultRef.current}
                 minSize={160}
                 collapsible
                 collapsedSize={0}

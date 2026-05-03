@@ -15,8 +15,8 @@
 import { promises as fs } from 'fs';
 import { watch, type FSWatcher } from 'fs';
 import path from 'path';
-import { BrowserWindow } from 'electron';
 import { IpcChannels } from '@/types/ipc-channels';
+import { broadcastToWindows } from '@electron/ipc/lib/window-broadcast';
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -277,9 +277,7 @@ export class AppStateManager {
   }
 
   private pushChange(filePath: string, data: unknown): void {
-    for (const win of BrowserWindow.getAllWindows()) {
-      win.webContents.send(IpcChannels.appState.change, filePath, data);
-    }
+    broadcastToWindows(IpcChannels.appState.change, filePath, data);
     // Notify registered listeners (e.g. kanban orchestrator)
     for (const listener of this.changeListeners) {
       try {

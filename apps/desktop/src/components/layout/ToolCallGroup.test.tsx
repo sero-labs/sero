@@ -146,6 +146,42 @@ describe('ToolCallGroup image previews', () => {
 
     expect(container.textContent).toContain('Collapse details');
   });
+
+  it('renders only the last ten tool calls in summary and detail views', async () => {
+    const tools = Array.from({ length: 12 }, (_, index) =>
+      makeTool({
+        id: `tool-${index}`,
+        toolCallId: `call-${index}`,
+        toolName: index < 2 ? `hidden-${index}` : `visible-${index}`,
+        input: { command: `cmd-${index}` },
+      }),
+    );
+
+    await act(async () => {
+      root?.render(<ToolCallGroup tools={tools} workspaceId="ws-1" isFinalized />);
+    });
+
+    await act(async () => {
+      clickButtonByText(container, '12 actions completed');
+    });
+
+    expect(container.textContent).not.toContain('Showing last 10 of 12 actions');
+    expect(container.textContent).not.toContain('hidden-0');
+    expect(container.textContent).not.toContain('hidden-1');
+    expect(container.textContent).toContain('visible-2');
+    expect(container.textContent).toContain('visible-11');
+
+    await act(async () => {
+      clickButtonByText(container, 'Show full details');
+    });
+
+    expect(container.textContent).toContain('Collapse details');
+    expect(container.textContent).not.toContain('Showing last 10 of 12 actions');
+    expect(container.textContent).not.toContain('hidden-0');
+    expect(container.textContent).not.toContain('hidden-1');
+    expect(container.textContent).toContain('visible-2');
+    expect(container.textContent).toContain('visible-11');
+  });
 });
 
 describe('groupMessages', () => {

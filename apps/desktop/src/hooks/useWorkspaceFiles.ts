@@ -15,26 +15,59 @@ import {
 import {
   retainWorkspaceFiletreeWatch,
 } from '@/hooks/workspace-filetree-subscription';
+import type { EditorRoot } from '@/types/ipc';
 
 /** Directories excluded from file search results. */
-const EXCLUDED_DIRS = [
+const EXCLUDED_DIRS = new Set([
   'node_modules',
+  'bower_components',
+  'jspm_packages',
+  '.pnpm-store',
+  '.pnpm',
+  '.yarn',
+  '.bun',
   '.git',
   '.turbo',
+  '.nx',
   'dist',
   'build',
+  'out',
   '.next',
-  '.cache',
+  '.nuxt',
+  '.svelte-kit',
   '.output',
+  '.vite',
+  '.cache',
+  '.parcel-cache',
   'coverage',
+  '.pytest_cache',
+  '.mypy_cache',
+  '.ruff_cache',
+  '.tox',
   '__pycache__',
   '.venv',
+  'venv',
   'target',
+  '.gradle',
+  '.terraform',
+  '.serverless',
+  '.wrangler',
+  '.sst',
+  '.expo',
   '.jj',
   '.svn',
   '.hg',
+  '.sero'
+]);
+
+const EXCLUDED_FILE_NAMES = new Set([
   '.DS_Store',
-];
+  '.eslintcache',
+  '.stylelintcache',
+  'tsconfig.tsbuildinfo',
+  '.gitignore',
+  '.sero-workspace.json'
+]);
 
 /** Max files to return (safety cap). */
 const MAX_FILES = 5000;
@@ -88,6 +121,86 @@ function clearCachedFiles(workspaceId: string): void {
   cache.delete(workspaceId);
 }
 
+function joinVirtualPath(basePath: string, name: string): string {
+  return basePath === '/' ? `/${name}` : `${basePath.replace(/\/$/, '')}/${name}`;
+}
+
+function toDisplayedPath(root: EditorRoot, absoluteVirtualPath: string): string {
+  const rootPath = root.virtualPath.replace(/\/$/, '');
+  const relative = absoluteVirtualPath === rootPath
+    ? ''
+    : absoluteVirtualPath.slice(rootPath.length + 1);
+
+  if (root.id === 'workspace') return relative;
+  return relative ? `${rootPath}/${relative}` : rootPath;
+}
+
+function shouldIncludeFile(name: string): boolean {
+  return !EXCLUDED_FILE_NAMES.has(name);
+}
+
+async function collectRootFiles(
+  workspaceId: string,
+  root: EditorRoot,
+  remainingSlots: () => number,
+): Promise<string[]> {
+  const files: string[] = [];
+  const queue = [root.virtualPath];
+
+  while (queue.length > 0 && remainingSlots() > 0) {
+    const dirPath = queue.shift();
+    if (!dirPath) continue;
+
+    let entries: Array<{ name: string; type: 'file' | 'directory'; size: number }>;
+    try {
+      entries = await window.sero.editor.listFiles(workspaceId, dirPath);
+    } catch {
+      continue;
+    }
+
+    for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
+      if (entry.type === 'directory') {
+        if (!EXCLUDED_DIRS.has(entry.name)) {
+          queue.push(joinVirtualPath(dirPath, entry.name));
+        }
+        continue;
+      }
+
+      if (remainingSlots() <= 0) break;
+      if (!shouldIncludeFile(entry.name)) continue;
+      files.push(toDisplayedPath(root, joinVirtualPath(dirPath, entry.name)));
+    }
+  }
+
+  return files;
+}
+
+function sortWorkspaceFiles(files: string[]): string[] {
+  return files.sort((a, b) => {
+    const aIsLinkedRoot = a.startsWith('/');
+    const bIsLinkedRoot = b.startsWith('/');
+    if (aIsLinkedRoot !== bIsLinkedRoot) return aIsLinkedRoot ? 1 : -1;
+    return a.localeCompare(b);
+  });
+}
+
+async function collectWorkspaceFiles(workspaceId: string): Promise<string[]> {
+  const roots = await window.sero.editor.getRoots(workspaceId);
+  const files: string[] = [];
+
+  for (const root of roots) {
+    if (files.length >= MAX_FILES) break;
+    const rootFiles = await collectRootFiles(
+      workspaceId,
+      root,
+      () => MAX_FILES - files.length,
+    );
+    files.push(...rootFiles);
+  }
+
+  return sortWorkspaceFiles(files);
+}
+
 async function loadWorkspaceFiles(
   workspaceId: string,
   abortGeneration: number,
@@ -107,16 +220,9 @@ async function loadWorkspaceFiles(
 
   setIsLoading(true);
   try {
-    const pruneArgs = EXCLUDED_DIRS.map((dir) => `-name '${dir}' -prune`).join(' -o ');
-    const command = `find . \\( ${pruneArgs} \\) -o -type f -print | head -${MAX_FILES} | sort`;
-    const { stdout } = await window.sero.editor.exec(workspaceId, command);
+    const paths = await collectWorkspaceFiles(workspaceId);
 
     if (abortGeneration !== abortRef.current) return;
-
-    const paths = stdout
-      .split('\n')
-      .filter(Boolean)
-      .map((path) => (path.startsWith('./') ? path.slice(2) : path));
 
     setCachedFiles(workspaceId, paths);
     setFiles(paths);

@@ -34,9 +34,11 @@ interface FileReferenceMenuProps {
 function HighlightedPath({
   path,
   matchIndices,
+  selected,
 }: {
   path: string;
   matchIndices: number[];
+  selected: boolean;
 }) {
   const indexSet = useMemo(() => new Set(matchIndices), [matchIndices]);
 
@@ -45,7 +47,11 @@ function HighlightedPath({
       {path.split('').map((char, index) => (
         <span
           key={index}
-          className={indexSet.has(index) ? 'text-[var(--accent-code)] font-semibold' : undefined}
+          className={indexSet.has(index)
+            ? selected
+              ? 'text-white font-semibold'
+              : 'text-[#4f569d] font-semibold'
+            : undefined}
         >
           {char}
         </span>
@@ -114,9 +120,14 @@ export function FileReferenceMenu({
             selected={isSelected}
             onMouseEnter={() => listbox.setSelectedIndex(index)}
             onMouseDown={(event) => listbox.handleItemMouseDown(event, match)}
+            className={isSelected ? 'bg-[#4f569d] text-white' : undefined}
           >
-            <FileIcon className={`size-3 shrink-0 ${fileIconColor(match.path)}`} />
-            <HighlightedPath path={match.path} matchIndices={match.matchIndices} />
+            <FileIcon className={`size-3 shrink-0 ${isSelected ? 'text-white/80' : fileIconColor(match.path)}`} />
+            <HighlightedPath
+              path={match.path}
+              matchIndices={match.matchIndices}
+              selected={isSelected}
+            />
             {dir && (
               <span
                 className="ml-auto shrink-0 truncate text-[10px] text-[var(--text-muted)]/60"
