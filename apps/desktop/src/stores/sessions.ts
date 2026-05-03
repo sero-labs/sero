@@ -66,8 +66,21 @@ export const useSessionStore = create<SessionsState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const sessions = await window.sero.sessions.list();
-      
-      set({ sessions: sortByModified(sessions), isLoading: false });
+      const sortedSessions = sortByModified(sessions);
+      const { activeSessionId } = get();
+      const activeSessionExists = activeSessionId
+        ? sortedSessions.some((session) => session.id === activeSessionId)
+        : true;
+
+      if (!activeSessionExists) {
+        persistLayout({ activeSessionId: null });
+      }
+
+      set({
+        sessions: sortedSessions,
+        activeSessionId: activeSessionExists ? activeSessionId : null,
+        isLoading: false,
+      });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to load sessions';
       console.error('[sessions] loadSessions failed:', err);
@@ -81,6 +94,7 @@ export const useSessionStore = create<SessionsState>((set, get) => ({
       sessions: [session, ...s.sessions],
       activeSessionId: session.id,
     }));
+    persistLayout({ activeSessionId: session.id });
     return session;
   },
 

@@ -251,10 +251,11 @@ Verify:
 
 ## Development workflow
 
-- UI changes (`ui/`) hot-reload via the remote Vite dev server
-- Changes to `extension/`, `runtime/`, or `shared/types.ts` require an Electron restart
+- UI changes (`ui/`) are handled by the remote Vite dev server. Sero also sends a lightweight cache-busted UI refresh for active local dev sessions; this should remount only the plugin surface, not refresh shell resources or restart agent/runtime state.
+- Changes to `extension/`, `runtime/`, `shared/types.ts`, `prompts/`, `skills/`, or `package.json` refresh the local plugin development session and may reload plugin resources
 - `devPort` in `package.json` must match `server.port` in `vite.config.ts`
 - Logs: `/tmp/sero-vite.log`, `/tmp/sero-remote-<name>.log`, `/tmp/sero-electron.log`
+- If Local Plugin Development fails before Vite starts with an `esbuild` host/binary version mismatch or a missing Rollup native package, suspect stale platform-specific optional dependencies in the plugin's own `node_modules`. Sero attempts a one-time host-side `pnpm install --force` repair for these failures. If repair still fails, delete `node_modules` and reinstall from inside that plugin directory on the **macOS host** before changing source code. Do not run the reinstall from a Sero workspace/container terminal, because that can install Linux native packages into a path that the macOS host dev server later executes.
 
 ## Conventions
 
@@ -287,6 +288,8 @@ Verify:
 | Problem | Fix |
 |---------|-----|
 | Build fails: `Could not resolve entry module "node_modules/__mf__virtual/...hostAutoInit..."` | Keep Vite root at the package root; use `build.rollupOptions.input: 'ui/index.html'` instead of `root: 'ui'` |
+| Local Plugin Development fails: `Cannot start service: Host version "..." does not match binary version "..."` from `esbuild` | The plugin has stale/mismatched native optional dependencies. Sero should try one host-side auto-repair. If it still fails, from the plugin directory on the **macOS host** (not inside the Sero container), run `rm -rf node_modules && pnpm install --force`, then retry `pnpm exec vite --host 127.0.0.1` or Local Plugin Development. Do not patch Vite config/package versions first. |
+| Local Plugin Development fails: `Cannot find module @rollup/rollup-darwin-arm64` or another `@rollup/rollup-*` native package | Same root cause: platform-specific optional dependencies were not installed for the current machine. Sero should try one host-side auto-repair. If it still fails, from the plugin directory on the macOS host, run `rm -rf node_modules && pnpm install --force`. |
 | App not in sidebar | Check `sero.app.id`/`name` in package.json, run `pnpm install` |
 | Agent missing tool | Restart dev server, check `pi.extensions` field |
 | UI changes not showing | Check remote Vite running; extension changes need full restart |

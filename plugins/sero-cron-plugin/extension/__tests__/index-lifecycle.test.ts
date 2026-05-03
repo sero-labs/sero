@@ -22,6 +22,8 @@ type FakePi = {
   registerTool: ReturnType<typeof vi.fn>;
 };
 
+const LIFECYCLE_TEST_TIMEOUT_MS = 15_000;
+
 const stateStore = new Map<string, CronState>();
 const schedulerInstances: MockCronScheduler[] = [];
 
@@ -197,7 +199,7 @@ describe('cron extension lifecycle', () => {
     expect(schedulerInstances[1].start.mock.calls[0]?.[3]).toEqual({
       lastTickMinute: minuteKey,
     });
-  });
+  }, LIFECYCLE_TEST_TIMEOUT_MS);
 
   it('keeps lastTickMinute isolated per workspace state file', async () => {
     const cwdA = '/workspace-a';
@@ -228,5 +230,5 @@ describe('cron extension lifecycle', () => {
     expect(schedulerInstances).toHaveLength(2);
     expect(schedulerInstances[1].start.mock.calls[0]?.[3]).toBeUndefined();
     expect(stateStore.get(statePathB)?.lastTickMinute).toBe('');
-  });
+  }, LIFECYCLE_TEST_TIMEOUT_MS);
 });

@@ -23,6 +23,7 @@ import { useSessionStore } from '@/stores/sessions';
 import { useModelPreferences } from '@/stores/model-preferences';
 import { useDashboardStore } from '@/stores/dashboard';
 import { useBrowserStore } from '@/stores/browser';
+import { useExplorerStore } from '@/stores/explorer';
 
 // Re-export the canonical type so callers don't need a second import.
 export type { LayoutState };
@@ -66,6 +67,7 @@ function buildLayoutState(partial: Partial<LayoutState>): LayoutState {
     activeBrowserTabIds:
       partial.activeBrowserTabIds ?? useBrowserStore.getState().activeTabIds,
     browserBookmarks: partial.browserBookmarks ?? useBrowserStore.getState().bookmarks,
+    explorerLayout: partial.explorerLayout ?? useExplorerStore.getState().ui,
   };
 }
 

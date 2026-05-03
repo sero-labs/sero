@@ -161,6 +161,7 @@ export function SubagentCard({ entry }: SubagentCardProps) {
   const isFailed = entry.status === 'failed' || entry.status === 'timed_out';
   const isAborted = entry.status === 'aborted';
   const abort = useSubagentStore((s) => s.abort);
+  const output = useSubagentStore((s) => s.outputs[entry.id]);
 
   // Ticking elapsed timer
   const [elapsed, setElapsed] = useState(entry.durationMs ?? 0);
@@ -187,8 +188,11 @@ export function SubagentCard({ entry }: SubagentCardProps) {
   // Expand/collapse state
   const [expanded, setExpanded] = useState(false);
   const [showLiveOutput, setShowLiveOutput] = useState(false);
-  const hasOutput = !!(entry.fullResponse || entry.error);
-  const hasLiveOutput = isRunning && entry.liveOutput.length > 0;
+  const liveOutput = output?.liveOutput ?? '';
+  const fullResponse = output?.fullResponse;
+  const outputError = output?.error ?? entry.error;
+  const hasOutput = !!(fullResponse || outputError);
+  const hasLiveOutput = isRunning && liveOutput.length > 0;
 
   // Border color based on status
   const borderClass = isRunning
@@ -291,7 +295,7 @@ export function SubagentCard({ entry }: SubagentCardProps) {
       {/* ── Live output preview (running) ──────────────── */}
       {showLiveOutput && hasLiveOutput && (
         <div className="px-3 pb-2">
-          <LiveOutputPreview text={entry.liveOutput} />
+          <LiveOutputPreview text={liveOutput} />
         </div>
       )}
 
@@ -299,8 +303,8 @@ export function SubagentCard({ entry }: SubagentCardProps) {
       {expanded && hasOutput && (
         <div className="px-3 pb-2">
           <SubagentOutput
-            response={entry.fullResponse}
-            error={entry.error}
+            response={fullResponse}
+            error={outputError}
             isFailed={isFailed}
           />
         </div>

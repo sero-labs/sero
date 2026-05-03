@@ -103,7 +103,21 @@ export function ExplorerWorkspace() {
   const isTerminalProgrammaticRef = useRef(true);
   const terminalLastExpandedPctRef = useRef(terminalSizePct || 30);
   const terminalDefaultRef = useRef(terminalOpen ? `${terminalSizePct || 30}%` : 0);
+  const sidebarDefaultRef = useRef(
+    explorerSidebarSizePct > 0 ? `${explorerSidebarSizePct}%` : '220px',
+  );
   const explorerSidebarLastExpandedPctRef = useRef(explorerSidebarSizePct || 0);
+  const previousWorkspaceIdRef = useRef(workspaceId);
+
+  if (previousWorkspaceIdRef.current !== workspaceId) {
+    previousWorkspaceIdRef.current = workspaceId;
+    terminalLastExpandedPctRef.current = terminalSizePct || 30;
+    terminalDefaultRef.current = terminalOpen ? `${terminalSizePct || 30}%` : 0;
+    sidebarDefaultRef.current = explorerSidebarSizePct > 0
+      ? `${explorerSidebarSizePct}%`
+      : '220px';
+    explorerSidebarLastExpandedPctRef.current = explorerSidebarSizePct || 0;
+  }
 
   // Sync sidebar panel collapse/expand with sidebarOpen state.
   usePanelOpenSync(
@@ -168,12 +182,14 @@ export function ExplorerWorkspace() {
         />
 
         <ResizablePanelGroup
+          key={`explorer-vertical-${workspaceId}`}
           id="explorer-vertical"
           orientation="vertical"
           className="min-w-0 flex-1"
         >
           <ResizablePanel id="explorer-main" minSize={20}>
             <ResizablePanelGroup
+              key={`explorer-layout-${workspaceId}`}
               id="explorer-layout"
               orientation="horizontal"
               className="h-full"
@@ -181,7 +197,7 @@ export function ExplorerWorkspace() {
               <ResizablePanel
                 id="explorer-sidebar"
                 panelRef={sidebarPanelRef}
-                defaultSize="220px"
+                defaultSize={sidebarDefaultRef.current}
                 minSize={160}
                 collapsible
                 collapsedSize={0}

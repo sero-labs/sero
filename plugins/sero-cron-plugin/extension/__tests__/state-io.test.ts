@@ -154,4 +154,25 @@ describe('readState and writeState', () => {
     const loaded = await readState(statePath);
     expect(loaded.autostart).toBe(true);
   });
+
+  it('writeState gives concurrent writes unique temp paths', async () => {
+    const states = Array.from({ length: 8 }, (_, index): CronState => ({
+      ...DEFAULT_CRON_STATE,
+      jobs: [{
+        name: `j${index}`,
+        schedule: '0 9 * * *',
+        prompt: 'hi',
+        channel: 'cron',
+        disabled: false,
+      }],
+    }));
+
+    await Promise.all(states.map((state) => writeState(statePath, state)));
+
+    const loaded = await readState(statePath);
+    expect(loaded.jobs).toHaveLength(1);
+    expect(loaded.jobs[0].name).toMatch(/^j\d$/);
+    const files = await fs.readdir(tmpDir);
+    expect(files.filter((f) => f.includes('.tmp'))).toHaveLength(0);
+  });
 });

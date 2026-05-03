@@ -120,6 +120,7 @@ export type PluginChangeEventReason =
   | 'plugin-uninstalled'
   | 'dev-session-started'
   | 'dev-session-refreshed'
+  | 'dev-session-ui-changed'
   | 'dev-session-stopped';
 
 /** Renderer-safe plugin lifecycle event payload surfaced over the host bridge. */
@@ -137,7 +138,7 @@ export type PluginChangeEventIPC =
   | {
       type: 'changed';
       pluginId: string | null;
-      reason: 'dev-session-started' | 'dev-session-refreshed' | 'dev-session-stopped';
+      reason: 'dev-session-started' | 'dev-session-refreshed' | 'dev-session-ui-changed' | 'dev-session-stopped';
     };
 
 /** Provider auth metadata from a package's `sero.providers` field. */
