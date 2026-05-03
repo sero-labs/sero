@@ -145,9 +145,12 @@ async function collectRootFiles(
   remainingSlots: () => number,
 ): Promise<string[]> {
   const files: string[] = [];
+  const maxFilesForRoot = remainingSlots();
+  if (maxFilesForRoot <= 0) return files;
+
   const queue = [root.virtualPath];
 
-  while (queue.length > 0 && remainingSlots() > 0) {
+  while (queue.length > 0 && files.length < maxFilesForRoot) {
     const dirPath = queue.shift();
     if (!dirPath) continue;
 
@@ -166,7 +169,7 @@ async function collectRootFiles(
         continue;
       }
 
-      if (remainingSlots() <= 0) break;
+      if (files.length >= maxFilesForRoot) break;
       if (!shouldIncludeFile(entry.name)) continue;
       files.push(toDisplayedPath(root, joinVirtualPath(dirPath, entry.name)));
     }

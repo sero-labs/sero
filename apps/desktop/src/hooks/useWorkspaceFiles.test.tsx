@@ -188,6 +188,30 @@ describe('useWorkspaceFiles', () => {
     });
   });
 
+  it('caps collected files to the safety limit within a single large root', async () => {
+    getRoots.mockResolvedValueOnce([
+      { id: 'workspace', name: 'Workspace', virtualPath: '/workspace', kind: 'workspace' as const },
+    ]);
+    listFiles.mockImplementation(async (_workspaceId, dirPath) => {
+      if (dirPath !== '/workspace') return [];
+      return Array.from({ length: 5_100 }, (_, index) => ({
+        name: `file-${index.toString().padStart(4, '0')}.ts`,
+        type: 'file' as const,
+        size: 0,
+      }));
+    });
+
+    await act(async () => {
+      root?.render(<Harness workspaceId="ws-1" />);
+    });
+
+    await vi.waitFor(() => {
+      expect(latestFiles).toHaveLength(5_000);
+    });
+    expect(latestFiles[0]).toBe('file-0000.ts');
+    expect(latestFiles.at(-1)).toBe('file-4999.ts');
+  });
+
   it('cleans up the filetree subscription and watch on unmount', async () => {
     mockPrimarySrcFiles([['a.ts']]);
 
