@@ -14,6 +14,8 @@ export interface RunInAppOptions {
   signal?: AbortSignal;
   onProgress?: (event: DoctorProgressEvent) => void;
   seroVersion: string;
+  /** Caller-supplied run id. The runner generates one when omitted. */
+  runId?: string;
 }
 
 export async function runInAppDoctor(
@@ -31,6 +33,7 @@ export async function runInAppDoctor(
     seroVersion: options.seroVersion,
     onProgress: options.onProgress,
     signal: options.signal,
+    runId: options.runId,
   };
   return runDoctor(runOptions);
 }

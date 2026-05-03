@@ -126,7 +126,8 @@ describe('runner.runDoctor', () => {
       seroVersion: '0.0.0',
       onProgress: (event) => events.push(event.kind),
     });
-    expect(events[0]).toBe('check-start');
+    expect(events[0]).toBe('all-start');
+    expect(events[1]).toBe('check-start');
     expect(events).toContain('check-done');
     expect(events[events.length - 1]).toBe('all-done');
   });
@@ -172,5 +173,64 @@ describe('runner.runDoctor', () => {
       seroVersion: '0.0.0',
     });
     expect(report.results.map((r) => r.id)).toEqual(['a.first', 'm.mid', 'z.last']);
+  });
+
+  it('global budget cuts off unfinished checks with synthetic fail results', async () => {
+    registerDoctorCheck(makePassCheck('a.fast'));
+    registerDoctorCheck(makeSlowCheck('a.slow', 500));
+    const report = await runDoctor({
+      mode: 'full',
+      contextMode: 'in-app',
+      profile: null,
+      allProfiles: [],
+      seroVersion: '0.0.0',
+      perCheckTimeoutMs: 1_000,
+      globalBudgetMs: 50,
+    });
+    const slow = report.results.find((r) => r.id === 'a.slow');
+    expect(slow?.status).toBe('fail');
+    expect(slow?.message).toMatch(/global budget/i);
+    // The fast check is still allowed to complete.
+    const fast = report.results.find((r) => r.id === 'a.fast');
+    expect(fast?.status).toBe('pass');
+  });
+
+  it('echoes the caller-supplied runId on every event and on the report', async () => {
+    registerDoctorCheck(makePassCheck('a.one'));
+    const events: Array<{ kind: string; runId: string }> = [];
+    const report = await runDoctor({
+      mode: 'full',
+      contextMode: 'in-app',
+      profile: null,
+      allProfiles: [],
+      seroVersion: '0.0.0',
+      runId: 'caller-supplied-run',
+      onProgress: (event) => events.push({ kind: event.kind, runId: event.runId }),
+    });
+    expect(report.runId).toBe('caller-supplied-run');
+    for (const event of events) {
+      expect(event.runId).toBe('caller-supplied-run');
+    }
+  });
+
+  it('mints a runId when the caller does not supply one', async () => {
+    registerDoctorCheck(makePassCheck('a.one'));
+    const reportA = await runDoctor({
+      mode: 'full',
+      contextMode: 'in-app',
+      profile: null,
+      allProfiles: [],
+      seroVersion: '0.0.0',
+    });
+    const reportB = await runDoctor({
+      mode: 'full',
+      contextMode: 'in-app',
+      profile: null,
+      allProfiles: [],
+      seroVersion: '0.0.0',
+    });
+    expect(reportA.runId).toBeTruthy();
+    expect(reportB.runId).toBeTruthy();
+    expect(reportA.runId).not.toBe(reportB.runId);
   });
 });

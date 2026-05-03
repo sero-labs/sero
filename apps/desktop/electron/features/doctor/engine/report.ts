@@ -24,6 +24,7 @@ interface BuildReportArgs {
   seroVersion: string;
   durationMs: number;
   timestamp: string;
+  runId: string;
   envAudit?: EnvAudit;
 }
 
@@ -56,6 +57,7 @@ export function buildReport(args: BuildReportArgs): DoctorReport {
       arch: process.arch,
     },
     seroVersion: args.seroVersion,
+    runId: args.runId,
     profilesScanned,
     results: sortedResults,
     envAudit,

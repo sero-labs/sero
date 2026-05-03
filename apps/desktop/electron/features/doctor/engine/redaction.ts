@@ -11,6 +11,7 @@
  * exists to catch programmer errors, not to make leaks safe.
  */
 
+import { createHash } from 'crypto';
 import os from 'os';
 
 const SENSITIVE_FIELDS = /^(value|secret|token|access[_-]?token|refresh[_-]?token|api[_-]?key|password|cookie|authorization)$/i;
@@ -74,8 +75,5 @@ function scrubAny(value: unknown, seen: WeakSet<object>): unknown {
 
 /** Hash a path for inclusion in reports. Twelve hex chars is plenty. */
 export function hashPath(p: string): string {
-  // Lazy require so this module remains usable in environments without
-  // node:crypto (unit tests in jsdom etc.).
-  const { createHash } = require('crypto') as typeof import('crypto');
   return createHash('sha256').update(p).digest('hex').slice(0, 12);
 }

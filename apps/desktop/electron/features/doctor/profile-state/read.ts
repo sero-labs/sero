@@ -103,8 +103,12 @@ export function readDotEnvFile(path: string): ReadResult<{ keys: string[] }> {
   const keys = new Set<string>();
   let parseFailed = false;
   for (const rawLine of raw.split('\n')) {
-    const line = rawLine.trim();
+    let line = rawLine.trim();
     if (!line || line.startsWith('#')) continue;
+    // Tolerate the common shell-style `export KEY=value` prefix.
+    if (line.startsWith('export ') || line.startsWith('export\t')) {
+      line = line.slice('export '.length).trimStart();
+    }
     const eq = line.indexOf('=');
     if (eq === -1) {
       parseFailed = true;

@@ -1,12 +1,15 @@
 /**
  * IPC handlers for the Environment Doctor.
  *
- * The renderer invokes `run` / `runQuick` and listens for streamed
- * `event` messages. Repair invocations are reserved for v2 — the
- * handler returns a `skipped` response with a coming-soon message.
+ * Each `run` / `runQuick` invocation streams progress events back to
+ * the originating webContents only. The renderer also passes a `runId`
+ * so it can ignore stale or concurrent runs from other renderers.
+ *
+ * Repair invocations are reserved for v2 — the handler returns a
+ * `skipped` response with a coming-soon message.
  */
 
-import { app, BrowserWindow, clipboard, dialog, ipcMain } from 'electron';
+import { app, clipboard, dialog, ipcMain, type IpcMainInvokeEvent } from 'electron';
 import { writeFile } from 'fs/promises';
 import { IpcChannels } from '@/types/ipc-channels';
 import type {
@@ -18,33 +21,36 @@ import type {
 import { renderPlaintext } from '@electron/features/doctor/engine/report';
 import { runInAppDoctor } from '@electron/features/doctor/modes/in-app';
 
-function broadcast(event: DoctorProgressEvent): void {
-  for (const window of BrowserWindow.getAllWindows()) {
-    if (!window.isDestroyed()) {
-      window.webContents.send(IpcChannels.doctor.event, event);
-    }
-  }
+function sendTo(event: IpcMainInvokeEvent, payload: DoctorProgressEvent): void {
+  const sender = event.sender;
+  if (sender.isDestroyed()) return;
+  sender.send(IpcChannels.doctor.event, payload);
 }
 
-async function run(args: DoctorRunArgs | undefined, mode: 'quick' | 'full'): Promise<DoctorReport> {
+async function run(
+  event: IpcMainInvokeEvent,
+  args: DoctorRunArgs | undefined,
+  mode: 'quick' | 'full',
+): Promise<DoctorReport> {
   return runInAppDoctor({
     mode,
     category: args?.category,
     allProfiles: args?.allProfiles,
+    runId: args?.runId,
     seroVersion: app.getVersion(),
-    onProgress: (event) => broadcast(event),
+    onProgress: (progress) => sendTo(event, progress),
   });
 }
 
 export function registerDoctorHandlers(): void {
   ipcMain.handle(
     IpcChannels.doctor.run,
-    (_event, args?: DoctorRunArgs): Promise<DoctorReport> => run(args, 'full'),
+    (event, args?: DoctorRunArgs): Promise<DoctorReport> => run(event, args, 'full'),
   );
 
   ipcMain.handle(
     IpcChannels.doctor.runQuick,
-    (_event, args?: DoctorRunArgs): Promise<DoctorReport> => run(args, 'quick'),
+    (event, args?: DoctorRunArgs): Promise<DoctorReport> => run(event, args, 'quick'),
   );
 
   ipcMain.handle(

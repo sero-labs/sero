@@ -16,6 +16,7 @@ export interface SafeModeOptions {
   profileFilter?: string;
   allProfiles?: boolean;
   seroVersion: string;
+  runId?: string;
 }
 
 export async function runSafeModeDoctor(
@@ -32,5 +33,6 @@ export async function runSafeModeDoctor(
     profile: active,
     allProfiles: all,
     seroVersion: options.seroVersion,
+    runId: options.runId,
   });
 }

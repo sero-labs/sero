@@ -521,6 +521,8 @@ export interface DoctorReport {
   mode: DoctorMode;
   system: { os: string; version: string; arch: string };
   seroVersion: string;
+  /** Stable identifier for this run. Echoed by every progress event. */
+  runId: string;
   profilesScanned: Array<{ id: string; pathHash: string }>;
   results: DoctorResult[];
   envAudit: DoctorEnvAudit;
@@ -528,13 +530,16 @@ export interface DoctorReport {
 }
 
 export type DoctorProgressEvent =
-  | { kind: 'check-start'; id: string; category: DoctorCategory }
-  | { kind: 'check-done'; result: DoctorResult }
-  | { kind: 'all-done'; report: DoctorReport };
+  | { kind: 'all-start'; runId: string }
+  | { kind: 'check-start'; runId: string; id: string; category: DoctorCategory }
+  | { kind: 'check-done'; runId: string; result: DoctorResult }
+  | { kind: 'all-done'; runId: string; report: DoctorReport };
 
 export interface DoctorRunArgs {
   category?: DoctorCategory;
   allProfiles?: boolean;
+  /** Caller-supplied identifier so renderers can filter their own run's events. */
+  runId?: string;
 }
 
 export interface DoctorRepairResponse {

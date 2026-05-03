@@ -101,4 +101,25 @@ describe('profile-state.readDotEnvFile', () => {
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error.kind).toBe('parse');
   });
+
+  it('tolerates the shell-style `export KEY=value` prefix', () => {
+    const file = path.join(tmpRoot, '.env-export');
+    writeFileSync(
+      file,
+      [
+        'export OPENAI_API_KEY=sk-AAAAAAAAAAAAAAAAAAAA',
+        'export ANTHROPIC_API_KEY="sk-BBBBBBBBBBBBBBBBBBBB"',
+        'PLAIN=value',
+      ].join('\n'),
+    );
+    const result = readDotEnvFile(file);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.keys).toEqual([
+        'ANTHROPIC_API_KEY',
+        'OPENAI_API_KEY',
+        'PLAIN',
+      ]);
+    }
+  });
 });
