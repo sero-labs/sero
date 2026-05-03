@@ -24,6 +24,7 @@ Use the reference when you need canonical details about architecture, runtime be
 
 - [Testing / Evals](/reference/testing-evals) — current quality model, smoke checks, promptfoo evals, cost/auth caveats, and scenario coverage.
 - [Security / Privacy](/reference/security-privacy) — local-first posture, remote surfaces, safeguards, permissions, and sensitive state.
+- [Environment Doctor](/reference/environment-doctor) — built-in diagnostics, in-app panel, `electron --doctor` safe mode, and the bundled `sero-doctor` CLI shim.
 - [Troubleshooting](/reference/troubleshooting) — fixes for native modules, dev startup, containers, host mode, providers, and baseline reporting.
 - [Known Limitations](/reference/known-limitations) — platform, runtime, product maturity, and distribution limitations.
 - [Support Scope](/reference/support-scope) — supported alpha baseline, runtime support matrix, and issue-reporting expectations.
