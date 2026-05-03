@@ -213,6 +213,102 @@ describe('runner.runDoctor', () => {
     }
   });
 
+  it('drops late check-done events and results after the budget closes the run', async () => {
+    let lateResolved = 0;
+    const lateCheck: DoctorCheck = {
+      id: 'a.late',
+      category: 'system',
+      // Note: this check intentionally ignores ctx.signal to simulate a
+      // straggler that doesn't honour cancellation. The runner must
+      // still keep the event sequence well-formed.
+      async run() {
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        lateResolved += 1;
+        return {
+          id: 'a.late',
+          category: 'system',
+          status: 'pass',
+          message: 'I finished after the budget',
+          durationMs: 0,
+        };
+      },
+    };
+    registerDoctorCheck(lateCheck);
+
+    const events: Array<{ kind: string; id?: string; status?: string }> = [];
+    const report = await runDoctor({
+      mode: 'full',
+      contextMode: 'in-app',
+      profile: null,
+      allProfiles: [],
+      seroVersion: '0.0.0',
+      perCheckTimeoutMs: 1_000,
+      globalBudgetMs: 30,
+      onProgress: (event) => {
+        if (event.kind === 'check-done') {
+          events.push({ kind: event.kind, id: event.result.id, status: event.result.status });
+        } else {
+          events.push({ kind: event.kind });
+        }
+      },
+    });
+
+    // The synthetic budget-fail must be the only check-done for `a.late`,
+    // and it must arrive before all-done.
+    const lateDones = events.filter((e) => e.kind === 'check-done' && e.id === 'a.late');
+    expect(lateDones).toHaveLength(1);
+    expect(lateDones[0].status).toBe('fail');
+
+    const allDoneIndex = events.findIndex((e) => e.kind === 'all-done');
+    expect(allDoneIndex).toBeGreaterThan(0);
+    // No check-done events appear after all-done, even after the slow
+    // check actually resolves.
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    expect(lateResolved).toBe(1);
+    const trailing = events.slice(allDoneIndex + 1).filter((e) => e.kind === 'check-done');
+    expect(trailing).toHaveLength(0);
+
+    // The report contains exactly one entry for `a.late` and it's the
+    // synthetic fail — the late real result is not appended.
+    const lateReportRows = report.results.filter((r) => r.id === 'a.late');
+    expect(lateReportRows).toHaveLength(1);
+    expect(lateReportRows[0].status).toBe('fail');
+  });
+
+  it('aborts ctx.signal once the global budget elapses', async () => {
+    let signalSeenAborted = false;
+    const watcher: DoctorCheck = {
+      id: 'a.watcher',
+      category: 'system',
+      async run(ctx: DoctorContext) {
+        // Wait long enough to outlive the budget, then check the signal.
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        signalSeenAborted = ctx.signal.aborted;
+        return {
+          id: 'a.watcher',
+          category: 'system',
+          status: 'pass',
+          message: 'observed',
+          durationMs: 0,
+        };
+      },
+    };
+    registerDoctorCheck(watcher);
+    await runDoctor({
+      mode: 'full',
+      contextMode: 'in-app',
+      profile: null,
+      allProfiles: [],
+      seroVersion: '0.0.0',
+      perCheckTimeoutMs: 1_000,
+      globalBudgetMs: 20,
+    });
+    // Allow the slow check to actually resolve so its post-budget
+    // observation runs.
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    expect(signalSeenAborted).toBe(true);
+  });
+
   it('mints a runId when the caller does not supply one', async () => {
     registerDoctorCheck(makePassCheck('a.one'));
     const reportA = await runDoctor({

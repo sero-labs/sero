@@ -91,10 +91,13 @@ const archCheck: DoctorCheck = {
 const diskCheck: DoctorCheck = {
   id: 'system.disk.free',
   category: 'system',
-  async run() {
+  async run(ctx) {
     const start = Date.now();
     const target = path.join(os.homedir(), '.sero-ui');
-    const result = await runCommand('df', ['-k', target], { timeoutMs: 2_000 });
+    const result = await runCommand('df', ['-k', target], {
+      timeoutMs: 2_000,
+      signal: ctx.signal,
+    });
     if (!result.ok) {
       return makeResult({
         id: this.id,

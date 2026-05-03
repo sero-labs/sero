@@ -42,13 +42,27 @@ export interface ExecResult {
 export function runCommand(
   command: string,
   args: string[],
-  options: { timeoutMs?: number; cwd?: string } = {},
+  options: { timeoutMs?: number; cwd?: string; signal?: AbortSignal } = {},
 ): Promise<ExecResult> {
   return new Promise((resolve) => {
+    if (options.signal?.aborted) {
+      resolve({
+        ok: false,
+        stdout: '',
+        stderr: '',
+        code: null,
+        error: 'aborted before spawn',
+      });
+      return;
+    }
     const child = execFile(
       command,
       args,
-      { timeout: options.timeoutMs ?? 5_000, cwd: options.cwd },
+      {
+        timeout: options.timeoutMs ?? 5_000,
+        cwd: options.cwd,
+        signal: options.signal,
+      },
       (err, stdout, stderr) => {
         if (err) {
           resolve({

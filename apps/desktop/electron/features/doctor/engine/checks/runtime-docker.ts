@@ -8,8 +8,11 @@ import { registerDoctorCheck } from '../registry';
 import type { DoctorCheck } from '../types';
 import { makeResult, runCommand } from './helpers';
 
-async function whichDocker(): Promise<string | null> {
-  const result = await runCommand('which', ['docker'], { timeoutMs: 1_500 });
+async function whichDocker(signal?: AbortSignal): Promise<string | null> {
+  const result = await runCommand('which', ['docker'], {
+    timeoutMs: 1_500,
+    signal,
+  });
   if (!result.ok) return null;
   const path = result.stdout.trim();
   return path || null;
@@ -18,9 +21,9 @@ async function whichDocker(): Promise<string | null> {
 const cliCheck: DoctorCheck = {
   id: 'runtime.docker.cli',
   category: 'runtime',
-  async run() {
+  async run(ctx) {
     const start = Date.now();
-    const path = await whichDocker();
+    const path = await whichDocker(ctx.signal);
     if (!path) {
       return makeResult({
         id: this.id,
@@ -43,9 +46,9 @@ const cliCheck: DoctorCheck = {
 const daemonCheck: DoctorCheck = {
   id: 'runtime.docker.daemon',
   category: 'runtime',
-  async run() {
+  async run(ctx) {
     const start = Date.now();
-    const path = await whichDocker();
+    const path = await whichDocker(ctx.signal);
     if (!path) {
       return makeResult({
         id: this.id,
@@ -55,7 +58,10 @@ const daemonCheck: DoctorCheck = {
         start,
       });
     }
-    const result = await runCommand('docker', ['info'], { timeoutMs: 2_500 });
+    const result = await runCommand('docker', ['info'], {
+      timeoutMs: 2_500,
+      signal: ctx.signal,
+    });
     if (result.ok) {
       return makeResult({
         id: this.id,
@@ -79,9 +85,9 @@ const runCheck: DoctorCheck = {
   id: 'runtime.docker.run',
   category: 'runtime',
   slow: true,
-  async run() {
+  async run(ctx) {
     const start = Date.now();
-    const path = await whichDocker();
+    const path = await whichDocker(ctx.signal);
     if (!path) {
       return makeResult({
         id: this.id,

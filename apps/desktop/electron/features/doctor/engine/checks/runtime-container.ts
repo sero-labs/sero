@@ -50,7 +50,7 @@ const cliCheck: DoctorCheck = {
 const versionCheck: DoctorCheck = {
   id: 'runtime.container.version',
   category: 'runtime',
-  async run() {
+  async run(ctx) {
     const start = Date.now();
     if (!isExecutable(CONTAINER_BIN)) {
       return makeResult({
@@ -61,7 +61,10 @@ const versionCheck: DoctorCheck = {
         start,
       });
     }
-    const result = await runCommand(CONTAINER_BIN, ['--version'], { timeoutMs: 2_000 });
+    const result = await runCommand(CONTAINER_BIN, ['--version'], {
+      timeoutMs: 2_000,
+      signal: ctx.signal,
+    });
     if (!result.ok) {
       return makeResult({
         id: this.id,
@@ -85,7 +88,7 @@ const daemonCheck: DoctorCheck = {
   id: 'runtime.container.daemon',
   category: 'runtime',
   repair: containerStartRepair,
-  async run() {
+  async run(ctx) {
     const start = Date.now();
     if (!isExecutable(CONTAINER_BIN)) {
       return makeResult({
@@ -98,6 +101,7 @@ const daemonCheck: DoctorCheck = {
     }
     const result = await runCommand(CONTAINER_BIN, ['system', 'status'], {
       timeoutMs: 5_000,
+      signal: ctx.signal,
     });
     if (result.ok && result.stdout.includes('running')) {
       return makeResult({

@@ -147,8 +147,14 @@ export async function runDoctor(options: RunOptions): Promise<DoctorReport> {
   const selected = getSelectedChecks(options);
   const all: DoctorResult[] = [];
   const completed = new Set<string>();
+  // Once `finished` flips, neither map callbacks (slow checks resolving
+  // late) nor any other emitter is allowed to push to `all` or stream
+  // events. This keeps the run's event sequence well-formed even when a
+  // check ignores the abort signal and resolves after `all-done`.
+  let finished = false;
 
   const emit = (event: DoctorProgressEvent): void => {
+    if (finished && event.kind !== 'all-done') return;
     options.onProgress?.(event);
   };
 
@@ -162,6 +168,11 @@ export async function runDoctor(options: RunOptions): Promise<DoctorReport> {
       category: check.category,
     });
     const results = await runCheck(check, ctx, perCheckTimeoutMs);
+    if (finished || completed.has(check.id)) {
+      // Budget already cut us off (or we synthesised a fail for this
+      // check). Drop the late real result silently — the run is closed.
+      return;
+    }
     completed.add(check.id);
     for (const result of results) {
       emit({ kind: 'check-done', runId, result });
@@ -190,8 +201,12 @@ export async function runDoctor(options: RunOptions): Promise<DoctorReport> {
   });
 
   if (budgetExceeded) {
+    // Reserve every still-unresolved check id BEFORE emitting, so any
+    // map callback that resolves between this loop and the `finished`
+    // flip below sees `completed.has(check.id)` and bails out cleanly.
     for (const check of selected) {
       if (completed.has(check.id)) continue;
+      completed.add(check.id);
       const result: DoctorResult = {
         id: check.id,
         category: check.category,
@@ -204,7 +219,16 @@ export async function runDoctor(options: RunOptions): Promise<DoctorReport> {
     }
   }
 
+  // Closing the run AFTER synth: any straggler that resolves now will
+  // see `finished` flipped and silently drop without emitting events
+  // or polluting `all`.
+  finished = true;
   clearTimeout(budgetTimer);
+  // Make sure the global abort fires so command helpers waiting on
+  // `ctx.signal` give up promptly. (Subprocess checks pass this signal
+  // into execFile via runCommand, so this is what lets a `df`/`docker`
+  // probe stop occupying the event loop after the budget elapses.)
+  if (!globalAbort.signal.aborted) globalAbort.abort();
 
   const report = buildReport({
     results: all,
