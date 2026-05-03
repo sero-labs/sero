@@ -6,7 +6,14 @@ import {
   ACTIVE_PROFILE_ID,
   PROFILE_STARTUP_ISSUE,
 } from './platform/env';
-loadSeroEnv();
+import { isDoctorInvocation } from './features/doctor/cli';
+
+// `--doctor` short-circuit: skip env loading and feature initialisation.
+// We still pulled in `platform/env`, but its top-level code is lenient
+// and never throws, so safe-mode survives a broken profiles.json.
+if (!isDoctorInvocation(process.argv)) {
+  loadSeroEnv();
+}
 
 import { app, components, BrowserWindow, session } from 'electron';
 import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'fs';
@@ -199,6 +206,23 @@ function createWindow() {
 }
 
 app.whenReady().then(async () => {
+  if (isDoctorInvocation(process.argv)) {
+    const { runDoctorSafeMode } = await import('./features/doctor/cli');
+    try {
+      const { exitCode } = await runDoctorSafeMode({
+        argv: process.argv.slice(2),
+        seroVersion: app.getVersion(),
+      });
+      app.exit(exitCode);
+    } catch (err) {
+      process.stderr.write(
+        `[doctor] fatal: ${err instanceof Error ? err.stack ?? err.message : String(err)}\n`,
+      );
+      app.exit(2);
+    }
+    return;
+  }
+
   if (PROFILE_STARTUP_ISSUE) {
     const recoveryAction = await handleProfileRegistryRecovery(PROFILE_STARTUP_ISSUE);
     if (recoveryAction === 'relaunch') {

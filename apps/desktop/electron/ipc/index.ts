@@ -47,6 +47,7 @@ import { registerAppControlHandlers } from './apps/app-control';
 import { registerPluginHandlers } from './integrations/plugins';
 import { registerPluginConfigHandlers } from './apps/plugin-config';
 import { registerThemeHandlers } from './platform/ui';
+import { registerDoctorHandlers } from './doctor/doctor';
 
 export function registerAllIpcHandlers(): void {
   registerProfileHandlers();
@@ -90,4 +91,5 @@ export function registerAllIpcHandlers(): void {
   registerPluginHandlers();
   registerPluginConfigHandlers();
   registerThemeHandlers();
+  registerDoctorHandlers();
 }

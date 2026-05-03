@@ -478,3 +478,67 @@ export type {
   AppRecordingResult,
 } from './app-control';
 
+// ── Environment Doctor ─────────────────────────────────────────
+
+export type DoctorStatus = 'pass' | 'warn' | 'fail';
+
+export type DoctorCategory =
+  | 'system'
+  | 'runtime'
+  | 'node'
+  | 'profile'
+  | 'workspace'
+  | 'providers'
+  | 'plugins'
+  | 'environment';
+
+export type DoctorMode = 'in-app' | 'safe' | 'quick';
+
+export type DoctorFix =
+  | { kind: 'manual'; instructions: string }
+  | { kind: 'command'; command: string; args: string[]; description: string }
+  | { kind: 'repair'; repairId: string; description: string; destructive: boolean };
+
+export interface DoctorResult {
+  id: string;
+  category: DoctorCategory;
+  status: DoctorStatus;
+  message: string;
+  fix?: DoctorFix;
+  details?: Record<string, unknown>;
+  durationMs: number;
+}
+
+export interface DoctorEnvAudit {
+  present: string[];
+  missing: string[];
+  recommended: string[];
+}
+
+export interface DoctorReport {
+  schemaVersion: 1;
+  timestamp: string;
+  mode: DoctorMode;
+  system: { os: string; version: string; arch: string };
+  seroVersion: string;
+  profilesScanned: Array<{ id: string; pathHash: string }>;
+  results: DoctorResult[];
+  envAudit: DoctorEnvAudit;
+  durationMs: number;
+}
+
+export type DoctorProgressEvent =
+  | { kind: 'check-start'; id: string; category: DoctorCategory }
+  | { kind: 'check-done'; result: DoctorResult }
+  | { kind: 'all-done'; report: DoctorReport };
+
+export interface DoctorRunArgs {
+  category?: DoctorCategory;
+  allProfiles?: boolean;
+}
+
+export interface DoctorRepairResponse {
+  status: 'success' | 'failed' | 'skipped';
+  message: string;
+}
+

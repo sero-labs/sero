@@ -88,3 +88,9 @@ buildDependenciesFromSource: false
 # Use the locally installed castlabs Electron fork instead of trying
 # to download a stock Electron build for the +wvcus version.
 electronDist: node_modules/electron/dist
+
+# Bundle the sero-doctor CLI shim. On first run Sero offers to symlink
+# this to /usr/local/bin/sero-doctor (declined by default).
+extraResources:
+  - from: scripts/sero-doctor.sh
+    to: sero-doctor
