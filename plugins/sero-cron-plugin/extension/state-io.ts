@@ -4,6 +4,7 @@
  * Extracted from index.ts to keep the main file under 500 LOC.
  */
 
+import { randomUUID } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import type { CronState } from '../shared/types';
@@ -68,7 +69,7 @@ export async function readState(filePath: string): Promise<CronState> {
 export async function writeState(filePath: string, state: CronState): Promise<void> {
   const dir = path.dirname(filePath);
   await fs.mkdir(dir, { recursive: true });
-  const tmpPath = `${filePath}.tmp.${Date.now()}`;
+  const tmpPath = `${filePath}.tmp.${process.pid}.${Date.now()}.${randomUUID()}`;
   await fs.writeFile(tmpPath, JSON.stringify(state, null, 2), 'utf8');
   await fs.rename(tmpPath, filePath);
 }

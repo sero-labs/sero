@@ -20,6 +20,8 @@ import type {
 import { broadcastToWindows } from '../lib/window-broadcast';
 
 const AGENTS_DIR = path.join(SERO_AGENT_DIR, 'agents');
+const MAX_RENDERER_TEXT_CHARS = 20_000;
+const MAX_TOOL_ARGS_CHARS = 1_000;
 
 /** Validate agent name to prevent path traversal. */
 const VALID_AGENT_NAME = /^[a-z0-9-]+$/;
@@ -28,6 +30,37 @@ function validateAgentName(name: string): void {
   if (!VALID_AGENT_NAME.test(name)) {
     throw new Error(`Invalid agent name '${name}'. Use only lowercase letters, numbers, and hyphens.`);
   }
+}
+
+function truncateHead(text: string | undefined, maxChars: number): string | undefined {
+  if (!text || text.length <= maxChars) return text;
+  const omitted = text.length - maxChars;
+  return `${text.slice(0, maxChars)}\n\n… truncated ${omitted.toLocaleString()} chars for renderer stability.`;
+}
+
+function truncateTail(text: string | undefined, maxChars: number): string | undefined {
+  if (!text || text.length <= maxChars) return text;
+  const omitted = text.length - maxChars;
+  return `… truncated ${omitted.toLocaleString()} earlier chars for renderer stability.\n\n${text.slice(-maxChars)}`;
+}
+
+function sanitizeToolActivity(activity: SubagentToolActivity[]): SubagentToolActivity[] {
+  return activity.map((item) => ({
+    ...item,
+    argsSummary: truncateHead(item.argsSummary, MAX_TOOL_ARGS_CHARS) ?? '',
+  }));
+}
+
+function sanitizeEntry(entry: SubagentEntry): SubagentEntry {
+  const fullResponse = truncateHead(entry.fullResponse, MAX_RENDERER_TEXT_CHARS);
+  return {
+    ...entry,
+    fullResponse,
+    responsePreview: entry.responsePreview ?? fullResponse?.slice(0, 500),
+    error: truncateHead(entry.error, MAX_RENDERER_TEXT_CHARS),
+    liveOutput: truncateTail(entry.liveOutput, MAX_RENDERER_TEXT_CHARS) ?? '',
+    toolActivity: sanitizeToolActivity(entry.toolActivity),
+  };
 }
 
 function sendToAllWindows(channel: string, ...args: unknown[]): void {
@@ -84,7 +117,7 @@ export function registerSubagentHandlers(): void {
   // ── Forward tracker events to renderer ─────────────────────
 
   subagentManager.tracker.on('subagent_start', (entry: SubagentEntry) => {
-    sendEvent({ type: 'subagent_start', entry });
+    sendEvent({ type: 'subagent_start', entry: sanitizeEntry(entry) });
   });
 
   subagentManager.tracker.on('subagent_progress', (id: string, usage: Partial<SubagentUsage>) => {
@@ -92,22 +125,23 @@ export function registerSubagentHandlers(): void {
   });
 
   subagentManager.tracker.on('subagent_tool_activity', (id: string, activity: SubagentToolActivity[]) => {
-    sendToolActivity(id, activity);
+    sendToolActivity(id, sanitizeToolActivity(activity));
   });
 
   subagentManager.tracker.on('subagent_live_output', (id: string, text: string) => {
-    sendLiveOutput(id, text);
+    sendLiveOutput(id, truncateTail(text, MAX_RENDERER_TEXT_CHARS) ?? '');
   });
 
   subagentManager.tracker.on('subagent_end', (entry: SubagentEntry) => {
+    const rendererEntry = sanitizeEntry(entry);
     sendEvent({
       type: 'subagent_end',
-      id: entry.id,
-      status: entry.status,
-      response: entry.fullResponse,
-      error: entry.error,
-      usage: entry.usage,
-      durationMs: entry.durationMs ?? 0,
+      id: rendererEntry.id,
+      status: rendererEntry.status,
+      response: rendererEntry.fullResponse,
+      error: rendererEntry.error,
+      usage: rendererEntry.usage,
+      durationMs: rendererEntry.durationMs ?? 0,
     });
   });
 
@@ -133,8 +167,8 @@ export function registerSubagentHandlers(): void {
 
   ipcMain.handle(
     IpcChannels.subagent.snapshot,
-    async (_e, workspaceId: string) => {
-      return subagentManager.snapshot(workspaceId);
+    async (_e, workspaceId: string): Promise<SubagentEntry[]> => {
+      return subagentManager.snapshot(workspaceId).map(sanitizeEntry);
     },
   );
 

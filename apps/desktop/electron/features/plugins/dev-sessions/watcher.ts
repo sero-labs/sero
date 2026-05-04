@@ -4,11 +4,19 @@ import path from 'path';
 const DEBOUNCE_MS = 250;
 const RESTART_DELAY_MS = 2_000;
 
+const REFRESH_ROOT_FILES = new Set(['package.json']);
+const REFRESH_ROOT_DIRS = new Set(['extension', 'runtime', 'shared', 'prompts', 'skills']);
+const IGNORED_ROOT_DIRS = new Set(['ui', 'dist', 'node_modules', 'coverage', 'test-results']);
+const IGNORED_ROOT_FILE_PREFIXES = ['.'];
+
+export type PluginDevSessionWatchChangeKind = 'resources' | 'ui' | 'ignore';
+
 interface SessionWatcherEntry {
   sessionId: string;
   sourcePath: string;
   watcher: fs.FSWatcher | null;
   debounceTimer: ReturnType<typeof setTimeout> | null;
+  uiDebounceTimer: ReturnType<typeof setTimeout> | null;
 }
 
 export class PluginDevSessionWatcher {
@@ -16,6 +24,7 @@ export class PluginDevSessionWatcher {
 
   constructor(
     private readonly onRefreshRequested: (sessionId: string) => void | Promise<void>,
+    private readonly onUiChangeRequested: (sessionId: string) => void | Promise<void> = () => undefined,
   ) {}
 
   watch(sessionId: string, sourcePath: string): void {
@@ -37,6 +46,7 @@ export class PluginDevSessionWatcher {
       sourcePath: normalizedSourcePath,
       watcher: null,
       debounceTimer: null,
+      uiDebounceTimer: null,
     };
 
     this.watchers.set(sessionId, entry);
@@ -67,8 +77,13 @@ export class PluginDevSessionWatcher {
         return;
       }
 
-      entry.watcher = fs.watch(entry.sourcePath, { recursive: true }, () => {
-        this.scheduleRefresh(entry);
+      entry.watcher = fs.watch(entry.sourcePath, { recursive: true }, (_eventType, filename) => {
+        const changeKind = classifyPluginDevSessionPath(filename);
+        if (changeKind === 'resources') {
+          this.scheduleRefresh(entry);
+        } else if (changeKind === 'ui') {
+          this.scheduleUiChange(entry);
+        }
       });
 
       entry.watcher.on('error', (error) => {
@@ -102,6 +117,11 @@ export class PluginDevSessionWatcher {
       clearTimeout(entry.debounceTimer);
       entry.debounceTimer = null;
     }
+
+    if (entry.uiDebounceTimer) {
+      clearTimeout(entry.uiDebounceTimer);
+      entry.uiDebounceTimer = null;
+    }
   }
 
   private scheduleRefresh(entry: SessionWatcherEntry): void {
@@ -114,4 +134,38 @@ export class PluginDevSessionWatcher {
       void this.onRefreshRequested(entry.sessionId);
     }, DEBOUNCE_MS);
   }
+
+  private scheduleUiChange(entry: SessionWatcherEntry): void {
+    if (entry.uiDebounceTimer) {
+      clearTimeout(entry.uiDebounceTimer);
+    }
+
+    entry.uiDebounceTimer = setTimeout(() => {
+      entry.uiDebounceTimer = null;
+      void this.onUiChangeRequested(entry.sessionId);
+    }, DEBOUNCE_MS);
+  }
+}
+
+export function shouldRefreshPluginDevSessionPath(filename: string | Buffer | null): boolean {
+  return classifyPluginDevSessionPath(filename) === 'resources';
+}
+
+export function classifyPluginDevSessionPath(
+  filename: string | Buffer | null,
+): PluginDevSessionWatchChangeKind {
+  if (!filename) return 'resources';
+
+  const normalized = filename.toString().replaceAll('\\', '/');
+  const parts = normalized.split('/').filter(Boolean);
+  const root = parts[0];
+  if (!root) return 'resources';
+
+  if (REFRESH_ROOT_FILES.has(root)) return 'resources';
+  if (REFRESH_ROOT_DIRS.has(root)) return 'resources';
+  if (root === 'ui') return 'ui';
+  if (IGNORED_ROOT_DIRS.has(root)) return 'ignore';
+  if (IGNORED_ROOT_FILE_PREFIXES.some((prefix) => root.startsWith(prefix))) return 'ignore';
+
+  return 'ignore';
 }

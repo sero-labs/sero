@@ -1,4 +1,4 @@
-
+import './lib/performance-measure-guard';
 import ReactDOM from 'react-dom/client';
 import { App } from './App';
 import { ErrorBoundary } from '@/components/ErrorBoundary';

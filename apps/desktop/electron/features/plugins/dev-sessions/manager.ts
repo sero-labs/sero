@@ -2,44 +2,33 @@ import type { SeroAppManifest } from '@/types/ipc';
 import { discoverAppCandidates } from '@electron/features/apps/discovery';
 import { broadcastPluginEvent } from '@electron/ipc/integrations/plugin-events';
 import { reconcileActiveDevSessionProjection } from './activation';
-import {
-  buildBootstrapSessionEvent,
-  hasManifestProjectionChange,
-  hasSessionPresentationChange,
-  resolveBootstrapSessionState,
-} from './bootstrap';
+import { buildBootstrapSessionEvent, hasManifestProjectionChange, hasSessionPresentationChange, resolveBootstrapSessionState } from './bootstrap';
 import { classifyPluginDevConflicts } from './conflicts';
 import { ensurePluginDevServer, stopAllPluginDevServers, stopPluginDevServer } from './dev-server';
 import { applyPluginDevServerResultToManifest, validatePluginDevSourceManifest } from './manifest';
 import { applyPluginDevSessionManifestRemoteEntry } from './remote-entry';
-import {
-  compareSessions,
-  cloneSession,
-  createSessionSeed,
-  isActiveSession,
-  normalizeSourcePath,
-} from './record-helpers';
-import {
-  applyPluginDevSessionRefreshEffects,
-  createBrokenPluginDevSessionRecord,
-  createSoftFailurePluginDevSessionRecord,
-  createValidatedPluginDevSessionRecord,
-  refreshPluginDevSession,
-  type RefreshPluginDevSessionOptions,
-  type RefreshPluginDevSessionResult,
-} from './refresh';
+import { compareSessions, cloneSession, createSessionSeed, isActiveSession, normalizeSourcePath } from './record-helpers';
+import { applyPluginDevSessionRefreshEffects, createBrokenPluginDevSessionRecord, createSoftFailurePluginDevSessionRecord, createValidatedPluginDevSessionRecord, refreshPluginDevSession, type RefreshPluginDevSessionOptions, type RefreshPluginDevSessionResult } from './refresh';
 import { readPluginDevSessionRecords, writePluginDevSessionRecords } from './settings';
 import type { PluginDevSessionRecord } from './types';
+import { createPluginDevSessionUiRefreshState } from './ui-refresh';
 import { PluginDevSessionWatcher } from './watcher';
 
 export class PluginDevSessionManager {
   private readonly sessions = new Map<string, PluginDevSessionRecord>();
   private readonly activeManifests = new Map<string, SeroAppManifest>();
-  private readonly watcher = new PluginDevSessionWatcher((sessionId) => {
-    void this.refresh(sessionId, { reason: 'file-change' }).catch((error) => {
-      console.warn(`[plugin-dev] Auto-refresh failed for ${sessionId}:`, error);
-    });
-  });
+  private readonly watcher = new PluginDevSessionWatcher(
+    (sessionId) => {
+      void this.refresh(sessionId, { reason: 'file-change' }).catch((error) => {
+        console.warn(`[plugin-dev] Auto-refresh failed for ${sessionId}:`, error);
+      });
+    },
+    (sessionId) => {
+      void this.refreshUi(sessionId).catch((error) => {
+        console.warn(`[plugin-dev] UI refresh failed for ${sessionId}:`, error);
+      });
+    },
+  );
   private readonly sessionTasks = new Map<string, Promise<unknown>>();
   private readonly bootstrapTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private initialized = false;
@@ -190,6 +179,11 @@ export class PluginDevSessionManager {
     return this.enqueueSessionTask(sessionId, () => this.runRefresh(sessionId, options));
   }
 
+  async refreshUi(sessionId: string): Promise<PluginDevSessionRecord> {
+    await this.initialize();
+    return this.enqueueSessionTask(sessionId, () => this.runUiRefresh(sessionId));
+  }
+
   async dispose(): Promise<void> {
     this.disposed = true;
     for (const timer of this.bootstrapTimers.values()) {
@@ -280,6 +274,21 @@ export class PluginDevSessionManager {
     }
 
     this.persistSession(nextState.record);
+    return cloneSession(nextState.record);
+  }
+
+  private async runUiRefresh(sessionId: string): Promise<PluginDevSessionRecord> {
+    const current = this.getSessionOrThrow(sessionId);
+    const currentManifest = this.activeManifests.get(sessionId);
+    if (!currentManifest || current.uiMode !== 'dev-server') {
+      return cloneSession(current);
+    }
+
+    const nextState = createPluginDevSessionUiRefreshState(current, currentManifest);
+    this.activeManifests.set(sessionId, nextState.manifest);
+    this.persistSession(nextState.record);
+    broadcastPluginEvent(nextState.event);
+
     return cloneSession(nextState.record);
   }
 

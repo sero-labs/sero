@@ -9,6 +9,16 @@
 import type { DashboardLayoutState } from './dashboard';
 import type { BrowserBookmark, BrowserTab } from './browser';
 
+export interface PersistedWorkspaceExplorerLayout {
+  sidebarOpen?: boolean;
+  activePanel?: string;
+  terminalOpen?: boolean;
+  /** Last expanded size of the explorer sidebar as percentage of the editor row. */
+  explorerSidebarSizePct?: number;
+  /** Last expanded size of the terminal as percentage of the explorer workspace height. */
+  terminalSizePct?: number;
+}
+
 /** Subset of a BrowserTab that is safe to persist across restarts. */
 export interface PersistedBrowserTab {
   id: string;
@@ -58,6 +68,8 @@ export interface LayoutState {
   activeBrowserTabId?: string | null;
   /** User-saved bookmarks. */
   browserBookmarks?: PersistedBrowserBookmark[];
+  /** Explorer UI state keyed by workspace id. */
+  explorerLayout?: Record<string, PersistedWorkspaceExplorerLayout>;
 }
 
 // Re-export so callers can import the canonical runtime tab shape

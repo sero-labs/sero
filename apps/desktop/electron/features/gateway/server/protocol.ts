@@ -113,7 +113,18 @@ export interface GatewayCreateDevProxyTicketRequest {
   port: number;
 }
 
-export type GatewayRequest =
+export interface GatewayVoiceStatusRequest {
+  type: 'voice_status';
+}
+
+export interface GatewayVoiceTranscribeRequest {
+  type: 'voice_transcribe';
+  /** Base64 data URL of the recorded audio. */
+  audioDataUrl: string;
+  mimeType?: string;
+}
+
+export type GatewayRequest = (
   | GatewayConnectRequest
   | GatewayPromptRequest
   | GatewaySteerRequest
@@ -131,19 +142,29 @@ export type GatewayRequest =
   | GatewayRevokeWebTokenRequest
   | GatewayGetSessionHistoryRequest
   | GatewayListDevServersRequest
-  | GatewayCreateDevProxyTicketRequest;
+  | GatewayCreateDevProxyTicketRequest
+  | GatewayVoiceStatusRequest
+  | GatewayVoiceTranscribeRequest
+) & {
+  /** Optional correlation id echoed back on the matching response. */
+  requestId?: string;
+};
 
 // ── Gateway → Client responses ──────────────────────────────
 
 export interface GatewayOkResponse {
   type: 'ok';
   requestType: string;
+  /** Echoed back so callers can correlate request/response pairs. */
+  requestId?: string;
   data?: unknown;
 }
 
 export interface GatewayErrorResponse {
   type: 'error';
   requestType: string;
+  /** Echoed back so callers can correlate request/response pairs. */
+  requestId?: string;
   message: string;
 }
 
@@ -250,6 +271,8 @@ const VALID_REQUEST_TYPES = new Set<GatewayRequest['type']>([
   'get_session_history',
   'list_dev_servers',
   'create_devserver_ticket',
+  'voice_status',
+  'voice_transcribe',
 ]);
 
 const VALID_CLIENT_TYPES = new Set<GatewayConnectRequest['clientType']>(['web', 'discord', 'cli']);
@@ -317,6 +340,18 @@ export function validateRequest(data: unknown): GatewayRequest | null {
     return null;
   }
 
+  const requestId = readOptionalString(data, 'requestId');
+  if (requestId === null) return null;
+
+  const inner = validateRequestBody(data);
+  if (!inner) return null;
+
+  return requestId === undefined
+    ? (inner as GatewayRequest)
+    : ({ ...inner, requestId } as GatewayRequest);
+}
+
+function validateRequestBody(data: Record<string, unknown>): GatewayRequest | null {
   switch (data.type) {
     case 'connect': {
       const token = readRequiredString(data, 'token');
@@ -447,6 +482,21 @@ export function validateRequest(data: unknown): GatewayRequest | null {
         return null;
       }
       return { type: 'create_devserver_ticket', workspaceId, port };
+    }
+
+    case 'voice_status':
+      return { type: 'voice_status' };
+
+    case 'voice_transcribe': {
+      const audioDataUrl = readRequiredString(data, 'audioDataUrl');
+      const mimeType = readOptionalString(data, 'mimeType');
+      if (!audioDataUrl || mimeType === null) return null;
+      // Reject obviously oversized payloads early. The OpenAI transcription
+      // helper enforces the 25 MB decoded ceiling (~33.4 MB base64); this
+      // 35 MB cap stays comfortably under the gateway's 36 MB WebSocket
+      // payload limit and short-circuits clearly bogus inputs.
+      if (audioDataUrl.length > 35 * 1024 * 1024) return null;
+      return { type: 'voice_transcribe', audioDataUrl, mimeType };
     }
   }
 

@@ -121,6 +121,34 @@ describe('SubagentTracker', () => {
     expect(entry?.usage.outputTokens).toBe(100);
   });
 
+  it('caps live output retained for renderer updates', () => {
+    const tracker = new SubagentTracker();
+    const handler = vi.fn();
+    tracker.on('subagent_live_output', handler);
+
+    tracker.start(makeEntry());
+    tracker.appendLiveOutput('run-1', 'a'.repeat(25_000));
+
+    const output = tracker.get('run-1')?.liveOutput ?? '';
+    expect(output).toHaveLength(20_000);
+    expect(output.startsWith('…')).toBe(true);
+    expect(handler).toHaveBeenCalledWith('run-1', output);
+  });
+
+  it('caps tool argument summaries retained for renderer updates', () => {
+    const tracker = new SubagentTracker();
+    const handler = vi.fn();
+    tracker.on('subagent_tool_activity', handler);
+
+    tracker.start(makeEntry());
+    tracker.updateToolActivity('run-1', 'bash', 'x'.repeat(2_000), true);
+
+    const activity = tracker.get('run-1')?.toolActivity ?? [];
+    expect(activity[0]?.argsSummary).toHaveLength(1_000);
+    expect(activity[0]?.argsSummary.endsWith('…')).toBe(true);
+    expect(handler).toHaveBeenCalledWith('run-1', activity);
+  });
+
   it('snapshot filters by workspaceId', () => {
     const tracker = new SubagentTracker();
     tracker.start(makeEntry({ id: 'a', workspaceId: 'ws-1' }));

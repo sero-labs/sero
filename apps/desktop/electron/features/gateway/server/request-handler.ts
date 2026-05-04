@@ -69,6 +69,20 @@ export function sendResponse(ws: WebSocket, msg: GatewayResponse): void {
 }
 
 /**
+ * Build a response sender that echoes the request's `requestId` back so the
+ * client can correlate the response with the originating request.
+ */
+export function makeResponder(
+  ws: WebSocket,
+  requestId: string | undefined,
+): (msg: GatewayResponse) => void {
+  if (!requestId) {
+    return (msg) => sendResponse(ws, msg);
+  }
+  return (msg) => sendResponse(ws, { ...msg, requestId });
+}
+
+/**
  * Route an authenticated request to the appropriate agent operation.
  * Returns true if the request was handled, false if auth/guard checks
  * should be applied by the caller.
@@ -85,6 +99,7 @@ export async function routeAgentRequest(
   isMasterAuth?: boolean,
   devProxyTickets?: DevProxyTicketManager | null,
 ): Promise<void> {
+  const respond = makeResponder(ws, request.requestId);
   // Try extended handlers first (file ops, artifacts, web tokens, sessions)
   if (auth) {
     const handled = await routeExtendedRequest(
@@ -102,7 +117,7 @@ export async function routeAgentRequest(
   switch (request.type) {
     case 'prompt': {
       if (!hasWorkspaceAccess(accessScope, request.workspaceId)) {
-        sendResponse(ws, {
+        respond({
           type: 'error',
           requestType: 'prompt',
           message: `Workspace not authorized: ${request.workspaceId}`,
@@ -116,11 +131,11 @@ export async function routeAgentRequest(
         const existing = idempotencyStore.get(idemKey);
         if (existing) {
           if (existing.status === 'done') {
-            sendResponse(ws, { type: 'ok', requestType: 'prompt' });
+            respond({ type: 'ok', requestType: 'prompt' });
             return;
           }
           // Still pending — a duplicate retry while the first is running
-          sendResponse(ws, {
+          respond({
             type: 'error',
             requestType: 'prompt',
             message: 'Request already in progress (duplicate idempotency key)',
@@ -134,7 +149,7 @@ export async function routeAgentRequest(
       const check = costTracker.checkLimits(request.sessionId);
       if (!check.allowed) {
         if (idemKey) idempotencyStore.delete(idemKey);
-        sendResponse(ws, {
+        respond({
           type: 'error',
           requestType: 'prompt',
           message: `Cost limit exceeded: ${check.reason}`,
@@ -155,12 +170,12 @@ export async function routeAgentRequest(
         if (idemKey) {
           idempotencyStore.set(idemKey, { timestamp: Date.now(), status: 'done' });
         }
-        sendResponse(ws, { type: 'ok', requestType: 'prompt' });
+        respond({ type: 'ok', requestType: 'prompt' });
       } catch (err) {
         costTracker.markInactive(request.sessionId);
         // Remove pending entry on failure so the client can retry
         if (idemKey) idempotencyStore.delete(idemKey);
-        sendResponse(ws, {
+        respond({
           type: 'error',
           requestType: 'prompt',
           message: err instanceof Error ? err.message : 'Prompt failed',
@@ -171,7 +186,7 @@ export async function routeAgentRequest(
 
     case 'steer': {
       if (!hasSessionAccess(accessScope, request.sessionId)) {
-        sendResponse(ws, {
+        respond({
           type: 'error',
           requestType: 'steer',
           message: `Session not authorized: ${request.sessionId}`,
@@ -180,9 +195,9 @@ export async function routeAgentRequest(
       }
       try {
         await agentOps.steer(request.sessionId, request.text);
-        sendResponse(ws, { type: 'ok', requestType: 'steer' });
+        respond({ type: 'ok', requestType: 'steer' });
       } catch (err) {
-        sendResponse(ws, {
+        respond({
           type: 'error',
           requestType: 'steer',
           message: err instanceof Error ? err.message : 'Steer failed',
@@ -193,7 +208,7 @@ export async function routeAgentRequest(
 
     case 'abort': {
       if (!hasSessionAccess(accessScope, request.sessionId)) {
-        sendResponse(ws, {
+        respond({
           type: 'error',
           requestType: 'abort',
           message: `Session not authorized: ${request.sessionId}`,
@@ -202,9 +217,9 @@ export async function routeAgentRequest(
       }
       try {
         await agentOps.abort(request.sessionId);
-        sendResponse(ws, { type: 'ok', requestType: 'abort' });
+        respond({ type: 'ok', requestType: 'abort' });
       } catch (err) {
-        sendResponse(ws, {
+        respond({
           type: 'error',
           requestType: 'abort',
           message: err instanceof Error ? err.message : 'Abort failed',
@@ -214,7 +229,7 @@ export async function routeAgentRequest(
     }
 
     case 'status': {
-      sendResponse(ws, {
+      respond({
         type: 'ok',
         requestType: 'status',
         data: getStatus(),
@@ -226,13 +241,13 @@ export async function routeAgentRequest(
       try {
         const workspaces = await agentOps.listWorkspaces();
         const filtered = workspaces.filter((workspace) => hasWorkspaceAccess(accessScope, workspace.id));
-        sendResponse(ws, {
+        respond({
           type: 'ok',
           requestType: 'list_workspaces',
           data: filtered,
         });
       } catch (err) {
-        sendResponse(ws, {
+        respond({
           type: 'error',
           requestType: 'list_workspaces',
           message: err instanceof Error ? err.message : 'List workspaces failed',
@@ -243,7 +258,7 @@ export async function routeAgentRequest(
 
     case 'list_sessions': {
       if (!hasWorkspaceAccess(accessScope, request.workspaceId)) {
-        sendResponse(ws, {
+        respond({
           type: 'error',
           requestType: 'list_sessions',
           message: `Workspace not authorized: ${request.workspaceId}`,
@@ -257,13 +272,13 @@ export async function routeAgentRequest(
           request.workspaceId,
           sessions.map((session) => session.id),
         );
-        sendResponse(ws, {
+        respond({
           type: 'ok',
           requestType: 'list_sessions',
           data: sessions,
         });
       } catch (err) {
-        sendResponse(ws, {
+        respond({
           type: 'error',
           requestType: 'list_sessions',
           message: err instanceof Error ? err.message : 'List sessions failed',

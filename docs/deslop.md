@@ -4,6 +4,22 @@ Changes made during code quality passes. Most recent first.
 
 ---
 
+## 2026-05-03
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `plugins/sero-signal-desk-plugin/ui/SignalDeskApp.tsx` | Split oversized federated UI shell into focused presenters and kept the class/global bridge workaround intact (729 → 353 lines) |
+| `plugins/sero-signal-desk-plugin/ui/components/{ActionsPanel,BriefingPanel,Button,ClusterList,HelpGuide,InsightsPanel,SelectedStory,SettingsPanel}.tsx` | New — extracted Signal Desk UI presenters from the root app component |
+| `plugins/sero-signal-desk-plugin/ui/lib/formatting.ts` | New — shared UI date/source formatting helpers |
+| `plugins/sero-signal-desk-plugin/ui/styles.css`, `plugins/sero-signal-desk-plugin/ui/styles/*.css` | Split oversized stylesheet into imported ownership sections while preserving the single MF stylesheet entrypoint (1,345 → 12-line entrypoint; largest section 291 lines) |
+| `plugins/sero-signal-desk-plugin/extension/{index.ts,state-io.ts}` | Hardened state reads to default only on missing files, fail loud on malformed/unreadable state, and added canonical tool actions for UI-owned mutations (`index.ts` 348 → 386 lines) |
+| `plugins/sero-signal-desk-plugin/tests/state-io.test.ts` | New — covers missing-state defaults, malformed-state failure, and atomic state writes |
+| `docs/deslopify/plugins/sero-signal-desk-plugin/{facts,plan}.md`, `docs/deslopify/index.md` | Recorded the High-item fix-slop pass and narrowed remaining work to Medium follow-ups |
+
+---
+
 ## 2026-04-18
 
 ### Files Changed

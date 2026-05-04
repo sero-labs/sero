@@ -104,6 +104,21 @@ export function isToolGroupFinalized(
 
 // ── Main ToolCallGroup component ────────────────────────────────
 
+const VISIBLE_TOOL_LIMIT = 10;
+
+function getVisibleTools(tools: ChatToolCallMessage[]): ChatToolCallMessage[] {
+  return tools.slice(-VISIBLE_TOOL_LIMIT);
+}
+
+function toolDisplayFieldsEqual(a: ChatToolCallMessage, b: ChatToolCallMessage): boolean {
+  return a.id === b.id
+    && a.state === b.state
+    && a.output === b.output
+    && a.isPartialOutput === b.isPartialOutput
+    && a.details === b.details
+    && a.images === b.images;
+}
+
 /**
  * @param tools       — tool messages in this group
  * @param isFinalized — true when a durable, non-ephemeral message follows this group
@@ -120,13 +135,14 @@ export const ToolCallGroup = memo(function ToolCallGroup({
 }) {
   const status = deriveGroupStatus(tools);
   const isRunning = status === 'running';
+  const visibleTools = useMemo(() => getVisibleTools(tools), [tools]);
   const latestImageTool = useMemo(
-    () => [...tools].reverse().find((tool) => tool.images?.length),
-    [tools],
+    () => [...visibleTools].reverse().find((tool) => tool.images?.length),
+    [visibleTools],
   );
   const fileLinkPaths = useMemo(
-    () => [...new Set(tools.flatMap((tool) => getImagePaths(tool.details)))],
-    [tools],
+    () => [...new Set(visibleTools.flatMap((tool) => getImagePaths(tool.details)))],
+    [visibleTools],
   );
 
   const [showDetails, setShowDetails] = useState(false);
@@ -227,7 +243,7 @@ export const ToolCallGroup = memo(function ToolCallGroup({
               {!showDetails ? (
                 <>
                   <div className="py-1">
-                    {tools.map((tool, i) => (
+                    {visibleTools.map((tool, i) => (
                       <ToolLine key={tool.id} tool={tool} index={i} workspaceId={workspaceId} />
                     ))}
                   </div>
@@ -257,7 +273,7 @@ export const ToolCallGroup = memo(function ToolCallGroup({
               ) : (
                 <>
                   <div className="space-y-0 p-2">
-                    {tools.map((tool) => (
+                    {visibleTools.map((tool) => (
                       <ToolDetail key={tool.id} tool={tool} workspaceId={workspaceId} />
                     ))}
                   </div>
@@ -283,16 +299,14 @@ export const ToolCallGroup = memo(function ToolCallGroup({
 }, (prev, next) => {
   if (prev.isFinalized !== next.isFinalized || prev.workspaceId !== next.workspaceId) return false;
   if (prev.tools.length !== next.tools.length) return false;
-  for (let i = 0; i < prev.tools.length; i++) {
-    const a = prev.tools[i], b = next.tools[i];
-    if (
-      a.id !== b.id ||
-      a.state !== b.state ||
-      a.output !== b.output ||
-      a.isPartialOutput !== b.isPartialOutput ||
-      a.details !== b.details ||
-      a.images !== b.images
-    ) return false;
+  if (deriveGroupStatus(prev.tools) !== deriveGroupStatus(next.tools)) return false;
+
+  const prevVisibleTools = getVisibleTools(prev.tools);
+  const nextVisibleTools = getVisibleTools(next.tools);
+  for (let i = 0; i < prevVisibleTools.length; i++) {
+    const previousTool = prevVisibleTools[i];
+    const nextTool = nextVisibleTools[i];
+    if (!previousTool || !nextTool || !toolDisplayFieldsEqual(previousTool, nextTool)) return false;
   }
   return true;
 });

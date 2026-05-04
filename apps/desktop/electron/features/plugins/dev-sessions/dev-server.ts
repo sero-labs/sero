@@ -2,6 +2,10 @@ import { spawn, type ChildProcess } from 'child_process';
 import path from 'path';
 import type { PluginDevSessionUiMode } from '@sero-ai/common';
 import { hasBuiltPluginDevUi } from './manifest';
+import {
+  isNativeOptionalDependencyFailure,
+  repairPluginNativeDeps,
+} from './native-deps-repair';
 import { stopStalePortListenersForSourcePath } from './process-helpers';
 
 const HEALTH_POLL_INTERVAL_MS = 500;
@@ -405,7 +409,49 @@ export async function ensurePluginDevServer(
     );
   }
 
-  return createFallbackResult(builtUiAvailable, summarizeStartupFailure(options.command, entry));
+  let startupFailure = summarizeStartupFailure(options.command, entry);
+  if (isNativeOptionalDependencyFailure(startupFailure)) {
+    const repair = await repairPluginNativeDeps(sourcePath);
+    if (repair.ok) {
+      try {
+        entry = startManagedServer(sourcePath, options.command, options.declaredDevPort);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'unknown error';
+        return createFallbackResult(
+          builtUiAvailable,
+          `Dev server start failed after repairing native dependencies for "${options.command}": ${message}`,
+        );
+      }
+
+      const retryProbe = await waitForRemoteEntry(remoteEntryOverrides, entry, expectedRemoteName);
+      if (retryProbe?.probe.status === 'ready') {
+        return {
+          remoteEntryOverride: retryProbe.remoteEntryOverride,
+          uiMode: 'dev-server',
+          error: null,
+        };
+      }
+
+      await stopPluginDevServer(sourcePath);
+      if (retryProbe?.probe.status === 'mismatch') {
+        return createFallbackResult(
+          builtUiAvailable,
+          createUnexpectedRemoteError(
+            sourcePath,
+            options.declaredDevPort,
+            expectedRemoteName,
+            retryProbe.probe.remoteName,
+          ),
+        );
+      }
+
+      startupFailure = summarizeStartupFailure(options.command, entry);
+    } else {
+      startupFailure = `${startupFailure} Sero tried to repair native dependencies with "pnpm install --force" on the macOS host, but it failed: ${repair.output}`;
+    }
+  }
+
+  return createFallbackResult(builtUiAvailable, startupFailure);
 }
 
 export async function stopAllPluginDevServers(): Promise<void> {

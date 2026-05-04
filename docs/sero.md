@@ -4,11 +4,10 @@
 
 ## Vision
 
-One beautiful, lightweight macOS desktop window. Every project is a tab. Inside
-each tab: a fully tiled, dynamic workspace with everything the project needs —
-editor, terminals, previews, agent chats — no external apps. Local-first
-execution using Apple's native Containerization framework. Agent-first: AI
-agents are woven into the workspace OS.
+One beautiful, lightweight macOS desktop window. A workspace for every project. Inside
+each workspace everything the project needs — editor, terminals, previews, agent chats
+— no external apps. Local-first execution using Apple's native Containerization framework.
+Agent-first: AI agents are woven into the workspace OS.
 
 ## Core Principle: Pi is the Brain
 

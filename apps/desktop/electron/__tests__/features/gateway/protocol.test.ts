@@ -77,7 +77,46 @@ describe('gateway protocol request validation', () => {
     }],
     ['get_artifact without artifactId', { type: 'get_artifact' }],
     ['get_artifact with non-string artifactId', { type: 'get_artifact', artifactId: 7 }],
+    ['voice_transcribe without audioDataUrl', { type: 'voice_transcribe' }],
+    ['voice_transcribe with non-string mimeType', {
+      type: 'voice_transcribe',
+      audioDataUrl: 'data:audio/webm;base64,Zm9v',
+      mimeType: 7,
+    }],
+    ['request with non-string requestId', {
+      type: 'voice_status',
+      requestId: 7,
+    }],
   ])('rejects %s', (_label, payload) => {
     expect(validateRequest(payload)).toBeNull();
+  });
+
+  it('accepts voice transcription payloads', () => {
+    expect(validateRequest({ type: 'voice_status' })).toEqual({ type: 'voice_status' });
+
+    expect(
+      validateRequest({
+        type: 'voice_transcribe',
+        audioDataUrl: 'data:audio/webm;base64,Zm9v',
+        mimeType: 'audio/webm',
+      }),
+    ).toEqual({
+      type: 'voice_transcribe',
+      audioDataUrl: 'data:audio/webm;base64,Zm9v',
+      mimeType: 'audio/webm',
+    });
+  });
+
+  it('preserves the optional requestId for correlation', () => {
+    expect(
+      validateRequest({ type: 'voice_status', requestId: 'req-42' }),
+    ).toEqual({ type: 'voice_status', requestId: 'req-42' });
+
+    expect(
+      validateRequest({
+        type: 'list_workspaces',
+        requestId: 'req-99',
+      }),
+    ).toEqual({ type: 'list_workspaces', requestId: 'req-99' });
   });
 });

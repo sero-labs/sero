@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 const startupMocks = vi.hoisted(() => ({
   loadLayout: vi.fn<() => Promise<void>>(),
   loadWorkspaces: vi.fn<() => Promise<void>>(),
+  loadSessions: vi.fn<() => Promise<void>>(),
   discoverAndRegisterApps: vi.fn<() => Promise<void>>(),
 }));
 
@@ -13,6 +14,14 @@ vi.mock('@/stores/app', () => ({
 
 vi.mock('@/stores/workspace', () => ({
   loadWorkspaces: startupMocks.loadWorkspaces,
+}));
+
+vi.mock('@/stores/sessions', () => ({
+  useSessionStore: {
+    getState: () => ({
+      loadSessions: startupMocks.loadSessions,
+    }),
+  },
 }));
 
 import { hydrateShellState } from './app-startup';
@@ -36,6 +45,9 @@ describe('hydrateShellState', () => {
     startupMocks.loadWorkspaces.mockImplementation(async () => {
       calls.push('workspaces');
     });
+    startupMocks.loadSessions.mockImplementation(async () => {
+      calls.push('sessions');
+    });
     startupMocks.discoverAndRegisterApps.mockImplementation(async () => {
       calls.push('apps');
     });
@@ -49,6 +61,6 @@ describe('hydrateShellState', () => {
     await pending;
 
     expect(calls[1]).toBe('layout:end');
-    expect(calls.slice(2).sort()).toEqual(['apps', 'workspaces']);
+    expect(calls.slice(2).sort()).toEqual(['apps', 'sessions', 'workspaces']);
   });
 });

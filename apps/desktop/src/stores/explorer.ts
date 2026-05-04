@@ -9,6 +9,8 @@
 import { create } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
 import type { ExplorerPanel } from '@/components/apps/explorer/ActivityBar';
+import { persistLayout } from '@/lib/persist-layout';
+import type { PersistedWorkspaceExplorerLayout } from '@/types/layout';
 
 export interface WorkspaceExplorer {
   sidebarOpen: boolean;
@@ -28,6 +30,43 @@ const DEFAULT_EXPLORER_CONFIG: WorkspaceExplorer = {
   terminalSizePct: 30,
 };
 
+const EXPLORER_PANELS = new Set<ExplorerPanel>([
+  'explorer',
+  'git',
+  'orchestration',
+  'browser',
+  'terminal',
+]);
+
+function isExplorerPanel(value: unknown): value is ExplorerPanel {
+  return typeof value === 'string' && EXPLORER_PANELS.has(value as ExplorerPanel);
+}
+
+function normaliseExplorerLayout(
+  layout: PersistedWorkspaceExplorerLayout | undefined,
+): WorkspaceExplorer {
+  if (!layout) return DEFAULT_EXPLORER_CONFIG;
+
+  return {
+    sidebarOpen: typeof layout.sidebarOpen === 'boolean'
+      ? layout.sidebarOpen
+      : DEFAULT_EXPLORER_CONFIG.sidebarOpen,
+    activePanel: isExplorerPanel(layout.activePanel)
+      ? layout.activePanel
+      : DEFAULT_EXPLORER_CONFIG.activePanel,
+    terminalOpen: typeof layout.terminalOpen === 'boolean'
+      ? layout.terminalOpen
+      : DEFAULT_EXPLORER_CONFIG.terminalOpen,
+    explorerSidebarSizePct:
+      typeof layout.explorerSidebarSizePct === 'number' && layout.explorerSidebarSizePct > 0
+        ? layout.explorerSidebarSizePct
+        : DEFAULT_EXPLORER_CONFIG.explorerSidebarSizePct,
+    terminalSizePct: typeof layout.terminalSizePct === 'number' && layout.terminalSizePct > 0
+      ? layout.terminalSizePct
+      : DEFAULT_EXPLORER_CONFIG.terminalSizePct,
+  };
+}
+
 interface ExplorerState {
   /** Per-workspace UI state. */
   ui: Record<string, WorkspaceExplorer>;
@@ -36,6 +75,8 @@ interface ExplorerState {
   get: (workspaceId: string) => WorkspaceExplorer;
   /** Partial-update UI state for a workspace. */
   set: (workspaceId: string, update: Partial<WorkspaceExplorer>) => void;
+  /** Hydrate persisted Explorer UI state without writing it back immediately. */
+  hydrate: (layout: Record<string, PersistedWorkspaceExplorerLayout> | undefined) => void;
 }
 
 export const useExplorerStore = create<ExplorerState>((set, get) => ({
@@ -43,11 +84,21 @@ export const useExplorerStore = create<ExplorerState>((set, get) => ({
 
   get: (workspaceId) => get().ui[workspaceId] ?? DEFAULT_EXPLORER_CONFIG,
 
-  set: (workspaceId, update) =>
+  set: (workspaceId, update) => {
     set((s) => {
       const current = s.ui[workspaceId] ?? DEFAULT_EXPLORER_CONFIG;
       return { ui: { ...s.ui, [workspaceId]: { ...current, ...update } } };
-    }),
+    });
+    persistLayout({ explorerLayout: useExplorerStore.getState().ui });
+  },
+
+  hydrate: (layout) => {
+    const entries = Object.entries(layout ?? {}).map(([workspaceId, value]) => [
+      workspaceId,
+      normaliseExplorerLayout(value),
+    ] as const);
+    set({ ui: Object.fromEntries(entries) });
+  },
 }));
 
 // ── Selector hook ──────────────────────────────────────────────

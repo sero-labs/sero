@@ -4,6 +4,7 @@ import { useSessionStore } from '@/stores/sessions';
 import { hydrateThemeStore, useThemeStore } from '@/stores/theme';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { useBrowserStore } from '@/stores/browser';
+import { useExplorerStore } from '@/stores/explorer';
 import { normaliseFavouriteApps } from './shared';
 import type { AppState } from './state';
 import { useAppStore } from './state';
@@ -77,6 +78,9 @@ export async function loadLayout(): Promise<void> {
         legacyActiveId: state.activeBrowserTabId ?? null,
         bookmarks: state.browserBookmarks,
       });
+
+      // Hydrate Explorer panel sizes and visibility per workspace.
+      useExplorerStore.getState().hydrate(state.explorerLayout);
 
       return;
     }

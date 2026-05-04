@@ -49,6 +49,7 @@ import { ImageLightbox } from '@/components/layout/ImageLightbox';
  */
 export function ChatPanel() {
   const focused = useFocusedAgent();
+  const activeSessionId = useSessionStore((s) => s.activeSessionId);
 
   // Initialize feedback store (load ratings from disk)
   const initFeedback = useFeedbackStore((s) => s.init);
@@ -170,12 +171,15 @@ export function ChatPanel() {
   }, [isStreaming, groupedItems]);
 
   const hasSession = !!sessionId;
+  const isSessionFocusPending = !!activeSessionId && !sessionId;
 
   const conversation = (
     <Conversation key={sessionId} className="min-h-0 flex-1" initial="instant">
       {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events,jsx-a11y/no-static-element-interactions */}
       <ConversationContent className="gap-2.5 p-3" onClick={conversationClickHandler}>
-        {!hasSession ? (
+        {isSessionFocusPending ? (
+          <EmptyState message="Loading chat…" />
+        ) : !hasSession ? (
           <EmptyState message="Select or create a chat to begin" />
         ) : messages.length === 0 && !isStreaming ? (
           <EmptyState message="Start a conversation" />

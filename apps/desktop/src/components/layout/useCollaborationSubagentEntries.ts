@@ -7,6 +7,21 @@ interface CollaborationSubagentState {
   latestEntryByRole: Map<CollaborationRole, SubagentEntry>;
 }
 
+const MAX_COLLAB_LIVE_OUTPUT_CHARS = 700;
+
+function trimLiveOutput(text: string): string {
+  if (text.length <= MAX_COLLAB_LIVE_OUTPUT_CHARS) return text;
+  return `…${text.slice(-Math.max(0, MAX_COLLAB_LIVE_OUTPUT_CHARS - 1))}`;
+}
+
+function sanitizeEntry(entry: SubagentEntry): SubagentEntry {
+  return {
+    ...entry,
+    fullResponse: undefined,
+    liveOutput: trimLiveOutput(entry.liveOutput),
+  };
+}
+
 function agentNameToRole(name: string): CollaborationRole | null {
   if (name === 'collab-analyst' || name === 'analyst') return 'analyst';
   if (name === 'researcher' || name === 'collab-researcher') return 'researcher';
@@ -35,7 +50,7 @@ function reduceSubagentEvent(
   switch (event.type) {
     case 'subagent_start':
       if (event.entry.parentSessionId !== sessionId) return entries;
-      return { ...entries, [event.entry.id]: event.entry };
+      return { ...entries, [event.entry.id]: sanitizeEntry(event.entry) };
 
     case 'subagent_progress': {
       const existing = entries[event.id];
@@ -68,7 +83,7 @@ function reduceSubagentEvent(
         ...entries,
         [event.id]: {
           ...existing,
-          liveOutput: event.text,
+          liveOutput: trimLiveOutput(event.text),
         },
       };
     }
@@ -85,7 +100,7 @@ function reduceSubagentEvent(
           usage: event.usage,
           durationMs: event.durationMs,
           completedAt: existing.startedAt + event.durationMs,
-          fullResponse: event.response,
+          fullResponse: undefined,
           responsePreview: event.response?.slice(0, 500),
           toolActivity: [],
           liveOutput: '',
@@ -148,7 +163,8 @@ export function useCollaborationSubagentEntries(
           const next = { ...entries };
           for (const entry of snapshot) {
             if (entry.parentSessionId !== sessionId) continue;
-            next[entry.id] = next[entry.id] ? { ...entry, ...next[entry.id] } : entry;
+            const safeEntry = sanitizeEntry(entry);
+            next[entry.id] = next[entry.id] ? { ...safeEntry, ...next[entry.id] } : safeEntry;
           }
           return next;
         });

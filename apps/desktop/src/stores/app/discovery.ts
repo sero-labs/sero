@@ -114,6 +114,19 @@ export async function handlePluginChange(event: PluginChangeEvent): Promise<void
     console.log('[app-store] Plugin change without app id; rediscovering apps.');
   }
 
+  if (event.reason === 'dev-session-ui-changed' && appId && manifest) {
+    const appState = useAppStore.getState();
+    useAppStore.setState({
+      apps: appState.apps.map((entry) => (
+        entry.id === appId ? manifestToEntry(manifest) : entry
+      )),
+    });
+    if (appState.activeApp === appId) {
+      useAppStore.getState().reloadApp(appId);
+    }
+    return;
+  }
+
   await discoverAndRegisterApps();
 
   if (event.type === 'installed') {

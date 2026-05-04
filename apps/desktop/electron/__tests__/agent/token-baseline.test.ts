@@ -114,7 +114,6 @@ function buildSkillsListing(): string {
     { name: 'search', desc: 'Search the web using an LLM-optimised search API.' },
     { name: 'skill-creator', desc: 'Guide for creating effective skills.' },
     { name: 'transcribe', desc: 'Speech-to-text transcription for common audio formats.' },
-    { name: 'visual-explainer', desc: 'Generate visual HTML explanations for technical concepts.' },
     { name: 'vscode', desc: 'VS Code integration for viewing diffs and comparing files.' },
     { name: 'webapp-testing', desc: 'Toolkit for interacting with and testing local web applications.' },
   ];
