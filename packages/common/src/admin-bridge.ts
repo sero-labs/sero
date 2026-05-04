@@ -209,6 +209,12 @@ export interface WorkspaceRuntimeCapabilityIPC {
   detail: string;
 }
 
+export interface RuntimeHealthIPC {
+  providerId: 'host' | 'apple-container';
+  status: 'ready' | 'fallback' | 'unavailable';
+  message?: string;
+}
+
 export interface WorkspaceRuntimeDiagnosticsIPC {
   workspaceId: string;
   workspacePath: string;
@@ -218,6 +224,8 @@ export interface WorkspaceRuntimeDiagnosticsIPC {
   fallbackCode?: 'container_unavailable';
   fallbackReason?: string;
   capabilityAudit: WorkspaceRuntimeCapabilityIPC[];
+  providerId?: 'host' | 'apple-container';
+  runtimeHealth?: RuntimeHealthIPC;
 }
 
 export interface ContainerInfoIPC {

@@ -8,8 +8,9 @@ import { ipcMain, dialog, BrowserWindow } from 'electron';
 
 import { IpcChannels } from '@/types/ipc-channels';
 import type { WorkspaceInfo, WorkspaceConfig, WorkspaceRoot } from '@/types/ipc';
+import type { RuntimeHealthIPC, WorkspaceRuntimeDiagnosticsIPC } from '@sero-ai/common';
 import { workspaceManager } from '@electron/features/workspace/manager';
-import { resolveWorkspaceRuntime } from '@electron/features/workspace/runtime-resolution';
+import { createWorkspaceRuntimeFacade } from '@electron/features/workspace/runtime/runtime-facade';
 import { assertIsSeroPluginFolder } from '@electron/features/workspace/plugin-validation';
 import { recreateContainerIfRunning } from '@electron/features/workspace/container-sync';
 import { appRuntimeManager } from '@electron/shared/infra/shared-infra';
@@ -25,6 +26,33 @@ async function reconcileAppRuntimes(reason: string): Promise<void> {
   } catch (err) {
     console.error(`[workspace] Failed to reconcile app runtimes after ${reason}:`, err);
   }
+}
+
+async function getRuntimeDiagnostics(
+  workspaceId: string,
+): Promise<WorkspaceRuntimeDiagnosticsIPC> {
+  const runtime = await createWorkspaceRuntimeFacade(workspaceId);
+  const runtimeHealth = await getRuntimeHealth(runtime);
+
+  return {
+    ...runtime.resolution,
+    providerId: runtime.providerId,
+    runtimeHealth,
+  };
+}
+
+async function getRuntimeHealth(
+  runtime: Awaited<ReturnType<typeof createWorkspaceRuntimeFacade>>,
+): Promise<RuntimeHealthIPC> {
+  const health = await runtime.health();
+  if (runtime.fallbackReason) {
+    return {
+      providerId: runtime.providerId,
+      status: 'fallback',
+      message: runtime.fallbackReason,
+    };
+  }
+  return health;
 }
 
 export function registerWorkspaceHandlers(): void {
@@ -118,12 +146,12 @@ export function registerWorkspaceHandlers(): void {
 
   ipcMain.handle(
     IpcChannels.workspace.runtimeDiagnostics,
-    async (_event, workspaceId?: string) => {
+    async (_event, workspaceId?: string): Promise<WorkspaceRuntimeDiagnosticsIPC[]> => {
       if (workspaceId) {
-        return [await resolveWorkspaceRuntime(workspaceId)];
+        return [await getRuntimeDiagnostics(workspaceId)];
       }
       const workspaces = await workspaceManager.list();
-      return Promise.all(workspaces.map((workspace) => resolveWorkspaceRuntime(workspace.id)));
+      return Promise.all(workspaces.map((workspace) => getRuntimeDiagnostics(workspace.id)));
     },
   );
 

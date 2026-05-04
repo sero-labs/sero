@@ -41,7 +41,7 @@ const mocks = vi.hoisted(() => {
       removeRoot: vi.fn(async () => {}),
       renameRoot: vi.fn(async () => {}),
     },
-    resolveWorkspaceRuntime: vi.fn(async () => ({ workspaceId: 'ws-1' })),
+    createWorkspaceRuntimeFacade: vi.fn(),
     assertIsSeroPluginFolder: vi.fn(async () => {}),
     recreateContainerIfRunning: vi.fn(async () => {}),
     appRuntimeReconcile: vi.fn(async () => {}),
@@ -65,8 +65,8 @@ vi.mock('@electron/features/workspace/manager', () => ({
   workspaceManager: mocks.workspaceManager,
 }));
 
-vi.mock('@electron/features/workspace/runtime-resolution', () => ({
-  resolveWorkspaceRuntime: mocks.resolveWorkspaceRuntime,
+vi.mock('@electron/features/workspace/runtime/runtime-facade', () => ({
+  createWorkspaceRuntimeFacade: mocks.createWorkspaceRuntimeFacade,
 }));
 
 vi.mock('@electron/features/workspace/plugin-validation', () => ({
@@ -110,7 +110,33 @@ describe('workspace IPC runtime reconcile', () => {
     mocks.workspaceManager.addRoot.mockClear();
     mocks.workspaceManager.removeRoot.mockClear();
     mocks.workspaceManager.renameRoot.mockClear();
-    mocks.resolveWorkspaceRuntime.mockClear();
+    mocks.createWorkspaceRuntimeFacade.mockReset();
+    mocks.createWorkspaceRuntimeFacade.mockImplementation(async (workspaceId: string) => ({
+      workspaceId,
+      workspacePath: `/repo-${workspaceId}`,
+      providerId: 'host',
+      actualRuntime: 'host',
+      capabilities: {
+        exec: true,
+        interactiveTerminal: true,
+        directFileRead: true,
+        directFileWrite: true,
+        managedDevServers: false,
+        browserAutomation: false,
+        portDiscovery: false,
+      },
+      resolution: {
+        workspaceId,
+        workspacePath: `/repo-${workspaceId}`,
+        desiredRuntime: 'host',
+        actualRuntime: 'host',
+        containerEnabled: false,
+        capabilityAudit: [],
+      },
+      health: vi.fn(async () => ({ providerId: 'host', status: 'ready' })),
+      exec: vi.fn(),
+      createTerminal: vi.fn(),
+    }));
     mocks.assertIsSeroPluginFolder.mockClear();
     mocks.recreateContainerIfRunning.mockClear();
     mocks.appRuntimeReconcile.mockClear();
@@ -152,6 +178,125 @@ describe('workspace IPC runtime reconcile', () => {
     expect(mocks.appRuntimeReconcile).toHaveBeenCalledTimes(4);
     expect(mocks.broadcastToWindows).toHaveBeenCalledTimes(4);
     expect(mocks.broadcastToWindows).toHaveBeenCalledWith(IpcChannels.workspace.changed);
+  });
+
+  it('returns additive runtime diagnostics metadata without changing existing fields', async () => {
+    const runtimeHealth = { providerId: 'apple-container' as const, status: 'ready' as const };
+    mocks.createWorkspaceRuntimeFacade.mockResolvedValueOnce({
+      workspaceId: 'ws-1',
+      workspacePath: '/repo-1',
+      providerId: 'apple-container',
+      actualRuntime: 'container',
+      capabilities: {
+        exec: true,
+        interactiveTerminal: true,
+        directFileRead: false,
+        directFileWrite: false,
+        managedDevServers: true,
+        browserAutomation: true,
+        portDiscovery: true,
+      },
+      resolution: {
+        workspaceId: 'ws-1',
+        workspacePath: '/repo-1',
+        desiredRuntime: 'container',
+        actualRuntime: 'container',
+        containerEnabled: true,
+        capabilityAudit: [{
+          key: 'managedDevServers',
+          label: 'Managed dev servers',
+          available: true,
+          containerOnly: true,
+          detail: 'Available in container mode.',
+        }],
+      },
+      health: vi.fn(async () => runtimeHealth),
+      exec: vi.fn(),
+      createTerminal: vi.fn(),
+    });
+    const { registerWorkspaceHandlers } = await import('@electron/ipc/workspace/workspace');
+
+    registerWorkspaceHandlers();
+
+    const diagnosticsHandler = mocks.handlers.get(IpcChannels.workspace.runtimeDiagnostics) as
+      | ((event: unknown, workspaceId?: string) => Promise<unknown[]>)
+      | undefined;
+
+    expect(diagnosticsHandler).toBeTypeOf('function');
+
+    const diagnostics = await diagnosticsHandler?.({}, 'ws-1');
+
+    expect(mocks.createWorkspaceRuntimeFacade).toHaveBeenCalledWith('ws-1');
+    expect(diagnostics).toEqual([{
+      workspaceId: 'ws-1',
+      workspacePath: '/repo-1',
+      desiredRuntime: 'container',
+      actualRuntime: 'container',
+      containerEnabled: true,
+      capabilityAudit: [{
+        key: 'managedDevServers',
+        label: 'Managed dev servers',
+        available: true,
+        containerOnly: true,
+        detail: 'Available in container mode.',
+      }],
+      providerId: 'apple-container',
+      runtimeHealth,
+    }]);
+  });
+
+  it('marks runtime health as fallback while preserving fallback diagnostics fields', async () => {
+    mocks.createWorkspaceRuntimeFacade.mockResolvedValueOnce({
+      workspaceId: 'ws-1',
+      workspacePath: '/repo-1',
+      providerId: 'host',
+      actualRuntime: 'host',
+      fallbackReason: 'Container unavailable; falling back to host mode.',
+      capabilities: {
+        exec: true,
+        interactiveTerminal: true,
+        directFileRead: true,
+        directFileWrite: true,
+        managedDevServers: false,
+        browserAutomation: false,
+        portDiscovery: false,
+      },
+      resolution: {
+        workspaceId: 'ws-1',
+        workspacePath: '/repo-1',
+        desiredRuntime: 'container',
+        actualRuntime: 'host',
+        containerEnabled: true,
+        fallbackCode: 'container_unavailable',
+        fallbackReason: 'Container unavailable; falling back to host mode.',
+        capabilityAudit: [],
+      },
+      health: vi.fn(async () => ({ providerId: 'host', status: 'ready' })),
+      exec: vi.fn(),
+      createTerminal: vi.fn(),
+    });
+    const { registerWorkspaceHandlers } = await import('@electron/ipc/workspace/workspace');
+
+    registerWorkspaceHandlers();
+
+    const diagnosticsHandler = mocks.handlers.get(IpcChannels.workspace.runtimeDiagnostics) as
+      | ((event: unknown, workspaceId?: string) => Promise<unknown[]>)
+      | undefined;
+    const diagnostics = await diagnosticsHandler?.({}, 'ws-1');
+
+    expect(diagnostics?.[0]).toMatchObject({
+      desiredRuntime: 'container',
+      actualRuntime: 'host',
+      containerEnabled: true,
+      fallbackCode: 'container_unavailable',
+      fallbackReason: 'Container unavailable; falling back to host mode.',
+      providerId: 'host',
+      runtimeHealth: {
+        providerId: 'host',
+        status: 'fallback',
+        message: 'Container unavailable; falling back to host mode.',
+      },
+    });
   });
 
   it('does not reconcile app runtimes for non-lifecycle workspace mutations', async () => {
