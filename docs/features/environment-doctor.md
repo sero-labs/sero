@@ -364,7 +364,7 @@ Every check below ships in v1. Each row lists:
 | `system.os.version` | no | no | — | Reports `os.release()`; warns below Sero's minimum macOS version. |
 | `system.arch` | no | no | — | `process.arch`; warn on x64 (Sero targets arm64 first). |
 | `system.disk.free` | no | no | — | Free space in `SERO_FIXED_ROOT` ≥ 2 GB. Uses `child_process.execFile('df', ['-k', path])`. |
-| `system.memory` | no | no | — | `os.freemem()` warn threshold 1 GB. |
+| `system.memory` | no | no | — | macOS memory pressure / reclaimable memory; non-macOS falls back to `os.freemem()`. |
 
 ### 6.2 Runtime — Apple Container (`category: 'runtime'`)
 
@@ -379,28 +379,15 @@ Every check below ships in v1. Each row lists:
 
 Quick mode runs the first three only.
 
-### 6.3 Runtime — Docker (`category: 'runtime'`)
-
-Optional; absent Docker is `pass` with `message: 'Docker not installed
-(optional).'`
-
-| id | slow | needsBootedApp | repair | What it checks |
-|---|---|---|---|---|
-| `runtime.docker.cli` | no | no | — | `which docker`. |
-| `runtime.docker.daemon` | no | no | — | `docker info` exit 0. |
-| `runtime.docker.run` | yes | no | — | `docker run --rm hello-world`. |
-| `runtime.docker.port` | yes | yes | — | Run `nginx`, curl `localhost:<port>`, kill. |
-
-### 6.4 Node / native modules (`category: 'node'`)
+### 6.3 Node / native modules (`category: 'node'`)
 
 | id | slow | needsBootedApp | repair | What it checks |
 |---|---|---|---|---|
 | `node.version` | no | no | — | `process.versions.node` matches the range in `apps/desktop/package.json#engines.node`. |
 | `node.abi` | no | no | — | `process.versions.modules` matches the value the rebuild scripts target. |
 | `node.module.node-pty` | no | no | `repair.native.rebuild-node-pty` (scaffold; runs `scripts/rebuild-node-pty.mjs`) | Dynamic `import('node-pty')` succeeds. |
-| `node.module.better-sqlite3` | no | no | `repair.native.rebuild-better-sqlite3` (scaffold) | Dynamic `import('better-sqlite3')` succeeds and opens an in-memory DB. |
 
-### 6.5 Profile — registry (`category: 'profile'`)
+### 6.4 Profile — registry (`category: 'profile'`)
 
 | id | slow | needsBootedApp | repair | What it checks |
 |---|---|---|---|---|
@@ -474,7 +461,7 @@ Catalogues (single source of truth, edited rarely):
 ```ts
 // engine/checks/environment.ts
 const REQUIRED = ['PATH', 'HOME', 'SHELL'] as const;
-const RECOMMENDED = ['NODE_ENV', 'LANG', 'LC_ALL'] as const;
+const RECOMMENDED: readonly string[] = [];
 
 // Provider-related names are sourced from electron/shared/auth/provider-catalog
 // at runtime; environment.ts must not hard-code provider keys.
@@ -493,8 +480,7 @@ The audit emits status:
 
 ### 7.1 In-app
 
-- **Settings → Diagnostics** — primary entry. Renders `DoctorPanel`.
-- **Command palette** — `>doctor` opens the same panel.
+- **Command palette → Diagnostics → Environment Doctor** opens `DoctorPanel`.
 - **First run** — after profile setup, a "Run diagnostics" button is
   shown alongside "Continue."
 - **Error fallback** — when `PROFILE_STARTUP_ISSUE` is set or the
@@ -555,7 +541,6 @@ the existing first-run setup, not part of the doctor itself.
 | `--all-profiles` | Scan every registered profile (and orphans). |
 | `--category <name>` | Run a single category. |
 | `--report <path>` | Write JSON to `<path>` instead of stdout. Implies `--json`. |
-| `--no-window` | (default in `--json`) Do not open a renderer window. |
 
 ### 7.5 Exit codes
 
@@ -577,12 +562,10 @@ System
 
 Runtime
   ✓ Apple Container 0.3.1
-  ⚠ Docker not running
 
 Node
   ✓ Node v20.11.0
   ✓ node-pty
-  ✗ better-sqlite3   →   Run: pnpm rebuild better-sqlite3
 
 Profile (Default)
   ✓ Profile registry
@@ -670,7 +653,6 @@ v1.5 refactor where every check has to be revisited.
 | `repair.profile.registry.rebuild` | yes | Move `profiles.json` to `.bak.<ts>`, regenerate from on-disk profile dirs. |
 | `repair.profile.registry.activeIdRepair` | no | Same as the existing in-place repair in `platform/env`. |
 | `repair.native.rebuild-node-pty` | no | `node scripts/rebuild-node-pty.mjs`. |
-| `repair.native.rebuild-better-sqlite3` | no | `node scripts/rebuild-better-sqlite3.mjs`. |
 | `repair.container.start` | no | `container system start`. |
 | `repair.plugin.disable` | yes | Mark plugin disabled in settings; rename install dir to `<id>.disabled.<ts>`. |
 
@@ -774,7 +756,6 @@ apps/desktop/electron/features/doctor/
   engine/repairs/profile-registry-rebuild.ts
   engine/repairs/profile-registry-active-id.ts
   engine/repairs/native-rebuild-node-pty.ts
-  engine/repairs/native-rebuild-better-sqlite3.ts
   engine/repairs/container-start.ts
   engine/repairs/plugin-disable.ts
   profile-state/types.ts

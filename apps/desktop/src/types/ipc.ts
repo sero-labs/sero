@@ -478,3 +478,17 @@ export type {
   AppRecordingResult,
 } from './app-control';
 
+// ── Environment Doctor ─────────────────────────────────────────
+
+export type {
+  DoctorCategory,
+  DoctorEnvAudit,
+  DoctorFix,
+  DoctorMode,
+  DoctorProgressEvent,
+  DoctorRepairResponse,
+  DoctorReport,
+  DoctorResult,
+  DoctorRunArgs,
+  DoctorStatus,
+} from './doctor';

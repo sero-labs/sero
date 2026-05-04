@@ -244,6 +244,8 @@ Start here:
   — first-run guide
 - [`apps/docs-site/docs/reference/support-scope.md`](./apps/docs-site/docs/reference/support-scope.md)
   — current alpha support matrix
+- [`apps/docs-site/docs/reference/environment-doctor.md`](./apps/docs-site/docs/reference/environment-doctor.md)
+  — built-in diagnostics, safe-mode CLI, and the bundled `sero-doctor` shim
 - [`docs/sero.md`](./docs/sero.md) — vision, platform constraints, runtime modes
 - [`docs/architecture.md`](./docs/architecture.md) — shell and subsystem overview
 - [`docs/reference/state-and-folders.md`](./docs/reference/state-and-folders.md)

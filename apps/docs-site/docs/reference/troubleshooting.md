@@ -7,6 +7,12 @@ Most Sero OSS alpha setup problems fall into one of these buckets:
 - host mode being used for a workflow that still expects containers
 - dev-server preview URL, container IP, or browser/app capture mismatch
 
+Before working through the buckets manually, run the
+[Environment Doctor](/reference/environment-doctor). In Sero, open it with
+<kbd>⌘K</kbd> → **Diagnostics** → **Environment Doctor**. It produces a structured
+report covering most of the categories below and works even when Sero cannot
+finish booting (`electron --doctor` or the bundled `sero-doctor` CLI shim).
+
 ## `pnpm install` finished, but terminals or memory features still fail
 
 The repo already runs repair hooks during `pnpm install` for the two main native
@@ -193,6 +199,7 @@ Before sharing logs, redact tokens, auth files, and private local paths.
 
 ## See also
 
+- [Environment Doctor](/reference/environment-doctor)
 - [Support Scope](/reference/support-scope)
 - [Explorer Workspace](/guide/explorer-workspace)
 - [Containers and Dev Servers](/guide/containers-dev-servers)

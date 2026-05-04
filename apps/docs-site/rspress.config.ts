@@ -63,6 +63,7 @@ const referenceAuthors = [
 const referenceQuality = [
   { text: 'Testing / Evals', link: '/reference/testing-evals' },
   { text: 'Security / Privacy', link: '/reference/security-privacy' },
+  { text: 'Environment Doctor', link: '/reference/environment-doctor' },
   { text: 'Troubleshooting', link: '/reference/troubleshooting' },
   { text: 'Known Limitations', link: '/reference/known-limitations' },
   { text: 'Support Scope', link: '/reference/support-scope' }

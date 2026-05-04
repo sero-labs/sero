@@ -139,10 +139,15 @@ function stageBuiltinResources() {
   }
 }
 
-// Main process
+// Main process. `main.ts` is a tiny doctor-aware bootstrap; the heavy
+// app graph lives in `app-main.ts`. Listing both as entry points (and
+// `splitting: true`) keeps app-main.mjs a separate output, so the
+// dynamic `import('./app-main')` in main.ts only evaluates the heavy
+// chain when the doctor short-circuit has been ruled out.
 await build({
   ...shared,
-  entryPoints: ['electron/main.ts'],
+  entryPoints: ['electron/main.ts', 'electron/app-main.ts'],
+  splitting: true,
   outExtension: { '.js': '.mjs' },
 });
 

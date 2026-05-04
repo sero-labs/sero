@@ -480,4 +480,18 @@ export const IpcChannels = {
     /** List profiles that have transferable credentials/config (for import during creation). */
     listAuthSources: 'sero:profiles:list-auth-sources',
   },
+  doctor: {
+    /** Run a full doctor pass. Streams progress on `event`. Returns final report. */
+    run: 'sero:doctor:run',
+    /** Run quick mode (≤ 2s). */
+    runQuick: 'sero:doctor:run-quick',
+    /** Save a previously returned report to a file via native dialog. */
+    exportReport: 'sero:doctor:export-report',
+    /** Copy report JSON or plaintext to clipboard. */
+    copyReport: 'sero:doctor:copy-report',
+    /** Main → renderer push: progress events during a run. */
+    event: 'sero:doctor:event',
+    /** Reserved for v2 — invoke a registered repair. Returns 501 in v1. */
+    repair: 'sero:doctor:repair',
+  },
 } as const;

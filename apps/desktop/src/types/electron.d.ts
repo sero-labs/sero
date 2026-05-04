@@ -80,6 +80,7 @@ import type {
   OnboardingState,
   TerminalCreateResult,
 } from './ipc';
+import type { SeroDoctorAPI } from './electron-doctor';
 
 interface SeroWorkspaceAPI {
   /** List all registered workspaces (registry + config merged). */
@@ -488,6 +489,7 @@ export interface SeroAPI {
   plugins: SeroPluginsAPI;
   localModels: SeroLocalModelsAPI;
   pluginConfig: SeroPluginConfigAPI;
+  doctor: SeroDoctorAPI;
 }
 
 declare global {
@@ -495,5 +497,4 @@ declare global {
     sero: SeroAPI;
   }
 }
-
 export {};
