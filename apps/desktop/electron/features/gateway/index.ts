@@ -37,11 +37,16 @@ export type {
 /**
  * Maximum WebSocket message payload (36 MB).
  *
- * Sized to accommodate the voice transcription path: the OpenAI helper caps
- * decoded audio at 25 MB, which becomes ~33.4 MB after base64 encoding plus
- * the JSON envelope. Application-level validation in `protocol.ts` rejects
- * voice payloads above 40 MB before parsing, and the OpenAI helper enforces
- * the 25 MB decoded ceiling, so this WebSocket cap is the outer safety net.
+ * This is the *first* gate: `ws` enforces it during frame reassembly, before
+ * we ever see the bytes — over-limit messages close the socket with code
+ * 1009. Sized to accommodate the voice transcription path: the OpenAI helper
+ * caps decoded audio at 25 MB, which becomes ~33.4 MB after base64 encoding
+ * plus the JSON envelope.
+ *
+ * Once a frame fits, two further checks run in order:
+ *   1. `validateRequest` (protocol.ts) rejects voice payloads above 35 MB
+ *      to short-circuit clearly bogus inputs.
+ *   2. The OpenAI transcription helper enforces the 25 MB decoded ceiling.
  */
 const MAX_PAYLOAD_BYTES = 36 * 1024 * 1024;
 /** Maximum total concurrent WebSocket connections. */

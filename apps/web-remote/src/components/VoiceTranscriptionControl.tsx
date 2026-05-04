@@ -18,6 +18,7 @@ import { cn } from '@sero-ai/ui/lib/utils';
 
 import {
   blobToDataUrl,
+  cleanupRecordingRefs,
   clearTimer,
   formatInputLabel,
   formatMicError,
@@ -96,25 +97,28 @@ export function VoiceTranscriptionControl({
     }
   }, []);
 
+  /**
+   * Tear down any active recording: clears the elapsed timer, detaches the
+   * recorder's onstop so it doesn't try to finalize through the (possibly
+   * gone) gateway, stops the recorder, and releases the microphone stream.
+   *
+   * Called on unmount and on disconnect — leaving these resources alive
+   * after the gateway drops would keep the mic LED on while the user has
+   * no UI to stop it.
+   */
+  const cleanupRecording = useCallback(() => {
+    cleanupRecordingRefs({ recorderRef, streamRef, timerRef });
+  }, []);
+
   // Cleanup on unmount: stop any active recording / stream / timer.
   useEffect(() => {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
-      clearTimer(timerRef);
+      cleanupRecording();
       setDeviceMenuOpen(false);
-
-      const recorder = recorderRef.current;
-      if (recorder && recorder.state !== 'inactive') {
-        recorder.onstop = null;
-        recorder.stop();
-      }
-      recorderRef.current = null;
-
-      stopStream(streamRef.current);
-      streamRef.current = null;
     };
-  }, []);
+  }, [cleanupRecording]);
 
   // Probe the host's voice transcription availability. Re-runs when the
   // gateway connection comes up so the control doesn't latch into the
@@ -128,10 +132,14 @@ export function VoiceTranscriptionControl({
     }
 
     if (!isConnected) {
-      // Reset to a neutral 'disabled' so the button hides until we've actually
-      // had a chance to ask the host. We re-check as soon as we connect.
+      // Reset to a neutral 'disabled' state and tear down any in-flight
+      // recording so the mic doesn't keep capturing in the background after
+      // the UI hides.
+      cleanupRecording();
       setPhase('disabled');
       setError(null);
+      setElapsedMs(0);
+      setDeviceMenuOpen(false);
       return;
     }
 
@@ -164,7 +172,7 @@ export function VoiceTranscriptionControl({
     return () => {
       cancelled = true;
     };
-  }, [client, isConnected, refreshAudioInputs, supportsCapture]);
+  }, [client, cleanupRecording, isConnected, refreshAudioInputs, supportsCapture]);
 
   useEffect(() => {
     if (!navigator.mediaDevices?.addEventListener) return;

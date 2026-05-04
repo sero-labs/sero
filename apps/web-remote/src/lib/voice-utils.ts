@@ -119,6 +119,44 @@ export function stopStream(stream: MediaStream | null): void {
   }
 }
 
+/**
+ * Tear down a MediaRecorder safely: detach its event handlers (so any
+ * pending chunks don't fire onstop and try to upload) and stop the
+ * recorder if it's still active. Used both on unmount and when the
+ * gateway disconnects mid-recording.
+ */
+export function teardownRecorder(recorder: MediaRecorder | null): void {
+  if (!recorder) return;
+  recorder.ondataavailable = null;
+  recorder.onerror = null;
+  recorder.onstop = null;
+  if (recorder.state !== 'inactive') {
+    try {
+      recorder.stop();
+    } catch {
+      // Already stopped or in an unstoppable state — nothing to do.
+    }
+  }
+}
+
+/**
+ * Composite teardown that clears the elapsed-time timer, stops the recorder,
+ * stops the underlying MediaStream, and nulls out the refs. Called on both
+ * component unmount and gateway disconnect to make sure the mic doesn't
+ * keep capturing in the background after the UI hides.
+ */
+export function cleanupRecordingRefs(refs: {
+  recorderRef: { current: MediaRecorder | null };
+  streamRef: { current: MediaStream | null };
+  timerRef: { current: number | null };
+}): void {
+  clearTimer(refs.timerRef);
+  teardownRecorder(refs.recorderRef.current);
+  refs.recorderRef.current = null;
+  stopStream(refs.streamRef.current);
+  refs.streamRef.current = null;
+}
+
 export function blobToDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
