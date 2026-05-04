@@ -33,7 +33,7 @@ describe('direct CLI chat prompts', () => {
   it('executes direct sero prompts without routing them through the model', async () => {
     vi.spyOn(workspaceManager, 'getPath').mockReturnValue('/tmp/ws-1');
 
-    const agentAppendMessage = vi.fn();
+    const agentMessages: unknown[] = [];
     const sessionAppendMessage = vi.fn();
     const prompt = vi.fn();
     const sendEvent = vi.fn<(event: AgentStreamEvent) => void>();
@@ -44,7 +44,7 @@ describe('direct CLI chat prompts', () => {
       session: {
         model: { api: 'anthropic-messages', provider: 'anthropic', id: 'claude-sonnet' },
         prompt,
-        agent: { appendMessage: agentAppendMessage },
+        agent: { state: { messages: agentMessages } },
         sessionManager: {
           getCwd: () => '/tmp/ws-1',
           appendMessage: sessionAppendMessage,
@@ -70,19 +70,19 @@ describe('direct CLI chat prompts', () => {
     });
 
     expect(prompt).not.toHaveBeenCalled();
-    expect(agentAppendMessage).toHaveBeenCalledTimes(3);
+    expect(agentMessages).toHaveLength(3);
     expect(sessionAppendMessage).toHaveBeenCalledTimes(3);
 
-    expect(agentAppendMessage.mock.calls[0]?.[0]).toMatchObject({
+    expect(agentMessages[0]).toMatchObject({
       role: 'user',
       content: 'sero memory read --target memory --with_ids true',
     });
-    expect(agentAppendMessage.mock.calls[1]?.[0]).toMatchObject({
+    expect(agentMessages[1]).toMatchObject({
       role: 'assistant',
       content: [{ type: 'toolCall', name: 'sero-cli', arguments: { command: 'sero memory read --target memory --with_ids true' } }],
       stopReason: 'toolUse',
     });
-    expect(agentAppendMessage.mock.calls[2]?.[0]).toMatchObject({
+    expect(agentMessages[2]).toMatchObject({
       role: 'toolResult',
       toolName: 'sero-cli',
       isError: false,
@@ -113,7 +113,7 @@ describe('direct CLI chat prompts', () => {
       pendingTurnUndoUserMessageId: null,
       session: {
         model: { api: 'anthropic-messages', provider: 'anthropic', id: 'claude-sonnet' },
-        agent: { appendMessage: vi.fn() },
+        agent: { state: { messages: [] } },
         sessionManager: {
           getCwd: () => '/tmp/ws-1/packages/app',
           appendMessage: vi.fn(),

@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import {
   formatModelValidationWarning,
   getAvailableThinkingLevels,
-  inferSupportsXhigh,
   resolveSupportedThinkingLevel,
   validateAgentModelConfig,
   validateGlobalTierSelections,
@@ -20,6 +19,7 @@ const groups: SharedAvailableModelGroup[] = [
         modelId: 'claude-sonnet-4',
         name: 'Claude Sonnet 4',
         reasoning: true,
+        availableThinkingLevels: ['off', 'minimal', 'low', 'medium', 'high', 'xhigh'],
       },
       {
         provider: 'anthropic',
@@ -46,13 +46,7 @@ const groups: SharedAvailableModelGroup[] = [
 ];
 
 describe('model-selection shared contracts', () => {
-  it('infers xhigh support for flagship reasoning models only', () => {
-    expect(inferSupportsXhigh('claude-sonnet-4')).toBe(true);
-    expect(inferSupportsXhigh('gpt-5')).toBe(true);
-    expect(inferSupportsXhigh('claude-haiku-3')).toBe(false);
-  });
-
-  it('derives available thinking levels from explicit and inferred model metadata', () => {
+  it('derives available thinking levels from explicit model metadata and reasoning defaults', () => {
     expect(getAvailableThinkingLevels(groups[0].models[0])).toEqual(['off', 'minimal', 'low', 'medium', 'high', 'xhigh']);
     expect(getAvailableThinkingLevels(groups[0].models[1])).toEqual(['off']);
     expect(getAvailableThinkingLevels(groups[1].models[0])).toEqual(['off', 'low', 'medium']);

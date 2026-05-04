@@ -3,7 +3,7 @@ import path from 'node:path';
 import { StringEnum } from '@mariozechner/pi-ai';
 import type { ExtensionAPI, ToolDefinition } from '@mariozechner/pi-coding-agent';
 import { Text } from '@mariozechner/pi-tui';
-import { Type } from '@sinclair/typebox';
+import { Type } from 'typebox';
 
 import type { Note, NotesState } from '../shared/types';
 import { DEFAULT_STATE, normalizeNotesState } from '../shared/types';

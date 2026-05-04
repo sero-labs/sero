@@ -1,5 +1,5 @@
-import type { ToolDefinition } from '@mariozechner/pi-coding-agent';
-import { Type } from '@sinclair/typebox';
+import { defineTool, type ToolDefinition } from '@mariozechner/pi-coding-agent';
+import { Type } from 'typebox';
 import { containerManager, workspaceManager } from '@electron/shared/infra/shared-infra';
 import type { CliCommandContext } from './types';
 import type { CliRegistry } from './registry';
@@ -33,15 +33,14 @@ export function createSeroCliTool(
   registry: CliRegistry,
   workspaceId: string,
   sessionId: string,
-): ToolDefinition {
-  return {
+): ToolDefinition<typeof SeroCliToolParams> {
+  return defineTool({
     name: 'sero-cli',
     label: 'Sero CLI',
     description:
       'Execute Sero platform commands. Run `sero help` for commands. Supports multi-line input to chain commands (one per line).',
     parameters: SeroCliToolParams,
     async execute(_toolCallId, params, signal, onUpdate, toolCtx) {
-      const cliParams = params as { command: string; timeout?: number };
       const wsPath = workspaceManager.getPath(workspaceId);
       if (!wsPath) {
         return { content: [{ type: 'text', text: `ERROR: Workspace not found: ${workspaceId}` }], details: { exitCode: 1 } };
@@ -60,12 +59,12 @@ export function createSeroCliTool(
 
       const batch = await executeCliBatch(
         registry,
-        cliParams.command,
+        params.command,
         context,
-        cliParams.timeout,
+        params.timeout,
         bridgeToolUpdate(onUpdate),
       );
-      const lines = splitCommandLines(cliParams.command);
+      const lines = splitCommandLines(params.command);
       const isSingleCommand = lines.length === 1;
 
       const richOutputFallback = !isSingleCommand && batch.richOutputFallback === true;
@@ -84,5 +83,5 @@ export function createSeroCliTool(
         },
       };
     },
-  };
+  });
 }

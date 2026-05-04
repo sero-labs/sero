@@ -1,12 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type {
-  AgentSession,
-  ExtensionContext,
-  LoadExtensionsResult,
-  RegisteredCommand,
-  ToolDefinition,
+import {
+  createSyntheticSourceInfo,
+  type AgentSession,
+  type ExtensionContext,
+  type LoadExtensionsResult,
+  type RegisteredCommand,
+  type ToolDefinition,
 } from '@mariozechner/pi-coding-agent';
-import { Type } from '@sinclair/typebox';
+import { Type } from 'typebox';
 
 import {
   bridgeExtensionTools,
@@ -55,23 +56,30 @@ function installSessionBridge(
 function makeLoadExtensionsResult(options: {
   extensionPath: string;
   tools?: ToolDefinition[];
-  commands?: RegisteredCommand[];
+  commands?: Array<Omit<RegisteredCommand, 'sourceInfo'> & Partial<Pick<RegisteredCommand, 'sourceInfo'>>>;
 }): LoadExtensionsResult {
   return {
     extensions: [
       {
         path: options.extensionPath,
         resolvedPath: options.extensionPath,
+        sourceInfo: createSyntheticSourceInfo(options.extensionPath, { source: 'extension' }),
         handlers: new Map(),
         tools: new Map((options.tools ?? []).map((definition) => [
           definition.name,
           {
             definition,
-            extensionPath: options.extensionPath,
+            sourceInfo: createSyntheticSourceInfo(options.extensionPath, { source: 'extension' }),
           },
         ])),
         messageRenderers: new Map(),
-        commands: new Map((options.commands ?? []).map((command) => [command.name, command])),
+        commands: new Map((options.commands ?? []).map((command) => [
+          command.name,
+          {
+            ...command,
+            sourceInfo: command.sourceInfo ?? createSyntheticSourceInfo(options.extensionPath, { source: 'extension' }),
+          },
+        ])),
         flags: new Map(),
         shortcuts: new Map(),
       },
@@ -149,17 +157,17 @@ describe('bridged extension sessions', () => {
     const session1Spy = vi.fn();
     const session2Spy = vi.fn();
 
-    const command1: RegisteredCommand = {
+    const command1 = {
       name: 'shared_command',
       description: 'Shared command.',
-      handler: async (args) => {
+      handler: async (args: string) => {
         session1Spy(args);
       },
     };
 
-    const command2: RegisteredCommand = {
+    const command2 = {
       ...command1,
-      handler: async (args) => {
+      handler: async (args: string) => {
         session2Spy(args);
       },
     };
@@ -258,10 +266,10 @@ describe('bridged extension sessions', () => {
   it('injects sessionRuntime into bridged command contexts', async () => {
     const { sendUserMessage } = installSessionBridge(['session-1']);
 
-    const command: RegisteredCommand = {
+    const command = {
       name: 'runtime_command',
       description: 'Runtime command.',
-      handler: async (_args, ctx) => {
+      handler: async (_args: string, ctx: ExtensionContext) => {
         const runtime = (ctx as ExtensionContext & { sessionRuntime?: CliSessionRuntime }).sessionRuntime;
         await runtime?.sendUserMessage('/memory list', { deliverAs: 'followUp' });
       },

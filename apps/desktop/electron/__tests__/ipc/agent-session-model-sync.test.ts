@@ -16,7 +16,6 @@ describe('ensureSessionHasAvailableModel', () => {
   const getDefaultModel = vi.fn(() => undefined);
   const getGlobalSettings = vi.fn(() => ({}));
   const setModel = vi.fn(async () => {});
-  const runtimeSetModel = vi.fn();
 
   beforeEach(() => {
     authReload.mockReset();
@@ -27,13 +26,13 @@ describe('ensureSessionHasAvailableModel', () => {
     getDefaultModel.mockReset().mockReturnValue(undefined);
     getGlobalSettings.mockReset().mockReturnValue({});
     setModel.mockReset();
-    runtimeSetModel.mockReset();
   });
 
   it('clears the live session model when availability drops to zero', async () => {
+    const runtimeState = { model: createModel('openai', 'gpt-5.4-mini') };
     const session = {
-      model: createModel('openai', 'gpt-5.4-mini'),
-      agent: { setModel: runtimeSetModel },
+      model: runtimeState.model,
+      agent: { state: runtimeState },
       setModel,
       modelRegistry: {
         authStorage: { reload: authReload },
@@ -52,14 +51,14 @@ describe('ensureSessionHasAvailableModel', () => {
 
     expect(changed).toBe(true);
     expect(authReload).toHaveBeenCalledOnce();
-    expect(runtimeSetModel).toHaveBeenCalledWith(undefined);
+    expect(runtimeState.model).toBeUndefined();
     expect(setModel).not.toHaveBeenCalled();
   });
 
   it('does nothing when the session is already model-less and nothing is available', async () => {
     const session = {
       model: undefined,
-      agent: { setModel: runtimeSetModel },
+      agent: { state: { model: undefined } },
       setModel,
       modelRegistry: {
         authStorage: { reload: authReload },
@@ -77,7 +76,6 @@ describe('ensureSessionHasAvailableModel', () => {
     const changed = await ensureSessionHasAvailableModel(session);
 
     expect(changed).toBe(false);
-    expect(runtimeSetModel).not.toHaveBeenCalled();
     expect(setModel).not.toHaveBeenCalled();
   });
 });

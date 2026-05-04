@@ -151,7 +151,6 @@ export function useModelSelectorState() {
     selectedProvider,
     setFilter,
     setManagerOpen,
-    supportsXhigh: focusedModelState?.supportsXhigh ?? false,
     thinkingLevels: focusedModelState?.availableThinkingLevels ?? [],
     totalFiltered,
     triggerLabel,

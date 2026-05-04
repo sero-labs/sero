@@ -2,8 +2,8 @@ import os from 'os';
 import path from 'path';
 import { mkdtemp, mkdir, rm, writeFile } from 'fs/promises';
 import { describe, expect, it, beforeEach, afterEach } from 'vitest';
-import type { LoadExtensionsResult } from '@mariozechner/pi-coding-agent';
-import { Type } from '@sinclair/typebox';
+import { createSyntheticSourceInfo, defineTool, type LoadExtensionsResult } from '@mariozechner/pi-coding-agent';
+import { Type } from 'typebox';
 
 import {
   bridgeExtensionTools,
@@ -21,11 +21,12 @@ function createLoadExtensionsResult(
       {
         path: extensionPath,
         resolvedPath: extensionPath,
+        sourceInfo: createSyntheticSourceInfo(extensionPath, { source: 'extension' }),
         handlers: new Map(),
         tools: new Map(toolNames.map((name) => [
           name,
           {
-            definition: {
+            definition: defineTool({
               name,
               label: name,
               description: `${name} description`,
@@ -34,8 +35,8 @@ function createLoadExtensionsResult(
                 content: [{ type: 'text', text: `${name} result` }],
                 details: null,
               }),
-            },
-            extensionPath,
+            }),
+            sourceInfo: createSyntheticSourceInfo(extensionPath, { source: 'extension' }),
           },
         ])),
         messageRenderers: new Map(),

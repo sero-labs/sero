@@ -19,12 +19,6 @@ export default function mcpExtension(pi: ExtensionAPI) {
     });
   });
 
-  pi.on('session_switch', async (_event, ctx) => {
-    await runtime.handleSessionSwitch({ cwd: ctx.cwd }).catch((error) => {
-      console.error('[mcp] Failed to refresh runtime on session switch', error);
-    });
-  });
-
   pi.on('session_shutdown', async () => {
     await runtime.handleSessionShutdown().catch((error) => {
       console.error('[mcp] Failed to shut down runtime cleanly', error);

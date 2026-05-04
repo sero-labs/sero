@@ -59,7 +59,7 @@ export default function memoryExtension(pi: ExtensionAPI): void {
 
   // ── Session start: bootstrap check + QMD init ──────────────
 
-  async function handleSessionEnter(source: 'session_start' | 'session_switch', ctx: ExtensionContext): Promise<void> {
+  async function handleSessionEnter(source: 'session_start', ctx: ExtensionContext): Promise<void> {
     const sessionId = ctx.sessionManager.getSessionId();
     clearPhase1MigrationState(sessionId);
 
@@ -195,15 +195,6 @@ export default function memoryExtension(pi: ExtensionAPI): void {
       await handleSessionEnter('session_start', ctx);
     } catch (err) {
       error('session_enter_failed', { source: 'session_start', ...errorDetails(err) });
-      throw err;
-    }
-  });
-
-  pi.on('session_switch', async (_event, ctx) => {
-    try {
-      await handleSessionEnter('session_switch', ctx);
-    } catch (err) {
-      error('session_enter_failed', { source: 'session_switch', ...errorDetails(err) });
       throw err;
     }
   });

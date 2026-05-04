@@ -43,33 +43,33 @@ describe('syncAppSessionModel', () => {
   it('swaps in refreshed shared model objects even when provider and id stay the same', async () => {
     const targetModel = createModel('openai', 'gpt-5.4-mini');
     const setModel = vi.fn(async () => {});
-    const runtimeSetModel = vi.fn();
+    const runtimeState = { model: createModel('openai', 'gpt-5.4-mini') };
     const session = {
-      model: createModel('openai', 'gpt-5.4-mini'),
-      agent: { setModel: runtimeSetModel },
+      model: runtimeState.model,
+      agent: { state: runtimeState },
       setModel,
     } as unknown as AgentSession;
 
     const changed = await syncAppSessionModel(session, targetModel);
 
     expect(changed).toBe(true);
-    expect(runtimeSetModel).toHaveBeenCalledWith(targetModel);
+    expect(runtimeState.model).toBe(targetModel);
     expect(setModel).not.toHaveBeenCalled();
   });
 
   it('clears reused app sessions when no shared model remains available', async () => {
     const setModel = vi.fn(async () => {});
-    const runtimeSetModel = vi.fn();
+    const runtimeState = { model: createModel('openai', 'gpt-5.4-mini') };
     const session = {
-      model: createModel('openai', 'gpt-5.4-mini'),
-      agent: { setModel: runtimeSetModel },
+      model: runtimeState.model,
+      agent: { state: runtimeState },
       setModel,
     } as unknown as AgentSession;
 
     const changed = await syncAppSessionModel(session, null);
 
     expect(changed).toBe(true);
-    expect(runtimeSetModel).toHaveBeenCalledWith(undefined);
+    expect(runtimeState.model).toBeUndefined();
     expect(setModel).not.toHaveBeenCalled();
   });
 

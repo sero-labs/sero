@@ -66,10 +66,11 @@ async function completeConsolidationPrompt(
     throw new Error('Memory consolidation requires an active model.');
   }
 
-  const apiKey = await ctx.modelRegistry.getApiKey(ctx.model);
-  if (!apiKey) {
+  const auth = await ctx.modelRegistry.getApiKeyAndHeaders(ctx.model);
+  if (!auth.ok || !auth.apiKey) {
     throw new Error('No API key available for the active model.');
   }
+  const { apiKey, headers } = auth;
 
   const response = await complete(
     ctx.model,
@@ -81,7 +82,7 @@ async function completeConsolidationPrompt(
       ].join('\n'),
       messages: buildMessages(prompt),
     },
-    { apiKey, reasoningEffort: trigger === 'manual' ? 'medium' : 'low' },
+    { apiKey, headers, reasoningEffort: trigger === 'manual' ? 'medium' : 'low' },
   );
 
   return response.content

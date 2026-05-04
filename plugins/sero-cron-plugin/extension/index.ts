@@ -33,10 +33,6 @@ export default function (pi: ExtensionAPI) {
     await runtime.handleSessionStart(pi, { cwd: ctx.cwd });
   });
 
-  pi.on('session_switch', async (_event, ctx) => {
-    runtime.handleSessionSwitch({ cwd: ctx.cwd });
-  });
-
   pi.on('session_shutdown', async () => {
     await runtime.handleSessionShutdown();
   });

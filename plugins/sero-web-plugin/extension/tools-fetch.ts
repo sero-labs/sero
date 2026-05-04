@@ -3,7 +3,7 @@
 import path from "node:path";
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { Text } from "@mariozechner/pi-tui";
-import { Type } from "@sinclair/typebox";
+import { Type } from "typebox";
 import { fetchAllContent, type ExtractedContent } from "./extract.js";
 import { generateId, getResult, storeResult, type StoredSearchData, type QueryResultData } from "./storage.js";
 import { readState, resolveWorkspaceRootFromStatePath, upsertDownload } from "./state-sync.js";

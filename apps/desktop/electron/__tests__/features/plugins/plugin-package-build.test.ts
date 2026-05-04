@@ -44,8 +44,8 @@ describe('plugin package build helpers', () => {
     })).toBe('devDependencies.@sero-ai/app-runtime=workspace:*');
 
     expect(findUnsupportedDependencySpec({
-      dependencies: { '@sinclair/typebox': 'catalog:' },
-    })).toBe('dependencies.@sinclair/typebox=catalog:');
+      dependencies: { 'typebox': 'catalog:' },
+    })).toBe('dependencies.typebox=catalog:');
 
     expect(findUnsupportedDependencySpec({
       dependencies: { react: '^19.1.1' },
@@ -196,7 +196,11 @@ describe('plugin package build helpers', () => {
       },
     });
 
-    await ensurePluginPackageReadyForInstall(dir, 'local');
+    const runCommand = vi.fn(async () => {});
+
+    await ensurePluginPackageReadyForInstall(dir, 'local', { runCommand });
+
+    expect(runCommand).not.toHaveBeenCalled();
 
     const installedPkg = JSON.parse(await readFile(path.join(dir, 'package.json'), 'utf8')) as {
       sero?: { app?: { runtime?: string; devPort?: number } };
@@ -217,9 +221,12 @@ describe('plugin package build helpers', () => {
       },
     });
 
-    await expect(ensurePluginPackageReadyForInstall(dir, 'local')).rejects.toThrow(
+    const runCommand = vi.fn(async () => {});
+
+    await expect(ensurePluginPackageReadyForInstall(dir, 'local', { runCommand })).rejects.toThrow(
       /declares runtime \.\/runtime\/index\.ts but the file is missing after install preparation/,
     );
+    expect(runCommand).not.toHaveBeenCalled();
   });
 
   it('builds git source plugins locally before install', async () => {

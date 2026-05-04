@@ -54,8 +54,9 @@ async function completeMarkdown(
   prompt: string,
 ): Promise<string | null> {
   if (!ctx.model) return null;
-  const apiKey = await ctx.modelRegistry.getApiKey(ctx.model);
-  if (!apiKey) return null;
+  const auth = await ctx.modelRegistry.getApiKeyAndHeaders(ctx.model);
+  if (!auth.ok || !auth.apiKey) return null;
+  const { apiKey, headers } = auth;
 
   const messages: Message[] = [{
     role: 'user',
@@ -66,7 +67,7 @@ async function completeMarkdown(
   const response = await complete(
     ctx.model,
     { systemPrompt, messages },
-    { apiKey, reasoningEffort: 'low' },
+    { apiKey, headers, reasoningEffort: 'low' },
   );
 
   const text = response.content

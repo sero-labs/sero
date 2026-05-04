@@ -11,7 +11,7 @@
  * ignored by the framework.
  */
 
-import type { Static } from '@sinclair/typebox';
+import type { Static } from 'typebox';
 import type { ToolDefinition } from '@mariozechner/pi-coding-agent';
 import type { ContainerManager } from '..';
 import {

@@ -21,6 +21,7 @@ describe('content security policy', () => {
     expect(csp).toContain("frame-src 'self' blob: http://localhost:* http://127.0.0.1:* http://[::1]:* sero-ext:");
     expect(csp).toContain("child-src 'self' blob: http://localhost:* http://127.0.0.1:* http://[::1]:* sero-ext:");
     expect(csp).toContain("connect-src 'self' blob:");
+    expect(csp).toContain("img-src 'self' data: blob: https: http: sero-ext:");
     expect(csp).toContain('http://localhost:*');
     expect(csp).toContain('http://127.0.0.1:*');
     expect(csp).toContain('http://[::1]:*');

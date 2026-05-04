@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { Type } from '@sinclair/typebox';
+import { Type } from 'typebox';
 
 import { bridgeTool, getBridgedToolTimeoutMs } from '@electron/cli/core/schema-bridge';
 import { CliRegistry } from '@electron/cli/core/registry';

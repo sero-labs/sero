@@ -30,7 +30,6 @@ export function ModelSelector({ disabled }: { disabled: boolean }) {
     selectedProvider,
     setFilter,
     setManagerOpen,
-    supportsXhigh,
     thinkingLevels,
     totalFiltered,
     triggerLabel,
@@ -96,7 +95,6 @@ export function ModelSelector({ disabled }: { disabled: boolean }) {
             <ThinkingPicker
               current={hasActiveAvailableModel ? (focusedModelState?.thinkingLevel ?? 'off') : 'off'}
               available={thinkingLevels}
-              supportsXhigh={supportsXhigh}
               disabled={!activeSelectedModel || !activeSelectedModel.reasoning}
               onSelect={handleThinkingSelect}
             />

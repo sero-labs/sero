@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 
-import type { Static } from '@sinclair/typebox';
+import type { Static } from 'typebox';
 import type { ToolDefinition } from '@mariozechner/pi-coding-agent';
 
 import {

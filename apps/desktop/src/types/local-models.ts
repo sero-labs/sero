@@ -5,7 +5,7 @@
  * Shared by Electron main process and renderer.
  */
 
-import type { OpenAICompletionsCompat } from '@mariozechner/pi-ai';
+import type { OpenAICompletionsCompat, ThinkingLevelMap } from '@mariozechner/pi-ai';
 
 /** Supported API types for local model providers. */
 export type LocalModelApi =
@@ -32,6 +32,7 @@ export interface LocalModelEntry {
   api?: LocalModelApi;
   baseUrl?: string;
   reasoning?: boolean;
+  thinkingLevelMap?: ThinkingLevelMap;
   input?: ('text' | 'image')[];
   contextWindow?: number;
   maxTokens?: number;
@@ -44,6 +45,7 @@ export interface LocalModelEntry {
 export interface LocalModelOverride {
   name?: string;
   reasoning?: boolean;
+  thinkingLevelMap?: ThinkingLevelMap;
   input?: ('text' | 'image')[];
   cost?: Partial<LocalModelCost>;
   contextWindow?: number;

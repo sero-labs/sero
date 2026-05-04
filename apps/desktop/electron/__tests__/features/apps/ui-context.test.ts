@@ -27,6 +27,19 @@ describe('createSeroUIContext', () => {
     expect(await ui.custom(async () => {
       throw new Error('Sero should not invoke unsupported custom UI factories');
     })).toBeUndefined();
+
+    ui.setWorkingVisible(true);
+    ui.setWorkingIndicator({ frames: ['●'] });
+    ui.setHiddenThinkingLabel('Thinking hidden');
+    ui.addAutocompleteProvider((current) => current);
+    expect(ui.getEditorComponent()).toBeUndefined();
+
+    const editorFactory = vi.fn();
+    ui.setEditorComponent(editorFactory);
+    expect(ui.getEditorComponent()).toBe(editorFactory);
+    ui.setEditorComponent(undefined);
+    expect(ui.getEditorComponent()).toBeUndefined();
+
     expect(ui.theme.getColorMode()).toBeTypeOf('string');
   });
 });

@@ -138,11 +138,6 @@ export function filterModelGroups<
   return result;
 }
 
-export function inferSupportsXhigh(modelId: string): boolean {
-  const normalized = modelId.toLowerCase();
-  return /claude-(sonnet|opus)|gpt-5|o1|o3|gemini-(2\.5|3)(-|.*)pro/.test(normalized);
-}
-
 export function getAvailableThinkingLevels(model: SharedModelInfo): ThinkingLevel[] {
   const explicit = Array.isArray(model.availableThinkingLevels)
     ? model.availableThinkingLevels
@@ -151,16 +146,13 @@ export function getAvailableThinkingLevels(model: SharedModelInfo): ThinkingLeve
 
   if (explicit.length > 0) {
     const withOff = explicit.includes('off') ? explicit : ['off', ...explicit];
-    if ((model.supportsXhigh ?? false) && !withOff.includes('xhigh')) {
-      withOff.push('xhigh');
-    }
     return THINKING_LEVELS.filter((level) => withOff.includes(level));
   }
 
   if (!model.reasoning) return ['off'];
 
   const inferred: ThinkingLevel[] = ['off', 'minimal', 'low', 'medium', 'high'];
-  if (model.supportsXhigh ?? inferSupportsXhigh(model.modelId)) {
+  if (model.supportsXhigh === true) {
     inferred.push('xhigh');
   }
   return inferred;

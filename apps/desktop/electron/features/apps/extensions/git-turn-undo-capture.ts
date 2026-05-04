@@ -176,15 +176,6 @@ export function registerGitTurnUndoCapture(
     }
   });
 
-  pi.on('session_switch', async () => {
-    try {
-      const changeId = await vcsManager.getCurrentChangeId(workspaceId);
-      entries.appendWorkspaceLink(changeId);
-    } catch {
-      // non-fatal
-    }
-  });
-
   pi.on('agent_start', async () => {
     resetTurnState();
     if (MIXED_EDIT_CHECKPOINT_POLICY !== 'require-manual-first') return;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Skill } from '@mariozechner/pi-coding-agent';
+import { createSyntheticSourceInfo, type Skill } from '@mariozechner/pi-coding-agent';
 import { getDisabledModelSkills, withDisabledModelSkills } from '@sero-ai/common';
 import { createSkillVisibilityOverride } from '@electron/features/apps/extensions/skill-visibility';
 
@@ -9,7 +9,7 @@ function makeSkill(name: string, disableModelInvocation = false): Skill {
     description: `${name} description`,
     filePath: `/skills/${name}/SKILL.md`,
     baseDir: `/skills/${name}`,
-    source: 'test',
+    sourceInfo: createSyntheticSourceInfo(`/skills/${name}/SKILL.md`, { source: 'test' }),
     disableModelInvocation,
   };
 }

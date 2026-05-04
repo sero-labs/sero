@@ -2,11 +2,12 @@ import os from 'os';
 import path from 'path';
 import { mkdir, mkdtemp, rm, writeFile } from 'fs/promises';
 
-import type {
-  LoadExtensionsResult,
-  PromptTemplate,
-  Skill,
-  Theme,
+import {
+  createSyntheticSourceInfo,
+  type LoadExtensionsResult,
+  type PromptTemplate,
+  type Skill,
+  type Theme,
 } from '@mariozechner/pi-coding-agent';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -68,6 +69,7 @@ describe('plugin resource compatibility filtering', () => {
       extensions: [{
         path: path.join(pluginDir, 'extension', 'index.ts'),
         resolvedPath: path.join(pluginDir, 'extension', 'index.ts'),
+        sourceInfo: createSyntheticSourceInfo(path.join(pluginDir, 'extension', 'index.ts'), { source: 'extension' }),
         handlers: new Map(),
         tools: new Map(),
         messageRenderers: new Map(),
@@ -84,7 +86,7 @@ describe('plugin resource compatibility filtering', () => {
         description: 'Demo skill',
         filePath: path.join(pluginDir, 'skills', 'demo.md'),
         baseDir: path.join(pluginDir, 'skills'),
-        source: pluginDir,
+        sourceInfo: createSyntheticSourceInfo(path.join(pluginDir, 'skills', 'demo.md'), { source: pluginDir }),
         disableModelInvocation: false,
       } satisfies Skill],
       diagnostics: [],
@@ -95,7 +97,7 @@ describe('plugin resource compatibility filtering', () => {
         description: 'Demo prompt',
         content: 'demo',
         filePath: path.join(pluginDir, 'prompts', 'demo.md'),
-        source: pluginDir,
+        sourceInfo: createSyntheticSourceInfo(path.join(pluginDir, 'prompts', 'demo.md'), { source: pluginDir }),
       } satisfies PromptTemplate],
       diagnostics: [],
     });
@@ -123,6 +125,7 @@ describe('plugin resource compatibility filtering', () => {
       extensions: [{
         path: path.join(pluginDir, 'extension', 'index.ts'),
         resolvedPath: path.join(pluginDir, 'extension', 'index.ts'),
+        sourceInfo: createSyntheticSourceInfo(path.join(pluginDir, 'extension', 'index.ts'), { source: 'extension' }),
         handlers: new Map(),
         tools: new Map(),
         messageRenderers: new Map(),

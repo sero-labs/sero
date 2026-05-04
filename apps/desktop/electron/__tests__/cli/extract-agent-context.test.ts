@@ -9,11 +9,12 @@ function createMockExtensionContext(
   return {
     cwd: '/workspace',
     model: { id: 'claude-sonnet', api: 'anthropic-messages', provider: 'anthropic' } as ExtensionContext['model'],
-    modelRegistry: { getApiKey: vi.fn() } as unknown as ExtensionContext['modelRegistry'],
+    modelRegistry: { getApiKeyAndHeaders: vi.fn() } as unknown as ExtensionContext['modelRegistry'],
     sessionManager: { getSessionId: vi.fn(() => 'sid-1') } as unknown as ExtensionContext['sessionManager'],
     hasUI: true,
     ui: { notify: vi.fn() } as unknown as ExtensionContext['ui'],
     isIdle: vi.fn(() => true),
+    signal: undefined,
     abort: vi.fn(),
     hasPendingMessages: vi.fn(() => false),
     shutdown: vi.fn(),
@@ -80,8 +81,8 @@ describe('extractAgentContext', () => {
     const ctx = createMockExtensionContext();
     const result = extractAgentContext(ctx);
 
-    result.compact({ summarize: true } as any);
-    expect(ctx.compact).toHaveBeenCalledWith({ summarize: true });
+    result.compact({ customInstructions: 'summarize' });
+    expect(ctx.compact).toHaveBeenCalledWith({ customInstructions: 'summarize' });
   });
 
   it('handles undefined model gracefully', () => {

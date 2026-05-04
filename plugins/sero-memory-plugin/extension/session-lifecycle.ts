@@ -203,8 +203,9 @@ export function registerSessionLifecycle(pi: ExtensionAPI): void {
 
       if (ctx.model) {
         try {
-          const apiKey = await ctx.modelRegistry.getApiKey(ctx.model);
-          if (apiKey) {
+          const auth = await ctx.modelRegistry.getApiKeyAndHeaders(ctx.model);
+          if (auth.ok && auth.apiKey) {
+            const { apiKey, headers } = auth;
             const llmMessages = convertToLlm(messages);
             const conversationText = serializeConversation(llmMessages);
             const { text: truncated, truncated: wasTruncated } = truncateText(
@@ -238,7 +239,7 @@ export function registerSessionLifecycle(pi: ExtensionAPI): void {
               const response = await complete(
                 ctx.model,
                 { systemPrompt: SUMMARY_SYSTEM_PROMPT, messages: summaryMessages },
-                { apiKey, reasoningEffort: 'low' },
+                { apiKey, headers, reasoningEffort: 'low' },
               );
 
               const summaryText = response.content

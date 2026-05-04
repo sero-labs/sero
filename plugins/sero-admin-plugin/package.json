@@ -43,7 +43,7 @@
     }
   },
   "dependencies": {
-    "@sinclair/typebox": "catalog:"
+    "typebox": "catalog:"
   },
   "peerDependencies": {
     "@mariozechner/pi-ai": "catalog:peer",

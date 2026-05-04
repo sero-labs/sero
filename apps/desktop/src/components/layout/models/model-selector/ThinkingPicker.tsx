@@ -7,20 +7,15 @@ export function ThinkingPicker({
   current,
   disabled,
   onSelect,
-  supportsXhigh,
 }: {
   available: string[];
   current: string;
   disabled: boolean;
   onSelect: (level: string) => void;
-  supportsXhigh: boolean;
 }) {
   const levels = disabled
     ? THINKING_LEVELS
-    : THINKING_LEVELS.filter(
-        (level) =>
-          level === 'off' || available.includes(level) || (level === 'xhigh' && supportsXhigh),
-      );
+    : THINKING_LEVELS.filter((level) => level === 'off' || available.includes(level));
   const activeIndex = levels.indexOf((disabled ? 'off' : current) as ThinkingLevel);
 
   return (

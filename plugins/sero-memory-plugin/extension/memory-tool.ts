@@ -8,8 +8,7 @@
 import { StringEnum } from '@mariozechner/pi-ai';
 import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
 import { Text } from '@mariozechner/pi-tui';
-import { Type } from '@sinclair/typebox';
-import type { Static } from '@sinclair/typebox';
+import { Type, type Static } from 'typebox';
 
 import {
   ensureDirectories,

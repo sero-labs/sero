@@ -11,7 +11,7 @@
 import { StringEnum } from '@mariozechner/pi-ai';
 import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
 import { Text } from '@mariozechner/pi-tui';
-import { Type } from '@sinclair/typebox';
+import { Type } from 'typebox';
 
 import type { GitManagerRequest } from '../shared/types';
 import { refreshGitState, runGitAction } from './git-service';
@@ -70,10 +70,6 @@ export default function (pi: ExtensionAPI) {
   };
 
   pi.on('session_start', async (_event, ctx) => {
-    await syncWorkspaceState(ctx.cwd);
-  });
-
-  pi.on('session_switch', async (_event, ctx) => {
     await syncWorkspaceState(ctx.cwd);
   });
 

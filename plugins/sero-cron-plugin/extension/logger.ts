@@ -34,7 +34,7 @@ export function initLogger(pi: LoggerEventBus, statePath: string): void {
   fileLoggingHealthy = true;
 }
 
-/** Update the log path (e.g. on session_switch). */
+/** Update the log path when a session activation changes cwd. */
 export function setLogPath(statePath: string): void {
   logFilePath = path.join(path.dirname(statePath), 'cron.log');
   fileLoggingHealthy = true;

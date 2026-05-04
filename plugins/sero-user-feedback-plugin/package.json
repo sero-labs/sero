@@ -40,7 +40,7 @@
   },
   "dependencies": {
     "@sero-ai/common": "workspace:*",
-    "@sinclair/typebox": "catalog:"
+    "typebox": "catalog:"
   },
   "peerDependencies": {
     "@mariozechner/pi-coding-agent": "catalog:peer",

@@ -1,6 +1,6 @@
 import { StringEnum } from '@mariozechner/pi-ai';
 import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
-import { Type } from '@sinclair/typebox';
+import { Type } from 'typebox';
 import type { McpServerEditorInput } from '../../shared/types';
 import type { McpRuntime } from '../runtime/mcp-runtime';
 import { createToolResult, isManagerAction, MCP_MANAGER_ACTIONS, type ManagerAction } from './types';

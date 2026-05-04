@@ -1,4 +1,4 @@
-import type { Static } from '@sinclair/typebox';
+import type { Static } from 'typebox';
 import type { ToolDefinition, ExtensionContext } from '@mariozechner/pi-coding-agent';
 import type { AgentToolResult, AgentToolUpdateCallback } from '@mariozechner/pi-agent-core';
 import type { ContainerManager } from '..';

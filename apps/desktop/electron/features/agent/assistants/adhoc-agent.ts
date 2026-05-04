@@ -47,7 +47,7 @@ export async function runAdhocAgent(
     thinkingLevel,
     authStorage: infra.authStorage,
     modelRegistry: infra.modelRegistry,
-    tools: [],
+    noTools: 'all',
     sessionManager: SessionManager.inMemory(workspacePath),
     settingsManager: infra.settingsManager,
   });
