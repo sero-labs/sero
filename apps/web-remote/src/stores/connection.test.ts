@@ -69,6 +69,14 @@ class FakeGatewayClient implements GatewayClientLike {
 
   createDevServerTicket(): void {}
 
+  voiceStatus(): Promise<{ enabled: boolean; reason?: string }> {
+    return Promise.resolve({ enabled: false, reason: 'Not configured in tests.' });
+  }
+
+  transcribeVoice(): Promise<{ text: string; model: string }> {
+    return Promise.resolve({ text: '', model: 'test' });
+  }
+
   emitState(state: ConnectionState): void {
     for (const handler of this.stateHandlers) {
       handler(state);

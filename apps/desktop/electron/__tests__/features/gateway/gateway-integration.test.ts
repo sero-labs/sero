@@ -448,4 +448,55 @@ describe('GatewayServer scoped authorization flows', () => {
       data: { base64: 'BBBB', mimeType: 'image/png', title: 'Artifact B' },
     });
   });
+
+  it('echoes requestId on responses, including pre-auth and validation errors', async () => {
+    const harness = await createHarness();
+    harnesses.push(harness);
+
+    const ws = new WebSocket(`ws://127.0.0.1:${harness.port}`);
+    sockets.push(ws);
+    await waitForOpen(ws);
+
+    // Pre-auth request with requestId — should error but still echo requestId
+    // so the client's pending promise can settle without waiting for a timeout.
+    const preAuthError = await sendRequest<GatewayResponse>(ws, {
+      type: 'voice_status',
+      requestId: 'req-pre-auth',
+    });
+    expect(preAuthError).toMatchObject({
+      type: 'error',
+      requestType: 'voice_status',
+      requestId: 'req-pre-auth',
+    });
+
+    // Malformed request — best-effort requestId echo from the raw payload.
+    const malformedError = await sendRequest<GatewayResponse>(ws, {
+      type: 'prompt',
+      requestId: 'req-bad-shape',
+    });
+    expect(malformedError).toMatchObject({
+      type: 'error',
+      requestId: 'req-bad-shape',
+    });
+
+    // After authenticating, the connect ok itself isn't correlated, but
+    // subsequent requests round-trip the requestId.
+    const connectOk = await sendRequest<GatewayResponse>(ws, {
+      type: 'connect',
+      token: harness.server.getAuth().webTokens.create(null, 'integ').token,
+      clientType: 'web',
+      clientId: 'integ-1',
+    });
+    expect(connectOk).toMatchObject({ type: 'ok', requestType: 'connect' });
+
+    const status = await sendRequest<GatewayResponse>(ws, {
+      type: 'list_workspaces',
+      requestId: 'req-after-auth',
+    });
+    expect(status).toMatchObject({
+      type: 'ok',
+      requestType: 'list_workspaces',
+      requestId: 'req-after-auth',
+    });
+  });
 });
