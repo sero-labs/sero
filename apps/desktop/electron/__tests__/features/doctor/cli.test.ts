@@ -19,8 +19,6 @@ describe('parseDoctorArgs', () => {
       expect(result.flags.quick).toBe(true);
       expect(result.flags.json).toBe(true);
       expect(result.flags.allProfiles).toBe(true);
-      // --json forces --no-window.
-      expect(result.flags.noWindow).toBe(true);
     }
   });
 

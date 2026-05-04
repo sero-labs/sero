@@ -10,7 +10,8 @@ import { makeResult, runCommand } from './helpers';
 
 const MIN_MACOS_MAJOR = 13;
 const MIN_FREE_BYTES = 2 * 1024 * 1024 * 1024; // 2 GB
-const LOW_MEMORY_BYTES = 1 * 1024 * 1024 * 1024; // 1 GB
+const LOW_MEMORY_PRESSURE_FREE_PERCENT = 10;
+const LOW_MEMORY_BYTES = 1 * 1024 * 1024 * 1024; // non-macOS fallback only
 
 const platformCheck: DoctorCheck = {
   id: 'system.os.platform',
@@ -142,11 +143,75 @@ const diskCheck: DoctorCheck = {
   },
 };
 
+function parseMemoryPressureFreePercent(output: string): number | null {
+  const match = output.match(/System-wide memory free percentage:\s*(\d+)%/);
+  if (!match) return null;
+  const value = Number.parseInt(match[1] ?? '', 10);
+  return Number.isFinite(value) ? value : null;
+}
+
+function parseVmStatAvailableBytes(output: string): number | null {
+  const pageSizeMatch = output.match(/page size of\s+(\d+)\s+bytes/i);
+  const pageSize = Number.parseInt(pageSizeMatch?.[1] ?? '', 10);
+  if (!Number.isFinite(pageSize)) return null;
+
+  const pagesByLabel = new Map<string, number>();
+  for (const line of output.split('\n')) {
+    const match = line.match(/^Pages\s+([^:]+):\s+(\d+)\./);
+    if (!match) continue;
+    pagesByLabel.set(match[1]?.trim().toLowerCase() ?? '', Number.parseInt(match[2] ?? '', 10));
+  }
+
+  const availablePages =
+    (pagesByLabel.get('free') ?? 0) +
+    (pagesByLabel.get('inactive') ?? 0) +
+    (pagesByLabel.get('speculative') ?? 0) +
+    (pagesByLabel.get('purgeable') ?? 0);
+  return availablePages > 0 ? availablePages * pageSize : null;
+}
+
 const memoryCheck: DoctorCheck = {
   id: 'system.memory',
   category: 'system',
-  async run() {
+  async run(ctx) {
     const start = Date.now();
+
+    if (os.platform() === 'darwin') {
+      const pressure = await runCommand('memory_pressure', [], {
+        timeoutMs: 2_000,
+        signal: ctx.signal,
+      });
+      const freePercent = pressure.ok
+        ? parseMemoryPressureFreePercent(pressure.stdout)
+        : null;
+      if (freePercent !== null) {
+        const status = freePercent < LOW_MEMORY_PRESSURE_FREE_PERCENT ? 'warn' : 'pass';
+        return makeResult({
+          id: this.id,
+          category: this.category,
+          status,
+          message: `Memory pressure reports ${freePercent}% free memory.`,
+          start,
+        });
+      }
+
+      const vmStat = await runCommand('vm_stat', [], {
+        timeoutMs: 2_000,
+        signal: ctx.signal,
+      });
+      const available = vmStat.ok ? parseVmStatAvailableBytes(vmStat.stdout) : null;
+      if (available !== null) {
+        const gb = (available / 1024 / 1024 / 1024).toFixed(1);
+        return makeResult({
+          id: this.id,
+          category: this.category,
+          status: available < LOW_MEMORY_BYTES ? 'warn' : 'pass',
+          message: `Reclaimable memory ${gb} GB.`,
+          start,
+        });
+      }
+    }
+
     const free = os.freemem();
     const gb = (free / 1024 / 1024 / 1024).toFixed(1);
     if (free < LOW_MEMORY_BYTES) {

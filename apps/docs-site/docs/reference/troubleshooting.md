@@ -8,7 +8,8 @@ Most Sero OSS alpha setup problems fall into one of these buckets:
 - dev-server preview URL, container IP, or browser/app capture mismatch
 
 Before working through the buckets manually, run the
-[Environment Doctor](/reference/environment-doctor). It produces a structured
+[Environment Doctor](/reference/environment-doctor). In Sero, open it with
+<kbd>⌘K</kbd> → **Diagnostics** → **Environment Doctor**. It produces a structured
 report covering most of the categories below and works even when Sero cannot
 finish booting (`electron --doctor` or the bundled `sero-doctor` CLI shim).
 

@@ -3,10 +3,7 @@
  */
 
 import { registerDoctorCheck } from '../registry';
-import {
-  nativeRebuildBetterSqlite3Repair,
-  nativeRebuildNodePtyRepair,
-} from '../repairs';
+import { nativeRebuildNodePtyRepair } from '../repairs';
 import type { DoctorCheck } from '../types';
 import { makeResult } from './helpers';
 
@@ -88,46 +85,8 @@ const nodePtyCheck: DoctorCheck = {
   },
 };
 
-const betterSqliteCheck: DoctorCheck = {
-  id: 'node.module.better-sqlite3',
-  category: 'node',
-  repair: nativeRebuildBetterSqlite3Repair,
-  async run() {
-    const start = Date.now();
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const Database = require('better-sqlite3');
-      const db = new Database(':memory:');
-      db.close();
-      return makeResult({
-        id: this.id,
-        category: this.category,
-        status: 'pass',
-        message: 'better-sqlite3 loads and opens an in-memory DB.',
-        start,
-      });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      return makeResult({
-        id: this.id,
-        category: this.category,
-        status: 'fail',
-        message: `better-sqlite3 failed: ${message}`,
-        fix: {
-          kind: 'repair',
-          repairId: nativeRebuildBetterSqlite3Repair.id,
-          description: nativeRebuildBetterSqlite3Repair.description,
-          destructive: nativeRebuildBetterSqlite3Repair.destructive,
-        },
-        start,
-      });
-    }
-  },
-};
-
 export function registerNodeChecks(): void {
   registerDoctorCheck(versionCheck);
   registerDoctorCheck(abiCheck);
   registerDoctorCheck(nodePtyCheck);
-  registerDoctorCheck(betterSqliteCheck);
 }

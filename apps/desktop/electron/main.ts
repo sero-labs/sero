@@ -17,14 +17,30 @@
  * Anything else belongs inside one of the two dynamic-import paths.
  */
 
+import { app, protocol } from 'electron';
 import { isDoctorInvocation, runDoctorSafeMode } from './features/doctor/cli';
+
+// Must happen synchronously during main-module evaluation, before Electron's
+// ready event. Keeping it in the tiny bootstrap preserves the --doctor
+// short-circuit while avoiding the race introduced by dynamically importing
+// app-main.ts after Electron has already become ready.
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: 'sero-ext',
+    privileges: {
+      standard: true,
+      secure: true,
+      supportFetchAPI: true,
+      corsEnabled: true,
+    },
+  },
+]);
 
 async function bootstrap(): Promise<void> {
   if (isDoctorInvocation(process.argv)) {
     // Safe mode. We deliberately do NOT import './platform/env' or any
     // ./features/* / ./ipc/* module — the doctor reads profile state
     // defensively via its own snapshot reader.
-    const { app } = await import('electron');
     try {
       await app.whenReady();
       const { exitCode } = await runDoctorSafeMode({

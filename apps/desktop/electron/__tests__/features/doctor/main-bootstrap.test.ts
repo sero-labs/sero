@@ -20,6 +20,9 @@ import { describe, expect, it } from 'vitest';
 const MAIN_TS = path.resolve(__dirname, '../../../main.ts');
 
 const ALLOWED_STATIC_IMPORTS = new Set<string>([
+  // Electron is allowed so the sero-ext privileged scheme can be registered
+  // synchronously before app readiness without importing the heavy app graph.
+  'electron',
   // The doctor CLI module is self-contained (engine subtree only) and
   // touches no profile state, native modules, or feature initialisation.
   './features/doctor/cli',
@@ -55,7 +58,7 @@ describe('electron/main.ts — safe-mode bootstrap shape', () => {
   const source = readFileSync(MAIN_TS, 'utf8');
   const imports = extractStaticImports(source);
 
-  it('only statically imports the doctor CLI (and nothing heavy)', () => {
+  it('only statically imports Electron + the doctor CLI (and nothing heavy)', () => {
     const unexpected = imports.filter((i) => !ALLOWED_STATIC_IMPORTS.has(i));
     expect(unexpected, `Unexpected static imports in main.ts: ${unexpected.join(', ')}`).toEqual([]);
   });
@@ -75,9 +78,8 @@ describe('electron/main.ts — safe-mode bootstrap shape', () => {
     expect(source).toMatch(/await\s+import\(['"]\.\/app-main['"]\)/);
   });
 
-  it('reaches Electron itself via a dynamic import (only inside the doctor branch)', () => {
-    expect(source).toMatch(/await\s+import\(['"]electron['"]\)/);
-    // And not statically.
-    expect(imports).not.toContain('electron');
+  it('registers the extension protocol scheme in the tiny bootstrap', () => {
+    expect(source).toContain('protocol.registerSchemesAsPrivileged');
+    expect(source).toContain("scheme: 'sero-ext'");
   });
 });

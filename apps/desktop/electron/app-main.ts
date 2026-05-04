@@ -34,7 +34,7 @@ if (ACTIVE_PROFILE_ID) {
 import { registerAllIpcHandlers } from './ipc';
 import { disposeAllAgentSessions } from './ipc/agent';
 import { workspaceManager } from './features/workspace/manager';
-import { registerExtProtocolScheme, setupExtProtocol, registerAllExtAssets } from './platform/protocols/ext-protocol';
+import { setupExtProtocol, registerAllExtAssets } from './platform/protocols/ext-protocol';
 import { discoverApps, registerAppPath } from './features/apps/discovery';
 import { watchForNewApps } from './ipc/apps';
 import { ensureDefaultAgents, ensureDefaultSkills, ensureDefaultThemes, ensureProfileTemplates } from './features/profile/setup';
@@ -59,9 +59,6 @@ import {
 } from './shared/settings/model-fallback-chain';
 import { getDefaultMemoryLoggingSettings, ensureConfiguredMemoryLoggingSettings } from './shared/settings/memory-logging-settings';
 import { getContainerAvailability } from './features/container/core/availability';
-
-// Register custom protocol BEFORE app.whenReady()
-registerExtProtocolScheme();
 
 let mainWindow: BrowserWindow | null = null;
 let isGracefullyShuttingDown = false;

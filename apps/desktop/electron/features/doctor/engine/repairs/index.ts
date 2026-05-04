@@ -70,12 +70,6 @@ export const nativeRebuildNodePtyRepair = stub(
   false,
 );
 
-export const nativeRebuildBetterSqlite3Repair = stub(
-  'repair.native.rebuild-better-sqlite3',
-  'Rebuild better-sqlite3 against the current Electron ABI.',
-  false,
-);
-
 export const containerStartRepair = stub(
   'repair.container.start',
   'Start the Apple Container system service.',
@@ -97,7 +91,6 @@ export const ALL_REPAIRS: DoctorRepair[] = [
   profileRegistryRebuildRepair,
   profileRegistryActiveIdRepair,
   nativeRebuildNodePtyRepair,
-  nativeRebuildBetterSqlite3Repair,
   containerStartRepair,
   pluginDisableRepair,
 ];

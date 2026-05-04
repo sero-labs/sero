@@ -15,8 +15,7 @@ Run the doctor when:
 
 - a fresh install will not start cleanly,
 - a profile or workspace looks corrupted,
-- native modules (`node-pty`, `better-sqlite3`) fail to load after an
-  Electron upgrade or interrupted `pnpm install`,
+- native modules (`node-pty`) fail to load after an Electron upgrade or interrupted `pnpm install`,
 - you are about to file an issue and want a structured snapshot to attach.
 
 Reports are deterministic — running the doctor twice in the same environment
@@ -29,9 +28,14 @@ All three share the same engine and check catalogue. Output is a typed
 
 ### 1. In-app panel
 
-Opens the **Environment Doctor** panel inside Sero. Streams progress events
-as each check completes. Use the panel's **Quick** button for a fast (≤ 2s)
-scan or **Re-run** for the full pass (≤ 10s). Results can be exported as
+Launch it from Sero's command palette:
+
+1. Start Sero normally.
+2. Press <kbd>⌘K</kbd> (or <kbd>Ctrl+K</kbd> on non-macOS builds).
+3. Choose **Diagnostics → Environment Doctor**.
+4. Click **Quick** for a fast (≤ 2s) scan, or **Re-run** for the full pass (≤ 10s).
+
+The panel streams progress as each check completes. Results can be exported as
 JSON or copied to the clipboard.
 
 ### 2. Safe mode (`electron --doctor`)
@@ -39,8 +43,8 @@ JSON or copied to the clipboard.
 Reaches the doctor when Sero cannot finish booting. The Electron host
 short-circuits before any feature is initialised, profiles are read
 defensively, and broken `profiles.json` files survive without crashing the
-process. The renderer either renders a recovery-styled `DoctorPanel` or
-prints JSON to stdout, depending on the flags used.
+process. It prints a plaintext report by default, or JSON when `--json` or
+`--report` is used.
 
 ### 3. CLI shim (`sero-doctor`)
 
@@ -66,7 +70,6 @@ electron --doctor [flags]
 | `--all-profiles` | Scan every registered profile (and orphans). |
 | `--category <name>` | Run a single category (see below). |
 | `--report <path>` | Write JSON to `<path>` instead of stdout. Implies `--json`. |
-| `--no-window` | Do not open a renderer window (default when `--json` is set). |
 
 Exit codes:
 
@@ -78,14 +81,14 @@ Exit codes:
 
 | Category | Examples |
 |---|---|
-| `system` | OS, arch, free disk, free memory. |
-| `runtime` | Apple Container (CLI, version, daemon), Docker if installed. |
-| `node` | Node version, native ABI, `node-pty`, `better-sqlite3`. |
+| `system` | OS, arch, free disk, macOS memory pressure. |
+| `runtime` | Apple Container (CLI, version, daemon). |
+| `node` | Node version, native ABI, `node-pty`. |
 | `profile` | `profiles.json` parse, active profile id, per-profile config files. |
 | `workspace` | Registry presence, runtime selection, FS reachability. |
 | `providers` | Per-provider env-var presence and `any-usable` summary. |
 | `plugins` | Manifest reachability, compatibility, sandboxed load. |
-| `environment` | `PATH`/`HOME`/`SHELL` and recommended-var audit. |
+| `environment` | Required `PATH`/`HOME`/`SHELL` names and configured provider env-var names. |
 
 The detailed list of stable check IDs lives in
 [`docs/features/environment-doctor.md`](https://github.com/sero-labs/sero/blob/main/docs/features/environment-doctor.md#6-check-catalogue-v1).
@@ -114,7 +117,7 @@ a backstop and any leak that reaches it is a bug worth fixing.
 Repairs are scaffolded but **not invocable in v1**. Failing rows show the
 repair description with an *Auto-repair coming soon* affordance. Today
 the supplied fixes are either manual instructions or copyable shell
-commands (`pnpm rebuild better-sqlite3`, `container system start`, …).
+commands (`container system start`, native-module rebuild commands, …).
 Auto-repair execution will arrive in a follow-up release.
 
 ## See also

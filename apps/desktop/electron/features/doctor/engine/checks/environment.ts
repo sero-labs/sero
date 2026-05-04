@@ -11,7 +11,7 @@ import { makeResult } from './helpers';
 import { getKnownProviders } from './providers';
 
 const REQUIRED = ['PATH', 'HOME', 'SHELL'] as const;
-const RECOMMENDED = ['NODE_ENV', 'LANG', 'LC_ALL'] as const;
+const RECOMMENDED: readonly string[] = [];
 
 function listConfiguredProviderEnvKeys(profileEnvKeys: Set<string>): string[] {
   return getKnownProviders()

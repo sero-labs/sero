@@ -21,6 +21,36 @@ interface ParsedRegistry {
   raw: unknown;
   ok: boolean;
   parseError?: string;
+  schemaError?: string;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function isProfileEntry(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  return typeof value.id === 'string'
+    && typeof value.name === 'string'
+    && typeof value.path === 'string'
+    && typeof value.createdAt === 'string'
+    && (value.onboarded === undefined || typeof value.onboarded === 'boolean');
+}
+
+export function validateRegistrySchema(raw: unknown): string | null {
+  if (!isRecord(raw)) return 'profiles.json must contain a JSON object';
+
+  const { activeProfileId, profiles, version } = raw;
+  if (version !== undefined && version !== 1) {
+    return `profiles.json has unsupported version: ${String(version)}`;
+  }
+  if (activeProfileId !== null && activeProfileId !== undefined && typeof activeProfileId !== 'string') {
+    return 'profiles.json activeProfileId must be a string or null';
+  }
+  if (!Array.isArray(profiles) || !profiles.every(isProfileEntry)) {
+    return 'profiles.json profiles must be an array of valid profile entries';
+  }
+  return null;
 }
 
 function readRegistry(): ParsedRegistry & { exists: boolean } {
@@ -29,7 +59,10 @@ function readRegistry(): ParsedRegistry & { exists: boolean } {
   }
   try {
     const raw = JSON.parse(readFileSync(REGISTRY_PATH, 'utf8')) as unknown;
-    return { exists: true, raw, ok: true };
+    const schemaError = validateRegistrySchema(raw);
+    return schemaError
+      ? { exists: true, raw, ok: false, schemaError }
+      : { exists: true, raw, ok: true };
   } catch (err) {
     return {
       exists: true,
@@ -80,7 +113,7 @@ const parseCheck: DoctorCheck = {
         start,
       });
     }
-    if (!parsed.ok) {
+    if (parsed.parseError) {
       return makeResult({
         id: this.id,
         category: this.category,
@@ -95,16 +128,12 @@ const parseCheck: DoctorCheck = {
         start,
       });
     }
-    if (
-      typeof parsed.raw !== 'object' ||
-      parsed.raw === null ||
-      !Array.isArray((parsed.raw as { profiles?: unknown }).profiles)
-    ) {
+    if (parsed.schemaError) {
       return makeResult({
         id: this.id,
         category: this.category,
         status: 'fail',
-        message: 'profiles.json schema is invalid.',
+        message: `profiles.json schema is invalid: ${parsed.schemaError}`,
         fix: {
           kind: 'repair',
           repairId: profileRegistryRebuildRepair.id,

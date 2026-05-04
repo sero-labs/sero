@@ -15,7 +15,6 @@ import { registerProfileChecks } from './profile';
 import { registerProfileRegistryChecks } from './profile-registry';
 import { registerProviderChecks } from './providers';
 import { registerRuntimeContainerChecks } from './runtime-container';
-import { registerRuntimeDockerChecks } from './runtime-docker';
 import { registerSystemChecks } from './system';
 import { registerWorkspaceChecks } from './workspace';
 
@@ -25,7 +24,6 @@ export function ensureBuiltinChecksRegistered(): void {
   if (registered) return;
   registerSystemChecks();
   registerRuntimeContainerChecks();
-  registerRuntimeDockerChecks();
   registerNodeChecks();
   registerProfileRegistryChecks();
   registerProfileChecks();

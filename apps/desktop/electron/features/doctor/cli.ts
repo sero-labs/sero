@@ -20,7 +20,6 @@ export interface CliFlags {
   allProfiles: boolean;
   category?: DoctorCategory;
   reportPath?: string;
-  noWindow: boolean;
 }
 
 export type ParseResult =
@@ -41,7 +40,7 @@ const VALID_CATEGORIES: DoctorCategory[] = [
 const FLAGS_WITH_VALUES = new Set(['--profile', '--category', '--report']);
 
 const USAGE = [
-  'Usage: sero-doctor [--quick] [--json] [--all-profiles] [--no-window]',
+  'Usage: sero-doctor [--quick] [--json] [--all-profiles]',
   '                    [--profile <id|path>] [--category <name>]',
   '                    [--report <path>]',
   '',
@@ -49,7 +48,6 @@ const USAGE = [
   '  --quick              Run in quick mode (≤ 2s budget; skips slow checks).',
   '  --json               Emit a DoctorReport JSON document on stdout.',
   '  --all-profiles       Scan every registered profile and orphan dirs.',
-  '  --no-window          Do not open a renderer window (default with --json).',
   '  --profile <id|path>  Target a specific profile.',
   '  --category <name>    Run a single category (system, runtime, node,',
   '                       profile, workspace, providers, plugins, environment).',
@@ -69,7 +67,6 @@ export function parseDoctorArgs(argv: string[]): ParseResult {
     json: false,
     quick: false,
     allProfiles: false,
-    noWindow: false,
   };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
@@ -77,7 +74,6 @@ export function parseDoctorArgs(argv: string[]): ParseResult {
     if (arg === '--json') flags.json = true;
     else if (arg === '--quick') flags.quick = true;
     else if (arg === '--all-profiles') flags.allProfiles = true;
-    else if (arg === '--no-window') flags.noWindow = true;
     else if (arg === '--profile') {
       const value = takeValue(argv, i, arg);
       if (!value) return { ok: false, error: '--profile requires a value' };
@@ -109,7 +105,6 @@ export function parseDoctorArgs(argv: string[]): ParseResult {
       return { ok: false, error: `Unexpected positional argument "${arg}"` };
     }
   }
-  if (flags.json) flags.noWindow = true;
   return { ok: true, flags };
 }
 

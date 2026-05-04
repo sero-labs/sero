@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Monitor, Palette, Pencil, Smartphone } from 'lucide-react';
+import { Monitor, Palette, Pencil, Smartphone, Stethoscope } from 'lucide-react';
 import {
   CommandDialog,
   CommandEmpty,
@@ -8,6 +8,13 @@ import {
   CommandItem,
   CommandList,
 } from '@sero-ai/ui/components/ui/command';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@sero-ai/ui/components/ui/dialog';
 import { useAppStore } from '@/stores/app';
 import { useThemeStore } from '@/stores/theme';
 import { getAppIcon } from '@/lib/app-icons';
@@ -15,6 +22,7 @@ import { openApp } from '@/lib/open-app';
 import { ThemePanel } from '@/components/layout/theme/ThemePanel';
 import { ThemeEditorSheet } from '@/components/layout/theme/ThemeEditorSheet';
 import { ConnectDeviceDialog } from '@/components/layout/device/ConnectDeviceDialog';
+import { DoctorPanel } from '@/components/diagnostics/DoctorPanel';
 
 /**
  * CommandMenu — ⌘K command palette for quick app switching.
@@ -28,6 +36,7 @@ export function CommandMenu() {
   const [editorOpen, setEditorOpen] = useState(false);
   const [editPresetId, setEditPresetId] = useState<string | null>(null);
   const [connectDeviceOpen, setConnectDeviceOpen] = useState(false);
+  const [doctorOpen, setDoctorOpen] = useState(false);
   const apps = useAppStore((s) => s.apps);
   const toggleMode = useThemeStore((s) => s.toggleMode);
   const activePresetId = useThemeStore((s) => s.activePresetId);
@@ -70,6 +79,11 @@ export function CommandMenu() {
     setConnectDeviceOpen(true);
   }, []);
 
+  const handleOpenDoctor = useCallback(() => {
+    setOpen(false);
+    setDoctorOpen(true);
+  }, []);
+
   return (
     <>
       <CommandDialog
@@ -96,6 +110,12 @@ export function CommandMenu() {
                 </CommandItem>
               );
             })}
+          </CommandGroup>
+          <CommandGroup heading="Diagnostics">
+            <CommandItem value="Environment Doctor Diagnostics" onSelect={handleOpenDoctor}>
+              <Stethoscope className="size-4 shrink-0" />
+              <span>Environment Doctor</span>
+            </CommandItem>
           </CommandGroup>
           <CommandGroup heading="Remote">
             <CommandItem value="Connect Device" onSelect={handleConnectDevice}>
@@ -129,6 +149,19 @@ export function CommandMenu() {
         open={connectDeviceOpen}
         onOpenChange={setConnectDeviceOpen}
       />
+      <Dialog open={doctorOpen} onOpenChange={setDoctorOpen}>
+        <DialogContent className="flex h-[min(88vh,52rem)] max-w-5xl flex-col gap-0 overflow-hidden p-0 sm:max-w-5xl">
+          <DialogHeader className="border-b border-border px-4 py-3 pr-12">
+            <DialogTitle>Environment Doctor</DialogTitle>
+            <DialogDescription>
+              Run diagnostics for Sero, profiles, providers, plugins, and runtime setup.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="min-h-0 flex-1 overflow-auto">
+            <DoctorPanel />
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

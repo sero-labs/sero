@@ -69,7 +69,6 @@ const envCheck: DoctorCheck = {
 const anyUsableCheck: DoctorCheck = {
   id: 'providers.any-usable',
   category: 'providers',
-  needsBootedApp: true,
   async run(ctx) {
     const start = Date.now();
     const profileEnvKeys = new Set<string>(
