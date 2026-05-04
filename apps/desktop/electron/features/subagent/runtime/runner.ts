@@ -20,9 +20,7 @@ import type { WorkspaceManager } from '@electron/features/workspace/manager';
 import type { ContainerManager } from '@electron/features/container';
 import type { ContainerState } from '@electron/features/container/core/types';
 import { buildWorkspaceContainerConfig } from '@electron/features/container/core/workspace-container-config';
-import { createContainerTools, createHostCodingTools } from '@electron/features/container/tools';
 import { WORKSPACE_DIR } from '@electron/features/container/tools/tool-schemas';
-import { createWorkspaceCliTool } from '@electron/cli';
 import { createSubagentExtensionFactory } from './loader';
 import { SERO_AGENT_DIR } from '@electron/platform/env';
 import { logRawEvent, logTurnContext } from '@electron/ipc/editor/debug';
@@ -34,7 +32,8 @@ import {
   filterCompatiblePluginSkills,
   filterCompatiblePluginThemes,
 } from '@electron/features/plugins/resource-compatibility';
-import { resolveWorkspaceRuntime } from '@electron/features/workspace/runtime-resolution';
+import { createWorkspaceRuntimeFacade } from '@electron/features/workspace/runtime/runtime-facade';
+import { createRuntimeCodingTools } from '@electron/features/workspace/runtime/runtime-tools';
 import { parseModelField, resolveTierModel } from '@electron/shared/settings/resolve-tier-model';
 import { getModelTiers } from '@electron/shared/settings/model-tiers';
 import path from 'path';
@@ -142,7 +141,7 @@ export async function runSubagent(
 
   // Resolve container state (reuse workspace's existing container when available)
   let containerState: ContainerState | null = null;
-  const runtime = await resolveWorkspaceRuntime(workspaceId);
+  let runtime = await createWorkspaceRuntimeFacade(workspaceId);
   if (runtime.actualRuntime === 'container') {
     try {
       const containerConfig = await buildWorkspaceContainerConfig(
@@ -152,19 +151,23 @@ export async function runSubagent(
         { isolated },
       );
       containerState = await containerManager.ensure(containerConfig);
+      runtime = await createWorkspaceRuntimeFacade(workspaceId);
     } catch (err: unknown) {
       console.warn('[subagent/runner] Container became unavailable, using host tools:', (err as Error)?.message);
     }
-  } else if (runtime.desiredRuntime === 'container' && runtime.fallbackReason) {
+  } else if (runtime.resolution.desiredRuntime === 'container' && runtime.fallbackReason) {
     console.warn(`[subagent/runner] ${runtime.fallbackReason}`);
     config.onUpdate?.(`⚠️ ${runtime.fallbackReason}`);
   }
 
   const useContainer = !!containerState;
 
-  const platformTools = useContainer
-    ? createContainerTools(containerManager, workspaceId, subagentSessionId, containerCwd)
-    : [...createHostCodingTools(sessionPath), createWorkspaceCliTool(workspaceId, subagentSessionId)];
+  const platformTools = createRuntimeCodingTools(runtime, {
+    sessionId: subagentSessionId,
+    containerCwd,
+    hostCwd: sessionPath,
+    forceHost: !useContainer,
+  });
   const customTools = [...platformTools, ...(config.customTools ?? [])];
 
   // Build a reduced extension factory for the child session

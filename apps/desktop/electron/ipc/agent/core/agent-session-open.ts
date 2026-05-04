@@ -11,8 +11,8 @@ import type {
   ContextToolInfo,
 } from '@/types/ipc';
 import { workspaceManager } from '@electron/features/workspace/manager';
-import { resolveWorkspaceRuntime } from '@electron/features/workspace/runtime-resolution';
-import { createHostCodingTools } from '@electron/features/container/tools';
+import { createWorkspaceRuntimeFacade } from '@electron/features/workspace/runtime/runtime-facade';
+import { createRuntimeCodingTools } from '@electron/features/workspace/runtime/runtime-tools';
 import { createSeroExtensionFactory } from '@electron/features/apps/extensions/create-sero-extension';
 import { SERO_AGENT_DIR } from '@electron/platform/env';
 import {
@@ -22,13 +22,9 @@ import {
   ensureInfra,
   subagentManager,
 } from '@electron/shared/infra/shared-infra';
-import { createContainerTools } from '@electron/features/container/tools';
 import type { ContainerState } from '@electron/features/container';
 import { createSeroUIContext } from '@electron/features/apps/extensions/ui-context';
-import {
-  bridgeExtensionTools,
-  createWorkspaceCliTool,
-} from '@electron/cli';
+import { bridgeExtensionTools } from '@electron/cli';
 import { createSkillVisibilityOverride } from '@electron/features/apps/extensions/skill-visibility';
 import {
   filterCompatiblePluginAgentsFiles,
@@ -91,7 +87,8 @@ export async function openSessionInPool({
   const workspacePath = workspaceManager.getPath(workspaceId);
   if (!workspacePath) throw new Error(`Workspace not found: ${workspaceId}`);
 
-  const initialRuntime = await resolveWorkspaceRuntime(workspaceId);
+  let runtime = await createWorkspaceRuntimeFacade(workspaceId);
+  const initialRuntime = runtime.resolution;
   const containerEnabled = initialRuntime.containerEnabled;
   let containerState: ContainerState | null = null;
   if (!containerEnabled) {
@@ -103,6 +100,7 @@ export async function openSessionInPool({
       sendEvent({ type: 'container_starting', sessionId, workspaceId });
       const containerConfig = await buildContainerConfig(workspaceId, workspacePath);
       containerState = await containerManager.ensure(containerConfig);
+      runtime = await createWorkspaceRuntimeFacade(workspaceId);
       sendEvent({ type: 'container_ready', sessionId, workspaceId, ipAddress: containerState.ipAddress });
     }
   } catch (containerError) {
@@ -123,9 +121,10 @@ export async function openSessionInPool({
   if (!useContainer && containerEnabled && initialRuntime.actualRuntime === 'host' && initialRuntime.fallbackReason) {
     console.warn(`[agent] ${initialRuntime.fallbackReason}`);
   }
-  const platformTools = useContainer
-    ? createContainerTools(containerManager, workspaceId, sessionId)
-    : [...createHostCodingTools(workspacePath), createWorkspaceCliTool(workspaceId, sessionId)];
+  const platformTools = createRuntimeCodingTools(runtime, {
+    sessionId,
+    forceHost: !useContainer,
+  });
   const globalAgentsFile = await readGlobalAgentsMd(workspaceId);
 
   const skillVisibilityOverride = createSkillVisibilityOverride(infra.settingsManager);
