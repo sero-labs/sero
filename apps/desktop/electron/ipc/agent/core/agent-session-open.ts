@@ -163,7 +163,7 @@ export async function openSessionInPool({
     agentDir: SERO_AGENT_DIR,
     authStorage: infra.authStorage,
     modelRegistry: infra.modelRegistry,
-    tools: [],
+    noTools: 'builtin',
     customTools: platformTools,
     resourceLoader: loader,
     sessionManager: SessionManager.open(sessionPath, SERO_SESSION_DIR),

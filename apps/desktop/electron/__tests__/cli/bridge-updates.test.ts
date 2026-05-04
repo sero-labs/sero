@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { Type } from '@sinclair/typebox';
+import { Type } from 'typebox';
 
 import { CliRegistry } from '@electron/cli/core/registry';
 import { bridgeTool } from '@electron/cli/core/schema-bridge';

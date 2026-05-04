@@ -210,7 +210,7 @@ export async function runSubagent(
       agentDir: SERO_AGENT_DIR,
       authStorage: infra.authStorage,
       modelRegistry: infra.modelRegistry,
-      tools: [],
+      noTools: 'builtin',
       customTools,
       resourceLoader: loader,
       sessionManager: SessionManager.inMemory(sessionPath),

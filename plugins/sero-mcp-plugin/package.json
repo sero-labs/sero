@@ -52,7 +52,7 @@
   "dependencies": {
     "@modelcontextprotocol/ext-apps": "1.2.2",
     "@modelcontextprotocol/sdk": "^1.27.1",
-    "@sinclair/typebox": "catalog:",
+    "typebox": "catalog:",
     "zod": "catalog:"
   },
   "peerDependencies": {

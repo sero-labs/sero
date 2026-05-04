@@ -100,7 +100,7 @@ export function refreshInfraModelSelection(): Model<Api> | null {
 export async function ensureInfra(): Promise<SharedInfra> {
   if (!_authStorage) {
     _authStorage = AuthStorage.create(`${SERO_AGENT_DIR}/auth.json`);
-    _modelRegistry = new ModelRegistry(_authStorage, `${SERO_AGENT_DIR}/models.json`);
+    _modelRegistry = ModelRegistry.create(_authStorage, `${SERO_AGENT_DIR}/models.json`);
     _settingsManager = SettingsManager.create(
       SERO_AGENT_DIR,
       SERO_AGENT_DIR,

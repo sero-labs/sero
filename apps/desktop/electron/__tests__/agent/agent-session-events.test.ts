@@ -31,6 +31,7 @@ describe('emitSessionShutdown', () => {
     expect(session.extensionRunner!.emit).toHaveBeenCalledOnce();
     expect(session.extensionRunner!.emit).toHaveBeenCalledWith({
       type: 'session_shutdown',
+      reason: 'quit',
     });
   });
 

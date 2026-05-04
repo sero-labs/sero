@@ -1,6 +1,6 @@
 import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
 import { StringEnum } from '@mariozechner/pi-ai';
-import { Type } from '@sinclair/typebox';
+import { Type } from 'typebox';
 import type { McpRuntime } from '../runtime/mcp-runtime';
 import type { CliContext, CliResult, ProxyAction } from './types';
 

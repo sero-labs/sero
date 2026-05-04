@@ -25,7 +25,7 @@ export async function emitSessionShutdown(
   const runner = session.extensionRunner;
   if (!runner) return false;
 
-  const event: SessionShutdownEvent = { type: 'session_shutdown' };
+  const event: SessionShutdownEvent = { type: 'session_shutdown', reason: 'quit' };
   await runner.emit(event);
   return true;
 }

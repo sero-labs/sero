@@ -44,8 +44,8 @@ describe('plugin package build helpers', () => {
     })).toBe('devDependencies.@sero-ai/app-runtime=workspace:*');
 
     expect(findUnsupportedDependencySpec({
-      dependencies: { '@sinclair/typebox': 'catalog:' },
-    })).toBe('dependencies.@sinclair/typebox=catalog:');
+      dependencies: { 'typebox': 'catalog:' },
+    })).toBe('dependencies.typebox=catalog:');
 
     expect(findUnsupportedDependencySpec({
       dependencies: { react: '^19.1.1' },

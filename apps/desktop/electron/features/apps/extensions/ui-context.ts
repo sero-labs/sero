@@ -90,6 +90,8 @@ function unsupportedCustom<T>(..._args: Parameters<ExtensionUIContext['custom']>
  * command contexts receive a working `ctx.ui`.
  */
 export function createSeroUIContext(): ExtensionUIContext {
+  let editorFactory: ReturnType<ExtensionUIContext['getEditorComponent']>;
+
   return {
     // ── Dialogs (no-op — would need IPC to renderer) ─────
 
@@ -111,6 +113,9 @@ export function createSeroUIContext(): ExtensionUIContext {
 
     setStatus: () => {},
     setWorkingMessage: () => {},
+    setWorkingVisible: () => {},
+    setWorkingIndicator: () => {},
+    setHiddenThinkingLabel: () => {},
     setWidget: () => {},
     setFooter: () => {},
     setHeader: () => {},
@@ -126,7 +131,11 @@ export function createSeroUIContext(): ExtensionUIContext {
     setEditorText: () => {},
     getEditorText: () => '',
     editor: async () => undefined,
-    setEditorComponent: () => {},
+    addAutocompleteProvider: () => {},
+    setEditorComponent: (factory) => {
+      editorFactory = factory;
+    },
+    getEditorComponent: () => editorFactory,
 
     // ── Theme (stubs) ────────────────────────────────────
 

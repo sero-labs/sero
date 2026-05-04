@@ -2,7 +2,7 @@
  * Shared parameter schemas and helpers for container tools.
  */
 
-import { Type } from '@sinclair/typebox';
+import { Type } from 'typebox';
 
 export const WORKSPACE_DIR = '/workspace';
 

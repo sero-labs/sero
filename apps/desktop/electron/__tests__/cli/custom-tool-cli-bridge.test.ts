@@ -2,8 +2,8 @@ import os from 'os';
 import path from 'path';
 import { mkdtemp, mkdir, rm, writeFile } from 'fs/promises';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { AgentSession, LoadExtensionsResult, ToolDefinition } from '@mariozechner/pi-coding-agent';
-import { Type } from '@sinclair/typebox';
+import { createSyntheticSourceInfo, defineTool, type AgentSession, type LoadExtensionsResult, type ToolDefinition } from '@mariozechner/pi-coding-agent';
+import { Type } from 'typebox';
 
 import {
   bridgeExtensionTools,
@@ -17,16 +17,7 @@ import { installCliSessionBridge } from '@electron/cli/bridges/session-bridge';
 import { workspaceManager } from '@electron/shared/infra/shared-infra';
 
 type CustomCliToolDefinition = ToolDefinition & {
-  cli: {
-    summary?: string;
-    help?: string;
-    group?: string;
-    overrideBuiltin?: boolean;
-    execute: (
-      args: string[],
-      context: CliCommandContext,
-    ) => Promise<CliResult>;
-  };
+  cli: NonNullable<ToolDefinition['cli']>;
 };
 
 function installSessionBridge(sessionIds: string[]) {
@@ -58,13 +49,14 @@ function makeLoadExtensionsResult(
       {
         path: extensionPath,
         resolvedPath: extensionPath,
+        sourceInfo: createSyntheticSourceInfo(extensionPath, { source: 'extension' }),
         handlers: new Map(),
         tools: new Map([
           [
             tool.name,
             {
               definition: tool,
-              extensionPath,
+              sourceInfo: createSyntheticSourceInfo(extensionPath, { source: 'extension' }),
             },
           ],
         ]),
@@ -212,7 +204,7 @@ describe('custom tool CLI bridge metadata', () => {
     const executeV1 = vi.fn(async () => ({ output: 'v1', exitCode: 0 }));
     const executeV2 = vi.fn(async () => ({ output: 'v2', exitCode: 0 }));
 
-    const baseTool = {
+    const baseTool = defineTool({
       name: 'google',
       label: 'Google',
       description: 'Plugin-owned Google bridge.',
@@ -223,7 +215,7 @@ describe('custom tool CLI bridge metadata', () => {
         content: [{ type: 'text', text: 'tool execute' }],
         details: null,
       }),
-    } satisfies Omit<CustomCliToolDefinition, 'cli'>;
+    });
 
     const toolV1: CustomCliToolDefinition = {
       ...baseTool,

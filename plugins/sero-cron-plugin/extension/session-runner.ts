@@ -14,9 +14,9 @@
 import {
   createAgentSession,
   SessionManager,
-  createCodingTools,
 } from '@mariozechner/pi-coding-agent';
 import type { AgentSession } from '@mariozechner/pi-coding-agent';
+import type { Model } from '@mariozechner/pi-ai';
 import { info, error as logError } from './logger';
 
 // ── Types ───────────────────────────────────────────────────────
@@ -159,12 +159,12 @@ export async function runTransientSession(
     try {
       const sessionResult = await createAgentSession({
         cwd: cwd || process.cwd(),
-        model,
         agentDir: agentDir || process.env.PI_CODING_AGENT_DIR || undefined,
-        tools: createCodingTools(cwd || process.cwd()),
+        tools: ['read', 'bash', 'edit', 'write'],
         sessionManager: SessionManager.inMemory(cwd || process.cwd()),
       });
       session = sessionResult.session;
+      await applyModelOverride(session, model);
     } finally {
       // Restore env — only clear if we set it
       if (prevEnv === undefined) {
@@ -212,6 +212,53 @@ export async function runTransientSession(
     }
     releaseSlot(jobKey);
   }
+}
+
+// ── Model override resolution ───────────────────────────────────
+
+async function applyModelOverride(
+  session: AgentSession,
+  modelOverride: string | undefined,
+): Promise<void> {
+  const normalized = modelOverride?.trim();
+  if (!normalized || normalized === 'default') return;
+
+  const model = findModelOverride(session, normalized);
+  if (!model) {
+    info('session-runner:model-override-not-found', { model: normalized });
+    return;
+  }
+
+  await session.setModel(model);
+}
+
+function findModelOverride(
+  session: AgentSession,
+  modelOverride: string,
+): Model<any> | undefined {
+  const available = session.modelRegistry.getAvailable();
+  const slashIndex = modelOverride.indexOf('/');
+
+  if (slashIndex > 0) {
+    const provider = modelOverride.slice(0, slashIndex);
+    const modelId = modelOverride.slice(slashIndex + 1);
+    return (
+      session.modelRegistry.find(provider, modelId) ??
+      available.find((model) => model.provider === provider && model.id === modelId)
+    );
+  }
+
+  const lower = modelOverride.toLowerCase();
+  return (
+    available.find((model) => model.id === modelOverride) ??
+    available.find((model) => model.id.toLowerCase() === lower) ??
+    available.find((model) => model.name.toLowerCase() === lower) ??
+    available.find(
+      (model) =>
+        model.id.toLowerCase().includes(lower) ||
+        model.name.toLowerCase().includes(lower),
+    )
+  );
 }
 
 // ── Timeout wrapper ─────────────────────────────────────────────

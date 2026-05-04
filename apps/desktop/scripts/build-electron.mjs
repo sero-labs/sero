@@ -16,7 +16,7 @@ const shared = {
   format: 'esm',
   bundle: true,
   sourcemap: true,
-  external: ['electron', 'node-pty', 'esbuild', '@mariozechner/*', '@sinclair/typebox', '@google/genai', 'ws', 'discord.js'],
+  external: ['electron', 'node-pty', 'esbuild', '@mariozechner/*', 'typebox', '@google/genai', 'ws', 'discord.js'],
   outdir: 'dist/electron',
   logLevel: 'info',
   // Keep import.meta.url working for ESM dependencies (pi SDK)

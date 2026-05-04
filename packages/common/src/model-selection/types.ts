@@ -27,7 +27,7 @@ export interface SharedModelInfo {
   modelId: string;
   name: string;
   reasoning: boolean;
-  availableThinkingLevels?: string[];
+  availableThinkingLevels?: ThinkingLevel[];
   supportsXhigh?: boolean;
 }
 

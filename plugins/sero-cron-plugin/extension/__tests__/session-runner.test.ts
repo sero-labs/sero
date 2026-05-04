@@ -1,18 +1,8 @@
-/**
- * Tests for the transient session runner.
- *
- * Mocks createAgentSession to avoid real Pi SDK/LLM calls.
- * Validates: concurrency limits, deduplication, timeout, cleanup,
- * re-entrancy guard, output extraction, and error handling.
- */
-
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-// ── Mocks ──────────────────────────────────────────────────────
-
-// Track session lifecycle for assertions
 const sessionInstances: Array<{
   promptCalls: Array<{ text: string }>;
+  setModelCalls: any[];
   disposed: boolean;
   aborted: boolean;
   messages: any[];
@@ -22,9 +12,15 @@ function createMockSession(opts?: {
   promptDelay?: number;
   promptError?: Error;
   messages?: any[];
+  availableModels?: any[];
 }) {
+  const availableModels = opts?.availableModels ?? [
+    { provider: 'anthropic', id: 'claude-sonnet-4-6', name: 'Claude Sonnet 4.6' },
+    { provider: 'openai', id: 'gpt-4o', name: 'GPT-4o' },
+  ];
   const instance = {
     promptCalls: [] as Array<{ text: string }>,
+    setModelCalls: [] as any[],
     disposed: false,
     aborted: false,
     messages: opts?.messages ?? [
@@ -41,6 +37,15 @@ function createMockSession(opts?: {
       }
       if (opts?.promptError) throw opts.promptError;
     }),
+    modelRegistry: {
+      getAvailable: vi.fn(() => availableModels),
+      find: vi.fn((provider: string, modelId: string) =>
+        availableModels.find((model) => model.provider === provider && model.id === modelId),
+      ),
+    },
+    setModel: vi.fn(async (model: any) => {
+      instance.setModelCalls.push(model);
+    }),
     abort: vi.fn(() => {
       instance.aborted = true;
     }),
@@ -52,7 +57,6 @@ function createMockSession(opts?: {
   return instance;
 }
 
-// Mock the Pi SDK
 vi.mock('@mariozechner/pi-coding-agent', () => ({
   createAgentSession: vi.fn(async () => {
     const session = createMockSession();
@@ -61,17 +65,13 @@ vi.mock('@mariozechner/pi-coding-agent', () => ({
   SessionManager: {
     inMemory: vi.fn((cwd?: string) => ({ type: 'inMemory', cwd })),
   },
-  createCodingTools: vi.fn((cwd: string) => [{ name: 'mock-tool', cwd }]),
 }));
 
-// Mock logger to suppress output in tests
 vi.mock('../logger', () => ({
   info: vi.fn(),
   warn: vi.fn(),
   error: vi.fn(),
 }));
-
-// ── Import after mocks ─────────────────────────────────────────
 
 import { createAgentSession } from '@mariozechner/pi-coding-agent';
 import {
@@ -81,8 +81,6 @@ import {
   getActiveCount,
   getActiveNames,
 } from '../session-runner';
-
-// ── Helpers ─────────────────────────────────────────────────────
 
 beforeEach(() => {
   sessionInstances.length = 0;
@@ -98,11 +96,8 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  // Ensure no leaked env vars
   delete process.env.SERO_CRON_SUBPROCESS;
 });
-
-// ── Tests ───────────────────────────────────────────────────────
 
 describe('runTransientSession', () => {
   it('creates an in-memory session, runs prompt, and disposes', async () => {
@@ -113,7 +108,6 @@ describe('runTransientSession', () => {
     expect(result.durationMs).toBeGreaterThanOrEqual(0);
     expect(result.error).toBeUndefined();
 
-    // Session was created and disposed
     expect(sessionInstances).toHaveLength(1);
     expect(sessionInstances[0].promptCalls).toHaveLength(1);
     expect(sessionInstances[0].promptCalls[0].text).toBe('Hello agent');
@@ -134,29 +128,41 @@ describe('runTransientSession', () => {
     );
   });
 
-  it('passes model to createAgentSession', async () => {
+  it('uses Pi built-in coding tools by name', async () => {
+    await runTransientSession('tool-job', 'Do work', {
+      cwd: '/test/workspace',
+    });
+
+    expect(createAgentSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tools: ['read', 'bash', 'edit', 'write'],
+      }),
+    );
+  });
+
+  it('applies model override after creating the session', async () => {
     await runTransientSession('model-job', 'Do work', {
       model: 'sonnet',
       cwd: '/test/workspace',
     });
 
     expect(createAgentSession).toHaveBeenCalledWith(
-      expect.objectContaining({
-        model: 'sonnet',
-      }),
+      expect.not.objectContaining({ model: expect.anything() }),
     );
+    expect(sessionInstances[0].setModelCalls).toEqual([
+      expect.objectContaining({ provider: 'anthropic', id: 'claude-sonnet-4-6' }),
+    ]);
   });
 
-  it('omits model when not specified', async () => {
+  it('omits model override when not specified', async () => {
     await runTransientSession('no-model-job', 'Do work', {
       cwd: '/test/workspace',
     });
 
     expect(createAgentSession).toHaveBeenCalledWith(
-      expect.objectContaining({
-        model: undefined,
-      }),
+      expect.not.objectContaining({ model: expect.anything() }),
     );
+    expect(sessionInstances[0].setModelCalls).toEqual([]);
   });
 
   it('uses SessionManager.inMemory() — no files persisted', async () => {

@@ -77,16 +77,20 @@ export function buildModelState(entry: Pick<PoolEntryRef, 'session'>): SessionMo
     : null;
   const inactiveModelLabel = available.length > 0 ? 'Select model' : 'No models available';
 
+  const availableThinkingLevels = activeModel ? session.getAvailableThinkingLevels() : [];
+
   return {
     model: {
       provider: activeModel?.provider ?? 'unknown',
       modelId: activeModel?.id ?? 'unknown',
       name: activeModel?.name ?? inactiveModelLabel,
       reasoning: activeModel?.reasoning ?? false,
+      availableThinkingLevels,
+      supportsXhigh: availableThinkingLevels.includes('xhigh'),
     },
     thinkingLevel: activeModel ? session.thinkingLevel : 'off',
-    availableThinkingLevels: activeModel ? session.getAvailableThinkingLevels() : [],
-    supportsXhigh: activeModel ? session.supportsXhighThinking() : false,
+    availableThinkingLevels,
+    supportsXhigh: availableThinkingLevels.includes('xhigh'),
     availableModels,
   };
 }
@@ -128,7 +132,7 @@ export function buildCommandList(entry: PoolEntryRef, hidden?: Set<string>): Ser
     name: prompt.name,
     description: prompt.description,
     source: 'prompt' as const,
-    path: prompt.source,
+    path: prompt.sourceInfo.path,
   }));
 
   const { skills } = entry.loader.getSkills();

@@ -82,7 +82,7 @@ export function registerSkillHandlers(): void {
           name: s.name,
           description: s.description,
           filePath: s.filePath,
-          source: s.source as SkillSummary['source'],
+          source: s.sourceInfo.source as SkillSummary['source'],
         }))
         .sort((a, b) => a.name.localeCompare(b.name));
     },
@@ -109,7 +109,7 @@ export function registerSkillHandlers(): void {
         .map((skill) => ({
           name: skill.name,
           description: skill.description,
-          source: skill.source,
+          source: skill.sourceInfo.source,
           disableModelInvocation: skill.disableModelInvocation,
         }))
         .sort((a, b) => a.name.localeCompare(b.name));

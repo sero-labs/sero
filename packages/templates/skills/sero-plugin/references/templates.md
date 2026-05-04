@@ -69,7 +69,7 @@ If the plugin ships **prompt templates** or **skills**, add `prompts/` and/or
     }
   },
   "dependencies": {
-    "@sinclair/typebox": "catalog:"
+    "typebox": "catalog:"
   },
   "peerDependencies": {
     "@mariozechner/pi-ai": "catalog:peer",
@@ -330,7 +330,7 @@ import path from 'node:path';
 import { StringEnum } from '@mariozechner/pi-ai';
 import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
 import { Text } from '@mariozechner/pi-tui';
-import { Type } from '@sinclair/typebox';
+import { Type } from 'typebox';
 
 import type { MyAppState, MyItem } from '../shared/types';
 import { DEFAULT_STATE } from '../shared/types';

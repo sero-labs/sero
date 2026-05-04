@@ -35,16 +35,17 @@ catalog:
   "@types/node": "^22.19.11"
 
   # Pi SDK
-  "@mariozechner/pi-agent-core": "^0.61.1"
-  "@mariozechner/pi-ai": "^0.61.1"
-  "@mariozechner/pi-coding-agent": "^0.61.1"
-  "@mariozechner/pi-tui": "^0.61.1"
+  "@mariozechner/pi-agent-core": "^0.72.1"
+  "@mariozechner/pi-ai": "^0.72.1"
+  "@mariozechner/pi-coding-agent": "^0.72.1"
+  "@mariozechner/pi-tui": "^0.72.1"
 
   # Zod (peer of @mariozechner/pi-* transitives: openai, @anthropic-ai/sdk, zod-to-json-schema)
   zod: "^4.3.6"
 
   # Shared libraries
   "@sinclair/typebox": "^0.34.49"
+  typebox: "^1.1.37"
   lucide-react: "^0.563.0"
   motion: "^12.34.0"
   streamdown: "^2.5.0"
@@ -54,10 +55,10 @@ catalog:
 # Use "catalog:peer" in peerDependencies.
 catalogs:
   peer:
-    "@mariozechner/pi-agent-core": ">=0.61.1"
-    "@mariozechner/pi-ai": ">=0.61.1"
-    "@mariozechner/pi-coding-agent": ">=0.61.1"
-    "@mariozechner/pi-tui": ">=0.61.1"
+    "@mariozechner/pi-agent-core": ">=0.72.1"
+    "@mariozechner/pi-ai": ">=0.72.1"
+    "@mariozechner/pi-coding-agent": ">=0.72.1"
+    "@mariozechner/pi-tui": ">=0.72.1"
     # Mirror the strict catalog above. See the comment there for why these
     # MUST stay aligned.
     react: "^19.2.4"

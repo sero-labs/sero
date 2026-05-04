@@ -42,7 +42,7 @@
     "@monaco-editor/react": "^4.7.0",
     "@remixicon/react": "^4.9.0",
     "@sero-ai/common": "workspace:*",
-    "@sinclair/typebox": "catalog:",
+    "typebox": "catalog:",
     "@streamdown/code": "^1.1.0",
     "@streamdown/math": "^1.0.2",
     "@streamdown/mermaid": "^1.0.2",

@@ -10,6 +10,7 @@ describe('buildOnboardingAvailableModelGroups', () => {
         id: 'gpt-5.4',
         name: 'GPT-5.4',
         reasoning: true,
+        thinkingLevelMap: { xhigh: 'xhigh' },
       },
       {
         provider: 'openai-codex',
@@ -26,5 +27,9 @@ describe('buildOnboardingAvailableModelGroups', () => {
     ];
 
     expect(buildOnboardingAvailableModelGroups(available)).toEqual(buildAvailableModelGroups(available));
+    expect(buildAvailableModelGroups(available)[0]?.models[0]).toMatchObject({
+      availableThinkingLevels: ['off', 'minimal', 'low', 'medium', 'high', 'xhigh'],
+      supportsXhigh: true,
+    });
   });
 });

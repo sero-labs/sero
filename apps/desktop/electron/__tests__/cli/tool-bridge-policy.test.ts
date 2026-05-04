@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { Type, type TSchema } from '@sinclair/typebox';
+import { Type, type TSchema } from 'typebox';
 import type { LoadExtensionsResult, ToolDefinition, RegisteredCommand } from '@mariozechner/pi-coding-agent';
 import { bridgeExtensionTools, getCliRegistry, resetCliRegistryForTests } from '@electron/cli';
 

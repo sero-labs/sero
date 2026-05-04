@@ -96,7 +96,7 @@ export async function ensureSessionHasAvailableModel(
     : undefined;
 
   if (currentModel && refreshedModel && refreshedModel !== currentModel) {
-    session.agent.setModel(refreshedModel);
+    setRuntimeSessionModel(session, refreshedModel);
   }
 
   const availableModels = session.modelRegistry.getAvailable();

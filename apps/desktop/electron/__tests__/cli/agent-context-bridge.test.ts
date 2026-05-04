@@ -1,16 +1,16 @@
 import { describe, expect, it, vi } from 'vitest';
-import { Type } from '@sinclair/typebox';
+import { Type } from 'typebox';
 
 import { bridgeTool } from '@electron/cli/core/schema-bridge';
 import type { CliCommandContext, CliInvocation } from '@electron/cli/core/types';
-import type { ExtensionContext, ToolDefinition } from '@mariozechner/pi-coding-agent';
+import { defineTool, type ExtensionContext, type ToolDefinition } from '@mariozechner/pi-coding-agent';
 import type { ContainerManager } from '@electron/features/container';
 import type { WorkspaceManager } from '@electron/features/workspace/manager';
 
 function createMockToolDef(
   executeFn: ToolDefinition['execute'],
 ): ToolDefinition {
-  return {
+  return defineTool({
     name: 'test-tool',
     label: 'Test Tool',
     description: 'A test tool.',
@@ -18,7 +18,7 @@ function createMockToolDef(
       input: Type.String({ description: 'Test input' }),
     }),
     execute: executeFn as ToolDefinition['execute'],
-  };
+  });
 }
 
 /** Minimal successful tool result that satisfies AgentToolResult. */
@@ -38,11 +38,12 @@ function createMockInvocation(): CliInvocation {
 function createMockAgentContext(): Omit<ExtensionContext, 'cwd'> {
   return {
     model: { id: 'claude-sonnet', api: 'anthropic-messages', provider: 'anthropic' } as ExtensionContext['model'],
-    modelRegistry: { getApiKey: vi.fn() } as unknown as ExtensionContext['modelRegistry'],
+    modelRegistry: { getApiKeyAndHeaders: vi.fn() } as unknown as ExtensionContext['modelRegistry'],
     sessionManager: { getSessionId: vi.fn(() => 'sid-1') } as unknown as ExtensionContext['sessionManager'],
     hasUI: true,
     ui: { notify: vi.fn() } as unknown as ExtensionContext['ui'],
     isIdle: () => true,
+    signal: undefined,
     abort: vi.fn(),
     hasPendingMessages: () => false,
     shutdown: vi.fn(),
@@ -111,9 +112,9 @@ describe('bridgeTool agent context forwarding', () => {
   });
 
   it('preserves model and modelRegistry for tools that need LLM access', async () => {
-    const mockGetApiKey = vi.fn().mockResolvedValue('sk-test-123');
+    const mockGetApiKeyAndHeaders = vi.fn().mockResolvedValue({ ok: true, apiKey: 'sk-test-123' });
     const agentContext = createMockAgentContext();
-    agentContext.modelRegistry = { getApiKey: mockGetApiKey } as unknown as ExtensionContext['modelRegistry'];
+    agentContext.modelRegistry = { getApiKeyAndHeaders: mockGetApiKeyAndHeaders } as unknown as ExtensionContext['modelRegistry'];
 
     let capturedRegistry: ExtensionContext['modelRegistry'] | undefined;
 
@@ -129,7 +130,7 @@ describe('bridgeTool agent context forwarding', () => {
 
     expect(capturedRegistry).toBe(agentContext.modelRegistry);
     // Verify the registry is the same object (not a copy)
-    await capturedRegistry!.getApiKey({} as any);
-    expect(mockGetApiKey).toHaveBeenCalledOnce();
+    await capturedRegistry!.getApiKeyAndHeaders({ provider: 'anthropic', id: 'claude-sonnet' } as NonNullable<ExtensionContext['model']>);
+    expect(mockGetApiKeyAndHeaders).toHaveBeenCalledOnce();
   });
 });

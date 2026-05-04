@@ -16,7 +16,7 @@
     ]
   },
   "dependencies": {
-    "@sinclair/typebox": "catalog:",
+    "typebox": "catalog:",
     "@tobilu/qmd": "^2.0.1",
     "date-fns": "^4.1.0"
   },

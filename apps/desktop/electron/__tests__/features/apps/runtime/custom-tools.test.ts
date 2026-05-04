@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Type } from '@sinclair/typebox';
+import { Type } from 'typebox';
 import type { ToolDefinition } from '@mariozechner/pi-coding-agent';
 import { validateRuntimeCustomTools } from '@electron/features/apps/runtime/capabilities/custom-tools';
 

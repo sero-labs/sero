@@ -147,7 +147,7 @@ async function restoreLegacyCheckpoint(
   if (branchTargetId) {
     entry.session.sessionManager.branch(branchTargetId);
     const ctx = entry.session.sessionManager.buildSessionContext();
-    entry.session.agent.replaceMessages(ctx.messages);
+    entry.session.agent.state.messages = ctx.messages;
   } else {
     console.warn(`[checkpoint] No session entry for changeId=${changeId} — VCS-only restore`);
   }

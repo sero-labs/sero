@@ -62,7 +62,7 @@
   },
   "dependencies": {
     "@mozilla/readability": "^0.5.0",
-    "@sinclair/typebox": "catalog:",
+    "typebox": "catalog:",
     "better-sqlite3": "^12.8.0",
     "linkedom": "^0.16.0",
     "p-limit": "^6.1.0",

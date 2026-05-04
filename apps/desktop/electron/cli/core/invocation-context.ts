@@ -71,6 +71,7 @@ export function extractAgentContext(ctx: ExtensionContext): BridgedAgentContext 
     modelRegistry: ctx.modelRegistry,
     model: ctx.model,
     isIdle: () => ctx.isIdle(),
+    signal: ctx.signal,
     abort: () => ctx.abort(),
     hasPendingMessages: () => ctx.hasPendingMessages(),
     shutdown: () => ctx.shutdown(),

@@ -163,6 +163,7 @@ export function buildDirectCliExtensionContext(
     modelRegistry: entry.session.modelRegistry,
     model: entry.session.model,
     isIdle: () => true,
+    signal: entry.session.agent.signal,
     abort: () => {
       void entry.session.abort();
     },
@@ -289,7 +290,7 @@ function createDirectCliToolExecutor(
 }
 
 function appendMessage(session: AgentSession, message: Message): void {
-  session.agent.appendMessage(message);
+  session.agent.state.messages.push(message);
   session.sessionManager.appendMessage(message);
 }
 

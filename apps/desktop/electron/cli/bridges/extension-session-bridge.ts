@@ -1,7 +1,8 @@
-import type {
-  Extension,
-  RegisteredCommand,
-  RegisteredTool,
+import {
+  createSyntheticSourceInfo,
+  type Extension,
+  type RegisteredCommand,
+  type RegisteredTool,
 } from '@mariozechner/pi-coding-agent';
 
 import type { CliCommandContext } from '../core/types';
@@ -24,6 +25,10 @@ function resolveSessionId(
   } catch {
     return null;
   }
+}
+
+function getRegisteredToolSourcePath(tool: RegisteredTool | undefined): string {
+  return tool?.sourceInfo.path ?? '<session>';
 }
 
 function resolveSessionEntry(
@@ -68,9 +73,10 @@ export function getBridgedExtensionTool(
 
   const liveTool = resolved.entry.session.extensionRunner?.getToolDefinition(name);
   if (liveTool) {
+    const sourcePath = getRegisteredToolSourcePath(sessionItems.get(resolved.sessionId)?.tools.get(name));
     return {
       definition: liveTool,
-      extensionPath: sessionItems.get(resolved.sessionId)?.tools.get(name)?.extensionPath ?? '<session>',
+      sourceInfo: createSyntheticSourceInfo(sourcePath, { source: 'extension' }),
     };
   }
 

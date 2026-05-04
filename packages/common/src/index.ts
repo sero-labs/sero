@@ -102,7 +102,6 @@ export {
   findModelByReference,
   flattenModelGroups,
   filterModelGroups,
-  inferSupportsXhigh,
   getAvailableThinkingLevels,
   resolveSupportedThinkingLevel,
   supportsThinkingLevel,

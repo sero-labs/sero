@@ -17,7 +17,7 @@
 
 import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
 
-const REASONING_EFFORT_MAP = {
+const THINKING_LEVEL_MAP = {
   minimal: 'false',
   low: 'false',
   medium: 'true',
@@ -37,7 +37,6 @@ function reasoningCompat() {
   return {
     supportsDeveloperRole: false,
     supportsReasoningEffort: true,
-    reasoningEffortMap: REASONING_EFFORT_MAP,
     maxTokensField: 'max_tokens' as const,
     thinkingFormat: 'qwen' as const,
   };
@@ -45,6 +44,7 @@ function reasoningCompat() {
 
 export default function (pi: ExtensionAPI) {
   pi.registerProvider('alibaba-coding-plan', {
+    name: 'Alibaba Coding Plan',
     baseUrl: 'https://coding-intl.dashscope.aliyuncs.com/v1',
     // Shell-resolved env lookup keeps the provider hidden until the user has
     // either saved a key in auth.json or actually exported ALIBABA_CODING_PLAN_KEY.
@@ -55,6 +55,7 @@ export default function (pi: ExtensionAPI) {
         id: 'qwen3.5-plus',
         name: 'Qwen3.5 Plus',
         reasoning: true,
+        thinkingLevelMap: THINKING_LEVEL_MAP,
         input: ['text', 'image'],
         cost: { input: 1.5, output: 6.0, cacheRead: 0, cacheWrite: 0 },
         contextWindow: 1000000,
@@ -65,6 +66,7 @@ export default function (pi: ExtensionAPI) {
         id: 'qwen3-max-2026-01-23',
         name: 'Qwen3 Max',
         reasoning: true,
+        thinkingLevelMap: THINKING_LEVEL_MAP,
         input: ['text'],
         cost: { input: 1.2, output: 6.0, cacheRead: 0, cacheWrite: 0 },
         contextWindow: 262144,
@@ -95,6 +97,7 @@ export default function (pi: ExtensionAPI) {
         id: 'glm-5',
         name: 'GLM-5',
         reasoning: true,
+        thinkingLevelMap: THINKING_LEVEL_MAP,
         input: ['text'],
         cost: { input: 2.0, output: 6.0, cacheRead: 0, cacheWrite: 0 },
         contextWindow: 131072,
@@ -105,6 +108,7 @@ export default function (pi: ExtensionAPI) {
         id: 'glm-4.7',
         name: 'GLM-4.7',
         reasoning: true,
+        thinkingLevelMap: THINKING_LEVEL_MAP,
         input: ['text'],
         cost: { input: 1.0, output: 3.0, cacheRead: 0, cacheWrite: 0 },
         contextWindow: 131072,
@@ -115,6 +119,7 @@ export default function (pi: ExtensionAPI) {
         id: 'kimi-k2.5',
         name: 'Kimi K2.5',
         reasoning: true,
+        thinkingLevelMap: THINKING_LEVEL_MAP,
         input: ['text', 'image'],
         cost: { input: 2.0, output: 6.0, cacheRead: 0, cacheWrite: 0 },
         contextWindow: 1000000,
@@ -125,6 +130,7 @@ export default function (pi: ExtensionAPI) {
         id: 'MiniMax-M2.5',
         name: 'MiniMax M2.5',
         reasoning: true,
+        thinkingLevelMap: THINKING_LEVEL_MAP,
         input: ['text'],
         cost: { input: 2.0, output: 6.0, cacheRead: 0, cacheWrite: 0 },
         contextWindow: 1000000,

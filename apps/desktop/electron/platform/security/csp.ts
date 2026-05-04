@@ -86,14 +86,15 @@ export function buildContentSecurityPolicy(
   ];
 
   // -- img-src --
-  // Browser tabs mirror remote favicons into React chrome, so images need
-  // broad HTTPS access even though script/connect stay tightly scoped.
+  // Browser tabs mirror remote favicons into React chrome, including
+  // container/private-IP dev servers that often serve HTTP-only favicons.
+  // Keep script/connect tight; img-src can safely allow passive http(s) images.
   const imgSrc = [
     "'self'",
     'data:',
     'blob:',
     'https:',
-    ...devHttpSrc,
+    'http:',
     ...extensionSrc,
   ];
 

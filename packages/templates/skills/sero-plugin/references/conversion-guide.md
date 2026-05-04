@@ -117,7 +117,7 @@ Original extension's npm packages go directly in your plugin's `dependencies`:
 ```json
 {
   "dependencies": {
-    "@sinclair/typebox": "catalog:",
+    "typebox": "catalog:",
     "@mozilla/readability": "^0.5.0",
     "linkedom": "^0.16.0",
     "turndown": "^7.2.0"

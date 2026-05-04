@@ -162,14 +162,6 @@ export function registerContextInjection(pi: ExtensionAPI): void {
     resetBootstrapCache();
   });
 
-  pi.on('session_switch', (_event, ctx) => {
-    const sessionId = ctx.sessionManager.getSessionId();
-    info('bootstrap_cache_reset', { source: 'session_switch', sessionId });
-    clearPriorityContextCache(sessionId);
-    clearMemoryPromptDebugState(sessionId);
-    resetBootstrapCache();
-  });
-
   // Strip prior-turn search context messages so only the latest reaches the LLM.
   pi.on('context', async (event) => {
     return {

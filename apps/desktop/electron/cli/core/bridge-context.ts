@@ -11,7 +11,7 @@ import type { CliCommandContext, CliSessionRuntime } from './types';
 import type { CliSessionEntry } from '../bridges/session-bridge';
 import { getCliSessionBridge } from '../bridges/session-bridge';
 
-const FALLBACK_MODEL_REGISTRY = new ModelRegistry(AuthStorage.inMemory());
+const FALLBACK_MODEL_REGISTRY = ModelRegistry.inMemory(AuthStorage.inMemory());
 
 export type SeroBridgedToolContext = ExtensionContext & {
   sessionRuntime?: CliSessionRuntime;
@@ -43,6 +43,7 @@ function createFallbackExtensionContext(cwd: string): ExtensionContext {
     modelRegistry: FALLBACK_MODEL_REGISTRY,
     model: undefined,
     isIdle: () => true,
+    signal: undefined,
     abort: () => {},
     hasPendingMessages: () => false,
     shutdown: () => {},
@@ -72,6 +73,7 @@ function createSessionBackedExtensionContext(
     modelRegistry: entry.session.modelRegistry,
     model: entry.session.model,
     isIdle: () => !entry.session.isStreaming,
+    signal: entry.session.agent.signal,
     abort: () => {
       void entry.session.abort();
     },

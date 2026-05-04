@@ -353,12 +353,8 @@ export interface CustomToolCliBridge {
   ) => Promise<CliResult>;
 }
 
-interface CliBridgeAwareToolDefinition extends ToolDefinition {
-  cli?: CustomToolCliBridge;
-}
-
 export function getCustomToolCliBridge(toolDef: ToolDefinition): CustomToolCliBridge | undefined {
-  const cli = (toolDef as CliBridgeAwareToolDefinition).cli;
+  const cli = toolDef.cli;
   return cli && typeof cli.execute === 'function' ? cli : undefined;
 }
 

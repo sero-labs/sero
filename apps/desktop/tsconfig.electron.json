@@ -21,7 +21,7 @@
       "@plugins/*": ["../../plugins/*"],
       "@packages/*": ["../../packages/*"],
       "@sero-ai/common": ["../../packages/common/src/index.ts"],
-      // Subpath export — not resolvable under moduleResolution:node without this mapping
+      // Pi 0.72.1 exports this subpath, but moduleResolution:node still needs this mapping.
       "@mariozechner/pi-ai/oauth": ["./node_modules/@mariozechner/pi-ai/dist/oauth"]
     }
   },
