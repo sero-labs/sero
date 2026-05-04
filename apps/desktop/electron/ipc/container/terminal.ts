@@ -8,7 +8,7 @@
 import { ipcMain } from 'electron';
 import { IpcChannels } from '@/types/ipc-channels';
 import { containerManager } from '@electron/shared/infra/shared-infra';
-import { resolveWorkspaceRuntime } from '@electron/features/workspace/runtime-resolution';
+import { createTerminalSession } from './terminal-create';
 import { broadcastToWindows } from '../lib/window-broadcast';
 
 export function registerTerminalHandlers(): void {
@@ -23,20 +23,15 @@ export function registerTerminalHandlers(): void {
   ipcMain.handle(
     IpcChannels.terminal.create,
     async (_event, workspaceId: string, terminalId: string, cols?: number, rows?: number) => {
-      const runtime = await resolveWorkspaceRuntime(workspaceId);
-      const pty = runtime.actualRuntime === 'container'
-        ? tm.createTerminal(workspaceId, terminalId, cols, rows)
-        : tm.createHostTerminal(workspaceId, terminalId, runtime.workspacePath, cols, rows);
-
-      // Forward PTY data to all renderer windows
-      pty.onData((data: string) => {
-        broadcastToWindows(IpcChannels.terminal.data, terminalId, data);
+      return createTerminalSession({
+        workspaceId,
+        terminalId,
+        cols,
+        rows,
+        onData(data) {
+          broadcastToWindows(IpcChannels.terminal.data, terminalId, data);
+        },
       });
-
-      return {
-        runtime: runtime.actualRuntime,
-        fallbackReason: runtime.fallbackReason,
-      };
     },
   );
 
