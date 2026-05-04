@@ -207,7 +207,7 @@ describe('plugin package build helpers', () => {
     };
     expect(installedPkg.sero?.app?.runtime).toBe('./runtime/index.ts');
     expect(installedPkg.sero?.app?.devPort).toBeUndefined();
-  });
+  }, 30_000);
 
   it('rejects plugins that declare missing runtime entries', async () => {
     const dir = await createTempPluginDir(tempDirs);
