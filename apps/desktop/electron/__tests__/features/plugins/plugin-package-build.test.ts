@@ -221,9 +221,12 @@ describe('plugin package build helpers', () => {
       },
     });
 
-    await expect(ensurePluginPackageReadyForInstall(dir, 'local')).rejects.toThrow(
+    const runCommand = vi.fn(async () => {});
+
+    await expect(ensurePluginPackageReadyForInstall(dir, 'local', { runCommand })).rejects.toThrow(
       /declares runtime \.\/runtime\/index\.ts but the file is missing after install preparation/,
     );
+    expect(runCommand).toHaveBeenCalledWith('npm', ['install'], dir);
   });
 
   it('builds git source plugins locally before install', async () => {
