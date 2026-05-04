@@ -196,7 +196,11 @@ describe('plugin package build helpers', () => {
       },
     });
 
-    await ensurePluginPackageReadyForInstall(dir, 'local');
+    const runCommand = vi.fn(async () => {});
+
+    await ensurePluginPackageReadyForInstall(dir, 'local', { runCommand });
+
+    expect(runCommand).toHaveBeenCalledWith('npm', ['install'], dir);
 
     const installedPkg = JSON.parse(await readFile(path.join(dir, 'package.json'), 'utf8')) as {
       sero?: { app?: { runtime?: string; devPort?: number } };
