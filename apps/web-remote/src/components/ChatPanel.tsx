@@ -272,6 +272,7 @@ export function ChatPanel() {
 
           <VoiceTranscriptionControl
             client={client}
+            isConnected={isConnected}
             disabled={!isConnected || isStreaming}
             onTranscript={handleTranscript}
           />

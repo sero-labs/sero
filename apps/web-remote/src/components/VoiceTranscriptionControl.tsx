@@ -35,12 +35,19 @@ type VoicePhase = 'disabled' | 'idle' | 'starting' | 'recording' | 'processing' 
 
 interface VoiceTranscriptionControlProps {
   client: GatewayClientLike;
+  /**
+   * Whether the gateway connection is ready to accept requests. The control
+   * waits for this to be true before probing voice status, otherwise the
+   * status check would race the WebSocket handshake and disable itself.
+   */
+  isConnected: boolean;
   disabled: boolean;
   onTranscript: (text: string) => void;
 }
 
 export function VoiceTranscriptionControl({
   client,
+  isConnected,
   disabled,
   onTranscript,
 }: VoiceTranscriptionControlProps) {
@@ -58,6 +65,13 @@ export function VoiceTranscriptionControl({
   const timerRef = useRef<number | null>(null);
   const startedAtRef = useRef<number>(0);
   const mountedRef = useRef(true);
+  const supportsCapture = useMemo(
+    () =>
+      typeof navigator !== 'undefined' &&
+      Boolean(navigator.mediaDevices?.getUserMedia) &&
+      typeof MediaRecorder !== 'undefined',
+    [],
+  );
 
   const refreshAudioInputs = useCallback(async () => {
     if (!navigator.mediaDevices?.enumerateDevices) return;
@@ -82,44 +96,9 @@ export function VoiceTranscriptionControl({
     }
   }, []);
 
+  // Cleanup on unmount: stop any active recording / stream / timer.
   useEffect(() => {
     mountedRef.current = true;
-
-    const supportsCapture =
-      typeof navigator !== 'undefined' &&
-      Boolean(navigator.mediaDevices?.getUserMedia) &&
-      typeof MediaRecorder !== 'undefined';
-
-    if (!supportsCapture) {
-      setPhase('disabled');
-      setError('Voice transcription requires a browser with microphone support over HTTPS.');
-      return () => {
-        mountedRef.current = false;
-      };
-    }
-
-    client
-      .voiceStatus()
-      .then(async (status) => {
-        if (!mountedRef.current) return;
-
-        if (!status.enabled) {
-          setPhase('disabled');
-          setError(status.reason ?? null);
-          return;
-        }
-
-        setPhase('idle');
-        setError(null);
-        await refreshAudioInputs();
-      })
-      .catch((err) => {
-        if (!mountedRef.current) return;
-        const message = err instanceof Error ? err.message : 'Voice transcription unavailable.';
-        setPhase('disabled');
-        setError(message);
-      });
-
     return () => {
       mountedRef.current = false;
       clearTimer(timerRef);
@@ -135,7 +114,57 @@ export function VoiceTranscriptionControl({
       stopStream(streamRef.current);
       streamRef.current = null;
     };
-  }, [client, refreshAudioInputs]);
+  }, []);
+
+  // Probe the host's voice transcription availability. Re-runs when the
+  // gateway connection comes up so the control doesn't latch into the
+  // 'disabled' state if the user opens the chat before authentication
+  // finishes.
+  useEffect(() => {
+    if (!supportsCapture) {
+      setPhase('disabled');
+      setError('Voice transcription requires a browser with microphone support over HTTPS.');
+      return;
+    }
+
+    if (!isConnected) {
+      // Reset to a neutral 'disabled' so the button hides until we've actually
+      // had a chance to ask the host. We re-check as soon as we connect.
+      setPhase('disabled');
+      setError(null);
+      return;
+    }
+
+    let cancelled = false;
+    setPhase('disabled');
+    setError(null);
+
+    client
+      .voiceStatus()
+      .then(async (status) => {
+        if (cancelled || !mountedRef.current) return;
+
+        if (!status.enabled) {
+          setPhase('disabled');
+          setError(status.reason ?? null);
+          return;
+        }
+
+        setPhase('idle');
+        setError(null);
+        await refreshAudioInputs();
+      })
+      .catch((err) => {
+        if (cancelled || !mountedRef.current) return;
+        const message = err instanceof Error ? err.message : 'Voice transcription unavailable.';
+        setPhase('disabled');
+        setError(message);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [client, isConnected, refreshAudioInputs, supportsCapture]);
 
   useEffect(() => {
     if (!navigator.mediaDevices?.addEventListener) return;

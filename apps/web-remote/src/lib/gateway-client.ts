@@ -83,6 +83,12 @@ interface GatewayRequest {
 
 const RECONNECT_DELAY_MS = 3000;
 const MAX_RECONNECT_DELAY_MS = 30000;
+/**
+ * Mirror of the gateway's protocol cap on `voice_transcribe.audioDataUrl`.
+ * Kept slightly under the host's 36 MB WebSocket payload limit so the user
+ * sees a helpful error rather than a WebSocket disconnect.
+ */
+const MAX_VOICE_AUDIO_DATA_URL_BYTES = 35 * 1024 * 1024;
 
 interface PendingRequest {
   resolve: (data: unknown) => void;
@@ -313,12 +319,23 @@ export class GatewayClient {
    * Transcribe a base64 audio data URL via the host's OpenAI integration.
    * The 90 s timeout allows for upload of larger recordings on slow networks
    * plus the host's own 60 s OpenAI request timeout.
+   *
+   * Pre-flighted client-side against the 35 MB protocol cap so users get a
+   * useful "recording too large" error instead of an opaque WebSocket drop
+   * when the gateway's 36 MB payload limit kicks in.
    */
   transcribeVoice(
     audioDataUrl: string,
     mimeType?: string,
     timeoutMs = 90_000,
   ): Promise<VoiceTranscriptionResult> {
+    if (audioDataUrl.length > MAX_VOICE_AUDIO_DATA_URL_BYTES) {
+      return Promise.reject(
+        new Error(
+          'Recorded audio is too large to send (limit ~25 MB after decoding). Please record a shorter clip.',
+        ),
+      );
+    }
     return this.sendRequest<VoiceTranscriptionResult>(
       { type: 'voice_transcribe', audioDataUrl, mimeType },
       timeoutMs,
@@ -329,9 +346,19 @@ export class GatewayClient {
    * Send a request and wait for its correlated response. The response is
    * matched by `requestId`; the caller receives `data` on success or a
    * rejected promise carrying the host's error message.
+   *
+   * Requires the connection to be fully authenticated. Sending during the
+   * `connecting`/`authenticating`/`reconnecting` window is rejected
+   * synchronously because the server emits non-correlated `Not authenticated`
+   * errors for early traffic, which would otherwise leave the promise
+   * pending until timeout.
    */
   sendRequest<T>(request: GatewayRequest, timeoutMs = 30_000): Promise<T> {
     return new Promise<T>((resolve, reject) => {
+      if (this._state !== 'connected') {
+        reject(new Error('Gateway is not connected yet.'));
+        return;
+      }
       if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
         reject(new Error('Not connected to gateway.'));
         return;

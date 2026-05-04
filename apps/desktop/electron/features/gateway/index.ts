@@ -34,8 +34,16 @@ export type {
   GatewayDevServerChange,
 } from './server/types';
 
-/** Maximum WebSocket message payload (1 MB). */
-const MAX_PAYLOAD_BYTES = 1 * 1024 * 1024;
+/**
+ * Maximum WebSocket message payload (36 MB).
+ *
+ * Sized to accommodate the voice transcription path: the OpenAI helper caps
+ * decoded audio at 25 MB, which becomes ~33.4 MB after base64 encoding plus
+ * the JSON envelope. Application-level validation in `protocol.ts` rejects
+ * voice payloads above 40 MB before parsing, and the OpenAI helper enforces
+ * the 25 MB decoded ceiling, so this WebSocket cap is the outer safety net.
+ */
+const MAX_PAYLOAD_BYTES = 36 * 1024 * 1024;
 /** Maximum total concurrent WebSocket connections. */
 const MAX_TOTAL_CONNECTIONS = 50;
 /** Maximum concurrent WebSocket connections per source IP. */
@@ -45,6 +53,17 @@ const IDLE_TIMEOUT_MS = 30 * 60 * 1000;
 /** Auth timeout for unauthenticated connections (10 seconds). */
 const AUTH_TIMEOUT_MS = 10_000;
 type WebChatHtmlProvider = () => string;
+
+/**
+ * Best-effort `requestId` extraction for early errors that fail before
+ * `validateRequest` produces a typed request. Lets the client correlate the
+ * error with its outstanding promise instead of leaving it pending.
+ */
+function readBestEffortRequestId(raw: unknown): string | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const value = (raw as { requestId?: unknown }).requestId;
+  return typeof value === 'string' && value.length > 0 ? value : null;
+}
 
 interface ConnectedClient extends GatewayAccessScope {
   ws: WebSocket;
@@ -373,9 +392,14 @@ export class GatewayServer {
         const raw = JSON.parse(data.toString());
         const request = validateRequest(raw);
         if (!request) {
+          // Best-effort: echo requestId from the raw payload so a client's
+          // pending promise still settles even when validation rejected the
+          // body shape.
+          const requestId = readBestEffortRequestId(raw);
           sendResponse(ws, {
             type: 'error',
             requestType: 'unknown',
+            ...(requestId ? { requestId } : {}),
             message: 'Invalid request format',
           });
           return;
@@ -457,6 +481,7 @@ export class GatewayServer {
       sendResponse(ws, {
         type: 'error',
         requestType: request.type,
+        ...(request.requestId ? { requestId: request.requestId } : {}),
         message: 'Not authenticated. Send a connect request first.',
       });
       return;
@@ -466,6 +491,7 @@ export class GatewayServer {
       sendResponse(ws, {
         type: 'error',
         requestType: request.type,
+        ...(request.requestId ? { requestId: request.requestId } : {}),
         message: 'Agent operations not available',
       });
       return;

@@ -491,10 +491,11 @@ function validateRequestBody(data: Record<string, unknown>): GatewayRequest | nu
       const audioDataUrl = readRequiredString(data, 'audioDataUrl');
       const mimeType = readOptionalString(data, 'mimeType');
       if (!audioDataUrl || mimeType === null) return null;
-      // Reject obviously oversized payloads early. The transcription helper
-      // also enforces a 25 MB decoded limit; this just keeps the JSON parser
-      // and validation cheap for clearly bogus inputs.
-      if (audioDataUrl.length > 40 * 1024 * 1024) return null;
+      // Reject obviously oversized payloads early. The OpenAI transcription
+      // helper enforces the 25 MB decoded ceiling (~33.4 MB base64); this
+      // 35 MB cap stays comfortably under the gateway's 36 MB WebSocket
+      // payload limit and short-circuits clearly bogus inputs.
+      if (audioDataUrl.length > 35 * 1024 * 1024) return null;
       return { type: 'voice_transcribe', audioDataUrl, mimeType };
     }
   }
