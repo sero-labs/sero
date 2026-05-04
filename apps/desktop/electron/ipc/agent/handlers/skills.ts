@@ -16,6 +16,7 @@ import {
   loadSkillsFromDir,
   parseFrontmatter,
   type SkillFrontmatter,
+  type SourceInfo,
 } from '@mariozechner/pi-coding-agent';
 import { IpcChannels } from '@/types/ipc-channels';
 import { SERO_AGENT_DIR, SERO_HOME } from '@electron/platform/env';
@@ -23,9 +24,16 @@ import { appStateManager } from '@electron/features/apps/state/manager';
 import { reloadAllSessionResources } from '..';
 import { ensureInfra, applyRuntimeSettings, SERO_CONFIG_PATH } from '@electron/shared/infra/shared-infra';
 import { withDisabledModelSkills } from '@sero-ai/common';
-import type { SkillSummary, AvailableSkillSummary, SkillFileData } from '@/types/skills';
+import type { SkillSummary, AvailableSkillSummary, SkillFileData, SkillSource } from '@/types/skills';
 
 const SKILLS_DIR = path.join(SERO_AGENT_DIR, 'skills');
+
+function toSkillSource(sourceInfo: SourceInfo): SkillSource {
+  if (sourceInfo.scope === 'user' || sourceInfo.scope === 'project') {
+    return sourceInfo.scope;
+  }
+  return 'path';
+}
 
 async function refreshRuntimeSettings(): Promise<void> {
   const infra = await ensureInfra();
@@ -82,7 +90,7 @@ export function registerSkillHandlers(): void {
           name: s.name,
           description: s.description,
           filePath: s.filePath,
-          source: s.sourceInfo.source as SkillSummary['source'],
+          source: toSkillSource(s.sourceInfo),
         }))
         .sort((a, b) => a.name.localeCompare(b.name));
     },
@@ -109,7 +117,7 @@ export function registerSkillHandlers(): void {
         .map((skill) => ({
           name: skill.name,
           description: skill.description,
-          source: skill.sourceInfo.source,
+          source: toSkillSource(skill.sourceInfo),
           disableModelInvocation: skill.disableModelInvocation,
         }))
         .sort((a, b) => a.name.localeCompare(b.name));

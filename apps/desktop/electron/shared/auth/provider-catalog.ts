@@ -22,8 +22,8 @@ const BUILTIN_API_KEY_PROVIDERS: NamedProvider[] = [
   { id: 'azure-openai-responses', name: 'Azure OpenAI' }, // AZURE_OPENAI_API_KEY
   { id: 'huggingface', name: 'Hugging Face' }, // HF_TOKEN
   { id: 'vercel-ai-gateway', name: 'Vercel AI Gateway' }, // AI_GATEWAY_API_KEY
-  { id: 'cloudflare-workers-ai', name: 'Cloudflare Workers AI' }, // CLOUDFLARE_API_KEY + CLOUDFLARE_ACCOUNT_ID
-  { id: 'cloudflare-ai-gateway', name: 'Cloudflare AI Gateway' }, // CLOUDFLARE_API_KEY + CLOUDFLARE_ACCOUNT_ID + CLOUDFLARE_GATEWAY_ID
+  // cloudflare-workers-ai/cloudflare-ai-gateway require additional account/gateway IDs;
+  // hide them until Sero supports provider-specific multi-field setup.
   { id: 'zai', name: 'ZAI' }, // ZAI_API_KEY
   { id: 'opencode', name: 'OpenCode' }, // OPENCODE_API_KEY
   { id: 'opencode-go', name: 'OpenCode Go' }, // OPENCODE_API_KEY

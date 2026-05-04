@@ -18,12 +18,12 @@ describe('provider catalog', () => {
 
     expect(ids).toEqual(expect.arrayContaining([
       'deepseek',
-      'cloudflare-workers-ai',
-      'cloudflare-ai-gateway',
       'moonshotai',
       'moonshotai-cn',
       'xiaomi',
     ]));
+    expect(ids).not.toContain('cloudflare-workers-ai');
+    expect(ids).not.toContain('cloudflare-ai-gateway');
     for (const removedProviderId of removedProviderIds) {
       expect(ids).not.toContain(removedProviderId);
     }
