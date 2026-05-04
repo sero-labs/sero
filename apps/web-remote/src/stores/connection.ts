@@ -9,6 +9,8 @@ import {
   type ConnectionState,
   type DisconnectEvent,
   type GatewayMessage,
+  type VoiceTranscriptionResult,
+  type VoiceTranscriptionStatus,
 } from '@/lib/gateway-client';
 import { isInvalidAuthTokenMessage } from '@/lib/connect-errors';
 import type { GatewayRequestErrorInfo } from '@/lib/gateway-errors';
@@ -44,6 +46,11 @@ export interface GatewayClientLike {
   getArtifact: (artifactId: string) => void;
   listDevServers: (workspaceId?: string) => void;
   createDevServerTicket: (workspaceId: string, port: number) => void;
+  voiceStatus: () => Promise<VoiceTranscriptionStatus>;
+  transcribeVoice: (
+    audioDataUrl: string,
+    mimeType?: string,
+  ) => Promise<VoiceTranscriptionResult>;
 }
 
 interface ConnectionStore {

@@ -146,6 +146,68 @@ describe('GatewayClient', () => {
     expect(MockWebSocket.instances).toHaveLength(1);
   });
 
+  it('correlates voice_transcribe responses by requestId', async () => {
+    const client = new GatewayClient('ws://gateway.test');
+    client.connect('master-token');
+
+    const socket = MockWebSocket.instances[0];
+    expect(socket).toBeDefined();
+
+    socket!.emitOpen();
+    socket!.sent = [];
+
+    const transcribePromise = client.transcribeVoice('data:audio/webm;base64,Zm9v', 'audio/webm');
+
+    expect(socket!.sent).toHaveLength(1);
+    const sent = JSON.parse(socket!.sent[0]) as {
+      type: string;
+      audioDataUrl: string;
+      mimeType: string;
+      requestId: string;
+    };
+    expect(sent.type).toBe('voice_transcribe');
+    expect(sent.audioDataUrl).toBe('data:audio/webm;base64,Zm9v');
+    expect(sent.mimeType).toBe('audio/webm');
+    expect(sent.requestId).toMatch(/^req-/);
+
+    socket!.emitMessage({
+      type: 'ok',
+      requestType: 'voice_transcribe',
+      requestId: sent.requestId,
+      data: { text: 'hello world', model: 'openai/gpt-4o-mini-transcribe' },
+    });
+
+    await expect(transcribePromise).resolves.toEqual({
+      text: 'hello world',
+      model: 'openai/gpt-4o-mini-transcribe',
+    });
+  });
+
+  it('rejects pending requests when the gateway error response arrives', async () => {
+    const client = new GatewayClient('ws://gateway.test');
+    client.connect('master-token');
+
+    const socket = MockWebSocket.instances[0];
+    expect(socket).toBeDefined();
+
+    socket!.emitOpen();
+    socket!.sent = [];
+
+    const statusPromise = client.voiceStatus();
+    const sent = JSON.parse(socket!.sent[0]) as { requestId: string };
+
+    socket!.emitMessage({
+      type: 'error',
+      requestType: 'voice_status',
+      requestId: sent.requestId,
+      message: 'Voice transcription requires an OpenAI API key.',
+    });
+
+    await expect(statusPromise).rejects.toThrow(
+      'Voice transcription requires an OpenAI API key.',
+    );
+  });
+
   it('sends explicit workspace scope when creating web tokens', () => {
     const client = new GatewayClient('ws://gateway.test');
     client.connect('master-token');

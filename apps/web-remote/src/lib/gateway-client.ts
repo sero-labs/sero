@@ -15,13 +15,27 @@ import {
 export interface GatewayOkResponse {
   type: 'ok';
   requestType: string;
+  /** Correlation id echoed by the host for request/response pairing. */
+  requestId?: string;
   data?: unknown;
 }
 
 export interface GatewayErrorResponse {
   type: 'error';
   requestType: string;
+  /** Correlation id echoed by the host for request/response pairing. */
+  requestId?: string;
   message: string;
+}
+
+export interface VoiceTranscriptionStatus {
+  enabled: boolean;
+  reason?: string;
+}
+
+export interface VoiceTranscriptionResult {
+  text: string;
+  model: string;
 }
 
 export type GatewayResponse = GatewayOkResponse | GatewayErrorResponse;
@@ -70,6 +84,13 @@ interface GatewayRequest {
 const RECONNECT_DELAY_MS = 3000;
 const MAX_RECONNECT_DELAY_MS = 30000;
 
+interface PendingRequest {
+  resolve: (data: unknown) => void;
+  reject: (err: Error) => void;
+  requestType: string;
+  timer: ReturnType<typeof setTimeout> | null;
+}
+
 export class GatewayClient {
   private ws: WebSocket | null = null;
   private url: string;
@@ -81,6 +102,8 @@ export class GatewayClient {
   private stateHandlers = new Set<(state: ConnectionState) => void>();
   private disconnectHandlers = new Set<(event: DisconnectEvent) => void>();
   private _state: ConnectionState = 'disconnected';
+  private pendingRequests = new Map<string, PendingRequest>();
+  private requestCounter = 0;
 
   constructor(url?: string) {
     this.url = url ?? this.detectGatewayUrl();
@@ -278,6 +301,72 @@ export class GatewayClient {
     this.send({ type: 'create_devserver_ticket', workspaceId, port });
   }
 
+  /** Check whether the host is configured to perform voice transcription. */
+  voiceStatus(timeoutMs = 10_000): Promise<VoiceTranscriptionStatus> {
+    return this.sendRequest<VoiceTranscriptionStatus>(
+      { type: 'voice_status' },
+      timeoutMs,
+    );
+  }
+
+  /**
+   * Transcribe a base64 audio data URL via the host's OpenAI integration.
+   * The 90 s timeout allows for upload of larger recordings on slow networks
+   * plus the host's own 60 s OpenAI request timeout.
+   */
+  transcribeVoice(
+    audioDataUrl: string,
+    mimeType?: string,
+    timeoutMs = 90_000,
+  ): Promise<VoiceTranscriptionResult> {
+    return this.sendRequest<VoiceTranscriptionResult>(
+      { type: 'voice_transcribe', audioDataUrl, mimeType },
+      timeoutMs,
+    );
+  }
+
+  /**
+   * Send a request and wait for its correlated response. The response is
+   * matched by `requestId`; the caller receives `data` on success or a
+   * rejected promise carrying the host's error message.
+   */
+  sendRequest<T>(request: GatewayRequest, timeoutMs = 30_000): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+        reject(new Error('Not connected to gateway.'));
+        return;
+      }
+
+      const requestId = `req-${Date.now()}-${++this.requestCounter}`;
+      const timer =
+        timeoutMs > 0
+          ? setTimeout(() => {
+              const pending = this.pendingRequests.get(requestId);
+              if (!pending) return;
+              this.pendingRequests.delete(requestId);
+              pending.reject(
+                new Error(`Gateway request '${pending.requestType}' timed out.`),
+              );
+            }, timeoutMs)
+          : null;
+
+      this.pendingRequests.set(requestId, {
+        resolve: (data) => resolve(data as T),
+        reject,
+        requestType: request.type,
+        timer,
+      });
+
+      try {
+        this.ws.send(JSON.stringify({ ...request, requestId }));
+      } catch (err) {
+        this.pendingRequests.delete(requestId);
+        if (timer) clearTimeout(timer);
+        reject(err instanceof Error ? err : new Error('Failed to send request.'));
+      }
+    });
+  }
+
   // ── Internal ──────────────────────────────────────────────────
 
   private doConnect(): void {
@@ -313,6 +402,7 @@ export class GatewayClient {
 
     this.ws.onclose = (event) => {
       this.ws = null;
+      this.failPendingRequests('Gateway connection closed.');
       const willReconnect = this.shouldReconnect;
       if (willReconnect) {
         this.setState('reconnecting');
@@ -351,6 +441,24 @@ export class GatewayClient {
       }
     }
 
+    // Resolve any pending request waiting on a correlated response. When a
+    // pending request consumes the message we skip the broadcast so callers
+    // who awaited the promise don't also see a global request-error banner.
+    const requestId = (msg as { requestId?: string }).requestId;
+    if (requestId && (msg.type === 'ok' || msg.type === 'error')) {
+      const pending = this.pendingRequests.get(requestId);
+      if (pending) {
+        this.pendingRequests.delete(requestId);
+        if (pending.timer) clearTimeout(pending.timer);
+        if (msg.type === 'ok') {
+          pending.resolve((msg as GatewayOkResponse).data);
+        } else {
+          pending.reject(new Error((msg as GatewayErrorResponse).message));
+        }
+        return;
+      }
+    }
+
     // Dispatch to all handlers
     for (const handler of this.messageHandlers) {
       try {
@@ -372,6 +480,16 @@ export class GatewayClient {
 
     // Exponential backoff with cap
     this.reconnectDelay = Math.min(this.reconnectDelay * 1.5, MAX_RECONNECT_DELAY_MS);
+  }
+
+  private failPendingRequests(reason: string): void {
+    if (this.pendingRequests.size === 0) return;
+    const pending = Array.from(this.pendingRequests.values());
+    this.pendingRequests.clear();
+    for (const entry of pending) {
+      if (entry.timer) clearTimeout(entry.timer);
+      entry.reject(new Error(reason));
+    }
   }
 
   private emitDisconnect(event: DisconnectEvent): void {

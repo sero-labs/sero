@@ -11,6 +11,7 @@ import { useWorkspaceStore } from '@/stores/workspace';
 import { useConnectionStore } from '@/stores/connection';
 import { ChatMessageComponent } from './ChatMessage';
 import { ToolCallDisplay } from './ToolCallDisplay';
+import { VoiceTranscriptionControl } from './VoiceTranscriptionControl';
 import { cn } from '@sero-ai/ui/lib/utils';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { useIsMobile } from '@sero-ai/ui/hooks/use-mobile';
@@ -156,6 +157,22 @@ export function ChatPanel() {
     el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
   }, []);
 
+  const handleTranscript = useCallback((text: string) => {
+    const transcript = text.trim();
+    if (!transcript) return;
+    setInput((prev) => {
+      if (!prev.trim()) return transcript;
+      return `${prev}${prev.endsWith('\n') ? '' : '\n'}${transcript}`;
+    });
+    requestAnimationFrame(() => {
+      const el = textareaRef.current;
+      if (!el) return;
+      el.focus();
+      el.style.height = 'auto';
+      el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
+    });
+  }, []);
+
   const isEmpty = messages.length === 0 && !isLoadingHistory;
 
   return (
@@ -252,6 +269,12 @@ export function ChatPanel() {
           >
             <Paperclip className="size-4" />
           </Button>
+
+          <VoiceTranscriptionControl
+            client={client}
+            disabled={!isConnected || isStreaming}
+            onTranscript={handleTranscript}
+          />
 
           <textarea
             ref={textareaRef}

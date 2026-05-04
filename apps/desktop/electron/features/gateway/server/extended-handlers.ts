@@ -16,7 +16,14 @@ import {
   hasWorkspaceAccess,
   type GatewayAccessScope,
 } from './access-control';
-import { sendResponse } from './request-handler';
+import { makeResponder } from './request-handler';
+
+// Voice transcription host helpers reach shared-infra (for credential lookup),
+// which imports the gateway singleton — leading to a circular import if we
+// pulled them in statically. Load them on demand inside the handler instead.
+async function loadVoiceHost() {
+  return import('@electron/features/agent/assistants/voice-transcription-host');
+}
 
 /**
  * Validate a file path from a client request.
@@ -44,10 +51,11 @@ export async function routeExtendedRequest(
   isMasterAuth: boolean,
   devProxyTickets: DevProxyTicketManager | null,
 ): Promise<boolean> {
+  const respond = makeResponder(ws, request.requestId);
   switch (request.type) {
     case 'create_session': {
       if (!hasWorkspaceAccess(accessScope, request.workspaceId)) {
-        sendResponse(ws, {
+        respond({
           type: 'error',
           requestType: 'create_session',
           message: `Workspace not authorized: ${request.workspaceId}`,
@@ -61,13 +69,13 @@ export async function routeExtendedRequest(
         );
         authorizeSessionFromWorkspace(accessScope, request.workspaceId, session.id);
         subscribeToSession(session.id);
-        sendResponse(ws, {
+        respond({
           type: 'ok',
           requestType: 'create_session',
           data: session,
         });
       } catch (err) {
-        sendResponse(ws, {
+        respond({
           type: 'error',
           requestType: 'create_session',
           message: err instanceof Error ? err.message : 'Create session failed',
@@ -78,7 +86,7 @@ export async function routeExtendedRequest(
 
     case 'list_files': {
       if (!hasWorkspaceAccess(accessScope, request.workspaceId)) {
-        sendResponse(ws, {
+        respond({
           type: 'error',
           requestType: 'list_files',
           message: `Workspace not authorized: ${request.workspaceId}`,
@@ -87,18 +95,18 @@ export async function routeExtendedRequest(
       }
       const listPathErr = validateFilePath(request.path);
       if (listPathErr) {
-        sendResponse(ws, { type: 'error', requestType: 'list_files', message: listPathErr });
+        respond({ type: 'error', requestType: 'list_files', message: listPathErr });
         return true;
       }
       try {
         const files = await agentOps.listFiles(request.workspaceId, request.path);
-        sendResponse(ws, {
+        respond({
           type: 'ok',
           requestType: 'list_files',
           data: { path: request.path, entries: files },
         });
       } catch (err) {
-        sendResponse(ws, {
+        respond({
           type: 'error',
           requestType: 'list_files',
           message: err instanceof Error ? err.message : 'List files failed',
@@ -109,7 +117,7 @@ export async function routeExtendedRequest(
 
     case 'read_file': {
       if (!hasWorkspaceAccess(accessScope, request.workspaceId)) {
-        sendResponse(ws, {
+        respond({
           type: 'error',
           requestType: 'read_file',
           message: `Workspace not authorized: ${request.workspaceId}`,
@@ -118,18 +126,18 @@ export async function routeExtendedRequest(
       }
       const readPathErr = validateFilePath(request.path);
       if (readPathErr) {
-        sendResponse(ws, { type: 'error', requestType: 'read_file', message: readPathErr });
+        respond({ type: 'error', requestType: 'read_file', message: readPathErr });
         return true;
       }
       try {
         const content = await agentOps.readFile(request.workspaceId, request.path);
-        sendResponse(ws, {
+        respond({
           type: 'ok',
           requestType: 'read_file',
           data: content,
         });
       } catch (err) {
-        sendResponse(ws, {
+        respond({
           type: 'error',
           requestType: 'read_file',
           message: err instanceof Error ? err.message : 'Read file failed',
@@ -140,7 +148,7 @@ export async function routeExtendedRequest(
 
     case 'list_artifacts': {
       if (!hasSessionAccess(accessScope, request.sessionId)) {
-        sendResponse(ws, {
+        respond({
           type: 'error',
           requestType: 'list_artifacts',
           message: `Session not authorized: ${request.sessionId}`,
@@ -154,13 +162,13 @@ export async function routeExtendedRequest(
           request.sessionId,
           artifacts.map((artifact) => artifact.id),
         );
-        sendResponse(ws, {
+        respond({
           type: 'ok',
           requestType: 'list_artifacts',
           data: artifacts,
         });
       } catch (err) {
-        sendResponse(ws, {
+        respond({
           type: 'error',
           requestType: 'list_artifacts',
           message: err instanceof Error ? err.message : 'List artifacts failed',
@@ -171,7 +179,7 @@ export async function routeExtendedRequest(
 
     case 'get_artifact': {
       if (!hasArtifactAccess(accessScope, request.artifactId)) {
-        sendResponse(ws, {
+        respond({
           type: 'error',
           requestType: 'get_artifact',
           message: `Artifact not authorized: ${request.artifactId}`,
@@ -180,13 +188,13 @@ export async function routeExtendedRequest(
       }
       try {
         const artifact = await agentOps.getArtifact(request.artifactId);
-        sendResponse(ws, {
+        respond({
           type: 'ok',
           requestType: 'get_artifact',
           data: artifact,
         });
       } catch (err) {
-        sendResponse(ws, {
+        respond({
           type: 'error',
           requestType: 'get_artifact',
           message: err instanceof Error ? err.message : 'Get artifact failed',
@@ -197,7 +205,7 @@ export async function routeExtendedRequest(
 
     case 'get_session_history': {
       if (!hasWorkspaceAccess(accessScope, request.workspaceId)) {
-        sendResponse(ws, {
+        respond({
           type: 'error',
           requestType: 'get_session_history',
           message: `Workspace not authorized: ${request.workspaceId}`,
@@ -211,13 +219,13 @@ export async function routeExtendedRequest(
         );
         authorizeSessionFromWorkspace(accessScope, request.workspaceId, request.sessionId);
         subscribeToSession(request.sessionId);
-        sendResponse(ws, {
+        respond({
           type: 'ok',
           requestType: 'get_session_history',
           data: messages,
         });
       } catch (err) {
-        sendResponse(ws, {
+        respond({
           type: 'error',
           requestType: 'get_session_history',
           message: err instanceof Error ? err.message : 'Get session history failed',
@@ -229,7 +237,7 @@ export async function routeExtendedRequest(
     case 'create_web_token': {
       // Only master token holders can create web tokens
       if (!isMasterAuth) {
-        sendResponse(ws, {
+        respond({
           type: 'error',
           requestType: 'create_web_token',
           message: 'Only master token can create web tokens',
@@ -243,7 +251,7 @@ export async function routeExtendedRequest(
             (workspaceId) => typeof workspaceId !== 'string' || !hasWorkspaceAccess(accessScope, workspaceId),
           );
           if (unauthorizedWorkspace) {
-            sendResponse(ws, {
+            respond({
               type: 'error',
               requestType: 'create_web_token',
               message: `Workspace not authorized: ${String(unauthorizedWorkspace)}`,
@@ -252,13 +260,13 @@ export async function routeExtendedRequest(
           }
         }
         const webToken = auth.webTokens.create(workspaceIds, request.label, request.expiryDays);
-        sendResponse(ws, {
+        respond({
           type: 'ok',
           requestType: 'create_web_token',
           data: { token: webToken.token, expiresAt: webToken.expiresAt },
         });
       } catch (err) {
-        sendResponse(ws, {
+        respond({
           type: 'error',
           requestType: 'create_web_token',
           message: err instanceof Error ? err.message : 'Create web token failed',
@@ -269,7 +277,7 @@ export async function routeExtendedRequest(
 
     case 'list_web_tokens': {
       if (!isMasterAuth) {
-        sendResponse(ws, {
+        respond({
           type: 'error',
           requestType: 'list_web_tokens',
           message: 'Only master token can list web tokens',
@@ -278,13 +286,13 @@ export async function routeExtendedRequest(
       }
       try {
         const tokens = auth.webTokens.list();
-        sendResponse(ws, {
+        respond({
           type: 'ok',
           requestType: 'list_web_tokens',
           data: tokens,
         });
       } catch (err) {
-        sendResponse(ws, {
+        respond({
           type: 'error',
           requestType: 'list_web_tokens',
           message: err instanceof Error ? err.message : 'List web tokens failed',
@@ -295,7 +303,7 @@ export async function routeExtendedRequest(
 
     case 'revoke_web_token': {
       if (!isMasterAuth) {
-        sendResponse(ws, {
+        respond({
           type: 'error',
           requestType: 'revoke_web_token',
           message: 'Only master token can revoke web tokens',
@@ -305,16 +313,16 @@ export async function routeExtendedRequest(
       try {
         const revoked = auth.webTokens.revoke(request.tokenId);
         if (revoked) {
-          sendResponse(ws, { type: 'ok', requestType: 'revoke_web_token' });
+          respond({ type: 'ok', requestType: 'revoke_web_token' });
         } else {
-          sendResponse(ws, {
+          respond({
             type: 'error',
             requestType: 'revoke_web_token',
             message: 'Token not found',
           });
         }
       } catch (err) {
-        sendResponse(ws, {
+        respond({
           type: 'error',
           requestType: 'revoke_web_token',
           message: err instanceof Error ? err.message : 'Revoke web token failed',
@@ -327,13 +335,13 @@ export async function routeExtendedRequest(
       try {
         const all = await agentOps.listDevServers(request.workspaceId);
         const filtered = all.filter((s) => hasWorkspaceAccess(accessScope, s.workspaceId));
-        sendResponse(ws, {
+        respond({
           type: 'ok',
           requestType: 'list_dev_servers',
           data: filtered,
         });
       } catch (err) {
-        sendResponse(ws, {
+        respond({
           type: 'error',
           requestType: 'list_dev_servers',
           message: err instanceof Error ? err.message : 'List dev servers failed',
@@ -344,7 +352,7 @@ export async function routeExtendedRequest(
 
     case 'create_devserver_ticket': {
       if (!devProxyTickets) {
-        sendResponse(ws, {
+        respond({
           type: 'error',
           requestType: 'create_devserver_ticket',
           message: 'Dev server proxy is not enabled',
@@ -352,7 +360,7 @@ export async function routeExtendedRequest(
         return true;
       }
       if (!hasWorkspaceAccess(accessScope, request.workspaceId)) {
-        sendResponse(ws, {
+        respond({
           type: 'error',
           requestType: 'create_devserver_ticket',
           message: `Workspace not authorized: ${request.workspaceId}`,
@@ -365,7 +373,7 @@ export async function routeExtendedRequest(
           request.port,
         );
         if (!target) {
-          sendResponse(ws, {
+          respond({
             type: 'error',
             requestType: 'create_devserver_ticket',
             message:
@@ -374,7 +382,7 @@ export async function routeExtendedRequest(
           return true;
         }
         const issued = devProxyTickets.issue(request.workspaceId, request.port);
-        sendResponse(ws, {
+        respond({
           type: 'ok',
           requestType: 'create_devserver_ticket',
           data: {
@@ -385,10 +393,63 @@ export async function routeExtendedRequest(
           },
         });
       } catch (err) {
-        sendResponse(ws, {
+        respond({
           type: 'error',
           requestType: 'create_devserver_ticket',
           message: err instanceof Error ? err.message : 'Ticket creation failed',
+        });
+      }
+      return true;
+    }
+
+    case 'voice_status': {
+      try {
+        const host = await loadVoiceHost();
+        const keys = await host.resolveOpenAiApiKeys();
+        respond({
+          type: 'ok',
+          requestType: 'voice_status',
+          data: host.runVoiceStatus(keys),
+        });
+      } catch (err) {
+        respond({
+          type: 'error',
+          requestType: 'voice_status',
+          message: err instanceof Error ? err.message : 'Voice status failed',
+        });
+      }
+      return true;
+    }
+
+    case 'voice_transcribe': {
+      try {
+        const host = await loadVoiceHost();
+        const keys = await host.resolveOpenAiApiKeys();
+        const status = host.runVoiceStatus(keys);
+        if (!status.enabled) {
+          respond({
+            type: 'error',
+            requestType: 'voice_transcribe',
+            message:
+              status.reason ?? 'Voice transcription is not configured on the host.',
+          });
+          return true;
+        }
+        const result = await host.runVoiceTranscribe(
+          keys,
+          request.audioDataUrl,
+          request.mimeType,
+        );
+        respond({
+          type: 'ok',
+          requestType: 'voice_transcribe',
+          data: result,
+        });
+      } catch (err) {
+        respond({
+          type: 'error',
+          requestType: 'voice_transcribe',
+          message: err instanceof Error ? err.message : 'Voice transcription failed',
         });
       }
       return true;
