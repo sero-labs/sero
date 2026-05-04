@@ -66,6 +66,9 @@ export function VoiceTranscriptionControl({
   const timerRef = useRef<number | null>(null);
   const startedAtRef = useRef<number>(0);
   const mountedRef = useRef(true);
+  const isConnectedRef = useRef(isConnected);
+  const startAttemptRef = useRef(0);
+  isConnectedRef.current = isConnected;
   const supportsCapture = useMemo(
     () =>
       typeof navigator !== 'undefined' &&
@@ -107,6 +110,7 @@ export function VoiceTranscriptionControl({
    * no UI to stop it.
    */
   const cleanupRecording = useCallback(() => {
+    startAttemptRef.current += 1;
     cleanupRecordingRefs({ recorderRef, streamRef, timerRef });
   }, []);
 
@@ -249,6 +253,11 @@ export function VoiceTranscriptionControl({
   const startRecording = useCallback(async () => {
     if (phase === 'starting' || phase === 'recording' || phase === 'processing') return;
 
+    const startAttempt = startAttemptRef.current + 1;
+    startAttemptRef.current = startAttempt;
+    const isCurrentStart = () =>
+      mountedRef.current && isConnectedRef.current && startAttemptRef.current === startAttempt;
+
     if (!navigator.mediaDevices?.getUserMedia) {
       setPhase('error');
       setError('Microphone capture is not available in this environment.');
@@ -265,12 +274,20 @@ export function VoiceTranscriptionControl({
     try {
       setError(null);
       const { stream, fellBackToDefault } = await requestAudioStream(selectedDeviceId);
+      if (!isCurrentStart()) {
+        stopStream(stream);
+        return;
+      }
       streamRef.current = stream;
       if (fellBackToDefault) {
         setSelectedDeviceId('default');
       }
 
       const activeLabel = await resolveActiveInputLabel(stream, selectedDeviceId, audioInputs);
+      if (!isCurrentStart()) {
+        cleanupRecording();
+        return;
+      }
       setLastRecordingDeviceLabel(activeLabel);
       void refreshAudioInputs();
 
@@ -288,6 +305,7 @@ export function VoiceTranscriptionControl({
 
       recorder.onerror = () => {
         if (!mountedRef.current) return;
+        cleanupRecording();
         setPhase('error');
         setError('Microphone recording failed.');
       };
@@ -310,10 +328,11 @@ export function VoiceTranscriptionControl({
       stopStream(streamRef.current);
       streamRef.current = null;
 
+      if (!isCurrentStart()) return;
       setPhase('error');
       setError(formatMicError(err));
     }
-  }, [audioInputs, finalizeRecording, phase, refreshAudioInputs, selectedDeviceId]);
+  }, [audioInputs, cleanupRecording, finalizeRecording, phase, refreshAudioInputs, selectedDeviceId]);
 
   const onToggle = useCallback(() => {
     if (phase === 'recording') {
