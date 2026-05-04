@@ -53,7 +53,7 @@ export const images = {
 export const navLinks = [
 	{ label: "Product", href: "#what-it-is" },
 	{ label: "Make it yours", href: "#become" },
-	{ label: "Plugins", href: "#plugins" },
+	{ label: "Plugins", href: "https://docs.sero-ai.dev/plugins/catalog.html" },
 	{ label: "Docs", href: links.docs },
 	{ label: "GitHub", href: links.github },
 ];
