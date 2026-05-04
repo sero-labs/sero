@@ -119,10 +119,41 @@ describe('plugin runtime packaging and source preparation', () => {
         },
       },
     },
-  ])('installs dependencies for headless $label source plugins without requiring a UI build', async ({ setup, pkg }) => {
+  ])('skips dependency install for dependency-free headless $label source plugins', async ({ setup, pkg }) => {
     const dir = await createTempPluginDir();
     await setup(dir);
     await writePackageJson(dir, pkg);
+
+    const calls: Array<{ command: string; args: string[]; cwd: string }> = [];
+    await ensurePluginPackageReadyForInstall(dir, 'local', {
+      runCommand: async (command, args, cwd) => {
+        calls.push({ command, args, cwd });
+      },
+    });
+
+    expect(calls).toEqual([]);
+  });
+
+  it('installs dependencies for headless runtime source plugins that declare dependencies', async () => {
+    const dir = await createTempPluginDir();
+    await mkdir(path.join(dir, 'runtime'), { recursive: true });
+    await writeFile(
+      path.join(dir, 'runtime', 'index.ts'),
+      'export function createAppRuntime() { return { start() {}, handleStateChange() {}, dispose() {} }; }\n',
+      'utf8',
+    );
+    await writePackageJson(dir, {
+      dependencies: {
+        nanoid: '^5.0.0',
+      },
+      sero: {
+        app: {
+          id: 'runtime-plugin',
+          name: 'Runtime Plugin',
+          runtime: './runtime/index.ts',
+        },
+      },
+    });
 
     const calls: Array<{ command: string; args: string[]; cwd: string }> = [];
     await ensurePluginPackageReadyForInstall(dir, 'local', {
@@ -157,8 +188,12 @@ describe('plugin runtime packaging and source preparation', () => {
       },
     });
 
-    await expect(ensurePluginPackageReadyForInstall(dir, 'local')).rejects.toThrow(
-      /standalone npm-installable repo/,
-    );
+    await expect(
+      ensurePluginPackageReadyForInstall(dir, 'local', {
+        runCommand: async () => {
+          throw new Error('install should not run for invalid workspace specs');
+        },
+      }),
+    ).rejects.toThrow(/standalone npm-installable repo/);
   });
 });

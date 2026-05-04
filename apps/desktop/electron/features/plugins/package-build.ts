@@ -115,11 +115,18 @@ function shouldBuildFromSource(pkg: PluginPackageJson, sourceKind: PluginSourceK
   return pkg.sero?.plugin?.preBuilt !== true;
 }
 
+function hasDeclaredDependencies(pkg: PluginPackageJson): boolean {
+  return Boolean(
+    Object.keys(pkg.dependencies ?? {}).length > 0
+      || Object.keys(pkg.devDependencies ?? {}).length > 0
+      || Object.keys(pkg.optionalDependencies ?? {}).length > 0,
+  );
+}
+
 function shouldInstallSourceDependencies(pkg: PluginPackageJson, sourceKind: PluginSourceKind): boolean {
   if (sourceKind === 'npm') return false;
-  return shouldBuildFromSource(pkg, sourceKind)
-    || Boolean(getDeclaredRuntimeEntry(pkg))
-    || hasExtensionEntries(pkg);
+  if (shouldBuildFromSource(pkg, sourceKind)) return true;
+  return hasDeclaredDependencies(pkg) && (Boolean(getDeclaredRuntimeEntry(pkg)) || hasExtensionEntries(pkg));
 }
 
 export function stripInstalledOnlyManifestFields(pkg: PluginPackageJson): PluginPackageJson {
