@@ -1,4 +1,5 @@
 import type {
+  OpenShellPolicyProfile,
   OpenShellPolicyProfileHistoryEntry,
   OpenShellPolicyProfileId,
 } from './openshell-policy';
@@ -235,6 +236,30 @@ export interface RuntimeHealthIPC {
   message?: string;
 }
 
+export interface OpenShellPolicyOutputIPC {
+  available: boolean;
+  summary: string;
+}
+
+export interface OpenShellPolicyBlockedEventIPC {
+  source: 'openshell-logs';
+  line: string;
+  matchedTerms: string[];
+  bestEffort: true;
+}
+
+export interface OpenShellPolicyDiagnosticsIPC {
+  selectedProfile: OpenShellPolicyProfile;
+  enforcementStatus: 'profile-preview-only';
+  enforcementMessage: string;
+  activePolicy: OpenShellPolicyOutputIPC;
+  policyList: OpenShellPolicyOutputIPC;
+  logSummary: OpenShellPolicyOutputIPC;
+  blockedEvents: OpenShellPolicyBlockedEventIPC[];
+  allowDenyPromptsSupported: false;
+  allowDenyPromptsMessage: string;
+}
+
 export interface WorkspaceRuntimeDiagnosticsIPC {
   workspaceId: string;
   workspacePath: string;
@@ -247,6 +272,7 @@ export interface WorkspaceRuntimeDiagnosticsIPC {
   providerId?: WorkspaceRuntimeProviderIdIPC;
   runtimeConfig?: WorkspaceRuntimeConfigIPC;
   runtimeHealth?: RuntimeHealthIPC;
+  openShellPolicy?: OpenShellPolicyDiagnosticsIPC;
 }
 
 export interface ContainerInfoIPC {
