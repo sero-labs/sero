@@ -1,5 +1,10 @@
 # Proposal outline: OpenShell runtime support for Sero
 
+> **Planning note:** This original proposal is now supplemented by
+> [`openshell-runtime-proposal-v2.md`](./openshell-runtime-proposal-v2.md), which makes phase
+> ownership, actual completion status, and Phase 2.5 hardening work explicit.
+
+
 ## 1. Purpose
 
 Add **NVIDIA OpenShell** as an alternative execution backend for Sero workspaces and agents.
