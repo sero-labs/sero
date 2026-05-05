@@ -153,7 +153,7 @@ export function createOpenShellLocalRuntimeAdapter(
         'sandbox', 'exec', '-n', ready.state.sandboxName,
         '--workdir', runtimeCwd,
         '--timeout', String(toTimeoutSeconds(options.timeoutMs)),
-        '--no-tty', '--', 'sh', '-lc', command,
+        '--no-tty', '--', ...toOpenShellExecCommand(command),
       ], { timeoutMs: options.timeoutMs });
 
       const pull = await pullWorkspaceFromSandbox(syncInput);
@@ -324,6 +324,10 @@ function toTimeoutSeconds(timeoutMs: number | undefined): number {
   return Math.max(1, Math.ceil(timeoutMs / 1000));
 }
 
+function toOpenShellExecCommand(command: string): string[] {
+  const encodedCommand = Buffer.from(command, 'utf8').toString('base64');
+  return ['sh', '-lc', `eval "$(printf %s '${encodedCommand}' | base64 -d)"`];
+}
 
 function outsideWorkspaceResult(cwd: string): ExecResult {
   return failureResult(`Cannot run command outside workspace root in OpenShell Local mode: ${cwd}`);

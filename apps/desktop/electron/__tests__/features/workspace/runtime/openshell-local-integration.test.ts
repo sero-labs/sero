@@ -76,7 +76,7 @@ describe('OpenShell Local runtime integration', () => {
       'sandbox', 'exec', '-n', 'sero-ws-open',
       '--workdir', '/sandbox/workspace/ws-open/src',
       '--timeout', '5',
-      '--no-tty', '--', 'sh', '-lc', 'node -e "console.log(1)"',
+      '--no-tty', '--', 'sh', '-lc', encodedShellCommand('node -e "console.log(1)"'),
     ], { timeoutMs: 5_000 });
     expect(mocks.pullWorkspaceFromSandbox).toHaveBeenCalledWith({
       gatewayName: 'sero-local',
@@ -94,6 +94,10 @@ describe('OpenShell Local runtime integration', () => {
     });
   });
 });
+
+function encodedShellCommand(command: string): string {
+  return `eval "$(printf %s '${Buffer.from(command, 'utf8').toString('base64')}' | base64 -d)"`;
+}
 
 function createOpenShellResolution(): WorkspaceRuntimeResolution {
   return {

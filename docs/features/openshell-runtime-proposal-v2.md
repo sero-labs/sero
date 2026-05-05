@@ -178,6 +178,7 @@ Recently fixed smoke-test issues:
 - OpenShell CLI `0.0.36` does not support `openshell sandbox list --names --selector ...`. Sero uses name-based sandbox lookup such as `openshell sandbox get <name>` and creates with `openshell sandbox create --name <name>`.
 - OpenShell default policy allows writes under `/sandbox`, not `/workspace`; Sero maps runtime workspace paths to `/sandbox/workspace/<basename>` and migrates legacy persisted `/workspace/...` configs.
 - `openshell sandbox exec` uses the gateway `ExecSandbox` path and reads piped stdin until EOF before issuing the RPC. Sero invokes non-interactive CLI commands with stdin set to EOF (`stdio: ['ignore', 'pipe', 'pipe']`) so the CLI does not wait forever and get killed by the host process timeout.
+- OpenShell rejects command arguments containing newline or carriage-return characters, so Sero base64-encodes runtime `bash` payloads and decodes/evaluates them inside a single-line `sh -lc` wrapper.
 
 ## Phase 2.5 — OpenShell runtime parity and hardening
 
@@ -195,7 +196,7 @@ This is the mop-up phase required before calling OpenShell Local usable beyond e
 - Replace unsupported `sandbox list --selector` usage.
 - Keep runtime workspace paths under writable `/sandbox` policy paths, not `/workspace`.
 - Treat non-interactive CLI exec as an EOF-stdin integration; do not leave stdin open when launching `openshell sandbox exec` from Node.
-- Add version-aware command formatting if needed.
+- Add version-aware command formatting if needed, including newline-safe command payload encoding for multiline smoke commands.
 - Ensure gateway creation, sandbox lookup, sandbox creation, and sandbox exec work from a clean machine.
 - Add tests for the exact CLI command shapes and process stdio semantics Sero emits.
 
@@ -219,6 +220,18 @@ Acceptable v1 strategies:
 - explicit sync before/after file tool execution with clear source-of-truth rules.
 
 The plan must define whether the host workspace or sandbox workspace is authoritative at each point.
+
+##### Phase 2.5 source-of-truth model
+
+Selected v1 strategy: explicitly block OpenShell Local `read`, `write`, and `edit` rather than falling back to host tools. Host-backed file tools would bypass the sandbox and weaken proof-of-execution.
+
+Authority rules:
+
+- Between tool calls, the host workspace is the persisted source of truth.
+- Before OpenShell `bash`, Sero uploads host files to `/sandbox/workspace/<basename>`.
+- During OpenShell `bash`, `/sandbox/workspace/<basename>` is authoritative for execution and generated files.
+- After OpenShell `bash`, Sero downloads the sandbox workspace back to the host so the host is current again.
+- Until runtime-backed file semantics exist, use OpenShell `bash` for sandbox-visible file inspection or mutation.
 
 #### 4. Runtime-visible diagnostics in tool output
 
@@ -276,7 +289,7 @@ Expected signals:
 
 ### Current status
 
-**Not complete.** This phase is newly added by v2.
+**Complete.** Phase 2.5 documents the source-of-truth model, blocks OpenShell Local `read`, `write`, and `edit` instead of falling back to host tools, and has automated coverage for runtime tool routing, OpenShell sync, adapter, CLI command-shape behavior, newline-safe command payload encoding, and OpenShell `bash` diagnostics. The manual proof-command checklist above passed: `bash` reports Linux/OpenShell sandbox signals, the workspace path is under `/sandbox/workspace/<basename>`, and `proof-from-openshell.txt` is pulled back into the host Sero workspace.
 
 ## Phase 3 — Runtime profiles and policy UX
 
@@ -386,15 +399,14 @@ Use OpenShell as an isolated, reproducible runtime for Sero evals and parallel a
 
 ## Immediate next implementation issue
 
-**Fix OpenShell Local Phase 2.5 smoke-test blockers.**
+**Start Phase 3: Runtime profiles and policy UX.**
 
 Recommended first tasks:
 
-1. Restart Sero and rerun the Linux proof command through Sero with the latest CLI stdin-EOF fix.
-2. Verify workspace push/pull after the proof command.
-3. Keep OpenShell CLI command-shape and process-stdio tests aligned with observed `openshell 0.0.36` behavior.
-4. Decide and document the Phase 2.5 source-of-truth model for `read/write/edit`.
-5. Implement or explicitly block runtime-backed `read/write/edit` for OpenShell.
+1. Map the current runtime settings UI and OpenShell runtime config persistence points.
+2. Define the first policy profile model and how it will be stored per workspace.
+3. Determine which OpenShell CLI/API policy operations are available in the installed CLI version.
+4. Design clear UX copy for filesystem, network, process, and sandbox-recreation boundaries.
 
 ## Completion rule
 

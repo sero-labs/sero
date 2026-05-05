@@ -7,7 +7,12 @@ import {
   createContainerTools,
   createHostCodingTools,
 } from '@electron/features/container/tools';
-import { BashParams } from '@electron/features/container/tools/tool-schemas';
+import {
+  BashParams,
+  EditParams,
+  ReadParams,
+  WriteParams,
+} from '@electron/features/container/tools/tool-schemas';
 import { commandTouchesProtectedMemory, getProtectedMemoryAccessError } from '@electron/features/container/tools/memory-file-guard';
 import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, formatSize, truncateTail } from '@electron/features/container/filesystem/truncate';
 import type { WorkspaceRuntimeFacade } from './types';
@@ -48,19 +53,47 @@ export function createRuntimeCodingTools(
   }
 
   const hostCwd = options.hostCwd ?? runtime.workspacePath;
-  const hostTools = deps.createHostCodingTools(hostCwd);
   if (runtime.providerId === 'openshell-local' && !options.forceHost) {
     return [
       createRuntimeBashTool(runtime, hostCwd),
-      ...hostTools.filter((tool) => tool.name !== 'bash'),
+      ...createOpenShellBlockedFileTools(),
       deps.createWorkspaceCliTool(runtime.workspaceId, options.sessionId),
     ];
   }
 
+  const hostTools = deps.createHostCodingTools(hostCwd);
   return [
     ...hostTools,
     deps.createWorkspaceCliTool(runtime.workspaceId, options.sessionId),
   ];
+}
+
+function createOpenShellBlockedFileTools(): ToolDefinition[] {
+  return [
+    createOpenShellBlockedFileTool('read', ReadParams),
+    createOpenShellBlockedFileTool('write', WriteParams),
+    createOpenShellBlockedFileTool('edit', EditParams),
+  ];
+}
+
+function createOpenShellBlockedFileTool(
+  name: 'read' | 'write' | 'edit',
+  parameters: ToolDefinition['parameters'],
+): ToolDefinition {
+  return {
+    name,
+    label: name,
+    description: `${name} is blocked for OpenShell Local because host-backed file tools would bypass the sandbox.`,
+    parameters,
+    execute: async () => {
+      throw new Error(
+        `OpenShell Local is selected, so host-backed ${name} is blocked. ` +
+          'bash runs inside the OpenShell sandbox and syncs the workspace before/after execution. ' +
+          'Use bash commands like sed, cat, python, or tee for sandbox-visible file operations ' +
+          'until runtime-backed file tools are implemented.',
+      );
+    },
+  };
 }
 
 function createRuntimeBashTool(runtime: WorkspaceRuntimeFacade, cwd: string): ToolDefinition {
@@ -84,27 +117,37 @@ function createRuntimeBashTool(runtime: WorkspaceRuntimeFacade, cwd: string): To
         cwd,
         timeoutMs: params.timeout ? params.timeout * 1000 : undefined,
       });
-      const outputText = formatRuntimeBashOutput(result.stdout, result.stderr);
+      const { outputText, truncation } = formatRuntimeBashOutput(result.stdout, result.stderr);
+      const runtimeDetails = {
+        exitCode: result.exitCode,
+        providerId: runtime.providerId,
+        runtime: runtime.actualRuntime,
+      };
 
       if (result.exitCode !== 0) {
-        throw new Error(`${outputText}\n\nCommand exited with code ${result.exitCode}`);
+        const failurePrefix =
+          runtime.providerId === 'openshell-local'
+            ? 'OpenShell Local runtime command failed.\n'
+            : '';
+        throw new Error(
+          `${failurePrefix}${outputText}\n\nCommand exited with code ${result.exitCode}`,
+        );
       }
 
-      const truncation = truncateTail(outputText === '(no output)' ? '' : outputText);
       return {
         content: [{ type: 'text', text: outputText }],
-        details: { exitCode: result.exitCode, ...(truncation.truncated ? { truncation } : {}) },
+        details: { ...runtimeDetails, ...(truncation.truncated ? { truncation } : {}) },
       };
     },
   };
 }
 
-function formatRuntimeBashOutput(stdout: string, stderr: string): string {
+function formatRuntimeBashOutput(stdout: string, stderr: string) {
   const combined = (stdout + (stderr ? '\n' + stderr : '')).trim();
   const truncation = truncateTail(combined);
   let outputText = truncation.content || '(no output)';
 
-  if (!truncation.truncated) return outputText;
+  if (!truncation.truncated) return { outputText, truncation };
 
   const startLine = truncation.totalLines - truncation.outputLines + 1;
   const endLine = truncation.totalLines;
@@ -118,7 +161,7 @@ function formatRuntimeBashOutput(stdout: string, stderr: string): string {
   } else {
     outputText += `\n\n[Showing lines ${startLine}-${endLine} of ${truncation.totalLines} (${formatSize(DEFAULT_MAX_BYTES)} limit).]`;
   }
-  return outputText;
+  return { outputText, truncation };
 }
 
 function resolveRuntimeToolDeps(

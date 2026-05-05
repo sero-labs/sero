@@ -62,7 +62,7 @@ describe('createRuntimeCodingTools', () => {
     expect(containerTools).not.toHaveBeenCalled();
   });
 
-  it('returns runtime bash plus host file tools and sero-cli for OpenShell Local runtime', async () => {
+  it('returns runtime bash plus blocked file tools and sero-cli for OpenShell Local runtime', async () => {
     const containerTools = vi.fn(() => [makeTool('container-only')]);
     const hostTools = vi.fn(() => [
       makeTool('bash'),
@@ -86,7 +86,7 @@ describe('createRuntimeCodingTools', () => {
     });
 
     expect(tools.map((tool) => tool.name)).toEqual(['bash', 'read', 'write', 'edit', 'sero-cli']);
-    expect(hostTools).toHaveBeenCalledWith('/tmp/ws');
+    expect(hostTools).not.toHaveBeenCalled();
     expect(cliTool).toHaveBeenCalledWith('ws-1', 'session-openshell');
     expect(containerTools).not.toHaveBeenCalled();
 
@@ -101,9 +101,56 @@ describe('createRuntimeCodingTools', () => {
       ),
     ).resolves.toMatchObject({
       content: [{ type: 'text', text: 'Linux\n/workspace/ws' }],
-      details: { exitCode: 0 },
+      details: {
+        exitCode: 0,
+        providerId: 'openshell-local',
+        runtime: 'openshell-local',
+      },
     });
     expect(runtimeExec).toHaveBeenCalledWith('uname -s', { cwd: '/tmp/ws', timeoutMs: 5000 });
+
+    for (const toolName of ['read', 'write', 'edit']) {
+      const tool = tools.find((candidate) => candidate.name === toolName);
+      await expect(
+        tool?.execute(
+          `tool-${toolName}`,
+          {},
+          undefined,
+          undefined,
+          createMockExtensionContext(),
+        ),
+      ).rejects.toThrow(/OpenShell Local.*host-backed.*bash/s);
+    }
+  });
+
+  it('mentions OpenShell Local and exit code when runtime bash exits non-zero', async () => {
+    const runtime = createRuntime('openshell-local');
+    runtime.exec = vi.fn(async () => ({
+      stdout: 'partial stdout',
+      stderr: 'failure stderr',
+      exitCode: 2,
+    }));
+
+    const tools = createRuntimeCodingTools(runtime, {
+      sessionId: 'session-openshell',
+      deps: {
+        containerManager: createContainerManager(),
+        createContainerTools: vi.fn(() => []),
+        createHostCodingTools: vi.fn(() => [makeTool('host-only')]),
+        createWorkspaceCliTool: vi.fn(() => makeTool('sero-cli')),
+      },
+    });
+    const bash = tools.find((tool) => tool.name === 'bash');
+
+    await expect(
+      bash?.execute(
+        'tool-1',
+        { command: 'false', timeout: 5 },
+        undefined,
+        undefined,
+        createMockExtensionContext(),
+      ),
+    ).rejects.toThrow(/OpenShell Local runtime command failed.*Command exited with code 2/s);
   });
 
   it('delegates container runtime tools to existing createContainerTools behavior', () => {

@@ -166,7 +166,7 @@ describe('createOpenShellLocalRuntimeAdapter', () => {
       'sandbox', 'exec', '-n', 'sero-ws-1',
       '--workdir', '/sandbox/workspace/ws/src',
       '--timeout', '3',
-      '--no-tty', '--', 'sh', '-lc', 'npm test',
+      '--no-tty', '--', 'sh', '-lc', encodedShellCommand('npm test'),
     ], { timeoutMs: 2_500 });
     expect(mocks.pullWorkspaceFromSandbox).toHaveBeenCalledWith({
       gatewayName: 'sero-local',
@@ -208,8 +208,27 @@ describe('createOpenShellLocalRuntimeAdapter', () => {
       'sandbox', 'exec', '-n', 'custom-sandbox',
       '--workdir', '/sandbox/workspace/custom',
       '--timeout', '120',
-      '--no-tty', '--', 'sh', '-lc', 'pwd',
+      '--no-tty', '--', 'sh', '-lc', encodedShellCommand('pwd'),
     ], { timeoutMs: undefined });
+  });
+
+  it('encodes multiline commands because OpenShell rejects newline command arguments', async () => {
+    mocks.runOpenShell
+      .mockResolvedValueOnce({ stdout: 'gateway started', stderr: '', exitCode: 0 })
+      .mockResolvedValueOnce({ stdout: 'selected', stderr: '', exitCode: 0 })
+      .mockResolvedValueOnce({ stdout: 'sero-ws-1\n', stderr: '', exitCode: 0 })
+      .mockResolvedValueOnce({ stdout: 'ok', stderr: '', exitCode: 0 });
+    const adapter = createAdapter();
+
+    await adapter.exec('echo one\necho two', { cwd: '/tmp/ws' });
+
+    const execArgs = mocks.runOpenShell.mock.calls[3]?.[0] as string[];
+    expect(execArgs.slice(-3)).toEqual([
+      'sh',
+      '-lc',
+      encodedShellCommand('echo one\necho two'),
+    ]);
+    expect(execArgs.at(-1)).not.toMatch(/[\n\r]/);
   });
 
   it('returns a clear failure without host fallback when OpenShell ensure fails', async () => {
@@ -285,6 +304,10 @@ describe('createOpenShellLocalRuntimeAdapter', () => {
     expect(getDefaultOpenShellSandboxName('My Workspace!/../id')).toBe('sero-My-Workspace-..-id');
   });
 });
+
+function encodedShellCommand(command: string): string {
+  return `eval "$(printf %s '${Buffer.from(command, 'utf8').toString('base64')}' | base64 -d)"`;
+}
 
 function createAdapter(overrides: {
   terminals?: TerminalManager;
