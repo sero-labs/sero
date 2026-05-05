@@ -315,7 +315,7 @@ Expose OpenShell’s security model through Sero-friendly policy profiles while 
 
 ### Current enforcement limitations
 
-Current status: **Implemented as policy profile intent + diagnostics UX, not as enforced Sero profile policy.**
+Current status: **Complete for Phase 3 scope as policy profile intent + diagnostics UX, not as enforced Sero profile policy.**
 
 Sero stores the selected profile as policy intent and shows the intended filesystem, network, and process boundaries. Sero does **not** yet compile profiles to OpenShell policy YAML and does **not** call `policy set`, `policy update`, or `sandbox create --policy` for these profiles. Any active OpenShell policy shown in diagnostics is read from OpenShell; it is not proof that Sero applied the selected profile.
 
@@ -351,7 +351,7 @@ Changing the selected profile in Sero today updates persisted intent and audit h
 
 ### Current status
 
-**Phase 3 preview implemented with accepted limitations.** The comprehension, diagnostics, auditability, and sandbox-recreation UX are present. Phase 3 must not be treated as complete policy enforcement until Sero has validated profile-to-policy templates and applies them through OpenShell policy mutation commands.
+**Phase 3 complete with accepted limitations.** The comprehension, diagnostics, auditability, and sandbox-recreation UX are present and manually smoke-tested. Phase 3 must not be treated as complete policy enforcement until Sero has validated profile-to-policy templates and applies them through OpenShell policy mutation commands.
 
 ## Phase 4 — OpenShell remote gateway support
 
