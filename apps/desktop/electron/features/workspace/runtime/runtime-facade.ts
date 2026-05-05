@@ -9,6 +9,8 @@ import {
 import { createContainerRuntimeAdapter } from './adapters/container-runtime-adapter';
 import { createHostRuntimeAdapter } from './adapters/host-runtime-adapter';
 import { createOpenShellLocalRuntimeAdapter } from './adapters/openshell-local-runtime-adapter';
+import { createOpenShellRemoteRuntimeAdapter } from './adapters/openshell-remote-runtime-adapter';
+import { OpenShellRemoteGatewayRegistry } from './openshell/remote-gateway-registry';
 import type { WorkspaceRuntimeFacade } from './types';
 
 type RuntimeAdapter = Pick<
@@ -44,6 +46,10 @@ interface CreateOpenShellLocalAdapterInput {
   workspaceManager: WorkspaceManager;
 }
 
+interface CreateOpenShellRemoteAdapterInput extends CreateOpenShellLocalAdapterInput {
+  gatewayRegistry: OpenShellRemoteGatewayRegistry;
+}
+
 interface RuntimeFacadeDependencies {
   resolveWorkspaceRuntime(workspaceId: string): Promise<WorkspaceRuntimeResolution>;
   workspaceManager: WorkspaceManager;
@@ -51,6 +57,8 @@ interface RuntimeFacadeDependencies {
   createHostRuntimeAdapter(input: CreateHostAdapterInput): RuntimeAdapter;
   createContainerRuntimeAdapter(input: CreateContainerAdapterInput): RuntimeAdapter;
   createOpenShellLocalRuntimeAdapter(input: CreateOpenShellLocalAdapterInput): RuntimeAdapter;
+  createOpenShellRemoteRuntimeAdapter(input: CreateOpenShellRemoteAdapterInput): RuntimeAdapter;
+  openShellRemoteGatewayRegistry: OpenShellRemoteGatewayRegistry;
 }
 
 export interface CreateWorkspaceRuntimeFacadeOptions {
@@ -70,7 +78,15 @@ export async function createWorkspaceRuntimeFacade(
         workspaceManager: deps.workspaceManager,
         terminals: deps.containerManager.terminals,
       })
-    : resolution.actualRuntime === 'container'
+    : resolution.providerId === 'openshell-remote'
+      ? deps.createOpenShellRemoteRuntimeAdapter({
+          workspaceId,
+          workspacePath: resolution.workspacePath,
+          workspaceManager: deps.workspaceManager,
+          terminals: deps.containerManager.terminals,
+          gatewayRegistry: deps.openShellRemoteGatewayRegistry,
+        })
+      : resolution.actualRuntime === 'container'
       ? deps.createContainerRuntimeAdapter({
           workspaceId,
           workspacePath: resolution.workspacePath,
@@ -103,5 +119,7 @@ function resolveRuntimeFacadeDeps(
     createHostRuntimeAdapter: deps.createHostRuntimeAdapter ?? createHostRuntimeAdapter,
     createContainerRuntimeAdapter: deps.createContainerRuntimeAdapter ?? createContainerRuntimeAdapter,
     createOpenShellLocalRuntimeAdapter: deps.createOpenShellLocalRuntimeAdapter ?? createOpenShellLocalRuntimeAdapter,
+    createOpenShellRemoteRuntimeAdapter: deps.createOpenShellRemoteRuntimeAdapter ?? createOpenShellRemoteRuntimeAdapter,
+    openShellRemoteGatewayRegistry: deps.openShellRemoteGatewayRegistry ?? new OpenShellRemoteGatewayRegistry(),
   };
 }

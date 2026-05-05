@@ -15,6 +15,11 @@ import {
   DEFAULT_GATEWAY_NAME,
   getDefaultOpenShellSandboxName,
 } from '@electron/features/workspace/runtime/adapters/openshell-local-runtime-adapter';
+import { createOpenShellRemoteRuntimeAdapter } from '@electron/features/workspace/runtime/adapters/openshell-remote-runtime-adapter';
+import {
+  OpenShellRemoteGatewayRegistry,
+  type OpenShellRemoteGatewayEntry,
+} from '@electron/features/workspace/runtime/openshell/remote-gateway-registry';
 import { getOpenShellPolicyDiagnostics } from '@electron/features/workspace/runtime/openshell/policy-diagnostics';
 import { createWorkspaceRuntimeFacade } from '@electron/features/workspace/runtime/runtime-facade';
 import { assertIsSeroPluginFolder } from '@electron/features/workspace/plugin-validation';
@@ -75,9 +80,14 @@ interface RuntimeChangeWorkspaceManager {
   getPath?(id: string): string | undefined;
 }
 
+interface OpenShellRemoteGatewayRegistryReader {
+  list(): Promise<OpenShellRemoteGatewayEntry[]>;
+}
+
 interface RuntimeChangeDestroyDeps {
-  workspaceManager: RuntimeChangeWorkspaceManager;
-  terminals: typeof containerManager.terminals;
+  workspaceManager?: RuntimeChangeWorkspaceManager;
+  terminals?: typeof containerManager.terminals;
+  openShellRemoteGatewayRegistry?: OpenShellRemoteGatewayRegistryReader;
 }
 
 export async function destroyOpenShellSandboxBeforeRuntimeChange(
@@ -87,24 +97,39 @@ export async function destroyOpenShellSandboxBeforeRuntimeChange(
 ): Promise<void> {
   const manager = deps?.workspaceManager ?? workspaceManager;
   const currentRuntime = await manager.getRuntimeConfig?.(id);
-  if (currentRuntime?.providerId !== 'openshell-local') return;
-  if (nextRuntime?.providerId === 'openshell-local') return;
+  if (!isOpenShellRuntimeProvider(currentRuntime?.providerId)) return;
+  if (nextRuntime?.providerId === currentRuntime.providerId) return;
 
   const workspacePath = manager.getPath?.(id);
   if (!workspacePath) throw new Error(`Workspace not found: ${id}`);
   const terminals = deps?.terminals ?? containerManager.terminals;
 
   try {
-    await createOpenShellLocalRuntimeAdapter({
-      workspaceId: id,
-      workspacePath,
-      workspaceManager: manager,
-      terminals,
-    }).destroy?.();
+    const adapter = currentRuntime.providerId === 'openshell-remote'
+      ? createOpenShellRemoteRuntimeAdapter({
+          workspaceId: id,
+          workspacePath,
+          workspaceManager: manager,
+          terminals,
+          gatewayRegistry: deps?.openShellRemoteGatewayRegistry ?? new OpenShellRemoteGatewayRegistry(),
+        })
+      : createOpenShellLocalRuntimeAdapter({
+          workspaceId: id,
+          workspacePath,
+          workspaceManager: manager,
+          terminals,
+        });
+    await adapter.destroy?.();
   } catch (error) {
     console.error(`[workspace:setRuntime] Failed to destroy OpenShell sandbox for ${id}:`, error);
     throw error;
   }
+}
+
+function isOpenShellRuntimeProvider(
+  providerId: WorkspaceRuntimeConfig['providerId'] | undefined,
+): providerId is 'openshell-local' | 'openshell-remote' {
+  return providerId === 'openshell-local' || providerId === 'openshell-remote';
 }
 
 export function registerWorkspaceHandlers(): void {

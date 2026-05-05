@@ -123,6 +123,61 @@ describe('createRuntimeCodingTools', () => {
     }
   });
 
+  it('returns runtime bash plus Remote-specific blocked file tools for OpenShell Remote runtime', async () => {
+    const containerTools = vi.fn(() => [makeTool('container-only')]);
+    const hostTools = vi.fn(() => [makeTool('host-only')]);
+    const cliTool = vi.fn(() => makeTool('sero-cli'));
+    const runtime = createRuntime('openshell-remote');
+    const runtimeExec = vi.fn(async () => ({ stdout: 'Linux remote', stderr: '', exitCode: 0 }));
+    runtime.exec = runtimeExec;
+
+    const tools = createRuntimeCodingTools(runtime, {
+      sessionId: 'session-remote',
+      deps: {
+        containerManager: createContainerManager(),
+        createContainerTools: containerTools,
+        createHostCodingTools: hostTools,
+        createWorkspaceCliTool: cliTool,
+      },
+    });
+
+    expect(tools.map((tool) => tool.name)).toEqual(['bash', 'read', 'write', 'edit', 'sero-cli']);
+    expect(hostTools).not.toHaveBeenCalled();
+    expect(containerTools).not.toHaveBeenCalled();
+
+    const bash = tools.find((tool) => tool.name === 'bash');
+    await expect(
+      bash?.execute(
+        'tool-remote',
+        { command: 'uname -s', timeout: 5 },
+        undefined,
+        undefined,
+        createMockExtensionContext(),
+      ),
+    ).resolves.toMatchObject({
+      content: [{ type: 'text', text: 'Linux remote' }],
+      details: {
+        exitCode: 0,
+        providerId: 'openshell-remote',
+        runtime: 'openshell-remote',
+      },
+    });
+    expect(runtimeExec).toHaveBeenCalledWith('uname -s', { cwd: '/tmp/ws', timeoutMs: 5000 });
+
+    for (const toolName of ['read', 'write', 'edit']) {
+      const tool = tools.find((candidate) => candidate.name === toolName);
+      await expect(
+        tool?.execute(
+          `tool-${toolName}`,
+          {},
+          undefined,
+          undefined,
+          createMockExtensionContext(),
+        ),
+      ).rejects.toThrow(/OpenShell Remote.*host-backed.*bash/s);
+    }
+  });
+
   it('mentions OpenShell Local and exit code when runtime bash exits non-zero', async () => {
     const runtime = createRuntime('openshell-local');
     runtime.exec = vi.fn(async () => ({
@@ -219,7 +274,9 @@ describe('createRuntimeCodingTools', () => {
   });
 });
 
-function createRuntime(actualRuntime: 'host' | 'container' | 'openshell-local'): WorkspaceRuntimeFacade {
+function createRuntime(
+  actualRuntime: 'host' | 'container' | 'openshell-local' | 'openshell-remote',
+): WorkspaceRuntimeFacade {
   return {
     workspaceId: 'ws-1',
     workspacePath: '/tmp/ws',
@@ -235,16 +292,16 @@ function createRuntime(actualRuntime: 'host' | 'container' | 'openshell-local'):
     },
     capabilities: {
       exec: true,
-      interactiveTerminal: actualRuntime !== 'openshell-local',
+      interactiveTerminal: actualRuntime !== 'openshell-local' && actualRuntime !== 'openshell-remote',
       directFileRead: actualRuntime === 'host',
       directFileWrite: actualRuntime === 'host',
-      fileUpload: actualRuntime === 'openshell-local',
-      fileDownload: actualRuntime === 'openshell-local',
+      fileUpload: actualRuntime === 'openshell-local' || actualRuntime === 'openshell-remote',
+      fileDownload: actualRuntime === 'openshell-local' || actualRuntime === 'openshell-remote',
       managedDevServers: actualRuntime !== 'host',
       browserAutomation: actualRuntime === 'container',
       portDiscovery: actualRuntime === 'container',
-      portForward: actualRuntime === 'openshell-local',
-      logStream: actualRuntime === 'openshell-local',
+      portForward: actualRuntime === 'openshell-local' || actualRuntime === 'openshell-remote',
+      logStream: actualRuntime === 'openshell-local' || actualRuntime === 'openshell-remote',
     },
     health: async () => ({
       providerId: getProviderId(actualRuntime),
@@ -258,9 +315,9 @@ function createRuntime(actualRuntime: 'host' | 'container' | 'openshell-local'):
   };
 }
 
-function getProviderId(actualRuntime: 'host' | 'container' | 'openshell-local') {
+function getProviderId(actualRuntime: 'host' | 'container' | 'openshell-local' | 'openshell-remote') {
   if (actualRuntime === 'container') return 'apple-container';
-  if (actualRuntime === 'openshell-local') return 'openshell-local';
+  if (actualRuntime === 'openshell-local' || actualRuntime === 'openshell-remote') return actualRuntime;
   return 'host';
 }
 

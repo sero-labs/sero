@@ -15,6 +15,7 @@ import {
 } from '@electron/features/container/tools/tool-schemas';
 import { commandTouchesProtectedMemory, getProtectedMemoryAccessError } from '@electron/features/container/tools/memory-file-guard';
 import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, formatSize, truncateTail } from '@electron/features/container/filesystem/truncate';
+import type { WorkspaceRuntimeProviderId } from '@/types/ipc';
 import type { WorkspaceRuntimeFacade } from './types';
 
 export interface RuntimeToolOptions {
@@ -53,10 +54,10 @@ export function createRuntimeCodingTools(
   }
 
   const hostCwd = options.hostCwd ?? runtime.workspacePath;
-  if (runtime.providerId === 'openshell-local' && !options.forceHost) {
+  if (isOpenShellProvider(runtime.providerId) && !options.forceHost) {
     return [
       createRuntimeBashTool(runtime, hostCwd),
-      ...createOpenShellBlockedFileTools(),
+      ...createOpenShellBlockedFileTools(runtime.providerId),
       deps.createWorkspaceCliTool(runtime.workspaceId, options.sessionId),
     ];
   }
@@ -68,26 +69,40 @@ export function createRuntimeCodingTools(
   ];
 }
 
-function createOpenShellBlockedFileTools(): ToolDefinition[] {
+function isOpenShellProvider(
+  providerId: WorkspaceRuntimeProviderId | undefined,
+): providerId is 'openshell-local' | 'openshell-remote' {
+  return providerId === 'openshell-local' || providerId === 'openshell-remote';
+}
+
+function getOpenShellProviderLabel(providerId: 'openshell-local' | 'openshell-remote'): string {
+  return providerId === 'openshell-remote' ? 'OpenShell Remote' : 'OpenShell Local';
+}
+
+function createOpenShellBlockedFileTools(
+  providerId: 'openshell-local' | 'openshell-remote',
+): ToolDefinition[] {
   return [
-    createOpenShellBlockedFileTool('read', ReadParams),
-    createOpenShellBlockedFileTool('write', WriteParams),
-    createOpenShellBlockedFileTool('edit', EditParams),
+    createOpenShellBlockedFileTool(providerId, 'read', ReadParams),
+    createOpenShellBlockedFileTool(providerId, 'write', WriteParams),
+    createOpenShellBlockedFileTool(providerId, 'edit', EditParams),
   ];
 }
 
 function createOpenShellBlockedFileTool(
+  providerId: 'openshell-local' | 'openshell-remote',
   name: 'read' | 'write' | 'edit',
   parameters: ToolDefinition['parameters'],
 ): ToolDefinition {
+  const label = getOpenShellProviderLabel(providerId);
   return {
     name,
     label: name,
-    description: `${name} is blocked for OpenShell Local because host-backed file tools would bypass the sandbox.`,
+    description: `${name} is blocked for ${label} because host-backed file tools would bypass the sandbox.`,
     parameters,
     execute: async () => {
       throw new Error(
-        `OpenShell Local is selected, so host-backed ${name} is blocked. ` +
+        `${label} is selected, so host-backed ${name} is blocked. ` +
           'bash runs inside the OpenShell sandbox and syncs the workspace before/after execution. ' +
           'Use bash commands like sed, cat, python, or tee for sandbox-visible file operations ' +
           'until runtime-backed file tools are implemented.',
@@ -125,10 +140,9 @@ function createRuntimeBashTool(runtime: WorkspaceRuntimeFacade, cwd: string): To
       };
 
       if (result.exitCode !== 0) {
-        const failurePrefix =
-          runtime.providerId === 'openshell-local'
-            ? 'OpenShell Local runtime command failed.\n'
-            : '';
+        const failurePrefix = isOpenShellProvider(runtime.providerId)
+          ? `${getOpenShellProviderLabel(runtime.providerId)} runtime command failed.\n`
+          : '';
         throw new Error(
           `${failurePrefix}${outputText}\n\nCommand exited with code ${result.exitCode}`,
         );

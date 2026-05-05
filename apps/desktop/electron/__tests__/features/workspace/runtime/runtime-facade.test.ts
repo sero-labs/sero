@@ -51,7 +51,7 @@ describe('createWorkspaceRuntimeFacade', () => {
     expect(facade.capabilities.browserAutomation).toBe(false);
   });
 
-  it('chooses the OpenShell Local adapter when the provider is OpenShell', async () => {
+  it('chooses the OpenShell Local adapter when the provider is OpenShell Local', async () => {
     const resolution = createResolution({
       desiredRuntime: 'openshell-local',
       actualRuntime: 'openshell-local',
@@ -77,6 +77,37 @@ describe('createWorkspaceRuntimeFacade', () => {
       workspacePath: '/tmp/ws',
       providerId: 'openshell-local',
       actualRuntime: 'openshell-local',
+    });
+    expect(facade.capabilities.browserAutomation).toBe(false);
+  });
+
+  it('chooses the OpenShell Remote adapter when the provider is OpenShell Remote', async () => {
+    const resolution = createResolution({
+      desiredRuntime: 'openshell-remote',
+      actualRuntime: 'openshell-remote',
+      containerEnabled: false,
+      providerId: 'openshell-remote',
+    });
+    const deps = createDeps(resolution);
+    const openShellAdapter = createAdapter('openshell-remote', 'openshell-remote');
+    const createOpenShellRemoteRuntimeAdapter = vi.fn(() => openShellAdapter);
+
+    const facade = await createWorkspaceRuntimeFacade('ws-1', {
+      deps: { ...deps, createOpenShellRemoteRuntimeAdapter },
+    });
+
+    expect(createOpenShellRemoteRuntimeAdapter).toHaveBeenCalledWith({
+      workspaceId: 'ws-1',
+      workspacePath: '/tmp/ws',
+      workspaceManager: deps.workspaceManager,
+      terminals: deps.containerManager.terminals,
+      gatewayRegistry: expect.any(Object),
+    });
+    expect(facade).toMatchObject({
+      workspaceId: 'ws-1',
+      workspacePath: '/tmp/ws',
+      providerId: 'openshell-remote',
+      actualRuntime: 'openshell-remote',
     });
     expect(facade.capabilities.browserAutomation).toBe(false);
   });
@@ -161,24 +192,24 @@ function createResolution(
 }
 
 function createAdapter(
-  providerId: 'host' | 'apple-container' | 'openshell-local',
-  actualRuntime: 'host' | 'container' | 'openshell-local',
+  providerId: 'host' | 'apple-container' | 'openshell-local' | 'openshell-remote',
+  actualRuntime: 'host' | 'container' | 'openshell-local' | 'openshell-remote',
 ) {
   return {
     providerId,
     actualRuntime,
     capabilities: {
       exec: true,
-      interactiveTerminal: actualRuntime !== 'openshell-local',
+      interactiveTerminal: actualRuntime !== 'openshell-local' && actualRuntime !== 'openshell-remote',
       directFileRead: actualRuntime === 'host',
       directFileWrite: actualRuntime === 'host',
-      fileUpload: actualRuntime === 'openshell-local',
-      fileDownload: actualRuntime === 'openshell-local',
+      fileUpload: actualRuntime === 'openshell-local' || actualRuntime === 'openshell-remote',
+      fileDownload: actualRuntime === 'openshell-local' || actualRuntime === 'openshell-remote',
       managedDevServers: actualRuntime !== 'host',
       browserAutomation: actualRuntime === 'container',
       portDiscovery: actualRuntime === 'container',
-      portForward: actualRuntime === 'openshell-local',
-      logStream: actualRuntime === 'openshell-local',
+      portForward: actualRuntime === 'openshell-local' || actualRuntime === 'openshell-remote',
+      logStream: actualRuntime === 'openshell-local' || actualRuntime === 'openshell-remote',
     },
     health: vi.fn(),
     exec: vi.fn(),
