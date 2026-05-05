@@ -157,6 +157,66 @@ describe('startManagedDevServer', () => {
     });
   });
 
+  it('starts and forwards an OpenShell Remote managed dev server', async () => {
+    const exec = vi.fn().mockResolvedValue({ stdout: '', stderr: '', exitCode: 0 });
+    const forwardPort = vi.fn().mockResolvedValue({
+      runtimePort: 5174,
+      localPort: 5174,
+      localUrl: 'http://127.0.0.1:5174',
+      status: 'ready',
+    });
+    const registerServer = vi.fn((params) => ({
+      id: 'workspace-1:workspace:root:5174',
+      status: 'running',
+      registeredAt: 'now',
+      ...params,
+    }));
+
+    const result = await startManagedDevServer({
+      workspaceId: 'workspace-1',
+      workspacePath: '/tmp/workspace',
+      cwdPath: '/tmp/workspace',
+      command: 'python3 -m http.server 5174',
+    }, {
+      createRuntime: vi.fn().mockResolvedValue(createRuntime({
+        providerId: 'openshell-remote',
+        actualRuntime: 'openshell-remote',
+        capabilities: {
+          exec: true,
+          interactiveTerminal: false,
+          directFileRead: false,
+          directFileWrite: false,
+          fileUpload: true,
+          fileDownload: true,
+          managedDevServers: true,
+          browserAutomation: false,
+          portDiscovery: false,
+          portForward: true,
+          logStream: true,
+        },
+        exec,
+        forwardPort,
+      })),
+      registerServer,
+    });
+
+    expect(exec).toHaveBeenCalledWith(
+      "setsid sh -c 'python3 -m http.server 5174 > /tmp/sero-dev-server.log 2>&1 &'",
+      { cwd: '/tmp/workspace', timeoutMs: 30_000 },
+    );
+    expect(forwardPort).toHaveBeenCalledWith(5174);
+    expect(registerServer).toHaveBeenCalledWith(expect.objectContaining({
+      port: 5174,
+      url: 'http://127.0.0.1:5174',
+      cwd: '/tmp/workspace',
+    }));
+    expect(result).toEqual({
+      serverId: 'workspace-1:workspace:root:5174',
+      url: 'http://127.0.0.1:5174',
+      port: 5174,
+    });
+  });
+
   it('returns a clear reason when OpenShell preview port cannot be inferred', async () => {
     const result = await startManagedDevServer({
       workspaceId: 'workspace-1',

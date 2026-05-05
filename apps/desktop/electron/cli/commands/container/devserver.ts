@@ -1,4 +1,5 @@
 import { containerManager } from '@electron/shared/infra/shared-infra';
+import { createWorkspaceRuntimeFacade } from '@electron/features/workspace/runtime/runtime-facade';
 import type { CliRegistry } from '@electron/cli/core/registry';
 import type { CliCommandContext } from '@electron/cli/core/types';
 import { fail, ok, parseFlags, requireFlagString } from '@electron/cli/lib/utils';
@@ -32,13 +33,18 @@ async function handleDevServer(args: string[], ctx: CliCommandContext) {
         const port = Number(portRaw);
         if (!Number.isFinite(port)) return fail(`Invalid port: ${portRaw}`);
 
+        const runtime = await createWorkspaceRuntimeFacade(ctx.workspaceId);
+        const forwarded = runtime.capabilities.portForward && runtime.forwardPort
+          ? await runtime.forwardPort(port)
+          : null;
         const server = registry.register({
           workspaceId: ctx.workspaceId,
           name,
-          port,
+          port: forwarded?.localPort ?? port,
           command,
           framework,
           cwd: ctx.cwd,
+          url: forwarded?.localUrl,
         });
         return ok(`Registered ${server.name} (${server.id})\nURL: ${server.url}`);
       }

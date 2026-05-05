@@ -70,7 +70,7 @@ export async function startManagedDevServer(
   const createRuntime = deps.createRuntime ?? createWorkspaceRuntimeFacade;
   const runtime = await createRuntime(options.workspaceId);
 
-  if (runtime.providerId === 'openshell-local') {
+  if (runtime.providerId === 'openshell-local' || runtime.providerId === 'openshell-remote') {
     return startOpenShellManagedDevServer(options, runtime, registerServer);
   }
 
@@ -134,13 +134,13 @@ async function startOpenShellManagedDevServer(
   registerServer: NonNullable<StartManagedDevServerDeps['registerServer']>,
 ): Promise<StartManagedDevServerResult> {
   if (!runtime.capabilities.managedDevServers || !runtime.capabilities.portForward || !runtime.forwardPort) {
-    return { reason: 'OpenShell Local runtime does not support managed dev-server port forwarding.' };
+    return { reason: `${formatOpenShellRuntimeName(runtime.providerId)} runtime does not support managed dev-server port forwarding.` };
   }
 
   const port = options.port ?? inferPreviewPort(options.command, options.framework);
   if (!port) {
     return {
-      reason: `Cannot infer a preview port for "${options.command}". Specify an explicit port for OpenShell Local previews.`,
+      reason: `Cannot infer a preview port for "${options.command}". Specify an explicit port for ${formatOpenShellRuntimeName(runtime.providerId)} previews.`,
     };
   }
 
@@ -178,6 +178,10 @@ async function startOpenShellManagedDevServer(
   };
 }
 
+function formatOpenShellRuntimeName(providerId: WorkspaceRuntimeFacade['providerId']): string {
+  return providerId === 'openshell-remote' ? 'OpenShell Remote' : 'OpenShell Local';
+}
+
 function detectFrameworkHint(command: string): string | undefined {
   const normalized = command.toLowerCase();
   if (normalized.includes('vite')) return 'vite';
@@ -211,6 +215,7 @@ function inferExplicitPort(command: string): number | null {
   const patterns = [
     /(?:^|\s)(?:--port|-p)\s+([0-9]{2,5})(?:\s|$)/,
     /(?:^|\s)PORT=([0-9]{2,5})(?:\s|$)/,
+    /(?:^|\s)python3?\s+-m\s+http\.server\s+([0-9]{2,5})(?:\s|$)/,
   ];
   for (const pattern of patterns) {
     const match = command.match(pattern);
