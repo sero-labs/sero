@@ -173,9 +173,11 @@ Implemented:
 - runtime-backed `bash` tool for OpenShell,
 - session/subagent wiring fix so OpenShell is not forced to host tools.
 
-Recently fixed smoke-test issue:
+Recently fixed smoke-test issues:
 
-- OpenShell CLI `0.0.36` does not support `openshell sandbox list --names --selector ...`. Sero should use name-based sandbox lookup such as `openshell sandbox get <name>` and create with `openshell sandbox create --name <name>`.
+- OpenShell CLI `0.0.36` does not support `openshell sandbox list --names --selector ...`. Sero uses name-based sandbox lookup such as `openshell sandbox get <name>` and creates with `openshell sandbox create --name <name>`.
+- OpenShell default policy allows writes under `/sandbox`, not `/workspace`; Sero maps runtime workspace paths to `/sandbox/workspace/<basename>` and migrates legacy persisted `/workspace/...` configs.
+- `openshell sandbox exec` uses the gateway `ExecSandbox` path and reads piped stdin until EOF before issuing the RPC. Sero invokes non-interactive CLI commands with stdin set to EOF (`stdio: ['ignore', 'pipe', 'pipe']`) so the CLI does not wait forever and get killed by the host process timeout.
 
 ## Phase 2.5 — OpenShell runtime parity and hardening
 
@@ -189,11 +191,13 @@ This is the mop-up phase required before calling OpenShell Local usable beyond e
 
 #### 1. Fix CLI compatibility and smoke-test setup
 
-- Audit OpenShell `0.0.36` CLI help for supported gateway/sandbox commands.
+- Audit OpenShell `0.0.36` CLI help and architecture docs for supported gateway/sandbox commands.
 - Replace unsupported `sandbox list --selector` usage.
+- Keep runtime workspace paths under writable `/sandbox` policy paths, not `/workspace`.
+- Treat non-interactive CLI exec as an EOF-stdin integration; do not leave stdin open when launching `openshell sandbox exec` from Node.
 - Add version-aware command formatting if needed.
 - Ensure gateway creation, sandbox lookup, sandbox creation, and sandbox exec work from a clean machine.
-- Add tests for the exact CLI command shapes Sero emits.
+- Add tests for the exact CLI command shapes and process stdio semantics Sero emits.
 
 #### 2. Fail closed for OpenShell runtime selection
 
@@ -386,9 +390,9 @@ Use OpenShell as an isolated, reproducible runtime for Sero evals and parallel a
 
 Recommended first tasks:
 
-1. Keep OpenShell CLI command-shape tests aligned with `openshell 0.0.36` behavior.
-2. Run the Linux proof command successfully through Sero.
-3. Verify workspace push/pull after the proof command.
+1. Restart Sero and rerun the Linux proof command through Sero with the latest CLI stdin-EOF fix.
+2. Verify workspace push/pull after the proof command.
+3. Keep OpenShell CLI command-shape and process-stdio tests aligned with observed `openshell 0.0.36` behavior.
 4. Decide and document the Phase 2.5 source-of-truth model for `read/write/edit`.
 5. Implement or explicitly block runtime-backed `read/write/edit` for OpenShell.
 
