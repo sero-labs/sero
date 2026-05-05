@@ -4,6 +4,8 @@ import { containerManager } from '@electron/features/container/core/singleton';
 import { buildWorkspaceContainerConfig } from '@electron/features/container/core/workspace-container-config';
 import { workspaceManager } from '@electron/features/workspace/manager';
 import { toWorkspaceContainerPath } from './container-path';
+import { createWorkspaceRuntimeFacade } from './runtime-facade';
+import type { WorkspaceRuntimeFacade } from './types';
 
 const AUTO_START_TIMEOUT_MS = 20_000;
 const AUTO_START_POLL_MS = 500;
@@ -19,6 +21,7 @@ export interface StartManagedDevServerOptions {
   scope?: DevServer['scope'];
   cardId?: string;
   logPath?: string;
+  port?: number;
 }
 
 export interface StartManagedDevServerResult {
@@ -47,7 +50,9 @@ interface StartManagedDevServerDeps {
     cwd: string;
     scope?: DevServer['scope'];
     cardId?: string;
+    url?: string;
   }) => DevServer;
+  createRuntime?: (workspaceId: string) => Promise<WorkspaceRuntimeFacade>;
 }
 
 export async function startManagedDevServer(
@@ -62,6 +67,12 @@ export async function startManagedDevServer(
       containerManager.exec(workspaceId, command, cwd, timeoutMs));
   const registerServer = deps.registerServer
     ?? ((params) => containerManager.devServers.register(params));
+  const createRuntime = deps.createRuntime ?? createWorkspaceRuntimeFacade;
+  const runtime = await createRuntime(options.workspaceId);
+
+  if (runtime.providerId === 'openshell-local') {
+    return startOpenShellManagedDevServer(options, runtime, registerServer);
+  }
 
   const containerCwd = toWorkspaceContainerPath(options.workspacePath, options.cwdPath);
   if (!containerCwd) {
@@ -117,6 +128,56 @@ export async function startManagedDevServer(
   };
 }
 
+async function startOpenShellManagedDevServer(
+  options: StartManagedDevServerOptions,
+  runtime: WorkspaceRuntimeFacade,
+  registerServer: NonNullable<StartManagedDevServerDeps['registerServer']>,
+): Promise<StartManagedDevServerResult> {
+  if (!runtime.capabilities.managedDevServers || !runtime.capabilities.portForward || !runtime.forwardPort) {
+    return { reason: 'OpenShell Local runtime does not support managed dev-server port forwarding.' };
+  }
+
+  const port = options.port ?? inferPreviewPort(options.command, options.framework);
+  if (!port) {
+    return {
+      reason: `Cannot infer a preview port for "${options.command}". Specify an explicit port for OpenShell Local previews.`,
+    };
+  }
+
+  const escapedCommand = options.command.replace(/'/g, "'\\''");
+  const logPath = options.logPath ?? '/tmp/sero-dev-server.log';
+  const startCommand = `setsid sh -c '${escapedCommand} > ${logPath} 2>&1 &'`;
+  const startResult = await runtime.exec(startCommand, {
+    cwd: options.cwdPath,
+    timeoutMs: START_TIMEOUT_MS,
+  });
+  if (startResult.exitCode !== 0) {
+    return {
+      reason: summarizeStartFailure(options.command, startResult.stderr, startResult.stdout),
+    };
+  }
+
+  const forwarded = await runtime.forwardPort(port);
+  const framework = options.framework ?? detectFrameworkHint(options.command);
+  const server = registerServer({
+    workspaceId: options.workspaceId,
+    name: options.name ?? buildDevServerName(framework),
+    port: forwarded.localPort,
+    command: options.command,
+    framework,
+    cwd: options.cwdPath,
+    scope: options.scope,
+    cardId: options.cardId,
+    url: forwarded.localUrl,
+  });
+
+  return {
+    serverId: server.id,
+    url: server.url,
+    port: forwarded.localPort,
+  };
+}
+
 function detectFrameworkHint(command: string): string | undefined {
   const normalized = command.toLowerCase();
   if (normalized.includes('vite')) return 'vite';
@@ -126,6 +187,38 @@ function detectFrameworkHint(command: string): string | undefined {
   if (normalized.includes('react-scripts')) return 'react';
   if (normalized.includes('storybook')) return 'storybook';
   return undefined;
+}
+
+function inferPreviewPort(command: string, framework?: string): number | null {
+  const explicit = inferExplicitPort(command);
+  if (explicit) return explicit;
+
+  switch (framework ?? detectFrameworkHint(command)) {
+    case 'vite':
+      return 5173;
+    case 'next':
+      return 3000;
+    case 'astro':
+      return 4321;
+    case 'storybook':
+      return 6006;
+    default:
+      return null;
+  }
+}
+
+function inferExplicitPort(command: string): number | null {
+  const patterns = [
+    /(?:^|\s)(?:--port|-p)\s+([0-9]{2,5})(?:\s|$)/,
+    /(?:^|\s)PORT=([0-9]{2,5})(?:\s|$)/,
+  ];
+  for (const pattern of patterns) {
+    const match = command.match(pattern);
+    if (!match) continue;
+    const port = Number(match[1]);
+    if (Number.isInteger(port) && port > 0 && port <= 65_535) return port;
+  }
+  return null;
 }
 
 function buildDevServerName(framework?: string): string {

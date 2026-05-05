@@ -107,10 +107,11 @@ export async function refreshWorkspaceRuntimeAfterSync(
   }
 
   const runtime = await resolveRuntime(workspaceId);
-  if (runtime.actualRuntime !== 'container') {
+  const managedDevServers = getRuntimeCapabilityEntry(runtime, 'managedDevServers');
+  if (!managedDevServers.available) {
     return {
       ...result,
-      reason: getRuntimeCapabilityEntry(runtime, 'managedDevServers').detail,
+      reason: managedDevServers.detail,
     };
   }
 

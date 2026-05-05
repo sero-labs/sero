@@ -4,6 +4,7 @@ import type { WorkspaceRuntimeConfig } from '@/types/ipc';
 import { formatOpenShellFailure, runOpenShell } from '../openshell/cli';
 import { checkOpenShellPrerequisites } from '../openshell/health';
 import { streamOpenShellLogs, type OpenShellLogStream } from '../openshell/logs';
+import { startOpenShellPortForward, type ForwardedPort } from '../openshell/ports';
 import {
   getOpenShellRuntimeWorkspacePath,
   toOpenShellWorkspacePath,
@@ -47,6 +48,7 @@ type OpenShellLocalRuntimeAdapter = Pick<
   | 'exec'
   | 'createTerminal'
   | 'streamLogs'
+  | 'forwardPort'
   | 'destroy'
 >;
 
@@ -159,6 +161,17 @@ export function createOpenShellLocalRuntimeAdapter(
       return streamOpenShellLogs({
         gatewayName: state.gatewayName,
         sandboxName: state.sandboxName,
+      });
+    },
+    async forwardPort(port: number): Promise<ForwardedPort> {
+      const ready = await ensureOpenShellRuntime(input);
+      if (!ready.ok || !ready.state) {
+        throw new Error(ready.message ?? 'OpenShell Local is not ready.');
+      }
+      return startOpenShellPortForward({
+        gatewayName: ready.state.gatewayName,
+        sandboxName: ready.state.sandboxName,
+        port,
       });
     },
     async destroy(): Promise<void> {

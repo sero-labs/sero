@@ -228,6 +228,28 @@ describe('createOpenShellLocalRuntimeAdapter', () => {
     expect(mocks.pullWorkspaceFromSandbox).toHaveBeenCalledTimes(1);
   });
 
+  it('ensures runtime and forwards ports through OpenShell', async () => {
+    mocks.runOpenShell
+      .mockResolvedValueOnce({ stdout: 'gateway started', stderr: '', exitCode: 0 })
+      .mockResolvedValueOnce({ stdout: 'selected', stderr: '', exitCode: 0 })
+      .mockResolvedValueOnce({ stdout: 'sero-ws-1\n', stderr: '', exitCode: 0 })
+      .mockResolvedValueOnce({ stdout: 'forwarded http://127.0.0.1:5173', stderr: '', exitCode: 0 });
+    const adapter = createAdapter();
+
+    const forwarded = await adapter.forwardPort?.(5173);
+
+    expect(forwarded).toEqual({
+      runtimePort: 5173,
+      localPort: 5173,
+      localUrl: 'http://127.0.0.1:5173',
+      status: 'ready',
+    });
+    expect(mocks.runOpenShell).toHaveBeenNthCalledWith(4, [
+      '--gateway', 'sero-local',
+      'forward', 'start', '5173', 'sero-ws-1', '-d',
+    ], { timeoutMs: 30_000 });
+  });
+
   it('returns a host terminal with an explicit OpenShell fallback reason', async () => {
     const pty = { pid: 123 };
     const terminals = createTerminals(pty);

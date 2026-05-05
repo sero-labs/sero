@@ -86,7 +86,16 @@ describe('refreshWorkspaceRuntimeAfterSync', () => {
           desiredRuntime: 'container',
           actualRuntime: 'container',
           containerEnabled: true,
-          capabilityAudit: [],
+          providerId: 'apple-container',
+          capabilityAudit: [
+            {
+              key: 'managedDevServers',
+              label: 'Managed preview/dev servers',
+              available: true,
+              containerOnly: true,
+              detail: 'Managed preview and dev-server automation can target the workspace container.',
+            },
+          ],
         }),
       },
     );
@@ -140,6 +149,52 @@ describe('refreshWorkspaceRuntimeAfterSync', () => {
     expect(restartDevServer).not.toHaveBeenCalled();
     expect(result.refreshed).toBe(false);
     expect(result.reason).toContain('Dependency install failed');
+  });
+
+  it('auto-starts when runtime capabilities allow managed dev servers outside Apple containers', async () => {
+    const autoStartDevServer = vi.fn().mockResolvedValue({
+      serverId: 'workspace-1:workspace:root:5173',
+    });
+
+    const result = await refreshWorkspaceRuntimeAfterSync(
+      'workspace-1',
+      '/tmp/workspace',
+      {
+        detectInstallCommand: vi.fn().mockResolvedValue(null),
+        detectDevCommand: vi.fn().mockResolvedValue('pnpm run dev'),
+        runCommand: vi.fn(),
+        listDevServers: vi.fn().mockReturnValue([]),
+        restartDevServer: vi.fn(),
+        autoStartDevServer,
+        resolveRuntime: vi.fn().mockResolvedValue({
+          workspaceId: 'workspace-1',
+          workspacePath: '/tmp/workspace',
+          desiredRuntime: 'openshell-local',
+          actualRuntime: 'openshell-local',
+          containerEnabled: false,
+          providerId: 'openshell-local',
+          capabilityAudit: [
+            {
+              key: 'managedDevServers',
+              label: 'Managed preview/dev servers',
+              available: true,
+              containerOnly: false,
+              detail: 'Managed dev servers use OpenShell forwarding.',
+            },
+          ],
+        }),
+      },
+    );
+
+    expect(autoStartDevServer).toHaveBeenCalledWith(
+      'workspace-1',
+      '/tmp/workspace',
+      'pnpm run dev',
+    );
+    expect(result).toMatchObject({
+      refreshed: true,
+      autoStartedServerId: 'workspace-1:workspace:root:5173',
+    });
   });
 
   it('returns an explicit host-mode reason when auto-starting managed dev servers is unavailable', async () => {

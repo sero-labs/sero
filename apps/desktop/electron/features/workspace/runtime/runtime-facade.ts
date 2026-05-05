@@ -13,7 +13,15 @@ import type { WorkspaceRuntimeFacade } from './types';
 
 type RuntimeAdapter = Pick<
   WorkspaceRuntimeFacade,
-  'providerId' | 'actualRuntime' | 'capabilities' | 'health' | 'exec' | 'createTerminal'
+  | 'providerId'
+  | 'actualRuntime'
+  | 'capabilities'
+  | 'health'
+  | 'exec'
+  | 'createTerminal'
+  | 'streamLogs'
+  | 'forwardPort'
+  | 'destroy'
 >;
 
 interface CreateHostAdapterInput {

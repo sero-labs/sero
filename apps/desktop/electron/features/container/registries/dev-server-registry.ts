@@ -29,11 +29,13 @@ export interface RegisterDevServerParams {
   cwd?: string;
   scope?: DevServer['scope'];
   cardId?: string;
+  url?: string;
 }
 
 export class DevServerRegistry {
   /** All registered servers keyed by scope-aware server ID. */
   private servers = new Map<string, DevServer>();
+  private urlOverrideServerIds = new Set<string>();
   private listeners = new Set<ChangeListener>();
   private livenessTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -72,6 +74,7 @@ export class DevServerRegistry {
       cwd = WORKSPACE_DIR,
       scope = 'workspace',
       cardId,
+      url: urlOverride,
     } = params;
     const id = buildServerId(workspaceId, port, scope, cardId);
 
@@ -79,7 +82,7 @@ export class DevServerRegistry {
     const detectedPorts = this.portScanner.getPorts(workspaceId);
     const detected = detectedPorts.find((p) => p.port === port);
     const containerIp = this.portScanner.getIp(workspaceId);
-    const url = detected?.url ?? (containerIp ? `http://${containerIp}:${port}` : `http://localhost:${port}`);
+    const url = urlOverride ?? detected?.url ?? (containerIp ? `http://${containerIp}:${port}` : `http://localhost:${port}`);
 
     const server: DevServer = {
       id,
@@ -92,10 +95,11 @@ export class DevServerRegistry {
       cwd,
       scope,
       cardId,
-      status: detected ? 'running' : 'starting',
+      status: detected || urlOverride ? 'running' : 'starting',
       registeredAt: new Date().toISOString(),
     };
 
+    if (urlOverride) this.urlOverrideServerIds.add(id);
     this.servers.set(id, server);
     this.emit({ type: 'registered', server });
     console.log(`[dev-server] Registered: ${name} (${url})`);
@@ -106,6 +110,7 @@ export class DevServerRegistry {
   unregister(serverId: string): boolean {
     if (!this.servers.has(serverId)) return false;
     this.servers.delete(serverId);
+    this.urlOverrideServerIds.delete(serverId);
     this.emit({ type: 'unregistered', serverId });
     console.log(`[dev-server] Unregistered: ${serverId}`);
     return true;
@@ -229,6 +234,7 @@ export class DevServerRegistry {
   /** Check all registered servers against PortScanner data. */
   private checkLiveness(): void {
     for (const server of this.servers.values()) {
+      if (this.urlOverrideServerIds.has(server.id)) continue;
       const detectedPorts = this.portScanner.getPorts(server.workspaceId);
       const isListening = detectedPorts.some((p) => p.port === server.port);
       const newStatus: DevServer['status'] = isListening ? 'running' : 'stopped';
@@ -267,6 +273,7 @@ export class DevServerRegistry {
   dispose(): void {
     this.stopLivenessChecks();
     this.listeners.clear();
+    this.urlOverrideServerIds.clear();
     this.servers.clear();
   }
 }
