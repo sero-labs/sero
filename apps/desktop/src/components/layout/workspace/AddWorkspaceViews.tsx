@@ -3,6 +3,19 @@ import { Button } from '@sero-ai/ui/components/ui/button';
 import { Input } from '@sero-ai/ui/components/ui/input';
 import { cn } from '@sero-ai/ui/lib/utils';
 
+export type RuntimeChoice = 'default' | 'host' | 'apple-container' | 'openshell-local';
+
+const RUNTIME_OPTIONS: Array<{
+  value: RuntimeChoice;
+  label: string;
+  detail: string;
+}> = [
+  { value: 'default', label: 'Default', detail: 'Current behavior' },
+  { value: 'host', label: 'Local macOS', detail: 'Run directly on this Mac' },
+  { value: 'apple-container', label: 'Apple Container', detail: 'Isolated workspace runtime' },
+  { value: 'openshell-local', label: 'OpenShell Local', detail: 'Experimental · requires Docker' },
+];
+
 /** Initial view — two action rows. */
 export function PickView({
   onCreateNew,
@@ -39,6 +52,8 @@ export function CreateView({
   parentPath,
   onPickLocation,
   onClearLocation,
+  runtimeChoice,
+  onRuntimeChoiceChange,
   onBack,
   onCreate,
   isCreating,
@@ -49,6 +64,8 @@ export function CreateView({
   parentPath: string | null;
   onPickLocation: () => void;
   onClearLocation: () => void;
+  runtimeChoice: RuntimeChoice;
+  onRuntimeChoiceChange: (choice: RuntimeChoice) => void;
   onBack: () => void;
   onCreate: () => void;
   isCreating: boolean;
@@ -107,6 +124,32 @@ export function CreateView({
             </span>
           )}
         </button>
+      </div>
+
+      {/* Runtime */}
+      <div>
+        <label className="mb-1 block text-xs font-medium text-[var(--text-secondary)]">
+          Runtime
+        </label>
+        <div className="grid gap-1">
+          {RUNTIME_OPTIONS.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              aria-pressed={runtimeChoice === option.value}
+              onClick={() => onRuntimeChoiceChange(option.value)}
+              className={cn(
+                'rounded-md border px-2 py-1 text-left text-xs transition-colors',
+                runtimeChoice === option.value
+                  ? 'border-[var(--accent)] bg-[var(--bg-elevated)] text-[var(--text-primary)]'
+                  : 'border-[var(--border-default)] text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]',
+              )}
+            >
+              <span className="block font-medium">{option.label}</span>
+              <span className="block text-[var(--text-muted)]">{option.detail}</span>
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Actions */}

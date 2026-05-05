@@ -7,20 +7,29 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@sero-ai/ui/components/ui/popover';
-import type { WorkspaceInfo } from '@/types/ipc';
+import type { WorkspaceInfo, WorkspaceRuntimeConfig } from '@/types/ipc';
 import { IconAction } from '@/components/ui/IconAction';
-import { PickView, CreateView } from './AddWorkspaceViews';
+import { PickView, CreateView, type RuntimeChoice } from './AddWorkspaceViews';
 import { RemoteOriginManager } from './RemoteOriginManager';
 
 // ── Add Workspace menu ─────────────────────────────────────────
 
 type AddView = 'pick' | 'create';
 
+function toRuntimeConfig(choice: RuntimeChoice): WorkspaceRuntimeConfig | undefined {
+  if (choice === 'default') return undefined;
+  if (choice === 'openshell-local') {
+    return { providerId: choice, gatewayName: 'sero-local', experimental: true };
+  }
+  return { providerId: choice };
+}
+
 export function AddWorkspaceMenu() {
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<AddView>('pick');
   const [newName, setNewName] = useState('');
   const [parentPath, setParentPath] = useState<string | null>(null);
+  const [runtimeChoice, setRuntimeChoice] = useState<RuntimeChoice>('default');
   const [isCreating, setIsCreating] = useState(false);
   const [newWorkspace, setNewWorkspace] = useState<WorkspaceInfo | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -30,7 +39,12 @@ export function AddWorkspaceMenu() {
   const addFolder = useWorkspaceStore((s) => s.addFolder);
   const loadSessions = useSessionStore((s) => s.loadSessions);
 
-  const reset = () => { setView('pick'); setNewName(''); setParentPath(null); };
+  const reset = () => {
+    setView('pick');
+    setNewName('');
+    setParentPath(null);
+    setRuntimeChoice('default');
+  };
 
   const handleImportExisting = async () => {
     setOpen(false);
@@ -62,7 +76,11 @@ export function AddWorkspaceMenu() {
     if (!trimmed || isCreating) return;
     setIsCreating(true);
     try {
-      const ws = await createWorkspace(trimmed, parentPath ?? undefined);
+      const ws = await createWorkspace(
+        trimmed,
+        parentPath ?? undefined,
+        toRuntimeConfig(runtimeChoice),
+      );
       await loadSessions();
       setOpen(false);
       // Prompt user to set up remote origin for the new workspace
@@ -112,7 +130,9 @@ export function AddWorkspaceMenu() {
             parentPath={parentPath}
             onPickLocation={handlePickLocation}
             onClearLocation={() => setParentPath(null)}
-            onBack={() => { setView('pick'); setNewName(''); setParentPath(null); }}
+            runtimeChoice={runtimeChoice}
+            onRuntimeChoiceChange={setRuntimeChoice}
+            onBack={reset}
             onCreate={handleCreate}
             isCreating={isCreating}
           />

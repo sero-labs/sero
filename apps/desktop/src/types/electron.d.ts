@@ -23,6 +23,7 @@ import type {
   ProfileInfo,
   WorkspaceInfo,
   WorkspaceConfig,
+  WorkspaceRuntimeConfig,
   WorkspaceRoot,
   SeroSessionInfo,
   ChatMessage,
@@ -86,12 +87,11 @@ interface SeroWorkspaceAPI {
   /** List all registered workspaces (registry + config merged). */
   list(): Promise<WorkspaceInfo[]>;
   /** Create a new workspace. Optionally specify a parent directory for the workspace folder. */
-  create(name: string, parentPath?: string): Promise<WorkspaceInfo>;
+  create(name: string, parentPath?: string, runtime?: WorkspaceRuntimeConfig): Promise<WorkspaceInfo>;
   /** Unregister a workspace (does not delete files). */
   remove(id: string): Promise<void>;
   /** Get full config for a workspace (.sero-workspace.json). */
   getConfig(id: string): Promise<WorkspaceConfig | null>;
-  /** Register an existing folder as a workspace. Creates config if missing. */
   addFolder(folderPath: string, name?: string): Promise<WorkspaceInfo>;
   /** Expand workspace tree node (persisted). Also used by federated apps. */
   open(id: string): Promise<void>;
@@ -103,8 +103,8 @@ interface SeroWorkspaceAPI {
   infer(message: string): Promise<string>;
   /** Inspect desired vs actual runtime state for one workspace or all workspaces. */
   getRuntimeDiagnostics(workspaceId?: string): Promise<WorkspaceRuntimeDiagnosticsIPC[]>;
-  /** Enable or disable container mode for a workspace. */
   setContainer(id: string, enabled: boolean): Promise<void>;
+  setRuntime(id: string, runtime: WorkspaceRuntimeConfig | undefined): Promise<void>;
   /** Add a workspace reference (mount another workspace into this one's container). */
   addReference(id: string, refId: string): Promise<void>;
   /** Remove a workspace reference. */

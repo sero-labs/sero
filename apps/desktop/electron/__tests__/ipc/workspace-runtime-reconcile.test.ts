@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { IpcChannels } from '@/types/ipc-channels';
-import type { WorkspaceInfo } from '@/types/ipc';
+import type { WorkspaceInfo, WorkspaceRuntimeConfig } from '@/types/ipc';
 
 const mocks = vi.hoisted(() => {
   const handlers = new Map<string, (...args: unknown[]) => unknown>();
@@ -32,6 +32,7 @@ const mocks = vi.hoisted(() => {
       setExpanded: vi.fn(async () => {}),
       inferWorkspace: vi.fn(async () => 'global'),
       setContainerEnabled: vi.fn(async () => {}),
+      setRuntimeConfig: vi.fn(async () => {}),
       addReference: vi.fn(async () => {}),
       removeReference: vi.fn(async () => {}),
       addMount: vi.fn(async () => {}),
@@ -102,6 +103,7 @@ describe('workspace IPC runtime reconcile', () => {
     mocks.workspaceManager.setExpanded.mockClear();
     mocks.workspaceManager.inferWorkspace.mockClear();
     mocks.workspaceManager.setContainerEnabled.mockClear();
+    mocks.workspaceManager.setRuntimeConfig.mockClear();
     mocks.workspaceManager.addReference.mockClear();
     mocks.workspaceManager.removeReference.mockClear();
     mocks.workspaceManager.addMount.mockClear();
@@ -171,13 +173,46 @@ describe('workspace IPC runtime reconcile', () => {
     await removeHandler?.({}, 'ws-1');
     await closeHandler?.({}, 'ws-1');
 
-    expect(mocks.workspaceManager.create).toHaveBeenCalledWith('Workspace 1', '/parent');
+    expect(mocks.workspaceManager.create).toHaveBeenCalledWith('Workspace 1', '/parent', undefined);
     expect(mocks.workspaceManager.addFolder).toHaveBeenCalledWith('/repo-1', 'Workspace 1');
     expect(mocks.workspaceManager.remove).toHaveBeenCalledWith('ws-1');
     expect(mocks.workspaceManager.close).toHaveBeenCalledWith('ws-1');
     expect(mocks.appRuntimeReconcile).toHaveBeenCalledTimes(4);
     expect(mocks.broadcastToWindows).toHaveBeenCalledTimes(4);
     expect(mocks.broadcastToWindows).toHaveBeenCalledWith(IpcChannels.workspace.changed);
+  });
+
+  it('passes runtime config through create and setRuntime without renaming setContainer', async () => {
+    const { registerWorkspaceHandlers } = await import('@electron/ipc/workspace/workspace');
+
+    registerWorkspaceHandlers();
+
+    const runtime: WorkspaceRuntimeConfig = {
+      providerId: 'openshell-local',
+      gatewayName: 'sero-local',
+      experimental: true,
+    };
+    const createHandler = mocks.handlers.get(IpcChannels.workspace.create) as
+      | ((event: unknown, name: string, parentPath?: string, runtime?: WorkspaceRuntimeConfig) => Promise<WorkspaceInfo>)
+      | undefined;
+    const setRuntimeHandler = mocks.handlers.get(IpcChannels.workspace.setRuntime) as
+      | ((event: unknown, id: string, runtime: WorkspaceRuntimeConfig | undefined) => Promise<void>)
+      | undefined;
+    const setContainerHandler = mocks.handlers.get(IpcChannels.workspace.setContainer) as
+      | ((event: unknown, id: string, enabled: boolean) => Promise<void>)
+      | undefined;
+
+    expect(createHandler).toBeTypeOf('function');
+    expect(setRuntimeHandler).toBeTypeOf('function');
+    expect(setContainerHandler).toBeTypeOf('function');
+
+    await createHandler?.({}, 'OpenShell Workspace', '/parent', runtime);
+    await setRuntimeHandler?.({}, 'ws-1', runtime);
+    await setContainerHandler?.({}, 'ws-1', false);
+
+    expect(mocks.workspaceManager.create).toHaveBeenCalledWith('OpenShell Workspace', '/parent', runtime);
+    expect(mocks.workspaceManager.setRuntimeConfig).toHaveBeenCalledWith('ws-1', runtime);
+    expect(mocks.workspaceManager.setContainerEnabled).toHaveBeenCalledWith('ws-1', false);
   });
 
   it('returns additive runtime diagnostics metadata without changing existing fields', async () => {

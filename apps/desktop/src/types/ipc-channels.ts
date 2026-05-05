@@ -36,6 +36,7 @@ export const IpcChannels = {
     runtimeDiagnostics: 'sero:workspace:runtime-diagnostics',
     /** Toggle container mode for a workspace. Args: id, enabled. */
     setContainer: 'sero:workspace:set-container',
+    setRuntime: 'sero:workspace:set-runtime',
     /** Add a workspace reference (mount another workspace). Args: id, refId. */
     addReference: 'sero:workspace:add-reference',
     /** Remove a workspace reference. Args: id, refId. */
@@ -161,7 +162,6 @@ export const IpcChannels = {
   imagegen: {
     /** Generate images via Gemini Nano Banana. Returns generation metadata. */
     generate: 'sero:imagegen:generate',
-    /** Read a saved image file as a data URI. */
     readImage: 'sero:imagegen:read-image',
     /** Delete an image set by ID — removes from state and deletes files from disk. */
     deleteImage: 'sero:imagegen:delete-image',

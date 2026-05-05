@@ -7,7 +7,7 @@
 import { ipcMain, dialog, BrowserWindow } from 'electron';
 
 import { IpcChannels } from '@/types/ipc-channels';
-import type { WorkspaceInfo, WorkspaceConfig, WorkspaceRoot } from '@/types/ipc';
+import type { WorkspaceInfo, WorkspaceConfig, WorkspaceRoot, WorkspaceRuntimeConfig } from '@/types/ipc';
 import type { RuntimeHealthIPC, WorkspaceRuntimeDiagnosticsIPC } from '@sero-ai/common';
 import { workspaceManager } from '@electron/features/workspace/manager';
 import { createWorkspaceRuntimeFacade } from '@electron/features/workspace/runtime/runtime-facade';
@@ -72,8 +72,13 @@ export function registerWorkspaceHandlers(): void {
   // ── Create a new workspace ──────────────────────────────────
   ipcMain.handle(
     IpcChannels.workspace.create,
-    async (_event, name: string, parentPath?: string): Promise<WorkspaceInfo> => {
-      const workspace = await workspaceManager.create(name, parentPath);
+    async (
+      _event,
+      name: string,
+      parentPath?: string,
+      runtime?: WorkspaceRuntimeConfig,
+    ): Promise<WorkspaceInfo> => {
+      const workspace = await workspaceManager.create(name, parentPath, runtime);
       await reconcileAppRuntimes('workspace create');
       notifyWorkspaceChanged();
       return workspace;
@@ -160,6 +165,16 @@ export function registerWorkspaceHandlers(): void {
     IpcChannels.workspace.setContainer,
     async (_event, id: string, enabled: boolean): Promise<void> => {
       return workspaceManager.setContainerEnabled(id, enabled);
+    },
+  );
+
+  // ── Set provider-aware runtime config for a workspace ───────
+  ipcMain.handle(
+    IpcChannels.workspace.setRuntime,
+    async (_event, id: string, runtime: WorkspaceRuntimeConfig | undefined): Promise<void> => {
+      await workspaceManager.setRuntimeConfig(id, runtime);
+      await reconcileAppRuntimes('workspace runtime change');
+      notifyWorkspaceChanged();
     },
   );
 

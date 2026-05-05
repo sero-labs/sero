@@ -17,6 +17,7 @@ import type {
   SessionUsageStats,
   WorkspaceConfig,
   WorkspaceInfo,
+  WorkspaceRuntimeConfig,
   WorkspaceRoot,
 } from '@/types/ipc';
 
@@ -58,8 +59,12 @@ export const profilesBridge = {
 
 export const workspaceBridge = {
   list: (): Promise<WorkspaceInfo[]> => ipcRenderer.invoke(IpcChannels.workspace.list),
-  create: (name: string, parentPath?: string): Promise<WorkspaceInfo> =>
-    ipcRenderer.invoke(IpcChannels.workspace.create, name, parentPath),
+  create: (
+    name: string,
+    parentPath?: string,
+    runtime?: WorkspaceRuntimeConfig,
+  ): Promise<WorkspaceInfo> =>
+    ipcRenderer.invoke(IpcChannels.workspace.create, name, parentPath, runtime),
   remove: (id: string): Promise<void> => ipcRenderer.invoke(IpcChannels.workspace.remove, id),
   getConfig: (id: string): Promise<WorkspaceConfig | null> =>
     ipcRenderer.invoke(IpcChannels.workspace.getConfig, id),
@@ -75,6 +80,8 @@ export const workspaceBridge = {
     ipcRenderer.invoke(IpcChannels.workspace.runtimeDiagnostics, workspaceId),
   setContainer: (id: string, enabled: boolean): Promise<void> =>
     ipcRenderer.invoke(IpcChannels.workspace.setContainer, id, enabled),
+  setRuntime: (id: string, runtime: WorkspaceRuntimeConfig | undefined): Promise<void> =>
+    ipcRenderer.invoke(IpcChannels.workspace.setRuntime, id, runtime),
   addReference: (id: string, refId: string): Promise<void> =>
     ipcRenderer.invoke(IpcChannels.workspace.addReference, id, refId),
   removeReference: (id: string, refId: string): Promise<void> =>

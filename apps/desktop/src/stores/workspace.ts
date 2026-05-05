@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { WorkspaceInfo } from '@/types/ipc';
+import type { WorkspaceInfo, WorkspaceRuntimeConfig } from '@/types/ipc';
 import { useSessionStore } from '@/stores/sessions';
 import { persistLayout } from '@/lib/persist-layout';
 import { createDebouncedFn } from '@/hooks/useDebouncedCallback';
@@ -41,11 +41,17 @@ interface WorkspaceState {
   /** Set the focused workspace. */
   setActiveWorkspace: (id: string | null) => void;
   /** Create a new workspace. Optionally specify a parent directory. */
-  createWorkspace: (name: string, parentPath?: string) => Promise<WorkspaceInfo>;
+  createWorkspace: (
+    name: string,
+    parentPath?: string,
+    runtime?: WorkspaceRuntimeConfig,
+  ) => Promise<WorkspaceInfo>;
   /** Register an existing folder as a workspace (VSCode "Add Folder"). */
   addFolder: (folderPath: string, name?: string) => Promise<WorkspaceInfo>;
   /** Toggle container mode for a workspace. */
   toggleContainer: (id: string) => Promise<void>;
+  /** Set provider-aware runtime config for a workspace. */
+  setRuntime: (id: string, runtime: WorkspaceRuntimeConfig | undefined) => Promise<void>;
   /** Add a workspace reference. Mounts the referenced workspace into the container. */
   addReference: (id: string, refId: string) => Promise<void>;
   /** Remove a workspace reference. */
@@ -128,8 +134,8 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     persistLayout({ activeWorkspaceId: id });
   },
 
-  createWorkspace: async (name, parentPath) => {
-    const workspace = await window.sero.workspace.create(name, parentPath);
+  createWorkspace: async (name, parentPath, runtime) => {
+    const workspace = await window.sero.workspace.create(name, parentPath, runtime);
     set((s) => ({
       workspaces: [...s.workspaces, workspace],
       activeWorkspaceId: workspace.id,
@@ -178,6 +184,15 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     set((s) => ({
       workspaces: s.workspaces.map((w) =>
         w.id === id ? { ...w, container: newValue } : w,
+      ),
+    }));
+  },
+
+  setRuntime: async (id, runtime) => {
+    await window.sero.workspace.setRuntime(id, runtime);
+    set((s) => ({
+      workspaces: s.workspaces.map((w) =>
+        w.id === id ? { ...w, runtime } : w,
       ),
     }));
   },
