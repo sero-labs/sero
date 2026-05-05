@@ -5,7 +5,7 @@ import type {
   WorkspaceRuntimeResolution,
 } from '@electron/features/workspace/runtime-resolution';
 
-export type RuntimeProviderId = 'host' | 'apple-container';
+export type RuntimeProviderId = 'host' | 'apple-container' | 'openshell-local';
 export type RuntimeActualKind = WorkspaceRuntimeKind;
 export type RuntimeHealthStatus = 'ready' | 'fallback' | 'unavailable';
 
@@ -39,7 +39,7 @@ export interface RuntimeTerminalInput {
 
 export interface RuntimeTerminalSession {
   pty: IPty;
-  runtime: RuntimeActualKind;
+  runtime: 'container' | 'host';
   fallbackReason?: string;
 }
 

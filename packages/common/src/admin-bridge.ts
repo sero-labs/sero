@@ -18,6 +18,16 @@ export interface GlobalModelConfigStateIPC {
   migrationNotice?: string;
 }
 
+export type WorkspaceRuntimeProviderIdIPC = 'host' | 'apple-container' | 'openshell-local';
+
+export interface WorkspaceRuntimeConfigIPC {
+  providerId: WorkspaceRuntimeProviderIdIPC;
+  gatewayName?: string;
+  sandboxName?: string;
+  runtimeWorkspacePath?: string;
+  experimental?: boolean;
+}
+
 export interface WorkspaceRootIPC {
   id: string;
   name: string;
@@ -196,6 +206,7 @@ export interface WorkspaceInfoIPC {
   name: string;
   path: string;
   container: boolean;
+  runtime?: WorkspaceRuntimeConfigIPC;
   references: string[];
   mounts: string[];
   roots: WorkspaceRootIPC[];
@@ -210,7 +221,7 @@ export interface WorkspaceRuntimeCapabilityIPC {
 }
 
 export interface RuntimeHealthIPC {
-  providerId: 'host' | 'apple-container';
+  providerId: WorkspaceRuntimeProviderIdIPC;
   status: 'ready' | 'fallback' | 'unavailable';
   message?: string;
 }
@@ -218,13 +229,14 @@ export interface RuntimeHealthIPC {
 export interface WorkspaceRuntimeDiagnosticsIPC {
   workspaceId: string;
   workspacePath: string;
-  desiredRuntime: 'container' | 'host';
-  actualRuntime: 'container' | 'host';
+  desiredRuntime: 'container' | 'host' | 'openshell-local';
+  actualRuntime: 'container' | 'host' | 'openshell-local';
   containerEnabled: boolean;
   fallbackCode?: 'container_unavailable';
   fallbackReason?: string;
   capabilityAudit: WorkspaceRuntimeCapabilityIPC[];
-  providerId?: 'host' | 'apple-container';
+  providerId?: WorkspaceRuntimeProviderIdIPC;
+  runtimeConfig?: WorkspaceRuntimeConfigIPC;
   runtimeHealth?: RuntimeHealthIPC;
 }
 

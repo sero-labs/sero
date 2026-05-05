@@ -42,6 +42,8 @@ export type {
   AppRuntimeRunCommandOptions,
   AppRuntimeWorkspaceRefreshResult,
   AppRuntimeWorkspaceRuntimeKind,
+  AppRuntimeWorkspaceRuntimeProviderId,
+  AppRuntimeWorkspaceRuntimeConfig,
   AppRuntimeWorkspaceRuntimeFallbackCode,
   AppRuntimeWorkspaceRuntimeCapabilityKey,
   AppRuntimeWorkspaceRuntimeCapabilityAuditEntry,
@@ -215,6 +217,8 @@ export type {
 
 export type {
   GlobalModelConfigStateIPC,
+  WorkspaceRuntimeProviderIdIPC,
+  WorkspaceRuntimeConfigIPC,
   WorkspaceRootIPC,
   ProfileInfo,
   SeroSessionInfo,

@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   workspaceManager: {
     getPath: vi.fn(),
     isContainerEnabled: vi.fn(),
+    getRuntimeConfig: vi.fn(),
   },
   containerManager: {
     inspect: vi.fn(),
@@ -25,6 +26,7 @@ describe('resolveWorkspaceRuntime', () => {
     vi.clearAllMocks();
     mocks.workspaceManager.getPath.mockReturnValue('/tmp/workspace');
     mocks.workspaceManager.isContainerEnabled.mockResolvedValue(true);
+    mocks.workspaceManager.getRuntimeConfig.mockResolvedValue(undefined);
     mocks.containerManager.inspect.mockResolvedValue({ state: 'running' });
   });
 
@@ -39,6 +41,7 @@ describe('resolveWorkspaceRuntime', () => {
       desiredRuntime: 'host',
       actualRuntime: 'host',
       containerEnabled: false,
+      providerId: 'host',
     });
     expect(resolved.capabilityAudit.every((entry) => !entry.available)).toBe(true);
     expect(resolved.capabilityAudit.find((entry) => entry.key === 'containerMounts')?.detail).toContain('explicitly set to host mode');
@@ -53,6 +56,7 @@ describe('resolveWorkspaceRuntime', () => {
       desiredRuntime: 'container',
       actualRuntime: 'container',
       containerEnabled: true,
+      providerId: 'apple-container',
     });
     expect(resolved.capabilityAudit.every((entry) => entry.available)).toBe(true);
   });
@@ -85,6 +89,51 @@ describe('resolveWorkspaceRuntime', () => {
     });
     expect(resolved.fallbackReason).toContain('falling back to host mode');
     expect(resolved.capabilityAudit.find((entry) => entry.key === 'containerizedLanguageServers')?.detail).toContain('Containerized LSP remains unavailable');
+  });
+
+  it('treats legacy container undefined as Apple container without runtime config', async () => {
+    mocks.workspaceManager.isContainerEnabled.mockResolvedValue(true);
+
+    const resolved = await resolveWorkspaceRuntime('ws-1');
+
+    expect(resolved.providerId).toBe('apple-container');
+    expect(resolved.actualRuntime).toBe('container');
+  });
+
+  it('resolves OpenShell Local from runtime config without inspecting Apple containers', async () => {
+    mocks.workspaceManager.getRuntimeConfig.mockResolvedValue({
+      providerId: 'openshell-local',
+      gatewayName: 'sero-local',
+      experimental: true,
+    });
+
+    const resolved = await resolveWorkspaceRuntime('ws-open');
+
+    expect(resolved).toMatchObject({
+      workspaceId: 'ws-open',
+      providerId: 'openshell-local',
+      desiredRuntime: 'openshell-local',
+      actualRuntime: 'openshell-local',
+      containerEnabled: false,
+      runtimeConfig: { providerId: 'openshell-local', experimental: true },
+    });
+    expect(mocks.containerManager.inspect).not.toHaveBeenCalled();
+    expect(resolved.capabilityAudit.find((entry) => entry.key === 'managedDevServers')).toMatchObject({
+      available: true,
+      containerOnly: false,
+    });
+    expect(resolved.capabilityAudit[0]?.detail).toContain('experimental');
+  });
+
+  it('uses explicit Apple container runtime config even when legacy container is false', async () => {
+    mocks.workspaceManager.getRuntimeConfig.mockResolvedValue({ providerId: 'apple-container' });
+    mocks.workspaceManager.isContainerEnabled.mockResolvedValue(false);
+
+    const resolved = await resolveWorkspaceRuntime('ws-1');
+
+    expect(resolved.providerId).toBe('apple-container');
+    expect(resolved.actualRuntime).toBe('container');
+    expect(mocks.containerManager.inspect).toHaveBeenCalledWith('ws-1');
   });
 
   it('throws when the workspace path cannot be resolved', async () => {

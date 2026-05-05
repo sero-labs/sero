@@ -61,7 +61,17 @@ export interface AppRuntimeWorkspaceRefreshResult {
   reason?: string;
 }
 
-export type AppRuntimeWorkspaceRuntimeKind = 'container' | 'host';
+export type AppRuntimeWorkspaceRuntimeKind = 'container' | 'host' | 'openshell-local';
+export type AppRuntimeWorkspaceRuntimeProviderId = 'host' | 'apple-container' | 'openshell-local';
+
+export interface AppRuntimeWorkspaceRuntimeConfig {
+  providerId: AppRuntimeWorkspaceRuntimeProviderId;
+  gatewayName?: string;
+  sandboxName?: string;
+  runtimeWorkspacePath?: string;
+  experimental?: boolean;
+}
+
 export type AppRuntimeWorkspaceRuntimeFallbackCode = 'container_unavailable';
 export type AppRuntimeWorkspaceRuntimeCapabilityKey =
   | 'browserAutomation'
@@ -83,6 +93,8 @@ export interface AppRuntimeWorkspaceRuntimeResolution {
   desiredRuntime: AppRuntimeWorkspaceRuntimeKind;
   actualRuntime: AppRuntimeWorkspaceRuntimeKind;
   containerEnabled: boolean;
+  providerId?: AppRuntimeWorkspaceRuntimeProviderId;
+  runtimeConfig?: AppRuntimeWorkspaceRuntimeConfig;
   fallbackCode?: AppRuntimeWorkspaceRuntimeFallbackCode;
   fallbackReason?: string;
   capabilityAudit: AppRuntimeWorkspaceRuntimeCapabilityAuditEntry[];

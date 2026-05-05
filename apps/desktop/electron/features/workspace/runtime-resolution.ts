@@ -1,7 +1,9 @@
 import type { ContainerManager, ContainerState } from '@electron/features/container';
-import type { WorkspaceManager } from './manager';
+import { containerManager } from '@electron/features/container/core/singleton';
+import { workspaceManager, type WorkspaceManager } from './manager';
+import type { WorkspaceRuntimeConfig, WorkspaceRuntimeProviderId } from '@/types/ipc';
 
-export type WorkspaceRuntimeKind = 'container' | 'host';
+export type WorkspaceRuntimeKind = 'container' | 'host' | 'openshell-local';
 export type WorkspaceRuntimeFallbackCode = 'container_unavailable';
 export type WorkspaceRuntimeCapabilityKey =
   | 'browserAutomation'
@@ -23,12 +25,15 @@ export interface WorkspaceRuntimeResolution {
   desiredRuntime: WorkspaceRuntimeKind;
   actualRuntime: WorkspaceRuntimeKind;
   containerEnabled: boolean;
+  providerId?: WorkspaceRuntimeProviderId;
+  runtimeConfig?: WorkspaceRuntimeConfig;
   fallbackCode?: WorkspaceRuntimeFallbackCode;
   fallbackReason?: string;
   capabilityAudit: WorkspaceRuntimeCapabilityAuditEntry[];
 }
 
 type RuntimeResolutionManagers = Pick<WorkspaceManager, 'getPath' | 'isContainerEnabled'>
+  & Partial<Pick<WorkspaceManager, 'getRuntimeConfig'>>
   & Pick<ContainerManager, 'inspect'>;
 
 function getContainerFallbackReason(workspaceId: string, detail?: string): string {
@@ -36,11 +41,47 @@ function getContainerFallbackReason(workspaceId: string, detail?: string): strin
   return `Container mode is enabled for workspace ${workspaceId}, but no running container is available. Sero is falling back to host mode until the container is ready again.${suffix}`;
 }
 
+function createOpenShellCapabilityAudit(): WorkspaceRuntimeCapabilityAuditEntry[] {
+  const prefix = 'OpenShell Local is experimental and requires Docker plus the OpenShell CLI.';
+  return [
+    {
+      key: 'browserAutomation',
+      label: 'Browser automation',
+      available: false,
+      containerOnly: true,
+      detail: `${prefix} Browser / computer-use tooling is not available for OpenShell Local yet.`,
+    },
+    {
+      key: 'containerizedLanguageServers',
+      label: 'Containerized language servers',
+      available: false,
+      containerOnly: true,
+      detail: `${prefix} Containerized LSP remains unavailable until OpenShell language-server support is added.`,
+    },
+    {
+      key: 'managedDevServers',
+      label: 'Managed preview/dev servers',
+      available: true,
+      containerOnly: false,
+      detail: `${prefix} Managed dev servers will use OpenShell sandbox execution and explicit port forwarding.`,
+    },
+    {
+      key: 'containerMounts',
+      label: 'Container mounts and references',
+      available: false,
+      containerOnly: true,
+      detail: `${prefix} Apple container mounts and references are not inspected for OpenShell Local workspaces.`,
+    },
+  ];
+}
+
 function createCapabilityAudit(
   actualRuntime: WorkspaceRuntimeKind,
   containerEnabled: boolean,
   fallbackReason?: string,
 ): WorkspaceRuntimeCapabilityAuditEntry[] {
+  if (actualRuntime === 'openshell-local') return createOpenShellCapabilityAudit();
+
   const hostModeReason = containerEnabled
     ? fallbackReason ?? 'Container mode is preferred, but this workspace is currently running on the host.'
     : 'Workspace is explicitly set to host mode, so this container-only feature stays unavailable.';
@@ -108,6 +149,19 @@ async function getRunningContainerState(
   }
 }
 
+async function resolveConfiguredProvider(
+  workspaceId: string,
+  managers: RuntimeResolutionManagers,
+): Promise<{ providerId: WorkspaceRuntimeProviderId; runtimeConfig?: WorkspaceRuntimeConfig }> {
+  const runtimeConfig = managers.getRuntimeConfig
+    ? await managers.getRuntimeConfig(workspaceId)
+    : undefined;
+  if (runtimeConfig) return { providerId: runtimeConfig.providerId, runtimeConfig };
+
+  const containerEnabled = await managers.isContainerEnabled(workspaceId);
+  return { providerId: containerEnabled ? 'apple-container' : 'host' };
+}
+
 export async function resolveWorkspaceRuntimeWithManagers(
   workspaceId: string,
   managers: RuntimeResolutionManagers,
@@ -117,18 +171,34 @@ export async function resolveWorkspaceRuntimeWithManagers(
     throw new Error(`Workspace not found: ${workspaceId}`);
   }
 
-  const containerEnabled = await managers.isContainerEnabled(workspaceId);
-  if (!containerEnabled) {
+  const { providerId, runtimeConfig } = await resolveConfiguredProvider(workspaceId, managers);
+  if (providerId === 'host') {
     return {
       workspaceId,
       workspacePath,
       desiredRuntime: 'host',
       actualRuntime: 'host',
-      containerEnabled,
-      capabilityAudit: createCapabilityAudit('host', containerEnabled),
+      containerEnabled: false,
+      providerId,
+      runtimeConfig,
+      capabilityAudit: createCapabilityAudit('host', false),
     };
   }
 
+  if (providerId === 'openshell-local') {
+    return {
+      workspaceId,
+      workspacePath,
+      desiredRuntime: 'openshell-local',
+      actualRuntime: 'openshell-local',
+      containerEnabled: false,
+      providerId,
+      runtimeConfig,
+      capabilityAudit: createCapabilityAudit('openshell-local', false),
+    };
+  }
+
+  const containerEnabled = true;
   const containerState = await getRunningContainerState(workspaceId, managers);
   if (containerState) {
     return {
@@ -137,6 +207,8 @@ export async function resolveWorkspaceRuntimeWithManagers(
       desiredRuntime: 'container',
       actualRuntime: 'container',
       containerEnabled,
+      providerId,
+      runtimeConfig,
       capabilityAudit: createCapabilityAudit('container', containerEnabled),
     };
   }
@@ -148,6 +220,8 @@ export async function resolveWorkspaceRuntimeWithManagers(
     desiredRuntime: 'container',
     actualRuntime: 'host',
     containerEnabled,
+    providerId,
+    runtimeConfig,
     fallbackCode: 'container_unavailable',
     fallbackReason,
     capabilityAudit: createCapabilityAudit('host', containerEnabled, fallbackReason),
@@ -157,14 +231,10 @@ export async function resolveWorkspaceRuntimeWithManagers(
 export async function resolveWorkspaceRuntime(
   workspaceId: string,
 ): Promise<WorkspaceRuntimeResolution> {
-  const [{ workspaceManager }, { containerManager }] = await Promise.all([
-    import('@electron/features/workspace/manager'),
-    import('@electron/features/container/core/singleton'),
-  ]);
-
   return resolveWorkspaceRuntimeWithManagers(workspaceId, {
     getPath: workspaceManager.getPath.bind(workspaceManager),
     isContainerEnabled: workspaceManager.isContainerEnabled.bind(workspaceManager),
+    getRuntimeConfig: workspaceManager.getRuntimeConfig.bind(workspaceManager),
     inspect: containerManager.inspect.bind(containerManager),
   });
 }

@@ -13,6 +13,7 @@ import type {
   WorkspaceRegistryEntry,
   WorkspaceConfig,
   WorkspaceInfo,
+  WorkspaceRuntimeConfig,
 } from '@/types/ipc';
 
 import { SERO_HOME, SERO_AGENT_DIR } from '@electron/platform/env';
@@ -270,7 +271,7 @@ export class WorkspaceManager {
    * If `parentPath` is provided, the workspace directory is created there
    * (e.g. /Users/me/projects/my-app). Otherwise falls back to ~/.sero-ui/workspaces/.
    */
-  async create(name: string, parentPath?: string): Promise<WorkspaceInfo> {
+  async create(name: string, parentPath?: string, runtime?: WorkspaceRuntimeConfig): Promise<WorkspaceInfo> {
     if (parentPath) {
       const resolved = path.resolve(parentPath);
       const home = os.homedir();
@@ -290,6 +291,7 @@ export class WorkspaceManager {
     const config: WorkspaceConfig = {
       id: uniqueId,
       name,
+      runtime,
     };
     await this.writeConfig(wsPath, config);
 
@@ -398,6 +400,19 @@ export class WorkspaceManager {
     return config?.container !== false;
   }
 
+  async getRuntimeConfig(id: string): Promise<WorkspaceRuntimeConfig | undefined> {
+    return (await this.getConfig(id))?.runtime;
+  }
+
+  async setRuntimeConfig(id: string, runtime: WorkspaceRuntimeConfig | undefined): Promise<void> {
+    const entry = this.findEntry(id);
+    if (!entry) throw new Error(`Workspace not found: ${id}`);
+    const config = await this.readConfig(entry.path);
+    if (!config) throw new Error(`No config for workspace: ${id}`);
+    config.runtime = runtime;
+    await this.persistConfig(id, entry.path, config);
+  }
+
   /** Enable or disable container mode for a workspace. Persisted to config file. */
   async setContainerEnabled(id: string, enabled: boolean): Promise<void> {
     const entry = this.findEntry(id);
@@ -453,6 +468,7 @@ export class WorkspaceManager {
       tags: config?.tags,
       open: entry.open,
       container: config?.container !== false,
+      runtime: config?.runtime,
       references: config?.references ?? [],
       mounts: config?.mounts ?? [],
       roots: config?.roots ?? [],

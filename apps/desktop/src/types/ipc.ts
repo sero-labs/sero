@@ -11,116 +11,15 @@ export type { ProfileInfo } from './profile';
 
 // ── Workspaces ─────────────────────────────────────────────────
 
-/** Entry in the workspace registry (~/.sero-ui/agent/workspaces.json). */
-export interface WorkspaceRegistryEntry {
-  /** Unique ID (kebab-case slug). */
-  id: string;
-  /** Absolute path to workspace root. */
-  path: string;
-  /** Whether the workspace tree node is expanded in the sidebar. */
-  open: boolean;
-}
-
-/**
- * An additional root attached to a workspace.
- *
- * The workspace's primary path is implicitly root id `"workspace"`. Each
- * additional root is a host directory that the renderer + agent can browse
- * and edit alongside the primary root, with its own sandbox.
- *
- * In container mode each extra root is bind-mounted into the workspace
- * container at the same host absolute path so virtual paths translate
- * directly without coordinate transforms.
- */
-export interface WorkspaceRoot {
-  /** Stable kebab-case slug, unique within the workspace. Used as virtual path prefix. */
-  id: string;
-  /** Human-readable label shown in the explorer header. */
-  name: string;
-  /** Absolute host path. Resolved + validated when the root is added. */
-  path: string;
-  /**
-   * Marker so the Plugin Manager (and other UI) can distinguish roots
-   * created via "Link plugin" from generic additional roots. Defaults
-   * to `"folder"` when omitted.
-   */
-  kind?: 'folder' | 'linked-plugin';
-}
-
-/** Workspace info surfaced to the renderer. Registry entry + config merged. */
-export interface WorkspaceInfo {
-  id: string;
-  name: string;
-  path: string;
-  description?: string;
-  contextHints?: string[];
-  tags?: string[];
-  open: boolean;
-  /** Whether this workspace runs inside a container. Defaults to true. */
-  container: boolean;
-  /** IDs of other workspaces mounted into this workspace's container. */
-  references: string[];
-  /** Arbitrary host folders mounted read-write into this workspace's container. */
-  mounts: string[];
-  /** Additional roots attached to this workspace (multi-root explorer). */
-  roots: WorkspaceRoot[];
-}
-
-/**
- * Root surfaced to the editor IPC. Each entry has the virtual prefix
- * (e.g. `/workspace`, `/sero-source`) the renderer should use when
- * issuing file IPC calls.
- */
-export interface EditorRoot {
-  /** Stable id (`workspace` for the primary root). */
-  id: string;
-  /** Display name. */
-  name: string;
-  /** Virtual path prefix consumed by `editor.*` IPC. */
-  virtualPath: string;
-  /** Marker matching `WorkspaceRoot.kind`. */
-  kind?: 'workspace' | 'folder' | 'linked-plugin';
-}
-
-/** Full workspace config from .sero-workspace.json at workspace root. */
-export interface WorkspaceConfig {
-  id: string;
-  name: string;
-  description?: string;
-  /** Whether this workspace runs inside a container. Defaults to true. */
-  container?: boolean;
-  /** Default cwd relative to workspace root for new sessions. */
-  defaultCwd?: string;
-  /** Context hints injected into system prompt when workspace is open. */
-  contextHints?: string[];
-  /** Paths to workspace-specific skills (relative to workspace root). */
-  skills?: string[];
-  /** Files always included in AI context when workspace is open. */
-  contextFiles?: string[];
-  /** Globs to exclude from AI indexing. */
-  exclude?: string[];
-  /** Tags for categorisation and inference. */
-  tags?: string[];
-  /**
-   * IDs of other workspaces whose directories are mounted into this
-   * workspace's container. By default containers run in isolated mode
-   * with no cross-workspace access; adding a reference explicitly grants
-   * read-write access to the referenced workspace's files.
-   */
-  references?: string[];
-  /**
-   * Arbitrary host directories mounted read-write into this workspace's
-   * container. Unlike references, these are raw absolute paths — not
-   * workspace IDs.
-   */
-  mounts?: string[];
-  /**
-   * Additional roots attached to this workspace. Each root is a host
-   * directory exposed to the explorer + editor IPC alongside the primary
-   * workspace path. See {@link WorkspaceRoot}.
-   */
-  roots?: WorkspaceRoot[];
-}
+export type {
+  WorkspaceRuntimeProviderId,
+  WorkspaceRuntimeConfig,
+  WorkspaceRegistryEntry,
+  WorkspaceRoot,
+  WorkspaceInfo,
+  EditorRoot,
+  WorkspaceConfig,
+} from './workspace';
 
 // ── Sessions ───────────────────────────────────────────────────
 
