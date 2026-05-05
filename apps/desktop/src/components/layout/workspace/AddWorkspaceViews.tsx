@@ -1,4 +1,4 @@
-import { FolderInput, FolderOpen, FolderPlus, Loader2, X } from 'lucide-react';
+import { Check, FolderInput, FolderOpen, FolderPlus, Loader2, X } from 'lucide-react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { Input } from '@sero-ai/ui/components/ui/input';
 import { cn } from '@sero-ai/ui/lib/utils';
@@ -131,24 +131,36 @@ export function CreateView({
         <label className="mb-1 block text-xs font-medium text-[var(--text-secondary)]">
           Runtime
         </label>
-        <div className="grid gap-1">
-          {RUNTIME_OPTIONS.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              aria-pressed={runtimeChoice === option.value}
-              onClick={() => onRuntimeChoiceChange(option.value)}
-              className={cn(
-                'rounded-md border px-2 py-1 text-left text-xs transition-colors',
-                runtimeChoice === option.value
-                  ? 'border-[var(--accent)] bg-[var(--bg-elevated)] text-[var(--text-primary)]'
-                  : 'border-[var(--border-default)] text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]',
-              )}
-            >
-              <span className="block font-medium">{option.label}</span>
-              <span className="block text-[var(--text-muted)]">{option.detail}</span>
-            </button>
-          ))}
+        <div className="grid gap-1" role="radiogroup" aria-label="Workspace runtime">
+          {RUNTIME_OPTIONS.map((option) => {
+            const selected = runtimeChoice === option.value;
+            return (
+              <button
+                key={option.value}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                onClick={() => onRuntimeChoiceChange(option.value)}
+                className={cn(
+                  'flex cursor-pointer items-start gap-2 rounded-md border px-2 py-1.5 text-left text-xs transition-colors',
+                  selected
+                    ? 'border-[var(--accent-primary)] bg-[var(--bg-elevated)] text-[var(--text-primary)] ring-1 ring-[var(--accent-primary)]/40'
+                    : 'border-[var(--border-default)] text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]',
+                )}
+              >
+                <span className={cn(
+                  'mt-0.5 flex size-3 shrink-0 items-center justify-center rounded-full border',
+                  selected ? 'border-[var(--accent-primary)] bg-[var(--accent-primary)] text-[var(--bg-base)]' : 'border-[var(--border-default)]',
+                )}>
+                  {selected ? <Check className="size-2" /> : null}
+                </span>
+                <span className="min-w-0">
+                  <span className="block font-medium">{option.label}</span>
+                  <span className="block text-[var(--text-muted)]">{option.detail}</span>
+                </span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
