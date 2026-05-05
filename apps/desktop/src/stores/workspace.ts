@@ -1,4 +1,8 @@
 import { create } from 'zustand';
+import {
+  OPENSHELL_POLICY_PROFILE_HISTORY_LIMIT,
+  type OpenShellPolicyProfileId,
+} from '@sero-ai/common';
 import type { WorkspaceInfo, WorkspaceRuntimeConfig } from '@/types/ipc';
 import { useSessionStore } from '@/stores/sessions';
 import { persistLayout } from '@/lib/persist-layout';
@@ -59,6 +63,8 @@ interface WorkspaceState {
   toggleContainer: (id: string) => Promise<void>;
   /** Set provider-aware runtime config for a workspace. */
   setRuntime: (id: string, runtime: WorkspaceRuntimeConfig | undefined) => Promise<void>;
+  /** Persist an OpenShell policy profile selection for an existing workspace. */
+  setOpenShellPolicyProfile: (id: string, profileId: OpenShellPolicyProfileId) => Promise<void>;
   /** Add a workspace reference. Mounts the referenced workspace into the container. */
   addReference: (id: string, refId: string) => Promise<void>;
   /** Remove a workspace reference. */
@@ -207,6 +213,29 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
           : w,
       ),
     }));
+  },
+
+  setOpenShellPolicyProfile: async (id, profileId) => {
+    const workspace = get().workspaces.find((w) => w.id === id);
+    if (workspace?.runtime?.providerId !== 'openshell-local') return;
+    if (workspace.runtime.policyProfileId === profileId) return;
+
+    const changedAt = new Date().toISOString();
+    const runtime: WorkspaceRuntimeConfig = {
+      ...workspace.runtime,
+      policyProfileId: profileId,
+      policyProfileUpdatedAt: changedAt,
+      policyProfileHistory: [
+        ...(workspace.runtime.policyProfileHistory ?? []),
+        {
+          profileId,
+          changedAt,
+          message: 'Selected from existing workspace policy menu',
+        },
+      ].slice(-OPENSHELL_POLICY_PROFILE_HISTORY_LIMIT),
+    };
+
+    await get().setRuntime(id, runtime);
   },
 
   addReference: async (id, refId) => {

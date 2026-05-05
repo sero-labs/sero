@@ -17,6 +17,7 @@ import type { WorkspaceInfo, SeroSessionInfo } from '@/types/ipc';
 import { IconAction } from '@/components/ui/IconAction';
 import { SessionNode } from '../SessionNode';
 import { WorkspaceReferencesMenu } from '../WorkspaceReferencesMenu';
+import { OpenShellPolicyMenu } from '../OpenShellPolicyMenu';
 import { RemoteOriginManager } from '../RemoteOriginManager';
 import { useSessionStore } from '@/stores/sessions';
 import { type ContainerStatus, useWorkspaceContainer } from '@/stores/container';
@@ -239,6 +240,7 @@ export function WorkspaceNode({ workspace, sessions }: WorkspaceNodeProps) {
                   {workspace.container ? <Box className="size-3" /> : <Monitor className="size-3" />}
                 </IconAction>
                 {workspace.container && <WorkspaceReferencesMenu workspace={workspace} />}
+                {workspace.runtime?.providerId === 'openshell-local' && <OpenShellPolicyMenu workspace={workspace} />}
                 <IconAction
                   as="span"
                   role="button"

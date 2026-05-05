@@ -414,7 +414,7 @@ function toRuntimeConfig(
 
 ## TODO OPENSHELL-POLICY-PROFILES-06 — Add an existing-workspace OpenShell policy popover
 
-**Status:** Open  
+**Status:** Closed — Added the OpenShell-only workspace row policy popover with profile selection/history persistence, diagnostics refresh, boundary/recreation/unsupported copy, and focused renderer tests.  
 **Tags:** `openshell-policy-profiles`
 
 **Plan:** `/Users/danielcarter/Documents/Dev/projects/sero/sero/.pi/plans/2026-05-05-openshell-policy-profiles/plan.md`
