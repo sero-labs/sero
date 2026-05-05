@@ -4,7 +4,7 @@ import type { OpenShellRemoteGatewayEntry } from '@electron/features/workspace/r
 import type { WorkspaceRuntimeConfig } from '@/types/ipc';
 
 const mocks = vi.hoisted(() => ({
-  checkOpenShellPrerequisites: vi.fn(),
+  checkOpenShellCli: vi.fn(),
   pullWorkspaceFromSandbox: vi.fn(),
   pushWorkspaceToSandbox: vi.fn(),
   runCommand: vi.fn(),
@@ -13,7 +13,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('@electron/features/workspace/runtime/openshell/health', () => ({
-  checkOpenShellPrerequisites: mocks.checkOpenShellPrerequisites,
+  checkOpenShellCli: mocks.checkOpenShellCli,
 }));
 
 vi.mock('@electron/features/workspace/runtime/openshell/sync', () => ({
@@ -42,11 +42,13 @@ import {
 describe('createOpenShellRemoteRuntimeAdapter', () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    mocks.checkOpenShellPrerequisites.mockResolvedValue({
+    mocks.checkOpenShellCli.mockResolvedValue({
+      name: 'openshell-cli',
       ok: true,
       status: 'ready',
-      message: 'OpenShell prerequisites are ready.',
-      checks: [],
+      message: 'OpenShell CLI detected: openshell 0.0.36',
+      version: 'openshell 0.0.36',
+      result: { stdout: 'openshell 0.0.36', stderr: '', exitCode: 0 },
     });
     mocks.pushWorkspaceToSandbox.mockResolvedValue({ stdout: '', stderr: '', exitCode: 0 });
     mocks.pullWorkspaceFromSandbox.mockResolvedValue({ stdout: '', stderr: '', exitCode: 0 });
@@ -120,7 +122,14 @@ describe('createOpenShellRemoteRuntimeAdapter', () => {
     expect(failed.message).toContain('Gateway sero-remote-dev is not reachable');
 
     vi.clearAllMocks();
-    mocks.checkOpenShellPrerequisites.mockResolvedValue({ ok: true, status: 'ready', message: 'ready', checks: [] });
+    mocks.checkOpenShellCli.mockResolvedValue({
+      name: 'openshell-cli',
+      ok: true,
+      status: 'ready',
+      message: 'OpenShell CLI detected: openshell 0.0.36',
+      version: 'openshell 0.0.36',
+      result: { stdout: 'openshell 0.0.36', stderr: '', exitCode: 0 },
+    });
     mocks.runCommand.mockResolvedValueOnce({ stdout: '"24.0.0"', stderr: '', exitCode: 0 });
     mocks.runOpenShell
       .mockResolvedValueOnce({ stdout: 'ok', stderr: '', exitCode: 0 })

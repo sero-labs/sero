@@ -2,7 +2,7 @@ import type { ExecResult } from '@electron/features/container/core/types';
 import type { TerminalManager } from '@electron/features/container/terminal';
 import type { WorkspaceRuntimeConfig } from '@/types/ipc';
 import { formatOpenShellFailure, runOpenShell } from '../openshell/cli';
-import { checkOpenShellPrerequisites } from '../openshell/health';
+import { checkOpenShellCli } from '../openshell/health';
 import { streamOpenShellLogs, type OpenShellLogStream } from '../openshell/logs';
 import { startOpenShellPortForward, type ForwardedPort } from '../openshell/ports';
 import {
@@ -102,8 +102,8 @@ export function createOpenShellRemoteRuntimeAdapter(
       const resolved = await resolveRuntimeState(input);
       if (!resolved.ok || !resolved.state) return unavailable(resolved.message ?? 'OpenShell Remote is not configured.');
 
-      const prerequisites = await checkOpenShellPrerequisites();
-      if (!prerequisites.ok) return unavailable(`OpenShell Remote is experimental. ${prerequisites.message}`);
+      const cli = await checkOpenShellCli();
+      if (!cli.ok) return unavailable(`OpenShell Remote is experimental. ${cli.message}`);
 
       const docker = await checkRemoteDocker(resolved.state.gateway);
       if (!docker.ok) return unavailable(`OpenShell Remote is experimental. ${docker.message}`);
@@ -197,8 +197,8 @@ async function ensureOpenShellRemoteRuntime(
   input: OpenShellRemoteRuntimeAdapterInput,
   state: OpenShellRemoteRuntimeState,
 ): Promise<RuntimeEnsureResult> {
-  const prerequisites = await checkOpenShellPrerequisites();
-  if (!prerequisites.ok) return { ok: false, message: prerequisites.message };
+  const cli = await checkOpenShellCli();
+  if (!cli.ok) return { ok: false, message: cli.message };
 
   const gateway = await startRemoteGateway(state.gateway);
   if (!gateway.ok) return { ok: false, message: gateway.message };
