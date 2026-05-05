@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { Type } from 'typebox';
-import type { ToolDefinition } from '@mariozechner/pi-coding-agent';
+import type { ExtensionContext, ToolDefinition } from '@mariozechner/pi-coding-agent';
 import type { IPty } from 'node-pty';
 import type { ContainerManager } from '@electron/features/container';
 import { createRuntimeCodingTools } from '@electron/features/workspace/runtime/runtime-tools';
@@ -13,6 +13,25 @@ function makeTool(name: string): ToolDefinition {
     description: `${name} tool`,
     parameters: Type.Object({}),
     execute: async () => ({ content: [{ type: 'text' as const, text: 'ok' }], details: undefined }),
+  };
+}
+
+function createMockExtensionContext(): ExtensionContext {
+  return {
+    cwd: '/tmp/ws',
+    model: undefined,
+    modelRegistry: { getApiKeyAndHeaders: vi.fn() } as unknown as ExtensionContext['modelRegistry'],
+    sessionManager: { getSessionId: vi.fn(() => 'session-openshell') } as unknown as ExtensionContext['sessionManager'],
+    hasUI: false,
+    ui: { notify: vi.fn() } as unknown as ExtensionContext['ui'],
+    isIdle: vi.fn(() => true),
+    signal: undefined,
+    abort: vi.fn(),
+    hasPendingMessages: vi.fn(() => false),
+    shutdown: vi.fn(),
+    getContextUsage: vi.fn(() => undefined),
+    compact: vi.fn(),
+    getSystemPrompt: vi.fn(() => ''),
   };
 }
 
@@ -43,12 +62,20 @@ describe('createRuntimeCodingTools', () => {
     expect(containerTools).not.toHaveBeenCalled();
   });
 
-  it('returns host coding tools plus sero-cli for OpenShell Local runtime', () => {
+  it('returns runtime bash plus host file tools and sero-cli for OpenShell Local runtime', async () => {
     const containerTools = vi.fn(() => [makeTool('container-only')]);
-    const hostTools = vi.fn(() => [makeTool('read'), makeTool('write'), makeTool('edit')]);
+    const hostTools = vi.fn(() => [
+      makeTool('bash'),
+      makeTool('read'),
+      makeTool('write'),
+      makeTool('edit'),
+    ]);
     const cliTool = vi.fn(() => makeTool('sero-cli'));
+    const runtime = createRuntime('openshell-local');
+    const runtimeExec = vi.fn(async () => ({ stdout: 'Linux\n/workspace/ws', stderr: '', exitCode: 0 }));
+    runtime.exec = runtimeExec;
 
-    const tools = createRuntimeCodingTools(createRuntime('openshell-local'), {
+    const tools = createRuntimeCodingTools(runtime, {
       sessionId: 'session-openshell',
       deps: {
         containerManager: createContainerManager(),
@@ -58,10 +85,25 @@ describe('createRuntimeCodingTools', () => {
       },
     });
 
-    expect(tools.map((tool) => tool.name)).toEqual(['read', 'write', 'edit', 'sero-cli']);
+    expect(tools.map((tool) => tool.name)).toEqual(['bash', 'read', 'write', 'edit', 'sero-cli']);
     expect(hostTools).toHaveBeenCalledWith('/tmp/ws');
     expect(cliTool).toHaveBeenCalledWith('ws-1', 'session-openshell');
     expect(containerTools).not.toHaveBeenCalled();
+
+    const bash = tools.find((tool) => tool.name === 'bash');
+    await expect(
+      bash?.execute(
+        'tool-1',
+        { command: 'uname -s', timeout: 5 },
+        undefined,
+        undefined,
+        createMockExtensionContext(),
+      ),
+    ).resolves.toMatchObject({
+      content: [{ type: 'text', text: 'Linux\n/workspace/ws' }],
+      details: { exitCode: 0 },
+    });
+    expect(runtimeExec).toHaveBeenCalledWith('uname -s', { cwd: '/tmp/ws', timeoutMs: 5000 });
   });
 
   it('delegates container runtime tools to existing createContainerTools behavior', () => {
