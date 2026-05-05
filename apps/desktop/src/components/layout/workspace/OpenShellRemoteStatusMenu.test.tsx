@@ -4,7 +4,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { WorkspaceRuntimeDiagnosticsIPC } from '@sero-ai/common';
-import type { WorkspaceInfo } from '@/types/ipc';
+import type { OpenShellRemoteGatewayEntry, WorkspaceInfo } from '@/types/ipc';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { OpenShellRemoteStatusMenu } from './OpenShellRemoteStatusMenu';
 
@@ -13,6 +13,17 @@ import { OpenShellRemoteStatusMenu } from './OpenShellRemoteStatusMenu';
 ).IS_REACT_ACT_ENVIRONMENT = true;
 
 const initialWorkspaceState = useWorkspaceStore.getState();
+
+const gateway: OpenShellRemoteGatewayEntry = {
+  id: 'gateway-1',
+  name: 'sero-remote-dev',
+  sshHost: 'dev@example-host',
+  sshKeyPath: '/Users/me/.ssh/id_ed25519',
+  port: 18080,
+  gatewayHost: '203.0.113.10',
+  createdAt: '2026-05-05T00:00:00.000Z',
+  updatedAt: '2026-05-05T00:00:00.000Z',
+};
 
 const workspace: WorkspaceInfo = {
   id: 'workspace-remote',
@@ -81,6 +92,13 @@ describe('OpenShellRemoteStatusMenu', () => {
       value: {
         workspace: {
           getRuntimeDiagnostics,
+          listOpenShellRemoteGateways: vi.fn(async () => [gateway]),
+          saveOpenShellRemoteGateway: vi.fn(async (entry: OpenShellRemoteGatewayEntry) => ({
+            ...entry,
+            createdAt: gateway.createdAt,
+            updatedAt: gateway.updatedAt,
+          })),
+          setRuntime: vi.fn(async () => undefined),
         },
       },
     });
