@@ -295,26 +295,63 @@ Expected signals:
 
 ### Goal
 
-Expose OpenShell’s security model through Sero-friendly policy profiles.
+Expose OpenShell’s security model through Sero-friendly policy profiles while staying explicit about what Sero currently enforces.
 
 ### Responsibilities
 
 - Define initial policy profiles: Strict, Dev, Browser Agent, GPU Agent, Plugin Test.
-- Show what filesystem, network, and process access each profile grants.
+- Show what filesystem, network, and process access each profile intends to grant.
 - Reflect static vs hot-reloadable policy boundaries.
-- Surface blocked network/filesystem events from logs.
+- Surface blocked network/filesystem events from logs where OpenShell emits recognizable entries.
 - Provide user prompts for allow/deny decisions where supported.
+
+### Implemented behavior
+
+- Sero defines a shared profile catalog in `@sero-ai/common` for Strict, Dev, Browser Agent, GPU Agent, and Plugin Test.
+- New OpenShell Local workspaces default to the Dev profile and persist the selected profile in `.sero-workspace.json` runtime config.
+- Existing OpenShell Local workspaces show a policy popover with the selected profile, profile switching, filesystem/network/process intent, static and hot-reloadable boundary copy, sandbox recreation guidance, and profile-change history.
+- Runtime diagnostics include OpenShell policy details for OpenShell Local workspaces only: selected profile, enforcement status, active policy CLI output where available, policy history output where available, best-effort denied/blocked log matches, and allow/deny prompt support status.
+- Policy profile changes are auditable through a capped runtime `policyProfileHistory` trail.
+
+### Current enforcement limitations
+
+Current status: **Implemented as policy profile intent + diagnostics UX, not as enforced Sero profile policy.**
+
+Sero stores the selected profile as policy intent and shows the intended filesystem, network, and process boundaries. Sero does **not** yet compile profiles to OpenShell policy YAML and does **not** call `policy set`, `policy update`, or `sandbox create --policy` for these profiles. Any active OpenShell policy shown in diagnostics is read from OpenShell; it is not proof that Sero applied the selected profile.
+
+Allow/deny prompts are also unsupported in current Sero/OpenShell Local. The UI and diagnostics report this explicitly instead of presenting a fake prompt-driven approval flow.
+
+Denied or blocked events are best-effort matches from recent OpenShell logs. Sero looks for obvious denied/blocked/policy/permission strings in warning logs, but OpenShell CLI `0.0.36` does not guarantee a stable denied-event schema. An empty event list means “no recent matching log entries found,” not “nothing was denied.”
+
+### Static vs hot-reloadable boundaries
+
+Profile copy distinguishes between boundaries that are static at sandbox creation time and boundaries OpenShell can update while a sandbox is running:
+
+- Filesystem/Landlock and process boundaries are static policy boundaries. Once Sero supports applying profile policies, changes to these areas will require sandbox recreation before they can take effect.
+- GPU or other resource-shape changes also require sandbox recreation.
+- Network endpoint policy is treated as hot-reloadable by OpenShell policy update when Sero supports validated templates, but Sero does not currently apply those updates from profile selection.
+
+Changing the selected profile in Sero today updates persisted intent and audit history. It does not mutate a running sandbox, and it does not recreate the sandbox automatically.
+
+### Explicit non-goals for the shipped Phase 3 preview
+
+- No profile-to-policy YAML compiler.
+- No `policy set` or `policy update` mutation path.
+- No `sandbox create --policy` profile application.
+- No interactive allow/deny prompts.
+- No browser automation or GPU runtime enablement; Browser Agent and GPU Agent are intent profiles only.
+- No guarantee that recent logs contain every denied action.
 
 ### Acceptance criteria
 
-- User can understand what the agent can and cannot access.
-- Denied actions are visible and actionable.
-- Policy changes are auditable.
-- Static policy changes explain when sandbox recreation is required.
+- User can understand the selected Sero policy profile intent and the current non-enforcement limitation.
+- Denied actions are visible when OpenShell emits recognizable recent log entries; otherwise Sero shows a clear best-effort/no-events state.
+- Policy profile changes are auditable.
+- Static policy changes explain when sandbox recreation will be required once enforcement exists.
 
 ### Current status
 
-**Not started.**
+**Phase 3 preview implemented with accepted limitations.** The comprehension, diagnostics, auditability, and sandbox-recreation UX are present. Phase 3 must not be treated as complete policy enforcement until Sero has validated profile-to-policy templates and applies them through OpenShell policy mutation commands.
 
 ## Phase 4 — OpenShell remote gateway support
 
@@ -399,14 +436,14 @@ Use OpenShell as an isolated, reproducible runtime for Sero evals and parallel a
 
 ## Immediate next implementation issue
 
-**Start Phase 3: Runtime profiles and policy UX.**
+**Follow-up for Phase 3 enforcement.**
 
-Recommended first tasks:
+Recommended next tasks:
 
-1. Map the current runtime settings UI and OpenShell runtime config persistence points.
-2. Define the first policy profile model and how it will be stored per workspace.
-3. Determine which OpenShell CLI/API policy operations are available in the installed CLI version.
-4. Design clear UX copy for filesystem, network, process, and sandbox-recreation boundaries.
+1. Validate OpenShell policy YAML templates for each Sero profile against the installed CLI/API.
+2. Add a deliberately tested apply path for `policy set/update` or `sandbox create --policy`.
+3. Decide the sandbox recreation workflow for static filesystem/process/resource changes.
+4. Add enforcement-specific smoke tests before changing Phase 3 from preview/intent-only to complete enforcement.
 
 ## Completion rule
 

@@ -497,7 +497,7 @@ export function OpenShellPolicyMenu({ workspace }: { workspace: WorkspaceInfo })
 
 ## TODO OPENSHELL-POLICY-PROFILES-07 — Update docs and final validation for Phase 3 limitations
 
-**Status:** Open  
+**Status:** Closed — Updated Phase 3 docs to describe policy profile intent + diagnostics UX, preview-only enforcement, unsupported allow/deny prompts, best-effort log-derived denied events, static/hot-reload boundaries, and sandbox recreation requirements. Verified with `pnpm typecheck` and line counts.  
 **Tags:** `openshell-policy-profiles`
 
 **Plan:** `/Users/danielcarter/Documents/Dev/projects/sero/sero/.pi/plans/2026-05-05-openshell-policy-profiles/plan.md`
