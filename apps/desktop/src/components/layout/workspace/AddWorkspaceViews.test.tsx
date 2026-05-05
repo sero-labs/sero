@@ -98,9 +98,9 @@ describe('AddWorkspace CreateView runtime selector', () => {
     });
 
     expect(document.body.textContent).toContain('OpenShell policy profile');
-    expect(document.body.textContent).toContain('Sero does not apply generated profile YAML yet');
+    expect(document.body.textContent).toContain('generated policy YAML is not applied yet');
     const devButton = Array.from(document.querySelectorAll('button')).find(
-      (button) => button.textContent?.includes('Developer workflow profile'),
+      (button) => button.textContent?.includes('Dev'),
     );
     expect(devButton?.getAttribute('aria-checked')).toBe('true');
   });
@@ -116,7 +116,7 @@ describe('AddWorkspace CreateView runtime selector', () => {
     });
 
     const strictButton = Array.from(document.querySelectorAll('button')).find(
-      (button) => button.textContent?.includes('Minimal Sero policy intent'),
+      (button) => button.textContent?.includes('Strict'),
     );
     expect(strictButton).toBeInstanceOf(HTMLButtonElement);
 

@@ -2,6 +2,7 @@ import { Check, FolderInput, FolderOpen, FolderPlus, Loader2, X } from 'lucide-r
 import {
   DEFAULT_OPENSHELL_POLICY_PROFILE_ID,
   OPENSHELL_POLICY_PROFILES,
+  getOpenShellPolicyProfile,
   type OpenShellPolicyProfileId,
 } from '@sero-ai/common';
 import { Button } from '@sero-ai/ui/components/ui/button';
@@ -82,6 +83,7 @@ export function CreateView({
   const locationLabel = parentPath
     ? parentPath.split('/').filter(Boolean).pop()
     : null;
+  const selectedPolicyProfile = getOpenShellPolicyProfile(policyProfileId);
 
   return (
     <form
@@ -178,10 +180,10 @@ export function CreateView({
           <label className="mb-1 block text-xs font-medium text-[var(--text-secondary)]">
             OpenShell policy profile
           </label>
-          <p className="mb-2 text-[11px] leading-relaxed text-[var(--text-muted)]">
-            Profiles describe Sero policy intent. Sero does not apply generated profile YAML yet; current enforcement is reported in diagnostics.
+          <p className="mb-2 text-[11px] leading-snug text-[var(--text-muted)]">
+            Sero stores profile intent only; generated policy YAML is not applied yet.
           </p>
-          <div className="grid gap-1" role="radiogroup" aria-label="OpenShell policy profile">
+          <div className="flex flex-wrap gap-1" role="radiogroup" aria-label="OpenShell policy profile">
             {OPENSHELL_POLICY_PROFILES.map((profile) => {
               const selected = policyProfileId === profile.id;
               return (
@@ -192,25 +194,25 @@ export function CreateView({
                   aria-checked={selected}
                   onClick={() => onPolicyProfileChange?.(profile.id)}
                   className={cn(
-                    'flex items-start gap-2 rounded-md border px-2 py-1.5 text-left text-xs transition-colors',
+                    'inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] leading-none transition-colors',
                     selected
                       ? 'border-[var(--accent-primary)] bg-[var(--bg-elevated)] text-[var(--text-primary)] ring-1 ring-[var(--accent-primary)]/40'
                       : 'border-[var(--border-default)] text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]',
                   )}
                 >
-                  <span className={cn(
-                    'mt-0.5 flex size-3 shrink-0 items-center justify-center rounded-full border',
-                    selected ? 'border-[var(--accent-primary)] bg-[var(--accent-primary)] text-[var(--bg-base)]' : 'border-[var(--border-default)]',
-                  )}>
-                    {selected ? <Check className="size-2" /> : null}
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block font-medium">{profile.label}</span>
-                    <span className="block text-[var(--text-muted)]">{profile.summary}</span>
-                  </span>
+                  {selected ? <Check className="size-2.5" /> : null}
+                  <span>{profile.label}</span>
                 </button>
               );
             })}
+          </div>
+          <div className="mt-2 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-2 py-1.5">
+            <div className="text-[11px] font-medium text-[var(--text-secondary)]">
+              {selectedPolicyProfile.label}
+            </div>
+            <p className="mt-0.5 text-[11px] leading-snug text-[var(--text-muted)]">
+              {selectedPolicyProfile.summary} Enforcement is reported in diagnostics.
+            </p>
           </div>
         </div>
       )}
