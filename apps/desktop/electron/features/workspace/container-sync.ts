@@ -11,6 +11,7 @@
 
 import { containerManager, buildContainerConfig, workspaceManager } from '@electron/shared/infra/shared-infra';
 import { showNotification } from '@electron/platform/desktop/notifications';
+import type { WorkspaceRuntimeProviderId } from '@/types/ipc';
 
 /**
  * Whether the workspace has any active terminal sessions on its
@@ -28,6 +29,23 @@ function hasActiveSessionsForWorkspace(workspaceId: string): boolean {
   return false;
 }
 
+async function getConfiguredRuntimeProvider(workspaceId: string): Promise<WorkspaceRuntimeProviderId> {
+  const runtimeConfig = await workspaceManager.getRuntimeConfig(workspaceId);
+  if (runtimeConfig) return runtimeConfig.providerId;
+
+  const containerEnabled = await workspaceManager.isContainerEnabled(workspaceId);
+  return containerEnabled ? 'apple-container' : 'host';
+}
+
+async function shouldSyncAppleContainer(workspaceId: string): Promise<boolean> {
+  try {
+    return await getConfiguredRuntimeProvider(workspaceId) === 'apple-container';
+  } catch (error) {
+    console.error(`[workspace] Failed to resolve runtime for ${workspaceId}:`, error);
+    return false;
+  }
+}
+
 /**
  * Recreate a workspace's container if it's currently running so that
  * mount changes (added/removed references, mounts, or roots) take
@@ -39,6 +57,7 @@ function hasActiveSessionsForWorkspace(workspaceId: string): boolean {
  * A notification tells the user the change is pending.
  */
 export async function recreateContainerIfRunning(workspaceId: string): Promise<void> {
+  if (!await shouldSyncAppleContainer(workspaceId)) return;
   if (!containerManager.hasContainer(workspaceId)) return;
 
   try {
