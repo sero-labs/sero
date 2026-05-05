@@ -43,6 +43,27 @@ describe('createRuntimeCodingTools', () => {
     expect(containerTools).not.toHaveBeenCalled();
   });
 
+  it('returns host coding tools plus sero-cli for OpenShell Local runtime', () => {
+    const containerTools = vi.fn(() => [makeTool('container-only')]);
+    const hostTools = vi.fn(() => [makeTool('read'), makeTool('write'), makeTool('edit')]);
+    const cliTool = vi.fn(() => makeTool('sero-cli'));
+
+    const tools = createRuntimeCodingTools(createRuntime('openshell-local'), {
+      sessionId: 'session-openshell',
+      deps: {
+        containerManager: createContainerManager(),
+        createContainerTools: containerTools,
+        createHostCodingTools: hostTools,
+        createWorkspaceCliTool: cliTool,
+      },
+    });
+
+    expect(tools.map((tool) => tool.name)).toEqual(['read', 'write', 'edit', 'sero-cli']);
+    expect(hostTools).toHaveBeenCalledWith('/tmp/ws');
+    expect(cliTool).toHaveBeenCalledWith('ws-1', 'session-openshell');
+    expect(containerTools).not.toHaveBeenCalled();
+  });
+
   it('delegates container runtime tools to existing createContainerTools behavior', () => {
     const expectedTools = [
       makeTool('bash'),
@@ -109,11 +130,11 @@ describe('createRuntimeCodingTools', () => {
   });
 });
 
-function createRuntime(actualRuntime: 'host' | 'container'): WorkspaceRuntimeFacade {
+function createRuntime(actualRuntime: 'host' | 'container' | 'openshell-local'): WorkspaceRuntimeFacade {
   return {
     workspaceId: 'ws-1',
     workspacePath: '/tmp/ws',
-    providerId: actualRuntime === 'container' ? 'apple-container' : 'host',
+    providerId: getProviderId(actualRuntime),
     actualRuntime,
     resolution: {
       workspaceId: 'ws-1',
@@ -125,24 +146,33 @@ function createRuntime(actualRuntime: 'host' | 'container'): WorkspaceRuntimeFac
     },
     capabilities: {
       exec: true,
-      interactiveTerminal: true,
+      interactiveTerminal: actualRuntime !== 'openshell-local',
       directFileRead: actualRuntime === 'host',
       directFileWrite: actualRuntime === 'host',
-      fileUpload: false,
-      fileDownload: false,
-      managedDevServers: actualRuntime === 'container',
+      fileUpload: actualRuntime === 'openshell-local',
+      fileDownload: actualRuntime === 'openshell-local',
+      managedDevServers: actualRuntime !== 'host',
       browserAutomation: actualRuntime === 'container',
       portDiscovery: actualRuntime === 'container',
-      portForward: false,
-      logStream: false,
+      portForward: actualRuntime === 'openshell-local',
+      logStream: actualRuntime === 'openshell-local',
     },
     health: async () => ({
-      providerId: actualRuntime === 'container' ? 'apple-container' : 'host',
+      providerId: getProviderId(actualRuntime),
       status: 'ready',
     }),
     exec: async () => ({ stdout: '', stderr: '', exitCode: 0 }),
-    createTerminal: async () => ({ pty: createPty(), runtime: actualRuntime }),
+    createTerminal: async () => ({
+      pty: createPty(),
+      runtime: actualRuntime === 'container' ? 'container' : 'host',
+    }),
   };
+}
+
+function getProviderId(actualRuntime: 'host' | 'container' | 'openshell-local') {
+  if (actualRuntime === 'container') return 'apple-container';
+  if (actualRuntime === 'openshell-local') return 'openshell-local';
+  return 'host';
 }
 
 function createContainerManager(): ContainerManager {

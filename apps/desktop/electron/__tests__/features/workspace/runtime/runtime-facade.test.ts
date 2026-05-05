@@ -51,6 +51,36 @@ describe('createWorkspaceRuntimeFacade', () => {
     expect(facade.capabilities.browserAutomation).toBe(false);
   });
 
+  it('chooses the OpenShell Local adapter when the provider is OpenShell', async () => {
+    const resolution = createResolution({
+      desiredRuntime: 'openshell-local',
+      actualRuntime: 'openshell-local',
+      containerEnabled: false,
+      providerId: 'openshell-local',
+    });
+    const deps = createDeps(resolution);
+    const openShellAdapter = createAdapter('openshell-local', 'openshell-local');
+    const createOpenShellLocalRuntimeAdapter = vi.fn(() => openShellAdapter);
+
+    const facade = await createWorkspaceRuntimeFacade('ws-1', {
+      deps: { ...deps, createOpenShellLocalRuntimeAdapter },
+    });
+
+    expect(createOpenShellLocalRuntimeAdapter).toHaveBeenCalledWith({
+      workspaceId: 'ws-1',
+      workspacePath: '/tmp/ws',
+      workspaceManager: deps.workspaceManager,
+      terminals: deps.containerManager.terminals,
+    });
+    expect(facade).toMatchObject({
+      workspaceId: 'ws-1',
+      workspacePath: '/tmp/ws',
+      providerId: 'openshell-local',
+      actualRuntime: 'openshell-local',
+    });
+    expect(facade.capabilities.browserAutomation).toBe(false);
+  });
+
   it('chooses the Apple container adapter for running container mode', async () => {
     const resolution = createResolution({
       desiredRuntime: 'container',
@@ -120,12 +150,38 @@ function createResolution(
   overrides: Pick<
     WorkspaceRuntimeResolution,
     'desiredRuntime' | 'actualRuntime' | 'containerEnabled'
-  > & Partial<Pick<WorkspaceRuntimeResolution, 'fallbackCode' | 'fallbackReason'>>,
+  > & Partial<Pick<WorkspaceRuntimeResolution, 'providerId' | 'fallbackCode' | 'fallbackReason'>>,
 ): WorkspaceRuntimeResolution {
   return {
     workspaceId: 'ws-1',
     workspacePath: '/tmp/ws',
     capabilityAudit: [],
     ...overrides,
+  };
+}
+
+function createAdapter(
+  providerId: 'host' | 'apple-container' | 'openshell-local',
+  actualRuntime: 'host' | 'container' | 'openshell-local',
+) {
+  return {
+    providerId,
+    actualRuntime,
+    capabilities: {
+      exec: true,
+      interactiveTerminal: actualRuntime !== 'openshell-local',
+      directFileRead: actualRuntime === 'host',
+      directFileWrite: actualRuntime === 'host',
+      fileUpload: actualRuntime === 'openshell-local',
+      fileDownload: actualRuntime === 'openshell-local',
+      managedDevServers: actualRuntime !== 'host',
+      browserAutomation: actualRuntime === 'container',
+      portDiscovery: actualRuntime === 'container',
+      portForward: actualRuntime === 'openshell-local',
+      logStream: actualRuntime === 'openshell-local',
+    },
+    health: vi.fn(),
+    exec: vi.fn(),
+    createTerminal: vi.fn(),
   };
 }

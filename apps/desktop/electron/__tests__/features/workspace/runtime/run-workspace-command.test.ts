@@ -53,6 +53,28 @@ describe('runWorkspaceCommand', () => {
     warnSpy.mockRestore();
   });
 
+  it('delegates OpenShell Local execution without Apple container fallback warnings', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const runtime = createRuntimeFacade({
+      desiredRuntime: 'openshell-local',
+      actualRuntime: 'openshell-local',
+      providerId: 'openshell-local',
+      execResult: { stdout: 'openshell ok', stderr: '', exitCode: 0 },
+    });
+    mocks.createWorkspaceRuntimeFacade.mockResolvedValue(runtime);
+
+    const result = await runWorkspaceCommand('ws-1', '/tmp/ws', 'pnpm test');
+
+    expect(result).toEqual({ stdout: 'openshell ok', stderr: '', exitCode: 0 });
+    expect(runtime.exec).toHaveBeenCalledWith('pnpm test', {
+      cwd: '/tmp/ws',
+      timeoutMs: 120000,
+      isolated: undefined,
+    });
+    expect(warnSpy).not.toHaveBeenCalled();
+    warnSpy.mockRestore();
+  });
+
   it('uses facade container execution and preserves cwd timeout options at the adapter boundary', async () => {
     const runtime = createRuntimeFacade({
       desiredRuntime: 'container',
@@ -108,29 +130,30 @@ describe('runWorkspaceCommand', () => {
 });
 
 function createRuntimeFacade(input: {
-  desiredRuntime: 'host' | 'container';
-  actualRuntime: 'host' | 'container';
+  desiredRuntime: 'host' | 'container' | 'openshell-local';
+  actualRuntime: 'host' | 'container' | 'openshell-local';
+  providerId?: 'host' | 'apple-container' | 'openshell-local';
   fallbackReason?: string;
   execResult: { stdout: string; stderr: string; exitCode: number };
 }): WorkspaceRuntimeFacade {
   return {
     workspaceId: 'ws-1',
     workspacePath: '/tmp/ws',
-    providerId: input.actualRuntime === 'container' ? 'apple-container' : 'host',
+    providerId: input.providerId ?? (input.actualRuntime === 'container' ? 'apple-container' : 'host'),
     actualRuntime: input.actualRuntime,
     fallbackReason: input.fallbackReason,
     capabilities: {
       exec: true,
-      interactiveTerminal: true,
+      interactiveTerminal: input.actualRuntime !== 'openshell-local',
       directFileRead: input.actualRuntime === 'host',
       directFileWrite: input.actualRuntime === 'host',
-      fileUpload: false,
-      fileDownload: false,
-      managedDevServers: input.actualRuntime === 'container',
+      fileUpload: input.actualRuntime === 'openshell-local',
+      fileDownload: input.actualRuntime === 'openshell-local',
+      managedDevServers: input.actualRuntime !== 'host',
       browserAutomation: input.actualRuntime === 'container',
       portDiscovery: input.actualRuntime === 'container',
-      portForward: false,
-      logStream: false,
+      portForward: input.actualRuntime === 'openshell-local',
+      logStream: input.actualRuntime === 'openshell-local',
     },
     resolution: {
       workspaceId: 'ws-1',

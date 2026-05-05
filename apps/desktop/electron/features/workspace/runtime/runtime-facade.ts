@@ -8,6 +8,7 @@ import {
 } from '@electron/features/workspace/runtime-resolution';
 import { createContainerRuntimeAdapter } from './adapters/container-runtime-adapter';
 import { createHostRuntimeAdapter } from './adapters/host-runtime-adapter';
+import { createOpenShellLocalRuntimeAdapter } from './adapters/openshell-local-runtime-adapter';
 import type { WorkspaceRuntimeFacade } from './types';
 
 type RuntimeAdapter = Pick<
@@ -28,12 +29,20 @@ interface CreateContainerAdapterInput {
   workspaceManager: WorkspaceManager;
 }
 
+interface CreateOpenShellLocalAdapterInput {
+  workspaceId: string;
+  workspacePath: string;
+  terminals: ContainerManager['terminals'];
+  workspaceManager: WorkspaceManager;
+}
+
 interface RuntimeFacadeDependencies {
   resolveWorkspaceRuntime(workspaceId: string): Promise<WorkspaceRuntimeResolution>;
   workspaceManager: WorkspaceManager;
   containerManager: ContainerManager;
   createHostRuntimeAdapter(input: CreateHostAdapterInput): RuntimeAdapter;
   createContainerRuntimeAdapter(input: CreateContainerAdapterInput): RuntimeAdapter;
+  createOpenShellLocalRuntimeAdapter(input: CreateOpenShellLocalAdapterInput): RuntimeAdapter;
 }
 
 export interface CreateWorkspaceRuntimeFacadeOptions {
@@ -46,18 +55,25 @@ export async function createWorkspaceRuntimeFacade(
 ): Promise<WorkspaceRuntimeFacade> {
   const deps = resolveRuntimeFacadeDeps(options.deps);
   const resolution = await deps.resolveWorkspaceRuntime(workspaceId);
-  const adapter = resolution.actualRuntime === 'container'
-    ? deps.createContainerRuntimeAdapter({
+  const adapter = resolution.providerId === 'openshell-local'
+    ? deps.createOpenShellLocalRuntimeAdapter({
         workspaceId,
         workspacePath: resolution.workspacePath,
         workspaceManager: deps.workspaceManager,
-        containerManager: deps.containerManager,
-      })
-    : deps.createHostRuntimeAdapter({
-        workspaceId,
-        workspacePath: resolution.workspacePath,
         terminals: deps.containerManager.terminals,
-      });
+      })
+    : resolution.actualRuntime === 'container'
+      ? deps.createContainerRuntimeAdapter({
+          workspaceId,
+          workspacePath: resolution.workspacePath,
+          workspaceManager: deps.workspaceManager,
+          containerManager: deps.containerManager,
+        })
+      : deps.createHostRuntimeAdapter({
+          workspaceId,
+          workspacePath: resolution.workspacePath,
+          terminals: deps.containerManager.terminals,
+        });
 
   return {
     ...adapter,
@@ -78,5 +94,6 @@ function resolveRuntimeFacadeDeps(
     containerManager: deps.containerManager ?? containerManager,
     createHostRuntimeAdapter: deps.createHostRuntimeAdapter ?? createHostRuntimeAdapter,
     createContainerRuntimeAdapter: deps.createContainerRuntimeAdapter ?? createContainerRuntimeAdapter,
+    createOpenShellLocalRuntimeAdapter: deps.createOpenShellLocalRuntimeAdapter ?? createOpenShellLocalRuntimeAdapter,
   };
 }
