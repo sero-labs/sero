@@ -1,7 +1,5 @@
-import { execFile, spawn, type ChildProcessWithoutNullStreams } from 'child_process';
-import { promisify } from 'util';
+import { spawn, type ChildProcessWithoutNullStreams } from 'child_process';
 
-const execFileAsync = promisify(execFile);
 const OUTPUT_SNIPPET_BYTES = 4000;
 const DEFAULT_TIMEOUT_MS = 120_000;
 const MAX_BUFFER_BYTES = 10 * 1024 * 1024;
@@ -15,11 +13,6 @@ export interface OpenShellCommandResult {
   stdout: string;
   stderr: string;
   exitCode: number;
-}
-
-interface ExecFileSuccess {
-  stdout: string | Buffer;
-  stderr: string | Buffer;
 }
 
 interface ProcessFailureLike {
@@ -47,26 +40,78 @@ export function spawnOpenShell(
   });
 }
 
-export async function runCommand(
+export function runCommand(
   label: string,
   command: string,
   args: string[],
   options: OpenShellCommandOptions = {},
 ): Promise<OpenShellCommandResult> {
-  try {
-    const result = (await execFileAsync(command, args, {
-      cwd: options.cwd,
-      timeout: options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
-      maxBuffer: MAX_BUFFER_BYTES,
-    })) as ExecFileSuccess;
-    return {
-      stdout: toText(result.stdout),
-      stderr: toText(result.stderr),
-      exitCode: 0,
-    };
-  } catch (error) {
-    return normalizeProcessFailure(label, command, args, error);
-  }
+  return new Promise((resolve) => {
+    const child = spawn(command, args, { cwd: options.cwd, stdio: 'pipe' });
+    const stdoutChunks: Buffer[] = [];
+    const stderrChunks: Buffer[] = [];
+    let stdoutBytes = 0;
+    let stderrBytes = 0;
+    let settled = false;
+    let timedOut = false;
+
+    const timeout = setTimeout(() => {
+      timedOut = true;
+      child.kill('SIGTERM');
+    }, options.timeoutMs ?? DEFAULT_TIMEOUT_MS);
+
+    child.stdout.on('data', (chunk: Buffer) => {
+      stdoutBytes += chunk.byteLength;
+      if (stdoutBytes <= MAX_BUFFER_BYTES) stdoutChunks.push(chunk);
+    });
+
+    child.stderr.on('data', (chunk: Buffer) => {
+      stderrBytes += chunk.byteLength;
+      if (stderrBytes <= MAX_BUFFER_BYTES) stderrChunks.push(chunk);
+    });
+
+    child.once('error', (error: Error & { code?: string }) => {
+      resolveOnce({
+        code: error.code,
+        message: error.message,
+        stdout: Buffer.concat(stdoutChunks),
+        stderr: Buffer.concat(stderrChunks),
+      });
+    });
+
+    child.once('exit', (code, signal) => {
+      const stdout = Buffer.concat(stdoutChunks);
+      const stderr = Buffer.concat(stderrChunks);
+      if (code === 0 && !signal && !timedOut && stdoutBytes <= MAX_BUFFER_BYTES && stderrBytes <= MAX_BUFFER_BYTES) {
+        resolveSuccess(stdout, stderr);
+        return;
+      }
+      const overflow = getOverflowMessage(stdoutBytes, stderrBytes);
+      resolveOnce({
+        code,
+        signal,
+        stdout,
+        stderr: appendMessage(stderr, overflow),
+        message: timedOut ? `timed out after ${options.timeoutMs ?? DEFAULT_TIMEOUT_MS}ms` : undefined,
+      });
+    });
+
+    child.stdin.end();
+
+    function resolveSuccess(stdout: Buffer, stderr: Buffer): void {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      resolve({ stdout: toText(stdout), stderr: toText(stderr), exitCode: 0 });
+    }
+
+    function resolveOnce(failure: ProcessFailureLike): void {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      resolve(normalizeProcessFailure(label, command, args, failure));
+    }
+  });
 }
 
 export function normalizeProcessFailure(
@@ -158,4 +203,15 @@ function limitOutputSnippet(value: string): string {
   const buffer = Buffer.from(value, 'utf8');
   if (buffer.byteLength <= OUTPUT_SNIPPET_BYTES) return value;
   return `${buffer.subarray(0, OUTPUT_SNIPPET_BYTES).toString('utf8')}…`;
+}
+
+function appendMessage(stderr: Buffer, message: string | undefined): Buffer {
+  if (!message) return stderr;
+  const separator = stderr.byteLength > 0 ? '\n' : '';
+  return Buffer.concat([stderr, Buffer.from(`${separator}${message}`)]);
+}
+
+function getOverflowMessage(stdoutBytes: number, stderrBytes: number): string | undefined {
+  if (stdoutBytes <= MAX_BUFFER_BYTES && stderrBytes <= MAX_BUFFER_BYTES) return undefined;
+  return `Output exceeded ${MAX_BUFFER_BYTES} bytes and was truncated.`;
 }
