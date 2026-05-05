@@ -18,6 +18,14 @@ export interface OpenShellPolicyProfile {
   unsupportedInCurrentCli: readonly string[];
 }
 
+export interface OpenShellPolicyProfileHistoryEntry {
+  profileId: OpenShellPolicyProfileId;
+  changedAt: string;
+  message: string;
+}
+
+export const OPENSHELL_POLICY_PROFILE_HISTORY_LIMIT = 20;
+
 export const DEFAULT_OPENSHELL_POLICY_PROFILE_ID: OpenShellPolicyProfileId = 'dev';
 
 export const OPENSHELL_POLICY_PROFILES: readonly OpenShellPolicyProfile[] = [

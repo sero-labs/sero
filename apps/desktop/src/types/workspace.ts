@@ -1,5 +1,9 @@
+import type { OpenShellPolicyProfileHistoryEntry, OpenShellPolicyProfileId } from '@sero-ai/common';
+
 /** Runtime provider persisted in .sero-workspace.json. */
 export type WorkspaceRuntimeProviderId = 'host' | 'apple-container' | 'openshell-local';
+
+export type WorkspaceRuntimePolicyHistoryEntry = OpenShellPolicyProfileHistoryEntry;
 
 export interface WorkspaceRuntimeConfig {
   providerId: WorkspaceRuntimeProviderId;
@@ -7,6 +11,9 @@ export interface WorkspaceRuntimeConfig {
   sandboxName?: string;
   runtimeWorkspacePath?: string;
   experimental?: boolean;
+  policyProfileId?: OpenShellPolicyProfileId;
+  policyProfileUpdatedAt?: string;
+  policyProfileHistory?: WorkspaceRuntimePolicyHistoryEntry[];
 }
 
 /** Entry in the workspace registry (~/.sero-ui/agent/workspaces.json). */

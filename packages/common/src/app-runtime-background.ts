@@ -1,3 +1,8 @@
+import type {
+  OpenShellPolicyProfileHistoryEntry,
+  OpenShellPolicyProfileId,
+} from './openshell-policy';
+
 /**
  * Background app runtime contract — shared between the desktop host and
  * runtime-enabled Sero plugins.
@@ -64,12 +69,17 @@ export interface AppRuntimeWorkspaceRefreshResult {
 export type AppRuntimeWorkspaceRuntimeKind = 'container' | 'host' | 'openshell-local';
 export type AppRuntimeWorkspaceRuntimeProviderId = 'host' | 'apple-container' | 'openshell-local';
 
+export type AppRuntimeWorkspaceRuntimePolicyHistoryEntry = OpenShellPolicyProfileHistoryEntry;
+
 export interface AppRuntimeWorkspaceRuntimeConfig {
   providerId: AppRuntimeWorkspaceRuntimeProviderId;
   gatewayName?: string;
   sandboxName?: string;
   runtimeWorkspacePath?: string;
   experimental?: boolean;
+  policyProfileId?: OpenShellPolicyProfileId;
+  policyProfileUpdatedAt?: string;
+  policyProfileHistory?: AppRuntimeWorkspaceRuntimePolicyHistoryEntry[];
 }
 
 export type AppRuntimeWorkspaceRuntimeFallbackCode = 'container_unavailable';

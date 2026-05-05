@@ -1,3 +1,7 @@
+import type {
+  OpenShellPolicyProfileHistoryEntry,
+  OpenShellPolicyProfileId,
+} from './openshell-policy';
 import type { ThinkingLevel, ModelValidationWarning } from './model-selection';
 import type { PluginDevSessionIPC } from './plugin-dev';
 import type { InstalledPlugin, PluginChangeEventIPC } from './plugins';
@@ -20,12 +24,17 @@ export interface GlobalModelConfigStateIPC {
 
 export type WorkspaceRuntimeProviderIdIPC = 'host' | 'apple-container' | 'openshell-local';
 
+export type WorkspaceRuntimePolicyHistoryEntryIPC = OpenShellPolicyProfileHistoryEntry;
+
 export interface WorkspaceRuntimeConfigIPC {
   providerId: WorkspaceRuntimeProviderIdIPC;
   gatewayName?: string;
   sandboxName?: string;
   runtimeWorkspacePath?: string;
   experimental?: boolean;
+  policyProfileId?: OpenShellPolicyProfileId;
+  policyProfileUpdatedAt?: string;
+  policyProfileHistory?: WorkspaceRuntimePolicyHistoryEntryIPC[];
 }
 
 export interface WorkspaceRootIPC {

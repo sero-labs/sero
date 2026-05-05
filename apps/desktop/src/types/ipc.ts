@@ -13,6 +13,7 @@ export type { ProfileInfo } from './profile';
 
 export type {
   WorkspaceRuntimeProviderId,
+  WorkspaceRuntimePolicyHistoryEntry,
   WorkspaceRuntimeConfig,
   WorkspaceRegistryEntry,
   WorkspaceRoot,

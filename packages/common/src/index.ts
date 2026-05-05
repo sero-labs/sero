@@ -35,6 +35,7 @@ export type {
 
 export {
   DEFAULT_OPENSHELL_POLICY_PROFILE_ID,
+  OPENSHELL_POLICY_PROFILE_HISTORY_LIMIT,
   OPENSHELL_POLICY_PROFILES,
   getDefaultOpenShellPolicyProfile,
   getOpenShellPolicyProfile,
@@ -43,6 +44,7 @@ export {
 
 export type {
   OpenShellPolicyProfile,
+  OpenShellPolicyProfileHistoryEntry,
   OpenShellPolicyProfileId,
 } from './openshell-policy';
 
@@ -56,6 +58,7 @@ export type {
   AppRuntimeWorkspaceRefreshResult,
   AppRuntimeWorkspaceRuntimeKind,
   AppRuntimeWorkspaceRuntimeProviderId,
+  AppRuntimeWorkspaceRuntimePolicyHistoryEntry,
   AppRuntimeWorkspaceRuntimeConfig,
   AppRuntimeWorkspaceRuntimeFallbackCode,
   AppRuntimeWorkspaceRuntimeCapabilityKey,
@@ -231,6 +234,7 @@ export type {
 export type {
   GlobalModelConfigStateIPC,
   WorkspaceRuntimeProviderIdIPC,
+  WorkspaceRuntimePolicyHistoryEntryIPC,
   WorkspaceRuntimeConfigIPC,
   WorkspaceRootIPC,
   ProfileInfo,
