@@ -159,7 +159,7 @@ describe('createOpenShellLocalRuntimeAdapter', () => {
       sandboxName: 'sero-ws-1',
       workspacePath: '/tmp/ws',
       runtimeWorkspacePath: '/sandbox/workspace/ws',
-      timeoutMs: 2_500,
+      timeoutMs: 32_500,
     });
     expect(mocks.runOpenShell).toHaveBeenNthCalledWith(5, [
       '--gateway', 'sero-local',
@@ -167,13 +167,13 @@ describe('createOpenShellLocalRuntimeAdapter', () => {
       '--workdir', '/sandbox/workspace/ws/src',
       '--timeout', '3',
       '--no-tty', '--', 'sh', '-lc', 'npm test',
-    ], { timeoutMs: 2_500 });
+    ], { timeoutMs: 32_500 });
     expect(mocks.pullWorkspaceFromSandbox).toHaveBeenCalledWith({
       gatewayName: 'sero-local',
       sandboxName: 'sero-ws-1',
       workspacePath: '/tmp/ws',
       runtimeWorkspacePath: '/sandbox/workspace/ws',
-      timeoutMs: 2_500,
+      timeoutMs: 32_500,
     });
     expect(workspaceManager.setRuntimeConfig).toHaveBeenCalledWith('ws-1', {
       providerId: 'openshell-local',
@@ -209,7 +209,7 @@ describe('createOpenShellLocalRuntimeAdapter', () => {
       '--workdir', '/sandbox/workspace/custom',
       '--timeout', '120',
       '--no-tty', '--', 'sh', '-lc', 'pwd',
-    ], { timeoutMs: undefined });
+    ], { timeoutMs: 120_000 });
   });
 
   it('returns a clear failure without host fallback when OpenShell ensure fails', async () => {

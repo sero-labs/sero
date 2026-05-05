@@ -24,6 +24,7 @@ import type {
 
 const DEFAULT_GATEWAY_NAME = 'sero-local';
 const DEFAULT_TIMEOUT_MS = 120_000;
+const CLI_TIMEOUT_GRACE_MS = 30_000;
 
 export const OPENSHELL_LOCAL_CAPABILITIES: RuntimeCapabilities = {
   exec: true,
@@ -137,12 +138,13 @@ export function createOpenShellLocalRuntimeAdapter(
       const ready = await ensureOpenShellRuntime(input);
       if (!ready.ok || !ready.state) return failureResult(ready.message ?? 'OpenShell Local is not ready.');
 
+      const cliTimeoutMs = toCliTimeoutMs(options.timeoutMs);
       const syncInput = {
         gatewayName: ready.state.gatewayName,
         sandboxName: ready.state.sandboxName,
         workspacePath: input.workspacePath,
         runtimeWorkspacePath: ready.state.runtimeWorkspacePath,
-        timeoutMs: options.timeoutMs,
+        timeoutMs: cliTimeoutMs,
       };
 
       const push = await pushWorkspaceToSandbox(syncInput);
@@ -154,7 +156,7 @@ export function createOpenShellLocalRuntimeAdapter(
         '--workdir', runtimeCwd,
         '--timeout', String(toTimeoutSeconds(options.timeoutMs)),
         '--no-tty', '--', 'sh', '-lc', command,
-      ], { timeoutMs: options.timeoutMs });
+      ], { timeoutMs: cliTimeoutMs });
 
       const pull = await pullWorkspaceFromSandbox(syncInput);
       if (pull.exitCode !== 0) return failureResult(formatOpenShellFailure('pull workspace from OpenShell sandbox', pull));
@@ -322,6 +324,12 @@ function toTimeoutSeconds(timeoutMs: number | undefined): number {
   if (timeoutMs === undefined) return DEFAULT_TIMEOUT_MS / 1000;
   if (timeoutMs === 0) return 0;
   return Math.max(1, Math.ceil(timeoutMs / 1000));
+}
+
+function toCliTimeoutMs(timeoutMs: number | undefined): number {
+  if (timeoutMs === undefined) return DEFAULT_TIMEOUT_MS;
+  if (timeoutMs === 0) return 0;
+  return timeoutMs + CLI_TIMEOUT_GRACE_MS;
 }
 
 function outsideWorkspaceResult(cwd: string): ExecResult {

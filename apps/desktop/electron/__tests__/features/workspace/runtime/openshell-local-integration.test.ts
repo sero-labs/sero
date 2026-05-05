@@ -69,7 +69,7 @@ describe('OpenShell Local runtime integration', () => {
       sandboxName: 'sero-ws-open',
       workspacePath: '/tmp/ws-open',
       runtimeWorkspacePath: '/sandbox/workspace/ws-open',
-      timeoutMs: 5_000,
+      timeoutMs: 35_000,
     });
     expect(mocks.runOpenShell).toHaveBeenNthCalledWith(5, [
       '--gateway', 'sero-local',
@@ -77,13 +77,13 @@ describe('OpenShell Local runtime integration', () => {
       '--workdir', '/sandbox/workspace/ws-open/src',
       '--timeout', '5',
       '--no-tty', '--', 'sh', '-lc', 'node -e "console.log(1)"',
-    ], { timeoutMs: 5_000 });
+    ], { timeoutMs: 35_000 });
     expect(mocks.pullWorkspaceFromSandbox).toHaveBeenCalledWith({
       gatewayName: 'sero-local',
       sandboxName: 'sero-ws-open',
       workspacePath: '/tmp/ws-open',
       runtimeWorkspacePath: '/sandbox/workspace/ws-open',
-      timeoutMs: 5_000,
+      timeoutMs: 35_000,
     });
     expect(workspaceManager.setRuntimeConfig).toHaveBeenCalledWith('ws-open', {
       providerId: 'openshell-local',
