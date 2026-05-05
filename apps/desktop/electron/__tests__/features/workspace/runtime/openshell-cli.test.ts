@@ -31,19 +31,20 @@ describe('OpenShell CLI process helpers', () => {
     expect(result.message).toContain('OpenShell CLI detected');
     expect(mocks.spawnMock).toHaveBeenCalledWith('openshell', ['--version'], {
       cwd: undefined,
-      stdio: 'pipe',
+      stdio: ['ignore', 'pipe', 'pipe'],
     });
   });
 
-  it('closes stdin for commands executed through pipes', async () => {
-    const child = createProcess({ stdout: 'ok\n' });
-    mocks.spawnMock.mockReturnValue(child);
+  it('uses ignored stdin so OpenShell CLI observes immediate EOF', async () => {
+    mocks.spawnMock.mockReturnValue(createProcess({ stdout: 'ok\n' }));
 
     const result = await runOpenShell(['sandbox', 'exec', '-n', 'sero-ws', '--', 'pwd']);
 
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toBe('ok\n');
-    expect(child.stdin.end).toHaveBeenCalledOnce();
+    expect(mocks.spawnMock).toHaveBeenCalledWith('openshell', [
+      'sandbox', 'exec', '-n', 'sero-ws', '--', 'pwd',
+    ], { cwd: undefined, stdio: ['ignore', 'pipe', 'pipe'] });
   });
 
   it('returns a clear failure when OpenShell CLI is missing', async () => {

@@ -47,7 +47,7 @@ export function runCommand(
   options: OpenShellCommandOptions = {},
 ): Promise<OpenShellCommandResult> {
   return new Promise((resolve) => {
-    const child = spawn(command, args, { cwd: options.cwd, stdio: 'pipe' });
+    const child = spawn(command, args, { cwd: options.cwd, stdio: ['ignore', 'pipe', 'pipe'] });
     const stdoutChunks: Buffer[] = [];
     const stderrChunks: Buffer[] = [];
     let stdoutBytes = 0;
@@ -95,8 +95,6 @@ export function runCommand(
         message: timedOut ? `timed out after ${options.timeoutMs ?? DEFAULT_TIMEOUT_MS}ms` : undefined,
       });
     });
-
-    child.stdin.end();
 
     function resolveSuccess(stdout: Buffer, stderr: Buffer): void {
       if (settled) return;
