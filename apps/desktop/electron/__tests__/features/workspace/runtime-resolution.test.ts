@@ -123,6 +123,23 @@ describe('resolveWorkspaceRuntime', () => {
       containerOnly: false,
     });
     expect(resolved.capabilityAudit[0]?.detail).toContain('experimental');
+    expect(resolved.capabilityAudit[0]?.detail).toContain('Selected policy profile: Dev');
+    expect(resolved.capabilityAudit[0]?.detail).toContain('does not apply generated policy YAML');
+  });
+
+  it('uses selected OpenShell profile in capability audit copy', async () => {
+    mocks.workspaceManager.getRuntimeConfig.mockResolvedValue({
+      providerId: 'openshell-local',
+      gatewayName: 'sero-local',
+      experimental: true,
+      policyProfileId: 'browser-agent',
+    });
+
+    const resolved = await resolveWorkspaceRuntime('ws-open');
+
+    expect(resolved.capabilityAudit[0]?.detail).toContain('Selected policy profile: Browser Agent');
+    expect(resolved.capabilityAudit[0]?.detail).toContain('persisted Sero policy intent');
+    expect(resolved.capabilityAudit[0]?.detail).toContain('does not apply generated policy YAML');
   });
 
   it('uses explicit Apple container runtime config even when legacy container is false', async () => {

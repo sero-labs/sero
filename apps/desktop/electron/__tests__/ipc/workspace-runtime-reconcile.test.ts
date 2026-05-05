@@ -45,6 +45,7 @@ const mocks = vi.hoisted(() => {
       renameRoot: vi.fn(async () => {}),
     },
     createWorkspaceRuntimeFacade: vi.fn(),
+    getOpenShellPolicyDiagnostics: vi.fn(),
     assertIsSeroPluginFolder: vi.fn(async () => {}),
     recreateContainerIfRunning: vi.fn(async () => {}),
     appRuntimeReconcile: vi.fn(async () => {}),
@@ -70,6 +71,10 @@ vi.mock('@electron/features/workspace/manager', () => ({
 
 vi.mock('@electron/features/workspace/runtime/runtime-facade', () => ({
   createWorkspaceRuntimeFacade: mocks.createWorkspaceRuntimeFacade,
+}));
+
+vi.mock('@electron/features/workspace/runtime/openshell/policy-diagnostics', () => ({
+  getOpenShellPolicyDiagnostics: mocks.getOpenShellPolicyDiagnostics,
 }));
 
 vi.mock('@electron/features/workspace/plugin-validation', () => ({
@@ -120,6 +125,29 @@ describe('workspace IPC runtime reconcile', () => {
     mocks.workspaceManager.removeRoot.mockClear();
     mocks.workspaceManager.renameRoot.mockClear();
     mocks.createWorkspaceRuntimeFacade.mockReset();
+    mocks.getOpenShellPolicyDiagnostics.mockReset();
+    mocks.getOpenShellPolicyDiagnostics.mockResolvedValue({
+      selectedProfile: {
+        id: 'dev',
+        label: 'Dev',
+        summary: 'Developer workflow profile.',
+        filesystemAccess: [],
+        networkAccess: [],
+        processAccess: [],
+        staticBoundaries: [],
+        hotReloadableBoundaries: [],
+        sandboxRecreationRequiredFor: [],
+        unsupportedInCurrentCli: [],
+      },
+      enforcementStatus: 'profile-preview-only',
+      enforcementMessage: 'Sero stores this profile as policy intent.',
+      activePolicy: { available: false, summary: 'Unavailable.' },
+      policyList: { available: false, summary: 'Unavailable.' },
+      logSummary: { available: false, summary: 'Unavailable.' },
+      blockedEvents: [],
+      allowDenyPromptsSupported: false,
+      allowDenyPromptsMessage: 'Unsupported.',
+    });
     mocks.createWorkspaceRuntimeFacade.mockImplementation(async (workspaceId: string) => ({
       workspaceId,
       workspacePath: `/repo-${workspaceId}`,
@@ -271,6 +299,7 @@ describe('workspace IPC runtime reconcile', () => {
     const diagnostics = await diagnosticsHandler?.({}, 'ws-1');
 
     expect(mocks.createWorkspaceRuntimeFacade).toHaveBeenCalledWith('ws-1');
+    expect(mocks.getOpenShellPolicyDiagnostics).not.toHaveBeenCalled();
     expect(diagnostics).toEqual([{
       workspaceId: 'ws-1',
       workspacePath: '/repo-1',
@@ -348,11 +377,21 @@ describe('workspace IPC runtime reconcile', () => {
       | undefined;
     const diagnostics = await diagnosticsHandler?.({}, 'ws-open');
 
+    expect(mocks.getOpenShellPolicyDiagnostics).toHaveBeenCalledWith({
+      gatewayName: 'sero-local',
+      sandboxName: 'sero-ws-open',
+      runtimeConfig,
+    });
     expect(diagnostics?.[0]).toMatchObject({
       workspaceId: 'ws-open',
       providerId: 'openshell-local',
       runtimeConfig,
       runtimeHealth,
+      openShellPolicy: {
+        selectedProfile: { id: 'dev', label: 'Dev' },
+        enforcementStatus: 'profile-preview-only',
+        blockedEvents: [],
+      },
     });
     expect(diagnostics?.[0]).toMatchObject({
       capabilityAudit: [expect.objectContaining({

@@ -22,7 +22,7 @@ import type {
   WorkspaceRuntimeFacade,
 } from '../types';
 
-const DEFAULT_GATEWAY_NAME = 'sero-local';
+export const DEFAULT_GATEWAY_NAME = 'sero-local';
 const DEFAULT_TIMEOUT_MS = 120_000;
 
 export const OPENSHELL_LOCAL_CAPABILITIES: RuntimeCapabilities = {

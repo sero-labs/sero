@@ -1,3 +1,4 @@
+import { getOpenShellPolicyProfile } from '@sero-ai/common';
 import type { ContainerManager, ContainerState } from '@electron/features/container';
 import { containerManager } from '@electron/features/container/core/singleton';
 import { workspaceManager, type WorkspaceManager } from './manager';
@@ -41,8 +42,11 @@ function getContainerFallbackReason(workspaceId: string, detail?: string): strin
   return `Container mode is enabled for workspace ${workspaceId}, but no running container is available. Sero is falling back to host mode until the container is ready again.${suffix}`;
 }
 
-function createOpenShellCapabilityAudit(): WorkspaceRuntimeCapabilityAuditEntry[] {
-  const prefix = 'OpenShell Local is experimental and requires Docker plus the OpenShell CLI.';
+function createOpenShellCapabilityAudit(
+  runtimeConfig?: WorkspaceRuntimeConfig,
+): WorkspaceRuntimeCapabilityAuditEntry[] {
+  const profile = getOpenShellPolicyProfile(runtimeConfig?.policyProfileId);
+  const prefix = `OpenShell Local is experimental and requires Docker plus the OpenShell CLI. Selected policy profile: ${profile.label}. Profiles are persisted Sero policy intent; current Sero OpenShell Local does not apply generated policy YAML.`;
   return [
     {
       key: 'browserAutomation',
@@ -79,8 +83,9 @@ function createCapabilityAudit(
   actualRuntime: WorkspaceRuntimeKind,
   containerEnabled: boolean,
   fallbackReason?: string,
+  runtimeConfig?: WorkspaceRuntimeConfig,
 ): WorkspaceRuntimeCapabilityAuditEntry[] {
-  if (actualRuntime === 'openshell-local') return createOpenShellCapabilityAudit();
+  if (actualRuntime === 'openshell-local') return createOpenShellCapabilityAudit(runtimeConfig);
 
   const hostModeReason = containerEnabled
     ? fallbackReason ?? 'Container mode is preferred, but this workspace is currently running on the host.'
@@ -194,7 +199,7 @@ export async function resolveWorkspaceRuntimeWithManagers(
       containerEnabled: false,
       providerId,
       runtimeConfig,
-      capabilityAudit: createCapabilityAudit('openshell-local', false),
+      capabilityAudit: createCapabilityAudit('openshell-local', false, undefined, runtimeConfig),
     };
   }
 

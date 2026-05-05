@@ -10,7 +10,12 @@ import { IpcChannels } from '@/types/ipc-channels';
 import type { WorkspaceInfo, WorkspaceConfig, WorkspaceRoot, WorkspaceRuntimeConfig } from '@/types/ipc';
 import type { RuntimeHealthIPC, WorkspaceRuntimeDiagnosticsIPC } from '@sero-ai/common';
 import { workspaceManager } from '@electron/features/workspace/manager';
-import { createOpenShellLocalRuntimeAdapter } from '@electron/features/workspace/runtime/adapters/openshell-local-runtime-adapter';
+import {
+  createOpenShellLocalRuntimeAdapter,
+  DEFAULT_GATEWAY_NAME,
+  getDefaultOpenShellSandboxName,
+} from '@electron/features/workspace/runtime/adapters/openshell-local-runtime-adapter';
+import { getOpenShellPolicyDiagnostics } from '@electron/features/workspace/runtime/openshell/policy-diagnostics';
 import { createWorkspaceRuntimeFacade } from '@electron/features/workspace/runtime/runtime-facade';
 import { assertIsSeroPluginFolder } from '@electron/features/workspace/plugin-validation';
 import { recreateContainerIfRunning } from '@electron/features/workspace/container-sync';
@@ -34,11 +39,20 @@ async function getRuntimeDiagnostics(
 ): Promise<WorkspaceRuntimeDiagnosticsIPC> {
   const runtime = await createWorkspaceRuntimeFacade(workspaceId);
   const runtimeHealth = await getRuntimeHealth(runtime);
+  const runtimeConfig = runtime.resolution.runtimeConfig;
+  const openShellPolicy = runtime.providerId === 'openshell-local'
+    ? await getOpenShellPolicyDiagnostics({
+      gatewayName: runtimeConfig?.gatewayName ?? DEFAULT_GATEWAY_NAME,
+      sandboxName: runtimeConfig?.sandboxName ?? getDefaultOpenShellSandboxName(workspaceId),
+      runtimeConfig,
+    })
+    : undefined;
 
   return {
     ...runtime.resolution,
     providerId: runtime.providerId,
     runtimeHealth,
+    ...(openShellPolicy ? { openShellPolicy } : {}),
   };
 }
 
