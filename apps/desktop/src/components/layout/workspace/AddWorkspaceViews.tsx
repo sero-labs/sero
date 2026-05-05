@@ -1,4 +1,5 @@
-import { Check, FolderInput, FolderOpen, FolderPlus, Loader2, X } from 'lucide-react';
+import { useState, type RefObject } from 'react';
+import { Check, ChevronDown, FolderInput, FolderOpen, FolderPlus, Loader2, X } from 'lucide-react';
 import {
   DEFAULT_OPENSHELL_POLICY_PROFILE_ID,
   OPENSHELL_POLICY_PROFILES,
@@ -66,7 +67,7 @@ export function CreateView({
   onCreate,
   isCreating,
 }: {
-  inputRef: React.RefObject<HTMLInputElement | null>;
+  inputRef: RefObject<HTMLInputElement | null>;
   name: string;
   onNameChange: (v: string) => void;
   parentPath: string | null;
@@ -84,6 +85,7 @@ export function CreateView({
     ? parentPath.split('/').filter(Boolean).pop()
     : null;
   const selectedPolicyProfile = getOpenShellPolicyProfile(policyProfileId);
+  const [showPolicyProfiles, setShowPolicyProfiles] = useState(false);
 
   return (
     <form
@@ -177,43 +179,64 @@ export function CreateView({
 
       {runtimeChoice === 'openshell-local' && (
         <div className="rounded-md border border-[var(--border-default)] bg-[var(--bg-base)] p-2">
-          <label className="mb-1 block text-xs font-medium text-[var(--text-secondary)]">
-            OpenShell policy profile
-          </label>
-          <p className="mb-2 text-[11px] leading-snug text-[var(--text-muted)]">
-            Sero stores profile intent only; generated policy YAML is not applied yet.
-          </p>
-          <div className="flex flex-wrap gap-1" role="radiogroup" aria-label="OpenShell policy profile">
-            {OPENSHELL_POLICY_PROFILES.map((profile) => {
-              const selected = policyProfileId === profile.id;
-              return (
-                <button
-                  key={profile.id}
-                  type="button"
-                  role="radio"
-                  aria-checked={selected}
-                  onClick={() => onPolicyProfileChange?.(profile.id)}
-                  className={cn(
-                    'inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] leading-none transition-colors',
-                    selected
-                      ? 'border-[var(--accent-primary)] bg-[var(--bg-elevated)] text-[var(--text-primary)] ring-1 ring-[var(--accent-primary)]/40'
-                      : 'border-[var(--border-default)] text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]',
-                  )}
-                >
-                  {selected ? <Check className="size-2.5" /> : null}
-                  <span>{profile.label}</span>
-                </button>
-              );
-            })}
-          </div>
-          <div className="mt-2 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-2 py-1.5">
-            <div className="text-[11px] font-medium text-[var(--text-secondary)]">
-              {selectedPolicyProfile.label}
+          <button
+            type="button"
+            aria-expanded={showPolicyProfiles}
+            onClick={() => setShowPolicyProfiles((open) => !open)}
+            className="flex w-full items-center justify-between gap-3 rounded-md px-1 py-0.5 text-left transition-colors hover:bg-[var(--bg-elevated)]"
+          >
+            <span className="min-w-0">
+              <span className="block text-xs font-medium text-[var(--text-secondary)]">
+                OpenShell policy profile
+              </span>
+              <span className="block truncate text-[11px] text-[var(--text-muted)]">
+                {selectedPolicyProfile.label} · intent only
+              </span>
+            </span>
+            <span className="flex shrink-0 items-center gap-1 text-[11px] text-[var(--text-muted)]">
+              Change
+              <ChevronDown className={cn('size-3 transition-transform', showPolicyProfiles ? 'rotate-180' : '')} />
+            </span>
+          </button>
+
+          {showPolicyProfiles && (
+            <div className="mt-2 border-t border-[var(--border-subtle)] pt-2">
+              <p className="mb-2 text-[11px] leading-snug text-[var(--text-muted)]">
+                Sero stores profile intent only; generated policy YAML is not applied yet.
+              </p>
+              <div className="flex flex-wrap gap-1" role="radiogroup" aria-label="OpenShell policy profile">
+                {OPENSHELL_POLICY_PROFILES.map((profile) => {
+                  const selected = policyProfileId === profile.id;
+                  return (
+                    <button
+                      key={profile.id}
+                      type="button"
+                      role="radio"
+                      aria-checked={selected}
+                      onClick={() => onPolicyProfileChange?.(profile.id)}
+                      className={cn(
+                        'inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] leading-none transition-colors',
+                        selected
+                          ? 'border-[var(--accent-primary)] bg-[var(--bg-elevated)] text-[var(--text-primary)] ring-1 ring-[var(--accent-primary)]/40'
+                          : 'border-[var(--border-default)] text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]',
+                      )}
+                    >
+                      {selected ? <Check className="size-2.5" /> : null}
+                      <span>{profile.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="mt-2 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-2 py-1.5">
+                <div className="text-[11px] font-medium text-[var(--text-secondary)]">
+                  {selectedPolicyProfile.label}
+                </div>
+                <p className="mt-0.5 text-[11px] leading-snug text-[var(--text-muted)]">
+                  {selectedPolicyProfile.summary} Enforcement is reported in diagnostics.
+                </p>
+              </div>
             </div>
-            <p className="mt-0.5 text-[11px] leading-snug text-[var(--text-muted)]">
-              {selectedPolicyProfile.summary} Enforcement is reported in diagnostics.
-            </p>
-          </div>
+          )}
         </div>
       )}
 

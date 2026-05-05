@@ -135,7 +135,7 @@ export function AddWorkspaceMenu() {
       <PopoverContent
         align="end"
         side="bottom"
-        className="no-drag max-h-[calc(100vh-5rem)] w-72 overflow-y-auto p-0 overscroll-contain"
+        className="no-drag max-h-[calc(100vh-5rem)] w-80 overflow-y-auto p-0 overscroll-contain"
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
         {view === 'pick' ? (

@@ -98,9 +98,22 @@ describe('AddWorkspace CreateView runtime selector', () => {
     });
 
     expect(document.body.textContent).toContain('OpenShell policy profile');
+    expect(document.body.textContent).toContain('Dev · intent only');
+    expect(document.body.textContent).not.toContain('generated policy YAML is not applied yet');
+
+    const policyToggle = Array.from(document.querySelectorAll('button')).find(
+      (button) => button.textContent?.includes('Change'),
+    );
+    expect(policyToggle?.getAttribute('aria-expanded')).toBe('false');
+
+    await act(async () => {
+      policyToggle?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    expect(policyToggle?.getAttribute('aria-expanded')).toBe('true');
     expect(document.body.textContent).toContain('generated policy YAML is not applied yet');
-    const devButton = Array.from(document.querySelectorAll('button')).find(
-      (button) => button.textContent?.includes('Dev'),
+    const devButton = Array.from(document.querySelectorAll('button[role="radio"]')).find(
+      (button) => button.textContent?.trim() === 'Dev',
     );
     expect(devButton?.getAttribute('aria-checked')).toBe('true');
   });
@@ -115,8 +128,15 @@ describe('AddWorkspace CreateView runtime selector', () => {
       }));
     });
 
-    const strictButton = Array.from(document.querySelectorAll('button')).find(
-      (button) => button.textContent?.includes('Strict'),
+    const policyToggle = Array.from(document.querySelectorAll('button')).find(
+      (button) => button.textContent?.includes('Change'),
+    );
+    await act(async () => {
+      policyToggle?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    const strictButton = Array.from(document.querySelectorAll('button[role="radio"]')).find(
+      (button) => button.textContent?.trim() === 'Strict',
     );
     expect(strictButton).toBeInstanceOf(HTMLButtonElement);
 
