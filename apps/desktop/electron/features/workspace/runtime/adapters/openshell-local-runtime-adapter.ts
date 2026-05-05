@@ -76,6 +76,11 @@ interface RuntimeEnsureResult {
   message?: string;
 }
 
+interface SandboxHealthResult {
+  status: 'ready' | 'unavailable';
+  message: string;
+}
+
 export function createOpenShellLocalRuntimeAdapter(
   input: OpenShellLocalRuntimeAdapterInput,
 ): OpenShellLocalRuntimeAdapter {
@@ -105,10 +110,19 @@ export function createOpenShellLocalRuntimeAdapter(
         };
       }
 
+      const sandbox = await checkSandbox(input.workspaceId, state.gatewayName, state.sandboxName);
+      if (sandbox.status === 'unavailable') {
+        return {
+          providerId: 'openshell-local',
+          status: 'unavailable',
+          message: `OpenShell Local is experimental. Sandbox ${state.sandboxName} could not be checked. ${sandbox.message}`,
+        };
+      }
+
       return {
         providerId: 'openshell-local',
         status: 'ready',
-        message: `OpenShell Local is experimental. Gateway ${state.gatewayName} is ready; sandbox ${state.sandboxName} will be used for this workspace.`,
+        message: `OpenShell Local is experimental. Gateway ${state.gatewayName} is ready. ${sandbox.message}`,
       };
     },
     async exec(command: string, options: RuntimeExecOptions): Promise<ExecResult> {
@@ -184,6 +198,36 @@ export function createOpenShellLocalRuntimeAdapter(
         throw new Error(formatOpenShellFailure('delete OpenShell sandbox', result));
       }
     },
+  };
+}
+
+async function checkSandbox(
+  workspaceId: string,
+  gatewayName: string,
+  sandboxName: string,
+): Promise<SandboxHealthResult> {
+  const label = `sero.workspaceId=${workspaceId}`;
+  const list = await runOpenShell([
+    '--gateway', gatewayName,
+    'sandbox', 'list', '--names', '--selector', label,
+  ], { timeoutMs: 30_000 });
+  if (list.exitCode !== 0) {
+    return {
+      status: 'unavailable',
+      message: formatOpenShellFailure('check OpenShell sandbox', list),
+    };
+  }
+
+  if (list.stdout.split(/\r?\n/).map((line) => line.trim()).includes(sandboxName)) {
+    return {
+      status: 'ready',
+      message: `Sandbox ${sandboxName} is available for this workspace.`,
+    };
+  }
+
+  return {
+    status: 'ready',
+    message: `Sandbox ${sandboxName} has not been created yet; it will be created on the next OpenShell command.`,
   };
 }
 

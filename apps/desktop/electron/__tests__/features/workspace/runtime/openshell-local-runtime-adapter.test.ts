@@ -82,8 +82,10 @@ describe('createOpenShellLocalRuntimeAdapter', () => {
     expect(health.message).toContain('connection refused');
   });
 
-  it('reports ready health with experimental context', async () => {
-    mocks.runOpenShell.mockResolvedValueOnce({ stdout: 'ok', stderr: '', exitCode: 0 });
+  it('reports ready health with experimental context and sandbox state', async () => {
+    mocks.runOpenShell
+      .mockResolvedValueOnce({ stdout: 'ok', stderr: '', exitCode: 0 })
+      .mockResolvedValueOnce({ stdout: 'sero-ws-1\n', stderr: '', exitCode: 0 });
     const adapter = createAdapter();
 
     const health = await adapter.health();
@@ -93,7 +95,21 @@ describe('createOpenShellLocalRuntimeAdapter', () => {
       status: 'ready',
     });
     expect(health.message).toContain('OpenShell Local is experimental');
-    expect(health.message).toContain('sandbox sero-ws-1');
+    expect(health.message).toContain('Sandbox sero-ws-1 is available');
+  });
+
+  it('reports sandbox list failures through health diagnostics', async () => {
+    mocks.runOpenShell
+      .mockResolvedValueOnce({ stdout: 'ok', stderr: '', exitCode: 0 })
+      .mockResolvedValueOnce({ stdout: '', stderr: 'sandbox API unavailable', exitCode: 1 });
+    const adapter = createAdapter();
+
+    const health = await adapter.health();
+
+    expect(health.providerId).toBe('openshell-local');
+    expect(health.status).toBe('unavailable');
+    expect(health.message).toContain('Sandbox sero-ws-1 could not be checked');
+    expect(health.message).toContain('sandbox API unavailable');
   });
 
   it('does not execute when cwd is outside the workspace', async () => {

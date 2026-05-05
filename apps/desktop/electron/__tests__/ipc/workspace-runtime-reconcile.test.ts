@@ -280,6 +280,78 @@ describe('workspace IPC runtime reconcile', () => {
     }]);
   });
 
+  it('surfaces OpenShell Local runtime diagnostics through existing IPC', async () => {
+    const runtimeConfig: WorkspaceRuntimeConfig = {
+      providerId: 'openshell-local',
+      gatewayName: 'sero-local',
+      sandboxName: 'sero-ws-open',
+      experimental: true,
+    };
+    const runtimeHealth = {
+      providerId: 'openshell-local' as const,
+      status: 'unavailable' as const,
+      message: 'OpenShell Local is experimental. Docker daemon is not running or is unreachable. Start Docker Desktop or the Docker daemon.',
+    };
+    mocks.createWorkspaceRuntimeFacade.mockResolvedValueOnce({
+      workspaceId: 'ws-open',
+      workspacePath: '/repo-open',
+      providerId: 'openshell-local',
+      actualRuntime: 'openshell-local',
+      capabilities: {
+        exec: true,
+        interactiveTerminal: false,
+        directFileRead: false,
+        directFileWrite: false,
+        fileUpload: true,
+        fileDownload: true,
+        managedDevServers: true,
+        browserAutomation: false,
+        portDiscovery: false,
+        portForward: true,
+        logStream: true,
+      },
+      resolution: {
+        workspaceId: 'ws-open',
+        workspacePath: '/repo-open',
+        desiredRuntime: 'openshell-local',
+        actualRuntime: 'openshell-local',
+        containerEnabled: false,
+        providerId: 'openshell-local',
+        runtimeConfig,
+        capabilityAudit: [{
+          key: 'managedDevServers',
+          label: 'Managed preview/dev servers',
+          available: true,
+          containerOnly: false,
+          detail: 'OpenShell Local is experimental and requires Docker plus the OpenShell CLI.',
+        }],
+      },
+      health: vi.fn(async () => runtimeHealth),
+      exec: vi.fn(),
+      createTerminal: vi.fn(),
+    });
+    const { registerWorkspaceHandlers } = await import('@electron/ipc/workspace/workspace');
+
+    registerWorkspaceHandlers();
+
+    const diagnosticsHandler = mocks.handlers.get(IpcChannels.workspace.runtimeDiagnostics) as
+      | ((event: unknown, workspaceId?: string) => Promise<unknown[]>)
+      | undefined;
+    const diagnostics = await diagnosticsHandler?.({}, 'ws-open');
+
+    expect(diagnostics?.[0]).toMatchObject({
+      workspaceId: 'ws-open',
+      providerId: 'openshell-local',
+      runtimeConfig,
+      runtimeHealth,
+    });
+    expect(diagnostics?.[0]).toMatchObject({
+      capabilityAudit: [expect.objectContaining({
+        detail: expect.stringContaining('OpenShell Local is experimental and requires Docker'),
+      })],
+    });
+  });
+
   it('marks runtime health as fallback while preserving fallback diagnostics fields', async () => {
     mocks.createWorkspaceRuntimeFacade.mockResolvedValueOnce({
       workspaceId: 'ws-1',
