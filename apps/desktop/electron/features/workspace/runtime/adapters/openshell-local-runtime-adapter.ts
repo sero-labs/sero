@@ -6,7 +6,7 @@ import { checkOpenShellPrerequisites } from '../openshell/health';
 import { streamOpenShellLogs, type OpenShellLogStream } from '../openshell/logs';
 import { startOpenShellPortForward, type ForwardedPort } from '../openshell/ports';
 import {
-  getOpenShellRuntimeWorkspacePath,
+  normalizeOpenShellRuntimeWorkspacePath,
   toOpenShellWorkspacePath,
 } from '../openshell/path';
 import {
@@ -287,8 +287,10 @@ async function resolveRuntimeState(
   return {
     gatewayName: config?.gatewayName ?? DEFAULT_GATEWAY_NAME,
     sandboxName: config?.sandboxName ?? getDefaultSandboxName(input.workspaceId),
-    runtimeWorkspacePath: config?.runtimeWorkspacePath ??
-      getOpenShellRuntimeWorkspacePath(input.workspacePath),
+    runtimeWorkspacePath: normalizeOpenShellRuntimeWorkspacePath(
+      config?.runtimeWorkspacePath,
+      input.workspacePath,
+    ),
   };
 }
 

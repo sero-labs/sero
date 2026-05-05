@@ -10,6 +10,7 @@ vi.mock('@electron/features/workspace/runtime/openshell/cli', () => ({
 
 import {
   getOpenShellRuntimeWorkspacePath,
+  normalizeOpenShellRuntimeWorkspacePath,
   toOpenShellWorkspacePath,
 } from '@electron/features/workspace/runtime/openshell/path';
 import {
@@ -39,6 +40,10 @@ describe('OpenShell workspace path mapping', () => {
 
   it('returns null for cwd outside the workspace root', () => {
     expect(toOpenShellWorkspacePath(workspacePath, '/Users/me/other')).toBeNull();
+  });
+
+  it('migrates persisted legacy /workspace paths to the writable sandbox home', () => {
+    expect(normalizeOpenShellRuntimeWorkspacePath('/workspace/app', workspacePath)).toBe('/sandbox/workspace/app');
   });
 });
 
