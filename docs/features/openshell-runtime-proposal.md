@@ -676,6 +676,16 @@ Deliverables:
 
 OpenShell requires Docker to be running, and if no gateway exists, sandbox creation can auto-bootstrap a local gateway. ([NVIDIA Docs][4])
 
+Current Phase 2 implementation status:
+
+* **Experimental local-only provider.** Sero currently supports `openshell-local` for local Docker-backed OpenShell sandboxes only.
+* **CLI-first integration.** Sero shells out to the OpenShell CLI for gateway, sandbox, exec, logs, and port-forward operations; no gRPC/proto integration is implemented yet.
+* **Explicit coarse sync.** Workspace files are uploaded before each sandbox exec and downloaded afterward. There is no file watcher or transparent bidirectional sync.
+* **UI scope.** Users can choose OpenShell Local when creating a workspace, see diagnostics, run commands, stream logs, forward known preview ports, and destroy the sandbox when changing away from the runtime.
+* **Not implemented in Phase 2.** Remote/cloud gateways, policy/profile UX, browser automation, and OpenShell interactive PTY terminals remain future work.
+
+Manual smoke-test note for maintainers: with Docker running and the OpenShell CLI installed, create an OpenShell Local workspace, run a command that writes a file, confirm the file is downloaded back to the host workspace, start a common dev server such as Vite, and confirm the forwarded preview URL loads.
+
 Acceptance criteria:
 
 * user can create a Sero workspace using OpenShell Local
