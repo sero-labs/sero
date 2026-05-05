@@ -126,7 +126,12 @@ export function createOpenShellLocalRuntimeAdapter(
       };
     },
     async exec(command: string, options: RuntimeExecOptions): Promise<ExecResult> {
-      const runtimeCwd = toOpenShellWorkspacePath(input.workspacePath, options.cwd);
+      const state = await resolveRuntimeState(input);
+      const runtimeCwd = toOpenShellWorkspacePath(
+        input.workspacePath,
+        options.cwd,
+        state.runtimeWorkspacePath,
+      );
       if (!runtimeCwd) return outsideWorkspaceResult(options.cwd);
 
       const ready = await ensureOpenShellRuntime(input);

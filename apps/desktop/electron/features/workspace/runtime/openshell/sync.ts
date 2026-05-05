@@ -1,8 +1,5 @@
 import { runOpenShell, type OpenShellCommandResult } from './cli';
-import {
-  OPENSHELL_WORKSPACE_PARENT,
-  getOpenShellRuntimeWorkspacePath,
-} from './path';
+import { getOpenShellRuntimeWorkspacePath } from './path';
 
 export interface OpenShellWorkspaceSyncInput {
   gatewayName: string;
@@ -13,11 +10,13 @@ export interface OpenShellWorkspaceSyncInput {
 }
 
 export function pushWorkspaceToSandbox(input: OpenShellWorkspaceSyncInput): Promise<OpenShellCommandResult> {
+  const runtimeWorkspacePath = input.runtimeWorkspacePath ??
+    getOpenShellRuntimeWorkspacePath(input.workspacePath);
   return runOpenShell([
     '--gateway', input.gatewayName,
     'sandbox', 'upload', input.sandboxName,
     input.workspacePath,
-    OPENSHELL_WORKSPACE_PARENT,
+    runtimeWorkspacePath,
   ], { timeoutMs: input.timeoutMs });
 }
 

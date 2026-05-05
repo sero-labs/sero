@@ -68,13 +68,13 @@ describe('OpenShell Local runtime integration', () => {
       gatewayName: 'sero-local',
       sandboxName: 'sero-ws-open',
       workspacePath: '/tmp/ws-open',
-      runtimeWorkspacePath: '/workspace/ws-open',
+      runtimeWorkspacePath: '/sandbox/workspace/ws-open',
       timeoutMs: 5_000,
     });
     expect(mocks.runOpenShell).toHaveBeenNthCalledWith(5, [
       '--gateway', 'sero-local',
       'sandbox', 'exec', '-n', 'sero-ws-open',
-      '--workdir', '/workspace/ws-open/src',
+      '--workdir', '/sandbox/workspace/ws-open/src',
       '--timeout', '5',
       '--no-tty', '--', 'sh', '-lc', 'node -e "console.log(1)"',
     ], { timeoutMs: 5_000 });
@@ -82,7 +82,7 @@ describe('OpenShell Local runtime integration', () => {
       gatewayName: 'sero-local',
       sandboxName: 'sero-ws-open',
       workspacePath: '/tmp/ws-open',
-      runtimeWorkspacePath: '/workspace/ws-open',
+      runtimeWorkspacePath: '/sandbox/workspace/ws-open',
       timeoutMs: 5_000,
     });
     expect(workspaceManager.setRuntimeConfig).toHaveBeenCalledWith('ws-open', {
@@ -90,7 +90,7 @@ describe('OpenShell Local runtime integration', () => {
       experimental: true,
       gatewayName: 'sero-local',
       sandboxName: 'sero-ws-open',
-      runtimeWorkspacePath: '/workspace/ws-open',
+      runtimeWorkspacePath: '/sandbox/workspace/ws-open',
     });
   });
 });

@@ -158,13 +158,13 @@ describe('createOpenShellLocalRuntimeAdapter', () => {
       gatewayName: 'sero-local',
       sandboxName: 'sero-ws-1',
       workspacePath: '/tmp/ws',
-      runtimeWorkspacePath: '/workspace/ws',
+      runtimeWorkspacePath: '/sandbox/workspace/ws',
       timeoutMs: 2_500,
     });
     expect(mocks.runOpenShell).toHaveBeenNthCalledWith(5, [
       '--gateway', 'sero-local',
       'sandbox', 'exec', '-n', 'sero-ws-1',
-      '--workdir', '/workspace/ws/src',
+      '--workdir', '/sandbox/workspace/ws/src',
       '--timeout', '3',
       '--no-tty', '--', 'sh', '-lc', 'npm test',
     ], { timeoutMs: 2_500 });
@@ -172,7 +172,7 @@ describe('createOpenShellLocalRuntimeAdapter', () => {
       gatewayName: 'sero-local',
       sandboxName: 'sero-ws-1',
       workspacePath: '/tmp/ws',
-      runtimeWorkspacePath: '/workspace/ws',
+      runtimeWorkspacePath: '/sandbox/workspace/ws',
       timeoutMs: 2_500,
     });
     expect(workspaceManager.setRuntimeConfig).toHaveBeenCalledWith('ws-1', {
@@ -180,7 +180,7 @@ describe('createOpenShellLocalRuntimeAdapter', () => {
       experimental: true,
       gatewayName: 'sero-local',
       sandboxName: 'sero-ws-1',
-      runtimeWorkspacePath: '/workspace/ws',
+      runtimeWorkspacePath: '/sandbox/workspace/ws',
     });
   });
 
@@ -189,7 +189,7 @@ describe('createOpenShellLocalRuntimeAdapter', () => {
       providerId: 'openshell-local',
       gatewayName: 'custom-local',
       sandboxName: 'custom-sandbox',
-      runtimeWorkspacePath: '/workspace/custom',
+      runtimeWorkspacePath: '/sandbox/workspace/custom',
       experimental: true,
     };
     mocks.runOpenShell
@@ -206,7 +206,7 @@ describe('createOpenShellLocalRuntimeAdapter', () => {
     expect(mocks.runOpenShell).toHaveBeenNthCalledWith(4, [
       '--gateway', 'custom-local',
       'sandbox', 'exec', '-n', 'custom-sandbox',
-      '--workdir', '/workspace/ws',
+      '--workdir', '/sandbox/workspace/custom',
       '--timeout', '120',
       '--no-tty', '--', 'sh', '-lc', 'pwd',
     ], { timeoutMs: undefined });
