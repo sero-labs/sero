@@ -123,7 +123,7 @@ export async function openSessionInPool({
   }
   const platformTools = createRuntimeCodingTools(runtime, {
     sessionId,
-    forceHost: !useContainer,
+    forceHost: containerEnabled && !useContainer,
   });
   const globalAgentsFile = await readGlobalAgentsMd(workspaceId);
 

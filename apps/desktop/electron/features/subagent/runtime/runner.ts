@@ -166,7 +166,7 @@ export async function runSubagent(
     sessionId: subagentSessionId,
     containerCwd,
     hostCwd: sessionPath,
-    forceHost: !useContainer,
+    forceHost: runtime.resolution.desiredRuntime === 'container' && !useContainer,
   });
   const customTools = [...platformTools, ...(config.customTools ?? [])];
 
