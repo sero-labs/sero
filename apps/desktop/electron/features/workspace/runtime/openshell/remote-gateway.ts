@@ -37,6 +37,7 @@ export async function startRemoteGateway(
     '--remote', entry.sshHost,
     ...(entry.sshKeyPath ? ['--ssh-key', entry.sshKeyPath] : []),
     '--port', String(entry.port),
+    ...(entry.gatewayHost ? ['--gateway-host', entry.gatewayHost] : []),
   ], { timeoutMs: 120_000 });
 
   if (start.exitCode !== 0) {

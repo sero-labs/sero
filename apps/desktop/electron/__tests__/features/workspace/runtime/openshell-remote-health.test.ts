@@ -129,6 +129,23 @@ describe('OpenShell Remote health helpers', () => {
     ], { timeoutMs: 10_000 });
   });
 
+  it('passes gateway host override when starting a remote gateway', async () => {
+    mocks.runOpenShell
+      .mockResolvedValueOnce(result({ stdout: 'started\n' }))
+      .mockResolvedValueOnce(result({ stdout: 'selected\n' }));
+
+    await startRemoteGateway({ ...gatewayWithKey, gatewayHost: '203.0.113.10' });
+
+    expect(mocks.runOpenShell).toHaveBeenNthCalledWith(1, [
+      'gateway', 'start',
+      '--name', 'sero-remote-dev',
+      '--remote', 'dev@example.test',
+      '--ssh-key', '/Users/me/.ssh/id_ed25519',
+      '--port', '8080',
+      '--gateway-host', '203.0.113.10',
+    ], { timeoutMs: 120_000 });
+  });
+
   it('starts a remote gateway without ssh-key for agent-based SSH auth', async () => {
     mocks.runOpenShell
       .mockResolvedValueOnce(result({ stdout: 'started\n' }))

@@ -13,7 +13,7 @@ export interface OpenShellRemoteCheckResult {
 
 export type OpenShellRemoteGatewayTarget = Pick<
   OpenShellRemoteGatewayEntry,
-  'name' | 'sshKeyPath' | 'port'
+  'name' | 'sshKeyPath' | 'port' | 'gatewayHost'
 > & {
   sshHost?: string;
 };
