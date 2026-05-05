@@ -1,4 +1,9 @@
 import { Check, FolderInput, FolderOpen, FolderPlus, Loader2, X } from 'lucide-react';
+import {
+  DEFAULT_OPENSHELL_POLICY_PROFILE_ID,
+  OPENSHELL_POLICY_PROFILES,
+  type OpenShellPolicyProfileId,
+} from '@sero-ai/common';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { Input } from '@sero-ai/ui/components/ui/input';
 import { cn } from '@sero-ai/ui/lib/utils';
@@ -54,6 +59,8 @@ export function CreateView({
   onClearLocation,
   runtimeChoice,
   onRuntimeChoiceChange,
+  policyProfileId = DEFAULT_OPENSHELL_POLICY_PROFILE_ID,
+  onPolicyProfileChange,
   onBack,
   onCreate,
   isCreating,
@@ -66,6 +73,8 @@ export function CreateView({
   onClearLocation: () => void;
   runtimeChoice: RuntimeChoice;
   onRuntimeChoiceChange: (choice: RuntimeChoice) => void;
+  policyProfileId?: OpenShellPolicyProfileId;
+  onPolicyProfileChange?: (profileId: OpenShellPolicyProfileId) => void;
   onBack: () => void;
   onCreate: () => void;
   isCreating: boolean;
@@ -163,6 +172,48 @@ export function CreateView({
           })}
         </div>
       </div>
+
+      {runtimeChoice === 'openshell-local' && (
+        <div className="rounded-md border border-[var(--border-default)] bg-[var(--bg-base)] p-2">
+          <label className="mb-1 block text-xs font-medium text-[var(--text-secondary)]">
+            OpenShell policy profile
+          </label>
+          <p className="mb-2 text-[11px] leading-relaxed text-[var(--text-muted)]">
+            Profiles describe Sero policy intent. Sero does not apply generated profile YAML yet; current enforcement is reported in diagnostics.
+          </p>
+          <div className="grid gap-1" role="radiogroup" aria-label="OpenShell policy profile">
+            {OPENSHELL_POLICY_PROFILES.map((profile) => {
+              const selected = policyProfileId === profile.id;
+              return (
+                <button
+                  key={profile.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  onClick={() => onPolicyProfileChange?.(profile.id)}
+                  className={cn(
+                    'flex items-start gap-2 rounded-md border px-2 py-1.5 text-left text-xs transition-colors',
+                    selected
+                      ? 'border-[var(--accent-primary)] bg-[var(--bg-elevated)] text-[var(--text-primary)] ring-1 ring-[var(--accent-primary)]/40'
+                      : 'border-[var(--border-default)] text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]',
+                  )}
+                >
+                  <span className={cn(
+                    'mt-0.5 flex size-3 shrink-0 items-center justify-center rounded-full border',
+                    selected ? 'border-[var(--accent-primary)] bg-[var(--accent-primary)] text-[var(--bg-base)]' : 'border-[var(--border-default)]',
+                  )}>
+                    {selected ? <Check className="size-2" /> : null}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block font-medium">{profile.label}</span>
+                    <span className="block text-[var(--text-muted)]">{profile.summary}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Actions */}
       <div className="flex justify-between">

@@ -1,5 +1,9 @@
 import { useRef, useState } from 'react';
 import { Plus } from 'lucide-react';
+import {
+  DEFAULT_OPENSHELL_POLICY_PROFILE_ID,
+  type OpenShellPolicyProfileId,
+} from '@sero-ai/common';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { useSessionStore } from '@/stores/sessions';
 import {
@@ -16,10 +20,27 @@ import { RemoteOriginManager } from './RemoteOriginManager';
 
 type AddView = 'pick' | 'create';
 
-function toRuntimeConfig(choice: RuntimeChoice): WorkspaceRuntimeConfig | undefined {
+export function toRuntimeConfig(
+  choice: RuntimeChoice,
+  policyProfileId: OpenShellPolicyProfileId = DEFAULT_OPENSHELL_POLICY_PROFILE_ID,
+): WorkspaceRuntimeConfig | undefined {
   if (choice === 'default') return undefined;
   if (choice === 'openshell-local') {
-    return { providerId: choice, gatewayName: 'sero-local', experimental: true };
+    const changedAt = new Date().toISOString();
+    return {
+      providerId: choice,
+      gatewayName: 'sero-local',
+      experimental: true,
+      policyProfileId,
+      policyProfileUpdatedAt: changedAt,
+      policyProfileHistory: [
+        {
+          profileId: policyProfileId,
+          changedAt,
+          message: 'Selected during workspace creation',
+        },
+      ],
+    };
   }
   return { providerId: choice };
 }
@@ -30,6 +51,9 @@ export function AddWorkspaceMenu() {
   const [newName, setNewName] = useState('');
   const [parentPath, setParentPath] = useState<string | null>(null);
   const [runtimeChoice, setRuntimeChoice] = useState<RuntimeChoice>('default');
+  const [policyProfileId, setPolicyProfileId] = useState<OpenShellPolicyProfileId>(
+    DEFAULT_OPENSHELL_POLICY_PROFILE_ID,
+  );
   const [isCreating, setIsCreating] = useState(false);
   const [newWorkspace, setNewWorkspace] = useState<WorkspaceInfo | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -44,6 +68,7 @@ export function AddWorkspaceMenu() {
     setNewName('');
     setParentPath(null);
     setRuntimeChoice('default');
+    setPolicyProfileId(DEFAULT_OPENSHELL_POLICY_PROFILE_ID);
   };
 
   const handleImportExisting = async () => {
@@ -79,7 +104,7 @@ export function AddWorkspaceMenu() {
       const ws = await createWorkspace(
         trimmed,
         parentPath ?? undefined,
-        toRuntimeConfig(runtimeChoice),
+        toRuntimeConfig(runtimeChoice, policyProfileId),
       );
       await loadSessions();
       setOpen(false);
@@ -132,6 +157,8 @@ export function AddWorkspaceMenu() {
             onClearLocation={() => setParentPath(null)}
             runtimeChoice={runtimeChoice}
             onRuntimeChoiceChange={setRuntimeChoice}
+            policyProfileId={policyProfileId}
+            onPolicyProfileChange={setPolicyProfileId}
             onBack={reset}
             onCreate={handleCreate}
             isCreating={isCreating}
