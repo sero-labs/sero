@@ -98,18 +98,17 @@ describe('createOpenShellLocalRuntimeAdapter', () => {
     expect(health.message).toContain('Sandbox sero-ws-1 is available');
   });
 
-  it('reports sandbox list failures through health diagnostics', async () => {
+  it('reports missing sandbox state as ready-to-create in health diagnostics', async () => {
     mocks.runOpenShell
       .mockResolvedValueOnce({ stdout: 'ok', stderr: '', exitCode: 0 })
-      .mockResolvedValueOnce({ stdout: '', stderr: 'sandbox API unavailable', exitCode: 1 });
+      .mockResolvedValueOnce({ stdout: '', stderr: 'sandbox not found', exitCode: 1 });
     const adapter = createAdapter();
 
     const health = await adapter.health();
 
     expect(health.providerId).toBe('openshell-local');
-    expect(health.status).toBe('unavailable');
-    expect(health.message).toContain('Sandbox sero-ws-1 could not be checked');
-    expect(health.message).toContain('sandbox API unavailable');
+    expect(health.status).toBe('ready');
+    expect(health.message).toContain('Sandbox sero-ws-1 has not been created yet');
   });
 
   it('does not execute when cwd is outside the workspace', async () => {
@@ -130,7 +129,7 @@ describe('createOpenShellLocalRuntimeAdapter', () => {
     mocks.runOpenShell
       .mockResolvedValueOnce({ stdout: 'gateway started', stderr: '', exitCode: 0 })
       .mockResolvedValueOnce({ stdout: 'selected', stderr: '', exitCode: 0 })
-      .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 })
+      .mockResolvedValueOnce({ stdout: '', stderr: 'not found', exitCode: 1 })
       .mockResolvedValueOnce({ stdout: 'created', stderr: '', exitCode: 0 })
       .mockResolvedValueOnce({ stdout: 'test output', stderr: '', exitCode: 0 });
     const workspaceManager = createWorkspaceManager();
@@ -148,12 +147,12 @@ describe('createOpenShellLocalRuntimeAdapter', () => {
     ], { timeoutMs: 10_000 });
     expect(mocks.runOpenShell).toHaveBeenNthCalledWith(3, [
       '--gateway', 'sero-local',
-      'sandbox', 'list', '--names', '--selector', 'sero.workspaceId=ws-1',
+      'sandbox', 'get', 'sero-ws-1',
     ], { timeoutMs: 30_000 });
     expect(mocks.runOpenShell).toHaveBeenNthCalledWith(4, [
       '--gateway', 'sero-local',
       'sandbox', 'create', '--name', 'sero-ws-1',
-      '--label', 'sero.workspaceId=ws-1',
+      '--no-tty', '--', 'true',
     ], { timeoutMs: 120_000 });
     expect(mocks.pushWorkspaceToSandbox).toHaveBeenCalledWith({
       gatewayName: 'sero-local',
@@ -233,7 +232,7 @@ describe('createOpenShellLocalRuntimeAdapter', () => {
     mocks.runOpenShell
       .mockResolvedValueOnce({ stdout: 'gateway started', stderr: '', exitCode: 0 })
       .mockResolvedValueOnce({ stdout: 'selected', stderr: '', exitCode: 0 })
-      .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 })
+      .mockResolvedValueOnce({ stdout: '', stderr: 'not found', exitCode: 1 })
       .mockResolvedValueOnce({ stdout: 'created', stderr: '', exitCode: 0 })
       .mockResolvedValueOnce({ stdout: '', stderr: 'test failed', exitCode: 2 });
     const adapter = createAdapter();

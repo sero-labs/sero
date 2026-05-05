@@ -110,7 +110,7 @@ export function createOpenShellLocalRuntimeAdapter(
         };
       }
 
-      const sandbox = await checkSandbox(input.workspaceId, state.gatewayName, state.sandboxName);
+      const sandbox = await checkSandbox(state.gatewayName, state.sandboxName);
       if (sandbox.status === 'unavailable') {
         return {
           providerId: 'openshell-local',
@@ -202,23 +202,15 @@ export function createOpenShellLocalRuntimeAdapter(
 }
 
 async function checkSandbox(
-  workspaceId: string,
   gatewayName: string,
   sandboxName: string,
 ): Promise<SandboxHealthResult> {
-  const label = `sero.workspaceId=${workspaceId}`;
-  const list = await runOpenShell([
+  const sandbox = await runOpenShell([
     '--gateway', gatewayName,
-    'sandbox', 'list', '--names', '--selector', label,
+    'sandbox', 'get', sandboxName,
   ], { timeoutMs: 30_000 });
-  if (list.exitCode !== 0) {
-    return {
-      status: 'unavailable',
-      message: formatOpenShellFailure('check OpenShell sandbox', list),
-    };
-  }
 
-  if (list.stdout.split(/\r?\n/).map((line) => line.trim()).includes(sandboxName)) {
+  if (sandbox.exitCode === 0) {
     return {
       status: 'ready',
       message: `Sandbox ${sandboxName} is available for this workspace.`,
@@ -246,7 +238,7 @@ async function ensureOpenShellRuntime(
     };
   }
 
-  const sandbox = await ensureSandbox(input.workspaceId, state.gatewayName, state.sandboxName);
+  const sandbox = await ensureSandbox(state.gatewayName, state.sandboxName);
   if (sandbox.exitCode !== 0) {
     return {
       ok: false,
@@ -267,24 +259,19 @@ async function ensureGateway(gatewayName: string): Promise<ExecResult> {
 }
 
 async function ensureSandbox(
-  workspaceId: string,
   gatewayName: string,
   sandboxName: string,
 ): Promise<ExecResult> {
-  const label = `sero.workspaceId=${workspaceId}`;
-  const list = await runOpenShell([
+  const existing = await runOpenShell([
     '--gateway', gatewayName,
-    'sandbox', 'list', '--names', '--selector', label,
+    'sandbox', 'get', sandboxName,
   ], { timeoutMs: 30_000 });
-  if (list.exitCode !== 0) return list;
-  if (list.stdout.split(/\r?\n/).map((line) => line.trim()).includes(sandboxName)) {
-    return list;
-  }
+  if (existing.exitCode === 0) return existing;
 
   return runOpenShell([
     '--gateway', gatewayName,
     'sandbox', 'create', '--name', sandboxName,
-    '--label', label,
+    '--no-tty', '--', 'true',
   ], { timeoutMs: DEFAULT_TIMEOUT_MS });
 }
 

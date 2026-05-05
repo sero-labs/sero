@@ -44,7 +44,7 @@ describe('OpenShell Local runtime integration', () => {
     mocks.runOpenShell
       .mockResolvedValueOnce({ stdout: 'gateway started', stderr: '', exitCode: 0 })
       .mockResolvedValueOnce({ stdout: 'selected', stderr: '', exitCode: 0 })
-      .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 })
+      .mockResolvedValueOnce({ stdout: '', stderr: 'not found', exitCode: 1 })
       .mockResolvedValueOnce({ stdout: 'created', stderr: '', exitCode: 0 })
       .mockResolvedValueOnce({ stdout: 'hello from openshell\n', stderr: '', exitCode: 0 });
     const workspaceManager = createWorkspaceManager();

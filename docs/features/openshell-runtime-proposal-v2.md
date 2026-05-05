@@ -173,9 +173,9 @@ Implemented:
 - runtime-backed `bash` tool for OpenShell,
 - session/subagent wiring fix so OpenShell is not forced to host tools.
 
-Known current smoke-test issue:
+Recently fixed smoke-test issue:
 
-- OpenShell CLI invocation is using `openshell sandbox list --names --selector ...`, but local `openshell 0.0.36` reports `unexpected argument '--selector'`. Phase 2 cannot be accepted until the CLI command is made compatible or replaced.
+- OpenShell CLI `0.0.36` does not support `openshell sandbox list --names --selector ...`. Sero should use name-based sandbox lookup such as `openshell sandbox get <name>` and create with `openshell sandbox create --name <name>`.
 
 ## Phase 2.5 — OpenShell runtime parity and hardening
 
@@ -386,11 +386,11 @@ Use OpenShell as an isolated, reproducible runtime for Sero evals and parallel a
 
 Recommended first tasks:
 
-1. Replace unsupported `openshell sandbox list --selector` usage.
-2. Add tests for OpenShell CLI command shapes against `openshell 0.0.36` behavior.
-3. Verify main agent and subagent sessions do not force OpenShell to host tools.
-4. Run the Linux proof command successfully through Sero.
-5. Decide and document the Phase 2.5 source-of-truth model for `read/write/edit`.
+1. Keep OpenShell CLI command-shape tests aligned with `openshell 0.0.36` behavior.
+2. Run the Linux proof command successfully through Sero.
+3. Verify workspace push/pull after the proof command.
+4. Decide and document the Phase 2.5 source-of-truth model for `read/write/edit`.
+5. Implement or explicitly block runtime-backed `read/write/edit` for OpenShell.
 
 ## Completion rule
 
