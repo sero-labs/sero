@@ -206,7 +206,12 @@ export function registerWorkspaceHandlers(): void {
   ipcMain.handle(
     IpcChannels.workspace.setContainer,
     async (_event, id: string, enabled: boolean): Promise<void> => {
-      return workspaceManager.setContainerEnabled(id, enabled);
+      await destroyOpenShellSandboxBeforeRuntimeChange(id, {
+        providerId: enabled ? 'apple-container' : 'host',
+      });
+      await workspaceManager.setContainerEnabled(id, enabled);
+      await reconcileAppRuntimes('workspace legacy container change');
+      notifyWorkspaceChanged();
     },
   );
 

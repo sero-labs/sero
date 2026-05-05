@@ -4,6 +4,13 @@ import { useSessionStore } from '@/stores/sessions';
 import { persistLayout } from '@/lib/persist-layout';
 import { createDebouncedFn } from '@/hooks/useDebouncedCallback';
 
+function isAppleContainerEnabled(workspace: WorkspaceInfo): boolean {
+  if (workspace.runtime?.providerId === 'apple-container') return true;
+  if (workspace.runtime?.providerId === 'host') return false;
+  if (workspace.runtime?.providerId === 'openshell-local') return false;
+  return workspace.container;
+}
+
 // ── Store ──────────────────────────────────────────────────────
 
 /** Debounced save of expanded state to main process (avoids excessive disk writes). */
@@ -179,11 +186,14 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   toggleContainer: async (id) => {
     const workspace = get().workspaces.find((w) => w.id === id);
     if (!workspace) return;
-    const newValue = !workspace.container;
+    const newValue = !isAppleContainerEnabled(workspace);
+    const runtime: WorkspaceRuntimeConfig = {
+      providerId: newValue ? 'apple-container' : 'host',
+    };
     await window.sero.workspace.setContainer(id, newValue);
     set((s) => ({
       workspaces: s.workspaces.map((w) =>
-        w.id === id ? { ...w, container: newValue } : w,
+        w.id === id ? { ...w, container: newValue, runtime } : w,
       ),
     }));
   },
@@ -192,7 +202,9 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     await window.sero.workspace.setRuntime(id, runtime);
     set((s) => ({
       workspaces: s.workspaces.map((w) =>
-        w.id === id ? { ...w, runtime } : w,
+        w.id === id
+          ? { ...w, runtime, container: runtime ? runtime.providerId === 'apple-container' : w.container }
+          : w,
       ),
     }));
   },

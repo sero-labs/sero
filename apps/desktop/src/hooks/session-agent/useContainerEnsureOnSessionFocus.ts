@@ -2,6 +2,15 @@ import { useEffect } from 'react';
 import { useContainerStore } from '@/stores/container';
 import { useSessionStore } from '@/stores/sessions';
 import { useWorkspaceStore } from '@/stores/workspace';
+import type { WorkspaceInfo } from '@/types/ipc';
+
+function usesAppleContainer(workspace: WorkspaceInfo | undefined): boolean {
+  if (!workspace) return false;
+  if (workspace.runtime?.providerId === 'apple-container') return true;
+  if (workspace.runtime?.providerId === 'host') return false;
+  if (workspace.runtime?.providerId === 'openshell-local') return false;
+  return workspace.container;
+}
 
 export function useContainerEnsureOnSessionFocus(): void {
   const activeSession = useSessionStore((state) =>
@@ -11,8 +20,9 @@ export function useContainerEnsureOnSessionFocus(): void {
   );
   const activeWorkspaceContainerEnabled = useWorkspaceStore((state) =>
     activeSession
-      ? state.workspaces.find((workspace) => workspace.id === activeSession.workspaceId)
-          ?.container ?? false
+      ? usesAppleContainer(
+        state.workspaces.find((workspace) => workspace.id === activeSession.workspaceId),
+      )
       : false,
   );
   const containerStatus = useContainerStore((state) =>

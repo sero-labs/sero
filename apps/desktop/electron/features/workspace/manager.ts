@@ -394,10 +394,10 @@ export class WorkspaceManager {
 
   // ── Helpers ───────────────────────────────────────────────
 
-  /** Check if a workspace has containers enabled. Defaults to true. */
+  /** Check if a workspace uses the legacy Apple container runtime. Defaults to true. */
   async isContainerEnabled(id: string): Promise<boolean> {
     const config = await this.getConfig(id);
-    return config?.container !== false;
+    return isAppleContainerEnabled(config);
   }
 
   async getRuntimeConfig(id: string): Promise<WorkspaceRuntimeConfig | undefined> {
@@ -422,6 +422,7 @@ export class WorkspaceManager {
     if (!config) throw new Error(`No config for workspace: ${id}`);
 
     config.container = enabled;
+    config.runtime = { providerId: enabled ? 'apple-container' : 'host' };
     await this.persistConfig(id, entry.path, config);
   }
 
@@ -467,7 +468,7 @@ export class WorkspaceManager {
       contextHints: config?.contextHints,
       tags: config?.tags,
       open: entry.open,
-      container: config?.container !== false,
+      container: isAppleContainerEnabled(config),
       runtime: config?.runtime,
       references: config?.references ?? [],
       mounts: config?.mounts ?? [],
@@ -483,5 +484,12 @@ export class WorkspaceManager {
 }
 
 // ── Singleton ────────────────────────────────────────────────
+
+function isAppleContainerEnabled(config: WorkspaceConfig | null | undefined): boolean {
+  if (config?.runtime?.providerId === 'apple-container') return true;
+  if (config?.runtime?.providerId === 'host') return false;
+  if (config?.runtime?.providerId === 'openshell-local') return false;
+  return config?.container !== false;
+}
 
 export const workspaceManager = new WorkspaceManager();

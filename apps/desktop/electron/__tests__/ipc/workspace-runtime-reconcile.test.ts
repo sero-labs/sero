@@ -33,6 +33,8 @@ const mocks = vi.hoisted(() => {
       inferWorkspace: vi.fn(async () => 'global'),
       setContainerEnabled: vi.fn(async () => {}),
       setRuntimeConfig: vi.fn(async () => {}),
+      getRuntimeConfig: vi.fn(async () => undefined),
+      getPath: vi.fn(() => '/repo-1'),
       addReference: vi.fn(async () => {}),
       removeReference: vi.fn(async () => {}),
       addMount: vi.fn(async () => {}),
@@ -82,6 +84,9 @@ vi.mock('@electron/shared/infra/shared-infra', () => ({
   appRuntimeManager: {
     reconcile: mocks.appRuntimeReconcile,
   },
+  containerManager: {
+    terminals: {},
+  },
 }));
 
 vi.mock('@electron/ipc/lib/window-broadcast', () => ({
@@ -104,6 +109,8 @@ describe('workspace IPC runtime reconcile', () => {
     mocks.workspaceManager.inferWorkspace.mockClear();
     mocks.workspaceManager.setContainerEnabled.mockClear();
     mocks.workspaceManager.setRuntimeConfig.mockClear();
+    mocks.workspaceManager.getRuntimeConfig.mockClear();
+    mocks.workspaceManager.getPath.mockClear();
     mocks.workspaceManager.addReference.mockClear();
     mocks.workspaceManager.removeReference.mockClear();
     mocks.workspaceManager.addMount.mockClear();
@@ -213,6 +220,8 @@ describe('workspace IPC runtime reconcile', () => {
     expect(mocks.workspaceManager.create).toHaveBeenCalledWith('OpenShell Workspace', '/parent', runtime);
     expect(mocks.workspaceManager.setRuntimeConfig).toHaveBeenCalledWith('ws-1', runtime);
     expect(mocks.workspaceManager.setContainerEnabled).toHaveBeenCalledWith('ws-1', false);
+    expect(mocks.appRuntimeReconcile).toHaveBeenCalledTimes(3);
+    expect(mocks.broadcastToWindows).toHaveBeenCalledTimes(3);
   });
 
   it('returns additive runtime diagnostics metadata without changing existing fields', async () => {

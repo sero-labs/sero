@@ -109,12 +109,30 @@ function formatProcessFailure(
   stdout: string,
   stderr: string,
 ): string {
-  const invocation = [command, ...args].join(' ');
+  const invocation = formatSafeInvocation(command, args);
   const reason = getFailureReason(failure);
   const lines = [`${label} failed: ${invocation}${reason ? ` (${reason})` : ''}.`];
   if (stderr.length > 0) lines.push(`stderr: ${stderr}`);
   if (stdout.length > 0) lines.push(`stdout: ${stdout}`);
   return lines.join('\n');
+}
+
+function formatSafeInvocation(command: string, args: string[]): string {
+  return [command, ...redactSensitiveArgs(args)].join(' ');
+}
+
+function redactSensitiveArgs(args: string[]): string[] {
+  const redacted: string[] = [];
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    const previousArg = index > 0 ? args[index - 1] : undefined;
+    if (previousArg === '-lc') {
+      redacted.push('[redacted shell command]');
+      continue;
+    }
+    redacted.push(arg);
+  }
+  return redacted;
 }
 
 function getFailureReason(failure: ProcessFailureLike): string {

@@ -97,6 +97,24 @@ describe('OpenShell CLI process helpers', () => {
     });
   });
 
+  it('redacts shell command payloads from process failure diagnostics', async () => {
+    mocks.execFileMock.mockRejectedValue({
+      code: 1,
+      stdout: '',
+      stderr: 'command failed',
+    });
+
+    const result = await runOpenShell([
+      '--gateway', 'sero-local',
+      'sandbox', 'exec', '-n', 'sero-ws',
+      '--', 'sh', '-lc', 'echo $SECRET && curl https://token.example',
+    ]);
+
+    expect(result.stderr).toContain('sh -lc [redacted shell command]');
+    expect(result.stderr).not.toContain('echo $SECRET');
+    expect(result.stderr).not.toContain('token.example');
+  });
+
   it('spawns OpenShell with argument arrays for streaming use', () => {
     const child = new EventEmitter() as ChildProcessWithoutNullStreams;
     mocks.spawnMock.mockReturnValue(child);
