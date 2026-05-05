@@ -4,12 +4,15 @@ import type { WorkspaceRuntimeConfig } from '@/types/ipc';
 const mocks = vi.hoisted(() => {
   const openShellLocalDestroy = vi.fn(async () => {});
   const openShellRemoteDestroy = vi.fn(async () => {});
+  const openShellCloudDestroy = vi.fn(async () => {});
 
   return {
     openShellLocalDestroy,
     openShellRemoteDestroy,
+    openShellCloudDestroy,
     createOpenShellLocalRuntimeAdapter: vi.fn(() => ({ destroy: openShellLocalDestroy })),
     createOpenShellRemoteRuntimeAdapter: vi.fn(() => ({ destroy: openShellRemoteDestroy })),
+    createOpenShellCloudRuntimeAdapter: vi.fn(() => ({ destroy: openShellCloudDestroy })),
   };
 });
 
@@ -31,6 +34,10 @@ vi.mock('@electron/features/workspace/runtime/adapters/openshell-local-runtime-a
 
 vi.mock('@electron/features/workspace/runtime/adapters/openshell-remote-runtime-adapter', () => ({
   createOpenShellRemoteRuntimeAdapter: mocks.createOpenShellRemoteRuntimeAdapter,
+}));
+
+vi.mock('@electron/features/workspace/runtime/adapters/openshell-cloud-runtime-adapter', () => ({
+  createOpenShellCloudRuntimeAdapter: mocks.createOpenShellCloudRuntimeAdapter,
 }));
 
 vi.mock('@electron/shared/infra/shared-infra', () => ({
@@ -117,6 +124,33 @@ describe('OpenShell runtime switching cleanup', () => {
     expect(mocks.createOpenShellRemoteRuntimeAdapter).not.toHaveBeenCalled();
   });
 
+  it('destroys a cloud OpenShell sandbox when switching away without destroying the gateway', async () => {
+    const workspaceManager = createWorkspaceManager({
+      providerId: 'openshell-cloud',
+      cloudGatewayId: 'openshell-cloud-1',
+      gatewayName: 'sero-cloud',
+      sandboxName: 'sero-ws-1',
+      experimental: true,
+    });
+    const gatewayRegistry = { list: vi.fn(async () => []) };
+
+    await destroyOpenShellSandboxBeforeRuntimeChange('ws-1', { providerId: 'host' }, {
+      workspaceManager,
+      openShellCloudGatewayRegistry: gatewayRegistry,
+    });
+
+    expect(mocks.createOpenShellCloudRuntimeAdapter).toHaveBeenCalledWith({
+      workspaceId: 'ws-1',
+      workspacePath: '/repo-1',
+      workspaceManager,
+      terminals: {},
+      gatewayRegistry,
+    });
+    expect(mocks.openShellCloudDestroy).toHaveBeenCalledTimes(1);
+    expect(mocks.createOpenShellRemoteRuntimeAdapter).not.toHaveBeenCalled();
+    expect(mocks.createOpenShellLocalRuntimeAdapter).not.toHaveBeenCalled();
+  });
+
   it('keeps the existing OpenShell sandbox when the provider does not change', async () => {
     const workspaceManager = createWorkspaceManager({
       providerId: 'openshell-remote',
@@ -138,6 +172,28 @@ describe('OpenShell runtime switching cleanup', () => {
     expect(mocks.openShellRemoteDestroy).not.toHaveBeenCalled();
   });
 
+  it('keeps the existing cloud sandbox when cloud metadata changes', async () => {
+    const workspaceManager = createWorkspaceManager({
+      providerId: 'openshell-cloud',
+      cloudGatewayId: 'openshell-cloud-1',
+      gatewayName: 'sero-cloud',
+      experimental: true,
+    });
+
+    await destroyOpenShellSandboxBeforeRuntimeChange('ws-1', {
+      providerId: 'openshell-cloud',
+      cloudGatewayId: 'openshell-cloud-2',
+      gatewayName: 'sero-cloud-2',
+      idleTimeoutMinutes: 30,
+    }, {
+      workspaceManager,
+      openShellCloudGatewayRegistry: { list: vi.fn(async () => []) },
+    });
+
+    expect(mocks.createOpenShellCloudRuntimeAdapter).not.toHaveBeenCalled();
+    expect(mocks.openShellCloudDestroy).not.toHaveBeenCalled();
+  });
+
   it('does not block switching away when remote sandbox cleanup fails', async () => {
     mocks.openShellRemoteDestroy.mockRejectedValueOnce(new Error('missing gateway registry entry'));
     const workspaceManager = createWorkspaceManager({
@@ -153,6 +209,23 @@ describe('OpenShell runtime switching cleanup', () => {
     })).resolves.toBeUndefined();
 
     expect(mocks.openShellRemoteDestroy).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not block switching away when cloud sandbox cleanup fails', async () => {
+    mocks.openShellCloudDestroy.mockRejectedValueOnce(new Error('missing cloud gateway registry entry'));
+    const workspaceManager = createWorkspaceManager({
+      providerId: 'openshell-cloud',
+      cloudGatewayId: 'openshell-cloud-1',
+      gatewayName: 'sero-cloud',
+      experimental: true,
+    });
+
+    await expect(destroyOpenShellSandboxBeforeRuntimeChange('ws-1', { providerId: 'host' }, {
+      workspaceManager,
+      openShellCloudGatewayRegistry: { list: vi.fn(async () => []) },
+    })).resolves.toBeUndefined();
+
+    expect(mocks.openShellCloudDestroy).toHaveBeenCalledTimes(1);
   });
 });
 

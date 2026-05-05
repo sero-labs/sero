@@ -70,7 +70,11 @@ export async function startManagedDevServer(
   const createRuntime = deps.createRuntime ?? createWorkspaceRuntimeFacade;
   const runtime = await createRuntime(options.workspaceId);
 
-  if (runtime.providerId === 'openshell-local' || runtime.providerId === 'openshell-remote') {
+  if (
+    runtime.providerId === 'openshell-local'
+    || runtime.providerId === 'openshell-remote'
+    || runtime.providerId === 'openshell-cloud'
+  ) {
     return startOpenShellManagedDevServer(options, runtime, registerServer);
   }
 
@@ -179,6 +183,7 @@ async function startOpenShellManagedDevServer(
 }
 
 function formatOpenShellRuntimeName(providerId: WorkspaceRuntimeFacade['providerId']): string {
+  if (providerId === 'openshell-cloud') return 'OpenShell Cloud';
   return providerId === 'openshell-remote' ? 'OpenShell Remote' : 'OpenShell Local';
 }
 

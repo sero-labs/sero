@@ -174,6 +174,44 @@ describe('resolveWorkspaceRuntime', () => {
     expect(resolved.capabilityAudit[0]?.detail).toContain('Policy diagnostics remain local-only');
   });
 
+  it('resolves OpenShell Cloud from runtime config with hosted capability copy', async () => {
+    mocks.workspaceManager.getRuntimeConfig.mockResolvedValue({
+      providerId: 'openshell-cloud',
+      cloudGatewayId: 'openshell-cloud-prod',
+      gatewayName: 'sero-cloud-prod',
+      experimental: true,
+      idleTimeoutMinutes: 45,
+      lastActivityAt: '2026-05-05T20:00:00.000Z',
+    });
+
+    const resolved = await resolveWorkspaceRuntime('ws-cloud');
+
+    expect(resolved).toMatchObject({
+      workspaceId: 'ws-cloud',
+      providerId: 'openshell-cloud',
+      desiredRuntime: 'openshell-cloud',
+      actualRuntime: 'openshell-cloud',
+      containerEnabled: false,
+      runtimeConfig: {
+        providerId: 'openshell-cloud',
+        cloudGatewayId: 'openshell-cloud-prod',
+        idleTimeoutMinutes: 45,
+        lastActivityAt: '2026-05-05T20:00:00.000Z',
+      },
+    });
+    expect(mocks.containerManager.inspect).not.toHaveBeenCalled();
+    expect(resolved.fallbackReason).toBeUndefined();
+    expect(resolved.capabilityAudit.find((entry) => entry.key === 'managedDevServers')).toMatchObject({
+      available: true,
+      containerOnly: false,
+    });
+    expect(resolved.capabilityAudit[0]?.detail).toContain('OpenShell Cloud');
+    expect(resolved.capabilityAudit[0]?.detail).toContain('hosted');
+    expect(resolved.capabilityAudit[0]?.detail).toContain('auth-dependent');
+    expect(resolved.capabilityAudit[0]?.detail).toContain('external infrastructure costs');
+    expect(resolved.capabilityAudit[0]?.detail).toContain('Stale sessions');
+  });
+
   it('uses explicit Apple container runtime config even when legacy container is false', async () => {
     mocks.workspaceManager.getRuntimeConfig.mockResolvedValue({ providerId: 'apple-container' });
     mocks.workspaceManager.isContainerEnabled.mockResolvedValue(false);

@@ -11,7 +11,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@sero-ai/ui/components/ui/popover';
-import type { WorkspaceInfo, WorkspaceRuntimeConfig } from '@/types/ipc';
+import type { OpenShellCloudAuthMode, WorkspaceInfo, WorkspaceRuntimeConfig } from '@/types/ipc';
 import { IconAction } from '@/components/ui/IconAction';
 import { PickView, CreateView, type RuntimeChoice } from './AddWorkspaceViews';
 import { RemoteOriginManager } from './RemoteOriginManager';
@@ -25,6 +25,12 @@ interface RemoteGatewayRuntimeSelection {
   name: string;
 }
 
+interface CloudGatewayRuntimeSelection {
+  id: string;
+  name: string;
+  idleTimeoutMinutes: number;
+}
+
 function toRemoteGatewayId(name: string): string {
   const slug = name
     .trim()
@@ -34,10 +40,37 @@ function toRemoteGatewayId(name: string): string {
   return `openshell-remote-${slug || 'gateway'}`;
 }
 
+export function toCloudGatewayId(name: string): string {
+  const slug = name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return `openshell-cloud-${slug || 'gateway'}`;
+}
+
+export function validateCloudEndpoint(endpoint: string): string | null {
+  const trimmed = endpoint.trim();
+  if (!trimmed) return 'OpenShell Cloud requires an HTTPS endpoint.';
+
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.protocol === 'https:') return null;
+    if (parsed.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(parsed.hostname)) {
+      return null;
+    }
+  } catch {
+    return 'OpenShell Cloud endpoint must be a valid URL.';
+  }
+
+  return 'OpenShell Cloud endpoints must use HTTPS unless they are localhost test endpoints.';
+}
+
 export function toRuntimeConfig(
   choice: RuntimeChoice,
   policyProfileId: OpenShellPolicyProfileId = DEFAULT_OPENSHELL_POLICY_PROFILE_ID,
   remoteGateway?: RemoteGatewayRuntimeSelection,
+  cloudGateway?: CloudGatewayRuntimeSelection,
 ): WorkspaceRuntimeConfig | undefined {
   if (choice === 'default') return undefined;
   if (choice === 'openshell-local') {
@@ -66,6 +99,16 @@ export function toRuntimeConfig(
       experimental: true,
     };
   }
+  if (choice === 'openshell-cloud') {
+    if (!cloudGateway) return undefined;
+    return {
+      providerId: 'openshell-cloud',
+      cloudGatewayId: cloudGateway.id,
+      gatewayName: cloudGateway.name,
+      idleTimeoutMinutes: cloudGateway.idleTimeoutMinutes,
+      experimental: true,
+    };
+  }
   return { providerId: choice };
 }
 
@@ -84,6 +127,13 @@ export function AddWorkspaceMenu() {
   const [remotePort, setRemotePort] = useState('8080');
   const [remoteGatewayHost, setRemoteGatewayHost] = useState('');
   const [remoteError, setRemoteError] = useState<string | null>(null);
+  const [cloudGatewayName, setCloudGatewayName] = useState('sero-cloud');
+  const [cloudEndpoint, setCloudEndpoint] = useState('');
+  const [cloudAuthMode, setCloudAuthMode] = useState<OpenShellCloudAuthMode>('browser');
+  const [cloudResourceLabel, setCloudResourceLabel] = useState('');
+  const [cloudCostLabel, setCloudCostLabel] = useState('');
+  const [cloudIdleTimeoutMinutes, setCloudIdleTimeoutMinutes] = useState('60');
+  const [cloudError, setCloudError] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [newWorkspace, setNewWorkspace] = useState<WorkspaceInfo | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -92,6 +142,7 @@ export function AddWorkspaceMenu() {
   const createWorkspace = useWorkspaceStore((s) => s.createWorkspace);
   const addFolder = useWorkspaceStore((s) => s.addFolder);
   const saveOpenShellRemoteGateway = useWorkspaceStore((s) => s.saveOpenShellRemoteGateway);
+  const saveOpenShellCloudGateway = useWorkspaceStore((s) => s.saveOpenShellCloudGateway);
   const loadSessions = useSessionStore((s) => s.loadSessions);
 
   const reset = () => {
@@ -106,6 +157,13 @@ export function AddWorkspaceMenu() {
     setRemotePort('8080');
     setRemoteGatewayHost('');
     setRemoteError(null);
+    setCloudGatewayName('sero-cloud');
+    setCloudEndpoint('');
+    setCloudAuthMode('browser');
+    setCloudResourceLabel('');
+    setCloudCostLabel('');
+    setCloudIdleTimeoutMinutes('60');
+    setCloudError(null);
   };
 
   const handleImportExisting = async () => {
@@ -137,8 +195,10 @@ export function AddWorkspaceMenu() {
     const trimmed = newName.trim();
     if (!trimmed || isCreating) return;
     setRemoteError(null);
+    setCloudError(null);
 
     let remoteGateway: RemoteGatewayRuntimeSelection | undefined;
+    let cloudGateway: CloudGatewayRuntimeSelection | undefined;
     if (runtimeChoice === 'openshell-remote') {
       const gatewayName = remoteGatewayName.trim();
       const sshHost = remoteSshHost.trim();
@@ -170,6 +230,50 @@ export function AddWorkspaceMenu() {
         setIsCreating(false);
         return;
       }
+    } else if (runtimeChoice === 'openshell-cloud') {
+      const gatewayName = cloudGatewayName.trim();
+      const endpoint = cloudEndpoint.trim();
+      if (!gatewayName) {
+        setCloudError('OpenShell Cloud requires a gateway name.');
+        return;
+      }
+
+      const endpointError = validateCloudEndpoint(endpoint);
+      if (endpointError) {
+        setCloudError(endpointError);
+        return;
+      }
+
+      const idleTimeoutMinutes = cloudIdleTimeoutMinutes.trim()
+        ? Number(cloudIdleTimeoutMinutes.trim())
+        : 60;
+      if (!Number.isInteger(idleTimeoutMinutes) || idleTimeoutMinutes <= 0) {
+        setCloudError('OpenShell Cloud idle timeout must be a positive number of minutes.');
+        return;
+      }
+
+      setIsCreating(true);
+      try {
+        const gateway = await saveOpenShellCloudGateway({
+          id: toCloudGatewayId(gatewayName),
+          name: gatewayName,
+          endpoint,
+          authMode: cloudAuthMode,
+          resourceLabel: cloudResourceLabel.trim() || undefined,
+          costLabel: cloudCostLabel.trim() || undefined,
+          idleTimeoutMinutes,
+        });
+        cloudGateway = {
+          id: gateway.id,
+          name: gateway.name,
+          idleTimeoutMinutes: gateway.idleTimeoutMinutes,
+        };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to save OpenShell Cloud gateway.';
+        setCloudError(message);
+        setIsCreating(false);
+        return;
+      }
     } else {
       setIsCreating(true);
     }
@@ -178,7 +282,7 @@ export function AddWorkspaceMenu() {
       const ws = await createWorkspace(
         trimmed,
         parentPath ?? undefined,
-        toRuntimeConfig(runtimeChoice, policyProfileId, remoteGateway),
+        toRuntimeConfig(runtimeChoice, policyProfileId, remoteGateway, cloudGateway),
       );
       await loadSessions();
       setOpen(false);
@@ -189,6 +293,10 @@ export function AddWorkspaceMenu() {
       if (runtimeChoice === 'openshell-remote') {
         const message = err instanceof Error ? err.message : 'Failed to create OpenShell Remote workspace.';
         setRemoteError(message);
+      }
+      if (runtimeChoice === 'openshell-cloud') {
+        const message = err instanceof Error ? err.message : 'Failed to create OpenShell Cloud workspace.';
+        setCloudError(message);
       }
     } finally {
       setIsCreating(false);
@@ -237,6 +345,7 @@ export function AddWorkspaceMenu() {
             onRuntimeChoiceChange={(choice) => {
               setRuntimeChoice(choice);
               setRemoteError(null);
+              setCloudError(null);
             }}
             policyProfileId={policyProfileId}
             onPolicyProfileChange={setPolicyProfileId}
@@ -260,6 +369,31 @@ export function AddWorkspaceMenu() {
             remoteGatewayHost={remoteGatewayHost}
             onRemoteGatewayHostChange={setRemoteGatewayHost}
             remoteError={remoteError}
+            cloudGatewayName={cloudGatewayName}
+            onCloudGatewayNameChange={(value) => {
+              setCloudGatewayName(value);
+              setCloudError(null);
+            }}
+            cloudEndpoint={cloudEndpoint}
+            onCloudEndpointChange={(value) => {
+              setCloudEndpoint(value);
+              setCloudError(null);
+            }}
+            cloudAuthMode={cloudAuthMode}
+            onCloudAuthModeChange={(value) => {
+              setCloudAuthMode(value);
+              setCloudError(null);
+            }}
+            cloudResourceLabel={cloudResourceLabel}
+            onCloudResourceLabelChange={setCloudResourceLabel}
+            cloudCostLabel={cloudCostLabel}
+            onCloudCostLabelChange={setCloudCostLabel}
+            cloudIdleTimeoutMinutes={cloudIdleTimeoutMinutes}
+            onCloudIdleTimeoutMinutesChange={(value) => {
+              setCloudIdleTimeoutMinutes(value);
+              setCloudError(null);
+            }}
+            cloudError={cloudError}
             onBack={reset}
             onCreate={handleCreate}
             isCreating={isCreating}

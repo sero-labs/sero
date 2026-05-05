@@ -380,7 +380,9 @@ Run Sero workspace agents on a remote machine through OpenShell remote gateways.
 
 ### Current status
 
-**Not started.**
+**Complete for the SSH-backed remote gateway scope.** Sero has a distinct `openshell-remote` provider with persisted SSH gateway metadata, remote Docker checks, gateway deployment/selection, remote sandbox lifecycle, fail-closed command execution, workspace push/pull sync, logs, preview forwarding, latency/status diagnostics, and sandbox cleanup when switching runtimes.
+
+Phase 4 remains SSH-only. Hosted/cloud endpoints are handled by the separate `openshell-cloud` provider in Phase 5 and must not be treated as remote SSH gateways.
 
 ## Phase 5 — OpenShell cloud gateway support
 
@@ -405,9 +407,30 @@ Support hosted/cloud-backed OpenShell agent runtime sessions.
 - User can stop/destroy sessions safely.
 - Stale cloud sessions are visible.
 
-### Current status
+### Current Phase 5 implementation status
 
-**Not started.**
+**Implemented as an experimental CLI-first MVP.**
+
+Implemented:
+
+- `openshell-cloud` is a distinct runtime provider across Electron, IPC, app-runtime, workspace config, diagnostics, store, and UI contracts.
+- Cloud gateway metadata is persisted under `SERO_AGENT_DIR` with HTTPS-by-default endpoint validation, auth mode, advisory resource/cost labels, idle timeout, and timestamps.
+- CLI-managed gateway registration uses `openshell gateway add <endpoint> --name <name>`.
+- CLI-managed auth action uses `openshell gateway login <name>` and Sero does not parse, return, or persist token values.
+- Cloud gateway health uses OpenShell CLI status/info checks, sanitized diagnostics, latency on success, and explicit auth-required/unavailable states.
+- Cloud sandbox execution uses `openshell --gateway <name> sandbox ...`, workspace push before `bash`, execution under `/sandbox/workspace/<basename>`, and pullback after `bash`.
+- Logs and preview forwarding reuse OpenShell log/forward flows with the selected cloud gateway name.
+- The cloud status menu shows endpoint/auth state, sandbox name, idle timeout, stale warnings, resource/cost labels, login, metadata editing, refresh, and explicit sandbox destroy.
+- Runtime switching and the destroy action delete only the workspace sandbox; gateway registry metadata is not removed by sandbox cleanup.
+
+Limitations:
+
+- Sero does not store cloud auth secrets, tokens, cookies, bearer headers, API keys, or passwords. Authentication remains owned by OpenShell CLI/auth-provider storage.
+- Resource and cost values are user-entered/advisory unless a future OpenShell interface provides structured data. Sero does not have authoritative cloud billing data.
+- Stale detection is best-effort from Sero `lastActivityAt`/`idleTimeoutMinutes` metadata plus sandbox existence checks. It is not provider-enforced cleanup and is not billing truth.
+- Phase 5 does not implement direct OpenShell endpoint API/gRPC integration; all cloud operations remain CLI-first.
+- Phase 5 does not add browser automation, interactive PTY terminals, or runtime-backed `read`, `write`, and `edit` for OpenShell runtimes.
+- Plugins and background runtimes see Sero runtime capabilities only; raw cloud/OpenShell APIs are not exposed to plugins.
 
 ## Phase 6 — Evals and multi-agent scaling
 
@@ -433,6 +456,30 @@ Use OpenShell as an isolated, reproducible runtime for Sero evals and parallel a
 ### Current status
 
 **Not started.**
+
+## Phase 5 manual smoke checklist
+
+With a reachable cloud gateway endpoint:
+
+1. Create an OpenShell Cloud workspace with endpoint `https://...` and auth mode set appropriately.
+2. If auth is required, click Login and confirm diagnostics change from auth-required/unavailable to ready. Confirm no token or secret value appears in Sero UI or logs.
+3. Run these commands through the workspace agent `bash` tool:
+
+```bash
+echo "PWD=$PWD"
+uname -a
+cat /etc/os-release | head
+test -f /.dockerenv && echo "DOCKER_ENV=yes" || echo "DOCKER_ENV=no"
+hostname
+whoami
+echo "created inside $(uname -s) at $(pwd) via OpenShell Cloud" > proof-from-openshell-cloud.txt
+```
+
+4. Confirm output reports Linux/OpenShell signals, not Darwin/macOS, and `PWD` is under `/sandbox/workspace/<basename>`.
+5. Confirm `proof-from-openshell-cloud.txt` appears in the host workspace after pullback.
+6. Start a known dev server, confirm the preview URL is local (for example `http://127.0.0.1:<port>`), and confirm logs/diagnostics show the OpenShell `forward` flow for the selected cloud gateway.
+7. Set a short idle timeout, wait for it to expire, refresh diagnostics, and confirm the cloud status menu shows a stale-session warning with advisory resource/cost copy.
+8. Destroy the cloud sandbox from the cloud status menu. Confirm the action deletes only the sandbox, gateway metadata remains in the registry, and diagnostics no longer show the stale sandbox as active.
 
 ## Immediate next implementation issue
 

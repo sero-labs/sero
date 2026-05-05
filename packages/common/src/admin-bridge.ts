@@ -23,7 +23,12 @@ export interface GlobalModelConfigStateIPC {
   migrationNotice?: string;
 }
 
-export type WorkspaceRuntimeProviderIdIPC = 'host' | 'apple-container' | 'openshell-local' | 'openshell-remote';
+export type WorkspaceRuntimeProviderIdIPC =
+  | 'host'
+  | 'apple-container'
+  | 'openshell-local'
+  | 'openshell-remote'
+  | 'openshell-cloud';
 
 export type WorkspaceRuntimePolicyHistoryEntryIPC = OpenShellPolicyProfileHistoryEntry;
 
@@ -34,6 +39,9 @@ export interface WorkspaceRuntimeConfigIPC {
   runtimeWorkspacePath?: string;
   experimental?: boolean;
   remoteGatewayId?: string;
+  cloudGatewayId?: string;
+  idleTimeoutMinutes?: number;
+  lastActivityAt?: string;
   policyProfileId?: OpenShellPolicyProfileId;
   policyProfileUpdatedAt?: string;
   policyProfileHistory?: WorkspaceRuntimePolicyHistoryEntryIPC[];
@@ -275,6 +283,21 @@ export interface OpenShellRemoteDiagnosticsIPC {
   message: string;
 }
 
+export interface OpenShellCloudDiagnosticsIPC {
+  gatewayId?: string;
+  gatewayName?: string;
+  endpoint?: string;
+  sandboxName?: string;
+  status: 'ready' | 'auth-required' | 'stale' | 'unavailable' | 'unsupported';
+  message: string;
+  latencyMs?: number;
+  lastActivityAt?: string;
+  idleTimeoutMinutes?: number;
+  stale?: boolean;
+  resourceLabel?: string;
+  costLabel?: string;
+}
+
 export interface OpenShellPolicyDiagnosticsIPC {
   selectedProfile: OpenShellPolicyProfile;
   enforcementStatus: 'profile-preview-only';
@@ -290,8 +313,8 @@ export interface OpenShellPolicyDiagnosticsIPC {
 export interface WorkspaceRuntimeDiagnosticsIPC {
   workspaceId: string;
   workspacePath: string;
-  desiredRuntime: 'container' | 'host' | 'openshell-local' | 'openshell-remote';
-  actualRuntime: 'container' | 'host' | 'openshell-local' | 'openshell-remote';
+  desiredRuntime: 'container' | 'host' | 'openshell-local' | 'openshell-remote' | 'openshell-cloud';
+  actualRuntime: 'container' | 'host' | 'openshell-local' | 'openshell-remote' | 'openshell-cloud';
   containerEnabled: boolean;
   fallbackCode?: 'container_unavailable';
   fallbackReason?: string;
@@ -301,6 +324,7 @@ export interface WorkspaceRuntimeDiagnosticsIPC {
   runtimeHealth?: RuntimeHealthIPC;
   openShellPolicy?: OpenShellPolicyDiagnosticsIPC;
   openShellRemote?: OpenShellRemoteDiagnosticsIPC;
+  openShellCloud?: OpenShellCloudDiagnosticsIPC;
 }
 
 export interface ContainerInfoIPC {

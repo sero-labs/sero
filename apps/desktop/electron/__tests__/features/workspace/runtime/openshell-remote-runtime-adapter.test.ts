@@ -101,7 +101,7 @@ describe('createOpenShellRemoteRuntimeAdapter', () => {
         '-o', 'BatchMode=yes',
         '-o', 'ConnectTimeout=8',
         'dev@example',
-        'docker', 'info', '--format', '{{json .ServerVersion}}',
+        'sh', '-lc', "docker info --format '{{json .ServerVersion}}'",
       ],
       { timeoutMs: 15_000 },
     );

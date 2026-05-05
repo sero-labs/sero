@@ -7,6 +7,9 @@ import type {
   OpenShellRemoteGatewayEntry,
   OpenShellRemoteGatewayInput,
   OpenShellRemoteGatewayTestResult,
+  OpenShellCloudGatewayEntry,
+  OpenShellCloudGatewayInput,
+  OpenShellCloudGatewayTestResult,
   WorkspaceInfo,
   WorkspaceRuntimeConfig,
 } from '@/types/ipc';
@@ -17,7 +20,11 @@ import { createDebouncedFn } from '@/hooks/useDebouncedCallback';
 function isAppleContainerEnabled(workspace: WorkspaceInfo): boolean {
   if (workspace.runtime?.providerId === 'apple-container') return true;
   if (workspace.runtime?.providerId === 'host') return false;
-  if (workspace.runtime?.providerId === 'openshell-local' || workspace.runtime?.providerId === 'openshell-remote') return false;
+  if (
+    workspace.runtime?.providerId === 'openshell-local'
+    || workspace.runtime?.providerId === 'openshell-remote'
+    || workspace.runtime?.providerId === 'openshell-cloud'
+  ) return false;
   return workspace.container;
 }
 
@@ -46,6 +53,8 @@ interface WorkspaceState {
   error: string | null;
   /** Cached OpenShell Remote gateway registry entries. */
   openShellRemoteGateways: OpenShellRemoteGatewayEntry[];
+  /** Cached OpenShell Cloud gateway registry entries. */
+  openShellCloudGateways: OpenShellCloudGatewayEntry[];
 
   // ── Actions ────────────────────────────────────────────────
 
@@ -81,6 +90,16 @@ interface WorkspaceState {
   testOpenShellRemoteGateway: (
     entry: OpenShellRemoteGatewayInput,
   ) => Promise<OpenShellRemoteGatewayTestResult>;
+  loadOpenShellCloudGateways: () => Promise<OpenShellCloudGatewayEntry[]>;
+  saveOpenShellCloudGateway: (
+    entry: OpenShellCloudGatewayInput,
+  ) => Promise<OpenShellCloudGatewayEntry>;
+  removeOpenShellCloudGateway: (id: string) => Promise<void>;
+  testOpenShellCloudGateway: (
+    entry: OpenShellCloudGatewayInput,
+  ) => Promise<OpenShellCloudGatewayTestResult>;
+  loginOpenShellCloudGateway: (id: string) => Promise<OpenShellCloudGatewayTestResult>;
+  destroyOpenShellCloudSandbox: (workspaceId: string) => Promise<void>;
   /** Add a workspace reference. Mounts the referenced workspace into the container. */
   addReference: (id: string, refId: string) => Promise<void>;
   /** Remove a workspace reference. */
@@ -98,6 +117,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   isLoading: false,
   error: null,
   openShellRemoteGateways: [],
+  openShellCloudGateways: [],
 
   loadWorkspaces: async () => {
     set({ isLoading: true, error: null });
@@ -280,6 +300,41 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
 
   testOpenShellRemoteGateway: async (entry) => {
     return window.sero.workspace.testOpenShellRemoteGateway(entry);
+  },
+
+  loadOpenShellCloudGateways: async () => {
+    const gateways = await window.sero.workspace.listOpenShellCloudGateways();
+    set({ openShellCloudGateways: gateways });
+    return gateways;
+  },
+
+  saveOpenShellCloudGateway: async (entry) => {
+    const gateway = await window.sero.workspace.saveOpenShellCloudGateway(entry);
+    set((s) => ({
+      openShellCloudGateways: s.openShellCloudGateways.some((item) => item.id === gateway.id)
+        ? s.openShellCloudGateways.map((item) => (item.id === gateway.id ? gateway : item))
+        : [...s.openShellCloudGateways, gateway],
+    }));
+    return gateway;
+  },
+
+  removeOpenShellCloudGateway: async (id) => {
+    await window.sero.workspace.removeOpenShellCloudGateway(id);
+    set((s) => ({
+      openShellCloudGateways: s.openShellCloudGateways.filter((gateway) => gateway.id !== id),
+    }));
+  },
+
+  testOpenShellCloudGateway: async (entry) => {
+    return window.sero.workspace.testOpenShellCloudGateway(entry);
+  },
+
+  loginOpenShellCloudGateway: async (id) => {
+    return window.sero.workspace.loginOpenShellCloudGateway(id);
+  },
+
+  destroyOpenShellCloudSandbox: async (workspaceId) => {
+    await window.sero.workspace.destroyOpenShellCloudSandbox(workspaceId);
   },
 
   addReference: async (id, refId) => {

@@ -112,6 +112,37 @@ describe('createWorkspaceRuntimeFacade', () => {
     expect(facade.capabilities.browserAutomation).toBe(false);
   });
 
+  it('chooses the OpenShell Cloud adapter when the provider is OpenShell Cloud', async () => {
+    const resolution = createResolution({
+      desiredRuntime: 'openshell-cloud',
+      actualRuntime: 'openshell-cloud',
+      containerEnabled: false,
+      providerId: 'openshell-cloud',
+    });
+    const deps = createDeps(resolution);
+    const openShellAdapter = createAdapter('openshell-cloud', 'openshell-cloud');
+    const createOpenShellCloudRuntimeAdapter = vi.fn(() => openShellAdapter);
+
+    const facade = await createWorkspaceRuntimeFacade('ws-1', {
+      deps: { ...deps, createOpenShellCloudRuntimeAdapter },
+    });
+
+    expect(createOpenShellCloudRuntimeAdapter).toHaveBeenCalledWith({
+      workspaceId: 'ws-1',
+      workspacePath: '/tmp/ws',
+      workspaceManager: deps.workspaceManager,
+      terminals: deps.containerManager.terminals,
+      gatewayRegistry: expect.any(Object),
+    });
+    expect(facade).toMatchObject({
+      workspaceId: 'ws-1',
+      workspacePath: '/tmp/ws',
+      providerId: 'openshell-cloud',
+      actualRuntime: 'openshell-cloud',
+    });
+    expect(facade.capabilities.browserAutomation).toBe(false);
+  });
+
   it('chooses the Apple container adapter for running container mode', async () => {
     const resolution = createResolution({
       desiredRuntime: 'container',
@@ -192,27 +223,35 @@ function createResolution(
 }
 
 function createAdapter(
-  providerId: 'host' | 'apple-container' | 'openshell-local' | 'openshell-remote',
-  actualRuntime: 'host' | 'container' | 'openshell-local' | 'openshell-remote',
+  providerId: 'host' | 'apple-container' | 'openshell-local' | 'openshell-remote' | 'openshell-cloud',
+  actualRuntime: 'host' | 'container' | 'openshell-local' | 'openshell-remote' | 'openshell-cloud',
 ) {
   return {
     providerId,
     actualRuntime,
     capabilities: {
       exec: true,
-      interactiveTerminal: actualRuntime !== 'openshell-local' && actualRuntime !== 'openshell-remote',
+      interactiveTerminal: !isOpenShellRuntime(actualRuntime),
       directFileRead: actualRuntime === 'host',
       directFileWrite: actualRuntime === 'host',
-      fileUpload: actualRuntime === 'openshell-local' || actualRuntime === 'openshell-remote',
-      fileDownload: actualRuntime === 'openshell-local' || actualRuntime === 'openshell-remote',
+      fileUpload: isOpenShellRuntime(actualRuntime),
+      fileDownload: isOpenShellRuntime(actualRuntime),
       managedDevServers: actualRuntime !== 'host',
       browserAutomation: actualRuntime === 'container',
       portDiscovery: actualRuntime === 'container',
-      portForward: actualRuntime === 'openshell-local' || actualRuntime === 'openshell-remote',
-      logStream: actualRuntime === 'openshell-local' || actualRuntime === 'openshell-remote',
+      portForward: isOpenShellRuntime(actualRuntime),
+      logStream: isOpenShellRuntime(actualRuntime),
     },
     health: vi.fn(),
     exec: vi.fn(),
     createTerminal: vi.fn(),
   };
+}
+
+function isOpenShellRuntime(
+  actualRuntime: 'host' | 'container' | 'openshell-local' | 'openshell-remote' | 'openshell-cloud',
+): boolean {
+  return actualRuntime === 'openshell-local'
+    || actualRuntime === 'openshell-remote'
+    || actualRuntime === 'openshell-cloud';
 }

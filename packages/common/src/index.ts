@@ -265,6 +265,7 @@ export type {
   OpenShellPolicyBlockedEventIPC,
   OpenShellPolicyDiagnosticsIPC,
   OpenShellRemoteDiagnosticsIPC,
+  OpenShellCloudDiagnosticsIPC,
   WorkspaceRuntimeDiagnosticsIPC,
   ContainerInfoIPC,
   SeroAppStateBridge,

@@ -4,7 +4,12 @@ import { containerManager } from '@electron/features/container/core/singleton';
 import { workspaceManager, type WorkspaceManager } from './manager';
 import type { WorkspaceRuntimeConfig, WorkspaceRuntimeProviderId } from '@/types/ipc';
 
-export type WorkspaceRuntimeKind = 'container' | 'host' | 'openshell-local' | 'openshell-remote';
+export type WorkspaceRuntimeKind =
+  | 'container'
+  | 'host'
+  | 'openshell-local'
+  | 'openshell-remote'
+  | 'openshell-cloud';
 export type WorkspaceRuntimeFallbackCode = 'container_unavailable';
 export type WorkspaceRuntimeCapabilityKey =
   | 'browserAutomation'
@@ -42,16 +47,37 @@ function getContainerFallbackReason(workspaceId: string, detail?: string): strin
   return `Container mode is enabled for workspace ${workspaceId}, but no running container is available. Sero is falling back to host mode until the container is ready again.${suffix}`;
 }
 
+function getOpenShellProviderCopy(
+  providerId: Extract<WorkspaceRuntimeProviderId, 'openshell-local' | 'openshell-remote' | 'openshell-cloud'>,
+  policyProfileLabel: string,
+): { label: string; prefix: string } {
+  if (providerId === 'openshell-cloud') {
+    return {
+      label: 'OpenShell Cloud',
+      prefix: 'OpenShell Cloud is experimental, hosted, auth-dependent, and may incur external infrastructure costs. Stale sessions can keep remote resources alive until cleanup succeeds.',
+    };
+  }
+
+  if (providerId === 'openshell-remote') {
+    return {
+      label: 'OpenShell Remote',
+      prefix: 'OpenShell Remote is experimental and requires the OpenShell CLI, SSH access to a Linux host, and remote Docker. Policy diagnostics remain local-only in this phase.',
+    };
+  }
+
+  return {
+    label: 'OpenShell Local',
+    prefix: `OpenShell Local is experimental and requires Docker plus the OpenShell CLI. Selected policy profile: ${policyProfileLabel}. Profiles are persisted Sero policy intent; current Sero OpenShell Local does not apply generated policy YAML.`,
+  };
+}
+
 function createOpenShellCapabilityAudit(
-  providerId: Extract<WorkspaceRuntimeProviderId, 'openshell-local' | 'openshell-remote'>,
+  providerId: Extract<WorkspaceRuntimeProviderId, 'openshell-local' | 'openshell-remote' | 'openshell-cloud'>,
   runtimeConfig?: WorkspaceRuntimeConfig,
 ): WorkspaceRuntimeCapabilityAuditEntry[] {
-  const isRemote = providerId === 'openshell-remote';
   const profile = getOpenShellPolicyProfile(runtimeConfig?.policyProfileId);
-  const label = isRemote ? 'OpenShell Remote' : 'OpenShell Local';
-  const prefix = isRemote
-    ? 'OpenShell Remote is experimental and requires the OpenShell CLI, SSH access to a Linux host, and remote Docker. Policy diagnostics remain local-only in this phase.'
-    : `OpenShell Local is experimental and requires Docker plus the OpenShell CLI. Selected policy profile: ${profile.label}. Profiles are persisted Sero policy intent; current Sero OpenShell Local does not apply generated policy YAML.`;
+  const providerCopy = getOpenShellProviderCopy(providerId, profile.label);
+  const { label, prefix } = providerCopy;
   return [
     {
       key: 'browserAutomation',
@@ -90,7 +116,11 @@ function createCapabilityAudit(
   fallbackReason?: string,
   runtimeConfig?: WorkspaceRuntimeConfig,
 ): WorkspaceRuntimeCapabilityAuditEntry[] {
-  if (actualRuntime === 'openshell-local' || actualRuntime === 'openshell-remote') {
+  if (
+    actualRuntime === 'openshell-local'
+    || actualRuntime === 'openshell-remote'
+    || actualRuntime === 'openshell-cloud'
+  ) {
     return createOpenShellCapabilityAudit(actualRuntime, runtimeConfig);
   }
 
@@ -197,7 +227,11 @@ export async function resolveWorkspaceRuntimeWithManagers(
     };
   }
 
-  if (providerId === 'openshell-local' || providerId === 'openshell-remote') {
+  if (
+    providerId === 'openshell-local'
+    || providerId === 'openshell-remote'
+    || providerId === 'openshell-cloud'
+  ) {
     return {
       workspaceId,
       workspacePath,

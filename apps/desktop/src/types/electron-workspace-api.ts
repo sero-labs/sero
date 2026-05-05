@@ -3,6 +3,9 @@ import type {
   OpenShellRemoteGatewayEntry,
   OpenShellRemoteGatewayInput,
   OpenShellRemoteGatewayTestResult,
+  OpenShellCloudGatewayEntry,
+  OpenShellCloudGatewayInput,
+  OpenShellCloudGatewayTestResult,
   WorkspaceConfig,
   WorkspaceInfo,
   WorkspaceRuntimeConfig,
@@ -35,6 +38,12 @@ export interface SeroWorkspaceAPI {
   saveOpenShellRemoteGateway(entry: OpenShellRemoteGatewayInput): Promise<OpenShellRemoteGatewayEntry>;
   removeOpenShellRemoteGateway(id: string): Promise<void>;
   testOpenShellRemoteGateway(entry: OpenShellRemoteGatewayInput): Promise<OpenShellRemoteGatewayTestResult>;
+  listOpenShellCloudGateways(): Promise<OpenShellCloudGatewayEntry[]>;
+  saveOpenShellCloudGateway(entry: OpenShellCloudGatewayInput): Promise<OpenShellCloudGatewayEntry>;
+  removeOpenShellCloudGateway(id: string): Promise<void>;
+  testOpenShellCloudGateway(entry: OpenShellCloudGatewayInput): Promise<OpenShellCloudGatewayTestResult>;
+  loginOpenShellCloudGateway(id: string): Promise<OpenShellCloudGatewayTestResult>;
+  destroyOpenShellCloudSandbox(workspaceId: string): Promise<void>;
   /** Add a workspace reference (mount another workspace into this one's container). */
   addReference(id: string, refId: string): Promise<void>;
   /** Remove a workspace reference. */

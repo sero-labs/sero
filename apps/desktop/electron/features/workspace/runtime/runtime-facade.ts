@@ -10,6 +10,8 @@ import { createContainerRuntimeAdapter } from './adapters/container-runtime-adap
 import { createHostRuntimeAdapter } from './adapters/host-runtime-adapter';
 import { createOpenShellLocalRuntimeAdapter } from './adapters/openshell-local-runtime-adapter';
 import { createOpenShellRemoteRuntimeAdapter } from './adapters/openshell-remote-runtime-adapter';
+import { createOpenShellCloudRuntimeAdapter } from './adapters/openshell-cloud-runtime-adapter';
+import { OpenShellCloudGatewayRegistry } from './openshell/cloud-gateway-registry';
 import { OpenShellRemoteGatewayRegistry } from './openshell/remote-gateway-registry';
 import type { WorkspaceRuntimeFacade } from './types';
 
@@ -50,6 +52,10 @@ interface CreateOpenShellRemoteAdapterInput extends CreateOpenShellLocalAdapterI
   gatewayRegistry: OpenShellRemoteGatewayRegistry;
 }
 
+interface CreateOpenShellCloudAdapterInput extends CreateOpenShellLocalAdapterInput {
+  gatewayRegistry: OpenShellCloudGatewayRegistry;
+}
+
 interface RuntimeFacadeDependencies {
   resolveWorkspaceRuntime(workspaceId: string): Promise<WorkspaceRuntimeResolution>;
   workspaceManager: WorkspaceManager;
@@ -58,7 +64,9 @@ interface RuntimeFacadeDependencies {
   createContainerRuntimeAdapter(input: CreateContainerAdapterInput): RuntimeAdapter;
   createOpenShellLocalRuntimeAdapter(input: CreateOpenShellLocalAdapterInput): RuntimeAdapter;
   createOpenShellRemoteRuntimeAdapter(input: CreateOpenShellRemoteAdapterInput): RuntimeAdapter;
+  createOpenShellCloudRuntimeAdapter(input: CreateOpenShellCloudAdapterInput): RuntimeAdapter;
   openShellRemoteGatewayRegistry: OpenShellRemoteGatewayRegistry;
+  openShellCloudGatewayRegistry: OpenShellCloudGatewayRegistry;
 }
 
 export interface CreateWorkspaceRuntimeFacadeOptions {
@@ -86,6 +94,14 @@ export async function createWorkspaceRuntimeFacade(
           terminals: deps.containerManager.terminals,
           gatewayRegistry: deps.openShellRemoteGatewayRegistry,
         })
+      : resolution.providerId === 'openshell-cloud'
+        ? deps.createOpenShellCloudRuntimeAdapter({
+            workspaceId,
+            workspacePath: resolution.workspacePath,
+            workspaceManager: deps.workspaceManager,
+            terminals: deps.containerManager.terminals,
+            gatewayRegistry: deps.openShellCloudGatewayRegistry,
+          })
       : resolution.actualRuntime === 'container'
       ? deps.createContainerRuntimeAdapter({
           workspaceId,
@@ -120,6 +136,8 @@ function resolveRuntimeFacadeDeps(
     createContainerRuntimeAdapter: deps.createContainerRuntimeAdapter ?? createContainerRuntimeAdapter,
     createOpenShellLocalRuntimeAdapter: deps.createOpenShellLocalRuntimeAdapter ?? createOpenShellLocalRuntimeAdapter,
     createOpenShellRemoteRuntimeAdapter: deps.createOpenShellRemoteRuntimeAdapter ?? createOpenShellRemoteRuntimeAdapter,
+    createOpenShellCloudRuntimeAdapter: deps.createOpenShellCloudRuntimeAdapter ?? createOpenShellCloudRuntimeAdapter,
     openShellRemoteGatewayRegistry: deps.openShellRemoteGatewayRegistry ?? new OpenShellRemoteGatewayRegistry(),
+    openShellCloudGatewayRegistry: deps.openShellCloudGatewayRegistry ?? new OpenShellCloudGatewayRegistry(),
   };
 }

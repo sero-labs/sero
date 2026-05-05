@@ -66,8 +66,18 @@ export interface AppRuntimeWorkspaceRefreshResult {
   reason?: string;
 }
 
-export type AppRuntimeWorkspaceRuntimeKind = 'container' | 'host' | 'openshell-local' | 'openshell-remote';
-export type AppRuntimeWorkspaceRuntimeProviderId = 'host' | 'apple-container' | 'openshell-local' | 'openshell-remote';
+export type AppRuntimeWorkspaceRuntimeKind =
+  | 'container'
+  | 'host'
+  | 'openshell-local'
+  | 'openshell-remote'
+  | 'openshell-cloud';
+export type AppRuntimeWorkspaceRuntimeProviderId =
+  | 'host'
+  | 'apple-container'
+  | 'openshell-local'
+  | 'openshell-remote'
+  | 'openshell-cloud';
 
 export type AppRuntimeWorkspaceRuntimePolicyHistoryEntry = OpenShellPolicyProfileHistoryEntry;
 
@@ -78,6 +88,9 @@ export interface AppRuntimeWorkspaceRuntimeConfig {
   runtimeWorkspacePath?: string;
   experimental?: boolean;
   remoteGatewayId?: string;
+  cloudGatewayId?: string;
+  idleTimeoutMinutes?: number;
+  lastActivityAt?: string;
   policyProfileId?: OpenShellPolicyProfileId;
   policyProfileUpdatedAt?: string;
   policyProfileHistory?: AppRuntimeWorkspaceRuntimePolicyHistoryEntry[];

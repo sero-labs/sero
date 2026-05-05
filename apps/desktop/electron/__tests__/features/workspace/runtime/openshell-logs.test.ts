@@ -98,6 +98,19 @@ describe('OpenShell log streaming and destroy lifecycle', () => {
     expect(mocks.spawnOpenShell).not.toHaveBeenCalledWith(expect.arrayContaining(['ssh']));
   });
 
+  it('spawns cloud OpenShell logs through the selected cloud gateway without host transport', () => {
+    const child = createChildProcess();
+    mocks.spawnOpenShell.mockReturnValue(child.process);
+
+    streamOpenShellLogs({ gatewayName: 'sero-cloud-prod', sandboxName: 'sero-cloud-ws' });
+
+    expect(mocks.spawnOpenShell).toHaveBeenCalledWith([
+      '--gateway', 'sero-cloud-prod',
+      'logs', 'sero-cloud-ws', '--tail',
+    ]);
+    expect(flattenSpawnArgs()).not.toMatch(/ssh|docker|--remote/);
+  });
+
   it('adapter destroy deletes the configured sandbox with gateway args', async () => {
     mocks.runOpenShell.mockResolvedValue({ stdout: '', stderr: '', exitCode: 0 });
     const adapter = createOpenShellLocalRuntimeAdapter({
@@ -166,6 +179,12 @@ describe('OpenShell log streaming and destroy lifecycle', () => {
     expect(mocks.runOpenShell).not.toHaveBeenCalled();
   });
 });
+
+function flattenSpawnArgs(): string {
+  return mocks.spawnOpenShell.mock.calls
+    .map((call) => (call[0] as string[]).join(' '))
+    .join('\n');
+}
 
 function createChildProcess() {
   const stdout = new PassThrough();

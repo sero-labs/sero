@@ -488,7 +488,11 @@ export class WorkspaceManager {
 function isAppleContainerEnabled(config: WorkspaceConfig | null | undefined): boolean {
   if (config?.runtime?.providerId === 'apple-container') return true;
   if (config?.runtime?.providerId === 'host') return false;
-  if (config?.runtime?.providerId === 'openshell-local' || config?.runtime?.providerId === 'openshell-remote') return false;
+  if (
+    config?.runtime?.providerId === 'openshell-local'
+    || config?.runtime?.providerId === 'openshell-remote'
+    || config?.runtime?.providerId === 'openshell-cloud'
+  ) return false;
   return config?.container !== false;
 }
 

@@ -7,7 +7,12 @@ import type {
   WorkspaceRuntimeResolution,
 } from '@electron/features/workspace/runtime-resolution';
 
-export type RuntimeProviderId = 'host' | 'apple-container' | 'openshell-local' | 'openshell-remote';
+export type RuntimeProviderId =
+  | 'host'
+  | 'apple-container'
+  | 'openshell-local'
+  | 'openshell-remote'
+  | 'openshell-cloud';
 export type RuntimeActualKind = WorkspaceRuntimeKind;
 export type RuntimeHealthStatus = 'ready' | 'fallback' | 'unavailable';
 

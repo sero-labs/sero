@@ -1,11 +1,17 @@
 import type {
   OpenShellPolicyProfileHistoryEntry,
   OpenShellPolicyProfileId,
+  OpenShellCloudDiagnosticsIPC,
   OpenShellRemoteDiagnosticsIPC,
 } from '@sero-ai/common';
 
 /** Runtime provider persisted in .sero-workspace.json. */
-export type WorkspaceRuntimeProviderId = 'host' | 'apple-container' | 'openshell-local' | 'openshell-remote';
+export type WorkspaceRuntimeProviderId =
+  | 'host'
+  | 'apple-container'
+  | 'openshell-local'
+  | 'openshell-remote'
+  | 'openshell-cloud';
 
 export type WorkspaceRuntimePolicyHistoryEntry = OpenShellPolicyProfileHistoryEntry;
 
@@ -16,6 +22,9 @@ export interface WorkspaceRuntimeConfig {
   runtimeWorkspacePath?: string;
   experimental?: boolean;
   remoteGatewayId?: string;
+  cloudGatewayId?: string;
+  idleTimeoutMinutes?: number;
+  lastActivityAt?: string;
   policyProfileId?: OpenShellPolicyProfileId;
   policyProfileUpdatedAt?: string;
   policyProfileHistory?: WorkspaceRuntimePolicyHistoryEntry[];
@@ -38,6 +47,33 @@ export type OpenShellRemoteGatewayInput = Omit<
 >;
 
 export type OpenShellRemoteGatewayTestResult = OpenShellRemoteDiagnosticsIPC;
+
+export type OpenShellCloudAuthMode = 'none' | 'browser' | 'external';
+
+export interface OpenShellCloudGatewayEntry {
+  id: string;
+  name: string;
+  endpoint: string;
+  authMode: OpenShellCloudAuthMode;
+  resourceLabel?: string;
+  cpuLabel?: string;
+  memoryLabel?: string;
+  gpuLabel?: string;
+  costLabel?: string;
+  idleTimeoutMinutes: number;
+  createdAt: string;
+  updatedAt: string;
+  lastCheckedAt?: string;
+}
+
+export type OpenShellCloudGatewayInput = Omit<
+  OpenShellCloudGatewayEntry,
+  'createdAt' | 'updatedAt' | 'idleTimeoutMinutes'
+> & {
+  idleTimeoutMinutes?: number;
+};
+
+export type OpenShellCloudGatewayTestResult = OpenShellCloudDiagnosticsIPC;
 
 /** Entry in the workspace registry (~/.sero-ui/agent/workspaces.json). */
 export interface WorkspaceRegistryEntry {

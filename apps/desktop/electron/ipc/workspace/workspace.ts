@@ -20,19 +20,28 @@ import {
   getDefaultOpenShellSandboxName,
 } from '@electron/features/workspace/runtime/adapters/openshell-local-runtime-adapter';
 import { createOpenShellRemoteRuntimeAdapter } from '@electron/features/workspace/runtime/adapters/openshell-remote-runtime-adapter';
+import { createOpenShellCloudRuntimeAdapter } from '@electron/features/workspace/runtime/adapters/openshell-cloud-runtime-adapter';
+import {
+  OpenShellCloudGatewayRegistry,
+  type OpenShellCloudGatewayEntry,
+} from '@electron/features/workspace/runtime/openshell/cloud-gateway-registry';
 import {
   OpenShellRemoteGatewayRegistry,
   type OpenShellRemoteGatewayEntry,
   type OpenShellRemoteGatewayInput,
 } from '@electron/features/workspace/runtime/openshell/remote-gateway-registry';
-import { measureRemoteGatewayLatency } from '@electron/features/workspace/runtime/openshell/remote-gateway';
-import { checkRemoteDocker } from '@electron/features/workspace/runtime/openshell/remote-ssh';
+import {
+  getOpenShellCloudDiagnostics,
+  getOpenShellRemoteDiagnostics,
+  testOpenShellRemoteGateway,
+} from './runtime-diagnostics';
 import { getOpenShellPolicyDiagnostics } from '@electron/features/workspace/runtime/openshell/policy-diagnostics';
 import { createWorkspaceRuntimeFacade } from '@electron/features/workspace/runtime/runtime-facade';
 import { assertIsSeroPluginFolder } from '@electron/features/workspace/plugin-validation';
 import { recreateContainerIfRunning } from '@electron/features/workspace/container-sync';
 import { appRuntimeManager, containerManager } from '@electron/shared/infra/shared-infra';
 import { broadcastToWindows } from '@electron/ipc/lib/window-broadcast';
+import { registerOpenShellCloudWorkspaceHandlers } from './openshell-cloud-ipc';
 
 function notifyWorkspaceChanged(): void {
   broadcastToWindows(IpcChannels.workspace.changed);
@@ -50,122 +59,45 @@ async function getRuntimeDiagnostics(
   workspaceId: string,
 ): Promise<WorkspaceRuntimeDiagnosticsIPC> {
   const runtime = await createWorkspaceRuntimeFacade(workspaceId);
-  const runtimeHealth = await getRuntimeHealth(runtime);
   const runtimeConfig = runtime.resolution.runtimeConfig;
-  const openShellPolicy = runtime.providerId === 'openshell-local'
+  const providerId = runtime.resolution.providerId ?? runtime.providerId;
+  const runtimeHealth = await getRuntimeHealth(runtime, providerId);
+  const openShellPolicy = providerId === 'openshell-local'
     ? await getOpenShellPolicyDiagnostics({
       gatewayName: runtimeConfig?.gatewayName ?? DEFAULT_GATEWAY_NAME,
       sandboxName: runtimeConfig?.sandboxName ?? getDefaultOpenShellSandboxName(workspaceId),
       runtimeConfig,
     })
     : undefined;
-  const openShellRemote = runtime.providerId === 'openshell-remote'
+  const openShellRemote = providerId === 'openshell-remote'
     ? await getOpenShellRemoteDiagnostics(runtimeConfig)
+    : undefined;
+  const openShellCloud = providerId === 'openshell-cloud'
+    ? await getOpenShellCloudDiagnostics(runtimeConfig)
     : undefined;
 
   return {
     ...runtime.resolution,
-    providerId: runtime.providerId,
+    providerId,
     runtimeHealth,
     ...(openShellPolicy ? { openShellPolicy } : {}),
     ...(openShellRemote ? { openShellRemote } : {}),
+    ...(openShellCloud ? { openShellCloud } : {}),
   };
-}
-
-async function getOpenShellRemoteDiagnostics(
-  runtimeConfig: WorkspaceRuntimeConfig | undefined,
-): Promise<OpenShellRemoteDiagnosticsIPC> {
-  const gatewayId = runtimeConfig?.remoteGatewayId;
-  const sandboxName = runtimeConfig?.sandboxName;
-  if (!gatewayId) {
-    return {
-      gatewayName: runtimeConfig?.gatewayName,
-      sandboxName,
-      status: 'unavailable',
-      message: 'OpenShell Remote is selected but no remote gateway is configured for this workspace.',
-    };
-  }
-
-  try {
-    const gateway = (await new OpenShellRemoteGatewayRegistry().list())
-      .find((entry) => entry.id === gatewayId);
-    if (!gateway) {
-      return {
-        gatewayId,
-        gatewayName: runtimeConfig?.gatewayName,
-        sandboxName,
-        status: 'unavailable',
-        message: `OpenShell Remote gateway ${gatewayId} is not saved in the registry. Select or save a gateway for this workspace.`,
-      };
-    }
-
-    return testOpenShellRemoteGateway(gateway, sandboxName);
-  } catch (error) {
-    return {
-      gatewayId,
-      gatewayName: runtimeConfig?.gatewayName,
-      sandboxName,
-      status: 'unavailable',
-      message: `OpenShell Remote diagnostics failed: ${formatErrorMessage(error)}`,
-    };
-  }
-}
-
-async function testOpenShellRemoteGateway(
-  entry: OpenShellRemoteGatewayInput,
-  sandboxName?: string,
-): Promise<OpenShellRemoteDiagnosticsIPC> {
-  try {
-    const docker = await checkRemoteDocker(entry);
-    if (docker.status === 'unsupported') {
-      return toOpenShellRemoteDiagnostics(entry, docker.status, docker.message, sandboxName);
-    }
-
-    const latency = await measureRemoteGatewayLatency(entry);
-    const status = docker.ok && latency.ok ? 'ready' : 'unavailable';
-    const message = [docker.message, latency.message].filter(Boolean).join(' ');
-    return toOpenShellRemoteDiagnostics(
-      entry,
-      status,
-      message || 'OpenShell Remote diagnostics completed.',
-      sandboxName,
-      latency.ok ? latency.latencyMs : undefined,
-    );
-  } catch (error) {
-    return toOpenShellRemoteDiagnostics(
-      entry,
-      'unavailable',
-      `OpenShell Remote diagnostics failed: ${formatErrorMessage(error)}`,
-      sandboxName,
-    );
-  }
-}
-
-function toOpenShellRemoteDiagnostics(
-  entry: OpenShellRemoteGatewayInput,
-  status: OpenShellRemoteDiagnosticsIPC['status'],
-  message: string,
-  sandboxName?: string,
-  latencyMs?: number,
-): OpenShellRemoteDiagnosticsIPC {
-  return {
-    gatewayId: entry.id,
-    gatewayName: entry.name,
-    sshHost: entry.sshHost,
-    sandboxName,
-    latencyMs,
-    status,
-    message,
-  };
-}
-
-function formatErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
 
 async function getRuntimeHealth(
   runtime: Awaited<ReturnType<typeof createWorkspaceRuntimeFacade>>,
+  providerId: RuntimeHealthIPC['providerId'] = runtime.providerId,
 ): Promise<RuntimeHealthIPC> {
+  if (providerId !== runtime.providerId) {
+    return {
+      providerId,
+      status: 'unavailable',
+      message: `${providerId} runtime adapter is not wired yet.`,
+    };
+  }
+
   const health = await runtime.health();
   if (runtime.fallbackReason) {
     return {
@@ -186,10 +118,15 @@ interface OpenShellRemoteGatewayRegistryReader {
   list(): Promise<OpenShellRemoteGatewayEntry[]>;
 }
 
+interface OpenShellCloudGatewayRegistryReader {
+  list(): Promise<OpenShellCloudGatewayEntry[]>;
+}
+
 interface RuntimeChangeDestroyDeps {
   workspaceManager?: RuntimeChangeWorkspaceManager;
   terminals?: typeof containerManager.terminals;
   openShellRemoteGatewayRegistry?: OpenShellRemoteGatewayRegistryReader;
+  openShellCloudGatewayRegistry?: OpenShellCloudGatewayRegistryReader;
 }
 
 export async function destroyOpenShellSandboxBeforeRuntimeChange(
@@ -207,8 +144,7 @@ export async function destroyOpenShellSandboxBeforeRuntimeChange(
   const terminals = deps?.terminals ?? containerManager.terminals;
 
   try {
-    const isRemote = currentRuntime.providerId === 'openshell-remote';
-    const adapter = isRemote
+    const adapter = currentRuntime.providerId === 'openshell-remote'
       ? createOpenShellRemoteRuntimeAdapter({
           workspaceId: id,
           workspacePath,
@@ -216,26 +152,38 @@ export async function destroyOpenShellSandboxBeforeRuntimeChange(
           terminals,
           gatewayRegistry: deps?.openShellRemoteGatewayRegistry ?? new OpenShellRemoteGatewayRegistry(),
         })
-      : createOpenShellLocalRuntimeAdapter({
-          workspaceId: id,
-          workspacePath,
-          workspaceManager: manager,
-          terminals,
-        });
+      : currentRuntime.providerId === 'openshell-cloud'
+        ? createOpenShellCloudRuntimeAdapter({
+            workspaceId: id,
+            workspacePath,
+            workspaceManager: manager,
+            terminals,
+            gatewayRegistry: deps?.openShellCloudGatewayRegistry ?? new OpenShellCloudGatewayRegistry(),
+          })
+        : createOpenShellLocalRuntimeAdapter({
+            workspaceId: id,
+            workspacePath,
+            workspaceManager: manager,
+            terminals,
+          });
     await adapter.destroy?.();
   } catch (error) {
     console.error(`[workspace:setRuntime] Failed to destroy OpenShell sandbox for ${id}:`, error);
-    if (currentRuntime.providerId !== 'openshell-remote') throw error;
+    if (currentRuntime.providerId === 'openshell-local') throw error;
   }
 }
 
 function isOpenShellRuntimeProvider(
   providerId: WorkspaceRuntimeConfig['providerId'] | undefined,
-): providerId is 'openshell-local' | 'openshell-remote' {
-  return providerId === 'openshell-local' || providerId === 'openshell-remote';
+): providerId is 'openshell-local' | 'openshell-remote' | 'openshell-cloud' {
+  return providerId === 'openshell-local'
+    || providerId === 'openshell-remote'
+    || providerId === 'openshell-cloud';
 }
 
 export function registerWorkspaceHandlers(): void {
+  registerOpenShellCloudWorkspaceHandlers();
+
   // ── List all registered workspaces ─────────────────────────
   ipcMain.handle(
     IpcChannels.workspace.list,

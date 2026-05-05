@@ -178,6 +178,54 @@ describe('createRuntimeCodingTools', () => {
     }
   });
 
+  it('returns runtime bash plus Cloud-specific blocked file tools for OpenShell Cloud runtime', async () => {
+    const containerTools = vi.fn(() => [makeTool('container-only')]);
+    const hostTools = vi.fn(() => [makeTool('host-only')]);
+    const cliTool = vi.fn(() => makeTool('sero-cli'));
+    const runtime = createRuntime('openshell-cloud');
+    const runtimeExec = vi.fn(async () => ({ stdout: '', stderr: 'cloud gateway unavailable', exitCode: 1 }));
+    runtime.exec = runtimeExec;
+
+    const tools = createRuntimeCodingTools(runtime, {
+      sessionId: 'session-cloud',
+      deps: {
+        containerManager: createContainerManager(),
+        createContainerTools: containerTools,
+        createHostCodingTools: hostTools,
+        createWorkspaceCliTool: cliTool,
+      },
+    });
+
+    expect(tools.map((tool) => tool.name)).toEqual(['bash', 'read', 'write', 'edit', 'sero-cli']);
+    expect(hostTools).not.toHaveBeenCalled();
+    expect(containerTools).not.toHaveBeenCalled();
+
+    const bash = tools.find((tool) => tool.name === 'bash');
+    await expect(
+      bash?.execute(
+        'tool-cloud',
+        { command: 'uname -s', timeout: 5 },
+        undefined,
+        undefined,
+        createMockExtensionContext(),
+      ),
+    ).rejects.toThrow(/OpenShell Cloud runtime command failed.*cloud gateway unavailable.*Command exited with code 1/s);
+    expect(runtimeExec).toHaveBeenCalledWith('uname -s', { cwd: '/tmp/ws', timeoutMs: 5000 });
+
+    for (const toolName of ['read', 'write', 'edit']) {
+      const tool = tools.find((candidate) => candidate.name === toolName);
+      await expect(
+        tool?.execute(
+          `tool-${toolName}`,
+          {},
+          undefined,
+          undefined,
+          createMockExtensionContext(),
+        ),
+      ).rejects.toThrow(/OpenShell Cloud.*host-backed.*bash/s);
+    }
+  });
+
   it('mentions OpenShell Local and exit code when runtime bash exits non-zero', async () => {
     const runtime = createRuntime('openshell-local');
     runtime.exec = vi.fn(async () => ({
@@ -275,7 +323,7 @@ describe('createRuntimeCodingTools', () => {
 });
 
 function createRuntime(
-  actualRuntime: 'host' | 'container' | 'openshell-local' | 'openshell-remote',
+  actualRuntime: 'host' | 'container' | 'openshell-local' | 'openshell-remote' | 'openshell-cloud',
 ): WorkspaceRuntimeFacade {
   return {
     workspaceId: 'ws-1',
@@ -292,16 +340,16 @@ function createRuntime(
     },
     capabilities: {
       exec: true,
-      interactiveTerminal: actualRuntime !== 'openshell-local' && actualRuntime !== 'openshell-remote',
+      interactiveTerminal: !isOpenShellRuntime(actualRuntime),
       directFileRead: actualRuntime === 'host',
       directFileWrite: actualRuntime === 'host',
-      fileUpload: actualRuntime === 'openshell-local' || actualRuntime === 'openshell-remote',
-      fileDownload: actualRuntime === 'openshell-local' || actualRuntime === 'openshell-remote',
+      fileUpload: isOpenShellRuntime(actualRuntime),
+      fileDownload: isOpenShellRuntime(actualRuntime),
       managedDevServers: actualRuntime !== 'host',
       browserAutomation: actualRuntime === 'container',
       portDiscovery: actualRuntime === 'container',
-      portForward: actualRuntime === 'openshell-local' || actualRuntime === 'openshell-remote',
-      logStream: actualRuntime === 'openshell-local' || actualRuntime === 'openshell-remote',
+      portForward: isOpenShellRuntime(actualRuntime),
+      logStream: isOpenShellRuntime(actualRuntime),
     },
     health: async () => ({
       providerId: getProviderId(actualRuntime),
@@ -315,10 +363,18 @@ function createRuntime(
   };
 }
 
-function getProviderId(actualRuntime: 'host' | 'container' | 'openshell-local' | 'openshell-remote') {
+function getProviderId(actualRuntime: 'host' | 'container' | 'openshell-local' | 'openshell-remote' | 'openshell-cloud') {
   if (actualRuntime === 'container') return 'apple-container';
-  if (actualRuntime === 'openshell-local' || actualRuntime === 'openshell-remote') return actualRuntime;
+  if (isOpenShellRuntime(actualRuntime)) return actualRuntime;
   return 'host';
+}
+
+function isOpenShellRuntime(
+  actualRuntime: 'host' | 'container' | 'openshell-local' | 'openshell-remote' | 'openshell-cloud',
+): actualRuntime is 'openshell-local' | 'openshell-remote' | 'openshell-cloud' {
+  return actualRuntime === 'openshell-local'
+    || actualRuntime === 'openshell-remote'
+    || actualRuntime === 'openshell-cloud';
 }
 
 function createContainerManager(): ContainerManager {

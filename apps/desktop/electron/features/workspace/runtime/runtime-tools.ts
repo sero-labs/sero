@@ -71,16 +71,21 @@ export function createRuntimeCodingTools(
 
 function isOpenShellProvider(
   providerId: WorkspaceRuntimeProviderId | undefined,
-): providerId is 'openshell-local' | 'openshell-remote' {
-  return providerId === 'openshell-local' || providerId === 'openshell-remote';
+): providerId is 'openshell-local' | 'openshell-remote' | 'openshell-cloud' {
+  return providerId === 'openshell-local'
+    || providerId === 'openshell-remote'
+    || providerId === 'openshell-cloud';
 }
 
-function getOpenShellProviderLabel(providerId: 'openshell-local' | 'openshell-remote'): string {
+function getOpenShellProviderLabel(
+  providerId: 'openshell-local' | 'openshell-remote' | 'openshell-cloud',
+): string {
+  if (providerId === 'openshell-cloud') return 'OpenShell Cloud';
   return providerId === 'openshell-remote' ? 'OpenShell Remote' : 'OpenShell Local';
 }
 
 function createOpenShellBlockedFileTools(
-  providerId: 'openshell-local' | 'openshell-remote',
+  providerId: 'openshell-local' | 'openshell-remote' | 'openshell-cloud',
 ): ToolDefinition[] {
   return [
     createOpenShellBlockedFileTool(providerId, 'read', ReadParams),
@@ -90,7 +95,7 @@ function createOpenShellBlockedFileTools(
 }
 
 function createOpenShellBlockedFileTool(
-  providerId: 'openshell-local' | 'openshell-remote',
+  providerId: 'openshell-local' | 'openshell-remote' | 'openshell-cloud',
   name: 'read' | 'write' | 'edit',
   parameters: ToolDefinition['parameters'],
 ): ToolDefinition {

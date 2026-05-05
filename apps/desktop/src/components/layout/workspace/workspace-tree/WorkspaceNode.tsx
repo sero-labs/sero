@@ -18,6 +18,7 @@ import { IconAction } from '@/components/ui/IconAction';
 import { SessionNode } from '../SessionNode';
 import { WorkspaceReferencesMenu } from '../WorkspaceReferencesMenu';
 import { OpenShellPolicyMenu } from '../OpenShellPolicyMenu';
+import { OpenShellCloudStatusMenu } from '../OpenShellCloudStatusMenu';
 import { OpenShellRemoteStatusMenu } from '../OpenShellRemoteStatusMenu';
 import { RemoteOriginManager } from '../RemoteOriginManager';
 import { useSessionStore } from '@/stores/sessions';
@@ -243,6 +244,7 @@ export function WorkspaceNode({ workspace, sessions }: WorkspaceNodeProps) {
                 {workspace.container && <WorkspaceReferencesMenu workspace={workspace} />}
                 {workspace.runtime?.providerId === 'openshell-local' && <OpenShellPolicyMenu workspace={workspace} />}
                 {workspace.runtime?.providerId === 'openshell-remote' && <OpenShellRemoteStatusMenu workspace={workspace} />}
+                {workspace.runtime?.providerId === 'openshell-cloud' && <OpenShellCloudStatusMenu workspace={workspace} />}
                 <IconAction
                   as="span"
                   role="button"

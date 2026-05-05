@@ -9,8 +9,16 @@ import {
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { Input } from '@sero-ai/ui/components/ui/input';
 import { cn } from '@sero-ai/ui/lib/utils';
+import type { OpenShellCloudAuthMode } from '@/types/ipc';
+import { AddWorkspaceCloudFields } from './AddWorkspaceCloudFields';
 
-export type RuntimeChoice = 'default' | 'host' | 'apple-container' | 'openshell-local' | 'openshell-remote';
+export type RuntimeChoice =
+  | 'default'
+  | 'host'
+  | 'apple-container'
+  | 'openshell-local'
+  | 'openshell-remote'
+  | 'openshell-cloud';
 
 const RUNTIME_OPTIONS: Array<{
   value: RuntimeChoice;
@@ -22,6 +30,7 @@ const RUNTIME_OPTIONS: Array<{
   { value: 'apple-container', label: 'Apple Container', detail: 'Isolated workspace runtime' },
   { value: 'openshell-local', label: 'OpenShell Local', detail: 'Experimental · requires Docker' },
   { value: 'openshell-remote', label: 'OpenShell Remote', detail: 'Experimental · SSH Linux host with Docker' },
+  { value: 'openshell-cloud', label: 'OpenShell Cloud', detail: 'Experimental · hosted gateway, auth, and external costs' },
 ];
 
 /** Initial view — two action rows. */
@@ -75,6 +84,19 @@ export function CreateView({
   remoteGatewayHost,
   onRemoteGatewayHostChange,
   remoteError,
+  cloudGatewayName,
+  onCloudGatewayNameChange,
+  cloudEndpoint,
+  onCloudEndpointChange,
+  cloudAuthMode,
+  onCloudAuthModeChange,
+  cloudResourceLabel,
+  onCloudResourceLabelChange,
+  cloudCostLabel,
+  onCloudCostLabelChange,
+  cloudIdleTimeoutMinutes,
+  onCloudIdleTimeoutMinutesChange,
+  cloudError,
   onBack,
   onCreate,
   isCreating,
@@ -100,6 +122,19 @@ export function CreateView({
   remoteGatewayHost: string;
   onRemoteGatewayHostChange: (v: string) => void;
   remoteError: string | null;
+  cloudGatewayName: string;
+  onCloudGatewayNameChange: (v: string) => void;
+  cloudEndpoint: string;
+  onCloudEndpointChange: (v: string) => void;
+  cloudAuthMode: OpenShellCloudAuthMode;
+  onCloudAuthModeChange: (v: OpenShellCloudAuthMode) => void;
+  cloudResourceLabel: string;
+  onCloudResourceLabelChange: (v: string) => void;
+  cloudCostLabel: string;
+  onCloudCostLabelChange: (v: string) => void;
+  cloudIdleTimeoutMinutes: string;
+  onCloudIdleTimeoutMinutesChange: (v: string) => void;
+  cloudError: string | null;
   onBack: () => void;
   onCreate: () => void;
   isCreating: boolean;
@@ -203,7 +238,7 @@ export function CreateView({
       {runtimeChoice === 'openshell-remote' && (
         <div className="rounded-md border border-[var(--border-default)] bg-[var(--bg-base)] p-2">
           <p className="mb-2 text-[11px] leading-snug text-[var(--text-muted)]">
-            OpenShell Remote requires SSH access to a Linux host with Docker. Endpoint/cloud gateways are Phase 5.
+            OpenShell Remote requires SSH access to a Linux host with Docker. Use OpenShell Cloud for hosted endpoint gateways.
           </p>
           <div className="grid gap-2">
             <div>
@@ -271,6 +306,24 @@ export function CreateView({
             </p>
           )}
         </div>
+      )}
+
+      {runtimeChoice === 'openshell-cloud' && (
+        <AddWorkspaceCloudFields
+          gatewayName={cloudGatewayName}
+          onGatewayNameChange={onCloudGatewayNameChange}
+          endpoint={cloudEndpoint}
+          onEndpointChange={onCloudEndpointChange}
+          authMode={cloudAuthMode}
+          onAuthModeChange={onCloudAuthModeChange}
+          resourceLabel={cloudResourceLabel}
+          onResourceLabelChange={onCloudResourceLabelChange}
+          costLabel={cloudCostLabel}
+          onCostLabelChange={onCloudCostLabelChange}
+          idleTimeoutMinutes={cloudIdleTimeoutMinutes}
+          onIdleTimeoutMinutesChange={onCloudIdleTimeoutMinutesChange}
+          error={cloudError}
+        />
       )}
 
       {runtimeChoice === 'openshell-local' && (

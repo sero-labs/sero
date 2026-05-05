@@ -81,6 +81,27 @@ describe('OpenShell port forwarding', () => {
     expect(forwarded.localUrl).toBe('http://127.0.0.1:8080');
   });
 
+  it('starts cloud preview forwarding through the selected OpenShell cloud gateway', async () => {
+    mocks.runOpenShell.mockResolvedValue({
+      stdout: 'Forward listening on http://127.0.0.1:5174',
+      stderr: '',
+      exitCode: 0,
+    });
+
+    const forwarded = await startOpenShellPortForward({
+      gatewayName: 'sero-cloud-prod',
+      sandboxName: 'sero-cloud-ws',
+      port: 5174,
+    });
+
+    expect(mocks.runOpenShell).toHaveBeenCalledWith([
+      '--gateway', 'sero-cloud-prod',
+      'forward', 'start', '5174', 'sero-cloud-ws', '-d',
+    ], { timeoutMs: 30_000 });
+    expect(flattenArgs()).not.toMatch(/ssh|docker|--remote/);
+    expect(forwarded.localUrl).toBe('http://127.0.0.1:5174');
+  });
+
   it('parses local forwarded URLs from CLI output', () => {
     expect(parseForwardedLocalUrl('ready at http://localhost:4321')).toEqual({
       url: 'http://127.0.0.1:4321',
@@ -88,3 +109,9 @@ describe('OpenShell port forwarding', () => {
     });
   });
 });
+
+function flattenArgs(): string {
+  return mocks.runOpenShell.mock.calls
+    .map((call) => (call[0] as string[]).join(' '))
+    .join('\n');
+}

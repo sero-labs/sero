@@ -8,7 +8,11 @@ function usesAppleContainer(workspace: WorkspaceInfo | undefined): boolean {
   if (!workspace) return false;
   if (workspace.runtime?.providerId === 'apple-container') return true;
   if (workspace.runtime?.providerId === 'host') return false;
-  if (workspace.runtime?.providerId === 'openshell-local' || workspace.runtime?.providerId === 'openshell-remote') return false;
+  if (
+    workspace.runtime?.providerId === 'openshell-local'
+    || workspace.runtime?.providerId === 'openshell-remote'
+    || workspace.runtime?.providerId === 'openshell-cloud'
+  ) return false;
   return workspace.container;
 }
 

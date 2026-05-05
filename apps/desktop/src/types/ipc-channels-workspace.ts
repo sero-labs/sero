@@ -21,6 +21,12 @@ export const workspaceIpcChannels = {
   saveOpenShellRemoteGateway: 'sero:workspace:openshell-remote-gateways:save',
   removeOpenShellRemoteGateway: 'sero:workspace:openshell-remote-gateways:remove',
   testOpenShellRemoteGateway: 'sero:workspace:openshell-remote-gateways:test',
+  listOpenShellCloudGateways: 'sero:workspace:openshell-cloud-gateways:list',
+  saveOpenShellCloudGateway: 'sero:workspace:openshell-cloud-gateways:save',
+  removeOpenShellCloudGateway: 'sero:workspace:openshell-cloud-gateways:remove',
+  testOpenShellCloudGateway: 'sero:workspace:openshell-cloud-gateways:test',
+  loginOpenShellCloudGateway: 'sero:workspace:openshell-cloud-gateways:login',
+  destroyOpenShellCloudSandbox: 'sero:workspace:openshell-cloud-sandbox:destroy',
   /** Add a workspace reference (mount another workspace). Args: id, refId. */
   addReference: 'sero:workspace:add-reference',
   /** Remove a workspace reference. Args: id, refId. */

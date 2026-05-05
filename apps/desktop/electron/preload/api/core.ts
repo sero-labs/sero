@@ -18,6 +18,9 @@ import type {
   OpenShellRemoteGatewayEntry,
   OpenShellRemoteGatewayInput,
   OpenShellRemoteGatewayTestResult,
+  OpenShellCloudGatewayEntry,
+  OpenShellCloudGatewayInput,
+  OpenShellCloudGatewayTestResult,
   WorkspaceConfig,
   WorkspaceInfo,
   WorkspaceRuntimeConfig,
@@ -97,6 +100,22 @@ export const workspaceBridge = {
     entry: OpenShellRemoteGatewayInput,
   ): Promise<OpenShellRemoteGatewayTestResult> =>
     ipcRenderer.invoke(IpcChannels.workspace.testOpenShellRemoteGateway, entry),
+  listOpenShellCloudGateways: (): Promise<OpenShellCloudGatewayEntry[]> =>
+    ipcRenderer.invoke(IpcChannels.workspace.listOpenShellCloudGateways),
+  saveOpenShellCloudGateway: (
+    entry: OpenShellCloudGatewayInput,
+  ): Promise<OpenShellCloudGatewayEntry> =>
+    ipcRenderer.invoke(IpcChannels.workspace.saveOpenShellCloudGateway, entry),
+  removeOpenShellCloudGateway: (id: string): Promise<void> =>
+    ipcRenderer.invoke(IpcChannels.workspace.removeOpenShellCloudGateway, id),
+  testOpenShellCloudGateway: (
+    entry: OpenShellCloudGatewayInput,
+  ): Promise<OpenShellCloudGatewayTestResult> =>
+    ipcRenderer.invoke(IpcChannels.workspace.testOpenShellCloudGateway, entry),
+  loginOpenShellCloudGateway: (id: string): Promise<OpenShellCloudGatewayTestResult> =>
+    ipcRenderer.invoke(IpcChannels.workspace.loginOpenShellCloudGateway, id),
+  destroyOpenShellCloudSandbox: (workspaceId: string): Promise<void> =>
+    ipcRenderer.invoke(IpcChannels.workspace.destroyOpenShellCloudSandbox, workspaceId),
   addReference: (id: string, refId: string): Promise<void> =>
     ipcRenderer.invoke(IpcChannels.workspace.addReference, id, refId),
   removeReference: (id: string, refId: string): Promise<void> =>
