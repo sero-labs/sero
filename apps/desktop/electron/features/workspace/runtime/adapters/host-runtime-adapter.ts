@@ -21,9 +21,13 @@ export const HOST_RUNTIME_CAPABILITIES: RuntimeCapabilities = {
   interactiveTerminal: true,
   directFileRead: true,
   directFileWrite: true,
+  fileUpload: false,
+  fileDownload: false,
   managedDevServers: false,
   browserAutomation: false,
   portDiscovery: false,
+  portForward: false,
+  logStream: false,
 };
 
 type HostRuntimeAdapter = Pick<

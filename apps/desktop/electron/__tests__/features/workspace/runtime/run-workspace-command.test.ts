@@ -124,9 +124,13 @@ function createRuntimeFacade(input: {
       interactiveTerminal: true,
       directFileRead: input.actualRuntime === 'host',
       directFileWrite: input.actualRuntime === 'host',
+      fileUpload: false,
+      fileDownload: false,
       managedDevServers: input.actualRuntime === 'container',
       browserAutomation: input.actualRuntime === 'container',
       portDiscovery: input.actualRuntime === 'container',
+      portForward: false,
+      logStream: false,
     },
     resolution: {
       workspaceId: 'ws-1',

@@ -17,9 +17,13 @@ export const APPLE_CONTAINER_CAPABILITIES: RuntimeCapabilities = {
   interactiveTerminal: true,
   directFileRead: false,
   directFileWrite: false,
+  fileUpload: false,
+  fileDownload: false,
   managedDevServers: true,
   browserAutomation: true,
   portDiscovery: true,
+  portForward: false,
+  logStream: false,
 };
 
 type ContainerRuntimeAdapter = Pick<

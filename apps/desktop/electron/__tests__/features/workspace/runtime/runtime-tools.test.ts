@@ -128,9 +128,13 @@ function createRuntime(actualRuntime: 'host' | 'container'): WorkspaceRuntimeFac
       interactiveTerminal: true,
       directFileRead: actualRuntime === 'host',
       directFileWrite: actualRuntime === 'host',
+      fileUpload: false,
+      fileDownload: false,
       managedDevServers: actualRuntime === 'container',
       browserAutomation: actualRuntime === 'container',
       portDiscovery: actualRuntime === 'container',
+      portForward: false,
+      logStream: false,
     },
     health: async () => ({
       providerId: actualRuntime === 'container' ? 'apple-container' : 'host',

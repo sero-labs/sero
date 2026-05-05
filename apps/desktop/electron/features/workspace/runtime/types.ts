@@ -14,9 +14,13 @@ export interface RuntimeCapabilities {
   interactiveTerminal: boolean;
   directFileRead: boolean;
   directFileWrite: boolean;
+  fileUpload: boolean;
+  fileDownload: boolean;
   managedDevServers: boolean;
   browserAutomation: boolean;
   portDiscovery: boolean;
+  portForward: boolean;
+  logStream: boolean;
 }
 
 export interface RuntimeHealth {
