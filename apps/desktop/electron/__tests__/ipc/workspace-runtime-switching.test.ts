@@ -137,6 +137,23 @@ describe('OpenShell runtime switching cleanup', () => {
     expect(mocks.createOpenShellRemoteRuntimeAdapter).not.toHaveBeenCalled();
     expect(mocks.openShellRemoteDestroy).not.toHaveBeenCalled();
   });
+
+  it('does not block switching away when remote sandbox cleanup fails', async () => {
+    mocks.openShellRemoteDestroy.mockRejectedValueOnce(new Error('missing gateway registry entry'));
+    const workspaceManager = createWorkspaceManager({
+      providerId: 'openshell-remote',
+      remoteGatewayId: 'remote-1',
+      gatewayName: 'sero-remote',
+      experimental: true,
+    });
+
+    await expect(destroyOpenShellSandboxBeforeRuntimeChange('ws-1', { providerId: 'host' }, {
+      workspaceManager,
+      openShellRemoteGatewayRegistry: { list: vi.fn(async () => []) },
+    })).resolves.toBeUndefined();
+
+    expect(mocks.openShellRemoteDestroy).toHaveBeenCalledTimes(1);
+  });
 });
 
 function createWorkspaceManager(runtime: WorkspaceRuntimeConfig) {

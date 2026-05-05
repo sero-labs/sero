@@ -302,19 +302,34 @@ describe('createOpenShellRemoteRuntimeAdapter', () => {
     );
   });
 
-  it('returns a host terminal with an explicit OpenShell Remote fallback reason', async () => {
-    const pty = { pid: 123 };
-    const terminals = createTerminals(pty);
+  it('uses persisted gateway and sandbox names to destroy when the registry entry is missing', async () => {
+    mocks.runOpenShell.mockResolvedValueOnce({ stdout: 'deleted', stderr: '', exitCode: 0 });
+    const adapter = createAdapter({
+      gateways: [],
+      runtimeConfig: {
+        providerId: 'openshell-remote',
+        remoteGatewayId: 'missing-remote',
+        gatewayName: 'persisted-gateway',
+        sandboxName: 'persisted-sandbox',
+      },
+    });
+
+    await adapter.destroy?.();
+
+    expect(mocks.runOpenShell).toHaveBeenCalledWith([
+      '--gateway', 'persisted-gateway',
+      'sandbox', 'delete', 'persisted-sandbox',
+    ], { timeoutMs: 120_000 });
+  });
+
+  it('fails closed instead of creating a host terminal for OpenShell Remote', async () => {
+    const terminals = createTerminals({ pid: 123 });
     const adapter = createAdapter({ terminals });
 
-    const session = await adapter.createTerminal({ terminalId: 'term-1', cols: 100, rows: 40 });
+    await expect(adapter.createTerminal({ terminalId: 'term-1', cols: 100, rows: 40 }))
+      .rejects.toThrow('OpenShell Remote does not support interactive PTY terminals yet');
 
-    expect(terminals.createHostTerminal).toHaveBeenCalledWith('ws-1', 'term-1', '/tmp/ws', 100, 40);
-    expect(session).toEqual({
-      pty,
-      runtime: 'host',
-      fallbackReason: 'OpenShell Remote does not support interactive PTY terminals yet; using a host terminal for UI compatibility.',
-    });
+    expect(terminals.createHostTerminal).not.toHaveBeenCalled();
     expect(OPENSHELL_REMOTE_CAPABILITIES.interactiveTerminal).toBe(false);
   });
 });

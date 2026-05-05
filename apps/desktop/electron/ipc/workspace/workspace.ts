@@ -207,7 +207,8 @@ export async function destroyOpenShellSandboxBeforeRuntimeChange(
   const terminals = deps?.terminals ?? containerManager.terminals;
 
   try {
-    const adapter = currentRuntime.providerId === 'openshell-remote'
+    const isRemote = currentRuntime.providerId === 'openshell-remote';
+    const adapter = isRemote
       ? createOpenShellRemoteRuntimeAdapter({
           workspaceId: id,
           workspacePath,
@@ -224,7 +225,7 @@ export async function destroyOpenShellSandboxBeforeRuntimeChange(
     await adapter.destroy?.();
   } catch (error) {
     console.error(`[workspace:setRuntime] Failed to destroy OpenShell sandbox for ${id}:`, error);
-    throw error;
+    if (currentRuntime.providerId !== 'openshell-remote') throw error;
   }
 }
 

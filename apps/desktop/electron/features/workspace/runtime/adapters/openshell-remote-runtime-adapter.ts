@@ -160,19 +160,8 @@ export function createOpenShellRemoteRuntimeAdapter(
 
       return exec;
     },
-    async createTerminal(options: RuntimeTerminalInput): Promise<RuntimeTerminalSession> {
-      const pty = input.terminals.createHostTerminal(
-        input.workspaceId,
-        options.terminalId,
-        input.workspacePath,
-        options.cols,
-        options.rows,
-      );
-      return {
-        pty,
-        runtime: 'host',
-        fallbackReason: 'OpenShell Remote does not support interactive PTY terminals yet; using a host terminal for UI compatibility.',
-      };
+    async createTerminal(_options: RuntimeTerminalInput): Promise<RuntimeTerminalSession> {
+      throw new Error('OpenShell Remote does not support interactive PTY terminals yet. Use agent bash commands to run inside the remote sandbox, or switch the workspace runtime to Host to open a host terminal.');
     },
     async streamLogs(): Promise<OpenShellLogStream> {
       const resolved = await resolveRuntimeState(input);
@@ -194,11 +183,10 @@ export function createOpenShellRemoteRuntimeAdapter(
       });
     },
     async destroy(): Promise<void> {
-      const resolved = await resolveRuntimeState(input);
-      if (!resolved.ok || !resolved.state) throw new Error(resolved.message ?? 'OpenShell Remote is not configured.');
+      const state = await resolveDestroyRuntimeState(input);
       const result = await runOpenShell([
-        '--gateway', resolved.state.gatewayName,
-        'sandbox', 'delete', resolved.state.sandboxName,
+        '--gateway', state.gatewayName,
+        'sandbox', 'delete', state.sandboxName,
       ], { timeoutMs: DEFAULT_TIMEOUT_MS });
       if (result.exitCode !== 0) throw new Error(formatOpenShellFailure('delete OpenShell Remote sandbox', result));
     },
@@ -273,16 +261,43 @@ async function resolveRuntimeState(
 
   return {
     ok: true,
-    state: {
-      gateway,
-      gatewayName: gateway.name,
+    state: toRuntimeState(input, config, gateway),
+  };
+}
+
+async function resolveDestroyRuntimeState(
+  input: OpenShellRemoteRuntimeAdapterInput,
+): Promise<Pick<OpenShellRemoteRuntimeState, 'gatewayName' | 'sandboxName'>> {
+  const config = await input.workspaceManager?.getRuntimeConfig?.(input.workspaceId);
+  if (config?.gatewayName) {
+    return {
+      gatewayName: config.gatewayName,
       sandboxName: config.sandboxName ?? getDefaultOpenShellSandboxName(input.workspaceId),
-      runtimeWorkspacePath: normalizeOpenShellRuntimeWorkspacePath(
-        config.runtimeWorkspacePath,
-        input.workspacePath,
-      ),
-      remoteGatewayId: gateway.id,
-    },
+    };
+  }
+
+  const resolved = await resolveRuntimeState(input);
+  if (!resolved.ok || !resolved.state) throw new Error(resolved.message ?? 'OpenShell Remote is not configured.');
+  return {
+    gatewayName: resolved.state.gatewayName,
+    sandboxName: resolved.state.sandboxName,
+  };
+}
+
+function toRuntimeState(
+  input: OpenShellRemoteRuntimeAdapterInput,
+  config: WorkspaceRuntimeConfig,
+  gateway: OpenShellRemoteGatewayEntry,
+): OpenShellRemoteRuntimeState {
+  return {
+    gateway,
+    gatewayName: gateway.name,
+    sandboxName: config.sandboxName ?? getDefaultOpenShellSandboxName(input.workspaceId),
+    runtimeWorkspacePath: normalizeOpenShellRuntimeWorkspacePath(
+      config.runtimeWorkspacePath,
+      input.workspacePath,
+    ),
+    remoteGatewayId: gateway.id,
   };
 }
 
