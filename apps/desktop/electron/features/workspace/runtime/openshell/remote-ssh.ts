@@ -56,7 +56,7 @@ export async function checkRemoteDocker(
   const result = await runCommand(
     'remote Docker prerequisite',
     'ssh',
-    buildRemoteSshArgs(entry, ['docker', 'info', '--format', '{{json .ServerVersion}}']),
+    buildRemoteSshArgs(entry, ['sh', '-lc', "docker info --format '{{json .ServerVersion}}'"]),
     { timeoutMs: 15_000 },
   );
 

@@ -61,7 +61,7 @@ describe('OpenShell Remote health helpers', () => {
         '-o', 'BatchMode=yes',
         '-o', 'ConnectTimeout=8',
         'dev@example.test',
-        'docker', 'info', '--format', '{{json .ServerVersion}}',
+        'sh', '-lc', "docker info --format '{{json .ServerVersion}}'",
       ],
       { timeoutMs: 15_000 },
     );
@@ -80,7 +80,7 @@ describe('OpenShell Remote health helpers', () => {
         '-o', 'ConnectTimeout=8',
         '-i', '/Users/me/.ssh/id_ed25519',
         'dev@example.test',
-        'docker', 'info', '--format', '{{json .ServerVersion}}',
+        'sh', '-lc', "docker info --format '{{json .ServerVersion}}'",
       ],
       { timeoutMs: 15_000 },
     );
