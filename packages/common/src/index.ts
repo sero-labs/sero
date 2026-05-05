@@ -33,6 +33,19 @@ export type {
   AppToolResult,
 } from './app-tools';
 
+export {
+  DEFAULT_OPENSHELL_POLICY_PROFILE_ID,
+  OPENSHELL_POLICY_PROFILES,
+  getDefaultOpenShellPolicyProfile,
+  getOpenShellPolicyProfile,
+  isOpenShellPolicyProfileId,
+} from './openshell-policy';
+
+export type {
+  OpenShellPolicyProfile,
+  OpenShellPolicyProfileId,
+} from './openshell-policy';
+
 export type {
   AppRuntimeStateApi,
   AppRuntimeSubagentRunParams,
