@@ -61,6 +61,26 @@ describe('OpenShell port forwarding', () => {
     })).rejects.toThrow('port busy');
   });
 
+  it('starts remote preview forwarding through the selected OpenShell gateway', async () => {
+    mocks.runOpenShell.mockResolvedValue({
+      stdout: 'Forward listening on http://127.0.0.1:8080',
+      stderr: '',
+      exitCode: 0,
+    });
+
+    const forwarded = await startOpenShellPortForward({
+      gatewayName: 'sero-remote-dev',
+      sandboxName: 'sero-remote-ws',
+      port: 8080,
+    });
+
+    expect(mocks.runOpenShell).toHaveBeenCalledWith([
+      '--gateway', 'sero-remote-dev',
+      'forward', 'start', '8080', 'sero-remote-ws', '-d',
+    ], { timeoutMs: 30_000 });
+    expect(forwarded.localUrl).toBe('http://127.0.0.1:8080');
+  });
+
   it('parses local forwarded URLs from CLI output', () => {
     expect(parseForwardedLocalUrl('ready at http://localhost:4321')).toEqual({
       url: 'http://127.0.0.1:4321',

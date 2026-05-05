@@ -15,6 +15,9 @@ import type {
   SessionContext,
   SessionModelState,
   SessionUsageStats,
+  OpenShellRemoteGatewayEntry,
+  OpenShellRemoteGatewayInput,
+  OpenShellRemoteGatewayTestResult,
   WorkspaceConfig,
   WorkspaceInfo,
   WorkspaceRuntimeConfig,
@@ -82,6 +85,18 @@ export const workspaceBridge = {
     ipcRenderer.invoke(IpcChannels.workspace.setContainer, id, enabled),
   setRuntime: (id: string, runtime: WorkspaceRuntimeConfig | undefined): Promise<void> =>
     ipcRenderer.invoke(IpcChannels.workspace.setRuntime, id, runtime),
+  listOpenShellRemoteGateways: (): Promise<OpenShellRemoteGatewayEntry[]> =>
+    ipcRenderer.invoke(IpcChannels.workspace.listOpenShellRemoteGateways),
+  saveOpenShellRemoteGateway: (
+    entry: OpenShellRemoteGatewayInput,
+  ): Promise<OpenShellRemoteGatewayEntry> =>
+    ipcRenderer.invoke(IpcChannels.workspace.saveOpenShellRemoteGateway, entry),
+  removeOpenShellRemoteGateway: (id: string): Promise<void> =>
+    ipcRenderer.invoke(IpcChannels.workspace.removeOpenShellRemoteGateway, id),
+  testOpenShellRemoteGateway: (
+    entry: OpenShellRemoteGatewayInput,
+  ): Promise<OpenShellRemoteGatewayTestResult> =>
+    ipcRenderer.invoke(IpcChannels.workspace.testOpenShellRemoteGateway, entry),
   addReference: (id: string, refId: string): Promise<void> =>
     ipcRenderer.invoke(IpcChannels.workspace.addReference, id, refId),
   removeReference: (id: string, refId: string): Promise<void> =>

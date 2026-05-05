@@ -8,7 +8,11 @@ import { ipcMain, dialog, BrowserWindow } from 'electron';
 
 import { IpcChannels } from '@/types/ipc-channels';
 import type { WorkspaceInfo, WorkspaceConfig, WorkspaceRoot, WorkspaceRuntimeConfig } from '@/types/ipc';
-import type { RuntimeHealthIPC, WorkspaceRuntimeDiagnosticsIPC } from '@sero-ai/common';
+import type {
+  OpenShellRemoteDiagnosticsIPC,
+  RuntimeHealthIPC,
+  WorkspaceRuntimeDiagnosticsIPC,
+} from '@sero-ai/common';
 import { workspaceManager } from '@electron/features/workspace/manager';
 import {
   createOpenShellLocalRuntimeAdapter,
@@ -19,7 +23,10 @@ import { createOpenShellRemoteRuntimeAdapter } from '@electron/features/workspac
 import {
   OpenShellRemoteGatewayRegistry,
   type OpenShellRemoteGatewayEntry,
+  type OpenShellRemoteGatewayInput,
 } from '@electron/features/workspace/runtime/openshell/remote-gateway-registry';
+import { measureRemoteGatewayLatency } from '@electron/features/workspace/runtime/openshell/remote-gateway';
+import { checkRemoteDocker } from '@electron/features/workspace/runtime/openshell/remote-ssh';
 import { getOpenShellPolicyDiagnostics } from '@electron/features/workspace/runtime/openshell/policy-diagnostics';
 import { createWorkspaceRuntimeFacade } from '@electron/features/workspace/runtime/runtime-facade';
 import { assertIsSeroPluginFolder } from '@electron/features/workspace/plugin-validation';
@@ -52,13 +59,108 @@ async function getRuntimeDiagnostics(
       runtimeConfig,
     })
     : undefined;
+  const openShellRemote = runtime.providerId === 'openshell-remote'
+    ? await getOpenShellRemoteDiagnostics(runtimeConfig)
+    : undefined;
 
   return {
     ...runtime.resolution,
     providerId: runtime.providerId,
     runtimeHealth,
     ...(openShellPolicy ? { openShellPolicy } : {}),
+    ...(openShellRemote ? { openShellRemote } : {}),
   };
+}
+
+async function getOpenShellRemoteDiagnostics(
+  runtimeConfig: WorkspaceRuntimeConfig | undefined,
+): Promise<OpenShellRemoteDiagnosticsIPC> {
+  const gatewayId = runtimeConfig?.remoteGatewayId;
+  const sandboxName = runtimeConfig?.sandboxName;
+  if (!gatewayId) {
+    return {
+      gatewayName: runtimeConfig?.gatewayName,
+      sandboxName,
+      status: 'unavailable',
+      message: 'OpenShell Remote is selected but no remote gateway is configured for this workspace.',
+    };
+  }
+
+  try {
+    const gateway = (await new OpenShellRemoteGatewayRegistry().list())
+      .find((entry) => entry.id === gatewayId);
+    if (!gateway) {
+      return {
+        gatewayId,
+        gatewayName: runtimeConfig?.gatewayName,
+        sandboxName,
+        status: 'unavailable',
+        message: `OpenShell Remote gateway ${gatewayId} is not saved in the registry. Select or save a gateway for this workspace.`,
+      };
+    }
+
+    return testOpenShellRemoteGateway(gateway, sandboxName);
+  } catch (error) {
+    return {
+      gatewayId,
+      gatewayName: runtimeConfig?.gatewayName,
+      sandboxName,
+      status: 'unavailable',
+      message: `OpenShell Remote diagnostics failed: ${formatErrorMessage(error)}`,
+    };
+  }
+}
+
+async function testOpenShellRemoteGateway(
+  entry: OpenShellRemoteGatewayInput,
+  sandboxName?: string,
+): Promise<OpenShellRemoteDiagnosticsIPC> {
+  try {
+    const docker = await checkRemoteDocker(entry);
+    if (docker.status === 'unsupported') {
+      return toOpenShellRemoteDiagnostics(entry, docker.status, docker.message, sandboxName);
+    }
+
+    const latency = await measureRemoteGatewayLatency(entry);
+    const status = docker.ok && latency.ok ? 'ready' : 'unavailable';
+    const message = [docker.message, latency.message].filter(Boolean).join(' ');
+    return toOpenShellRemoteDiagnostics(
+      entry,
+      status,
+      message || 'OpenShell Remote diagnostics completed.',
+      sandboxName,
+      latency.ok ? latency.latencyMs : undefined,
+    );
+  } catch (error) {
+    return toOpenShellRemoteDiagnostics(
+      entry,
+      'unavailable',
+      `OpenShell Remote diagnostics failed: ${formatErrorMessage(error)}`,
+      sandboxName,
+    );
+  }
+}
+
+function toOpenShellRemoteDiagnostics(
+  entry: OpenShellRemoteGatewayInput,
+  status: OpenShellRemoteDiagnosticsIPC['status'],
+  message: string,
+  sandboxName?: string,
+  latencyMs?: number,
+): OpenShellRemoteDiagnosticsIPC {
+  return {
+    gatewayId: entry.id,
+    gatewayName: entry.name,
+    sshHost: entry.sshHost,
+    sandboxName,
+    latencyMs,
+    status,
+    message,
+  };
+}
+
+function formatErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 async function getRuntimeHealth(
@@ -238,6 +340,34 @@ export function registerWorkspaceHandlers(): void {
       }
       const workspaces = await workspaceManager.list();
       return Promise.all(workspaces.map((workspace) => getRuntimeDiagnostics(workspace.id)));
+    },
+  );
+
+  ipcMain.handle(
+    IpcChannels.workspace.listOpenShellRemoteGateways,
+    async (): Promise<OpenShellRemoteGatewayEntry[]> => {
+      return new OpenShellRemoteGatewayRegistry().list();
+    },
+  );
+
+  ipcMain.handle(
+    IpcChannels.workspace.saveOpenShellRemoteGateway,
+    async (_event, entry: OpenShellRemoteGatewayInput): Promise<OpenShellRemoteGatewayEntry> => {
+      return new OpenShellRemoteGatewayRegistry().upsert(entry);
+    },
+  );
+
+  ipcMain.handle(
+    IpcChannels.workspace.removeOpenShellRemoteGateway,
+    async (_event, id: string): Promise<void> => {
+      await new OpenShellRemoteGatewayRegistry().remove(id);
+    },
+  );
+
+  ipcMain.handle(
+    IpcChannels.workspace.testOpenShellRemoteGateway,
+    async (_event, entry: OpenShellRemoteGatewayInput): Promise<OpenShellRemoteDiagnosticsIPC> => {
+      return testOpenShellRemoteGateway(entry);
     },
   );
 

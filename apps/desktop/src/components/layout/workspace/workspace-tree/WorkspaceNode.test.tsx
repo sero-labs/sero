@@ -29,7 +29,7 @@ function createWorkspace(overrides: Partial<WorkspaceInfo> = {}): WorkspaceInfo 
   };
 }
 
-describe('WorkspaceNode OpenShell policy action', () => {
+describe('WorkspaceNode OpenShell actions', () => {
   let container: HTMLDivElement;
   let root: Root | null = null;
 
@@ -87,14 +87,30 @@ describe('WorkspaceNode OpenShell policy action', () => {
     });
 
     expect(container.querySelector('[title="OpenShell policy: Dev"]')).not.toBeNull();
+    expect(container.querySelector('[title="OpenShell Remote status"]')).toBeNull();
 
     const hostWorkspace = createWorkspace({ runtime: { providerId: 'host' } });
-    useWorkspaceStore.setState({ workspaces: [hostWorkspace] });
 
     await act(async () => {
+      useWorkspaceStore.setState({ workspaces: [hostWorkspace] });
       root?.render(<WorkspaceNode workspace={hostWorkspace} sessions={[]} />);
     });
 
+    expect(container.querySelector('[title^="OpenShell policy"]')).toBeNull();
+    expect(container.querySelector('[title="OpenShell Remote status"]')).toBeNull();
+  });
+
+  it('renders a distinct remote status action only for OpenShell Remote workspaces', async () => {
+    const remoteWorkspace = createWorkspace({
+      runtime: { providerId: 'openshell-remote', gatewayName: 'sero-remote-dev' },
+    });
+    useWorkspaceStore.setState({ workspaces: [remoteWorkspace] });
+
+    await act(async () => {
+      root?.render(<WorkspaceNode workspace={remoteWorkspace} sessions={[]} />);
+    });
+
+    expect(container.querySelector('[title="OpenShell Remote status"]')).not.toBeNull();
     expect(container.querySelector('[title^="OpenShell policy"]')).toBeNull();
   });
 });

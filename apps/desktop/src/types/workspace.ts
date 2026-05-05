@@ -1,7 +1,11 @@
-import type { OpenShellPolicyProfileHistoryEntry, OpenShellPolicyProfileId } from '@sero-ai/common';
+import type {
+  OpenShellPolicyProfileHistoryEntry,
+  OpenShellPolicyProfileId,
+  OpenShellRemoteDiagnosticsIPC,
+} from '@sero-ai/common';
 
 /** Runtime provider persisted in .sero-workspace.json. */
-export type WorkspaceRuntimeProviderId = 'host' | 'apple-container' | 'openshell-local';
+export type WorkspaceRuntimeProviderId = 'host' | 'apple-container' | 'openshell-local' | 'openshell-remote';
 
 export type WorkspaceRuntimePolicyHistoryEntry = OpenShellPolicyProfileHistoryEntry;
 
@@ -11,10 +15,29 @@ export interface WorkspaceRuntimeConfig {
   sandboxName?: string;
   runtimeWorkspacePath?: string;
   experimental?: boolean;
+  remoteGatewayId?: string;
   policyProfileId?: OpenShellPolicyProfileId;
   policyProfileUpdatedAt?: string;
   policyProfileHistory?: WorkspaceRuntimePolicyHistoryEntry[];
 }
+
+export interface OpenShellRemoteGatewayEntry {
+  id: string;
+  name: string;
+  sshHost: string;
+  sshKeyPath?: string;
+  port: number;
+  gatewayHost?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type OpenShellRemoteGatewayInput = Omit<
+  OpenShellRemoteGatewayEntry,
+  'createdAt' | 'updatedAt'
+>;
+
+export type OpenShellRemoteGatewayTestResult = OpenShellRemoteDiagnosticsIPC;
 
 /** Entry in the workspace registry (~/.sero-ui/agent/workspaces.json). */
 export interface WorkspaceRegistryEntry {

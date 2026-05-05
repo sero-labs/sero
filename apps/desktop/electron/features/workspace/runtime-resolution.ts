@@ -4,7 +4,7 @@ import { containerManager } from '@electron/features/container/core/singleton';
 import { workspaceManager, type WorkspaceManager } from './manager';
 import type { WorkspaceRuntimeConfig, WorkspaceRuntimeProviderId } from '@/types/ipc';
 
-export type WorkspaceRuntimeKind = 'container' | 'host' | 'openshell-local';
+export type WorkspaceRuntimeKind = 'container' | 'host' | 'openshell-local' | 'openshell-remote';
 export type WorkspaceRuntimeFallbackCode = 'container_unavailable';
 export type WorkspaceRuntimeCapabilityKey =
   | 'browserAutomation'
@@ -43,17 +43,22 @@ function getContainerFallbackReason(workspaceId: string, detail?: string): strin
 }
 
 function createOpenShellCapabilityAudit(
+  providerId: Extract<WorkspaceRuntimeProviderId, 'openshell-local' | 'openshell-remote'>,
   runtimeConfig?: WorkspaceRuntimeConfig,
 ): WorkspaceRuntimeCapabilityAuditEntry[] {
+  const isRemote = providerId === 'openshell-remote';
   const profile = getOpenShellPolicyProfile(runtimeConfig?.policyProfileId);
-  const prefix = `OpenShell Local is experimental and requires Docker plus the OpenShell CLI. Selected policy profile: ${profile.label}. Profiles are persisted Sero policy intent; current Sero OpenShell Local does not apply generated policy YAML.`;
+  const label = isRemote ? 'OpenShell Remote' : 'OpenShell Local';
+  const prefix = isRemote
+    ? 'OpenShell Remote is experimental and requires the OpenShell CLI, SSH access to a Linux host, and remote Docker. Policy diagnostics remain local-only in this phase.'
+    : `OpenShell Local is experimental and requires Docker plus the OpenShell CLI. Selected policy profile: ${profile.label}. Profiles are persisted Sero policy intent; current Sero OpenShell Local does not apply generated policy YAML.`;
   return [
     {
       key: 'browserAutomation',
       label: 'Browser automation',
       available: false,
       containerOnly: true,
-      detail: `${prefix} Browser / computer-use tooling is not available for OpenShell Local yet.`,
+      detail: `${prefix} Browser / computer-use tooling is not available for ${label} yet.`,
     },
     {
       key: 'containerizedLanguageServers',
@@ -67,14 +72,14 @@ function createOpenShellCapabilityAudit(
       label: 'Managed preview/dev servers',
       available: true,
       containerOnly: false,
-      detail: `${prefix} Managed dev servers will use OpenShell sandbox execution and explicit port forwarding.`,
+      detail: `${prefix} Managed dev servers will use ${label} sandbox execution and explicit port forwarding.`,
     },
     {
       key: 'containerMounts',
       label: 'Container mounts and references',
       available: false,
       containerOnly: true,
-      detail: `${prefix} Apple container mounts and references are not inspected for OpenShell Local workspaces.`,
+      detail: `${prefix} Apple container mounts and references are not inspected for ${label} workspaces.`,
     },
   ];
 }
@@ -85,7 +90,9 @@ function createCapabilityAudit(
   fallbackReason?: string,
   runtimeConfig?: WorkspaceRuntimeConfig,
 ): WorkspaceRuntimeCapabilityAuditEntry[] {
-  if (actualRuntime === 'openshell-local') return createOpenShellCapabilityAudit(runtimeConfig);
+  if (actualRuntime === 'openshell-local' || actualRuntime === 'openshell-remote') {
+    return createOpenShellCapabilityAudit(actualRuntime, runtimeConfig);
+  }
 
   const hostModeReason = containerEnabled
     ? fallbackReason ?? 'Container mode is preferred, but this workspace is currently running on the host.'
@@ -190,16 +197,16 @@ export async function resolveWorkspaceRuntimeWithManagers(
     };
   }
 
-  if (providerId === 'openshell-local') {
+  if (providerId === 'openshell-local' || providerId === 'openshell-remote') {
     return {
       workspaceId,
       workspacePath,
-      desiredRuntime: 'openshell-local',
-      actualRuntime: 'openshell-local',
+      desiredRuntime: providerId,
+      actualRuntime: providerId,
       containerEnabled: false,
       providerId,
       runtimeConfig,
-      capabilityAudit: createCapabilityAudit('openshell-local', false, undefined, runtimeConfig),
+      capabilityAudit: createCapabilityAudit(providerId, false, undefined, runtimeConfig),
     };
   }
 

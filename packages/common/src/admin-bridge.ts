@@ -23,7 +23,7 @@ export interface GlobalModelConfigStateIPC {
   migrationNotice?: string;
 }
 
-export type WorkspaceRuntimeProviderIdIPC = 'host' | 'apple-container' | 'openshell-local';
+export type WorkspaceRuntimeProviderIdIPC = 'host' | 'apple-container' | 'openshell-local' | 'openshell-remote';
 
 export type WorkspaceRuntimePolicyHistoryEntryIPC = OpenShellPolicyProfileHistoryEntry;
 
@@ -33,6 +33,7 @@ export interface WorkspaceRuntimeConfigIPC {
   sandboxName?: string;
   runtimeWorkspacePath?: string;
   experimental?: boolean;
+  remoteGatewayId?: string;
   policyProfileId?: OpenShellPolicyProfileId;
   policyProfileUpdatedAt?: string;
   policyProfileHistory?: WorkspaceRuntimePolicyHistoryEntryIPC[];
@@ -248,6 +249,32 @@ export interface OpenShellPolicyBlockedEventIPC {
   bestEffort: true;
 }
 
+export interface OpenShellRemoteGatewayEntryIPC {
+  id: string;
+  name: string;
+  sshHost: string;
+  sshKeyPath?: string;
+  port: number;
+  gatewayHost?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type OpenShellRemoteGatewayInputIPC = Omit<
+  OpenShellRemoteGatewayEntryIPC,
+  'createdAt' | 'updatedAt'
+>;
+
+export interface OpenShellRemoteDiagnosticsIPC {
+  gatewayId?: string;
+  gatewayName?: string;
+  sshHost?: string;
+  sandboxName?: string;
+  latencyMs?: number;
+  status: 'ready' | 'unavailable' | 'unsupported';
+  message: string;
+}
+
 export interface OpenShellPolicyDiagnosticsIPC {
   selectedProfile: OpenShellPolicyProfile;
   enforcementStatus: 'profile-preview-only';
@@ -263,8 +290,8 @@ export interface OpenShellPolicyDiagnosticsIPC {
 export interface WorkspaceRuntimeDiagnosticsIPC {
   workspaceId: string;
   workspacePath: string;
-  desiredRuntime: 'container' | 'host' | 'openshell-local';
-  actualRuntime: 'container' | 'host' | 'openshell-local';
+  desiredRuntime: 'container' | 'host' | 'openshell-local' | 'openshell-remote';
+  actualRuntime: 'container' | 'host' | 'openshell-local' | 'openshell-remote';
   containerEnabled: boolean;
   fallbackCode?: 'container_unavailable';
   fallbackReason?: string;
@@ -273,6 +300,7 @@ export interface WorkspaceRuntimeDiagnosticsIPC {
   runtimeConfig?: WorkspaceRuntimeConfigIPC;
   runtimeHealth?: RuntimeHealthIPC;
   openShellPolicy?: OpenShellPolicyDiagnosticsIPC;
+  openShellRemote?: OpenShellRemoteDiagnosticsIPC;
 }
 
 export interface ContainerInfoIPC {
@@ -287,6 +315,10 @@ export interface ContainerInfoIPC {
 export interface SeroWorkspaceBridge {
   list?(): Promise<WorkspaceInfoIPC[]>;
   getRuntimeDiagnostics?(workspaceId?: string): Promise<WorkspaceRuntimeDiagnosticsIPC[]>;
+  listOpenShellRemoteGateways?(): Promise<OpenShellRemoteGatewayEntryIPC[]>;
+  saveOpenShellRemoteGateway?(entry: OpenShellRemoteGatewayInputIPC): Promise<OpenShellRemoteGatewayEntryIPC>;
+  removeOpenShellRemoteGateway?(id: string): Promise<void>;
+  testOpenShellRemoteGateway?(entry: OpenShellRemoteGatewayInputIPC): Promise<OpenShellRemoteDiagnosticsIPC>;
   pickFolder(): Promise<string | null>;
   listRoots(workspaceId: string): Promise<WorkspaceRootIPC[]>;
   addRoot(

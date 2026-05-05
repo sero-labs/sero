@@ -130,9 +130,9 @@ describe('runWorkspaceCommand', () => {
 });
 
 function createRuntimeFacade(input: {
-  desiredRuntime: 'host' | 'container' | 'openshell-local';
-  actualRuntime: 'host' | 'container' | 'openshell-local';
-  providerId?: 'host' | 'apple-container' | 'openshell-local';
+  desiredRuntime: 'host' | 'container' | 'openshell-local' | 'openshell-remote';
+  actualRuntime: 'host' | 'container' | 'openshell-local' | 'openshell-remote';
+  providerId?: 'host' | 'apple-container' | 'openshell-local' | 'openshell-remote';
   fallbackReason?: string;
   execResult: { stdout: string; stderr: string; exitCode: number };
 }): WorkspaceRuntimeFacade {
@@ -144,16 +144,16 @@ function createRuntimeFacade(input: {
     fallbackReason: input.fallbackReason,
     capabilities: {
       exec: true,
-      interactiveTerminal: input.actualRuntime !== 'openshell-local',
+      interactiveTerminal: input.actualRuntime !== 'openshell-local' && input.actualRuntime !== 'openshell-remote',
       directFileRead: input.actualRuntime === 'host',
       directFileWrite: input.actualRuntime === 'host',
-      fileUpload: input.actualRuntime === 'openshell-local',
-      fileDownload: input.actualRuntime === 'openshell-local',
+      fileUpload: input.actualRuntime === 'openshell-local' || input.actualRuntime === 'openshell-remote',
+      fileDownload: input.actualRuntime === 'openshell-local' || input.actualRuntime === 'openshell-remote',
       managedDevServers: input.actualRuntime !== 'host',
       browserAutomation: input.actualRuntime === 'container',
       portDiscovery: input.actualRuntime === 'container',
-      portForward: input.actualRuntime === 'openshell-local',
-      logStream: input.actualRuntime === 'openshell-local',
+      portForward: input.actualRuntime === 'openshell-local' || input.actualRuntime === 'openshell-remote',
+      logStream: input.actualRuntime === 'openshell-local' || input.actualRuntime === 'openshell-remote',
     },
     resolution: {
       workspaceId: 'ws-1',

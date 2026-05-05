@@ -20,9 +20,24 @@ import { RemoteOriginManager } from './RemoteOriginManager';
 
 type AddView = 'pick' | 'create';
 
+interface RemoteGatewayRuntimeSelection {
+  id: string;
+  name: string;
+}
+
+function toRemoteGatewayId(name: string): string {
+  const slug = name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return `openshell-remote-${slug || 'gateway'}`;
+}
+
 export function toRuntimeConfig(
   choice: RuntimeChoice,
   policyProfileId: OpenShellPolicyProfileId = DEFAULT_OPENSHELL_POLICY_PROFILE_ID,
+  remoteGateway?: RemoteGatewayRuntimeSelection,
 ): WorkspaceRuntimeConfig | undefined {
   if (choice === 'default') return undefined;
   if (choice === 'openshell-local') {
@@ -42,6 +57,15 @@ export function toRuntimeConfig(
       ],
     };
   }
+  if (choice === 'openshell-remote') {
+    if (!remoteGateway) return undefined;
+    return {
+      providerId: 'openshell-remote',
+      remoteGatewayId: remoteGateway.id,
+      gatewayName: remoteGateway.name,
+      experimental: true,
+    };
+  }
   return { providerId: choice };
 }
 
@@ -54,6 +78,12 @@ export function AddWorkspaceMenu() {
   const [policyProfileId, setPolicyProfileId] = useState<OpenShellPolicyProfileId>(
     DEFAULT_OPENSHELL_POLICY_PROFILE_ID,
   );
+  const [remoteGatewayName, setRemoteGatewayName] = useState('sero-remote');
+  const [remoteSshHost, setRemoteSshHost] = useState('');
+  const [remoteSshKeyPath, setRemoteSshKeyPath] = useState('');
+  const [remotePort, setRemotePort] = useState('8080');
+  const [remoteGatewayHost, setRemoteGatewayHost] = useState('');
+  const [remoteError, setRemoteError] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [newWorkspace, setNewWorkspace] = useState<WorkspaceInfo | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -61,6 +91,7 @@ export function AddWorkspaceMenu() {
   const pickingFolderRef = useRef(false);
   const createWorkspace = useWorkspaceStore((s) => s.createWorkspace);
   const addFolder = useWorkspaceStore((s) => s.addFolder);
+  const saveOpenShellRemoteGateway = useWorkspaceStore((s) => s.saveOpenShellRemoteGateway);
   const loadSessions = useSessionStore((s) => s.loadSessions);
 
   const reset = () => {
@@ -69,6 +100,12 @@ export function AddWorkspaceMenu() {
     setParentPath(null);
     setRuntimeChoice('default');
     setPolicyProfileId(DEFAULT_OPENSHELL_POLICY_PROFILE_ID);
+    setRemoteGatewayName('sero-remote');
+    setRemoteSshHost('');
+    setRemoteSshKeyPath('');
+    setRemotePort('8080');
+    setRemoteGatewayHost('');
+    setRemoteError(null);
   };
 
   const handleImportExisting = async () => {
@@ -99,12 +136,49 @@ export function AddWorkspaceMenu() {
   const handleCreate = async () => {
     const trimmed = newName.trim();
     if (!trimmed || isCreating) return;
-    setIsCreating(true);
+    setRemoteError(null);
+
+    let remoteGateway: RemoteGatewayRuntimeSelection | undefined;
+    if (runtimeChoice === 'openshell-remote') {
+      const gatewayName = remoteGatewayName.trim();
+      const sshHost = remoteSshHost.trim();
+      if (!gatewayName || !sshHost) {
+        setRemoteError('OpenShell Remote requires a gateway name and SSH destination like user@host.');
+        return;
+      }
+
+      const port = remotePort.trim() ? Number(remotePort.trim()) : 8080;
+      if (!Number.isInteger(port) || port <= 0) {
+        setRemoteError('OpenShell Remote port must be a positive number.');
+        return;
+      }
+
+      setIsCreating(true);
+      try {
+        const gateway = await saveOpenShellRemoteGateway({
+          id: toRemoteGatewayId(gatewayName),
+          name: gatewayName,
+          sshHost,
+          sshKeyPath: remoteSshKeyPath.trim() || undefined,
+          port,
+          gatewayHost: remoteGatewayHost.trim() || undefined,
+        });
+        remoteGateway = { id: gateway.id, name: gateway.name };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to save OpenShell Remote gateway.';
+        setRemoteError(message);
+        setIsCreating(false);
+        return;
+      }
+    } else {
+      setIsCreating(true);
+    }
+
     try {
       const ws = await createWorkspace(
         trimmed,
         parentPath ?? undefined,
-        toRuntimeConfig(runtimeChoice, policyProfileId),
+        toRuntimeConfig(runtimeChoice, policyProfileId, remoteGateway),
       );
       await loadSessions();
       setOpen(false);
@@ -112,6 +186,10 @@ export function AddWorkspaceMenu() {
       setNewWorkspace(ws);
     } catch (err) {
       console.error('Failed to create workspace:', err);
+      if (runtimeChoice === 'openshell-remote') {
+        const message = err instanceof Error ? err.message : 'Failed to create OpenShell Remote workspace.';
+        setRemoteError(message);
+      }
     } finally {
       setIsCreating(false);
     }
@@ -156,9 +234,32 @@ export function AddWorkspaceMenu() {
             onPickLocation={handlePickLocation}
             onClearLocation={() => setParentPath(null)}
             runtimeChoice={runtimeChoice}
-            onRuntimeChoiceChange={setRuntimeChoice}
+            onRuntimeChoiceChange={(choice) => {
+              setRuntimeChoice(choice);
+              setRemoteError(null);
+            }}
             policyProfileId={policyProfileId}
             onPolicyProfileChange={setPolicyProfileId}
+            remoteGatewayName={remoteGatewayName}
+            onRemoteGatewayNameChange={(value) => {
+              setRemoteGatewayName(value);
+              setRemoteError(null);
+            }}
+            remoteSshHost={remoteSshHost}
+            onRemoteSshHostChange={(value) => {
+              setRemoteSshHost(value);
+              setRemoteError(null);
+            }}
+            remoteSshKeyPath={remoteSshKeyPath}
+            onRemoteSshKeyPathChange={setRemoteSshKeyPath}
+            remotePort={remotePort}
+            onRemotePortChange={(value) => {
+              setRemotePort(value);
+              setRemoteError(null);
+            }}
+            remoteGatewayHost={remoteGatewayHost}
+            onRemoteGatewayHostChange={setRemoteGatewayHost}
+            remoteError={remoteError}
             onBack={reset}
             onCreate={handleCreate}
             isCreating={isCreating}

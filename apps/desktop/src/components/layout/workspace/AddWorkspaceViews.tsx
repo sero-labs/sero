@@ -10,7 +10,7 @@ import { Button } from '@sero-ai/ui/components/ui/button';
 import { Input } from '@sero-ai/ui/components/ui/input';
 import { cn } from '@sero-ai/ui/lib/utils';
 
-export type RuntimeChoice = 'default' | 'host' | 'apple-container' | 'openshell-local';
+export type RuntimeChoice = 'default' | 'host' | 'apple-container' | 'openshell-local' | 'openshell-remote';
 
 const RUNTIME_OPTIONS: Array<{
   value: RuntimeChoice;
@@ -21,6 +21,7 @@ const RUNTIME_OPTIONS: Array<{
   { value: 'host', label: 'Local macOS', detail: 'Run directly on this Mac' },
   { value: 'apple-container', label: 'Apple Container', detail: 'Isolated workspace runtime' },
   { value: 'openshell-local', label: 'OpenShell Local', detail: 'Experimental · requires Docker' },
+  { value: 'openshell-remote', label: 'OpenShell Remote', detail: 'Experimental · SSH Linux host with Docker' },
 ];
 
 /** Initial view — two action rows. */
@@ -63,6 +64,17 @@ export function CreateView({
   onRuntimeChoiceChange,
   policyProfileId = DEFAULT_OPENSHELL_POLICY_PROFILE_ID,
   onPolicyProfileChange,
+  remoteGatewayName,
+  onRemoteGatewayNameChange,
+  remoteSshHost,
+  onRemoteSshHostChange,
+  remoteSshKeyPath,
+  onRemoteSshKeyPathChange,
+  remotePort,
+  onRemotePortChange,
+  remoteGatewayHost,
+  onRemoteGatewayHostChange,
+  remoteError,
   onBack,
   onCreate,
   isCreating,
@@ -77,6 +89,17 @@ export function CreateView({
   onRuntimeChoiceChange: (choice: RuntimeChoice) => void;
   policyProfileId?: OpenShellPolicyProfileId;
   onPolicyProfileChange?: (profileId: OpenShellPolicyProfileId) => void;
+  remoteGatewayName: string;
+  onRemoteGatewayNameChange: (v: string) => void;
+  remoteSshHost: string;
+  onRemoteSshHostChange: (v: string) => void;
+  remoteSshKeyPath: string;
+  onRemoteSshKeyPathChange: (v: string) => void;
+  remotePort: string;
+  onRemotePortChange: (v: string) => void;
+  remoteGatewayHost: string;
+  onRemoteGatewayHostChange: (v: string) => void;
+  remoteError: string | null;
   onBack: () => void;
   onCreate: () => void;
   isCreating: boolean;
@@ -176,6 +199,79 @@ export function CreateView({
           })}
         </div>
       </div>
+
+      {runtimeChoice === 'openshell-remote' && (
+        <div className="rounded-md border border-[var(--border-default)] bg-[var(--bg-base)] p-2">
+          <p className="mb-2 text-[11px] leading-snug text-[var(--text-muted)]">
+            OpenShell Remote requires SSH access to a Linux host with Docker. Endpoint/cloud gateways are Phase 5.
+          </p>
+          <div className="grid gap-2">
+            <div>
+              <label className="mb-1 block text-[11px] font-medium text-[var(--text-secondary)]">
+                Gateway name
+              </label>
+              <Input
+                value={remoteGatewayName}
+                onChange={(e) => onRemoteGatewayNameChange(e.target.value)}
+                placeholder="sero-remote-mybox"
+                className="h-7 text-xs"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-[11px] font-medium text-[var(--text-secondary)]">
+                SSH destination
+              </label>
+              <Input
+                value={remoteSshHost}
+                onChange={(e) => onRemoteSshHostChange(e.target.value)}
+                placeholder="user@example-host"
+                className="h-7 text-xs"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-[11px] font-medium text-[var(--text-secondary)]">
+                SSH key path
+              </label>
+              <Input
+                value={remoteSshKeyPath}
+                onChange={(e) => onRemoteSshKeyPathChange(e.target.value)}
+                placeholder="Optional SSH key path"
+                className="h-7 text-xs"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="mb-1 block text-[11px] font-medium text-[var(--text-secondary)]">
+                  Port
+                </label>
+                <Input
+                  value={remotePort}
+                  onChange={(e) => onRemotePortChange(e.target.value)}
+                  placeholder="8080"
+                  inputMode="numeric"
+                  className="h-7 text-xs"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-[11px] font-medium text-[var(--text-secondary)]">
+                  Gateway host
+                </label>
+                <Input
+                  value={remoteGatewayHost}
+                  onChange={(e) => onRemoteGatewayHostChange(e.target.value)}
+                  placeholder="Optional override"
+                  className="h-7 text-xs"
+                />
+              </div>
+            </div>
+          </div>
+          {remoteError && (
+            <p className="mt-2 rounded-md border border-[var(--status-error-border)] bg-[var(--status-error-faint)] px-2 py-1.5 text-[11px] leading-snug text-[var(--status-error)]">
+              {remoteError}
+            </p>
+          )}
+        </div>
+      )}
 
       {runtimeChoice === 'openshell-local' && (
         <div className="rounded-md border border-[var(--border-default)] bg-[var(--bg-base)] p-2">

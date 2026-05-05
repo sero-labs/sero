@@ -16,6 +16,7 @@ function renderCreateView(props: {
   onRuntimeChoiceChange: (choice: RuntimeChoice) => void;
   policyProfileId?: OpenShellPolicyProfileId;
   onPolicyProfileChange?: (profileId: OpenShellPolicyProfileId) => void;
+  remoteError?: string | null;
 }) {
   const inputRef = { current: null } as RefObject<HTMLInputElement | null>;
   return (
@@ -30,6 +31,17 @@ function renderCreateView(props: {
       onRuntimeChoiceChange={props.onRuntimeChoiceChange}
       policyProfileId={props.policyProfileId}
       onPolicyProfileChange={props.onPolicyProfileChange}
+      remoteGatewayName="sero-remote"
+      onRemoteGatewayNameChange={() => undefined}
+      remoteSshHost=""
+      onRemoteSshHostChange={() => undefined}
+      remoteSshKeyPath=""
+      onRemoteSshKeyPathChange={() => undefined}
+      remotePort="8080"
+      onRemotePortChange={() => undefined}
+      remoteGatewayHost=""
+      onRemoteGatewayHostChange={() => undefined}
+      remoteError={props.remoteError ?? null}
       onBack={() => undefined}
       onCreate={() => undefined}
       isCreating={false}
@@ -66,6 +78,8 @@ describe('AddWorkspace CreateView runtime selector', () => {
     expect(document.body.textContent).toContain('Apple Container');
     expect(document.body.textContent).toContain('OpenShell Local');
     expect(document.body.textContent).toContain('Experimental · requires Docker');
+    expect(document.body.textContent).toContain('OpenShell Remote');
+    expect(document.body.textContent).toContain('Experimental · SSH Linux host with Docker');
   });
 
   it('emits the selected OpenShell Local runtime choice', async () => {
@@ -84,6 +98,37 @@ describe('AddWorkspace CreateView runtime selector', () => {
     });
 
     expect(onRuntimeChoiceChange).toHaveBeenCalledWith('openshell-local');
+  });
+
+  it('shows remote gateway fields only for OpenShell Remote', async () => {
+    await act(async () => {
+      root?.render(renderCreateView({ runtimeChoice: 'default', onRuntimeChoiceChange: () => undefined }));
+    });
+
+    expect(document.body.textContent).not.toContain('SSH destination');
+
+    await act(async () => {
+      root?.render(renderCreateView({ runtimeChoice: 'openshell-remote', onRuntimeChoiceChange: () => undefined }));
+    });
+
+    expect(document.body.textContent).toContain('requires SSH access to a Linux host with Docker');
+    expect(document.body.textContent).toContain('Gateway name');
+    expect(document.body.textContent).toContain('SSH destination');
+    expect(document.body.textContent).toContain('SSH key path');
+    expect(document.body.textContent).toContain('Gateway host');
+    expect(document.body.textContent).not.toContain('OpenShell policy profile');
+  });
+
+  it('shows actionable remote validation errors', async () => {
+    await act(async () => {
+      root?.render(renderCreateView({
+        runtimeChoice: 'openshell-remote',
+        onRuntimeChoiceChange: () => undefined,
+        remoteError: 'OpenShell Remote requires a gateway name and SSH destination like user@host.',
+      }));
+    });
+
+    expect(document.body.textContent).toContain('gateway name and SSH destination like user@host');
   });
 
   it('shows the OpenShell policy selector only for OpenShell Local with Dev selected by default', async () => {
@@ -168,5 +213,19 @@ describe('AddWorkspaceMenu runtime config', () => {
     const config = toRuntimeConfig('openshell-local');
 
     expect(config?.policyProfileId).toBe(DEFAULT_OPENSHELL_POLICY_PROFILE_ID);
+  });
+
+  it('creates an OpenShell Remote runtime config from a saved gateway', () => {
+    const config = toRuntimeConfig('openshell-remote', DEFAULT_OPENSHELL_POLICY_PROFILE_ID, {
+      id: 'openshell-remote-mybox',
+      name: 'sero-remote-mybox',
+    });
+
+    expect(config).toEqual({
+      providerId: 'openshell-remote',
+      remoteGatewayId: 'openshell-remote-mybox',
+      gatewayName: 'sero-remote-mybox',
+      experimental: true,
+    });
   });
 });

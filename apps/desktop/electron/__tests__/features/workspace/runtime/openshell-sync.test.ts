@@ -111,4 +111,36 @@ describe('OpenShell workspace sync helpers', () => {
       '/Users/me/app',
     ], { timeoutMs: 5_000 });
   });
+
+  it('uses the selected remote gateway for remote upload and download command shapes', async () => {
+    mocks.runOpenShell.mockResolvedValue({ stdout: '', stderr: '', exitCode: 0 });
+
+    await pushWorkspaceToSandbox({
+      gatewayName: 'sero-remote-dev',
+      sandboxName: 'sero-remote-ws',
+      workspacePath: '/Users/me/app',
+      runtimeWorkspacePath: '/sandbox/workspace/app',
+      timeoutMs: 7_000,
+    });
+    await pullWorkspaceFromSandbox({
+      gatewayName: 'sero-remote-dev',
+      sandboxName: 'sero-remote-ws',
+      workspacePath: '/Users/me/app',
+      runtimeWorkspacePath: '/sandbox/workspace/app',
+      timeoutMs: 7_000,
+    });
+
+    expect(mocks.runOpenShell).toHaveBeenNthCalledWith(1, [
+      '--gateway', 'sero-remote-dev',
+      'sandbox', 'upload', 'sero-remote-ws',
+      '/Users/me/app',
+      '/sandbox/workspace/app',
+    ], { timeoutMs: 7_000 });
+    expect(mocks.runOpenShell).toHaveBeenNthCalledWith(2, [
+      '--gateway', 'sero-remote-dev',
+      'sandbox', 'download', 'sero-remote-ws',
+      '/sandbox/workspace/app',
+      '/Users/me/app',
+    ], { timeoutMs: 7_000 });
+  });
 });

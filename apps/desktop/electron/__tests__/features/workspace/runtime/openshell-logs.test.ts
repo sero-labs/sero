@@ -85,6 +85,19 @@ describe('OpenShell log streaming and destroy lifecycle', () => {
     expect(child.process.listenerCount('error')).toBe(0);
   });
 
+  it('spawns remote OpenShell logs through the selected gateway without SSH', () => {
+    const child = createChildProcess();
+    mocks.spawnOpenShell.mockReturnValue(child.process);
+
+    streamOpenShellLogs({ gatewayName: 'sero-remote-dev', sandboxName: 'sero-remote-ws' });
+
+    expect(mocks.spawnOpenShell).toHaveBeenCalledWith([
+      '--gateway', 'sero-remote-dev',
+      'logs', 'sero-remote-ws', '--tail',
+    ]);
+    expect(mocks.spawnOpenShell).not.toHaveBeenCalledWith(expect.arrayContaining(['ssh']));
+  });
+
   it('adapter destroy deletes the configured sandbox with gateway args', async () => {
     mocks.runOpenShell.mockResolvedValue({ stdout: '', stderr: '', exitCode: 0 });
     const adapter = createOpenShellLocalRuntimeAdapter({

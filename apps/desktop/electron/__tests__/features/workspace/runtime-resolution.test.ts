@@ -142,6 +142,38 @@ describe('resolveWorkspaceRuntime', () => {
     expect(resolved.capabilityAudit[0]?.detail).toContain('does not apply generated policy YAML');
   });
 
+  it('resolves OpenShell Remote from runtime config with distinct capability copy', async () => {
+    mocks.workspaceManager.getRuntimeConfig.mockResolvedValue({
+      providerId: 'openshell-remote',
+      remoteGatewayId: 'remote-1',
+      gatewayName: 'sero-remote-dev',
+      experimental: true,
+    });
+
+    const resolved = await resolveWorkspaceRuntime('ws-remote');
+
+    expect(resolved).toMatchObject({
+      workspaceId: 'ws-remote',
+      providerId: 'openshell-remote',
+      desiredRuntime: 'openshell-remote',
+      actualRuntime: 'openshell-remote',
+      containerEnabled: false,
+      runtimeConfig: {
+        providerId: 'openshell-remote',
+        remoteGatewayId: 'remote-1',
+        experimental: true,
+      },
+    });
+    expect(mocks.containerManager.inspect).not.toHaveBeenCalled();
+    expect(resolved.capabilityAudit.find((entry) => entry.key === 'managedDevServers')).toMatchObject({
+      available: true,
+      containerOnly: false,
+    });
+    expect(resolved.capabilityAudit[0]?.detail).toContain('OpenShell Remote');
+    expect(resolved.capabilityAudit[0]?.detail).toContain('remote Docker');
+    expect(resolved.capabilityAudit[0]?.detail).toContain('Policy diagnostics remain local-only');
+  });
+
   it('uses explicit Apple container runtime config even when legacy container is false', async () => {
     mocks.workspaceManager.getRuntimeConfig.mockResolvedValue({ providerId: 'apple-container' });
     mocks.workspaceManager.isContainerEnabled.mockResolvedValue(false);

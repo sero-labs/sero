@@ -3,7 +3,13 @@ import {
   OPENSHELL_POLICY_PROFILE_HISTORY_LIMIT,
   type OpenShellPolicyProfileId,
 } from '@sero-ai/common';
-import type { WorkspaceInfo, WorkspaceRuntimeConfig } from '@/types/ipc';
+import type {
+  OpenShellRemoteGatewayEntry,
+  OpenShellRemoteGatewayInput,
+  OpenShellRemoteGatewayTestResult,
+  WorkspaceInfo,
+  WorkspaceRuntimeConfig,
+} from '@/types/ipc';
 import { useSessionStore } from '@/stores/sessions';
 import { persistLayout } from '@/lib/persist-layout';
 import { createDebouncedFn } from '@/hooks/useDebouncedCallback';
@@ -11,7 +17,7 @@ import { createDebouncedFn } from '@/hooks/useDebouncedCallback';
 function isAppleContainerEnabled(workspace: WorkspaceInfo): boolean {
   if (workspace.runtime?.providerId === 'apple-container') return true;
   if (workspace.runtime?.providerId === 'host') return false;
-  if (workspace.runtime?.providerId === 'openshell-local') return false;
+  if (workspace.runtime?.providerId === 'openshell-local' || workspace.runtime?.providerId === 'openshell-remote') return false;
   return workspace.container;
 }
 
@@ -38,6 +44,8 @@ interface WorkspaceState {
   isLoading: boolean;
   /** Last error message. */
   error: string | null;
+  /** Cached OpenShell Remote gateway registry entries. */
+  openShellRemoteGateways: OpenShellRemoteGatewayEntry[];
 
   // ── Actions ────────────────────────────────────────────────
 
@@ -65,6 +73,14 @@ interface WorkspaceState {
   setRuntime: (id: string, runtime: WorkspaceRuntimeConfig | undefined) => Promise<void>;
   /** Persist an OpenShell policy profile selection for an existing workspace. */
   setOpenShellPolicyProfile: (id: string, profileId: OpenShellPolicyProfileId) => Promise<void>;
+  loadOpenShellRemoteGateways: () => Promise<OpenShellRemoteGatewayEntry[]>;
+  saveOpenShellRemoteGateway: (
+    entry: OpenShellRemoteGatewayInput,
+  ) => Promise<OpenShellRemoteGatewayEntry>;
+  removeOpenShellRemoteGateway: (id: string) => Promise<void>;
+  testOpenShellRemoteGateway: (
+    entry: OpenShellRemoteGatewayInput,
+  ) => Promise<OpenShellRemoteGatewayTestResult>;
   /** Add a workspace reference. Mounts the referenced workspace into the container. */
   addReference: (id: string, refId: string) => Promise<void>;
   /** Remove a workspace reference. */
@@ -81,6 +97,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   workspacesReady: false,
   isLoading: false,
   error: null,
+  openShellRemoteGateways: [],
 
   loadWorkspaces: async () => {
     set({ isLoading: true, error: null });
@@ -236,6 +253,33 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     };
 
     await get().setRuntime(id, runtime);
+  },
+
+  loadOpenShellRemoteGateways: async () => {
+    const gateways = await window.sero.workspace.listOpenShellRemoteGateways();
+    set({ openShellRemoteGateways: gateways });
+    return gateways;
+  },
+
+  saveOpenShellRemoteGateway: async (entry) => {
+    const gateway = await window.sero.workspace.saveOpenShellRemoteGateway(entry);
+    set((s) => ({
+      openShellRemoteGateways: s.openShellRemoteGateways.some((item) => item.id === gateway.id)
+        ? s.openShellRemoteGateways.map((item) => (item.id === gateway.id ? gateway : item))
+        : [...s.openShellRemoteGateways, gateway],
+    }));
+    return gateway;
+  },
+
+  removeOpenShellRemoteGateway: async (id) => {
+    await window.sero.workspace.removeOpenShellRemoteGateway(id);
+    set((s) => ({
+      openShellRemoteGateways: s.openShellRemoteGateways.filter((gateway) => gateway.id !== id),
+    }));
+  },
+
+  testOpenShellRemoteGateway: async (entry) => {
+    return window.sero.workspace.testOpenShellRemoteGateway(entry);
   },
 
   addReference: async (id, refId) => {
