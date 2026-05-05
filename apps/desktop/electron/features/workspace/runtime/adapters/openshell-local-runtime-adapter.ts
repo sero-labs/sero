@@ -3,6 +3,7 @@ import type { TerminalManager } from '@electron/features/container/terminal';
 import type { WorkspaceRuntimeConfig } from '@/types/ipc';
 import { formatOpenShellFailure, runOpenShell } from '../openshell/cli';
 import { checkOpenShellPrerequisites } from '../openshell/health';
+import { streamOpenShellLogs, type OpenShellLogStream } from '../openshell/logs';
 import {
   getOpenShellRuntimeWorkspacePath,
   toOpenShellWorkspacePath,
@@ -39,7 +40,14 @@ export const OPENSHELL_LOCAL_CAPABILITIES: RuntimeCapabilities = {
 
 type OpenShellLocalRuntimeAdapter = Pick<
   WorkspaceRuntimeFacade,
-  'providerId' | 'actualRuntime' | 'capabilities' | 'health' | 'exec' | 'createTerminal'
+  | 'providerId'
+  | 'actualRuntime'
+  | 'capabilities'
+  | 'health'
+  | 'exec'
+  | 'createTerminal'
+  | 'streamLogs'
+  | 'destroy'
 >;
 
 interface OpenShellWorkspaceConfigManager {
@@ -145,6 +153,23 @@ export function createOpenShellLocalRuntimeAdapter(
         runtime: 'host',
         fallbackReason: 'OpenShell Local does not support interactive PTY terminals yet; using a host terminal for UI compatibility.',
       };
+    },
+    async streamLogs(): Promise<OpenShellLogStream> {
+      const state = await resolveRuntimeState(input);
+      return streamOpenShellLogs({
+        gatewayName: state.gatewayName,
+        sandboxName: state.sandboxName,
+      });
+    },
+    async destroy(): Promise<void> {
+      const state = await resolveRuntimeState(input);
+      const result = await runOpenShell([
+        '--gateway', state.gatewayName,
+        'sandbox', 'delete', state.sandboxName,
+      ], { timeoutMs: DEFAULT_TIMEOUT_MS });
+      if (result.exitCode !== 0) {
+        throw new Error(formatOpenShellFailure('delete OpenShell sandbox', result));
+      }
     },
   };
 }

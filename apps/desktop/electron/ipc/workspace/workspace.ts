@@ -10,10 +10,11 @@ import { IpcChannels } from '@/types/ipc-channels';
 import type { WorkspaceInfo, WorkspaceConfig, WorkspaceRoot, WorkspaceRuntimeConfig } from '@/types/ipc';
 import type { RuntimeHealthIPC, WorkspaceRuntimeDiagnosticsIPC } from '@sero-ai/common';
 import { workspaceManager } from '@electron/features/workspace/manager';
+import { createOpenShellLocalRuntimeAdapter } from '@electron/features/workspace/runtime/adapters/openshell-local-runtime-adapter';
 import { createWorkspaceRuntimeFacade } from '@electron/features/workspace/runtime/runtime-facade';
 import { assertIsSeroPluginFolder } from '@electron/features/workspace/plugin-validation';
 import { recreateContainerIfRunning } from '@electron/features/workspace/container-sync';
-import { appRuntimeManager } from '@electron/shared/infra/shared-infra';
+import { appRuntimeManager, containerManager } from '@electron/shared/infra/shared-infra';
 import { broadcastToWindows } from '@electron/ipc/lib/window-broadcast';
 
 function notifyWorkspaceChanged(): void {
@@ -55,6 +56,43 @@ async function getRuntimeHealth(
   return health;
 }
 
+interface RuntimeChangeWorkspaceManager {
+  getRuntimeConfig?(id: string): Promise<WorkspaceRuntimeConfig | undefined>;
+  getPath?(id: string): string | undefined;
+}
+
+interface RuntimeChangeDestroyDeps {
+  workspaceManager: RuntimeChangeWorkspaceManager;
+  terminals: typeof containerManager.terminals;
+}
+
+export async function destroyOpenShellSandboxBeforeRuntimeChange(
+  id: string,
+  nextRuntime: WorkspaceRuntimeConfig | undefined,
+  deps?: RuntimeChangeDestroyDeps,
+): Promise<void> {
+  const manager = deps?.workspaceManager ?? workspaceManager;
+  const currentRuntime = await manager.getRuntimeConfig?.(id);
+  if (currentRuntime?.providerId !== 'openshell-local') return;
+  if (nextRuntime?.providerId === 'openshell-local') return;
+
+  const workspacePath = manager.getPath?.(id);
+  if (!workspacePath) throw new Error(`Workspace not found: ${id}`);
+  const terminals = deps?.terminals ?? containerManager.terminals;
+
+  try {
+    await createOpenShellLocalRuntimeAdapter({
+      workspaceId: id,
+      workspacePath,
+      workspaceManager: manager,
+      terminals,
+    }).destroy?.();
+  } catch (error) {
+    console.error(`[workspace:setRuntime] Failed to destroy OpenShell sandbox for ${id}:`, error);
+    throw error;
+  }
+}
+
 export function registerWorkspaceHandlers(): void {
   // ── List all registered workspaces ─────────────────────────
   ipcMain.handle(
@@ -89,6 +127,8 @@ export function registerWorkspaceHandlers(): void {
   ipcMain.handle(
     IpcChannels.workspace.remove,
     async (_event, id: string): Promise<void> => {
+      // Unregister is reversible by re-adding the folder, so OpenShell sandboxes
+      // are preserved here. Explicit runtime changes away from OpenShell destroy.
       await workspaceManager.remove(id);
       await reconcileAppRuntimes('workspace remove');
       notifyWorkspaceChanged();
@@ -127,6 +167,8 @@ export function registerWorkspaceHandlers(): void {
   ipcMain.handle(
     IpcChannels.workspace.close,
     async (_event, id: string): Promise<void> => {
+      // Close only removes the workspace from the sidebar registry, not disk.
+      // Keep OpenShell sandboxes so re-adding the folder can continue using them.
       await workspaceManager.close(id);
       await reconcileAppRuntimes('workspace close');
       notifyWorkspaceChanged();
@@ -172,6 +214,7 @@ export function registerWorkspaceHandlers(): void {
   ipcMain.handle(
     IpcChannels.workspace.setRuntime,
     async (_event, id: string, runtime: WorkspaceRuntimeConfig | undefined): Promise<void> => {
+      await destroyOpenShellSandboxBeforeRuntimeChange(id, runtime);
       await workspaceManager.setRuntimeConfig(id, runtime);
       await reconcileAppRuntimes('workspace runtime change');
       notifyWorkspaceChanged();

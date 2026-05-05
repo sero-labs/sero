@@ -1,5 +1,6 @@
 import type { IPty } from 'node-pty';
 import type { ExecResult } from '@electron/features/container/core/types';
+import type { OpenShellLogStream } from '@electron/features/workspace/runtime/openshell/logs';
 import type {
   WorkspaceRuntimeKind,
   WorkspaceRuntimeResolution,
@@ -58,4 +59,6 @@ export interface WorkspaceRuntimeFacade {
   health(): Promise<RuntimeHealth>;
   exec(command: string, options: RuntimeExecOptions): Promise<ExecResult>;
   createTerminal(input: RuntimeTerminalInput): Promise<RuntimeTerminalSession>;
+  streamLogs?(): Promise<OpenShellLogStream>;
+  destroy?(): Promise<void>;
 }
