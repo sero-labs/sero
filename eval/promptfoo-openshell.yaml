@@ -24,7 +24,8 @@ providers:
   #       # Optional: start/select the remote gateway from evals instead of pre-starting it.
   #       # sshHost: user@your-gcp-host
   #       # sshKeyPath: /path/to/private-key
-  #       # sshPort: 22
+  #       # gatewayPort is the OpenShell gateway port on the remote machine, not the SSH port.
+  #       # gatewayPort: 18080
   #       sandboxNamePrefix: sero-eval-remote
   #       retainSandboxes: failed
   # - id: file://./seroProvider.ts

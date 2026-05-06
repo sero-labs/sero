@@ -12,7 +12,7 @@ export interface OpenShellEvalRuntimeConfig {
   gatewayName?: string;
   sshHost?: string;
   sshKeyPath?: string;
-  sshPort?: number;
+  gatewayPort?: number;
   gatewayHost?: string;
   cloudEndpoint?: string;
   timeoutMs?: number;
@@ -178,7 +178,7 @@ export class OpenShellEvalRuntime {
         '--name', this.gatewayName,
         '--remote', this.config.sshHost,
         ...(this.config.sshKeyPath ? ['--ssh-key', this.config.sshKeyPath] : []),
-        '--port', String(this.config.sshPort ?? 22),
+        '--port', String(this.config.gatewayPort ?? 18080),
         ...(this.config.gatewayHost ? ['--gateway-host', this.config.gatewayHost] : []),
       ], timeoutMs), 'start OpenShell eval remote gateway');
       await assertOk(this.runWithoutGateway(['gateway', 'select', this.gatewayName], timeoutMs), 'select OpenShell eval remote gateway');
