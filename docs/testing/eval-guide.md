@@ -271,6 +271,14 @@ Current behavior:
 - per-run artifacts are written under `eval/output/openshell/<sandbox>/result.json`; failed runs also include `workspace-snapshot/`
 - failed sandboxes are retained by default for replay/debug, successful sandboxes are destroyed
 
+Replay/debug retained failures:
+```bash
+./eval/openshell-replay.sh list
+./eval/openshell-replay.sh show <sandbox-name>
+./eval/openshell-replay.sh exec <sandbox-name> -- 'pwd && ls -la'
+```
+Use `show` first to confirm the sandbox was retained. `exec` runs a one-off command in the retained OpenShell sandbox using the gateway/workdir saved in `result.json`.
+
 Remote/cloud scaling:
 - uncomment the remote/cloud providers in `eval/promptfoo-openshell.yaml`
 - set `gatewayName` in config or `SERO_EVAL_OPENSHELL_GATEWAY`

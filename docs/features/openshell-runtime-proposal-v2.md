@@ -470,7 +470,6 @@ Use OpenShell as an isolated, reproducible runtime for Sero evals and parallel a
 Remaining before Phase 6 can be marked complete:
 
 - Prove remote and cloud promptfoo providers can run in parallel against reachable gateways.
-- Add replay documentation/scripts for retained failed sandboxes beyond the artifact manifest.
 - Decide whether eval result export should stay promptfoo-native or add a Sero-specific summary exporter.
 - Add any GPU-profile smoke once OpenShell policy/resource enforcement is available.
 
