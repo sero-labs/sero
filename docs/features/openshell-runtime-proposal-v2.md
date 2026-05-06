@@ -409,7 +409,7 @@ Support hosted/cloud-backed OpenShell agent runtime sessions.
 
 ### Current Phase 5 implementation status
 
-**Implemented as an experimental CLI-first MVP.**
+**Complete as an experimental CLI-first MVP.** Manual smoke testing passed on 2026-05-06.
 
 Implemented:
 

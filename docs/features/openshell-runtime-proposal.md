@@ -764,7 +764,7 @@ Deliverables:
 
 OpenShell supports cloud gateways behind a reverse proxy, and cloud gateways are currently described as suited for individual users rather than shared team access. ([NVIDIA Docs][2])
 
-Current status: **implemented as an experimental CLI-first MVP.** Sero now has a distinct `openshell-cloud` provider, persisted gateway endpoint metadata under `SERO_AGENT_DIR`, CLI-managed registration (`openshell gateway add <endpoint> --name <name>`), CLI-managed login (`openshell gateway login <name>`), cloud sandbox exec/sync/logs/preview forwarding through `openshell --gateway <name> ...`, advisory resource/cost labels, stale-session diagnostics, and explicit sandbox destroy without deleting gateway metadata.
+Current status: **complete as an experimental CLI-first MVP.** Manual smoke testing passed on 2026-05-06. Sero now has a distinct `openshell-cloud` provider, persisted gateway endpoint metadata under `SERO_AGENT_DIR`, CLI-managed registration (`openshell gateway add <endpoint> --name <name>`), CLI-managed login (`openshell gateway login <name>`), cloud sandbox exec/sync/logs/preview forwarding through `openshell --gateway <name> ...`, advisory resource/cost labels, stale-session diagnostics, and explicit sandbox destroy without deleting gateway metadata.
 
 Limitations: Sero does not store cloud auth secrets, does not provide authoritative billing data, does not implement direct endpoint API/gRPC calls, and does not add browser automation, interactive PTY terminals, or runtime-backed `read`/`write`/`edit` for OpenShell runtimes in this phase.
 
