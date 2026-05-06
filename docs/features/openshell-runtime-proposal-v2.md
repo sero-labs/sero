@@ -466,11 +466,12 @@ Use OpenShell as an isolated, reproducible runtime for Sero evals and parallel a
 - The config includes commented remote/cloud providers so multiple OpenShell gateway/model configurations can be compared with fresh sandboxes per case.
 - `gpuProfile: true` is metadata/profile intent only until Phase 3 policy enforcement exists.
 - The OpenShell Local eval suite passed manually after the harness exposed the OpenShell-backed `bash` tool correctly and the proof assertion was aligned with the command output.
+- The OpenShell Remote eval suite passed manually against the GCP SSH gateway `sero-remote-gcp` at static IP `34.10.53.187`. The proof commands reported Linux/GCP sandbox signals under `/sandbox/workspace/<basename>`, and the isolation case used a separate fresh sandbox.
 
 Remaining before Phase 6 can be marked complete:
 
-- Prove remote and cloud promptfoo providers can run in parallel against reachable gateways.
-- Add any GPU-profile smoke once OpenShell policy/resource enforcement is available.
+- Prove the cloud promptfoo provider against a hosted OpenShell gateway, if/when one is available.
+- Add any GPU-profile smoke once OpenShell policy/resource enforcement is available and a GPU-capable OpenShell backend is confirmed.
 
 Completed follow-ups:
 
