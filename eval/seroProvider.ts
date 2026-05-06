@@ -22,6 +22,12 @@ import {
   stripExtensionTools,
 } from './evalCli';
 import { setupTempDir, teardownTempDir } from './setup';
+import {
+  buildOpenShellEvalPromptBlock,
+  OpenShellEvalRuntime,
+  type OpenShellEvalMetadata,
+  type OpenShellEvalRuntimeConfig,
+} from './openshellEvalRuntime';
 
 const DEFAULT_AGENT_DIR =
   process.env.SERO_AGENT_DIR ?? `${process.env.HOME}/.sero-ui/agent`;
@@ -33,6 +39,8 @@ interface SeroProviderConfig {
   timeout?: number;
   /** Agent directory — defaults to ~/.sero-ui/agent */
   agentDir?: string;
+  /** Optional OpenShell-backed runtime for eval isolation/scaling. */
+  openShellRuntime?: OpenShellEvalRuntimeConfig;
 }
 
 interface ToolCall {
@@ -116,7 +124,7 @@ let _sdk: {
   AuthStorage: any;
   ModelRegistry: any;
   SettingsManager: any;
-  createCodingTools: any;
+  createBashTool: any;
 } | null = null;
 
 async function loadSdk() {
@@ -129,13 +137,13 @@ async function loadSdk() {
     AuthStorage: mod.AuthStorage,
     ModelRegistry: mod.ModelRegistry,
     SettingsManager: mod.SettingsManager,
-    createCodingTools: mod.createCodingTools,
+    createBashTool: mod.createBashTool,
   };
   return _sdk;
 }
 
 export default class SeroProvider implements ApiProvider {
-  private config: SeroProviderConfig;
+  config: SeroProviderConfig;
 
   constructor(opts: { config?: SeroProviderConfig; id?: string } = {}) {
     this.config = {
@@ -156,9 +164,20 @@ export default class SeroProvider implements ApiProvider {
     let authStorage: any = null;
     let runtimeOverrideProviders: string[] = [];
     let activeModel: { provider?: string; id?: string } | undefined;
+    let openShellRuntime: OpenShellEvalRuntime | undefined;
+    let openShellMetadata: OpenShellEvalMetadata | undefined;
+    let fullText = '';
+    const toolErrors: string[] = [];
 
     try {
-      await seedEvalWorkspace(tmpDir);
+      const workspaceId = `eval-${Date.now().toString(36)}`;
+      if (this.config.openShellRuntime) {
+        openShellRuntime = new OpenShellEvalRuntime(tmpDir, workspaceId, this.config.openShellRuntime);
+      }
+      await seedEvalWorkspace(tmpDir, {
+        runtime: openShellRuntime?.getWorkspaceRuntimeConfig(),
+        workspaceId,
+      });
 
       const sdk = await loadSdk();
 
@@ -174,7 +193,11 @@ export default class SeroProvider implements ApiProvider {
         cwd: tmpDir,
         agentDir,
         settingsManager,
-        extensionFactories: [createEvalPromptExtensionFactory()],
+        extensionFactories: [
+          createEvalPromptExtensionFactory(
+            buildOpenShellEvalPromptBlock(this.config.openShellRuntime),
+          ),
+        ],
         extensionsOverride: stripExtensionTools,
       });
       await loader.reload();
@@ -184,8 +207,15 @@ export default class SeroProvider implements ApiProvider {
         agentDir,
         authStorage,
         modelRegistry,
-        tools: sdk.createCodingTools(tmpDir),
-        customTools: [createEvalSeroCliTool(tmpDir)],
+        tools: openShellRuntime
+          ? ['bash', 'sero-cli']
+          : ['read', 'bash', 'edit', 'write', 'sero-cli'],
+        customTools: openShellRuntime
+          ? [
+              sdk.createBashTool(tmpDir, { operations: openShellRuntime.createBashOperations() }),
+              createEvalSeroCliTool(tmpDir),
+            ]
+          : [createEvalSeroCliTool(tmpDir)],
         resourceLoader: loader,
         sessionManager: sdk.SessionManager.inMemory(),
         settingsManager,
@@ -199,7 +229,6 @@ export default class SeroProvider implements ApiProvider {
 
       const snapshot = captureSessionSnapshot(session);
       const toolCalls: ToolCall[] = [];
-      let fullText = '';
 
       const unsubscribe = session.subscribe((event: any) => {
         switch (event.type) {
@@ -215,6 +244,12 @@ export default class SeroProvider implements ApiProvider {
               name: event.toolName,
               args: event.args ?? {},
             });
+            break;
+          }
+          case 'tool_execution_end': {
+            if (event.isError) {
+              toolErrors.push(`${event.toolName ?? 'tool'} failed`);
+            }
             break;
           }
         }
@@ -235,6 +270,9 @@ export default class SeroProvider implements ApiProvider {
       }
 
       const latencyMs = Date.now() - start;
+      openShellMetadata = openShellRuntime
+        ? await openShellRuntime.finish({ failed: toolErrors.length > 0, output: fullText })
+        : undefined;
 
       return {
         output: fullText,
@@ -242,9 +280,11 @@ export default class SeroProvider implements ApiProvider {
           latencyMs,
           toolCalls,
           toolCallCount: toolCalls.length,
+          toolErrors,
           snapshot,
           runtimeOverrideProviders,
           model: activeModel,
+          openShell: openShellMetadata,
         },
       };
     } catch (err: any) {
@@ -256,8 +296,16 @@ export default class SeroProvider implements ApiProvider {
           )
         : undefined;
       const details = authDiagnostics ? ` [${authDiagnostics}]` : '';
+      if (openShellRuntime) {
+        openShellMetadata = await openShellRuntime.finish({
+          failed: true,
+          output: fullText,
+          error: err.message,
+        });
+      }
       return {
         error: `Agent error: ${err.message}${details}`,
+        metadata: { openShell: openShellMetadata },
       };
     } finally {
       await teardownTempDir(tmpDir);

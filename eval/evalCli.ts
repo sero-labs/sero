@@ -59,15 +59,17 @@ interface EvalCliResult {
   exitCode: number;
 }
 
-export function createEvalPromptExtensionFactory() {
+export function createEvalPromptExtensionFactory(additionalPromptBlock = '') {
   return (pi: ExtensionAPI) => {
     pi.on('before_agent_start', async (event) => {
-      if (event.systemPrompt.includes('## Sero CLI')) {
-        return { systemPrompt: event.systemPrompt };
-      }
-      return {
-        systemPrompt: `${event.systemPrompt}${EVAL_CLI_PROMPT_BLOCK}`,
-      };
+      const promptWithCli = event.systemPrompt.includes('## Sero CLI')
+        ? event.systemPrompt
+        : `${event.systemPrompt}${EVAL_CLI_PROMPT_BLOCK}`;
+      const promptWithRuntime = additionalPromptBlock
+        && !promptWithCli.includes('## OpenShell eval runtime')
+        ? `${promptWithCli}${additionalPromptBlock}`
+        : promptWithCli;
+      return { systemPrompt: promptWithRuntime };
     });
   };
 }
@@ -84,14 +86,19 @@ export function stripExtensionTools(base: any): any {
   return base;
 }
 
-export async function seedEvalWorkspace(tmpDir: string): Promise<void> {
+export async function seedEvalWorkspace(
+  tmpDir: string,
+  options: { runtime?: Record<string, unknown>; workspaceId?: string } = {},
+): Promise<string> {
+  const workspaceId = options.workspaceId ?? `eval-${randomUUID().slice(0, 8)}`;
   await writeFile(
     `${tmpDir}/.sero-workspace.json`,
     `${JSON.stringify(
       {
-        id: `eval-${randomUUID().slice(0, 8)}`,
+        id: workspaceId,
         name: 'Eval Workspace',
         container: false,
+        runtime: options.runtime,
       },
       null,
       2,
@@ -106,6 +113,7 @@ export async function seedEvalWorkspace(tmpDir: string): Promise<void> {
   await execFileAsync('git', ['commit', '-qm', 'chore: initialise eval workspace'], {
     cwd: tmpDir,
   });
+  return workspaceId;
 }
 
 function tokenizeCliInput(input: string): string[] {

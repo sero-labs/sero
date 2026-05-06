@@ -16,6 +16,7 @@
     "prepare": "husky",
     "eval": "node eval/patch-drizzle.cjs && node scripts/run-promptfoo.mjs eval",
     "eval:snapshot": "node eval/patch-drizzle.cjs && node scripts/run-promptfoo.mjs eval --config eval/promptfoo-snapshot.yaml --no-cache",
+    "eval:openshell": "node eval/patch-drizzle.cjs && node scripts/run-promptfoo.mjs eval --config eval/promptfoo-openshell.yaml --no-cache",
     "eval:view": "node scripts/run-promptfoo.mjs view"
   },
   "devDependencies": {

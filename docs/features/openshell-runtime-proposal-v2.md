@@ -455,7 +455,24 @@ Use OpenShell as an isolated, reproducible runtime for Sero evals and parallel a
 
 ### Current status
 
-**Not started.**
+**Started; not complete.** Initial eval harness support exists for an experimental OpenShell runtime promptfoo suite:
+
+- `pnpm eval:openshell` / `./eval/run.sh openshell` run `eval/promptfoo-openshell.yaml`.
+- Each eval case creates a unique temp workspace and unique OpenShell sandbox name.
+- OpenShell eval mode exposes runtime-backed `bash` only; `read`, `write`, and `edit` are intentionally unavailable so evals do not silently fall back to the host filesystem.
+- Host workspace files are uploaded before each `bash` command and downloaded afterward, matching the current OpenShell runtime source-of-truth model.
+- Command records, sandbox metadata, and captured log lines are attached to promptfoo metadata under `openShell`.
+- Per-run artifacts are written under `eval/output/openshell/<sandbox>/result.json`; failed runs also persist a `workspace-snapshot/` and retain the failed sandbox by default.
+- The config includes commented remote/cloud providers so multiple OpenShell gateway/model configurations can be compared with fresh sandboxes per case.
+- `gpuProfile: true` is metadata/profile intent only until Phase 3 policy enforcement exists.
+- The OpenShell Local eval suite passed manually after the harness exposed the OpenShell-backed `bash` tool correctly and the proof assertion was aligned with the command output.
+
+Remaining before Phase 6 can be marked complete:
+
+- Prove remote and cloud promptfoo providers can run in parallel against reachable gateways.
+- Add replay documentation/scripts for retained failed sandboxes beyond the artifact manifest.
+- Decide whether eval result export should stay promptfoo-native or add a Sero-specific summary exporter.
+- Add any GPU-profile smoke once OpenShell policy/resource enforcement is available.
 
 ## Phase 5 manual smoke checklist
 

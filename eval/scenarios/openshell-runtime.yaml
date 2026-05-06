@@ -1,0 +1,67 @@
+- description: "OpenShell runtime proof command runs in Linux sandbox"
+  vars:
+    scenario_prompt: |
+      Use only bash. Run this exact proof script and summarize the result:
+
+      echo "PWD=$PWD"
+      uname -a
+      cat /etc/os-release | head
+      test -f /.dockerenv && echo "DOCKER_ENV=yes" || echo "DOCKER_ENV=no"
+      hostname
+      whoami
+      echo "created inside $(uname -s) at $(pwd) via OpenShell eval" > proof-from-openshell-eval.txt
+      test -f proof-from-openshell-eval.txt && cat proof-from-openshell-eval.txt
+  assert:
+    - type: javascript
+      value: |
+        const meta = context.providerResponse?.metadata ?? {};
+        const openShell = meta.openShell ?? {};
+        const commands = openShell.commands ?? [];
+        const combined = commands.map((c) => `${c.stdout}\n${c.stderr}`).join('\n');
+        const usedBash = (meta.toolCalls ?? []).some((tool) => tool.name === 'bash');
+        const pass = usedBash
+          && openShell.sandboxName
+          && commands.some((command) => command.exitCode === 0)
+          && combined.includes('/sandbox/workspace/')
+          && combined.includes('Linux')
+          && !combined.includes('Darwin')
+          && combined.includes('created inside')
+          && combined.includes('OpenShell eval');
+        return {
+          pass,
+          score: pass ? 1 : 0,
+          reason: pass
+            ? `OpenShell proof passed in ${openShell.sandboxName}`
+            : `OpenShell proof failed. provider=${openShell.providerId}, sandbox=${openShell.sandboxName}, output=${combined.slice(0, 1200)}`,
+        };
+
+- description: "OpenShell eval case starts from a fresh sandbox/workspace"
+  vars:
+    scenario_prompt: |
+      Use only bash. Run this exact isolation script and summarize the result:
+
+      if test -f proof-from-openshell-eval.txt; then echo "STALE_PROOF=present"; cat proof-from-openshell-eval.txt; else echo "STALE_PROOF=missing"; fi
+      echo "isolation case at $PWD" > isolation-proof.txt
+      test -f isolation-proof.txt && echo "ISOLATION_PROOF=created" && cat isolation-proof.txt
+  assert:
+    - type: javascript
+      value: |
+        const meta = context.providerResponse?.metadata ?? {};
+        const openShell = meta.openShell ?? {};
+        const commands = openShell.commands ?? [];
+        const combined = commands.map((c) => `${c.stdout}\n${c.stderr}`).join('\n');
+        const usedBash = (meta.toolCalls ?? []).some((tool) => tool.name === 'bash');
+        const provedFresh = combined.includes('STALE_PROOF=missing');
+        const pass = usedBash
+          && openShell.sandboxName
+          && commands.some((command) => command.exitCode === 0)
+          && combined.includes('/sandbox/workspace/')
+          && combined.includes('ISOLATION_PROOF=created')
+          && provedFresh;
+        return {
+          pass,
+          score: pass ? 1 : 0,
+          reason: pass
+            ? `Fresh OpenShell case passed in ${openShell.sandboxName}`
+            : `Freshness check inconclusive. sandbox=${openShell.sandboxName}, output=${combined.slice(0, 1200)}`,
+        };

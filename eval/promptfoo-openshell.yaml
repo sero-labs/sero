@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
+description: "Sero OpenShell runtime eval suite"
+
+providers:
+  - id: file://./seroProvider.ts
+    label: "Sero OpenShell Local"
+    config:
+      timeout: 180000
+      openShellRuntime:
+        providerId: openshell-local
+        sandboxNamePrefix: sero-eval-local
+        retainSandboxes: failed
+
+  # Remote/cloud runs are designed to scale horizontally: each eval case gets a
+  # unique sandbox, so promptfoo can run providers/cases concurrently without
+  # sharing runtime state. Set SERO_EVAL_OPENSHELL_GATEWAY or fill gatewayName.
+  # - id: file://./seroProvider.ts
+  #   label: "Sero OpenShell Remote"
+  #   config:
+  #     timeout: 180000
+  #     openShellRuntime:
+  #       providerId: openshell-remote
+  #       gatewayName: your-remote-gateway
+  #       sandboxNamePrefix: sero-eval-remote
+  #       retainSandboxes: failed
+  # - id: file://./seroProvider.ts
+  #   label: "Sero OpenShell Cloud"
+  #   config:
+  #     timeout: 180000
+  #     openShellRuntime:
+  #       providerId: openshell-cloud
+  #       gatewayName: your-cloud-gateway
+  #       # cloudEndpoint: https://gateway.example.com
+  #       sandboxNamePrefix: sero-eval-cloud
+  #       retainSandboxes: failed
+  #       # gpuProfile is profile intent only until Phase 3 policy enforcement ships.
+  #       # gpuProfile: true
+
+prompts:
+  - "{{scenario_prompt}}"
+
+tests:
+  - file://./scenarios/openshell-runtime.yaml
+
+defaultTest:
+  options:
+    provider:
+      id: anthropic:messages:claude-sonnet-4-6

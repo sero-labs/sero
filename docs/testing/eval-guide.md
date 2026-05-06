@@ -11,16 +11,20 @@ pnpm eval:snapshot
 # Agent evals — requires ANTHROPIC_API_KEY (real LLM calls, ~2min)
 pnpm eval
 
+# OpenShell runtime evals — requires ANTHROPIC_API_KEY + OpenShell prerequisites
+pnpm eval:openshell
+
 # View results in browser
 pnpm eval:view
 
 # Or use the shell script directly
 ./eval/run.sh                    # Agent evals
 ./eval/run.sh snapshot           # Snapshot evals
+./eval/run.sh openshell          # OpenShell runtime evals
 ./eval/run.sh --filter-first-n 3 # First 3 agent tests only
 ```
 
-## Two Eval Modes
+## Eval Modes
 
 ### 1. Snapshot Evals (no LLM calls)
 
@@ -65,6 +69,16 @@ These assemble an approximation of the full Sero session prompt by calling the p
 - The provider applies env credentials as runtime overrides before falling back to `~/.sero-ui/agent/auth.json`
 - This prevents stale OAuth entries in `auth.json` from breaking evals that should use an API key
 
+### 3. OpenShell Runtime Evals (real LLM calls + OpenShell)
+
+**Config:** `eval/promptfoo-openshell.yaml`
+**Provider:** `eval/seroProvider.ts` with `openShellRuntime` enabled
+**Scenarios:** `eval/scenarios/openshell-runtime.yaml`
+
+These are the Phase 6 runtime evals. They run regular Sero agent prompts but expose only runtime-backed `bash`, create a fresh OpenShell sandbox per case, collect command/log metadata, and write replay/debug artifacts under `eval/output/openshell/`.
+
+**When to run:** After changing OpenShell runtime adapters, sync semantics, CLI command shapes, or multi-agent/eval orchestration. Requires `ANTHROPIC_API_KEY`, OpenShell CLI, and the selected local/remote/cloud gateway prerequisites.
+
 ## Current Risk Map
 
 Evals in Sero are meant to cover the parts of the system where a structured
@@ -76,6 +90,7 @@ to replace desktop unit tests, Playwright coverage, or clean-launch smoke.
 | Prompt block drift / cache invalidation | `pnpm eval:snapshot` | Snapshot evals assemble the real system prompt and verify block presence, order, and size |
 | Agent file-tool behavior | `pnpm eval` | Real LLM runs exercise `read` / `write` / `edit` in isolated temp workspaces |
 | Agent CLI behavior | `pnpm eval` | The eval harness checks that the agent prefers `sero-cli` for supported platform actions |
+| OpenShell runtime isolation | `pnpm eval:openshell` | Real LLM runs exercise `bash` inside a fresh OpenShell sandbox per case, with runtime metadata and failure artifacts |
 | Desktop launch / session wiring | desktop unit tests + Playwright | Better validated in repo tests than promptfoo |
 | Plugin/runtime bridge regressions | desktop unit tests + focused e2e | Better caught by package/unit/e2e coverage than generic eval prompts |
 | Container lifecycle / full-render UX | local Playwright runs | Environment-sensitive and intentionally outside promptfoo |
@@ -101,14 +116,17 @@ eval/
 ├── seroProvider.ts              # Agent provider (real LLM calls)
 ├── evalCli.ts                   # Eval-only sero-cli shim + temp workspace seeding
 ├── snapshotProvider.ts          # Snapshot provider (no LLM calls)
+├── openshellEvalRuntime.ts      # OpenShell eval sandbox/log/artifact runtime
 ├── setup.ts                     # Temp directory helpers
 ├── patch-drizzle.cjs            # Workaround for drizzle-orm async tx bug
 ├── run.sh                       # Convenience runner
 ├── promptfoo-snapshot.yaml      # Snapshot eval config
+├── promptfoo-openshell.yaml     # OpenShell runtime eval config
 ├── scenarios/
 │   ├── file-ops.yaml            # File operation scenarios
 │   ├── coding-tasks.yaml        # Code generation scenarios
 │   ├── cli-ops.yaml             # CLI tool usage scenarios
+│   ├── openshell-runtime.yaml   # OpenShell runtime proof/isolation scenarios
 │   └── prompt-stability.yaml    # Prompt caching stability scenarios
 ├── assertions/
 │   └── toolSequence.ts          # Reusable tool-sequence assertion
@@ -219,6 +237,7 @@ Add a test to `eval/scenarios/prompt-stability.yaml`:
 - `latencyMs` — wall-clock time for the agent run
 - `snapshot.systemPrompt` — the system prompt text
 - `snapshot.toolNames` — list of available tool names
+- `openShell` — present for `pnpm eval:openshell`; includes provider/gateway/sandbox names, runtime workspace path, command records, captured log lines, artifact path, and cleanup/retention state
 
 **Available metadata from the snapshot provider:**
 - `systemPrompt` — full assembled Sero prompt
@@ -239,6 +258,24 @@ Add a test to `eval/scenarios/prompt-stability.yaml`:
 **File-based assertion signature:** When using `value: file://...`, promptfoo calls `(output: string, context: { providerResponse, vars, ... })` — NOT a single input object. Always destructure `context.providerResponse?.metadata` for metadata access.
 
 **sero-cli tool args shape:** The sero-cli tool takes `{ command: string, timeout?: number }`. When checking tool call args in assertions, use `t.args?.command` to access the command string.
+
+## OpenShell Runtime Evals
+
+`pnpm eval:openshell` runs a separate promptfoo config that enables `openShellRuntime` in the normal Sero eval provider.
+
+Current behavior:
+- each promptfoo case gets a unique temp workspace and unique OpenShell sandbox name
+- only `bash` is exposed from the coding tool set; `read` / `write` / `edit` remain unavailable so evals do not silently fall back to the host filesystem
+- host files are uploaded before each `bash` command and downloaded afterward
+- logs and command records are included in `context.providerResponse.metadata.openShell`
+- per-run artifacts are written under `eval/output/openshell/<sandbox>/result.json`; failed runs also include `workspace-snapshot/`
+- failed sandboxes are retained by default for replay/debug, successful sandboxes are destroyed
+
+Remote/cloud scaling:
+- uncomment the remote/cloud providers in `eval/promptfoo-openshell.yaml`
+- set `gatewayName` in config or `SERO_EVAL_OPENSHELL_GATEWAY`
+- each case uses a fresh sandbox, so promptfoo can compare multiple gateway/model/provider configurations without sharing runtime state
+- `gpuProfile: true` records GPU profile intent only; it does not enforce OpenShell GPU policy until Sero's Phase 3 policy enforcement follow-up lands
 
 ## Viewing Results
 
