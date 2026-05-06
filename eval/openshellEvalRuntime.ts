@@ -76,7 +76,7 @@ export class OpenShellEvalRuntime {
   ) {
     this.providerId = resolveProviderId(config.providerId);
     this.gatewayName = resolveGatewayName(this.providerId, config.gatewayName);
-    this.sandboxName = buildSandboxName(config.sandboxNamePrefix, workspaceId);
+    this.sandboxName = buildSandboxName(resolveSandboxNamePrefix(config.sandboxNamePrefix), workspaceId);
     this.runtimeWorkspacePath = `/sandbox/workspace/${basename(workspacePath)}`;
   }
 
@@ -172,21 +172,29 @@ export class OpenShellEvalRuntime {
     if (this.providerId === 'openshell-local') {
       await assertOk(this.runWithoutGateway(['gateway', 'start', '--name', this.gatewayName], timeoutMs), 'start OpenShell eval gateway');
       await assertOk(this.runWithoutGateway(['gateway', 'select', this.gatewayName], timeoutMs), 'select OpenShell eval gateway');
-    } else if (this.providerId === 'openshell-remote' && this.config.sshHost) {
-      await assertOk(this.runWithoutGateway([
-        'gateway', 'start',
-        '--name', this.gatewayName,
-        '--remote', this.config.sshHost,
-        ...(this.config.sshKeyPath ? ['--ssh-key', this.config.sshKeyPath] : []),
-        '--port', String(this.config.gatewayPort ?? 18080),
-        ...(this.config.gatewayHost ? ['--gateway-host', this.config.gatewayHost] : []),
-      ], timeoutMs), 'start OpenShell eval remote gateway');
-      await assertOk(this.runWithoutGateway(['gateway', 'select', this.gatewayName], timeoutMs), 'select OpenShell eval remote gateway');
-    } else if (this.providerId === 'openshell-cloud' && this.config.cloudEndpoint) {
-      await assertOk(
-        this.runWithoutGateway(['gateway', 'add', this.config.cloudEndpoint, '--name', this.gatewayName], timeoutMs),
-        'register OpenShell eval cloud gateway',
-      );
+    } else if (this.providerId === 'openshell-remote') {
+      const sshHost = resolveString(this.config.sshHost, 'SERO_EVAL_OPENSHELL_SSH_HOST');
+      if (sshHost) {
+        const sshKeyPath = resolveString(this.config.sshKeyPath, 'SERO_EVAL_OPENSHELL_SSH_KEY');
+        const gatewayHost = resolveString(this.config.gatewayHost, 'SERO_EVAL_OPENSHELL_GATEWAY_HOST');
+        await assertOk(this.runWithoutGateway([
+          'gateway', 'start',
+          '--name', this.gatewayName,
+          '--remote', sshHost,
+          ...(sshKeyPath ? ['--ssh-key', sshKeyPath] : []),
+          '--port', String(resolveNumber(this.config.gatewayPort, 'SERO_EVAL_OPENSHELL_GATEWAY_PORT') ?? 18080),
+          ...(gatewayHost ? ['--gateway-host', gatewayHost] : []),
+        ], timeoutMs), 'start OpenShell eval remote gateway');
+        await assertOk(this.runWithoutGateway(['gateway', 'select', this.gatewayName], timeoutMs), 'select OpenShell eval remote gateway');
+      }
+    } else if (this.providerId === 'openshell-cloud') {
+      const cloudEndpoint = resolveString(this.config.cloudEndpoint, 'SERO_EVAL_OPENSHELL_CLOUD_ENDPOINT');
+      if (cloudEndpoint) {
+        await assertOk(
+          this.runWithoutGateway(['gateway', 'add', cloudEndpoint, '--name', this.gatewayName], timeoutMs),
+          'register OpenShell eval cloud gateway',
+        );
+      }
     }
 
     await assertOk(this.run(['status'], 10_000), 'check OpenShell eval gateway');
@@ -321,16 +329,32 @@ export function buildOpenShellEvalPromptBlock(config: OpenShellEvalRuntimeConfig
 }
 
 function resolveProviderId(providerId: OpenShellEvalRuntimeConfig['providerId']): OpenShellEvalProviderId {
-  const value = providerId ?? process.env.SERO_EVAL_OPENSHELL_PROVIDER ?? 'openshell-local';
+  const value = process.env.SERO_EVAL_OPENSHELL_PROVIDER ?? providerId ?? 'openshell-local';
   if (value === 'openshell-local' || value === 'openshell-remote' || value === 'openshell-cloud') return value;
   throw new Error(`Unsupported OpenShell eval provider: ${value}`);
 }
 
 function resolveGatewayName(providerId: OpenShellEvalProviderId, configuredGatewayName: string | undefined): string {
-  const gatewayName = configuredGatewayName ?? process.env.SERO_EVAL_OPENSHELL_GATEWAY;
+  const gatewayName = resolveString(configuredGatewayName, 'SERO_EVAL_OPENSHELL_GATEWAY');
   if (gatewayName) return gatewayName;
   if (providerId === 'openshell-local') return 'sero-local';
   throw new Error(`OpenShell eval provider ${providerId} requires config.gatewayName or SERO_EVAL_OPENSHELL_GATEWAY.`);
+}
+
+function resolveSandboxNamePrefix(configuredPrefix: string | undefined): string | undefined {
+  return resolveString(configuredPrefix, 'SERO_EVAL_OPENSHELL_SANDBOX_PREFIX');
+}
+
+function resolveString(configuredValue: string | undefined, envName: string): string | undefined {
+  return process.env[envName]?.trim() || configuredValue;
+}
+
+function resolveNumber(configuredValue: number | undefined, envName: string): number | undefined {
+  const value = process.env[envName]?.trim();
+  if (!value) return configuredValue;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) throw new Error(`${envName} must be a number.`);
+  return parsed;
 }
 
 function buildSandboxName(prefix: string | undefined, workspaceId: string): string {

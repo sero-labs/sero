@@ -286,10 +286,32 @@ node eval/openshell-summary.mjs --format csv --out eval/output/openshell-summary
 ```
 This reads `eval/output/openshell/**/result.json` and writes a small summary with sandbox, provider, pass/fail, command counts, durations, and artifact paths.
 
-Remote/cloud scaling:
-- uncomment the remote/cloud providers in `eval/promptfoo-openshell.yaml`
-- set `gatewayName` in config or `SERO_EVAL_OPENSHELL_GATEWAY`
-- for SSH machines such as GCP VMs, optionally set `sshHost`, `sshKeyPath`, `gatewayHost`, and `gatewayPort` so evals can start/select the OpenShell remote gateway before running cases
+Runtime selection without editing YAML:
+```bash
+# Default: local Docker OpenShell
+pnpm eval:openshell
+
+# Existing GCP remote gateway
+SERO_EVAL_OPENSHELL_PROVIDER=openshell-remote \
+SERO_EVAL_OPENSHELL_GATEWAY=sero-remote-gcp \
+SERO_EVAL_OPENSHELL_SANDBOX_PREFIX=sero-eval-gcp \
+pnpm eval:openshell
+
+# Start/select a remote SSH gateway before the eval, then run it
+SERO_EVAL_OPENSHELL_PROVIDER=openshell-remote \
+SERO_EVAL_OPENSHELL_GATEWAY=sero-remote-gcp \
+SERO_EVAL_OPENSHELL_SSH_HOST=danielcarter@34.10.53.187 \
+SERO_EVAL_OPENSHELL_SSH_KEY=/Users/danielcarter/.ssh/google_compute_engine \
+SERO_EVAL_OPENSHELL_GATEWAY_HOST=34.10.53.187 \
+SERO_EVAL_OPENSHELL_GATEWAY_PORT=18080 \
+SERO_EVAL_OPENSHELL_SANDBOX_PREFIX=sero-eval-gcp \
+pnpm eval:openshell
+```
+
+Remote/cloud scaling notes:
+- `SERO_EVAL_OPENSHELL_PROVIDER` can be `openshell-local`, `openshell-remote`, or `openshell-cloud`
+- `SERO_EVAL_OPENSHELL_GATEWAY` selects the OpenShell gateway name
+- for SSH machines such as GCP VMs, optionally set `SERO_EVAL_OPENSHELL_SSH_HOST`, `SERO_EVAL_OPENSHELL_SSH_KEY`, `SERO_EVAL_OPENSHELL_GATEWAY_HOST`, and `SERO_EVAL_OPENSHELL_GATEWAY_PORT` so evals can start/select the OpenShell remote gateway before running cases
 - each case uses a fresh sandbox, so promptfoo can compare multiple gateway/model/provider configurations without sharing runtime state
 - `gpuProfile: true` records GPU profile intent only; it does not enforce OpenShell GPU policy until Sero's Phase 3 policy enforcement follow-up lands
 

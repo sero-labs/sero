@@ -3,43 +3,23 @@ description: "Sero OpenShell runtime eval suite"
 
 providers:
   - id: file://./seroProvider.ts
-    label: "Sero OpenShell Local"
+    label: "Sero OpenShell"
     config:
       timeout: 180000
       openShellRuntime:
-        providerId: openshell-local
-        sandboxNamePrefix: sero-eval-local
+        # Defaults to OpenShell Local. Override with environment variables for
+        # remote/cloud runs without editing this file:
+        #   SERO_EVAL_OPENSHELL_PROVIDER=openshell-remote
+        #   SERO_EVAL_OPENSHELL_GATEWAY=sero-remote-gcp
+        #   SERO_EVAL_OPENSHELL_SANDBOX_PREFIX=sero-eval-gcp
+        # Optional remote auto-start settings:
+        #   SERO_EVAL_OPENSHELL_SSH_HOST=user@host
+        #   SERO_EVAL_OPENSHELL_SSH_KEY=/path/to/private-key
+        #   SERO_EVAL_OPENSHELL_GATEWAY_HOST=public-host-or-ip
+        #   SERO_EVAL_OPENSHELL_GATEWAY_PORT=18080
+        # Optional cloud auto-register setting:
+        #   SERO_EVAL_OPENSHELL_CLOUD_ENDPOINT=https://gateway.example.com
         retainSandboxes: failed
-
-  # Remote/cloud runs are designed to scale horizontally: each eval case gets a
-  # unique sandbox, so promptfoo can run providers/cases concurrently without
-  # sharing runtime state. Set SERO_EVAL_OPENSHELL_GATEWAY or fill gatewayName.
-  # - id: file://./seroProvider.ts
-  #   label: "Sero OpenShell Remote"
-  #   config:
-  #     timeout: 180000
-  #     openShellRuntime:
-  #       providerId: openshell-remote
-  #       gatewayName: your-remote-gateway
-  #       # Optional: start/select the remote gateway from evals instead of pre-starting it.
-  #       # sshHost: user@your-gcp-host
-  #       # sshKeyPath: /path/to/private-key
-  #       # gatewayPort is the OpenShell gateway port on the remote machine, not the SSH port.
-  #       # gatewayPort: 18080
-  #       sandboxNamePrefix: sero-eval-remote
-  #       retainSandboxes: failed
-  # - id: file://./seroProvider.ts
-  #   label: "Sero OpenShell Cloud"
-  #   config:
-  #     timeout: 180000
-  #     openShellRuntime:
-  #       providerId: openshell-cloud
-  #       gatewayName: your-cloud-gateway
-  #       # cloudEndpoint: https://gateway.example.com
-  #       sandboxNamePrefix: sero-eval-cloud
-  #       retainSandboxes: failed
-  #       # gpuProfile is profile intent only until Phase 3 policy enforcement ships.
-  #       # gpuProfile: true
 
 prompts:
   - "{{scenario_prompt}}"
