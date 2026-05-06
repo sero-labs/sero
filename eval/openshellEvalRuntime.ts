@@ -10,6 +10,10 @@ type RetainSandboxMode = boolean | 'always' | 'failed';
 export interface OpenShellEvalRuntimeConfig {
   providerId?: OpenShellEvalProviderId;
   gatewayName?: string;
+  sshHost?: string;
+  sshKeyPath?: string;
+  sshPort?: number;
+  gatewayHost?: string;
   cloudEndpoint?: string;
   timeoutMs?: number;
   sandboxNamePrefix?: string;
@@ -168,6 +172,16 @@ export class OpenShellEvalRuntime {
     if (this.providerId === 'openshell-local') {
       await assertOk(this.runWithoutGateway(['gateway', 'start', '--name', this.gatewayName], timeoutMs), 'start OpenShell eval gateway');
       await assertOk(this.runWithoutGateway(['gateway', 'select', this.gatewayName], timeoutMs), 'select OpenShell eval gateway');
+    } else if (this.providerId === 'openshell-remote' && this.config.sshHost) {
+      await assertOk(this.runWithoutGateway([
+        'gateway', 'start',
+        '--name', this.gatewayName,
+        '--remote', this.config.sshHost,
+        ...(this.config.sshKeyPath ? ['--ssh-key', this.config.sshKeyPath] : []),
+        '--port', String(this.config.sshPort ?? 22),
+        ...(this.config.gatewayHost ? ['--gateway-host', this.config.gatewayHost] : []),
+      ], timeoutMs), 'start OpenShell eval remote gateway');
+      await assertOk(this.runWithoutGateway(['gateway', 'select', this.gatewayName], timeoutMs), 'select OpenShell eval remote gateway');
     } else if (this.providerId === 'openshell-cloud' && this.config.cloudEndpoint) {
       await assertOk(
         this.runWithoutGateway(['gateway', 'add', this.config.cloudEndpoint, '--name', this.gatewayName], timeoutMs),

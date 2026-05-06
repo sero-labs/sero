@@ -21,6 +21,10 @@ providers:
   #     openShellRuntime:
   #       providerId: openshell-remote
   #       gatewayName: your-remote-gateway
+  #       # Optional: start/select the remote gateway from evals instead of pre-starting it.
+  #       # sshHost: user@your-gcp-host
+  #       # sshKeyPath: /path/to/private-key
+  #       # sshPort: 22
   #       sandboxNamePrefix: sero-eval-remote
   #       retainSandboxes: failed
   # - id: file://./seroProvider.ts

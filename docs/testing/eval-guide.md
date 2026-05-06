@@ -289,6 +289,7 @@ This reads `eval/output/openshell/**/result.json` and writes a small summary wit
 Remote/cloud scaling:
 - uncomment the remote/cloud providers in `eval/promptfoo-openshell.yaml`
 - set `gatewayName` in config or `SERO_EVAL_OPENSHELL_GATEWAY`
+- for SSH machines such as GCP VMs, optionally set `sshHost`, `sshKeyPath`, and `sshPort` so evals can start/select the OpenShell remote gateway before running cases
 - each case uses a fresh sandbox, so promptfoo can compare multiple gateway/model/provider configurations without sharing runtime state
 - `gpuProfile: true` records GPU profile intent only; it does not enforce OpenShell GPU policy until Sero's Phase 3 policy enforcement follow-up lands
 
