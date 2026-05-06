@@ -279,6 +279,13 @@ Replay/debug retained failures:
 ```
 Use `show` first to confirm the sandbox was retained. `exec` runs a one-off command in the retained OpenShell sandbox using the gateway/workdir saved in `result.json`.
 
+Simple result export:
+```bash
+node eval/openshell-summary.mjs
+node eval/openshell-summary.mjs --format csv --out eval/output/openshell-summary.csv
+```
+This reads `eval/output/openshell/**/result.json` and writes a small summary with sandbox, provider, pass/fail, command counts, durations, and artifact paths.
+
 Remote/cloud scaling:
 - uncomment the remote/cloud providers in `eval/promptfoo-openshell.yaml`
 - set `gatewayName` in config or `SERO_EVAL_OPENSHELL_GATEWAY`

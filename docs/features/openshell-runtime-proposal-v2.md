@@ -470,8 +470,11 @@ Use OpenShell as an isolated, reproducible runtime for Sero evals and parallel a
 Remaining before Phase 6 can be marked complete:
 
 - Prove remote and cloud promptfoo providers can run in parallel against reachable gateways.
-- Decide whether eval result export should stay promptfoo-native or add a Sero-specific summary exporter.
 - Add any GPU-profile smoke once OpenShell policy/resource enforcement is available.
+
+Completed follow-ups:
+
+- Simple result export is available via `node eval/openshell-summary.mjs` or `node eval/openshell-summary.mjs --format csv --out eval/output/openshell-summary.csv`.
 
 ## Phase 5 manual smoke checklist
 
