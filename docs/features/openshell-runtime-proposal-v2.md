@@ -432,6 +432,85 @@ Limitations:
 - Phase 5 does not add browser automation, interactive PTY terminals, or runtime-backed `read`, `write`, and `edit` for OpenShell runtimes.
 - Plugins and background runtimes see Sero runtime capabilities only; raw cloud/OpenShell APIs are not exposed to plugins.
 
+## Phase 5.5 — OpenShell file-tool parity
+
+### Why this phase exists
+
+The original OpenShell runtime plan was about making Sero platform-agnostic, not just proving that `bash` can run somewhere other than a macOS container. The current implementation intentionally blocks OpenShell `read`, `write`, and `edit` to avoid silently using the Mac host filesystem. That was the correct fail-closed Phase 2.5 choice, but it is not product parity.
+
+For OpenShell to be a credible replacement for Apple/macOS containers in normal Sero workspaces, the standard agent file tools must operate against the selected OpenShell sandbox.
+
+### Goal
+
+Make OpenShell Local, Remote, and Cloud workspaces support normal Sero agent file operations with no host fallback:
+
+```text
+read  -> reads from the OpenShell sandbox workspace
+write -> writes into the OpenShell sandbox workspace
+edit  -> edits inside the OpenShell sandbox workspace
+```
+
+### Responsibilities
+
+- Extend the runtime facade with file operations, not just command execution:
+  - `readFile` or equivalent runtime-backed read primitive,
+  - `writeFile` or equivalent runtime-backed write primitive,
+  - enough metadata to preserve tool output details and diagnostics.
+- Implement OpenShell-backed `read`, `write`, and `edit` tools for:
+  - `openshell-local`,
+  - `openshell-remote`,
+  - `openshell-cloud`.
+- Keep file tools fail-closed:
+  - never read from or write to the macOS host when an OpenShell runtime is selected,
+  - surface actionable OpenShell/runtime errors instead.
+- Preserve Sero's existing tool semantics as closely as practical:
+  - `read` supports text truncation with `offset`/`limit`,
+  - `read` supports image attachments or explicitly documents any temporary image limitation,
+  - `write` creates parent directories and overwrites files,
+  - `edit` requires a unique exact old-text match and returns diff details,
+  - protected Sero memory file guards still apply.
+- Define and test source-of-truth behavior:
+  - host workspace remains the persisted copy between tool calls,
+  - sandbox workspace is authoritative during OpenShell file tool execution,
+  - successful mutating tools pull changes back to host,
+  - failed mutating tools do not hide partial sandbox state.
+- Add automated coverage for tool routing and semantics across OpenShell providers.
+- Add manual smoke coverage using the GCP OpenShell Remote gateway, because it proves the path is not macOS-container-specific.
+
+### Suggested v1 implementation approach
+
+Use OpenShell CLI operations first, matching the current runtime strategy:
+
+- `read` can ensure the sandbox exists, push host -> sandbox, then use `openshell sandbox exec` with safe shell/Python helpers to inspect the runtime file.
+- `write` can ensure the sandbox exists, push host -> sandbox, write inside the sandbox using stdin/base64 or upload-to-temp + move, then pull sandbox -> host.
+- `edit` can ensure the sandbox exists, push host -> sandbox, run the existing exact-match edit algorithm inside the sandbox or reuse shared edit helpers against runtime-fetched content, then pull sandbox -> host.
+
+Do not introduce hidden bidirectional sync or file watchers in this phase. Keep the same explicit push/execute/pull model until conflict handling is designed.
+
+### Acceptance criteria
+
+- In an OpenShell Local workspace, agent `read`, `write`, and `edit` operate on `/sandbox/workspace/<basename>` and sync successful changes back to the host workspace.
+- In an OpenShell Remote workspace, the same tools operate on the remote sandbox, not the Mac host. Validate against the GCP gateway `sero-remote-gcp` or an equivalent remote Linux gateway.
+- OpenShell Cloud follows the same file-tool code path once a hosted gateway is available; if cloud is unavailable, tests must cover routing/failure behavior with mocks.
+- A `read` proof can distinguish sandbox content from stale host-only content.
+- A `write` proof creates a file in the sandbox and the file appears in the host workspace after pullback.
+- An `edit` proof performs a unique exact replacement in the sandbox and returns diff metadata.
+- Attempts to access protected Sero memory files are still blocked for `read`, `write`, `edit`, and `bash`.
+- No OpenShell file tool falls back to host file APIs.
+- Runtime diagnostics/tool output identify the selected OpenShell provider when file operations fail.
+
+### Explicit non-goals
+
+- No interactive OpenShell PTY terminal parity.
+- No browser automation parity.
+- No policy enforcement compiler.
+- No hidden bidirectional file watcher or conflict resolver.
+- No gRPC rewrite unless the CLI proves insufficient for file-tool semantics.
+
+### Current status
+
+**Not started.** Current Sero OpenShell workspaces expose runtime-backed `bash`, logs, previews, and sync around `bash`, but `read`, `write`, and `edit` are blocked intentionally. This phase is now the top product-parity blocker.
+
 ## Phase 6 — Evals and multi-agent scaling
 
 ### Goal
@@ -503,14 +582,23 @@ echo "created inside $(uname -s) at $(pwd) via OpenShell Cloud" > proof-from-ope
 
 ## Immediate next implementation issue
 
-**Follow-up for Phase 3 enforcement.**
+**OpenShell file-tool parity.**
+
+The next product-facing blocker is not another eval path; it is making OpenShell workspaces behave like normal Sero workspaces for agent file operations. Implement Phase 5.5 before treating OpenShell as Apple/macOS-container parity.
 
 Recommended next tasks:
 
-1. Validate OpenShell policy YAML templates for each Sero profile against the installed CLI/API.
-2. Add a deliberately tested apply path for `policy set/update` or `sandbox create --policy`.
-3. Decide the sandbox recreation workflow for static filesystem/process/resource changes.
-4. Add enforcement-specific smoke tests before changing Phase 3 from preview/intent-only to complete enforcement.
+1. Extend `WorkspaceRuntimeFacade` with runtime-backed file primitives or an equivalent file-tool execution abstraction.
+2. Replace the current OpenShell blocked `read`, `write`, and `edit` tool definitions with OpenShell-backed implementations.
+3. Preserve current Sero tool semantics: truncation, image handling or an explicit temporary image limitation, exact edit matching, diff details, and protected memory guards.
+4. Add unit tests for Local/Remote/Cloud routing that prove file tools never call host-backed file APIs for OpenShell providers.
+5. Add manual smoke tests for OpenShell Local and the GCP OpenShell Remote gateway.
+
+Deferred follow-ups:
+
+- Phase 3 policy enforcement remains important, but it is no longer the immediate parity blocker.
+- Hosted OpenShell Cloud eval proof is postponed until a real hosted gateway is available.
+- GPU smoke is postponed until a GPU-capable OpenShell backend is confirmed.
 
 ## Completion rule
 
