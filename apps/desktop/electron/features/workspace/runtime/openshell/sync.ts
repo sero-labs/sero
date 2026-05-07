@@ -8,8 +8,8 @@ import { getOpenShellRuntimeWorkspacePath } from './path';
  * - During runtime bash, /sandbox/workspace/<basename> is authoritative.
  * - After runtime bash, download sandbox -> host so the host is current again.
  *
- * Do not route OpenShell read/write/edit to host tools; keep them blocked until
- * first-class runtime-backed file operations exist.
+ * OpenShell read/write/edit must also use runtime-backed operations; never route
+ * them to host file APIs because that would bypass the selected sandbox.
  */
 export interface OpenShellWorkspaceSyncInput {
   gatewayName: string;

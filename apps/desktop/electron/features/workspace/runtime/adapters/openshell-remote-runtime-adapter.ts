@@ -31,8 +31,8 @@ const DEFAULT_TIMEOUT_MS = 120_000;
 export const OPENSHELL_REMOTE_CAPABILITIES: RuntimeCapabilities = {
   exec: true,
   interactiveTerminal: false,
-  directFileRead: false,
-  directFileWrite: false,
+  directFileRead: true,
+  directFileWrite: true,
   fileUpload: true,
   fileDownload: true,
   managedDevServers: true,

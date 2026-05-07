@@ -62,7 +62,7 @@ describe('createRuntimeCodingTools', () => {
     expect(containerTools).not.toHaveBeenCalled();
   });
 
-  it('returns runtime bash plus blocked file tools and sero-cli for OpenShell Local runtime', async () => {
+  it('returns runtime bash plus sandbox file tools and sero-cli for OpenShell Local runtime', async () => {
     const containerTools = vi.fn(() => [makeTool('container-only')]);
     const hostTools = vi.fn(() => [
       makeTool('bash'),
@@ -109,21 +109,26 @@ describe('createRuntimeCodingTools', () => {
     });
     expect(runtimeExec).toHaveBeenCalledWith('uname -s', { cwd: '/tmp/ws', timeoutMs: 5000 });
 
-    for (const toolName of ['read', 'write', 'edit']) {
-      const tool = tools.find((candidate) => candidate.name === toolName);
-      await expect(
-        tool?.execute(
-          `tool-${toolName}`,
-          {},
-          undefined,
-          undefined,
-          createMockExtensionContext(),
-        ),
-      ).rejects.toThrow(/OpenShell Local.*host-backed.*bash/s);
-    }
+    const read = tools.find((tool) => tool.name === 'read');
+    runtimeExec
+      .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 })
+      .mockResolvedValueOnce({ stdout: 'hello from sandbox', stderr: '', exitCode: 0 });
+    await expect(
+      read?.execute(
+        'tool-read',
+        { path: 'note.txt' },
+        undefined,
+        undefined,
+        createMockExtensionContext(),
+      ),
+    ).resolves.toMatchObject({
+      content: [{ type: 'text', text: 'hello from sandbox' }],
+      details: { path: '/sandbox/workspace/ws/note.txt', providerId: 'openshell-local' },
+    });
+    expect(hostTools).not.toHaveBeenCalled();
   });
 
-  it('returns runtime bash plus Remote-specific blocked file tools for OpenShell Remote runtime', async () => {
+  it('returns runtime bash plus Remote-specific sandbox file tools for OpenShell Remote runtime', async () => {
     const containerTools = vi.fn(() => [makeTool('container-only')]);
     const hostTools = vi.fn(() => [makeTool('host-only')]);
     const cliTool = vi.fn(() => makeTool('sero-cli'));
@@ -164,21 +169,24 @@ describe('createRuntimeCodingTools', () => {
     });
     expect(runtimeExec).toHaveBeenCalledWith('uname -s', { cwd: '/tmp/ws', timeoutMs: 5000 });
 
-    for (const toolName of ['read', 'write', 'edit']) {
-      const tool = tools.find((candidate) => candidate.name === toolName);
-      await expect(
-        tool?.execute(
-          `tool-${toolName}`,
-          {},
-          undefined,
-          undefined,
-          createMockExtensionContext(),
-        ),
-      ).rejects.toThrow(/OpenShell Remote.*host-backed.*bash/s);
-    }
+    const write = tools.find((tool) => tool.name === 'write');
+    runtimeExec.mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 });
+    await expect(
+      write?.execute(
+        'tool-write',
+        { path: 'remote.txt', content: 'written remotely' },
+        undefined,
+        undefined,
+        createMockExtensionContext(),
+      ),
+    ).resolves.toMatchObject({
+      content: [{ type: 'text', text: 'Successfully wrote 16 bytes to remote.txt' }],
+      details: { path: '/sandbox/workspace/ws/remote.txt', providerId: 'openshell-remote' },
+    });
+    expect(hostTools).not.toHaveBeenCalled();
   });
 
-  it('returns runtime bash plus Cloud-specific blocked file tools for OpenShell Cloud runtime', async () => {
+  it('returns runtime bash plus Cloud-specific sandbox file tools for OpenShell Cloud runtime', async () => {
     const containerTools = vi.fn(() => [makeTool('container-only')]);
     const hostTools = vi.fn(() => [makeTool('host-only')]);
     const cliTool = vi.fn(() => makeTool('sero-cli'));
@@ -212,18 +220,80 @@ describe('createRuntimeCodingTools', () => {
     ).rejects.toThrow(/OpenShell Cloud runtime command failed.*cloud gateway unavailable.*Command exited with code 1/s);
     expect(runtimeExec).toHaveBeenCalledWith('uname -s', { cwd: '/tmp/ws', timeoutMs: 5000 });
 
-    for (const toolName of ['read', 'write', 'edit']) {
-      const tool = tools.find((candidate) => candidate.name === toolName);
-      await expect(
-        tool?.execute(
-          `tool-${toolName}`,
-          {},
-          undefined,
-          undefined,
-          createMockExtensionContext(),
-        ),
-      ).rejects.toThrow(/OpenShell Cloud.*host-backed.*bash/s);
-    }
+    const read = tools.find((tool) => tool.name === 'read');
+    await expect(
+      read?.execute(
+        'tool-read-cloud',
+        { path: 'cloud.txt' },
+        undefined,
+        undefined,
+        createMockExtensionContext(),
+      ),
+    ).rejects.toThrow(/OpenShell Cloud runtime failed to read file magic bytes.*cloud gateway unavailable/s);
+    expect(hostTools).not.toHaveBeenCalled();
+  });
+
+  it('edits unique text in an OpenShell sandbox and returns diff metadata', async () => {
+    const runtime = createRuntime('openshell-local');
+    const runtimeExec = vi.fn()
+      .mockResolvedValueOnce({ stdout: 'alpha\nbeta\ngamma\n', stderr: '', exitCode: 0 })
+      .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 });
+    runtime.exec = runtimeExec;
+
+    const tools = createRuntimeCodingTools(runtime, {
+      sessionId: 'session-openshell',
+      deps: {
+        containerManager: createContainerManager(),
+        createContainerTools: vi.fn(() => []),
+        createHostCodingTools: vi.fn(() => [makeTool('host-only')]),
+        createWorkspaceCliTool: vi.fn(() => makeTool('sero-cli')),
+      },
+    });
+
+    const edit = tools.find((tool) => tool.name === 'edit');
+    await expect(
+      edit?.execute(
+        'tool-edit',
+        { path: 'file.txt', oldText: 'beta', newText: 'BETA' },
+        undefined,
+        undefined,
+        createMockExtensionContext(),
+      ),
+    ).resolves.toMatchObject({
+      content: [{ type: 'text', text: 'Successfully replaced text in file.txt.' }],
+      details: {
+        path: '/sandbox/workspace/ws/file.txt',
+        providerId: 'openshell-local',
+        firstChangedLine: 2,
+      },
+    });
+    expect(runtimeExec).toHaveBeenCalledTimes(2);
+  });
+
+  it('blocks protected memory access for OpenShell file tools before runtime execution', async () => {
+    const runtime = createRuntime('openshell-local');
+    const runtimeExec = vi.fn(async () => ({ stdout: '', stderr: '', exitCode: 0 }));
+    runtime.exec = runtimeExec;
+    const tools = createRuntimeCodingTools(runtime, {
+      sessionId: 'session-openshell',
+      deps: {
+        containerManager: createContainerManager(),
+        createContainerTools: vi.fn(() => []),
+        createHostCodingTools: vi.fn(() => [makeTool('host-only')]),
+        createWorkspaceCliTool: vi.fn(() => makeTool('sero-cli')),
+      },
+    });
+    const read = tools.find((tool) => tool.name === 'read');
+    await expect(
+      read?.execute(
+        'tool-read-protected',
+        { path: `${process.env.SERO_HOME || `${process.env.HOME}/.sero-ui`}/workspaces/global/MEMORY.md` },
+        undefined,
+        undefined,
+        createMockExtensionContext(),
+      ),
+    ).rejects.toThrow(/managed Sero memory files is blocked/);
+    expect(runtimeExec).not.toHaveBeenCalled();
   });
 
   it('mentions OpenShell Local and exit code when runtime bash exits non-zero', async () => {

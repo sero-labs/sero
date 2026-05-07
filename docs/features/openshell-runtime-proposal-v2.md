@@ -509,7 +509,16 @@ Do not introduce hidden bidirectional sync or file watchers in this phase. Keep 
 
 ### Current status
 
-**Not started.** Current Sero OpenShell workspaces expose runtime-backed `bash`, logs, previews, and sync around `bash`, but `read`, `write`, and `edit` are blocked intentionally. This phase is now the top product-parity blocker.
+**In progress.** Sero now routes OpenShell `read`, `write`, and `edit` through runtime-backed sandbox execution instead of blocked host-backed tools. The first implementation uses the existing explicit OpenShell sync loop via runtime `exec`: tools operate under `/sandbox/workspace/<basename>`, mutating commands are pulled back to the host workspace after success, and host file APIs are not used by the OpenShell file-tool implementations. Automated coverage exists for Local/Remote/Cloud routing, failure behavior, protected memory guards, and edit diff metadata. Manual OpenShell Local and GCP Remote smoke testing is still required before this phase can be marked complete.
+
+Manual smoke instructions:
+
+1. Create or open an OpenShell Local workspace and run `bash` proof commands to confirm `PWD` is under `/sandbox/workspace/<basename>` and `uname -s` is Linux.
+2. Use agent `write` to create `openshell-file-parity.txt` with provider-specific content. Confirm the file appears in the host workspace after the tool returns.
+3. Use agent `read` on that file and confirm the returned content matches the sandbox write.
+4. Use agent `edit` to replace a unique phrase in that file. Confirm the tool returns diff metadata and the host file contains the edited content after sync.
+5. Repeat steps 1-4 in an OpenShell Remote workspace using the GCP gateway `sero-remote-gcp`.
+6. Attempt `read`, `write`, and `edit` against protected managed memory paths such as `$SERO_HOME/workspaces/global/MEMORY.md`; each must be blocked before runtime execution.
 
 ## Phase 6 — Evals and multi-agent scaling
 
