@@ -534,27 +534,27 @@ Use OpenShell as an isolated, reproducible runtime for Sero evals and parallel a
 
 ### Current status
 
-**Started; not complete.** Initial eval harness support exists for an experimental OpenShell runtime promptfoo suite:
+**Complete for the local + SSH remote OpenShell eval scaling scope.** The intentionally deferred cloud/GPU items below are not required for this completion status because they depend on external hosted/GPU infrastructure that is not currently available.
+
+Implemented and accepted:
 
 - `pnpm eval:openshell` / `./eval/run.sh openshell` run `eval/promptfoo-openshell.yaml`.
+- Runtime selection can be controlled without editing YAML through `SERO_EVAL_OPENSHELL_PROVIDER`, `SERO_EVAL_OPENSHELL_GATEWAY`, and related remote/cloud environment variables.
 - Each eval case creates a unique temp workspace and unique OpenShell sandbox name.
-- OpenShell eval mode exposes runtime-backed `bash` only; `read`, `write`, and `edit` are intentionally unavailable so evals do not silently fall back to the host filesystem.
+- OpenShell eval mode exposes runtime-backed `bash` only; `read`, `write`, and `edit` are intentionally unavailable so evals do not silently fall back to the host filesystem. Runtime-backed file tools are now owned by Phase 5.5.
 - Host workspace files are uploaded before each `bash` command and downloaded afterward, matching the current OpenShell runtime source-of-truth model.
 - Command records, sandbox metadata, and captured log lines are attached to promptfoo metadata under `openShell`.
 - Per-run artifacts are written under `eval/output/openshell/<sandbox>/result.json`; failed runs also persist a `workspace-snapshot/` and retain the failed sandbox by default.
-- The config includes commented remote/cloud providers so multiple OpenShell gateway/model configurations can be compared with fresh sandboxes per case.
-- `gpuProfile: true` is metadata/profile intent only until Phase 3 policy enforcement exists.
+- Replay/debug support is available through `./eval/openshell-replay.sh list|show|exec`.
+- Simple result export is available via `node eval/openshell-summary.mjs` or `node eval/openshell-summary.mjs --format csv --out eval/output/openshell-summary.csv`.
 - The OpenShell Local eval suite passed manually after the harness exposed the OpenShell-backed `bash` tool correctly and the proof assertion was aligned with the command output.
 - The OpenShell Remote eval suite passed manually against the GCP SSH gateway `sero-remote-gcp` at static IP `34.10.53.187`. The proof commands reported Linux/GCP sandbox signals under `/sandbox/workspace/<basename>`, and the isolation case used a separate fresh sandbox.
 
-Remaining before Phase 6 can be marked complete:
+Explicit Phase 6 non-goals / deferred follow-ups:
 
-- Prove the cloud promptfoo provider against a hosted OpenShell gateway, if/when one is available.
-- Add any GPU-profile smoke once OpenShell policy/resource enforcement is available and a GPU-capable OpenShell backend is confirmed.
-
-Completed follow-ups:
-
-- Simple result export is available via `node eval/openshell-summary.mjs` or `node eval/openshell-summary.mjs --format csv --out eval/output/openshell-summary.csv`.
+- Hosted OpenShell Cloud eval proof is postponed until a real hosted OpenShell gateway is available.
+- GPU-profile smoke is postponed until a GPU-capable OpenShell backend is confirmed.
+- Runtime-backed eval `read`, `write`, and `edit` are postponed to Phase 5.5 so Sero product parity is fixed before expanding eval coverage.
 
 ## Phase 5 manual smoke checklist
 
