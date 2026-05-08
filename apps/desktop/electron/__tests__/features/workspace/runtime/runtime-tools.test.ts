@@ -111,6 +111,7 @@ describe('createRuntimeCodingTools', () => {
 
     const read = tools.find((tool) => tool.name === 'read');
     runtimeExec
+      .mockResolvedValueOnce({ stdout: '/sandbox/workspace/ws/note.txt', stderr: '', exitCode: 0 })
       .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 })
       .mockResolvedValueOnce({ stdout: 'hello from sandbox', stderr: '', exitCode: 0 });
     await expect(
@@ -123,7 +124,7 @@ describe('createRuntimeCodingTools', () => {
       ),
     ).resolves.toMatchObject({
       content: [{ type: 'text', text: 'hello from sandbox' }],
-      details: { path: '/sandbox/workspace/ws/note.txt', providerId: 'openshell-local' },
+      details: { path: '/sandbox/workspace/ws/note.txt' },
     });
     expect(hostTools).not.toHaveBeenCalled();
   });
@@ -181,7 +182,7 @@ describe('createRuntimeCodingTools', () => {
       ),
     ).resolves.toMatchObject({
       content: [{ type: 'text', text: 'Successfully wrote 16 bytes to remote.txt' }],
-      details: { path: '/sandbox/workspace/ws/remote.txt', providerId: 'openshell-remote' },
+      details: { path: '/sandbox/workspace/ws/remote.txt' },
     });
     expect(hostTools).not.toHaveBeenCalled();
   });
@@ -229,13 +230,14 @@ describe('createRuntimeCodingTools', () => {
         undefined,
         createMockExtensionContext(),
       ),
-    ).rejects.toThrow(/OpenShell Cloud runtime failed to read file magic bytes.*cloud gateway unavailable/s);
+    ).rejects.toThrow(/Error reading cloud.txt: cloud gateway unavailable/s);
     expect(hostTools).not.toHaveBeenCalled();
   });
 
   it('edits unique text in an OpenShell sandbox and returns diff metadata', async () => {
     const runtime = createRuntime('openshell-local');
     const runtimeExec = vi.fn()
+      .mockResolvedValueOnce({ stdout: '/sandbox/workspace/ws/file.txt', stderr: '', exitCode: 0 })
       .mockResolvedValueOnce({ stdout: 'alpha\nbeta\ngamma\n', stderr: '', exitCode: 0 })
       .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 });
     runtime.exec = runtimeExec;
@@ -263,11 +265,10 @@ describe('createRuntimeCodingTools', () => {
       content: [{ type: 'text', text: 'Successfully replaced text in file.txt.' }],
       details: {
         path: '/sandbox/workspace/ws/file.txt',
-        providerId: 'openshell-local',
         firstChangedLine: 2,
       },
     });
-    expect(runtimeExec).toHaveBeenCalledTimes(2);
+    expect(runtimeExec).toHaveBeenCalledTimes(3);
   });
 
   it('blocks protected memory access for OpenShell file tools before runtime execution', async () => {

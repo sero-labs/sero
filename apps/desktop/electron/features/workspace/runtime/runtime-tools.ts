@@ -7,15 +7,16 @@ import {
   createContainerTools,
   createHostCodingTools,
 } from '@electron/features/container/tools';
+import { createEdit, createRead, createWrite } from '@electron/features/container/tools/tools-coding';
 import { BashParams } from '@electron/features/container/tools/tool-schemas';
 import { commandTouchesProtectedMemory, getProtectedMemoryAccessError } from '@electron/features/container/tools/memory-file-guard';
 import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, formatSize, truncateTail } from '@electron/features/container/filesystem/truncate';
+import type { WorkspaceRuntimeProviderId } from '@/types/ipc';
 import type { WorkspaceRuntimeFacade } from './types';
 import {
-  createOpenShellFileTools,
-  getOpenShellProviderLabel,
-  isOpenShellProvider,
-} from './runtime-file-tools';
+  getOpenShellRuntimeWorkspacePath,
+  toOpenShellWorkspacePath,
+} from './openshell/path';
 
 export interface RuntimeToolOptions {
   sessionId: string;
@@ -56,7 +57,7 @@ export function createRuntimeCodingTools(
   if (isOpenShellProvider(runtime.providerId) && !options.forceHost) {
     return [
       createRuntimeBashTool(runtime, hostCwd),
-      ...createOpenShellFileTools(runtime, { cwd: hostCwd }),
+      ...createOpenShellFileTools(runtime, hostCwd),
       deps.createWorkspaceCliTool(runtime.workspaceId, options.sessionId),
     ];
   }
@@ -68,17 +69,84 @@ export function createRuntimeCodingTools(
   ];
 }
 
+function isOpenShellProvider(
+  providerId: WorkspaceRuntimeProviderId | undefined,
+): providerId is 'openshell-local' | 'openshell-remote' | 'openshell-cloud' {
+  return providerId === 'openshell-local'
+    || providerId === 'openshell-remote'
+    || providerId === 'openshell-cloud';
+}
+
+function getOpenShellProviderLabel(
+  providerId: 'openshell-local' | 'openshell-remote' | 'openshell-cloud',
+): string {
+  if (providerId === 'openshell-cloud') return 'OpenShell Cloud';
+  return providerId === 'openshell-remote' ? 'OpenShell Remote' : 'OpenShell Local';
+}
+
+function createOpenShellFileTools(
+  runtime: WorkspaceRuntimeFacade,
+  hostCwd: string,
+): ToolDefinition[] {
+  const runtimeCwd = toOpenShellWorkspacePath(
+    runtime.workspacePath,
+    hostCwd,
+    getOpenShellRuntimeWorkspacePath(runtime.workspacePath),
+  ) ?? getOpenShellRuntimeWorkspacePath(runtime.workspacePath);
+  const adapter = createOpenShellContainerToolAdapter(runtime, hostCwd);
+  return [
+    createRead(adapter, runtime.workspaceId, runtimeCwd),
+    createWrite(adapter, runtime.workspaceId, runtimeCwd),
+    createEdit(adapter, runtime.workspaceId, runtimeCwd),
+  ];
+}
+
+function createOpenShellContainerToolAdapter(
+  runtime: WorkspaceRuntimeFacade,
+  hostCwd: string,
+) {
+  return {
+    exec: async (
+      _workspaceId: string,
+      command: string,
+      _cwd?: string,
+      timeoutMs?: number,
+    ) => runtime.exec(command, { cwd: hostCwd, timeoutMs }),
+    writeFile: async (_workspaceId: string, filePath: string, content: string) => {
+      const result = await runtime.exec(buildRuntimeWriteFileCommand(filePath, content), {
+        cwd: hostCwd,
+        timeoutMs: 120_000,
+      });
+      if (result.exitCode !== 0) {
+        throw new Error(`Failed to write ${filePath}: ${result.stderr || result.stdout}`);
+      }
+    },
+  };
+}
+
+function buildRuntimeWriteFileCommand(filePath: string, content: string): string {
+  const encoded = Buffer.from(content, 'utf8').toString('base64');
+  return [
+    "python3 - <<'PY'",
+    'import base64',
+    'from pathlib import Path',
+    `p = Path(${JSON.stringify(filePath)})`,
+    'p.parent.mkdir(parents=True, exist_ok=True)',
+    `p.write_text(base64.b64decode(${JSON.stringify(encoded)}).decode('utf-8'))`,
+    'PY',
+  ].join('\n');
+}
+
 function createRuntimeBashTool(runtime: WorkspaceRuntimeFacade, cwd: string): ToolDefinition {
   return {
     name: 'bash',
     label: 'bash',
     description:
       `Execute a bash command in the workspace runtime. ` +
-      `For file reads, writes, or precise edits, prefer the dedicated read/write/edit tools over shell commands. ` +
       `Returns stdout and stderr. Output is truncated to last ` +
       `${DEFAULT_MAX_LINES} lines or ${DEFAULT_MAX_BYTES / 1024}KB ` +
       `(whichever is hit first). Optionally provide a timeout in seconds.`,
-    promptSnippet: 'Execute bash commands in the workspace runtime (ls, grep, find, etc.). Prefer read/write/edit tools for file operations.',
+    promptSnippet: 'Execute bash commands in the workspace runtime (ls, grep, find, etc.)',
     parameters: BashParams,
     execute: async (_toolCallId, params: Static<typeof BashParams>, signal?) => {
       if (signal?.aborted) throw new Error('Command aborted');

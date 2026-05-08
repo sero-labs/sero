@@ -800,6 +800,48 @@ Acceptance criteria:
 
 ---
 
+### Phase 7: OpenShell Remote managed SSH tunnel
+
+Goal: remove the public gateway/firewall setup burden for OpenShell Remote.
+
+Manual smoke testing of the GCP remote gateway `sero-remote-gcp` proved that OpenShell Remote works, but only after manually updating a GCP firewall rule for the current client public IP. That is too brittle for product use and encourages exposing the gateway port publicly.
+
+OpenShell Remote already requires SSH access, so Sero should use SSH as the connectivity path for the gateway itself:
+
+```text
+Sero/OpenShell CLI -> https://127.0.0.1:<localPort> -> SSH tunnel -> remote 127.0.0.1:<gatewayPort>
+```
+
+Deliverables:
+
+* managed SSH tunnel lifecycle for saved `openshell-remote` gateways
+* automatic tunnel startup before remote health checks, sandbox creation, `bash`, file tools, logs, and previews
+* stable local loopback endpoint/port per saved remote gateway
+* OpenShell gateway metadata/selection that prefers the local tunnel endpoint for SSH remotes
+* tunnel restart/recovery if the SSH process exits
+* diagnostics for SSH auth failure, local port conflicts, remote gateway not listening, and OpenShell status failures over an established tunnel
+* UI copy that explains OpenShell Remote only requires SSH reachability; the gateway port does not need to be publicly reachable
+* an explicit advanced/debug path for direct public gateway endpoints when desired
+* automated tests for tunnel command shape, lifecycle/restart behavior, endpoint selection, and failure diagnostics
+
+Acceptance criteria:
+
+* GCP Remote smoke works with only SSH access to `sero-remote-gcp`; no manual firewall rule for port `18080` is required
+* OpenShell Remote works for generic SSH-accessible Linux hosts without GCP-specific tooling
+* the remote gateway is not required to be reachable from the Mac over a public TCP port
+* diagnostics clearly distinguish SSH tunnel failures from OpenShell gateway failures
+* Phase 5.5 file-tool parity works over the tunnel path
+
+Non-goals:
+
+* no GCP firewall automation as the primary solution
+* no OpenShell Cloud tunnel/auth changes
+* no interactive PTY terminal parity
+
+Current status: **not started.** This is a post-Phase-6 remote UX hardening phase discovered during file-tool parity smoke testing.
+
+---
+
 ## 14. Environment Doctor additions
 
 The Environment Doctor should eventually include OpenShell checks.

@@ -14,6 +14,7 @@
 import type { Static } from 'typebox';
 import type { ToolDefinition } from '@mariozechner/pi-coding-agent';
 import type { ContainerManager } from '..';
+import type { ExecResult } from '../core/types';
 import {
   DEFAULT_MAX_LINES,
   DEFAULT_MAX_BYTES,
@@ -48,6 +49,16 @@ import {
 } from './memory-file-guard';
 import { prepareToolImage } from '@electron/shared/media/image-resize';
 
+interface CodingFileRuntime {
+  exec(
+    workspaceId: string,
+    command: string,
+    cwd?: string,
+    timeoutMs?: number,
+  ): Promise<ExecResult>;
+  writeFile(workspaceId: string, filePath: string, content: string): Promise<void>;
+}
+
 function normalizeContainerGuardPath(value: string): string {
   return value.replace(/\\/g, '/');
 }
@@ -78,7 +89,7 @@ function buildResolveContainerPathCommand(targetPath: string): string {
 }
 
 async function resolveContainerPathForGuard(
-  cm: ContainerManager,
+  cm: CodingFileRuntime,
   workspaceId: string,
   targetPath: string,
   cwd: string,
@@ -176,7 +187,7 @@ export function createBash(cm: ContainerManager, workspaceId: string, containerC
 
 // ── Read ────────────────────────────────────────────────────
 
-export function createRead(cm: ContainerManager, workspaceId: string, containerCwd?: string): ToolDefinition {
+export function createRead(cm: CodingFileRuntime, workspaceId: string, containerCwd?: string): ToolDefinition {
   const basedir = containerCwd ?? WORKSPACE_DIR;
   return {
     name: 'read',
@@ -316,7 +327,7 @@ export function createRead(cm: ContainerManager, workspaceId: string, containerC
 
 // ── Write ───────────────────────────────────────────────────
 
-export function createWrite(cm: ContainerManager, workspaceId: string, containerCwd?: string): ToolDefinition {
+export function createWrite(cm: CodingFileRuntime, workspaceId: string, containerCwd?: string): ToolDefinition {
   const basedir = containerCwd ?? WORKSPACE_DIR;
   return {
     name: 'write',
@@ -351,7 +362,7 @@ export function createWrite(cm: ContainerManager, workspaceId: string, container
 
 // ── Edit ────────────────────────────────────────────────────
 
-export function createEdit(cm: ContainerManager, workspaceId: string, containerCwd?: string): ToolDefinition {
+export function createEdit(cm: CodingFileRuntime, workspaceId: string, containerCwd?: string): ToolDefinition {
   const basedir = containerCwd ?? WORKSPACE_DIR;
   return {
     name: 'edit',

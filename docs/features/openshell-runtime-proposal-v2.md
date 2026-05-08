@@ -514,9 +514,9 @@ Do not introduce hidden bidirectional sync or file watchers in this phase. Keep 
 Manual smoke instructions:
 
 1. Create or open an OpenShell Local workspace and run `bash` proof commands to confirm `PWD` is under `/sandbox/workspace/<basename>` and `uname -s` is Linux.
-2. Ask the agent exactly: `Use the write tool, not bash, to create openshell-file-parity.txt with content: OpenShell Local write proof.` Confirm the file appears in the host workspace after the tool returns.
-3. Ask the agent exactly: `Use the read tool, not bash, to read openshell-file-parity.txt.` Confirm the returned content matches the sandbox write.
-4. Ask the agent exactly: `Use the edit tool, not bash, to replace OpenShell Local write proof with OpenShell Local edit proof in openshell-file-parity.txt.` Confirm the tool returns diff metadata and the host file contains the edited content after sync.
+2. Use agent `write` to create `openshell-file-parity.txt` with provider-specific content. Confirm the file appears in the host workspace after the tool returns.
+3. Use agent `read` on that file and confirm the returned content matches the sandbox write.
+4. Use agent `edit` to replace a unique phrase in that file. Confirm the tool returns diff metadata and the host file contains the edited content after sync.
 5. Repeat steps 1-4 in an OpenShell Remote workspace using the GCP gateway `sero-remote-gcp`.
 6. Attempt `read`, `write`, and `edit` against protected managed memory paths such as `$SERO_HOME/workspaces/global/MEMORY.md`; each must be blocked before runtime execution.
 
