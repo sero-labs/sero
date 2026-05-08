@@ -74,10 +74,11 @@ function createRuntimeBashTool(runtime: WorkspaceRuntimeFacade, cwd: string): To
     label: 'bash',
     description:
       `Execute a bash command in the workspace runtime. ` +
+      `For file reads, writes, or precise edits, prefer the dedicated read/write/edit tools over shell commands. ` +
       `Returns stdout and stderr. Output is truncated to last ` +
       `${DEFAULT_MAX_LINES} lines or ${DEFAULT_MAX_BYTES / 1024}KB ` +
       `(whichever is hit first). Optionally provide a timeout in seconds.`,
-    promptSnippet: 'Execute bash commands in the workspace runtime (ls, grep, find, etc.)',
+    promptSnippet: 'Execute bash commands in the workspace runtime (ls, grep, find, etc.). Prefer read/write/edit tools for file operations.',
     parameters: BashParams,
     execute: async (_toolCallId, params: Static<typeof BashParams>, signal?) => {
       if (signal?.aborted) throw new Error('Command aborted');

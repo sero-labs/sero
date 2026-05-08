@@ -72,7 +72,7 @@ function createOpenShellReadTool(runtime: WorkspaceRuntimeFacade, cwd: string): 
     label: 'read',
     description:
       `Read the contents of a file from the selected ${getOpenShellProviderLabel(runtime.providerId as OpenShellProviderId)} sandbox. ` +
-      'Supports text files and images (jpg, png, gif, webp).',
+      'Use this instead of bash/cat for file inspection. Supports text files and images (jpg, png, gif, webp).',
     parameters: ReadParams,
     execute: async (_toolCallId, params: Static<typeof ReadParams>, signal?) => {
       if (signal?.aborted) throw new Error('Operation aborted');
@@ -123,7 +123,7 @@ function createOpenShellWriteTool(runtime: WorkspaceRuntimeFacade, cwd: string):
   return {
     name: 'write',
     label: 'write',
-    description: 'Write content to a file inside the selected OpenShell sandbox and sync it back to the host workspace.',
+    description: 'Write content to a file inside the selected OpenShell sandbox and sync it back to the host workspace. Use this instead of bash/touch/tee for creating or overwriting files.',
     parameters: WriteParams,
     execute: async (_toolCallId, params: Static<typeof WriteParams>, signal?) => {
       if (signal?.aborted) throw new Error('Operation aborted');
@@ -146,7 +146,7 @@ function createOpenShellEditTool(runtime: WorkspaceRuntimeFacade, cwd: string): 
   return {
     name: 'edit',
     label: 'edit',
-    description: 'Edit a file inside the selected OpenShell sandbox by replacing unique exact text, then sync it back to host.',
+    description: 'Edit a file inside the selected OpenShell sandbox by replacing unique exact text, then sync it back to host. Use this instead of bash/sed/perl for precise file edits.',
     parameters: EditParams,
     execute: async (_toolCallId, params: Static<typeof EditParams>, signal?) => {
       if (signal?.aborted) throw new Error('Operation aborted');
