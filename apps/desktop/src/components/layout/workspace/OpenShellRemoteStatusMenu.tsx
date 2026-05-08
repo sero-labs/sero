@@ -148,7 +148,7 @@ export function OpenShellRemoteStatusMenu({ workspace }: OpenShellRemoteStatusMe
             <div className="min-w-0">
               <h3 className="text-sm font-semibold text-[var(--text-primary)]">OpenShell Remote status</h3>
               <p className="mt-1 text-[11px] leading-snug text-[var(--text-muted)]">
-                SSH-backed Linux host and OpenShell remote gateway diagnostics.
+                SSH-backed Linux host diagnostics over Sero-managed local tunnels.
               </p>
             </div>
             <div className="flex shrink-0 items-center gap-1">
@@ -253,18 +253,24 @@ function RemoteDetails({
   const gatewayName = diagnostics?.gatewayName ?? runtime?.gatewayName ?? 'No remote gateway selected';
   const sandboxName = diagnostics?.sandboxName ?? runtime?.sandboxName ?? 'Sandbox not created yet';
   const latency = diagnostics?.latencyMs === undefined ? 'Not measured' : `${diagnostics.latencyMs} ms`;
+  const mode = formatConnectionMode(diagnostics?.connectionMode);
+  const endpoint = diagnostics?.localEndpoint ?? 'Tunnel not established yet';
+  const diagnostic = formatDiagnosticCode(diagnostics);
 
   return (
     <section>
       <h4 className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">Connection</h4>
       <div className="mt-1 grid gap-1.5">
+        <DetailRow label="Mode" value={mode} />
+        <DetailRow label="Endpoint" value={endpoint} />
         <DetailRow label="Host" value={host} />
         <DetailRow label="Gateway" value={gatewayName} />
         <DetailRow label="Sandbox" value={sandboxName} />
         <DetailRow label="Latency" value={latency} />
+        {diagnostic ? <DetailRow label="Issue" value={diagnostic} /> : null}
       </div>
       <p className="mt-2 rounded-md bg-[var(--bg-elevated)] p-2 text-[11px] leading-snug text-[var(--text-muted)]">
-        Refresh asks the main process for diagnostics only. It does not run SSH or OpenShell commands in the renderer.
+        Sero connects to the OpenShell gateway through SSH; the remote gateway port does not need a public firewall rule. Refresh asks the main process for diagnostics only and never runs SSH or OpenShell commands in the renderer.
       </p>
     </section>
   );
@@ -307,10 +313,13 @@ function RemoteGatewayEditor({
         <GatewayInput label="SSH destination" value={sshHost} onChange={onSshHostChange} placeholder="user@host" />
         <GatewayInput label="SSH key path" value={sshKeyPath} onChange={onSshKeyPathChange} placeholder="Optional SSH key path" />
         <div className="grid grid-cols-2 gap-2">
-          <GatewayInput label="Port" value={port} onChange={onPortChange} placeholder="18080" />
-          <GatewayInput label="Gateway host" value={gatewayHost} onChange={onGatewayHostChange} placeholder="Public IP" />
+          <GatewayInput label="Gateway port" value={port} onChange={onPortChange} placeholder="18080" />
+          <GatewayInput label="Gateway host (advanced/debug)" value={gatewayHost} onChange={onGatewayHostChange} placeholder="Direct/public fallback" />
         </div>
       </div>
+      <p className="mt-2 text-[11px] leading-snug text-[var(--text-muted)]">
+        Normal OpenShell Remote setup only needs SSH reachability; direct/public gateway host overrides are advanced debugging fallback.
+      </p>
       <div className="mt-2 flex justify-end gap-2">
         <Button type="button" variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={onCancel} disabled={saving}>
           Cancel
@@ -364,6 +373,28 @@ function formatStatus(status: OpenShellRemoteDiagnosticsIPC['status']): string {
   if (status === 'ready') return 'Ready';
   if (status === 'unsupported') return 'Unsupported';
   return 'Unavailable';
+}
+
+function formatConnectionMode(mode: OpenShellRemoteDiagnosticsIPC['connectionMode']): string {
+  return mode === 'direct' ? 'Direct/debug endpoint' : 'Sero-managed SSH tunnel';
+}
+
+function formatDiagnosticCode(diagnostics: OpenShellRemoteDiagnosticsIPC | null): string | null {
+  if (!diagnostics?.diagnosticCode) return null;
+  if (diagnostics.diagnosticCode === 'ssh-auth-failed') {
+    return 'SSH auth failed. Check key or agent auth works non-interactively.';
+  }
+  if (diagnostics.diagnosticCode === 'local-port-conflict') {
+    const endpoint = diagnostics.localPort ? `127.0.0.1:${diagnostics.localPort}` : diagnostics.localEndpoint ?? 'the configured local port';
+    return `Local port conflict on ${endpoint}. Stop that process or change the local port.`;
+  }
+  if (diagnostics.diagnosticCode === 'remote-gateway-not-listening') {
+    return 'SSH tunnel is established, but the remote OpenShell gateway is not listening.';
+  }
+  if (diagnostics.diagnosticCode === 'openshell-status-failed') {
+    return 'OpenShell status failed through the configured endpoint; see message for CLI context.';
+  }
+  return 'This remote gateway configuration is unsupported.';
 }
 
 function toRemoteGatewayId(name: string): string {

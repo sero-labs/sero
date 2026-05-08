@@ -14,7 +14,7 @@ const mocks = vi.hoisted(() => {
     registryUpsert: vi.fn(),
     registryRemove: vi.fn(),
     checkRemoteDocker: vi.fn(),
-    measureRemoteGatewayLatency: vi.fn(),
+    ensureRemoteGatewayEndpoint: vi.fn(),
     workspaceManager: {
       list: vi.fn(async () => []),
       create: vi.fn(),
@@ -64,6 +64,8 @@ vi.mock('@electron/features/workspace/runtime/openshell/remote-gateway-registry'
       remove: mocks.registryRemove,
     };
   }),
+  getOpenShellRemoteConnectionMode: vi.fn((entry: { connectionMode?: 'ssh-tunnel' | 'direct' }) => entry.connectionMode ?? 'ssh-tunnel'),
+  getOpenShellRemoteLocalPort: vi.fn((entry: { port: number; localPort?: number }) => entry.localPort ?? entry.port),
 }));
 
 vi.mock('@electron/features/workspace/runtime/openshell/remote-ssh', () => ({
@@ -71,7 +73,7 @@ vi.mock('@electron/features/workspace/runtime/openshell/remote-ssh', () => ({
 }));
 
 vi.mock('@electron/features/workspace/runtime/openshell/remote-gateway', () => ({
-  measureRemoteGatewayLatency: mocks.measureRemoteGatewayLatency,
+  ensureRemoteGatewayEndpoint: mocks.ensureRemoteGatewayEndpoint,
 }));
 
 vi.mock('@electron/features/workspace/runtime/openshell/policy-diagnostics', () => ({
@@ -114,7 +116,7 @@ describe('workspace OpenShell Remote IPC', () => {
     mocks.registryUpsert.mockReset();
     mocks.registryRemove.mockReset();
     mocks.checkRemoteDocker.mockReset();
-    mocks.measureRemoteGatewayLatency.mockReset();
+    mocks.ensureRemoteGatewayEndpoint.mockReset();
     mocks.createWorkspaceRuntimeFacade.mockReset();
   });
 
@@ -130,7 +132,14 @@ describe('workspace OpenShell Remote IPC', () => {
     mocks.registryUpsert.mockResolvedValue(saved);
     mocks.registryRemove.mockResolvedValue(undefined);
     mocks.checkRemoteDocker.mockResolvedValue({ ok: true, status: 'ready', message: 'Remote Docker is running: 25' });
-    mocks.measureRemoteGatewayLatency.mockResolvedValue({ ok: true, status: 'ready', message: 'gateway ok', latencyMs: 42 });
+    mocks.ensureRemoteGatewayEndpoint.mockResolvedValue({
+      ok: true,
+      status: 'ready',
+      message: 'gateway ok',
+      gatewayName: 'sero-remote-dev-ssh-tunnel',
+      localEndpoint: 'https://127.0.0.1:8080',
+      localPort: 8080,
+    });
 
     const { registerWorkspaceHandlers } = await import('@electron/ipc/workspace/workspace');
     registerWorkspaceHandlers();
@@ -154,13 +163,55 @@ describe('workspace OpenShell Remote IPC', () => {
       gatewayName: 'sero-remote-dev',
       sshHost: 'dev@example.test',
       status: 'ready',
-      latencyMs: 42,
+      connectionMode: 'ssh-tunnel',
+      localEndpoint: 'https://127.0.0.1:8080',
+      localPort: 8080,
+      latencyMs: expect.any(Number),
     });
 
     expect(mocks.registryUpsert).toHaveBeenCalledWith(input);
     expect(mocks.registryRemove).toHaveBeenCalledWith('remote-1');
     expect(mocks.checkRemoteDocker).toHaveBeenCalledWith(input);
-    expect(mocks.measureRemoteGatewayLatency).toHaveBeenCalledWith(input);
+    expect(mocks.ensureRemoteGatewayEndpoint).toHaveBeenCalledWith(input);
+  });
+
+  it('propagates tunnel failure diagnostics through remote gateway test IPC', async () => {
+    const input: OpenShellRemoteGatewayInput = {
+      id: 'remote-1',
+      name: 'sero-remote-dev',
+      sshHost: 'dev@example.test',
+      port: 8080,
+      localPort: 19080,
+    };
+    mocks.checkRemoteDocker.mockResolvedValue({ ok: true, status: 'ready', message: 'Remote Docker is running: 25' });
+    mocks.ensureRemoteGatewayEndpoint.mockResolvedValue({
+      ok: false,
+      status: 'unavailable',
+      message: 'Local SSH tunnel port 127.0.0.1:19080 is already in use.',
+      diagnosticCode: 'local-port-conflict',
+      localEndpoint: 'https://127.0.0.1:19080',
+      localPort: 19080,
+    });
+
+    const { registerWorkspaceHandlers } = await import('@electron/ipc/workspace/workspace');
+    registerWorkspaceHandlers();
+
+    const testHandler = getHandler<(event: unknown, entry: OpenShellRemoteGatewayInput) => Promise<unknown>>(
+      IpcChannels.workspace.testOpenShellRemoteGateway,
+    );
+
+    await expect(testHandler({}, input)).resolves.toMatchObject({
+      gatewayId: 'remote-1',
+      gatewayName: 'sero-remote-dev',
+      sshHost: 'dev@example.test',
+      status: 'unavailable',
+      connectionMode: 'ssh-tunnel',
+      diagnosticCode: 'local-port-conflict',
+      localEndpoint: 'https://127.0.0.1:19080',
+      localPort: 19080,
+      message: expect.stringContaining('127.0.0.1:19080'),
+    });
+    expect(mocks.ensureRemoteGatewayEndpoint).toHaveBeenCalledWith(input);
   });
 
   it('adds ready remote runtime diagnostics with latency and status details', async () => {
@@ -181,11 +232,13 @@ describe('workspace OpenShell Remote IPC', () => {
     };
     mocks.registryList.mockResolvedValue([gateway]);
     mocks.checkRemoteDocker.mockResolvedValue({ ok: true, status: 'ready', message: 'Remote Docker is running: 25' });
-    mocks.measureRemoteGatewayLatency.mockResolvedValue({
+    mocks.ensureRemoteGatewayEndpoint.mockResolvedValue({
       ok: true,
       status: 'ready',
-      message: 'OpenShell Remote gateway sero-remote-dev is reachable.',
-      latencyMs: 33,
+      message: 'OpenShell Remote gateway sero-remote-dev-ssh-tunnel is reachable.',
+      gatewayName: 'sero-remote-dev-ssh-tunnel',
+      localEndpoint: 'https://127.0.0.1:8080',
+      localPort: 8080,
     });
     mocks.createWorkspaceRuntimeFacade.mockResolvedValue(createRemoteRuntime(runtimeConfig));
 
@@ -206,11 +259,14 @@ describe('workspace OpenShell Remote IPC', () => {
         sshHost: 'dev@example.test',
         sandboxName: 'sero-ws-remote',
         status: 'ready',
-        latencyMs: 33,
+        connectionMode: 'ssh-tunnel',
+        localEndpoint: 'https://127.0.0.1:8080',
+        localPort: 8080,
+        latencyMs: expect.any(Number),
       },
     });
     expect(mocks.checkRemoteDocker).toHaveBeenCalledWith(gateway);
-    expect(mocks.measureRemoteGatewayLatency).toHaveBeenCalledWith(gateway);
+    expect(mocks.ensureRemoteGatewayEndpoint).toHaveBeenCalledWith(gateway);
   });
 
   it('adds actionable missing-entry diagnostics without failing the diagnostics response', async () => {
@@ -242,7 +298,7 @@ describe('workspace OpenShell Remote IPC', () => {
       },
     });
     expect(mocks.checkRemoteDocker).not.toHaveBeenCalled();
-    expect(mocks.measureRemoteGatewayLatency).not.toHaveBeenCalled();
+    expect(mocks.ensureRemoteGatewayEndpoint).not.toHaveBeenCalled();
   });
 });
 

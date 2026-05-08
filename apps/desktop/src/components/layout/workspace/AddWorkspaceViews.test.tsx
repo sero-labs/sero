@@ -128,10 +128,12 @@ describe('AddWorkspace CreateView runtime selector', () => {
     });
 
     expect(document.body.textContent).toContain('requires SSH access to a Linux host with Docker');
+    expect(document.body.textContent).toContain('gateway port does not need to be publicly reachable');
     expect(document.body.textContent).toContain('Gateway name');
     expect(document.body.textContent).toContain('SSH destination');
     expect(document.body.textContent).toContain('SSH key path');
-    expect(document.body.textContent).toContain('Gateway host');
+    expect(document.body.textContent).toContain('Gateway host (advanced/debug)');
+    expect(document.body.textContent).toContain('Direct/public gateway host overrides are an advanced debugging fallback');
     expect(document.body.textContent).not.toContain('OpenShell policy profile');
   });
 

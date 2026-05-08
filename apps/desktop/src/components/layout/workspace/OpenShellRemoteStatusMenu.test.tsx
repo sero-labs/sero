@@ -72,6 +72,9 @@ describe('OpenShellRemoteStatusMenu', () => {
       gatewayName: 'sero-remote-dev',
       sshHost: 'dev@example-host',
       sandboxName: 'sero-workspace-remote',
+      localEndpoint: 'https://127.0.0.1:18080',
+      localPort: 18080,
+      connectionMode: 'ssh-tunnel' as const,
       latencyMs: 42,
       status: 'ready' as const,
       message: 'Remote gateway is ready.',
@@ -120,7 +123,7 @@ describe('OpenShellRemoteStatusMenu', () => {
     useWorkspaceStore.setState(initialWorkspaceState, true);
   });
 
-  it('loads and shows remote host, gateway, sandbox, status, latency, and renderer-safety copy', async () => {
+  it('loads and shows remote tunnel endpoint, host, gateway, sandbox, status, latency, and renderer-safety copy', async () => {
     await act(async () => {
       root?.render(<OpenShellRemoteStatusMenu workspace={workspace} />);
     });
@@ -131,11 +134,14 @@ describe('OpenShellRemoteStatusMenu', () => {
     expect(document.body.textContent).toContain('OpenShell Remote status');
     expect(document.body.textContent).toContain('Ready');
     expect(document.body.textContent).toContain('Remote gateway is ready.');
+    expect(document.body.textContent).toContain('Sero-managed SSH tunnel');
+    expect(document.body.textContent).toContain('https://127.0.0.1:18080');
     expect(document.body.textContent).toContain('dev@example-host');
     expect(document.body.textContent).toContain('sero-remote-dev');
     expect(document.body.textContent).toContain('sero-workspace-remote');
     expect(document.body.textContent).toContain('42 ms');
-    expect(document.body.textContent).toContain('does not run SSH or OpenShell commands in the renderer');
+    expect(document.body.textContent).toContain('remote gateway port does not need a public firewall rule');
+    expect(document.body.textContent).toContain('never runs SSH or OpenShell commands in the renderer');
   });
 
   it('refreshes through workspace diagnostics and shows unsupported copy', async () => {
@@ -151,6 +157,8 @@ describe('OpenShellRemoteStatusMenu', () => {
       openShellRemote: {
         gatewayName: 'cloud-endpoint',
         status: 'unsupported' as const,
+        diagnosticCode: 'unsupported' as const,
+        connectionMode: 'ssh-tunnel' as const,
         message: 'Endpoint/cloud gateways are Phase 5. Configure an SSH destination like user@host.',
       },
     }]);
@@ -174,5 +182,40 @@ describe('OpenShellRemoteStatusMenu', () => {
     expect(document.body.textContent).toContain('Unsupported');
     expect(document.body.textContent).toContain('Endpoint/cloud gateways are Phase 5');
     expect(document.body.textContent).toContain('Missing SSH destination');
+    expect(document.body.textContent).toContain('This remote gateway configuration is unsupported');
+  });
+
+  it('shows actionable local port conflict diagnostics', async () => {
+    getRuntimeDiagnostics.mockResolvedValue([{
+      workspaceId: workspace.id,
+      workspacePath: workspace.path,
+      desiredRuntime: 'openshell-remote' as const,
+      actualRuntime: 'openshell-remote' as const,
+      containerEnabled: false,
+      capabilityAudit: [],
+      providerId: 'openshell-remote' as const,
+      runtimeConfig: workspace.runtime,
+      openShellRemote: {
+        gatewayId: 'gateway-1',
+        gatewayName: 'sero-remote-dev',
+        sshHost: 'dev@example-host',
+        sandboxName: 'sero-workspace-remote',
+        localEndpoint: 'https://127.0.0.1:18080',
+        localPort: 18080,
+        connectionMode: 'ssh-tunnel' as const,
+        diagnosticCode: 'local-port-conflict' as const,
+        status: 'unavailable' as const,
+        message: 'Local SSH tunnel port 127.0.0.1:18080 is already in use.',
+      },
+    }]);
+
+    await act(async () => {
+      root?.render(<OpenShellRemoteStatusMenu workspace={workspace} />);
+    });
+
+    await openRemoteStatusMenu();
+
+    expect(document.body.textContent).toContain('Local port conflict on 127.0.0.1:18080');
+    expect(document.body.textContent).toContain('Stop that process or change the local port');
   });
 });

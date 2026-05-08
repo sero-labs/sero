@@ -257,6 +257,8 @@ export interface OpenShellPolicyBlockedEventIPC {
   bestEffort: true;
 }
 
+export type OpenShellRemoteConnectionModeIPC = 'ssh-tunnel' | 'direct';
+
 export interface OpenShellRemoteGatewayEntryIPC {
   id: string;
   name: string;
@@ -264,6 +266,8 @@ export interface OpenShellRemoteGatewayEntryIPC {
   sshKeyPath?: string;
   port: number;
   gatewayHost?: string;
+  localPort?: number;
+  connectionMode?: OpenShellRemoteConnectionModeIPC;
   createdAt: string;
   updatedAt: string;
 }
@@ -278,6 +282,15 @@ export interface OpenShellRemoteDiagnosticsIPC {
   gatewayName?: string;
   sshHost?: string;
   sandboxName?: string;
+  localEndpoint?: string;
+  localPort?: number;
+  connectionMode?: OpenShellRemoteConnectionModeIPC;
+  diagnosticCode?:
+    | 'ssh-auth-failed'
+    | 'local-port-conflict'
+    | 'remote-gateway-not-listening'
+    | 'openshell-status-failed'
+    | 'unsupported';
   latencyMs?: number;
   status: 'ready' | 'unavailable' | 'unsupported';
   message: string;

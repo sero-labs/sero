@@ -9,7 +9,7 @@ import {
   normalizeOpenShellRuntimeWorkspacePath,
   toOpenShellWorkspacePath,
 } from '../openshell/path';
-import { startRemoteGateway } from '../openshell/remote-gateway';
+import { ensureRemoteGatewayEndpoint } from '../openshell/remote-gateway';
 import type { OpenShellRemoteGatewayEntry } from '../openshell/remote-gateway-registry';
 import { checkRemoteDocker } from '../openshell/remote-ssh';
 import {
@@ -108,18 +108,17 @@ export function createOpenShellRemoteRuntimeAdapter(
       const docker = await checkRemoteDocker(resolved.state.gateway);
       if (!docker.ok) return unavailable(`OpenShell Remote is experimental. ${docker.message}`);
 
-      const gateway = await runOpenShell(['--gateway', resolved.state.gatewayName, 'status'], {
-        timeoutMs: 10_000,
-      });
-      if (gateway.exitCode !== 0) {
-        return unavailable(`OpenShell Remote is experimental. Gateway ${resolved.state.gatewayName} is not reachable. ${formatOpenShellFailure('check OpenShell Remote gateway', gateway)}`);
+      const gateway = await ensureOpenShellRemoteGateway(input, resolved.state);
+      if (!gateway.ok || !gateway.state) {
+        return unavailable(`OpenShell Remote is experimental. ${gateway.message ?? 'OpenShell Remote gateway is not ready.'}`);
       }
 
-      const sandbox = await checkSandbox(resolved.state.gatewayName, resolved.state.sandboxName);
+      const readyState = gateway.state;
+      const sandbox = await checkSandbox(readyState.gatewayName, readyState.sandboxName);
       return {
         providerId: 'openshell-remote',
         status: sandbox.status,
-        message: `OpenShell Remote is experimental. Gateway ${resolved.state.gatewayName} is ready for ${resolved.state.gateway.sshHost}. ${sandbox.message}`,
+        message: `OpenShell Remote is experimental. Gateway ${readyState.gatewayName} is ready for ${readyState.gateway.sshHost}. ${sandbox.message}`,
       };
     },
     async exec(command: string, options: RuntimeExecOptions): Promise<ExecResult> {
@@ -166,9 +165,11 @@ export function createOpenShellRemoteRuntimeAdapter(
     async streamLogs(): Promise<OpenShellLogStream> {
       const resolved = await resolveRuntimeState(input);
       if (!resolved.ok || !resolved.state) throw new Error(resolved.message ?? 'OpenShell Remote is not configured.');
+      const gateway = await ensureOpenShellRemoteGateway(input, resolved.state);
+      if (!gateway.ok || !gateway.state) throw new Error(gateway.message ?? 'OpenShell Remote gateway is not ready.');
       return streamOpenShellLogs({
-        gatewayName: resolved.state.gatewayName,
-        sandboxName: resolved.state.sandboxName,
+        gatewayName: gateway.state.gatewayName,
+        sandboxName: gateway.state.sandboxName,
       });
     },
     async forwardPort(port: number): Promise<ForwardedPort> {
@@ -197,19 +198,31 @@ async function ensureOpenShellRemoteRuntime(
   input: OpenShellRemoteRuntimeAdapterInput,
   state: OpenShellRemoteRuntimeState,
 ): Promise<RuntimeEnsureResult> {
-  const cli = await checkOpenShellCli();
-  if (!cli.ok) return { ok: false, message: cli.message };
+  const gateway = await ensureOpenShellRemoteGateway(input, state);
+  if (!gateway.ok || !gateway.state) return gateway;
 
-  const gateway = await startRemoteGateway(state.gateway);
-  if (!gateway.ok) return { ok: false, message: gateway.message };
-
-  const sandbox = await ensureSandbox(state.gatewayName, state.sandboxName);
+  const sandbox = await ensureSandbox(gateway.state.gatewayName, gateway.state.sandboxName);
   if (sandbox.exitCode !== 0) {
     return { ok: false, message: formatOpenShellFailure('ensure OpenShell Remote sandbox', sandbox) };
   }
 
-  await persistRuntimeState(input, state);
-  return { ok: true, state };
+  await persistRuntimeState(input, gateway.state);
+  return { ok: true, state: gateway.state };
+}
+
+async function ensureOpenShellRemoteGateway(
+  input: OpenShellRemoteRuntimeAdapterInput,
+  state: OpenShellRemoteRuntimeState,
+): Promise<RuntimeEnsureResult> {
+  const cli = await checkOpenShellCli();
+  if (!cli.ok) return { ok: false, message: cli.message };
+
+  const gateway = await ensureRemoteGatewayEndpoint(state.gateway);
+  if (!gateway.ok) return { ok: false, message: gateway.message };
+
+  const nextState = toEffectiveGatewayState(state, gateway.gatewayName);
+  await persistRuntimeState(input, nextState);
+  return { ok: true, state: nextState };
 }
 
 async function ensureSandbox(gatewayName: string, sandboxName: string): Promise<ExecResult> {
@@ -269,6 +282,16 @@ async function resolveDestroyRuntimeState(
   input: OpenShellRemoteRuntimeAdapterInput,
 ): Promise<Pick<OpenShellRemoteRuntimeState, 'gatewayName' | 'sandboxName'>> {
   const config = await input.workspaceManager?.getRuntimeConfig?.(input.workspaceId);
+  const resolved = await resolveRuntimeState(input);
+  if (resolved.ok && resolved.state) {
+    const gateway = await ensureOpenShellRemoteGateway(input, resolved.state);
+    if (!gateway.ok || !gateway.state) throw new Error(gateway.message ?? 'OpenShell Remote gateway is not ready.');
+    return {
+      gatewayName: gateway.state.gatewayName,
+      sandboxName: gateway.state.sandboxName,
+    };
+  }
+
   if (config?.gatewayName) {
     return {
       gatewayName: config.gatewayName,
@@ -276,12 +299,15 @@ async function resolveDestroyRuntimeState(
     };
   }
 
-  const resolved = await resolveRuntimeState(input);
-  if (!resolved.ok || !resolved.state) throw new Error(resolved.message ?? 'OpenShell Remote is not configured.');
-  return {
-    gatewayName: resolved.state.gatewayName,
-    sandboxName: resolved.state.sandboxName,
-  };
+  throw new Error(resolved.message ?? 'OpenShell Remote is not configured.');
+}
+
+function toEffectiveGatewayState(
+  state: OpenShellRemoteRuntimeState,
+  gatewayName: string | undefined,
+): OpenShellRemoteRuntimeState {
+  if (!gatewayName || gatewayName === state.gatewayName) return state;
+  return { ...state, gatewayName };
 }
 
 function toRuntimeState(

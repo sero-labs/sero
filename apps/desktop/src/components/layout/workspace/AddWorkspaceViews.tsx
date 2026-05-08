@@ -238,7 +238,7 @@ export function CreateView({
       {runtimeChoice === 'openshell-remote' && (
         <div className="rounded-md border border-[var(--border-default)] bg-[var(--bg-base)] p-2">
           <p className="mb-2 text-[11px] leading-snug text-[var(--text-muted)]">
-            OpenShell Remote requires SSH access to a Linux host with Docker. Use OpenShell Cloud for hosted endpoint gateways.
+            OpenShell Remote requires SSH access to a Linux host with Docker. Sero creates a local SSH tunnel, so the gateway port does not need to be publicly reachable.
           </p>
           <div className="grid gap-2">
             <div>
@@ -289,17 +289,20 @@ export function CreateView({
               </div>
               <div>
                 <label className="mb-1 block text-[11px] font-medium text-[var(--text-secondary)]">
-                  Gateway host
+                  Gateway host (advanced/debug)
                 </label>
                 <Input
                   value={remoteGatewayHost}
                   onChange={(e) => onRemoteGatewayHostChange(e.target.value)}
-                  placeholder="Optional override"
+                  placeholder="Direct/public fallback only"
                   className="h-7 text-xs"
                 />
               </div>
             </div>
           </div>
+          <p className="mt-2 text-[11px] leading-snug text-[var(--text-muted)]">
+            Direct/public gateway host overrides are an advanced debugging fallback; normal setup only needs SSH reachability.
+          </p>
           {remoteError && (
             <p className="mt-2 rounded-md border border-[var(--status-error-border)] bg-[var(--status-error-faint)] px-2 py-1.5 text-[11px] leading-snug text-[var(--status-error)]">
               {remoteError}

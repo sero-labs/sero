@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   checkOpenShellCli: vi.fn(),
   pullWorkspaceFromSandbox: vi.fn(),
   pushWorkspaceToSandbox: vi.fn(),
+  ensureRemoteGatewayEndpoint: vi.fn(),
   runCommand: vi.fn(),
   runOpenShell: vi.fn(),
   streamOpenShellLogs: vi.fn(),
@@ -23,6 +24,10 @@ vi.mock('@electron/features/workspace/runtime/openshell/sync', () => ({
 
 vi.mock('@electron/features/workspace/runtime/openshell/logs', () => ({
   streamOpenShellLogs: mocks.streamOpenShellLogs,
+}));
+
+vi.mock('@electron/features/workspace/runtime/openshell/remote-gateway', () => ({
+  ensureRemoteGatewayEndpoint: mocks.ensureRemoteGatewayEndpoint,
 }));
 
 vi.mock('@electron/features/workspace/runtime/openshell/cli', async (importOriginal) => {
@@ -49,6 +54,14 @@ describe('createOpenShellRemoteRuntimeAdapter', () => {
       message: 'OpenShell CLI detected: openshell 0.0.36',
       version: 'openshell 0.0.36',
       result: { stdout: 'openshell 0.0.36', stderr: '', exitCode: 0 },
+    });
+    mocks.ensureRemoteGatewayEndpoint.mockResolvedValue({
+      ok: true,
+      status: 'ready',
+      gatewayName: 'sero-remote-dev-ssh-tunnel',
+      localEndpoint: 'https://127.0.0.1:8080',
+      localPort: 8080,
+      message: 'OpenShell Remote tunnel gateway is ready.',
     });
     mocks.pushWorkspaceToSandbox.mockResolvedValue({ stdout: '', stderr: '', exitCode: 0 });
     mocks.pullWorkspaceFromSandbox.mockResolvedValue({ stdout: '', stderr: '', exitCode: 0 });
@@ -113,13 +126,18 @@ describe('createOpenShellRemoteRuntimeAdapter', () => {
 
   it('reports gateway failure and missing sandbox state in health', async () => {
     mocks.runCommand.mockResolvedValueOnce({ stdout: '"24.0.0"', stderr: '', exitCode: 0 });
-    mocks.runOpenShell.mockResolvedValueOnce({ stdout: '', stderr: 'connection refused', exitCode: 1 });
+    mocks.ensureRemoteGatewayEndpoint.mockResolvedValueOnce({
+      ok: false,
+      status: 'unavailable',
+      message: 'Remote gateway is not listening on the tunnel endpoint.',
+      diagnosticCode: 'remote-gateway-not-listening',
+    });
     const gatewayFailure = createAdapter();
 
     const failed = await gatewayFailure.health();
 
     expect(failed.status).toBe('unavailable');
-    expect(failed.message).toContain('Gateway sero-remote-dev is not reachable');
+    expect(failed.message).toContain('Remote gateway is not listening on the tunnel endpoint');
 
     vi.clearAllMocks();
     mocks.checkOpenShellCli.mockResolvedValue({
@@ -130,22 +148,31 @@ describe('createOpenShellRemoteRuntimeAdapter', () => {
       version: 'openshell 0.0.36',
       result: { stdout: 'openshell 0.0.36', stderr: '', exitCode: 0 },
     });
+    mocks.ensureRemoteGatewayEndpoint.mockResolvedValue({
+      ok: true,
+      status: 'ready',
+      gatewayName: 'sero-remote-dev-ssh-tunnel',
+      localEndpoint: 'https://127.0.0.1:8080',
+      localPort: 8080,
+      message: 'OpenShell Remote tunnel gateway is ready.',
+    });
     mocks.runCommand.mockResolvedValueOnce({ stdout: '"24.0.0"', stderr: '', exitCode: 0 });
-    mocks.runOpenShell
-      .mockResolvedValueOnce({ stdout: 'ok', stderr: '', exitCode: 0 })
-      .mockResolvedValueOnce({ stdout: '', stderr: 'not found', exitCode: 1 });
+    mocks.runOpenShell.mockResolvedValueOnce({ stdout: '', stderr: 'not found', exitCode: 1 });
     const missingSandbox = createAdapter();
 
     const ready = await missingSandbox.health();
 
+    expect(mocks.runOpenShell).toHaveBeenCalledWith([
+      '--gateway', 'sero-remote-dev-ssh-tunnel',
+      'sandbox', 'get', 'sero-ws-1',
+    ], { timeoutMs: 30_000 });
     expect(ready.status).toBe('ready');
+    expect(ready.message).toContain('Gateway sero-remote-dev-ssh-tunnel is ready');
     expect(ready.message).toContain('Sandbox sero-ws-1 has not been created yet');
   });
 
   it('ensures remote gateway and sandbox, syncs, executes, and pulls in order', async () => {
     mocks.runOpenShell
-      .mockResolvedValueOnce({ stdout: 'gateway started', stderr: '', exitCode: 0 })
-      .mockResolvedValueOnce({ stdout: 'selected', stderr: '', exitCode: 0 })
       .mockResolvedValueOnce({ stdout: '', stderr: 'not found', exitCode: 1 })
       .mockResolvedValueOnce({ stdout: 'created', stderr: '', exitCode: 0 })
       .mockResolvedValueOnce({ stdout: 'Linux remote', stderr: '', exitCode: 0 });
@@ -159,40 +186,32 @@ describe('createOpenShellRemoteRuntimeAdapter', () => {
     const result = await adapter.exec('uname -a', { cwd: '/tmp/ws/src', timeoutMs: 2_500 });
 
     expect(result).toEqual({ stdout: 'Linux remote', stderr: '', exitCode: 0 });
+    expect(mocks.ensureRemoteGatewayEndpoint).toHaveBeenCalledWith(remoteGateway);
     expect(mocks.runOpenShell).toHaveBeenNthCalledWith(1, [
-      'gateway', 'start',
-      '--name', 'sero-remote-dev',
-      '--remote', 'dev@example',
-      '--port', '8080',
-    ], { timeoutMs: 120_000 });
-    expect(mocks.runOpenShell).toHaveBeenNthCalledWith(2, [
-      'gateway', 'select', 'sero-remote-dev',
-    ], { timeoutMs: 10_000 });
-    expect(mocks.runOpenShell).toHaveBeenNthCalledWith(3, [
-      '--gateway', 'sero-remote-dev',
+      '--gateway', 'sero-remote-dev-ssh-tunnel',
       'sandbox', 'get', 'sero-ws-1',
     ], { timeoutMs: 30_000 });
-    expect(mocks.runOpenShell).toHaveBeenNthCalledWith(4, [
-      '--gateway', 'sero-remote-dev',
+    expect(mocks.runOpenShell).toHaveBeenNthCalledWith(2, [
+      '--gateway', 'sero-remote-dev-ssh-tunnel',
       'sandbox', 'create', '--name', 'sero-ws-1',
       '--no-tty', '--', 'true',
     ], { timeoutMs: 120_000 });
     expect(mocks.pushWorkspaceToSandbox).toHaveBeenCalledWith({
-      gatewayName: 'sero-remote-dev',
+      gatewayName: 'sero-remote-dev-ssh-tunnel',
       sandboxName: 'sero-ws-1',
       workspacePath: '/tmp/ws',
       runtimeWorkspacePath: '/sandbox/workspace/ws',
       timeoutMs: 2_500,
     });
-    expect(mocks.runOpenShell).toHaveBeenNthCalledWith(5, [
-      '--gateway', 'sero-remote-dev',
+    expect(mocks.runOpenShell).toHaveBeenNthCalledWith(3, [
+      '--gateway', 'sero-remote-dev-ssh-tunnel',
       'sandbox', 'exec', '-n', 'sero-ws-1',
       '--workdir', '/sandbox/workspace/ws/src',
       '--timeout', '3',
       '--no-tty', '--', 'sh', '-lc', encodedShellCommand('uname -a'),
     ], { timeoutMs: 2_500 });
     expect(mocks.pullWorkspaceFromSandbox).toHaveBeenCalledWith({
-      gatewayName: 'sero-remote-dev',
+      gatewayName: 'sero-remote-dev-ssh-tunnel',
       sandboxName: 'sero-ws-1',
       workspacePath: '/tmp/ws',
       runtimeWorkspacePath: '/sandbox/workspace/ws',
@@ -208,7 +227,7 @@ describe('createOpenShellRemoteRuntimeAdapter', () => {
       providerId: 'openshell-remote',
       experimental: true,
       remoteGatewayId: 'remote-1',
-      gatewayName: 'sero-remote-dev',
+      gatewayName: 'sero-remote-dev-ssh-tunnel',
       sandboxName: 'sero-ws-1',
       runtimeWorkspacePath: '/sandbox/workspace/ws',
     });
@@ -216,8 +235,6 @@ describe('createOpenShellRemoteRuntimeAdapter', () => {
 
   it('uses configured sandbox names and optional SSH key paths', async () => {
     mocks.runOpenShell
-      .mockResolvedValueOnce({ stdout: 'gateway started', stderr: '', exitCode: 0 })
-      .mockResolvedValueOnce({ stdout: 'selected', stderr: '', exitCode: 0 })
       .mockResolvedValueOnce({ stdout: 'custom-sandbox', stderr: '', exitCode: 0 })
       .mockResolvedValueOnce({ stdout: 'ok', stderr: '', exitCode: 0 });
     const adapter = createAdapter({
@@ -233,15 +250,12 @@ describe('createOpenShellRemoteRuntimeAdapter', () => {
 
     await adapter.exec('pwd', { cwd: '/tmp/ws' });
 
-    expect(mocks.runOpenShell).toHaveBeenNthCalledWith(1, [
-      'gateway', 'start',
-      '--name', 'sero-remote-dev',
-      '--remote', 'dev@example',
-      '--ssh-key', '/Users/me/.ssh/id_ed25519',
-      '--port', '8080',
-    ], { timeoutMs: 120_000 });
-    expect(mocks.runOpenShell).toHaveBeenNthCalledWith(4, [
-      '--gateway', 'sero-remote-dev',
+    expect(mocks.ensureRemoteGatewayEndpoint).toHaveBeenCalledWith({
+      ...remoteGateway,
+      sshKeyPath: '/Users/me/.ssh/id_ed25519',
+    });
+    expect(mocks.runOpenShell).toHaveBeenNthCalledWith(2, [
+      '--gateway', 'sero-remote-dev-ssh-tunnel',
       'sandbox', 'exec', '-n', 'custom-sandbox',
       '--workdir', '/sandbox/workspace/custom',
       '--timeout', '120',
@@ -251,15 +265,13 @@ describe('createOpenShellRemoteRuntimeAdapter', () => {
 
   it('keeps base64 command wrapping for multiline commands', async () => {
     mocks.runOpenShell
-      .mockResolvedValueOnce({ stdout: 'gateway started', stderr: '', exitCode: 0 })
-      .mockResolvedValueOnce({ stdout: 'selected', stderr: '', exitCode: 0 })
       .mockResolvedValueOnce({ stdout: 'sero-ws-1', stderr: '', exitCode: 0 })
       .mockResolvedValueOnce({ stdout: 'ok', stderr: '', exitCode: 0 });
     const adapter = createAdapter();
 
     await adapter.exec('echo one\necho two', { cwd: '/tmp/ws' });
 
-    const execArgs = mocks.runOpenShell.mock.calls[3]?.[0] as string[];
+    const execArgs = mocks.runOpenShell.mock.calls[1]?.[0] as string[];
     expect(execArgs.slice(-3)).toEqual([
       'sh',
       '-lc',
@@ -270,8 +282,6 @@ describe('createOpenShellRemoteRuntimeAdapter', () => {
 
   it('uses existing log streaming and port forwarding helpers with the remote gateway', async () => {
     mocks.runOpenShell
-      .mockResolvedValueOnce({ stdout: 'gateway started', stderr: '', exitCode: 0 })
-      .mockResolvedValueOnce({ stdout: 'selected', stderr: '', exitCode: 0 })
       .mockResolvedValueOnce({ stdout: 'sero-ws-1', stderr: '', exitCode: 0 })
       .mockResolvedValueOnce({ stdout: 'forwarded http://127.0.0.1:5173', stderr: '', exitCode: 0 });
     const adapter = createAdapter();
@@ -280,11 +290,15 @@ describe('createOpenShellRemoteRuntimeAdapter', () => {
     const forwarded = await adapter.forwardPort?.(5173);
 
     expect(mocks.streamOpenShellLogs).toHaveBeenCalledWith({
-      gatewayName: 'sero-remote-dev',
+      gatewayName: 'sero-remote-dev-ssh-tunnel',
       sandboxName: 'sero-ws-1',
     });
-    expect(mocks.runOpenShell).toHaveBeenNthCalledWith(4, [
-      '--gateway', 'sero-remote-dev',
+    expect(mocks.ensureRemoteGatewayEndpoint.mock.invocationCallOrder[0])
+      .toBeLessThan(mocks.streamOpenShellLogs.mock.invocationCallOrder[0]);
+    expect(mocks.ensureRemoteGatewayEndpoint.mock.invocationCallOrder[1])
+      .toBeLessThan(mocks.runOpenShell.mock.invocationCallOrder[0]);
+    expect(mocks.runOpenShell).toHaveBeenNthCalledWith(2, [
+      '--gateway', 'sero-remote-dev-ssh-tunnel',
       'forward', 'start', '5173', 'sero-ws-1', '-d',
     ], { timeoutMs: 30_000 });
     expect(forwarded).toEqual({
@@ -301,8 +315,9 @@ describe('createOpenShellRemoteRuntimeAdapter', () => {
 
     await adapter.destroy?.();
 
+    expect(mocks.ensureRemoteGatewayEndpoint).toHaveBeenCalledWith(remoteGateway);
     expect(mocks.runOpenShell).toHaveBeenCalledWith([
-      '--gateway', 'sero-remote-dev',
+      '--gateway', 'sero-remote-dev-ssh-tunnel',
       'sandbox', 'delete', 'sero-ws-1',
     ], { timeoutMs: 120_000 });
     expect(mocks.runOpenShell).not.toHaveBeenCalledWith(

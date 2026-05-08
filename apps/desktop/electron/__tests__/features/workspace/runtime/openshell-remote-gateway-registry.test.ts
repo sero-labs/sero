@@ -13,6 +13,9 @@ vi.mock('@electron/platform/env', () => ({
 
 import {
   OpenShellRemoteGatewayRegistry,
+  getOpenShellRemoteConnectionMode,
+  getOpenShellRemoteLocalPort,
+  type OpenShellRemoteGatewayEntry,
   type OpenShellRemoteGatewayInput,
 } from '@electron/features/workspace/runtime/openshell/remote-gateway-registry';
 
@@ -45,7 +48,9 @@ describe('OpenShellRemoteGatewayRegistry', () => {
     const saved = await registry.upsert(baseInput);
     const file = JSON.parse(await fs.readFile(registryPath, 'utf8')) as { gateways: unknown[] };
 
-    expect(saved).toMatchObject(baseInput);
+    expect(saved).toMatchObject({ ...baseInput, connectionMode: 'ssh-tunnel' });
+    expect(getOpenShellRemoteConnectionMode(saved)).toBe('ssh-tunnel');
+    expect(getOpenShellRemoteLocalPort(saved)).toBe(baseInput.port);
     expect(saved.createdAt).toBeTruthy();
     expect(saved.updatedAt).toBeTruthy();
     expect(file.gateways).toHaveLength(1);
@@ -65,9 +70,13 @@ describe('OpenShellRemoteGatewayRegistry', () => {
       sshKeyPath: undefined,
       port: 9090,
       gatewayHost: undefined,
+      localPort: 19090,
+      connectionMode: 'direct',
     });
 
     expect(updated.createdAt).toBe(created.createdAt);
+    expect(updated.localPort).toBe(19090);
+    expect(updated.connectionMode).toBe('direct');
     expect(updated.updatedAt >= created.updatedAt).toBe(true);
     await expect(registry.list()).resolves.toEqual([updated]);
   });
@@ -95,6 +104,44 @@ describe('OpenShellRemoteGatewayRegistry', () => {
     await expect(registry.upsert({ ...baseInput, name: ' ' })).rejects.toThrow('gateway name is required');
     await expect(registry.upsert({ ...baseInput, sshHost: ' ' })).rejects.toThrow('Phase 5');
     await expect(registry.upsert({ ...baseInput, port: 0 })).rejects.toThrow('port must be');
+    await expect(registry.upsert({ ...baseInput, localPort: 0 })).rejects.toThrow('local tunnel port must be');
+    await expect(registry.upsert({ ...baseInput, localPort: 65_536 })).rejects.toThrow('local tunnel port must be');
+    await expect(
+      registry.upsert({ ...baseInput, connectionMode: 'invalid' as OpenShellRemoteGatewayInput['connectionMode'] }),
+    ).rejects.toThrow('connection mode');
+  });
+
+  it('loads old gateway JSON with tunnel defaults', async () => {
+    const registry = new OpenShellRemoteGatewayRegistry();
+    const oldEntry: OpenShellRemoteGatewayEntry = {
+      id: 'remote-old',
+      name: 'sero-remote-old',
+      sshHost: 'old@example-host',
+      port: 18080,
+      gatewayHost: 'gateway.example',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    };
+    await fs.mkdir(mocks.agentDir, { recursive: true });
+    await fs.writeFile(registryPath, JSON.stringify({ gateways: [oldEntry] }), 'utf8');
+
+    const [loaded] = await registry.list();
+    if (!loaded) throw new Error('Expected old gateway entry to load.');
+
+    expect(loaded).toMatchObject({ id: oldEntry.id, connectionMode: 'ssh-tunnel' });
+    expect(getOpenShellRemoteConnectionMode(loaded)).toBe('ssh-tunnel');
+    expect(getOpenShellRemoteLocalPort(loaded)).toBe(oldEntry.port);
+  });
+
+  it('rejects secret fields instead of persisting them', async () => {
+    const registry = new OpenShellRemoteGatewayRegistry();
+    const secretInput: OpenShellRemoteGatewayInput & { password: string } = {
+      ...baseInput,
+      password: 'do-not-save',
+    };
+
+    await expect(registry.upsert(secretInput)).rejects.toThrow('metadata only');
+    await expect(fs.readFile(registryPath, 'utf8')).rejects.toMatchObject({ code: 'ENOENT' });
   });
 
   it('rejects endpoint-only and cloud-style gateway hosts', async () => {

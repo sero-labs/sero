@@ -30,6 +30,8 @@ export interface WorkspaceRuntimeConfig {
   policyProfileHistory?: WorkspaceRuntimePolicyHistoryEntry[];
 }
 
+export type OpenShellRemoteConnectionMode = 'ssh-tunnel' | 'direct';
+
 export interface OpenShellRemoteGatewayEntry {
   id: string;
   name: string;
@@ -37,6 +39,8 @@ export interface OpenShellRemoteGatewayEntry {
   sshKeyPath?: string;
   port: number;
   gatewayHost?: string;
+  localPort?: number;
+  connectionMode?: OpenShellRemoteConnectionMode;
   createdAt: string;
   updatedAt: string;
 }

@@ -11,7 +11,12 @@ import {
   OpenShellRemoteGatewayRegistry,
   type OpenShellRemoteGatewayInput,
 } from '@electron/features/workspace/runtime/openshell/remote-gateway-registry';
-import { measureRemoteGatewayLatency } from '@electron/features/workspace/runtime/openshell/remote-gateway';
+import { ensureRemoteGatewayEndpoint } from '@electron/features/workspace/runtime/openshell/remote-gateway';
+import {
+  getOpenShellRemoteConnectionMode,
+  getOpenShellRemoteLocalPort,
+} from '@electron/features/workspace/runtime/openshell/remote-gateway-registry';
+import { getRemoteTunnelLocalEndpoint } from '@electron/features/workspace/runtime/openshell/remote-tunnel';
 import { checkRemoteDocker } from '@electron/features/workspace/runtime/openshell/remote-ssh';
 
 export async function getOpenShellCloudDiagnostics(
@@ -107,18 +112,26 @@ export async function testOpenShellRemoteGateway(
   try {
     const docker = await checkRemoteDocker(entry);
     if (docker.status === 'unsupported') {
-      return toOpenShellRemoteDiagnostics(entry, docker.status, docker.message, sandboxName);
+      return toOpenShellRemoteDiagnostics(entry, docker.status, docker.message, sandboxName, undefined, {
+        diagnosticCode: 'unsupported',
+      });
     }
 
-    const latency = await measureRemoteGatewayLatency(entry);
-    const status = docker.ok && latency.ok ? 'ready' : 'unavailable';
-    const message = [docker.message, latency.message].filter(Boolean).join(' ');
+    const startedAt = Date.now();
+    const endpoint = await ensureRemoteGatewayEndpoint(entry);
+    const status = docker.ok && endpoint.ok ? 'ready' : 'unavailable';
+    const message = [docker.message, endpoint.message].filter(Boolean).join(' ');
     return toOpenShellRemoteDiagnostics(
       entry,
       status,
       message || 'OpenShell Remote diagnostics completed.',
       sandboxName,
-      latency.ok ? latency.latencyMs : undefined,
+      endpoint.ok ? Date.now() - startedAt : undefined,
+      {
+        localEndpoint: endpoint.localEndpoint,
+        localPort: endpoint.localPort,
+        diagnosticCode: toIpcRemoteDiagnosticCode(endpoint.diagnosticCode),
+      },
     );
   } catch (error) {
     return toOpenShellRemoteDiagnostics(
@@ -136,16 +149,34 @@ function toOpenShellRemoteDiagnostics(
   message: string,
   sandboxName?: string,
   latencyMs?: number,
+  details: Pick<OpenShellRemoteDiagnosticsIPC, 'localEndpoint' | 'localPort' | 'diagnosticCode'> = {},
 ): OpenShellRemoteDiagnosticsIPC {
+  const connectionMode = getOpenShellRemoteConnectionMode(entry);
+  const localPort = details.localPort ?? (
+    connectionMode === 'ssh-tunnel' ? getOpenShellRemoteLocalPort(entry) : undefined
+  );
+  const localEndpoint = details.localEndpoint ?? (
+    connectionMode === 'ssh-tunnel' ? getRemoteTunnelLocalEndpoint(entry) : undefined
+  );
   return {
     gatewayId: entry.id,
     gatewayName: entry.name,
     sshHost: entry.sshHost,
     sandboxName,
+    localEndpoint,
+    localPort,
+    connectionMode,
+    diagnosticCode: details.diagnosticCode,
     latencyMs,
     status,
     message,
   };
+}
+
+function toIpcRemoteDiagnosticCode(
+  code: 'ssh-auth-failed' | 'local-port-conflict' | 'remote-gateway-not-listening' | 'openshell-status-failed' | 'unsupported' | 'tunnel-exited' | undefined,
+): OpenShellRemoteDiagnosticsIPC['diagnosticCode'] {
+  return code === 'tunnel-exited' ? 'openshell-status-failed' : code;
 }
 
 function formatErrorMessage(error: unknown): string {
