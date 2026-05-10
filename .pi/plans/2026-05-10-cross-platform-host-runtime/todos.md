@@ -621,8 +621,10 @@ Reference: current direct boolean call sites listed in scout context: `ipc/conta
 
 ## TODO CROSS-PLATFORM-HOST-RUNTIME-11 — Update runtime picker UI copy and platform gating
 
-**Status:** Pending
+**Status:** Done
 **Tags:** `cross-platform-host-runtime`
+
+**Completion note:** Updated the renderer runtime picker to label non-container mode as Host, added macOS/Linux/Windows Host option sets with WSL 2 setup copy/diagnostic disabling on Windows, treated stale `mac-host` display values as Host, and removed stale “Mac Host” onboarding copy with targeted tests.
 
 **Plan:** `/Users/danielcarter/Documents/Dev/projects/sero/sero/.pi/plans/2026-05-10-cross-platform-host-runtime/plan.md`
 **Depends on:** Todos 01 and 09

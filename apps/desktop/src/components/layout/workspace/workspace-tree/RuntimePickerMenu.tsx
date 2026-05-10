@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Box, Check, ChevronRight, Monitor, Server } from 'lucide-react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import {
@@ -15,15 +16,25 @@ interface RuntimeOption {
   name: string;
   description: string;
   advanced?: boolean;
+  disabled?: boolean;
+}
+
+interface RuntimePickerDiagnostics {
+  desiredBackend?: WorkspaceRuntimeBackend;
+  actualBackend?: WorkspaceRuntimeBackend;
+  fallbackReason?: string;
+  capabilityAudit?: Array<{ detail?: string }>;
 }
 
 const APPLE_CONTAINER_COPY = 'Recommended on Apple Silicon Macs. Live-mounted Linux workspace using Apple Container.';
 const DOCKER_COPY = 'Portable Linux workspace for macOS Intel, Windows, and Linux. Requires Docker Desktop or Docker Engine.';
-const HOST_COPY = 'Run directly on the host. Fastest startup, least isolated.';
+const HOST_COPY = 'Run directly on this computer. Fastest startup, least isolated.';
+const WINDOWS_HOST_COPY = 'Run through WSL 2 on Windows. Requires a healthy WSL distro with bash installed.';
+const WINDOWS_HOST_SETUP_COPY = 'Host requires WSL 2. Install WSL, start a distro, then run Doctor before selecting Host.';
 
 type RuntimeBackendForDisplay = WorkspaceRuntimeBackend | DeprecatedWorkspaceRuntimeBackend;
 
-function runtimeName(backend: RuntimeBackendForDisplay): string {
+export function runtimeName(backend: RuntimeBackendForDisplay): string {
   if (backend === 'apple-container') return 'Apple Container';
   if (backend === 'docker') return 'Docker';
   return 'Host';
@@ -36,34 +47,68 @@ function runtimeIcon(backend: RuntimeBackendForDisplay) {
   return <Box className="size-3" />;
 }
 
-export function getRuntimePickerOptions(platform: string): RuntimeOption[] {
-  if (platform !== 'darwin') {
+function hasWindowsHostSetupProblem(diagnostics?: RuntimePickerDiagnostics[]): boolean {
+  return diagnostics?.some((entry) => {
+    const text = [
+      entry.fallbackReason,
+      ...(entry.capabilityAudit ?? []).map((audit) => audit.detail),
+    ].filter(Boolean).join(' ');
+    return entry.desiredBackend === 'host' && entry.actualBackend !== 'host' || /\b(wsl|wsl\.exe|WSL 2)\b/i.test(text);
+  }) ?? false;
+}
+
+export function getRuntimePickerOptions(
+  platform: string,
+  diagnostics?: RuntimePickerDiagnostics[],
+): RuntimeOption[] {
+  const hostOption: RuntimeOption = {
+    backend: 'host',
+    name: 'Host',
+    description: platform === 'win32' ? WINDOWS_HOST_COPY : HOST_COPY,
+    advanced: true,
+  };
+
+  if (platform === 'win32' && hasWindowsHostSetupProblem(diagnostics)) {
+    hostOption.description = WINDOWS_HOST_SETUP_COPY;
+    hostOption.disabled = true;
+  }
+
+  if (platform === 'darwin') {
     return [
+      { backend: 'apple-container', name: 'Apple Container', description: APPLE_CONTAINER_COPY },
       { backend: 'docker', name: 'Docker', description: DOCKER_COPY },
+      hostOption,
     ];
   }
 
   return [
-    { backend: 'apple-container', name: 'Apple Container', description: APPLE_CONTAINER_COPY },
     { backend: 'docker', name: 'Docker', description: DOCKER_COPY },
-    { backend: 'host', name: 'Host', description: HOST_COPY, advanced: true },
+    hostOption,
   ];
 }
 
 export function RuntimePickerMenu({ workspace }: { workspace: WorkspaceInfo }) {
   const setRuntimeBackend = useWorkspaceStore((state) => state.setRuntimeBackend);
+  const [diagnostics, setDiagnostics] = useState<RuntimePickerDiagnostics[] | undefined>();
   const platform = window.sero.platform;
-  const options = getRuntimePickerOptions(platform);
-  const current = workspace.runtime.backend;
+  const options = getRuntimePickerOptions(platform, diagnostics);
+  const current = workspace.runtime.backend as RuntimeBackendForDisplay;
   const currentName = runtimeName(current);
 
-  const handleSelect = async (backend: WorkspaceRuntimeBackend) => {
-    if (backend === current) return;
-    await setRuntimeBackend(workspace.id, backend);
+  const handleSelect = async (option: RuntimeOption) => {
+    if (option.disabled || option.backend === current) return;
+    await setRuntimeBackend(workspace.id, option.backend);
+  };
+
+  const handleOpenChange = (open: boolean) => {
+    if (!open || typeof window.sero.workspace?.getRuntimeDiagnostics !== 'function') return;
+    window.sero.workspace.getRuntimeDiagnostics(workspace.id)
+      .then((entries) => setDiagnostics(entries as RuntimePickerDiagnostics[]))
+      .catch((error) => console.warn('[runtime-picker] Failed to load runtime diagnostics:', error));
   };
 
   return (
-    <Popover>
+    <Popover onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <IconAction
           as="span"
@@ -93,8 +138,9 @@ export function RuntimePickerMenu({ workspace }: { workspace: WorkspaceInfo }) {
             <button
               key={option.backend}
               type="button"
-              onClick={() => void handleSelect(option.backend)}
-              className="flex w-full items-start gap-2 rounded-md px-2 py-2 text-left hover:bg-[var(--bg-elevated)]"
+              onClick={() => void handleSelect(option)}
+              disabled={option.disabled}
+              className="flex w-full items-start gap-2 rounded-md px-2 py-2 text-left hover:bg-[var(--bg-elevated)] disabled:cursor-not-allowed disabled:opacity-60"
             >
               <span className="mt-0.5 text-[var(--text-muted)]">{runtimeIcon(option.backend)}</span>
               <span className="min-w-0 flex-1">
@@ -115,11 +161,11 @@ export function RuntimePickerMenu({ workspace }: { workspace: WorkspaceInfo }) {
           ))}
         </div>
 
-        {platform === 'darwin' ? null : (
+        {platform === 'win32' ? (
           <div className="border-t border-[var(--border-subtle)] px-3 py-2 text-xs text-[var(--text-muted)]">
-            Docker is the normal Sero runtime on Windows and Linux. If Docker is missing or stopped, run Doctor or follow Docker setup instead of falling back to host mode.
+            Windows Host runs inside WSL 2. If Host is disabled, install WSL, start a distro, then run Doctor.
           </div>
-        )}
+        ) : null}
 
         <div className="border-t border-[var(--border-subtle)] p-2">
           <Button

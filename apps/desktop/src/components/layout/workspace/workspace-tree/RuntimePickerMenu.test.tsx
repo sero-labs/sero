@@ -5,7 +5,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { WorkspaceInfo } from '@/types/ipc';
 import { useWorkspaceStore } from '@/stores/workspace';
-import { RuntimePickerMenu } from './RuntimePickerMenu';
+import { getRuntimePickerOptions, RuntimePickerMenu, runtimeName } from './RuntimePickerMenu';
 
 (
   globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
@@ -27,13 +27,14 @@ function workspace(runtime: WorkspaceInfo['runtime']): WorkspaceInfo {
   };
 }
 
-function installSero(platform: string) {
+function installSero(platform: string, diagnostics: unknown[] = []) {
   Object.defineProperty(window, 'sero', {
     configurable: true,
     writable: true,
     value: {
       platform,
       doctor: { runQuick: vi.fn(async () => ({ categories: [] })) },
+      workspace: { getRuntimeDiagnostics: vi.fn(async () => diagnostics) },
     },
   });
 }
@@ -71,6 +72,35 @@ describe('RuntimePickerMenu', () => {
     useWorkspaceStore.setState(initialWorkspaceState, true);
   });
 
+  it('renders canonical and deprecated host names as Host', () => {
+    expect(runtimeName('host')).toBe('Host');
+    expect(runtimeName('mac-host')).toBe('Host');
+  });
+
+  it('returns platform-specific runtime option sets', () => {
+    expect(getRuntimePickerOptions('darwin').map((option) => option.backend)).toEqual([
+      'apple-container',
+      'docker',
+      'host',
+    ]);
+    expect(getRuntimePickerOptions('linux').map((option) => option.backend)).toEqual(['docker', 'host']);
+    expect(getRuntimePickerOptions('win32').map((option) => option.backend)).toEqual(['docker', 'host']);
+  });
+
+  it('disables Windows Host with WSL setup guidance when diagnostics show WSL is missing', () => {
+    const options = getRuntimePickerOptions('win32', [
+      {
+        desiredBackend: 'host',
+        actualBackend: 'docker',
+        fallbackReason: 'wsl.exe is not available on PATH. Windows host runtime requires WSL 2.',
+      },
+    ]);
+    const host = options.find((option) => option.backend === 'host');
+    expect(host).toMatchObject({ disabled: true });
+    expect(host?.description).toContain('Install WSL');
+    expect(host?.description).toContain('run Doctor');
+  });
+
   it('shows macOS runtime choices with Host marked advanced', async () => {
     installSero('darwin');
 
@@ -89,7 +119,7 @@ describe('RuntimePickerMenu', () => {
     expect(document.body.textContent).toContain('preview port pool requires recreating the runtime/container');
   });
 
-  it('keeps Windows on the Docker normal path and does not offer Host fallback', async () => {
+  it('shows Windows Docker and Host with the WSL 2 requirement', async () => {
     installSero('win32');
 
     await act(async () => {
@@ -97,10 +127,10 @@ describe('RuntimePickerMenu', () => {
     });
     await openPicker();
 
-    expect(document.body.textContent).toContain('Docker is the normal Sero runtime on Windows and Linux');
-    expect(document.body.textContent).toContain('run Doctor or follow Docker setup instead of falling back to host mode');
     expect(document.body.textContent).toContain('Docker');
-    expect(document.body.textContent).not.toContain('Host');
+    expect(document.body.textContent).toContain('Host');
+    expect(document.body.textContent).toContain('Requires a healthy WSL distro');
+    expect(document.body.textContent).toContain('Windows Host runs inside WSL 2');
     expect(document.body.textContent).not.toContain('Apple Container');
   });
 

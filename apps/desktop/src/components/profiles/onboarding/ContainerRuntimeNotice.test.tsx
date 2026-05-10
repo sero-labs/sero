@@ -81,7 +81,8 @@ describe('ContainerRuntimeNotice', () => {
     expect(shellBridge.openExternal).toHaveBeenCalledWith(
       'https://github.com/sero-labs/sero/blob/main/docs/guides/macos-containers.md',
     );
-    expect(document.body.textContent).toContain('Docker is the normal runtime on Windows and Linux');
+    expect(document.body.textContent).toContain('Docker remains the most isolated runtime on Windows and Linux');
+    expect(document.body.textContent).toContain('Windows Host requires WSL 2');
   });
 
   it('renders nothing when containers are available', async () => {

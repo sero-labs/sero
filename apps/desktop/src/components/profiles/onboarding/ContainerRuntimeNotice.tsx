@@ -27,7 +27,7 @@ export function ContainerRuntimeNotice({
           <div className="space-y-1">
             <p className="font-medium text-[var(--text-primary)]">Workspace runtime setup recommended for full Sero features</p>
             <p>{runtime.message}</p>
-            <p>Docker is the normal runtime on Windows and Linux. Mac Host remains an advanced macOS-only option.</p>
+            <p>Docker remains the most isolated runtime on Windows and Linux. Host is available without containers; Windows Host requires WSL 2.</p>
           </div>
 
           <ul className="list-disc space-y-1 pl-5 text-xs marker:text-[var(--status-warning)]">
