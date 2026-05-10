@@ -43,6 +43,14 @@ if ! command -v pnpm &> /dev/null; then
   exit 1
 fi
 
+# Pin the runtime image for packaged release builds. Development builds omit
+# this variable and use ghcr.io/sero-labs/sero-node:latest as the fallback.
+if [ -z "${SERO_NODE_IMAGE_TAG:-}" ]; then
+  SERO_NODE_IMAGE_TAG="$(node -p "require('./package.json').version")"
+  export SERO_NODE_IMAGE_TAG
+fi
+echo "▸ Runtime image tag: ghcr.io/sero-labs/sero-node:${SERO_NODE_IMAGE_TAG}"
+
 # ── Step 1: Install dependencies ─────────────────────────────
 echo "▸ Step 1/7: Installing dependencies..."
 cd "$MONO_ROOT"

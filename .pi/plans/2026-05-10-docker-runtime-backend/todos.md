@@ -554,7 +554,7 @@ Reference: `apps/desktop/src/stores/workspace.ts` currently toggles `workspace.c
 
 ## TODO DOCKER-RUNTIME-09 — Add runtime image versioning and multi-arch GHCR publish workflow/docs
 
-**Status:** Pending
+**Status:** Done
 **Tags:** `docker-runtime`
 
 **Plan:** `/Users/danielcarter/Documents/Dev/projects/sero/sero/.pi/plans/2026-05-10-docker-runtime-backend/plan.md`
@@ -606,12 +606,12 @@ RUN mkdir -p /workspace /tmp/sero-home && chmod 1777 /workspace /tmp/sero-home
 Reference: `apps/desktop/electron/features/container/core/image.ts` currently pulls `ghcr.io/sero-labs/sero-node:latest` then builds local fallback.
 
 ### Acceptance Criteria
-- [ ] Image constants are shared or intentionally duplicated with comments explaining Apple/Docker compatibility.
-- [ ] Dockerfile creates writable `/tmp/sero-home` for arbitrary UID/GID runs.
-- [ ] Publish workflow/script can build `linux/amd64,linux/arm64` tags.
-- [ ] Docs explain pinned release tags, `:latest` dev fallback, and workspace container recreation on image bump.
-- [ ] Image helper tests cover pinned tag and fallback behavior.
-- [ ] No touched source file exceeds 500 LOC.
+- [x] Image constants are shared or intentionally duplicated with comments explaining Apple/Docker compatibility.
+- [x] Dockerfile creates writable `/tmp/sero-home` for arbitrary UID/GID runs.
+- [x] Publish workflow/script can build `linux/amd64,linux/arm64` tags.
+- [x] Docs explain pinned release tags, `:latest` dev fallback, and workspace container recreation on image bump.
+- [x] Image helper tests cover pinned tag and fallback behavior.
+- [x] No touched source file exceeds 500 LOC.
 
 ---
 

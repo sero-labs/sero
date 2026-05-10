@@ -69,7 +69,7 @@ ghcr.io/sero-labs/sero-node:<version>
 ghcr.io/sero-labs/sero-node:sha-<git-sha>
 ```
 
-If you changed `apps/desktop/images/Dockerfile.sero-node` or container-installed tools, rebuild the image and recreate affected workspace containers.
+If you changed `apps/desktop/images/Dockerfile.sero-node` or container-installed tools, rebuild the image and recreate affected workspace containers. See [runtime images](../reference/runtime-images.md) for pinned release tags, the `:latest` development fallback, and image bump behavior.
 
 ## Common problems
 

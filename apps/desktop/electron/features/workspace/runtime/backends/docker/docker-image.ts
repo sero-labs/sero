@@ -1,6 +1,6 @@
 import { existsSync } from 'fs';
 import path from 'path';
-import { DEFAULT_IMAGE } from '@electron/features/container/core/types';
+import { DEFAULT_IMAGE, seroNodeImageVersionFromRef } from '@electron/features/container/core/types';
 import { checkDocker, type DockerRunner } from './docker-cli';
 
 export interface DockerImageEnsureResult {
@@ -34,7 +34,7 @@ export async function ensureDockerImage(options: DockerImageOptions = {}): Promi
     throw new Error(`Docker image ${imageRef} is unavailable; pull failed and Dockerfile was not found at ${dockerfilePath}. ${pull.stderr}`.trim());
   }
 
-  const build = await run(['build', '-t', imageRef, '-f', 'Dockerfile.sero-node', '.'], {
+  const build = await run(['build', '-t', imageRef, '--build-arg', `SERO_NODE_VERSION=${seroNodeImageVersionFromRef(imageRef)}`, '-f', 'Dockerfile.sero-node', '.'], {
     cwd: imagesDir,
     timeoutMs: 300_000,
   });

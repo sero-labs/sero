@@ -9,7 +9,22 @@ import path from 'path';
 import os from 'os';
 
 export const CONTAINER_BIN = '/usr/local/bin/container';
-export const DEFAULT_IMAGE = 'ghcr.io/sero-labs/sero-node:latest';
+
+// Apple Container and Docker intentionally share the exact sero-node image so
+// both runtimes expose the same Linux toolchain on arm64 Macs and amd64/arm64
+// Docker hosts. Release builds set SERO_NODE_IMAGE_TAG to a pinned version;
+// development falls back to :latest until the release pipeline injects a tag.
+export const SERO_NODE_IMAGE_REPOSITORY = 'ghcr.io/sero-labs/sero-node';
+export const SERO_NODE_DEV_IMAGE_TAG = 'latest';
+export const SERO_NODE_IMAGE_TAG = process.env.SERO_NODE_IMAGE_TAG?.trim() || SERO_NODE_DEV_IMAGE_TAG;
+export const DEFAULT_IMAGE = `${SERO_NODE_IMAGE_REPOSITORY}:${SERO_NODE_IMAGE_TAG}`;
+
+export function seroNodeImageVersionFromRef(imageRef: string): string {
+  const prefix = `${SERO_NODE_IMAGE_REPOSITORY}:`;
+  if (!imageRef.startsWith(prefix)) return SERO_NODE_DEV_IMAGE_TAG;
+  return imageRef.slice(prefix.length) || SERO_NODE_DEV_IMAGE_TAG;
+}
+
 export const DEFAULT_CPUS = 2;
 export const DEFAULT_MEMORY_MB = 1024;
 export const WORKSPACE_MOUNT = '/workspace';

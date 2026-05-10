@@ -3,6 +3,7 @@ import { tmpdir } from 'os';
 import path from 'path';
 import { describe, expect, it, vi } from 'vitest';
 import type { WorkspaceManager } from '@electron/features/workspace/manager';
+import { DEFAULT_IMAGE } from '@electron/features/container/core/types';
 import type { DockerCommandResult, DockerRunner } from '@electron/features/workspace/runtime/backends/docker/docker-cli';
 import { ensureDockerImage } from '@electron/features/workspace/runtime/backends/docker/docker-image';
 import { createDockerRunArgs } from '@electron/features/workspace/runtime/backends/docker/docker-lifecycle';
@@ -76,6 +77,38 @@ describe('Docker runtime backend core', () => {
       .resolves.toMatchObject({ source: 'built' });
     await expect(ensureDockerImage({ imageRef: 'image:fail', run: sequence([fail('missing'), fail('offline'), fail('bad build')]), imagesDir }))
       .rejects.toThrow('pull and local build failed');
+  });
+
+  it('uses the shared latest fallback image when no pinned tag is configured', async () => {
+    const calls: string[][] = [];
+    const run: DockerRunner = vi.fn(async (args: string[]) => {
+      calls.push(args);
+      return ok('inspect');
+    });
+
+    await expect(ensureDockerImage({ run })).resolves.toMatchObject({ imageRef: DEFAULT_IMAGE, source: 'local' });
+    expect(calls[0]).toEqual(['image', 'inspect', 'ghcr.io/sero-labs/sero-node:latest']);
+  });
+
+  it('passes pinned sero-node tags into local fallback image labels', async () => {
+    const imagesDir = mkdtempSync(path.join(tmpdir(), 'sero-image-tag-test-'));
+    const calls: string[][] = [];
+    writeFileSync(path.join(imagesDir, 'Dockerfile.sero-node'), 'FROM scratch\n');
+
+    await ensureDockerImage({
+      imageRef: 'ghcr.io/sero-labs/sero-node:0.1.0',
+      imagesDir,
+      run: vi.fn(async (args: string[]) => {
+        calls.push(args);
+        if (args[0] === 'build') return ok('build');
+        return fail('missing');
+      }),
+    });
+
+    expect(calls.find((args) => args[0] === 'build')).toEqual(expect.arrayContaining([
+      '-t', 'ghcr.io/sero-labs/sero-node:0.1.0',
+      '--build-arg', 'SERO_NODE_VERSION=0.1.0',
+    ]));
   });
 
   it('exec injects cwd, env, runtime env, and trusted git auth only when requested', async () => {
