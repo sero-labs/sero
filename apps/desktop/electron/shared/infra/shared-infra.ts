@@ -124,7 +124,6 @@ export async function ensureInfra(): Promise<SharedInfra> {
     subagentManager.setDeps({
       infra,
       workspaceManager,
-      containerManager,
     });
   }
   applyRuntimeSettings(infra.settingsManager);

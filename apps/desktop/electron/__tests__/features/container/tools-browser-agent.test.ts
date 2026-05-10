@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { RuntimeBackend } from '@electron/features/workspace/runtime/types';
 
 type ExecResult = { stdout: string; stderr: string; exitCode: number };
 
@@ -25,7 +26,11 @@ async function createToolWithExec(results: ExecResult[]) {
   vi.resetModules();
   const exec = createExecMock(results);
   const { createAgentBrowser } = await import('@electron/features/container/tools/tools-browser-agent');
-  const tool = createAgentBrowser({ exec } as never, 'ws-1');
+  const runtime = {
+    exec: (input: { command: string; cwd?: string; timeoutMs?: number }) => exec('ws-1', input.command, input.cwd, input.timeoutMs),
+    createDirectory: (input: { path: string }) => exec('ws-1', `mkdir -p '${input.path}'`, undefined, undefined),
+  } as unknown as RuntimeBackend;
+  const tool = createAgentBrowser(runtime, 'ws-1');
   return { tool, exec };
 }
 

@@ -16,9 +16,8 @@ const mocks = vi.hoisted(() => {
     rename: vi.fn(),
     rm: vi.fn(),
     exec: vi.fn(),
-    writeContainerFile: vi.fn(),
+    runtimeWriteFile: vi.fn().mockResolvedValue(undefined),
     invalidateWorkspace: vi.fn(),
-    resolveWorkspaceRuntime: vi.fn().mockResolvedValue({ actualRuntime: 'host', workspacePath: '/repo' }),
     resolveHostPath: vi.fn(async (_workspaceManager: unknown, _workspaceId: string, filePath: string) => `/repo${filePath.replace('/workspace', '')}`),
     resolveContainerPath: vi.fn(),
   };
@@ -45,15 +44,15 @@ vi.mock('fs', () => ({
 }));
 
 vi.mock('@electron/shared/infra/shared-infra', () => ({
-  containerManager: {
-    exec: mocks.exec,
-    writeFile: mocks.writeContainerFile,
-  },
   workspaceManager: {},
 }));
 
-vi.mock('@electron/features/workspace/runtime-resolution', () => ({
-  resolveWorkspaceRuntime: mocks.resolveWorkspaceRuntime,
+vi.mock('@electron/features/workspace/runtime/runtime-manager', () => ({
+  runtimeManager: {
+    getRuntime: vi.fn().mockResolvedValue({
+      writeFile: mocks.runtimeWriteFile,
+    }),
+  },
 }));
 
 vi.mock('@electron/ipc/editor/path-resolution', () => ({
@@ -64,6 +63,7 @@ vi.mock('@electron/ipc/editor/path-resolution', () => ({
 
 vi.mock('@electron/platform/env', () => ({
   SERO_AGENT_DIR: '/tmp/sero-agent',
+  SERO_HOME: '/tmp/sero-home',
 }));
 
 vi.mock('@electron/features/apps/git-app/manager', () => ({
@@ -80,8 +80,8 @@ describe('editor git refresh invalidation', () => {
     mocks.mkdir.mockClear();
     mocks.writeFile.mockClear();
     mocks.invalidateWorkspace.mockClear();
-    mocks.resolveWorkspaceRuntime.mockClear();
-    mocks.resolveWorkspaceRuntime.mockResolvedValue({ actualRuntime: 'host', workspacePath: '/repo' });
+    mocks.runtimeWriteFile.mockClear();
+    mocks.resolveContainerPath.mockResolvedValue('/workspace/story.txt');
   });
 
   it('invalidates Git refresh after host file saves', async () => {
@@ -94,7 +94,7 @@ describe('editor git refresh invalidation', () => {
 
     await writeHandler?.({}, 'ws-1', '/workspace/story.txt', 'hello');
 
-    expect(mocks.writeFile).toHaveBeenCalledWith('/repo/story.txt', 'hello', 'utf8');
+    expect(mocks.runtimeWriteFile).toHaveBeenCalledWith({ path: '/workspace/story.txt', content: 'hello' });
     expect(mocks.invalidateWorkspace).toHaveBeenCalledWith('ws-1', 'editor:write-file');
   });
 });

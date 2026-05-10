@@ -2,7 +2,8 @@ import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { ContainerManager } from '@electron/features/container';
+import type { RuntimeBackend } from '@electron/features/workspace/runtime/types';
+import { getRuntimeCapabilities } from '@electron/features/workspace/runtime/capabilities';
 import { createBash, createEdit, createRead, createWrite } from '@electron/features/container/tools/tools-coding';
 import {
   commandTouchesProtectedMemory,
@@ -11,18 +12,40 @@ import {
   isProtectedMemoryPath,
 } from '@electron/features/container/tools/memory-file-guard';
 
-type MockContainerManager = Pick<ContainerManager, 'exec' | 'writeFile'> & {
-  portScanner: Pick<ContainerManager['portScanner'], 'getPorts' | 'triggerScan'>;
+type MockRuntimeBackend = RuntimeBackend & {
+  exec: ReturnType<typeof vi.fn>;
+  writeFile: ReturnType<typeof vi.fn>;
 };
 
-function createMockContainerManager(): MockContainerManager {
+function createMockRuntimeBackend(): MockRuntimeBackend {
   return {
+    backend: 'apple-container',
+    workspaceId: 'ws-1',
+    hostWorkspacePath: '/host/workspace',
+    runtimeWorkspacePath: '/workspace',
+    workspaceAccess: 'live-mount',
+    capabilities: getRuntimeCapabilities('apple-container'),
+    health: vi.fn().mockResolvedValue({ backend: 'apple-container', status: 'ready', message: 'ready' }),
+    ensure: vi.fn().mockResolvedValue({ backend: 'apple-container', workspaceId: 'ws-1', hostWorkspacePath: '/host/workspace', runtimeWorkspacePath: '/workspace', state: 'running' }),
+    destroy: vi.fn().mockResolvedValue(undefined),
     exec: vi.fn().mockResolvedValue({ stdout: 'ok', stderr: '', exitCode: 0 }),
+    spawn: vi.fn(),
+    readFile: vi.fn().mockResolvedValue({ content: 'ok', encoding: 'utf8' }),
     writeFile: vi.fn().mockResolvedValue(undefined),
-    portScanner: {
-      getPorts: vi.fn().mockReturnValue([]),
-      triggerScan: vi.fn(),
-    },
+    listFiles: vi.fn().mockResolvedValue([]),
+    rename: vi.fn().mockResolvedValue(undefined),
+    delete: vi.fn().mockResolvedValue(undefined),
+    createFile: vi.fn().mockResolvedValue(undefined),
+    createDirectory: vi.fn().mockResolvedValue(undefined),
+    watchFiles: vi.fn(),
+    createTerminal: vi.fn(),
+    startDevServer: vi.fn(),
+    stopDevServer: vi.fn().mockResolvedValue(undefined),
+    restartDevServer: vi.fn(),
+    getDevServerStatus: vi.fn().mockResolvedValue({ servers: [] }),
+    forwardPort: vi.fn(),
+    stopForward: vi.fn().mockResolvedValue(undefined),
+    resolvePreviewUrl: vi.fn(),
   };
 }
 
@@ -60,12 +83,12 @@ describe('container memory file guard', () => {
   });
 
   it('blocks read/write/edit tool calls against protected memory files', async () => {
-    const cm = createMockContainerManager();
+    const cm = createMockRuntimeBackend();
     const protectedPath = `${getProtectedMemoryRoot()}/MEMORY.md`;
 
-    const readTool = createRead(cm as unknown as ContainerManager, 'ws-1');
-    const writeTool = createWrite(cm as unknown as ContainerManager, 'ws-1');
-    const editTool = createEdit(cm as unknown as ContainerManager, 'ws-1');
+    const readTool = createRead(cm);
+    const writeTool = createWrite(cm);
+    const editTool = createEdit(cm);
 
     await expect(readTool.execute('tool-1', { path: protectedPath }, undefined, undefined, undefined as never))
       .rejects.toThrow(getProtectedMemoryAccessError('read'));
@@ -79,8 +102,8 @@ describe('container memory file guard', () => {
   });
 
   it('blocks bash commands that touch protected memory files before execution', async () => {
-    const cm = createMockContainerManager();
-    const bashTool = createBash(cm as unknown as ContainerManager, 'ws-1');
+    const cm = createMockRuntimeBackend();
+    const bashTool = createBash(cm);
     const protectedRoot = getProtectedMemoryRoot();
 
     await expect(bashTool.execute('tool-1', { command: `cat '${protectedRoot}/MEMORY.md'` }, undefined, undefined, undefined as never))
@@ -93,13 +116,13 @@ describe('container memory file guard', () => {
 
   it('blocks symlinked protected paths inside the container tool wrappers', async () => {
     const protectedPath = `${getProtectedMemoryRoot()}/MEMORY.md`;
-    const cm = createMockContainerManager();
+    const cm = createMockRuntimeBackend();
     cm.exec = vi.fn().mockResolvedValue({ stdout: `${protectedPath}\n`, stderr: '', exitCode: 0 });
 
-    const readTool = createRead(cm as unknown as ContainerManager, 'ws-1');
-    const writeTool = createWrite(cm as unknown as ContainerManager, 'ws-1');
-    const editTool = createEdit(cm as unknown as ContainerManager, 'ws-1');
-    const bashTool = createBash(cm as unknown as ContainerManager, 'ws-1');
+    const readTool = createRead(cm);
+    const writeTool = createWrite(cm);
+    const editTool = createEdit(cm);
+    const bashTool = createBash(cm);
 
     await expect(readTool.execute('tool-1', { path: 'memory-link' }, undefined, undefined, undefined as never))
       .rejects.toThrow(getProtectedMemoryAccessError('read'));

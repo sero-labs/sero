@@ -81,7 +81,10 @@ describe('image read tool resizing', () => {
       .mockResolvedValueOnce({ stdout: '89504e470d0a1a0a00000000', stderr: '', exitCode: 0 })
       .mockResolvedValueOnce({ stdout: `${pngBytes.toString('base64')}\n`, stderr: '', exitCode: 0 });
 
-    const tool = createRead({ exec } as never, 'ws-1');
+    const runtime = {
+      exec: (input: { command: string; cwd?: string; timeoutMs?: number }) => exec(input.command, input.cwd, input.timeoutMs),
+    };
+    const tool = createRead(runtime as never);
     const result = await tool.execute('tool-container', { path: 'image.png' }, undefined, undefined, undefined as never);
 
     expect(mocks.prepareToolImage).toHaveBeenCalledWith(pngBytes.toString('base64'), 'image/png');

@@ -1,4 +1,4 @@
-import { containerManager } from '@electron/shared/infra/shared-infra';
+import { runtimeManager } from '@electron/features/workspace/runtime/runtime-manager';
 import type { CliRegistry } from '@electron/cli/core/registry';
 import type { CliCommandContext } from '@electron/cli/core/types';
 import { fail, ok } from '@electron/cli/lib/utils';
@@ -17,7 +17,7 @@ async function handleTerminal(args: string[], ctx: CliCommandContext) {
         if (!Number.isFinite(requestedLines) || requestedLines <= 0) return fail(`Invalid line count: ${linesRaw}`);
         const wasCapped = requestedLines > MAX_LINES;
         const lines = Math.min(Math.floor(requestedLines), MAX_LINES);
-        const output = containerManager.terminals.readWorkspaceTerminalOutput(ctx.workspaceId, lines);
+        const output = runtimeManager.readWorkspaceTerminalOutput(ctx.workspaceId, lines);
         if (wasCapped) {
           return ok(`${output}\n\n⚠️ Output truncated to ${MAX_LINES} lines (requested ${Math.floor(requestedLines)}). Use a smaller line count to focus on recent output.`);
         }

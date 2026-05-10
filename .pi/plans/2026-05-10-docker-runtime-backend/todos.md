@@ -212,7 +212,7 @@ Reference: `apps/desktop/electron/features/container/index.ts` has the existing 
 
 ## TODO DOCKER-RUNTIME-04 — Migrate agent/subagent tools, editor, terminal, and CLI paths to RuntimeBackend
 
-**Status:** Pending
+**Status:** Done
 **Tags:** `docker-runtime`
 
 **Plan:** `/Users/danielcarter/Documents/Dev/projects/sero/sero/.pi/plans/2026-05-10-docker-runtime-backend/plan.md`
@@ -265,13 +265,13 @@ return await containerManager.readFile(workspaceId, containerPath);
 Reference: current direct calls are in `apps/desktop/electron/ipc/editor/editor.ts` around read/write/list/mv/rm/touch/mkdir.
 
 ### Acceptance Criteria
-- [ ] `rg "containerManager" apps/desktop/electron/ipc/agent apps/desktop/electron/features/subagent apps/desktop/electron/ipc/editor apps/desktop/electron/ipc/container/terminal.ts apps/desktop/electron/cli/commands/editor apps/desktop/electron/cli/commands/container/terminal.ts` shows no normal workspace direct usage.
-- [ ] Agent and subagent tools are built from `RuntimeBackend`.
-- [ ] Editor read/write/list/rename/delete/create file/create directory use runtime primitives.
-- [ ] Terminal create/read/dispose works through runtime terminal registry/facade.
-- [ ] Tests cover selected Apple runtime unavailable → actionable error, not host fallback.
-- [ ] `pnpm --filter @sero/desktop test -- --run` or relevant targeted tests pass.
-- [ ] No touched source file exceeds 500 LOC.
+- [x] `rg "containerManager" apps/desktop/electron/ipc/agent apps/desktop/electron/features/subagent apps/desktop/electron/ipc/editor apps/desktop/electron/ipc/container/terminal.ts apps/desktop/electron/cli/commands/editor apps/desktop/electron/cli/commands/container/terminal.ts` shows no normal workspace direct usage.
+- [x] Agent and subagent tools are built from `RuntimeBackend`.
+- [x] Editor read/write/list/rename/delete/create file/create directory use runtime primitives.
+- [x] Terminal create/read/dispose works through runtime terminal registry/facade.
+- [x] Tests cover selected Apple runtime unavailable → actionable error, not host fallback.
+- [x] `pnpm --filter @sero/desktop test -- --run` or relevant targeted tests pass.
+- [x] No touched source file exceeds 500 LOC.
 
 ---
 

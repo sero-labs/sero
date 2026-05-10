@@ -4,7 +4,7 @@ import type { WorkspaceManager } from '@electron/features/workspace/manager';
 import { workspaceManager } from '@electron/features/workspace/manager';
 import { AppleContainerBackend } from './backends/apple-container-backend';
 import { MacHostBackend } from './backends/mac-host-backend';
-import type { RuntimeBackend, RuntimeBackendId, RuntimeHealth } from './types';
+import type { RuntimeBackend, RuntimeBackendId, RuntimeHealth, RuntimeTerminalSession } from './types';
 
 export interface RuntimeManagerDependencies {
   workspaceManager: WorkspaceManager;
@@ -14,6 +14,8 @@ export interface RuntimeManagerDependencies {
 
 export class RuntimeManager {
   private readonly backends = new Map<string, RuntimeBackend>();
+  private readonly terminals = new Map<string, { workspaceId: string; session: RuntimeTerminalSession }>();
+  private readonly terminalExitCallbacks = new Set<(terminalId: string) => void>();
 
   constructor(private readonly dependencies: RuntimeManagerDependencies) {}
 
@@ -38,7 +40,67 @@ export class RuntimeManager {
     return runtime.health();
   }
 
+  async createTerminal(
+    workspaceId: string,
+    terminalId: string,
+    cols?: number,
+    rows?: number,
+  ): Promise<{ runtime: RuntimeBackend; session: RuntimeTerminalSession }> {
+    const runtime = await this.getRuntime(workspaceId);
+    const session = await runtime.createTerminal({
+      terminalId,
+      cwd: runtime.runtimeWorkspacePath,
+      cols,
+      rows,
+    });
+    this.terminals.set(terminalId, { workspaceId, session });
+    session.onExit(() => {
+      this.terminals.delete(terminalId);
+      for (const cb of this.terminalExitCallbacks) cb(terminalId);
+    });
+    return { runtime, session };
+  }
+
+  getTerminal(terminalId: string): RuntimeTerminalSession | undefined {
+    return this.terminals.get(terminalId)?.session;
+  }
+
+  writeTerminal(terminalId: string, data: string): void {
+    this.terminals.get(terminalId)?.session.write(data);
+  }
+
+  resizeTerminal(terminalId: string, cols: number, rows: number): void {
+    this.terminals.get(terminalId)?.session.resize?.(cols, rows);
+  }
+
+  getTerminalReplayBuffer(terminalId: string): string {
+    return this.terminals.get(terminalId)?.session.replayBuffer() ?? '';
+  }
+
+  readWorkspaceTerminalOutput(workspaceId: string, lines: number): string {
+    const buffers = [...this.terminals.values()]
+      .filter((entry) => entry.workspaceId === workspaceId)
+      .map((entry) => entry.session.replayBuffer())
+      .filter(Boolean);
+    const joined = buffers.join('\n');
+    return joined.split('\n').slice(-lines).join('\n');
+  }
+
+  disposeTerminal(terminalId: string): void {
+    const terminal = this.terminals.get(terminalId)?.session;
+    terminal?.signal('SIGTERM');
+    this.terminals.delete(terminalId);
+  }
+
+  onTerminalExit(cb: (terminalId: string) => void): () => void {
+    this.terminalExitCallbacks.add(cb);
+    return () => this.terminalExitCallbacks.delete(cb);
+  }
+
   async destroy(workspaceId: string): Promise<void> {
+    for (const [terminalId, entry] of this.terminals) {
+      if (entry.workspaceId === workspaceId) this.disposeTerminal(terminalId);
+    }
     const runtimes = [...this.backends.entries()].filter(([key]) => key.startsWith(`${workspaceId}:`));
     await Promise.all(runtimes.map(([, runtime]) => runtime.destroy()));
     for (const [key] of runtimes) {
@@ -47,6 +109,7 @@ export class RuntimeManager {
   }
 
   async destroyAll(): Promise<void> {
+    for (const terminalId of this.terminals.keys()) this.disposeTerminal(terminalId);
     await Promise.all([...this.backends.values()].map((runtime) => runtime.destroy()));
     this.backends.clear();
   }

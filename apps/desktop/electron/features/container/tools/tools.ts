@@ -7,7 +7,7 @@
  */
 
 import type { ToolDefinition } from '@mariozechner/pi-coding-agent';
-import type { ContainerManager } from '..';
+import type { RuntimeBackend } from '@electron/features/workspace/runtime/types';
 import { createBash, createRead, createWrite, createEdit } from './tools-coding';
 import { createBrowser } from './tools-browser';
 import { createWorkspaceCliTool } from '@electron/cli';
@@ -19,18 +19,18 @@ import { createWorkspaceCliTool } from '@electron/cli';
  * @param containerCwd — override the default `/workspace` CWD for coding tools
  *   (e.g. when running in a git worktree subdirectory).
  */
-export function createContainerTools(
-  cm: ContainerManager,
-  workspaceId: string,
+export function createRuntimeTools(
+  runtime: RuntimeBackend,
   sessionId: string,
-  containerCwd?: string,
+  runtimeCwd?: string,
 ): ToolDefinition[] {
-  return [
-    createBash(cm, workspaceId, containerCwd),
-    createRead(cm, workspaceId, containerCwd),
-    createWrite(cm, workspaceId, containerCwd),
-    createEdit(cm, workspaceId, containerCwd),
-    createWorkspaceCliTool(workspaceId, sessionId),
-    createBrowser(cm, workspaceId),
+  const tools = [
+    createBash(runtime, runtimeCwd),
+    createRead(runtime, runtimeCwd),
+    createWrite(runtime, runtimeCwd),
+    createEdit(runtime, runtimeCwd),
+    createWorkspaceCliTool(runtime.workspaceId, sessionId),
   ];
+  if (runtime.capabilities.browserAutomation) tools.push(createBrowser(runtime, runtime.workspaceId));
+  return tools;
 }

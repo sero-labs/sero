@@ -11,24 +11,17 @@ import type {
   ContextToolInfo,
 } from '@/types/ipc';
 import { workspaceManager } from '@electron/features/workspace/manager';
-import { resolveWorkspaceRuntime } from '@electron/features/workspace/runtime-resolution';
-import { createHostCodingTools } from '@electron/features/container/tools';
+import { runtimeManager } from '@electron/features/workspace/runtime/runtime-manager';
+import { createRuntimeTools } from '@electron/features/container/tools';
 import { createSeroExtensionFactory } from '@electron/features/apps/extensions/create-sero-extension';
 import { SERO_AGENT_DIR } from '@electron/platform/env';
 import {
   SERO_SESSION_DIR,
-  buildContainerConfig,
-  containerManager,
   ensureInfra,
   subagentManager,
 } from '@electron/shared/infra/shared-infra';
-import { createContainerTools } from '@electron/features/container/tools';
-import type { ContainerState } from '@electron/features/container';
 import { createSeroUIContext } from '@electron/features/apps/extensions/ui-context';
-import {
-  bridgeExtensionTools,
-  createWorkspaceCliTool,
-} from '@electron/cli';
+import { bridgeExtensionTools } from '@electron/cli';
 import { createSkillVisibilityOverride } from '@electron/features/apps/extensions/skill-visibility';
 import {
   filterCompatiblePluginAgentsFiles,
@@ -72,6 +65,10 @@ function toErrorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
 }
 
+function isContainerLikeRuntime(backend: string): boolean {
+  return backend === 'apple-container' || backend === 'docker';
+}
+
 export async function openSessionInPool({
   pool,
   sessionId,
@@ -91,41 +88,26 @@ export async function openSessionInPool({
   const workspacePath = workspaceManager.getPath(workspaceId);
   if (!workspacePath) throw new Error(`Workspace not found: ${workspaceId}`);
 
-  const initialRuntime = await resolveWorkspaceRuntime(workspaceId);
-  const containerEnabled = initialRuntime.containerEnabled;
-  let containerState: ContainerState | null = null;
-  if (!containerEnabled) {
-    console.log(`[agent] Container disabled for workspace ${workspaceId}, using host tools`);
+  const runtime = await runtimeManager.getRuntime(workspaceId);
+  if (isContainerLikeRuntime(runtime.backend)) {
+    sendEvent({ type: 'container_starting', sessionId, workspaceId });
+  } else {
+    console.log(`[agent] Using ${runtime.backend} runtime for workspace ${workspaceId}`);
   }
 
   try {
-    if (containerEnabled) {
-      sendEvent({ type: 'container_starting', sessionId, workspaceId });
-      const containerConfig = await buildContainerConfig(workspaceId, workspacePath);
-      containerState = await containerManager.ensure(containerConfig);
-      sendEvent({ type: 'container_ready', sessionId, workspaceId, ipAddress: containerState.ipAddress });
+    const session = await runtime.ensure();
+    if (isContainerLikeRuntime(runtime.backend)) {
+      sendEvent({ type: 'container_ready', sessionId, workspaceId, ipAddress: session.containerId });
     }
-  } catch (containerError) {
-    const message = toErrorMessage(containerError, 'Container failed to start');
-    console.error(`[agent] Container failed for ${workspaceId}:`, message);
+  } catch (runtimeError) {
+    const message = toErrorMessage(runtimeError, 'Runtime failed to start');
+    console.error(`[agent] Runtime failed for ${workspaceId}:`, message);
     sendEvent({ type: 'container_error', sessionId, workspaceId, error: message });
-    sendEvent({
-      type: 'runtime_notice',
-      sessionId,
-      workspaceId,
-      runtime: 'host',
-      message:
-        'This session is continuing in host mode because the workspace container could not be started. Browser automation, containerized language servers, and managed dev-server automation will stay unavailable until containers are healthy again.',
-    });
+    throw new Error(`${runtime.backend} runtime failed to start for workspace ${workspaceId}: ${message}`);
   }
 
-  const useContainer = !!containerState;
-  if (!useContainer && containerEnabled && initialRuntime.actualRuntime === 'host' && initialRuntime.fallbackReason) {
-    console.warn(`[agent] ${initialRuntime.fallbackReason}`);
-  }
-  const platformTools = useContainer
-    ? createContainerTools(containerManager, workspaceId, sessionId)
-    : [...createHostCodingTools(workspacePath), createWorkspaceCliTool(workspaceId, sessionId)];
+  const platformTools = createRuntimeTools(runtime, sessionId);
   const globalAgentsFile = await readGlobalAgentsMd(workspaceId);
 
   const skillVisibilityOverride = createSkillVisibilityOverride(infra.settingsManager);
@@ -134,7 +116,7 @@ export async function openSessionInPool({
     agentDir: SERO_AGENT_DIR,
     settingsManager: infra.settingsManager,
     extensionFactories: [
-      createSeroExtensionFactory(workspaceManager, workspaceId, sessionId, containerState ?? undefined, {
+      createSeroExtensionFactory(workspaceManager, workspaceId, sessionId, undefined, {
         subagentManager,
         enableAgentManagementTools: true,
       }),
