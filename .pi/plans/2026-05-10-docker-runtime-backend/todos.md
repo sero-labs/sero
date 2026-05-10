@@ -617,7 +617,7 @@ Reference: `apps/desktop/electron/features/container/core/image.ts` currently pu
 
 ## TODO DOCKER-RUNTIME-10 — Delete OpenShell surfaces and update runtime docs/smoke matrix
 
-**Status:** Pending
+**Status:** Done
 **Tags:** `docker-runtime`
 
 **Plan:** `/Users/danielcarter/Documents/Dev/projects/sero/sero/.pi/plans/2026-05-10-docker-runtime-backend/plan.md`
