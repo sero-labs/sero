@@ -4,7 +4,7 @@ import type { WorkspaceManager } from '@electron/features/workspace/manager';
 import { workspaceManager } from '@electron/features/workspace/manager';
 import { AppleContainerBackend } from './backends/apple-container-backend';
 import { DockerBackend } from './backends/docker/docker-backend';
-import { MacHostBackend } from './backends/mac-host-backend';
+import { HostBackend } from './backends/host/host-backend';
 import type { RuntimeBackend, RuntimeBackendId, RuntimeHealth, RuntimeTerminalSession } from './types';
 
 export interface RuntimeManagerDependencies {
@@ -161,7 +161,7 @@ export class RuntimeManager {
   ): RuntimeBackend {
     switch (backendId) {
       case 'host':
-        return new MacHostBackend({
+        return new HostBackend({
           workspaceId,
           hostWorkspacePath,
           workspaceManager: this.dependencies.workspaceManager,

@@ -6,8 +6,8 @@ import { promisify } from 'util';
 
 import { TerminalManager } from '@electron/features/container/terminal';
 import type { WorkspaceManager } from '@electron/features/workspace/manager';
-import { getRuntimeCapabilities } from '../capabilities';
-import { RUNTIME_WORKSPACE_PATH, isRuntimeWorkspacePath, toHostWorkspacePath, toRuntimeWorkspacePath } from '../runtime-paths';
+import { getRuntimeCapabilities } from '../../capabilities';
+import { RUNTIME_WORKSPACE_PATH, isRuntimeWorkspacePath, toHostWorkspacePath, toRuntimeWorkspacePath } from '../../runtime-paths';
 import type {
   RuntimeBackend,
   RuntimeCapabilities,
@@ -41,14 +41,17 @@ import type {
   RuntimeTerminalInput,
   RuntimeTerminalSession,
   RuntimeWriteFileInput,
-} from '../types';
+} from '../../types';
+import type { HostRuntimeSubstrate } from './host-substrate';
+import { createPosixHostSubstrate } from './posix-substrate';
 
 const execFileAsync = promisify(execFile);
 
-interface MacHostBackendOptions {
+export interface HostBackendOptions {
   workspaceId: string;
   hostWorkspacePath: string;
   workspaceManager?: Pick<WorkspaceManager, 'getRoots'>;
+  substrate?: HostRuntimeSubstrate;
 }
 
 interface HostPathResolution {
@@ -57,7 +60,7 @@ interface HostPathResolution {
   returnHostPaths: boolean;
 }
 
-export class MacHostBackend implements RuntimeBackend {
+export class HostBackend implements RuntimeBackend {
   readonly backend = 'host' as const;
   readonly workspaceId: string;
   readonly hostWorkspacePath: string;
@@ -67,11 +70,13 @@ export class MacHostBackend implements RuntimeBackend {
 
   private readonly terminals = new TerminalManager(() => 'host');
   private readonly workspaceManager?: Pick<WorkspaceManager, 'getRoots'>;
+  private readonly substrate: HostRuntimeSubstrate;
 
-  constructor(options: MacHostBackendOptions) {
+  constructor(options: HostBackendOptions) {
     this.workspaceId = options.workspaceId;
     this.hostWorkspacePath = options.hostWorkspacePath;
     this.workspaceManager = options.workspaceManager;
+    this.substrate = options.substrate ?? createPosixHostSubstrate();
   }
 
   async health(): Promise<RuntimeHealth> {
@@ -94,30 +99,44 @@ export class MacHostBackend implements RuntimeBackend {
 
   async exec(input: RuntimeExecInput): Promise<RuntimeExecResult> {
     const cwd = (await this.resolveHostPath(input.cwd ?? this.runtimeWorkspacePath)).hostPath;
+    const rendered = this.substrate.shellCommand({
+      command: input.command,
+      cwd,
+      env: createProcessEnv(input.env),
+    });
     try {
-      const { stdout, stderr } = await execFileAsync('sh', ['-c', input.command], {
-        cwd,
-        env: { ...process.env, ...input.env },
+      const { stdout, stderr } = await execFileAsync(rendered.program, rendered.args, {
+        cwd: rendered.nativeCwd,
+        env: rendered.env,
         timeout: input.timeoutMs ?? 120_000,
         maxBuffer: 10 * 1024 * 1024,
       });
-      return { stdout, stderr, exitCode: 0 };
+      return {
+        stdout: this.substrate.normalizeExecOutput(stdout),
+        stderr: this.substrate.normalizeExecOutput(stderr),
+        exitCode: 0,
+      };
     } catch (err: unknown) {
       const execErr = err as { code?: number; stdout?: string; stderr?: string; message?: string; killed?: boolean };
       return {
-        stdout: String(execErr.stdout ?? ''),
-        stderr: execErr.killed
+        stdout: this.substrate.normalizeExecOutput(String(execErr.stdout ?? '')),
+        stderr: this.substrate.normalizeExecOutput(execErr.killed
           ? `Command timed out after ${Math.round((input.timeoutMs ?? 120_000) / 1000)}s. ${String(execErr.stderr ?? '')}`.trim()
-          : String(execErr.stderr ?? execErr.message ?? 'command failed'),
+          : String(execErr.stderr ?? execErr.message ?? 'command failed')),
         exitCode: execErr.killed ? 124 : (typeof execErr.code === 'number' ? execErr.code : 1),
       };
     }
   }
 
   async spawn(input: RuntimeProcessInput): Promise<RuntimeProcess> {
-    const child = spawnProcess('sh', ['-c', input.command], {
+    const rendered = this.substrate.shellCommand({
+      command: input.command,
       cwd: (await this.resolveHostPath(input.cwd ?? this.runtimeWorkspacePath)).hostPath,
-      env: { ...process.env, ...input.env },
+      env: createProcessEnv(input.env),
+    });
+    const child = spawnProcess(rendered.program, rendered.args, {
+      cwd: rendered.nativeCwd,
+      env: rendered.env,
       stdio: input.stdio === 'inherit' ? 'inherit' : 'pipe',
     });
     const dataCallbacks = new Set<(chunk: string) => void>();
@@ -132,7 +151,7 @@ export class MacHostBackend implements RuntimeBackend {
     return {
       pid: child.pid,
       write: (chunk) => { child.stdin?.write(chunk); },
-      signal: (signal) => { child.kill(signal); },
+      signal: (signal) => { void this.substrate.signalChild(child, rendered, signal); },
       onData: (cb) => subscribe(dataCallbacks, cb),
       onExit: (cb) => subscribe(exitCallbacks, cb),
     };
@@ -217,15 +236,15 @@ export class MacHostBackend implements RuntimeBackend {
   }
 
   async startDevServer(_input: RuntimeDevServerStartInput): Promise<RuntimeDevServer> {
-    throw unsupported('Mac Host runtime does not support managed dev servers yet.');
+    throw unsupported('Host runtime does not support managed dev servers yet.');
   }
 
   async stopDevServer(_input: RuntimeDevServerStopInput): Promise<void> {
-    throw unsupported('Mac Host runtime does not support managed dev servers yet.');
+    throw unsupported('Host runtime does not support managed dev servers yet.');
   }
 
   async restartDevServer(_input: RuntimeDevServerRestartInput): Promise<RuntimeDevServer> {
-    throw unsupported('Mac Host runtime does not support managed dev servers yet.');
+    throw unsupported('Host runtime does not support managed dev servers yet.');
   }
 
   async getDevServerStatus(_input: RuntimeDevServerStatusInput): Promise<RuntimeDevServerStatus> {
@@ -233,15 +252,15 @@ export class MacHostBackend implements RuntimeBackend {
   }
 
   async forwardPort(_input: RuntimeForwardPortInput): Promise<RuntimeForwardedPort> {
-    throw unsupported('Mac Host runtime does not support runtime port forwarding.');
+    throw unsupported('Host runtime does not support runtime port forwarding.');
   }
 
   async stopForward(_input: RuntimeStopForwardInput): Promise<void> {
-    throw unsupported('Mac Host runtime does not support runtime port forwarding.');
+    throw unsupported('Host runtime does not support runtime port forwarding.');
   }
 
   async resolvePreviewUrl(_input: RuntimePreviewUrlInput): Promise<RuntimePreviewUrl> {
-    throw unsupported('Mac Host runtime does not support runtime preview URLs.');
+    throw unsupported('Host runtime does not support runtime preview URLs.');
   }
 
   private async resolveHostPath(runtimePath: string): Promise<HostPathResolution> {
@@ -262,8 +281,7 @@ export class MacHostBackend implements RuntimeBackend {
 
   private async findAllowedHostRoot(hostPath: string): Promise<string | null> {
     const roots = [this.hostWorkspacePath, ...await this.additionalRootPaths()];
-    const resolvedPath = path.resolve(hostPath);
-    return roots.map((root) => path.resolve(root)).find((root) => isPathInside(resolvedPath, root)) ?? null;
+    return roots.map((root) => path.resolve(root)).find((root) => this.substrate.isPathInsideRoot(hostPath, root)) ?? null;
   }
 
   private async additionalRootPaths(): Promise<string[]> {
@@ -310,7 +328,10 @@ function unsupported(message: string): Error {
   return new Error(message);
 }
 
-function isPathInside(candidatePath: string, rootPath: string): boolean {
-  const relative = path.relative(rootPath, candidatePath);
-  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+function createProcessEnv(overrides?: Record<string, string>): Record<string, string> {
+  const env: Record<string, string> = {};
+  for (const [key, value] of Object.entries(process.env)) {
+    if (value !== undefined) env[key] = value;
+  }
+  return { ...env, ...overrides };
 }

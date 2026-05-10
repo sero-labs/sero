@@ -2,20 +2,20 @@ import { mkdtemp, readFile, rm, writeFile } from 'fs/promises';
 import os from 'os';
 import path from 'path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { MacHostBackend } from '@electron/features/workspace/runtime/backends/mac-host-backend';
+import { HostBackend } from '@electron/features/workspace/runtime/backends/host/host-backend';
 
 const tempDirs: string[] = [];
 
-async function createBackend(): Promise<{ backend: MacHostBackend; workspacePath: string }> {
-  const workspacePath = await mkdtemp(path.join(os.tmpdir(), 'sero-mac-host-backend-'));
+async function createBackend(): Promise<{ backend: HostBackend; workspacePath: string }> {
+  const workspacePath = await mkdtemp(path.join(os.tmpdir(), 'sero-host-backend-'));
   tempDirs.push(workspacePath);
   return {
     workspacePath,
-    backend: new MacHostBackend({ workspaceId: 'workspace-a', hostWorkspacePath: workspacePath }),
+    backend: new HostBackend({ workspaceId: 'workspace-a', hostWorkspacePath: workspacePath }),
   };
 }
 
-describe('MacHostBackend', () => {
+describe('HostBackend', () => {
   afterEach(async () => {
     await Promise.all(tempDirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })));
   });
@@ -23,6 +23,7 @@ describe('MacHostBackend', () => {
   it('translates /workspace paths for file read and write operations', async () => {
     const { backend, workspacePath } = await createBackend();
 
+    expect(backend.backend).toBe('host');
     await backend.writeFile({ path: '/workspace/src/App.tsx', content: 'hello' });
     const hostContent = await readFile(path.join(workspacePath, 'src', 'App.tsx'), 'utf8');
     const runtimeContent = await backend.readFile({ path: '/workspace/src/App.tsx' });
@@ -62,11 +63,11 @@ describe('MacHostBackend', () => {
 
   it('reads validated additional-root host paths in host mode', async () => {
     const { workspacePath } = await createBackend();
-    const extraRoot = await mkdtemp(path.join(os.tmpdir(), 'sero-mac-host-extra-'));
+    const extraRoot = await mkdtemp(path.join(os.tmpdir(), 'sero-host-extra-'));
     tempDirs.push(extraRoot);
     await writeFile(path.join(extraRoot, 'note.txt'), 'extra', 'utf8');
 
-    const backend = new MacHostBackend({
+    const backend = new HostBackend({
       workspaceId: 'workspace-a',
       hostWorkspacePath: workspacePath,
       workspaceManager: {
