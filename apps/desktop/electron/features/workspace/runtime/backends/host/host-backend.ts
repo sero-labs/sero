@@ -43,6 +43,7 @@ import type {
 } from '../../types';
 import type { HostRuntimeSubstrate } from './host-substrate';
 import { createHostSubstrate } from './host-substrate-factory';
+import { HostDevServerManager } from './host-dev-server-manager';
 
 const execFileAsync = promisify(execFile);
 
@@ -70,12 +71,19 @@ export class HostBackend implements RuntimeBackend {
   private readonly terminals = new TerminalManager(() => 'host');
   private readonly workspaceManager?: Pick<WorkspaceManager, 'getRoots'>;
   private readonly substrate: HostRuntimeSubstrate;
+  private readonly devServers: HostDevServerManager;
 
   constructor(options: HostBackendOptions) {
     this.workspaceId = options.workspaceId;
     this.hostWorkspacePath = options.hostWorkspacePath;
     this.workspaceManager = options.workspaceManager;
     this.substrate = options.substrate ?? createHostSubstrate(options.hostWorkspacePath);
+    this.devServers = new HostDevServerManager({
+      workspaceId: this.workspaceId,
+      platform: this.substrate.platform,
+      spawn: (input) => this.spawn(input),
+      execFile: (input) => this.execFile(input),
+    });
   }
 
   async health(): Promise<RuntimeHealth> {
@@ -93,6 +101,7 @@ export class HostBackend implements RuntimeBackend {
   }
 
   async destroy(): Promise<void> {
+    this.devServers.dispose();
     this.terminals.disposeWorkspaceTerminals(this.workspaceId);
   }
 
@@ -273,20 +282,24 @@ export class HostBackend implements RuntimeBackend {
     };
   }
 
-  async startDevServer(_input: RuntimeDevServerStartInput): Promise<RuntimeDevServer> {
-    throw unsupported('Host runtime does not support managed dev servers yet.');
+  async startDevServer(input: RuntimeDevServerStartInput): Promise<RuntimeDevServer> {
+    return this.devServers.start(input);
   }
 
-  async stopDevServer(_input: RuntimeDevServerStopInput): Promise<void> {
-    throw unsupported('Host runtime does not support managed dev servers yet.');
+  async stopDevServer(input: RuntimeDevServerStopInput): Promise<void> {
+    await this.devServers.stop(input);
   }
 
-  async restartDevServer(_input: RuntimeDevServerRestartInput): Promise<RuntimeDevServer> {
-    throw unsupported('Host runtime does not support managed dev servers yet.');
+  async restartDevServer(input: RuntimeDevServerRestartInput): Promise<RuntimeDevServer> {
+    return this.devServers.restart(input);
   }
 
-  async getDevServerStatus(_input: RuntimeDevServerStatusInput): Promise<RuntimeDevServerStatus> {
-    return { servers: [] };
+  async getDevServerStatus(input: RuntimeDevServerStatusInput): Promise<RuntimeDevServerStatus> {
+    return this.devServers.status(input);
+  }
+
+  listDevServersSync(): RuntimeDevServer[] {
+    return this.devServers.list();
   }
 
   async forwardPort(_input: RuntimeForwardPortInput): Promise<RuntimeForwardedPort> {
@@ -297,8 +310,8 @@ export class HostBackend implements RuntimeBackend {
     throw unsupported('Host runtime does not support runtime port forwarding.');
   }
 
-  async resolvePreviewUrl(_input: RuntimePreviewUrlInput): Promise<RuntimePreviewUrl> {
-    throw unsupported('Host runtime does not support runtime preview URLs.');
+  async resolvePreviewUrl(input: RuntimePreviewUrlInput): Promise<RuntimePreviewUrl> {
+    return this.devServers.resolvePreviewUrl(input);
   }
 
   private async resolveHostPath(runtimePath: string): Promise<HostPathResolution> {

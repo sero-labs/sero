@@ -69,7 +69,7 @@ describe('runtime backend contract skeleton', () => {
     expect(RUNTIME_CAPABILITIES.docker.languageServers).toBe(true);
   });
 
-  it('marks host as host access without container-only preview capabilities', async () => {
+  it('marks host as host access with managed dev-server preview capabilities', async () => {
     const manager = new RuntimeManager({
       workspaceManager: {
         getPath: vi.fn().mockReturnValue('/Users/daniel/project'),
@@ -83,7 +83,9 @@ describe('runtime backend contract skeleton', () => {
     expect(runtime.backend).toBe('host');
     expect(runtime.workspaceAccess).toBe('host');
     expect(runtime.runtimeWorkspacePath).toBe(RUNTIME_WORKSPACE_PATH);
-    expect(runtime.capabilities.ports.previewUrl).toBe(false);
+    expect(runtime.capabilities.devServers.start).toBe(true);
+    expect(runtime.capabilities.ports.previewUrl).toBe(true);
+    expect(runtime.capabilities.browserAutomation).toBe(false);
   });
 
   it('resolves and caches one real backend per workspace/backend pair', async () => {
@@ -122,13 +124,14 @@ describe('runtime backend contract skeleton', () => {
     expect(runtime.workspaceAccess).toBe('live-mount');
   });
 
-  it('lists runtime-backed dev servers from cached runtimes', async () => {
+  it('merges runtime-backed dev servers without registering host servers in the legacy container registry', async () => {
+    const legacyList = vi.fn(() => []);
     const manager = new RuntimeManager({
       workspaceManager: {
         getPath: vi.fn().mockReturnValue('/Users/daniel/project'),
         getRuntimeConfig: vi.fn().mockResolvedValue({ backend: 'host' }),
       } as unknown as WorkspaceManager,
-      containerManager: { devServers: { list: vi.fn(() => []) } } as unknown as ContainerManager,
+      containerManager: { devServers: { list: legacyList } } as unknown as ContainerManager,
     });
     const runtime = await manager.getRuntime('workspace-a');
     const server: RuntimeDevServer = {
@@ -141,6 +144,7 @@ describe('runtime backend contract skeleton', () => {
     runtime.listDevServersSync = vi.fn(() => [server]);
 
     expect(manager.listDevServersSync('workspace-a')).toEqual([server]);
+    expect(legacyList).toHaveBeenCalledWith('workspace-a');
   });
 
   it('translates primary workspace paths between host and runtime roots', () => {

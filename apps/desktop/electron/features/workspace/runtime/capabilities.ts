@@ -44,17 +44,11 @@ function createFullCapabilities(): RuntimeCapabilities {
 function createHostCapabilities(): RuntimeCapabilities {
   return {
     ...createFullCapabilities(),
-    devServers: {
-      start: false,
-      stop: false,
-      restart: false,
-      status: false,
-    },
     ports: {
-      discover: false,
+      discover: true,
       forward: false,
       stopForward: false,
-      previewUrl: false,
+      previewUrl: true,
     },
     browserAutomation: false,
     languageServers: false,

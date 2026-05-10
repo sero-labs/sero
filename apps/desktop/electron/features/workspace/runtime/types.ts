@@ -126,7 +126,17 @@ export interface RuntimeDevServerStartInput {
   cardId?: string;
   logPath?: string;
 }
-export interface RuntimeDevServer { id: string; port: number; url: string; command: string; cwd: string; }
+export type RuntimeDevServerDiagnosticCode = 'dev-server-port-detect-timeout' | 'wsl-localhost-forwarding-disabled';
+export interface RuntimeDevServer {
+  id: string;
+  port: number;
+  url: string;
+  command: string;
+  cwd: string;
+  status?: 'starting' | 'running' | 'failed' | 'stopped';
+  pid?: number;
+  diagnosticCode?: RuntimeDevServerDiagnosticCode;
+}
 export interface RuntimeDevServerStopInput { serverId: string; }
 export interface RuntimeDevServerRestartInput { serverId: string; }
 export interface RuntimeDevServerStatusInput { serverId?: string; }
@@ -136,7 +146,13 @@ export interface RuntimeForwardPortInput { targetPort: number; protocol?: 'http'
 export interface RuntimeForwardedPort { targetPort: number; hostPort: number; url: string; bridged: boolean; }
 export interface RuntimeStopForwardInput { targetPort: number; hostPort?: number; }
 export interface RuntimePreviewUrlInput { targetPort: number; path?: string; }
-export interface RuntimePreviewUrl { url: string; targetPort: number; hostPort?: number; backend: RuntimeBackendId; }
+export interface RuntimePreviewUrl {
+  url: string;
+  targetPort: number;
+  hostPort?: number;
+  backend: RuntimeBackendId;
+  diagnosticCode?: RuntimeDevServerDiagnosticCode;
+}
 
 export interface RuntimeLogInput { scope?: 'lifecycle' | 'dev-server' | 'terminal'; id?: string; }
 export interface RuntimeLogEvent { timestamp: string; level: 'debug' | 'info' | 'warn' | 'error'; message: string; }
