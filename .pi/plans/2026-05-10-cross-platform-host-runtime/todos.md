@@ -509,8 +509,10 @@ Reference: current `apps/desktop/electron/features/workspace/runtime/capabilitie
 
 ## TODO CROSS-PLATFORM-HOST-RUNTIME-09 — Add provider-aware runtime diagnostics, host doctor, and `setContainerEnabled` semantics
 
-**Status:** Pending
+**Status:** Done
 **Tags:** `cross-platform-host-runtime`
+
+**Completion note:** Added backend-aware runtime resolution diagnostics with desired/actual backend ids and unsupported-platform fallback, introduced host doctor checks for POSIX and WSL, and updated container compatibility toggling so Windows host selection runs doctor before mutating config.
 
 **Plan:** `/Users/danielcarter/Documents/Dev/projects/sero/sero/.pi/plans/2026-05-10-cross-platform-host-runtime/plan.md`
 **Depends on:** Todo 08

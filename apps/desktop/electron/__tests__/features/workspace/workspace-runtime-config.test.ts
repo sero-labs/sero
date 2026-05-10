@@ -1,7 +1,7 @@
 import { mkdtemp, readFile, rm, writeFile } from 'fs/promises';
 import os from 'os';
 import path from 'path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { WorkspaceManager } from '@electron/features/workspace/manager';
 import {
   normalizeWorkspaceConfigForWrite,
@@ -23,6 +23,7 @@ async function createTempWorkspace(config?: WorkspaceConfig): Promise<string> {
 
 describe('workspace runtime config migration', () => {
   afterEach(async () => {
+    vi.restoreAllMocks();
     await Promise.all(tempDirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })));
   });
 
@@ -109,5 +110,30 @@ describe('workspace runtime config migration', () => {
     const raw = await readFile(path.join(workspacePath, '.sero-workspace.json'), 'utf8');
     const written = JSON.parse(raw) as WorkspaceConfig;
     expect(written.runtime).toEqual({ backend: 'host' });
+  });
+
+  it('does not mutate runtime config when Windows host doctor fails while disabling containers', async () => {
+    vi.spyOn(process, 'platform', 'get').mockReturnValue('win32');
+    const workspacePath = await createTempWorkspace({ id: 'app', name: 'App', runtime: { backend: 'docker' } });
+    const manager = new WorkspaceManager({
+      runHostDoctorChecks: vi.fn(async () => [{
+        id: 'runtime.host.wsl',
+        category: 'runtime' as const,
+        status: 'fail' as const,
+        message: 'wsl.exe is not available',
+        durationMs: 1,
+      }]),
+    });
+    const info = await manager.addFolder(workspacePath);
+
+    const result = await manager.setContainerEnabled(info.id, false);
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: 'host-doctor-failed' },
+    });
+    expect(await manager.getRuntimeConfig(info.id)).toEqual({ backend: 'docker' });
+    const raw = await readFile(path.join(workspacePath, '.sero-workspace.json'), 'utf8');
+    expect((JSON.parse(raw) as WorkspaceConfig).runtime).toEqual({ backend: 'docker' });
   });
 });

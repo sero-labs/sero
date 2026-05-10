@@ -26,6 +26,7 @@ import {
   resolveWorkspaceRuntimeConfig,
 } from './runtime/config';
 import { getDefaultRuntimeBackend } from './runtime/platform-default';
+import { runHostDoctorChecks, type HostDoctorOptions } from './runtime/backends/host/host-doctor';
 
 const EDITOR_STATE_DIR = path.join(SERO_AGENT_DIR, 'editor-state');
 
@@ -39,6 +40,11 @@ const WORKSPACES_DIR = path.join(SERO_HOME, 'workspaces');
 interface WorkspaceRegistry {
   workspaces: WorkspaceRegistryEntry[];
 }
+
+export type SetContainerEnabledResult = { ok: true; backend: WorkspaceRuntimeBackend }
+  | { ok: false; error: { code: 'host-doctor-failed'; message: string; checks: Awaited<ReturnType<typeof runHostDoctorChecks>> } };
+
+export interface WorkspaceManagerOptions { runHostDoctorChecks?: (options?: HostDoctorOptions) => ReturnType<typeof runHostDoctorChecks>; }
 
 // ── Default workspace configs ────────────────────────────────
 
@@ -56,6 +62,8 @@ const DEFAULT_GLOBAL_CONFIG: WorkspaceConfig = {
 export class WorkspaceManager {
   private registry: WorkspaceRegistry = { workspaces: [] };
   private configCache: Map<string, WorkspaceConfig> = new Map();
+
+  constructor(private readonly options: WorkspaceManagerOptions = {}) {}
 
   // ── Lifecycle ──────────────────────────────────────────────
 
@@ -413,9 +421,19 @@ export class WorkspaceManager {
   }
 
   /** @deprecated compatibility shim while callers migrate to runtime.backend. */
-  async setContainerEnabled(id: string, enabled: boolean): Promise<void> {
-    const backend = enabled ? getDefaultRuntimeBackend({ workspaceId: id }) : 'host';
+  async setContainerEnabled(id: string, enabled: boolean): Promise<SetContainerEnabledResult> {
+    const backend: WorkspaceRuntimeBackend = enabled ? getDefaultRuntimeBackend({ platform: process.platform, arch: process.arch }) : 'host';
+    if (!enabled && process.platform === 'win32') {
+      const workspacePath = this.getPath(id);
+      if (!workspacePath) throw new Error(`Workspace not found: ${id}`);
+      const checks = await (this.options.runHostDoctorChecks ?? runHostDoctorChecks)({ workspacePath, platform: process.platform });
+      if (checks.some((check) => check.status === 'fail')) return {
+        ok: false,
+        error: { code: 'host-doctor-failed', message: 'Windows host runtime requires a working WSL 2 installation.', checks },
+      };
+    }
     await this.setRuntimeBackend(id, backend);
+    return { ok: true, backend };
   }
 
   /** Write a modified config to disk and invalidate the cache. */

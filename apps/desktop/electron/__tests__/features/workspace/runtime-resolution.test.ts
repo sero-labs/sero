@@ -1,9 +1,9 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   workspaceManager: {
     getPath: vi.fn(),
-    isContainerEnabled: vi.fn(),
+    getRuntimeConfig: vi.fn(),
   },
   containerManager: {
     inspect: vi.fn(),
@@ -24,12 +24,16 @@ describe('resolveWorkspaceRuntime', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.workspaceManager.getPath.mockReturnValue('/tmp/workspace');
-    mocks.workspaceManager.isContainerEnabled.mockResolvedValue(true);
+    mocks.workspaceManager.getRuntimeConfig.mockResolvedValue({ backend: 'docker' });
     mocks.containerManager.inspect.mockResolvedValue({ state: 'running' });
   });
 
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('returns host runtime when the workspace disables containers', async () => {
-    mocks.workspaceManager.isContainerEnabled.mockResolvedValue(false);
+    mocks.workspaceManager.getRuntimeConfig.mockResolvedValue({ backend: 'host' });
 
     const resolved = await resolveWorkspaceRuntime('ws-1');
 
@@ -38,6 +42,8 @@ describe('resolveWorkspaceRuntime', () => {
       workspacePath: '/tmp/workspace',
       desiredRuntime: 'host',
       actualRuntime: 'host',
+      desiredBackend: 'host',
+      actualBackend: 'host',
       containerEnabled: false,
     });
     expect(resolved.capabilityAudit.every((entry) => !entry.available)).toBe(true);
@@ -52,6 +58,8 @@ describe('resolveWorkspaceRuntime', () => {
     expect(resolved).toMatchObject({
       desiredRuntime: 'container',
       actualRuntime: 'container',
+      desiredBackend: 'docker',
+      actualBackend: 'docker',
       containerEnabled: true,
     });
     expect(resolved.capabilityAudit.every((entry) => entry.available)).toBe(true);
@@ -65,6 +73,8 @@ describe('resolveWorkspaceRuntime', () => {
     expect(resolved).toMatchObject({
       desiredRuntime: 'container',
       actualRuntime: 'host',
+      desiredBackend: 'docker',
+      actualBackend: 'host',
       fallbackCode: 'container_unavailable',
     });
     expect(resolved.fallbackReason).toContain('falling back to host mode');
@@ -81,10 +91,30 @@ describe('resolveWorkspaceRuntime', () => {
     expect(resolved).toMatchObject({
       desiredRuntime: 'container',
       actualRuntime: 'host',
+      desiredBackend: 'docker',
+      actualBackend: 'host',
       fallbackCode: 'container_unavailable',
     });
     expect(resolved.fallbackReason).toContain('falling back to host mode');
     expect(resolved.capabilityAudit.find((entry) => entry.key === 'containerizedLanguageServers')?.detail).toContain('Containerized LSP remains unavailable');
+  });
+
+  it('falls back when the desired backend is unsupported on the current platform', async () => {
+    vi.spyOn(process, 'platform', 'get').mockReturnValue('linux');
+    mocks.workspaceManager.getRuntimeConfig.mockResolvedValue({ backend: 'apple-container' });
+
+    const resolved = await resolveWorkspaceRuntime('ws-1');
+
+    expect(resolved).toMatchObject({
+      desiredRuntime: 'container',
+      actualRuntime: 'host',
+      desiredBackend: 'apple-container',
+      actualBackend: 'host',
+      fallbackCode: 'backend-unsupported-on-platform',
+      containerEnabled: false,
+    });
+    expect(resolved.fallbackReason).toContain('apple-container is not supported on linux');
+    expect(mocks.containerManager.inspect).not.toHaveBeenCalled();
   });
 
   it('throws when the workspace path cannot be resolved', async () => {

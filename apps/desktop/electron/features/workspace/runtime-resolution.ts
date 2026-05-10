@@ -1,8 +1,10 @@
 import type { ContainerManager, ContainerState } from '@electron/features/container';
+import type { RuntimeBackendId } from './runtime/types';
+import { getRuntimeCapabilities, UnsupportedRuntimeOnPlatformError } from './runtime/capabilities';
 import type { WorkspaceManager } from './manager';
 
 export type WorkspaceRuntimeKind = 'container' | 'host';
-export type WorkspaceRuntimeFallbackCode = 'container_unavailable';
+export type WorkspaceRuntimeFallbackCode = 'container_unavailable' | 'backend-unsupported-on-platform';
 export type WorkspaceRuntimeCapabilityKey =
   | 'browserAutomation'
   | 'containerizedLanguageServers'
@@ -22,13 +24,15 @@ export interface WorkspaceRuntimeResolution {
   workspacePath: string;
   desiredRuntime: WorkspaceRuntimeKind;
   actualRuntime: WorkspaceRuntimeKind;
+  desiredBackend: RuntimeBackendId;
+  actualBackend: RuntimeBackendId;
   containerEnabled: boolean;
   fallbackCode?: WorkspaceRuntimeFallbackCode;
   fallbackReason?: string;
   capabilityAudit: WorkspaceRuntimeCapabilityAuditEntry[];
 }
 
-type RuntimeResolutionManagers = Pick<WorkspaceManager, 'getPath' | 'isContainerEnabled'>
+type RuntimeResolutionManagers = Pick<WorkspaceManager, 'getPath' | 'getRuntimeConfig'>
   & Pick<ContainerManager, 'inspect'>;
 
 function getContainerFallbackReason(workspaceId: string, detail?: string): string {
@@ -117,15 +121,34 @@ export async function resolveWorkspaceRuntimeWithManagers(
     throw new Error(`Workspace not found: ${workspaceId}`);
   }
 
-  const containerEnabled = await managers.isContainerEnabled(workspaceId);
+  const desiredBackend = (await managers.getRuntimeConfig(workspaceId)).backend;
+  let validatedBackend = desiredBackend;
+  let fallbackCode: WorkspaceRuntimeFallbackCode | undefined;
+  let fallbackReason: string | undefined;
+
+  try {
+    getRuntimeCapabilities(desiredBackend, process.platform);
+  } catch (error) {
+    if (!(error instanceof UnsupportedRuntimeOnPlatformError)) throw error;
+    validatedBackend = 'host';
+    fallbackCode = 'backend-unsupported-on-platform';
+    fallbackReason = `${desiredBackend} is not supported on ${process.platform}. Sero is falling back to host mode.`;
+    getRuntimeCapabilities(validatedBackend, process.platform);
+  }
+
+  const containerEnabled = validatedBackend !== 'host';
   if (!containerEnabled) {
     return {
       workspaceId,
       workspacePath,
-      desiredRuntime: 'host',
+      desiredRuntime: desiredBackend === 'host' ? 'host' : 'container',
       actualRuntime: 'host',
+      desiredBackend,
+      actualBackend: 'host',
       containerEnabled,
-      capabilityAudit: createCapabilityAudit('host', containerEnabled),
+      fallbackCode,
+      fallbackReason,
+      capabilityAudit: createCapabilityAudit('host', containerEnabled, fallbackReason),
     };
   }
 
@@ -136,17 +159,21 @@ export async function resolveWorkspaceRuntimeWithManagers(
       workspacePath,
       desiredRuntime: 'container',
       actualRuntime: 'container',
+      desiredBackend,
+      actualBackend: validatedBackend,
       containerEnabled,
       capabilityAudit: createCapabilityAudit('container', containerEnabled),
     };
   }
 
-  const fallbackReason = getContainerFallbackReason(workspaceId);
+  fallbackReason = getContainerFallbackReason(workspaceId);
   return {
     workspaceId,
     workspacePath,
     desiredRuntime: 'container',
     actualRuntime: 'host',
+    desiredBackend,
+    actualBackend: 'host',
     containerEnabled,
     fallbackCode: 'container_unavailable',
     fallbackReason,
@@ -164,7 +191,7 @@ export async function resolveWorkspaceRuntime(
 
   return resolveWorkspaceRuntimeWithManagers(workspaceId, {
     getPath: workspaceManager.getPath.bind(workspaceManager),
-    isContainerEnabled: workspaceManager.isContainerEnabled.bind(workspaceManager),
+    getRuntimeConfig: workspaceManager.getRuntimeConfig.bind(workspaceManager),
     inspect: containerManager.inspect.bind(containerManager),
   });
 }
