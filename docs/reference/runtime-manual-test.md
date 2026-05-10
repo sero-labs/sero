@@ -1,10 +1,12 @@
 # Runtime Manual Test Checklist
 
-Concrete manual steps for validating the runtime fixes in PR #177.
+Manual checklist for validating local runtime behavior. Use the canonical backend IDs `apple-container`, `docker`, and `host`. The old `mac-host` value is a deprecated compatibility alias only; do not choose or document it for new manual tests.
+
+Host runtime aims for practical workspace parity: file operations, exec/spawn, terminal, Git/VCS, language servers, managed dev servers, and preview URLs. Browser automation remains container-only and should be validated on Docker or Apple Container, not on host.
 
 ## Prep
 
-Start Sero from the PR branch:
+Start Sero from the branch under test:
 
 ```bash
 pkill -f "vite"; pkill -f "electron"
@@ -18,6 +20,8 @@ Open DevTools in the desktop app, then pick a non-global workspace:
 const ws = (await window.sero.workspace.list()).find((w) => w.id !== "global");
 ws;
 ```
+
+Use a disposable workspace when possible.
 
 ---
 
@@ -74,20 +78,36 @@ Also check `/tmp/sero-electron.log`; you should see editor warnings for the fail
 
 ---
 
-## 2. Additional roots under Mac Host runtime
+## 2. Host runtime smoke checklist
 
-Create an external test folder:
+Run this section on each supported host path:
+
+- **macOS host:** workspace path under `/Users/<you>/...`; backend `host`.
+- **Linux host:** workspace path under `/home/<you>/...`; backend `host`.
+- **Windows/WSL host:** WSL 2 installed. Test at least one WSL-native path such as `\\wsl$\Ubuntu\home\<you>\sero-smoke` or `\\wsl.localhost\Ubuntu\home\<you>\sero-smoke`. Windows-drive paths such as `C:\Users\<you>\Projects\sero-smoke` execute through the default distro as `/mnt/c/...`.
+
+Windows host runtime is WSL-only. Do not expect native PowerShell or cmd execution.
+
+Switch the workspace to host:
+
+```js
+await window.sero.workspace.setRuntimeBackend(ws.id, "host");
+```
+
+### 2.1 File operations and additional roots
+
+Create an external test folder using the platform-native shell:
 
 ```bash
 mkdir -p /tmp/sero-extra-root-smoke
 echo "hello from extra root" > /tmp/sero-extra-root-smoke/source.txt
 ```
 
+On Windows/WSL, create the folder inside the same WSL distro as the workspace, or on a Windows drive reachable from the default distro. Do not mix WSL distros in one workspace; Sero should reject a primary root in `\\wsl$\Ubuntu\...` plus an additional root in `\\wsl$\Debian\...`.
+
 In DevTools:
 
 ```js
-await window.sero.workspace.setRuntimeBackend(ws.id, "mac-host");
-
 const root = await window.sero.workspace.addRoot(ws.id, {
   name: "Extra Smoke",
   path: "/tmp/sero-extra-root-smoke",
@@ -100,23 +120,12 @@ Use the returned `root.id`:
 
 ```js
 await window.sero.editor.listFiles(ws.id, `/${root.id}`);
-```
-
-Expected: includes `source.txt`.
-
-Now test file operations:
-
-```js
 await window.sero.editor.readFile(ws.id, `/${root.id}/source.txt`);
 ```
 
-Expected:
+Expected: list includes `source.txt`, and read returns `"hello from extra root\n"`.
 
-```js
-"hello from extra root\n"
-```
-
-Create/write/read:
+Create/write/read/rename/delete:
 
 ```js
 await window.sero.editor.createFile(ws.id, `/${root.id}/created.txt`);
@@ -128,17 +137,7 @@ await window.sero.editor.writeFile(
 );
 
 await window.sero.editor.readFile(ws.id, `/${root.id}/created.txt`);
-```
 
-Expected:
-
-```js
-"created through Sero"
-```
-
-Rename/delete:
-
-```js
 await window.sero.editor.rename(
   ws.id,
   `/${root.id}/created.txt`,
@@ -146,14 +145,14 @@ await window.sero.editor.rename(
 );
 
 await window.sero.editor.readFile(ws.id, `/${root.id}/renamed.txt`);
-
 await window.sero.editor.delete(ws.id, `/${root.id}/renamed.txt`);
 ```
 
 Expected:
 
+- created read returns `"created through Sero"`
 - rename returns `true`
-- read returns `"created through Sero"`
+- renamed read returns `"created through Sero"`
 - delete returns `true`
 
 Cleanup:
@@ -166,21 +165,72 @@ await window.sero.workspace.removeRoot(ws.id, root.id);
 rm -rf /tmp/sero-extra-root-smoke
 ```
 
----
+### 2.2 Exec and terminal
 
-## 3. Runtime-managed dev server listing
+From an agent or runtime command path, run:
 
-This test must run against a container runtime (`docker` or `apple-container`). `mac-host` intentionally does not support managed dev servers, so `started.reason` will be `Managed dev servers are not available for mac-host runtime.` if you use a Mac Host workspace.
-
-In DevTools, switch the target workspace to Docker or Apple Container first:
-
-```js
-await window.sero.workspace.setRuntimeBackend(ws.id, "docker");
-// or, on Apple Silicon if Apple Container is available:
-// await window.sero.workspace.setRuntimeBackend(ws.id, "apple-container");
+```bash
+pwd
+printf 'exec-ok\n' > /workspace/host-exec-smoke.txt
+cat /workspace/host-exec-smoke.txt
 ```
 
-This test needs a tiny temporary app-runtime plugin because the fixed path is `host.devServers.startManaged()` → `host.devServers.list()`.
+Expected:
+
+- `pwd` is `/workspace` from the renderer/runtime perspective.
+- `cat` prints `exec-ok`.
+- The file appears in the host workspace and can be edited/deleted from the host.
+
+Open an interactive terminal for the workspace.
+
+Expected:
+
+- macOS/Linux: shell starts in the workspace.
+- Windows/WSL: terminal runs through `wsl.exe -d <distro>` and starts in the WSL execution path for `/workspace`.
+
+### 2.3 Git/VCS
+
+In a Git workspace:
+
+```bash
+git status --short
+git diff --stat
+```
+
+Expected: commands run in the selected host execution environment. On Windows/WSL, Git and auth probes must run inside WSL; auth env vars should cross the `wsl.exe` boundary.
+
+If using GitHub auth, run a read-only GitHub operation already supported by your workspace flow and confirm it does not prompt unexpectedly.
+
+### 2.4 LSP
+
+Open a TypeScript or JavaScript file in the workspace and wait for language features to initialize.
+
+Expected:
+
+- diagnostics/completions are available when the language server is installed in the host execution environment.
+- Windows/WSL language server processes run inside WSL, not through PowerShell/cmd.
+
+### 2.5 Managed dev server and preview URL
+
+Use the smoke plugin from section 3 below with `setRuntimeBackend(ws.id, "host")`, or start a managed dev server from a plugin/app path that calls `ctx.host.devServers.startManaged()`.
+
+Expected:
+
+- start returns a `serverId`, detected `port`, and `url` shaped like `http://127.0.0.1:<port>`.
+- `ctx.host.devServers.list(ws.id)` includes the server.
+- stop and restart operate on the same server id.
+- preview resolves to the localhost URL.
+- on Windows/WSL, if Windows cannot reach the WSL service on localhost, `resolvePreviewUrl` surfaces `wsl-localhost-forwarding-disabled`. Check WSL `.wslconfig` for `localhostForwarding=true` before filing a runtime bug.
+
+### 2.6 Browser automation expectation
+
+Confirm host runtime does not advertise browser automation. Browser automation smoke should be run on Docker or Apple Container instead.
+
+---
+
+## 3. Runtime-managed dev server listing plugin
+
+This test can run against `docker`, `apple-container`, or `host`. It validates the app-runtime path `host.devServers.startManaged()` → `host.devServers.list()`.
 
 Create a temporary built-in plugin:
 
@@ -248,6 +298,14 @@ exports.createAppRuntime = async function createAppRuntime(ctx) {
 JS
 ```
 
+Switch to the backend being tested:
+
+```js
+await window.sero.workspace.setRuntimeBackend(ws.id, "host");
+// or: await window.sero.workspace.setRuntimeBackend(ws.id, "docker");
+// or: await window.sero.workspace.setRuntimeBackend(ws.id, "apple-container");
+```
+
 Restart Sero with the target workspace id:
 
 ```bash
@@ -277,7 +335,7 @@ Expected shape:
     {
       "id": "...",
       "url": "http://127.0.0.1:...",
-      "command": "python3 -m http.server 0"
+      "command": "python3 -m http.server 5177 --bind 0.0.0.0"
     }
   ],
   "foundInList": true
@@ -289,6 +347,8 @@ The key assertion is:
 ```json
 "foundInList": true
 ```
+
+Open the `started.url` in the app preview or browser and confirm the Python directory listing loads.
 
 Cleanup:
 
@@ -302,3 +362,19 @@ Then restart normally:
 ```bash
 pnpm dev
 ```
+
+---
+
+## 4. Container-only browser automation smoke
+
+Select Docker or Apple Container:
+
+```js
+await window.sero.workspace.setRuntimeBackend(ws.id, "docker");
+// or, on supported Apple Silicon:
+// await window.sero.workspace.setRuntimeBackend(ws.id, "apple-container");
+```
+
+Run the existing browser automation smoke path for the workspace.
+
+Expected: automation succeeds only when the selected container runtime reports browser automation support. Re-run against `host` only to verify the capability is unavailable and the UI/diagnostic is clear.

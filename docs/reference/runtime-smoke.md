@@ -1,13 +1,17 @@
 # Runtime smoke matrix
 
-Use this checklist before shipping runtime changes. v1 covers local bind-mounted runtimes only: Docker, Apple Container, and Mac Host. Remote execution, cloud runtimes, and policy sandbox flows are out of scope.
+Use this checklist before shipping runtime changes. Sero covers local bind-mounted or direct-host runtimes only: Docker, Apple Container, and Host. Remote execution, cloud runtimes, and policy sandbox flows are out of scope.
 
-| Platform | Backend | v1 coverage |
+| Platform | Backend | Coverage |
 | --- | --- | --- |
 | macOS Apple Silicon | Apple Container | Required smoke |
 | macOS Apple Silicon/Intel | Docker Desktop | Required smoke |
 | Linux | Docker Engine | Required smoke |
-| Windows | Docker Desktop | Manual smoke for v1 |
+| Windows | Docker Desktop | Manual smoke |
+| macOS/Linux | Host | Manual smoke |
+| Windows | Host through WSL 2 | Manual smoke |
+
+Browser automation is container-only. Host runtime smoke covers file ops, exec/spawn, terminal, Git/VCS, language servers, managed dev servers, and preview URLs.
 
 ## Core checklist for Apple Container and Docker
 
@@ -56,6 +60,15 @@ Use this checklist before shipping runtime changes. v1 covers local bind-mounted
 11. Run Environment Doctor; verify Docker stopped/missing and bind-mount permission failures produce clear action text.
 12. Record Docker Desktop version, Windows version, workspace path, runtime image tag, and any ACL or file-watcher anomalies in the release notes.
 
-## Mac Host spot check
+## Host runtime spot checks
 
-Mac Host is macOS-only and advanced. Confirm it runs directly on the host workspace, translates renderer `/workspace` paths correctly, and reports container-only features as unsupported instead of pretending Docker or Apple Container is active.
+Use backend ID `host`. The deprecated `mac-host` value is accepted only for config migration and should not be selected in manual smoke.
+
+- macOS/Linux: direct host execution.
+- Windows: WSL 2 execution through `wsl.exe`; native PowerShell/cmd host runtime is not supported.
+- Windows WSL-native paths (`\\wsl$\<distro>\...` or `\\wsl.localhost\<distro>\...`) execute in that distro.
+- Windows drive paths (`C:\...`) execute through the default distro as `/mnt/c/...`.
+- Mixed WSL distros in one workspace should be rejected.
+- If WSL localhost forwarding is disabled, preview URL resolution should surface `wsl-localhost-forwarding-disabled`.
+
+Run the detailed host smoke flow in `docs/reference/runtime-manual-test.md` on macOS host, Linux host, and Windows/WSL host. Confirm it covers file ops, exec, terminal, Git, LSP, managed dev server, and preview URL behavior.

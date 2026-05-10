@@ -1,14 +1,16 @@
 # Runtime provider architecture
 
-Status: v1 local runtime architecture.
+Status: cross-platform local runtime architecture.
 
-This document describes Sero's runtime-provider boundary after the Docker runtime backend work. The v1 product supports only local, live workspace runtimes:
+Sero supports local, live workspace runtimes through three canonical backend IDs:
 
 - `apple-container` — Apple Container on supported macOS hosts.
-- `docker` — Docker Desktop or Docker Engine, the normal path for macOS Intel, Windows, and Linux.
-- `mac-host` — direct macOS host execution for advanced local workflows.
+- `docker` — Docker Desktop or Docker Engine on macOS, Windows, and Linux.
+- `host` — direct host runtime on macOS/Linux, and WSL 2-backed host runtime on Windows.
 
-Remote runtimes, cloud runtimes, and policy/profile sandbox controls are out of scope for v1. They must not appear as selectable providers, provider IDs, docs, eval targets, or UI copy.
+`mac-host` is a deprecated compatibility alias. Existing workspace config files that contain `{ "runtime": { "backend": "mac-host" } }` are accepted on read, normalized to `host` in IPC/runtime state, and rewritten as `host` on the next config write. New docs, UI, and config should use only `host`.
+
+Remote runtimes, cloud runtimes, and policy/profile sandbox controls are out of scope for this local runtime architecture. They must not appear as selectable providers, provider IDs, docs, eval targets, or UI copy.
 
 ## Goals
 
@@ -16,27 +18,29 @@ Sero uses one runtime abstraction for the normal workspace loop so every backend
 
 Required properties:
 
-- Primary workspaces are exposed to container runtimes at `/workspace` by live bind mount.
+- Primary workspaces are exposed to runtimes at `/workspace` by live bind mount or host path translation.
 - Host and runtime file changes are visible immediately without push/pull sync.
 - Runtime-created files remain editable and deletable from the host.
 - Selected container runtimes fail closed with actionable diagnostics; they do not silently fall back to host execution.
-- Preview URLs returned to the app and gateway are host-reachable `http://127.0.0.1:<hostPort>` URLs.
+- Preview URLs returned to the app and gateway are host-reachable `http://127.0.0.1:<port>` URLs.
+- Browser automation remains container-only. The `host` backend must report browser automation as unsupported.
 
 ## Provider IDs
 
 ```ts
-export type RuntimeBackendId = 'apple-container' | 'docker' | 'mac-host';
+export type RuntimeBackendId = 'apple-container' | 'docker' | 'host';
+export type DeprecatedRuntimeBackendId = 'mac-host';
 ```
 
 Persist workspace selection as:
 
 ```json
 {
-  "runtime": { "backend": "docker" }
+  "runtime": { "backend": "host" }
 }
 ```
 
-Legacy `container?: boolean` values are read only for migration. New writes should persist `runtime.backend`.
+Legacy `container?: boolean` values and deprecated `mac-host` backend values are read only for migration. New writes should persist `runtime.backend` with the canonical ID.
 
 ## Workspace access
 
@@ -44,10 +48,20 @@ Legacy `container?: boolean` values are read only for migration. New writes shou
 export type RuntimeWorkspaceAccess = 'host' | 'live-mount';
 ```
 
-- `mac-host` uses `host` access and translates renderer `/workspace` paths to the real host workspace path.
+- `host` uses `host` access and translates renderer `/workspace` paths to the real host or WSL execution path.
 - `apple-container` and `docker` use `live-mount` access with the primary workspace mounted at `/workspace`.
 
-Explicit upload/download sync is not part of the v1 runtime model.
+Explicit upload/download sync is not part of the runtime model.
+
+## Runtime support matrix
+
+| Runtime | macOS | Linux | Windows | Browser automation |
+| --- | --- | --- | --- | --- |
+| Host (`host`) | Yes | Yes | WSL 2 required | No |
+| Docker (`docker`) | Yes | Yes | Yes, through Docker Desktop | Yes |
+| Apple Container (`apple-container`) | Apple Silicon recommended | No | No | Yes |
+
+Host runtime targets practical workspace parity for file operations, exec/spawn, terminals, Git/VCS, language servers, managed dev servers, and preview URLs. Container parity is broader because browser automation remains available only through Docker and Apple Container.
 
 ## Runtime capabilities
 
@@ -62,7 +76,7 @@ Backends report real capabilities for:
 - logs and health checks
 - browser automation and language servers
 
-Callers must check capabilities instead of branching on provider-specific implementation details.
+Callers must use `getRuntimeCapabilities(backend, platform)` and runtime diagnostics instead of branching on provider-specific implementation details.
 
 ## Backend responsibilities
 
@@ -84,12 +98,24 @@ Callers must check capabilities instead of branching on provider-specific implem
 - Publishes a preview-port pool on `127.0.0.1` and returns provider-neutral loopback preview URLs.
 - Provides Doctor checks for Docker CLI, daemon, image, bind mount, permissions, networking, and preview ports.
 
-### Mac Host
+### Host
 
-- Runs directly against the macOS host workspace.
-- Translates `/workspace` paths to host paths in the main process.
-- Is a first-class advanced macOS option, not a fallback for missing Docker on Windows or Linux.
-- Reports unsupported capabilities explicitly when container-only features are unavailable.
+- Runs directly against the host workspace on macOS and Linux.
+- Runs through `wsl.exe` on Windows; native PowerShell/cmd host execution is not supported.
+- Translates renderer `/workspace` paths in the main process.
+- Supports file ops, exec/spawn, terminals, Git/VCS, language servers, managed dev servers, and localhost preview URLs.
+- Reports unsupported capabilities explicitly when container-only features such as browser automation are unavailable.
+
+## Windows WSL rules
+
+Windows host runtime requires WSL 2. Distro and path handling is explicit:
+
+- A workspace under `\\wsl$\<distro>\...` or `\\wsl.localhost\<distro>\...` executes in `<distro>` via `wsl.exe -d <distro>`.
+- A workspace on a Windows drive such as `C:\Users\me\repo` translates to a WSL execution path such as `/mnt/c/Users/me/repo` and uses the user's default distro for commands.
+- Mixing WSL distros within one workspace is rejected. For example, a primary root under `\\wsl$\Ubuntu\...` and an additional root under `\\wsl$\Debian\...` is invalid.
+- Renderer/editor paths remain virtual (`/workspace` and additional root IDs). Containment checks compare canonical execution-side paths, not mixed Windows and WSL forms.
+
+Host managed dev servers return `http://127.0.0.1:<port>`. On Windows, Sero probes that URL from the Windows side. If WSL localhost forwarding is disabled or broken, `resolvePreviewUrl` surfaces the `wsl-localhost-forwarding-disabled` diagnostic and points users at the WSL `localhostForwarding=true` setting.
 
 ## Preview URL contract
 
@@ -103,30 +129,31 @@ The returned URL is always host-accessible:
 
 ```ts
 {
-  url: 'http://127.0.0.1:<hostPort>',
+  url: 'http://127.0.0.1:<port>',
   targetPort: 5173,
   hostPort: 49152,
   backend: 'docker'
 }
 ```
 
-Docker and Apple Container pre-publish internal gateway ports at container creation time, then start an in-runtime bridge from each allocated gateway port to the detected target port. See `docs/reference/runtime-preview-ports.md`.
+Docker and Apple Container pre-publish internal gateway ports at container creation time, then start an in-runtime bridge from each allocated gateway port to the detected target port. Host runtime returns direct localhost URLs for managed dev servers. See `docs/reference/runtime-preview-ports.md`.
 
 ## Platform defaults
 
-| Platform | Default v1 runtime |
+| Platform | Default local runtime |
 | --- | --- |
 | macOS Apple Silicon | Apple Container when available, otherwise Docker with setup diagnostics |
 | macOS Intel | Docker |
 | Windows | Docker |
 | Linux | Docker |
-| Global workspace | Mac Host |
+| Global workspace | Host |
 
-Mac Host remains selectable on macOS as an advanced option. Windows and Linux do not silently switch to host execution when Docker is missing or stopped.
+Host remains selectable as an advanced local option on macOS, Linux, and Windows with WSL 2. Windows and Linux do not silently switch to host execution when Docker is missing or stopped.
 
 ## Documentation and smoke tests
 
 - Runtime image publishing and bumps: `docs/reference/runtime-images.md`
 - Preview port pool behavior: `docs/reference/runtime-preview-ports.md`
 - Manual/automated runtime smoke matrix: `docs/reference/runtime-smoke.md`
+- Manual host runtime checklist: `docs/reference/runtime-manual-test.md`
 - User-facing Docker runtime summary: `docs/features/docker-runtime.md`

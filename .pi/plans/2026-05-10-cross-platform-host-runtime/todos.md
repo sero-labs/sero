@@ -674,8 +674,10 @@ Reference: current `RuntimePickerMenu.tsx` functions `runtimeName`, `runtimeIcon
 
 ## TODO CROSS-PLATFORM-HOST-RUNTIME-12 — Update docs/manual tests and run final validation sweep
 
-**Status:** Pending
+**Status:** Done
 **Tags:** `cross-platform-host-runtime`
+
+**Completion note:** Updated public runtime docs and smoke/manual checklists for canonical `host`, deprecated `mac-host` alias behavior, WSL path/distro/localhost-forwarding diagnostics, host parity vs container-only browser automation, and macOS/Linux/Windows-WSL host smoke coverage. Final validation passed: public-doc “Mac Host” grep clean, `RUNTIME_CAPABILITIES[` grep clean, targeted Vitest suites passed, and root `pnpm typecheck` passed.
 
 **Plan:** `/Users/danielcarter/Documents/Dev/projects/sero/sero/.pi/plans/2026-05-10-cross-platform-host-runtime/plan.md`
 **Depends on:** Todos 01-11
