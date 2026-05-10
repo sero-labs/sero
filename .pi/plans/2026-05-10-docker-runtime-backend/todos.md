@@ -79,7 +79,7 @@ Reference: `docs/features/runtime-provider-architecture.md` section 3 for the br
 
 ## TODO DOCKER-RUNTIME-02 — Migrate workspace config from `container?: boolean` to `runtime.backend`
 
-**Status:** Pending
+**Status:** Done
 **Tags:** `docker-runtime`
 
 **Plan:** `/Users/danielcarter/Documents/Dev/projects/sero/sero/.pi/plans/2026-05-10-docker-runtime-backend/plan.md`
@@ -130,12 +130,12 @@ async getRuntimeConfig(id: string): Promise<WorkspaceRuntimeConfig> {
 Reference: `apps/desktop/electron/features/workspace/manager.ts` currently implements `isContainerEnabled()` and `setContainerEnabled()` around `config.container`.
 
 ### Acceptance Criteria
-- [ ] Legacy `.sero-workspace.json` with `container: true`, `container: false`, missing `container`, and new `runtime.backend` all resolve correctly.
-- [ ] New workspace config writes include `runtime.backend`.
-- [ ] `WorkspaceInfo` includes `runtime` while derived `container` remains temporarily compatible.
-- [ ] Tests cover macOS Apple Silicon, macOS Intel, Windows, Linux, and global workspace default behavior with mocked platform helpers.
-- [ ] `pnpm --filter @sero/desktop typecheck` passes.
-- [ ] No touched source file exceeds 500 LOC.
+- [x] Legacy `.sero-workspace.json` with `container: true`, `container: false`, missing `container`, and new `runtime.backend` all resolve correctly.
+- [x] New workspace config writes include `runtime.backend`.
+- [x] `WorkspaceInfo` includes `runtime` while derived `container` remains temporarily compatible.
+- [x] Tests cover macOS Apple Silicon, macOS Intel, Windows, Linux, and global workspace default behavior with mocked platform helpers.
+- [x] `pnpm --filter @sero/desktop typecheck` passes.
+- [x] No touched source file exceeds 500 LOC.
 
 ---
 

@@ -14,12 +14,18 @@ import type {
   WorkspaceConfig,
   WorkspaceInfo,
 } from '@/types/ipc';
+import type { WorkspaceRuntimeBackend, WorkspaceRuntimeConfig } from '@/types/workspace-runtime';
 
 import { SERO_HOME, SERO_AGENT_DIR } from '@electron/platform/env';
 import { inferWorkspaceFromMessage } from './inference';
 import { slugify, ensureUniqueId, prettifyName } from './utils';
 import * as mounts from './mounts';
 import * as roots from './roots';
+import {
+  normalizeWorkspaceConfigForWrite,
+  resolveWorkspaceRuntimeConfig,
+} from './runtime/config';
+import { getDefaultRuntimeBackend } from './runtime/platform-default';
 
 const EDITOR_STATE_DIR = path.join(SERO_AGENT_DIR, 'editor-state');
 
@@ -40,7 +46,7 @@ const DEFAULT_GLOBAL_CONFIG: WorkspaceConfig = {
   id: 'global',
   name: 'Global',
   description: 'Cross-cutting personal data — knowledge, finance, contacts, templates',
-  container: false,
+  runtime: { backend: 'mac-host' },
   contextHints: ['Personal knowledge base and reference data'],
   tags: ['default', 'personal', 'knowledge'],
 };
@@ -58,7 +64,7 @@ export class WorkspaceManager {
     await this.ensureDirs();
     await this.loadRegistry();
     await this.ensureDefaults();
-    await this.migrateDefaultContainerOff();
+    await this.migrateRuntimeConfig();
   }
 
   /** Ensure required directories exist. */
@@ -128,20 +134,13 @@ export class WorkspaceManager {
     }
   }
 
-  /**
-   * Migrate existing global workspace to container: false.
-   * Only writes the config if it exists and `container` is undefined (not yet set).
-   */
-  private async migrateDefaultContainerOff(): Promise<void> {
-    for (const id of ['global'] as const) {
-      const entry = this.findEntry(id);
-      if (!entry) continue;
+  /** Migrate legacy container flags to provider-aware runtime config. */
+  private async migrateRuntimeConfig(): Promise<void> {
+    for (const entry of this.registry.workspaces) {
       const config = await this.readConfig(entry.path);
-      if (config && config.container === undefined) {
-        config.container = false;
-        await this.writeConfig(entry.path, config);
-        this.configCache.delete(id);
-      }
+      if (!config || (config.runtime?.backend && config.container === undefined)) continue;
+      await this.writeConfig(entry.path, config);
+      this.configCache.delete(entry.id);
     }
   }
 
@@ -161,7 +160,7 @@ export class WorkspaceManager {
   /** Write .sero-workspace.json to a workspace directory. */
   private async writeConfig(workspacePath: string, config: WorkspaceConfig): Promise<void> {
     const configPath = path.join(workspacePath, '.sero-workspace.json');
-    const json = JSON.stringify(config, null, 2) + '\n';
+    const json = JSON.stringify(normalizeWorkspaceConfigForWrite(config), null, 2) + '\n';
     await fs.writeFile(configPath, json, 'utf8');
   }
 
@@ -392,29 +391,36 @@ export class WorkspaceManager {
 
   // ── Helpers ───────────────────────────────────────────────
 
-  /** Check if a workspace has containers enabled. Defaults to true. */
-  async isContainerEnabled(id: string): Promise<boolean> {
-    const config = await this.getConfig(id);
-    return config?.container !== false;
+  async getRuntimeConfig(id: string): Promise<WorkspaceRuntimeConfig> {
+    return resolveWorkspaceRuntimeConfig(id, await this.getConfig(id));
   }
 
-  /** Enable or disable container mode for a workspace. Persisted to config file. */
-  async setContainerEnabled(id: string, enabled: boolean): Promise<void> {
+  async setRuntimeBackend(id: string, backend: WorkspaceRuntimeBackend): Promise<void> {
     const entry = this.findEntry(id);
     if (!entry) throw new Error(`Workspace not found: ${id}`);
 
     const config = await this.readConfig(entry.path);
     if (!config) throw new Error(`No config for workspace: ${id}`);
 
-    config.container = enabled;
-    await this.persistConfig(id, entry.path, config);
+    await this.persistConfig(id, entry.path, { ...config, runtime: { ...config.runtime, backend } });
+  }
+
+  /** @deprecated compatibility shim while callers migrate to runtime.backend. */
+  async isContainerEnabled(id: string): Promise<boolean> {
+    return (await this.getRuntimeConfig(id)).backend !== 'mac-host';
+  }
+
+  /** @deprecated compatibility shim while callers migrate to runtime.backend. */
+  async setContainerEnabled(id: string, enabled: boolean): Promise<void> {
+    const backend = enabled ? getDefaultRuntimeBackend({ workspaceId: id }) : 'mac-host';
+    await this.setRuntimeBackend(id, backend);
   }
 
   /** Write a modified config to disk and invalidate the cache. */
   async persistConfig(id: string, workspacePath: string, config: WorkspaceConfig): Promise<void> {
     this.configCache.delete(id);
     const configPath = path.join(workspacePath, '.sero-workspace.json');
-    const json = JSON.stringify(config, null, 2) + '\n';
+    const json = JSON.stringify(normalizeWorkspaceConfigForWrite(config), null, 2) + '\n';
     await fs.writeFile(configPath, json, 'utf8');
   }
 
@@ -443,6 +449,7 @@ export class WorkspaceManager {
   /** Merge registry entry + config into WorkspaceInfo. */
   private async getInfo(entry: WorkspaceRegistryEntry): Promise<WorkspaceInfo | null> {
     const config = await this.readConfig(entry.path);
+    const runtime = resolveWorkspaceRuntimeConfig(entry.id, config);
 
     return {
       id: entry.id,
@@ -452,7 +459,8 @@ export class WorkspaceManager {
       contextHints: config?.contextHints,
       tags: config?.tags,
       open: entry.open,
-      container: config?.container !== false,
+      runtime,
+      container: runtime.backend !== 'mac-host',
       references: config?.references ?? [],
       mounts: config?.mounts ?? [],
       roots: config?.roots ?? [],

@@ -42,7 +42,7 @@ import type {
 } from './types';
 
 export interface RuntimeManagerDependencies {
-  workspaceManager: Pick<WorkspaceManager, 'getPath' | 'isContainerEnabled'>;
+  workspaceManager: Pick<WorkspaceManager, 'getPath' | 'getRuntimeConfig'>;
   containerManager: ContainerManager;
   resolveBackend?: (workspaceId: string) => Promise<RuntimeBackendId> | RuntimeBackendId;
 }
@@ -151,8 +151,7 @@ export class RuntimeManager {
       return this.dependencies.resolveBackend(workspaceId);
     }
 
-    const containerEnabled = await this.dependencies.workspaceManager.isContainerEnabled(workspaceId);
-    return containerEnabled ? 'apple-container' : 'mac-host';
+    return (await this.dependencies.workspaceManager.getRuntimeConfig(workspaceId)).backend;
   }
 }
 

@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => {
     name: 'Workspace 1',
     path: '/repo-1',
     open: true,
+    runtime: { backend: 'apple-container' },
     container: true,
     references: [],
     mounts: [],

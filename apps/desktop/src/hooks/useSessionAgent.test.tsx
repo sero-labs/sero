@@ -35,17 +35,18 @@ function createSession(overrides: Partial<SeroSessionInfo> = {}): SeroSessionInf
 }
 
 function createWorkspace(overrides: Partial<WorkspaceInfo> = {}): WorkspaceInfo {
-  return {
+  const workspace: WorkspaceInfo = {
     id: 'workspace-1',
     name: 'Workspace 1',
     path: '/tmp/workspace-1',
     open: true,
+    runtime: { backend: 'mac-host' },
     container: false,
     references: [],
     mounts: [],
     roots: [],
-    ...overrides,
   };
+  return { ...workspace, ...overrides, runtime: overrides.runtime ?? workspace.runtime };
 }
 
 function Harness() {

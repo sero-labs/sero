@@ -72,7 +72,7 @@ describe('runtime backend contract skeleton', () => {
     const manager = new RuntimeManager({
       workspaceManager: {
         getPath: vi.fn().mockReturnValue('/Users/daniel/project'),
-        isContainerEnabled: vi.fn().mockResolvedValue(false),
+        getRuntimeConfig: vi.fn().mockResolvedValue({ backend: 'mac-host' }),
       },
       containerManager: {} as ContainerManager,
     });
@@ -90,7 +90,7 @@ describe('runtime backend contract skeleton', () => {
     const manager = new RuntimeManager({
       workspaceManager: {
         getPath: vi.fn().mockReturnValue('/Users/daniel/project'),
-        isContainerEnabled: vi.fn().mockResolvedValue(true),
+        getRuntimeConfig: vi.fn().mockResolvedValue({ backend: 'docker' }),
       },
       containerManager: {} as ContainerManager,
       resolveBackend,
