@@ -141,7 +141,7 @@ Reference: `apps/desktop/electron/features/workspace/manager.ts` currently imple
 
 ## TODO DOCKER-RUNTIME-03 — Implement MacHostBackend and AppleContainerBackend adapters
 
-**Status:** Pending
+**Status:** Done
 **Tags:** `docker-runtime`
 
 **Plan:** `/Users/danielcarter/Documents/Dev/projects/sero/sero/.pi/plans/2026-05-10-docker-runtime-backend/plan.md`
@@ -201,12 +201,12 @@ export class AppleContainerBackend implements RuntimeBackend {
 Reference: `apps/desktop/electron/features/container/index.ts` has the existing `ContainerManager` methods to delegate.
 
 ### Acceptance Criteria
-- [ ] Apple adapter delegates lifecycle, exec, file primitives, terminal, dev-server, port preview, and destroy to existing code.
-- [ ] Mac Host adapter reads/writes/lists/mutates files through Node fs with `/workspace` translation.
-- [ ] Runtime manager returns Mac Host or Apple backend based on `workspaceManager.getRuntimeConfig()`.
-- [ ] Tests prove Apple adapter does not silently call host when container is missing.
-- [ ] Existing Apple/host tests still pass.
-- [ ] No touched source file exceeds 500 LOC.
+- [x] Apple adapter delegates lifecycle, exec, file primitives, terminal, dev-server, port preview, and destroy to existing code.
+- [x] Mac Host adapter reads/writes/lists/mutates files through Node fs with `/workspace` translation.
+- [x] Runtime manager returns Mac Host or Apple backend based on `workspaceManager.getRuntimeConfig()`.
+- [x] Tests prove Apple adapter does not silently call host when container is missing.
+- [x] Existing Apple/host tests still pass.
+- [x] No touched source file exceeds 500 LOC.
 
 ---
 

@@ -12,6 +12,7 @@ import {
 } from '@electron/features/workspace/runtime/runtime-paths';
 import type { RuntimeBackendId } from '@electron/features/workspace/runtime/types';
 import type { ContainerManager } from '@electron/features/container';
+import type { WorkspaceManager } from '@electron/features/workspace/manager';
 
 describe('runtime backend contract skeleton', () => {
   it('exposes the expected runtime backend ids', () => {
@@ -73,7 +74,7 @@ describe('runtime backend contract skeleton', () => {
       workspaceManager: {
         getPath: vi.fn().mockReturnValue('/Users/daniel/project'),
         getRuntimeConfig: vi.fn().mockResolvedValue({ backend: 'mac-host' }),
-      },
+      } as unknown as WorkspaceManager,
       containerManager: {} as ContainerManager,
     });
 
@@ -85,13 +86,13 @@ describe('runtime backend contract skeleton', () => {
     expect(runtime.capabilities.ports.previewUrl).toBe(false);
   });
 
-  it('resolves and caches one placeholder backend per workspace/backend pair', async () => {
-    const resolveBackend = vi.fn<(workspaceId: string) => RuntimeBackendId>().mockReturnValue('docker');
+  it('resolves and caches one real backend per workspace/backend pair', async () => {
+    const resolveBackend = vi.fn<(workspaceId: string) => RuntimeBackendId>().mockReturnValue('mac-host');
     const manager = new RuntimeManager({
       workspaceManager: {
         getPath: vi.fn().mockReturnValue('/Users/daniel/project'),
-        getRuntimeConfig: vi.fn().mockResolvedValue({ backend: 'docker' }),
-      },
+        getRuntimeConfig: vi.fn().mockResolvedValue({ backend: 'mac-host' }),
+      } as unknown as WorkspaceManager,
       containerManager: {} as ContainerManager,
       resolveBackend,
     });
@@ -101,9 +102,21 @@ describe('runtime backend contract skeleton', () => {
     const health = await manager.getHealth('workspace-a');
 
     expect(first).toBe(second);
-    expect(first.backend).toBe('docker');
-    expect(first.workspaceAccess).toBe('live-mount');
-    expect(health).toMatchObject({ backend: 'docker', status: 'unsupported' });
+    expect(first.backend).toBe('mac-host');
+    expect(first.workspaceAccess).toBe('host');
+    expect(health).toMatchObject({ backend: 'mac-host', status: 'ready' });
+  });
+
+  it('surfaces Docker as not implemented when selected', async () => {
+    const manager = new RuntimeManager({
+      workspaceManager: {
+        getPath: vi.fn().mockReturnValue('/Users/daniel/project'),
+        getRuntimeConfig: vi.fn().mockResolvedValue({ backend: 'docker' }),
+      } as unknown as WorkspaceManager,
+      containerManager: {} as ContainerManager,
+    });
+
+    await expect(manager.getRuntime('workspace-a')).rejects.toThrow('Docker runtime backend is not implemented yet.');
   });
 
   it('translates primary workspace paths between host and runtime roots', () => {
