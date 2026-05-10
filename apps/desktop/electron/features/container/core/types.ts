@@ -70,6 +70,8 @@ export interface ContainerConfig {
    * Directories that don't exist on the host are silently skipped.
    */
   writableMounts?: string[];
+  /** Internal preview gateway ports published to loopback host ports at creation. */
+  previewPortMappings?: Array<{ internalPort: number; hostPort?: number }>;
 }
 
 /**

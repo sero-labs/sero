@@ -8,6 +8,7 @@ function createWorkspaceManager(): WorkspaceManager {
     getReferences: vi.fn().mockResolvedValue([]),
     getMounts: vi.fn().mockResolvedValue([]),
     getRoots: vi.fn().mockResolvedValue([]),
+    getRuntimeConfig: vi.fn().mockResolvedValue({ backend: 'apple-container', previewPortPoolSize: 2 }),
   } as unknown as WorkspaceManager;
 }
 
@@ -17,7 +18,7 @@ function createContainerManager() {
     workspaceId: 'workspace-a',
     name: 'Vite',
     port: 5173,
-    url: 'http://192.168.64.2:5173',
+    url: 'http://127.0.0.1:51000',
     command: 'pnpm dev',
     cwd: '/workspace',
     status: 'running' as const,
@@ -33,6 +34,7 @@ function createContainerManager() {
       memoryBytes: 1024,
     }),
     stop: vi.fn().mockResolvedValue(undefined),
+    remove: vi.fn().mockResolvedValue(undefined),
     exec: vi.fn().mockResolvedValue({ stdout: 'ok', stderr: '', exitCode: 0 }),
     readFile: vi.fn().mockResolvedValue('file content'),
     writeFile: vi.fn().mockResolvedValue(undefined),
@@ -44,7 +46,7 @@ function createContainerManager() {
     },
     portScanner: {
       triggerScan: vi.fn(),
-      getPorts: vi.fn().mockReturnValue([{ port: 5173, url: 'http://192.168.64.2:5173', bridged: false }]),
+      getPorts: vi.fn().mockReturnValue([{ port: 5173, url: 'http://127.0.0.1:51000', bridged: true }]),
     },
     devServers: {
       register: vi.fn().mockReturnValue(registeredServer),
@@ -63,6 +65,10 @@ function createBackend(containerManager = createContainerManager()): AppleContai
     hostWorkspacePath: '/Users/daniel/project',
     workspaceManager: createWorkspaceManager(),
     containerManager: containerManager as unknown as ContainerManager,
+    inspectApplePorts: async () => ({ configuration: { publishedPorts: [
+      { hostAddress: '127.0.0.1', hostPort: 51000, containerPort: 32000 },
+      { hostAddress: '127.0.0.1', hostPort: 51001, containerPort: 32001 },
+    ] } }),
   });
 }
 
@@ -104,7 +110,7 @@ describe('AppleContainerBackend', () => {
       { name: 'a.txt', path: '/workspace/a.txt', type: 'file', size: 4 },
     ]);
 
-    expect(containerManager.ensure).toHaveBeenCalledTimes(4);
+    expect(containerManager.ensure).toHaveBeenCalledTimes(1);
     expect(containerManager.exec).toHaveBeenCalledWith('workspace-a', 'pwd', '/workspace', undefined, {
       injectGitAuth: true,
     });
@@ -121,20 +127,20 @@ describe('AppleContainerBackend', () => {
     expect(containerManager.exec).not.toHaveBeenCalled();
   });
 
-  it('delegates dev-server status and current preview URLs to existing registries', async () => {
+  it('resolves preview URLs through loopback host-port pool bridges', async () => {
     const containerManager = createContainerManager();
     const backend = createBackend(containerManager);
 
-    await expect(backend.getDevServerStatus({})).resolves.toEqual({
-      servers: [{ id: 'workspace-a:workspace:root:5173', port: 5173, url: 'http://192.168.64.2:5173', command: 'pnpm dev', cwd: '/workspace' }],
-    });
-    await expect(backend.resolvePreviewUrl({ targetPort: 5173 })).resolves.toEqual({
-      url: 'http://192.168.64.2:5173',
-      targetPort: 5173,
-      hostPort: 5173,
-      backend: 'apple-container',
-    });
+    const preview = await backend.resolvePreviewUrl({ targetPort: 5173 });
 
-    expect(containerManager.portScanner.getPorts).toHaveBeenCalledWith('workspace-a');
+    expect(preview).toMatchObject({ targetPort: 5173, backend: 'apple-container' });
+    expect(preview.url).toMatch(/^http:\/\/127\.0\.0\.1:\d+$/);
+    expect(preview.hostPort).not.toBe(5173);
+    expect(containerManager.exec).toHaveBeenCalledWith(
+      'workspace-a',
+      expect.stringContaining('sero-preview-bridge-workspace-a-5173-32000'),
+      '/workspace',
+      10_000,
+    );
   });
 });

@@ -240,6 +240,11 @@ export async function createFreshContainer(
     `${config.hostPath}:${WORKSPACE_MOUNT}`,
   ];
 
+  for (const mapping of config.previewPortMappings ?? []) {
+    if (!mapping.hostPort) continue;
+    args.push('-p', `127.0.0.1:${mapping.hostPort}:${mapping.internalPort}`);
+  }
+
   // Bind-mount additional host directories (skills, prompts, etc.)
   // at the same absolute path so agent references resolve correctly.
   for (const hostDir of config.readOnlyMounts ?? []) {

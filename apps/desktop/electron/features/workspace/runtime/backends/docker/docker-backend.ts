@@ -41,8 +41,10 @@ import type {
 import { runDocker, spawnDocker, type DockerRunner } from './docker-cli';
 import { runDockerDoctorChecks } from './docker-doctor';
 import { ensureDockerImage } from './docker-image';
-import { dockerContainerName, ensureDockerContainer, runtimeEnvArgs } from './docker-lifecycle';
+import { dockerContainerName, ensureDockerContainer, removeDockerContainer, runtimeEnvArgs } from './docker-lifecycle';
 import { DockerTerminalRegistry } from './docker-terminal';
+import { DockerPortManager } from './docker-ports';
+import { normalizePreviewPortPoolSize } from '../preview-port-pool';
 
 interface DockerBackendOptions {
   workspaceId: string;
@@ -66,6 +68,7 @@ export class DockerBackend implements RuntimeBackend {
   private readonly imageRef: string;
   private readonly run: DockerRunner;
   private readonly terminals = new DockerTerminalRegistry();
+  private ports: DockerPortManager | null = null;
   private ensureInflight: Promise<RuntimeSession> | null = null;
 
   constructor(options: DockerBackendOptions) {
@@ -184,18 +187,72 @@ export class DockerBackend implements RuntimeBackend {
     return this.terminals.create(this.workspaceId, input.terminalId, input.cwd ?? this.runtimeWorkspacePath, input.cols, input.rows);
   }
 
-  async startDevServer(_input: RuntimeDevServerStartInput): Promise<RuntimeDevServer> { throw todo07(); }
-  async stopDevServer(_input: RuntimeDevServerStopInput): Promise<void> { throw todo07(); }
-  async restartDevServer(_input: RuntimeDevServerRestartInput): Promise<RuntimeDevServer> { throw todo07(); }
-  async getDevServerStatus(_input: RuntimeDevServerStatusInput): Promise<RuntimeDevServerStatus> { return { servers: [] }; }
-  async forwardPort(_input: RuntimeForwardPortInput): Promise<RuntimeForwardedPort> { throw todo07(); }
-  async stopForward(_input: RuntimeStopForwardInput): Promise<void> { throw todo07(); }
-  async resolvePreviewUrl(_input: RuntimePreviewUrlInput): Promise<RuntimePreviewUrl> { throw todo07(); }
+  async startDevServer(input: RuntimeDevServerStartInput): Promise<RuntimeDevServer> {
+    await this.ensure();
+    const ports = await this.portManager();
+    const beforePorts = new Set(await ports.detectPorts());
+    const command = `setsid sh -c ${shellQuote(`${input.command} > ${input.logPath ?? '/tmp/sero-dev-server.log'} 2>&1 &`)}`;
+    const result = await this.exec({ command, cwd: input.cwd || this.runtimeWorkspacePath, timeoutMs: 30_000 });
+    if (result.exitCode !== 0) throw new Error(`Dev server start failed: ${result.stderr || result.stdout || input.command}`);
+    const port = await this.waitForStartedPort(beforePorts);
+    const forwarded = await ports.forwardPort(port);
+    return ports.registerServer({
+      id: `${this.workspaceId}:${input.scope ?? 'workspace'}:${input.cardId ?? 'root'}:${port}`,
+      port,
+      url: forwarded.url,
+      command: input.command,
+      cwd: input.cwd || this.runtimeWorkspacePath,
+    });
+  }
+
+  async stopDevServer(input: RuntimeDevServerStopInput): Promise<void> {
+    const ports = await this.portManager();
+    const server = ports.getServer(input.serverId);
+    if (!server) throw new Error(`Dev server not found: ${input.serverId}`);
+    await this.killPort(server.port);
+    await ports.stopForward(server.port);
+    ports.deleteServer(input.serverId);
+  }
+
+  async restartDevServer(input: RuntimeDevServerRestartInput): Promise<RuntimeDevServer> {
+    const ports = await this.portManager();
+    const server = ports.getServer(input.serverId);
+    if (!server) throw new Error(`Dev server not found: ${input.serverId}`);
+    await this.stopDevServer(input);
+    return this.startDevServer({ command: server.command, cwd: server.cwd, name: 'Dev Server' });
+  }
+
+  async getDevServerStatus(input: RuntimeDevServerStatusInput): Promise<RuntimeDevServerStatus> {
+    const ports = await this.portManager();
+    return { servers: input.serverId ? [ports.getServer(input.serverId)].filter(isRuntimeDevServer) : ports.listServers() };
+  }
+
+  async forwardPort(input: RuntimeForwardPortInput): Promise<RuntimeForwardedPort> {
+    await this.ensure();
+    return (await this.portManager()).forwardPort(input.targetPort);
+  }
+
+  async stopForward(input: RuntimeStopForwardInput): Promise<void> {
+    await (await this.portManager()).stopForward(input.targetPort, input.hostPort);
+  }
+
+  async resolvePreviewUrl(input: RuntimePreviewUrlInput): Promise<RuntimePreviewUrl> {
+    await this.ensure();
+    return (await this.portManager()).resolvePreviewUrl(input.targetPort, input.path);
+  }
 
   private async ensureOnce(): Promise<RuntimeSession> {
     await ensureDockerImage({ imageRef: this.imageRef, run: this.run });
     const config = await this.buildConfig();
-    const state = await ensureDockerContainer({ config, imageRef: this.imageRef, run: this.run });
+    const poolSize = await this.previewPortPoolSize();
+    let state = await ensureDockerContainer({ config, imageRef: this.imageRef, run: this.run, previewPortPoolSize: poolSize });
+    try {
+      await (await this.portManager(poolSize)).refreshFromInspect();
+    } catch {
+      await removeDockerContainer(dockerContainerName(this.workspaceId), this.run);
+      state = await ensureDockerContainer({ config, imageRef: this.imageRef, run: this.run, previewPortPoolSize: poolSize });
+      await (await this.portManager(poolSize)).refreshFromInspect();
+    }
     return {
       backend: this.backend,
       workspaceId: this.workspaceId,
@@ -204,6 +261,39 @@ export class DockerBackend implements RuntimeBackend {
       state: state.state,
       containerId: state.id,
     };
+  }
+
+  private async portManager(poolSize?: number): Promise<DockerPortManager> {
+    if (!this.ports) {
+      const resolvedPoolSize = poolSize ?? await this.previewPortPoolSize();
+      this.ports = new DockerPortManager({
+        workspaceId: this.workspaceId,
+        poolSize: resolvedPoolSize,
+        run: this.run,
+        exec: (command, timeoutMs) => this.run(['exec', dockerContainerName(this.workspaceId), 'sh', '-lc', command], { timeoutMs }),
+      });
+    }
+    return this.ports;
+  }
+
+  private async previewPortPoolSize(): Promise<number> {
+    const config = await this.workspaceManager.getRuntimeConfig(this.workspaceId);
+    return normalizePreviewPortPoolSize(config.previewPortPoolSize);
+  }
+
+  private async waitForStartedPort(beforePorts: Set<number>): Promise<number> {
+    const startedAt = Date.now();
+    while (Date.now() - startedAt < 20_000) {
+      await sleep(500);
+      const ports = await (await this.portManager()).detectPorts();
+      const port = ports.find((candidate) => !beforePorts.has(candidate));
+      if (port) return port;
+    }
+    throw new Error('No dev server port was detected after starting the command.');
+  }
+
+  private async killPort(port: number): Promise<void> {
+    await this.exec({ command: `pids=$(ss -tlnp sport = :${port} 2>/dev/null | grep -oP 'pid=\\K[0-9]+' | sort -u); [ -z "$pids" ] || kill $pids 2>/dev/null || true`, timeoutMs: 10_000 });
   }
 
   private async buildConfig(): Promise<ContainerConfig> {
@@ -230,11 +320,15 @@ function emitData(callbacks: Set<(chunk: string) => void>, chunk: Buffer): void 
   for (const cb of callbacks) cb(text);
 }
 
+function isRuntimeDevServer(server: RuntimeDevServer | undefined): server is RuntimeDevServer {
+  return Boolean(server);
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function subscribe<T>(callbacks: Set<(value: T) => void>, cb: (value: T) => void): () => void {
   callbacks.add(cb);
   return () => callbacks.delete(cb);
-}
-
-function todo07(): Error {
-  return new Error('Docker runtime preview/dev-server port management is implemented in TODO-07.');
 }

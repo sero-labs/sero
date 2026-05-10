@@ -87,14 +87,14 @@ describe('Docker runtime backend core', () => {
       if (args[0] === 'inspect') {
         inspectCount += 1;
         if (inspectCount === 1) return fail('not found');
-        return ok(JSON.stringify([{ Config: { Image: 'image', Labels: {} }, State: { Running: true } }]));
+        return ok(JSON.stringify([{ Config: { Image: 'image', Labels: {} }, State: { Running: true }, NetworkSettings: { Ports: { '32000/tcp': [{ HostPort: '49153' }], '32001/tcp': [{ HostPort: '49154' }] } } }]));
       }
       return ok(args[0] === 'run' ? 'container-id' : '');
     });
     const backend = new DockerBackend({
       workspaceId: 'ws-1',
       hostWorkspacePath: '/tmp/sero-docker-workspace',
-      workspaceManager: {} as WorkspaceManager,
+      workspaceManager: { getRuntimeConfig: vi.fn().mockResolvedValue({ backend: 'docker', previewPortPoolSize: 2 }) } as unknown as WorkspaceManager,
       getGitAuthEnvVars: () => ({ GH_TOKEN: 'secret-token' }),
       run,
     });

@@ -5,6 +5,7 @@ import type { ContainerConfig, ContainerState } from '@electron/features/contain
 import { containerId, DEFAULT_CPUS, DEFAULT_IMAGE, DEFAULT_MEMORY_MB } from '@electron/features/container/core/types';
 import { mountArgs, buildDockerMounts } from './docker-mounts';
 import { checkDocker, type DockerRunner } from './docker-cli';
+import { buildPreviewInternalPorts } from '../preview-port-pool';
 
 const execFileAsync = promisify(execFile);
 const GIT_IDENTITY_TTL_MS = 5 * 60 * 1000;
@@ -15,6 +16,7 @@ export interface DockerLifecycleOptions {
   config: ContainerConfig;
   imageRef: string;
   run?: DockerRunner;
+  previewPortPoolSize?: number;
 }
 
 interface DockerInspectData {
@@ -43,7 +45,7 @@ export async function ensureDockerContainer(options: DockerLifecycleOptions): Pr
   }
 
   mkdirSync(options.config.hostPath, { recursive: true });
-  const created = await run(createDockerRunArgs(options.config, options.imageRef), { timeoutMs: 60_000 });
+  const created = await run(createDockerRunArgs(options.config, options.imageRef, options.previewPortPoolSize), { timeoutMs: 60_000 });
   if (created.exitCode !== 0) {
     throw new Error(`Failed to create Docker container ${cid}: ${created.stderr || created.stdout}`.trim());
   }
@@ -52,7 +54,7 @@ export async function ensureDockerContainer(options: DockerLifecycleOptions): Pr
   return toContainerState(cid, await inspectDockerContainer(cid, run), options.imageRef);
 }
 
-export function createDockerRunArgs(config: ContainerConfig, imageRef: string = DEFAULT_IMAGE): string[] {
+export function createDockerRunArgs(config: ContainerConfig, imageRef: string = DEFAULT_IMAGE, previewPortPoolSize = 0): string[] {
   const cid = dockerContainerName(config.workspaceId);
   const args = [
     'run', '-d', '--name', cid, '--init',
@@ -65,6 +67,7 @@ export function createDockerRunArgs(config: ContainerConfig, imageRef: string = 
     '--memory', `${config.memoryMB ?? DEFAULT_MEMORY_MB}M`,
     ...runtimeEnvArgs(),
     ...userArgs(),
+    ...dockerPreviewPublishArgs(previewPortPoolSize),
     ...mountArgs(buildDockerMounts(config)),
     imageRef,
     'sleep', 'infinity',
@@ -111,6 +114,11 @@ export function toContainerState(cid: string, inspect: DockerInspectData, imageR
     cpus: DEFAULT_CPUS,
     memoryBytes: inspect.HostConfig?.Memory ?? DEFAULT_MEMORY_MB * 1024 * 1024,
   };
+}
+
+function dockerPreviewPublishArgs(poolSize: number): string[] {
+  if (poolSize <= 0) return [];
+  return buildPreviewInternalPorts(poolSize).flatMap((internalPort) => ['-p', `127.0.0.1::${internalPort}`]);
 }
 
 function isExpectedContainer(inspect: DockerInspectData, config: ContainerConfig, imageRef: string): boolean {

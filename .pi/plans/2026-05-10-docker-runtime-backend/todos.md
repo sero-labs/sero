@@ -414,7 +414,7 @@ Reference: `apps/desktop/electron/features/container/core/lifecycle.ts` for exis
 
 ## TODO DOCKER-RUNTIME-07 — Implement unified loopback host-port pool preview for Docker AND Apple Container, dev-server parity, and gateway URL routing
 
-**Status:** Pending
+**Status:** Done
 **Tags:** `docker-runtime`
 
 **Plan:** `/Users/danielcarter/Documents/Dev/projects/sero/sero/.pi/plans/2026-05-10-docker-runtime-backend/plan.md`
@@ -470,18 +470,18 @@ function bridgeCommand(targetPort: number, internalPort: number, marker: string)
 Reference: `apps/desktop/electron/features/container/network/port-forward.ts` has existing Apple Container scanning/bridge logic; Docker should share parsing ideas but return localhost mapped URLs.
 
 ### Acceptance Criteria
-- [ ] Docker `run` publishes the configured preview pool to `127.0.0.1` ephemeral host ports.
-- [ ] Apple `container run` pre-allocates free loopback host ports and publishes them with explicit `-p 127.0.0.1:<hostPort>:<internalPort>` flags.
-- [ ] Inspect/state parser maps internal pool ports to host ports for both backends.
-- [ ] Detected target port `5173` resolves to `http://127.0.0.1:<allocatedHostPort>` for both backends.
-- [ ] Localhost-bound and public-bound simulated ports both use the bridge path successfully on both backends.
-- [ ] Port pool exhaustion returns an actionable runtime diagnostic (with the pool size in the message).
-- [ ] `previewPortPoolSize` is configurable per workspace; default is documented in code and `docs/`.
-- [ ] Gateway tests no longer assert container IP behavior for either backend.
-- [ ] Multi-workspace test proves host ports differ and URLs do not collide.
-- [ ] Legacy `port + 20000` Apple bridge code and container-IP URL helpers are removed.
-- [ ] Apple Container regression smoke (manual or test): existing dev servers continue to be reachable through the new loopback URL.
-- [ ] No touched source file exceeds 500 LOC.
+- [x] Docker `run` publishes the configured preview pool to `127.0.0.1` ephemeral host ports.
+- [x] Apple `container run` pre-allocates free loopback host ports and publishes them with explicit `-p 127.0.0.1:<hostPort>:<internalPort>` flags.
+- [x] Inspect/state parser maps internal pool ports to host ports for both backends.
+- [x] Detected target port `5173` resolves to `http://127.0.0.1:<allocatedHostPort>` for both backends.
+- [x] Localhost-bound and public-bound simulated ports both use the bridge path successfully on both backends.
+- [x] Port pool exhaustion returns an actionable runtime diagnostic (with the pool size in the message).
+- [x] `previewPortPoolSize` is configurable per workspace; default is documented in code and `docs/`.
+- [x] Gateway tests no longer assert container IP behavior for either backend.
+- [x] Multi-workspace test proves host ports differ and URLs do not collide.
+- [x] Legacy `port + 20000` Apple bridge code and container-IP URL helpers are removed.
+- [x] Apple Container regression smoke (manual or test): existing dev servers continue to be reachable through the new loopback URL.
+- [x] No touched source file exceeds 500 LOC.
 
 ---
 
