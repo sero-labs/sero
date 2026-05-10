@@ -343,7 +343,7 @@ Reference: `apps/desktop/electron/features/vcs/core/git-runner.ts` currently res
 
 ## TODO DOCKER-RUNTIME-06 — Implement DockerBackend lifecycle, image, mounts, exec, terminal, and Doctor checks
 
-**Status:** Pending
+**Status:** Done
 **Tags:** `docker-runtime`
 
 **Plan:** `/Users/danielcarter/Documents/Dev/projects/sero/sero/.pi/plans/2026-05-10-docker-runtime-backend/plan.md`
@@ -402,13 +402,13 @@ await runDocker(args, { timeoutMs: 60_000 });
 Reference: `apps/desktop/electron/features/container/core/lifecycle.ts` for existing Apple lifecycle behavior, but use Docker CLI flags and labels.
 
 ### Acceptance Criteria
-- [ ] Docker CLI helper returns structured stdout/stderr/exitCode and never concatenates untrusted shell args.
-- [ ] `docker run` args include correct name, labels, workspace mount, read-only SERO_AGENT_DIR skills/prompts mounts, env, user strategy, and image.
-- [ ] `docker exec` supports cwd, timeout, env, and git auth injection.
-- [ ] Terminal opens via `docker exec -it -w /workspace ... /bin/bash --login`.
-- [ ] Image helper tests cover inspect hit, pull success, pull fail + build success, pull/build failure.
-- [ ] Doctor tests cover missing CLI, stopped daemon, image missing, bind mount smoke, permission smoke, network smoke, and port smoke result shapes.
-- [ ] No touched source file exceeds 500 LOC.
+- [x] Docker CLI helper returns structured stdout/stderr/exitCode and never concatenates untrusted shell args.
+- [x] `docker run` args include correct name, labels, workspace mount, read-only SERO_AGENT_DIR skills/prompts mounts, env, user strategy, and image.
+- [x] `docker exec` supports cwd, timeout, env, and git auth injection.
+- [x] Terminal opens via `docker exec -it -w /workspace ... /bin/bash --login`.
+- [x] Image helper tests cover inspect hit, pull success, pull fail + build success, pull/build failure.
+- [x] Doctor tests cover missing CLI, stopped daemon, image missing, bind mount smoke, permission smoke, network smoke, and port smoke result shapes.
+- [x] No touched source file exceeds 500 LOC.
 
 ---
 

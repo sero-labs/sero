@@ -107,7 +107,7 @@ describe('runtime backend contract skeleton', () => {
     expect(health).toMatchObject({ backend: 'mac-host', status: 'ready' });
   });
 
-  it('surfaces Docker as not implemented when selected', async () => {
+  it('resolves Docker when selected', async () => {
     const manager = new RuntimeManager({
       workspaceManager: {
         getPath: vi.fn().mockReturnValue('/Users/daniel/project'),
@@ -116,7 +116,10 @@ describe('runtime backend contract skeleton', () => {
       containerManager: {} as ContainerManager,
     });
 
-    await expect(manager.getRuntime('workspace-a')).rejects.toThrow('Docker runtime backend is not implemented yet.');
+    const runtime = await manager.getRuntime('workspace-a');
+
+    expect(runtime.backend).toBe('docker');
+    expect(runtime.workspaceAccess).toBe('live-mount');
   });
 
   it('translates primary workspace paths between host and runtime roots', () => {

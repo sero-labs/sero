@@ -3,6 +3,7 @@ import { containerManager } from '@electron/features/container/core/singleton';
 import type { WorkspaceManager } from '@electron/features/workspace/manager';
 import { workspaceManager } from '@electron/features/workspace/manager';
 import { AppleContainerBackend } from './backends/apple-container-backend';
+import { DockerBackend } from './backends/docker/docker-backend';
 import { MacHostBackend } from './backends/mac-host-backend';
 import type { RuntimeBackend, RuntimeBackendId, RuntimeHealth, RuntimeTerminalSession } from './types';
 
@@ -165,7 +166,12 @@ export class RuntimeManager {
           containerManager: this.dependencies.containerManager,
         });
       case 'docker':
-        throw new Error('Docker runtime backend is not implemented yet.');
+        return new DockerBackend({
+          workspaceId,
+          hostWorkspacePath,
+          workspaceManager: this.dependencies.workspaceManager,
+          getGitAuthEnvVars: () => this.dependencies.containerManager.getExtraEnvVars?.() ?? {},
+        });
     }
   }
 
