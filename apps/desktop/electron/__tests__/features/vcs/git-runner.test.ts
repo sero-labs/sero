@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { ContainerManager } from '@electron/features/container';
 import type { GitHubAuthManager } from '@electron/features/auth/github/auth-manager';
 import type { WorkspaceManager } from '@electron/features/workspace/manager';
+import type { RuntimeManager } from '@electron/features/workspace/runtime/runtime-manager';
 
 const mocks = vi.hoisted(() => ({
   execFileMock: vi.fn(),
@@ -63,18 +63,15 @@ async function createRunner() {
     isContainerEnabled: vi.fn(async () => false),
   } as unknown as WorkspaceManager;
 
-  const containerManager = {
-    ensure: vi.fn(async () => undefined),
-    exec: vi.fn(),
-    hasContainer: vi.fn(() => false),
-    inspect: vi.fn(async () => ({ state: 'running' })),
-  } as unknown as ContainerManager;
+  const runtimeManager = {
+    getRuntime: vi.fn(async () => ({ backend: 'mac-host' })),
+  } as unknown as RuntimeManager;
 
   const githubAuth = {
     getAuthEnvVars: vi.fn(() => AUTH_VARS),
   } as unknown as GitHubAuthManager;
 
-  return new GitRunner(workspaceManager, containerManager, githubAuth);
+  return new GitRunner(workspaceManager, runtimeManager, githubAuth);
 }
 
 describe('GitRunner host SSH transport probing', () => {

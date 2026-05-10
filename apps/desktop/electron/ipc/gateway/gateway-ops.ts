@@ -5,9 +5,7 @@
  * Provides file listing, file reading, session creation, artifact
  * operations, and session history for the web-remote gateway.
  *
- * File operations handle both container and host-only workspaces:
- * - Container workspaces use listContainerFiles/readContainerFile
- * - Host-only workspaces read directly from the filesystem
+ * File operations route through the selected workspace runtime.
  */
 
 import fs from 'fs/promises';
@@ -17,11 +15,10 @@ import { SessionManager } from '@mariozechner/pi-coding-agent';
 import type { AgentSession } from '@mariozechner/pi-coding-agent';
 import { workspaceManager } from '@electron/features/workspace/manager';
 import {
-  containerManager,
   artifactRegistry,
+  runtimeManager,
   SERO_SESSION_DIR,
 } from '@electron/shared/infra/shared-infra';
-import { listContainerFiles, readContainerFile } from '@electron/features/container/filesystem/files';
 import { convertSessionMessages } from '../agent/core/agent-helpers';
 import { convertToGatewayHistory } from './gateway-history';
 import type {
@@ -30,20 +27,7 @@ import type {
   GatewayDevServerTarget,
   GatewayDevServerChange,
 } from '@electron/features/gateway/server/types';
-import type { DevServer } from '@/types/ipc';
-
-/**
- * Validate that a resolved path stays within the workspace root.
- * Prevents path traversal attacks (e.g. "../../etc/passwd").
- */
-function assertPathWithinWorkspace(wsPath: string, requestedPath: string): string {
-  const resolved = path.resolve(wsPath, requestedPath.replace(/^\/+/, ''));
-  const normalizedWs = path.resolve(wsPath);
-  if (!resolved.startsWith(normalizedWs + path.sep) && resolved !== normalizedWs) {
-    throw new Error(`Path traversal denied: ${requestedPath}`);
-  }
-  return resolved;
-}
+import type { RuntimeDevServer } from '@electron/features/workspace/runtime/types';
 
 /** MIME type map for common source file extensions. */
 const MIME_MAP: Record<string, string> = {
@@ -64,15 +48,14 @@ interface SessionPool {
   } | undefined;
 }
 
-function toGatewayDevServerInfo(server: DevServer): GatewayDevServerInfo {
+function toGatewayDevServerInfo(workspaceId: string, server: RuntimeDevServer): GatewayDevServerInfo {
   return {
     id: server.id,
-    workspaceId: server.workspaceId,
-    name: server.name,
+    workspaceId,
+    name: server.id,
     port: server.port,
-    framework: server.framework,
-    status: server.status,
-    registeredAt: server.registeredAt,
+    status: 'running',
+    registeredAt: new Date(0).toISOString(),
   };
 }
 
@@ -162,42 +145,13 @@ export function buildGatewayOps(
       return { id: sm.getSessionId(), name: name || '' };
     },
     listFiles: async (workspaceId, dirPath) => {
-      const wsPath = workspaceManager.getPath(workspaceId);
-      if (!wsPath) throw new Error(`Workspace not found: ${workspaceId}`);
-      const containerEnabled = await workspaceManager.isContainerEnabled(workspaceId);
-      if (containerEnabled) {
-        const entries = await listContainerFiles(
-          workspaceId, dirPath,
-          (wId, cmd) => containerManager.exec(wId, cmd),
-        );
-        return entries.map((e) => ({ ...e, path: `${dirPath}/${e.name}` }));
-      }
-      // Host-only: read from workspace filesystem directly
-      const fullPath = assertPathWithinWorkspace(wsPath, dirPath);
-      const entries = await fs.readdir(fullPath, { withFileTypes: true });
-      return entries
-        .filter((e) => !e.name.startsWith('.'))
-        .map((e) => ({
-          name: e.name,
-          type: (e.isDirectory() ? 'directory' : 'file') as 'file' | 'directory',
-          path: `${dirPath === '/' ? '' : dirPath}/${e.name}`,
-          size: 0,
-        }));
+      const runtime = await runtimeManager.getRuntime(workspaceId);
+      const entries = await runtime.listFiles({ path: dirPath });
+      return entries.filter((entry) => !entry.name.startsWith('.'));
     },
     readFile: async (workspaceId, filePath) => {
-      const wsPath = workspaceManager.getPath(workspaceId);
-      if (!wsPath) throw new Error(`Workspace not found: ${workspaceId}`);
-      const containerEnabled = await workspaceManager.isContainerEnabled(workspaceId);
-      let content: string;
-      if (containerEnabled) {
-        content = await readContainerFile(
-          workspaceId, filePath,
-          (wId, cmd) => containerManager.exec(wId, cmd),
-        );
-      } else {
-        const fullPath = assertPathWithinWorkspace(wsPath, filePath);
-        content = await fs.readFile(fullPath, 'utf8');
-      }
+      const runtime = await runtimeManager.getRuntime(workspaceId);
+      const { content } = await runtime.readFile({ path: filePath });
       const ext = path.extname(filePath).toLowerCase();
       return {
         content,
@@ -218,65 +172,48 @@ export function buildGatewayOps(
       return { base64: a.base64 ?? '', mimeType: a.mimeType, title: a.title };
     },
     listDevServers: async (workspaceId): Promise<GatewayDevServerInfo[]> => {
-      return containerManager.devServers.list(workspaceId).map(toGatewayDevServerInfo);
+      if (!workspaceId) return [];
+      const runtime = await runtimeManager.getRuntime(workspaceId);
+      const status = await runtime.getDevServerStatus({});
+      return status.servers.map((server) => toGatewayDevServerInfo(workspaceId, server));
     },
 
     resolveDevServerTarget: async (
       workspaceId,
       port,
     ): Promise<GatewayDevServerTarget | null> => {
-      // Only registered dev servers are reachable through the proxy. This
-      // prevents the proxy from being used to scan arbitrary container ports.
-      const matching = containerManager.devServers
-        .list(workspaceId)
-        .find((s) => s.port === port);
+      const runtime = await runtimeManager.getRuntime(workspaceId);
+      const matching = (await runtime.getDevServerStatus({})).servers.find((server) => server.port === port);
       if (!matching) return null;
 
-      const containerIp = containerManager.portScanner.getIp(workspaceId);
-      if (!containerIp) return null;
-
-      // The port scanner already knows whether to use a bridge port for
-      // localhost-only servers — fall back to the original port if the
-      // scanner hasn't seen it yet (server may be starting up).
-      const detected = containerManager.portScanner
-        .getPorts(workspaceId)
-        .find((p) => p.port === port);
-      if (!detected) return null;
-
-      const upstreamUrl = new URL(detected.url);
+      const upstreamUrl = new URL(matching.url);
       const upstreamPort = Number.parseInt(upstreamUrl.port, 10) || port;
       return {
         workspaceId,
         port,
-        host: upstreamUrl.hostname || containerIp,
+        host: upstreamUrl.hostname || '127.0.0.1',
         upstreamPort,
       };
     },
 
     onDevServerChange: (cb: (change: GatewayDevServerChange) => void) => {
-      return containerManager.devServers.onChange((event) => {
-        if (event.type === 'registered') {
-          cb({
-            type: 'registered',
-            workspaceId: event.server.workspaceId,
-            server: toGatewayDevServerInfo(event.server),
-          });
+      return runtimeManager.onDevServerChange((event) => {
+        if (event.type === 'registered' && event.server) {
+          const workspaceId = event.server.workspaceId;
+          void runtimeManager.getRuntime(workspaceId)
+            .then((runtime) => runtime.getDevServerStatus({}))
+            .then((status) => {
+              const server = status.servers.find((candidate) => candidate.id === event.serverId);
+              if (server) cb({ type: 'registered', workspaceId, server: toGatewayDevServerInfo(workspaceId, server) });
+            })
+            .catch((err) => console.warn('[gateway] Failed to resolve registered dev server:', err));
           return;
         }
-        const tracked = containerManager.devServers.get(event.serverId);
-        // The registry sometimes emits unregister/status events after the
-        // entry has already been removed; recover the workspaceId from the
-        // serverId format `${workspaceId}:${scope}:${cardId}:${port}`.
-        const workspaceId = tracked?.workspaceId ?? event.serverId.split(':')[0] ?? '';
-        if (event.type === 'unregistered') {
+        const workspaceId = event.serverId?.split(':')[0] ?? '';
+        if (event.type === 'unregistered' && event.serverId) {
           cb({ type: 'unregistered', serverId: event.serverId, workspaceId });
-        } else {
-          cb({
-            type: 'status_changed',
-            serverId: event.serverId,
-            workspaceId,
-            status: event.status,
-          });
+        } else if (event.type === 'status_changed' && event.serverId && event.status) {
+          cb({ type: 'status_changed', serverId: event.serverId, workspaceId, status: event.status });
         }
       });
     },

@@ -1,5 +1,7 @@
+import { spawn as spawnProcess } from 'child_process';
 import type { DevServer } from '@/types/ipc';
 import type { ContainerManager } from '@electron/features/container';
+import { CONTAINER_BIN, containerId } from '@electron/features/container/core/types';
 import { buildWorkspaceContainerConfig } from '@electron/features/container/core/workspace-container-config';
 import type { WorkspaceManager } from '@electron/features/workspace/manager';
 import { getRuntimeCapabilities } from '../capabilities';
@@ -116,15 +118,27 @@ export class AppleContainerBackend implements RuntimeBackend {
   }
 
   async spawn(input: RuntimeProcessInput): Promise<RuntimeProcess> {
-    const terminalId = `runtime-spawn-${this.workspaceId}-${Date.now()}`;
-    const terminal = await this.createTerminal({
-      terminalId,
-      cwd: input.cwd,
-      cols: input.cols,
-      rows: input.rows,
+    await this.ensure();
+    const envFlags = Object.entries(input.env ?? {}).flatMap(([key, value]) => ['-e', `${key}=${value}`]);
+    const child = spawnProcess(CONTAINER_BIN, [
+      'exec', '-i', '-w', input.cwd ?? this.runtimeWorkspacePath,
+      ...envFlags,
+      containerId(this.workspaceId), 'sh', '-c', input.command,
+    ], { stdio: input.stdio === 'inherit' ? 'inherit' : 'pipe' });
+    const dataCallbacks = new Set<(chunk: string) => void>();
+    const exitCallbacks = new Set<(exit: { exitCode: number | null; signal?: string }) => void>();
+    child.stdout?.on('data', (chunk: Buffer) => emitData(dataCallbacks, chunk));
+    child.stderr?.on('data', (chunk: Buffer) => emitData(dataCallbacks, chunk));
+    child.on('exit', (exitCode, signal) => {
+      for (const cb of exitCallbacks) cb({ exitCode, signal: signal ?? undefined });
     });
-    terminal.write(`${input.command}\n`);
-    return terminal;
+    return {
+      pid: child.pid,
+      write: (chunk) => { child.stdin?.write(chunk); },
+      signal: (signal) => { child.kill(signal); },
+      onData: (cb) => subscribe(dataCallbacks, cb),
+      onExit: (cb) => subscribe(exitCallbacks, cb),
+    };
   }
 
   async readFile(input: RuntimeReadFileInput): Promise<RuntimeFileReadResult> {
@@ -308,6 +322,16 @@ function shellQuote(value: string): string {
 
 function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
+}
+
+function emitData(callbacks: Set<(chunk: string) => void>, chunk: Buffer): void {
+  const text = chunk.toString();
+  for (const cb of callbacks) cb(text);
+}
+
+function subscribe<T>(callbacks: Set<(value: T) => void>, cb: (value: T) => void): () => void {
+  callbacks.add(cb);
+  return () => callbacks.delete(cb);
 }
 
 function sleep(ms: number): Promise<void> {

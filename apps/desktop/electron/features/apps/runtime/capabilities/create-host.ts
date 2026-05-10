@@ -1,6 +1,6 @@
 import { appStateManager } from '@electron/features/apps/state/manager';
 import { subagentManager } from '@electron/features/subagent/singleton';
-import { containerManager } from '@electron/features/container/core/singleton';
+import { runtimeManager } from '@electron/features/workspace/runtime/runtime-manager';
 import { showNotification } from '@electron/platform/desktop/notifications';
 import { runWorkspaceCommand } from '@electron/features/workspace/runtime/run-workspace-command';
 import { refreshWorkspaceRuntimeAfterSync } from '@electron/features/workspace/runtime/refresh-after-sync';
@@ -44,6 +44,12 @@ function matchesRun(
   parentSessionId: string,
 ): boolean {
   return entry?.workspaceId === workspaceId && entry.parentSessionId === parentSessionId;
+}
+
+async function runtimeFromServerId(serverId: string) {
+  const workspaceId = serverId.split(':')[0];
+  if (!workspaceId) throw new Error(`Cannot resolve workspace from dev server id: ${serverId}`);
+  return runtimeManager.getRuntime(workspaceId);
 }
 
 export function createAppRuntimeHost(_target: AppRuntimeTarget): AppRuntimeHost {
@@ -117,10 +123,34 @@ export function createAppRuntimeHost(_target: AppRuntimeTarget): AppRuntimeHost 
     },
     devServers: {
       startManaged: startManagedDevServer,
-      list: (workspaceId) => containerManager.devServers.list(workspaceId),
-      stop: (serverId) => containerManager.devServers.stop(serverId),
-      restart: (serverId) => containerManager.devServers.restart(serverId),
-      unregister: (serverId) => containerManager.devServers.unregister(serverId),
+      list: (workspaceId) => runtimeManager.listDevServersSync(workspaceId).map((server) => ({
+        id: server.id,
+        workspaceId,
+        name: server.id,
+        port: server.port,
+        url: server.url,
+        command: server.command,
+        cwd: server.cwd,
+        scope: 'workspace' as const,
+        status: 'running' as const,
+        registeredAt: new Date(0).toISOString(),
+      })),
+      stop: async (serverId) => {
+        const runtime = await runtimeFromServerId(serverId);
+        await runtime.stopDevServer({ serverId });
+        return true;
+      },
+      restart: async (serverId) => {
+        const runtime = await runtimeFromServerId(serverId);
+        await runtime.restartDevServer({ serverId });
+        return true;
+      },
+      unregister: (serverId) => {
+        void runtimeFromServerId(serverId)
+          .then((runtime) => runtime.stopDevServer({ serverId }))
+          .catch((err) => console.warn('[app-runtime] Failed to unregister dev server:', err));
+        return true;
+      },
     },
     notifications: {
       notify: (options) => {

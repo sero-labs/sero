@@ -86,6 +86,41 @@ export class RuntimeManager {
     return joined.split('\n').slice(-lines).join('\n');
   }
 
+  getWorkspaceTerminalIds(workspaceId: string): string[] {
+    return [...this.terminals.entries()]
+      .filter(([, entry]) => entry.workspaceId === workspaceId)
+      .map(([terminalId]) => terminalId);
+  }
+
+  hasRuntime(workspaceId: string): boolean {
+    return [...this.backends.keys()].some((key) => key.startsWith(`${workspaceId}:`));
+  }
+
+  listDevServersSync(workspaceId: string): Array<{
+    id: string;
+    port: number;
+    url: string;
+    command: string;
+    cwd: string;
+  }> {
+    return this.dependencies.containerManager.devServers.list(workspaceId).map((server) => ({
+      id: server.id,
+      port: server.port,
+      url: server.url,
+      command: server.command,
+      cwd: server.cwd,
+    }));
+  }
+
+  onDevServerChange(cb: (event: {
+    type: 'registered' | 'unregistered' | 'status_changed';
+    serverId?: string;
+    server?: { workspaceId: string };
+    status?: 'running' | 'stopped' | 'starting';
+  }) => void): () => void {
+    return this.dependencies.containerManager.devServers.onChange(cb);
+  }
+
   disposeTerminal(terminalId: string): void {
     const terminal = this.terminals.get(terminalId)?.session;
     terminal?.signal('SIGTERM');

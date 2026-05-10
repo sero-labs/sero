@@ -1,13 +1,6 @@
 import type { DevServer } from '@/types/ipc';
-import type { DetectedPort } from '@electron/features/container/network/port-forward';
-import { containerManager } from '@electron/features/container/core/singleton';
-import { buildWorkspaceContainerConfig } from '@electron/features/container/core/workspace-container-config';
-import { workspaceManager } from '@electron/features/workspace/manager';
+import { runtimeManager, type RuntimeManager } from './runtime-manager';
 import { toWorkspaceContainerPath } from './container-path';
-
-const AUTO_START_TIMEOUT_MS = 20_000;
-const AUTO_START_POLL_MS = 500;
-const START_TIMEOUT_MS = 30_000;
 
 export interface StartManagedDevServerOptions {
   workspaceId: string;
@@ -29,39 +22,18 @@ export interface StartManagedDevServerResult {
 }
 
 interface StartManagedDevServerDeps {
-  ensureContainer?: (workspaceId: string, workspacePath: string) => Promise<void>;
-  getPorts?: (workspaceId: string) => Array<{ port: number; url: string }>;
-  triggerScan?: (workspaceId: string) => void;
-  execInContainer?: (
-    workspaceId: string,
-    command: string,
-    cwd: string,
-    timeoutMs: number,
-  ) => Promise<{ stdout: string; stderr: string; exitCode: number }>;
-  registerServer?: (params: {
-    workspaceId: string;
-    name: string;
-    port: number;
-    command: string;
-    framework?: string;
-    cwd: string;
-    scope?: DevServer['scope'];
-    cardId?: string;
-  }) => DevServer;
+  runtimeManager?: RuntimeManager;
 }
 
 export async function startManagedDevServer(
   options: StartManagedDevServerOptions,
   deps: StartManagedDevServerDeps = {},
 ): Promise<StartManagedDevServerResult> {
-  const ensureContainer = deps.ensureContainer ?? ensureWorkspaceContainer;
-  const getPorts = deps.getPorts ?? ((workspaceId: string) => containerManager.portScanner.getPorts(workspaceId));
-  const triggerScan = deps.triggerScan ?? ((workspaceId: string) => containerManager.portScanner.triggerScan(workspaceId));
-  const execInContainer = deps.execInContainer
-    ?? ((workspaceId: string, command: string, cwd: string, timeoutMs: number) =>
-      containerManager.exec(workspaceId, command, cwd, timeoutMs));
-  const registerServer = deps.registerServer
-    ?? ((params) => containerManager.devServers.register(params));
+  const manager = deps.runtimeManager ?? runtimeManager;
+  const runtime = await manager.getRuntime(options.workspaceId);
+  if (!runtime.capabilities.devServers.start) {
+    return { reason: `Managed dev servers are not available for ${runtime.backend} runtime.` };
+  }
 
   const containerCwd = toWorkspaceContainerPath(options.workspacePath, options.cwdPath);
   if (!containerCwd) {
@@ -70,51 +42,21 @@ export async function startManagedDevServer(
     };
   }
 
-  await ensureContainer(options.workspaceId, options.workspacePath);
-
-  const beforePorts = new Set(getPorts(options.workspaceId).map((port) => port.port));
-  const escapedCommand = options.command.replace(/'/g, "'\\''");
-  const logPath = options.logPath ?? '/tmp/sero-dev-server.log';
-  const startCommand = `setsid sh -c '${escapedCommand} > ${logPath} 2>&1 &'`;
-  const startResult = await execInContainer(
-    options.workspaceId,
-    startCommand,
-    containerCwd,
-    START_TIMEOUT_MS,
-  );
-  if (startResult.exitCode !== 0) {
-    return {
-      reason: summarizeStartFailure(options.command, startResult.stderr, startResult.stdout),
-    };
-  }
-
-  const startedPort = await waitForStartedPort(
-    options.workspaceId,
-    beforePorts,
-    { getPorts, triggerScan },
-  );
-  if (!startedPort) {
-    return {
-      reason: `No dev server port was detected after running ${options.command}.`,
-    };
-  }
-
   const framework = options.framework ?? detectFrameworkHint(options.command);
-  const server = registerServer({
-    workspaceId: options.workspaceId,
-    name: options.name ?? buildDevServerName(framework),
-    port: startedPort.port,
-    command: options.command,
-    framework,
-    cwd: containerCwd,
-    scope: options.scope,
-    cardId: options.cardId,
-  });
-  return {
-    serverId: server.id,
-    url: server.url,
-    port: startedPort.port,
-  };
+  try {
+    const server = await runtime.startDevServer({
+      command: options.command,
+      cwd: containerCwd,
+      name: options.name ?? buildDevServerName(framework),
+      framework,
+      scope: options.scope === 'card-preview' ? 'card' : options.scope,
+      cardId: options.cardId,
+      logPath: options.logPath,
+    });
+    return { serverId: server.id, url: server.url, port: server.port };
+  } catch (err) {
+    return { reason: err instanceof Error ? err.message : `Failed to start ${options.command}` };
+  }
 }
 
 function detectFrameworkHint(command: string): string | undefined {
@@ -145,52 +87,4 @@ function buildDevServerName(framework?: string): string {
     default:
       return 'Dev Server';
   }
-}
-
-async function ensureWorkspaceContainer(
-  workspaceId: string,
-  workspacePath: string,
-): Promise<void> {
-  const containerConfig = await buildWorkspaceContainerConfig(
-    workspaceManager,
-    workspaceId,
-    workspacePath,
-  );
-  await containerManager.ensure(containerConfig);
-}
-
-async function waitForStartedPort(
-  workspaceId: string,
-  beforePorts: Set<number>,
-  deps: Pick<StartManagedDevServerDeps, 'getPorts' | 'triggerScan'>,
-): Promise<DetectedPort | null> {
-  const getPorts = deps.getPorts ?? ((id: string) => containerManager.portScanner.getPorts(id));
-  const triggerScan = deps.triggerScan ?? ((id: string) => containerManager.portScanner.triggerScan(id));
-  const startedAt = Date.now();
-
-  while (Date.now() - startedAt < AUTO_START_TIMEOUT_MS) {
-    triggerScan(workspaceId);
-    await sleep(AUTO_START_POLL_MS);
-
-    const currentPorts = getPorts(workspaceId);
-    const addedPort = currentPorts.find((port) => !beforePorts.has(port.port));
-    if (addedPort) {
-      return addedPort as DetectedPort;
-    }
-  }
-
-  return null;
-}
-
-function summarizeStartFailure(command: string, stderr: string, stdout: string): string {
-  const output = `${stderr}\n${stdout}`
-    .replace(/\u001b\[[0-9;]*m/g, '')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(-800);
-  return `Dev server start failed for "${command}": ${output || 'command failed with no output'}`;
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }

@@ -53,9 +53,9 @@ export interface GatewayDevServerInfo {
 export interface GatewayDevServerTarget {
   workspaceId: string;
   port: number;
-  /** Container IP. */
+  /** Runtime-provided host for the provider-neutral preview URL. */
   host: string;
-  /** Effective port — either the original port or the bridge offset port. */
+  /** Effective host port from the runtime preview URL. */
   upstreamPort: number;
 }
 

@@ -277,7 +277,7 @@ Reference: current direct calls are in `apps/desktop/electron/ipc/editor/editor.
 
 ## TODO DOCKER-RUNTIME-05 — Migrate Git, LSP, dev-server, gateway, app-runtime, workspace lifecycle, and app shutdown seams
 
-**Status:** Pending
+**Status:** Done
 **Tags:** `docker-runtime`
 
 **Plan:** `/Users/danielcarter/Documents/Dev/projects/sero/sero/.pi/plans/2026-05-10-docker-runtime-backend/plan.md`
@@ -332,12 +332,12 @@ const containerIp = containerManager.portScanner.getIp(workspaceId);
 Reference: `apps/desktop/electron/features/vcs/core/git-runner.ts` currently resolves binary container/host and calls `containerManager.exec`.
 
 ### Acceptance Criteria
-- [ ] `rg "containerManager"` in listed files only shows allowed infra wiring or Apple backend internals.
-- [ ] Git, LSP, dev-server, gateway, app-runtime, workspace recreate, app boot/shutdown operate through runtime manager/backends.
-- [ ] Gateway preview proxy stores/uses provider-neutral runtime URLs.
-- [ ] No new host fallback is introduced for selected Apple/Docker runtimes.
-- [ ] Targeted tests for git-runner, gateway ops, dev-server runtime start, and app-runtime host pass.
-- [ ] No touched source file exceeds 500 LOC.
+- [x] `rg "containerManager"` in listed files only shows allowed infra wiring or Apple backend internals.
+- [x] Git, LSP, dev-server, gateway, app-runtime, workspace recreate, app boot/shutdown operate through runtime manager/backends.
+- [x] Gateway preview proxy stores/uses provider-neutral runtime URLs.
+- [x] No new host fallback is introduced for selected Apple/Docker runtimes.
+- [x] Targeted tests for git-runner, gateway ops, dev-server runtime start, and app-runtime host pass.
+- [x] No touched source file exceeds 500 LOC.
 
 ---
 

@@ -5,10 +5,8 @@ import path from 'path';
 import { promisify } from 'util';
 
 import type { WorkspaceManager } from '@electron/features/workspace/manager';
-import type { ContainerManager } from '@electron/features/container';
-import { buildWorkspaceContainerConfig } from '@electron/features/container/core/workspace-container-config';
+import type { RuntimeManager } from '@electron/features/workspace/runtime/runtime-manager';
 import type { GitHubAuthManager } from '@electron/features/auth/github/auth-manager';
-import { resolveWorkspaceRuntimeWithManagers } from '@electron/features/workspace/runtime-resolution';
 import type { GitResult } from '../support/types';
 
 const execFileAsync = promisify(execFile);
@@ -131,18 +129,9 @@ function shQuote(input: string): string {
 export class GitRunner {
   constructor(
     private readonly workspaceManager: WorkspaceManager,
-    private readonly containerManager: ContainerManager,
+    private readonly runtimeManager: RuntimeManager,
     private readonly githubAuth?: GitHubAuthManager,
   ) {}
-
-  private async ensureContainer(workspaceId: string, workspacePath: string): Promise<void> {
-    const config = await buildWorkspaceContainerConfig(
-      this.workspaceManager,
-      workspaceId,
-      workspacePath,
-    );
-    await this.containerManager.ensure(config);
-  }
 
   async runCommand(
     workspaceId: string,
@@ -169,26 +158,19 @@ export class GitRunner {
       };
     }
 
-    const runtime = await resolveWorkspaceRuntimeWithManagers(workspaceId, {
-      getPath: this.workspaceManager.getPath.bind(this.workspaceManager),
-      isContainerEnabled: this.workspaceManager.isContainerEnabled.bind(this.workspaceManager),
-      inspect: this.containerManager.inspect.bind(this.containerManager),
-    });
-    const useContainer = runtime.actualRuntime === 'container';
+    const runtime = await this.runtimeManager.getRuntime(workspaceId);
 
-    if (runtime.desiredRuntime === 'container' && runtime.actualRuntime === 'host' && runtime.fallbackReason) {
-      console.warn(`[git-runner] ${runtime.fallbackReason}`);
-    }
-
-    if (useContainer) {
-      await this.ensureContainer(workspaceId, workspacePath);
+    if (runtime.backend !== 'mac-host') {
       const command = Object.keys(extraEnv).length > 0
         ? `env ${Object.entries(extraEnv)
             .filter((entry): entry is [string, string] => typeof entry[1] === 'string')
             .map(([key, value]) => `${key}=${shQuote(value)}`)
             .join(' ')} ${shQuote(program)} ${args.map(shQuote).join(' ')}`
         : `${shQuote(program)} ${args.map(shQuote).join(' ')}`;
-      return this.containerManager.exec(workspaceId, command, '/workspace', timeoutMs, {
+      return runtime.exec({
+        command,
+        cwd: runtime.runtimeWorkspacePath,
+        timeoutMs,
         injectGitAuth: program === 'git' || program === 'gh',
       });
     }

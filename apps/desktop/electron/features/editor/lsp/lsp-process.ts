@@ -3,10 +3,9 @@
  * Handles spawning, JSON-RPC communication, initialization, and shutdown.
  */
 
-import { spawn, type ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';
 import { JsonRpcParser, encodeMessage } from './json-rpc';
-import { CONTAINER_BIN, containerId } from '@electron/features/container/core/types';
+import type { RuntimeBackend, RuntimeProcess } from '@electron/features/workspace/runtime/types';
 import type {
   LspServerConfig, JsonRpcMessage, JsonRpcRequest,
   JsonRpcResponse, JsonRpcNotification,
@@ -46,7 +45,7 @@ function getNodeErrorMessage(err: unknown): string {
 }
 
 export class LspServerProcess extends EventEmitter {
-  private process: ChildProcess | null = null;
+  private process: RuntimeProcess | null = null;
   private parser = new JsonRpcParser();
   private nextId = 1;
   private pendingRequests = new Map<number, {
@@ -62,6 +61,7 @@ export class LspServerProcess extends EventEmitter {
   constructor(
     private workspaceId: string,
     private config: LspServerConfig,
+    private runtime: RuntimeBackend,
     private envVars: Record<string, string>,
   ) {
     super();
@@ -80,39 +80,18 @@ export class LspServerProcess extends EventEmitter {
     if (this._disposed) throw new Error('Server is disposed');
     if (this.process) throw new Error('Server already started');
 
-    const cid = containerId(this.workspaceId);
-    const envFlags: string[] = [];
-    for (const [k, v] of Object.entries(this.envVars)) {
-      envFlags.push('-e', `${k}=${v}`);
-    }
-
-    const env = { ...process.env } as Record<string, string>;
-    if (env.PATH && !env.PATH.includes('/usr/local/bin')) {
-      env.PATH = `/usr/local/bin:${env.PATH}`;
-    }
-
-    this.process = spawn(CONTAINER_BIN, [
-      'exec', '-i', '-w', WORKSPACE_DIR,
-      ...envFlags,
-      cid, 'sh', '-c', this.config.command,
-    ], { env, stdio: ['pipe', 'pipe', 'pipe'] });
-
-    this.process.stdout!.on('data', (data: Buffer) => this.parser.feed(data));
-
-    this.process.stderr!.on('data', (data: Buffer) => {
-      const msg = data.toString().trim();
-      if (msg) console.warn(`[lsp:${this.config.language}:stderr]`, msg);
+    this.process = await this.runtime.spawn({
+      command: this.config.command,
+      cwd: WORKSPACE_DIR,
+      env: this.envVars,
+      stdio: 'pipe',
     });
 
-    this.process.on('error', (err) => {
-      console.error(`[lsp:${this.config.language}] Process error:`, err.message);
-      this.emit('error', err);
-      this.cleanup();
-    });
+    this.process.onData((data) => this.parser.feed(Buffer.from(data)));
 
-    this.process.on('exit', (code, signal) => {
-      console.log(`[lsp:${this.config.language}] Exited (code=${code}, signal=${signal})`);
-      this.emit('exit', code, signal);
+    this.process.onExit(({ exitCode, signal }) => {
+      console.log(`[lsp:${this.config.language}] Exited (code=${exitCode}, signal=${signal})`);
+      this.emit('exit', exitCode, signal);
       this.cleanup();
     });
 
@@ -155,16 +134,16 @@ export class LspServerProcess extends EventEmitter {
       ]);
       this.sendNotification('exit');
     } catch {
-      this.process?.kill('SIGTERM');
+      this.process?.signal('SIGTERM');
     }
 
     await new Promise<void>((resolve) => {
       const timer = setTimeout(() => {
-        this.process?.kill('SIGKILL');
+        this.process?.signal('SIGKILL');
         resolve();
       }, 2000);
       if (this.process) {
-        this.process.once('exit', () => { clearTimeout(timer); resolve(); });
+        this.process.onExit(() => { clearTimeout(timer); resolve(); });
       } else {
         clearTimeout(timer);
         resolve();
@@ -261,9 +240,9 @@ export class LspServerProcess extends EventEmitter {
   }
 
   private write(msg: JsonRpcMessage): void {
-    if (!this.process?.stdin?.writable) return;
+    if (!this.process) return;
     try {
-      this.process.stdin.write(encodeMessage(msg));
+      this.process.write(encodeMessage(msg).toString('utf8'));
     } catch (err: unknown) {
       if (getNodeErrorCode(err) !== 'EPIPE') {
         console.warn(`[lsp:${this.config.language}] Write error:`, getNodeErrorMessage(err));

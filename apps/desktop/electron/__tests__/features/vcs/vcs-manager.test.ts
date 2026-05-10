@@ -34,9 +34,7 @@ function createRealManager(workspacePath: string): VcsManager {
   const runner = new GitRunner(
     workspaceManager,
     {
-      ensure: vi.fn(),
-      exec: vi.fn(),
-      inspect: vi.fn(),
+      getRuntime: vi.fn(async () => ({ backend: 'mac-host' })),
     } as never,
   );
 
