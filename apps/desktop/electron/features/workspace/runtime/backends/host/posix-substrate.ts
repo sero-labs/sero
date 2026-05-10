@@ -122,8 +122,15 @@ export class PosixHostSubstrate implements HostRuntimeSubstrate {
 
   async isSshAvailable(): Promise<boolean> {
     try {
-      await execFileAsync('ssh', ['-V']);
-      return true;
+      const result = await execFileAsync('ssh', [
+        '-T',
+        '-o',
+        'StrictHostKeyChecking=accept-new',
+        '-o',
+        'ConnectTimeout=5',
+        'git@github.com',
+      ], { timeout: 10_000 }).catch((error: unknown) => normalizeSshProbeFailure(error));
+      return result.stderr.includes('successfully authenticated');
     } catch {
       return false;
     }
@@ -136,6 +143,19 @@ export class PosixHostSubstrate implements HostRuntimeSubstrate {
   normalizeExecOutput(output: string): string {
     return output;
   }
+}
+
+function normalizeSshProbeFailure(error: unknown): { stdout: string; stderr: string } {
+  if (typeof error !== 'object' || error === null) return { stdout: '', stderr: '' };
+  const failure = error as { stdout?: unknown; stderr?: unknown; message?: unknown };
+  return {
+    stdout: typeof failure.stdout === 'string' ? failure.stdout : '',
+    stderr: typeof failure.stderr === 'string'
+      ? failure.stderr
+      : typeof failure.message === 'string'
+        ? failure.message
+        : '',
+  };
 }
 
 export function createPosixHostSubstrate(options: { platform?: NodeJS.Platform } = {}): PosixHostSubstrate {

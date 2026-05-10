@@ -159,6 +159,10 @@ export class HostBackend implements RuntimeBackend {
     }
   }
 
+  isSshAvailable(): Promise<boolean> {
+    return this.substrate.isSshAvailable();
+  }
+
   async spawn(input: RuntimeProcessInput): Promise<RuntimeProcess> {
     const rendered = this.substrate.shellCommand({
       command: input.command,

@@ -125,6 +125,15 @@ export class DockerBackend implements RuntimeBackend {
     ], { timeoutMs: input.timeoutMs ?? 120_000 });
   }
 
+  async isSshAvailable(): Promise<boolean> {
+    const result = await this.execFile({
+      program: 'ssh',
+      args: ['-T', '-o', 'StrictHostKeyChecking=accept-new', '-o', 'ConnectTimeout=5', 'git@github.com'],
+      timeoutMs: 10_000,
+    });
+    return result.stderr.includes('successfully authenticated');
+  }
+
   async spawn(input: RuntimeProcessInput): Promise<RuntimeProcess> {
     await this.ensure();
     const env = { ...(input.env ?? {}) };

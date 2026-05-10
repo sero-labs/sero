@@ -183,8 +183,16 @@ export class WslHostSubstrate implements HostRuntimeSubstrate {
 
   async isSshAvailable(): Promise<boolean> {
     try {
-      await execFileAsync('wsl.exe', this.wslCommandArgs(['ssh', '-V']));
-      return true;
+      const result = await execFileAsync('wsl.exe', this.wslCommandArgs([
+        'ssh',
+        '-T',
+        '-o',
+        'StrictHostKeyChecking=accept-new',
+        '-o',
+        'ConnectTimeout=5',
+        'git@github.com',
+      ])).catch((error: unknown) => normalizeSshProbeFailure(error));
+      return result.stderr.includes('successfully authenticated');
     } catch {
       return false;
     }
@@ -239,6 +247,19 @@ export class WslHostSubstrate implements HostRuntimeSubstrate {
       child.stdin.end(input);
     });
   }
+}
+
+function normalizeSshProbeFailure(error: unknown): { stdout: string; stderr: string } {
+  if (typeof error !== 'object' || error === null) return { stdout: '', stderr: '' };
+  const failure = error as { stdout?: unknown; stderr?: unknown; message?: unknown };
+  return {
+    stdout: typeof failure.stdout === 'string' ? failure.stdout : '',
+    stderr: typeof failure.stderr === 'string'
+      ? failure.stderr
+      : typeof failure.message === 'string'
+        ? failure.message
+        : '',
+  };
 }
 
 export function createWslHostSubstrate(options: { workspacePath: string; distro?: string; supportsCd?: boolean }): WslHostSubstrate {

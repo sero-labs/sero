@@ -155,6 +155,7 @@ export interface RuntimeBackend {
 
   exec(input: RuntimeExecInput): Promise<RuntimeExecResult>;
   execFile(input: RuntimeExecFileInput): Promise<RuntimeExecResult>;
+  isSshAvailable(): Promise<boolean>;
   spawn(input: RuntimeProcessInput): Promise<RuntimeProcess>;
 
   readFile(input: RuntimeReadFileInput): Promise<RuntimeFileReadResult>;

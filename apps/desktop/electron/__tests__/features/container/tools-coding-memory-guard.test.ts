@@ -31,6 +31,7 @@ function createMockRuntimeBackend(): MockRuntimeBackend {
     destroy: vi.fn().mockResolvedValue(undefined),
     exec: vi.fn().mockResolvedValue({ stdout: 'ok', stderr: '', exitCode: 0 }),
     execFile: vi.fn().mockResolvedValue({ stdout: 'ok', stderr: '', exitCode: 0 }),
+    isSshAvailable: vi.fn().mockResolvedValue(false),
     spawn: vi.fn(),
     readFile: vi.fn().mockResolvedValue({ content: 'ok', encoding: 'utf8' }),
     writeFile: vi.fn().mockResolvedValue(undefined),
