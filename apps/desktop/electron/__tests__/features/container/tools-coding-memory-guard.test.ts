@@ -14,6 +14,7 @@ import {
 
 type MockRuntimeBackend = RuntimeBackend & {
   exec: ReturnType<typeof vi.fn>;
+  execFile: ReturnType<typeof vi.fn>;
   writeFile: ReturnType<typeof vi.fn>;
 };
 
@@ -29,6 +30,7 @@ function createMockRuntimeBackend(): MockRuntimeBackend {
     ensure: vi.fn().mockResolvedValue({ backend: 'apple-container', workspaceId: 'ws-1', hostWorkspacePath: '/host/workspace', runtimeWorkspacePath: '/workspace', state: 'running' }),
     destroy: vi.fn().mockResolvedValue(undefined),
     exec: vi.fn().mockResolvedValue({ stdout: 'ok', stderr: '', exitCode: 0 }),
+    execFile: vi.fn().mockResolvedValue({ stdout: 'ok', stderr: '', exitCode: 0 }),
     spawn: vi.fn(),
     readFile: vi.fn().mockResolvedValue({ content: 'ok', encoding: 'utf8' }),
     writeFile: vi.fn().mockResolvedValue(undefined),

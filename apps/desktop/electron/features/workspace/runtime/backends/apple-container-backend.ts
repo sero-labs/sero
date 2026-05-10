@@ -18,6 +18,7 @@ import type {
   RuntimeDevServerStatusInput,
   RuntimeDevServerStopInput,
   RuntimeDirectoryEntry,
+  RuntimeExecFileInput,
   RuntimeExecInput,
   RuntimeExecResult,
   RuntimeFileReadResult,
@@ -136,6 +137,21 @@ export class AppleContainerBackend implements RuntimeBackend {
     return this.containerManager.exec(
       this.workspaceId,
       input.command,
+      input.cwd ?? this.runtimeWorkspacePath,
+      input.timeoutMs,
+      { injectGitAuth: input.injectGitAuth },
+    );
+  }
+
+  async execFile(input: RuntimeExecFileInput): Promise<RuntimeExecResult> {
+    await this.ensure();
+    const envPrefix = Object.entries(input.env ?? {})
+      .map(([key, value]) => `${key}=${shellQuote(value)}`)
+      .join(' ');
+    const command = [input.program, ...input.args].map(shellQuote).join(' ');
+    return this.containerManager.exec(
+      this.workspaceId,
+      envPrefix ? `${envPrefix} ${command}` : command,
       input.cwd ?? this.runtimeWorkspacePath,
       input.timeoutMs,
       { injectGitAuth: input.injectGitAuth },

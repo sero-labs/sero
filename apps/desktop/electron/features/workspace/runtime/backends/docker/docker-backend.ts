@@ -17,6 +17,7 @@ import type {
   RuntimeDevServerStatusInput,
   RuntimeDevServerStopInput,
   RuntimeDirectoryEntry,
+  RuntimeExecFileInput,
   RuntimeExecInput,
   RuntimeExecResult,
   RuntimeFileReadResult,
@@ -111,6 +112,17 @@ export class DockerBackend implements RuntimeBackend {
       dockerContainerName(this.workspaceId), 'sh', '-lc', input.command,
     ];
     return this.run(args, { timeoutMs: input.timeoutMs ?? 120_000 });
+  }
+
+  async execFile(input: RuntimeExecFileInput): Promise<RuntimeExecResult> {
+    await this.ensure();
+    const env = { ...(input.env ?? {}) };
+    if (input.injectGitAuth && this.getGitAuthEnvVars) Object.assign(env, this.getGitAuthEnvVars());
+    return this.run([
+      'exec', '-w', input.cwd ?? this.runtimeWorkspacePath,
+      ...runtimeEnvArgs(env),
+      dockerContainerName(this.workspaceId), input.program, ...input.args,
+    ], { timeoutMs: input.timeoutMs ?? 120_000 });
   }
 
   async spawn(input: RuntimeProcessInput): Promise<RuntimeProcess> {

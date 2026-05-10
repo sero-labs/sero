@@ -1,8 +1,10 @@
 import { mkdtemp, readFile, rm, writeFile } from 'fs/promises';
 import os from 'os';
 import path from 'path';
-import { afterEach, describe, expect, it } from 'vitest';
+import type { ChildProcess } from 'child_process';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { HostBackend } from '@electron/features/workspace/runtime/backends/host/host-backend';
+import type { HostRuntimeSubstrate } from '@electron/features/workspace/runtime/backends/host/host-substrate';
 
 const tempDirs: string[] = [];
 
@@ -12,6 +14,31 @@ async function createBackend(): Promise<{ backend: HostBackend; workspacePath: s
   return {
     workspacePath,
     backend: new HostBackend({ workspaceId: 'workspace-a', hostWorkspacePath: workspacePath }),
+  };
+}
+
+function createMockSubstrate(): HostRuntimeSubstrate {
+  return {
+    platform: 'win32',
+    kind: 'wsl',
+    runtimeWorkspacePath: '/workspace',
+    toExecutionPath: (nativePath) => nativePath,
+    toNativeHostPath: (executionPath) => executionPath,
+    isPathInsideRoot: (candidate, root) => candidate.startsWith(root),
+    shellCommand: vi.fn((opts) => ({ program: 'mock-shell', args: [opts.command], nativeCwd: opts.cwd, env: opts.env })),
+    execFileCommand: vi.fn((opts) => ({ program: opts.program, args: opts.args, nativeCwd: opts.cwd, env: opts.env })),
+    terminalCommand: vi.fn((opts) => ({ program: 'mock-terminal', args: ['--login'], nativeCwd: opts.cwd, env: opts.env })),
+    readFile: vi.fn().mockResolvedValue(Buffer.from('hello')),
+    writeFile: vi.fn().mockResolvedValue(undefined),
+    listFiles: vi.fn().mockResolvedValue([{ name: 'file.txt', type: 'file' }]),
+    stat: vi.fn().mockResolvedValue({ size: 5, mtimeMs: 0, type: 'file' }),
+    rename: vi.fn().mockResolvedValue(undefined),
+    delete: vi.fn().mockResolvedValue(undefined),
+    createDirectory: vi.fn().mockResolvedValue(undefined),
+    watchFiles: vi.fn().mockResolvedValue({ close: vi.fn().mockResolvedValue(undefined) }),
+    isSshAvailable: vi.fn().mockResolvedValue(false),
+    signalChild: vi.fn((_child: ChildProcess) => Promise.resolve()),
+    normalizeExecOutput: (output) => output,
   };
 }
 
@@ -94,5 +121,34 @@ describe('HostBackend', () => {
     await expect(backend.readFile({ path: '/tmp/outside.txt' })).rejects.toThrow(
       'Host path must be inside a workspace root',
     );
+  });
+
+  it('delegates file operations through substrate primitives', async () => {
+    const substrate = createMockSubstrate();
+    const backend = new HostBackend({
+      workspaceId: 'workspace-a',
+      hostWorkspacePath: '\\\\wsl$\\Ubuntu\\home\\me\\repo',
+      substrate,
+    });
+
+    await expect(backend.readFile({ path: '/workspace/file.txt' })).resolves.toEqual({ content: 'hello', encoding: 'utf8' });
+    await backend.writeFile({ path: '/workspace/file.txt', content: 'updated' });
+    await expect(backend.listFiles({ path: '/workspace' })).resolves.toEqual([
+      { name: 'file.txt', path: '/workspace/file.txt', type: 'file', size: 5 },
+    ]);
+    await backend.rename({ oldPath: '/workspace/file.txt', newPath: '/workspace/renamed.txt' });
+    await backend.delete({ path: '/workspace/renamed.txt' });
+    await backend.createDirectory({ path: '/workspace/src', recursive: true });
+    const watcher = await backend.watchFiles({ paths: ['/workspace'] });
+    await watcher.close();
+
+    expect(substrate.readFile).toHaveBeenCalledWith(expect.stringContaining('file.txt'));
+    expect(substrate.writeFile).toHaveBeenCalledWith(expect.stringContaining('file.txt'), Buffer.from('updated'));
+    expect(substrate.listFiles).toHaveBeenCalled();
+    expect(substrate.stat).toHaveBeenCalled();
+    expect(substrate.rename).toHaveBeenCalled();
+    expect(substrate.delete).toHaveBeenCalled();
+    expect(substrate.createDirectory).toHaveBeenCalledWith(expect.stringContaining('src'), { recursive: true });
+    expect(substrate.watchFiles).toHaveBeenCalled();
   });
 });

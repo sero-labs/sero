@@ -11,6 +11,13 @@ import { loadNodePty } from '@electron/shared/lib/native-pty';
 /** Callback invoked when a terminal process exits. */
 export type TerminalExitCallback = (terminalId: string) => void;
 
+export interface HostTerminalCommand {
+  program: string;
+  args: string[];
+  nativeCwd: string;
+  env?: Record<string, string>;
+}
+
 export class TerminalManager {
   /** terminalId → node-pty instance */
   private terminals = new Map<string, IPty>();
@@ -72,23 +79,22 @@ export class TerminalManager {
   createHostTerminal(
     workspaceId: string,
     terminalId: string,
-    cwd: string,
+    command: HostTerminalCommand,
     cols = 80,
     rows = 24,
   ): IPty {
     const pty = loadNodePty();
 
-    const env = { ...process.env } as Record<string, string>;
+    const env = { ...process.env, ...(command.env ?? {}) } as Record<string, string>;
     if (env.PATH && !env.PATH.includes('/usr/local/bin')) {
       env.PATH = `/usr/local/bin:${env.PATH}`;
     }
 
-    const shell = process.env.SHELL ?? '/bin/zsh';
-    const proc = pty.spawn(shell, ['--login'], {
+    const proc = pty.spawn(command.program, command.args, {
       name: 'xterm-256color',
       cols,
       rows,
-      cwd,
+      cwd: command.nativeCwd,
       env,
     });
 

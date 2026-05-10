@@ -1,6 +1,4 @@
 import { execFile, spawn as spawnProcess } from 'child_process';
-import { watch } from 'fs';
-import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'fs/promises';
 import path from 'path';
 import { promisify } from 'util';
 
@@ -21,6 +19,7 @@ import type {
   RuntimeDevServerStatusInput,
   RuntimeDevServerStopInput,
   RuntimeDirectoryEntry,
+  RuntimeExecFileInput,
   RuntimeExecInput,
   RuntimeExecResult,
   RuntimeFileReadResult,
@@ -128,6 +127,38 @@ export class HostBackend implements RuntimeBackend {
     }
   }
 
+  async execFile(input: RuntimeExecFileInput): Promise<RuntimeExecResult> {
+    const cwd = (await this.resolveHostPath(input.cwd ?? this.runtimeWorkspacePath)).hostPath;
+    const rendered = this.substrate.execFileCommand({
+      program: input.program,
+      args: input.args,
+      cwd,
+      env: createProcessEnv(input.env),
+    });
+    try {
+      const { stdout, stderr } = await execFileAsync(rendered.program, rendered.args, {
+        cwd: rendered.nativeCwd,
+        env: rendered.env,
+        timeout: input.timeoutMs ?? 120_000,
+        maxBuffer: 10 * 1024 * 1024,
+      });
+      return {
+        stdout: this.substrate.normalizeExecOutput(stdout),
+        stderr: this.substrate.normalizeExecOutput(stderr),
+        exitCode: 0,
+      };
+    } catch (err: unknown) {
+      const execErr = err as { code?: number; stdout?: string; stderr?: string; message?: string; killed?: boolean };
+      return {
+        stdout: this.substrate.normalizeExecOutput(String(execErr.stdout ?? '')),
+        stderr: this.substrate.normalizeExecOutput(execErr.killed
+          ? `Command timed out after ${Math.round((input.timeoutMs ?? 120_000) / 1000)}s. ${String(execErr.stderr ?? '')}`.trim()
+          : String(execErr.stderr ?? execErr.message ?? 'command failed')),
+        exitCode: execErr.killed ? 124 : (typeof execErr.code === 'number' ? execErr.code : 1),
+      };
+    }
+  }
+
   async spawn(input: RuntimeProcessInput): Promise<RuntimeProcess> {
     const rendered = this.substrate.shellCommand({
       command: input.command,
@@ -158,16 +189,17 @@ export class HostBackend implements RuntimeBackend {
   }
 
   async readFile(input: RuntimeReadFileInput): Promise<RuntimeFileReadResult> {
-    const content = await readFile((await this.resolveHostPath(input.path)).hostPath);
+    const content = await this.substrate.readFile((await this.resolveHostPath(input.path)).hostPath);
     if (input.binary) return { content: content.toString('base64'), encoding: 'base64' };
     const encoding = input.encoding ?? 'utf8';
     return { content: content.toString(encoding), encoding };
   }
 
   async writeFile(input: RuntimeWriteFileInput): Promise<void> {
-    const filePath = (await this.resolveHostPath(input.path)).hostPath;
-    await mkdir(path.dirname(filePath), { recursive: true });
-    await writeFile(filePath, input.content, { encoding: input.encoding ?? 'utf8', mode: input.mode });
+    await this.substrate.writeFile(
+      (await this.resolveHostPath(input.path)).hostPath,
+      Buffer.from(input.content, input.encoding ?? 'utf8'),
+    );
   }
 
   async listFiles(input: RuntimeListFilesInput): Promise<RuntimeDirectoryEntry[]> {
@@ -185,30 +217,29 @@ export class HostBackend implements RuntimeBackend {
   }
 
   async rename(input: RuntimeRenameInput): Promise<void> {
-    await rename((await this.resolveHostPath(input.oldPath)).hostPath, (await this.resolveHostPath(input.newPath)).hostPath);
+    await this.substrate.rename((await this.resolveHostPath(input.oldPath)).hostPath, (await this.resolveHostPath(input.newPath)).hostPath);
   }
 
   async delete(input: RuntimeDeleteInput): Promise<void> {
-    await rm((await this.resolveHostPath(input.path)).hostPath, { recursive: input.recursive === true, force: true });
+    await this.substrate.delete((await this.resolveHostPath(input.path)).hostPath, { recursive: input.recursive === true });
   }
 
   async createFile(input: RuntimeCreateFileInput): Promise<void> {
     const filePath = (await this.resolveHostPath(input.path)).hostPath;
-    await mkdir(path.dirname(filePath), { recursive: true });
-    await writeFile(filePath, input.content, {
-      encoding: input.encoding ?? 'utf8',
-      mode: input.mode,
-      flag: input.overwrite === false ? 'wx' : 'w',
-    });
+    if (input.overwrite === false && await this.substratePathExists(filePath)) {
+      throw new Error(`File already exists: ${input.path}`);
+    }
+    await this.substrate.writeFile(filePath, Buffer.from(input.content, input.encoding ?? 'utf8'));
   }
 
   async createDirectory(input: RuntimeCreateDirectoryInput): Promise<void> {
-    await mkdir((await this.resolveHostPath(input.path)).hostPath, { recursive: input.recursive === true });
+    await this.substrate.createDirectory((await this.resolveHostPath(input.path)).hostPath, { recursive: input.recursive === true });
   }
 
   async watchFiles(input: RuntimeFileWatchInput): Promise<RuntimeFileWatch> {
-    const paths = await Promise.all(input.paths.map((runtimePath) => this.resolveHostPath(runtimePath)));
-    const watchers = paths.map((resolved) => watch(resolved.hostPath, { recursive: false }));
+    const watchers = await Promise.all(input.paths.map(async (runtimePath) => (
+      this.substrate.watchFiles((await this.resolveHostPath(runtimePath)).hostPath, () => undefined)
+    )));
     return { close: async () => { await Promise.all(watchers.map((fileWatcher) => fileWatcher.close())); } };
   }
 
@@ -216,7 +247,10 @@ export class HostBackend implements RuntimeBackend {
     const terminal = this.terminals.createHostTerminal(
       this.workspaceId,
       input.terminalId,
-      (await this.resolveHostPath(input.cwd ?? this.runtimeWorkspacePath)).hostPath,
+      this.substrate.terminalCommand({
+        cwd: (await this.resolveHostPath(input.cwd ?? this.runtimeWorkspacePath)).hostPath,
+        env: createProcessEnv(),
+      }),
       input.cols,
       input.rows,
     );
@@ -269,7 +303,7 @@ export class HostBackend implements RuntimeBackend {
       if (!matchedRoot) {
         throw new Error(`Host path must be inside a workspace root: ${runtimePath}`);
       }
-      return { hostPath: path.resolve(runtimePath), rootHostPath: matchedRoot, returnHostPaths: true };
+      return { hostPath: runtimePath, rootHostPath: matchedRoot, returnHostPaths: true };
     }
 
     return {
@@ -281,7 +315,7 @@ export class HostBackend implements RuntimeBackend {
 
   private async findAllowedHostRoot(hostPath: string): Promise<string | null> {
     const roots = [this.hostWorkspacePath, ...await this.additionalRootPaths()];
-    return roots.map((root) => path.resolve(root)).find((root) => this.substrate.isPathInsideRoot(hostPath, root)) ?? null;
+    return roots.find((root) => this.substrate.isPathInsideRoot(hostPath, root)) ?? null;
   }
 
   private async additionalRootPaths(): Promise<string[]> {
@@ -298,18 +332,27 @@ export class HostBackend implements RuntimeBackend {
     returnHostPaths: boolean,
   ): Promise<void> {
     if (entries.length >= limit) return;
-    const dirents = await readdir(directoryPath, { withFileTypes: true });
+    const dirents = await this.substrate.listFiles(directoryPath);
     for (const dirent of dirents) {
       if (entries.length >= limit) return;
       const hostPath = path.join(directoryPath, dirent.name);
       const runtimePath = returnHostPaths ? hostPath : toRuntimeWorkspacePath(rootHostPath, hostPath);
       if (!runtimePath) continue;
-      const type = dirent.isDirectory() ? 'directory' : 'file';
-      const fileStat = await stat(hostPath);
+      const type = dirent.type === 'directory' ? 'directory' : 'file';
+      const fileStat = await this.substrate.stat(hostPath);
       entries.push({ name: dirent.name, path: runtimePath, type, size: fileStat.size });
-      if (recursive && dirent.isDirectory()) {
+      if (recursive && dirent.type === 'directory') {
         await this.collectEntries(rootHostPath, hostPath, recursive, limit, entries, returnHostPaths);
       }
+    }
+  }
+
+  private async substratePathExists(filePath: string): Promise<boolean> {
+    try {
+      await this.substrate.stat(filePath);
+      return true;
+    } catch {
+      return false;
     }
   }
 }

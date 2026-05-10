@@ -70,6 +70,15 @@ export interface RuntimeExecInput {
   injectGitAuth?: boolean;
 }
 
+export interface RuntimeExecFileInput {
+  program: string;
+  args: string[];
+  cwd?: string;
+  timeoutMs?: number;
+  env?: Record<string, string>;
+  injectGitAuth?: boolean;
+}
+
 export interface RuntimeExecResult {
   stdout: string;
   stderr: string;
@@ -145,6 +154,7 @@ export interface RuntimeBackend {
   destroy(): Promise<void>;
 
   exec(input: RuntimeExecInput): Promise<RuntimeExecResult>;
+  execFile(input: RuntimeExecFileInput): Promise<RuntimeExecResult>;
   spawn(input: RuntimeProcessInput): Promise<RuntimeProcess>;
 
   readFile(input: RuntimeReadFileInput): Promise<RuntimeFileReadResult>;
