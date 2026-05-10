@@ -132,7 +132,7 @@ describe('WslHostSubstrate', () => {
     const onEvent = vi.fn();
 
     const watcher = await substrate.watchFiles('/home/me/repo', onEvent);
-    child.stdout.emit('data', '/home/me/repo/ MODIFY file.txt\n/home/me/repo/src/ CREATE new.ts\n/home/me/repo/ DELETE old.ts\n/home/me/repo/ MOVED_TO moved.ts\n');
+    child.stdout.emit('data', '/home/me/My Project/\tMODIFY\tfile with spaces.txt\n/home/me/My Project/src/\tCREATE\tnew file.ts\n/home/me/My Project/\tDELETE\told.ts\n/home/me/My Project/\tMOVED_TO\tmoved.ts\n');
     await watcher.close();
 
     expect(mocks.spawnMock).toHaveBeenCalledWith('wsl.exe', [
@@ -144,12 +144,14 @@ describe('WslHostSubstrate', () => {
       '-r',
       '-e',
       'modify,create,delete,move',
+      '--format',
+      '%w\t%e\t%f',
       '/home/me/repo',
     ]);
-    expect(onEvent).toHaveBeenNthCalledWith(1, { kind: 'modify', path: '/home/me/repo/file.txt' });
-    expect(onEvent).toHaveBeenNthCalledWith(2, { kind: 'create', path: '/home/me/repo/src/new.ts' });
-    expect(onEvent).toHaveBeenNthCalledWith(3, { kind: 'delete', path: '/home/me/repo/old.ts' });
-    expect(onEvent).toHaveBeenNthCalledWith(4, { kind: 'move', path: '/home/me/repo/moved.ts' });
+    expect(onEvent).toHaveBeenNthCalledWith(1, { kind: 'modify', path: '/home/me/My Project/file with spaces.txt' });
+    expect(onEvent).toHaveBeenNthCalledWith(2, { kind: 'create', path: '/home/me/My Project/src/new file.ts' });
+    expect(onEvent).toHaveBeenNthCalledWith(3, { kind: 'delete', path: '/home/me/My Project/old.ts' });
+    expect(onEvent).toHaveBeenNthCalledWith(4, { kind: 'move', path: '/home/me/My Project/moved.ts' });
     expect(child.kill).toHaveBeenCalled();
   });
 });

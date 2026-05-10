@@ -4,6 +4,7 @@ import {
   canonicalizeWslExecutionPath,
   extractWslDistro,
   isWslPathInsideRoot,
+  toWindowsDrivePath,
   toWslPath,
 } from '@electron/features/workspace/runtime/backends/host/wsl-paths';
 
@@ -38,6 +39,17 @@ describe('wsl path utilities', () => {
 
   it('does not treat a WSL UNC path as inside a Windows drive root', () => {
     expect(isWslPathInsideRoot('\\\\wsl$\\Ubuntu\\home\\me\\other', 'C:\\Users\\me\\repo')).toBe(false);
+  });
+
+  it('keeps WSL containment distro-aware when POSIX suffixes match', () => {
+    expect(isWslPathInsideRoot(
+      '\\\\wsl$\\Debian\\home\\me\\repo\\src',
+      '\\\\wsl$\\Ubuntu\\home\\me\\repo',
+    )).toBe(false);
+  });
+
+  it('converts /mnt execution paths back to Windows drive paths', () => {
+    expect(toWindowsDrivePath('/mnt/c/Users/me/repo/src')).toBe('C:\\Users\\me\\repo\\src');
   });
 
   it('rejects mixed WSL distro additional roots while allowing same-distro and drive roots', () => {

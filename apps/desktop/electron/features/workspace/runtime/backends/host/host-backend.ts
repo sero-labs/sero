@@ -44,6 +44,7 @@ import type {
 import type { HostRuntimeSubstrate } from './host-substrate';
 import { createHostSubstrate } from './host-substrate-factory';
 import { HostDevServerManager } from './host-dev-server-manager';
+import { assertSameWslDistroForAdditionalRoots, isWindowsDrivePath, isWslUncPath } from './wsl-paths';
 
 const execFileAsync = promisify(execFile);
 
@@ -315,7 +316,7 @@ export class HostBackend implements RuntimeBackend {
   }
 
   private async resolveHostPath(runtimePath: string): Promise<HostPathResolution> {
-    if (path.isAbsolute(runtimePath) && !isRuntimeWorkspacePath(runtimePath)) {
+    if (isHostAbsolutePath(runtimePath) && !(runtimePath.startsWith('/') && isRuntimeWorkspacePath(runtimePath))) {
       const matchedRoot = await this.findAllowedHostRoot(runtimePath);
       if (!matchedRoot) {
         throw new Error(`Host path must be inside a workspace root: ${runtimePath}`);
@@ -337,7 +338,9 @@ export class HostBackend implements RuntimeBackend {
 
   private async additionalRootPaths(): Promise<string[]> {
     if (!this.workspaceManager) return [];
-    return (await this.workspaceManager.getRoots(this.workspaceId)).map((root) => root.path);
+    const roots = (await this.workspaceManager.getRoots(this.workspaceId)).map((root) => root.path);
+    assertSameWslDistroForAdditionalRoots(this.hostWorkspacePath, roots);
+    return roots;
   }
 
   private async collectEntries(
@@ -386,6 +389,10 @@ function subscribe<T>(callbacks: Set<(value: T) => void>, cb: (value: T) => void
 
 function unsupported(message: string): Error {
   return new Error(message);
+}
+
+function isHostAbsolutePath(inputPath: string): boolean {
+  return path.isAbsolute(inputPath) || isWindowsDrivePath(inputPath) || isWslUncPath(inputPath);
 }
 
 function createProcessEnv(overrides?: Record<string, string>): Record<string, string> {

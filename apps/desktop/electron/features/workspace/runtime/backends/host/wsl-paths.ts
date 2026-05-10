@@ -56,7 +56,25 @@ export function toWslPath(nativeOrExecutionPath: string): string {
   return canonicalizeWslExecutionPath(nativeOrExecutionPath);
 }
 
+export function toWindowsDrivePath(nativeOrExecutionPath: string): string {
+  const drive = WINDOWS_DRIVE_PATH_RE.exec(nativeOrExecutionPath);
+  if (drive) return nativeOrExecutionPath.replace(/\//g, '\\');
+
+  const executionPath = toWslPath(nativeOrExecutionPath);
+  const mount = WSL_MOUNT_RE.exec(executionPath);
+  if (!mount) return nativeOrExecutionPath.replace(/\//g, '\\');
+
+  const remainder = executionPath.slice(`/mnt/${mount[1]}`.length).replace(/\//g, '\\');
+  return `${mount[1].toUpperCase()}:${remainder}`;
+}
+
 export function isWslPathInsideRoot(nativeOrExecutionPath: string, root: string): boolean {
+  const candidateDistro = extractWslDistro(nativeOrExecutionPath);
+  const rootDistro = extractWslDistro(root);
+  if (candidateDistro && rootDistro && candidateDistro.toLowerCase() !== rootDistro.toLowerCase()) {
+    return false;
+  }
+
   const candidatePath = toWslPath(nativeOrExecutionPath);
   const rootPath = toWslPath(root);
   return candidatePath === rootPath || candidatePath.startsWith(`${rootPath}/`);

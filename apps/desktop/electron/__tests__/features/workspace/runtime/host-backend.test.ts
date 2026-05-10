@@ -123,6 +123,23 @@ describe('HostBackend', () => {
     );
   });
 
+  it('rejects mixed WSL distro additional roots before file ops resolve paths', async () => {
+    const substrate = createMockSubstrate();
+    const backend = new HostBackend({
+      workspaceId: 'workspace-a',
+      hostWorkspacePath: '\\\\wsl$\\Ubuntu\\home\\me\\repo',
+      workspaceManager: {
+        getRoots: async () => [{ id: 'debian', name: 'Debian', path: '\\\\wsl$\\Debian\\home\\me\\repo' }],
+      },
+      substrate,
+    });
+
+    await expect(backend.readFile({ path: '\\\\wsl$\\Debian\\home\\me\\repo\\note.txt' })).rejects.toThrow(
+      /Mixed WSL distros are not supported/,
+    );
+    expect(substrate.readFile).not.toHaveBeenCalled();
+  });
+
   it('delegates file operations through substrate primitives', async () => {
     const substrate = createMockSubstrate();
     const backend = new HostBackend({

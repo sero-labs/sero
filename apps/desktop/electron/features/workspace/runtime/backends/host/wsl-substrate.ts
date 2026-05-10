@@ -167,15 +167,24 @@ export class WslHostSubstrate implements HostRuntimeSubstrate {
     onEvent: (event: HostSubstrateFileWatchEvent) => void,
   ): Promise<HostSubstrateFileWatch> {
     const executionRoot = this.toExecutionPath(root);
-    const child = spawn('wsl.exe', this.wslCommandArgs(['inotifywait', '-m', '-r', '-e', 'modify,create,delete,move', executionRoot]));
+    const child = spawn('wsl.exe', this.wslCommandArgs([
+      'inotifywait',
+      '-m',
+      '-r',
+      '-e',
+      'modify,create,delete,move',
+      '--format',
+      '%w\t%e\t%f',
+      executionRoot,
+    ]));
     child.stdout.setEncoding('utf8');
     child.stdout.on('data', (chunk: string) => {
       for (const line of chunk.split('\n').filter(Boolean)) {
-        const match = /^(\S+)\s+(\S+)\s*(.*)$/.exec(line.trim());
-        if (!match) continue;
-        const kind = mapWatchKind(match[2]);
+        const [directory, events, name = ''] = line.split('\t');
+        if (!directory || !events) continue;
+        const kind = mapWatchKind(events);
         if (!kind) continue;
-        onEvent({ kind, path: match[3] ? `${match[1]}${match[3]}` : match[1] });
+        onEvent({ kind, path: name ? `${directory}${name}` : directory });
       }
     });
     return { close: async () => { child.kill(); } };

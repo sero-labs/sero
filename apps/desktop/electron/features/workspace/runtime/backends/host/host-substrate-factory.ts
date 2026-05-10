@@ -1,6 +1,7 @@
 import type { HostRuntimeSubstrate } from './host-substrate';
 import { createPosixHostSubstrate } from './posix-substrate';
-import { isWslUncPath } from './wsl-paths';
+import { isWindowsDrivePath, isWslUncPath } from './wsl-paths';
+import { createWindowsDriveHostSubstrate } from './windows-drive-substrate';
 import { createWslHostSubstrate } from './wsl-substrate';
 
 export function createHostSubstrate(
@@ -8,8 +9,9 @@ export function createHostSubstrate(
   options: { platform?: NodeJS.Platform } = {},
 ): HostRuntimeSubstrate {
   const platform = options.platform ?? process.platform;
-  if (platform === 'win32' && isWslUncPath(workspacePath)) {
-    return createWslHostSubstrate({ workspacePath });
+  if (platform === 'win32') {
+    if (isWslUncPath(workspacePath)) return createWslHostSubstrate({ workspacePath });
+    if (isWindowsDrivePath(workspacePath)) return createWindowsDriveHostSubstrate({ workspacePath });
   }
   return createPosixHostSubstrate({ platform });
 }
