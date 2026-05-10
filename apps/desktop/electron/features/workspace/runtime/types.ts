@@ -160,6 +160,7 @@ export interface RuntimeBackend {
   stopDevServer(input: RuntimeDevServerStopInput): Promise<void>;
   restartDevServer(input: RuntimeDevServerRestartInput): Promise<RuntimeDevServer>;
   getDevServerStatus(input: RuntimeDevServerStatusInput): Promise<RuntimeDevServerStatus>;
+  listDevServersSync?(): RuntimeDevServer[];
 
   forwardPort(input: RuntimeForwardPortInput): Promise<RuntimeForwardedPort>;
   stopForward(input: RuntimeStopForwardInput): Promise<void>;

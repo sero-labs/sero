@@ -20,7 +20,8 @@ server.listen(${internalPort}, '0.0.0.0');
 }
 
 export function stopPreviewBridgeCommand(workspaceId: string, targetPort: number, internalPort: number): string {
-  return `pkill -f ${shellQuote(previewBridgeMarker(workspaceId, targetPort, internalPort))} >/dev/null 2>&1 || true`;
+  const marker = previewBridgeMarker(workspaceId, targetPort, internalPort);
+  return `for pid in $(pgrep -f ${shellQuote(marker)} 2>/dev/null); do [ "$pid" = "$$" ] || kill "$pid" >/dev/null 2>&1 || true; done`;
 }
 
 export function previewUrl(hostPort: number, path = ''): string {

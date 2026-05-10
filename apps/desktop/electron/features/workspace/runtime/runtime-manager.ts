@@ -104,7 +104,11 @@ export class RuntimeManager {
     command: string;
     cwd: string;
   }> {
-    return this.dependencies.containerManager.devServers.list(workspaceId).map((server) => ({
+    const runtimeServers = [...this.backends.entries()]
+      .filter(([key]) => key.startsWith(`${workspaceId}:`))
+      .flatMap(([, runtime]) => runtime.listDevServersSync?.() ?? []);
+    const legacyServers = this.dependencies.containerManager.devServers?.list(workspaceId) ?? [];
+    return [...runtimeServers, ...legacyServers].map((server) => ({
       id: server.id,
       port: server.port,
       url: server.url,
@@ -157,7 +161,11 @@ export class RuntimeManager {
   ): RuntimeBackend {
     switch (backendId) {
       case 'mac-host':
-        return new MacHostBackend({ workspaceId, hostWorkspacePath });
+        return new MacHostBackend({
+          workspaceId,
+          hostWorkspacePath,
+          workspaceManager: this.dependencies.workspaceManager,
+        });
       case 'apple-container':
         return new AppleContainerBackend({
           workspaceId,

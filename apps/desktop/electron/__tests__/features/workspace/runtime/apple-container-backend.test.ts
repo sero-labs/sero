@@ -127,6 +127,16 @@ describe('AppleContainerBackend', () => {
     expect(containerManager.exec).not.toHaveBeenCalled();
   });
 
+  it('throws when shell-backed file mutations fail', async () => {
+    const containerManager = createContainerManager();
+    containerManager.exec.mockResolvedValue({ stdout: '', stderr: 'permission denied', exitCode: 1 });
+    const backend = createBackend(containerManager);
+
+    await expect(backend.rename({ oldPath: '/workspace/a', newPath: '/workspace/b' })).rejects.toThrow('permission denied');
+    await expect(backend.delete({ path: '/workspace/a' })).rejects.toThrow('permission denied');
+    await expect(backend.createDirectory({ path: '/workspace/a', recursive: true })).rejects.toThrow('permission denied');
+  });
+
   it('resolves preview URLs through loopback host-port pool bridges', async () => {
     const containerManager = createContainerManager();
     const backend = createBackend(containerManager);

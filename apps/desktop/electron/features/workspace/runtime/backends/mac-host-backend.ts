@@ -5,8 +5,9 @@ import path from 'path';
 import { promisify } from 'util';
 
 import { TerminalManager } from '@electron/features/container/terminal';
+import type { WorkspaceManager } from '@electron/features/workspace/manager';
 import { getRuntimeCapabilities } from '../capabilities';
-import { RUNTIME_WORKSPACE_PATH, toHostWorkspacePath, toRuntimeWorkspacePath } from '../runtime-paths';
+import { RUNTIME_WORKSPACE_PATH, isRuntimeWorkspacePath, toHostWorkspacePath, toRuntimeWorkspacePath } from '../runtime-paths';
 import type {
   RuntimeBackend,
   RuntimeCapabilities,
@@ -47,6 +48,13 @@ const execFileAsync = promisify(execFile);
 interface MacHostBackendOptions {
   workspaceId: string;
   hostWorkspacePath: string;
+  workspaceManager?: Pick<WorkspaceManager, 'getRoots'>;
+}
+
+interface HostPathResolution {
+  hostPath: string;
+  rootHostPath: string;
+  returnHostPaths: boolean;
 }
 
 export class MacHostBackend implements RuntimeBackend {
@@ -58,10 +66,12 @@ export class MacHostBackend implements RuntimeBackend {
   readonly capabilities: RuntimeCapabilities = getRuntimeCapabilities('mac-host');
 
   private readonly terminals = new TerminalManager(() => 'host');
+  private readonly workspaceManager?: Pick<WorkspaceManager, 'getRoots'>;
 
   constructor(options: MacHostBackendOptions) {
     this.workspaceId = options.workspaceId;
     this.hostWorkspacePath = options.hostWorkspacePath;
+    this.workspaceManager = options.workspaceManager;
   }
 
   async health(): Promise<RuntimeHealth> {
@@ -83,7 +93,7 @@ export class MacHostBackend implements RuntimeBackend {
   }
 
   async exec(input: RuntimeExecInput): Promise<RuntimeExecResult> {
-    const cwd = this.resolvePath(input.cwd ?? this.runtimeWorkspacePath);
+    const cwd = (await this.resolveHostPath(input.cwd ?? this.runtimeWorkspacePath)).hostPath;
     try {
       const { stdout, stderr } = await execFileAsync('sh', ['-c', input.command], {
         cwd,
@@ -106,7 +116,7 @@ export class MacHostBackend implements RuntimeBackend {
 
   async spawn(input: RuntimeProcessInput): Promise<RuntimeProcess> {
     const child = spawnProcess('sh', ['-c', input.command], {
-      cwd: this.resolvePath(input.cwd ?? this.runtimeWorkspacePath),
+      cwd: (await this.resolveHostPath(input.cwd ?? this.runtimeWorkspacePath)).hostPath,
       env: { ...process.env, ...input.env },
       stdio: input.stdio === 'inherit' ? 'inherit' : 'pipe',
     });
@@ -129,35 +139,42 @@ export class MacHostBackend implements RuntimeBackend {
   }
 
   async readFile(input: RuntimeReadFileInput): Promise<RuntimeFileReadResult> {
-    const content = await readFile(this.resolvePath(input.path));
+    const content = await readFile((await this.resolveHostPath(input.path)).hostPath);
     if (input.binary) return { content: content.toString('base64'), encoding: 'base64' };
     const encoding = input.encoding ?? 'utf8';
     return { content: content.toString(encoding), encoding };
   }
 
   async writeFile(input: RuntimeWriteFileInput): Promise<void> {
-    const filePath = this.resolvePath(input.path);
+    const filePath = (await this.resolveHostPath(input.path)).hostPath;
     await mkdir(path.dirname(filePath), { recursive: true });
     await writeFile(filePath, input.content, { encoding: input.encoding ?? 'utf8', mode: input.mode });
   }
 
   async listFiles(input: RuntimeListFilesInput): Promise<RuntimeDirectoryEntry[]> {
-    const rootPath = this.resolvePath(input.path);
+    const resolution = await this.resolveHostPath(input.path);
     const entries: RuntimeDirectoryEntry[] = [];
-    await this.collectEntries(rootPath, input.recursive === true, input.limit ?? 1000, entries);
+    await this.collectEntries(
+      resolution.rootHostPath,
+      resolution.hostPath,
+      input.recursive === true,
+      input.limit ?? 1000,
+      entries,
+      resolution.returnHostPaths,
+    );
     return entries;
   }
 
   async rename(input: RuntimeRenameInput): Promise<void> {
-    await rename(this.resolvePath(input.oldPath), this.resolvePath(input.newPath));
+    await rename((await this.resolveHostPath(input.oldPath)).hostPath, (await this.resolveHostPath(input.newPath)).hostPath);
   }
 
   async delete(input: RuntimeDeleteInput): Promise<void> {
-    await rm(this.resolvePath(input.path), { recursive: input.recursive === true, force: true });
+    await rm((await this.resolveHostPath(input.path)).hostPath, { recursive: input.recursive === true, force: true });
   }
 
   async createFile(input: RuntimeCreateFileInput): Promise<void> {
-    const filePath = this.resolvePath(input.path);
+    const filePath = (await this.resolveHostPath(input.path)).hostPath;
     await mkdir(path.dirname(filePath), { recursive: true });
     await writeFile(filePath, input.content, {
       encoding: input.encoding ?? 'utf8',
@@ -167,11 +184,12 @@ export class MacHostBackend implements RuntimeBackend {
   }
 
   async createDirectory(input: RuntimeCreateDirectoryInput): Promise<void> {
-    await mkdir(this.resolvePath(input.path), { recursive: input.recursive === true });
+    await mkdir((await this.resolveHostPath(input.path)).hostPath, { recursive: input.recursive === true });
   }
 
   async watchFiles(input: RuntimeFileWatchInput): Promise<RuntimeFileWatch> {
-    const watchers = input.paths.map((runtimePath) => watch(this.resolvePath(runtimePath), { recursive: false }));
+    const paths = await Promise.all(input.paths.map((runtimePath) => this.resolveHostPath(runtimePath)));
+    const watchers = paths.map((resolved) => watch(resolved.hostPath, { recursive: false }));
     return { close: async () => { await Promise.all(watchers.map((fileWatcher) => fileWatcher.close())); } };
   }
 
@@ -179,7 +197,7 @@ export class MacHostBackend implements RuntimeBackend {
     const terminal = this.terminals.createHostTerminal(
       this.workspaceId,
       input.terminalId,
-      this.resolvePath(input.cwd ?? this.runtimeWorkspacePath),
+      (await this.resolveHostPath(input.cwd ?? this.runtimeWorkspacePath)).hostPath,
       input.cols,
       input.rows,
     );
@@ -226,28 +244,53 @@ export class MacHostBackend implements RuntimeBackend {
     throw unsupported('Mac Host runtime does not support runtime preview URLs.');
   }
 
-  private resolvePath(runtimePath: string): string {
-    return toHostWorkspacePath(this.hostWorkspacePath, runtimePath);
+  private async resolveHostPath(runtimePath: string): Promise<HostPathResolution> {
+    if (path.isAbsolute(runtimePath) && !isRuntimeWorkspacePath(runtimePath)) {
+      const matchedRoot = await this.findAllowedHostRoot(runtimePath);
+      if (!matchedRoot) {
+        throw new Error(`Host path must be inside a workspace root: ${runtimePath}`);
+      }
+      return { hostPath: path.resolve(runtimePath), rootHostPath: matchedRoot, returnHostPaths: true };
+    }
+
+    return {
+      hostPath: toHostWorkspacePath(this.hostWorkspacePath, runtimePath),
+      rootHostPath: this.hostWorkspacePath,
+      returnHostPaths: false,
+    };
+  }
+
+  private async findAllowedHostRoot(hostPath: string): Promise<string | null> {
+    const roots = [this.hostWorkspacePath, ...await this.additionalRootPaths()];
+    const resolvedPath = path.resolve(hostPath);
+    return roots.map((root) => path.resolve(root)).find((root) => isPathInside(resolvedPath, root)) ?? null;
+  }
+
+  private async additionalRootPaths(): Promise<string[]> {
+    if (!this.workspaceManager) return [];
+    return (await this.workspaceManager.getRoots(this.workspaceId)).map((root) => root.path);
   }
 
   private async collectEntries(
+    rootHostPath: string,
     directoryPath: string,
     recursive: boolean,
     limit: number,
     entries: RuntimeDirectoryEntry[],
+    returnHostPaths: boolean,
   ): Promise<void> {
     if (entries.length >= limit) return;
     const dirents = await readdir(directoryPath, { withFileTypes: true });
     for (const dirent of dirents) {
       if (entries.length >= limit) return;
       const hostPath = path.join(directoryPath, dirent.name);
-      const runtimePath = toRuntimeWorkspacePath(this.hostWorkspacePath, hostPath);
+      const runtimePath = returnHostPaths ? hostPath : toRuntimeWorkspacePath(rootHostPath, hostPath);
       if (!runtimePath) continue;
       const type = dirent.isDirectory() ? 'directory' : 'file';
       const fileStat = await stat(hostPath);
       entries.push({ name: dirent.name, path: runtimePath, type, size: fileStat.size });
       if (recursive && dirent.isDirectory()) {
-        await this.collectEntries(hostPath, recursive, limit, entries);
+        await this.collectEntries(rootHostPath, hostPath, recursive, limit, entries, returnHostPaths);
       }
     }
   }
@@ -265,4 +308,9 @@ function subscribe<T>(callbacks: Set<(value: T) => void>, cb: (value: T) => void
 
 function unsupported(message: string): Error {
   return new Error(message);
+}
+
+function isPathInside(candidatePath: string, rootPath: string): boolean {
+  const relative = path.relative(rootPath, candidatePath);
+  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
 }

@@ -10,7 +10,7 @@ import {
   toHostWorkspacePath,
   toRuntimeWorkspacePath,
 } from '@electron/features/workspace/runtime/runtime-paths';
-import type { RuntimeBackendId } from '@electron/features/workspace/runtime/types';
+import type { RuntimeBackendId, RuntimeDevServer } from '@electron/features/workspace/runtime/types';
 import type { ContainerManager } from '@electron/features/container';
 import type { WorkspaceManager } from '@electron/features/workspace/manager';
 
@@ -120,6 +120,27 @@ describe('runtime backend contract skeleton', () => {
 
     expect(runtime.backend).toBe('docker');
     expect(runtime.workspaceAccess).toBe('live-mount');
+  });
+
+  it('lists runtime-backed dev servers from cached runtimes', async () => {
+    const manager = new RuntimeManager({
+      workspaceManager: {
+        getPath: vi.fn().mockReturnValue('/Users/daniel/project'),
+        getRuntimeConfig: vi.fn().mockResolvedValue({ backend: 'mac-host' }),
+      } as unknown as WorkspaceManager,
+      containerManager: { devServers: { list: vi.fn(() => []) } } as unknown as ContainerManager,
+    });
+    const runtime = await manager.getRuntime('workspace-a');
+    const server: RuntimeDevServer = {
+      id: 'workspace-a:workspace:root:5173',
+      port: 5173,
+      url: 'http://127.0.0.1:51000',
+      command: 'pnpm dev',
+      cwd: '/workspace',
+    };
+    runtime.listDevServersSync = vi.fn(() => [server]);
+
+    expect(manager.listDevServersSync('workspace-a')).toEqual([server]);
   });
 
   it('translates primary workspace paths between host and runtime roots', () => {

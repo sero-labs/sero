@@ -227,6 +227,10 @@ export class DockerBackend implements RuntimeBackend {
     return { servers: input.serverId ? [ports.getServer(input.serverId)].filter(isRuntimeDevServer) : ports.listServers() };
   }
 
+  listDevServersSync(): RuntimeDevServer[] {
+    return this.ports?.listServers() ?? [];
+  }
+
   async forwardPort(input: RuntimeForwardPortInput): Promise<RuntimeForwardedPort> {
     await this.ensure();
     return (await this.portManager()).forwardPort(input.targetPort);

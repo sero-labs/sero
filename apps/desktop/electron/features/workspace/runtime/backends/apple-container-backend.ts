@@ -193,12 +193,12 @@ export class AppleContainerBackend implements RuntimeBackend {
   }
 
   async rename(input: RuntimeRenameInput): Promise<void> {
-    await this.exec({ command: `mv -- ${shellQuote(input.oldPath)} ${shellQuote(input.newPath)}` });
+    await this.expectOk(`mv -- ${shellQuote(input.oldPath)} ${shellQuote(input.newPath)}`);
   }
 
   async delete(input: RuntimeDeleteInput): Promise<void> {
     const flag = input.recursive ? '-rf' : '-f';
-    await this.exec({ command: `rm ${flag} -- ${shellQuote(input.path)}` });
+    await this.expectOk(`rm ${flag} -- ${shellQuote(input.path)}`);
   }
 
   async createFile(input: RuntimeCreateFileInput): Promise<void> {
@@ -211,7 +211,7 @@ export class AppleContainerBackend implements RuntimeBackend {
 
   async createDirectory(input: RuntimeCreateDirectoryInput): Promise<void> {
     const flag = input.recursive ? '-p ' : '';
-    await this.exec({ command: `mkdir ${flag}-- ${shellQuote(input.path)}` });
+    await this.expectOk(`mkdir ${flag}-- ${shellQuote(input.path)}`);
   }
 
   async watchFiles(_input: RuntimeFileWatchInput): Promise<RuntimeFileWatch> {
@@ -286,6 +286,10 @@ export class AppleContainerBackend implements RuntimeBackend {
     return { servers: input.serverId ? [ports.getServer(input.serverId)].filter(isRuntimeDevServer) : ports.listServers() };
   }
 
+  listDevServersSync(): RuntimeDevServer[] {
+    return this.ports?.listServers() ?? [];
+  }
+
   async forwardPort(input: RuntimeForwardPortInput): Promise<RuntimeForwardedPort> {
     await this.ensure();
     return (await this.portManager()).forwardPort(input.targetPort);
@@ -326,6 +330,11 @@ export class AppleContainerBackend implements RuntimeBackend {
 
   private async killPort(port: number): Promise<void> {
     await this.containerManager.exec(this.workspaceId, `pids=$(ss -tlnp sport = :${port} 2>/dev/null | grep -oP 'pid=\\K[0-9]+' | sort -u); [ -z "$pids" ] || kill $pids 2>/dev/null || true`, this.runtimeWorkspacePath, 10_000);
+  }
+
+  private async expectOk(command: string): Promise<void> {
+    const result = await this.exec({ command });
+    if (result.exitCode !== 0) throw new Error(result.stderr || result.stdout || `Command failed: ${command}`);
   }
 }
 

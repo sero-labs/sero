@@ -60,11 +60,38 @@ describe('MacHostBackend', () => {
     expect(result.stdout).toContain('{"name":"demo"}');
   });
 
+  it('reads validated additional-root host paths in host mode', async () => {
+    const { workspacePath } = await createBackend();
+    const extraRoot = await mkdtemp(path.join(os.tmpdir(), 'sero-mac-host-extra-'));
+    tempDirs.push(extraRoot);
+    await writeFile(path.join(extraRoot, 'note.txt'), 'extra', 'utf8');
+
+    const backend = new MacHostBackend({
+      workspaceId: 'workspace-a',
+      hostWorkspacePath: workspacePath,
+      workspaceManager: {
+        getRoots: async () => [{ id: 'extra', name: 'Extra', path: extraRoot }],
+      },
+    });
+
+    await expect(backend.readFile({ path: path.join(extraRoot, 'note.txt') })).resolves.toEqual({
+      content: 'extra',
+      encoding: 'utf8',
+    });
+    await backend.writeFile({ path: path.join(extraRoot, 'new.txt'), content: 'new' });
+    const entries = await backend.listFiles({ path: extraRoot });
+
+    expect(entries.map((entry) => entry.path)).toContain(path.join(extraRoot, 'new.txt'));
+    await expect(backend.readFile({ path: `${extraRoot}-sibling/file.txt` })).rejects.toThrow(
+      'Host path must be inside a workspace root',
+    );
+  });
+
   it('rejects paths outside the virtual workspace root', async () => {
     const { backend } = await createBackend();
 
     await expect(backend.readFile({ path: '/tmp/outside.txt' })).rejects.toThrow(
-      'Runtime path must be inside /workspace',
+      'Host path must be inside a workspace root',
     );
   });
 });
