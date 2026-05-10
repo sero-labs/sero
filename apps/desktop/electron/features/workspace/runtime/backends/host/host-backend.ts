@@ -43,7 +43,7 @@ import type {
   RuntimeWriteFileInput,
 } from '../../types';
 import type { HostRuntimeSubstrate } from './host-substrate';
-import { createPosixHostSubstrate } from './posix-substrate';
+import { createHostSubstrate } from './host-substrate-factory';
 
 const execFileAsync = promisify(execFile);
 
@@ -76,7 +76,7 @@ export class HostBackend implements RuntimeBackend {
     this.workspaceId = options.workspaceId;
     this.hostWorkspacePath = options.hostWorkspacePath;
     this.workspaceManager = options.workspaceManager;
-    this.substrate = options.substrate ?? createPosixHostSubstrate();
+    this.substrate = options.substrate ?? createHostSubstrate(options.hostWorkspacePath);
   }
 
   async health(): Promise<RuntimeHealth> {
