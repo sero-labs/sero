@@ -1,5 +1,5 @@
 /**
- * Manages a single language server process running inside a container.
+ * Manages a single language server process running inside a workspace runtime.
  * Handles spawning, JSON-RPC communication, initialization, and shutdown.
  */
 
@@ -12,8 +12,8 @@ import type {
 } from './types';
 import { isResponse, isRequest, isNotification, fileUri } from './types';
 import { resolveServerRequest } from './server-request-handlers';
+import { RUNTIME_WORKSPACE_PATH } from '@electron/features/workspace/runtime/runtime-paths';
 
-const WORKSPACE_DIR = '/workspace';
 const REQUEST_TIMEOUT_MS = 30_000;
 
 interface InitializeResult {
@@ -75,14 +75,14 @@ export class LspServerProcess extends EventEmitter {
   get disposed(): boolean { return this._disposed; }
   get serverCapabilities(): Record<string, unknown> { return this.capabilities; }
 
-  /** Spawn the language server process inside the container. */
+  /** Spawn the language server process inside the selected workspace runtime. */
   async start(): Promise<Record<string, unknown>> {
     if (this._disposed) throw new Error('Server is disposed');
     if (this.process) throw new Error('Server already started');
 
     this.process = await this.runtime.spawn({
       command: this.config.command,
-      cwd: WORKSPACE_DIR,
+      cwd: RUNTIME_WORKSPACE_PATH,
       env: this.envVars,
       stdio: 'pipe',
     });
@@ -156,12 +156,12 @@ export class LspServerProcess extends EventEmitter {
   // ── Private ───────────────────────────────────────────────
 
   private async initialize(): Promise<Record<string, unknown>> {
-    const rootUri = fileUri(WORKSPACE_DIR);
+    const rootUri = fileUri(RUNTIME_WORKSPACE_PATH);
 
     const result = await this.sendRequest('initialize', {
       processId: null,
       rootUri,
-      rootPath: WORKSPACE_DIR,
+      rootPath: RUNTIME_WORKSPACE_PATH,
       capabilities: {
         textDocument: {
           synchronization: { dynamicRegistration: false, willSave: false, didSave: true, willSaveWaitUntil: false },

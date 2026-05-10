@@ -25,7 +25,7 @@ function createMockRuntimeBackend(): MockRuntimeBackend {
     hostWorkspacePath: '/host/workspace',
     runtimeWorkspacePath: '/workspace',
     workspaceAccess: 'live-mount',
-    capabilities: getRuntimeCapabilities('apple-container'),
+    capabilities: getRuntimeCapabilities('apple-container', 'darwin'),
     health: vi.fn().mockResolvedValue({ backend: 'apple-container', status: 'ready', message: 'ready' }),
     ensure: vi.fn().mockResolvedValue({ backend: 'apple-container', workspaceId: 'ws-1', hostWorkspacePath: '/host/workspace', runtimeWorkspacePath: '/workspace', state: 'running' }),
     destroy: vi.fn().mockResolvedValue(undefined),

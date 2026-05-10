@@ -41,7 +41,7 @@ function createFullCapabilities(): RuntimeCapabilities {
   };
 }
 
-function createHostCapabilities(): RuntimeCapabilities {
+function createHostCapabilities(_platform: NodeJS.Platform): RuntimeCapabilities {
   return {
     ...createFullCapabilities(),
     ports: {
@@ -51,18 +51,26 @@ function createHostCapabilities(): RuntimeCapabilities {
       previewUrl: true,
     },
     browserAutomation: false,
-    languageServers: false,
+    languageServers: true,
   };
+}
+
+export class UnsupportedRuntimeOnPlatformError extends Error {
+  constructor(readonly backend: RuntimeBackendId, readonly platform: NodeJS.Platform) {
+    super(`${backend} is not supported on ${platform}`);
+    this.name = 'UnsupportedRuntimeOnPlatformError';
+  }
 }
 
 export const RUNTIME_BACKEND_IDS = ['apple-container', 'docker', 'host'] as const satisfies readonly RuntimeBackendId[];
 
-export const RUNTIME_CAPABILITIES = {
-  'apple-container': createFullCapabilities(),
-  docker: createFullCapabilities(),
-  host: createHostCapabilities(),
-} as const satisfies Record<RuntimeBackendId, RuntimeCapabilities>;
-
-export function getRuntimeCapabilities(backend: RuntimeBackendId): RuntimeCapabilities {
-  return RUNTIME_CAPABILITIES[backend];
+export function getRuntimeCapabilities(
+  backend: RuntimeBackendId,
+  platform: NodeJS.Platform = process.platform,
+): RuntimeCapabilities {
+  if (backend === 'apple-container' && platform !== 'darwin') {
+    throw new UnsupportedRuntimeOnPlatformError(backend, platform);
+  }
+  if (backend === 'host') return createHostCapabilities(platform);
+  return createFullCapabilities();
 }

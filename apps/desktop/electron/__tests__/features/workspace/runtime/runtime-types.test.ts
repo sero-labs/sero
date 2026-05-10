@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   getRuntimeCapabilities,
   RUNTIME_BACKEND_IDS,
-  RUNTIME_CAPABILITIES,
+  UnsupportedRuntimeOnPlatformError,
 } from '@electron/features/workspace/runtime/capabilities';
 import { RuntimeManager } from '@electron/features/workspace/runtime/runtime-manager';
 import {
@@ -20,7 +20,7 @@ describe('runtime backend contract skeleton', () => {
   });
 
   it.each(RUNTIME_BACKEND_IDS)('defines complete capabilities for %s', (backend) => {
-    const capabilities = getRuntimeCapabilities(backend);
+    const capabilities = getRuntimeCapabilities(backend, 'darwin');
 
     expect(capabilities).toMatchObject({
       exec: expect.any(Boolean),
@@ -63,10 +63,22 @@ describe('runtime backend contract skeleton', () => {
   });
 
   it('keeps container backends capable of live-mounted workspace features', () => {
-    expect(RUNTIME_CAPABILITIES['apple-container'].browserAutomation).toBe(true);
-    expect(RUNTIME_CAPABILITIES.docker.browserAutomation).toBe(true);
-    expect(RUNTIME_CAPABILITIES['apple-container'].languageServers).toBe(true);
-    expect(RUNTIME_CAPABILITIES.docker.languageServers).toBe(true);
+    expect(getRuntimeCapabilities('apple-container', 'darwin').browserAutomation).toBe(true);
+    expect(getRuntimeCapabilities('docker', 'linux').browserAutomation).toBe(true);
+    expect(getRuntimeCapabilities('apple-container', 'darwin').languageServers).toBe(true);
+    expect(getRuntimeCapabilities('docker', 'linux').languageServers).toBe(true);
+  });
+
+  it('computes host capabilities per platform without browser automation', () => {
+    const capabilities = getRuntimeCapabilities('host', 'darwin');
+
+    expect(capabilities.browserAutomation).toBe(false);
+    expect(capabilities.languageServers).toBe(true);
+    expect(getRuntimeCapabilities('host', 'win32').languageServers).toBe(true);
+  });
+
+  it('rejects Apple Container capabilities on non-Darwin platforms', () => {
+    expect(() => getRuntimeCapabilities('apple-container', 'linux')).toThrow(UnsupportedRuntimeOnPlatformError);
   });
 
   it('marks host as host access with managed dev-server preview capabilities', async () => {

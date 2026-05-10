@@ -446,8 +446,10 @@ Reference: `DockerBackend.startDevServer`, `DockerPortManager`, and `apps/deskto
 
 ## TODO CROSS-PLATFORM-HOST-RUNTIME-08 — Convert capabilities to platform function and make LSP host-runtime aware
 
-**Status:** Pending
+**Status:** Done
 **Tags:** `cross-platform-host-runtime`
+
+**Completion note:** Replaced the static capability map with platform-aware `getRuntimeCapabilities`, added unsupported Apple Container platform errors, enabled host LSP capability, routed LSP cwd/root through shared `RUNTIME_WORKSPACE_PATH`, and covered POSIX/WSL host LSP launch construction.
 
 **Plan:** `/Users/danielcarter/Documents/Dev/projects/sero/sero/.pi/plans/2026-05-10-cross-platform-host-runtime/plan.md`
 **Depends on:** Todos 05-07
