@@ -143,7 +143,12 @@ export function registerEditorHandlers(): void {
 
   ipcMain.handle(
     IpcChannels.editor.isContainer,
-    async (_e, workspaceId: string) => workspaceManager.isContainerEnabled(workspaceId),
+    async (_e, workspaceId: string) => {
+      // Compatibility channel: renderer callers still ask for a boolean, but
+      // the source of truth is the provider-aware runtime backend.
+      const runtime = await workspaceManager.getRuntimeConfig(workspaceId);
+      return runtime.backend !== 'host';
+    },
   );
 
   ipcMain.handle(

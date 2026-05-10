@@ -569,8 +569,10 @@ Host doctor reference: follow `apps/desktop/electron/features/workspace/runtime/
 
 ## TODO CROSS-PLATFORM-HOST-RUNTIME-10 — Migrate IPC/CLI call sites away from container boolean business logic
 
-**Status:** Pending
+**Status:** Done
 **Tags:** `cross-platform-host-runtime`
+
+**Completion note:** Migrated container/editor IPC and workspace CLI boundaries to derive behavior from canonical runtime backend ids, surfaced backend ids in container inspect diagnostics, and added IPC/CLI tests for host/docker/apple-container-aware behavior.
 
 **Plan:** `/Users/danielcarter/Documents/Dev/projects/sero/sero/.pi/plans/2026-05-10-cross-platform-host-runtime/plan.md`
 **Depends on:** Todo 09

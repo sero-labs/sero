@@ -28,8 +28,7 @@ function formatWorkspaceList(currentWorkspaceId: string) {
     return list
       .map((ws) => {
         const current = ws.id === currentWorkspaceId ? ' (current)' : '';
-        const container = ws.container ? 'container' : 'host';
-        return `● ${ws.name} (${ws.id}) [${container}]${current}\n  ${ws.path}`;
+        return `● ${ws.name} (${ws.id}) [${ws.runtime.backend}]${current}\n  ${ws.path}`;
       })
       .join('\n');
   };
@@ -147,11 +146,11 @@ async function handleWorkspaceCommand(args: string[], ctx: CliCommandContext) {
         const config = await workspaceManager.getConfig(targetId);
         const path = workspaceManager.getPath(targetId);
         if (!config || !path) return fail(`Workspace not found: ${targetId}`);
-        const enabled = await workspaceManager.isContainerEnabled(targetId);
+        const runtime = await workspaceManager.getRuntimeConfig(targetId);
         const lines = [
           `Workspace: ${config.name} (${targetId})`,
           `Path: ${path}`,
-          `Runtime: ${enabled ? 'container' : 'host filesystem'}`,
+          `Runtime backend: ${runtime.backend}`,
         ];
         if (config.description) lines.push(`Description: ${config.description}`);
         if (config.contextHints?.length) lines.push(`Context hints: ${config.contextHints.join(', ')}`);
