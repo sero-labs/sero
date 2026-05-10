@@ -20,7 +20,7 @@ function workspace(runtime: WorkspaceInfo['runtime']): WorkspaceInfo {
     path: '/tmp/workspace-1',
     open: true,
     runtime,
-    container: runtime.backend !== 'mac-host',
+    container: runtime.backend !== 'host',
     references: [],
     mounts: [],
     roots: [],
@@ -71,7 +71,7 @@ describe('RuntimePickerMenu', () => {
     useWorkspaceStore.setState(initialWorkspaceState, true);
   });
 
-  it('shows macOS runtime choices with Mac Host marked advanced', async () => {
+  it('shows macOS runtime choices with Host marked advanced', async () => {
     installSero('darwin');
 
     await act(async () => {
@@ -83,13 +83,13 @@ describe('RuntimePickerMenu', () => {
     expect(document.body.textContent).toContain('Recommended on Apple Silicon Macs');
     expect(document.body.textContent).toContain('Docker');
     expect(document.body.textContent).toContain('Portable Linux workspace for macOS Intel, Windows, and Linux');
-    expect(document.body.textContent).toContain('Mac Host');
+    expect(document.body.textContent).toContain('Host');
     expect(document.body.textContent).toContain('Advanced');
-    expect(document.body.textContent).toContain('least isolated, macOS-only');
+    expect(document.body.textContent).toContain('least isolated');
     expect(document.body.textContent).toContain('preview port pool requires recreating the runtime/container');
   });
 
-  it('keeps Windows on the Docker normal path and does not offer Mac Host fallback', async () => {
+  it('keeps Windows on the Docker normal path and does not offer Host fallback', async () => {
     installSero('win32');
 
     await act(async () => {
@@ -100,7 +100,7 @@ describe('RuntimePickerMenu', () => {
     expect(document.body.textContent).toContain('Docker is the normal Sero runtime on Windows and Linux');
     expect(document.body.textContent).toContain('run Doctor or follow Docker setup instead of falling back to host mode');
     expect(document.body.textContent).toContain('Docker');
-    expect(document.body.textContent).not.toContain('Mac Host');
+    expect(document.body.textContent).not.toContain('Host');
     expect(document.body.textContent).not.toContain('Apple Container');
   });
 

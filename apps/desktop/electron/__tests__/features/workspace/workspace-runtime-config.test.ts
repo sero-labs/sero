@@ -32,7 +32,7 @@ describe('workspace runtime config migration', () => {
     expect(resolveWorkspaceRuntimeConfig('app', { id: 'app', name: 'App', container: true }, platform).backend)
       .toBe('apple-container');
     expect(resolveWorkspaceRuntimeConfig('app', { id: 'app', name: 'App', container: false }, platform).backend)
-      .toBe('mac-host');
+      .toBe('host');
     expect(resolveWorkspaceRuntimeConfig('app', { id: 'app', name: 'App' }, platform).backend)
       .toBe('apple-container');
     expect(resolveWorkspaceRuntimeConfig('app', { id: 'app', name: 'App', runtime: { backend: 'docker' } }, platform).backend)
@@ -44,7 +44,7 @@ describe('workspace runtime config migration', () => {
     expect(getDefaultRuntimeBackend({ platform: 'darwin', arch: 'x64' })).toBe('docker');
     expect(getDefaultRuntimeBackend({ platform: 'win32', arch: 'x64' })).toBe('docker');
     expect(getDefaultRuntimeBackend({ platform: 'linux', arch: 'arm64' })).toBe('docker');
-    expect(getDefaultRuntimeBackend({ workspaceId: 'global', platform: 'linux', arch: 'x64' })).toBe('mac-host');
+    expect(getDefaultRuntimeBackend({ workspaceId: 'global', platform: 'linux', arch: 'x64' })).toBe('host');
   });
 
   it('normalizes writes to runtime.backend and removes legacy container', () => {
@@ -55,6 +55,14 @@ describe('workspace runtime config migration', () => {
 
     expect(normalized.runtime).toEqual({ backend: 'apple-container' });
     expect(normalized.container).toBeUndefined();
+  });
+
+  it('loads deprecated mac-host alias as host and rewrites canonical host', () => {
+    // Deprecated compatibility input; normalize to host on write.
+    const legacy = { id: 'app', name: 'App', runtime: { backend: 'mac-host' } } as unknown as WorkspaceConfig;
+
+    expect(resolveWorkspaceRuntimeConfig('app', legacy).backend).toBe('host');
+    expect(normalizeWorkspaceConfigForWrite(legacy).runtime).toEqual({ backend: 'host' });
   });
 
   it('writes new workspace configs with runtime.backend', async () => {
@@ -68,7 +76,7 @@ describe('workspace runtime config migration', () => {
     expect(written.runtime?.backend).toBeDefined();
     expect(written.container).toBeUndefined();
     expect(info.runtime.backend).toBe(written.runtime?.backend);
-    expect(info.container).toBe(info.runtime.backend !== 'mac-host');
+    expect(info.container).toBe(info.runtime.backend !== 'host');
   });
 
   it('persists setRuntimeBackend and keeps container shims derived', async () => {
@@ -76,14 +84,30 @@ describe('workspace runtime config migration', () => {
     const manager = new WorkspaceManager();
     const info = await manager.addFolder(workspacePath);
 
-    await manager.setRuntimeBackend(info.id, 'mac-host');
+    await manager.setRuntimeBackend(info.id, 'host');
 
-    expect(await manager.getRuntimeConfig(info.id)).toEqual({ backend: 'mac-host' });
+    expect(await manager.getRuntimeConfig(info.id)).toEqual({ backend: 'host' });
     expect(await manager.isContainerEnabled(info.id)).toBe(false);
 
     const raw = await readFile(path.join(workspacePath, '.sero-workspace.json'), 'utf8');
     const written = JSON.parse(raw) as WorkspaceConfig;
-    expect(written.runtime).toEqual({ backend: 'mac-host' });
+    expect(written.runtime).toEqual({ backend: 'host' });
     expect(written.container).toBeUndefined();
+  });
+
+  it('treats deprecated mac-host configs as non-container and rewrites on save', async () => {
+    // Deprecated compatibility input; normalize to host on write.
+    const legacy = { id: 'app', name: 'App', runtime: { backend: 'mac-host' } } as unknown as WorkspaceConfig;
+    const workspacePath = await createTempWorkspace(legacy);
+    const manager = new WorkspaceManager();
+    const info = await manager.addFolder(workspacePath);
+
+    expect(await manager.getRuntimeConfig(info.id)).toEqual({ backend: 'host' });
+    expect(await manager.isContainerEnabled(info.id)).toBe(false);
+
+    await manager.setRuntimeBackend(info.id, 'host');
+    const raw = await readFile(path.join(workspacePath, '.sero-workspace.json'), 'utf8');
+    const written = JSON.parse(raw) as WorkspaceConfig;
+    expect(written.runtime).toEqual({ backend: 'host' });
   });
 });

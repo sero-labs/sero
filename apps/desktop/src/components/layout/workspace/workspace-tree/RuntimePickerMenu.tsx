@@ -8,7 +8,7 @@ import {
 import { IconAction } from '@/components/ui/IconAction';
 import { useWorkspaceStore } from '@/stores/workspace';
 import type { WorkspaceInfo } from '@/types/ipc';
-import type { WorkspaceRuntimeBackend } from '@/types/workspace-runtime';
+import type { DeprecatedWorkspaceRuntimeBackend, WorkspaceRuntimeBackend } from '@/types/workspace-runtime';
 
 interface RuntimeOption {
   backend: WorkspaceRuntimeBackend;
@@ -19,16 +19,19 @@ interface RuntimeOption {
 
 const APPLE_CONTAINER_COPY = 'Recommended on Apple Silicon Macs. Live-mounted Linux workspace using Apple Container.';
 const DOCKER_COPY = 'Portable Linux workspace for macOS Intel, Windows, and Linux. Requires Docker Desktop or Docker Engine.';
-const MAC_HOST_COPY = 'Run directly on your Mac. Fastest startup, least isolated, macOS-only.';
+const HOST_COPY = 'Run directly on the host. Fastest startup, least isolated.';
 
-function runtimeName(backend: WorkspaceRuntimeBackend): string {
+type RuntimeBackendForDisplay = WorkspaceRuntimeBackend | DeprecatedWorkspaceRuntimeBackend;
+
+function runtimeName(backend: RuntimeBackendForDisplay): string {
   if (backend === 'apple-container') return 'Apple Container';
   if (backend === 'docker') return 'Docker';
-  return 'Mac Host';
+  return 'Host';
 }
 
-function runtimeIcon(backend: WorkspaceRuntimeBackend) {
-  if (backend === 'mac-host') return <Monitor className="size-3" />;
+function runtimeIcon(backend: RuntimeBackendForDisplay) {
+  // Deprecated compatibility input; normalize to host on write.
+  if (backend === 'host' || backend === 'mac-host') return <Monitor className="size-3" />;
   if (backend === 'docker') return <Server className="size-3" />;
   return <Box className="size-3" />;
 }
@@ -43,7 +46,7 @@ export function getRuntimePickerOptions(platform: string): RuntimeOption[] {
   return [
     { backend: 'apple-container', name: 'Apple Container', description: APPLE_CONTAINER_COPY },
     { backend: 'docker', name: 'Docker', description: DOCKER_COPY },
-    { backend: 'mac-host', name: 'Mac Host', description: MAC_HOST_COPY, advanced: true },
+    { backend: 'host', name: 'Host', description: HOST_COPY, advanced: true },
   ];
 }
 

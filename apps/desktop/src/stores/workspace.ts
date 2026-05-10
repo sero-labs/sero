@@ -183,9 +183,9 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   toggleContainer: async (id) => {
     const workspace = get().workspaces.find((w) => w.id === id);
     if (!workspace) return;
-    const nextBackend: WorkspaceRuntimeBackend = workspace.runtime.backend === 'mac-host'
+    const nextBackend: WorkspaceRuntimeBackend = workspace.runtime.backend === 'host'
       ? 'docker'
-      : 'mac-host';
+      : 'host';
     await get().setRuntimeBackend(id, nextBackend);
   },
 

@@ -160,7 +160,7 @@ export class GitRunner {
 
     const runtime = await this.runtimeManager.getRuntime(workspaceId);
 
-    if (runtime.backend !== 'mac-host') {
+    if (runtime.backend !== 'host') {
       const command = Object.keys(extraEnv).length > 0
         ? `env ${Object.entries(extraEnv)
             .filter((entry): entry is [string, string] => typeof entry[1] === 'string')

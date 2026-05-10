@@ -1,9 +1,14 @@
 import type { WorkspaceConfig } from '@/types/ipc';
-import type { WorkspaceRuntimeBackend, WorkspaceRuntimeConfig } from '@/types/workspace-runtime';
+import type { WorkspaceRuntimeBackend, WorkspaceRuntimeBackendInput, WorkspaceRuntimeConfig } from '@/types/workspace-runtime';
 import { getDefaultRuntimeBackend, type RuntimePlatformDefaultsInput } from './platform-default';
 
-export function isWorkspaceRuntimeBackend(value: unknown): value is WorkspaceRuntimeBackend {
-  return value === 'apple-container' || value === 'docker' || value === 'mac-host';
+export function isWorkspaceRuntimeBackend(value: unknown): value is WorkspaceRuntimeBackendInput {
+  // Deprecated compatibility input; normalize to host on write.
+  return value === 'apple-container' || value === 'docker' || value === 'host' || value === 'mac-host';
+}
+
+export function normalizeWorkspaceRuntimeBackend(backend: WorkspaceRuntimeBackendInput): WorkspaceRuntimeBackend {
+  return backend === 'mac-host' ? 'host' : backend;
 }
 
 export function resolveWorkspaceRuntimeConfig(
@@ -11,12 +16,13 @@ export function resolveWorkspaceRuntimeConfig(
   config: WorkspaceConfig | null | undefined,
   defaults: RuntimePlatformDefaultsInput = {},
 ): WorkspaceRuntimeConfig {
-  if (isWorkspaceRuntimeBackend(config?.runtime?.backend)) {
-    return config.runtime;
+  const backend = config?.runtime?.backend;
+  if (isWorkspaceRuntimeBackend(backend) && config?.runtime) {
+    return { ...config.runtime, backend: normalizeWorkspaceRuntimeBackend(backend) };
   }
 
   if (config?.container === false && (defaults.platform ?? process.platform) === 'darwin') {
-    return { backend: 'mac-host' };
+    return { backend: 'host' };
   }
 
   return {

@@ -64,7 +64,7 @@ async function createRunner() {
   } as unknown as WorkspaceManager;
 
   const runtimeManager = {
-    getRuntime: vi.fn(async () => ({ backend: 'mac-host' })),
+    getRuntime: vi.fn(async () => ({ backend: 'host' })),
   } as unknown as RuntimeManager;
 
   const githubAuth = {

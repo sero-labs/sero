@@ -7,7 +7,7 @@ export interface RuntimePlatformDefaultsInput {
 }
 
 export function getDefaultRuntimeBackend(input: RuntimePlatformDefaultsInput = {}): WorkspaceRuntimeBackend {
-  if (input.workspaceId === 'global') return 'mac-host';
+  if (input.workspaceId === 'global') return 'host';
 
   const platform = input.platform ?? process.platform;
   const arch = input.arch ?? process.arch;

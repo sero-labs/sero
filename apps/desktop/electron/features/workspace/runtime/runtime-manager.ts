@@ -160,7 +160,7 @@ export class RuntimeManager {
     hostWorkspacePath: string,
   ): RuntimeBackend {
     switch (backendId) {
-      case 'mac-host':
+      case 'host':
         return new MacHostBackend({
           workspaceId,
           hostWorkspacePath,

@@ -218,7 +218,7 @@ export function WorkspaceNode({ workspace, sessions }: WorkspaceNodeProps) {
                   <Plus className="size-3" />
                 </IconAction>
                 <RuntimePickerMenu workspace={workspace} />
-                {workspace.runtime.backend !== 'mac-host' && <WorkspaceReferencesMenu workspace={workspace} />}
+                {workspace.runtime.backend !== 'host' && <WorkspaceReferencesMenu workspace={workspace} />}
                 <IconAction
                   as="span"
                   role="button"

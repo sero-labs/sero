@@ -25,7 +25,7 @@ export function registerTerminalHandlers(): void {
       });
 
       return {
-        runtime: runtime.backend === 'mac-host' ? 'host' : 'container',
+        runtime: runtime.backend === 'host' ? 'host' : 'container',
         backend: runtime.backend,
       };
     },

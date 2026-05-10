@@ -42,7 +42,7 @@ export async function recreateContainerIfRunning(workspaceId: string): Promise<v
   if (!runtimeManager.hasRuntime(workspaceId)) return;
 
   const runtime = await runtimeManager.getRuntime(workspaceId);
-  if (runtime.backend === 'mac-host') return;
+  if (runtime.backend === 'host') return;
 
   if (hasActiveSessionsForWorkspace(workspaceId)) {
     console.log(

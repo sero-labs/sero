@@ -41,7 +41,7 @@ function createFullCapabilities(): RuntimeCapabilities {
   };
 }
 
-function createMacHostCapabilities(): RuntimeCapabilities {
+function createHostCapabilities(): RuntimeCapabilities {
   return {
     ...createFullCapabilities(),
     devServers: {
@@ -61,12 +61,12 @@ function createMacHostCapabilities(): RuntimeCapabilities {
   };
 }
 
-export const RUNTIME_BACKEND_IDS = ['apple-container', 'docker', 'mac-host'] as const satisfies readonly RuntimeBackendId[];
+export const RUNTIME_BACKEND_IDS = ['apple-container', 'docker', 'host'] as const satisfies readonly RuntimeBackendId[];
 
 export const RUNTIME_CAPABILITIES = {
   'apple-container': createFullCapabilities(),
   docker: createFullCapabilities(),
-  'mac-host': createMacHostCapabilities(),
+  host: createHostCapabilities(),
 } as const satisfies Record<RuntimeBackendId, RuntimeCapabilities>;
 
 export function getRuntimeCapabilities(backend: RuntimeBackendId): RuntimeCapabilities {

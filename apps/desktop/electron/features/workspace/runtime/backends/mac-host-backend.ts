@@ -58,12 +58,12 @@ interface HostPathResolution {
 }
 
 export class MacHostBackend implements RuntimeBackend {
-  readonly backend = 'mac-host' as const;
+  readonly backend = 'host' as const;
   readonly workspaceId: string;
   readonly hostWorkspacePath: string;
   readonly runtimeWorkspacePath = RUNTIME_WORKSPACE_PATH;
   readonly workspaceAccess = 'host' as const;
-  readonly capabilities: RuntimeCapabilities = getRuntimeCapabilities('mac-host');
+  readonly capabilities: RuntimeCapabilities = getRuntimeCapabilities('host');
 
   private readonly terminals = new TerminalManager(() => 'host');
   private readonly workspaceManager?: Pick<WorkspaceManager, 'getRoots'>;
@@ -75,7 +75,7 @@ export class MacHostBackend implements RuntimeBackend {
   }
 
   async health(): Promise<RuntimeHealth> {
-    return { backend: this.backend, status: 'ready', message: 'Mac Host runtime is ready.' };
+    return { backend: this.backend, status: 'ready', message: 'Host runtime is ready.' };
   }
 
   async ensure(): Promise<RuntimeSession> {

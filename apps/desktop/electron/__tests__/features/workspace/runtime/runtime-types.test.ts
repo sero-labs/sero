@@ -16,7 +16,7 @@ import type { WorkspaceManager } from '@electron/features/workspace/manager';
 
 describe('runtime backend contract skeleton', () => {
   it('exposes the expected runtime backend ids', () => {
-    expect(RUNTIME_BACKEND_IDS).toEqual(['apple-container', 'docker', 'mac-host']);
+    expect(RUNTIME_BACKEND_IDS).toEqual(['apple-container', 'docker', 'host']);
   });
 
   it.each(RUNTIME_BACKEND_IDS)('defines complete capabilities for %s', (backend) => {
@@ -69,29 +69,29 @@ describe('runtime backend contract skeleton', () => {
     expect(RUNTIME_CAPABILITIES.docker.languageServers).toBe(true);
   });
 
-  it('marks mac-host as host access without container-only preview capabilities', async () => {
+  it('marks host as host access without container-only preview capabilities', async () => {
     const manager = new RuntimeManager({
       workspaceManager: {
         getPath: vi.fn().mockReturnValue('/Users/daniel/project'),
-        getRuntimeConfig: vi.fn().mockResolvedValue({ backend: 'mac-host' }),
+        getRuntimeConfig: vi.fn().mockResolvedValue({ backend: 'host' }),
       } as unknown as WorkspaceManager,
       containerManager: {} as ContainerManager,
     });
 
     const runtime = await manager.getRuntime('workspace-a');
 
-    expect(runtime.backend).toBe('mac-host');
+    expect(runtime.backend).toBe('host');
     expect(runtime.workspaceAccess).toBe('host');
     expect(runtime.runtimeWorkspacePath).toBe(RUNTIME_WORKSPACE_PATH);
     expect(runtime.capabilities.ports.previewUrl).toBe(false);
   });
 
   it('resolves and caches one real backend per workspace/backend pair', async () => {
-    const resolveBackend = vi.fn<(workspaceId: string) => RuntimeBackendId>().mockReturnValue('mac-host');
+    const resolveBackend = vi.fn<(workspaceId: string) => RuntimeBackendId>().mockReturnValue('host');
     const manager = new RuntimeManager({
       workspaceManager: {
         getPath: vi.fn().mockReturnValue('/Users/daniel/project'),
-        getRuntimeConfig: vi.fn().mockResolvedValue({ backend: 'mac-host' }),
+        getRuntimeConfig: vi.fn().mockResolvedValue({ backend: 'host' }),
       } as unknown as WorkspaceManager,
       containerManager: {} as ContainerManager,
       resolveBackend,
@@ -102,9 +102,9 @@ describe('runtime backend contract skeleton', () => {
     const health = await manager.getHealth('workspace-a');
 
     expect(first).toBe(second);
-    expect(first.backend).toBe('mac-host');
+    expect(first.backend).toBe('host');
     expect(first.workspaceAccess).toBe('host');
-    expect(health).toMatchObject({ backend: 'mac-host', status: 'ready' });
+    expect(health).toMatchObject({ backend: 'host', status: 'ready' });
   });
 
   it('resolves Docker when selected', async () => {
@@ -126,7 +126,7 @@ describe('runtime backend contract skeleton', () => {
     const manager = new RuntimeManager({
       workspaceManager: {
         getPath: vi.fn().mockReturnValue('/Users/daniel/project'),
-        getRuntimeConfig: vi.fn().mockResolvedValue({ backend: 'mac-host' }),
+        getRuntimeConfig: vi.fn().mockResolvedValue({ backend: 'host' }),
       } as unknown as WorkspaceManager,
       containerManager: { devServers: { list: vi.fn(() => []) } } as unknown as ContainerManager,
     });

@@ -1,6 +1,8 @@
 import type { DoctorResult } from '@electron/features/doctor/engine/types';
 
-export type RuntimeBackendId = 'apple-container' | 'docker' | 'mac-host';
+export type RuntimeBackendId = 'apple-container' | 'docker' | 'host';
+// Deprecated compatibility input; normalize to host on write.
+export type DeprecatedRuntimeBackendId = 'mac-host';
 export type RuntimeWorkspaceAccess = 'host' | 'live-mount';
 export type RuntimeDoctorCheck = DoctorResult;
 

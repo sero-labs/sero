@@ -45,8 +45,8 @@ export function WorkspaceReferencesMenu({ workspace }: { workspace: WorkspaceInf
     }
   };
 
-  const mountAvailabilityNotice = workspace.runtime.backend === 'mac-host'
-    ? 'Runtime mounts require Docker or Apple Container. This workspace is explicitly set to Mac Host, so reference and mount changes will apply after selecting an isolated runtime.'
+  const mountAvailabilityNotice = workspace.runtime.backend === 'host'
+    ? 'Runtime mounts require Docker or Apple Container. This workspace is explicitly set to Host, so reference and mount changes will apply after selecting an isolated runtime.'
     : container.status !== 'running'
       ? 'Runtime mounts apply when the selected runtime is healthy. Reference and mount changes may require runtime/container recreation before they take effect.'
       : null;

@@ -83,15 +83,15 @@ describe('WorkspaceReferencesMenu', () => {
     expect(document.body.textContent).toContain('runtime/container recreation');
   });
 
-  it('shows a different note when the workspace is explicitly configured for Mac Host', async () => {
+  it('shows a different note when the workspace is explicitly configured for Host', async () => {
     await act(async () => {
-      root?.render(<WorkspaceReferencesMenu workspace={{ ...workspace, runtime: { backend: 'mac-host' }, container: false }} />);
+      root?.render(<WorkspaceReferencesMenu workspace={{ ...workspace, runtime: { backend: 'host' }, container: false }} />);
     });
 
     await openMountMenu();
 
     expect(document.body.textContent).toContain('Runtime mounts require Docker or Apple Container.');
-    expect(document.body.textContent).toContain('explicitly set to Mac Host');
+    expect(document.body.textContent).toContain('explicitly set to Host');
     expect(document.body.textContent).toContain('after selecting an isolated runtime');
   });
 });

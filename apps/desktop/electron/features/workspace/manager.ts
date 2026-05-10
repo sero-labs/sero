@@ -14,7 +14,7 @@ import type {
   WorkspaceConfig,
   WorkspaceInfo,
 } from '@/types/ipc';
-import type { WorkspaceRuntimeBackend, WorkspaceRuntimeConfig } from '@/types/workspace-runtime';
+import type { WorkspaceRuntimeBackend, WorkspaceRuntimeBackendInput, WorkspaceRuntimeConfig } from '@/types/workspace-runtime';
 
 import { SERO_HOME, SERO_AGENT_DIR } from '@electron/platform/env';
 import { inferWorkspaceFromMessage } from './inference';
@@ -46,7 +46,7 @@ const DEFAULT_GLOBAL_CONFIG: WorkspaceConfig = {
   id: 'global',
   name: 'Global',
   description: 'Cross-cutting personal data — knowledge, finance, contacts, templates',
-  runtime: { backend: 'mac-host' },
+  runtime: { backend: 'host' },
   contextHints: ['Personal knowledge base and reference data'],
   tags: ['default', 'personal', 'knowledge'],
 };
@@ -138,7 +138,9 @@ export class WorkspaceManager {
   private async migrateRuntimeConfig(): Promise<void> {
     for (const entry of this.registry.workspaces) {
       const config = await this.readConfig(entry.path);
-      if (!config || (config.runtime?.backend && config.container === undefined)) continue;
+      const runtimeBackend = config?.runtime?.backend as WorkspaceRuntimeBackendInput | undefined;
+      // Deprecated compatibility input; normalize to host on write.
+      if (!config || (runtimeBackend && runtimeBackend !== 'mac-host' && config.container === undefined)) continue;
       await this.writeConfig(entry.path, config);
       this.configCache.delete(entry.id);
     }
@@ -407,12 +409,12 @@ export class WorkspaceManager {
 
   /** @deprecated compatibility shim while callers migrate to runtime.backend. */
   async isContainerEnabled(id: string): Promise<boolean> {
-    return (await this.getRuntimeConfig(id)).backend !== 'mac-host';
+    return (await this.getRuntimeConfig(id)).backend !== 'host';
   }
 
   /** @deprecated compatibility shim while callers migrate to runtime.backend. */
   async setContainerEnabled(id: string, enabled: boolean): Promise<void> {
-    const backend = enabled ? getDefaultRuntimeBackend({ workspaceId: id }) : 'mac-host';
+    const backend = enabled ? getDefaultRuntimeBackend({ workspaceId: id }) : 'host';
     await this.setRuntimeBackend(id, backend);
   }
 
@@ -460,7 +462,7 @@ export class WorkspaceManager {
       tags: config?.tags,
       open: entry.open,
       runtime,
-      container: runtime.backend !== 'mac-host',
+      container: runtime.backend !== 'host',
       references: config?.references ?? [],
       mounts: config?.mounts ?? [],
       roots: config?.roots ?? [],
