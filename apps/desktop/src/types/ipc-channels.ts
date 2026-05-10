@@ -34,7 +34,10 @@ export const IpcChannels = {
     infer: 'sero:workspace:infer',
     /** Inspect desired vs actual runtime state for one workspace or all workspaces. */
     runtimeDiagnostics: 'sero:workspace:runtime-diagnostics',
-    /** Toggle container mode for a workspace. Args: id, enabled. */
+    /** Get persisted runtime config for a workspace. */
+    getRuntimeConfig: 'sero:workspace:get-runtime-config',
+    setRuntimeBackend: 'sero:workspace:set-runtime-backend',
+    /** Toggle container mode for a workspace. Args: id, enabled. Deprecated compatibility channel. */
     setContainer: 'sero:workspace:set-container',
     /** Add a workspace reference (mount another workspace). Args: id, refId. */
     addReference: 'sero:workspace:add-reference',

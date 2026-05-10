@@ -75,13 +75,13 @@ describe('ContainerRuntimeNotice', () => {
     });
 
     await act(async () => {
-      findButton('Set up macOS containers').click();
+      findButton('Set up runtime').click();
     });
 
     expect(shellBridge.openExternal).toHaveBeenCalledWith(
       'https://github.com/sero-labs/sero/blob/main/docs/guides/macos-containers.md',
     );
-    expect(document.body.textContent).toContain('Sero can still continue in host mode');
+    expect(document.body.textContent).toContain('Docker is the normal runtime on Windows and Linux');
   });
 
   it('renders nothing when containers are available', async () => {
@@ -93,6 +93,6 @@ describe('ContainerRuntimeNotice', () => {
       }));
     });
 
-    expect(document.body.textContent).not.toContain('Containers recommended for full Sero features');
+    expect(document.body.textContent).not.toContain('Workspace runtime setup recommended for full Sero features');
   });
 });

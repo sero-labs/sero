@@ -487,7 +487,7 @@ Reference: `apps/desktop/electron/features/container/network/port-forward.ts` ha
 
 ## TODO DOCKER-RUNTIME-08 — Add renderer/preload IPC and runtime picker UX
 
-**Status:** Pending
+**Status:** Done
 **Tags:** `docker-runtime`
 
 **Plan:** `/Users/danielcarter/Documents/Dev/projects/sero/sero/.pi/plans/2026-05-10-docker-runtime-backend/plan.md`
@@ -542,13 +542,13 @@ setRuntimeBackend: async (id, backend) => {
 Reference: `apps/desktop/src/stores/workspace.ts` currently toggles `workspace.container` through `window.sero.workspace.setContainer`.
 
 ### Acceptance Criteria
-- [ ] Renderer can read `workspace.runtime.backend` for each workspace.
-- [ ] Runtime picker writes `runtime.backend` through IPC and refreshes workspace state.
-- [ ] Legacy container toggle is removed or clearly mapped to runtime backend without user-facing “OpenShell” or generic “container mode” confusion.
-- [ ] Platform availability/default copy matches the plan.
-- [ ] Tests cover macOS picker with Mac Host advanced option and Windows/Linux Docker-only normal path.
-- [ ] No localStorage/sessionStorage usage is added.
-- [ ] No touched source file exceeds 500 LOC.
+- [x] Renderer can read `workspace.runtime.backend` for each workspace.
+- [x] Runtime picker writes `runtime.backend` through IPC and refreshes workspace state.
+- [x] Legacy container toggle is removed or clearly mapped to runtime backend without user-facing “OpenShell” or generic “container mode” confusion.
+- [x] Platform availability/default copy matches the plan.
+- [x] Tests cover macOS picker with Mac Host advanced option and Windows/Linux Docker-only normal path.
+- [x] No localStorage/sessionStorage usage is added.
+- [x] No touched source file exceeds 500 LOC.
 
 ---
 

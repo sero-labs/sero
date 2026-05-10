@@ -136,7 +136,7 @@ describe('OnboardingWizard', () => {
       root?.render(<OnboardingWizard />);
     });
 
-    expect(document.body.textContent).toContain('Containers recommended for full Sero features');
+    expect(document.body.textContent).toContain('Workspace runtime setup recommended for full Sero features');
     expect(document.body.textContent).toContain('Install Apple containers.');
     expect(document.body.textContent).toContain('Continue');
   });
@@ -174,6 +174,6 @@ describe('OnboardingWizard', () => {
       root?.render(<OnboardingWizard />);
     });
 
-    expect(document.body.textContent).not.toContain('Containers recommended for full Sero features');
+    expect(document.body.textContent).not.toContain('Workspace runtime setup recommended for full Sero features');
   });
 });

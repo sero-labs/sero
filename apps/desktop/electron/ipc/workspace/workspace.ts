@@ -8,7 +8,9 @@ import { ipcMain, dialog, BrowserWindow } from 'electron';
 
 import { IpcChannels } from '@/types/ipc-channels';
 import type { WorkspaceInfo, WorkspaceConfig, WorkspaceRoot } from '@/types/ipc';
+import type { WorkspaceRuntimeBackend, WorkspaceRuntimeConfig } from '@/types/workspace-runtime';
 import { workspaceManager } from '@electron/features/workspace/manager';
+import { isWorkspaceRuntimeBackend } from '@electron/features/workspace/runtime/config';
 import { resolveWorkspaceRuntime } from '@electron/features/workspace/runtime-resolution';
 import { assertIsSeroPluginFolder } from '@electron/features/workspace/plugin-validation';
 import { recreateContainerIfRunning } from '@electron/features/workspace/container-sync';
@@ -127,11 +129,35 @@ export function registerWorkspaceHandlers(): void {
     },
   );
 
+  ipcMain.handle(
+    IpcChannels.workspace.getRuntimeConfig,
+    async (_event, id: string): Promise<WorkspaceRuntimeConfig> => {
+      return workspaceManager.getRuntimeConfig(id);
+    },
+  );
+
+  ipcMain.handle(
+    IpcChannels.workspace.setRuntimeBackend,
+    async (_event, id: string, backend: WorkspaceRuntimeBackend): Promise<WorkspaceInfo> => {
+      if (!isWorkspaceRuntimeBackend(backend)) throw new Error(`Invalid runtime backend: ${String(backend)}`);
+      await workspaceManager.setRuntimeBackend(id, backend);
+      await recreateContainerIfRunning(id);
+      await reconcileAppRuntimes('runtime backend change');
+      notifyWorkspaceChanged();
+      const workspace = (await workspaceManager.list()).find((candidate) => candidate.id === id);
+      if (!workspace) throw new Error(`Workspace not found: ${id}`);
+      return workspace;
+    },
+  );
+
   // ── Toggle container mode for a workspace ───────────────────
   ipcMain.handle(
     IpcChannels.workspace.setContainer,
     async (_event, id: string, enabled: boolean): Promise<void> => {
-      return workspaceManager.setContainerEnabled(id, enabled);
+      await workspaceManager.setContainerEnabled(id, enabled);
+      await recreateContainerIfRunning(id);
+      await reconcileAppRuntimes('container compatibility toggle');
+      notifyWorkspaceChanged();
     },
   );
 

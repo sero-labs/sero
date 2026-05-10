@@ -4,7 +4,7 @@ import type { OnboardingContainerRuntime } from '@/types/ipc';
 
 const LIMITATIONS = [
   'Browser automation',
-  'Containerized language servers',
+  'Runtime language servers',
   'Managed preview and dev-server automation',
 ] as const;
 
@@ -25,14 +25,14 @@ export function ContainerRuntimeNotice({
         </div>
         <div className="min-w-0 flex-1 space-y-3">
           <div className="space-y-1">
-            <p className="font-medium text-[var(--text-primary)]">Containers recommended for full Sero features</p>
+            <p className="font-medium text-[var(--text-primary)]">Workspace runtime setup recommended for full Sero features</p>
             <p>{runtime.message}</p>
-            <p>Sero can still continue in host mode while you finish onboarding.</p>
+            <p>Docker is the normal runtime on Windows and Linux. Mac Host remains an advanced macOS-only option.</p>
           </div>
 
           <ul className="list-disc space-y-1 pl-5 text-xs marker:text-[var(--status-warning)]">
             {LIMITATIONS.map((item) => (
-              <li key={item}>{item} may be limited until containers are configured.</li>
+              <li key={item}>{item} may be limited until Docker or Apple Container is configured.</li>
             ))}
           </ul>
 
@@ -45,7 +45,7 @@ export function ContainerRuntimeNotice({
                 onClick={() => void window.sero.shell.openExternal(runtime.docsUrl!)}
               >
                 <ExternalLink className="mr-2 size-3.5" />
-                Set up macOS containers
+                Set up runtime
               </Button>
             </div>
           ) : null}

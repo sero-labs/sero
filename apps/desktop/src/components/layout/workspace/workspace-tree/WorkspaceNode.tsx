@@ -1,12 +1,10 @@
 import { useState } from 'react';
 import {
-  Box,
   ChevronDown,
   ChevronRight,
   FolderOpen,
   GitBranch,
   Minus,
-  Monitor,
   Plus,
   Trash2,
   X,
@@ -18,6 +16,7 @@ import { IconAction } from '@/components/ui/IconAction';
 import { SessionNode } from '../SessionNode';
 import { WorkspaceReferencesMenu } from '../WorkspaceReferencesMenu';
 import { RemoteOriginManager } from '../RemoteOriginManager';
+import { RuntimePickerMenu } from './RuntimePickerMenu';
 import { useSessionStore } from '@/stores/sessions';
 import { type ContainerStatus, useWorkspaceContainer } from '@/stores/container';
 import { useWorkspaceStore } from '@/stores/workspace';
@@ -66,7 +65,6 @@ export function WorkspaceNode({ workspace, sessions }: WorkspaceNodeProps) {
   const activeWorkspaceId = useWorkspaceStore((state) => state.activeWorkspaceId);
   const setActiveWorkspace = useWorkspaceStore((state) => state.setActiveWorkspace);
   const closeWorkspace = useWorkspaceStore((state) => state.closeWorkspace);
-  const toggleContainer = useWorkspaceStore((state) => state.toggleContainer);
   const createSession = useSessionStore((state) => state.createSession);
   const deleteSelectedSessions = useSessionStore((state) => state.deleteSelectedSessions);
   const clearSelection = useSessionStore((state) => state.clearSelection);
@@ -87,11 +85,6 @@ export function WorkspaceNode({ workspace, sessions }: WorkspaceNodeProps) {
     event.stopPropagation();
     await createSession(workspace.id);
     setActiveWorkspace(workspace.id);
-  };
-
-  const handleToggleContainer = async (event: React.MouseEvent | React.KeyboardEvent) => {
-    event.stopPropagation();
-    await toggleContainer(workspace.id);
   };
 
   const handleClose = (event: React.MouseEvent | React.KeyboardEvent) => {
@@ -224,21 +217,8 @@ export function WorkspaceNode({ workspace, sessions }: WorkspaceNodeProps) {
                 >
                   <Plus className="size-3" />
                 </IconAction>
-                <IconAction
-                  as="span"
-                  role="button"
-                  tabIndex={-1}
-                  onClick={handleToggleContainer}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter') {
-                      void handleToggleContainer(event);
-                    }
-                  }}
-                  title={workspace.container ? 'Disable container (use host)' : 'Enable container'}
-                >
-                  {workspace.container ? <Box className="size-3" /> : <Monitor className="size-3" />}
-                </IconAction>
-                {workspace.container && <WorkspaceReferencesMenu workspace={workspace} />}
+                <RuntimePickerMenu workspace={workspace} />
+                {workspace.runtime.backend !== 'mac-host' && <WorkspaceReferencesMenu workspace={workspace} />}
                 <IconAction
                   as="span"
                   role="button"

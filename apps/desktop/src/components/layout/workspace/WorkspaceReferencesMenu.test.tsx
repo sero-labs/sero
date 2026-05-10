@@ -28,7 +28,7 @@ const workspace: WorkspaceInfo = {
 };
 
 async function openMountMenu() {
-  const trigger = document.querySelector('[title="Manage container mounts"]');
+  const trigger = document.querySelector('[title="Manage runtime mounts"]');
   if (!(trigger instanceof HTMLElement)) {
     throw new Error('Expected mount menu trigger');
   }
@@ -72,26 +72,26 @@ describe('WorkspaceReferencesMenu', () => {
     useContainerStore.setState(initialContainerState, true);
   });
 
-  it('shows an explicit fallback note when a container workspace is temporarily on the host', async () => {
+  it('shows an explicit note when runtime mounts need recreation or repair', async () => {
     await act(async () => {
       root?.render(<WorkspaceReferencesMenu workspace={workspace} />);
     });
 
     await openMountMenu();
 
-    expect(document.body.textContent).toContain('Container mounts are a container-only feature.');
-    expect(document.body.textContent).toContain('will not take effect until its container is healthy again');
+    expect(document.body.textContent).toContain('Runtime mounts apply when the selected runtime is healthy.');
+    expect(document.body.textContent).toContain('runtime/container recreation');
   });
 
-  it('shows a different note when the workspace is explicitly configured for host mode', async () => {
+  it('shows a different note when the workspace is explicitly configured for Mac Host', async () => {
     await act(async () => {
-      root?.render(<WorkspaceReferencesMenu workspace={{ ...workspace, container: false }} />);
+      root?.render(<WorkspaceReferencesMenu workspace={{ ...workspace, runtime: { backend: 'mac-host' }, container: false }} />);
     });
 
     await openMountMenu();
 
-    expect(document.body.textContent).toContain('Container mounts are a container-only feature.');
-    expect(document.body.textContent).toContain('explicitly set to host mode');
-    expect(document.body.textContent).toContain('until container mode is re-enabled');
+    expect(document.body.textContent).toContain('Runtime mounts require Docker or Apple Container.');
+    expect(document.body.textContent).toContain('explicitly set to Mac Host');
+    expect(document.body.textContent).toContain('after selecting an isolated runtime');
   });
 });
