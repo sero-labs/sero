@@ -5,12 +5,13 @@ import {
   UnsupportedRuntimeOnPlatformError,
 } from '@electron/features/workspace/runtime/capabilities';
 import { RuntimeManager } from '@electron/features/workspace/runtime/runtime-manager';
+import { HostBackend } from '@electron/features/workspace/runtime/backends/host/host-backend';
 import {
   RUNTIME_WORKSPACE_PATH,
   toHostWorkspacePath,
   toRuntimeWorkspacePath,
 } from '@electron/features/workspace/runtime/runtime-paths';
-import type { RuntimeBackendId, RuntimeDevServer } from '@electron/features/workspace/runtime/types';
+import type { RuntimeBackendId, RuntimeDevServer, RuntimeDevServerChangeEvent } from '@electron/features/workspace/runtime/types';
 import type { ContainerManager } from '@electron/features/container';
 import type { WorkspaceManager } from '@electron/features/workspace/manager';
 
@@ -193,6 +194,73 @@ describe('runtime backend contract skeleton', () => {
     expect(hostDestroy).toHaveBeenCalledTimes(1);
     expect(dockerRuntime).not.toBe(hostRuntime);
     expect(dockerRuntime.backend).toBe('docker');
+  });
+
+  it('re-emits backend dev-server events and unsubscribes on reset', async () => {
+    const backendCallbacks: Array<(event: RuntimeDevServerChangeEvent) => void> = [];
+    const unsubscribe = vi.fn();
+    const onDevServerChange = vi.spyOn(HostBackend.prototype, 'onDevServerChange')
+      .mockImplementation((cb) => {
+        backendCallbacks.push(cb);
+        return unsubscribe;
+      });
+    const manager = new RuntimeManager({
+      workspaceManager: {
+        getPath: vi.fn().mockReturnValue('/Users/daniel/project'),
+        getRuntimeConfig: vi.fn().mockResolvedValue({ backend: 'host' }),
+      } as unknown as WorkspaceManager,
+      containerManager: {} as ContainerManager,
+    });
+    const events: unknown[] = [];
+    manager.onDevServerChange((event) => events.push(event));
+
+    await manager.getRuntime('workspace-a');
+    backendCallbacks[0]?.({
+      type: 'registered',
+      workspaceId: 'workspace-a',
+      serverId: 'workspace-a:workspace:root:5173',
+      status: 'running',
+    });
+    await manager.resetWorkspaceRuntime('workspace-a');
+
+    expect(events).toEqual([
+      expect.objectContaining({ type: 'registered', workspaceId: 'workspace-a', status: 'running' }),
+    ]);
+    expect(unsubscribe).toHaveBeenCalledTimes(1);
+    onDevServerChange.mockRestore();
+  });
+
+  it('continues to forward legacy container dev-server events', () => {
+    let legacyCallback: ((event: { type: 'registered'; server: RuntimeDevServer & { workspaceId: string } }) => void) | undefined;
+    const manager = new RuntimeManager({
+      workspaceManager: {} as WorkspaceManager,
+      containerManager: {
+        devServers: {
+          onChange: vi.fn((cb) => {
+            legacyCallback = cb;
+            return vi.fn();
+          }),
+        },
+      } as unknown as ContainerManager,
+    });
+    const events: unknown[] = [];
+
+    manager.onDevServerChange((event) => events.push(event));
+    legacyCallback?.({
+      type: 'registered',
+      server: {
+        id: 'workspace-a:workspace:root:5173',
+        workspaceId: 'workspace-a',
+        port: 5173,
+        url: 'http://127.0.0.1:5173',
+        command: 'pnpm dev',
+        cwd: '/workspace',
+      },
+    });
+
+    expect(events).toEqual([
+      expect.objectContaining({ type: 'registered', workspaceId: 'workspace-a', serverId: 'workspace-a:workspace:root:5173' }),
+    ]);
   });
 
   it('merges runtime-backed dev servers without registering host servers in the legacy container registry', async () => {

@@ -5,7 +5,7 @@ import { workspaceManager } from '@electron/features/workspace/manager';
 import { AppleContainerBackend } from './backends/apple-container-backend';
 import { DockerBackend } from './backends/docker/docker-backend';
 import { HostBackend } from './backends/host/host-backend';
-import type { RuntimeBackend, RuntimeBackendId, RuntimeHealth, RuntimeTerminalSession } from './types';
+import type { RuntimeBackend, RuntimeBackendId, RuntimeDevServerChangeEvent, RuntimeHealth, RuntimeTerminalSession } from './types';
 
 export interface RuntimeManagerDependencies {
   workspaceManager: WorkspaceManager;
@@ -17,6 +17,8 @@ export class RuntimeManager {
   private readonly backends = new Map<string, RuntimeBackend>();
   private readonly terminals = new Map<string, { workspaceId: string; session: RuntimeTerminalSession }>();
   private readonly terminalExitCallbacks = new Set<(terminalId: string) => void>();
+  private readonly devServerCallbacks = new Set<(event: RuntimeDevServerChangeEvent) => void>();
+  private readonly backendDevServerUnsubs = new Map<string, () => void>();
 
   constructor(private readonly dependencies: RuntimeManagerDependencies) {}
 
@@ -33,6 +35,7 @@ export class RuntimeManager {
 
     const backend = this.createBackend(backendId, workspaceId, hostWorkspacePath);
     this.backends.set(cacheKey, backend);
+    this.subscribeBackendDevServers(cacheKey, backend);
     return backend;
   }
 
@@ -117,13 +120,15 @@ export class RuntimeManager {
     }));
   }
 
-  onDevServerChange(cb: (event: {
-    type: 'registered' | 'unregistered' | 'status_changed';
-    serverId?: string;
-    server?: { workspaceId: string };
-    status?: 'running' | 'stopped' | 'starting';
-  }) => void): () => void {
-    return this.dependencies.containerManager.devServers.onChange(cb);
+  onDevServerChange(cb: (event: RuntimeDevServerChangeEvent) => void): () => void {
+    this.devServerCallbacks.add(cb);
+    const legacyUnsubscribe = this.dependencies.containerManager.devServers?.onChange((event) => {
+      this.emitDevServerChange(normalizeLegacyDevServerEvent(event));
+    }) ?? (() => undefined);
+    return () => {
+      this.devServerCallbacks.delete(cb);
+      legacyUnsubscribe();
+    };
   }
 
   disposeTerminal(terminalId: string): void {
@@ -148,6 +153,7 @@ export class RuntimeManager {
     const runtimes = [...this.backends.entries()].filter(([key]) => key.startsWith(`${workspaceId}:`));
     await Promise.all(runtimes.map(([, runtime]) => runtime.destroy()));
     for (const [key] of runtimes) {
+      this.unsubscribeBackendDevServers(key);
       this.backends.delete(key);
     }
   }
@@ -155,6 +161,7 @@ export class RuntimeManager {
   async destroyAll(): Promise<void> {
     for (const terminalId of this.terminals.keys()) this.disposeTerminal(terminalId);
     await Promise.all([...this.backends.values()].map((runtime) => runtime.destroy()));
+    for (const key of this.backends.keys()) this.unsubscribeBackendDevServers(key);
     this.backends.clear();
   }
 
@@ -187,6 +194,21 @@ export class RuntimeManager {
     }
   }
 
+  private subscribeBackendDevServers(cacheKey: string, backend: RuntimeBackend): void {
+    this.unsubscribeBackendDevServers(cacheKey);
+    const unsubscribe = backend.onDevServerChange?.((event) => this.emitDevServerChange(event));
+    if (unsubscribe) this.backendDevServerUnsubs.set(cacheKey, unsubscribe);
+  }
+
+  private unsubscribeBackendDevServers(cacheKey: string): void {
+    this.backendDevServerUnsubs.get(cacheKey)?.();
+    this.backendDevServerUnsubs.delete(cacheKey);
+  }
+
+  private emitDevServerChange(event: RuntimeDevServerChangeEvent): void {
+    for (const cb of this.devServerCallbacks) cb(event);
+  }
+
   private async resolveBackendId(workspaceId: string): Promise<RuntimeBackendId> {
     if (this.dependencies.resolveBackend) {
       return this.dependencies.resolveBackend(workspaceId);
@@ -194,6 +216,42 @@ export class RuntimeManager {
 
     return (await this.dependencies.workspaceManager.getRuntimeConfig(workspaceId)).backend;
   }
+}
+
+function normalizeLegacyDevServerEvent(event: {
+  type: 'registered' | 'unregistered' | 'status_changed';
+  serverId?: string;
+  server?: {
+    id: string;
+    workspaceId: string;
+    port: number;
+    url: string;
+    command: string;
+    cwd: string;
+    status?: RuntimeDevServerChangeEvent['status'];
+  };
+  status?: RuntimeDevServerChangeEvent['status'];
+}): RuntimeDevServerChangeEvent {
+  const workspaceId = event.server?.workspaceId ?? workspaceIdFromServerId(event.serverId ?? event.server?.id ?? '');
+  return {
+    type: event.type,
+    workspaceId,
+    serverId: event.serverId ?? event.server?.id,
+    server: event.server ? {
+      id: event.server.id,
+      workspaceId: event.server.workspaceId,
+      port: event.server.port,
+      url: event.server.url,
+      command: event.server.command,
+      cwd: event.server.cwd,
+      status: event.server.status,
+    } : undefined,
+    status: event.status ?? event.server?.status,
+  };
+}
+
+function workspaceIdFromServerId(serverId: string): string {
+  return serverId.split(':')[0] ?? '';
 }
 
 export const runtimeManager = new RuntimeManager({

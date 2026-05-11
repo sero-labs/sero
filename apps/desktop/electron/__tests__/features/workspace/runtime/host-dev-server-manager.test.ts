@@ -28,6 +28,46 @@ describe('HostDevServerManager', () => {
     expect(parseLsofPort('COMMAND PID USER FD TYPE DEVICE SIZE/OFF NODE NAME')).toBeNull();
   });
 
+  it('emits registered and unregistered events for host dev servers', async () => {
+    const process = createProcess();
+    const manager = new HostDevServerManager({
+      workspaceId: 'workspace-a',
+      platform: 'darwin',
+      spawn: vi.fn(async () => process),
+      execFile: vi.fn(async (input) => input.program === 'pgrep'
+        ? fail()
+        : ok('node 1234 user 22u IPv4 TCP 127.0.0.1:5173 (LISTEN)')),
+      pollIntervalMs: 1,
+      portDetectTimeoutMs: 10,
+    });
+    const events: unknown[] = [];
+    manager.onChange((event) => events.push(event));
+
+    const server = await manager.start({ command: 'pnpm dev', cwd: '/workspace' });
+    await manager.stop({ serverId: server.id });
+
+    expect(events).toEqual([
+      expect.objectContaining({
+        type: 'registered',
+        workspaceId: 'workspace-a',
+        serverId: server.id,
+        status: 'running',
+      }),
+      expect.objectContaining({
+        type: 'status_changed',
+        workspaceId: 'workspace-a',
+        serverId: server.id,
+        status: 'stopped',
+      }),
+      expect.objectContaining({
+        type: 'unregistered',
+        workspaceId: 'workspace-a',
+        serverId: server.id,
+        status: 'stopped',
+      }),
+    ]);
+  });
+
   it('starts a host dev server with detected localhost URL', async () => {
     const spawn = vi.fn<(input: RuntimeProcessInput) => Promise<ReturnType<typeof createProcess>>>()
       .mockResolvedValue(createProcess());

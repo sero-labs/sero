@@ -11,6 +11,7 @@ import type {
   RuntimeCreateFileInput,
   RuntimeDeleteInput,
   RuntimeDevServer,
+  RuntimeDevServerChangeEvent,
   RuntimeDevServerRestartInput,
   RuntimeDevServerStartInput,
   RuntimeDevServerStatus,
@@ -69,6 +70,7 @@ export class DockerBackend implements RuntimeBackend {
   private readonly imageRef: string;
   private readonly run: DockerRunner;
   private readonly terminals = new DockerTerminalRegistry();
+  private readonly devServerCallbacks = new Set<(event: RuntimeDevServerChangeEvent) => void>();
   private ports: DockerPortManager | null = null;
   private ensureInflight: Promise<RuntimeSession> | null = null;
 
@@ -99,6 +101,15 @@ export class DockerBackend implements RuntimeBackend {
 
   async destroy(): Promise<void> {
     this.terminals.disposeAll();
+    for (const server of this.ports?.listServers() ?? []) {
+      this.ports?.deleteServer(server.id);
+      this.emitDevServerChange({
+        type: 'unregistered',
+        workspaceId: this.workspaceId,
+        serverId: server.id,
+        status: 'stopped',
+      });
+    }
     await this.run(['rm', '-f', dockerContainerName(this.workspaceId)], { timeoutMs: 30_000 });
   }
 
@@ -217,13 +228,21 @@ export class DockerBackend implements RuntimeBackend {
     if (result.exitCode !== 0) throw new Error(`Dev server start failed: ${result.stderr || result.stdout || input.command}`);
     const port = await this.waitForStartedPort(beforePorts);
     const forwarded = await ports.forwardPort(port);
-    return ports.registerServer({
+    const server = ports.registerServer({
       id: `${this.workspaceId}:${input.scope ?? 'workspace'}:${input.cardId ?? 'root'}:${port}`,
       port,
       url: forwarded.url,
       command: input.command,
       cwd: input.cwd || this.runtimeWorkspacePath,
     });
+    this.emitDevServerChange({
+      type: 'registered',
+      workspaceId: this.workspaceId,
+      serverId: server.id,
+      server: { ...server, workspaceId: this.workspaceId },
+      status: 'running',
+    });
+    return server;
   }
 
   async stopDevServer(input: RuntimeDevServerStopInput): Promise<void> {
@@ -233,6 +252,12 @@ export class DockerBackend implements RuntimeBackend {
     await this.killPort(server.port);
     await ports.stopForward(server.port);
     ports.deleteServer(input.serverId);
+    this.emitDevServerChange({
+      type: 'unregistered',
+      workspaceId: this.workspaceId,
+      serverId: input.serverId,
+      status: 'stopped',
+    });
   }
 
   async restartDevServer(input: RuntimeDevServerRestartInput): Promise<RuntimeDevServer> {
@@ -250,6 +275,11 @@ export class DockerBackend implements RuntimeBackend {
 
   listDevServersSync(): RuntimeDevServer[] {
     return this.ports?.listServers() ?? [];
+  }
+
+  onDevServerChange(cb: (event: RuntimeDevServerChangeEvent) => void): () => void {
+    this.devServerCallbacks.add(cb);
+    return () => this.devServerCallbacks.delete(cb);
   }
 
   async forwardPort(input: RuntimeForwardPortInput): Promise<RuntimeForwardedPort> {
@@ -328,6 +358,10 @@ export class DockerBackend implements RuntimeBackend {
   private async expectOk(command: string): Promise<void> {
     const result = await this.exec({ command });
     if (result.exitCode !== 0) throw new Error(result.stderr || result.stdout || `Command failed: ${command}`);
+  }
+
+  private emitDevServerChange(event: RuntimeDevServerChangeEvent): void {
+    for (const cb of this.devServerCallbacks) cb(event);
   }
 }
 

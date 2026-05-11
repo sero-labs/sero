@@ -2,6 +2,7 @@ import net from 'net';
 
 import type {
   RuntimeDevServer,
+  RuntimeDevServerChangeEvent,
   RuntimeDevServerRestartInput,
   RuntimeDevServerStartInput,
   RuntimeDevServerStatus,
@@ -49,6 +50,7 @@ export class HostDevServerManager {
   private readonly portDetectTimeoutMs: number;
   private readonly tcpProbe: TcpProbe;
   private readonly probeRetryDelayMs: number;
+  private readonly changeCallbacks = new Set<(event: RuntimeDevServerChangeEvent) => void>();
 
   constructor(options: HostDevServerManagerOptions) {
     this.workspaceId = options.workspaceId;
@@ -91,6 +93,13 @@ export class HostDevServerManager {
         record.diagnosticCode = 'wsl-localhost-forwarding-disabled';
       }
       this.servers.set(record.id, record);
+      this.emitDevServerChange({
+        type: 'registered',
+        workspaceId: this.workspaceId,
+        serverId: record.id,
+        server: { ...toRuntimeServer(record), workspaceId: this.workspaceId },
+        status: 'running',
+      });
       return toRuntimeServer(record);
     } catch (err) {
       if (!terminated) process.signal('SIGTERM');
@@ -103,13 +112,25 @@ export class HostDevServerManager {
     if (!server) throw new Error(`Dev server not found: ${input.serverId}`);
     server.process?.signal('SIGTERM');
     server.status = 'stopped';
+    this.emitDevServerChange({
+      type: 'status_changed',
+      workspaceId: this.workspaceId,
+      serverId: server.id,
+      status: 'stopped',
+    });
+    this.servers.delete(input.serverId);
+    this.emitDevServerChange({
+      type: 'unregistered',
+      workspaceId: this.workspaceId,
+      serverId: server.id,
+      status: 'stopped',
+    });
   }
 
   async restart(input: RuntimeDevServerRestartInput): Promise<RuntimeDevServer> {
     const server = this.servers.get(input.serverId);
     if (!server) throw new Error(`Dev server not found: ${input.serverId}`);
     await this.stop(input);
-    this.servers.delete(input.serverId);
     return this.start({ command: server.command, cwd: server.cwd });
   }
 
@@ -122,10 +143,21 @@ export class HostDevServerManager {
     return [...this.servers.values()].map(toRuntimeServer);
   }
 
+  onChange(cb: (event: RuntimeDevServerChangeEvent) => void): () => void {
+    this.changeCallbacks.add(cb);
+    return () => this.changeCallbacks.delete(cb);
+  }
+
   dispose(): void {
     for (const server of this.servers.values()) {
       server.process?.signal('SIGTERM');
       server.status = 'stopped';
+      this.emitDevServerChange({
+        type: 'unregistered',
+        workspaceId: this.workspaceId,
+        serverId: server.id,
+        status: 'stopped',
+      });
     }
     this.servers.clear();
   }
@@ -184,6 +216,10 @@ export class HostDevServerManager {
       if (attempt < 2) await sleep(this.probeRetryDelayMs);
     }
     return false;
+  }
+
+  private emitDevServerChange(event: RuntimeDevServerChangeEvent): void {
+    for (const cb of this.changeCallbacks) cb(event);
   }
 
 }

@@ -9,6 +9,7 @@ import { ensureDockerImage } from '@electron/features/workspace/runtime/backends
 import { createDockerRunArgs } from '@electron/features/workspace/runtime/backends/docker/docker-lifecycle';
 import { mountArgs } from '@electron/features/workspace/runtime/backends/docker/docker-mounts';
 import { DockerBackend } from '@electron/features/workspace/runtime/backends/docker/docker-backend';
+import type { RuntimeDevServer } from '@electron/features/workspace/runtime/types';
 
 vi.mock('@electron/platform/env', () => ({
   SERO_AGENT_DIR: '/tmp/sero-agent',
@@ -109,6 +110,50 @@ describe('Docker runtime backend core', () => {
       '-t', 'ghcr.io/sero-labs/sero-node:0.1.0',
       '--build-arg', 'SERO_NODE_VERSION=0.1.0',
     ]));
+  });
+
+  it('emits dev-server registration and unregistration events', async () => {
+    const server: RuntimeDevServer = {
+      id: 'ws-1:workspace:root:5173',
+      port: 5173,
+      url: 'http://127.0.0.1:51000',
+      command: 'pnpm dev',
+      cwd: '/workspace',
+    };
+    const ports = {
+      detectPorts: vi.fn()
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([5173]),
+      forwardPort: vi.fn().mockResolvedValue({ targetPort: 5173, hostPort: 51000, url: server.url, bridged: true }),
+      registerServer: vi.fn().mockReturnValue(server),
+      getServer: vi.fn().mockReturnValue(server),
+      stopForward: vi.fn().mockResolvedValue(undefined),
+      deleteServer: vi.fn().mockReturnValue(true),
+    };
+    const backend = new DockerBackend({
+      workspaceId: 'ws-1',
+      hostWorkspacePath: '/tmp/sero-docker-workspace',
+      workspaceManager: { getRuntimeConfig: vi.fn().mockResolvedValue({ backend: 'docker', previewPortPoolSize: 2 }) } as unknown as WorkspaceManager,
+      run: vi.fn(async () => ok()),
+    });
+    vi.spyOn(backend, 'ensure').mockResolvedValue({
+      backend: 'docker',
+      workspaceId: 'ws-1',
+      hostWorkspacePath: '/tmp/sero-docker-workspace',
+      runtimeWorkspacePath: '/workspace',
+      state: 'running',
+    });
+    Object.assign(backend as unknown as { ports: typeof ports }, { ports });
+    const events: unknown[] = [];
+    backend.onDevServerChange((event) => events.push(event));
+
+    const started = await backend.startDevServer({ command: 'pnpm dev', cwd: '/workspace' });
+    await backend.stopDevServer({ serverId: started.id });
+
+    expect(events).toEqual([
+      expect.objectContaining({ type: 'registered', workspaceId: 'ws-1', serverId: server.id, status: 'running' }),
+      expect.objectContaining({ type: 'unregistered', workspaceId: 'ws-1', serverId: server.id, status: 'stopped' }),
+    ]);
   });
 
   it('exec injects cwd, env, runtime env, and trusted git auth only when requested', async () => {

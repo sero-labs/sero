@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { ContainerManager } from '@electron/features/container';
 import type { WorkspaceManager } from '@electron/features/workspace/manager';
 import { AppleContainerBackend } from '@electron/features/workspace/runtime/backends/apple-container-backend';
+import type { RuntimeDevServer } from '@electron/features/workspace/runtime/types';
 
 function createWorkspaceManager(): WorkspaceManager {
   return {
@@ -135,6 +136,46 @@ describe('AppleContainerBackend', () => {
     await expect(backend.rename({ oldPath: '/workspace/a', newPath: '/workspace/b' })).rejects.toThrow('permission denied');
     await expect(backend.delete({ path: '/workspace/a' })).rejects.toThrow('permission denied');
     await expect(backend.createDirectory({ path: '/workspace/a', recursive: true })).rejects.toThrow('permission denied');
+  });
+
+  it('emits dev-server registration and unregistration events', async () => {
+    const server: RuntimeDevServer = {
+      id: 'workspace-a:workspace:root:5173',
+      port: 5173,
+      url: 'http://127.0.0.1:51000',
+      command: 'pnpm dev',
+      cwd: '/workspace',
+    };
+    const ports = {
+      detectPorts: vi.fn()
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([5173]),
+      forwardPort: vi.fn().mockResolvedValue({ targetPort: 5173, hostPort: 51000, url: server.url, bridged: true }),
+      registerServer: vi.fn().mockReturnValue(server),
+      getServer: vi.fn().mockReturnValue(server),
+      stopForward: vi.fn().mockResolvedValue(undefined),
+      deleteServer: vi.fn().mockReturnValue(true),
+    };
+    const containerManager = createContainerManager();
+    const backend = createBackend(containerManager);
+    vi.spyOn(backend, 'ensure').mockResolvedValue({
+      backend: 'apple-container',
+      workspaceId: 'workspace-a',
+      hostWorkspacePath: '/Users/daniel/project',
+      runtimeWorkspacePath: '/workspace',
+      state: 'running',
+    });
+    Object.assign(backend as unknown as { ports: typeof ports }, { ports });
+    const events: unknown[] = [];
+    backend.onDevServerChange((event) => events.push(event));
+
+    const started = await backend.startDevServer({ command: 'pnpm dev', cwd: '/workspace' });
+    await backend.stopDevServer({ serverId: started.id });
+
+    expect(events).toEqual([
+      expect.objectContaining({ type: 'registered', workspaceId: 'workspace-a', serverId: server.id, status: 'running' }),
+      expect.objectContaining({ type: 'unregistered', workspaceId: 'workspace-a', serverId: server.id, status: 'stopped' }),
+    ]);
   });
 
   it('resolves preview URLs through loopback host-port pool bridges', async () => {

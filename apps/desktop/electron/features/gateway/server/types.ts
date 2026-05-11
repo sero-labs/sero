@@ -41,7 +41,7 @@ export interface GatewayDevServerInfo {
   name: string;
   port: number;
   framework?: string;
-  status: 'running' | 'stopped' | 'starting';
+  status: 'running' | 'stopped' | 'starting' | 'failed';
   registeredAt: string;
 }
 

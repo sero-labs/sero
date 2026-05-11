@@ -128,16 +128,27 @@ export interface RuntimeDevServerStartInput {
   logPath?: string;
 }
 export type RuntimeDevServerDiagnosticCode = 'dev-server-port-detect-timeout' | 'wsl-localhost-forwarding-disabled';
+export type RuntimeDevServerStatusValue = 'running' | 'stopped' | 'starting' | 'failed';
+
 export interface RuntimeDevServer {
   id: string;
   port: number;
   url: string;
   command: string;
   cwd: string;
-  status?: 'starting' | 'running' | 'failed' | 'stopped';
+  status?: RuntimeDevServerStatusValue;
   pid?: number;
   diagnosticCode?: RuntimeDevServerDiagnosticCode;
 }
+
+export interface RuntimeDevServerChangeEvent {
+  type: 'registered' | 'unregistered' | 'status_changed';
+  workspaceId: string;
+  serverId?: string;
+  server?: RuntimeDevServer & { workspaceId: string };
+  status?: RuntimeDevServerStatusValue;
+}
+
 export interface RuntimeDevServerStopInput { serverId: string; }
 export interface RuntimeDevServerRestartInput { serverId: string; }
 export interface RuntimeDevServerStatusInput { serverId?: string; }
@@ -191,6 +202,7 @@ export interface RuntimeBackend {
   restartDevServer(input: RuntimeDevServerRestartInput): Promise<RuntimeDevServer>;
   getDevServerStatus(input: RuntimeDevServerStatusInput): Promise<RuntimeDevServerStatus>;
   listDevServersSync?(): RuntimeDevServer[];
+  onDevServerChange?(cb: (event: RuntimeDevServerChangeEvent) => void): () => void;
 
   forwardPort(input: RuntimeForwardPortInput): Promise<RuntimeForwardedPort>;
   stopForward(input: RuntimeStopForwardInput): Promise<void>;

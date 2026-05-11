@@ -13,6 +13,7 @@ import type {
   RuntimeCreateFileInput,
   RuntimeDeleteInput,
   RuntimeDevServer,
+  RuntimeDevServerChangeEvent,
   RuntimeDevServerRestartInput,
   RuntimeDevServerStartInput,
   RuntimeDevServerStatus,
@@ -304,6 +305,10 @@ export class HostBackend implements RuntimeBackend {
 
   listDevServersSync(): RuntimeDevServer[] {
     return this.devServers.list();
+  }
+
+  onDevServerChange(cb: (event: RuntimeDevServerChangeEvent) => void): () => void {
+    return this.devServers.onChange(cb);
   }
 
   async forwardPort(_input: RuntimeForwardPortInput): Promise<RuntimeForwardedPort> {
