@@ -175,6 +175,15 @@ async function ensureAgentBrowserAvailable(runtime: RuntimeBackend, workspaceId:
   }
 }
 
+async function closeBrowserSessionQuietly(runtime: RuntimeBackend, workspaceId: string): Promise<void> {
+  await runtime.exec({ command: sessionCommand(workspaceId, ['close', '--json']), timeoutMs: 10_000 }).catch(() => undefined);
+}
+
+function isNavigationError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /Page\.navigate|Navigation failed|ERR_|net::|timed out/i.test(message);
+}
+
 async function runAgent(
   runtime: RuntimeBackend,
   workspaceId: string,
@@ -242,26 +251,27 @@ async function launchBrowser(
   const targetUrl = params.url ?? 'about:blank';
   const viewport = params.viewport;
   const hasViewport = viewport?.width !== undefined || viewport?.height !== undefined;
-  let response: AgentBrowserJson;
-
-  if (hasViewport) {
-    response = await runAgent(runtime, workspaceId, ['open', 'about:blank']);
-    await runAgent(
-      runtime,
-      workspaceId,
-      ['set', 'viewport', String(viewport?.width ?? 1280), String(viewport?.height ?? 720)],
-      { execTimeoutMs: 20_000 },
-    );
-    if (targetUrl !== 'about:blank') response = await runAgent(runtime, workspaceId, ['open', targetUrl]);
-  } else {
-    response = await runAgent(runtime, workspaceId, ['open', targetUrl]);
+  try {
+    let response: AgentBrowserJson;
+    if (hasViewport) {
+      response = await runAgent(runtime, workspaceId, ['open', 'about:blank']);
+      await runAgent(runtime, workspaceId, ['set', 'viewport', String(viewport?.width ?? 1280), String(viewport?.height ?? 720)], { execTimeoutMs: 20_000 });
+      if (targetUrl !== 'about:blank') response = await runAgent(runtime, workspaceId, ['open', targetUrl]);
+    } else {
+      response = await runAgent(runtime, workspaceId, ['open', targetUrl]);
+    }
+    const waitUntil = params.wait_until ?? 'domcontentloaded';
+    if (targetUrl !== 'about:blank' && waitUntil !== 'domcontentloaded') {
+      await runAgent(runtime, workspaceId, ['wait', '--load', waitUntil], { execTimeoutMs: 30_000 });
+    }
+    return response;
+  } catch (error) {
+    if (!isNavigationError(error)) throw error;
+    await closeBrowserSessionQuietly(runtime, workspaceId);
+    await runAgent(runtime, workspaceId, ['open', 'about:blank']).catch(() => undefined);
+    const message = error instanceof Error ? error.message : String(error);
+    return { success: false, warning: `Navigation to ${targetUrl} failed and the browser session was reset: ${message}`, url: 'about:blank' };
   }
-
-  const waitUntil = params.wait_until ?? 'domcontentloaded';
-  if (targetUrl !== 'about:blank' && waitUntil !== 'domcontentloaded') {
-    await runAgent(runtime, workspaceId, ['wait', '--load', waitUntil], { execTimeoutMs: 30_000 });
-  }
-  return response;
 }
 
 export function createAgentBrowser(runtime: RuntimeBackend, workspaceId: string): ToolDefinition {

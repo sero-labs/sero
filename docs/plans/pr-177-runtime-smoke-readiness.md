@@ -516,22 +516,21 @@ await window.sero.workspace.setRuntimeBackend(ws.id, "docker");
 // or: await window.sero.workspace.setRuntimeBackend(ws.id, "apple-container");
 ```
 
-In a Sero chat for that workspace, send this exact prompt. Use the `data:` URL instead of an external website so the smoke does not depend on Docker/Apple Container outbound network availability:
+In a Sero chat for that workspace, send this exact prompt. It intentionally uses an external URL because the browser tool must be resilient to ordinary user prompts and network failures:
 
 ```text
-Use the browser tool in this workspace. First close any existing browser session. Then launch this exact URL: data:text/html,<html><body><h1>Sero Browser Smoke</h1><p id="status">ok</p></body></html>. Take a screenshot. Start recording to /workspace/pr177-browser-smoke.webm, wait 2 seconds, stop recording, then close the browser. Report whether screenshot succeeded and whether /workspace/pr177-browser-smoke.webm exists and is non-empty.
+Use the browser tool in this workspace. Launch https://example.com, take a screenshot, start recording to /workspace/pr177-browser-smoke.webm, wait 2 seconds, stop recording, then close the browser. Report the screenshot result and whether /workspace/pr177-browser-smoke.webm exists.
 ```
 
 Expected:
 
-- Browser close is harmless if no session is open.
-- Browser launch succeeds for the `data:` URL.
-- Screenshot succeeds.
+- Browser launch attempts `https://example.com`.
+- If navigation succeeds, screenshot should capture the page.
+- If navigation times out or fails because the runtime has no outbound network, the tool should report that failure clearly, reset the browser session, and later browser actions should not be poisoned by the failed navigation.
 - Recording starts and stops successfully.
 - `/workspace/pr177-browser-smoke.webm` exists and is non-empty.
+- Browser closes successfully.
 - No Playwright browser install permission error involving `/ms-playwright`.
-
-Do not use `https://example.com` for this readiness gate. Apple Container may have outbound network disabled or unavailable on a developer machine; that is a separate runtime/network smoke, not a browser-tool/image readiness signal.
 
 Verify the recording file through DevTools:
 
@@ -690,7 +689,7 @@ The first broad automated run exposed a WSL LSP test timeout caused by the test 
   - Docker image: `sha256:ea34799768cc4cb51beb031b0521bc69bfeaf677f47f5239e07abd2c9ceffa9d`, created `2026-05-11T09:34:42.268732468Z`.
   - Covered arbitrary UID/GID workspace write, `/ms-playwright` Chromium/ffmpeg lookup, Chromium headless screenshot, `agent-browser` launch/screenshot/close.
   - Follow-up #6 browser recording smoke initially exposed that `agent-browser` requires an `ffmpeg` executable on `PATH`, not only Playwright's `ffmpeg-linux` asset. The PR now links `/usr/local/bin/ffmpeg` in the image and makes the browser tool create a writable `$HOME/.local/bin/ffmpeg` fallback symlink before recording. A direct Docker container record start/stop smoke passed after this fix.
-  - Apple Container outbound `https://example.com` access timed out on the smoke machine, so the browser-tool gate now uses a deterministic `data:` URL. A direct Apple Container `data:` URL launch/screenshot/record/stop smoke passed with the browser-tool fallback symlink behavior.
+  - Apple Container outbound `https://example.com` access timed out on the smoke machine. The browser tool now treats navigation failures as recoverable: it reports the navigation failure, resets the session to `about:blank`, and keeps later screenshot/recording/close actions usable. A direct Apple Container browser recording smoke passed with this recovery path.
 - Apple Container live image smoke — **pass**.
   - Apple Container image: `ghcr.io/sero-labs/sero-node:latest` digest prefix `7d5ae62ada12bf5a692e80e7...`.
   - Covered arbitrary UID/GID workspace write, `/ms-playwright` Chromium/ffmpeg lookup, Chromium headless screenshot, `agent-browser` launch/screenshot/close.

@@ -68,6 +68,23 @@ describe('createAgentBrowser', () => {
     expect(exec.mock.calls[1][1]).toContain("'close' '--json'");
   });
 
+  it('resets the browser session after navigation failures instead of poisoning later actions', async () => {
+    const { tool, exec } = await createToolWithExec([
+      { stdout: '/usr/bin/agent-browser\n', stderr: '', exitCode: 0 },
+      browserPathResult,
+      { stdout: '{"success":false,"error":"CDP command timed out: Page.navigate"}', stderr: '', exitCode: 1 },
+      { stdout: '{"success":true,"data":{"closed":true}}', stderr: '', exitCode: 0 },
+      { stdout: '{"success":true,"data":{"url":"about:blank"}}', stderr: '', exitCode: 0 },
+    ]);
+
+    const result = await tool.execute('tc-nav-timeout', { action: 'launch', url: 'https://example.com' }, undefined, undefined, undefined as never);
+
+    expect(exec.mock.calls[2][1]).toContain("'open' 'https://example.com'");
+    expect(exec.mock.calls[3][1]).toContain("'close' '--json'");
+    expect(exec.mock.calls[4][1]).toContain("'open' 'about:blank'");
+    expect((result.content[0] as { text: string }).text).toContain('Navigation to https://example.com failed');
+  });
+
   it('creates the recording directory before record start', async () => {
     const { tool, exec } = await createToolWithExec([
       { stdout: '/usr/bin/agent-browser\n', stderr: '', exitCode: 0 },
