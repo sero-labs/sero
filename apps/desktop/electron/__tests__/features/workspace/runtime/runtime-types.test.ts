@@ -63,17 +63,23 @@ describe('runtime backend contract skeleton', () => {
     });
   });
 
-  it('keeps container backends capable of live-mounted workspace features', () => {
-    expect(getRuntimeCapabilities('apple-container', 'darwin').browserAutomation).toBe(true);
-    expect(getRuntimeCapabilities('docker', 'linux').browserAutomation).toBe(true);
-    expect(getRuntimeCapabilities('apple-container', 'darwin').languageServers).toBe(true);
-    expect(getRuntimeCapabilities('docker', 'linux').languageServers).toBe(true);
+  it('keeps container backend capabilities aligned with implemented behavior', () => {
+    const appleCapabilities = getRuntimeCapabilities('apple-container', 'darwin');
+    const dockerCapabilities = getRuntimeCapabilities('docker', 'linux');
+
+    expect(appleCapabilities.browserAutomation).toBe(true);
+    expect(dockerCapabilities.browserAutomation).toBe(true);
+    expect(appleCapabilities.languageServers).toBe(true);
+    expect(dockerCapabilities.languageServers).toBe(true);
+    expect(appleCapabilities.files.watch).toBe(false);
+    expect(dockerCapabilities.files.watch).toBe(false);
   });
 
   it('computes host capabilities per platform without browser automation', () => {
     const capabilities = getRuntimeCapabilities('host', 'darwin');
 
     expect(capabilities.browserAutomation).toBe(false);
+    expect(capabilities.files.watch).toBe(true);
     expect(capabilities.languageServers).toBe(true);
     expect(getRuntimeCapabilities('host', 'win32').languageServers).toBe(true);
   });

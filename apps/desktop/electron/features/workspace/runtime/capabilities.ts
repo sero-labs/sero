@@ -1,6 +1,6 @@
 import type { RuntimeBackendId, RuntimeCapabilities } from './types';
 
-function createFullCapabilities(): RuntimeCapabilities {
+function createBaseCapabilities(): RuntimeCapabilities {
   return {
     exec: true,
     processes: {
@@ -36,22 +36,44 @@ function createFullCapabilities(): RuntimeCapabilities {
       previewUrl: true,
     },
     logs: true,
-    browserAutomation: true,
+    browserAutomation: false,
     languageServers: true,
   };
 }
 
 function createHostCapabilities(_platform: NodeJS.Platform): RuntimeCapabilities {
   return {
-    ...createFullCapabilities(),
+    ...createBaseCapabilities(),
     ports: {
       discover: true,
       forward: false,
       stopForward: false,
       previewUrl: true,
     },
-    browserAutomation: false,
-    languageServers: true,
+  };
+}
+
+function createDockerCapabilities(): RuntimeCapabilities {
+  const base = createBaseCapabilities();
+  return {
+    ...base,
+    files: {
+      ...base.files,
+      watch: false,
+    },
+    browserAutomation: true,
+  };
+}
+
+function createAppleContainerCapabilities(): RuntimeCapabilities {
+  const base = createBaseCapabilities();
+  return {
+    ...base,
+    files: {
+      ...base.files,
+      watch: false,
+    },
+    browserAutomation: true,
   };
 }
 
@@ -72,5 +94,6 @@ export function getRuntimeCapabilities(
     throw new UnsupportedRuntimeOnPlatformError(backend, platform);
   }
   if (backend === 'host') return createHostCapabilities(platform);
-  return createFullCapabilities();
+  if (backend === 'docker') return createDockerCapabilities();
+  return createAppleContainerCapabilities();
 }
