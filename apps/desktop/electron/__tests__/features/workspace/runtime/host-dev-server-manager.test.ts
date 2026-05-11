@@ -87,26 +87,23 @@ describe('HostDevServerManager', () => {
     }));
   });
 
-  it('marks a server failed when port detection times out', async () => {
+  it('throws and terminates the spawned process when port detection times out', async () => {
+    const process = createProcess();
     const manager = new HostDevServerManager({
       workspaceId: 'workspace-a',
       platform: 'linux',
-      spawn: vi.fn(async () => createProcess()),
+      spawn: vi.fn(async () => process),
       execFile: vi.fn(async () => fail()),
       pollIntervalMs: 1,
       portDetectTimeoutMs: 2,
     });
 
-    const server = await manager.start({ command: 'pnpm dev', cwd: '/workspace' });
+    await expect(manager.start({ command: 'pnpm dev', cwd: '/workspace' }))
+      .rejects.toThrow('No listening port was detected after starting the command.');
 
-    expect(server).toMatchObject({
-      port: 0,
-      status: 'failed',
-      diagnosticCode: 'dev-server-port-detect-timeout',
-    });
-    expect(manager.status({ serverId: server.id }).servers[0]).toMatchObject({
-      diagnosticCode: 'dev-server-port-detect-timeout',
-    });
+    expect(process.signal).toHaveBeenCalledTimes(1);
+    expect(process.signal).toHaveBeenCalledWith('SIGTERM');
+    expect(manager.list()).toEqual([]);
   });
 
   it('surfaces Windows WSL localhost-forwarding diagnostics when TCP probe fails', async () => {

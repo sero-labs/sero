@@ -68,9 +68,14 @@ export class HostDevServerManager {
     const detectionPid = process.executionPid ?? process.pid;
     const baseId = `${this.workspaceId}:${input.scope ?? 'workspace'}:${input.cardId ?? 'root'}`;
 
+    let terminated = false;
     try {
       const port = detectionPid ? await this.detectListeningPort(detectionPid) : null;
-      if (!port) return this.registerFailed(baseId, input, cwd, pid, process, 'dev-server-port-detect-timeout');
+      if (!port) {
+        process.signal('SIGTERM');
+        terminated = true;
+        throw new Error('No listening port was detected after starting the command.');
+      }
       const url = `http://127.0.0.1:${port}`;
       const record: HostDevServerRecord = {
         id: `${baseId}:${port}`,
@@ -87,8 +92,9 @@ export class HostDevServerManager {
       }
       this.servers.set(record.id, record);
       return toRuntimeServer(record);
-    } catch {
-      return this.registerFailed(baseId, input, cwd, pid, process, 'dev-server-port-detect-timeout');
+    } catch (err) {
+      if (!terminated) process.signal('SIGTERM');
+      throw err instanceof Error ? err : new Error(String(err));
     }
   }
 
@@ -180,28 +186,6 @@ export class HostDevServerManager {
     return false;
   }
 
-  private registerFailed(
-    baseId: string,
-    input: RuntimeDevServerStartInput,
-    cwd: string,
-    pid: number | undefined,
-    process: RuntimeProcess,
-    diagnosticCode: HostDevServerDiagnosticCode,
-  ): RuntimeDevServer {
-    const record: HostDevServerRecord = {
-      id: `${baseId}:failed:${Date.now()}`,
-      port: 0,
-      url: '',
-      command: input.command,
-      cwd,
-      status: 'failed',
-      pid,
-      process,
-      diagnosticCode,
-    };
-    this.servers.set(record.id, record);
-    return toRuntimeServer(record);
-  }
 }
 
 export function parseLsofPort(output: string): number | null {

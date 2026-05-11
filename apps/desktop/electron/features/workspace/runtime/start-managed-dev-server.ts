@@ -1,6 +1,6 @@
 import type { DevServer } from '@/types/ipc';
 import { runtimeManager, type RuntimeManager } from './runtime-manager';
-import { toWorkspaceContainerPath } from './container-path';
+import { toRuntimeWorkspacePath } from './runtime-paths';
 
 export interface StartManagedDevServerOptions {
   workspaceId: string;
@@ -35,8 +35,8 @@ export async function startManagedDevServer(
     return { reason: `Managed dev servers are not available for ${runtime.backend} runtime.` };
   }
 
-  const containerCwd = toWorkspaceContainerPath(options.workspacePath, options.cwdPath);
-  if (!containerCwd) {
+  const runtimeCwd = toRuntimeWorkspacePath(options.workspacePath, options.cwdPath);
+  if (!runtimeCwd) {
     return {
       reason: `Cannot start a dev server outside the workspace root: ${options.cwdPath}`,
     };
@@ -46,13 +46,16 @@ export async function startManagedDevServer(
   try {
     const server = await runtime.startDevServer({
       command: options.command,
-      cwd: containerCwd,
+      cwd: runtimeCwd,
       name: options.name ?? buildDevServerName(framework),
       framework,
       scope: options.scope === 'card-preview' ? 'card' : options.scope,
       cardId: options.cardId,
       logPath: options.logPath,
     });
+    if (server.status === 'failed' || !server.port || !server.url) {
+      return { reason: server.diagnosticCode ?? 'Managed dev server failed to start.' };
+    }
     return { serverId: server.id, url: server.url, port: server.port };
   } catch (err) {
     return { reason: err instanceof Error ? err.message : `Failed to start ${options.command}` };
