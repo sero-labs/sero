@@ -124,7 +124,7 @@ async function resolveBrowserExecutable(runtime: RuntimeBackend, workspaceId: st
   const cached = executablePathByWorkspace.get(workspaceId);
   if (cached) return cached;
 
-  const result = await runtime.exec({ command: `sh -lc 'for p in /root/.cache/ms-playwright/chromium-${AGENT_BROWSER_CHROMIUM_REVISION}/chrome-linux/chrome /ms-playwright/chromium-${AGENT_BROWSER_CHROMIUM_REVISION}/chrome-linux/chrome /usr/bin/chromium /usr/bin/chromium-browser /usr/bin/google-chrome /usr/bin/google-chrome-stable /root/.cache/ms-playwright/chromium-*/chrome-linux/chrome /ms-playwright/chromium-*/chrome-linux/chrome; do if [ -x "$p" ]; then printf "%s" "$p"; exit 0; fi; done; command -v chromium 2>/dev/null || command -v chromium-browser 2>/dev/null || command -v google-chrome 2>/dev/null || command -v google-chrome-stable 2>/dev/null'`, timeoutMs: 10_000 });
+  const result = await runtime.exec({ command: `sh -lc 'for p in "$PLAYWRIGHT_BROWSERS_PATH"/chromium-${AGENT_BROWSER_CHROMIUM_REVISION}/chrome-linux/chrome /ms-playwright/chromium-${AGENT_BROWSER_CHROMIUM_REVISION}/chrome-linux/chrome "$HOME"/.cache/ms-playwright/chromium-${AGENT_BROWSER_CHROMIUM_REVISION}/chrome-linux/chrome /root/.cache/ms-playwright/chromium-${AGENT_BROWSER_CHROMIUM_REVISION}/chrome-linux/chrome /usr/bin/chromium /usr/bin/chromium-browser /usr/bin/google-chrome /usr/bin/google-chrome-stable "$PLAYWRIGHT_BROWSERS_PATH"/chromium-*/chrome-linux/chrome /ms-playwright/chromium-*/chrome-linux/chrome "$HOME"/.cache/ms-playwright/chromium-*/chrome-linux/chrome /root/.cache/ms-playwright/chromium-*/chrome-linux/chrome; do if [ -x "$p" ]; then printf "%s" "$p"; exit 0; fi; done; command -v chromium 2>/dev/null || command -v chromium-browser 2>/dev/null || command -v google-chrome 2>/dev/null || command -v google-chrome-stable 2>/dev/null'`, timeoutMs: 10_000 });
   const executablePath = result.stdout.trim();
   if (result.exitCode === 0 && executablePath) {
     executablePathByWorkspace.set(workspaceId, executablePath);
@@ -134,10 +134,10 @@ async function resolveBrowserExecutable(runtime: RuntimeBackend, workspaceId: st
 }
 
 async function ensureFfmpegAvailable(runtime: RuntimeBackend, workspaceId: string): Promise<void> {
-  const existing = await runtime.exec({ command: "sh -lc 'set -- /root/.cache/ms-playwright/ffmpeg-*/ffmpeg-linux /ms-playwright/ffmpeg-*/ffmpeg-linux; for p in \"$@\"; do if [ -x \"$p\" ]; then exit 0; fi; done; exit 1'", timeoutMs: 10_000 });
+  const existing = await runtime.exec({ command: "sh -lc 'set -- \"$PLAYWRIGHT_BROWSERS_PATH\"/ffmpeg-*/ffmpeg-linux /ms-playwright/ffmpeg-*/ffmpeg-linux \"$HOME\"/.cache/ms-playwright/ffmpeg-*/ffmpeg-linux /root/.cache/ms-playwright/ffmpeg-*/ffmpeg-linux; for p in \"$@\"; do if [ -x \"$p\" ]; then exit 0; fi; done; exit 1'", timeoutMs: 10_000 });
   if (existing.exitCode === 0) return;
 
-  const install = await runtime.exec({ command: `npx -y playwright@${AGENT_BROWSER_PLAYWRIGHT_VERSION} install ffmpeg`, timeoutMs: 180_000 });
+  const install = await runtime.exec({ command: `sh -lc 'if [ -w /ms-playwright ]; then export PLAYWRIGHT_BROWSERS_PATH=/ms-playwright; fi; npx -y playwright@${AGENT_BROWSER_PLAYWRIGHT_VERSION} install ffmpeg'`, timeoutMs: 180_000 });
   if (install.exitCode !== 0) {
     throw new Error(`Failed to install Playwright ffmpeg for browser recording: ${install.stderr || install.stdout}`);
   }
@@ -158,7 +158,7 @@ async function ensureAgentBrowserAvailable(runtime: RuntimeBackend, workspaceId:
   const executablePath = await resolveBrowserExecutable(runtime, workspaceId);
   if (executablePath?.includes(`/chromium-${AGENT_BROWSER_CHROMIUM_REVISION}/`)) return;
 
-  const installBrowser = await runtime.exec({ command: `npx -y playwright@${AGENT_BROWSER_PLAYWRIGHT_VERSION} install chromium`, timeoutMs: 180_000 });
+  const installBrowser = await runtime.exec({ command: `sh -lc 'if [ -w /ms-playwright ]; then export PLAYWRIGHT_BROWSERS_PATH=/ms-playwright; fi; npx -y playwright@${AGENT_BROWSER_PLAYWRIGHT_VERSION} install chromium'`, timeoutMs: 180_000 });
   if (installBrowser.exitCode !== 0) {
     throw new Error(`Failed to install Playwright Chromium for agent-browser: ${installBrowser.stderr || installBrowser.stdout}`);
   }

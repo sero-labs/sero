@@ -29,8 +29,13 @@ RUN git config --global user.name "Sero" && \
     git config --global init.defaultBranch main
 
 # agent-browser + matching Playwright browser assets for browser automation/recording.
-RUN npm install -g agent-browser && \
+# Keep browsers in a shared, readable path so arbitrary host UID/GID users can
+# resolve them at runtime.
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+RUN mkdir -p /ms-playwright && \
+    npm install -g agent-browser && \
     npx -y playwright@1.57.0 install --with-deps chromium ffmpeg && \
+    chmod -R a+rX /ms-playwright && \
     rm -rf /var/lib/apt/lists/*
 
 # Use tini as PID 1 — reaps zombie processes automatically

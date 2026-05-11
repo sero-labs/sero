@@ -87,6 +87,12 @@ describe('createAgentBrowser', () => {
 
     expect(result.content[0]).toMatchObject({ type: 'text' });
     expect((result.content[0] as { type: string; text: string }).text).toContain('recording');
+    expect(exec.mock.calls[1][1]).toContain('"$PLAYWRIGHT_BROWSERS_PATH"/chromium-1200/chrome-linux/chrome');
+    expect(exec.mock.calls[1][1]).toContain('/ms-playwright/chromium-1200/chrome-linux/chrome');
+    expect(exec.mock.calls[1][1]).toContain('"$HOME"/.cache/ms-playwright/chromium-1200/chrome-linux/chrome');
+    expect(exec.mock.calls[2][1]).toContain('"$PLAYWRIGHT_BROWSERS_PATH"/ffmpeg-*/ffmpeg-linux');
+    expect(exec.mock.calls[2][1]).toContain('/ms-playwright/ffmpeg-*/ffmpeg-linux');
+    expect(exec.mock.calls[2][1]).toContain('"$HOME"/.cache/ms-playwright/ffmpeg-*/ffmpeg-linux');
     expect(exec.mock.calls[3][1]).toContain("mkdir -p '/workspace/browser-e2e'");
     expect(exec.mock.calls[4][1]).toContain("'--executable-path' '/root/.cache/ms-playwright/chromium-1200/chrome-linux/chrome'");
     expect(exec.mock.calls[4][1]).toContain("'record' 'start'");

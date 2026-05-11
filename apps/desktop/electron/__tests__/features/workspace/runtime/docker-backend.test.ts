@@ -50,6 +50,7 @@ describe('Docker runtime backend core', () => {
       '--env', 'VITE_HOST=0.0.0.0',
       '--env', 'HOSTNAME=0.0.0.0',
       '--env', 'SERO_RUNTIME_BACKEND=docker',
+      '--env', 'PLAYWRIGHT_BROWSERS_PATH=/ms-playwright',
       '--env', 'HOME=/tmp/sero-home',
       '--mount', 'type=bind,source=/host/workspace,target=/workspace',
       '--mount', 'type=bind,source=/tmp/sero-shared,target=/tmp/sero-shared',

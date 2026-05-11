@@ -82,6 +82,7 @@ export function runtimeEnvArgs(extraEnv: Record<string, string> = {}): string[] 
     VITE_HOST: '0.0.0.0',
     HOSTNAME: '0.0.0.0',
     SERO_RUNTIME_BACKEND: 'docker',
+    PLAYWRIGHT_BROWSERS_PATH: '/ms-playwright',
     HOME: '/tmp/sero-home',
     ...extraEnv,
   }).flatMap(([key, value]) => ['--env', `${key}=${value}`]);
