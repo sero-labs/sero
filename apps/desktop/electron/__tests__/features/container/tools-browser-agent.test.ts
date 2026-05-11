@@ -4,6 +4,8 @@ import type { RuntimeBackend } from '@electron/features/workspace/runtime/types'
 type ExecResult = { stdout: string; stderr: string; exitCode: number };
 
 const BROWSER_PATH = '/root/.cache/ms-playwright/chromium-1200/chrome-linux/chrome';
+const DOCKER_CACHE_BROWSER_PATH = '/tmp/sero-home/.cache/ms-playwright/chromium-1200/chrome-linux/chrome';
+const APPLE_BROWSER_PATH = '/ms-playwright/chromium-1200/chrome-linux/chrome';
 const MISMATCHED_BROWSER_PATH = '/root/.cache/ms-playwright/chromium-1208/chrome-linux/chrome';
 const browserPathResult: ExecResult = { stdout: `${BROWSER_PATH}\n`, stderr: '', exitCode: 0 };
 const mismatchedBrowserPathResult: ExecResult = { stdout: `${MISMATCHED_BROWSER_PATH}\n`, stderr: '', exitCode: 0 };
@@ -27,6 +29,7 @@ async function createToolWithExec(results: ExecResult[]) {
   const exec = createExecMock(results);
   const { createAgentBrowser } = await import('@electron/features/container/tools/tools-browser-agent');
   const runtime = {
+    backend: 'docker',
     exec: (input: { command: string; cwd?: string; timeoutMs?: number }) => exec('ws-1', input.command, input.cwd, input.timeoutMs),
     createDirectory: (input: { path: string }) => exec('ws-1', `mkdir -p '${input.path}'`, undefined, undefined),
   } as unknown as RuntimeBackend;
@@ -226,6 +229,33 @@ describe('createAgentBrowser', () => {
 
     expect(exec.mock.calls[2][1]).toContain("'record' 'stop'");
     expect(exec.mock.calls[2][3]).toBe(60_000);
+  });
+
+  it('does not share cached browser paths across tool/runtime instances', async () => {
+    vi.resetModules();
+    const dockerExec = createExecMock([
+      { stdout: '/usr/bin/agent-browser\n', stderr: '', exitCode: 0 },
+      { stdout: `${DOCKER_CACHE_BROWSER_PATH}\n`, stderr: '', exitCode: 0 },
+      { stdout: '{"message":"opened","url":"about:blank"}', stderr: '', exitCode: 0 },
+    ]);
+    const appleExec = createExecMock([
+      { stdout: '/usr/bin/agent-browser\n', stderr: '', exitCode: 0 },
+      { stdout: `${APPLE_BROWSER_PATH}\n`, stderr: '', exitCode: 0 },
+      { stdout: '{"message":"opened","url":"about:blank"}', stderr: '', exitCode: 0 },
+    ]);
+    const { createAgentBrowser } = await import('@electron/features/container/tools/tools-browser-agent');
+    const dockerTool = createAgentBrowser({ backend: 'docker', exec: (input: { command: string; cwd?: string; timeoutMs?: number }) => dockerExec('ws-1', input.command, input.cwd, input.timeoutMs) } as unknown as RuntimeBackend, 'ws-1');
+    const appleTool = createAgentBrowser({ backend: 'apple-container', exec: (input: { command: string; cwd?: string; timeoutMs?: number }) => appleExec('ws-1', input.command, input.cwd, input.timeoutMs) } as unknown as RuntimeBackend, 'ws-1');
+
+    await dockerTool.execute('tc-docker-launch', { action: 'launch' }, undefined, undefined, undefined as never);
+    await appleTool.execute('tc-apple-launch', { action: 'launch' }, undefined, undefined, undefined as never);
+
+    expect(dockerExec.mock.calls[2][1]).toContain("'--session' 'sero-ws-1-docker'");
+    expect(dockerExec.mock.calls[2][1]).toContain(`'--executable-path' '${DOCKER_CACHE_BROWSER_PATH}'`);
+    expect(appleExec.mock.calls[1][1]).toContain('/ms-playwright/chromium-1200/chrome-linux/chrome');
+    expect(appleExec.mock.calls[2][1]).toContain("'--session' 'sero-ws-1-apple-container'");
+    expect(appleExec.mock.calls[2][1]).toContain(`'--executable-path' '${APPLE_BROWSER_PATH}'`);
+    expect(appleExec.mock.calls[2][1]).toContain("'open' 'about:blank'");
   });
 
   it('supports launch without a url by opening about:blank', async () => {
