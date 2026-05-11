@@ -136,6 +136,65 @@ describe('runtime backend contract skeleton', () => {
     expect(runtime.workspaceAccess).toBe('live-mount');
   });
 
+  it('resets cached runtime state for a workspace', async () => {
+    const manager = new RuntimeManager({
+      workspaceManager: {
+        getPath: vi.fn().mockReturnValue('/Users/daniel/project'),
+        getRuntimeConfig: vi.fn().mockResolvedValue({ backend: 'host' }),
+      } as unknown as WorkspaceManager,
+      containerManager: {} as ContainerManager,
+    });
+    const runtime = await manager.getRuntime('workspace-a');
+    const destroy = vi.spyOn(runtime, 'destroy');
+
+    await manager.resetWorkspaceRuntime('workspace-a');
+    const nextRuntime = await manager.getRuntime('workspace-a');
+
+    expect(destroy).toHaveBeenCalledTimes(1);
+    expect(nextRuntime).not.toBe(runtime);
+  });
+
+  it('destroys a cached container runtime during reset', async () => {
+    const manager = new RuntimeManager({
+      workspaceManager: {
+        getPath: vi.fn().mockReturnValue('/Users/daniel/project'),
+        getRuntimeConfig: vi.fn().mockResolvedValue({ backend: 'docker' }),
+      } as unknown as WorkspaceManager,
+      containerManager: { getExtraEnvVars: vi.fn(() => ({})) } as unknown as ContainerManager,
+    });
+    const runtime = await manager.getRuntime('workspace-a');
+    const destroy = vi.spyOn(runtime, 'destroy').mockResolvedValue(undefined);
+
+    await manager.resetWorkspaceRuntime('workspace-a');
+    const nextRuntime = await manager.getRuntime('workspace-a');
+
+    expect(runtime.backend).toBe('docker');
+    expect(destroy).toHaveBeenCalledTimes(1);
+    expect(nextRuntime).not.toBe(runtime);
+  });
+
+  it('creates the newly selected backend after reset', async () => {
+    let backend: RuntimeBackendId = 'host';
+    const manager = new RuntimeManager({
+      workspaceManager: {
+        getPath: vi.fn().mockReturnValue('/Users/daniel/project'),
+        getRuntimeConfig: vi.fn().mockResolvedValue({ backend: 'host' }),
+      } as unknown as WorkspaceManager,
+      containerManager: { getExtraEnvVars: vi.fn(() => ({})) } as unknown as ContainerManager,
+      resolveBackend: () => backend,
+    });
+    const hostRuntime = await manager.getRuntime('workspace-a');
+    const hostDestroy = vi.spyOn(hostRuntime, 'destroy');
+
+    await manager.resetWorkspaceRuntime('workspace-a');
+    backend = 'docker';
+    const dockerRuntime = await manager.getRuntime('workspace-a');
+
+    expect(hostDestroy).toHaveBeenCalledTimes(1);
+    expect(dockerRuntime).not.toBe(hostRuntime);
+    expect(dockerRuntime.backend).toBe('docker');
+  });
+
   it('merges runtime-backed dev servers without registering host servers in the legacy container registry', async () => {
     const legacyList = vi.fn(() => []);
     const manager = new RuntimeManager({

@@ -137,6 +137,10 @@ export class RuntimeManager {
     return () => this.terminalExitCallbacks.delete(cb);
   }
 
+  async resetWorkspaceRuntime(workspaceId: string): Promise<void> {
+    await this.destroy(workspaceId);
+  }
+
   async destroy(workspaceId: string): Promise<void> {
     for (const [terminalId, entry] of this.terminals) {
       if (entry.workspaceId === workspaceId) this.disposeTerminal(terminalId);

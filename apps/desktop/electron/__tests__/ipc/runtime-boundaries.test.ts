@@ -41,6 +41,7 @@ const mocks = vi.hoisted(() => {
     buildContainerConfig: vi.fn(async () => ({ workspaceId: 'ws-1' })),
     runtimeManager: {
       getRuntime: vi.fn(),
+      resetWorkspaceRuntime: vi.fn(async () => {}),
     },
     resolveWorkspaceRuntime: vi.fn(async (workspaceId: string) => ({
       workspaceId,
@@ -72,6 +73,7 @@ vi.mock('@electron/shared/infra/shared-infra', () => ({
   containerManager: mocks.containerManager,
   buildContainerConfig: mocks.buildContainerConfig,
   appRuntimeManager: { reconcile: mocks.appRuntimeReconcile },
+  runtimeManager: mocks.runtimeManager,
 }));
 
 vi.mock('@electron/features/workspace/manager', () => ({
@@ -118,6 +120,8 @@ describe('runtime-aware IPC boundaries', () => {
     mocks.containerManager.inspect.mockReset().mockResolvedValue({ id: 'container-1', state: 'running' });
     mocks.containerManager.ensure.mockReset().mockResolvedValue({ id: 'container-1', state: 'running' });
     mocks.buildContainerConfig.mockReset().mockResolvedValue({ workspaceId: 'ws-1' });
+    mocks.runtimeManager.getRuntime.mockClear();
+    mocks.runtimeManager.resetWorkspaceRuntime.mockClear();
     mocks.resolveWorkspaceRuntime.mockClear();
   });
 

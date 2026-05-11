@@ -14,7 +14,7 @@ import { isWorkspaceRuntimeBackend } from '@electron/features/workspace/runtime/
 import { resolveWorkspaceRuntime } from '@electron/features/workspace/runtime-resolution';
 import { assertIsSeroPluginFolder } from '@electron/features/workspace/plugin-validation';
 import { recreateContainerIfRunning } from '@electron/features/workspace/container-sync';
-import { appRuntimeManager } from '@electron/shared/infra/shared-infra';
+import { appRuntimeManager, runtimeManager } from '@electron/shared/infra/shared-infra';
 import { broadcastToWindows } from '@electron/ipc/lib/window-broadcast';
 
 function notifyWorkspaceChanged(): void {
@@ -140,8 +140,8 @@ export function registerWorkspaceHandlers(): void {
     IpcChannels.workspace.setRuntimeBackend,
     async (_event, id: string, backend: WorkspaceRuntimeBackend): Promise<WorkspaceInfo> => {
       if (!isWorkspaceRuntimeBackend(backend)) throw new Error(`Invalid runtime backend: ${String(backend)}`);
+      await runtimeManager.resetWorkspaceRuntime(id);
       await workspaceManager.setRuntimeBackend(id, backend);
-      await recreateContainerIfRunning(id);
       await reconcileAppRuntimes('runtime backend change');
       notifyWorkspaceChanged();
       const workspace = (await workspaceManager.list()).find((candidate) => candidate.id === id);
