@@ -15,12 +15,14 @@ let cachedGitIdentityFetchedAt = 0;
 export interface DockerLifecycleOptions {
   config: ContainerConfig;
   imageRef: string;
+  imageId?: string;
   run?: DockerRunner;
   previewPortPoolSize?: number;
 }
 
 interface DockerInspectData {
   Id?: string;
+  Image?: string;
   Config?: { Image?: string; Labels?: Record<string, string> };
   State?: { Running?: boolean; Status?: string };
   Mounts?: Array<{ Source?: string; Destination?: string; RW?: boolean }>;
@@ -36,7 +38,7 @@ export async function ensureDockerContainer(options: DockerLifecycleOptions): Pr
   const cid = dockerContainerName(options.config.workspaceId);
   const existing = await inspectDockerContainer(cid, run).catch(() => null);
   if (existing) {
-    if (isExpectedContainer(existing, options.config, options.imageRef)) {
+    if (isExpectedContainer(existing, options.config, options.imageRef, options.imageId)) {
       if (existing.State?.Running) return toContainerState(cid, existing, options.imageRef);
       const start = await run(['start', cid], { timeoutMs: 30_000 });
       if (start.exitCode === 0) return toContainerState(cid, await inspectDockerContainer(cid, run), options.imageRef);
@@ -122,12 +124,13 @@ function dockerPreviewPublishArgs(poolSize: number): string[] {
   return buildPreviewInternalPorts(poolSize).flatMap((internalPort) => ['-p', `127.0.0.1::${internalPort}`]);
 }
 
-function isExpectedContainer(inspect: DockerInspectData, config: ContainerConfig, imageRef: string): boolean {
+function isExpectedContainer(inspect: DockerInspectData, config: ContainerConfig, imageRef: string, imageId?: string): boolean {
   const labels = inspect.Config?.Labels ?? {};
   if (labels['ai.sero.managed'] !== 'true') return false;
   if (labels['ai.sero.runtime'] !== 'docker') return false;
   if (labels['ai.sero.workspaceId'] !== config.workspaceId) return false;
   if (labels['ai.sero.image'] !== imageRef) return false;
+  if (imageId && inspect.Image !== imageId) return false;
   return (inspect.Mounts ?? []).some((mount) => mount.Source === config.hostPath && mount.Destination === '/workspace');
 }
 

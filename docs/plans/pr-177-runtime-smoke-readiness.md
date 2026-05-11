@@ -553,6 +553,8 @@ The host runtime should not advertise browser automation. Do not expect browser 
 
 This proves backend changes are destructive resets and do not keep stale Docker/Apple state.
 
+Before running this section, re-paste the latest `runPr177BackendSmoke()` helper from section 4. Older copies wrote to `/workspace/...` inside the shell command; that works in containers but fails on host because host exec runs in the native workspace directory and should use relative shell paths. The helper should use `/workspace/...` only for Sero editor APIs.
+
 In DevTools:
 
 ```js
@@ -586,27 +588,43 @@ tail -200 /tmp/sero-electron.log
 
 ## 8. Windows/WSL smoke, if you have a Windows machine
 
-Run this separately on Windows with WSL 2. This cannot be proven from macOS.
+Run this separately on Windows 11 with WSL 2. For a detailed Parallels setup path, including `winget`, Docker Desktop, WSL Ubuntu, and the repo-pinned pnpm version, use `docs/plans/pr-177-windows-linux-vm-validation.md`.
 
-1. Start Docker Desktop if testing Docker.
-2. Create a disposable workspace on a Windows drive, for example:
+Short version:
+
+1. Run Sero from **Windows PowerShell**, not from inside WSL.
+2. Use Corepack to activate the repo-pinned pnpm version:
+
+   ```powershell
+   corepack enable
+   corepack prepare pnpm@10.11.0 --activate
+   pnpm --version
+   ```
+
+3. Start Docker Desktop with Linux containers enabled.
+4. Install Ubuntu under WSL 2 and make sure Ubuntu has `bash`, `git`, `node`, and `python3`.
+5. Create a disposable Windows-drive workspace, for example:
    `C:\Users\<you>\Projects\sero-pr177-smoke`.
-3. Also test a WSL-native workspace if possible:
+6. Optionally also test a WSL-native workspace:
    `\\wsl.localhost\Ubuntu\home\<you>\sero-pr177-smoke`.
-4. Start Sero from the PR branch.
-5. In DevTools:
+7. Start Sero from the PR branch.
+8. In DevTools, re-paste the section 4 helper, then run:
 
 ```js
+await runPr177BackendSmoke("docker");
 await runPr177BackendSmoke("host");
+await runPr177BackendSmoke("docker");
 ```
 
 Expected for Windows host:
 
 - Host execution uses WSL, not PowerShell/cmd.
+- Windows-drive workspace shell execution maps through WSL `/mnt/c/...`.
+- WSL-native workspace shell execution runs inside the selected distro.
 - File reads/writes work for files larger than 1 MiB:
 
 ```js
-await window.sero.editor.exec(ws.id, "python3 - <<'PY'\nfrom pathlib import Path\nPath('/workspace/pr177-large.txt').write_text('x' * (2 * 1024 * 1024))\nPY");
+await window.sero.editor.exec(ws.id, "python3 - <<'PY'\nfrom pathlib import Path\nPath('pr177-large.txt').write_text('x' * (2 * 1024 * 1024))\nPY");
 const large = await window.sero.editor.readFile(ws.id, "/workspace/pr177-large.txt");
 if (large.length !== 2 * 1024 * 1024) throw new Error(`large read failed: ${large.length}`);
 await window.sero.editor.delete(ws.id, "/workspace/pr177-large.txt");

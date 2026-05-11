@@ -71,21 +71,42 @@ describe('Docker runtime backend core', () => {
     const imagesDir = mkdtempSync(path.join(tmpdir(), 'sero-image-test-'));
     writeFileSync(path.join(imagesDir, 'Dockerfile.sero-node'), 'FROM scratch\n');
 
-    await expect(ensureDockerImage({ imageRef: 'image:local', run: sequence([ok('inspect')]), imagesDir }))
-      .resolves.toMatchObject({ source: 'local' });
-    await expect(ensureDockerImage({ imageRef: 'image:pull', run: sequence([fail('missing'), ok('pull')]), imagesDir }))
-      .resolves.toMatchObject({ source: 'pulled' });
-    await expect(ensureDockerImage({ imageRef: 'image:build', run: sequence([fail('missing'), fail('offline'), ok('build')]), imagesDir }))
-      .resolves.toMatchObject({ source: 'built' });
+    await expect(ensureDockerImage({ imageRef: 'image:local', run: sequence([imageInspect('local-id'), ok('toolchain')]), imagesDir }))
+      .resolves.toMatchObject({ source: 'local', imageId: 'local-id' });
+    await expect(ensureDockerImage({ imageRef: 'image:pull', run: sequence([fail('missing'), ok('pull'), imageInspect('pull-id'), ok('toolchain')]), imagesDir }))
+      .resolves.toMatchObject({ source: 'pulled', imageId: 'pull-id' });
+    await expect(ensureDockerImage({ imageRef: 'image:build', run: sequence([fail('missing'), fail('offline'), ok('build'), imageInspect('build-id'), ok('toolchain')]), imagesDir }))
+      .resolves.toMatchObject({ source: 'built', imageId: 'build-id' });
     await expect(ensureDockerImage({ imageRef: 'image:fail', run: sequence([fail('missing'), fail('offline'), fail('bad build')]), imagesDir }))
-      .rejects.toThrow('pull and local build failed');
+      .rejects.toThrow('local build failed');
+  });
+
+  it('rebuilds a stale local image that lacks the runtime toolchain', async () => {
+    const imagesDir = mkdtempSync(path.join(tmpdir(), 'sero-image-stale-test-'));
+    const calls: string[][] = [];
+    writeFileSync(path.join(imagesDir, 'Dockerfile.sero-node'), 'FROM scratch\n');
+
+    await expect(ensureDockerImage({
+      imageRef: 'image:stale',
+      imagesDir,
+      run: vi.fn(async (args: string[]) => {
+        calls.push(args);
+        if (args[0] === 'image') return imageInspect(calls.some((call) => call[0] === 'build') ? 'fresh-id' : 'stale-id');
+        if (args[0] === 'pull') return ok('already latest');
+        if (args[0] === 'build') return ok('built fresh');
+        if (args[0] === 'run') return calls.some((call) => call[0] === 'build') ? ok('toolchain') : fail('missing /ms-playwright');
+        return fail('unexpected');
+      }),
+    })).resolves.toMatchObject({ source: 'built', imageId: 'fresh-id' });
+
+    expect(calls.map((args) => args[0])).toEqual(['image', 'run', 'pull', 'image', 'run', 'build', 'image', 'run']);
   });
 
   it('uses the shared latest fallback image when no pinned tag is configured', async () => {
     const calls: string[][] = [];
     const run: DockerRunner = vi.fn(async (args: string[]) => {
       calls.push(args);
-      return ok('inspect');
+      return args[0] === 'image' ? imageInspect('latest-id') : ok('toolchain');
     });
 
     await expect(ensureDockerImage({ run })).resolves.toMatchObject({ imageRef: DEFAULT_IMAGE, source: 'local' });
@@ -103,6 +124,8 @@ describe('Docker runtime backend core', () => {
       run: vi.fn(async (args: string[]) => {
         calls.push(args);
         if (args[0] === 'build') return ok('build');
+        if (args[0] === 'image' && args[1] === 'inspect' && calls.some((call) => call[0] === 'build')) return imageInspect('built-pinned-id');
+        if (args[0] === 'run') return ok('toolchain');
         return fail('missing');
       }),
     });
@@ -190,6 +213,10 @@ describe('Docker runtime backend core', () => {
 
 function ok(stdout = ''): DockerCommandResult {
   return { stdout, stderr: '', exitCode: 0 };
+}
+
+function imageInspect(id: string): DockerCommandResult {
+  return ok(JSON.stringify([{ Id: id }]));
 }
 
 function fail(stderr = 'failed'): DockerCommandResult {

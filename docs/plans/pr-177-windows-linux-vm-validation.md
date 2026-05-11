@@ -74,42 +74,160 @@ Create one copy of this table per VM/run.
    workspaces;
    ```
 
-## Windows VM setup
+## Windows 11 Parallels VM quick path
 
-### Required software
+Use this section for the Windows #8 smoke. It is intentionally prescriptive: run Sero from **Windows PowerShell**, use **Ubuntu in WSL 2** only as the Host runtime execution substrate, and use **Docker Desktop Linux containers** for Docker runtime.
 
-- Windows 11 recommended.
-- WSL 2 enabled.
-- One Linux distro installed, for example Ubuntu.
-- Docker Desktop installed and set to **Linux containers**.
-- Git, Node, and pnpm available to the Windows environment running Sero.
+### 1. Recommended install order
 
-### WSL checks
-
-Run in PowerShell:
+Run PowerShell as Administrator for the install commands.
 
 ```powershell
-wsl --status
-wsl --list --verbose
-wsl -e sh -lc "uname -a && command -v bash && command -v git && command -v node && command -v python3"
+winget install --id Git.Git -e
+winget install --id OpenJS.NodeJS.LTS -e
+winget install --id Docker.DockerDesktop -e
+winget install --id Microsoft.VisualStudio.2022.BuildTools -e --override "--wait --quiet --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
+wsl --install -d Ubuntu
+```
+
+Reboot Windows after WSL/Docker/Build Tools installation.
+
+Notes:
+
+- Prefer cloning/running the repo inside the Windows VM filesystem, for example `C:\Users\<you>\Dev\sero`. Avoid Parallels shared folders for this smoke; they add file watching, symlink, and path edge cases unrelated to PR #177.
+- Enable Windows Developer Mode if pnpm reports symlink permission issues: open `ms-settings:developers` and turn on **Developer Mode**.
+- The repo currently pins `pnpm@10.11.0`. If you installed pnpm 11 globally, let Corepack activate the repo-pinned version instead of debugging pnpm-version noise.
+
+### 2. Pin pnpm to the repo version
+
+Open a new non-admin PowerShell after reboot:
+
+```powershell
+node --version
+corepack enable
+corepack prepare pnpm@10.11.0 --activate
+pnpm --version
 ```
 
 Expected:
 
-- WSL version is 2 for the test distro.
-- `bash`, `git`, `node`, and `python3` are available inside WSL.
+```text
+10.11.0
+```
 
-### Windows paths to test
+If `pnpm --version` still prints `11.x`, use Corepack explicitly from the repo root:
 
-Test both path categories if time allows:
+```powershell
+corepack pnpm@10.11.0 install
+corepack pnpm@10.11.0 --filter @sero/desktop typecheck
+```
+
+### 3. Prepare WSL for Host runtime
+
+Open Ubuntu from the Start menu, create a Linux user, then run:
+
+```bash
+sudo apt update
+sudo apt install -y ca-certificates curl git build-essential python3 python3-pip
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+sudo apt install -y nodejs
+command -v bash git node python3
+node --version
+python3 --version
+```
+
+Back in PowerShell, verify Windows can see the WSL distro:
+
+```powershell
+wsl --status
+wsl --list --verbose
+wsl -d Ubuntu -e sh -lc "uname -a && command -v bash && command -v git && command -v node && command -v python3"
+```
+
+Expected:
+
+- Ubuntu shows `VERSION` 2 in `wsl --list --verbose`.
+- `bash`, `git`, `node`, and `python3` all resolve inside Ubuntu.
+
+### 4. Prepare Docker Desktop
+
+1. Start Docker Desktop.
+2. Settings → General: ensure **Use the WSL 2 based engine** is enabled.
+3. Settings → Resources → WSL Integration: enable integration for Ubuntu.
+4. Confirm Docker uses Linux containers.
+
+PowerShell checks:
+
+```powershell
+docker version
+docker run --rm hello-world
+docker run --rm ghcr.io/sero-labs/sero-node:latest sh -lc "uname -s && command -v node && test -d /ms-playwright && test -r /ms-playwright"
+```
+
+Expected: all commands pass. If the last command fails because `/ms-playwright` is missing, remove the stale image and let Sero pull/rebuild it:
+
+```powershell
+docker rm -f $(docker ps -aq --filter "name=sero-") 2>$null
+docker rmi ghcr.io/sero-labs/sero-node:latest
+```
+
+### 5. Clone and start Sero from Windows PowerShell
+
+```powershell
+mkdir $env:USERPROFILE\Dev -Force
+cd $env:USERPROFILE\Dev
+git clone https://github.com/sero-labs/sero.git
+cd sero
+git checkout feat/docker-runtime
+git pull
+git config --global core.longpaths true
+pnpm install
+pnpm --filter @sero/desktop typecheck
+pnpm dev
+```
+
+If a previous dev server is stuck:
+
+```powershell
+Get-Process electron,vite,node -ErrorAction SilentlyContinue | Stop-Process -Force
+pnpm dev
+```
+
+### 6. Create the Windows smoke workspaces
+
+Create these two folders before opening Sero:
+
+PowerShell:
+
+```powershell
+mkdir $env:USERPROFILE\Projects\sero-pr177-win-drive -Force
+```
+
+Ubuntu/WSL:
+
+```bash
+mkdir -p ~/sero-pr177-wsl-native
+```
+
+In Sero:
+
+1. Add/open `C:\Users\<you>\Projects\sero-pr177-win-drive`.
+2. Later, add/open `\\wsl.localhost\Ubuntu\home\<you>\sero-pr177-wsl-native`.
+
+Start with the Windows-drive workspace. It is the easiest path and validates the important Windows-drive → WSL `/mnt/c/...` execution bridge. Use the WSL-native workspace as a second pass if time allows.
+
+### 7. Windows paths to test
+
+Test in this order:
 
 1. **Windows drive workspace**
    - Example: `C:\Users\<you>\Projects\sero-pr177-win-drive`
-   - Host runtime should execute this through WSL as `/mnt/c/...`.
+   - Docker runtime bind-mounts this path into `/workspace`.
+   - Host runtime executes through WSL as `/mnt/c/Users/<you>/Projects/sero-pr177-win-drive`.
 
 2. **WSL-native workspace**
    - Example: `\\wsl.localhost\Ubuntu\home\<you>\sero-pr177-wsl-native`
-   - Host runtime should execute inside that distro.
+   - Host runtime executes inside Ubuntu.
 
 Do not mix multiple WSL distros in one workspace. A workspace rooted in Ubuntu plus an additional root in Debian should be rejected.
 
