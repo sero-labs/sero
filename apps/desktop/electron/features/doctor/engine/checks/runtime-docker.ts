@@ -6,8 +6,8 @@ const dockerRuntimeCheck: DoctorCheck = {
   id: 'runtime.docker',
   category: 'runtime',
   slow: true,
-  async run() {
-    return runDockerDoctorChecks();
+  async run(ctx) {
+    return runDockerDoctorChecks({ signal: ctx.signal });
   },
 };
 
