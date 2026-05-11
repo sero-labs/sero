@@ -8,6 +8,20 @@ const LIMITATIONS = [
   'Managed preview and dev-server automation',
 ] as const;
 
+function runtimeSummary(runtime: OnboardingContainerRuntime): string {
+  if (runtime.runtime === 'apple-container') {
+    return 'Docker remains available as an isolated runtime on macOS. Host is available without containers, but browser automation and Linux-parity tooling require Docker or Apple Container.';
+  }
+  if (window.sero.platform === 'win32') {
+    return 'Docker Desktop provides the most isolated runtime on Windows. Host runtime uses WSL 2; install Ubuntu/WSL 2 if you want host-mode parity without containers.';
+  }
+  return 'Docker provides the most isolated runtime on Linux. Host runtime is available without containers for local shell, file, Git, LSP, and dev-server workflows.';
+}
+
+function limitationTarget(runtime: OnboardingContainerRuntime): string {
+  return runtime.runtime === 'apple-container' ? 'Docker or Apple Container' : 'Docker';
+}
+
 export function ContainerRuntimeNotice({
   runtime,
 }: {
@@ -27,12 +41,12 @@ export function ContainerRuntimeNotice({
           <div className="space-y-1">
             <p className="font-medium text-[var(--text-primary)]">Workspace runtime setup recommended for full Sero features</p>
             <p>{runtime.message}</p>
-            <p>Docker remains the most isolated runtime on Windows and Linux. Host is available without containers; Windows Host requires WSL 2.</p>
+            <p>{runtimeSummary(runtime)}</p>
           </div>
 
           <ul className="list-disc space-y-1 pl-5 text-xs marker:text-[var(--status-warning)]">
             {LIMITATIONS.map((item) => (
-              <li key={item}>{item} may be limited until Docker or Apple Container is configured.</li>
+              <li key={item}>{item} may be limited until {limitationTarget(runtime)} is configured.</li>
             ))}
           </ul>
 

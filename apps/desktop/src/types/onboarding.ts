@@ -53,6 +53,7 @@ export interface OnboardingContainerRuntime {
   status: OnboardingContainerRuntimeStatus;
   message: string;
   recommended: boolean;
+  runtime?: 'apple-container' | 'docker';
   docsUrl?: string;
 }
 

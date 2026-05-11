@@ -9,9 +9,12 @@ export interface ContainerAvailability {
   status: 'available' | 'missing_binary' | 'system_unavailable' | 'startup_failed';
   message: string;
   recommended: boolean;
+  runtime: 'apple-container' | 'docker';
 }
 
 export async function getContainerAvailability(): Promise<ContainerAvailability> {
+  if (process.platform !== 'darwin') return getDockerAvailability();
+
   try {
     await access(CONTAINER_BIN);
   } catch {
@@ -19,6 +22,7 @@ export async function getContainerAvailability(): Promise<ContainerAvailability>
       status: 'missing_binary',
       message: 'Apple containers are not installed on this Mac. Sero can continue in host mode, but some managed tooling will stay unavailable until the container CLI is installed.',
       recommended: true,
+      runtime: 'apple-container',
     };
   }
 
@@ -32,6 +36,7 @@ export async function getContainerAvailability(): Promise<ContainerAvailability>
         status: 'available',
         message: 'Apple containers are available.',
         recommended: true,
+        runtime: 'apple-container',
       };
     }
 
@@ -39,6 +44,7 @@ export async function getContainerAvailability(): Promise<ContainerAvailability>
       status: 'system_unavailable',
       message: 'Apple containers are installed, but the container system is not running. Sero can continue in host mode until it is started.',
       recommended: true,
+      runtime: 'apple-container',
     };
   } catch (error) {
     if (isXpcError(error)) {
@@ -46,6 +52,7 @@ export async function getContainerAvailability(): Promise<ContainerAvailability>
         status: 'system_unavailable',
         message: 'Apple containers are installed, but the container system is unavailable right now. Sero can continue in host mode until it is healthy again.',
         recommended: true,
+        runtime: 'apple-container',
       };
     }
 
@@ -53,6 +60,28 @@ export async function getContainerAvailability(): Promise<ContainerAvailability>
       status: 'startup_failed',
       message: `Apple containers could not be verified: ${errorMessage(error)}`,
       recommended: true,
+      runtime: 'apple-container',
+    };
+  }
+}
+
+async function getDockerAvailability(): Promise<ContainerAvailability> {
+  try {
+    const { stdout } = await execFileAsync('docker', ['version', '--format', '{{.Server.Version}}'], { timeout: 10_000 });
+    return {
+      status: 'available',
+      message: `Docker is available${stdout.trim() ? ` (${stdout.trim()})` : ''}.`,
+      recommended: true,
+      runtime: 'docker',
+    };
+  } catch (error) {
+    return {
+      status: 'missing_binary',
+      message: process.platform === 'win32'
+        ? 'Docker Desktop is recommended for full Sero runtime features on Windows. Host runtime is also available when WSL 2 is installed.'
+        : 'Docker is recommended for full Sero runtime features on this platform. Host runtime remains available without containers.',
+      recommended: true,
+      runtime: 'docker',
     };
   }
 }

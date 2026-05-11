@@ -39,6 +39,7 @@ describe('ContainerRuntimeNotice', () => {
     Object.defineProperty(window, 'sero', {
       configurable: true,
       value: {
+        platform: 'darwin',
         shell: shellBridge,
       },
     });
@@ -64,12 +65,13 @@ describe('ContainerRuntimeNotice', () => {
     }
   });
 
-  it('opens setup instructions when the CTA is clicked', async () => {
+  it('opens macOS setup instructions when the CTA is clicked', async () => {
     await act(async () => {
       root?.render(renderNotice({
         status: 'missing_binary',
         message: 'Install Apple containers.',
         recommended: true,
+        runtime: 'apple-container',
         docsUrl: 'https://github.com/sero-labs/sero/blob/main/docs/guides/macos-containers.md',
       }));
     });
@@ -81,8 +83,31 @@ describe('ContainerRuntimeNotice', () => {
     expect(shellBridge.openExternal).toHaveBeenCalledWith(
       'https://github.com/sero-labs/sero/blob/main/docs/guides/macos-containers.md',
     );
-    expect(document.body.textContent).toContain('Docker remains the most isolated runtime on Windows and Linux');
-    expect(document.body.textContent).toContain('Windows Host requires WSL 2');
+    expect(document.body.textContent).toContain('Docker remains available as an isolated runtime on macOS');
+    expect(document.body.textContent).toContain('Docker or Apple Container is configured');
+  });
+
+  it('renders Windows-specific Docker and WSL copy', async () => {
+    Object.defineProperty(window, 'sero', {
+      configurable: true,
+      value: {
+        shell: shellBridge,
+        platform: 'win32',
+      },
+    });
+
+    await act(async () => {
+      root?.render(renderNotice({
+        status: 'missing_binary',
+        message: 'Docker Desktop is recommended for full Sero runtime features on Windows.',
+        recommended: true,
+        runtime: 'docker',
+      }));
+    });
+
+    expect(document.body.textContent).toContain('Docker Desktop provides the most isolated runtime on Windows');
+    expect(document.body.textContent).toContain('Host runtime uses WSL 2');
+    expect(document.body.textContent).not.toContain('Apple Container');
   });
 
   it('renders nothing when containers are available', async () => {
@@ -91,6 +116,7 @@ describe('ContainerRuntimeNotice', () => {
         status: 'available',
         message: 'Apple containers are available.',
         recommended: true,
+        runtime: 'apple-container',
       }));
     });
 
