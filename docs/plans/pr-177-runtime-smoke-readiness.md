@@ -135,7 +135,6 @@ docker run --rm \
     command -v npm
     command -v python3
     command -v pgrep
-    command -v lsof
     command -v agent-browser
 
     echo "== workspace write as arbitrary uid =="
@@ -182,6 +181,72 @@ Expected:
 - No permission errors writing as your host UID/GID.
 
 If this fails before desktop app testing, fix the image first.
+
+---
+
+## 2A. Automated Apple Container image smoke
+
+Run this only on Apple Silicon with Apple Container available. It proves the rebuilt Apple Container image store has the same toolchain/browser assets as Docker.
+
+```bash
+set -euo pipefail
+IMAGE=ghcr.io/sero-labs/sero-node:latest
+TMP_DIR="$(mktemp -d)"
+
+cleanup() {
+  rm -rf "$TMP_DIR"
+}
+trap cleanup EXIT
+
+/usr/local/bin/container run --rm \
+  --uid "$(id -u)" \
+  --gid "$(id -g)" \
+  -e HOME=/tmp/sero-home \
+  -e PLAYWRIGHT_BROWSERS_PATH=/ms-playwright \
+  -v "$TMP_DIR:/workspace" \
+  -w /workspace \
+  "$IMAGE" \
+  bash -lc '
+    set -euo pipefail
+    command -v bash
+    command -v git
+    command -v node
+    command -v npm
+    command -v python3
+    command -v pgrep
+    command -v agent-browser
+    printf "runtime-write-ok\n" > /workspace/runtime-created.txt
+    test "$(cat /workspace/runtime-created.txt)" = "runtime-write-ok"
+    test "$PLAYWRIGHT_BROWSERS_PATH" = "/ms-playwright"
+    test -d /ms-playwright
+    test -r /ms-playwright
+    chrome="$(find /ms-playwright "$HOME/.cache/ms-playwright" -path "*/chrome-linux/chrome" -type f -perm -111 -print -quit 2>/dev/null)"
+    ffmpeg="$(find /ms-playwright "$HOME/.cache/ms-playwright" -path "*/ffmpeg-linux" -type f -perm -111 -print -quit 2>/dev/null)"
+    test -n "$chrome"
+    test -n "$ffmpeg"
+    echo "chrome=$chrome"
+    echo "ffmpeg=$ffmpeg"
+    "$chrome" --headless=new --no-sandbox --disable-gpu \
+      --screenshot=/workspace/chrome-smoke.png \
+      "data:text/html,<html><body><h1>sero smoke</h1></body></html>"
+    test -s /workspace/chrome-smoke.png
+    "$ffmpeg" -version >/dev/null
+    agent-browser --session sero-image-smoke --executable-path "$chrome" open about:blank --json
+    agent-browser --session sero-image-smoke --executable-path "$chrome" screenshot /workspace/agent-browser-smoke.png --json
+    agent-browser --session sero-image-smoke close --json || true
+    test -s /workspace/agent-browser-smoke.png
+  '
+
+test -s "$TMP_DIR/chrome-smoke.png"
+test -s "$TMP_DIR/agent-browser-smoke.png"
+test -f "$TMP_DIR/runtime-created.txt"
+echo "Apple Container image smoke passed"
+```
+
+Expected:
+
+- Command exits 0.
+- The same browser assets and arbitrary-UID workspace write behavior pass under Apple Container.
 
 ---
 
@@ -591,3 +656,45 @@ Apple Container image rebuilt: yes/no/not available
 ```
 
 PR is ready when all applicable rows are pass, and unavailable rows have a clear reason such as `not run: no Windows machine` or `not run: Apple Container unavailable on Intel Mac`.
+
+---
+
+## 10. Automated run results — 2026-05-11
+
+These were run after rebuilding both local images from this PR branch.
+
+### Source fix found during automation
+
+The first broad automated run exposed a WSL LSP test timeout caused by the test not mocking the new WSL execution-PID pidfile read. The test was fixed so WSL host LSP startup now covers the pidfile read path deterministically.
+
+### Results
+
+- Desktop runtime/container/app-runtime/VCS/LSP/Doctor focused Vitest suite — **pass**
+  - Command:
+    `pnpm --filter @sero/desktop exec vitest run electron/__tests__/features/workspace/runtime electron/__tests__/features/container electron/__tests__/features/workspace/runtime-resolution.test.ts electron/__tests__/features/workspace/workspace-runtime-config.test.ts electron/__tests__/ipc/runtime-boundaries.test.ts electron/__tests__/ipc/workspace-runtime-reconcile.test.ts electron/__tests__/features/apps/runtime electron/__tests__/features/vcs/git-runner.test.ts electron/__tests__/features/editor/lsp-config-routing.test.ts electron/__tests__/features/editor/lsp-process.test.ts electron/__tests__/features/doctor/checks.test.ts electron/__tests__/features/doctor/runner.test.ts`
+  - Result: 45 files passed, 239 tests passed.
+- `pnpm --filter @sero/desktop typecheck` — **pass**.
+- `pnpm typecheck` — **pass**; 15/15 Turbo tasks successful.
+- Static checks — **pass/reviewed**:
+  - no changed source file exceeds 500 LOC;
+  - `rg 'RUNTIME_CAPABILITIES\[' apps packages plugins` has no matches;
+  - `mac-host` matches are deprecated compatibility references, tests, or historical docs/plans.
+- Docker live image smoke — **pass**.
+  - Docker version: 29.4.1.
+  - Docker image: `sha256:ea34799768cc4cb51beb031b0521bc69bfeaf677f47f5239e07abd2c9ceffa9d`, created `2026-05-11T09:34:42.268732468Z`.
+  - Covered arbitrary UID/GID workspace write, `/ms-playwright` Chromium/ffmpeg lookup, Chromium headless screenshot, `agent-browser` launch/screenshot/close.
+- Apple Container live image smoke — **pass**.
+  - Apple Container image: `ghcr.io/sero-labs/sero-node:latest` digest prefix `7d5ae62ada12bf5a692e80e7...`.
+  - Covered arbitrary UID/GID workspace write, `/ms-playwright` Chromium/ffmpeg lookup, Chromium headless screenshot, `agent-browser` launch/screenshot/close.
+- Host direct dependency smoke on this macOS machine — **pass**.
+  - `bash`, `git`, `node`, `python3`, `pgrep`, and `lsof` are available.
+
+### Remaining manual / in-app smoke
+
+The only remaining checks require an interactive Sero desktop session or another OS:
+
+1. In-app `runPr177BackendSmoke("docker")`, `runPr177BackendSmoke("host")`, and `runPr177BackendSmoke("apple-container")` from section 4.
+2. Temporary-plugin managed dev-server smoke from section 5 for Docker, Host, and Apple Container.
+3. Browser tool smoke through Sero chat from section 6 for Docker and Apple Container.
+4. Backend switch/reset smoke in the running app from section 7.
+5. Windows/WSL host smoke from section 8 on a Windows machine.

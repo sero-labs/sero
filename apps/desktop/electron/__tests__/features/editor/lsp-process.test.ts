@@ -1,5 +1,5 @@
 import { EventEmitter } from 'events';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { LspServerProcess } from '@electron/features/editor/lsp/lsp-process';
 import type { LspServerConfig } from '@electron/features/editor/lsp/types';
@@ -9,11 +9,12 @@ import { HostBackend } from '@electron/features/workspace/runtime/backends/host/
 import { RUNTIME_WORKSPACE_PATH } from '@electron/features/workspace/runtime/runtime-paths';
 
 const mocks = vi.hoisted(() => ({
+  execFileMock: vi.fn(),
   spawnMock: vi.fn(),
 }));
 
 vi.mock('child_process', () => ({
-  execFile: vi.fn(),
+  execFile: mocks.execFileMock,
   execFileSync: vi.fn(),
   spawn: mocks.spawnMock,
 }));
@@ -48,6 +49,11 @@ function encodeRpc(message: object): string {
 }
 
 describe('LspServerProcess host runtime launch', () => {
+  beforeEach(() => {
+    mocks.execFileMock.mockReset();
+    mocks.spawnMock.mockReset();
+  });
+
   it('starts POSIX host language servers with the shared runtime workspace cwd', async () => {
     const child = new MockSpawnedProcess();
     mocks.spawnMock.mockReturnValue(child);
@@ -70,6 +76,7 @@ describe('LspServerProcess host runtime launch', () => {
   it('starts WSL host language servers through wsl.exe with the translated runtime workspace cwd', async () => {
     const child = new MockSpawnedProcess();
     mocks.spawnMock.mockReturnValue(child);
+    mocks.execFileMock.mockImplementation((_program, _args, cb) => cb(null, '5678\n', ''));
     const backend = new HostBackend({
       workspaceId: 'workspace-a',
       hostWorkspacePath: '\\\\wsl$\\Ubuntu\\home\\me\\repo',
