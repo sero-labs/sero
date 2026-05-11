@@ -11,9 +11,10 @@ function fail(): RuntimeExecResult {
   return { stdout: '', stderr: '', exitCode: 1 };
 }
 
-function createProcess(pid = 1234) {
+function createProcess(pid = 1234, executionPid?: number) {
   return {
     pid,
+    executionPid,
     write: vi.fn(),
     signal: vi.fn(),
     onData: vi.fn(() => vi.fn()),
@@ -58,6 +59,32 @@ describe('HostDevServerManager', () => {
       status: 'running',
     });
     expect(manager.list()).toEqual([server]);
+  });
+
+  it('uses executionPid for port detection when available', async () => {
+    const spawn = vi.fn<(input: RuntimeProcessInput) => Promise<ReturnType<typeof createProcess>>>()
+      .mockResolvedValue(createProcess(111, 222));
+    const execFile = vi.fn<(input: RuntimeExecFileInput) => Promise<RuntimeExecResult>>()
+      .mockImplementation(async (input) => {
+        if (input.program === 'pgrep') return fail();
+        return ok('node 222 user 22u IPv4 TCP 127.0.0.1:5173 (LISTEN)');
+      });
+    const manager = new HostDevServerManager({
+      workspaceId: 'workspace-a',
+      platform: 'win32',
+      spawn,
+      execFile,
+      pollIntervalMs: 1,
+      portDetectTimeoutMs: 10,
+      tcpProbe: vi.fn(async () => true),
+    });
+
+    await manager.start({ command: 'pnpm dev', cwd: '/workspace' });
+
+    expect(execFile).toHaveBeenCalledWith(expect.objectContaining({
+      program: 'lsof',
+      args: ['-nP', '-iTCP', '-sTCP:LISTEN', '-p', '222'],
+    }));
   });
 
   it('marks a server failed when port detection times out', async () => {

@@ -37,6 +37,12 @@ function createSubstrate(options: { supportsCd?: boolean } = {}) {
   });
 }
 
+function rejectExecFileWith(error: Error): void {
+  mocks.execFileMock.mockImplementation((_program: string, _args: string[], callback: (error: Error | null, stdout: string, stderr: string) => void) => {
+    callback(error, '', '');
+  });
+}
+
 function completeExecFileWith(stdout: string): void {
   mocks.execFileMock.mockImplementation((_program: string, _args: string[], callback: (error: Error | null, stdout: string, stderr: string) => void) => {
     callback(null, stdout, '');
@@ -98,6 +104,29 @@ describe('WslHostSubstrate', () => {
     expect(rendered.args.slice(0, 4)).toEqual(['-d', 'Ubuntu', '--', 'bash']);
     expect(rendered.args[4]).toBe('-c');
     expect(rendered.args[5]).toBe("cd '/home/me/repo with spaces' && 'git' 'status' '--short'");
+  });
+
+  it('resolves the Linux execution pid from the CRLF-normalized pidfile', async () => {
+    completeExecFileWith('4242\r\n');
+    const substrate = createSubstrate({ supportsCd: true });
+    const rendered = substrate.shellCommand({ command: 'sleep 30', cwd: '/home/me/repo' });
+
+    const pid = await substrate.resolveExecutionPid({} as ChildProcess, rendered);
+
+    expect(pid).toBe(4242);
+    expect(mocks.execFileMock).toHaveBeenCalledWith('wsl.exe', ['-d', 'Ubuntu', '--', 'cat', rendered.innerPidFile], expect.any(Function));
+  });
+
+  it('returns undefined when the Linux execution pidfile is unavailable', async () => {
+    vi.useFakeTimers();
+    rejectExecFileWith(new Error('missing'));
+    const substrate = createSubstrate({ supportsCd: true });
+    const rendered = substrate.shellCommand({ command: 'sleep 30', cwd: '/home/me/repo' });
+
+    const pidPromise = substrate.resolveExecutionPid({} as ChildProcess, rendered);
+    await vi.advanceTimersByTimeAsync(1_000);
+    await expect(pidPromise).resolves.toBeUndefined();
+    vi.useRealTimers();
   });
 
   it('signals the wsl.exe parent then kills the inner pid from the pidfile', async () => {

@@ -136,6 +136,10 @@ export class PosixHostSubstrate implements HostRuntimeSubstrate {
     }
   }
 
+  async resolveExecutionPid(child: ChildProcess): Promise<number | undefined> {
+    return child.pid;
+  }
+
   async signalChild(child: ChildProcess, _rendered: HostSubstrateRendered, signal: NodeJS.Signals | number): Promise<void> {
     child.kill(signal);
   }

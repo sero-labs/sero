@@ -93,6 +93,7 @@ export interface RuntimeProcessInput extends RuntimeExecInput {
 
 export interface RuntimeProcess {
   pid?: number;
+  executionPid?: number;
   write(input: string): void;
   resize?(cols: number, rows: number): void;
   signal(signal: NodeJS.Signals | number): void;

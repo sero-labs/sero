@@ -65,6 +65,7 @@ export interface HostRuntimeSubstrate {
   watchFiles(path: string, onEvent: (event: HostSubstrateFileWatchEvent) => void): Promise<HostSubstrateFileWatch>;
 
   isSshAvailable(): Promise<boolean>;
+  resolveExecutionPid?(child: ChildProcess, rendered: HostSubstrateRendered): Promise<number | undefined>;
   signalChild(child: ChildProcess, rendered: HostSubstrateRendered, signal: NodeJS.Signals | number): Promise<void>;
   normalizeExecOutput(output: string): string;
 }

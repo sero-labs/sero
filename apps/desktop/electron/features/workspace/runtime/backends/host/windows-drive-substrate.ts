@@ -109,6 +109,10 @@ export class WindowsDriveHostSubstrate implements HostRuntimeSubstrate {
     return this.commandSubstrate.isSshAvailable();
   }
 
+  resolveExecutionPid(child: ChildProcess, rendered: HostSubstrateRendered): Promise<number | undefined> {
+    return this.commandSubstrate.resolveExecutionPid(child, rendered);
+  }
+
   signalChild(child: ChildProcess, rendered: HostSubstrateRendered, signal: NodeJS.Signals | number): Promise<void> {
     return this.commandSubstrate.signalChild(child, rendered, signal);
   }

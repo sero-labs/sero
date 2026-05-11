@@ -207,14 +207,15 @@ export class WslHostSubstrate implements HostRuntimeSubstrate {
     }
   }
 
+  async resolveExecutionPid(_child: ChildProcess, rendered: HostSubstrateRendered): Promise<number | undefined> {
+    return this.readInnerPid(rendered.innerPidFile);
+  }
+
   async signalChild(child: ChildProcess, rendered: HostSubstrateRendered, signal: NodeJS.Signals | number): Promise<void> {
     child.kill(signal);
-    if (!rendered.innerPidFile) return;
-    await new Promise((resolve) => setTimeout(resolve, 250));
-    const { stdout } = await execFileAsync('wsl.exe', this.wslCommandArgs(['cat', rendered.innerPidFile]));
-    const innerPid = stdout.trim();
-    if (innerPid) {
-      await execFileAsync('wsl.exe', this.wslCommandArgs(['kill', `-${signalName(signal)}`, innerPid]));
+    const innerPid = await this.readInnerPid(rendered.innerPidFile, { attempts: 1, delayMs: 0 });
+    if (innerPid !== undefined) {
+      await execFileAsync('wsl.exe', this.wslCommandArgs(['kill', `-${signalName(signal)}`, String(innerPid)]));
     }
   }
 
@@ -245,6 +246,26 @@ export class WslHostSubstrate implements HostRuntimeSubstrate {
     return this.supportsCdOverride ?? detectSupportsCd();
   }
 
+  private async readInnerPid(
+    innerPidFile: string | undefined,
+    options: { attempts?: number; delayMs?: number } = {},
+  ): Promise<number | undefined> {
+    if (!innerPidFile) return undefined;
+    const attempts = options.attempts ?? 10;
+    const delayMs = options.delayMs ?? 100;
+    for (let attempt = 0; attempt < attempts; attempt += 1) {
+      try {
+        const { stdout } = await execFileAsync('wsl.exe', this.wslCommandArgs(['cat', innerPidFile]));
+        const pid = Number(this.normalizeExecOutput(stdout).trim());
+        if (Number.isInteger(pid) && pid > 0) return pid;
+      } catch {
+        // The shell writes the pidfile shortly after wsl.exe starts; absence is expected during startup.
+      }
+      if (attempt < attempts - 1 && delayMs > 0) await sleep(delayMs);
+    }
+    return undefined;
+  }
+
   private spawnAndWrite(args: string[], input: string): Promise<void> {
     return new Promise((resolve, reject) => {
       const child = spawn('wsl.exe', args);
@@ -256,6 +277,10 @@ export class WslHostSubstrate implements HostRuntimeSubstrate {
       child.stdin.end(input);
     });
   }
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function normalizeSshProbeFailure(error: unknown): { stdout: string; stderr: string } {

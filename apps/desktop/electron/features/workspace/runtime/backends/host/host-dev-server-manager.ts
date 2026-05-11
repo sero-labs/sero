@@ -65,10 +65,11 @@ export class HostDevServerManager {
     const cwd = input.cwd || '/workspace';
     const process = await this.spawn({ command: input.command, cwd, stdio: 'pipe' });
     const pid = process.pid;
+    const detectionPid = process.executionPid ?? process.pid;
     const baseId = `${this.workspaceId}:${input.scope ?? 'workspace'}:${input.cardId ?? 'root'}`;
 
     try {
-      const port = pid ? await this.detectListeningPort(pid) : null;
+      const port = detectionPid ? await this.detectListeningPort(detectionPid) : null;
       if (!port) return this.registerFailed(baseId, input, cwd, pid, process, 'dev-server-port-detect-timeout');
       const url = `http://127.0.0.1:${port}`;
       const record: HostDevServerRecord = {

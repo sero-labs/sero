@@ -193,8 +193,11 @@ export class HostBackend implements RuntimeBackend {
       for (const cb of exitCallbacks) cb({ exitCode, signal: signal ?? undefined });
     });
 
+    const executionPid = await this.substrate.resolveExecutionPid?.(child, rendered);
+
     return {
       pid: child.pid,
+      executionPid,
       write: (chunk) => { child.stdin?.write(chunk); },
       signal: (signal) => { void this.substrate.signalChild(child, rendered, signal); },
       onData: (cb) => subscribe(dataCallbacks, cb),
