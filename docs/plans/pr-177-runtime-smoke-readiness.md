@@ -293,7 +293,8 @@ async function runPr177BackendSmoke(backend) {
 
   const marker = `pr177-${backend}-${Date.now()}`;
   const editorFile = "/workspace/pr177-editor-smoke.txt";
-  const execFile = "/workspace/pr177-exec-smoke.txt";
+  const execVirtualFile = "/workspace/pr177-exec-smoke.txt";
+  const execRelativeFile = "pr177-exec-smoke.txt";
 
   await window.sero.editor.writeFile(ws.id, editorFile, marker);
   const editorRead = await window.sero.editor.readFile(ws.id, editorFile);
@@ -311,8 +312,8 @@ async function runPr177BackendSmoke(backend) {
     "python3 --version >/dev/null",
     "node --version >/dev/null",
     containerOnlyChecks,
-    `printf '${marker}' > ${execFile}`,
-    `cat ${execFile}`,
+    `printf '${marker}' > ${execRelativeFile}`,
+    `cat ${execRelativeFile}`,
   ].join(" && ");
 
   const execResult = await window.sero.editor.exec(ws.id, command);
@@ -320,11 +321,11 @@ async function runPr177BackendSmoke(backend) {
   if (execResult.exitCode !== 0) throw new Error(execResult.stderr || execResult.stdout);
   if (!execResult.stdout.includes(marker)) throw new Error("exec marker missing from stdout");
 
-  const execRead = await window.sero.editor.readFile(ws.id, execFile);
+  const execRead = await window.sero.editor.readFile(ws.id, execVirtualFile);
   if (execRead !== marker) throw new Error(`exec file read mismatch: ${execRead}`);
 
   await window.sero.editor.delete(ws.id, editorFile).catch(() => false);
-  await window.sero.editor.delete(ws.id, execFile).catch(() => false);
+  await window.sero.editor.delete(ws.id, execVirtualFile).catch(() => false);
 
   const doctor = await window.sero.doctor.run({ category: "runtime" });
   console.log("runtime doctor", doctor.results.map((r) => ({ id: r.id, status: r.status, message: r.message })));
@@ -347,6 +348,7 @@ Expected for `docker` and `apple-container`:
 - Runtime switch succeeds.
 - Exec succeeds.
 - `UNAME=Linux` appears in stdout.
+- `PWD=/workspace` normally appears in stdout.
 - `/ms-playwright` exists and is readable.
 - Files written by editor and exec can be read/deleted through Sero.
 - Runtime Doctor does not hang. Docker image missing may warn only if you did not rebuild/load the image into the relevant runtime store.
@@ -355,6 +357,7 @@ Expected for `host`:
 
 - Runtime switch succeeds.
 - Exec succeeds using the host/WSL environment.
+- `PWD` may be the native workspace path on macOS/Linux host, not `/workspace`. This is expected; the smoke uses a relative exec-created file so the same check works across Host/Docker/Apple.
 - File write/read/delete works.
 - Browser automation is not advertised for host.
 
