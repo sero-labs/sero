@@ -269,6 +269,43 @@ describe('runtime backend contract skeleton', () => {
     ]);
   });
 
+  it('shares one legacy dev-server listener across runtime manager subscribers', () => {
+    let legacyCallback: ((event: { type: 'registered'; server: RuntimeDevServer & { workspaceId: string } }) => void) | undefined;
+    const legacyUnsubscribe = vi.fn();
+    const onChange = vi.fn((cb) => {
+      legacyCallback = cb;
+      return legacyUnsubscribe;
+    });
+    const manager = new RuntimeManager({
+      workspaceManager: {} as WorkspaceManager,
+      containerManager: { devServers: { onChange } } as unknown as ContainerManager,
+    });
+    const first = vi.fn();
+    const second = vi.fn();
+
+    const unsubscribeFirst = manager.onDevServerChange(first);
+    const unsubscribeSecond = manager.onDevServerChange(second);
+    legacyCallback?.({
+      type: 'registered',
+      server: {
+        id: 'workspace-a:workspace:root:5173',
+        workspaceId: 'workspace-a',
+        port: 5173,
+        url: 'http://127.0.0.1:5173',
+        command: 'pnpm dev',
+        cwd: '/workspace',
+      },
+    });
+    unsubscribeFirst();
+    expect(legacyUnsubscribe).not.toHaveBeenCalled();
+    unsubscribeSecond();
+
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(first).toHaveBeenCalledTimes(1);
+    expect(second).toHaveBeenCalledTimes(1);
+    expect(legacyUnsubscribe).toHaveBeenCalledTimes(1);
+  });
+
   it('merges runtime-backed dev servers without registering host servers in the legacy container registry', async () => {
     const legacyList = vi.fn(() => []);
     const manager = new RuntimeManager({

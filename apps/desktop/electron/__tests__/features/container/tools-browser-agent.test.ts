@@ -174,6 +174,7 @@ describe('createAgentBrowser', () => {
       undefined as never,
     );
 
+    expect(exec.mock.calls[3][1]).toContain('if [ -w /ms-playwright ]; then export PLAYWRIGHT_BROWSERS_PATH=/ms-playwright; else unset PLAYWRIGHT_BROWSERS_PATH; fi');
     expect(exec.mock.calls[3][1]).toContain('playwright@1.57.0 install ffmpeg');
     expect(exec.mock.calls[5][1]).toContain("'record' 'start'");
   });
@@ -299,6 +300,7 @@ describe('createAgentBrowser', () => {
 
     await tool.execute('tc-install-browser', { action: 'launch' }, undefined, undefined, undefined as never);
 
+    expect(exec.mock.calls[2][1]).toContain('if [ -w /ms-playwright ]; then export PLAYWRIGHT_BROWSERS_PATH=/ms-playwright; else unset PLAYWRIGHT_BROWSERS_PATH; fi');
     expect(exec.mock.calls[2][1]).toContain('playwright@1.57.0 install chromium');
     expect(exec.mock.calls[4][1]).toContain("'--executable-path' '/root/.cache/ms-playwright/chromium-1200/chrome-linux/chrome'");
     expect(exec.mock.calls[4][1]).toContain("'open' 'about:blank'");

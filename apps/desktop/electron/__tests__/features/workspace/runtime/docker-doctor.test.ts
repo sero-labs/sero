@@ -35,17 +35,35 @@ describe('Docker Doctor checks', () => {
     expect(results.find((result) => result.id === 'runtime.docker.image')).toMatchObject({ status: 'warn' });
   });
 
-  it('threads abort signals into each registered docker check', async () => {
+  it('threads abortable signals into each registered docker check', async () => {
     const controller = new AbortController();
     const signals: (AbortSignal | undefined)[] = [];
     const run: DockerRunner = vi.fn(async (_args, options) => {
       signals.push(options?.signal);
+      expect(options?.timeoutMs).toBeLessThan(1_000);
       return ok('25.0.0');
     });
 
     await runDockerDoctorChecks({ imageRef: 'local:image', run, signal: controller.signal });
 
-    expect(signals).toEqual([controller.signal, controller.signal, controller.signal]);
+    expect(signals).toHaveLength(3);
+    expect(signals.every((signal) => signal instanceof AbortSignal)).toBe(true);
+  });
+
+  it('aborts within its local budget and does not start later registered probes', async () => {
+    vi.useFakeTimers();
+    const run: DockerRunner = vi.fn((_args, options) => new Promise<DockerCommandResult>((resolve) => {
+      options?.signal?.addEventListener('abort', () => resolve(fail('Command aborted.', 130)), { once: true });
+    }));
+
+    const pending = runDockerDoctorChecks({ imageRef: 'local:image', run });
+    await vi.advanceTimersByTimeAsync(2_800);
+    const results = await pending;
+    vi.useRealTimers();
+
+    expect(run).toHaveBeenCalledTimes(1);
+    expect(results).toHaveLength(1);
+    expect(results[0]).toMatchObject({ id: 'runtime.docker.cli', status: 'fail' });
   });
 
   it('keeps bind mount, permission, network, and port probes as explicit smoke checks', async () => {

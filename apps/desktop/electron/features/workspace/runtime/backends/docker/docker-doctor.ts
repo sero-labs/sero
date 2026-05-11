@@ -12,14 +12,28 @@ export interface DockerDoctorOptions {
   signal?: AbortSignal;
 }
 
+const REGISTERED_CHECK_BUDGET_MS = 2_800;
+const REGISTERED_COMMAND_TIMEOUT_MS = 850;
+
 export async function runDockerDoctorChecks(options: DockerDoctorOptions = {}): Promise<DoctorResult[]> {
   const run = options.run ?? runDocker;
   const imageRef = options.imageRef ?? DEFAULT_IMAGE;
-  return [
-    await checkCli(run, options.now, options.signal),
-    await checkDaemon(run, options.now, options.signal),
-    await checkImageLocal(run, imageRef, options.now, options.signal),
-  ];
+  const { signal, cleanup } = createBoundedSignal(options.signal, REGISTERED_CHECK_BUDGET_MS);
+  const results: DoctorResult[] = [];
+  try {
+    for (const check of [
+      () => checkCli(run, options.now, signal),
+      () => checkDaemon(run, options.now, signal),
+      () => checkImageLocal(run, imageRef, options.now, signal),
+    ]) {
+      if (signal.aborted) break;
+      results.push(await check());
+      if (signal.aborted) break;
+    }
+    return results;
+  } finally {
+    cleanup();
+  }
 }
 
 export async function runDockerSmokeChecks(options: DockerDoctorOptions = {}): Promise<DoctorResult[]> {
@@ -35,7 +49,7 @@ export async function runDockerSmokeChecks(options: DockerDoctorOptions = {}): P
 
 async function checkCli(run: DockerRunner, now?: () => number, signal?: AbortSignal): Promise<DoctorResult> {
   const start = mark(now);
-  const result = await run(['version', '--format', '{{.Client.Version}}'], { timeoutMs: 5_000, signal });
+  const result = await run(['version', '--format', '{{.Client.Version}}'], { timeoutMs: REGISTERED_COMMAND_TIMEOUT_MS, signal });
   if (result.exitCode !== 0) {
     return makeDockerResult('runtime.docker.cli', 'fail', 'Docker CLI is not available.', start, now, {
       stderr: result.stderr,
@@ -47,7 +61,7 @@ async function checkCli(run: DockerRunner, now?: () => number, signal?: AbortSig
 
 async function checkDaemon(run: DockerRunner, now?: () => number, signal?: AbortSignal): Promise<DoctorResult> {
   const start = mark(now);
-  const result = await run(['info', '--format', '{{json .ServerVersion}}'], { timeoutMs: 5_000, signal });
+  const result = await run(['info', '--format', '{{json .ServerVersion}}'], { timeoutMs: REGISTERED_COMMAND_TIMEOUT_MS, signal });
   if (result.exitCode !== 0) {
     return makeDockerResult('runtime.docker.daemon', 'fail', 'Docker daemon is not reachable.', start, now, { stderr: result.stderr });
   }
@@ -56,7 +70,7 @@ async function checkDaemon(run: DockerRunner, now?: () => number, signal?: Abort
 
 async function checkImageLocal(run: DockerRunner, imageRef: string, now?: () => number, signal?: AbortSignal): Promise<DoctorResult> {
   const start = mark(now);
-  const result = await run(['image', 'inspect', imageRef], { timeoutMs: 5_000, signal });
+  const result = await run(['image', 'inspect', imageRef], { timeoutMs: REGISTERED_COMMAND_TIMEOUT_MS, signal });
   if (result.exitCode === 0) {
     return makeDockerResult('runtime.docker.image', 'pass', `Docker image ${imageRef} is available locally.`, start, now);
   }
@@ -148,6 +162,21 @@ function makeDockerResult(
 
 function mark(now?: () => number): number {
   return now ? now() : Date.now();
+}
+
+function createBoundedSignal(parentSignal: AbortSignal | undefined, timeoutMs: number): { signal: AbortSignal; cleanup: () => void } {
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+  if (parentSignal?.aborted) abort();
+  else parentSignal?.addEventListener('abort', abort, { once: true });
+  const timer = setTimeout(abort, timeoutMs);
+  return {
+    signal: controller.signal,
+    cleanup: () => {
+      clearTimeout(timer);
+      parentSignal?.removeEventListener('abort', abort);
+    },
+  };
 }
 
 function errorMessage(error: unknown): string {

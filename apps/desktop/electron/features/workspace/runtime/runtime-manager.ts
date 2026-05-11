@@ -19,6 +19,7 @@ export class RuntimeManager {
   private readonly terminalExitCallbacks = new Set<(terminalId: string) => void>();
   private readonly devServerCallbacks = new Set<(event: RuntimeDevServerChangeEvent) => void>();
   private readonly backendDevServerUnsubs = new Map<string, () => void>();
+  private legacyDevServerUnsubscribe: (() => void) | undefined;
 
   constructor(private readonly dependencies: RuntimeManagerDependencies) {}
 
@@ -122,12 +123,10 @@ export class RuntimeManager {
 
   onDevServerChange(cb: (event: RuntimeDevServerChangeEvent) => void): () => void {
     this.devServerCallbacks.add(cb);
-    const legacyUnsubscribe = this.dependencies.containerManager.devServers?.onChange((event) => {
-      this.emitDevServerChange(normalizeLegacyDevServerEvent(event));
-    }) ?? (() => undefined);
+    this.ensureLegacyDevServerSubscription();
     return () => {
       this.devServerCallbacks.delete(cb);
-      legacyUnsubscribe();
+      if (this.devServerCallbacks.size === 0) this.clearLegacyDevServerSubscription();
     };
   }
 
@@ -207,6 +206,18 @@ export class RuntimeManager {
 
   private emitDevServerChange(event: RuntimeDevServerChangeEvent): void {
     for (const cb of this.devServerCallbacks) cb(event);
+  }
+
+  private ensureLegacyDevServerSubscription(): void {
+    if (this.legacyDevServerUnsubscribe) return;
+    this.legacyDevServerUnsubscribe = this.dependencies.containerManager.devServers?.onChange((event) => {
+      this.emitDevServerChange(normalizeLegacyDevServerEvent(event));
+    });
+  }
+
+  private clearLegacyDevServerSubscription(): void {
+    this.legacyDevServerUnsubscribe?.();
+    this.legacyDevServerUnsubscribe = undefined;
   }
 
   private async resolveBackendId(workspaceId: string): Promise<RuntimeBackendId> {

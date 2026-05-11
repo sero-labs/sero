@@ -16,6 +16,7 @@ const metricsByWorkspace = new Map<string, { success: number; failure: number; t
 const executablePathByWorkspace = new Map<string, string>();
 const AGENT_BROWSER_PLAYWRIGHT_VERSION = '1.57.0';
 const AGENT_BROWSER_CHROMIUM_REVISION = '1200';
+const PLAYWRIGHT_FALLBACK_INSTALL_ENV = 'if [ -w /ms-playwright ]; then export PLAYWRIGHT_BROWSERS_PATH=/ms-playwright; else unset PLAYWRIGHT_BROWSERS_PATH; fi';
 
 interface AgentBrowserJson {
   success?: boolean;
@@ -137,7 +138,7 @@ async function ensureFfmpegAvailable(runtime: RuntimeBackend, workspaceId: strin
   const existing = await runtime.exec({ command: "sh -lc 'set -- \"$PLAYWRIGHT_BROWSERS_PATH\"/ffmpeg-*/ffmpeg-linux /ms-playwright/ffmpeg-*/ffmpeg-linux \"$HOME\"/.cache/ms-playwright/ffmpeg-*/ffmpeg-linux /root/.cache/ms-playwright/ffmpeg-*/ffmpeg-linux; for p in \"$@\"; do if [ -x \"$p\" ]; then exit 0; fi; done; exit 1'", timeoutMs: 10_000 });
   if (existing.exitCode === 0) return;
 
-  const install = await runtime.exec({ command: `sh -lc 'if [ -w /ms-playwright ]; then export PLAYWRIGHT_BROWSERS_PATH=/ms-playwright; fi; npx -y playwright@${AGENT_BROWSER_PLAYWRIGHT_VERSION} install ffmpeg'`, timeoutMs: 180_000 });
+  const install = await runtime.exec({ command: `sh -lc '${PLAYWRIGHT_FALLBACK_INSTALL_ENV}; npx -y playwright@${AGENT_BROWSER_PLAYWRIGHT_VERSION} install ffmpeg'`, timeoutMs: 180_000 });
   if (install.exitCode !== 0) {
     throw new Error(`Failed to install Playwright ffmpeg for browser recording: ${install.stderr || install.stdout}`);
   }
@@ -158,7 +159,7 @@ async function ensureAgentBrowserAvailable(runtime: RuntimeBackend, workspaceId:
   const executablePath = await resolveBrowserExecutable(runtime, workspaceId);
   if (executablePath?.includes(`/chromium-${AGENT_BROWSER_CHROMIUM_REVISION}/`)) return;
 
-  const installBrowser = await runtime.exec({ command: `sh -lc 'if [ -w /ms-playwright ]; then export PLAYWRIGHT_BROWSERS_PATH=/ms-playwright; fi; npx -y playwright@${AGENT_BROWSER_PLAYWRIGHT_VERSION} install chromium'`, timeoutMs: 180_000 });
+  const installBrowser = await runtime.exec({ command: `sh -lc '${PLAYWRIGHT_FALLBACK_INSTALL_ENV}; npx -y playwright@${AGENT_BROWSER_PLAYWRIGHT_VERSION} install chromium'`, timeoutMs: 180_000 });
   if (installBrowser.exitCode !== 0) {
     throw new Error(`Failed to install Playwright Chromium for agent-browser: ${installBrowser.stderr || installBrowser.stdout}`);
   }
