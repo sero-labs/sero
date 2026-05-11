@@ -17,6 +17,8 @@ const executablePathByWorkspace = new Map<string, string>();
 const AGENT_BROWSER_PLAYWRIGHT_VERSION = '1.57.0';
 const AGENT_BROWSER_CHROMIUM_REVISION = '1200';
 const PLAYWRIGHT_FALLBACK_INSTALL_ENV = 'if [ -w /ms-playwright ]; then export PLAYWRIGHT_BROWSERS_PATH=/ms-playwright; else unset PLAYWRIGHT_BROWSERS_PATH; fi';
+const AGENT_BROWSER_PATH_PREFIX = 'PATH="$HOME/.local/bin:$PATH"';
+const ENSURE_FFMPEG_COMMAND = 'sh -lc \'PATH="$HOME/.local/bin:$PATH"; if command -v ffmpeg >/dev/null 2>&1; then exit 0; fi; ffmpeg_path="$(find "$PLAYWRIGHT_BROWSERS_PATH" /ms-playwright "$HOME/.cache/ms-playwright" /root/.cache/ms-playwright -path "*/ffmpeg-linux" -type f -perm -111 -print -quit 2>/dev/null)"; test -n "$ffmpeg_path"; mkdir -p "$HOME/.local/bin"; ln -sf "$ffmpeg_path" "$HOME/.local/bin/ffmpeg"; command -v ffmpeg >/dev/null 2>&1\'';
 
 interface AgentBrowserJson {
   success?: boolean;
@@ -48,7 +50,7 @@ function command(args: string[], env?: Record<string, string | number | boolean 
     .map(([key, value]) => `${key}='${shellEscape(String(value))}'`)
     .join(' ');
   const commandArgs = args.map((arg) => `'${shellEscape(arg)}'`).join(' ');
-  return `${envPrefix ? `${envPrefix} ` : ''}agent-browser ${commandArgs}`;
+  return `${AGENT_BROWSER_PATH_PREFIX} ${envPrefix ? `${envPrefix} ` : ''}agent-browser ${commandArgs}`;
 }
 
 function sessionCommand(
@@ -135,12 +137,16 @@ async function resolveBrowserExecutable(runtime: RuntimeBackend, workspaceId: st
 }
 
 async function ensureFfmpegAvailable(runtime: RuntimeBackend, workspaceId: string): Promise<void> {
-  const existing = await runtime.exec({ command: "sh -lc 'set -- \"$PLAYWRIGHT_BROWSERS_PATH\"/ffmpeg-*/ffmpeg-linux /ms-playwright/ffmpeg-*/ffmpeg-linux \"$HOME\"/.cache/ms-playwright/ffmpeg-*/ffmpeg-linux /root/.cache/ms-playwright/ffmpeg-*/ffmpeg-linux; for p in \"$@\"; do if [ -x \"$p\" ]; then exit 0; fi; done; exit 1'", timeoutMs: 10_000 });
+  const existing = await runtime.exec({ command: ENSURE_FFMPEG_COMMAND, timeoutMs: 10_000 });
   if (existing.exitCode === 0) return;
 
   const install = await runtime.exec({ command: `sh -lc '${PLAYWRIGHT_FALLBACK_INSTALL_ENV}; npx -y playwright@${AGENT_BROWSER_PLAYWRIGHT_VERSION} install ffmpeg'`, timeoutMs: 180_000 });
   if (install.exitCode !== 0) {
     throw new Error(`Failed to install Playwright ffmpeg for browser recording: ${install.stderr || install.stdout}`);
+  }
+  const linked = await runtime.exec({ command: ENSURE_FFMPEG_COMMAND, timeoutMs: 10_000 });
+  if (linked.exitCode !== 0) {
+    throw new Error(`Playwright ffmpeg is installed but could not be linked for agent-browser: ${linked.stderr || linked.stdout}`);
   }
 }
 

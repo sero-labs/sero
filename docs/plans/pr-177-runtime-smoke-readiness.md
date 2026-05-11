@@ -686,6 +686,7 @@ The first broad automated run exposed a WSL LSP test timeout caused by the test 
   - Docker version: 29.4.1.
   - Docker image: `sha256:ea34799768cc4cb51beb031b0521bc69bfeaf677f47f5239e07abd2c9ceffa9d`, created `2026-05-11T09:34:42.268732468Z`.
   - Covered arbitrary UID/GID workspace write, `/ms-playwright` Chromium/ffmpeg lookup, Chromium headless screenshot, `agent-browser` launch/screenshot/close.
+  - Follow-up #6 browser recording smoke initially exposed that `agent-browser` requires an `ffmpeg` executable on `PATH`, not only Playwright's `ffmpeg-linux` asset. The PR now links `/usr/local/bin/ffmpeg` in the image and makes the browser tool create a writable `$HOME/.local/bin/ffmpeg` fallback symlink before recording. A direct Docker container record start/stop smoke passed after this fix.
 - Apple Container live image smoke — **pass**.
   - Apple Container image: `ghcr.io/sero-labs/sero-node:latest` digest prefix `7d5ae62ada12bf5a692e80e7...`.
   - Covered arbitrary UID/GID workspace write, `/ms-playwright` Chromium/ffmpeg lookup, Chromium headless screenshot, `agent-browser` launch/screenshot/close.
