@@ -100,10 +100,38 @@ Notes:
 
 ### 2. Pin pnpm to the repo version
 
-Open a new non-admin PowerShell after reboot:
+Open a **new non-admin PowerShell after reboot**. First verify that Node, npm, and pnpm are all visible to normal child processes:
 
 ```powershell
+where.exe node
+where.exe npm
+where.exe pnpm
 node --version
+npm --version
+```
+
+If `where.exe node` or `where.exe npm` fails, pnpm install will fail later with errors like `'node' is not recognized` from packages such as `esbuild` or `sharp`. Fix PATH before running `pnpm install`:
+
+```powershell
+winget install --id OpenJS.NodeJS.LTS -e
+$machinePath = [Environment]::GetEnvironmentVariable('Path', 'Machine')
+$userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+$env:Path = "$machinePath;$userPath"
+where.exe node
+where.exe npm
+```
+
+If Node is installed at `C:\Program Files\nodejs` but still not visible in the current shell, restart PowerShell or temporarily add it:
+
+```powershell
+$env:Path = "C:\Program Files\nodejs;$env:Path"
+where.exe node
+where.exe npm
+```
+
+Then enable the repo-pinned pnpm version:
+
+```powershell
 corepack enable
 corepack prepare pnpm@10.11.0 --activate
 pnpm --version
@@ -121,6 +149,71 @@ If `pnpm --version` still prints `11.x`, use Corepack explicitly from the repo r
 corepack pnpm@10.11.0 install
 corepack pnpm@10.11.0 --filter @sero/desktop typecheck
 ```
+
+If you already ran `pnpm install` while `node` was missing, remove the partial install after fixing PATH:
+
+```powershell
+Get-Process node,pnpm -ErrorAction SilentlyContinue | Stop-Process -Force
+Remove-Item -Recurse -Force node_modules -ErrorAction SilentlyContinue
+Remove-Item -Recurse -Force apps\desktop\node_modules -ErrorAction SilentlyContinue
+pnpm install
+```
+
+### 2.1 Native rebuild troubleshooting on Windows ARM64
+
+For PR #177 runtime smoke, you do **not** need to compile Sero's optional native desktop modules. The container/host runtime work does not depend on locally rebuilding `node-pty` or `better-sqlite3`.
+
+If `pnpm install` reaches the root `postinstall` and fails rebuilding `node-pty` with `gyp ERR! find Python`, use the smoke-test shortcut first:
+
+```powershell
+cd C:\Users\<you>\dev\sero
+Get-Process node,pnpm -ErrorAction SilentlyContinue | Stop-Process -Force
+Remove-Item -Recurse -Force node_modules -ErrorAction SilentlyContinue
+Remove-Item -Recurse -Force apps\desktop\node_modules -ErrorAction SilentlyContinue
+$env:SERO_SKIP_NATIVE_REBUILD = "1"
+pnpm install
+pnpm --filter @sero/desktop typecheck
+pnpm dev
+```
+
+This skips only Sero's root native-rebuild verification scripts. Package install scripts for Electron, esbuild, sharp, etc. still run. The trade-off is that integrated terminals and memory-search native checks may be unavailable in that Windows dev checkout. That is acceptable for the PR #177 backend smoke unless you are specifically validating Sero's terminal native module on Windows.
+
+Only install Python + Visual Studio C++ Build Tools if you specifically want full native desktop-module validation on Windows ARM64:
+
+```powershell
+winget install --id Python.Python.3.12 -e
+winget install --id Microsoft.VisualStudio.2022.BuildTools -e --override "--wait --passive --add Microsoft.VisualStudio.Workload.VCTools --add Microsoft.VisualStudio.Component.VC.Tools.ARM64 --includeRecommended"
+```
+
+Close PowerShell, open a new PowerShell, then verify:
+
+```powershell
+where.exe python
+python --version
+where.exe node
+node --version
+```
+
+Point npm/node-gyp at the Python executable discovered by PowerShell:
+
+```powershell
+$py = (Get-Command python).Source
+npm config set python $py
+$env:PYTHON = $py
+```
+
+Then clean the failed native install and retry without the skip flag:
+
+```powershell
+cd C:\Users\<you>\dev\sero
+Get-Process node,pnpm -ErrorAction SilentlyContinue | Stop-Process -Force
+Remove-Item -Recurse -Force node_modules -ErrorAction SilentlyContinue
+Remove-Item -Recurse -Force apps\desktop\node_modules -ErrorAction SilentlyContinue
+Remove-Item Env:SERO_SKIP_NATIVE_REBUILD -ErrorAction SilentlyContinue
+pnpm install
+```
+
+If Python was installed but `python --version` prints nothing or node-gyp says the version is empty, disable the Windows Store Python aliases in **Settings → Apps → Advanced app settings → App execution aliases**, then reopen PowerShell and retry the verification commands.
 
 ### 3. Prepare WSL for Host runtime
 
@@ -181,17 +274,36 @@ cd sero
 git checkout feat/docker-runtime
 git pull
 git config --global core.longpaths true
+$env:SERO_SKIP_NATIVE_REBUILD = "1"
 pnpm install
 pnpm --filter @sero/desktop typecheck
-pnpm dev
+```
+
+Do **not** use root `pnpm dev` for this Windows smoke. It calls `bash scripts/dev.sh`; on Windows, `bash` may resolve to WSL's `bash.exe` and fail if no distro is installed, or run in the wrong environment. Start the renderer and Electron manually from two PowerShell windows instead.
+
+PowerShell window 1 — renderer/Vite:
+
+```powershell
+cd C:\Users\<you>\Dev\sero
+pnpm --dir apps\desktop dev:renderer
+```
+
+PowerShell window 2 — Electron main process:
+
+```powershell
+cd C:\Users\<you>\Dev\sero
+pnpm --dir apps\desktop build:electron
+$env:NODE_ENV = "development"
+pnpm --dir apps\desktop exec electron .
 ```
 
 If a previous dev server is stuck:
 
 ```powershell
 Get-Process electron,vite,node -ErrorAction SilentlyContinue | Stop-Process -Force
-pnpm dev
 ```
+
+Then restart the two-window flow above.
 
 ### 6. Create the Windows smoke workspaces
 
