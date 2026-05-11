@@ -26,6 +26,7 @@ class MockReadable extends EventEmitter {
 
 class MockSpawnedProcess extends EventEmitter {
   stdout = new MockReadable();
+  stderr = new MockReadable();
   stdin = { end: vi.fn() };
   kill = vi.fn();
 }
@@ -144,6 +145,34 @@ describe('WslHostSubstrate', () => {
     expect(child.kill).toHaveBeenCalledWith('SIGTERM');
     expect(mocks.execFileMock).toHaveBeenNthCalledWith(1, 'wsl.exe', ['-d', 'Ubuntu', '--', 'cat', rendered.innerPidFile], expect.any(Function));
     expect(mocks.execFileMock).toHaveBeenNthCalledWith(2, 'wsl.exe', ['-d', 'Ubuntu', '--', 'kill', '-TERM', '4242'], expect.any(Function));
+  });
+
+  it('reads large files through streamed base64 stdout', async () => {
+    const child = new MockSpawnedProcess();
+    mocks.spawnMock.mockReturnValue(child);
+    const substrate = createSubstrate({ supportsCd: true });
+    const payload = Buffer.alloc(1024 * 1024 + 128, 'a');
+    const encoded = payload.toString('base64');
+
+    const readPromise = substrate.readFile('/home/me/repo/large.bin');
+    child.stdout.emit('data', Buffer.from(encoded.slice(0, 700_000)));
+    child.stdout.emit('data', Buffer.from(encoded.slice(700_000)));
+    child.emit('close', 0);
+
+    await expect(readPromise).resolves.toEqual(payload);
+    expect(mocks.spawnMock).toHaveBeenCalledWith('wsl.exe', ['-d', 'Ubuntu', '--', 'base64', '-w0', '--', '/home/me/repo/large.bin']);
+  });
+
+  it('rejects streamed file reads with stderr text on non-zero exit', async () => {
+    const child = new MockSpawnedProcess();
+    mocks.spawnMock.mockReturnValue(child);
+    const substrate = createSubstrate({ supportsCd: true });
+
+    const readPromise = substrate.readFile('/home/me/repo/missing.txt');
+    child.stderr.emit('data', Buffer.from('base64: missing.txt: No such file'));
+    child.emit('close', 1);
+
+    await expect(readPromise).rejects.toThrow('base64: missing.txt: No such file');
   });
 
   it('normalizes buffered CRLF output for WSL while POSIX leaves output unchanged', () => {

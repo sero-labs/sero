@@ -13,13 +13,34 @@ describe('Host Doctor checks', () => {
     expect(results.map((result) => result.id)).toEqual([
       'runtime.host.bash',
       'runtime.host.git',
+      'runtime.host.pgrep',
+      'runtime.host.lsof',
       'runtime.host.shell',
     ]);
     expect(results.find((result) => result.id === 'runtime.host.bash')).toMatchObject({ status: 'fail' });
     expect(results.find((result) => result.id === 'runtime.host.shell')).toMatchObject({ status: 'fail' });
   });
 
-  it('checks Windows wsl.exe status, distro echo, and bash availability', async () => {
+  it('reports POSIX missing pgrep and lsof failures with remediation details', async () => {
+    const run: HostDoctorRunner = vi.fn(async (_program: string, args: string[]) => {
+      if (args.includes('command -v pgrep')) return fail('pgrep: command not found', 127);
+      if (args.includes('command -v lsof')) return fail('lsof: command not found', 127);
+      return ok('ok');
+    });
+
+    const results = await runHostDoctorChecks({ platform: 'linux', run, now: clock() });
+
+    expect(results.find((result) => result.id === 'runtime.host.pgrep')).toMatchObject({
+      status: 'fail',
+      details: { args: ['-lc', 'command -v pgrep'], remediation: expect.stringContaining('procps') },
+    });
+    expect(results.find((result) => result.id === 'runtime.host.lsof')).toMatchObject({
+      status: 'fail',
+      details: { args: ['-lc', 'command -v lsof'], remediation: expect.stringContaining('lsof') },
+    });
+  });
+
+  it('checks Windows wsl.exe status, distro echo, bash, pgrep, lsof, and inotifywait availability', async () => {
     const run: HostDoctorRunner = vi.fn(async () => ok('ok'));
 
     const results = await runHostDoctorChecks({
@@ -34,6 +55,23 @@ describe('Host Doctor checks', () => {
     expect(run).toHaveBeenNthCalledWith(2, 'wsl.exe', ['--status'], { timeoutMs: 5_000 });
     expect(run).toHaveBeenNthCalledWith(3, 'wsl.exe', ['-d', 'Ubuntu', '--', 'echo', 'ok'], { timeoutMs: 5_000 });
     expect(run).toHaveBeenNthCalledWith(4, 'wsl.exe', ['-d', 'Ubuntu', '--', 'which', 'bash'], { timeoutMs: 5_000 });
+    expect(run).toHaveBeenNthCalledWith(5, 'wsl.exe', ['-d', 'Ubuntu', '--', 'which', 'pgrep'], { timeoutMs: 5_000 });
+    expect(run).toHaveBeenNthCalledWith(6, 'wsl.exe', ['-d', 'Ubuntu', '--', 'which', 'lsof'], { timeoutMs: 5_000 });
+    expect(run).toHaveBeenNthCalledWith(7, 'wsl.exe', ['-d', 'Ubuntu', '--', 'which', 'inotifywait'], { timeoutMs: 5_000 });
+  });
+
+  it('warns when WSL inotifywait is missing', async () => {
+    const run: HostDoctorRunner = vi.fn(async (_program: string, args: string[]) => {
+      if (args.includes('inotifywait')) return fail('inotifywait not found', 127);
+      return ok('ok');
+    });
+
+    const results = await runHostDoctorChecks({ platform: 'win32', run, now: clock() });
+
+    expect(results.find((result) => result.id === 'runtime.host.wslInotifywait')).toMatchObject({
+      status: 'warn',
+      details: { remediation: expect.stringContaining('inotify-tools') },
+    });
   });
 
   it('reports Windows missing wsl.exe failure', async () => {

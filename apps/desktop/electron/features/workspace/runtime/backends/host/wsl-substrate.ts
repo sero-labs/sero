@@ -116,8 +116,8 @@ export class WslHostSubstrate implements HostRuntimeSubstrate {
   }
 
   async readFile(filePath: string): Promise<Buffer> {
-    const { stdout } = await execFileAsync('wsl.exe', this.wslCommandArgs(['base64', '-w0', this.toExecutionPath(filePath)]));
-    return Buffer.from(this.normalizeExecOutput(stdout), 'base64');
+    const { stdout } = await this.runWslBuffered(this.wslCommandArgs(['base64', '-w0', '--', this.toExecutionPath(filePath)]));
+    return Buffer.from(this.normalizeExecOutput(stdout.toString('utf8')), 'base64');
   }
 
   async writeFile(filePath: string, data: Buffer): Promise<void> {
@@ -264,6 +264,22 @@ export class WslHostSubstrate implements HostRuntimeSubstrate {
       if (attempt < attempts - 1 && delayMs > 0) await sleep(delayMs);
     }
     return undefined;
+  }
+
+  private runWslBuffered(args: string[]): Promise<{ stdout: Buffer; stderr: string }> {
+    return new Promise((resolve, reject) => {
+      const child = spawn('wsl.exe', args);
+      const stdout: Buffer[] = [];
+      const stderr: Buffer[] = [];
+      child.stdout.on('data', (chunk: Buffer) => stdout.push(chunk));
+      child.stderr.on('data', (chunk: Buffer) => stderr.push(chunk));
+      child.once('error', reject);
+      child.once('close', (code) => {
+        const stderrText = Buffer.concat(stderr).toString('utf8');
+        if (code === 0) resolve({ stdout: Buffer.concat(stdout), stderr: stderrText });
+        else reject(new Error(stderrText || `wsl.exe exited with code ${code}`));
+      });
+    });
   }
 
   private spawnAndWrite(args: string[], input: string): Promise<void> {
