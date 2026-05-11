@@ -243,6 +243,18 @@ async function assertViewportClickPoint(
   );
 }
 
+async function openBrowserUrl(runtime: RuntimeBackend, workspaceId: string, targetUrl: string): Promise<AgentBrowserJson> {
+  try {
+    return await runAgent(runtime, workspaceId, ['open', targetUrl]);
+  } catch (error) {
+    if (!isNavigationError(error)) throw error;
+    await closeBrowserSessionQuietly(runtime, workspaceId);
+    await runAgent(runtime, workspaceId, ['open', 'about:blank']).catch(() => undefined);
+    const message = error instanceof Error ? error.message : String(error);
+    return { success: false, warning: `Navigation to ${targetUrl} failed and the browser session was reset: ${message}`, url: 'about:blank' };
+  }
+}
+
 async function launchBrowser(
   runtime: RuntimeBackend,
   workspaceId: string,
@@ -251,27 +263,19 @@ async function launchBrowser(
   const targetUrl = params.url ?? 'about:blank';
   const viewport = params.viewport;
   const hasViewport = viewport?.width !== undefined || viewport?.height !== undefined;
-  try {
-    let response: AgentBrowserJson;
-    if (hasViewport) {
-      response = await runAgent(runtime, workspaceId, ['open', 'about:blank']);
-      await runAgent(runtime, workspaceId, ['set', 'viewport', String(viewport?.width ?? 1280), String(viewport?.height ?? 720)], { execTimeoutMs: 20_000 });
-      if (targetUrl !== 'about:blank') response = await runAgent(runtime, workspaceId, ['open', targetUrl]);
-    } else {
-      response = await runAgent(runtime, workspaceId, ['open', targetUrl]);
-    }
-    const waitUntil = params.wait_until ?? 'domcontentloaded';
-    if (targetUrl !== 'about:blank' && waitUntil !== 'domcontentloaded') {
-      await runAgent(runtime, workspaceId, ['wait', '--load', waitUntil], { execTimeoutMs: 30_000 });
-    }
-    return response;
-  } catch (error) {
-    if (!isNavigationError(error)) throw error;
-    await closeBrowserSessionQuietly(runtime, workspaceId);
-    await runAgent(runtime, workspaceId, ['open', 'about:blank']).catch(() => undefined);
-    const message = error instanceof Error ? error.message : String(error);
-    return { success: false, warning: `Navigation to ${targetUrl} failed and the browser session was reset: ${message}`, url: 'about:blank' };
+  let response: AgentBrowserJson;
+  if (hasViewport) {
+    response = await openBrowserUrl(runtime, workspaceId, 'about:blank');
+    await runAgent(runtime, workspaceId, ['set', 'viewport', String(viewport?.width ?? 1280), String(viewport?.height ?? 720)], { execTimeoutMs: 20_000 });
+    if (targetUrl !== 'about:blank') response = await openBrowserUrl(runtime, workspaceId, targetUrl);
+  } else {
+    response = await openBrowserUrl(runtime, workspaceId, targetUrl);
   }
+  const waitUntil = params.wait_until ?? 'domcontentloaded';
+  if (targetUrl !== 'about:blank' && waitUntil !== 'domcontentloaded' && response.success !== false) {
+    await runAgent(runtime, workspaceId, ['wait', '--load', waitUntil], { execTimeoutMs: 30_000 });
+  }
+  return response;
 }
 
 export function createAgentBrowser(runtime: RuntimeBackend, workspaceId: string): ToolDefinition {
@@ -355,9 +359,9 @@ export function createAgentBrowser(runtime: RuntimeBackend, workspaceId: string)
 
         if (action === 'navigate') {
           if (!params.url) throw new Error('url is required for navigate');
-          const response = await runAgent(runtime, workspaceId, ['open', params.url]);
+          const response = await openBrowserUrl(runtime, workspaceId, params.url);
           const waitUntil = params.wait_until ?? 'domcontentloaded';
-          if (waitUntil !== 'domcontentloaded') {
+          if (waitUntil !== 'domcontentloaded' && response.success !== false) {
             await runAgent(runtime, workspaceId, ['wait', '--load', waitUntil], { execTimeoutMs: 30_000 });
           }
           record(true);

@@ -76,6 +76,7 @@ let _authStorage: AuthStorage | null = null;
 let _modelRegistry: ModelRegistry | null = null;
 let _settingsManager: ReturnType<typeof SettingsManager.create> | null = null;
 let _model: Model<Api> | null = null;
+let _containerProxyStarted = false;
 
 /** Sero session storage. */
 export const SERO_SESSION_DIR = `${SERO_AGENT_DIR}/sessions`;
@@ -129,6 +130,10 @@ export async function ensureInfra(): Promise<SharedInfra> {
     });
   }
   applyRuntimeSettings(infra.settingsManager);
+  if (!_containerProxyStarted) {
+    _containerProxyStarted = true;
+    await containerManager.startProxy();
+  }
   await pluginDevSessionManager.initialize();
   await appRuntimeManager.initialize();
 

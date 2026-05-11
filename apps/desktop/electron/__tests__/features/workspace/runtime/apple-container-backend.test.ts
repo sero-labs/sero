@@ -119,6 +119,22 @@ describe('AppleContainerBackend', () => {
     expect(containerManager.writeFile).toHaveBeenCalledWith('workspace-a', '/workspace/a.txt', 'next');
   });
 
+  it('reads binary files as base64 without UTF-8 corruption', async () => {
+    const containerManager = createContainerManager();
+    containerManager.exec.mockResolvedValue({ stdout: 'AAECA/8=', stderr: '', exitCode: 0 });
+    const backend = createBackend(containerManager);
+
+    await expect(backend.readFile({ path: '/workspace/video.webm', binary: true })).resolves.toEqual({
+      content: 'AAECA/8=',
+      encoding: 'base64',
+    });
+
+    expect(containerManager.readFile).not.toHaveBeenCalled();
+    expect(containerManager.exec).toHaveBeenCalledWith('workspace-a', "base64 -w0 -- '/workspace/video.webm'", '/workspace', undefined, {
+      injectGitAuth: undefined,
+    });
+  });
+
   it('surfaces selected Apple Container failures instead of falling back to host', async () => {
     const containerManager = createContainerManager();
     containerManager.ensure.mockRejectedValue(new Error('container CLI missing'));

@@ -204,8 +204,12 @@ export class AppleContainerBackend implements RuntimeBackend {
 
   async readFile(input: RuntimeReadFileInput): Promise<RuntimeFileReadResult> {
     await this.ensure();
+    if (input.binary) {
+      const result = await this.exec({ command: `base64 -w0 -- ${shellQuote(input.path)}` });
+      if (result.exitCode !== 0) throw new Error(`Failed to read ${input.path}: ${result.stderr || result.stdout}`);
+      return { content: result.stdout, encoding: 'base64' };
+    }
     const content = await this.containerManager.readFile(this.workspaceId, input.path);
-    if (input.binary) return { content: Buffer.from(content).toString('base64'), encoding: 'base64' };
     return { content, encoding: input.encoding ?? 'utf8' };
   }
 
