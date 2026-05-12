@@ -12,6 +12,8 @@ Use this checklist before shipping runtime changes. Sero covers local bind-mount
 
 Windows runs Docker only — there is no host runtime on Windows. Browser automation is container-only. Host runtime smoke covers file ops, exec/spawn, terminal, Git/VCS, language servers, managed dev servers, and preview URLs.
 
+The Docker backend works with either `docker` or `podman`. Smoke checklists below apply to both; substitute `podman` for `docker` in any manual command. To force one engine when both are installed, set `SERO_CONTAINER_ENGINE=docker` or `SERO_CONTAINER_ENGINE=podman`.
+
 ## Core checklist for Apple Container and Docker
 
 1. Create or open a workspace and confirm the selected runtime matches the platform/default expectation.

@@ -1,6 +1,7 @@
 import { access } from 'fs/promises';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
+import { resolveDockerCommand } from '@electron/features/workspace/runtime/backends/docker/docker-cli';
 import { CONTAINER_BIN, errorMessage, isXpcError } from './types';
 
 const execFileAsync = promisify(execFile);
@@ -10,6 +11,7 @@ export interface ContainerAvailability {
   message: string;
   recommended: boolean;
   runtime: 'apple-container' | 'docker';
+  engine?: 'docker' | 'podman';
 }
 
 export async function getContainerAvailability(): Promise<ContainerAvailability> {
@@ -66,22 +68,30 @@ export async function getContainerAvailability(): Promise<ContainerAvailability>
 }
 
 async function getDockerAvailability(): Promise<ContainerAvailability> {
+  const command = resolveDockerCommand();
+  const engineLabel = command.engine === 'podman' ? 'Podman' : 'Docker';
   try {
-    const { stdout } = await execFileAsync('docker', ['version', '--format', '{{.Server.Version}}'], { timeout: 10_000 });
+    const { stdout } = await execFileAsync(command.executable, ['version', '--format', '{{.Server.Version}}'], {
+      env: command.env,
+      timeout: 10_000,
+    });
     return {
       status: 'available',
-      message: `Docker is available${stdout.trim() ? ` (${stdout.trim()})` : ''}.`,
+      message: `${engineLabel} is available${stdout.trim() ? ` (${stdout.trim()})` : ''}.`,
       recommended: true,
       runtime: 'docker',
+      engine: command.engine,
     };
   } catch (error) {
+    void error;
     return {
       status: 'missing_binary',
       message: process.platform === 'win32'
-        ? 'Docker Desktop is required for Sero runtime features on Windows. Install Docker Desktop to continue.'
-        : 'Docker is recommended for full Sero runtime features on this platform. Host runtime remains available without containers.',
+        ? 'Docker Desktop (or Podman) is required for Sero runtime features on Windows. Install one to continue.'
+        : 'A container engine (Docker or Podman) is recommended for full Sero runtime features on this platform. Host runtime remains available without containers.',
       recommended: true,
       runtime: 'docker',
+      engine: command.engine,
     };
   }
 }

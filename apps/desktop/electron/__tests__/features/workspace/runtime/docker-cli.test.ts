@@ -8,6 +8,12 @@ const childProcessMocks = vi.hoisted(() => ({
 
 vi.mock('child_process', () => childProcessMocks);
 
+const fsMocks = vi.hoisted(() => ({
+  existsSync: vi.fn<(path: string) => boolean>(),
+}));
+
+vi.mock('fs', () => fsMocks);
+
 import { augmentedDockerPath, resolveDockerCommand, runDocker, spawnDocker } from '@electron/features/workspace/runtime/backends/docker/docker-cli';
 
 describe('Docker CLI helpers', () => {
@@ -18,6 +24,8 @@ describe('Docker CLI helpers', () => {
     process.env = { ...originalEnv, PATH: '/custom/bin' };
     delete process.env.SERO_DOCKER_BIN;
     delete process.env.DOCKER_BIN;
+    delete process.env.SERO_CONTAINER_ENGINE;
+    fsMocks.existsSync.mockReturnValue(false);
   });
 
   afterEach(() => {
@@ -37,13 +45,43 @@ describe('Docker CLI helpers', () => {
   });
 
   it('honors SERO_DOCKER_BIN before DOCKER_BIN and otherwise falls back to docker', () => {
-    expect(resolveDockerCommand().executable).toBe('docker');
+    expect(resolveDockerCommand()).toMatchObject({ executable: 'docker', engine: 'docker' });
 
     process.env.DOCKER_BIN = '/opt/docker/bin/docker';
-    expect(resolveDockerCommand().executable).toBe('/opt/docker/bin/docker');
+    expect(resolveDockerCommand()).toMatchObject({ executable: '/opt/docker/bin/docker', engine: 'docker' });
 
     process.env.SERO_DOCKER_BIN = '/custom/docker';
-    expect(resolveDockerCommand().executable).toBe('/custom/docker');
+    expect(resolveDockerCommand()).toMatchObject({ executable: '/custom/docker', engine: 'docker' });
+  });
+
+  it('infers podman engine from an explicit podman binary path', () => {
+    process.env.SERO_DOCKER_BIN = '/usr/local/bin/podman';
+    expect(resolveDockerCommand()).toMatchObject({ executable: '/usr/local/bin/podman', engine: 'podman' });
+  });
+
+  it('auto-detects podman when docker is not on PATH', () => {
+    fsMocks.existsSync.mockImplementation((p: string) => p.endsWith('/podman'));
+
+    const resolved = resolveDockerCommand();
+    expect(resolved.engine).toBe('podman');
+    expect(resolved.executable).toMatch(/podman$/);
+  });
+
+  it('prefers docker when both engines are on PATH', () => {
+    fsMocks.existsSync.mockImplementation((p: string) => p.endsWith('/docker') || p.endsWith('/podman'));
+
+    const resolved = resolveDockerCommand();
+    expect(resolved.engine).toBe('docker');
+    expect(resolved.executable).toMatch(/docker$/);
+  });
+
+  it('lets SERO_CONTAINER_ENGINE override the docker-first preference', () => {
+    fsMocks.existsSync.mockImplementation((p: string) => p.endsWith('/docker') || p.endsWith('/podman'));
+    process.env.SERO_CONTAINER_ENGINE = 'podman';
+
+    const resolved = resolveDockerCommand();
+    expect(resolved.engine).toBe('podman');
+    expect(resolved.executable).toMatch(/podman$/);
   });
 
   it('uses the same executable and augmented env for runDocker and spawnDocker', async () => {

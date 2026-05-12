@@ -1,4 +1,5 @@
 import { existsSync } from 'fs';
+import { delimiter, join } from 'path';
 import { execFile, spawn, type ChildProcess } from 'child_process';
 
 export interface DockerCommandResult {
@@ -15,8 +16,11 @@ export interface DockerRunOptions {
   signal?: AbortSignal;
 }
 
+export type ContainerEngineKind = 'docker' | 'podman';
+
 export interface DockerCommandResolution {
   executable: string;
+  engine: ContainerEngineKind;
   env: NodeJS.ProcessEnv;
 }
 
@@ -29,25 +33,61 @@ const DOCKER_DESKTOP_PATHS = [
   '/Applications/Docker.app/Contents/Resources/bin',
   '/usr/local/share/docker/bin',
 ];
+const ENGINE_PREFERENCE: readonly ContainerEngineKind[] = ['docker', 'podman'];
 
 export function augmentedDockerPath(basePath = ''): string {
   const entries = [
-    ...basePath.split(':').filter(Boolean),
+    ...basePath.split(delimiter).filter(Boolean),
     ...FALLBACK_PATHS,
     ...DOCKER_DESKTOP_PATHS.filter((entry) => existsSync(entry)),
   ];
-  return Array.from(new Set(entries)).join(':');
+  return Array.from(new Set(entries)).join(delimiter);
+}
+
+function findBinaryOnPath(name: string, path: string): string | null {
+  const exts = process.platform === 'win32' ? ['.exe', '.cmd', ''] : [''];
+  for (const dir of path.split(delimiter).filter(Boolean)) {
+    for (const ext of exts) {
+      const candidate = join(dir, `${name}${ext}`);
+      if (existsSync(candidate)) return candidate;
+    }
+  }
+  return null;
+}
+
+function normalizeEngine(value: string | undefined): ContainerEngineKind | null {
+  if (!value) return null;
+  const lowered = value.toLowerCase();
+  if (lowered === 'docker' || lowered === 'podman') return lowered;
+  return null;
+}
+
+function inferEngineFromExecutable(executable: string): ContainerEngineKind {
+  return /podman/i.test(executable) ? 'podman' : 'docker';
 }
 
 export function resolveDockerCommand(env?: NodeJS.ProcessEnv): DockerCommandResolution {
   const mergedEnv = { ...process.env, ...env };
-  return {
-    executable: mergedEnv.SERO_DOCKER_BIN || mergedEnv.DOCKER_BIN || 'docker',
-    env: {
-      ...mergedEnv,
-      PATH: augmentedDockerPath(mergedEnv.PATH ?? ''),
-    },
-  };
+  const augmentedPath = augmentedDockerPath(mergedEnv.PATH ?? '');
+  const explicitBinary = mergedEnv.SERO_DOCKER_BIN || mergedEnv.DOCKER_BIN;
+  const preferredEngine = normalizeEngine(mergedEnv.SERO_CONTAINER_ENGINE);
+
+  const resolvedEnv: NodeJS.ProcessEnv = { ...mergedEnv, PATH: augmentedPath };
+
+  if (explicitBinary) {
+    return { executable: explicitBinary, engine: inferEngineFromExecutable(explicitBinary), env: resolvedEnv };
+  }
+
+  const order: ContainerEngineKind[] = preferredEngine
+    ? [preferredEngine, ...ENGINE_PREFERENCE.filter((kind) => kind !== preferredEngine)]
+    : [...ENGINE_PREFERENCE];
+
+  for (const engine of order) {
+    const found = findBinaryOnPath(engine, augmentedPath);
+    if (found) return { executable: found, engine, env: resolvedEnv };
+  }
+
+  return { executable: preferredEngine ?? 'docker', engine: preferredEngine ?? 'docker', env: resolvedEnv };
 }
 
 export function runDocker(args: string[], options: DockerRunOptions = {}): Promise<DockerCommandResult> {

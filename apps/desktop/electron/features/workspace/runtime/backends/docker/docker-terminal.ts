@@ -2,6 +2,7 @@ import type { IPty } from 'node-pty';
 import { loadNodePty } from '@electron/shared/lib/native-pty';
 import { TerminalOutputBuffer } from '@electron/features/container/terminal/terminal-buffer';
 import type { RuntimeTerminalSession } from '../../types';
+import { resolveDockerCommand } from './docker-cli';
 import { dockerContainerName, runtimeEnvArgs } from './docker-lifecycle';
 
 export class DockerTerminalRegistry {
@@ -10,10 +11,10 @@ export class DockerTerminalRegistry {
 
   create(workspaceId: string, terminalId: string, cwd = '/workspace', cols = 80, rows = 24): RuntimeTerminalSession {
     const pty = loadNodePty();
-    const env = { ...process.env } as Record<string, string>;
-    if (env.PATH && !env.PATH.includes('/usr/local/bin')) env.PATH = `/usr/local/bin:${env.PATH}`;
+    const command = resolveDockerCommand();
+    const env = { ...command.env } as Record<string, string>;
 
-    const proc = pty.spawn('docker', [
+    const proc = pty.spawn(command.executable, [
       'exec', '-it', '-w', cwd,
       ...runtimeEnvArgs().flatMap((arg, index, arr) => (arg === '--env' ? ['--env', arr[index + 1]] : [])).filter(Boolean),
       dockerContainerName(workspaceId), '/bin/bash', '--login',

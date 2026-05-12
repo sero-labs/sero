@@ -2,6 +2,8 @@
 
 Sero uses the same `sero-node` Linux image for Apple Container and Docker runtimes so both backends expose the same toolchain on `linux/arm64` and `linux/amd64`.
 
+The Docker backend auto-detects either `docker` or `podman` on PATH (Docker is preferred when both are installed). Set `SERO_CONTAINER_ENGINE=podman` to force Podman, or `SERO_DOCKER_BIN=/path/to/binary` to point at a specific executable. Podman uses the same fully-qualified image refs (`ghcr.io/sero-labs/sero-node:<tag>`) as Docker; no separate publish step is required.
+
 ## Image tags
 
 - Development fallback: `ghcr.io/sero-labs/sero-node:latest`
