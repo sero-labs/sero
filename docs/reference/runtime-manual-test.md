@@ -84,9 +84,8 @@ Run this section on each supported host path:
 
 - **macOS host:** workspace path under `/Users/<you>/...`; backend `host`.
 - **Linux host:** workspace path under `/home/<you>/...`; backend `host`.
-- **Windows/WSL host:** WSL 2 installed. Test at least one WSL-native path such as `\\wsl$\Ubuntu\home\<you>\sero-smoke` or `\\wsl.localhost\Ubuntu\home\<you>\sero-smoke`. Windows-drive paths such as `C:\Users\<you>\Projects\sero-smoke` execute through the default distro as `/mnt/c/...`.
 
-Windows host runtime is WSL-only. Do not expect native PowerShell or cmd execution.
+Host runtime is not supported on Windows. Windows uses Docker exclusively.
 
 Switch the workspace to host:
 
@@ -102,8 +101,6 @@ Create an external test folder using the platform-native shell:
 mkdir -p /tmp/sero-extra-root-smoke
 echo "hello from extra root" > /tmp/sero-extra-root-smoke/source.txt
 ```
-
-On Windows/WSL, create the folder inside the same WSL distro as the workspace, or on a Windows drive reachable from the default distro. Do not mix WSL distros in one workspace; Sero should reject a primary root in `\\wsl$\Ubuntu\...` plus an additional root in `\\wsl$\Debian\...`.
 
 In DevTools:
 
@@ -186,7 +183,6 @@ Open an interactive terminal for the workspace.
 Expected:
 
 - macOS/Linux: shell starts in the workspace.
-- Windows/WSL: terminal runs through `wsl.exe -d <distro>` and starts in the WSL execution path for `/workspace`.
 
 ### 2.3 Git/VCS
 
@@ -197,7 +193,7 @@ git status --short
 git diff --stat
 ```
 
-Expected: commands run in the selected host execution environment. On Windows/WSL, Git and auth probes must run inside WSL; auth env vars should cross the `wsl.exe` boundary.
+Expected: commands run in the selected host execution environment.
 
 If using GitHub auth, run a read-only GitHub operation already supported by your workspace flow and confirm it does not prompt unexpectedly.
 
@@ -208,7 +204,6 @@ Open a TypeScript or JavaScript file in the workspace and wait for language feat
 Expected:
 
 - diagnostics/completions are available when the language server is installed in the host execution environment.
-- Windows/WSL language server processes run inside WSL, not through PowerShell/cmd.
 
 ### 2.5 Managed dev server and preview URL
 
@@ -220,7 +215,6 @@ Expected:
 - `ctx.host.devServers.list(ws.id)` includes the server.
 - stop and restart operate on the same server id.
 - preview resolves to the localhost URL.
-- on Windows/WSL, if Windows cannot reach the WSL service on localhost, `resolvePreviewUrl` surfaces `wsl-localhost-forwarding-disabled`. Check WSL `.wslconfig` for `localhostForwarding=true` before filing a runtime bug.
 
 ### 2.6 Browser automation expectation
 

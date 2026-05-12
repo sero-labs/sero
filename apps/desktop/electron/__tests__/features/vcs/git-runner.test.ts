@@ -3,8 +3,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { GitHubAuthManager } from '@electron/features/auth/github/auth-manager';
 import { GitRunner, resetGitRunnerSshAvailabilityCacheForTests } from '@electron/features/vcs/core/git-runner';
 import type { WorkspaceManager } from '@electron/features/workspace/manager';
-import { HostBackend } from '@electron/features/workspace/runtime/backends/host/host-backend';
-import { WslHostSubstrate } from '@electron/features/workspace/runtime/backends/host/wsl-substrate';
 import type { RuntimeManager } from '@electron/features/workspace/runtime/runtime-manager';
 import type { RuntimeBackend, RuntimeExecFileInput, RuntimeExecResult } from '@electron/features/workspace/runtime/types';
 
@@ -88,36 +86,6 @@ describe('GitRunner runtime execFile path', () => {
     vi.setSystemTime(new Date('2026-04-16T12:00:00.000Z'));
     resetGitRunnerSshAvailabilityCacheForTests();
     mocks.execFileMock.mockReset();
-  });
-
-  it('runs host Windows WSL git commands through substrate-rendered wsl.exe argv', async () => {
-    mocks.execFileMock.mockImplementation((program: string, args: string[], optionsOrCallback: unknown, maybeCallback?: unknown) => {
-      const callback = typeof optionsOrCallback === 'function' ? optionsOrCallback : maybeCallback;
-      if (typeof callback !== 'function') return;
-      if (program === 'wsl.exe' && args.includes('ssh')) {
-        callback(null, '', 'Permission denied (publickey).');
-        return;
-      }
-      callback(null, ' M file.ts\n', '');
-    });
-
-    const workspacePath = '\\\\wsl$\\Ubuntu\\home\\me\\repo';
-    const runtime = new HostBackend({
-      workspaceId: 'ws-1',
-      hostWorkspacePath: workspacePath,
-      substrate: new WslHostSubstrate({ workspacePath, supportsCd: true }),
-    });
-    const runner = createRunner(runtime, workspacePath);
-
-    await runner.run('ws-1', ['status', '--short']);
-
-    const gitCall = mocks.execFileMock.mock.calls.find((call) => (
-      call[0] === 'wsl.exe' && Array.isArray(call[1]) && call[1].includes('git')
-    ));
-    expect(gitCall?.[0]).toBe('wsl.exe');
-    expect(gitCall?.[1]).toEqual([
-      '-d', 'Ubuntu', '--cd', '/home/me/repo', '--', 'git', 'status', '--short',
-    ]);
   });
 
   it('passes auth and extra vars in execFile.env instead of shell-concatenating them', async () => {

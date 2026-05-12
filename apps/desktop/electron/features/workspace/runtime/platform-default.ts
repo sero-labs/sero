@@ -7,11 +7,10 @@ export interface RuntimePlatformDefaultsInput {
 }
 
 export function getDefaultRuntimeBackend(input: RuntimePlatformDefaultsInput = {}): WorkspaceRuntimeBackend {
-  if (input.workspaceId === 'global') return 'host';
-
   const platform = input.platform ?? process.platform;
   const arch = input.arch ?? process.arch;
 
+  if (input.workspaceId === 'global') return platform === 'win32' ? 'docker' : 'host';
   if (platform === 'darwin' && arch === 'arm64') return 'apple-container';
   return 'docker';
 }

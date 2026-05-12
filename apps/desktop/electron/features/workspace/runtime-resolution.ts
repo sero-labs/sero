@@ -1,6 +1,7 @@
 import type { ContainerManager, ContainerState } from '@electron/features/container';
 import type { RuntimeBackendId } from './runtime/types';
 import { getRuntimeCapabilities, UnsupportedRuntimeOnPlatformError } from './runtime/capabilities';
+import { getDefaultRuntimeBackend } from './runtime/platform-default';
 import type { WorkspaceManager } from './manager';
 
 export type WorkspaceRuntimeKind = 'container' | 'host';
@@ -130,9 +131,9 @@ export async function resolveWorkspaceRuntimeWithManagers(
     getRuntimeCapabilities(desiredBackend, process.platform);
   } catch (error) {
     if (!(error instanceof UnsupportedRuntimeOnPlatformError)) throw error;
-    validatedBackend = 'host';
+    validatedBackend = getDefaultRuntimeBackend({ platform: process.platform, arch: process.arch });
     fallbackCode = 'backend-unsupported-on-platform';
-    fallbackReason = `${desiredBackend} is not supported on ${process.platform}. Sero is falling back to host mode.`;
+    fallbackReason = `${desiredBackend} is not supported on ${process.platform}. Sero is falling back to ${validatedBackend}.`;
     getRuntimeCapabilities(validatedBackend, process.platform);
   }
 

@@ -40,52 +40,9 @@ describe('Host Doctor checks', () => {
     });
   });
 
-  it('checks Windows wsl.exe status, distro echo, bash, pgrep, lsof, and inotifywait availability', async () => {
-    const run: HostDoctorRunner = vi.fn(async () => ok('ok'));
-
-    const results = await runHostDoctorChecks({
-      platform: 'win32',
-      workspacePath: '\\\\wsl$\\Ubuntu\\home\\me\\repo',
-      run,
-      now: clock(),
-    });
-
-    expect(results.every((result) => result.status === 'pass')).toBe(true);
-    expect(run).toHaveBeenNthCalledWith(1, 'wsl.exe', ['--version'], { timeoutMs: 5_000 });
-    expect(run).toHaveBeenNthCalledWith(2, 'wsl.exe', ['--status'], { timeoutMs: 5_000 });
-    expect(run).toHaveBeenNthCalledWith(3, 'wsl.exe', ['-d', 'Ubuntu', '--', 'echo', 'ok'], { timeoutMs: 5_000 });
-    expect(run).toHaveBeenNthCalledWith(4, 'wsl.exe', ['-d', 'Ubuntu', '--', 'which', 'bash'], { timeoutMs: 5_000 });
-    expect(run).toHaveBeenNthCalledWith(5, 'wsl.exe', ['-d', 'Ubuntu', '--', 'which', 'pgrep'], { timeoutMs: 5_000 });
-    expect(run).toHaveBeenNthCalledWith(6, 'wsl.exe', ['-d', 'Ubuntu', '--', 'which', 'lsof'], { timeoutMs: 5_000 });
-    expect(run).toHaveBeenNthCalledWith(7, 'wsl.exe', ['-d', 'Ubuntu', '--', 'which', 'inotifywait'], { timeoutMs: 5_000 });
-  });
-
-  it('warns when WSL inotifywait is missing', async () => {
-    const run: HostDoctorRunner = vi.fn(async (_program: string, args: string[]) => {
-      if (args.includes('inotifywait')) return fail('inotifywait not found', 127);
-      return ok('ok');
-    });
-
-    const results = await runHostDoctorChecks({ platform: 'win32', run, now: clock() });
-
-    expect(results.find((result) => result.id === 'runtime.host.wslInotifywait')).toMatchObject({
-      status: 'warn',
-      details: { remediation: expect.stringContaining('inotify-tools') },
-    });
-  });
-
-  it('reports Windows missing wsl.exe failure', async () => {
-    const run: HostDoctorRunner = vi.fn(async (program: string) => {
-      if (program === 'wsl.exe') return fail('ENOENT wsl.exe not found', 127);
-      return ok();
-    });
-
-    const results = await runHostDoctorChecks({ platform: 'win32', run, now: clock() });
-
-    expect(results.find((result) => result.id === 'runtime.host.wsl')).toMatchObject({
-      status: 'fail',
-      details: { program: 'wsl.exe' },
-    });
+  it('rejects host doctor checks on Windows because host runtime is unsupported there', async () => {
+    await expect(runHostDoctorChecks({ platform: 'win32' }))
+      .rejects.toThrow(/Host runtime is not supported on Windows/);
   });
 });
 

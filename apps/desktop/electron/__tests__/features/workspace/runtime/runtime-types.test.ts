@@ -81,11 +81,15 @@ describe('runtime backend contract skeleton', () => {
     expect(capabilities.browserAutomation).toBe(false);
     expect(capabilities.files.watch).toBe(true);
     expect(capabilities.languageServers).toBe(true);
-    expect(getRuntimeCapabilities('host', 'win32').languageServers).toBe(true);
+    expect(getRuntimeCapabilities('host', 'linux').languageServers).toBe(true);
   });
 
   it('rejects Apple Container capabilities on non-Darwin platforms', () => {
     expect(() => getRuntimeCapabilities('apple-container', 'linux')).toThrow(UnsupportedRuntimeOnPlatformError);
+  });
+
+  it('rejects host capabilities on Windows', () => {
+    expect(() => getRuntimeCapabilities('host', 'win32')).toThrow(UnsupportedRuntimeOnPlatformError);
   });
 
   it('marks host as host access with managed dev-server preview capabilities', async () => {

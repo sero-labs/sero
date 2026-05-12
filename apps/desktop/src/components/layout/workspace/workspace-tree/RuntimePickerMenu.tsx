@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Box, Check, ChevronRight, Monitor, Server } from 'lucide-react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import {
@@ -19,18 +18,9 @@ interface RuntimeOption {
   disabled?: boolean;
 }
 
-interface RuntimePickerDiagnostics {
-  desiredBackend?: WorkspaceRuntimeBackend;
-  actualBackend?: WorkspaceRuntimeBackend;
-  fallbackReason?: string;
-  capabilityAudit?: Array<{ detail?: string }>;
-}
-
 const APPLE_CONTAINER_COPY = 'Recommended on Apple Silicon Macs. Live-mounted Linux workspace using Apple Container.';
 const DOCKER_COPY = 'Portable Linux workspace for macOS Intel, Windows, and Linux. Requires Docker Desktop or Docker Engine.';
 const HOST_COPY = 'Run directly on this computer. Fastest startup, least isolated.';
-const WINDOWS_HOST_COPY = 'Run through WSL 2 on Windows. Requires a healthy WSL distro with bash installed.';
-const WINDOWS_HOST_SETUP_COPY = 'Host requires WSL 2. Install WSL, start a distro, then run Doctor before selecting Host.';
 
 type RuntimeBackendForDisplay = WorkspaceRuntimeBackend | DeprecatedWorkspaceRuntimeBackend;
 
@@ -47,31 +37,13 @@ function runtimeIcon(backend: RuntimeBackendForDisplay) {
   return <Box className="size-3" />;
 }
 
-function hasWindowsHostSetupProblem(diagnostics?: RuntimePickerDiagnostics[]): boolean {
-  return diagnostics?.some((entry) => {
-    const text = [
-      entry.fallbackReason,
-      ...(entry.capabilityAudit ?? []).map((audit) => audit.detail),
-    ].filter(Boolean).join(' ');
-    return entry.desiredBackend === 'host' && entry.actualBackend !== 'host' || /\b(wsl|wsl\.exe|WSL 2)\b/i.test(text);
-  }) ?? false;
-}
-
-export function getRuntimePickerOptions(
-  platform: string,
-  diagnostics?: RuntimePickerDiagnostics[],
-): RuntimeOption[] {
+export function getRuntimePickerOptions(platform: string): RuntimeOption[] {
   const hostOption: RuntimeOption = {
     backend: 'host',
     name: 'Host',
-    description: platform === 'win32' ? WINDOWS_HOST_COPY : HOST_COPY,
+    description: HOST_COPY,
     advanced: true,
   };
-
-  if (platform === 'win32' && hasWindowsHostSetupProblem(diagnostics)) {
-    hostOption.description = WINDOWS_HOST_SETUP_COPY;
-    hostOption.disabled = true;
-  }
 
   if (platform === 'darwin') {
     return [
@@ -79,6 +51,10 @@ export function getRuntimePickerOptions(
       { backend: 'docker', name: 'Docker', description: DOCKER_COPY },
       hostOption,
     ];
+  }
+
+  if (platform === 'win32') {
+    return [{ backend: 'docker', name: 'Docker', description: DOCKER_COPY }];
   }
 
   return [
@@ -89,9 +65,8 @@ export function getRuntimePickerOptions(
 
 export function RuntimePickerMenu({ workspace }: { workspace: WorkspaceInfo }) {
   const setRuntimeBackend = useWorkspaceStore((state) => state.setRuntimeBackend);
-  const [diagnostics, setDiagnostics] = useState<RuntimePickerDiagnostics[] | undefined>();
   const platform = window.sero.platform;
-  const options = getRuntimePickerOptions(platform, diagnostics);
+  const options = getRuntimePickerOptions(platform);
   const current = workspace.runtime.backend as RuntimeBackendForDisplay;
   const currentName = runtimeName(current);
 
@@ -100,15 +75,8 @@ export function RuntimePickerMenu({ workspace }: { workspace: WorkspaceInfo }) {
     await setRuntimeBackend(workspace.id, option.backend);
   };
 
-  const handleOpenChange = (open: boolean) => {
-    if (!open || typeof window.sero.workspace?.getRuntimeDiagnostics !== 'function') return;
-    window.sero.workspace.getRuntimeDiagnostics(workspace.id)
-      .then((entries) => setDiagnostics(entries as RuntimePickerDiagnostics[]))
-      .catch((error) => console.warn('[runtime-picker] Failed to load runtime diagnostics:', error));
-  };
-
   return (
-    <Popover onOpenChange={handleOpenChange}>
+    <Popover>
       <PopoverTrigger asChild>
         <IconAction
           as="span"
@@ -160,12 +128,6 @@ export function RuntimePickerMenu({ workspace }: { workspace: WorkspaceInfo }) {
             </button>
           ))}
         </div>
-
-        {platform === 'win32' ? (
-          <div className="border-t border-[var(--border-subtle)] px-3 py-2 text-xs text-[var(--text-muted)]">
-            Windows Host runs inside WSL 2. If Host is disabled, install WSL, start a distro, then run Doctor.
-          </div>
-        ) : null}
 
         <div className="border-t border-[var(--border-subtle)] p-2">
           <Button

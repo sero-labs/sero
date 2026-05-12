@@ -111,12 +111,11 @@ describe('HostDevServerManager', () => {
       });
     const manager = new HostDevServerManager({
       workspaceId: 'workspace-a',
-      platform: 'win32',
+      platform: 'linux',
       spawn,
       execFile,
       pollIntervalMs: 1,
       portDetectTimeoutMs: 10,
-      tcpProbe: vi.fn(async () => true),
     });
 
     await manager.start({ command: 'pnpm dev', cwd: '/workspace' });
@@ -146,47 +145,4 @@ describe('HostDevServerManager', () => {
     expect(manager.list()).toEqual([]);
   });
 
-  it('surfaces Windows WSL localhost-forwarding diagnostics when TCP probe fails', async () => {
-    const tcpProbe = vi.fn(async () => false);
-    const manager = new HostDevServerManager({
-      workspaceId: 'workspace-a',
-      platform: 'win32',
-      spawn: vi.fn(async () => createProcess()),
-      execFile: vi.fn(async (input) => input.program === 'pgrep'
-        ? fail()
-        : ok('node 1234 user 22u IPv4 TCP 127.0.0.1:3000 (LISTEN)')),
-      tcpProbe,
-      probeRetryDelayMs: 1,
-      pollIntervalMs: 1,
-      portDetectTimeoutMs: 10,
-    });
-
-    await manager.start({ command: 'pnpm dev', cwd: '/workspace' });
-    const preview = await manager.resolvePreviewUrl({ targetPort: 3000 });
-
-    expect(tcpProbe).toHaveBeenCalledTimes(3);
-    expect(preview).toMatchObject({
-      url: 'http://127.0.0.1:3000',
-      diagnosticCode: 'wsl-localhost-forwarding-disabled',
-    });
-  });
-
-  it('skips the TCP probe outside Windows', async () => {
-    const tcpProbe = vi.fn(async () => false);
-    const manager = new HostDevServerManager({
-      workspaceId: 'workspace-a',
-      platform: 'linux',
-      spawn: vi.fn(async () => createProcess()),
-      execFile: vi.fn(async (input) => input.program === 'pgrep'
-        ? fail()
-        : ok('node 1234 user 22u IPv4 TCP 127.0.0.1:3000 (LISTEN)')),
-      tcpProbe,
-      pollIntervalMs: 1,
-      portDetectTimeoutMs: 10,
-    });
-
-    await manager.start({ command: 'pnpm dev', cwd: '/workspace' });
-
-    expect(tcpProbe).not.toHaveBeenCalled();
-  });
 });

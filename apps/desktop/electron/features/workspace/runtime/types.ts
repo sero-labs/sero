@@ -127,7 +127,7 @@ export interface RuntimeDevServerStartInput {
   cardId?: string;
   logPath?: string;
 }
-export type RuntimeDevServerDiagnosticCode = 'dev-server-port-detect-timeout' | 'wsl-localhost-forwarding-disabled';
+export type RuntimeDevServerDiagnosticCode = 'dev-server-port-detect-timeout';
 export type RuntimeDevServerStatusValue = 'running' | 'stopped' | 'starting' | 'failed';
 
 export interface RuntimeDevServer {

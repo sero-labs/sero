@@ -10,7 +10,7 @@ vi.mock('@electron/shared/lib/native-pty', () => ({
 }));
 
 import { HostBackend } from '@electron/features/workspace/runtime/backends/host/host-backend';
-import { createWslHostSubstrate } from '@electron/features/workspace/runtime/backends/host/wsl-substrate';
+import { createPosixHostSubstrate } from '@electron/features/workspace/runtime/backends/host/posix-substrate';
 
 class MockPty extends EventEmitter {
   pid = 123;
@@ -22,30 +22,22 @@ class MockPty extends EventEmitter {
 }
 
 describe('HostBackend terminal creation', () => {
-  it('spawns WSL terminals with substrate-rendered argv', async () => {
+  it('spawns posix terminals with substrate-rendered argv', async () => {
     const pty = new MockPty();
     mocks.ptySpawn.mockReturnValue(pty);
-    const workspacePath = '\\\\wsl$\\Ubuntu\\home\\me\\repo';
+    const workspacePath = '/home/me/repo';
     const backend = new HostBackend({
       workspaceId: 'ws-1',
       hostWorkspacePath: workspacePath,
-      substrate: createWslHostSubstrate({ workspacePath, supportsCd: true }),
+      substrate: createPosixHostSubstrate({ platform: 'linux' }),
     });
 
     await backend.createTerminal({ terminalId: 'term-1', cwd: '/workspace', cols: 100, rows: 30 });
 
-    expect(mocks.ptySpawn).toHaveBeenCalledWith('wsl.exe', [
-      '-d',
-      'Ubuntu',
-      '--cd',
-      '/home/me/repo',
-      '--',
-      'bash',
-      '--login',
-    ], expect.objectContaining({
+    expect(mocks.ptySpawn).toHaveBeenCalledWith(expect.any(String), ['--login'], expect.objectContaining({
       cols: 100,
       rows: 30,
-      cwd: expect.any(String),
+      cwd: workspacePath,
     }));
   });
 });

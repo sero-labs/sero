@@ -13,7 +13,7 @@ function runtimeSummary(runtime: OnboardingContainerRuntime): string {
     return 'Docker remains available as an isolated runtime on macOS. Host is available without containers, but browser automation and Linux-parity tooling require Docker or Apple Container.';
   }
   if (window.sero.platform === 'win32') {
-    return 'Docker Desktop provides the most isolated runtime on Windows. Host runtime uses WSL 2; install Ubuntu/WSL 2 if you want host-mode parity without containers.';
+    return 'Docker Desktop is required on Windows. Host runtime is only available on macOS and Linux.';
   }
   return 'Docker provides the most isolated runtime on Linux. Host runtime is available without containers for local shell, file, Git, LSP, and dev-server workflows.';
 }

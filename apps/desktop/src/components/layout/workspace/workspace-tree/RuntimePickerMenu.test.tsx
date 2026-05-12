@@ -27,14 +27,13 @@ function workspace(runtime: WorkspaceInfo['runtime']): WorkspaceInfo {
   };
 }
 
-function installSero(platform: string, diagnostics: unknown[] = []) {
+function installSero(platform: string) {
   Object.defineProperty(window, 'sero', {
     configurable: true,
     writable: true,
     value: {
       platform,
       doctor: { runQuick: vi.fn(async () => ({ categories: [] })) },
-      workspace: { getRuntimeDiagnostics: vi.fn(async () => diagnostics) },
     },
   });
 }
@@ -84,21 +83,7 @@ describe('RuntimePickerMenu', () => {
       'host',
     ]);
     expect(getRuntimePickerOptions('linux').map((option) => option.backend)).toEqual(['docker', 'host']);
-    expect(getRuntimePickerOptions('win32').map((option) => option.backend)).toEqual(['docker', 'host']);
-  });
-
-  it('disables Windows Host with WSL setup guidance when diagnostics show WSL is missing', () => {
-    const options = getRuntimePickerOptions('win32', [
-      {
-        desiredBackend: 'host',
-        actualBackend: 'docker',
-        fallbackReason: 'wsl.exe is not available on PATH. Windows host runtime requires WSL 2.',
-      },
-    ]);
-    const host = options.find((option) => option.backend === 'host');
-    expect(host).toMatchObject({ disabled: true });
-    expect(host?.description).toContain('Install WSL');
-    expect(host?.description).toContain('run Doctor');
+    expect(getRuntimePickerOptions('win32').map((option) => option.backend)).toEqual(['docker']);
   });
 
   it('shows macOS runtime choices with Host marked advanced', async () => {
@@ -119,7 +104,7 @@ describe('RuntimePickerMenu', () => {
     expect(document.body.textContent).toContain('preview port pool requires recreating the runtime/container');
   });
 
-  it('shows Windows Docker and Host with the WSL 2 requirement', async () => {
+  it('shows only Docker on Windows', async () => {
     installSero('win32');
 
     await act(async () => {
@@ -128,10 +113,10 @@ describe('RuntimePickerMenu', () => {
     await openPicker();
 
     expect(document.body.textContent).toContain('Docker');
-    expect(document.body.textContent).toContain('Host');
-    expect(document.body.textContent).toContain('Requires a healthy WSL distro');
-    expect(document.body.textContent).toContain('Windows Host runs inside WSL 2');
+    expect(document.body.textContent).toContain('Portable Linux workspace for macOS Intel, Windows, and Linux');
     expect(document.body.textContent).not.toContain('Apple Container');
+    expect(document.body.textContent).not.toContain('WSL');
+    expect(document.body.textContent).not.toContain('Host');
   });
 
   it('writes runtime.backend through the workspace store', async () => {

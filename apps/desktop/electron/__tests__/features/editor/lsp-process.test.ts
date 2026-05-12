@@ -4,7 +4,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { LspServerProcess } from '@electron/features/editor/lsp/lsp-process';
 import type { LspServerConfig } from '@electron/features/editor/lsp/types';
 import { createPosixHostSubstrate } from '@electron/features/workspace/runtime/backends/host/posix-substrate';
-import { createWslHostSubstrate } from '@electron/features/workspace/runtime/backends/host/wsl-substrate';
 import { HostBackend } from '@electron/features/workspace/runtime/backends/host/host-backend';
 import { RUNTIME_WORKSPACE_PATH } from '@electron/features/workspace/runtime/runtime-paths';
 
@@ -73,31 +72,4 @@ describe('LspServerProcess host runtime launch', () => {
     expect(child.stdin.write).toHaveBeenCalledWith(expect.stringContaining(`"rootPath":"${RUNTIME_WORKSPACE_PATH}"`));
   });
 
-  it('starts WSL host language servers through wsl.exe with the translated runtime workspace cwd', async () => {
-    const child = new MockSpawnedProcess();
-    mocks.spawnMock.mockReturnValue(child);
-    mocks.execFileMock.mockImplementation((_program, _args, cb) => cb(null, '5678\n', ''));
-    const backend = new HostBackend({
-      workspaceId: 'workspace-a',
-      hostWorkspacePath: '\\\\wsl$\\Ubuntu\\home\\me\\repo',
-      substrate: createWslHostSubstrate({
-        workspacePath: '\\\\wsl$\\Ubuntu\\home\\me\\repo',
-        supportsCd: true,
-      }),
-    });
-    const server = new LspServerProcess('workspace-a', config, backend, {});
-
-    await expect(server.start()).resolves.toEqual({});
-
-    expect(mocks.spawnMock).toHaveBeenCalledWith('wsl.exe', expect.arrayContaining([
-      '-d',
-      'Ubuntu',
-      '--cd',
-      '/home/me/repo',
-      '--',
-      'bash',
-      '-c',
-    ]), expect.objectContaining({ stdio: 'pipe' }));
-    expect(child.stdin.write).toHaveBeenCalledWith(expect.stringContaining(`"rootPath":"${RUNTIME_WORKSPACE_PATH}"`));
-  });
 });

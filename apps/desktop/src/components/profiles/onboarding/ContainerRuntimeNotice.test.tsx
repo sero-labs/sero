@@ -87,7 +87,7 @@ describe('ContainerRuntimeNotice', () => {
     expect(document.body.textContent).toContain('Docker or Apple Container is configured');
   });
 
-  it('renders Windows-specific Docker and WSL copy', async () => {
+  it('renders Windows-specific Docker-only copy', async () => {
     Object.defineProperty(window, 'sero', {
       configurable: true,
       value: {
@@ -99,14 +99,14 @@ describe('ContainerRuntimeNotice', () => {
     await act(async () => {
       root?.render(renderNotice({
         status: 'missing_binary',
-        message: 'Docker Desktop is recommended for full Sero runtime features on Windows.',
+        message: 'Docker Desktop is required for Sero runtime features on Windows.',
         recommended: true,
         runtime: 'docker',
       }));
     });
 
-    expect(document.body.textContent).toContain('Docker Desktop provides the most isolated runtime on Windows');
-    expect(document.body.textContent).toContain('Host runtime uses WSL 2');
+    expect(document.body.textContent).toContain('Docker Desktop is required on Windows');
+    expect(document.body.textContent).not.toContain('WSL');
     expect(document.body.textContent).not.toContain('Apple Container');
   });
 

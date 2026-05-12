@@ -46,6 +46,7 @@ describe('workspace runtime config migration', () => {
     expect(getDefaultRuntimeBackend({ platform: 'win32', arch: 'x64' })).toBe('docker');
     expect(getDefaultRuntimeBackend({ platform: 'linux', arch: 'arm64' })).toBe('docker');
     expect(getDefaultRuntimeBackend({ workspaceId: 'global', platform: 'linux', arch: 'x64' })).toBe('host');
+    expect(getDefaultRuntimeBackend({ workspaceId: 'global', platform: 'win32', arch: 'x64' })).toBe('docker');
   });
 
   it('normalizes writes to runtime.backend and removes legacy container', () => {
@@ -112,28 +113,29 @@ describe('workspace runtime config migration', () => {
     expect(written.runtime).toEqual({ backend: 'host' });
   });
 
-  it('does not mutate runtime config when Windows host doctor fails while disabling containers', async () => {
+  it('refuses to set host runtime on Windows and leaves config untouched', async () => {
     vi.spyOn(process, 'platform', 'get').mockReturnValue('win32');
     const workspacePath = await createTempWorkspace({ id: 'app', name: 'App', runtime: { backend: 'docker' } });
-    const manager = new WorkspaceManager({
-      runHostDoctorChecks: vi.fn(async () => [{
-        id: 'runtime.host.wsl',
-        category: 'runtime' as const,
-        status: 'fail' as const,
-        message: 'wsl.exe is not available',
-        durationMs: 1,
-      }]),
-    });
+    const manager = new WorkspaceManager();
     const info = await manager.addFolder(workspacePath);
 
     const result = await manager.setContainerEnabled(info.id, false);
 
     expect(result).toMatchObject({
       ok: false,
-      error: { code: 'host-doctor-failed' },
+      error: { code: 'host-doctor-failed', message: expect.stringMatching(/Windows/) },
     });
     expect(await manager.getRuntimeConfig(info.id)).toEqual({ backend: 'docker' });
     const raw = await readFile(path.join(workspacePath, '.sero-workspace.json'), 'utf8');
     expect((JSON.parse(raw) as WorkspaceConfig).runtime).toEqual({ backend: 'docker' });
+  });
+
+  it('auto-migrates an on-disk host runtime config to docker when read on Windows', () => {
+    vi.spyOn(process, 'platform', 'get').mockReturnValue('win32');
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    const config = { id: 'app', name: 'App', runtime: { backend: 'host' as const } };
+    expect(resolveWorkspaceRuntimeConfig('app', config).backend).toBe('docker');
+    expect(warn).toHaveBeenCalled();
   });
 });

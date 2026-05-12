@@ -1,5 +1,7 @@
 # Cross-platform Host Runtime Plan
 
+> **Windows host runtime was removed.** All decisions, code, tests, and docs related to WSL 2, `wsl.exe` substrate, `\\wsl$\` UNC path handling, Windows-drive substrate, and WSL localhost-forwarding diagnostics have been deleted. Windows uses the Docker backend exclusively. The plan below is preserved for historical context; treat any WSL-specific decisions, tasks, and capability gates as obsolete.
+
 ## Context
 
 PR #177 adds provider-aware workspace runtimes and Docker support, but the non-container backend is still named `mac-host` and is implemented as a macOS-oriented host backend. The product goal is broader: Sero should support both container and non-container workspaces across platforms.

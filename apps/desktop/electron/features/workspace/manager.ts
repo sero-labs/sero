@@ -26,7 +26,7 @@ import {
   resolveWorkspaceRuntimeConfig,
 } from './runtime/config';
 import { getDefaultRuntimeBackend } from './runtime/platform-default';
-import { runHostDoctorChecks, type HostDoctorOptions } from './runtime/backends/host/host-doctor';
+import type { DoctorResult } from '@electron/features/doctor/engine/types';
 
 const EDITOR_STATE_DIR = path.join(SERO_AGENT_DIR, 'editor-state');
 
@@ -42,9 +42,9 @@ interface WorkspaceRegistry {
 }
 
 export type SetContainerEnabledResult = { ok: true; backend: WorkspaceRuntimeBackend }
-  | { ok: false; error: { code: 'host-doctor-failed'; message: string; checks: Awaited<ReturnType<typeof runHostDoctorChecks>> } };
+  | { ok: false; error: { code: 'host-doctor-failed'; message: string; checks: DoctorResult[] } };
 
-export interface WorkspaceManagerOptions { runHostDoctorChecks?: (options?: HostDoctorOptions) => ReturnType<typeof runHostDoctorChecks>; }
+export interface WorkspaceManagerOptions {}
 
 // ── Default workspace configs ────────────────────────────────
 
@@ -422,16 +422,13 @@ export class WorkspaceManager {
 
   /** @deprecated compatibility shim while callers migrate to runtime.backend. */
   async setContainerEnabled(id: string, enabled: boolean): Promise<SetContainerEnabledResult> {
-    const backend: WorkspaceRuntimeBackend = enabled ? getDefaultRuntimeBackend({ platform: process.platform, arch: process.arch }) : 'host';
     if (!enabled && process.platform === 'win32') {
-      const workspacePath = this.getPath(id);
-      if (!workspacePath) throw new Error(`Workspace not found: ${id}`);
-      const checks = await (this.options.runHostDoctorChecks ?? runHostDoctorChecks)({ workspacePath, platform: process.platform });
-      if (checks.some((check) => check.status === 'fail')) return {
+      return {
         ok: false,
-        error: { code: 'host-doctor-failed', message: 'Windows host runtime requires a working WSL 2 installation.', checks },
+        error: { code: 'host-doctor-failed', message: 'Host runtime is not supported on Windows. Use the Docker backend instead.', checks: [] },
       };
     }
+    const backend: WorkspaceRuntimeBackend = enabled ? getDefaultRuntimeBackend({ platform: process.platform, arch: process.arch }) : 'host';
     await this.setRuntimeBackend(id, backend);
     return { ok: true, backend };
   }

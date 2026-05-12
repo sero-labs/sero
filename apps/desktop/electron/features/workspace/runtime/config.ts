@@ -16,12 +16,18 @@ export function resolveWorkspaceRuntimeConfig(
   config: WorkspaceConfig | null | undefined,
   defaults: RuntimePlatformDefaultsInput = {},
 ): WorkspaceRuntimeConfig {
+  const platform = defaults.platform ?? process.platform;
   const backend = config?.runtime?.backend;
   if (isWorkspaceRuntimeBackend(backend) && config?.runtime) {
-    return { ...config.runtime, backend: normalizeWorkspaceRuntimeBackend(backend) };
+    const normalized = normalizeWorkspaceRuntimeBackend(backend);
+    if (normalized === 'host' && platform === 'win32') {
+      console.warn(`[runtime] Workspace ${workspaceId} requested host runtime on Windows; falling back to docker.`);
+      return { ...config.runtime, backend: 'docker' };
+    }
+    return { ...config.runtime, backend: normalized };
   }
 
-  if (config?.container === false && (defaults.platform ?? process.platform) === 'darwin') {
+  if (config?.container === false && platform === 'darwin') {
     return { backend: 'host' };
   }
 

@@ -78,7 +78,7 @@ async function getDockerAvailability(): Promise<ContainerAvailability> {
     return {
       status: 'missing_binary',
       message: process.platform === 'win32'
-        ? 'Docker Desktop is recommended for full Sero runtime features on Windows. Host runtime is also available when WSL 2 is installed.'
+        ? 'Docker Desktop is required for Sero runtime features on Windows. Install Docker Desktop to continue.'
         : 'Docker is recommended for full Sero runtime features on this platform. Host runtime remains available without containers.',
       recommended: true,
       runtime: 'docker',

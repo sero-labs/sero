@@ -93,6 +93,9 @@ export function getRuntimeCapabilities(
   if (backend === 'apple-container' && platform !== 'darwin') {
     throw new UnsupportedRuntimeOnPlatformError(backend, platform);
   }
+  if (backend === 'host' && platform === 'win32') {
+    throw new UnsupportedRuntimeOnPlatformError(backend, platform);
+  }
   if (backend === 'host') return createHostCapabilities(platform);
   if (backend === 'docker') return createDockerCapabilities();
   return createAppleContainerCapabilities();

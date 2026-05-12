@@ -45,7 +45,6 @@ import type {
 import type { HostRuntimeSubstrate } from './host-substrate';
 import { createHostSubstrate } from './host-substrate-factory';
 import { HostDevServerManager } from './host-dev-server-manager';
-import { assertSameWslDistroForAdditionalRoots, isWindowsDrivePath, isWslUncPath } from './wsl-paths';
 
 const execFileAsync = promisify(execFile);
 
@@ -346,9 +345,7 @@ export class HostBackend implements RuntimeBackend {
 
   private async additionalRootPaths(): Promise<string[]> {
     if (!this.workspaceManager) return [];
-    const roots = (await this.workspaceManager.getRoots(this.workspaceId)).map((root) => root.path);
-    assertSameWslDistroForAdditionalRoots(this.hostWorkspacePath, roots);
-    return roots;
+    return (await this.workspaceManager.getRoots(this.workspaceId)).map((root) => root.path);
   }
 
   private async collectEntries(
@@ -400,7 +397,7 @@ function unsupported(message: string): Error {
 }
 
 function isHostAbsolutePath(inputPath: string): boolean {
-  return path.isAbsolute(inputPath) || isWindowsDrivePath(inputPath) || isWslUncPath(inputPath);
+  return path.isAbsolute(inputPath);
 }
 
 function createProcessEnv(overrides?: Record<string, string>): Record<string, string> {
