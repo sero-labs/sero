@@ -7,12 +7,12 @@ Updated 2026-05-13 after promoting the Ubuntu Noble slim Docker path.
 **Decision: automated Docker scanner gate is satisfied by the promoted Ubuntu Noble slim local candidate, but release publication remains blocked pending explicit approval and manual in-app smoke.**
 
 - `apps/desktop/images/Dockerfile.sero-node` now uses `ubuntu:24.04`, not the full Playwright base.
-- Node 24 is installed from the official Node.js Linux tarball with checksum verification; npm comes from that tarball.
+- Node 24 is pinned to `24.15.0` and installed from the official Node.js Linux tarball with checksum verification; npm comes from that tarball.
 - `pnpm@10.27.0` is activated via Corepack.
 - Git, current official GitHub CLI apt repo/`gh`, native build tooling, core CLI utilities, `agent-browser`, Playwright Chromium, and Playwright ffmpeg are preserved.
 - Firefox and WebKit payloads are absent.
 - The large Chromium headless-shell payload is replaced by a documented symlink compatibility shim to the regular Chromium binary.
-- The promoted validation image `sero-node:ubuntu-noble-slim-local` reaches **Trivy CRITICAL=0** at **1,797,729,269 bytes (~1.8 GB)**.
+- The promoted validation image `sero-node:ubuntu-noble-slim-local` reaches **Trivy CRITICAL=0** at **1,797,729,335 bytes (~1.8 GB)**.
 - No GHCR image was tagged, pushed, or published.
 - Publishing a release image still requires explicit user approval.
 - Manual in-app Docker smoke is still required with recreated workspace containers before release.
@@ -25,7 +25,7 @@ Updated 2026-05-13 after promoting the Ubuntu Noble slim Docker path.
 | Image | `ghcr.io/sero-labs/sero-node:latest` | `sero-node:hardening-local` / `critical-zero-local` | `sero-node:node24-noble-buildtools-local` | `sero-node:ubuntu-noble-slim-local` | local-only candidate |
 | Base | Debian 12 / `node:22-slim` | Debian Node 22 candidates | `mcr.microsoft.com/playwright:v1.57.0-noble` | `ubuntu:24.04` | promoted Dockerfile path |
 | Node | v22 | v22 | v24.15.0 | v24.15.0 | accepted Node 24 path |
-| Image size | `2,176,370,691` bytes | `1,798,935,982` to `1,827,378,479` bytes | `4,931,109,454` bytes | `1,797,729,269` bytes | size-corrected |
+| Image size | `2,176,370,691` bytes | `1,798,935,982` to `1,827,378,479` bytes | `4,931,109,454` bytes | `1,797,729,335` bytes | size-corrected |
 | Trivy CRITICAL | 14 | 14 / 10 | 0 | 0 | **scanner gate satisfied** |
 | Trivy HIGH | 273 | 82 / 73 | 18 | 16 | improved |
 | Fixable CRITICAL | 0 | 0 | 0 | 0 | pass |
@@ -39,7 +39,7 @@ Updated 2026-05-13 after promoting the Ubuntu Noble slim Docker path.
 Before any release publication:
 
 1. Obtain explicit user approval to publish/tag/push a GHCR image.
-2. Rebuild the approved release image from the final Dockerfile.
+2. Rebuild the approved release image from the final Dockerfile. Node is pinned to `24.15.0`; if the pin changes, rerun Trivy counts, runtime inventory, targeted Docker/browser tests, and desktop typecheck before tagging/pushing.
 3. Do not publish/tag/push `ghcr.io/sero-labs/sero-node:*` without explicit approval.
 4. Recreate affected workspace containers so the new Node 24 Noble toolchain/image contents are actually exercised.
 5. Complete manual in-app Docker smoke:
@@ -64,6 +64,10 @@ Before any release publication:
 - `docs/security/scans/pr-177-sero-node/final-ubuntu-noble-slim-trivy-counts.txt`
 - `docs/security/scans/pr-177-sero-node/final-ubuntu-noble-slim-targeted-tests.txt`
 - `docs/security/scans/pr-177-sero-node/final-ubuntu-noble-slim-typecheck.txt`
+
+## Deferred browser-size follow-up
+
+Sero does not use Playwright as a production JS API directly; it shells out to `agent-browser`, which needs a browser executable and ffmpeg. PR #177 keeps the validated Playwright Chromium/ffmpeg assets because they are multi-arch and pass CRITICAL=0, but a future size-optimization PR can relax the `/ms-playwright` image contract and validate system Chrome/Chromium, Chrome for Testing, `@sparticuz/chromium`, or another lightweight provider on both amd64 and arm64 before removing the current assets.
 
 ## Castlabs Electron
 

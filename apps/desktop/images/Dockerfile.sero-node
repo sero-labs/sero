@@ -1,7 +1,7 @@
 FROM ubuntu:24.04
 
 ARG SERO_NODE_VERSION=dev
-ARG NODE_MAJOR=24
+ARG NODE_VERSION=24.15.0
 LABEL org.opencontainers.image.title="Sero Node Runtime" \
       org.opencontainers.image.version="$SERO_NODE_VERSION"
 
@@ -31,7 +31,7 @@ RUN apt-get update -qq && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Install the current official Node.js 24 Linux tarball and verify its checksum.
+# Install the pinned official Node.js 24 Linux tarball and verify its checksum.
 RUN set -eux; \
     arch="$(dpkg --print-architecture)"; \
     case "$arch" in \
@@ -39,7 +39,7 @@ RUN set -eux; \
       amd64) node_arch="x64" ;; \
       *) echo "Unsupported architecture: $arch" >&2; exit 1 ;; \
     esac; \
-    node_version="$(curl -fsSL https://nodejs.org/dist/index.json | python3 -c 'import json,sys,os; major="v"+os.environ.get("NODE_MAJOR", "24"); print(next(item["version"] for item in json.load(sys.stdin) if item["version"].startswith(major+".")))')"; \
+    node_version="v${NODE_VERSION}"; \
     curl -fsSLO "https://nodejs.org/dist/${node_version}/node-${node_version}-linux-${node_arch}.tar.xz"; \
     curl -fsSLO "https://nodejs.org/dist/${node_version}/SHASUMS256.txt"; \
     grep " node-${node_version}-linux-${node_arch}.tar.xz$" SHASUMS256.txt | sha256sum -c -; \

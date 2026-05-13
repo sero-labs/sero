@@ -7,7 +7,7 @@ Validation was rerun on 2026-05-13 against the current promoted local-only candi
 | Gate | Result | Evidence |
 | --- | --- | --- |
 | Direct candidate container smoke | pass | `node`, `npm`, `pnpm`, `git`, `gh`, `python3`, `pip`, `gcc`, `g++`, `make`, core CLI tools, `agent-browser`, `/ms-playwright`, Chromium, ffmpeg, `tini`, `/workspace`, and `/tmp/sero-home` verified in `final-ubuntu-noble-slim-runtime-inventory.txt`. |
-| Image size | `1,797,729,269` bytes (`1.80 GB`) | `final-ubuntu-noble-slim-inspect.json` |
+| Image size | `1,797,729,335` bytes (`1.80 GB`) | `final-ubuntu-noble-slim-inspect.json` |
 | Trivy CRITICAL=0 | pass | `final-ubuntu-noble-slim-trivy-full.json` / `final-ubuntu-noble-slim-trivy-counts.txt` |
 | Trivy HIGH | `16` | `final-ubuntu-noble-slim-trivy-high-critical.txt` |
 | Fixable HIGH/CRITICAL | `16` / `0` | `final-ubuntu-noble-slim-trivy-fixable-high-critical.txt` |

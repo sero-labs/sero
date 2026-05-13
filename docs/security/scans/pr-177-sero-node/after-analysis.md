@@ -9,15 +9,15 @@ As of 2026-05-13, the promoted local candidate is the Ubuntu Noble slim image `s
 | Current candidate tag | `sero-node:ubuntu-noble-slim-local` |
 | Dockerfile | `apps/desktop/images/Dockerfile.sero-node` |
 | Base | `ubuntu:24.04` |
-| Node/npm source | official Node.js 24 Linux tarball with checksum verification (`node v24.15.0`, `npm 11.12.1`) |
+| Node/npm source | pinned official Node.js `24.15.0` Linux tarball with checksum verification (`node v24.15.0`, `npm 11.12.1`) |
 | Package manager | `pnpm 10.27.0` via Corepack |
 | GitHub CLI | `gh 2.92.0` from the official current GitHub CLI apt repository |
 | Native build tooling | present: `build-essential`, `python3`, `python3-venv`, `python3-pip` (`gcc`, `g++`, `make`, `pip`) |
 | Browser payload | Playwright Chromium + ffmpeg only; Firefox/WebKit absent |
 | Headless-shell compatibility | small `chromium_headless_shell-1200` shim; `headless_shell` is a symlink to `/ms-playwright/chromium-1200/chrome-linux/chrome` |
-| Image ID | `sha256:9a95be9e2b6395a1bddf6f40c0acc1e228c3971911808408a1d5614379d78385` |
-| Created | `2026-05-13T11:40:41.252349291Z` |
-| Size | `1,797,729,269` bytes (`1.80 GB`) |
+| Image ID | `sha256:d8eb932a9d25fcfa6d930084bb1debb713088a0b52038a84bc7ec7a30e324b55` |
+| Created | `2026-05-13T12:29:52.62448013Z` |
+| Size | `1,797,729,335` bytes (`1.80 GB`) |
 | Trivy CRITICAL | `0` |
 | Trivy HIGH | `16` |
 | Fixable CRITICAL | `0` |

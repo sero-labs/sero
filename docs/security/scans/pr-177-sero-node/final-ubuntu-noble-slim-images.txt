@@ -1,2 +1,4 @@
+IMAGE                                ID             DISK USAGE   CONTENT SIZE   EXTRA
+ghcr.io/sero-labs/sero-node:latest   69faea439d2a       2.18GB             0B        
 IMAGE                               ID             DISK USAGE   CONTENT SIZE   EXTRA
-sero-node:ubuntu-noble-slim-local   9a95be9e2b63        1.8GB             0B        
+sero-node:ubuntu-noble-slim-local   d8eb932a9d25        1.8GB             0B        
