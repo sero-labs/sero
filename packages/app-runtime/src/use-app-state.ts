@@ -20,9 +20,27 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function applyDefaultState<T>(defaultState: T, current: T): T {
-  if (!isPlainObject(defaultState) || !isPlainObject(current)) return current;
-  return { ...defaultState, ...current } as T;
+function normalizeStateValue(defaultValue: unknown, currentValue: unknown): unknown {
+  if (Array.isArray(defaultValue)) {
+    return Array.isArray(currentValue) ? currentValue : defaultValue;
+  }
+
+  if (isPlainObject(defaultValue)) {
+    if (!isPlainObject(currentValue)) return defaultValue;
+    const merged: Record<string, unknown> = { ...currentValue };
+    for (const [key, childDefault] of Object.entries(defaultValue)) {
+      merged[key] = normalizeStateValue(childDefault, currentValue[key]);
+    }
+    return merged;
+  }
+
+  if (currentValue === undefined) return defaultValue;
+  if (defaultValue === null) return currentValue ?? null;
+  return typeof currentValue === typeof defaultValue ? currentValue : defaultValue;
+}
+
+function applyDefaultState<T>(defaultState: T, current: unknown): T {
+  return normalizeStateValue(defaultState, current) as T;
 }
 
 export function useAppState<T>(defaultState: T): [T, (updater: (prev: T) => T) => void] {

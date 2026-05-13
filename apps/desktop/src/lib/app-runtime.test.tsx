@@ -124,19 +124,19 @@ describe('app-runtime shared seams', () => {
     warnSpy.mockRestore();
   });
 
-  it('keeps default object fields when a newly watched state file is empty', async () => {
-    let latestState: { display: string; history: unknown[] } | null = null;
+  it('keeps default object fields when stored app state is partial or malformed', async () => {
+    let latestState: { display: string; history: unknown[]; meta: { ready: boolean }; extra?: string } | null = null;
     const appState = {
       read: vi.fn(async () => null),
       write: vi.fn(async () => undefined),
-      watch: vi.fn(async () => ({})),
+      watch: vi.fn(async () => ({ display: 42, history: null, meta: {}, extra: 'kept' })),
       unwatch: vi.fn(async () => undefined),
       onChange: vi.fn(() => () => undefined),
     };
     installSeroBridge(appState);
 
     function Probe() {
-      const [state] = useAppState({ display: '0', history: [] });
+      const [state] = useAppState({ display: '0', history: [], meta: { ready: false } });
       latestState = state;
       return null;
     }
@@ -149,7 +149,7 @@ describe('app-runtime shared seams', () => {
       );
     });
 
-    expect(latestState).toEqual({ display: '0', history: [] });
+    expect(latestState).toEqual({ display: '0', history: [], meta: { ready: false }, extra: 'kept' });
   });
 
   it('invokes app-local tools through the generic appAgent bridge', async () => {
