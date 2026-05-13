@@ -4,7 +4,7 @@ Updated 2026-05-13 after promoting the Ubuntu Noble slim Docker path.
 
 ## Combined decision
 
-**Decision: automated Docker scanner gate is satisfied by the promoted Ubuntu Noble slim local candidate, but release publication remains blocked pending explicit approval and manual in-app smoke.**
+**Decision: automated Docker scanner gate is satisfied by the promoted Ubuntu Noble slim local candidate, and macOS manual in-app smoke has passed. Release publication remains blocked pending explicit approval and final release-image validation.**
 
 - `apps/desktop/images/Dockerfile.sero-node` now uses `ubuntu:24.04`, not the full Playwright base.
 - Node 24 is pinned to `24.15.0` and installed from the official Node.js Linux tarball with checksum verification; npm is upgraded to `11.14.1`.
@@ -15,7 +15,7 @@ Updated 2026-05-13 after promoting the Ubuntu Noble slim Docker path.
 - The promoted validation image `sero-node:ubuntu-noble-slim-local` reaches **Trivy CRITICAL=0** and **HIGH=0** at **1,843,365,152 bytes (~1.84 GB)**.
 - No GHCR image was tagged, pushed, or published.
 - Publishing a release image still requires explicit user approval.
-- Manual in-app Docker smoke is still required with recreated workspace containers before release.
+- Manual macOS Apple Container and Docker runtime smoke passed after runtime dev-server registration/display fixes.
 - Electron Track B remains deferred; do not merge the Castlabs Electron spike into PR #177.
 
 ## Docker runtime image
@@ -42,13 +42,17 @@ Before any release publication:
 2. Rebuild the approved release image from the final Dockerfile. Node is pinned to `24.15.0`; if the pin changes, rerun Trivy counts, runtime inventory, targeted Docker/browser tests, and desktop typecheck before tagging/pushing.
 3. Do not publish/tag/push `ghcr.io/sero-labs/sero-node:*` without explicit approval.
 4. Recreate affected workspace containers so the new Node 24 Noble toolchain/image contents are actually exercised.
-5. Complete manual in-app Docker smoke:
-   - Docker workspace opens.
-   - Shell can write/read files.
-   - Git works.
-   - LSP initializes.
-   - Managed dev server works.
-   - Browser automation works.
+5. Run final validation on the exact release image tag:
+   - Runtime inventory.
+   - Full Trivy scan.
+   - `CRITICAL=0`, `HIGH=0`, `FIXABLE_CRITICAL=0`, and `FIXABLE_HIGH=0`.
+
+Manual macOS smoke completed:
+
+- Apple Container workspace flow passed.
+- Docker workspace flow passed.
+- Shell/file, Git, browser/app preview, plugin/app state recovery, and managed dev-server registration/display paths were exercised.
+- Docker dev-server registration/display regression was fixed by `ec1c8ea45` and `8b0e0ce52`.
 
 ## Evidence artifacts
 

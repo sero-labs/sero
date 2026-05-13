@@ -12,7 +12,7 @@ wins** for current alpha expectations.
 | Platform | Supported | macOS on Apple Silicon |
 | Current maintainer-validated baseline | Validated | macOS `26.3`, `arm64`, Node `22.22.0`, pnpm `10.11.0` |
 | Distribution | Supported | Build from source only |
-| Preferred runtime | Supported / recommended | Apple `container` CLI enabled |
+| Preferred runtime | Supported / recommended | Container-backed workspace via Apple Container or Docker |
 | Fallback runtime | Supported | Host mode with reduced capabilities |
 | Support channel | Supported | GitHub Issues and Pull Requests |
 | Official public binaries | Not supported | No public binary distribution promised in alpha |
@@ -67,7 +67,7 @@ When filing a bug, include which support surface you were using:
 - macOS version
 - Apple Silicon confirmation
 - Node / pnpm versions
-- runtime mode: container-backed or host mode
+- runtime mode: Apple Container, Docker, or host mode
 - whether the issue happened in source-built alpha or a local experimental build
 
 ## Early alpha support / triage plan
@@ -100,7 +100,7 @@ What reporters should expect:
 
 A good first signal for early triage is:
 - the exact command or workflow that failed
-- whether you were using container-backed runtime or host mode
+- whether you were using Apple Container, Docker, or host mode
 - the commit, branch, or tag you tested
 - the smallest redacted log excerpt that shows the failure
 

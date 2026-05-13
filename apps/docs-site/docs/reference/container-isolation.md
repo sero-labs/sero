@@ -1,15 +1,15 @@
 # Container Isolation
 
-Container-backed workspaces are Sero's preferred runtime on macOS Apple Silicon. They isolate workspace execution from the host enough to provide reproducible tooling, container networking, and per-workspace dev-server previews, but they are not documented as a hardened multi-tenant security boundary.
+Container-backed workspaces are Sero's preferred runtime on macOS. Apple Container and Docker both isolate workspace execution from the host enough to provide reproducible tooling, runtime networking, and per-workspace dev-server previews, but they are not documented as a hardened multi-tenant security boundary.
 
 ## Lifecycle
 
 | Behavior | Current implementation |
 |---|---|
-| Container id | `sero-<workspaceId>` from `containerId(workspaceId)`. |
-| Image | `sero-node:latest` by default. |
+| Container id | `sero-<workspaceId>` from `containerId(workspaceId)` or the runtime-specific equivalent. |
+| Image | `ghcr.io/sero-labs/sero-node:latest` by default for Docker-backed workspaces; Apple Container uses the same Sero node image contents in its separate image store. |
 | Start model | Lazy/deduplicated `ensure()` per workspace; stopped containers are reused when possible. |
-| System runtime | `/usr/local/bin/container`; Sero can start the container system if it is installed but stopped. |
+| System runtime | Apple Container (`/usr/local/bin/container`) or Docker; Sero can start the Apple Container system if it is installed but stopped. |
 | Recovery | Stale/ghost containers may be force-removed or recreated. |
 | Fallback | If containers are unavailable, Sero can continue in reduced host mode. |
 
@@ -18,11 +18,11 @@ Workspace opened
    ↓
 Runtime action needs container
    ↓
-ensure system + image + `sero-<workspaceId>`
+ensure runtime + image + `sero-<workspaceId>`
    ↓
 mount workspace and configured extra roots
    ↓
-run terminals/tools/dev servers via `container exec`
+run terminals/tools/dev servers through the active runtime backend
 ```
 
 ## Mounts
@@ -49,7 +49,7 @@ HOSTNAME=0.0.0.0
 
 When Sero's container HTTP proxy starts, proxy variables are also injected and `NO_PROXY` includes localhost and the container subnet. DNS fallback is best effort.
 
-Dev-server URLs prefer a detected port URL from the port scanner, then the container IP, then localhost. The registry id is scope-aware:
+Dev-server URLs are resolved by the active runtime backend. Apple Container can expose a container-IP URL, Docker exposes a forwarded localhost URL, and host mode exposes a localhost URL. The registry id is scope-aware:
 
 ```text
 workspaceId:scope:cardId:port
@@ -59,9 +59,9 @@ The registry is in-memory and liveness is checked periodically. It does not pers
 
 ## Stopping and restarting dev servers
 
-The current implementation stops a dev server by finding processes listening on the port inside the container with `ss`, terminating the process group, and force-killing remaining listeners if needed. Restart re-runs the original registered command in the background with `setsid`.
+Container-backed runtimes stop a dev server by finding processes listening on the port inside the runtime with `ss`, terminating the process group, and force-killing remaining listeners if needed. Restart re-runs the original registered command through the active runtime backend.
 
-This means stop/restart depends on the registered id and container process state, not a host-side port forward.
+This means stop/restart depends on the registered id and runtime process state, not just a host-side port forward.
 
 ## Host-mode fallback
 
@@ -84,9 +84,9 @@ See [Containers and Host Mode](/reference/containers-host-mode) for user-facing 
 
 ## Cleanup and image changes
 
-If you change `apps/desktop/images/Dockerfile.sero-node` or tools installed in the image, rebuild `sero-node:latest` and recreate affected workspace containers. Existing containers do not automatically receive Dockerfile changes.
+If you change `apps/desktop/images/Dockerfile.sero-node` or tools installed in the image, rebuild `ghcr.io/sero-labs/sero-node:latest` and recreate affected workspace containers. Existing containers do not automatically receive Dockerfile changes. Apple Container has a separate image store from Docker, so rebuild/import there separately when testing that runtime.
 
-Use the app/runtime controls where available. If debugging manually, be careful: deleting or restarting Apple container system resources can stop other running containers on the machine.
+Use the app/runtime controls where available. If debugging manually, be careful: deleting or restarting Apple Container or Docker resources can stop other running containers on the machine.
 
 ## Security caveats
 

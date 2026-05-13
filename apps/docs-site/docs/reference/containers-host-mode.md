@@ -1,9 +1,9 @@
 # Containers and Host Mode
 
-Sero works best with Apple container-backed workspaces on macOS Apple Silicon.
-Host mode is supported as a reduced fallback so the alpha can still run when the
-container runtime is unavailable or a workspace is explicitly configured to use
-the host.
+Sero works best with container-backed workspaces on macOS. Apple Container and
+Docker are the current container-backed runtime options. Host mode is supported
+as a reduced fallback so the alpha can still run when container runtimes are
+unavailable or a workspace is explicitly configured to use the host.
 
 This page explains the current runtime expectations. For task-oriented dev-server setup, see [Containers and Dev Servers](/guide/containers-dev-servers). For lifecycle, mounts, and networking details, see [Container Isolation](/reference/container-isolation). For the canonical support matrix, see [Support Scope](/reference/support-scope).
 
@@ -19,7 +19,7 @@ is intended for:
 - containerized workspace execution
 - containerized tooling and language servers
 - browser automation
-- managed preview and dev-server flows that can expose container-IP URLs without occupying the same host port
+- managed preview and dev-server flows that expose runtime-specific preview URLs
 - Linux/container parity and container networking semantics
 
 ### Host mode
@@ -41,15 +41,14 @@ Host mode is not currently the supported path for:
 - Linux/container networking semantics
 - full container isolation
 
-Host mode can still run a normal host dev server. The distinction is that Sero's managed container preview/dev-server registry behavior is reduced outside container-backed workspaces.
+Host mode can still run and register a normal host dev server. The distinction is that Sero's container networking, Linux parity, and browser-automation assumptions do not apply outside container-backed workspaces.
 
 If a workflow works in containers but fails in host mode, check whether that
 workflow depends on container-only capabilities.
 
 ## Requirements for container-backed mode
 
-Sero expects Apple container tooling on Apple Silicon macOS. The public setup
-checks are:
+For Apple Container on Apple Silicon macOS, the public setup checks are:
 
 ```bash
 /usr/local/bin/container --help
@@ -62,10 +61,16 @@ If the system is installed but not running, start it:
 /usr/local/bin/container system start
 ```
 
+For Docker-backed workspaces, Docker must be installed and running:
+
+```bash
+docker info
+```
+
 Sero expects the workspace image:
 
 ```text
-sero-node:latest
+ghcr.io/sero-labs/sero-node:latest
 ```
 
 If you change `apps/desktop/images/Dockerfile.sero-node` or container-installed
@@ -109,19 +114,18 @@ For container-specific problems, start with:
 /usr/local/bin/container --help
 /usr/local/bin/container system status
 /usr/local/bin/container system start
+docker info
 ```
 
 Common situations:
 
-### `container` command is missing
+### Container runtime command is missing
 
-Sero treats containers as unavailable and continues in host mode. Install
-Apple's container CLI and confirm it exists at `/usr/local/bin/container`.
+Sero treats that runtime as unavailable and can continue in another runtime or host mode. For Apple Container, install Apple's container CLI and confirm it exists at `/usr/local/bin/container`. For Docker, install Docker and confirm `docker info` succeeds.
 
 ### Container system is installed but unavailable
 
-Run `container system start`, wait for `container system status` to report a
-healthy/running state, then restart or retry the affected Sero workflow.
+For Apple Container, run `container system start`, wait for `container system status` to report a healthy/running state, then restart or retry the affected Sero workflow. For Docker, start Docker Desktop or the Docker daemon and retry.
 
 ### A workspace behaves incorrectly after changing the image
 

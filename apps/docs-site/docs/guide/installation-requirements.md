@@ -12,12 +12,18 @@ For the canonical current support contract and exact validated baseline, see
 
 ## Recommended runtime requirement
 
-For the full intended experience, install Apple's `container` CLI and make sure
-it is available at:
+For the full intended experience, use a container-backed runtime. Sero supports
+Apple Container and Docker-backed workspaces.
+
+For Apple Container, install Apple's `container` CLI and make sure it is
+available at:
 
 ```text
 /usr/local/bin/container
 ```
+
+For Docker-backed workspaces, install Docker and make sure `docker info`
+succeeds.
 
 Containers are strongly recommended, but they are not a hard requirement for
 trying Sero.
@@ -38,6 +44,7 @@ The install flow runs native-module repair hooks for `node-pty` and
 ```bash
 /usr/local/bin/container --help
 /usr/local/bin/container system status
+docker info
 ```
 
 If containers are unavailable, Sero can continue in host mode with reduced
