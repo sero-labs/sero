@@ -13,17 +13,17 @@ async function flushScanner(): Promise<void> {
 }
 
 describe('PortScanner', () => {
-  it('keeps only detected localhost URLs and clears them when a scan fails', async () => {
+  it('keeps detected container-host URLs and clears them when a scan fails', async () => {
     const exec = vi.fn<(cmd: string) => Promise<{ stdout: string; exitCode: number }>>()
       .mockResolvedValueOnce({ stdout: listeningOnLocalhost(3000), exitCode: 0 })
       .mockResolvedValueOnce({ stdout: '', exitCode: 1 });
 
     const scanner = new PortScanner();
-    scanner.startScanning('ws-1', 'ignored-host', exec);
+    scanner.startScanning('ws-1', '192.168.64.6', exec);
     await flushScanner();
 
     expect(scanner.getPorts('ws-1')).toEqual([
-      { port: 3000, url: 'http://127.0.0.1:3000', bridged: false },
+      { port: 3000, url: 'http://192.168.64.6:3000', bridged: false },
     ]);
 
     scanner.triggerScan('ws-1');
@@ -43,7 +43,7 @@ describe('PortScanner', () => {
     });
 
     const scanner = new PortScanner();
-    scanner.startScanning('ws-2', 'ignored-host', exec);
+    scanner.startScanning('ws-2', '192.168.64.7', exec);
 
     const stopPromise = scanner.stopScanning('ws-2');
     let settled = false;

@@ -13,6 +13,7 @@ type ExecFn = (cmd: string) => Promise<{ stdout: string; exitCode: number }>;
 
 interface WorkspaceScanState {
   timer: ReturnType<typeof setInterval>;
+  host: string;
   execFn: ExecFn;
   detected: DetectedPort[];
   scanPromise: Promise<void> | null;
@@ -22,10 +23,11 @@ export class PortScanner {
   private workspaces = new Map<string, WorkspaceScanState>();
   private readonly SCAN_INTERVAL = 3000;
 
-  startScanning(wsId: string, _host: string, execFn: ExecFn): void {
+  startScanning(wsId: string, host: string, execFn: ExecFn): void {
     if (this.workspaces.has(wsId)) return;
     const state: WorkspaceScanState = {
       timer: setInterval(() => { void this.runScan(wsId); }, this.SCAN_INTERVAL),
+      host,
       execFn,
       detected: [],
       scanPromise: null,
@@ -50,8 +52,8 @@ export class PortScanner {
     return this.workspaces.get(wsId)?.detected ?? [];
   }
 
-  getIp(_wsId: string): string | undefined {
-    return undefined;
+  getIp(wsId: string): string | undefined {
+    return this.workspaces.get(wsId)?.host;
   }
 
   async disposeAll(): Promise<void> {
@@ -77,7 +79,7 @@ export class PortScanner {
     }
     state.detected = parseListeningPorts(result.stdout).map((port) => ({
       port,
-      url: `http://127.0.0.1:${port}`,
+      url: `http://${state.host}:${port}`,
       bridged: false,
     }));
   }
