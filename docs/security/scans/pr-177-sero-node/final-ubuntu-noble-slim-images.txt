@@ -1,0 +1,2 @@
+IMAGE                               ID             DISK USAGE   CONTENT SIZE   EXTRA
+sero-node:ubuntu-noble-slim-local   9a95be9e2b63        1.8GB             0B        

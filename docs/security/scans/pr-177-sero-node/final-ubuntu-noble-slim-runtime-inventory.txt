@@ -1,0 +1,140 @@
+node=+ printf node=
++ node --version
+v24.15.0
+npm=+ printf npm=
++ npm --version
+11.12.1
++ printf pnpm=
++ pnpm --version
+pnpm=10.27.0
++ git --version
+git version 2.43.0
++ gh --version
++ head -2
+gh version 2.92.0 (2026-04-28)
+https://github.com/cli/cli/releases/tag/v2.92.0
++ python3 --version
+Python 3.12.3
++ python3 -m pip --version
+pip 24.0 from /usr/lib/python3/dist-packages/pip (python 3.12)
++ gcc --version
++ head -1
+gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0
++ g++ --version
++ head -1
+g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0
++ make --version
++ head -1
+GNU Make 4.3
++ command -v curl
+/usr/bin/curl
+/usr/bin/wget
+/usr/bin/ssh
+/usr/bin/jq
+/usr/sbin/ip
+/usr/bin/rg
++ command -v wget
++ command -v ssh
++ command -v jq
++ command -v ip
++ command -v rg
++ command -v fd
++ command -v unzip
++ command -v zip
++ command -v xz
+/usr/local/bin/fd
+/usr/bin/unzip
+/usr/bin/zip
+/usr/bin/xz
+/usr/bin/sqlite3
++ command -v sqlite3
++ command -v less
++ command -v ps
++ command -v agent-browser
+/usr/bin/less
+/usr/bin/ps
+/usr/local/bin/agent-browser
++ agent-browser --version
+agent-browser 0.27.0
+PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
++ printf PLAYWRIGHT_BROWSERS_PATH=%s\n /ms-playwright
++ find /ms-playwright -maxdepth 1 -mindepth 1 -printf %f\n
++ sort
+.links
+chromium-1200
+chromium_headless_shell-1200
+ffmpeg-1011
++ find /ms-playwright -maxdepth 1 -type d -name firefox-*
++ grep .
++ find /ms-playwright -maxdepth 1 -type d -name webkit-*
++ grep .
++ find /ms-playwright -path */chrome -type f -perm -111 -print -quit
++ chromium=/ms-playwright/chromium-1200/chrome-linux/chrome
++ printf chromium=%s\n /ms-playwright/chromium-1200/chrome-linux/chrome
++ /ms-playwright/chromium-1200/chrome-linux/chrome --version
+chromium=/ms-playwright/chromium-1200/chrome-linux/chrome
+Chromium 143.0.7499.4 
++ /ms-playwright/chromium-1200/chrome-linux/chrome --headless=new --no-sandbox --disable-gpu --dump-dom data:text/html,<title>direct</title><p>ok</p>
++ grep ok
+[65:79:0513/114126.676338:ERROR:dbus/bus.cc:406] Failed to connect to the bus: Failed to connect to socket /run/dbus/system_bus_socket: No such file or directory
+[65:79:0513/114126.678789:ERROR:dbus/bus.cc:406] Failed to connect to the bus: Could not parse server address: Unknown address type (examples of valid types are "tcp" and on UNIX "unix")
+[65:79:0513/114126.678815:ERROR:dbus/bus.cc:406] Failed to connect to the bus: Failed to connect to socket /run/dbus/system_bus_socket: No such file or directory
+[65:79:0513/114126.678821:ERROR:dbus/bus.cc:406] Failed to connect to the bus: Failed to connect to socket /run/dbus/system_bus_socket: No such file or directory
+[65:79:0513/114126.709593:ERROR:dbus/bus.cc:406] Failed to connect to the bus: Could not parse server address: Unknown address type (examples of valid types are "tcp" and on UNIX "unix")
+[65:79:0513/114126.718183:ERROR:dbus/bus.cc:406] Failed to connect to the bus: Could not parse server address: Unknown address type (examples of valid types are "tcp" and on UNIX "unix")
+
+(process:65): GLib-GIO-CRITICAL **: 11:41:26.741: g_settings_schema_source_lookup: assertion 'source != NULL' failed
+[65:65:0513/114126.759320:ERROR:dbus/object_proxy.cc:573] Failed to call method: org.freedesktop.DBus.NameHasOwner: object_path= /org/freedesktop/DBus: unknown error type: 
+[65:79:0513/114126.759389:ERROR:dbus/bus.cc:406] Failed to connect to the bus: Could not parse server address: Unknown address type (examples of valid types are "tcp" and on UNIX "unix")
+[65:79:0513/114126.759403:ERROR:dbus/bus.cc:406] Failed to connect to the bus: Could not parse server address: Unknown address type (examples of valid types are "tcp" and on UNIX "unix")
+[65:79:0513/114126.759406:ERROR:dbus/bus.cc:406] Failed to connect to the bus: Could not parse server address: Unknown address type (examples of valid types are "tcp" and on UNIX "unix")
+[65:79:0513/114126.759409:ERROR:dbus/bus.cc:406] Failed to connect to the bus: Could not parse server address: Unknown address type (examples of valid types are "tcp" and on UNIX "unix")
+[65:79:0513/114126.759411:ERROR:dbus/bus.cc:406] Failed to connect to the bus: Could not parse server address: Unknown address type (examples of valid types are "tcp" and on UNIX "unix")
+[65:65:0513/114126.759946:ERROR:dbus/object_proxy.cc:573] Failed to call method: org.freedesktop.DBus.NameHasOwner: object_path= /org/freedesktop/DBus: unknown error type: 
+[65:79:0513/114126.760025:ERROR:dbus/bus.cc:406] Failed to connect to the bus: Could not parse server address: Unknown address type (examples of valid types are "tcp" and on UNIX "unix")
+[65:65:0513/114126.762020:ERROR:dbus/object_proxy.cc:573] Failed to call method: org.freedesktop.DBus.NameHasOwner: object_path= /org/freedesktop/DBus: unknown error type: 
+[65:79:0513/114126.765744:ERROR:dbus/bus.cc:406] Failed to connect to the bus: Failed to connect to socket /run/dbus/system_bus_socket: No such file or directory
+[65:79:0513/114126.765764:ERROR:dbus/bus.cc:406] Failed to connect to the bus: Failed to connect to socket /run/dbus/system_bus_socket: No such file or directory
+[65:65:0513/114126.765790:ERROR:dbus/object_proxy.cc:573] Failed to call method: org.freedesktop.DBus.NameHasOwner: object_path= /org/freedesktop/DBus: unknown error type: 
+[65:65:0513/114126.765800:ERROR:dbus/object_proxy.cc:573] Failed to call method: org.freedesktop.DBus.NameHasOwner: object_path= /org/freedesktop/DBus: unknown error type: 
+[65:65:0513/114126.766023:ERROR:dbus/object_proxy.cc:573] Failed to call method: org.freedesktop.DBus.NameHasOwner: object_path= /org/freedesktop/DBus: unknown error type: 
+[65:65:0513/114126.768812:ERROR:dbus/object_proxy.cc:573] Failed to call method: org.freedesktop.DBus.Properties.GetAll: object_path= /org/freedesktop/UPower/devices/DisplayDevice: unknown error type: 
+[65:79:0513/114126.777694:ERROR:dbus/bus.cc:406] Failed to connect to the bus: Could not parse server address: Unknown address type (examples of valid types are "tcp" and on UNIX "unix")
+[65:65:0513/114126.821687:ERROR:dbus/object_proxy.cc:573] Failed to call method: org.freedesktop.DBus.NameHasOwner: object_path= /org/freedesktop/DBus: unknown error type: 
+[65:79:0513/114126.821783:ERROR:dbus/bus.cc:406] Failed to connect to the bus: Could not parse server address: Unknown address type (examples of valid types are "tcp" and on UNIX "unix")
+[65:65:0513/114126.824115:ERROR:dbus/object_proxy.cc:573] Failed to call method: org.freedesktop.DBus.NameHasOwner: object_path= /org/freedesktop/DBus: unknown error type: 
+[65:79:0513/114126.824174:ERROR:dbus/bus.cc:406] Failed to connect to the bus: Could not parse server address: Unknown address type (examples of valid types are "tcp" and on UNIX "unix")
+[65:65:0513/114126.829897:ERROR:dbus/object_proxy.cc:573] Failed to call method: org.freedesktop.DBus.NameHasOwner: object_path= /org/freedesktop/DBus: unknown error type: 
+[65:79:0513/114126.829948:ERROR:dbus/bus.cc:406] Failed to connect to the bus: Could not parse server address: Unknown address type (examples of valid types are "tcp" and on UNIX "unix")
+[65:65:0513/114126.832207:ERROR:dbus/object_proxy.cc:573] Failed to call method: org.freedesktop.DBus.NameHasOwner: object_path= /org/freedesktop/DBus: unknown error type: 
+[65:79:0513/114126.832249:ERROR:dbus/bus.cc:406] Failed to connect to the bus: Could not parse server address: Unknown address type (examples of valid types are "tcp" and on UNIX "unix")
+[65:65:0513/114126.834894:ERROR:dbus/object_proxy.cc:573] Failed to call method: org.freedesktop.DBus.NameHasOwner: object_path= /org/freedesktop/DBus: unknown error type: 
+<html><head><title>direct</title></head><body><p>ok</p></body></html>
++ find /ms-playwright -path */headless_shell -print -quit
+headless_shell=/ms-playwright/chromium_headless_shell-1200/chrome-linux/headless_shell
++ shell=/ms-playwright/chromium_headless_shell-1200/chrome-linux/headless_shell
++ printf headless_shell=%s\n /ms-playwright/chromium_headless_shell-1200/chrome-linux/headless_shell
++ ls -l /ms-playwright/chromium_headless_shell-1200/chrome-linux/headless_shell
+lrwxrwxrwx 1 root root 48 May 13 11:40 /ms-playwright/chromium_headless_shell-1200/chrome-linux/headless_shell -> /ms-playwright/chromium-1200/chrome-linux/chrome
++ test -L /ms-playwright/chromium_headless_shell-1200/chrome-linux/headless_shell
++ command -v ffmpeg
+/usr/local/bin/ffmpeg
++ ffmpeg -version
++ head -1
+ffmpeg version n7.0.1-playwright-build-1011 Copyright (c) 2000-2024 the FFmpeg developers
++ test -x /usr/local/bin/ffmpeg
++ command -v tini
+/usr/bin/tini
++ stat -c %a %n /workspace /tmp/sero-home
+1777 /workspace
+1777 /tmp/sero-home
++ touch /workspace/smoke-file /tmp/sero-home/smoke-file
++ mktemp -d
++ tmp=/tmp/tmp.fwF8utlD0K
++ cd /tmp/tmp.fwF8utlD0K
++ npm init -y
++ npm install --no-audit --no-fund playwright@1.57.0
++ node -e const { chromium } = require("playwright"); (async()=>{ const browser=await chromium.launch({ headless: true }); const page=await browser.newPage(); await page.goto("data:text/html,<title>ok</title>"); console.log(await page.title()); await browser.close(); })();
+ok
+runtime-smoke=pass
++ echo runtime-smoke=pass
