@@ -1,3 +1,4 @@
+import { runtimeManager } from '@electron/features/workspace/runtime/runtime-manager';
 import { containerManager } from '@electron/shared/infra/shared-infra';
 import type { CliRegistry } from '@electron/cli/core/registry';
 import type { CliCommandContext } from '@electron/cli/core/types';
@@ -10,7 +11,7 @@ async function handleDevServer(args: string[], ctx: CliCommandContext) {
   try {
     switch (action) {
       case 'list': {
-        const servers = registry.list(ctx.workspaceId);
+        const servers = runtimeManager.listDevServersSync(ctx.workspaceId);
         if (servers.length === 0) return ok('No registered dev servers.');
         return ok(
           servers
@@ -32,22 +33,23 @@ async function handleDevServer(args: string[], ctx: CliCommandContext) {
         const port = Number(portRaw);
         if (!Number.isFinite(port)) return fail(`Invalid port: ${portRaw}`);
 
-        const server = registry.register({
-          workspaceId: ctx.workspaceId,
-          name,
-          port,
-          command,
-          framework,
-          cwd: ctx.cwd,
-        });
+        const runtime = await runtimeManager.getRuntime(ctx.workspaceId);
+        const server = runtime.registerDevServer
+          ? await runtime.registerDevServer({ name, port, command, framework, cwd: ctx.cwd })
+          : registry.register({ workspaceId: ctx.workspaceId, name, port, command, framework, cwd: ctx.cwd });
         return ok(`Registered ${server.name} (${server.id})\nURL: ${server.url}`);
       }
 
       case 'stop': {
         const serverId = rest[0];
         if (!serverId) return fail('Usage: sero devserver stop <id>');
-        const stopped = await registry.stop(serverId);
-        if (!stopped) return fail(`Failed to stop dev server: ${serverId}`);
+        try {
+          const runtime = await runtimeManager.getRuntime(ctx.workspaceId);
+          await runtime.stopDevServer({ serverId });
+        } catch {
+          const stopped = await registry.stop(serverId);
+          if (!stopped) return fail(`Failed to stop dev server: ${serverId}`);
+        }
         return ok(`Stopped dev server: ${serverId}`);
       }
 

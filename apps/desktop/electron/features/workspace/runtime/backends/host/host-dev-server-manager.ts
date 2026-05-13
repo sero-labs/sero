@@ -1,6 +1,7 @@
 import type {
   RuntimeDevServer,
   RuntimeDevServerChangeEvent,
+  RuntimeDevServerRegisterInput,
   RuntimeDevServerRestartInput,
   RuntimeDevServerStartInput,
   RuntimeDevServerStatus,
@@ -74,6 +75,11 @@ export class HostDevServerManager {
         url,
         command: input.command,
         cwd,
+        name: input.name,
+        framework: input.framework,
+        scope: input.scope ?? 'workspace',
+        cardId: input.cardId,
+        registeredAt: new Date().toISOString(),
         status: 'running',
         pid,
         process,
@@ -91,6 +97,32 @@ export class HostDevServerManager {
       if (!terminated) process.signal('SIGTERM');
       throw err instanceof Error ? err : new Error(String(err));
     }
+  }
+
+  register(input: RuntimeDevServerRegisterInput): RuntimeDevServer {
+    const scope = input.scope ?? 'workspace';
+    const record: HostDevServerRecord = {
+      id: `${this.workspaceId}:${scope}:${input.cardId ?? 'root'}:${input.port}`,
+      port: input.port,
+      url: `http://127.0.0.1:${input.port}`,
+      command: input.command,
+      cwd: input.cwd || '/workspace',
+      name: input.name,
+      framework: input.framework,
+      scope,
+      cardId: input.cardId,
+      registeredAt: new Date().toISOString(),
+      status: 'running',
+    };
+    this.servers.set(record.id, record);
+    this.emitDevServerChange({
+      type: 'registered',
+      workspaceId: this.workspaceId,
+      serverId: record.id,
+      server: { ...toRuntimeServer(record), workspaceId: this.workspaceId },
+      status: 'running',
+    });
+    return toRuntimeServer(record);
   }
 
   async stop(input: RuntimeDevServerStopInput): Promise<void> {
@@ -215,6 +247,11 @@ function toRuntimeServer(record: HostDevServerRecord): RuntimeDevServer {
     url: record.url,
     command: record.command,
     cwd: record.cwd,
+    name: record.name,
+    framework: record.framework,
+    scope: record.scope,
+    cardId: record.cardId,
+    registeredAt: record.registeredAt,
     status: record.status,
     pid: record.pid,
     diagnosticCode: record.diagnosticCode,

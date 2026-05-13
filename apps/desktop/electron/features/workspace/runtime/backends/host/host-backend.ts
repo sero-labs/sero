@@ -14,6 +14,7 @@ import type {
   RuntimeDeleteInput,
   RuntimeDevServer,
   RuntimeDevServerChangeEvent,
+  RuntimeDevServerRegisterInput,
   RuntimeDevServerRestartInput,
   RuntimeDevServerStartInput,
   RuntimeDevServerStatus,
@@ -288,6 +289,10 @@ export class HostBackend implements RuntimeBackend {
 
   async startDevServer(input: RuntimeDevServerStartInput): Promise<RuntimeDevServer> {
     return this.devServers.start(input);
+  }
+
+  async registerDevServer(input: RuntimeDevServerRegisterInput): Promise<RuntimeDevServer> {
+    return this.devServers.register(input);
   }
 
   async stopDevServer(input: RuntimeDevServerStopInput): Promise<void> {

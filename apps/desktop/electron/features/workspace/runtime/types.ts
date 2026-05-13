@@ -127,6 +127,10 @@ export interface RuntimeDevServerStartInput {
   cardId?: string;
   logPath?: string;
 }
+
+export interface RuntimeDevServerRegisterInput extends Omit<RuntimeDevServerStartInput, 'logPath'> {
+  port: number;
+}
 export type RuntimeDevServerDiagnosticCode = 'dev-server-port-detect-timeout';
 export type RuntimeDevServerStatusValue = 'running' | 'stopped' | 'starting' | 'failed';
 
@@ -136,6 +140,11 @@ export interface RuntimeDevServer {
   url: string;
   command: string;
   cwd: string;
+  name?: string;
+  framework?: string;
+  scope?: 'workspace' | 'card' | 'card-preview';
+  cardId?: string;
+  registeredAt?: string;
   status?: RuntimeDevServerStatusValue;
   pid?: number;
   diagnosticCode?: RuntimeDevServerDiagnosticCode;
@@ -198,6 +207,7 @@ export interface RuntimeBackend {
   createTerminal(input: RuntimeTerminalInput): Promise<RuntimeTerminalSession>;
 
   startDevServer(input: RuntimeDevServerStartInput): Promise<RuntimeDevServer>;
+  registerDevServer?(input: RuntimeDevServerRegisterInput): Promise<RuntimeDevServer>;
   stopDevServer(input: RuntimeDevServerStopInput): Promise<void>;
   restartDevServer(input: RuntimeDevServerRestartInput): Promise<RuntimeDevServer>;
   getDevServerStatus(input: RuntimeDevServerStatusInput): Promise<RuntimeDevServerStatus>;

@@ -12,6 +12,7 @@ import type {
   RuntimeDeleteInput,
   RuntimeDevServer,
   RuntimeDevServerChangeEvent,
+  RuntimeDevServerRegisterInput,
   RuntimeDevServerRestartInput,
   RuntimeDevServerStartInput,
   RuntimeDevServerStatus,
@@ -234,6 +235,39 @@ export class DockerBackend implements RuntimeBackend {
       url: forwarded.url,
       command: input.command,
       cwd: input.cwd || this.runtimeWorkspacePath,
+      name: input.name,
+      framework: input.framework,
+      scope: input.scope ?? 'workspace',
+      cardId: input.cardId,
+      registeredAt: new Date().toISOString(),
+      status: 'running',
+    });
+    this.emitDevServerChange({
+      type: 'registered',
+      workspaceId: this.workspaceId,
+      serverId: server.id,
+      server: { ...server, workspaceId: this.workspaceId },
+      status: 'running',
+    });
+    return server;
+  }
+
+  async registerDevServer(input: RuntimeDevServerRegisterInput): Promise<RuntimeDevServer> {
+    await this.ensure();
+    const ports = await this.portManager();
+    const forwarded = await ports.forwardPort(input.port);
+    const server = ports.registerServer({
+      id: `${this.workspaceId}:${input.scope ?? 'workspace'}:${input.cardId ?? 'root'}:${input.port}`,
+      port: input.port,
+      url: forwarded.url,
+      command: input.command,
+      cwd: input.cwd || this.runtimeWorkspacePath,
+      name: input.name,
+      framework: input.framework,
+      scope: input.scope ?? 'workspace',
+      cardId: input.cardId,
+      registeredAt: new Date().toISOString(),
+      status: 'running',
     });
     this.emitDevServerChange({
       type: 'registered',

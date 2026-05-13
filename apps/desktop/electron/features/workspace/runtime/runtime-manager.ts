@@ -107,6 +107,12 @@ export class RuntimeManager {
     url: string;
     command: string;
     cwd: string;
+    name?: string;
+    framework?: string;
+    scope?: 'workspace' | 'card' | 'card-preview';
+    cardId?: string;
+    registeredAt?: string;
+    status?: 'running' | 'stopped' | 'starting' | 'failed';
   }> {
     const runtimeServers = [...this.backends.entries()]
       .filter(([key]) => key.startsWith(`${workspaceId}:`))
@@ -118,6 +124,12 @@ export class RuntimeManager {
       url: server.url,
       command: server.command,
       cwd: server.cwd,
+      name: server.name,
+      framework: server.framework,
+      scope: server.scope,
+      cardId: server.cardId,
+      registeredAt: server.registeredAt,
+      status: server.status,
     }));
   }
 
