@@ -6,284 +6,284 @@ Report Summary
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
 │ sero-node:ubuntu-noble-slim-local (ubuntu 24.04)                                 │  ubuntu  │        0        │    -    │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/@isaacs/cliui/packa- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/@isaacs/cliui/packa- │ node-pkg │        0        │    -    │
 │ ge.json                                                                          │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/@isaacs/fs-minipass- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/@isaacs/fs-minipass- │ node-pkg │        0        │    -    │
 │ /package.json                                                                    │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/@npmcli/agent/packa- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/@npmcli/agent/packa- │ node-pkg │        0        │    -    │
 │ ge.json                                                                          │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/@npmcli/fs/package.- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/@npmcli/fs/package.- │ node-pkg │        0        │    -    │
 │ json                                                                             │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/@pkgjs/parseargs/pa- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/@pkgjs/parseargs/pa- │ node-pkg │        0        │    -    │
 │ ckage.json                                                                       │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/abbrev/package.json  │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/abbrev/package.json  │ node-pkg │        0        │    -    │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/agent-base/package.- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/agent-base/package.- │ node-pkg │        0        │    -    │
 │ json                                                                             │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/ansi-regex/package.- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/ansi-regex/package.- │ node-pkg │        0        │    -    │
 │ json                                                                             │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/ansi-styles/package- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/ansi-styles/package- │ node-pkg │        0        │    -    │
 │ .json                                                                            │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/balanced-match/pack- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/balanced-match/pack- │ node-pkg │        0        │    -    │
 │ age.json                                                                         │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/brace-expansion/pac- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/brace-expansion/pac- │ node-pkg │        0        │    -    │
 │ kage.json                                                                        │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/cacache/package.json │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/cacache/package.json │ node-pkg │        0        │    -    │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/chownr/package.json  │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/chownr/package.json  │ node-pkg │        0        │    -    │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/color-convert/packa- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/color-convert/packa- │ node-pkg │        0        │    -    │
 │ ge.json                                                                          │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/color-name/package.- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/color-name/package.- │ node-pkg │        0        │    -    │
 │ json                                                                             │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/cross-spawn/node_mo- │ node-pkg │        0        │    -    │
-│ dules/isexe/package.json                                                         │          │                 │         │
-├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/cross-spawn/node_mo- │ node-pkg │        0        │    -    │
-│ dules/which/package.json                                                         │          │                 │         │
-├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/cross-spawn/package- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/cross-spawn/package- │ node-pkg │        0        │    -    │
 │ .json                                                                            │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/debug/package.json   │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/debug/package.json   │ node-pkg │        0        │    -    │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/eastasianwidth/pack- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/eastasianwidth/pack- │ node-pkg │        0        │    -    │
 │ age.json                                                                         │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/emoji-regex/package- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/emoji-regex/package- │ node-pkg │        0        │    -    │
 │ .json                                                                            │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/encoding/package.js- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/encoding/package.js- │ node-pkg │        0        │    -    │
 │ on                                                                               │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/env-paths/package.j- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/env-paths/package.j- │ node-pkg │        0        │    -    │
 │ son                                                                              │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/err-code/package.js- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/err-code/package.js- │ node-pkg │        0        │    -    │
 │ on                                                                               │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/exponential-backoff- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/exponential-backoff- │ node-pkg │        0        │    -    │
 │ /package.json                                                                    │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/fdir/package.json    │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/fdir/package.json    │ node-pkg │        0        │    -    │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/foreground-child/pa- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/foreground-child/pa- │ node-pkg │        0        │    -    │
 │ ckage.json                                                                       │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/fs-minipass/package- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/fs-minipass/package- │ node-pkg │        0        │    -    │
 │ .json                                                                            │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/glob/package.json    │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/glob/package.json    │ node-pkg │        0        │    -    │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/graceful-fs/package- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/graceful-fs/package- │ node-pkg │        0        │    -    │
 │ .json                                                                            │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/http-cache-semantic- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/http-cache-semantic- │ node-pkg │        0        │    -    │
 │ s/package.json                                                                   │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/http-proxy-agent/pa- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/http-proxy-agent/pa- │ node-pkg │        0        │    -    │
 │ ckage.json                                                                       │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/https-proxy-agent/p- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/https-proxy-agent/p- │ node-pkg │        0        │    -    │
 │ ackage.json                                                                      │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/iconv-lite/package.- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/iconv-lite/package.- │ node-pkg │        0        │    -    │
 │ json                                                                             │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/imurmurhash/package- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/imurmurhash/package- │ node-pkg │        0        │    -    │
 │ .json                                                                            │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/ip-address/package.- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/ip-address/package.- │ node-pkg │        0        │    -    │
 │ json                                                                             │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/is-fullwidth-code-p- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/is-fullwidth-code-p- │ node-pkg │        0        │    -    │
 │ oint/package.json                                                                │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/isexe/package.json   │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/isexe/package.json   │ node-pkg │        0        │    -    │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/jackspeak/package.j- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/jackspeak/package.j- │ node-pkg │        0        │    -    │
 │ son                                                                              │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/lru-cache/package.j- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/lru-cache/package.j- │ node-pkg │        0        │    -    │
 │ son                                                                              │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/make-fetch-happen/p- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/make-fetch-happen/p- │ node-pkg │        0        │    -    │
 │ ackage.json                                                                      │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/minimatch/package.j- │ node-pkg │        3        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/minimatch/package.j- │ node-pkg │        0        │    -    │
 │ son                                                                              │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/minipass-collect/pa- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/minipass-collect/pa- │ node-pkg │        0        │    -    │
 │ ckage.json                                                                       │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/minipass-fetch/pack- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/minipass-fetch/pack- │ node-pkg │        0        │    -    │
 │ age.json                                                                         │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/minipass-flush/node- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/minipass-flush/node- │ node-pkg │        0        │    -    │
 │ _modules/minipass/package.json                                                   │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/minipass-flush/node- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/minipass-flush/node- │ node-pkg │        0        │    -    │
 │ _modules/yallist/package.json                                                    │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/minipass-flush/pack- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/minipass-flush/pack- │ node-pkg │        0        │    -    │
 │ age.json                                                                         │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/minipass-pipeline/n- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/minipass-pipeline/n- │ node-pkg │        0        │    -    │
 │ ode_modules/minipass/package.json                                                │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/minipass-pipeline/n- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/minipass-pipeline/n- │ node-pkg │        0        │    -    │
 │ ode_modules/yallist/package.json                                                 │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/minipass-pipeline/p- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/minipass-pipeline/p- │ node-pkg │        0        │    -    │
 │ ackage.json                                                                      │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/minipass-sized/node- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/minipass-sized/node- │ node-pkg │        0        │    -    │
 │ _modules/minipass/package.json                                                   │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/minipass-sized/node- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/minipass-sized/node- │ node-pkg │        0        │    -    │
 │ _modules/yallist/package.json                                                    │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/minipass-sized/pack- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/minipass-sized/pack- │ node-pkg │        0        │    -    │
 │ age.json                                                                         │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/minipass/package.js- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/minipass/package.js- │ node-pkg │        0        │    -    │
 │ on                                                                               │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/minizlib/package.js- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/minizlib/package.js- │ node-pkg │        0        │    -    │
 │ on                                                                               │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/ms/package.json      │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/ms/package.json      │ node-pkg │        0        │    -    │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/negotiator/package.- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/negotiator/package.- │ node-pkg │        0        │    -    │
 │ json                                                                             │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/node-gyp/package.js- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/node-gyp/node_modul- │ node-pkg │        0        │    -    │
+│ es/isexe/package.json                                                            │          │                 │         │
+├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/node-gyp/node_modul- │ node-pkg │        0        │    -    │
+│ es/which/package.json                                                            │          │                 │         │
+├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/node-gyp/package.js- │ node-pkg │        0        │    -    │
 │ on                                                                               │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/nopt/package.json    │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/nopt/package.json    │ node-pkg │        0        │    -    │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/p-map/package.json   │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/p-map/package.json   │ node-pkg │        0        │    -    │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/package-json-from-d- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/package-json-from-d- │ node-pkg │        0        │    -    │
 │ ist/package.json                                                                 │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/path-key/package.js- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/path-key/package.js- │ node-pkg │        0        │    -    │
 │ on                                                                               │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/path-scurry/package- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/path-scurry/package- │ node-pkg │        0        │    -    │
 │ .json                                                                            │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/picomatch/package.j- │ node-pkg │        1        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/picomatch/package.j- │ node-pkg │        0        │    -    │
 │ son                                                                              │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/proc-log/package.js- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/proc-log/package.js- │ node-pkg │        0        │    -    │
 │ on                                                                               │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/promise-retry/packa- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/promise-retry/packa- │ node-pkg │        0        │    -    │
 │ ge.json                                                                          │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/retry/package.json   │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/retry/package.json   │ node-pkg │        0        │    -    │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/safer-buffer/packag- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/safer-buffer/packag- │ node-pkg │        0        │    -    │
 │ e.json                                                                           │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/semver/package.json  │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/semver/package.json  │ node-pkg │        0        │    -    │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/shebang-command/pac- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/shebang-command/pac- │ node-pkg │        0        │    -    │
 │ kage.json                                                                        │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/shebang-regex/packa- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/shebang-regex/packa- │ node-pkg │        0        │    -    │
 │ ge.json                                                                          │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/signal-exit/package- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/signal-exit/package- │ node-pkg │        0        │    -    │
 │ .json                                                                            │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/smart-buffer/packag- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/smart-buffer/packag- │ node-pkg │        0        │    -    │
 │ e.json                                                                           │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/socks-proxy-agent/p- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/socks-proxy-agent/p- │ node-pkg │        0        │    -    │
 │ ackage.json                                                                      │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/socks/package.json   │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/socks/package.json   │ node-pkg │        0        │    -    │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/ssri/package.json    │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/ssri/package.json    │ node-pkg │        0        │    -    │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/string-width-cjs/no- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/string-width-cjs/no- │ node-pkg │        0        │    -    │
 │ de_modules/ansi-regex/package.json                                               │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/string-width-cjs/no- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/string-width-cjs/no- │ node-pkg │        0        │    -    │
 │ de_modules/emoji-regex/package.json                                              │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/string-width-cjs/no- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/string-width-cjs/no- │ node-pkg │        0        │    -    │
 │ de_modules/strip-ansi/package.json                                               │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/string-width-cjs/pa- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/string-width-cjs/pa- │ node-pkg │        0        │    -    │
 │ ckage.json                                                                       │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/string-width/packag- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/string-width/packag- │ node-pkg │        0        │    -    │
 │ e.json                                                                           │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/strip-ansi-cjs/node- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/strip-ansi-cjs/node- │ node-pkg │        0        │    -    │
 │ _modules/ansi-regex/package.json                                                 │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/strip-ansi-cjs/pack- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/strip-ansi-cjs/pack- │ node-pkg │        0        │    -    │
 │ age.json                                                                         │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/strip-ansi/package.- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/strip-ansi/package.- │ node-pkg │        0        │    -    │
 │ json                                                                             │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/tar/package.json     │ node-pkg │        6        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/tar/package.json     │ node-pkg │        0        │    -    │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/tinyglobby/package.- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/tinyglobby/package.- │ node-pkg │        0        │    -    │
 │ json                                                                             │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/unique-filename/pac- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/unique-filename/pac- │ node-pkg │        0        │    -    │
 │ kage.json                                                                        │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/unique-slug/package- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/unique-slug/package- │ node-pkg │        0        │    -    │
 │ .json                                                                            │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/v8-compile-cache/pa- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/v8-compile-cache/pa- │ node-pkg │        0        │    -    │
 │ ckage.json                                                                       │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/which/package.json   │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/which/package.json   │ node-pkg │        0        │    -    │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/wrap-ansi-cjs/node_- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/wrap-ansi-cjs/node_- │ node-pkg │        0        │    -    │
 │ modules/ansi-regex/package.json                                                  │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/wrap-ansi-cjs/node_- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/wrap-ansi-cjs/node_- │ node-pkg │        0        │    -    │
 │ modules/ansi-styles/package.json                                                 │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/wrap-ansi-cjs/node_- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/wrap-ansi-cjs/node_- │ node-pkg │        0        │    -    │
 │ modules/emoji-regex/package.json                                                 │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/wrap-ansi-cjs/node_- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/wrap-ansi-cjs/node_- │ node-pkg │        0        │    -    │
 │ modules/string-width/package.json                                                │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/wrap-ansi-cjs/node_- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/wrap-ansi-cjs/node_- │ node-pkg │        0        │    -    │
 │ modules/strip-ansi/package.json                                                  │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/wrap-ansi-cjs/packa- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/wrap-ansi-cjs/packa- │ node-pkg │        0        │    -    │
 │ ge.json                                                                          │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/wrap-ansi/package.j- │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/wrap-ansi/package.j- │ node-pkg │        0        │    -    │
 │ son                                                                              │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/dist/node_modules/yallist/package.json │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/dist/node_modules/yallist/package.json │ node-pkg │        0        │    -    │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ root/.cache/node/corepack/v1/pnpm/10.27.0/package.json                           │ node-pkg │        0        │    -    │
+│ root/.cache/node/corepack/v1/pnpm/10.33.4/package.json                           │ node-pkg │        0        │    -    │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
 │ usr/local/lib/node_modules/agent-browser/package.json                            │ node-pkg │        0        │    -    │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
@@ -457,12 +457,6 @@ Report Summary
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
 │ usr/local/lib/node_modules/npm/node_modules/minipass-fetch/package.json          │ node-pkg │        0        │    -    │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ usr/local/lib/node_modules/npm/node_modules/minipass-flush/node_modules/minipas- │ node-pkg │        0        │    -    │
-│ s/package.json                                                                   │          │                 │         │
-├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ usr/local/lib/node_modules/npm/node_modules/minipass-flush/node_modules/yallist- │ node-pkg │        0        │    -    │
-│ /package.json                                                                    │          │                 │         │
-├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
 │ usr/local/lib/node_modules/npm/node_modules/minipass-flush/package.json          │ node-pkg │        0        │    -    │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
 │ usr/local/lib/node_modules/npm/node_modules/minipass-pipeline/node_modules/mini- │ node-pkg │        0        │    -    │
@@ -569,7 +563,7 @@ Report Summary
 │ usr/local/lib/node_modules/npm/node_modules/tinyglobby/node_modules/fdir/packag- │ node-pkg │        0        │    -    │
 │ e.json                                                                           │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ usr/local/lib/node_modules/npm/node_modules/tinyglobby/node_modules/picomatch/p- │ node-pkg │        1        │    -    │
+│ usr/local/lib/node_modules/npm/node_modules/tinyglobby/node_modules/picomatch/p- │ node-pkg │        0        │    -    │
 │ ackage.json                                                                      │          │                 │         │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
 │ usr/local/lib/node_modules/npm/node_modules/tinyglobby/package.json              │ node-pkg │        0        │    -    │
@@ -577,6 +571,8 @@ Report Summary
 │ usr/local/lib/node_modules/npm/node_modules/treeverse/package.json               │ node-pkg │        0        │    -    │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
 │ usr/local/lib/node_modules/npm/node_modules/tuf-js/package.json                  │ node-pkg │        0        │    -    │
+├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
+│ usr/local/lib/node_modules/npm/node_modules/undici/package.json                  │ node-pkg │        0        │    -    │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
 │ usr/local/lib/node_modules/npm/node_modules/util-deprecate/package.json          │ node-pkg │        0        │    -    │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
@@ -593,89 +589,9 @@ Report Summary
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
 │ usr/local/lib/node_modules/npm/package.json                                      │ node-pkg │        0        │    -    │
 ├──────────────────────────────────────────────────────────────────────────────────┼──────────┼─────────────────┼─────────┤
-│ usr/bin/gh                                                                       │ gobinary │        5        │    -    │
+│ usr/local/bin/gh                                                                 │ gobinary │        0        │    -    │
 └──────────────────────────────────────────────────────────────────────────────────┴──────────┴─────────────────┴─────────┘
 Legend:
 - '-': Not scanned
 - '0': Clean (no security findings detected)
 
-
-Node.js (node-pkg)
-==================
-Total: 11 (HIGH: 11, CRITICAL: 0)
-
-┌──────────────────────────┬────────────────┬──────────┬────────┬───────────────────┬─────────────────────────────────────────────────────────┬─────────────────────────────────────────────────────────────┐
-│         Library          │ Vulnerability  │ Severity │ Status │ Installed Version │                      Fixed Version                      │                            Title                            │
-├──────────────────────────┼────────────────┼──────────┼────────┼───────────────────┼─────────────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────┤
-│ minimatch (package.json) │ CVE-2026-26996 │ HIGH     │ fixed  │ 9.0.5             │ 10.2.1, 9.0.6, 8.0.5, 7.4.7, 6.2.1, 5.1.7, 4.2.4, 3.1.3 │ minimatch: minimatch: Denial of Service via specially       │
-│                          │                │          │        │                   │                                                         │ crafted glob patterns                                       │
-│                          │                │          │        │                   │                                                         │ https://avd.aquasec.com/nvd/cve-2026-26996                  │
-│                          ├────────────────┤          │        │                   ├─────────────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────┤
-│                          │ CVE-2026-27903 │          │        │                   │ 10.2.3, 9.0.7, 8.0.6, 7.4.8, 6.2.2, 5.1.8, 4.2.5, 3.1.3 │ minimatch: minimatch: Denial of Service due to unbounded    │
-│                          │                │          │        │                   │                                                         │ recursive backtracking via crafted...                       │
-│                          │                │          │        │                   │                                                         │ https://avd.aquasec.com/nvd/cve-2026-27903                  │
-│                          ├────────────────┤          │        │                   ├─────────────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────┤
-│                          │ CVE-2026-27904 │          │        │                   │ 10.2.3, 9.0.7, 8.0.6, 7.4.8, 6.2.2, 5.1.8, 4.2.5, 3.1.4 │ minimatch: Minimatch: Denial of Service via catastrophic    │
-│                          │                │          │        │                   │                                                         │ backtracking in glob expressions                            │
-│                          │                │          │        │                   │                                                         │ https://avd.aquasec.com/nvd/cve-2026-27904                  │
-├──────────────────────────┼────────────────┤          │        ├───────────────────┼─────────────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────┤
-│ picomatch (package.json) │ CVE-2026-33671 │          │        │ 4.0.3             │ 4.0.4, 3.0.2, 2.3.2                                     │ picomatch: Picomatch: Regular Expression Denial of Service  │
-│                          │                │          │        │                   │                                                         │ via crafted extglob patterns                                │
-│                          │                │          │        │                   │                                                         │ https://avd.aquasec.com/nvd/cve-2026-33671                  │
-│                          │                │          │        │                   │                                                         │                                                             │
-│                          │                │          │        │                   │                                                         │                                                             │
-│                          │                │          │        │                   │                                                         │                                                             │
-│                          │                │          │        │                   │                                                         │                                                             │
-├──────────────────────────┼────────────────┤          │        ├───────────────────┼─────────────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────┤
-│ tar (package.json)       │ CVE-2026-23745 │          │        │ 7.5.2             │ 7.5.3                                                   │ node-tar: tar: node-tar: Arbitrary file overwrite and       │
-│                          │                │          │        │                   │                                                         │ symlink poisoning via unsanitized linkpaths...              │
-│                          │                │          │        │                   │                                                         │ https://avd.aquasec.com/nvd/cve-2026-23745                  │
-│                          ├────────────────┤          │        │                   ├─────────────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────┤
-│                          │ CVE-2026-23950 │          │        │                   │ 7.5.4                                                   │ node-tar: tar: node-tar: Arbitrary file overwrite via       │
-│                          │                │          │        │                   │                                                         │ Unicode path collision race condition...                    │
-│                          │                │          │        │                   │                                                         │ https://avd.aquasec.com/nvd/cve-2026-23950                  │
-│                          ├────────────────┤          │        │                   ├─────────────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────┤
-│                          │ CVE-2026-24842 │          │        │                   │ 7.5.7                                                   │ node-tar: tar: node-tar: Arbitrary file creation via path   │
-│                          │                │          │        │                   │                                                         │ traversal bypass in hardlink...                             │
-│                          │                │          │        │                   │                                                         │ https://avd.aquasec.com/nvd/cve-2026-24842                  │
-│                          ├────────────────┤          │        │                   ├─────────────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────┤
-│                          │ CVE-2026-26960 │          │        │                   │ 7.5.8                                                   │ node-tar: node-tar: Arbitrary file read/write via malicious │
-│                          │                │          │        │                   │                                                         │ archive hardlink creation                                   │
-│                          │                │          │        │                   │                                                         │ https://avd.aquasec.com/nvd/cve-2026-26960                  │
-│                          ├────────────────┤          │        │                   ├─────────────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────┤
-│                          │ CVE-2026-29786 │          │        │                   │ 7.5.10                                                  │ node-tar: hardlink path traversal via drive-relative        │
-│                          │                │          │        │                   │                                                         │ linkpath                                                    │
-│                          │                │          │        │                   │                                                         │ https://avd.aquasec.com/nvd/cve-2026-29786                  │
-│                          ├────────────────┤          │        │                   ├─────────────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────┤
-│                          │ CVE-2026-31802 │          │        │                   │ 7.5.11                                                  │ tar: tar: File overwrite via drive-relative symlink         │
-│                          │                │          │        │                   │                                                         │ traversal                                                   │
-│                          │                │          │        │                   │                                                         │ https://avd.aquasec.com/nvd/cve-2026-31802                  │
-└──────────────────────────┴────────────────┴──────────┴────────┴───────────────────┴─────────────────────────────────────────────────────────┴─────────────────────────────────────────────────────────────┘
-
-usr/bin/gh (gobinary)
-=====================
-Total: 5 (HIGH: 5, CRITICAL: 0)
-
-┌─────────┬────────────────┬──────────┬────────┬───────────────────┬─────────────────┬──────────────────────────────────────────────────────────────┐
-│ Library │ Vulnerability  │ Severity │ Status │ Installed Version │  Fixed Version  │                            Title                             │
-├─────────┼────────────────┼──────────┼────────┼───────────────────┼─────────────────┼──────────────────────────────────────────────────────────────┤
-│ stdlib  │ CVE-2026-33811 │ HIGH     │ fixed  │ v1.26.2           │ 1.25.10, 1.26.3 │ When using LookupCNAME with the cgo DNS resolver, a very     │
-│         │                │          │        │                   │                 │ long CNAME...                                                │
-│         │                │          │        │                   │                 │ https://avd.aquasec.com/nvd/cve-2026-33811                   │
-│         ├────────────────┤          │        │                   │                 ├──────────────────────────────────────────────────────────────┤
-│         │ CVE-2026-33814 │          │        │                   │                 │ When processing HTTP/2 SETTINGS frames, transport will enter │
-│         │                │          │        │                   │                 │ an infini ...                                                │
-│         │                │          │        │                   │                 │ https://avd.aquasec.com/nvd/cve-2026-33814                   │
-│         ├────────────────┤          │        │                   │                 ├──────────────────────────────────────────────────────────────┤
-│         │ CVE-2026-39820 │          │        │                   │                 │ Well-crafted inputs reaching ParseAddress, ParseAddressList, │
-│         │                │          │        │                   │                 │ and Parse ...                                                │
-│         │                │          │        │                   │                 │ https://avd.aquasec.com/nvd/cve-2026-39820                   │
-│         ├────────────────┤          │        │                   │                 ├──────────────────────────────────────────────────────────────┤
-│         │ CVE-2026-39836 │          │        │                   │                 │ Panic in Dial and LookupPort when handling NUL byte on       │
-│         │                │          │        │                   │                 │ Windows in...                                                │
-│         │                │          │        │                   │                 │ https://avd.aquasec.com/nvd/cve-2026-39836                   │
-│         ├────────────────┤          │        │                   │                 ├──────────────────────────────────────────────────────────────┤
-│         │ CVE-2026-42499 │          │        │                   │                 │ Pathological inputs could cause DoS through consumePhrase    │
-│         │                │          │        │                   │                 │ when parsing ...                                             │
-│         │                │          │        │                   │                 │ https://avd.aquasec.com/nvd/cve-2026-42499                   │
-└─────────┴────────────────┴──────────┴────────┴───────────────────┴─────────────────┴──────────────────────────────────────────────────────────────┘

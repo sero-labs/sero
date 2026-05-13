@@ -1,7 +1,7 @@
 {
   "name": "sero-monorepo",
   "private": true,
-  "packageManager": "pnpm@10.27.0",
+  "packageManager": "pnpm@10.33.4",
   "scripts": {
     "postinstall": "node scripts/rebuild-node-pty.mjs && node scripts/rebuild-better-sqlite3.mjs",
     "dev": "pnpm --filter @sero/desktop dev",

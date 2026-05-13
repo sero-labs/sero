@@ -7,10 +7,10 @@ Validation was rerun on 2026-05-13 against the current promoted local-only candi
 | Gate | Result | Evidence |
 | --- | --- | --- |
 | Direct candidate container smoke | pass | `node`, `npm`, `pnpm`, `git`, `gh`, `python3`, `pip`, `gcc`, `g++`, `make`, core CLI tools, `agent-browser`, `/ms-playwright`, Chromium, ffmpeg, `tini`, `/workspace`, and `/tmp/sero-home` verified in `final-ubuntu-noble-slim-runtime-inventory.txt`. |
-| Image size | `1,797,729,335` bytes (`1.80 GB`) | `final-ubuntu-noble-slim-inspect.json` |
+| Image size | `1,843,365,152` bytes (`1.84 GB`) | `final-ubuntu-noble-slim-inspect.json` |
 | Trivy CRITICAL=0 | pass | `final-ubuntu-noble-slim-trivy-full.json` / `final-ubuntu-noble-slim-trivy-counts.txt` |
-| Trivy HIGH | `16` | `final-ubuntu-noble-slim-trivy-high-critical.txt` |
-| Fixable HIGH/CRITICAL | `16` / `0` | `final-ubuntu-noble-slim-trivy-fixable-high-critical.txt` |
+| Trivy HIGH=0 | pass | `final-ubuntu-noble-slim-trivy-high-critical.txt` |
+| Fixable HIGH/CRITICAL | `0` / `0` | `final-ubuntu-noble-slim-trivy-fixable-high-critical.txt` |
 | Browser payload check | pass | `/ms-playwright` contains `.links`, `chromium-1200`, `chromium_headless_shell-1200`, `ffmpeg-1011`; no Firefox/WebKit directories. |
 | Headless-shell shim | pass | `headless_shell` is a symlink to `/ms-playwright/chromium-1200/chrome-linux/chrome`. |
 | Targeted Docker/browser Vitest | pass | `2` files / `27` tests in `final-ubuntu-noble-slim-targeted-tests.txt` |
@@ -37,10 +37,10 @@ pnpm --filter @sero/desktop typecheck
 
 ```text
 node=v24.15.0
-npm=11.12.1
-pnpm=10.27.0
+npm=11.14.1
+pnpm=10.33.4
 git=git version 2.43.0
-gh version 2.92.0 (2026-04-28)
+gh version 2.92.0
 python=Python 3.12.3
 pip=24.0
 gcc/g++=13.3.0
@@ -57,20 +57,16 @@ headless_shell: symlink to /ms-playwright/chromium-1200/chrome-linux/chrome
 ## Current Trivy counts
 
 ```text
-TOTAL=1081
+TOTAL=1051
 CRITICAL=0
-HIGH=16
-MEDIUM=1003
-LOW=62
+HIGH=0
 FIXABLE_CRITICAL=0
-FIXABLE_HIGH=16
-FIXABLE_MEDIUM=15
-FIXABLE_LOW=0
+FIXABLE_HIGH=0
 ```
 
 ## Current release-gate decision
 
-Automated validation for the promoted Ubuntu Noble slim Docker path passes, including `CRITICAL=0`, direct runtime/browser smoke, targeted runtime/browser tests, and desktop typecheck. The full Docker release gate still requires explicit publish approval and manual in-app Docker smoke with recreated workspace containers.
+Automated validation for the promoted Ubuntu Noble slim Docker path passes, including `CRITICAL=0`, `HIGH=0`, direct runtime/browser smoke, targeted runtime/browser tests, and desktop typecheck. The full Docker release gate still requires explicit publish approval and manual in-app Docker smoke with recreated workspace containers.
 
 ## Historical / superseded Node 22 validation
 

@@ -1,3 +1,8 @@
+FROM golang:1.26.3-bookworm AS gh-builder
+
+ARG GH_VERSION=2.92.0
+RUN CGO_ENABLED=0 GOBIN=/out /usr/local/go/bin/go install github.com/cli/cli/v2/cmd/gh@v${GH_VERSION}
+
 FROM ubuntu:24.04
 
 ARG SERO_NODE_VERSION=dev
@@ -8,11 +13,12 @@ LABEL org.opencontainers.image.title="Sero Node Runtime" \
 ENV DEBIAN_FRONTEND=noninteractive \
     PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
-# Base runtime, native build tools, and the official GitHub CLI apt repository.
+# Base runtime and native build tools. GitHub CLI is built in a separate
+# stage with a patched Go toolchain, then copied into this image.
 RUN apt-get update -qq && \
     apt-get upgrade -y -qq && \
     apt-get install -y -qq --no-install-recommends \
-      ca-certificates curl wget gpg xz-utils \
+      ca-certificates curl wget xz-utils \
       tini \
       git openssh-client \
       procps less jq \
@@ -20,16 +26,11 @@ RUN apt-get update -qq && \
       build-essential \
       python3 python3-venv python3-pip \
       ripgrep fd-find unzip zip sqlite3 && \
-    mkdir -p -m 755 /etc/apt/keyrings && \
-    curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | \
-      gpg --dearmor -o /etc/apt/keyrings/githubcli-archive-keyring.gpg && \
-    chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg && \
-    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" > /etc/apt/sources.list.d/github-cli.list && \
-    apt-get update -qq && \
-    apt-get install -y -qq --no-install-recommends gh && \
     ln -sf /usr/bin/fdfind /usr/local/bin/fd && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
+
+COPY --from=gh-builder /out/gh /usr/local/bin/gh
 
 # Install the pinned official Node.js 24 Linux tarball and verify its checksum.
 RUN set -eux; \
@@ -45,11 +46,12 @@ RUN set -eux; \
     grep " node-${node_version}-linux-${node_arch}.tar.xz$" SHASUMS256.txt | sha256sum -c -; \
     tar -xJf "node-${node_version}-linux-${node_arch}.tar.xz" -C /usr/local --strip-components=1 --no-same-owner; \
     rm "node-${node_version}-linux-${node_arch}.tar.xz" SHASUMS256.txt; \
+    npm install -g npm@11.14.1; \
     node --version; \
     npm --version
 
 # Pin the package manager declared by the monorepo.
-RUN corepack enable && corepack prepare pnpm@10.27.0 --activate
+RUN corepack enable && corepack prepare pnpm@10.33.4 --activate
 
 # Configure Git defaults for non-interactive agent use.
 RUN git config --global user.name "Sero" && \

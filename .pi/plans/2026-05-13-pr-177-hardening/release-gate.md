@@ -7,12 +7,12 @@ Updated 2026-05-13 after promoting the Ubuntu Noble slim Docker path.
 **Decision: automated Docker scanner gate is satisfied by the promoted Ubuntu Noble slim local candidate, but release publication remains blocked pending explicit approval and manual in-app smoke.**
 
 - `apps/desktop/images/Dockerfile.sero-node` now uses `ubuntu:24.04`, not the full Playwright base.
-- Node 24 is pinned to `24.15.0` and installed from the official Node.js Linux tarball with checksum verification; npm comes from that tarball.
-- `pnpm@10.27.0` is activated via Corepack.
-- Git, current official GitHub CLI apt repo/`gh`, native build tooling, core CLI utilities, `agent-browser`, Playwright Chromium, and Playwright ffmpeg are preserved.
+- Node 24 is pinned to `24.15.0` and installed from the official Node.js Linux tarball with checksum verification; npm is upgraded to `11.14.1`.
+- `pnpm@10.33.4` is activated via Corepack.
+- Git, `gh 2.92.0` built with Go `1.26.3`, native build tooling, core CLI utilities, `agent-browser`, Playwright Chromium, and Playwright ffmpeg are preserved.
 - Firefox and WebKit payloads are absent.
 - The large Chromium headless-shell payload is replaced by a documented symlink compatibility shim to the regular Chromium binary.
-- The promoted validation image `sero-node:ubuntu-noble-slim-local` reaches **Trivy CRITICAL=0** at **1,797,729,335 bytes (~1.8 GB)**.
+- The promoted validation image `sero-node:ubuntu-noble-slim-local` reaches **Trivy CRITICAL=0** and **HIGH=0** at **1,843,365,152 bytes (~1.84 GB)**.
 - No GHCR image was tagged, pushed, or published.
 - Publishing a release image still requires explicit user approval.
 - Manual in-app Docker smoke is still required with recreated workspace containers before release.
@@ -25,11 +25,11 @@ Updated 2026-05-13 after promoting the Ubuntu Noble slim Docker path.
 | Image | `ghcr.io/sero-labs/sero-node:latest` | `sero-node:hardening-local` / `critical-zero-local` | `sero-node:node24-noble-buildtools-local` | `sero-node:ubuntu-noble-slim-local` | local-only candidate |
 | Base | Debian 12 / `node:22-slim` | Debian Node 22 candidates | `mcr.microsoft.com/playwright:v1.57.0-noble` | `ubuntu:24.04` | promoted Dockerfile path |
 | Node | v22 | v22 | v24.15.0 | v24.15.0 | accepted Node 24 path |
-| Image size | `2,176,370,691` bytes | `1,798,935,982` to `1,827,378,479` bytes | `4,931,109,454` bytes | `1,797,729,335` bytes | size-corrected |
+| Image size | `2,176,370,691` bytes | `1,798,935,982` to `1,827,378,479` bytes | `4,931,109,454` bytes | `1,843,365,152` bytes | size-corrected |
 | Trivy CRITICAL | 14 | 14 / 10 | 0 | 0 | **scanner gate satisfied** |
-| Trivy HIGH | 273 | 82 / 73 | 18 | 16 | improved |
+| Trivy HIGH | 273 | 82 / 73 | 18 | 0 | **scanner gate satisfied** |
 | Fixable CRITICAL | 0 | 0 | 0 | 0 | pass |
-| Fixable HIGH | 16 | 11 | 16 | 16 | documented |
+| Fixable HIGH | 16 | 11 | 16 | 0 | pass |
 | Direct smoke | n/a | pass | pass | pass | required tools/assets present |
 | Targeted Docker/browser tests | n/a | pass | pass: 2 files / 27 tests | pass: 2 files / 27 tests | automated pass |
 | Desktop typecheck | n/a | pass | pass | pass | automated pass |
