@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { WorkspaceManager } from '@electron/features/workspace/manager';
 import { DEFAULT_IMAGE } from '@electron/features/container/core/types';
 import type { DockerCommandResult, DockerRunner } from '@electron/features/workspace/runtime/backends/docker/docker-cli';
-import { ensureDockerImage } from '@electron/features/workspace/runtime/backends/docker/docker-image';
+import { dockerImagesDir, ensureDockerImage } from '@electron/features/workspace/runtime/backends/docker/docker-image';
 import { createDockerRunArgs } from '@electron/features/workspace/runtime/backends/docker/docker-lifecycle';
 import { mountArgs } from '@electron/features/workspace/runtime/backends/docker/docker-mounts';
 import { DockerBackend } from '@electron/features/workspace/runtime/backends/docker/docker-backend';
@@ -65,6 +65,21 @@ describe('Docker runtime backend core', () => {
     expect(mountArgs([{ source: 'C:\\Users\\daniel\\repo', target: '/workspace' }])).toEqual([
       '--mount', 'type=bind,source=C:\\Users\\daniel\\repo,target=/workspace',
     ]);
+  });
+
+  it('finds the local Dockerfile when Electron starts from apps/desktop', () => {
+    const previousCwd = process.cwd();
+    const projectDir = mkdtempSync(path.join(tmpdir(), 'sero-desktop-cwd-test-'));
+    const imagesDir = path.join(projectDir, 'images');
+    mkdirSync(imagesDir, { recursive: true });
+    writeFileSync(path.join(imagesDir, 'Dockerfile.sero-node'), 'FROM scratch\n');
+
+    try {
+      process.chdir(projectDir);
+      expect(dockerImagesDir().replace(/\\\\/g, '/')).toMatch(/\/sero-desktop-cwd-test-[^/]+\/images$/);
+    } finally {
+      process.chdir(previousCwd);
+    }
   });
 
   it('ensures image with inspect hit, pull success, build fallback, and failure', async () => {

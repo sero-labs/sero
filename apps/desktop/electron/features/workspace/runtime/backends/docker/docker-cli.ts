@@ -28,18 +28,35 @@ export type DockerRunner = (args: string[], options?: DockerRunOptions) => Promi
 
 const DEFAULT_TIMEOUT_MS = 120_000;
 const DEFAULT_MAX_BUFFER = 10 * 1024 * 1024;
-const FALLBACK_PATHS = ['/usr/local/bin', '/opt/homebrew/bin', '/usr/bin', '/bin'];
-const DOCKER_DESKTOP_PATHS = [
+const POSIX_FALLBACK_PATHS = ['/usr/local/bin', '/opt/homebrew/bin', '/usr/bin', '/bin'];
+const MAC_DOCKER_DESKTOP_PATHS = [
   '/Applications/Docker.app/Contents/Resources/bin',
   '/usr/local/share/docker/bin',
 ];
+const WINDOWS_DOCKER_DESKTOP_PATHS = [
+  'C:\\Program Files\\Docker\\Docker\\resources\\bin',
+  'C:\\Program Files\\Docker\\Docker\\resources',
+];
+const WINDOWS_PODMAN_PATHS = [
+  'C:\\Program Files\\RedHat\\Podman',
+];
 const ENGINE_PREFERENCE: readonly ContainerEngineKind[] = ['docker', 'podman'];
+
+function defaultDockerLookupPaths(): string[] {
+  if (process.platform === 'win32') {
+    return [...WINDOWS_DOCKER_DESKTOP_PATHS, ...WINDOWS_PODMAN_PATHS];
+  }
+
+  return [
+    ...POSIX_FALLBACK_PATHS,
+    ...MAC_DOCKER_DESKTOP_PATHS.filter((entry) => existsSync(entry)),
+  ];
+}
 
 export function augmentedDockerPath(basePath = ''): string {
   const entries = [
     ...basePath.split(delimiter).filter(Boolean),
-    ...FALLBACK_PATHS,
-    ...DOCKER_DESKTOP_PATHS.filter((entry) => existsSync(entry)),
+    ...defaultDockerLookupPaths(),
   ];
   return Array.from(new Set(entries)).join(delimiter);
 }

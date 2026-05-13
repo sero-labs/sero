@@ -16,7 +16,13 @@ export interface DockerImageOptions {
 }
 
 export function dockerImagesDir(): string {
-  return path.resolve(process.cwd(), 'apps/desktop/images');
+  const cwd = process.cwd();
+  const candidates = [
+    path.resolve(cwd, 'apps/desktop/images'),
+    path.resolve(cwd, 'images'),
+  ];
+
+  return candidates.find((dir) => existsSync(path.join(dir, 'Dockerfile.sero-node'))) ?? candidates[0];
 }
 
 const verifiedToolchainImageIds = new Set<string>();
