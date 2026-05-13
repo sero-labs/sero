@@ -8,6 +8,10 @@ const LIMITATIONS = [
   'Managed preview and dev-server automation',
 ] as const;
 
+function isWindowsSmokeEnvironment(runtime: OnboardingContainerRuntime): boolean {
+  return window.sero.platform === 'win32' && runtime.runtime === 'docker' && runtime.status !== 'available';
+}
+
 function runtimeSummary(runtime: OnboardingContainerRuntime): string {
   if (runtime.runtime === 'apple-container') {
     return 'Docker remains available as an isolated runtime on macOS. Host is available without containers, but browser automation and Linux-parity tooling require Docker or Apple Container.';
@@ -31,6 +35,8 @@ export function ContainerRuntimeNotice({
     return null;
   }
 
+  const compact = isWindowsSmokeEnvironment(runtime);
+
   return (
     <div className="rounded-xl border border-[var(--status-warning)]/25 bg-[var(--status-warning)]/6 p-4 text-sm text-[var(--text-secondary)]">
       <div className="flex items-start gap-3">
@@ -41,14 +47,16 @@ export function ContainerRuntimeNotice({
           <div className="space-y-1">
             <p className="font-medium text-[var(--text-primary)]">Workspace runtime setup recommended for full Sero features</p>
             <p>{runtime.message}</p>
-            <p>{runtimeSummary(runtime)}</p>
+            {compact ? null : <p>{runtimeSummary(runtime)}</p>}
           </div>
 
-          <ul className="list-disc space-y-1 pl-5 text-xs marker:text-[var(--status-warning)]">
-            {LIMITATIONS.map((item) => (
-              <li key={item}>{item} may be limited until {limitationTarget(runtime)} is configured.</li>
-            ))}
-          </ul>
+          {compact ? null : (
+            <ul className="list-disc space-y-1 pl-5 text-xs marker:text-[var(--status-warning)]">
+              {LIMITATIONS.map((item) => (
+                <li key={item}>{item} may be limited until {limitationTarget(runtime)} is configured.</li>
+              ))}
+            </ul>
+          )}
 
           {runtime.docsUrl ? (
             <div>

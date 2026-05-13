@@ -84,6 +84,7 @@ describe('OnboardingWizard', () => {
         shell: {
           openExternal: vi.fn(),
         },
+        platform: 'darwin',
         github: {
           status: vi.fn().mockResolvedValue({ authenticated: false }),
           onEvent: vi.fn(() => () => {}),
@@ -165,6 +166,18 @@ describe('OnboardingWizard', () => {
 
     expect(document.body.textContent).toContain('Container system is not running.');
     expect(document.body.textContent).toContain('Connect a provider');
+  });
+
+  it('keeps the ready dialog scrollable when setup content is tall', async () => {
+    mockUseOnboardingLaunch.mockReturnValue(createLaunchState());
+
+    await act(async () => {
+      root?.render(<OnboardingWizard />);
+    });
+
+    const dialog = document.querySelector('[data-slot="dialog-content"]');
+    expect(dialog?.className).toContain('max-h-[calc(100vh-2rem)]');
+    expect(dialog?.className).toContain('overflow-y-auto');
   });
 
   it('omits the container warning when containers are available', async () => {

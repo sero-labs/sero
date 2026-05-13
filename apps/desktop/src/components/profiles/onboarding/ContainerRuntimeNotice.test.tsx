@@ -105,7 +105,7 @@ describe('ContainerRuntimeNotice', () => {
       }));
     });
 
-    expect(document.body.textContent).toContain('Docker Desktop is required on Windows');
+    expect(document.body.textContent).toContain('Docker Desktop is required for Sero runtime features on Windows.');
     expect(document.body.textContent).not.toContain('WSL');
     expect(document.body.textContent).not.toContain('Apple Container');
   });
