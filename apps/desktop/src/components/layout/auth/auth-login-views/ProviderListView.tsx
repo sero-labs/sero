@@ -39,8 +39,8 @@ export function ProviderListView({
 
   if (isLogin) {
     return (
-      <div className="space-y-4">
-        <div>
+      <div className="flex min-h-0 flex-col gap-4">
+        <div className="shrink-0">
           <h4 className="mb-1.5 px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             OAuth
           </h4>
@@ -77,11 +77,11 @@ export function ProviderListView({
           ) : null}
         </div>
 
-        <div>
+        <div className="min-h-0">
           <h4 className="mb-1.5 px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             API Key
           </h4>
-          <div className="space-y-0.5">
+          <div className="max-h-[min(44vh,24rem)] space-y-0.5 overflow-y-auto pr-1">
             {sortProvidersByPreference(apiKeyProviders, preferredProviderId).map((provider) => (
               <div
                 key={provider.id}

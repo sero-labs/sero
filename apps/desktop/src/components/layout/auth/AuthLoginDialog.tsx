@@ -270,7 +270,7 @@ export function AuthLoginDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="flex max-h-[calc(100vh-2rem)] flex-col sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <KeyRound className="size-5" />
@@ -279,7 +279,7 @@ export function AuthLoginDialog({
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-3">
+        <div className="min-h-0 space-y-3">
           {phase === 'providers' && (
             <>
               {providerLoadError ? (
