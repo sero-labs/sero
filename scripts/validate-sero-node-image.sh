@@ -60,7 +60,7 @@ run_trivy image --severity HIGH,CRITICAL --output "/out/$(basename "${prefix}-tr
 echo "Running Trivy fixable HIGH/CRITICAL table..."
 run_trivy image --severity HIGH,CRITICAL --ignore-unfixed --output "/out/$(basename "${prefix}-trivy-fixable-high-critical.txt")" "$IMAGE_REF"
 
-node <<'NODE' "${prefix}-trivy-full.json" "${prefix}-trivy-counts.txt"
+node - "${prefix}-trivy-full.json" "${prefix}-trivy-counts.txt" <<'NODE'
 const fs = require('node:fs');
 const [input, output] = process.argv.slice(2);
 const report = JSON.parse(fs.readFileSync(input, 'utf8'));
