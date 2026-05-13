@@ -39,6 +39,7 @@ When changing `apps/desktop/images/Dockerfile.sero-node` or adding/removing cont
 1. Publish a new pinned tag.
 2. Update release configuration to set `SERO_NODE_IMAGE_TAG` to that tag.
 3. Rebuild `ghcr.io/sero-labs/sero-node:latest` if development builds should pick up the change.
+4. Run the Trivy release gate in [`docs/security/sero-node-trivy-validation.md`](../security/sero-node-trivy-validation.md) before publishing.
 4. Recreate affected workspace containers.
 
 Sero labels managed containers with the requested image reference. On the next runtime ensure, Docker recreates a workspace container if the existing container's image label does not match the configured image. Users can also repair/recreate the runtime explicitly.
