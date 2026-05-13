@@ -81,8 +81,8 @@ Exit codes:
 
 | Category | Examples |
 |---|---|
-| `system` | OS, arch, free disk, macOS memory pressure. |
-| `runtime` | Apple Container (CLI, version, daemon). |
+| `system` | OS, arch, free disk, platform-specific health signals. |
+| `runtime` | Apple Container and Docker availability, versions, and daemon/system health. |
 | `node` | Node version, native ABI, `node-pty`. |
 | `profile` | `profiles.json` parse, active profile id, per-profile config files. |
 | `workspace` | Registry presence, runtime selection, FS reachability. |
@@ -127,7 +127,7 @@ Auto-repair execution will arrive in a follow-up release.
 - [State and Folders](/reference/state-and-folders) — what the per-profile
   checks inspect.
 - [Containers and Host Mode](/reference/containers-host-mode) — context
-  for the `runtime.container.*` checks.
+  for runtime checks.
 - [Sero CLI](/reference/sero-cli) — the workspace/agent CLI that
   `sero-doctor` complements (the doctor is intentionally separate from
   `sero-cli`).

@@ -12,9 +12,9 @@ voice input, see [Agent Sessions and Context](/guide/agent-sessions-and-context)
 
 ## Alpha expectations
 
-Sero is currently a **source-only OSS alpha** for **macOS on Apple Silicon**.
-The preferred runtime is Apple container-backed workspaces; host mode is a
-supported fallback with reduced capabilities.
+Sero is currently a **source-only OSS alpha** for **macOS, Linux, and Windows**.
+The preferred runtime is container-backed workspaces through Apple Container or
+Docker; host mode is a supported macOS/Linux fallback with reduced capabilities.
 
 For the current support matrix, see [Support Scope](/reference/support-scope).
 For the high-level implementation model, see [Architecture](/reference/architecture).

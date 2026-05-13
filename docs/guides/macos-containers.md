@@ -1,6 +1,6 @@
 # macOS Containers Setup
 
-Sero works best with Apple's `container` runtime on Apple Silicon Macs. Containers are **strongly recommended**, but Sero can still continue in a reduced host mode if they are unavailable.
+On Apple Silicon Macs, Sero works best with Apple's `container` runtime. Across platforms, Sero can also use Docker-backed workspaces; see [`docs/features/docker-runtime.md`](../features/docker-runtime.md). Containers are **strongly recommended**, but Sero can still continue in reduced host mode on macOS/Linux if they are unavailable.
 
 ## What containers unlock
 

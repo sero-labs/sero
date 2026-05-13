@@ -4,7 +4,7 @@ Sero runtime support is local only:
 
 - **Apple Container** on supported Apple Silicon Macs.
 - **Docker** through Docker Desktop or Docker Engine on macOS, Windows, and Linux.
-- **Host** as an advanced direct-host option on macOS/Linux and a WSL 2-backed option on Windows.
+- **Host** as an advanced direct-host option on macOS/Linux. Windows workspace execution uses Docker.
 
 Remote execution, hosted/cloud runtimes, and policy sandbox UX are out of scope.
 
@@ -30,7 +30,7 @@ http://127.0.0.1:<hostPort>
 
 The gateway proxies those provider-neutral URLs and does not inspect container IPs. See `docs/reference/runtime-preview-ports.md` for the pool size and recreation notes.
 
-Host runtime returns direct `http://127.0.0.1:<port>` preview URLs for managed dev servers. On Windows/WSL, Sero diagnoses broken localhost forwarding with `wsl-localhost-forwarding-disabled`.
+Host runtime returns direct `http://127.0.0.1:<port>` preview URLs for managed dev servers on macOS/Linux.
 
 ## Platform support
 
@@ -38,10 +38,10 @@ Host runtime returns direct `http://127.0.0.1:<port>` preview URLs for managed d
 | --- | --- | --- | --- | --- |
 | Apple Container | Apple Silicon recommended | No | No | Yes |
 | Docker | Yes | Yes | Yes, through Docker Desktop | Yes |
-| Host | Yes | Yes | WSL 2 required | No |
+| Host | Yes | Yes | No | No |
 
-When Docker or Apple Container is selected and unavailable, Sero reports a runtime/Doctor failure instead of silently falling back to host execution. Windows host runtime uses WSL 2 through `wsl.exe`; Sero does not run host workspaces through native PowerShell or cmd.
+When Docker or Apple Container is selected and unavailable, Sero reports a runtime/Doctor failure instead of silently falling back to host execution. Sero does not run Windows workspaces through native PowerShell/cmd host mode; use Docker on Windows.
 
 ## Smoke coverage
 
-Use `docs/reference/runtime-smoke.md` for the full smoke matrix and `docs/reference/runtime-manual-test.md` for host runtime manual checks across macOS, Linux, and Windows/WSL.
+Use `docs/reference/runtime-smoke.md` for the full smoke matrix and `docs/reference/runtime-manual-test.md` for host runtime manual checks on macOS/Linux.

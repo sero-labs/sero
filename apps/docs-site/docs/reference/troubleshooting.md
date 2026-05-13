@@ -3,9 +3,9 @@
 Most Sero OSS alpha setup problems fall into one of these buckets:
 - interrupted install / native module ABI mismatch
 - dev launcher startup failure
-- Apple container runtime unavailable
+- Apple Container or Docker runtime unavailable
 - host mode being used for a workflow that still expects containers
-- dev-server preview URL, container IP, or browser/app capture mismatch
+- dev-server preview URL, runtime forwarding, or browser/app capture mismatch
 
 Before working through the buckets manually, run the
 [Environment Doctor](/reference/environment-doctor). In Sero, open it with
@@ -70,33 +70,37 @@ Useful runtime logs:
 - `/tmp/sero-web-remote-watch.log`
 - `/tmp/sero-remote-<plugin>.log` for any plugin dev remotes you enabled
 
-## Apple containers are unavailable or unhealthy
+## Container runtimes are unavailable or unhealthy
 
-Sero works best with Apple's `container` CLI available at:
+Sero works best with a container-backed runtime: Apple Container on supported
+Apple Silicon Macs, or Docker on macOS, Linux, and Windows.
 
-```text
-/usr/local/bin/container
-```
-
-Quick checks:
+Apple Container quick checks:
 
 ```bash
 /usr/local/bin/container --help
 /usr/local/bin/container system status
 ```
 
-If the system is installed but not running:
+If the Apple Container system is installed but not running:
 
 ```bash
 /usr/local/bin/container system start
 ```
 
-If containers still are not available, Sero can continue in host mode. That is
-supported, but it is intentionally a reduced experience.
+Docker quick check:
+
+```bash
+docker info
+```
+
+If container runtimes still are not available, Sero can continue in host mode on
+macOS/Linux. That is supported, but intentionally reduced. Windows workspace
+execution uses Docker.
 
 ## A workflow works in containers but not in host mode
 
-Host mode is a supported fallback for:
+Host mode is a supported macOS/Linux fallback for:
 - onboarding and provider setup
 - core chat and coding tasks
 - file browsing and editing
@@ -130,7 +134,7 @@ sero devserver register --name "Web app" --port 3000 --command "npm run dev -- -
 sero devserver list
 ```
 
-Use the URL reported by `sero devserver list`. In container-backed workspaces, that URL may use the container IP rather than `localhost`.
+Use the URL reported by `sero devserver list`. In container-backed workspaces, that URL is resolved by the active runtime backend and is usually a localhost forwarding URL.
 
 ## Host port is already used
 
@@ -189,10 +193,10 @@ pnpm test
 Use `pnpm test:ci` when you need the current alpha PR-gate shape.
 
 When reporting the problem, include:
-- macOS version
-- Apple Silicon confirmation
+- operating system and version
+- CPU architecture
 - Node and pnpm versions
-- whether you were using container-backed runtime or host mode
+- whether you were using Apple Container, Docker, or host mode
 - relevant log excerpts
 
 Before sharing logs, redact tokens, auth files, and private local paths.
@@ -211,5 +215,6 @@ Before sharing logs, redact tokens, auth files, and private local paths.
 - [State and Folders](/reference/state-and-folders)
 - [`docs/node-pty-setup.md`](https://github.com/sero-labs/sero/blob/main/docs/node-pty-setup.md)
 - [`docs/guides/native-modules.md`](https://github.com/sero-labs/sero/blob/main/docs/guides/native-modules.md)
+- [`docs/features/docker-runtime.md`](https://github.com/sero-labs/sero/blob/main/docs/features/docker-runtime.md)
 - [`docs/guides/macos-containers.md`](https://github.com/sero-labs/sero/blob/main/docs/guides/macos-containers.md)
 - [`CONTRIBUTING.md`](https://github.com/sero-labs/sero/blob/main/CONTRIBUTING.md)

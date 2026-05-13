@@ -1,9 +1,9 @@
 # Containers and Host Mode
 
-Sero works best with container-backed workspaces on macOS. Apple Container and
-Docker are the current container-backed runtime options. Host mode is supported
-as a reduced fallback so the alpha can still run when container runtimes are
-unavailable or a workspace is explicitly configured to use the host.
+Sero works best with container-backed workspaces. Apple Container and Docker are
+the current container-backed runtime options. Host mode is supported as a
+reduced macOS/Linux fallback so the alpha can still run when container runtimes
+are unavailable or a workspace is explicitly configured to use the host.
 
 This page explains the current runtime expectations. For task-oriented dev-server setup, see [Containers and Dev Servers](/guide/containers-dev-servers). For lifecycle, mounts, and networking details, see [Container Isolation](/reference/container-isolation). For the canonical support matrix, see [Support Scope](/reference/support-scope).
 
@@ -41,10 +41,11 @@ Host mode is not currently the supported path for:
 - Linux/container networking semantics
 - full container isolation
 
-Host mode can still run and register a normal host dev server. The distinction is that Sero's container networking, Linux parity, and browser-automation assumptions do not apply outside container-backed workspaces.
+Host mode can still run and register a normal host dev server on macOS/Linux. The distinction is that Sero's container networking, Linux parity, and browser-automation assumptions do not apply outside container-backed workspaces. Windows workspace execution uses Docker rather than host mode.
 
 If a workflow works in containers but fails in host mode, check whether that
-workflow depends on container-only capabilities.
+workflow depends on container-only capabilities. On Windows, use Docker-backed
+workspaces for runtime execution.
 
 ## Requirements for container-backed mode
 
@@ -144,7 +145,8 @@ container-backed workspace.
 During the current alpha, do not treat containers as:
 
 - a hardened multi-tenant security boundary
-- Linux or Windows support
+- identical runtime behavior on every operating system
+- Windows host-mode workspace execution
 - a promise of full host/container feature parity
 - a guarantee that dev-server automation or browser tooling works in host mode
 - a guarantee that proxy, cleanup, or status reporting is perfect in every local

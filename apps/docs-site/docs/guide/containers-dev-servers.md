@@ -1,6 +1,6 @@
 # Containers and Dev Servers
 
-Sero can run each workspace through a runtime backend: Apple Container, Docker, or reduced host mode. Container-backed runtimes give the agent, terminals, tools, and dev servers a shared Linux-like workspace at `/workspace` while the project remains stored on your Mac.
+Sero can run each workspace through a runtime backend: Apple Container, Docker, or reduced host mode. Container-backed runtimes give the agent, terminals, tools, and dev servers a shared Linux-like workspace at `/workspace` while the project remains stored on your host machine.
 
 Use this guide when you want to start a project server and preview it in Sero without fighting runtime networking details.
 
@@ -65,7 +65,7 @@ sequenceDiagram
 
 ## Why this helps with ports
 
-A dev server running inside a workspace container listens inside that runtime. Apple Container previews may use the container's reachable IP. Docker previews use a runtime-managed localhost forwarding URL. Host-mode previews use the normal host URL.
+A dev server running inside a workspace container listens inside that runtime. Apple Container and Docker previews use runtime-managed host-reachable URLs, usually localhost forwarding URLs. Host-mode previews use the normal host URL.
 
 This reduces port and network confusion, but it does not eliminate every issue. A preview can still fail if:
 

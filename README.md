@@ -11,7 +11,7 @@
 
 <p align="center">
   <strong>Zero context switch, zero sprawl.</strong><br />
-  A local-first, agent-first desktop workspace for macOS.
+  A local-first, agent-first desktop workspace for macOS, Linux, and Windows.
 </p>
 
 <p align="center">
@@ -27,11 +27,11 @@
 
 ## What is Sero?
 
-Sero is the dedicated **macOS Workshop OS** built directly on the
+Sero is the dedicated **local Workshop OS** built directly on the
 [Pi](https://github.com/badlogic/pi) coding agent.
 
-Pi gives you the minimal, stable agent loop. Sero adds the always-on macOS
-shell: visual browser, container isolation, persistent project memory,
+Pi gives you the minimal, stable agent loop. Sero adds the always-on desktop
+shell: visual browser, runtime isolation, persistent project memory,
 self-building plugins, and one unified workspace.
 
 Put simply: Sero is where agent-assisted software work happens when the agent
@@ -39,15 +39,15 @@ needs more than a chat box.
 
 ## Features
 
-- **Unified macOS desktop shell** — chat, terminals, previews, plugins, files,
+- **Unified desktop shell** — chat, terminals, previews, plugins, files,
   browser flows, and full workspace context in one place.
 - **Built-in visual browser** — run your dev server or app inside Sero so the
   agent can inspect pages, capture screenshots/video, and reason about what is
   actually on screen.
 - **Self-building plugins** — use the loop Sero is designed for: ask for a
   workflow, build the plugin, use it immediately, then improve it with the agent.
-- **Container-backed workspaces** — Apple Silicon native isolation with a path
-  toward Linux parity for development environments.
+- **Runtime-backed workspaces** — Apple Container, Docker, and host runtimes
+  let Sero run projects locally while preserving a shared workspace model.
 - **Plugin-first Pi support** — plugins can expose Pi tools, slash commands,
   React UI, widgets, background jobs, and provider integrations.
 - **Persistent project memory** — project-level context can carry across agent
@@ -104,19 +104,20 @@ Sero is currently intended for early adopters and contributors.
 
 Current release posture:
 
-- **Supported platform:** macOS on Apple Silicon
+- **Supported source platforms:** macOS, Linux, and Windows
+- **Maintainer-validated baseline:** macOS on Apple Silicon
 - **Distribution:** build from source only
-- **Preferred runtime:** Apple container-backed workspaces
-- **Fallback runtime:** host mode with reduced capabilities
+- **Preferred runtime:** container-backed workspaces via Apple Container or Docker
+- **Fallback runtime:** host mode on macOS/Linux with reduced capabilities; Windows uses Docker for workspace execution
 - **Stability:** plugin/runtime contracts may change during alpha
 - **UX polish:** rough and actively changing; layout, flows, and accessibility
   need refinement
 - **Theming:** CSS/theme support is patchy and will be normalized as the shell
   and plugin contracts mature
 
-Sero does **not** currently promise Linux support, Windows support, official
-public binaries, stable internal APIs, or full feature parity without
-containers. For the current support contract, see
+Sero does **not** currently promise official public binaries, stable internal
+APIs, or full feature parity without containers. Platform support is alpha-level
+and runtime capabilities vary by OS. For the current support contract, see
 [`Support Scope`](./apps/docs-site/docs/reference/support-scope.md).
 
 ## Why Sero?
@@ -145,7 +146,7 @@ Key ideas:
 - Explorer workspace with editor, terminal, visual browser, preview, and VCS
   surfaces
 - Workspace model with per-workspace runtime control
-- Apple container-backed workspace execution, with host-mode fallback
+- Apple Container and Docker-backed workspace execution, with host-mode fallback where supported
 - Built-in plugin architecture for UI apps, tools, commands, widgets, and
   background behavior
 - Persistent memory system for project context across sessions
@@ -176,11 +177,11 @@ Captured from the current source-only alpha on macOS Apple Silicon.
 
 ### Requirements
 
-- macOS on Apple Silicon
+- macOS, Linux, or Windows
 - Node.js 22
 - pnpm 10
-- Optional but strongly recommended: Apple's `container` CLI for the full
-  container-backed experience
+- Strongly recommended for the full runtime-backed experience: Docker, or
+  Apple's `container` CLI on Apple Silicon macOS
 
 For the exact validated baseline, see
 [`Support Scope`](./apps/docs-site/docs/reference/support-scope.md).
@@ -212,8 +213,8 @@ Notes:
 - `pnpm test` currently runs the desktop Vitest suite.
 - `pnpm test:ci` mirrors the alpha PR gate: typecheck, build, desktop tests, and
   desktop CI e2e.
-- If Apple containers are unavailable, Sero can continue in host mode with a
-  reduced feature set.
+- If container runtimes are unavailable, Sero can continue in host mode on
+  supported platforms with a reduced feature set.
 - If native terminal support breaks, see
   [`docs/node-pty-setup.md`](./docs/node-pty-setup.md).
 
@@ -250,8 +251,10 @@ Start here:
 - [`docs/architecture.md`](./docs/architecture.md) — shell and subsystem overview
 - [`docs/reference/state-and-folders.md`](./docs/reference/state-and-folders.md)
   — profile/state/auth/log storage reference
+- [`docs/features/docker-runtime.md`](./docs/features/docker-runtime.md)
+  — Docker and runtime provider behavior
 - [`docs/guides/macos-containers.md`](./docs/guides/macos-containers.md)
-  — Apple container setup
+  — Apple Container setup on macOS
 - [`docs/plugins/guide.md`](./docs/plugins/guide.md) — plugin author and user guide
 - [`docs/plugins/quickstart.md`](./docs/plugins/quickstart.md) — minimal plugin path
 - [`docs/testing/eval-guide.md`](./docs/testing/eval-guide.md) — eval framework

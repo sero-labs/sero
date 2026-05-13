@@ -25,7 +25,8 @@ flowchart LR
   Pi --> Context[Session history, memory, and context]
 
   Workspace --> Runtime{Runtime mode}
-  Runtime --> Container[Apple container workspace]
+  Runtime --> Apple[Apple Container workspace]
+  Runtime --> Docker[Docker workspace]
   Runtime --> Host[Host mode fallback]
 
   Apps --> AppRuntime["@sero-ai/app-runtime"]
@@ -74,7 +75,7 @@ Workspaces are the main organizing unit. Each workspace has:
 
 ### Container-backed (preferred)
 
-Use Apple containers for:
+Use Apple Container or Docker-backed workspaces for:
 - better isolation
 - containerized tooling
 - browser automation and managed preview flows
@@ -82,16 +83,16 @@ Use Apple containers for:
 
 ### Host mode (supported fallback)
 
-Host mode keeps core workflows available, but it is intentionally reduced.
+Host mode keeps core workflows available on macOS/Linux, but it is intentionally reduced.
 Expect limits around browser automation, containerized tooling, and some managed
-preview/runtime behavior. See [Containers and Host Mode](/reference/containers-host-mode)
+preview/runtime behavior. Windows workspace execution uses Docker. See [Containers and Host Mode](/reference/containers-host-mode)
 for runtime-specific guidance.
 
 ```mermaid
 flowchart TD
   Open[Open workspace] --> Check{Container runtime available?}
-  Check -->|Yes| Container[Container-backed workspace]
-  Check -->|No| Host[Reduced host mode]
+  Check -->|Apple Container/Docker| Container[Container-backed workspace]
+  Check -->|macOS/Linux fallback| Host[Reduced host mode]
 
   Container --> Mounts[Mount workspace and configured extra roots]
   Container --> Exec["Run terminals, tools, and dev servers via container exec"]

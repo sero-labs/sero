@@ -1,6 +1,6 @@
 # Container Isolation
 
-Container-backed workspaces are Sero's preferred runtime on macOS. Apple Container and Docker both isolate workspace execution from the host enough to provide reproducible tooling, runtime networking, and per-workspace dev-server previews, but they are not documented as a hardened multi-tenant security boundary.
+Container-backed workspaces are Sero's preferred runtime across supported platforms. Apple Container and Docker both isolate workspace execution from the host enough to provide reproducible tooling, runtime networking, and per-workspace dev-server previews, but they are not documented as a hardened multi-tenant security boundary.
 
 ## Lifecycle
 
@@ -49,7 +49,7 @@ HOSTNAME=0.0.0.0
 
 When Sero's container HTTP proxy starts, proxy variables are also injected and `NO_PROXY` includes localhost and the container subnet. DNS fallback is best effort.
 
-Dev-server URLs are resolved by the active runtime backend. Apple Container can expose a container-IP URL, Docker exposes a forwarded localhost URL, and host mode exposes a localhost URL. The registry id is scope-aware:
+Dev-server URLs are resolved by the active runtime backend. Apple Container and Docker expose host-reachable forwarded URLs, and host mode exposes a localhost URL. The registry id is scope-aware:
 
 ```text
 workspaceId:scope:cardId:port

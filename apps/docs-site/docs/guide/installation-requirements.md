@@ -2,8 +2,12 @@
 
 ## Supported alpha target
 
-Sero currently supports:
-- **macOS on Apple Silicon**
+Sero currently supports source builds on:
+- **macOS**
+- **Linux**
+- **Windows**
+
+Required local tooling:
 - **Node.js 22**
 - **pnpm 10**
 
@@ -22,8 +26,8 @@ available at:
 /usr/local/bin/container
 ```
 
-For Docker-backed workspaces, install Docker and make sure `docker info`
-succeeds.
+For Docker-backed workspaces, install Docker Desktop or Docker Engine and make
+sure `docker info` succeeds. Windows workspace execution uses Docker.
 
 Containers are strongly recommended, but they are not a hard requirement for
 trying Sero.

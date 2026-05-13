@@ -360,13 +360,13 @@ Every check below ships in v1. Each row lists:
 
 | id | slow | needsBootedApp | repair | What it checks |
 |---|---|---|---|---|
-| `system.os.platform` | no | no | — | macOS in v1; warn on Linux/Windows. |
-| `system.os.version` | no | no | — | Reports `os.release()`; warns below Sero's minimum macOS version. |
-| `system.arch` | no | no | — | `process.arch`; warn on x64 (Sero targets arm64 first). |
+| `system.os.platform` | no | no | — | Reports macOS/Linux/Windows and flags unsupported runtime combinations elsewhere. |
+| `system.os.version` | no | no | — | Reports `os.release()` and applies platform-specific guidance where available. |
+| `system.arch` | no | no | — | `process.arch`; reports architecture for runtime/image diagnostics. |
 | `system.disk.free` | no | no | — | Free space in `SERO_FIXED_ROOT` ≥ 2 GB. Uses `child_process.execFile('df', ['-k', path])`. |
 | `system.memory` | no | no | — | macOS memory pressure / reclaimable memory; non-macOS falls back to `os.freemem()`. |
 
-### 6.2 Runtime — Apple Container (`category: 'runtime'`)
+### 6.2 Runtime — Apple Container and Docker (`category: 'runtime'`)
 
 | id | slow | needsBootedApp | repair | What it checks |
 |---|---|---|---|---|
@@ -377,7 +377,7 @@ Every check below ships in v1. Each row lists:
 | `runtime.container.exec` | yes | yes | — | Execs in an existing test container. |
 | `runtime.container.mount` | yes | yes | — | Mounts a tempdir, writes + reads a file. |
 
-Quick mode runs the first three only.
+Quick mode runs the first three Apple Container checks and bounded Docker CLI/daemon checks. Docker-specific checks cover CLI availability, daemon reachability, image presence, bind mounts, permissions, networking, and preview-port smoke where applicable.
 
 ### 6.3 Node / native modules (`category: 'node'`)
 

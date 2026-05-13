@@ -156,14 +156,14 @@ Current actions include:
 
 This panel reflects registered dev servers; it is not a guarantee that Sero will
 automatically discover, start, or manage every project server. Container-backed
-runtime is the preferred path for managed preview and dev-server flows because previews can use container-IP URLs instead of binding every server to a host port. This reduces host port conflicts, but it does not guarantee that every network, proxy, DNS, or framework binding issue disappears. Host mode is reduced and should not be treated as feature-equivalent for dev-server automation.
+runtime is the preferred path for managed preview and dev-server flows because the active runtime can return a host-reachable preview URL without requiring the project to own a fixed host port. This reduces host port conflicts, but it does not guarantee that every network, proxy, DNS, or framework binding issue disappears. Host mode is reduced and should not be treated as feature-equivalent for dev-server automation.
 
 Typical command flow:
 
 ```bash
 sero devserver register --name "Web app" --port 3000 --command "npm run dev -- --host 0.0.0.0" --framework vite
 sero devserver list
-sero app preview http://<container-ip>:3000
+sero app preview <registered-url>
 ```
 
 ![Explorer Dev Servers](../assets/images/explorer-dev-servers.jpg)
@@ -172,11 +172,12 @@ sero app preview http://<container-ip>:3000
 
 For the current alpha:
 
-- macOS Apple Silicon is the supported platform baseline
-- Apple container-backed workspaces are recommended for the full Explorer
+- macOS, Linux, and Windows source builds are in alpha scope
+- macOS Apple Silicon is the maintainer-validated baseline
+- Apple Container or Docker-backed workspaces are recommended for the full Explorer
   experience
 - host mode supports core chat, file browsing/editing, terminals, and general
-  host-shell workflows, but with reduced automation
+  host-shell workflows on macOS/Linux, but with reduced automation; Windows uses Docker for workspace execution
 - browser automation, containerized tooling/language servers, and managed
   preview/dev-server parity are container-oriented capabilities
 - containers are not documented as a hardened multi-tenant security boundary

@@ -4,9 +4,9 @@
 
 ## Vision
 
-One beautiful, lightweight macOS desktop window. A workspace for every project. Inside
+One beautiful, lightweight desktop window. A workspace for every project. Inside
 each workspace everything the project needs — editor, terminals, previews, agent chats
-— no external apps. Local-first execution using Apple's native Containerization framework.
+— no external apps. Local-first execution through Apple Container, Docker, or host runtimes.
 Agent-first: AI agents are woven into the workspace OS.
 
 ## Core Principle: Pi is the Brain
@@ -27,12 +27,12 @@ The container is the body. The Electron UI is the face. Pi is the mind.
 
 ## Platform & Constraints
 
-- **Supported alpha target:** macOS on Apple Silicon
-- **Current maintainer-validated baseline:** macOS 26 Tahoe+
+- **Supported alpha targets:** macOS, Linux, and Windows from source
+- **Current maintainer-validated baseline:** macOS 26 Tahoe+ on Apple Silicon
 - **Electron 33** (TypeScript + React)
-- **Apple Container CLI** (`container` v0.8.0+) is **strongly recommended** for per-project Linux VM sandboxes and the full Sero feature set
+- **Container-backed runtimes** are strongly recommended for the full Sero feature set: Apple Container on supported Apple Silicon Macs, Docker on macOS/Linux/Windows
 - **Pi SDK** (`@mariozechner/pi-coding-agent`) as the AI agent core
-- **Supported fallback:** Sero can continue in a reduced host mode when containers are unavailable or intentionally disabled for a workspace
+- **Supported fallback:** Sero can continue in reduced host mode on macOS/Linux when containers are unavailable or intentionally disabled for a workspace; Windows workspace execution uses Docker
 
 For the canonical public alpha support contract, prefer
 `apps/docs-site/docs/reference/support-scope.md` when wording needs to stay in
@@ -42,17 +42,18 @@ sync across surfaces.
 
 ### Preferred: container runtime
 
-Sero works best when a workspace runs with Apple containers enabled. That gives
-Sero its intended Linux sandbox, containerized tooling, browser automation, and
-managed preview / dev-server behavior.
+Sero works best when a workspace runs with a container-backed runtime enabled.
+Apple Container and Docker give Sero its intended Linux sandbox, containerized
+tooling, browser automation, and managed preview / dev-server behavior.
 
-See [macOS Containers Setup](guides/macos-containers.md) for installation,
-verification, and recovery steps.
+See [Docker-backed local runtime](features/docker-runtime.md) for provider
+behavior and [macOS Containers Setup](guides/macos-containers.md) for Apple
+Container installation, verification, and recovery steps.
 
 ### Supported fallback: host mode
 
 If containers are unavailable, unhealthy, or turned off for a workspace, Sero
-can continue in host mode instead of blocking the product entirely.
+can continue in host mode on macOS/Linux instead of blocking the product entirely.
 
 Host mode still supports core workflows such as:
 - onboarding and provider setup
@@ -68,9 +69,9 @@ Host mode is intentionally a reduced experience. Current limitations include:
 
 ### Opting a workspace into host mode
 
-Workspace runtime is configured per workspace:
-- use the workspace tree runtime toggle in the app UI, or
-- set `"container": false` in `.sero-workspace.json`
+Workspace runtime is configured per workspace through the workspace tree runtime
+toggle or the `runtime.backend` value in `.sero-workspace.json`.
 
-That means containers are the default for new workspaces, but they are **not a
-hard requirement** for using Sero at all.
+That means containers are the default/preferred path for new workspaces, but
+they are **not a hard requirement** for using Sero on macOS/Linux. Windows uses
+Docker for workspace execution.

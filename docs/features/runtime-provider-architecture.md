@@ -6,7 +6,7 @@ Sero supports local, live workspace runtimes through three canonical backend IDs
 
 - `apple-container` — Apple Container on supported macOS hosts.
 - `docker` — Docker Desktop or Docker Engine on macOS, Windows, and Linux.
-- `host` — direct host runtime on macOS/Linux, and WSL 2-backed host runtime on Windows.
+- `host` — direct host runtime on macOS/Linux. Windows workspace execution uses Docker.
 
 `mac-host` is a deprecated compatibility alias. Existing workspace config files that contain `{ "runtime": { "backend": "mac-host" } }` are accepted on read, normalized to `host` in IPC/runtime state, and rewritten as `host` on the next config write. New docs, UI, and config should use only `host`.
 
@@ -48,7 +48,7 @@ Legacy `container?: boolean` values and deprecated `mac-host` backend values are
 export type RuntimeWorkspaceAccess = 'host' | 'live-mount';
 ```
 
-- `host` uses `host` access and translates renderer `/workspace` paths to the real host or WSL execution path.
+- `host` uses `host` access and translates renderer `/workspace` paths to the real host execution path.
 - `apple-container` and `docker` use `live-mount` access with the primary workspace mounted at `/workspace`.
 
 Explicit upload/download sync is not part of the runtime model.
@@ -57,7 +57,7 @@ Explicit upload/download sync is not part of the runtime model.
 
 | Runtime | macOS | Linux | Windows | Browser automation |
 | --- | --- | --- | --- | --- |
-| Host (`host`) | Yes | Yes | WSL 2 required | No |
+| Host (`host`) | Yes | Yes | No | No |
 | Docker (`docker`) | Yes | Yes | Yes, through Docker Desktop | Yes |
 | Apple Container (`apple-container`) | Apple Silicon recommended | No | No | Yes |
 
@@ -101,21 +101,16 @@ Callers must use `getRuntimeCapabilities(backend, platform)` and runtime diagnos
 ### Host
 
 - Runs directly against the host workspace on macOS and Linux.
-- Runs through `wsl.exe` on Windows; native PowerShell/cmd host execution is not supported.
+- Is not supported on Windows; Windows workspace execution uses Docker.
 - Translates renderer `/workspace` paths in the main process.
 - Supports file ops, exec/spawn, terminals, Git/VCS, language servers, managed dev servers, and localhost preview URLs.
 - Reports unsupported capabilities explicitly when container-only features such as browser automation are unavailable.
 
-## Windows WSL rules
+## Windows runtime rule
 
-Windows host runtime requires WSL 2. Distro and path handling is explicit:
-
-- A workspace under `\\wsl$\<distro>\...` or `\\wsl.localhost\<distro>\...` executes in `<distro>` via `wsl.exe -d <distro>`.
-- A workspace on a Windows drive such as `C:\Users\me\repo` translates to a WSL execution path such as `/mnt/c/Users/me/repo` and uses the user's default distro for commands.
-- Mixing WSL distros within one workspace is rejected. For example, a primary root under `\\wsl$\Ubuntu\...` and an additional root under `\\wsl$\Debian\...` is invalid.
-- Renderer/editor paths remain virtual (`/workspace` and additional root IDs). Containment checks compare canonical execution-side paths, not mixed Windows and WSL forms.
-
-Host managed dev servers return `http://127.0.0.1:<port>`. On Windows, Sero probes that URL from the Windows side. If WSL localhost forwarding is disabled or broken, `resolvePreviewUrl` surfaces the `wsl-localhost-forwarding-disabled` diagnostic and points users at the WSL `localhostForwarding=true` setting.
+Windows workspace execution uses Docker. The `host` backend is intentionally not
+available on Windows, and Sero does not run workspace commands through native
+PowerShell/cmd host mode.
 
 ## Preview URL contract
 
@@ -148,7 +143,7 @@ Docker and Apple Container pre-publish internal gateway ports at container creat
 | Linux | Docker |
 | Global workspace | Host |
 
-Host remains selectable as an advanced local option on macOS, Linux, and Windows with WSL 2. Windows and Linux do not silently switch to host execution when Docker is missing or stopped.
+Host remains selectable as an advanced local option on macOS and Linux. Windows and Linux do not silently switch to host execution when Docker is missing or stopped.
 
 ## Documentation and smoke tests
 

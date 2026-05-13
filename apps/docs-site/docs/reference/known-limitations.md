@@ -7,18 +7,23 @@ For the canonical supported / not-supported matrix, see
 
 ## Platform scope
 
-Current supported target:
+Current source-supported targets:
+- macOS
+- Linux
+- Windows
+
+Current maintainer-validated baseline:
 - macOS on Apple Silicon
 
 Not currently promised:
-- Linux
-- Windows
 - official public binaries
+- identical runtime capability on every OS
+- Windows host-mode workspace execution
 
 ## Runtime limitations
 
-Host mode is supported, but it is not feature-equivalent to the preferred
-container-backed runtime.
+Host mode is supported on macOS/Linux, but it is not feature-equivalent to the preferred
+container-backed runtime. Windows workspace execution uses Docker.
 
 Expect reduced or unavailable behavior in areas such as:
 - browser automation
