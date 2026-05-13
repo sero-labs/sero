@@ -124,6 +124,34 @@ describe('app-runtime shared seams', () => {
     warnSpy.mockRestore();
   });
 
+  it('keeps default object fields when a newly watched state file is empty', async () => {
+    let latestState: { display: string; history: unknown[] } | null = null;
+    const appState = {
+      read: vi.fn(async () => null),
+      write: vi.fn(async () => undefined),
+      watch: vi.fn(async () => ({})),
+      unwatch: vi.fn(async () => undefined),
+      onChange: vi.fn(() => () => undefined),
+    };
+    installSeroBridge(appState);
+
+    function Probe() {
+      const [state] = useAppState({ display: '0', history: [] });
+      latestState = state;
+      return null;
+    }
+
+    await act(async () => {
+      root?.render(
+        <AppProvider value={{ appId: 'runtime-test', workspaceId: 'global', workspacePath: '/tmp', stateFilePath: '/tmp/state.json' }}>
+          <Probe />
+        </AppProvider>,
+      );
+    });
+
+    expect(latestState).toEqual({ display: '0', history: [] });
+  });
+
   it('invokes app-local tools through the generic appAgent bridge', async () => {
     let runTool: ((toolName: string, params?: Record<string, unknown>) => Promise<unknown>) | null = null;
     const invokeTool = vi.fn(async () => ({
