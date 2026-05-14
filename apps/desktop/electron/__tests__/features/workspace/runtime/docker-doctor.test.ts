@@ -66,7 +66,7 @@ describe('Docker Doctor checks', () => {
     expect(results[0]).toMatchObject({ id: 'runtime.docker.cli', status: 'fail' });
   });
 
-  it('keeps bind mount, permission, network, and port probes as explicit smoke checks', async () => {
+  it('keeps bind mount, permission, network, port, and ss probes as explicit smoke checks', async () => {
     const run: DockerRunner = vi.fn(async (args: string[]) => {
       const joined = args.join(' ');
       if (joined.includes('from-container.txt')) {
@@ -76,6 +76,7 @@ describe('Docker Doctor checks', () => {
         return ok();
       }
       if (joined.includes('registry.npmjs.org')) return fail('offline');
+      if (joined.includes('command -v ss')) return ok();
       if (args[0] === 'run' && args.includes('-p')) return ok('port-container');
       if (args[0] === 'port') return ok('127.0.0.1:49153\n');
       return ok();
@@ -89,6 +90,31 @@ describe('Docker Doctor checks', () => {
     expect(results.find((result) => result.id === 'runtime.docker.port')).toMatchObject({
       status: 'pass',
       details: { mapping: '127.0.0.1:49153' },
+    });
+    expect(results.find((result) => result.id === 'runtime.docker.ss')).toMatchObject({ status: 'pass' });
+  });
+
+  it('warns when the runtime image is missing ss', async () => {
+    const run: DockerRunner = vi.fn(async (args: string[]) => {
+      const joined = args.join(' ');
+      if (joined.includes('command -v ss')) return fail('ss not found', 1);
+      if (joined.includes('from-container.txt')) {
+        const mount = args.find((arg) => arg.startsWith('type=bind,source='));
+        const source = mount?.match(/source=([^,]+)/)?.[1];
+        if (source) await writeFile(path.join(source, 'from-container.txt'), 'ok\n');
+        return ok();
+      }
+      if (joined.includes('registry.npmjs.org')) return ok();
+      if (args[0] === 'port') return ok('127.0.0.1:49153\n');
+      return ok();
+    });
+
+    const results = await runDockerSmokeChecks({ imageRef: 'local:image', run, now: clock() });
+
+    expect(results.find((result) => result.id === 'runtime.docker.ss')).toMatchObject({
+      status: 'warn',
+      message: expect.stringContaining('ss'),
+      details: { remediation: expect.stringContaining('iproute2') },
     });
   });
 });

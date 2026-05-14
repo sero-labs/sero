@@ -78,6 +78,7 @@ export const workspaceBridge = {
     ipcRenderer.invoke(IpcChannels.workspace.getRuntimeConfig, id),
   setRuntimeBackend: (id: string, backend: WorkspaceRuntimeBackend): Promise<WorkspaceInfo> =>
     ipcRenderer.invoke(IpcChannels.workspace.setRuntimeBackend, id, backend),
+  /** @deprecated Use {@link setRuntimeBackend} for three-way runtime selection. */
   setContainer: (id: string, enabled: boolean): Promise<void> =>
     ipcRenderer.invoke(IpcChannels.workspace.setContainer, id, enabled),
   addReference: (id: string, refId: string): Promise<void> =>

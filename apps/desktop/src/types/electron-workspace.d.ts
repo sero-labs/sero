@@ -52,7 +52,11 @@ export interface SeroWorkspaceAPI {
   getRuntimeConfig(id: string): Promise<WorkspaceRuntimeConfig>;
   /** Set provider-aware runtime backend and return refreshed workspace info. */
   setRuntimeBackend(id: string, backend: WorkspaceRuntimeBackend): Promise<WorkspaceInfo>;
-  /** Enable or disable container mode for a workspace. Deprecated compatibility API. */
+  /**
+   * Enable or disable container mode for a workspace.
+   * @deprecated Use {@link setRuntimeBackend} — the boolean API cannot express
+   * three-way runtime selection (host / docker / apple-container).
+   */
   setContainer(id: string, enabled: boolean): Promise<void>;
   /** Add a workspace reference (mount another workspace into this one's runtime). */
   addReference(id: string, refId: string): Promise<void>;

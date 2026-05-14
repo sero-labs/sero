@@ -151,6 +151,11 @@ export function registerWorkspaceHandlers(): void {
   );
 
   // ── Toggle container mode for a workspace ───────────────────
+  /**
+   * @deprecated Compatibility shim while renderer code migrates to
+   * `IpcChannels.workspace.setRuntimeBackend`. The boolean toggle cannot express the three-way
+   * backend selection (host / docker / apple-container); new callers must use setRuntimeBackend.
+   */
   ipcMain.handle(
     IpcChannels.workspace.setContainer,
     async (_event, id: string, enabled: boolean): Promise<void> => {

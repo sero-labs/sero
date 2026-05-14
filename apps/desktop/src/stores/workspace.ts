@@ -47,7 +47,11 @@ interface WorkspaceState {
   addFolder: (folderPath: string, name?: string) => Promise<WorkspaceInfo>;
   /** Set provider-aware runtime backend for a workspace. */
   setRuntimeBackend: (id: string, backend: WorkspaceRuntimeBackend) => Promise<void>;
-  /** Toggle container mode for a workspace. Deprecated compatibility action. */
+  /**
+   * Toggle container mode for a workspace.
+   * @deprecated Use {@link setRuntimeBackend} — boolean container toggling cannot select
+   * between docker and apple-container container runtimes.
+   */
   toggleContainer: (id: string) => Promise<void>;
   /** Add a workspace reference. Mounts the referenced workspace into the container. */
   addReference: (id: string, refId: string) => Promise<void>;

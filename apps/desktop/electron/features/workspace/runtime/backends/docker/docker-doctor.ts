@@ -44,6 +44,7 @@ export async function runDockerSmokeChecks(options: DockerDoctorOptions = {}): P
     await checkPermissions(run, imageRef, options.now, options.signal),
     await checkNetwork(run, imageRef, options.now, options.signal),
     await checkPortSmoke(run, imageRef, options.now, options.signal),
+    await checkSsAvailable(run, imageRef, options.now, options.signal),
   ];
 }
 
@@ -124,6 +125,28 @@ async function checkNetwork(run: DockerRunner, imageRef: string, now?: () => num
     start,
     now,
     result.exitCode === 0 ? undefined : { stderr: result.stderr },
+  );
+}
+
+async function checkSsAvailable(run: DockerRunner, imageRef: string, now?: () => number, signal?: AbortSignal): Promise<DoctorResult> {
+  const start = mark(now);
+  // Dev-server port discovery and the docker-backend killPort helper both rely on `ss -tlnp`,
+  // which lives in iproute2. Verify the runtime image ships it so dev servers don't silently
+  // skip detection inside busybox-only images.
+  const result = await run(['run', '--rm', imageRef, 'sh', '-lc', 'command -v ss >/dev/null 2>&1'], { timeoutMs: 15_000, signal });
+  if (result.exitCode === 0) {
+    return makeDockerResult('runtime.docker.ss', 'pass', 'Runtime image provides ss for dev-server port discovery.', start, now);
+  }
+  return makeDockerResult(
+    'runtime.docker.ss',
+    'warn',
+    'Runtime image does not provide `ss`; dev-server port detection and killPort may degrade.',
+    start,
+    now,
+    {
+      stderr: result.stderr,
+      remediation: 'Install iproute2 (Debian/Ubuntu) or equivalent in the runtime image so `ss` is on PATH.',
+    },
   );
 }
 
