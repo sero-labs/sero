@@ -18,12 +18,14 @@ import type { WorkspaceRuntimeBackend, WorkspaceRuntimeBackendInput, WorkspaceRu
 
 import { SERO_HOME, SERO_AGENT_DIR } from '@electron/platform/env';
 import { inferWorkspaceFromMessage } from './inference';
-import { slugify, ensureUniqueId, prettifyName } from './utils';
+import { slugify, ensureUniqueId, prettifyName, isSafeWorkspaceId } from './utils';
 import * as mounts from './mounts';
 import * as roots from './roots';
 import {
   normalizeWorkspaceConfigForWrite,
+  resolveWorkspaceRuntimeBackendDetails,
   resolveWorkspaceRuntimeConfig,
+  type WorkspaceRuntimeBackendDetails,
 } from './runtime/config';
 import { getDefaultRuntimeBackend } from './runtime/platform-default';
 import type { DoctorResult } from '@electron/features/doctor/engine/types';
@@ -87,16 +89,25 @@ export class WorkspaceManager {
     try {
       const raw = await fs.readFile(this.registryPath, 'utf8');
       const parsed = JSON.parse(raw) as WorkspaceRegistry;
-      const workspaces = Array.isArray(parsed.workspaces) ? parsed.workspaces : [];
+      const rawWorkspaces = Array.isArray(parsed.workspaces) ? parsed.workspaces : [];
+      const workspaces: WorkspaceRegistryEntry[] = [];
 
-      // Migrate: autoOpen → open
+      // Migrate: autoOpen → open and drop entries with unsafe IDs so they cannot poison
+      // dev-server ID parsing (workspace IDs must be colon-free; see runtime-manager).
       let migrated = false;
-      for (const entry of workspaces) {
-        if ('open' in entry) continue;
-        const legacy = entry as unknown as Record<string, unknown>;
-        (entry as WorkspaceRegistryEntry).open = legacy.autoOpen !== false;
-        delete legacy.autoOpen;
-        migrated = true;
+      for (const entry of rawWorkspaces) {
+        if (!isSafeWorkspaceId(entry.id)) {
+          console.warn(`[workspace] Dropping registry entry with unsafe id: ${JSON.stringify(entry.id)}`);
+          migrated = true;
+          continue;
+        }
+        if (!('open' in entry)) {
+          const legacy = entry as unknown as Record<string, unknown>;
+          (entry as WorkspaceRegistryEntry).open = legacy.autoOpen !== false;
+          delete legacy.autoOpen;
+          migrated = true;
+        }
+        workspaces.push(entry);
       }
 
       this.registry = { workspaces };
@@ -401,6 +412,16 @@ export class WorkspaceManager {
 
   async getRuntimeConfig(id: string): Promise<WorkspaceRuntimeConfig> {
     return resolveWorkspaceRuntimeConfig(id, await this.getConfig(id));
+  }
+
+  /**
+   * Returns the validated backend the runtime manager will execute, alongside
+   * the originally configured backend and any platform-fallback metadata. Used
+   * by renderer-facing diagnostics so the audit and the runtime manager agree
+   * on which backend is actually in play.
+   */
+  async getRuntimeBackendDetails(id: string): Promise<WorkspaceRuntimeBackendDetails> {
+    return resolveWorkspaceRuntimeBackendDetails(id, await this.getConfig(id));
   }
 
   async setRuntimeBackend(id: string, backend: WorkspaceRuntimeBackend): Promise<void> {

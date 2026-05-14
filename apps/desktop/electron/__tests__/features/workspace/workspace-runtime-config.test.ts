@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { WorkspaceManager } from '@electron/features/workspace/manager';
 import {
   normalizeWorkspaceConfigForWrite,
+  resolveWorkspaceRuntimeBackendDetails,
   resolveWorkspaceRuntimeConfig,
 } from '@electron/features/workspace/runtime/config';
 import { getDefaultRuntimeBackend } from '@electron/features/workspace/runtime/platform-default';
@@ -181,5 +182,48 @@ describe('workspace runtime config migration', () => {
     const config = { id: 'app', name: 'App', runtime: { backend: 'host' as const } };
     expect(resolveWorkspaceRuntimeConfig('app', config).backend).toBe('docker');
     expect(warn).toHaveBeenCalled();
+  });
+
+  it('migrates apple-container to the platform default on non-darwin', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const config = { id: 'app', name: 'App', runtime: { backend: 'apple-container' as const } };
+
+    const linuxDetails = resolveWorkspaceRuntimeBackendDetails('app', config, { platform: 'linux', arch: 'x64' });
+    expect(linuxDetails).toMatchObject({
+      backend: 'docker',
+      configuredBackend: 'apple-container',
+      fallbackCode: 'backend-unsupported-on-platform',
+    });
+    expect(linuxDetails.fallbackReason).toContain('apple-container is not supported on linux');
+
+    const windowsDetails = resolveWorkspaceRuntimeBackendDetails('app', config, { platform: 'win32', arch: 'x64' });
+    expect(windowsDetails).toMatchObject({
+      backend: 'docker',
+      configuredBackend: 'apple-container',
+      fallbackCode: 'backend-unsupported-on-platform',
+    });
+
+    expect(resolveWorkspaceRuntimeConfig('app', config, { platform: 'linux', arch: 'x64' }).backend).toBe('docker');
+    expect(warn).toHaveBeenCalled();
+  });
+
+  it('keeps the configured backend when it is supported', () => {
+    const details = resolveWorkspaceRuntimeBackendDetails(
+      'app',
+      { id: 'app', name: 'App', runtime: { backend: 'docker' } },
+      { platform: 'linux', arch: 'x64' },
+    );
+
+    expect(details).toEqual({ backend: 'docker', configuredBackend: 'docker' });
+  });
+
+  it('tags mac-host migration with legacy-mac-host fallback code', () => {
+    const legacy = { id: 'app', name: 'App', runtime: { backend: 'mac-host' } } as unknown as WorkspaceConfig;
+    const details = resolveWorkspaceRuntimeBackendDetails('app', legacy, { platform: 'darwin', arch: 'arm64' });
+    expect(details).toMatchObject({
+      backend: 'host',
+      configuredBackend: 'host',
+      fallbackCode: 'legacy-mac-host',
+    });
   });
 });

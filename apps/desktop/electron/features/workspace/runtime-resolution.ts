@@ -1,6 +1,6 @@
-import type { RuntimeBackendId, RuntimeHealth } from './runtime/types';
-import { getRuntimeCapabilities, UnsupportedRuntimeOnPlatformError } from './runtime/capabilities';
-import { getDefaultRuntimeBackend } from './runtime/platform-default';
+import type { RuntimeBackendId, RuntimeCapabilities, RuntimeHealth } from './runtime/types';
+import { getRuntimeCapabilities } from './runtime/capabilities';
+import type { WorkspaceRuntimeBackendDetails } from './runtime/config';
 import type { WorkspaceManager } from './manager';
 
 export type WorkspaceRuntimeKind = 'container' | 'host';
@@ -19,6 +19,31 @@ export interface WorkspaceRuntimeCapabilityAuditEntry {
   detail: string;
 }
 
+const CAPABILITY_KEYS: readonly WorkspaceRuntimeCapabilityKey[] = [
+  'browserAutomation',
+  'containerizedLanguageServers',
+  'managedDevServers',
+  'containerMounts',
+];
+
+const CAPABILITY_LABELS: Record<WorkspaceRuntimeCapabilityKey, string> = {
+  browserAutomation: 'Browser automation',
+  containerizedLanguageServers: 'Language servers',
+  managedDevServers: 'Managed preview/dev servers',
+  containerMounts: 'Container mounts and references',
+};
+
+// Whether a capability requires a container runtime. Browser automation and
+// container mounts are container-exclusive; language servers and managed
+// dev servers also run on the host runtime since the cross-platform-host
+// workstream landed.
+const CAPABILITY_CONTAINER_ONLY: Record<WorkspaceRuntimeCapabilityKey, boolean> = {
+  browserAutomation: true,
+  containerizedLanguageServers: false,
+  managedDevServers: false,
+  containerMounts: true,
+};
+
 export interface WorkspaceRuntimeResolution {
   workspaceId: string;
   workspacePath: string;
@@ -32,7 +57,7 @@ export interface WorkspaceRuntimeResolution {
   capabilityAudit: WorkspaceRuntimeCapabilityAuditEntry[];
 }
 
-type RuntimeResolutionManagers = Pick<WorkspaceManager, 'getPath' | 'getRuntimeConfig'> & {
+type RuntimeResolutionManagers = Pick<WorkspaceManager, 'getPath' | 'getRuntimeBackendDetails'> & {
   getRuntimeHealth(workspaceId: string): Promise<RuntimeHealth>;
 };
 
@@ -46,52 +71,98 @@ function getContainerFallbackReason(workspaceId: string, detail?: string): strin
 }
 
 function createCapabilityAudit(
+  actualBackend: RuntimeBackendId,
   actualRuntime: WorkspaceRuntimeKind,
   containerEnabled: boolean,
   fallbackReason?: string,
 ): WorkspaceRuntimeCapabilityAuditEntry[] {
+  const capabilities = getRuntimeCapabilities(actualBackend, process.platform);
   const hostModeReason = containerEnabled
     ? fallbackReason ?? 'Container mode is preferred, but this workspace is currently running on the host.'
-    : 'Workspace is explicitly set to host mode, so this container-only feature stays unavailable.';
+    : 'Workspace is explicitly set to host mode.';
 
-  return [
-    {
-      key: 'browserAutomation',
-      label: 'Browser automation',
-      available: actualRuntime === 'container',
-      containerOnly: true,
-      detail: actualRuntime === 'container'
+  return CAPABILITY_KEYS.map((key) => buildAuditEntry({
+    key,
+    capabilities,
+    actualBackend,
+    actualRuntime,
+    hostModeReason,
+  }));
+}
+
+interface BuildAuditEntryInput {
+  key: WorkspaceRuntimeCapabilityKey;
+  capabilities: RuntimeCapabilities;
+  actualBackend: RuntimeBackendId;
+  actualRuntime: WorkspaceRuntimeKind;
+  hostModeReason: string;
+}
+
+function buildAuditEntry(input: BuildAuditEntryInput): WorkspaceRuntimeCapabilityAuditEntry {
+  const containerOnly = CAPABILITY_CONTAINER_ONLY[input.key];
+  const available = isCapabilityAvailable(input.key, input.capabilities, input.actualRuntime);
+  return {
+    key: input.key,
+    label: CAPABILITY_LABELS[input.key],
+    available,
+    containerOnly,
+    detail: capabilityDetail(input.key, {
+      available,
+      containerOnly,
+      actualBackend: input.actualBackend,
+      actualRuntime: input.actualRuntime,
+      hostModeReason: input.hostModeReason,
+    }),
+  };
+}
+
+function isCapabilityAvailable(
+  key: WorkspaceRuntimeCapabilityKey,
+  capabilities: RuntimeCapabilities,
+  actualRuntime: WorkspaceRuntimeKind,
+): boolean {
+  switch (key) {
+    case 'browserAutomation':
+      return capabilities.browserAutomation;
+    case 'containerizedLanguageServers':
+      return capabilities.languageServers;
+    case 'managedDevServers':
+      return capabilities.devServers.start && capabilities.devServers.stop;
+    case 'containerMounts':
+      return actualRuntime === 'container';
+  }
+}
+
+interface CapabilityDetailInput {
+  available: boolean;
+  containerOnly: boolean;
+  actualBackend: RuntimeBackendId;
+  actualRuntime: WorkspaceRuntimeKind;
+  hostModeReason: string;
+}
+
+function capabilityDetail(
+  key: WorkspaceRuntimeCapabilityKey,
+  input: CapabilityDetailInput,
+): string {
+  switch (key) {
+    case 'browserAutomation':
+      return input.available
         ? 'Browser / computer-use tooling is available because this workspace is running in a container.'
-        : `${hostModeReason} Browser / computer-use tooling remains container-only.`,
-    },
-    {
-      key: 'containerizedLanguageServers',
-      label: 'Containerized language servers',
-      available: actualRuntime === 'container',
-      containerOnly: true,
-      detail: actualRuntime === 'container'
-        ? 'Language servers can run inside the workspace container.'
-        : `${hostModeReason} Containerized LSP remains unavailable in host mode.`,
-    },
-    {
-      key: 'managedDevServers',
-      label: 'Managed preview/dev servers',
-      available: actualRuntime === 'container',
-      containerOnly: true,
-      detail: actualRuntime === 'container'
-        ? 'Managed preview and dev-server automation can target the workspace container.'
-        : `${hostModeReason} Managed preview/dev-server automation remains container-only.`,
-    },
-    {
-      key: 'containerMounts',
-      label: 'Container mounts and references',
-      available: actualRuntime === 'container',
-      containerOnly: true,
-      detail: actualRuntime === 'container'
+        : `${input.hostModeReason} Browser / computer-use tooling remains container-only.`;
+    case 'containerizedLanguageServers':
+      return input.actualRuntime === 'container'
+        ? 'Language servers run inside the workspace container.'
+        : 'Language servers run on the host runtime.';
+    case 'managedDevServers':
+      return input.actualRuntime === 'container'
+        ? 'Managed preview and dev-server automation targets the workspace container.'
+        : 'Managed preview and dev-server automation runs on the host runtime.';
+    case 'containerMounts':
+      return input.available
         ? 'Workspace references and folder mounts apply immediately to the active container runtime.'
-        : `${hostModeReason} Workspace references and mounts only take effect once the workspace is running in a container again.`,
-    },
-  ];
+        : `${input.hostModeReason} Workspace references and mounts only take effect once the workspace is running in a container again.`;
+  }
 }
 
 export function getRuntimeCapabilityEntry(
@@ -114,22 +185,12 @@ export async function resolveWorkspaceRuntimeWithManagers(
     throw new Error(`Workspace not found: ${workspaceId}`);
   }
 
-  const desiredBackend = (await managers.getRuntimeConfig(workspaceId)).backend;
-  let validatedBackend = desiredBackend;
-  let fallbackCode: WorkspaceRuntimeFallbackCode | undefined;
-  let fallbackReason: string | undefined;
+  const details = await managers.getRuntimeBackendDetails(workspaceId);
+  const platformFallback = toPlatformFallbackCode(details);
+  const validatedBackend = details.backend;
+  const desiredBackend = details.configuredBackend;
 
-  try {
-    getRuntimeCapabilities(desiredBackend, process.platform);
-  } catch (error) {
-    if (!(error instanceof UnsupportedRuntimeOnPlatformError)) throw error;
-    validatedBackend = getDefaultRuntimeBackend({ platform: process.platform, arch: process.arch });
-    fallbackCode = 'backend-unsupported-on-platform';
-    fallbackReason = `${desiredBackend} is not supported on ${process.platform}. Sero is falling back to host mode.`;
-    getRuntimeCapabilities(validatedBackend, process.platform);
-  }
-
-  const containerEnabled = validatedBackend !== 'host' && !fallbackCode;
+  const containerEnabled = validatedBackend !== 'host';
   if (!containerEnabled) {
     return {
       workspaceId,
@@ -139,9 +200,9 @@ export async function resolveWorkspaceRuntimeWithManagers(
       desiredBackend,
       actualBackend: 'host',
       containerEnabled,
-      fallbackCode,
-      fallbackReason,
-      capabilityAudit: createCapabilityAudit('host', containerEnabled, fallbackReason),
+      fallbackCode: platformFallback,
+      fallbackReason: details.fallbackReason,
+      capabilityAudit: createCapabilityAudit('host', 'host', containerEnabled, details.fallbackReason),
     };
   }
 
@@ -155,11 +216,13 @@ export async function resolveWorkspaceRuntimeWithManagers(
       desiredBackend,
       actualBackend: validatedBackend,
       containerEnabled,
-      capabilityAudit: createCapabilityAudit('container', containerEnabled),
+      fallbackCode: platformFallback,
+      fallbackReason: details.fallbackReason,
+      capabilityAudit: createCapabilityAudit(validatedBackend, 'container', containerEnabled, details.fallbackReason),
     };
   }
 
-  fallbackReason = getContainerFallbackReason(workspaceId, getHealthDetail(health));
+  const containerFallbackReason = getContainerFallbackReason(workspaceId, getHealthDetail(health));
   return {
     workspaceId,
     workspacePath,
@@ -169,9 +232,15 @@ export async function resolveWorkspaceRuntimeWithManagers(
     actualBackend: 'host',
     containerEnabled,
     fallbackCode: 'container_unavailable',
-    fallbackReason,
-    capabilityAudit: createCapabilityAudit('host', containerEnabled, fallbackReason),
+    fallbackReason: containerFallbackReason,
+    capabilityAudit: createCapabilityAudit('host', 'host', containerEnabled, containerFallbackReason),
   };
+}
+
+function toPlatformFallbackCode(details: WorkspaceRuntimeBackendDetails): WorkspaceRuntimeFallbackCode | undefined {
+  return details.fallbackCode === 'backend-unsupported-on-platform'
+    ? 'backend-unsupported-on-platform'
+    : undefined;
 }
 
 export async function resolveWorkspaceRuntime(
@@ -184,7 +253,7 @@ export async function resolveWorkspaceRuntime(
 
   return resolveWorkspaceRuntimeWithManagers(workspaceId, {
     getPath: workspaceManager.getPath.bind(workspaceManager),
-    getRuntimeConfig: workspaceManager.getRuntimeConfig.bind(workspaceManager),
+    getRuntimeBackendDetails: workspaceManager.getRuntimeBackendDetails.bind(workspaceManager),
     getRuntimeHealth: runtimeManager.getHealth.bind(runtimeManager),
   });
 }

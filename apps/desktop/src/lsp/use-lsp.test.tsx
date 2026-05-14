@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createRoot, type Root } from 'react-dom/client';
 import type { editor } from 'monaco-editor';
 import { useContainerStore } from '@/stores/container';
+import { useWorkspaceStore } from '@/stores/workspace';
 import { LSP_PROVIDER_LANGUAGE_IDS } from './language-routing';
 import type { LspEditor } from './document-sync';
 import { useLsp, type UseLspResult } from './use-lsp';
@@ -260,7 +261,7 @@ describe('useLsp', () => {
     });
   });
 
-  it('surfaces an explicit host-mode notice instead of starting LSP without containers', async () => {
+  it('waits to start LSP on container backends until the container is running', async () => {
     useContainerStore.setState({
       containers: {
         [workspaceId]: { status: 'stopped' },
@@ -302,6 +303,61 @@ describe('useLsp', () => {
     expect(latestResult).not.toBeNull();
     const resolvedResult = latestResult!;
     expect(resolvedResult.isReady).toBe(false);
-    expect(resolvedResult.statusNotice).toContain('Containerized language servers are unavailable');
+    expect(resolvedResult.statusNotice).toContain('once the workspace container is running');
+  });
+
+  it('starts LSP immediately on host backends even when no container is reported', async () => {
+    useContainerStore.setState({ containers: {} });
+    useWorkspaceStore.setState({
+      workspaces: [{
+        id: workspaceId,
+        name: 'Host workspace',
+        path: '/tmp/host-workspace',
+        open: true,
+        runtime: { backend: 'host' },
+        container: false,
+        references: [],
+        mounts: [],
+        roots: [],
+        missing: false,
+      }],
+    });
+
+    const editor = {
+      getModel: () => null,
+      onDidChangeModelContent: () => ({ dispose: vi.fn() }),
+    } as unknown as LspEditor;
+    const monaco = {
+      Uri: { parse: (value: string) => ({ path: value }) },
+      languages: {
+        registerCompletionItemProvider: vi.fn(),
+        registerHoverProvider: vi.fn(),
+        registerDefinitionProvider: vi.fn(),
+      },
+      editor: {
+        getModels: vi.fn(() => []),
+        setModelMarkers: vi.fn(),
+      },
+    } as unknown as Monaco;
+
+    let latestResult: UseLspResult | null = null;
+
+    await act(async () => {
+      root?.render(
+        <Harness
+          monaco={monaco}
+          editor={editor}
+          onResult={(result) => {
+            latestResult = result;
+          }}
+        />,
+      );
+    });
+
+    await vi.waitFor(() => {
+      expect(start).toHaveBeenCalledWith(workspaceId, 'typescript');
+    });
+    expect(latestResult).not.toBeNull();
+    expect(latestResult!.statusNotice).toBeNull();
   });
 });
