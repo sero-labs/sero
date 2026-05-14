@@ -43,7 +43,7 @@ describe('runWorkspaceCommand', () => {
     const result = await runWorkspaceCommand('ws-1', '/tmp/ws/app', 'pnpm test', 5000, { isolated: true });
 
     expect(mocks.runtimeManager.getRuntime).toHaveBeenCalledWith('ws-1');
-    expect(exec).toHaveBeenCalledWith({ command: 'pnpm test', cwd: '/workspace/app', timeoutMs: 5000 });
+    expect(exec).toHaveBeenCalledWith({ command: 'pnpm test', cwd: '/workspace/app', timeoutMs: 5000, isolated: true });
     expect(containerManager.ensure).not.toHaveBeenCalled();
     expect(result).toEqual({ stdout: 'docker ok', stderr: '', exitCode: 0 });
   });

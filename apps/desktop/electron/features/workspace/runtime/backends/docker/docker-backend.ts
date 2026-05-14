@@ -95,9 +95,7 @@ export class DockerBackend implements RuntimeBackend {
   }
 
   async ensure(): Promise<RuntimeSession> {
-    if (this.ensureInflight) return this.ensureInflight;
-    this.ensureInflight = this.ensureOnce().finally(() => { this.ensureInflight = null; });
-    return this.ensureInflight;
+    return this.ensureWithOptions();
   }
 
   async destroy(): Promise<void> {
@@ -115,7 +113,8 @@ export class DockerBackend implements RuntimeBackend {
   }
 
   async exec(input: RuntimeExecInput): Promise<RuntimeExecResult> {
-    await this.ensure();
+    if (input.isolated === undefined) await this.ensure();
+    else await this.ensureWithOptions({ isolated: input.isolated });
     const env = { ...(input.env ?? {}) };
     if (input.injectGitAuth && this.getGitAuthEnvVars) Object.assign(env, this.getGitAuthEnvVars());
     const args = [
@@ -330,9 +329,15 @@ export class DockerBackend implements RuntimeBackend {
     return (await this.portManager()).resolvePreviewUrl(input.targetPort, input.path);
   }
 
-  private async ensureOnce(): Promise<RuntimeSession> {
+  private async ensureWithOptions(options?: { isolated?: boolean }): Promise<RuntimeSession> {
+    if (this.ensureInflight) return this.ensureInflight;
+    this.ensureInflight = this.ensureOnce(options).finally(() => { this.ensureInflight = null; });
+    return this.ensureInflight;
+  }
+
+  private async ensureOnce(options?: { isolated?: boolean }): Promise<RuntimeSession> {
     const image = await ensureDockerImage({ imageRef: this.imageRef, run: this.run });
-    const config = await this.buildConfig();
+    const config = await this.buildConfig(options);
     const poolSize = await this.previewPortPoolSize();
     let state = await ensureDockerContainer({ config, imageRef: this.imageRef, imageId: image.imageId, run: this.run, previewPortPoolSize: poolSize });
     try {
@@ -385,8 +390,13 @@ export class DockerBackend implements RuntimeBackend {
     await this.exec({ command: `pids=$(ss -tlnp sport = :${port} 2>/dev/null | grep -oP 'pid=\\K[0-9]+' | sort -u); [ -z "$pids" ] || kill $pids 2>/dev/null || true`, timeoutMs: 10_000 });
   }
 
-  private async buildConfig(): Promise<ContainerConfig> {
-    return buildWorkspaceContainerConfig(this.workspaceManager, this.workspaceId, this.hostWorkspacePath);
+  private async buildConfig(options?: { isolated?: boolean }): Promise<ContainerConfig> {
+    return buildWorkspaceContainerConfig(
+      this.workspaceManager,
+      this.workspaceId,
+      this.hostWorkspacePath,
+      options?.isolated === undefined ? undefined : { isolated: options.isolated },
+    );
   }
 
   private async expectOk(command: string): Promise<void> {

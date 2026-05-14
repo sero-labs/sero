@@ -68,6 +68,7 @@ export interface RuntimeExecInput {
   timeoutMs?: number;
   env?: Record<string, string>;
   injectGitAuth?: boolean;
+  isolated?: boolean;
 }
 
 export interface RuntimeExecFileInput {

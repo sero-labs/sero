@@ -93,6 +93,31 @@ describe('AppleContainerBackend', () => {
     });
   });
 
+  it('passes isolated exec requests into the first container config build', async () => {
+    const containerManager = createContainerManager();
+    const workspaceManager = createWorkspaceManager();
+    const backend = new AppleContainerBackend({
+      workspaceId: 'workspace-a',
+      hostWorkspacePath: '/Users/daniel/project',
+      workspaceManager,
+      containerManager: containerManager as unknown as ContainerManager,
+      inspectApplePorts: async () => ({ configuration: { publishedPorts: [
+        { hostAddress: '127.0.0.1', hostPort: 51000, containerPort: 32000 },
+        { hostAddress: '127.0.0.1', hostPort: 51001, containerPort: 32001 },
+      ] } }),
+    });
+
+    await backend.exec({ command: 'pwd', isolated: true });
+
+    expect(workspaceManager.getReferences).not.toHaveBeenCalled();
+    expect(workspaceManager.getMounts).not.toHaveBeenCalled();
+    expect(workspaceManager.getRoots).not.toHaveBeenCalled();
+    expect(containerManager.ensure).toHaveBeenCalledWith(expect.objectContaining({
+      workspaceId: 'workspace-a',
+      writableMounts: [],
+    }));
+  });
+
   it('delegates exec and file primitives without host fallback', async () => {
     const containerManager = createContainerManager();
     const backend = createBackend(containerManager);

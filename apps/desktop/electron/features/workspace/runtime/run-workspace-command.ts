@@ -2,6 +2,7 @@ import type { ExecResult } from '@electron/features/container/core/types';
 import { workspaceManager } from '@electron/features/workspace/manager';
 import { runtimeManager } from './runtime-manager';
 import { toRuntimeWorkspacePath } from './runtime-paths';
+import type { RuntimeExecInput } from './types';
 
 interface RunWorkspaceCommandOptions {
   isolated?: boolean;
@@ -23,8 +24,6 @@ export async function runWorkspaceCommand(
     };
   }
 
-  void options;
-
   const runtimeCwd = toRuntimeWorkspacePath(workspacePath, cwd);
   if (!runtimeCwd) {
     return {
@@ -36,7 +35,9 @@ export async function runWorkspaceCommand(
 
   try {
     const runtime = await runtimeManager.getRuntime(workspaceId);
-    return await runtime.exec({ command, cwd: runtimeCwd, timeoutMs });
+    const execInput: RuntimeExecInput = { command, cwd: runtimeCwd, timeoutMs };
+    if (options?.isolated !== undefined) execInput.isolated = options.isolated;
+    return await runtime.exec(execInput);
   } catch (err: unknown) {
     return {
       stdout: '',

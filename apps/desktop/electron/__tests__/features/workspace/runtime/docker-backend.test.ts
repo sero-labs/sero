@@ -4,6 +4,7 @@ import path from 'path';
 import { describe, expect, it, vi } from 'vitest';
 import type { WorkspaceManager } from '@electron/features/workspace/manager';
 import { DEFAULT_IMAGE } from '@electron/features/container/core/types';
+import { buildWorkspaceContainerConfig } from '@electron/features/container/core/workspace-container-config';
 import type { DockerCommandResult, DockerRunner } from '@electron/features/workspace/runtime/backends/docker/docker-cli';
 import { dockerImagesDir, ensureDockerImage } from '@electron/features/workspace/runtime/backends/docker/docker-image';
 import { createDockerRunArgs } from '@electron/features/workspace/runtime/backends/docker/docker-lifecycle';
@@ -193,6 +194,36 @@ describe('Docker runtime backend core', () => {
       expect.objectContaining({ type: 'registered', workspaceId: 'ws-1', serverId: server.id, status: 'running' }),
       expect.objectContaining({ type: 'unregistered', workspaceId: 'ws-1', serverId: server.id, status: 'stopped' }),
     ]);
+  });
+
+  it('passes isolated exec requests into the first container config build', async () => {
+    vi.mocked(buildWorkspaceContainerConfig).mockClear();
+    let inspectCount = 0;
+    const run: DockerRunner = vi.fn(async (args: string[]) => {
+      if (args[0] === 'image') return ok('[]');
+      if (args[0] === 'inspect') {
+        inspectCount += 1;
+        if (inspectCount === 1) return fail('not found');
+        return ok(JSON.stringify([{ Config: { Image: 'image', Labels: {} }, State: { Running: true }, NetworkSettings: { Ports: { '32000/tcp': [{ HostPort: '49153' }], '32001/tcp': [{ HostPort: '49154' }] } } }]));
+      }
+      return ok(args[0] === 'run' ? 'container-id' : '');
+    });
+    const workspaceManager = { getRuntimeConfig: vi.fn().mockResolvedValue({ backend: 'docker', previewPortPoolSize: 2 }) } as unknown as WorkspaceManager;
+    const backend = new DockerBackend({
+      workspaceId: 'ws-1',
+      hostWorkspacePath: '/tmp/sero-docker-workspace',
+      workspaceManager,
+      run,
+    });
+
+    await backend.exec({ command: 'echo isolated', isolated: true });
+
+    expect(buildWorkspaceContainerConfig).toHaveBeenCalledWith(
+      workspaceManager,
+      'ws-1',
+      '/tmp/sero-docker-workspace',
+      { isolated: true },
+    );
   });
 
   it('exec injects cwd, env, runtime env, and trusted git auth only when requested', async () => {

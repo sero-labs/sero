@@ -96,17 +96,22 @@ export class AppleContainerBackend implements RuntimeBackend {
   }
 
   async ensure(): Promise<RuntimeSession> {
+    return this.ensureWithOptions();
+  }
+
+  private async ensureWithOptions(options?: { isolated?: boolean }): Promise<RuntimeSession> {
     if (this.session) return this.session;
     if (this.ensureInflight) return this.ensureInflight;
-    this.ensureInflight = this.ensureOnce().finally(() => { this.ensureInflight = null; });
+    this.ensureInflight = this.ensureOnce(options).finally(() => { this.ensureInflight = null; });
     return this.ensureInflight;
   }
 
-  private async ensureOnce(): Promise<RuntimeSession> {
+  private async ensureOnce(options?: { isolated?: boolean }): Promise<RuntimeSession> {
     const config = await buildWorkspaceContainerConfig(
       this.workspaceManager,
       this.workspaceId,
       this.hostWorkspacePath,
+      options?.isolated === undefined ? undefined : { isolated: options.isolated },
     );
     const ports = await this.portManager();
     config.previewPortMappings = await ports.prepareRunMappings();
@@ -145,7 +150,8 @@ export class AppleContainerBackend implements RuntimeBackend {
   }
 
   async exec(input: RuntimeExecInput): Promise<RuntimeExecResult> {
-    await this.ensure();
+    if (input.isolated === undefined) await this.ensure();
+    else await this.ensureWithOptions({ isolated: input.isolated });
     return this.containerManager.exec(
       this.workspaceId,
       input.command,
