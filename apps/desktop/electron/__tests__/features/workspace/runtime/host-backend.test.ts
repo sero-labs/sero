@@ -124,6 +124,20 @@ describe('HostBackend', () => {
     );
   });
 
+  it('omits symlink entries that escape during workspace listing', async () => {
+    const { backend, workspacePath } = await createBackend();
+    const outside = await mkdtemp(path.join(os.tmpdir(), 'sero-host-outside-'));
+    tempDirs.push(outside);
+    await writeFile(path.join(outside, 'secret.txt'), 'secret', 'utf8');
+    await symlink(outside, path.join(workspacePath, 'outside-link'));
+    await writeFile(path.join(workspacePath, 'visible.txt'), 'visible', 'utf8');
+
+    const entries = await backend.listFiles({ path: '/workspace', recursive: true });
+
+    expect(entries.map((entry) => entry.path)).toContain('/workspace/visible.txt');
+    expect(entries.map((entry) => entry.path)).not.toContain('/workspace/outside-link');
+  });
+
   it('rejects workspace symlinks that escape before file primitives run', async () => {
     const { backend, workspacePath } = await createBackend();
     const outside = await mkdtemp(path.join(os.tmpdir(), 'sero-host-outside-'));

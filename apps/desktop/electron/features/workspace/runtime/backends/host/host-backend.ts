@@ -388,8 +388,10 @@ export class HostBackend implements RuntimeBackend {
       const hostPath = path.join(directoryPath, dirent.name);
       const runtimePath = returnHostPaths ? hostPath : toRuntimeWorkspacePath(rootHostPath, hostPath);
       if (!runtimePath) continue;
+      const canonicalChildPath = await this.substrate.resolvePathInsideRoot(hostPath, rootHostPath);
+      if (!canonicalChildPath) continue;
       const type = dirent.type === 'directory' ? 'directory' : 'file';
-      const fileStat = await this.substrate.stat(hostPath);
+      const fileStat = await this.substrate.stat(canonicalChildPath);
       entries.push({ name: dirent.name, path: runtimePath, type, size: fileStat.size });
       if (recursive && dirent.type === 'directory') {
         await this.collectEntries(rootHostPath, hostPath, recursive, limit, entries, returnHostPaths);

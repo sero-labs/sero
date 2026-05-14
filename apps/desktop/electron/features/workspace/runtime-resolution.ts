@@ -125,7 +125,7 @@ export async function resolveWorkspaceRuntimeWithManagers(
     if (!(error instanceof UnsupportedRuntimeOnPlatformError)) throw error;
     validatedBackend = getDefaultRuntimeBackend({ platform: process.platform, arch: process.arch });
     fallbackCode = 'backend-unsupported-on-platform';
-    fallbackReason = `${desiredBackend} is not supported on ${process.platform}. Sero is falling back to ${validatedBackend}.`;
+    fallbackReason = `${desiredBackend} is not supported on ${process.platform}. Sero is falling back to host mode.`;
     getRuntimeCapabilities(validatedBackend, process.platform);
   }
 

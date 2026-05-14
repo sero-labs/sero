@@ -138,6 +138,8 @@ describe('resolveWorkspaceRuntime', () => {
       containerEnabled: false,
     });
     expect(resolved.fallbackReason).toContain('apple-container is not supported on linux');
+    expect(resolved.fallbackReason).toContain('falling back to host mode');
+    expect(resolved.fallbackReason).not.toContain('falling back to docker');
     expect(mocks.runtimeManager.getHealth).not.toHaveBeenCalled();
   });
 
