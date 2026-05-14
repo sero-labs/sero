@@ -27,12 +27,13 @@ function workspace(runtime: WorkspaceInfo['runtime']): WorkspaceInfo {
   };
 }
 
-function installSero(platform: string) {
+function installSero(platform: string, arch = 'x64') {
   Object.defineProperty(window, 'sero', {
     configurable: true,
     writable: true,
     value: {
       platform,
+      arch,
       doctor: { runQuick: vi.fn(async () => ({ categories: [] })) },
     },
   });
@@ -82,17 +83,18 @@ describe('RuntimePickerMenu', () => {
   });
 
   it('returns platform-specific runtime option sets', () => {
-    expect(getRuntimePickerOptions('darwin').map((option) => option.backend)).toEqual([
+    expect(getRuntimePickerOptions('darwin', 'arm64').map((option) => option.backend)).toEqual([
       'apple-container',
       'docker',
       'host',
     ]);
-    expect(getRuntimePickerOptions('linux').map((option) => option.backend)).toEqual(['docker', 'host']);
-    expect(getRuntimePickerOptions('win32').map((option) => option.backend)).toEqual(['docker']);
+    expect(getRuntimePickerOptions('darwin', 'x64').map((option) => option.backend)).toEqual(['docker', 'host']);
+    expect(getRuntimePickerOptions('linux', 'x64').map((option) => option.backend)).toEqual(['docker', 'host']);
+    expect(getRuntimePickerOptions('win32', 'x64').map((option) => option.backend)).toEqual(['docker']);
   });
 
-  it('shows macOS runtime choices with Host marked advanced', async () => {
-    installSero('darwin');
+  it('shows macOS Apple Silicon runtime choices with Host marked advanced', async () => {
+    installSero('darwin', 'arm64');
 
     await act(async () => {
       root?.render(<RuntimePickerMenu workspace={workspace({ backend: 'apple-container' })} />);
@@ -109,8 +111,21 @@ describe('RuntimePickerMenu', () => {
     expect(document.body.textContent).toContain('preview port pool requires recreating the runtime/container');
   });
 
+  it('hides Apple Container on macOS Intel', async () => {
+    installSero('darwin', 'x64');
+
+    await act(async () => {
+      root?.render(<RuntimePickerMenu workspace={workspace({ backend: 'docker' })} />);
+    });
+    await openPicker();
+
+    expect(document.body.textContent).toContain('Docker');
+    expect(document.body.textContent).toContain('Host');
+    expect(document.body.textContent).not.toContain('Apple Container');
+  });
+
   it('shows only Docker on Windows', async () => {
-    installSero('win32');
+    installSero('win32', 'x64');
 
     await act(async () => {
       root?.render(<RuntimePickerMenu workspace={workspace({ backend: 'docker' })} />);
@@ -125,7 +140,7 @@ describe('RuntimePickerMenu', () => {
   });
 
   it('opens from a clickable row without bubbling trigger activation', async () => {
-    installSero('darwin');
+    installSero('darwin', 'arm64');
     const onRowClick = vi.fn();
     const onRowKeyDown = vi.fn();
 
@@ -154,7 +169,7 @@ describe('RuntimePickerMenu', () => {
   });
 
   it('writes runtime.backend through the workspace store', async () => {
-    installSero('darwin');
+    installSero('darwin', 'arm64');
 
     await act(async () => {
       root?.render(<RuntimePickerMenu workspace={workspace({ backend: 'apple-container' })} />);

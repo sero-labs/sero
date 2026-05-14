@@ -21,7 +21,7 @@ export function registerContainerHandlers(): void {
     async (_event, workspaceId: string) => {
       try {
         const runtime = await workspaceManager.getRuntimeConfig(workspaceId);
-        if (runtime.backend === 'host') return null;
+        if (runtime.backend !== 'apple-container') return null;
         if (!containerManager.hasContainer(workspaceId)) return null;
         const state = await containerManager.inspect(workspaceId);
         return state;
@@ -36,8 +36,8 @@ export function registerContainerHandlers(): void {
     IpcChannels.container.inspect,
     async (_event, workspaceId: string) => {
       const runtime = await workspaceManager.getRuntimeConfig(workspaceId);
-      if (runtime.backend === 'host') {
-        throw new Error(`Container inspect is not applicable for host runtime (backend: ${runtime.backend})`);
+      if (runtime.backend !== 'apple-container') {
+        throw new Error(`Container inspect is not applicable for runtime backend: ${runtime.backend}`);
       }
 
       try {
@@ -57,7 +57,7 @@ export function registerContainerHandlers(): void {
     IpcChannels.container.ensure,
     async (_event, workspaceId: string) => {
       const runtime = await workspaceManager.getRuntimeConfig(workspaceId);
-      if (runtime.backend === 'host') return null;
+      if (runtime.backend !== 'apple-container') return null;
 
       const wsPath = workspaceManager.getPath(workspaceId);
       if (!wsPath) throw new Error(`Workspace not found: ${workspaceId}`);

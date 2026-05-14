@@ -42,7 +42,7 @@ function stopRuntimeTriggerPropagation(event: SyntheticEvent): void {
   event.stopPropagation();
 }
 
-export function getRuntimePickerOptions(platform: string): RuntimeOption[] {
+export function getRuntimePickerOptions(platform: string, arch: string): RuntimeOption[] {
   const hostOption: RuntimeOption = {
     backend: 'host',
     name: 'Host',
@@ -50,9 +50,16 @@ export function getRuntimePickerOptions(platform: string): RuntimeOption[] {
     advanced: true,
   };
 
-  if (platform === 'darwin') {
+  if (platform === 'darwin' && arch === 'arm64') {
     return [
       { backend: 'apple-container', name: 'Apple Container', description: APPLE_CONTAINER_COPY },
+      { backend: 'docker', name: 'Docker', description: DOCKER_COPY },
+      hostOption,
+    ];
+  }
+
+  if (platform === 'darwin') {
+    return [
       { backend: 'docker', name: 'Docker', description: DOCKER_COPY },
       hostOption,
     ];
@@ -71,7 +78,8 @@ export function getRuntimePickerOptions(platform: string): RuntimeOption[] {
 export function RuntimePickerMenu({ workspace }: { workspace: WorkspaceInfo }) {
   const setRuntimeBackend = useWorkspaceStore((state) => state.setRuntimeBackend);
   const platform = window.sero.platform;
-  const options = getRuntimePickerOptions(platform);
+  const arch = window.sero.arch;
+  const options = getRuntimePickerOptions(platform, arch);
   const current = workspace.runtime.backend as RuntimeBackendForDisplay;
   const currentName = runtimeName(current);
 

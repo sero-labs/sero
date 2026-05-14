@@ -25,7 +25,7 @@ interface DockerInspectData {
   Image?: string;
   Config?: { Image?: string; Labels?: Record<string, string> };
   State?: { Running?: boolean; Status?: string };
-  Mounts?: Array<{ Source?: string; Destination?: string; RW?: boolean }>;
+  Mounts?: Array<{ Type?: string; Source?: string; Destination?: string; RW?: boolean }>;
   HostConfig?: { NanoCpus?: number; Memory?: number };
 }
 
@@ -131,7 +131,37 @@ function isExpectedContainer(inspect: DockerInspectData, config: ContainerConfig
   if (labels['ai.sero.workspaceId'] !== config.workspaceId) return false;
   if (labels['ai.sero.image'] !== imageRef) return false;
   if (imageId && inspect.Image !== imageId) return false;
-  return (inspect.Mounts ?? []).some((mount) => mount.Source === config.hostPath && mount.Destination === '/workspace');
+  return mountSignaturesMatch(expectedMountSignature(config), actualMountSignature(inspect));
+}
+
+function expectedMountSignature(config: ContainerConfig): Set<string> {
+  return new Set(buildDockerMounts(config).map((mount) => mountSignature(
+    mount.source,
+    mount.target,
+    mount.readonly === true ? 'ro' : 'rw',
+  )));
+}
+
+function actualMountSignature(inspect: DockerInspectData): Set<string> {
+  return new Set((inspect.Mounts ?? [])
+    .filter((mount) => !mount.Type || mount.Type === 'bind')
+    .map((mount) => mountSignature(
+      mount.Source ?? '',
+      mount.Destination ?? '',
+      mount.RW === false ? 'ro' : 'rw',
+    )));
+}
+
+function mountSignaturesMatch(expected: Set<string>, actual: Set<string>): boolean {
+  if (expected.size !== actual.size) return false;
+  for (const signature of expected) {
+    if (!actual.has(signature)) return false;
+  }
+  return true;
+}
+
+function mountSignature(source: string, target: string, mode: 'ro' | 'rw'): string {
+  return `${source}->${target}:${mode}`;
 }
 
 async function configureGitIdentity(workspaceId: string, run: DockerRunner): Promise<void> {

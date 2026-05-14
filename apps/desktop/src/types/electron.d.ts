@@ -399,6 +399,7 @@ interface SeroPluginsAPI {
 
 export interface SeroAPI {
   platform: string;
+  arch: string;
   shell: SeroShellAPI;
   profiles: SeroProfilesAPI;
   contextPresets: SeroContextPresetsAPI;

@@ -49,6 +49,10 @@ describe('workspace runtime config migration', () => {
       .toBe('apple-container');
     expect(resolveWorkspaceRuntimeConfig('app', { id: 'app', name: 'App', container: false }, platform).backend)
       .toBe('host');
+    expect(resolveWorkspaceRuntimeConfig('app', { id: 'app', name: 'App', container: false }, { platform: 'linux', arch: 'x64' }).backend)
+      .toBe('host');
+    expect(resolveWorkspaceRuntimeConfig('app', { id: 'app', name: 'App', container: false }, { platform: 'win32', arch: 'x64' }).backend)
+      .toBe('docker');
     expect(resolveWorkspaceRuntimeConfig('app', { id: 'app', name: 'App' }, platform).backend)
       .toBe('apple-container');
     expect(resolveWorkspaceRuntimeConfig('app', { id: 'app', name: 'App', runtime: { backend: 'docker' } }, platform).backend)

@@ -66,9 +66,56 @@ describe('dev server IPC handlers', () => {
     mocks.runtimeManager.getRuntime.mockReset().mockResolvedValue(mocks.runtime);
     mocks.runtimeManager.listDevServersSync.mockReset().mockReturnValue([]);
     mocks.runtimeManager.onDevServerChange.mockClear();
+    mocks.broadcastToWindows.mockClear();
 
     const { registerDevServerHandlers } = await import('@electron/ipc/container/dev-server');
     registerDevServerHandlers();
+  });
+
+  it('subscribes to RuntimeManager only for dev-server broadcasts', () => {
+    expect(mocks.registry.onChange).not.toHaveBeenCalled();
+    expect(mocks.runtimeManager.onDevServerChange).toHaveBeenCalledTimes(1);
+  });
+
+  it('broadcasts normalized runtime dev-server events once', () => {
+    const callback = mocks.runtimeManager.onDevServerChange.mock.calls[0]?.[0] as ((event: {
+      type: 'registered';
+      workspaceId: string;
+      serverId: string;
+      server: {
+        id: string;
+        workspaceId: string;
+        port: number;
+        url: string;
+        command: string;
+        cwd: string;
+        status: 'running';
+      };
+      status: 'running';
+    }) => void) | undefined;
+    if (!callback) throw new Error('Expected dev-server change subscription');
+
+    callback({
+      type: 'registered',
+      workspaceId: 'workspace-a',
+      serverId: 'workspace-a:workspace:root:5173',
+      server: {
+        id: 'workspace-a:workspace:root:5173',
+        workspaceId: 'workspace-a',
+        port: 5173,
+        url: 'http://127.0.0.1:5173',
+        command: 'pnpm dev',
+        cwd: '/workspace',
+        status: 'running',
+      },
+      status: 'running',
+    });
+
+    expect(mocks.broadcastToWindows).toHaveBeenCalledTimes(1);
+    expect(mocks.broadcastToWindows).toHaveBeenCalledWith(
+      IpcChannels.devServer.event,
+      expect.objectContaining({ type: 'registered' }),
+    );
   });
 
   it('stop calls only runtime when runtime succeeds for workspace-prefixed IDs', async () => {

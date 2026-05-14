@@ -27,8 +27,8 @@ export function resolveWorkspaceRuntimeConfig(
     return { ...config.runtime, backend: normalized };
   }
 
-  if (config?.container === false && platform === 'darwin') {
-    return { backend: 'host' };
+  if (config?.container === false) {
+    return { backend: platform === 'win32' ? 'docker' : 'host' };
   }
 
   return {

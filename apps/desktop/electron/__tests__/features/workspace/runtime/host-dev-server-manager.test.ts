@@ -126,6 +126,78 @@ describe('HostDevServerManager', () => {
     }));
   });
 
+  it('kills descendants and listener PIDs when stopping a host dev server', async () => {
+    const process = createProcess(1234);
+    const execFile = vi.fn<(input: RuntimeExecFileInput) => Promise<RuntimeExecResult>>()
+      .mockImplementation(async (input) => {
+        if (input.program === 'pgrep' && input.args[1] === '1234') return ok('2000\n');
+        if (input.program === 'pgrep') return fail();
+        if (input.program === 'lsof' && input.args.includes('-t')) return ok('3000\n');
+        if (input.program === 'lsof') return ok('node 1234 user 22u IPv4 TCP 127.0.0.1:5173 (LISTEN)');
+        return ok();
+      });
+    const manager = new HostDevServerManager({
+      workspaceId: 'workspace-a',
+      platform: 'linux',
+      spawn: vi.fn(async () => process),
+      execFile,
+      pollIntervalMs: 1,
+      portDetectTimeoutMs: 10,
+    });
+
+    const server = await manager.start({ command: 'pnpm dev', cwd: '/workspace' });
+    await manager.stop({ serverId: server.id });
+
+    expect(process.signal).toHaveBeenCalledWith('SIGTERM');
+    expect(execFile).toHaveBeenCalledWith(expect.objectContaining({
+      program: 'kill',
+      args: ['-TERM', '1234', '2000', '3000'],
+    }));
+    expect(execFile).toHaveBeenCalledWith(expect.objectContaining({
+      program: 'kill',
+      args: ['-KILL', '3000'],
+    }));
+  });
+
+  it('preserves dev-server metadata on restart', async () => {
+    const spawn = vi.fn<(input: RuntimeProcessInput) => Promise<ReturnType<typeof createProcess>>>()
+      .mockResolvedValue(createProcess());
+    const execFile = vi.fn<(input: RuntimeExecFileInput) => Promise<RuntimeExecResult>>()
+      .mockImplementation(async (input) => {
+        if (input.program === 'pgrep') return fail();
+        if (input.program === 'lsof' && input.args.includes('-t')) return fail();
+        if (input.program === 'kill') return ok();
+        return ok('node 1234 user 22u IPv4 TCP 127.0.0.1:5173 (LISTEN)');
+      });
+    const manager = new HostDevServerManager({
+      workspaceId: 'workspace-a',
+      platform: 'linux',
+      spawn,
+      execFile,
+      pollIntervalMs: 1,
+      portDetectTimeoutMs: 10,
+    });
+
+    const server = await manager.start({
+      command: 'pnpm dev',
+      cwd: '/workspace/app',
+      name: 'Card Preview',
+      framework: 'vite',
+      scope: 'card-preview',
+      cardId: 'card-1',
+    });
+    const restarted = await manager.restart({ serverId: server.id });
+
+    expect(spawn).toHaveBeenNthCalledWith(2, { command: 'pnpm dev', cwd: '/workspace/app', stdio: 'pipe' });
+    expect(restarted).toMatchObject({
+      id: 'workspace-a:card-preview:card-1:5173',
+      name: 'Card Preview',
+      framework: 'vite',
+      scope: 'card-preview',
+      cardId: 'card-1',
+    });
+  });
+
   it('throws and terminates the spawned process when port detection times out', async () => {
     const process = createProcess();
     const manager = new HostDevServerManager({

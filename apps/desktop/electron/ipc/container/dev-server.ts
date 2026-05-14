@@ -62,10 +62,7 @@ function runtimeDevServerEventToIpc(event: RuntimeDevServerChangeEvent): DevServ
 export function registerDevServerHandlers(): void {
   const registry = containerManager.devServers;
 
-  // Forward legacy and runtime-backend events to the renderer.
-  registry.onChange((event) => {
-    sendEvent(event);
-  });
+  // Forward legacy and runtime-backend events to the renderer through RuntimeManager.
   runtimeManager.onDevServerChange((event) => {
     const normalized = runtimeDevServerEventToIpc(event);
     if (normalized) sendEvent(normalized);

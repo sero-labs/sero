@@ -103,7 +103,7 @@ export class HostBackend implements RuntimeBackend {
   }
 
   async destroy(): Promise<void> {
-    this.devServers.dispose();
+    await this.devServers.dispose();
     this.terminals.disposeWorkspaceTerminals(this.workspaceId);
   }
 

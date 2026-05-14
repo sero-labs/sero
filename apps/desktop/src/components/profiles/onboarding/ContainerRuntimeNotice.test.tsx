@@ -40,6 +40,7 @@ describe('ContainerRuntimeNotice', () => {
       configurable: true,
       value: {
         platform: 'darwin',
+        arch: 'arm64',
         shell: shellBridge,
       },
     });
@@ -93,6 +94,7 @@ describe('ContainerRuntimeNotice', () => {
       value: {
         shell: shellBridge,
         platform: 'win32',
+        arch: 'x64',
       },
     });
 

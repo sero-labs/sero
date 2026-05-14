@@ -124,7 +124,7 @@ export interface RuntimeDevServerStartInput {
   cwd: string;
   name?: string;
   framework?: string;
-  scope?: 'workspace' | 'card';
+  scope?: 'workspace' | 'card' | 'card-preview';
   cardId?: string;
   logPath?: string;
 }

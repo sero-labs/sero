@@ -253,6 +253,37 @@ describe('AppleContainerBackend', () => {
     ]);
   });
 
+  it('preserves dev-server metadata on restart', async () => {
+    const server: RuntimeDevServer = {
+      id: 'workspace-a:card-preview:card-1:5173',
+      port: 5173,
+      url: 'http://127.0.0.1:51000',
+      command: 'pnpm dev',
+      cwd: '/workspace/app',
+      name: 'Card Preview',
+      framework: 'vite',
+      scope: 'card-preview',
+      cardId: 'card-1',
+    };
+    const backend = createBackend();
+    Object.assign(backend as unknown as { ports: { getServer: (id: string) => RuntimeDevServer | undefined } }, {
+      ports: { getServer: vi.fn().mockReturnValue(server) },
+    });
+    vi.spyOn(backend, 'stopDevServer').mockResolvedValue(undefined);
+    const start = vi.spyOn(backend, 'startDevServer').mockResolvedValue(server);
+
+    await backend.restartDevServer({ serverId: server.id });
+
+    expect(start).toHaveBeenCalledWith({
+      command: 'pnpm dev',
+      cwd: '/workspace/app',
+      name: 'Card Preview',
+      framework: 'vite',
+      scope: 'card-preview',
+      cardId: 'card-1',
+    });
+  });
+
   it('resolves preview URLs through loopback host-port pool bridges', async () => {
     const containerManager = createContainerManager();
     const backend = createBackend(containerManager);

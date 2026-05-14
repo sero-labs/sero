@@ -32,6 +32,7 @@ export interface HostDevServerManagerOptions {
 interface HostDevServerRecord extends RuntimeDevServer {
   status: 'starting' | 'running' | 'failed' | 'stopped';
   pid?: number;
+  executionPid?: number;
   process?: RuntimeProcess;
   diagnosticCode?: HostDevServerDiagnosticCode;
 }
@@ -64,7 +65,7 @@ export class HostDevServerManager {
     try {
       const port = detectionPid ? await this.detectListeningPort(detectionPid) : null;
       if (!port) {
-        process.signal('SIGTERM');
+        await this.terminateProcess(process, detectionPid);
         terminated = true;
         throw new Error('No listening port was detected after starting the command.');
       }
@@ -82,6 +83,7 @@ export class HostDevServerManager {
         registeredAt: new Date().toISOString(),
         status: 'running',
         pid,
+        executionPid: detectionPid,
         process,
       };
       this.servers.set(record.id, record);
@@ -94,7 +96,7 @@ export class HostDevServerManager {
       });
       return toRuntimeServer(record);
     } catch (err) {
-      if (!terminated) process.signal('SIGTERM');
+      if (!terminated) await this.terminateProcess(process, detectionPid);
       throw err instanceof Error ? err : new Error(String(err));
     }
   }
@@ -128,7 +130,7 @@ export class HostDevServerManager {
   async stop(input: RuntimeDevServerStopInput): Promise<void> {
     const server = this.servers.get(input.serverId);
     if (!server) throw new Error(`Dev server not found: ${input.serverId}`);
-    server.process?.signal('SIGTERM');
+    await this.terminateServer(server);
     server.status = 'stopped';
     this.emitDevServerChange({
       type: 'status_changed',
@@ -149,7 +151,14 @@ export class HostDevServerManager {
     const server = this.servers.get(input.serverId);
     if (!server) throw new Error(`Dev server not found: ${input.serverId}`);
     await this.stop(input);
-    return this.start({ command: server.command, cwd: server.cwd });
+    return this.start({
+      command: server.command,
+      cwd: server.cwd,
+      name: server.name,
+      framework: server.framework,
+      scope: server.scope,
+      cardId: server.cardId,
+    });
   }
 
   status(input: RuntimeDevServerStatusInput): RuntimeDevServerStatus {
@@ -166,9 +175,10 @@ export class HostDevServerManager {
     return () => this.changeCallbacks.delete(cb);
   }
 
-  dispose(): void {
-    for (const server of this.servers.values()) {
-      server.process?.signal('SIGTERM');
+  async dispose(): Promise<void> {
+    const servers = [...this.servers.values()];
+    await Promise.all(servers.map((server) => this.terminateServer(server)));
+    for (const server of servers) {
       server.status = 'stopped';
       this.emitDevServerChange({
         type: 'unregistered',
@@ -224,6 +234,42 @@ export class HostDevServerManager {
     return parseLsofPort(result.stdout);
   }
 
+  private async terminateServer(server: HostDevServerRecord): Promise<void> {
+    await this.terminateProcess(server.process, server.executionPid ?? server.pid, server.port);
+  }
+
+  private async terminateProcess(process: RuntimeProcess | undefined, rootPid?: number, port?: number): Promise<void> {
+    process?.signal('SIGTERM');
+    const roots = rootPid ? [rootPid] : [];
+    const descendants = (await Promise.all(roots.map((pid) => this.descendantPids(pid)))).flat();
+    const listeners = port ? await this.listenerPids(port) : [];
+    const pids = uniqueNumbers([...roots, ...descendants, ...listeners]);
+    if (pids.length > 0) await this.killPids('-TERM', pids);
+    if (port) {
+      const remainingListeners = await this.listenerPids(port);
+      if (remainingListeners.length > 0) await this.killPids('-KILL', remainingListeners);
+    }
+  }
+
+  private async listenerPids(port: number): Promise<number[]> {
+    const result = await this.execFile({
+      program: 'lsof',
+      args: ['-nP', `-iTCP:${port}`, '-sTCP:LISTEN', '-t'],
+      timeoutMs: 2_000,
+    }).catch(() => null);
+    if (!result || result.exitCode !== 0) return [];
+    return parsePidLines(result.stdout);
+  }
+
+  private async killPids(signal: '-TERM' | '-KILL', pids: number[]): Promise<void> {
+    if (pids.length === 0) return;
+    await this.execFile({
+      program: 'kill',
+      args: [signal, ...pids.map(String)],
+      timeoutMs: 2_000,
+    }).catch(() => undefined);
+  }
+
   private emitDevServerChange(event: RuntimeDevServerChangeEvent): void {
     for (const cb of this.changeCallbacks) cb(event);
   }
@@ -238,6 +284,16 @@ export function parseLsofPort(output: string): number | null {
     if (Number.isInteger(port) && port > 0) return port;
   }
   return null;
+}
+
+function parsePidLines(output: string): number[] {
+  return output.split('\n')
+    .map((line) => Number(line.trim()))
+    .filter((pid) => Number.isInteger(pid) && pid > 0);
+}
+
+function uniqueNumbers(values: number[]): number[] {
+  return Array.from(new Set(values.filter((value) => Number.isInteger(value) && value > 0)));
 }
 
 function toRuntimeServer(record: HostDevServerRecord): RuntimeDevServer {

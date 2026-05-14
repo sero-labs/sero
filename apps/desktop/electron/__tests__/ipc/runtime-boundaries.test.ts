@@ -125,7 +125,7 @@ describe('runtime-aware IPC boundaries', () => {
     mocks.resolveWorkspaceRuntime.mockClear();
   });
 
-  it('container ensure returns null for host backend and ensures container runtimes', async () => {
+  it('container ensure returns null for host and Docker, and ensures Apple Container only', async () => {
     const { registerContainerHandlers } = await import('@electron/ipc/container/container');
     registerContainerHandlers();
 
@@ -138,6 +138,10 @@ describe('runtime-aware IPC boundaries', () => {
     expect(mocks.containerManager.ensure).not.toHaveBeenCalled();
 
     mocks.workspaceManager.getRuntimeConfig.mockResolvedValue({ backend: 'docker' });
+    await expect(ensureHandler?.({}, 'ws-1')).resolves.toBeNull();
+    expect(mocks.containerManager.ensure).not.toHaveBeenCalled();
+
+    mocks.workspaceManager.getRuntimeConfig.mockResolvedValue({ backend: 'apple-container' });
     await expect(ensureHandler?.({}, 'ws-1')).resolves.toEqual({ id: 'container-1', state: 'running' });
     expect(mocks.buildContainerConfig).toHaveBeenCalledWith('ws-1', '/repo');
     expect(mocks.containerManager.ensure).toHaveBeenCalledTimes(1);
@@ -152,7 +156,11 @@ describe('runtime-aware IPC boundaries', () => {
       | undefined;
     expect(inspectHandler).toBeTypeOf('function');
 
-    await expect(inspectHandler?.({}, 'ws-1')).rejects.toThrow(/backend: host/);
+    await expect(inspectHandler?.({}, 'ws-1')).rejects.toThrow(/runtime backend: host/);
+
+    mocks.workspaceManager.getRuntimeConfig.mockResolvedValue({ backend: 'docker' });
+    await expect(inspectHandler?.({}, 'ws-1')).rejects.toThrow(/runtime backend: docker/);
+    expect(mocks.containerManager.inspect).not.toHaveBeenCalled();
   });
 
   it('editor compatibility isContainer channel derives from runtime backend', async () => {

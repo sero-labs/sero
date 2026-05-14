@@ -14,23 +14,28 @@ Required local tooling:
 For the canonical current support contract and exact validated baseline, see
 [Support Scope](/reference/support-scope).
 
-## Recommended runtime requirement
+## Runtime requirements by platform
 
-For the full intended experience, use a container-backed runtime. Sero supports
-Apple Container and Docker-backed workspaces.
+Sero supports local workspace runtimes only. Pick the runtime that matches your platform:
 
-For Apple Container, install Apple's `container` CLI and make sure it is
-available at:
+| Platform | Default runtime | Requirement |
+| --- | --- | --- |
+| macOS Apple Silicon | Apple Container | Install Apple's `container` CLI, or explicitly select Docker or Host. |
+| macOS Intel | Docker | Install Docker Desktop. Apple Container is not offered on Intel Macs. |
+| Linux | Docker | Install Docker Engine/Desktop. Host is available as an advanced reduced-capability option. |
+| Windows | Docker | Docker Desktop with Linux containers is required for workspace execution. |
+
+For Apple Container on Apple Silicon Macs, make sure the CLI is available at:
 
 ```text
 /usr/local/bin/container
 ```
 
 For Docker-backed workspaces, install Docker Desktop or Docker Engine and make
-sure `docker info` succeeds. Windows workspace execution uses Docker.
+sure `docker info` succeeds.
 
-Containers are strongly recommended, but they are not a hard requirement for
-trying Sero.
+Host mode is available only on macOS and Linux. It starts quickly, but it does
+not provide Linux/container parity or browser automation.
 
 ## Install dependencies
 

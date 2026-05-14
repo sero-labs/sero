@@ -298,7 +298,14 @@ export class DockerBackend implements RuntimeBackend {
     const server = ports.getServer(input.serverId);
     if (!server) throw new Error(`Dev server not found: ${input.serverId}`);
     await this.stopDevServer(input);
-    return this.startDevServer({ command: server.command, cwd: server.cwd, name: 'Dev Server' });
+    return this.startDevServer({
+      command: server.command,
+      cwd: server.cwd,
+      name: server.name,
+      framework: server.framework,
+      scope: server.scope,
+      cardId: server.cardId,
+    });
   }
 
   async getDevServerStatus(input: RuntimeDevServerStatusInput): Promise<RuntimeDevServerStatus> {

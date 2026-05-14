@@ -85,6 +85,7 @@ describe('OnboardingWizard', () => {
           openExternal: vi.fn(),
         },
         platform: 'darwin',
+        arch: 'arm64',
         github: {
           status: vi.fn().mockResolvedValue({ authenticated: false }),
           onEvent: vi.fn(() => () => {}),

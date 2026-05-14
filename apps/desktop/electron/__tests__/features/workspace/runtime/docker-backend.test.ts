@@ -7,7 +7,7 @@ import { DEFAULT_IMAGE } from '@electron/features/container/core/types';
 import { buildWorkspaceContainerConfig } from '@electron/features/container/core/workspace-container-config';
 import type { DockerCommandResult, DockerRunner } from '@electron/features/workspace/runtime/backends/docker/docker-cli';
 import { dockerImagesDir, ensureDockerImage } from '@electron/features/workspace/runtime/backends/docker/docker-image';
-import { createDockerRunArgs } from '@electron/features/workspace/runtime/backends/docker/docker-lifecycle';
+import { createDockerRunArgs, ensureDockerContainer } from '@electron/features/workspace/runtime/backends/docker/docker-lifecycle';
 import { mountArgs } from '@electron/features/workspace/runtime/backends/docker/docker-mounts';
 import { DockerBackend } from '@electron/features/workspace/runtime/backends/docker/docker-backend';
 import type { RuntimeDevServer } from '@electron/features/workspace/runtime/types';
@@ -66,6 +66,107 @@ describe('Docker runtime backend core', () => {
     expect(mountArgs([{ source: 'C:\\Users\\daniel\\repo', target: '/workspace' }])).toEqual([
       '--mount', 'type=bind,source=C:\\Users\\daniel\\repo,target=/workspace',
     ]);
+  });
+
+  it('reuses existing Docker containers only when effective bind mounts match', async () => {
+    const workspacePath = mkdtempSync(path.join(tmpdir(), 'sero-docker-ws-'));
+    const sharedPath = mkdtempSync(path.join(tmpdir(), 'sero-docker-shared-'));
+    const config = {
+      workspaceId: 'ws-1',
+      hostPath: workspacePath,
+      writableMounts: [sharedPath],
+      readOnlyMounts: [],
+    };
+    const run = vi.fn(async (args: string[]) => {
+      expect(args).toEqual(['inspect', 'sero-ws-1']);
+      return ok(JSON.stringify([{
+        Config: { Image: 'image:test', Labels: expectedDockerLabels('image:test') },
+        Image: 'image-id',
+        State: { Running: true },
+        Mounts: [
+          { Type: 'bind', Source: workspacePath, Destination: '/workspace', RW: true },
+          { Type: 'bind', Source: sharedPath, Destination: sharedPath, RW: true },
+        ],
+      }]));
+    });
+
+    await expect(ensureDockerContainer({ config, imageRef: 'image:test', imageId: 'image-id', run }))
+      .resolves.toMatchObject({ id: 'sero-ws-1', state: 'running' });
+    expect(run).toHaveBeenCalledTimes(1);
+  });
+
+  it('recreates existing Docker containers when bind mounts differ', async () => {
+    const workspacePath = mkdtempSync(path.join(tmpdir(), 'sero-docker-ws-'));
+    const sharedPath = mkdtempSync(path.join(tmpdir(), 'sero-docker-shared-'));
+    const calls: string[][] = [];
+    const config = {
+      workspaceId: 'ws-1',
+      hostPath: workspacePath,
+      writableMounts: [sharedPath],
+      readOnlyMounts: [],
+    };
+    const run = vi.fn(async (args: string[]) => {
+      calls.push(args);
+      if (args[0] === 'inspect' && calls.filter((call) => call[0] === 'inspect').length === 1) {
+        return ok(JSON.stringify([{
+          Config: { Image: 'image:test', Labels: expectedDockerLabels('image:test') },
+          Image: 'image-id',
+          State: { Running: true },
+          Mounts: [{ Type: 'bind', Source: workspacePath, Destination: '/workspace', RW: true }],
+        }]));
+      }
+      if (args[0] === 'inspect') {
+        return ok(JSON.stringify([{
+          Config: { Image: 'image:test', Labels: expectedDockerLabels('image:test') },
+          State: { Running: true },
+          Mounts: [
+            { Type: 'bind', Source: workspacePath, Destination: '/workspace', RW: true },
+            { Type: 'bind', Source: sharedPath, Destination: sharedPath, RW: true },
+          ],
+        }]));
+      }
+      return ok(args[0] === 'run' ? 'container-id' : '');
+    });
+
+    await ensureDockerContainer({ config, imageRef: 'image:test', imageId: 'image-id', run });
+
+    expect(calls.map((args) => args[0])).toEqual(['inspect', 'rm', 'run', 'exec', 'exec', 'inspect']);
+    expect(calls.find((args) => args[0] === 'run')).toEqual(expect.arrayContaining([
+      '--mount', `type=bind,source=${sharedPath},target=${sharedPath}`,
+    ]));
+  });
+
+  it('recreates existing Docker containers when readonly mode differs', async () => {
+    const workspacePath = mkdtempSync(path.join(tmpdir(), 'sero-docker-ws-'));
+    const readonlyPath = mkdtempSync(path.join(tmpdir(), 'sero-docker-readonly-'));
+    const calls: string[][] = [];
+    const config = {
+      workspaceId: 'ws-1',
+      hostPath: workspacePath,
+      readOnlyMounts: [readonlyPath],
+    };
+    const run = vi.fn(async (args: string[]) => {
+      calls.push(args);
+      if (args[0] === 'inspect' && calls.filter((call) => call[0] === 'inspect').length === 1) {
+        return ok(JSON.stringify([{
+          Config: { Image: 'image:test', Labels: expectedDockerLabels('image:test') },
+          State: { Running: true },
+          Mounts: [
+            { Type: 'bind', Source: workspacePath, Destination: '/workspace', RW: true },
+            { Type: 'bind', Source: readonlyPath, Destination: readonlyPath, RW: true },
+          ],
+        }]));
+      }
+      if (args[0] === 'inspect') return ok(JSON.stringify([{ Config: { Image: 'image:test', Labels: expectedDockerLabels('image:test') }, State: { Running: true } }]));
+      return ok(args[0] === 'run' ? 'container-id' : '');
+    });
+
+    await ensureDockerContainer({ config, imageRef: 'image:test', run });
+
+    expect(calls.map((args) => args[0])).toEqual(['inspect', 'rm', 'run', 'exec', 'exec', 'inspect']);
+    expect(calls.find((args) => args[0] === 'run')).toEqual(expect.arrayContaining([
+      '--mount', `type=bind,source=${readonlyPath},target=${readonlyPath},readonly`,
+    ]));
   });
 
   it('finds the local Dockerfile when Electron starts from apps/desktop', () => {
@@ -196,6 +297,42 @@ describe('Docker runtime backend core', () => {
     ]);
   });
 
+  it('preserves dev-server metadata on restart', async () => {
+    const server: RuntimeDevServer = {
+      id: 'ws-1:card-preview:card-1:5173',
+      port: 5173,
+      url: 'http://127.0.0.1:51000',
+      command: 'pnpm dev',
+      cwd: '/workspace/app',
+      name: 'Card Preview',
+      framework: 'vite',
+      scope: 'card-preview',
+      cardId: 'card-1',
+    };
+    const backend = new DockerBackend({
+      workspaceId: 'ws-1',
+      hostWorkspacePath: '/tmp/sero-docker-workspace',
+      workspaceManager: { getRuntimeConfig: vi.fn().mockResolvedValue({ backend: 'docker', previewPortPoolSize: 2 }) } as unknown as WorkspaceManager,
+      run: vi.fn(async () => ok()),
+    });
+    Object.assign(backend as unknown as { ports: { getServer: (id: string) => RuntimeDevServer | undefined } }, {
+      ports: { getServer: vi.fn().mockReturnValue(server) },
+    });
+    vi.spyOn(backend, 'stopDevServer').mockResolvedValue(undefined);
+    const start = vi.spyOn(backend, 'startDevServer').mockResolvedValue(server);
+
+    await backend.restartDevServer({ serverId: server.id });
+
+    expect(start).toHaveBeenCalledWith({
+      command: 'pnpm dev',
+      cwd: '/workspace/app',
+      name: 'Card Preview',
+      framework: 'vite',
+      scope: 'card-preview',
+      cardId: 'card-1',
+    });
+  });
+
   it('passes isolated exec requests into the first container config build', async () => {
     vi.mocked(buildWorkspaceContainerConfig).mockClear();
     let inspectCount = 0;
@@ -256,6 +393,15 @@ describe('Docker runtime backend core', () => {
     ]));
   });
 });
+
+function expectedDockerLabels(imageRef: string): Record<string, string> {
+  return {
+    'ai.sero.managed': 'true',
+    'ai.sero.runtime': 'docker',
+    'ai.sero.workspaceId': 'ws-1',
+    'ai.sero.image': imageRef,
+  };
+}
 
 function ok(stdout = ''): DockerCommandResult {
   return { stdout, stderr: '', exitCode: 0 };

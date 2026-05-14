@@ -9,11 +9,11 @@ export function useContainerEnsureOnSessionFocus(): void {
       ? state.sessions.find((session) => session.id === state.activeSessionId) ?? null
       : null,
   );
-  const activeWorkspaceContainerEnabled = useWorkspaceStore((state) =>
+  const activeWorkspaceBackend = useWorkspaceStore((state) =>
     activeSession
       ? state.workspaces.find((workspace) => workspace.id === activeSession.workspaceId)
-          ?.container ?? false
-      : false,
+          ?.runtime.backend
+      : undefined,
   );
   const containerStatus = useContainerStore((state) =>
     activeSession
@@ -23,7 +23,7 @@ export function useContainerEnsureOnSessionFocus(): void {
 
   useEffect(() => {
     if (!activeSession) return;
-    if (!activeWorkspaceContainerEnabled) return;
+    if (activeWorkspaceBackend !== 'apple-container') return;
     if (containerStatus === 'running' || containerStatus === 'starting') return;
 
     useContainerStore.getState().setStarting(activeSession.workspaceId);
@@ -44,5 +44,5 @@ export function useContainerEnsureOnSessionFocus(): void {
           err instanceof Error ? err.message : 'Container failed to start',
         );
       });
-  }, [activeSession, activeWorkspaceContainerEnabled, containerStatus]);
+  }, [activeSession, activeWorkspaceBackend, containerStatus]);
 }
