@@ -1,5 +1,4 @@
-import type { ContainerManager, ContainerState } from '@electron/features/container';
-import type { RuntimeBackendId } from './runtime/types';
+import type { RuntimeBackendId, RuntimeHealth } from './runtime/types';
 import { getRuntimeCapabilities, UnsupportedRuntimeOnPlatformError } from './runtime/capabilities';
 import { getDefaultRuntimeBackend } from './runtime/platform-default';
 import type { WorkspaceManager } from './manager';
@@ -33,8 +32,13 @@ export interface WorkspaceRuntimeResolution {
   capabilityAudit: WorkspaceRuntimeCapabilityAuditEntry[];
 }
 
-type RuntimeResolutionManagers = Pick<WorkspaceManager, 'getPath' | 'getRuntimeConfig'>
-  & Pick<ContainerManager, 'inspect'>;
+type RuntimeResolutionManagers = Pick<WorkspaceManager, 'getPath' | 'getRuntimeConfig'> & {
+  getRuntimeHealth(workspaceId: string): Promise<RuntimeHealth>;
+};
+
+function getHealthDetail(health: RuntimeHealth): string | undefined {
+  return [health.message, health.detail].filter(Boolean).join(' ') || undefined;
+}
 
 function getContainerFallbackReason(workspaceId: string, detail?: string): string {
   const suffix = detail ? ` ${detail}` : '';
@@ -101,18 +105,6 @@ export function getRuntimeCapabilityEntry(
   return entry;
 }
 
-async function getRunningContainerState(
-  workspaceId: string,
-  manager: Pick<ContainerManager, 'inspect'>,
-): Promise<ContainerState | null> {
-  try {
-    const state = await manager.inspect(workspaceId);
-    return state.state === 'running' ? state : null;
-  } catch {
-    return null;
-  }
-}
-
 export async function resolveWorkspaceRuntimeWithManagers(
   workspaceId: string,
   managers: RuntimeResolutionManagers,
@@ -137,7 +129,7 @@ export async function resolveWorkspaceRuntimeWithManagers(
     getRuntimeCapabilities(validatedBackend, process.platform);
   }
 
-  const containerEnabled = validatedBackend !== 'host';
+  const containerEnabled = validatedBackend !== 'host' && !fallbackCode;
   if (!containerEnabled) {
     return {
       workspaceId,
@@ -153,8 +145,8 @@ export async function resolveWorkspaceRuntimeWithManagers(
     };
   }
 
-  const containerState = await getRunningContainerState(workspaceId, managers);
-  if (containerState) {
+  const health = await managers.getRuntimeHealth(workspaceId);
+  if (health.status === 'ready') {
     return {
       workspaceId,
       workspacePath,
@@ -167,7 +159,7 @@ export async function resolveWorkspaceRuntimeWithManagers(
     };
   }
 
-  fallbackReason = getContainerFallbackReason(workspaceId);
+  fallbackReason = getContainerFallbackReason(workspaceId, getHealthDetail(health));
   return {
     workspaceId,
     workspacePath,
@@ -185,14 +177,14 @@ export async function resolveWorkspaceRuntimeWithManagers(
 export async function resolveWorkspaceRuntime(
   workspaceId: string,
 ): Promise<WorkspaceRuntimeResolution> {
-  const [{ workspaceManager }, { containerManager }] = await Promise.all([
+  const [{ workspaceManager }, { runtimeManager }] = await Promise.all([
     import('@electron/features/workspace/manager'),
-    import('@electron/features/container/core/singleton'),
+    import('@electron/features/workspace/runtime/runtime-manager'),
   ]);
 
   return resolveWorkspaceRuntimeWithManagers(workspaceId, {
     getPath: workspaceManager.getPath.bind(workspaceManager),
     getRuntimeConfig: workspaceManager.getRuntimeConfig.bind(workspaceManager),
-    inspect: containerManager.inspect.bind(containerManager),
+    getRuntimeHealth: runtimeManager.getHealth.bind(runtimeManager),
   });
 }
