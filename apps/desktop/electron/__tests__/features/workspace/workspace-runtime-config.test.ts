@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm, writeFile } from 'fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'fs/promises';
 import os from 'os';
 import path from 'path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -19,6 +19,21 @@ async function createTempWorkspace(config?: WorkspaceConfig): Promise<string> {
     await writeFile(path.join(dir, '.sero-workspace.json'), JSON.stringify(config, null, 2), 'utf8');
   }
   return dir;
+}
+
+async function createTestManager(): Promise<WorkspaceManager> {
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'sero-workspace-manager-'));
+  tempDirs.push(dir);
+  const agentDir = path.join(dir, 'agent');
+  const workspacesDir = path.join(dir, 'workspaces');
+  await mkdir(agentDir, { recursive: true });
+  await mkdir(workspacesDir, { recursive: true });
+  return new WorkspaceManager({
+    agentDir,
+    workspacesDir,
+    registryPath: path.join(agentDir, 'workspaces.json'),
+    editorStateDir: path.join(agentDir, 'editor-state'),
+  });
 }
 
 describe('workspace runtime config migration', () => {
@@ -67,9 +82,34 @@ describe('workspace runtime config migration', () => {
     expect(normalizeWorkspaceConfigForWrite(legacy).runtime).toEqual({ backend: 'host' });
   });
 
+  it('recovers managed workspace folders that are missing from the registry', async () => {
+    const dir = await mkdtemp(path.join(os.tmpdir(), 'sero-workspace-recovery-'));
+    tempDirs.push(dir);
+    const agentDir = path.join(dir, 'agent');
+    const workspacesDir = path.join(dir, 'workspaces');
+    const workspacePath = path.join(workspacesDir, 'applecontainertest');
+    await mkdir(workspacePath, { recursive: true });
+    await writeFile(path.join(workspacePath, '.sero-workspace.json'), JSON.stringify({
+      id: 'applecontainertest',
+      name: 'AppleContainerTest',
+      runtime: { backend: 'docker' },
+    }, null, 2), 'utf8');
+    const manager = new WorkspaceManager({
+      agentDir,
+      workspacesDir,
+      registryPath: path.join(agentDir, 'workspaces.json'),
+      editorStateDir: path.join(agentDir, 'editor-state'),
+    });
+
+    await manager.init();
+
+    const workspaces = await manager.list();
+    expect(workspaces.map((workspace) => workspace.id)).toEqual(['global', 'applecontainertest']);
+  });
+
   it('writes new workspace configs with runtime.backend', async () => {
     const workspacePath = await createTempWorkspace();
-    const manager = new WorkspaceManager();
+    const manager = await createTestManager();
 
     const info = await manager.addFolder(workspacePath, 'Runtime App');
     const raw = await readFile(path.join(workspacePath, '.sero-workspace.json'), 'utf8');
@@ -83,7 +123,7 @@ describe('workspace runtime config migration', () => {
 
   it('persists setRuntimeBackend and keeps container shims derived', async () => {
     const workspacePath = await createTempWorkspace({ id: 'app', name: 'App', container: true });
-    const manager = new WorkspaceManager();
+    const manager = await createTestManager();
     const info = await manager.addFolder(workspacePath);
 
     await manager.setRuntimeBackend(info.id, 'host');
@@ -101,7 +141,7 @@ describe('workspace runtime config migration', () => {
     // Deprecated compatibility input; normalize to host on write.
     const legacy = { id: 'app', name: 'App', runtime: { backend: 'mac-host' } } as unknown as WorkspaceConfig;
     const workspacePath = await createTempWorkspace(legacy);
-    const manager = new WorkspaceManager();
+    const manager = await createTestManager();
     const info = await manager.addFolder(workspacePath);
 
     expect(await manager.getRuntimeConfig(info.id)).toEqual({ backend: 'host' });
@@ -116,7 +156,7 @@ describe('workspace runtime config migration', () => {
   it('refuses to set host runtime on Windows and leaves config untouched', async () => {
     vi.spyOn(process, 'platform', 'get').mockReturnValue('win32');
     const workspacePath = await createTempWorkspace({ id: 'app', name: 'App', runtime: { backend: 'docker' } });
-    const manager = new WorkspaceManager();
+    const manager = await createTestManager();
     const info = await manager.addFolder(workspacePath);
 
     const result = await manager.setContainerEnabled(info.id, false);

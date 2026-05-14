@@ -27,15 +27,12 @@ import {
 } from './runtime/config';
 import { getDefaultRuntimeBackend } from './runtime/platform-default';
 import type { DoctorResult } from '@electron/features/doctor/engine/types';
+import { discoverManagedWorkspaceEntries, pathExists } from './registry-recovery';
 
 const EDITOR_STATE_DIR = path.join(SERO_AGENT_DIR, 'editor-state');
 
-// ── Paths ────────────────────────────────────────────────────
-
 const REGISTRY_PATH = path.join(SERO_AGENT_DIR, 'workspaces.json');
 const WORKSPACES_DIR = path.join(SERO_HOME, 'workspaces');
-
-// ── Registry shape on disk ───────────────────────────────────
 
 interface WorkspaceRegistry {
   workspaces: WorkspaceRegistryEntry[];
@@ -44,9 +41,7 @@ interface WorkspaceRegistry {
 export type SetContainerEnabledResult = { ok: true; backend: WorkspaceRuntimeBackend }
   | { ok: false; error: { code: 'host-doctor-failed'; message: string; checks: DoctorResult[] } };
 
-export interface WorkspaceManagerOptions {}
-
-// ── Default workspace configs ────────────────────────────────
+export interface WorkspaceManagerOptions { registryPath?: string; workspacesDir?: string; agentDir?: string; editorStateDir?: string }
 
 const DEFAULT_GLOBAL_CONFIG: WorkspaceConfig = {
   id: 'global',
@@ -57,36 +52,40 @@ const DEFAULT_GLOBAL_CONFIG: WorkspaceConfig = {
   tags: ['default', 'personal', 'knowledge'],
 };
 
-// ── WorkspaceManager ─────────────────────────────────────────
-
 export class WorkspaceManager {
   private registry: WorkspaceRegistry = { workspaces: [] };
   private configCache: Map<string, WorkspaceConfig> = new Map();
+  private readonly registryPath: string;
+  private readonly workspacesDir: string;
+  private readonly agentDir: string;
+  private readonly editorStateDir: string;
 
-  constructor(private readonly options: WorkspaceManagerOptions = {}) {}
-
-  // ── Lifecycle ──────────────────────────────────────────────
+  constructor(private readonly options: WorkspaceManagerOptions = {}) {
+    this.registryPath = options.registryPath ?? REGISTRY_PATH;
+    this.workspacesDir = options.workspacesDir ?? WORKSPACES_DIR;
+    this.agentDir = options.agentDir ?? SERO_AGENT_DIR;
+    this.editorStateDir = options.editorStateDir ?? EDITOR_STATE_DIR;
+  }
 
   /** Load registry from disk. Creates defaults if first run. */
   async init(): Promise<void> {
     await this.ensureDirs();
     await this.loadRegistry();
     await this.ensureDefaults();
+    await this.recoverManagedWorkspaces();
     await this.migrateRuntimeConfig();
   }
 
   /** Ensure required directories exist. */
   private async ensureDirs(): Promise<void> {
-    await fs.mkdir(SERO_AGENT_DIR, { recursive: true });
-    await fs.mkdir(WORKSPACES_DIR, { recursive: true });
+    await fs.mkdir(this.agentDir, { recursive: true });
+    await fs.mkdir(this.workspacesDir, { recursive: true });
   }
-
-  // ── Registry I/O ──────────────────────────────────────────
 
   /** Load registry from ~/.sero-ui/agent/workspaces.json. */
   private async loadRegistry(): Promise<void> {
     try {
-      const raw = await fs.readFile(REGISTRY_PATH, 'utf8');
+      const raw = await fs.readFile(this.registryPath, 'utf8');
       const parsed = JSON.parse(raw) as WorkspaceRegistry;
       const workspaces = Array.isArray(parsed.workspaces) ? parsed.workspaces : [];
 
@@ -115,10 +114,8 @@ export class WorkspaceManager {
   /** Save registry to disk. */
   private async saveRegistry(): Promise<void> {
     const json = JSON.stringify(this.registry, null, 2) + '\n';
-    await fs.writeFile(REGISTRY_PATH, json, 'utf8');
+    await fs.writeFile(this.registryPath, json, 'utf8');
   }
-
-  // ── Default workspaces ────────────────────────────────────
 
   /** Create global workspace if it doesn't exist. */
   private async ensureDefaults(): Promise<void> {
@@ -126,7 +123,7 @@ export class WorkspaceManager {
 
     // Global
     if (!this.findEntry('global')) {
-      const globalPath = path.join(WORKSPACES_DIR, 'global');
+      const globalPath = path.join(this.workspacesDir, 'global');
       await fs.mkdir(globalPath, { recursive: true });
       await this.writeConfig(globalPath, DEFAULT_GLOBAL_CONFIG);
       this.registry.workspaces.push({
@@ -142,6 +139,13 @@ export class WorkspaceManager {
     }
   }
 
+  private async recoverManagedWorkspaces(): Promise<void> {
+    const recovered = await discoverManagedWorkspaceEntries(this.workspacesDir, this.registry.workspaces);
+    if (recovered.length === 0) return;
+    this.registry.workspaces.push(...recovered);
+    await this.saveRegistry();
+  }
+
   /** Migrate legacy container flags to provider-aware runtime config. */
   private async migrateRuntimeConfig(): Promise<void> {
     for (const entry of this.registry.workspaces) {
@@ -153,8 +157,6 @@ export class WorkspaceManager {
       this.configCache.delete(entry.id);
     }
   }
-
-  // ── Config I/O ────────────────────────────────────────────
 
   /** Read .sero-workspace.json from a workspace directory. */
   async readConfig(workspacePath: string): Promise<WorkspaceConfig | null> {
@@ -175,7 +177,7 @@ export class WorkspaceManager {
   }
 
   private async cleanupEditorState(id: string): Promise<void> {
-    const editorStateFile = path.join(EDITOR_STATE_DIR, `${id}.json`);
+    const editorStateFile = path.join(this.editorStateDir, `${id}.json`);
     try {
       await fs.rm(editorStateFile, { force: true });
     } catch (error: unknown) {
@@ -184,8 +186,6 @@ export class WorkspaceManager {
       console.warn(`[workspace] Failed to remove editor state for ${id}:`, error);
     }
   }
-
-  // ── Public API ────────────────────────────────────────────
 
   /** List all registered workspaces with merged config data. */
   async list(): Promise<WorkspaceInfo[]> {
@@ -292,7 +292,7 @@ export class WorkspaceManager {
     const uniqueId = this.ensureUniqueId(id);
     const wsPath = parentPath
       ? path.join(path.resolve(parentPath), uniqueId)
-      : path.join(WORKSPACES_DIR, uniqueId);
+      : path.join(this.workspacesDir, uniqueId);
 
     await fs.mkdir(wsPath, { recursive: true });
 
@@ -399,8 +399,6 @@ export class WorkspaceManager {
     return this.findEntry(id)?.path;
   }
 
-  // ── Helpers ───────────────────────────────────────────────
-
   async getRuntimeConfig(id: string): Promise<WorkspaceRuntimeConfig> {
     return resolveWorkspaceRuntimeConfig(id, await this.getConfig(id));
   }
@@ -465,7 +463,7 @@ export class WorkspaceManager {
 
   /** Merge registry entry + config into WorkspaceInfo. */
   private async getInfo(entry: WorkspaceRegistryEntry): Promise<WorkspaceInfo | null> {
-    const config = await this.readConfig(entry.path);
+    const [config, exists] = await Promise.all([this.readConfig(entry.path), pathExists(entry.path)]);
     const runtime = resolveWorkspaceRuntimeConfig(entry.id, config);
 
     return {
@@ -481,6 +479,7 @@ export class WorkspaceManager {
       references: config?.references ?? [],
       mounts: config?.mounts ?? [],
       roots: config?.roots ?? [],
+      missing: !exists,
     };
   }
 
@@ -490,7 +489,5 @@ export class WorkspaceManager {
     return ensureUniqueId(baseId, existing);
   }
 }
-
-// ── Singleton ────────────────────────────────────────────────
 
 export const workspaceManager = new WorkspaceManager();

@@ -67,6 +67,7 @@ export interface WorkspaceInfo {
   mounts: string[];
   /** Additional roots attached to this workspace (multi-root explorer). */
   roots: WorkspaceRoot[];
+  missing?: boolean; // Registry path is currently unavailable (e.g. removable media).
 }
 
 /**

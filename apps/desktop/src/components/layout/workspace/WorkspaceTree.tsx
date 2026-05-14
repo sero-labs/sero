@@ -1,4 +1,4 @@
-import { ChevronsDownUp, Loader2 } from 'lucide-react';
+import { AlertTriangle, ChevronsDownUp, Loader2 } from 'lucide-react';
 import { IconAction } from '@/components/ui/IconAction';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { ErrorSurface } from '../ErrorSurface';
@@ -24,6 +24,7 @@ export function WorkspaceTree() {
     openSessionError,
     clearOpenSessionError,
   } = useWorkspaceTreeRuntime();
+  const missingWorkspaces = openWorkspaces.filter((workspace) => workspace.missing);
 
   if (isLoadingWorkspaces) {
     return (
@@ -43,6 +44,8 @@ export function WorkspaceTree() {
           onDismiss={clearOpenSessionError}
         />
       ) : null}
+
+      {missingWorkspaces.length > 0 ? <MissingWorkspaceNotice workspaces={missingWorkspaces} /> : null}
 
       <div className="flex items-center justify-between px-2 pb-1">
         <span className="text-sm font-semibold uppercase tracking-wider text-[var(--text-muted)]">
@@ -68,6 +71,32 @@ export function WorkspaceTree() {
             No workspaces open
           </span>
         )}
+      </div>
+    </div>
+  );
+}
+
+function MissingWorkspaceNotice({ workspaces }: { workspaces: Array<{ id: string; name: string; path: string }> }) {
+  const loadWorkspaces = useWorkspaceStore((state) => state.loadWorkspaces);
+  const names = workspaces.map((workspace) => workspace.name).join(', ');
+
+  return (
+    <div className="mx-2 mb-2 rounded-md border border-[var(--status-warning-border)] bg-[var(--status-warning-muted)] p-2 text-xs text-[var(--status-warning)]">
+      <div className="flex items-start gap-2">
+        <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+        <div className="min-w-0 flex-1">
+          <p className="font-medium">Workspace folder unavailable</p>
+          <p className="mt-0.5 text-[var(--status-warning)]/85">
+            {names} {workspaces.length === 1 ? 'points' : 'point'} to a folder that is missing right now. Sero kept the registry entry in case the folder is on removable media.
+          </p>
+          <button
+            type="button"
+            className="mt-1 underline underline-offset-2 hover:text-[var(--text-primary)]"
+            onClick={() => void loadWorkspaces()}
+          >
+            Check again
+          </button>
+        </div>
       </div>
     </div>
   );
