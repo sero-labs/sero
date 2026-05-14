@@ -1,7 +1,7 @@
 import type { ChildProcess } from 'child_process';
 import { execFile } from 'child_process';
-import { watch } from 'fs';
-import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'fs/promises';
+import { existsSync, watch } from 'fs';
+import { mkdir, readdir, readFile, realpath, rename, rm, stat, writeFile } from 'fs/promises';
 import path from 'path';
 import { promisify } from 'util';
 
@@ -39,6 +39,15 @@ export class PosixHostSubstrate implements HostRuntimeSubstrate {
   isPathInsideRoot(nativePath: string, root: string): boolean {
     const relative = path.relative(this.toExecutionPath(root), this.toExecutionPath(nativePath));
     return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+  }
+
+  async resolvePathInsideRoot(nativePath: string, root: string): Promise<string | null> {
+    const canonicalRoot = await realpath(this.toNativeHostPath(root));
+    const resolvedCandidate = path.resolve(this.toNativeHostPath(nativePath));
+    const { existingAncestor, missingSegments } = findExistingAncestor(resolvedCandidate);
+    const canonicalAncestor = await realpath(existingAncestor);
+    const canonicalCandidate = path.join(canonicalAncestor, ...missingSegments);
+    return isPathInside(canonicalCandidate, canonicalRoot) ? canonicalCandidate : null;
   }
 
   shellCommand(opts: HostSubstrateSpawnOptions): HostSubstrateRendered {
@@ -147,6 +156,23 @@ export class PosixHostSubstrate implements HostRuntimeSubstrate {
   normalizeExecOutput(output: string): string {
     return output;
   }
+}
+
+function findExistingAncestor(candidate: string): { existingAncestor: string; missingSegments: string[] } {
+  const missingSegments: string[] = [];
+  let current = candidate;
+  while (!existsSync(current)) {
+    const parent = path.dirname(current);
+    if (parent === current) break;
+    missingSegments.unshift(path.basename(current));
+    current = parent;
+  }
+  return { existingAncestor: current, missingSegments };
+}
+
+function isPathInside(candidate: string, root: string): boolean {
+  const relative = path.relative(root, candidate);
+  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
 }
 
 function normalizeSshProbeFailure(error: unknown): { stdout: string; stderr: string } {

@@ -50,6 +50,7 @@ export interface HostRuntimeSubstrate {
   toExecutionPath(nativePath: string): string;
   toNativeHostPath(executionPath: string): string;
   isPathInsideRoot(nativePath: string, root: string): boolean;
+  resolvePathInsideRoot(nativePath: string, root: string): Promise<string | null>;
 
   shellCommand(opts: HostSubstrateSpawnOptions): HostSubstrateRendered;
   execFileCommand(opts: HostSubstrateExecFileOptions): HostSubstrateRendered;

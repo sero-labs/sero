@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm, writeFile } from 'fs/promises';
+import { mkdtemp, readFile, realpath, rm, symlink, writeFile } from 'fs/promises';
 import os from 'os';
 import path from 'path';
 import type { ChildProcess } from 'child_process';
@@ -25,6 +25,7 @@ function createMockSubstrate(): HostRuntimeSubstrate {
     toExecutionPath: (nativePath) => nativePath,
     toNativeHostPath: (executionPath) => executionPath,
     isPathInsideRoot: (candidate, root) => candidate.startsWith(root),
+    resolvePathInsideRoot: vi.fn(async (candidate, root) => (candidate.startsWith(root) ? candidate : null)),
     shellCommand: vi.fn((opts) => ({ program: 'mock-shell', args: [opts.command], nativeCwd: opts.cwd, env: opts.env })),
     execFileCommand: vi.fn((opts) => ({ program: opts.program, args: opts.args, nativeCwd: opts.cwd, env: opts.env })),
     terminalCommand: vi.fn((opts) => ({ program: 'mock-terminal', args: ['--login'], nativeCwd: opts.cwd, env: opts.env })),
@@ -109,7 +110,7 @@ describe('HostBackend', () => {
     await backend.writeFile({ path: path.join(extraRoot, 'new.txt'), content: 'new' });
     const entries = await backend.listFiles({ path: extraRoot });
 
-    expect(entries.map((entry) => entry.path)).toContain(path.join(extraRoot, 'new.txt'));
+    expect(entries.map((entry) => entry.path)).toContain(path.join(await realpath(extraRoot), 'new.txt'));
     await expect(backend.readFile({ path: `${extraRoot}-sibling/file.txt` })).rejects.toThrow(
       'Host path must be inside a workspace root',
     );
@@ -121,6 +122,71 @@ describe('HostBackend', () => {
     await expect(backend.readFile({ path: '/tmp/outside.txt' })).rejects.toThrow(
       'Host path must be inside a workspace root',
     );
+  });
+
+  it('rejects workspace symlinks that escape before file primitives run', async () => {
+    const { backend, workspacePath } = await createBackend();
+    const outside = await mkdtemp(path.join(os.tmpdir(), 'sero-host-outside-'));
+    tempDirs.push(outside);
+    await writeFile(path.join(outside, 'secret.txt'), 'secret', 'utf8');
+    await symlink(outside, path.join(workspacePath, 'outside-link'));
+
+    await expect(backend.readFile({ path: '/workspace/outside-link/secret.txt' })).rejects.toThrow(
+      'Host path must be inside a workspace root',
+    );
+    await expect(backend.writeFile({ path: '/workspace/outside-link/new.txt', content: 'pwned' })).rejects.toThrow(
+      'Host path must be inside a workspace root',
+    );
+    await expect(readFile(path.join(outside, 'new.txt'), 'utf8')).rejects.toThrow();
+    await expect(backend.listFiles({ path: '/workspace/outside-link' })).rejects.toThrow(
+      'Host path must be inside a workspace root',
+    );
+    await expect(backend.rename({ oldPath: '/workspace/outside-link/secret.txt', newPath: '/workspace/moved.txt' })).rejects.toThrow(
+      'Host path must be inside a workspace root',
+    );
+    await expect(backend.delete({ path: '/workspace/outside-link/secret.txt' })).rejects.toThrow(
+      'Host path must be inside a workspace root',
+    );
+    await expect(backend.createFile({ path: '/workspace/outside-link/created.txt', content: 'pwned' })).rejects.toThrow(
+      'Host path must be inside a workspace root',
+    );
+    await expect(backend.createDirectory({ path: '/workspace/outside-link/dir' })).rejects.toThrow(
+      'Host path must be inside a workspace root',
+    );
+    await expect(backend.watchFiles({ paths: ['/workspace/outside-link'] })).rejects.toThrow(
+      'Host path must be inside a workspace root',
+    );
+  });
+
+  it('writes missing normal workspace paths after canonical parent validation', async () => {
+    const { backend, workspacePath } = await createBackend();
+
+    await backend.writeFile({ path: '/workspace/new/child.txt', content: 'ok' });
+
+    await expect(readFile(path.join(workspacePath, 'new', 'child.txt'), 'utf8')).resolves.toBe('ok');
+  });
+
+  it('rejects additional-root symlink escapes and accepts additional-root missing paths', async () => {
+    const { workspacePath } = await createBackend();
+    const extraRoot = await mkdtemp(path.join(os.tmpdir(), 'sero-host-extra-'));
+    const outside = await mkdtemp(path.join(os.tmpdir(), 'sero-host-outside-'));
+    tempDirs.push(extraRoot, outside);
+    await symlink(outside, path.join(extraRoot, 'outside-link'));
+
+    const backend = new HostBackend({
+      workspaceId: 'workspace-a',
+      hostWorkspacePath: workspacePath,
+      workspaceManager: {
+        getRoots: async () => [{ id: 'extra', name: 'Extra', path: extraRoot }],
+      },
+    });
+
+    await expect(backend.writeFile({ path: path.join(extraRoot, 'new', 'child.txt'), content: 'ok' })).resolves.toBeUndefined();
+    await expect(readFile(path.join(extraRoot, 'new', 'child.txt'), 'utf8')).resolves.toBe('ok');
+    await expect(backend.writeFile({ path: path.join(extraRoot, 'outside-link', 'pwned.txt'), content: 'pwned' })).rejects.toThrow(
+      'Host path must be inside a workspace root',
+    );
+    await expect(readFile(path.join(outside, 'pwned.txt'), 'utf8')).rejects.toThrow();
   });
 
   it('delegates file operations through substrate primitives', async () => {

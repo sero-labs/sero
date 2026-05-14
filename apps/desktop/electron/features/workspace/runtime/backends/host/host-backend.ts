@@ -329,23 +329,43 @@ export class HostBackend implements RuntimeBackend {
 
   private async resolveHostPath(runtimePath: string): Promise<HostPathResolution> {
     if (isHostAbsolutePath(runtimePath) && !(runtimePath.startsWith('/') && isRuntimeWorkspacePath(runtimePath))) {
-      const matchedRoot = await this.findAllowedHostRoot(runtimePath);
-      if (!matchedRoot) {
+      const resolution = await this.findAllowedHostRoot(runtimePath);
+      if (!resolution) {
         throw new Error(`Host path must be inside a workspace root: ${runtimePath}`);
       }
-      return { hostPath: runtimePath, rootHostPath: matchedRoot, returnHostPaths: true };
+      return { ...resolution, returnHostPaths: true };
     }
 
+    const hostPath = toHostWorkspacePath(this.hostWorkspacePath, runtimePath);
+    const canonicalPath = await this.resolvePathInsideRoot(hostPath, this.hostWorkspacePath, runtimePath);
+    const canonicalRoot = await this.resolvePathInsideRoot(this.hostWorkspacePath, this.hostWorkspacePath, runtimePath);
     return {
-      hostPath: toHostWorkspacePath(this.hostWorkspacePath, runtimePath),
-      rootHostPath: this.hostWorkspacePath,
+      hostPath: canonicalPath,
+      rootHostPath: canonicalRoot,
       returnHostPaths: false,
     };
   }
 
-  private async findAllowedHostRoot(hostPath: string): Promise<string | null> {
+  private async findAllowedHostRoot(hostPath: string): Promise<Omit<HostPathResolution, 'returnHostPaths'> | null> {
     const roots = [this.hostWorkspacePath, ...await this.additionalRootPaths()];
-    return roots.find((root) => this.substrate.isPathInsideRoot(hostPath, root)) ?? null;
+    for (const root of roots) {
+      const canonicalPath = await this.substrate.resolvePathInsideRoot(hostPath, root);
+      if (canonicalPath) {
+        return {
+          hostPath: canonicalPath,
+          rootHostPath: await this.resolvePathInsideRoot(root, root, hostPath),
+        };
+      }
+    }
+    return null;
+  }
+
+  private async resolvePathInsideRoot(hostPath: string, root: string, originalPath: string): Promise<string> {
+    const canonicalPath = await this.substrate.resolvePathInsideRoot(hostPath, root);
+    if (!canonicalPath) {
+      throw new Error(`Host path must be inside a workspace root: ${originalPath}`);
+    }
+    return canonicalPath;
   }
 
   private async additionalRootPaths(): Promise<string[]> {

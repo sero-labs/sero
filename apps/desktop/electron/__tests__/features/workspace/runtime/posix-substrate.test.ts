@@ -1,8 +1,17 @@
 import type { ChildProcess } from 'child_process';
-import { describe, expect, it, vi } from 'vitest';
+import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'fs/promises';
+import os from 'os';
+import path from 'path';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createPosixHostSubstrate } from '@electron/features/workspace/runtime/backends/host/posix-substrate';
 
+const tempDirs: string[] = [];
+
 describe('PosixHostSubstrate', () => {
+  afterEach(async () => {
+    await Promise.all(tempDirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })));
+  });
+
   it('renders non-login shell commands with bash -c', () => {
     const substrate = createPosixHostSubstrate();
 
@@ -49,5 +58,37 @@ describe('PosixHostSubstrate', () => {
     await substrate.signalChild(child, rendered, 'SIGTERM');
 
     expect(child.kill).toHaveBeenCalledWith('SIGTERM');
+  });
+
+  it('resolves missing paths through the nearest existing ancestor', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'sero-posix-root-'));
+    tempDirs.push(root);
+    const substrate = createPosixHostSubstrate();
+
+    await expect(substrate.resolvePathInsideRoot(path.join(root, 'new', 'child.txt'), root)).resolves.toBe(
+      path.join(await realpath(root), 'new', 'child.txt'),
+    );
+  });
+
+  it('rejects symlink escapes after canonicalizing the existing ancestor', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'sero-posix-root-'));
+    const outside = await mkdtemp(path.join(os.tmpdir(), 'sero-posix-outside-'));
+    tempDirs.push(root, outside);
+    await writeFile(path.join(outside, 'secret.txt'), 'secret', 'utf8');
+    await symlink(outside, path.join(root, 'outside-link'));
+    const substrate = createPosixHostSubstrate();
+
+    await expect(substrate.resolvePathInsideRoot(path.join(root, 'outside-link', 'secret.txt'), root)).resolves.toBeNull();
+    await expect(substrate.resolvePathInsideRoot(path.join(root, 'outside-link', 'new.txt'), root)).resolves.toBeNull();
+  });
+
+  it('rejects lexical sibling paths', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'sero-posix-root-'));
+    const sibling = `${root}-sibling`;
+    tempDirs.push(root, sibling);
+    await mkdir(sibling);
+    const substrate = createPosixHostSubstrate();
+
+    await expect(substrate.resolvePathInsideRoot(path.join(sibling, 'file.txt'), root)).resolves.toBeNull();
   });
 });

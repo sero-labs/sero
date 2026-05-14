@@ -1,5 +1,8 @@
 import { EventEmitter } from 'events';
-import { describe, expect, it, vi } from 'vitest';
+import { mkdtemp, realpath, rm } from 'fs/promises';
+import os from 'os';
+import path from 'path';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   ptySpawn: vi.fn(),
@@ -21,11 +24,18 @@ class MockPty extends EventEmitter {
   onExit = vi.fn(() => ({ dispose: vi.fn() }));
 }
 
+const tempDirs: string[] = [];
+
 describe('HostBackend terminal creation', () => {
+  afterEach(async () => {
+    await Promise.all(tempDirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })));
+  });
+
   it('spawns posix terminals with substrate-rendered argv', async () => {
     const pty = new MockPty();
     mocks.ptySpawn.mockReturnValue(pty);
-    const workspacePath = '/home/me/repo';
+    const workspacePath = await mkdtemp(path.join(os.tmpdir(), 'sero-host-terminal-'));
+    tempDirs.push(workspacePath);
     const backend = new HostBackend({
       workspaceId: 'ws-1',
       hostWorkspacePath: workspacePath,
@@ -37,7 +47,7 @@ describe('HostBackend terminal creation', () => {
     expect(mocks.ptySpawn).toHaveBeenCalledWith(expect.any(String), ['--login'], expect.objectContaining({
       cols: 100,
       rows: 30,
-      cwd: workspacePath,
+      cwd: await realpath(workspacePath),
     }));
   });
 });

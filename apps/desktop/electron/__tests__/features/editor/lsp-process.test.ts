@@ -1,5 +1,8 @@
 import { EventEmitter } from 'events';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { mkdtemp, realpath, rm } from 'fs/promises';
+import os from 'os';
+import path from 'path';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { LspServerProcess } from '@electron/features/editor/lsp/lsp-process';
 import type { LspServerConfig } from '@electron/features/editor/lsp/types';
@@ -32,6 +35,8 @@ class MockSpawnedProcess extends EventEmitter {
   };
 }
 
+const tempDirs: string[] = [];
+
 const config: LspServerConfig = {
   language: 'typescript',
   command: 'typescript-language-server --stdio',
@@ -53,12 +58,18 @@ describe('LspServerProcess host runtime launch', () => {
     mocks.spawnMock.mockReset();
   });
 
+  afterEach(async () => {
+    await Promise.all(tempDirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })));
+  });
+
   it('starts POSIX host language servers with the shared runtime workspace cwd', async () => {
     const child = new MockSpawnedProcess();
     mocks.spawnMock.mockReturnValue(child);
+    const workspacePath = await mkdtemp(path.join(os.tmpdir(), 'sero-lsp-posix-'));
+    tempDirs.push(workspacePath);
     const backend = new HostBackend({
       workspaceId: 'workspace-a',
-      hostWorkspacePath: '/tmp/sero-lsp-posix',
+      hostWorkspacePath: workspacePath,
       substrate: createPosixHostSubstrate({ platform: 'darwin' }),
     });
     const server = new LspServerProcess('workspace-a', config, backend, {});
@@ -66,7 +77,7 @@ describe('LspServerProcess host runtime launch', () => {
     await expect(server.start()).resolves.toEqual({});
 
     expect(mocks.spawnMock).toHaveBeenCalledWith('bash', ['-c', config.command], expect.objectContaining({
-      cwd: '/tmp/sero-lsp-posix',
+      cwd: await realpath(workspacePath),
       stdio: 'pipe',
     }));
     expect(child.stdin.write).toHaveBeenCalledWith(expect.stringContaining(`"rootPath":"${RUNTIME_WORKSPACE_PATH}"`));
