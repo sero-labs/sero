@@ -11,6 +11,7 @@ import {
   formatMount,
   normalizeDockerSource,
 } from '@electron/features/workspace/runtime/backends/docker/docker-mounts';
+import { toRuntimeIdentityMountPath } from '@electron/features/workspace/runtime/runtime-paths';
 
 describe('normalizeDockerSource', () => {
   it('returns POSIX paths unchanged', () => {
@@ -63,5 +64,9 @@ describe('buildDockerMounts', () => {
     );
 
     expect(mounts[0]).toEqual({ source: 'C:/Users/dev/workspace', target: '/workspace' });
+  });
+
+  it('maps Windows additional roots to the Linux bind target used inside Docker', () => {
+    expect(toRuntimeIdentityMountPath('D:\\projects\\linked-root')).toBe('/mnt/d/projects/linked-root');
   });
 });

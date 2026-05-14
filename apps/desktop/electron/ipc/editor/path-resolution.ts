@@ -2,6 +2,7 @@ import { realpathSync } from 'fs';
 import path from 'path';
 
 import { PRIMARY_ROOT_ID } from '@electron/features/workspace/roots';
+import { toRuntimeIdentityMountPath } from '@electron/features/workspace/runtime/runtime-paths';
 import type { WorkspaceManager } from '@electron/features/workspace/manager';
 
 export const PRIMARY_ROOT_PREFIX = `/${PRIMARY_ROOT_ID}`;
@@ -141,7 +142,7 @@ export async function toContainerPath(
   const resolved = await resolveVirtualPath(workspaceManager, workspaceId, filePath);
 
   if (!resolved.isPrimaryRoot) {
-    return resolved.resolvedHostPath;
+    return toRuntimeIdentityMountPath(resolved.resolvedHostPath);
   }
 
   return resolved.relativeToRoot

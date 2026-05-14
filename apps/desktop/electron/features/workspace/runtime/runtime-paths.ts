@@ -40,3 +40,12 @@ export function toHostWorkspacePath(
   if (!relativePath) return hostWorkspacePath;
   return path.join(hostWorkspacePath, ...relativePath.split('/'));
 }
+
+export function toRuntimeIdentityMountPath(hostPath: string): string {
+  if (/^[A-Za-z]:[\\/]/.test(hostPath)) {
+    const drive = hostPath[0].toLowerCase();
+    const rest = hostPath.slice(2).replace(/\\/g, '/').replace(/^\/+/, '');
+    return `/mnt/${drive}/${rest}`;
+  }
+  return hostPath.replace(/\\/g, '/');
+}

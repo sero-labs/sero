@@ -3,8 +3,8 @@
  * Manages server lifecycle, Monaco provider registration, and document sync.
  *
  * Active on every runtime that advertises `languageServers` capability: host,
- * Docker, and Apple Container. For container backends we wait until the
- * container is reported as running before starting the server.
+ * Docker, and Apple Container. Docker startup is handled by the runtime backend;
+ * Apple Container still waits on the legacy renderer container status.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -40,7 +40,7 @@ export function useLsp({ workspaceId, filePath, languageId, monaco, editor }: Us
   const runtimeBackend = useWorkspaceStore((state) =>
     state.workspaces.find((workspace) => workspace.id === workspaceId)?.runtime?.backend ?? null,
   );
-  const requiresContainer = runtimeBackend !== 'host';
+  const requiresContainer = runtimeBackend === 'apple-container';
   const runtimeReady = !requiresContainer || containerStatus === 'running';
   const serverLanguage = getLspServerLanguage(languageId);
 

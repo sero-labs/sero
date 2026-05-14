@@ -2,6 +2,7 @@ import { existsSync } from 'fs';
 import path from 'path';
 import { SERO_AGENT_DIR } from '@electron/platform/env';
 import type { ContainerConfig } from '@electron/features/container/core/types';
+import { toRuntimeIdentityMountPath } from '../../runtime-paths';
 
 const WORKSPACE_TARGET = '/workspace';
 
@@ -59,12 +60,7 @@ export function normalizeDockerSource(hostPath: string, platform: NodeJS.Platfor
 }
 
 function normalizeIdentityTarget(hostPath: string): string {
-  if (/^[A-Za-z]:[\\/]/.test(hostPath)) {
-    const drive = hostPath[0].toLowerCase();
-    const rest = hostPath.slice(2).replace(/\\/g, '/').replace(/^\/+/, '');
-    return `/mnt/${drive}/${rest}`;
-  }
-  return hostPath.replace(/\\/g, '/');
+  return toRuntimeIdentityMountPath(hostPath);
 }
 
 function dedupeMounts(mounts: DockerMount[]): DockerMount[] {
