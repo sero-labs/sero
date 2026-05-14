@@ -198,6 +198,74 @@ describe('HostDevServerManager', () => {
     });
   });
 
+  it('stops a registered dev server without killing the foreign listener process', async () => {
+    const execFile = vi.fn<(input: RuntimeExecFileInput) => Promise<RuntimeExecResult>>()
+      .mockResolvedValue(ok());
+    const manager = new HostDevServerManager({
+      workspaceId: 'workspace-a',
+      platform: 'linux',
+      spawn: vi.fn(),
+      execFile,
+      pollIntervalMs: 1,
+      portDetectTimeoutMs: 10,
+    });
+
+    const server = manager.register({ command: 'externally managed', cwd: '/workspace', port: 4321 });
+    await manager.stop({ serverId: server.id });
+
+    expect(execFile).not.toHaveBeenCalledWith(expect.objectContaining({ program: 'kill' }));
+    expect(execFile).not.toHaveBeenCalledWith(expect.objectContaining({ program: 'lsof' }));
+    expect(manager.list()).toEqual([]);
+  });
+
+  it('restart of a registered dev server force-kills the existing listener before respawning', async () => {
+    const spawn = vi.fn<(input: RuntimeProcessInput) => Promise<ReturnType<typeof createProcess>>>()
+      .mockResolvedValue(createProcess());
+    const execFile = vi.fn<(input: RuntimeExecFileInput) => Promise<RuntimeExecResult>>()
+      .mockImplementation(async (input) => {
+        if (input.program === 'pgrep') return fail();
+        if (input.program === 'lsof' && input.args.includes('-t')) return ok('9000\n');
+        if (input.program === 'kill') return ok();
+        return ok('node 1234 user 22u IPv4 TCP 127.0.0.1:4321 (LISTEN)');
+      });
+    const manager = new HostDevServerManager({
+      workspaceId: 'workspace-a',
+      platform: 'linux',
+      spawn,
+      execFile,
+      pollIntervalMs: 1,
+      portDetectTimeoutMs: 10,
+    });
+
+    const server = manager.register({ command: 'pnpm dev', cwd: '/workspace', port: 4321 });
+    await manager.restart({ serverId: server.id });
+
+    expect(execFile).toHaveBeenCalledWith(expect.objectContaining({
+      program: 'kill',
+      args: expect.arrayContaining(['-TERM', '9000']),
+    }));
+    expect(spawn).toHaveBeenCalledTimes(1);
+  });
+
+  it('dispose leaves registered listeners alive', async () => {
+    const execFile = vi.fn<(input: RuntimeExecFileInput) => Promise<RuntimeExecResult>>()
+      .mockResolvedValue(ok());
+    const manager = new HostDevServerManager({
+      workspaceId: 'workspace-a',
+      platform: 'linux',
+      spawn: vi.fn(),
+      execFile,
+      pollIntervalMs: 1,
+      portDetectTimeoutMs: 10,
+    });
+
+    manager.register({ command: 'externally managed', cwd: '/workspace', port: 4321 });
+    await manager.dispose();
+
+    expect(execFile).not.toHaveBeenCalledWith(expect.objectContaining({ program: 'kill' }));
+    expect(manager.list()).toEqual([]);
+  });
+
   it('throws and terminates the spawned process when port detection times out', async () => {
     const process = createProcess();
     const manager = new HostDevServerManager({

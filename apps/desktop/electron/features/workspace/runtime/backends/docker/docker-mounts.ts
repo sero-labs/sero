@@ -11,13 +11,13 @@ export interface DockerMount {
   readonly?: boolean;
 }
 
-export function buildDockerMounts(config: ContainerConfig): DockerMount[] {
-  const mounts: DockerMount[] = [{ source: config.hostPath, target: WORKSPACE_TARGET }];
+export function buildDockerMounts(config: ContainerConfig, platform: NodeJS.Platform = process.platform): DockerMount[] {
+  const mounts: DockerMount[] = [{ source: normalizeDockerSource(config.hostPath, platform), target: WORKSPACE_TARGET }];
   for (const hostPath of config.writableMounts ?? []) {
-    if (existsSync(hostPath)) mounts.push({ source: hostPath, target: normalizeIdentityTarget(hostPath) });
+    if (existsSync(hostPath)) mounts.push({ source: normalizeDockerSource(hostPath, platform), target: normalizeIdentityTarget(hostPath) });
   }
   for (const hostPath of config.readOnlyMounts ?? defaultAgentReadOnlyMounts()) {
-    if (existsSync(hostPath)) mounts.push({ source: hostPath, target: normalizeIdentityTarget(hostPath), readonly: true });
+    if (existsSync(hostPath)) mounts.push({ source: normalizeDockerSource(hostPath, platform), target: normalizeIdentityTarget(hostPath), readonly: true });
   }
   return dedupeMounts(mounts);
 }
@@ -31,16 +31,30 @@ export function defaultAgentReadOnlyMounts(): string[] {
 }
 
 export function formatMount(mount: DockerMount): string {
+  // Bind-mount sources go into a comma-separated --mount value. A comma in any field would split
+  // the spec and silently mount the wrong path. Fail loudly so the misconfiguration is surfaced.
+  if (mount.source.includes(',')) {
+    throw new Error(`Docker mount source cannot contain a comma: ${mount.source}`);
+  }
   const parts = [
     'type=bind',
-    `source=${normalizeDockerSource(mount.source)}`,
+    `source=${mount.source}`,
     `target=${mount.target}`,
   ];
   if (mount.readonly) parts.push('readonly');
   return parts.join(',');
 }
 
-export function normalizeDockerSource(hostPath: string): string {
+/**
+ * Normalize a host path for use as a Docker bind-mount source. On Windows the bind-mount CSV is
+ * fragile around backslashes, so collapse `C:\foo` to `C:/foo`. Docker Desktop accepts both forms,
+ * and `docker inspect` returns the forward-slash variant — using forward slashes keeps the mount
+ * signature comparisons stable across container restarts.
+ */
+export function normalizeDockerSource(hostPath: string, platform: NodeJS.Platform = process.platform): string {
+  if (platform === 'win32' && /^[A-Za-z]:[\\/]/.test(hostPath)) {
+    return hostPath.replace(/\\/g, '/');
+  }
   return hostPath;
 }
 

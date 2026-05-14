@@ -93,6 +93,17 @@ describe('AppleContainerBackend', () => {
     });
   });
 
+  it('destroy removes the container rather than just stopping it (parity with Docker)', async () => {
+    const containerManager = createContainerManager();
+    const backend = createBackend(containerManager);
+
+    await backend.ensure();
+    await backend.destroy();
+
+    expect(containerManager.remove).toHaveBeenCalledWith('workspace-a');
+    expect(containerManager.stop).not.toHaveBeenCalled();
+  });
+
   it('passes isolated exec requests into the first container config build', async () => {
     const containerManager = createContainerManager();
     const workspaceManager = createWorkspaceManager();

@@ -146,7 +146,9 @@ export class AppleContainerBackend implements RuntimeBackend {
         status: 'stopped',
       });
     }
-    await this.containerManager.stop(this.workspaceId);
+    // Mirror the Docker backend: destroy fully removes the container rather than just stopping
+    // it, so stale Apple Container records do not accumulate across workspace resets.
+    await this.containerManager.remove(this.workspaceId);
     this.session = null;
   }
 
@@ -188,11 +190,16 @@ export class AppleContainerBackend implements RuntimeBackend {
 
   async spawn(input: RuntimeProcessInput): Promise<RuntimeProcess> {
     await this.ensure();
-    const envFlags = Object.entries(input.env ?? {}).flatMap(([key, value]) => ['-e', `${key}=${value}`]);
+    const envFlags = Object.entries(input.env ?? {}).flatMap(([key, value]) => {
+      if (!ENV_KEY_RE.test(key)) throw new Error(`Invalid environment variable name: ${key}`);
+      return ['-e', `${key}=${value}`];
+    });
+    // Match the Docker backend's login-shell semantics (`sh -lc`) so dev-server commands see the
+    // same profile/PATH on both container runtimes.
     const child = spawnProcess(CONTAINER_BIN, [
       'exec', '-i', '-w', input.cwd ?? this.runtimeWorkspacePath,
       ...envFlags,
-      containerId(this.workspaceId), 'sh', '-c', input.command,
+      containerId(this.workspaceId), 'sh', '-lc', input.command,
     ], { stdio: input.stdio === 'inherit' ? 'inherit' : 'pipe' });
     const dataCallbacks = new Set<(chunk: string) => void>();
     const exitCallbacks = new Set<(exit: { exitCode: number | null; signal?: string }) => void>();

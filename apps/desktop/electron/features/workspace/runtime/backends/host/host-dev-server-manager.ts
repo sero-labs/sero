@@ -35,6 +35,15 @@ interface HostDevServerRecord extends RuntimeDevServer {
   executionPid?: number;
   process?: RuntimeProcess;
   diagnosticCode?: HostDevServerDiagnosticCode;
+  /**
+   * Tracks how this record entered the manager:
+   *   - `spawned`: Sero started the command, so we own the process tree and
+   *     may aggressively SIGTERM/SIGKILL it on stop.
+   *   - `registered`: an external process is serving the port and the user
+   *     told Sero about it. Stopping only removes Sero's bookkeeping; killing
+   *     the listener would terminate user-owned tools.
+   */
+  origin: 'spawned' | 'registered';
 }
 
 export class HostDevServerManager {
@@ -85,6 +94,7 @@ export class HostDevServerManager {
         pid,
         executionPid: detectionPid,
         process,
+        origin: 'spawned',
       };
       this.servers.set(record.id, record);
       this.emitDevServerChange({
@@ -115,6 +125,7 @@ export class HostDevServerManager {
       cardId: input.cardId,
       registeredAt: new Date().toISOString(),
       status: 'running',
+      origin: 'registered',
     };
     this.servers.set(record.id, record);
     this.emitDevServerChange({
@@ -128,29 +139,15 @@ export class HostDevServerManager {
   }
 
   async stop(input: RuntimeDevServerStopInput): Promise<void> {
-    const server = this.servers.get(input.serverId);
-    if (!server) throw new Error(`Dev server not found: ${input.serverId}`);
-    await this.terminateServer(server);
-    server.status = 'stopped';
-    this.emitDevServerChange({
-      type: 'status_changed',
-      workspaceId: this.workspaceId,
-      serverId: server.id,
-      status: 'stopped',
-    });
-    this.servers.delete(input.serverId);
-    this.emitDevServerChange({
-      type: 'unregistered',
-      workspaceId: this.workspaceId,
-      serverId: server.id,
-      status: 'stopped',
-    });
+    await this.removeServer(input.serverId, { forceKillListener: false });
   }
 
   async restart(input: RuntimeDevServerRestartInput): Promise<RuntimeDevServer> {
     const server = this.servers.get(input.serverId);
     if (!server) throw new Error(`Dev server not found: ${input.serverId}`);
-    await this.stop(input);
+    // Restart is an explicit reboot — terminate any listener even for registered records
+    // so the new spawn can bind the port without conflicting with the previous owner.
+    await this.removeServer(input.serverId, { forceKillListener: true });
     return this.start({
       command: server.command,
       cwd: server.cwd,
@@ -158,6 +155,26 @@ export class HostDevServerManager {
       framework: server.framework,
       scope: server.scope,
       cardId: server.cardId,
+    });
+  }
+
+  private async removeServer(serverId: string, options: { forceKillListener: boolean }): Promise<void> {
+    const server = this.servers.get(serverId);
+    if (!server) throw new Error(`Dev server not found: ${serverId}`);
+    await this.terminateServer(server, options);
+    server.status = 'stopped';
+    this.emitDevServerChange({
+      type: 'status_changed',
+      workspaceId: this.workspaceId,
+      serverId: server.id,
+      status: 'stopped',
+    });
+    this.servers.delete(serverId);
+    this.emitDevServerChange({
+      type: 'unregistered',
+      workspaceId: this.workspaceId,
+      serverId: server.id,
+      status: 'stopped',
     });
   }
 
@@ -177,7 +194,9 @@ export class HostDevServerManager {
 
   async dispose(): Promise<void> {
     const servers = [...this.servers.values()];
-    await Promise.all(servers.map((server) => this.terminateServer(server)));
+    // On dispose Sero only tears down its own spawned processes — registered (foreign)
+    // listeners belong to the user and must outlive the workspace runtime.
+    await Promise.all(servers.map((server) => this.terminateServer(server, { forceKillListener: false })));
     for (const server of servers) {
       server.status = 'stopped';
       this.emitDevServerChange({
@@ -234,7 +253,14 @@ export class HostDevServerManager {
     return parseLsofPort(result.stdout);
   }
 
-  private async terminateServer(server: HostDevServerRecord): Promise<void> {
+  private async terminateServer(
+    server: HostDevServerRecord,
+    options: { forceKillListener: boolean },
+  ): Promise<void> {
+    if (server.origin === 'registered' && !options.forceKillListener) {
+      // Registered servers are owned by an external process; we only drop the record.
+      return;
+    }
     await this.terminateProcess(server.process, server.executionPid ?? server.pid, server.port);
   }
 

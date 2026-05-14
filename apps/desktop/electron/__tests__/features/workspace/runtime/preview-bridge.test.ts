@@ -16,4 +16,22 @@ describe('runtime preview bridge commands', () => {
     expect(stopCommand).not.toContain('pkill -f');
     expect(startCommand).toContain(stopCommand);
   });
+
+  it.each([
+    ['non-integer', 5173.5],
+    ['zero', 0],
+    ['negative', -1],
+    ['above 65535', 70000],
+    ['NaN', Number.NaN],
+  ])('rejects %s targetPort values to avoid JS-injection into the bridge script', (_label, port) => {
+    expect(() => startPreviewBridgeCommand('workspace-a', port as number, 32000))
+      .toThrow(/targetPort/);
+    expect(() => stopPreviewBridgeCommand('workspace-a', port as number, 32000))
+      .toThrow(/targetPort/);
+  });
+
+  it('rejects non-integer internalPort values', () => {
+    expect(() => startPreviewBridgeCommand('workspace-a', 5173, 32000.1))
+      .toThrow(/internalPort/);
+  });
 });
