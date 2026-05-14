@@ -48,6 +48,7 @@ import { normalizePreviewPortPoolSize } from './preview-port-pool';
 const DEV_SERVER_START_TIMEOUT_MS = 30_000;
 const DEV_SERVER_DETECT_TIMEOUT_MS = 20_000;
 const DEV_SERVER_POLL_MS = 500;
+const ENV_KEY_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 interface AppleContainerBackendOptions {
   workspaceId: string;
@@ -162,11 +163,11 @@ export class AppleContainerBackend implements RuntimeBackend {
   }
 
   async execFile(input: RuntimeExecFileInput): Promise<RuntimeExecResult> {
-    await this.ensure();
     const envPrefix = Object.entries(input.env ?? {})
-      .map(([key, value]) => `${key}=${shellQuote(value)}`)
+      .map(([key, value]) => shellEnvAssignment(key, value))
       .join(' ');
     const command = [input.program, ...input.args].map(shellQuote).join(' ');
+    await this.ensure();
     return this.containerManager.exec(
       this.workspaceId,
       envPrefix ? `${envPrefix} ${command}` : command,
@@ -445,6 +446,10 @@ function isRuntimeDevServer(server: RuntimeDevServer | undefined): server is Run
   return Boolean(server);
 }
 
+function shellEnvAssignment(key: string, value: string): string {
+  if (!ENV_KEY_RE.test(key)) throw new Error(`Invalid environment variable name: ${key}`);
+  return `${key}=${shellQuote(value)}`;
+}
 
 function shellQuote(value: string): string {
   return `'${value.replace(/'/g, `'\\''`)}'`;

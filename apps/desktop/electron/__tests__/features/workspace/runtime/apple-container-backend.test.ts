@@ -118,6 +118,40 @@ describe('AppleContainerBackend', () => {
     }));
   });
 
+  it('quotes valid execFile environment values and argv', async () => {
+    const containerManager = createContainerManager();
+    const backend = createBackend(containerManager);
+
+    await backend.execFile({
+      program: 'node',
+      args: ['script path.js', "it's ok"],
+      cwd: '/workspace/app',
+      timeoutMs: 5_000,
+      env: { SAFE_KEY: 'value', _ALSO_SAFE1: "has ' quote" },
+    });
+
+    expect(containerManager.exec).toHaveBeenCalledWith(
+      'workspace-a',
+      "SAFE_KEY='value' _ALSO_SAFE1='has '\\'' quote' 'node' 'script path.js' 'it'\\''s ok'",
+      '/workspace/app',
+      5_000,
+      { injectGitAuth: undefined },
+    );
+  });
+
+  it.each(['BAD-KEY', 'A=B', 'X;touch /tmp/pwned'])(
+    'rejects invalid execFile environment key %s before execution',
+    async (key) => {
+      const containerManager = createContainerManager();
+      const backend = createBackend(containerManager);
+
+      await expect(backend.execFile({ program: 'env', args: [], env: { [key]: 'value' } }))
+        .rejects.toThrow(`Invalid environment variable name: ${key}`);
+
+      expect(containerManager.exec).not.toHaveBeenCalled();
+    },
+  );
+
   it('delegates exec and file primitives without host fallback', async () => {
     const containerManager = createContainerManager();
     const backend = createBackend(containerManager);
