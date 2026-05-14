@@ -38,9 +38,14 @@ function installSero(platform: string) {
   });
 }
 
-async function openPicker() {
+function getTrigger() {
   const trigger = document.querySelector('[title^="Runtime:"]');
   if (!(trigger instanceof HTMLElement)) throw new Error('Expected runtime picker trigger');
+  return trigger;
+}
+
+async function openPicker() {
+  const trigger = getTrigger();
   await act(async () => {
     trigger.dispatchEvent(new MouseEvent('click', { bubbles: true }));
   });
@@ -117,6 +122,35 @@ describe('RuntimePickerMenu', () => {
     expect(document.body.textContent).not.toContain('Apple Container');
     expect(document.body.textContent).not.toContain('WSL');
     expect(document.body.textContent).not.toContain('Host');
+  });
+
+  it('opens from a clickable row without bubbling trigger activation', async () => {
+    installSero('darwin');
+    const onRowClick = vi.fn();
+    const onRowKeyDown = vi.fn();
+
+    await act(async () => {
+      root?.render(
+        <div role="button" tabIndex={0} onClick={onRowClick} onKeyDown={onRowKeyDown}>
+          <RuntimePickerMenu workspace={workspace({ backend: 'apple-container' })} />
+        </div>,
+      );
+    });
+
+    const trigger = getTrigger();
+    await act(async () => {
+      trigger.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    expect(onRowClick).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain('Apple Container');
+    expect(document.body.textContent).toContain('Docker');
+
+    await act(async () => {
+      trigger.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    });
+
+    expect(onRowKeyDown).not.toHaveBeenCalled();
   });
 
   it('writes runtime.backend through the workspace store', async () => {

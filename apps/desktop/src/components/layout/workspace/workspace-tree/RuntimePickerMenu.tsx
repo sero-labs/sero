@@ -1,3 +1,4 @@
+import type { SyntheticEvent } from 'react';
 import { Box, Check, ChevronRight, Monitor, Server } from 'lucide-react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import {
@@ -35,6 +36,10 @@ function runtimeIcon(backend: RuntimeBackendForDisplay) {
   if (backend === 'host' || backend === 'mac-host') return <Monitor className="size-3" />;
   if (backend === 'docker') return <Server className="size-3" />;
   return <Box className="size-3" />;
+}
+
+function stopRuntimeTriggerPropagation(event: SyntheticEvent): void {
+  event.stopPropagation();
 }
 
 export function getRuntimePickerOptions(platform: string): RuntimeOption[] {
@@ -83,6 +88,9 @@ export function RuntimePickerMenu({ workspace }: { workspace: WorkspaceInfo }) {
           role="button"
           tabIndex={-1}
           title={`Runtime: ${currentName}`}
+          onClick={stopRuntimeTriggerPropagation}
+          onPointerDown={stopRuntimeTriggerPropagation}
+          onKeyDown={stopRuntimeTriggerPropagation}
         >
           {runtimeIcon(current)}
         </IconAction>
