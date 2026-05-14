@@ -34,9 +34,31 @@ function installSero(platform: string, arch = 'x64') {
     value: {
       platform,
       arch,
-      doctor: { runQuick: vi.fn(async () => ({ categories: [] })) },
+      doctor: {
+        run: vi.fn(async () => makeDoctorReport()),
+        runQuick: vi.fn(async () => makeDoctorReport()),
+        exportReport: vi.fn(async () => ({ saved: false })),
+        copyReport: vi.fn(async () => undefined),
+        invokeRepair: vi.fn(async () => ({ status: 'skipped', message: 'No repair' })),
+        onEvent: vi.fn(() => () => undefined),
+      },
     },
   });
+}
+
+function makeDoctorReport() {
+  return {
+    schemaVersion: 1 as const,
+    timestamp: '2026-05-14T00:00:00.000Z',
+    mode: 'quick' as const,
+    system: { os: 'darwin', version: 'test', arch: 'arm64' },
+    seroVersion: '0.0.0-test',
+    runId: 'doctor-test-run',
+    profilesScanned: [],
+    results: [],
+    envAudit: { present: [], missing: [], recommended: [] },
+    durationMs: 1,
+  };
 }
 
 function getTrigger() {
@@ -108,7 +130,7 @@ describe('RuntimePickerMenu', () => {
     expect(document.body.textContent).toContain('Host');
     expect(document.body.textContent).toContain('Advanced');
     expect(document.body.textContent).toContain('least isolated');
-    expect(document.body.textContent).toContain('preview port pool requires recreating the runtime/container');
+    expect(document.body.textContent).toContain('port publications, mounts, tools, and language servers restart cleanly');
   });
 
   it('hides Apple Container on macOS Intel', async () => {
@@ -187,5 +209,61 @@ describe('RuntimePickerMenu', () => {
     });
 
     expect(setRuntimeBackend).toHaveBeenCalledWith('workspace-1', 'docker');
+    expect(document.body.textContent).toContain('switching to Docker');
+  });
+
+  it('keeps the picker open with visible pending state while changing runtimes', async () => {
+    installSero('darwin', 'arm64');
+    let finishSwitch!: () => void;
+    setRuntimeBackend.mockImplementationOnce(() => new Promise<void>((resolve) => {
+      finishSwitch = resolve;
+    }));
+
+    await act(async () => {
+      root?.render(<RuntimePickerMenu workspace={workspace({ backend: 'apple-container' })} />);
+    });
+    await openPicker();
+
+    const docker = Array.from(document.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('Portable Linux workspace'),
+    );
+    if (!(docker instanceof HTMLButtonElement)) throw new Error('Expected Docker option');
+
+    await act(async () => {
+      docker.click();
+      await Promise.resolve();
+    });
+
+    expect(document.body.textContent).toContain('Switching Workspace 1 to Docker…');
+    expect(document.body.textContent).toContain('Workspace runtime');
+    expect(docker.disabled).toBe(true);
+
+    await act(async () => {
+      finishSwitch();
+      await Promise.resolve();
+    });
+
+    expect(document.body.textContent).toContain('Workspace 1 is switching to Docker');
+  });
+
+  it('opens the Environment Doctor dialog from the footer button', async () => {
+    installSero('darwin', 'arm64');
+
+    await act(async () => {
+      root?.render(<RuntimePickerMenu workspace={workspace({ backend: 'apple-container' })} />);
+    });
+    await openPicker();
+
+    const doctorButton = Array.from(document.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('Open Environment Doctor'),
+    );
+    if (!(doctorButton instanceof HTMLButtonElement)) throw new Error('Expected Doctor button');
+
+    await act(async () => {
+      doctorButton.click();
+    });
+
+    expect(document.body.textContent).toContain('Run diagnostics for Sero, profiles, providers, plugins, and runtime setup.');
+    expect(document.body.textContent).toContain('Press Re-run or Quick to gather diagnostics.');
   });
 });
