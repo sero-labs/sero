@@ -261,7 +261,7 @@ export interface DevServer {
   /** Card owner for review previews. */
   cardId?: string;
   /** Server status derived from port scanner liveness checks. */
-  status: 'running' | 'stopped' | 'starting';
+  status: 'running' | 'stopped' | 'starting' | 'failed';
   /** ISO timestamp when the server was registered. */
   registeredAt: string;
 }

@@ -39,6 +39,7 @@ function StatusDot({ status }: { status: DevServer['status'] }) {
     running: 'bg-[var(--status-success)]',
     stopped: 'bg-[var(--status-error)]',
     starting: 'bg-[var(--status-warning)] animate-pulse',
+    failed: 'bg-[var(--status-error)]',
   };
   return <span className={`inline-block size-2 rounded-full ${colors[status]}`} />;
 }

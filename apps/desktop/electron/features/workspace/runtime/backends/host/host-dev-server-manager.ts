@@ -17,6 +17,11 @@ import type {
 
 export type HostDevServerDiagnosticCode = 'dev-server-port-detect-timeout';
 
+interface RuntimeProcessExit {
+  exitCode: number | null;
+  signal?: string;
+}
+
 type ExecFile = (input: RuntimeExecFileInput) => Promise<RuntimeExecResult>;
 type SpawnProcess = (input: RuntimeProcessInput) => Promise<RuntimeProcess>;
 
@@ -27,6 +32,7 @@ export interface HostDevServerManagerOptions {
   execFile: ExecFile;
   pollIntervalMs?: number;
   portDetectTimeoutMs?: number;
+  terminateGraceMs?: number;
 }
 
 interface HostDevServerRecord extends RuntimeDevServer {
@@ -34,6 +40,7 @@ interface HostDevServerRecord extends RuntimeDevServer {
   pid?: number;
   executionPid?: number;
   process?: RuntimeProcess;
+  onExitUnsubscribe?: () => void;
   diagnosticCode?: HostDevServerDiagnosticCode;
   /**
    * Tracks how this record entered the manager:
@@ -53,6 +60,7 @@ export class HostDevServerManager {
   private readonly execFile: ExecFile;
   private readonly pollIntervalMs: number;
   private readonly portDetectTimeoutMs: number;
+  private readonly terminateGraceMs: number;
   private readonly changeCallbacks = new Set<(event: RuntimeDevServerChangeEvent) => void>();
 
   constructor(options: HostDevServerManagerOptions) {
@@ -61,6 +69,7 @@ export class HostDevServerManager {
     this.execFile = options.execFile;
     this.pollIntervalMs = options.pollIntervalMs ?? 100;
     this.portDetectTimeoutMs = options.portDetectTimeoutMs ?? 10_000;
+    this.terminateGraceMs = options.terminateGraceMs ?? 750;
   }
 
   async start(input: RuntimeDevServerStartInput): Promise<RuntimeDevServer> {
@@ -71,16 +80,25 @@ export class HostDevServerManager {
     const baseId = `${this.workspaceId}:${input.scope ?? 'workspace'}:${input.cardId ?? 'root'}`;
 
     let terminated = false;
+    let earlyExit: RuntimeProcessExit | undefined;
+    let recordId: string | undefined;
+    const unsubscribeExit = process.onExit((exit) => {
+      earlyExit = exit;
+      if (recordId) this.markSpawnedServerFailed(recordId, exit);
+    });
     try {
-      const port = detectionPid ? await this.detectListeningPort(detectionPid) : null;
+      const port = detectionPid ? await this.detectListeningPort(detectionPid, () => earlyExit === undefined) : null;
       if (!port) {
         await this.terminateProcess(process, detectionPid);
         terminated = true;
-        throw new Error('No listening port was detected after starting the command.');
+        throw new Error(earlyExit
+          ? `Dev server exited before a listening port was detected${formatProcessExit(earlyExit)}.`
+          : 'No listening port was detected after starting the command.');
       }
       const url = `http://127.0.0.1:${port}`;
+      recordId = `${baseId}:${port}`;
       const record: HostDevServerRecord = {
-        id: `${baseId}:${port}`,
+        id: recordId,
         port,
         url,
         command: input.command,
@@ -94,6 +112,7 @@ export class HostDevServerManager {
         pid,
         executionPid: detectionPid,
         process,
+        onExitUnsubscribe: unsubscribeExit,
         origin: 'spawned',
       };
       this.servers.set(record.id, record);
@@ -106,6 +125,7 @@ export class HostDevServerManager {
       });
       return toRuntimeServer(record);
     } catch (err) {
+      unsubscribeExit();
       if (!terminated) await this.terminateProcess(process, detectionPid);
       throw err instanceof Error ? err : new Error(String(err));
     }
@@ -161,6 +181,7 @@ export class HostDevServerManager {
   private async removeServer(serverId: string, options: { forceKillListener: boolean }): Promise<void> {
     const server = this.servers.get(serverId);
     if (!server) throw new Error(`Dev server not found: ${serverId}`);
+    server.onExitUnsubscribe?.();
     await this.terminateServer(server, options);
     server.status = 'stopped';
     this.emitDevServerChange({
@@ -196,6 +217,7 @@ export class HostDevServerManager {
     const servers = [...this.servers.values()];
     // On dispose Sero only tears down its own spawned processes — registered (foreign)
     // listeners belong to the user and must outlive the workspace runtime.
+    for (const server of servers) server.onExitUnsubscribe?.();
     await Promise.all(servers.map((server) => this.terminateServer(server, { forceKillListener: false })));
     for (const server of servers) {
       server.status = 'stopped';
@@ -214,11 +236,11 @@ export class HostDevServerManager {
     return { url, targetPort: input.targetPort, backend: 'host' };
   }
 
-  private async detectListeningPort(rootPid: number): Promise<number | null> {
+  private async detectListeningPort(rootPid: number, shouldContinue: () => boolean = () => true): Promise<number | null> {
     const startedAt = Date.now();
-    while (Date.now() - startedAt < this.portDetectTimeoutMs) {
+    while (Date.now() - startedAt < this.portDetectTimeoutMs && shouldContinue()) {
       const pids = [rootPid, ...await this.descendantPids(rootPid)];
-      const port = await this.lsofPort(pids);
+      const port = await this.listeningPort(pids);
       if (port) return port;
       await sleep(this.pollIntervalMs);
     }
@@ -243,14 +265,21 @@ export class HostDevServerManager {
     return [...seen];
   }
 
-  private async lsofPort(pids: number[]): Promise<number | null> {
-    const result = await this.execFile({
+  private async listeningPort(pids: number[]): Promise<number | null> {
+    const lsof = await this.execFile({
       program: 'lsof',
       args: ['-nP', '-iTCP', '-sTCP:LISTEN', '-p', pids.join(',')],
       timeoutMs: 2_000,
-    });
-    if (result.exitCode !== 0) return null;
-    return parseLsofPort(result.stdout);
+    }).catch(() => null);
+    const lsofPort = lsof?.exitCode === 0 ? parseLsofPort(lsof.stdout) : null;
+    if (lsofPort) return lsofPort;
+
+    const ss = await this.execFile({ program: 'ss', args: ['-tlnp'], timeoutMs: 2_000 }).catch(() => null);
+    const ssPort = ss?.exitCode === 0 ? parseSocketTablePort(ss.stdout, pids) : null;
+    if (ssPort) return ssPort;
+
+    const netstat = await this.execFile({ program: 'netstat', args: ['-tlnp'], timeoutMs: 2_000 }).catch(() => null);
+    return netstat?.exitCode === 0 ? parseSocketTablePort(netstat.stdout, pids) : null;
   }
 
   private async terminateServer(
@@ -272,6 +301,7 @@ export class HostDevServerManager {
     const pids = uniqueNumbers([...roots, ...descendants, ...listeners]);
     if (pids.length > 0) await this.killPids('-TERM', pids);
     if (port) {
+      await sleep(this.terminateGraceMs);
       const remainingListeners = await this.listenerPids(port);
       if (remainingListeners.length > 0) await this.killPids('-KILL', remainingListeners);
     }
@@ -283,8 +313,13 @@ export class HostDevServerManager {
       args: ['-nP', `-iTCP:${port}`, '-sTCP:LISTEN', '-t'],
       timeoutMs: 2_000,
     }).catch(() => null);
-    if (!result || result.exitCode !== 0) return [];
-    return parsePidLines(result.stdout);
+    if (result?.exitCode === 0) return parsePidLines(result.stdout);
+
+    const ss = await this.execFile({ program: 'ss', args: ['-tlnp'], timeoutMs: 2_000 }).catch(() => null);
+    if (ss?.exitCode === 0) return parseSocketTablePids(ss.stdout, port);
+
+    const netstat = await this.execFile({ program: 'netstat', args: ['-tlnp'], timeoutMs: 2_000 }).catch(() => null);
+    return netstat?.exitCode === 0 ? parseSocketTablePids(netstat.stdout, port) : [];
   }
 
   private async killPids(signal: '-TERM' | '-KILL', pids: number[]): Promise<void> {
@@ -294,6 +329,19 @@ export class HostDevServerManager {
       args: [signal, ...pids.map(String)],
       timeoutMs: 2_000,
     }).catch(() => undefined);
+  }
+
+  private markSpawnedServerFailed(serverId: string, exit: RuntimeProcessExit): void {
+    const server = this.servers.get(serverId);
+    if (!server || server.status === 'stopped' || server.status === 'failed') return;
+    server.status = 'failed';
+    this.emitDevServerChange({
+      type: 'status_changed',
+      workspaceId: this.workspaceId,
+      serverId,
+      status: 'failed',
+    });
+    console.warn(`[host-dev-server] ${serverId} exited${formatProcessExit(exit)}.`);
   }
 
   private emitDevServerChange(event: RuntimeDevServerChangeEvent): void {
@@ -316,6 +364,46 @@ function parsePidLines(output: string): number[] {
   return output.split('\n')
     .map((line) => Number(line.trim()))
     .filter((pid) => Number.isInteger(pid) && pid > 0);
+}
+
+function parseSocketTablePort(output: string, pids: number[]): number | null {
+  const pidSet = new Set(pids);
+  for (const line of output.split('\n')) {
+    if (!line.includes('LISTEN')) continue;
+    if (!parseSocketLinePids(line).some((pid) => pidSet.has(pid))) continue;
+    const port = parseSocketLinePort(line);
+    if (port) return port;
+  }
+  return null;
+}
+
+function parseSocketTablePids(output: string, port: number): number[] {
+  const pids: number[] = [];
+  for (const line of output.split('\n')) {
+    if (!line.includes('LISTEN') || parseSocketLinePort(line) !== port) continue;
+    pids.push(...parseSocketLinePids(line));
+  }
+  return uniqueNumbers(pids);
+}
+
+function parseSocketLinePort(line: string): number | null {
+  const addresses = line.matchAll(/(?:^|\s)\S+:(\d{1,5})(?=\s|$)/g);
+  for (const match of addresses) {
+    const port = Number(match[1]);
+    if (Number.isInteger(port) && port > 0 && port < 65536) return port;
+  }
+  return null;
+}
+
+function parseSocketLinePids(line: string): number[] {
+  const pids = [...line.matchAll(/pid=(\d+)/g), ...line.matchAll(/\b(\d+)\//g)]
+    .map((match) => Number(match[1]));
+  return uniqueNumbers(pids);
+}
+
+function formatProcessExit(exit: RuntimeProcessExit): string {
+  if (exit.signal) return ` with signal ${exit.signal}`;
+  return typeof exit.exitCode === 'number' ? ` with exit code ${exit.exitCode}` : '';
 }
 
 function uniqueNumbers(values: number[]): number[] {

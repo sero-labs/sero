@@ -300,7 +300,7 @@ export class AppleContainerBackend implements RuntimeBackend {
     await this.ensure();
     const ports = await this.portManager();
     const beforePorts = new Set(await ports.detectPorts());
-    const command = `setsid sh -c ${shellQuote(`${input.command} > ${input.logPath ?? '/tmp/sero-dev-server.log'} 2>&1 &`)}`;
+    const command = buildDevServerLaunchCommand(input.command, input.logPath ?? '/tmp/sero-dev-server.log');
     const result = await this.containerManager.exec(
       this.workspaceId,
       command,
@@ -308,7 +308,9 @@ export class AppleContainerBackend implements RuntimeBackend {
       DEV_SERVER_START_TIMEOUT_MS,
     );
     if (result.exitCode !== 0) throw new Error(`Dev server start failed: ${result.stderr || result.stdout || input.command}`);
-    const port = await this.waitForStartedPort(beforePorts);
+    const pid = Number(result.stdout.trim().split('\n').pop());
+    if (!Number.isInteger(pid) || pid <= 0) throw new Error(`Dev server start did not return a process id: ${result.stdout || input.command}`);
+    const port = await this.waitForStartedPort(beforePorts, pid);
     const forwarded = await ports.forwardPort(port);
     const server = ports.registerServer({
       id: `${this.workspaceId}:${input.scope ?? 'workspace'}:${input.cardId ?? 'root'}:${port}`,
@@ -418,15 +420,21 @@ export class AppleContainerBackend implements RuntimeBackend {
     return (await this.portManager()).resolvePreviewUrl(input.targetPort, input.path);
   }
 
-  private async waitForStartedPort(beforePorts: Set<number>): Promise<number> {
+  private async waitForStartedPort(beforePorts: Set<number>, pid: number): Promise<number> {
     const startedAt = Date.now();
     while (Date.now() - startedAt < DEV_SERVER_DETECT_TIMEOUT_MS) {
       await sleep(DEV_SERVER_POLL_MS);
+      if (!await this.isProcessAlive(pid)) throw new Error(`Dev server exited before a listening port was detected (pid ${pid}).`);
       const ports = await (await this.portManager()).detectPorts();
       const port = ports.find((candidate) => !beforePorts.has(candidate));
       if (port) return port;
     }
     throw new Error('No dev server port was detected after starting the command.');
+  }
+
+  private async isProcessAlive(pid: number): Promise<boolean> {
+    const result = await this.containerManager.exec(this.workspaceId, `kill -0 ${pid} 2>/dev/null`, this.runtimeWorkspacePath, 5_000);
+    return result.exitCode === 0;
   }
 
   private async portManager(): Promise<AppleContainerPortManager> {
@@ -463,6 +471,10 @@ function isRuntimeDevServer(server: RuntimeDevServer | undefined): server is Run
 function shellEnvAssignment(key: string, value: string): string {
   if (!ENV_KEY_RE.test(key)) throw new Error(`Invalid environment variable name: ${key}`);
   return `${key}=${shellQuote(value)}`;
+}
+
+function buildDevServerLaunchCommand(command: string, logPath: string): string {
+  return `setsid sh -c ${shellQuote(`exec ${command} > ${shellQuote(logPath)} 2>&1`)} >/dev/null 2>&1 & echo $!`;
 }
 
 function shellQuote(value: string): string {

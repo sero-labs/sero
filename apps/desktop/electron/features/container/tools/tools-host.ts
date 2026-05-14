@@ -61,6 +61,28 @@ function isMissingPathError(err: unknown): boolean {
     && (err.code === 'ENOENT' || err.code === 'ENOTDIR');
 }
 
+const SAFE_HOST_TOOL_ENV_KEYS = new Set([
+  'PATH',
+  'HOME',
+  'USER',
+  'LOGNAME',
+  'LANG',
+  'TERM',
+  'SHELL',
+  'TMPDIR',
+  'TMP',
+  'TEMP',
+]);
+
+function createSafeHostToolEnv(): Record<string, string> {
+  const env: Record<string, string> = {};
+  for (const [key, value] of Object.entries(process.env)) {
+    if (value === undefined) continue;
+    if (SAFE_HOST_TOOL_ENV_KEYS.has(key) || key.startsWith('LC_')) env[key] = value;
+  }
+  return env;
+}
+
 async function resolveHostPathForGuard(candidatePath: string): Promise<string> {
   let current = normalizeHostGuardPath(candidatePath);
   const missingSegments: string[] = [];
@@ -98,7 +120,7 @@ async function runHostCommand(
   return await new Promise<HostCommandResult>((resolve, reject) => {
     const child = spawn('/bin/bash', ['-lc', command], {
       cwd,
-      env: process.env,
+      env: createSafeHostToolEnv(),
       stdio: ['ignore', 'pipe', 'pipe'],
     });
 

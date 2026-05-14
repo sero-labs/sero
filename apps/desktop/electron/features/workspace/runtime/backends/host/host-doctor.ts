@@ -43,7 +43,7 @@ async function runPosixHostDoctor(options: Required<Pick<HostDoctorOptions, 'pla
     await checkCommand('runtime.host.bash', 'Host bash is available.', 'Host bash is not available on PATH.', options.run, 'bash', ['--version'], options.now, 'Install bash and ensure it is available on PATH.'),
     await checkCommand('runtime.host.git', 'Host git is available.', 'Host git is not available on PATH.', options.run, 'git', ['--version'], options.now, 'Install Git and ensure git is available on PATH.'),
     await checkCommand('runtime.host.pgrep', 'Host pgrep is available.', 'Host pgrep is not available on PATH. Dev-server process discovery requires pgrep.', options.run, 'bash', ['-lc', 'command -v pgrep'], options.now, 'Install procps/psmisc tools so pgrep is available on PATH.'),
-    await checkCommand('runtime.host.lsof', 'Host lsof is available.', 'Host lsof is not available on PATH. Dev-server port discovery requires lsof.', options.run, 'bash', ['-lc', 'command -v lsof'], options.now, 'Install lsof and ensure it is available on PATH.'),
+    await checkCommand('runtime.host.port-discovery', 'Host port discovery tools are available.', 'No host port discovery tool is available on PATH. Dev-server port detection requires lsof, ss, or netstat.', options.run, 'bash', ['-lc', 'command -v lsof || command -v ss || command -v netstat'], options.now, 'Install lsof, iproute2 (ss), or net-tools (netstat) and ensure one is available on PATH.'),
     await checkCommand('runtime.host.shell', 'Host bash can execute commands.', 'Host bash could not execute a smoke command.', options.run, 'bash', ['-c', 'echo ok'], options.now, 'Verify bash can start and execute commands in this environment.'),
   ];
 }

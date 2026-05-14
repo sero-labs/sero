@@ -133,6 +133,41 @@ export class RuntimeManager {
     }));
   }
 
+  listAllDevServersSync(): Array<{
+    workspaceId: string;
+    id: string;
+    port: number;
+    url: string;
+    command: string;
+    cwd: string;
+    name?: string;
+    framework?: string;
+    scope?: 'workspace' | 'card' | 'card-preview';
+    cardId?: string;
+    registeredAt?: string;
+    status?: 'running' | 'stopped' | 'starting' | 'failed';
+  }> {
+    const runtimeServers = [...this.backends.entries()].flatMap(([key, runtime]) => {
+      const workspaceId = workspaceIdFromCacheKey(key);
+      return (runtime.listDevServersSync?.() ?? []).map((server) => ({ workspaceId, ...server }));
+    });
+    const legacyServers = this.dependencies.containerManager.devServers?.list() ?? [];
+    return [...runtimeServers, ...legacyServers].map((server) => ({
+      workspaceId: server.workspaceId,
+      id: server.id,
+      port: server.port,
+      url: server.url,
+      command: server.command,
+      cwd: server.cwd,
+      name: server.name,
+      framework: server.framework,
+      scope: server.scope,
+      cardId: server.cardId,
+      registeredAt: server.registeredAt,
+      status: server.status,
+    }));
+  }
+
   onDevServerChange(cb: (event: RuntimeDevServerChangeEvent) => void): () => void {
     this.devServerCallbacks.add(cb);
     this.ensureLegacyDevServerSubscription();
@@ -275,6 +310,10 @@ function normalizeLegacyDevServerEvent(event: {
 
 function workspaceIdFromServerId(serverId: string): string {
   return serverId.split(':')[0] ?? '';
+}
+
+function workspaceIdFromCacheKey(cacheKey: string): string {
+  return cacheKey.split(':')[0] ?? '';
 }
 
 export const runtimeManager = new RuntimeManager({

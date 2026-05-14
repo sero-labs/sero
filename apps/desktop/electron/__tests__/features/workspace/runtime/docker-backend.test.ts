@@ -68,6 +68,40 @@ describe('Docker runtime backend core', () => {
     ]);
   });
 
+  it('recreates an expected stopped Docker container when docker start exits but container is not running', async () => {
+    const workspacePath = mkdtempSync(path.join(tmpdir(), 'sero-docker-ws-'));
+    const calls: string[][] = [];
+    const config = {
+      workspaceId: 'ws-1',
+      hostPath: workspacePath,
+      writableMounts: [],
+      readOnlyMounts: [],
+    };
+    const run = vi.fn(async (args: string[]) => {
+      calls.push(args);
+      if (args[0] === 'inspect' && calls.filter((call) => call[0] === 'inspect').length === 1) {
+        return ok(JSON.stringify([{
+          Config: { Image: 'image:test', Labels: expectedDockerLabels('image:test') },
+          State: { Running: false },
+          Mounts: [{ Type: 'bind', Source: workspacePath, Destination: '/workspace', RW: true }],
+        }]));
+      }
+      if (args[0] === 'inspect' && calls.filter((call) => call[0] === 'inspect').length === 2) {
+        return ok(JSON.stringify([{
+          Config: { Image: 'image:test', Labels: expectedDockerLabels('image:test') },
+          State: { Running: false },
+          Mounts: [{ Type: 'bind', Source: workspacePath, Destination: '/workspace', RW: true }],
+        }]));
+      }
+      if (args[0] === 'inspect') return ok(JSON.stringify([{ Config: { Image: 'image:test', Labels: expectedDockerLabels('image:test') }, State: { Running: true } }]));
+      return ok(args[0] === 'run' ? 'container-id' : '');
+    });
+
+    await ensureDockerContainer({ config, imageRef: 'image:test', run });
+
+    expect(calls.map((args) => args[0]).slice(0, 5)).toEqual(['inspect', 'start', 'inspect', 'rm', 'run']);
+  });
+
   it('reuses existing Docker containers only when effective bind mounts match', async () => {
     const workspacePath = mkdtempSync(path.join(tmpdir(), 'sero-docker-ws-'));
     const sharedPath = mkdtempSync(path.join(tmpdir(), 'sero-docker-shared-'));
@@ -130,7 +164,9 @@ describe('Docker runtime backend core', () => {
 
     await ensureDockerContainer({ config, imageRef: 'image:test', imageId: 'image-id', run });
 
-    expect(calls.map((args) => args[0])).toEqual(['inspect', 'rm', 'run', 'exec', 'exec', 'inspect']);
+    expect(calls.map((args) => args[0]).slice(0, 3)).toEqual(['inspect', 'rm', 'run']);
+    expect(calls.at(-1)?.[0]).toBe('inspect');
+    expect(calls.some((args) => args[0] === 'exec' && args.slice(2, 6).join(' ') === 'git config --global push.autoSetupRemote')).toBe(true);
     expect(calls.find((args) => args[0] === 'run')).toEqual(expect.arrayContaining([
       '--mount', `type=bind,source=${sharedPath},target=${sharedPath}`,
     ]));
@@ -163,7 +199,9 @@ describe('Docker runtime backend core', () => {
 
     await ensureDockerContainer({ config, imageRef: 'image:test', run });
 
-    expect(calls.map((args) => args[0])).toEqual(['inspect', 'rm', 'run', 'exec', 'exec', 'inspect']);
+    expect(calls.map((args) => args[0]).slice(0, 3)).toEqual(['inspect', 'rm', 'run']);
+    expect(calls.at(-1)?.[0]).toBe('inspect');
+    expect(calls.some((args) => args[0] === 'exec' && args.slice(2, 6).join(' ') === 'git config --global push.autoSetupRemote')).toBe(true);
     expect(calls.find((args) => args[0] === 'run')).toEqual(expect.arrayContaining([
       '--mount', `type=bind,source=${readonlyPath},target=${readonlyPath},readonly`,
     ]));

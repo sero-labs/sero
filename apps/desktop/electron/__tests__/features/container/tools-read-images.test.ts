@@ -12,7 +12,7 @@ vi.mock('@electron/shared/media/image-resize', () => ({
   prepareToolImage: mocks.prepareToolImage,
 }));
 
-import { createHostCodingTools } from '@electron/features/container/tools';
+import { createHostCodingTools } from '@electron/features/container/tools/tools-host';
 import { createRead } from '@electron/features/container/tools/tools-coding';
 
 function getTool<T extends { name: string }>(tools: T[], name: string): T {

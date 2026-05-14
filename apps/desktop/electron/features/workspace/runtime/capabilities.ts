@@ -42,8 +42,13 @@ function createBaseCapabilities(): RuntimeCapabilities {
 }
 
 function createHostCapabilities(_platform: NodeJS.Platform): RuntimeCapabilities {
+  const base = createBaseCapabilities();
   return {
-    ...createBaseCapabilities(),
+    ...base,
+    files: {
+      ...base.files,
+      watch: false,
+    },
     ports: {
       discover: true,
       forward: false,

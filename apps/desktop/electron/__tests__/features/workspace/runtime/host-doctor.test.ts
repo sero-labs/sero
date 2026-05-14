@@ -14,17 +14,17 @@ describe('Host Doctor checks', () => {
       'runtime.host.bash',
       'runtime.host.git',
       'runtime.host.pgrep',
-      'runtime.host.lsof',
+      'runtime.host.port-discovery',
       'runtime.host.shell',
     ]);
     expect(results.find((result) => result.id === 'runtime.host.bash')).toMatchObject({ status: 'fail' });
     expect(results.find((result) => result.id === 'runtime.host.shell')).toMatchObject({ status: 'fail' });
   });
 
-  it('reports POSIX missing pgrep and lsof failures with remediation details', async () => {
+  it('reports POSIX missing pgrep and port-discovery failures with remediation details', async () => {
     const run: HostDoctorRunner = vi.fn(async (_program: string, args: string[]) => {
       if (args.includes('command -v pgrep')) return fail('pgrep: command not found', 127);
-      if (args.includes('command -v lsof')) return fail('lsof: command not found', 127);
+      if (args.includes('command -v lsof || command -v ss || command -v netstat')) return fail('port tools not found', 127);
       return ok('ok');
     });
 
@@ -34,9 +34,12 @@ describe('Host Doctor checks', () => {
       status: 'fail',
       details: { args: ['-lc', 'command -v pgrep'], remediation: expect.stringContaining('procps') },
     });
-    expect(results.find((result) => result.id === 'runtime.host.lsof')).toMatchObject({
+    expect(results.find((result) => result.id === 'runtime.host.port-discovery')).toMatchObject({
       status: 'fail',
-      details: { args: ['-lc', 'command -v lsof'], remediation: expect.stringContaining('lsof') },
+      details: {
+        args: ['-lc', 'command -v lsof || command -v ss || command -v netstat'],
+        remediation: expect.stringContaining('iproute2'),
+      },
     });
   });
 

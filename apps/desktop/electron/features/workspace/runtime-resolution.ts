@@ -123,7 +123,7 @@ function isCapabilityAvailable(
 ): boolean {
   switch (key) {
     case 'browserAutomation':
-      return capabilities.browserAutomation;
+      return actualRuntime === 'container' && capabilities.browserAutomation;
     case 'containerizedLanguageServers':
       return capabilities.languageServers;
     case 'managedDevServers':
@@ -229,11 +229,11 @@ export async function resolveWorkspaceRuntimeWithManagers(
     desiredRuntime: 'container',
     actualRuntime: 'host',
     desiredBackend,
-    actualBackend: 'host',
+    actualBackend: validatedBackend,
     containerEnabled,
     fallbackCode: 'container_unavailable',
     fallbackReason: containerFallbackReason,
-    capabilityAudit: createCapabilityAudit('host', 'host', containerEnabled, containerFallbackReason),
+    capabilityAudit: createCapabilityAudit(validatedBackend, 'host', containerEnabled, containerFallbackReason),
   };
 }
 

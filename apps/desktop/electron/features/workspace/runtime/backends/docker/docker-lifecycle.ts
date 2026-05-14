@@ -41,7 +41,10 @@ export async function ensureDockerContainer(options: DockerLifecycleOptions): Pr
     if (isExpectedContainer(existing, options.config, options.imageRef, options.imageId)) {
       if (existing.State?.Running) return toContainerState(cid, existing, options.imageRef);
       const start = await run(['start', cid], { timeoutMs: 30_000 });
-      if (start.exitCode === 0) return toContainerState(cid, await inspectDockerContainer(cid, run), options.imageRef);
+      if (start.exitCode === 0) {
+        const restarted = await inspectDockerContainer(cid, run).catch(() => null);
+        if (restarted?.State?.Running) return toContainerState(cid, restarted, options.imageRef);
+      }
     }
     await removeDockerContainer(cid, run);
   }
@@ -166,10 +169,10 @@ function mountSignature(source: string, target: string, mode: 'ro' | 'rw'): stri
 
 async function configureGitIdentity(workspaceId: string, run: DockerRunner): Promise<void> {
   const identity = await readHostGitIdentity();
-  const commands = ['git config --global push.autoSetupRemote true'];
-  if (identity.name) commands.push(`git config --global user.name ${shellQuote(identity.name)}`);
-  if (identity.email) commands.push(`git config --global user.email ${shellQuote(identity.email)}`);
-  await run(['exec', dockerContainerName(workspaceId), 'sh', '-lc', commands.join(' && ')], { timeoutMs: 10_000 });
+  const cid = dockerContainerName(workspaceId);
+  await run(['exec', cid, 'git', 'config', '--global', 'push.autoSetupRemote', 'true'], { timeoutMs: 10_000 });
+  if (identity.name) await run(['exec', cid, 'git', 'config', '--global', 'user.name', identity.name], { timeoutMs: 10_000 });
+  if (identity.email) await run(['exec', cid, 'git', 'config', '--global', 'user.email', identity.email], { timeoutMs: 10_000 });
 }
 
 async function readHostGitIdentity(): Promise<{ name: string; email: string }> {
@@ -186,8 +189,4 @@ async function readGitConfig(key: string): Promise<string> {
   } catch {
     return '';
   }
-}
-
-function shellQuote(value: string): string {
-  return `'${value.replace(/'/g, `'"'"'`)}'`;
 }

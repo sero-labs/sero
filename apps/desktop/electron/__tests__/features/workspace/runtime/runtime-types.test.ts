@@ -79,7 +79,7 @@ describe('runtime backend contract skeleton', () => {
     const capabilities = getRuntimeCapabilities('host', 'darwin');
 
     expect(capabilities.browserAutomation).toBe(false);
-    expect(capabilities.files.watch).toBe(true);
+    expect(capabilities.files.watch).toBe(false);
     expect(capabilities.languageServers).toBe(true);
     expect(getRuntimeCapabilities('host', 'linux').languageServers).toBe(true);
   });

@@ -97,7 +97,7 @@ describe('resolveWorkspaceRuntime', () => {
       desiredRuntime: 'container',
       actualRuntime: 'host',
       desiredBackend: 'docker',
-      actualBackend: 'host',
+      actualBackend: 'docker',
       fallbackCode: 'container_unavailable',
     });
     expect(resolved.fallbackReason).toContain('falling back to host mode');
@@ -125,7 +125,7 @@ describe('resolveWorkspaceRuntime', () => {
         desiredRuntime: 'container',
         actualRuntime: 'host',
         desiredBackend: 'docker',
-        actualBackend: 'host',
+        actualBackend: 'docker',
         fallbackCode: 'container_unavailable',
       });
       expect(resolved.fallbackReason).toContain('falling back to host mode');

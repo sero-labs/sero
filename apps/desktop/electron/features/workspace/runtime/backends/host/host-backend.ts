@@ -427,10 +427,24 @@ function isHostAbsolutePath(inputPath: string): boolean {
   return path.isAbsolute(inputPath);
 }
 
+const SAFE_INHERITED_ENV_KEYS = new Set([
+  'PATH',
+  'HOME',
+  'USER',
+  'LOGNAME',
+  'LANG',
+  'TERM',
+  'SHELL',
+  'TMPDIR',
+  'TMP',
+  'TEMP',
+]);
+
 function createProcessEnv(overrides?: Record<string, string>): Record<string, string> {
   const env: Record<string, string> = {};
   for (const [key, value] of Object.entries(process.env)) {
-    if (value !== undefined) env[key] = value;
+    if (value === undefined) continue;
+    if (SAFE_INHERITED_ENV_KEYS.has(key) || key.startsWith('LC_')) env[key] = value;
   }
   return { ...env, ...overrides };
 }

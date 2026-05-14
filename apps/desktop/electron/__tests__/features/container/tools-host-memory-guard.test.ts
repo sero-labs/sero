@@ -5,7 +5,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { ToolDefinition } from '@mariozechner/pi-coding-agent';
 
-import { createHostCodingTools } from '@electron/features/container/tools';
+import { createHostCodingTools } from '@electron/features/container/tools/tools-host';
 import {
   getProtectedMemoryAccessError,
   getProtectedMemoryRoot,

@@ -49,7 +49,7 @@ const mocks = vi.hoisted(() => {
       desiredRuntime: 'container',
       actualRuntime: 'host',
       desiredBackend: 'docker',
-      actualBackend: 'host',
+      actualBackend: 'docker',
       containerEnabled: true,
       fallbackCode: 'container_unavailable',
       fallbackReason: 'Container unavailable',
@@ -188,7 +188,7 @@ describe('runtime-aware IPC boundaries', () => {
 
     const diagnostics = await diagnosticsHandler?.({}, 'ws-1');
     expect(diagnostics).toEqual([
-      expect.objectContaining({ desiredBackend: 'docker', actualBackend: 'host' }),
+      expect.objectContaining({ desiredBackend: 'docker', actualBackend: 'docker' }),
     ]);
   });
 });

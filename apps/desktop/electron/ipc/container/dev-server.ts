@@ -27,7 +27,7 @@ function runtimeScopeToIpc(scope: RuntimeDevServer['scope']): DevServer['scope']
 }
 
 function runtimeStatusToIpc(status: RuntimeDevServer['status']): DevServer['status'] {
-  if (status === 'running' || status === 'starting') return status;
+  if (status === 'running' || status === 'starting' || status === 'failed') return status;
   return 'stopped';
 }
 
@@ -72,7 +72,9 @@ export function registerDevServerHandlers(): void {
   ipcMain.handle(
     IpcChannels.devServer.list,
     async (_event, workspaceId?: string) => {
-      if (!workspaceId) return registry.list();
+      if (!workspaceId) {
+        return runtimeManager.listAllDevServersSync().map((server) => runtimeDevServerToIpc(server.workspaceId, server));
+      }
       return runtimeManager.listDevServersSync(workspaceId).map((server) => runtimeDevServerToIpc(workspaceId, server));
     },
   );

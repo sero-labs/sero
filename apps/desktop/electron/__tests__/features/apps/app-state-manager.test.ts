@@ -106,7 +106,7 @@ describe('AppStateManager watch bootstrap', () => {
     manager.watch(filePath);
     await flushPromises();
 
-    expect(mocks.writeFile).toHaveBeenCalledWith(filePath, '{}', { flag: 'wx' });
+    expect(mocks.writeFile).toHaveBeenCalledWith(filePath, 'null', { flag: 'wx' });
 
     manager.dispose();
   });

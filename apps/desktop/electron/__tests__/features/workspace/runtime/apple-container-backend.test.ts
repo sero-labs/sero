@@ -243,6 +243,11 @@ describe('AppleContainerBackend', () => {
       deleteServer: vi.fn().mockReturnValue(true),
     };
     const containerManager = createContainerManager();
+    containerManager.exec.mockImplementation(async (_workspaceId: string, command: string) => ({
+      stdout: command.includes('setsid') ? '1234\n' : '',
+      stderr: '',
+      exitCode: 0,
+    }));
     const backend = createBackend(containerManager);
     vi.spyOn(backend, 'ensure').mockResolvedValue({
       backend: 'apple-container',
