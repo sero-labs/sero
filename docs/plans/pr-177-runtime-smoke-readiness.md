@@ -11,12 +11,12 @@ PR #177 is smoke-ready when:
 3. The desktop app passes backend smoke for every runtime available on your machine:
    - `docker` on Docker Desktop / Docker Engine.
    - `apple-container` on Apple Silicon with Apple Container installed.
-   - `host` on the local OS.
+   - `host` on macOS/Linux only.
 4. Browser automation works on at least one container runtime (`docker` or `apple-container`).
-5. Managed dev-server registration/list/preview works on `docker`, `apple-container` where available, and `host`.
+5. Managed dev-server registration/list/preview works on `docker`, `apple-container` where available, and `host` on macOS/Linux.
 6. Any unavailable platform smoke is recorded explicitly as `not run` with a reason.
 
-Windows/WSL host smoke is required before claiming full Windows readiness, but it cannot be proven from macOS/Linux.
+Windows host mode / WSL-backed host execution is deprecated for PR #177. Windows readiness means Docker Desktop only; do not require or claim WSL host smoke.
 
 ---
 
@@ -75,7 +75,6 @@ pnpm --filter @sero/desktop exec vitest run \
   electron/__tests__/features/workspace/runtime/runtime-types.test.ts \
   electron/__tests__/features/workspace/runtime/host-dev-server-manager.test.ts \
   electron/__tests__/features/workspace/runtime/host-doctor.test.ts \
-  electron/__tests__/features/workspace/runtime/wsl-substrate.test.ts \
   electron/__tests__/features/workspace/runtime/docker-doctor.test.ts \
   electron/__tests__/features/workspace/runtime/docker-backend.test.ts \
   electron/__tests__/features/workspace/runtime/apple-container-backend.test.ts \
@@ -353,13 +352,14 @@ Expected for `docker` and `apple-container`:
 - Files written by editor and exec can be read/deleted through Sero.
 - Runtime Doctor does not hang. Docker image missing may warn only if you did not rebuild/load the image into the relevant runtime store.
 
-Expected for `host`:
+Expected for `host` on macOS/Linux only:
 
 - Runtime switch succeeds.
-- Exec succeeds using the host/WSL environment.
-- `PWD` may be the native workspace path on macOS/Linux host, not `/workspace`. This is expected; the smoke uses a relative exec-created file so the same check works across Host/Docker/Apple.
+- Exec succeeds using the POSIX host environment.
+- `PWD` may be the native workspace path, not `/workspace`. This is expected; the smoke uses a relative exec-created file so the same check works across Host/Docker/Apple.
 - File write/read/delete works.
 - Browser automation is not advertised for host.
+- Do not run host smoke on Windows; Windows uses Docker only.
 
 ---
 
@@ -586,13 +586,13 @@ tail -200 /tmp/sero-electron.log
 
 ---
 
-## 8. Windows/WSL smoke, if you have a Windows machine
+## 8. Windows Docker Desktop smoke, if you have a Windows machine
 
-Run this separately on Windows 11 with WSL 2. For a detailed Parallels setup path, including `winget`, Docker Desktop, WSL Ubuntu, and the repo-pinned pnpm version, use `docs/plans/pr-177-windows-linux-vm-validation.md`.
+Run this separately on Windows 11. Windows host mode / WSL-backed host execution is intentionally deprecated for PR #177; this smoke validates Docker Desktop only. WSL setup is not required except as a Docker Desktop implementation detail.
 
 Short version:
 
-1. Run Sero from **Windows PowerShell**, not from inside WSL.
+1. Run Sero from **Windows PowerShell**.
 2. Use Corepack to activate the repo-pinned pnpm version:
 
    ```powershell
@@ -602,36 +602,25 @@ Short version:
    ```
 
 3. Start Docker Desktop with Linux containers enabled.
-4. Install Ubuntu under WSL 2 and make sure Ubuntu has `bash`, `git`, `node`, and `python3`.
-5. Create a disposable Windows-drive workspace, for example:
+4. Create a disposable Windows-drive workspace, for example:
    `C:\Users\<you>\Projects\sero-pr177-smoke`.
-6. Optionally also test a WSL-native workspace:
-   `\\wsl.localhost\Ubuntu\home\<you>\sero-pr177-smoke`.
-7. Start Sero from the PR branch.
-8. In DevTools, re-paste the section 4 helper, then run:
+5. Start Sero from the PR branch.
+6. In DevTools, re-paste the section 4 helper, then run:
 
 ```js
 await runPr177BackendSmoke("docker");
-await runPr177BackendSmoke("host");
-await runPr177BackendSmoke("docker");
 ```
 
-Expected for Windows host:
+Expected for Windows:
 
-- Host execution uses WSL, not PowerShell/cmd.
-- Windows-drive workspace shell execution maps through WSL `/mnt/c/...`.
-- WSL-native workspace shell execution runs inside the selected distro.
-- File reads/writes work for files larger than 1 MiB:
-
-```js
-await window.sero.editor.exec(ws.id, "python3 - <<'PY'\nfrom pathlib import Path\nPath('pr177-large.txt').write_text('x' * (2 * 1024 * 1024))\nPY");
-const large = await window.sero.editor.readFile(ws.id, "/workspace/pr177-large.txt");
-if (large.length !== 2 * 1024 * 1024) throw new Error(`large read failed: ${large.length}`);
-await window.sero.editor.delete(ws.id, "/workspace/pr177-large.txt");
-```
-
-- Managed dev-server smoke from section 5 returns a usable localhost URL.
-- If localhost forwarding is disabled, the diagnostic should mention WSL localhost forwarding instead of returning an empty successful URL.
+- The runtime picker offers Docker only for normal Windows workspace execution.
+- Agent/runtime `pwd && uname -s` returns `/workspace` and `Linux`.
+- Runtime-created files appear in the Windows workspace and remain editable/deletable from Windows Explorer.
+- Host-created files are visible immediately inside the Docker runtime.
+- Managed dev-server smoke from section 5 returns a usable `http://127.0.0.1:<hostPort>` URL.
+- Browser automation smoke from section 6 works through Docker.
+- Environment Doctor reports Docker stopped/missing/bind-mount issues with actionable remediation.
+- Do **not** run or record `host` backend smoke on Windows; Windows host mode is out of scope for this PR.
 
 ---
 
@@ -662,7 +651,7 @@ Apple Container image rebuilt: yes/no/not available
 - docker:
 - host:
 - apple-container:
-- Windows/WSL host:
+- Windows Docker Desktop:
 
 ## Managed dev-server smoke
 - docker:
@@ -686,9 +675,9 @@ PR is ready when all applicable rows are pass, and unavailable rows have a clear
 
 These were run after rebuilding both local images from this PR branch.
 
-### Source fix found during automation
+### Scope note
 
-The first broad automated run exposed a WSL LSP test timeout caused by the test not mocking the new WSL execution-PID pidfile read. The test was fixed so WSL host LSP startup now covers the pidfile read path deterministically.
+Earlier WSL-host validation notes are obsolete. Windows Host mode / WSL-backed Host execution is deprecated for PR #177; Windows validation is Docker Desktop only.
 
 ### Results
 
@@ -722,4 +711,4 @@ The only remaining checks require an interactive Sero desktop session or another
 2. Temporary-plugin managed dev-server smoke from section 5 for Docker, Host, and Apple Container.
 3. Browser tool smoke through Sero chat from section 6 for Docker and Apple Container.
 4. Backend switch/reset smoke in the running app from section 7.
-5. Windows/WSL host smoke from section 8 on a Windows machine.
+5. Windows Docker Desktop smoke from section 8 on a Windows machine.
