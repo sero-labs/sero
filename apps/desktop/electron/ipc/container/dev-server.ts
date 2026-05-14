@@ -19,7 +19,7 @@ function sendEvent(event: DevServerEvent): void {
 }
 
 function workspaceIdFromServerId(serverId: string): string {
-  return serverId.split(':')[0] ?? '';
+  return serverId.includes(':') ? (serverId.split(':')[0] ?? '') : '';
 }
 
 function runtimeScopeToIpc(scope: RuntimeDevServer['scope']): DevServer['scope'] {
@@ -80,18 +80,43 @@ export function registerDevServerHandlers(): void {
     },
   );
 
+  async function stopRuntimeThenLegacy(serverId: string): Promise<void> {
+    const workspaceId = workspaceIdFromServerId(serverId);
+    if (workspaceId) {
+      try {
+        const runtime = await runtimeManager.getRuntime(workspaceId);
+        await runtime.stopDevServer({ serverId });
+        return;
+      } catch (error) {
+        if (!registry.get(serverId)) throw error;
+      }
+    }
+
+    const ok = await registry.stop(serverId);
+    if (!ok) throw new Error(`Failed to stop dev server: ${serverId}`);
+  }
+
+  async function restartRuntimeThenLegacy(serverId: string): Promise<void> {
+    const workspaceId = workspaceIdFromServerId(serverId);
+    if (workspaceId) {
+      try {
+        const runtime = await runtimeManager.getRuntime(workspaceId);
+        await runtime.restartDevServer({ serverId });
+        return;
+      } catch (error) {
+        if (!registry.get(serverId)) throw error;
+      }
+    }
+
+    const ok = await registry.restart(serverId);
+    if (!ok) throw new Error(`Failed to restart dev server: ${serverId}`);
+  }
+
   // ── Stop a dev server ──────────────────────────────────────
   ipcMain.handle(
     IpcChannels.devServer.stop,
     async (_event, serverId: string) => {
-      const workspaceId = workspaceIdFromServerId(serverId);
-      if (workspaceId) {
-        const runtime = await runtimeManager.getRuntime(workspaceId);
-        await runtime.stopDevServer({ serverId });
-        return;
-      }
-      const ok = await registry.stop(serverId);
-      if (!ok) throw new Error(`Failed to stop dev server: ${serverId}`);
+      await stopRuntimeThenLegacy(serverId);
     },
   );
 
@@ -99,14 +124,7 @@ export function registerDevServerHandlers(): void {
   ipcMain.handle(
     IpcChannels.devServer.restart,
     async (_event, serverId: string) => {
-      const workspaceId = workspaceIdFromServerId(serverId);
-      if (workspaceId) {
-        const runtime = await runtimeManager.getRuntime(workspaceId);
-        await runtime.restartDevServer({ serverId });
-        return;
-      }
-      const ok = await registry.restart(serverId);
-      if (!ok) throw new Error(`Failed to restart dev server: ${serverId}`);
+      await restartRuntimeThenLegacy(serverId);
     },
   );
 
