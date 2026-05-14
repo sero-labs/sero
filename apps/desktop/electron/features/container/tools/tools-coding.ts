@@ -13,7 +13,7 @@
 
 import type { Static } from 'typebox';
 import type { ToolDefinition } from '@mariozechner/pi-coding-agent';
-import type { RuntimeBackend } from '@electron/features/workspace/runtime/types';
+import type { RuntimeBackend, RuntimeFileReadResult } from '@electron/features/workspace/runtime/types';
 import {
   DEFAULT_MAX_LINES,
   DEFAULT_MAX_BYTES,
@@ -50,6 +50,10 @@ import { prepareToolImage } from '@electron/shared/media/image-resize';
 
 function normalizeContainerGuardPath(value: string): string {
   return value.replace(/\\/g, '/');
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function buildResolveContainerPathCommand(targetPath: string): string {
@@ -188,35 +192,28 @@ export function createRead(runtime: RuntimeBackend, containerCwd?: string): Tool
       if (isProtectedMemoryPath(guardedPath)) {
         throw new Error(getProtectedMemoryAccessError('read'));
       }
-      const escaped = shellEscape(absPath);
 
       // ── Image detection by magic bytes ──────────────────
-      // Read the first 12 bytes as hex to sniff the real file type.
-      // This matches Pi SDK behaviour (file-type package) and avoids
-      // sending broken data to the API for misnamed / corrupt files.
-      const hexResult = await runtime.exec({
-        command: `od -A n -t x1 -N 12 '${escaped}' | tr -d ' \\n'`,
-      });
-      const magicHex = hexResult.stdout.trim().toLowerCase();
-      const mimeType = detectMimeFromMagicHex(magicHex);
+      // Read through the runtime file primitive so Host mode can translate
+      // /workspace paths correctly instead of embedding them in shell commands.
+      let binaryResult: RuntimeFileReadResult;
+      try {
+        binaryResult = await runtime.readFile({ path: absPath, binary: true });
+      } catch (error) {
+        throw new Error(`Error reading ${params.path}: ${errorMessage(error)}`);
+      }
+      const fileBytes = Buffer.from(binaryResult.content, 'base64');
+      const mimeType = detectMimeFromMagicHex(fileBytes.subarray(0, 12).toString('hex'));
 
       if (mimeType) {
-        const b64Result = await runtime.exec({
-          command: `base64 -w 0 '${escaped}' 2>/dev/null || base64 '${escaped}'`,
-        });
-        if (b64Result.exitCode !== 0) {
-          throw new Error(`Error reading image ${params.path}: ${b64Result.stderr}`);
-        }
-        const base64 = b64Result.stdout.replace(/[\r\n]/g, '');
-
         // Final sanity check — decoded size should be > 8 bytes for a real image
-        const estimatedBytes = Math.floor((base64.length * 3) / 4);
-        if (estimatedBytes < 8) {
+        if (fileBytes.length < 8) {
           throw new Error(
-            `File ${params.path} has image magic bytes but is only ${estimatedBytes} bytes — likely corrupt.`,
+            `File ${params.path} has image magic bytes but is only ${fileBytes.length} bytes — likely corrupt.`,
           );
         }
 
+        const base64 = binaryResult.content.replace(/[\r\n]/g, '');
         const image = prepareToolImage(base64, mimeType);
         const text = [`Read image file [${image.mimeType}]`, image.text].filter(Boolean).join('\n');
         return {
@@ -229,12 +226,13 @@ export function createRead(runtime: RuntimeBackend, containerCwd?: string): Tool
       }
 
       // ── Text handling ───────────────────────────────────
-      const readResult = await runtime.exec({ command: `cat '${escaped}'` });
-      if (readResult.exitCode !== 0) {
-        throw new Error(`Error reading ${params.path}: ${readResult.stderr}`);
+      let textContent: string;
+      try {
+        const readResult = await runtime.readFile({ path: absPath });
+        textContent = readResult.content;
+      } catch (error) {
+        throw new Error(`Error reading ${params.path}: ${errorMessage(error)}`);
       }
-
-      const textContent = readResult.stdout;
       const allLines = textContent.split('\n');
       const totalFileLines = allLines.length;
 
@@ -357,15 +355,15 @@ export function createEdit(runtime: RuntimeBackend, containerCwd?: string): Tool
       if (isProtectedMemoryPath(guardedPath)) {
         throw new Error(getProtectedMemoryAccessError('edit'));
       }
-      const escaped = shellEscape(absPath);
 
       // Read current file content
-      const readResult = await runtime.exec({ command: `cat '${escaped}'` });
-      if (readResult.exitCode !== 0) {
+      let rawContent: string;
+      try {
+        const readResult = await runtime.readFile({ path: absPath });
+        rawContent = readResult.content;
+      } catch {
         throw new Error(`File not found: ${params.path}`);
       }
-
-      const rawContent = readResult.stdout;
 
       // Strip BOM before matching (LLMs never include invisible BOM)
       const { bom, text: content } = stripBom(rawContent);
