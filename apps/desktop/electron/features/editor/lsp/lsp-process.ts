@@ -12,7 +12,11 @@ import type {
 } from './types';
 import { isResponse, isRequest, isNotification, fileUri } from './types';
 import { resolveServerRequest } from './server-request-handlers';
-import { RUNTIME_WORKSPACE_PATH } from '@electron/features/workspace/runtime/runtime-paths';
+import {
+  RUNTIME_WORKSPACE_PATH,
+  toHostWorkspacePath,
+  toRuntimeWorkspacePath,
+} from '@electron/features/workspace/runtime/runtime-paths';
 
 const REQUEST_TIMEOUT_MS = 30_000;
 
@@ -42,6 +46,15 @@ function getNodeErrorMessage(err: unknown): string {
   if (err instanceof Error) return err.message;
   if (!isRecord(err)) return '';
   return typeof err.message === 'string' ? err.message : '';
+}
+
+function translateValue(value: unknown, mapUri: (uri: string) => string): unknown {
+  if (typeof value === 'string') return mapUri(value);
+  if (Array.isArray(value)) return value.map((entry) => translateValue(entry, mapUri));
+  if (!isRecord(value)) return value;
+  return Object.fromEntries(
+    Object.entries(value).map(([key, entry]) => [key, translateValue(entry, mapUri)]),
+  );
 }
 
 export class LspServerProcess extends EventEmitter {
@@ -106,7 +119,7 @@ export class LspServerProcess extends EventEmitter {
         return;
       }
       const id = this.nextId++;
-      const msg: JsonRpcRequest = { jsonrpc: '2.0', id, method, params };
+      const msg: JsonRpcRequest = { jsonrpc: '2.0', id, method, params: this.toServerValue(params) };
       const timer = setTimeout(() => {
         this.pendingRequests.delete(id);
         reject(new Error(`LSP request '${method}' timed out after ${REQUEST_TIMEOUT_MS}ms`));
@@ -119,7 +132,7 @@ export class LspServerProcess extends EventEmitter {
   /** Send a JSON-RPC notification (no response expected). */
   sendNotification(method: string, params?: unknown): void {
     if (!this.process || this._disposed) return;
-    const msg: JsonRpcNotification = { jsonrpc: '2.0', method, params };
+    const msg: JsonRpcNotification = { jsonrpc: '2.0', method, params: this.toServerValue(params) };
     this.write(msg);
   }
 
@@ -156,12 +169,13 @@ export class LspServerProcess extends EventEmitter {
   // ── Private ───────────────────────────────────────────────
 
   private async initialize(): Promise<Record<string, unknown>> {
-    const rootUri = fileUri(RUNTIME_WORKSPACE_PATH);
+    const rootPath = this.serverRootPath();
+    const rootUri = fileUri(rootPath);
 
     const result = await this.sendRequest('initialize', {
       processId: null,
       rootUri,
-      rootPath: RUNTIME_WORKSPACE_PATH,
+      rootPath,
       capabilities: {
         textDocument: {
           synchronization: { dynamicRegistration: false, willSave: false, didSave: true, willSaveWaitUntil: false },
@@ -206,6 +220,7 @@ export class LspServerProcess extends EventEmitter {
   }
 
   private handleMessage(msg: JsonRpcMessage): void {
+    msg = this.fromServerMessage(msg);
     if (isResponse(msg)) {
       const pending = this.pendingRequests.get(msg.id!);
       if (pending) {
@@ -237,6 +252,35 @@ export class LspServerProcess extends EventEmitter {
 
     const response: JsonRpcResponse = { jsonrpc: '2.0', id: req.id, result };
     this.write(response);
+  }
+
+  private serverRootPath(): string {
+    return this.runtime.workspaceAccess === 'host'
+      ? this.runtime.hostWorkspacePath
+      : this.runtime.runtimeWorkspacePath;
+  }
+
+  private toServerValue(value: unknown): unknown {
+    if (this.runtime.workspaceAccess !== 'host') return value;
+    return translateValue(value, (uri) => this.runtimeUriToHostUri(uri));
+  }
+
+  private fromServerMessage(message: JsonRpcMessage): JsonRpcMessage {
+    if (this.runtime.workspaceAccess !== 'host') return message;
+    return translateValue(message, (uri) => this.hostUriToRuntimeUri(uri)) as JsonRpcMessage;
+  }
+
+  private runtimeUriToHostUri(uri: string): string {
+    const runtimePrefix = fileUri(RUNTIME_WORKSPACE_PATH);
+    if (uri !== runtimePrefix && !uri.startsWith(`${runtimePrefix}/`)) return uri;
+    return fileUri(toHostWorkspacePath(this.runtime.hostWorkspacePath, uri.slice('file://'.length)));
+  }
+
+  private hostUriToRuntimeUri(uri: string): string {
+    if (!uri.startsWith('file://')) return uri;
+    const hostPath = uri.slice('file://'.length);
+    const runtimePath = toRuntimeWorkspacePath(this.runtime.hostWorkspacePath, hostPath);
+    return runtimePath ? fileUri(runtimePath) : uri;
   }
 
   private write(msg: JsonRpcMessage): void {

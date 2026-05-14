@@ -5,7 +5,7 @@ import path from 'path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { LspServerProcess } from '@electron/features/editor/lsp/lsp-process';
-import type { LspServerConfig } from '@electron/features/editor/lsp/types';
+import { fileUri, type LspServerConfig } from '@electron/features/editor/lsp/types';
 import { createPosixHostSubstrate } from '@electron/features/workspace/runtime/backends/host/posix-substrate';
 import { HostBackend } from '@electron/features/workspace/runtime/backends/host/host-backend';
 import { RUNTIME_WORKSPACE_PATH } from '@electron/features/workspace/runtime/runtime-paths';
@@ -62,7 +62,7 @@ describe('LspServerProcess host runtime launch', () => {
     await Promise.all(tempDirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })));
   });
 
-  it('starts POSIX host language servers with the shared runtime workspace cwd', async () => {
+  it('starts POSIX host language servers with host-visible roots and URI translation', async () => {
     const child = new MockSpawnedProcess();
     mocks.spawnMock.mockReturnValue(child);
     const workspacePath = await mkdtemp(path.join(os.tmpdir(), 'sero-lsp-posix-'));
@@ -80,7 +80,26 @@ describe('LspServerProcess host runtime launch', () => {
       cwd: await realpath(workspacePath),
       stdio: 'pipe',
     }));
-    expect(child.stdin.write).toHaveBeenCalledWith(expect.stringContaining(`"rootPath":"${RUNTIME_WORKSPACE_PATH}"`));
+    expect(child.stdin.write).toHaveBeenCalledWith(expect.stringContaining(`"rootPath":"${workspacePath}"`));
+
+    server.sendNotification('textDocument/didOpen', {
+      textDocument: { uri: `${fileUri(RUNTIME_WORKSPACE_PATH)}/src/example.ts` },
+    });
+
+    expect(child.stdin.write).toHaveBeenLastCalledWith(
+      expect.stringContaining(`${fileUri(workspacePath)}/src/example.ts`),
+    );
+
+    const notification = new Promise((resolve) => server.once('notification', resolve));
+    child.stdout.emit('data', Buffer.from(encodeRpc({
+      jsonrpc: '2.0',
+      method: 'textDocument/publishDiagnostics',
+      params: { uri: `${fileUri(workspacePath)}/src/example.ts`, diagnostics: [] },
+    })));
+
+    await expect(notification).resolves.toMatchObject({
+      params: { uri: `${fileUri(RUNTIME_WORKSPACE_PATH)}/src/example.ts` },
+    });
   });
 
 });
