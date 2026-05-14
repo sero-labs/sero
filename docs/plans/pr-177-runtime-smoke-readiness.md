@@ -664,7 +664,7 @@ Apple Container image rebuilt: yes/no/not available
 - host capability unavailable as expected: yes/no
 
 ## Issues found
-- 
+-
 ```
 
 PR is ready when all applicable rows are pass, and unavailable rows have a clear reason such as `not run: no Windows machine` or `not run: Apple Container unavailable on Intel Mac`.

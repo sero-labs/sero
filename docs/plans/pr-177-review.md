@@ -1,7 +1,7 @@
 # PR #177 Review
 
-**PR:** https://github.com/sero-labs/sero/pull/177  
-**Branch:** `feat/docker-runtime`  
+**PR:** https://github.com/sero-labs/sero/pull/177
+**Branch:** `feat/docker-runtime`
 **Verdict:** Needs changes
 
 This review was split across runtime seam, Host, Docker/Apple/browser, and renderer/docs because the PR is very large.

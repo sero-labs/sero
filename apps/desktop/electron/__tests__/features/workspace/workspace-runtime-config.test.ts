@@ -112,6 +112,42 @@ describe('workspace runtime config migration', () => {
     expect(workspaces.map((workspace) => workspace.id)).toEqual(['global', 'applecontainertest']);
   });
 
+  it('ignores recovered managed workspace folders with unsafe config ids', async () => {
+    const dir = await mkdtemp(path.join(os.tmpdir(), 'sero-workspace-recovery-unsafe-'));
+    tempDirs.push(dir);
+    const agentDir = path.join(dir, 'agent');
+    const workspacesDir = path.join(dir, 'workspaces');
+    const workspacePath = path.join(workspacesDir, 'bad');
+    await mkdir(workspacePath, { recursive: true });
+    await writeFile(path.join(workspacePath, '.sero-workspace.json'), JSON.stringify({
+      id: 'bad:id',
+      name: 'Bad',
+      runtime: { backend: 'docker' },
+    }, null, 2), 'utf8');
+    const manager = new WorkspaceManager({
+      agentDir,
+      workspacesDir,
+      registryPath: path.join(agentDir, 'workspaces.json'),
+      editorStateDir: path.join(agentDir, 'editor-state'),
+    });
+
+    await manager.init();
+
+    expect((await manager.list()).map((workspace) => workspace.id)).toEqual(['global']);
+  });
+
+  it('rewrites unsafe existing config ids when adding a folder', async () => {
+    const workspacePath = await createTempWorkspace({ id: 'bad:id', name: 'Bad', runtime: { backend: 'docker' } } as WorkspaceConfig);
+    const manager = await createTestManager();
+
+    const info = await manager.addFolder(workspacePath, 'Safe Name');
+    const written = JSON.parse(await readFile(path.join(workspacePath, '.sero-workspace.json'), 'utf8')) as WorkspaceConfig;
+
+    expect(info.id).not.toContain(':');
+    expect(info.id).toMatch(/^sero-workspace-runtime-/);
+    expect(written.id).toBe(info.id);
+  });
+
   it('writes new workspace configs with runtime.backend', async () => {
     const workspacePath = await createTempWorkspace();
     const manager = await createTestManager();
@@ -184,7 +220,7 @@ describe('workspace runtime config migration', () => {
     expect(warn).toHaveBeenCalled();
   });
 
-  it('migrates apple-container to the platform default on non-darwin', () => {
+  it('migrates apple-container to the platform default outside macOS Apple Silicon', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const config = { id: 'app', name: 'App', runtime: { backend: 'apple-container' as const } };
 
@@ -198,6 +234,13 @@ describe('workspace runtime config migration', () => {
 
     const windowsDetails = resolveWorkspaceRuntimeBackendDetails('app', config, { platform: 'win32', arch: 'x64' });
     expect(windowsDetails).toMatchObject({
+      backend: 'docker',
+      configuredBackend: 'apple-container',
+      fallbackCode: 'backend-unsupported-on-platform',
+    });
+
+    const macIntelDetails = resolveWorkspaceRuntimeBackendDetails('app', config, { platform: 'darwin', arch: 'x64' });
+    expect(macIntelDetails).toMatchObject({
       backend: 'docker',
       configuredBackend: 'apple-container',
       fallbackCode: 'backend-unsupported-on-platform',

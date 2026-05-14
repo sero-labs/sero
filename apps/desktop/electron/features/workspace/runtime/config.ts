@@ -91,7 +91,7 @@ function validateBackendForPlatform(
   defaults: Required<Pick<RuntimePlatformDefaultsInput, 'platform' | 'arch'>> & RuntimePlatformDefaultsInput,
 ): WorkspaceRuntimeBackendDetails {
   try {
-    getRuntimeCapabilities(configured.backend, defaults.platform);
+    getRuntimeCapabilities(configured.backend, defaults.platform, defaults.arch);
     return configured.preFallbackCode
       ? { backend: configured.backend, configuredBackend: configured.backend, fallbackCode: configured.preFallbackCode }
       : { backend: configured.backend, configuredBackend: configured.backend };
@@ -99,12 +99,12 @@ function validateBackendForPlatform(
     if (!(error instanceof UnsupportedRuntimeOnPlatformError)) throw error;
     const fallback = getDefaultRuntimeBackend(defaults);
     // Guard against an unsupported platform default — re-evaluating capabilities ensures the fallback is usable.
-    getRuntimeCapabilities(fallback, defaults.platform);
+    getRuntimeCapabilities(fallback, defaults.platform, defaults.arch);
     return {
       backend: fallback,
       configuredBackend: configured.backend,
       fallbackCode: 'backend-unsupported-on-platform',
-      fallbackReason: `${configured.backend} is not supported on ${defaults.platform}. Sero is falling back to ${fallback}.`,
+      fallbackReason: `${error.message}. Sero is falling back to ${fallback}.`,
     };
   }
 }

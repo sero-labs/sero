@@ -63,7 +63,7 @@ Keep these alpha caveats in mind:
 - The primary root and attached roots are runtime/workspace concepts, not a
   stable public plugin API.
 - File operations can depend on the selected runtime. Container-backed
-  workspaces are the preferred path; host mode has fallbacks but is not full
+  workspaces are the preferred path; Host mode is explicit and reduced, not full
   parity.
 - Avoid using Explorer as the only copy of important work until you are
   comfortable with the current alpha behavior.
@@ -135,7 +135,7 @@ Runtime matters:
 
 - in a container-backed workspace, terminals are expected to run through the
   workspace container path
-- in host mode, terminals use the host fallback path
+- in Host mode, terminals use direct host execution
 
 If terminal behavior differs between runtimes, include the runtime mode when
 filing an issue.

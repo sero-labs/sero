@@ -93,9 +93,9 @@ Attaching a folder or mounting plugin source can require container recreation be
 
 ## Host mode
 
-If Apple Container and Docker runtimes are unavailable, Sero can continue in host mode. Host mode is useful for core chat, files, editing, and regular local development. It can register normal localhost dev servers, but it is not feature-equivalent for container networking, browser automation, or Linux/container parity.
+If Apple Container and Docker runtimes are unavailable on macOS/Linux, explicitly select Host mode for core chat, files, editing, and regular local development. Sero does not silently switch a selected container runtime to host execution. Host mode can register normal localhost dev servers, but it is not feature-equivalent for container networking, browser automation, or Linux/container parity.
 
-Use [Containers and Host Mode](/reference/containers-host-mode) for the fallback matrix and [Container Isolation](/reference/container-isolation) for lifecycle and mount details.
+Use [Containers and Host Mode](/reference/containers-host-mode) for the runtime matrix and [Container Isolation](/reference/container-isolation) for lifecycle and mount details.
 
 ## Troubleshooting quick checks
 

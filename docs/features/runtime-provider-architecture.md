@@ -76,7 +76,7 @@ Backends report real capabilities for:
 - logs and health checks
 - browser automation and language servers
 
-Callers must use `getRuntimeCapabilities(backend, platform)` and runtime diagnostics instead of branching on provider-specific implementation details.
+Callers must use `getRuntimeCapabilities(backend, platform, arch)` and runtime diagnostics instead of branching on provider-specific implementation details.
 
 ## Backend responsibilities
 

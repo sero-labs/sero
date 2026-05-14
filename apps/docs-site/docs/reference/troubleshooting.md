@@ -94,13 +94,13 @@ Docker quick check:
 docker info
 ```
 
-If container runtimes still are not available, Sero can continue in host mode on
-macOS/Linux. That is supported, but intentionally reduced. Windows workspace
-execution uses Docker.
+If container runtimes still are not available, explicitly select Host mode on
+macOS/Linux for reduced direct-host execution. Sero does not silently switch a
+selected container runtime to host execution. Windows workspace execution uses Docker.
 
 ## A workflow works in containers but not in host mode
 
-Host mode is a supported macOS/Linux fallback for:
+Host mode is a supported explicit macOS/Linux runtime for:
 - onboarding and provider setup
 - core chat and coding tasks
 - file browsing and editing

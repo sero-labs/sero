@@ -1,6 +1,6 @@
 # PR 177 Runtime Reliability Fix Plan
 
-**Date:** 2026-05-11  
+**Date:** 2026-05-11
 **Scope:** Fix review findings for PR #177 (`feat(desktop): add provider-aware workspace runtimes`).
 
 ## Runtime scope

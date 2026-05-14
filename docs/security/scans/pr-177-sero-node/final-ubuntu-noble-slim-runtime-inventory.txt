@@ -13,7 +13,7 @@ make=GNU Make 4.3
 agent-browser 0.27.0
 PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 chromium=/ms-playwright/chromium-1200/chrome-linux/chrome
-Chromium 143.0.7499.4 
+Chromium 143.0.7499.4
 headless_shell=/ms-playwright/chromium-1200/chrome-linux/chrome
 ffmpeg_asset=/ms-playwright/ffmpeg-1011/ffmpeg-linux
 /usr/local/bin/ffmpeg

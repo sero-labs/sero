@@ -146,7 +146,7 @@ Key ideas:
 - Explorer workspace with editor, terminal, visual browser, preview, and VCS
   surfaces
 - Workspace model with per-workspace runtime control
-- Apple Container and Docker-backed workspace execution, with host-mode fallback where supported
+- Apple Container and Docker-backed workspace execution, with explicit Host mode where supported
 - Built-in plugin architecture for UI apps, tools, commands, widgets, and
   background behavior
 - Persistent memory system for project context across sessions

@@ -21,7 +21,7 @@ describe('runtime backend contract skeleton', () => {
   });
 
   it.each(RUNTIME_BACKEND_IDS)('defines complete capabilities for %s', (backend) => {
-    const capabilities = getRuntimeCapabilities(backend, 'darwin');
+    const capabilities = getRuntimeCapabilities(backend, 'darwin', 'arm64');
 
     expect(capabilities).toMatchObject({
       exec: expect.any(Boolean),
@@ -64,7 +64,7 @@ describe('runtime backend contract skeleton', () => {
   });
 
   it('keeps container backend capabilities aligned with implemented behavior', () => {
-    const appleCapabilities = getRuntimeCapabilities('apple-container', 'darwin');
+    const appleCapabilities = getRuntimeCapabilities('apple-container', 'darwin', 'arm64');
     const dockerCapabilities = getRuntimeCapabilities('docker', 'linux');
 
     expect(appleCapabilities.browserAutomation).toBe(true);
@@ -84,8 +84,9 @@ describe('runtime backend contract skeleton', () => {
     expect(getRuntimeCapabilities('host', 'linux').languageServers).toBe(true);
   });
 
-  it('rejects Apple Container capabilities on non-Darwin platforms', () => {
-    expect(() => getRuntimeCapabilities('apple-container', 'linux')).toThrow(UnsupportedRuntimeOnPlatformError);
+  it('rejects Apple Container capabilities outside macOS Apple Silicon', () => {
+    expect(() => getRuntimeCapabilities('apple-container', 'linux', 'arm64')).toThrow(UnsupportedRuntimeOnPlatformError);
+    expect(() => getRuntimeCapabilities('apple-container', 'darwin', 'x64')).toThrow(UnsupportedRuntimeOnPlatformError);
   });
 
   it('rejects host capabilities on Windows', () => {

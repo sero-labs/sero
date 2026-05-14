@@ -13,7 +13,7 @@ wins** for current alpha expectations.
 | Current maintainer-validated baseline | Validated | macOS `26.3`, `arm64`, Node `22.22.0`, pnpm `10.11.0` |
 | Distribution | Supported | Build from source only |
 | Preferred runtime | Supported / recommended | Container-backed workspace via Apple Container or Docker |
-| Fallback runtime | Supported where available | Host mode with reduced capabilities on macOS/Linux; Windows uses Docker for workspace execution |
+| Host runtime | Supported where available | Explicit Host mode with reduced capabilities on macOS/Linux; Windows uses Docker for workspace execution |
 | Support channel | Supported | GitHub Issues and Pull Requests |
 | Official public binaries | Not supported | No public binary distribution promised in alpha |
 | Linux | Supported alpha | Source build; Docker runtime recommended, host mode available |
@@ -26,7 +26,7 @@ wins** for current alpha expectations.
 | --- | --- | --- | --- | --- |
 | Apple Container | Supported on Apple Silicon | Not available | Not available | Preferred on supported Apple Silicon Macs. |
 | Docker | Supported | Supported | Supported | Recommended cross-platform container runtime. |
-| Host | Supported fallback | Supported fallback | Not supported | Windows workspace execution uses Docker, not native PowerShell/cmd host mode. |
+| Host | Supported explicit runtime | Supported explicit runtime | Not supported | Windows workspace execution uses Docker, not native PowerShell/cmd host mode. |
 
 Container-backed workspaces are the preferred path for:
 - containerized workspace execution
@@ -37,7 +37,7 @@ Container-backed workspaces are the preferred path for:
 
 ### Host mode
 
-Host mode is a **supported fallback**, not a feature-equivalent replacement for
+Host mode is a **supported explicit runtime**, not a feature-equivalent replacement for
 container-backed runtime.
 
 Host mode is currently supported on macOS/Linux for:
@@ -87,7 +87,7 @@ Use the public support surfaces like this:
 What maintainers will triage first during alpha:
 - issues on the maintainer-validated baseline (`macOS` on Apple Silicon, source build)
 - install / launch / data-loss / security-sensitive regressions
-- container-backed runtime problems and documented host-mode fallback problems
+- container-backed runtime problems and documented Host-mode problems
 - docs gaps that block setup or truthful usage of the alpha
 
 What reporters should expect:

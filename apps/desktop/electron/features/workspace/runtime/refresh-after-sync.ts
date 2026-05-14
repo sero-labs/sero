@@ -114,8 +114,8 @@ export async function refreshWorkspaceRuntimeAfterSync(
 
   if (deps.resolveRuntime) {
     const legacyRuntime = await deps.resolveRuntime(workspaceId);
-    if (legacyRuntime.actualRuntime !== 'container') {
-      const entry = legacyRuntime.capabilityAudit.find((candidate) => candidate.key === 'managedDevServers');
+    const entry = legacyRuntime.capabilityAudit.find((candidate) => candidate.key === 'managedDevServers');
+    if (legacyRuntime.actualRuntime !== 'container' || legacyRuntime.fallbackCode === 'container_unavailable' || entry?.available === false) {
       return { ...result, reason: entry?.detail ?? 'Managed dev servers are not available for the selected runtime.' };
     }
   } else {

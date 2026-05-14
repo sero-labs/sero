@@ -6,7 +6,7 @@ Use the reference when you need canonical details about architecture, runtime be
 
 - [Architecture](/reference/architecture) — shell model, workspaces, runtime modes, and plugins.
 - [Containers and Host Mode](/reference/containers-host-mode) — workspace runtime modes, requirements, logs, and caveats.
-- [Container Isolation](/reference/container-isolation) — per-workspace container lifecycle, mounts, networking, dev-server registry behavior, and host fallback.
+- [Container Isolation](/reference/container-isolation) — per-workspace container lifecycle, mounts, networking, dev-server registry behavior, and Host mode.
 - [Sero CLI](/reference/sero-cli) — source-checked command syntax, namespaces, output, side effects, batch behavior, and plugin bridging.
 - [State and Folders](/reference/state-and-folders) — profile paths, workspace state, app state, memory storage, and redaction guidance.
 - [`models.json`](/reference/models-json) — local/custom model provider schema, examples, discovery behavior, and recovery.

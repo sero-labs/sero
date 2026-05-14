@@ -27,7 +27,7 @@ flowchart LR
   Workspace --> Runtime{Runtime mode}
   Runtime --> Apple[Apple Container workspace]
   Runtime --> Docker[Docker workspace]
-  Runtime --> Host[Host mode fallback]
+  Runtime --> Host[Explicit Host mode]
 
   Apps --> AppRuntime["@sero-ai/app-runtime"]
   Apps --> AppState[Profile or workspace app state]
@@ -81,18 +81,19 @@ Use Apple Container or Docker-backed workspaces for:
 - browser automation and managed preview flows
 - better Linux parity
 
-### Host mode (supported fallback)
+### Host mode (explicit reduced runtime)
 
-Host mode keeps core workflows available on macOS/Linux, but it is intentionally reduced.
+Host mode keeps core workflows available when selected on macOS/Linux, but it is intentionally reduced.
 Expect limits around browser automation, containerized tooling, and some managed
 preview/runtime behavior. Windows workspace execution uses Docker. See [Containers and Host Mode](/reference/containers-host-mode)
 for runtime-specific guidance.
 
 ```mermaid
 flowchart TD
-  Open[Open workspace] --> Check{Container runtime available?}
-  Check -->|Apple Container/Docker| Container[Container-backed workspace]
-  Check -->|macOS/Linux fallback| Host[Reduced host mode]
+  Open[Open workspace] --> Pick{Selected runtime}
+  Pick -->|Apple Container/Docker available| Container[Container-backed workspace]
+  Pick -->|Host on macOS/Linux| Host[Reduced host mode]
+  Pick -->|Container unavailable| Error[Actionable runtime error]
 
   Container --> Mounts[Mount workspace and configured extra roots]
   Container --> Exec["Run terminals, tools, and dev servers via container exec"]

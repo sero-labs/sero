@@ -1,4 +1,3 @@
 
 > @sero/desktop@0.1.0 typecheck /Users/danielcarter/Documents/Dev/projects/sero/sero/apps/desktop
 > tsc --noEmit && tsc -p tsconfig.electron.json --noEmit
-

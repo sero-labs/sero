@@ -11,7 +11,7 @@ Container-backed workspaces are Sero's preferred runtime across supported platfo
 | Start model | Lazy/deduplicated `ensure()` per workspace; stopped containers are reused when possible. |
 | System runtime | Apple Container (`/usr/local/bin/container`) or Docker; Sero can start the Apple Container system if it is installed but stopped. |
 | Recovery | Stale/ghost containers may be force-removed or recreated. |
-| Fallback | If containers are unavailable, Sero can continue in reduced host mode. |
+| Host alternative | On macOS/Linux, explicitly select Host when you want reduced direct-host execution. Selected container runtimes fail closed if unavailable. |
 
 ```text
 Workspace opened
@@ -63,9 +63,9 @@ Container-backed runtimes stop a dev server by finding processes listening on th
 
 This means stop/restart depends on the registered id and runtime process state, not just a host-side port forward.
 
-## Host-mode fallback
+## Host mode
 
-Host mode keeps core workflows available when the container runtime is missing or disabled:
+Host mode keeps core workflows available when you explicitly select it on macOS/Linux:
 
 - onboarding and provider setup
 - chat and coding tasks
@@ -80,7 +80,7 @@ It is reduced for:
 - managed preview and dev-server automation
 - container networking semantics
 
-See [Containers and Host Mode](/reference/containers-host-mode) for user-facing fallback guidance.
+See [Containers and Host Mode](/reference/containers-host-mode) for user-facing runtime guidance.
 
 ## Cleanup and image changes
 

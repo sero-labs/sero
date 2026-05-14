@@ -83,7 +83,7 @@ describe('resolveWorkspaceRuntime', () => {
     expect(mocks.runtimeManager.getHealth).toHaveBeenCalledWith('ws-1');
   });
 
-  it('returns host fallback details when container mode is enabled but unavailable', async () => {
+  it('returns unavailable container details without falling back to host when selected runtime is unavailable', async () => {
     mocks.runtimeManager.getHealth.mockResolvedValue({
       backend: 'docker',
       status: 'missing',
@@ -95,19 +95,15 @@ describe('resolveWorkspaceRuntime', () => {
 
     expect(resolved).toMatchObject({
       desiredRuntime: 'container',
-      actualRuntime: 'host',
+      actualRuntime: 'container',
       desiredBackend: 'docker',
       actualBackend: 'docker',
       fallbackCode: 'container_unavailable',
     });
-    expect(resolved.fallbackReason).toContain('falling back to host mode');
+    expect(resolved.fallbackReason).toContain('will not fall back to host execution');
     expect(resolved.fallbackReason).toContain('Docker container missing');
     expect(resolved.fallbackReason).toContain('Create the runtime before using container-only features.');
-    // Browser/mounts stay unavailable when the container falls back to host; LSP and dev servers remain usable on host.
-    expect(resolved.capabilityAudit.find((entry) => entry.key === 'browserAutomation')).toMatchObject({ available: false });
-    expect(resolved.capabilityAudit.find((entry) => entry.key === 'containerMounts')).toMatchObject({ available: false });
-    expect(resolved.capabilityAudit.find((entry) => entry.key === 'managedDevServers')).toMatchObject({ available: true });
-    expect(resolved.capabilityAudit.find((entry) => entry.key === 'containerizedLanguageServers')).toMatchObject({ available: true });
+    expect(resolved.capabilityAudit.every((entry) => entry.available === false)).toBe(true);
   });
 
   it.each(['stopped', 'error'] as const)(
@@ -123,16 +119,14 @@ describe('resolveWorkspaceRuntime', () => {
 
       expect(resolved).toMatchObject({
         desiredRuntime: 'container',
-        actualRuntime: 'host',
+        actualRuntime: 'container',
         desiredBackend: 'docker',
         actualBackend: 'docker',
         fallbackCode: 'container_unavailable',
       });
-      expect(resolved.fallbackReason).toContain('falling back to host mode');
-      // Host runtime supports language servers now (cross-platform host runtime workstream);
-      // the audit must reflect that rather than claiming LSP is container-only.
+      expect(resolved.fallbackReason).toContain('will not fall back to host execution');
       expect(resolved.capabilityAudit.find((entry) => entry.key === 'containerizedLanguageServers'))
-        .toMatchObject({ available: true, containerOnly: false });
+        .toMatchObject({ available: false, containerOnly: false });
     },
   );
 

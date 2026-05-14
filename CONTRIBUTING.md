@@ -32,7 +32,7 @@ Important current constraints:
 - supported alpha development targets: **macOS, Linux, and Windows**
 - maintainer-validated baseline: **macOS on Apple Silicon**
 - preferred runtime: **container-backed workspaces** through Apple Container or Docker
-- supported fallback: **host mode** with reduced capabilities on macOS/Linux; Windows uses Docker for workspace execution
+- supported explicit runtime: **host mode** with reduced capabilities on macOS/Linux; Windows uses Docker for workspace execution
 - current public distribution model: **build from source**
 
 For the canonical current support contract and validated baseline, defer to

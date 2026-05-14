@@ -43,13 +43,21 @@ import type {
   RuntimeWriteFileInput,
 } from '../types';
 import { AppleContainerPortManager } from './apple-container-ports';
+import {
+  ENV_KEY_RE,
+  buildDevServerLaunchCommand,
+  emitData,
+  errorMessage,
+  shellEnvAssignment,
+  shellQuote,
+  sleep,
+  subscribe,
+} from './apple-container-utils';
 import { normalizePreviewPortPoolSize } from './preview-port-pool';
 
 const DEV_SERVER_START_TIMEOUT_MS = 30_000;
 const DEV_SERVER_DETECT_TIMEOUT_MS = 20_000;
 const DEV_SERVER_POLL_MS = 500;
-const ENV_KEY_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
-
 interface AppleContainerBackendOptions {
   workspaceId: string;
   hostWorkspacePath: string;
@@ -72,7 +80,8 @@ export class AppleContainerBackend implements RuntimeBackend {
   private readonly devServerCallbacks = new Set<(event: RuntimeDevServerChangeEvent) => void>();
   private ports: AppleContainerPortManager | null = null;
   private session: RuntimeSession | null = null;
-  private ensureInflight: Promise<RuntimeSession> | null = null;
+  private sessionIsolated = false;
+  private ensureInflight: { isolated: boolean; promise: Promise<RuntimeSession> } | null = null;
 
   constructor(options: AppleContainerBackendOptions) {
     this.workspaceId = options.workspaceId;
@@ -101,10 +110,18 @@ export class AppleContainerBackend implements RuntimeBackend {
   }
 
   private async ensureWithOptions(options?: { isolated?: boolean }): Promise<RuntimeSession> {
-    if (this.session) return this.session;
-    if (this.ensureInflight) return this.ensureInflight;
-    this.ensureInflight = this.ensureOnce(options).finally(() => { this.ensureInflight = null; });
-    return this.ensureInflight;
+    const isolated = options?.isolated === true;
+    if (this.session && this.sessionIsolated === isolated) return this.session;
+    if (this.ensureInflight?.isolated === isolated) return this.ensureInflight.promise;
+    if (this.ensureInflight) {
+      await this.ensureInflight.promise;
+      if (this.ensureInflight?.isolated === isolated) return this.ensureInflight.promise;
+      if (this.session && this.sessionIsolated === isolated) return this.session;
+    }
+    if (this.session) await this.resetSessionForIsolationChange();
+    const promise = this.ensureOnce(options).finally(() => { this.ensureInflight = null; });
+    this.ensureInflight = { isolated, promise };
+    return promise;
   }
 
   private async ensureOnce(options?: { isolated?: boolean }): Promise<RuntimeSession> {
@@ -132,6 +149,7 @@ export class AppleContainerBackend implements RuntimeBackend {
       state: state.state,
       containerId: state.id,
     };
+    this.sessionIsolated = options?.isolated === true;
     return this.session;
   }
 
@@ -150,14 +168,18 @@ export class AppleContainerBackend implements RuntimeBackend {
     // it, so stale Apple Container records do not accumulate across workspace resets.
     await this.containerManager.remove(this.workspaceId);
     this.session = null;
+    this.sessionIsolated = false;
   }
 
   async exec(input: RuntimeExecInput): Promise<RuntimeExecResult> {
+    const envPrefix = Object.entries(input.env ?? {})
+      .map(([key, value]) => shellEnvAssignment(key, value))
+      .join(' ');
     if (input.isolated === undefined) await this.ensure();
     else await this.ensureWithOptions({ isolated: input.isolated });
     return this.containerManager.exec(
       this.workspaceId,
-      input.command,
+      envPrefix ? `${envPrefix} ${input.command}` : input.command,
       input.cwd ?? this.runtimeWorkspacePath,
       input.timeoutMs,
       { injectGitAuth: input.injectGitAuth },
@@ -420,6 +442,13 @@ export class AppleContainerBackend implements RuntimeBackend {
     return (await this.portManager()).resolvePreviewUrl(input.targetPort, input.path);
   }
 
+  private async resetSessionForIsolationChange(): Promise<void> {
+    this.containerManager.terminals.disposeWorkspaceTerminals(this.workspaceId);
+    await this.containerManager.remove(this.workspaceId);
+    this.session = null;
+    this.sessionIsolated = false;
+  }
+
   private async waitForStartedPort(beforePorts: Set<number>, pid: number): Promise<number> {
     const startedAt = Date.now();
     while (Date.now() - startedAt < DEV_SERVER_DETECT_TIMEOUT_MS) {
@@ -466,35 +495,4 @@ export class AppleContainerBackend implements RuntimeBackend {
 
 function isRuntimeDevServer(server: RuntimeDevServer | undefined): server is RuntimeDevServer {
   return Boolean(server);
-}
-
-function shellEnvAssignment(key: string, value: string): string {
-  if (!ENV_KEY_RE.test(key)) throw new Error(`Invalid environment variable name: ${key}`);
-  return `${key}=${shellQuote(value)}`;
-}
-
-function buildDevServerLaunchCommand(command: string, logPath: string): string {
-  return `setsid sh -c ${shellQuote(`exec ${command} > ${shellQuote(logPath)} 2>&1`)} >/dev/null 2>&1 & echo $!`;
-}
-
-function shellQuote(value: string): string {
-  return `'${value.replace(/'/g, `'\\''`)}'`;
-}
-
-function errorMessage(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
-}
-
-function emitData(callbacks: Set<(chunk: string) => void>, chunk: Buffer): void {
-  const text = chunk.toString();
-  for (const cb of callbacks) cb(text);
-}
-
-function subscribe<T>(callbacks: Set<(value: T) => void>, cb: (value: T) => void): () => void {
-  callbacks.add(cb);
-  return () => callbacks.delete(cb);
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }

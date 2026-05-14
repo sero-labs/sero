@@ -67,7 +67,7 @@ function getHealthDetail(health: RuntimeHealth): string | undefined {
 
 function getContainerFallbackReason(workspaceId: string, detail?: string): string {
   const suffix = detail ? ` ${detail}` : '';
-  return `Container mode is enabled for workspace ${workspaceId}, but no running container is available. Sero is falling back to host mode until the container is ready again.${suffix}`;
+  return `Container runtime is selected for workspace ${workspaceId}, but it is not available. Sero will not fall back to host execution; fix the runtime and try again.${suffix}`;
 }
 
 function createCapabilityAudit(
@@ -76,7 +76,7 @@ function createCapabilityAudit(
   containerEnabled: boolean,
   fallbackReason?: string,
 ): WorkspaceRuntimeCapabilityAuditEntry[] {
-  const capabilities = getRuntimeCapabilities(actualBackend, process.platform);
+  const capabilities = getRuntimeCapabilities(actualBackend, process.platform, process.arch);
   const hostModeReason = containerEnabled
     ? fallbackReason ?? 'Container mode is preferred, but this workspace is currently running on the host.'
     : 'Workspace is explicitly set to host mode.';
@@ -114,6 +114,19 @@ function buildAuditEntry(input: BuildAuditEntryInput): WorkspaceRuntimeCapabilit
       hostModeReason: input.hostModeReason,
     }),
   };
+}
+
+function createUnavailableContainerCapabilityAudit(
+  actualBackend: RuntimeBackendId,
+  fallbackReason: string,
+): WorkspaceRuntimeCapabilityAuditEntry[] {
+  return CAPABILITY_KEYS.map((key) => ({
+    key,
+    label: CAPABILITY_LABELS[key],
+    available: false,
+    containerOnly: CAPABILITY_CONTAINER_ONLY[key],
+    detail: `${runtimeName(actualBackend)} runtime is unavailable. ${fallbackReason}`,
+  }));
 }
 
 function isCapabilityAvailable(
@@ -227,14 +240,20 @@ export async function resolveWorkspaceRuntimeWithManagers(
     workspaceId,
     workspacePath,
     desiredRuntime: 'container',
-    actualRuntime: 'host',
+    actualRuntime: 'container',
     desiredBackend,
     actualBackend: validatedBackend,
     containerEnabled,
     fallbackCode: 'container_unavailable',
     fallbackReason: containerFallbackReason,
-    capabilityAudit: createCapabilityAudit(validatedBackend, 'host', containerEnabled, containerFallbackReason),
+    capabilityAudit: createUnavailableContainerCapabilityAudit(validatedBackend, containerFallbackReason),
   };
+}
+
+function runtimeName(backend: RuntimeBackendId): string {
+  if (backend === 'apple-container') return 'Apple Container';
+  if (backend === 'docker') return 'Docker';
+  return 'Host';
 }
 
 function toPlatformFallbackCode(details: WorkspaceRuntimeBackendDetails): WorkspaceRuntimeFallbackCode | undefined {

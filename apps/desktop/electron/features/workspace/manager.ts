@@ -15,10 +15,12 @@ import type {
   WorkspaceInfo,
 } from '@/types/ipc';
 import type { WorkspaceRuntimeBackend, WorkspaceRuntimeBackendInput, WorkspaceRuntimeConfig } from '@/types/workspace-runtime';
+import type { SetContainerEnabledResult, WorkspaceManagerOptions, WorkspaceRegistry } from './manager-types';
+export type { SetContainerEnabledResult, WorkspaceManagerOptions } from './manager-types';
 
-import { SERO_HOME, SERO_AGENT_DIR } from '@electron/platform/env';
 import { inferWorkspaceFromMessage } from './inference';
 import { slugify, ensureUniqueId, prettifyName, isSafeWorkspaceId } from './utils';
+import { AGENT_DIR, DEFAULT_GLOBAL_CONFIG, EDITOR_STATE_DIR, REGISTRY_PATH, WORKSPACES_DIR } from './defaults';
 import * as mounts from './mounts';
 import * as roots from './roots';
 import {
@@ -28,31 +30,7 @@ import {
   type WorkspaceRuntimeBackendDetails,
 } from './runtime/config';
 import { getDefaultRuntimeBackend } from './runtime/platform-default';
-import type { DoctorResult } from '@electron/features/doctor/engine/types';
 import { discoverManagedWorkspaceEntries, pathExists } from './registry-recovery';
-
-const EDITOR_STATE_DIR = path.join(SERO_AGENT_DIR, 'editor-state');
-
-const REGISTRY_PATH = path.join(SERO_AGENT_DIR, 'workspaces.json');
-const WORKSPACES_DIR = path.join(SERO_HOME, 'workspaces');
-
-interface WorkspaceRegistry {
-  workspaces: WorkspaceRegistryEntry[];
-}
-
-export type SetContainerEnabledResult = { ok: true; backend: WorkspaceRuntimeBackend }
-  | { ok: false; error: { code: 'host-doctor-failed'; message: string; checks: DoctorResult[] } };
-
-export interface WorkspaceManagerOptions { registryPath?: string; workspacesDir?: string; agentDir?: string; editorStateDir?: string }
-
-const DEFAULT_GLOBAL_CONFIG: WorkspaceConfig = {
-  id: 'global',
-  name: 'Global',
-  description: 'Cross-cutting personal data — knowledge, finance, contacts, templates',
-  runtime: { backend: 'host' },
-  contextHints: ['Personal knowledge base and reference data'],
-  tags: ['default', 'personal', 'knowledge'],
-};
 
 export class WorkspaceManager {
   private registry: WorkspaceRegistry = { workspaces: [] };
@@ -65,7 +43,7 @@ export class WorkspaceManager {
   constructor(private readonly options: WorkspaceManagerOptions = {}) {
     this.registryPath = options.registryPath ?? REGISTRY_PATH;
     this.workspacesDir = options.workspacesDir ?? WORKSPACES_DIR;
-    this.agentDir = options.agentDir ?? SERO_AGENT_DIR;
+    this.agentDir = options.agentDir ?? AGENT_DIR;
     this.editorStateDir = options.editorStateDir ?? EDITOR_STATE_DIR;
   }
 
@@ -266,11 +244,18 @@ export class WorkspaceManager {
         name: name || prettifyName(path.basename(absPath)),
       };
       await this.writeConfig(absPath, config);
+    } else {
+      const configuredId = isSafeWorkspaceId(config.id) ? config.id : uniqueId;
+      const safeUniqueId = this.ensureUniqueId(configuredId);
+      if (config.id !== safeUniqueId) {
+        config = { ...config, id: safeUniqueId };
+        await this.writeConfig(absPath, config);
+      }
     }
 
     // Register — new workspaces start expanded
     const entry: WorkspaceRegistryEntry = {
-      id: config.id || uniqueId,
+      id: config.id,
       path: absPath,
       open: true,
     };

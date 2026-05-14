@@ -129,6 +129,56 @@ describe('AppleContainerBackend', () => {
     }));
   });
 
+  it('recreates an existing non-isolated session for isolated exec requests', async () => {
+    const containerManager = createContainerManager();
+    const workspaceManager = createWorkspaceManager();
+    workspaceManager.getReferences = vi.fn().mockResolvedValue(['other-workspace']);
+    workspaceManager.getPath = vi.fn().mockReturnValue('/Users/daniel/other');
+    const backend = new AppleContainerBackend({
+      workspaceId: 'workspace-a',
+      hostWorkspacePath: '/Users/daniel/project',
+      workspaceManager,
+      containerManager: containerManager as unknown as ContainerManager,
+      inspectApplePorts: async () => ({ configuration: { publishedPorts: [
+        { hostAddress: '127.0.0.1', hostPort: 51000, containerPort: 32000 },
+        { hostAddress: '127.0.0.1', hostPort: 51001, containerPort: 32001 },
+      ] } }),
+    });
+
+    await backend.ensure();
+    await backend.exec({ command: 'pwd', isolated: true });
+
+    expect(containerManager.remove).toHaveBeenCalledWith('workspace-a');
+    expect(containerManager.ensure).toHaveBeenCalledTimes(2);
+    expect(containerManager.ensure).toHaveBeenLastCalledWith(expect.objectContaining({ writableMounts: [] }));
+  });
+
+  it('quotes valid exec environment values', async () => {
+    const containerManager = createContainerManager();
+    const backend = createBackend(containerManager);
+
+    await backend.exec({ command: 'node -e "console.log(process.env.SAFE_KEY)"', env: { SAFE_KEY: "has ' quote" } });
+
+    expect(containerManager.exec).toHaveBeenCalledWith(
+      'workspace-a',
+      "SAFE_KEY='has '\\'' quote' node -e \"console.log(process.env.SAFE_KEY)\"",
+      '/workspace',
+      undefined,
+      { injectGitAuth: undefined },
+    );
+  });
+
+  it('rejects invalid exec environment keys before ensuring the container', async () => {
+    const containerManager = createContainerManager();
+    const backend = createBackend(containerManager);
+
+    await expect(backend.exec({ command: 'env', env: { 'BAD-KEY': 'value' } }))
+      .rejects.toThrow('Invalid environment variable name: BAD-KEY');
+
+    expect(containerManager.ensure).not.toHaveBeenCalled();
+    expect(containerManager.exec).not.toHaveBeenCalled();
+  });
+
   it('quotes valid execFile environment values and argv', async () => {
     const containerManager = createContainerManager();
     const backend = createBackend(containerManager);

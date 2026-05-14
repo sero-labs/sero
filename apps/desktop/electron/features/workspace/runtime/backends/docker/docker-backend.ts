@@ -73,7 +73,7 @@ export class DockerBackend implements RuntimeBackend {
   private readonly terminals = new DockerTerminalRegistry();
   private readonly devServerCallbacks = new Set<(event: RuntimeDevServerChangeEvent) => void>();
   private ports: DockerPortManager | null = null;
-  private ensureInflight: Promise<RuntimeSession> | null = null;
+  private ensureInflight: { isolated: boolean; promise: Promise<RuntimeSession> } | null = null;
 
   constructor(options: DockerBackendOptions) {
     this.workspaceId = options.workspaceId;
@@ -337,9 +337,15 @@ export class DockerBackend implements RuntimeBackend {
   }
 
   private async ensureWithOptions(options?: { isolated?: boolean }): Promise<RuntimeSession> {
-    if (this.ensureInflight) return this.ensureInflight;
-    this.ensureInflight = this.ensureOnce(options).finally(() => { this.ensureInflight = null; });
-    return this.ensureInflight;
+    const isolated = options?.isolated === true;
+    if (this.ensureInflight?.isolated === isolated) return this.ensureInflight.promise;
+    if (this.ensureInflight) {
+      await this.ensureInflight.promise;
+      if (this.ensureInflight?.isolated === isolated) return this.ensureInflight.promise;
+    }
+    const promise = this.ensureOnce(options).finally(() => { this.ensureInflight = null; });
+    this.ensureInflight = { isolated, promise };
+    return promise;
   }
 
   private async ensureOnce(options?: { isolated?: boolean }): Promise<RuntimeSession> {

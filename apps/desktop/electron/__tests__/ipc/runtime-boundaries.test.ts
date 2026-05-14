@@ -47,7 +47,7 @@ const mocks = vi.hoisted(() => {
       workspaceId,
       workspacePath: '/repo',
       desiredRuntime: 'container',
-      actualRuntime: 'host',
+      actualRuntime: 'container',
       desiredBackend: 'docker',
       actualBackend: 'docker',
       containerEnabled: true,
