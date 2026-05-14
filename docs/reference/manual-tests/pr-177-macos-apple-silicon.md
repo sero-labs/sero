@@ -139,19 +139,17 @@ Expected: commands run inside the Apple Container runtime and do not use host fa
 
 ### 2.6 Managed dev server and preview
 
-In terminal, start a dependency-free HTTP server and leave it running:
+Use the runtime-managed smoke plugin in [`docs/reference/runtime-manual-test.md`](../runtime-manual-test.md#3-runtime-managed-dev-server-listing-plugin) with backend `apple-container`.
 
-```bash
-node -e "require('http').createServer((_, res) => res.end('pr177 apple container running')).listen(5173, '0.0.0.0', () => console.log('LISTEN 5173'))"
-```
+Do not use a raw terminal-only server for this gate. A command started manually in a terminal is not a managed dev server and will not be registered in the Sero dev-server panel. For container runtimes, `http://127.0.0.1:5173` on the host is also not expected to work unless Sero has forwarded that container port.
 
-Use Sero's dev-server detection/preview UI.
+Expected from the managed smoke plugin:
 
-Expected:
-
-- Preview URL is `http://127.0.0.1:<hostPort>`.
-- Page loads and displays `pr177 apple container running`.
-- Stop/restart works.
+- `started.serverId` is present in `.sero/apps/runtime-smoke/state.json`.
+- `foundInList` is `true`.
+- `started.url` is `http://127.0.0.1:<hostPort>`.
+- Opening `started.url` loads the smoke server.
+- Stop/restart works from the dev-server panel.
 
 ### 2.7 Browser automation
 

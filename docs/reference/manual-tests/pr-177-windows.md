@@ -172,19 +172,17 @@ Expected:
 
 ## 7. Managed dev server and preview
 
-From Sero terminal, start a dependency-free HTTP server and leave it running:
+Use the runtime-managed smoke plugin in [`docs/reference/runtime-manual-test.md`](../runtime-manual-test.md#3-runtime-managed-dev-server-listing-plugin) with backend `docker`.
 
-```bash
-node -e "require('http').createServer((_, res) => res.end('pr177 windows docker running')).listen(5173, '0.0.0.0', () => console.log('LISTEN 5173'))"
-```
+Do not use a raw terminal-only server for this gate. A command started manually in a terminal is not a managed dev server and will not be registered in the Sero dev-server panel. For Docker Desktop, `http://127.0.0.1:5173` on Windows is also not expected to work unless Sero has forwarded that container port.
 
-Use Sero preview/dev-server UI.
+Expected from the managed smoke plugin:
 
-Expected:
-
-- Preview URL is `http://127.0.0.1:<hostPort>`.
-- Page loads in the Windows desktop app/browser.
-- Stop/restart works.
+- `started.serverId` is present in `.sero/apps/runtime-smoke/state.json`.
+- `foundInList` is `true`.
+- `started.url` is `http://127.0.0.1:<hostPort>`.
+- Opening `started.url` loads in the Windows desktop app/browser.
+- Stop/restart works from the dev-server panel.
 - Starting a second workspace uses a different host port.
 
 ## 8. Browser automation
