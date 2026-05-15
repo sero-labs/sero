@@ -79,10 +79,10 @@ function hasVisibleRect(rect: AppPanelRect | null): rect is AppPanelRect {
 
 async function captureRecordingFrame(): Promise<void> {
   try {
-    const rect = await appControlHostService.getAppRect();
-    if (!hasVisibleRect(rect)) return;
-    const screenshot = await captureRect(rect);
-    if (screenshot) recordingState.frames.push({ timestamp: Date.now(), base64: screenshot });
+    const capture = await appControlHostService.captureVisibleApp();
+    if (capture?.base64) {
+      recordingState.frames.push({ timestamp: Date.now(), base64: capture.base64 });
+    }
   } catch {
     // Skip frame capture failures during recording.
   }

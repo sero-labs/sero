@@ -122,4 +122,46 @@ describe('appControlHostService', () => {
     expect(mocks.capturePage).toHaveBeenCalledWith('tab-1', 'ws-1');
     expect(mocks.captureRegion).not.toHaveBeenCalled();
   });
+
+  it('records active browser tabs through the browser view instead of the window', async () => {
+    mocks.executeJavaScript
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce({
+        workspaceId: 'ws-1',
+        tabId: 'tab-1',
+        rect: { x: 10, y: 20, width: 300, height: 200 },
+      })
+      .mockResolvedValueOnce({
+        workspaceId: 'ws-1',
+        tabId: 'tab-1',
+        rect: { x: 10, y: 20, width: 300, height: 200 },
+      })
+      .mockResolvedValueOnce(true);
+    mocks.capturePage.mockResolvedValue('browser-base64');
+    mocks.encodeFramesToMp4.mockResolvedValue({
+      path: '/tmp/recording.mp4',
+      isVideo: true,
+      durationMs: 1000,
+      frameCount: 2,
+    });
+
+    const { appControlHostService } = await import('@electron/features/apps/app-control/host-service');
+    await expect(appControlHostService.recordStart()).resolves.toBe(true);
+    await expect(appControlHostService.recordStop()).resolves.toEqual({
+      path: '/tmp/recording.mp4',
+      isVideo: true,
+      durationMs: 1000,
+      frameCount: 2,
+    });
+
+    expect(mocks.capturePage).toHaveBeenCalledTimes(2);
+    expect(mocks.captureRegion).not.toHaveBeenCalled();
+    expect(mocks.encodeFramesToMp4).toHaveBeenCalledWith({
+      frames: [
+        expect.objectContaining({ base64: 'browser-base64' }),
+        expect.objectContaining({ base64: 'browser-base64' }),
+      ],
+      fps: 2,
+    });
+  });
 });
