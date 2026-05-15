@@ -46,7 +46,7 @@ export class AppleContainerBackend implements RuntimeBackend {
   readonly hostWorkspacePath: string;
   readonly runtimeWorkspacePath = RUNTIME_WORKSPACE_PATH;
   readonly workspaceAccess = 'live-mount' as const;
-  readonly capabilities: RuntimeCapabilities = getRuntimeCapabilities('apple-container');
+  readonly capabilities: RuntimeCapabilities = getRuntimeCapabilities('apple-container', 'darwin', 'arm64');
 
   private readonly workspaceManager: WorkspaceManager;
   private readonly containerManager: ContainerManager;
