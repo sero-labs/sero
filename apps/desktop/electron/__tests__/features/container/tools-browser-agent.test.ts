@@ -43,6 +43,14 @@ describe('createAgentBrowser', () => {
     vi.useRealTimers();
   });
 
+  it('exposes hidden runtime automation under an explicit tool name', async () => {
+    const { tool } = await createToolWithExec([]);
+
+    expect(tool.name).toBe('automation_browser');
+    expect(tool.label).toBe('automation_browser');
+    expect(tool.description).toContain('hidden automation browser');
+  });
+
   it('auto-installs agent-browser when the CLI is missing', async () => {
     const { tool, exec } = await createToolWithExec([
       { stdout: '', stderr: '', exitCode: 1 },

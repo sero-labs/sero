@@ -142,7 +142,7 @@ const CORE_TOOLS = [
   { name: 'read', description: 'Read the contents of a file. Supports text files and images. Output is truncated to 2000 lines or 50KB. Use offset/limit for large files.', parameters: ReadParams },
   { name: 'write', description: "Write content to a file. Creates the file if it doesn't exist, overwrites if it does. Automatically creates parent directories.", parameters: WriteParams },
   { name: 'edit', description: 'Edit a file by replacing exact text. The oldText must match exactly (including whitespace). Use this for precise, surgical edits.', parameters: EditParams },
-  { name: 'browser', description: 'Control a headless Chromium browser inside the container for testing web UIs. Actions: launch, navigate, click, type, press_key, screenshot, scroll, evaluate, get_text, wait, close.', parameters: BrowserParams },
+  { name: 'automation_browser', description: 'Control a hidden Chromium automation browser inside the runtime for testing web UIs. Do not use for visible Browser panel or user screen recordings. Actions: launch, navigate, click, type, press_key, screenshot, scroll, evaluate, get_text, wait, close.', parameters: BrowserParams },
   { name: 'sero-cli', description: 'Execute Sero platform commands. Run `sero help` for commands. Supports multi-line input to chain commands.', parameters: { type: 'object', properties: { command: { type: 'string' }, timeout: { type: 'number' } }, required: ['command'] } },
 ];
 

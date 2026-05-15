@@ -15,8 +15,8 @@ describe('createBrowser', () => {
     });
 
     createAgentBrowserMock.mockReturnValue({
-      name: 'browser',
-      label: 'browser',
+      name: 'automation_browser',
+      label: 'automation_browser',
       description: 'agent',
       parameters: { type: 'object', properties: {} },
       execute,

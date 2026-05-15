@@ -70,7 +70,7 @@ export function createWorkspaceCliTool(workspaceId: string, sessionId: string) {
 /**
  * Core tools to always bridge into the single `sero-cli` tool.
  * Every app/extension tool should be listed here — only core coding
- * tools (bash, read, write, edit, browser) and tools that depend on
+ * tools (bash, read, write, edit, automation_browser) and tools that depend on
  * unavailable SDK internals remain as standalone tools.
  *
  * Bridged tools receive `{ cwd }`, forwarded agent context, and a narrow

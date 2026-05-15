@@ -187,7 +187,7 @@ Expected from the managed smoke plugin:
 
 ## 8. Browser automation
 
-Use one path deliberately: visible Sero Browser panel via `sero-cli` browser commands, or hidden runtime automation via the direct `browser` tool. Do not expect direct `browser` tool actions to create visible Sero Browser tabs.
+Use one path deliberately: visible Sero Browser panel via `sero-cli` browser commands, or hidden runtime automation via the `automation_browser` tool. Do not expect `automation_browser` tool actions to create visible Sero Browser tabs.
 
 Expected:
 

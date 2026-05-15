@@ -96,10 +96,10 @@ export const BrowserParams = Type.Object({
     ],
     {
       description:
-        'The browser action to perform for the hidden Playwright-style automation browser on known pages. ' +
+        'The action to perform with automation_browser, the hidden Playwright-style automation browser for known pages. ' +
         'This does not open Sero\'s visible Browser panel and is not captured by sero app record/screenshot; ' +
-        'for visible browser UI or screen-recording tasks use sero-cli browser commands instead. ' +
-        'Do not use browser for general web search, page fetching, bookmark management, or file downloads — ' +
+        'for visible browser UI or user-requested screen-recording tasks use sero-cli browser/app commands instead. ' +
+        'Do not use automation_browser for general web search, page fetching, bookmark management, or file downloads — ' +
         'use web_search, fetch_content, get_search_content, or web_bookmark instead. ' +
         'launch: start browser (optionally navigate to url). ' +
         'navigate: go to a URL. ' +

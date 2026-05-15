@@ -263,12 +263,13 @@ export function createAgentBrowser(runtime: RuntimeBackend, workspaceId: string)
   let executablePath: string | null = null;
 
   return {
-    name: 'browser',
-    label: 'browser',
+    name: 'automation_browser',
+    label: 'automation_browser',
     description:
       'Control a hidden automation browser through Vercel agent-browser with persistent per-workspace sessions. ' +
       'This does not open Sero\'s visible Browser panel and is not captured by sero app record/screenshot. ' +
-      'For visible browser UI or screen-recording tasks use sero-cli browser commands instead. ' +
+      'For user-facing website browsing, visible browser UI, or screen-recording tasks, use the sero-cli tool with sero browser/app commands instead. ' +
+      'Use automation_browser only when you specifically need runtime/headless browser automation evidence. ' +
       'Use launch first, then navigate/click/type/snapshot/screenshot/get_text/wait, and close when done. ' +
       'Click selector accepts CSS selectors or text=<visible text>; snapshot refs like [ref=e123] are not DOM selectors.',
     parameters: BrowserParams,

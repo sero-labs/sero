@@ -516,10 +516,10 @@ await window.sero.workspace.setRuntimeBackend(ws.id, "docker");
 // or: await window.sero.workspace.setRuntimeBackend(ws.id, "apple-container");
 ```
 
-In a Sero chat for that workspace, send this exact prompt. It intentionally uses an external URL because the browser tool must be resilient to ordinary user prompts and network failures:
+In a Sero chat for that workspace, send this exact prompt. It intentionally uses an external URL because the automation_browser tool must be resilient to ordinary user prompts and network failures:
 
 ```text
-Use the browser tool in this workspace. Launch https://example.com, take a screenshot, start recording to /workspace/pr177-browser-smoke.webm, wait 2 seconds, stop recording, then close the browser. Report the screenshot result and whether /workspace/pr177-browser-smoke.webm exists.
+Use the automation_browser tool in this workspace. Launch https://example.com, take a screenshot, start recording to /workspace/pr177-browser-smoke.webm, wait 2 seconds, stop recording, then close the automation browser. Report the screenshot result and whether /workspace/pr177-browser-smoke.webm exists.
 ```
 
 Expected:
@@ -545,7 +545,7 @@ Host expectation:
 await window.sero.workspace.setRuntimeBackend(ws.id, "host");
 ```
 
-The host runtime should not advertise browser automation. Do not expect browser tool success on host.
+The host runtime should not advertise browser automation. Do not expect automation_browser tool success on host.
 
 ---
 
@@ -695,8 +695,8 @@ Earlier WSL-host validation notes are obsolete. Windows Host mode / WSL-backed H
   - Docker version: 29.4.1.
   - Docker image: `sha256:ea34799768cc4cb51beb031b0521bc69bfeaf677f47f5239e07abd2c9ceffa9d`, created `2026-05-11T09:34:42.268732468Z`.
   - Covered arbitrary UID/GID workspace write, `/ms-playwright` Chromium/ffmpeg lookup, Chromium headless screenshot, `agent-browser` launch/screenshot/close.
-  - Follow-up #6 browser recording smoke initially exposed that `agent-browser` requires an `ffmpeg` executable on `PATH`, not only Playwright's `ffmpeg-linux` asset. The PR now links `/usr/local/bin/ffmpeg` in the image and makes the browser tool create a writable `$HOME/.local/bin/ffmpeg` fallback symlink before recording. A direct Docker container record start/stop smoke passed after this fix.
-  - Apple Container outbound `https://example.com` access timed out on the smoke machine. The browser tool now treats navigation failures as recoverable: it reports the navigation failure, resets the session to `about:blank`, and keeps later screenshot/recording/close actions usable. A direct Apple Container browser recording smoke passed with this recovery path.
+  - Follow-up #6 browser recording smoke initially exposed that `agent-browser` requires an `ffmpeg` executable on `PATH`, not only Playwright's `ffmpeg-linux` asset. The PR now links `/usr/local/bin/ffmpeg` in the image and makes the automation_browser tool create a writable `$HOME/.local/bin/ffmpeg` fallback symlink before recording. A direct Docker container record start/stop smoke passed after this fix.
+  - Apple Container outbound `https://example.com` access timed out on the smoke machine. The automation_browser tool now treats navigation failures as recoverable: it reports the navigation failure, resets the session to `about:blank`, and keeps later screenshot/recording/close actions usable. A direct Apple Container browser recording smoke passed with this recovery path.
 - Apple Container live image smoke — **pass**.
   - Apple Container image: `ghcr.io/sero-labs/sero-node:latest` digest prefix `7d5ae62ada12bf5a692e80e7...`.
   - Covered arbitrary UID/GID workspace write, `/ms-playwright` Chromium/ffmpeg lookup, Chromium headless screenshot, `agent-browser` launch/screenshot/close.
