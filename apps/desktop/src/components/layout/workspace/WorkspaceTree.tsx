@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, ChevronsDownUp, Loader2 } from 'lucide-react';
 import { IconAction } from '@/components/ui/IconAction';
 import { useContainerStore, type WorkspaceContainerState } from '@/stores/container';
@@ -20,21 +21,33 @@ import { useWorkspaceTreeRuntime } from './workspace-tree/useWorkspaceTreeRuntim
 export function WorkspaceTree() {
   const {
     isLoadingWorkspaces,
+    workspacesReady,
     openWorkspaces,
     sessionsByWorkspace,
     openSessionError,
     clearOpenSessionError,
   } = useWorkspaceTreeRuntime();
   const containers = useContainerStore((state) => state.containers);
-  const missingWorkspaces = openWorkspaces.filter((workspace) => workspace.missing);
-  const preparingWorkspaces = openWorkspaces.filter((workspace) =>
-    workspace.container && containers[workspace.id]?.status === 'starting',
+  const missingWorkspaces = useMemo(
+    () => openWorkspaces.filter((workspace) => workspace.missing),
+    [openWorkspaces],
   );
-  const runtimeErrorWorkspaces = openWorkspaces.filter((workspace) =>
-    workspace.container && containers[workspace.id]?.status === 'error',
+  const preparingWorkspaces = useMemo(
+    () => openWorkspaces.filter((workspace) =>
+      workspace.container && containers[workspace.id]?.status === 'starting',
+    ),
+    [containers, openWorkspaces],
   );
+  const runtimeErrorWorkspaces = useMemo(
+    () => openWorkspaces.filter((workspace) =>
+      workspace.container && containers[workspace.id]?.status === 'error',
+    ),
+    [containers, openWorkspaces],
+  );
+  const visibleMissingWorkspaces = useDelayedItems(missingWorkspaces, 600);
+  const visiblePreparingWorkspaces = useDelayedItems(preparingWorkspaces, 600);
 
-  if (isLoadingWorkspaces) {
+  if (isLoadingWorkspaces && !workspacesReady) {
     return (
       <div className="flex items-center justify-center py-8">
         <Loader2 className="size-4 animate-spin text-[var(--text-muted)]" />
@@ -53,8 +66,8 @@ export function WorkspaceTree() {
         />
       ) : null}
 
-      {missingWorkspaces.length > 0 ? <MissingWorkspaceNotice workspaces={missingWorkspaces} /> : null}
-      {preparingWorkspaces.length > 0 ? <RuntimePreparingNotice workspaces={preparingWorkspaces} /> : null}
+      {visibleMissingWorkspaces.length > 0 ? <MissingWorkspaceNotice workspaces={visibleMissingWorkspaces} /> : null}
+      {visiblePreparingWorkspaces.length > 0 ? <RuntimePreparingNotice workspaces={visiblePreparingWorkspaces} /> : null}
       {runtimeErrorWorkspaces.length > 0 ? (
         <RuntimeErrorNotice workspaces={runtimeErrorWorkspaces} containers={containers} />
       ) : null}
@@ -86,6 +99,28 @@ export function WorkspaceTree() {
       </div>
     </div>
   );
+}
+
+function useDelayedItems<T extends { id: string }>(items: T[], delayMs: number): T[] {
+  const [visibleItems, setVisibleItems] = useState<T[]>([]);
+  const isVisible = visibleItems.length > 0;
+
+  useEffect(() => {
+    if (items.length === 0) {
+      if (isVisible) setVisibleItems([]);
+      return;
+    }
+
+    if (isVisible) {
+      setVisibleItems(items);
+      return;
+    }
+
+    const timeout = window.setTimeout(() => setVisibleItems(items), delayMs);
+    return () => window.clearTimeout(timeout);
+  }, [delayMs, isVisible, items]);
+
+  return visibleItems;
 }
 
 function RuntimePreparingNotice({ workspaces }: { workspaces: Array<{ id: string; name: string }> }) {
