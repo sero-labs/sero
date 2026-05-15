@@ -215,6 +215,48 @@ pnpm test:ci
 pnpm eval:snapshot
 ```
 
+### Prepare a release changelog and tag
+
+Do not create a Git tag manually. Run one of the release commands below from a
+clean `main` branch. `release-it` will:
+
+1. choose the next version,
+2. update `package.json`,
+3. prepend `CHANGELOG.md`,
+4. commit those changes,
+5. create a `v*` tag on that commit,
+6. push the commit and tag.
+
+The pushed tag then starts the Desktop Release workflow, which builds and
+publishes the installer assets from the tagged commit.
+
+Before every release:
+
+```bash
+git checkout main
+git pull
+pnpm test:ci
+```
+
+Beta release:
+
+```bash
+pnpm release:beta:dry # preview only
+pnpm release:beta     # update, commit, tag, and push
+```
+
+Stable release:
+
+```bash
+pnpm release:stable:dry # preview only
+pnpm release:stable     # update, commit, tag, and push
+```
+
+Examples from current tag `v0.1.1-beta`:
+
+- `pnpm release:beta` creates a beta tag such as `v0.1.2-beta.0`.
+- `pnpm release:stable` creates the stable tag `v0.1.1`.
+
 Notes:
 
 - `pnpm install` runs native-module repair hooks for `node-pty` and
