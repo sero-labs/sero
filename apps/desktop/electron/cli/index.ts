@@ -301,9 +301,16 @@ Run \`sero help <command>\` for details. Chain multiple commands (one per line).
 **Before calling any command that takes JSON parameters (e.g. \`question\`, \`questionnaire\`, \`interview\`), run \`sero help <command>\` first to check the exact schema.**
 
 For \`sero app\`, skip help for common flows.
-- Screenshot directly: \`sero app screenshot --app "<name or id>" [--save <path>]\`
+- Screenshot apps directly: \`sero app screenshot --app "<name or id>" [--save <path>]\`
 - Names resolve too (\`Calculator\` → \`calc\`); use \`sero app list\` only if ambiguous.
 - \`appstate\` is JSON state only, not UI automation.
 - Use \`app click <selector>\` or \`app click --x <n> --y <n>\`; no \`app press\`.
+
+Browser-page workflows are different from app workflows:
+- The in-app Browser is the Explorer Browser panel, not the \`web\` app/plugin.
+- NEVER use \`sero app screenshot --app web\` for browser pages; it opens the separate Web app.
+- For browser screenshots, use \`sero browser screenshot\`.
+- For browser recordings, run \`sero browser show\`, then \`sero app record start\`, perform browser actions, then \`sero app record stop\`.
+- Use \`sero browser open <url>\` only when a new tab is desired; otherwise use \`sero browser goto <url>\` or \`sero browser navigate <tab-id> <url>\` to keep one tab.
 `;
 }

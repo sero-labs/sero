@@ -59,7 +59,9 @@ export function registerAppControlCliCommands(registry: CliRegistry): void {
       '  sero app screenshot                 Capture the active app (inline image)\n' +
       '  sero app screenshot --app <id|name> Navigate to app then capture\n' +
       '  sero app screenshot --save <path>   Save screenshot to file\n' +
-      '  sero app screenshot --app todo --save ./shot.png\n\n' +
+      '  sero app screenshot --app todo --save ./shot.png\n' +
+      '  Browser pages: use sero browser screenshot. Do not use\n' +
+      '  sero app screenshot --app web; web is a separate app/plugin.\n\n' +
       'Interaction:\n' +
       '  sero app click <selector>           Click by CSS selector\n' +
       '  sero app click --x <n> --y <n>      Click at coordinates relative to the app screenshot\n' +
@@ -74,7 +76,8 @@ export function registerAppControlCliCommands(registry: CliRegistry): void {
       '  sero app record start               Start recording (2 FPS)\n' +
       '  sero app record stop                 Stop and save as MP4 in <workspace>/sero-recordings/\n' +
       '  sero app record stop --save <path>   Stop and copy MP4 to a custom path\n' +
-      '  sero app record status               Check recording status\n\n' +
+      '  sero app record status               Check recording status\n' +
+      '  Browser recording: run sero browser show first; do not pass --app web.\n\n' +
       'Dev Server Preview (in-app):\n' +
       '  sero app preview <url>               Open URL in editor panel\n' +
       '  Renders the dev server inside Sero so it can be captured by\n' +

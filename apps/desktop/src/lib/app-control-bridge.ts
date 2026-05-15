@@ -34,6 +34,7 @@ interface AppControlBridge {
   openApp(appId: string): boolean;
   getInfo(appId: string): AppControlEntry | null;
   openFile(workspaceId: string, filePath: string): boolean;
+  showBrowserPanel(): boolean;
   getAppRect(): AppPanelRect | null;
   getBrowserCaptureTarget(): { workspaceId: string; tabId: string; rect: AppPanelRect } | null;
   interact(params: AppInteractionParams): Promise<AppInteractionResult>;
@@ -89,6 +90,14 @@ export function initAppControlBridge(): () => void {
       const state = useAppStore.getState();
       if (state.activeApp !== 'explorer') state.setActiveApp('explorer');
       useEditorBridge.getState().requestOpenFile(workspaceId, filePath);
+      return true;
+    },
+    showBrowserPanel() {
+      const workspaceId = useWorkspaceStore.getState().activeWorkspaceId;
+      if (!workspaceId) return false;
+      const state = useAppStore.getState();
+      if (state.activeApp !== 'explorer') state.setActiveApp('explorer');
+      useExplorerStore.getState().set(workspaceId, { activePanel: 'browser', sidebarOpen: false });
       return true;
     },
     getAppRect: getAppPanelRect,

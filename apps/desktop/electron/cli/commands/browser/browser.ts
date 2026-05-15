@@ -9,6 +9,7 @@
  *
  * Subcommands:
  *   list [--all]                List loaded tabs (default: current workspace)
+ *   show                        Show the Explorer Browser panel
  *   open <url>                  Open a new tab in the current workspace
  *   goto <url>                  Navigate the active tab, or open one if needed
  *   close <tab-id>              Close a tab
@@ -22,6 +23,7 @@
  */
 
 import { browserViewManager } from '@electron/features/browser/view-manager';
+import { appControlHostService } from '@electron/features/apps/app-control/host-service';
 import type { CliRegistry } from '@electron/cli/core/registry';
 import type { CliCommandContext, CliResult } from '@electron/cli/core/types';
 import { fail, ok, parseFlags } from '@electron/cli/lib/utils';
@@ -100,9 +102,17 @@ async function handleBrowser(
       return ok(body);
     }
 
+    case 'show': {
+      const shown = await appControlHostService.showBrowserPanel();
+      return shown
+        ? ok('Browser panel shown. Use `sero browser screenshot` to capture it; do not use `sero app screenshot --app web`.')
+        : fail('Failed to show Browser panel.');
+    }
+
     case 'open': {
       const url = positionals[0];
       if (!url) return fail('Usage: sero browser open <url>');
+      await appControlHostService.showBrowserPanel().catch(() => false);
       const tabId = browserViewManager.openTabForHost(url, ctx.workspaceId);
       if (!tabId) return fail(`Unsupported browser URL: ${url}. Use http(s) URLs only.`);
       return ok(`Opened tab ${tabId} in workspace "${ctx.workspaceId}" → ${url}`);
@@ -111,6 +121,7 @@ async function handleBrowser(
     case 'goto': {
       const url = positionals[0];
       if (!url) return fail('Usage: sero browser goto <url>');
+      await appControlHostService.showBrowserPanel().catch(() => false);
       const active = browserViewManager.resolveActiveTabForWorkspace(ctx.workspaceId);
       if (!active) {
         const tabId = browserViewManager.openTabForHost(url, ctx.workspaceId);
@@ -201,12 +212,14 @@ async function handleBrowser(
 export function registerBrowserCliCommands(registry: CliRegistry): void {
   registry.register({
     name: 'browser',
-    summary: 'Drive the in-app web browser (list, open, close, navigate, get-text, screenshot)',
+    summary: 'Drive the Explorer Browser panel, not the Web app (show, list, open, goto, close, navigate, get-text, screenshot)',
     help:
       'browser — Drive the in-app web browser\n\n' +
       'Usage: sero browser <action> [args]\n\n' +
       'Actions:\n' +
       '  list [--all]                 List loaded tabs in the current workspace (default)\n' +
+      '  show                         Show the Explorer Browser panel. This is the\n' +
+      '                               browser UI; the `web` app is different.\n' +
       '                               or across all workspaces (--all)\n' +
       '  open <url>                   Open a new tab in the current workspace\n' +
       '  goto <url>                   Navigate the active tab, or open one if needed\n' +
@@ -216,6 +229,10 @@ export function registerBrowserCliCommands(registry: CliRegistry): void {
       '                               to the active tab of the current workspace.\n' +
       '  screenshot [--tab <id>]      Return a PNG of the tab as an image block. Defaults\n' +
       '                               to the active tab of the current workspace.\n\n' +
+      'For browser-page screenshots use `sero browser screenshot`, not\n' +
+      '`sero app screenshot --app web`. The `web` app is a separate plugin and\n' +
+      'opening it will switch away from the Browser panel. For recordings, show\n' +
+      'the Browser panel first, then use `sero app record start|stop`.\n\n' +
       'Tabs in a workspace share a persistent session partition (cookies/logins\n' +
       'isolated per workspace). Tabs only appear in `list` once their view has\n' +
       'been loaded — persisted tabs are loaded lazily when the user opens the\n' +

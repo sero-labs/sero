@@ -132,6 +132,10 @@ export const appControlHostService = {
     );
   },
 
+  async showBrowserPanel(): Promise<boolean> {
+    return execRenderer<boolean>('window.__appControl?.showBrowserPanel?.() ?? false');
+  },
+
   async getAppRect(): Promise<AppPanelRect | null> {
     return execRenderer<AppPanelRect | null>('window.__appControl?.getAppRect() ?? null');
   },
