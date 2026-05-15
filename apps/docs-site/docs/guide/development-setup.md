@@ -34,8 +34,8 @@ available. See [Running Evals](/guide/running-evals) and
 
 ## Runtime notes
 
-- Apple Container and Docker-backed workspaces are the preferred runtimes for the full feature set.
-- Host mode remains supported as a reduced explicit runtime on macOS/Linux; Windows workspace execution uses Docker.
+- Apple Container and Docker/Podman-backed workspaces are the preferred runtimes for the full feature set.
+- Host mode remains supported as a reduced explicit runtime on macOS/Linux; Windows workspace execution uses the Docker-compatible runtime.
 - If native terminal support breaks, use the node-pty troubleshooting guidance
   from the repo docs.
 

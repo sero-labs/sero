@@ -12,12 +12,12 @@ wins** for current alpha expectations.
 | Platform | Supported alpha | macOS, Linux, and Windows from source |
 | Current maintainer-validated baseline | Validated | macOS `26.3`, `arm64`, Node `22.22.0`, pnpm `10.11.0` |
 | Distribution | Supported | Build from source only |
-| Preferred runtime | Supported / recommended | Container-backed workspace via Apple Container or Docker |
-| Host runtime | Supported where available | Explicit Host mode with reduced capabilities on macOS/Linux; Windows uses Docker for workspace execution |
+| Preferred runtime | Supported / recommended | Container-backed workspace via Apple Container or Docker/Podman |
+| Host runtime | Supported where available | Explicit Host mode with reduced capabilities on macOS/Linux; Windows uses the Docker-compatible runtime for workspace execution |
 | Support channel | Supported | GitHub Issues and Pull Requests |
 | Official public binaries | Not supported | No public binary distribution promised in alpha |
-| Linux | Supported alpha | Source build; Docker runtime recommended, host mode available |
-| Windows | Supported alpha | Source build; Docker runtime required for workspace execution |
+| Linux | Supported alpha | Source build; Docker/Podman runtime recommended, host mode available |
+| Windows | Supported alpha | Source build; Docker/Podman runtime required for workspace execution |
 | Stable internal plugin/runtime APIs | Not promised | Contracts may still evolve during alpha |
 
 ## Runtime support matrix
@@ -25,8 +25,8 @@ wins** for current alpha expectations.
 | Runtime | macOS | Linux | Windows | Notes |
 | --- | --- | --- | --- | --- |
 | Apple Container | Supported on Apple Silicon | Not available | Not available | Preferred on supported Apple Silicon Macs. |
-| Docker | Supported | Supported | Supported | Recommended cross-platform container runtime. |
-| Host | Supported explicit runtime | Supported explicit runtime | Not supported | Windows workspace execution uses Docker, not native PowerShell/cmd host mode. |
+| Docker / Podman (`docker`) | Supported | Supported | Supported | Recommended cross-platform container runtime; persisted backend ID is `docker`. |
+| Host | Supported explicit runtime | Supported explicit runtime | Not supported | Windows workspace execution uses the Docker-compatible runtime, not native PowerShell/cmd host mode. |
 
 Container-backed workspaces are the preferred path for:
 - containerized workspace execution
@@ -69,7 +69,7 @@ When filing a bug, include which support surface you were using:
 - operating system and version
 - CPU architecture
 - Node / pnpm versions
-- runtime mode: Apple Container, Docker, or host mode
+- runtime mode: Apple Container, Docker/Podman, or host mode
 - whether the issue happened in source-built alpha or a local experimental build
 
 ## Early alpha support / triage plan
@@ -102,7 +102,7 @@ What reporters should expect:
 
 A good first signal for early triage is:
 - the exact command or workflow that failed
-- whether you were using Apple Container, Docker, or host mode
+- whether you were using Apple Container, Docker/Podman, or host mode
 - the commit, branch, or tag you tested
 - the smallest redacted log excerpt that shows the failure
 

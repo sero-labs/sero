@@ -37,7 +37,7 @@ own root directory and `.sero-workspace.json` config.
 - **Open/closed** — purely visual; controls sidebar visibility, persisted in
   registry. All workspaces start open. Closing hides from sidebar; re-add via
   folder picker to reopen. No separate "closed workspaces" UI section.
-- **Runtime mode** — workspaces prefer Apple Container or Docker-backed runtimes
+- **Runtime mode** — workspaces prefer Apple Container or Docker/Podman-backed runtimes
   by default, but can run in host mode on macOS/Linux as a supported fallback
   when containers are unavailable or disabled.
 - **Collapsed/expanded** — tree node chevron state persisted in localStorage

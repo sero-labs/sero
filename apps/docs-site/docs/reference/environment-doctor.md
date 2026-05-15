@@ -82,7 +82,7 @@ Exit codes:
 | Category | Examples |
 |---|---|
 | `system` | OS, arch, free disk, platform-specific health signals. |
-| `runtime` | Apple Container and Docker availability, versions, and daemon/system health. |
+| `runtime` | Apple Container and Docker/Podman availability, versions, and daemon/system health. |
 | `node` | Node version, native ABI, `node-pty`. |
 | `profile` | `profiles.json` parse, active profile id, per-profile config files. |
 | `workspace` | Registry presence, runtime selection, FS reachability. |

@@ -3,7 +3,7 @@
 Most Sero OSS alpha setup problems fall into one of these buckets:
 - interrupted install / native module ABI mismatch
 - dev launcher startup failure
-- Apple Container or Docker runtime unavailable
+- Apple Container or Docker/Podman runtime unavailable
 - host mode being used for a workflow that still expects containers
 - dev-server preview URL, runtime forwarding, or browser/app capture mismatch
 
@@ -73,7 +73,7 @@ Useful runtime logs:
 ## Container runtimes are unavailable or unhealthy
 
 Sero works best with a container-backed runtime: Apple Container on supported
-Apple Silicon Macs, or Docker on macOS, Linux, and Windows.
+Apple Silicon Macs, or Docker/Podman on macOS, Linux, and Windows.
 
 Apple Container quick checks:
 
@@ -88,15 +88,18 @@ If the Apple Container system is installed but not running:
 /usr/local/bin/container system start
 ```
 
-Docker quick check:
+Docker/Podman quick checks:
 
 ```bash
 docker info
+podman info
 ```
+
+The runtime picker labels this option **Docker / Podman**, but the saved backend ID is `docker`. Sero prefers Docker when both CLIs are available and can retry Podman when auto-selected Docker cannot reach its daemon. Use `SERO_CONTAINER_ENGINE=podman` or `SERO_CONTAINER_ENGINE=docker` to force one engine.
 
 If container runtimes still are not available, explicitly select Host mode on
 macOS/Linux for reduced direct-host execution. Sero does not silently switch a
-selected container runtime to host execution. Windows workspace execution uses Docker.
+selected container runtime to host execution. Windows workspace execution uses the Docker-compatible runtime.
 
 ## A workflow works in containers but not in host mode
 
@@ -196,7 +199,7 @@ When reporting the problem, include:
 - operating system and version
 - CPU architecture
 - Node and pnpm versions
-- whether you were using Apple Container, Docker, or host mode
+- whether you were using Apple Container, Docker/Podman, or host mode
 - relevant log excerpts
 
 Before sharing logs, redact tokens, auth files, and private local paths.

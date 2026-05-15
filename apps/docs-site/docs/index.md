@@ -21,7 +21,7 @@ features:
     details: 'Sero is built around agent-driven workflows for local projects: chat, terminals, previews, plugins, and workspace context in one desktop shell.'
     icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 6.5h15v9h-15z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M9 19h6M12 15.5V19" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>'
   - title: Container-backed when available
-    details: Apple Container and Docker-backed workspaces are the preferred runtime for isolation, tooling, and Linux parity, with Host available as an explicit reduced-capability runtime where supported.
+    details: Apple Container and Docker/Podman-backed workspaces are the preferred runtime for isolation, tooling, and Linux parity, with Host available as an explicit reduced-capability runtime where supported.
     icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3.75 7 3.7v9.1l-7 3.7-7-3.7v-9.1z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="m5.4 7.65 6.6 3.5 6.6-3.5M12 11.25v8.45" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>'
   - title: Plugin-first extension model
     details: Built-in and external plugins can add UI, Pi tools, runtime hooks, and provider integrations without changing the core app.
@@ -55,7 +55,7 @@ Sero is currently a **source-only OSS alpha** for macOS, Linux, and Windows.
 
 Current alpha posture:
 - build from source
-- use Apple Container or Docker-backed workspaces for the full experience when available
+- use Apple Container or Docker/Podman-backed workspaces for the full experience when available
 - choose Host explicitly on macOS/Linux when you want non-container execution; selected container runtimes fail closed when unavailable
 - expect some plugin and runtime contracts to evolve during alpha
 

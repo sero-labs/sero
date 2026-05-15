@@ -1,13 +1,13 @@
 # Containers and Dev Servers
 
-Sero can run each workspace through a runtime backend: Apple Container, Docker, or reduced host mode. Container-backed runtimes give the agent, terminals, tools, and dev servers a shared Linux-like workspace at `/workspace` while the project remains stored on your host machine.
+Sero can run each workspace through a runtime backend: Apple Container, Docker/Podman, or reduced host mode. Container-backed runtimes give the agent, terminals, tools, and dev servers a shared Linux-like workspace at `/workspace` while the project remains stored on your host machine.
 
 Use this guide when you want to start a project server and preview it in Sero without fighting runtime networking details.
 
 ## Quick path
 
 1. Open a workspace in Sero.
-2. Choose a container-backed runtime for the workspace when one is available: Apple Container or Docker.
+2. Choose a container-backed runtime for the workspace when one is available: Apple Container or Docker / Podman.
 3. Start your server from the workspace terminal or agent, binding to all interfaces when your framework needs it:
 
 ```bash
@@ -43,7 +43,7 @@ Sero registers a reachable preview URL for the active runtime
 Explorer browser or in-app preview displays the app
 ```
 
-Sero creates one runtime container per workspace when Apple Container or Docker is selected and a runtime action needs it.
+Sero creates one runtime container per workspace when Apple Container or Docker / Podman is selected and a runtime action needs it.
 
 ```mermaid
 sequenceDiagram
@@ -65,14 +65,14 @@ sequenceDiagram
 
 ## Why this helps with ports
 
-A dev server running inside a workspace container listens inside that runtime. Apple Container and Docker previews use runtime-managed host-reachable URLs, usually localhost forwarding URLs. Host-mode previews use the normal host URL.
+A dev server running inside a workspace container listens inside that runtime. Apple Container and Docker/Podman previews use runtime-managed host-reachable URLs, usually localhost forwarding URLs. Host-mode previews use the normal host URL.
 
 This reduces port and network confusion, but it does not eliminate every issue. A preview can still fail if:
 
 - the server only binds `localhost` inside the container instead of `0.0.0.0`
 - the container or forwarded preview URL changed after a restart
 - the server process stopped but the registry entry remains
-- container networking, proxy, Docker port forwarding, or DNS is unhealthy
+- container networking, proxy, Docker/Podman port forwarding, or DNS is unhealthy
 - the workspace is in host mode and the server is only reachable from a different environment
 
 ## Register, list, and stop servers
@@ -93,7 +93,7 @@ Attaching a folder or mounting plugin source can require container recreation be
 
 ## Host mode
 
-If Apple Container and Docker runtimes are unavailable on macOS/Linux, explicitly select Host mode for core chat, files, editing, and regular local development. Sero does not silently switch a selected container runtime to host execution. Host mode can register normal localhost dev servers, but it is not feature-equivalent for container networking, browser automation, or Linux/container parity.
+If Apple Container and Docker/Podman runtimes are unavailable on macOS/Linux, explicitly select Host mode for core chat, files, editing, and regular local development. Sero does not silently switch a selected container runtime to host execution. Host mode can register normal localhost dev servers, but it is not feature-equivalent for container networking, browser automation, or Linux/container parity.
 
 Use [Containers and Host Mode](/reference/containers-host-mode) for the runtime matrix and [Container Isolation](/reference/container-isolation) for lifecycle and mount details.
 

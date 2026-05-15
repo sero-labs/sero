@@ -366,7 +366,7 @@ Every check below ships in v1. Each row lists:
 | `system.disk.free` | no | no | — | Free space in `SERO_FIXED_ROOT` ≥ 2 GB. Uses `child_process.execFile('df', ['-k', path])`. |
 | `system.memory` | no | no | — | macOS memory pressure / reclaimable memory; non-macOS falls back to `os.freemem()`. |
 
-### 6.2 Runtime — Apple Container and Docker (`category: 'runtime'`)
+### 6.2 Runtime — Apple Container and Docker/Podman (`category: 'runtime'`)
 
 | id | slow | needsBootedApp | repair | What it checks |
 |---|---|---|---|---|
@@ -377,7 +377,7 @@ Every check below ships in v1. Each row lists:
 | `runtime.container.exec` | yes | yes | — | Execs in an existing test container. |
 | `runtime.container.mount` | yes | yes | — | Mounts a tempdir, writes + reads a file. |
 
-Quick mode runs the first three Apple Container checks and bounded Docker CLI/daemon checks. Docker-specific checks cover CLI availability, daemon reachability, image presence, bind mounts, permissions, networking, and preview-port smoke where applicable.
+Quick mode runs the first three Apple Container checks and bounded Docker/Podman CLI/daemon checks. Docker-compatible runtime checks cover CLI availability, daemon reachability, image presence, bind mounts, permissions, networking, and preview-port smoke where applicable.
 
 ### 6.3 Node / native modules (`category: 'node'`)
 

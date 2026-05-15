@@ -1,8 +1,8 @@
 # Runtime images
 
-Sero uses the same `sero-node` Linux image for Apple Container and Docker runtimes so both backends expose the same toolchain on `linux/arm64` and `linux/amd64`.
+Sero uses the same `sero-node` Linux image for Apple Container and Docker-compatible runtimes so both backends expose the same toolchain on `linux/arm64` and `linux/amd64`.
 
-The Docker backend auto-detects either `docker` or `podman` on PATH (Docker is preferred when both are installed). Set `SERO_CONTAINER_ENGINE=podman` to force Podman, or `SERO_DOCKER_BIN=/path/to/binary` to point at a specific executable. Podman uses the same fully-qualified image refs (`ghcr.io/sero-labs/sero-node:<tag>`) as Docker; no separate publish step is required.
+The `docker` runtime backend auto-detects either `docker` or `podman` on PATH plus common install locations such as `/opt/podman/bin` (Docker is preferred when both are installed). If the auto-selected Docker daemon is unavailable and Podman is installed, Sero retries through Podman and caches the working implicit engine. Set `SERO_CONTAINER_ENGINE=podman` to force Podman, `SERO_CONTAINER_ENGINE=docker` to force Docker, or `SERO_DOCKER_BIN=/path/to/binary` to point at a specific executable. Podman uses the same fully-qualified image refs (`ghcr.io/sero-labs/sero-node:<tag>`) as Docker; no separate publish step is required.
 
 ## Image tags
 
@@ -40,7 +40,7 @@ When changing `apps/desktop/images/Dockerfile.sero-node` or adding/removing cont
 2. Update release configuration to set `SERO_NODE_IMAGE_TAG` to that tag.
 3. Rebuild `ghcr.io/sero-labs/sero-node:latest` if development builds should pick up the change.
 4. Run the Trivy release gate in [`docs/security/sero-node-trivy-validation.md`](../security/sero-node-trivy-validation.md) before publishing.
-4. Recreate affected workspace containers.
+5. Recreate affected workspace containers.
 
 Sero labels managed containers with the requested image reference. On the next runtime ensure, Docker recreates a workspace container if the existing container's image label does not match the configured image. Users can also repair/recreate the runtime explicitly.
 

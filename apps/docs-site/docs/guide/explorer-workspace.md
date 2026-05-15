@@ -174,10 +174,10 @@ For the current alpha:
 
 - macOS, Linux, and Windows source builds are in alpha scope
 - macOS Apple Silicon is the maintainer-validated baseline
-- Apple Container or Docker-backed workspaces are recommended for the full Explorer
+- Apple Container or Docker/Podman-backed workspaces are recommended for the full Explorer
   experience
 - host mode supports core chat, file browsing/editing, terminals, and general
-  host-shell workflows on macOS/Linux, but with reduced automation; Windows uses Docker for workspace execution
+  host-shell workflows on macOS/Linux, but with reduced automation; Windows uses the Docker-compatible runtime for workspace execution
 - browser automation, containerized tooling/language servers, and managed
   preview/dev-server parity are container-oriented capabilities
 - containers are not documented as a hardened multi-tenant security boundary

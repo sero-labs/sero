@@ -20,10 +20,10 @@ Sero supports local workspace runtimes only. Pick the runtime that matches your 
 
 | Platform | Default runtime | Requirement |
 | --- | --- | --- |
-| macOS Apple Silicon | Apple Container | Install Apple's `container` CLI, or explicitly select Docker or Host. |
-| macOS Intel | Docker | Install Docker Desktop. Apple Container is not offered on Intel Macs. |
-| Linux | Docker | Install Docker Engine/Desktop. Host is available as an advanced reduced-capability option. |
-| Windows | Docker | Docker Desktop with Linux containers is required for workspace execution. |
+| macOS Apple Silicon | Apple Container | Install Apple's `container` CLI, or explicitly select Docker/Podman or Host. |
+| macOS Intel | Docker / Podman | Install Docker Desktop/Engine or Podman. Apple Container is not offered on Intel Macs. |
+| Linux | Docker / Podman | Install Docker Engine/Desktop or Podman. Host is available as an advanced reduced-capability option. |
+| Windows | Docker / Podman | Docker Desktop with Linux containers or a compatible Podman setup is required for workspace execution. |
 
 For Apple Container on Apple Silicon Macs, make sure the CLI is available at:
 
@@ -31,8 +31,14 @@ For Apple Container on Apple Silicon Macs, make sure the CLI is available at:
 /usr/local/bin/container
 ```
 
-For Docker-backed workspaces, install Docker Desktop or Docker Engine and make
-sure `docker info` succeeds.
+For Docker-backed workspaces, install Docker Desktop, Docker Engine, or Podman and make sure one of these succeeds:
+
+```bash
+docker info
+podman info
+```
+
+The workspace runtime picker labels this option **Docker / Podman**, but the saved backend ID remains `docker`. Sero prefers Docker when both CLIs are available, can retry Podman if auto-selected Docker cannot reach its daemon, and respects explicit overrides such as `SERO_CONTAINER_ENGINE=podman` or `SERO_DOCKER_BIN=/path/to/binary`.
 
 Host mode is available only on macOS and Linux. It starts quickly, but it does
 not provide Linux/container parity or browser automation.
@@ -54,10 +60,12 @@ The install flow runs native-module repair hooks for `node-pty` and
 /usr/local/bin/container --help
 /usr/local/bin/container system status
 docker info
+podman info
 ```
 
 If containers are unavailable, Sero can continue in host mode with reduced
-capabilities.
+capabilities on macOS/Linux. Windows workspace execution still requires the
+Docker-compatible runtime.
 
 ## Related docs
 

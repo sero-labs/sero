@@ -5,8 +5,8 @@ Status: cross-platform local runtime architecture.
 Sero supports local, live workspace runtimes through three canonical backend IDs:
 
 - `apple-container` — Apple Container on supported macOS hosts.
-- `docker` — Docker Desktop or Docker Engine on macOS, Windows, and Linux.
-- `host` — direct host runtime on macOS/Linux. Windows workspace execution uses Docker.
+- `docker` — Docker-compatible execution through Docker Desktop, Docker Engine, or Podman on macOS, Windows, and Linux.
+- `host` — direct host runtime on macOS/Linux. Windows workspace execution uses the Docker-compatible runtime.
 
 `mac-host` is a deprecated compatibility alias. Existing workspace config files that contain `{ "runtime": { "backend": "mac-host" } }` are accepted on read, normalized to `host` in IPC/runtime state, and rewritten as `host` on the next config write. New docs, UI, and config should use only `host`.
 
@@ -58,10 +58,10 @@ Explicit upload/download sync is not part of the runtime model.
 | Runtime | macOS | Linux | Windows | Browser automation |
 | --- | --- | --- | --- | --- |
 | Host (`host`) | Yes | Yes | No | No |
-| Docker (`docker`) | Yes | Yes | Yes, through Docker Desktop | Yes |
+| Docker / Podman (`docker`) | Yes | Yes | Yes, through Docker Desktop or Podman | Yes |
 | Apple Container (`apple-container`) | Apple Silicon recommended | No | No | Yes |
 
-Host runtime targets practical workspace parity for file operations, exec/spawn, terminals, Git/VCS, language servers, managed dev servers, and preview URLs. Container parity is broader because browser automation remains available only through Docker and Apple Container.
+Host runtime targets practical workspace parity for file operations, exec/spawn, terminals, Git/VCS, language servers, managed dev servers, and preview URLs. Container parity is broader because browser automation remains available only through Docker/Podman and Apple Container.
 
 ## Runtime capabilities
 
@@ -88,27 +88,29 @@ Callers must use `getRuntimeCapabilities(backend, platform, arch)` and runtime d
 - Uses the shared loopback preview-port pool.
 - Preserves existing Apple Container command, terminal, file, Git, dev-server, LSP, and browser behavior where capabilities report support.
 
-### Docker
+### Docker / Podman
 
 - Creates one Sero-managed container per workspace with labels identifying the workspace and runtime.
 - Uses `ghcr.io/sero-labs/sero-node:<tag>` with `:latest` as the development fallback.
 - Mounts the primary workspace at `/workspace` and required Sero agent resources from `SERO_AGENT_DIR` read-only.
+- Auto-detects `docker` or `podman`; Docker is preferred when both are available, but an auto-selected Docker daemon failure can retry through Podman. Explicit `SERO_CONTAINER_ENGINE` and `SERO_DOCKER_BIN` selections disable implicit fallback.
 - Runs as the host UID/GID on Unix so bind-mounted files stay host-editable; uses Docker Desktop defaults on Windows.
-- Executes commands with Docker CLI argument arrays, never shell-concatenated Docker arguments.
+- Marks `/workspace` as a Git `safe.directory` and copies host Git identity into the container so mounted repositories are usable with arbitrary UID/GID mappings.
+- Executes Docker-compatible CLI commands with argument arrays, never shell-concatenated runtime arguments.
 - Publishes a preview-port pool on `127.0.0.1` and returns provider-neutral loopback preview URLs.
-- Provides Doctor checks for Docker CLI, daemon, image, bind mount, permissions, networking, and preview ports.
+- Provides Doctor checks for CLI, daemon, image, bind mount, permissions, networking, and preview ports.
 
 ### Host
 
 - Runs directly against the host workspace on macOS and Linux.
-- Is not supported on Windows; Windows workspace execution uses Docker.
+- Is not supported on Windows; Windows workspace execution uses the Docker-compatible runtime.
 - Translates renderer `/workspace` paths in the main process.
 - Supports file ops, exec/spawn, terminals, Git/VCS, language servers, managed dev servers, and localhost preview URLs.
 - Reports unsupported capabilities explicitly when container-only features such as browser automation are unavailable.
 
 ## Windows runtime rule
 
-Windows workspace execution uses Docker. The `host` backend is intentionally not
+Windows workspace execution uses the Docker-compatible runtime. The `host` backend is intentionally not
 available on Windows, and Sero does not run workspace commands through native
 PowerShell/cmd host mode.
 
@@ -131,19 +133,19 @@ The returned URL is always host-accessible:
 }
 ```
 
-Docker and Apple Container pre-publish internal gateway ports at container creation time, then start an in-runtime bridge from each allocated gateway port to the detected target port. Host runtime returns direct localhost URLs for managed dev servers. See `docs/reference/runtime-preview-ports.md`.
+Docker/Podman and Apple Container pre-publish internal gateway ports at container creation time, then start an in-runtime bridge from each allocated gateway port to the detected target port. Host runtime returns direct localhost URLs for managed dev servers. See `docs/reference/runtime-preview-ports.md`.
 
 ## Platform defaults
 
 | Platform | Default local runtime |
 | --- | --- |
-| macOS Apple Silicon | Apple Container when available, otherwise Docker with setup diagnostics |
-| macOS Intel | Docker |
-| Windows | Docker |
-| Linux | Docker |
+| macOS Apple Silicon | Apple Container when available, otherwise Docker / Podman with setup diagnostics |
+| macOS Intel | Docker / Podman |
+| Windows | Docker / Podman |
+| Linux | Docker / Podman |
 | Global workspace | Host |
 
-Host remains selectable as an advanced local option on macOS and Linux. Windows and Linux do not silently switch to host execution when Docker is missing or stopped.
+Host remains selectable as an advanced local option on macOS and Linux. Windows and Linux do not silently switch to host execution when the selected Docker-compatible runtime is missing or stopped.
 
 ## Documentation and smoke tests
 

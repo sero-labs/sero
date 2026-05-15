@@ -23,7 +23,7 @@ Not currently promised:
 ## Runtime limitations
 
 Host mode is supported on macOS/Linux, but it is not feature-equivalent to the preferred
-container-backed runtime. Windows workspace execution uses Docker.
+container-backed runtime. Windows workspace execution uses the Docker-compatible runtime (Docker or Podman).
 
 Expect reduced or unavailable behavior in areas such as:
 - browser automation

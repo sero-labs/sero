@@ -26,7 +26,7 @@ flowchart LR
 
   Workspace --> Runtime{Runtime mode}
   Runtime --> Apple[Apple Container workspace]
-  Runtime --> Docker[Docker workspace]
+  Runtime --> Docker[Docker / Podman workspace]
   Runtime --> Host[Explicit Host mode]
 
   Apps --> AppRuntime["@sero-ai/app-runtime"]
@@ -75,7 +75,7 @@ Workspaces are the main organizing unit. Each workspace has:
 
 ### Container-backed (preferred)
 
-Use Apple Container or Docker-backed workspaces for:
+Use Apple Container or Docker/Podman-backed workspaces for:
 - better isolation
 - containerized tooling
 - browser automation and managed preview flows
@@ -85,13 +85,13 @@ Use Apple Container or Docker-backed workspaces for:
 
 Host mode keeps core workflows available when selected on macOS/Linux, but it is intentionally reduced.
 Expect limits around browser automation, containerized tooling, and some managed
-preview/runtime behavior. Windows workspace execution uses Docker. See [Containers and Host Mode](/reference/containers-host-mode)
+preview/runtime behavior. Windows workspace execution uses the Docker-compatible runtime. See [Containers and Host Mode](/reference/containers-host-mode)
 for runtime-specific guidance.
 
 ```mermaid
 flowchart TD
   Open[Open workspace] --> Pick{Selected runtime}
-  Pick -->|Apple Container/Docker available| Container[Container-backed workspace]
+  Pick -->|Apple Container/Docker/Podman available| Container[Container-backed workspace]
   Pick -->|Host on macOS/Linux| Host[Reduced host mode]
   Pick -->|Container unavailable| Error[Actionable runtime error]
 

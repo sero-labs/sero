@@ -1,7 +1,7 @@
 # Runtime preview ports
 
 Sero container runtimes publish preview URLs through loopback host-port pools.
-Docker and Apple Container both reserve internal gateway ports starting at `32000`
+Docker/Podman and Apple Container both reserve internal gateway ports starting at `32000`
 and bridge each detected dev server from `0.0.0.0:<gateway>` inside the runtime to
 `127.0.0.1:<target>` in the same runtime namespace. The returned preview URL is
 always `http://127.0.0.1:<hostPort>`.

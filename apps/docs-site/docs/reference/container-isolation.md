@@ -1,15 +1,15 @@
 # Container Isolation
 
-Container-backed workspaces are Sero's preferred runtime across supported platforms. Apple Container and Docker both isolate workspace execution from the host enough to provide reproducible tooling, runtime networking, and per-workspace dev-server previews, but they are not documented as a hardened multi-tenant security boundary.
+Container-backed workspaces are Sero's preferred runtime across supported platforms. Apple Container and the Docker-compatible runtime (Docker or Podman, saved as backend ID `docker`) isolate workspace execution from the host enough to provide reproducible tooling, runtime networking, and per-workspace dev-server previews, but they are not documented as a hardened multi-tenant security boundary.
 
 ## Lifecycle
 
 | Behavior | Current implementation |
 |---|---|
 | Container id | `sero-<workspaceId>` from `containerId(workspaceId)` or the runtime-specific equivalent. |
-| Image | `ghcr.io/sero-labs/sero-node:latest` by default for Docker-backed workspaces; Apple Container uses the same Sero node image contents in its separate image store. |
+| Image | `ghcr.io/sero-labs/sero-node:latest` by default for Docker/Podman-backed workspaces; Apple Container uses the same Sero node image contents in its separate image store. |
 | Start model | Lazy/deduplicated `ensure()` per workspace; stopped containers are reused when possible. |
-| System runtime | Apple Container (`/usr/local/bin/container`) or Docker; Sero can start the Apple Container system if it is installed but stopped. |
+| System runtime | Apple Container (`/usr/local/bin/container`) or Docker/Podman; Sero can start the Apple Container system if it is installed but stopped. |
 | Recovery | Stale/ghost containers may be force-removed or recreated. |
 | Host alternative | On macOS/Linux, explicitly select Host when you want reduced direct-host execution. Selected container runtimes fail closed if unavailable. |
 
@@ -49,7 +49,7 @@ HOSTNAME=0.0.0.0
 
 When Sero's container HTTP proxy starts, proxy variables are also injected and `NO_PROXY` includes localhost and the container subnet. DNS fallback is best effort.
 
-Dev-server URLs are resolved by the active runtime backend. Apple Container and Docker expose host-reachable forwarded URLs, and host mode exposes a localhost URL. The registry id is scope-aware:
+Dev-server URLs are resolved by the active runtime backend. Apple Container and Docker/Podman expose host-reachable forwarded URLs, and host mode exposes a localhost URL. The registry id is scope-aware:
 
 ```text
 workspaceId:scope:cardId:port
@@ -84,9 +84,9 @@ See [Containers and Host Mode](/reference/containers-host-mode) for user-facing 
 
 ## Cleanup and image changes
 
-If you change `apps/desktop/images/Dockerfile.sero-node` or tools installed in the image, rebuild `ghcr.io/sero-labs/sero-node:latest` and recreate affected workspace containers. Existing containers do not automatically receive Dockerfile changes. Apple Container has a separate image store from Docker, so rebuild/import there separately when testing that runtime.
+If you change `apps/desktop/images/Dockerfile.sero-node` or tools installed in the image, rebuild `ghcr.io/sero-labs/sero-node:latest` and recreate affected workspace containers. Existing containers do not automatically receive Dockerfile changes. Podman uses the same fully-qualified image refs as Docker, while Apple Container has a separate image store from Docker/Podman; rebuild/import there separately when testing that runtime.
 
-Use the app/runtime controls where available. If debugging manually, be careful: deleting or restarting Apple Container or Docker resources can stop other running containers on the machine.
+Use the app/runtime controls where available. If debugging manually, be careful: deleting or restarting Apple Container, Docker, or Podman resources can stop other running containers on the machine.
 
 ## Security caveats
 

@@ -1,6 +1,6 @@
 # Containers and Host Mode
 
-Sero works best with container-backed workspaces. Apple Container and Docker are
+Sero works best with container-backed workspaces. Apple Container and Docker/Podman are
 the current container-backed runtime options. Host mode is supported as an
 explicit reduced-capability macOS/Linux runtime when a workspace is configured
 to use the host. Selected container runtimes fail closed when unavailable rather
@@ -42,10 +42,10 @@ Host mode is not currently the supported path for:
 - Linux/container networking semantics
 - full container isolation
 
-Host mode can still run and register a normal host dev server on macOS/Linux. The distinction is that Sero's container networking, Linux parity, and browser-automation assumptions do not apply outside container-backed workspaces. Windows workspace execution uses Docker rather than host mode.
+Host mode can still run and register a normal host dev server on macOS/Linux. The distinction is that Sero's container networking, Linux parity, and browser-automation assumptions do not apply outside container-backed workspaces. Windows workspace execution uses the Docker-compatible runtime rather than host mode.
 
 If a workflow works in containers but fails in host mode, check whether that
-workflow depends on container-only capabilities. On Windows, use Docker-backed
+workflow depends on container-only capabilities. On Windows, use Docker/Podman-backed
 workspaces for runtime execution.
 
 ## Requirements for container-backed mode
@@ -63,11 +63,14 @@ If the system is installed but not running, start it:
 /usr/local/bin/container system start
 ```
 
-For Docker-backed workspaces, Docker must be installed and running:
+For Docker-backed workspaces, Docker or Podman must be installed and running:
 
 ```bash
 docker info
+podman info
 ```
+
+The runtime picker labels this option **Docker / Podman**, while the persisted backend ID remains `docker`. Sero prefers Docker when both CLIs are available, can retry Podman if auto-selected Docker cannot reach its daemon, and respects explicit overrides such as `SERO_CONTAINER_ENGINE=podman` or `SERO_DOCKER_BIN=/path/to/binary`.
 
 Sero expects the workspace image:
 
@@ -118,17 +121,18 @@ For container-specific problems, start with:
 /usr/local/bin/container system status
 /usr/local/bin/container system start
 docker info
+podman info
 ```
 
 Common situations:
 
 ### Container runtime command is missing
 
-Sero treats that runtime as unavailable and will not execute that workspace through host mode unless you explicitly select Host on macOS/Linux. For Apple Container, install Apple's container CLI and confirm it exists at `/usr/local/bin/container`. For Docker, install Docker and confirm `docker info` succeeds.
+Sero treats that runtime as unavailable and will not execute that workspace through host mode unless you explicitly select Host on macOS/Linux. For Apple Container, install Apple's container CLI and confirm it exists at `/usr/local/bin/container`. For Docker/Podman, install a compatible engine and confirm `docker info` or `podman info` succeeds.
 
 ### Container system is installed but unavailable
 
-For Apple Container, run `container system start`, wait for `container system status` to report a healthy/running state, then restart or retry the affected Sero workflow. For Docker, start Docker Desktop or the Docker daemon and retry.
+For Apple Container, run `container system start`, wait for `container system status` to report a healthy/running state, then restart or retry the affected Sero workflow. For Docker/Podman, start Docker Desktop, the Docker daemon, or the Podman machine/service and retry.
 
 ### A workspace behaves incorrectly after changing the image
 
