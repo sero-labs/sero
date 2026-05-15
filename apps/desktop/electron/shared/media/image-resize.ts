@@ -30,10 +30,22 @@ export interface PreparedToolImage {
   resize: ImageResizeResult;
 }
 
+export interface ImageResizeOptions {
+  maxBytes?: number;
+  maxWidth?: number;
+  maxHeight?: number;
+}
+
 // 4.5MB — provides headroom below Anthropic's 5MB limit (matches Pi CLI)
-const MAX_BYTES = 4.5 * 1024 * 1024;
-const MAX_WIDTH = 2000;
-const MAX_HEIGHT = 2000;
+const API_MAX_BYTES = 4.5 * 1024 * 1024;
+const API_MAX_WIDTH = 2000;
+const API_MAX_HEIGHT = 2000;
+
+// Agent context budget. Base64 adds ~33%, so 384KB raw is roughly 512KB in
+// persisted JSON/session history before provider-side image tokenization.
+const TOOL_MAX_BYTES = 384 * 1024;
+const TOOL_MAX_WIDTH = 1600;
+const TOOL_MAX_HEIGHT = 1600;
 
 /** Pick the smaller of two encoded buffers. */
 function pickSmaller(
@@ -50,7 +62,14 @@ function pickSmaller(
  * @param mimeType   Original MIME type (e.g. "image/png")
  * @returns Resized image data + updated mimeType + original/final dimensions
  */
-export function resizeImageForApi(base64Data: string, mimeType: string): ImageResizeResult {
+export function resizeImageForApi(
+  base64Data: string,
+  mimeType: string,
+  options: ImageResizeOptions = {},
+): ImageResizeResult {
+  const maxBytes = options.maxBytes ?? API_MAX_BYTES;
+  const maxWidth = options.maxWidth ?? API_MAX_WIDTH;
+  const maxHeight = options.maxHeight ?? API_MAX_HEIGHT;
   const inputBuffer = Buffer.from(base64Data, 'base64');
   if (typeof nativeImage?.createFromBuffer !== 'function') {
     return {
@@ -82,9 +101,9 @@ export function resizeImageForApi(base64Data: string, mimeType: string): ImageRe
   const originalHeight = originalSize.height;
 
   if (
-    inputBuffer.length <= MAX_BYTES &&
-    originalWidth <= MAX_WIDTH &&
-    originalHeight <= MAX_HEIGHT
+    inputBuffer.length <= maxBytes &&
+    originalWidth <= maxWidth &&
+    originalHeight <= maxHeight
   ) {
     return {
       data: base64Data,
@@ -100,13 +119,13 @@ export function resizeImageForApi(base64Data: string, mimeType: string): ImageRe
   let targetWidth = originalWidth;
   let targetHeight = originalHeight;
 
-  if (targetWidth > MAX_WIDTH) {
-    targetHeight = Math.round((targetHeight * MAX_WIDTH) / targetWidth);
-    targetWidth = MAX_WIDTH;
+  if (targetWidth > maxWidth) {
+    targetHeight = Math.round((targetHeight * maxWidth) / targetWidth);
+    targetWidth = maxWidth;
   }
-  if (targetHeight > MAX_HEIGHT) {
-    targetWidth = Math.round((targetWidth * MAX_HEIGHT) / targetHeight);
-    targetHeight = MAX_HEIGHT;
+  if (targetHeight > maxHeight) {
+    targetWidth = Math.round((targetWidth * maxHeight) / targetHeight);
+    targetHeight = maxHeight;
   }
 
   function tryEncode(
@@ -133,7 +152,7 @@ export function resizeImageForApi(base64Data: string, mimeType: string): ImageRe
   let finalHeight = targetHeight;
 
   let best = tryEncode(targetWidth, targetHeight, 80);
-  if (best.buffer.length <= MAX_BYTES) {
+  if (best.buffer.length <= maxBytes) {
     return {
       data: best.buffer.toString('base64'),
       mimeType: best.mimeType,
@@ -147,7 +166,7 @@ export function resizeImageForApi(base64Data: string, mimeType: string): ImageRe
 
   for (const quality of qualitySteps) {
     best = tryEncode(targetWidth, targetHeight, quality);
-    if (best.buffer.length <= MAX_BYTES) {
+    if (best.buffer.length <= maxBytes) {
       return {
         data: best.buffer.toString('base64'),
         mimeType: best.mimeType,
@@ -168,7 +187,7 @@ export function resizeImageForApi(base64Data: string, mimeType: string): ImageRe
 
     for (const quality of qualitySteps) {
       best = tryEncode(finalWidth, finalHeight, quality);
-      if (best.buffer.length <= MAX_BYTES) {
+      if (best.buffer.length <= maxBytes) {
         return {
           data: best.buffer.toString('base64'),
           mimeType: best.mimeType,
@@ -206,7 +225,11 @@ export function formatDimensionNote(result: ImageResizeResult): string | undefin
 }
 
 export function prepareToolImage(base64Data: string, mimeType: string, text?: string): PreparedToolImage {
-  const resize = resizeImageForApi(base64Data, mimeType);
+  const resize = resizeImageForApi(base64Data, mimeType, {
+    maxBytes: TOOL_MAX_BYTES,
+    maxWidth: TOOL_MAX_WIDTH,
+    maxHeight: TOOL_MAX_HEIGHT,
+  });
   const normalizedText = [text?.trim(), formatDimensionNote(resize)].filter(Boolean).join('\n') || undefined;
   return {
     data: resize.data,
