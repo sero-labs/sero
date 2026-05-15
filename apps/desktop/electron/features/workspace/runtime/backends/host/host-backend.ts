@@ -299,6 +299,10 @@ export class HostBackend implements RuntimeBackend {
     await this.devServers.stop(input);
   }
 
+  async unregisterDevServer(input: RuntimeDevServerStopInput): Promise<void> {
+    this.devServers.unregister(input);
+  }
+
   async restartDevServer(input: RuntimeDevServerRestartInput): Promise<RuntimeDevServer> {
     return this.devServers.restart(input);
   }

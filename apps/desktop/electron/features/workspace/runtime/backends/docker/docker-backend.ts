@@ -282,9 +282,22 @@ export class DockerBackend implements RuntimeBackend {
     const ports = await this.portManager();
     const server = ports.getServer(input.serverId);
     if (!server) throw new Error(`Dev server not found: ${input.serverId}`);
-    await this.killPort(server.port);
-    await ports.stopForward(server.port);
-    ports.deleteServer(input.serverId);
+    if (server.status !== 'stopped') {
+      await this.killPort(server.port);
+      await ports.stopForward(server.port);
+    }
+    ports.registerServer({ ...server, status: 'stopped' });
+    this.emitDevServerChange({
+      type: 'status_changed',
+      workspaceId: this.workspaceId,
+      serverId: input.serverId,
+      status: 'stopped',
+    });
+  }
+
+  async unregisterDevServer(input: RuntimeDevServerStopInput): Promise<void> {
+    const ports = await this.portManager();
+    if (!ports.deleteServer(input.serverId)) throw new Error(`Dev server not found: ${input.serverId}`);
     this.emitDevServerChange({
       type: 'unregistered',
       workspaceId: this.workspaceId,
@@ -297,7 +310,8 @@ export class DockerBackend implements RuntimeBackend {
     const ports = await this.portManager();
     const server = ports.getServer(input.serverId);
     if (!server) throw new Error(`Dev server not found: ${input.serverId}`);
-    await this.stopDevServer(input);
+    if (server.status !== 'stopped') await this.stopDevServer(input);
+    await this.unregisterDevServer(input);
     return this.startDevServer({
       command: server.command,
       cwd: server.cwd,

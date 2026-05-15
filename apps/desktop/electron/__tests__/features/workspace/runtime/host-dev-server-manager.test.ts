@@ -28,7 +28,7 @@ describe('HostDevServerManager', () => {
     expect(parseLsofPort('COMMAND PID USER FD TYPE DEVICE SIZE/OFF NODE NAME')).toBeNull();
   });
 
-  it('emits registered and unregistered events for host dev servers', async () => {
+  it('keeps stopped host dev servers registered so they can be restarted', async () => {
     const process = createProcess();
     const manager = new HostDevServerManager({
       workspaceId: 'workspace-a',
@@ -55,12 +55,6 @@ describe('HostDevServerManager', () => {
       }),
       expect.objectContaining({
         type: 'status_changed',
-        workspaceId: 'workspace-a',
-        serverId: server.id,
-        status: 'stopped',
-      }),
-      expect.objectContaining({
-        type: 'unregistered',
         workspaceId: 'workspace-a',
         serverId: server.id,
         status: 'stopped',
@@ -215,7 +209,7 @@ describe('HostDevServerManager', () => {
 
     expect(execFile).not.toHaveBeenCalledWith(expect.objectContaining({ program: 'kill' }));
     expect(execFile).not.toHaveBeenCalledWith(expect.objectContaining({ program: 'lsof' }));
-    expect(manager.list()).toEqual([]);
+    expect(manager.list()).toEqual([expect.objectContaining({ id: server.id, status: 'stopped' })]);
   });
 
   it('restart of a registered dev server force-kills the existing listener before respawning', async () => {

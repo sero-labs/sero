@@ -274,7 +274,7 @@ describe('AppleContainerBackend', () => {
     await expect(backend.createDirectory({ path: '/workspace/a', recursive: true })).rejects.toThrow('permission denied');
   });
 
-  it('emits dev-server registration and unregistration events', async () => {
+  it('keeps stopped dev servers registered so they can be restarted', async () => {
     const server: RuntimeDevServer = {
       id: 'workspace-a:workspace:root:5173',
       port: 5173,
@@ -315,7 +315,7 @@ describe('AppleContainerBackend', () => {
 
     expect(events).toEqual([
       expect.objectContaining({ type: 'registered', workspaceId: 'workspace-a', serverId: server.id, status: 'running' }),
-      expect.objectContaining({ type: 'unregistered', workspaceId: 'workspace-a', serverId: server.id, status: 'stopped' }),
+      expect.objectContaining({ type: 'status_changed', workspaceId: 'workspace-a', serverId: server.id, status: 'stopped' }),
     ]);
   });
 
@@ -332,8 +332,8 @@ describe('AppleContainerBackend', () => {
       cardId: 'card-1',
     };
     const backend = createBackend();
-    Object.assign(backend as unknown as { ports: { getServer: (id: string) => RuntimeDevServer | undefined } }, {
-      ports: { getServer: vi.fn().mockReturnValue(server) },
+    Object.assign(backend as unknown as { ports: { getServer: (id: string) => RuntimeDevServer | undefined; deleteServer: (id: string) => boolean } }, {
+      ports: { getServer: vi.fn().mockReturnValue(server), deleteServer: vi.fn().mockReturnValue(true) },
     });
     vi.spyOn(backend, 'stopDevServer').mockResolvedValue(undefined);
     const start = vi.spyOn(backend, 'startDevServer').mockResolvedValue(server);

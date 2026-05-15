@@ -291,7 +291,7 @@ describe('Docker runtime backend core', () => {
     ]));
   });
 
-  it('emits dev-server registration and unregistration events', async () => {
+  it('keeps stopped dev servers registered so they can be restarted', async () => {
     const server: RuntimeDevServer = {
       id: 'ws-1:workspace:root:5173',
       port: 5173,
@@ -331,7 +331,7 @@ describe('Docker runtime backend core', () => {
 
     expect(events).toEqual([
       expect.objectContaining({ type: 'registered', workspaceId: 'ws-1', serverId: server.id, status: 'running' }),
-      expect.objectContaining({ type: 'unregistered', workspaceId: 'ws-1', serverId: server.id, status: 'stopped' }),
+      expect.objectContaining({ type: 'status_changed', workspaceId: 'ws-1', serverId: server.id, status: 'stopped' }),
     ]);
   });
 
@@ -353,8 +353,8 @@ describe('Docker runtime backend core', () => {
       workspaceManager: { getRuntimeConfig: vi.fn().mockResolvedValue({ backend: 'docker', previewPortPoolSize: 2 }) } as unknown as WorkspaceManager,
       run: vi.fn(async () => ok()),
     });
-    Object.assign(backend as unknown as { ports: { getServer: (id: string) => RuntimeDevServer | undefined } }, {
-      ports: { getServer: vi.fn().mockReturnValue(server) },
+    Object.assign(backend as unknown as { ports: { getServer: (id: string) => RuntimeDevServer | undefined; deleteServer: (id: string) => boolean } }, {
+      ports: { getServer: vi.fn().mockReturnValue(server), deleteServer: vi.fn().mockReturnValue(true) },
     });
     vi.spyOn(backend, 'stopDevServer').mockResolvedValue(undefined);
     const start = vi.spyOn(backend, 'startDevServer').mockResolvedValue(server);

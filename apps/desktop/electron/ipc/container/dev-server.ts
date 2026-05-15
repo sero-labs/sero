@@ -131,6 +131,14 @@ export function registerDevServerHandlers(): void {
   ipcMain.handle(
     IpcChannels.devServer.unregister,
     async (_event, serverId: string) => {
+      const workspaceId = workspaceIdFromServerId(serverId);
+      if (workspaceId) {
+        const runtime = await runtimeManager.getRuntime(workspaceId);
+        if (runtime.listDevServersSync?.().some((server) => server.id === serverId)) {
+          await runtime.unregisterDevServer?.({ serverId });
+          return;
+        }
+      }
       registry.unregister(serverId);
     },
   );

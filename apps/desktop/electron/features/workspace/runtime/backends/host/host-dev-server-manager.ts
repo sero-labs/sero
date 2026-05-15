@@ -159,30 +159,12 @@ export class HostDevServerManager {
   }
 
   async stop(input: RuntimeDevServerStopInput): Promise<void> {
-    await this.removeServer(input.serverId, { forceKillListener: false });
-  }
-
-  async restart(input: RuntimeDevServerRestartInput): Promise<RuntimeDevServer> {
     const server = this.servers.get(input.serverId);
     if (!server) throw new Error(`Dev server not found: ${input.serverId}`);
-    // Restart is an explicit reboot — terminate any listener even for registered records
-    // so the new spawn can bind the port without conflicting with the previous owner.
-    await this.removeServer(input.serverId, { forceKillListener: true });
-    return this.start({
-      command: server.command,
-      cwd: server.cwd,
-      name: server.name,
-      framework: server.framework,
-      scope: server.scope,
-      cardId: server.cardId,
-    });
-  }
-
-  private async removeServer(serverId: string, options: { forceKillListener: boolean }): Promise<void> {
-    const server = this.servers.get(serverId);
-    if (!server) throw new Error(`Dev server not found: ${serverId}`);
-    server.onExitUnsubscribe?.();
-    await this.terminateServer(server, options);
+    if (server.status !== 'stopped') {
+      server.onExitUnsubscribe?.();
+      await this.terminateServer(server, { forceKillListener: false });
+    }
     server.status = 'stopped';
     this.emitDevServerChange({
       type: 'status_changed',
@@ -190,12 +172,38 @@ export class HostDevServerManager {
       serverId: server.id,
       status: 'stopped',
     });
-    this.servers.delete(serverId);
+  }
+
+  unregister(input: RuntimeDevServerStopInput): void {
+    const server = this.servers.get(input.serverId);
+    if (!server) throw new Error(`Dev server not found: ${input.serverId}`);
+    server.onExitUnsubscribe?.();
+    this.servers.delete(input.serverId);
     this.emitDevServerChange({
       type: 'unregistered',
       workspaceId: this.workspaceId,
       serverId: server.id,
       status: 'stopped',
+    });
+  }
+
+  async restart(input: RuntimeDevServerRestartInput): Promise<RuntimeDevServer> {
+    const server = this.servers.get(input.serverId);
+    if (!server) throw new Error(`Dev server not found: ${input.serverId}`);
+    // Restart is an explicit reboot — terminate any listener even for registered records
+    // so the new spawn can bind the port without conflicting with the previous owner.
+    if (server.status !== 'stopped') {
+      server.onExitUnsubscribe?.();
+      await this.terminateServer(server, { forceKillListener: true });
+    }
+    this.unregister(input);
+    return this.start({
+      command: server.command,
+      cwd: server.cwd,
+      name: server.name,
+      framework: server.framework,
+      scope: server.scope,
+      cardId: server.cardId,
     });
   }
 

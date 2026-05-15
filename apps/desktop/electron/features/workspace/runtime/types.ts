@@ -210,6 +210,7 @@ export interface RuntimeBackend {
   startDevServer(input: RuntimeDevServerStartInput): Promise<RuntimeDevServer>;
   registerDevServer?(input: RuntimeDevServerRegisterInput): Promise<RuntimeDevServer>;
   stopDevServer(input: RuntimeDevServerStopInput): Promise<void>;
+  unregisterDevServer?(input: RuntimeDevServerStopInput): Promise<void>;
   restartDevServer(input: RuntimeDevServerRestartInput): Promise<RuntimeDevServer>;
   getDevServerStatus(input: RuntimeDevServerStatusInput): Promise<RuntimeDevServerStatus>;
   listDevServersSync?(): RuntimeDevServer[];

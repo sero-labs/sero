@@ -6,41 +6,15 @@ import type { WorkspaceManager } from '@electron/features/workspace/manager';
 import { getRuntimeCapabilities } from '../capabilities';
 import { RUNTIME_WORKSPACE_PATH } from '../runtime-paths';
 import type {
-  RuntimeBackend,
-  RuntimeCapabilities,
-  RuntimeCreateDirectoryInput,
-  RuntimeCreateFileInput,
-  RuntimeDeleteInput,
-  RuntimeDevServer,
-  RuntimeDevServerChangeEvent,
-  RuntimeDevServerRegisterInput,
-  RuntimeDevServerRestartInput,
-  RuntimeDevServerStartInput,
-  RuntimeDevServerStatus,
-  RuntimeDevServerStatusInput,
-  RuntimeDevServerStopInput,
-  RuntimeDirectoryEntry,
-  RuntimeExecFileInput,
-  RuntimeExecInput,
-  RuntimeExecResult,
-  RuntimeFileReadResult,
-  RuntimeFileWatch,
-  RuntimeFileWatchInput,
-  RuntimeForwardedPort,
-  RuntimeForwardPortInput,
-  RuntimeHealth,
-  RuntimeListFilesInput,
-  RuntimePreviewUrl,
-  RuntimePreviewUrlInput,
-  RuntimeProcess,
-  RuntimeProcessInput,
-  RuntimeReadFileInput,
-  RuntimeRenameInput,
-  RuntimeSession,
-  RuntimeStopForwardInput,
-  RuntimeTerminalInput,
-  RuntimeTerminalSession,
-  RuntimeWriteFileInput,
+  RuntimeBackend, RuntimeCapabilities, RuntimeDevServer, RuntimeDevServerChangeEvent,
+  RuntimeDevServerRegisterInput, RuntimeDevServerRestartInput, RuntimeDevServerStartInput,
+  RuntimeDevServerStatus, RuntimeDevServerStatusInput, RuntimeDevServerStopInput, RuntimeDirectoryEntry,
+  RuntimeExecFileInput, RuntimeExecInput, RuntimeExecResult, RuntimeFileReadResult, RuntimeFileWatch,
+  RuntimeFileWatchInput, RuntimeForwardedPort, RuntimeForwardPortInput, RuntimeHealth,
+  RuntimeListFilesInput, RuntimePreviewUrl, RuntimePreviewUrlInput, RuntimeProcess,
+  RuntimeProcessInput, RuntimeSession, RuntimeTerminalInput, RuntimeTerminalSession,
+  RuntimeCreateDirectoryInput, RuntimeCreateFileInput, RuntimeDeleteInput, RuntimeReadFileInput,
+  RuntimeRenameInput, RuntimeStopForwardInput, RuntimeWriteFileInput,
 } from '../types';
 import { AppleContainerPortManager } from './apple-container-ports';
 import {
@@ -388,9 +362,22 @@ export class AppleContainerBackend implements RuntimeBackend {
     const ports = await this.portManager();
     const server = ports.getServer(input.serverId);
     if (!server) throw new Error(`Dev server not found: ${input.serverId}`);
-    await this.killPort(server.port);
-    await ports.stopForward(server.port);
-    ports.deleteServer(input.serverId);
+    if (server.status !== 'stopped') {
+      await this.killPort(server.port);
+      await ports.stopForward(server.port);
+    }
+    ports.registerServer({ ...server, status: 'stopped' });
+    this.emitDevServerChange({
+      type: 'status_changed',
+      workspaceId: this.workspaceId,
+      serverId: input.serverId,
+      status: 'stopped',
+    });
+  }
+
+  async unregisterDevServer(input: RuntimeDevServerStopInput): Promise<void> {
+    const ports = await this.portManager();
+    if (!ports.deleteServer(input.serverId)) throw new Error(`Dev server not found: ${input.serverId}`);
     this.emitDevServerChange({
       type: 'unregistered',
       workspaceId: this.workspaceId,
@@ -403,7 +390,8 @@ export class AppleContainerBackend implements RuntimeBackend {
     const ports = await this.portManager();
     const server = ports.getServer(input.serverId);
     if (!server) throw new Error(`Dev server not found: ${input.serverId}`);
-    await this.stopDevServer(input);
+    if (server.status !== 'stopped') await this.stopDevServer(input);
+    await this.unregisterDevServer(input);
     return this.startDevServer({
       command: server.command,
       cwd: server.cwd,
