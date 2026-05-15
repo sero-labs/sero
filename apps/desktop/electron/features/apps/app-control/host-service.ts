@@ -1,4 +1,5 @@
 import { BrowserWindow } from 'electron';
+import { browserViewManager } from '@electron/features/browser/view-manager';
 import { captureRegion } from '@electron/shared/media/capture';
 import { encodeFramesToMp4 } from '@electron/shared/media/video-encoder';
 import type {
@@ -33,6 +34,12 @@ interface OpenAndWaitOptions {
   pollMs?: number;
 }
 
+interface BrowserCaptureTarget {
+  workspaceId: string;
+  tabId: string;
+  rect: AppPanelRect;
+}
+
 const recordingState: RecordingState = {
   active: false,
   startedAt: null,
@@ -58,6 +65,12 @@ async function captureRect(rect: AppPanelRect): Promise<string | null> {
   const win = getMainWindow();
   if (!win) return null;
   return captureRegion(win, rect);
+}
+
+async function getBrowserCaptureTarget(): Promise<BrowserCaptureTarget | null> {
+  return execRenderer<BrowserCaptureTarget | null>(
+    'window.__appControl?.getBrowserCaptureTarget?.() ?? null',
+  );
 }
 
 function hasVisibleRect(rect: AppPanelRect | null): rect is AppPanelRect {
@@ -124,6 +137,12 @@ export const appControlHostService = {
   },
 
   async captureVisibleApp(): Promise<{ base64: string; rect: AppPanelRect } | null> {
+    const browserTarget = await getBrowserCaptureTarget().catch(() => null);
+    if (browserTarget && hasVisibleRect(browserTarget.rect)) {
+      const base64 = await browserViewManager.capturePage(browserTarget.tabId, browserTarget.workspaceId);
+      if (base64) return { base64, rect: browserTarget.rect };
+    }
+
     const rect = await this.getAppRect();
     if (!hasVisibleRect(rect)) return null;
     const base64 = await captureRect(rect);

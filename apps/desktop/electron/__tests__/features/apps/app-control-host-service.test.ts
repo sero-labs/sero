@@ -4,11 +4,13 @@ const mocks = vi.hoisted(() => {
   const executeJavaScript = vi.fn();
   const captureRegion = vi.fn();
   const encodeFramesToMp4 = vi.fn();
+  const capturePage = vi.fn();
 
   return {
     executeJavaScript,
     captureRegion,
     encodeFramesToMp4,
+    capturePage,
     fakeWindow: {
       webContents: {
         executeJavaScript,
@@ -20,6 +22,12 @@ const mocks = vi.hoisted(() => {
 vi.mock('electron', () => ({
   BrowserWindow: {
     getAllWindows: () => [mocks.fakeWindow],
+  },
+}));
+
+vi.mock('@electron/features/browser/view-manager', () => ({
+  browserViewManager: {
+    capturePage: mocks.capturePage,
   },
 }));
 
@@ -70,6 +78,7 @@ describe('appControlHostService', () => {
     vi.useFakeTimers();
     mocks.executeJavaScript
       .mockResolvedValueOnce({ success: true, message: 'Clicked save' })
+      .mockResolvedValueOnce(null)
       .mockResolvedValueOnce({ x: 10, y: 20, width: 300, height: 200 });
     mocks.captureRegion.mockResolvedValue('base64-image');
 
@@ -82,6 +91,10 @@ describe('appControlHostService', () => {
       1,
       'window.__appControl?.interact({"action":"click","selector":"#save"})',
     );
+    expect(mocks.executeJavaScript).toHaveBeenNthCalledWith(
+      2,
+      'window.__appControl?.getBrowserCaptureTarget?.() ?? null',
+    );
     expect(result).toEqual({
       success: true,
       message: 'Clicked save',
@@ -93,5 +106,20 @@ describe('appControlHostService', () => {
       width: 300,
       height: 200,
     });
+  });
+
+  it('captures active browser tabs through the browser view instead of the window', async () => {
+    mocks.executeJavaScript.mockResolvedValue({
+      workspaceId: 'ws-1',
+      tabId: 'tab-1',
+      rect: { x: 10, y: 20, width: 300, height: 200 },
+    });
+    mocks.capturePage.mockResolvedValue('browser-base64');
+
+    const { appControlHostService } = await import('@electron/features/apps/app-control/host-service');
+    await expect(appControlHostService.screenshot()).resolves.toBe('browser-base64');
+
+    expect(mocks.capturePage).toHaveBeenCalledWith('tab-1', 'ws-1');
+    expect(mocks.captureRegion).not.toHaveBeenCalled();
   });
 });
