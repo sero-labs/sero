@@ -1,6 +1,6 @@
 ---
 name: sero-browser
-description: Use when a user asks to open, browse, capture, screenshot, or record a website/page in Sero; mentions BBC, browser tabs, visible Browser panel, screen recording, web navigation, website interaction, or browser automation; or when choosing between `sero browser`, `sero app record`, and `automation_browser`.
+description: Use when a user asks to open, browse, capture, screenshot, or record a website/page; mentions browser tabs, visible Browser panel, screen recording, web navigation, website interaction, or browser automation; or when choosing between `sero browser`, `sero app record`, and `automation_browser`.
 ---
 
 # Sero Browser
