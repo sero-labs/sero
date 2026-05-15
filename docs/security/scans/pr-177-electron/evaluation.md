@@ -1,5 +1,9 @@
 # PR #177 Castlabs Electron upgrade evaluation
 
+> Historical note: this scan evaluated an obsolete Castlabs upgrade path. Current
+> Sero builds use upstream Electron and do not support Castlabs, Widevine/VMP
+> signing, or DRM-dependent Spotify playback.
+
 | Item | Value |
 | --- | --- |
 | Current version | `github:castlabs/electron-releases#v33.4.11+wvcus` |

@@ -85,8 +85,8 @@ npmRebuild: false
 nodeGypRebuild: false
 buildDependenciesFromSource: false
 
-# Use the locally installed castlabs Electron fork instead of trying
-# to download a stock Electron build for the +wvcus version.
+# Use the locally installed Electron binary so packaging uses the exact
+# version pinned in package.json / pnpm-lock.yaml.
 electronDist: node_modules/electron/dist
 
 # Bundle the sero-doctor CLI shim. On first run Sero offers to symlink

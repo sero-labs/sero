@@ -286,7 +286,7 @@ Sero is an Electron-based agent workspace that runs AI coding sessions inside ma
 #### Current State
 - `contextIsolation: true` — renderer cannot access Node.js
 - `nodeIntegration: false` — no `require()` in renderer
-- `plugins: true` — required for Widevine CDM
+- `webviewTag: true` — enabled for the renderer-hosted webview surfaces
 - CSP enforced via `session.webRequest.onHeadersReceived` (`csp.ts`)
 
 #### Test Cases

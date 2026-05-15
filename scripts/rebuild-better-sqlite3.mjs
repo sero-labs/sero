@@ -62,7 +62,7 @@ function findElectronVersion() {
     if (existsSync(pkgJson)) {
       try {
         const { version } = req(pkgJson);
-        // Strip build metadata (e.g. "33.4.11+wvcus" → "33.4.11")
+        // Strip semver build metadata before passing the version to Electron rebuild.
         return version.split('+')[0];
       } catch { /* continue */ }
     }

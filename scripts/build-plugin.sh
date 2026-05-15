@@ -4,7 +4,7 @@
 #
 # Usage:
 #   bash scripts/build-plugin.sh plugins/sero-cron-plugin
-#   bash scripts/build-plugin.sh packages/pi-spotify-extension
+#   bash scripts/build-plugin.sh plugins/sero-git-plugin
 #
 # Produces a ready-to-install package in <package>/dist/plugin/ with:
 #   - dist/ui/         Pre-built MF remote (remoteEntry.js, chunks, manifest)

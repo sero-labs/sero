@@ -7,6 +7,12 @@ and alpha release tags use a SemVer prerelease form.
 
 ## Unreleased
 
+### Changed
+- Desktop builds now use stock Electron 33.4.11. Sero no longer ships the
+  Castlabs Electron fork, Widevine/VMP signing support, or the DRM-dependent
+  Spotify playback path. The external Spotify plugin documentation should be
+  updated separately if maintained outside this repository.
+
 ### Added
 - OSS alpha governance files (`LICENSE`, `CONTRIBUTING.md`, `SECURITY.md`,
   `CODE_OF_CONDUCT.md`, issue templates, PR template, `CODEOWNERS`)

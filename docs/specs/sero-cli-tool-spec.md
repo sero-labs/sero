@@ -30,8 +30,8 @@ packages are added, this grows linearly. This is sub-optimal because:
 | Core coding | bash, read, write, edit | 4 |
 | Workspace ops | ls, read_terminal, register_dev_server | 3 |
 | Sero extension | set_session_title | 1 |
-| Package extensions | calc, daily_quote, generate_image, notes, plan_todos, slopzilla, spotify, starling, todo, question, questionnaire, weight, interview | 13 |
-| **Total** | | **21** |
+| Package extensions | calc, daily_quote, generate_image, notes, plan_todos, slopzilla, starling, todo, question, questionnaire, weight, interview | 12 |
+| **Total** | | **20** |
 
 ## 2. Solution Overview
 
@@ -49,7 +49,7 @@ After this change, the agent context contains **5 tools** instead of 21:
 | `edit` | Pi SDK (native) |
 | `sero-cli` | Sero (new) |
 
-**Net reduction: 16 tools removed from context.**
+**Net reduction: 15 tools removed from context.**
 
 The agent can also chain multiple commands in a single tool call:
 
@@ -70,7 +70,7 @@ A single tool registered with the Pi SDK agent:
   label: 'Sero CLI',
   description:
     'Execute Sero platform commands. Supports app operations (todo, notes, ' +
-    'spotify, etc.), workspace management, version control, and dev servers. ' +
+    'and plugin tools), workspace management, version control, and dev servers. ' +
     'Run `sero help` for available commands. Chain multiple commands by ' +
     'passing multi-line input (one command per line).',
   parameters: {
@@ -347,7 +347,6 @@ DEV SERVERS
 APPS
   todo <action>         Manage todo items
   notes <action>        Manage notes
-  spotify <action>      Control Spotify playback
   calc <expr>           Evaluate a calculation
   weight <action>       Track weight entries
   ...
@@ -409,7 +408,6 @@ Examples:
     - pi-calc-extension
     - pi-daily-quote
     - pi-weight-tracker
-    - pi-spotify-extension
     - pi-starling-extension
     - pi-slopzilla-extension
     - pi-imagegen-extension
@@ -731,7 +729,7 @@ simultaneously. Packages migrate one at a time. During migration:
 
 **Recommended migration order:**
 1. Low-risk apps first (todo, notes, calc, daily_quote, weight)
-2. Media apps (spotify, starling, slopzilla)
+2. Media and creative apps (starling, slopzilla)
 3. Complex apps (imagegen, plan-mode, user-feedback)
 4. Builtin tools last (ls, read_terminal, register_dev_server, set_session_title)
 

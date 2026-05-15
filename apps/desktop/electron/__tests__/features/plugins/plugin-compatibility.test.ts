@@ -49,7 +49,7 @@ describe('plugin compatibility', () => {
 
     vi.doMock('electron', () => ({
       app: {
-        getVersion: () => '33.4.11+wvcus',
+        getVersion: () => '33.4.11',
         getAppPath: () => path.resolve(__dirname, '../../../dist/electron'),
       },
     }));

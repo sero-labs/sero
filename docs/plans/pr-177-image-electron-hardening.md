@@ -1,5 +1,9 @@
 # PR #177 Docker Image + Electron Hardening Plan
 
+> Historical note: this plan predates the stock-Electron migration. Current Sero
+> builds use upstream Electron and do not support Castlabs, Widevine/VMP signing,
+> or DRM-dependent Spotify playback.
+
 ## Goal
 
 Before releasing PR #177, complete two independent hardening tracks:

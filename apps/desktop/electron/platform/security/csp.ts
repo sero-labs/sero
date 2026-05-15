@@ -11,10 +11,9 @@
  *   and sero-ext: for selectively skipped apps loaded from built bundles
  * - Prod: sero-ext: (custom protocol for federated extension assets) plus
  *   tightly scoped loopback HTTP sources for embedded MCP viewers/auth rails
- * - Both: https://sdk.scdn.co (Spotify Web Playback SDK script),
- *   https://*.scdn.co + https://*.spotify.com (Spotify API/CDN),
- *   blob: (Vite/MF dynamic imports), data: (inline images),
- *   'unsafe-inline' for styles (Tailwind + inline style attrs)
+ * - Both: blob: (Vite/MF dynamic imports), data: (inline images),
+ *   Monaco CDN, Google Fonts, and 'unsafe-inline' for styles
+ *   (Tailwind + inline style attrs)
  */
 
 import { session } from 'electron';
@@ -51,7 +50,6 @@ export function buildContentSecurityPolicy(
     ...(isDevelopment ? ["'unsafe-inline'"] : []),
     "'wasm-unsafe-eval'",
     'blob:',
-    'https://sdk.scdn.co',          // Spotify Web Playback SDK
     'https://cdn.jsdelivr.net',     // Monaco Editor CDN
     ...devHttpSrc,                  // Vite dev + MF remotes
     ...extensionSrc,                // Federated extension assets
@@ -63,10 +61,6 @@ export function buildContentSecurityPolicy(
   const connectSrc = [
     "'self'",
     'blob:',
-    'https://*.spotify.com',   // Spotify Web API
-    'wss://*.spotify.com',     // Spotify Web Playback SDK (dealer WebSocket)
-    'https://*.scdn.co',       // Spotify CDN
-    'https://api.spotify.com',
     ...devConnectSrc,          // Vite HMR + dev servers
     ...prodLoopbackSrc,        // In-plugin loopback viewers/auth rails in production
     ...extensionSrc,           // Federated extension manifests/assets
@@ -102,8 +96,8 @@ export function buildContentSecurityPolicy(
   // fonts.gstatic.com serves the actual font files (.woff2) for Google Fonts.
   const fontSrc = ["'self'", 'data:', 'https://fonts.gstatic.com', ...devHttpSrc, ...extensionSrc];
 
-  // -- media-src (Spotify playback) --
-  const mediaSrc = ["'self'", 'blob:', 'https://*.spotify.com', 'https://*.scdn.co'];
+  // -- media-src --
+  const mediaSrc = ["'self'", 'blob:'];
 
   // -- worker-src --
   const workerSrc = ["'self'", 'blob:'];

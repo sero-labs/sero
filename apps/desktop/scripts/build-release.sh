@@ -52,19 +52,19 @@ fi
 echo "▸ Runtime image tag: ghcr.io/sero-labs/sero-node:${SERO_NODE_IMAGE_TAG}"
 
 # ── Step 1: Install dependencies ─────────────────────────────
-echo "▸ Step 1/7: Installing dependencies..."
+echo "▸ Step 1/6: Installing dependencies..."
 cd "$MONO_ROOT"
 pnpm install --frozen-lockfile 2>/dev/null || pnpm install
 cd "$PROJECT_DIR"
 
 # ── Step 2: Typecheck ────────────────────────────────────────
-echo "▸ Step 2/7: Running typecheck..."
+echo "▸ Step 2/6: Running typecheck..."
 cd "$MONO_ROOT"
 pnpm typecheck
 cd "$PROJECT_DIR"
 
 # ── Step 3: Build all packages (turbo) ───────────────────────
-echo "▸ Step 3/7: Building all packages..."
+echo "▸ Step 3/6: Building all packages..."
 cd "$MONO_ROOT"
 pnpm build
 cd "$PROJECT_DIR"
@@ -72,13 +72,13 @@ cd "$PROJECT_DIR"
 # ── Step 4: Build web-remote SPA (if it exists) ─────────────
 WEB_REMOTE_DIR="$MONO_ROOT/apps/web-remote"
 if [ -d "$WEB_REMOTE_DIR" ]; then
-  echo "▸ Step 4/7: Building web-remote SPA..."
+  echo "▸ Step 4/6: Building web-remote SPA..."
   cd "$WEB_REMOTE_DIR"
   pnpm build 2>/dev/null || npm run build
   cd "$PROJECT_DIR"
 
 else
-  echo "▸ Step 4/7: Skipping web-remote (not found)"
+  echo "▸ Step 4/6: Skipping web-remote (not found)"
 fi
 
 # Replace the dev symlink with a real copy so electron-builder packages the SPA.
@@ -87,7 +87,7 @@ node scripts/prepare-packaging.mjs
 # ── Step 5: Rebuild native modules for Electron ─────────────
 # electron-builder's npmRebuild is disabled (pnpm workspace symlinks break it),
 # so we rebuild node-pty and better-sqlite3 manually against Electron's Node ABI.
-echo "▸ Step 5/7: Rebuilding native modules for Electron..."
+echo "▸ Step 5/6: Rebuilding native modules for Electron..."
 if npx @electron/rebuild -f -w node-pty,better-sqlite3; then
   echo "  Rebuilt node-pty + better-sqlite3 for Electron's Node ABI"
 else
@@ -98,22 +98,8 @@ else
   exit 1
 fi
 
-# ── Step 6: VMP signing (Widevine) ───────────────────────────
-echo "▸ Step 6/7: VMP signing..."
-if command -v evs-vmp > /dev/null 2>&1; then
-  if [ -f scripts/sign-vmp.sh ]; then
-    bash scripts/sign-vmp.sh
-  else
-    echo "  ⚠ scripts/sign-vmp.sh not found — skipping VMP signing"
-  fi
-else
-  echo "  ⚠ castlabs-evs not installed — skipping VMP signing"
-  echo "  Install with: pipx install castlabs-evs"
-  echo "  (DRM playback will not work without VMP signature)"
-fi
-
-# ── Step 7: Package with electron-builder ────────────────────
-echo "▸ Step 7/7: Packaging with electron-builder..."
+# ── Step 6: Package with electron-builder ────────────────────
+echo "▸ Step 6/6: Packaging with electron-builder..."
 
 if [ "$SIGN" = true ]; then
   # Signed build — requires CSC_LINK and CSC_KEY_PASSWORD env vars
