@@ -5,19 +5,19 @@ Use this checklist on an Apple Silicon Mac (`arm64`). This is the broadest PR #1
 ## Pass/fail record
 
 ```text
-Tester:
-Date:
-macOS version:
-CPU:
-Sero commit:
-Docker Desktop version:
-Apple Container version:
-Runtime image/tag:
-Workspace path:
-Apple Container: pass/fail/not run
-Docker: pass/fail/not run
-Host: pass/fail/not run
-Notes:
+Tester: Daniel Carter
+Date: 2026-05-15
+macOS version: 26.3 (25D125)
+CPU: Apple Silicon arm64
+Sero commit: d0f5e7f0e
+Docker Desktop version: Docker Engine 29.4.1
+Apple Container version: container CLI 0.8.0 (build: release, commit: a18df81)
+Runtime image/tag: ghcr.io/sero-labs/sero-node:latest
+Workspace path: /Users/danielcarter/.sero-ui/workspaces/applecontainertest
+Apple Container: pass
+Docker: pass
+Host: pass
+Notes: Full checklist passed. Runtime picker/Doctor, command/file/terminal, host-to-runtime mount, LSP/Git, managed dev-server preview, browser/recording workflows, and negative checks passed across Apple Container, Docker, and Host.
 ```
 
 ## 0. Prep

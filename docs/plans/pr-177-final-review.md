@@ -2,8 +2,8 @@
 
 **PR:** https://github.com/sero-labs/sero/pull/177  
 **Branch:** `feat/docker-runtime`  
-**Head reviewed:** `31cd8f093 fix(desktop): improve runtime picker feedback`  
-**Date:** 2026-05-14
+**Head reviewed:** `d0f5e7f0e fix(desktop): support visible browser scrolling`
+**Date:** 2026-05-15
 
 ## Verdict
 
@@ -121,10 +121,10 @@ Every row must be recorded as `pass`, `fail`, or `not run` with a reason. A fail
 
 | OS / hardware | Document | Required result |
 | --- | --- | --- |
-| macOS Apple Silicon | [`docs/reference/manual-tests/pr-177-macos-apple-silicon.md`](../reference/manual-tests/pr-177-macos-apple-silicon.md) | Apple Container, Docker, and Host pass |
-| macOS Intel | [`docs/reference/manual-tests/pr-177-macos-intel.md`](../reference/manual-tests/pr-177-macos-intel.md) | Docker and Host pass; Apple Container absent |
-| Linux | [`docs/reference/manual-tests/pr-177-linux.md`](../reference/manual-tests/pr-177-linux.md) | Docker/Podman and Host pass |
-| Windows | [`docs/reference/manual-tests/pr-177-windows.md`](../reference/manual-tests/pr-177-windows.md) | Docker Desktop passes; Host/WSL absent |
+| macOS Apple Silicon | [`docs/reference/manual-tests/pr-177-macos-apple-silicon.md`](../reference/manual-tests/pr-177-macos-apple-silicon.md) | **PASS recorded 2026-05-15** — Apple Container, Docker, and Host pass |
+| macOS Intel | [`docs/reference/manual-tests/pr-177-macos-intel.md`](../reference/manual-tests/pr-177-macos-intel.md) | Pending — Docker and Host pass; Apple Container absent |
+| Linux | [`docs/reference/manual-tests/pr-177-linux.md`](../reference/manual-tests/pr-177-linux.md) | Pending — Docker/Podman and Host pass |
+| Windows | [`docs/reference/manual-tests/pr-177-windows.md`](../reference/manual-tests/pr-177-windows.md) | Pending — Docker Desktop passes; Host/WSL absent |
 
 ## Evidence to collect for each OS
 
