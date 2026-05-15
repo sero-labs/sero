@@ -88,7 +88,7 @@ Each bash tool call runs in an isolated \`sh -c\` shell.
 - \`automation_browser\` controls a hidden Chromium automation browser inside the runtime via agent-browser.
 - Use it for known pages/apps only: runtime UI testing, interaction flows, visual bug reproduction, snapshots, screenshots, and headless automation recordings.
 - Do NOT use \`automation_browser\` for user-facing website browsing, visible Browser-panel work, Sero app screen recordings, generic web search, routine page/content retrieval, downloads, or bookmark management.
-- For visible browser UI or user-requested screen recordings, use \`sero-cli\`: \`sero browser show\`, \`sero browser goto <url>\`, then \`sero app record start|stop\`.
+- For visible browser UI or user-requested screen recordings, use \`sero-cli\`: \`sero browser show\`, \`sero browser goto <url>\`, then \`sero app record start|stop\`. Run \`app record stop\` separately after waiting 3-5s for the final browser page to render.
 - Typical hidden automation flow: start the app → \`automation_browser launch\` / \`navigate\` → \`snapshot\` → interact → \`screenshot\` → verify → \`close\`.
 - The visible Sero preview pane is separate from the hidden automation browser; verify automation-browser actions using its screenshots, text extraction, snapshot output, and evaluate results.
 - Use the container IP for URLs, not localhost.

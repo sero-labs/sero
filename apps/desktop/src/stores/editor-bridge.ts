@@ -6,6 +6,9 @@
  */
 
 import { create } from 'zustand';
+import { useAppStore } from '@/stores/app';
+import { useExplorerStore } from '@/stores/explorer';
+import { useWorkspaceStore } from '@/stores/workspace';
 
 interface EditorBridgeState {
   /** Pending file-open request. Consumed by ExplorerWorkspace on the next tick. */
@@ -18,11 +21,22 @@ interface EditorBridgeState {
   consumeOpenRequest: () => { workspaceId: string; filePath: string } | null;
 }
 
+function focusEditor(workspaceId: string): void {
+  useWorkspaceStore.getState().setActiveWorkspace(workspaceId);
+  useExplorerStore.getState().set(workspaceId, {
+    activePanel: 'explorer',
+    sidebarOpen: true,
+  });
+  useAppStore.getState().setActiveApp('explorer');
+}
+
 export const useEditorBridge = create<EditorBridgeState>((set, get) => ({
   pendingOpen: null,
 
-  requestOpenFile: (workspaceId, filePath) =>
-    set({ pendingOpen: { workspaceId, filePath } }),
+  requestOpenFile: (workspaceId, filePath) => {
+    focusEditor(workspaceId);
+    set({ pendingOpen: { workspaceId, filePath } });
+  },
 
   consumeOpenRequest: () => {
     const pending = get().pendingOpen;

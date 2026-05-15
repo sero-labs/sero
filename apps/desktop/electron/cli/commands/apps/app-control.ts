@@ -74,10 +74,11 @@ export function registerAppControlCliCommands(registry: CliRegistry): void {
       '  sero app get-text <selector>        Read text content\n\n' +
       'Recording (MP4 video capture):\n' +
       '  sero app record start               Start recording (2 FPS)\n' +
-      '  sero app record stop                 Stop and save as MP4 in <workspace>/sero-recordings/\n' +
+      '  sero app record stop                 Wait 3s, stop, save MP4 in <workspace>/sero-recordings/\n' +
       '  sero app record stop --save <path>   Stop and copy MP4 to a custom path\n' +
       '  sero app record status               Check recording status\n' +
-      '  Browser recording: run sero browser show first; do not pass --app web.\n\n' +
+      '  Browser recording: run sero browser show first; do not pass --app web.\n' +
+      '  After final browser navigation, wait 3-5s and run record stop separately.\n\n' +
       'Dev Server Preview (in-app):\n' +
       '  sero app preview <url>               Open URL in editor panel\n' +
       '  Renders the dev server inside Sero so it can be captured by\n' +

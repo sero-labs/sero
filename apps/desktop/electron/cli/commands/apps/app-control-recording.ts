@@ -8,6 +8,12 @@ import {
 } from './app-control-shared';
 import { mkdir as mkdirFs } from 'fs/promises';
 
+const RECORD_STOP_SETTLE_MS = 3_000;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export async function handleRecord(args: string[], ctx: CliCommandContext) {
   const [sub, ...rest] = args;
   switch (sub) {
@@ -19,6 +25,11 @@ export async function handleRecord(args: string[], ctx: CliCommandContext) {
     }
 
     case 'stop': {
+      const status = await appControlHostService.recordStatus();
+      if (!status.recording) {
+        return fail('Recording stop failed — no active recording or no frames were captured.');
+      }
+      await sleep(RECORD_STOP_SETTLE_MS);
       const result = await appControlHostService.recordStop();
       if (!result) {
         return fail('Recording stop failed — no active recording or no frames were captured.');

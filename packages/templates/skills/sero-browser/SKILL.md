@@ -25,7 +25,10 @@ For prompts like “record the browser while opening a site”:
 2. `sero browser goto <initial-url>`
 3. `sero app record start`
 4. Continue navigation with `sero browser goto <next-url>` or `sero browser navigate <tab-id> <url>`
-5. `sero app record stop`
+5. After the final navigation completes, wait 3–5 seconds for the page to render.
+6. Run `sero app record stop` as its own separate command.
+
+You may batch `browser show`, initial navigation, `app record start`, and intermediate `browser goto` commands when that is convenient. Do not include `app record stop` in the same multi-command invocation as the final `browser goto`, because the recording can stop before the last page renders.
 
 Do not use `sero app screenshot --app web` or open the `web` app for browser pages. The `web` app/plugin is separate from the Sero Browser panel.
 
@@ -49,6 +52,6 @@ Do not use `automation_browser` for user-facing browsing or visible screen recor
 
 ## Common routing examples
 
-- “Open BBC News, record the browser, go to Sport, then Football, then Premier League Table” → visible browser workflow; one tab; use `goto` for each navigation; stop app recording at the end.
+- “Open BBC News, record the browser, go to Sport, then Football, then Premier League Table” → visible browser workflow; one tab; use `goto` for each navigation; wait 3–5 seconds after the table page loads, then stop app recording in a separate command.
 - “Take a screenshot of this website” → `sero browser show`, `sero browser goto <url>` if needed, then `sero browser screenshot`.
 - “Test my local web UI with clicks and assertions” → local dev server + `automation_browser` is acceptable unless the user asks for visible recording.

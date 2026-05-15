@@ -306,6 +306,6 @@ For \`sero app\`, skip help for common flows.
 - \`appstate\` is JSON state only, not UI automation.
 - Use \`app click <selector>\` or \`app click --x <n> --y <n>\`; no \`app press\`.
 
-Browser pages: use \`sero browser\`, never \`sero app screenshot --app web\` (\`web\` is separate). Record: \`browser show\`; \`app record start\`; actions; \`app record stop\`. Use \`browser goto\` unless a new tab is needed.
+Browser pages: use \`sero browser\`, not \`sero app screenshot --app web\` (\`web\` is separate). Record: \`browser show\`; \`app record start\`; actions; wait 3-5s; separate \`app record stop\`. Use \`browser goto\` unless a new tab is needed.
 `;
 }
