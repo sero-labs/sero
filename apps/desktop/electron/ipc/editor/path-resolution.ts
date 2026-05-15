@@ -80,6 +80,33 @@ function toRelativePosix(rootHostPath: string, resolvedHostPath: string): string
   return relative.split(path.sep).join('/');
 }
 
+function isInsideOrEqual(rootPath: string, candidatePath: string): boolean {
+  const relative = path.relative(path.resolve(rootPath), path.resolve(candidatePath));
+  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+}
+
+function resolveHostAbsolutePrimaryPath(
+  workspaceManager: Pick<WorkspaceManager, 'getPath' | 'resolveRootPath'>,
+  workspaceId: string,
+  filePath: string,
+): ResolvedVirtualPath | null {
+  if (!path.isAbsolute(filePath)) return null;
+
+  const rootHostPath = workspaceManager.getPath(workspaceId) ?? null;
+  if (!rootHostPath || !isInsideOrEqual(rootHostPath, filePath)) return null;
+
+  const relative = path.relative(path.resolve(rootHostPath), path.resolve(filePath));
+  const resolvedHostPath = resolveAgainstRoot(rootHostPath, relative, filePath);
+
+  return {
+    rootId: PRIMARY_ROOT_ID,
+    rootHostPath: path.resolve(rootHostPath),
+    resolvedHostPath,
+    relativeToRoot: toRelativePosix(rootHostPath, resolvedHostPath),
+    isPrimaryRoot: true,
+  };
+}
+
 /**
  * Resolve a virtual editor path to its sandboxed host path and root metadata.
  *
@@ -92,6 +119,13 @@ async function resolveVirtualPath(
   filePath: string,
 ): Promise<ResolvedVirtualPath> {
   validatePathBasics(filePath);
+
+  const hostAbsolutePrimaryPath = resolveHostAbsolutePrimaryPath(
+    workspaceManager,
+    workspaceId,
+    filePath,
+  );
+  if (hostAbsolutePrimaryPath) return hostAbsolutePrimaryPath;
 
   const { rootId, rest } = splitVirtualPath(filePath);
   const effectiveRootId = rootId ?? PRIMARY_ROOT_ID;

@@ -41,6 +41,15 @@ describe('editor path resolution', () => {
     expect(containerPath).toBe('/workspace/src/index.ts');
   });
 
+  it('maps primary-root host absolute paths back into the workspace virtual root', async () => {
+    const hostPath = '/Users/dan/workspaces/current/sero-recordings/recording.mp4';
+
+    await expect(toHostPath(makeManager(), 'ws-1', hostPath)).resolves.toBe(hostPath);
+    await expect(toContainerPath(makeManager(), 'ws-1', hostPath)).resolves.toBe(
+      '/workspace/sero-recordings/recording.mp4',
+    );
+  });
+
   it('rejects traversal outside the primary root in container mode', async () => {
     await expect(
       toContainerPath(makeManager(), 'ws-1', `${PRIMARY_ROOT_PREFIX}/../../etc/passwd`),
