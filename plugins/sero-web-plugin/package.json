@@ -63,7 +63,7 @@
   "dependencies": {
     "@mozilla/readability": "^0.5.0",
     "typebox": "catalog:",
-    "better-sqlite3": "^12.8.0",
+    "better-sqlite3": "^12.10.0",
     "linkedom": "^0.16.0",
     "p-limit": "^6.1.0",
     "turndown": "^7.2.4",

@@ -19,7 +19,8 @@ files:
   # Native modules — electron-builder rebuilds these for the target
   - node_modules/node-pty/**/*
   - node_modules/better-sqlite3/**/*
-  # Pi SDK + dependencies (externalized by esbuild)
+  # Sero workspace packages + Pi SDK dependencies (externalized by builds)
+  - node_modules/@sero-ai/**/*
   - node_modules/@mariozechner/**/*
   - node_modules/@sinclair/**/*
   - node_modules/@google/**/*
@@ -84,10 +85,6 @@ afterSign: null
 npmRebuild: false
 nodeGypRebuild: false
 buildDependenciesFromSource: false
-
-# Use the locally installed castlabs Electron fork instead of trying
-# to download a stock Electron build for the +wvcus version.
-electronDist: node_modules/electron/dist
 
 # Bundle the sero-doctor CLI shim. On first run Sero offers to symlink
 # this to /usr/local/bin/sero-doctor (declined by default).

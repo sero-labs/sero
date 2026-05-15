@@ -22,6 +22,7 @@ export function useWorkspaceTreeRuntime() {
   const openWorkspaces = useOpenWorkspaces();
   const sessionsByWorkspace = useSessionsByWorkspace();
   const isLoadingWorkspaces = useWorkspaceStore((state) => state.isLoading);
+  const workspacesReady = useWorkspaceStore((state) => state.workspacesReady);
   const clearSelection = useSessionStore((state) => state.clearSelection);
   const hasSelection = useSessionStore((state) => state.selectedSessionIds.size > 0);
   const setActiveSession = useSessionStore((state) => state.setActiveSession);
@@ -80,6 +81,7 @@ export function useWorkspaceTreeRuntime() {
 
   return {
     isLoadingWorkspaces,
+    workspacesReady,
     openWorkspaces,
     sessionsByWorkspace,
     openSessionError,

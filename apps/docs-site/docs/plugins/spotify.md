@@ -1,10 +1,10 @@
 # Spotify Plugin
 
-> Status: **external/local plugin**. It is not bundled with Sero unless installed or activated as a local plugin development session.
+> Status: **legacy / unsupported on current Sero builds**. Sero now ships stock Electron and no longer includes the Castlabs Electron fork, Widevine CDM, or VMP signing required by the Web Playback SDK path.
 
 ## Overview
 
-Spotify app using the Spotify Web Playback SDK with playlist browsing, `spotify` tools, OAuth PKCE, and a Mini Player widget.
+Legacy Spotify app documentation for OAuth/PKCE and playlist browsing. DRM-dependent playback and Mini Player features are not expected to work on current stock-Electron Sero builds.
 
 ## Try it first
 
@@ -25,7 +25,7 @@ Activate the plugin, complete Spotify OAuth with a test/personal account you are
 
 ## Privacy, secrets, and recovery
 
-Spotify auth and playback data are account data. README notes Widevine/Castlabs and VMP signing requirements for playback; follow project setup docs before filing playback bugs.
+Spotify auth and playback data are account data. Do not file playback bugs against current Sero builds unless you are intentionally maintaining a legacy Castlabs/Widevine fork.
 
 If setup fails, confirm the plugin is active in the current profile, check required host capabilities, restart Sero, and collect redacted logs only. Do not include tokens, account identifiers, email content, banking data, health data, or private workspace paths in support reports.
 

@@ -79,7 +79,7 @@ const selectedPlugins = [
   { text: 'Research', link: '/plugins/research' },
   { text: 'Signal Desk', link: '/plugins/signal-desk' },
   { text: 'Plan Mode', link: '/plugins/plan-mode' },
-  { text: 'Spotify', link: '/plugins/spotify' },
+  { text: 'Spotify (Legacy)', link: '/plugins/spotify' },
   { text: 'ImageGen', link: '/plugins/imagegen' },
   { text: 'Starling Bank', link: '/plugins/starling' },
   { text: 'Weight Tracker', link: '/plugins/weight-tracker' }

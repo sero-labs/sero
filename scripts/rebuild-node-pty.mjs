@@ -1,51 +1,84 @@
 #!/usr/bin/env node
 /**
- * Ensures node-pty's native binary matches the current Node ABI.
+ * Ensures node-pty's native binary matches the Electron ABI.
  *
- * WHY THIS EXISTS:
- * node-pty 1.1.0 ships prebuilt binaries for darwin-arm64, but they're
- * compiled against an older Node ABI. Its install script
- * (`node scripts/prebuild.js || node-gyp rebuild`) only checks whether
- * the prebuild DIRECTORY exists — not whether the binary actually loads.
- * So pnpm install sees the directory, skips the compile, and we get
- * `posix_spawnp failed` at runtime.
- *
- * WHAT THIS DOES:
- * 1. Tries to require() node-pty from the pnpm store
- * 2. Spawns a trivial PTY to verify it actually works
- * 3. If either step fails → runs node-gyp rebuild
- * 4. If it already works → exits immediately (no-op)
+ * Sero loads node-pty in Electron's main process, so rebuilding against the
+ * host Node.js ABI is not enough. This script smoke-tests node-pty inside the
+ * active desktop Electron runtime and rebuilds it with electron-rebuild when
+ * needed.
  *
  * Called from root package.json `postinstall`.
  */
 
-import { execSync, execFileSync } from 'child_process';
-import { existsSync } from 'fs';
+import { execSync, execFileSync, spawnSync } from 'child_process';
+import { existsSync, readdirSync, realpathSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { createRequire } from 'module';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
+const DESKTOP = resolve(ROOT, 'apps/desktop');
+const PNPM_STORE = resolve(ROOT, 'node_modules/.pnpm');
+const req = createRequire(import.meta.url);
 
-// Find node-pty in the pnpm store (hoisted into apps/desktop/node_modules)
-const NODE_PTY_LINK = resolve(ROOT, 'apps/desktop/node_modules/node-pty');
-const NODE_PTY_PKG = resolve(ROOT, 'node_modules/.pnpm/node-pty@1.1.0/node_modules/node-pty');
+const NODE_PTY_LINK = resolve(DESKTOP, 'node_modules/node-pty');
+const NODE_PTY_PKG = resolve(PNPM_STORE, 'node-pty@1.1.0/node_modules/node-pty');
 
-/** Resolve the actual node-pty directory (prefer symlink target). */
 function findNodePtyDir() {
-  if (existsSync(NODE_PTY_LINK)) return NODE_PTY_LINK;
+  if (existsSync(NODE_PTY_LINK)) return realpathSync(NODE_PTY_LINK);
   if (existsSync(NODE_PTY_PKG)) return NODE_PTY_PKG;
   return null;
 }
 
-/**
- * Smoke-test node-pty in a **subprocess**.
- *
- * Native .node addons are cached permanently by Node's require — they
- * cannot be reloaded in the same process after a rebuild. So we must
- * always test in a fresh process to get an accurate result.
- */
-function testNodePty(ptyDir) {
+function findElectronPackageDir() {
+  const desktopElectron = resolve(DESKTOP, 'node_modules/electron');
+  if (existsSync(desktopElectron)) return desktopElectron;
+
+  if (!existsSync(PNPM_STORE)) return null;
+  const entries = readdirSync(PNPM_STORE)
+    .filter(e => e.startsWith('electron@'))
+    .sort()
+    .reverse();
+  for (const entry of entries) {
+    const pkgDir = resolve(PNPM_STORE, entry, 'node_modules/electron');
+    if (existsSync(pkgDir)) return pkgDir;
+  }
+  return null;
+}
+
+function findElectronBinary(electronDir) {
+  const platformBinary = process.platform === 'darwin'
+    ? 'dist/Electron.app/Contents/MacOS/Electron'
+    : process.platform === 'win32'
+      ? 'dist/electron.exe'
+      : 'dist/electron';
+  const bin = resolve(electronDir, platformBinary);
+  return existsSync(bin) ? bin : null;
+}
+
+function findElectronVersion(electronDir) {
+  const pkgJson = resolve(electronDir, 'package.json');
+  if (!existsSync(pkgJson)) return null;
+  try {
+    const { version } = req(pkgJson);
+    return version.split('+')[0];
+  } catch {
+    return null;
+  }
+}
+
+function getElectronModulesAbi(electronBin) {
+  const result = spawnSync(electronBin, ['-e', 'process.stdout.write(process.versions.modules)'], {
+    env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+    timeout: 15_000,
+    encoding: 'utf8',
+    stdio: 'pipe',
+  });
+  return result.status === 0 ? result.stdout.trim() : null;
+}
+
+function testNodePty(electronBin, ptyDir) {
   try {
     const script = `
       const pty = require(${JSON.stringify(ptyDir)});
@@ -58,7 +91,8 @@ function testNodePty(ptyDir) {
       p.onExit(() => { process.exit(out.includes('__pty_ok__') ? 0 : 1); });
       setTimeout(() => process.exit(1), 5000);
     `;
-    execFileSync(process.execPath, ['-e', script], {
+    execFileSync(electronBin, ['-e', script], {
+      env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
       timeout: 10_000,
       stdio: 'pipe',
     });
@@ -68,25 +102,21 @@ function testNodePty(ptyDir) {
   }
 }
 
-/** Run node-gyp rebuild inside the node-pty package. */
-function rebuild(ptyDir) {
-  console.log(`\x1b[33m  → Rebuilding node-pty for Node ${process.version} (ABI ${process.versions.modules})...\x1b[0m`);
+function rebuild(electronVersion, electronAbi) {
+  console.log(`\x1b[33m  → Rebuilding node-pty for Electron ${electronVersion} (ABI ${electronAbi})...\x1b[0m`);
   try {
-    execSync(`npx node-gyp rebuild --directory="${ptyDir}"`, {
-      stdio: 'inherit',
-      cwd: ROOT,
-      timeout: 120_000,
-    });
+    execSync(
+      `pnpm --dir "${DESKTOP}" exec electron-rebuild -f --version "${electronVersion}" --force-abi "${electronAbi}" --module-dir "${ROOT}" --which-module node-pty`,
+      { stdio: 'inherit', cwd: ROOT, timeout: 180_000 },
+    );
     console.log('\x1b[32m  ✓ node-pty rebuilt successfully.\x1b[0m');
     return true;
-  } catch (err) {
+  } catch {
     console.error('\x1b[31m  ✗ node-pty rebuild failed. Terminals will not work.\x1b[0m');
-    console.error('    Run manually: npx node-gyp rebuild --directory=node_modules/.pnpm/node-pty@1.1.0/node_modules/node-pty');
+    console.error(`    Run manually: pnpm --dir apps/desktop exec electron-rebuild -f --version "${electronVersion}" --force-abi "${electronAbi}" --module-dir "${ROOT}" --which-module node-pty`);
     return false;
   }
 }
-
-// ── Main ────────────────────────────────────────────────────
 
 function main() {
   if (process.env.SERO_SKIP_NATIVE_REBUILD === '1') {
@@ -94,7 +124,7 @@ function main() {
     process.exit(0);
   }
 
-  console.log('[node-pty] Checking native binary...');
+  console.log('[node-pty] Checking native binary for Electron...');
 
   const ptyDir = findNodePtyDir();
   if (!ptyDir) {
@@ -102,26 +132,44 @@ function main() {
     process.exit(0);
   }
 
-  if (testNodePty(ptyDir)) {
-    console.log(`\x1b[32m[node-pty] ✓ Binary works with Node ${process.version} (ABI ${process.versions.modules}).\x1b[0m`);
+  const electronDir = findElectronPackageDir();
+  if (!electronDir) {
+    console.error('[node-pty] Electron package not found. Set SERO_SKIP_NATIVE_REBUILD=1 to skip intentionally.');
+    process.exit(1);
+  }
+
+  const electronBin = findElectronBinary(electronDir);
+  if (!electronBin) {
+    console.error('[node-pty] Electron binary not found. Set SERO_SKIP_NATIVE_REBUILD=1 to skip intentionally.');
+    process.exit(1);
+  }
+
+  const electronVersion = findElectronVersion(electronDir);
+  if (!electronVersion) {
+    console.error('[node-pty] Could not determine Electron version.');
+    process.exit(1);
+  }
+
+  const electronAbi = getElectronModulesAbi(electronBin);
+  if (!electronAbi) {
+    console.error('[node-pty] Could not determine Electron module ABI.');
+    process.exit(1);
+  }
+
+  if (testNodePty(electronBin, ptyDir)) {
+    console.log(`\x1b[32m[node-pty] ✓ Binary works with Electron ${electronVersion} (ABI ${electronAbi}).\x1b[0m`);
     process.exit(0);
   }
 
-  console.log(`\x1b[33m[node-pty] ✗ Binary does not work with Node ${process.version} (ABI ${process.versions.modules}).\x1b[0m`);
+  console.log(`\x1b[33m[node-pty] ✗ Binary does not work with Electron ${electronVersion} (ABI ${electronAbi}).\x1b[0m`);
 
-  // Resolve the real package dir (not the symlink) for node-gyp
-  const realPtyDir = existsSync(NODE_PTY_PKG) ? NODE_PTY_PKG : ptyDir;
-  const ok = rebuild(realPtyDir);
+  const ok = rebuild(electronVersion, electronAbi);
+  if (!ok) process.exit(1);
 
-  if (ok) {
-    // Verify in a fresh subprocess (native addons can't be reloaded in-process)
-    if (testNodePty(ptyDir)) {
-      console.log('\x1b[32m[node-pty] ✓ Verified: rebuild works.\x1b[0m');
-    } else {
-      console.error('\x1b[31m[node-pty] ✗ Rebuild completed but binary still fails. Check node-gyp output above.\x1b[0m');
-      process.exit(1);
-    }
+  if (testNodePty(electronBin, ptyDir)) {
+    console.log('\x1b[32m[node-pty] ✓ Verified: rebuild works.\x1b[0m');
   } else {
+    console.error('\x1b[31m[node-pty] ✗ Rebuild completed but binary still fails. Check output above.\x1b[0m');
     process.exit(1);
   }
 }

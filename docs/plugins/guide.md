@@ -395,7 +395,7 @@ Notes:
 |----------|-------------|---------|
 | `productivity` | Task management, notes, planning | Todo, Notes |
 | `developer-tools` | Code tools, git, debugging | Git Manager, Resources |
-| `entertainment` | Games, media, fun | Tetris, Spotify |
+| `entertainment` | Games, media, fun | Tetris, media widgets |
 | `integrations` | External service connectors | Google (Gmail/Calendar) |
 | `finance` | Banking, budgeting | Starling |
 | `health` | Fitness, wellness tracking | Weight Tracker |

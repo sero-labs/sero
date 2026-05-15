@@ -35,7 +35,7 @@ Built-in plugins may appear in app discovery or favorites, but they are not thir
 | Research | `@sero-ai/plugin-research` | [Docs](/plugins/research) | Multi-agent research orchestration. |
 | Signal Desk | `@sero-ai/plugin-signal-desk` | [Docs](/plugins/signal-desk) | RSS-first intelligence desk for sources, watchlists, story clusters, briefings, insights, and actions. |
 | Plan Mode | `@sero-ai/plugin-plan-mode` | [Docs](/plugins/plan-mode) | Read-only planning and execution tracking. |
-| Spotify | `@sero-ai/plugin-spotify` | [Docs](/plugins/spotify) | Spotify OAuth/PKCE plus Web Playback SDK caveats. |
+| Spotify (legacy) | `@sero-ai/plugin-spotify` | [Docs](/plugins/spotify) | Unsupported on current stock-Electron builds; DRM playback required legacy Castlabs/Widevine support. |
 | ImageGen | `@sero-ai/plugin-imagegen` | [Docs](/plugins/imagegen) | Gemini-powered image generation; verify storage before sharing outputs. |
 | Starling Bank | `@sero-ai/plugin-starling` | [Docs](/plugins/starling) | Banking data; use fake/demo examples in support. |
 | Weight | `@sero-ai/plugin-weight-tracker` | [Docs](/plugins/weight-tracker) | Personal health data; use fake/demo examples. |

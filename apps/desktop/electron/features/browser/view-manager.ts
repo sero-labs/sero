@@ -86,8 +86,8 @@ class BrowserViewManager {
 
     this.wireViewEvents(tabId, view, workspaceId);
 
-    // Use a clean Chrome UA (strip "Electron/<version>") so sites don't
-    // treat us as an embedded browser and block Widevine / logins.
+    // Keep embedded tabs closer to Chrome so login flows and compatibility
+    // checks do not reject the app solely because it is Electron.
     try {
       const cleanUA = session
         .fromPartition(partition)

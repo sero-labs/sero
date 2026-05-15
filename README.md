@@ -114,6 +114,8 @@ Current release posture:
   need refinement
 - **Theming:** CSS/theme support is patchy and will be normalized as the shell
   and plugin contracts mature
+- **Spotify / Widevine:** Sero uses stock Electron and does not ship Castlabs,
+  Widevine/VMP signing, or DRM-dependent Spotify playback support.
 
 Sero does **not** currently promise official public binaries, stable internal
 APIs, or full feature parity without containers. Platform support is alpha-level

@@ -88,7 +88,6 @@ const CORE_TOOLS_TO_BRIDGE = new Set([
   'scratchpad',
   // Media & services
   'generate_image',
-  'spotify',
   'starling',
   // Planning & context
   'plan_todos',

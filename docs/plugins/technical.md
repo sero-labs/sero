@@ -523,7 +523,6 @@ These are standalone and can be distributed independently:
 | `pi-calc-extension` | utilities |
 | `pi-daily-quote` | utilities |
 | `pi-tetris-extension` | entertainment |
-| `pi-spotify-extension` | entertainment |
 | `pi-starling-extension` | finance |
 | `pi-google-extension` | integrations |
 | `sero-git-plugin` | developer-tools |
