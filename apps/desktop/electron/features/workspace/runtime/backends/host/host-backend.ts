@@ -83,6 +83,7 @@ export class HostBackend implements RuntimeBackend {
     this.devServers = new HostDevServerManager({
       workspaceId: this.workspaceId,
       platform: this.substrate.platform,
+      defaultCwd: this.runtimeWorkspacePath,
       spawn: (input) => this.spawn(input),
       execFile: (input) => this.execFile(input),
     });
@@ -442,13 +443,36 @@ const SAFE_INHERITED_ENV_KEYS = new Set([
   'TMPDIR',
   'TMP',
   'TEMP',
+  'NVM_DIR',
+  'FNM_DIR',
+  'VOLTA_HOME',
+  'PNPM_HOME',
+  'NODE_OPTIONS',
+  'NODE_EXTRA_CA_CERTS',
+  'SSL_CERT_FILE',
+  'SSL_CERT_DIR',
+  'SSH_AUTH_SOCK',
+  'HTTP_PROXY',
+  'HTTPS_PROXY',
+  'NO_PROXY',
+  'ALL_PROXY',
+  'http_proxy',
+  'https_proxy',
+  'no_proxy',
+  'all_proxy',
 ]);
+
+const SAFE_INHERITED_ENV_PREFIXES = ['LC_', 'GIT_', 'npm_config_', 'NPM_CONFIG_'];
 
 function createProcessEnv(overrides?: Record<string, string>): Record<string, string> {
   const env: Record<string, string> = {};
   for (const [key, value] of Object.entries(process.env)) {
     if (value === undefined) continue;
-    if (SAFE_INHERITED_ENV_KEYS.has(key) || key.startsWith('LC_')) env[key] = value;
+    if (shouldInheritEnvKey(key)) env[key] = value;
   }
   return { ...env, ...overrides };
+}
+
+function shouldInheritEnvKey(key: string): boolean {
+  return SAFE_INHERITED_ENV_KEYS.has(key) || SAFE_INHERITED_ENV_PREFIXES.some((prefix) => key.startsWith(prefix));
 }

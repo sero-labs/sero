@@ -14,6 +14,7 @@ import type {
   RuntimeProcess,
   RuntimeProcessInput,
 } from '../../types';
+import { RUNTIME_WORKSPACE_PATH } from '../../runtime-paths';
 
 export type HostDevServerDiagnosticCode = 'dev-server-port-detect-timeout';
 
@@ -28,6 +29,7 @@ type SpawnProcess = (input: RuntimeProcessInput) => Promise<RuntimeProcess>;
 export interface HostDevServerManagerOptions {
   workspaceId: string;
   platform: NodeJS.Platform;
+  defaultCwd?: string;
   spawn: SpawnProcess;
   execFile: ExecFile;
   pollIntervalMs?: number;
@@ -58,6 +60,7 @@ export class HostDevServerManager {
   private readonly workspaceId: string;
   private readonly spawn: SpawnProcess;
   private readonly execFile: ExecFile;
+  private readonly defaultCwd: string;
   private readonly pollIntervalMs: number;
   private readonly portDetectTimeoutMs: number;
   private readonly terminateGraceMs: number;
@@ -67,13 +70,14 @@ export class HostDevServerManager {
     this.workspaceId = options.workspaceId;
     this.spawn = options.spawn;
     this.execFile = options.execFile;
+    this.defaultCwd = options.defaultCwd ?? RUNTIME_WORKSPACE_PATH;
     this.pollIntervalMs = options.pollIntervalMs ?? 100;
     this.portDetectTimeoutMs = options.portDetectTimeoutMs ?? 10_000;
     this.terminateGraceMs = options.terminateGraceMs ?? 750;
   }
 
   async start(input: RuntimeDevServerStartInput): Promise<RuntimeDevServer> {
-    const cwd = input.cwd || '/workspace';
+    const cwd = input.cwd || this.defaultCwd;
     const process = await this.spawn({ command: input.command, cwd, stdio: 'pipe' });
     const pid = process.pid;
     const detectionPid = process.executionPid ?? process.pid;
@@ -138,7 +142,7 @@ export class HostDevServerManager {
       port: input.port,
       url: `http://127.0.0.1:${input.port}`,
       command: input.command,
-      cwd: input.cwd || '/workspace',
+      cwd: input.cwd || this.defaultCwd,
       name: input.name,
       framework: input.framework,
       scope,

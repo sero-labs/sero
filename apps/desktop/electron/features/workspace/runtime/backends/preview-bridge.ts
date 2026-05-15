@@ -1,4 +1,7 @@
+import { assertSafeWorkspaceId } from '../../utils';
+
 export function previewBridgeMarker(workspaceId: string, targetPort: number, internalPort: number): string {
+  assertSafeWorkspaceId(workspaceId);
   return `sero-preview-bridge-${workspaceId}-${assertIntegerPort(targetPort, 'targetPort')}-${assertIntegerPort(internalPort, 'internalPort')}`;
 }
 

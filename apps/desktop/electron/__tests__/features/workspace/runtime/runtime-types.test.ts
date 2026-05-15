@@ -166,6 +166,23 @@ describe('runtime backend contract skeleton', () => {
     expect(nextRuntime).not.toBe(runtime);
   });
 
+  it('clears cached runtime entries even when destroy fails', async () => {
+    const manager = new RuntimeManager({
+      workspaceManager: {
+        getPath: vi.fn().mockReturnValue('/Users/daniel/project'),
+        getRuntimeConfig: vi.fn().mockResolvedValue({ backend: 'host' }),
+      } as unknown as WorkspaceManager,
+      containerManager: {} as ContainerManager,
+    });
+    const runtime = await manager.getRuntime('workspace-a');
+    vi.spyOn(runtime, 'destroy').mockRejectedValueOnce(new Error('destroy failed'));
+
+    await expect(manager.resetWorkspaceRuntime('workspace-a')).rejects.toThrow('destroy failed');
+    const nextRuntime = await manager.getRuntime('workspace-a');
+
+    expect(nextRuntime).not.toBe(runtime);
+  });
+
   it('destroys a cached container runtime during reset', async () => {
     const manager = new RuntimeManager({
       workspaceManager: {

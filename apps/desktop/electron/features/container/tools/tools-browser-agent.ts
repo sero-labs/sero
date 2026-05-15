@@ -94,9 +94,9 @@ function looksLikeBase64(value: string): boolean {
 }
 
 async function readImageAsBase64(runtime: RuntimeBackend, workspaceId: string, imagePath: string): Promise<string> {
-  const escaped = shellEscape(imagePath);
   const result = await runtime.exec({
-    command: `python3 -c "import base64;print(base64.b64encode(open('${escaped}','rb').read()).decode(), end='')"`,
+    command: 'python3 -c \'import base64, os; print(base64.b64encode(open(os.environ["SERO_IMAGE_PATH"], "rb").read()).decode(), end="")\'',
+    env: { SERO_IMAGE_PATH: imagePath },
     timeoutMs: 15_000,
   });
   if (result.exitCode !== 0 || !result.stdout.trim()) {

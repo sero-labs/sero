@@ -165,7 +165,8 @@ export class AppleContainerBackend implements RuntimeBackend {
       .map(([key, value]) => shellEnvAssignment(key, value))
       .join(' ');
     const command = [input.program, ...input.args].map(shellQuote).join(' ');
-    await this.ensure();
+    if (input.isolated === undefined) await this.ensure();
+    else await this.ensureWithOptions({ isolated: input.isolated });
     return this.containerManager.exec(
       this.workspaceId,
       envPrefix ? `${envPrefix} ${command}` : command,

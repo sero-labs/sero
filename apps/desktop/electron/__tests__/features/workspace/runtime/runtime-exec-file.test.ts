@@ -36,6 +36,33 @@ describe('RuntimeBackend execFile', () => {
     expect(options).toEqual({ timeoutMs: 120_000 });
   });
 
+  it('honors Docker execFile isolation requests', async () => {
+    const runMock = vi.fn().mockResolvedValue({ stdout: 'ok', stderr: '', exitCode: 0 });
+    const backend = new DockerBackend({
+      workspaceId: 'ws-1',
+      hostWorkspacePath: '/host/workspace',
+      workspaceManager,
+      run: runMock as DockerRunner,
+    });
+    const ensureWithOptions = vi.spyOn(backend as unknown as {
+      ensureWithOptions(input?: { isolated?: boolean }): Promise<unknown>;
+    }, 'ensureWithOptions').mockResolvedValue({
+      backend: 'docker',
+      workspaceId: 'ws-1',
+      hostWorkspacePath: '/host/workspace',
+      runtimeWorkspacePath: '/workspace',
+      state: 'running',
+    });
+
+    await backend.execFile({ program: 'node', args: ['--version'], isolated: true });
+
+    expect(ensureWithOptions).toHaveBeenCalledWith({ isolated: true });
+    expect(runMock).toHaveBeenCalledWith(
+      expect.arrayContaining(['sero-ws-1', 'node', '--version']),
+      { timeoutMs: 120_000 },
+    );
+  });
+
   it('quotes Apple Container execFile args before using shell exec primitive', async () => {
     const exec = vi.fn().mockResolvedValue({ stdout: 'ok', stderr: '', exitCode: 0 });
     const containerManager = { exec } as unknown as ContainerManager;

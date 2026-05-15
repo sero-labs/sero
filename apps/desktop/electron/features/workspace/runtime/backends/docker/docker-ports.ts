@@ -68,7 +68,3 @@ export class DockerPortManager {
     return this.servers.delete(serverId);
   }
 }
-
-export function dockerPreviewPublishArgs(poolSize: number): string[] {
-  return buildPreviewInternalPorts(poolSize).flatMap((internalPort) => ['-p', `127.0.0.1::${internalPort}`]);
-}

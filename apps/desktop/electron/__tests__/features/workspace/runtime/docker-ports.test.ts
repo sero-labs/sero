@@ -1,12 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-import { DockerPortManager, dockerPreviewPublishArgs } from '@electron/features/workspace/runtime/backends/docker/docker-ports';
+import { DockerPortManager } from '@electron/features/workspace/runtime/backends/docker/docker-ports';
 import type { DockerCommandResult, DockerRunner } from '@electron/features/workspace/runtime/backends/docker/docker-cli';
 
 describe('DockerPortManager', () => {
-  it('publishes pool with Docker ephemeral loopback host ports', () => {
-    expect(dockerPreviewPublishArgs(2)).toEqual(['-p', '127.0.0.1::32000', '-p', '127.0.0.1::32001']);
-  });
-
   it('maps target port to allocated localhost URL through a bridge', async () => {
     const run: DockerRunner = vi.fn(async () => ok(JSON.stringify([{ NetworkSettings: { Ports: { '32000/tcp': [{ HostPort: '49153' }] } } }])));
     const exec = vi.fn(async () => ok(''));

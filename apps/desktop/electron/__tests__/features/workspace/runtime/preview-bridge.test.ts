@@ -34,4 +34,11 @@ describe('runtime preview bridge commands', () => {
     expect(() => startPreviewBridgeCommand('workspace-a', 5173, 32000.1))
       .toThrow(/internalPort/);
   });
+
+  it('rejects unsafe workspace ids before building shell redirects', () => {
+    expect(() => startPreviewBridgeCommand('workspace-a; rm -rf /', 5173, 32000))
+      .toThrow(/Invalid workspace id/);
+    expect(() => stopPreviewBridgeCommand('workspace-a; rm -rf /', 5173, 32000))
+      .toThrow(/Invalid workspace id/);
+  });
 });

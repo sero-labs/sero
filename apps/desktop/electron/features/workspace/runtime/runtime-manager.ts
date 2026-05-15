@@ -197,18 +197,21 @@ export class RuntimeManager {
       if (entry.workspaceId === workspaceId) this.disposeTerminal(terminalId);
     }
     const runtimes = [...this.backends.entries()].filter(([key]) => key.startsWith(`${workspaceId}:`));
-    await Promise.all(runtimes.map(([, runtime]) => runtime.destroy()));
+    const results = await Promise.allSettled(runtimes.map(([, runtime]) => runtime.destroy()));
     for (const [key] of runtimes) {
       this.unsubscribeBackendDevServers(key);
       this.backends.delete(key);
     }
+    throwFirstRejected(results);
   }
 
   async destroyAll(): Promise<void> {
     for (const terminalId of this.terminals.keys()) this.disposeTerminal(terminalId);
-    await Promise.all([...this.backends.values()].map((runtime) => runtime.destroy()));
-    for (const key of this.backends.keys()) this.unsubscribeBackendDevServers(key);
+    const runtimes = [...this.backends.entries()];
+    const results = await Promise.allSettled(runtimes.map(([, runtime]) => runtime.destroy()));
+    for (const [key] of runtimes) this.unsubscribeBackendDevServers(key);
     this.backends.clear();
+    throwFirstRejected(results);
   }
 
   private createBackend(
@@ -314,6 +317,12 @@ function workspaceIdFromServerId(serverId: string): string {
 
 function workspaceIdFromCacheKey(cacheKey: string): string {
   return cacheKey.split(':')[0] ?? '';
+}
+
+function throwFirstRejected(results: PromiseSettledResult<unknown>[]): void {
+  const rejected = results.find((result): result is PromiseRejectedResult => result.status === 'rejected');
+  if (!rejected) return;
+  throw rejected.reason instanceof Error ? rejected.reason : new Error(String(rejected.reason));
 }
 
 export const runtimeManager = new RuntimeManager({

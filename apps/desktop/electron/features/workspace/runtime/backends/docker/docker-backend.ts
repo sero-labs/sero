@@ -126,7 +126,8 @@ export class DockerBackend implements RuntimeBackend {
   }
 
   async execFile(input: RuntimeExecFileInput): Promise<RuntimeExecResult> {
-    await this.ensure();
+    if (input.isolated === undefined) await this.ensure();
+    else await this.ensureWithOptions({ isolated: input.isolated });
     const env = { ...(input.env ?? {}) };
     if (input.injectGitAuth && this.getGitAuthEnvVars) Object.assign(env, this.getGitAuthEnvVars());
     return this.run([
@@ -224,7 +225,8 @@ export class DockerBackend implements RuntimeBackend {
     const ports = await this.portManager();
     const beforePorts = new Set(await ports.detectPorts());
     const cwd = this.devServerCwd(input.cwd);
-    const command = `setsid sh -c ${shellQuote(`${input.command} > ${input.logPath ?? '/tmp/sero-dev-server.log'} 2>&1 &`)}`;
+    const logPath = input.logPath ?? this.defaultDevServerLogPath(input);
+    const command = `setsid sh -c ${shellQuote(`${input.command} > ${shellQuote(logPath)} 2>&1 &`)}`;
     const result = await this.exec({ command, cwd, timeoutMs: 30_000 });
     if (result.exitCode !== 0) throw new Error(`Dev server start failed: ${result.stderr || result.stdout || input.command}`);
     const port = await this.waitForStartedPort(beforePorts);
@@ -358,6 +360,13 @@ export class DockerBackend implements RuntimeBackend {
     return toRuntimeWorkspacePath(this.hostWorkspacePath, cwd) ?? cwd;
   }
 
+  private defaultDevServerLogPath(input: RuntimeDevServerStartInput): string {
+    const workspaceId = sanitizeLogPathSegment(this.workspaceId);
+    const scope = sanitizeLogPathSegment(input.scope ?? 'workspace');
+    const cardId = sanitizeLogPathSegment(input.cardId ?? 'root');
+    return `/tmp/sero-dev-server-${workspaceId}-${scope}-${cardId}-${Date.now()}.log`;
+  }
+
   private async ensureWithOptions(options?: { isolated?: boolean }): Promise<RuntimeSession> {
     const isolated = options?.isolated === true;
     if (this.ensureInflight?.isolated === isolated) return this.ensureInflight.promise;
@@ -451,6 +460,10 @@ function dirname(filePath: string): string {
 
 function shellQuote(value: string): string {
   return `'${value.replace(/'/g, `'"'"'`)}'`;
+}
+
+function sanitizeLogPathSegment(value: string): string {
+  return value.replace(/[^a-zA-Z0-9._-]/g, '-').replace(/^-+|-+$/g, '') || 'item';
 }
 
 function emitData(callbacks: Set<(chunk: string) => void>, chunk: Buffer): void {

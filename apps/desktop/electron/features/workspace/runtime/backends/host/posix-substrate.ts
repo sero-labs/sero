@@ -70,7 +70,7 @@ export class PosixHostSubstrate implements HostRuntimeSubstrate {
 
   terminalCommand(opts: { cwd: string; env?: Record<string, string> }): HostSubstrateRendered {
     return {
-      program: process.env.SHELL ?? '/bin/zsh',
+      program: process.env.SHELL ?? (this.platform === 'darwin' ? '/bin/zsh' : '/bin/bash'),
       args: ['--login'],
       nativeCwd: this.toNativeHostPath(opts.cwd),
       env: opts.env,

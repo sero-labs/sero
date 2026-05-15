@@ -203,8 +203,8 @@ export async function resolveWorkspaceRuntimeWithManagers(
   const validatedBackend = details.backend;
   const desiredBackend = details.configuredBackend;
 
-  const containerEnabled = validatedBackend !== 'host';
-  if (!containerEnabled) {
+  const usesContainerRuntime = validatedBackend !== 'host';
+  if (!usesContainerRuntime) {
     return {
       workspaceId,
       workspacePath,
@@ -212,10 +212,10 @@ export async function resolveWorkspaceRuntimeWithManagers(
       actualRuntime: 'host',
       desiredBackend,
       actualBackend: 'host',
-      containerEnabled,
+      containerEnabled: usesContainerRuntime,
       fallbackCode: platformFallback,
       fallbackReason: details.fallbackReason,
-      capabilityAudit: createCapabilityAudit('host', 'host', containerEnabled, details.fallbackReason),
+      capabilityAudit: createCapabilityAudit('host', 'host', usesContainerRuntime, details.fallbackReason),
     };
   }
 
@@ -228,10 +228,10 @@ export async function resolveWorkspaceRuntimeWithManagers(
       actualRuntime: 'container',
       desiredBackend,
       actualBackend: validatedBackend,
-      containerEnabled,
+      containerEnabled: usesContainerRuntime,
       fallbackCode: platformFallback,
       fallbackReason: details.fallbackReason,
-      capabilityAudit: createCapabilityAudit(validatedBackend, 'container', containerEnabled, details.fallbackReason),
+      capabilityAudit: createCapabilityAudit(validatedBackend, 'container', usesContainerRuntime, details.fallbackReason),
     };
   }
 
@@ -243,7 +243,7 @@ export async function resolveWorkspaceRuntimeWithManagers(
     actualRuntime: 'container',
     desiredBackend,
     actualBackend: validatedBackend,
-    containerEnabled,
+    containerEnabled: usesContainerRuntime,
     fallbackCode: 'container_unavailable',
     fallbackReason: containerFallbackReason,
     capabilityAudit: createUnavailableContainerCapabilityAudit(validatedBackend, containerFallbackReason),
