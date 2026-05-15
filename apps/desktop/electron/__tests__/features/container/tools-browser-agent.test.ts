@@ -287,6 +287,28 @@ describe('createAgentBrowser', () => {
     expect((result.content[0] as { type: string; text: string }).text).toContain('[ref=e1]');
   });
 
+  it('supports text= selectors for click without using CSS selector mode', async () => {
+    const { tool, exec } = await createToolWithExec([
+      { stdout: '/usr/bin/agent-browser\n', stderr: '', exitCode: 0 },
+      { stdout: '{"result":{"ok":true,"text":"Sport","url":"https://www.bbc.co.uk/news"}}', stderr: '', exitCode: 0 },
+    ]);
+
+    await tool.execute('tc-click-text', { action: 'click', selector: 'text=Sport' }, undefined, undefined, undefined as never);
+
+    expect(exec.mock.calls[1][1]).toContain("'eval' '-b'");
+    expect(exec.mock.calls[1][1]).not.toContain("'click' 'text=Sport'");
+  });
+
+  it('rejects snapshot refs as click selectors with guidance', async () => {
+    const { tool } = await createToolWithExec([
+      { stdout: '/usr/bin/agent-browser\n', stderr: '', exitCode: 0 },
+    ]);
+
+    await expect(
+      tool.execute('tc-click-ref', { action: 'click', selector: '[ref=e136]' }, undefined, undefined, undefined as never),
+    ).rejects.toThrow('Snapshot refs are not DOM selectors');
+  });
+
   it('uses mouse commands for coordinate clicks', async () => {
     const { tool, exec } = await createToolWithExec([
       { stdout: '/usr/bin/agent-browser\n', stderr: '', exitCode: 0 },

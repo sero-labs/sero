@@ -97,11 +97,13 @@ export const BrowserParams = Type.Object({
     {
       description:
         'The browser action to perform for the hidden Playwright-style automation browser on known pages. ' +
+        'This does not open Sero\'s visible Browser panel and is not captured by sero app record/screenshot; ' +
+        'for visible browser UI or screen-recording tasks use sero-cli browser commands instead. ' +
         'Do not use browser for general web search, page fetching, bookmark management, or file downloads — ' +
         'use web_search, fetch_content, get_search_content, or web_bookmark instead. ' +
         'launch: start browser (optionally navigate to url). ' +
         'navigate: go to a URL. ' +
-        'click: click a CSS selector or viewport-relative x,y coordinates. ' +
+        'click: click a CSS selector, text=<visible text>, or viewport-relative x,y coordinates. ' +
         'type: type text into selector or focused element. ' +
         'press_key: press a key (Enter, Tab, Escape, etc). ' +
         'screenshot: capture the page as an image. ' +
@@ -117,7 +119,11 @@ export const BrowserParams = Type.Object({
   ),
   url: Type.Optional(Type.String({ description: 'URL for launch/navigate actions' })),
   selector: Type.Optional(
-    Type.String({ description: 'CSS selector for click/type/screenshot/scroll/get_text/wait' }),
+    Type.String({
+      description:
+        'CSS selector for click/type/screenshot/scroll/get_text/wait. For click only, text=<visible text> is also supported. ' +
+        'Snapshot refs like [ref=e123] are not DOM selectors; do not pass them as selector values.',
+    }),
   ),
   x: Type.Optional(Type.Number({ description: 'Viewport-relative X coordinate in CSS px for click (use with y)' })),
   y: Type.Optional(Type.Number({ description: 'Viewport-relative Y coordinate in CSS px for click (use with x). If the element is off-screen, scroll it into view first.' })),

@@ -212,7 +212,7 @@ async function handleBrowser(
 export function registerBrowserCliCommands(registry: CliRegistry): void {
   registry.register({
     name: 'browser',
-    summary: 'Drive the Explorer Browser panel, not the Web app (show, list, open, goto, close, navigate, get-text, screenshot)',
+    summary: 'Drive the Explorer Browser panel',
     help:
       'browser — Drive the in-app web browser\n\n' +
       'Usage: sero browser <action> [args]\n\n' +

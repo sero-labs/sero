@@ -306,11 +306,6 @@ For \`sero app\`, skip help for common flows.
 - \`appstate\` is JSON state only, not UI automation.
 - Use \`app click <selector>\` or \`app click --x <n> --y <n>\`; no \`app press\`.
 
-Browser-page workflows are different from app workflows:
-- The in-app Browser is the Explorer Browser panel, not the \`web\` app/plugin.
-- NEVER use \`sero app screenshot --app web\` for browser pages; it opens the separate Web app.
-- For browser screenshots, use \`sero browser screenshot\`.
-- For browser recordings, run \`sero browser show\`, then \`sero app record start\`, perform browser actions, then \`sero app record stop\`.
-- Use \`sero browser open <url>\` only when a new tab is desired; otherwise use \`sero browser goto <url>\` or \`sero browser navigate <tab-id> <url>\` to keep one tab.
+Browser pages: use \`sero browser\`, never \`sero app screenshot --app web\` (\`web\` is separate). Record: \`browser show\`; \`app record start\`; actions; \`app record stop\`. Use \`browser goto\` unless a new tab is needed.
 `;
 }

@@ -11,6 +11,8 @@ import {
   screenshotContent,
 } from './tools-browser-agent-helpers';
 import { BrowserParams, shellEscape } from './tool-schemas';
+import { clickByText, textSelectorValue } from './tools-browser-agent-text';
+import type { AgentBrowserJson, AgentCommandOptions } from './tools-browser-agent-types';
 
 const metricsByWorkspace = new Map<string, { success: number; failure: number; totalLatencyMs: number }>();
 const AGENT_BROWSER_PLAYWRIGHT_VERSION = '1.57.0';
@@ -18,26 +20,6 @@ const AGENT_BROWSER_CHROMIUM_REVISION = '1200';
 const PLAYWRIGHT_FALLBACK_INSTALL_ENV = 'if [ -w /ms-playwright ]; then export PLAYWRIGHT_BROWSERS_PATH=/ms-playwright; else unset PLAYWRIGHT_BROWSERS_PATH; fi';
 const AGENT_BROWSER_ENV_SETUP = 'if [ -d /ms-playwright ]; then export PLAYWRIGHT_BROWSERS_PATH=/ms-playwright; fi; export PATH="$HOME/.local/bin:$PATH";';
 const ENSURE_FFMPEG_COMMAND = 'sh -lc \'PATH="$HOME/.local/bin:$PATH"; if command -v ffmpeg >/dev/null 2>&1; then exit 0; fi; ffmpeg_path="$(find "$PLAYWRIGHT_BROWSERS_PATH" /ms-playwright "$HOME/.cache/ms-playwright" /root/.cache/ms-playwright -path "*/ffmpeg-linux" -type f -perm -111 -print -quit 2>/dev/null)"; test -n "$ffmpeg_path"; mkdir -p "$HOME/.local/bin"; ln -sf "$ffmpeg_path" "$HOME/.local/bin/ffmpeg"; command -v ffmpeg >/dev/null 2>&1\'';
-
-interface AgentBrowserJson {
-  success?: boolean;
-  message?: string;
-  error?: string;
-  warning?: string;
-  title?: string;
-  url?: string;
-  text?: string;
-  output?: string;
-  snapshot?: string;
-  screenshot?: string;
-  path?: string;
-  running?: boolean;
-  result?: unknown;
-  refs?: Record<string, unknown>;
-  data?: unknown;
-}
-
-interface AgentCommandOptions { execTimeoutMs?: number; defaultActionTimeoutMs?: number; }
 
 function browserSessionName(workspaceId: string, backend: RuntimeBackend['backend']): string {
   return `sero-${workspaceId}-${backend}`;
@@ -285,7 +267,10 @@ export function createAgentBrowser(runtime: RuntimeBackend, workspaceId: string)
     label: 'browser',
     description:
       'Control a hidden automation browser through Vercel agent-browser with persistent per-workspace sessions. ' +
-      'This browser is separate from Sero\'s visible preview pane. Use launch first, then navigate/click/type/snapshot/screenshot/get_text/wait, and close when done.',
+      'This does not open Sero\'s visible Browser panel and is not captured by sero app record/screenshot. ' +
+      'For visible browser UI or screen-recording tasks use sero-cli browser commands instead. ' +
+      'Use launch first, then navigate/click/type/snapshot/screenshot/get_text/wait, and close when done. ' +
+      'Click selector accepts CSS selectors or text=<visible text>; snapshot refs like [ref=e123] are not DOM selectors.',
     parameters: BrowserParams,
     execute: async (
       _toolCallId: string,
@@ -376,6 +361,15 @@ export function createAgentBrowser(runtime: RuntimeBackend, workspaceId: string)
 
         if (action === 'click') {
           if (params.selector) {
+            const textTarget = textSelectorValue(params.selector);
+            if (textTarget !== null) {
+              const response = await clickByText({ runtime, workspaceId, executablePath, text: textTarget, runEval });
+              record(true);
+              return { content: [{ type: 'text', text: formatBrowserText(response, `Clicked text=${textTarget}`) }], details: undefined };
+            }
+            if (/^\[ref=e\d+\]$/i.test(params.selector.trim())) {
+              throw new Error('Snapshot refs are not DOM selectors. Use text=<visible text>, a CSS selector, or viewport x/y coordinates.');
+            }
             const response = await runAgent(runtime, workspaceId, executablePath, ['click', params.selector]);
             record(true);
             return { content: [{ type: 'text', text: formatBrowserText(response, `Clicked ${params.selector}`) }], details: undefined };

@@ -136,7 +136,7 @@ Expected from the managed smoke plugin:
 
 ### 2.7 Browser automation
 
-Run normal Sero browser/screenshot flow against the preview.
+Use one path deliberately: visible Sero Browser panel via `sero-cli` browser commands, or hidden runtime automation via the direct `browser` tool. Do not expect direct `browser` tool actions to create visible Sero Browser tabs.
 
 Expected: Chromium and ffmpeg are available in the runtime image.
 

@@ -153,7 +153,10 @@ Expected from the managed smoke plugin:
 
 ### 2.7 Browser automation
 
-Ask the agent to open the preview page and take a screenshot, or use the browser tool path used in normal Sero smoke.
+Use one of these paths deliberately; do not mix them:
+
+- Visible Sero Browser panel / app recording: ask the agent to use `sero-cli` browser commands (`sero browser show`, `sero browser goto <url>`, `sero browser screenshot`) and `sero app record start|stop`. The direct `browser` tool is hidden and will not create tabs in the visible Browser panel.
+- Hidden runtime automation browser: ask the agent to use the direct `browser` tool (`launch`, `screenshot`, `start_recording`, `stop_recording`) and save its own recording file.
 
 Expected: Chromium launches from the runtime image; recording/screenshot does not fail due missing `ffmpeg`.
 
