@@ -335,6 +335,47 @@ describe('Docker runtime backend core', () => {
     ]);
   });
 
+  it('normalizes host dev-server cwd before storing Docker runtime records', async () => {
+    const registerServer = vi.fn((server: RuntimeDevServer) => server);
+    const backend = new DockerBackend({
+      workspaceId: 'ws-1', hostWorkspacePath: '/tmp/sero-docker-workspace',
+      workspaceManager: { getRuntimeConfig: vi.fn().mockResolvedValue({ backend: 'docker', previewPortPoolSize: 2 }) } as unknown as WorkspaceManager,
+      run: vi.fn(async () => ok()),
+    });
+    Object.assign(backend as unknown as { ports: { forwardPort: (port: number) => Promise<unknown>; registerServer: typeof registerServer } }, {
+      ports: { forwardPort: vi.fn().mockResolvedValue({ targetPort: 5173, hostPort: 51000, url: 'http://127.0.0.1:51000', bridged: true }), registerServer },
+    });
+    vi.spyOn(backend, 'ensure').mockResolvedValue({ backend: 'docker', workspaceId: 'ws-1', hostWorkspacePath: '/tmp/sero-docker-workspace', runtimeWorkspacePath: '/workspace', state: 'running' });
+
+    await backend.registerDevServer({ port: 5173, command: 'node testing-server.js', cwd: '/tmp/sero-docker-workspace/app' });
+    expect(registerServer).toHaveBeenCalledWith(expect.objectContaining({ cwd: '/workspace/app' }));
+  });
+
+  it('preserves stopped dev-server records when restart fails', async () => {
+    const server: RuntimeDevServer = {
+      id: 'ws-1:workspace:root:5173',
+      port: 5173,
+      url: 'http://127.0.0.1:51000',
+      command: 'pnpm dev',
+      cwd: '/workspace',
+      status: 'stopped',
+    };
+    const deleteServer = vi.fn().mockReturnValue(true);
+    const backend = new DockerBackend({
+      workspaceId: 'ws-1',
+      hostWorkspacePath: '/tmp/sero-docker-workspace',
+      workspaceManager: { getRuntimeConfig: vi.fn().mockResolvedValue({ backend: 'docker', previewPortPoolSize: 2 }) } as unknown as WorkspaceManager,
+      run: vi.fn(async () => ok()),
+    });
+    Object.assign(backend as unknown as { ports: { getServer: (id: string) => RuntimeDevServer | undefined; deleteServer: typeof deleteServer } }, {
+      ports: { getServer: vi.fn().mockReturnValue(server), deleteServer },
+    });
+    vi.spyOn(backend, 'startDevServer').mockRejectedValue(new Error('boom'));
+
+    await expect(backend.restartDevServer({ serverId: server.id })).rejects.toThrow('boom');
+    expect(deleteServer).not.toHaveBeenCalled();
+  });
+
   it('preserves dev-server metadata on restart', async () => {
     const server: RuntimeDevServer = {
       id: 'ws-1:card-preview:card-1:5173',

@@ -4,7 +4,7 @@ import { CONTAINER_BIN, containerId } from '@electron/features/container/core/ty
 import { buildWorkspaceContainerConfig } from '@electron/features/container/core/workspace-container-config';
 import type { WorkspaceManager } from '@electron/features/workspace/manager';
 import { getRuntimeCapabilities } from '../capabilities';
-import { RUNTIME_WORKSPACE_PATH } from '../runtime-paths';
+import { RUNTIME_WORKSPACE_PATH, toRuntimeWorkspacePath } from '../runtime-paths';
 import type {
   RuntimeBackend, RuntimeCapabilities, RuntimeDevServer, RuntimeDevServerChangeEvent,
   RuntimeDevServerRegisterInput, RuntimeDevServerRestartInput, RuntimeDevServerStartInput,
@@ -295,12 +295,13 @@ export class AppleContainerBackend implements RuntimeBackend {
   async startDevServer(input: RuntimeDevServerStartInput): Promise<RuntimeDevServer> {
     await this.ensure();
     const ports = await this.portManager();
+    const cwd = this.devServerCwd(input.cwd);
     const beforePorts = new Set(await ports.detectPorts());
     const command = buildDevServerLaunchCommand(input.command, input.logPath ?? '/tmp/sero-dev-server.log');
     const result = await this.containerManager.exec(
       this.workspaceId,
       command,
-      input.cwd || this.runtimeWorkspacePath,
+      cwd,
       DEV_SERVER_START_TIMEOUT_MS,
     );
     if (result.exitCode !== 0) throw new Error(`Dev server start failed: ${result.stderr || result.stdout || input.command}`);
@@ -313,7 +314,7 @@ export class AppleContainerBackend implements RuntimeBackend {
       port,
       url: forwarded.url,
       command: input.command,
-      cwd: input.cwd || this.runtimeWorkspacePath,
+      cwd,
       name: input.name,
       framework: input.framework,
       scope: input.scope ?? 'workspace',
@@ -334,13 +335,14 @@ export class AppleContainerBackend implements RuntimeBackend {
   async registerDevServer(input: RuntimeDevServerRegisterInput): Promise<RuntimeDevServer> {
     await this.ensure();
     const ports = await this.portManager();
+    const cwd = this.devServerCwd(input.cwd);
     const forwarded = await ports.forwardPort(input.port);
     const server = ports.registerServer({
       id: `${this.workspaceId}:${input.scope ?? 'workspace'}:${input.cardId ?? 'root'}:${input.port}`,
       port: input.port,
       url: forwarded.url,
       command: input.command,
-      cwd: input.cwd || this.runtimeWorkspacePath,
+      cwd,
       name: input.name,
       framework: input.framework,
       scope: input.scope ?? 'workspace',
@@ -391,8 +393,7 @@ export class AppleContainerBackend implements RuntimeBackend {
     const server = ports.getServer(input.serverId);
     if (!server) throw new Error(`Dev server not found: ${input.serverId}`);
     if (server.status !== 'stopped') await this.stopDevServer(input);
-    await this.unregisterDevServer(input);
-    return this.startDevServer({
+    const restarted = await this.startDevServer({
       command: server.command,
       cwd: server.cwd,
       name: server.name,
@@ -400,6 +401,8 @@ export class AppleContainerBackend implements RuntimeBackend {
       scope: server.scope,
       cardId: server.cardId,
     });
+    if (restarted.id !== input.serverId && ports.getServer(input.serverId)) await this.unregisterDevServer(input);
+    return restarted;
   }
 
   async getDevServerStatus(input: RuntimeDevServerStatusInput): Promise<RuntimeDevServerStatus> {
@@ -428,6 +431,11 @@ export class AppleContainerBackend implements RuntimeBackend {
   async resolvePreviewUrl(input: RuntimePreviewUrlInput): Promise<RuntimePreviewUrl> {
     await this.ensure();
     return (await this.portManager()).resolvePreviewUrl(input.targetPort, input.path);
+  }
+
+  private devServerCwd(cwd?: string): string {
+    if (!cwd) return this.runtimeWorkspacePath;
+    return toRuntimeWorkspacePath(this.hostWorkspacePath, cwd) ?? cwd;
   }
 
   private async resetSessionForIsolationChange(): Promise<void> {

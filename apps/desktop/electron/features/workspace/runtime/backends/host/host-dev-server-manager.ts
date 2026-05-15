@@ -195,9 +195,15 @@ export class HostDevServerManager {
     if (server.status !== 'stopped') {
       server.onExitUnsubscribe?.();
       await this.terminateServer(server, { forceKillListener: true });
+      server.status = 'stopped';
+      this.emitDevServerChange({
+        type: 'status_changed',
+        workspaceId: this.workspaceId,
+        serverId: server.id,
+        status: 'stopped',
+      });
     }
-    this.unregister(input);
-    return this.start({
+    const restarted = await this.start({
       command: server.command,
       cwd: server.cwd,
       name: server.name,
@@ -205,6 +211,8 @@ export class HostDevServerManager {
       scope: server.scope,
       cardId: server.cardId,
     });
+    if (restarted.id !== input.serverId && this.servers.has(input.serverId)) this.unregister(input);
+    return restarted;
   }
 
   status(input: RuntimeDevServerStatusInput): RuntimeDevServerStatus {

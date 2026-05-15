@@ -3,7 +3,7 @@ import { buildWorkspaceContainerConfig } from '@electron/features/container/core
 import type { ContainerConfig } from '@electron/features/container/core/types';
 import { DEFAULT_IMAGE } from '@electron/features/container/core/types';
 import { getRuntimeCapabilities } from '../../capabilities';
-import { RUNTIME_WORKSPACE_PATH } from '../../runtime-paths';
+import { RUNTIME_WORKSPACE_PATH, toRuntimeWorkspacePath } from '../../runtime-paths';
 import type {
   RuntimeBackend,
   RuntimeCapabilities,
@@ -223,8 +223,9 @@ export class DockerBackend implements RuntimeBackend {
     await this.ensure();
     const ports = await this.portManager();
     const beforePorts = new Set(await ports.detectPorts());
+    const cwd = this.devServerCwd(input.cwd);
     const command = `setsid sh -c ${shellQuote(`${input.command} > ${input.logPath ?? '/tmp/sero-dev-server.log'} 2>&1 &`)}`;
-    const result = await this.exec({ command, cwd: input.cwd || this.runtimeWorkspacePath, timeoutMs: 30_000 });
+    const result = await this.exec({ command, cwd, timeoutMs: 30_000 });
     if (result.exitCode !== 0) throw new Error(`Dev server start failed: ${result.stderr || result.stdout || input.command}`);
     const port = await this.waitForStartedPort(beforePorts);
     const forwarded = await ports.forwardPort(port);
@@ -233,7 +234,7 @@ export class DockerBackend implements RuntimeBackend {
       port,
       url: forwarded.url,
       command: input.command,
-      cwd: input.cwd || this.runtimeWorkspacePath,
+      cwd,
       name: input.name,
       framework: input.framework,
       scope: input.scope ?? 'workspace',
@@ -254,13 +255,14 @@ export class DockerBackend implements RuntimeBackend {
   async registerDevServer(input: RuntimeDevServerRegisterInput): Promise<RuntimeDevServer> {
     await this.ensure();
     const ports = await this.portManager();
+    const cwd = this.devServerCwd(input.cwd);
     const forwarded = await ports.forwardPort(input.port);
     const server = ports.registerServer({
       id: `${this.workspaceId}:${input.scope ?? 'workspace'}:${input.cardId ?? 'root'}:${input.port}`,
       port: input.port,
       url: forwarded.url,
       command: input.command,
-      cwd: input.cwd || this.runtimeWorkspacePath,
+      cwd,
       name: input.name,
       framework: input.framework,
       scope: input.scope ?? 'workspace',
@@ -311,8 +313,7 @@ export class DockerBackend implements RuntimeBackend {
     const server = ports.getServer(input.serverId);
     if (!server) throw new Error(`Dev server not found: ${input.serverId}`);
     if (server.status !== 'stopped') await this.stopDevServer(input);
-    await this.unregisterDevServer(input);
-    return this.startDevServer({
+    const restarted = await this.startDevServer({
       command: server.command,
       cwd: server.cwd,
       name: server.name,
@@ -320,6 +321,8 @@ export class DockerBackend implements RuntimeBackend {
       scope: server.scope,
       cardId: server.cardId,
     });
+    if (restarted.id !== input.serverId && ports.getServer(input.serverId)) await this.unregisterDevServer(input);
+    return restarted;
   }
 
   async getDevServerStatus(input: RuntimeDevServerStatusInput): Promise<RuntimeDevServerStatus> {
@@ -348,6 +351,11 @@ export class DockerBackend implements RuntimeBackend {
   async resolvePreviewUrl(input: RuntimePreviewUrlInput): Promise<RuntimePreviewUrl> {
     await this.ensure();
     return (await this.portManager()).resolvePreviewUrl(input.targetPort, input.path);
+  }
+
+  private devServerCwd(cwd?: string): string {
+    if (!cwd) return this.runtimeWorkspacePath;
+    return toRuntimeWorkspacePath(this.hostWorkspacePath, cwd) ?? cwd;
   }
 
   private async ensureWithOptions(options?: { isolated?: boolean }): Promise<RuntimeSession> {
