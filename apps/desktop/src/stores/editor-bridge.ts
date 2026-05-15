@@ -21,6 +21,45 @@ interface EditorBridgeState {
   consumeOpenRequest: () => { workspaceId: string; filePath: string } | null;
 }
 
+function normalizeHostPath(value: string): string {
+  const normalized = value.replace(/\\/g, '/');
+  if (/^([a-z]:)?\/$/i.test(normalized)) return normalized;
+  return normalized.replace(/\/+$/g, '') || '/';
+}
+
+function isSameOrChild(rootPath: string, candidatePath: string): boolean {
+  const root = normalizeHostPath(rootPath);
+  const candidate = normalizeHostPath(candidatePath);
+  const insensitive = /^[a-z]:\//i.test(root) || /^[a-z]:\//i.test(candidate);
+  const left = insensitive ? candidate.toLowerCase() : candidate;
+  const right = insensitive ? root.toLowerCase() : root;
+  return left === right || left.startsWith(`${right}/`);
+}
+
+function toVirtualChildPath(prefix: string, rootPath: string, filePath: string): string {
+  const root = normalizeHostPath(rootPath);
+  const file = normalizeHostPath(filePath);
+  const relative = file.slice(root.length).replace(/^\/+/, '');
+  return relative ? `${prefix}/${relative}` : prefix;
+}
+
+function toEditorPath(workspaceId: string, filePath: string): string {
+  const workspace = useWorkspaceStore.getState().workspaces.find((item) => item.id === workspaceId);
+  if (!workspace) return filePath;
+
+  for (const root of workspace.roots) {
+    if (isSameOrChild(root.path, filePath)) {
+      return toVirtualChildPath(`/${root.id}`, root.path, filePath);
+    }
+  }
+
+  if (isSameOrChild(workspace.path, filePath)) {
+    return toVirtualChildPath('/workspace', workspace.path, filePath);
+  }
+
+  return filePath;
+}
+
 function focusEditor(workspaceId: string): void {
   useWorkspaceStore.getState().setActiveWorkspace(workspaceId);
   useExplorerStore.getState().set(workspaceId, {
@@ -35,7 +74,7 @@ export const useEditorBridge = create<EditorBridgeState>((set, get) => ({
 
   requestOpenFile: (workspaceId, filePath) => {
     focusEditor(workspaceId);
-    set({ pendingOpen: { workspaceId, filePath } });
+    set({ pendingOpen: { workspaceId, filePath: toEditorPath(workspaceId, filePath) } });
   },
 
   consumeOpenRequest: () => {

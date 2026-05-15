@@ -12,6 +12,7 @@ const { browserMocks, appControlMocks } = vi.hoisted(() => ({
     workspaceForTab: vi.fn(),
     closeTabForHost: vi.fn(),
     extractPage: vi.fn(),
+    scrollPage: vi.fn(),
     capturePage: vi.fn(),
   },
   appControlMocks: {
@@ -72,5 +73,20 @@ describe('browser CLI', () => {
 
     expect(browserMocks.openTabForHost).toHaveBeenCalledWith('https://example.com', 'ws-1');
     expect(result).toEqual({ output: 'Opened tab tab-new in workspace "ws-1" → https://example.com', exitCode: 0 });
+  });
+
+  it('scrolls the active browser tab', async () => {
+    browserMocks.resolveActiveTabForWorkspace.mockReturnValue('tab-1');
+    browserMocks.scrollPage.mockResolvedValue({ scrollX: 0, scrollY: 1700, maxY: 4000 });
+    const registry = new CliRegistry();
+    registerBrowserCliCommands(registry);
+
+    const result = await registry.get('browser')?.execute(
+      ['scroll', '--amount', '1700'],
+      context(),
+    );
+
+    expect(browserMocks.scrollPage).toHaveBeenCalledWith('tab-1', 'ws-1', 1700);
+    expect(result).toEqual({ output: 'Scrolled down by 1700px (y=1700/4000)', exitCode: 0 });
   });
 });

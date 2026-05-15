@@ -4,6 +4,7 @@ import { IpcChannels } from '@/types/ipc-channels';
 import type { BrowserEvent, BrowserViewBounds } from '@/types/browser';
 import { BROWSER_HOME_URL } from '@/types/browser';
 import { showBrowserContextMenu } from './context-menu';
+import { buildExtractPageScript, buildScrollPageScript } from './page-scripts';
 
 const BROWSER_PARTITION_PREFIX = 'persist:sero-browser';
 const ALLOWED_BROWSER_PROTOCOLS = new Set(['http:', 'https:']);
@@ -220,29 +221,7 @@ class BrowserViewManager {
     if (!this.ownsTab(tabId, workspaceId, 'extractPage')) return null;
     const wc = this.views.get(tabId)?.webContents;
     if (!wc) return null;
-    const script = `(() => {
-      try {
-        const title = document.title || '';
-        const url = location.href;
-        const body = document.body ? document.body.cloneNode(true) : null;
-        if (!body) return { title, url, text: '' };
-        const drop = ['script','style','noscript','nav','header','footer','aside','iframe','svg','canvas','form'];
-        for (const sel of drop) {
-          for (const el of body.querySelectorAll(sel)) el.remove();
-        }
-        // innerText is better than textContent — respects visibility and block breaks.
-        const raw = body.innerText || '';
-        const text = raw
-          .split('\\n')
-          .map((l) => l.trim())
-          .filter((l, i, a) => !(l === '' && a[i - 1] === ''))
-          .join('\\n')
-          .trim();
-        return { title, url, text };
-      } catch (err) {
-        return { title: document.title || '', url: location.href, text: '' };
-      }
-    })()`;
+    const script = buildExtractPageScript();
     try {
       const result = await wc.executeJavaScript(script, true);
       if (!result || typeof result !== 'object') return null;
@@ -344,6 +323,25 @@ class BrowserViewManager {
       return false;
     }
     return true;
+  }
+
+  async scrollPage(
+    tabId: string,
+    workspaceId: string,
+    amount: number,
+  ): Promise<{ scrollX: number; scrollY: number; maxY: number } | null> {
+    if (!this.ownsTab(tabId, workspaceId, 'scrollPage')) return null;
+    const wc = this.views.get(tabId)?.webContents;
+    if (!wc) return null;
+    const script = buildScrollPageScript(amount);
+    try {
+      const result = await wc.executeJavaScript(script, true);
+      if (!result || typeof result !== 'object') return null;
+      return result as { scrollX: number; scrollY: number; maxY: number };
+    } catch (err) {
+      console.warn('[browser] scrollPage failed:', err);
+      return null;
+    }
   }
 
   /**

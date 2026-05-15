@@ -25,7 +25,21 @@ describe('useEditorBridge', () => {
     });
 
     useAppStore.setState({ ...initialAppState, activeApp: 'dashboard' }, true);
-    useWorkspaceStore.setState({ ...initialWorkspaceState, activeWorkspaceId: 'global' }, true);
+    useWorkspaceStore.setState({
+      ...initialWorkspaceState,
+      activeWorkspaceId: 'global',
+      workspaces: [{
+        id: 'ws-1',
+        name: 'Test Workspace',
+        path: '/Users/danielcarter/.sero-ui/workspaces/applecontainertest',
+        open: true,
+        runtime: { backend: 'host' },
+        container: false,
+        references: [],
+        mounts: [],
+        roots: [],
+      }],
+    }, true);
     useExplorerStore.setState({ ...initialExplorerState, ui: {} }, true);
     useEditorBridge.setState(initialEditorBridgeState, true);
   });
@@ -44,7 +58,10 @@ describe('useEditorBridge', () => {
       sidebarOpen: false,
     });
 
-    useEditorBridge.getState().requestOpenFile('ws-1', '/workspace/recording.mp4');
+    useEditorBridge.getState().requestOpenFile(
+      'ws-1',
+      '/Users/danielcarter/.sero-ui/workspaces/applecontainertest/sero-recordings/recording.mp4',
+    );
 
     expect(useWorkspaceStore.getState().activeWorkspaceId).toBe('ws-1');
     expect(useAppStore.getState().activeApp).toBe('explorer');
@@ -54,7 +71,7 @@ describe('useEditorBridge', () => {
     });
     expect(useEditorBridge.getState().pendingOpen).toEqual({
       workspaceId: 'ws-1',
-      filePath: '/workspace/recording.mp4',
+      filePath: '/workspace/sero-recordings/recording.mp4',
     });
   });
 });

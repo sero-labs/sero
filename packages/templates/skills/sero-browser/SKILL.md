@@ -15,6 +15,7 @@ Use the visible Sero Browser panel for user-facing web browsing and recordings. 
 - Use `sero browser open <url>` only when the user asks for a new tab/window or multiple pages side-by-side.
 - If unsure what tabs exist, run `sero browser list` before opening anything new.
 - For page text/content, prefer `sero browser get-text` over screenshots.
+- To move the visible page, use `sero browser scroll --amount <px>` or `sero browser scroll --direction up --amount <px>`; do not use `sero app scroll` for Browser pages.
 - Use `sero browser screenshot` only when visual evidence is needed.
 
 ## Recording workflow

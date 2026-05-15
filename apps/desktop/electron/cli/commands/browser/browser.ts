@@ -15,6 +15,7 @@
  *   close <tab-id>              Close a tab
  *   navigate <tab-id> <url>     Point an existing tab at a new URL
  *   get-text [--tab <id>]       Extract title + plain text from the tab
+ *   scroll [--amount <px>]      Scroll the active tab down/up
  *   screenshot [--tab <id>]     Return a PNG of the tab as an image block
  *
  * Tab ids for `get-text` / `screenshot` default to the active tab of the
@@ -189,6 +190,23 @@ async function handleBrowser(
       return ok(`${header}${page.text}`);
     }
 
+    case 'scroll': {
+      const resolved = resolveTabId(
+        typeof flags.get('tab') === 'string' ? (flags.get('tab') as string) : undefined,
+        ctx,
+      );
+      if ('error' in resolved) return fail(resolved.error);
+      const rawAmount = typeof flags.get('amount') === 'string' ? Number(flags.get('amount')) : 800;
+      if (!Number.isFinite(rawAmount)) return fail('--amount must be a finite number.');
+      const directionValue = flags.get('direction');
+      const direction = typeof directionValue === 'string' ? directionValue : 'down';
+      if (direction !== 'down' && direction !== 'up') return fail('--direction must be "down" or "up".');
+      const amount = Math.abs(rawAmount) * (direction === 'up' ? -1 : 1);
+      const result = await browserViewManager.scrollPage(resolved.tabId, ctx.workspaceId, amount);
+      if (!result) return fail(`Failed to scroll tab ${resolved.tabId}`);
+      return ok(`Scrolled ${direction} by ${Math.abs(rawAmount)}px (y=${result.scrollY}/${result.maxY})`);
+    }
+
     case 'screenshot': {
       const resolved = resolveTabId(
         typeof flags.get('tab') === 'string' ? (flags.get('tab') as string) : undefined,
@@ -227,6 +245,8 @@ export function registerBrowserCliCommands(registry: CliRegistry): void {
       '  navigate <tab-id> <url>      Point an existing tab at a new URL\n' +
       '  get-text [--tab <id>]        Extract the page as title + plain text. Defaults\n' +
       '                               to the active tab of the current workspace.\n' +
+      '  scroll [--direction up|down] [--amount <px>] [--tab <id>]\n' +
+      '                               Scroll the active tab without switching apps.\n' +
       '  screenshot [--tab <id>]      Return a PNG of the tab as an image block. Defaults\n' +
       '                               to the active tab of the current workspace.\n\n' +
       'For browser-page screenshots use `sero browser screenshot`, not\n' +
