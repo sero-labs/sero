@@ -88,12 +88,13 @@ node scripts/prepare-packaging.mjs
 # electron-builder's npmRebuild is disabled (pnpm workspace symlinks break it),
 # so we rebuild node-pty and better-sqlite3 manually against Electron's Node ABI.
 echo "▸ Step 5/6: Rebuilding native modules for Electron..."
-if npx @electron/rebuild -f -w node-pty,better-sqlite3; then
-  echo "  Rebuilt node-pty + better-sqlite3 for Electron's Node ABI"
+ELECTRON_VERSION="$(ELECTRON_RUN_AS_NODE=1 pnpm --dir "$PROJECT_DIR" exec electron -e "process.stdout.write(process.versions.electron)")"
+if pnpm --dir "$PROJECT_DIR" exec electron-rebuild -f --version "$ELECTRON_VERSION" --module-dir "$MONO_ROOT" -w node-pty,better-sqlite3; then
+  echo "  Rebuilt node-pty + better-sqlite3 for Electron ${ELECTRON_VERSION}"
 else
   echo ""
-  echo "  ⚠ @electron/rebuild failed — native modules may use host Node ABI"
-  echo "  Ensure @electron/rebuild is installed: pnpm add -D @electron/rebuild"
+  echo "  ⚠ electron-rebuild failed — native modules may use host Node ABI"
+  echo "  Ensure @electron/rebuild is installed in apps/desktop"
   echo "  (terminals and database will fail in packaged build without correct ABI)"
   exit 1
 fi

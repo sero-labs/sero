@@ -10,11 +10,37 @@ const rendererIndexPath = path.join(projectRoot, 'dist/renderer/index.html');
 const webDistSource = path.join(projectRoot, 'electron/features/gateway/web-dist');
 const webDistDest = path.join(projectRoot, 'dist/electron/web-dist');
 const webRemotePackageJson = path.resolve(projectRoot, '../web-remote/package.json');
+const workspaceNodeModules = [
+  { packageName: '@sero-ai/app-runtime', source: path.resolve(projectRoot, '../../packages/app-runtime') },
+  { packageName: '@sero-ai/common', source: path.resolve(projectRoot, '../../packages/common') },
+  { packageName: '@sero-ai/ui', source: path.resolve(projectRoot, '../../packages/ui') },
+];
 
 function ensureBuildOutputExists(filePath, description) {
   if (!fs.existsSync(filePath)) {
     throw new Error(`${description} not found at ${filePath}. Run pnpm build first.`);
   }
+}
+
+function packageNodeModulePath(packageName) {
+  return path.join(projectRoot, 'node_modules', ...packageName.split('/'));
+}
+
+function materializeWorkspaceNodeModules() {
+  // electron-builder cannot pack pnpm workspace symlinks that resolve outside
+  // apps/desktop, so copy the runtime @sero-ai packages into place first.
+  for (const { packageName, source } of workspaceNodeModules) {
+    if (!fs.existsSync(source)) continue;
+    const dest = packageNodeModulePath(packageName);
+    fs.rmSync(dest, { recursive: true, force: true });
+    fs.mkdirSync(path.dirname(dest), { recursive: true });
+    fs.cpSync(source, dest, {
+      recursive: true,
+      dereference: true,
+      filter: (entry) => !['.turbo', 'node_modules'].includes(path.basename(entry)),
+    });
+  }
+  console.log('  Materialized workspace @sero-ai packages for packaging');
 }
 
 function materializeWebDistForPackaging() {
@@ -42,4 +68,5 @@ function materializeWebDistForPackaging() {
 
 ensureBuildOutputExists(electronMainPath, 'Electron bundle');
 ensureBuildOutputExists(rendererIndexPath, 'Renderer bundle');
+materializeWorkspaceNodeModules();
 materializeWebDistForPackaging();

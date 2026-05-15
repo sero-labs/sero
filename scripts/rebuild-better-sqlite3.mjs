@@ -19,55 +19,83 @@
  */
 
 import { execSync, spawnSync } from 'child_process';
-import { existsSync, readdirSync } from 'fs';
+import { existsSync, readdirSync, realpathSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
+const DESKTOP = resolve(ROOT, 'apps/desktop');
 const req = createRequire(import.meta.url);
 
 // ── Locate better-sqlite3 ─────────────────────────────────────────────────────
 
 const PNPM_STORE = resolve(ROOT, 'node_modules/.pnpm');
 
+function compareVersion(a, b) {
+  const aParts = a.split('.').map(Number);
+  const bParts = b.split('.').map(Number);
+  for (let i = 0; i < Math.max(aParts.length, bParts.length); i += 1) {
+    const delta = (aParts[i] ?? 0) - (bParts[i] ?? 0);
+    if (delta !== 0) return delta;
+  }
+  return 0;
+}
+
 function findBetterSqlite3() {
+  const runtimeLinks = [
+    resolve(ROOT, 'plugins/sero-web-plugin/node_modules/better-sqlite3'),
+    resolve(ROOT, 'plugins/sero-memory-plugin/node_modules/better-sqlite3'),
+    resolve(DESKTOP, 'node_modules/better-sqlite3'),
+  ];
+  for (const link of runtimeLinks) {
+    if (existsSync(link)) return realpathSync(link);
+  }
+
   if (!existsSync(PNPM_STORE)) return null;
-  const entries = readdirSync(PNPM_STORE).filter(e => e.startsWith('better-sqlite3@'));
+  const entries = readdirSync(PNPM_STORE)
+    .filter(e => e.startsWith('better-sqlite3@'))
+    .map(entry => ({ entry, version: entry.slice('better-sqlite3@'.length).split('_')[0] }))
+    .sort((a, b) => compareVersion(b.version, a.version));
   if (entries.length === 0) return null;
-  // Take the first (there should only be one version)
-  const pkgDir = resolve(PNPM_STORE, entries[0], 'node_modules/better-sqlite3');
+  const pkgDir = resolve(PNPM_STORE, entries[0].entry, 'node_modules/better-sqlite3');
   return existsSync(pkgDir) ? pkgDir : null;
 }
 
 // ── Locate Electron binary ────────────────────────────────────────────────────
 
-function findElectronBinary() {
+function findElectronPackageDir() {
+  const desktopElectron = resolve(DESKTOP, 'node_modules/electron');
+  if (existsSync(desktopElectron)) return desktopElectron;
+
   if (!existsSync(PNPM_STORE)) return null;
-  const entries = readdirSync(PNPM_STORE).filter(e => e.startsWith('electron@'));
+  const entries = readdirSync(PNPM_STORE)
+    .filter(e => e.startsWith('electron@'))
+    .sort()
+    .reverse();
   for (const entry of entries) {
-    const bin = resolve(PNPM_STORE, entry, 'node_modules/electron/dist/Electron.app/Contents/MacOS/Electron');
-    if (existsSync(bin)) return bin;
+    const pkgDir = resolve(PNPM_STORE, entry, 'node_modules/electron');
+    if (existsSync(pkgDir)) return pkgDir;
   }
   return null;
 }
 
-function findElectronVersion() {
-  const entries = existsSync(PNPM_STORE)
-    ? readdirSync(PNPM_STORE).filter(e => e.startsWith('electron@'))
-    : [];
-  for (const entry of entries) {
-    const pkgJson = resolve(PNPM_STORE, entry, 'node_modules/electron/package.json');
-    if (existsSync(pkgJson)) {
-      try {
-        const { version } = req(pkgJson);
-        // Strip semver build metadata before passing the version to Electron rebuild.
-        return version.split('+')[0];
-      } catch { /* continue */ }
-    }
+function findElectronBinary(electronDir) {
+  const bin = resolve(electronDir, 'dist/Electron.app/Contents/MacOS/Electron');
+  return existsSync(bin) ? bin : null;
+}
+
+function findElectronVersion(electronDir) {
+  const pkgJson = resolve(electronDir, 'package.json');
+  if (!existsSync(pkgJson)) return null;
+  try {
+    const { version } = req(pkgJson);
+    // Strip semver build metadata before passing the version to Electron rebuild.
+    return version.split('+')[0];
+  } catch {
+    return null;
   }
-  return null;
 }
 
 // ── Smoke test via Electron runtime ───────────────────────────────────────────
@@ -98,18 +126,28 @@ function testWithElectron(electronBin, sqlite3Dir) {
 
 // ── Rebuild via @electron/rebuild ─────────────────────────────────────────────
 
-function rebuild(sqlite3Dir, electronVersion) {
-  console.log(`\x1b[33m  → Rebuilding better-sqlite3 for Electron ${electronVersion}...\x1b[0m`);
+function getElectronModulesAbi(electronBin) {
+  const result = spawnSync(electronBin, ['-e', 'console.log(process.versions.modules)'], {
+    env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+    timeout: 15_000,
+    encoding: 'utf8',
+    stdio: 'pipe',
+  });
+  return result.status === 0 ? result.stdout.trim() : null;
+}
+
+function rebuild(electronVersion, electronAbi) {
+  console.log(`\x1b[33m  → Rebuilding better-sqlite3 for Electron ${electronVersion} (ABI ${electronAbi})...\x1b[0m`);
   try {
     execSync(
-      `npx @electron/rebuild --version "${electronVersion}" --module-dir "${sqlite3Dir}" --which-module better-sqlite3`,
+      `pnpm --dir "${DESKTOP}" exec electron-rebuild -f --version "${electronVersion}" --force-abi "${electronAbi}" --module-dir "${ROOT}" --which-module better-sqlite3`,
       { stdio: 'inherit', cwd: ROOT, timeout: 180_000 },
     );
     console.log('\x1b[32m  ✓ better-sqlite3 rebuilt successfully.\x1b[0m');
     return true;
   } catch {
     console.error('\x1b[31m  ✗ better-sqlite3 rebuild failed. Memory search (QMD) will not work.\x1b[0m');
-    console.error(`    Run manually: npx @electron/rebuild --version "${electronVersion}" --module-dir "${sqlite3Dir}" --which-module better-sqlite3`);
+    console.error(`    Run manually: pnpm --dir apps/desktop exec electron-rebuild -f --version "${electronVersion}" --force-abi "${electronAbi}" --module-dir "${ROOT}" --which-module better-sqlite3`);
     return false;
   }
 }
@@ -130,13 +168,19 @@ function main() {
     process.exit(0);
   }
 
-  const electronBin = findElectronBinary();
+  const electronDir = findElectronPackageDir();
+  if (!electronDir) {
+    console.log('[better-sqlite3] Electron package not found — skipping (install apps/desktop first).');
+    process.exit(0);
+  }
+
+  const electronBin = findElectronBinary(electronDir);
   if (!electronBin) {
     console.log('[better-sqlite3] Electron binary not found — skipping (install apps/desktop first).');
     process.exit(0);
   }
 
-  const electronVersion = findElectronVersion();
+  const electronVersion = findElectronVersion(electronDir);
   if (!electronVersion) {
     console.log('[better-sqlite3] Could not determine Electron version — skipping.');
     process.exit(0);
@@ -149,7 +193,13 @@ function main() {
 
   console.log(`\x1b[33m[better-sqlite3] ✗ Binary does not work with Electron ${electronVersion}.\x1b[0m`);
 
-  const ok = rebuild(sqlite3Dir, electronVersion);
+  const electronAbi = getElectronModulesAbi(electronBin);
+  if (!electronAbi) {
+    console.log('[better-sqlite3] Could not determine Electron module ABI — skipping.');
+    process.exit(1);
+  }
+
+  const ok = rebuild(electronVersion, electronAbi);
   if (!ok) {
     process.exit(1);
   }
