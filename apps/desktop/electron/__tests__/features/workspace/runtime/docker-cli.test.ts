@@ -39,6 +39,7 @@ describe('Docker CLI helpers', () => {
       '/custom/bin',
       '/usr/local/bin',
       '/opt/homebrew/bin',
+      '/opt/podman/bin',
       '/usr/bin',
       '/bin',
     ]));
@@ -103,6 +104,37 @@ describe('Docker CLI helpers', () => {
       env: expect.objectContaining({ FOO: 'bar', PATH: expect.stringContaining('/env/bin') }),
       stdio: 'pipe',
     }));
+  });
+
+  it('falls back to podman when the auto-selected docker daemon is unavailable', async () => {
+    fsMocks.existsSync.mockImplementation((p: string) => p.endsWith('/docker') || p.endsWith('/podman'));
+    childProcessMocks.execFile
+      .mockImplementationOnce((_bin, _args, _options, cb) => cb({ code: 1, message: 'docker failed' }, '', 'failed to connect to the docker API at unix:///tmp/docker.sock'))
+      .mockImplementationOnce((_bin, _args, _options, cb) => cb(null, 'podman ok', ''));
+
+    await expect(runDocker(['info'])).resolves.toEqual({ stdout: 'podman ok', stderr: '', exitCode: 0 });
+
+    expect(childProcessMocks.execFile).toHaveBeenNthCalledWith(1, expect.stringMatching(/docker$/), ['info'], expect.any(Object), expect.any(Function));
+    expect(childProcessMocks.execFile).toHaveBeenNthCalledWith(2, expect.stringMatching(/podman$/), ['info'], expect.any(Object), expect.any(Function));
+  });
+
+  it('does not fall back to podman for normal docker command failures', async () => {
+    fsMocks.existsSync.mockImplementation((p: string) => p.endsWith('/docker') || p.endsWith('/podman'));
+    childProcessMocks.execFile.mockImplementationOnce((_bin, _args, _options, cb) => cb({ code: 1, message: 'docker failed' }, '', 'No such image: missing'));
+
+    await expect(runDocker(['image', 'inspect', 'missing'])).resolves.toEqual({ stdout: '', stderr: 'No such image: missing', exitCode: 1 });
+
+    expect(childProcessMocks.execFile).toHaveBeenCalledOnce();
+  });
+
+  it('does not fall back to podman when docker is explicitly selected', async () => {
+    process.env.SERO_CONTAINER_ENGINE = 'docker';
+    fsMocks.existsSync.mockImplementation((p: string) => p.endsWith('/docker') || p.endsWith('/podman'));
+    childProcessMocks.execFile.mockImplementationOnce((_bin, _args, _options, cb) => cb({ code: 1, message: 'docker failed' }, '', 'Cannot connect to the Docker daemon'));
+
+    await expect(runDocker(['info'])).resolves.toEqual({ stdout: '', stderr: 'Cannot connect to the Docker daemon', exitCode: 1 });
+
+    expect(childProcessMocks.execFile).toHaveBeenCalledOnce();
   });
 
   it('normalizes pre-aborted commands without starting Docker work', async () => {

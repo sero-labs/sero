@@ -112,21 +112,26 @@ describe('Docker runtime backend core', () => {
       readOnlyMounts: [],
     };
     const run = vi.fn(async (args: string[]) => {
-      expect(args).toEqual(['inspect', 'sero-ws-1']);
-      return ok(JSON.stringify([{
-        Config: { Image: 'image:test', Labels: expectedDockerLabels('image:test') },
-        Image: 'image-id',
-        State: { Running: true },
-        Mounts: [
-          { Type: 'bind', Source: workspacePath, Destination: '/workspace', RW: true },
-          { Type: 'bind', Source: sharedPath, Destination: sharedPath, RW: true },
-        ],
-      }]));
+      if (args[0] === 'inspect') {
+        expect(args).toEqual(['inspect', 'sero-ws-1']);
+        return ok(JSON.stringify([{
+          Config: { Image: 'image:test', Labels: expectedDockerLabels('image:test') },
+          Image: 'image-id',
+          State: { Running: true },
+          Mounts: [
+            { Type: 'bind', Source: workspacePath, Destination: '/workspace', RW: true },
+            { Type: 'bind', Source: sharedPath, Destination: sharedPath, RW: true },
+          ],
+        }]));
+      }
+      return ok('');
     });
 
     await expect(ensureDockerContainer({ config, imageRef: 'image:test', imageId: 'image-id', run }))
       .resolves.toMatchObject({ id: 'sero-ws-1', state: 'running' });
-    expect(run).toHaveBeenCalledTimes(1);
+    expect(run.mock.calls[0]?.[0]).toEqual(['inspect', 'sero-ws-1']);
+    expect(run.mock.calls.some(([args]) => args.join(' ').includes('safe.directory /workspace'))).toBe(true);
+    expect(run.mock.calls.some(([args]) => args[0] === 'run' || args[0] === 'rm')).toBe(false);
   });
 
   it('recreates existing Docker containers when bind mounts differ', async () => {

@@ -39,11 +39,17 @@ export async function ensureDockerContainer(options: DockerLifecycleOptions): Pr
   const existing = await inspectDockerContainer(cid, run).catch(() => null);
   if (existing) {
     if (isExpectedContainer(existing, options.config, options.imageRef, options.imageId)) {
-      if (existing.State?.Running) return toContainerState(cid, existing, options.imageRef);
+      if (existing.State?.Running) {
+        await configureGitIdentity(options.config.workspaceId, run);
+        return toContainerState(cid, existing, options.imageRef);
+      }
       const start = await run(['start', cid], { timeoutMs: 30_000 });
       if (start.exitCode === 0) {
         const restarted = await inspectDockerContainer(cid, run).catch(() => null);
-        if (restarted?.State?.Running) return toContainerState(cid, restarted, options.imageRef);
+        if (restarted?.State?.Running) {
+          await configureGitIdentity(options.config.workspaceId, run);
+          return toContainerState(cid, restarted, options.imageRef);
+        }
       }
     }
     await removeDockerContainer(cid, run);
@@ -170,6 +176,7 @@ function mountSignature(source: string, target: string, mode: 'ro' | 'rw'): stri
 async function configureGitIdentity(workspaceId: string, run: DockerRunner): Promise<void> {
   const identity = await readHostGitIdentity();
   const cid = dockerContainerName(workspaceId);
+  await run(['exec', cid, 'sh', '-lc', 'git config --global --get-all safe.directory | grep -Fx /workspace >/dev/null || git config --global --add safe.directory /workspace'], { timeoutMs: 10_000 });
   await run(['exec', cid, 'git', 'config', '--global', 'push.autoSetupRemote', 'true'], { timeoutMs: 10_000 });
   if (identity.name) await run(['exec', cid, 'git', 'config', '--global', 'user.name', identity.name], { timeoutMs: 10_000 });
   if (identity.email) await run(['exec', cid, 'git', 'config', '--global', 'user.email', identity.email], { timeoutMs: 10_000 });

@@ -28,7 +28,7 @@ export type DockerRunner = (args: string[], options?: DockerRunOptions) => Promi
 
 const DEFAULT_TIMEOUT_MS = 120_000;
 const DEFAULT_MAX_BUFFER = 10 * 1024 * 1024;
-const POSIX_FALLBACK_PATHS = ['/usr/local/bin', '/opt/homebrew/bin', '/usr/bin', '/bin'];
+const POSIX_FALLBACK_PATHS = ['/usr/local/bin', '/opt/homebrew/bin', '/opt/podman/bin', '/usr/bin', '/bin'];
 const MAC_DOCKER_DESKTOP_PATHS = [
   '/Applications/Docker.app/Contents/Resources/bin',
   '/usr/local/share/docker/bin',
@@ -41,6 +41,7 @@ const WINDOWS_PODMAN_PATHS = [
   'C:\\Program Files\\RedHat\\Podman',
 ];
 const ENGINE_PREFERENCE: readonly ContainerEngineKind[] = ['docker', 'podman'];
+let cachedImplicitCommand: Pick<DockerCommandResolution, 'executable' | 'engine'> | null = null;
 
 function defaultDockerLookupPaths(): string[] {
   if (process.platform === 'win32') {
@@ -95,6 +96,10 @@ export function resolveDockerCommand(env?: NodeJS.ProcessEnv): DockerCommandReso
     return { executable: explicitBinary, engine: inferEngineFromExecutable(explicitBinary), env: resolvedEnv };
   }
 
+  if (!preferredEngine && cachedImplicitCommand && existsSync(cachedImplicitCommand.executable)) {
+    return { ...cachedImplicitCommand, env: resolvedEnv };
+  }
+
   const order: ContainerEngineKind[] = preferredEngine
     ? [preferredEngine, ...ENGINE_PREFERENCE.filter((kind) => kind !== preferredEngine)]
     : [...ENGINE_PREFERENCE];
@@ -107,11 +112,41 @@ export function resolveDockerCommand(env?: NodeJS.ProcessEnv): DockerCommandReso
   return { executable: preferredEngine ?? 'docker', engine: preferredEngine ?? 'docker', env: resolvedEnv };
 }
 
-export function runDocker(args: string[], options: DockerRunOptions = {}): Promise<DockerCommandResult> {
+export async function runDocker(args: string[], options: DockerRunOptions = {}): Promise<DockerCommandResult> {
+  if (options.signal?.aborted) return abortResult();
+
+  const command = resolveDockerCommand(options.env);
+  const result = await execContainerCommand(command, args, options);
+  rememberSuccessfulImplicitCommand(command, options.env, result);
+  const fallback = fallbackCommand(command, options.env, result);
+  if (!fallback) return result;
+  const fallbackResult = await execContainerCommand(fallback, args, options);
+  rememberSuccessfulImplicitCommand(fallback, options.env, fallbackResult);
+  return fallbackResult;
+}
+
+export async function checkDocker(args: string[], options?: DockerRunOptions): Promise<DockerCommandResult> {
+  const result = await runDocker(args, options);
+  if (result.exitCode !== 0) {
+    throw new Error(result.stderr || result.stdout || `docker ${args[0] ?? ''} failed`);
+  }
+  return result;
+}
+
+export function spawnDocker(args: string[], options: DockerRunOptions = {}): ChildProcess {
+  const command = resolveDockerCommand(options.env);
+  return spawn(command.executable, args, {
+    cwd: options.cwd,
+    env: command.env,
+    signal: options.signal,
+    stdio: 'pipe',
+  });
+}
+
+function execContainerCommand(command: DockerCommandResolution, args: string[], options: DockerRunOptions): Promise<DockerCommandResult> {
   if (options.signal?.aborted) return Promise.resolve(abortResult());
 
   return new Promise((resolve) => {
-    const command = resolveDockerCommand(options.env);
     execFile(command.executable, args, {
       cwd: options.cwd,
       env: command.env,
@@ -140,22 +175,35 @@ export function runDocker(args: string[], options: DockerRunOptions = {}): Promi
   });
 }
 
-export async function checkDocker(args: string[], options?: DockerRunOptions): Promise<DockerCommandResult> {
-  const result = await runDocker(args, options);
-  if (result.exitCode !== 0) {
-    throw new Error(result.stderr || result.stdout || `docker ${args[0] ?? ''} failed`);
-  }
-  return result;
+function fallbackCommand(command: DockerCommandResolution, env: NodeJS.ProcessEnv | undefined, result: DockerCommandResult): DockerCommandResolution | null {
+  if (command.engine !== 'docker') return null;
+  if (hasExplicitDockerSelection(env)) return null;
+  if (!isDockerDaemonUnavailable(result)) return null;
+
+  const podman = findBinaryOnPath('podman', command.env.PATH ?? '');
+  if (!podman) return null;
+  return { executable: podman, engine: 'podman', env: command.env };
 }
 
-export function spawnDocker(args: string[], options: DockerRunOptions = {}): ChildProcess {
-  const command = resolveDockerCommand(options.env);
-  return spawn(command.executable, args, {
-    cwd: options.cwd,
-    env: command.env,
-    signal: options.signal,
-    stdio: 'pipe',
-  });
+function hasExplicitDockerSelection(env?: NodeJS.ProcessEnv): boolean {
+  const mergedEnv = { ...process.env, ...env };
+  return Boolean(mergedEnv.SERO_DOCKER_BIN || mergedEnv.DOCKER_BIN || normalizeEngine(mergedEnv.SERO_CONTAINER_ENGINE) === 'docker');
+}
+
+function hasAnyExplicitContainerSelection(env?: NodeJS.ProcessEnv): boolean {
+  const mergedEnv = { ...process.env, ...env };
+  return Boolean(mergedEnv.SERO_DOCKER_BIN || mergedEnv.DOCKER_BIN || normalizeEngine(mergedEnv.SERO_CONTAINER_ENGINE));
+}
+
+function rememberSuccessfulImplicitCommand(command: DockerCommandResolution, env: NodeJS.ProcessEnv | undefined, result: DockerCommandResult): void {
+  if (result.exitCode !== 0) return;
+  if (hasAnyExplicitContainerSelection(env)) return;
+  cachedImplicitCommand = { executable: command.executable, engine: command.engine };
+}
+
+function isDockerDaemonUnavailable(result: DockerCommandResult): boolean {
+  if (result.exitCode === 0) return false;
+  return /cannot connect to the docker daemon|failed to connect to the docker api|is the docker daemon running|docker\.sock|docker_engine|error during connect/i.test(result.stderr);
 }
 
 export function isDockerCliMissing(result: DockerCommandResult): boolean {

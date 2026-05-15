@@ -29,14 +29,14 @@ interface RuntimeOption {
 }
 
 const APPLE_CONTAINER_COPY = 'Recommended on Apple Silicon Macs. Live-mounted Linux workspace using Apple Container.';
-const DOCKER_COPY = 'Portable Linux workspace for macOS Intel, Windows, and Linux. Requires Docker Desktop or Docker Engine.';
+const DOCKER_COPY = 'Docker-compatible Linux workspace for macOS, Windows, and Linux. Uses Docker Desktop/Engine or Podman.';
 const HOST_COPY = 'Run directly on this computer. Fastest startup, least isolated.';
 
 type RuntimeBackendForDisplay = WorkspaceRuntimeBackend | DeprecatedWorkspaceRuntimeBackend;
 
 export function runtimeName(backend: RuntimeBackendForDisplay): string {
   if (backend === 'apple-container') return 'Apple Container';
-  if (backend === 'docker') return 'Docker';
+  if (backend === 'docker') return 'Docker / Podman';
   return 'Host';
 }
 
@@ -62,24 +62,24 @@ export function getRuntimePickerOptions(platform: string, arch: string): Runtime
   if (platform === 'darwin' && arch === 'arm64') {
     return [
       { backend: 'apple-container', name: 'Apple Container', description: APPLE_CONTAINER_COPY },
-      { backend: 'docker', name: 'Docker', description: DOCKER_COPY },
+      { backend: 'docker', name: 'Docker / Podman', description: DOCKER_COPY },
       hostOption,
     ];
   }
 
   if (platform === 'darwin') {
     return [
-      { backend: 'docker', name: 'Docker', description: DOCKER_COPY },
+      { backend: 'docker', name: 'Docker / Podman', description: DOCKER_COPY },
       hostOption,
     ];
   }
 
   if (platform === 'win32') {
-    return [{ backend: 'docker', name: 'Docker', description: DOCKER_COPY }];
+    return [{ backend: 'docker', name: 'Docker / Podman', description: DOCKER_COPY }];
   }
 
   return [
-    { backend: 'docker', name: 'Docker', description: DOCKER_COPY },
+    { backend: 'docker', name: 'Docker / Podman', description: DOCKER_COPY },
     hostOption,
   ];
 }

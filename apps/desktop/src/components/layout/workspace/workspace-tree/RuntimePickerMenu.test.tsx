@@ -125,8 +125,8 @@ describe('RuntimePickerMenu', () => {
 
     expect(document.body.textContent).toContain('Apple Container');
     expect(document.body.textContent).toContain('Recommended on Apple Silicon Macs');
-    expect(document.body.textContent).toContain('Docker');
-    expect(document.body.textContent).toContain('Portable Linux workspace for macOS Intel, Windows, and Linux');
+    expect(document.body.textContent).toContain('Docker / Podman');
+    expect(document.body.textContent).toContain('Docker-compatible Linux workspace for macOS, Windows, and Linux');
     expect(document.body.textContent).toContain('Host');
     expect(document.body.textContent).toContain('Advanced');
     expect(document.body.textContent).toContain('least isolated');
@@ -141,7 +141,7 @@ describe('RuntimePickerMenu', () => {
     });
     await openPicker();
 
-    expect(document.body.textContent).toContain('Docker');
+    expect(document.body.textContent).toContain('Docker / Podman');
     expect(document.body.textContent).toContain('Host');
     expect(document.body.textContent).not.toContain('Apple Container');
   });
@@ -154,8 +154,8 @@ describe('RuntimePickerMenu', () => {
     });
     await openPicker();
 
-    expect(document.body.textContent).toContain('Docker');
-    expect(document.body.textContent).toContain('Portable Linux workspace for macOS Intel, Windows, and Linux');
+    expect(document.body.textContent).toContain('Docker / Podman');
+    expect(document.body.textContent).toContain('Docker-compatible Linux workspace for macOS, Windows, and Linux');
     expect(document.body.textContent).not.toContain('Apple Container');
     expect(document.body.textContent).not.toContain('WSL');
     expect(document.body.textContent).not.toContain('Host');
@@ -199,7 +199,7 @@ describe('RuntimePickerMenu', () => {
     await openPicker();
 
     const docker = Array.from(document.querySelectorAll('button')).find((button) =>
-      button.textContent?.includes('Portable Linux workspace'),
+      button.textContent?.includes('Docker-compatible Linux workspace'),
     );
     if (!(docker instanceof HTMLButtonElement)) throw new Error('Expected Docker option');
 
@@ -209,7 +209,7 @@ describe('RuntimePickerMenu', () => {
     });
 
     expect(setRuntimeBackend).toHaveBeenCalledWith('workspace-1', 'docker');
-    expect(document.body.textContent).toContain('switching to Docker');
+    expect(document.body.textContent).toContain('switching to Docker / Podman');
   });
 
   it('keeps the picker open with visible pending state while changing runtimes', async () => {
@@ -225,7 +225,7 @@ describe('RuntimePickerMenu', () => {
     await openPicker();
 
     const docker = Array.from(document.querySelectorAll('button')).find((button) =>
-      button.textContent?.includes('Portable Linux workspace'),
+      button.textContent?.includes('Docker-compatible Linux workspace'),
     );
     if (!(docker instanceof HTMLButtonElement)) throw new Error('Expected Docker option');
 
@@ -234,7 +234,7 @@ describe('RuntimePickerMenu', () => {
       await Promise.resolve();
     });
 
-    expect(document.body.textContent).toContain('Switching Workspace 1 to Docker…');
+    expect(document.body.textContent).toContain('Switching Workspace 1 to Docker / Podman…');
     expect(document.body.textContent).toContain('Workspace runtime');
     expect(docker.disabled).toBe(true);
 
@@ -243,7 +243,7 @@ describe('RuntimePickerMenu', () => {
       await Promise.resolve();
     });
 
-    expect(document.body.textContent).toContain('Workspace 1 is switching to Docker');
+    expect(document.body.textContent).toContain('Workspace 1 is switching to Docker / Podman');
   });
 
   it('opens the Environment Doctor dialog from the footer button', async () => {
