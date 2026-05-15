@@ -10,7 +10,7 @@
  * Called from root package.json `postinstall`.
  */
 
-import { execSync, execFileSync } from 'child_process';
+import { execSync, execFileSync, spawnSync } from 'child_process';
 import { existsSync, readdirSync, realpathSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -48,7 +48,12 @@ function findElectronPackageDir() {
 }
 
 function findElectronBinary(electronDir) {
-  const bin = resolve(electronDir, 'dist/Electron.app/Contents/MacOS/Electron');
+  const platformBinary = process.platform === 'darwin'
+    ? 'dist/Electron.app/Contents/MacOS/Electron'
+    : process.platform === 'win32'
+      ? 'dist/electron.exe'
+      : 'dist/electron';
+  const bin = resolve(electronDir, platformBinary);
   return existsSync(bin) ? bin : null;
 }
 
@@ -64,17 +69,13 @@ function findElectronVersion(electronDir) {
 }
 
 function getElectronModulesAbi(electronBin) {
-  const result = execFileSync(
-    electronBin,
-    ['-e', 'process.stdout.write(process.versions.modules)'],
-    {
-      env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
-      timeout: 15_000,
-      encoding: 'utf8',
-      stdio: 'pipe',
-    },
-  );
-  return result.trim();
+  const result = spawnSync(electronBin, ['-e', 'process.stdout.write(process.versions.modules)'], {
+    env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+    timeout: 15_000,
+    encoding: 'utf8',
+    stdio: 'pipe',
+  });
+  return result.status === 0 ? result.stdout.trim() : null;
 }
 
 function testNodePty(electronBin, ptyDir) {
@@ -133,23 +134,27 @@ function main() {
 
   const electronDir = findElectronPackageDir();
   if (!electronDir) {
-    console.log('[node-pty] Electron package not found — skipping (install apps/desktop first).');
-    process.exit(0);
+    console.error('[node-pty] Electron package not found. Set SERO_SKIP_NATIVE_REBUILD=1 to skip intentionally.');
+    process.exit(1);
   }
 
   const electronBin = findElectronBinary(electronDir);
   if (!electronBin) {
-    console.log('[node-pty] Electron binary not found — skipping (install apps/desktop first).');
-    process.exit(0);
+    console.error('[node-pty] Electron binary not found. Set SERO_SKIP_NATIVE_REBUILD=1 to skip intentionally.');
+    process.exit(1);
   }
 
   const electronVersion = findElectronVersion(electronDir);
   if (!electronVersion) {
-    console.log('[node-pty] Could not determine Electron version — skipping.');
-    process.exit(0);
+    console.error('[node-pty] Could not determine Electron version.');
+    process.exit(1);
   }
 
   const electronAbi = getElectronModulesAbi(electronBin);
+  if (!electronAbi) {
+    console.error('[node-pty] Could not determine Electron module ABI.');
+    process.exit(1);
+  }
 
   if (testNodePty(electronBin, ptyDir)) {
     console.log(`\x1b[32m[node-pty] ✓ Binary works with Electron ${electronVersion} (ABI ${electronAbi}).\x1b[0m`);

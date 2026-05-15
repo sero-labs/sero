@@ -82,7 +82,12 @@ function findElectronPackageDir() {
 }
 
 function findElectronBinary(electronDir) {
-  const bin = resolve(electronDir, 'dist/Electron.app/Contents/MacOS/Electron');
+  const platformBinary = process.platform === 'darwin'
+    ? 'dist/Electron.app/Contents/MacOS/Electron'
+    : process.platform === 'win32'
+      ? 'dist/electron.exe'
+      : 'dist/electron';
+  const bin = resolve(electronDir, platformBinary);
   return existsSync(bin) ? bin : null;
 }
 
@@ -170,20 +175,20 @@ function main() {
 
   const electronDir = findElectronPackageDir();
   if (!electronDir) {
-    console.log('[better-sqlite3] Electron package not found — skipping (install apps/desktop first).');
-    process.exit(0);
+    console.error('[better-sqlite3] Electron package not found. Set SERO_SKIP_NATIVE_REBUILD=1 to skip intentionally.');
+    process.exit(1);
   }
 
   const electronBin = findElectronBinary(electronDir);
   if (!electronBin) {
-    console.log('[better-sqlite3] Electron binary not found — skipping (install apps/desktop first).');
-    process.exit(0);
+    console.error('[better-sqlite3] Electron binary not found. Set SERO_SKIP_NATIVE_REBUILD=1 to skip intentionally.');
+    process.exit(1);
   }
 
   const electronVersion = findElectronVersion(electronDir);
   if (!electronVersion) {
-    console.log('[better-sqlite3] Could not determine Electron version — skipping.');
-    process.exit(0);
+    console.error('[better-sqlite3] Could not determine Electron version.');
+    process.exit(1);
   }
 
   if (testWithElectron(electronBin, sqlite3Dir)) {

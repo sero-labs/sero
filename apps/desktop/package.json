@@ -23,8 +23,8 @@
     "container:build-image": "cd images && container build -t ghcr.io/sero-labs/sero-node:latest -f Dockerfile.sero-node .",
     "release": "bash scripts/build-release.sh",
     "release:signed": "bash scripts/build-release.sh --sign",
-    "pack": "node scripts/prepare-packaging.mjs && CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder --config electron-builder.yml --mac --dir",
-    "dist": "node scripts/prepare-packaging.mjs && CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder --config electron-builder.yml --mac"
+    "pack": "bash -c 'trap \"node scripts/cleanup-packaging.mjs\" EXIT; node scripts/prepare-packaging.mjs && CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder --config electron-builder.yml --mac --dir'",
+    "dist": "bash -c 'trap \"node scripts/cleanup-packaging.mjs\" EXIT; node scripts/prepare-packaging.mjs && CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder --config electron-builder.yml --mac'"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

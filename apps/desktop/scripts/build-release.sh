@@ -16,6 +16,11 @@ MONO_ROOT="$(cd "$PROJECT_DIR/../.." && pwd)"
 
 cd "$PROJECT_DIR"
 
+cleanup_packaging() {
+  node "$PROJECT_DIR/scripts/cleanup-packaging.mjs" || true
+}
+trap cleanup_packaging EXIT
+
 # ── Parse flags ──────────────────────────────────────────────
 SIGN=false
 for arg in "$@"; do
@@ -89,6 +94,10 @@ node scripts/prepare-packaging.mjs
 # so we rebuild node-pty and better-sqlite3 manually against Electron's Node ABI.
 echo "▸ Step 5/6: Rebuilding native modules for Electron..."
 ELECTRON_VERSION="$(ELECTRON_RUN_AS_NODE=1 pnpm --dir "$PROJECT_DIR" exec electron -e "process.stdout.write(process.versions.electron)")"
+if [ -z "$ELECTRON_VERSION" ]; then
+  echo "ERROR: Failed to read installed Electron version"
+  exit 1
+fi
 if pnpm --dir "$PROJECT_DIR" exec electron-rebuild -f --version "$ELECTRON_VERSION" --module-dir "$MONO_ROOT" -w node-pty,better-sqlite3; then
   echo "  Rebuilt node-pty + better-sqlite3 for Electron ${ELECTRON_VERSION}"
 else

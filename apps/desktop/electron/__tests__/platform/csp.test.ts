@@ -23,6 +23,7 @@ describe('content security policy', () => {
     expect(csp).toContain("connect-src 'self' blob:");
     expect(csp).toContain("img-src 'self' data: blob: https: http: sero-ext:");
     expect(csp).toContain("media-src 'self' blob:");
+    // Concatenate these terms so source scans do not false-positive on this test.
     for (const blockedSource of ['spot' + 'ify', 's' + 'cdn']) {
       expect(csp.toLowerCase()).not.toContain(blockedSource);
     }
