@@ -89,6 +89,7 @@ If you change `apps/desktop/images/Dockerfile.sero-node` or container-installed 
 
 **General**
 - Save new documentation/plans in `@docs/` or typed subfolders
+- Never commit local Pi scratch/planning files under `.pi/` (especially `.pi/plans/`); the directory is gitignored and should remain local-only.
 - Use Conventional Commit messages
 - Ensure good type safety in source files when conducting PR reviews
 - Don't push to remote git branch automatically unless asked specifically or asked to create a PR
