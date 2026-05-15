@@ -6,7 +6,16 @@ import { git, nonEmpty } from './git-command-support';
 const LOG_FORMAT = '%H%x00%h%x00%P%x00%an%x00%ae%x00%aI%x00%s%x00%D';
 const LOG_SEP = '\x00';
 const RECORD_SEP = '\x01';
-const VISIBLE_HISTORY_REFS = ['HEAD', '--branches', '--remotes', '--tags'] as const;
+const HISTORY_REF_GLOBS = ['--branches', '--remotes', '--tags'] as const;
+const VISIBLE_HISTORY_REFS = ['HEAD', ...HISTORY_REF_GLOBS] as const;
+
+function hasHeadCommit(cwd: string): boolean {
+  return git(['rev-parse', '--verify', 'HEAD'], cwd).length > 0;
+}
+
+function visibleHistoryRefs(cwd: string): string[] {
+  return hasHeadCommit(cwd) ? [...VISIBLE_HISTORY_REFS] : [...HISTORY_REF_GLOBS];
+}
 
 export function getCommits(cwd: string, max = 150): CommitNode[] {
   const raw = git([
@@ -14,7 +23,7 @@ export function getCommits(cwd: string, max = 150): CommitNode[] {
     '--topo-order',
     `--max-count=${max}`,
     `--format=${RECORD_SEP}${LOG_FORMAT}`,
-    ...VISIBLE_HISTORY_REFS,
+    ...visibleHistoryRefs(cwd),
   ], cwd);
   if (!raw) return [];
 
@@ -58,10 +67,11 @@ function parseRefs(raw: string): RefLabel[] {
 }
 
 export function getCurrentBranch(cwd: string): string {
-  return git(['rev-parse', '--abbrev-ref', 'HEAD'], cwd) || 'HEAD';
+  return git(['symbolic-ref', '--short', 'HEAD'], cwd) || git(['rev-parse', '--abbrev-ref', 'HEAD'], cwd) || 'HEAD';
 }
 
 export function getHeadHash(cwd: string): string {
+  if (!hasHeadCommit(cwd)) return '';
   return git(['rev-parse', '--short', 'HEAD'], cwd) || '';
 }
 
@@ -75,6 +85,6 @@ export function isGitRepo(cwd: string): boolean {
 }
 
 export function getCommitCount(cwd: string): number {
-  const raw = git(['rev-list', '--count', ...VISIBLE_HISTORY_REFS], cwd);
+  const raw = git(['rev-list', '--count', ...visibleHistoryRefs(cwd)], cwd);
   return parseInt(raw, 10) || 0;
 }

@@ -54,6 +54,7 @@ export function runGit(
       encoding: 'utf8',
       timeout,
       maxBuffer,
+      stdio: ['ignore', 'pipe', 'pipe'],
     });
 
     return normalizeResult(output, trim);

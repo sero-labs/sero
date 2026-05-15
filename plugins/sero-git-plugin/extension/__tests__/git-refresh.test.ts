@@ -11,6 +11,30 @@ import {
 } from './git-test-helpers';
 
 describe('refreshGitState', () => {
+  it('refreshes an initialized repo before the first commit exists', async () => {
+    const repoPath = await createGitRepo();
+    const statePath = statePathFor(repoPath);
+
+    try {
+      await writeRepoFile(repoPath, 'draft.txt', 'draft\n');
+
+      const state = await refreshGitState(repoPath, statePath, { scope: 'full' });
+
+      expect(state.error).toBeUndefined();
+      expect(state.currentBranch).not.toBe('');
+      expect(state.headHash).toBe('');
+      expect(state.commits).toEqual([]);
+      expect(state.commitCount).toBe(0);
+      expect(state.fileChanges).toContainEqual({
+        path: 'draft.txt',
+        status: 'untracked',
+        staged: false,
+      });
+    } finally {
+      await cleanupPaths([repoPath]);
+    }
+  });
+
   it('uses quick refresh mode when HEAD and branch are unchanged', async () => {
     const repoPath = await createGitRepo();
     const statePath = statePathFor(repoPath);
