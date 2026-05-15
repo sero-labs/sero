@@ -10,6 +10,7 @@ import { tokenizeCliInput, splitCommandLines } from './parser';
 import { getCliSessionBridge } from '../bridges/session-bridge';
 import { tryParseImageJson, summarizeImageJson } from '@electron/ipc/agent/core/tool-result-images';
 import { prepareToolImage } from '@electron/shared/media/image-resize';
+import { prepareCliImageContent } from './content-images';
 import {
   resolveCommandTimeoutMs,
   buildBatchDeadline,
@@ -148,7 +149,10 @@ function normalizeCliResult(result: CliResult): CliResult {
   return {
     output: typeof result.output === 'string' ? result.output : String(result.output ?? ''),
     exitCode: result.exitCode ?? 0,
-    content: Array.isArray(result.content) ? result.content : undefined,
+    content: prepareCliImageContent(
+      Array.isArray(result.content) ? result.content : undefined,
+      typeof result.output === 'string' ? result.output : String(result.output ?? ''),
+    ),
     details: result.details,
   };
 }

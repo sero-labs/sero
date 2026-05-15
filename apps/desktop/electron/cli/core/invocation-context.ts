@@ -7,6 +7,7 @@ import type {
   CliSessionRuntime,
 } from './types';
 import { getCliSessionBridge } from '../bridges/session-bridge';
+import { prepareCliImageContent } from './content-images';
 
 export function buildInvocation(
   workspaceId: string,
@@ -52,7 +53,7 @@ export function bridgeToolUpdate(
 
   return (update) => {
     onUpdate({
-      content: update.content,
+      content: prepareCliImageContent(update.content) ?? [],
       details: update.details,
     });
   };

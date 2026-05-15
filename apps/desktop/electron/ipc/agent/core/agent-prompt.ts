@@ -11,7 +11,7 @@ import type {
 import type { ChatAttachment, ChatMessage, ChatToolCallMessage, AgentStreamEvent, ToolResultImage } from '@/types/ipc';
 import { getCliRegistry } from '@electron/cli';
 import type { CliContentBlock } from '@electron/cli/core';
-import { createSeroCliTool, splitCommandLines } from '@electron/cli/core';
+import { createSeroCliTool, prepareCliImageContent, splitCommandLines } from '@electron/cli/core';
 import { workspaceManager } from '@electron/shared/infra/shared-infra';
 import { createSeroUIContext } from '@electron/features/apps/extensions/ui-context';
 import { attachmentsToImages, nextId } from './agent-helpers';
@@ -218,7 +218,8 @@ export async function executeDirectCliPrompt({
       command: text,
       cwd,
       onUpdate: (update) => {
-        const view = toToolView(update.content, update.details);
+        const content = normalizeCliContent(update.content);
+        const view = toToolView(content, update.details);
         sendEvent({
           type: 'tool_update',
           sessionId,
@@ -340,10 +341,11 @@ function createToolResultMessage(
 function normalizeCliContent(
   content: CliContentBlock[] | undefined,
 ): Array<TextContent | ImageContent> {
-  if (!content?.length) return [];
+  const prepared = prepareCliImageContent(content);
+  if (!prepared?.length) return [];
 
   const normalized: Array<TextContent | ImageContent> = [];
-  for (const block of content) {
+  for (const block of prepared) {
     if (block.type === 'text') {
       normalized.push({ type: 'text', text: block.text });
       continue;
