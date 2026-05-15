@@ -10,8 +10,7 @@ import {
   type JsonRpcNotification,
   type LspServerConfig,
 } from './types';
-import type { ContainerManager } from '@electron/features/container';
-import { getRuntimeCapabilityEntry, resolveWorkspaceRuntime } from '@electron/features/workspace/runtime-resolution';
+import type { RuntimeManager } from '@electron/features/workspace/runtime/runtime-manager';
 
 export class LspManager extends EventEmitter {
   /** workspaceId → language → LspServerProcess */
@@ -19,7 +18,7 @@ export class LspManager extends EventEmitter {
   /** workspaceId/language → in-flight startup promise */
   private startupPromises = new Map<string, Promise<{ capabilities: Record<string, unknown>; language: string }>>();
 
-  constructor(private containerManager: ContainerManager) {
+  constructor(private runtimeManager: RuntimeManager) {
     super();
   }
 
@@ -31,9 +30,9 @@ export class LspManager extends EventEmitter {
     workspaceId: string,
     languageId: string,
   ): Promise<{ capabilities: Record<string, unknown>; language: string }> {
-    const runtime = await resolveWorkspaceRuntime(workspaceId);
-    if (runtime.actualRuntime !== 'container') {
-      throw new Error(getRuntimeCapabilityEntry(runtime, 'containerizedLanguageServers').detail);
+    const runtime = await this.runtimeManager.getRuntime(workspaceId);
+    if (!runtime.capabilities.languageServers) {
+      throw new Error(`Language servers are not available for ${runtime.backend} runtime.`);
     }
 
     const config = findConfigByLanguageId(languageId);
@@ -123,10 +122,13 @@ export class LspManager extends EventEmitter {
     workspaceId: string,
     config: LspServerConfig,
   ): Promise<{ capabilities: Record<string, unknown>; language: string }> {
-    await this.waitForContainerAndInstall(workspaceId, config);
+    const runtime = await this.runtimeManager.getRuntime(workspaceId);
+    if (!runtime.capabilities.languageServers) {
+      throw new Error(`Language servers are not available for ${runtime.backend} runtime.`);
+    }
+    await this.waitForRuntimeAndInstall(runtime, config);
 
-    const envVars = this.containerManager.getEnvVars?.() ?? {};
-    const server = new LspServerProcess(workspaceId, config, envVars);
+    const server = new LspServerProcess(workspaceId, config, runtime, {});
 
     server.on('notification', (notification: JsonRpcNotification) => {
       this.emit('notification', { workspaceId, language: config.language, notification });
@@ -165,30 +167,33 @@ export class LspManager extends EventEmitter {
   }
 
   /**
-   * Wait for the container and ensure the LSP binary is installed.
-   * Retries up to 5 times for transient container errors.
+   * Wait for the runtime and ensure the LSP binary is installed.
+   * Retries up to 5 times for transient runtime errors.
    */
-  private async waitForContainerAndInstall(workspaceId: string, config: LspServerConfig): Promise<void> {
+  private async waitForRuntimeAndInstall(
+    runtime: Awaited<ReturnType<RuntimeManager['getRuntime']>>,
+    config: LspServerConfig,
+  ): Promise<void> {
     const MAX_RETRIES = 5;
     const RETRY_DELAY_MS = 2000;
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       try {
-        const checkResult = await this.containerManager.exec(workspaceId, config.checkCommand);
+        const checkResult = await runtime.exec({ command: config.checkCommand });
         if (checkResult.exitCode === 0) return;
 
-        console.log(`[lsp-manager] Installing ${config.language} server in ${workspaceId}...`);
-        const installResult = await this.containerManager.exec(workspaceId, config.installCommand);
+        console.log(`[lsp-manager] Installing ${config.language} server in ${runtime.workspaceId}...`);
+        const installResult = await runtime.exec({ command: config.installCommand });
         if (installResult.exitCode !== 0) {
           throw new Error(`Failed to install ${config.language} server: ${installResult.stderr || installResult.stdout}`);
         }
-        console.log(`[lsp-manager] Installed ${config.language} server in ${workspaceId}`);
+        console.log(`[lsp-manager] Installed ${config.language} server in ${runtime.workspaceId}`);
         return;
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : '';
         const isTransient = msg.includes('not running') || msg.includes('not found');
         if (isTransient && attempt < MAX_RETRIES) {
-          console.log(`[lsp-manager] Container not ready for ${workspaceId}, retrying (${attempt}/${MAX_RETRIES})...`);
+          console.log(`[lsp-manager] Runtime not ready for ${runtime.workspaceId}, retrying (${attempt}/${MAX_RETRIES})...`);
           await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
           continue;
         }

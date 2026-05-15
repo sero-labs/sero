@@ -1,0 +1,64 @@
+[
+    {
+        "Id": "sha256:bd05bbe1069b846eeac4b7c3f0360e298d3b49d4bde818f962be50419ea643b5",
+        "RepoTags": [
+            "ghcr.io/sero-labs/sero-node:0.1.0"
+        ],
+        "RepoDigests": [
+            "ghcr.io/sero-labs/sero-node@sha256:493051d88b0fbc62dcdbf9e33fae089fd426f5c11a83bf5907624bc680c01a4f"
+        ],
+        "Comment": "buildkit.dockerfile.v0",
+        "Created": "2026-05-13T22:46:11.33848284Z",
+        "Config": {
+            "Env": [
+                "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                "DEBIAN_FRONTEND=noninteractive",
+                "PLAYWRIGHT_BROWSERS_PATH=/ms-playwright"
+            ],
+            "Entrypoint": [
+                "/usr/bin/tini",
+                "--"
+            ],
+            "WorkingDir": "/workspace",
+            "Labels": {
+                "org.opencontainers.image.created": "2026-05-13T22:26:27.789Z",
+                "org.opencontainers.image.description": "",
+                "org.opencontainers.image.licenses": "Apache-2.0",
+                "org.opencontainers.image.revision": "3b0c2441f3dfef7663439e7acabc738cf77b1240",
+                "org.opencontainers.image.source": "https://github.com/sero-labs/sero",
+                "org.opencontainers.image.title": "sero",
+                "org.opencontainers.image.url": "https://github.com/sero-labs/sero",
+                "org.opencontainers.image.version": "0.1.0"
+            }
+        },
+        "Architecture": "arm64",
+        "Os": "linux",
+        "Size": 1842553712,
+        "GraphDriver": {
+            "Data": {
+                "LowerDir": "/var/lib/docker/overlay2/3db585d772e7a39d138ed7c1cd0e0b92b412dd033debed396d9a39bf980dba8a/diff:/var/lib/docker/overlay2/ed224597801b12fcf52e4944536854f1e614e89663589a25010c6940eb7c9ff3/diff:/var/lib/docker/overlay2/e17d3dd33f41f30113d5c223981b3a839bcf6556b4f7c02b07272066569500a6/diff:/var/lib/docker/overlay2/5241b0abf03ec59301463f6db40f30feda646a8b7145e2f3576798fe94faab78/diff:/var/lib/docker/overlay2/0e2572f4c346c4d285e2229d500a75bc75743ebb5ad1ba987e5526dc0cfdee54/diff:/var/lib/docker/overlay2/ccf2de7953eef1812bf3a28813df18f0f35f7cbeb33fe0737814af976b6edc0e/diff:/var/lib/docker/overlay2/95b05031bfcb8c73329f219d64596684518601080159a21f281735b6c23f10ac/diff:/var/lib/docker/overlay2/0da047d89e6e8fd856db67310ba422cffbf96a03d8ada498954c4c0c25295925/diff",
+                "MergedDir": "/var/lib/docker/overlay2/92eb4b9472b78e429a20324181ffa56e56ceede9bf64c212c365257656c747b5/merged",
+                "UpperDir": "/var/lib/docker/overlay2/92eb4b9472b78e429a20324181ffa56e56ceede9bf64c212c365257656c747b5/diff",
+                "WorkDir": "/var/lib/docker/overlay2/92eb4b9472b78e429a20324181ffa56e56ceede9bf64c212c365257656c747b5/work"
+            },
+            "Name": "overlay2"
+        },
+        "RootFS": {
+            "Type": "layers",
+            "Layers": [
+                "sha256:d9a56420aee7ff835e0c05fc666d1237d40f0da5fe338738e651b01db4672a5d",
+                "sha256:0a9364d98b84dbf2f721e6efe5bac252171e5c192bb7c31fcd5d5f2e2b5f2256",
+                "sha256:e9a6d934183abeb5589bd42d53318aa708fe36c778e44d5e0d7fbcdcdd65cebd",
+                "sha256:552e4499df8f7024e446bcb2103688cc9230ac47e8ff542adebeadc502fd46b4",
+                "sha256:1dabce9a027b3ccb7aab27767dd2eba2519dc355ccdcf62a16ca674f1ed5ac06",
+                "sha256:ff8341bf967a448bfc405b7bdd323491d8b1c18eb0d107e793d92d841bb9a63a",
+                "sha256:166ffdbdfe3fd2634d8e389bb2b81b70bbe08814e4c136450c17f79bbec9dca9",
+                "sha256:9d25438c6fede4fbfb228a4d89940b438103626cd1b3aab6488b10b2cbf17a27",
+                "sha256:5f70bf18a086007016e948b04aed3b82103a36bea41755b6cddfaf10ace3c6ef"
+            ]
+        },
+        "Metadata": {
+            "LastTagTime": "0001-01-01T00:00:00Z"
+        }
+    }
+]

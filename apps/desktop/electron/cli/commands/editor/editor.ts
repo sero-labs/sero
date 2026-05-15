@@ -1,51 +1,19 @@
-import { promises as fs } from 'node:fs';
-import path from 'node:path';
-import { containerManager, workspaceManager } from '@electron/shared/infra/shared-infra';
+import { runtimeManager } from '@electron/features/workspace/runtime/runtime-manager';
 import type { CliRegistry } from '@electron/cli/core/registry';
 import type { CliCommandContext } from '@electron/cli/core/types';
 import { fail, ok } from '@electron/cli/lib/utils';
 
-const WORKSPACE_PREFIX = '/workspace';
-
-function toHostPath(workspacePath: string, filePath: string): string {
-  const raw = filePath.startsWith(WORKSPACE_PREFIX)
-    ? path.join(workspacePath, filePath.slice(WORKSPACE_PREFIX.length))
-    : path.join(workspacePath, filePath);
-
-  const resolved = path.resolve(raw);
-  const root = path.resolve(workspacePath);
-  if (!resolved.startsWith(root + path.sep) && resolved !== root) {
-    throw new Error(`Path escapes workspace: ${filePath}`);
-  }
-  return resolved;
-}
-
 async function readFile(workspaceId: string, filePath: string): Promise<string> {
-  const useContainer = (await workspaceManager.isContainerEnabled(workspaceId)) && containerManager.hasContainer(workspaceId);
-  if (useContainer) return containerManager.readFile(workspaceId, filePath);
-
-  const wsPath = workspaceManager.getPath(workspaceId);
-  if (!wsPath) throw new Error(`Workspace not found: ${workspaceId}`);
-  return fs.readFile(toHostPath(wsPath, filePath), 'utf8');
+  const runtime = await runtimeManager.getRuntime(workspaceId);
+  return (await runtime.readFile({ path: filePath })).content;
 }
 
 async function listFiles(workspaceId: string, dirPath: string): Promise<string> {
-  const useContainer = (await workspaceManager.isContainerEnabled(workspaceId)) && containerManager.hasContainer(workspaceId);
-  if (useContainer) {
-    const entries = await containerManager.listFiles(workspaceId, dirPath);
-    return entries
-      .sort((a, b) => a.name.localeCompare(b.name))
-      .map((e) => (e.type === 'directory' ? `${e.name}/` : e.name))
-      .join('\n') || '(empty directory)';
-  }
-
-  const wsPath = workspaceManager.getPath(workspaceId);
-  if (!wsPath) throw new Error(`Workspace not found: ${workspaceId}`);
-  const absDir = toHostPath(wsPath, dirPath);
-  const entries = await fs.readdir(absDir, { withFileTypes: true });
+  const runtime = await runtimeManager.getRuntime(workspaceId);
+  const entries = await runtime.listFiles({ path: dirPath });
   return entries
     .sort((a, b) => a.name.localeCompare(b.name))
-    .map((e) => (e.isDirectory() ? `${e.name}/` : e.name))
+    .map((entry) => (entry.type === 'directory' ? `${entry.name}/` : entry.name))
     .join('\n') || '(empty directory)';
 }
 

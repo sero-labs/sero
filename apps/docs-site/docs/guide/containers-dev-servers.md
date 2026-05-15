@@ -1,13 +1,13 @@
 # Containers and Dev Servers
 
-Sero can run each workspace inside a macOS Apple container. That gives the agent, terminals, tools, and dev servers a shared Linux-like workspace at `/workspace` while the project remains stored on your Mac.
+Sero can run each workspace through a runtime backend: Apple Container, Docker, or reduced host mode. Container-backed runtimes give the agent, terminals, tools, and dev servers a shared Linux-like workspace at `/workspace` while the project remains stored on your host machine.
 
-Use this guide when you want to start a project server and preview it in Sero without fighting host port conflicts.
+Use this guide when you want to start a project server and preview it in Sero without fighting runtime networking details.
 
 ## Quick path
 
 1. Open a workspace in Sero.
-2. Keep container mode enabled for the workspace when the runtime is available.
+2. Choose a container-backed runtime for the workspace when one is available: Apple Container or Docker.
 3. Start your server from the workspace terminal or agent, binding to all interfaces when your framework needs it:
 
 ```bash
@@ -20,11 +20,11 @@ npm run dev -- --host 0.0.0.0
 sero devserver register --name "Web app" --port 3000 --command "npm run dev -- --host 0.0.0.0" --framework vite
 ```
 
-5. Open the URL from Explorer's dev-server panel, or ask the agent to preview it:
+5. Open the URL from Explorer's dev-server panel, or ask the agent to preview the registered URL:
 
 ```bash
 sero devserver list
-sero app preview http://<container-ip>:3000
+sero app preview <registered-url>
 ```
 
 ## What runs where
@@ -32,18 +32,18 @@ sero app preview http://<container-ip>:3000
 ```text
 Agent / Explorer terminal
         ↓
-workspace container `sero-<workspaceId>`
+workspace runtime container `sero-<workspaceId>`
         ↓
 project files mounted at `/workspace`
         ↓
-dev server listens on container port
+dev server listens on runtime port
         ↓
-Sero dev-server registry exposes URL using detected port/container IP
+Sero registers a reachable preview URL for the active runtime
         ↓
 Explorer browser or in-app preview displays the app
 ```
 
-Sero creates one container per workspace when container mode is enabled and a runtime action needs it.
+Sero creates one runtime container per workspace when Apple Container or Docker is selected and a runtime action needs it.
 
 ```mermaid
 sequenceDiagram
@@ -65,15 +65,15 @@ sequenceDiagram
 
 ## Why this helps with ports
 
-A dev server running inside a workspace container listens on that container's network address. That means two workspaces can usually run servers on the same port inside separate containers without both binding the same host port.
+A dev server running inside a workspace container listens inside that runtime. Apple Container and Docker previews use runtime-managed host-reachable URLs, usually localhost forwarding URLs. Host-mode previews use the normal host URL.
 
-This reduces host port conflicts, but it does not eliminate every networking issue. A preview can still fail if:
+This reduces port and network confusion, but it does not eliminate every issue. A preview can still fail if:
 
 - the server only binds `localhost` inside the container instead of `0.0.0.0`
-- the container IP changed after a restart
+- the container or forwarded preview URL changed after a restart
 - the server process stopped but the registry entry remains
-- container networking, proxy, or DNS is unhealthy
-- the workspace is in host mode, where managed preview behavior is reduced
+- container networking, proxy, Docker port forwarding, or DNS is unhealthy
+- the workspace is in host mode and the server is only reachable from a different environment
 
 ## Register, list, and stop servers
 
@@ -81,7 +81,7 @@ This reduces host port conflicts, but it does not eliminate every networking iss
 |---|---|
 | `sero devserver list` | List registered servers for the current workspace. |
 | `sero devserver register --name <name> --port <port> --command <cmd> [--framework <name>]` | Add a server entry with the command Sero can show/restart. |
-| `sero devserver stop <id>` | Stop the registered server by killing the listening port inside the container. |
+| `sero devserver stop <id>` | Stop the registered server through the active runtime backend. |
 
 The registry is in memory. Do not treat registered dev servers as durable state across app restarts.
 
@@ -93,15 +93,15 @@ Attaching a folder or mounting plugin source can require container recreation be
 
 ## Host mode
 
-If Apple's `container` runtime is unavailable, Sero can continue in host mode. Host mode is useful for core chat, files, editing, and regular local development, but it is not feature-equivalent for container networking, browser automation, or managed dev-server preview.
+If Apple Container and Docker runtimes are unavailable on macOS/Linux, explicitly select Host mode for core chat, files, editing, and regular local development. Sero does not silently switch a selected container runtime to host execution. Host mode can register normal localhost dev servers, but it is not feature-equivalent for container networking, browser automation, or Linux/container parity.
 
-Use [Containers and Host Mode](/reference/containers-host-mode) for the fallback matrix and [Container Isolation](/reference/container-isolation) for lifecycle and mount details.
+Use [Containers and Host Mode](/reference/containers-host-mode) for the runtime matrix and [Container Isolation](/reference/container-isolation) for lifecycle and mount details.
 
 ## Troubleshooting quick checks
 
-- Server works in terminal but preview fails: confirm it binds to `0.0.0.0`, then re-register with the current port/URL.
-- Host port already used: prefer a container-backed workspace so the server listens inside the workspace container.
-- URL stopped working after restart: run `sero devserver list`; if the container IP changed, open the fresh URL or register again.
+- Server works in terminal but preview fails: for container-backed runtimes, confirm it binds to `0.0.0.0`, then re-register with the current port/URL.
+- Host port already used: prefer a container-backed workspace so Sero can manage the runtime preview URL.
+- URL stopped working after restart: run `sero devserver list`; if the container IP or forwarded URL changed, open the fresh URL or register again.
 - Stop does nothing: copy the exact server id from `sero devserver list` and run `sero devserver stop <id>`.
 
 ## Related docs

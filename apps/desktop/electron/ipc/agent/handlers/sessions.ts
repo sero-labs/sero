@@ -31,26 +31,40 @@ async function ensureSessionDir(): Promise<void> {
   await fs.mkdir(SERO_SESSION_DIR, { recursive: true });
 }
 
+interface WorkspaceResolver {
+  findByPath(absPath: string): { id: string } | undefined;
+  readConfig(workspacePath: string): Promise<{ id?: string } | null>;
+}
+
+function detachedWorkspaceId(cwd: string): string {
+  return `detached:${Buffer.from(cwd).toString('base64url')}`;
+}
+
 /**
  * Map a session's cwd to a workspace ID.
  *
- * Looks up the cwd in the workspace registry. Falls back to 'global'
- * for legacy sessions or sessions whose workspace has been removed.
+ * Looks up registered workspaces first. If the workspace was closed/removed
+ * from the registry but its folder still exists, read `.sero-workspace.json`
+ * so the session keeps its original workspace identity instead of appearing
+ * under Global. Truly unknown paths become detached, not global.
  */
-function resolveWorkspaceId(cwd: string): string {
-  // Try exact match against registered workspace paths
-  const entry = workspaceManager.findByPath(cwd);
+export async function resolveSessionWorkspaceId(
+  cwd: string,
+  resolver: WorkspaceResolver = workspaceManager,
+): Promise<string> {
+  const entry = resolver.findByPath(cwd);
   if (entry) return entry.id;
 
-  // Legacy sessions used os.homedir() as cwd
   if (cwd === LEGACY_CWD) return 'global';
 
-  // Unknown cwd — attribute to global
-  return 'global';
+  const config = await resolver.readConfig(cwd);
+  if (config?.id) return config.id;
+
+  return detachedWorkspaceId(cwd);
 }
 
 /** Convert Pi SDK SessionInfo to our serialisable IPC shape. */
-function toSeroSessionInfo(info: {
+async function toSeroSessionInfo(info: {
   path: string;
   id: string;
   cwd: string;
@@ -59,12 +73,12 @@ function toSeroSessionInfo(info: {
   modified: Date;
   messageCount: number;
   firstMessage: string;
-}): SeroSessionInfo {
+}): Promise<SeroSessionInfo> {
   return {
     path: info.path,
     id: info.id,
     cwd: info.cwd,
-    workspaceId: resolveWorkspaceId(info.cwd),
+    workspaceId: await resolveSessionWorkspaceId(info.cwd),
     name: info.name,
     created: info.created.toISOString(),
     modified: info.modified.toISOString(),
@@ -86,7 +100,7 @@ export function registerSessionHandlers(): void {
       await ensureSessionDir();
       try {
         const allSessions = await SessionManager.list(LEGACY_CWD, SERO_SESSION_DIR);
-        const mapped = allSessions.map(toSeroSessionInfo);
+        const mapped = await Promise.all(allSessions.map(toSeroSessionInfo));
 
         // Filter by workspace if requested
         if (workspaceId) {

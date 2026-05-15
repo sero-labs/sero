@@ -8,7 +8,7 @@ import { promisify } from 'util';
 import path from 'path';
 import fs from 'fs';
 
-import { CONTAINER_BIN, DEFAULT_IMAGE } from './types';
+import { CONTAINER_BIN, DEFAULT_IMAGE, seroNodeImageVersionFromRef } from './types';
 
 const execFileAsync = promisify(execFile);
 
@@ -79,7 +79,7 @@ async function buildImage(
   try {
     await execFileAsync(
       CONTAINER_BIN,
-      ['build', '-t', imageName, '-f', filename, '.'],
+      ['build', '-t', imageName, '--build-arg', `SERO_NODE_VERSION=${seroNodeImageVersionFromRef(imageName)}`, '-f', filename, '.'],
       {
         cwd: contextDir,
         timeout: 300_000, // 5 minutes — image builds can be slow

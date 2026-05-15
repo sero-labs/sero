@@ -20,17 +20,18 @@ const initialAppState = useAppStore.getState();
 const initialAgentState = useAgentStore.getState();
 
 function createWorkspace(overrides: Partial<WorkspaceInfo> = {}): WorkspaceInfo {
-  return {
+  const workspace: WorkspaceInfo = {
     id: 'workspace-1',
     name: 'Workspace 1',
     path: '/tmp/workspace-1',
     open: true,
+    runtime: { backend: 'host' },
     container: false,
     references: [],
     mounts: [],
     roots: [],
-    ...overrides,
   };
+  return { ...workspace, ...overrides, runtime: overrides.runtime ?? workspace.runtime };
 }
 
 function createSession(overrides: Partial<SeroSessionInfo> = {}): SeroSessionInfo {

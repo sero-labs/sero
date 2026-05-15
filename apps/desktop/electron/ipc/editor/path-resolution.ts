@@ -2,6 +2,7 @@ import { realpathSync } from 'fs';
 import path from 'path';
 
 import { PRIMARY_ROOT_ID } from '@electron/features/workspace/roots';
+import { toRuntimeIdentityMountPath } from '@electron/features/workspace/runtime/runtime-paths';
 import type { WorkspaceManager } from '@electron/features/workspace/manager';
 
 export const PRIMARY_ROOT_PREFIX = `/${PRIMARY_ROOT_ID}`;
@@ -79,6 +80,33 @@ function toRelativePosix(rootHostPath: string, resolvedHostPath: string): string
   return relative.split(path.sep).join('/');
 }
 
+function isInsideOrEqual(rootPath: string, candidatePath: string): boolean {
+  const relative = path.relative(path.resolve(rootPath), path.resolve(candidatePath));
+  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+}
+
+function resolveHostAbsolutePrimaryPath(
+  workspaceManager: Pick<WorkspaceManager, 'getPath' | 'resolveRootPath'>,
+  workspaceId: string,
+  filePath: string,
+): ResolvedVirtualPath | null {
+  if (!path.isAbsolute(filePath)) return null;
+
+  const rootHostPath = workspaceManager.getPath(workspaceId) ?? null;
+  if (!rootHostPath || !isInsideOrEqual(rootHostPath, filePath)) return null;
+
+  const relative = path.relative(path.resolve(rootHostPath), path.resolve(filePath));
+  const resolvedHostPath = resolveAgainstRoot(rootHostPath, relative, filePath);
+
+  return {
+    rootId: PRIMARY_ROOT_ID,
+    rootHostPath: path.resolve(rootHostPath),
+    resolvedHostPath,
+    relativeToRoot: toRelativePosix(rootHostPath, resolvedHostPath),
+    isPrimaryRoot: true,
+  };
+}
+
 /**
  * Resolve a virtual editor path to its sandboxed host path and root metadata.
  *
@@ -91,6 +119,13 @@ async function resolveVirtualPath(
   filePath: string,
 ): Promise<ResolvedVirtualPath> {
   validatePathBasics(filePath);
+
+  const hostAbsolutePrimaryPath = resolveHostAbsolutePrimaryPath(
+    workspaceManager,
+    workspaceId,
+    filePath,
+  );
+  if (hostAbsolutePrimaryPath) return hostAbsolutePrimaryPath;
 
   const { rootId, rest } = splitVirtualPath(filePath);
   const effectiveRootId = rootId ?? PRIMARY_ROOT_ID;
@@ -141,7 +176,7 @@ export async function toContainerPath(
   const resolved = await resolveVirtualPath(workspaceManager, workspaceId, filePath);
 
   if (!resolved.isPrimaryRoot) {
-    return resolved.resolvedHostPath;
+    return toRuntimeIdentityMountPath(resolved.resolvedHostPath);
   }
 
   return resolved.relativeToRoot

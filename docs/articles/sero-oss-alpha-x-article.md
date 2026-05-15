@@ -2,7 +2,7 @@
 
 Today I’m open-sourcing the alpha of **Sero**.
 
-Sero is a local-first, agent-first desktop workspace for macOS.
+Sero is a local-first, agent-first desktop workspace for macOS, Linux, and Windows.
 
 The short version:
 
@@ -24,7 +24,7 @@ Sero is my attempt at a different shape.
 
 ## Sero is a workshop, not another chat UI
 
-Sero is a dedicated macOS desktop shell for agent-assisted software work.
+Sero is a dedicated desktop shell for agent-assisted software work.
 
 Inside one workspace, you get:
 
@@ -89,9 +89,9 @@ The alpha direction is local-first desktop software.
 
 Your workspace files, logs, auth state, memory, runtime state, and plugin data are designed to stay on your machine unless you explicitly connect external services.
 
-On supported machines, Sero can run workspaces with Apple’s container runtime for stronger isolation and a path toward Linux-like development parity.
+On supported machines, Sero can run workspaces with Apple Container or Docker for stronger isolation and a path toward Linux-like development parity.
 
-If containers are unavailable, Sero can still run in host mode with reduced capabilities.
+If containers are unavailable, Sero can still run in host mode with reduced capabilities where supported.
 
 This is early, imperfect, and not trying to hide that.
 
@@ -127,12 +127,12 @@ I want Sero to become a place where people can experiment with that idea in the 
 
 In the current alpha, Sero includes:
 
-- an Electron + React macOS desktop shell
+- an Electron + React desktop shell
 - Pi-backed chat sessions
 - workspace-based project organization
 - explorer/editor/terminal/browser/preview surfaces
-- Apple container-backed workspace execution
-- host-mode fallback
+- Apple Container and Docker-backed workspace execution
+- host-mode fallback where supported
 - persistent memory
 - built-in plugin architecture
 - plugin UIs loaded into the desktop shell
@@ -140,7 +140,7 @@ In the current alpha, Sero includes:
 - Git/VCS surfaces
 - docs and test infrastructure
 
-It is aimed at early adopters and contributors on macOS Apple Silicon.
+It is aimed at early adopters and contributors building from source across macOS, Linux, and Windows, with macOS Apple Silicon as the maintainer-validated baseline.
 
 If you want polished end-user software, wait.
 
@@ -172,10 +172,10 @@ Docs: https://docs.sero-ai.dev
 
 Current alpha requirements:
 
-- macOS on Apple Silicon
+- macOS, Linux, or Windows
 - Node.js 22
 - pnpm 10
-- Apple container CLI recommended for the full experience
+- Docker or Apple Container recommended for the full experience
 
 Run from source:
 
@@ -204,13 +204,13 @@ But I think the direction is worth building in public.
 1. **Sero is now open source: a local-first workspace for agent-assisted software**
 2. **Launching Sero OSS alpha**
 3. **We need better than chat boxes for coding agents**
-4. **Sero: an open-source macOS Workshop OS for AI agents**
+4. **Sero: an open-source local Workshop OS for AI agents**
 
 ## Suggested launch post to link the article
 
 Sero is now open source.
 
-It’s a local-first, agent-first macOS workspace built on Pi.
+It’s a local-first, agent-first desktop workspace built on Pi.
 
 The bet: coding agents need more than chat boxes. They need a real workshop — files, terminals, browser, memory, plugins, runtime, and UI in one place.
 

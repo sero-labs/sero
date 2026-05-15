@@ -46,6 +46,7 @@ import { doctorBridge } from './diagnostics';
 
 export const seroPreloadApi = {
   platform: process.platform,
+  arch: process.arch,
   shell: shellBridge,
   profiles: profilesBridge,
   workspace: workspaceBridge,

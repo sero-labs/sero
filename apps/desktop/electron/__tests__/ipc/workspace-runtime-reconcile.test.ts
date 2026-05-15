@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => {
     name: 'Workspace 1',
     path: '/repo-1',
     open: true,
+    runtime: { backend: 'apple-container' },
     container: true,
     references: [],
     mounts: [],
@@ -22,7 +23,7 @@ const mocks = vi.hoisted(() => {
       handlers.set(channel, handler);
     }),
     workspaceManager: {
-      list: vi.fn(async () => []),
+      list: vi.fn(async (): Promise<WorkspaceInfo[]> => []),
       create: vi.fn(async () => createdWorkspace),
       remove: vi.fn(async () => {}),
       getConfig: vi.fn(async () => null),
@@ -31,6 +32,7 @@ const mocks = vi.hoisted(() => {
       close: vi.fn(async () => {}),
       setExpanded: vi.fn(async () => {}),
       inferWorkspace: vi.fn(async () => 'global'),
+      setRuntimeBackend: vi.fn(async () => {}),
       setContainerEnabled: vi.fn(async () => {}),
       addReference: vi.fn(async () => {}),
       removeReference: vi.fn(async () => {}),
@@ -44,6 +46,7 @@ const mocks = vi.hoisted(() => {
     resolveWorkspaceRuntime: vi.fn(async () => ({ workspaceId: 'ws-1' })),
     assertIsSeroPluginFolder: vi.fn(async () => {}),
     recreateContainerIfRunning: vi.fn(async () => {}),
+    resetWorkspaceRuntime: vi.fn(async () => {}),
     appRuntimeReconcile: vi.fn(async () => {}),
     broadcastToWindows: vi.fn(),
   };
@@ -81,6 +84,9 @@ vi.mock('@electron/shared/infra/shared-infra', () => ({
   appRuntimeManager: {
     reconcile: mocks.appRuntimeReconcile,
   },
+  runtimeManager: {
+    resetWorkspaceRuntime: mocks.resetWorkspaceRuntime,
+  },
 }));
 
 vi.mock('@electron/ipc/lib/window-broadcast', () => ({
@@ -101,6 +107,7 @@ describe('workspace IPC runtime reconcile', () => {
     mocks.workspaceManager.close.mockClear();
     mocks.workspaceManager.setExpanded.mockClear();
     mocks.workspaceManager.inferWorkspace.mockClear();
+    mocks.workspaceManager.setRuntimeBackend.mockClear();
     mocks.workspaceManager.setContainerEnabled.mockClear();
     mocks.workspaceManager.addReference.mockClear();
     mocks.workspaceManager.removeReference.mockClear();
@@ -113,6 +120,7 @@ describe('workspace IPC runtime reconcile', () => {
     mocks.resolveWorkspaceRuntime.mockClear();
     mocks.assertIsSeroPluginFolder.mockClear();
     mocks.recreateContainerIfRunning.mockClear();
+    mocks.resetWorkspaceRuntime.mockClear();
     mocks.appRuntimeReconcile.mockClear();
     mocks.broadcastToWindows.mockClear();
   });
@@ -152,6 +160,31 @@ describe('workspace IPC runtime reconcile', () => {
     expect(mocks.appRuntimeReconcile).toHaveBeenCalledTimes(4);
     expect(mocks.broadcastToWindows).toHaveBeenCalledTimes(4);
     expect(mocks.broadcastToWindows).toHaveBeenCalledWith(IpcChannels.workspace.changed);
+  });
+
+  it('resets runtime before persisting backend changes without recreating containers', async () => {
+    mocks.workspaceManager.list.mockResolvedValue([mocks.createdWorkspace]);
+    const { registerWorkspaceHandlers } = await import('@electron/ipc/workspace/workspace');
+
+    registerWorkspaceHandlers();
+
+    const setRuntimeBackendHandler = mocks.handlers.get(IpcChannels.workspace.setRuntimeBackend) as
+      | ((event: unknown, id: string, backend: 'host' | 'docker' | 'apple-container') => Promise<WorkspaceInfo>)
+      | undefined;
+
+    expect(setRuntimeBackendHandler).toBeTypeOf('function');
+
+    const result = await setRuntimeBackendHandler?.({}, 'ws-1', 'host');
+
+    expect(result).toBe(mocks.createdWorkspace);
+    expect(mocks.resetWorkspaceRuntime).toHaveBeenCalledWith('ws-1');
+    expect(mocks.workspaceManager.setRuntimeBackend).toHaveBeenCalledWith('ws-1', 'host');
+    expect(mocks.recreateContainerIfRunning).not.toHaveBeenCalled();
+    expect(mocks.appRuntimeReconcile).toHaveBeenCalledTimes(1);
+    expect(mocks.broadcastToWindows).toHaveBeenCalledWith(IpcChannels.workspace.changed);
+    expect(mocks.resetWorkspaceRuntime.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.workspaceManager.setRuntimeBackend.mock.invocationCallOrder[0],
+    );
   });
 
   it('does not reconcile app runtimes for non-lifecycle workspace mutations', async () => {

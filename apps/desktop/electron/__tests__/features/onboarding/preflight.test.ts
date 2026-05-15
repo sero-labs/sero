@@ -127,6 +127,7 @@ describe('onboarding preflight', () => {
       status: 'available',
       message: 'Apple containers are available.',
       recommended: true,
+      runtime: 'apple-container',
     });
   });
 
@@ -143,6 +144,7 @@ describe('onboarding preflight', () => {
       status: 'available',
       message: 'Apple containers are available.',
       recommended: true,
+      runtime: 'apple-container',
       docsUrl: undefined,
     });
   });
@@ -176,6 +178,7 @@ describe('onboarding preflight', () => {
       status: 'missing_binary',
       message: 'Install Apple containers.',
       recommended: true,
+      runtime: 'apple-container',
     });
 
     const state = await getOnboardingState();
@@ -184,7 +187,27 @@ describe('onboarding preflight', () => {
       status: 'missing_binary',
       message: 'Install Apple containers.',
       recommended: true,
+      runtime: 'apple-container',
       docsUrl: 'https://github.com/sero-labs/sero/blob/main/docs/guides/macos-containers.md',
+    });
+  });
+
+  it('uses runtime docs for non-mac Docker setup warnings', async () => {
+    mocks.getContainerAvailability.mockResolvedValue({
+      status: 'missing_binary',
+      message: 'Docker Desktop is recommended.',
+      recommended: true,
+      runtime: 'docker',
+    });
+
+    const state = await getOnboardingState();
+
+    expect(state.containerRuntime).toEqual({
+      status: 'missing_binary',
+      message: 'Docker Desktop is recommended.',
+      recommended: true,
+      runtime: 'docker',
+      docsUrl: 'https://github.com/sero-labs/sero/blob/main/docs/reference/runtime-smoke.md',
     });
   });
 
@@ -193,6 +216,7 @@ describe('onboarding preflight', () => {
       status: 'system_unavailable',
       message: 'Container system is not running.',
       recommended: true,
+      runtime: 'apple-container',
     });
 
     const state = await getOnboardingState();
@@ -201,6 +225,7 @@ describe('onboarding preflight', () => {
       status: 'system_unavailable',
       message: 'Container system is not running.',
       recommended: true,
+      runtime: 'apple-container',
       docsUrl: 'https://github.com/sero-labs/sero/blob/main/docs/guides/macos-containers.md',
     });
   });

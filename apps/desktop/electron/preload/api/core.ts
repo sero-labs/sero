@@ -19,6 +19,7 @@ import type {
   WorkspaceInfo,
   WorkspaceRoot,
 } from '@/types/ipc';
+import type { WorkspaceRuntimeBackend, WorkspaceRuntimeConfig } from '@/types/workspace-runtime';
 
 ipcRenderer.on(IpcChannels.workspace.changed, () => {
   window.dispatchEvent(new Event('sero:workspace-changed'));
@@ -73,6 +74,11 @@ export const workspaceBridge = {
     ipcRenderer.invoke(IpcChannels.workspace.infer, message),
   getRuntimeDiagnostics: (workspaceId?: string) =>
     ipcRenderer.invoke(IpcChannels.workspace.runtimeDiagnostics, workspaceId),
+  getRuntimeConfig: (id: string): Promise<WorkspaceRuntimeConfig> =>
+    ipcRenderer.invoke(IpcChannels.workspace.getRuntimeConfig, id),
+  setRuntimeBackend: (id: string, backend: WorkspaceRuntimeBackend): Promise<WorkspaceInfo> =>
+    ipcRenderer.invoke(IpcChannels.workspace.setRuntimeBackend, id, backend),
+  /** @deprecated Use {@link setRuntimeBackend} for three-way runtime selection. */
   setContainer: (id: string, enabled: boolean): Promise<void> =>
     ipcRenderer.invoke(IpcChannels.workspace.setContainer, id, enabled),
   addReference: (id: string, refId: string): Promise<void> =>

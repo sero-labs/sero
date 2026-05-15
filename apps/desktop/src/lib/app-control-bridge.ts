@@ -7,7 +7,9 @@
  */
 
 import { useAppStore } from '@/stores/app';
+import { useBrowserStore } from '@/stores/browser';
 import { useEditorBridge } from '@/stores/editor-bridge';
+import { useExplorerStore } from '@/stores/explorer';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { openApp } from '@/lib/open-app';
 import { executeAppInteraction, getAppPanelRect } from '@/lib/app-control/dom-interactions';
@@ -32,7 +34,9 @@ interface AppControlBridge {
   openApp(appId: string): boolean;
   getInfo(appId: string): AppControlEntry | null;
   openFile(workspaceId: string, filePath: string): boolean;
+  showBrowserPanel(): boolean;
   getAppRect(): AppPanelRect | null;
+  getBrowserCaptureTarget(): { workspaceId: string; tabId: string; rect: AppPanelRect } | null;
   interact(params: AppInteractionParams): Promise<AppInteractionResult>;
   recordStart(): boolean;
   recordStop(): boolean;
@@ -88,7 +92,23 @@ export function initAppControlBridge(): () => void {
       useEditorBridge.getState().requestOpenFile(workspaceId, filePath);
       return true;
     },
+    showBrowserPanel() {
+      const workspaceId = useWorkspaceStore.getState().activeWorkspaceId;
+      if (!workspaceId) return false;
+      const state = useAppStore.getState();
+      if (state.activeApp !== 'explorer') state.setActiveApp('explorer');
+      useExplorerStore.getState().set(workspaceId, { activePanel: 'browser', sidebarOpen: false });
+      return true;
+    },
     getAppRect: getAppPanelRect,
+    getBrowserCaptureTarget() {
+      const workspaceId = useWorkspaceStore.getState().activeWorkspaceId;
+      if (!workspaceId || useAppStore.getState().activeApp !== 'explorer') return null;
+      if (useExplorerStore.getState().get(workspaceId).activePanel !== 'browser') return null;
+      const tabId = useBrowserStore.getState().activeTabIds[workspaceId];
+      const rect = getAppPanelRect();
+      return tabId && rect ? { workspaceId, tabId, rect } : null;
+    },
     interact: executeAppInteraction,
     recordStart() {
       if (recordingActive) return false;

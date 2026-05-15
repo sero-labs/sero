@@ -28,6 +28,24 @@ function getWorkspaceRuntimeLabel(row: WorkspaceRuntimeDiagnosticsIPC): {
     };
   }
 
+  if (row.fallbackCode === 'container_unavailable') {
+    return {
+      desired: 'container',
+      actual: 'container',
+      tone: 'outline',
+      detail: row.fallbackReason ?? 'Container runtime is selected, but it is unavailable.',
+    };
+  }
+
+  if (row.fallbackCode === 'backend-unsupported-on-platform') {
+    return {
+      desired: 'container',
+      actual: row.actualRuntime,
+      tone: 'outline',
+      detail: row.fallbackReason ?? 'Configured runtime is unsupported on this platform; Sero selected a supported runtime.',
+    };
+  }
+
   if (row.actualRuntime === 'container') {
     return {
       desired: 'container',

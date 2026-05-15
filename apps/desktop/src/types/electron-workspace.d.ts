@@ -4,7 +4,9 @@
  * Split from electron.d.ts to keep each file under 500 LOC.
  */
 
-import type { EditorRoot } from './ipc';
+import type { EditorRoot, WorkspaceConfig, WorkspaceInfo, WorkspaceRoot } from './ipc';
+import type { WorkspaceRuntimeBackend, WorkspaceRuntimeConfig } from './workspace-runtime';
+import type { WorkspaceRuntimeDiagnosticsIPC } from '@sero-ai/common';
 import type { LspNotification } from '@/lsp/lsp-protocol';
 import type {
   VcsCheckpoint,
@@ -24,6 +26,60 @@ import type {
   CreatePullRequestInput,
   CreatePullRequestResult,
 } from '@sero-ai/common';
+
+export interface SeroWorkspaceAPI {
+  /** List all registered workspaces (registry + config merged). */
+  list(): Promise<WorkspaceInfo[]>;
+  /** Create a new workspace. Optionally specify a parent directory for the workspace folder. */
+  create(name: string, parentPath?: string): Promise<WorkspaceInfo>;
+  /** Unregister a workspace (does not delete files). */
+  remove(id: string): Promise<void>;
+  /** Get full config for a workspace (.sero-workspace.json). */
+  getConfig(id: string): Promise<WorkspaceConfig | null>;
+  /** Register an existing folder as a workspace. Creates config if missing. */
+  addFolder(folderPath: string, name?: string): Promise<WorkspaceInfo>;
+  /** Expand workspace tree node (persisted). Also used by federated apps. */
+  open(id: string): Promise<void>;
+  /** Remove workspace from registry. Re-add via addFolder to restore. */
+  close(id: string): Promise<void>;
+  /** Open native folder picker. Returns selected path or null. */
+  pickFolder(): Promise<string | null>;
+  /** Infer best workspace for a message. Returns workspace ID. */
+  infer(message: string): Promise<string>;
+  /** Inspect desired vs actual runtime state for one workspace or all workspaces. */
+  getRuntimeDiagnostics(workspaceId?: string): Promise<WorkspaceRuntimeDiagnosticsIPC[]>;
+  /** Read the persisted provider-aware runtime config. */
+  getRuntimeConfig(id: string): Promise<WorkspaceRuntimeConfig>;
+  /** Set provider-aware runtime backend and return refreshed workspace info. */
+  setRuntimeBackend(id: string, backend: WorkspaceRuntimeBackend): Promise<WorkspaceInfo>;
+  /**
+   * Enable or disable container mode for a workspace.
+   * @deprecated Use {@link setRuntimeBackend} — the boolean API cannot express
+   * three-way runtime selection (host / docker / apple-container).
+   */
+  setContainer(id: string, enabled: boolean): Promise<void>;
+  /** Add a workspace reference (mount another workspace into this one's runtime). */
+  addReference(id: string, refId: string): Promise<void>;
+  /** Remove a workspace reference. */
+  removeReference(id: string, refId: string): Promise<void>;
+  /** Mount an arbitrary host folder into this workspace's runtime. */
+  addMount(id: string, folderPath: string): Promise<void>;
+  /** Remove an arbitrary folder mount. */
+  removeMount(id: string, folderPath: string): Promise<void>;
+  /** Set expanded/collapsed state for a workspace tree node. */
+  setExpanded(id: string, expanded: boolean): Promise<void>;
+  /** List all roots for a workspace (primary + linked). */
+  listRoots(id: string): Promise<WorkspaceRoot[]>;
+  /** Add an additional root (folder or linked plugin) to a workspace. */
+  addRoot(
+    id: string,
+    input: { name: string; path: string; kind?: WorkspaceRoot['kind'] },
+  ): Promise<WorkspaceRoot>;
+  /** Remove an additional root (cannot remove the primary). */
+  removeRoot(id: string, rootId: string): Promise<void>;
+  /** Rename an additional root. */
+  renameRoot(id: string, rootId: string, newName: string): Promise<void>;
+}
 
 export interface SeroEditorAPI {
   /** Read a file from the workspace (dual-mode: container or host). */

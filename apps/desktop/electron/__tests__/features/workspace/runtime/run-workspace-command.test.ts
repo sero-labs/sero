@@ -1,66 +1,80 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
-  execFileMock: vi.fn(),
   workspaceManager: {
     getPath: vi.fn(),
   },
+  runtimeManager: {
+    getRuntime: vi.fn(),
+  },
   containerManager: {
     ensure: vi.fn(),
-    exec: vi.fn(),
   },
-  resolveWorkspaceRuntime: vi.fn(),
-  buildWorkspaceContainerConfig: vi.fn(),
-  toWorkspaceContainerPath: vi.fn(),
 }));
 
-vi.mock('child_process', () => ({ execFile: mocks.execFileMock }));
-vi.mock('util', () => ({ promisify: () => mocks.execFileMock }));
 vi.mock('@electron/features/workspace/manager', () => ({ workspaceManager: mocks.workspaceManager }));
+vi.mock('@electron/features/workspace/runtime/runtime-manager', () => ({ runtimeManager: mocks.runtimeManager }));
 vi.mock('@electron/features/container/core/singleton', () => ({ containerManager: mocks.containerManager }));
-vi.mock('@electron/features/workspace/runtime-resolution', () => ({ resolveWorkspaceRuntime: mocks.resolveWorkspaceRuntime }));
-vi.mock('@electron/features/container/core/workspace-container-config', () => ({
-  buildWorkspaceContainerConfig: mocks.buildWorkspaceContainerConfig,
-}));
-vi.mock('@electron/features/workspace/runtime/container-path', () => ({
-  toWorkspaceContainerPath: mocks.toWorkspaceContainerPath,
-}));
 
+import { containerManager } from '@electron/features/container/core/singleton';
 import { runWorkspaceCommand } from '@electron/features/workspace/runtime/run-workspace-command';
 
 describe('runWorkspaceCommand', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.workspaceManager.getPath.mockReturnValue('/tmp/ws');
-    mocks.resolveWorkspaceRuntime.mockResolvedValue({
-      desiredRuntime: 'container',
-      actualRuntime: 'host',
-      fallbackReason: 'falling back to host mode',
-    });
-    mocks.execFileMock.mockResolvedValue({ stdout: 'host ok', stderr: '' });
   });
 
-  it('falls back to host execution when runtime resolution says host', async () => {
+  it('routes host workspace commands through runtime exec with a runtime cwd', async () => {
+    const exec = vi.fn().mockResolvedValue({ stdout: 'host ok', stderr: '', exitCode: 0 });
+    mocks.runtimeManager.getRuntime.mockResolvedValue({ exec });
+
     const result = await runWorkspaceCommand('ws-1', '/tmp/ws', 'pwd');
 
+    expect(mocks.runtimeManager.getRuntime).toHaveBeenCalledWith('ws-1');
+    expect(exec).toHaveBeenCalledWith({ command: 'pwd', cwd: '/workspace', timeoutMs: 120000 });
     expect(result).toEqual({ stdout: 'host ok', stderr: '', exitCode: 0 });
-    expect(mocks.containerManager.ensure).not.toHaveBeenCalled();
-    expect(mocks.execFileMock).toHaveBeenCalledWith('sh', ['-c', 'pwd'], expect.objectContaining({ cwd: '/tmp/ws' }));
   });
 
-  it('uses the container execution path when runtime resolution says container', async () => {
-    mocks.resolveWorkspaceRuntime.mockResolvedValue({
-      desiredRuntime: 'container',
-      actualRuntime: 'container',
+  it('routes docker workspace commands through runtime exec without ensuring a legacy container', async () => {
+    const exec = vi.fn().mockResolvedValue({ stdout: 'docker ok', stderr: '', exitCode: 0 });
+    mocks.runtimeManager.getRuntime.mockResolvedValue({ exec });
+
+    const result = await runWorkspaceCommand('ws-1', '/tmp/ws/app', 'pnpm test', 5000, { isolated: true });
+
+    expect(mocks.runtimeManager.getRuntime).toHaveBeenCalledWith('ws-1');
+    expect(exec).toHaveBeenCalledWith({ command: 'pnpm test', cwd: '/workspace/app', timeoutMs: 5000, isolated: true });
+    expect(containerManager.ensure).not.toHaveBeenCalled();
+    expect(result).toEqual({ stdout: 'docker ok', stderr: '', exitCode: 0 });
+  });
+
+  it('rejects cwd values outside the workspace root before runtime execution', async () => {
+    const result = await runWorkspaceCommand('ws-1', '/tmp/elsewhere', 'pwd');
+
+    expect(result).toEqual({
+      stdout: '',
+      stderr: 'Cannot run command outside workspace root: /tmp/elsewhere',
+      exitCode: 1,
     });
-    mocks.buildWorkspaceContainerConfig.mockResolvedValue({ workspaceId: 'ws-1' });
-    mocks.toWorkspaceContainerPath.mockReturnValue('/workspace');
-    mocks.containerManager.exec.mockResolvedValue({ stdout: 'container ok', stderr: '', exitCode: 0 });
+    expect(mocks.runtimeManager.getRuntime).not.toHaveBeenCalled();
+  });
+
+  it('returns a non-throwing result when the workspace is missing', async () => {
+    mocks.workspaceManager.getPath.mockReturnValue(undefined);
+
+    const result = await runWorkspaceCommand('missing', '/tmp/ws', 'pwd');
+
+    expect(result).toEqual({ stdout: '', stderr: 'Workspace not found: missing', exitCode: 1 });
+    expect(mocks.runtimeManager.getRuntime).not.toHaveBeenCalled();
+  });
+
+  it('converts runtime execution failures into exit code 1 results', async () => {
+    mocks.runtimeManager.getRuntime.mockResolvedValue({
+      exec: vi.fn().mockRejectedValue(new Error('runtime failed')),
+    });
 
     const result = await runWorkspaceCommand('ws-1', '/tmp/ws', 'pwd');
 
-    expect(mocks.containerManager.ensure).toHaveBeenCalled();
-    expect(mocks.containerManager.exec).toHaveBeenCalledWith('ws-1', 'pwd', '/workspace', 120000);
-    expect(result).toEqual({ stdout: 'container ok', stderr: '', exitCode: 0 });
+    expect(result).toEqual({ stdout: '', stderr: 'runtime failed', exitCode: 1 });
   });
 });

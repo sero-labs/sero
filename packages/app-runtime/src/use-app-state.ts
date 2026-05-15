@@ -16,6 +16,33 @@ import { getSeroApi, type SeroWindowAppStateBridge } from './sero-bridge';
  * @param defaultState — returned while the file is being read (or if missing)
  * @returns [state, updateState] — updateState accepts an updater function
  */
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function normalizeStateValue(defaultValue: unknown, currentValue: unknown): unknown {
+  if (Array.isArray(defaultValue)) {
+    return Array.isArray(currentValue) ? currentValue : defaultValue;
+  }
+
+  if (isPlainObject(defaultValue)) {
+    if (!isPlainObject(currentValue)) return defaultValue;
+    const merged: Record<string, unknown> = { ...currentValue };
+    for (const [key, childDefault] of Object.entries(defaultValue)) {
+      merged[key] = normalizeStateValue(childDefault, currentValue[key]);
+    }
+    return merged;
+  }
+
+  if (currentValue === undefined) return defaultValue;
+  if (defaultValue === null) return currentValue ?? null;
+  return typeof currentValue === typeof defaultValue ? currentValue : defaultValue;
+}
+
+function applyDefaultState<T>(defaultState: T, current: unknown): T {
+  return normalizeStateValue(defaultState, current) as T;
+}
+
 export function useAppState<T>(defaultState: T): [T, (updater: (prev: T) => T) => void] {
   const ctx = useContext(AppContext);
   if (!ctx) {
@@ -43,7 +70,7 @@ export function useAppState<T>(defaultState: T): [T, (updater: (prev: T) => T) =
       try {
         const current = await api.read<T | null>(stateFilePath);
         if (writeId !== latestWriteIdRef.current) return;
-        applyState(current ?? fallbackState);
+        applyState(current == null ? fallbackState : applyDefaultState(fallbackState, current));
       } catch {
         if (writeId !== latestWriteIdRef.current) return;
         applyState(fallbackState);
@@ -65,12 +92,12 @@ export function useAppState<T>(defaultState: T): [T, (updater: (prev: T) => T) =
 
     const unsubscribe = api.appState.onChange<T | null>((filePath, data) => {
       if (filePath !== stateFilePath || data == null) return;
-      applyIfActive(data);
+      applyIfActive(applyDefaultState(defaultStateRef.current, data));
     });
 
     void api.appState.watch<T | null>(stateFilePath).then((current) => {
       if (current == null) return;
-      applyIfActive(current);
+      applyIfActive(applyDefaultState(defaultStateRef.current, current));
     });
 
     return () => {

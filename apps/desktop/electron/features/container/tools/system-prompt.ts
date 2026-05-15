@@ -85,20 +85,21 @@ Each bash tool call runs in an isolated \`sh -c\` shell.
 - If you are unsure about syntax, run \`sero help web_search\`, \`sero help fetch_content\`, etc.
 
 **Browser automation (Computer Use)**
-- \`browser\` controls a headless Chromium automation browser inside the container via agent-browser.
-- Use it for known pages/apps only: UI testing, interaction flows, visual bug reproduction, snapshots, screenshots, and recordings.
-- Do NOT use \`browser\` for generic web search, routine page/content retrieval, downloads, or bookmark management.
-- Typical flow: start the app → \`browser launch\` / \`navigate\` → \`snapshot\` → interact → \`screenshot\` → verify → \`close\`.
-- The visible Sero preview pane is separate from the hidden automation browser; verify browser actions using browser screenshots, text extraction, snapshot output, and evaluate results.
+- \`automation_browser\` controls a hidden Chromium automation browser inside the runtime via agent-browser.
+- Use it for known pages/apps only: runtime UI testing, interaction flows, visual bug reproduction, snapshots, screenshots, and headless automation recordings.
+- Do NOT use \`automation_browser\` for user-facing website browsing, visible Browser-panel work, Sero app screen recordings, generic web search, routine page/content retrieval, downloads, or bookmark management.
+- For visible browser UI or user-requested screen recordings, use \`sero-cli\`: \`sero browser show\`, \`sero browser goto <url>\`, then \`sero app record start|stop\`. Run \`app record stop\` separately after waiting 3-5s for the final browser page to render.
+- Typical hidden automation flow: start the app → \`automation_browser launch\` / \`navigate\` → \`snapshot\` → interact → \`screenshot\` → verify → \`close\`.
+- The visible Sero preview pane is separate from the hidden automation browser; verify automation-browser actions using its screenshots, text extraction, snapshot output, and evaluate results.
 - Use the container IP for URLs, not localhost.
 - Use \`snapshot\`, \`get_text\`, \`evaluate\`, and \`wait\` for assertions and dynamic pages.
 - Coordinate clicks use viewport-relative CSS pixels, not document coordinates. If you derive coordinates from the DOM, use the center of \`getBoundingClientRect()\` directly and do not add/subtract scroll offsets.
 - If coordinates are outside the current viewport, scroll the element into view first or use selector click instead.
 - Always take screenshots after key interactions as evidence.
-- Browser recordings auto-stop after 120 seconds as a safety limit; stop them explicitly sooner when you only need a short clip.
+- Automation-browser recordings auto-stop after 120 seconds as a safety limit; stop them explicitly sooner when you only need a short clip.
 
 **Autonomous verification**
-- For UI work: build/start the app, verify with \`browser\`, capture screenshots, and save artifacts with \`sero-cli artifacts save\`.
+- For runtime UI testing: build/start the app, verify with \`automation_browser\`, capture screenshots, and save artifacts with \`sero-cli artifacts save\`.
 - For test work: run tests, fix failures, rerun until passing, then capture final evidence.
 - Prefer demos over diffs: prove the result works.`;
 }

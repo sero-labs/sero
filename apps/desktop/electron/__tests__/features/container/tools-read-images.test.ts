@@ -12,7 +12,7 @@ vi.mock('@electron/shared/media/image-resize', () => ({
   prepareToolImage: mocks.prepareToolImage,
 }));
 
-import { createHostCodingTools } from '@electron/features/container/tools';
+import { createHostCodingTools } from '@electron/features/container/tools/tools-host';
 import { createRead } from '@electron/features/container/tools/tools-coding';
 
 function getTool<T extends { name: string }>(tools: T[], name: string): T {
@@ -75,15 +75,24 @@ describe('image read tool resizing', () => {
     }
   });
 
-  it('applies Pi-style resize metadata to container read image attachments', async () => {
-    const exec = vi.fn()
-      .mockResolvedValueOnce({ stdout: '/workspace/image.png\n', stderr: '', exitCode: 0 })
-      .mockResolvedValueOnce({ stdout: '89504e470d0a1a0a00000000', stderr: '', exitCode: 0 })
-      .mockResolvedValueOnce({ stdout: `${pngBytes.toString('base64')}\n`, stderr: '', exitCode: 0 });
+  it('applies Pi-style resize metadata to runtime read image attachments', async () => {
+    const exec = vi.fn().mockResolvedValue({ stdout: '/workspace/image.png\n', stderr: '', exitCode: 0 });
+    const readFile = vi.fn().mockResolvedValue({
+      content: pngBytes.toString('base64'),
+      encoding: 'base64',
+    });
 
-    const tool = createRead({ exec } as never, 'ws-1');
+    const runtime = { exec, readFile };
+    const tool = createRead(runtime as never);
     const result = await tool.execute('tool-container', { path: 'image.png' }, undefined, undefined, undefined as never);
 
+    expect(exec).toHaveBeenCalledTimes(1);
+    expect(exec).toHaveBeenCalledWith({
+      command: expect.stringContaining('os.path.realpath'),
+      cwd: '/workspace',
+      timeoutMs: 10000,
+    });
+    expect(readFile).toHaveBeenCalledWith({ path: '/workspace/image.png', binary: true });
     expect(mocks.prepareToolImage).toHaveBeenCalledWith(pngBytes.toString('base64'), 'image/png');
     expect(result).toEqual({
       content: [

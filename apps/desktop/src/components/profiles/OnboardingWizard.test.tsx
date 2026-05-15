@@ -84,6 +84,8 @@ describe('OnboardingWizard', () => {
         shell: {
           openExternal: vi.fn(),
         },
+        platform: 'darwin',
+        arch: 'arm64',
         github: {
           status: vi.fn().mockResolvedValue({ authenticated: false }),
           onEvent: vi.fn(() => () => {}),
@@ -136,7 +138,7 @@ describe('OnboardingWizard', () => {
       root?.render(<OnboardingWizard />);
     });
 
-    expect(document.body.textContent).toContain('Containers recommended for full Sero features');
+    expect(document.body.textContent).toContain('Workspace runtime setup recommended for full Sero features');
     expect(document.body.textContent).toContain('Install Apple containers.');
     expect(document.body.textContent).toContain('Continue');
   });
@@ -167,6 +169,18 @@ describe('OnboardingWizard', () => {
     expect(document.body.textContent).toContain('Connect a provider');
   });
 
+  it('keeps the ready dialog scrollable when setup content is tall', async () => {
+    mockUseOnboardingLaunch.mockReturnValue(createLaunchState());
+
+    await act(async () => {
+      root?.render(<OnboardingWizard />);
+    });
+
+    const dialog = document.querySelector('[data-slot="dialog-content"]');
+    expect(dialog?.className).toContain('max-h-[calc(100vh-2rem)]');
+    expect(dialog?.className).toContain('overflow-y-auto');
+  });
+
   it('omits the container warning when containers are available', async () => {
     mockUseOnboardingLaunch.mockReturnValue(createLaunchState());
 
@@ -174,6 +188,6 @@ describe('OnboardingWizard', () => {
       root?.render(<OnboardingWizard />);
     });
 
-    expect(document.body.textContent).not.toContain('Containers recommended for full Sero features');
+    expect(document.body.textContent).not.toContain('Workspace runtime setup recommended for full Sero features');
   });
 });

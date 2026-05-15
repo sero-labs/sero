@@ -2,11 +2,14 @@
  * React hook for LSP integration with Monaco editor.
  * Manages server lifecycle, Monaco provider registration, and document sync.
  *
- * Only active for containerized workspaces (LSP servers run inside containers).
+ * Active on every runtime that advertises `languageServers` capability: host,
+ * Docker, and Apple Container. Docker startup is handled by the runtime backend;
+ * Apple Container still waits on the legacy renderer container status.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useContainerStore } from '@/stores/container';
+import { useWorkspaceStore } from '@/stores/workspace';
 import { useLspDiagnostics, useLspServerStopCleanup } from './diagnostics';
 import { useLspDocumentSync, type LspEditor } from './document-sync';
 import { LSP_PROVIDER_LANGUAGE_IDS, getLspServerLanguage } from './language-routing';
@@ -34,6 +37,11 @@ export function useLsp({ workspaceId, filePath, languageId, monaco, editor }: Us
   const startingRef = useRef(false);
 
   const containerStatus = useContainerStore((state) => state.containers[workspaceId]?.status ?? 'none');
+  const runtimeBackend = useWorkspaceStore((state) =>
+    state.workspaces.find((workspace) => workspace.id === workspaceId)?.runtime?.backend ?? null,
+  );
+  const requiresContainer = runtimeBackend === 'apple-container';
+  const runtimeReady = !requiresContainer || containerStatus === 'running';
   const serverLanguage = getLspServerLanguage(languageId);
 
   useLspDiagnostics({ monaco, workspaceId });
@@ -44,8 +52,8 @@ export function useLsp({ workspaceId, filePath, languageId, monaco, editor }: Us
   }, []);
 
   const statusNotice = serverLanguage
-    ? startupError ?? (containerStatus !== 'running'
-      ? 'Containerized language servers are unavailable while this workspace is running in host mode.'
+    ? startupError ?? (requiresContainer && !runtimeReady
+      ? 'Language servers will start once the workspace container is running.'
       : null)
     : null;
 
@@ -63,7 +71,7 @@ export function useLsp({ workspaceId, filePath, languageId, monaco, editor }: Us
 
   useEffect(() => {
     if (!monaco || !serverLanguage || startingRef.current) return;
-    if (containerStatus !== 'running') return;
+    if (!runtimeReady) return;
     if (serverLanguageRef.current === serverLanguage) return;
 
     let cancelled = false;
@@ -93,7 +101,7 @@ export function useLsp({ workspaceId, filePath, languageId, monaco, editor }: Us
     return () => {
       cancelled = true;
     };
-  }, [workspaceId, languageId, monaco, serverLanguage, containerStatus]);
+  }, [workspaceId, languageId, monaco, serverLanguage, runtimeReady]);
 
   return {
     isReady,

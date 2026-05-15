@@ -40,12 +40,12 @@ import { watchForNewApps } from './ipc/apps';
 import { ensureDefaultAgents, ensureDefaultSkills, ensureDefaultThemes, ensureProfileTemplates } from './features/profile/setup';
 import { handleProfileRegistryRecovery } from './features/profile/recovery';
 import {
-  containerManager,
   ensureInfra,
   fileWatcherManager,
   gatewayServer,
   lspManager,
   pluginDevSessionManager,
+  runtimeManager,
   vcsManager,
 } from './shared/infra/shared-infra';
 import { startGateway, stopGateway } from './ipc/gateway';
@@ -58,7 +58,6 @@ import {
   getDefaultModelFallbackChain,
 } from './shared/settings/model-fallback-chain';
 import { getDefaultMemoryLoggingSettings, ensureConfiguredMemoryLoggingSettings } from './shared/settings/memory-logging-settings';
-import { getContainerAvailability } from './features/container/core/availability';
 
 let mainWindow: BrowserWindow | null = null;
 let isGracefullyShuttingDown = false;
@@ -279,45 +278,7 @@ app.whenReady().then(async () => {
   session.defaultSession.setUserAgent(cleanUA);
   console.log('[sero] User-Agent:', cleanUA);
 
-  // ── Container system bootstrap ───────────────────────────────
-  try {
-    const availability = await getContainerAvailability();
-    if (availability.status === 'available') {
-      console.log('[sero] Container runtime available:', availability.message);
-    } else {
-      console.warn('[sero] Container runtime degraded:', availability.message);
-    }
-  } catch (err) {
-    console.warn('[sero] Failed to read container runtime availability during boot:', err);
-  }
-
-  // Ensure the container API server is running (non-blocking on failure)
-  try {
-    await containerManager.ensureSystemRunning();
-  } catch (err) {
-    console.error('[sero] Failed to start container system on boot — containers will retry on demand:', err);
-  }
-
-  // Ensure sero-node image is built (non-blocking on failure)
-  try {
-    // __dirname is apps/desktop/dist/electron/ → images dir is 2 levels up
-    const imagesDir = path.resolve(__dirname, '../../images');
-    await containerManager.ensureImage(imagesDir);
-  } catch (err) {
-    console.error('[sero] Failed to ensure sero-node image:', err);
-  }
-
-  // Start HTTP proxy for container internet access.
-  // The proxy runs on the host and tunnels HTTP/HTTPS from containers via
-  // the gateway IP (192.168.64.1). This is the primary networking path because
-  // NAT alone doesn't provide DNS resolution inside the container VM.
-  // Set SERO_CONTAINER_PROXY=0 to disable if using an alternative network setup.
-  if (process.env.SERO_CONTAINER_PROXY !== '0') {
-    await containerManager.startProxy();
-  }
-
-  // Clean up orphaned sero-* containers from previous crashes
-  await cleanupOrphanedContainers();
+  // Runtime backends are started on demand by each selected workspace.
 
   // Kick off shared infra + background app runtime startup after core
   // workspace/container bootstrap. This stays non-blocking because runtimes
@@ -386,16 +347,6 @@ async function withShutdownTimeout(
   }
 }
 
-async function stopRunningContainers(): Promise<void> {
-  const containers = await containerManager.list();
-  await Promise.allSettled(
-    containers.map((c) => {
-      const workspaceId = c.id.replace(/^sero-/, '');
-      return containerManager.stop(workspaceId);
-    }),
-  );
-}
-
 async function performGracefulShutdown(): Promise<void> {
   const startedAt = Date.now();
   console.log('[sero] Shutting down — cleaning up containers, terminals, LSP, watchers...');
@@ -404,8 +355,6 @@ async function performGracefulShutdown(): Promise<void> {
   console.log('[sero] Shutdown sync step done: file watchers');
   vcsManager.disposeAll();
   console.log('[sero] Shutdown sync step done: vcs manager');
-  containerManager.terminals.disposeAllTerminals();
-  console.log('[sero] Shutdown sync step done: terminals');
 
   await Promise.allSettled([
     withShutdownTimeout('agent sessions', disposeAllAgentSessions),
@@ -419,8 +368,7 @@ async function performGracefulShutdown(): Promise<void> {
       },
     ),
     withShutdownTimeout('language servers', () => lspManager.disposeAll()),
-    withShutdownTimeout('port forwards', () => containerManager.disposeAllPortForwards()),
-    withShutdownTimeout('containers', stopRunningContainers),
+    withShutdownTimeout('runtimes', () => runtimeManager.destroyAll()),
   ]);
 
   console.log(`[sero] Graceful shutdown complete (${Date.now() - startedAt}ms)`);
@@ -454,31 +402,3 @@ app.on('before-quit', (e) => {
 
 process.once('SIGTERM', requestGracefulAppQuit);
 process.once('SIGINT', requestGracefulAppQuit);
-
-// ── Orphan cleanup ─────────────────────────────────────────────
-/**
- * Clean up any orphaned sero-* containers from previous crashes.
- * Compares running containers against registered workspaces.
- */
-async function cleanupOrphanedContainers(): Promise<void> {
-  try {
-    const workspaces = await workspaceManager.list();
-    const registeredIds = new Set(workspaces.map((w) => `sero-${w.id}`));
-
-    const running = await containerManager.list();
-    for (const c of running) {
-      if (!registeredIds.has(c.id)) {
-        console.log(`[sero] Cleaning up orphaned container: ${c.id}`);
-        const workspaceId = c.id.replace(/^sero-/, '');
-        try {
-          await containerManager.stop(workspaceId);
-          await containerManager.remove(workspaceId);
-        } catch {
-          // Best effort
-        }
-      }
-    }
-  } catch (err) {
-    console.error('[sero] Orphan cleanup error:', err);
-  }
-}

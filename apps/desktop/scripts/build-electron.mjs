@@ -34,7 +34,7 @@ const __dirname = __dirnameFn(__filename);
 
 function copyIfExists(src, dest) {
   if (!fs.existsSync(src)) return;
-  fs.cpSync(src, dest, { recursive: true });
+  fs.cpSync(src, dest, { recursive: true, dereference: true });
 }
 
 function runCommand(command, args, cwd) {

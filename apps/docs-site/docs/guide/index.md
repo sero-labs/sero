@@ -15,7 +15,7 @@ Use the guide when you want task-oriented help for using Sero. The sidebar follo
 
 - [Workspace and Chat](/guide/workspace-and-chat) — shell layout, workspaces, sessions, chat, and the command menu.
 - [Explorer Workspace](/guide/explorer-workspace) — files, editor previews, browser tabs, terminals, source control, and dev servers.
-- [Containers and Dev Servers](/guide/containers-dev-servers) — container-backed workspaces, previews, port conflicts, and host fallback.
+- [Containers and Dev Servers](/guide/containers-dev-servers) — container-backed workspaces, previews, port conflicts, and Host mode.
 - [Browser and Capture](/guide/browser-and-capture) — visible browser previews, app screenshots, DOM interactions, and recordings.
 - [Checkpoints and Undo](/guide/checkpoints-and-undo) — manual checkpoints, restore behavior, chat turn undo, and source-control recovery safety.
 - [Themes](/guide/themes) — profile-scoped theme selection and editing.

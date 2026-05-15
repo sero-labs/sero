@@ -1,10 +1,6 @@
-import type { DevServer } from '@/types/ipc';
-import { containerManager } from '@electron/features/container/core/singleton';
-import {
-  getRuntimeCapabilityEntry,
-  resolveWorkspaceRuntime,
-  type WorkspaceRuntimeResolution,
-} from '@electron/features/workspace/runtime-resolution';
+import type { RuntimeDevServer } from './types';
+import { runtimeManager, type RuntimeManager } from './runtime-manager';
+import type { WorkspaceRuntimeResolution } from '@electron/features/workspace/runtime-resolution';
 import { runWorkspaceCommand } from './run-workspace-command';
 import { startManagedDevServer } from './start-managed-dev-server';
 import {
@@ -35,9 +31,10 @@ interface RuntimeRefreshDeps {
   detectInstallCommand?: (workspacePath: string) => Promise<string | null>;
   detectDevCommand?: (workspacePath: string) => Promise<string | null>;
   runCommand?: typeof runWorkspaceCommand;
-  listDevServers?: (workspaceId: string) => DevServer[];
+  listDevServers?: (workspaceId: string) => Promise<RuntimeDevServer[]>;
   restartDevServer?: (serverId: string) => Promise<boolean>;
   autoStartDevServer?: (workspaceId: string, workspacePath: string, command: string) => Promise<AutoStartResult>;
+  runtimeManager?: RuntimeManager;
   resolveRuntime?: (workspaceId: string) => Promise<WorkspaceRuntimeResolution>;
 }
 
@@ -49,10 +46,17 @@ export async function refreshWorkspaceRuntimeAfterSync(
   const detectInstallCommand = deps.detectInstallCommand ?? detectDependencyInstallCommand;
   const detectDevCommand = deps.detectDevCommand ?? detectDevServerCommand;
   const runCommand = deps.runCommand ?? runWorkspaceCommand;
-  const listDevServers = deps.listDevServers ?? ((id: string) => containerManager.devServers.list(id));
-  const restartDevServer = deps.restartDevServer ?? ((serverId: string) => containerManager.devServers.restart(serverId));
+  const manager = deps.runtimeManager ?? runtimeManager;
+  const listDevServers = deps.listDevServers ?? (async (id: string) => {
+    const runtime = await manager.getRuntime(id);
+    return (await runtime.getDevServerStatus({})).servers;
+  });
+  const restartDevServer = deps.restartDevServer ?? (async (serverId: string) => {
+    const runtime = await manager.getRuntime(workspaceId);
+    await runtime.restartDevServer({ serverId });
+    return true;
+  });
   const autoStartDevServer = deps.autoStartDevServer ?? autoStartDetectedDevServer;
-  const resolveRuntime = deps.resolveRuntime ?? resolveWorkspaceRuntime;
 
   const result: WorkspaceRuntimeRefreshResult = {
     refreshed: false,
@@ -79,7 +83,9 @@ export async function refreshWorkspaceRuntimeAfterSync(
     result.refreshed = true;
   }
 
-  const servers = listDevServers(workspaceId).filter((server) => server.scope === 'workspace');
+  const servers = (await listDevServers(workspaceId)).filter((server) => (
+    (server as RuntimeDevServer & { scope?: string }).scope !== 'card-preview'
+  ));
   if (servers.length > 0) {
     for (const server of servers) {
       if (await restartDevServer(server.id)) {
@@ -106,12 +112,20 @@ export async function refreshWorkspaceRuntimeAfterSync(
     return result;
   }
 
-  const runtime = await resolveRuntime(workspaceId);
-  if (runtime.actualRuntime !== 'container') {
-    return {
-      ...result,
-      reason: getRuntimeCapabilityEntry(runtime, 'managedDevServers').detail,
-    };
+  if (deps.resolveRuntime) {
+    const legacyRuntime = await deps.resolveRuntime(workspaceId);
+    const entry = legacyRuntime.capabilityAudit.find((candidate) => candidate.key === 'managedDevServers');
+    if (legacyRuntime.actualRuntime !== 'container' || legacyRuntime.fallbackCode === 'container_unavailable' || entry?.available === false) {
+      return { ...result, reason: entry?.detail ?? 'Managed dev servers are not available for the selected runtime.' };
+    }
+  } else {
+    const runtime = await manager.getRuntime(workspaceId);
+    if (!runtime.capabilities.devServers.start) {
+      return {
+        ...result,
+        reason: `Managed dev servers are not available for ${runtime.backend} runtime.`,
+      };
+    }
   }
 
   const autoStart = await autoStartDevServer(workspaceId, workspacePath, devCommand);

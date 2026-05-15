@@ -1,12 +1,9 @@
 /**
- * Editor IPC handlers — dual-mode file I/O + editor state persistence.
+ * Editor IPC handlers backed by the selected RuntimeBackend.
  *
- * Each handler checks if the workspace uses containers:
- *   - Container mode: delegates to containerManager
- *   - Host mode: reads/writes directly on the host filesystem
- *
- * The renderer always works with /workspace-prefixed paths.
- * Host mode translates: /workspace/foo → <workspacePath>/foo
+ * The renderer always works with /workspace-prefixed paths for the primary
+ * root. Main process path resolution maps editor virtual paths to runtime
+ * paths before delegating file operations to the runtime provider.
  */
 
 import { ipcMain } from 'electron';
@@ -15,29 +12,16 @@ import { existsSync, mkdirSync } from 'fs';
 import path from 'path';
 import { IpcChannels } from '@/types/ipc-channels';
 import type { EditorRoot } from '@/types/ipc';
-import { containerManager, workspaceManager } from '@electron/shared/infra/shared-infra';
+import { workspaceManager } from '@electron/shared/infra/shared-infra';
 import { SERO_AGENT_DIR } from '@electron/platform/env';
-import { execFile } from 'child_process';
-import { promisify } from 'util';
 import { PRIMARY_ROOT_ID } from '@electron/features/workspace/roots';
-import { resolveWorkspaceRuntime } from '@electron/features/workspace/runtime-resolution';
 import { gitWorkspaceStateManager } from '@electron/features/apps/git-app/manager';
-import { shellQuote } from './shell-quote';
+import { runtimeManager } from '@electron/features/workspace/runtime/runtime-manager';
+import type { RuntimeDirectoryEntry } from '@electron/features/workspace/runtime/types';
 import {
   PRIMARY_ROOT_PREFIX,
-  toContainerPath as resolveContainerPath,
-  toHostPath as resolveHostPath,
+  toContainerPath as resolveRuntimePath,
 } from './path-resolution';
-
-const execFileAsync = promisify(execFile);
-
-interface ExecFailure extends Error {
-  code?: number | string;
-  stdout?: string;
-  stderr?: string;
-}
-
-// ── Editor state persistence ──────────────────────────────────
 
 const EDITOR_STATE_DIR = path.join(SERO_AGENT_DIR, 'editor-state');
 
@@ -45,123 +29,47 @@ function editorStatePath(workspaceId: string): string {
   return path.join(EDITOR_STATE_DIR, `${workspaceId}.json`);
 }
 
-async function shouldUseContainerRuntime(workspaceId: string): Promise<boolean> {
-  return (await resolveWorkspaceRuntime(workspaceId)).actualRuntime === 'container';
-}
-
-// ── Host-mode file operations ─────────────────────────────────
-
-async function hostReadFile(workspaceId: string, filePath: string): Promise<string> {
-  const absPath = await resolveHostPath(workspaceManager, workspaceId, filePath);
-  return fs.readFile(absPath, 'utf8');
-}
-
-async function hostWriteFile(workspaceId: string, filePath: string, content: string): Promise<void> {
-  const absPath = await resolveHostPath(workspaceManager, workspaceId, filePath);
-  await fs.mkdir(path.dirname(absPath), { recursive: true });
-  await fs.writeFile(absPath, content, 'utf8');
-}
-
 function invalidateGitWorkspace(workspaceId: string, reason: string): void {
   gitWorkspaceStateManager.invalidateWorkspace(workspaceId, reason);
 }
 
-async function hostListFiles(
-  workspaceId: string,
-  dirPath: string,
-): Promise<Array<{ name: string; type: 'file' | 'directory'; size: number }>> {
-  const absDir = await resolveHostPath(workspaceManager, workspaceId, dirPath);
-  const entries = await fs.readdir(absDir, { withFileTypes: true });
-  const results: Array<{ name: string; type: 'file' | 'directory'; size: number }> = [];
-
-  for (const entry of entries) {
-    const entryPath = path.join(absDir, entry.name);
-    let size = 0;
-    try {
-      const stat = await fs.stat(entryPath);
-      size = stat.size;
-    } catch { /* skip stat errors */ }
-    results.push({
-      name: entry.name,
-      type: entry.isDirectory() ? 'directory' : 'file',
-      size,
-    });
-  }
-  return results;
+async function getRuntimePath(workspaceId: string, editorPath: string): Promise<string> {
+  return resolveRuntimePath(workspaceManager, workspaceId, editorPath);
 }
 
-async function hostExec(
-  workspacePath: string,
-  command: string,
-): Promise<{ exitCode: number; stdout: string; stderr: string }> {
-  try {
-    const { stdout, stderr } = await execFileAsync('sh', ['-c', command], {
-      cwd: workspacePath,
-      timeout: 30_000,
-    });
-    return { exitCode: 0, stdout, stderr };
-  } catch (error) {
-    const failure = error as ExecFailure;
-    return {
-      exitCode: typeof failure.code === 'number' ? failure.code : 1,
-      stdout: failure.stdout ?? '',
-      stderr: failure.stderr ?? failure.message,
-    };
-  }
+function toEditorEntries(entries: RuntimeDirectoryEntry[]) {
+  return entries.map((entry) => ({
+    name: entry.name,
+    type: entry.type,
+    size: entry.size,
+  }));
 }
-
-// ── Registration ──────────────────────────────────────────────
 
 export function registerEditorHandlers(): void {
   ipcMain.handle(
     IpcChannels.editor.readFile,
     async (_e, workspaceId: string, filePath: string) => {
-      if (await shouldUseContainerRuntime(workspaceId)) {
-        try {
-          const containerPath = await resolveContainerPath(workspaceManager, workspaceId, filePath);
-          return await containerManager.readFile(workspaceId, containerPath);
-        } catch {
-          // Container exec failed — fall through to host read
-        }
-      }
-      return hostReadFile(workspaceId, filePath);
+      const runtime = await runtimeManager.getRuntime(workspaceId);
+      const runtimePath = await getRuntimePath(workspaceId, filePath);
+      return (await runtime.readFile({ path: runtimePath })).content;
     },
   );
 
-  // Read a binary file as base64 (for media/document previews in the editor)
   ipcMain.handle(
     IpcChannels.editor.readBinaryFile,
     async (_e, workspaceId: string, filePath: string): Promise<string> => {
-      // For containers, use container exec to base64-encode the file
-      if (await shouldUseContainerRuntime(workspaceId)) {
-        try {
-          const containerPath = await resolveContainerPath(workspaceManager, workspaceId, filePath);
-          const result = await containerManager.exec(workspaceId, `base64 < ${shellQuote(containerPath)}`);
-          return result.stdout.trim();
-        } catch {
-          // Fall through to host read
-        }
-      }
-      const absPath = await resolveHostPath(workspaceManager, workspaceId, filePath);
-      const buf = await fs.readFile(absPath);
-      return buf.toString('base64');
+      const runtime = await runtimeManager.getRuntime(workspaceId);
+      const runtimePath = await getRuntimePath(workspaceId, filePath);
+      return (await runtime.readFile({ path: runtimePath, binary: true })).content;
     },
   );
 
   ipcMain.handle(
     IpcChannels.editor.writeFile,
     async (_e, workspaceId: string, filePath: string, content: string) => {
-      if (await shouldUseContainerRuntime(workspaceId)) {
-        try {
-          const containerPath = await resolveContainerPath(workspaceManager, workspaceId, filePath);
-          await containerManager.writeFile(workspaceId, containerPath, content);
-          invalidateGitWorkspace(workspaceId, 'editor:write-file');
-          return;
-        } catch {
-          // Container write failed — fall through to host write
-        }
-      }
-      await hostWriteFile(workspaceId, filePath, content);
+      const runtime = await runtimeManager.getRuntime(workspaceId);
+      const runtimePath = await getRuntimePath(workspaceId, filePath);
+      await runtime.writeFile({ path: runtimePath, content });
       invalidateGitWorkspace(workspaceId, 'editor:write-file');
     },
   );
@@ -169,33 +77,17 @@ export function registerEditorHandlers(): void {
   ipcMain.handle(
     IpcChannels.editor.listFiles,
     async (_e, workspaceId: string, dirPath: string) => {
-      // Use container listing only when the container is registered and running.
-      // Otherwise fall back to host listing so the file tree works before the
-      // container has been started (e.g. when clicking a workspace header).
-      if (await shouldUseContainerRuntime(workspaceId)) {
-        try {
-          const containerPath = await resolveContainerPath(workspaceManager, workspaceId, dirPath);
-          return await containerManager.listFiles(workspaceId, containerPath);
-        } catch {
-          // Container exec failed — fall through to host listing
-        }
-      }
-      return hostListFiles(workspaceId, dirPath);
+      const runtime = await runtimeManager.getRuntime(workspaceId);
+      const runtimePath = await getRuntimePath(workspaceId, dirPath);
+      return toEditorEntries(await runtime.listFiles({ path: runtimePath }));
     },
   );
 
   ipcMain.handle(
     IpcChannels.editor.exec,
     async (_e, workspaceId: string, command: string) => {
-      const runtime = await resolveWorkspaceRuntime(workspaceId);
-      if (runtime.actualRuntime === 'container') {
-        try {
-          return await containerManager.exec(workspaceId, command);
-        } catch {
-          // Container exec failed — fall through to host exec
-        }
-      }
-      return hostExec(runtime.workspacePath, command);
+      const runtime = await runtimeManager.getRuntime(workspaceId);
+      return runtime.exec({ command, cwd: runtime.runtimeWorkspacePath, timeoutMs: 30_000 });
     },
   );
 
@@ -221,22 +113,11 @@ export function registerEditorHandlers(): void {
     },
   );
 
-  ipcMain.handle(
-    IpcChannels.editor.getRootPath,
-    async (_e, _workspaceId: string) => {
-      // Always return /workspace — the renderer uses this as a virtual root.
-      // The main process translates /workspace/... → actual host path for non-container workspaces.
-      // New code should call `editor.getRoots` instead, which returns all roots
-      // (primary + additional) for multi-root workspaces.
-      return PRIMARY_ROOT_PREFIX;
-    },
-  );
+  ipcMain.handle(IpcChannels.editor.getRootPath, async () => PRIMARY_ROOT_PREFIX);
 
   ipcMain.handle(
     IpcChannels.editor.getRoots,
     async (_e, workspaceId: string): Promise<EditorRoot[]> => {
-      // Require a real workspace so callers don't silently work against
-      // a nonexistent id and only fail when they hit an actual file op.
       const entry = workspaceManager.findEntry(workspaceId);
       if (!entry) throw new Error(`Workspace not found: ${workspaceId}`);
       const info = await workspaceManager.getConfig(workspaceId);
@@ -263,30 +144,22 @@ export function registerEditorHandlers(): void {
   ipcMain.handle(
     IpcChannels.editor.isContainer,
     async (_e, workspaceId: string) => {
-      return workspaceManager.isContainerEnabled(workspaceId);
+      // Compatibility channel: renderer callers still ask for a boolean, but
+      // the source of truth is the provider-aware runtime backend.
+      const runtime = await workspaceManager.getRuntimeConfig(workspaceId);
+      return runtime.backend !== 'host';
     },
   );
-
-  // ── First-class file operations (avoid shell commands) ────
 
   ipcMain.handle(
     IpcChannels.editor.rename,
     async (_e, workspaceId: string, oldPath: string, newPath: string): Promise<boolean> => {
       try {
-        if (await shouldUseContainerRuntime(workspaceId)) {
-          try {
-            const cOld = await resolveContainerPath(workspaceManager, workspaceId, oldPath);
-            const cNew = await resolveContainerPath(workspaceManager, workspaceId, newPath);
-            const result = await containerManager.exec(workspaceId, `mv ${shellQuote(cOld)} ${shellQuote(cNew)}`);
-            if (result.exitCode === 0) invalidateGitWorkspace(workspaceId, 'editor:rename');
-            return result.exitCode === 0;
-          } catch {
-            // Fall through to host rename
-          }
-        }
-        const hostOld = await resolveHostPath(workspaceManager, workspaceId, oldPath);
-        const hostNew = await resolveHostPath(workspaceManager, workspaceId, newPath);
-        await fs.rename(hostOld, hostNew);
+        const runtime = await runtimeManager.getRuntime(workspaceId);
+        await runtime.rename({
+          oldPath: await getRuntimePath(workspaceId, oldPath),
+          newPath: await getRuntimePath(workspaceId, newPath),
+        });
         invalidateGitWorkspace(workspaceId, 'editor:rename');
         return true;
       } catch (err: unknown) {
@@ -300,18 +173,8 @@ export function registerEditorHandlers(): void {
     IpcChannels.editor.delete,
     async (_e, workspaceId: string, itemPath: string): Promise<boolean> => {
       try {
-        if (await shouldUseContainerRuntime(workspaceId)) {
-          try {
-            const cItem = await resolveContainerPath(workspaceManager, workspaceId, itemPath);
-            const result = await containerManager.exec(workspaceId, `rm -rf ${shellQuote(cItem)}`);
-            if (result.exitCode === 0) invalidateGitWorkspace(workspaceId, 'editor:delete');
-            return result.exitCode === 0;
-          } catch {
-            // Fall through to host delete
-          }
-        }
-        const hostItem = await resolveHostPath(workspaceManager, workspaceId, itemPath);
-        await fs.rm(hostItem, { recursive: true, force: true });
+        const runtime = await runtimeManager.getRuntime(workspaceId);
+        await runtime.delete({ path: await getRuntimePath(workspaceId, itemPath), recursive: true });
         invalidateGitWorkspace(workspaceId, 'editor:delete');
         return true;
       } catch (err: unknown) {
@@ -325,21 +188,8 @@ export function registerEditorHandlers(): void {
     IpcChannels.editor.createFile,
     async (_e, workspaceId: string, filePath: string): Promise<boolean> => {
       try {
-        if (await shouldUseContainerRuntime(workspaceId)) {
-          try {
-            const cFile = await resolveContainerPath(workspaceManager, workspaceId, filePath);
-            const result = await containerManager.exec(workspaceId, `touch ${shellQuote(cFile)}`);
-            if (result.exitCode === 0) invalidateGitWorkspace(workspaceId, 'editor:create-file');
-            return result.exitCode === 0;
-          } catch {
-            // Fall through to host create
-          }
-        }
-        const hostFile = await resolveHostPath(workspaceManager, workspaceId, filePath);
-        await fs.mkdir(path.dirname(hostFile), { recursive: true });
-        await fs.writeFile(hostFile, '', { flag: 'wx' }).catch(() =>
-          fs.writeFile(hostFile, '', 'utf8'),
-        );
+        const runtime = await runtimeManager.getRuntime(workspaceId);
+        await runtime.createFile({ path: await getRuntimePath(workspaceId, filePath), content: '', overwrite: true });
         invalidateGitWorkspace(workspaceId, 'editor:create-file');
         return true;
       } catch (err: unknown) {
@@ -353,18 +203,8 @@ export function registerEditorHandlers(): void {
     IpcChannels.editor.createDir,
     async (_e, workspaceId: string, dirPath: string): Promise<boolean> => {
       try {
-        if (await shouldUseContainerRuntime(workspaceId)) {
-          try {
-            const cDir = await resolveContainerPath(workspaceManager, workspaceId, dirPath);
-            const result = await containerManager.exec(workspaceId, `mkdir -p ${shellQuote(cDir)}`);
-            if (result.exitCode === 0) invalidateGitWorkspace(workspaceId, 'editor:create-dir');
-            return result.exitCode === 0;
-          } catch {
-            // Fall through to host create
-          }
-        }
-        const hostDir = await resolveHostPath(workspaceManager, workspaceId, dirPath);
-        await fs.mkdir(hostDir, { recursive: true });
+        const runtime = await runtimeManager.getRuntime(workspaceId);
+        await runtime.createDirectory({ path: await getRuntimePath(workspaceId, dirPath), recursive: true });
         invalidateGitWorkspace(workspaceId, 'editor:create-dir');
         return true;
       } catch (err: unknown) {
@@ -374,4 +214,3 @@ export function registerEditorHandlers(): void {
     },
   );
 }
-

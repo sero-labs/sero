@@ -39,6 +39,8 @@ describe('ContainerRuntimeNotice', () => {
     Object.defineProperty(window, 'sero', {
       configurable: true,
       value: {
+        platform: 'darwin',
+        arch: 'arm64',
         shell: shellBridge,
       },
     });
@@ -64,24 +66,50 @@ describe('ContainerRuntimeNotice', () => {
     }
   });
 
-  it('opens setup instructions when the CTA is clicked', async () => {
+  it('opens macOS setup instructions when the CTA is clicked', async () => {
     await act(async () => {
       root?.render(renderNotice({
         status: 'missing_binary',
         message: 'Install Apple containers.',
         recommended: true,
+        runtime: 'apple-container',
         docsUrl: 'https://github.com/sero-labs/sero/blob/main/docs/guides/macos-containers.md',
       }));
     });
 
     await act(async () => {
-      findButton('Set up macOS containers').click();
+      findButton('Set up runtime').click();
     });
 
     expect(shellBridge.openExternal).toHaveBeenCalledWith(
       'https://github.com/sero-labs/sero/blob/main/docs/guides/macos-containers.md',
     );
-    expect(document.body.textContent).toContain('Sero can still continue in host mode');
+    expect(document.body.textContent).toContain('Docker remains available as an isolated runtime on macOS');
+    expect(document.body.textContent).toContain('Docker or Apple Container is configured');
+  });
+
+  it('renders Windows-specific Docker-only copy', async () => {
+    Object.defineProperty(window, 'sero', {
+      configurable: true,
+      value: {
+        shell: shellBridge,
+        platform: 'win32',
+        arch: 'x64',
+      },
+    });
+
+    await act(async () => {
+      root?.render(renderNotice({
+        status: 'missing_binary',
+        message: 'Docker Desktop is required for Sero runtime features on Windows.',
+        recommended: true,
+        runtime: 'docker',
+      }));
+    });
+
+    expect(document.body.textContent).toContain('Docker Desktop is required for Sero runtime features on Windows.');
+    expect(document.body.textContent).not.toContain('WSL');
+    expect(document.body.textContent).not.toContain('Apple Container');
   });
 
   it('renders nothing when containers are available', async () => {
@@ -90,9 +118,10 @@ describe('ContainerRuntimeNotice', () => {
         status: 'available',
         message: 'Apple containers are available.',
         recommended: true,
+        runtime: 'apple-container',
       }));
     });
 
-    expect(document.body.textContent).not.toContain('Containers recommended for full Sero features');
+    expect(document.body.textContent).not.toContain('Workspace runtime setup recommended for full Sero features');
   });
 });

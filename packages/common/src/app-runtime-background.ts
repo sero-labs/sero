@@ -62,7 +62,8 @@ export interface AppRuntimeWorkspaceRefreshResult {
 }
 
 export type AppRuntimeWorkspaceRuntimeKind = 'container' | 'host';
-export type AppRuntimeWorkspaceRuntimeFallbackCode = 'container_unavailable';
+export type AppRuntimeWorkspaceRuntimeBackend = 'apple-container' | 'docker' | 'host';
+export type AppRuntimeWorkspaceRuntimeFallbackCode = 'container_unavailable' | 'backend-unsupported-on-platform';
 export type AppRuntimeWorkspaceRuntimeCapabilityKey =
   | 'browserAutomation'
   | 'containerizedLanguageServers'
@@ -82,6 +83,8 @@ export interface AppRuntimeWorkspaceRuntimeResolution {
   workspacePath: string;
   desiredRuntime: AppRuntimeWorkspaceRuntimeKind;
   actualRuntime: AppRuntimeWorkspaceRuntimeKind;
+  desiredBackend?: AppRuntimeWorkspaceRuntimeBackend;
+  actualBackend?: AppRuntimeWorkspaceRuntimeBackend;
   containerEnabled: boolean;
   fallbackCode?: AppRuntimeWorkspaceRuntimeFallbackCode;
   fallbackReason?: string;

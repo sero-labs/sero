@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
     addRoot: vi.fn(),
     list: vi.fn(),
     getConfig: vi.fn(),
+    getRuntimeConfig: vi.fn(),
     isContainerEnabled: vi.fn(),
     create: vi.fn(),
     addFolder: vi.fn(),
@@ -107,6 +108,7 @@ describe('sero workspace mount-plugin', () => {
 
     mocks.workspaceManager.getPath.mockReturnValue('/host/ws');
     mocks.workspaceManager.getRoots.mockResolvedValue([]);
+    mocks.workspaceManager.getRuntimeConfig.mockResolvedValue({ backend: 'host' });
 
     registry = makeRegistry();
     registerWorkspaceCliCommands(registry as never);
@@ -182,6 +184,51 @@ describe('sero workspace mount-plugin', () => {
     expect(mocks.workspaceManager.create).toHaveBeenCalledWith('phoenix-shop', undefined);
     expect(mocks.appRuntimeManager.reconcile).toHaveBeenCalled();
     expect(mocks.broadcastToWindows).toHaveBeenCalledWith('sero:workspace:changed');
+  });
+
+  it('shows canonical runtime backend in workspace info', async () => {
+    mocks.workspaceManager.getConfig.mockResolvedValue({ id: 'ws-1', name: 'Workspace 1' });
+    mocks.workspaceManager.getRuntimeConfig.mockResolvedValue({ backend: 'docker' });
+
+    const result = await registry.invoke(['info', 'ws-1'], makeContext());
+
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toContain('Runtime backend: docker');
+    expect(mocks.workspaceManager.getRuntimeConfig).toHaveBeenCalledWith('ws-1');
+    expect(mocks.workspaceManager.isContainerEnabled).not.toHaveBeenCalled();
+  });
+
+  it('shows canonical runtime backend in workspace list', async () => {
+    mocks.workspaceManager.list.mockResolvedValue([
+      {
+        id: 'ws-1',
+        name: 'Workspace 1',
+        path: '/host/ws',
+        runtime: { backend: 'host' },
+        container: false,
+        open: true,
+        references: [],
+        mounts: [],
+        roots: [],
+      },
+      {
+        id: 'ws-2',
+        name: 'Workspace 2',
+        path: '/host/ws-2',
+        runtime: { backend: 'apple-container' },
+        container: true,
+        open: true,
+        references: [],
+        mounts: [],
+        roots: [],
+      },
+    ]);
+
+    const result = await registry.invoke(['list'], makeContext());
+
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toContain('[host]');
+    expect(result.output).toContain('[apple-container]');
   });
 
   it('passes --parent when creating a workspace', async () => {

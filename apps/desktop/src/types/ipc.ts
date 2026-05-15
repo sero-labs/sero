@@ -8,8 +8,9 @@
 // ── Profiles ───────────────────────────────────────────────────
 
 export type { ProfileInfo } from './profile';
-
 // ── Workspaces ─────────────────────────────────────────────────
+export type { WorkspaceRuntimeBackend, WorkspaceRuntimeConfig } from './workspace-runtime';
+import type { WorkspaceRuntimeConfig } from './workspace-runtime';
 
 /** Entry in the workspace registry (~/.sero-ui/agent/workspaces.json). */
 export interface WorkspaceRegistryEntry {
@@ -56,7 +57,9 @@ export interface WorkspaceInfo {
   contextHints?: string[];
   tags?: string[];
   open: boolean;
-  /** Whether this workspace runs inside a container. Defaults to true. */
+  /** Provider-aware runtime selection for this workspace. */
+  runtime: WorkspaceRuntimeConfig;
+  /** Derived compatibility flag while renderer code migrates to runtime.backend. */
   container: boolean;
   /** IDs of other workspaces mounted into this workspace's container. */
   references: string[];
@@ -64,6 +67,7 @@ export interface WorkspaceInfo {
   mounts: string[];
   /** Additional roots attached to this workspace (multi-root explorer). */
   roots: WorkspaceRoot[];
+  missing?: boolean; // Registry path is currently unavailable (e.g. removable media).
 }
 
 /**
@@ -87,7 +91,9 @@ export interface WorkspaceConfig {
   id: string;
   name: string;
   description?: string;
-  /** Whether this workspace runs inside a container. Defaults to true. */
+  /** Provider-aware runtime selection. */
+  runtime?: WorkspaceRuntimeConfig;
+  /** @deprecated read-only migration input; writes use runtime.backend. */
   container?: boolean;
   /** Default cwd relative to workspace root for new sessions. */
   defaultCwd?: string;
@@ -255,7 +261,7 @@ export interface DevServer {
   /** Card owner for review previews. */
   cardId?: string;
   /** Server status derived from port scanner liveness checks. */
-  status: 'running' | 'stopped' | 'starting';
+  status: 'running' | 'stopped' | 'starting' | 'failed';
   /** ISO timestamp when the server was registered. */
   registeredAt: string;
 }

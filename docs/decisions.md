@@ -276,7 +276,7 @@ browser, sero-cli) instead of 16+. Saves ~2,000–3,000 tokens per session.
   bridge selectively.
 - **Tools that need session side effects** must depend on execution-scoped
   runtime capabilities, not on registration-scoped captured extension objects.
-- **Core coding tools** (bash, read, write, edit, browser) remain standalone
+- **Core coding tools** (bash, read, write, edit, automation_browser) remain standalone
   because models are trained to use them with structured parameters.
 - Tools work unchanged in the **Pi CLI** — the bridge is Sero-only.
 

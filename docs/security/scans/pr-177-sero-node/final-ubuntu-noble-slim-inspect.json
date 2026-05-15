@@ -1,0 +1,56 @@
+[
+    {
+        "Id": "sha256:85ab4bbdf0defbe8f2c71436c56f6465143ab877b0e5a83169df1b7b65dcd442",
+        "RepoTags": [
+            "sero-node:ubuntu-noble-slim-local"
+        ],
+        "RepoDigests": [],
+        "Comment": "buildkit.dockerfile.v0",
+        "Created": "2026-05-13T12:52:34.993477052Z",
+        "Config": {
+            "Env": [
+                "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                "DEBIAN_FRONTEND=noninteractive",
+                "PLAYWRIGHT_BROWSERS_PATH=/ms-playwright"
+            ],
+            "Entrypoint": [
+                "/usr/bin/tini",
+                "--"
+            ],
+            "WorkingDir": "/workspace",
+            "Labels": {
+                "org.opencontainers.image.title": "Sero Node Runtime",
+                "org.opencontainers.image.version": "ubuntu-noble-slim-local"
+            }
+        },
+        "Architecture": "arm64",
+        "Os": "linux",
+        "Size": 1843365152,
+        "GraphDriver": {
+            "Data": {
+                "LowerDir": "/var/lib/docker/overlay2/zswp3dc2vuwcrp7tw85rqtgm1/diff:/var/lib/docker/overlay2/zpqx1s8apu4fxtok1pyhiebok/diff:/var/lib/docker/overlay2/mqmepbdamae8n36ulnto59mry/diff:/var/lib/docker/overlay2/q0q9zivsrnhjzi95lg93wzdjz/diff:/var/lib/docker/overlay2/1tpbw8zji64y0imu2emk8rhdr/diff:/var/lib/docker/overlay2/4etme65x0e0mxzh0amr8oybhe/diff:/var/lib/docker/overlay2/e8m7r0nhe8pz71mi4efs95b7i/diff:/var/lib/docker/overlay2/0da047d89e6e8fd856db67310ba422cffbf96a03d8ada498954c4c0c25295925/diff",
+                "MergedDir": "/var/lib/docker/overlay2/xb5u06ig6uvauei0dwhbgo3z5/merged",
+                "UpperDir": "/var/lib/docker/overlay2/xb5u06ig6uvauei0dwhbgo3z5/diff",
+                "WorkDir": "/var/lib/docker/overlay2/xb5u06ig6uvauei0dwhbgo3z5/work"
+            },
+            "Name": "overlay2"
+        },
+        "RootFS": {
+            "Type": "layers",
+            "Layers": [
+                "sha256:d9a56420aee7ff835e0c05fc666d1237d40f0da5fe338738e651b01db4672a5d",
+                "sha256:d18ae2e2e0ebbff456456853641333e3eeef4833031b5ed5fa35f8d0a2d5d286",
+                "sha256:3e4e6e8fd54969de55267ca4526a42ccb00f1cf0ad887e93a639a3325eed3a6f",
+                "sha256:26833a1c5c138ec5252d67b9110e48582c2bb97db70c7e8fe59d768e492e01b3",
+                "sha256:c47db116a600f48cab96d2e65afd7a0cef3800b8ed4822156d8866f184a7244e",
+                "sha256:6667598cc4fea3904037d42fecd19d28d1abec83016ce908aa83d5bceef14916",
+                "sha256:f03d441fcd4fc4e69c93b748f4f1000ef9c0bc522a6f22732c7578213df68b3c",
+                "sha256:edab4a5997b2ed2da18090871f179c63c2b95a060403abd5d55cf198b306e576",
+                "sha256:5f70bf18a086007016e948b04aed3b82103a36bea41755b6cddfaf10ace3c6ef"
+            ]
+        },
+        "Metadata": {
+            "LastTagTime": "2026-05-13T12:52:36.109535261Z"
+        }
+    }
+]

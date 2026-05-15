@@ -10,7 +10,7 @@ import {
 export interface LspServerConfig {
   /** Unique language key (e.g. 'typescript'). */
   language: string;
-  /** Command to run inside the container. */
+  /** Command to run inside the selected workspace runtime. */
   command: string;
   /** Shell command to check if the server binary is installed. */
   checkCommand: string;
@@ -33,6 +33,8 @@ function buildLanguageIdMapForServer(serverLanguage: string): Record<string, str
   return Object.fromEntries(entries);
 }
 
+const LSP_NPM_PREFIX = '${HOME:-/tmp/sero-home}/.sero/lsp/npm';
+const LSP_PATH_PREFIX = `PATH="${LSP_NPM_PREFIX}/bin:$PATH"`;
 const TYPESCRIPT_LANGUAGE_SERVER_VERSION = '4.4.0';
 const TYPESCRIPT_VERSION = '5.9.3';
 const TYPESCRIPT_INSTALL_COMMAND = [
@@ -48,10 +50,10 @@ const TYPESCRIPT_EXTENSIONS = Object.keys(TYPESCRIPT_LANGUAGE_ID_MAP);
 const LANGUAGE_SERVERS: LspServerConfig[] = [
   {
     language: 'typescript',
-    command: 'typescript-language-server --stdio',
-    checkCommand: 'which typescript-language-server',
-    // Runtime install remains container-side for now; pin versions for reproducible startup.
-    installCommand: `npm install -g ${TYPESCRIPT_INSTALL_COMMAND}`,
+    command: `${LSP_PATH_PREFIX} typescript-language-server --stdio`,
+    checkCommand: `${LSP_PATH_PREFIX} command -v typescript-language-server`,
+    // Install into HOME so non-root Docker/Apple runtime users do not need /usr/local write access.
+    installCommand: `mkdir -p "${LSP_NPM_PREFIX}" && npm install -g --prefix "${LSP_NPM_PREFIX}" ${TYPESCRIPT_INSTALL_COMMAND}`,
     extensions: TYPESCRIPT_EXTENSIONS,
     monacoLanguageIds: TYPESCRIPT_MONACO_LANGUAGE_IDS,
     languageIdMap: TYPESCRIPT_LANGUAGE_ID_MAP,

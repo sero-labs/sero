@@ -1,20 +1,23 @@
 /**
- * Manages a single language server process running inside a container.
+ * Manages a single language server process running inside a workspace runtime.
  * Handles spawning, JSON-RPC communication, initialization, and shutdown.
  */
 
-import { spawn, type ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';
 import { JsonRpcParser, encodeMessage } from './json-rpc';
-import { CONTAINER_BIN, containerId } from '@electron/features/container/core/types';
+import type { RuntimeBackend, RuntimeProcess } from '@electron/features/workspace/runtime/types';
 import type {
   LspServerConfig, JsonRpcMessage, JsonRpcRequest,
   JsonRpcResponse, JsonRpcNotification,
 } from './types';
 import { isResponse, isRequest, isNotification, fileUri } from './types';
 import { resolveServerRequest } from './server-request-handlers';
+import {
+  RUNTIME_WORKSPACE_PATH,
+  toHostWorkspacePath,
+  toRuntimeWorkspacePath,
+} from '@electron/features/workspace/runtime/runtime-paths';
 
-const WORKSPACE_DIR = '/workspace';
 const REQUEST_TIMEOUT_MS = 30_000;
 
 interface InitializeResult {
@@ -45,8 +48,17 @@ function getNodeErrorMessage(err: unknown): string {
   return typeof err.message === 'string' ? err.message : '';
 }
 
+function translateValue(value: unknown, mapUri: (uri: string) => string): unknown {
+  if (typeof value === 'string') return mapUri(value);
+  if (Array.isArray(value)) return value.map((entry) => translateValue(entry, mapUri));
+  if (!isRecord(value)) return value;
+  return Object.fromEntries(
+    Object.entries(value).map(([key, entry]) => [key, translateValue(entry, mapUri)]),
+  );
+}
+
 export class LspServerProcess extends EventEmitter {
-  private process: ChildProcess | null = null;
+  private process: RuntimeProcess | null = null;
   private parser = new JsonRpcParser();
   private nextId = 1;
   private pendingRequests = new Map<number, {
@@ -62,6 +74,7 @@ export class LspServerProcess extends EventEmitter {
   constructor(
     private workspaceId: string,
     private config: LspServerConfig,
+    private runtime: RuntimeBackend,
     private envVars: Record<string, string>,
   ) {
     super();
@@ -75,44 +88,23 @@ export class LspServerProcess extends EventEmitter {
   get disposed(): boolean { return this._disposed; }
   get serverCapabilities(): Record<string, unknown> { return this.capabilities; }
 
-  /** Spawn the language server process inside the container. */
+  /** Spawn the language server process inside the selected workspace runtime. */
   async start(): Promise<Record<string, unknown>> {
     if (this._disposed) throw new Error('Server is disposed');
     if (this.process) throw new Error('Server already started');
 
-    const cid = containerId(this.workspaceId);
-    const envFlags: string[] = [];
-    for (const [k, v] of Object.entries(this.envVars)) {
-      envFlags.push('-e', `${k}=${v}`);
-    }
-
-    const env = { ...process.env } as Record<string, string>;
-    if (env.PATH && !env.PATH.includes('/usr/local/bin')) {
-      env.PATH = `/usr/local/bin:${env.PATH}`;
-    }
-
-    this.process = spawn(CONTAINER_BIN, [
-      'exec', '-i', '-w', WORKSPACE_DIR,
-      ...envFlags,
-      cid, 'sh', '-c', this.config.command,
-    ], { env, stdio: ['pipe', 'pipe', 'pipe'] });
-
-    this.process.stdout!.on('data', (data: Buffer) => this.parser.feed(data));
-
-    this.process.stderr!.on('data', (data: Buffer) => {
-      const msg = data.toString().trim();
-      if (msg) console.warn(`[lsp:${this.config.language}:stderr]`, msg);
+    this.process = await this.runtime.spawn({
+      command: this.config.command,
+      cwd: RUNTIME_WORKSPACE_PATH,
+      env: this.envVars,
+      stdio: 'pipe',
     });
 
-    this.process.on('error', (err) => {
-      console.error(`[lsp:${this.config.language}] Process error:`, err.message);
-      this.emit('error', err);
-      this.cleanup();
-    });
+    this.process.onData((data) => this.parser.feed(Buffer.from(data)));
 
-    this.process.on('exit', (code, signal) => {
-      console.log(`[lsp:${this.config.language}] Exited (code=${code}, signal=${signal})`);
-      this.emit('exit', code, signal);
+    this.process.onExit(({ exitCode, signal }) => {
+      console.log(`[lsp:${this.config.language}] Exited (code=${exitCode}, signal=${signal})`);
+      this.emit('exit', exitCode, signal);
       this.cleanup();
     });
 
@@ -127,7 +119,7 @@ export class LspServerProcess extends EventEmitter {
         return;
       }
       const id = this.nextId++;
-      const msg: JsonRpcRequest = { jsonrpc: '2.0', id, method, params };
+      const msg: JsonRpcRequest = { jsonrpc: '2.0', id, method, params: this.toServerValue(params) };
       const timer = setTimeout(() => {
         this.pendingRequests.delete(id);
         reject(new Error(`LSP request '${method}' timed out after ${REQUEST_TIMEOUT_MS}ms`));
@@ -140,7 +132,7 @@ export class LspServerProcess extends EventEmitter {
   /** Send a JSON-RPC notification (no response expected). */
   sendNotification(method: string, params?: unknown): void {
     if (!this.process || this._disposed) return;
-    const msg: JsonRpcNotification = { jsonrpc: '2.0', method, params };
+    const msg: JsonRpcNotification = { jsonrpc: '2.0', method, params: this.toServerValue(params) };
     this.write(msg);
   }
 
@@ -155,16 +147,16 @@ export class LspServerProcess extends EventEmitter {
       ]);
       this.sendNotification('exit');
     } catch {
-      this.process?.kill('SIGTERM');
+      this.process?.signal('SIGTERM');
     }
 
     await new Promise<void>((resolve) => {
       const timer = setTimeout(() => {
-        this.process?.kill('SIGKILL');
+        this.process?.signal('SIGKILL');
         resolve();
       }, 2000);
       if (this.process) {
-        this.process.once('exit', () => { clearTimeout(timer); resolve(); });
+        this.process.onExit(() => { clearTimeout(timer); resolve(); });
       } else {
         clearTimeout(timer);
         resolve();
@@ -177,12 +169,13 @@ export class LspServerProcess extends EventEmitter {
   // ── Private ───────────────────────────────────────────────
 
   private async initialize(): Promise<Record<string, unknown>> {
-    const rootUri = fileUri(WORKSPACE_DIR);
+    const rootPath = this.serverRootPath();
+    const rootUri = fileUri(rootPath);
 
     const result = await this.sendRequest('initialize', {
       processId: null,
       rootUri,
-      rootPath: WORKSPACE_DIR,
+      rootPath,
       capabilities: {
         textDocument: {
           synchronization: { dynamicRegistration: false, willSave: false, didSave: true, willSaveWaitUntil: false },
@@ -227,6 +220,7 @@ export class LspServerProcess extends EventEmitter {
   }
 
   private handleMessage(msg: JsonRpcMessage): void {
+    msg = this.fromServerMessage(msg);
     if (isResponse(msg)) {
       const pending = this.pendingRequests.get(msg.id!);
       if (pending) {
@@ -260,10 +254,39 @@ export class LspServerProcess extends EventEmitter {
     this.write(response);
   }
 
+  private serverRootPath(): string {
+    return this.runtime.workspaceAccess === 'host'
+      ? this.runtime.hostWorkspacePath
+      : this.runtime.runtimeWorkspacePath;
+  }
+
+  private toServerValue(value: unknown): unknown {
+    if (this.runtime.workspaceAccess !== 'host') return value;
+    return translateValue(value, (uri) => this.runtimeUriToHostUri(uri));
+  }
+
+  private fromServerMessage(message: JsonRpcMessage): JsonRpcMessage {
+    if (this.runtime.workspaceAccess !== 'host') return message;
+    return translateValue(message, (uri) => this.hostUriToRuntimeUri(uri)) as JsonRpcMessage;
+  }
+
+  private runtimeUriToHostUri(uri: string): string {
+    const runtimePrefix = fileUri(RUNTIME_WORKSPACE_PATH);
+    if (uri !== runtimePrefix && !uri.startsWith(`${runtimePrefix}/`)) return uri;
+    return fileUri(toHostWorkspacePath(this.runtime.hostWorkspacePath, uri.slice('file://'.length)));
+  }
+
+  private hostUriToRuntimeUri(uri: string): string {
+    if (!uri.startsWith('file://')) return uri;
+    const hostPath = uri.slice('file://'.length);
+    const runtimePath = toRuntimeWorkspacePath(this.runtime.hostWorkspacePath, hostPath);
+    return runtimePath ? fileUri(runtimePath) : uri;
+  }
+
   private write(msg: JsonRpcMessage): void {
-    if (!this.process?.stdin?.writable) return;
+    if (!this.process) return;
     try {
-      this.process.stdin.write(encodeMessage(msg));
+      this.process.write(encodeMessage(msg).toString('utf8'));
     } catch (err: unknown) {
       if (getNodeErrorCode(err) !== 'EPIPE') {
         console.warn(`[lsp:${this.config.language}] Write error:`, getNodeErrorMessage(err));

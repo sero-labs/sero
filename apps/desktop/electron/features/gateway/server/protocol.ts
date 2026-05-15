@@ -233,11 +233,7 @@ export interface GatewayDevServerChangedEvent {
   change:
     | { type: 'registered'; server: Record<string, unknown> }
     | { type: 'unregistered'; serverId: string }
-    | {
-        type: 'status_changed';
-        serverId: string;
-        status: 'running' | 'stopped' | 'starting';
-      };
+    | { type: 'status_changed'; serverId: string; status: 'running' | 'stopped' | 'starting' | 'failed' };
 }
 
 export type GatewayPushEvent =

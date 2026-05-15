@@ -8,6 +8,7 @@ import { WebChatServer } from '@electron/features/gateway/channels/web';
 import { TailscaleIntegration } from '@electron/features/gateway/bridge/tailscale';
 import { GitHubAuthManager } from '@electron/features/auth/github/auth-manager';
 import { workspaceManager } from '@electron/features/workspace/manager';
+import { runtimeManager } from '@electron/features/workspace/runtime/runtime-manager';
 import { FileWatcherManager } from '@electron/features/workspace/watcher';
 import { LspManager } from '@electron/features/editor/lsp/lsp-manager';
 import { GitRunner, VcsManager, VcsOps, VcsPullRequestOps } from '@electron/features/vcs';
@@ -25,7 +26,7 @@ export { containerManager };
 // credential config are available in every container command.
 containerManager.getExtraEnvVars = () => githubAuth.getAuthEnvVars();
 
-const gitRunner = new GitRunner(workspaceManager, containerManager, githubAuth);
+const gitRunner = new GitRunner(workspaceManager, runtimeManager, githubAuth);
 export const vcsManager = new VcsManager(workspaceManager, gitRunner);
 export const vcsOps = new VcsOps(gitRunner);
 export const vcsPrOps = new VcsPullRequestOps(gitRunner);
@@ -52,11 +53,11 @@ export const webChatServer = new WebChatServer({
 
 export const tailscale = new TailscaleIntegration();
 
-export { workspaceManager };
+export { workspaceManager, runtimeManager };
 
 export const fileWatcherManager = new FileWatcherManager();
 
-export const lspManager = new LspManager(containerManager);
+export const lspManager = new LspManager(runtimeManager);
 
 export { subagentManager, appRuntimeManager, pluginDevSessionManager };
 

@@ -124,6 +124,34 @@ describe('app-runtime shared seams', () => {
     warnSpy.mockRestore();
   });
 
+  it('keeps default object fields when stored app state is partial or malformed', async () => {
+    let latestState: { display: string; history: unknown[]; meta: { ready: boolean }; extra?: string } | null = null;
+    const appState = {
+      read: vi.fn(async () => null),
+      write: vi.fn(async () => undefined),
+      watch: vi.fn(async () => ({ display: 42, history: null, meta: {}, extra: 'kept' })),
+      unwatch: vi.fn(async () => undefined),
+      onChange: vi.fn(() => () => undefined),
+    };
+    installSeroBridge(appState);
+
+    function Probe() {
+      const [state] = useAppState({ display: '0', history: [], meta: { ready: false } });
+      latestState = state;
+      return null;
+    }
+
+    await act(async () => {
+      root?.render(
+        <AppProvider value={{ appId: 'runtime-test', workspaceId: 'global', workspacePath: '/tmp', stateFilePath: '/tmp/state.json' }}>
+          <Probe />
+        </AppProvider>,
+      );
+    });
+
+    expect(latestState).toEqual({ display: '0', history: [], meta: { ready: false }, extra: 'kept' });
+  });
+
   it('invokes app-local tools through the generic appAgent bridge', async () => {
     let runTool: ((toolName: string, params?: Record<string, unknown>) => Promise<unknown>) | null = null;
     const invokeTool = vi.fn(async () => ({

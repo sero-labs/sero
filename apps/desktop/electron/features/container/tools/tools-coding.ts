@@ -13,7 +13,7 @@
 
 import type { Static } from 'typebox';
 import type { ToolDefinition } from '@mariozechner/pi-coding-agent';
-import type { ContainerManager } from '..';
+import type { RuntimeBackend, RuntimeFileReadResult } from '@electron/features/workspace/runtime/types';
 import {
   DEFAULT_MAX_LINES,
   DEFAULT_MAX_BYTES,
@@ -52,6 +52,10 @@ function normalizeContainerGuardPath(value: string): string {
   return value.replace(/\\/g, '/');
 }
 
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 function buildResolveContainerPathCommand(targetPath: string): string {
   const escaped = shellEscape(targetPath);
   return [
@@ -78,23 +82,21 @@ function buildResolveContainerPathCommand(targetPath: string): string {
 }
 
 async function resolveContainerPathForGuard(
-  cm: ContainerManager,
-  workspaceId: string,
+  runtime: RuntimeBackend,
   targetPath: string,
   cwd: string,
 ): Promise<string> {
-  const result = await cm.exec(
-    workspaceId,
-    buildResolveContainerPathCommand(targetPath),
+  const result = await runtime.exec({
+    command: buildResolveContainerPathCommand(targetPath),
     cwd,
-    10_000,
-  );
+    timeoutMs: 10_000,
+  });
   return normalizeContainerGuardPath(result.stdout.trim() || targetPath);
 }
 
 // ── Bash ────────────────────────────────────────────────────
 
-export function createBash(cm: ContainerManager, workspaceId: string, containerCwd?: string): ToolDefinition {
+export function createBash(runtime: RuntimeBackend, containerCwd?: string): ToolDefinition {
   const cwd = containerCwd ?? WORKSPACE_DIR;
   return {
     name: 'bash',
@@ -112,19 +114,18 @@ export function createBash(cm: ContainerManager, workspaceId: string, containerC
         || await commandTouchesProtectedMemoryWithResolver({
           command: params.command,
           basedir: cwd,
-          resolvePath: (candidatePath) => resolveContainerPathForGuard(cm, workspaceId, candidatePath, cwd),
+          resolvePath: (candidatePath) => resolveContainerPathForGuard(runtime, candidatePath, cwd),
         })
       ) {
         throw new Error(getProtectedMemoryAccessError('bash'));
       }
 
       const timeoutMs = params.timeout ? params.timeout * 1000 : undefined;
-      const result = await cm.exec(
-        workspaceId,
-        params.command,
+      const result = await runtime.exec({
+        command: params.command,
         cwd,
         timeoutMs,
-      );
+      });
       const combined = (
         result.stdout + (result.stderr ? '\n' + result.stderr : '')
       ).trim();
@@ -153,14 +154,6 @@ export function createBash(cm: ContainerManager, workspaceId: string, containerC
         outputText += `\n\nCommand exited with code ${result.exitCode}`;
       }
 
-      // Append detected dev server URLs (always — useful context)
-      const ports = cm.portScanner.getPorts(workspaceId);
-      if (ports.length > 0) {
-        const lines = ports.map((p) => `  ${p.url}  (port ${p.port})`);
-        outputText += `\n\n[Dev servers]\n${lines.join('\n')}`;
-      }
-      cm.portScanner.triggerScan(workspaceId);
-
       // Non-zero exit → reject (Pi SDK behaviour: agent-loop sets isError)
       if (result.exitCode !== 0) {
         throw new Error(outputText);
@@ -176,7 +169,7 @@ export function createBash(cm: ContainerManager, workspaceId: string, containerC
 
 // ── Read ────────────────────────────────────────────────────
 
-export function createRead(cm: ContainerManager, workspaceId: string, containerCwd?: string): ToolDefinition {
+export function createRead(runtime: RuntimeBackend, containerCwd?: string): ToolDefinition {
   const basedir = containerCwd ?? WORKSPACE_DIR;
   return {
     name: 'read',
@@ -195,41 +188,32 @@ export function createRead(cm: ContainerManager, workspaceId: string, containerC
       const absPath = resolveContainerPath(params.path, basedir);
       const guardedPath = isProtectedMemoryPath(absPath)
         ? absPath
-        : await resolveContainerPathForGuard(cm, workspaceId, absPath, basedir);
+        : await resolveContainerPathForGuard(runtime, absPath, basedir);
       if (isProtectedMemoryPath(guardedPath)) {
         throw new Error(getProtectedMemoryAccessError('read'));
       }
-      const escaped = shellEscape(absPath);
 
       // ── Image detection by magic bytes ──────────────────
-      // Read the first 12 bytes as hex to sniff the real file type.
-      // This matches Pi SDK behaviour (file-type package) and avoids
-      // sending broken data to the API for misnamed / corrupt files.
-      const hexResult = await cm.exec(
-        workspaceId,
-        `od -A n -t x1 -N 12 '${escaped}' | tr -d ' \\n'`,
-      );
-      const magicHex = hexResult.stdout.trim().toLowerCase();
-      const mimeType = detectMimeFromMagicHex(magicHex);
+      // Read through the runtime file primitive so Host mode can translate
+      // /workspace paths correctly instead of embedding them in shell commands.
+      let binaryResult: RuntimeFileReadResult;
+      try {
+        binaryResult = await runtime.readFile({ path: absPath, binary: true });
+      } catch (error) {
+        throw new Error(`Error reading ${params.path}: ${errorMessage(error)}`);
+      }
+      const fileBytes = Buffer.from(binaryResult.content, 'base64');
+      const mimeType = detectMimeFromMagicHex(fileBytes.subarray(0, 12).toString('hex'));
 
       if (mimeType) {
-        const b64Result = await cm.exec(
-          workspaceId,
-          `base64 -w 0 '${escaped}' 2>/dev/null || base64 '${escaped}'`,
-        );
-        if (b64Result.exitCode !== 0) {
-          throw new Error(`Error reading image ${params.path}: ${b64Result.stderr}`);
-        }
-        const base64 = b64Result.stdout.replace(/[\r\n]/g, '');
-
         // Final sanity check — decoded size should be > 8 bytes for a real image
-        const estimatedBytes = Math.floor((base64.length * 3) / 4);
-        if (estimatedBytes < 8) {
+        if (fileBytes.length < 8) {
           throw new Error(
-            `File ${params.path} has image magic bytes but is only ${estimatedBytes} bytes — likely corrupt.`,
+            `File ${params.path} has image magic bytes but is only ${fileBytes.length} bytes — likely corrupt.`,
           );
         }
 
+        const base64 = binaryResult.content.replace(/[\r\n]/g, '');
         const image = prepareToolImage(base64, mimeType);
         const text = [`Read image file [${image.mimeType}]`, image.text].filter(Boolean).join('\n');
         return {
@@ -242,12 +226,13 @@ export function createRead(cm: ContainerManager, workspaceId: string, containerC
       }
 
       // ── Text handling ───────────────────────────────────
-      const readResult = await cm.exec(workspaceId, `cat '${escaped}'`);
-      if (readResult.exitCode !== 0) {
-        throw new Error(`Error reading ${params.path}: ${readResult.stderr}`);
+      let textContent: string;
+      try {
+        const readResult = await runtime.readFile({ path: absPath });
+        textContent = readResult.content;
+      } catch (error) {
+        throw new Error(`Error reading ${params.path}: ${errorMessage(error)}`);
       }
-
-      const textContent = readResult.stdout;
       const allLines = textContent.split('\n');
       const totalFileLines = allLines.length;
 
@@ -316,7 +301,7 @@ export function createRead(cm: ContainerManager, workspaceId: string, containerC
 
 // ── Write ───────────────────────────────────────────────────
 
-export function createWrite(cm: ContainerManager, workspaceId: string, containerCwd?: string): ToolDefinition {
+export function createWrite(runtime: RuntimeBackend, containerCwd?: string): ToolDefinition {
   const basedir = containerCwd ?? WORKSPACE_DIR;
   return {
     name: 'write',
@@ -331,11 +316,11 @@ export function createWrite(cm: ContainerManager, workspaceId: string, container
       const absPath = resolveContainerPath(params.path, basedir);
       const guardedPath = isProtectedMemoryPath(absPath)
         ? absPath
-        : await resolveContainerPathForGuard(cm, workspaceId, absPath, basedir);
+        : await resolveContainerPathForGuard(runtime, absPath, basedir);
       if (isProtectedMemoryPath(guardedPath)) {
         throw new Error(getProtectedMemoryAccessError('write'));
       }
-      await cm.writeFile(workspaceId, absPath, params.content);
+      await runtime.writeFile({ path: absPath, content: params.content });
       return {
         content: [
           {
@@ -351,7 +336,7 @@ export function createWrite(cm: ContainerManager, workspaceId: string, container
 
 // ── Edit ────────────────────────────────────────────────────
 
-export function createEdit(cm: ContainerManager, workspaceId: string, containerCwd?: string): ToolDefinition {
+export function createEdit(runtime: RuntimeBackend, containerCwd?: string): ToolDefinition {
   const basedir = containerCwd ?? WORKSPACE_DIR;
   return {
     name: 'edit',
@@ -366,19 +351,19 @@ export function createEdit(cm: ContainerManager, workspaceId: string, containerC
       const absPath = resolveContainerPath(params.path, basedir);
       const guardedPath = isProtectedMemoryPath(absPath)
         ? absPath
-        : await resolveContainerPathForGuard(cm, workspaceId, absPath, basedir);
+        : await resolveContainerPathForGuard(runtime, absPath, basedir);
       if (isProtectedMemoryPath(guardedPath)) {
         throw new Error(getProtectedMemoryAccessError('edit'));
       }
-      const escaped = shellEscape(absPath);
 
       // Read current file content
-      const readResult = await cm.exec(workspaceId, `cat '${escaped}'`);
-      if (readResult.exitCode !== 0) {
+      let rawContent: string;
+      try {
+        const readResult = await runtime.readFile({ path: absPath });
+        rawContent = readResult.content;
+      } catch {
         throw new Error(`File not found: ${params.path}`);
       }
-
-      const rawContent = readResult.stdout;
 
       // Strip BOM before matching (LLMs never include invisible BOM)
       const { bom, text: content } = stripBom(rawContent);
@@ -424,7 +409,7 @@ export function createEdit(cm: ContainerManager, workspaceId: string, containerC
 
       // Restore original line endings + BOM, then write
       const finalContent = bom + restoreLineEndings(newContent, originalEnding);
-      await cm.writeFile(workspaceId, absPath, finalContent);
+      await runtime.writeFile({ path: absPath, content: finalContent });
 
       // Generate unified diff for the response
       const diffResult = generateDiffString(baseContent, newContent);

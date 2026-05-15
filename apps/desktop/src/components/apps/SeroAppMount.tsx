@@ -6,7 +6,7 @@
  * Wraps in AppProvider with workspace context + agent prompt bridge.
  */
 
-import { Suspense } from 'react';
+import { Component, Suspense, type ErrorInfo, type ReactNode } from 'react';
 import { AppProvider } from '@sero-ai/app-runtime';
 import type { SeroAppManifest } from '@/types/ipc';
 import { getFederatedComponent } from '@/lib/federation-registry';
@@ -45,13 +45,43 @@ export function SeroAppMount({ manifest }: SeroAppMountProps) {
 
   return (
     <AppProvider value={contextValue}>
-      <div data-app={manifest.id} className="contents">
-        <Suspense fallback={<AppLoading name={manifest.name} />}>
-          <LazyComponent />
-        </Suspense>
-      </div>
+      <AppErrorBoundary name={manifest.name}>
+        <div data-app={manifest.id} className="contents">
+          <Suspense fallback={<AppLoading name={manifest.name} />}>
+            <LazyComponent />
+          </Suspense>
+        </div>
+      </AppErrorBoundary>
     </AppProvider>
   );
+}
+
+interface AppErrorBoundaryProps {
+  children: ReactNode;
+  name: string;
+}
+
+interface AppErrorBoundaryState {
+  error: Error | null;
+}
+
+class AppErrorBoundary extends Component<AppErrorBoundaryProps, AppErrorBoundaryState> {
+  state: AppErrorBoundaryState = { error: null };
+
+  static getDerivedStateFromError(error: Error): AppErrorBoundaryState {
+    return { error };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo): void {
+    console.error(`[apps] ${this.props.name} crashed while rendering`, error, info.componentStack);
+  }
+
+  render(): ReactNode {
+    if (this.state.error) {
+      return <AppPlaceholder name={this.props.name} reason="App crashed while rendering" />;
+    }
+    return this.props.children;
+  }
 }
 
 function AppPlaceholder({ name, reason }: { name: string; reason: string }) {

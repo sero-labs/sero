@@ -215,7 +215,7 @@ export interface WorkspaceRuntimeDiagnosticsIPC {
   desiredRuntime: 'container' | 'host';
   actualRuntime: 'container' | 'host';
   containerEnabled: boolean;
-  fallbackCode?: 'container_unavailable';
+  fallbackCode?: 'container_unavailable' | 'backend-unsupported-on-platform';
   fallbackReason?: string;
   capabilityAudit: WorkspaceRuntimeCapabilityIPC[];
 }

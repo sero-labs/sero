@@ -17,12 +17,8 @@ import { getModelTierThinkingLevel, isModelTier } from '@sero-ai/common';
 import type { RunnerConfig, RunResult, SubagentUsage, SubagentToolActivity } from '../core/types';
 import type { SharedInfra } from '@electron/shared/infra/shared-infra';
 import type { WorkspaceManager } from '@electron/features/workspace/manager';
-import type { ContainerManager } from '@electron/features/container';
-import type { ContainerState } from '@electron/features/container/core/types';
-import { buildWorkspaceContainerConfig } from '@electron/features/container/core/workspace-container-config';
-import { createContainerTools, createHostCodingTools } from '@electron/features/container/tools';
+import { createRuntimeTools } from '@electron/features/container/tools';
 import { WORKSPACE_DIR } from '@electron/features/container/tools/tool-schemas';
-import { createWorkspaceCliTool } from '@electron/cli';
 import { createSubagentExtensionFactory } from './loader';
 import { SERO_AGENT_DIR } from '@electron/platform/env';
 import { logRawEvent, logTurnContext } from '@electron/ipc/editor/debug';
@@ -34,7 +30,7 @@ import {
   filterCompatiblePluginSkills,
   filterCompatiblePluginThemes,
 } from '@electron/features/plugins/resource-compatibility';
-import { resolveWorkspaceRuntime } from '@electron/features/workspace/runtime-resolution';
+import { runtimeManager } from '@electron/features/workspace/runtime/runtime-manager';
 import { parseModelField, resolveTierModel } from '@electron/shared/settings/resolve-tier-model';
 import { getModelTiers } from '@electron/shared/settings/model-tiers';
 import path from 'path';
@@ -107,7 +103,6 @@ export function resolveSubagentPaths(
 export interface RunnerDeps {
   infra: SharedInfra;
   workspaceManager: WorkspaceManager;
-  containerManager: ContainerManager;
 }
 
 /**
@@ -118,13 +113,12 @@ export async function runSubagent(
   config: RunnerConfig,
   deps: RunnerDeps,
 ): Promise<RunResult> {
-  const { agent, task, resolved, workspaceId, signal, onProgress, cwdOverride, isolated } = config;
-  const { infra, workspaceManager, containerManager } = deps;
+  const { agent, task, resolved, workspaceId, signal, onProgress, cwdOverride } = config;
+  const { infra, workspaceManager } = deps;
 
   const workspaceRoot = workspaceManager.getPath(workspaceId);
   const {
     sessionPath,
-    containerHostPath,
     containerCwd,
   } = resolveSubagentPaths(workspaceRoot, cwdOverride);
 
@@ -140,31 +134,20 @@ export async function runSubagent(
   // Generate a unique session ID for this subagent run
   const subagentSessionId = `subagent-${config.parentSessionId}-${Date.now()}`;
 
-  // Resolve container state (reuse workspace's existing container when available)
-  let containerState: ContainerState | null = null;
-  const runtime = await resolveWorkspaceRuntime(workspaceId);
-  if (runtime.actualRuntime === 'container') {
-    try {
-      const containerConfig = await buildWorkspaceContainerConfig(
-        workspaceManager,
-        workspaceId,
-        containerHostPath ?? sessionPath,
-        { isolated },
-      );
-      containerState = await containerManager.ensure(containerConfig);
-    } catch (err: unknown) {
-      console.warn('[subagent/runner] Container became unavailable, using host tools:', (err as Error)?.message);
-    }
-  } else if (runtime.desiredRuntime === 'container' && runtime.fallbackReason) {
-    console.warn(`[subagent/runner] ${runtime.fallbackReason}`);
-    config.onUpdate?.(`⚠️ ${runtime.fallbackReason}`);
+  const runtime = await runtimeManager.getRuntime(workspaceId);
+  try {
+    await runtime.ensure();
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.warn(`[subagent/runner] ${runtime.backend} runtime unavailable: ${message}`);
+    return {
+      response: '',
+      usage: { ...EMPTY_USAGE },
+      error: `${runtime.backend} runtime failed to start for workspace ${workspaceId}: ${message}`,
+    };
   }
 
-  const useContainer = !!containerState;
-
-  const platformTools = useContainer
-    ? createContainerTools(containerManager, workspaceId, subagentSessionId, containerCwd)
-    : [...createHostCodingTools(sessionPath), createWorkspaceCliTool(workspaceId, subagentSessionId)];
+  const platformTools = createRuntimeTools(runtime, subagentSessionId, containerCwd);
   const customTools = [...platformTools, ...(config.customTools ?? [])];
 
   // Build a reduced extension factory for the child session
@@ -178,7 +161,7 @@ export async function runSubagent(
         workspaceManager,
         workspaceId,
         subagentSessionId,
-        containerState ?? undefined,
+        undefined,
         containerCwd,
       ),
     ],

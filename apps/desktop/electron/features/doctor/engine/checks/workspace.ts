@@ -5,7 +5,8 @@
  * are skipped via `listChecks({ safe: true })`.
  */
 
-import { existsSync, accessSync, constants } from 'fs';
+import { existsSync, accessSync, constants, readFileSync, readdirSync, statSync } from 'fs';
+import path from 'path';
 import { registerDoctorCheck } from '../registry';
 import type { DoctorCheck } from '../types';
 import { makeResult } from './helpers';
@@ -21,7 +22,8 @@ function readWorkspaces(profile: ProfileSnapshot | null): MinimalWorkspace[] {
   if (!profile) return [];
   const value = profile.files.workspaces.ok ? profile.files.workspaces.value : null;
   if (!value || typeof value !== 'object') return [];
-  const entries = (value as { entries?: unknown }).entries;
+  const record = value as { entries?: unknown; workspaces?: unknown };
+  const entries = Array.isArray(record.workspaces) ? record.workspaces : record.entries;
   if (!Array.isArray(entries)) return [];
   return entries.filter((e): e is MinimalWorkspace => !!e && typeof e === 'object');
 }
@@ -68,9 +70,7 @@ const runtimeSelectedCheck: DoctorCheck = {
         start,
       });
     }
-    const all = workspaces.every(
-      (w) => typeof w.container === 'boolean',
-    );
+    const all = workspaces.every(workspaceHasRuntimePreference);
     return makeResult({
       id: this.id,
       category: this.category,
@@ -82,6 +82,17 @@ const runtimeSelectedCheck: DoctorCheck = {
     });
   },
 };
+
+function workspaceHasRuntimePreference(workspace: MinimalWorkspace): boolean {
+  if (typeof workspace.path !== 'string') return false;
+  try {
+    const raw = readFileSync(path.join(workspace.path, '.sero-workspace.json'), 'utf8');
+    const config = JSON.parse(raw) as { runtime?: { backend?: unknown }; container?: unknown };
+    return typeof config.runtime?.backend === 'string' || typeof config.container === 'boolean';
+  } catch {
+    return false;
+  }
+}
 
 const fsAccessibleCheck: DoctorCheck = {
   id: 'workspace.fs.accessible',
@@ -122,6 +133,62 @@ const fsAccessibleCheck: DoctorCheck = {
     });
   },
 };
+
+const registryConsistencyCheck: DoctorCheck = {
+  id: 'workspace.registry.consistency',
+  category: 'workspace',
+  needsBootedApp: true,
+  async run(ctx) {
+    const start = Date.now();
+    const workspaces = readWorkspaces(ctx.profile);
+    const missing = workspaces
+      .filter((ws) => typeof ws.path === 'string' && !existsSync(ws.path))
+      .map((ws) => String(ws.id ?? ws.path));
+    const registeredPaths = new Set(workspaces
+      .filter((ws): ws is MinimalWorkspace & { path: string } => typeof ws.path === 'string')
+      .map((ws) => path.resolve(ws.path)));
+    const unregistered = ctx.profile ? findUnregisteredManagedWorkspaces(ctx.profile.path, registeredPaths) : [];
+
+    if (missing.length === 0 && unregistered.length === 0) {
+      return makeResult({
+        id: this.id,
+        category: this.category,
+        status: 'pass',
+        message: 'Workspace registry matches available managed workspaces.',
+        start,
+      });
+    }
+
+    return makeResult({
+      id: this.id,
+      category: this.category,
+      status: 'warn',
+      message: 'Workspace registry has missing entries or recoverable managed workspaces.',
+      details: { missing, unregistered },
+      fix: {
+        kind: 'manual',
+        instructions: 'Restart Sero to auto-register managed workspaces under <profile>/workspaces. If a missing workspace was on removable media, reconnect the drive and click Check again; otherwise close the stale workspace from the sidebar.',
+      },
+      start,
+    });
+  },
+};
+
+function findUnregisteredManagedWorkspaces(profilePath: string, registeredPaths: Set<string>): string[] {
+  const workspacesDir = path.join(profilePath, 'workspaces');
+  if (!existsSync(workspacesDir)) return [];
+  return readdirSync(workspacesDir)
+    .map((entry) => path.join(workspacesDir, entry))
+    .filter((entryPath) => {
+      try {
+        return statSync(entryPath).isDirectory()
+          && existsSync(path.join(entryPath, '.sero-workspace.json'))
+          && !registeredPaths.has(path.resolve(entryPath));
+      } catch {
+        return false;
+      }
+    });
+}
 
 const execSmokeCheck: DoctorCheck = {
   id: 'workspace.exec.smoke',
@@ -197,6 +264,7 @@ export function registerWorkspaceChecks(): void {
   registerDoctorCheck(existsCheck);
   registerDoctorCheck(runtimeSelectedCheck);
   registerDoctorCheck(fsAccessibleCheck);
+  registerDoctorCheck(registryConsistencyCheck);
   registerDoctorCheck(execSmokeCheck);
   registerDoctorCheck(terminalSmokeCheck);
   registerDoctorCheck(previewPortCheck);

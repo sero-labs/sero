@@ -2,9 +2,10 @@
 
 Thanks for your interest in Sero.
 
-Sero is currently a **source-only OSS alpha** focused on **macOS on Apple
-Silicon**. The project is still evolving quickly, so contributor guidance aims
-to keep the workflow honest, lightweight, and easy to follow.
+Sero is currently a **source-only OSS alpha** for macOS, Linux, and Windows.
+The maintainer-validated baseline is still macOS on Apple Silicon, and the
+project is evolving quickly, so contributor guidance aims to keep the workflow
+honest, lightweight, and easy to follow.
 
 ## Support scope
 
@@ -28,9 +29,10 @@ Please read these first:
 - [`docs/node-pty-setup.md`](./docs/node-pty-setup.md) — native terminal troubleshooting
 
 Important current constraints:
-- supported alpha development target: **macOS on Apple Silicon**
-- preferred runtime: **Apple Container CLI** enabled
-- supported fallback: **host mode** with reduced capabilities
+- supported alpha development targets: **macOS, Linux, and Windows**
+- maintainer-validated baseline: **macOS on Apple Silicon**
+- preferred runtime: **container-backed workspaces** through Apple Container or Docker
+- supported explicit runtime: **host mode** with reduced capabilities on macOS/Linux; Windows uses Docker for workspace execution
 - current public distribution model: **build from source**
 
 For the canonical current support contract and validated baseline, defer to
@@ -59,7 +61,7 @@ Notes:
 - `pnpm install` runs native-module repair hooks for `node-pty` and
   `better-sqlite3`.
 - If terminals fail, follow [`docs/node-pty-setup.md`](./docs/node-pty-setup.md).
-- Container-backed workflows are recommended, but host mode remains supported.
+- Container-backed workflows are recommended. Host mode remains supported on macOS/Linux; use Docker for Windows workspace execution.
 
 ## Pull request expectations
 

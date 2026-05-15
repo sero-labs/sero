@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { WorkspaceInfo } from '@/types/ipc';
+import type { WorkspaceRuntimeBackend } from '@/types/workspace-runtime';
 import { useSessionStore } from '@/stores/sessions';
 import { persistLayout } from '@/lib/persist-layout';
 import { createDebouncedFn } from '@/hooks/useDebouncedCallback';
@@ -44,7 +45,13 @@ interface WorkspaceState {
   createWorkspace: (name: string, parentPath?: string) => Promise<WorkspaceInfo>;
   /** Register an existing folder as a workspace (VSCode "Add Folder"). */
   addFolder: (folderPath: string, name?: string) => Promise<WorkspaceInfo>;
-  /** Toggle container mode for a workspace. */
+  /** Set provider-aware runtime backend for a workspace. */
+  setRuntimeBackend: (id: string, backend: WorkspaceRuntimeBackend) => Promise<void>;
+  /**
+   * Toggle container mode for a workspace.
+   * @deprecated Use {@link setRuntimeBackend} — boolean container toggling cannot select
+   * between docker and apple-container container runtimes.
+   */
   toggleContainer: (id: string) => Promise<void>;
   /** Add a workspace reference. Mounts the referenced workspace into the container. */
   addReference: (id: string, refId: string) => Promise<void>;
@@ -170,16 +177,20 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     return workspace;
   },
 
+  setRuntimeBackend: async (id, backend) => {
+    const updated = await window.sero.workspace.setRuntimeBackend(id, backend);
+    set((s) => ({
+      workspaces: s.workspaces.map((w) => (w.id === id ? updated : w)),
+    }));
+  },
+
   toggleContainer: async (id) => {
     const workspace = get().workspaces.find((w) => w.id === id);
     if (!workspace) return;
-    const newValue = !workspace.container;
-    await window.sero.workspace.setContainer(id, newValue);
-    set((s) => ({
-      workspaces: s.workspaces.map((w) =>
-        w.id === id ? { ...w, container: newValue } : w,
-      ),
-    }));
+    const nextBackend: WorkspaceRuntimeBackend = workspace.runtime.backend === 'host'
+      ? 'docker'
+      : 'host';
+    await get().setRuntimeBackend(id, nextBackend);
   },
 
   addReference: async (id, refId) => {

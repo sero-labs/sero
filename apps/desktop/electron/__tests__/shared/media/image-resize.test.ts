@@ -72,11 +72,43 @@ describe('image-resize helpers', () => {
     });
     expect(result.data).toBe(jpeg.toString('base64'));
     expect(note).toBe('[Image: original 4000x2000, displayed at 2000x1000. Multiply coordinates by 2.00 to map to original image.]');
-    expect(prepared).toEqual({
+    expect(prepared).toMatchObject({
       data: jpeg.toString('base64'),
       mimeType: 'image/jpeg',
-      text: `Screenshot ready\n${note}`,
-      resize: result,
+      resize: {
+        originalWidth: 4000,
+        originalHeight: 2000,
+        width: 1600,
+        height: 800,
+        wasResized: true,
+      },
+    });
+    expect(prepared.text).toBe('Screenshot ready\n[Image: original 4000x2000, displayed at 1600x800. Multiply coordinates by 2.50 to map to original image.]');
+  });
+
+  it('compresses tool images that are below API limits but too large for agent context', async () => {
+    const { resizeImageForApi, prepareToolImage } = await import('@electron/shared/media/image-resize');
+    const input = Buffer.alloc(734 * 1024).toString('base64');
+    const jpeg = Buffer.alloc(250 * 1024);
+    mocks.createFromBuffer.mockReturnValue(
+      makeImage(
+        { width: 1792, height: 1620 },
+        { png: Buffer.alloc(734 * 1024), jpeg },
+      ),
+    );
+
+    expect(resizeImageForApi(input, 'image/png').wasResized).toBe(false);
+
+    const prepared = prepareToolImage(input, 'image/png', 'Attached screenshot');
+
+    expect(prepared.data).toBe(jpeg.toString('base64'));
+    expect(prepared.mimeType).toBe('image/jpeg');
+    expect(prepared.resize).toMatchObject({
+      originalWidth: 1792,
+      originalHeight: 1620,
+      width: 1600,
+      height: 1446,
+      wasResized: true,
     });
   });
 });

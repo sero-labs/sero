@@ -1,4 +1,5 @@
 import { BrowserWindow } from 'electron';
+import { browserViewManager } from '@electron/features/browser/view-manager';
 import { captureRegion } from '@electron/shared/media/capture';
 import { encodeFramesToMp4 } from '@electron/shared/media/video-encoder';
 import type {
@@ -33,6 +34,12 @@ interface OpenAndWaitOptions {
   pollMs?: number;
 }
 
+interface BrowserCaptureTarget {
+  workspaceId: string;
+  tabId: string;
+  rect: AppPanelRect;
+}
+
 const recordingState: RecordingState = {
   active: false,
   startedAt: null,
@@ -60,16 +67,22 @@ async function captureRect(rect: AppPanelRect): Promise<string | null> {
   return captureRegion(win, rect);
 }
 
+async function getBrowserCaptureTarget(): Promise<BrowserCaptureTarget | null> {
+  return execRenderer<BrowserCaptureTarget | null>(
+    'window.__appControl?.getBrowserCaptureTarget?.() ?? null',
+  );
+}
+
 function hasVisibleRect(rect: AppPanelRect | null): rect is AppPanelRect {
   return !!rect && rect.width > 0 && rect.height > 0;
 }
 
 async function captureRecordingFrame(): Promise<void> {
   try {
-    const rect = await appControlHostService.getAppRect();
-    if (!hasVisibleRect(rect)) return;
-    const screenshot = await captureRect(rect);
-    if (screenshot) recordingState.frames.push({ timestamp: Date.now(), base64: screenshot });
+    const capture = await appControlHostService.captureVisibleApp();
+    if (capture?.base64) {
+      recordingState.frames.push({ timestamp: Date.now(), base64: capture.base64 });
+    }
   } catch {
     // Skip frame capture failures during recording.
   }
@@ -119,11 +132,21 @@ export const appControlHostService = {
     );
   },
 
+  async showBrowserPanel(): Promise<boolean> {
+    return execRenderer<boolean>('window.__appControl?.showBrowserPanel?.() ?? false');
+  },
+
   async getAppRect(): Promise<AppPanelRect | null> {
     return execRenderer<AppPanelRect | null>('window.__appControl?.getAppRect() ?? null');
   },
 
   async captureVisibleApp(): Promise<{ base64: string; rect: AppPanelRect } | null> {
+    const browserTarget = await getBrowserCaptureTarget().catch(() => null);
+    if (browserTarget && hasVisibleRect(browserTarget.rect)) {
+      const base64 = await browserViewManager.capturePage(browserTarget.tabId, browserTarget.workspaceId);
+      if (base64) return { base64, rect: browserTarget.rect };
+    }
+
     const rect = await this.getAppRect();
     if (!hasVisibleRect(rect)) return null;
     const base64 = await captureRect(rect);

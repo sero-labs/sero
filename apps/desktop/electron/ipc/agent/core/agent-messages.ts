@@ -8,7 +8,7 @@ import type {
   ToolResultImage,
 } from '@/types/ipc';
 import type { ChatTurnUndoRef } from '@/types/ipc';
-import { resizeImageForApi } from '@electron/shared/media/image-resize';
+import { prepareToolImage } from '@electron/shared/media/image-resize';
 import { extractOriginalCollaborationQuery } from '@electron/ipc/collaboration/collaboration-message';
 import { extractImageFilePath, tryParseImageJson } from './tool-result-images';
 import { nextId } from './agent-ids';
@@ -258,9 +258,9 @@ export function convertSessionMessages(
 /**
  * Convert ChatAttachments to ImageContent for the Pi SDK.
  *
- * Images are resized to stay within Anthropic's 5MB limit (max 2000×2000,
- * max 4.5MB with progressive JPEG compression). This mirrors the Pi CLI's
- * `resizeImage()` behaviour so pasted screenshots don't exceed the API limit.
+ * Images go through the same prepareToolImage path as tool screenshots so
+ * pasted screenshots stay within API limits (max 2000×2000, max 4.5MB with
+ * progressive JPEG compression).
  */
 export function attachmentsToImages(attachments?: ChatAttachment[]): ImageContent[] | undefined {
   if (!attachments?.length) return undefined;
@@ -276,8 +276,8 @@ export function attachmentsToImages(attachments?: ChatAttachment[]): ImageConten
       continue;
     }
 
-    const resized = resizeImageForApi(match[1], mime);
-    images.push({ type: 'image', data: resized.data, mimeType: resized.mimeType });
+    const prepared = prepareToolImage(match[1], mime);
+    images.push({ type: 'image', data: prepared.data, mimeType: prepared.mimeType });
   }
 
   return images.length > 0 ? images : undefined;

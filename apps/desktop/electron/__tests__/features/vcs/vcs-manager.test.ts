@@ -34,9 +34,28 @@ function createRealManager(workspacePath: string): VcsManager {
   const runner = new GitRunner(
     workspaceManager,
     {
-      ensure: vi.fn(),
-      exec: vi.fn(),
-      inspect: vi.fn(),
+      getRuntime: vi.fn(async () => ({
+        backend: 'host',
+        hostWorkspacePath: workspacePath,
+        runtimeWorkspacePath: '/workspace',
+        execFile: async (input: { program: string; args: string[]; env?: Record<string, string> }) => {
+          try {
+            const stdout = execFileSync(input.program, input.args, {
+              cwd: workspacePath,
+              encoding: 'utf8',
+              env: { ...process.env, ...input.env },
+            });
+            return ok(stdout);
+          } catch (error: unknown) {
+            const failure = error as { status?: number; stdout?: string; stderr?: string; message?: string };
+            return {
+              exitCode: typeof failure.status === 'number' ? failure.status : 1,
+              stdout: failure.stdout ?? '',
+              stderr: failure.stderr ?? failure.message ?? 'git failed',
+            };
+          }
+        },
+      })),
     } as never,
   );
 

@@ -142,7 +142,7 @@ describe('refreshWorkspaceRuntimeAfterSync', () => {
     expect(result.reason).toContain('Dependency install failed');
   });
 
-  it('returns an explicit host-mode reason when auto-starting managed dev servers is unavailable', async () => {
+  it('returns an explicit runtime-unavailable reason when auto-starting managed dev servers is unavailable', async () => {
     const result = await refreshWorkspaceRuntimeAfterSync(
       'workspace-1',
       '/tmp/workspace',
@@ -157,17 +157,17 @@ describe('refreshWorkspaceRuntimeAfterSync', () => {
           workspaceId: 'workspace-1',
           workspacePath: '/tmp/workspace',
           desiredRuntime: 'container',
-          actualRuntime: 'host',
+          actualRuntime: 'container',
           containerEnabled: true,
           fallbackCode: 'container_unavailable',
-          fallbackReason: 'falling back to host mode',
+          fallbackReason: 'will not fall back to host execution',
           capabilityAudit: [
             {
               key: 'managedDevServers',
               label: 'Managed preview/dev servers',
               available: false,
-              containerOnly: true,
-              detail: 'Managed preview/dev-server automation remains container-only while this workspace is running on the host.',
+              containerOnly: false,
+              detail: 'Docker runtime is unavailable. Fix Docker and try again.',
             },
           ],
         }),
@@ -176,7 +176,7 @@ describe('refreshWorkspaceRuntimeAfterSync', () => {
 
     expect(result).toMatchObject({
       refreshed: false,
-      reason: 'Managed preview/dev-server automation remains container-only while this workspace is running on the host.',
+      reason: 'Docker runtime is unavailable. Fix Docker and try again.',
     });
   });
 });

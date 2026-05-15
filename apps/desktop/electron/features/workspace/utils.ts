@@ -4,7 +4,13 @@
  * Extracted from WorkspaceManager to keep file sizes manageable.
  */
 
-/** Convert a string to a kebab-case slug. */
+// Workspace IDs are interpolated into dev-server IDs as the first colon-separated segment
+// (see runtime-manager `workspaceIdFromServerId`), so they must not themselves contain colons.
+// Slugify enforces this by construction; the regex below is the runtime guard for any path
+// that hands IDs in from disk, IPC, or legacy migrations.
+const SAFE_WORKSPACE_ID = /^[a-z0-9][a-z0-9-]*$/;
+
+/** Convert a string to a kebab-case slug. Output always satisfies `isSafeWorkspaceId`. */
 export function slugify(input: string): string {
   return input
     .toLowerCase()
@@ -13,8 +19,24 @@ export function slugify(input: string): string {
     || 'workspace';
 }
 
+/** Returns true if the value is a safe workspace ID (colon-free, lowercase kebab-case). */
+export function isSafeWorkspaceId(value: unknown): value is string {
+  return typeof value === 'string' && SAFE_WORKSPACE_ID.test(value);
+}
+
+/**
+ * Throws when the ID would be unsafe to interpolate into dev-server/runtime identifiers.
+ * Use at trust boundaries (registry load, IPC) so malformed IDs fail loudly.
+ */
+export function assertSafeWorkspaceId(value: string): void {
+  if (!isSafeWorkspaceId(value)) {
+    throw new Error(`Invalid workspace id: ${JSON.stringify(value)} (must match ${SAFE_WORKSPACE_ID})`);
+  }
+}
+
 /** Ensure an ID is unique within a set of existing IDs. Appends -2, -3, etc. if needed. */
 export function ensureUniqueId(baseId: string, existingIds: Set<string>): string {
+  assertSafeWorkspaceId(baseId);
   if (!existingIds.has(baseId)) return baseId;
 
   let n = 2;

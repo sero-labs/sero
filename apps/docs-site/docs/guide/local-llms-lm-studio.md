@@ -66,7 +66,7 @@ Thinking levels only appear when Sero believes the selected model supports them.
 
 ## Host and container reachability
 
-`localhost` means “this process's machine or network namespace.” That is usually fine for Sero desktop talking to LM Studio on your Mac. If a tool inside a workspace container must call the same local server directly, `localhost` from inside the container may point at the container, not the host.
+`localhost` means “this process's machine or network namespace.” That is usually fine for Sero desktop talking to LM Studio on your host machine. If a tool inside a workspace container must call the same local server directly, `localhost` from inside the container may point at the container, not the host.
 
 If a containerized command cannot reach LM Studio:
 

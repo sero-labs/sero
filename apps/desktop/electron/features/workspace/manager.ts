@@ -14,76 +14,78 @@ import type {
   WorkspaceConfig,
   WorkspaceInfo,
 } from '@/types/ipc';
+import type { WorkspaceRuntimeBackend, WorkspaceRuntimeBackendInput, WorkspaceRuntimeConfig } from '@/types/workspace-runtime';
+import type { SetContainerEnabledResult, WorkspaceManagerOptions, WorkspaceRegistry } from './manager-types';
+export type { SetContainerEnabledResult, WorkspaceManagerOptions } from './manager-types';
 
-import { SERO_HOME, SERO_AGENT_DIR } from '@electron/platform/env';
 import { inferWorkspaceFromMessage } from './inference';
-import { slugify, ensureUniqueId, prettifyName } from './utils';
+import { slugify, ensureUniqueId, prettifyName, isSafeWorkspaceId } from './utils';
+import { AGENT_DIR, DEFAULT_GLOBAL_CONFIG, EDITOR_STATE_DIR, REGISTRY_PATH, WORKSPACES_DIR } from './defaults';
 import * as mounts from './mounts';
 import * as roots from './roots';
-
-const EDITOR_STATE_DIR = path.join(SERO_AGENT_DIR, 'editor-state');
-
-// ── Paths ────────────────────────────────────────────────────
-
-const REGISTRY_PATH = path.join(SERO_AGENT_DIR, 'workspaces.json');
-const WORKSPACES_DIR = path.join(SERO_HOME, 'workspaces');
-
-// ── Registry shape on disk ───────────────────────────────────
-
-interface WorkspaceRegistry {
-  workspaces: WorkspaceRegistryEntry[];
-}
-
-// ── Default workspace configs ────────────────────────────────
-
-const DEFAULT_GLOBAL_CONFIG: WorkspaceConfig = {
-  id: 'global',
-  name: 'Global',
-  description: 'Cross-cutting personal data — knowledge, finance, contacts, templates',
-  container: false,
-  contextHints: ['Personal knowledge base and reference data'],
-  tags: ['default', 'personal', 'knowledge'],
-};
-
-// ── WorkspaceManager ─────────────────────────────────────────
+import {
+  normalizeWorkspaceConfigForWrite,
+  resolveWorkspaceRuntimeBackendDetails,
+  resolveWorkspaceRuntimeConfig,
+  type WorkspaceRuntimeBackendDetails,
+} from './runtime/config';
+import { getDefaultRuntimeBackend } from './runtime/platform-default';
+import { discoverManagedWorkspaceEntries, pathExists } from './registry-recovery';
 
 export class WorkspaceManager {
   private registry: WorkspaceRegistry = { workspaces: [] };
   private configCache: Map<string, WorkspaceConfig> = new Map();
+  private readonly registryPath: string;
+  private readonly workspacesDir: string;
+  private readonly agentDir: string;
+  private readonly editorStateDir: string;
 
-  // ── Lifecycle ──────────────────────────────────────────────
+  constructor(private readonly options: WorkspaceManagerOptions = {}) {
+    this.registryPath = options.registryPath ?? REGISTRY_PATH;
+    this.workspacesDir = options.workspacesDir ?? WORKSPACES_DIR;
+    this.agentDir = options.agentDir ?? AGENT_DIR;
+    this.editorStateDir = options.editorStateDir ?? EDITOR_STATE_DIR;
+  }
 
   /** Load registry from disk. Creates defaults if first run. */
   async init(): Promise<void> {
     await this.ensureDirs();
     await this.loadRegistry();
     await this.ensureDefaults();
-    await this.migrateDefaultContainerOff();
+    await this.recoverManagedWorkspaces();
+    await this.migrateRuntimeConfig();
   }
 
   /** Ensure required directories exist. */
   private async ensureDirs(): Promise<void> {
-    await fs.mkdir(SERO_AGENT_DIR, { recursive: true });
-    await fs.mkdir(WORKSPACES_DIR, { recursive: true });
+    await fs.mkdir(this.agentDir, { recursive: true });
+    await fs.mkdir(this.workspacesDir, { recursive: true });
   }
-
-  // ── Registry I/O ──────────────────────────────────────────
 
   /** Load registry from ~/.sero-ui/agent/workspaces.json. */
   private async loadRegistry(): Promise<void> {
     try {
-      const raw = await fs.readFile(REGISTRY_PATH, 'utf8');
+      const raw = await fs.readFile(this.registryPath, 'utf8');
       const parsed = JSON.parse(raw) as WorkspaceRegistry;
-      const workspaces = Array.isArray(parsed.workspaces) ? parsed.workspaces : [];
+      const rawWorkspaces = Array.isArray(parsed.workspaces) ? parsed.workspaces : [];
+      const workspaces: WorkspaceRegistryEntry[] = [];
 
-      // Migrate: autoOpen → open
+      // Migrate: autoOpen → open and drop entries with unsafe IDs so they cannot poison
+      // dev-server ID parsing (workspace IDs must be colon-free; see runtime-manager).
       let migrated = false;
-      for (const entry of workspaces) {
-        if ('open' in entry) continue;
-        const legacy = entry as unknown as Record<string, unknown>;
-        (entry as WorkspaceRegistryEntry).open = legacy.autoOpen !== false;
-        delete legacy.autoOpen;
-        migrated = true;
+      for (const entry of rawWorkspaces) {
+        if (!isSafeWorkspaceId(entry.id)) {
+          console.warn(`[workspace] Dropping registry entry with unsafe id: ${JSON.stringify(entry.id)}`);
+          migrated = true;
+          continue;
+        }
+        if (!('open' in entry)) {
+          const legacy = entry as unknown as Record<string, unknown>;
+          (entry as WorkspaceRegistryEntry).open = legacy.autoOpen !== false;
+          delete legacy.autoOpen;
+          migrated = true;
+        }
+        workspaces.push(entry);
       }
 
       this.registry = { workspaces };
@@ -101,10 +103,8 @@ export class WorkspaceManager {
   /** Save registry to disk. */
   private async saveRegistry(): Promise<void> {
     const json = JSON.stringify(this.registry, null, 2) + '\n';
-    await fs.writeFile(REGISTRY_PATH, json, 'utf8');
+    await fs.writeFile(this.registryPath, json, 'utf8');
   }
-
-  // ── Default workspaces ────────────────────────────────────
 
   /** Create global workspace if it doesn't exist. */
   private async ensureDefaults(): Promise<void> {
@@ -112,7 +112,7 @@ export class WorkspaceManager {
 
     // Global
     if (!this.findEntry('global')) {
-      const globalPath = path.join(WORKSPACES_DIR, 'global');
+      const globalPath = path.join(this.workspacesDir, 'global');
       await fs.mkdir(globalPath, { recursive: true });
       await this.writeConfig(globalPath, DEFAULT_GLOBAL_CONFIG);
       this.registry.workspaces.push({
@@ -128,24 +128,24 @@ export class WorkspaceManager {
     }
   }
 
-  /**
-   * Migrate existing global workspace to container: false.
-   * Only writes the config if it exists and `container` is undefined (not yet set).
-   */
-  private async migrateDefaultContainerOff(): Promise<void> {
-    for (const id of ['global'] as const) {
-      const entry = this.findEntry(id);
-      if (!entry) continue;
-      const config = await this.readConfig(entry.path);
-      if (config && config.container === undefined) {
-        config.container = false;
-        await this.writeConfig(entry.path, config);
-        this.configCache.delete(id);
-      }
-    }
+  private async recoverManagedWorkspaces(): Promise<void> {
+    const recovered = await discoverManagedWorkspaceEntries(this.workspacesDir, this.registry.workspaces);
+    if (recovered.length === 0) return;
+    this.registry.workspaces.push(...recovered);
+    await this.saveRegistry();
   }
 
-  // ── Config I/O ────────────────────────────────────────────
+  /** Migrate legacy container flags to provider-aware runtime config. */
+  private async migrateRuntimeConfig(): Promise<void> {
+    for (const entry of this.registry.workspaces) {
+      const config = await this.readConfig(entry.path);
+      const runtimeBackend = config?.runtime?.backend as WorkspaceRuntimeBackendInput | undefined;
+      // Deprecated compatibility input; normalize to host on write.
+      if (!config || (runtimeBackend && runtimeBackend !== 'mac-host' && config.container === undefined)) continue;
+      await this.writeConfig(entry.path, config);
+      this.configCache.delete(entry.id);
+    }
+  }
 
   /** Read .sero-workspace.json from a workspace directory. */
   async readConfig(workspacePath: string): Promise<WorkspaceConfig | null> {
@@ -161,12 +161,12 @@ export class WorkspaceManager {
   /** Write .sero-workspace.json to a workspace directory. */
   private async writeConfig(workspacePath: string, config: WorkspaceConfig): Promise<void> {
     const configPath = path.join(workspacePath, '.sero-workspace.json');
-    const json = JSON.stringify(config, null, 2) + '\n';
+    const json = JSON.stringify(normalizeWorkspaceConfigForWrite(config), null, 2) + '\n';
     await fs.writeFile(configPath, json, 'utf8');
   }
 
   private async cleanupEditorState(id: string): Promise<void> {
-    const editorStateFile = path.join(EDITOR_STATE_DIR, `${id}.json`);
+    const editorStateFile = path.join(this.editorStateDir, `${id}.json`);
     try {
       await fs.rm(editorStateFile, { force: true });
     } catch (error: unknown) {
@@ -175,8 +175,6 @@ export class WorkspaceManager {
       console.warn(`[workspace] Failed to remove editor state for ${id}:`, error);
     }
   }
-
-  // ── Public API ────────────────────────────────────────────
 
   /** List all registered workspaces with merged config data. */
   async list(): Promise<WorkspaceInfo[]> {
@@ -246,11 +244,18 @@ export class WorkspaceManager {
         name: name || prettifyName(path.basename(absPath)),
       };
       await this.writeConfig(absPath, config);
+    } else {
+      const configuredId = isSafeWorkspaceId(config.id) ? config.id : uniqueId;
+      const safeUniqueId = this.ensureUniqueId(configuredId);
+      if (config.id !== safeUniqueId) {
+        config = { ...config, id: safeUniqueId };
+        await this.writeConfig(absPath, config);
+      }
     }
 
     // Register — new workspaces start expanded
     const entry: WorkspaceRegistryEntry = {
-      id: config.id || uniqueId,
+      id: config.id,
       path: absPath,
       open: true,
     };
@@ -283,7 +288,7 @@ export class WorkspaceManager {
     const uniqueId = this.ensureUniqueId(id);
     const wsPath = parentPath
       ? path.join(path.resolve(parentPath), uniqueId)
-      : path.join(WORKSPACES_DIR, uniqueId);
+      : path.join(this.workspacesDir, uniqueId);
 
     await fs.mkdir(wsPath, { recursive: true });
 
@@ -390,31 +395,53 @@ export class WorkspaceManager {
     return this.findEntry(id)?.path;
   }
 
-  // ── Helpers ───────────────────────────────────────────────
-
-  /** Check if a workspace has containers enabled. Defaults to true. */
-  async isContainerEnabled(id: string): Promise<boolean> {
-    const config = await this.getConfig(id);
-    return config?.container !== false;
+  async getRuntimeConfig(id: string): Promise<WorkspaceRuntimeConfig> {
+    return resolveWorkspaceRuntimeConfig(id, await this.getConfig(id));
   }
 
-  /** Enable or disable container mode for a workspace. Persisted to config file. */
-  async setContainerEnabled(id: string, enabled: boolean): Promise<void> {
+  /**
+   * Returns the validated backend the runtime manager will execute, alongside
+   * the originally configured backend and any platform-fallback metadata. Used
+   * by renderer-facing diagnostics so the audit and the runtime manager agree
+   * on which backend is actually in play.
+   */
+  async getRuntimeBackendDetails(id: string): Promise<WorkspaceRuntimeBackendDetails> {
+    return resolveWorkspaceRuntimeBackendDetails(id, await this.getConfig(id));
+  }
+
+  async setRuntimeBackend(id: string, backend: WorkspaceRuntimeBackend): Promise<void> {
     const entry = this.findEntry(id);
     if (!entry) throw new Error(`Workspace not found: ${id}`);
 
     const config = await this.readConfig(entry.path);
     if (!config) throw new Error(`No config for workspace: ${id}`);
 
-    config.container = enabled;
-    await this.persistConfig(id, entry.path, config);
+    await this.persistConfig(id, entry.path, { ...config, runtime: { ...config.runtime, backend } });
+  }
+
+  /** @deprecated compatibility shim while callers migrate to runtime.backend. */
+  async isContainerEnabled(id: string): Promise<boolean> {
+    return (await this.getRuntimeConfig(id)).backend !== 'host';
+  }
+
+  /** @deprecated compatibility shim while callers migrate to runtime.backend. */
+  async setContainerEnabled(id: string, enabled: boolean): Promise<SetContainerEnabledResult> {
+    if (!enabled && process.platform === 'win32') {
+      return {
+        ok: false,
+        error: { code: 'host-doctor-failed', message: 'Host runtime is not supported on Windows. Use the Docker backend instead.', checks: [] },
+      };
+    }
+    const backend: WorkspaceRuntimeBackend = enabled ? getDefaultRuntimeBackend({ platform: process.platform, arch: process.arch }) : 'host';
+    await this.setRuntimeBackend(id, backend);
+    return { ok: true, backend };
   }
 
   /** Write a modified config to disk and invalidate the cache. */
   async persistConfig(id: string, workspacePath: string, config: WorkspaceConfig): Promise<void> {
     this.configCache.delete(id);
     const configPath = path.join(workspacePath, '.sero-workspace.json');
-    const json = JSON.stringify(config, null, 2) + '\n';
+    const json = JSON.stringify(normalizeWorkspaceConfigForWrite(config), null, 2) + '\n';
     await fs.writeFile(configPath, json, 'utf8');
   }
 
@@ -442,7 +469,8 @@ export class WorkspaceManager {
 
   /** Merge registry entry + config into WorkspaceInfo. */
   private async getInfo(entry: WorkspaceRegistryEntry): Promise<WorkspaceInfo | null> {
-    const config = await this.readConfig(entry.path);
+    const [config, exists] = await Promise.all([this.readConfig(entry.path), pathExists(entry.path)]);
+    const runtime = resolveWorkspaceRuntimeConfig(entry.id, config);
 
     return {
       id: entry.id,
@@ -452,10 +480,12 @@ export class WorkspaceManager {
       contextHints: config?.contextHints,
       tags: config?.tags,
       open: entry.open,
-      container: config?.container !== false,
+      runtime,
+      container: runtime.backend !== 'host',
       references: config?.references ?? [],
       mounts: config?.mounts ?? [],
       roots: config?.roots ?? [],
+      missing: !exists,
     };
   }
 
@@ -465,7 +495,5 @@ export class WorkspaceManager {
     return ensureUniqueId(baseId, existing);
   }
 }
-
-// ── Singleton ────────────────────────────────────────────────
 
 export const workspaceManager = new WorkspaceManager();

@@ -8,7 +8,7 @@ client. It has three related integration paths:
   Tailscale tailnet.
 - **Remote dev-server previews** — dev servers started and registered inside
   Sero desktop can be opened through Sero Remote, so a Vite/Next/Express/etc.
-  preview running on your Mac or workspace container is reachable from another
+  preview running on your desktop machine or workspace container is reachable from another
   trusted tailnet browser.
 - **Optional Discord bot** — a configured Discord bot can forward allowed DMs or
   mentions into Sero as prompts.
@@ -17,7 +17,7 @@ Tailscale is the private VPN/tailnet layer for remote **web** access. Discord is
 a separate optional bot integration; it does not depend on Tailscale and it does
 not provide the Sero Remote web UI.
 
-Remote Control is not screen sharing. The work still happens on your Mac, in
+Remote Control is not screen sharing. The work still happens on your desktop machine, in
 your active local Sero profile. Remote clients are alternate control surfaces for
 the Sero desktop process that is already running locally.
 
@@ -55,7 +55,7 @@ servers as remote previews.
 
 The web UI is useful when you want to continue a Sero session from another
 trusted device without opening the full desktop app on that device. It still
-controls the local desktop process and local workspace state on your Mac.
+controls the local desktop process and local workspace state on your machine.
 
 ![Sero Remote files](../assets/images/remote-web-2.jpg)
 
@@ -106,7 +106,7 @@ Practical behavior:
   work through the remote preview
 - HTML/CSS/JavaScript responses and redirect/cookie paths are rewritten where
   possible so absolute paths continue to work under `/p/<workspaceId>/<port>/`
-- the upstream dev server continues to run on your Mac/workspace container; the
+- the upstream dev server continues to run on your machine/workspace container; the
   remote browser talks only to the Sero gateway URL served over Tailscale
 
 If a preview does not appear, confirm that the desktop app shows the dev server

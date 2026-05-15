@@ -16,8 +16,8 @@ function basename(p: string): string {
 }
 
 /**
- * Popover menu to manage container mounts — workspace references
- * and arbitrary host folders mounted into this workspace's container.
+ * Popover menu to manage runtime mounts — workspace references
+ * and arbitrary host folders mounted into this workspace's runtime.
  */
 export function WorkspaceReferencesMenu({ workspace }: { workspace: WorkspaceInfo }) {
   const [open, setOpen] = useState(false);
@@ -45,10 +45,10 @@ export function WorkspaceReferencesMenu({ workspace }: { workspace: WorkspaceInf
     }
   };
 
-  const mountAvailabilityNotice = !workspace.container
-    ? 'Container mounts are a container-only feature. This workspace is explicitly set to host mode, so reference and mount changes will not take effect until container mode is re-enabled.'
+  const mountAvailabilityNotice = workspace.runtime.backend === 'host'
+    ? 'Runtime mounts require Docker or Apple Container. This workspace is explicitly set to Host, so reference and mount changes will apply after selecting an isolated runtime.'
     : container.status !== 'running'
-      ? 'Container mounts are a container-only feature. This workspace is currently running on your Mac, so reference and mount changes will not take effect until its container is healthy again.'
+      ? 'Runtime mounts apply when the selected runtime is healthy. Reference and mount changes may require runtime/container recreation before they take effect.'
       : null;
 
   return (
@@ -60,7 +60,7 @@ export function WorkspaceReferencesMenu({ workspace }: { workspace: WorkspaceInf
           tabIndex={-1}
           onClick={(e) => { e.stopPropagation(); setOpen(true); }}
           onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); setOpen(true); } }}
-          title="Manage container mounts"
+          title="Manage runtime mounts"
         >
           <Link className="size-3" />
         </IconAction>

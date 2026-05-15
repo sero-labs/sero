@@ -70,7 +70,7 @@ export function createWorkspaceCliTool(workspaceId: string, sessionId: string) {
 /**
  * Core tools to always bridge into the single `sero-cli` tool.
  * Every app/extension tool should be listed here — only core coding
- * tools (bash, read, write, edit, browser) and tools that depend on
+ * tools (bash, read, write, edit, automation_browser) and tools that depend on
  * unavailable SDK internals remain as standalone tools.
  *
  * Bridged tools receive `{ cwd }`, forwarded agent context, and a narrow
@@ -301,9 +301,11 @@ Run \`sero help <command>\` for details. Chain multiple commands (one per line).
 **Before calling any command that takes JSON parameters (e.g. \`question\`, \`questionnaire\`, \`interview\`), run \`sero help <command>\` first to check the exact schema.**
 
 For \`sero app\`, skip help for common flows.
-- Screenshot directly: \`sero app screenshot --app "<name or id>" [--save <path>]\`
+- Screenshot apps directly: \`sero app screenshot --app "<name or id>" [--save <path>]\`
 - Names resolve too (\`Calculator\` → \`calc\`); use \`sero app list\` only if ambiguous.
 - \`appstate\` is JSON state only, not UI automation.
 - Use \`app click <selector>\` or \`app click --x <n> --y <n>\`; no \`app press\`.
+
+Browser pages: use \`sero browser\`, not \`sero app screenshot --app web\` (\`web\` is separate). Record: \`browser show\`; \`app record start\`; actions; wait 3-5s; separate \`app record stop\`. Use \`browser goto\` unless a new tab is needed.
 `;
 }

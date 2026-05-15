@@ -1,6 +1,6 @@
 # Start Here
 
-Sero is a **local-first, agent-first desktop workspace for macOS**. It brings
+Sero is a **local-first, agent-first desktop workspace for macOS, Linux, and Windows**. It brings
 project workspaces, Pi-backed agent chat, plugins, terminals, previews, and local
 runtime orchestration into one desktop shell.
 
@@ -23,13 +23,13 @@ The project goal is not just “AI in an editor.” It is a workspace layer wher
 
 The current OSS alpha is intentionally narrow:
 
-- **platform:** macOS on Apple Silicon
+- **platforms:** macOS, Linux, and Windows from source
+- **maintainer-validated baseline:** macOS on Apple Silicon
 - **distribution:** source-only
-- **preferred runtime:** Apple container-backed workspaces
-- **fallback runtime:** host mode with reduced capabilities
+- **preferred runtime:** Apple Container or Docker-backed workspaces
+- **host runtime:** explicit host mode with reduced capabilities on macOS/Linux
 
-Sero does **not** currently promise official binaries, Linux support, Windows
-support, or fully stable internal runtime/plugin contracts.
+Sero does **not** currently promise official binaries, identical runtime capabilities on every OS, Windows host-mode workspace execution, or fully stable internal runtime/plugin contracts.
 
 ## Getting started
 
@@ -37,7 +37,7 @@ support, or fully stable internal runtime/plugin contracts.
 
 Sero OSS alpha is aimed at:
 
-- technically comfortable macOS developers
+- technically comfortable local developers on macOS, Linux, or Windows
 - early adopters who are okay with alpha-quality workflows
 - contributors interested in agent-first tooling
 - plugin authors working with evolving APIs

@@ -35,6 +35,7 @@ const workspace: WorkspaceInfo = {
   name: 'Workspace 1',
   path: '/tmp/workspace-1',
   open: true,
+  runtime: { backend: 'host' },
   container: false,
   references: [],
   mounts: [],

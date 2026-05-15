@@ -1,10 +1,10 @@
 import type { ToolDefinition } from '@mariozechner/pi-coding-agent';
-import type { ContainerManager } from '..';
+import type { RuntimeBackend } from '@electron/features/workspace/runtime/types';
 import { createAgentBrowser } from './tools-browser-agent';
 
 export function createBrowser(
-  cm: ContainerManager,
+  runtime: RuntimeBackend,
   workspaceId: string,
 ): ToolDefinition {
-  return createAgentBrowser(cm, workspaceId);
+  return createAgentBrowser(runtime, workspaceId);
 }

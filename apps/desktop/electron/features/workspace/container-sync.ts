@@ -9,7 +9,7 @@
  * can call the same logic without duplicating it.
  */
 
-import { containerManager, buildContainerConfig, workspaceManager } from '@electron/shared/infra/shared-infra';
+import { runtimeManager } from '@electron/shared/infra/shared-infra';
 import { showNotification } from '@electron/platform/desktop/notifications';
 
 /**
@@ -20,7 +20,7 @@ import { showNotification } from '@electron/platform/desktop/notifications';
  */
 function hasActiveSessionsForWorkspace(workspaceId: string): boolean {
   try {
-    const sessions = containerManager.terminals.getWorkspaceTerminalIds(workspaceId);
+    const sessions = runtimeManager.getWorkspaceTerminalIds(workspaceId);
     if (sessions.length > 0) return true;
   } catch {
     // Terminal manager may not track this workspace — that's fine
@@ -39,17 +39,10 @@ function hasActiveSessionsForWorkspace(workspaceId: string): boolean {
  * A notification tells the user the change is pending.
  */
 export async function recreateContainerIfRunning(workspaceId: string): Promise<void> {
-  if (!containerManager.hasContainer(workspaceId)) return;
+  if (!runtimeManager.hasRuntime(workspaceId)) return;
 
-  try {
-    const state = await containerManager.inspect(workspaceId);
-    if (state.state !== 'running') return;
-  } catch {
-    return; // No container to recreate
-  }
-
-  const wsPath = workspaceManager.getPath(workspaceId);
-  if (!wsPath) return;
+  const runtime = await runtimeManager.getRuntime(workspaceId);
+  if (runtime.backend === 'host') return;
 
   if (hasActiveSessionsForWorkspace(workspaceId)) {
     console.log(
@@ -65,9 +58,9 @@ export async function recreateContainerIfRunning(workspaceId: string): Promise<v
   }
 
   try {
-    await containerManager.remove(workspaceId);
-    const config = await buildContainerConfig(workspaceId, wsPath);
-    await containerManager.ensure(config);
+    await runtimeManager.destroy(workspaceId);
+    const restartedRuntime = await runtimeManager.getRuntime(workspaceId);
+    await restartedRuntime.ensure();
     console.log(
       `[workspace] Recreated container for ${workspaceId} with updated references`,
     );

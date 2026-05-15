@@ -1,7 +1,7 @@
 import type { Static } from 'typebox';
 import type { ToolDefinition, ExtensionContext } from '@mariozechner/pi-coding-agent';
 import type { AgentToolResult, AgentToolUpdateCallback } from '@mariozechner/pi-agent-core';
-import type { ContainerManager } from '..';
+import type { RuntimeBackend } from '@electron/features/workspace/runtime/types';
 import {
   armRecordingAutoStop,
   clearRecordingState,
@@ -11,34 +11,18 @@ import {
   screenshotContent,
 } from './tools-browser-agent-helpers';
 import { BrowserParams, shellEscape } from './tool-schemas';
+import { clickByText, textSelectorValue } from './tools-browser-agent-text';
+import type { AgentBrowserJson, AgentCommandOptions } from './tools-browser-agent-types';
 
 const metricsByWorkspace = new Map<string, { success: number; failure: number; totalLatencyMs: number }>();
-const executablePathByWorkspace = new Map<string, string>();
 const AGENT_BROWSER_PLAYWRIGHT_VERSION = '1.57.0';
 const AGENT_BROWSER_CHROMIUM_REVISION = '1200';
+const PLAYWRIGHT_FALLBACK_INSTALL_ENV = 'if [ -w /ms-playwright ]; then export PLAYWRIGHT_BROWSERS_PATH=/ms-playwright; else unset PLAYWRIGHT_BROWSERS_PATH; fi';
+const AGENT_BROWSER_ENV_SETUP = 'if [ -d /ms-playwright ]; then export PLAYWRIGHT_BROWSERS_PATH=/ms-playwright; fi; export PATH="$HOME/.local/bin:$PATH";';
+const ENSURE_FFMPEG_COMMAND = 'sh -lc \'PATH="$HOME/.local/bin:$PATH"; if command -v ffmpeg >/dev/null 2>&1; then exit 0; fi; ffmpeg_path="$(find "$PLAYWRIGHT_BROWSERS_PATH" /ms-playwright "$HOME/.cache/ms-playwright" /root/.cache/ms-playwright -path "*/ffmpeg-linux" -type f -perm -111 -print -quit 2>/dev/null)"; test -n "$ffmpeg_path"; mkdir -p "$HOME/.local/bin"; ln -sf "$ffmpeg_path" "$HOME/.local/bin/ffmpeg"; command -v ffmpeg >/dev/null 2>&1\'';
 
-interface AgentBrowserJson {
-  success?: boolean;
-  message?: string;
-  error?: string;
-  warning?: string;
-  title?: string;
-  url?: string;
-  text?: string;
-  output?: string;
-  snapshot?: string;
-  screenshot?: string;
-  path?: string;
-  running?: boolean;
-  result?: unknown;
-  refs?: Record<string, unknown>;
-  data?: unknown;
-}
-
-interface AgentCommandOptions { execTimeoutMs?: number; defaultActionTimeoutMs?: number; }
-
-function browserSessionName(workspaceId: string): string {
-  return `sero-${workspaceId}`;
+function browserSessionName(workspaceId: string, backend: RuntimeBackend['backend']): string {
+  return `sero-${workspaceId}-${backend}`;
 }
 
 function command(args: string[], env?: Record<string, string | number | boolean | undefined>): string {
@@ -47,17 +31,18 @@ function command(args: string[], env?: Record<string, string | number | boolean 
     .map(([key, value]) => `${key}='${shellEscape(String(value))}'`)
     .join(' ');
   const commandArgs = args.map((arg) => `'${shellEscape(arg)}'`).join(' ');
-  return `${envPrefix ? `${envPrefix} ` : ''}agent-browser ${commandArgs}`;
+  return `${AGENT_BROWSER_ENV_SETUP} ${envPrefix ? `${envPrefix} ` : ''}agent-browser ${commandArgs}`;
 }
 
 function sessionCommand(
   workspaceId: string,
+  backend: RuntimeBackend['backend'],
+  executablePath: string | null,
   args: string[],
   env?: Record<string, string | number | boolean | undefined>,
 ): string {
-  const executablePath = executablePathByWorkspace.get(workspaceId);
   return command(
-    ['--session', browserSessionName(workspaceId), ...(executablePath ? ['--executable-path', executablePath] : []), ...args],
+    ['--session', browserSessionName(workspaceId, backend), ...(executablePath ? ['--executable-path', executablePath] : []), ...args],
     env,
   );
 }
@@ -108,103 +93,87 @@ function looksLikeBase64(value: string): boolean {
   return /^[A-Za-z0-9+/=]+$/.test(value) && value.length > 64;
 }
 
-async function readImageAsBase64(cm: ContainerManager, workspaceId: string, imagePath: string): Promise<string> {
-  const escaped = shellEscape(imagePath);
-  const result = await cm.exec(
-    workspaceId,
-    `python3 -c "import base64;print(base64.b64encode(open('${escaped}','rb').read()).decode(), end='')"`,
-    undefined,
-    15_000,
-  );
+async function readImageAsBase64(runtime: RuntimeBackend, workspaceId: string, imagePath: string): Promise<string> {
+  const result = await runtime.exec({
+    command: 'python3 -c \'import base64, os; print(base64.b64encode(open(os.environ["SERO_IMAGE_PATH"], "rb").read()).decode(), end="")\'',
+    env: { SERO_IMAGE_PATH: imagePath },
+    timeoutMs: 15_000,
+  });
   if (result.exitCode !== 0 || !result.stdout.trim()) {
     throw new Error(`Failed reading screenshot at ${imagePath}: ${result.stderr || result.stdout}`);
   }
   return result.stdout.trim();
 }
 
-async function resolveBrowserExecutable(cm: ContainerManager, workspaceId: string): Promise<string | null> {
-  const cached = executablePathByWorkspace.get(workspaceId);
-  if (cached) return cached;
-
-  const result = await cm.exec(
-    workspaceId,
-    `sh -lc 'for p in /root/.cache/ms-playwright/chromium-${AGENT_BROWSER_CHROMIUM_REVISION}/chrome-linux/chrome /ms-playwright/chromium-${AGENT_BROWSER_CHROMIUM_REVISION}/chrome-linux/chrome /usr/bin/chromium /usr/bin/chromium-browser /usr/bin/google-chrome /usr/bin/google-chrome-stable /root/.cache/ms-playwright/chromium-*/chrome-linux/chrome /ms-playwright/chromium-*/chrome-linux/chrome; do if [ -x "$p" ]; then printf "%s" "$p"; exit 0; fi; done; command -v chromium 2>/dev/null || command -v chromium-browser 2>/dev/null || command -v google-chrome 2>/dev/null || command -v google-chrome-stable 2>/dev/null'`,
-    undefined,
-    10_000,
-  );
+async function resolveBrowserExecutable(runtime: RuntimeBackend): Promise<string | null> {
+  const result = await runtime.exec({ command: `sh -lc 'for p in "$PLAYWRIGHT_BROWSERS_PATH"/chromium-${AGENT_BROWSER_CHROMIUM_REVISION}/chrome-linux/chrome /ms-playwright/chromium-${AGENT_BROWSER_CHROMIUM_REVISION}/chrome-linux/chrome "$HOME"/.cache/ms-playwright/chromium-${AGENT_BROWSER_CHROMIUM_REVISION}/chrome-linux/chrome /root/.cache/ms-playwright/chromium-${AGENT_BROWSER_CHROMIUM_REVISION}/chrome-linux/chrome /usr/bin/chromium /usr/bin/chromium-browser /usr/bin/google-chrome /usr/bin/google-chrome-stable "$PLAYWRIGHT_BROWSERS_PATH"/chromium-*/chrome-linux/chrome /ms-playwright/chromium-*/chrome-linux/chrome "$HOME"/.cache/ms-playwright/chromium-*/chrome-linux/chrome /root/.cache/ms-playwright/chromium-*/chrome-linux/chrome; do if [ -x "$p" ]; then printf "%s" "$p"; exit 0; fi; done; command -v chromium 2>/dev/null || command -v chromium-browser 2>/dev/null || command -v google-chrome 2>/dev/null || command -v google-chrome-stable 2>/dev/null'`, timeoutMs: 10_000 });
   const executablePath = result.stdout.trim();
-  if (result.exitCode === 0 && executablePath) {
-    executablePathByWorkspace.set(workspaceId, executablePath);
-    return executablePath;
-  }
-  return null;
+  return result.exitCode === 0 && executablePath ? executablePath : null;
 }
 
-async function ensureFfmpegAvailable(cm: ContainerManager, workspaceId: string): Promise<void> {
-  const existing = await cm.exec(
-    workspaceId,
-    "sh -lc 'set -- /root/.cache/ms-playwright/ffmpeg-*/ffmpeg-linux /ms-playwright/ffmpeg-*/ffmpeg-linux; for p in \"$@\"; do if [ -x \"$p\" ]; then exit 0; fi; done; exit 1'",
-    undefined,
-    10_000,
-  );
+async function ensureFfmpegAvailable(runtime: RuntimeBackend, workspaceId: string): Promise<void> {
+  const existing = await runtime.exec({ command: ENSURE_FFMPEG_COMMAND, timeoutMs: 10_000 });
   if (existing.exitCode === 0) return;
 
-  const install = await cm.exec(
-    workspaceId,
-    `npx -y playwright@${AGENT_BROWSER_PLAYWRIGHT_VERSION} install ffmpeg`,
-    undefined,
-    180_000,
-  );
+  const install = await runtime.exec({ command: `sh -lc '${PLAYWRIGHT_FALLBACK_INSTALL_ENV}; npx -y playwright@${AGENT_BROWSER_PLAYWRIGHT_VERSION} install ffmpeg'`, timeoutMs: 180_000 });
   if (install.exitCode !== 0) {
     throw new Error(`Failed to install Playwright ffmpeg for browser recording: ${install.stderr || install.stdout}`);
   }
+  const linked = await runtime.exec({ command: ENSURE_FFMPEG_COMMAND, timeoutMs: 10_000 });
+  if (linked.exitCode !== 0) {
+    throw new Error(`Playwright ffmpeg is installed but could not be linked for agent-browser: ${linked.stderr || linked.stdout}`);
+  }
 }
 
-async function ensureAgentBrowserAvailable(cm: ContainerManager, workspaceId: string, options: { requireMatchingBrowser?: boolean } = {}): Promise<void> {
-  const hasBinary = await cm.exec(workspaceId, 'command -v agent-browser', undefined, 5_000);
+async function ensureAgentBrowserAvailable(runtime: RuntimeBackend, options: { requireMatchingBrowser?: boolean } = {}): Promise<string | null> {
+  const hasBinary = await runtime.exec({ command: 'command -v agent-browser', timeoutMs: 5_000 });
   if (hasBinary.exitCode !== 0) {
-    const install = await cm.exec(workspaceId, 'npm install -g agent-browser', undefined, 180_000);
+    const install = await runtime.exec({ command: 'npm install -g agent-browser', timeoutMs: 180_000 });
     if (install.exitCode !== 0) {
       throw new Error(`Failed to install agent-browser CLI: ${install.stderr || install.stdout}`);
     }
 
-    const verify = await cm.exec(workspaceId, 'command -v agent-browser', undefined, 5_000);
+    const verify = await runtime.exec({ command: 'command -v agent-browser', timeoutMs: 5_000 });
     if (verify.exitCode !== 0) throw new Error('agent-browser CLI is not available after installation.');
   }
-  if (!options.requireMatchingBrowser) return;
-  const executablePath = await resolveBrowserExecutable(cm, workspaceId);
-  if (executablePath?.includes(`/chromium-${AGENT_BROWSER_CHROMIUM_REVISION}/`)) return;
+  if (!options.requireMatchingBrowser) return null;
+  const executablePath = await resolveBrowserExecutable(runtime);
+  if (executablePath?.includes(`/chromium-${AGENT_BROWSER_CHROMIUM_REVISION}/`)) return executablePath;
 
-  const installBrowser = await cm.exec(
-    workspaceId,
-    `npx -y playwright@${AGENT_BROWSER_PLAYWRIGHT_VERSION} install chromium`,
-    undefined,
-    180_000,
-  );
+  const installBrowser = await runtime.exec({ command: `sh -lc '${PLAYWRIGHT_FALLBACK_INSTALL_ENV}; npx -y playwright@${AGENT_BROWSER_PLAYWRIGHT_VERSION} install chromium'`, timeoutMs: 180_000 });
   if (installBrowser.exitCode !== 0) {
     throw new Error(`Failed to install Playwright Chromium for agent-browser: ${installBrowser.stderr || installBrowser.stdout}`);
   }
-  executablePathByWorkspace.delete(workspaceId);
-  if (!await resolveBrowserExecutable(cm, workspaceId)) {
+  const installedPath = await resolveBrowserExecutable(runtime);
+  if (!installedPath) {
     throw new Error('Chromium is installed but agent-browser could not locate an executable path.');
   }
+  return installedPath;
+}
+
+async function closeBrowserSessionQuietly(runtime: RuntimeBackend, workspaceId: string, executablePath: string | null): Promise<void> {
+  await runtime.exec({ command: sessionCommand(workspaceId, runtime.backend, executablePath, ['close', '--json']), timeoutMs: 10_000 }).catch(() => undefined);
+}
+
+function isNavigationError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /Page\.navigate|Navigation failed|ERR_|net::|timed out/i.test(message);
 }
 
 async function runAgent(
-  cm: ContainerManager,
+  runtime: RuntimeBackend,
   workspaceId: string,
+  executablePath: string | null,
   args: string[],
   options: AgentCommandOptions = {},
 ): Promise<AgentBrowserJson> {
   const env = options.defaultActionTimeoutMs !== undefined
     ? { AGENT_BROWSER_DEFAULT_TIMEOUT: options.defaultActionTimeoutMs }
     : undefined;
-  const result = await cm.exec(
-    workspaceId,
-    sessionCommand(workspaceId, [...args, '--json'], env),
-    undefined,
-    options.execTimeoutMs ?? 60_000,
-  );
+  const result = await runtime.exec({
+    command: sessionCommand(workspaceId, runtime.backend, executablePath, [...args, '--json'], env),
+    timeoutMs: options.execTimeoutMs ?? 60_000,
+  });
   const parsed = normalizeResponse(parseJsonOutput([result.stdout, result.stderr].filter(Boolean).join('\n')));
   if (result.exitCode !== 0) {
     const fallback = result.stderr || result.stdout || 'Unknown agent-browser error';
@@ -215,24 +184,27 @@ async function runAgent(
 }
 
 async function runEval(
-  cm: ContainerManager,
+  runtime: RuntimeBackend,
   workspaceId: string,
+  executablePath: string | null,
   expression: string,
   options: AgentCommandOptions = {},
 ): Promise<AgentBrowserJson> {
   const encodedExpression = Buffer.from(expression, 'utf8').toString('base64');
-  return runAgent(cm, workspaceId, ['eval', '-b', encodedExpression], options);
+  return runAgent(runtime, workspaceId, executablePath, ['eval', '-b', encodedExpression], options);
 }
 
 async function assertViewportClickPoint(
-  cm: ContainerManager,
+  runtime: RuntimeBackend,
   workspaceId: string,
+  executablePath: string | null,
   x: number,
   y: number,
 ): Promise<void> {
   const response = await runEval(
-    cm,
+    runtime,
     workspaceId,
+    executablePath,
     '(() => ({ width: window.innerWidth, height: window.innerHeight, scrollX: window.scrollX, scrollY: window.scrollY }))()',
     { execTimeoutMs: 10_000 },
   );
@@ -251,43 +223,55 @@ async function assertViewportClickPoint(
   );
 }
 
+async function openBrowserUrl(runtime: RuntimeBackend, workspaceId: string, executablePath: string | null, targetUrl: string): Promise<AgentBrowserJson> {
+  try {
+    return await runAgent(runtime, workspaceId, executablePath, ['open', targetUrl]);
+  } catch (error) {
+    if (!isNavigationError(error)) throw error;
+    await closeBrowserSessionQuietly(runtime, workspaceId, executablePath);
+    await runAgent(runtime, workspaceId, executablePath, ['open', 'about:blank']).catch(() => undefined);
+    const message = error instanceof Error ? error.message : String(error);
+    return { success: false, warning: `Navigation to ${targetUrl} failed and the browser session was reset: ${message}`, url: 'about:blank' };
+  }
+}
+
 async function launchBrowser(
-  cm: ContainerManager,
+  runtime: RuntimeBackend,
   workspaceId: string,
+  executablePath: string | null,
   params: Static<typeof BrowserParams>,
 ): Promise<AgentBrowserJson> {
   const targetUrl = params.url ?? 'about:blank';
   const viewport = params.viewport;
   const hasViewport = viewport?.width !== undefined || viewport?.height !== undefined;
   let response: AgentBrowserJson;
-
   if (hasViewport) {
-    response = await runAgent(cm, workspaceId, ['open', 'about:blank']);
-    await runAgent(
-      cm,
-      workspaceId,
-      ['set', 'viewport', String(viewport?.width ?? 1280), String(viewport?.height ?? 720)],
-      { execTimeoutMs: 20_000 },
-    );
-    if (targetUrl !== 'about:blank') response = await runAgent(cm, workspaceId, ['open', targetUrl]);
+    response = await openBrowserUrl(runtime, workspaceId, executablePath, 'about:blank');
+    await runAgent(runtime, workspaceId, executablePath, ['set', 'viewport', String(viewport?.width ?? 1280), String(viewport?.height ?? 720)], { execTimeoutMs: 20_000 });
+    if (targetUrl !== 'about:blank') response = await openBrowserUrl(runtime, workspaceId, executablePath, targetUrl);
   } else {
-    response = await runAgent(cm, workspaceId, ['open', targetUrl]);
+    response = await openBrowserUrl(runtime, workspaceId, executablePath, targetUrl);
   }
-
   const waitUntil = params.wait_until ?? 'domcontentloaded';
-  if (targetUrl !== 'about:blank' && waitUntil !== 'domcontentloaded') {
-    await runAgent(cm, workspaceId, ['wait', '--load', waitUntil], { execTimeoutMs: 30_000 });
+  if (targetUrl !== 'about:blank' && waitUntil !== 'domcontentloaded' && response.success !== false) {
+    await runAgent(runtime, workspaceId, executablePath, ['wait', '--load', waitUntil], { execTimeoutMs: 30_000 });
   }
   return response;
 }
 
-export function createAgentBrowser(cm: ContainerManager, workspaceId: string): ToolDefinition {
+export function createAgentBrowser(runtime: RuntimeBackend, workspaceId: string): ToolDefinition {
+  let executablePath: string | null = null;
+
   return {
-    name: 'browser',
-    label: 'browser',
+    name: 'automation_browser',
+    label: 'automation_browser',
     description:
       'Control a hidden automation browser through Vercel agent-browser with persistent per-workspace sessions. ' +
-      'This browser is separate from Sero\'s visible preview pane. Use launch first, then navigate/click/type/snapshot/screenshot/get_text/wait, and close when done.',
+      'This does not open Sero\'s visible Browser panel and is not captured by sero app record/screenshot. ' +
+      'For user-facing website browsing, visible browser UI, or screen-recording tasks, use the sero-cli tool with sero browser/app commands instead. ' +
+      'Use automation_browser only when you specifically need runtime/headless browser automation evidence. ' +
+      'Use launch first, then navigate/click/type/snapshot/screenshot/get_text/wait, and close when done. ' +
+      'Click selector accepts CSS selectors or text=<visible text>; snapshot refs like [ref=e123] are not DOM selectors.',
     parameters: BrowserParams,
     execute: async (
       _toolCallId: string,
@@ -314,45 +298,50 @@ export function createAgentBrowser(cm: ContainerManager, workspaceId: string): T
           record(true);
           return { content: [{ type: 'text', text: `Automation browser recording already auto-stopped after reaching the 120s limit. Saved to: ${recordingState.savePath}` }], details: undefined };
         }
-        await ensureAgentBrowserAvailable(cm, workspaceId, { requireMatchingBrowser: action === 'launch' || action === 'start_recording' });
+        const needsBrowserExecutable = action === 'launch' || action === 'start_recording';
+        if (needsBrowserExecutable && !executablePath) {
+          executablePath = await ensureAgentBrowserAvailable(runtime, { requireMatchingBrowser: true });
+        } else {
+          await ensureAgentBrowserAvailable(runtime);
+        }
 
         if (action === 'start_recording') {
-          await ensureFfmpegAvailable(cm, workspaceId);
+          await ensureFfmpegAvailable(runtime, workspaceId);
           const targetPath = params.save_path ?? '/workspace/agent-browser-recording.webm';
           const targetDir = targetPath.includes('/') ? targetPath.slice(0, targetPath.lastIndexOf('/')) : '';
-          if (targetDir) await cm.exec(workspaceId, `mkdir -p '${shellEscape(targetDir)}'`, undefined, 10_000);
+          if (targetDir) await runtime.exec({ command: `mkdir -p '${shellEscape(targetDir)}'`, timeoutMs: 10_000 });
           let response: AgentBrowserJson;
           try {
-            response = await runAgent(cm, workspaceId, ['record', 'start', targetPath], { execTimeoutMs: 20_000 });
+            response = await runAgent(runtime, workspaceId, executablePath, ['record', 'start', targetPath], { execTimeoutMs: 20_000 });
           } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             if (!/already (?:in progress|active)/i.test(message)) throw error;
-            response = await runAgent(cm, workspaceId, ['record', 'restart', targetPath], { execTimeoutMs: 20_000 });
+            response = await runAgent(runtime, workspaceId, executablePath, ['record', 'restart', targetPath], { execTimeoutMs: 20_000 });
           }
           armRecordingAutoStop(workspaceId, targetPath, async () => {
-            await ensureFfmpegAvailable(cm, workspaceId);
-            await runAgent(cm, workspaceId, ['record', 'stop'], { execTimeoutMs: 60_000 });
+            await ensureFfmpegAvailable(runtime, workspaceId);
+            await runAgent(runtime, workspaceId, executablePath, ['record', 'stop'], { execTimeoutMs: 60_000 });
           });
           record(true);
           return { content: [{ type: 'text', text: `${formatBrowserText(response, `Recording started: ${targetPath}`)}\n${recordingLimitNote()}` }], details: undefined };
         }
 
         if (action === 'stop_recording') {
-          await ensureFfmpegAvailable(cm, workspaceId);
-          const response = await runAgent(cm, workspaceId, ['record', 'stop'], { execTimeoutMs: 60_000 });
+          await ensureFfmpegAvailable(runtime, workspaceId);
+          const response = await runAgent(runtime, workspaceId, executablePath, ['record', 'stop'], { execTimeoutMs: 60_000 });
           record(true);
           return { content: [{ type: 'text', text: formatBrowserText(response, 'Automation browser recording stopped.') }], details: undefined };
         }
 
         if (action === 'close') {
           clearRecordingState(workspaceId);
-          await runAgent(cm, workspaceId, ['close'], { execTimeoutMs: 20_000 });
+          await runAgent(runtime, workspaceId, executablePath, ['close'], { execTimeoutMs: 20_000 });
           record(true);
           return { content: [{ type: 'text', text: 'Automation browser closed.' }], details: undefined };
         }
 
         if (action === 'launch') {
-          const response = await launchBrowser(cm, workspaceId, params);
+          const response = await launchBrowser(runtime, workspaceId, executablePath, params);
           record(true);
           return {
             content: [{ type: 'text', text: formatBrowserText(response, params.url ? `Opened ${params.url} in the automation browser.` : 'Automation browser launched.') }],
@@ -362,10 +351,10 @@ export function createAgentBrowser(cm: ContainerManager, workspaceId: string): T
 
         if (action === 'navigate') {
           if (!params.url) throw new Error('url is required for navigate');
-          const response = await runAgent(cm, workspaceId, ['open', params.url]);
+          const response = await openBrowserUrl(runtime, workspaceId, executablePath, params.url);
           const waitUntil = params.wait_until ?? 'domcontentloaded';
-          if (waitUntil !== 'domcontentloaded') {
-            await runAgent(cm, workspaceId, ['wait', '--load', waitUntil], { execTimeoutMs: 30_000 });
+          if (waitUntil !== 'domcontentloaded' && response.success !== false) {
+            await runAgent(runtime, workspaceId, executablePath, ['wait', '--load', waitUntil], { execTimeoutMs: 30_000 });
           }
           record(true);
           return { content: [{ type: 'text', text: formatBrowserText(response, `Opened ${params.url}`) }], details: undefined };
@@ -373,15 +362,24 @@ export function createAgentBrowser(cm: ContainerManager, workspaceId: string): T
 
         if (action === 'click') {
           if (params.selector) {
-            const response = await runAgent(cm, workspaceId, ['click', params.selector]);
+            const textTarget = textSelectorValue(params.selector);
+            if (textTarget !== null) {
+              const response = await clickByText({ runtime, workspaceId, executablePath, text: textTarget, runEval });
+              record(true);
+              return { content: [{ type: 'text', text: formatBrowserText(response, `Clicked text=${textTarget}`) }], details: undefined };
+            }
+            if (/^\[ref=e\d+\]$/i.test(params.selector.trim())) {
+              throw new Error('Snapshot refs are not DOM selectors. Use text=<visible text>, a CSS selector, or viewport x/y coordinates.');
+            }
+            const response = await runAgent(runtime, workspaceId, executablePath, ['click', params.selector]);
             record(true);
             return { content: [{ type: 'text', text: formatBrowserText(response, `Clicked ${params.selector}`) }], details: undefined };
           }
           if (params.x !== undefined && params.y !== undefined) {
-            await assertViewportClickPoint(cm, workspaceId, params.x, params.y);
-            await runAgent(cm, workspaceId, ['mouse', 'move', String(params.x), String(params.y)], { execTimeoutMs: 20_000 });
-            await runAgent(cm, workspaceId, ['mouse', 'down', 'left'], { execTimeoutMs: 20_000 });
-            await runAgent(cm, workspaceId, ['mouse', 'up', 'left'], { execTimeoutMs: 20_000 });
+            await assertViewportClickPoint(runtime, workspaceId, executablePath, params.x, params.y);
+            await runAgent(runtime, workspaceId, executablePath, ['mouse', 'move', String(params.x), String(params.y)], { execTimeoutMs: 20_000 });
+            await runAgent(runtime, workspaceId, executablePath, ['mouse', 'down', 'left'], { execTimeoutMs: 20_000 });
+            await runAgent(runtime, workspaceId, executablePath, ['mouse', 'up', 'left'], { execTimeoutMs: 20_000 });
             record(true);
             return { content: [{ type: 'text', text: `Clicked (${params.x}, ${params.y})` }], details: undefined };
           }
@@ -392,22 +390,22 @@ export function createAgentBrowser(cm: ContainerManager, workspaceId: string): T
           if (!params.text) throw new Error('text is required for type action');
           if (params.selector) {
             if (params.clear) {
-              await runAgent(cm, workspaceId, ['fill', params.selector, params.text]);
+              await runAgent(runtime, workspaceId, executablePath, ['fill', params.selector, params.text]);
               record(true);
               return { content: [{ type: 'text', text: `Filled ${params.selector}.` }], details: undefined };
             }
-            const response = await runAgent(cm, workspaceId, ['type', params.selector, params.text]);
+            const response = await runAgent(runtime, workspaceId, executablePath, ['type', params.selector, params.text]);
             record(true);
             return { content: [{ type: 'text', text: formatBrowserText(response, `Typed into ${params.selector}`) }], details: undefined };
           }
-          const response = await runAgent(cm, workspaceId, ['keyboard', 'type', params.text]);
+          const response = await runAgent(runtime, workspaceId, executablePath, ['keyboard', 'type', params.text]);
           record(true);
           return { content: [{ type: 'text', text: formatBrowserText(response, 'Typed into focused element.') }], details: undefined };
         }
 
         if (action === 'press_key') {
           if (!params.key) throw new Error('key is required for press_key action');
-          const response = await runAgent(cm, workspaceId, ['press', params.key]);
+          const response = await runAgent(runtime, workspaceId, executablePath, ['press', params.key]);
           record(true);
           return { content: [{ type: 'text', text: formatBrowserText(response, `Pressed ${params.key}`) }], details: undefined };
         }
@@ -417,22 +415,23 @@ export function createAgentBrowser(cm: ContainerManager, workspaceId: string): T
           const amount = String(params.amount ?? 500);
           const args = ['scroll', direction, amount];
           if (params.selector) args.push('--selector', params.selector);
-          const response = await runAgent(cm, workspaceId, args);
+          const response = await runAgent(runtime, workspaceId, executablePath, args);
           record(true);
           return { content: [{ type: 'text', text: formatBrowserText(response, `Scrolled ${direction}`) }], details: undefined };
         }
 
         if (action === 'evaluate') {
           if (!params.expression) throw new Error('expression is required for evaluate');
-          const response = await runEval(cm, workspaceId, params.expression);
+          const response = await runEval(runtime, workspaceId, executablePath, params.expression);
           record(true);
           return { content: [{ type: 'text', text: formatBrowserText(response) }], details: undefined };
         }
 
         if (action === 'get_text') {
           const response = await runAgent(
-            cm,
+            runtime,
             workspaceId,
+            executablePath,
             params.selector ? ['get', 'text', params.selector] : ['get', 'text', 'body'],
           );
           record(true);
@@ -440,7 +439,7 @@ export function createAgentBrowser(cm: ContainerManager, workspaceId: string): T
         }
 
         if (action === 'snapshot') {
-          const response = await runAgent(cm, workspaceId, ['snapshot'], { execTimeoutMs: 20_000 });
+          const response = await runAgent(runtime, workspaceId, executablePath, ['snapshot'], { execTimeoutMs: 20_000 });
           record(true);
           return { content: [{ type: 'text', text: formatBrowserText(response, 'Snapshot captured.') }], details: undefined };
         }
@@ -448,8 +447,8 @@ export function createAgentBrowser(cm: ContainerManager, workspaceId: string): T
         if (action === 'wait') {
           const timeoutMs = params.timeout ?? 10_000;
           const response = params.selector
-            ? await runAgent(cm, workspaceId, ['wait', params.selector], { execTimeoutMs: timeoutMs + 10_000, defaultActionTimeoutMs: timeoutMs })
-            : await runAgent(cm, workspaceId, ['wait', String(timeoutMs)], { execTimeoutMs: timeoutMs + 10_000 });
+            ? await runAgent(runtime, workspaceId, executablePath, ['wait', params.selector], { execTimeoutMs: timeoutMs + 10_000, defaultActionTimeoutMs: timeoutMs })
+            : await runAgent(runtime, workspaceId, executablePath, ['wait', String(timeoutMs)], { execTimeoutMs: timeoutMs + 10_000 });
           record(true);
           return {
             content: [{ type: 'text', text: formatBrowserText(response, params.selector ? `Element '${params.selector}' is ready.` : `Waited ${timeoutMs}ms.`) }],
@@ -461,11 +460,11 @@ export function createAgentBrowser(cm: ContainerManager, workspaceId: string): T
           const shotPath = '/tmp/sero-agent-browser-shot.png';
           const screenshotArgs = ['screenshot', shotPath];
           if (params.full_page) screenshotArgs.push('--full');
-          const response = await runAgent(cm, workspaceId, screenshotArgs, { execTimeoutMs: 20_000 });
+          const response = await runAgent(runtime, workspaceId, executablePath, screenshotArgs, { execTimeoutMs: 20_000 });
           const imagePath = response.path || shotPath;
           const imageData = response.screenshot && looksLikeBase64(response.screenshot)
             ? response.screenshot
-            : await readImageAsBase64(cm, workspaceId, imagePath);
+            : await readImageAsBase64(runtime, workspaceId, imagePath);
           record(true);
           return {
             content: screenshotContent(imageData, formatBrowserText(response, params.full_page ? 'Full-page automation browser screenshot captured.' : 'Automation browser screenshot captured.')),
