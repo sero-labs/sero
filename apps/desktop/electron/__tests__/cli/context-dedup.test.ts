@@ -54,10 +54,8 @@ describe('System prompt deduplication — memory instructions', () => {
   });
 
   it('AGENTS.md template does NOT duplicate detailed memory instructions', () => {
-    // The template can include concise workspace guidance (including the
-    // merged "Creating a Sero App" / "Dev Servers" sections from the old
-    // TOOLS.md), but should still be much smaller than the canonical memory
-    // instructions.
+    // The template can include concise workspace guidance, but should remain
+    // much smaller than the canonical memory instructions.
     expect(agentsTemplate.length).toBeLessThan(3500);
 
     // Must NOT contain detailed tool syntax or full command examples
