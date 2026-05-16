@@ -8,7 +8,11 @@
   "scripts": {
     "test": "../../node_modules/.pnpm/node_modules/.bin/vitest run",
     "test:watch": "../../node_modules/.pnpm/node_modules/.bin/vitest",
-    "typecheck": "tsc --noEmit -p extension/tsconfig.json"
+    "typecheck": "tsc --noEmit -p extension/tsconfig.json && tsc --noEmit -p ui/tsconfig.json"
+  },
+  "exports": {
+    "./ui": "./ui/index.ts",
+    "./ui/*": "./ui/*"
   },
   "pi": {
     "extensions": [
@@ -24,11 +28,20 @@
     "@mariozechner/pi-ai": "catalog:peer",
     "@mariozechner/pi-coding-agent": "catalog:peer",
     "@mariozechner/pi-tui": "catalog:peer",
+    "lucide-react": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
     "zod": "catalog:peer"
   },
   "devDependencies": {
     "@sero-ai/common": "workspace:*",
+    "@sero-ai/ui": "workspace:*",
     "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "lucide-react": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
   },

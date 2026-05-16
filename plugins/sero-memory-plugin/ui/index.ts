@@ -1,0 +1,1 @@
+export { ScratchpadBadge } from './ScratchpadBadge';

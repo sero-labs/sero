@@ -81,6 +81,30 @@ export function formatScratchpadForInjection(items: ScratchpadItem[]): string {
   return `## Scratchpad (${items.length} open)\n\n${lines.join('\n')}`;
 }
 
+// ── Maintenance ────────────────────────────────────────────────
+
+/**
+ * Remove all completed items from SCRATCHPAD.md. Returns the number of
+ * entries removed (0 if there were none or the file is missing).
+ *
+ * Used by `session_shutdown` to auto-evict done items so the scratchpad
+ * stays a focused list of open work instead of a growing audit trail.
+ */
+export async function clearDoneScratchpadItems(): Promise<number> {
+  const filePath = getScratchpadPath();
+  const existing = await readFile(filePath);
+  if (!existing?.trim()) return 0;
+
+  const items = parseScratchpad(existing);
+  const open = items.filter((i) => !i.done);
+  const removed = items.length - open.length;
+  if (removed === 0) return 0;
+
+  await writeFile(filePath, serializeScratchpad(open));
+  scheduleQmdUpdate();
+  return removed;
+}
+
 // ── Helpers ─────────────────────────────────────────────────────
 
 function text(t: string) {

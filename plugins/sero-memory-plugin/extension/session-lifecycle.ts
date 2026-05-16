@@ -21,7 +21,7 @@ import {
   todayStr,
 } from './memory-manager';
 import { nowTimestamp } from './memory-format';
-import { getOpenScratchpadItems } from './scratchpad';
+import { clearDoneScratchpadItems, getOpenScratchpadItems } from './scratchpad';
 import { runQmdUpdateNow, clearUpdateTimer } from './qmd';
 import { error, errorDetails, info } from './logger';
 import { exportTranscriptForSession } from './session-transcripts';
@@ -176,6 +176,16 @@ export function registerSessionLifecycle(pi: ExtensionAPI): void {
   pi.on('session_shutdown', async (_event, ctx) => {
     const sessionId = ctx.sessionManager.getSessionId();
     info('session_shutdown_start', { sessionId });
+
+    // Auto-evict done scratchpad items so the file stays a focused list of
+    // open work. Failures here are non-fatal — the next clear_done call (or
+    // capacity guard) will catch up.
+    try {
+      const removed = await clearDoneScratchpadItems();
+      if (removed > 0) info('session_shutdown_scratchpad_evicted', { sessionId, removed });
+    } catch (err) {
+      error('session_shutdown_scratchpad_evict_failed', { sessionId, ...errorDetails(err) });
+    }
 
     try {
       const branch = ctx.sessionManager.getBranch();

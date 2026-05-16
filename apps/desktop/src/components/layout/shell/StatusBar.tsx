@@ -4,6 +4,7 @@ import { useAppStore } from '@/stores/app';
 import { useThemeStore } from '@/stores/theme';
 import { useActiveWorkspace } from '@/stores/workspace';
 import { DevServerIndicator } from '@/components/layout/DevServerPanel';
+import { ScratchpadBadge } from '@plugins/sero-memory-plugin/ui';
 import { useWorkspaceVcs, useVcsStore } from '@/stores/vcs';
 import type { Bookmark } from '@sero-ai/common';
 
@@ -44,6 +45,7 @@ export function StatusBar() {
       {/* ── Right ─────────────────────────────────────────────── */}
       <div className="flex items-center gap-3">
         <DebugLogToggle />
+        <ScratchpadBadge />
         <DevServerIndicator />
         <ActivePushBranchPicker
           workspaceId={activeWorkspace?.id ?? null}

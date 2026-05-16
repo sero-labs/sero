@@ -68,10 +68,14 @@ function getMemoryStorageInstructions(): string[] {
     '- `sero memory remove --target memory --entry_id "mem-..."`',
     '- `sero memory consolidate [--schedule daily|weekly|off]`',
     '- `sero memory config [--snapshot frozen|live] [--auto_retrieve on|off]`',
-    '- `sero scratchpad add|done "..."`',
+    '- `sero scratchpad add|done|undo|clear_done|list "..."`',
     '',
-    'Save durable facts, decisions, preferences, corrections → `memory`. Session progress, blockers → `daily`.',
-    'Read with IDs before updating to avoid duplicates. Use type tags ([fact], [decision], [preference], etc.).',
-    'Near capacity? Replace or remove stale entries instead of appending.',
+    '**Where to put what** — pick the target that matches the lifespan:',
+    '- `scratchpad` — open work items for the *current* session: TODOs, follow-ups you intend to do before this session ends, "remember to come back to X". Mark `done` as you finish; done items are auto-evicted at session shutdown so the list stays focused. Use whenever you defer or interrupt work mid-session.',
+    '- `daily` — completed work / progress notes / blockers from *this* session that future-you will want to skim tomorrow. Written-once, append-only.',
+    '- `memory` — durable cross-session knowledge: decisions that outlive the session, user preferences, project facts, lessons. Use type tags: [fact], [decision], [preference], [lesson], etc.',
+    '',
+    'Default routing: a TODO you plan to finish before logout → `scratchpad`. A summary of what you finished → `daily`. A choice you made that the next session should respect → `memory`.',
+    'Read with IDs before updating `memory` to avoid duplicates. Near capacity? Replace or remove stale entries instead of appending.',
   ];
 }
