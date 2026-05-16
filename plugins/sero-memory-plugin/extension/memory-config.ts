@@ -13,6 +13,10 @@ interface MemoryConfigState {
 }
 
 const DEFAULT_CONFIG: MemoryConfigState = {};
+// Default to `frozen` so the system-prompt portion of the memory injection
+// stays byte-identical across turns. That's what lets provider prompt caching
+// hit on every subsequent turn in a session. Per-turn updates (scratchpad,
+// QMD search hits) flow through the message stream instead.
 const DEFAULT_SNAPSHOT_MODE: MemorySnapshotMode = 'frozen';
 const DEFAULT_AUTO_RETRIEVE: AutoRetrieveMode = 'on';
 

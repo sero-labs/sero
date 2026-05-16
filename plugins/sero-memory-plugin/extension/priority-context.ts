@@ -257,13 +257,22 @@ export function clearPriorityContextCache(sessionId: string): void {
 }
 
 /**
- * Result of building priority context with search results separated out.
- * `staticContext` goes into the system prompt.
- * `searchContext` can be injected as a per-turn message (if auto-retrieve is on).
+ * Result of building priority context, split into three streams by mutation
+ * cadence so the system prompt can stay byte-identical across turns (required
+ * for provider-level prompt caching).
+ *
+ * - `staticContext` → system prompt. Identity, user, and long-term memory
+ *   only. In `frozen` snapshot mode these are captured once per session.
+ * - `scratchpadContext` → per-turn message. Changes every time the agent
+ *   adds/completes/clears scratchpad items, so we keep it out of the system
+ *   prompt to avoid cache invalidation.
+ * - `searchContext` → per-turn message. QMD hits for the current prompt.
  */
 export interface PriorityContextResult {
-  /** Static memory sections (IDENTITY, USER, SCRATCHPAD, MEMORY.md) for the system prompt. */
+  /** Static memory sections (IDENTITY, USER, MEMORY.md) for the system prompt. */
   staticContext: string;
+  /** Scratchpad section (open items). Per-turn message — NOT system prompt. */
+  scratchpadContext: string;
   /** Dynamic QMD search results for the current prompt. Empty if no results or QMD unavailable. */
   searchContext: string;
 }
@@ -302,8 +311,14 @@ export async function buildPriorityContextSplit(
 
   addSection(frozenSnapshot?.identitySection ?? await buildIdentitySection(root));
   addSection(frozenSnapshot?.userSection ?? await buildUserSection(root));
-  addSection(await buildScratchpadSection(root));
   addSection(frozenSnapshot?.memorySection ?? await buildMemorySection(root));
+
+  // Scratchpad is built fresh each turn and returned separately so the
+  // system prompt stays cache-friendly. It rides the per-turn message stream.
+  const scratchpadSection = await buildScratchpadSection(root);
+  const scratchpadContext = scratchpadSection
+    ? `\n\n## Memory (live)\n\n${scratchpadSection}`
+    : '';
 
   const searchSection = options.includeSearch === false
     ? ''
@@ -313,25 +328,32 @@ export async function buildPriorityContextSplit(
     ? `\n\n## Memory\n\n${staticSections.join('\n\n---\n\n')}`
     : '';
 
-  return { staticContext, searchContext: searchSection };
+  return { staticContext, scratchpadContext, searchContext: searchSection };
 }
 
 /**
  * Build the full priority context as a single string.
- * Combines static memory + search results.
- * Used by tests and as a compatibility wrapper.
+ * Combines static memory + scratchpad + search results.
+ * Used by tests and as a debugging view; the runtime injection path uses
+ * `buildPriorityContextSplit` directly so each stream goes to the right place.
  */
 export async function buildPriorityContext(
   root: string,
   prompt: string,
   sessionId?: string,
-  snapshotMode: MemorySnapshotMode = 'live',
+  snapshotMode: MemorySnapshotMode = 'frozen',
 ): Promise<string> {
-  const { staticContext, searchContext } = await buildPriorityContextSplit(root, prompt, sessionId, snapshotMode);
-  if (!staticContext && !searchContext) return '';
-  if (!searchContext) return staticContext;
-  // Append search results after the static sections
-  return staticContext
-    ? `${staticContext}\n\n---\n\n${searchContext}`
-    : `\n\n## Memory\n\n${searchContext}`;
+  const { staticContext, scratchpadContext, searchContext } = await buildPriorityContextSplit(
+    root,
+    prompt,
+    sessionId,
+    snapshotMode,
+  );
+  const parts: string[] = [];
+  if (staticContext) parts.push(staticContext);
+  if (scratchpadContext) parts.push(scratchpadContext);
+  if (searchContext) {
+    parts.push(staticContext || scratchpadContext ? `---\n\n${searchContext}` : `\n\n## Memory\n\n${searchContext}`);
+  }
+  return parts.join('\n\n');
 }

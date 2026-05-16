@@ -113,6 +113,7 @@ describe('context injector phase-1 migration state', () => {
     });
     mocks.buildPriorityContextSplit.mockResolvedValue({
       staticContext: 'Static memory context',
+      scratchpadContext: '',
       searchContext: '',
     });
     mocks.runPhase1Migration.mockResolvedValue({ changed: false, notes: [] });

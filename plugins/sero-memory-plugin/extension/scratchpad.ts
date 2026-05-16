@@ -2,8 +2,9 @@
  * Scratchpad — a persistent checklist of things to fix/remember.
  *
  * Stored at ~/.sero-ui/workspaces/global/SCRATCHPAD.md as a
- * markdown checklist. Open items are injected into the system
- * prompt at high priority (after identity/user).
+ * markdown checklist. Open items are injected into the per-turn
+ * message stream by the context injector (NOT the system prompt) so
+ * scratchpad edits never invalidate the provider's cached prefix.
  *
  * Tool actions: add, done, undo, clear_done, list.
  * Bridged into sero-cli as `sero scratchpad add "Fix auth bug"`.

@@ -94,9 +94,48 @@ describe('buildPriorityContextSplit', () => {
   });
 
   it('returns empty strings when no memory files exist', async () => {
-    const { staticContext, searchContext } = await buildPriorityContextSplit(root, 'hello');
+    const { staticContext, scratchpadContext, searchContext } = await buildPriorityContextSplit(
+      root,
+      'hello',
+    );
     expect(staticContext).toBe('');
+    expect(scratchpadContext).toBe('');
     expect(searchContext).toBe('');
+  });
+
+  it('returns scratchpad in scratchpadContext, NOT in staticContext', async () => {
+    await writeFile('IDENTITY.md', '# Identity\n\n- **Name:** Sero');
+    await writeFile('SCRATCHPAD.md', '# Scratchpad\n\n- [ ] Open item to remember\n');
+
+    const { staticContext, scratchpadContext } = await buildPriorityContextSplit(root, 'hello');
+
+    expect(staticContext).toContain('IDENTITY.md');
+    expect(staticContext).not.toContain('SCRATCHPAD.md');
+    expect(staticContext).not.toContain('Open item to remember');
+    expect(scratchpadContext).toContain('SCRATCHPAD.md');
+    expect(scratchpadContext).toContain('Open item to remember');
+  });
+});
+
+describe('System prompt stability for provider caching', () => {
+  it('staticContext is byte-identical across turns in frozen mode even when scratchpad changes', async () => {
+    await writeFile('IDENTITY.md', '# Identity\n\n- **Name:** Sero');
+    await writeFile('USER.md', '# User\n\n- **Name:** Dan');
+    await writeFile('SCRATCHPAD.md', '# Scratchpad\n\n- [ ] First item\n');
+
+    const turnOne = await buildPriorityContextSplit(root, 'hello', 'session-cache', 'frozen');
+
+    // Mutate scratchpad and memory between turns
+    await writeFile('SCRATCHPAD.md', '# Scratchpad\n\n- [ ] First item\n- [ ] Second item\n');
+
+    const turnTwo = await buildPriorityContextSplit(root, 'next prompt', 'session-cache', 'frozen');
+
+    // Static (system-prompt) context MUST remain byte-identical — that's what
+    // keeps the provider's cached prefix valid for the rest of the session.
+    expect(turnTwo.staticContext).toBe(turnOne.staticContext);
+    // Scratchpad context (per-turn message) reflects the latest state.
+    expect(turnTwo.scratchpadContext).not.toBe(turnOne.scratchpadContext);
+    expect(turnTwo.scratchpadContext).toContain('Second item');
   });
 });
 

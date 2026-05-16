@@ -228,8 +228,9 @@ export async function ensureDefaultThemes(): Promise<void> {
  *   user can define the agent's personality/identity and their own profile
  * - SCRATCHPAD.md is created lazily by the scratchpad tool when first used
  *
- * Only non-managed workspace guidance files (for example AGENTS.md and
- * TOOLS.md) should be copied from the built-in profile template set.
+ * Only non-managed workspace guidance files (for example AGENTS.md, which
+ * also includes the merged tooling/dev-server guidance from the legacy
+ * TOOLS.md template) should be copied from the built-in profile template set.
  */
 const SKIP_PROFILE_FILES = new Set([
   'MEMORY.md',
@@ -239,7 +240,7 @@ const SKIP_PROFILE_FILES = new Set([
 ]);
 
 /**
- * Copy profile templates (AGENTS.md, TOOLS.md, etc.) to the global workspace.
+ * Copy profile templates (AGENTS.md, etc.) to the global workspace.
  * Only copies files that don't already exist. Managed memory files are skipped
  * so the memory extension can create and populate them through the v2
  * bootstrap and memory tools.
