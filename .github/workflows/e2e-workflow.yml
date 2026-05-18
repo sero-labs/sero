@@ -1,0 +1,53 @@
+name: E2E Workflow
+
+on:
+  workflow_dispatch:
+    inputs:
+      runtime:
+        description: Runtime backend
+        required: true
+        default: host
+        type: choice
+        options:
+          - host
+          - apple-container
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.runtime }}
+  cancel-in-progress: true
+
+jobs:
+  workflow-macos:
+    name: Workflow macOS (${{ inputs.runtime }})
+    runs-on: [self-hosted, macos]
+    timeout-minutes: 30
+    env:
+      SERO_E2E_RUNTIME: ${{ inputs.runtime }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Run workflow e2e
+        run: pnpm --filter @sero/desktop e2e:workflow
+      - name: Upload Playwright artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-workflow-macos-${{ inputs.runtime }}
+          path: |
+            apps/desktop/test-results/
+            apps/desktop/playwright-report/
+          if-no-files-found: ignore
+          retention-days: 7

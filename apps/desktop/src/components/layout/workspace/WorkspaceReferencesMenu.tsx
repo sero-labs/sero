@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FolderOpen, Link, Plus, X } from 'lucide-react';
+import { FolderOpen, Info, Link, Plus, X } from 'lucide-react';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { useWorkspaceContainer } from '@/stores/container';
 import {
@@ -7,6 +7,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@sero-ai/ui/components/ui/popover';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@sero-ai/ui/components/ui/tooltip';
 import type { WorkspaceInfo } from '@/types/ipc';
 import { IconAction } from '@/components/ui/IconAction';
 
@@ -45,10 +46,10 @@ export function WorkspaceReferencesMenu({ workspace }: { workspace: WorkspaceInf
     }
   };
 
-  const mountAvailabilityNotice = workspace.runtime.backend === 'host'
-    ? 'Runtime mounts require Docker or Apple Container. This workspace is explicitly set to Host, so reference and mount changes will apply after selecting an isolated runtime.'
+  const mountNotice = workspace.runtime.backend === 'host'
+    ? 'References and folder mounts take effect after switching this workspace to Docker or Apple Container.'
     : container.status !== 'running'
-      ? 'Runtime mounts apply when the selected runtime is healthy. Reference and mount changes may require runtime/container recreation before they take effect.'
+      ? 'Sero restarts the container to apply changes. If work is running, changes apply next time it restarts.'
       : null;
 
   return (
@@ -72,17 +73,27 @@ export function WorkspaceReferencesMenu({ workspace }: { workspace: WorkspaceInf
         onClick={(e) => e.stopPropagation()}
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
-        {mountAvailabilityNotice ? (
-          <div className="border-b border-[var(--status-warning-border)] bg-[var(--status-warning-faint)] px-2 py-2 text-[11px] text-[var(--status-warning-text)]">
-            {mountAvailabilityNotice}
-          </div>
-        ) : null}
-
         {/* ── Workspace references ──────────────────────────── */}
-        <div className="p-2">
+        <div className="flex items-center justify-between gap-2 p-2">
           <span className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
             Workspace references
           </span>
+          {mountNotice ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span
+                  aria-label="Runtime mounts notice"
+                  tabIndex={0}
+                  className="rounded p-0.5 text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
+                >
+                  <Info className="size-3" />
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="right" className="max-w-64 text-xs">
+                {mountNotice}
+              </TooltipContent>
+            </Tooltip>
+          ) : null}
         </div>
 
         {referenced.length > 0 && (

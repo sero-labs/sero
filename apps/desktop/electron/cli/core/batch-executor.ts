@@ -166,6 +166,11 @@ function formatBatchEntry(line: string, output: string): string {
   return `$ sero ${line}\n${output}`;
 }
 
+function displayArgv(argv: string[]): string {
+  const tokens = argv[0] === 'sero' ? argv.slice(1) : argv;
+  return tokens.map((token) => (/^[A-Za-z0-9_./:=@-]+$/.test(token) ? token : JSON.stringify(token))).join(' ');
+}
+
 function contentFromLegacyImageJson(output: string): CliContentBlock[] | null {
   const parsed = tryParseImageJson(output);
   if (!parsed) return null;
@@ -209,6 +214,103 @@ function withBatchUpdateContext(
   };
 }
 
+async function executeCliTokens(
+  registry: CliRegistry,
+  tokens: string[],
+  displayLine: string,
+  context: CliCommandContext,
+  batchTimeoutSec?: number,
+  onUpdate?: Parameters<CliRegistry['executeResolved']>[3],
+): Promise<{ result: CliResult; timedOut: boolean }> {
+  let timedOut = false;
+  try {
+    const resolved = registry.resolveTokens(tokens, {
+      workspaceId: context.workspaceId,
+      sessionId: context.invocation.sessionId,
+    });
+
+    const turnId = context.invocation.turnId;
+    if (
+      context.invocation.source !== 'terminal'
+      && turnId
+      && !isHelpCommand(resolved.command.name)
+    ) {
+      const budget = getCliSessionBridge().consumeTurnBudget(context.workspaceId, turnId);
+      if (!budget.allowed) {
+        return {
+          timedOut: false,
+          result: {
+            output: `ERROR: Rate limit: ${TURN_COMMAND_LIMIT} CLI commands per turn exceeded. Wait for the next turn.`,
+            exitCode: 1,
+          },
+        };
+      }
+    }
+
+    const singleDeadline = buildBatchDeadline(context.invocation.source, batchTimeoutSec, true);
+    const perCommandTimeout = context.invocation.source === 'terminal' || resolved.command.interactive
+      ? null
+      : timeoutForCommand(singleDeadline, resolved.command.timeoutMs);
+    const commandOnUpdate = withBatchUpdateContext(onUpdate, displayLine, 1, 1);
+    const result = normalizeCliResult(
+      await runWithTimeout(
+        (control) => resolved.command.execute(
+          resolved.args,
+          {
+            ...context,
+            invocation: {
+              ...context.invocation,
+              signal: control.signal,
+            },
+          },
+          control.onUpdate,
+        ),
+        perCommandTimeout,
+        context.invocation.signal,
+        commandOnUpdate,
+      ),
+    );
+    return { result, timedOut };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'CLI command failed';
+    timedOut = error instanceof CommandTimeoutError;
+    return {
+      timedOut,
+      result: {
+        output: `ERROR: ${message}`,
+        exitCode: 1,
+      },
+    };
+  }
+}
+
+export async function executeCliArgv(
+  registry: CliRegistry,
+  argv: string[],
+  context: CliCommandContext,
+  batchTimeoutSec?: number,
+  onUpdate?: Parameters<CliRegistry['executeResolved']>[3],
+): Promise<CliBatchResult> {
+  if (argv.length === 0) return { output: 'ERROR: No command provided', exitCode: 1 };
+
+  const displayLine = displayArgv(argv);
+  const { result } = await executeCliTokens(
+    registry,
+    argv,
+    displayLine,
+    context,
+    batchTimeoutSec,
+    onUpdate,
+  );
+  const output = context.invocation.source === 'terminal' ? result.output : truncateOutput(result.output);
+  return {
+    output,
+    exitCode: result.exitCode ?? 0,
+    content: result.content,
+    details: result.details,
+  };
+}
+
 export async function executeCliBatch(
   registry: CliRegistry,
   commandText: string,
@@ -232,6 +334,7 @@ export async function executeCliBatch(
   let finalExitCode = 0;
   let richOutputFallback = false;
   const imagePaths: string[] = [];
+  let latestRichContent: CliContentBlock[] = [];
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!;
@@ -305,12 +408,13 @@ export async function executeCliBatch(
         imagePaths.push(...paths.filter((value): value is string => typeof value === 'string'));
       }
     }
-    const hasLegacyInlineImage = !!contentFromLegacyImageJson(result.output);
-    if (!single && (
-      (Array.isArray(result.content) && result.content.some((block) => block.type !== 'text')) ||
-      hasLegacyInlineImage
-    )) {
-      richOutputFallback = true;
+    const legacyContent = contentFromLegacyImageJson(result.output);
+    const commandRichContent = Array.isArray(result.content)
+      ? result.content.filter((block) => block.type !== 'text')
+      : legacyContent?.filter((block) => block.type !== 'text') ?? [];
+    if (!single && commandRichContent.length > 0) latestRichContent = commandRichContent;
+    if (!single && (commandRichContent.length > 0 || legacyContent)) {
+      richOutputFallback = legacyContent !== null && commandRichContent.length === 0;
     }
 
     if (single) {
@@ -341,6 +445,7 @@ export async function executeCliBatch(
   return {
     output,
     exitCode: finalExitCode,
+    content: latestRichContent.length ? [{ type: 'text', text: output }, ...latestRichContent] : undefined,
     richOutputFallback,
     ...(imagePaths.length ? { details: { imagePaths } } : {}),
   };
@@ -359,6 +464,13 @@ export function getMultiCommandFallbackContent(
   batch: CliBatchResult,
   hadRichOutput: boolean,
 ): CliContentBlock[] {
+  if (Array.isArray(batch.content) && batch.content.length > 0) {
+    if (!hadRichOutput) return batch.content;
+    return [
+      ...batch.content,
+      { type: 'text', text: '[some rich output omitted in multi-command batch; rerun the command alone to view it]' },
+    ];
+  }
   const lines = [batch.output];
   if (hadRichOutput) {
     lines.push('', '[rich output omitted in multi-command batch; rerun the image-producing command alone to view images]');

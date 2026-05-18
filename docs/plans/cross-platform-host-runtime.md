@@ -1,127 +1,97 @@
-# Cross-platform Host runtime plan
+# Cross-platform host runtime rollout notes
 
-> **Current PR #177 scope:** Windows Host mode / WSL-backed Host execution has been deprecated. Windows uses Docker exclusively. This document now tracks the supported POSIX Host runtime scope for macOS/Linux and keeps Windows Host/WSL work explicitly out of scope.
+Status: superseded by the host-first runtime implementation. This document now records current behavior and rollout checks.
 
-## Supported runtime model
+## Current runtime model
 
-Sero supports local workspace runtimes through three canonical backend IDs:
+Sero supports three canonical local runtime backend IDs:
 
 ```ts
-export type RuntimeBackendId = 'apple-container' | 'docker' | 'host';
+export type RuntimeBackendId = 'host' | 'docker' | 'apple-container';
 export type DeprecatedRuntimeBackendId = 'mac-host';
 ```
 
-Platform support:
+`mac-host` is read-time compatibility only and normalizes to `host`.
 
-| Runtime | macOS | Linux | Windows | Browser automation |
-| --- | --- | --- | --- | --- |
-| Host (`host`) | Yes | Yes | No | No |
-| Docker (`docker`) | Yes | Yes | Yes | Yes |
-| Apple Container (`apple-container`) | Apple Silicon recommended | No | No | Yes |
+| Capability | Host | Docker / Podman | Apple Container |
+| --- | --- | --- | --- |
+| macOS | Yes | Yes | Apple Silicon recommended |
+| Linux | Yes | Yes | No |
+| Windows x64 | Yes, native Windows host mode | Yes | No |
+| Browser automation | Installable browser pack | Preinstalled | Preinstalled |
+| Native build tools | User-installed or container fallback | Image-provided | Image-provided |
+| Sandbox | No | Container isolation | Container isolation |
 
-`mac-host` is a deprecated compatibility alias. Existing workspace configs with `{ "runtime": { "backend": "mac-host" } }` are accepted on read, normalized to `host` in IPC/runtime state, and rewritten as `host` on the next config write.
+Windows host mode is native Windows execution with a verified Git Bash/MSYS-compatible shell. WSL is not the default runtime strategy.
 
-## Goals
+## Default rollout
 
-- Keep one provider-neutral runtime abstraction for normal workspace execution.
-- Expose primary workspaces to runtimes at `/workspace` by live bind mount or host path translation.
-- Keep host/runtime file changes immediately visible without upload/download sync.
-- Ensure selected Docker/Apple runtimes fail closed with actionable diagnostics instead of silently falling back to host execution.
-- Return host-reachable preview URLs such as `http://127.0.0.1:<port>` for every backend.
-- Keep browser automation container-only.
-- Keep Windows on Docker only for PR #177.
+New workspace host defaulting is gated by `SERO_HOST_FIRST=1`:
 
-## Host runtime scope
+- With `SERO_HOST_FIRST=1`, new non-global workspaces default to `host` on supported macOS, Linux, and Windows x64.
+- With the flag off, legacy non-global defaults remain in place during rollout.
+- The global workspace defaults to `host` on supported host platforms.
+- Existing persisted `runtime.backend` values remain authoritative.
+- Containers are optional upgrades/fallbacks and are not silently selected just because Docker/Podman/Apple Container is detected.
 
-Host runtime is POSIX-only for this workstream:
+## Host path policy
 
-- macOS direct host execution.
-- Linux direct host execution.
-- Node/substrate file primitives for file ops.
-- Shell exec/spawn, terminals, Git/VCS, LSP, managed dev servers, and direct localhost preview URLs.
-- No browser automation.
+Host execution uses the real host workspace path. `/workspace` is a compatibility alias accepted by Sero APIs and translated internally; it is not a required real host path.
 
-Windows Host mode is out of scope:
+Container execution continues to use `/workspace` because that is the actual in-container mount point.
 
-- No native PowerShell/cmd workspace execution.
-- No WSL-backed Host execution.
-- No WSL path translation, WSLENV propagation, mixed-distro rejection, WSL-native workspace handling, or WSL localhost-forwarding diagnostics.
-- The Windows runtime picker should offer Docker only.
+## Managed host tooling
 
-## Workspace access
+Packaged-app host mode resolves tools through the managed toolchain layer:
 
-```ts
-export type RuntimeWorkspaceAccess = 'host' | 'live-mount';
-```
+1. compatible verified system tool,
+2. managed tool already installed under `~/.sero-ui/toolchains/<manifest-version>/`,
+3. first-use managed install when policy permits,
+4. typed failure with retry/fallback metadata.
 
-- `host` uses `host` access and translates runtime `/workspace` paths to the real macOS/Linux workspace path in the main process.
-- `apple-container` and `docker` use `live-mount` access with the primary workspace mounted at `/workspace`.
+The storage root comes from `SERO_FIXED_ROOT`; toolchains do not live under `SERO_HOME`, `~/.sero`, or `~/.pi/agent`. Managed installers stage downloads, verify pinned hashes, atomically activate artifacts, and write `.installed` last.
 
-## Implementation tasks
+Native compiler stacks are explicitly not managed. Sero classifies native-build failures and offers platform instructions or container fallback.
 
-### Task 1 — Canonical runtime config
+## Browser automation
 
-- Use `host`, `docker`, and `apple-container` as canonical backend IDs.
-- Accept `mac-host` only as deprecated read-time compatibility input.
-- Normalize `mac-host` to `host` on write.
-- Default Windows workspaces to Docker.
+Host browser automation is install-state-aware:
 
-### Task 2 — Host backend and POSIX substrate
+- missing pack: `installable`, with onboarding/settings/first-use install action,
+- in-flight pack: `installing`, with progress,
+- installed and Doctor-launchable: `ready`,
+- install/launch failure: `failed`, with retry or container fallback.
 
-- Implement Host runtime through a POSIX substrate for macOS/Linux.
-- Route `exec`, `spawn`, `execFile`, terminals, and file ops through the substrate.
-- Keep `HostBackend` free of Docker/Apple-specific behavior.
-- Reject Host runtime on Windows with clear Docker guidance.
+The browser pack is a large optional add-on stored under `~/.sero-ui/toolchains/<manifest-version>/browser/`. Docker/Podman and Apple Container provide browser automation through their runtime images.
 
-### Task 3 — Host path safety
-
-- Translate `/workspace/...` to the host workspace path.
-- Support configured additional roots.
-- Canonicalize existing targets and nearest existing parents before file ops.
-- Reject symlink escapes outside allowed workspace roots.
-
-### Task 4 — Runtime-backed VCS and LSP
-
-- Migrate GitRunner/internal GitHub commands to `runtime.execFile`.
-- Ensure LSP process cwd/root URIs are valid for the selected backend.
-- Keep auth env injection scoped to the execution runtime.
-
-### Task 5 — Managed dev servers and preview URLs
-
-- Host runtime starts managed dev servers on macOS/Linux.
-- Detect the first listening child/descendant port.
-- Return `http://127.0.0.1:<port>` preview URLs for Host.
-- Docker/Apple Container use pre-published loopback preview-port pools.
-
-### Task 6 — Runtime capabilities and UX
-
-- Report capabilities through `getRuntimeCapabilities(backend, platform)`.
-- Host: no browser automation; supported on macOS/Linux only.
-- Docker: supported on macOS/Linux/Windows.
-- Apple Container: supported on macOS where available.
-- Runtime picker copy should never expose `mac-host` or Windows Host mode.
-
-## Validation
+## Validation before removing the flag
 
 Automated:
 
 ```bash
-pnpm --filter @sero/desktop exec vitest run \
-  electron/__tests__/features/workspace/runtime/host-substrate-factory.test.ts \
-  electron/__tests__/features/workspace/runtime/posix-substrate.test.ts \
-  electron/__tests__/features/workspace/runtime/host-backend.test.ts \
-  electron/__tests__/features/workspace/runtime/host-dev-server-manager.test.ts \
-  electron/__tests__/features/workspace/runtime/host-doctor.test.ts
+pnpm --filter @sero/desktop test -- apps/desktop/electron/__tests__/features/workspace/runtime
+pnpm --filter @sero/desktop test -- apps/desktop/electron/__tests__/features/workspace/workspace-runtime-config.test.ts
+pnpm --filter @sero/desktop test -- apps/desktop/electron/__tests__/features/workspace/runtime-resolution.test.ts
+pnpm --filter @sero/desktop test -- apps/desktop/electron/__tests__/ipc/runtime-boundaries.test.ts apps/desktop/electron/__tests__/ipc/workspace-runtime-installs.test.ts apps/desktop/electron/__tests__/ipc/preload-api-subscriptions.test.ts
 pnpm --filter @sero/desktop typecheck
 pnpm typecheck
 ```
 
-Manual:
+Manual smoke:
 
-- macOS: Host runtime file/exec/terminal/Git/LSP/dev-server smoke.
-- Linux: Host runtime file/exec/terminal/Git/LSP/dev-server smoke.
-- Windows: Docker Desktop smoke only.
+- macOS host: file ops, Git, terminal, pnpm install/dev, LSP, preview, browser pack install/use.
+- Linux host: same plus browser launch Doctor shared-library failure path.
+- Windows x64 host: file ops, Git, terminal, Node/pnpm, dev server, preview, browser pack install/use.
+- Browser pack: install, progress, retry/failure, ready launch check, uninstall.
+- Container fallback: switch workspace to Docker/Podman or Apple Container after native-build failure.
+- Existing workspace regression: persisted Docker/Apple Container workspace remains container-backed after host-first flag.
 
-## Future work
+Detailed checklists live in `docs/reference/runtime-smoke.md` and `docs/reference/runtime-manual-test.md`.
 
-If Windows Host mode is reconsidered later, it should be planned as a separate feature with its own design review, tests, and manual smoke matrix. It should not be treated as part of PR #177.
+## Remaining rollout risks
+
+- Managed artifact signing/notarization and download availability must be verified per release.
+- Windows Git Bash/MSYS behavior may diverge from POSIX shell expectations in agent-authored commands.
+- Host process/port inspection can be platform-sensitive and needs repeated smoke coverage.
+- Linux browser launch may fail on missing system shared libraries; Doctor/fallback copy must stay actionable.
+- Host mode is not a sandbox; containers remain the recommended isolation and native-build fallback path.

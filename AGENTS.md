@@ -98,6 +98,7 @@ If you change `apps/desktop/images/Dockerfile.sero-node` or container-installed 
 - Prefer `useDebouncedCallback` / `createDebouncedFn` from `src/hooks/useDebouncedCallback.ts` over hand-rolled `setTimeout` debounce patterns
 - Keep code as simple and idiomatic as possible. Never use try-catch for file existence or normal flow control. Refactor any bureaucratic/over-defensive code to the minimal readable solution.
 - Always use top-level imports (no inline `import('...')` type expressions)
+- When creating UI components, try to make them self-explanatorys and avoid duplicating descriptive text in multiple places
 
 ## File Size Rules (CRITICAL)
 

@@ -21,7 +21,7 @@ export function useOnboardingGitHubStep({
 }: UseOnboardingGitHubStepOptions) {
   const githubAuth = useGitHubAuthFlow();
   const openGitHubAuthDialog = useGitHubAuthStore((state) => state.openGitHubAuthDialog);
-  const [step, setStep] = useState<'tiers' | 'github'>('tiers');
+  const [step, setStep] = useState<'tiers' | 'dependencies' | 'github'>('tiers');
   const [checkingGitHub, setCheckingGitHub] = useState(false);
   const [lastOutcome, setLastOutcome] = useState<OnboardingGitHubOutcome | null>(null);
 
@@ -31,7 +31,13 @@ export function useOnboardingGitHubStep({
     }
   }, [githubAuth.authStatus?.authenticated]);
 
-  const handleTierContinue = useCallback(async () => {
+  const handleTierContinue = useCallback(() => {
+    if (!canContinue || continueDisabled || checkingGitHub) return;
+    setLastOutcome(null);
+    setStep('dependencies');
+  }, [canContinue, continueDisabled, checkingGitHub]);
+
+  const handleContinueFromDependencies = useCallback(async () => {
     if (!canContinue || continueDisabled || checkingGitHub) return;
     setCheckingGitHub(true);
     try {
@@ -60,7 +66,7 @@ export function useOnboardingGitHubStep({
 
   const handleBack = useCallback(() => {
     setLastOutcome(null);
-    setStep('tiers');
+    setStep((current) => current === 'github' ? 'dependencies' : 'tiers');
   }, []);
 
   const handleContinueFromGitHub = useCallback(() => {
@@ -73,6 +79,7 @@ export function useOnboardingGitHubStep({
     githubAuth,
     lastOutcome,
     handleTierContinue,
+    handleContinueFromDependencies,
     handleConnectGitHub,
     handleBack,
     handleContinueFromGitHub,

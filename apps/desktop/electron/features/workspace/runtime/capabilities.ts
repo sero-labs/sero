@@ -55,6 +55,7 @@ function createHostCapabilities(_platform: NodeJS.Platform): RuntimeCapabilities
       stopForward: false,
       previewUrl: true,
     },
+    browserAutomation: true,
   };
 }
 
@@ -98,9 +99,6 @@ export function getRuntimeCapabilities(
 ): RuntimeCapabilities {
   if (backend === 'apple-container' && (platform !== 'darwin' || arch !== 'arm64')) {
     throw new UnsupportedRuntimeOnPlatformError(backend, platform, arch);
-  }
-  if (backend === 'host' && platform === 'win32') {
-    throw new UnsupportedRuntimeOnPlatformError(backend, platform);
   }
   if (backend === 'host') return createHostCapabilities(platform);
   if (backend === 'docker') return createDockerCapabilities();

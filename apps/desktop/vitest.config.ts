@@ -15,6 +15,7 @@ export default defineConfig({
     setupFiles: ['test/vitest.setup.ts'],
     include: [
       'electron/__tests__/**/*.test.ts',
+      'e2e/helpers/__tests__/**/*.test.ts',
       'src/**/*.test.ts',
       'src/**/*.test.tsx',
     ],

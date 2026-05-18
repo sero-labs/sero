@@ -1,20 +1,36 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import generatedArtifacts from '@electron/features/workspace/runtime/browser-pack/generated-artifacts.json';
 import type { RuntimeBackend } from '@electron/features/workspace/runtime/types';
+import type { BrowserRuntimeAdapter } from '@electron/features/workspace/runtime/browser-pack/types';
+import { createAgentBrowser } from '@electron/features/container/tools/tools-browser-agent';
+import {
+  BrowserPackRequiredError,
+  ensureFfmpegAvailable,
+  resolveBrowserAutomationRuntime,
+} from '@electron/features/container/tools/tools-browser-runtime-adapter';
 
 type ExecResult = { stdout: string; stderr: string; exitCode: number };
 
-const BROWSER_PATH = '/root/.cache/ms-playwright/chromium-1200/chrome-linux/chrome';
-const DOCKER_CACHE_BROWSER_PATH = '/tmp/sero-home/.cache/ms-playwright/chromium-1200/chrome-linux/chrome';
-const APPLE_BROWSER_PATH = '/ms-playwright/chromium-1200/chrome-linux/chrome';
-const MISMATCHED_BROWSER_PATH = '/root/.cache/ms-playwright/chromium-1208/chrome-linux/chrome';
-const browserPathResult: ExecResult = { stdout: `${BROWSER_PATH}\n`, stderr: '', exitCode: 0 };
-const mismatchedBrowserPathResult: ExecResult = { stdout: `${MISMATCHED_BROWSER_PATH}\n`, stderr: '', exitCode: 0 };
+const chromiumRevision = generatedArtifacts.pins.chromiumRevision;
+const BROWSER_PATH = `/root/.cache/ms-playwright/chromium-${chromiumRevision}/chrome-linux/chrome`;
+const DOCKER_CACHE_BROWSER_PATH = `/tmp/sero-home/.cache/ms-playwright/chromium-${chromiumRevision}/chrome-linux/chrome`;
+const APPLE_BROWSER_PATH = `/ms-playwright/chromium-${chromiumRevision}/chrome-linux/chrome`;
 const viewportResult: ExecResult = {
   stdout: '{"result":{"width":1280,"height":720,"scrollX":0,"scrollY":0}}',
   stderr: '',
   exitCode: 0,
 };
 const ffmpegCacheResult: ExecResult = { stdout: '', stderr: '', exitCode: 0 };
+
+const containerAdapter: BrowserRuntimeAdapter = {
+  browsersPath: '/ms-playwright',
+  chromiumExecutableCandidates: [BROWSER_PATH],
+  ffmpegCandidates: ['/usr/local/bin/ffmpeg'],
+  agentBrowserCandidates: [],
+  pathPrefixes: [],
+  tempDir: '/tmp',
+  env: { PLAYWRIGHT_BROWSERS_PATH: '/ms-playwright' },
+};
 
 function createExecMock(results: ExecResult[]) {
   const exec = vi.fn();
@@ -25,15 +41,13 @@ function createExecMock(results: ExecResult[]) {
 }
 
 async function createToolWithExec(results: ExecResult[]) {
-  vi.resetModules();
   const exec = createExecMock(results);
-  const { createAgentBrowser } = await import('@electron/features/container/tools/tools-browser-agent');
   const runtime = {
     backend: 'docker',
     exec: (input: { command: string; cwd?: string; timeoutMs?: number }) => exec('ws-1', input.command, input.cwd, input.timeoutMs),
     createDirectory: (input: { path: string }) => exec('ws-1', `mkdir -p '${input.path}'`, undefined, undefined),
   } as unknown as RuntimeBackend;
-  const tool = createAgentBrowser(runtime, 'ws-1');
+  const tool = createAgentBrowser(runtime, 'ws-1', async () => ({ adapter: containerAdapter, executablePath: BROWSER_PATH }));
   return { tool, exec };
 }
 
@@ -51,20 +65,69 @@ describe('createAgentBrowser', () => {
     expect(tool.description).toContain('hidden automation browser');
   });
 
-  it('auto-installs agent-browser when the CLI is missing', async () => {
+  it('returns typed browser-pack metadata when host browser pack is missing', async () => {
+    const exec = createExecMock([]);
+    const runtime = { backend: 'host', exec: (input: { command: string }) => exec('ws-1', input.command) } as unknown as RuntimeBackend;
+    const tool = createAgentBrowser(runtime, 'ws-1', async () => {
+      throw new BrowserPackRequiredError({
+        state: 'installable',
+        manifestVersion: '2026.05.16',
+        artifactKey: 'darwin-arm64',
+        error: {
+          code: 'BROWSER_PACK_REQUIRED',
+          message: 'Host browser automation pack is not installed.',
+          retryable: true,
+          installable: true,
+          manifestVersion: '2026.05.16',
+          artifactKey: 'darwin-arm64',
+        },
+      });
+    });
+
+    await expect(tool.execute('tc-host-missing', { action: 'launch' }, undefined, undefined, undefined as never)).rejects.toMatchObject({
+      code: 'BROWSER_PACK_REQUIRED',
+      installable: true,
+      status: { state: 'installable', artifactKey: 'darwin-arm64' },
+    });
+    expect(exec).not.toHaveBeenCalled();
+  });
+
+  it('uses the host browser-pack adapter when installed', async () => {
+    const exec = createExecMock([
+      { stdout: '/usr/bin/agent-browser\n', stderr: '', exitCode: 0 },
+      { stdout: '{"message":"opened","url":"about:blank"}', stderr: '', exitCode: 0 },
+    ]);
+    const hostAdapter: BrowserRuntimeAdapter = {
+      browsersPath: '/fixed/toolchains/2026.05.16/browser',
+      chromiumExecutableCandidates: ['/fixed/toolchains/2026.05.16/browser/chromium/chrome'],
+      ffmpegCandidates: ['/fixed/toolchains/2026.05.16/browser/ffmpeg/ffmpeg'],
+      agentBrowserCandidates: ['/fixed/toolchains/2026.05.16/browser/agent-browser/bin/agent-browser'],
+      pathPrefixes: ['/fixed/toolchains/2026.05.16/browser/agent-browser/bin', '/fixed/toolchains/2026.05.16/browser/ffmpeg'],
+      tempDir: '/fixed/toolchains/2026.05.16/browser/tmp',
+      env: { PLAYWRIGHT_BROWSERS_PATH: '/fixed/toolchains/2026.05.16/browser' },
+    };
+    const runtime = { backend: 'host', exec: (input: { command: string; timeoutMs?: number }) => exec('ws-1', input.command, undefined, input.timeoutMs) } as unknown as RuntimeBackend;
+    const tool = createAgentBrowser(runtime, 'ws-1', async () => ({ adapter: hostAdapter, executablePath: hostAdapter.chromiumExecutableCandidates[0] ?? null }));
+
+    await tool.execute('tc-host-installed', { action: 'launch' }, undefined, undefined, undefined as never);
+
+    expect(exec.mock.calls[0][1]).toContain("export PATH='/fixed/toolchains/2026.05.16/browser/agent-browser/bin:/fixed/toolchains/2026.05.16/browser/ffmpeg':\"$PATH\"; command -v agent-browser");
+    expect(exec.mock.calls[1][1]).toContain("export PLAYWRIGHT_BROWSERS_PATH='/fixed/toolchains/2026.05.16/browser'");
+    expect(exec.mock.calls[1][1]).toContain("export PATH='/fixed/toolchains/2026.05.16/browser/agent-browser/bin:/fixed/toolchains/2026.05.16/browser/ffmpeg':\"$PATH\"");
+    expect(exec.mock.calls[1][1].indexOf('/agent-browser/bin')).toBeLessThan(exec.mock.calls[1][1].indexOf(':\"$PATH\"'));
+    expect(exec.mock.calls[1][1]).toContain("'--executable-path' '/fixed/toolchains/2026.05.16/browser/chromium/chrome'");
+    expect(exec.mock.calls[1][1]).toContain("'open' 'about:blank'");
+  });
+
+  it('does not globally install agent-browser when the CLI is missing', async () => {
     const { tool, exec } = await createToolWithExec([
       { stdout: '', stderr: '', exitCode: 1 },
-      { stdout: 'installed\n', stderr: '', exitCode: 0 },
-      { stdout: '/usr/bin/agent-browser\n', stderr: '', exitCode: 0 },
-      browserPathResult,
-      { stdout: '{"message":"opened"}', stderr: '', exitCode: 0 },
     ]);
 
-    await tool.execute('tc-install', { action: 'launch' }, undefined, undefined, undefined as never);
+    await expect(tool.execute('tc-install', { action: 'launch' }, undefined, undefined, undefined as never)).rejects.toThrow('agent-browser CLI is not available');
 
-    expect(exec.mock.calls[1][1]).toContain('npm install -g agent-browser');
-    expect(exec.mock.calls[4][1]).toContain("'--executable-path' '/root/.cache/ms-playwright/chromium-1200/chrome-linux/chrome'");
-    expect(exec.mock.calls[4][1]).toContain("'open' 'about:blank'");
+    expect(exec.mock.calls[0][1]).toBe('command -v agent-browser');
+    expect(exec.mock.calls.some((call) => String(call[1]).includes('npm install -g agent-browser'))).toBe(false);
   });
 
   it('closes without forcing a matching Playwright browser install', async () => {
@@ -82,7 +145,6 @@ describe('createAgentBrowser', () => {
   it('resets the browser session after launch navigation failures instead of poisoning later actions', async () => {
     const { tool, exec } = await createToolWithExec([
       { stdout: '/usr/bin/agent-browser\n', stderr: '', exitCode: 0 },
-      browserPathResult,
       { stdout: '{"success":false,"error":"CDP command timed out: Page.navigate"}', stderr: '', exitCode: 1 },
       { stdout: '{"success":true,"data":{"closed":true}}', stderr: '', exitCode: 0 },
       { stdout: '{"success":true,"data":{"url":"about:blank"}}', stderr: '', exitCode: 0 },
@@ -90,9 +152,9 @@ describe('createAgentBrowser', () => {
 
     const result = await tool.execute('tc-launch-timeout', { action: 'launch', url: 'https://example.com' }, undefined, undefined, undefined as never);
 
-    expect(exec.mock.calls[2][1]).toContain("'open' 'https://example.com'");
-    expect(exec.mock.calls[3][1]).toContain("'close' '--json'");
-    expect(exec.mock.calls[4][1]).toContain("'open' 'about:blank'");
+    expect(exec.mock.calls[1][1]).toContain("'open' 'https://example.com'");
+    expect(exec.mock.calls[2][1]).toContain("'close' '--json'");
+    expect(exec.mock.calls[3][1]).toContain("'open' 'about:blank'");
     expect((result.content[0] as { text: string }).text).toContain('Navigation to https://example.com failed');
   });
 
@@ -115,7 +177,6 @@ describe('createAgentBrowser', () => {
   it('creates the recording directory before record start', async () => {
     const { tool, exec } = await createToolWithExec([
       { stdout: '/usr/bin/agent-browser\n', stderr: '', exitCode: 0 },
-      browserPathResult,
       ffmpegCacheResult,
       { stdout: '', stderr: '', exitCode: 0 },
       { stdout: '{"message":"recording"}', stderr: '', exitCode: 0 },
@@ -131,23 +192,17 @@ describe('createAgentBrowser', () => {
 
     expect(result.content[0]).toMatchObject({ type: 'text' });
     expect((result.content[0] as { type: string; text: string }).text).toContain('recording');
-    expect(exec.mock.calls[1][1]).toContain('"$PLAYWRIGHT_BROWSERS_PATH"/chromium-1200/chrome-linux/chrome');
-    expect(exec.mock.calls[1][1]).toContain('/ms-playwright/chromium-1200/chrome-linux/chrome');
-    expect(exec.mock.calls[1][1]).toContain('"$HOME"/.cache/ms-playwright/chromium-1200/chrome-linux/chrome');
-    expect(exec.mock.calls[2][1]).toContain('find "$PLAYWRIGHT_BROWSERS_PATH" /ms-playwright "$HOME/.cache/ms-playwright" /root/.cache/ms-playwright');
-    expect(exec.mock.calls[2][1]).toContain('ln -sf "$ffmpeg_path" "$HOME/.local/bin/ffmpeg"');
-    expect(exec.mock.calls[2][1]).toContain('PATH="$HOME/.local/bin:$PATH"');
-    expect(exec.mock.calls[3][1]).toContain("mkdir -p '/workspace/browser-e2e'");
-    expect(exec.mock.calls[4][1]).toContain('PATH="$HOME/.local/bin:$PATH"');
-    expect(exec.mock.calls[4][1]).toContain("'--executable-path' '/root/.cache/ms-playwright/chromium-1200/chrome-linux/chrome'");
-    expect(exec.mock.calls[4][1]).toContain("'record' 'start'");
+    expect(exec.mock.calls[1][1]).toContain('command -v ffmpeg');
+    expect(exec.mock.calls[2][1]).toContain("mkdir -p '/workspace/browser-e2e'");
+    expect(exec.mock.calls[3][1]).toContain("export PLAYWRIGHT_BROWSERS_PATH='/ms-playwright'");
+    expect(exec.mock.calls[3][1]).toContain(`'--executable-path' '${BROWSER_PATH}'`);
+    expect(exec.mock.calls[3][1]).toContain("'record' 'start'");
   });
 
   it('auto-stops recordings after the 120s safety limit', async () => {
     vi.useFakeTimers();
     const { tool, exec } = await createToolWithExec([
       { stdout: '/usr/bin/agent-browser\n', stderr: '', exitCode: 0 },
-      browserPathResult,
       ffmpegCacheResult,
       { stdout: '', stderr: '', exitCode: 0 },
       { stdout: '{"message":"recording"}', stderr: '', exitCode: 0 },
@@ -170,14 +225,13 @@ describe('createAgentBrowser', () => {
 
     expect((stop.content[0] as { type: string; text: string }).text).toContain('already auto-stopped after reaching the 120s limit');
     expect((stop.content[0] as { type: string; text: string }).text).toContain('/workspace/capture.webm');
-    expect(exec).toHaveBeenCalledTimes(7);
-    expect(exec.mock.calls[6][1]).toContain("'record' 'stop'");
+    expect(exec).toHaveBeenCalledTimes(6);
+    expect(exec.mock.calls[5][1]).toContain("'record' 'stop'");
   });
 
   it('restarts recording when a stale recording is already active', async () => {
     const { tool, exec } = await createToolWithExec([
       { stdout: '/usr/bin/agent-browser\n', stderr: '', exitCode: 0 },
-      browserPathResult,
       ffmpegCacheResult,
       { stdout: '', stderr: '', exitCode: 0 },
       {
@@ -197,33 +251,25 @@ describe('createAgentBrowser', () => {
     );
 
     expect((result.content[0] as { type: string; text: string }).text).toContain('recording restarted');
-    expect(exec.mock.calls[4][1]).toContain("'record' 'start'");
-    expect(exec.mock.calls[5][1]).toContain("'record' 'restart'");
+    expect(exec.mock.calls[3][1]).toContain("'record' 'start'");
+    expect(exec.mock.calls[4][1]).toContain("'record' 'restart'");
   });
 
-  it('installs matching Playwright ffmpeg before recording when the cache is missing', async () => {
+  it('reports missing ffmpeg instead of installing Playwright globally', async () => {
     const { tool, exec } = await createToolWithExec([
       { stdout: '/usr/bin/agent-browser\n', stderr: '', exitCode: 0 },
-      browserPathResult,
       { stdout: '', stderr: '', exitCode: 1 },
-      { stdout: 'installed ffmpeg\n', stderr: '', exitCode: 0 },
-      { stdout: '', stderr: '', exitCode: 0 },
-      { stdout: '', stderr: '', exitCode: 0 },
-      { stdout: '{"message":"recording"}', stderr: '', exitCode: 0 },
     ]);
 
-    await tool.execute(
+    await expect(tool.execute(
       'tc-install-ffmpeg',
       { action: 'start_recording', save_path: '/workspace/capture.webm' },
       undefined,
       undefined,
       undefined as never,
-    );
+    )).rejects.toThrow('ffmpeg is not available');
 
-    expect(exec.mock.calls[3][1]).toContain('if [ -w /ms-playwright ]; then export PLAYWRIGHT_BROWSERS_PATH=/ms-playwright; else unset PLAYWRIGHT_BROWSERS_PATH; fi');
-    expect(exec.mock.calls[3][1]).toContain('playwright@1.57.0 install ffmpeg');
-    expect(exec.mock.calls[4][1]).toContain('ln -sf "$ffmpeg_path" "$HOME/.local/bin/ffmpeg"');
-    expect(exec.mock.calls[6][1]).toContain("'record' 'start'");
+    expect(exec.mock.calls.some((call) => String(call[1]).includes('playwright@1.57.0 install ffmpeg'))).toBe(false);
   });
 
   it('uses a longer timeout for record stop finalization', async () => {
@@ -240,43 +286,46 @@ describe('createAgentBrowser', () => {
   });
 
   it('does not share cached browser paths across tool/runtime instances', async () => {
-    vi.resetModules();
     const dockerExec = createExecMock([
       { stdout: '/usr/bin/agent-browser\n', stderr: '', exitCode: 0 },
-      { stdout: `${DOCKER_CACHE_BROWSER_PATH}\n`, stderr: '', exitCode: 0 },
       { stdout: '{"message":"opened","url":"about:blank"}', stderr: '', exitCode: 0 },
     ]);
     const appleExec = createExecMock([
       { stdout: '/usr/bin/agent-browser\n', stderr: '', exitCode: 0 },
-      { stdout: `${APPLE_BROWSER_PATH}\n`, stderr: '', exitCode: 0 },
       { stdout: '{"message":"opened","url":"about:blank"}', stderr: '', exitCode: 0 },
     ]);
-    const { createAgentBrowser } = await import('@electron/features/container/tools/tools-browser-agent');
-    const dockerTool = createAgentBrowser({ backend: 'docker', exec: (input: { command: string; cwd?: string; timeoutMs?: number }) => dockerExec('ws-1', input.command, input.cwd, input.timeoutMs) } as unknown as RuntimeBackend, 'ws-1');
-    const appleTool = createAgentBrowser({ backend: 'apple-container', exec: (input: { command: string; cwd?: string; timeoutMs?: number }) => appleExec('ws-1', input.command, input.cwd, input.timeoutMs) } as unknown as RuntimeBackend, 'ws-1');
+    const dockerTool = createAgentBrowser(
+      { backend: 'docker', exec: (input: { command: string; cwd?: string; timeoutMs?: number }) => dockerExec('ws-1', input.command, input.cwd, input.timeoutMs) } as unknown as RuntimeBackend,
+      'ws-1',
+      async () => ({ adapter: containerAdapter, executablePath: DOCKER_CACHE_BROWSER_PATH }),
+    );
+    const appleTool = createAgentBrowser(
+      { backend: 'apple-container', exec: (input: { command: string; cwd?: string; timeoutMs?: number }) => appleExec('ws-1', input.command, input.cwd, input.timeoutMs) } as unknown as RuntimeBackend,
+      'ws-1',
+      async () => ({ adapter: containerAdapter, executablePath: APPLE_BROWSER_PATH }),
+    );
 
     await dockerTool.execute('tc-docker-launch', { action: 'launch' }, undefined, undefined, undefined as never);
     await appleTool.execute('tc-apple-launch', { action: 'launch' }, undefined, undefined, undefined as never);
 
-    expect(dockerExec.mock.calls[2][1]).toContain("'--session' 'sero-ws-1-docker'");
-    expect(dockerExec.mock.calls[2][1]).toContain(`'--executable-path' '${DOCKER_CACHE_BROWSER_PATH}'`);
-    expect(appleExec.mock.calls[1][1]).toContain('/ms-playwright/chromium-1200/chrome-linux/chrome');
-    expect(appleExec.mock.calls[2][1]).toContain("'--session' 'sero-ws-1-apple-container'");
-    expect(appleExec.mock.calls[2][1]).toContain(`'--executable-path' '${APPLE_BROWSER_PATH}'`);
-    expect(appleExec.mock.calls[2][1]).toContain("'open' 'about:blank'");
+    expect(dockerExec.mock.calls[1][1]).toContain("'--session' 'sero-ws-1-docker'");
+    expect(dockerExec.mock.calls[1][1]).toContain(`'--executable-path' '${DOCKER_CACHE_BROWSER_PATH}'`);
+    expect(dockerExec.mock.calls[1][1]).toContain("export PLAYWRIGHT_BROWSERS_PATH='/ms-playwright'");
+    expect(appleExec.mock.calls[1][1]).toContain("'--session' 'sero-ws-1-apple-container'");
+    expect(appleExec.mock.calls[1][1]).toContain(`'--executable-path' '${APPLE_BROWSER_PATH}'`);
+    expect(appleExec.mock.calls[1][1]).toContain("'open' 'about:blank'");
   });
 
   it('supports launch without a url by opening about:blank', async () => {
     const { tool, exec } = await createToolWithExec([
       { stdout: '/usr/bin/agent-browser\n', stderr: '', exitCode: 0 },
-      browserPathResult,
       { stdout: '{"message":"Browser launched","url":"about:blank"}', stderr: '', exitCode: 0 },
     ]);
 
     const result = await tool.execute('tc-launch', { action: 'launch' }, undefined, undefined, undefined as never);
 
-    expect(exec.mock.calls[2][1]).toContain("'--executable-path' '/root/.cache/ms-playwright/chromium-1200/chrome-linux/chrome'");
-    expect(exec.mock.calls[2][1]).toContain("'open' 'about:blank'");
+    expect(exec.mock.calls[1][1]).toContain(`'--executable-path' '${BROWSER_PATH}'`);
+    expect(exec.mock.calls[1][1]).toContain("'open' 'about:blank'");
     expect((result.content[0] as { type: string; text: string }).text).toContain('about:blank');
   });
 
@@ -353,24 +402,24 @@ describe('createAgentBrowser', () => {
 
   it('returns image blocks for screenshot path responses and passes full-page screenshots through', async () => {
     const fakeB64 = Buffer.from('pngdata').toString('base64');
-    const { tool, exec } = await createToolWithExec([
+    const exec = createExecMock([
       { stdout: '/usr/bin/agent-browser\n', stderr: '', exitCode: 0 },
       { stdout: '{"path":"/tmp/sero-agent-browser-shot.png"}', stderr: '', exitCode: 0 },
-      { stdout: fakeB64, stderr: '', exitCode: 0 },
     ]);
+    const runtime = {
+      backend: 'docker',
+      exec: (input: { command: string; cwd?: string; timeoutMs?: number }) => exec('ws-1', input.command, input.cwd, input.timeoutMs),
+      createDirectory: vi.fn().mockResolvedValue(undefined),
+      delete: vi.fn().mockResolvedValue(undefined),
+      readFile: vi.fn().mockResolvedValue({ content: fakeB64, encoding: 'base64' }),
+    } as unknown as RuntimeBackend;
+    const tool = createAgentBrowser(runtime, 'ws-1', async () => ({ adapter: containerAdapter, executablePath: BROWSER_PATH }));
 
     const result = await tool.execute('tc-2', { action: 'screenshot', full_page: true }, undefined, undefined, undefined as never);
 
     expect(exec.mock.calls[1][1]).toContain("'screenshot' '/tmp/sero-agent-browser-shot.png' '--full'");
-    expect(result.content).toContainEqual({
-      type: 'image',
-      data: fakeB64,
-      mimeType: 'image/png',
-    });
-    expect(result.content).toContainEqual({
-      type: 'text',
-      text: 'Full-page automation browser screenshot captured.',
-    });
+    expect(result.content).toContainEqual({ type: 'image', data: fakeB64, mimeType: 'image/png' });
+    expect(result.content).toContainEqual({ type: 'text', text: 'Full-page automation browser screenshot captured.' });
   });
 
   it('uses the schema default wait timeout for selector waits', async () => {
@@ -385,21 +434,35 @@ describe('createAgentBrowser', () => {
     expect(exec.mock.calls[1][1]).toContain("'wait' '#ready'");
   });
 
-  it('installs matching Playwright Chromium when only a mismatched cached executable is present', async () => {
+  it('uses the adapter browser path without installing Playwright Chromium globally', async () => {
     const { tool, exec } = await createToolWithExec([
       { stdout: '/usr/bin/agent-browser\n', stderr: '', exitCode: 0 },
-      mismatchedBrowserPathResult,
-      { stdout: 'installed browser\n', stderr: '', exitCode: 0 },
-      browserPathResult,
       { stdout: '{"message":"opened","url":"about:blank"}', stderr: '', exitCode: 0 },
     ]);
 
     await tool.execute('tc-install-browser', { action: 'launch' }, undefined, undefined, undefined as never);
 
-    expect(exec.mock.calls[2][1]).toContain('if [ -w /ms-playwright ]; then export PLAYWRIGHT_BROWSERS_PATH=/ms-playwright; else unset PLAYWRIGHT_BROWSERS_PATH; fi');
-    expect(exec.mock.calls[2][1]).toContain('playwright@1.57.0 install chromium');
-    expect(exec.mock.calls[4][1]).toContain("'--executable-path' '/root/.cache/ms-playwright/chromium-1200/chrome-linux/chrome'");
-    expect(exec.mock.calls[4][1]).toContain("'open' 'about:blank'");
+    expect(exec.mock.calls.some((call) => String(call[1]).includes('playwright@1.57.0 install chromium'))).toBe(false);
+    expect(exec.mock.calls[1][1]).toContain(`'--executable-path' '${BROWSER_PATH}'`);
+    expect(exec.mock.calls[1][1]).toContain("'open' 'about:blank'");
+  });
+
+  it('derives container browser and ffmpeg paths from generated browser-pack pins', async () => {
+    const exec = createExecMock([
+      { stdout: BROWSER_PATH, stderr: '', exitCode: 0 },
+      { stdout: '', stderr: '', exitCode: 0 },
+    ]);
+    const runtime = {
+      backend: 'docker',
+      runtimeWorkspacePath: '/workspace',
+      exec: (input: { command: string; timeoutMs?: number }) => exec('ws-1', input.command, undefined, input.timeoutMs),
+    } as unknown as RuntimeBackend;
+
+    const resolved = await resolveBrowserAutomationRuntime(runtime, 'ws-1');
+    await ensureFfmpegAvailable(runtime, resolved.adapter);
+
+    expect(exec.mock.calls[0][1]).toContain(`chromium-${generatedArtifacts.pins.chromiumRevision}/chrome-linux/chrome`);
+    expect(exec.mock.calls[1][1]).toContain(`ffmpeg-${generatedArtifacts.pins.ffmpegRevision}/ffmpeg-linux`);
   });
 
   it('uses native wait command for timeout waits', async () => {

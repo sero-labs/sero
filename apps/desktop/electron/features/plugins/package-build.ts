@@ -2,6 +2,11 @@ import { execFile as execFileCb } from 'child_process';
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import path from 'path';
 import { promisify } from 'util';
+import {
+  classifyNativeBuildFailure,
+  createNativeBuildToolsRequiredMetadata,
+} from '@electron/features/workspace/runtime/native-build/classifier';
+import { NativeBuildToolsRequiredError } from '@electron/features/workspace/runtime/native-build/types';
 
 const execFile = promisify(execFileCb);
 const BUILT_UI_ENTRY = path.join('dist', 'ui', 'remoteEntry.js');
@@ -200,7 +205,7 @@ async function installPluginDependencies(
   runCommand: NonNullable<EnsurePluginPackageReadyOptions['runCommand']>,
 ): Promise<void> {
   const installCommand = getInstallCommand(pkg);
-  await runCommand(installCommand.command, installCommand.args, packageDir);
+  await runPluginCommand(installCommand.command, installCommand.args, packageDir, runCommand);
 }
 
 async function buildPluginFromSource(
@@ -209,10 +214,56 @@ async function buildPluginFromSource(
   runCommand: NonNullable<EnsurePluginPackageReadyOptions['runCommand']>,
 ): Promise<void> {
   const buildCommand = getBuildCommand(pkg);
-  await runCommand(buildCommand.command, buildCommand.args, packageDir, {
+  await runPluginCommand(buildCommand.command, buildCommand.args, packageDir, runCommand, {
     ...process.env,
     NODE_ENV: 'production',
   });
+}
+
+async function runPluginCommand(
+  command: string,
+  args: string[],
+  cwd: string,
+  runCommand: NonNullable<EnsurePluginPackageReadyOptions['runCommand']>,
+  env?: NodeJS.ProcessEnv,
+): Promise<void> {
+  try {
+    await runCommand(command, args, cwd, env);
+  } catch (error) {
+    const failure = classifyNativeBuildFailure({
+      command,
+      args,
+      exitCode: errorExitCode(error),
+      stdout: errorTextField(error, 'stdout'),
+      stderr: errorTextField(error, 'stderr') || errorMessage(error),
+      platform: process.platform,
+      executable: command,
+    });
+    if (failure) {
+      throw new NativeBuildToolsRequiredError(createNativeBuildToolsRequiredMetadata(failure));
+    }
+    throw error;
+  }
+}
+
+function errorExitCode(error: unknown): number | null {
+  if (!isRecord(error)) return null;
+  const code = error.code;
+  return typeof code === 'number' ? code : null;
+}
+
+function errorTextField(error: unknown, key: 'stdout' | 'stderr'): string {
+  if (!isRecord(error)) return '';
+  const value = error[key];
+  return typeof value === 'string' ? value : '';
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === 'object';
 }
 
 export async function ensurePluginPackageReadyForInstall(

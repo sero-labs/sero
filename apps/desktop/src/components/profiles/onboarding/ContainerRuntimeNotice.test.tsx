@@ -78,17 +78,17 @@ describe('ContainerRuntimeNotice', () => {
     });
 
     await act(async () => {
-      findButton('Set up runtime').click();
+      findButton('Set up optional container runtime').click();
     });
 
     expect(shellBridge.openExternal).toHaveBeenCalledWith(
       'https://github.com/sero-labs/sero/blob/main/docs/guides/macos-containers.md',
     );
-    expect(document.body.textContent).toContain('Docker remains available as an isolated runtime on macOS');
-    expect(document.body.textContent).toContain('Docker or Apple Container is configured');
+    expect(document.body.textContent).toContain('Host is the recommended fast local runtime');
+    expect(document.body.textContent).toContain('available by selecting Docker or Apple Container later');
   });
 
-  it('renders Windows-specific Docker-only copy', async () => {
+  it('renders Windows host-first container copy', async () => {
     Object.defineProperty(window, 'sero', {
       configurable: true,
       value: {
@@ -108,6 +108,7 @@ describe('ContainerRuntimeNotice', () => {
     });
 
     expect(document.body.textContent).toContain('Docker Desktop is required for Sero runtime features on Windows.');
+    expect(document.body.textContent).toContain('Host is the recommended fast local runtime on Windows too.');
     expect(document.body.textContent).not.toContain('WSL');
     expect(document.body.textContent).not.toContain('Apple Container');
   });
@@ -122,6 +123,6 @@ describe('ContainerRuntimeNotice', () => {
       }));
     });
 
-    expect(document.body.textContent).not.toContain('Workspace runtime setup recommended for full Sero features');
+    expect(document.body.textContent).not.toContain('Optional container runtime setup');
   });
 });

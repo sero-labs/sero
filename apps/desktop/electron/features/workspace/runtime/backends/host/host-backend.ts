@@ -45,9 +45,21 @@ import type {
 } from '../../types';
 import type { HostRuntimeSubstrate } from './host-substrate';
 import { createHostSubstrate } from './host-substrate-factory';
+import { checkBrowserPackDoctor } from '../../browser-pack/doctor';
 import { HostDevServerManager } from './host-dev-server-manager';
+import { runHostDoctorChecks } from './host-doctor';
+import { createHostProcessAdapter } from './process/factory';
+import { createHostProcessEnv } from './host-env';
+import { ensureHostSeroCliBridge } from '@electron/cli/host-bridge/server';
 
 const execFileAsync = promisify(execFile);
+
+function getSeroAgentRootPath(): string | null {
+  const explicitAgentDir = process.env.PI_CODING_AGENT_DIR;
+  if (explicitAgentDir) return explicitAgentDir;
+  const seroHome = process.env.SERO_HOME;
+  return seroHome ? path.join(seroHome, 'agent') : null;
+}
 
 export interface HostBackendOptions {
   workspaceId: string;
@@ -82,15 +94,31 @@ export class HostBackend implements RuntimeBackend {
     this.substrate = options.substrate ?? createHostSubstrate(options.hostWorkspacePath);
     this.devServers = new HostDevServerManager({
       workspaceId: this.workspaceId,
-      platform: this.substrate.platform,
       defaultCwd: this.runtimeWorkspacePath,
       spawn: (input) => this.spawn(input),
-      execFile: (input) => this.execFile(input),
+      processAdapter: createHostProcessAdapter({
+        platform: this.substrate.platform,
+        execFile: (input) => this.execFile(input),
+      }),
     });
   }
 
   async health(): Promise<RuntimeHealth> {
-    return { backend: this.backend, status: 'ready', message: 'Host runtime is ready.' };
+    const bridgeStatus = await checkSeroCliBridgeReadiness();
+    const checks = await runHostDoctorChecks({
+      platform: this.substrate.platform,
+      workspacePath: this.hostWorkspacePath,
+      browser: await checkBrowserPackDoctor({ platform: this.substrate.platform }),
+      processManagement: { state: 'ready' },
+      seroCliBridge: bridgeStatus,
+    });
+    const blockingFailure = checks.find((check) => check.status === 'fail' && check.id !== 'runtime.host.browser');
+    return {
+      backend: this.backend,
+      status: blockingFailure ? 'error' : 'ready',
+      message: blockingFailure ? blockingFailure.message : 'Host runtime is ready.',
+      checks,
+    };
   }
 
   async ensure(): Promise<RuntimeSession> {
@@ -110,10 +138,10 @@ export class HostBackend implements RuntimeBackend {
 
   async exec(input: RuntimeExecInput): Promise<RuntimeExecResult> {
     const cwd = (await this.resolveHostPath(input.cwd ?? this.runtimeWorkspacePath)).hostPath;
-    const rendered = this.substrate.shellCommand({
+    const rendered = await this.substrate.shellCommand({
       command: input.command,
       cwd,
-      env: createProcessEnv(input.env),
+      env: await createHostProcessEnv(this.workspaceId, input.env, this.substrate.platform),
     });
     try {
       const { stdout, stderr } = await execFileAsync(rendered.program, rendered.args, {
@@ -141,11 +169,11 @@ export class HostBackend implements RuntimeBackend {
 
   async execFile(input: RuntimeExecFileInput): Promise<RuntimeExecResult> {
     const cwd = (await this.resolveHostPath(input.cwd ?? this.runtimeWorkspacePath)).hostPath;
-    const rendered = this.substrate.execFileCommand({
+    const rendered = await this.substrate.execFileCommand({
       program: input.program,
       args: input.args,
       cwd,
-      env: createProcessEnv(input.env),
+      env: await createHostProcessEnv(this.workspaceId, input.env, this.substrate.platform),
     });
     try {
       const { stdout, stderr } = await execFileAsync(rendered.program, rendered.args, {
@@ -176,10 +204,10 @@ export class HostBackend implements RuntimeBackend {
   }
 
   async spawn(input: RuntimeProcessInput): Promise<RuntimeProcess> {
-    const rendered = this.substrate.shellCommand({
+    const rendered = await this.substrate.shellCommand({
       command: input.command,
       cwd: (await this.resolveHostPath(input.cwd ?? this.runtimeWorkspacePath)).hostPath,
-      env: createProcessEnv(input.env),
+      env: await createHostProcessEnv(this.workspaceId, input.env, this.substrate.platform),
     });
     const child = spawnProcess(rendered.program, rendered.args, {
       cwd: rendered.nativeCwd,
@@ -266,9 +294,9 @@ export class HostBackend implements RuntimeBackend {
     const terminal = this.terminals.createHostTerminal(
       this.workspaceId,
       input.terminalId,
-      this.substrate.terminalCommand({
+      await this.substrate.terminalCommand({
         cwd: (await this.resolveHostPath(input.cwd ?? this.runtimeWorkspacePath)).hostPath,
-        env: createProcessEnv(),
+        env: await createHostProcessEnv(this.workspaceId, undefined, this.substrate.platform),
       }),
       input.cols,
       input.rows,
@@ -352,7 +380,11 @@ export class HostBackend implements RuntimeBackend {
   }
 
   private async findAllowedHostRoot(hostPath: string): Promise<Omit<HostPathResolution, 'returnHostPaths'> | null> {
-    const roots = [this.hostWorkspacePath, ...await this.additionalRootPaths()];
+    const roots = [
+      this.hostWorkspacePath,
+      ...await this.additionalRootPaths(),
+      ...this.agentRootPaths(),
+    ];
     for (const root of roots) {
       const canonicalPath = await this.substrate.resolvePathInsideRoot(hostPath, root);
       if (canonicalPath) {
@@ -376,6 +408,11 @@ export class HostBackend implements RuntimeBackend {
   private async additionalRootPaths(): Promise<string[]> {
     if (!this.workspaceManager) return [];
     return (await this.workspaceManager.getRoots(this.workspaceId)).map((root) => root.path);
+  }
+
+  private agentRootPaths(): string[] {
+    const agentRoot = getSeroAgentRootPath();
+    return agentRoot ? [agentRoot] : [];
   }
 
   private async collectEntries(
@@ -424,6 +461,16 @@ function subscribe<T>(callbacks: Set<(value: T) => void>, cb: (value: T) => void
   return () => callbacks.delete(cb);
 }
 
+async function checkSeroCliBridgeReadiness(): Promise<{ state: 'ready' | 'failed'; message?: string }> {
+  try {
+    await ensureHostSeroCliBridge();
+    return { state: 'ready' };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return { state: 'failed', message: `Sero CLI bridge is not available for host commands: ${message}` };
+  }
+}
+
 function unsupported(message: string): Error {
   return new Error(message);
 }
@@ -432,47 +479,3 @@ function isHostAbsolutePath(inputPath: string): boolean {
   return path.isAbsolute(inputPath);
 }
 
-const SAFE_INHERITED_ENV_KEYS = new Set([
-  'PATH',
-  'HOME',
-  'USER',
-  'LOGNAME',
-  'LANG',
-  'TERM',
-  'SHELL',
-  'TMPDIR',
-  'TMP',
-  'TEMP',
-  'NVM_DIR',
-  'FNM_DIR',
-  'VOLTA_HOME',
-  'PNPM_HOME',
-  'NODE_OPTIONS',
-  'NODE_EXTRA_CA_CERTS',
-  'SSL_CERT_FILE',
-  'SSL_CERT_DIR',
-  'SSH_AUTH_SOCK',
-  'HTTP_PROXY',
-  'HTTPS_PROXY',
-  'NO_PROXY',
-  'ALL_PROXY',
-  'http_proxy',
-  'https_proxy',
-  'no_proxy',
-  'all_proxy',
-]);
-
-const SAFE_INHERITED_ENV_PREFIXES = ['LC_', 'GIT_', 'npm_config_', 'NPM_CONFIG_'];
-
-function createProcessEnv(overrides?: Record<string, string>): Record<string, string> {
-  const env: Record<string, string> = {};
-  for (const [key, value] of Object.entries(process.env)) {
-    if (value === undefined) continue;
-    if (shouldInheritEnvKey(key)) env[key] = value;
-  }
-  return { ...env, ...overrides };
-}
-
-function shouldInheritEnvKey(key: string): boolean {
-  return SAFE_INHERITED_ENV_KEYS.has(key) || SAFE_INHERITED_ENV_PREFIXES.some((prefix) => key.startsWith(prefix));
-}

@@ -1,6 +1,7 @@
 import type { RuntimeDevServer } from './types';
 import { runtimeManager, type RuntimeManager } from './runtime-manager';
 import type { WorkspaceRuntimeResolution } from '@electron/features/workspace/runtime-resolution';
+import type { NativeBuildToolsRequiredMetadata } from './native-build/types';
 import { runWorkspaceCommand } from './run-workspace-command';
 import { startManagedDevServer } from './start-managed-dev-server';
 import {
@@ -20,6 +21,7 @@ export interface WorkspaceRuntimeRefreshResult {
   restartedServerIds: string[];
   autoStartedServerId?: string;
   reason?: string;
+  nativeBuildToolsRequired?: NativeBuildToolsRequiredMetadata;
 }
 
 interface AutoStartResult {
@@ -72,11 +74,13 @@ export async function refreshWorkspaceRuntimeAfterSync(
       workspacePath,
       installCommand,
       RUNTIME_INSTALL_TIMEOUT_MS,
+      { classifyNativeBuildFailure: true },
     );
     if (installResult.exitCode !== 0) {
       return {
         ...result,
         reason: `Dependency install failed: ${summarizeCommandFailure(installCommand, installResult.stderr, installResult.stdout)}`,
+        nativeBuildToolsRequired: installResult.nativeBuildToolsRequired,
       };
     }
     result.dependenciesInstalled = true;

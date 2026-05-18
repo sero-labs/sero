@@ -3,9 +3,16 @@ import { workspaceManager } from '@electron/features/workspace/manager';
 import { runtimeManager } from './runtime-manager';
 import { toRuntimeWorkspacePath } from './runtime-paths';
 import type { RuntimeExecInput } from './types';
+import {
+  classifyNativeBuildFailure,
+  createNativeBuildToolsRequiredMetadata,
+} from './native-build/classifier';
+import type { NativeBuildContainerFallbackOptions } from './native-build/types';
 
 interface RunWorkspaceCommandOptions {
   isolated?: boolean;
+  classifyNativeBuildFailure?: boolean;
+  nativeBuildFallback?: NativeBuildContainerFallbackOptions;
 }
 
 export async function runWorkspaceCommand(
@@ -37,7 +44,23 @@ export async function runWorkspaceCommand(
     const runtime = await runtimeManager.getRuntime(workspaceId);
     const execInput: RuntimeExecInput = { command, cwd: runtimeCwd, timeoutMs };
     if (options?.isolated !== undefined) execInput.isolated = options.isolated;
-    return await runtime.exec(execInput);
+    const result = await runtime.exec(execInput);
+    if (options?.classifyNativeBuildFailure) {
+      const failure = classifyNativeBuildFailure({
+        command,
+        exitCode: result.exitCode,
+        stdout: result.stdout,
+        stderr: result.stderr,
+        platform: process.platform,
+      });
+      if (failure) {
+        return {
+          ...result,
+          nativeBuildToolsRequired: createNativeBuildToolsRequiredMetadata(failure, options.nativeBuildFallback),
+        };
+      }
+    }
+    return result;
   } catch (err: unknown) {
     return {
       stdout: '',

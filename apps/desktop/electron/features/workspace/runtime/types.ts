@@ -1,10 +1,27 @@
 import type { DoctorResult } from '@electron/features/doctor/engine/types';
+import type { NativeBuildToolsRequiredMetadata } from './native-build/types';
 
 export type RuntimeBackendId = 'apple-container' | 'docker' | 'host';
 // Deprecated compatibility input; normalize to host on write.
 export type DeprecatedRuntimeBackendId = 'mac-host';
 export type RuntimeWorkspaceAccess = 'host' | 'live-mount';
 export type RuntimeDoctorCheck = DoctorResult;
+
+export type RuntimeCoreToolsInstallState = 'ready' | 'installing' | 'missing' | 'failed';
+export type RuntimeBrowserAutomationInstallState = 'ready' | 'installable' | 'installing' | 'missing' | 'failed';
+export type RuntimeNativeBuildToolsInstallState = 'available' | 'missing' | 'unknown';
+
+export interface RuntimeCapabilityInstallState {
+  coreTools: RuntimeCoreToolsInstallState;
+  browserAutomation: RuntimeBrowserAutomationInstallState;
+  nativeBuildTools: RuntimeNativeBuildToolsInstallState;
+}
+
+export interface RuntimeCapabilityState {
+  support: RuntimeCapabilities;
+  available: RuntimeCapabilities;
+  installState: RuntimeCapabilityInstallState;
+}
 
 export interface RuntimeCapabilities {
   exec: boolean;
@@ -85,6 +102,7 @@ export interface RuntimeExecResult {
   stdout: string;
   stderr: string;
   exitCode: number;
+  nativeBuildToolsRequired?: NativeBuildToolsRequiredMetadata;
 }
 
 export interface RuntimeProcessInput extends RuntimeExecInput {

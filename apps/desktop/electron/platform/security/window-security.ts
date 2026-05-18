@@ -44,7 +44,7 @@ export function setupMainWindowSecurity(
   });
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith('http://') || url.startsWith('https://')) {
+    if (isAllowedExternalUrl(url)) {
       void shell.openExternal(url);
     }
     return { action: 'deny' };
@@ -78,6 +78,19 @@ export function hardenMainWindowWebviewPreferences(webPreferences: WebPreference
   mutablePreferences.sandbox = true;
   mutablePreferences.javascript = true;
   mutablePreferences.partition = MCP_AUTH_WEBVIEW_PARTITION;
+}
+
+export function isAllowedExternalUrl(url: unknown): url is string {
+  if (typeof url !== 'string' || url.trim().length === 0) {
+    return false;
+  }
+
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
 }
 
 export function isAllowedMainWindowWebview(src: string, partition: string): boolean {

@@ -151,6 +151,8 @@ interface SeroShellAPI {
   showItemInFolder(fullPath: string): Promise<void>;
   /** Open an external URL in the default browser. */
   openExternal(url: string): Promise<void>;
+  /** Clear the renderer HTTP cache, used to recover from stale Vite optimized deps. */
+  clearRendererCache(): Promise<void>;
 }
 
 interface SeroAuthAPI {

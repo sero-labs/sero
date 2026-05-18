@@ -29,7 +29,7 @@ import {
   resolveWorkspaceRuntimeConfig,
   type WorkspaceRuntimeBackendDetails,
 } from './runtime/config';
-import { getDefaultRuntimeBackend } from './runtime/platform-default';
+import { getDefaultContainerRuntimeBackend } from './runtime/platform-default';
 import { discoverManagedWorkspaceEntries, pathExists } from './registry-recovery';
 
 export class WorkspaceManager {
@@ -426,13 +426,7 @@ export class WorkspaceManager {
 
   /** @deprecated compatibility shim while callers migrate to runtime.backend. */
   async setContainerEnabled(id: string, enabled: boolean): Promise<SetContainerEnabledResult> {
-    if (!enabled && process.platform === 'win32') {
-      return {
-        ok: false,
-        error: { code: 'host-doctor-failed', message: 'Host runtime is not supported on Windows. Use the Docker backend instead.', checks: [] },
-      };
-    }
-    const backend: WorkspaceRuntimeBackend = enabled ? getDefaultRuntimeBackend({ platform: process.platform, arch: process.arch }) : 'host';
+    const backend: WorkspaceRuntimeBackend = enabled ? getDefaultContainerRuntimeBackend({ platform: process.platform, arch: process.arch }) : 'host';
     await this.setRuntimeBackend(id, backend);
     return { ok: true, backend };
   }

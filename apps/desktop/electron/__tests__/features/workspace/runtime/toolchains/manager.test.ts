@@ -1,0 +1,274 @@
+import { createHash } from 'crypto';
+import fs from 'fs';
+import path from 'path';
+
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { SERO_FIXED_ROOT } from '@electron/platform/env';
+import type { DownloadArtifactOptions } from '@electron/features/workspace/runtime/toolchains/download';
+import { ToolchainManager } from '@electron/features/workspace/runtime/toolchains/manager';
+import {
+  artifactInstallPath,
+  artifactStagingPath,
+  installedMarkerPath,
+  managedBinPath,
+  toolchainVersionRoot,
+} from '@electron/features/workspace/runtime/toolchains/storage';
+import type { ToolName, ToolStatus, ToolchainManifest } from '@electron/features/workspace/runtime/toolchains/types';
+import type { ToolVerifierOptions } from '@electron/features/workspace/runtime/toolchains/verifiers';
+
+const reason = { kind: 'test' as const, detail: 'manager test' };
+
+interface TestHarness {
+  version: string;
+  archiveRoot: string;
+  manifest: ToolchainManifest;
+}
+
+function sha256Text(value: string): string {
+  return createHash('sha256').update(value).digest('hex');
+}
+
+async function createHarness(tool: ToolName = 'node'): Promise<TestHarness> {
+  const version = `test-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  const archiveRoot = path.join(SERO_FIXED_ROOT, 'toolchains-test-archives', version);
+  const binName = tool === 'node' ? 'node' : tool;
+  await fs.promises.mkdir(path.join(archiveRoot, 'bin'), { recursive: true });
+  await fs.promises.writeFile(path.join(archiveRoot, 'bin', binName), '#!/bin/sh\necho ok\n', { mode: 0o755 });
+  return {
+    version,
+    archiveRoot,
+    manifest: {
+      version,
+      artifacts: {
+        [`${tool}-darwin-arm64`]: {
+          tool,
+          platform: 'darwin',
+          arch: 'arm64',
+          url: `https://downloads.example.test/${tool}.tgz`,
+          sha256: sha256Text(tool),
+          unpackTo: tool,
+          binPaths: { [tool]: `${tool}/bin/${binName}` },
+          minVersion: '1.0.0',
+          installPolicy: tool === 'node' ? 'core' : 'on-demand',
+        },
+      },
+    },
+  };
+}
+
+function missingSystem(tool: ToolName): ToolStatus {
+  return { tool, state: 'missing', source: 'system' };
+}
+
+function incompatibleSystem(tool: ToolName): ToolStatus {
+  return { tool, state: 'incompatible', source: 'system', path: tool, version: '0.1.0' };
+}
+
+function readySystem(tool: ToolName): ToolStatus {
+  return { tool, state: 'ready', source: 'system', path: `/usr/bin/${tool}`, version: '99.0.0' };
+}
+
+function readyVerifier(tool: ToolName, candidate: string, _options: ToolVerifierOptions): Promise<ToolStatus> {
+  return Promise.resolve({ tool, state: 'ready', source: 'managed', path: candidate, version: '1.2.3' });
+}
+
+describe('ToolchainManager', () => {
+  const cleanupVersions: string[] = [];
+
+  beforeEach(() => {
+    vi.useRealTimers();
+  });
+
+  afterEach(async () => {
+    await Promise.all(cleanupVersions.map((version) => fs.promises.rm(toolchainVersionRoot(version), { recursive: true, force: true })));
+    await fs.promises.rm(path.join(SERO_FIXED_ROOT, 'toolchains-test-archives'), { recursive: true, force: true });
+    cleanupVersions.length = 0;
+  });
+
+  it('prefers a compatible verified system tool without installing', async () => {
+    const harness = await createHarness();
+    cleanupVersions.push(harness.version);
+    const downloader = vi.fn<((options: DownloadArtifactOptions) => Promise<void>)>();
+    const manager = new ToolchainManager({
+      manifest: harness.manifest,
+      platform: 'darwin',
+      arch: 'arm64',
+      systemResolver: async (tool) => readySystem(tool),
+      downloader,
+      verifier: readyVerifier,
+    });
+
+    await expect(manager.ensure('node', reason)).resolves.toMatchObject({ source: 'system', path: '/usr/bin/node' });
+    expect(downloader).not.toHaveBeenCalled();
+  });
+
+  it('installs on first use when the system tool is incompatible', async () => {
+    const harness = await createHarness();
+    cleanupVersions.push(harness.version);
+    const events: string[] = [];
+    const manager = managerWithArchive(harness, async (tool) => incompatibleSystem(tool));
+    manager.subscribe((event) => events.push(event.phase));
+
+    await expect(manager.ensure('node', reason)).resolves.toMatchObject({
+      source: 'managed',
+      path: managedBinPath(harness.version, 'node/bin/node'),
+      binDir: path.dirname(managedBinPath(harness.version, 'node/bin/node')),
+    });
+
+    await expect(fs.promises.access(installedMarkerPath(harness.version))).resolves.toBeUndefined();
+    expect(events).toEqual(expect.arrayContaining(['queued', 'downloading', 'verifying', 'unpacking', 'activating', 'ready']));
+  });
+
+  it('installs a missing on-demand tool and reports progress bytes', async () => {
+    const harness = await createHarness('rg');
+    cleanupVersions.push(harness.version);
+    const progressBytes: number[] = [];
+    const manager = managerWithArchive(harness, async (tool) => missingSystem(tool));
+    manager.subscribe((event) => {
+      if (event.bytesReceived !== undefined) progressBytes.push(event.bytesReceived);
+    });
+
+    await expect(manager.ensure('rg', reason)).resolves.toMatchObject({ tool: 'rg', source: 'managed' });
+    expect(progressBytes).toEqual([10]);
+  });
+
+  it('does not activate managed artifacts without .installed', async () => {
+    const harness = await createHarness();
+    cleanupVersions.push(harness.version);
+    await fs.promises.mkdir(path.dirname(managedBinPath(harness.version, 'node/bin/node')), { recursive: true });
+    await fs.promises.writeFile(managedBinPath(harness.version, 'node/bin/node'), 'partial');
+    const manager = new ToolchainManager({
+      manifest: harness.manifest,
+      platform: 'darwin',
+      arch: 'arm64',
+      systemResolver: async () => null,
+      verifier: readyVerifier,
+    });
+
+    await expect(manager.resolve('node')).resolves.toBeNull();
+  });
+
+  it('cleans staging and final partials after digest mismatch', async () => {
+    const harness = await createHarness();
+    cleanupVersions.push(harness.version);
+    await fs.promises.mkdir(artifactInstallPath(harness.version, 'node'), { recursive: true });
+    const manager = new ToolchainManager({
+      manifest: harness.manifest,
+      platform: 'darwin',
+      arch: 'arm64',
+      systemResolver: async (tool) => missingSystem(tool),
+      downloader: async () => {
+        throw new Error('SHA-256 mismatch: expected pinned digest');
+      },
+      verifier: readyVerifier,
+    });
+    const events: string[] = [];
+    manager.subscribe((event) => events.push(`${event.phase}:${event.error?.code ?? ''}`));
+
+    await expect(manager.ensure('node', reason)).rejects.toMatchObject({ code: 'TOOL_INSTALL_FAILED', retryable: true });
+    await expectExists(artifactInstallPath(harness.version, 'node'), false);
+    await expectExists(artifactStagingPath(harness.version, 'node'), false);
+    await expectExists(installedMarkerPath(harness.version), false);
+    expect(events).toContain('failed:TOOL_INSTALL_FAILED');
+  });
+
+  it('surfaces offline failures as retryable install failures', async () => {
+    const harness = await createHarness();
+    cleanupVersions.push(harness.version);
+    const manager = new ToolchainManager({
+      manifest: harness.manifest,
+      platform: 'darwin',
+      arch: 'arm64',
+      systemResolver: async (tool) => missingSystem(tool),
+      downloader: async () => {
+        throw new Error('getaddrinfo ENOTFOUND downloads.example.test');
+      },
+      verifier: readyVerifier,
+    });
+
+    await expect(manager.ensure('node', reason)).rejects.toMatchObject({
+      code: 'TOOL_INSTALL_FAILED',
+      message: expect.stringContaining('ENOTFOUND'),
+      retryable: true,
+    });
+  });
+
+  it('retries after a failed partial install', async () => {
+    const harness = await createHarness();
+    cleanupVersions.push(harness.version);
+    let attempts = 0;
+    const manager = new ToolchainManager({
+      manifest: harness.manifest,
+      platform: 'darwin',
+      arch: 'arm64',
+      systemResolver: async (tool) => missingSystem(tool),
+      downloader: async (options) => {
+        attempts += 1;
+        if (attempts === 1) throw new Error('temporary outage');
+        await fs.promises.cp(harness.archiveRoot, options.destination, { recursive: true });
+      },
+      verifier: readyVerifier,
+    });
+
+    await expect(manager.ensure('node', reason)).rejects.toMatchObject({ code: 'TOOL_INSTALL_FAILED' });
+    await expect(manager.ensure('node', reason)).resolves.toMatchObject({ source: 'managed' });
+    expect(attempts).toBe(2);
+  });
+
+  it('dedupes concurrent ensure calls for the same artifact', async () => {
+    const harness = await createHarness();
+    cleanupVersions.push(harness.version);
+    let downloads = 0;
+    const manager = new ToolchainManager({
+      manifest: harness.manifest,
+      platform: 'darwin',
+      arch: 'arm64',
+      systemResolver: async (tool) => missingSystem(tool),
+      downloader: async (options) => {
+        downloads += 1;
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        await fs.promises.cp(harness.archiveRoot, options.destination, { recursive: true });
+      },
+      verifier: readyVerifier,
+    });
+
+    const [first, second] = await Promise.all([manager.ensure('node', reason), manager.ensure('node', reason)]);
+    expect(first.path).toBe(second.path);
+    expect(downloads).toBe(1);
+  });
+
+  it('garbage collects all but current and previous toolchain versions', async () => {
+    const harness = await createHarness();
+    cleanupVersions.push(harness.version, 'old-a', 'old-b', 'previous');
+    await Promise.all(cleanupVersions.map((version) => fs.promises.mkdir(toolchainVersionRoot(version), { recursive: true })));
+    const manager = managerWithArchive(harness, async (tool) => missingSystem(tool));
+
+    await expect(manager.collectGarbage('previous')).resolves.toEqual(expect.arrayContaining(['old-a', 'old-b']));
+    await expectExists(toolchainVersionRoot('old-a'), false);
+    await expectExists(toolchainVersionRoot('old-b'), false);
+    await expectExists(toolchainVersionRoot('previous'), true);
+    await expectExists(toolchainVersionRoot(harness.version), true);
+  });
+});
+
+function managerWithArchive(
+  harness: TestHarness,
+  systemResolver: (tool: ToolName) => Promise<ToolStatus | null>,
+): ToolchainManager {
+  return new ToolchainManager({
+    manifest: harness.manifest,
+    platform: 'darwin',
+    arch: 'arm64',
+    systemResolver,
+    downloader: async (options) => {
+      options.onProgress?.({ bytesReceived: 10, bytesTotal: 10 });
+      await fs.promises.cp(harness.archiveRoot, options.destination, { recursive: true });
+    },
+    verifier: readyVerifier,
+  });
+}
+
+async function expectExists(filePath: string, expected: boolean): Promise<void> {
+  await expect(fs.promises.access(filePath).then(() => true).catch(() => false)).resolves.toBe(expected);
+}

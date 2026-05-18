@@ -2,28 +2,24 @@ import { ExternalLink, TriangleAlert } from 'lucide-react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import type { OnboardingContainerRuntime } from '@/types/ipc';
 
-const LIMITATIONS = [
-  'Browser automation',
-  'Runtime language servers',
-  'Managed preview and dev-server automation',
+const OPTIONAL_CONTAINER_BENEFITS = [
+  'Isolated Linux runtime',
+  'Native build tools and Linux parity',
+  'Preinstalled browser automation',
 ] as const;
 
-function isWindowsSmokeEnvironment(runtime: OnboardingContainerRuntime): boolean {
-  return window.sero.platform === 'win32' && runtime.runtime === 'docker' && runtime.status !== 'available';
+function containerTarget(runtime: OnboardingContainerRuntime): string {
+  return runtime.runtime === 'apple-container' ? 'Docker or Apple Container' : 'Docker';
 }
 
 function runtimeSummary(runtime: OnboardingContainerRuntime): string {
   if (runtime.runtime === 'apple-container') {
-    return 'Docker remains available as an isolated runtime on macOS. Host is available without containers, but browser automation and Linux-parity tooling require Docker or Apple Container.';
+    return 'Host is the recommended fast local runtime and can install missing Sero-managed tools automatically. Apple Container or Docker are optional upgrades for sandboxing, Linux parity, native build tools, and preinstalled browsers.';
   }
   if (window.sero.platform === 'win32') {
-    return 'Docker Desktop is required on Windows. Host runtime is only available on macOS and Linux.';
+    return 'Host is the recommended fast local runtime on Windows too. Docker Desktop is optional when you want container isolation, Linux parity, native build tools, or preinstalled browsers.';
   }
-  return 'Docker provides the most isolated runtime on Linux. Host runtime is available without containers for local shell, file, Git, LSP, and dev-server workflows.';
-}
-
-function limitationTarget(runtime: OnboardingContainerRuntime): string {
-  return runtime.runtime === 'apple-container' ? 'Docker or Apple Container' : 'Docker';
+  return 'Host is the recommended fast local runtime and can install missing Sero-managed tools automatically. Docker remains optional for sandboxing, Linux parity, native build tools, and preinstalled browsers.';
 }
 
 export function ContainerRuntimeNotice({
@@ -35,8 +31,6 @@ export function ContainerRuntimeNotice({
     return null;
   }
 
-  const compact = isWindowsSmokeEnvironment(runtime);
-
   return (
     <div className="rounded-xl border border-[var(--status-warning)]/25 bg-[var(--status-warning)]/6 p-4 text-sm text-[var(--text-secondary)]">
       <div className="flex items-start gap-3">
@@ -45,18 +39,16 @@ export function ContainerRuntimeNotice({
         </div>
         <div className="min-w-0 flex-1 space-y-3">
           <div className="space-y-1">
-            <p className="font-medium text-[var(--text-primary)]">Workspace runtime setup recommended for full Sero features</p>
+            <p className="font-medium text-[var(--text-primary)]">Optional container runtime setup</p>
             <p>{runtime.message}</p>
-            {compact ? null : <p>{runtimeSummary(runtime)}</p>}
+            <p>{runtimeSummary(runtime)}</p>
           </div>
 
-          {compact ? null : (
-            <ul className="list-disc space-y-1 pl-5 text-xs marker:text-[var(--status-warning)]">
-              {LIMITATIONS.map((item) => (
-                <li key={item}>{item} may be limited until {limitationTarget(runtime)} is configured.</li>
-              ))}
-            </ul>
-          )}
+          <ul className="list-disc space-y-1 pl-5 text-xs marker:text-[var(--status-warning)]">
+            {OPTIONAL_CONTAINER_BENEFITS.map((item) => (
+              <li key={item}>{item} is available by selecting {containerTarget(runtime)} later.</li>
+            ))}
+          </ul>
 
           {runtime.docsUrl ? (
             <div>
@@ -67,7 +59,7 @@ export function ContainerRuntimeNotice({
                 onClick={() => void window.sero.shell.openExternal(runtime.docsUrl!)}
               >
                 <ExternalLink className="mr-2 size-3.5" />
-                Set up runtime
+                Set up optional container runtime
               </Button>
             </div>
           ) : null}

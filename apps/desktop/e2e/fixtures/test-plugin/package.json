@@ -1,0 +1,36 @@
+{
+  "name": "@sero-e2e/test-plugin",
+  "version": "0.0.0",
+  "description": "Deterministic E2E synthetic plugin fixture",
+  "keywords": [
+    "pi-package"
+  ],
+  "pi": {
+    "extensions": [
+      "./extension/index.js"
+    ]
+  },
+  "sero": {
+    "app": {
+      "id": "e2e-test-plugin",
+      "name": "E2E Test Plugin",
+      "icon": "box",
+      "scope": "global",
+      "stateFile": ".sero/apps/e2e-test-plugin/state.json"
+    },
+    "plugin": {
+      "category": "developer-tools",
+      "tags": [
+        "e2e",
+        "fixture"
+      ],
+      "minSeroVersion": "0.1.0",
+      "requiredHostCapabilities": [
+        "appAgent.invokeTool"
+      ],
+      "bridgeTools": [
+        "e2e_test_plugin"
+      ]
+    }
+  }
+}

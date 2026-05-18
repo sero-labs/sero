@@ -25,7 +25,7 @@ export function createRuntimeTools(
   runtimeCwd?: string,
 ): ToolDefinition[] {
   const tools = [
-    createBash(runtime, runtimeCwd),
+    createBash(runtime, runtimeCwd, sessionId),
     createRead(runtime, runtimeCwd),
     createWrite(runtime, runtimeCwd),
     createEdit(runtime, runtimeCwd),

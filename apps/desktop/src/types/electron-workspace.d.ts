@@ -6,7 +6,13 @@
 
 import type { EditorRoot, WorkspaceConfig, WorkspaceInfo, WorkspaceRoot } from './ipc';
 import type { WorkspaceRuntimeBackend, WorkspaceRuntimeConfig } from './workspace-runtime';
-import type { WorkspaceRuntimeDiagnosticsIPC } from '@sero-ai/common';
+import type {
+  BrowserPackProgressIPC,
+  BrowserPackStatusIPC,
+  ToolchainProgressIPC,
+  ToolchainStatusIPC,
+  WorkspaceRuntimeDiagnosticsIPC,
+} from '@sero-ai/common';
 import type { LspNotification } from '@/lsp/lsp-protocol';
 import type {
   VcsCheckpoint,
@@ -48,6 +54,13 @@ export interface SeroWorkspaceAPI {
   infer(message: string): Promise<string>;
   /** Inspect desired vs actual runtime state for one workspace or all workspaces. */
   getRuntimeDiagnostics(workspaceId?: string): Promise<WorkspaceRuntimeDiagnosticsIPC[]>;
+  getToolchainStatus(): Promise<ToolchainStatusIPC>;
+  ensureCoreTools(reason?: string): Promise<ToolchainStatusIPC>;
+  onToolchainProgress(callback: (event: ToolchainProgressIPC) => void): () => void;
+  getBrowserPackStatus(): Promise<BrowserPackStatusIPC>;
+  ensureBrowserPack(reason?: string): Promise<BrowserPackStatusIPC>;
+  uninstallBrowserPack(): Promise<BrowserPackStatusIPC>;
+  onBrowserPackProgress(callback: (event: BrowserPackProgressIPC) => void): () => void;
   /** Read the persisted provider-aware runtime config. */
   getRuntimeConfig(id: string): Promise<WorkspaceRuntimeConfig>;
   /** Set provider-aware runtime backend and return refreshed workspace info. */

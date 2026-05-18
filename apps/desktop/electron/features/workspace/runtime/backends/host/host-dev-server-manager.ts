@@ -7,14 +7,13 @@ import type {
   RuntimeDevServerStatus,
   RuntimeDevServerStatusInput,
   RuntimeDevServerStopInput,
-  RuntimeExecFileInput,
-  RuntimeExecResult,
   RuntimePreviewUrl,
   RuntimePreviewUrlInput,
   RuntimeProcess,
   RuntimeProcessInput,
 } from '../../types';
 import { RUNTIME_WORKSPACE_PATH } from '../../runtime-paths';
+import type { HostProcessAdapter } from './process/types';
 
 export type HostDevServerDiagnosticCode = 'dev-server-port-detect-timeout';
 
@@ -23,15 +22,13 @@ interface RuntimeProcessExit {
   signal?: string;
 }
 
-type ExecFile = (input: RuntimeExecFileInput) => Promise<RuntimeExecResult>;
 type SpawnProcess = (input: RuntimeProcessInput) => Promise<RuntimeProcess>;
 
 export interface HostDevServerManagerOptions {
   workspaceId: string;
-  platform: NodeJS.Platform;
   defaultCwd?: string;
   spawn: SpawnProcess;
-  execFile: ExecFile;
+  processAdapter: HostProcessAdapter;
   pollIntervalMs?: number;
   portDetectTimeoutMs?: number;
   terminateGraceMs?: number;
@@ -59,7 +56,7 @@ export class HostDevServerManager {
   private readonly servers = new Map<string, HostDevServerRecord>();
   private readonly workspaceId: string;
   private readonly spawn: SpawnProcess;
-  private readonly execFile: ExecFile;
+  private readonly processAdapter: HostProcessAdapter;
   private readonly defaultCwd: string;
   private readonly pollIntervalMs: number;
   private readonly portDetectTimeoutMs: number;
@@ -69,7 +66,7 @@ export class HostDevServerManager {
   constructor(options: HostDevServerManagerOptions) {
     this.workspaceId = options.workspaceId;
     this.spawn = options.spawn;
-    this.execFile = options.execFile;
+    this.processAdapter = options.processAdapter;
     this.defaultCwd = options.defaultCwd ?? RUNTIME_WORKSPACE_PATH;
     this.pollIntervalMs = options.pollIntervalMs ?? 100;
     this.portDetectTimeoutMs = options.portDetectTimeoutMs ?? 10_000;
@@ -259,47 +256,12 @@ export class HostDevServerManager {
   private async detectListeningPort(rootPid: number, shouldContinue: () => boolean = () => true): Promise<number | null> {
     const startedAt = Date.now();
     while (Date.now() - startedAt < this.portDetectTimeoutMs && shouldContinue()) {
-      const pids = [rootPid, ...await this.descendantPids(rootPid)];
-      const port = await this.listeningPort(pids);
+      const pids = [rootPid, ...await this.processAdapter.descendantPids(rootPid)];
+      const port = await this.processAdapter.listeningPort(pids);
       if (port) return port;
       await sleep(this.pollIntervalMs);
     }
     return null;
-  }
-
-  private async descendantPids(rootPid: number): Promise<number[]> {
-    const seen = new Set<number>();
-    const queue = [rootPid];
-    while (queue.length > 0) {
-      const parent = queue.shift();
-      if (!parent) continue;
-      const result = await this.execFile({ program: 'pgrep', args: ['-P', String(parent)], timeoutMs: 2_000 });
-      if (result.exitCode !== 0) continue;
-      for (const line of result.stdout.split('\n')) {
-        const pid = Number(line.trim());
-        if (!Number.isInteger(pid) || seen.has(pid)) continue;
-        seen.add(pid);
-        queue.push(pid);
-      }
-    }
-    return [...seen];
-  }
-
-  private async listeningPort(pids: number[]): Promise<number | null> {
-    const lsof = await this.execFile({
-      program: 'lsof',
-      args: ['-nP', '-iTCP', '-sTCP:LISTEN', '-p', pids.join(',')],
-      timeoutMs: 2_000,
-    }).catch(() => null);
-    const lsofPort = lsof?.exitCode === 0 ? parseLsofPort(lsof.stdout) : null;
-    if (lsofPort) return lsofPort;
-
-    const ss = await this.execFile({ program: 'ss', args: ['-tlnp'], timeoutMs: 2_000 }).catch(() => null);
-    const ssPort = ss?.exitCode === 0 ? parseSocketTablePort(ss.stdout, pids) : null;
-    if (ssPort) return ssPort;
-
-    const netstat = await this.execFile({ program: 'netstat', args: ['-tlnp'], timeoutMs: 2_000 }).catch(() => null);
-    return netstat?.exitCode === 0 ? parseSocketTablePort(netstat.stdout, pids) : null;
   }
 
   private async terminateServer(
@@ -316,39 +278,15 @@ export class HostDevServerManager {
   private async terminateProcess(process: RuntimeProcess | undefined, rootPid?: number, port?: number): Promise<void> {
     process?.signal('SIGTERM');
     const roots = rootPid ? [rootPid] : [];
-    const descendants = (await Promise.all(roots.map((pid) => this.descendantPids(pid)))).flat();
-    const listeners = port ? await this.listenerPids(port) : [];
+    const descendants = (await Promise.all(roots.map((pid) => this.processAdapter.descendantPids(pid)))).flat();
+    const listeners = port ? await this.processAdapter.listenerPids(port) : [];
     const pids = uniqueNumbers([...roots, ...descendants, ...listeners]);
-    if (pids.length > 0) await this.killPids('-TERM', pids);
+    if (pids.length > 0) await this.processAdapter.killPids('TERM', pids);
     if (port) {
       await sleep(this.terminateGraceMs);
-      const remainingListeners = await this.listenerPids(port);
-      if (remainingListeners.length > 0) await this.killPids('-KILL', remainingListeners);
+      const remainingListeners = await this.processAdapter.listenerPids(port);
+      if (remainingListeners.length > 0) await this.processAdapter.killPids('KILL', remainingListeners);
     }
-  }
-
-  private async listenerPids(port: number): Promise<number[]> {
-    const result = await this.execFile({
-      program: 'lsof',
-      args: ['-nP', `-iTCP:${port}`, '-sTCP:LISTEN', '-t'],
-      timeoutMs: 2_000,
-    }).catch(() => null);
-    if (result?.exitCode === 0) return parsePidLines(result.stdout);
-
-    const ss = await this.execFile({ program: 'ss', args: ['-tlnp'], timeoutMs: 2_000 }).catch(() => null);
-    if (ss?.exitCode === 0) return parseSocketTablePids(ss.stdout, port);
-
-    const netstat = await this.execFile({ program: 'netstat', args: ['-tlnp'], timeoutMs: 2_000 }).catch(() => null);
-    return netstat?.exitCode === 0 ? parseSocketTablePids(netstat.stdout, port) : [];
-  }
-
-  private async killPids(signal: '-TERM' | '-KILL', pids: number[]): Promise<void> {
-    if (pids.length === 0) return;
-    await this.execFile({
-      program: 'kill',
-      args: [signal, ...pids.map(String)],
-      timeoutMs: 2_000,
-    }).catch(() => undefined);
   }
 
   private markSpawnedServerFailed(serverId: string, exit: RuntimeProcessExit): void {
@@ -368,57 +306,6 @@ export class HostDevServerManager {
     for (const cb of this.changeCallbacks) cb(event);
   }
 
-}
-
-export function parseLsofPort(output: string): number | null {
-  for (const line of output.split('\n')) {
-    const match = line.match(/TCP\s+\S+:(\d+)\s+\(LISTEN\)/);
-    if (!match) continue;
-    const port = Number(match[1]);
-    if (Number.isInteger(port) && port > 0) return port;
-  }
-  return null;
-}
-
-function parsePidLines(output: string): number[] {
-  return output.split('\n')
-    .map((line) => Number(line.trim()))
-    .filter((pid) => Number.isInteger(pid) && pid > 0);
-}
-
-function parseSocketTablePort(output: string, pids: number[]): number | null {
-  const pidSet = new Set(pids);
-  for (const line of output.split('\n')) {
-    if (!line.includes('LISTEN')) continue;
-    if (!parseSocketLinePids(line).some((pid) => pidSet.has(pid))) continue;
-    const port = parseSocketLinePort(line);
-    if (port) return port;
-  }
-  return null;
-}
-
-function parseSocketTablePids(output: string, port: number): number[] {
-  const pids: number[] = [];
-  for (const line of output.split('\n')) {
-    if (!line.includes('LISTEN') || parseSocketLinePort(line) !== port) continue;
-    pids.push(...parseSocketLinePids(line));
-  }
-  return uniqueNumbers(pids);
-}
-
-function parseSocketLinePort(line: string): number | null {
-  const addresses = line.matchAll(/(?:^|\s)\S+:(\d{1,5})(?=\s|$)/g);
-  for (const match of addresses) {
-    const port = Number(match[1]);
-    if (Number.isInteger(port) && port > 0 && port < 65536) return port;
-  }
-  return null;
-}
-
-function parseSocketLinePids(line: string): number[] {
-  const pids = [...line.matchAll(/pid=(\d+)/g), ...line.matchAll(/\b(\d+)\//g)]
-    .map((match) => Number(match[1]));
-  return uniqueNumbers(pids);
 }
 
 function formatProcessExit(exit: RuntimeProcessExit): string {

@@ -82,8 +82,18 @@ export function registerBrowserHandlers(): void {
 
   ipcMain.handle(
     IpcChannels.browser.setBounds,
-    (_e, bounds: BrowserViewBounds) => {
-      browserViewManager.setBounds(bounds);
+    (event, bounds: BrowserViewBounds) => {
+      // Renderer reports rects in CSS pixels (zoom-affected); WebContentsView
+      // bounds are in DIP (zoom = 1). When the page is zoomed (Cmd+/Cmd-) or
+      // running on a fractional-scale display, the two diverge and the native
+      // view bleeds past sibling panels. Convert once at the boundary.
+      const zoom = event.sender.getZoomFactor() || 1;
+      browserViewManager.setBounds({
+        x: Math.round(bounds.x * zoom),
+        y: Math.round(bounds.y * zoom),
+        width: Math.round(bounds.width * zoom),
+        height: Math.round(bounds.height * zoom),
+      });
     },
   );
 

@@ -96,7 +96,7 @@ async function resolveContainerPathForGuard(
 
 // ── Bash ────────────────────────────────────────────────────
 
-export function createBash(runtime: RuntimeBackend, containerCwd?: string): ToolDefinition {
+export function createBash(runtime: RuntimeBackend, containerCwd?: string, sessionId?: string): ToolDefinition {
   const cwd = containerCwd ?? WORKSPACE_DIR;
   return {
     name: 'bash',
@@ -125,6 +125,7 @@ export function createBash(runtime: RuntimeBackend, containerCwd?: string): Tool
         command: params.command,
         cwd,
         timeoutMs,
+        env: sessionId ? { SERO_SESSION_ID: sessionId } : undefined,
       });
       const combined = (
         result.stdout + (result.stderr ? '\n' + result.stderr : '')

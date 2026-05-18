@@ -58,6 +58,7 @@ import {
   getDefaultModelFallbackChain,
 } from './shared/settings/model-fallback-chain';
 import { getDefaultMemoryLoggingSettings, ensureConfiguredMemoryLoggingSettings } from './shared/settings/memory-logging-settings';
+import { ensureHostSeroCliBridge } from './cli/host-bridge/server';
 
 let mainWindow: BrowserWindow | null = null;
 let isGracefullyShuttingDown = false;
@@ -244,6 +245,10 @@ app.whenReady().then(async () => {
   watchForNewApps(knownAppIds);
 
   registerAllIpcHandlers();
+
+  await ensureHostSeroCliBridge().catch((err: unknown) => {
+    console.error('[sero] Failed to start host Sero CLI bridge:', err);
+  });
 
   // ── Copy default templates if first launch ─────────────────
   ensureDefaultAgents().catch((err) => console.warn('[sero] Agent template copy failed:', err));

@@ -13,7 +13,7 @@ vi.mock('electron', () => ({
   ipcRenderer: mocks.ipcRenderer,
 }));
 
-import { agentBridge } from '@electron/preload/api/core';
+import { agentBridge, workspaceBridge } from '@electron/preload/api/core';
 import { filetreeBridge, vcsBridge } from '@electron/preload/api/workbench';
 import { lspBridge } from '@electron/preload/editor/debug-lsp';
 import type { ImageGenParams } from '@electron/features/agent/assistants/image-agent';
@@ -25,6 +25,37 @@ describe('preload event bridge subscriptions', () => {
     mocks.ipcRenderer.invoke.mockReset();
     mocks.ipcRenderer.on.mockReset();
     mocks.ipcRenderer.removeListener.mockReset();
+  });
+
+  it('unsubscribes workspace runtime install progress listeners with the same handler instance', async () => {
+    const toolchainCallback = vi.fn();
+    const browserCallback = vi.fn();
+
+    const unsubscribeToolchain = workspaceBridge.onToolchainProgress(toolchainCallback);
+    const toolchainHandler = mocks.ipcRenderer.on.mock.calls.at(-1)?.[1];
+    toolchainHandler?.({}, { phase: 'ready', tool: 'node' });
+    expect(toolchainCallback).toHaveBeenCalledWith({ phase: 'ready', tool: 'node' });
+    unsubscribeToolchain();
+
+    const unsubscribeBrowser = workspaceBridge.onBrowserPackProgress(browserCallback);
+    const browserHandler = mocks.ipcRenderer.on.mock.calls.at(-1)?.[1];
+    browserHandler?.({}, { phase: 'ready' });
+    expect(browserCallback).toHaveBeenCalledWith({ phase: 'ready' });
+    unsubscribeBrowser();
+
+    await workspaceBridge.getToolchainStatus();
+    await workspaceBridge.ensureCoreTools('settings');
+    await workspaceBridge.getBrowserPackStatus();
+    await workspaceBridge.ensureBrowserPack('settings');
+    await workspaceBridge.uninstallBrowserPack();
+
+    expect(mocks.ipcRenderer.removeListener).toHaveBeenCalledWith(IpcChannels.workspace.toolchainProgress, toolchainHandler);
+    expect(mocks.ipcRenderer.removeListener).toHaveBeenCalledWith(IpcChannels.workspace.browserPackProgress, browserHandler);
+    expect(mocks.ipcRenderer.invoke).toHaveBeenCalledWith(IpcChannels.workspace.getToolchainStatus);
+    expect(mocks.ipcRenderer.invoke).toHaveBeenCalledWith(IpcChannels.workspace.ensureCoreTools, 'settings');
+    expect(mocks.ipcRenderer.invoke).toHaveBeenCalledWith(IpcChannels.workspace.getBrowserPackStatus);
+    expect(mocks.ipcRenderer.invoke).toHaveBeenCalledWith(IpcChannels.workspace.ensureBrowserPack, 'settings');
+    expect(mocks.ipcRenderer.invoke).toHaveBeenCalledWith(IpcChannels.workspace.uninstallBrowserPack);
   });
 
   it('unsubscribes agent event listeners with the same handler instance', () => {

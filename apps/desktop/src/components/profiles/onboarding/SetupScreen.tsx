@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { KeyRound, Sparkles, TriangleAlert } from 'lucide-react';
+import { Download, KeyRound, Sparkles, TriangleAlert } from 'lucide-react';
 import {
   getAvailableThinkingLevels,
   getModelTierThinkingLevel,
@@ -26,6 +26,7 @@ import type {
   OnboardingWarning,
   ProviderHealthInfo,
 } from '@/types/ipc';
+import { BrowserPackOffer } from '@/components/runtime/BrowserPackOffer';
 import { GitHubConnectCard } from './GitHubConnectCard';
 import { useOnboardingGitHubStep } from './useOnboardingGitHubStep';
 
@@ -124,6 +125,7 @@ export function OnboardingSetupScreen({
     githubAuth,
     lastOutcome,
     handleTierContinue,
+    handleContinueFromDependencies,
     handleConnectGitHub,
     handleBack,
     handleContinueFromGitHub,
@@ -133,6 +135,44 @@ export function OnboardingSetupScreen({
     continueDisabled,
     onContinue,
   });
+
+  if (step === 'dependencies') {
+    return (
+      <div className="space-y-5">
+        <div className="space-y-3">
+          <div className="flex size-11 items-center justify-center rounded-xl bg-[var(--bg-elevated)]">
+            <Download className="size-5 text-[var(--status-success)]" />
+          </div>
+          <div>
+            <DialogTitle className="text-lg font-semibold text-[var(--text-primary)]">Install dependencies (optional)</DialogTitle>
+            <DialogDescription className="text-sm text-[var(--text-secondary)]">
+              Add browser automation now, or continue and let Sero offer it the first time you need it.
+            </DialogDescription>
+          </div>
+        </div>
+
+        <BrowserPackOffer reason="onboarding" />
+
+        <div className="flex justify-between gap-2 pt-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleBack}
+            disabled={continueDisabled || checkingGitHub}
+          >
+            Back
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => void handleContinueFromDependencies()}
+            disabled={continueDisabled || checkingGitHub}
+          >
+            {checkingGitHub ? 'Checking GitHub…' : 'Continue'}
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   if (step === 'github') {
     return (

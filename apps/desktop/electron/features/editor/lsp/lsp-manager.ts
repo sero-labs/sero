@@ -11,6 +11,11 @@ import {
   type LspServerConfig,
 } from './types';
 import type { RuntimeManager } from '@electron/features/workspace/runtime/runtime-manager';
+import {
+  classifyNativeBuildFailure,
+  createNativeBuildToolsRequiredMetadata,
+} from '@electron/features/workspace/runtime/native-build/classifier';
+import { NativeBuildToolsRequiredError } from '@electron/features/workspace/runtime/native-build/types';
 
 export class LspManager extends EventEmitter {
   /** workspaceId → language → LspServerProcess */
@@ -185,6 +190,16 @@ export class LspManager extends EventEmitter {
         console.log(`[lsp-manager] Installing ${config.language} server in ${runtime.workspaceId}...`);
         const installResult = await runtime.exec({ command: config.installCommand });
         if (installResult.exitCode !== 0) {
+          const failure = classifyNativeBuildFailure({
+            command: config.installCommand,
+            exitCode: installResult.exitCode,
+            stdout: installResult.stdout,
+            stderr: installResult.stderr,
+            platform: process.platform,
+          });
+          if (failure) {
+            throw new NativeBuildToolsRequiredError(createNativeBuildToolsRequiredMetadata(failure));
+          }
           throw new Error(`Failed to install ${config.language} server: ${installResult.stderr || installResult.stdout}`);
         }
         console.log(`[lsp-manager] Installed ${config.language} server in ${runtime.workspaceId}`);

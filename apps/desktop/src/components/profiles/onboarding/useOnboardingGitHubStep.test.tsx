@@ -50,6 +50,22 @@ function readStep(container: HTMLDivElement): string | null {
   return container.firstElementChild?.getAttribute('data-step') ?? null;
 }
 
+async function continueFromModelsToGitHub(container: HTMLDivElement): Promise<void> {
+  await act(async () => {
+    findButton('Continue models').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  });
+
+  expect(readStep(container)).toBe('dependencies');
+
+  await act(async () => {
+    findButton('Continue dependencies').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  });
+
+  await vi.waitFor(() => {
+    expect(readStep(container)).toBe('github');
+  });
+}
+
 function HookProbe({ onContinue }: { onContinue: (config: GlobalModelConfigInput) => void }) {
   const {
     step,
@@ -57,6 +73,7 @@ function HookProbe({ onContinue }: { onContinue: (config: GlobalModelConfigInput
     githubAuth,
     lastOutcome,
     handleTierContinue,
+    handleContinueFromDependencies,
     handleConnectGitHub,
     handleBack,
     handleContinueFromGitHub,
@@ -75,7 +92,8 @@ function HookProbe({ onContinue }: { onContinue: (config: GlobalModelConfigInput
       data-authenticated={githubAuth.authStatus?.authenticated ? 'true' : 'false'}
       data-last-outcome={lastOutcome?.outcome ?? ''}
     >
-      <button onClick={() => void handleTierContinue()}>Continue</button>
+      <button onClick={() => void handleTierContinue()}>Continue models</button>
+      <button onClick={() => void handleContinueFromDependencies()}>Continue dependencies</button>
       <button onClick={() => void handleConnectGitHub()}>Connect GitHub</button>
       <button onClick={handleBack}>Back</button>
       <button onClick={handleContinueFromGitHub}>Skip GitHub</button>
@@ -117,7 +135,7 @@ describe('useOnboardingGitHubStep', () => {
     }
   });
 
-  it('re-checks GitHub status before continuing and skips the optional step when already connected', async () => {
+  it('shows the dependency step, then re-checks GitHub status before continuing when already connected', async () => {
     const onContinue = vi.fn();
     githubBridge.status
       .mockResolvedValueOnce({ authenticated: false })
@@ -132,14 +150,20 @@ describe('useOnboardingGitHubStep', () => {
     });
 
     await act(async () => {
-      findButton('Continue').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      findButton('Continue models').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    expect(readStep(container)).toBe('dependencies');
+
+    await act(async () => {
+      findButton('Continue dependencies').dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
 
     await vi.waitFor(() => {
       expect(onContinue).toHaveBeenCalledWith({ tiers });
     });
 
-    expect(readStep(container)).toBe('tiers');
+    expect(readStep(container)).toBe('dependencies');
     expect(githubBridge.cancel).not.toHaveBeenCalled();
   });
 
@@ -154,13 +178,13 @@ describe('useOnboardingGitHubStep', () => {
       expect(container.firstElementChild?.getAttribute('data-status-ready')).toBe('true');
     });
 
+    await continueFromModelsToGitHub(container);
+
     await act(async () => {
-      findButton('Continue').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      findButton('Back').dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
 
-    await vi.waitFor(() => {
-      expect(readStep(container)).toBe('github');
-    });
+    expect(readStep(container)).toBe('dependencies');
 
     await act(async () => {
       findButton('Back').dispatchEvent(new MouseEvent('click', { bubbles: true }));
@@ -170,13 +194,7 @@ describe('useOnboardingGitHubStep', () => {
     expect(githubBridge.cancel).not.toHaveBeenCalled();
     expect(onContinue).not.toHaveBeenCalled();
 
-    await act(async () => {
-      findButton('Continue').dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    });
-
-    await vi.waitFor(() => {
-      expect(readStep(container)).toBe('github');
-    });
+    await continueFromModelsToGitHub(container);
 
     await act(async () => {
       findButton('Skip GitHub').dispatchEvent(new MouseEvent('click', { bubbles: true }));
@@ -197,13 +215,7 @@ describe('useOnboardingGitHubStep', () => {
       expect(container.firstElementChild?.getAttribute('data-status-ready')).toBe('true');
     });
 
-    await act(async () => {
-      findButton('Continue').dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    });
-
-    await vi.waitFor(() => {
-      expect(readStep(container)).toBe('github');
-    });
+    await continueFromModelsToGitHub(container);
 
     await act(async () => {
       findButton('Connect GitHub').dispatchEvent(new MouseEvent('click', { bubbles: true }));
@@ -244,13 +256,7 @@ describe('useOnboardingGitHubStep', () => {
       expect(container.firstElementChild?.getAttribute('data-status-ready')).toBe('true');
     });
 
-    await act(async () => {
-      findButton('Continue').dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    });
-
-    await vi.waitFor(() => {
-      expect(readStep(container)).toBe('github');
-    });
+    await continueFromModelsToGitHub(container);
 
     await act(async () => {
       findButton('Connect GitHub').dispatchEvent(new MouseEvent('click', { bubbles: true }));
@@ -289,13 +295,7 @@ describe('useOnboardingGitHubStep', () => {
       expect(container.firstElementChild?.getAttribute('data-status-ready')).toBe('true');
     });
 
-    await act(async () => {
-      findButton('Continue').dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    });
-
-    await vi.waitFor(() => {
-      expect(readStep(container)).toBe('github');
-    });
+    await continueFromModelsToGitHub(container);
 
     await act(async () => {
       findButton('Connect GitHub').dispatchEvent(new MouseEvent('click', { bubbles: true }));

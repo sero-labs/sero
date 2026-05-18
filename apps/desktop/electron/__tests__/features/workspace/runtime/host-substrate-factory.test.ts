@@ -12,8 +12,8 @@ describe('createHostSubstrate', () => {
     expect(substrate.kind).toBe('posix');
   });
 
-  it('throws on Windows because host runtime is not supported there', () => {
-    expect(() => createHostSubstrate('C:\\Users\\me\\repo', { platform: 'win32' }))
-      .toThrow(/Host runtime is not supported on Windows/);
+  it('returns a windows substrate on Windows', () => {
+    const substrate = createHostSubstrate('C:\\Users\\me\\repo', { platform: 'win32' });
+    expect(substrate.kind).toBe('windows');
   });
 });

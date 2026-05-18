@@ -79,7 +79,7 @@ function readConfiguredBackend(
   }
   if (config?.container === false) {
     return {
-      backend: defaults.platform === 'win32' ? 'docker' : 'host',
+      backend: 'host',
       preFallbackCode: 'legacy-container-false',
     };
   }

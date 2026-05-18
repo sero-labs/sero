@@ -26,7 +26,7 @@ const SeroCliToolParams = Type.Object({
   ),
 });
 
-export { executeCliBatch } from './batch-executor';
+export { executeCliArgv, executeCliBatch } from './batch-executor';
 export { extractAgentContext } from './invocation-context';
 
 export function createSeroCliTool(
@@ -78,7 +78,9 @@ export function createSeroCliTool(
           ...(batch.details && typeof batch.details === 'object' ? batch.details as Record<string, unknown> : {}),
           ...(!isSingleCommand ? {
             richOutputFallback,
-            fallbackReason: 'multi-command batches return text-only content to avoid dropping or interleaving rich blocks',
+            ...(richOutputFallback ? {
+              fallbackReason: 'some rich output could not be represented in this multi-command batch',
+            } : {}),
           } : {}),
         },
       };
