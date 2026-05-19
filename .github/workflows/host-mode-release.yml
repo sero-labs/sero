@@ -1,0 +1,107 @@
+name: Host Mode Release Gate
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CI: true
+  TURBO_TELEMETRY_DISABLED: 1
+  SERO_E2E_RUNTIME: host
+  SERO_HOST_FIRST: '1'
+  SERO_E2E_HOST_RELEASE_SMOKE: '1'
+
+jobs:
+  host-release:
+    name: Host release (${{ matrix.os }})
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos
+            runner: [self-hosted, macos]
+            dist: dist:mac
+          - os: linux
+            runner: [self-hosted, sero-linux]
+            dist: dist:linux
+          - os: windows
+            runner: [self-hosted, sero-windows]
+            dist: dist:win
+    runs-on: ${{ matrix.runner }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate Windows bash/MSYS prerequisites
+        if: ${{ matrix.os == 'windows' }}
+        run: |
+          case "$(uname -s)" in
+            MINGW*|MSYS*|CYGWIN*) ;;
+            *)
+              echo "::error::Windows host release requires Git Bash/MSYS bash; got $(uname -s). Install Git for Windows and run this self-hosted runner with bash on PATH."
+              exit 1
+              ;;
+          esac
+          command -v bash >/dev/null 2>&1 || { echo "::error::bash is missing from PATH"; exit 1; }
+          command -v git >/dev/null 2>&1 || { echo "::error::git is missing from PATH"; exit 1; }
+
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Check workflow prerequisites
+        run: apps/desktop/scripts/e2e-doctor.sh workflow
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Verify published browser packs
+        run: pnpm --filter @sero/desktop browser-pack:verify-published
+
+      - name: Run host release smoke
+        run: |
+          if [[ "${{ matrix.os }}" == "linux" ]] && command -v xvfb-run >/dev/null 2>&1; then
+            xvfb-run -a pnpm --filter @sero/desktop e2e:workflow -- runtime-host-release.workflow.spec.ts
+          else
+            pnpm --filter @sero/desktop e2e:workflow -- runtime-host-release.workflow.spec.ts
+          fi
+
+      - name: Build packaged artifacts
+        run: pnpm --filter @sero/desktop ${{ matrix.dist }}
+
+      - name: Upload packaged artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: host-mode-release-${{ matrix.os }}-packages
+          path: apps/desktop/release/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Upload Playwright failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: host-mode-release-${{ matrix.os }}-playwright
+          path: |
+            apps/desktop/test-results/
+            apps/desktop/playwright-report/
+          if-no-files-found: ignore
+          retention-days: 7

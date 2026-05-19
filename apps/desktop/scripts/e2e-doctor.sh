@@ -37,6 +37,17 @@ ok "OS: $OS"
 if [[ "$LAYER" == "workflow" || "$LAYER" == "all" ]]; then
   section "Workflow layer"
   ok "SERO_E2E_RUNTIME=$RUNTIME"
+  if [[ "${SERO_E2E_HOST_RELEASE_SMOKE:-0}" == "1" ]]; then
+    if [[ "$RUNTIME" == "host" ]]; then ok "release smoke uses host runtime"
+    else bad "release smoke requires SERO_E2E_RUNTIME=host"
+    fi
+    if [[ "${SERO_HOST_FIRST:-0}" == "1" ]]; then ok "SERO_HOST_FIRST=1"
+    else bad "release smoke requires SERO_HOST_FIRST=1"
+    fi
+    if [[ -z "${SERO_BROWSER_PACK_BASE_URL:-}" ]]; then ok "browser-pack release metadata will be used"
+    else bad "release smoke must not use SERO_BROWSER_PACK_BASE_URL overrides"
+    fi
+  fi
   case "$OS" in
     Darwin)
       case "$RUNTIME" in
