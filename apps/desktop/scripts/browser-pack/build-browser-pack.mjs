@@ -45,9 +45,11 @@ async function main() {
   const outDir = path.resolve(options.outDir ?? defaultOutDir);
   const urlBase = options.urlBase ?? DEFAULT_BROWSER_PACK_URL_BASE;
   const archiveDir = path.join(outDir, BROWSER_PACK_DATE);
+  const metadataOutDir = path.resolve(options.metadataOut ?? archiveDir);
   const workRoot = path.join(outDir, 'work', target.key);
   const packRoot = path.join(workRoot, 'browser');
   const archivePath = path.join(archiveDir, `${target.slug}.tar.gz`);
+  const sidecarPath = path.join(metadataOutDir, `${target.slug}.json`);
 
   console.log(`Building ${target.key} into ${archivePath}`);
   await fs.rm(workRoot, { recursive: true, force: true });
@@ -64,10 +66,12 @@ async function main() {
 
   const stat = await fs.stat(archivePath);
   const sha256 = await sha256File(archivePath);
+  await writeSidecar({ target, sha256, sizeBytes: stat.size, urlBase, sidecarPath });
   await writeMetadata({ target, sha256, sizeBytes: stat.size, urlBase, writeLocalUrls: options.writeLocalUrls });
 
   console.log(`Archive: ${archivePath}`);
   console.log(`SHA-256: ${sha256}`);
+  console.log(`Sidecar: ${sidecarPath}`);
   console.log(`Metadata: ${metadataPath}`);
 }
 
@@ -87,7 +91,7 @@ function parseArgs(args) {
       options.writeLocalUrls = true;
       continue;
     }
-    if (!['platform', 'arch', 'outDir', 'urlBase'].includes(key)) throw new Error(`Unknown option: ${arg}`);
+    if (!['platform', 'arch', 'outDir', 'urlBase', 'metadataOut'].includes(key)) throw new Error(`Unknown option: ${arg}`);
     const value = inlineValue ?? args[index + 1];
     if (!value || value.startsWith('--')) throw new Error(`Missing value for ${arg}`);
     options[key] = value;
@@ -97,7 +101,7 @@ function parseArgs(args) {
 }
 
 function printHelp() {
-  console.log(`Usage: node scripts/browser-pack/build-browser-pack.mjs [options]\n\nOptions:\n  --platform <platform>  Target platform (default: current host)\n  --arch <arch>          Target architecture (default: current host)\n  --out-dir <path>       Output directory (default: apps/desktop/dist/browser-pack)\n  --url-base <url>       Local/test URL base; committed metadata keeps production URLs unless --write-local-urls is set\n  --write-local-urls     Write --url-base into generated metadata (do not use for committed production metadata)\n  -h, --help             Show this help\n\nBuilds one current-host browser pack using pinned versions from browser-pack-config.mjs.`);
+  console.log(`Usage: node scripts/browser-pack/build-browser-pack.mjs [options]\n\nOptions:\n  --platform <platform>      Target platform (default: current host)\n  --arch <arch>              Target architecture (default: current host)\n  --out-dir <path>           Output directory (default: apps/desktop/dist/browser-pack)\n  --metadata-out <path>      Sidecar output directory (default: archive directory)\n  --url-base <url>           Sidecar URL base (default: production GitHub Release URL)\n  --write-local-urls         Deprecated no-op; generated metadata always keeps production URLs\n  -h, --help                 Show this help\n\nBuilds one current-host browser pack using pinned versions from browser-pack-config.mjs.`);
 }
 
 function assertCanBuildOnHost(target) {
@@ -168,9 +172,26 @@ async function sha256File(filePath) {
   return hash.digest('hex');
 }
 
-async function writeMetadata({ target, sha256, sizeBytes, urlBase, writeLocalUrls }) {
+async function writeSidecar({ target, sha256, sizeBytes, urlBase, sidecarPath }) {
+  const sidecar = {
+    key: target.key,
+    platform: target.platform,
+    arch: target.arch,
+    slug: target.slug,
+    url: artifactUrl(target.slug, urlBase),
+    sha256,
+    sizeBytes,
+    chromiumExecutableCandidates: target.chromiumExecutableCandidates,
+    ffmpegCandidates: target.ffmpegCandidates,
+    agentBrowserCandidates: target.agentBrowserCandidates,
+  };
+  await fs.mkdir(path.dirname(sidecarPath), { recursive: true });
+  await fs.writeFile(sidecarPath, `${JSON.stringify(sidecar, null, 2)}\n`);
+}
+
+async function writeMetadata({ target, sha256, sizeBytes }) {
   const existingMetadata = await readExistingMetadata();
-  const metadataUrlBase = writeLocalUrls ? urlBase : DEFAULT_BROWSER_PACK_URL_BASE;
+  const metadataUrlBase = DEFAULT_BROWSER_PACK_URL_BASE;
   const generatedArtifacts = Object.fromEntries(
     artifacts.map((artifactSpec) => {
       const existingArtifact = existingMetadata?.artifacts?.[artifactSpec.key];

@@ -88,7 +88,7 @@ describe('browser pack manifest', () => {
 
     expect(Object.values(manifest.artifacts)).toHaveLength(builtArtifacts.length);
     for (const artifact of Object.values(manifest.artifacts)) {
-      expect(artifact.url).toMatch(/^https:\/\/downloads\.sero\.ai\/browser-pack\/2026-05-16\//);
+      expect(artifact.url).toMatch(/^https:\/\/github\.com\/sero-labs\/sero\/releases\/download\/browser-pack-2026-05-16\//);
       expect(artifact.sha256).toMatch(/^[a-f0-9]{64}$/);
     }
     for (const artifact of builtArtifacts) {

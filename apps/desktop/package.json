@@ -25,6 +25,7 @@
     "container:build-image": "cd images && container build -t ghcr.io/sero-labs/sero-node:latest -f Dockerfile.sero-node .",
     "browser-pack:build": "node scripts/browser-pack/build-browser-pack.mjs",
     "browser-pack:smoke": "node scripts/browser-pack/smoke-browser-pack.mjs",
+    "browser-pack:merge-metadata": "node scripts/browser-pack/merge-browser-pack-metadata.mjs",
     "release": "bash scripts/build-release.sh",
     "release:signed": "bash scripts/build-release.sh --sign",
     "pack": "bash -c 'trap \"node scripts/cleanup-packaging.mjs\" EXIT; node scripts/prepare-packaging.mjs && CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder --config electron-builder.yml --mac --dir'",

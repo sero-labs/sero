@@ -1,6 +1,6 @@
 export const BROWSER_PACK_VERSION = 'browser-pack-2026-05-16';
 export const BROWSER_PACK_DATE = '2026-05-16';
-export const DEFAULT_BROWSER_PACK_URL_BASE = `https://downloads.sero.ai/browser-pack/${BROWSER_PACK_DATE}`;
+export const DEFAULT_BROWSER_PACK_URL_BASE = `https://github.com/sero-labs/sero/releases/download/${BROWSER_PACK_VERSION}`;
 
 export const pins = {
   playwrightVersion: '1.57.0',

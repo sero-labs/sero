@@ -14,7 +14,7 @@
       "platform": "darwin",
       "arch": "arm64",
       "slug": "mac-arm64",
-      "url": "https://downloads.sero.ai/browser-pack/2026-05-16/mac-arm64.tar.gz",
+      "url": "https://github.com/sero-labs/sero/releases/download/browser-pack-2026-05-16/mac-arm64.tar.gz",
       "sha256": "445e5ea330a038427389401eb9a7631478ed8818c375cbb855fc272fe180f186",
       "sizeBytes": 277506316,
       "chromiumExecutableCandidates": [
