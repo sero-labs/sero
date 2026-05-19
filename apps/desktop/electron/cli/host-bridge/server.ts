@@ -10,8 +10,8 @@ import { containerManager, workspaceManager } from '@electron/shared/infra/share
 import {
   clearSeroCliBridgeStateForTests,
   ensureSeroCliShim,
+  consumeSeroCliBridgeTokenScope,
   getSeroCliBridgeConnection,
-  getSeroCliBridgeTokenScope,
   setSeroCliBridgeConnection,
 } from './state';
 
@@ -129,7 +129,7 @@ function buildBridgeInvocation(workspaceId: string, sessionId: string | null): C
 function authenticateBridgeRequest(authorization: string | undefined) {
   const prefix = 'Bearer ';
   if (!authorization?.startsWith(prefix)) return null;
-  return getSeroCliBridgeTokenScope(authorization.slice(prefix.length));
+  return consumeSeroCliBridgeTokenScope(authorization.slice(prefix.length));
 }
 
 function isScopedSessionValid(workspaceId: string, sessionId: string | null): boolean {

@@ -257,7 +257,7 @@ async function exists(filePath: string): Promise<boolean> {
 function makeUnavailableError(manifestVersion: string, artifactKey: string): BrowserPackError {
   return makeError(
     'BROWSER_PACK_UNAVAILABLE',
-    'Host browser automation pack is not available for this machine yet.',
+    `Published host browser automation pack is not available for ${artifactKey} yet. Use Docker/Apple Container browser automation or run the local artifact smoke flow.`,
     manifestVersion,
     artifactKey,
     false,

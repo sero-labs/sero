@@ -61,7 +61,7 @@ Callers must use runtime diagnostics instead of branching on provider-specific i
 - availability: is it available for this workspace right now?
 - install state: are core tools, browser pack, and native build tools ready/missing/installing/failed?
 
-Host browser automation is available only when the browser pack is installed and Doctor launch checks pass. Native compiler stacks are informational and non-managed.
+Host browser automation is available only when the browser pack is installed and Doctor launch checks pass. In this PR's published artifact matrix, install is available only for macOS Apple Silicon; other platforms need a local browser-pack artifact override or a container runtime until their published artifacts exist. Native compiler stacks are informational and non-managed.
 
 ## Managed host tooling
 

@@ -57,12 +57,13 @@ Native compiler stacks are explicitly not managed. Sero classifies native-build 
 
 Host browser automation is install-state-aware:
 
-- missing pack: `installable`, with onboarding/settings/first-use install action,
+- published/local pack available but absent: `installable`, with onboarding/settings/first-use install action,
+- known target without a published artifact: `missing`, non-installable, with local-artifact or container fallback guidance,
 - in-flight pack: `installing`, with progress,
 - installed and Doctor-launchable: `ready`,
 - install/launch failure: `failed`, with retry or container fallback.
 
-The browser pack is a large optional add-on stored under `~/.sero-ui/toolchains/<manifest-version>/browser/`. Docker/Podman and Apple Container provide browser automation through their runtime images.
+For this PR, the only published installable browser-pack artifact is macOS Apple Silicon (`browser-darwin-arm64`). Linux, Windows, and Intel macOS host browser automation need a locally served artifact override or a container runtime until their artifacts are published. The browser pack is a large optional add-on stored under `~/.sero-ui/toolchains/<manifest-version>/browser/`. Docker/Podman and Apple Container provide browser automation through their runtime images.
 
 ## Validation before removing the flag
 
@@ -80,9 +81,9 @@ pnpm typecheck
 Manual smoke:
 
 - macOS host: file ops, Git, terminal, pnpm install/dev, LSP, preview, browser pack install/use.
-- Linux host: same plus browser launch Doctor shared-library failure path.
-- Windows x64 host: file ops, Git, terminal, Node/pnpm, dev server, preview, browser pack install/use.
-- Browser pack: install, progress, retry/failure, ready launch check, uninstall.
+- Linux host: same plus unavailable published browser-pack state, local-artifact install/use, and browser launch Doctor shared-library failure path.
+- Windows x64 host: file ops, Git, terminal, Node/pnpm, dev server, preview, unavailable published browser-pack state, and local-artifact install/use.
+- Browser pack: published macOS Apple Silicon install plus local-artifact install, progress, retry/failure, ready launch check, and uninstall on pending platforms.
 - Container fallback: switch workspace to Docker/Podman or Apple Container after native-build failure.
 - Existing workspace regression: persisted Docker/Apple Container workspace remains container-backed after host-first flag.
 

@@ -19,7 +19,13 @@ const SAFE_INHERITED_ENV_KEYS = new Set([
   'NODE_EXTRA_CA_CERTS',
   'SSL_CERT_FILE',
   'SSL_CERT_DIR',
-  'SSH_AUTH_SOCK',
+  'GIT_TERMINAL_PROMPT',
+  'npm_config_cache',
+  'npm_config_prefix',
+  'npm_config_user_agent',
+  'NPM_CONFIG_CACHE',
+  'NPM_CONFIG_PREFIX',
+  'NPM_CONFIG_USER_AGENT',
   'HTTP_PROXY',
   'HTTPS_PROXY',
   'NO_PROXY',
@@ -30,7 +36,8 @@ const SAFE_INHERITED_ENV_KEYS = new Set([
   'all_proxy',
 ]);
 
-const SAFE_INHERITED_ENV_PREFIXES = ['LC_', 'GIT_', 'npm_config_', 'NPM_CONFIG_'];
+const SAFE_INHERITED_ENV_PREFIXES = ['LC_'];
+const SECRET_ENV_KEY_PATTERN = /(token|auth|password|passwd|credential|secret|askpass)/i;
 
 export async function createHostProcessEnv(
   workspaceId: string,
@@ -42,13 +49,23 @@ export async function createHostProcessEnv(
     if (value === undefined) continue;
     if (shouldInheritEnvKey(key, platform)) env[key] = value;
   }
-  return addSeroCliEnv({ ...env, ...overrides }, {
+  return addSeroCliEnv({ ...env, ...sanitizeEnvOverrides(overrides) }, {
     workspaceId,
     sessionId: overrides?.SERO_SESSION_ID,
   }, platform);
 }
 
 function shouldInheritEnvKey(key: string, platform: NodeJS.Platform): boolean {
+  if (isSecretEnvKey(key)) return false;
   if (platform === 'win32' && key.toLowerCase() === 'path') return true;
   return SAFE_INHERITED_ENV_KEYS.has(key) || SAFE_INHERITED_ENV_PREFIXES.some((prefix) => key.startsWith(prefix));
+}
+
+function sanitizeEnvOverrides(overrides: Record<string, string> | undefined): Record<string, string> {
+  if (!overrides) return {};
+  return Object.fromEntries(Object.entries(overrides).filter(([key]) => !isSecretEnvKey(key)));
+}
+
+function isSecretEnvKey(key: string): boolean {
+  return SECRET_ENV_KEY_PATTERN.test(key);
 }

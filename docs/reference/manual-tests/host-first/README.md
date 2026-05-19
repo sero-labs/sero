@@ -20,3 +20,5 @@ pnpm dev
 ```
 
 These guides are for source-based manual validation. Packaged-app testers can skip the source-development prerequisite sections and start at the first-time Sero setup/runtime sections.
+
+Browser-pack note: PR #185 publishes only the macOS Apple Silicon browser-pack artifact. Linux, Windows, and Intel macOS browser-pack checks require the local artifact smoke flow or a container runtime until published artifacts are added.

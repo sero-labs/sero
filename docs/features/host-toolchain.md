@@ -21,7 +21,7 @@ Managed host tools are stored under the fixed Sero root, not the active profile 
 
 Implementation uses `SERO_FIXED_ROOT` from `apps/desktop/electron/platform/env/index.ts`, which resolves to `~/.sero-ui`. Do not store shared toolchains under `SERO_HOME`, `~/.sero`, `~/.pi/agent`, or `~/.sero-ui/agent`.
 
-Installers download into staging paths, verify pinned SHA-256 checksums, atomically activate the final directory, and write `.installed` last. Absence of `.installed` means the artifact is incomplete and must not be used. Concurrent installs for the same manifest/artifact attach to the same in-flight operation.
+Installers download into staging paths, verify pinned SHA-256 checksums, and atomically activate final directories. Core tools share a version-level `.installed` marker that is removed before any core install and written only after every required core tool resolves successfully; absence of `.installed` means the managed toolchain version is incomplete and must not be used for PATH resolution. Non-core artifacts write the marker only after their own activation/verification completes. Concurrent installs for the same manifest/artifact attach to the same in-flight operation.
 
 ## Resolution order
 
@@ -49,12 +49,13 @@ Windows host mode is native Windows execution with a verified Git Bash/MSYS-comp
 
 Host browser automation is install-state-aware:
 
-- `installable`: pack is missing and can be installed.
+- `installable`: a published or locally overridden pack is missing and can be installed.
+- `missing`: the platform is known but no published artifact is available yet; use a local artifact or container fallback.
 - `installing`: a pack install is in progress.
 - `ready`: pack is installed and Doctor launch checks pass.
 - `failed`: install or launch failed; retry and container fallback details should be shown.
 
-The pack lives below the same fixed toolchain root, under `~/.sero-ui/toolchains/<manifest-version>/browser/`, with its own `.installed` marker. It includes pinned browser/driver/ffmpeg metadata and platform-specific executable candidates.
+For this PR, only macOS Apple Silicon has a published installable artifact. The pack lives below the same fixed toolchain root, under `~/.sero-ui/toolchains/<manifest-version>/browser/`, with its own `.installed` marker. It includes pinned browser/driver/ffmpeg metadata and platform-specific executable candidates.
 
 Docker/Podman and Apple Container continue to provide browser automation from the runtime image/container environment without requiring the host browser pack.
 

@@ -197,11 +197,12 @@ Expected:
 - Git, Node, and pnpm run from compatible system tools or Sero-managed tools.
 - The file appears in Finder at the workspace path.
 
-Test the `/workspace` compatibility alias through Sero file APIs or supported agent/file operations:
+Test the `/workspace` compatibility alias through Sero file APIs, not direct host shell redirection:
 
-```bash
-printf 'alias ok\n' > /workspace/host-alias-smoke.txt
-cat /workspace/host-alias-smoke.txt
+```js
+await window.sero.editor.createFile(ws.id, "/workspace/host-alias-smoke.txt");
+await window.sero.editor.writeFile(ws.id, "/workspace/host-alias-smoke.txt", "alias ok\n");
+await window.sero.editor.readFile(ws.id, "/workspace/host-alias-smoke.txt");
 ```
 
 Expected: the file is created in the real workspace. Sero must not require a real host `/workspace` symlink or mount.
@@ -255,6 +256,8 @@ Expected:
 - Stopping the terminal stops the dev server.
 
 ### 4.8 Browser automation pack on Host
+
+Published browser-pack install is available for macOS Apple Silicon (`browser-darwin-arm64`) in this PR. Local artifact smoke is still useful when validating an unpublished rebuild.
 
 1. Open Runtime settings.
 2. Confirm browser automation is shown as installable, not ready, if the pack is absent.

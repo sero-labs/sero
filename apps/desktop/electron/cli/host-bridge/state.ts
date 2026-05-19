@@ -55,6 +55,14 @@ export function mintSeroCliBridgeToken(scope: SeroCliBridgeTokenScope): string {
 }
 
 export function getSeroCliBridgeTokenScope(token: string): SeroCliBridgeTokenScope | null {
+  return readSeroCliBridgeTokenScope(token, false);
+}
+
+export function consumeSeroCliBridgeTokenScope(token: string): SeroCliBridgeTokenScope | null {
+  return readSeroCliBridgeTokenScope(token, true);
+}
+
+function readSeroCliBridgeTokenScope(token: string, consume: boolean): SeroCliBridgeTokenScope | null {
   const now = Date.now();
   pruneExpiredBridgeTokens(now);
   const record = bridgeTokens.get(token);
@@ -63,6 +71,7 @@ export function getSeroCliBridgeTokenScope(token: string): SeroCliBridgeTokenSco
     bridgeTokens.delete(token);
     return null;
   }
+  if (consume) bridgeTokens.delete(token);
   return { workspaceId: record.workspaceId, sessionId: record.sessionId };
 }
 

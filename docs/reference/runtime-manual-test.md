@@ -47,27 +47,35 @@ Expected:
 
 - Host is shown as selected for the workspace.
 - Capability state includes core tools, browser automation, and native build tools install state.
-- Browser automation is `installable`, `installing`, `failed`, or `ready`; it is ready only after browser pack install and Doctor launch success.
+- Browser automation is `installable`, `installing`, `missing`, `failed`, or `ready`; it is ready only after browser pack install and Doctor launch success. Linux, Windows, and Intel macOS report `missing` without a locally served artifact until published packs exist.
 - Native build tools are informational (`available`, `missing`, or `unknown`), not Sero-managed.
 
 ### 1.2 Path policy and file operations
 
 Host execution uses the real host workspace path. `/workspace` is a Sero compatibility alias only.
 
-From an agent/runtime command path, run:
+From an agent/runtime command path, run host-cwd-relative shell commands:
 
 ```bash
 pwd
-printf 'host-alias-ok\n' > /workspace/host-alias-smoke.txt
-cat /workspace/host-alias-smoke.txt
+printf 'host-relative-ok\n' > host-relative-smoke.txt
+cat host-relative-smoke.txt
+```
+
+Then test the `/workspace` compatibility alias through Sero file/runtime APIs, not direct host shell redirection:
+
+```js
+await window.sero.editor.createFile(ws.id, "/workspace/host-alias-smoke.txt");
+await window.sero.editor.writeFile(ws.id, "/workspace/host-alias-smoke.txt", "host-alias-ok\n");
+await window.sero.editor.readFile(ws.id, "/workspace/host-alias-smoke.txt");
 ```
 
 Expected:
 
-- The command executes in the real host workspace cwd.
-- `/workspace/...` works through Sero compatibility translation where supported by the runtime API.
+- Shell commands execute in the real host workspace cwd and should use relative paths from that cwd.
+- `/workspace/...` works through Sero compatibility translation where supported by the runtime/file API.
 - No real host `/workspace` mount/symlink is required.
-- The file appears in the host workspace and can be edited/deleted from the host.
+- Both files appear in the host workspace and can be edited/deleted from the host.
 
 Test additional roots using a platform-native temp path.
 
@@ -170,8 +178,8 @@ pnpm dev
 
 Validation flow:
 
-1. Confirm diagnostics show browser automation as `installable` when the pack is absent.
-2. Trigger install from Runtime settings/onboarding or by first browser tool use.
+1. Confirm diagnostics show browser automation as `installable` when a published/local pack is available but absent. Unsupported published targets should show `missing`/non-installable until `SERO_BROWSER_PACK_BASE_URL` points at a local artifact.
+2. Trigger install from Runtime settings/onboarding or by first browser tool use only when a published/local pack is available.
 3. Confirm progress is visible and duplicate install actions attach to the same in-flight install.
 4. Confirm installed files live under `~/.sero-ui/toolchains/<manifest-version>/browser/` and `.installed` exists.
 5. Confirm the installed browser root contains Chromium, ffmpeg, and pack-local `agent-browser/bin/agent-browser` (or `agent-browser.cmd` on Windows). Do not install `agent-browser` globally.
@@ -179,7 +187,7 @@ Validation flow:
 7. On Linux, verify missing shared-library launch failures produce OS instruction/container fallback detail. Doctor owns this remediation; browser-pack build/install does not manage compiler stacks or host shared libraries.
 8. Test uninstall from Runtime settings and confirm state returns to `installable`.
 
-Local archives stay in `apps/desktop/dist/browser-pack/2026-05-16/<slug>.tar.gz` and are not committed. Generated digest metadata is committed at `apps/desktop/electron/features/workspace/runtime/browser-pack/generated-artifacts.json`. Production publishing is a future handoff: upload archives to `browser-pack/2026-05-16/<slug>.tar.gz` on the downloads origin/CDN; CI/CD publishing automation is out of scope for this initial flow.
+Local archives stay in `apps/desktop/dist/browser-pack/2026-05-16/<slug>.tar.gz` and are not committed. Generated digest metadata is committed at `apps/desktop/electron/features/workspace/runtime/browser-pack/generated-artifacts.json`. For this PR, the only published installable artifact is macOS Apple Silicon (`browser-darwin-arm64`). Linux, Windows, and Intel macOS testers must use the local artifact flow above or switch to Docker/Apple Container for browser automation until published artifacts exist.
 
 ## 2. Container runtime smoke
 

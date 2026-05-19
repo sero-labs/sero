@@ -147,7 +147,7 @@ Expected:
 
 - The selected backend is `host`.
 - Core tools are `ready`, `installing`, `missing`, or `failed` with install/retry detail.
-- Browser automation is `installable` until the browser pack is installed and launchable.
+- Browser automation is `missing`/non-installable without a locally served Windows pack, then `installable` until that local pack is installed and launchable.
 - Native build tools are informational only. Sero must not claim it will install Visual Studio Build Tools, MSVC, Windows SDK, or compiler stacks as managed tools.
 
 ### 4.3 Verify managed tool storage
@@ -244,20 +244,25 @@ Expected:
 
 ### 4.8 Browser automation pack on Host
 
-1. Open Runtime settings.
-2. Confirm browser automation is shown as installable, not ready, if the pack is absent.
-3. Click install for the browser automation pack.
-4. Watch progress until complete.
-5. Confirm files are under `%USERPROFILE%\.sero-ui\toolchains\<manifest-version>\browser\` and `.installed` exists.
-6. Re-run diagnostics.
-7. Trigger browser automation from the agent/tooling, for example by asking for a browser screenshot of a local preview.
-8. Uninstall the browser pack from Runtime settings.
+Published browser-pack install is not available for Windows in this PR. Test Windows host browser automation with a locally built/served current-platform pack, or use Docker Desktop for preinstalled container browser automation.
+
+1. Build and serve a local Windows browser pack using the flow in [`../../runtime-smoke.md`](../../runtime-smoke.md#local-host-browser-pack-artifact-smoke), adapted for PowerShell/Git Bash paths.
+2. Start Sero with `SERO_BROWSER_PACK_BASE_URL` pointing at that local server.
+3. Open Runtime settings.
+4. Confirm browser automation is shown as installable, not ready, when the local pack is absent.
+5. Click install for the browser automation pack.
+6. Watch progress until complete.
+7. Confirm files are under `%USERPROFILE%\.sero-ui\toolchains\<manifest-version>\browser\` and `.installed` exists.
+8. Re-run diagnostics.
+9. Trigger browser automation from the agent/tooling, for example by asking for a browser screenshot of a local preview.
+10. Uninstall the browser pack from Runtime settings.
 
 Expected:
 
+- Without a local artifact override, Windows reports the published pack as unavailable/non-installable and offers container fallback.
 - Duplicate install clicks attach to the same in-flight install.
 - Browser automation becomes ready only after install and launch checks pass.
-- Uninstall returns the state to installable.
+- Uninstall returns the state to installable when a local installable artifact was used.
 
 ## 5. Docker runtime tests
 
@@ -387,5 +392,5 @@ Mark the Windows run as pass only if:
 - Host terminal uses a verified Git Bash/MSYS-compatible shell, not WSL/PowerShell/cmd as the workspace shell.
 - Managed tool and browser pack states are visible and actionable.
 - Docker works as an optional container runtime with correct Windows-to-Linux path mapping.
-- Browser automation works in Docker and works on Host after browser pack install.
+- Browser automation works in Docker and works on Host after local browser pack install, or reports the published artifact as unavailable.
 - Native build failures point to OS tools or container fallback, not Sero-managed compiler installs.

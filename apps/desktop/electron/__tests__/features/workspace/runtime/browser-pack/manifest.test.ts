@@ -74,6 +74,14 @@ describe('browser pack manifest', () => {
     }
   });
 
+  it('release-gates published browser-pack install to macOS Apple Silicon until more artifacts are built', () => {
+    const builtKeys = Object.entries(generatedArtifacts.artifacts)
+      .filter(([, artifact]) => isBuiltGeneratedArtifact(artifact))
+      .map(([key]) => key);
+
+    expect(builtKeys).toEqual(['browser-darwin-arm64']);
+  });
+
   it('uses production download URLs, valid sha, and non-zero sizes for built artifacts by default', () => {
     const manifest = getBrowserPackManifest();
     const builtArtifacts = Object.values(generatedArtifacts.artifacts).filter(isBuiltGeneratedArtifact);

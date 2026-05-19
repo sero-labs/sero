@@ -16,7 +16,7 @@ Use this checklist before shipping runtime changes. Sero covers local direct-hos
 
 Host is the flag-gated default for new workspaces on supported platforms when `SERO_HOST_FIRST=1`. Existing workspaces keep their persisted backend. With the flag off, legacy container defaults remain until rollout.
 
-Browser automation on host requires the installable browser pack. Docker/Podman and Apple Container provide browser automation from the image. Native build tools are not Sero-managed on host; use platform-installed compiler stacks or switch to a container runtime.
+Browser automation on host requires the browser pack. For this PR, the only published installable browser-pack artifact is macOS Apple Silicon (`browser-darwin-arm64`); Linux, Windows, and Intel macOS require the local artifact smoke flow or a container runtime for browser automation until their artifacts are published. Docker/Podman and Apple Container provide browser automation from the image. Native build tools are not Sero-managed on host; use platform-installed compiler stacks or switch to a container runtime.
 
 ## Core host checklist
 
@@ -52,7 +52,7 @@ Run on macOS, Linux, and Windows x64 with backend ID `host`.
 
 ## Host browser pack checks
 
-Run on macOS, Linux, and Windows x64 host.
+Run published install smoke on macOS Apple Silicon host. On Linux, Windows x64, and Intel macOS, use the local artifact smoke below or validate browser automation through Docker/Podman.
 
 ### Local host browser-pack artifact smoke
 
@@ -86,12 +86,12 @@ Artifact rules:
 - Staging output is under `apps/desktop/dist/browser-pack/work/...` and must not be committed.
 - Generated metadata/digests are committed in `apps/desktop/electron/features/workspace/runtime/browser-pack/generated-artifacts.json`.
 - The pack unpacks directly into the installer `browser` root and includes Playwright Chromium, Playwright ffmpeg, and pack-local `agent-browser/bin/agent-browser`; no global `npm install -g agent-browser` is required.
-- Production publishing is a future handoff: upload the same archives to `browser-pack/2026-05-16/<slug>.tar.gz` under the downloads origin/CDN. CI/CD upload automation is out of this initial scope.
+- Production publishing beyond macOS Apple Silicon is a future handoff: upload the same archives to `browser-pack/2026-05-16/<slug>.tar.gz` under the downloads origin/CDN and update generated metadata to `available: true` with URL, SHA, and size. CI/CD upload automation is out of this initial scope.
 
 ### UI install and automation smoke
 
-1. With browser pack absent, confirm runtime diagnostics show browser automation as `installable`, not ready.
-2. Trigger install from onboarding/settings or first browser tool use. When testing a local artifact, keep the static server running and start Sero with `SERO_BROWSER_PACK_BASE_URL` as shown above.
+1. With browser pack absent on macOS Apple Silicon, confirm runtime diagnostics show browser automation as `installable`, not ready. On Linux, Windows, and Intel macOS without `SERO_BROWSER_PACK_BASE_URL`, confirm diagnostics show the published artifact as unavailable/non-installable with container fallback.
+2. Trigger install from onboarding/settings or first browser tool use only when a published or local artifact is available. When testing a local artifact, keep the static server running and start Sero with `SERO_BROWSER_PACK_BASE_URL` as shown above.
 3. Confirm large-download copy, progress, retryable failure detail, and in-flight dedupe behavior.
 4. After install, confirm status is `ready` only after Doctor launch checks pass.
 5. Confirm installed files live under `~/.sero-ui/toolchains/<manifest-version>/browser/`, including Chromium, ffmpeg, pack-local `agent-browser`, `browser-manifest.json`, and `.installed`.
