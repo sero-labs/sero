@@ -8,7 +8,7 @@ A **browser pack** is a `.tar.gz` archive containing the pinned Chromium, ffmpeg
 
 PR #185 requires these four artifacts:
 
-| Machine you must use to build it | Artifact file that must be uploaded | Metadata sidecar produced by build |
+| Machine you must use to build it | Browser-pack asset | Metadata sidecar asset |
 | --- | --- | --- |
 | Apple Silicon Mac | `mac-arm64.tar.gz` | `mac-arm64.json` |
 | Linux x64 machine | `linux-x64.tar.gz` | `linux-x64.json` |
@@ -112,9 +112,12 @@ apps/desktop/dist/browser-pack/2026-05-16/linux-x64.tar.gz
 apps/desktop/dist/browser-pack/2026-05-16/linux-x64.json
 ```
 
-## Step 3 — upload the artifact from that machine
+## Step 3 — upload the artifact and sidecar from that machine
 
-Upload the `.tar.gz` file created in Step 2.
+Upload both files created in Step 2:
+
+- the `.tar.gz` installable browser pack
+- the small `.json` sidecar with the SHA-256 and size metadata needed for `generated-artifacts.json`
 
 Use the correct command for the current machine:
 
@@ -123,6 +126,7 @@ Use the correct command for the current machine:
 ```bash
 gh release upload browser-pack-2026-05-16 \
   apps/desktop/dist/browser-pack/2026-05-16/mac-arm64.tar.gz \
+  apps/desktop/dist/browser-pack/2026-05-16/mac-arm64.json \
   --repo sero-labs/sero \
   --clobber
 ```
@@ -132,6 +136,7 @@ gh release upload browser-pack-2026-05-16 \
 ```bash
 gh release upload browser-pack-2026-05-16 \
   apps/desktop/dist/browser-pack/2026-05-16/linux-x64.tar.gz \
+  apps/desktop/dist/browser-pack/2026-05-16/linux-x64.json \
   --repo sero-labs/sero \
   --clobber
 ```
@@ -141,6 +146,7 @@ gh release upload browser-pack-2026-05-16 \
 ```bash
 gh release upload browser-pack-2026-05-16 \
   apps/desktop/dist/browser-pack/2026-05-16/linux-arm64.tar.gz \
+  apps/desktop/dist/browser-pack/2026-05-16/linux-arm64.json \
   --repo sero-labs/sero \
   --clobber
 ```
@@ -152,13 +158,25 @@ Run from Git Bash, not PowerShell:
 ```bash
 gh release upload browser-pack-2026-05-16 \
   apps/desktop/dist/browser-pack/2026-05-16/win-x64.tar.gz \
+  apps/desktop/dist/browser-pack/2026-05-16/win-x64.json \
   --repo sero-labs/sero \
   --clobber
 ```
 
-## Step 4 — collect all sidecar JSON files onto one machine
+## Step 4 — download all sidecar JSON files onto one machine
 
-After all four machines have built their artifacts, collect these four `.json` files into one checkout:
+After all four machines upload their `.json` sidecars, download them into one checkout with a single command:
+
+```bash
+mkdir -p apps/desktop/dist/browser-pack/2026-05-16
+gh release download browser-pack-2026-05-16 \
+  --repo sero-labs/sero \
+  --pattern '*.json' \
+  --dir apps/desktop/dist/browser-pack/2026-05-16 \
+  --clobber
+```
+
+This should create:
 
 ```txt
 apps/desktop/dist/browser-pack/2026-05-16/mac-arm64.json
@@ -167,7 +185,7 @@ apps/desktop/dist/browser-pack/2026-05-16/linux-arm64.json
 apps/desktop/dist/browser-pack/2026-05-16/win-x64.json
 ```
 
-You can copy them manually, download them from CI artifacts, or transfer them with `scp`. Do not commit these sidecar files.
+Do not commit these sidecar files.
 
 ## Step 5 — merge sidecars into committed metadata
 
