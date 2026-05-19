@@ -4,6 +4,7 @@ import path from 'path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import generatedArtifacts from '@electron/features/workspace/runtime/browser-pack/generated-artifacts.json';
+import { HOST_RELEASE_TARGETS } from '@electron/features/workspace/runtime/host-support-matrix';
 import {
   createBrowserPackManifest,
   findBrowserArtifact,
@@ -74,12 +75,27 @@ describe('browser pack manifest', () => {
     }
   });
 
-  it('release-gates published browser-pack install to macOS Apple Silicon until more artifacts are built', () => {
-    const builtKeys = Object.entries(generatedArtifacts.artifacts)
-      .filter(([, artifact]) => isBuiltGeneratedArtifact(artifact))
-      .map(([key]) => key);
+  it('keeps generated browser-pack metadata aligned with the host release matrix', () => {
+    const requiredKeys = HOST_RELEASE_TARGETS
+      .filter((target) => target.releaseSupported && target.browserPackRequired)
+      .map((target) => `browser-${target.platform}-${target.arch}`)
+      .sort();
+    const unsupportedKeys = HOST_RELEASE_TARGETS
+      .filter((target) => !target.releaseSupported || !target.browserPackRequired)
+      .map((target) => `browser-${target.platform}-${target.arch}`)
+      .sort();
 
-    expect(builtKeys).toEqual(['browser-darwin-arm64']);
+    expect(Object.keys(generatedArtifacts.artifacts).sort()).toEqual([...requiredKeys, ...unsupportedKeys].sort());
+    for (const key of requiredKeys) {
+      const artifact = generatedArtifacts.artifacts[key as keyof typeof generatedArtifacts.artifacts];
+      expect(artifact).toBeDefined();
+      expect(['built', 'pending']).toContain(artifact.status);
+    }
+    for (const key of unsupportedKeys) {
+      const artifact = generatedArtifacts.artifacts[key as keyof typeof generatedArtifacts.artifacts];
+      expect(artifact).toBeDefined();
+      expect(artifact.available).toBe(false);
+    }
   });
 
   it('uses production download URLs, valid sha, and non-zero sizes for built artifacts by default', () => {

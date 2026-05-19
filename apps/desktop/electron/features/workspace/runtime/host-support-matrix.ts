@@ -1,3 +1,5 @@
+import hostReleaseTargets from './host-support-matrix.json';
+
 export interface HostReleaseTarget {
   readonly platform: NodeJS.Platform;
   readonly arch: 'x64' | 'arm64';
@@ -8,57 +10,7 @@ export interface HostReleaseTarget {
   readonly notes?: string;
 }
 
-export const HOST_RELEASE_TARGETS = [
-  {
-    platform: 'darwin',
-    arch: 'arm64',
-    releaseSupported: true,
-    hostDefault: true,
-    browserPackRequired: true,
-    packagedAppRequired: true,
-  },
-  {
-    platform: 'darwin',
-    arch: 'x64',
-    releaseSupported: true,
-    hostDefault: true,
-    browserPackRequired: true,
-    packagedAppRequired: true,
-  },
-  {
-    platform: 'linux',
-    arch: 'x64',
-    releaseSupported: true,
-    hostDefault: true,
-    browserPackRequired: true,
-    packagedAppRequired: true,
-  },
-  {
-    platform: 'linux',
-    arch: 'arm64',
-    releaseSupported: true,
-    hostDefault: true,
-    browserPackRequired: true,
-    packagedAppRequired: true,
-  },
-  {
-    platform: 'win32',
-    arch: 'x64',
-    releaseSupported: true,
-    hostDefault: true,
-    browserPackRequired: true,
-    packagedAppRequired: true,
-  },
-  {
-    platform: 'win32',
-    arch: 'arm64',
-    releaseSupported: false,
-    hostDefault: false,
-    browserPackRequired: false,
-    packagedAppRequired: false,
-    notes: 'Future: needs Windows ARM runner/package/browser-pack smoke.',
-  },
-] as const satisfies readonly HostReleaseTarget[];
+export const HOST_RELEASE_TARGETS = hostReleaseTargets as readonly HostReleaseTarget[];
 
 export function getHostReleaseTarget(platform: NodeJS.Platform, arch: string): HostReleaseTarget | undefined {
   return HOST_RELEASE_TARGETS.find((target) => target.platform === platform && target.arch === arch);
