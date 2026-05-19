@@ -90,7 +90,3 @@ test('creates and disposes a host terminal', async () => {
 
   expect(replay).toContain(path.basename(wsDir));
 });
-
-test.skip('host LSP, dev-server preview, and browser-pack install flows are deferred until deterministic UI hooks exist', async () => {
-  // Avoid installing toolchains or browser packs during Phase 2 workflow smoke.
-});
