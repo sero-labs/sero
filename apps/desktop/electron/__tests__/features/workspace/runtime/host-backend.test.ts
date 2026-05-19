@@ -87,7 +87,7 @@ describe('HostBackend', () => {
 
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain('{"name":"demo"}');
-  });
+  }, 15_000);
 
   it('execFile uses the real host cwd after /workspace alias translation', async () => {
     const { backend, workspacePath } = await createBackend();

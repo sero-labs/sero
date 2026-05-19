@@ -90,7 +90,7 @@ describe('PosixHostSubstrate', () => {
   });
 
   it('signals child processes directly', async () => {
-    const substrate = createPosixHostSubstrate();
+    const substrate = createPosixHostSubstrate({ tools: createMockTools() });
     const child = { kill: vi.fn() } as unknown as ChildProcess;
     const rendered = await substrate.shellCommand({ command: 'sleep 30', cwd: '/tmp/workspace' });
 
