@@ -31,7 +31,12 @@ describe('host runtime process environment', () => {
   it('does not inherit credential-adjacent Git or package-manager variables', async () => {
     vi.stubEnv('GIT_ASKPASS', '/tmp/askpass');
     vi.stubEnv('GIT_TERMINAL_PROMPT', '0');
+    vi.stubEnv('GIT_AUTHOR_NAME', 'Test Author');
+    vi.stubEnv('GIT_AUTHOR_EMAIL', 'author@example.test');
+    vi.stubEnv('GIT_COMMITTER_NAME', 'Test Committer');
+    vi.stubEnv('GIT_COMMITTER_EMAIL', 'committer@example.test');
     vi.stubEnv('GIT_CREDENTIAL_HELPER', 'store');
+    vi.stubEnv('SSH_AUTH_SOCK', '/tmp/agent.sock');
     vi.stubEnv('NPM_CONFIG__AUTH_TOKEN', 'npm-secret');
     vi.stubEnv('npm_config__authToken', 'npm-secret');
     vi.stubEnv('npm_config_cache', '/tmp/npm-cache');
@@ -44,11 +49,16 @@ describe('host runtime process environment', () => {
 
     expect(env.GIT_ASKPASS).toBeUndefined();
     expect(env.GIT_CREDENTIAL_HELPER).toBeUndefined();
+    expect(env.SSH_AUTH_SOCK).toBeUndefined();
     expect(env.NPM_CONFIG__AUTH_TOKEN).toBeUndefined();
     expect(env.npm_config__authToken).toBeUndefined();
     expect(env.MY_PASSWORD).toBeUndefined();
     expect(env.CUSTOM_TOKEN).toBeUndefined();
     expect(env.GIT_TERMINAL_PROMPT).toBe('0');
+    expect(env.GIT_AUTHOR_NAME).toBe('Test Author');
+    expect(env.GIT_AUTHOR_EMAIL).toBe('author@example.test');
+    expect(env.GIT_COMMITTER_NAME).toBe('Test Committer');
+    expect(env.GIT_COMMITTER_EMAIL).toBe('committer@example.test');
     expect(env.npm_config_cache).toBe('/tmp/npm-cache');
     expect(env.SAFE_VALUE).toBe('ok');
   });

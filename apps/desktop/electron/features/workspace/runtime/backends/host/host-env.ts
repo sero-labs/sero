@@ -20,6 +20,12 @@ const SAFE_INHERITED_ENV_KEYS = new Set([
   'SSL_CERT_FILE',
   'SSL_CERT_DIR',
   'GIT_TERMINAL_PROMPT',
+  'GIT_AUTHOR_NAME',
+  'GIT_AUTHOR_EMAIL',
+  'GIT_AUTHOR_DATE',
+  'GIT_COMMITTER_NAME',
+  'GIT_COMMITTER_EMAIL',
+  'GIT_COMMITTER_DATE',
   'npm_config_cache',
   'npm_config_prefix',
   'npm_config_user_agent',
@@ -37,7 +43,9 @@ const SAFE_INHERITED_ENV_KEYS = new Set([
 ]);
 
 const SAFE_INHERITED_ENV_PREFIXES = ['LC_'];
-const SECRET_ENV_KEY_PATTERN = /(token|auth|password|passwd|credential|secret|askpass)/i;
+// Do not forward SSH_AUTH_SOCK to generic agent-run host commands. It is not a secret string,
+// but it grants access to the user's SSH agent and should be opt-in for trusted flows.
+const SECRET_ENV_KEY_PATTERN = /(token|password|passwd|credential|secret|askpass|authorization|(^|[_-])auth($|[_-]|token))/i;
 
 export async function createHostProcessEnv(
   workspaceId: string,

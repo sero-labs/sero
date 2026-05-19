@@ -112,6 +112,7 @@ export function addSeroCliEnv(
 
   if (bridgeConnection && options.workspaceId) {
     next.SERO_CLI_ENDPOINT = bridgeConnection.endpoint;
+    // Host bridge tokens are single-use: each spawned host process gets one shim invocation.
     next.SERO_CLI_TOKEN = mintSeroCliBridgeToken({
       workspaceId: options.workspaceId,
       sessionId: options.sessionId ?? null,
