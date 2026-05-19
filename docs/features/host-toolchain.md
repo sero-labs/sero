@@ -55,7 +55,7 @@ Host browser automation is install-state-aware:
 - `ready`: pack is installed and Doctor launch checks pass.
 - `failed`: install or launch failed; retry and container fallback details should be shown.
 
-The host release matrix targets macOS arm64/x64, Linux x64/arm64, and Windows x64 browser-pack publication; Windows arm64 remains future/unsupported. See [`../reference/host-mode-support.md`](../reference/host-mode-support.md) for the platform table and release gates. The final support claim is blocked until every release-supported artifact is published to GitHub Releases and `pnpm --filter @sero/desktop browser-pack:verify-published` passes. The pack lives below the same fixed toolchain root, under `~/.sero-ui/toolchains/<manifest-version>/browser/`, with its own `.installed` marker. It includes pinned browser/driver/ffmpeg metadata and platform-specific executable candidates.
+The host release matrix targets macOS arm64, Linux x64/arm64, and Windows x64 browser-pack publication; macOS x64 and Windows arm64 remain future/unsupported. See [`../reference/host-mode-support.md`](../reference/host-mode-support.md) for the platform table and release gates. The final support claim is blocked until every release-supported artifact is published to GitHub Releases and `pnpm --filter @sero/desktop browser-pack:verify-published` passes. The pack lives below the same fixed toolchain root, under `~/.sero-ui/toolchains/<manifest-version>/browser/`, with its own `.installed` marker. It includes pinned browser/driver/ffmpeg metadata and platform-specific executable candidates.
 
 Docker/Podman and Apple Container continue to provide browser automation from the runtime image/container environment without requiring the host browser pack.
 

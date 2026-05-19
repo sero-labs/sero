@@ -5,7 +5,7 @@ Host-mode support follows `HOST_RELEASE_TARGETS` in `apps/desktop/electron/featu
 | Platform | Arch | Host runtime | Host browser pack | Packaged app | Status |
 | --- | --- | --- | --- | --- | --- |
 | macOS | arm64 | Supported with `SERO_HOST_FIRST=1` | Required published GitHub Release artifact (`browser-darwin-arm64`) | DMG/ZIP | Release-supported target |
-| macOS | x64 | Supported with `SERO_HOST_FIRST=1` | Required published GitHub Release artifact (`browser-darwin-x64`) | DMG/ZIP | Release-supported target; blocked until artifact/workflow gate passes |
+| macOS | x64 | Unsupported | Not published | Not published | Future/unsupported |
 | Linux | x64 | Supported with `SERO_HOST_FIRST=1` | Required published GitHub Release artifact (`browser-linux-x64`) | AppImage/deb/tar.gz | Release-supported target; blocked until artifact/workflow gate passes |
 | Linux | arm64 | Supported with `SERO_HOST_FIRST=1` | Required published GitHub Release artifact (`browser-linux-arm64`) | AppImage/deb/tar.gz | Release-supported target; blocked until artifact/workflow gate passes |
 | Windows | x64 | Supported with `SERO_HOST_FIRST=1` | Required published GitHub Release artifact (`browser-win32-x64`) | NSIS/ZIP | Release-supported target; blocked until artifact/workflow gate passes |
@@ -26,7 +26,7 @@ pnpm --filter @sero/desktop browser-pack:verify-published
 pnpm --filter @sero/desktop verify:host-mode-release
 ```
 
-Then run the `host-mode-release` workflow. The workflow is the platform gate for host smoke and packaged app artifacts on macOS, Linux, and Windows x64.
+Then run the `host-mode-release` workflow. The workflow is the platform gate for host smoke and packaged app artifacts on macOS arm64, Linux, and Windows x64.
 
 ## Local artifact diagnostic path
 

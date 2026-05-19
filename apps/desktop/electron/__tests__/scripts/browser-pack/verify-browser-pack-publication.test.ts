@@ -80,15 +80,19 @@ describe('verify-browser-pack-publication', () => {
     const metadata = createBuiltMetadata();
     metadata.artifacts['browser-win32-arm64'] = createPendingArtifact('win32', 'arm64', 'win-arm64');
 
+    metadata.artifacts['browser-darwin-x64'] = createPendingArtifact('darwin', 'x64', 'mac-x64');
+
     await expect(verify(metadata)).resolves.toEqual({
       verifiedKeys: [
         'browser-darwin-arm64',
-        'browser-darwin-x64',
         'browser-linux-x64',
         'browser-linux-arm64',
         'browser-win32-x64',
       ],
-      warnings: ['browser-win32-arm64 is explicitly unsupported/future and remains pending'],
+      warnings: [
+        'browser-darwin-x64 is explicitly unsupported/future and remains pending',
+        'browser-win32-arm64 is explicitly unsupported/future and remains pending',
+      ],
     });
   });
 });

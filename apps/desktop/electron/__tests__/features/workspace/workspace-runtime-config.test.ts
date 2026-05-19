@@ -50,7 +50,7 @@ describe('workspace runtime config migration', () => {
     await Promise.all(tempDirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })));
   });
 
-  it('defines the host release support matrix and Windows ARM future policy', () => {
+  it('defines the host release support matrix and unsupported future policies', () => {
     expect(HOST_RELEASE_TARGETS).toEqual([
       {
         platform: 'darwin',
@@ -63,10 +63,11 @@ describe('workspace runtime config migration', () => {
       {
         platform: 'darwin',
         arch: 'x64',
-        releaseSupported: true,
-        hostDefault: true,
-        browserPackRequired: true,
-        packagedAppRequired: true,
+        releaseSupported: false,
+        hostDefault: false,
+        browserPackRequired: false,
+        packagedAppRequired: false,
+        notes: 'Future: Intel Mac support is not part of this release matrix.',
       },
       {
         platform: 'linux',

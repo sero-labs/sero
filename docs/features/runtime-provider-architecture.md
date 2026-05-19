@@ -4,7 +4,7 @@ Status: host-first local runtime architecture.
 
 Sero supports local, live workspace runtimes through three canonical backend IDs:
 
-- `host` — direct host runtime on macOS, Linux, and Windows x64.
+- `host` — direct host runtime on macOS Apple Silicon, Linux, and Windows x64.
 - `docker` — Docker-compatible execution through Docker Desktop, Docker Engine, or Podman.
 - `apple-container` — Apple Container on supported macOS hosts.
 
@@ -43,7 +43,8 @@ Detailed platform/arch release status lives in [`../reference/host-mode-support.
 
 | Platform | Arch | Host runtime | Host browser pack | Packaged app | Status |
 | --- | --- | --- | --- | --- | --- |
-| macOS | arm64/x64 | Supported with `SERO_HOST_FIRST=1` | Required published GitHub Release artifact | DMG/ZIP | Release-supported target |
+| macOS | arm64 | Supported with `SERO_HOST_FIRST=1` | Required published GitHub Release artifact | DMG/ZIP | Release-supported target |
+| macOS | x64 | Unsupported | Not published | Not published | Future/unsupported |
 | Linux | x64/arm64 | Supported with `SERO_HOST_FIRST=1` | Required published GitHub Release artifact | AppImage/deb/tar.gz | Release-supported target |
 | Windows | x64 | Supported with `SERO_HOST_FIRST=1` | Required published GitHub Release artifact | NSIS/ZIP | Release-supported target |
 | Windows | arm64 | Not defaulted | Not published | Not published | Future/unsupported |
@@ -89,7 +90,7 @@ Sero does not mutate global Corepack, npm prefixes, shell profiles, or machine P
 
 ### Host
 
-- Runs directly against the real host workspace path on macOS, Linux, and Windows x64.
+- Runs directly against the real host workspace path on release-supported macOS Apple Silicon, Linux, and Windows x64.
 - Uses resolver-backed shell/tool selection and per-process PATH preparation.
 - On Windows, uses native Windows paths and a verified Git Bash/MSYS-compatible shell; WSL is not the default host strategy.
 - Translates renderer/API `/workspace` aliases in the main process.
@@ -120,7 +121,7 @@ The host-first default is rollout-flagged:
 
 | Condition | Default local runtime |
 | --- | --- |
-| `SERO_HOST_FIRST=1` and release-supported macOS arm64/x64, Linux x64/arm64, or Windows x64 | Host |
+| `SERO_HOST_FIRST=1` and release-supported macOS arm64, Linux x64/arm64, or Windows x64 | Host |
 | Existing persisted workspace config | Persisted `runtime.backend` |
 | Global workspace on supported host platform | Host |
 | Flag off, macOS Apple Silicon | Apple Container |

@@ -30,7 +30,7 @@ let desktopRoot: string;
 
 const matrix: readonly FixtureTarget[] = [
   { platform: 'darwin', arch: 'arm64', releaseSupported: true, browserPackRequired: true },
-  { platform: 'darwin', arch: 'x64', releaseSupported: true, browserPackRequired: true },
+  { platform: 'darwin', arch: 'x64', releaseSupported: false, browserPackRequired: false },
   { platform: 'linux', arch: 'x64', releaseSupported: true, browserPackRequired: true },
   { platform: 'linux', arch: 'arm64', releaseSupported: true, browserPackRequired: true },
   { platform: 'win32', arch: 'x64', releaseSupported: true, browserPackRequired: true },
@@ -90,7 +90,6 @@ describe('verify-host-mode-release', () => {
     await expect(verifyFixture()).resolves.toMatchObject({
       requiredArtifactKeys: [
         'browser-darwin-arm64',
-        'browser-darwin-x64',
         'browser-linux-x64',
         'browser-linux-arm64',
         'browser-win32-x64',
@@ -158,7 +157,7 @@ jobs:
       matrix:
         include:
           - os: macos
-            runner: [self-hosted, macos]
+            runner: [self-hosted, macos, ARM64]
             dist: dist:mac
           - os: linux
             runner: [self-hosted, sero-linux]

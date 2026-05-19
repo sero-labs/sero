@@ -51,11 +51,9 @@ mac:
     - target: dmg
       arch:
         - arm64
-        - x64
     - target: zip
       arch:
         - arm64
-        - x64
   category: public.app-category.developer-tools
   # Icon auto-discovered from build/ directory.
   # Generate with: bash scripts/generate-icon.sh path/to/1024x1024.png

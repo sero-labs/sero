@@ -6,7 +6,8 @@ Use this checklist before shipping runtime changes. Sero covers local direct-hos
 
 | Platform | Arch | Backend | Coverage |
 | --- | --- | --- | --- |
-| macOS | arm64/x64 | Host | Required when `SERO_HOST_FIRST=1` |
+| macOS | arm64 | Host | Required when `SERO_HOST_FIRST=1` |
+| macOS | x64 | Host | Future/unsupported; do not use for release sign-off |
 | Linux | x64/arm64 | Host | Required when `SERO_HOST_FIRST=1` |
 | Windows | x64 | Host | Required when `SERO_HOST_FIRST=1` |
 | Windows | arm64 | Host | Future/unsupported; not defaulted |
@@ -17,7 +18,7 @@ Use this checklist before shipping runtime changes. Sero covers local direct-hos
 
 Host is the flag-gated default for new workspaces on supported platforms when `SERO_HOST_FIRST=1`. Existing workspaces keep their persisted backend. With the flag off, legacy container defaults remain until rollout.
 
-Browser automation on host requires the browser pack. The release target matrix is documented in [`host-mode-support.md`](./host-mode-support.md): macOS arm64/x64, Linux x64/arm64, and Windows x64 are release-supported targets; Windows arm64 is future/unsupported. Supported-platform install uses published GitHub Release browser-pack artifacts verified by `pnpm --filter @sero/desktop browser-pack:verify-published`. Until pending entries in `generated-artifacts.json` are published and the `host-mode-release` workflow passes, the release claim remains blocked. Docker/Podman and Apple Container provide browser automation from the image. Native build tools are not Sero-managed on host; use platform-installed compiler stacks or switch to a container runtime.
+Browser automation on host requires the browser pack. The release target matrix is documented in [`host-mode-support.md`](./host-mode-support.md): macOS arm64, Linux x64/arm64, and Windows x64 are release-supported targets; macOS x64 and Windows arm64 are future/unsupported. Supported-platform install uses published GitHub Release browser-pack artifacts verified by `pnpm --filter @sero/desktop browser-pack:verify-published`. Until pending entries in `generated-artifacts.json` are published and the `host-mode-release` workflow passes, the release claim remains blocked. Docker/Podman and Apple Container provide browser automation from the image. Native build tools are not Sero-managed on host; use platform-installed compiler stacks or switch to a container runtime.
 
 Required release gates:
 
@@ -31,7 +32,7 @@ Then run the `host-mode-release` workflow.
 
 ## Core host checklist
 
-Run on macOS, Linux, and Windows x64 with backend ID `host`.
+Run on release-supported macOS Apple Silicon, Linux, and Windows x64 with backend ID `host`.
 
 1. Start Sero with host-first defaults enabled:
    ```bash

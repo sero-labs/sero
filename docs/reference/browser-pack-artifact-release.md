@@ -6,17 +6,16 @@ A **browser pack** is a `.tar.gz` archive containing the pinned Chromium, ffmpeg
 
 ## Required artifacts
 
-PR #185 requires these five artifacts:
+PR #185 requires these four artifacts:
 
 | Machine you must use to build it | Artifact file that must be uploaded | Metadata sidecar produced by build |
 | --- | --- | --- |
 | Apple Silicon Mac | `mac-arm64.tar.gz` | `mac-arm64.json` |
-| Intel Mac | `mac-x64.tar.gz` | `mac-x64.json` |
 | Linux x64 machine | `linux-x64.tar.gz` | `linux-x64.json` |
 | Linux arm64 machine | `linux-arm64.tar.gz` | `linux-arm64.json` |
 | Windows x64 machine using Git Bash | `win-x64.tar.gz` | `win-x64.json` |
 
-Windows arm64 is intentionally not part of this release.
+Intel Mac/macOS x64 and Windows arm64 are intentionally not part of this release.
 
 **Important:** do not try to build another platform's artifact from your current machine. The build script intentionally blocks that because Playwright downloads browser binaries for the current OS/architecture only.
 
@@ -128,15 +127,6 @@ gh release upload browser-pack-2026-05-16 \
   --clobber
 ```
 
-### Intel Mac
-
-```bash
-gh release upload browser-pack-2026-05-16 \
-  apps/desktop/dist/browser-pack/2026-05-16/mac-x64.tar.gz \
-  --repo sero-labs/sero \
-  --clobber
-```
-
 ### Linux x64
 
 ```bash
@@ -168,11 +158,10 @@ gh release upload browser-pack-2026-05-16 \
 
 ## Step 4 — collect all sidecar JSON files onto one machine
 
-After all five machines have built their artifacts, collect these five `.json` files into one checkout:
+After all four machines have built their artifacts, collect these four `.json` files into one checkout:
 
 ```txt
 apps/desktop/dist/browser-pack/2026-05-16/mac-arm64.json
-apps/desktop/dist/browser-pack/2026-05-16/mac-x64.json
 apps/desktop/dist/browser-pack/2026-05-16/linux-x64.json
 apps/desktop/dist/browser-pack/2026-05-16/linux-arm64.json
 apps/desktop/dist/browser-pack/2026-05-16/win-x64.json
@@ -182,7 +171,7 @@ You can copy them manually, download them from CI artifacts, or transfer them wi
 
 ## Step 5 — merge sidecars into committed metadata
 
-From the checkout that has all five sidecars, run:
+From the checkout that has all four sidecars, run:
 
 ```bash
 pnpm --filter @sero/desktop browser-pack:merge-metadata -- \

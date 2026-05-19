@@ -52,7 +52,7 @@ describe('browser pack manifest', () => {
     }
   });
 
-  it('contains the full supported platform artifact matrix in generated metadata', () => {
+  it('contains the known browser-pack artifact matrix in generated metadata', () => {
     expect(Object.keys(generatedArtifacts.artifacts).sort()).toEqual([
       'browser-darwin-arm64',
       'browser-darwin-x64',

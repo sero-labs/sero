@@ -257,7 +257,7 @@ Expected:
 
 ### 4.8 Browser automation pack on Host
 
-macOS arm64 and x64 are release-supported browser-pack targets. Apple Silicon uses `browser-darwin-arm64`; Intel macOS uses `browser-darwin-x64`. Published install is the supported path only after the relevant GitHub Release artifact exists and `pnpm --filter @sero/desktop browser-pack:verify-published` passes. Local artifact smoke is only for validating an unpublished rebuild.
+macOS Apple Silicon uses `browser-darwin-arm64` and is the only macOS release-supported host browser-pack target in this PR. Intel Mac/macOS x64 is future/unsupported. Published install is the supported path only after the GitHub Release artifact exists and `pnpm --filter @sero/desktop browser-pack:verify-published` passes. Local artifact smoke is only for validating an unpublished rebuild.
 
 1. Open Runtime settings.
 2. Confirm browser automation is shown as installable, not ready, if the pack is absent.

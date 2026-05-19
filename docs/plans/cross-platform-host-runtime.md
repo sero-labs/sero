@@ -28,7 +28,7 @@ Windows host mode is native Windows execution with a verified Git Bash/MSYS-comp
 
 New workspace host defaulting is gated by `SERO_HOST_FIRST=1`:
 
-- With `SERO_HOST_FIRST=1`, new non-global workspaces default to `host` on supported macOS, Linux, and Windows x64.
+- With `SERO_HOST_FIRST=1`, new non-global workspaces default to `host` on supported macOS Apple Silicon, Linux, and Windows x64.
 - With the flag off, legacy non-global defaults remain in place during rollout.
 - The global workspace defaults to `host` on supported host platforms.
 - Existing persisted `runtime.backend` values remain authoritative.
@@ -63,7 +63,7 @@ Host browser automation is install-state-aware:
 - installed and Doctor-launchable: `ready`,
 - install/launch failure: `failed`, with retry or container fallback.
 
-For this PR, the only published installable browser-pack artifact is macOS Apple Silicon (`browser-darwin-arm64`). Linux, Windows, and Intel macOS host browser automation need a locally served artifact override or a container runtime until their artifacts are published. The browser pack is a large optional add-on stored under `~/.sero-ui/toolchains/<manifest-version>/browser/`. Docker/Podman and Apple Container provide browser automation through their runtime images.
+For this PR, macOS Apple Silicon (`browser-darwin-arm64`), Linux x64/arm64, and Windows x64 are release-supported browser-pack targets. Intel Mac/macOS x64 and Windows arm64 are future/unsupported. Release-supported browser automation is blocked until every required artifact is published and verified; use a container runtime until then. The browser pack is a large optional add-on stored under `~/.sero-ui/toolchains/<manifest-version>/browser/`. Docker/Podman and Apple Container provide browser automation through their runtime images.
 
 ## Validation before removing the flag
 

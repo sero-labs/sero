@@ -18,7 +18,7 @@ const requiredPackageScripts = [
 ];
 
 const workflowRequirements = [
-  { name: 'macOS', osToken: 'macos', runnerLabel: 'macos', distScript: 'dist:mac' },
+  { name: 'macOS', osToken: 'macos', runnerLabel: 'ARM64', distScript: 'dist:mac' },
   { name: 'Linux', osToken: 'linux', runnerLabel: 'sero-linux', distScript: 'dist:linux' },
   { name: 'Windows', osToken: 'windows', runnerLabel: 'sero-windows', distScript: 'dist:win' },
 ];

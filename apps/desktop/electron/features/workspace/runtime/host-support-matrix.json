@@ -10,10 +10,11 @@
   {
     "platform": "darwin",
     "arch": "x64",
-    "releaseSupported": true,
-    "hostDefault": true,
-    "browserPackRequired": true,
-    "packagedAppRequired": true
+    "releaseSupported": false,
+    "hostDefault": false,
+    "browserPackRequired": false,
+    "packagedAppRequired": false,
+    "notes": "Future: Intel Mac support is not part of this release matrix."
   },
   {
     "platform": "linux",

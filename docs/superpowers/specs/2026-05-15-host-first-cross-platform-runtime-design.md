@@ -4,7 +4,7 @@ Status: Draft (updated). Authored 2026-05-15; revised for host-first managed/on-
 
 ## Summary
 
-Make **host mode the default workspace runtime** on macOS, Linux, and Windows x64, while keeping container runtimes as an optional compatibility/sandbox upgrade. Host mode should feel close to container mode for day-to-day Sero functionality — file ops, Git, terminals, language servers, dev servers, previews, package installs, and browser automation — but without promising container-grade sandboxing or full Linux/native-build parity.
+Make **host mode the default workspace runtime** on macOS Apple Silicon, Linux, and Windows x64, while keeping container runtimes as an optional compatibility/sandbox upgrade. Host mode should feel close to container mode for day-to-day Sero functionality — file ops, Git, terminals, language servers, dev servers, previews, package installs, and browser automation — but without promising container-grade sandboxing or full Linux/native-build parity.
 
 The product rule is:
 
@@ -22,7 +22,7 @@ Browser automation is a major Sero feature. In host mode it is a **recommended l
 
 ## Goals
 
-- Host mode is the default for new workspaces on macOS, Linux, and Windows x64.
+- Host mode is the default for new workspaces on macOS Apple Silicon, Linux, and Windows x64.
 - Users should not manually install complex toolchains before Sero is useful.
 - Sero prefers compatible system tools to avoid unnecessary downloads.
 - Sero auto-installs required managed tools on first use when system tools are missing/incompatible.

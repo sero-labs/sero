@@ -26,7 +26,7 @@ jobs:
       matrix:
         include:
           - os: macos
-            runner: [self-hosted, macos]
+            runner: [self-hosted, macos, ARM64]
             dist: dist:mac
           - os: linux
             runner: [self-hosted, sero-linux]

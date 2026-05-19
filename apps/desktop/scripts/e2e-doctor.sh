@@ -32,7 +32,9 @@ require_cmd npx
 require_cmd git
 
 OS="$(uname -s)"
+ARCH="$(uname -m)"
 ok "OS: $OS"
+ok "arch: $ARCH"
 
 if [[ "$LAYER" == "workflow" || "$LAYER" == "all" ]]; then
   section "Workflow layer"
@@ -50,6 +52,9 @@ if [[ "$LAYER" == "workflow" || "$LAYER" == "all" ]]; then
   fi
   case "$OS" in
     Darwin)
+      if [[ "${SERO_E2E_HOST_RELEASE_SMOKE:-0}" == "1" && "$ARCH" != "arm64" ]]; then
+        bad "host release smoke supports macOS arm64 only; got $ARCH"
+      fi
       case "$RUNTIME" in
         host) ok "macOS host runtime selected" ;;
         apple-container)
@@ -61,6 +66,9 @@ if [[ "$LAYER" == "workflow" || "$LAYER" == "all" ]]; then
       esac
       ;;
     Linux)
+      if [[ "${SERO_E2E_HOST_RELEASE_SMOKE:-0}" == "1" && "$ARCH" != "x86_64" && "$ARCH" != "aarch64" && "$ARCH" != "arm64" ]]; then
+        bad "host release smoke supports Linux x64/arm64 only; got $ARCH"
+      fi
       case "$RUNTIME" in
         host) ok "Linux host runtime selected" ;;
         docker) require_cmd docker ;;
@@ -73,6 +81,9 @@ if [[ "$LAYER" == "workflow" || "$LAYER" == "all" ]]; then
       fi
       ;;
     MINGW*|MSYS*|CYGWIN*)
+      if [[ "${SERO_E2E_HOST_RELEASE_SMOKE:-0}" == "1" && "$ARCH" != "x86_64" ]]; then
+        bad "host release smoke supports Windows x64 only; got $ARCH"
+      fi
       case "$RUNTIME" in
         host) ok "Windows host runtime selected" ;;
         *) bad "unsupported Windows workflow runtime: $RUNTIME (expected host)" ;;
