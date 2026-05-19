@@ -3,8 +3,8 @@
  *
  * Project: workflow. Drives the chat input panel end-to-end:
  * open the chat, type a message, observe streaming state.
- * Requires a rendered Electron window — runs only via the
- * workflow project on macOS (host) or apple-container.
+ * Requires a rendered Electron window — runs via the workflow
+ * project on each supported OS/runtime pairing.
  */
 
 import { test, expect, type ElectronApplication, type Page } from '@playwright/test';

@@ -33,7 +33,7 @@ test.beforeAll(async () => {
   home = createTempSeroHome();
   ({ app, page } = await launchWorkflowApp({ home, runtime: 'host' }));
   await waitForShell(page);
-  wsDir = createWorkspaceDir(home.path, 'host runtime workspace', {
+  wsDir = createWorkspaceDir(home.path, 'host runtime workspace café', {
     'package.json': '{"scripts":{"dev":"node server.js"}}\n',
   });
   ws = await page.evaluate(async (folderPath) => {
@@ -66,9 +66,12 @@ test('creates, edits, renames, and deletes files on the host filesystem', async 
 });
 
 test('runs host exec commands at the workspace cwd', async () => {
-  const pwd = await page.evaluate((id) => window.sero.editor.exec(id, 'pwd'), ws.id);
-  expect(pwd.exitCode).toBe(0);
-  expect(fs.realpathSync(pwd.stdout.trim())).toBe(fs.realpathSync(wsDir));
+  expect(wsDir).toContain(' ');
+  expect(wsDir).toContain('é');
+
+  const cwd = await page.evaluate((id) => window.sero.editor.exec(id, 'node -e "console.log(process.cwd())"'), ws.id);
+  expect(cwd.exitCode).toBe(0);
+  expect(fs.realpathSync(cwd.stdout.trim())).toBe(fs.realpathSync(wsDir));
 
   const git = await page.evaluate((id) => window.sero.editor.exec(id, 'git status --short'), ws.id);
   expect(typeof git.stdout).toBe('string');

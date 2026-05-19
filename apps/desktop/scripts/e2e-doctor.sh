@@ -8,6 +8,7 @@
 set -euo pipefail
 
 LAYER="${1:-all}"
+RUNTIME="${SERO_E2E_RUNTIME:-host}"
 FAIL=0
 
 ok()   { printf '  \033[32m✓\033[0m %s\n' "$*"; }
@@ -33,14 +34,25 @@ ok "OS: $OS"
 
 if [[ "$LAYER" == "workflow" || "$LAYER" == "all" ]]; then
   section "Workflow layer"
+  ok "SERO_E2E_RUNTIME=$RUNTIME"
   case "$OS" in
     Darwin)
-      if command -v container >/dev/null 2>&1; then ok "apple container runtime"
-      else warn "container binary missing — apple-container tests will skip"
-      fi
+      case "$RUNTIME" in
+        host) ok "macOS host runtime selected" ;;
+        apple-container)
+          if command -v container >/dev/null 2>&1; then ok "apple container runtime"
+          else bad "container binary missing — apple-container workflow cannot run"
+          fi
+          ;;
+        *) bad "unsupported macOS workflow runtime: $RUNTIME (expected host or apple-container)" ;;
+      esac
       ;;
     Linux)
-      require_cmd docker
+      case "$RUNTIME" in
+        host) ok "Linux host runtime selected" ;;
+        docker) require_cmd docker ;;
+        *) bad "unsupported Linux workflow runtime: $RUNTIME (expected host or docker)" ;;
+      esac
       if [[ -n "${DISPLAY:-}" ]] || command -v xvfb-run >/dev/null 2>&1; then
         ok "display available (\$DISPLAY or xvfb-run)"
       else
@@ -48,6 +60,10 @@ if [[ "$LAYER" == "workflow" || "$LAYER" == "all" ]]; then
       fi
       ;;
     MINGW*|MSYS*|CYGWIN*)
+      case "$RUNTIME" in
+        host) ok "Windows host runtime selected" ;;
+        *) bad "unsupported Windows workflow runtime: $RUNTIME (expected host)" ;;
+      esac
       ok "Git Bash detected"
       ;;
     *)
