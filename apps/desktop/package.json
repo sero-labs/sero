@@ -27,6 +27,7 @@
     "browser-pack:smoke": "node scripts/browser-pack/smoke-browser-pack.mjs",
     "browser-pack:merge-metadata": "node scripts/browser-pack/merge-browser-pack-metadata.mjs",
     "browser-pack:verify-published": "node scripts/browser-pack/verify-browser-pack-publication.mjs",
+    "verify:host-mode-release": "node scripts/verify-host-mode-release.mjs",
     "release": "bash scripts/build-release.sh --target current",
     "release:signed": "bash scripts/build-release.sh --target current --sign",
     "pack": "bash scripts/build-release.sh --target current --dir",

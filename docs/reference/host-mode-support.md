@@ -23,6 +23,7 @@ Run these before claiming host-mode release support:
 pnpm typecheck
 pnpm test
 pnpm --filter @sero/desktop browser-pack:verify-published
+pnpm --filter @sero/desktop verify:host-mode-release
 ```
 
 Then run the `host-mode-release` workflow. The workflow is the platform gate for host smoke and packaged app artifacts on macOS, Linux, and Windows x64.
