@@ -257,7 +257,7 @@ Expected:
 
 ### 4.8 Browser automation pack on Host
 
-Published browser-pack install is available for macOS Apple Silicon (`browser-darwin-arm64`) in this PR. Local artifact smoke is still useful when validating an unpublished rebuild.
+macOS arm64 and x64 are release-supported browser-pack targets. Apple Silicon uses `browser-darwin-arm64`; Intel macOS uses `browser-darwin-x64`. Published install is the supported path only after the relevant GitHub Release artifact exists and `pnpm --filter @sero/desktop browser-pack:verify-published` passes. Local artifact smoke is only for validating an unpublished rebuild.
 
 1. Open Runtime settings.
 2. Confirm browser automation is shown as installable, not ready, if the pack is absent.
@@ -384,5 +384,5 @@ Mark the macOS Apple Silicon run as pass only if:
 - Host runtime works with real macOS paths and `/workspace` remains only a compatibility alias.
 - Managed tool and browser pack states are visible and actionable.
 - Apple Container and Docker work as optional container runtimes.
-- Browser automation works in containers and works on Host after browser pack install.
+- Browser automation works in containers and works on Host after published browser pack install, or pending artifact metadata is recorded as release-blocking.
 - Native build failures point to OS tools or container fallback, not Sero-managed compiler installs.

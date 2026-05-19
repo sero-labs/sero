@@ -1,6 +1,6 @@
 # Host-first runtime manual test — Linux
 
-Use this guide to validate Sero on a Linux desktop or VM. It is written for a first-time Sero tester and covers:
+Use this guide to validate Sero on a Linux desktop or VM (x64 or arm64 release targets). It is written for a first-time Sero tester and covers:
 
 - Host runtime, the recommended local runtime.
 - Docker/Podman container runtime as an optional fallback/upgrade.
@@ -159,7 +159,7 @@ Expected:
 
 - The selected backend is `host`.
 - Core tools are `ready`, `installing`, `missing`, or `failed` with install/retry detail.
-- Browser automation is `missing`/non-installable without a locally served Linux pack, then `installable` until that local pack is installed and launchable.
+- Browser automation is `installable` when the published Linux browser-pack artifact exists and is absent locally, then `ready` only after install and launch checks. If the Linux artifact is still pending in `generated-artifacts.json`, this is release-blocking and should show unavailable/non-installable with container fallback.
 - Native build tools are informational only. Sero must not claim it will install `build-essential`, GCC, Clang, or system headers as managed tools.
 
 ### 4.3 Verify managed tool storage
@@ -256,26 +256,32 @@ Expected:
 
 ### 4.8 Browser automation pack on Host
 
-Published browser-pack install is not available for Linux in this PR. Test Linux host browser automation with a locally built/served current-platform pack, or use Docker/Podman for preinstalled container browser automation.
+Linux host browser automation is a release-supported target only after the Linux GitHub Release artifact is published and verified. Do not use a local artifact override as the supported path.
 
-1. Build and serve a local Linux browser pack using the flow in [`../../runtime-smoke.md`](../../runtime-smoke.md#local-host-browser-pack-artifact-smoke).
-2. Start Sero with `SERO_BROWSER_PACK_BASE_URL` pointing at that local server.
-3. Open Runtime settings.
-4. Confirm browser automation is shown as installable, not ready, when the local pack is absent.
-5. Click install for the browser automation pack.
-6. Watch progress until complete.
-7. Confirm files are under `~/.sero-ui/toolchains/<manifest-version>/browser/` and `.installed` exists.
-8. Re-run diagnostics.
-9. Trigger browser automation from the agent/tooling, for example by asking for a browser screenshot of a local preview.
-10. Uninstall the browser pack from Runtime settings.
+1. Run the release publication gate from the repo root:
+
+   ```bash
+   pnpm --filter @sero/desktop browser-pack:verify-published
+   ```
+
+2. Open Runtime settings.
+3. Confirm browser automation is shown as `installable`, not ready, when the published Linux pack is absent locally. If metadata is still pending, record this as a release blocker and use Docker/Podman for browser automation.
+4. Click install for the browser automation pack when the published artifact is available.
+5. Watch progress until complete.
+6. Confirm files are under `~/.sero-ui/toolchains/<manifest-version>/browser/` and `.installed` exists.
+7. Re-run diagnostics.
+8. Trigger browser automation from the agent/tooling, for example by asking for a browser screenshot of a local preview.
+9. Uninstall the browser pack from Runtime settings.
 
 Expected:
 
-- Without a local artifact override, Linux reports the published pack as unavailable/non-installable and offers container fallback.
+- Linux host browser automation is not claimed unless `browser-pack:verify-published` and the `host-mode-release` workflow pass.
 - Duplicate install clicks attach to the same in-flight install.
 - Browser automation becomes ready only after install and launch checks pass.
 - If Chromium cannot launch because shared libraries are missing, Sero shows actionable Linux package/install detail or container fallback. It must not fail silently.
-- Uninstall returns the state to installable when a local installable artifact was used.
+- Uninstall returns the state to installable when a published artifact remains available.
+
+For rebuilding/debugging the current-platform pack, use the local artifact smoke in [`../../runtime-smoke.md`](../../runtime-smoke.md#local-host-browser-pack-artifact-smoke). That flow is a developer diagnostic only.
 
 ## 5. Docker/Podman runtime tests
 
@@ -380,5 +386,5 @@ Mark the Linux run as pass only if:
 - Host runtime works with real Linux paths and `/workspace` remains only a compatibility alias.
 - Managed tool and browser pack states are visible and actionable.
 - Docker/Podman works as an optional container runtime.
-- Browser automation works in containers and works on Host after local browser pack install, or reports unavailable-artifact / Linux shared-library remediation.
+- Browser automation works in containers and works on Host after published browser pack install, or reports pending-artifact / Linux shared-library remediation without claiming release support.
 - Native build failures point to OS tools or container fallback, not Sero-managed compiler installs.

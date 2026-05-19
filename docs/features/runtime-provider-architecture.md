@@ -39,12 +39,21 @@ Do not create a real host `/workspace` symlink, mount, or global directory. New 
 
 ## Runtime support matrix
 
+Detailed platform/arch release status lives in [`../reference/host-mode-support.md`](../reference/host-mode-support.md). Summary:
+
+| Platform | Arch | Host runtime | Host browser pack | Packaged app | Status |
+| --- | --- | --- | --- | --- | --- |
+| macOS | arm64/x64 | Supported with `SERO_HOST_FIRST=1` | Required published GitHub Release artifact | DMG/ZIP | Release-supported target |
+| Linux | x64/arm64 | Supported with `SERO_HOST_FIRST=1` | Required published GitHub Release artifact | AppImage/deb/tar.gz | Release-supported target |
+| Windows | x64 | Supported with `SERO_HOST_FIRST=1` | Required published GitHub Release artifact | NSIS/ZIP | Release-supported target |
+| Windows | arm64 | Not defaulted | Not published | Not published | Future/unsupported |
+
 | Capability | Host | Docker / Podman | Apple Container |
 | --- | --- | --- | --- |
 | macOS | Yes | Yes | Apple Silicon recommended |
 | Linux | Yes | Yes | No |
 | Windows x64 | Yes, native Windows with verified Bash/MSYS-compatible shell | Yes | No |
-| Browser automation | Installable browser pack | Preinstalled in image | Preinstalled in image |
+| Browser automation | Published browser pack after release gate | Preinstalled in image | Preinstalled in image |
 | Native build tools | User-installed or container fallback | Image-provided | Image-provided |
 | Sandbox | No | Container isolation | Container isolation |
 | Workspace execution path | Real host path | `/workspace` | `/workspace` |
@@ -61,7 +70,7 @@ Callers must use runtime diagnostics instead of branching on provider-specific i
 - availability: is it available for this workspace right now?
 - install state: are core tools, browser pack, and native build tools ready/missing/installing/failed?
 
-Host browser automation is available only when the browser pack is installed and Doctor launch checks pass. In this PR's published artifact matrix, install is available only for macOS Apple Silicon; other platforms need a local browser-pack artifact override or a container runtime until their published artifacts exist. Native compiler stacks are informational and non-managed.
+Host browser automation is available only when the browser pack is installed and Doctor launch checks pass. Release-supported platforms require published GitHub Release browser-pack artifacts verified by `pnpm --filter @sero/desktop browser-pack:verify-published`; pending entries in `generated-artifacts.json` block the release claim. Local artifact overrides are developer diagnostics only. Native compiler stacks are informational and non-managed.
 
 ## Managed host tooling
 
@@ -111,7 +120,7 @@ The host-first default is rollout-flagged:
 
 | Condition | Default local runtime |
 | --- | --- |
-| `SERO_HOST_FIRST=1` and supported macOS/Linux/Windows x64 | Host |
+| `SERO_HOST_FIRST=1` and release-supported macOS arm64/x64, Linux x64/arm64, or Windows x64 | Host |
 | Existing persisted workspace config | Persisted `runtime.backend` |
 | Global workspace on supported host platform | Host |
 | Flag off, macOS Apple Silicon | Apple Container |
