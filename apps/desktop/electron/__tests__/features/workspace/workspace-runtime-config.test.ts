@@ -8,8 +8,10 @@ import {
   resolveWorkspaceRuntimeBackendDetails,
   resolveWorkspaceRuntimeConfig,
 } from '@electron/features/workspace/runtime/config';
+import { HOST_RELEASE_TARGETS } from '@electron/features/workspace/runtime/host-support-matrix';
 import { getDefaultRuntimeBackend } from '@electron/features/workspace/runtime/platform-default';
 import type { WorkspaceConfig } from '@/types/ipc';
+import type { WorkspaceRuntimeBackend } from '@/types/workspace-runtime';
 
 const tempDirs: string[] = [];
 
@@ -37,11 +39,69 @@ async function createTestManager(): Promise<WorkspaceManager> {
   });
 }
 
+function expectedContainerDefault(platform: NodeJS.Platform, arch: string): WorkspaceRuntimeBackend {
+  return platform === 'darwin' && arch === 'arm64' ? 'apple-container' : 'docker';
+}
+
 describe('workspace runtime config migration', () => {
   afterEach(async () => {
     delete process.env.SERO_HOST_FIRST;
     vi.restoreAllMocks();
     await Promise.all(tempDirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })));
+  });
+
+  it('defines the host release support matrix and Windows ARM future policy', () => {
+    expect(HOST_RELEASE_TARGETS).toEqual([
+      {
+        platform: 'darwin',
+        arch: 'arm64',
+        releaseSupported: true,
+        hostDefault: true,
+        browserPackRequired: true,
+        packagedAppRequired: true,
+      },
+      {
+        platform: 'darwin',
+        arch: 'x64',
+        releaseSupported: true,
+        hostDefault: true,
+        browserPackRequired: true,
+        packagedAppRequired: true,
+      },
+      {
+        platform: 'linux',
+        arch: 'x64',
+        releaseSupported: true,
+        hostDefault: true,
+        browserPackRequired: true,
+        packagedAppRequired: true,
+      },
+      {
+        platform: 'linux',
+        arch: 'arm64',
+        releaseSupported: true,
+        hostDefault: true,
+        browserPackRequired: true,
+        packagedAppRequired: true,
+      },
+      {
+        platform: 'win32',
+        arch: 'x64',
+        releaseSupported: true,
+        hostDefault: true,
+        browserPackRequired: true,
+        packagedAppRequired: true,
+      },
+      {
+        platform: 'win32',
+        arch: 'arm64',
+        releaseSupported: false,
+        hostDefault: false,
+        browserPackRequired: false,
+        packagedAppRequired: false,
+        notes: 'Future: needs Windows ARM runner/package/browser-pack smoke.',
+      },
+    ]);
   });
 
   it('resolves legacy and new config shapes', () => {
@@ -61,24 +121,24 @@ describe('workspace runtime config migration', () => {
       .toBe('docker');
   });
 
-  it('uses legacy platform defaults when host-first is disabled', () => {
-    expect(getDefaultRuntimeBackend({ platform: 'darwin', arch: 'arm64' })).toBe('apple-container');
-    expect(getDefaultRuntimeBackend({ platform: 'darwin', arch: 'x64' })).toBe('docker');
-    expect(getDefaultRuntimeBackend({ platform: 'win32', arch: 'x64' })).toBe('docker');
-    expect(getDefaultRuntimeBackend({ platform: 'linux', arch: 'arm64' })).toBe('docker');
-    expect(getDefaultRuntimeBackend({ workspaceId: 'global', platform: 'linux', arch: 'x64' })).toBe('host');
-    expect(getDefaultRuntimeBackend({ workspaceId: 'global', platform: 'win32', arch: 'x64' })).toBe('host');
+  it('uses legacy container defaults when host-first is disabled while preserving global host defaults', () => {
+    for (const target of HOST_RELEASE_TARGETS) {
+      const input = { platform: target.platform, arch: target.arch };
+      expect(getDefaultRuntimeBackend(input)).toBe(expectedContainerDefault(target.platform, target.arch));
+      expect(getDefaultRuntimeBackend({ workspaceId: 'global', ...input })).toBe(
+        target.hostDefault ? 'host' : expectedContainerDefault(target.platform, target.arch),
+      );
+    }
   });
 
-  it('uses host defaults on supported platforms when host-first is enabled', () => {
+  it('uses host defaults for every supported matrix target when host-first is enabled', () => {
     process.env.SERO_HOST_FIRST = '1';
 
-    expect(getDefaultRuntimeBackend({ platform: 'darwin', arch: 'arm64' })).toBe('host');
-    expect(getDefaultRuntimeBackend({ platform: 'darwin', arch: 'x64' })).toBe('host');
-    expect(getDefaultRuntimeBackend({ platform: 'linux', arch: 'x64' })).toBe('host');
-    expect(getDefaultRuntimeBackend({ platform: 'linux', arch: 'arm64' })).toBe('host');
-    expect(getDefaultRuntimeBackend({ platform: 'win32', arch: 'x64' })).toBe('host');
-    expect(getDefaultRuntimeBackend({ platform: 'win32', arch: 'arm64' })).toBe('docker');
+    for (const target of HOST_RELEASE_TARGETS) {
+      expect(getDefaultRuntimeBackend({ platform: target.platform, arch: target.arch })).toBe(
+        target.hostDefault ? 'host' : expectedContainerDefault(target.platform, target.arch),
+      );
+    }
   });
 
   it('normalizes writes to runtime.backend and removes legacy container', () => {

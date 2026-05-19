@@ -1,4 +1,5 @@
 import type { WorkspaceRuntimeBackend } from '@/types/workspace-runtime';
+import { isHostDefaultSupported } from './host-support-matrix';
 
 export interface RuntimePlatformDefaultsInput {
   workspaceId?: string;
@@ -8,13 +9,6 @@ export interface RuntimePlatformDefaultsInput {
 
 function isHostFirstEnabled(): boolean {
   return process.env.SERO_HOST_FIRST === '1';
-}
-
-function isSupportedHostDefault(platform: NodeJS.Platform, arch: string): boolean {
-  if (platform === 'darwin') return arch === 'arm64' || arch === 'x64';
-  if (platform === 'linux') return true;
-  if (platform === 'win32') return arch === 'x64';
-  return false;
 }
 
 export function getDefaultContainerRuntimeBackend(input: RuntimePlatformDefaultsInput = {}): WorkspaceRuntimeBackend {
@@ -27,7 +21,7 @@ export function getDefaultRuntimeBackend(input: RuntimePlatformDefaultsInput = {
   const platform = input.platform ?? process.platform;
   const arch = input.arch ?? process.arch;
 
-  if (input.workspaceId === 'global' && isSupportedHostDefault(platform, arch)) return 'host';
-  if (isHostFirstEnabled() && isSupportedHostDefault(platform, arch)) return 'host';
+  if (input.workspaceId === 'global' && isHostDefaultSupported(platform, arch)) return 'host';
+  if (isHostFirstEnabled() && isHostDefaultSupported(platform, arch)) return 'host';
   return getDefaultContainerRuntimeBackend({ platform, arch });
 }
