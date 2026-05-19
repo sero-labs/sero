@@ -27,10 +27,16 @@
     "browser-pack:smoke": "node scripts/browser-pack/smoke-browser-pack.mjs",
     "browser-pack:merge-metadata": "node scripts/browser-pack/merge-browser-pack-metadata.mjs",
     "browser-pack:verify-published": "node scripts/browser-pack/verify-browser-pack-publication.mjs",
-    "release": "bash scripts/build-release.sh",
-    "release:signed": "bash scripts/build-release.sh --sign",
-    "pack": "bash -c 'trap \"node scripts/cleanup-packaging.mjs\" EXIT; node scripts/prepare-packaging.mjs && CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder --config electron-builder.yml --mac --dir'",
-    "dist": "bash -c 'trap \"node scripts/cleanup-packaging.mjs\" EXIT; node scripts/prepare-packaging.mjs && CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder --config electron-builder.yml --mac'"
+    "release": "bash scripts/build-release.sh --target current",
+    "release:signed": "bash scripts/build-release.sh --target current --sign",
+    "pack": "bash scripts/build-release.sh --target current --dir",
+    "pack:mac": "bash scripts/build-release.sh --target mac --dir",
+    "pack:linux": "bash scripts/build-release.sh --target linux --dir",
+    "pack:win": "bash scripts/build-release.sh --target win --dir",
+    "dist": "bash scripts/build-release.sh --target current",
+    "dist:mac": "bash scripts/build-release.sh --target mac",
+    "dist:linux": "bash scripts/build-release.sh --target linux",
+    "dist:win": "bash scripts/build-release.sh --target win"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
