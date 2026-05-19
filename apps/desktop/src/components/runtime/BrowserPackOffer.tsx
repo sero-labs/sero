@@ -18,7 +18,7 @@ function browserPackMessage(status: BrowserPackStatusIPC | null): string {
     return status.error?.message ?? 'Browser automation is not available for this machine yet. Use a container runtime for browser tasks.';
   }
   if (status.state === 'failed') return status.error?.message ?? 'Install failed. You can retry later or use a container runtime.';
-  return 'You can install this later from settings or when a browser tool first needs it.';
+  return 'Large download for browser screenshots, recordings, and web tasks in Host mode.';
 }
 
 function updateStatusFromProgress(
@@ -53,9 +53,11 @@ export function BrowserPackOffer({ reason, className, compact = false }: Browser
     && status.error?.retryable === true
     && status.error.installable === true;
   const canInstall = Boolean(window.sero.workspace?.ensureBrowserPack)
-    && status?.state !== 'missing'
-    && status?.state !== 'ready'
-    && (status?.state !== 'failed' || canRetry);
+    && status !== null
+    && status.state !== 'missing'
+    && status.state !== 'ready'
+    && status.state !== 'installing'
+    && (status.state !== 'failed' || canRetry);
 
   const install = async () => {
     if (!canInstall || busy) return;

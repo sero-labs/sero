@@ -83,6 +83,22 @@ describe('native build failure classifier', () => {
     expect(failure).toBeNull();
   });
 
+  it.each([
+    ['make', 'make: *** [test] Error 1'],
+    ['gcc', 'main.c:1:1: error: expected identifier or ('],
+  ] as const)('does not classify ordinary %s failures as missing tools', (command, stderr) => {
+    const failure = classifyNativeBuildFailure({
+      command,
+      executable: command,
+      exitCode: 1,
+      stdout: '',
+      stderr,
+      platform: 'linux',
+    });
+
+    expect(failure).toBeNull();
+  });
+
   it('creates non-installable metadata with setup action by default', () => {
     const failure = classifyNativeBuildFailure({
       command: 'pnpm install',

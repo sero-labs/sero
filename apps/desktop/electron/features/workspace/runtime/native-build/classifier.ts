@@ -129,13 +129,6 @@ function classifyExecutable(input: NativeBuildClassifierInput, output: string): 
   const executable = input.executable ?? firstCommandToken(input.command);
   const normalized = executable.toLowerCase();
   if (normalized === 'node-gyp') return toFailure(input, 'node-gyp', executable, output);
-  if (normalized === 'make') return toFailure(input, 'missing-make', executable, output);
-  if (normalized === 'gcc') return toFailure(input, 'missing-gcc', executable, output);
-  if (normalized === 'g++') return toFailure(input, 'missing-gpp', executable, output);
-  if (normalized === 'clang') return toFailure(input, 'missing-clang', executable, output);
-  if (normalized === 'cl.exe' || normalized === 'cl' || normalized === 'msbuild' || normalized === 'msbuild.exe') {
-    return toFailure(input, 'missing-msvc', executable, output);
-  }
   return null;
 }
 

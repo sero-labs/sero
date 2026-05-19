@@ -7,17 +7,20 @@
  */
 
 import { test, expect, type ElectronApplication, type Page } from '@playwright/test';
-import { launchSeroApp, getWindowTitle, isWindowVisible } from './helpers';
+import { createTempSeroHome, launchSeroApp, getWindowTitle, isWindowVisible, type TempSeroHome } from './helpers';
 
 let app: ElectronApplication;
 let page: Page;
+let seroHome: TempSeroHome;
 
 test.beforeAll(async () => {
-  ({ app, page } = await launchSeroApp());
+  seroHome = createTempSeroHome();
+  ({ app, page } = await launchSeroApp({ seroHome: seroHome.path }));
 });
 
 test.afterAll(async () => {
   await app.close();
+  seroHome.cleanup();
 });
 
 test.describe('App Launch', () => {

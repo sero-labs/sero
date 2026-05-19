@@ -159,7 +159,7 @@ function RuntimeErrorNotice({
         <div className="min-w-0 flex-1">
           <p className="font-medium">Container runtime unavailable</p>
           <p className="mt-0.5 text-[var(--status-error)]/85">
-            {names} {workspaces.length === 1 ? 'has' : 'have'} a runtime error. Terminal and agent actions may fall back to the host until it recovers.
+            {names} {workspaces.length === 1 ? 'has' : 'have'} a runtime error. Container-backed terminal and agent actions are unavailable until it recovers; switch to Host manually if you want host execution.
           </p>
           {error ? <p className="mt-1 line-clamp-2 text-[var(--status-error)]/80">{error}</p> : null}
         </div>

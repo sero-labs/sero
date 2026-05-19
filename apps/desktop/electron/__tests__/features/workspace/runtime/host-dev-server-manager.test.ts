@@ -120,7 +120,7 @@ describe('HostDevServerManager', () => {
     expect(processAdapter.descendantPids).toHaveBeenCalledWith(1234);
     expect(processAdapter.listenerPids).toHaveBeenCalledWith(5173);
     expect(processAdapter.killPids).toHaveBeenCalledWith('TERM', [1234, 2000, 3000]);
-    expect(processAdapter.killPids).toHaveBeenCalledWith('KILL', [3000]);
+    expect(processAdapter.killPids).toHaveBeenCalledWith('KILL', [1234, 2000, 3000]);
   });
 
   it('kills descendants and listener PIDs when stopping a host dev server', async () => {
@@ -136,7 +136,7 @@ describe('HostDevServerManager', () => {
 
     expect(process.signal).toHaveBeenCalledWith('SIGTERM');
     expect(processAdapter.killPids).toHaveBeenCalledWith('TERM', [1234, 2000, 3000]);
-    expect(processAdapter.killPids).toHaveBeenCalledWith('KILL', [3000]);
+    expect(processAdapter.killPids).toHaveBeenCalledWith('KILL', [1234, 2000, 3000]);
   });
 
   it('preserves dev-server metadata on restart', async () => {

@@ -57,6 +57,30 @@ async function createHarness(tool: ToolName = 'node'): Promise<TestHarness> {
   };
 }
 
+async function createCoreHarness(tools: ToolName[]): Promise<TestHarness & { archiveRoots: Record<string, string> }> {
+  const version = `test-core-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  const archiveRoots: Record<string, string> = {};
+  const artifacts: ToolchainManifest['artifacts'] = {};
+  for (const tool of tools) {
+    const archiveRoot = path.join(SERO_FIXED_ROOT, 'toolchains-test-archives', version, tool);
+    archiveRoots[tool] = archiveRoot;
+    await fs.promises.mkdir(path.join(archiveRoot, 'bin'), { recursive: true });
+    await fs.promises.writeFile(path.join(archiveRoot, 'bin', tool), '#!/bin/sh\necho ok\n', { mode: 0o755 });
+    artifacts[`${tool}-darwin-arm64`] = {
+      tool,
+      platform: 'darwin',
+      arch: 'arm64',
+      url: `https://downloads.example.test/${tool}.tgz`,
+      sha256: sha256Text(tool),
+      unpackTo: tool,
+      binPaths: { [tool]: `${tool}/bin/${tool}` },
+      minVersion: '1.0.0',
+      installPolicy: 'core',
+    };
+  }
+  return { version, archiveRoot: archiveRoots[tools[0]], archiveRoots, manifest: { version, artifacts } };
+}
+
 function missingSystem(tool: ToolName): ToolStatus {
   return { tool, state: 'missing', source: 'system' };
 }
@@ -236,6 +260,27 @@ describe('ToolchainManager', () => {
     const [first, second] = await Promise.all([manager.ensure('node', reason), manager.ensure('node', reason)]);
     expect(first.path).toBe(second.path);
     expect(downloads).toBe(1);
+  });
+
+  it('does not write the shared core marker until every core tool installs', async () => {
+    const harness = await createCoreHarness(['node', 'npm']);
+    cleanupVersions.push(harness.version);
+    const manager = new ToolchainManager({
+      manifest: harness.manifest,
+      platform: 'darwin',
+      arch: 'arm64',
+      systemResolver: async (tool) => missingSystem(tool),
+      downloader: async (options) => {
+        if (options.url.endsWith('/npm.tgz')) throw new Error('npm download failed');
+        await fs.promises.cp(harness.archiveRoots.node, options.destination, { recursive: true });
+      },
+      verifier: readyVerifier,
+    });
+
+    await expect(manager.ensureCore(reason)).rejects.toMatchObject({ code: 'TOOL_INSTALL_FAILED' });
+    await expectExists(artifactInstallPath(harness.version, 'node'), true);
+    await expectExists(artifactInstallPath(harness.version, 'npm'), false);
+    await expectExists(installedMarkerPath(harness.version), false);
   });
 
   it('garbage collects all but current and previous toolchain versions', async () => {

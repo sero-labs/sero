@@ -1,4 +1,5 @@
 import http from 'http';
+import path from 'path';
 
 import { getCliRegistry } from '@electron/cli';
 import { executeCliArgv } from '@electron/cli/core';
@@ -77,8 +78,13 @@ async function handleRequest(
     return;
   }
   const scope = authenticateBridgeRequest(req.headers.authorization);
-  if (!scope || !workspaceManager.getPath(scope.workspaceId)) {
+  const workspacePath = scope ? workspaceManager.getPath(scope.workspaceId) : null;
+  if (!scope || !workspacePath) {
     sendJson(res, 401, { output: 'Unauthorized', exitCode: 1 });
+    return;
+  }
+  if (!isScopedSessionValid(scope.workspaceId, scope.sessionId)) {
+    sendJson(res, 401, { output: 'Unauthorized session', exitCode: 1 });
     return;
   }
 
@@ -86,10 +92,15 @@ async function handleRequest(
     const body = parseBridgeRequest(await readBody(req));
     const workspaceId = scope.workspaceId;
     const sessionId = scope.sessionId;
+    const cwd = resolveBridgeCwd(body.cwd, workspacePath);
+    if (!cwd) {
+      sendJson(res, 403, { output: 'Forbidden cwd', exitCode: 1 });
+      return;
+    }
     const invocation = buildBridgeInvocation(workspaceId, sessionId);
     const context: CliCommandContext = {
       workspaceId,
-      cwd: body.cwd || workspaceManager.getPath(workspaceId) || process.cwd(),
+      cwd,
       invocation,
       workspaceManager,
       containerManager,
@@ -119,6 +130,25 @@ function authenticateBridgeRequest(authorization: string | undefined) {
   const prefix = 'Bearer ';
   if (!authorization?.startsWith(prefix)) return null;
   return getSeroCliBridgeTokenScope(authorization.slice(prefix.length));
+}
+
+function isScopedSessionValid(workspaceId: string, sessionId: string | null): boolean {
+  if (!sessionId) return true;
+  try {
+    const entry = getCliSessionBridge().getSessionEntry(sessionId);
+    return entry?.workspaceId === workspaceId;
+  } catch {
+    return false;
+  }
+}
+
+function resolveBridgeCwd(cwd: string | undefined, workspacePath: string): string | null {
+  if (!cwd) return workspacePath;
+  const root = path.resolve(workspacePath);
+  const resolved = path.resolve(cwd);
+  const relative = path.relative(root, resolved);
+  if (relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative))) return resolved;
+  return null;
 }
 
 async function readBody(req: http.IncomingMessage): Promise<string> {

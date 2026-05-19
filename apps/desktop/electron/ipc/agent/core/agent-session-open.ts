@@ -107,7 +107,7 @@ export async function openSessionInPool({
     throw new Error(`${runtime.backend} runtime failed to start for workspace ${workspaceId}: ${message}`);
   }
 
-  const platformTools = createRuntimeTools(runtime, sessionId);
+  const platformTools = await createRuntimeTools(runtime, sessionId);
   const globalAgentsFile = await readGlobalAgentsMd(workspaceId);
 
   const skillVisibilityOverride = createSkillVisibilityOverride(infra.settingsManager);

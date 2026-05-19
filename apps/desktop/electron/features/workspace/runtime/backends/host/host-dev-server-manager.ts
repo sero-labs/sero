@@ -282,11 +282,11 @@ export class HostDevServerManager {
     const listeners = port ? await this.processAdapter.listenerPids(port) : [];
     const pids = uniqueNumbers([...roots, ...descendants, ...listeners]);
     if (pids.length > 0) await this.processAdapter.killPids('TERM', pids);
-    if (port) {
-      await sleep(this.terminateGraceMs);
-      const remainingListeners = await this.processAdapter.listenerPids(port);
-      if (remainingListeners.length > 0) await this.processAdapter.killPids('KILL', remainingListeners);
-    }
+    await sleep(this.terminateGraceMs);
+    const remainingDescendants = (await Promise.all(roots.map((pid) => this.processAdapter.descendantPids(pid)))).flat();
+    const remainingListeners = port ? await this.processAdapter.listenerPids(port) : [];
+    const remainingPids = uniqueNumbers([...roots, ...remainingDescendants, ...remainingListeners]);
+    if (remainingPids.length > 0) await this.processAdapter.killPids('KILL', remainingPids);
   }
 
   private markSpawnedServerFailed(serverId: string, exit: RuntimeProcessExit): void {

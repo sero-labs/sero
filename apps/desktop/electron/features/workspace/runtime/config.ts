@@ -1,7 +1,7 @@
 import type { WorkspaceConfig } from '@/types/ipc';
 import type { WorkspaceRuntimeBackend, WorkspaceRuntimeBackendInput, WorkspaceRuntimeConfig } from '@/types/workspace-runtime';
 import { getRuntimeCapabilities, UnsupportedRuntimeOnPlatformError } from './capabilities';
-import { getDefaultRuntimeBackend, type RuntimePlatformDefaultsInput } from './platform-default';
+import { getDefaultContainerRuntimeBackend, getDefaultRuntimeBackend, type RuntimePlatformDefaultsInput } from './platform-default';
 
 export type WorkspaceRuntimeFallbackCode =
   | 'backend-unsupported-on-platform'
@@ -97,8 +97,9 @@ function validateBackendForPlatform(
       : { backend: configured.backend, configuredBackend: configured.backend };
   } catch (error) {
     if (!(error instanceof UnsupportedRuntimeOnPlatformError)) throw error;
-    const fallback = getDefaultRuntimeBackend(defaults);
-    // Guard against an unsupported platform default — re-evaluating capabilities ensures the fallback is usable.
+    const fallback = getDefaultContainerRuntimeBackend(defaults);
+    // Explicit backend fallbacks must stay inside the container runtime family; host-first defaults
+    // only apply when no workspace backend was configured.
     getRuntimeCapabilities(fallback, defaults.platform, defaults.arch);
     return {
       backend: fallback,

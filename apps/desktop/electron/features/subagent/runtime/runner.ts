@@ -148,7 +148,7 @@ export async function runSubagent(
     };
   }
 
-  const platformTools = createRuntimeTools(runtime, subagentSessionId, containerCwd);
+  const platformTools = await createRuntimeTools(runtime, subagentSessionId, containerCwd);
   const customTools = [...platformTools, ...(config.customTools ?? [])];
 
   // Build a reduced extension factory for the child session

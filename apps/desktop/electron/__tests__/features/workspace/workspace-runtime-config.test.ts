@@ -293,6 +293,18 @@ describe('workspace runtime config migration', () => {
       .toBe('apple-container');
   });
 
+  it('does not fall back from an unsupported persisted container backend to host under host-first', () => {
+    process.env.SERO_HOST_FIRST = '1';
+    const config = { id: 'app', name: 'App', runtime: { backend: 'apple-container' as const } };
+
+    expect(resolveWorkspaceRuntimeBackendDetails('app', config, { platform: 'linux', arch: 'x64' })).toMatchObject({
+      backend: 'docker',
+      configuredBackend: 'apple-container',
+      fallbackCode: 'backend-unsupported-on-platform',
+    });
+    expect(resolveWorkspaceRuntimeConfig('app', config, { platform: 'win32', arch: 'x64' }).backend).toBe('docker');
+  });
+
   it('tags mac-host migration with legacy-mac-host fallback code', () => {
     const legacy = { id: 'app', name: 'App', runtime: { backend: 'mac-host' } } as unknown as WorkspaceConfig;
     const details = resolveWorkspaceRuntimeBackendDetails('app', legacy, { platform: 'darwin', arch: 'arm64' });

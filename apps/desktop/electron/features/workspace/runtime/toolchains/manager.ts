@@ -55,6 +55,7 @@ export class ToolchainManager {
   private readonly unpacker: ArchiveUnpacker;
   private readonly progress = new ToolchainProgressBus();
   private readonly inFlight = new Map<string, Promise<ToolResolution>>();
+  private coreInFlight: Promise<ToolResolution[]> | null = null;
 
   constructor(options: ToolchainManagerOptions) {
     this.manifest = options.manifest;
@@ -91,19 +92,27 @@ export class ToolchainManager {
 
   ensure(tool: ToolName, reason: ToolInstallReason): Promise<ToolResolution> {
     const artifact = this.findArtifact(tool);
+    if (artifact?.artifact.installPolicy === 'core') {
+      return this.ensureCore(reason).then(async (resolutions) => {
+        const resolution = resolutions.find((item) => item.tool === tool) ?? await this.resolve(tool);
+        if (!resolution) throw makeError('TOOL_INSTALL_FAILED', `${tool} did not resolve after core tool installation.`, tool, artifact.key, this.manifest.version, true, true);
+        return resolution;
+      });
+    }
     const key = `${this.manifest.version}:${artifact?.key ?? tool}`;
     const existing = this.inFlight.get(key);
     if (existing) return existing;
-    const operation = this.ensureInternal(tool, reason, artifact).finally(() => this.inFlight.delete(key));
+    const operation = this.ensureInternal(tool, reason, artifact, true).finally(() => this.inFlight.delete(key));
     this.inFlight.set(key, operation);
     return operation;
   }
 
-  async ensureCore(reason: ToolInstallReason): Promise<ToolResolution[]> {
-    const coreTools = uniqueTools(
-      Object.values(this.manifest.artifacts).filter((artifact) => artifact.installPolicy === 'core'),
-    );
-    return Promise.all(coreTools.map((tool) => this.ensure(tool, reason)));
+  ensureCore(reason: ToolInstallReason): Promise<ToolResolution[]> {
+    if (this.coreInFlight) return this.coreInFlight;
+    this.coreInFlight = this.ensureCoreInternal(reason).finally(() => {
+      this.coreInFlight = null;
+    });
+    return this.coreInFlight;
   }
 
   async binDirs(): Promise<string[]> {
@@ -129,10 +138,43 @@ export class ToolchainManager {
     return candidates;
   }
 
+  private async ensureCoreInternal(reason: ToolInstallReason): Promise<ToolResolution[]> {
+    const coreTools = uniqueTools(
+      Object.values(this.manifest.artifacts).filter((artifact) => artifact.installPolicy === 'core'),
+    );
+    const installed: ToolResolution[] = [];
+    const pending: Array<{ tool: ToolName; selection: ArtifactSelection | null }> = [];
+
+    for (const tool of coreTools) {
+      const resolved = await this.resolve(tool);
+      if (resolved) {
+        installed.push(resolved);
+      } else {
+        pending.push({ tool, selection: this.findArtifact(tool) });
+      }
+    }
+
+    if (pending.length > 0) {
+      await fs.promises.rm(installedMarkerPath(this.manifest.version), { force: true });
+      for (const item of pending) {
+        installed.push(await this.ensureInternal(item.tool, reason, item.selection, false));
+      }
+      await this.writeVersionReadyMarker();
+    }
+
+    const resolutions = await Promise.all(coreTools.map((tool) => this.resolve(tool)));
+    if (resolutions.some((resolution) => !resolution)) {
+      await fs.promises.rm(installedMarkerPath(this.manifest.version), { force: true });
+      throw makeError('TOOL_INSTALL_FAILED', 'Core tool installation did not produce every required tool.', undefined, undefined, this.manifest.version, true, true);
+    }
+    return resolutions as ToolResolution[];
+  }
+
   private async ensureInternal(
     tool: ToolName,
     reason: ToolInstallReason,
     selection: ArtifactSelection | null,
+    writeReadyMarker: boolean,
   ): Promise<ToolResolution> {
     const resolved = await this.resolve(tool);
     if (resolved) return resolved;
@@ -166,8 +208,8 @@ export class ToolchainManager {
       });
 
       this.emit(selection, reason, 'activating');
-      await this.activate(selection);
-      const installed = await this.resolveInstalled(tool);
+      await this.activate(selection, writeReadyMarker);
+      const installed = await this.resolveInstalled(tool, writeReadyMarker);
       if (!installed) throw new Error(`${tool} did not resolve after activation.`);
       this.emit(selection, reason, 'ready');
       return installed;
@@ -180,7 +222,7 @@ export class ToolchainManager {
     }
   }
 
-  private async activate(selection: ArtifactSelection): Promise<void> {
+  private async activate(selection: ArtifactSelection, writeReadyMarker: boolean): Promise<void> {
     const versionRoot = toolchainVersionRoot(this.manifest.version);
     const finalPath = artifactInstallPath(this.manifest.version, selection.artifact.unpackTo);
     const stagingPath = artifactStagingPath(this.manifest.version, selection.artifact.unpackTo);
@@ -188,11 +230,15 @@ export class ToolchainManager {
     await fs.promises.rm(finalPath, { recursive: true, force: true });
     await fs.promises.rename(stagingPath, finalPath);
     await fs.promises.writeFile(manifestPath(this.manifest.version), `${JSON.stringify(this.manifest, null, 2)}\n`);
+    if (writeReadyMarker) await this.writeVersionReadyMarker();
+  }
+
+  private async writeVersionReadyMarker(): Promise<void> {
     await fs.promises.writeFile(installedMarkerPath(this.manifest.version), `${new Date().toISOString()}\n`);
   }
 
-  private async resolveInstalled(tool: ToolName): Promise<ToolResolution | null> {
-    if (!(await exists(installedMarkerPath(this.manifest.version)))) return null;
+  private async resolveInstalled(tool: ToolName, requireReadyMarker = true): Promise<ToolResolution | null> {
+    if (requireReadyMarker && !(await exists(installedMarkerPath(this.manifest.version)))) return null;
     const selection = this.findArtifact(tool);
     if (!selection) return null;
     const relativePath = selection.artifact.binPaths[tool] ?? Object.values(selection.artifact.binPaths)[0];
@@ -265,7 +311,7 @@ function toInstallError(error: unknown, tool: ToolName, artifactKey: string, man
 function makeError(
   code: ToolchainError['code'],
   message: string,
-  tool: ToolName,
+  tool: ToolName | undefined,
   artifactKey: string | undefined,
   manifestVersion: string,
   retryable: boolean,

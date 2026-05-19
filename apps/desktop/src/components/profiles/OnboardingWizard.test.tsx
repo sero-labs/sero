@@ -97,7 +97,9 @@ describe('OnboardingWizard', () => {
           writeText: vi.fn().mockResolvedValue(true),
         },
         workspace: {
+          getBrowserPackStatus: vi.fn().mockResolvedValue({ state: 'installable', manifestVersion: 'test' }),
           ensureBrowserPack: vi.fn().mockResolvedValue({ state: 'installable', manifestVersion: 'test' }),
+          onBrowserPackProgress: vi.fn(() => () => {}),
         },
       },
     });

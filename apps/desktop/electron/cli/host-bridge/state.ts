@@ -19,7 +19,7 @@ export interface SeroCliEnvOptions {
   sessionId?: string | null;
 }
 
-const BRIDGE_TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
+const BRIDGE_TOKEN_TTL_MS = 5 * 60 * 1000;
 const MAX_BRIDGE_TOKENS = 1024;
 
 interface SeroCliBridgeTokenRecord extends SeroCliBridgeTokenScope {

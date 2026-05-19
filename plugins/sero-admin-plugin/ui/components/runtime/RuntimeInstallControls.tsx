@@ -81,12 +81,21 @@ export function RuntimeInstallControls({ disabled = false, onChanged }: RuntimeI
     if (status) setBrowserStatus(status);
   });
 
+  const coreRetryable = coreStatus?.state === 'failed'
+    && coreStatus.error?.retryable === true
+    && coreStatus.error.installable === true;
+  const showCoreInstall = coreStatus !== null
+    && coreStatus.state !== 'ready'
+    && coreStatus.state !== 'installing'
+    && (coreStatus.state !== 'failed' || coreRetryable);
   const browserRetryable = browserStatus?.state === 'failed'
     && browserStatus.error?.retryable === true
     && browserStatus.error.installable === true;
-  const showBrowserInstall = browserStatus?.state !== 'ready'
-    && browserStatus?.state !== 'missing'
-    && (browserStatus?.state !== 'failed' || browserRetryable);
+  const showBrowserInstall = browserStatus !== null
+    && browserStatus.state !== 'ready'
+    && browserStatus.state !== 'missing'
+    && browserStatus.state !== 'installing'
+    && (browserStatus.state !== 'failed' || browserRetryable);
 
   return (
     <div className="rounded-lg border border-border/40 bg-secondary/20 px-3 py-2 text-[11px]">
@@ -101,14 +110,19 @@ export function RuntimeInstallControls({ disabled = false, onChanged }: RuntimeI
           </Badge>
         </div>
         <div className="flex flex-wrap gap-2">
-          {coreStatus?.state !== 'ready' ? (
+          {showCoreInstall ? (
             <Button size="sm" variant="outline" className="h-7 px-2 text-[11px]" disabled={disabled || busy !== null} onClick={installCore}>
-              {busy === 'core' || coreStatus?.state === 'installing' ? 'Installing…' : coreStatus?.state === 'failed' ? 'Retry core tools' : 'Install core tools'}
+              {busy === 'core' ? 'Installing…' : coreStatus.state === 'failed' ? 'Retry core tools' : 'Install core tools'}
+            </Button>
+          ) : null}
+          {coreStatus?.state === 'installing' ? (
+            <Button size="sm" variant="outline" className="h-7 px-2 text-[11px]" disabled>
+              Installing…
             </Button>
           ) : null}
           {showBrowserInstall ? (
-            <Button size="sm" variant="outline" className="h-7 px-2 text-[11px]" disabled={disabled || busy !== null || browserStatus?.state === 'installing'} onClick={installBrowser}>
-              {busy === 'browser' || browserStatus?.state === 'installing' ? 'Installing…' : browserStatus?.state === 'failed' ? 'Retry browser pack' : 'Install browser pack'}
+            <Button size="sm" variant="outline" className="h-7 px-2 text-[11px]" disabled={disabled || busy !== null} onClick={installBrowser}>
+              {busy === 'browser' ? 'Installing…' : browserStatus.state === 'failed' ? 'Retry browser pack' : 'Install browser pack'}
             </Button>
           ) : null}
           {browserStatus?.state === 'ready' ? (

@@ -48,9 +48,6 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Install Playwright Chromium
-        run: pnpm --filter @sero/desktop exec playwright install chromium
-
       - name: Run contract e2e
         if: runner.os != 'Linux'
         run: pnpm --filter @sero/desktop e2e:contract

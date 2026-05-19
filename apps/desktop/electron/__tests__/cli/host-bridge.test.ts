@@ -6,6 +6,7 @@ import path from 'path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { getCliRegistry, resetCliRegistryForTests } from '@electron/cli';
+import { installCliSessionBridge } from '@electron/cli/bridges/session-bridge';
 import { CliRegistry, executeCliArgv } from '@electron/cli/core';
 import type { CliCommandContext } from '@electron/cli/core';
 import { ensureHostSeroCliBridge, stopHostSeroCliBridgeForTests } from '@electron/cli/host-bridge/server';
@@ -48,6 +49,34 @@ function makeContext(): CliCommandContext {
     workspaceManager: {} as CliCommandContext['workspaceManager'],
     containerManager: {} as CliCommandContext['containerManager'],
   };
+}
+
+function installTestSessionBridge(entries: Record<string, string> = {}): void {
+  installCliSessionBridge({
+    getSessionEntry(sessionId) {
+      const workspaceId = entries[sessionId];
+      if (!workspaceId) return undefined;
+      return {
+        sessionId,
+        workspaceId,
+        session: {
+          sendUserMessage: vi.fn(),
+          sendCustomMessage: vi.fn(),
+          setSessionName: vi.fn(),
+        } as never,
+      };
+    },
+    getActiveSessionForWorkspace() {
+      return undefined;
+    },
+    getActiveTurnId() {
+      return null;
+    },
+    noteTurnStart: vi.fn(),
+    noteTurnEnd: vi.fn(),
+    consumeTurnBudget: vi.fn(() => ({ allowed: true, count: 1, limit: 50 })),
+    setSessionTitle: vi.fn(),
+  });
 }
 
 describe('host Sero CLI bridge', () => {
@@ -113,7 +142,7 @@ describe('host Sero CLI bridge', () => {
     const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(now);
     const expiringToken = mintSeroCliBridgeToken({ workspaceId: 'ws-1', sessionId: null });
 
-    nowSpy.mockReturnValue(now + 24 * 60 * 60 * 1000 + 1);
+    nowSpy.mockReturnValue(now + 5 * 60 * 1000 + 1);
     expect(getSeroCliBridgeTokenScope(expiringToken)).toBeNull();
 
     nowSpy.mockReturnValue(now);
@@ -140,6 +169,7 @@ describe('host Sero CLI bridge', () => {
   });
 
   it('uses token scope instead of spoofed payload workspace/session fields', async () => {
+    installTestSessionBridge({ 's-1': 'ws-1' });
     getCliRegistry().register({
       name: 'bridge-scope-test',
       summary: 'Print bridge scope',
@@ -153,13 +183,50 @@ describe('host Sero CLI bridge', () => {
 
     const response = await postBridge(env.SERO_CLI_ENDPOINT ?? '', env.SERO_CLI_TOKEN ?? '', {
       argv: ['bridge-scope-test'],
-      cwd: '/tmp/ws-2',
+      cwd: '/tmp/ws-1',
       workspaceId: 'ws-2',
       sessionId: 's-2',
     });
 
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({ output: 'ws-1:s-1', exitCode: 0 });
+  });
+
+  it('rejects stale or cross-workspace session-scoped bridge tokens', async () => {
+    installTestSessionBridge({ 's-other': 'ws-2' });
+    await ensureHostSeroCliBridge();
+
+    const staleEnv = addSeroCliEnv({}, { workspaceId: 'ws-1', sessionId: 's-stale' });
+    const stale = await postBridge(staleEnv.SERO_CLI_ENDPOINT ?? '', staleEnv.SERO_CLI_TOKEN ?? '', {
+      argv: ['help'],
+      cwd: '/tmp/ws-1',
+    });
+    expect(stale.status).toBe(401);
+
+    const crossEnv = addSeroCliEnv({}, { workspaceId: 'ws-1', sessionId: 's-other' });
+    const cross = await postBridge(crossEnv.SERO_CLI_ENDPOINT ?? '', crossEnv.SERO_CLI_TOKEN ?? '', {
+      argv: ['help'],
+      cwd: '/tmp/ws-1',
+    });
+    expect(cross.status).toBe(401);
+  });
+
+  it('rejects bridge cwd outside the authenticated workspace', async () => {
+    getCliRegistry().register({
+      name: 'cwd-test',
+      summary: 'Print cwd',
+      execute: async (_args, context) => ({ output: context.cwd, exitCode: 0 }),
+    });
+    await ensureHostSeroCliBridge();
+    const env = addSeroCliEnv({}, { workspaceId: 'ws-1' });
+
+    const response = await postBridge(env.SERO_CLI_ENDPOINT ?? '', env.SERO_CLI_TOKEN ?? '', {
+      argv: ['cwd-test'],
+      cwd: '/tmp/ws-2',
+    });
+
+    expect(response.status).toBe(403);
+    expect(await response.json()).toMatchObject({ output: 'Forbidden cwd', exitCode: 1 });
   });
 
   it('writes a managed sero executable shim', async () => {
