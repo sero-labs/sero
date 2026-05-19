@@ -19,8 +19,34 @@ export {
   type RuntimeBackend,
   type SupportedPlatform,
 } from './runtime';
-export { getLlmMode, requireLlm, type LlmMode, type RequireLlmResult } from './llm';
+export {
+  getLlmMode,
+  getLlmConfig,
+  getLlmCredentialEnvKeys,
+  getLlmCredentialEnvVars,
+  getLlmLaunchEnv,
+  hasLlmCredentials,
+  loadE2eEnv,
+  requireLlm,
+  requireLlmReady,
+  type LlmMode,
+  type LlmConfig,
+  type RequireLlmResult,
+} from './llm';
 export { runCli, type RunCliResult } from './cli';
+export {
+  assistantTextFromEvents,
+  chooseAlternateAvailableModel,
+  configureAgentModel,
+  createOpenAgentSession,
+  disableAllToolsExcept,
+  promptAndCollectEvents,
+  toolEnds,
+  toolStarts,
+  type AgentSessionFixture,
+  type AgentTurnResult,
+  type ConfigureAgentModelResult,
+} from './agent';
 export {
   waitForShell,
   openExplorer,

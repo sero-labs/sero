@@ -12,6 +12,8 @@ const MAIN_PROCESS_EVAL_RETRY_DELAY_MS = 200;
 export interface LaunchOptions {
   /** Extra environment variables merged into the Electron process. */
   env?: Record<string, string>;
+  /** Environment variable names to remove from the inherited parent env before merging `env`. */
+  withoutEnv?: string[];
   /** Override the SERO_HOME directory (defaults to a temp dir). */
   seroHome?: string;
   /**
@@ -84,6 +86,10 @@ export async function launchSeroApp(
 
   if (options.mockRelaunch) {
     env.SERO_E2E_MOCK_RELAUNCH = '1';
+  }
+
+  for (const key of options.withoutEnv ?? []) {
+    delete env[key];
   }
 
   Object.assign(env, options.env);

@@ -1,0 +1,110 @@
+name: E2E Agent
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: LLM tier to run
+        required: true
+        default: cheap
+        type: choice
+        options:
+          - cheap
+          - full
+      provider:
+        description: LLM provider
+        required: true
+        default: anthropic
+        type: choice
+        options:
+          - anthropic
+          - openai
+          - google
+      model:
+        description: Optional model override
+        required: false
+        type: string
+      alternate-model:
+        description: Optional explicit alternate model for model-switch coverage
+        required: false
+        type: string
+  schedule:
+    - cron: '27 8 * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CI: true
+  TURBO_TELEMETRY_DISABLED: 1
+  SERO_E2E_LLM_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || 'cheap' }}
+  SERO_E2E_LLM_PROVIDER: ${{ github.event_name == 'workflow_dispatch' && inputs.provider || 'anthropic' }}
+  SERO_E2E_LLM_MODEL: ${{ github.event_name == 'workflow_dispatch' && inputs.model || '' }}
+  SERO_E2E_LLM_ALT_MODEL: ${{ github.event_name == 'workflow_dispatch' && inputs.alternate-model || '' }}
+  ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+  OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+  GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+  GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+
+jobs:
+  agent:
+    name: Agent realism (${{ github.event_name == 'workflow_dispatch' && inputs.mode || 'cheap' }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install Linux display dependencies
+        run: sudo apt-get update && sudo apt-get install -y xvfb
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright Chromium
+        run: pnpm --filter @sero/desktop exec playwright install chromium
+
+      - name: Verify selected provider secret
+        shell: bash
+        run: |
+          case "$SERO_E2E_LLM_PROVIDER" in
+            anthropic)
+              test -n "$ANTHROPIC_API_KEY" || { echo "::error::Missing ANTHROPIC_API_KEY secret for agent e2e"; exit 1; }
+              ;;
+            openai)
+              test -n "$OPENAI_API_KEY" || { echo "::error::Missing OPENAI_API_KEY secret for agent e2e"; exit 1; }
+              ;;
+            google)
+              test -n "$GEMINI_API_KEY$GOOGLE_API_KEY" || { echo "::error::Missing GEMINI_API_KEY or GOOGLE_API_KEY secret for agent e2e"; exit 1; }
+              ;;
+            *)
+              echo "::error::Unsupported SERO_E2E_LLM_PROVIDER=$SERO_E2E_LLM_PROVIDER"
+              exit 1
+              ;;
+          esac
+
+      - name: Run agent e2e
+        run: xvfb-run -a pnpm --filter @sero/desktop e2e:agent
+
+      - name: Upload Playwright artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-agent-${{ github.event_name == 'workflow_dispatch' && inputs.mode || 'cheap' }}
+          path: |
+            apps/desktop/test-results/
+            apps/desktop/playwright-report/
+          if-no-files-found: ignore
+          retention-days: 7
