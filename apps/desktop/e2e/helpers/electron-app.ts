@@ -1,5 +1,7 @@
 import { _electron as electron, type ElectronApplication, type Page } from '@playwright/test';
 import path from 'path';
+import type { RuntimeBackend } from './runtime';
+import { currentRuntimeFromEnv, runtimeAvailableOn } from './runtime';
 
 const MAIN_PROCESS_EVAL_RETRIES = 5;
 const MAIN_PROCESS_EVAL_RETRY_DELAY_MS = 200;
@@ -10,18 +12,39 @@ const MAIN_PROCESS_EVAL_RETRY_DELAY_MS = 200;
 export interface LaunchOptions {
   /** Extra environment variables merged into the Electron process. */
   env?: Record<string, string>;
+  /** Environment variable names to remove from the inherited parent env before merging `env`. */
+  withoutEnv?: string[];
   /** Override the SERO_HOME directory (defaults to a temp dir). */
   seroHome?: string;
   /**
-   * Enable the macOS container system (Virtualization framework).
+   * Runtime backend to exercise. Sets SERO_E2E_RUNTIME for downstream
+   * code to read:
+   *   - 'host'            — direct execution against the host filesystem
+   *   - 'apple-container' — requires macOS Virtualization framework
+   *   - 'docker'          — requires Docker daemon on Linux
    *
-   * - `false` (default): Disables the HTTP proxy (`SERO_CONTAINER_PROXY=0`).
-   *   The container binary may still be called but will fail gracefully
-   *   in environments without the Virtualization framework (CI, Linux).
-   * - `true`: Full container support. Requires macOS with the `container`
-   *   binary available. Used by the "local" Playwright project.
+   * Defaults to 'host' when omitted. Specs that require an unavailable
+   * runtime on the current platform should use the runtime helper to skip.
+   */
+  runtime?: RuntimeBackend;
+  /**
+   * @deprecated Prefer `runtime`. When set, `runtime` wins.
+   * Kept temporarily so unmigrated specs still launch.
    */
   containers?: boolean;
+  /**
+   * Optional seeder run after the temp SERO_HOME is created but BEFORE
+   * Electron launches. Receives the resolved SERO_HOME path so the
+   * seeder can write profiles/, workspaces.json, auth.json, etc.
+   */
+  seed?: (seroHome: string) => void | Promise<void>;
+  /**
+   * Intercept `app.relaunch()` / `app.exit()` calls so profile-switch
+   * tests can assert the call was made without actually relaunching.
+   * The intercepted call is exposed via `__seroRelaunchCalls` on the
+   * main-process global for in-test assertions.
+   */
+  mockRelaunch?: boolean;
 }
 
 /**
@@ -38,25 +61,39 @@ export async function launchSeroApp(
   const desktopRoot = path.resolve(__dirname, '../..');
   const mainEntry = path.join(desktopRoot, 'dist/electron/main.mjs');
 
-  const containers = options.containers ?? false;
+  const runtime: RuntimeBackend =
+    options.runtime ?? (options.containers ? 'apple-container' : currentRuntimeFromEnv() ?? 'host');
 
-  const env: Record<string, string> = {
-    ...process.env as Record<string, string>,
-    NODE_ENV: 'test',
-    // Isolate test data from real user data. env.ts resolves profiles via
-    // SERO_HOME_OVERRIDE in tests; SERO_HOME is set later by loadSeroEnv().
-    SERO_HOME_OVERRIDE: options.seroHome ?? path.join(desktopRoot, '.sero-test-data'),
-  };
-
-  if (!containers) {
-    // Disable the HTTP proxy — the container system's lifecycle calls
-    // (ensureSystemRunning, ensureImage) will still run but fail gracefully
-    // when the `container` binary is missing.
-    env.SERO_CONTAINER_PROXY = '0';
+  if (!runtimeAvailableOn(runtime, process.platform as 'darwin' | 'linux' | 'win32')) {
+    throw new Error(
+      `launchSeroApp: runtime "${runtime}" is not available on platform "${process.platform}". ` +
+        'Spec authors should call runtimeSkipReason() and test.skip() before reaching the launcher.',
+    );
   }
 
-  // Merge caller overrides last so they win
+  const seroHome = options.seroHome ?? path.join(desktopRoot, '.sero-test-data');
+
+  if (options.seed) {
+    await options.seed(seroHome);
+  }
+
+  const env: Record<string, string> = {
+    ...(process.env as Record<string, string>),
+    NODE_ENV: 'test',
+    SERO_HOME_OVERRIDE: seroHome,
+    SERO_E2E_RUNTIME: runtime,
+  };
+
+  if (options.mockRelaunch) {
+    env.SERO_E2E_MOCK_RELAUNCH = '1';
+  }
+
+  for (const key of options.withoutEnv ?? []) {
+    delete env[key];
+  }
+
   Object.assign(env, options.env);
+  restoreWindowsProfileEnv(env);
 
   const app = await electron.launch({
     args: [mainEntry],
@@ -64,11 +101,25 @@ export async function launchSeroApp(
     env,
   });
 
-  // Wait for the first BrowserWindow to appear
   const page = await app.firstWindow();
-
-  // Wait for the renderer to finish initial loading
   await page.waitForLoadState('domcontentloaded');
+
+  if (options.mockRelaunch) {
+    await app.evaluate(({ app: electronApp }) => {
+      const calls: Array<{ method: 'relaunch' | 'exit'; args: unknown[] }> = [];
+      (globalThis as Record<string, unknown>).__seroRelaunchCalls = calls;
+      const originalRelaunch = electronApp.relaunch.bind(electronApp);
+      const originalExit = electronApp.exit.bind(electronApp);
+      electronApp.relaunch = ((...args: unknown[]) => {
+        calls.push({ method: 'relaunch', args });
+      }) as typeof electronApp.relaunch;
+      electronApp.exit = ((...args: unknown[]) => {
+        calls.push({ method: 'exit', args });
+      }) as typeof electronApp.exit;
+      void originalRelaunch;
+      void originalExit;
+    });
+  }
 
   return { app, page };
 }
@@ -77,6 +128,15 @@ function isTransientMainProcessEvaluateError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
   return message.includes('Execution context was destroyed')
     || message.includes('most likely because of a navigation');
+}
+
+function restoreWindowsProfileEnv(env: Record<string, string>): void {
+  if (process.platform !== 'win32') return;
+  for (const key of ['USERPROFILE', 'HOME', 'HOMEDRIVE', 'HOMEPATH'] as const) {
+    const value = process.env[key];
+    if (value) env[key] = value;
+    else delete env[key];
+  }
 }
 
 async function delay(ms: number): Promise<void> {

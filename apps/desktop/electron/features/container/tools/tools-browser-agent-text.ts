@@ -1,4 +1,5 @@
 import type { RuntimeBackend } from '@electron/features/workspace/runtime/types';
+import type { BrowserRuntimeAdapter } from '@electron/features/workspace/runtime/browser-pack/types';
 import type { AgentBrowserJson, AgentCommandOptions } from './tools-browser-agent-types';
 
 export function textSelectorValue(selector: string): string | null {
@@ -29,19 +30,21 @@ function clickByTextExpression(text: string): string {
 
 export async function clickByText(opts: {
   runtime: RuntimeBackend;
+  adapter: BrowserRuntimeAdapter;
   workspaceId: string;
   executablePath: string | null;
   text: string;
   runEval: (
     runtime: RuntimeBackend,
+    adapter: BrowserRuntimeAdapter,
     workspaceId: string,
     executablePath: string | null,
     expression: string,
     options?: AgentCommandOptions,
   ) => Promise<AgentBrowserJson>;
 }): Promise<AgentBrowserJson> {
-  const { runtime, workspaceId, executablePath, text, runEval } = opts;
-  const response = await runEval(runtime, workspaceId, executablePath, clickByTextExpression(text));
+  const { runtime, adapter, workspaceId, executablePath, text, runEval } = opts;
+  const response = await runEval(runtime, adapter, workspaceId, executablePath, clickByTextExpression(text));
   const result = response.result as { ok?: boolean; error?: string } | undefined;
   if (result?.ok === false) throw new Error(result.error || `No visible clickable element with text: ${text}`);
   return response;

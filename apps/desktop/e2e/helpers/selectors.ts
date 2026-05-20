@@ -45,6 +45,8 @@ export const sidebar = {
   newSessionButton: 'button[title="New session"]',
   /** Session list item — use `.filter({ hasText })` for specific session. */
   sessionItem: '[data-testid="session-item"]',
+  /** Session item by ID. */
+  sessionById: (id: string) => `[data-testid="session-item"][data-session-id="${id}"]`,
 } as const;
 
 // ── Chat Panel ──────────────────────────────────────────────────

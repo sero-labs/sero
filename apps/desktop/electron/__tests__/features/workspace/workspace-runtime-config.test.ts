@@ -8,8 +8,10 @@ import {
   resolveWorkspaceRuntimeBackendDetails,
   resolveWorkspaceRuntimeConfig,
 } from '@electron/features/workspace/runtime/config';
+import { HOST_RELEASE_TARGETS } from '@electron/features/workspace/runtime/host-support-matrix';
 import { getDefaultRuntimeBackend } from '@electron/features/workspace/runtime/platform-default';
 import type { WorkspaceConfig } from '@/types/ipc';
+import type { WorkspaceRuntimeBackend } from '@/types/workspace-runtime';
 
 const tempDirs: string[] = [];
 
@@ -37,10 +39,70 @@ async function createTestManager(): Promise<WorkspaceManager> {
   });
 }
 
+function expectedContainerDefault(platform: NodeJS.Platform, arch: string): WorkspaceRuntimeBackend {
+  return platform === 'darwin' && arch === 'arm64' ? 'apple-container' : 'docker';
+}
+
 describe('workspace runtime config migration', () => {
   afterEach(async () => {
+    delete process.env.SERO_HOST_FIRST;
     vi.restoreAllMocks();
     await Promise.all(tempDirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })));
+  });
+
+  it('defines the host release support matrix and unsupported future policies', () => {
+    expect(HOST_RELEASE_TARGETS).toEqual([
+      {
+        platform: 'darwin',
+        arch: 'arm64',
+        releaseSupported: true,
+        hostDefault: true,
+        browserPackRequired: true,
+        packagedAppRequired: true,
+      },
+      {
+        platform: 'darwin',
+        arch: 'x64',
+        releaseSupported: false,
+        hostDefault: false,
+        browserPackRequired: false,
+        packagedAppRequired: false,
+        notes: 'Future: Intel Mac support is not part of this release matrix.',
+      },
+      {
+        platform: 'linux',
+        arch: 'x64',
+        releaseSupported: true,
+        hostDefault: true,
+        browserPackRequired: true,
+        packagedAppRequired: true,
+      },
+      {
+        platform: 'linux',
+        arch: 'arm64',
+        releaseSupported: true,
+        hostDefault: true,
+        browserPackRequired: true,
+        packagedAppRequired: true,
+      },
+      {
+        platform: 'win32',
+        arch: 'x64',
+        releaseSupported: true,
+        hostDefault: true,
+        browserPackRequired: true,
+        packagedAppRequired: true,
+      },
+      {
+        platform: 'win32',
+        arch: 'arm64',
+        releaseSupported: false,
+        hostDefault: false,
+        browserPackRequired: false,
+        packagedAppRequired: false,
+        notes: 'Future: needs Windows ARM runner/package/browser-pack smoke.',
+      },
+    ]);
   });
 
   it('resolves legacy and new config shapes', () => {
@@ -53,20 +115,31 @@ describe('workspace runtime config migration', () => {
     expect(resolveWorkspaceRuntimeConfig('app', { id: 'app', name: 'App', container: false }, { platform: 'linux', arch: 'x64' }).backend)
       .toBe('host');
     expect(resolveWorkspaceRuntimeConfig('app', { id: 'app', name: 'App', container: false }, { platform: 'win32', arch: 'x64' }).backend)
-      .toBe('docker');
+      .toBe('host');
     expect(resolveWorkspaceRuntimeConfig('app', { id: 'app', name: 'App' }, platform).backend)
       .toBe('apple-container');
     expect(resolveWorkspaceRuntimeConfig('app', { id: 'app', name: 'App', runtime: { backend: 'docker' } }, platform).backend)
       .toBe('docker');
   });
 
-  it('uses platform defaults for macOS Apple Silicon, macOS Intel, Windows, Linux, and global', () => {
-    expect(getDefaultRuntimeBackend({ platform: 'darwin', arch: 'arm64' })).toBe('apple-container');
-    expect(getDefaultRuntimeBackend({ platform: 'darwin', arch: 'x64' })).toBe('docker');
-    expect(getDefaultRuntimeBackend({ platform: 'win32', arch: 'x64' })).toBe('docker');
-    expect(getDefaultRuntimeBackend({ platform: 'linux', arch: 'arm64' })).toBe('docker');
-    expect(getDefaultRuntimeBackend({ workspaceId: 'global', platform: 'linux', arch: 'x64' })).toBe('host');
-    expect(getDefaultRuntimeBackend({ workspaceId: 'global', platform: 'win32', arch: 'x64' })).toBe('docker');
+  it('uses legacy container defaults when host-first is disabled while preserving global host defaults', () => {
+    for (const target of HOST_RELEASE_TARGETS) {
+      const input = { platform: target.platform, arch: target.arch };
+      expect(getDefaultRuntimeBackend(input)).toBe(expectedContainerDefault(target.platform, target.arch));
+      expect(getDefaultRuntimeBackend({ workspaceId: 'global', ...input })).toBe(
+        target.hostDefault ? 'host' : expectedContainerDefault(target.platform, target.arch),
+      );
+    }
+  });
+
+  it('uses host defaults for every supported matrix target when host-first is enabled', () => {
+    process.env.SERO_HOST_FIRST = '1';
+
+    for (const target of HOST_RELEASE_TARGETS) {
+      expect(getDefaultRuntimeBackend({ platform: target.platform, arch: target.arch })).toBe(
+        target.hostDefault ? 'host' : expectedContainerDefault(target.platform, target.arch),
+      );
+    }
   });
 
   it('normalizes writes to runtime.backend and removes legacy container', () => {
@@ -194,30 +267,42 @@ describe('workspace runtime config migration', () => {
     expect(written.runtime).toEqual({ backend: 'host' });
   });
 
-  it('refuses to set host runtime on Windows and leaves config untouched', async () => {
+  it('allows the deprecated container shim to select host runtime on Windows', async () => {
     vi.spyOn(process, 'platform', 'get').mockReturnValue('win32');
+    vi.spyOn(process, 'arch', 'get').mockReturnValue('x64');
     const workspacePath = await createTempWorkspace({ id: 'app', name: 'App', runtime: { backend: 'docker' } });
     const manager = await createTestManager();
     const info = await manager.addFolder(workspacePath);
 
     const result = await manager.setContainerEnabled(info.id, false);
 
-    expect(result).toMatchObject({
-      ok: false,
-      error: { code: 'host-doctor-failed', message: expect.stringMatching(/Windows/) },
-    });
-    expect(await manager.getRuntimeConfig(info.id)).toEqual({ backend: 'docker' });
+    expect(result).toEqual({ ok: true, backend: 'host' });
+    expect(await manager.getRuntimeConfig(info.id)).toEqual({ backend: 'host' });
     const raw = await readFile(path.join(workspacePath, '.sero-workspace.json'), 'utf8');
-    expect((JSON.parse(raw) as WorkspaceConfig).runtime).toEqual({ backend: 'docker' });
+    expect((JSON.parse(raw) as WorkspaceConfig).runtime).toEqual({ backend: 'host' });
   });
 
-  it('auto-migrates an on-disk host runtime config to docker when read on Windows', () => {
+  it('keeps deprecated container shim enablement selecting a container backend under host-first', async () => {
+    process.env.SERO_HOST_FIRST = '1';
+    vi.spyOn(process, 'platform', 'get').mockReturnValue('darwin');
+    vi.spyOn(process, 'arch', 'get').mockReturnValue('arm64');
+    const workspacePath = await createTempWorkspace({ id: 'app', name: 'App', runtime: { backend: 'host' } });
+    const manager = await createTestManager();
+    const info = await manager.addFolder(workspacePath);
+
+    const result = await manager.setContainerEnabled(info.id, true);
+
+    expect(result).toEqual({ ok: true, backend: 'apple-container' });
+    expect(await manager.getRuntimeConfig(info.id)).toEqual({ backend: 'apple-container' });
+  });
+
+  it('preserves an on-disk host runtime config when read on Windows', () => {
     vi.spyOn(process, 'platform', 'get').mockReturnValue('win32');
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 
     const config = { id: 'app', name: 'App', runtime: { backend: 'host' as const } };
-    expect(resolveWorkspaceRuntimeConfig('app', config).backend).toBe('docker');
-    expect(warn).toHaveBeenCalled();
+    expect(resolveWorkspaceRuntimeConfig('app', config).backend).toBe('host');
+    expect(warn).not.toHaveBeenCalled();
   });
 
   it('migrates apple-container to the platform default outside macOS Apple Silicon', () => {
@@ -258,6 +343,27 @@ describe('workspace runtime config migration', () => {
     );
 
     expect(details).toEqual({ backend: 'docker', configuredBackend: 'docker' });
+  });
+
+  it('keeps persisted runtime backends authoritative when host-first is enabled', () => {
+    process.env.SERO_HOST_FIRST = '1';
+
+    expect(resolveWorkspaceRuntimeConfig('app', { id: 'app', name: 'App', runtime: { backend: 'docker' } }, { platform: 'linux', arch: 'x64' }).backend)
+      .toBe('docker');
+    expect(resolveWorkspaceRuntimeConfig('app', { id: 'app', name: 'App', runtime: { backend: 'apple-container' } }, { platform: 'darwin', arch: 'arm64' }).backend)
+      .toBe('apple-container');
+  });
+
+  it('does not fall back from an unsupported persisted container backend to host under host-first', () => {
+    process.env.SERO_HOST_FIRST = '1';
+    const config = { id: 'app', name: 'App', runtime: { backend: 'apple-container' as const } };
+
+    expect(resolveWorkspaceRuntimeBackendDetails('app', config, { platform: 'linux', arch: 'x64' })).toMatchObject({
+      backend: 'docker',
+      configuredBackend: 'apple-container',
+      fallbackCode: 'backend-unsupported-on-platform',
+    });
+    expect(resolveWorkspaceRuntimeConfig('app', config, { platform: 'win32', arch: 'x64' }).backend).toBe('docker');
   });
 
   it('tags mac-host migration with legacy-mac-host fallback code', () => {

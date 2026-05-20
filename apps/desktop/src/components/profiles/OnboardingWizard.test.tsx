@@ -96,6 +96,11 @@ describe('OnboardingWizard', () => {
         clipboard: {
           writeText: vi.fn().mockResolvedValue(true),
         },
+        workspace: {
+          getBrowserPackStatus: vi.fn().mockResolvedValue({ state: 'installable', manifestVersion: 'test' }),
+          ensureBrowserPack: vi.fn().mockResolvedValue({ state: 'installable', manifestVersion: 'test' }),
+          onBrowserPackProgress: vi.fn(() => () => {}),
+        },
       },
     });
 
@@ -138,7 +143,7 @@ describe('OnboardingWizard', () => {
       root?.render(<OnboardingWizard />);
     });
 
-    expect(document.body.textContent).toContain('Workspace runtime setup recommended for full Sero features');
+    expect(document.body.textContent).toContain('Optional container runtime setup');
     expect(document.body.textContent).toContain('Install Apple containers.');
     expect(document.body.textContent).toContain('Continue');
   });
@@ -181,6 +186,33 @@ describe('OnboardingWizard', () => {
     expect(dialog?.className).toContain('overflow-y-auto');
   });
 
+  it('moves optional dependency installs to their own onboarding step', async () => {
+    mockUseOnboardingLaunch.mockReturnValue(createLaunchState());
+
+    await act(async () => {
+      root?.render(<OnboardingWizard />);
+    });
+
+    expect(document.body.textContent).toContain('Choose your defaults');
+    expect(document.body.textContent).not.toContain('Browser automation dependencies');
+
+    const continueButton = Array.from(document.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('Continue'),
+    );
+    expect(continueButton).toBeInstanceOf(HTMLButtonElement);
+
+    await act(async () => {
+      continueButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    expect(document.body.textContent).toContain('Install dependencies (optional)');
+    expect(document.body.textContent).toContain('offer it the first time you need it');
+    expect(document.body.textContent).toContain('Browser automation');
+    expect(document.body.textContent).toContain('Large download for browser screenshots');
+    expect(document.body.textContent).toContain('Install browser support');
+    expect(document.body.textContent).not.toContain('Skip for now');
+  });
+
   it('omits the container warning when containers are available', async () => {
     mockUseOnboardingLaunch.mockReturnValue(createLaunchState());
 
@@ -188,6 +220,6 @@ describe('OnboardingWizard', () => {
       root?.render(<OnboardingWizard />);
     });
 
-    expect(document.body.textContent).not.toContain('Workspace runtime setup recommended for full Sero features');
+    expect(document.body.textContent).not.toContain('Optional container runtime setup');
   });
 });

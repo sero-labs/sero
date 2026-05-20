@@ -1,4 +1,9 @@
 import { spawn } from 'child_process';
+import {
+  classifyNativeBuildFailure,
+  createNativeBuildToolsRequiredMetadata,
+} from '@electron/features/workspace/runtime/native-build/classifier';
+import type { NativeBuildToolsRequiredMetadata } from '@electron/features/workspace/runtime/native-build/types';
 
 const REPAIR_TIMEOUT_MS = 120_000;
 const REPAIR_OUTPUT_LIMIT = 4_000;
@@ -14,6 +19,7 @@ const NATIVE_OPTIONAL_DEP_FAILURE_PATTERNS = [
 export interface PluginNativeDepsRepairResult {
   ok: boolean;
   output: string;
+  nativeBuildToolsRequired?: NativeBuildToolsRequiredMetadata;
 }
 
 export function isNativeOptionalDependencyFailure(output: string): boolean {
@@ -35,7 +41,19 @@ export async function repairPluginNativeDeps(sourcePath: string): Promise<Plugin
       if (settled) return;
       settled = true;
       if (timeout) clearTimeout(timeout);
-      resolve({ ok, output: trimRepairOutput(output) });
+      const trimmedOutput = trimRepairOutput(output);
+      const failure = ok ? null : classifyNativeBuildFailure({
+        command: 'pnpm install --force',
+        exitCode: 1,
+        stdout: '',
+        stderr: trimmedOutput,
+        platform: process.platform,
+      });
+      resolve({
+        ok,
+        output: trimmedOutput,
+        nativeBuildToolsRequired: failure ? createNativeBuildToolsRequiredMetadata(failure) : undefined,
+      });
     };
 
     const child = spawn('pnpm', ['install', '--force'], {

@@ -35,9 +35,9 @@ export function buildSessionRuntime(
   }
 
   const entry = context.invocation.sessionId
-    ? bridge.getSessionEntry(context.invocation.sessionId) ?? bridge.getActiveSessionForWorkspace(context.workspaceId)
+    ? bridge.getSessionEntry(context.invocation.sessionId)
     : bridge.getActiveSessionForWorkspace(context.workspaceId);
-  if (!entry) return undefined;
+  if (!entry || entry.workspaceId !== context.workspaceId) return undefined;
 
   return {
     sessionId: entry.sessionId,

@@ -75,22 +75,19 @@ describe('runtime backend contract skeleton', () => {
     expect(dockerCapabilities.files.watch).toBe(false);
   });
 
-  it('computes host capabilities per platform without browser automation', () => {
+  it('computes host capabilities per platform with installable browser automation support', () => {
     const capabilities = getRuntimeCapabilities('host', 'darwin');
 
-    expect(capabilities.browserAutomation).toBe(false);
+    expect(capabilities.browserAutomation).toBe(true);
     expect(capabilities.files.watch).toBe(false);
     expect(capabilities.languageServers).toBe(true);
     expect(getRuntimeCapabilities('host', 'linux').languageServers).toBe(true);
+    expect(getRuntimeCapabilities('host', 'win32').languageServers).toBe(true);
   });
 
   it('rejects Apple Container capabilities outside macOS Apple Silicon', () => {
     expect(() => getRuntimeCapabilities('apple-container', 'linux', 'arm64')).toThrow(UnsupportedRuntimeOnPlatformError);
     expect(() => getRuntimeCapabilities('apple-container', 'darwin', 'x64')).toThrow(UnsupportedRuntimeOnPlatformError);
-  });
-
-  it('rejects host capabilities on Windows', () => {
-    expect(() => getRuntimeCapabilities('host', 'win32')).toThrow(UnsupportedRuntimeOnPlatformError);
   });
 
   it('marks host as host access with managed dev-server preview capabilities', async () => {
@@ -109,7 +106,7 @@ describe('runtime backend contract skeleton', () => {
     expect(runtime.runtimeWorkspacePath).toBe(RUNTIME_WORKSPACE_PATH);
     expect(runtime.capabilities.devServers.start).toBe(true);
     expect(runtime.capabilities.ports.previewUrl).toBe(true);
-    expect(runtime.capabilities.browserAutomation).toBe(false);
+    expect(runtime.capabilities.browserAutomation).toBe(true);
   });
 
   it('resolves and caches one real backend per workspace/backend pair', async () => {
@@ -349,6 +346,32 @@ describe('runtime backend contract skeleton', () => {
 
     expect(manager.listDevServersSync('workspace-a')).toEqual([server]);
     expect(legacyList).toHaveBeenCalledWith('workspace-a');
+  });
+
+  it('disposes terminal sessions without forcing a POSIX signal', async () => {
+    const signal = vi.fn();
+    const manager = new RuntimeManager({
+      workspaceManager: {
+        getPath: vi.fn().mockReturnValue('/Users/daniel/project'),
+        getRuntimeConfig: vi.fn().mockResolvedValue({ backend: 'host' }),
+      } as unknown as WorkspaceManager,
+      containerManager: {} as ContainerManager,
+    });
+    const runtime = await manager.getRuntime('workspace-a');
+    vi.spyOn(runtime, 'createTerminal').mockResolvedValue({
+      terminalId: 'terminal-a',
+      write: vi.fn(),
+      signal,
+      onData: vi.fn(() => vi.fn()),
+      onExit: vi.fn(() => vi.fn()),
+      replayBuffer: vi.fn(() => ''),
+    });
+
+    await manager.createTerminal('workspace-a', 'terminal-a');
+    manager.disposeTerminal('terminal-a');
+
+    expect(signal).toHaveBeenCalledWith();
+    expect(manager.getTerminal('terminal-a')).toBeUndefined();
   });
 
   it('translates primary workspace paths between host and runtime roots', () => {

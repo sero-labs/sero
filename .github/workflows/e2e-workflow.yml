@@ -1,0 +1,167 @@
+name: E2E Workflow
+
+on:
+  workflow_dispatch:
+    inputs:
+      os:
+        description: Self-hosted runner OS
+        required: true
+        default: macos
+        type: choice
+        options:
+          - macos
+          - linux
+          - windows
+      runtime:
+        description: Runtime backend
+        required: true
+        default: host
+        type: choice
+        options:
+          - host
+          - apple-container
+          - docker
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.os }}-${{ inputs.runtime }}
+  cancel-in-progress: true
+
+env:
+  CI: true
+  TURBO_TELEMETRY_DISABLED: 1
+  SERO_E2E_RUNTIME: ${{ inputs.runtime }}
+
+jobs:
+  workflow-macos:
+    name: Workflow macOS (${{ inputs.runtime }})
+    if: ${{ inputs.os == 'macos' }}
+    runs-on: [self-hosted, macos]
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Validate OS/runtime selection
+        run: |
+          case "${{ inputs.runtime }}" in
+            host|apple-container) ;;
+            *) echo "::error::macOS workflow supports host or apple-container, not ${{ inputs.runtime }}"; exit 1 ;;
+          esac
+      - name: Check workflow prerequisites
+        run: apps/desktop/scripts/e2e-doctor.sh workflow
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Run workflow e2e
+        run: pnpm --filter @sero/desktop e2e:workflow
+      - name: Upload Playwright artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-workflow-macos-${{ inputs.runtime }}
+          path: |
+            apps/desktop/test-results/
+            apps/desktop/playwright-report/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  workflow-linux:
+    name: Workflow Linux (${{ inputs.runtime }})
+    if: ${{ inputs.os == 'linux' }}
+    runs-on: [self-hosted, sero-linux]
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Validate OS/runtime selection
+        run: |
+          case "${{ inputs.runtime }}" in
+            host|docker) ;;
+            *) echo "::error::Linux workflow supports host or docker, not ${{ inputs.runtime }}"; exit 1 ;;
+          esac
+      - name: Check workflow prerequisites
+        run: apps/desktop/scripts/e2e-doctor.sh workflow
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Run workflow e2e
+        run: |
+          if command -v xvfb-run >/dev/null 2>&1; then
+            xvfb-run -a pnpm --filter @sero/desktop e2e:workflow
+          else
+            pnpm --filter @sero/desktop e2e:workflow
+          fi
+      - name: Upload Playwright artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-workflow-linux-${{ inputs.runtime }}
+          path: |
+            apps/desktop/test-results/
+            apps/desktop/playwright-report/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  workflow-windows:
+    name: Workflow Windows (host)
+    if: ${{ inputs.os == 'windows' }}
+    runs-on: [self-hosted, sero-windows]
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Validate OS/runtime selection
+        run: |
+          case "${{ inputs.runtime }}" in
+            host) ;;
+            *) echo "::error::Windows workflow supports host runtime only, not ${{ inputs.runtime }}"; exit 1 ;;
+          esac
+      - name: Check workflow prerequisites
+        run: apps/desktop/scripts/e2e-doctor.sh workflow
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Run workflow e2e
+        run: pnpm --filter @sero/desktop e2e:workflow
+      - name: Upload Playwright artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-workflow-windows-host
+          path: |
+            apps/desktop/test-results/
+            apps/desktop/playwright-report/
+          if-no-files-found: ignore
+          retention-days: 7

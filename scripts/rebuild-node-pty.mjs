@@ -13,6 +13,7 @@
 import { execSync, execFileSync, spawnSync } from 'child_process';
 import { existsSync, readdirSync, realpathSync } from 'fs';
 import { resolve, dirname } from 'path';
+import { tmpdir } from 'os';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
 
@@ -80,11 +81,25 @@ function getElectronModulesAbi(electronBin) {
 
 function testNodePty(electronBin, ptyDir) {
   try {
+    const spawnConfig = process.platform === 'win32'
+      ? {
+          file: resolve(process.env.SystemRoot || 'C:\\Windows', 'System32', 'cmd.exe'),
+          args: ['/d', '/s', '/c', 'echo __pty_ok__'],
+          cwd: tmpdir(),
+          envPath: process.env.Path || process.env.PATH || '',
+        }
+      : {
+          file: '/bin/echo',
+          args: ['__pty_ok__'],
+          cwd: '/tmp',
+          envPath: process.env.PATH || '/usr/bin:/bin',
+        };
     const script = `
       const pty = require(${JSON.stringify(ptyDir)});
-      const p = pty.spawn('/bin/echo', ['__pty_ok__'], {
-        name: 'xterm-256color', cols: 80, rows: 24, cwd: '/tmp',
-        env: { PATH: process.env.PATH || '/usr/bin:/bin' }
+      const config = ${JSON.stringify(spawnConfig)};
+      const p = pty.spawn(config.file, config.args, {
+        name: 'xterm-256color', cols: 80, rows: 24, cwd: config.cwd,
+        env: { ...process.env, PATH: config.envPath, Path: config.envPath }
       });
       let out = '';
       p.onData(d => { out += d; });

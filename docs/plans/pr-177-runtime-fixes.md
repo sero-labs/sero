@@ -3,15 +3,17 @@
 **Date:** 2026-05-11
 **Scope:** Fix review findings for PR #177 (`feat(desktop): add provider-aware workspace runtimes`).
 
-## Runtime scope
+## Runtime scope (historical PR #177 context)
 
-PR #177 supports these local workspace runtimes:
+This section records the PR #177 scope at the time this plan was written. Current PR #185-era Host platform support and release gates are defined by `docs/reference/host-mode-support.md`.
+
+PR #177 supported these local workspace runtimes:
 
 - `apple-container` on supported Apple Silicon Macs.
 - `docker` on macOS, Windows, and Linux.
 - `host` on macOS/Linux only.
 
-Windows Host mode / WSL-backed Host execution is deprecated for PR #177. Windows uses Docker exclusively. Do not implement or validate WSL path translation, WSLENV propagation, mixed-distro rejection, WSL-native workspaces, or WSL localhost-forwarding diagnostics in this pass.
+Windows Host mode / WSL-backed Host execution was deprecated for PR #177. For that historical pass, Windows used Docker exclusively. Do not use this section as current Windows Host guidance; use `docs/reference/host-mode-support.md` instead.
 
 ## Primary goal
 
@@ -38,7 +40,7 @@ Read these files first:
 - Do not add remote/cloud/OpenShell runtime surfaces.
 - Do not redesign the whole runtime model beyond the fixes below.
 - Do not implement full file watching for Docker or Apple Container in this pass; advertise it correctly as unsupported.
-- Do not add Windows Host mode through PowerShell/cmd or WSL. Windows workspace execution uses Docker.
+- Do not add Windows Host mode through PowerShell/cmd or WSL for the historical PR #177 scope. Current Windows Host support is governed by `docs/reference/host-mode-support.md`.
 
 ## Cross-cutting constraints
 
@@ -83,8 +85,8 @@ Acceptance criteria:
 
 - Docker-selected workspaces execute through Docker, never silently on the host.
 - Apple Container-selected workspaces execute through Apple Container.
-- Host-selected workspaces execute through Host on macOS/Linux.
-- Unsupported Windows Host selection fails or normalizes to Docker before execution.
+- Host-selected workspaces execute through Host on the release-supported Host platforms for the active rollout.
+- Unsupported Host selections fail or normalize to the configured default before execution.
 - Existing isolation tests pass or are updated to assert the new runtime-seam behavior.
 
 ### Task 2 — Reset runtimes on backend/config changes
@@ -104,7 +106,7 @@ Make managed dev-server start/list/stop/restart provider-neutral and reliable.
 Acceptance criteria:
 
 - Start fails cleanly if no port/URL is detected.
-- Host macOS/Linux start detects the child/descendant listening port or returns an actionable failure.
+- Host dev-server start detects the child/descendant listening port or returns an actionable failure.
 - Docker and Apple Container use loopback preview-port pools and return `http://127.0.0.1:<hostPort>` URLs.
 - IPC stop/restart tries runtime-backed servers first and falls back to the legacy registry for legacy entries.
 - Dev-server events do not double-register or leak after runtime reset.
@@ -116,8 +118,8 @@ Ensure capabilities match implemented behavior.
 Acceptance criteria:
 
 - Docker and Apple Container report file watching unsupported until implemented.
-- Host reports browser automation unsupported.
-- Windows does not report Host runtime support.
+- Host reports browser automation availability from browser-pack install state and Doctor launch readiness.
+- Windows Host support follows the current host-mode release matrix.
 - Callers use capability helpers rather than direct backend maps.
 
 ### Task 5 — Harden Docker backend and Doctor checks
@@ -143,9 +145,9 @@ Acceptance criteria:
 - Binary reads use a binary-safe path.
 - Dev-server redirects quote log paths safely.
 
-### Task 7 — Harden Host runtime on macOS/Linux
+### Task 7 — Harden Host runtime
 
-Host runtime is POSIX-only for PR #177.
+Historical PR #177 note: Host was POSIX-only at that point. Current host-mode support follows `docs/reference/host-mode-support.md`.
 
 Acceptance criteria:
 
@@ -156,13 +158,13 @@ Acceptance criteria:
 
 ### Task 8 — Browser automation resilience
 
-Browser automation remains container-only.
+Historical PR #177 note: browser automation was container-only at that point. Current Host browser automation requires a published browser pack and Doctor launch readiness.
 
 Acceptance criteria:
 
 - Docker/Apple Container images include Chromium and an `ffmpeg` executable on `PATH` for recording.
 - Browser launch/navigation failures are recoverable and do not poison the session.
-- Host runtime does not expose browser automation tools.
+- Host runtime exposes browser automation tools only when browser-pack install state and Doctor readiness allow it.
 
 ## Validation
 
@@ -190,8 +192,8 @@ pnpm typecheck
 Manual smoke:
 
 - macOS Apple Silicon: Apple Container, Docker, Host.
-- macOS Intel: Docker, Host.
+- macOS Intel: Docker, Host when supported by the current matrix.
 - Linux: Docker, Host.
-- Windows: Docker Desktop only.
+- Windows: Docker Desktop and Host where the current host-mode release matrix gates it.
 
-Do not include Windows Host/WSL smoke as a PR #177 release gate.
+Do not use this historical PR #177 plan as the current Windows Host/WSL release gate; use `docs/reference/host-mode-support.md`.

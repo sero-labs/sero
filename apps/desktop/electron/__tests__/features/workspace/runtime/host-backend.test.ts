@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, realpath, rm, symlink, writeFile } from 'fs/promises';
+import { mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from 'fs/promises';
 import os from 'os';
 import path from 'path';
 import type { ChildProcess } from 'child_process';
@@ -26,9 +26,9 @@ function createMockSubstrate(): HostRuntimeSubstrate {
     toNativeHostPath: (executionPath) => executionPath,
     isPathInsideRoot: (candidate, root) => candidate.startsWith(root),
     resolvePathInsideRoot: vi.fn(async (candidate, root) => (candidate.startsWith(root) ? candidate : null)),
-    shellCommand: vi.fn((opts) => ({ program: 'mock-shell', args: [opts.command], nativeCwd: opts.cwd, env: opts.env })),
-    execFileCommand: vi.fn((opts) => ({ program: opts.program, args: opts.args, nativeCwd: opts.cwd, env: opts.env })),
-    terminalCommand: vi.fn((opts) => ({ program: 'mock-terminal', args: ['--login'], nativeCwd: opts.cwd, env: opts.env })),
+    shellCommand: vi.fn(async (opts) => ({ program: 'mock-shell', args: [opts.command], nativeCwd: opts.cwd, env: opts.env })),
+    execFileCommand: vi.fn(async (opts) => ({ program: opts.program, args: opts.args, nativeCwd: opts.cwd, env: opts.env })),
+    terminalCommand: vi.fn(async (opts) => ({ program: 'mock-terminal', args: ['--login'], nativeCwd: opts.cwd, env: opts.env })),
     readFile: vi.fn().mockResolvedValue(Buffer.from('hello')),
     writeFile: vi.fn().mockResolvedValue(undefined),
     listFiles: vi.fn().mockResolvedValue([{ name: 'file.txt', type: 'file' }]),
@@ -87,6 +87,19 @@ describe('HostBackend', () => {
 
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain('{"name":"demo"}');
+  }, 15_000);
+
+  it('execFile uses the real host cwd after /workspace alias translation', async () => {
+    const { backend, workspacePath } = await createBackend();
+
+    const result = await backend.execFile({
+      program: process.execPath,
+      args: ['-e', 'process.stdout.write(process.cwd())'],
+      cwd: '/workspace',
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toBe(await realpath(workspacePath));
   });
 
   it('reads validated additional-root host paths in host mode', async () => {
@@ -114,6 +127,39 @@ describe('HostBackend', () => {
     await expect(backend.readFile({ path: `${extraRoot}-sibling/file.txt` })).rejects.toThrow(
       'Host path must be inside a workspace root',
     );
+  });
+
+  it('reads validated Sero agent-dir paths in host mode', async () => {
+    const originalAgentDir = process.env.PI_CODING_AGENT_DIR;
+    const { workspacePath } = await createBackend();
+    const agentDir = await mkdtemp(path.join(os.tmpdir(), 'sero-host-agent-'));
+    tempDirs.push(agentDir);
+    await mkdir(path.join(agentDir, 'skills', 'sero-browser'), { recursive: true });
+    await writeFile(path.join(agentDir, 'skills', 'sero-browser', 'SKILL.md'), '# Browser skill', 'utf8');
+
+    process.env.PI_CODING_AGENT_DIR = agentDir;
+    try {
+      const backend = new HostBackend({
+        workspaceId: 'workspace-a',
+        hostWorkspacePath: workspacePath,
+      });
+
+      await expect(backend.readFile({
+        path: path.join(agentDir, 'skills', 'sero-browser', 'SKILL.md'),
+      })).resolves.toEqual({
+        content: '# Browser skill',
+        encoding: 'utf8',
+      });
+      await expect(backend.readFile({ path: `${agentDir}-sibling/SKILL.md` })).rejects.toThrow(
+        'Host path must be inside a workspace root',
+      );
+    } finally {
+      if (originalAgentDir === undefined) {
+        delete process.env.PI_CODING_AGENT_DIR;
+      } else {
+        process.env.PI_CODING_AGENT_DIR = originalAgentDir;
+      }
+    }
   });
 
   it('rejects paths outside the virtual workspace root', async () => {

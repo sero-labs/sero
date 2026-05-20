@@ -94,7 +94,7 @@ export default defineConfig({
   logo: '/assets/logo.svg',
   logoText: '',
   title: 'Sero',
-  description: 'Local-first, agent-first desktop workspace for macOS.',
+  description: 'Local-first, agent-first desktop workspace for macOS, Linux, and Windows.',
   lang: 'en-US',
   themeConfig: {
     nav: [

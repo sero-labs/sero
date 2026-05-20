@@ -6,6 +6,11 @@ import {
   isNativeOptionalDependencyFailure,
   repairPluginNativeDeps,
 } from './native-deps-repair';
+import {
+  classifyNativeBuildFailure,
+  createNativeBuildToolsRequiredMetadata,
+} from '@electron/features/workspace/runtime/native-build/classifier';
+import type { NativeBuildToolsRequiredMetadata } from '@electron/features/workspace/runtime/native-build/types';
 import { stopStalePortListenersForSourcePath } from './process-helpers';
 
 const HEALTH_POLL_INTERVAL_MS = 500;
@@ -40,6 +45,7 @@ export interface PluginDevServerResult {
   remoteEntryOverride: string | null;
   uiMode: PluginDevSessionUiMode;
   error?: string | null;
+  nativeBuildToolsRequired?: NativeBuildToolsRequiredMetadata;
 }
 
 const managedServers = new Map<string, ManagedPluginDevServer>();
@@ -150,10 +156,18 @@ function createFallbackResult(
   builtUiAvailable: boolean,
   error: string,
 ): PluginDevServerResult {
+  const failure = classifyNativeBuildFailure({
+    command: 'plugin dev server',
+    exitCode: 1,
+    stdout: '',
+    stderr: error,
+    platform: process.platform,
+  });
   return {
     remoteEntryOverride: null,
     uiMode: builtUiAvailable ? 'built-fallback' : 'unavailable',
     error,
+    nativeBuildToolsRequired: failure ? createNativeBuildToolsRequiredMetadata(failure) : undefined,
   };
 }
 
@@ -447,7 +461,11 @@ export async function ensurePluginDevServer(
 
       startupFailure = summarizeStartupFailure(options.command, entry);
     } else {
-      startupFailure = `${startupFailure} Sero tried to repair native dependencies with "pnpm install --force" on the macOS host, but it failed: ${repair.output}`;
+      startupFailure = `${startupFailure} Sero tried to repair native dependencies with "pnpm install --force", but it failed: ${repair.output}`;
+      if (repair.nativeBuildToolsRequired) {
+        const result = createFallbackResult(builtUiAvailable, startupFailure);
+        return { ...result, nativeBuildToolsRequired: repair.nativeBuildToolsRequired };
+      }
     }
   }
 

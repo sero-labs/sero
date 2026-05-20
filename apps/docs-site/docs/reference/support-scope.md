@@ -9,11 +9,11 @@ wins** for current alpha expectations.
 
 | Surface | Status | Notes |
 | --- | --- | --- |
-| Platform | Supported alpha | macOS, Linux, and Windows from source |
+| Platform | Supported alpha | macOS Apple Silicon, Linux, and Windows from source |
 | Current maintainer-validated baseline | Validated | macOS `26.3`, `arm64`, Node `22.22.0`, pnpm `10.11.0` |
 | Distribution | Supported | Build from source only |
 | Preferred runtime | Supported / recommended | Container-backed workspace via Apple Container or Docker/Podman |
-| Host runtime | Supported where available | Explicit Host mode with reduced capabilities on macOS/Linux; Windows uses the Docker-compatible runtime for workspace execution |
+| Host runtime | Supported where available | Explicit, reduced-capability Host mode on macOS Apple Silicon/Linux; Windows uses Docker/Podman for public workspace execution |
 | Support channel | Supported | GitHub Issues and Pull Requests |
 | Official public binaries | Not supported | No public binary distribution promised in alpha |
 | Linux | Supported alpha | Source build; Docker/Podman runtime recommended, host mode available |
@@ -24,34 +24,38 @@ wins** for current alpha expectations.
 
 | Runtime | macOS | Linux | Windows | Notes |
 | --- | --- | --- | --- | --- |
-| Apple Container | Supported on Apple Silicon | Not available | Not available | Preferred on supported Apple Silicon Macs. |
+| Apple Container | Supported on Apple Silicon | Not available | Not available | Preferred on supported Apple Silicon Macs; Intel Macs are not supported targets. |
 | Docker / Podman (`docker`) | Supported | Supported | Supported | Recommended cross-platform container runtime; persisted backend ID is `docker`. |
-| Host | Supported explicit runtime | Supported explicit runtime | Not supported | Windows workspace execution uses the Docker-compatible runtime, not native PowerShell/cmd host mode. |
+| Host (`host`) | Supported explicit runtime on Apple Silicon only | Supported explicit runtime | Not public support path | Reduced-capability runtime; Windows host validation is release-gated/internal unless this public scope changes. |
 
 Container-backed workspaces are the preferred path for:
 - containerized workspace execution
 - containerized tooling and language servers
-- browser automation
+- browser automation without a host browser pack
 - managed preview / dev-server flows with container assumptions
 - Linux/container parity and container networking semantics
 
 ### Host mode
 
-Host mode is a **supported explicit runtime**, not a feature-equivalent replacement for
-container-backed runtime.
+Host mode is a **supported explicit runtime**, not an automatic fallback and not a
+feature-equivalent replacement for container-backed runtime.
 
-Host mode is currently supported on macOS/Linux for:
+Host mode is currently supported on macOS Apple Silicon/Linux for:
 - onboarding and provider setup
 - core agent chat and coding tasks
 - file browsing and editing
 - general host-shell development workflows
 
 Host mode is **not** currently the supported path for:
-- browser automation
+- browser automation unless your platform has a published browser pack and passes Doctor launch checks
 - containerized language servers
 - feature-equivalent managed preview / dev-server automation
 - Linux/container parity
 - container networking semantics
+
+Host browser-pack installability is artifact-driven. macOS Intel is not a
+supported target. Use Apple Container or Docker/Podman for browser automation
+when a supported platform's host browser pack is pending/non-installable.
 
 ## What alpha does not currently promise
 
@@ -59,7 +63,7 @@ The public alpha does **not** currently promise:
 - official public binaries
 - identical runtime capabilities on every OS
 - full feature parity without container-backed runtimes
-- Windows host-mode workspace execution
+- Windows host-mode workspace execution as a public support path
 - frozen internal plugin/runtime contracts
 - a hardened multi-tenant security boundary
 
@@ -69,7 +73,7 @@ When filing a bug, include which support surface you were using:
 - operating system and version
 - CPU architecture
 - Node / pnpm versions
-- runtime mode: Apple Container, Docker/Podman, or host mode
+- runtime mode: Apple Container (`apple-container`), Docker/Podman (`docker`), or Host (`host`)
 - whether the issue happened in source-built alpha or a local experimental build
 
 ## Early alpha support / triage plan
@@ -86,6 +90,7 @@ Use the public support surfaces like this:
 
 What maintainers will triage first during alpha:
 - issues on the maintainer-validated baseline (`macOS` on Apple Silicon, source build)
+- macOS Intel reports are out of scope unless explicitly requested for future support work
 - install / launch / data-loss / security-sensitive regressions
 - container-backed runtime problems and documented Host-mode problems
 - docs gaps that block setup or truthful usage of the alpha

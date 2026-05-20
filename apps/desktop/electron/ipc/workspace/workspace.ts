@@ -9,6 +9,7 @@ import { ipcMain, dialog, BrowserWindow } from 'electron';
 import { IpcChannels } from '@/types/ipc-channels';
 import type { WorkspaceInfo, WorkspaceConfig, WorkspaceRoot } from '@/types/ipc';
 import type { WorkspaceRuntimeBackend, WorkspaceRuntimeConfig } from '@/types/workspace-runtime';
+import type { BrowserPackStatusIPC, ToolchainStatusIPC, WorkspaceRuntimeDiagnosticsIPC } from '@sero-ai/common';
 import { workspaceManager } from '@electron/features/workspace/manager';
 import { isWorkspaceRuntimeBackend } from '@electron/features/workspace/runtime/config';
 import { resolveWorkspaceRuntime } from '@electron/features/workspace/runtime-resolution';
@@ -16,9 +17,27 @@ import { assertIsSeroPluginFolder } from '@electron/features/workspace/plugin-va
 import { recreateContainerIfRunning } from '@electron/features/workspace/container-sync';
 import { appRuntimeManager, runtimeManager } from '@electron/shared/infra/shared-infra';
 import { broadcastToWindows } from '@electron/ipc/lib/window-broadcast';
+import {
+  ensureBrowserPack,
+  ensureCoreTools,
+  getBrowserPackStatus,
+  getToolchainStatus,
+  onBrowserPackProgress,
+  onToolchainProgress,
+  uninstallBrowserPack,
+} from '@electron/features/workspace/runtime/install-actions';
 
 function notifyWorkspaceChanged(): void {
   broadcastToWindows(IpcChannels.workspace.changed);
+}
+
+let runtimeInstallProgressRegistered = false;
+
+function registerRuntimeInstallProgressBroadcasts(): void {
+  if (runtimeInstallProgressRegistered) return;
+  runtimeInstallProgressRegistered = true;
+  onToolchainProgress((event) => broadcastToWindows(IpcChannels.workspace.toolchainProgress, event));
+  onBrowserPackProgress((event) => broadcastToWindows(IpcChannels.workspace.browserPackProgress, event));
 }
 
 async function reconcileAppRuntimes(reason: string): Promise<void> {
@@ -30,6 +49,8 @@ async function reconcileAppRuntimes(reason: string): Promise<void> {
 }
 
 export function registerWorkspaceHandlers(): void {
+  registerRuntimeInstallProgressBroadcasts();
+
   // ── List all registered workspaces ─────────────────────────
   ipcMain.handle(
     IpcChannels.workspace.list,
@@ -120,13 +141,38 @@ export function registerWorkspaceHandlers(): void {
 
   ipcMain.handle(
     IpcChannels.workspace.runtimeDiagnostics,
-    async (_event, workspaceId?: string) => {
+    async (_event, workspaceId?: string): Promise<WorkspaceRuntimeDiagnosticsIPC[]> => {
       if (workspaceId) {
         return [await resolveWorkspaceRuntime(workspaceId)];
       }
       const workspaces = await workspaceManager.list();
       return Promise.all(workspaces.map((workspace) => resolveWorkspaceRuntime(workspace.id)));
     },
+  );
+
+  ipcMain.handle(
+    IpcChannels.workspace.getToolchainStatus,
+    async (): Promise<ToolchainStatusIPC> => getToolchainStatus(),
+  );
+
+  ipcMain.handle(
+    IpcChannels.workspace.ensureCoreTools,
+    async (_event, reason?: string): Promise<ToolchainStatusIPC> => ensureCoreTools(reason),
+  );
+
+  ipcMain.handle(
+    IpcChannels.workspace.getBrowserPackStatus,
+    async (): Promise<BrowserPackStatusIPC> => getBrowserPackStatus(),
+  );
+
+  ipcMain.handle(
+    IpcChannels.workspace.ensureBrowserPack,
+    async (_event, reason?: string): Promise<BrowserPackStatusIPC> => ensureBrowserPack(reason),
+  );
+
+  ipcMain.handle(
+    IpcChannels.workspace.uninstallBrowserPack,
+    async (): Promise<BrowserPackStatusIPC> => uninstallBrowserPack(),
   );
 
   ipcMain.handle(

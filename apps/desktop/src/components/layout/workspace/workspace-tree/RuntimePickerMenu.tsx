@@ -24,13 +24,14 @@ interface RuntimeOption {
   backend: WorkspaceRuntimeBackend;
   name: string;
   description: string;
-  advanced?: boolean;
+  recommended?: boolean;
+  optional?: boolean;
   disabled?: boolean;
 }
 
-const APPLE_CONTAINER_COPY = 'Recommended on Apple Silicon Macs. Live-mounted Linux workspace using Apple Container.';
-const DOCKER_COPY = 'Docker-compatible Linux workspace for macOS, Windows, and Linux. Uses Docker Desktop/Engine or Podman.';
-const HOST_COPY = 'Run directly on this computer. Fastest startup, least isolated.';
+const APPLE_CONTAINER_COPY = 'Optional Apple-native container runtime on supported Macs. Adds isolation, Linux parity, native build dependencies, and preinstalled browser automation.';
+const DOCKER_COPY = 'Optional containerized Linux runtime for macOS, Windows, and Linux. Adds isolation, Linux parity, native build tools, and preinstalled browser automation.';
+const HOST_COPY = 'Fast local runtime. Uses compatible system tools and installs missing Sero-managed tools automatically. No sandbox.';
 
 type RuntimeBackendForDisplay = WorkspaceRuntimeBackend | DeprecatedWorkspaceRuntimeBackend;
 
@@ -56,32 +57,19 @@ export function getRuntimePickerOptions(platform: string, arch: string): Runtime
     backend: 'host',
     name: 'Host',
     description: HOST_COPY,
-    advanced: true,
+    recommended: true,
   };
+  const dockerOption: RuntimeOption = { backend: 'docker', name: 'Docker / Podman', description: DOCKER_COPY, optional: true };
 
   if (platform === 'darwin' && arch === 'arm64') {
     return [
-      { backend: 'apple-container', name: 'Apple Container', description: APPLE_CONTAINER_COPY },
-      { backend: 'docker', name: 'Docker / Podman', description: DOCKER_COPY },
       hostOption,
+      { backend: 'apple-container', name: 'Apple Container', description: APPLE_CONTAINER_COPY, optional: true },
+      dockerOption,
     ];
   }
 
-  if (platform === 'darwin') {
-    return [
-      { backend: 'docker', name: 'Docker / Podman', description: DOCKER_COPY },
-      hostOption,
-    ];
-  }
-
-  if (platform === 'win32') {
-    return [{ backend: 'docker', name: 'Docker / Podman', description: DOCKER_COPY }];
-  }
-
-  return [
-    { backend: 'docker', name: 'Docker / Podman', description: DOCKER_COPY },
-    hostOption,
-  ];
+  return [hostOption, dockerOption];
 }
 
 export function RuntimePickerMenu({ workspace }: { workspace: WorkspaceInfo }) {
@@ -146,7 +134,7 @@ export function RuntimePickerMenu({ workspace }: { workspace: WorkspaceInfo }) {
           <div className="border-b border-[var(--border-subtle)] px-3 py-2">
             <p className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">Workspace runtime</p>
             <p className="mt-1 text-xs text-[var(--text-muted)]">
-              Changing the runtime recreates the runtime/container so port publications, mounts, tools, and language servers restart cleanly.
+              Host is recommended for fast local work. Optional container runtimes recreate runtime processes and mounts when selected.
             </p>
           </div>
 
@@ -178,21 +166,21 @@ export function RuntimePickerMenu({ workspace }: { workspace: WorkspaceInfo }) {
                     {runtimeIcon(option.backend)}
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="flex items-center gap-1 text-sm font-medium text-[var(--text-primary)]">
+                    <span className="flex max-w-full flex-wrap items-center gap-1 text-sm font-medium text-[var(--text-primary)]">
                       {option.name}
-                      {selected ? (
-                        <span className="rounded bg-[var(--status-info-subtle)] px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-[var(--status-info)]">
-                          Current
-                        </span>
-                      ) : null}
                       {pending ? (
                         <span className="rounded bg-[var(--bg-base)] px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-[var(--status-info)]">
                           Switching
                         </span>
                       ) : null}
-                      {option.advanced ? (
+                      {option.recommended ? (
+                        <span className="rounded bg-[var(--status-success-faint)] px-1 py-0.5 text-[10px] uppercase tracking-wide text-[var(--status-success)]">
+                          Default
+                        </span>
+                      ) : null}
+                      {option.optional ? (
                         <span className="rounded bg-[var(--bg-base)] px-1 py-0.5 text-[10px] uppercase tracking-wide text-[var(--text-muted)]">
-                          Advanced
+                          Optional
                         </span>
                       ) : null}
                     </span>

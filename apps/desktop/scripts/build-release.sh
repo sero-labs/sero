@@ -3,8 +3,13 @@
 # build-release.sh — Build Sero desktop app for local distribution
 #
 # Usage:
-#   bash scripts/build-release.sh          # Build unsigned DMG + ZIP
-#   bash scripts/build-release.sh --sign   # Build with code signing
+#   bash scripts/build-release.sh --target current       # Build current OS artifacts
+#   bash scripts/build-release.sh --target mac           # Build macOS DMG + ZIP on macOS
+#   bash scripts/build-release.sh --target linux         # Build Linux artifacts on Linux
+#   bash scripts/build-release.sh --target linux --arch x64   # Build Linux x64 artifacts on Linux x64
+#   bash scripts/build-release.sh --target win           # Build Windows artifacts on Windows
+#   bash scripts/build-release.sh --target mac --sign    # Build signed macOS artifacts
+#   bash scripts/build-release.sh --target current --dir # Build unpacked app directory
 #
 # Output: apps/desktop/release/
 # ─────────────────────────────────────────────────────────────
@@ -21,28 +26,189 @@ cleanup_packaging() {
 }
 trap cleanup_packaging EXIT
 
+usage() {
+  cat <<'EOF'
+Usage: bash scripts/build-release.sh [--target current|mac|linux|win] [--arch current|x64|arm64] [--sign] [--dir]
+
+Builds Sero desktop release artifacts on a native OS runner. Cross-OS desktop
+packaging is intentionally rejected because native modules are rebuilt for the
+current OS before electron-builder runs. When --arch is set, it must match the
+host architecture for the same native-module reason.
+
+Options:
+  --target <target>  Target OS family. Defaults to current.
+  --arch <arch>      Target CPU architecture. Defaults to current when omitted.
+  --sign             Enable existing macOS signing flow (requires CSC_LINK).
+  --dir              Build an unpacked app directory instead of distributables.
+  -h, --help         Show this help.
+EOF
+}
+
+host_target() {
+  case "$(node -p 'process.platform')" in
+    darwin) echo "mac" ;;
+    linux) echo "linux" ;;
+    win32) echo "win" ;;
+    *) echo "unsupported" ;;
+  esac
+}
+
+host_arch() {
+  case "$(node -p 'process.arch')" in
+    x64) echo "x64" ;;
+    arm64) echo "arm64" ;;
+    *) echo "unsupported" ;;
+  esac
+}
+
+electron_builder_flag() {
+  case "$1" in
+    mac) echo "--mac" ;;
+    linux) echo "--linux" ;;
+    win) echo "--win" ;;
+    *) echo "ERROR: Unsupported target: $1" >&2; exit 1 ;;
+  esac
+}
+
+electron_builder_arch_flag() {
+  case "$1" in
+    x64) echo "--x64" ;;
+    arm64) echo "--arm64" ;;
+    *) echo "ERROR: Unsupported architecture: $1" >&2; exit 1 ;;
+  esac
+}
+
+artifact_glob() {
+  case "$1" in
+    mac) echo "release/*.{dmg,zip}" ;;
+    linux) echo "release/*.{AppImage,deb,tar.gz}" ;;
+    win) echo "release/*.{exe,zip}" ;;
+  esac
+}
+
 # ── Parse flags ──────────────────────────────────────────────
 SIGN=false
-for arg in "$@"; do
-  case "$arg" in
-    --sign) SIGN=true ;;
-    *) echo "Unknown flag: $arg"; exit 1 ;;
+DIR_BUILD=false
+TARGET="current"
+TARGET_ARCH="current"
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --sign)
+      SIGN=true
+      shift
+      ;;
+    --dir)
+      DIR_BUILD=true
+      shift
+      ;;
+    --target)
+      if [ "$#" -lt 2 ]; then
+        echo "ERROR: --target requires current, mac, linux, or win"
+        exit 1
+      fi
+      TARGET="$2"
+      shift 2
+      ;;
+    --target=*)
+      TARGET="${1#--target=}"
+      shift
+      ;;
+    --arch)
+      if [ "$#" -lt 2 ]; then
+        echo "ERROR: --arch requires current, x64, or arm64"
+        exit 1
+      fi
+      TARGET_ARCH="$2"
+      shift 2
+      ;;
+    --arch=*)
+      TARGET_ARCH="${1#--arch=}"
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "Unknown flag: $1"
+      usage
+      exit 1
+      ;;
   esac
 done
+
+HOST_TARGET="$(host_target)"
+HOST_ARCH="$(host_arch)"
+if [ "$TARGET" = "current" ]; then
+  TARGET="$HOST_TARGET"
+fi
+if [ "$TARGET_ARCH" = "current" ]; then
+  TARGET_ARCH="$HOST_ARCH"
+fi
+
+case "$TARGET" in
+  mac|linux|win) ;;
+  *)
+    echo "ERROR: --target must be current, mac, linux, or win"
+    exit 1
+    ;;
+esac
+
+case "$TARGET_ARCH" in
+  x64|arm64) ;;
+  *)
+    echo "ERROR: --arch must be current, x64, or arm64"
+    exit 1
+    ;;
+esac
+
+if [ "$HOST_TARGET" = "unsupported" ]; then
+  echo "ERROR: Unsupported host platform: $(node -p 'process.platform')"
+  exit 1
+fi
+if [ "$HOST_ARCH" = "unsupported" ]; then
+  echo "ERROR: Unsupported host architecture: $(node -p 'process.arch')"
+  exit 1
+fi
+
+if [ "$TARGET" != "$HOST_TARGET" ]; then
+  echo "ERROR: Refusing to package target '$TARGET' on native host '$HOST_TARGET'."
+  echo "       Sero release packaging must run on a matching OS runner because"
+  echo "       node-pty and better-sqlite3 are rebuilt for Electron on the host OS."
+  exit 1
+fi
+
+if [ "$TARGET_ARCH" != "$HOST_ARCH" ]; then
+  echo "ERROR: Refusing to package architecture '$TARGET_ARCH' on native host architecture '$HOST_ARCH'."
+  echo "       Native modules are rebuilt for the current host architecture before electron-builder runs."
+  exit 1
+fi
+
+if [ "$SIGN" = true ] && [ "$TARGET" != "mac" ]; then
+  echo "ERROR: --sign currently preserves the existing macOS signing flow only."
+  exit 1
+fi
+
+BUILDER_FLAG="$(electron_builder_flag "$TARGET")"
+BUILDER_ARCH_FLAG="$(electron_builder_arch_flag "$TARGET_ARCH")"
 
 # ── Preflight checks ────────────────────────────────────────
 echo "╔══════════════════════════════════════════════╗"
 echo "║           Sero Release Build                 ║"
 echo "╚══════════════════════════════════════════════╝"
 echo ""
+echo "▸ Target: ${TARGET}/${TARGET_ARCH} (native host: ${HOST_TARGET}/${HOST_ARCH})"
+if [ "$DIR_BUILD" = true ]; then
+  echo "▸ Mode: unpacked app directory"
+else
+  echo "▸ Mode: distributable artifacts"
+fi
 
-# Check we're in the right directory
 if [ ! -f "package.json" ]; then
   echo "ERROR: Must run from apps/desktop/"
   exit 1
 fi
 
-# Check pnpm is available
 if ! command -v pnpm &> /dev/null; then
   echo "ERROR: pnpm is required. Install with: npm install -g pnpm"
   exit 1
@@ -81,7 +247,6 @@ if [ -d "$WEB_REMOTE_DIR" ]; then
   cd "$WEB_REMOTE_DIR"
   pnpm build 2>/dev/null || npm run build
   cd "$PROJECT_DIR"
-
 else
   echo "▸ Step 4/6: Skipping web-remote (not found)"
 fi
@@ -110,6 +275,10 @@ fi
 
 # ── Step 6: Package with electron-builder ────────────────────
 echo "▸ Step 6/6: Packaging with electron-builder..."
+BUILDER_ARGS=(--config electron-builder.yml "$BUILDER_FLAG" "$BUILDER_ARCH_FLAG")
+if [ "$DIR_BUILD" = true ]; then
+  BUILDER_ARGS+=(--dir)
+fi
 
 if [ "$SIGN" = true ]; then
   # Signed build — requires CSC_LINK and CSC_KEY_PASSWORD env vars
@@ -117,10 +286,10 @@ if [ "$SIGN" = true ]; then
     echo "ERROR: --sign requires CSC_LINK env var (path to .p12 certificate)"
     exit 1
   fi
-  npx electron-builder --config electron-builder.yml --mac
+  npx electron-builder "${BUILDER_ARGS[@]}"
 else
   # Unsigned build — skip code signing entirely
-  CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder --config electron-builder.yml --mac
+  CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder "${BUILDER_ARGS[@]}"
 fi
 
 # ── Done ─────────────────────────────────────────────────────
@@ -128,5 +297,7 @@ echo ""
 echo "════════════════════════════════════════════════"
 echo "  Build complete! Output in: apps/desktop/release/"
 echo ""
-ls -lh release/*.{dmg,zip} 2>/dev/null || echo "  (no artifacts found — check logs above)"
+ARTIFACTS="$(artifact_glob "$TARGET")"
+# shellcheck disable=SC2086
+ls -lh $ARTIFACTS 2>/dev/null || echo "  (no artifacts found — check logs above)"
 echo "════════════════════════════════════════════════"

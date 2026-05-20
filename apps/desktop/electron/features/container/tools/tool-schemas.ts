@@ -166,7 +166,7 @@ export const BrowserParams = Type.Object({
     ),
   ),
   save_path: Type.Optional(
-    Type.String({ description: 'File path for start_recording output (default: /workspace/agent-browser-recording.webm; auto-stops after 120s)' }),
+    Type.String({ description: 'File path for start_recording output (default: runtime workspace root / agent-browser-recording.webm; auto-stops after 120s)' }),
   ),
   fps: Type.Optional(
     Type.Number({ description: 'Ignored for agent-browser native recording; recordings use Playwright defaults.' }),

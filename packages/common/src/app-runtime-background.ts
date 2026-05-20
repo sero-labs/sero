@@ -42,10 +42,33 @@ export interface AppRuntimeSubagentsApi {
   ): () => void;
 }
 
+export interface AppRuntimeNativeBuildFallbackAction {
+  type: 'show-install-instructions' | 'switch-workspace-runtime' | 'setup-container-runtime' | 'retry';
+  label: string;
+  backend?: 'apple-container' | 'docker';
+}
+
+export interface AppRuntimeNativeBuildToolsRequiredMetadata {
+  code: 'NATIVE_BUILD_TOOLS_REQUIRED';
+  title: string;
+  message: string;
+  installInstructions: string[];
+  actions: AppRuntimeNativeBuildFallbackAction[];
+  seroInstallable: false;
+  failure: {
+    kind: string;
+    platform: string;
+    command: string;
+    executable?: string;
+    evidence: string;
+  };
+}
+
 export interface AppRuntimeCommandResult {
   stdout: string;
   stderr: string;
   exitCode: number;
+  nativeBuildToolsRequired?: AppRuntimeNativeBuildToolsRequiredMetadata;
 }
 
 export interface AppRuntimeRunCommandOptions {
@@ -59,6 +82,7 @@ export interface AppRuntimeWorkspaceRefreshResult {
   restartedServerIds: string[];
   autoStartedServerId?: string;
   reason?: string;
+  nativeBuildToolsRequired?: AppRuntimeNativeBuildToolsRequiredMetadata;
 }
 
 export type AppRuntimeWorkspaceRuntimeKind = 'container' | 'host';

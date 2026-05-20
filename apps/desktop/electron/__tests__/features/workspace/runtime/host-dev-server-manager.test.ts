@@ -1,15 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { HostDevServerManager, parseLsofPort } from '@electron/features/workspace/runtime/backends/host/host-dev-server-manager';
-import type { RuntimeExecFileInput, RuntimeExecResult, RuntimeProcessInput } from '@electron/features/workspace/runtime/types';
-
-function ok(stdout = ''): RuntimeExecResult {
-  return { stdout, stderr: '', exitCode: 0 };
-}
-
-function fail(): RuntimeExecResult {
-  return { stdout: '', stderr: '', exitCode: 1 };
-}
+import { HostDevServerManager } from '@electron/features/workspace/runtime/backends/host/host-dev-server-manager';
+import type { HostProcessAdapter } from '@electron/features/workspace/runtime/backends/host/process/types';
+import type { RuntimeProcessInput } from '@electron/features/workspace/runtime/types';
 
 function createProcess(pid = 1234, executionPid?: number) {
   return {
@@ -22,24 +15,34 @@ function createProcess(pid = 1234, executionPid?: number) {
   };
 }
 
-describe('HostDevServerManager', () => {
-  it('parses listening ports from lsof output', () => {
-    expect(parseLsofPort('node 123 user 22u IPv4 TCP 127.0.0.1:5173 (LISTEN)')).toBe(5173);
-    expect(parseLsofPort('COMMAND PID USER FD TYPE DEVICE SIZE/OFF NODE NAME')).toBeNull();
-  });
+function createProcessAdapter(overrides: Partial<HostProcessAdapter> = {}): HostProcessAdapter {
+  return {
+    descendantPids: vi.fn(async () => []),
+    listeningPort: vi.fn(async () => 5173),
+    listenerPids: vi.fn(async () => []),
+    killPids: vi.fn(async () => undefined),
+    ...overrides,
+  };
+}
 
+function createManager(options: {
+  processAdapter?: HostProcessAdapter;
+  spawn?: (input: RuntimeProcessInput) => Promise<ReturnType<typeof createProcess>>;
+  portDetectTimeoutMs?: number;
+} = {}): HostDevServerManager {
+  return new HostDevServerManager({
+    workspaceId: 'workspace-a',
+    spawn: options.spawn ?? vi.fn(async () => createProcess()),
+    processAdapter: options.processAdapter ?? createProcessAdapter(),
+    pollIntervalMs: 1,
+    portDetectTimeoutMs: options.portDetectTimeoutMs ?? 10,
+  });
+}
+
+describe('HostDevServerManager', () => {
   it('keeps stopped host dev servers registered so they can be restarted', async () => {
     const process = createProcess();
-    const manager = new HostDevServerManager({
-      workspaceId: 'workspace-a',
-      platform: 'darwin',
-      spawn: vi.fn(async () => process),
-      execFile: vi.fn(async (input) => input.program === 'pgrep'
-        ? fail()
-        : ok('node 1234 user 22u IPv4 TCP 127.0.0.1:5173 (LISTEN)')),
-      pollIntervalMs: 1,
-      portDetectTimeoutMs: 10,
-    });
+    const manager = createManager({ spawn: vi.fn(async () => process) });
     const events: unknown[] = [];
     manager.onChange((event) => events.push(event));
 
@@ -65,27 +68,14 @@ describe('HostDevServerManager', () => {
   it('starts a host dev server with detected localhost URL', async () => {
     const spawn = vi.fn<(input: RuntimeProcessInput) => Promise<ReturnType<typeof createProcess>>>()
       .mockResolvedValue(createProcess());
-    const execFile = vi.fn<(input: RuntimeExecFileInput) => Promise<RuntimeExecResult>>()
-      .mockImplementation(async (input) => {
-        if (input.program === 'pgrep') return fail();
-        return ok('node 1234 user 22u IPv4 TCP 127.0.0.1:5173 (LISTEN)');
-      });
-    const manager = new HostDevServerManager({
-      workspaceId: 'workspace-a',
-      platform: 'darwin',
-      spawn,
-      execFile,
-      pollIntervalMs: 1,
-      portDetectTimeoutMs: 10,
-    });
+    const processAdapter = createProcessAdapter();
+    const manager = createManager({ spawn, processAdapter });
 
     const server = await manager.start({ command: 'pnpm dev', cwd: '/workspace' });
 
     expect(spawn).toHaveBeenCalledWith({ command: 'pnpm dev', cwd: '/workspace', stdio: 'pipe' });
-    expect(execFile).toHaveBeenCalledWith(expect.objectContaining({
-      program: 'lsof',
-      args: ['-nP', '-iTCP', '-sTCP:LISTEN', '-p', '1234'],
-    }));
+    expect(processAdapter.descendantPids).toHaveBeenCalledWith(1234);
+    expect(processAdapter.listeningPort).toHaveBeenCalledWith([1234]);
     expect(server).toMatchObject({
       id: 'workspace-a:workspace:root:5173',
       port: 5173,
@@ -98,79 +88,62 @@ describe('HostDevServerManager', () => {
   it('uses executionPid for port detection when available', async () => {
     const spawn = vi.fn<(input: RuntimeProcessInput) => Promise<ReturnType<typeof createProcess>>>()
       .mockResolvedValue(createProcess(111, 222));
-    const execFile = vi.fn<(input: RuntimeExecFileInput) => Promise<RuntimeExecResult>>()
-      .mockImplementation(async (input) => {
-        if (input.program === 'pgrep') return fail();
-        return ok('node 222 user 22u IPv4 TCP 127.0.0.1:5173 (LISTEN)');
-      });
-    const manager = new HostDevServerManager({
-      workspaceId: 'workspace-a',
-      platform: 'linux',
-      spawn,
-      execFile,
-      pollIntervalMs: 1,
-      portDetectTimeoutMs: 10,
-    });
+    const processAdapter = createProcessAdapter();
+    const manager = createManager({ spawn, processAdapter });
 
     await manager.start({ command: 'pnpm dev', cwd: '/workspace' });
 
-    expect(execFile).toHaveBeenCalledWith(expect.objectContaining({
-      program: 'lsof',
-      args: ['-nP', '-iTCP', '-sTCP:LISTEN', '-p', '222'],
-    }));
+    expect(processAdapter.descendantPids).toHaveBeenCalledWith(222);
+    expect(processAdapter.listeningPort).toHaveBeenCalledWith([222]);
+  });
+
+  it('uses process adapter methods instead of direct Unix process commands', async () => {
+    const forbiddenExecFile = vi.fn(async (input: { program: string }) => {
+      if (['pgrep', 'lsof', 'ss', 'netstat', 'kill'].includes(input.program)) {
+        throw new Error(`forbidden direct command: ${input.program}`);
+      }
+      return { stdout: '', stderr: '', exitCode: 0 };
+    });
+    const processAdapter = createProcessAdapter({
+      descendantPids: vi.fn(async () => [2000]),
+      listeningPort: vi.fn(async () => 5173),
+      listenerPids: vi.fn(async () => [3000]),
+      killPids: vi.fn(async () => undefined),
+    });
+    const process = createProcess(1234);
+    const manager = createManager({ spawn: vi.fn(async () => process), processAdapter });
+
+    const server = await manager.start({ command: 'pnpm dev', cwd: '/workspace' });
+    await manager.stop({ serverId: server.id });
+
+    expect(forbiddenExecFile).not.toHaveBeenCalled();
+    expect(processAdapter.descendantPids).toHaveBeenCalledWith(1234);
+    expect(processAdapter.listenerPids).toHaveBeenCalledWith(5173);
+    expect(processAdapter.killPids).toHaveBeenCalledWith('TERM', [1234, 2000, 3000]);
+    expect(processAdapter.killPids).toHaveBeenCalledWith('KILL', [1234, 2000, 3000]);
   });
 
   it('kills descendants and listener PIDs when stopping a host dev server', async () => {
     const process = createProcess(1234);
-    const execFile = vi.fn<(input: RuntimeExecFileInput) => Promise<RuntimeExecResult>>()
-      .mockImplementation(async (input) => {
-        if (input.program === 'pgrep' && input.args[1] === '1234') return ok('2000\n');
-        if (input.program === 'pgrep') return fail();
-        if (input.program === 'lsof' && input.args.includes('-t')) return ok('3000\n');
-        if (input.program === 'lsof') return ok('node 1234 user 22u IPv4 TCP 127.0.0.1:5173 (LISTEN)');
-        return ok();
-      });
-    const manager = new HostDevServerManager({
-      workspaceId: 'workspace-a',
-      platform: 'linux',
-      spawn: vi.fn(async () => process),
-      execFile,
-      pollIntervalMs: 1,
-      portDetectTimeoutMs: 10,
+    const processAdapter = createProcessAdapter({
+      descendantPids: vi.fn(async () => [2000]),
+      listenerPids: vi.fn(async () => [3000]),
     });
+    const manager = createManager({ spawn: vi.fn(async () => process), processAdapter });
 
     const server = await manager.start({ command: 'pnpm dev', cwd: '/workspace' });
     await manager.stop({ serverId: server.id });
 
     expect(process.signal).toHaveBeenCalledWith('SIGTERM');
-    expect(execFile).toHaveBeenCalledWith(expect.objectContaining({
-      program: 'kill',
-      args: ['-TERM', '1234', '2000', '3000'],
-    }));
-    expect(execFile).toHaveBeenCalledWith(expect.objectContaining({
-      program: 'kill',
-      args: ['-KILL', '3000'],
-    }));
+    expect(processAdapter.killPids).toHaveBeenCalledWith('TERM', [1234, 2000, 3000]);
+    expect(processAdapter.killPids).toHaveBeenCalledWith('KILL', [1234, 2000, 3000]);
   });
 
   it('preserves dev-server metadata on restart', async () => {
     const spawn = vi.fn<(input: RuntimeProcessInput) => Promise<ReturnType<typeof createProcess>>>()
       .mockResolvedValue(createProcess());
-    const execFile = vi.fn<(input: RuntimeExecFileInput) => Promise<RuntimeExecResult>>()
-      .mockImplementation(async (input) => {
-        if (input.program === 'pgrep') return fail();
-        if (input.program === 'lsof' && input.args.includes('-t')) return fail();
-        if (input.program === 'kill') return ok();
-        return ok('node 1234 user 22u IPv4 TCP 127.0.0.1:5173 (LISTEN)');
-      });
-    const manager = new HostDevServerManager({
-      workspaceId: 'workspace-a',
-      platform: 'linux',
-      spawn,
-      execFile,
-      pollIntervalMs: 1,
-      portDetectTimeoutMs: 10,
-    });
+    const processAdapter = createProcessAdapter();
+    const manager = createManager({ spawn, processAdapter });
 
     const server = await manager.start({
       command: 'pnpm dev',
@@ -193,81 +166,51 @@ describe('HostDevServerManager', () => {
   });
 
   it('stops a registered dev server without killing the foreign listener process', async () => {
-    const execFile = vi.fn<(input: RuntimeExecFileInput) => Promise<RuntimeExecResult>>()
-      .mockResolvedValue(ok());
-    const manager = new HostDevServerManager({
-      workspaceId: 'workspace-a',
-      platform: 'linux',
-      spawn: vi.fn(),
-      execFile,
-      pollIntervalMs: 1,
-      portDetectTimeoutMs: 10,
-    });
+    const processAdapter = createProcessAdapter();
+    const manager = createManager({ spawn: vi.fn(), processAdapter });
 
     const server = manager.register({ command: 'externally managed', cwd: '/workspace', port: 4321 });
     await manager.stop({ serverId: server.id });
 
-    expect(execFile).not.toHaveBeenCalledWith(expect.objectContaining({ program: 'kill' }));
-    expect(execFile).not.toHaveBeenCalledWith(expect.objectContaining({ program: 'lsof' }));
+    expect(processAdapter.listenerPids).not.toHaveBeenCalled();
+    expect(processAdapter.killPids).not.toHaveBeenCalled();
     expect(manager.list()).toEqual([expect.objectContaining({ id: server.id, status: 'stopped' })]);
   });
 
   it('restart of a registered dev server force-kills the existing listener before respawning', async () => {
     const spawn = vi.fn<(input: RuntimeProcessInput) => Promise<ReturnType<typeof createProcess>>>()
       .mockResolvedValue(createProcess());
-    const execFile = vi.fn<(input: RuntimeExecFileInput) => Promise<RuntimeExecResult>>()
-      .mockImplementation(async (input) => {
-        if (input.program === 'pgrep') return fail();
-        if (input.program === 'lsof' && input.args.includes('-t')) return ok('9000\n');
-        if (input.program === 'kill') return ok();
-        return ok('node 1234 user 22u IPv4 TCP 127.0.0.1:4321 (LISTEN)');
-      });
-    const manager = new HostDevServerManager({
-      workspaceId: 'workspace-a',
-      platform: 'linux',
-      spawn,
-      execFile,
-      pollIntervalMs: 1,
-      portDetectTimeoutMs: 10,
+    const processAdapter = createProcessAdapter({
+      listeningPort: vi.fn(async () => 4321),
+      listenerPids: vi.fn(async () => [9000]),
     });
+    const manager = createManager({ spawn, processAdapter });
 
     const server = manager.register({ command: 'pnpm dev', cwd: '/workspace', port: 4321 });
     await manager.restart({ serverId: server.id });
 
-    expect(execFile).toHaveBeenCalledWith(expect.objectContaining({
-      program: 'kill',
-      args: expect.arrayContaining(['-TERM', '9000']),
-    }));
+    expect(processAdapter.killPids).toHaveBeenCalledWith('TERM', [9000]);
     expect(spawn).toHaveBeenCalledTimes(1);
   });
 
   it('dispose leaves registered listeners alive', async () => {
-    const execFile = vi.fn<(input: RuntimeExecFileInput) => Promise<RuntimeExecResult>>()
-      .mockResolvedValue(ok());
-    const manager = new HostDevServerManager({
-      workspaceId: 'workspace-a',
-      platform: 'linux',
-      spawn: vi.fn(),
-      execFile,
-      pollIntervalMs: 1,
-      portDetectTimeoutMs: 10,
-    });
+    const processAdapter = createProcessAdapter();
+    const manager = createManager({ spawn: vi.fn(), processAdapter });
 
     manager.register({ command: 'externally managed', cwd: '/workspace', port: 4321 });
     await manager.dispose();
 
-    expect(execFile).not.toHaveBeenCalledWith(expect.objectContaining({ program: 'kill' }));
+    expect(processAdapter.listenerPids).not.toHaveBeenCalled();
+    expect(processAdapter.killPids).not.toHaveBeenCalled();
     expect(manager.list()).toEqual([]);
   });
 
   it('throws and terminates the spawned process when port detection times out', async () => {
     const process = createProcess();
-    const manager = new HostDevServerManager({
-      workspaceId: 'workspace-a',
-      platform: 'linux',
+    const processAdapter = createProcessAdapter({ listeningPort: vi.fn(async () => null) });
+    const manager = createManager({
       spawn: vi.fn(async () => process),
-      execFile: vi.fn(async () => fail()),
-      pollIntervalMs: 1,
+      processAdapter,
       portDetectTimeoutMs: 2,
     });
 
@@ -278,5 +221,4 @@ describe('HostDevServerManager', () => {
     expect(process.signal).toHaveBeenCalledWith('SIGTERM');
     expect(manager.list()).toEqual([]);
   });
-
 });

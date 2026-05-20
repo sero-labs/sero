@@ -34,6 +34,30 @@ interface BrowserPanelProps {
   workspaceId: string;
 }
 
+const RENDERER_OVERLAY_SELECTOR = [
+  '[data-slot="dialog-content"]',
+  '[data-slot="alert-dialog-content"]',
+  '[data-slot="sheet-content"]',
+  '[data-slot="drawer-content"]',
+  '[data-slot="popover-content"]',
+  '[data-slot="dropdown-menu-content"]',
+  '[data-slot="dropdown-menu-sub-content"]',
+  '[data-slot="context-menu-content"]',
+  '[data-slot="context-menu-sub-content"]',
+  '[data-slot="select-content"]',
+  '[data-slot="combobox-content"]',
+  '[data-slot="menubar-content"]',
+  '[data-slot="menubar-sub-content"]',
+].join(',');
+
+function hasVisibleRendererOverlay(): boolean {
+  return Array.from(document.querySelectorAll<HTMLElement>(RENDERER_OVERLAY_SELECTOR)).some((el) => {
+    if (el.dataset.browserOverlay === 'ignore') return false;
+    if (el.dataset.state === 'closed') return false;
+    return el.getClientRects().length > 0;
+  });
+}
+
 export function BrowserPanel({ workspaceId }: BrowserPanelProps) {
   const tabs = useWorkspaceBrowserTabs(workspaceId);
   const activeTabId = useActiveBrowserTabId(workspaceId);
@@ -50,6 +74,12 @@ export function BrowserPanel({ workspaceId }: BrowserPanelProps) {
   const lightboxOpen = useLightbox((s) => s.open);
 
   const viewportRef = useRef<HTMLDivElement | null>(null);
+  const activeTabRef = useRef(activeTab);
+  const rendererOverlayRef = useRef<{ open: boolean; pngBase64: string | null }>({
+    open: false,
+    pngBase64: null,
+  });
+  const overlayCaptureInFlightRef = useRef(false);
 
   // Capture mode: we fetch a full-page PNG, hide the native view, and let
   // the user draw a rect over a renderer-side image. On confirm, the
@@ -58,8 +88,15 @@ export function BrowserPanel({ workspaceId }: BrowserPanelProps) {
     pngBase64: string;
     viewRect: { x: number; y: number; width: number; height: number };
   } | null>(null);
+  const [rendererOverlay, setRendererOverlay] = useState<{ open: boolean; pngBase64: string | null }>({
+    open: false,
+    pngBase64: null,
+  });
 
   useBrowserShortcuts(workspaceId);
+
+  activeTabRef.current = activeTab;
+  rendererOverlayRef.current = rendererOverlay;
 
   // Ensure all persisted tabs have WebContentsViews in main when the panel
   // mounts or the active workspace changes, and snap the active view to
@@ -85,18 +122,69 @@ export function BrowserPanel({ workspaceId }: BrowserPanelProps) {
     void window.sero.browser.setActive(activeTabId, workspaceId);
   }, [activeTabId, workspaceId]);
 
+  // WebContentsView is a native layer above the renderer, so Radix portals
+  // (dialogs, popovers, menus) cannot z-index over it. When one opens, capture
+  // the current browser pixels, park the native view, and render the static
+  // snapshot in its place so overlays remain readable without a black void.
+  useEffect(() => {
+    let disposed = false;
+
+    const closeOverlaySnapshot = () => {
+      overlayCaptureInFlightRef.current = false;
+      const next = { open: false, pngBase64: null };
+      rendererOverlayRef.current = next;
+      setRendererOverlay(next);
+    };
+
+    const openOverlaySnapshot = () => {
+      if (rendererOverlayRef.current.open || overlayCaptureInFlightRef.current) return;
+      overlayCaptureInFlightRef.current = true;
+      void (async () => {
+        const tab = activeTabRef.current;
+        const pngBase64 = tab
+          ? await window.sero.browser.capturePage(tab.id, tab.workspaceId).catch(() => null)
+          : null;
+        overlayCaptureInFlightRef.current = false;
+        if (disposed || !hasVisibleRendererOverlay()) return;
+        const next = { open: true, pngBase64 };
+        rendererOverlayRef.current = next;
+        setRendererOverlay(next);
+      })();
+    };
+
+    const update = () => {
+      if (hasVisibleRendererOverlay()) {
+        openOverlaySnapshot();
+      } else if (rendererOverlayRef.current.open || overlayCaptureInFlightRef.current) {
+        closeOverlaySnapshot();
+      }
+    };
+
+    update();
+    const observer = new MutationObserver(update);
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['data-state', 'style', 'class'],
+    });
+    return () => {
+      disposed = true;
+      observer.disconnect();
+    };
+  }, []);
+
   // Track the placeholder element's screen rect and push it to main so the
   // active view stays glued to the visible area. Runs on mount, tab change,
   // and whenever the element resizes (window / sidebar / chat panel toggle).
-  // While in capture mode or while the global image lightbox is open, the
-  // native view is intentionally parked off-screen so renderer overlays can
-  // receive mouse events and remain visually above the browser contents.
+  // While renderer overlays are open, the native view is intentionally parked
+  // off-screen so dialogs, popovers, menus, and lightboxes can sit above it.
   useLayoutEffect(() => {
     const el = viewportRef.current;
     if (!el) return;
 
     const sync = () => {
-      if (capture || lightboxOpen) {
+      if (capture || lightboxOpen || rendererOverlay.open) {
         void window.sero.browser.hideAll();
         return;
       }
@@ -120,7 +208,7 @@ export function BrowserPanel({ workspaceId }: BrowserPanelProps) {
       observer.disconnect();
       window.removeEventListener('resize', sync);
     };
-  }, [activeTabId, capture, lightboxOpen]);
+  }, [activeTabId, capture, lightboxOpen, rendererOverlay.open]);
 
   const startCapture = useCallback(async () => {
     if (!activeTab) return;
@@ -191,7 +279,16 @@ export function BrowserPanel({ workspaceId }: BrowserPanelProps) {
         report. The div itself stays blank — it only exists to reserve space
         and give the ResizeObserver something to track.
       */}
-      <div ref={viewportRef} className="min-h-0 flex-1" />
+      <div ref={viewportRef} className="relative min-h-0 flex-1 overflow-hidden">
+        {rendererOverlay.open && rendererOverlay.pngBase64 ? (
+          <img
+            src={`data:image/png;base64,${rendererOverlay.pngBase64}`}
+            alt=""
+            className="pointer-events-none absolute inset-0 h-full w-full object-fill"
+            draggable={false}
+          />
+        ) : null}
+      </div>
       {capture && (
         <ScreenshotOverlay
           pngBase64={capture.pngBase64}

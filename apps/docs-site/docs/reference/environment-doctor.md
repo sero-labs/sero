@@ -82,13 +82,22 @@ Exit codes:
 | Category | Examples |
 |---|---|
 | `system` | OS, arch, free disk, platform-specific health signals. |
-| `runtime` | Apple Container and Docker/Podman availability, versions, and daemon/system health. |
+| `runtime` | Apple Container and Docker/Podman availability, Host core tools, browser-pack readiness, native build tool signals, versions, and daemon/system health. |
 | `node` | Node version, native ABI, `node-pty`. |
 | `profile` | `profiles.json` parse, active profile id, per-profile config files. |
 | `workspace` | Registry presence, runtime selection, FS reachability. |
 | `providers` | Per-provider env-var presence and `any-usable` summary. |
 | `plugins` | Manifest reachability, compatibility, sandboxed load. |
 | `environment` | Required `PATH`/`HOME`/`SHELL` names and configured provider env-var names. |
+
+## Runtime diagnostic states
+
+Runtime checks cover both container-backed workspaces and explicit Host mode:
+
+- **Container runtimes** — Apple Container on supported Apple Silicon Macs and Docker/Podman everywhere public support allows it. Doctor reports CLI presence, version discovery, daemon/system health, and whether the selected container runtime can be used. A selected container runtime should be fixed or changed explicitly; Sero does not silently switch it to Host.
+- **Host core tools** — Node, pnpm, Git/SSH, shell readiness, and managed-tool availability. Sero-managed host tools live under `~/.sero-ui/toolchains/<manifest-version>/` and are considered usable only after their readiness marker is present.
+- **Browser pack** — host browser automation reports states such as `installable`, `missing`, `installing`, `ready`, or `failed`. `ready` requires installed files plus a passing Doctor launch check. macOS Intel is not a supported target; supported platform packs are installable only after their release artifacts are published and verified.
+- **Native build tools** — informational checks for platform compiler stacks such as Xcode Command Line Tools, Linux `build-essential`/gcc/make, or MSVC/Windows SDK. Sero does not install these stacks; install them with platform instructions or switch the workspace to Apple Container or Docker/Podman for container-provided tooling.
 
 The detailed list of stable check IDs lives in
 [`docs/features/environment-doctor.md`](https://github.com/sero-labs/sero/blob/main/docs/features/environment-doctor.md#6-check-catalogue-v1).

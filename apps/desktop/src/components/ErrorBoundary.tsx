@@ -32,13 +32,16 @@ function hasChunkReloadMarker(): boolean {
 
 function reloadWithChunkMarker(): void {
   if (typeof window === 'undefined') return;
-  try {
-    const url = new URL(window.location.href);
-    url.searchParams.set(CHUNK_RELOAD_MARKER_PARAM, '1');
-    window.location.replace(url.toString());
-  } catch {
-    window.location.reload();
-  }
+  void (async () => {
+    await window.sero?.shell.clearRendererCache().catch(() => undefined);
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set(CHUNK_RELOAD_MARKER_PARAM, Date.now().toString());
+      window.location.replace(url.toString());
+    } catch {
+      window.location.reload();
+    }
+  })();
 }
 
 interface ErrorBoundaryProps {
@@ -90,6 +93,11 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   };
 
   private handleReload = () => {
+    const { error } = this.state;
+    if (error && isDynamicImportError(error)) {
+      reloadWithChunkMarker();
+      return;
+    }
     if (typeof window !== 'undefined') window.location.reload();
   };
 

@@ -225,6 +225,7 @@ export const DevServerIndicator = memo(function DevServerIndicator() {
         align="end"
         className="w-80 p-0"
         sideOffset={8}
+        data-browser-overlay="ignore"
       >
         <div className="border-b border-[var(--border-default)] px-3 py-2">
           <div className="flex items-center gap-1.5">

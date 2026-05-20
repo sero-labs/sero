@@ -11,6 +11,7 @@ import {
   pluginNeedsBuild,
   stripInstalledOnlyManifestFields,
 } from '@electron/features/plugins/package-build';
+import { NativeBuildToolsRequiredError } from '@electron/features/workspace/runtime/native-build/types';
 
 async function createTempPluginDir(tempDirs: string[]): Promise<string> {
   const dir = await mkdtemp(path.join(os.tmpdir(), 'sero-plugin-build-'));
@@ -339,6 +340,45 @@ describe('plugin package build helpers', () => {
       ]);
     },
   );
+
+  it('reports native build metadata when source plugin dependency install needs compiler tools', async () => {
+    const dir = await createTempPluginDir(tempDirs);
+    await writePackageJson(dir, {
+      scripts: {
+        build: 'fake-build',
+      },
+      dependencies: {
+        'native-addon': '^1.0.0',
+      },
+      sero: {
+        app: {
+          id: 'native-plugin',
+          name: 'Native Plugin',
+          runtime: './runtime/index.ts',
+        },
+      },
+    });
+    await mkdir(path.join(dir, 'runtime'), { recursive: true });
+    await writeFile(path.join(dir, 'runtime', 'index.ts'), 'export {}\n', 'utf8');
+
+    const runCommand = vi.fn(async () => {
+      const error = new Error('gyp ERR! build error\nmake: command not found');
+      Object.assign(error, { stderr: error.message, code: 1 });
+      throw error;
+    });
+
+    try {
+      await ensurePluginPackageReadyForInstall(dir, 'local', { runCommand });
+      throw new Error('Expected native build tools error');
+    } catch (error) {
+      expect(error).toBeInstanceOf(NativeBuildToolsRequiredError);
+      expect((error as NativeBuildToolsRequiredError).metadata).toMatchObject({
+        code: 'NATIVE_BUILD_TOOLS_REQUIRED',
+        seroInstallable: false,
+        failure: { kind: 'missing-make' },
+      });
+    }
+  });
 
   it('skips rebuilding local pre-built plugin bundles', async () => {
     const dir = await createTempPluginDir(tempDirs);

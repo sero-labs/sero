@@ -1,73 +1,70 @@
 import { defineConfig } from '@playwright/test';
 
 /**
- * Playwright configuration for Electron e2e tests.
+ * Three Playwright projects matching the e2e coverage architecture:
  *
- * Two projects:
- *   - "ci"    — Containers disabled via SERO_CONTAINER_PROXY=0. Skips
- *               container.spec.ts. Safe for headless CI and environments
- *               without macOS Virtualization.
- *   - "local" — Containers enabled. Full integration tests including
- *               container lifecycle, terminals, file I/O, and port forwarding.
+ *   - "contract" — IPC surface, CLI registry, manifest parsing, runtime
+ *                  selection. Runs on every PR (GitHub-hosted runners).
+ *                  Target wall-clock: ~1–2 min.
  *
- * Usage:
- *   npm run test:e2e            # Build + CI mode (no containers)
- *   npm run test:e2e:ci         # CI mode only, assumes desktop build already exists
- *   npm run test:e2e:local      # Local mode (with containers)
- *   npm run test:e2e:headed     # Local mode, visible window
+ *   - "workflow" — Full user journeys driven through the rendered
+ *                  Electron UI. Runs on self-hosted runners per OS via
+ *                  workflow_dispatch. Target wall-clock: ~10–15 min.
  *
- * Or directly:
- *   npx playwright test --project=ci
- *   npx playwright test --project=local
+ *   - "agent"    — Real LLM round-trips on a small set of canonical
+ *                  flows. Runs nightly (cheap) and on-demand (full).
+ *                  Skipped entirely when SERO_E2E_LLM_MODE=off (default).
+ *
+ * Spec routing is by filename suffix:
+ *   *.contract.spec.ts → contract
+ *   *.workflow.spec.ts → workflow
+ *   *.agent.spec.ts    → agent
  */
 export default defineConfig({
   testDir: './e2e',
   testMatch: '**/*.spec.ts',
 
-  /* Fail the build on CI if you accidentally left test.only in the source code. */
+  /* Fail the build on CI if you accidentally left test.only in source. */
   forbidOnly: !!process.env.CI,
 
-  /* Retry once on CI only — flaky Electron startup is common. */
+  /* Single soft retry on agent flake; contract/workflow only retry on CI. */
   retries: process.env.CI ? 1 : 0,
 
-  /* Single worker — Electron tests share one app instance per test file. */
+  /* Electron is single-instance; never parallelise. */
   workers: 1,
+  fullyParallel: false,
 
-  /* Reporter */
-  reporter: process.env.CI ? 'github' : 'list',
+  reporter: process.env.CI
+    ? [['github'], ['html', { open: 'never' }], ['json', { outputFile: 'test-results/results.json' }]]
+    : [['list'], ['html', { open: 'never' }], ['json', { outputFile: 'test-results/results.json' }]],
 
-  /* Generous timeout for Electron startup + IPC initialization. */
-  timeout: 60_000,
+  /* Container specs need extra time for image pull / boot. */
+  timeout: 120_000,
 
-  /* Expect timeout */
   expect: {
     timeout: 10_000,
   },
 
   use: {
-    /* Trace on first retry for debugging CI failures. */
     trace: 'on-first-retry',
-
-    /* Screenshots on failure. */
     screenshot: 'only-on-failure',
   },
 
   projects: [
     {
-      name: 'ci',
-      testIgnore: [
-        /container\.spec\.ts/,
-        // UI-rendering specs — Electron window doesn't fully render in
-        // headless CI (elements not found). Run locally with `test:e2e:local`.
-        /layout\.spec\.ts/,
-        /file-tree\.spec\.ts/,
-        /scroll-fix\.spec\.ts/,
-      ],
-      metadata: { containers: false },
+      name: 'contract',
+      testMatch: '**/*.contract.spec.ts',
+      metadata: { layer: 'contract' },
     },
     {
-      name: 'local',
-      metadata: { containers: true },
+      name: 'workflow',
+      testMatch: '**/*.workflow.spec.ts',
+      metadata: { layer: 'workflow' },
+    },
+    {
+      name: 'agent',
+      testMatch: '**/*.agent.spec.ts',
+      metadata: { layer: 'agent' },
     },
   ],
 });

@@ -97,6 +97,8 @@ export function SessionNode({
 
   return (
     <button
+      data-testid="session-item"
+      data-session-id={session.id}
       onClick={handleClick}
       onDoubleClick={(e) => { e.stopPropagation(); startRename(); }}
       className={cn(

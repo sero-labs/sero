@@ -56,7 +56,7 @@ Sero is currently a **source-only OSS alpha** for macOS, Linux, and Windows.
 Current alpha posture:
 - build from source
 - use Apple Container or Docker/Podman-backed workspaces for the full experience when available
-- choose Host explicitly on macOS/Linux when you want non-container execution; selected container runtimes fail closed when unavailable
+- choose explicit Host mode where supported when you want reduced-capability non-container execution; selected container runtimes fail closed when unavailable
 - expect some plugin and runtime contracts to evolve during alpha
 
 For the canonical current support contract, see

@@ -44,7 +44,7 @@ export interface HostSubstrateStat {
 
 export interface HostRuntimeSubstrate {
   readonly platform: NodeJS.Platform;
-  readonly kind: 'posix' | 'wsl';
+  readonly kind: 'posix' | 'windows';
   readonly runtimeWorkspacePath: string;
 
   toExecutionPath(nativePath: string): string;
@@ -52,9 +52,9 @@ export interface HostRuntimeSubstrate {
   isPathInsideRoot(nativePath: string, root: string): boolean;
   resolvePathInsideRoot(nativePath: string, root: string): Promise<string | null>;
 
-  shellCommand(opts: HostSubstrateSpawnOptions): HostSubstrateRendered;
-  execFileCommand(opts: HostSubstrateExecFileOptions): HostSubstrateRendered;
-  terminalCommand(opts: { cwd: string; env?: Record<string, string> }): HostSubstrateRendered;
+  shellCommand(opts: HostSubstrateSpawnOptions): Promise<HostSubstrateRendered>;
+  execFileCommand(opts: HostSubstrateExecFileOptions): Promise<HostSubstrateRendered>;
+  terminalCommand(opts: { cwd: string; env?: Record<string, string> }): Promise<HostSubstrateRendered>;
 
   readFile(path: string): Promise<Buffer>;
   writeFile(path: string, data: Buffer): Promise<void>;

@@ -39,7 +39,7 @@ describe('resolveWorkspaceRuntime', () => {
     vi.restoreAllMocks();
   });
 
-  it('returns host runtime when the workspace disables containers without probing health', async () => {
+  it('returns host runtime with install-state-aware capabilities when the workspace disables containers', async () => {
     mocks.workspaceManager.getRuntimeBackendDetails.mockResolvedValue({ backend: 'host', configuredBackend: 'host' });
 
     const resolved = await resolveWorkspaceRuntime('ws-1');
@@ -53,14 +53,26 @@ describe('resolveWorkspaceRuntime', () => {
       actualBackend: 'host',
       containerEnabled: false,
     });
-    // Browser automation and container mounts are container-only; LSP and managed dev servers run on host too.
     const findEntry = (key: string) => resolved.capabilityAudit.find((entry) => entry.key === key);
-    expect(findEntry('browserAutomation')).toMatchObject({ available: false, containerOnly: true });
-    expect(findEntry('containerMounts')).toMatchObject({ available: false, containerOnly: true });
-    expect(findEntry('containerizedLanguageServers')).toMatchObject({ available: true, containerOnly: false });
-    expect(findEntry('managedDevServers')).toMatchObject({ available: true, containerOnly: false });
+    expect(resolved.capabilityState.support.browserAutomation).toBe(true);
+    expect(resolved.capabilityState.available.browserAutomation).toBe(false);
+    expect(resolved.capabilityState.installState).toMatchObject({
+      coreTools: 'ready',
+      browserAutomation: 'installable',
+      nativeBuildTools: 'unknown',
+    });
+    expect(findEntry('browserAutomation')).toMatchObject({
+      support: true,
+      available: false,
+      containerOnly: false,
+      installState: 'installable',
+    });
+    expect(findEntry('browserAutomation')?.detail).toContain('installable as a large add-on');
+    expect(findEntry('containerMounts')).toMatchObject({ support: false, available: false, containerOnly: true });
+    expect(findEntry('containerizedLanguageServers')).toMatchObject({ support: true, available: true, containerOnly: false });
+    expect(findEntry('managedDevServers')).toMatchObject({ support: true, available: true, containerOnly: false });
     expect(findEntry('containerMounts')?.detail).toContain('explicitly set to host mode');
-    expect(mocks.runtimeManager.getHealth).not.toHaveBeenCalled();
+    expect(mocks.runtimeManager.getHealth).toHaveBeenCalledWith('ws-1');
   });
 
   it('returns container runtime when runtime health is ready', async () => {
@@ -78,6 +90,11 @@ describe('resolveWorkspaceRuntime', () => {
       desiredBackend: 'docker',
       actualBackend: 'docker',
       containerEnabled: true,
+    });
+    expect(resolved.capabilityState.installState).toMatchObject({
+      coreTools: 'ready',
+      browserAutomation: 'ready',
+      nativeBuildTools: 'available',
     });
     expect(resolved.capabilityAudit.every((entry) => entry.available)).toBe(true);
     expect(mocks.runtimeManager.getHealth).toHaveBeenCalledWith('ws-1');
@@ -103,6 +120,8 @@ describe('resolveWorkspaceRuntime', () => {
     expect(resolved.fallbackReason).toContain('will not fall back to host execution');
     expect(resolved.fallbackReason).toContain('Docker container missing');
     expect(resolved.fallbackReason).toContain('Create the runtime before using container-only features.');
+    expect(resolved.capabilityState.available.browserAutomation).toBe(false);
+    expect(resolved.capabilityState.installState.browserAutomation).toBe('failed');
     expect(resolved.capabilityAudit.every((entry) => entry.available === false)).toBe(true);
   });
 
@@ -159,6 +178,110 @@ describe('resolveWorkspaceRuntime', () => {
     expect(resolved.fallbackReason).toContain('apple-container is not supported on linux');
     expect(resolved.fallbackReason).toContain('falling back to docker');
     expect(mocks.runtimeManager.getHealth).toHaveBeenCalledWith('ws-1');
+  });
+
+  it('uses host Doctor checks to report browser and native build install state separately', async () => {
+    mocks.workspaceManager.getRuntimeBackendDetails.mockResolvedValue({ backend: 'host', configuredBackend: 'host' });
+    mocks.runtimeManager.getHealth.mockResolvedValue({
+      backend: 'host',
+      status: 'ready',
+      message: 'Host runtime ready',
+      checks: [
+        {
+          id: 'runtime.host.core-tools',
+          category: 'runtime',
+          status: 'pass',
+          message: 'Core tools ready',
+          details: { installState: 'ready' },
+          durationMs: 1,
+        },
+        {
+          id: 'runtime.host.browser',
+          category: 'runtime',
+          status: 'fail',
+          message: 'Browser launch failed',
+          details: { installState: 'failed' },
+          durationMs: 1,
+        },
+        {
+          id: 'runtime.host.native-build-tools',
+          category: 'runtime',
+          status: 'warn',
+          message: 'Native build tools missing',
+          details: { installState: 'missing' },
+          durationMs: 1,
+        },
+      ],
+    });
+
+    const resolved = await resolveWorkspaceRuntime('ws-1');
+
+    expect(resolved.capabilityState.installState).toMatchObject({
+      coreTools: 'ready',
+      browserAutomation: 'failed',
+      nativeBuildTools: 'missing',
+    });
+    expect(resolved.capabilityState.available.browserAutomation).toBe(false);
+    expect(resolved.capabilityAudit.find((entry) => entry.key === 'browserAutomation')).toMatchObject({
+      support: true,
+      available: false,
+      installState: 'failed',
+    });
+  });
+
+  it('preserves unavailable host browser pack state as missing rather than installable', async () => {
+    mocks.workspaceManager.getRuntimeBackendDetails.mockResolvedValue({ backend: 'host', configuredBackend: 'host' });
+    mocks.runtimeManager.getHealth.mockResolvedValue({
+      backend: 'host',
+      status: 'ready',
+      message: 'Host runtime ready',
+      checks: [
+        {
+          id: 'runtime.host.browser',
+          category: 'runtime',
+          status: 'warn',
+          message: 'Browser pack unavailable',
+          details: { installState: 'missing', installable: false },
+          durationMs: 1,
+        },
+      ],
+    });
+
+    const resolved = await resolveWorkspaceRuntime('ws-1');
+
+    expect(resolved.capabilityState.installState.browserAutomation).toBe('missing');
+    expect(resolved.capabilityState.available.browserAutomation).toBe(false);
+    const browserEntry = resolved.capabilityAudit.find((entry) => entry.key === 'browserAutomation');
+    expect(browserEntry).toMatchObject({ available: false, installState: 'missing' });
+    expect(browserEntry?.detail).toContain('unavailable for this machine');
+  });
+
+  it('marks host browser automation available after the browser pack Doctor check passes', async () => {
+    mocks.workspaceManager.getRuntimeBackendDetails.mockResolvedValue({ backend: 'host', configuredBackend: 'host' });
+    mocks.runtimeManager.getHealth.mockResolvedValue({
+      backend: 'host',
+      status: 'ready',
+      message: 'Host runtime ready',
+      checks: [
+        {
+          id: 'runtime.host.browser',
+          category: 'runtime',
+          status: 'pass',
+          message: 'Browser ready',
+          details: { installState: 'ready' },
+          durationMs: 1,
+        },
+      ],
+    });
+
+    const resolved = await resolveWorkspaceRuntime('ws-1');
+
+    expect(resolved.capabilityState.installState.browserAutomation).toBe('ready');
+    expect(resolved.capabilityState.available.browserAutomation).toBe(true);
+    expect(resolved.capabilityAudit.find((entry) => entry.key === 'browserAutomation')).toMatchObject({
+      available: true,
+      installState: 'ready',
+    });
   });
 
   it('throws when the workspace path cannot be resolved', async () => {

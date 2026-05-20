@@ -36,8 +36,27 @@ interface WorkspaceResolver {
   readConfig(workspacePath: string): Promise<{ id?: string } | null>;
 }
 
+interface PathTools {
+  resolve(...paths: string[]): string;
+  relative(from: string, to: string): string;
+  isAbsolute(path: string): boolean;
+}
+
 function detachedWorkspaceId(cwd: string): string {
   return `detached:${Buffer.from(cwd).toString('base64url')}`;
+}
+
+export function isPathInsideDirectory(
+  candidatePath: string,
+  directoryPath: string,
+  pathTools: PathTools = path,
+): boolean {
+  const relativePath = pathTools.relative(pathTools.resolve(directoryPath), pathTools.resolve(candidatePath));
+  return relativePath === '' || (
+    relativePath.length > 0
+    && !relativePath.startsWith('..')
+    && !pathTools.isAbsolute(relativePath)
+  );
 }
 
 /**
@@ -157,7 +176,7 @@ export function registerSessionHandlers(): void {
     async (_event, sessionPath: string): Promise<void> => {
       // Safety: only allow deleting files inside our session dir
       const resolved = path.resolve(sessionPath);
-      if (!resolved.startsWith(SERO_SESSION_DIR)) {
+      if (!isPathInsideDirectory(resolved, SERO_SESSION_DIR)) {
         throw new Error('Refusing to delete file outside session directory');
       }
       try {

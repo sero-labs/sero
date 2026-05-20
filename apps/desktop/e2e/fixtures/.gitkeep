@@ -1,0 +1,5 @@
+Placeholder. Real fixtures land here in later phases:
+  - test-plugin/        (Phase 3 — synthetic plugin)
+  - test-mcp-server/    (Phase 3 — minimal MCP server)
+  - repos/              (Phase 2 — pre-baked git repos for VCS tests)
+  - corrupt/            (Phase 2 — broken workspaces.json + jsonl for resilience tests)

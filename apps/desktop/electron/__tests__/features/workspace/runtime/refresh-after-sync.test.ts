@@ -56,6 +56,7 @@ describe('refreshWorkspaceRuntimeAfterSync', () => {
       '/tmp/workspace',
       'pnpm install --frozen-lockfile',
       600_000,
+      { classifyNativeBuildFailure: true },
     );
     expect(restartDevServer).toHaveBeenCalledWith('workspace-1:workspace:root:3000');
     expect(result).toMatchObject({
@@ -140,6 +141,48 @@ describe('refreshWorkspaceRuntimeAfterSync', () => {
     expect(restartDevServer).not.toHaveBeenCalled();
     expect(result.refreshed).toBe(false);
     expect(result.reason).toContain('Dependency install failed');
+  });
+
+  it('attaches native build metadata when dependency install needs compiler tools', async () => {
+    const runCommand = vi.fn().mockResolvedValue({
+      stdout: '',
+      stderr: 'gyp ERR! build error\nmake: command not found',
+      exitCode: 1,
+      nativeBuildToolsRequired: {
+        code: 'NATIVE_BUILD_TOOLS_REQUIRED',
+        title: 'Native build tools required',
+        message: 'This project needs native compiler tools.',
+        installInstructions: ['Install build tools'],
+        actions: [{ type: 'setup-container-runtime', label: 'Set up a container runtime' }],
+        seroInstallable: false,
+        failure: {
+          kind: 'missing-make',
+          platform: 'linux',
+          command: 'pnpm install',
+          executable: 'make',
+          evidence: 'make: command not found',
+        },
+      },
+    });
+
+    const result = await refreshWorkspaceRuntimeAfterSync(
+      'workspace-1',
+      '/tmp/workspace',
+      {
+        detectInstallCommand: vi.fn().mockResolvedValue('pnpm install'),
+        detectDevCommand: vi.fn().mockResolvedValue(null),
+        runCommand,
+        listDevServers: vi.fn(),
+        restartDevServer: vi.fn(),
+        autoStartDevServer: vi.fn(),
+        resolveRuntime: vi.fn(),
+      },
+    );
+
+    expect(result.nativeBuildToolsRequired).toMatchObject({
+      code: 'NATIVE_BUILD_TOOLS_REQUIRED',
+      failure: { kind: 'missing-make' },
+    });
   });
 
   it('returns an explicit runtime-unavailable reason when auto-starting managed dev servers is unavailable', async () => {

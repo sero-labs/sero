@@ -201,11 +201,64 @@ export interface WorkspaceInfoIPC {
   roots: WorkspaceRootIPC[];
 }
 
+export interface RuntimeCapabilitiesIPC {
+  exec: boolean;
+  processes: {
+    spawn: boolean;
+    stdio: boolean;
+    signal: boolean;
+    longRunning: boolean;
+  };
+  files: {
+    read: boolean;
+    write: boolean;
+    edit: boolean;
+    list: boolean;
+    mutateTree: boolean;
+    watch: boolean;
+  };
+  vcs: {
+    git: boolean;
+    worktrees: boolean;
+    pullRequests: boolean;
+  };
+  terminal: boolean;
+  devServers: {
+    start: boolean;
+    stop: boolean;
+    restart: boolean;
+    status: boolean;
+  };
+  ports: {
+    discover: boolean;
+    forward: boolean;
+    stopForward: boolean;
+    previewUrl: boolean;
+  };
+  logs: boolean;
+  browserAutomation: boolean;
+  languageServers: boolean;
+}
+
+export interface RuntimeCapabilityInstallStateIPC {
+  coreTools: 'ready' | 'installing' | 'missing' | 'failed';
+  browserAutomation: 'ready' | 'installable' | 'installing' | 'missing' | 'failed';
+  nativeBuildTools: 'available' | 'missing' | 'unknown';
+}
+
+export interface RuntimeCapabilityStateIPC {
+  support: RuntimeCapabilitiesIPC;
+  available: RuntimeCapabilitiesIPC;
+  installState: RuntimeCapabilityInstallStateIPC;
+}
+
 export interface WorkspaceRuntimeCapabilityIPC {
   key: 'browserAutomation' | 'containerizedLanguageServers' | 'managedDevServers' | 'containerMounts';
   label: string;
+  support: boolean;
   available: boolean;
   containerOnly: boolean;
+  installState?: string;
   detail: string;
 }
 
@@ -217,7 +270,61 @@ export interface WorkspaceRuntimeDiagnosticsIPC {
   containerEnabled: boolean;
   fallbackCode?: 'container_unavailable' | 'backend-unsupported-on-platform';
   fallbackReason?: string;
+  capabilityState: RuntimeCapabilityStateIPC;
   capabilityAudit: WorkspaceRuntimeCapabilityIPC[];
+}
+
+export interface RuntimeInstallErrorIPC {
+  code: string;
+  message: string;
+  retryable: boolean;
+  installable?: boolean;
+  details?: Record<string, string | number | boolean | null>;
+}
+
+export interface ManagedToolStatusIPC {
+  tool: string;
+  state: 'ready' | 'missing' | 'installing' | 'incompatible' | 'failed';
+  source?: 'system' | 'managed';
+  path?: string;
+  version?: string;
+  error?: RuntimeInstallErrorIPC;
+}
+
+export interface ToolchainProgressIPC {
+  tool: string;
+  phase: 'queued' | 'resolving' | 'downloading' | 'verifying' | 'unpacking' | 'activating' | 'ready' | 'failed';
+  artifactKey: string;
+  manifestVersion: string;
+  bytesReceived?: number;
+  bytesTotal?: number;
+  error?: RuntimeInstallErrorIPC;
+}
+
+export interface ToolchainStatusIPC {
+  state: 'ready' | 'installing' | 'missing' | 'failed';
+  manifestVersion?: string;
+  tools: ManagedToolStatusIPC[];
+  progress?: ToolchainProgressIPC;
+  error?: RuntimeInstallErrorIPC;
+}
+
+export interface BrowserPackProgressIPC {
+  phase: 'queued' | 'downloading' | 'verifying' | 'unpacking' | 'activating' | 'ready' | 'failed' | 'uninstalling';
+  manifestVersion: string;
+  artifactKey?: string;
+  bytesReceived?: number;
+  bytesTotal?: number;
+  error?: RuntimeInstallErrorIPC;
+}
+
+export interface BrowserPackStatusIPC {
+  state: 'ready' | 'missing' | 'installable' | 'installing' | 'failed';
+  manifestVersion: string;
+  artifactKey?: string;
+  browsersPath?: string;
+  progress?: BrowserPackProgressIPC;
+  error?: RuntimeInstallErrorIPC;
 }
 
 export interface ContainerInfoIPC {
@@ -232,6 +339,13 @@ export interface ContainerInfoIPC {
 export interface SeroWorkspaceBridge {
   list?(): Promise<WorkspaceInfoIPC[]>;
   getRuntimeDiagnostics?(workspaceId?: string): Promise<WorkspaceRuntimeDiagnosticsIPC[]>;
+  getToolchainStatus?(): Promise<ToolchainStatusIPC>;
+  ensureCoreTools?(reason?: string): Promise<ToolchainStatusIPC>;
+  onToolchainProgress?(callback: (event: ToolchainProgressIPC) => void): () => void;
+  getBrowserPackStatus?(): Promise<BrowserPackStatusIPC>;
+  ensureBrowserPack?(reason?: string): Promise<BrowserPackStatusIPC>;
+  uninstallBrowserPack?(): Promise<BrowserPackStatusIPC>;
+  onBrowserPackProgress?(callback: (event: BrowserPackProgressIPC) => void): () => void;
   pickFolder(): Promise<string | null>;
   listRoots(workspaceId: string): Promise<WorkspaceRootIPC[]>;
   addRoot(

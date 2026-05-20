@@ -9,6 +9,8 @@ import { fileUri, type LspServerConfig } from '@electron/features/editor/lsp/typ
 import { createPosixHostSubstrate } from '@electron/features/workspace/runtime/backends/host/posix-substrate';
 import { HostBackend } from '@electron/features/workspace/runtime/backends/host/host-backend';
 import { RUNTIME_WORKSPACE_PATH } from '@electron/features/workspace/runtime/runtime-paths';
+import type { HostToolResolverLike } from '@electron/features/workspace/runtime/toolchains/host-tool-resolver';
+import type { ToolInstallReason, ToolName, ToolResolution, ToolStatus } from '@electron/features/workspace/runtime/toolchains/types';
 
 const mocks = vi.hoisted(() => ({
   execFileMock: vi.fn(),
@@ -52,6 +54,19 @@ function encodeRpc(message: object): string {
   return `Content-Length: ${Buffer.byteLength(body, 'utf8')}\r\n\r\n${body}`;
 }
 
+function createMockTools(): HostToolResolverLike {
+  const resolution = (tool: ToolName): ToolResolution => ({ tool, source: 'system', path: tool });
+  return {
+    resolve: vi.fn(async (tool) => resolution(tool)),
+    ensure: vi.fn(async (tool, _reason: ToolInstallReason) => resolution(tool)),
+    status: vi.fn(async (tool): Promise<ToolStatus> => ({ ...resolution(tool), state: 'ready' })),
+    prepareEnv: vi.fn(async (env = {}) => ({ ...env })),
+    prepareShell: vi.fn(async (_reason) => resolution('bash')),
+    prepareProgram: vi.fn(async (program) => program),
+    resolveTerminalShell: vi.fn(async (candidate) => candidate ?? 'bash'),
+  };
+}
+
 describe('LspServerProcess host runtime launch', () => {
   beforeEach(() => {
     mocks.execFileMock.mockReset();
@@ -70,7 +85,7 @@ describe('LspServerProcess host runtime launch', () => {
     const backend = new HostBackend({
       workspaceId: 'workspace-a',
       hostWorkspacePath: workspacePath,
-      substrate: createPosixHostSubstrate({ platform: 'darwin' }),
+      substrate: createPosixHostSubstrate({ platform: 'darwin', tools: createMockTools() }),
     });
     const server = new LspServerProcess('workspace-a', config, backend, {});
 

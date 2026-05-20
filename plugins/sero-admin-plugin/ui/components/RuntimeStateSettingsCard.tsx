@@ -8,6 +8,8 @@ import {
   type WorkspaceInfoIPC,
   type WorkspaceRuntimeDiagnosticsIPC,
 } from '../hooks/host';
+import { RuntimeCapabilityList } from './runtime/RuntimeCapabilityList';
+import { RuntimeInstallControls } from './runtime/RuntimeInstallControls';
 
 interface RuntimeStateSettingsCardProps {
   disabled?: boolean;
@@ -24,7 +26,7 @@ function getWorkspaceRuntimeLabel(row: WorkspaceRuntimeDiagnosticsIPC): {
       desired: 'host',
       actual: 'host',
       tone: 'secondary',
-      detail: 'Container mode disabled in workspace settings.',
+      detail: 'Host is the recommended runtime for this workspace. Sero uses verified system tools or managed core tools when needed.',
     };
   }
 
@@ -51,7 +53,7 @@ function getWorkspaceRuntimeLabel(row: WorkspaceRuntimeDiagnosticsIPC): {
       desired: 'container',
       actual: 'container',
       tone: 'default',
-      detail: 'Container runtime is active for this workspace.',
+      detail: 'Container runtime is active as an optional upgrade for isolation, Linux parity, browser automation, or native build fallback.',
     };
   }
 
@@ -59,7 +61,7 @@ function getWorkspaceRuntimeLabel(row: WorkspaceRuntimeDiagnosticsIPC): {
     desired: 'container',
     actual: 'host',
     tone: 'outline',
-    detail: row.fallbackReason ?? 'Container mode is preferred, but no running container is currently available.',
+    detail: row.fallbackReason ?? 'Container runtime is selected, but this workspace is currently running on the host.',
   };
 }
 
@@ -116,7 +118,7 @@ export function RuntimeStateSettingsCard({ disabled = false }: RuntimeStateSetti
           <div>
             <CardTitle className="text-sm">Runtime diagnostics</CardTitle>
             <CardDescription className="mt-1 text-xs">
-              Shows whether Sero is currently using host or container runtime paths.
+              Host is the recommended default. Containers are optional upgrades for isolation, Linux parity, browser automation, and native build fallback.
             </CardDescription>
           </div>
           <Button
@@ -143,15 +145,22 @@ export function RuntimeStateSettingsCard({ disabled = false }: RuntimeStateSetti
           </div>
         ) : null}
 
+        <RuntimeInstallControls disabled={disabled} onChanged={() => void load(true)} />
+
         {runtime ? (
           <div className="rounded-lg border border-border/40 bg-secondary/20 px-3 py-2 text-[11px] text-muted-foreground/80">
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-medium text-foreground/85">Machine runtime</span>
-              <Badge variant={runtime.status === 'available' ? 'default' : 'outline'}>
-                {runtime.status === 'available' ? 'containers available' : 'host fallback ready'}
+              <Badge variant="default">Host recommended</Badge>
+              <Badge variant={runtime.status === 'available' ? 'secondary' : 'outline'}>
+                {runtime.status === 'available' ? 'containers optional' : 'containers not configured'}
               </Badge>
             </div>
-            <p className="mt-2">{runtime.message}</p>
+            <p className="mt-2">
+              Sero runs workspaces on the host by default with managed core tooling when diagnostics allow it.
+              Containers remain optional for sandboxing, preinstalled browser automation, and native build fallback.
+            </p>
+            <p className="mt-1">{runtime.message}</p>
             {runtime.docsUrl ? (
               <Button
                 variant="link"
@@ -170,7 +179,7 @@ export function RuntimeStateSettingsCard({ disabled = false }: RuntimeStateSetti
             <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground/60">
               Workspace runtime state
             </p>
-            <p className="text-[11px] text-muted-foreground/60">Desired → actual</p>
+            <p className="text-[11px] text-muted-foreground/60">Configured → active</p>
           </div>
 
           {sortedRows.length === 0 ? (
@@ -181,7 +190,6 @@ export function RuntimeStateSettingsCard({ disabled = false }: RuntimeStateSetti
             <div className="space-y-2">
               {sortedRows.map((row) => {
                 const state = getWorkspaceRuntimeLabel(row);
-                const unavailable = row.capabilityAudit.filter((entry) => !entry.available);
                 return (
                   <div
                     key={row.workspaceId}
@@ -191,26 +199,16 @@ export function RuntimeStateSettingsCard({ disabled = false }: RuntimeStateSetti
                       <span className="text-xs font-medium text-foreground/85">
                         {workspaceNames[row.workspaceId] ?? row.workspaceId}
                       </span>
-                      <Badge variant={state.tone}>{state.desired}</Badge>
+                      <Badge variant={state.tone}>
+                        {state.desired === 'host' ? 'Host (recommended)' : 'Container optional'}
+                      </Badge>
                       <span className="text-[11px] text-muted-foreground/60">→</span>
-                      <Badge variant={state.actual === 'container' ? 'default' : 'secondary'}>{state.actual}</Badge>
+                      <Badge variant={state.actual === 'container' ? 'default' : 'secondary'}>
+                        {state.actual === 'host' ? 'Host' : 'Container'}
+                      </Badge>
                     </div>
                     <p className="mt-1 text-[11px] text-muted-foreground/75">{state.detail}</p>
-                    {unavailable.length > 0 ? (
-                      <div className="mt-2 space-y-1">
-                        <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
-                          Container-only features currently unavailable
-                        </p>
-                        <ul className="space-y-1 text-[11px] text-muted-foreground/75">
-                          {unavailable.map((entry) => (
-                            <li key={entry.key}>
-                              <span className="font-medium text-foreground/80">{entry.label}:</span>{' '}
-                              {entry.detail}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    ) : null}
+                    <RuntimeCapabilityList row={row} />
                   </div>
                 );
               })}

@@ -3,6 +3,7 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { TooltipProvider } from '@sero-ai/ui/components/ui/tooltip';
 import type { WorkspaceInfo } from '@/types/ipc';
 import { useContainerStore } from '@/stores/container';
 import { useWorkspaceStore } from '@/stores/workspace';
@@ -11,6 +12,14 @@ import { WorkspaceReferencesMenu } from './WorkspaceReferencesMenu';
 (
   globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
 ).IS_REACT_ACT_ENVIRONMENT = true;
+
+class ResizeObserverMock implements ResizeObserver {
+  disconnect() {}
+  observe(_target: Element) {}
+  unobserve(_target: Element) {}
+}
+
+globalThis.ResizeObserver = ResizeObserverMock;
 
 const initialWorkspaceState = useWorkspaceStore.getState();
 const initialContainerState = useContainerStore.getState();
@@ -35,6 +44,19 @@ async function openMountMenu() {
 
   await act(async () => {
     trigger.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  });
+}
+
+async function showRuntimeMountsNotice() {
+  const trigger = document.querySelector('[aria-label="Runtime mounts notice"]');
+  if (!(trigger instanceof HTMLElement)) {
+    throw new Error('Expected runtime mounts notice trigger');
+  }
+
+  await act(async () => {
+    trigger.focus();
+    trigger.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
   });
 }
 
@@ -72,26 +94,41 @@ describe('WorkspaceReferencesMenu', () => {
     useContainerStore.setState(initialContainerState, true);
   });
 
-  it('shows an explicit note when runtime mounts need recreation or repair', async () => {
+  async function renderMenu(workspaceForRender = workspace) {
     await act(async () => {
-      root?.render(<WorkspaceReferencesMenu workspace={workspace} />);
+      root?.render(
+        <TooltipProvider delayDuration={0}>
+          <WorkspaceReferencesMenu workspace={workspaceForRender} />
+        </TooltipProvider>,
+      );
     });
+  }
+
+  it('shows an explicit note when runtime mounts need recreation or repair', async () => {
+    await renderMenu();
 
     await openMountMenu();
 
-    expect(document.body.textContent).toContain('Runtime mounts apply when the selected runtime is healthy.');
-    expect(document.body.textContent).toContain('runtime/container recreation');
+    expect(document.querySelector('[aria-label="Runtime mounts notice"]')).toBeTruthy();
+
+    await showRuntimeMountsNotice();
+
+    expect(document.body.textContent).toContain(
+      'Sero restarts the container to apply changes. If work is running, changes apply next time it restarts.',
+    );
   });
 
   it('shows a different note when the workspace is explicitly configured for Host', async () => {
-    await act(async () => {
-      root?.render(<WorkspaceReferencesMenu workspace={{ ...workspace, runtime: { backend: 'host' }, container: false }} />);
-    });
+    await renderMenu({ ...workspace, runtime: { backend: 'host' }, container: false });
 
     await openMountMenu();
 
-    expect(document.body.textContent).toContain('Runtime mounts require Docker or Apple Container.');
-    expect(document.body.textContent).toContain('explicitly set to Host');
-    expect(document.body.textContent).toContain('after selecting an isolated runtime');
+    expect(document.querySelector('[aria-label="Runtime mounts notice"]')).toBeTruthy();
+
+    await showRuntimeMountsNotice();
+
+    expect(document.body.textContent).toContain(
+      'References and folder mounts take effect after switching this workspace to Docker or Apple Container.',
+    );
   });
 });

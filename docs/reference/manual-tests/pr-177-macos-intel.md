@@ -1,6 +1,6 @@
 # PR #177 Manual Test — macOS Intel
 
-Use this checklist on an Intel Mac (`x64`). Validate Docker and Host. Apple Container must not be offered.
+Use this historical checklist on an Intel Mac (`x64`) only for PR #177 regression archaeology. macOS x64 is not part of the current host-mode release/support matrix; validate Docker only for current release sign-off. Apple Container must not be offered.
 
 ## Pass/fail record
 

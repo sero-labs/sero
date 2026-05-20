@@ -6,6 +6,8 @@ import path from 'path';
 import { promisify } from 'util';
 
 import { RUNTIME_WORKSPACE_PATH } from '../../runtime-paths';
+import { HostToolResolver, type HostToolResolverLike } from '../../toolchains/host-tool-resolver';
+import type { ToolInstallReason } from '../../toolchains/types';
 import type {
   HostRuntimeSubstrate,
   HostSubstrateExecFileOptions,
@@ -24,8 +26,11 @@ export class PosixHostSubstrate implements HostRuntimeSubstrate {
   readonly kind = 'posix' as const;
   readonly runtimeWorkspacePath = RUNTIME_WORKSPACE_PATH;
 
-  constructor(options: { platform?: NodeJS.Platform } = {}) {
+  private readonly tools: HostToolResolverLike;
+
+  constructor(options: { platform?: NodeJS.Platform; tools?: HostToolResolverLike } = {}) {
     this.platform = options.platform ?? process.platform;
+    this.tools = options.tools ?? new HostToolResolver({ platform: this.platform });
   }
 
   toExecutionPath(nativePath: string): string {
@@ -50,30 +55,35 @@ export class PosixHostSubstrate implements HostRuntimeSubstrate {
     return isPathInside(canonicalCandidate, canonicalRoot) ? canonicalCandidate : null;
   }
 
-  shellCommand(opts: HostSubstrateSpawnOptions): HostSubstrateRendered {
+  async shellCommand(opts: HostSubstrateSpawnOptions): Promise<HostSubstrateRendered> {
+    const nativeCwd = this.toNativeHostPath(opts.cwd);
+    const shell = await this.tools.prepareShell(makeReason('workspace-shell', nativeCwd, opts.command));
     return {
-      program: 'bash',
+      program: shell.path,
       args: opts.loginShell === true ? ['--login', '-c', opts.command] : ['-c', opts.command],
-      nativeCwd: this.toNativeHostPath(opts.cwd),
-      env: opts.env,
+      nativeCwd,
+      env: await this.tools.prepareEnv(opts.env),
     };
   }
 
-  execFileCommand(opts: HostSubstrateExecFileOptions): HostSubstrateRendered {
+  async execFileCommand(opts: HostSubstrateExecFileOptions): Promise<HostSubstrateRendered> {
+    const nativeCwd = this.toNativeHostPath(opts.cwd);
     return {
-      program: opts.program,
+      program: await this.tools.prepareProgram(opts.program, makeReason('workspace-command', nativeCwd, opts.program)),
       args: opts.args,
-      nativeCwd: this.toNativeHostPath(opts.cwd),
-      env: opts.env,
+      nativeCwd,
+      env: await this.tools.prepareEnv(opts.env),
     };
   }
 
-  terminalCommand(opts: { cwd: string; env?: Record<string, string> }): HostSubstrateRendered {
+  async terminalCommand(opts: { cwd: string; env?: Record<string, string> }): Promise<HostSubstrateRendered> {
+    const nativeCwd = this.toNativeHostPath(opts.cwd);
+    const env = await this.tools.prepareEnv(opts.env);
     return {
-      program: process.env.SHELL ?? (this.platform === 'darwin' ? '/bin/zsh' : '/bin/bash'),
+      program: await this.tools.resolveTerminalShell(env.SHELL, makeReason('workspace-terminal', nativeCwd)),
       args: ['--login'],
-      nativeCwd: this.toNativeHostPath(opts.cwd),
-      env: opts.env,
+      nativeCwd,
+      env,
     };
   }
 
@@ -175,6 +185,14 @@ function isPathInside(candidate: string, root: string): boolean {
   return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
 }
 
+function makeReason(
+  kind: ToolInstallReason['kind'],
+  workspacePath: string,
+  command?: string,
+): ToolInstallReason {
+  return { kind, workspacePath, command };
+}
+
 function normalizeSshProbeFailure(error: unknown): { stdout: string; stderr: string } {
   if (typeof error !== 'object' || error === null) return { stdout: '', stderr: '' };
   const failure = error as { stdout?: unknown; stderr?: unknown; message?: unknown };
@@ -188,6 +206,8 @@ function normalizeSshProbeFailure(error: unknown): { stdout: string; stderr: str
   };
 }
 
-export function createPosixHostSubstrate(options: { platform?: NodeJS.Platform } = {}): PosixHostSubstrate {
+export function createPosixHostSubstrate(
+  options: { platform?: NodeJS.Platform; tools?: HostToolResolverLike } = {},
+): PosixHostSubstrate {
   return new PosixHostSubstrate(options);
 }

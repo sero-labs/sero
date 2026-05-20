@@ -16,6 +16,10 @@ files:
   - dist/electron/**/*
   - dist/renderer/**/*
   - package.json
+  # Browser-pack archives are release toolchain artifacts and must stay outside
+  # packaged app bundles. The app downloads/verifies them from published metadata.
+  - "!dist/browser-pack/**"
+  - "!release/**"
   # Native modules — electron-builder rebuilds these for the target
   - node_modules/node-pty/**/*
   - node_modules/better-sqlite3/**/*
@@ -60,10 +64,42 @@ mac:
   entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
 
+# ── Linux ─────────────────────────────────────────────────────
+linux:
+  target:
+    - target: AppImage
+      arch:
+        - x64
+        - arm64
+    - target: deb
+      arch:
+        - x64
+        - arm64
+    - target: tar.gz
+      arch:
+        - x64
+        - arm64
+  category: Development
+  artifactName: "${productName}-${version}-${arch}.${ext}"
+
+# ── Windows ───────────────────────────────────────────────────
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: zip
+      arch:
+        - x64
+  artifactName: "${productName}-${version}-${arch}.${ext}"
+
 # ── DMG options ───────────────────────────────────────────────
 dmg:
   title: "${productName} ${version}"
   artifactName: "${productName}-${version}-${arch}.${ext}"
+
+nsis:
+  artifactName: "${productName}-${version}-${arch}-setup.${ext}"
 
 # ── Code signing — set CSC_LINK / CSC_KEY_PASSWORD env vars ──
 # When not set, the app is built unsigned (fine for local dev).

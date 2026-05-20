@@ -1,0 +1,52 @@
+[
+  {
+    "platform": "darwin",
+    "arch": "arm64",
+    "releaseSupported": true,
+    "hostDefault": true,
+    "browserPackRequired": true,
+    "packagedAppRequired": true
+  },
+  {
+    "platform": "darwin",
+    "arch": "x64",
+    "releaseSupported": false,
+    "hostDefault": false,
+    "browserPackRequired": false,
+    "packagedAppRequired": false,
+    "notes": "Future: Intel Mac support is not part of this release matrix."
+  },
+  {
+    "platform": "linux",
+    "arch": "x64",
+    "releaseSupported": true,
+    "hostDefault": true,
+    "browserPackRequired": true,
+    "packagedAppRequired": true
+  },
+  {
+    "platform": "linux",
+    "arch": "arm64",
+    "releaseSupported": true,
+    "hostDefault": true,
+    "browserPackRequired": true,
+    "packagedAppRequired": true
+  },
+  {
+    "platform": "win32",
+    "arch": "x64",
+    "releaseSupported": true,
+    "hostDefault": true,
+    "browserPackRequired": true,
+    "packagedAppRequired": true
+  },
+  {
+    "platform": "win32",
+    "arch": "arm64",
+    "releaseSupported": false,
+    "hostDefault": false,
+    "browserPackRequired": false,
+    "packagedAppRequired": false,
+    "notes": "Future: needs Windows ARM runner/package/browser-pack smoke."
+  }
+]

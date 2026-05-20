@@ -26,10 +26,11 @@ The current OSS alpha is intentionally narrow:
 - **platforms:** macOS, Linux, and Windows from source
 - **maintainer-validated baseline:** macOS on Apple Silicon
 - **distribution:** source-only
-- **preferred runtime:** Apple Container or Docker/Podman-backed workspaces
-- **host runtime:** explicit host mode with reduced capabilities on macOS/Linux
+- **runtime options:** Apple Container, Docker/Podman (`docker`), and explicit Host where supported
+- **full runtime-backed experience:** container-backed workspaces via Apple Container or Docker/Podman
+- **host runtime:** explicit reduced-capability runtime; see [Support Scope](/reference/support-scope) for platform details
 
-Sero does **not** currently promise official binaries, identical runtime capabilities on every OS, Windows host-mode workspace execution, or fully stable internal runtime/plugin contracts.
+Sero does **not** currently promise official binaries, identical runtime capabilities on every OS, or fully stable internal runtime/plugin contracts. See [Support Scope](/reference/support-scope) for the exact platform and runtime contract.
 
 ## Getting started
 

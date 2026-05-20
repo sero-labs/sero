@@ -7,6 +7,7 @@
 
 import path from 'path';
 import os from 'os';
+import type { NativeBuildToolsRequiredMetadata } from '@electron/features/workspace/runtime/native-build/types';
 
 export const CONTAINER_BIN = '/usr/local/bin/container';
 
@@ -106,6 +107,7 @@ export interface ExecResult {
   stdout: string;
   stderr: string;
   exitCode: number;
+  nativeBuildToolsRequired?: NativeBuildToolsRequiredMetadata;
 }
 
 /** Derive container name from workspace ID. */

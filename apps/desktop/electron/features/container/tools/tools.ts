@@ -19,18 +19,26 @@ import { createWorkspaceCliTool } from '@electron/cli';
  * @param containerCwd — override the default `/workspace` CWD for coding tools
  *   (e.g. when running in a git worktree subdirectory).
  */
-export function createRuntimeTools(
+export async function createRuntimeTools(
   runtime: RuntimeBackend,
   sessionId: string,
   runtimeCwd?: string,
-): ToolDefinition[] {
+): Promise<ToolDefinition[]> {
   const tools = [
-    createBash(runtime, runtimeCwd),
+    createBash(runtime, runtimeCwd, sessionId),
     createRead(runtime, runtimeCwd),
     createWrite(runtime, runtimeCwd),
     createEdit(runtime, runtimeCwd),
     createWorkspaceCliTool(runtime.workspaceId, sessionId),
   ];
-  if (runtime.capabilities.browserAutomation) tools.push(createBrowser(runtime, runtime.workspaceId));
+  if (await isBrowserAutomationAvailable(runtime)) tools.push(createBrowser(runtime, runtime.workspaceId));
   return tools;
+}
+
+async function isBrowserAutomationAvailable(runtime: RuntimeBackend): Promise<boolean> {
+  if (!runtime.capabilities.browserAutomation) return false;
+  if (runtime.backend !== 'host') return true;
+  const health = await runtime.health();
+  const browserCheck = health.checks?.find((check) => check.id === 'runtime.host.browser');
+  return browserCheck?.status === 'pass' || browserCheck?.details?.installState === 'ready';
 }

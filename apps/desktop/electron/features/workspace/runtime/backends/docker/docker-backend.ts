@@ -164,7 +164,7 @@ export class DockerBackend implements RuntimeBackend {
     return {
       pid: child.pid,
       write: (chunk) => { child.stdin?.write(chunk); },
-      signal: (signal) => { child.kill(signal); },
+      signal: (signal) => { child.kill(signal ?? 'SIGTERM'); },
       onData: (cb) => subscribe(dataCallbacks, cb),
       onExit: (cb) => subscribe(exitCallbacks, cb),
     };

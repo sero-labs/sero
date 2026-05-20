@@ -11,6 +11,7 @@ import {
   SessionManager,
   DefaultResourceLoader,
 } from '@mariozechner/pi-coding-agent';
+import type { CreateAgentSessionOptions } from '@mariozechner/pi-coding-agent';
 import type { ThinkingLevel, AgentMessage } from '@mariozechner/pi-agent-core';
 import { getModelTierThinkingLevel, isModelTier } from '@sero-ai/common';
 
@@ -147,7 +148,7 @@ export async function runSubagent(
     };
   }
 
-  const platformTools = createRuntimeTools(runtime, subagentSessionId, containerCwd);
+  const platformTools = await createRuntimeTools(runtime, subagentSessionId, containerCwd);
   const customTools = [...platformTools, ...(config.customTools ?? [])];
 
   // Build a reduced extension factory for the child session
@@ -188,7 +189,7 @@ export async function runSubagent(
   }
 
   try {
-    const result = await createAgentSession({
+    const sessionOptions: CreateAgentSessionOptions & { systemPromptSuffix?: string } = {
       cwd: sessionPath,
       agentDir: SERO_AGENT_DIR,
       authStorage: infra.authStorage,
@@ -199,7 +200,8 @@ export async function runSubagent(
       sessionManager: SessionManager.inMemory(sessionPath),
       settingsManager: infra.settingsManager,
       systemPromptSuffix: agent.systemPrompt,
-    });
+    };
+    const result = await createAgentSession(sessionOptions);
     session = result.session;
 
     let effectiveThinking = resolved.thinking;

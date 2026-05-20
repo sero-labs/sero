@@ -20,6 +20,13 @@ import type {
   WorkspaceRoot,
 } from '@/types/ipc';
 import type { WorkspaceRuntimeBackend, WorkspaceRuntimeConfig } from '@/types/workspace-runtime';
+import type {
+  BrowserPackProgressIPC,
+  BrowserPackStatusIPC,
+  ToolchainProgressIPC,
+  ToolchainStatusIPC,
+  WorkspaceRuntimeDiagnosticsIPC,
+} from '@sero-ai/common';
 
 ipcRenderer.on(IpcChannels.workspace.changed, () => {
   window.dispatchEvent(new Event('sero:workspace-changed'));
@@ -30,6 +37,8 @@ export const shellBridge = {
     ipcRenderer.invoke(IpcChannels.shell.showItemInFolder, fullPath),
   openExternal: (url: string): Promise<void> =>
     ipcRenderer.invoke(IpcChannels.shell.openExternal, url),
+  clearRendererCache: (): Promise<void> =>
+    ipcRenderer.invoke(IpcChannels.shell.clearRendererCache),
 };
 
 export const profilesBridge = {
@@ -72,8 +81,36 @@ export const workspaceBridge = {
     ipcRenderer.invoke(IpcChannels.workspace.pickFolder),
   infer: (message: string): Promise<string> =>
     ipcRenderer.invoke(IpcChannels.workspace.infer, message),
-  getRuntimeDiagnostics: (workspaceId?: string) =>
+  getRuntimeDiagnostics: (workspaceId?: string): Promise<WorkspaceRuntimeDiagnosticsIPC[]> =>
     ipcRenderer.invoke(IpcChannels.workspace.runtimeDiagnostics, workspaceId),
+  getToolchainStatus: (): Promise<ToolchainStatusIPC> =>
+    ipcRenderer.invoke(IpcChannels.workspace.getToolchainStatus),
+  ensureCoreTools: (reason?: string): Promise<ToolchainStatusIPC> =>
+    ipcRenderer.invoke(IpcChannels.workspace.ensureCoreTools, reason),
+  onToolchainProgress: (callback: (event: ToolchainProgressIPC) => void): (() => void) => {
+    const handler = (_event: IpcRendererEvent, data: ToolchainProgressIPC) => {
+      callback(data);
+    };
+    ipcRenderer.on(IpcChannels.workspace.toolchainProgress, handler);
+    return () => {
+      ipcRenderer.removeListener(IpcChannels.workspace.toolchainProgress, handler);
+    };
+  },
+  getBrowserPackStatus: (): Promise<BrowserPackStatusIPC> =>
+    ipcRenderer.invoke(IpcChannels.workspace.getBrowserPackStatus),
+  ensureBrowserPack: (reason?: string): Promise<BrowserPackStatusIPC> =>
+    ipcRenderer.invoke(IpcChannels.workspace.ensureBrowserPack, reason),
+  uninstallBrowserPack: (): Promise<BrowserPackStatusIPC> =>
+    ipcRenderer.invoke(IpcChannels.workspace.uninstallBrowserPack),
+  onBrowserPackProgress: (callback: (event: BrowserPackProgressIPC) => void): (() => void) => {
+    const handler = (_event: IpcRendererEvent, data: BrowserPackProgressIPC) => {
+      callback(data);
+    };
+    ipcRenderer.on(IpcChannels.workspace.browserPackProgress, handler);
+    return () => {
+      ipcRenderer.removeListener(IpcChannels.workspace.browserPackProgress, handler);
+    };
+  },
   getRuntimeConfig: (id: string): Promise<WorkspaceRuntimeConfig> =>
     ipcRenderer.invoke(IpcChannels.workspace.getRuntimeConfig, id),
   setRuntimeBackend: (id: string, backend: WorkspaceRuntimeBackend): Promise<WorkspaceInfo> =>

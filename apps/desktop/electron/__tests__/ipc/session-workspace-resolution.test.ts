@@ -1,5 +1,6 @@
+import path from 'path';
 import { describe, expect, it, vi } from 'vitest';
-import { resolveSessionWorkspaceId } from '@electron/ipc/agent/handlers/sessions';
+import { isPathInsideDirectory, resolveSessionWorkspaceId } from '@electron/ipc/agent/handlers/sessions';
 
 function resolver(options: {
   registryId?: string;
@@ -33,5 +34,23 @@ describe('session workspace resolution', () => {
 
     expect(workspaceId).toMatch(/^detached:/);
     expect(workspaceId).not.toBe('global');
+  });
+});
+
+describe('session path containment', () => {
+  it('allows Windows session files when the base directory uses mixed separators', () => {
+    expect(isPathInsideDirectory(
+      'C:\\Users\\runneradmin\\.sero-e2e\\home\\agent\\sessions\\session.jsonl',
+      'C:\\Users\\runneradmin\\.sero-e2e\\home\\agent/sessions',
+      path.win32,
+    )).toBe(true);
+  });
+
+  it('rejects Windows paths that only share a string prefix with the session directory', () => {
+    expect(isPathInsideDirectory(
+      'C:\\Users\\runneradmin\\.sero-e2e\\home\\agent\\sessions-evil\\session.jsonl',
+      'C:\\Users\\runneradmin\\.sero-e2e\\home\\agent\\sessions',
+      path.win32,
+    )).toBe(false);
   });
 });

@@ -1,8 +1,8 @@
-# Runtime Manual Test Checklist
+# Runtime manual test checklist
 
-Manual checklist for validating local runtime behavior. Use the canonical backend IDs `apple-container`, `docker`, and `host`. The old `mac-host` value is a deprecated compatibility alias only; do not choose or document it for new manual tests.
+Manual checklist for validating local runtime behavior. Use canonical backend IDs `host`, `docker`, and `apple-container`. The old `mac-host` value is a deprecated compatibility alias only.
 
-Host runtime aims for practical workspace parity: file operations, exec/spawn, terminal, Git/VCS, language servers, managed dev servers, and preview URLs. Browser automation remains container-only and should be validated on Docker or Apple Container, not on host.
+Host mode is the recommended/default runtime for new workspaces only when `SERO_HOST_FIRST=1` is set. Existing persisted workspace runtime selections remain authoritative. See [`host-mode-support.md`](./host-mode-support.md) for the platform/arch support table and release gates.
 
 ## Prep
 
@@ -11,81 +11,23 @@ Start Sero from the branch under test:
 ```bash
 pkill -f "vite"; pkill -f "electron"
 pnpm install
-pnpm dev
+SERO_HOST_FIRST=1 pnpm dev
 ```
 
-Open DevTools in the desktop app, then pick a non-global workspace:
+Open DevTools in the desktop app, then pick a non-global disposable workspace:
 
 ```js
 const ws = (await window.sero.workspace.list()).find((w) => w.id !== "global");
 ws;
 ```
 
-Use a disposable workspace when possible.
+## 1. Host runtime smoke
 
----
+Run this section on:
 
-## 1. Apple Container mutation failures
-
-Requires Apple Container available.
-
-In DevTools:
-
-```js
-await window.sero.workspace.setRuntimeBackend(ws.id, "apple-container");
-```
-
-Wait for the runtime switch to complete, then run:
-
-```js
-await window.sero.editor.rename(
-  ws.id,
-  "/workspace/__sero_missing_file__",
-  "/workspace/__sero_should_not_exist__"
-);
-```
-
-Expected:
-
-```js
-false
-```
-
-Then test failed `mkdir`:
-
-```js
-await window.sero.editor.createFile(ws.id, "/workspace/__sero_file_not_dir__");
-
-await window.sero.editor.createDir(
-  ws.id,
-  "/workspace/__sero_file_not_dir__/child"
-);
-```
-
-Expected:
-
-```js
-false
-```
-
-Cleanup:
-
-```js
-await window.sero.editor.delete(ws.id, "/workspace/__sero_file_not_dir__");
-```
-
-Also check `/tmp/sero-electron.log`; you should see editor warnings for the failed operations, not silent success.
-
----
-
-## 2. Host runtime smoke checklist
-
-Run this section on each supported host path:
-
-- **macOS host:** workspace path under `/Users/<you>/...`; backend `host`.
-- **Linux host:** workspace path under `/home/<you>/...`; backend `host`.
-
-Host runtime is not supported on Windows. Windows uses Docker exclusively.
+- macOS: workspace under `/Users/<you>/...`, backend `host`.
+- Linux: workspace under `/home/<you>/...`, backend `host`.
+- Windows x64: workspace under `C:\Users\<you>\...`, backend `host`.
 
 Switch the workspace to host:
 
@@ -93,138 +35,196 @@ Switch the workspace to host:
 await window.sero.workspace.setRuntimeBackend(ws.id, "host");
 ```
 
-### 2.1 File operations and additional roots
+### 1.1 Defaults and diagnostics
 
-Create an external test folder using the platform-native shell:
+In DevTools:
+
+```js
+await window.sero.workspace.getRuntimeDiagnostics?.();
+```
+
+Expected:
+
+- Host is shown as selected for the workspace.
+- Capability state includes core tools, browser automation, and native build tools install state.
+- Browser automation is `installable`, `installing`, `missing`, `failed`, or `ready`; it is ready only after browser pack install and Doctor launch success. Release-supported platforms must use published GitHub Release artifacts; any pending platform in `generated-artifacts.json` is a release blocker.
+- Native build tools are informational (`available`, `missing`, or `unknown`), not Sero-managed.
+
+### 1.2 Path policy and file operations
+
+Host execution uses the real host workspace path. `/workspace` is a Sero compatibility alias only.
+
+From an agent/runtime command path, run host-cwd-relative shell commands:
+
+```bash
+pwd
+printf 'host-relative-ok\n' > host-relative-smoke.txt
+cat host-relative-smoke.txt
+```
+
+Then test the `/workspace` compatibility alias through Sero file/runtime APIs, not direct host shell redirection:
+
+```js
+await window.sero.editor.createFile(ws.id, "/workspace/host-alias-smoke.txt");
+await window.sero.editor.writeFile(ws.id, "/workspace/host-alias-smoke.txt", "host-alias-ok\n");
+await window.sero.editor.readFile(ws.id, "/workspace/host-alias-smoke.txt");
+```
+
+Expected:
+
+- Shell commands execute in the real host workspace cwd and should use relative paths from that cwd.
+- `/workspace/...` works through Sero compatibility translation where supported by the runtime/file API.
+- No real host `/workspace` mount/symlink is required.
+- Both files appear in the host workspace and can be edited/deleted from the host.
+
+Test additional roots using a platform-native temp path.
+
+macOS/Linux:
 
 ```bash
 mkdir -p /tmp/sero-extra-root-smoke
 echo "hello from extra root" > /tmp/sero-extra-root-smoke/source.txt
 ```
 
-In DevTools:
+Windows PowerShell:
+
+```powershell
+New-Item -ItemType Directory -Force "$env:TEMP\sero-extra-root-smoke"
+Set-Content "$env:TEMP\sero-extra-root-smoke\source.txt" "hello from extra root"
+```
+
+In DevTools, use the created native path:
 
 ```js
 const root = await window.sero.workspace.addRoot(ws.id, {
   name: "Extra Smoke",
-  path: "/tmp/sero-extra-root-smoke",
+  path: "<NATIVE_TEMP_PATH>",
 });
 
-root;
-```
-
-Use the returned `root.id`:
-
-```js
 await window.sero.editor.listFiles(ws.id, `/${root.id}`);
 await window.sero.editor.readFile(ws.id, `/${root.id}/source.txt`);
-```
-
-Expected: list includes `source.txt`, and read returns `"hello from extra root\n"`.
-
-Create/write/read/rename/delete:
-
-```js
 await window.sero.editor.createFile(ws.id, `/${root.id}/created.txt`);
-
-await window.sero.editor.writeFile(
-  ws.id,
-  `/${root.id}/created.txt`,
-  "created through Sero"
-);
-
-await window.sero.editor.readFile(ws.id, `/${root.id}/created.txt`);
-
-await window.sero.editor.rename(
-  ws.id,
-  `/${root.id}/created.txt`,
-  `/${root.id}/renamed.txt`
-);
-
+await window.sero.editor.writeFile(ws.id, `/${root.id}/created.txt`, "created through Sero");
+await window.sero.editor.rename(ws.id, `/${root.id}/created.txt`, `/${root.id}/renamed.txt`);
 await window.sero.editor.readFile(ws.id, `/${root.id}/renamed.txt`);
 await window.sero.editor.delete(ws.id, `/${root.id}/renamed.txt`);
-```
-
-Expected:
-
-- created read returns `"created through Sero"`
-- rename returns `true`
-- renamed read returns `"created through Sero"`
-- delete returns `true`
-
-Cleanup:
-
-```js
 await window.sero.workspace.removeRoot(ws.id, root.id);
 ```
 
-```bash
-rm -rf /tmp/sero-extra-root-smoke
-```
+Expected: list/read/write/rename/delete all operate inside the configured root and reject escapes.
 
-### 2.2 Exec and terminal
+### 1.3 Shell, Git, package manager, and terminal
 
-From an agent or runtime command path, run:
-
-```bash
-pwd
-printf 'exec-ok\n' > /workspace/host-exec-smoke.txt
-cat /workspace/host-exec-smoke.txt
-```
-
-Expected:
-
-- `pwd` is `/workspace` from the renderer/runtime perspective.
-- `cat` prints `exec-ok`.
-- The file appears in the host workspace and can be edited/deleted from the host.
-
-Open an interactive terminal for the workspace.
-
-Expected:
-
-- macOS/Linux: shell starts in the workspace.
-
-### 2.3 Git/VCS
-
-In a Git workspace:
+Run:
 
 ```bash
 git status --short
-git diff --stat
+node --version
+pnpm --version
 ```
-
-Expected: commands run in the selected host execution environment.
-
-If using GitHub auth, run a read-only GitHub operation already supported by your workspace flow and confirm it does not prompt unexpectedly.
-
-### 2.4 LSP
-
-Open a TypeScript or JavaScript file in the workspace and wait for language features to initialize.
 
 Expected:
 
-- diagnostics/completions are available when the language server is installed in the host execution environment.
+- Compatible system tools are used when available; otherwise managed tools install under `~/.sero-ui/toolchains/<manifest-version>/`.
+- Sero does not mutate global PATH, shell profiles, Corepack, or npm global prefix.
+- Windows launches a verified Bash/MSYS-compatible shell for shell commands/terminals. It should not default to WSL, PowerShell, or cmd for host workspace execution.
 
-### 2.5 Managed dev server and preview URL
+Open an interactive terminal for the workspace. Expected: it starts in the workspace with resolver-prepared environment.
 
-Use the smoke plugin from section 3 below with `setRuntimeBackend(ws.id, "host")`, or start a managed dev server from a plugin/app path that calls `ctx.host.devServers.startManaged()`.
+### 1.4 LSP
+
+Open a TypeScript or JavaScript file and wait for language features to initialize.
+
+Expected: diagnostics/completions are available when required runtime tools are ready or installable remediation has completed.
+
+### 1.5 Managed dev server and preview URL
+
+Use the smoke plugin from section 4 below or any workspace app path that calls `ctx.host.devServers.startManaged()`.
 
 Expected:
 
 - start returns a `serverId`, detected `port`, and `url` shaped like `http://127.0.0.1:<port>`.
-- `ctx.host.devServers.list(ws.id)` includes the server.
+- server listing includes the server.
 - stop and restart operate on the same server id.
 - preview resolves to the localhost URL.
 
-### 2.6 Browser automation expectation
+### 1.6 Browser automation pack
 
-Confirm host runtime does not advertise browser automation. Browser automation smoke should be run on Docker or Apple Container instead.
+With backend `host`, use the published manifest for release-supported platform testing. Use a locally served current-platform pack only as a developer diagnostic/rebuild path.
 
----
+To build and serve a local pack:
 
-## 3. Runtime-managed dev server listing plugin
+```bash
+pnpm --filter @sero/desktop browser-pack:build -- \
+  --platform $(node -p "process.platform") \
+  --arch $(node -p "process.arch") \
+  --url-base http://127.0.0.1:8787/browser-pack/2026-05-16
 
-This test can run against `docker`, `apple-container`, or `host`. It validates the app-runtime path `host.devServers.startManaged()` → `host.devServers.list()`.
+pnpm --filter @sero/desktop browser-pack:smoke -- \
+  --pack-root dist/browser-pack/work/browser-$(node -p "process.platform")-$(node -p "process.arch")/browser \
+  --platform $(node -p "process.platform") \
+  --arch $(node -p "process.arch")
+
+python3 -m http.server 8787 --directory apps/desktop/dist
+```
+
+Then start Sero in another terminal:
+
+```bash
+SERO_HOST_FIRST=1 \
+SERO_BROWSER_PACK_BASE_URL=http://127.0.0.1:8787/browser-pack/2026-05-16 \
+pnpm dev
+```
+
+Validation flow:
+
+1. Confirm diagnostics show browser automation as `installable` when a published pack is available but absent. Pending or unsupported targets should show `missing`/non-installable; pending release-supported targets block release.
+2. Trigger install from Runtime settings/onboarding or by first browser tool use only when a published/local pack is available.
+3. Confirm progress is visible and duplicate install actions attach to the same in-flight install.
+4. Confirm installed files live under `~/.sero-ui/toolchains/<manifest-version>/browser/` and `.installed` exists.
+5. Confirm the installed browser root contains Chromium, ffmpeg, and pack-local `agent-browser/bin/agent-browser` (or `agent-browser.cmd` on Windows). Do not install `agent-browser` globally.
+6. Run browser automation only after Doctor reports the browser pack launchable. A basic prompt is: `Use automation_browser to launch about:blank, take a screenshot, then close the browser.`
+7. On Linux, verify missing shared-library launch failures produce OS instruction/container fallback detail. Doctor owns this remediation; browser-pack build/install does not manage compiler stacks or host shared libraries.
+8. Test uninstall from Runtime settings and confirm state returns to `installable`.
+
+Local archives stay in `apps/desktop/dist/browser-pack/2026-05-16/<slug>.tar.gz` and are not committed. Generated digest metadata is committed at `apps/desktop/electron/features/workspace/runtime/browser-pack/generated-artifacts.json`. Do not treat local artifact success as release support. Release support requires `pnpm --filter @sero/desktop browser-pack:verify-published` and the `host-mode-release` workflow to pass.
+
+## 2. Container runtime smoke
+
+Run against `docker`/Podman on macOS, Linux, and Windows, and `apple-container` on supported Apple Silicon Macs.
+
+Switch backend:
+
+```js
+await window.sero.workspace.setRuntimeBackend(ws.id, "docker");
+// or: await window.sero.workspace.setRuntimeBackend(ws.id, "apple-container");
+```
+
+Checklist:
+
+1. Run `pwd && uname -s`; expect `/workspace` and `Linux`.
+2. Create a runtime file and confirm it appears in the host editor/filesystem.
+3. Create a host file and confirm runtime `cat` sees it immediately.
+4. Open terminal; expect cwd `/workspace`.
+5. Run Git status/diff and auth-backed read-only GitHub flow if available.
+6. Start managed dev server and verify preview URL is `http://127.0.0.1:<hostPort>`.
+7. Run browser automation. Expected: preinstalled browser support without host browser pack.
+8. Run Environment Doctor and verify missing/stopped daemon, image, mount, permission, and port failures are actionable.
+
+## 3. Native build fallback
+
+On host, trigger or simulate a Sero-owned dependency install/build/LSP setup failure with native build signatures (`node-gyp`, missing `make`, `gcc`, `clang`, Python for node-gyp, Xcode CLT, MSVC Build Tools).
+
+Expected:
+
+- Sero surfaces `NATIVE_BUILD_TOOLS_REQUIRED` metadata.
+- No compiler stack is auto-installed.
+- UI offers platform install instructions and container fallback/setup actions.
+- Switching this workspace to Docker/Podman or Apple Container allows retry where the image provides required build dependencies.
+
+## 4. Runtime-managed dev server listing plugin
+
+This test can run against `host`, `docker`, or `apple-container`. It validates `host.devServers.startManaged()` → `host.devServers.list()`.
 
 Create a temporary built-in plugin:
 
@@ -258,7 +258,6 @@ exports.createAppRuntime = async function createAppRuntime(ctx) {
       if (!target || ctx.workspaceId !== target) return;
 
       const before = ctx.host.devServers.list(ctx.workspaceId);
-
       const started = await ctx.host.devServers.startManaged({
         workspaceId: ctx.workspaceId,
         workspacePath: ctx.workspacePath,
@@ -268,7 +267,6 @@ exports.createAppRuntime = async function createAppRuntime(ctx) {
       });
 
       serverId = started.serverId || null;
-
       const after = ctx.host.devServers.list(ctx.workspaceId);
 
       await ctx.host.appState.update(ctx.stateFilePath, () => ({
@@ -283,92 +281,64 @@ exports.createAppRuntime = async function createAppRuntime(ctx) {
     async handleStateChange() {},
 
     async dispose() {
-      if (serverId) {
-        await ctx.host.devServers.stop(serverId).catch(() => false);
-      }
+      if (serverId) await ctx.host.devServers.stop(serverId).catch(() => false);
     }
   };
 };
 JS
 ```
 
-Switch to the backend being tested:
-
-```js
-await window.sero.workspace.setRuntimeBackend(ws.id, "host");
-// or: await window.sero.workspace.setRuntimeBackend(ws.id, "docker");
-// or: await window.sero.workspace.setRuntimeBackend(ws.id, "apple-container");
-```
-
 Restart Sero with the target workspace id:
 
 ```bash
 pkill -f "vite"; pkill -f "electron"
-SERO_RUNTIME_SMOKE_WORKSPACE_ID="<YOUR_WORKSPACE_ID>" pnpm dev
+SERO_HOST_FIRST=1 SERO_RUNTIME_SMOKE_WORKSPACE_ID="<YOUR_WORKSPACE_ID>" pnpm dev
 ```
 
-Replace `<YOUR_WORKSPACE_ID>` with `ws.id` from DevTools.
-
-After Sero starts, inspect the state file inside the workspace:
+Inspect the state file:
 
 ```bash
 cat "<WORKSPACE_PATH>/.sero/apps/runtime-smoke/state.json"
 ```
 
-Expected shape:
+Expected shape includes:
 
 ```json
 {
-  "workspaceId": "...",
+  "foundInList": true,
   "started": {
-    "serverId": "...",
-    "url": "http://127.0.0.1:...",
-    "port": 12345
-  },
-  "after": [
-    {
-      "id": "...",
-      "url": "http://127.0.0.1:...",
-      "command": "python3 -m http.server 5177 --bind 0.0.0.0"
-    }
-  ],
-  "foundInList": true
+    "url": "http://127.0.0.1:..."
+  }
 }
 ```
 
-The key assertion is:
-
-```json
-"foundInList": true
-```
-
-Open the `started.url` in the app preview or browser and confirm the Python directory listing loads.
+Open `started.url` and confirm the Python directory listing loads.
 
 Cleanup:
 
 ```bash
 pkill -f "vite"; pkill -f "electron"
 rm -rf plugins/sero-runtime-smoke-plugin
-```
-
-Then restart normally:
-
-```bash
 pnpm dev
 ```
 
----
+## 5. Apple Container mutation failures
 
-## 4. Container-only browser automation smoke
-
-Select Docker or Apple Container:
+Requires Apple Container available.
 
 ```js
-await window.sero.workspace.setRuntimeBackend(ws.id, "docker");
-// or, on supported Apple Silicon:
-// await window.sero.workspace.setRuntimeBackend(ws.id, "apple-container");
+await window.sero.workspace.setRuntimeBackend(ws.id, "apple-container");
+await window.sero.editor.rename(ws.id, "/workspace/__sero_missing_file__", "/workspace/__sero_should_not_exist__");
 ```
 
-Run the existing browser automation smoke path for the workspace.
+Expected: `false`.
 
-Expected: automation succeeds only when the selected container runtime reports browser automation support. Re-run against `host` only to verify the capability is unavailable and the UI/diagnostic is clear.
+Then test failed `mkdir`:
+
+```js
+await window.sero.editor.createFile(ws.id, "/workspace/__sero_file_not_dir__");
+await window.sero.editor.createDir(ws.id, "/workspace/__sero_file_not_dir__/child");
+await window.sero.editor.delete(ws.id, "/workspace/__sero_file_not_dir__");
+```
+
+Expected: failed directory creation returns `false`; logs contain warnings for failed operations, not silent success.

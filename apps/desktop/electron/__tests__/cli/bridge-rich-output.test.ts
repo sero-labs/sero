@@ -55,7 +55,7 @@ describe('CLI bridge rich output', () => {
     expect(result.details).toEqual({ exitCode: 0, source: 'plugin', width: 800 });
   });
 
-  it('falls back to text-only content for multi-command batches with rich output', async () => {
+  it('preserves image blocks for multi-command batches with rich output', async () => {
     const registry = new CliRegistry();
     registry.register({
       name: 'capture',
@@ -88,15 +88,60 @@ describe('CLI bridge rich output', () => {
     expect(result.content).toEqual([
       {
         type: 'text',
-        text: '$ sero capture\nScreenshot ready\n\n$ sero echo\ndone\n\n[rich output omitted in multi-command batch; rerun the image-producing command alone to view images]',
+        text: '$ sero capture\nScreenshot ready\n\n$ sero echo\ndone',
       },
+      { type: 'image', data: 'abc123', mimeType: 'image/png' },
     ]);
     expect(result.details).toEqual({
       exitCode: 0,
       imagePaths: ['/tmp/capture.png'],
-      richOutputFallback: true,
-      fallbackReason: 'multi-command batches return text-only content to avoid dropping or interleaving rich blocks',
+      richOutputFallback: false,
     });
+  });
+
+  it('keeps only the latest image blocks for multi-command batches with multiple rich outputs', async () => {
+    const registry = new CliRegistry();
+    registry.register({
+      name: 'capture_one',
+      summary: 'Capture one',
+      execute: async () => ({
+        output: 'First screenshot',
+        exitCode: 0,
+        content: [
+          { type: 'text', text: 'First screenshot' },
+          { type: 'image', data: 'first', mimeType: 'image/png' },
+        ],
+      }),
+    });
+    registry.register({
+      name: 'capture_two',
+      summary: 'Capture two',
+      execute: async () => ({
+        output: 'Second screenshot',
+        exitCode: 0,
+        content: [
+          { type: 'text', text: 'Second screenshot' },
+          { type: 'image', data: 'second', mimeType: 'image/png' },
+        ],
+      }),
+    });
+
+    const tool = createSeroCliTool(registry, 'ws-1', 'session-1');
+    const result = await tool.execute(
+      'tool-1',
+      { command: 'capture_one\ncapture_two' },
+      undefined,
+      undefined,
+      { cwd: '/tmp/ws-1' } as never,
+    );
+
+    expect(result.content).toEqual([
+      {
+        type: 'text',
+        text: '$ sero capture_one\nFirst screenshot\n\n$ sero capture_two\nSecond screenshot',
+      },
+      { type: 'image', data: 'second', mimeType: 'image/png' },
+    ]);
   });
 
   it('maps rich tool updates through agent streaming and history replay helpers', async () => {
