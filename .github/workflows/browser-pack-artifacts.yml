@@ -58,22 +58,22 @@ jobs:
         include:
           - slug: mac-arm64
             label: macOS Apple Silicon
-            runner: [self-hosted, macos, ARM64]
+            runner: macos-15
             archive: mac-arm64.tar.gz
             receipt: mac-arm64.json
           - slug: linux-x64
             label: Linux x64
-            runner: [self-hosted, sero-linux, X64]
+            runner: ubuntu-24.04
             archive: linux-x64.tar.gz
             receipt: linux-x64.json
           - slug: linux-arm64
             label: Linux arm64
-            runner: [self-hosted, sero-linux, ARM64]
+            runner: ubuntu-24.04-arm
             archive: linux-arm64.tar.gz
             receipt: linux-arm64.json
           - slug: win-x64
             label: Windows x64 Git Bash
-            runner: [self-hosted, sero-windows, X64]
+            runner: windows-latest
             archive: win-x64.tar.gz
             receipt: win-x64.json
     runs-on: ${{ matrix.runner }}
