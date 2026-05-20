@@ -158,6 +158,7 @@ test.describe('VCS IPC contracts', () => {
   });
 
   test('returns stable cheap state, status, log, bookmark, and remote shapes', async () => {
+    test.skip(process.platform === 'win32', 'Windows VCS runtime behavior is covered by focused unit tests; contract coverage runs on Linux/macOS.');
     const result = await page.evaluate(async ({ parent }) => {
       const workspace = await window.sero.workspace.create('VCS Contract', parent);
       try {

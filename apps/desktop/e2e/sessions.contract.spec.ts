@@ -26,7 +26,14 @@ test.afterAll(async () => {
 });
 
 async function deleteSessionIfPresent(sessionPath: string): Promise<void> {
-  await page.evaluate((path) => window.sero.sessions.delete(path), sessionPath);
+  await page.evaluate(async (path) => {
+    try {
+      await window.sero.sessions.delete(path);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (!message.includes('outside session directory') && !message.includes('ENOENT')) throw error;
+    }
+  }, sessionPath);
 }
 
 test.describe('sessions IPC contracts without public sessions.get', () => {

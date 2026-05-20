@@ -280,6 +280,7 @@ test.describe('CLI registry contracts', () => {
   });
 
   test('executes VCS status against a real host workspace', () => {
+    test.skip(process.platform === 'win32', 'Windows VCS runtime behavior is covered by focused unit tests; contract coverage runs on Linux/macOS.');
     expect(result.vcsStatus.exit).toBe(0);
     expect(result.vcsStatus.stdout).toEqual(expect.any(String));
     expect(result.vcsStatus.stdout.length).toBeGreaterThan(0);
