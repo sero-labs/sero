@@ -1,0 +1,234 @@
+name: Browser Pack Artifacts
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit_metadata:
+        description: Commit generated-artifacts.json back to the selected branch after verification
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+
+permissions:
+  contents: write
+
+env:
+  CI: true
+  TURBO_TELEMETRY_DISABLED: 1
+  BROWSER_PACK_RELEASE: browser-pack-2026-05-16
+  BROWSER_PACK_DIR: apps/desktop/dist/browser-pack/2026-05-16
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  ensure-release:
+    name: Ensure browser-pack release exists
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ensure GitHub Release exists
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$BROWSER_PACK_RELEASE" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $BROWSER_PACK_RELEASE already exists."
+            exit 0
+          fi
+          gh release create "$BROWSER_PACK_RELEASE" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Sero Browser Pack 2026-05-16" \
+            --notes "Pinned host browser automation packs for Sero. Integrity is enforced by generated-artifacts.json SHA-256 metadata." \
+            --prerelease
+
+  build:
+    name: Build ${{ matrix.slug }}
+    needs: ensure-release
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - slug: mac-arm64
+            label: macOS Apple Silicon
+            runner: [self-hosted, macos, ARM64]
+            archive: mac-arm64.tar.gz
+            receipt: mac-arm64.json
+          - slug: linux-x64
+            label: Linux x64
+            runner: [self-hosted, sero-linux, X64]
+            archive: linux-x64.tar.gz
+            receipt: linux-x64.json
+          - slug: linux-arm64
+            label: Linux arm64
+            runner: [self-hosted, sero-linux, ARM64]
+            archive: linux-arm64.tar.gz
+            receipt: linux-arm64.json
+          - slug: win-x64
+            label: Windows x64 Git Bash
+            runner: [self-hosted, sero-windows, X64]
+            archive: win-x64.tar.gz
+            receipt: win-x64.json
+    runs-on: ${{ matrix.runner }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate native build host
+        run: |
+          echo "runner label: ${{ matrix.label }}"
+          echo "uname -s: $(uname -s)"
+          echo "uname -m: $(uname -m)"
+          case "${{ matrix.slug }}" in
+            mac-arm64)
+              [[ "$(uname -s)" == "Darwin" && "$(uname -m)" == "arm64" ]] || exit 1
+              ;;
+            linux-x64)
+              [[ "$(uname -s)" == "Linux" && "$(uname -m)" == "x86_64" ]] || exit 1
+              ;;
+            linux-arm64)
+              [[ "$(uname -s)" == "Linux" && ( "$(uname -m)" == "aarch64" || "$(uname -m)" == "arm64" ) ]] || exit 1
+              ;;
+            win-x64)
+              case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) ;; *) exit 1 ;; esac
+              [[ "$(uname -m)" == "x86_64" ]] || exit 1
+              ;;
+            *)
+              echo "Unknown browser-pack target: ${{ matrix.slug }}"
+              exit 1
+              ;;
+          esac
+
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build browser pack
+        run: |
+          pnpm --filter @sero/desktop browser-pack:build -- \
+            --metadata-out dist/browser-pack/2026-05-16
+
+      - name: Verify expected files
+        run: |
+          test -s "$BROWSER_PACK_DIR/${{ matrix.archive }}"
+          test -s "$BROWSER_PACK_DIR/${{ matrix.receipt }}"
+          node -e "const fs=require('fs'); const receipt=JSON.parse(fs.readFileSync(process.argv[1], 'utf8')); if (receipt.slug !== '${{ matrix.slug }}') throw new Error('unexpected receipt slug: '+receipt.slug);" "$BROWSER_PACK_DIR/${{ matrix.receipt }}"
+
+      - name: Upload release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "$BROWSER_PACK_RELEASE" \
+            "$BROWSER_PACK_DIR/${{ matrix.archive }}" \
+            "$BROWSER_PACK_DIR/${{ matrix.receipt }}" \
+            --repo "$GITHUB_REPOSITORY" \
+            --clobber
+
+      - name: Upload receipt workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-pack-receipt-${{ matrix.slug }}
+          path: ${{ env.BROWSER_PACK_DIR }}/${{ matrix.receipt }}
+          if-no-files-found: error
+          retention-days: 14
+
+  merge-metadata:
+    name: Merge and verify browser-pack metadata
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Download release receipt JSON files
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "$BROWSER_PACK_DIR"
+          for receipt in mac-arm64.json linux-x64.json linux-arm64.json win-x64.json; do
+            gh release download "$BROWSER_PACK_RELEASE" \
+              --repo "$GITHUB_REPOSITORY" \
+              --pattern "$receipt" \
+              --dir "$BROWSER_PACK_DIR" \
+              --clobber
+          done
+          ls -la "$BROWSER_PACK_DIR"
+
+      - name: Merge committed metadata
+        run: |
+          pnpm --filter @sero/desktop browser-pack:merge-metadata -- \
+            --sidecar-dir dist/browser-pack/2026-05-16
+
+      - name: Verify published artifacts
+        run: pnpm --filter @sero/desktop browser-pack:verify-published
+
+      - name: Verify host mode release metadata
+        run: pnpm --filter @sero/desktop verify:host-mode-release
+
+      - name: Upload generated metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-pack-generated-artifacts
+          path: apps/desktop/electron/features/workspace/runtime/browser-pack/generated-artifacts.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Commit metadata update
+        if: ${{ inputs.commit_metadata == 'true' }}
+        run: |
+          if git diff --quiet -- apps/desktop/electron/features/workspace/runtime/browser-pack/generated-artifacts.json; then
+            echo "generated-artifacts.json is already up to date."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps/desktop/electron/features/workspace/runtime/browser-pack/generated-artifacts.json
+          git commit -m "chore(desktop): publish browser pack metadata"
+          git push origin HEAD:${GITHUB_REF_NAME}
+
+      - name: Summary
+        run: |
+          {
+            echo "## Browser-pack artifacts"
+            echo
+            echo "Release assets uploaded and verified for macOS arm64, Linux x64, Linux arm64, and Windows x64."
+            echo
+            echo "Generated metadata artifact: browser-pack-generated-artifacts"
+            if [[ "${{ inputs.commit_metadata }}" == "true" ]]; then
+              echo
+              echo "Metadata commit requested: yes"
+            else
+              echo
+              echo "Metadata commit requested: no. Download the workflow artifact and commit generated-artifacts.json manually if needed."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

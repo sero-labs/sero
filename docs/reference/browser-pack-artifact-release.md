@@ -19,6 +19,28 @@ Intel Mac/macOS x64 and Windows arm64 are intentionally not part of this release
 
 **Important:** do not try to build another platform's artifact from your current machine. The build script intentionally blocks that because Playwright downloads browser binaries for the current OS/architecture only.
 
+## Recommended path — run the native builder workflow
+
+Use the `Browser Pack Artifacts` workflow when the native runners are available. It builds each required pack on its matching runner, uploads the archive and receipt JSON to the GitHub Release, downloads the receipts, merges `generated-artifacts.json`, and verifies every published artifact.
+
+```bash
+gh workflow run browser-pack-artifacts.yml \
+  --ref feat/enhanced-host-mode \
+  -f commit_metadata=false
+```
+
+Set `commit_metadata=true` if you want the workflow to commit the generated metadata back to the branch after verification:
+
+```bash
+gh workflow run browser-pack-artifacts.yml \
+  --ref feat/enhanced-host-mode \
+  -f commit_metadata=true
+```
+
+If `commit_metadata=false`, download the workflow artifact named `browser-pack-generated-artifacts` and commit the contained `generated-artifacts.json` manually.
+
+The manual steps below are only needed when running outside the workflow or debugging a single platform.
+
 ## Where artifacts are uploaded
 
 All artifacts go to this GitHub Release:
@@ -165,15 +187,17 @@ gh release upload browser-pack-2026-05-16 \
 
 ## Step 4 — download all sidecar JSON files onto one machine
 
-After all four machines upload their `.json` sidecars, download them into one checkout with a single command:
+After all four machines upload their `.json` sidecars, download them into one checkout:
 
 ```bash
 mkdir -p apps/desktop/dist/browser-pack/2026-05-16
-gh release download browser-pack-2026-05-16 \
-  --repo sero-labs/sero \
-  --pattern '*.json' \
-  --dir apps/desktop/dist/browser-pack/2026-05-16 \
-  --clobber
+for receipt in mac-arm64.json linux-x64.json linux-arm64.json win-x64.json; do
+  gh release download browser-pack-2026-05-16 \
+    --repo sero-labs/sero \
+    --pattern "$receipt" \
+    --dir apps/desktop/dist/browser-pack/2026-05-16 \
+    --clobber
+done
 ```
 
 This should create:
