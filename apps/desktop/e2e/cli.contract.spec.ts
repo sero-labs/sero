@@ -165,6 +165,31 @@ function pnpmCommand(): string {
   return process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
 }
 
+function runPnpmVitest(runnerPath: string, env: NodeJS.ProcessEnv): string {
+  return execFileSync(pnpmCommand(), ['exec', 'vitest', 'run', runnerPath], {
+    cwd: process.cwd(),
+    env,
+    encoding: 'utf8',
+    maxBuffer: 1024 * 1024 * 10,
+    shell: process.platform === 'win32',
+  });
+}
+
+function cliContractEnv(workspaceParent: string): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = {
+    ...process.env,
+    SERO_HOME_OVERRIDE: home.path,
+    SERO_HOME: home.path,
+    PI_CODING_AGENT_DIR: path.join(home.path, 'agent'),
+    CLI_CONTRACT_WORKSPACE_PARENT: workspaceParent,
+  };
+  if (process.platform !== 'win32') {
+    env.HOME = home.path;
+    env.USERPROFILE = home.path;
+  }
+  return env;
+}
+
 function runCliContract(): CliContractResult {
   const workspaceParent = path.join(home.path, 'cli contract workspaces');
   fs.mkdirSync(workspaceParent, { recursive: true });
@@ -173,20 +198,7 @@ function runCliContract(): CliContractResult {
   fs.writeFileSync(runnerPath, runnerSource(), 'utf8');
 
   try {
-    const stdout = execFileSync(pnpmCommand(), ['exec', 'vitest', 'run', runnerPath], {
-      cwd: process.cwd(),
-      env: {
-        ...process.env,
-        SERO_HOME_OVERRIDE: home.path,
-        SERO_HOME: home.path,
-        PI_CODING_AGENT_DIR: path.join(home.path, 'agent'),
-        HOME: home.path,
-        USERPROFILE: home.path,
-        CLI_CONTRACT_WORKSPACE_PARENT: workspaceParent,
-      },
-      encoding: 'utf8',
-      maxBuffer: 1024 * 1024 * 10,
-    });
+    const stdout = runPnpmVitest(runnerPath, cliContractEnv(workspaceParent));
     const line = stdout.split('\n').find((entry) => entry.includes('__CLI_CONTRACT_RESULT__'));
     if (!line) throw new Error(`CLI contract runner did not emit a result. Output:\n${stdout}`);
     return JSON.parse(line.slice(line.indexOf('__CLI_CONTRACT_RESULT__') + '__CLI_CONTRACT_RESULT__'.length)) as CliContractResult;

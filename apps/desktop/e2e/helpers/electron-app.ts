@@ -93,6 +93,7 @@ export async function launchSeroApp(
   }
 
   Object.assign(env, options.env);
+  restoreWindowsProfileEnv(env);
 
   const app = await electron.launch({
     args: [mainEntry],
@@ -127,6 +128,15 @@ function isTransientMainProcessEvaluateError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
   return message.includes('Execution context was destroyed')
     || message.includes('most likely because of a navigation');
+}
+
+function restoreWindowsProfileEnv(env: Record<string, string>): void {
+  if (process.platform !== 'win32') return;
+  for (const key of ['USERPROFILE', 'HOME', 'HOMEDRIVE', 'HOMEPATH'] as const) {
+    const value = process.env[key];
+    if (value) env[key] = value;
+    else delete env[key];
+  }
 }
 
 async function delay(ms: number): Promise<void> {
