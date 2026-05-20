@@ -69,8 +69,12 @@
       "status": "pending",
       "available": false,
       "chromiumExecutableCandidates": [
+        "chromium-1200/chrome-linux64/chrome",
+        "chromium-1200/chrome-linux64/chrome-wrapper",
         "chromium-1200/chrome-linux/chrome",
         "chromium-1200/chrome-linux/chrome-wrapper",
+        "chromium/chrome-linux64/chrome",
+        "chromium/chrome-linux64/chrome-wrapper",
         "chromium/chrome-linux/chrome",
         "chromium/chrome-linux/chrome-wrapper"
       ],
@@ -89,8 +93,12 @@
       "status": "pending",
       "available": false,
       "chromiumExecutableCandidates": [
+        "chromium-1200/chrome-linux64/chrome",
+        "chromium-1200/chrome-linux64/chrome-wrapper",
         "chromium-1200/chrome-linux/chrome",
         "chromium-1200/chrome-linux/chrome-wrapper",
+        "chromium/chrome-linux64/chrome",
+        "chromium/chrome-linux64/chrome-wrapper",
         "chromium/chrome-linux/chrome",
         "chromium/chrome-linux/chrome-wrapper"
       ],

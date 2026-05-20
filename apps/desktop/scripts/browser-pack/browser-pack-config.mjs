@@ -21,8 +21,12 @@ const chromiumCandidates = {
     'chromium/chrome-mac/Chromium.app/Contents/MacOS/Google Chrome for Testing',
   ],
   linux: [
+    `chromium-${pins.chromiumRevision}/chrome-linux64/chrome`,
+    `chromium-${pins.chromiumRevision}/chrome-linux64/chrome-wrapper`,
     `chromium-${pins.chromiumRevision}/chrome-linux/chrome`,
     `chromium-${pins.chromiumRevision}/chrome-linux/chrome-wrapper`,
+    'chromium/chrome-linux64/chrome',
+    'chromium/chrome-linux64/chrome-wrapper',
     'chromium/chrome-linux/chrome',
     'chromium/chrome-linux/chrome-wrapper',
   ],

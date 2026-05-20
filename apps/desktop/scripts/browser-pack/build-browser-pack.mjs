@@ -24,10 +24,14 @@ const metadataPath = path.join(
   desktopRoot,
   'electron/features/workspace/runtime/browser-pack/generated-artifacts.json',
 );
-main().catch((error) => {
-  console.error(`browser-pack build failed: ${error.message}`);
-  process.exitCode = 1;
-});
+const WINDOWS_CMD_SHIMS = new Set(['npm', 'npx']);
+
+if (isMainModule()) {
+  main().catch((error) => {
+    console.error(`browser-pack build failed: ${error.message}`);
+    process.exitCode = 1;
+  });
+}
 
 async function main() {
   const options = parseArgs(process.argv.slice(2));
@@ -250,12 +254,14 @@ async function readExistingMetadata() {
 }
 
 function run(command, args, options = {}) {
+  const invocation = resolveRunCommand(command);
   console.log(`$ ${[command, ...args].join(' ')}`);
-  const result = spawnSync(command, args, {
+  const result = spawnSync(invocation.command, args, {
     cwd: desktopRoot,
     env: options.env ?? process.env,
     encoding: 'utf8',
     maxBuffer: 64 * 1024 * 1024,
+    shell: invocation.shell,
     stdio: options.capture ? ['ignore', 'pipe', 'pipe'] : 'inherit',
   });
   if (result.error) throw result.error;
@@ -264,5 +270,17 @@ function run(command, args, options = {}) {
     throw new Error(`${command} exited with status ${result.status}${details}`);
   }
   return result;
+}
+
+export function resolveRunCommand(command, platform = process.platform) {
+  const usesWindowsCommandShim = platform === 'win32' && WINDOWS_CMD_SHIMS.has(command);
+  return {
+    command: usesWindowsCommandShim ? `${command}.cmd` : command,
+    shell: usesWindowsCommandShim,
+  };
+}
+
+function isMainModule() {
+  return process.argv[1] ? path.resolve(process.argv[1]) === fileURLToPath(import.meta.url) : false;
 }
 

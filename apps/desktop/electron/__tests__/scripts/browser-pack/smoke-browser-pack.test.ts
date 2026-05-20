@@ -29,6 +29,19 @@ describe('smoke-browser-pack', () => {
     expect(result.stdout).toContain('Browser pack smoke passed for browser-linux-x64');
   });
 
+  it('accepts the current Linux x64 Chromium archive layout', async () => {
+    await createLinuxPack({
+      chromiumPath: 'chromium-1200/chrome-linux64/chrome',
+      includePackageBin: true,
+      executablePackageBin: true,
+    });
+
+    const result = await runSmoke(['--pack-root', tempRoot, '--platform', 'linux', '--arch', 'x64']);
+
+    expect(result.stdout).toContain('Chromium: chromium-1200/chrome-linux64/chrome');
+    expect(result.stdout).toContain('Browser pack smoke passed for browser-linux-x64');
+  });
+
   it('fails when an agent-browser shim points at a missing package bin', async () => {
     await createLinuxPack({ includePackageBin: false, executablePackageBin: false });
 
@@ -74,8 +87,16 @@ async function runCustomShimValidation({ platform, candidate }: { platform: stri
   return execFileAsync('node', ['--input-type=module', '-e', source], { cwd: process.cwd(), encoding: 'utf8' });
 }
 
-async function createLinuxPack({ includePackageBin, executablePackageBin }: { includePackageBin: boolean; executablePackageBin: boolean }) {
-  await writeExecutable('chromium-1200/chrome-linux/chrome', '#!/bin/sh\n');
+async function createLinuxPack({
+  chromiumPath = 'chromium-1200/chrome-linux/chrome',
+  includePackageBin,
+  executablePackageBin,
+}: {
+  chromiumPath?: string;
+  includePackageBin: boolean;
+  executablePackageBin: boolean;
+}) {
+  await writeExecutable(chromiumPath, '#!/bin/sh\n');
   await writeExecutable('ffmpeg-1011/ffmpeg-linux', '#!/bin/sh\n');
   await writeExecutable(
     'agent-browser/bin/agent-browser',
