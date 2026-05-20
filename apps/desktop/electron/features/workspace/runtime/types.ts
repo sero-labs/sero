@@ -116,7 +116,7 @@ export interface RuntimeProcess {
   executionPid?: number;
   write(input: string): void;
   resize?(cols: number, rows: number): void;
-  signal(signal: NodeJS.Signals | number): void;
+  signal(signal?: NodeJS.Signals | number): void;
   onData(cb: (chunk: string) => void): () => void;
   onExit(cb: (exit: { exitCode: number | null; signal?: string }) => void): () => void;
 }

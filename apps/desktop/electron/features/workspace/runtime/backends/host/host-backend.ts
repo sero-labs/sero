@@ -229,7 +229,7 @@ export class HostBackend implements RuntimeBackend {
       pid: child.pid,
       executionPid,
       write: (chunk) => { child.stdin?.write(chunk); },
-      signal: (signal) => { void this.substrate.signalChild(child, rendered, signal); },
+      signal: (signal) => { void this.substrate.signalChild(child, rendered, signal ?? 'SIGTERM'); },
       onData: (cb) => subscribe(dataCallbacks, cb),
       onExit: (cb) => subscribe(exitCallbacks, cb),
     };

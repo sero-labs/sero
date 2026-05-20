@@ -348,6 +348,32 @@ describe('runtime backend contract skeleton', () => {
     expect(legacyList).toHaveBeenCalledWith('workspace-a');
   });
 
+  it('disposes terminal sessions without forcing a POSIX signal', async () => {
+    const signal = vi.fn();
+    const manager = new RuntimeManager({
+      workspaceManager: {
+        getPath: vi.fn().mockReturnValue('/Users/daniel/project'),
+        getRuntimeConfig: vi.fn().mockResolvedValue({ backend: 'host' }),
+      } as unknown as WorkspaceManager,
+      containerManager: {} as ContainerManager,
+    });
+    const runtime = await manager.getRuntime('workspace-a');
+    vi.spyOn(runtime, 'createTerminal').mockResolvedValue({
+      terminalId: 'terminal-a',
+      write: vi.fn(),
+      signal,
+      onData: vi.fn(() => vi.fn()),
+      onExit: vi.fn(() => vi.fn()),
+      replayBuffer: vi.fn(() => ''),
+    });
+
+    await manager.createTerminal('workspace-a', 'terminal-a');
+    manager.disposeTerminal('terminal-a');
+
+    expect(signal).toHaveBeenCalledWith();
+    expect(manager.getTerminal('terminal-a')).toBeUndefined();
+  });
+
   it('translates primary workspace paths between host and runtime roots', () => {
     expect(toRuntimeWorkspacePath('/Users/daniel/project', '/Users/daniel/project')).toBe('/workspace');
     expect(toRuntimeWorkspacePath('/Users/daniel/project', '/Users/daniel/project/src/App.tsx')).toBe('/workspace/src/App.tsx');

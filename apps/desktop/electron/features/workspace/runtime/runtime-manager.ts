@@ -179,7 +179,7 @@ export class RuntimeManager {
 
   disposeTerminal(terminalId: string): void {
     const terminal = this.terminals.get(terminalId)?.session;
-    terminal?.signal('SIGTERM');
+    terminal?.signal();
     this.terminals.delete(terminalId);
   }
 
