@@ -172,6 +172,28 @@ describe('ToolchainManager', () => {
     expect(events).toEqual(expect.arrayContaining(['queued', 'downloading', 'verifying', 'unpacking', 'activating', 'ready']));
   });
 
+  it('installs only the requested core tool for runtime command execution', async () => {
+    const harness = await createCoreHarness(['git', 'bash']);
+    cleanupVersions.push(harness.version);
+    const downloads: string[] = [];
+    const manager = new ToolchainManager({
+      manifest: harness.manifest,
+      platform: 'darwin',
+      arch: 'arm64',
+      systemResolver: async (tool) => missingSystem(tool),
+      downloader: async (options) => {
+        downloads.push(path.basename(options.url));
+        await fs.promises.cp(harness.archiveRoots.git, options.destination, { recursive: true });
+      },
+      verifier: readyVerifier,
+    });
+
+    await expect(manager.ensure('git', reason)).resolves.toMatchObject({ tool: 'git', source: 'managed' });
+    expect(downloads).toEqual(['git.tgz']);
+    await expectExists(artifactInstallPath(harness.version, 'git'), true);
+    await expectExists(artifactInstallPath(harness.version, 'bash'), false);
+  });
+
   it('installs a missing on-demand tool and reports progress bytes', async () => {
     const harness = await createHarness('rg');
     cleanupVersions.push(harness.version);
@@ -239,7 +261,9 @@ describe('ToolchainManager', () => {
       verifier: readyVerifier,
     });
 
-    await expect(manager.ensure('node', reason)).rejects.toMatchObject({
+    const failure = manager.ensure('node', reason);
+    await expect(failure).rejects.toBeInstanceOf(Error);
+    await expect(failure).rejects.toMatchObject({
       code: 'TOOL_INSTALL_FAILED',
       message: expect.stringContaining('ENOTFOUND'),
       retryable: true,

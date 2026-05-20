@@ -92,13 +92,6 @@ export class ToolchainManager {
 
   ensure(tool: ToolName, reason: ToolInstallReason): Promise<ToolResolution> {
     const artifact = this.findArtifact(tool);
-    if (artifact?.artifact.installPolicy === 'core') {
-      return this.ensureCore(reason).then(async (resolutions) => {
-        const resolution = resolutions.find((item) => item.tool === tool) ?? await this.resolve(tool);
-        if (!resolution) throw makeError('TOOL_INSTALL_FAILED', `${tool} did not resolve after core tool installation.`, tool, artifact.key, this.manifest.version, true, true);
-        return resolution;
-      });
-    }
     const key = `${this.manifest.version}:${artifact?.key ?? tool}`;
     const existing = this.inFlight.get(key);
     if (existing) return existing;
@@ -365,7 +358,29 @@ function makeError(
   retryable: boolean,
   installable: boolean,
 ): ToolchainError {
-  return { code, message, tool, artifactKey, manifestVersion, retryable, installable };
+  return new ToolchainOperationError({ code, message, tool, artifactKey, manifestVersion, retryable, installable });
+}
+
+class ToolchainOperationError extends Error implements ToolchainError {
+  readonly code: ToolchainError['code'];
+  readonly tool?: ToolName;
+  readonly artifactKey?: string;
+  readonly manifestVersion?: string;
+  readonly retryable: boolean;
+  readonly installable?: boolean;
+  readonly details?: Record<string, string | number | boolean | null>;
+
+  constructor(error: ToolchainError) {
+    super(`${error.code}: ${error.message}`);
+    this.name = 'ToolchainOperationError';
+    this.code = error.code;
+    this.tool = error.tool;
+    this.artifactKey = error.artifactKey;
+    this.manifestVersion = error.manifestVersion;
+    this.retryable = error.retryable;
+    this.installable = error.installable;
+    this.details = error.details;
+  }
 }
 
 function isToolchainError(error: unknown): error is ToolchainError {
