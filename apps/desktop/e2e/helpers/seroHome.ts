@@ -15,7 +15,9 @@ export interface TempSeroHome {
 }
 
 export function createTempSeroHome(): TempSeroHome {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sero-e2e-'));
+  const baseDir = process.platform === 'win32' ? path.join(os.homedir(), '.sero-e2e') : os.tmpdir();
+  fs.mkdirSync(baseDir, { recursive: true });
+  const dir = fs.mkdtempSync(path.join(baseDir, 'sero-e2e-'));
   const handle: TempSeroHome = {
     path: dir,
     activeProfileId: null,
