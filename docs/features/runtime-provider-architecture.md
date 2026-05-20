@@ -54,7 +54,7 @@ Detailed platform/arch release status lives in [`../reference/host-mode-support.
 | macOS | Yes | Yes | Apple Silicon recommended |
 | Linux | Yes | Yes | No |
 | Windows x64 | Yes, native Windows with verified Bash/MSYS-compatible shell | Yes | No |
-| Browser automation | Published browser pack after release gate | Preinstalled in image | Preinstalled in image |
+| Browser automation | Published browser pack + Doctor readiness after release gate | Preinstalled in image | Preinstalled in image |
 | Native build tools | User-installed or container fallback | Image-provided | Image-provided |
 | Sandbox | No | Container isolation | Container isolation |
 | Workspace execution path | Real host path | `/workspace` | `/workspace` |

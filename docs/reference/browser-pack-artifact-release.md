@@ -6,16 +6,16 @@ A **browser pack** is a `.tar.gz` archive containing the pinned Chromium, ffmpeg
 
 ## Required artifacts
 
-PR #185 requires these four artifacts:
+PR #185 requires these four release-target artifacts, matching [`host-mode-support.md`](./host-mode-support.md):
 
-| Machine you must use to build it | Browser-pack asset | Metadata sidecar asset |
-| --- | --- | --- |
-| Apple Silicon Mac | `mac-arm64.tar.gz` | `mac-arm64.json` |
-| Linux x64 machine | `linux-x64.tar.gz` | `linux-x64.json` |
-| Linux arm64 machine | `linux-arm64.tar.gz` | `linux-arm64.json` |
-| Windows x64 machine using Git Bash | `win-x64.tar.gz` | `win-x64.json` |
+| Machine you must use to build it | Browser-pack asset | Manifest artifact ID | Metadata sidecar asset | Current checked-in state |
+| --- | --- | --- | --- | --- |
+| Apple Silicon Mac | `mac-arm64.tar.gz` | `browser-darwin-arm64` | `mac-arm64.json` | Published/available |
+| Linux x64 machine | `linux-x64.tar.gz` | `browser-linux-x64` | `linux-x64.json` | Pending; non-installable release blocker |
+| Linux arm64 machine | `linux-arm64.tar.gz` | `browser-linux-arm64` | `linux-arm64.json` | Pending; non-installable release blocker |
+| Windows x64 machine using Git Bash | `win-x64.tar.gz` | `browser-win32-x64` | `win-x64.json` | Pending; non-installable release blocker |
 
-Intel Mac/macOS x64 and Windows arm64 are intentionally not part of this release.
+Intel Mac/macOS x64 and Windows arm64 are intentionally not part of this release. Pending manifest entries are not supported installs; publish the GitHub Release asset, merge the sidecar metadata, and pass `browser-pack:verify-published` before claiming install support. Locally served artifacts via `SERO_BROWSER_PACK_BASE_URL` are developer diagnostics only.
 
 **Important:** do not try to build another platform's artifact from your current machine. The build script intentionally blocks that because Playwright downloads browser binaries for the current OS/architecture only.
 

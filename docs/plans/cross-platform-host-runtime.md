@@ -18,7 +18,7 @@ export type DeprecatedRuntimeBackendId = 'mac-host';
 | macOS | Yes | Yes | Apple Silicon recommended |
 | Linux | Yes | Yes | No |
 | Windows x64 | Yes, native Windows host mode | Yes | No |
-| Browser automation | Installable browser pack | Preinstalled | Preinstalled |
+| Browser automation | Published browser pack + Doctor readiness | Preinstalled in image | Preinstalled in image |
 | Native build tools | User-installed or container fallback | Image-provided | Image-provided |
 | Sandbox | No | Container isolation | Container isolation |
 

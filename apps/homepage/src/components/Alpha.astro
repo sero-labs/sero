@@ -1,9 +1,10 @@
 ---
 import SectionHead from "./SectionHead.astro";
+import { site } from "../content/copy";
 
 const receipt = `$ sero --version
 sero/0.x  pi-coding-agent  electron  react-19
-profile: dan@host  macOS 14.x  arm64`;
+source alpha  macOS/Linux/Windows  local runtimes`;
 ---
 <section class="section" id="alpha">
 	<SectionHead idx="06" label="honest_alpha" />
@@ -11,9 +12,7 @@ profile: dan@host  macOS 14.x  arm64`;
 		<h2 class="h2">early, useful, built in public.</h2>
 		<div>
 			<p class="prose">
-				source-only OSS alpha · macOS · apple silicon · profile-scoped state ·
-				container-backed workspaces when available · host-mode fallback otherwise ·
-				plugin/runtime contracts will evolve.
+				{site.description} Source-only OSS alpha; runtime and plugin contracts will evolve.
 			</p>
 			<pre class="receipt">{receipt}</pre>
 		</div>

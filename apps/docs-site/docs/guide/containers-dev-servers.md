@@ -1,13 +1,15 @@
 # Containers and Dev Servers
 
-Sero can run each workspace through a runtime backend: Apple Container, Docker/Podman, or reduced host mode. Container-backed runtimes give the agent, terminals, tools, and dev servers a shared Linux-like workspace at `/workspace` while the project remains stored on your host machine.
+Sero can run a workspace through a runtime backend: Apple Container, Docker/Podman, or explicit Host mode where supported. Container-backed runtimes mount the project at `/workspace` inside the runtime. Host mode runs commands in the real host workspace directory and uses normal localhost preview URLs.
 
-Use this guide when you want to start a project server and preview it in Sero without fighting runtime networking details.
+Use this guide when you want to start a project server and preview it in Sero without mixing up container and Host networking rules. For exact platform support, see [Support Scope](/reference/support-scope).
 
 ## Quick path
 
+### Container-backed runtime
+
 1. Open a workspace in Sero.
-2. Choose a container-backed runtime for the workspace when one is available: Apple Container or Docker / Podman.
+2. Choose Apple Container or Docker / Podman for the workspace.
 3. Start your server from the workspace terminal or agent, binding to all interfaces when your framework needs it:
 
 ```bash
@@ -27,7 +29,32 @@ sero devserver list
 sero app preview <registered-url>
 ```
 
+### Host runtime
+
+1. Explicitly choose Host for the workspace where it is supported.
+2. Start your normal local dev server from the workspace directory:
+
+```bash
+npm run dev
+```
+
+3. Register the server with the localhost port it uses:
+
+```bash
+sero devserver register --name "Web app" --port 3000 --command "npm run dev" --framework vite
+```
+
+4. Open the registered localhost URL from Explorer or preview it through Sero.
+
 ## What runs where
+
+### Container-backed runtime
+
+- commands run inside the selected workspace runtime
+- the primary project is mounted at `/workspace` inside that runtime
+- dev servers should bind to `0.0.0.0` when the framework needs external runtime access
+- Sero exposes a host-reachable forwarded URL for preview
+- browser automation is provided by the runtime image
 
 ```text
 Agent / Explorer terminal
@@ -38,7 +65,7 @@ project files mounted at `/workspace`
         ↓
 dev server listens on runtime port
         ↓
-Sero registers a reachable preview URL for the active runtime
+Sero registers a forwarded host-reachable preview URL
         ↓
 Explorer browser or in-app preview displays the app
 ```
@@ -57,11 +84,19 @@ sequenceDiagram
   Sero->>Container: container exec command
   Container->>DevServer: Start process on 0.0.0.0:port
   Sero->>Container: Scan for listening port
-  Sero->>Browser: Open detected preview URL
+  Sero->>Browser: Open forwarded preview URL
   Browser->>DevServer: Load app through reachable container URL/proxy
 ```
 
 ![Container dev-server preview flow](../assets/generated/img4.jpg)
+
+### Host runtime
+
+- commands run in the real host workspace cwd
+- shell examples should use relative paths or real host paths, not container-only paths
+- dev servers listen on normal host ports such as `http://localhost:3000`
+- previews use the normal localhost URL
+- browser automation requires a ready host browser pack; otherwise use a container-backed runtime for browser-driven workflows
 
 ## Why this helps with ports
 
@@ -73,7 +108,7 @@ This reduces port and network confusion, but it does not eliminate every issue. 
 - the container or forwarded preview URL changed after a restart
 - the server process stopped but the registry entry remains
 - container networking, proxy, Docker/Podman port forwarding, or DNS is unhealthy
-- the workspace is in host mode and the server is only reachable from a different environment
+- the workspace is in Host mode and the registered localhost port is not reachable on the host
 
 ## Register, list, and stop servers
 
@@ -91,16 +126,18 @@ A workspace has a primary project root. Sero can also show attached roots and re
 
 Attaching a folder or mounting plugin source can require container recreation before the new mount is visible inside the container. If a terminal does not see a newly attached folder, restart or recreate the affected workspace container.
 
+In Host mode, attached paths are accessed through the normal host filesystem. Use paths as they exist on the host.
+
 ## Host mode
 
-If Apple Container and Docker/Podman runtimes are unavailable on macOS/Linux, explicitly select Host mode for core chat, files, editing, and regular local development. Sero does not silently switch a selected container runtime to host execution. Host mode can register normal localhost dev servers, but it is not feature-equivalent for container networking, browser automation, or Linux/container parity.
+Explicitly select Host mode for core chat, files, editing, and regular local development when it is supported for your platform. Sero does not switch a selected container runtime to Host execution by itself. Host mode can register normal localhost dev servers, but it is not feature-equivalent for container networking, Linux/container parity, image-provided compiler stacks, or browser automation without a ready browser pack.
 
 Use [Containers and Host Mode](/reference/containers-host-mode) for the runtime matrix and [Container Isolation](/reference/container-isolation) for lifecycle and mount details.
 
 ## Troubleshooting quick checks
 
 - Server works in terminal but preview fails: for container-backed runtimes, confirm it binds to `0.0.0.0`, then re-register with the current port/URL.
-- Host port already used: prefer a container-backed workspace so Sero can manage the runtime preview URL.
+- Host port already used: stop the host process using the port, choose another port, or use a container-backed workspace when runtime forwarding better fits the workflow.
 - URL stopped working after restart: run `sero devserver list`; if the container IP or forwarded URL changed, open the fresh URL or register again.
 - Stop does nothing: copy the exact server id from `sero devserver list` and run `sero devserver stop <id>`.
 

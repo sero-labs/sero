@@ -107,8 +107,9 @@ Current release posture:
 - **Supported source platforms:** macOS, Linux, and Windows
 - **Maintainer-validated baseline:** macOS on Apple Silicon
 - **Distribution:** build from source only
-- **Preferred runtime:** container-backed workspaces via Apple Container or Docker
-- **Fallback runtime:** host mode on macOS/Linux with reduced capabilities; Windows uses Docker for workspace execution
+- **Runtime options:** Apple Container, Docker/Podman (`docker`), and explicit Host where supported
+- **Full runtime-backed experience:** container-backed workspaces via Apple Container or Docker/Podman
+- **Host mode:** explicit reduced-capability runtime; see Support Scope for platform details
 - **Stability:** plugin/runtime contracts may change during alpha
 - **UX polish:** rough and actively changing; layout, flows, and accessibility
   need refinement
@@ -148,7 +149,7 @@ Key ideas:
 - Explorer workspace with editor, terminal, visual browser, preview, and VCS
   surfaces
 - Workspace model with per-workspace runtime control
-- Apple Container and Docker-backed workspace execution, with explicit Host mode where supported
+- Apple Container and Docker/Podman-backed workspace execution, with explicit Host mode where supported
 - Built-in plugin architecture for UI apps, tools, commands, widgets, and
   background behavior
 - Persistent memory system for project context across sessions
@@ -182,7 +183,7 @@ Captured from the current source-only alpha on macOS Apple Silicon.
 - macOS, Linux, or Windows
 - Node.js 22
 - pnpm 10
-- Strongly recommended for the full runtime-backed experience: Docker, or
+- Strongly recommended for the full runtime-backed experience: Docker/Podman, or
   Apple's `container` CLI on Apple Silicon macOS
 
 For the exact validated baseline, see
@@ -215,8 +216,8 @@ Notes:
 - `pnpm test` currently runs the desktop Vitest suite.
 - `pnpm test:ci` mirrors the alpha PR gate: typecheck, build, desktop tests, and
   desktop CI e2e.
-- If container runtimes are unavailable, Sero can continue in host mode on
-  supported platforms with a reduced feature set.
+- Explicit Host mode is available where supported for reduced-capability
+  non-container workflows; see Support Scope for platform details.
 - If native terminal support breaks, see
   [`docs/node-pty-setup.md`](./docs/node-pty-setup.md).
 

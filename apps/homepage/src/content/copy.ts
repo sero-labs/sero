@@ -24,7 +24,7 @@ export const site = {
 	github: "https://github.com/sero-labs/sero",
 	tagline: "An agent you can make your own.",
 	description:
-		"A local-first macOS workspace built on the Pi SDK — bringing your coding agents, tools, memory, and apps together as your work changes.",
+		"A local-first desktop workspace for macOS, Linux, and Windows source builds — bringing coding agents, tools, memory, apps, and local runtimes together as your work changes.",
 };
 
 export const links = {
@@ -59,12 +59,12 @@ export const navLinks = [
 ];
 
 export const hero = {
-	eyebrow: "Sero · macOS alpha · local-first",
+	eyebrow: "Sero · source alpha · local-first",
 	headline: "Build the agent only you need.",
 	sub: site.description,
 	support:
-		"Start with Pi's proven agent loop, then add Sero's desktop shell for coding, research, plugins, memory, and day-to-day tasks.",
-	primary: { label: "Get the macOS alpha", href: links.install },
+		"Start with Pi's proven agent loop, then add Sero's desktop shell for coding, research, plugins, memory, local runtimes, and day-to-day tasks.",
+	primary: { label: "Read setup requirements", href: links.install },
 	secondary: { label: "See how Sero grows", href: "#loop" },
 };
 
@@ -148,7 +148,7 @@ export const become: BecomePanel[] = [
 		defaults: [
 			"Git plugin",
 			"Subagents (scout, reviewer, test-writer)",
-			"Local runtime + containers",
+			"Local runtimes: Apple Container, Docker/Podman, or Host",
 		],
 		mineExample: "“Add a release-checklist app for this monorepo.”",
 		image: images.gitShipDeck,
@@ -190,22 +190,22 @@ export type Feature = {
 export const features: Feature[] = [
 	{
 		id: "containers",
-		title: "Three projects on port 3000. No conflicts.",
-		body: "Each workspace runs in its own container. Dev servers listen on isolated network addresses, so projects never step on each other’s ports. Containers start in seconds and switch instantly.",
+		title: "Local runtimes without losing the workspace.",
+		body: "Use Apple Container or Docker/Podman for isolated container-backed projects, or explicit Host mode for direct local workflows where supported. Container-backed runtimes keep dev-server ports isolated across projects.",
 		image: images.explorerDevServers,
-		imageAlt: "Dev Servers panel showing three projects all running on port 3000 with different container IPs",
+		imageAlt: "Dev Servers panel showing multiple projects running on isolated container-backed runtime addresses",
 	},
 	{
 		id: "agents",
 		title: "Built on Pi's agent harness.",
-		body: "Sero builds on Pi's tools, skills, prompts, agents, and extension model — then adds the macOS workspace around them. Built-in specialists like scout, reviewer, and test-writer are plain Markdown files you can edit, customise, or duplicate.",
+		body: "Sero builds on Pi's tools, skills, prompts, agents, and extension model — then adds a desktop workspace around them. Built-in specialists like scout, reviewer, and test-writer are plain Markdown files you can edit, customise, or duplicate.",
 		image: images.adminAgents,
 		imageAlt: "Admin panel showing a list of custom agent definitions with model and thinking tier badges",
 	},
 	{
 		id: "browser",
 		title: "The agent can see your running app.",
-		body: "Sero has a built-in browser that opens dev servers and any URL. The agent can take screenshots, record short clips, and check its own work visually — without you having to describe what you see.",
+		body: "With a container-backed runtime or a ready Host browser pack, Sero's built-in browser opens dev servers and any URL. The agent can take screenshots, record short clips, and check its own work visually — without you having to describe what you see.",
 		image: images.explorerBrowser,
 		imageAlt: "Sero workspace with the in-app browser showing a live dev server preview alongside the agent chat",
 	},
@@ -223,13 +223,13 @@ export const builtins = [
 export const cta = {
 	headline: "Make Sero yours.",
 	sub: "Start with a solid agent workspace. Add what you need as you go.",
-	primary: { label: "Get Sero", href: links.install },
+	primary: { label: "Read setup requirements", href: links.install },
 	secondary: { label: "Read plugin docs", href: links.pluginDocs },
 	tertiary: { label: "View source", href: links.github },
 };
 
 export const footer = {
-	tagline: "alpha · macOS · local-first",
+	tagline: "source alpha · macOS · Linux · Windows · local-first",
 	bottomLeft: "",
 	bottomRight: "© sero",
 	links: [

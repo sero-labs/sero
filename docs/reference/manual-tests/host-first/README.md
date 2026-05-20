@@ -25,13 +25,13 @@ These guides are for source-based manual validation. Packaged-app testers can sk
 
 | Platform | Arch | Host runtime | Host browser pack | Packaged app | Status |
 | --- | --- | --- | --- | --- | --- |
-| macOS | arm64 | Supported with `SERO_HOST_FIRST=1` | Required published GitHub Release artifact | DMG/ZIP | Release-supported target |
+| macOS | arm64 | Supported with `SERO_HOST_FIRST=1` | `browser-darwin-arm64` published/available | DMG/ZIP | Release-supported target |
 | macOS | x64 | Unsupported | Not published | Not published | Future/unsupported |
-| Linux | x64/arm64 | Supported with `SERO_HOST_FIRST=1` | Required published GitHub Release artifact | AppImage/deb/tar.gz | Release-supported target |
-| Windows | x64 | Supported with `SERO_HOST_FIRST=1` | Required published GitHub Release artifact | NSIS/ZIP | Release-supported target |
+| Linux | x64/arm64 | Supported with `SERO_HOST_FIRST=1` | `browser-linux-x64` / `browser-linux-arm64` pending | AppImage/deb/tar.gz | Release-supported target; release-blocked until artifacts publish |
+| Windows | x64 | Supported with `SERO_HOST_FIRST=1` | `browser-win32-x64` pending | NSIS/ZIP | Release-supported target; release-blocked until artifact publishes |
 | Windows | arm64 | Not defaulted | Not published | Not published | Future/unsupported |
 
-Browser-pack note: supported-platform install uses published GitHub Release artifacts verified by `pnpm --filter @sero/desktop browser-pack:verify-published`. Pending entries in `generated-artifacts.json` block the final release claim; local artifact smoke is only a developer diagnostic/rebuild path. See [`../../host-mode-support.md`](../../host-mode-support.md).
+Browser-pack note: supported-platform install uses published GitHub Release artifacts verified by `pnpm --filter @sero/desktop browser-pack:verify-published`. At the time of this checklist, `generated-artifacts.json` marks only `browser-darwin-arm64` as available; Linux x64/arm64 and Windows x64 entries are pending, non-installable, and release blockers rather than expected successful installs. Local artifact smoke is only a developer diagnostic/rebuild path. See [`../../host-mode-support.md`](../../host-mode-support.md).
 
 Required release gates:
 
