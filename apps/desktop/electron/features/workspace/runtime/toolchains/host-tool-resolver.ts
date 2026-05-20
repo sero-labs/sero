@@ -1,3 +1,5 @@
+import path from 'path';
+
 import { loadBundledToolchainManifest } from './manifest';
 import { ToolchainManager } from './manager';
 import { prependPathEntries } from './path-env';
@@ -76,8 +78,16 @@ export class HostToolResolver implements HostToolResolverLike {
   }
 
   async resolveTerminalShell(candidate: string | undefined, reason: ToolInstallReason): Promise<string> {
-    if (candidate && await this.isVerifiedShell(candidate)) return candidate;
-    return (await this.prepareShell(reason)).path;
+    if (candidate && await this.isVerifiedShell(candidate) && this.isTerminalExecutablePath(candidate)) return candidate;
+    const resolution = await this.prepareShell(reason);
+    if (!this.isTerminalExecutablePath(resolution.path)) {
+      throw new Error('Git Bash executable not found. Install Git for Windows or configure a terminal shell path.');
+    }
+    return resolution.path;
+  }
+
+  private isTerminalExecutablePath(candidate: string): boolean {
+    return this.platform !== 'win32' || path.win32.isAbsolute(candidate);
   }
 
   private async isVerifiedShell(candidate: string): Promise<boolean> {

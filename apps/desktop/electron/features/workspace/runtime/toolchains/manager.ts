@@ -284,8 +284,9 @@ export class ToolchainManager {
 }
 
 function systemToolCandidates(tool: ToolName, platform: NodeJS.Platform): string[] {
-  const candidates: string[] = [tool];
-  if (platform === 'win32') candidates.push(...windowsSystemToolCandidates(tool));
+  const candidates: string[] = platform === 'win32'
+    ? [...windowsSystemToolCandidates(tool), tool]
+    : [tool];
   return [...new Set(candidates)];
 }
 
