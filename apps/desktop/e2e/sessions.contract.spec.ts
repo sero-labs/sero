@@ -31,7 +31,7 @@ async function deleteSessionIfPresent(sessionPath: string): Promise<void> {
       await window.sero.sessions.delete(path);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      if (!message.includes('outside session directory') && !message.includes('ENOENT')) throw error;
+      if (!message.includes('ENOENT')) throw error;
     }
   }, sessionPath);
 }

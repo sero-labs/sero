@@ -111,7 +111,6 @@ test.describe('container and terminal IPC contracts', () => {
   });
 
   test('creates, writes, resizes, replays, and disposes a terminal session', async () => {
-    test.skip(process.platform === 'win32', 'Windows terminal lifecycle is covered by unit tests; GitHub-hosted Windows pty teardown is flaky.');
     const marker = `SERO_TERMINAL_CONTRACT_${Date.now()}`;
     const result = await page.evaluate(async (markerText) => {
       const workspace = await window.sero.workspace.create('Terminal Contract');
