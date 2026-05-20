@@ -157,11 +157,11 @@ function materializeAgentBrowserBinSync(agentRoot, platform) {
 
 async function createTarGz(packRoot, archivePath) {
   await fs.rm(archivePath, { force: true });
-  run('tar', ['-czf', archivePath, '-C', packRoot, '.']);
+  run('tar', [...tarPathArgs(), '-czf', archivePath, '-C', packRoot, '.']);
 }
 
 async function assertArchiveRootShape(archivePath) {
-  const result = run('tar', ['-tzf', archivePath], { capture: true });
+  const result = run('tar', [...tarPathArgs(), '-tzf', archivePath], { capture: true });
   const entries = result.stdout.split('\n').filter(Boolean);
   if (entries.some((entry) => entry === 'browser/' || entry.startsWith('browser/'))) {
     throw new Error('Archive contains an extra top-level browser/ directory');
@@ -278,6 +278,10 @@ export function resolveRunCommand(command, platform = process.platform) {
     command: usesWindowsCommandShim ? `${command}.cmd` : command,
     shell: usesWindowsCommandShim,
   };
+}
+
+export function tarPathArgs(platform = process.platform) {
+  return platform === 'win32' ? ['--force-local'] : [];
 }
 
 function isMainModule() {

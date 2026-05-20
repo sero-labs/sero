@@ -14,4 +14,11 @@ describe('build-browser-pack', () => {
     expect(resolveRunCommand('tar', 'win32')).toEqual({ command: 'tar', shell: false });
     expect(resolveRunCommand('npx', 'linux')).toEqual({ command: 'npx', shell: false });
   });
+
+  it('forces local tar paths on Windows drive-letter paths', async () => {
+    const { tarPathArgs } = await import(scriptUrl);
+
+    expect(tarPathArgs('win32')).toEqual(['--force-local']);
+    expect(tarPathArgs('linux')).toEqual([]);
+  });
 });
