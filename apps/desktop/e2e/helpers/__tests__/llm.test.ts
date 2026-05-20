@@ -24,6 +24,7 @@ describe('llm helper', () => {
     delete process.env.SERO_E2E_LLM_PROVIDER;
     delete process.env.SERO_E2E_LLM_MODEL;
     delete process.env.SERO_E2E_LLM_ALT_MODEL;
+    delete process.env.CI;
     delete process.env.ANTHROPIC_API_KEY;
     delete process.env.OPENAI_API_KEY;
     delete process.env.GEMINI_API_KEY;
