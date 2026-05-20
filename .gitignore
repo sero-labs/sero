@@ -4,6 +4,7 @@ dist/
 *.log
 .env
 .env.local
+.env.test
 .vite/
 .__mf__temp/
 .turbo/
