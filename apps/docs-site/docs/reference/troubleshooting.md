@@ -4,6 +4,7 @@ Most Sero OSS alpha setup problems fall into one of these buckets:
 - interrupted install / native module ABI mismatch
 - dev launcher startup failure
 - Apple Container or Docker/Podman runtime unavailable
+- Host core tools, browser pack, or native build tools missing
 - host mode being used for a workflow that still expects containers
 - dev-server preview URL, runtime forwarding, or browser/app capture mismatch
 
@@ -109,11 +110,11 @@ Host mode is a supported explicit macOS/Linux runtime for:
 - file browsing and editing
 - general host-shell development workflows
 
-Host mode is **not** the supported path for:
-- browser automation
-- containerized language servers
-- feature-equivalent managed preview / dev-server automation
-- Linux/container parity
+Host mode has reduced capability compared with container-backed runtimes:
+- browser automation requires a published, installed browser pack and a passing Doctor launch check
+- containerized language servers are not available
+- preview / dev-server automation uses normal host networking rather than container forwarding
+- Linux/container parity is not guaranteed
 
 If you hit one of those gaps, check whether the workspace should be running in
 container-backed mode instead.
@@ -121,6 +122,16 @@ container-backed mode instead.
 See [Support Scope](/reference/support-scope) for the canonical matrix,
 [Containers and Host Mode](/reference/containers-host-mode) for runtime-specific
 guidance, and [Containers and Dev Servers](/guide/containers-dev-servers) for the dev-server quick path.
+
+## Host browser pack, toolchain, or native build diagnostics fail
+
+Environment Doctor separates Host runtime issues so each warning maps to a concrete action:
+
+- **Host core tools missing or installing** — confirm Node, pnpm, Git/SSH, and your shell are available. Sero-managed host tools install under `~/.sero-ui/toolchains/<manifest-version>/`; if Doctor reports an install in progress, wait and retry the check.
+- **Browser pack `missing` but `installable`** — use the in-app install action when offered, then rerun Doctor. Host browser automation is ready only after the files exist and the launch check passes.
+- **Browser pack pending or non-installable** — do not keep retrying local installs. macOS Intel is not a supported target. On supported platforms, use Apple Container or Docker/Podman for browser automation until your platform pack is published and verified.
+- **Browser pack `failed`** — rerun Doctor after checking disk space and network access. If the artifact is published for your platform and the launch check still fails, include the Doctor report in the issue.
+- **Native build tools missing** — install the platform compiler stack yourself, such as Xcode Command Line Tools, Linux `build-essential`/gcc/make, or MSVC/Windows SDK. Sero does not install compiler stacks; use a container-backed runtime when you need image-provided build tooling.
 
 ## Dev server works in terminal but not in preview
 
