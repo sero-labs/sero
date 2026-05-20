@@ -26,7 +26,11 @@ function createMockTools(): HostToolResolverLike {
       Path: `C:\\Sero\\tools\\bin${env.Path ? `;${env.Path}` : ''}`,
     })),
     prepareShell: vi.fn(async (_reason) => resolution('bash')),
-    prepareProgram: vi.fn(async (program) => (program === 'git' ? 'C:\\Sero\\tools\\bin\\git.exe' : program)),
+    prepareProgram: vi.fn(async (program) => {
+      if (program === 'git') return 'C:\\Sero\\tools\\bin\\git.exe';
+      if (program === 'npm') return 'C:\\Sero\\tools\\bin\\npm.cmd';
+      return program;
+    }),
     resolveTerminalShell: vi.fn(async () => 'C:\\Sero\\tools\\bin\\bash.exe'),
   };
 }
@@ -70,6 +74,22 @@ describe('WindowsHostSubstrate', () => {
       nativeCwd: 'C:\\Users\\me\\repo',
       env: { Path: 'C:\\Sero\\tools\\bin;C:\\Git\\cmd' },
     });
+  });
+
+  it('wraps managed cmd shims through cmd.exe for execFile rendering', async () => {
+    const substrate = createWindowsHostSubstrate({ tools: createMockTools() });
+
+    const rendered = await substrate.execFileCommand({
+      program: 'npm',
+      args: ['--version'],
+      cwd: 'C:\\Users\\me\\repo',
+      env: { Path: 'C:\\Git\\cmd' },
+    });
+
+    expect(rendered.program).toMatch(/\\System32\\cmd\.exe$/i);
+    expect(rendered.args).toEqual(['/d', '/s', '/c', '""C:\\Sero\\tools\\bin\\npm.cmd" "--version""']);
+    expect(rendered.nativeCwd).toBe('C:\\Users\\me\\repo');
+    expect(rendered.env).toEqual({ Path: 'C:\\Sero\\tools\\bin;C:\\Git\\cmd' });
   });
 
   it('uses node-pty terminal through the verified shell', async () => {

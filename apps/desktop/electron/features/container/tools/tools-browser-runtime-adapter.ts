@@ -38,14 +38,15 @@ export async function resolveBrowserAutomationRuntime(runtime: RuntimeBackend, w
 }
 
 export async function ensureAgentBrowserAvailable(runtime: RuntimeBackend, adapter?: BrowserRuntimeAdapter): Promise<void> {
-  const hasBinary = await runtime.exec({ command: withPathPrefix('command -v agent-browser', adapter), timeoutMs: 5_000 });
+  const hasBinary = await runtime.exec({ command: withPathPrefix('command -v agent-browser', adapter, hostShellPlatform(runtime)), timeoutMs: 5_000 });
   if (hasBinary.exitCode !== 0) {
     throw new Error('agent-browser CLI is not available in this runtime. Use a Sero runtime image with browser automation support.');
   }
 }
 
 export async function ensureFfmpegAvailable(runtime: RuntimeBackend, adapter: BrowserRuntimeAdapter): Promise<void> {
-  const candidateChecks = adapter.ffmpegCandidates.map((candidate) => `[ -x '${shellEscape(candidate)}' ]`).join(' || ');
+  const shellPlatform = hostShellPlatform(runtime);
+  const candidateChecks = adapter.ffmpegCandidates.map((candidate) => `[ -x ${shellPath(candidate, shellPlatform)} ]`).join(' || ');
   const command = candidateChecks
     ? `command -v ffmpeg >/dev/null 2>&1 || ${candidateChecks}`
     : 'command -v ffmpeg >/dev/null 2>&1';
@@ -59,12 +60,13 @@ export function agentBrowserCommand(
   adapter: BrowserRuntimeAdapter,
   args: string[],
   env?: Record<string, string | number | boolean | undefined>,
+  shellPlatform?: NodeJS.Platform,
 ): string {
   const exports = Object.entries({ ...adapter.env, ...env })
     .filter(([, value]) => value !== undefined)
     .map(([key, value]) => `export ${key}='${shellEscape(String(value))}';`);
-  const pathPrefixes = adapterPathPrefixes(adapter);
-  if (pathPrefixes.length > 0) exports.push(`export PATH='${shellEscape(pathPrefixes.join(path.delimiter))}':"$PATH";`);
+  const pathPrefixes = adapterPathPrefixes(adapter, shellPlatform).map((entry) => toHostShellPath(entry, shellPlatform));
+  if (pathPrefixes.length > 0) exports.push(`export PATH='${shellEscape(pathPrefixes.join(':'))}':"$PATH";`);
   const commandArgs = args.map((arg) => `'${shellEscape(arg)}'`).join(' ');
   return `${exports.join(' ')} agent-browser ${commandArgs}`;
 }
@@ -132,38 +134,56 @@ function createContainerBrowserRuntimeAdapter(backend: RuntimeBackendId): Browse
 }
 
 async function resolveRuntimeBrowserExecutable(runtime: RuntimeBackend, adapter: BrowserRuntimeAdapter): Promise<string | null> {
-  const checks = adapter.chromiumExecutableCandidates.map((candidate) => candidateExecutableCheck(candidate)).join(' ');
+  const shellPlatform = hostShellPlatform(runtime);
+  const checks = adapter.chromiumExecutableCandidates.map((candidate) => candidateExecutableCheck(candidate, shellPlatform)).join(' ');
   const command = `${checks} command -v chromium 2>/dev/null || command -v chromium-browser 2>/dev/null || command -v google-chrome 2>/dev/null || command -v google-chrome-stable 2>/dev/null`;
   const result = await runtime.exec({ command, timeoutMs: 10_000 });
   const executablePath = result.stdout.trim();
   return result.exitCode === 0 && executablePath ? executablePath : null;
 }
 
-function candidateExecutableCheck(candidate: string): string {
+function candidateExecutableCheck(candidate: string, shellPlatform?: NodeJS.Platform): string {
   if (candidate.includes('*')) {
-    return `for p in ${shellGlobPath(candidate)}; do if [ -x "$p" ]; then printf "%s" "$p"; exit 0; fi; done;`;
+    return `for p in ${shellGlobPath(candidate, shellPlatform)}; do if [ -x "$p" ]; then printf "%s" "$p"; exit 0; fi; done;`;
   }
-  const pathExpression = shellPath(candidate);
-  return `if [ -x ${pathExpression} ]; then printf '%s' ${pathExpression}; exit 0; fi;`;
+  const pathExpression = shellPath(candidate, shellPlatform);
+  return `if [ -x ${pathExpression} ]; then printf '%s' '${shellEscape(candidate)}'; exit 0; fi;`;
 }
 
-function shellPath(candidate: string): string {
+function shellPath(candidate: string, shellPlatform?: NodeJS.Platform): string {
   if (candidate.startsWith('$HOME/')) return `"$HOME"/'${shellEscape(candidate.slice('$HOME/'.length))}'`;
-  return `'${shellEscape(candidate)}'`;
+  return `'${shellEscape(toHostShellPath(candidate, shellPlatform))}'`;
 }
 
-function shellGlobPath(candidate: string): string {
-  return candidate.startsWith('$HOME/') ? `"$HOME"/${candidate.slice('$HOME/'.length)}` : candidate;
+function shellGlobPath(candidate: string, shellPlatform?: NodeJS.Platform): string {
+  if (candidate.startsWith('$HOME/')) return `"$HOME"/${candidate.slice('$HOME/'.length)}`;
+  return toHostShellPath(candidate, shellPlatform);
 }
 
-function withPathPrefix(command: string, adapter: BrowserRuntimeAdapter | undefined): string {
-  const pathPrefixes = adapter ? adapterPathPrefixes(adapter) : [];
-  return pathPrefixes.length > 0 ? `export PATH='${shellEscape(pathPrefixes.join(path.delimiter))}':"$PATH"; ${command}` : command;
+function withPathPrefix(command: string, adapter: BrowserRuntimeAdapter | undefined, shellPlatform?: NodeJS.Platform): string {
+  const pathPrefixes = adapter ? adapterPathPrefixes(adapter, shellPlatform).map((entry) => toHostShellPath(entry, shellPlatform)) : [];
+  return pathPrefixes.length > 0 ? `export PATH='${shellEscape(pathPrefixes.join(':'))}':"$PATH"; ${command}` : command;
 }
 
-function adapterPathPrefixes(adapter: BrowserRuntimeAdapter): string[] {
-  const firstFfmpegPrefix = adapter.ffmpegCandidates[0] ? path.dirname(adapter.ffmpegCandidates[0]) : null;
+function hostShellPlatform(runtime: RuntimeBackend): NodeJS.Platform | undefined {
+  return runtime.backend === 'host' ? process.platform : undefined;
+}
+
+export function toHostShellPath(candidate: string, shellPlatform?: NodeJS.Platform): string {
+  if (shellPlatform !== 'win32') return candidate;
+  const normalized = candidate.replace(/\\/g, '/');
+  const driveMatch = normalized.match(/^([A-Za-z]):\/(.*)$/);
+  if (!driveMatch) return normalized;
+  return `/${driveMatch[1].toLowerCase()}/${driveMatch[2]}`;
+}
+
+function adapterPathPrefixes(adapter: BrowserRuntimeAdapter, shellPlatform?: NodeJS.Platform): string[] {
+  const firstFfmpegPrefix = adapter.ffmpegCandidates[0] ? candidateDirname(adapter.ffmpegCandidates[0], shellPlatform) : null;
   return uniquePaths([...adapter.pathPrefixes, firstFfmpegPrefix]);
+}
+
+function candidateDirname(candidate: string, shellPlatform?: NodeJS.Platform): string {
+  return shellPlatform === 'win32' ? path.win32.dirname(candidate) : path.dirname(candidate);
 }
 
 function uniquePaths(paths: Array<string | null>): string[] {

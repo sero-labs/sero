@@ -61,6 +61,8 @@ describe('verify-host-mode-release', () => {
     await writeJson(path.join(desktopRoot, 'package.json'), {
       scripts: {
         'dist:mac': 'bash scripts/build-release.sh --target mac',
+        'dist:linux:x64': 'bash scripts/build-release.sh --target linux --arch x64',
+        'dist:linux:arm64': 'bash scripts/build-release.sh --target linux --arch arm64',
         'dist:win': 'bash scripts/build-release.sh --target win',
         'browser-pack:verify-published': 'node scripts/browser-pack/verify-browser-pack-publication.mjs',
       },
@@ -70,9 +72,9 @@ describe('verify-host-mode-release', () => {
   });
 
   it('fails when the release workflow is missing a required operating system entry', async () => {
-    await fs.writeFile(workflowPath(), workflowText().replace('          - os: linux\n            runner: [self-hosted, sero-linux]\n            dist: dist:linux\n', ''));
+    await fs.writeFile(workflowPath(), workflowText().replace('          - target: linux-x64\n            os: linux\n            arch: x64\n            runner: [self-hosted, sero-linux, X64]\n            dist: dist:linux:x64\n', ''));
 
-    await expect(verifyFixture()).rejects.toThrow('.github/workflows/host-mode-release.yml: missing Linux release job/matrix entry');
+    await expect(verifyFixture()).rejects.toThrow('.github/workflows/host-mode-release.yml: missing Linux x64 release job/matrix entry');
   });
 
   it('fails on stale docs that require local browser-pack overrides for supported platforms', async () => {
@@ -113,6 +115,8 @@ async function writeFixture() {
     scripts: {
       'dist:mac': 'bash scripts/build-release.sh --target mac',
       'dist:linux': 'bash scripts/build-release.sh --target linux',
+      'dist:linux:x64': 'bash scripts/build-release.sh --target linux --arch x64',
+      'dist:linux:arm64': 'bash scripts/build-release.sh --target linux --arch arm64',
       'dist:win': 'bash scripts/build-release.sh --target win',
       'browser-pack:verify-published': 'node scripts/browser-pack/verify-browser-pack-publication.mjs',
     },
@@ -156,14 +160,25 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: macos
+          - target: macos-arm64
+            os: macos
+            arch: arm64
             runner: [self-hosted, macos, ARM64]
             dist: dist:mac
-          - os: linux
-            runner: [self-hosted, sero-linux]
-            dist: dist:linux
-          - os: windows
-            runner: [self-hosted, sero-windows]
+          - target: linux-x64
+            os: linux
+            arch: x64
+            runner: [self-hosted, sero-linux, X64]
+            dist: dist:linux:x64
+          - target: linux-arm64
+            os: linux
+            arch: arm64
+            runner: [self-hosted, sero-linux, ARM64]
+            dist: dist:linux:arm64
+          - target: windows-x64
+            os: windows
+            arch: x64
+            runner: [self-hosted, sero-windows, X64]
             dist: dist:win
     steps:
       - run: pnpm --filter @sero/desktop browser-pack:verify-published

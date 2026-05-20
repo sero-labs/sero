@@ -51,6 +51,7 @@ export async function createHostProcessEnv(
   workspaceId: string,
   overrides?: Record<string, string>,
   platform: NodeJS.Platform = process.platform,
+  options: { tokenMode?: 'single-use' | 'reusable' } = {},
 ): Promise<Record<string, string>> {
   const env: Record<string, string> = {};
   for (const [key, value] of Object.entries(process.env)) {
@@ -60,6 +61,7 @@ export async function createHostProcessEnv(
   return addSeroCliEnv({ ...env, ...sanitizeEnvOverrides(overrides) }, {
     workspaceId,
     sessionId: overrides?.SERO_SESSION_ID,
+    tokenMode: options.tokenMode,
   }, platform);
 }
 

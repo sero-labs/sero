@@ -1,6 +1,7 @@
 import { execFile } from 'child_process';
 
 import type { ToolName, ToolSource, ToolStatus } from './types';
+import { renderWindowsCommandScript } from './windows-command';
 
 export interface ToolVerifierCommandResult {
   stdout: string;
@@ -147,7 +148,8 @@ function runVerifierCommand(
   options: { timeoutMs: number },
 ): Promise<ToolVerifierCommandResult> {
   return new Promise((resolve) => {
-    execFile(program, args, { timeout: options.timeoutMs }, (error, stdout, stderr) => {
+    const rendered = process.platform === 'win32' ? renderWindowsCommandScript(program, args) : null;
+    execFile(rendered?.program ?? program, rendered?.args ?? args, { timeout: options.timeoutMs }, (error, stdout, stderr) => {
       const status = error as NodeJS.ErrnoException | null;
       const errorCode = typeof status?.code === 'string' ? status.code : undefined;
       resolve({

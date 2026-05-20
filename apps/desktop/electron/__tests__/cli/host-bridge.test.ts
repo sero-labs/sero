@@ -168,7 +168,7 @@ describe('host Sero CLI bridge', () => {
     expect(await unknown.json()).toMatchObject({ output: 'Unauthorized', exitCode: 1 });
   });
 
-  it('rejects replayed bridge tokens after first use', async () => {
+  it('rejects replayed single-use bridge tokens after first use', async () => {
     getCliRegistry().register({
       name: 'replay-test',
       summary: 'Replay test',
@@ -190,6 +190,30 @@ describe('host Sero CLI bridge', () => {
     expect(await first.json()).toMatchObject({ output: 'ok', exitCode: 0 });
     expect(replay.status).toBe(401);
     expect(await replay.json()).toMatchObject({ output: 'Unauthorized', exitCode: 1 });
+  });
+
+  it('allows reusable bridge tokens for long-lived host terminal environments', async () => {
+    getCliRegistry().register({
+      name: 'terminal-token-test',
+      summary: 'Terminal token test',
+      execute: async () => ({ output: 'ok', exitCode: 0 }),
+    });
+    await ensureHostSeroCliBridge();
+    const env = addSeroCliEnv({}, { workspaceId: 'ws-1', tokenMode: 'reusable' });
+
+    const first = await postBridge(env.SERO_CLI_ENDPOINT ?? '', env.SERO_CLI_TOKEN ?? '', {
+      argv: ['terminal-token-test'],
+      cwd: '/tmp/ws-1',
+    });
+    const second = await postBridge(env.SERO_CLI_ENDPOINT ?? '', env.SERO_CLI_TOKEN ?? '', {
+      argv: ['terminal-token-test'],
+      cwd: '/tmp/ws-1',
+    });
+
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    expect(await first.json()).toMatchObject({ output: 'ok', exitCode: 0 });
+    expect(await second.json()).toMatchObject({ output: 'ok', exitCode: 0 });
   });
 
   it('uses token scope instead of spoofed payload workspace/session fields', async () => {

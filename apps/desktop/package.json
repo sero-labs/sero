@@ -37,6 +37,8 @@
     "dist": "bash scripts/build-release.sh --target current",
     "dist:mac": "bash scripts/build-release.sh --target mac",
     "dist:linux": "bash scripts/build-release.sh --target linux",
+    "dist:linux:x64": "bash scripts/build-release.sh --target linux --arch x64",
+    "dist:linux:arm64": "bash scripts/build-release.sh --target linux --arch arm64",
     "dist:win": "bash scripts/build-release.sh --target win"
   },
   "dependencies": {

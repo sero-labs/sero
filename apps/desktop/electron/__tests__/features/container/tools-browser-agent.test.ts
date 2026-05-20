@@ -4,9 +4,11 @@ import type { RuntimeBackend } from '@electron/features/workspace/runtime/types'
 import type { BrowserRuntimeAdapter } from '@electron/features/workspace/runtime/browser-pack/types';
 import { createAgentBrowser } from '@electron/features/container/tools/tools-browser-agent';
 import {
+  agentBrowserCommand,
   BrowserPackRequiredError,
   ensureFfmpegAvailable,
   resolveBrowserAutomationRuntime,
+  toHostShellPath,
 } from '@electron/features/container/tools/tools-browser-runtime-adapter';
 
 type ExecResult = { stdout: string; stderr: string; exitCode: number };
@@ -117,6 +119,24 @@ describe('createAgentBrowser', () => {
     expect(exec.mock.calls[1][1].indexOf('/agent-browser/bin')).toBeLessThan(exec.mock.calls[1][1].indexOf(':\"$PATH\"'));
     expect(exec.mock.calls[1][1]).toContain("'--executable-path' '/fixed/toolchains/2026.05.16/browser/chromium/chrome'");
     expect(exec.mock.calls[1][1]).toContain("'open' 'about:blank'");
+  });
+
+  it('renders Windows host browser-pack PATH entries for Git Bash', () => {
+    const hostAdapter: BrowserRuntimeAdapter = {
+      browsersPath: 'C:\\Users\\me\\.sero-ui\\toolchains\\browser-pack\\browser',
+      chromiumExecutableCandidates: ['C:\\Users\\me\\.sero-ui\\toolchains\\browser-pack\\browser\\chromium\\chrome.exe'],
+      ffmpegCandidates: ['C:\\Users\\me\\.sero-ui\\toolchains\\browser-pack\\browser\\ffmpeg\\ffmpeg.exe'],
+      agentBrowserCandidates: ['C:\\Users\\me\\.sero-ui\\toolchains\\browser-pack\\browser\\agent-browser\\bin\\agent-browser.cmd'],
+      pathPrefixes: ['C:\\Users\\me\\.sero-ui\\toolchains\\browser-pack\\browser\\agent-browser\\bin'],
+      tempDir: 'C:\\Users\\me\\.sero-ui\\toolchains\\browser-pack\\browser\\tmp',
+      env: { PLAYWRIGHT_BROWSERS_PATH: 'C:\\Users\\me\\.sero-ui\\toolchains\\browser-pack\\browser' },
+    };
+
+    const command = agentBrowserCommand(hostAdapter, ['open', 'about:blank'], undefined, 'win32');
+
+    expect(toHostShellPath('C:\\Users\\me\\repo', 'win32')).toBe('/c/Users/me/repo');
+    expect(command).toContain("export PATH='/c/Users/me/.sero-ui/toolchains/browser-pack/browser/agent-browser/bin:/c/Users/me/.sero-ui/toolchains/browser-pack/browser/ffmpeg':\"$PATH\";");
+    expect(command).toContain("export PLAYWRIGHT_BROWSERS_PATH='C:\\Users\\me\\.sero-ui\\toolchains\\browser-pack\\browser'");
   });
 
   it('does not globally install agent-browser when the CLI is missing', async () => {

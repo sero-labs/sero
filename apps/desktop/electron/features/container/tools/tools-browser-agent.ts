@@ -42,6 +42,7 @@ function sessionCommand(
     adapter,
     ['--session', browserSessionName(workspaceId, backend), ...(executablePath ? ['--executable-path', executablePath] : []), ...args],
     env,
+    backend === 'host' ? process.platform : undefined,
   );
 }
 

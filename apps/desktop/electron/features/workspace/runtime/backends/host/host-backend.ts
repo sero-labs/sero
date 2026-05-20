@@ -296,7 +296,7 @@ export class HostBackend implements RuntimeBackend {
       input.terminalId,
       await this.substrate.terminalCommand({
         cwd: (await this.resolveHostPath(input.cwd ?? this.runtimeWorkspacePath)).hostPath,
-        env: await createHostProcessEnv(this.workspaceId, undefined, this.substrate.platform),
+        env: await createHostProcessEnv(this.workspaceId, undefined, this.substrate.platform, { tokenMode: 'reusable' }),
       }),
       input.cols,
       input.rows,

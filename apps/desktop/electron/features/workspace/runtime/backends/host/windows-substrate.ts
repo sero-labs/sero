@@ -8,6 +8,7 @@ import { promisify } from 'util';
 import { RUNTIME_WORKSPACE_PATH } from '../../runtime-paths';
 import { HostToolResolver, type HostToolResolverLike } from '../../toolchains/host-tool-resolver';
 import type { ToolInstallReason } from '../../toolchains/types';
+import { renderWindowsCommandScript } from '../../toolchains/windows-command';
 import type {
   HostRuntimeSubstrate,
   HostSubstrateExecFileOptions,
@@ -73,9 +74,11 @@ export class WindowsHostSubstrate implements HostRuntimeSubstrate {
 
   async execFileCommand(opts: HostSubstrateExecFileOptions): Promise<HostSubstrateRendered> {
     const nativeCwd = this.toNativeHostPath(opts.cwd);
+    const preparedProgram = await this.tools.prepareProgram(opts.program, makeReason('workspace-command', nativeCwd, opts.program));
+    const renderedScript = renderWindowsCommandScript(preparedProgram, opts.args, windowsSystemToolPath('cmd.exe'));
     return {
-      program: await this.tools.prepareProgram(opts.program, makeReason('workspace-command', nativeCwd, opts.program)),
-      args: opts.args,
+      program: renderedScript?.program ?? preparedProgram,
+      args: renderedScript?.args ?? opts.args,
       nativeCwd,
       env: await this.tools.prepareEnv(opts.env),
     };

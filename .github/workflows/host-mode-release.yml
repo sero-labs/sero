@@ -19,20 +19,31 @@ env:
 
 jobs:
   host-release:
-    name: Host release (${{ matrix.os }})
+    name: Host release (${{ matrix.target }})
     timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
         include:
-          - os: macos
+          - target: macos-arm64
+            os: macos
+            arch: arm64
             runner: [self-hosted, macos, ARM64]
             dist: dist:mac
-          - os: linux
-            runner: [self-hosted, sero-linux]
-            dist: dist:linux
-          - os: windows
-            runner: [self-hosted, sero-windows]
+          - target: linux-x64
+            os: linux
+            arch: x64
+            runner: [self-hosted, sero-linux, X64]
+            dist: dist:linux:x64
+          - target: linux-arm64
+            os: linux
+            arch: arm64
+            runner: [self-hosted, sero-linux, ARM64]
+            dist: dist:linux:arm64
+          - target: windows-x64
+            os: windows
+            arch: x64
+            runner: [self-hosted, sero-windows, X64]
             dist: dist:win
     runs-on: ${{ matrix.runner }}
     defaults:
@@ -90,7 +101,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: host-mode-release-${{ matrix.os }}-packages
+          name: host-mode-release-${{ matrix.target }}-packages
           path: apps/desktop/release/
           if-no-files-found: ignore
           retention-days: 14
@@ -99,7 +110,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: host-mode-release-${{ matrix.os }}-playwright
+          name: host-mode-release-${{ matrix.target }}-playwright
           path: |
             apps/desktop/test-results/
             apps/desktop/playwright-report/

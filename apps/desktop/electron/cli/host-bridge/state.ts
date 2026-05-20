@@ -17,13 +17,18 @@ export interface SeroCliBridgeTokenScope {
 export interface SeroCliEnvOptions {
   workspaceId?: string;
   sessionId?: string | null;
+  tokenMode?: SeroCliBridgeTokenMode;
 }
 
 const BRIDGE_TOKEN_TTL_MS = 5 * 60 * 1000;
+const BRIDGE_REUSABLE_TOKEN_TTL_MS = 12 * 60 * 60 * 1000;
 const MAX_BRIDGE_TOKENS = 1024;
+
+export type SeroCliBridgeTokenMode = 'single-use' | 'reusable';
 
 interface SeroCliBridgeTokenRecord extends SeroCliBridgeTokenScope {
   expiresAt: number;
+  mode: SeroCliBridgeTokenMode;
 }
 
 let bridgeConnection: SeroCliBridgeConnection | null = null;
@@ -41,14 +46,19 @@ export function getSeroCliBridgeConnection(): SeroCliBridgeConnection | null {
   return bridgeConnection;
 }
 
-export function mintSeroCliBridgeToken(scope: SeroCliBridgeTokenScope): string {
+export function mintSeroCliBridgeToken(
+  scope: SeroCliBridgeTokenScope,
+  options: { mode?: SeroCliBridgeTokenMode; ttlMs?: number } = {},
+): string {
   const now = Date.now();
+  const mode = options.mode ?? 'single-use';
   pruneExpiredBridgeTokens(now);
   const token = crypto.randomBytes(32).toString('hex');
   bridgeTokens.set(token, {
     workspaceId: scope.workspaceId,
     sessionId: scope.sessionId,
-    expiresAt: now + BRIDGE_TOKEN_TTL_MS,
+    expiresAt: now + (options.ttlMs ?? (mode === 'reusable' ? BRIDGE_REUSABLE_TOKEN_TTL_MS : BRIDGE_TOKEN_TTL_MS)),
+    mode,
   });
   pruneOverflowBridgeTokens();
   return token;
@@ -71,7 +81,7 @@ function readSeroCliBridgeTokenScope(token: string, consume: boolean): SeroCliBr
     bridgeTokens.delete(token);
     return null;
   }
-  if (consume) bridgeTokens.delete(token);
+  if (consume && record.mode === 'single-use') bridgeTokens.delete(token);
   return { workspaceId: record.workspaceId, sessionId: record.sessionId };
 }
 
@@ -112,11 +122,11 @@ export function addSeroCliEnv(
 
   if (bridgeConnection && options.workspaceId) {
     next.SERO_CLI_ENDPOINT = bridgeConnection.endpoint;
-    // Host bridge tokens are single-use: each spawned host process gets one shim invocation.
+    // Host bridge tokens default to single-use; long-lived host terminals request reusable scoped tokens.
     next.SERO_CLI_TOKEN = mintSeroCliBridgeToken({
       workspaceId: options.workspaceId,
       sessionId: options.sessionId ?? null,
-    });
+    }, { mode: options.tokenMode });
   }
 
   return next;

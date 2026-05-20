@@ -13,14 +13,17 @@ const defaultRepoRoot = path.resolve(defaultDesktopRoot, '../..');
 const requiredPackageScripts = [
   'dist:mac',
   'dist:linux',
+  'dist:linux:x64',
+  'dist:linux:arm64',
   'dist:win',
   'browser-pack:verify-published',
 ];
 
 const workflowRequirements = [
-  { name: 'macOS', osToken: 'macos', runnerLabel: 'ARM64', distScript: 'dist:mac' },
-  { name: 'Linux', osToken: 'linux', runnerLabel: 'sero-linux', distScript: 'dist:linux' },
-  { name: 'Windows', osToken: 'windows', runnerLabel: 'sero-windows', distScript: 'dist:win' },
+  { name: 'macOS arm64', targetToken: 'macos-arm64', osToken: 'macos', archToken: 'arm64', runnerLabel: 'ARM64', distScript: 'dist:mac' },
+  { name: 'Linux x64', targetToken: 'linux-x64', osToken: 'linux', archToken: 'x64', runnerLabel: 'X64', distScript: 'dist:linux:x64' },
+  { name: 'Linux arm64', targetToken: 'linux-arm64', osToken: 'linux', archToken: 'arm64', runnerLabel: 'ARM64', distScript: 'dist:linux:arm64' },
+  { name: 'Windows x64', targetToken: 'windows-x64', osToken: 'windows', archToken: 'x64', runnerLabel: 'X64', distScript: 'dist:win' },
 ];
 
 const docFilesToCheck = [
@@ -141,8 +144,14 @@ function checkWorkflow(workflowPath, workflowText, failures) {
   }
 
   for (const requirement of workflowRequirements) {
-    if (!workflowText.includes(`os: ${requirement.osToken}`) && !workflowText.includes(`os: '${requirement.osToken}'`) && !workflowText.includes(`os: "${requirement.osToken}"`)) {
+    if (!workflowText.includes(`target: ${requirement.targetToken}`) && !workflowText.includes(`target: '${requirement.targetToken}'`) && !workflowText.includes(`target: "${requirement.targetToken}"`)) {
       failures.push(`${relativePath(workflowPath)}: missing ${requirement.name} release job/matrix entry`);
+    }
+    if (!workflowText.includes(`os: ${requirement.osToken}`) && !workflowText.includes(`os: '${requirement.osToken}'`) && !workflowText.includes(`os: "${requirement.osToken}"`)) {
+      failures.push(`${relativePath(workflowPath)}: missing ${requirement.name} OS marker: ${requirement.osToken}`);
+    }
+    if (!workflowText.includes(`arch: ${requirement.archToken}`) && !workflowText.includes(`arch: '${requirement.archToken}'`) && !workflowText.includes(`arch: "${requirement.archToken}"`)) {
+      failures.push(`${relativePath(workflowPath)}: missing ${requirement.name} architecture marker: ${requirement.archToken}`);
     }
     if (!workflowText.includes(requirement.runnerLabel)) {
       failures.push(`${relativePath(workflowPath)}: missing ${requirement.name} runner label: ${requirement.runnerLabel}`);
