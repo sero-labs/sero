@@ -280,7 +280,7 @@ test.describe('CLI registry contracts', () => {
   });
 
   test('executes VCS status against a real host workspace', () => {
-    expect(result.vcsStatus.exit).toBe(0);
+    expect(result.vcsStatus.exit, result.vcsStatus.stdout).toBe(0);
     expect(result.vcsStatus.stdout).toEqual(expect.any(String));
     expect(result.vcsStatus.stdout.length).toBeGreaterThan(0);
   });

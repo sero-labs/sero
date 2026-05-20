@@ -105,6 +105,7 @@ describe('ToolchainManager', () => {
   });
 
   afterEach(async () => {
+    vi.unstubAllEnvs();
     await Promise.all(cleanupVersions.map((version) => fs.promises.rm(toolchainVersionRoot(version), { recursive: true, force: true })));
     await fs.promises.rm(path.join(SERO_FIXED_ROOT, 'toolchains-test-archives'), { recursive: true, force: true });
     cleanupVersions.length = 0;
@@ -124,6 +125,33 @@ describe('ToolchainManager', () => {
     });
 
     await expect(manager.ensure('node', reason)).resolves.toMatchObject({ source: 'system', path: '/usr/bin/node' });
+    expect(downloader).not.toHaveBeenCalled();
+  });
+
+  it('finds Git Bash in standard Windows install locations even when bash is not on PATH', async () => {
+    vi.stubEnv('ProgramFiles', 'C:\\Program Files');
+    const harness = await createHarness('bash');
+    cleanupVersions.push(harness.version);
+    const downloader = vi.fn<((options: DownloadArtifactOptions) => Promise<void>)>();
+    const verifier = vi.fn(async (tool: ToolName, candidate: string): Promise<ToolStatus> => {
+      if (candidate === 'C:\\Program Files\\Git\\bin\\bash.exe') {
+        return { tool, state: 'ready', source: 'system', path: candidate, version: '5.2.0' };
+      }
+      return { tool, state: 'missing', source: 'system', path: candidate };
+    });
+    const manager = new ToolchainManager({
+      manifest: harness.manifest,
+      platform: 'win32',
+      arch: 'x64',
+      downloader,
+      verifier,
+    });
+
+    await expect(manager.ensure('bash', reason)).resolves.toMatchObject({
+      source: 'system',
+      path: 'C:\\Program Files\\Git\\bin\\bash.exe',
+    });
+    expect(verifier).toHaveBeenCalledWith('bash', 'bash', { source: 'system' });
     expect(downloader).not.toHaveBeenCalled();
   });
 
