@@ -37,6 +37,19 @@ class MockSpawnedProcess extends EventEmitter {
   };
 }
 
+class MockExitingProcess extends EventEmitter {
+  readonly pid = 1234;
+  readonly stdout = new MockReadable();
+  readonly stderr = new MockReadable();
+  readonly stdin = {
+    write: vi.fn(() => {
+      this.stderr.emit('data', Buffer.from('typescript-language-server: command not found\n'));
+      this.emit('exit', 127, null);
+      return true;
+    }),
+  };
+}
+
 const tempDirs: string[] = [];
 
 const config: LspServerConfig = {
@@ -83,6 +96,21 @@ describe('LspServerProcess host runtime launch', () => {
 
     expect(uri).toBe('file:///D:/a/sero/host%20release%20runtime%20workspace%20caf%C3%A9/src/example.ts');
     expect(filePathFromUri(uri, 'win32')).toBe(windowsPath);
+  });
+
+  it('reports early language-server exits with recent output', async () => {
+    const child = new MockExitingProcess();
+    mocks.spawnMock.mockReturnValue(child);
+    const workspacePath = await mkdtemp(path.join(os.tmpdir(), 'sero-lsp-posix-'));
+    tempDirs.push(workspacePath);
+    const backend = new HostBackend({
+      workspaceId: 'workspace-a',
+      hostWorkspacePath: workspacePath,
+      substrate: createPosixHostSubstrate({ platform: 'darwin', tools: createMockTools() }),
+    });
+    const server = new LspServerProcess('workspace-a', config, backend, {});
+
+    await expect(server.start()).rejects.toThrow(/typescript language server exited during startup.*command not found/s);
   });
 
   it('starts POSIX host language servers with host-visible roots and URI translation', async () => {

@@ -19,6 +19,7 @@ import {
 } from '@electron/features/workspace/runtime/runtime-paths';
 
 const REQUEST_TIMEOUT_MS = 30_000;
+const RECENT_OUTPUT_LIMIT = 4000;
 
 interface InitializeResult {
   capabilities?: Record<string, unknown>;
@@ -69,6 +70,7 @@ export class LspServerProcess extends EventEmitter {
   private _initialized = false;
   private _disposed = false;
   private capabilities: Record<string, unknown> = {};
+  private recentOutput = '';
   private unhandledServerRequestMethods = new Set<string>();
 
   constructor(
@@ -100,12 +102,16 @@ export class LspServerProcess extends EventEmitter {
       stdio: 'pipe',
     });
 
-    this.process.onData((data) => this.parser.feed(Buffer.from(data)));
+    this.process.onData((data) => {
+      this.recordOutput(data);
+      this.parser.feed(Buffer.from(data));
+    });
 
     this.process.onExit(({ exitCode, signal }) => {
       console.log(`[lsp:${this.config.language}] Exited (code=${exitCode}, signal=${signal})`);
+      const reason = this._initialized ? undefined : this.startupExitError(exitCode, signal);
       this.emit('exit', exitCode, signal);
-      this.cleanup();
+      this.cleanup(reason);
     });
 
     return this.initialize();
@@ -294,12 +300,23 @@ export class LspServerProcess extends EventEmitter {
     }
   }
 
-  private cleanup(): void {
+  private recordOutput(chunk: string): void {
+    this.recentOutput = `${this.recentOutput}${chunk}`.slice(-RECENT_OUTPUT_LIMIT);
+  }
+
+  private startupExitError(exitCode: number | null, signal: string | undefined): Error {
+    const details = [`code=${exitCode}`, signal ? `signal=${signal}` : undefined].filter(Boolean).join(', ');
+    const output = this.recentOutput.trim();
+    const outputSuffix = output ? ` Recent output:\n${output}` : '';
+    return new Error(`${this.config.language} language server exited during startup (${details}).${outputSuffix}`);
+  }
+
+  private cleanup(reason = new Error('Server disposed')): void {
     this._disposed = true;
     this._initialized = false;
     for (const [, pending] of this.pendingRequests) {
       clearTimeout(pending.timer);
-      pending.reject(new Error('Server disposed'));
+      pending.reject(reason);
     }
     this.pendingRequests.clear();
     this.parser.reset();

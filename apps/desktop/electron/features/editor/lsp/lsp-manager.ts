@@ -202,6 +202,10 @@ export class LspManager extends EventEmitter {
           }
           throw new Error(`Failed to install ${config.language} server: ${installResult.stderr || installResult.stdout}`);
         }
+        const verifyResult = await runtime.exec({ command: config.checkCommand });
+        if (verifyResult.exitCode !== 0) {
+          throw new Error(`Installed ${config.language} server but command was not found: ${verifyResult.stderr || verifyResult.stdout}`);
+        }
         console.log(`[lsp-manager] Installed ${config.language} server in ${runtime.workspaceId}`);
         return;
       } catch (err: unknown) {
