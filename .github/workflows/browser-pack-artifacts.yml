@@ -157,6 +157,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      pull-requests: write
     timeout-minutes: 45
     defaults:
       run:
@@ -212,10 +213,10 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      - name: Commit metadata update
+      - name: Open metadata update pull request
         if: ${{ inputs.commit_metadata == 'true' }}
         env:
-          GITHUB_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           if git diff --quiet -- apps/desktop/electron/features/workspace/runtime/browser-pack/generated-artifacts.json; then
             echo "generated-artifacts.json is already up to date."
@@ -223,10 +224,18 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          branch="chore/browser-pack-metadata-${GITHUB_RUN_ID}"
+          git checkout -b "$branch"
           git add apps/desktop/electron/features/workspace/runtime/browser-pack/generated-artifacts.json
           git commit -m "chore(desktop): publish browser pack metadata"
-          git push origin HEAD:${GITHUB_REF_NAME}
+          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git push origin HEAD:"$branch"
+          gh pr create \
+            --repo "$GITHUB_REPOSITORY" \
+            --base "$GITHUB_REF_NAME" \
+            --head "$branch" \
+            --title "chore(desktop): publish browser pack metadata" \
+            --body "Updates generated browser-pack metadata after publishing verified release assets from workflow run ${GITHUB_RUN_ID}."
 
       - name: Summary
         run: |
