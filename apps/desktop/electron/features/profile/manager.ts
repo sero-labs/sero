@@ -22,8 +22,15 @@ import { randomUUID } from 'crypto';
 import type { ProfileInfo } from '@/types/profile';
 import type { ProfileEntry, ProfileRegistry } from './types';
 
+function resolveSeroRoot(): string {
+  if (process.env.NODE_ENV === 'test' && process.env.SERO_FIXED_ROOT_OVERRIDE) {
+    return path.resolve(process.env.SERO_FIXED_ROOT_OVERRIDE);
+  }
+  return path.join(os.homedir(), '.sero-ui');
+}
+
 /** Fixed location for the profile registry — never changes. */
-const SERO_ROOT = path.join(os.homedir(), '.sero-ui');
+const SERO_ROOT = resolveSeroRoot();
 const REGISTRY_PATH = path.join(SERO_ROOT, 'profiles.json');
 export const PROFILE_REGISTRY_PATH = REGISTRY_PATH;
 

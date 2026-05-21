@@ -27,8 +27,15 @@ import type { ProfileRegistryStartupIssue } from '@electron/features/profile/rec
 
 // ── Fixed root — always ~/.sero-ui/ ─────────────────────────
 
+function resolveSeroFixedRoot(): string {
+  if (process.env.NODE_ENV === 'test' && process.env.SERO_FIXED_ROOT_OVERRIDE) {
+    return path.resolve(process.env.SERO_FIXED_ROOT_OVERRIDE);
+  }
+  return path.join(os.homedir(), '.sero-ui');
+}
+
 /** The fixed Sero root directory. profiles.json always lives here. */
-export const SERO_FIXED_ROOT = path.join(os.homedir(), '.sero-ui');
+export const SERO_FIXED_ROOT = resolveSeroFixedRoot();
 
 // ── Profile-aware SERO_HOME resolution ──────────────────────
 

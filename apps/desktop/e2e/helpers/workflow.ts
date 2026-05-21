@@ -96,6 +96,7 @@ export async function launchWorkflowApp(
     env: {
       HOME: options.home.path,
       USERPROFILE: options.home.path,
+      SERO_FIXED_ROOT_OVERRIDE: path.join(options.home.path, '.sero-ui'),
       ...options.env,
     },
   });

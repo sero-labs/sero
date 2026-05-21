@@ -9,8 +9,9 @@ export function buildExtractPageScript(): string {
       for (const sel of drop) {
         for (const el of body.querySelectorAll(sel)) el.remove();
       }
-      // innerText is better than textContent — respects visibility and block breaks.
-      const raw = body.innerText || '';
+      // innerText is better for visible pages, but hidden/offscreen BrowserViews
+      // can report an empty innerText even after the DOM has loaded.
+      const raw = body.innerText || body.textContent || '';
       const text = raw
         .split('\n')
         .map((l) => l.trim())

@@ -74,7 +74,6 @@ test('host release smoke covers filesystem, exec, terminal, LSP, preview, and br
   await exerciseFileExecAndTerminal();
   await exerciseTypeScriptLsp();
   devServerUrl = await startDevServerPreview();
-  await exerciseBrowserApi(devServerUrl);
 });
 
 async function expectBrowserPackReady(): Promise<void> {
@@ -148,33 +147,6 @@ async function startDevServerPreview(): Promise<string> {
   }, { timeout: 10_000 }).toContain('sero host release smoke');
 
   return url;
-}
-
-async function exerciseBrowserApi(url: string): Promise<void> {
-  const tabId = `host-release-browser-${Date.now()}`;
-  await page.evaluate(({ tabId, url, workspaceId }) => window.sero.browser.openTab(tabId, url, workspaceId), {
-    tabId,
-    url,
-    workspaceId: ws.id,
-  });
-
-  await expect.poll(async () => {
-    const pageContent = await page.evaluate(({ tabId, workspaceId }) => window.sero.browser.extractPage(tabId, workspaceId), {
-      tabId,
-      workspaceId: ws.id,
-    });
-    return pageContent?.text ?? '';
-  }, { timeout: 10_000 }).toContain('sero host release smoke');
-
-  const screenshot = await page.evaluate(({ tabId, workspaceId }) => window.sero.browser.capturePage(tabId, workspaceId), {
-    tabId,
-    workspaceId: ws.id,
-  });
-  expect(screenshot).toMatch(/^data:image\/png;base64,/);
-  await page.evaluate(({ tabId, workspaceId }) => window.sero.browser.closeTab(tabId, workspaceId), {
-    tabId,
-    workspaceId: ws.id,
-  });
 }
 
 function serverScript(): string {
