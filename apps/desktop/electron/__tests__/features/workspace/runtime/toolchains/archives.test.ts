@@ -3,7 +3,7 @@ import os from 'os';
 import path from 'path';
 import { gzip } from 'zlib';
 import { promisify } from 'util';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { unpackArchive } from '@electron/features/workspace/runtime/toolchains/archives';
 
@@ -11,6 +11,7 @@ const gzipAsync = promisify(gzip);
 const tempRoots: string[] = [];
 
 afterEach(async () => {
+  vi.restoreAllMocks();
   await Promise.all(tempRoots.splice(0).map((root) => fs.promises.rm(root, { recursive: true, force: true })));
 });
 
@@ -52,6 +53,22 @@ describe('toolchain archive unpacking', () => {
     await unpackArchive({ archivePath, destination });
 
     await expect(fs.promises.readFile(path.join(destination, 'agent-browser/bin/agent-browser'), 'utf8')).resolves.toBe('agent-ok');
+  });
+
+  it('copies safe symlink targets when the platform refuses symlink creation', async () => {
+    const root = await tempRoot();
+    const archivePath = path.join(root, 'fixture.tar.gz');
+    const destination = path.join(root, 'out');
+    await fs.promises.writeFile(archivePath, await makeTarGz([
+      { name: 'agent-browser/node_modules/.bin/agent-browser', type: 'symlink', linkName: '../agent-browser/bin/agent-browser.js' },
+      { name: 'agent-browser/node_modules/agent-browser/bin/agent-browser.js', type: 'file', content: 'agent-ok' },
+    ]));
+    vi.spyOn(fs.promises, 'symlink').mockRejectedValue(Object.assign(new Error('symlink refused'), { code: 'ENOTSUP' }));
+
+    await unpackArchive({ archivePath, destination });
+
+    await expect(fs.promises.readFile(path.join(destination, 'agent-browser/node_modules/.bin/agent-browser'), 'utf8'))
+      .resolves.toBe('agent-ok');
   });
 
   it('rejects tar.gz symlinks that escape the destination', async () => {
