@@ -53,7 +53,7 @@ export interface LaunchOptions {
  * Returns the ElectronApplication handle and the first BrowserWindow page.
  * The app is started from the built output in dist/electron/main.mjs.
  *
- * Call `app.close()` in your test teardown.
+ * Call `closeSeroApp(app)` in your test teardown.
  */
 export async function launchSeroApp(
   options: LaunchOptions = {},
@@ -122,6 +122,27 @@ export async function launchSeroApp(
   }
 
   return { app, page };
+}
+
+export async function closeSeroApp(app: ElectronApplication, timeoutMs = 5_000): Promise<void> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await Promise.race([
+      app.close(),
+      new Promise<void>((resolve) => {
+        timeout = setTimeout(() => {
+          try {
+            app.process().kill();
+          } catch {
+            /* Process may already be gone. */
+          }
+          resolve();
+        }, timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
 }
 
 function isTransientMainProcessEvaluateError(error: unknown): boolean {

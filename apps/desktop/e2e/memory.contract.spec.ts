@@ -3,7 +3,7 @@ import path from 'path';
 import fs from 'fs/promises';
 import os from 'os';
 
-import { launchSeroApp } from './helpers';
+import { closeSeroApp, launchSeroApp } from './helpers';
 
 /**
  * Memory plugin e2e tests.
@@ -33,7 +33,7 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(async () => {
-  await app.close();
+  await closeSeroApp(app);
   // Clean up temp directory
   await fs.rm(seroHome, { recursive: true, force: true }).catch(() => {});
 });

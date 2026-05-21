@@ -1,5 +1,5 @@
 import { test, expect, type ElectronApplication, type Page } from '@playwright/test';
-import { launchSeroApp } from './helpers/electron-app';
+import { closeSeroApp, launchSeroApp } from './helpers/electron-app';
 import { createTempSeroHome, type TempSeroHome } from './helpers/seroHome';
 
 test.describe.configure({ mode: 'serial' });
@@ -31,20 +31,7 @@ test.afterAll(async () => {
 });
 
 async function closeApp(): Promise<void> {
-  let timeout: ReturnType<typeof setTimeout> | undefined;
-  try {
-    await Promise.race([
-      app.close(),
-      new Promise<void>((resolve) => {
-        timeout = setTimeout(() => {
-          app.process().kill();
-          resolve();
-        }, 5_000);
-      }),
-    ]);
-  } finally {
-    if (timeout) clearTimeout(timeout);
-  }
+  await closeSeroApp(app);
 }
 
 test.describe('profiles and onboarding IPC contracts', () => {

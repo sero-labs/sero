@@ -7,7 +7,7 @@
  */
 
 import { test, expect, type ElectronApplication, type Page } from '@playwright/test';
-import { createTempSeroHome, launchSeroApp, type TempSeroHome } from './helpers';
+import { closeSeroApp, createTempSeroHome, launchSeroApp, type TempSeroHome } from './helpers';
 
 let app: ElectronApplication;
 let page: Page;
@@ -24,7 +24,7 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(async () => {
-  await app.close();
+  await closeSeroApp(app);
   seroHome.cleanup();
 });
 

@@ -1,7 +1,7 @@
 import { test, expect, type ElectronApplication, type Page } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
-import { launchSeroApp } from './helpers/electron-app';
+import { closeSeroApp, launchSeroApp } from './helpers/electron-app';
 import { createTempSeroHome, type TempSeroHome } from './helpers/seroHome';
 import type { WorkspaceRuntimeBackend } from '../src/types/workspace-runtime';
 
@@ -37,7 +37,7 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(async () => {
-  await app.close();
+  await closeSeroApp(app);
   home.cleanup();
 });
 

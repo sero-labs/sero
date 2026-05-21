@@ -40,6 +40,7 @@ import { watchForNewApps } from './ipc/apps';
 import { ensureDefaultAgents, ensureDefaultSkills, ensureDefaultThemes, ensureProfileTemplates } from './features/profile/setup';
 import { handleProfileRegistryRecovery } from './features/profile/recovery';
 import {
+  appRuntimeManager,
   ensureInfra,
   fileWatcherManager,
   gatewayServer,
@@ -347,6 +348,7 @@ async function performGracefulShutdown(): Promise<void> {
 
   await Promise.allSettled([
     withShutdownTimeout('agent sessions', disposeAllAgentSessions),
+    withShutdownTimeout('app runtimes', () => appRuntimeManager.dispose()),
     withShutdownTimeout('plugin dev sessions', () => pluginDevSessionManager.dispose()),
     withShutdownTimeout(
       'gateway',

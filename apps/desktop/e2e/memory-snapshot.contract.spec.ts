@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
-import { launchSeroApp } from './helpers';
+import { closeSeroApp, launchSeroApp } from './helpers';
 import {
   nowTimestamp,
   serializeMemoryEntries,
@@ -46,7 +46,7 @@ async function createTestContext(): Promise<TestContext> {
 }
 
 async function destroyTestContext(ctx: TestContext): Promise<void> {
-  await ctx.app.close();
+  await closeSeroApp(ctx.app);
   await fs.rm(ctx.seroHome, { recursive: true, force: true }).catch(() => {});
 }
 

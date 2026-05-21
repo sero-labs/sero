@@ -1,5 +1,5 @@
 import { test, expect, type ElectronApplication, type Page } from '@playwright/test';
-import { launchSeroApp } from './helpers/electron-app';
+import { closeSeroApp, launchSeroApp } from './helpers/electron-app';
 import { createTempSeroHome, type TempSeroHome } from './helpers/seroHome';
 
 test.describe.configure({ mode: 'serial' });
@@ -19,7 +19,7 @@ test.beforeAll(async () => {
 
 test.afterAll(async () => {
   try {
-    await app.close();
+    await closeSeroApp(app);
   } finally {
     home.cleanup();
   }
