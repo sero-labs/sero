@@ -110,6 +110,8 @@ async function extractTarFile(tarPath: string, destination: string): Promise<voi
     let offset = 0;
     let sawEndOfArchive = false;
     let nextPaxHeader: PaxHeader | null = null;
+    let nextGnuLongName: string | null = null;
+    let nextGnuLongLinkName: string | null = null;
     const pendingSymlinks: PendingSymlink[] = [];
 
     while (offset + TAR_BLOCK_SIZE <= tarStats.size) {
@@ -140,14 +142,26 @@ async function extractTarFile(tarPath: string, destination: string): Promise<voi
         offset = dataStart + roundUpToBlock(size);
         continue;
       }
+      if (typeFlag === 'L' || typeFlag === 'K') {
+        if (size > 1024 * 1024) throw new Error(`Invalid GNU long tar entry ${headerEntryName}: too large`);
+        const value = parseGnuLongValue(await readExactly(handle, dataStart, size));
+        if (typeFlag === 'L') nextGnuLongName = value;
+        if (typeFlag === 'K') nextGnuLongLinkName = value;
+        offset = dataStart + roundUpToBlock(size);
+        continue;
+      }
 
       const paxHeader = nextPaxHeader;
+      const entryName = paxHeader?.path ?? nextGnuLongName ?? headerEntryName;
+      const linkName = paxHeader?.linkpath ?? nextGnuLongLinkName ?? headerLinkName;
       nextPaxHeader = null;
+      nextGnuLongName = null;
+      nextGnuLongLinkName = null;
       await extractTarEntry({
         destination,
-        entryName: paxHeader?.path ?? headerEntryName,
+        entryName,
         typeFlag,
-        linkName: paxHeader?.linkpath ?? headerLinkName,
+        linkName,
         handle,
         dataStart,
         size,
@@ -312,6 +326,11 @@ interface PendingSymlink extends SymlinkTarget {
 interface PaxHeader {
   path?: string;
   linkpath?: string;
+}
+
+function parseGnuLongValue(data: Buffer): string {
+  const end = data.indexOf(0);
+  return data.subarray(0, end === -1 ? data.length : end).toString('utf8').trim();
 }
 
 function parsePaxHeader(data: Buffer): PaxHeader {

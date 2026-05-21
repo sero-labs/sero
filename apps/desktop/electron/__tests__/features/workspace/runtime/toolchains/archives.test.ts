@@ -55,6 +55,41 @@ describe('toolchain archive unpacking', () => {
     await expect(fs.promises.readFile(path.join(destination, 'agent-browser/bin/agent-browser'), 'utf8')).resolves.toBe('agent-ok');
   });
 
+  it('extracts GNU tar long path entries', async () => {
+    const root = await tempRoot();
+    const archivePath = path.join(root, 'gnu-long-path.tar.gz');
+    const destination = path.join(root, 'out');
+    const longPath = `agent-browser/node_modules/agent-browser/skills/${'nested-directory-'.repeat(6)}file.txt`;
+    await fs.promises.writeFile(archivePath, await makeTarGz([
+      { name: '././@LongLink', type: 'file', typeFlag: 'L', content: `${longPath}\0` },
+      { name: 'truncated-name.txt', type: 'file', content: 'long-ok', mode: 0o644 },
+    ]));
+
+    await unpackArchive({ archivePath, destination });
+
+    await expect(fs.promises.readFile(path.join(destination, longPath), 'utf8')).resolves.toBe('long-ok');
+  });
+
+  it('extracts GNU tar long symlink targets', async () => {
+    const root = await tempRoot();
+    const archivePath = path.join(root, 'gnu-long-link.tar.gz');
+    const destination = path.join(root, 'out');
+    const longFileName = `${'agent-browser-entry-'.repeat(7)}browser.js`;
+    const longTarget = `agent-browser/node_modules/agent-browser/bin/${longFileName}`;
+    const longLink = `../agent-browser/bin/${longFileName}`;
+    await fs.promises.writeFile(archivePath, await makeTarGz([
+      { name: '././@LongLink', type: 'file', typeFlag: 'L', content: `${longTarget}\0` },
+      { name: 'target.js', type: 'file', content: 'agent-ok', mode: 0o644 },
+      { name: '././@LongLink', type: 'file', typeFlag: 'K', content: `${longLink}\0` },
+      { name: 'agent-browser/node_modules/.bin/agent-browser', type: 'symlink', linkName: 'truncated-target' },
+    ]));
+
+    await unpackArchive({ archivePath, destination });
+
+    await expect(fs.promises.readFile(path.join(destination, 'agent-browser/node_modules/.bin/agent-browser'), 'utf8'))
+      .resolves.toBe('agent-ok');
+  });
+
   it('copies safe symlink targets when the platform refuses symlink creation', async () => {
     const root = await tempRoot();
     const archivePath = path.join(root, 'fixture.tar.gz');
