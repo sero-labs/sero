@@ -71,9 +71,31 @@ export function findConfigByLanguageId(languageId: string): LspServerConfig | un
   return LANGUAGE_SERVERS.find((s) => s.monacoLanguageIds.includes(languageId));
 }
 
-/** Convert a container file path to a file:// URI. */
-export function fileUri(containerPath: string): string {
-  return `file://${containerPath}`;
+/** Convert an absolute POSIX or Windows file path to an encoded file:// URI. */
+export function fileUri(filePath: string): string {
+  const normalizedPath = filePath.replaceAll('\\', '/');
+  const driveMatch = normalizedPath.match(/^([A-Za-z]:)(\/.*)?$/);
+  if (driveMatch) return `file:///${driveMatch[1]}${encodeFileUriPath(driveMatch[2] ?? '/')}`;
+  if (normalizedPath.startsWith('//')) {
+    const [host = '', ...segments] = normalizedPath.slice(2).split('/');
+    return `file://${encodeURIComponent(host)}/${segments.map(encodeURIComponent).join('/')}`;
+  }
+  return `file://${encodeFileUriPath(normalizedPath)}`;
+}
+
+export function filePathFromUri(uri: string, platform: NodeJS.Platform = process.platform): string {
+  const parsed = new URL(uri);
+  if (parsed.protocol !== 'file:') throw new Error(`Unsupported LSP URI protocol: ${parsed.protocol}`);
+  const pathname = decodeURIComponent(parsed.pathname);
+  if (platform === 'win32') {
+    const withoutDriveSlash = pathname.replace(/^\/([A-Za-z]:\/)/, '$1');
+    return withoutDriveSlash.replaceAll('/', '\\');
+  }
+  return pathname;
+}
+
+function encodeFileUriPath(filePath: string): string {
+  return filePath.split('/').map(encodeURIComponent).join('/');
 }
 
 // ── JSON-RPC message types ─────────────────────────────────

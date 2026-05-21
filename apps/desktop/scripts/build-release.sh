@@ -275,10 +275,23 @@ fi
 
 # ── Step 6: Package with electron-builder ────────────────────
 echo "▸ Step 6/6: Packaging with electron-builder..."
-BUILDER_ARGS=(--config electron-builder.yml "$BUILDER_FLAG" "$BUILDER_ARCH_FLAG")
+BUILDER_ARGS=(--config electron-builder.yml "$BUILDER_FLAG")
+# electron-builder's bundled fpm helper is x64-only, so native Linux arm64
+# release jobs build AppImage + tar.gz and leave .deb to Linux x64.
+if [ "$TARGET" = "linux" ]; then
+  if [ "$TARGET_ARCH" = "arm64" ]; then
+    BUILDER_ARGS+=(AppImage tar.gz)
+  else
+    BUILDER_ARGS+=(AppImage deb tar.gz)
+  fi
+fi
+BUILDER_ARGS+=("$BUILDER_ARCH_FLAG")
 if [ "$DIR_BUILD" = true ]; then
   BUILDER_ARGS+=(--dir)
 fi
+printf '▸ electron-builder args:'
+printf ' %q' "${BUILDER_ARGS[@]}"
+printf '\n'
 
 if [ "$SIGN" = true ]; then
   # Signed build — requires CSC_LINK and CSC_KEY_PASSWORD env vars

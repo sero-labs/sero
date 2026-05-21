@@ -10,7 +10,7 @@ import type {
   LspServerConfig, JsonRpcMessage, JsonRpcRequest,
   JsonRpcResponse, JsonRpcNotification,
 } from './types';
-import { isResponse, isRequest, isNotification, fileUri } from './types';
+import { isResponse, isRequest, isNotification, fileUri, filePathFromUri } from './types';
 import { resolveServerRequest } from './server-request-handlers';
 import {
   RUNTIME_WORKSPACE_PATH,
@@ -273,12 +273,12 @@ export class LspServerProcess extends EventEmitter {
   private runtimeUriToHostUri(uri: string): string {
     const runtimePrefix = fileUri(RUNTIME_WORKSPACE_PATH);
     if (uri !== runtimePrefix && !uri.startsWith(`${runtimePrefix}/`)) return uri;
-    return fileUri(toHostWorkspacePath(this.runtime.hostWorkspacePath, uri.slice('file://'.length)));
+    return fileUri(toHostWorkspacePath(this.runtime.hostWorkspacePath, filePathFromUri(uri, 'linux')));
   }
 
   private hostUriToRuntimeUri(uri: string): string {
     if (!uri.startsWith('file://')) return uri;
-    const hostPath = uri.slice('file://'.length);
+    const hostPath = filePathFromUri(uri);
     const runtimePath = toRuntimeWorkspacePath(this.runtime.hostWorkspacePath, hostPath);
     return runtimePath ? fileUri(runtimePath) : uri;
   }

@@ -5,7 +5,7 @@ import path from 'path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { LspServerProcess } from '@electron/features/editor/lsp/lsp-process';
-import { fileUri, type LspServerConfig } from '@electron/features/editor/lsp/types';
+import { filePathFromUri, fileUri, type LspServerConfig } from '@electron/features/editor/lsp/types';
 import { createPosixHostSubstrate } from '@electron/features/workspace/runtime/backends/host/posix-substrate';
 import { HostBackend } from '@electron/features/workspace/runtime/backends/host/host-backend';
 import { RUNTIME_WORKSPACE_PATH } from '@electron/features/workspace/runtime/runtime-paths';
@@ -75,6 +75,14 @@ describe('LspServerProcess host runtime launch', () => {
 
   afterEach(async () => {
     await Promise.all(tempDirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })));
+  });
+
+  it('encodes Windows host file URIs for paths with spaces and unicode', () => {
+    const windowsPath = 'D:\\a\\sero\\host release runtime workspace café\\src\\example.ts';
+    const uri = fileUri(windowsPath);
+
+    expect(uri).toBe('file:///D:/a/sero/host%20release%20runtime%20workspace%20caf%C3%A9/src/example.ts');
+    expect(filePathFromUri(uri, 'win32')).toBe(windowsPath);
   });
 
   it('starts POSIX host language servers with host-visible roots and URI translation', async () => {

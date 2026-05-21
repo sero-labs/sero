@@ -83,6 +83,12 @@ describe('verify-host-mode-release', () => {
     await expect(verifyFixture()).rejects.toThrow('.github/workflows/host-mode-release.yml: missing Linux arm64 hosted runner: ubuntu-24.04-arm');
   });
 
+  it('fails when Linux arm64 packaging would build deb/fpm', async () => {
+    await fs.writeFile(path.join(desktopRoot, 'scripts/build-release.sh'), 'BUILDER_ARGS+=(AppImage deb tar.gz)\n');
+
+    await expect(verifyFixture()).rejects.toThrow('apps/desktop/scripts/build-release.sh: Linux arm64 packaging must avoid deb/fpm');
+  });
+
   it('fails on stale docs that require local browser-pack overrides for supported platforms', async () => {
     await fs.writeFile(
       path.join(repoRoot, 'docs/features/host-toolchain.md'),
@@ -128,6 +134,8 @@ async function writeFixture() {
     },
   });
   await fs.writeFile(workflowPath(), workflowText());
+  await fs.mkdir(path.join(desktopRoot, 'scripts'), { recursive: true });
+  await fs.writeFile(path.join(desktopRoot, 'scripts/build-release.sh'), buildReleaseText());
   await fs.writeFile(path.join(repoRoot, 'docs/features/host-toolchain.md'), 'Published browser packs use GitHub Release assets.\n');
 }
 
@@ -189,6 +197,17 @@ jobs:
     steps:
       - run: pnpm --filter @sero/desktop browser-pack:verify-published
       - run: pnpm --filter @sero/desktop e2e:workflow -- runtime-host-release.workflow.spec.ts
+`;
+}
+
+function buildReleaseText() {
+  return `if [ "$TARGET" = "linux" ]; then
+  if [ "$TARGET_ARCH" = "arm64" ]; then
+    BUILDER_ARGS+=(AppImage tar.gz)
+  else
+    BUILDER_ARGS+=(AppImage deb tar.gz)
+  fi
+fi
 `;
 }
 

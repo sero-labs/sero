@@ -82,17 +82,20 @@ export async function verifyHostModeRelease({ repoRoot = defaultRepoRoot, deskto
   const metadataPath = path.join(desktopRoot, 'electron/features/workspace/runtime/browser-pack/generated-artifacts.json');
   const packageJsonPath = path.join(desktopRoot, 'package.json');
   const workflowPath = path.join(repoRoot, '.github/workflows/host-mode-release.yml');
+  const buildReleasePath = path.join(desktopRoot, 'scripts/build-release.sh');
 
-  const [targets, metadata, packageJson, workflowText] = await Promise.all([
+  const [targets, metadata, packageJson, workflowText, buildReleaseText] = await Promise.all([
     readJson(matrixPath),
     readJson(metadataPath),
     readJson(packageJsonPath),
     readOptionalText(workflowPath),
+    readOptionalText(buildReleasePath),
   ]);
 
   const requiredArtifactKeys = checkBrowserPackMetadata(targets, metadata, failures);
   checkPackageScripts(packageJson, failures);
   checkWorkflow(workflowPath, workflowText, failures);
+  checkBuildReleaseScript(buildReleasePath, buildReleaseText, failures);
   await checkDocs(repoRoot, failures);
 
   if (verifyPublished) {
@@ -166,6 +169,19 @@ function checkWorkflow(workflowPath, workflowText, failures) {
   }
   if (!workflowText.includes('runtime-host-release.workflow.spec.ts')) {
     failures.push(`${relativePath(workflowPath)}: missing host release smoke workflow spec`);
+  }
+}
+
+function checkBuildReleaseScript(buildReleasePath, buildReleaseText, failures) {
+  if (buildReleaseText === undefined) {
+    failures.push(`${relativePath(buildReleasePath)}: missing desktop release build script`);
+    return;
+  }
+  if (!buildReleaseText.includes('BUILDER_ARGS+=(AppImage tar.gz)')) {
+    failures.push(`${relativePath(buildReleasePath)}: Linux arm64 packaging must avoid deb/fpm`);
+  }
+  if (!buildReleaseText.includes('BUILDER_ARGS+=(AppImage deb tar.gz)')) {
+    failures.push(`${relativePath(buildReleasePath)}: Linux x64 packaging must include deb`);
   }
 }
 

@@ -101,24 +101,48 @@ async function exerciseFileExecAndTerminal(): Promise<void> {
   const terminalId = `host-release-term-${Date.now()}`;
   const replay = await page.evaluate(async ({ workspaceId, terminalId }) => {
     await window.sero.terminal.create(workspaceId, terminalId, 80, 24);
-    await window.sero.terminal.write(terminalId, 'pwd\n');
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    const output = await window.sero.terminal.replay(terminalId);
-    await window.sero.terminal.dispose(terminalId);
-    return output;
+    await window.sero.terminal.write(
+      terminalId,
+      'node -e "const p=process.cwd(); console.log(\'SERO_TERMINAL_CWD_OK=\' + (p.includes(\'host release runtime workspace\') ? \'1\' : \'0\'))"\r',
+    );
+    const deadline = Date.now() + 15_000;
+    let output = '';
+    try {
+      while (Date.now() < deadline) {
+        await new Promise((resolve) => setTimeout(resolve, 250));
+        output = await window.sero.terminal.replay(terminalId);
+        if (output.includes('SERO_TERMINAL_CWD_OK=1')) break;
+      }
+      return output;
+    } finally {
+      await window.sero.terminal.dispose(terminalId);
+    }
   }, { workspaceId: ws.id, terminalId });
 
-  expect(replay).toContain(path.basename(wsDir));
+  expect(replay).toContain('SERO_TERMINAL_CWD_OK=1');
 }
 
 async function exerciseTypeScriptLsp(): Promise<void> {
-  const started = await page.evaluate((id) => window.sero.lsp.start(id, 'typescript'), ws.id);
+  const started = await startTypeScriptLsp();
   expect(started.language).toBe('typescript');
   expect(typeof started.capabilities).toBe('object');
   await expect.poll(
     () => page.evaluate((id) => window.sero.lsp.hasServer(id, 'typescript'), ws.id),
     { timeout: 5_000 },
   ).toBe(true);
+}
+
+async function startTypeScriptLsp(): Promise<{ language: string; capabilities: object }> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      return await page.evaluate((id) => window.sero.lsp.start(id, 'typescript'), ws.id);
+    } catch (error) {
+      lastError = error;
+      await new Promise((resolve) => setTimeout(resolve, attempt * 1000));
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error(String(lastError));
 }
 
 async function startDevServerPreview(): Promise<string> {
