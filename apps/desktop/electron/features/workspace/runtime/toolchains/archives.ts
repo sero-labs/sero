@@ -110,6 +110,7 @@ async function extractTarFile(tarPath: string, destination: string): Promise<voi
     let offset = 0;
     let sawEndOfArchive = false;
     let nextPaxHeader: PaxHeader | null = null;
+    const pendingSymlinks: PendingSymlink[] = [];
 
     while (offset + TAR_BLOCK_SIZE <= tarStats.size) {
       const header = await readExactly(handle, offset, TAR_BLOCK_SIZE);
@@ -151,11 +152,15 @@ async function extractTarFile(tarPath: string, destination: string): Promise<voi
         dataStart,
         size,
         mode,
+        pendingSymlinks,
       });
       offset = dataStart + roundUpToBlock(size);
     }
 
     if (!sawEndOfArchive) throw new Error('Invalid tar archive: missing end-of-archive marker');
+    for (const symlink of pendingSymlinks) {
+      await materializeTarSymlink(symlink);
+    }
   } finally {
     await handle.close();
   }
@@ -170,6 +175,7 @@ async function extractTarEntry(options: {
   dataStart: number;
   size: number;
   mode: number;
+  pendingSymlinks: PendingSymlink[];
 }): Promise<void> {
   const target = safeTarTarget(options.destination, options.entryName);
   if (options.typeFlag === '5') {
@@ -178,9 +184,9 @@ async function extractTarEntry(options: {
     return;
   }
   if (options.typeFlag === '2') {
-    const linkTarget = safeTarSymlinkTarget(options.destination, target, options.linkName);
+    const link = safeTarSymlinkTarget(options.destination, target, options.linkName);
     await fs.promises.mkdir(path.dirname(target), { recursive: true });
-    await fs.promises.symlink(linkTarget, target);
+    options.pendingSymlinks.push({ target, entryName: options.entryName, ...link });
     return;
   }
   if (options.typeFlag === '1') {
@@ -252,7 +258,7 @@ function safeTarMode(mode: number, fallback: number): number {
   return safeMode & 0o755;
 }
 
-function safeTarSymlinkTarget(destination: string, targetPath: string, linkName: string): string {
+function safeTarSymlinkTarget(destination: string, targetPath: string, linkName: string): SymlinkTarget {
   if (!linkName || linkName.includes('\0') || linkName.includes('\\')) {
     throw new Error(`Unsafe tar symlink target ${linkName}`);
   }
@@ -265,7 +271,42 @@ function safeTarSymlinkTarget(destination: string, targetPath: string, linkName:
   if (resolvedTarget !== destinationRoot && !resolvedTarget.startsWith(destinationRoot + path.sep)) {
     throw new Error(`Unsafe tar symlink target ${linkName}`);
   }
-  return normalized;
+  return { linkName: normalized, resolvedTarget };
+}
+
+async function materializeTarSymlink(symlink: PendingSymlink): Promise<void> {
+  try {
+    await fs.promises.symlink(symlink.linkName, symlink.target);
+    return;
+  } catch (error) {
+    if (!isSymlinkCopyFallbackError(error)) throw error;
+  }
+
+  const targetStats = await fs.promises.stat(symlink.resolvedTarget);
+  if (targetStats.isDirectory()) {
+    await fs.promises.cp(symlink.resolvedTarget, symlink.target, { recursive: true, force: true });
+    return;
+  }
+  if (targetStats.isFile()) {
+    await fs.promises.copyFile(symlink.resolvedTarget, symlink.target);
+    return;
+  }
+  throw new Error(`Unsupported tar symlink target type for ${symlink.entryName}`);
+}
+
+function isSymlinkCopyFallbackError(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null || !('code' in error)) return false;
+  return error.code === 'EPERM' || error.code === 'EINVAL' || error.code === 'ENOSYS' || error.code === 'ENOTSUP';
+}
+
+interface SymlinkTarget {
+  linkName: string;
+  resolvedTarget: string;
+}
+
+interface PendingSymlink extends SymlinkTarget {
+  target: string;
+  entryName: string;
 }
 
 interface PaxHeader {

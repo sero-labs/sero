@@ -82,7 +82,9 @@ async function expectBrowserPackReady(): Promise<void> {
     return before.state === 'ready' ? before : window.sero.workspace.ensureBrowserPack('host release smoke');
   });
 
-  expect(status.state).toBe('ready');
+  if (status.state !== 'ready') {
+    throw new Error(`Browser Pack did not become ready: ${JSON.stringify(status)}`);
+  }
   expect(status.artifactKey).toMatch(/^browser-/);
   expect(status.browsersPath).toBeTruthy();
 }

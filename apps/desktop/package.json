@@ -1,7 +1,12 @@
 {
   "name": "@sero/desktop",
   "version": "0.1.0",
-  "description": "Zero context switch, zero sprawl - an agent-first workspace for macOS",
+  "description": "Zero context switch, zero sprawl - an agent-first workspace",
+  "homepage": "https://sero.ai",
+  "author": {
+    "name": "Sero Labs",
+    "email": "hello@sero.ai"
+  },
   "main": "dist/electron/main.mjs",
   "scripts": {
     "dev": "bash scripts/dev.sh",

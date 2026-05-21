@@ -66,6 +66,7 @@ mac:
 
 # ── Linux ─────────────────────────────────────────────────────
 linux:
+  maintainer: Sero Labs <hello@sero.ai>
   target:
     - target: AppImage
       arch:
