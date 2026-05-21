@@ -72,9 +72,15 @@ describe('verify-host-mode-release', () => {
   });
 
   it('fails when the release workflow is missing a required operating system entry', async () => {
-    await fs.writeFile(workflowPath(), workflowText().replace('          - target: linux-x64\n            os: linux\n            arch: x64\n            runner: [self-hosted, sero-linux, X64]\n            dist: dist:linux:x64\n', ''));
+    await fs.writeFile(workflowPath(), workflowText().replace('          - target: linux-x64\n            os: linux\n            arch: x64\n            runner: ubuntu-24.04\n            dist: dist:linux:x64\n', ''));
 
     await expect(verifyFixture()).rejects.toThrow('.github/workflows/host-mode-release.yml: missing Linux x64 release job/matrix entry');
+  });
+
+  it('fails when the release workflow points at obsolete self-hosted runner labels', async () => {
+    await fs.writeFile(workflowPath(), workflowText().replace('runner: ubuntu-24.04-arm', 'runner: [self-hosted, sero-linux, ARM64]'));
+
+    await expect(verifyFixture()).rejects.toThrow('.github/workflows/host-mode-release.yml: missing Linux arm64 hosted runner: ubuntu-24.04-arm');
   });
 
   it('fails on stale docs that require local browser-pack overrides for supported platforms', async () => {
@@ -163,22 +169,22 @@ jobs:
           - target: macos-arm64
             os: macos
             arch: arm64
-            runner: [self-hosted, macos, ARM64]
+            runner: macos-15
             dist: dist:mac
           - target: linux-x64
             os: linux
             arch: x64
-            runner: [self-hosted, sero-linux, X64]
+            runner: ubuntu-24.04
             dist: dist:linux:x64
           - target: linux-arm64
             os: linux
             arch: arm64
-            runner: [self-hosted, sero-linux, ARM64]
+            runner: ubuntu-24.04-arm
             dist: dist:linux:arm64
           - target: windows-x64
             os: windows
             arch: x64
-            runner: [self-hosted, sero-windows, X64]
+            runner: windows-latest
             dist: dist:win
     steps:
       - run: pnpm --filter @sero/desktop browser-pack:verify-published

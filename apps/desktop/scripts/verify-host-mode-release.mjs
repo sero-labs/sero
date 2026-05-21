@@ -20,10 +20,10 @@ const requiredPackageScripts = [
 ];
 
 const workflowRequirements = [
-  { name: 'macOS arm64', targetToken: 'macos-arm64', osToken: 'macos', archToken: 'arm64', runnerLabel: 'ARM64', distScript: 'dist:mac' },
-  { name: 'Linux x64', targetToken: 'linux-x64', osToken: 'linux', archToken: 'x64', runnerLabel: 'X64', distScript: 'dist:linux:x64' },
-  { name: 'Linux arm64', targetToken: 'linux-arm64', osToken: 'linux', archToken: 'arm64', runnerLabel: 'ARM64', distScript: 'dist:linux:arm64' },
-  { name: 'Windows x64', targetToken: 'windows-x64', osToken: 'windows', archToken: 'x64', runnerLabel: 'X64', distScript: 'dist:win' },
+  { name: 'macOS arm64', targetToken: 'macos-arm64', osToken: 'macos', archToken: 'arm64', runnerToken: 'macos-15', distScript: 'dist:mac' },
+  { name: 'Linux x64', targetToken: 'linux-x64', osToken: 'linux', archToken: 'x64', runnerToken: 'ubuntu-24.04', distScript: 'dist:linux:x64' },
+  { name: 'Linux arm64', targetToken: 'linux-arm64', osToken: 'linux', archToken: 'arm64', runnerToken: 'ubuntu-24.04-arm', distScript: 'dist:linux:arm64' },
+  { name: 'Windows x64', targetToken: 'windows-x64', osToken: 'windows', archToken: 'x64', runnerToken: 'windows-latest', distScript: 'dist:win' },
 ];
 
 const docFilesToCheck = [
@@ -153,8 +153,8 @@ function checkWorkflow(workflowPath, workflowText, failures) {
     if (!workflowText.includes(`arch: ${requirement.archToken}`) && !workflowText.includes(`arch: '${requirement.archToken}'`) && !workflowText.includes(`arch: "${requirement.archToken}"`)) {
       failures.push(`${relativePath(workflowPath)}: missing ${requirement.name} architecture marker: ${requirement.archToken}`);
     }
-    if (!workflowText.includes(requirement.runnerLabel)) {
-      failures.push(`${relativePath(workflowPath)}: missing ${requirement.name} runner label: ${requirement.runnerLabel}`);
+    if (!workflowText.includes(`runner: ${requirement.runnerToken}`) && !workflowText.includes(`runner: '${requirement.runnerToken}'`) && !workflowText.includes(`runner: "${requirement.runnerToken}"`)) {
+      failures.push(`${relativePath(workflowPath)}: missing ${requirement.name} hosted runner: ${requirement.runnerToken}`);
     }
     if (!workflowText.includes(requirement.distScript)) {
       failures.push(`${relativePath(workflowPath)}: missing ${requirement.name} packaging script: ${requirement.distScript}`);
