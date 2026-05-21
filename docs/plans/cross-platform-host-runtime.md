@@ -63,7 +63,7 @@ Host browser automation is install-state-aware:
 - installed and Doctor-launchable: `ready`,
 - install/launch failure: `failed`, with retry or container fallback.
 
-For this PR, macOS Apple Silicon (`browser-darwin-arm64`), Linux x64/arm64, and Windows x64 are release-supported browser-pack targets. Intel Mac/macOS x64 and Windows arm64 are future/unsupported. Release-supported browser automation is blocked until every required artifact is published and verified; use a container runtime until then. The browser pack is a large optional add-on stored under `~/.sero-ui/toolchains/<manifest-version>/browser/`. Docker/Podman and Apple Container provide browser automation through their runtime images.
+For this PR, macOS Apple Silicon (`browser-darwin-arm64`), Linux x64/arm64, and Windows x64 are release-supported browser-pack targets. macOS on Intel CPUs is explicitly unsupported; Windows arm64 remains a possible future target. Release-supported browser automation is blocked until every required artifact is published and verified; use a container runtime until then. The browser pack is a large optional add-on stored under `~/.sero-ui/toolchains/<manifest-version>/browser/`. Docker/Podman and Apple Container provide browser automation through their runtime images.
 
 ## Validation before removing the flag
 

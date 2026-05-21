@@ -15,7 +15,7 @@ PR #185 requires these four release-target artifacts, matching [`host-mode-suppo
 | Linux arm64 machine | `linux-arm64.tar.gz` | `browser-linux-arm64` | `linux-arm64.json` | Pending; non-installable release blocker |
 | Windows x64 machine using Git Bash | `win-x64.tar.gz` | `browser-win32-x64` | `win-x64.json` | Pending; non-installable release blocker |
 
-Intel Mac/macOS x64 and Windows arm64 are intentionally not part of this release. Pending manifest entries are not supported installs; publish the GitHub Release asset, merge the sidecar metadata, and pass `browser-pack:verify-published` before claiming install support. Locally served artifacts via `SERO_BROWSER_PACK_BASE_URL` are developer diagnostics only.
+macOS on Intel CPUs is explicitly unsupported. Windows arm64 is intentionally not part of this release and remains a possible future target. Pending manifest entries are not supported installs; publish the GitHub Release asset, merge the sidecar metadata, and pass `browser-pack:verify-published` before claiming install support. Locally served artifacts via `SERO_BROWSER_PACK_BASE_URL` are developer diagnostics only.
 
 **Important:** do not try to build another platform's artifact from your current machine. The build script intentionally blocks that because Playwright downloads browser binaries for the current OS/architecture only.
 

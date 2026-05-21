@@ -90,7 +90,7 @@ Use the public support surfaces like this:
 
 What maintainers will triage first during alpha:
 - issues on the maintainer-validated baseline (`macOS` on Apple Silicon, source build)
-- macOS Intel reports are out of scope unless explicitly requested for future support work
+- macOS Intel reports are out of scope because macOS on Intel CPUs is unsupported
 - install / launch / data-loss / security-sensitive regressions
 - container-backed runtime problems and documented Host-mode problems
 - docs gaps that block setup or truthful usage of the alpha

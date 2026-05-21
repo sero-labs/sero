@@ -41,8 +41,8 @@ const docFilesToCheck = [
 const forbiddenSupportedDocPhrases = [
   'Published browser-pack install is not available for Linux',
   'Published browser-pack install is not available for Windows',
-  'Linux, Windows, and Intel macOS require the local artifact smoke flow',
-  'Linux, Windows, and Intel macOS host browser automation need a locally served artifact override',
+  'Linux and Windows require the local artifact smoke flow',
+  'Linux and Windows host browser automation need a locally served artifact override',
   'the only published installable browser-pack artifact is macOS Apple Silicon',
   'only macOS Apple Silicon is built',
   'only macOS Apple Silicon is published',

@@ -35,7 +35,6 @@ describe('merge-browser-pack-metadata', () => {
     expect(metadata.version).toBe('browser-pack-2026-05-16');
     expect(Object.keys(metadata.artifacts)).toEqual([
       'browser-darwin-arm64',
-      'browser-darwin-x64',
       'browser-linux-x64',
       'browser-linux-arm64',
       'browser-win32-x64',

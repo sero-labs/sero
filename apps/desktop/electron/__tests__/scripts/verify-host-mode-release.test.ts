@@ -86,11 +86,11 @@ describe('verify-host-mode-release', () => {
   it('fails on stale docs that require local browser-pack overrides for supported platforms', async () => {
     await fs.writeFile(
       path.join(repoRoot, 'docs/features/host-toolchain.md'),
-      'Linux, Windows, and Intel macOS require the local artifact smoke flow\n',
+      'Linux and Windows require the local artifact smoke flow\n',
     );
 
     await expect(verifyFixture()).rejects.toThrow(
-      'docs/features/host-toolchain.md: stale supported-platform browser-pack wording: "Linux, Windows, and Intel macOS require the local artifact smoke flow"',
+      'docs/features/host-toolchain.md: stale supported-platform browser-pack wording: "Linux and Windows require the local artifact smoke flow"',
     );
   });
 
@@ -193,7 +193,7 @@ jobs:
 }
 
 function slugFor(platform: string, arch: string): string {
-  if (platform === 'darwin') return arch === 'arm64' ? 'mac-arm64' : 'mac-x64';
+  if (platform === 'darwin') return 'mac-arm64';
   if (platform === 'linux') return arch === 'arm64' ? 'linux-arm64' : 'linux-x64';
   if (platform === 'win32') return arch === 'arm64' ? 'win-arm64' : 'win-x64';
   throw new Error(`Unsupported fixture target: ${platform}/${arch}`);

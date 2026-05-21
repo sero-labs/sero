@@ -67,7 +67,7 @@ describe('workspace runtime config migration', () => {
         hostDefault: false,
         browserPackRequired: false,
         packagedAppRequired: false,
-        notes: 'Future: Intel Mac support is not part of this release matrix.',
+        notes: 'Unsupported: macOS on Intel CPUs is not a Sero target.',
       },
       {
         platform: 'linux',

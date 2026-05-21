@@ -16,7 +16,7 @@ Current maintainer-validated baseline:
 - macOS on Apple Silicon
 
 Not currently promised:
-- macOS Intel support
+- macOS on Intel CPUs is unsupported
 - official public binaries
 - identical runtime capability on every OS
 - Windows host-mode workspace execution

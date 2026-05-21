@@ -46,12 +46,6 @@ const ffmpegCandidates = {
     'ffmpeg/ffmpeg-mac-arm64',
     'ffmpeg/ffmpeg-mac',
   ],
-  'darwin-x64': [
-    `ffmpeg-${pins.macFfmpegRevision}/ffmpeg-mac`,
-    `ffmpeg-${pins.ffmpegRevision}/ffmpeg-mac`,
-    'ffmpeg/ffmpeg-mac-x64',
-    'ffmpeg/ffmpeg-mac',
-  ],
   'linux-x64': [`ffmpeg-${pins.ffmpegRevision}/ffmpeg-linux`, 'ffmpeg/ffmpeg-linux'],
   'linux-arm64': [`ffmpeg-${pins.ffmpegRevision}/ffmpeg-linux`, 'ffmpeg/ffmpeg-linux-arm64', 'ffmpeg/ffmpeg-linux'],
   'win32-x64': [`ffmpeg-${pins.ffmpegRevision}/ffmpeg-win64.exe`, 'ffmpeg/ffmpeg-win64.exe', 'ffmpeg/ffmpeg.exe'],
@@ -65,7 +59,6 @@ const agentBrowserCandidates = {
 
 export const artifacts = [
   artifact('darwin', 'arm64', 'mac-arm64'),
-  artifact('darwin', 'x64', 'mac-x64'),
   artifact('linux', 'x64', 'linux-x64'),
   artifact('linux', 'arm64', 'linux-arm64'),
   artifact('win32', 'x64', 'win-x64'),

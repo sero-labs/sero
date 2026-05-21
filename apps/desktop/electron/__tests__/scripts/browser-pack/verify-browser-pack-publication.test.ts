@@ -80,8 +80,6 @@ describe('verify-browser-pack-publication', () => {
     const metadata = createBuiltMetadata();
     metadata.artifacts['browser-win32-arm64'] = createPendingArtifact('win32', 'arm64', 'win-arm64');
 
-    metadata.artifacts['browser-darwin-x64'] = createPendingArtifact('darwin', 'x64', 'mac-x64');
-
     await expect(verify(metadata)).resolves.toEqual({
       verifiedKeys: [
         'browser-darwin-arm64',
@@ -90,7 +88,6 @@ describe('verify-browser-pack-publication', () => {
         'browser-win32-x64',
       ],
       warnings: [
-        'browser-darwin-x64 is explicitly unsupported/future and remains pending',
         'browser-win32-arm64 is explicitly unsupported/future and remains pending',
       ],
     });
@@ -138,7 +135,7 @@ function createPendingArtifact(platform: string, arch: string, slug: string): Te
 }
 
 function slugFor(platform: string, arch: string): string {
-  if (platform === 'darwin') return arch === 'arm64' ? 'mac-arm64' : 'mac-x64';
+  if (platform === 'darwin') return 'mac-arm64';
   if (platform === 'linux') return arch === 'arm64' ? 'linux-arm64' : 'linux-x64';
   if (platform === 'win32') return arch === 'arm64' ? 'win-arm64' : 'win-x64';
   throw new Error(`Unsupported fixture target: ${platform}/${arch}`);

@@ -55,7 +55,6 @@ describe('browser pack manifest', () => {
   it('contains the known browser-pack artifact matrix in generated metadata', () => {
     expect(Object.keys(generatedArtifacts.artifacts).sort()).toEqual([
       'browser-darwin-arm64',
-      'browser-darwin-x64',
       'browser-linux-arm64',
       'browser-linux-x64',
       'browser-win32-arm64',
@@ -85,7 +84,10 @@ describe('browser pack manifest', () => {
       .map((target) => `browser-${target.platform}-${target.arch}`)
       .sort();
 
-    expect(Object.keys(generatedArtifacts.artifacts).sort()).toEqual([...requiredKeys, ...unsupportedKeys].sort());
+    expect(Object.keys(generatedArtifacts.artifacts).sort()).toEqual([
+      ...requiredKeys,
+      ...unsupportedKeys.filter((key) => generatedArtifacts.artifacts[key as keyof typeof generatedArtifacts.artifacts]),
+    ].sort());
     for (const key of requiredKeys) {
       const artifact = generatedArtifacts.artifacts[key as keyof typeof generatedArtifacts.artifacts];
       expect(artifact).toBeDefined();
@@ -93,8 +95,7 @@ describe('browser pack manifest', () => {
     }
     for (const key of unsupportedKeys) {
       const artifact = generatedArtifacts.artifacts[key as keyof typeof generatedArtifacts.artifacts];
-      expect(artifact).toBeDefined();
-      expect(artifact.available).toBe(false);
+      if (artifact) expect(artifact.available).toBe(false);
     }
   });
 

@@ -361,3 +361,11 @@ contexts must share workspaces, sessions, auth tokens, and settings.
 - The `profiles.json` registry itself (shared)
 
 See [docs/profiles.md](profiles.md) for the full user guide.
+
+## AD-023: Supported Desktop Platforms
+
+**Decision:** Sero supports Apple Silicon macOS, Linux x64/arm64, and Windows x64.
+macOS on Intel CPUs is explicitly unsupported and must not appear as a planned
+or pending Sero target. Windows ARM64 is not supported today, but may be
+revisited as a future target when runner, packaging, and browser-pack validation
+exist.

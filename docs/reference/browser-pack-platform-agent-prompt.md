@@ -19,7 +19,7 @@ Required release targets only:
 | Linux arm64 | `linux-arm64.tar.gz` | `linux-arm64.json` |
 | Windows x64 using Git Bash/MSYS | `win-x64.tar.gz` | `win-x64.json` |
 
-Do **not** build Intel Mac/macOS x64 or Windows arm64. They are not release targets.
+Do **not** build Intel Mac/macOS x64; it is unsupported. Do not build Windows arm64 for this release; it remains a possible future target.
 
 ## Important constraints
 
