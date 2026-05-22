@@ -48,14 +48,37 @@ function findElectronPackageDir() {
   return null;
 }
 
-function findElectronBinary(electronDir) {
+function getElectronBinaryPath(electronDir) {
   const platformBinary = process.platform === 'darwin'
     ? 'dist/Electron.app/Contents/MacOS/Electron'
     : process.platform === 'win32'
       ? 'dist/electron.exe'
       : 'dist/electron';
-  const bin = resolve(electronDir, platformBinary);
+  return resolve(electronDir, platformBinary);
+}
+
+function findElectronBinary(electronDir) {
+  const bin = getElectronBinaryPath(electronDir);
   return existsSync(bin) ? bin : null;
+}
+
+function installElectronBinary(electronDir) {
+  const installScript = resolve(electronDir, 'install.js');
+  if (!existsSync(installScript)) return null;
+
+  console.log('[node-pty] Electron package exists but binary is missing; downloading Electron...');
+  try {
+    execFileSync(process.execPath, [installScript], {
+      cwd: electronDir,
+      env: process.env,
+      stdio: 'inherit',
+      timeout: 180_000,
+    });
+  } catch {
+    return null;
+  }
+
+  return findElectronBinary(electronDir);
 }
 
 function findElectronVersion(electronDir) {
@@ -153,9 +176,9 @@ function main() {
     process.exit(1);
   }
 
-  const electronBin = findElectronBinary(electronDir);
+  const electronBin = findElectronBinary(electronDir) ?? installElectronBinary(electronDir);
   if (!electronBin) {
-    console.error('[node-pty] Electron binary not found. Set SERO_SKIP_NATIVE_REBUILD=1 to skip intentionally.');
+    console.error('[node-pty] Electron binary not found. Run `pnpm rebuild electron` or set SERO_SKIP_NATIVE_REBUILD=1 to skip intentionally.');
     process.exit(1);
   }
 
