@@ -157,11 +157,11 @@ function RuntimeErrorNotice({
       <div className="flex items-start gap-2">
         <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
         <div className="min-w-0 flex-1">
-          <p className="font-medium">Container runtime unavailable</p>
+          <p className="font-medium">Container not available</p>
           <p className="mt-0.5 text-[var(--status-error)]/85">
-            {names} {workspaces.length === 1 ? 'has' : 'have'} a runtime error. Container-backed terminal and agent actions are unavailable until it recovers; switch to Host manually if you want host execution.
+            Sero couldn't start {names}. Check that your container manager is running, or switch this workspace to Host.
           </p>
-          {error ? <p className="mt-1 line-clamp-2 text-[var(--status-error)]/80">{error}</p> : null}
+          {error ? <p className="mt-1 line-clamp-1 text-[var(--status-error)]/70">Details: {error}</p> : null}
         </div>
       </div>
     </div>
