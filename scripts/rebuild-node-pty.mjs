@@ -48,21 +48,35 @@ function findElectronPackageDir() {
   return null;
 }
 
-function getElectronBinaryPath(electronDir) {
-  const platformBinary = process.platform === 'darwin'
-    ? 'dist/Electron.app/Contents/MacOS/Electron'
+function getElectronExecutablePath() {
+  return process.platform === 'darwin'
+    ? 'Electron.app/Contents/MacOS/Electron'
     : process.platform === 'win32'
-      ? 'dist/electron.exe'
-      : 'dist/electron';
-  return resolve(electronDir, platformBinary);
+      ? 'electron.exe'
+      : 'electron';
+}
+
+function getElectronBinaryPath(electronDir) {
+  return resolve(electronDir, 'dist', getElectronExecutablePath());
 }
 
 function findElectronBinary(electronDir) {
+  const overrideDist = process.env.ELECTRON_OVERRIDE_DIST_PATH;
+  if (overrideDist) {
+    const overrideBin = resolve(overrideDist, getElectronExecutablePath());
+    if (existsSync(overrideBin)) return overrideBin;
+  }
+
   const bin = getElectronBinaryPath(electronDir);
   return existsSync(bin) ? bin : null;
 }
 
 function installElectronBinary(electronDir) {
+  if (process.env.ELECTRON_SKIP_BINARY_DOWNLOAD) {
+    console.error('[node-pty] ELECTRON_SKIP_BINARY_DOWNLOAD is set, so Electron cannot download its runtime binary. Unset it or set SERO_SKIP_NATIVE_REBUILD=1.');
+    return null;
+  }
+
   const installScript = resolve(electronDir, 'install.js');
   if (!existsSync(installScript)) return null;
 
@@ -74,7 +88,8 @@ function installElectronBinary(electronDir) {
       stdio: 'inherit',
       timeout: 180_000,
     });
-  } catch {
+  } catch (error) {
+    console.error(`[node-pty] Electron binary download failed: ${error.message}`);
     return null;
   }
 

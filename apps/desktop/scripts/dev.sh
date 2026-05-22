@@ -25,7 +25,11 @@ SERO_DEV_PLUGINS="${SERO_DEV_PLUGINS:-}"
 CHILD_PIDS=()
 # Match the top-level Electron browser process launched by `npx electron .`.
 # This avoids helper processes (`--type=...`) and survives app.relaunch().
-ELECTRON_MAIN_MATCH_PATTERN="Contents/MacOS/Electron \\."
+case "$(uname -s)" in
+  Darwin) ELECTRON_MAIN_MATCH_PATTERN="Contents/MacOS/Electron \\." ;;
+  Linux) ELECTRON_MAIN_MATCH_PATTERN="electron/dist/electron \\." ;;
+  *) ELECTRON_MAIN_MATCH_PATTERN="[Ee]lectron \\." ;;
+esac
 # Keep the relaunch grace window short so closing the app tears down Vite fast,
 # while still tolerating the brief gap during app.relaunch() for profile switches
 # and recovery flows.
@@ -212,6 +216,16 @@ for attempt in {1..10}; do
   curl -s http://localhost:5173 > /dev/null 2>&1 && break
   sleep 1
 done
+
+if [ "$(uname -s)" = "Linux" ]; then
+  ELECTRON_BIN=$(node -e "process.stdout.write(require('electron'))" 2>/dev/null || true)
+  if [ -n "$ELECTRON_BIN" ]; then
+    CHROME_SANDBOX="$(dirname "$ELECTRON_BIN")/chrome-sandbox"
+    if [ -e "$CHROME_SANDBOX" ] && [ ! -u "$CHROME_SANDBOX" ]; then
+      export ELECTRON_DISABLE_SANDBOX="${ELECTRON_DISABLE_SANDBOX:-1}"
+    fi
+  fi
+fi
 
 SERO_DEV_PLUGINS="$SERO_DEV_PLUGINS" NODE_ENV=development npx electron . > /tmp/sero-electron.log 2>&1 &
 ELECTRON_PID=$!
