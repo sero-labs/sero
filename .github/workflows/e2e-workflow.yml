@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       os:
-        description: Self-hosted runner OS
+        description: GitHub-hosted runner OS
         required: true
         default: macos
         type: choice
@@ -38,7 +38,7 @@ jobs:
   workflow-macos:
     name: Workflow macOS (${{ inputs.runtime }})
     if: ${{ inputs.os == 'macos' }}
-    runs-on: [self-hosted, macos]
+    runs-on: macos-15
     timeout-minutes: 45
     defaults:
       run:
@@ -80,13 +80,15 @@ jobs:
   workflow-linux:
     name: Workflow Linux (${{ inputs.runtime }})
     if: ${{ inputs.os == 'linux' }}
-    runs-on: [self-hosted, sero-linux]
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     defaults:
       run:
         shell: bash
     steps:
       - uses: actions/checkout@v4
+      - name: Install Linux display dependencies
+        run: sudo apt-get update && sudo apt-get install -y xvfb
       - uses: pnpm/action-setup@v4
         with:
           run_install: false
@@ -127,7 +129,7 @@ jobs:
   workflow-windows:
     name: Workflow Windows (host)
     if: ${{ inputs.os == 'windows' }}
-    runs-on: [self-hosted, sero-windows]
+    runs-on: windows-latest
     timeout-minutes: 45
     defaults:
       run:
@@ -141,6 +143,14 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
+      - name: Validate Windows bash/MSYS prerequisites
+        run: |
+          case "$(uname -s)" in
+            MINGW*|MSYS*|CYGWIN*) ;;
+            *) echo "::error::Windows workflow requires Git Bash/MSYS bash; got $(uname -s)."; exit 1 ;;
+          esac
+          command -v bash >/dev/null 2>&1 || { echo "::error::bash is missing from PATH"; exit 1; }
+          command -v git >/dev/null 2>&1 || { echo "::error::git is missing from PATH"; exit 1; }
       - name: Validate OS/runtime selection
         run: |
           case "${{ inputs.runtime }}" in
