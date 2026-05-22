@@ -117,29 +117,29 @@ describe('workspace runtime config migration', () => {
     expect(resolveWorkspaceRuntimeConfig('app', { id: 'app', name: 'App', container: false }, { platform: 'win32', arch: 'x64' }).backend)
       .toBe('host');
     expect(resolveWorkspaceRuntimeConfig('app', { id: 'app', name: 'App' }, platform).backend)
-      .toBe('apple-container');
+      .toBe('host');
     expect(resolveWorkspaceRuntimeConfig('app', { id: 'app', name: 'App', runtime: { backend: 'docker' } }, platform).backend)
       .toBe('docker');
   });
 
-  it('uses legacy container defaults when host-first is disabled while preserving global host defaults', () => {
-    for (const target of HOST_RELEASE_TARGETS) {
-      const input = { platform: target.platform, arch: target.arch };
-      expect(getDefaultRuntimeBackend(input)).toBe(expectedContainerDefault(target.platform, target.arch));
-      expect(getDefaultRuntimeBackend({ workspaceId: 'global', ...input })).toBe(
-        target.hostDefault ? 'host' : expectedContainerDefault(target.platform, target.arch),
-      );
-    }
-  });
-
-  it('uses host defaults for every supported matrix target when host-first is enabled', () => {
-    process.env.SERO_HOST_FIRST = '1';
+  it('defaults to host for every host-supported platform without SERO_HOST_FIRST', () => {
+    delete process.env.SERO_HOST_FIRST;
 
     for (const target of HOST_RELEASE_TARGETS) {
       expect(getDefaultRuntimeBackend({ platform: target.platform, arch: target.arch })).toBe(
         target.hostDefault ? 'host' : expectedContainerDefault(target.platform, target.arch),
       );
     }
+  });
+
+  it('ignores deprecated SERO_HOST_FIRST for runtime defaults', () => {
+    process.env.SERO_HOST_FIRST = '0';
+    expect(getDefaultRuntimeBackend({ platform: 'win32', arch: 'x64' })).toBe('host');
+    expect(getDefaultRuntimeBackend({ platform: 'darwin', arch: 'x64' })).toBe('docker');
+
+    process.env.SERO_HOST_FIRST = '1';
+    expect(getDefaultRuntimeBackend({ platform: 'linux', arch: 'arm64' })).toBe('host');
+    expect(getDefaultRuntimeBackend({ platform: 'win32', arch: 'arm64' })).toBe('docker');
   });
 
   it('normalizes writes to runtime.backend and removes legacy container', () => {
@@ -282,8 +282,7 @@ describe('workspace runtime config migration', () => {
     expect((JSON.parse(raw) as WorkspaceConfig).runtime).toEqual({ backend: 'host' });
   });
 
-  it('keeps deprecated container shim enablement selecting a container backend under host-first', async () => {
-    process.env.SERO_HOST_FIRST = '1';
+  it('keeps deprecated container shim enablement selecting a container backend under host defaults', async () => {
     vi.spyOn(process, 'platform', 'get').mockReturnValue('darwin');
     vi.spyOn(process, 'arch', 'get').mockReturnValue('arm64');
     const workspacePath = await createTempWorkspace({ id: 'app', name: 'App', runtime: { backend: 'host' } });
@@ -345,17 +344,14 @@ describe('workspace runtime config migration', () => {
     expect(details).toEqual({ backend: 'docker', configuredBackend: 'docker' });
   });
 
-  it('keeps persisted runtime backends authoritative when host-first is enabled', () => {
-    process.env.SERO_HOST_FIRST = '1';
-
+  it('keeps persisted runtime backends authoritative under host defaults', () => {
     expect(resolveWorkspaceRuntimeConfig('app', { id: 'app', name: 'App', runtime: { backend: 'docker' } }, { platform: 'linux', arch: 'x64' }).backend)
       .toBe('docker');
     expect(resolveWorkspaceRuntimeConfig('app', { id: 'app', name: 'App', runtime: { backend: 'apple-container' } }, { platform: 'darwin', arch: 'arm64' }).backend)
       .toBe('apple-container');
   });
 
-  it('does not fall back from an unsupported persisted container backend to host under host-first', () => {
-    process.env.SERO_HOST_FIRST = '1';
+  it('does not fall back from an unsupported persisted container backend to host under host defaults', () => {
     const config = { id: 'app', name: 'App', runtime: { backend: 'apple-container' as const } };
 
     expect(resolveWorkspaceRuntimeBackendDetails('app', config, { platform: 'linux', arch: 'x64' })).toMatchObject({

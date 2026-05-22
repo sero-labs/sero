@@ -1,15 +1,27 @@
 # Remote Control
 
 Remote Control lets you operate your local Sero desktop session from another
-client. It has three related integration paths:
+trusted client. It is **off by default** and only starts when the desktop process
+is launched with:
+
+```bash
+SERO_GATEWAY=1
+```
+
+Remote Control is not screen sharing and is not production remote
+administration. The work still happens on your desktop machine, in your active
+local Sero profile. Remote clients are alternate control surfaces for the Sero
+desktop process that is already running locally.
+
+Remote Control has three related integration paths:
 
 - **Remote web access over Tailscale** — a browser UI called **Sero Remote** can
   connect to your local Sero gateway from another trusted device on your
   Tailscale tailnet.
 - **Remote dev-server previews** — dev servers started and registered inside
   Sero desktop can be opened through Sero Remote, so a Vite/Next/Express/etc.
-  preview running on your desktop machine or workspace container is reachable from another
-  trusted tailnet browser.
+  preview running on your desktop machine or workspace container is reachable
+  from another trusted tailnet browser.
 - **Optional Discord bot** — a configured Discord bot can forward allowed DMs or
   mentions into Sero as prompts.
 
@@ -17,18 +29,19 @@ Tailscale is the private VPN/tailnet layer for remote **web** access. Discord is
 a separate optional bot integration; it does not depend on Tailscale and it does
 not provide the Sero Remote web UI.
 
-Remote Control is not screen sharing. The work still happens on your desktop machine, in
-your active local Sero profile. Remote clients are alternate control surfaces for
-the Sero desktop process that is already running locally.
+Read [Security / Privacy](/reference/security-privacy) before enabling Remote
+Control.
 
-The gateway is **off by default**. It only starts when the desktop process is
-launched with:
+## Web vs Remote Control
 
-```bash
-SERO_GATEWAY=1
-```
+| Feature | Use it when | Important note |
+| --- | --- | --- |
+| **Web plugin** | You want the agent to search, fetch, bookmark, or reuse web content in the current workspace. | Requests may go to configured third-party providers. See [Web](/guide/web). |
+| **Remote Control** | You want to control your local Sero desktop session from another trusted device. | Requires `SERO_GATEWAY=1`; treat paired clients like access to the desktop app. |
 
-Read [Security / Privacy](/reference/security-privacy) before enabling it.
+Use the Web plugin for web context inside an agent session. Use Remote Control
+only when you need another trusted device or approved Discord user to interact
+with the local desktop session.
 
 ## Access paths
 
@@ -40,7 +53,9 @@ Read [Security / Privacy](/reference/security-privacy) before enabling it.
 | **Discord bot** | Lets allowed Discord users send prompts by DM or mention | Discord bot token and allowlist |
 
 Use Tailscale **serve** for tailnet-only exposure. Do not use public Tailscale
-funneling or direct public-internet exposure during the alpha.
+funneling or direct public-internet exposure during the alpha. Treat tailnet
+URLs as private access details and redact them from screenshots, logs, and
+support reports.
 
 ![Remote Control access paths](../assets/generated/img9.jpg)
 
@@ -182,10 +197,10 @@ Dev-server proxy tickets are separate short-lived HMAC-signed bearers. They are
 issued only after gateway authentication, bind one `(workspaceId, port)` pair,
 and are stored as path-scoped cookies after the initial preview navigation.
 
-Do not paste gateway tokens, web-token files, login URLs, QR codes, Discord bot
-tokens, or Discord allowlists into bug reports, screenshots, chat transcripts, or
-public issues. See [State and Folders](/reference/state-and-folders) for the
-canonical storage map.
+Do not paste gateway tokens, web-token files, login URLs, QR codes, Tailscale
+serve URLs, Discord bot tokens, or Discord allowlists into bug reports,
+screenshots, chat transcripts, or public issues. See
+[State and Folders](/reference/state-and-folders) for the canonical storage map.
 
 ## Pairing a remote web client
 
@@ -228,7 +243,7 @@ but that is not the same as a comprehensive per-tool permission system.
 
 ## What to include in support reports
 
-If Remote Control behaves unexpectedly, include:
+If Remote Control behaves unexpectedly, include these redacted details:
 
 - whether the gateway was enabled with `SERO_GATEWAY=1`
 - whether the client used localhost, Sero Remote over Tailscale, Discord bot, or
@@ -253,8 +268,8 @@ Useful logs can include:
 ```
 
 Never include raw gateway tokens, web-token files, QR codes, full login URLs,
-Discord bot tokens, or private tailnet URLs. Rotate any token that may have been
-exposed.
+Tailscale serve URLs, Discord bot tokens, or private tailnet URLs. Rotate any
+token that may have been exposed.
 
 ## Related docs
 

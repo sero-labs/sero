@@ -1,36 +1,47 @@
 # Installation / Requirements
 
-## Supported alpha target
+Use this checklist before building Sero from source. For exact platform and runtime support, always use [Support Scope](/reference/support-scope) as the canonical contract.
 
-Sero currently supports source builds on:
-- **macOS Apple Silicon**
-- **Linux**
-- **Windows**
+## 1. Check your platform
 
-Required local tooling:
+Sero's source-only alpha currently targets:
+
+- macOS Apple Silicon
+- Linux x64/arm64
+- Windows x64
+
+Intel-based Macs are not a Sero target. Windows arm64 is future/unsupported in the current alpha.
+
+## 2. Install required local tooling
+
+Install:
+
 - **Node.js 22**
 - **pnpm 10**
+- Git and the normal compiler/build tools for your OS when your project needs native dependencies
 
-For the canonical current support contract and exact validated baseline, see
-[Support Scope](/reference/support-scope).
+Sero-managed Host tools live under `~/.sero-ui/toolchains/<manifest-version>/`, but Sero does not install native compiler stacks such as Xcode Command Line Tools, Linux `build-essential`/gcc/make, or MSVC/Windows SDK.
 
-## Runtime requirements by platform
+## 3. Choose runtime prerequisites
 
-Sero supports local workspace runtimes only. Pick the runtime that matches your platform:
+If you are unsure which runtime to choose, use the default **Host** runtime on a supported platform. Host runs commands in your real workspace folder and uses your system tools.
 
-| Platform | Default runtime | Requirement |
+Install container tooling only when you plan to explicitly select a container runtime for a workspace:
+
+| Runtime choice | When to install it | Requirement |
 | --- | --- | --- |
-| macOS Apple Silicon | Apple Container | Install Apple's `container` CLI, or explicitly select Docker/Podman (`docker`) or Host (`host`). |
-| Linux | Docker / Podman | Install Docker Engine/Desktop or Podman. Host (`host`) is available as an explicit reduced-capability option; browser packs are pending. |
-| Windows | Docker / Podman | Docker Desktop with Linux containers or a compatible Podman setup is required for public workspace execution. |
+| Host | Default on supported platforms | Compatible local shell and project tools |
+| Apple Container | You want Apple-native container execution on macOS arm64 | Apple's `container` CLI at `/usr/local/bin/container` |
+| Docker / Podman | You want Docker-compatible container execution on macOS, Linux, or Windows | Working Docker or Podman engine |
 
-For Apple Container on Apple Silicon Macs, make sure the CLI is available at:
+For Apple Container, verify:
 
-```text
-/usr/local/bin/container
+```bash
+/usr/local/bin/container --help
+/usr/local/bin/container system status
 ```
 
-For Docker-backed workspaces, install Docker Desktop, Docker Engine, or Podman and make sure one of these succeeds:
+For Docker / Podman, verify at least one command succeeds:
 
 ```bash
 docker info
@@ -39,18 +50,18 @@ podman info
 
 The workspace runtime picker labels this option **Docker / Podman**, but the saved backend ID remains `docker`. Sero prefers Docker when both CLIs are available, can retry Podman if auto-selected Docker cannot reach its daemon, and respects explicit overrides such as `SERO_CONTAINER_ENGINE=podman` or `SERO_DOCKER_BIN=/path/to/binary`.
 
-Host mode is an explicit reduced-capability runtime, not an automatic fallback.
-In the public alpha, Host is a setup path on macOS Apple Silicon and Linux;
-Windows source builds are supported, but public Windows workspace execution uses
-Docker/Podman. Host does not provide container isolation, Linux/container parity,
-or container networking semantics.
+Selected container runtimes report diagnostics when unavailable; they do not silently become Host.
 
-Host browser automation requires a published browser pack for your platform and
-a passing Doctor launch check. macOS Intel is not a supported target. If your
-platform's pack is pending, use Docker/Podman or Apple Container for browser
-automation.
+## 4. Understand browser automation readiness
 
-## Install dependencies
+Host browser automation requires both:
+
+1. an available browser pack for your platform, and
+2. a passing Environment Doctor launch check.
+
+Browser packs are available for macOS arm64, Linux x64, Linux arm64, and Windows x64 when Doctor reports them ready. Container runtimes use browser automation from the Sero runtime image.
+
+## 5. Install project dependencies
 
 From the repo root:
 
@@ -58,25 +69,10 @@ From the repo root:
 pnpm install
 ```
 
-The install flow runs native-module repair hooks for `node-pty` and
-`better-sqlite3`.
-
-## Optional runtime verification
-
-```bash
-/usr/local/bin/container --help
-/usr/local/bin/container system status
-docker info
-podman info
-```
-
-If a container runtime is unavailable, select Host only on a supported public
-Host platform and expect reduced capabilities. Selecting Host is a deliberate
-choice; selected container runtimes do not silently become Host. macOS Intel is
-not a supported target, and Windows workspace execution still requires
-Docker/Podman in the public support scope.
+The install flow runs native-module repair hooks for `node-pty` and `better-sqlite3`.
 
 ## Related docs
 
+- [Support Scope](/reference/support-scope)
 - [Development Setup](/guide/development-setup)
 - [Troubleshooting](/reference/troubleshooting)

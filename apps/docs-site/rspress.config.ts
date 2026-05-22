@@ -5,8 +5,10 @@ import { defineConfig } from 'rspress/config';
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 
 const startSetup = [
-  { text: 'Overview', link: '/guide/overview' },
-  { text: 'Installation / Requirements', link: '/guide/installation-requirements' },
+  { text: 'Start Here', link: '/guide/overview' },
+  { text: 'Get Sero Running', link: '/guide/getting-started' },
+  { text: 'Install from Source', link: '/guide/installation-requirements' },
+  { text: 'Choose a Workspace Runtime', link: '/guide/choose-workspace-runtime' },
   { text: 'Profiles and Onboarding', link: '/guide/profiles-and-onboarding' },
   { text: 'Models and Providers', link: '/guide/models-and-providers' },
   { text: 'Local LLMs with LM Studio', link: '/guide/local-llms-lm-studio' },
@@ -16,7 +18,7 @@ const startSetup = [
 const workspaceRuntime = [
   { text: 'Workspaces and Chat', link: '/guide/workspace-and-chat' },
   { text: 'Explorer Workspace', link: '/guide/explorer-workspace' },
-  { text: 'Containers and Dev Servers', link: '/guide/containers-dev-servers' },
+  { text: 'Preview Dev Servers', link: '/guide/containers-dev-servers' },
   { text: 'Browser and Capture', link: '/guide/browser-and-capture' },
   { text: 'Checkpoints and Undo', link: '/guide/checkpoints-and-undo' },
   { text: 'Themes', link: '/guide/themes' }
@@ -43,6 +45,7 @@ const appsIntegrations = [
 ];
 
 const referenceRuntime = [
+  { text: 'Support Scope', link: '/reference/support-scope' },
   { text: 'Architecture', link: '/reference/architecture' },
   { text: 'Containers and Host Mode', link: '/reference/containers-host-mode' },
   { text: 'Container Isolation', link: '/reference/container-isolation' },
@@ -65,8 +68,7 @@ const referenceQuality = [
   { text: 'Security / Privacy', link: '/reference/security-privacy' },
   { text: 'Environment Doctor', link: '/reference/environment-doctor' },
   { text: 'Troubleshooting', link: '/reference/troubleshooting' },
-  { text: 'Known Limitations', link: '/reference/known-limitations' },
-  { text: 'Support Scope', link: '/reference/support-scope' }
+  { text: 'Known Limitations', link: '/reference/known-limitations' }
 ];
 
 const selectedPlugins = [
@@ -103,6 +105,7 @@ export default defineConfig({
       // link target, so this nav item is the canonical "go home" affordance.
       { text: '← sero-ai.dev', link: 'https://sero-ai.dev' },
       { text: 'Start Here', link: '/guide/overview' },
+      { text: 'Guides', link: '/guide/' },
       { text: 'Workspace', link: '/guide/workspace-and-chat' },
       { text: 'Agents', link: '/guide/agent-sessions-and-context' },
       { text: 'Plugins', link: '/plugins/catalog' },
@@ -117,18 +120,18 @@ export default defineConfig({
     ],
     sidebar: {
       '/guide/': [
-        { text: 'Start / Setup', items: startSetup },
-        { text: 'Workspace / Runtime', items: workspaceRuntime },
-        { text: 'Agents / Automation', items: agentsAutomation },
-        { text: 'Apps / Integrations', items: appsIntegrations }
+        { text: 'Tutorials: first run', items: startSetup },
+        { text: 'How-to guides: workspace tasks', items: workspaceRuntime },
+        { text: 'How-to guides: agents', items: agentsAutomation },
+        { text: 'How-to guides: apps', items: appsIntegrations }
       ],
       '/plugins/': [
         { text: 'Plugin Catalog', items: selectedPlugins }
       ],
       '/reference/': [
-        { text: 'Runtime Reference', items: referenceRuntime },
-        { text: 'Plugin Authors', items: referenceAuthors },
-        { text: 'Quality / Safety / Help', items: referenceQuality }
+        { text: 'Facts: runtime and state', items: referenceRuntime },
+        { text: 'Facts: plugin authors', items: referenceAuthors },
+        { text: 'Facts: quality, safety, help', items: referenceQuality }
       ]
     }
   }

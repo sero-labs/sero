@@ -62,9 +62,9 @@ Keep these alpha caveats in mind:
 
 - The primary root and attached roots are runtime/workspace concepts, not a
   stable public plugin API.
-- File operations can depend on the selected runtime. Container-backed
-  workspaces are the preferred path; Host mode is explicit and reduced, not full
-  parity.
+- File operations can depend on the selected runtime. Host is the default on
+  supported platforms; choose Apple Container or Docker / Podman explicitly when
+  you need container-provided tools, isolation, or container path behavior.
 - Avoid using Explorer as the only copy of important work until you are
   comfortable with the current alpha behavior.
 
@@ -155,8 +155,12 @@ Current actions include:
 - remove/unregister an entry
 
 This panel reflects registered dev servers; it is not a guarantee that Sero will
-automatically discover, start, or manage every project server. Container-backed
-runtime is the preferred path for managed preview and dev-server flows because the active runtime can return a host-reachable preview URL without requiring the project to own a fixed host port. This reduces host port conflicts, but it does not guarantee that every network, proxy, DNS, or framework binding issue disappears. Host mode is reduced and should not be treated as feature-equivalent for dev-server automation.
+automatically discover, start, or manage every project server. Host is the default
+runtime on supported platforms and uses normal localhost URLs. If you explicitly
+choose Apple Container or Docker / Podman, Sero can return a host-reachable
+preview URL from the container runtime without requiring the project to own a
+fixed host port. This reduces host port conflicts, but it does not guarantee that
+every network, proxy, DNS, or framework binding issue disappears.
 
 Typical command flow:
 
@@ -172,15 +176,12 @@ sero app preview <registered-url>
 
 For the current alpha:
 
-- macOS, Linux, and Windows source builds are in alpha scope
-- macOS Apple Silicon is the maintainer-validated baseline
-- Apple Container or Docker/Podman-backed workspaces are recommended for the full Explorer
-  experience
-- host mode supports core chat, file browsing/editing, terminals, and general
-  host-shell workflows on macOS/Linux, but with reduced automation; Windows uses the Docker-compatible runtime for workspace execution
-- browser automation, containerized tooling/language servers, and managed
-  preview/dev-server parity are container-oriented capabilities
-- containers are not documented as a hardened multi-tenant security boundary
+- macOS, Linux, and Windows source builds are in alpha scope.
+- macOS Apple Silicon is the maintainer-validated baseline.
+- Host is the default runtime on supported platforms, including Windows x64.
+- Choose Apple Container or Docker / Podman explicitly when you want container-provided tools, container isolation, browser automation from the runtime image, or container networking behavior.
+- Host supports core chat, file browsing/editing, terminals, and general host-shell workflows, but it is not feature-equivalent to container runtimes.
+- Containers are not documented as a hardened multi-tenant security boundary.
 
 See [Support Scope](/reference/support-scope) for the canonical support matrix.
 

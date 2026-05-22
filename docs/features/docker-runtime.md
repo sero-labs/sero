@@ -4,7 +4,7 @@ Sero runtime support is local only:
 
 - **Apple Container** on supported Apple Silicon Macs.
 - **Docker / Podman** through a Docker-compatible CLI on macOS, Windows, and Linux. The persisted backend ID remains `docker`.
-- **Host** as an advanced direct-host option on release-supported macOS Apple Silicon, Linux, and Windows x64 targets. Windows x64 Host is an internal host-first release target behind `SERO_HOST_FIRST=1`; the public support scope can still keep Windows workspace execution on Docker/Podman until deliberately changed.
+- **Host** as the default direct-host runtime on release-supported macOS Apple Silicon, Linux, and Windows x64 targets.
 
 Remote execution, hosted/cloud runtimes, and policy sandbox UX are out of scope.
 
@@ -32,7 +32,7 @@ http://127.0.0.1:<hostPort>
 
 The gateway proxies those provider-neutral URLs and does not inspect container IPs. See `docs/reference/runtime-preview-ports.md` for the pool size and recreation notes.
 
-Host runtime returns direct `http://127.0.0.1:<port>` preview URLs for managed dev servers on release-supported macOS Apple Silicon, Linux, and Windows x64 host-first targets.
+Host runtime returns direct `http://127.0.0.1:<port>` preview URLs for managed dev servers on release-supported macOS Apple Silicon, Linux, and Windows x64 targets.
 
 ## Platform support
 
@@ -40,9 +40,9 @@ Host runtime returns direct `http://127.0.0.1:<port>` preview URLs for managed d
 | --- | --- | --- | --- | --- |
 | Apple Container | Apple Silicon recommended | No | No | Runtime image |
 | Docker / Podman (`docker`) | Yes | Yes | Yes, through Docker Desktop or Podman | Runtime image |
-| Host (`host`) | Release-supported on arm64 | Release-supported on x64/arm64 | Release-supported on x64 behind host-first release gates | Published browser pack + Doctor readiness |
+| Host (`host`) | Default on arm64 | Default on x64/arm64 | Default on x64 | Published browser pack + Doctor readiness |
 
-When Docker/Podman or Apple Container is selected and unavailable, Sero reports a runtime/Doctor failure instead of silently falling back to host execution. Native Windows Host uses a verified Git Bash/MSYS-compatible shell and is gated by the internal host-first release matrix; keep public Windows support wording in `apps/docs-site/docs/reference/support-scope.md` separate unless that public contract is deliberately changed.
+When Docker/Podman or Apple Container is selected and unavailable, Sero reports a runtime/Doctor failure instead of silently falling back to host execution. Native Windows Host uses a verified Git Bash/MSYS-compatible shell and is part of the release-supported Host matrix for Windows x64.
 
 ## Path policy
 
@@ -50,4 +50,4 @@ Docker/Podman and Apple Container execute commands inside the runtime with the p
 
 ## Smoke coverage
 
-Use `docs/reference/runtime-smoke.md` for the full smoke matrix and `docs/reference/runtime-manual-test.md` for host runtime manual checks across the host-first release targets.
+Use `docs/reference/runtime-smoke.md` for the full smoke matrix and `docs/reference/runtime-manual-test.md` for host runtime manual checks across the release-supported Host targets.

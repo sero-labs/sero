@@ -88,11 +88,10 @@ pnpm install
 pnpm typecheck
 ```
 
-Start Sero with host-first defaults enabled:
+Start Sero normally; Host is the default on this supported platform:
 
 ```powershell
 Get-Process vite,electron -ErrorAction SilentlyContinue | Stop-Process -Force
-$env:SERO_HOST_FIRST = "1"
 pnpm dev
 ```
 

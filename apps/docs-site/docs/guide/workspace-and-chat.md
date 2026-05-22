@@ -13,8 +13,9 @@ voice input, see [Agent Sessions and Context](/guide/agent-sessions-and-context)
 ## Alpha expectations
 
 Sero is currently a **source-only OSS alpha** for **macOS, Linux, and Windows**.
-The preferred runtime is container-backed workspaces through Apple Container or
-Docker/Podman; Host mode is a supported explicit macOS/Linux runtime with reduced capabilities.
+Host is the default workspace runtime on supported platforms. Apple Container
+and Docker / Podman are explicit container choices when you want container
+isolation, image-provided tools, or container networking behavior.
 
 For the current support matrix, see [Support Scope](/reference/support-scope).
 For the high-level implementation model, see [Architecture](/reference/architecture).

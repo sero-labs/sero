@@ -115,6 +115,20 @@ describe('RuntimePickerMenu', () => {
     expect(getRuntimePickerOptions('win32', 'x64').map((option) => option.backend)).toEqual(['host', 'docker']);
   });
 
+  it('marks the default runtime using the platform support matrix', () => {
+    const macArm = getRuntimePickerOptions('darwin', 'arm64');
+    expect(macArm.find((option) => option.backend === 'host')?.recommended).toBe(true);
+    expect(macArm.find((option) => option.backend === 'docker')?.optional).toBe(true);
+
+    const macIntel = getRuntimePickerOptions('darwin', 'x64');
+    expect(macIntel.find((option) => option.backend === 'host')?.optional).toBe(true);
+    expect(macIntel.find((option) => option.backend === 'docker')?.recommended).toBe(true);
+
+    const windowsX64 = getRuntimePickerOptions('win32', 'x64');
+    expect(windowsX64.find((option) => option.backend === 'host')?.recommended).toBe(true);
+    expect(windowsX64.find((option) => option.backend === 'docker')?.optional).toBe(true);
+  });
+
   it('shows macOS Apple Silicon runtime choices with Host default and containers optional', async () => {
     installSero('darwin', 'arm64');
 
@@ -124,19 +138,20 @@ describe('RuntimePickerMenu', () => {
     await openPicker();
 
     expect(document.body.textContent).toContain('Apple Container');
-    expect(document.body.textContent).toContain('Optional Apple-native container runtime');
+    expect(document.body.textContent).toContain('Explicit Apple-native container runtime');
     expect(document.body.textContent).toContain('Docker / Podman');
-    expect(document.body.textContent).toContain('Optional containerized Linux runtime');
+    expect(document.body.textContent).toContain('Explicit container runtime');
     expect(document.body.textContent).toContain('Host');
     expect(document.body.textContent).not.toContain('Host (recommended)');
     expect(document.body.textContent).toContain('Default');
     expect(document.body.textContent).not.toContain('Recommended');
     expect(document.body.textContent).toContain('Optional');
-    expect(document.body.textContent).toContain('Sero-managed tools automatically. No sandbox');
-    expect(document.body.textContent).toContain('Host is recommended for fast local work');
+    expect(document.body.textContent).toContain('Default local runtime');
+    expect(document.body.textContent).toContain('No container isolation');
+    expect(document.body.textContent).toContain('Host is the normal default for local work');
   });
 
-  it('hides Apple Container on macOS Intel', async () => {
+  it('hides Apple Container on macOS Intel and labels Docker as default', async () => {
     installSero('darwin', 'x64');
 
     await act(async () => {
@@ -146,6 +161,9 @@ describe('RuntimePickerMenu', () => {
 
     expect(document.body.textContent).toContain('Docker / Podman');
     expect(document.body.textContent).toContain('Host');
+    expect(document.body.textContent).toContain('Docker / PodmanDefault');
+    expect(document.body.textContent).toContain('HostOptional');
+    expect(document.body.textContent).toContain('Docker / Podman is the default on this platform');
     expect(document.body.textContent).not.toContain('Apple Container');
   });
 
@@ -160,7 +178,7 @@ describe('RuntimePickerMenu', () => {
     expect(document.body.textContent).toContain('Host');
     expect(document.body.textContent).not.toContain('Host (recommended)');
     expect(document.body.textContent).toContain('Docker / Podman');
-    expect(document.body.textContent).toContain('Optional containerized Linux runtime');
+    expect(document.body.textContent).toContain('Explicit container runtime');
     expect(document.body.textContent).not.toContain('Apple Container');
     expect(document.body.textContent).not.toContain('WSL');
   });
@@ -203,7 +221,7 @@ describe('RuntimePickerMenu', () => {
     await openPicker();
 
     const docker = Array.from(document.querySelectorAll('button')).find((button) =>
-      button.textContent?.includes('Optional containerized Linux runtime'),
+      button.textContent?.includes('Explicit container runtime'),
     );
     if (!(docker instanceof HTMLButtonElement)) throw new Error('Expected Docker option');
 
@@ -229,7 +247,7 @@ describe('RuntimePickerMenu', () => {
     await openPicker();
 
     const docker = Array.from(document.querySelectorAll('button')).find((button) =>
-      button.textContent?.includes('Optional containerized Linux runtime'),
+      button.textContent?.includes('Explicit container runtime'),
     );
     if (!(docker instanceof HTMLButtonElement)) throw new Error('Expected Docker option');
 

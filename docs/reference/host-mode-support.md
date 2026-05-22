@@ -4,11 +4,11 @@ Host-mode support follows `HOST_RELEASE_TARGETS` in `apps/desktop/electron/featu
 
 | Platform | Arch | Host runtime | Host browser pack | Packaged app | Status |
 | --- | --- | --- | --- | --- | --- |
-| macOS | arm64 | Supported with `SERO_HOST_FIRST=1` | Required published GitHub Release artifact (`browser-darwin-arm64`) | DMG/ZIP | Release-supported target |
+| macOS | arm64 | Supported; default | Required published GitHub Release artifact (`browser-darwin-arm64`) | DMG/ZIP | Release-supported target |
 | macOS | x64 | Unsupported | Not published | Not published | Future/unsupported |
-| Linux | x64 | Supported with `SERO_HOST_FIRST=1` | Required published GitHub Release artifact (`browser-linux-x64`) | AppImage/deb/tar.gz | Release-supported target; blocked until artifact/workflow gate passes |
-| Linux | arm64 | Supported with `SERO_HOST_FIRST=1` | Required published GitHub Release artifact (`browser-linux-arm64`) | AppImage/deb/tar.gz | Release-supported target; blocked until artifact/workflow gate passes |
-| Windows | x64 | Supported with `SERO_HOST_FIRST=1` | Required published GitHub Release artifact (`browser-win32-x64`) | NSIS/ZIP | Release-supported target; blocked until artifact/workflow gate passes |
+| Linux | x64 | Supported; default | Required published GitHub Release artifact (`browser-linux-x64`) | AppImage/deb/tar.gz | Release-supported target; blocked until artifact/workflow gate passes |
+| Linux | arm64 | Supported; default | Required published GitHub Release artifact (`browser-linux-arm64`) | AppImage/deb/tar.gz | Release-supported target; blocked until artifact/workflow gate passes |
+| Windows | x64 | Supported; default | Required published GitHub Release artifact (`browser-win32-x64`) | NSIS/ZIP | Release-supported target; blocked until artifact/workflow gate passes |
 | Windows | arm64 | Not defaulted | Not published | Not published | Future/unsupported |
 
 Supported-platform host browser automation uses the browser-pack manifest and published GitHub Release assets at `https://github.com/sero-labs/sero/releases/download/browser-pack-2026-05-16/<slug>.tar.gz`. `pnpm --filter @sero/desktop browser-pack:verify-published` must verify each release-supported artifact before docs or releases claim browser automation support on that platform.

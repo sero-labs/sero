@@ -2,7 +2,7 @@
 
 Manual checklist for validating local runtime behavior. Use canonical backend IDs `host`, `docker`, and `apple-container`. The old `mac-host` value is a deprecated compatibility alias only.
 
-Host mode is the recommended/default runtime for new workspaces only when `SERO_HOST_FIRST=1` is set. Existing persisted workspace runtime selections remain authoritative. See [`host-mode-support.md`](./host-mode-support.md) for the platform/arch support table and release gates.
+Host mode is the default runtime for new workspaces on release-supported Host platforms. Existing persisted workspace runtime selections remain authoritative. `SERO_HOST_FIRST` was migration scaffolding and no longer changes defaults. See [`host-mode-support.md`](./host-mode-support.md) for the platform/arch support table and release gates.
 
 ## Prep
 
@@ -11,7 +11,7 @@ Start Sero from the branch under test:
 ```bash
 pkill -f "vite"; pkill -f "electron"
 pnpm install
-SERO_HOST_FIRST=1 pnpm dev
+pnpm dev
 ```
 
 Open DevTools in the desktop app, then pick a non-global disposable workspace:
@@ -171,7 +171,6 @@ python3 -m http.server 8787 --directory apps/desktop/dist
 Then start Sero in another terminal:
 
 ```bash
-SERO_HOST_FIRST=1 \
 SERO_BROWSER_PACK_BASE_URL=http://127.0.0.1:8787/browser-pack/2026-05-16 \
 pnpm dev
 ```
@@ -292,7 +291,7 @@ Restart Sero with the target workspace id:
 
 ```bash
 pkill -f "vite"; pkill -f "electron"
-SERO_HOST_FIRST=1 SERO_RUNTIME_SMOKE_WORKSPACE_ID="<YOUR_WORKSPACE_ID>" pnpm dev
+SERO_RUNTIME_SMOKE_WORKSPACE_ID="<YOUR_WORKSPACE_ID>" pnpm dev
 ```
 
 Inspect the state file:

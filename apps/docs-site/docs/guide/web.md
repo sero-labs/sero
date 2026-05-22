@@ -8,8 +8,19 @@ later review. See the
 [Plugin Catalog](/plugins/catalog) for the built-in plugin inventory.
 
 Sero is still a **source-only OSS alpha**. Web access depends on configured
-providers, local runtime support, signed-in browser/profile state for some
-paths, and third-party services that can change outside Sero.
+providers, local runtime support from [Support Scope](/reference/support-scope),
+signed-in browser/profile state for some paths, and third-party services that
+can change outside Sero.
+
+## Web vs Remote Control
+
+| Feature | Use it when | Important note |
+| --- | --- | --- |
+| **Web plugin** | You want the agent to search, fetch, bookmark, or reuse web content in the current workspace. | Requests may go to configured third-party providers, and state is stored with the workspace. |
+| **Remote Control** | You want to control your local Sero desktop session from another trusted device. | Requires `SERO_GATEWAY=1`; treat paired clients like access to the desktop app. See [Remote Control](/guide/remote-control). |
+
+The Web plugin does **not** provide remote access to Sero. It adds web context to
+the current agent session.
 
 ## What the Web plugin does
 
@@ -161,7 +172,8 @@ agent-facing way to perform search, fetch, code search, and bookmark actions.
 
 Sero does **not** bundle third-party provider credentials. Search and some
 extraction paths depend on what is configured or signed in for the active
-profile/session.
+profile/session. Configure only the providers you trust for the queries, URLs,
+and page content you plan to send.
 
 Provider paths currently include:
 
@@ -197,7 +209,8 @@ and fetch results are also appended to session entries and mirrored into this
 state file.
 
 Because this is workspace state, avoid assuming bookmarks, history, downloads,
-or provider status are global across every workspace or profile.
+or provider status are global across every workspace or profile. See
+[State and Folders](/reference/state-and-folders) for the broader storage map.
 
 ## Privacy and safety
 
@@ -211,8 +224,10 @@ Practical safety habits:
   URLs unless you understand which provider will receive the request.
 - Review fetched content before relying on it for security, legal, medical,
   financial, or production decisions.
-- Redact bookmarks, history, URLs, source excerpts, and provider errors before
-  sharing screenshots or support logs.
+- Redact bookmarks, history, URLs, source excerpts, provider errors, and any
+  provider credentials before sharing screenshots or support logs. See
+  [Security / Privacy](/reference/security-privacy) for the general redaction
+  guidance.
 - Remember that third-party pages can be stale, misleading, hostile, or blocked
   by their owners.
 

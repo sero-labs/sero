@@ -97,18 +97,18 @@ pnpm install
 pnpm typecheck
 ```
 
-Start Sero with host-first defaults enabled:
+Start Sero normally; Host is the default on this supported platform:
 
 ```bash
 pkill -f "vite" || true
 pkill -f "electron" || true
-SERO_HOST_FIRST=1 pnpm dev
+pnpm dev
 ```
 
 If you want to force Podman for the container test, start Sero like this instead:
 
 ```bash
-SERO_HOST_FIRST=1 SERO_CONTAINER_ENGINE=podman pnpm dev
+SERO_CONTAINER_ENGINE=podman pnpm dev
 ```
 
 Expected: the Sero desktop window opens.

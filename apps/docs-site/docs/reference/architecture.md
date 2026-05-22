@@ -27,7 +27,7 @@ flowchart LR
   Workspace --> Runtime{Runtime mode}
   Runtime --> Apple[Apple Container workspace]
   Runtime --> Docker[Docker / Podman workspace]
-  Runtime --> Host[Explicit Host mode]
+  Runtime --> Host[Host mode]
 
   Apps --> AppRuntime["@sero-ai/app-runtime"]
   Apps --> AppState[Profile or workspace app state]
@@ -73,26 +73,26 @@ Workspaces are the main organizing unit. Each workspace has:
 
 ## Runtime modes
 
-### Container-backed (preferred)
+### Container-backed (explicit choices)
 
-Use Apple Container or Docker/Podman-backed workspaces for:
+Use Apple Container or Docker / Podman-backed workspaces when you want:
 - better isolation
 - containerized tooling
-- browser automation and managed preview flows
+- browser automation from the runtime image
 - better Linux parity
 
-### Host mode (explicit reduced runtime)
+### Host mode (default on supported platforms)
 
-Host mode keeps core workflows available when selected on macOS/Linux, but it is intentionally reduced.
+Host keeps core workflows available on supported platforms, but it is not feature-equivalent to container runtimes.
 Expect limits around browser automation, containerized tooling, and some managed
-preview/runtime behavior. Windows workspace execution uses the Docker-compatible runtime. See [Containers and Host Mode](/reference/containers-host-mode)
+preview/runtime behavior. See [Support Scope](/reference/support-scope) for the canonical platform matrix and [Containers and Host Mode](/reference/containers-host-mode)
 for runtime-specific guidance.
 
 ```mermaid
 flowchart TD
   Open[Open workspace] --> Pick{Selected runtime}
-  Pick -->|Apple Container/Docker/Podman available| Container[Container-backed workspace]
-  Pick -->|Host on macOS/Linux| Host[Reduced host mode]
+  Pick -->|Apple Container / Docker / Podman available| Container[Container-backed workspace]
+  Pick -->|Host on supported platforms| Host[Host workspace]
   Pick -->|Container unavailable| Error[Actionable runtime error]
 
   Container --> Mounts[Mount workspace and configured extra roots]

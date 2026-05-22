@@ -1,120 +1,85 @@
 # Start Here
 
-Sero is a **local-first, agent-first desktop workspace for macOS, Linux, and Windows**. It brings
-project workspaces, Pi-backed agent chat, plugins, terminals, previews, and local
-runtime orchestration into one desktop shell.
+Sero is a desktop app for working on local software projects with an AI coding
+agent. It brings project workspaces, chat, terminals, previews, files, source
+control, and plugins into one local shell.
 
-If you just want to run it, skip to [Getting started](#getting-started). If you
-want the product model first, read the overview below.
+The current alpha is for people who are comfortable building from source. If you
+want a packaged installer or a fully stable product, wait for a later release.
 
-## Overview
+## What Sero helps you do
 
-Sero is built for users who want fewer context switches between editor,
-terminals, AI tooling, app-specific workflows, and project coordination.
+Sero is designed for agent-assisted development work where the agent needs more
+than a chat box.
 
-The project goal is not just “AI in an editor.” It is a workspace layer where:
+Use Sero when you want to:
 
-- Pi is the coding agent
-- workspaces are first-class
-- runtime mode can be container-backed or host-based
-- plugins can extend both UI and agent capabilities
+- open a project workspace and keep the agent near the files, terminals, and
+  previews it needs
+- ask an AI coding agent to work with local project context
+- inspect app previews and browser-like workflows in the same desktop shell
+- add workflow-specific tools through plugins
+- keep project state local unless you choose to connect external services
 
-## Current alpha scope
+Sero is built on Pi, an open-source coding agent platform. You do not need to
+understand Pi internals to start using Sero.
 
-The current OSS alpha is intentionally narrow:
+## Who the alpha is for
 
-- **platforms:** macOS, Linux, and Windows from source
-- **maintainer-validated baseline:** macOS on Apple Silicon
-- **distribution:** source-only
-- **runtime options:** Apple Container, Docker/Podman (`docker`), and explicit Host where supported
-- **full runtime-backed experience:** container-backed workspaces via Apple Container or Docker/Podman
-- **host runtime:** explicit reduced-capability runtime; see [Support Scope](/reference/support-scope) for platform details
+The source-only alpha is a good fit if you are:
 
-Sero does **not** currently promise official binaries, identical runtime capabilities on every OS, or fully stable internal runtime/plugin contracts. See [Support Scope](/reference/support-scope) for the exact platform and runtime contract.
+- a developer or contributor comfortable using a terminal
+- willing to install Node.js, pnpm, and source dependencies
+- testing Sero on a platform listed in [Support Scope](/reference/support-scope)
+- okay with alpha-quality workflows and changing plugin/runtime contracts
 
-## Getting started
+It is probably not the right fit yet if you need:
 
-### Who this alpha is for
+- a one-click installer
+- production-stable workflows
+- a hosted cloud IDE
+- fully stable plugin APIs
+- identical capabilities on every operating system
 
-Sero OSS alpha is aimed at:
+## What to do first
 
-- technically comfortable local developers on macOS, Linux, or Windows
-- early adopters who are okay with alpha-quality workflows
-- contributors interested in agent-first tooling
-- plugin authors working with evolving APIs
+1. Check [Support Scope](/reference/support-scope) for the current platform and
+   workspace runtime support contract.
+2. Follow [Get Sero Running](/guide/getting-started) to start the desktop app
+   from source.
+3. When you open or configure a workspace, use the default runtime if you are
+   unsure. Read [Choose a Workspace Runtime](/guide/choose-workspace-runtime) if
+   you need container behavior or want to switch later.
+4. Set up your profile and providers with [Profiles and Onboarding](/guide/profiles-and-onboarding)
+   and [Models and Providers](/guide/models-and-providers).
 
-### Fast path
+## Learn the workspace after first launch
 
-From the repo root:
+After Sero opens, these pages explain the main surfaces:
 
-```bash
-pnpm install
-pnpm build
-pnpm dev
-```
+- [Workspace and Chat](/guide/workspace-and-chat) — the shell, sidebar,
+  workspaces, sessions, and global chat panel.
+- [Explorer Workspace](/guide/explorer-workspace) — files, editor previews,
+  browser tabs, terminals, and source control.
+- [Agent Sessions and Context](/guide/agent-sessions-and-context) — composer
+  controls, context, voice, steering, and queues.
+- [Plugins and Apps](/guide/plugins-and-apps) — bundled apps, installed plugins,
+  widgets, and plugin concepts.
+- [Plugin Catalog](/plugins/catalog) — built-in and external/local plugins at a
+  glance.
 
-That is the canonical first-run path for contributors.
+## Look up exact facts
 
-### Core root commands
+Use reference pages when you need a precise answer:
 
-```bash
-pnpm typecheck
-pnpm build
-pnpm test
-pnpm test:ci
-pnpm eval:snapshot
-```
+- [Support Scope](/reference/support-scope) — canonical platform, runtime, and
+  issue-reporting support facts.
+- [Troubleshooting](/reference/troubleshooting) — what to try when setup or a
+  workspace fails.
+- [Environment Doctor](/reference/environment-doctor) — diagnostics, safe mode,
+  output states, and redaction behavior.
+- [Security / Privacy](/reference/security-privacy) — local state, credentials,
+  logs, and remote-access cautions.
 
-## Learn the workspace
-
-After the repo boots, these guides explain the main product surfaces:
-
-- [Workspace and Chat](/guide/workspace-and-chat) explains the shell, sidebar,
-  workspaces, sessions, global chat panel, and onboarding flow.
-- [Explorer Workspace](/guide/explorer-workspace) maps files, editor previews,
-  browser tabs, terminals, and dev-server surfaces.
-- [Settings and Admin](/guide/settings-models-admin) and
-  [Models and Providers](/guide/models-and-providers) explain Admin,
-  model/provider, prompt, skill, and context management surfaces.
-- [Themes](/guide/themes) explains profile-scoped theme selection and editing.
-- [MCP](/guide/mcp) explains MCP server management and sensitive server
-  configuration.
-- [Memory](/guide/memory) explains durable local context, scratchpad workflows,
-  storage, and recall limits.
-- [Web](/guide/web) explains web search, content fetching, bookmarks, provider
-  prerequisites, and workspace-scoped web state.
-- [Remote Control](/guide/remote-control) explains the optional,
-  security-sensitive gateway pairing surface.
-- [Scheduler and Reminders](/guide/scheduler-reminders) explains recurring
-  agent jobs, reminders, notification caveats, and conservative recovery.
-- [Git Integration](/guide/git-integration) explains repository status, changes,
-  branch context, remote origins, and conservative agent/Git workflows.
-- [Plugins and Apps](/guide/plugins-and-apps) explains core apps, bundled
-  plugins, installed plugins, and app-runtime concepts.
-- [App Store and Favorites](/guide/app-store-favorites) explains plugin
-  discovery, sidebar favorites, compatibility, install/uninstall, and retained
-  state.
-
-## What to read next
-
-- [Installation / Requirements](/guide/installation-requirements)
-- [Development Setup](/guide/development-setup)
-- [Support Scope](/reference/support-scope)
-- [Architecture](/reference/architecture)
-- [Troubleshooting](/reference/troubleshooting)
-
-## Before filing issues
-
-Please redact tokens, auth files, and private local paths from logs,
-screenshots, and reproduction notes.
-
-## Canonical source material
-
-This docs site is the curated public surface for alpha. The current source
-material it draws from includes:
-
-- [`docs/sero.md`](https://github.com/sero-labs/sero/blob/main/docs/sero.md)
-- [`docs/architecture.md`](https://github.com/sero-labs/sero/blob/main/docs/architecture.md)
-- [`docs/plugins/guide.md`](https://github.com/sero-labs/sero/blob/main/docs/plugins/guide.md)
-- [`docs/testing/eval-guide.md`](https://github.com/sero-labs/sero/blob/main/docs/testing/eval-guide.md)
-- [`docs/security/gateway.md`](https://github.com/sero-labs/sero/blob/main/docs/security/gateway.md)
+Before filing issues, redact tokens, auth files, private paths, and sensitive
+project details from logs, screenshots, and reproduction notes.

@@ -1,19 +1,19 @@
 # Container Isolation
 
-Container-backed workspaces are Sero's preferred runtime for the full experience across supported platforms. Apple Container and the Docker-compatible runtime (Docker or Podman, saved as backend ID `docker`) isolate workspace execution from the host enough to provide reproducible tooling, runtime networking, browser automation from the runtime image, and per-workspace dev-server previews. They are not documented as a hardened multi-tenant security boundary.
+Container runtimes run workspace commands inside Sero-managed containers. Apple Container and Docker / Podman provide container mounts, container networking behavior, runtime-image tooling, browser automation from the image, and per-workspace dev-server previews. They are not documented as a hardened multi-tenant security boundary.
 
-Host mode is the direct-host alternative where supported. It uses the real host workspace cwd and normal host networking rather than container mounts or container network semantics. For the exact public support matrix, see [Support Scope](/reference/support-scope).
+Host is the direct-host runtime where supported. It uses the real host workspace directory and normal host networking rather than container mounts or container network semantics. For the exact public support matrix, see [Support Scope](/reference/support-scope). For choosing a runtime, see [Choose a Workspace Runtime](/guide/choose-workspace-runtime).
 
 ## Lifecycle
 
 | Behavior | Current implementation |
-|---|---|
+| --- | --- |
 | Container id | `sero-<workspaceId>` from `containerId(workspaceId)` or the runtime-specific equivalent. |
-| Image | `ghcr.io/sero-labs/sero-node:latest` by default for Docker/Podman-backed workspaces; Apple Container uses the same Sero node image contents in its separate image store. |
+| Image | `ghcr.io/sero-labs/sero-node:latest` by default for Docker / Podman-backed workspaces; Apple Container uses the same Sero node image contents in its separate image store. |
 | Start model | Lazy/deduplicated `ensure()` per workspace; stopped containers are reused when possible. |
-| System runtime | Apple Container (`/usr/local/bin/container`) or Docker/Podman; Sero can start the Apple Container system if it is installed but stopped. |
-| Recovery | Stale/ghost containers may be force-removed or recreated. |
-| Host alternative | Explicitly select Host when you want supported reduced direct-host execution. Selected container runtimes fail closed if unavailable. |
+| System runtime | Apple Container (`/usr/local/bin/container`) or Docker / Podman; Sero can start the Apple Container system if it is installed but stopped. |
+| Recovery | Stale or ghost containers may be force-removed or recreated. |
+| Host alternative | Explicitly select Host when you want supported direct-host execution. Selected container runtimes fail closed if unavailable. |
 
 ```text
 Workspace opened
@@ -29,10 +29,10 @@ run terminals/tools/dev servers through the active container runtime
 
 ## Mounts
 
-Container-backed workspaces use these mount semantics:
+Container runtimes use these mount semantics:
 
 | Mount | Semantics |
-|---|---|
+| --- | --- |
 | Primary workspace | Host workspace path mounted at `/workspace` inside the container. |
 | Read-only extra mounts | Existing host directories mounted at the same absolute path with `:ro`; used for readable shared resources. |
 | Writable extra mounts | Existing host directories mounted at the same absolute path; used where cross-workspace writes are intended. |
@@ -44,7 +44,7 @@ In Host mode, shell commands run in the real workspace directory on the host. Us
 
 ## Environment and networking
 
-Sero writes shell profile defaults for container-backed runtimes such as:
+Sero writes shell profile defaults for container runtimes such as:
 
 ```text
 TERM=xterm-256color
@@ -55,7 +55,7 @@ HOSTNAME=0.0.0.0
 
 When Sero's container HTTP proxy starts, proxy variables are also injected and `NO_PROXY` includes localhost and the container subnet. DNS fallback is best effort.
 
-Dev-server URLs are resolved by the active runtime backend. Apple Container and Docker/Podman expose host-reachable forwarded URLs, and Host mode exposes a normal localhost URL. The registry id is scope-aware:
+Dev-server URLs are resolved by the active workspace runtime. Apple Container and Docker / Podman expose host-reachable forwarded URLs. Host exposes a normal localhost URL. The registry id is scope-aware:
 
 ```text
 workspaceId:scope:cardId:port
@@ -65,41 +65,36 @@ The registry is in-memory and liveness is checked periodically. It does not pers
 
 ## Stopping and restarting dev servers
 
-Container-backed runtimes stop a dev server by finding processes listening on the port inside the runtime with `ss`, terminating the process group, and force-killing remaining listeners if needed. Restart re-runs the original registered command through the active runtime backend.
+Container runtimes stop a dev server by finding processes listening on the port inside the runtime with `ss`, terminating the process group, and force-killing remaining listeners if needed. Restart re-runs the original registered command through the active workspace runtime.
 
 This means stop/restart depends on the registered id and runtime process state, not just a host-side port forward.
 
-In Host mode, dev-server commands run as normal host processes from the real workspace cwd and previews use the host localhost URL.
+In Host mode, dev-server commands run as normal host processes from the real workspace directory and previews use the host localhost URL.
 
-## Host mode
+## Host behavior
 
-Host mode keeps core workflows available when you explicitly select it on a supported platform:
+Host keeps direct local workflows available on supported platforms:
 
-- onboarding and provider setup
 - chat and coding tasks
 - file browsing/editing
 - normal host terminal workflows
 - localhost dev-server registration and preview
 
-It is reduced for:
+Host does not provide browser automation unless a published browser pack is available and Environment Doctor confirms it launches. It also does not provide containerized language servers/tooling, Linux/container parity, image-provided compiler stacks, or container networking semantics.
 
-- browser automation unless a published browser pack is available and Doctor confirms it launches
-- containerized language servers/tooling
-- Linux/container parity
-- image-provided compiler stacks
-- container networking semantics
-
-See [Containers and Host Mode](/reference/containers-host-mode) for user-facing runtime guidance.
+See [Containers and Host Mode](/reference/containers-host-mode) for exact runtime behavior and failure rules.
 
 ## Cleanup and image changes
 
-If you change `apps/desktop/images/Dockerfile.sero-node` or tools installed in the image, rebuild `ghcr.io/sero-labs/sero-node:latest` and recreate affected workspace containers. Existing containers do not automatically receive Dockerfile changes. Podman uses the same fully-qualified image refs as Docker, while Apple Container has a separate image store from Docker/Podman; rebuild/import there separately when testing that runtime.
+If you change `apps/desktop/images/Dockerfile.sero-node` or tools installed in the image, rebuild `ghcr.io/sero-labs/sero-node:latest` and recreate affected workspace containers. Existing containers do not automatically receive Dockerfile changes.
+
+Podman uses the same fully-qualified image refs as Docker, while Apple Container has a separate image store from Docker / Podman; rebuild or import there separately when testing that runtime.
 
 Use the app/runtime controls where available. If debugging manually, be careful: deleting or restarting Apple Container, Docker, or Podman resources can stop other running containers on the machine.
 
 ## Security caveats
 
-Container-backed mode improves runtime separation and keeps per-workspace execution scoped, but it is not a substitute for:
+Container runtimes improve runtime separation and keep per-workspace execution scoped, but they are not a substitute for:
 
 - reviewing agent changes
 - redacting secrets before sharing logs
@@ -108,7 +103,9 @@ Container-backed mode improves runtime separation and keeps per-workspace execut
 
 ## Related docs
 
-- [Containers and Dev Servers](/guide/containers-dev-servers)
+- [Choose a Workspace Runtime](/guide/choose-workspace-runtime)
+- [Preview Dev Servers](/guide/containers-dev-servers)
 - [Containers and Host Mode](/reference/containers-host-mode)
+- [Support Scope](/reference/support-scope)
 - [Security / Privacy](/reference/security-privacy)
 - [Troubleshooting](/reference/troubleshooting)

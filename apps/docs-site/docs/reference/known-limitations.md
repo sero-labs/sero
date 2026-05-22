@@ -2,43 +2,46 @@
 
 Sero OSS alpha is intentionally narrow.
 
-For the canonical supported / not-supported matrix, see
-[Support Scope](/reference/support-scope).
+For the canonical supported / not-supported matrix, see [Support Scope](/reference/support-scope).
 
 ## Platform scope
 
 Current source-supported targets:
+
 - macOS Apple Silicon
-- Linux
-- Windows
+- Linux x64/arm64
+- Windows x64
 
 Current maintainer-validated baseline:
+
 - macOS on Apple Silicon
 
 Not currently promised:
+
 - macOS on Intel CPUs is unsupported
+- Windows arm64 is future/unsupported
 - official public binaries
 - identical runtime capability on every OS
-- Windows host-mode workspace execution
 
 ## Runtime limitations
 
-Host mode is supported on macOS Apple Silicon/Linux, but it is not feature-equivalent to the preferred
-container-backed runtime. Windows workspace execution uses the Docker-compatible runtime (Docker or Podman).
+Host is the default runtime on supported platforms, but it is not feature-equivalent to container runtimes.
 
 Expect reduced or unavailable behavior in areas such as:
-- browser automation unless a published browser pack is installable for your platform and Doctor reports it `ready`
+
+- browser automation unless an available Host browser pack is installable for your platform and Environment Doctor passes launch checks
 - containerized tooling and language servers
 - managed preview/dev-server flows with container assumptions
-- Linux/container parity
+- Linux/container parity and container networking semantics
 
-Current host browser-pack availability is artifact-driven. macOS Intel is not a supported target. Use Apple Container or Docker/Podman for browser automation while a supported platform's host browser pack is pending/non-installable.
+Apple Container and Docker / Podman remain supported explicit per-workspace choices when you want container-provided tools, isolation, or container networking behavior. Existing containers do not automatically receive Dockerfile or base-tooling changes; recreate affected workspace containers after image or installed-tool changes.
 
-Sero-managed host tools live under `~/.sero-ui/toolchains/<manifest-version>/`, but Sero does not install native compiler stacks such as Xcode Command Line Tools, Linux `build-essential`/gcc/make, or MSVC/Windows SDK. Install those manually with platform instructions, or use a container-backed runtime for image-provided build tooling.
+Sero-managed Host tools live under `~/.sero-ui/toolchains/<manifest-version>/`, but Sero does not install native compiler stacks such as Xcode Command Line Tools, Linux `build-essential`/gcc/make, or MSVC/Windows SDK. Install those manually with platform instructions, or use a container runtime for image-provided build tooling.
 
 ## Product maturity limitations
 
 During alpha, expect some churn in:
+
 - plugin/runtime contracts
 - public docs completeness
 - CI/test/eval tiering and coverage boundaries
@@ -46,6 +49,4 @@ During alpha, expect some churn in:
 
 ## Distribution limitations
 
-The current public recommendation is source-only alpha. Public binary
-expectations remain out of scope until third-party redistribution constraints
-and release posture are fully settled.
+The current public recommendation is source-only alpha. Public binary expectations remain out of scope until third-party redistribution constraints and release posture are fully settled.

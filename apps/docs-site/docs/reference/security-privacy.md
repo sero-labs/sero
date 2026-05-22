@@ -60,9 +60,11 @@ Common sensitive paths include:
 
 Before sharing diagnostics:
 
-- never paste raw API keys, OAuth tokens, gateway tokens, or full auth files
-- redact private local paths, project names, prompts, and workflow details when
-  they are not needed for the report
+- never paste raw API keys, OAuth tokens, gateway tokens, Discord bot tokens, or
+  full auth files
+- redact private local paths, project names, prompts, Tailscale serve URLs,
+  Remote Control login URLs/QR codes, and workflow details when they are not
+  needed for the report
 - rotate any secret that may already have been exposed
 - prefer private reporting when security impact is plausible
 
@@ -198,8 +200,9 @@ Important gateway caveats during alpha:
   not public funneling
 - Discord access is risky if `SERO_DISCORD_USERS` is empty, because anyone who
   can reach the bot may be able to interact with it
-- token URLs are discouraged because they can leak through browser history,
-  autocomplete, screenshots, or referrers
+- token URLs, QR codes, Tailscale serve URLs, Discord bot tokens, and gateway
+  token files are redaction-sensitive because they can grant access or reveal
+  private routing details
 
 Prefer login prompts or ephemeral shell variables over putting tokens in URLs or
 command history. Stop Tailscale serve, disable the gateway, and rotate tokens

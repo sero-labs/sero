@@ -83,6 +83,9 @@ function readConfiguredBackend(
       preFallbackCode: 'legacy-container-false',
     };
   }
+  if (config?.container === true) {
+    return { backend: getDefaultContainerRuntimeBackend(defaults) };
+  }
   return { backend: getDefaultRuntimeBackend({ ...defaults, workspaceId }) };
 }
 
@@ -98,7 +101,7 @@ function validateBackendForPlatform(
   } catch (error) {
     if (!(error instanceof UnsupportedRuntimeOnPlatformError)) throw error;
     const fallback = getDefaultContainerRuntimeBackend(defaults);
-    // Explicit backend fallbacks must stay inside the container runtime family; host-first defaults
+    // Explicit backend fallbacks must stay inside the container runtime family; host defaults
     // only apply when no workspace backend was configured.
     getRuntimeCapabilities(fallback, defaults.platform, defaults.arch);
     return {

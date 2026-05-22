@@ -7,10 +7,6 @@ export interface RuntimePlatformDefaultsInput {
   arch?: string;
 }
 
-function isHostFirstEnabled(): boolean {
-  return process.env.SERO_HOST_FIRST === '1';
-}
-
 export function getDefaultContainerRuntimeBackend(input: RuntimePlatformDefaultsInput = {}): WorkspaceRuntimeBackend {
   const platform = input.platform ?? process.platform;
   const arch = input.arch ?? process.arch;
@@ -21,7 +17,6 @@ export function getDefaultRuntimeBackend(input: RuntimePlatformDefaultsInput = {
   const platform = input.platform ?? process.platform;
   const arch = input.arch ?? process.arch;
 
-  if (input.workspaceId === 'global' && isHostDefaultSupported(platform, arch)) return 'host';
-  if (isHostFirstEnabled() && isHostDefaultSupported(platform, arch)) return 'host';
+  if (isHostDefaultSupported(platform, arch)) return 'host';
   return getDefaultContainerRuntimeBackend({ platform, arch });
 }

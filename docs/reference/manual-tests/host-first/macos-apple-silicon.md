@@ -105,12 +105,12 @@ pnpm install
 pnpm typecheck
 ```
 
-Start the desktop app with host-first defaults enabled:
+Start the desktop app normally; Host is the default on this supported platform:
 
 ```bash
 pkill -f "vite" || true
 pkill -f "electron" || true
-SERO_HOST_FIRST=1 pnpm dev
+pnpm dev
 ```
 
 Expected: the Sero desktop window opens.

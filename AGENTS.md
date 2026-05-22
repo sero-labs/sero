@@ -99,6 +99,7 @@ If you change `apps/desktop/images/Dockerfile.sero-node` or container-installed 
 - Keep code as simple and idiomatic as possible. Never use try-catch for file existence or normal flow control. Refactor any bureaucratic/over-defensive code to the minimal readable solution.
 - Always use top-level imports (no inline `import('...')` type expressions)
 - When creating UI components, try to make them self-explanatorys and avoid duplicating descriptive text in multiple places
+- Before creating a PR check and update the `@apps/docs-site` documentation and update as required
 
 ## File Size Rules (CRITICAL)
 

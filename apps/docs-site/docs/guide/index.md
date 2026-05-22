@@ -1,41 +1,49 @@
-# Guide
+# Guides
 
-Use the guide when you want task-oriented help for using Sero. The sidebar follows the normal reader journey: start/setup, workspace/runtime, agents/automation, then apps/integrations.
+Use guides when you want to complete a task. This section keeps the existing `guide/` paths, but the reading order follows Diátaxis: first-run tutorials first, then task how-tos, then links to reference facts when you need exact details.
 
-## Start / setup
+If you need the exact platform or runtime support contract, use [Support Scope](/reference/support-scope) instead of this index.
 
-- [Overview](/guide/overview) — what Sero is, alpha scope, and recommended first reading path.
-- [Installation / Requirements](/guide/installation-requirements) — supported alpha target, dependencies, and runtime verification.
-- [Profiles and Onboarding](/guide/profiles-and-onboarding) — profile creation, provider setup, state ownership, and deletion caveats.
-- [Models and Providers](/guide/models-and-providers) — provider auth modes, health states, tiers, thinking levels, and recovery.
-- [Local LLMs with LM Studio](/guide/local-llms-lm-studio) — configure local OpenAI-compatible model servers and assign tiers.
-- [Development Setup](/guide/development-setup) — contributor commands, checks, and local runtime notes.
+## First run
 
-## Workspace / runtime
+- [Start Here](/guide/overview) — learn what Sero is, who the source-only alpha is for, and what to read next.
+- [Get Sero Running](/guide/getting-started) — follow the first-run tutorial to install dependencies, start Sero, and confirm the app opens.
+- [Install from Source](/guide/installation-requirements) — check local prerequisites and setup requirements before or during installation.
 
-- [Workspace and Chat](/guide/workspace-and-chat) — shell layout, workspaces, sessions, chat, and the command menu.
-- [Explorer Workspace](/guide/explorer-workspace) — files, editor previews, browser tabs, terminals, source control, and dev servers.
-- [Containers and Dev Servers](/guide/containers-dev-servers) — container-backed workspaces, previews, port conflicts, and Host mode.
-- [Browser and Capture](/guide/browser-and-capture) — visible browser previews, app screenshots, DOM interactions, and recordings.
-- [Checkpoints and Undo](/guide/checkpoints-and-undo) — manual checkpoints, restore behavior, chat turn undo, and source-control recovery safety.
-- [Themes](/guide/themes) — profile-scoped theme selection and editing.
+## Workspace and runtime tasks
 
-## Agents / automation
+- [Choose a Workspace Runtime](/guide/choose-workspace-runtime) — decide when to use the default Host runtime or explicitly choose a container runtime.
+- [Workspaces and Chat](/guide/workspace-and-chat) — open workspaces, start sessions, use chat, and navigate the command menu.
+- [Explorer Workspace](/guide/explorer-workspace) — work with files, editors, previews, terminals, source control, and dev-server panels.
+- [Preview Dev Servers](/guide/containers-dev-servers) — start and preview project dev servers from Sero.
+- [Browser and Capture](/guide/browser-and-capture) — use visible browser previews, screenshots, DOM interactions, and recordings.
+- [Checkpoints and Undo](/guide/checkpoints-and-undo) — create restore points and recover from unwanted changes.
 
-- [Agent Sessions and Context](/guide/agent-sessions-and-context) — composer controls, context editor, file references, snapshots, steering, queues, and voice.
-- [Subagents and Collaboration](/guide/subagents) — delegated specialist agents, collaboration mode, debate, results, and limits.
-- [Memory](/guide/memory) — durable context, scratchpads, memory tools, and privacy expectations.
-- [Scheduler and Reminders](/guide/scheduler-reminders) — recurring jobs, reminders, notifications, and recovery.
-- [Running Evals](/guide/running-evals) — snapshot evals, live provider evals, result viewing, and scenario triage.
+## Agent and automation tasks
 
-## Apps / integrations
+- [Profiles and Onboarding](/guide/profiles-and-onboarding) — create profiles, configure providers, and understand profile-owned state.
+- [Models and Providers](/guide/models-and-providers) — configure provider auth, health states, model tiers, and recovery.
+- [Local LLMs with LM Studio](/guide/local-llms-lm-studio) — connect local OpenAI-compatible model servers.
+- [Agent Sessions and Context](/guide/agent-sessions-and-context) — manage composer controls, context, snapshots, steering, and queues.
+- [Subagents and Collaboration](/guide/subagents) — delegate work to specialist agents and review their results.
+- [Memory](/guide/memory) — use durable context, scratchpads, and memory tools.
+- [Scheduler and Reminders](/guide/scheduler-reminders) — create recurring jobs, reminders, and notifications.
+- [Running Evals](/guide/running-evals) — run snapshot or live-provider evals and inspect results.
 
-- [Plugins and Apps](/guide/plugins-and-apps) — how Sero's app/plugin model works for users and builders.
-- [Plugin Catalog](/plugins/catalog) — built-in and external/local plugins at a glance without sidebar bloat.
-- [Dashboard and Widgets](/guide/dashboard-widgets) — adding, removing, dragging, resizing, and troubleshooting dashboard widgets.
-- [App Store and Favorites](/guide/app-store-favorites) — discovery, installed plugins, sidebar favorites, and uninstall behavior.
-- [Settings and Admin](/guide/settings-models-admin) — Admin configuration, agents, skills, prompts, sessions, and plugin/provider surfaces.
-- [Git Integration](/guide/git-integration) — repository status, changes, branch operations, and safety limits.
-- [MCP](/guide/mcp) — MCP server management and sensitive server configuration.
-- [Web](/guide/web) — web search, content fetch, bookmarks, history, and provider setup.
-- [Remote Control](/guide/remote-control) — optional Tailscale remote access and its security model.
+## App and integration tasks
+
+- [Plugins and Apps](/guide/plugins-and-apps) — understand Sero's app/plugin model as a user or builder.
+- [Plugin Catalog](/plugins/catalog) — browse built-in and external/local plugins without scanning the full sidebar.
+- [Dashboard and Widgets](/guide/dashboard-widgets) — add, remove, move, resize, and troubleshoot dashboard widgets.
+- [App Store and Favorites](/guide/app-store-favorites) — discover plugins, manage installed apps, and edit sidebar favorites.
+- [Settings and Admin](/guide/settings-models-admin) — use Admin configuration, agents, skills, prompts, sessions, plugin, and provider surfaces.
+- [Git Integration](/guide/git-integration) — inspect repository status, manage changes, and stay inside safety limits.
+- [MCP](/guide/mcp) — manage MCP servers and sensitive server configuration.
+- [Web](/guide/web) — add web search, content fetch, bookmarks, and history to agent sessions.
+- [Remote Control](/guide/remote-control) — enable optional trusted-device access to a local Sero session.
+
+## Conceptual background
+
+- [Architecture](/reference/architecture) — understand how the desktop shell, workspaces, runtimes, and plugins fit together.
+- [Security / Privacy](/reference/security-privacy) — understand Sero's local-first posture, remote surfaces, and sensitive state.
+- [Known Limitations](/reference/known-limitations) — understand current alpha boundaries before relying on Sero for critical work.

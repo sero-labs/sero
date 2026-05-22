@@ -1,6 +1,6 @@
 # Runtime provider architecture
 
-Status: host-first local runtime architecture.
+Status: Host-default local runtime architecture.
 
 Sero supports local, live workspace runtimes through three canonical backend IDs:
 
@@ -18,7 +18,7 @@ Sero uses one runtime abstraction for the normal workspace loop so every backend
 
 Required properties:
 
-- Host is the recommended runtime for new workspaces when the rollout flag is enabled.
+- Host is the default runtime for new workspaces on release-supported Host platforms.
 - Existing workspaces keep their persisted `runtime.backend`.
 - Host and runtime file changes are visible immediately without push/pull sync.
 - Selected container runtimes fail closed with actionable diagnostics; they do not silently fall back to host execution.
@@ -43,10 +43,10 @@ Detailed platform/arch release status lives in [`../reference/host-mode-support.
 
 | Platform | Arch | Host runtime | Host browser pack | Packaged app | Status |
 | --- | --- | --- | --- | --- | --- |
-| macOS | arm64 | Supported with `SERO_HOST_FIRST=1` | Required published GitHub Release artifact | DMG/ZIP | Release-supported target |
+| macOS | arm64 | Supported; default | Required published GitHub Release artifact | DMG/ZIP | Release-supported target |
 | macOS | x64 | Unsupported | Not published | Not published | Future/unsupported |
-| Linux | x64/arm64 | Supported with `SERO_HOST_FIRST=1` | Required published GitHub Release artifact | AppImage/deb/tar.gz | Release-supported target |
-| Windows | x64 | Supported with `SERO_HOST_FIRST=1` | Required published GitHub Release artifact | NSIS/ZIP | Release-supported target |
+| Linux | x64/arm64 | Supported; default | Required published GitHub Release artifact | AppImage/deb/tar.gz | Release-supported target |
+| Windows | x64 | Supported; default | Required published GitHub Release artifact | NSIS/ZIP | Release-supported target |
 | Windows | arm64 | Not defaulted | Not published | Not published | Future/unsupported |
 
 | Capability | Host | Docker / Podman | Apple Container |
@@ -117,17 +117,16 @@ Sero does not mutate global Corepack, npm prefixes, shell profiles, or machine P
 
 ## Platform defaults
 
-The host-first default is rollout-flagged:
+Host is the default runtime for new workspaces on release-supported Host platforms. `SERO_HOST_FIRST` was migration scaffolding and no longer changes runtime defaults.
 
 | Condition | Default local runtime |
 | --- | --- |
-| `SERO_HOST_FIRST=1` and release-supported macOS arm64, Linux x64/arm64, or Windows x64 | Host |
+| Release-supported macOS arm64, Linux x64/arm64, or Windows x64 | Host |
 | Existing persisted workspace config | Persisted `runtime.backend` |
-| Global workspace on supported host platform | Host |
-| Flag off, macOS Apple Silicon | Apple Container |
-| Flag off, other non-global workspaces | Docker / Podman |
+| Unsupported Host target, macOS Apple Silicon | Apple Container |
+| Unsupported Host target, other platforms | Docker / Podman |
 
-Containers are optional upgrades/fallbacks, not silently selected merely because they are detected when host-first is enabled.
+Containers are explicit per-workspace selections or explicit container-default fallbacks, not silently selected merely because they are detected.
 
 ## Preview URL contract
 

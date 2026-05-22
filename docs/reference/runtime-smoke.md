@@ -6,17 +6,17 @@ Use this checklist before shipping runtime changes. Sero covers local direct-hos
 
 | Platform | Arch | Backend | Coverage |
 | --- | --- | --- | --- |
-| macOS | arm64 | Host | Required when `SERO_HOST_FIRST=1` |
+| macOS | arm64 | Host | Required; default runtime |
 | macOS | x64 | Host | Future/unsupported; do not use for release sign-off |
-| Linux | x64/arm64 | Host | Required when `SERO_HOST_FIRST=1` |
-| Windows | x64 | Host | Required when `SERO_HOST_FIRST=1` |
+| Linux | x64/arm64 | Host | Required; default runtime |
+| Windows | x64 | Host | Required; default runtime |
 | Windows | arm64 | Host | Future/unsupported; not defaulted |
 | macOS | arm64 | Apple Container | Required container fallback smoke |
 | macOS | arm64/x64 | Docker Desktop or Podman | Required container fallback smoke |
 | Linux | x64/arm64 | Docker Engine or Podman | Required container fallback smoke |
 | Windows | x64 | Docker Desktop or Podman | Manual container fallback smoke |
 
-Host is the flag-gated default for new workspaces on supported platforms when `SERO_HOST_FIRST=1`. Existing workspaces keep their persisted backend. With the flag off, legacy container defaults remain until rollout.
+Host is the default for new workspaces on supported platforms. Existing workspaces keep their persisted backend. `SERO_HOST_FIRST` was migration scaffolding and no longer changes defaults.
 
 Browser automation on host requires the browser pack. The release target matrix is documented in [`host-mode-support.md`](./host-mode-support.md): macOS arm64, Linux x64/arm64, and Windows x64 are release-supported targets; macOS on Intel CPUs is explicitly unsupported; Windows arm64 remains a possible future target. Supported-platform install uses published GitHub Release browser-pack artifacts verified by `pnpm --filter @sero/desktop browser-pack:verify-published`. Until pending entries in `generated-artifacts.json` are published and the `host-mode-release` workflow passes, the release claim remains blocked. Docker/Podman and Apple Container provide browser automation from the image. Native build tools are not Sero-managed on host; use platform-installed compiler stacks or switch to a container runtime.
 
@@ -34,9 +34,9 @@ Then run the `host-mode-release` workflow.
 
 Run on release-supported macOS Apple Silicon, Linux, and Windows x64 with backend ID `host`.
 
-1. Start Sero with host-first defaults enabled:
+1. Start Sero normally:
    ```bash
-   SERO_HOST_FIRST=1 pnpm dev
+   pnpm dev
    ```
 2. Create a new non-global workspace and confirm runtime diagnostics show Host as selected/recommended.
 3. Confirm a persisted Docker/Apple Container workspace remains on its persisted backend after restart.
@@ -87,7 +87,6 @@ python3 -m http.server 8787 --directory apps/desktop/dist
 In a second terminal:
 
 ```bash
-SERO_HOST_FIRST=1 \
 SERO_BROWSER_PACK_BASE_URL=http://127.0.0.1:8787/browser-pack/2026-05-16 \
 pnpm dev
 ```
@@ -138,7 +137,7 @@ Run with Docker/Podman and Apple Container where supported.
 For each platform smoke, record:
 
 - OS version and CPU architecture.
-- Sero runtime backend and whether `SERO_HOST_FIRST=1` was set.
+- Sero runtime backend and whether it was persisted or the platform default.
 - Managed toolchain manifest version and browser pack state.
 - Container engine/image tag when using containers.
 - Workspace path, especially Windows paths with spaces or non-ASCII characters.

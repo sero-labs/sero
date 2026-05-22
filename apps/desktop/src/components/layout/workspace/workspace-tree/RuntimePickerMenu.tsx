@@ -29,9 +29,18 @@ interface RuntimeOption {
   disabled?: boolean;
 }
 
-const APPLE_CONTAINER_COPY = 'Optional Apple-native container runtime on supported Macs. Adds isolation, Linux parity, native build dependencies, and preinstalled browser automation.';
-const DOCKER_COPY = 'Optional containerized Linux runtime for macOS, Windows, and Linux. Adds isolation, Linux parity, native build tools, and preinstalled browser automation.';
-const HOST_COPY = 'Fast local runtime. Uses compatible system tools and installs missing Sero-managed tools automatically. No sandbox.';
+const APPLE_CONTAINER_COPY = 'Explicit Apple-native container runtime on supported Macs. Adds isolation, Linux parity, native build dependencies, and preinstalled browser automation.';
+const DOCKER_COPY = 'Explicit container runtime for macOS, Windows, and Linux. Adds Linux/container parity, image-provided tools, and preinstalled browser automation.';
+const HOST_DEFAULT_COPY = 'Default local runtime. Runs commands in your workspace folder using compatible system tools. No container isolation.';
+const HOST_OPTION_COPY = 'Local runtime. Runs commands in your workspace folder using compatible system tools. No container isolation.';
+
+function isHostDefaultSupported(platform: string, arch: string): boolean {
+  return (
+    (platform === 'darwin' && arch === 'arm64') ||
+    (platform === 'linux' && (arch === 'x64' || arch === 'arm64')) ||
+    (platform === 'win32' && arch === 'x64')
+  );
+}
 
 type RuntimeBackendForDisplay = WorkspaceRuntimeBackend | DeprecatedWorkspaceRuntimeBackend;
 
@@ -53,13 +62,21 @@ function stopRuntimeTriggerPropagation(event: SyntheticEvent): void {
 }
 
 export function getRuntimePickerOptions(platform: string, arch: string): RuntimeOption[] {
+  const hostIsDefault = isHostDefaultSupported(platform, arch);
   const hostOption: RuntimeOption = {
     backend: 'host',
     name: 'Host',
-    description: HOST_COPY,
-    recommended: true,
+    description: hostIsDefault ? HOST_DEFAULT_COPY : HOST_OPTION_COPY,
+    recommended: hostIsDefault,
+    optional: !hostIsDefault,
   };
-  const dockerOption: RuntimeOption = { backend: 'docker', name: 'Docker / Podman', description: DOCKER_COPY, optional: true };
+  const dockerOption: RuntimeOption = {
+    backend: 'docker',
+    name: 'Docker / Podman',
+    description: DOCKER_COPY,
+    recommended: !hostIsDefault,
+    optional: hostIsDefault,
+  };
 
   if (platform === 'darwin' && arch === 'arm64') {
     return [
@@ -134,7 +151,9 @@ export function RuntimePickerMenu({ workspace }: { workspace: WorkspaceInfo }) {
           <div className="border-b border-[var(--border-subtle)] px-3 py-2">
             <p className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">Workspace runtime</p>
             <p className="mt-1 text-xs text-[var(--text-muted)]">
-              Host is recommended for fast local work. Optional container runtimes recreate runtime processes and mounts when selected.
+              {isHostDefaultSupported(platform, arch)
+                ? 'Host is the normal default for local work. Select a container runtime explicitly when you want container tools, isolation, or parity.'
+                : 'Docker / Podman is the default on this platform. Choose Host only when your system tools support the workspace.'}
             </p>
           </div>
 
