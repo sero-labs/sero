@@ -73,19 +73,19 @@ describe('ContainerRuntimeNotice', () => {
         message: 'Install Apple containers.',
         recommended: true,
         runtime: 'apple-container',
-        docsUrl: 'https://github.com/sero-labs/sero/blob/main/docs/guides/macos-containers.md',
+        docsUrl: 'https://docs.sero-ai.dev/guide/installation-requirements.html#runtime-requirements-by-platform',
       }));
     });
 
     await act(async () => {
-      findButton('Set up optional container runtime').click();
+      findButton('Container setup guide').click();
     });
 
     expect(shellBridge.openExternal).toHaveBeenCalledWith(
-      'https://github.com/sero-labs/sero/blob/main/docs/guides/macos-containers.md',
+      'https://docs.sero-ai.dev/guide/installation-requirements.html#runtime-requirements-by-platform',
     );
-    expect(document.body.textContent).toContain('Host is the recommended fast local runtime');
-    expect(document.body.textContent).toContain('available by selecting Docker or Apple Container later');
+    expect(document.body.textContent).toContain('Containers are not set up');
+    expect(document.body.textContent).toContain('Set up Apple Container later');
   });
 
   it('renders Windows host-first container copy', async () => {
@@ -108,7 +108,7 @@ describe('ContainerRuntimeNotice', () => {
     });
 
     expect(document.body.textContent).toContain('Docker Desktop is required for Sero runtime features on Windows.');
-    expect(document.body.textContent).toContain('Host is the recommended fast local runtime on Windows too.');
+    expect(document.body.textContent).toContain('Set up Docker / Podman later');
     expect(document.body.textContent).not.toContain('WSL');
     expect(document.body.textContent).not.toContain('Apple Container');
   });
@@ -123,6 +123,6 @@ describe('ContainerRuntimeNotice', () => {
       }));
     });
 
-    expect(document.body.textContent).not.toContain('Optional container runtime setup');
+    expect(document.body.textContent).not.toContain('Containers are not set up');
   });
 });

@@ -15,7 +15,6 @@ import {
   LaunchingScreen,
   OnboardingSetupScreen,
 } from './onboarding/OnboardingViews';
-import { ContainerRuntimeNotice } from './onboarding/ContainerRuntimeNotice';
 import { useLaunchingDialogVisibility } from './onboarding/useLaunchingDialogVisibility';
 import { useOnboardingLaunch } from './onboarding/useOnboardingLaunch';
 
@@ -86,7 +85,6 @@ export function OnboardingWizard() {
         <DialogContent className="max-h-[calc(100vh-2rem)] max-w-lg overflow-y-auto" onInteractOutside={(event) => event.preventDefault()}>
           <div className="space-y-4">
             <OnboardingLogo />
-            <ContainerRuntimeNotice runtime={onboardingState.containerRuntime} />
             {readyRecommendation ? (
               <OnboardingSetupScreen
                 key={`${readyRecommendation.preferredProvider ?? 'provider'}:${JSON.stringify(readyRecommendation.tiers)}`}
@@ -94,6 +92,7 @@ export function OnboardingWizard() {
                 availableModelGroups={onboardingState.availableModelGroups}
                 providerHealth={onboardingState.providerHealth}
                 warnings={onboardingState.warnings.filter((warning) => warning.code !== 'no_usable_models')}
+                containerRuntime={onboardingState.containerRuntime}
                 launchNotice={launchStatusMessage}
                 continueDisabled={isContinuing}
                 onContinue={(config) => void handleContinue(config)}
@@ -113,7 +112,6 @@ export function OnboardingWizard() {
         >
           <div className="space-y-4">
             <OnboardingLogo />
-            <ContainerRuntimeNotice runtime={onboardingState.containerRuntime} />
             <AuthScreen
               providerHealth={onboardingState.providerHealth}
               launchNotice={launchStatusMessage}

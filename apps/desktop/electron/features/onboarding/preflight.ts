@@ -26,8 +26,7 @@ interface BuildOnboardingStateOptions {
   applyRepairs: boolean;
 }
 
-const MACOS_CONTAINERS_DOC_URL = 'https://github.com/sero-labs/sero/blob/main/docs/guides/macos-containers.md';
-const RUNTIME_SMOKE_DOC_URL = 'https://github.com/sero-labs/sero/blob/main/docs/reference/runtime-smoke.md';
+const CONTAINER_SETUP_DOC_URL = 'https://docs.sero-ai.dev/guide/installation-requirements.html#runtime-requirements-by-platform';
 
 function readLegacyDefaultProvider(settings: Record<string, unknown>): string | null {
   const sero = settings.sero;
@@ -215,9 +214,7 @@ async function buildOnboardingState(options: BuildOnboardingStateOptions): Promi
     ...containerAvailability,
     docsUrl: containerAvailability.status === 'available'
       ? undefined
-      : containerAvailability.runtime === 'apple-container'
-        ? MACOS_CONTAINERS_DOC_URL
-        : RUNTIME_SMOKE_DOC_URL,
+      : CONTAINER_SETUP_DOC_URL,
   };
 
   const hasAnyUsableModels = availableModelGroups.some((group) => group.models.length > 0);

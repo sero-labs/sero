@@ -188,11 +188,11 @@ describe('onboarding preflight', () => {
       message: 'Install Apple containers.',
       recommended: true,
       runtime: 'apple-container',
-      docsUrl: 'https://github.com/sero-labs/sero/blob/main/docs/guides/macos-containers.md',
+      docsUrl: 'https://docs.sero-ai.dev/guide/installation-requirements.html#runtime-requirements-by-platform',
     });
   });
 
-  it('uses runtime docs for non-mac Docker setup warnings', async () => {
+  it('uses docs-site setup docs for non-mac Docker setup warnings', async () => {
     mocks.getContainerAvailability.mockResolvedValue({
       status: 'missing_binary',
       message: 'Docker Desktop is recommended.',
@@ -207,7 +207,7 @@ describe('onboarding preflight', () => {
       message: 'Docker Desktop is recommended.',
       recommended: true,
       runtime: 'docker',
-      docsUrl: 'https://github.com/sero-labs/sero/blob/main/docs/reference/runtime-smoke.md',
+      docsUrl: 'https://docs.sero-ai.dev/guide/installation-requirements.html#runtime-requirements-by-platform',
     });
   });
 
@@ -226,7 +226,7 @@ describe('onboarding preflight', () => {
       message: 'Container system is not running.',
       recommended: true,
       runtime: 'apple-container',
-      docsUrl: 'https://github.com/sero-labs/sero/blob/main/docs/guides/macos-containers.md',
+      docsUrl: 'https://docs.sero-ai.dev/guide/installation-requirements.html#runtime-requirements-by-platform',
     });
   });
 

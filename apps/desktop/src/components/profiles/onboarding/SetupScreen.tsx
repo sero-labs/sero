@@ -22,11 +22,13 @@ import type {
   ModelInfo,
   ModelTier,
   ModelTierSettings,
+  OnboardingContainerRuntime,
   OnboardingRecommendation,
   OnboardingWarning,
   ProviderHealthInfo,
 } from '@/types/ipc';
 import { BrowserPackOffer } from '@/components/runtime/BrowserPackOffer';
+import { ContainerRuntimeNotice } from './ContainerRuntimeNotice';
 import { GitHubConnectCard } from './GitHubConnectCard';
 import { useOnboardingGitHubStep } from './useOnboardingGitHubStep';
 
@@ -95,6 +97,7 @@ export function OnboardingSetupScreen({
   availableModelGroups,
   providerHealth,
   warnings,
+  containerRuntime,
   launchNotice,
   continueDisabled = false,
   onContinue,
@@ -105,6 +108,7 @@ export function OnboardingSetupScreen({
   availableModelGroups: AvailableModelGroup[];
   providerHealth: ProviderHealthInfo[];
   warnings: OnboardingWarning[];
+  containerRuntime: OnboardingContainerRuntime;
   launchNotice?: string | null;
   continueDisabled?: boolean;
   onContinue: (config: GlobalModelConfigInput) => void;
@@ -146,11 +150,12 @@ export function OnboardingSetupScreen({
           <div>
             <DialogTitle className="text-lg font-semibold text-[var(--text-primary)]">Install dependencies (optional)</DialogTitle>
             <DialogDescription className="text-sm text-[var(--text-secondary)]">
-              Add browser automation now, or continue and let Sero offer it the first time you need it.
+              If you are not using containers, installing browser support is strongly recommended for screenshots, recordings, and web tasks.
             </DialogDescription>
           </div>
         </div>
 
+        <ContainerRuntimeNotice runtime={containerRuntime} />
         <BrowserPackOffer reason="onboarding" />
 
         <div className="flex justify-between gap-2 pt-1">

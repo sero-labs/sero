@@ -125,7 +125,7 @@ describe('OnboardingWizard', () => {
     }
   });
 
-  it('shows the container warning in the ready flow without blocking continue', async () => {
+  it('shows the container warning only on the dependency step without blocking continue', async () => {
     mockUseOnboardingLaunch.mockReturnValue(createLaunchState({
       uiPhase: 'ready',
       onboardingState: createLaunchState().onboardingState && {
@@ -134,7 +134,7 @@ describe('OnboardingWizard', () => {
           status: 'missing_binary',
           message: 'Install Apple containers.',
           recommended: true,
-          docsUrl: 'https://github.com/sero-labs/sero/blob/main/docs/guides/macos-containers.md',
+          docsUrl: 'https://docs.sero-ai.dev/guide/installation-requirements.html#runtime-requirements-by-platform',
         },
       },
     }));
@@ -143,12 +143,21 @@ describe('OnboardingWizard', () => {
       root?.render(<OnboardingWizard />);
     });
 
-    expect(document.body.textContent).toContain('Optional container runtime setup');
+    expect(document.body.textContent).not.toContain('Containers are not set up');
+
+    const continueButton = Array.from(document.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('Continue'),
+    );
+    await act(async () => {
+      continueButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    expect(document.body.textContent).toContain('Containers are not set up');
     expect(document.body.textContent).toContain('Install Apple containers.');
     expect(document.body.textContent).toContain('Continue');
   });
 
-  it('shows the container warning in the auth flow', async () => {
+  it('does not show the container warning in the auth flow', async () => {
     const authState = createLaunchState({
       uiPhase: 'auth',
       onboardingState: {
@@ -160,7 +169,7 @@ describe('OnboardingWizard', () => {
           status: 'system_unavailable',
           message: 'Container system is not running.',
           recommended: true,
-          docsUrl: 'https://github.com/sero-labs/sero/blob/main/docs/guides/macos-containers.md',
+          docsUrl: 'https://docs.sero-ai.dev/guide/installation-requirements.html#runtime-requirements-by-platform',
         },
       },
     });
@@ -170,7 +179,8 @@ describe('OnboardingWizard', () => {
       root?.render(<OnboardingWizard />);
     });
 
-    expect(document.body.textContent).toContain('Container system is not running.');
+    expect(document.body.textContent).not.toContain('Container system is not running.');
+    expect(document.body.textContent).not.toContain('Containers are not set up');
     expect(document.body.textContent).toContain('Connect a provider');
   });
 
@@ -206,7 +216,7 @@ describe('OnboardingWizard', () => {
     });
 
     expect(document.body.textContent).toContain('Install dependencies (optional)');
-    expect(document.body.textContent).toContain('offer it the first time you need it');
+    expect(document.body.textContent).toContain('strongly recommended for screenshots');
     expect(document.body.textContent).toContain('Browser automation');
     expect(document.body.textContent).toContain('Large download for browser screenshots');
     expect(document.body.textContent).toContain('Install browser support');
@@ -220,6 +230,6 @@ describe('OnboardingWizard', () => {
       root?.render(<OnboardingWizard />);
     });
 
-    expect(document.body.textContent).not.toContain('Optional container runtime setup');
+    expect(document.body.textContent).not.toContain('Containers are not set up');
   });
 });
