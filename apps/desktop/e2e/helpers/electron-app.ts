@@ -1,4 +1,6 @@
 import { _electron as electron, type ElectronApplication, type Page } from '@playwright/test';
+import { execFile } from 'node:child_process';
+import type { ChildProcess } from 'node:child_process';
 import path from 'path';
 import type { RuntimeBackend } from './runtime';
 import { currentRuntimeFromEnv, runtimeAvailableOn } from './runtime';
@@ -125,24 +127,49 @@ export async function launchSeroApp(
 }
 
 export async function closeSeroApp(app: ElectronApplication, timeoutMs = 5_000): Promise<void> {
+  const child = app.process();
+  const closeSettled = await withTimeout(app.close(), timeoutMs);
+  if (closeSettled) return;
+
+  await killProcessTree(child);
+  await waitForProcessExit(child, timeoutMs);
+}
+
+async function withTimeout(promise: Promise<unknown>, timeoutMs: number): Promise<boolean> {
   let timeout: ReturnType<typeof setTimeout> | undefined;
-  try {
-    await Promise.race([
-      app.close(),
-      new Promise<void>((resolve) => {
-        timeout = setTimeout(() => {
-          try {
-            app.process().kill();
-          } catch {
-            /* Process may already be gone. */
-          }
-          resolve();
-        }, timeoutMs);
-      }),
-    ]);
-  } finally {
-    if (timeout) clearTimeout(timeout);
+  const timedOut = Symbol('timed-out');
+
+  const result = await Promise.race([
+    promise.then(() => true, () => true),
+    new Promise<typeof timedOut>((resolve) => {
+      timeout = setTimeout(() => resolve(timedOut), timeoutMs);
+    }),
+  ]);
+
+  if (timeout) clearTimeout(timeout);
+  return result !== timedOut;
+}
+
+async function killProcessTree(child: ChildProcess): Promise<void> {
+  const pid = child.pid;
+  if (!pid || child.exitCode !== null) return;
+
+  if (process.platform === 'win32') {
+    await new Promise<void>((resolve) => {
+      execFile('taskkill.exe', ['/pid', String(pid), '/T', '/F'], () => resolve());
+    });
+    return;
   }
+
+  if (!child.killed) child.kill('SIGKILL');
+}
+
+async function waitForProcessExit(child: ChildProcess, timeoutMs: number): Promise<void> {
+  if (child.exitCode !== null) return;
+
+  await withTimeout(new Promise<void>((resolve) => {
+    child.once('exit', () => resolve());
+  }), timeoutMs);
 }
 
 function isTransientMainProcessEvaluateError(error: unknown): boolean {
