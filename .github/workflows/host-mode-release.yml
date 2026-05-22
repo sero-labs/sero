@@ -76,7 +76,7 @@ jobs:
           case "$(uname -s)" in
             MINGW*|MSYS*|CYGWIN*) ;;
             *)
-              echo "::error::Windows host release requires Git Bash/MSYS bash; got $(uname -s). Install Git for Windows and run this self-hosted runner with bash on PATH."
+              echo "::error::Windows host release requires Git Bash/MSYS bash; got $(uname -s). Install Git for Windows and run this github-hosted runner with bash on PATH."
               exit 1
               ;;
           esac
