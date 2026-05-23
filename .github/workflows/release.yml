@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       ref:
-        description: Tag or ref to release
+        description: Release tag name to publish; checkout uses the ref selected when starting the workflow
         type: string
         required: false
       draft:
@@ -61,8 +61,6 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ inputs.ref || github.ref }}
 
       - name: Install Linux display dependencies
         if: ${{ matrix.os == 'linux' }}
@@ -147,6 +145,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ inputs.ref || github.ref_name }}
+          target_commitish: ${{ github.sha }}
           draft: ${{ github.event_name != 'workflow_dispatch' || inputs.draft }}
           fail_on_unmatched_files: true
           files: release-artifacts/**
