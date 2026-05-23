@@ -14,6 +14,10 @@ on:
         description: Create or update as draft release
         type: boolean
         default: true
+      publish_run_id:
+        description: Existing workflow run ID containing desktop-release-* artifacts; skips rebuild
+        type: string
+        required: false
 
 permissions:
   contents: write
@@ -32,6 +36,7 @@ env:
 jobs:
   prepare-matrix:
     name: Prepare release target matrix
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.publish_run_id == '' }}
     runs-on: ubuntu-24.04
     outputs:
       matrix: ${{ steps.matrix.outputs.matrix }}
@@ -50,6 +55,7 @@ jobs:
 
   build:
     name: Build release (${{ matrix.target }})
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.publish_run_id == '' }}
     needs: prepare-matrix
     timeout-minutes: 90
     strategy:
@@ -140,20 +146,55 @@ jobs:
 
   publish:
     name: Publish GitHub Release
+    if: ${{ always() && (github.event_name != 'workflow_dispatch' || inputs.publish_run_id != '' || needs.build.result == 'success') }}
     needs: build
     runs-on: ubuntu-24.04
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+      RELEASE_DRAFT: ${{ github.event_name != 'workflow_dispatch' || inputs.draft }}
+      RELEASE_ARTIFACT_RUN_ID: ${{ inputs.publish_run_id || github.run_id }}
     steps:
+      - name: Check release token before downloading artifacts
+        run: gh api "repos/${GITHUB_REPOSITORY}" --jq .full_name
+
+      - name: Create or update release shell
+        run: |
+          set -euo pipefail
+          if [[ -z "$RELEASE_TAG" ]]; then
+            echo "::error::Release tag is required"
+            exit 1
+          fi
+
+          draft_args=()
+          create_args=(--verify-tag --title "$RELEASE_TAG" --notes "Desktop release $RELEASE_TAG")
+          if [[ "$RELEASE_DRAFT" == "true" ]]; then
+            draft_args=(--draft)
+            create_args+=(--draft)
+          else
+            draft_args=(--draft=false)
+          fi
+
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --title "$RELEASE_TAG" "${draft_args[@]}"
+          else
+            gh release create "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" "${create_args[@]}"
+          fi
+
       - uses: actions/download-artifact@v4
         with:
           pattern: desktop-release-*
           path: release-artifacts
           merge-multiple: true
+          run-id: ${{ env.RELEASE_ARTIFACT_RUN_ID }}
 
-      - name: Publish release assets
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ inputs.tag || github.ref_name }}
-          target_commitish: ${{ github.sha }}
-          draft: ${{ github.event_name != 'workflow_dispatch' || inputs.draft }}
-          fail_on_unmatched_files: true
-          files: release-artifacts/*
+      - name: Upload release assets
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          files=(release-artifacts/*)
+          if (( ${#files[@]} == 0 )); then
+            echo "::error::No release artifact files downloaded"
+            exit 1
+          fi
+          gh release upload "$RELEASE_TAG" "${files[@]}" --repo "$GITHUB_REPOSITORY" --clobber
