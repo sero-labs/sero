@@ -42,9 +42,9 @@ env:
   CI: true
   TURBO_TELEMETRY_DISABLED: 1
   SERO_E2E_LLM_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || 'cheap' }}
-  SERO_E2E_LLM_PROVIDER: ${{ github.event_name == 'workflow_dispatch' && inputs.provider || 'openai' }}
-  SERO_E2E_LLM_MODEL: ${{ github.event_name == 'workflow_dispatch' && inputs.model || 'gpt-5.4-mini' }}
-  SERO_E2E_LLM_ALT_MODEL: ${{ github.event_name == 'workflow_dispatch' && inputs.alternate-model || 'gpt-5.4-nano' }}
+  SERO_E2E_LLM_PROVIDER: ${{ github.event_name == 'workflow_dispatch' && inputs.provider || 'anthropic' }}
+  SERO_E2E_LLM_MODEL: ${{ github.event_name == 'workflow_dispatch' && inputs.model || '' }}
+  SERO_E2E_LLM_ALT_MODEL: ${{ github.event_name == 'workflow_dispatch' && inputs.alternate-model || '' }}
   ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
   OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
   GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}

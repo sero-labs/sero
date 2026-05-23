@@ -4,7 +4,7 @@ import path from 'node:path';
 export type LlmMode = 'off' | 'cheap' | 'full';
 
 const VALID_MODES: ReadonlyArray<LlmMode> = ['off', 'cheap', 'full'];
-const DEFAULT_PROVIDER = '';
+const DEFAULT_PROVIDER = 'anthropic';
 const ENV_FILE = path.resolve(__dirname, '..', '.env.test');
 const CREDENTIAL_ENV_VARS: Record<string, string[]> = {
   anthropic: ['ANTHROPIC_API_KEY'],
