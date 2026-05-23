@@ -6,7 +6,7 @@ on:
       - 'v*'
   workflow_dispatch:
     inputs:
-      ref:
+      tag:
         description: Release tag name to publish; checkout uses the ref selected when starting the workflow
         type: string
         required: false
@@ -115,7 +115,15 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: desktop-release-${{ matrix.target }}
-          path: apps/desktop/release/
+          path: |
+            apps/desktop/release/*.AppImage
+            apps/desktop/release/*.blockmap
+            apps/desktop/release/*.deb
+            apps/desktop/release/*.dmg
+            apps/desktop/release/*.exe
+            apps/desktop/release/*.tar.gz
+            apps/desktop/release/*.yml
+            apps/desktop/release/*.zip
           if-no-files-found: error
           retention-days: 14
 
@@ -144,8 +152,8 @@ jobs:
       - name: Publish release assets
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ inputs.ref || github.ref_name }}
+          tag_name: ${{ inputs.tag || github.ref_name }}
           target_commitish: ${{ github.sha }}
           draft: ${{ github.event_name != 'workflow_dispatch' || inputs.draft }}
           fail_on_unmatched_files: true
-          files: release-artifacts/**
+          files: release-artifacts/*
