@@ -11,7 +11,7 @@ If another page is broader, more aspirational, or less specific, **this page win
 | Current maintainer-validated baseline | Validated | macOS `26.3`, `arm64`, Node `22.22.0`, pnpm `10.11.0` |
 | Distribution | Supported | Build from source only |
 | Default workspace runtime | Supported / recommended | Host is the default on supported Host platforms |
-| Container runtimes | Supported explicit choices | Apple Container on macOS arm64; Docker / Podman on macOS, Linux, and Windows |
+| Container runtimes | Supported explicit choices | Apple Container on macOS arm64; Docker / Podman on macOS arm64, Linux, and Windows |
 | Browser automation | Supported where ready | Host requires an available browser pack and a passing Environment Doctor launch check; container runtimes use the runtime image |
 | Support channel | Supported | GitHub Issues and Pull Requests |
 | Official public binaries | Not supported | No public binary distribution promised in alpha |
@@ -53,7 +53,7 @@ Current available Host browser-pack artifacts are `browser-darwin-arm64`, `brows
 
 Container runtimes are explicit per-workspace choices, not the normal default path on supported Host platforms.
 
-Apple Container is available on Apple Silicon Macs through Apple's `container` CLI. Docker / Podman is the cross-platform container option on macOS, Linux, and Windows. Both container runtimes use Sero-managed Linux image contents for container-provided tools and browser automation.
+Apple Container is available on Apple Silicon Macs through Apple's `container` CLI. Docker / Podman is the cross-platform container option on macOS arm64, Linux, and Windows. Both container runtimes use Sero-managed Linux image contents for container-provided tools and browser automation.
 
 Existing containers do not automatically receive Dockerfile or base-tooling changes. Recreate affected workspace containers after Sero changes container images or installed tools.
 

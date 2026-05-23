@@ -176,7 +176,7 @@ sero app preview <registered-url>
 
 For the current alpha:
 
-- macOS, Linux, and Windows source builds are in alpha scope.
+- macOS Apple Silicon, Linux x64/arm64, and Windows x64 source builds are in alpha scope.
 - macOS Apple Silicon is the maintainer-validated baseline.
 - Host is the default runtime on supported platforms, including Windows x64.
 - Choose Apple Container or Docker / Podman explicitly when you want container-provided tools, container isolation, browser automation from the runtime image, or container networking behavior.

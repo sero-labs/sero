@@ -79,11 +79,29 @@ const archCheck: DoctorCheck = {
         start,
       });
     }
+    if (os.platform() === 'darwin' && process.arch === 'x64') {
+      return makeResult({
+        id: this.id,
+        category: this.category,
+        status: 'warn',
+        message: 'macOS Intel is not supported.',
+        start,
+      });
+    }
+    if (process.arch === 'x64') {
+      return makeResult({
+        id: this.id,
+        category: this.category,
+        status: 'pass',
+        message: 'Arch x64.',
+        start,
+      });
+    }
     return makeResult({
       id: this.id,
       category: this.category,
       status: 'warn',
-      message: `Arch ${process.arch}: Sero targets arm64 first; expect reduced performance.`,
+      message: `Arch ${process.arch}.`,
       start,
     });
   },

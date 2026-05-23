@@ -12,7 +12,7 @@ voice input, see [Agent Sessions and Context](/guide/agent-sessions-and-context)
 
 ## Alpha expectations
 
-Sero is currently a **source-only OSS alpha** for **macOS, Linux, and Windows**.
+Sero is currently a **source-only OSS alpha** for **macOS Apple Silicon, Linux x64/arm64, and Windows x64**.
 Host is the default workspace runtime on supported platforms. Apple Container
 and Docker / Podman are explicit container choices when you want container
 isolation, image-provided tools, or container networking behavior.

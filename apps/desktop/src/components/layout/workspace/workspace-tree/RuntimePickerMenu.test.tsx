@@ -122,7 +122,9 @@ describe('RuntimePickerMenu', () => {
 
     const macIntel = getRuntimePickerOptions('darwin', 'x64');
     expect(macIntel.find((option) => option.backend === 'host')?.optional).toBe(true);
-    expect(macIntel.find((option) => option.backend === 'docker')?.recommended).toBe(true);
+    expect(macIntel.find((option) => option.backend === 'host')?.recommended).toBe(false);
+    expect(macIntel.find((option) => option.backend === 'docker')?.optional).toBe(true);
+    expect(macIntel.find((option) => option.backend === 'docker')?.recommended).toBe(false);
 
     const windowsX64 = getRuntimePickerOptions('win32', 'x64');
     expect(windowsX64.find((option) => option.backend === 'host')?.recommended).toBe(true);
@@ -151,7 +153,7 @@ describe('RuntimePickerMenu', () => {
     expect(document.body.textContent).toContain('Host is the normal default for local work');
   });
 
-  it('hides Apple Container on macOS Intel and labels Docker as default', async () => {
+  it('hides Apple Container on macOS Intel without marking a default runtime', async () => {
     installSero('darwin', 'x64');
 
     await act(async () => {
@@ -161,9 +163,10 @@ describe('RuntimePickerMenu', () => {
 
     expect(document.body.textContent).toContain('Docker / Podman');
     expect(document.body.textContent).toContain('Host');
-    expect(document.body.textContent).toContain('Docker / PodmanDefault');
     expect(document.body.textContent).toContain('HostOptional');
-    expect(document.body.textContent).toContain('Docker / Podman is the default on this platform');
+    expect(document.body.textContent).toContain('Docker / PodmanOptional');
+    expect(document.body.textContent).toContain('Host is not the default on this platform');
+    expect(document.body.textContent).not.toContain('Default');
     expect(document.body.textContent).not.toContain('Apple Container');
   });
 

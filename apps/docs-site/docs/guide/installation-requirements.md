@@ -32,7 +32,7 @@ Install container tooling only when you plan to explicitly select a container ru
 | --- | --- | --- |
 | Host | Default on supported platforms | Compatible local shell and project tools |
 | Apple Container | You want Apple-native container execution on macOS arm64 | Apple's `container` CLI at `/usr/local/bin/container` |
-| Docker / Podman | You want Docker-compatible container execution on macOS, Linux, or Windows | Working Docker or Podman engine |
+| Docker / Podman | You want Docker-compatible container execution on macOS arm64, Linux, or Windows | Working Docker or Podman engine |
 
 For Apple Container, verify:
 

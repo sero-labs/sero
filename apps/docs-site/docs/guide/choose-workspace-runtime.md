@@ -43,7 +43,7 @@ Choose **Apple Container** or **Docker / Podman** when a workspace needs:
 - browser automation from the runtime image
 - more separation between workspace processes and your host environment
 
-Apple Container is the Apple-native option on supported Apple Silicon Macs. Docker / Podman is the Docker-compatible option on supported macOS, Linux, and Windows setups.
+Apple Container is the Apple-native option on supported Apple Silicon Macs. Docker / Podman is the Docker-compatible option on supported macOS arm64, Linux, and Windows setups.
 
 Container path rule: the primary project is available at `/workspace` inside the container. Host paths may be mounted separately, but do not assume every host folder is visible inside the container.
 
