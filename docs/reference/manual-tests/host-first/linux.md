@@ -275,7 +275,7 @@ Linux host browser automation is a release-supported target only after the Linux
 
 Expected:
 
-- Linux host browser automation is not claimed unless `browser-pack:verify-published` and the `host-mode-release` workflow pass.
+- Linux host browser automation is not claimed unless `browser-pack:verify-published` and the `release` workflow pass.
 - Duplicate install clicks attach to the same in-flight install.
 - Browser automation becomes ready only after install and launch checks pass.
 - If Chromium cannot launch because shared libraries are missing, Sero shows actionable Linux package/install detail or container fallback. It must not fail silently.

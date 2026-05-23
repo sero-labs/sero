@@ -7,18 +7,18 @@ Use this checklist before shipping runtime changes. Sero covers local direct-hos
 | Platform | Arch | Backend | Coverage |
 | --- | --- | --- | --- |
 | macOS | arm64 | Host | Required; default runtime |
-| macOS | x64 | Host | Future/unsupported; do not use for release sign-off |
+| macOS | x64 | Host | Unsupported; do not use for release sign-off |
 | Linux | x64/arm64 | Host | Required; default runtime |
 | Windows | x64 | Host | Required; default runtime |
 | Windows | arm64 | Host | Future/unsupported; not defaulted |
 | macOS | arm64 | Apple Container | Required container fallback smoke |
-| macOS | arm64/x64 | Docker Desktop or Podman | Required container fallback smoke |
+| macOS | arm64 | Docker Desktop or Podman | Required container fallback smoke |
 | Linux | x64/arm64 | Docker Engine or Podman | Required container fallback smoke |
 | Windows | x64 | Docker Desktop or Podman | Manual container fallback smoke |
 
 Host is the default for new workspaces on supported platforms. Existing workspaces keep their persisted backend. `SERO_HOST_FIRST` was migration scaffolding and no longer changes defaults.
 
-Browser automation on host requires the browser pack. The release target matrix is documented in [`host-mode-support.md`](./host-mode-support.md): macOS arm64, Linux x64/arm64, and Windows x64 are release-supported targets; macOS on Intel CPUs is explicitly unsupported; Windows arm64 remains a possible future target. Supported-platform install uses published GitHub Release browser-pack artifacts verified by `pnpm --filter @sero/desktop browser-pack:verify-published`. Until pending entries in `generated-artifacts.json` are published and the `host-mode-release` workflow passes, the release claim remains blocked. Docker/Podman and Apple Container provide browser automation from the image. Native build tools are not Sero-managed on host; use platform-installed compiler stacks or switch to a container runtime.
+Browser automation on host requires the browser pack. The release target matrix is documented in [`host-mode-support.md`](./host-mode-support.md): macOS arm64, Linux x64/arm64, and Windows x64 are release-supported targets; macOS on Intel CPUs is explicitly unsupported; Windows arm64 remains a possible future target. Supported-platform install uses published GitHub Release browser-pack artifacts verified by `pnpm --filter @sero/desktop browser-pack:verify-published`. Until pending entries in `generated-artifacts.json` are published and the `release` workflow passes, the release claim remains blocked. Docker/Podman and Apple Container provide browser automation from the image. Native build tools are not Sero-managed on host; use platform-installed compiler stacks or switch to a container runtime.
 
 Required release gates:
 
@@ -28,7 +28,7 @@ pnpm test
 pnpm --filter @sero/desktop browser-pack:verify-published
 ```
 
-Then run the `host-mode-release` workflow.
+Then run the `release` workflow.
 
 ## Core host checklist
 

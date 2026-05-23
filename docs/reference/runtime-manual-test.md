@@ -186,7 +186,7 @@ Validation flow:
 7. On Linux, verify missing shared-library launch failures produce OS instruction/container fallback detail. Doctor owns this remediation; browser-pack build/install does not manage compiler stacks or host shared libraries.
 8. Test uninstall from Runtime settings and confirm state returns to `installable`.
 
-Local archives stay in `apps/desktop/dist/browser-pack/2026-05-16/<slug>.tar.gz` and are not committed. Generated digest metadata is committed at `apps/desktop/electron/features/workspace/runtime/browser-pack/generated-artifacts.json`. Do not treat local artifact success as release support. Release support requires `pnpm --filter @sero/desktop browser-pack:verify-published` and the `host-mode-release` workflow to pass.
+Local archives stay in `apps/desktop/dist/browser-pack/2026-05-16/<slug>.tar.gz` and are not committed. Generated digest metadata is committed at `apps/desktop/electron/features/workspace/runtime/browser-pack/generated-artifacts.json`. Do not treat local artifact success as release support. Release support requires `pnpm --filter @sero/desktop browser-pack:verify-published` and the `release` workflow to pass.
 
 ## 2. Container runtime smoke
 

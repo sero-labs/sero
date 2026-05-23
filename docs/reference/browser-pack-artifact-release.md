@@ -275,7 +275,7 @@ pnpm --filter @sero/desktop verify:host-mode-release
 Then run the release workflow:
 
 ```bash
-gh workflow run host-mode-release.yml --ref feat/enhanced-host-mode
+gh workflow run release.yml --ref feat/enhanced-host-mode
 ```
 
 The PR can only claim real multi-platform host browser automation after these checks pass.

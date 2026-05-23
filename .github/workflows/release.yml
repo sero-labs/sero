@@ -1,21 +1,22 @@
-name: Host Mode Release Gate
+name: Desktop Release
 
 on:
+  push:
+    tags:
+      - 'v*'
   workflow_dispatch:
     inputs:
-      target:
-        description: Release target to run
-        type: choice
-        default: all
-        options:
-          - all
-          - macos-arm64
-          - linux-x64
-          - linux-arm64
-          - windows-x64
+      ref:
+        description: Tag or ref to release
+        type: string
+        required: false
+      draft:
+        description: Create or update as draft release
+        type: boolean
+        default: true
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -36,24 +37,19 @@ jobs:
       matrix: ${{ steps.matrix.outputs.matrix }}
     steps:
       - id: matrix
-        env:
-          REQUESTED_TARGET: ${{ inputs.target || 'all' }}
         run: |
           node <<'NODE' >> "$GITHUB_OUTPUT"
-          const requested = process.env.REQUESTED_TARGET || 'all';
-          const targets = {
-            'macos-arm64': { target: 'macos-arm64', os: 'macos', arch: 'arm64', runner: 'macos-15', dist: 'dist:mac' },
-            'linux-x64': { target: 'linux-x64', os: 'linux', arch: 'x64', runner: 'ubuntu-24.04', dist: 'dist:linux:x64' },
-            'linux-arm64': { target: 'linux-arm64', os: 'linux', arch: 'arm64', runner: 'ubuntu-24.04-arm', dist: 'dist:linux:arm64' },
-            'windows-x64': { target: 'windows-x64', os: 'windows', arch: 'x64', runner: 'windows-latest', dist: 'dist:win' },
-          };
-          const include = requested === 'all' ? Object.values(targets) : [targets[requested]];
-          if (include.some((target) => !target)) throw new Error(`Unknown host release target: ${requested}`);
+          const include = [
+            { target: 'macos-arm64', os: 'macos', arch: 'arm64', runner: 'macos-15', dist: 'dist:mac' },
+            { target: 'linux-x64', os: 'linux', arch: 'x64', runner: 'ubuntu-24.04', dist: 'dist:linux:x64' },
+            { target: 'linux-arm64', os: 'linux', arch: 'arm64', runner: 'ubuntu-24.04-arm', dist: 'dist:linux:arm64' },
+            { target: 'windows-x64', os: 'windows', arch: 'x64', runner: 'windows-latest', dist: 'dist:win' },
+          ];
           console.log(`matrix=${JSON.stringify({ include })}`);
           NODE
 
-  host-release:
-    name: Host release (${{ matrix.target }})
+  build:
+    name: Build release (${{ matrix.target }})
     needs: prepare-matrix
     timeout-minutes: 90
     strategy:
@@ -65,6 +61,8 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
 
       - name: Install Linux display dependencies
         if: ${{ matrix.os == 'linux' }}
@@ -76,7 +74,7 @@ jobs:
           case "$(uname -s)" in
             MINGW*|MSYS*|CYGWIN*) ;;
             *)
-              echo "::error::Windows host release requires Git Bash/MSYS bash; got $(uname -s). Install Git for Windows and run this github-hosted runner with bash on PATH."
+              echo "::error::Windows desktop release requires Git Bash/MSYS bash; got $(uname -s). Install Git for Windows and run this github-hosted runner with bash on PATH."
               exit 1
               ;;
           esac
@@ -105,8 +103,6 @@ jobs:
         run: pnpm --filter @sero/desktop browser-pack:verify-published
 
       - name: Run host release smoke
-        id: smoke
-        continue-on-error: true
         run: |
           if [[ "${{ matrix.os }}" == "linux" ]] && command -v xvfb-run >/dev/null 2>&1; then
             xvfb-run -a pnpm --filter @sero/desktop e2e:workflow -- runtime-host-release.workflow.spec.ts
@@ -115,40 +111,42 @@ jobs:
           fi
 
       - name: Build packaged artifacts
-        id: packages
-        continue-on-error: true
         run: pnpm --filter @sero/desktop ${{ matrix.dist }}
 
       - name: Upload packaged artifacts
-        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: host-mode-release-${{ matrix.target }}-packages
+          name: desktop-release-${{ matrix.target }}
           path: apps/desktop/release/
-          if-no-files-found: ignore
+          if-no-files-found: error
           retention-days: 14
 
       - name: Upload Playwright failure artifacts
-        if: always() && steps.smoke.outcome != 'success'
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: host-mode-release-${{ matrix.target }}-playwright
+          name: desktop-release-${{ matrix.target }}-playwright
           path: |
             apps/desktop/test-results/
             apps/desktop/playwright-report/
           if-no-files-found: ignore
           retention-days: 7
 
-      - name: Fail if release gate failed
-        if: always()
-        run: |
-          failed=0
-          if [[ "${{ steps.smoke.outcome }}" != "success" ]]; then
-            echo "::error::Host release smoke failed for ${{ matrix.target }}"
-            failed=1
-          fi
-          if [[ "${{ steps.packages.outcome }}" != "success" ]]; then
-            echo "::error::Packaged artifact build failed for ${{ matrix.target }}"
-            failed=1
-          fi
-          exit "$failed"
+  publish:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: desktop-release-*
+          path: release-artifacts
+          merge-multiple: true
+
+      - name: Publish release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.ref || github.ref_name }}
+          draft: ${{ github.event_name != 'workflow_dispatch' || inputs.draft }}
+          fail_on_unmatched_files: true
+          files: release-artifacts/**

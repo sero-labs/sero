@@ -74,13 +74,13 @@ describe('verify-host-mode-release', () => {
   it('fails when the release workflow is missing a required operating system entry', async () => {
     await fs.writeFile(workflowPath(), workflowText().replace('          - target: linux-x64\n            os: linux\n            arch: x64\n            runner: ubuntu-24.04\n            dist: dist:linux:x64\n', ''));
 
-    await expect(verifyFixture()).rejects.toThrow('.github/workflows/host-mode-release.yml: missing Linux x64 release job/matrix entry');
+    await expect(verifyFixture()).rejects.toThrow('.github/workflows/release.yml: missing Linux x64 release job/matrix entry');
   });
 
   it('fails when the release workflow points at obsolete self-hosted runner labels', async () => {
     await fs.writeFile(workflowPath(), workflowText().replace('runner: ubuntu-24.04-arm', 'runner: [self-hosted, sero-linux, ARM64]'));
 
-    await expect(verifyFixture()).rejects.toThrow('.github/workflows/host-mode-release.yml: missing Linux arm64 hosted runner: ubuntu-24.04-arm');
+    await expect(verifyFixture()).rejects.toThrow('.github/workflows/release.yml: missing Linux arm64 hosted runner: ubuntu-24.04-arm');
   });
 
   it('fails when Linux arm64 packaging would build deb/fpm', async () => {
@@ -168,7 +168,7 @@ function createPendingArtifact(platform: string, arch: string, slug: string): Fi
 }
 
 function workflowText() {
-  return `name: Host Mode Release Gate
+  return `name: Desktop Release
 jobs:
   host-release:
     strategy:
@@ -232,5 +232,5 @@ function metadataPath() {
 }
 
 function workflowPath() {
-  return path.join(repoRoot, '.github/workflows/host-mode-release.yml');
+  return path.join(repoRoot, '.github/workflows/release.yml');
 }

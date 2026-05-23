@@ -81,7 +81,7 @@ export async function verifyHostModeRelease({ repoRoot = defaultRepoRoot, deskto
   const matrixPath = path.join(desktopRoot, 'electron/features/workspace/runtime/host-support-matrix.json');
   const metadataPath = path.join(desktopRoot, 'electron/features/workspace/runtime/browser-pack/generated-artifacts.json');
   const packageJsonPath = path.join(desktopRoot, 'package.json');
-  const workflowPath = path.join(repoRoot, '.github/workflows/host-mode-release.yml');
+  const workflowPath = path.join(repoRoot, '.github/workflows/release.yml');
   const buildReleasePath = path.join(desktopRoot, 'scripts/build-release.sh');
 
   const [targets, metadata, packageJson, workflowText, buildReleaseText] = await Promise.all([
@@ -142,7 +142,7 @@ function checkPackageScripts(packageJson, failures) {
 
 function checkWorkflow(workflowPath, workflowText, failures) {
   if (workflowText === undefined) {
-    failures.push(`${relativePath(workflowPath)}: missing host-mode release workflow`);
+    failures.push(`${relativePath(workflowPath)}: missing desktop release workflow`);
     return;
   }
 

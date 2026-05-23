@@ -202,7 +202,7 @@ jobs:
       - name: Verify published artifacts
         run: pnpm --filter @sero/desktop browser-pack:verify-published
 
-      - name: Verify host mode release metadata
+      - name: Verify desktop release metadata
         run: pnpm --filter @sero/desktop verify:host-mode-release
 
       - name: Upload generated metadata

@@ -1,11 +1,11 @@
 # Host-mode platform support
 
-Host-mode support follows `HOST_RELEASE_TARGETS` in `apps/desktop/electron/features/workspace/runtime/host-support-matrix.json`. The matrix below is the intended release support target; the final support claim is release-gated until the browser-pack artifacts are published and the host-mode release workflow passes.
+Host-mode support follows `HOST_RELEASE_TARGETS` in `apps/desktop/electron/features/workspace/runtime/host-support-matrix.json`. The matrix below is the intended release support target; the final support claim is release-gated until the browser-pack artifacts are published and the desktop release workflow passes.
 
 | Platform | Arch | Host runtime | Host browser pack | Packaged app | Status |
 | --- | --- | --- | --- | --- | --- |
 | macOS | arm64 | Supported; default | Required published GitHub Release artifact (`browser-darwin-arm64`) | DMG/ZIP | Release-supported target |
-| macOS | x64 | Unsupported | Not published | Not published | Future/unsupported |
+| macOS | x64 | Unsupported | Not published | Not published | Unsupported |
 | Linux | x64 | Supported; default | Required published GitHub Release artifact (`browser-linux-x64`) | AppImage/deb/tar.gz | Release-supported target; blocked until artifact/workflow gate passes |
 | Linux | arm64 | Supported; default | Required published GitHub Release artifact (`browser-linux-arm64`) | AppImage/deb/tar.gz | Release-supported target; blocked until artifact/workflow gate passes |
 | Windows | x64 | Supported; default | Required published GitHub Release artifact (`browser-win32-x64`) | NSIS/ZIP | Release-supported target; blocked until artifact/workflow gate passes |
@@ -17,7 +17,7 @@ Current repository metadata may still have pending entries in `apps/desktop/elec
 
 ## Required release gates
 
-Run these before claiming host-mode release support:
+Run these before claiming desktop release support:
 
 ```bash
 pnpm typecheck
@@ -26,7 +26,7 @@ pnpm --filter @sero/desktop browser-pack:verify-published
 pnpm --filter @sero/desktop verify:host-mode-release
 ```
 
-Then run the `host-mode-release` workflow. The workflow is the platform gate for host smoke and packaged app artifacts on macOS arm64, Linux, and Windows x64.
+Then run the `release` workflow. The workflow is the platform gate for host smoke and packaged app artifacts on macOS arm64, Linux, and Windows x64.
 
 ## Local artifact diagnostic path
 

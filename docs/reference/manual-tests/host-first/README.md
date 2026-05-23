@@ -25,7 +25,7 @@ These guides are for source-based manual validation. Packaged-app testers can sk
 | Platform | Arch | Host runtime | Host browser pack | Packaged app | Status |
 | --- | --- | --- | --- | --- | --- |
 | macOS | arm64 | Supported; default | `browser-darwin-arm64` published/available | DMG/ZIP | Release-supported target |
-| macOS | x64 | Unsupported | Not published | Not published | Future/unsupported |
+| macOS | x64 | Unsupported | Not published | Not published | Unsupported |
 | Linux | x64/arm64 | Supported; default | `browser-linux-x64` / `browser-linux-arm64` pending | AppImage/deb/tar.gz | Release-supported target; release-blocked until artifacts publish |
 | Windows | x64 | Supported; default | `browser-win32-x64` pending | NSIS/ZIP | Release-supported target; release-blocked until artifact publishes |
 | Windows | arm64 | Not defaulted | Not published | Not published | Future/unsupported |
@@ -40,4 +40,4 @@ pnpm test
 pnpm --filter @sero/desktop browser-pack:verify-published
 ```
 
-Then run the `host-mode-release` workflow.
+Then run the `release` workflow.
