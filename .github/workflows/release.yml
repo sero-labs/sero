@@ -158,6 +158,26 @@ jobs:
       - name: Check release token before downloading artifacts
         run: gh api "repos/${GITHUB_REPOSITORY}" --jq .full_name
 
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: desktop-release-*
+          path: release-artifacts
+          merge-multiple: true
+          run-id: ${{ env.RELEASE_ARTIFACT_RUN_ID }}
+          github-token: ${{ github.token }}
+
+      - name: Verify downloaded release artifacts
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          files=(release-artifacts/*)
+          if (( ${#files[@]} == 0 )); then
+            echo "::error::No release artifact files downloaded from run ${RELEASE_ARTIFACT_RUN_ID}"
+            exit 1
+          fi
+          printf 'Downloaded %d release artifact file(s):\n' "${#files[@]}"
+          printf ' - %s\n' "${files[@]}"
+
       - name: Create or update release shell
         run: |
           set -euo pipefail
@@ -181,20 +201,9 @@ jobs:
             gh release create "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" "${create_args[@]}"
           fi
 
-      - uses: actions/download-artifact@v4
-        with:
-          pattern: desktop-release-*
-          path: release-artifacts
-          merge-multiple: true
-          run-id: ${{ env.RELEASE_ARTIFACT_RUN_ID }}
-
       - name: Upload release assets
         run: |
           set -euo pipefail
           shopt -s nullglob
           files=(release-artifacts/*)
-          if (( ${#files[@]} == 0 )); then
-            echo "::error::No release artifact files downloaded"
-            exit 1
-          fi
           gh release upload "$RELEASE_TAG" "${files[@]}" --repo "$GITHUB_REPOSITORY" --clobber
