@@ -57,12 +57,23 @@ function buildDesktopEntry() {
   ].join('\n');
 }
 
-const debArch = currentDebArch();
-const appOutDir = path.join(releaseDir, `linux-${process.arch}-unpacked`);
-const executablePath = path.join(appOutDir, '@serodesktop');
-if (!fs.existsSync(executablePath)) {
-  throw new Error(`Unpacked Linux app not found at ${appOutDir}. Run electron-builder --linux --${process.arch} --dir first.`);
+function linuxUnpackedDir() {
+  const candidates = [
+    path.join(releaseDir, `linux-${process.arch}-unpacked`),
+    path.join(releaseDir, 'linux-unpacked'),
+  ];
+  const found = candidates.find((candidate) => fs.existsSync(path.join(candidate, '@serodesktop')));
+  if (!found) {
+    throw new Error(
+      `Unpacked Linux app not found. Checked: ${candidates.join(', ')}. ` +
+      `Run electron-builder --linux --${process.arch} --dir first.`,
+    );
+  }
+  return found;
 }
+
+const debArch = currentDebArch();
+const appOutDir = linuxUnpackedDir();
 
 const stageDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sero-deb-'));
 const appDest = path.join(stageDir, 'opt/Sero');

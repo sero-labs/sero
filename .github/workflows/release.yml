@@ -150,7 +150,17 @@ jobs:
           timeout 30 xvfb-run -a /opt/Sero/@serodesktop --doctor --quick --json > /tmp/sero-doctor.json 2> /tmp/sero-doctor.err
           status=$?
           set -e
-          if ! node -e "JSON.parse(require('fs').readFileSync('/tmp/sero-doctor.json', 'utf8'))"; then
+          if ! node <<'NODE'
+          const fs = require('fs');
+          const output = fs.readFileSync('/tmp/sero-doctor.json', 'utf8');
+          const start = output.indexOf('{');
+          const end = output.lastIndexOf('}');
+          if (start === -1 || end === -1 || end < start) {
+            throw new Error('Doctor output did not contain a JSON object');
+          }
+          JSON.parse(output.slice(start, end + 1));
+          NODE
+          then
             cat /tmp/sero-doctor.err >&2 || true
             cat /tmp/sero-doctor.json >&2 || true
             exit 1
