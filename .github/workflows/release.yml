@@ -169,6 +169,17 @@ jobs:
             cat /tmp/sero-doctor.err >&2 || true
             exit "$status"
           fi
+          set +e
+          timeout 15 xvfb-run -a /opt/Sero/@serodesktop > /tmp/sero-ui-smoke.out 2> /tmp/sero-ui-smoke.err
+          ui_status=$?
+          set -e
+          cat /tmp/sero-ui-smoke.err
+          if grep -E "cli-highlight|Cannot read properties of undefined|UnhandledPromiseRejection" /tmp/sero-ui-smoke.err; then
+            exit 1
+          fi
+          if [ "$ui_status" -ne 0 ] && [ "$ui_status" -ne 124 ]; then
+            exit "$ui_status"
+          fi
 
       - name: Upload packaged artifacts
         uses: actions/upload-artifact@v4

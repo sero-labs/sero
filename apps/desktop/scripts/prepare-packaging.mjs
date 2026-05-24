@@ -123,18 +123,15 @@ function resolvePackageJson(packageName, fromPath = projectRoot) {
   return requireFromScript.resolve(`${packageName}/package.json`, { paths: [fromPath] });
 }
 
-function materializePackage(packageName, fromPath = projectRoot) {
+function copyGeneratedDependency(packageName, targetNodeModules, fromPath = projectRoot) {
   const sourcePackageJson = resolvePackageJson(packageName, fromPath);
   const source = path.dirname(sourcePackageJson);
-  const dest = packageNodeModulePath(packageName);
-  const state = readPackagingState();
+  const dest = path.join(targetNodeModules, packageName);
 
-  state.entries.push(snapshotExistingPackage(packageName));
-  writePackagingState(state);
   fs.rmSync(dest, { recursive: true, force: true });
   fs.mkdirSync(path.dirname(dest), { recursive: true });
   fs.cpSync(source, dest, { recursive: true, dereference: true });
-  return source;
+  return dest;
 }
 
 function verifyCliHighlightRuntimeResolution() {
@@ -146,18 +143,30 @@ function verifyCliHighlightRuntimeResolution() {
 }
 
 function materializeCliHighlightChalkDeps() {
-  materializePackage('cli-highlight');
-  materializePackage('chalk');
-  const ansiStylesSource = materializePackage('ansi-styles');
-  const supportsColorSource = materializePackage('supports-color');
-  const colorConvertSource = materializePackage('color-convert', ansiStylesSource);
-  materializePackage('color-name', colorConvertSource);
-  materializePackage('has-flag', supportsColorSource);
-
-  const chalkPackageJson = packageNodeModulePath('chalk/package.json');
+  const cliHighlightPackageJson = resolvePackageJson('cli-highlight');
+  const chalkPackageJson = resolvePackageJson('chalk', path.dirname(cliHighlightPackageJson));
   const chalkPackage = JSON.parse(fs.readFileSync(chalkPackageJson, 'utf8'));
   if (!String(chalkPackage.version).startsWith('4.')) {
     throw new Error(`cli-highlight must package chalk 4.x, found ${chalkPackage.version}`);
+  }
+
+  const targetNodeModules = path.join(path.dirname(chalkPackageJson), 'node_modules');
+  const ansiStylesRoot = path.dirname(resolvePackageJson('ansi-styles'));
+  const colorConvertRoot = path.dirname(resolvePackageJson('color-convert', ansiStylesRoot));
+  const supportsColorRoot = path.dirname(resolvePackageJson('supports-color'));
+  const state = readPackagingState();
+  const generatedPaths = [...state.generatedPaths, targetNodeModules];
+  writePackagingState({ entries: state.entries, generatedPaths });
+
+  for (const [packageName, fromPath] of [
+    ['ansi-styles', projectRoot],
+    ['supports-color', projectRoot],
+    ['color-convert', ansiStylesRoot],
+    ['color-name', colorConvertRoot],
+    ['has-flag', supportsColorRoot],
+  ]) {
+    generatedPaths.push(copyGeneratedDependency(packageName, targetNodeModules, fromPath));
+    writePackagingState({ entries: state.entries, generatedPaths });
   }
 
   verifyCliHighlightRuntimeResolution();
