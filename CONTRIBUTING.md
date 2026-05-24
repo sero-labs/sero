@@ -2,14 +2,14 @@
 
 Thanks for your interest in Sero.
 
-Sero is currently a **source-only OSS alpha** for macOS, Linux, and Windows.
-The maintainer-validated baseline is still macOS on Apple Silicon, and the
-project is evolving quickly, so contributor guidance aims to keep the workflow
-honest, lightweight, and easy to follow.
+Sero is currently a **public beta desktop release** for macOS Apple Silicon,
+Linux x64/arm64, and Windows x64. Developers and contributors can still build
+from source, and contributor guidance aims to keep that workflow honest,
+lightweight, and easy to follow while the project evolves quickly.
 
 ## Support scope
 
-Public alpha support is currently limited to:
+Public beta support is currently limited to:
 - GitHub Issues
 - Pull Requests
 
@@ -17,7 +17,7 @@ Please use issues for bug reports, regressions, feature requests, and setup
 questions. For security issues, follow [`SECURITY.md`](./SECURITY.md) instead
 of opening a public issue.
 
-For the canonical alpha support matrix and early-triage expectations, see
+For the canonical beta support matrix and triage expectations, see
 [`apps/docs-site/docs/reference/support-scope.md`](./apps/docs-site/docs/reference/support-scope.md).
 
 ## Before you start
@@ -29,11 +29,12 @@ Please read these first:
 - [`docs/node-pty-setup.md`](./docs/node-pty-setup.md) — native terminal troubleshooting
 
 Important current constraints:
-- supported alpha development targets: **macOS, Linux, and Windows**
-- maintainer-validated baseline: **macOS on Apple Silicon**
-- preferred runtime: **container-backed workspaces** through Apple Container or Docker
-- supported explicit runtime: **host mode** with reduced capabilities on macOS/Linux; Windows uses Docker for workspace execution
-- current public distribution model: **build from source**
+- supported beta targets: **macOS Apple Silicon, Linux x64/arm64, and Windows x64**
+- unsupported targets: **macOS Intel/x64 and Windows arm64**
+- default workspace runtime: **Host** on supported beta targets
+- explicit container runtimes: Apple Container on macOS arm64; Docker / Podman on macOS arm64, Linux, and Windows
+- public distribution model: packaged beta installers from GitHub Releases, plus source builds for developers/contributors
+- beta limits: plugin/runtime APIs may change, support is best effort, and automatic updates are not guaranteed
 
 For the canonical current support contract and validated baseline, defer to
 [`apps/docs-site/docs/reference/support-scope.md`](./apps/docs-site/docs/reference/support-scope.md).
@@ -61,7 +62,8 @@ Notes:
 - `pnpm install` runs native-module repair hooks for `node-pty` and
   `better-sqlite3`.
 - If terminals fail, follow [`docs/node-pty-setup.md`](./docs/node-pty-setup.md).
-- Container-backed workflows are recommended. Host mode remains supported on macOS/Linux; use Docker for Windows workspace execution.
+- Host is the default workspace runtime on supported beta targets. Install Apple
+  Container, Docker, or Podman only when you need an explicit container runtime.
 
 ## Pull request expectations
 
@@ -119,6 +121,7 @@ Please include:
 - what actually happened
 - steps to reproduce
 - your environment details
+- whether you used a packaged beta installer or a source build
 - relevant logs or screenshots
 
 Before sharing logs, remove secrets, tokens, personal paths, and other private
@@ -134,10 +137,11 @@ Good feature requests usually explain:
 
 ## Release and versioning notes
 
-During OSS alpha:
+During beta:
 - release notes are tracked in the repo-level [`CHANGELOG.md`](./CHANGELOG.md)
-- public alpha tags are expected to use a form like `v0.1.0-alpha.1`
+- public beta tags use SemVer prerelease forms
 - releases are maintainer-run from `main`
+- exact installer filenames may change between beta releases; use GitHub Releases as the source of truth
 - package versions inside the monorepo may still serve internal compatibility
   and packaging purposes, not a full independently published package train
 

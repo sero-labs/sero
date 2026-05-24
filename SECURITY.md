@@ -2,14 +2,18 @@
 
 ## Supported versions
 
-Sero is currently in a **source-only OSS alpha** stage.
+Sero is currently in a **public beta desktop release** stage.
 
 | Version / surface | Supported for security reports? |
 | --- | --- |
 | latest `main` branch state | Yes |
-| current OSS alpha tags, when published | Yes, best effort |
+| current public beta desktop releases | Yes, best effort |
+| supported source builds from this repository | Yes, best effort |
 | older commits, local forks, and heavily modified builds | No |
 | third-party plugins outside this monorepo | No — report to the plugin author |
+
+The current public beta targets macOS Apple Silicon, Linux x64/arm64, and
+Windows x64. macOS Intel/x64 and Windows arm64 are not supported targets today.
 
 ## Reporting a vulnerability
 
@@ -42,7 +46,7 @@ note what was removed.
 
 ## What to expect
 
-Sero is maintained on a best-effort basis during alpha, but the intent is to:
+Sero is maintained on a best-effort basis during beta, but the intent is to:
 - acknowledge valid reports within a few business days
 - investigate severity and scope
 - work toward a fix or mitigation
