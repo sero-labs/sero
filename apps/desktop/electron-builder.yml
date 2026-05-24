@@ -62,6 +62,7 @@ mac:
       arch:
         - arm64
   category: public.app-category.developer-tools
+  artifactName: "${productName}-${version}-macos-${arch}.${ext}"
   # Icon auto-discovered from build/ directory.
   # Generate with: bash scripts/generate-icon.sh path/to/1024x1024.png
   # icon: build/icon.icns
@@ -77,7 +78,7 @@ linux:
   target:
     - deb
   category: Development
-  artifactName: "${productName}-${version}-${arch}.${ext}"
+  artifactName: "${productName}-${version}-linux-${arch}.${ext}"
 
 # ── Windows ───────────────────────────────────────────────────
 win:
@@ -88,15 +89,15 @@ win:
     - target: zip
       arch:
         - x64
-  artifactName: "${productName}-${version}-${arch}.${ext}"
+  artifactName: "${productName}-${version}-windows-${arch}.${ext}"
 
 # ── DMG options ───────────────────────────────────────────────
 dmg:
   title: "${productName} ${version}"
-  artifactName: "${productName}-${version}-${arch}.${ext}"
+  artifactName: "${productName}-${version}-macos-${arch}.${ext}"
 
 nsis:
-  artifactName: "${productName}-${version}-${arch}-setup.${ext}"
+  artifactName: "${productName}-${version}-windows-${arch}-setup.${ext}"
 
 # ── Code signing — set CSC_LINK / CSC_KEY_PASSWORD env vars ──
 # When not set, the app is built unsigned (fine for local dev).
