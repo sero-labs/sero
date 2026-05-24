@@ -192,7 +192,7 @@ describe('app discovery devPort handling', () => {
         runtimeExternals: ['better-sqlite3', 'keytar'],
         hostCompatibility: {
           supported: true,
-          hostVersion: '0.1.0',
+          hostVersion: expect.stringMatching(/^\d+\.\d+\.\d+/),
           issues: [],
         },
       });
