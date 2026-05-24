@@ -58,9 +58,6 @@ mac:
     - target: dmg
       arch:
         - arm64
-    - target: zip
-      arch:
-        - arm64
   category: public.app-category.developer-tools
   artifactName: "${productName}-${version}-macos-${arch}.${ext}"
   # Icon auto-discovered from build/ directory.
@@ -84,9 +81,6 @@ linux:
 win:
   target:
     - target: nsis
-      arch:
-        - x64
-    - target: zip
       arch:
         - x64
   artifactName: "${productName}-${version}-windows-${arch}.${ext}"
