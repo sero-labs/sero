@@ -5,6 +5,8 @@ All notable changes to Sero will be documented in this file.
 The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and beta release tags use a SemVer prerelease form.
 
+<!-- New release entries are prepended above this line by `pnpm release` -->
+
 ## Unreleased
 
 ### Changed

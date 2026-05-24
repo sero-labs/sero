@@ -1,0 +1,33 @@
+{
+  "$schema": "https://unpkg.com/release-it@20/schema/release-it.json",
+  "plugins": {
+    "@release-it/conventional-changelog": {
+      "preset": {
+        "name": "conventionalcommits",
+        "types": [
+          { "type": "feat", "section": "Features" },
+          { "type": "fix", "section": "Bug Fixes" },
+          { "type": "perf", "section": "Performance" },
+          { "type": "docs", "section": "Documentation" },
+          { "type": "refactor", "section": "Refactoring" },
+          { "type": "chore", "section": "Chores", "hidden": true }
+        ]
+      },
+      "infile": "CHANGELOG.md",
+      "strictSemVer": true,
+      "header": "# Changelog\n\nAll notable changes to Sero will be documented in this file.\n\nThe format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),\nand beta release tags use a SemVer prerelease form.\n"
+    }
+  },
+  "git": {
+    "commitMessage": "chore: release v${version}",
+    "tagName": "v${version}",
+    "tagAnnotation": "Release v${version}",
+    "push": true
+  },
+  "github": {
+    "release": false
+  },
+  "npm": {
+    "publish": false
+  }
+}

@@ -1,5 +1,6 @@
 {
   "name": "sero-monorepo",
+  "version": "0.1.1-beta",
   "private": true,
   "packageManager": "pnpm@10.33.4",
   "scripts": {
@@ -19,13 +20,19 @@
     "prepare": "husky",
     "eval": "node eval/patch-drizzle.cjs && node scripts/run-promptfoo.mjs eval",
     "eval:snapshot": "node eval/patch-drizzle.cjs && node scripts/run-promptfoo.mjs eval --config eval/promptfoo-snapshot.yaml --no-cache",
-    "eval:view": "node scripts/run-promptfoo.mjs view"
+    "eval:view": "node scripts/run-promptfoo.mjs view",
+    "release:beta": "release-it --preRelease=beta",
+    "release:beta:dry": "release-it --dry-run --ci --preRelease=beta",
+    "release:stable": "release-it --no-preRelease",
+    "release:stable:dry": "release-it --dry-run --ci --no-preRelease"
   },
   "devDependencies": {
     "@mariozechner/pi-coding-agent": "catalog:",
+    "@release-it/conventional-changelog": "^11.0.0",
     "@sinclair/typebox": "catalog:",
     "husky": "^9.1.7",
     "promptfoo": "0.103.5",
+    "release-it": "^20.0.1",
     "turbo": "^2.9.7",
     "wrangler": "^4.87.0"
   }
