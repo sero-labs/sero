@@ -56,9 +56,9 @@ Do not present `SERO_DEV_PLUGINS` as the normal plugin-author workflow. It is a
 maintainer/dev aid; the product flow is the Admin local plugin development
 surface.
 
-## Alpha guidance
+## Beta guidance
 
-During alpha:
+During beta:
 - treat third-party plugins as trusted-source only
 - expect plugin/runtime contracts to continue evolving
 - keep packaging metadata and compatibility requirements explicit

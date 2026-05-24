@@ -18,7 +18,7 @@ Use this checklist before shipping runtime changes. Sero covers local direct-hos
 
 Host is the default for new workspaces on supported platforms. Existing workspaces keep their persisted backend. `SERO_HOST_FIRST` was migration scaffolding and no longer changes defaults.
 
-Browser automation on host requires the browser pack. The release target matrix is documented in [`host-mode-support.md`](./host-mode-support.md): macOS arm64, Linux x64/arm64, and Windows x64 are release-supported targets; macOS on Intel CPUs is explicitly unsupported; Windows arm64 remains a possible future target. Supported-platform install uses published GitHub Release browser-pack artifacts verified by `pnpm --filter @sero/desktop browser-pack:verify-published`. Until pending entries in `generated-artifacts.json` are published and the `release` workflow passes, the release claim remains blocked. Docker/Podman and Apple Container provide browser automation from the image. Native build tools are not Sero-managed on host; use platform-installed compiler stacks or switch to a container runtime.
+Browser automation on host requires the browser pack. The release target matrix is documented in [`host-mode-support.md`](./host-mode-support.md): macOS arm64, Linux x64/arm64, and Windows x64 are release-supported beta targets; macOS on Intel CPUs is explicitly unsupported; Windows arm64 remains a possible future target. Supported-platform install uses published GitHub Release browser-pack artifacts verified by `pnpm --filter @sero/desktop browser-pack:verify-published`. Future releases must keep browser-pack publication, verification, and the `release` workflow green before claiming support for a new artifact. Docker/Podman and Apple Container provide browser automation from the image. Native build tools are not Sero-managed on host; use platform-installed compiler stacks or switch to a container runtime.
 
 Required release gates:
 
@@ -74,7 +74,7 @@ Build the current-platform pack, smoke the staged payload, serve the artifact fr
 pnpm --filter @sero/desktop browser-pack:build -- \
   --platform $(node -p "process.platform") \
   --arch $(node -p "process.arch") \
-  --url-base http://127.0.0.1:8787/browser-pack/2026-05-16
+  --url-base http://127.0.0.1:8787/browser-pack/<browser-pack-version>
 
 pnpm --filter @sero/desktop browser-pack:smoke -- \
   --pack-root dist/browser-pack/work/browser-$(node -p "process.platform")-$(node -p "process.arch")/browser \
@@ -87,21 +87,21 @@ python3 -m http.server 8787 --directory apps/desktop/dist
 In a second terminal:
 
 ```bash
-SERO_BROWSER_PACK_BASE_URL=http://127.0.0.1:8787/browser-pack/2026-05-16 \
+SERO_BROWSER_PACK_BASE_URL=http://127.0.0.1:8787/browser-pack/<browser-pack-version> \
 pnpm dev
 ```
 
 Artifact rules:
 
-- Archives are written to `apps/desktop/dist/browser-pack/2026-05-16/<slug>.tar.gz` and must not be committed.
+- Archives are written to `apps/desktop/dist/browser-pack/<browser-pack-version>/<slug>.tar.gz` and must not be committed.
 - Staging output is under `apps/desktop/dist/browser-pack/work/...` and must not be committed.
 - Generated metadata/digests are committed in `apps/desktop/electron/features/workspace/runtime/browser-pack/generated-artifacts.json`.
 - The pack unpacks directly into the installer `browser` root and includes Playwright Chromium, Playwright ffmpeg, and pack-local `agent-browser/bin/agent-browser`; no global `npm install -g agent-browser` is required.
-- Production publishing uses GitHub Release assets at `https://github.com/sero-labs/sero/releases/download/browser-pack-2026-05-16/<slug>.tar.gz`; update generated metadata to `available: true` with URL, SHA, and size only after the asset is uploaded.
+- Production publishing uses GitHub Release assets for the current browser-pack version; update generated metadata to `available: true` with URL, SHA, and size only after the asset is uploaded.
 
 ### UI install and automation smoke
 
-1. With browser pack absent on a release-supported platform whose artifact is published, confirm runtime diagnostics show browser automation as `installable`, not ready. If the platform's metadata is still pending, confirm diagnostics show the artifact as unavailable/non-installable with container fallback and treat this as release-blocking.
+1. With browser pack absent on a release-supported platform whose artifact is published, confirm runtime diagnostics show browser automation as `installable`, not ready. If a future release-supported platform's metadata is pending, confirm diagnostics show the artifact as unavailable/non-installable with container fallback and treat this as release-blocking.
 2. Trigger install from onboarding/settings or first browser tool use only when a published artifact is available. When testing a local diagnostic artifact, keep the static server running and start Sero with `SERO_BROWSER_PACK_BASE_URL` as shown above.
 3. Confirm large-download copy, progress, retryable failure detail, and in-flight dedupe behavior.
 4. After install, confirm status is `ready` only after Doctor launch checks pass.

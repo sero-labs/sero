@@ -1,7 +1,7 @@
 # Themes
 
 Sero includes profile-scoped theme customization. Theme state is local profile
-state and may change as the alpha design system continues to evolve.
+state and may change as the beta design system continues to evolve.
 
 ## Selecting a theme
 

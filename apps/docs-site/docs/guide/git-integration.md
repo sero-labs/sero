@@ -4,7 +4,7 @@ Sero's **Git** app is a built-in Git Integration for developers working in a Git
 repository. It gives the agent and the app UI a shared view of repository status,
 branches, commits, diffs, stashes, and selected Git operations.
 
-Sero is still a **source-only OSS alpha**. Treat Git Integration as a practical
+Sero is in **public beta**. Treat Git Integration as a practical
 workspace tool, not a replacement for understanding Git. Mutating actions run
 against the real repository in the active workspace.
 
@@ -54,7 +54,7 @@ pop, merge, cherry-pick, or force flags.
 
 ## Visual Git app surfaces
 
-The current source-supported Git app layout includes these visible surfaces:
+The current beta-supported Git app layout includes these visible surfaces:
 
 - **Header actions** for Refresh, Fetch, Pull, and Push.
 - **Branch panel** with local branches, remote branches, stashes, and a new
@@ -176,7 +176,7 @@ so you can confirm which remote the workspace will use.
 Git Integration includes guardrails, but guardrails are not a guarantee that an
 action is risk-free.
 
-Known source-supported protections include:
+Known beta-supported protections include:
 
 - Checkout refuses to switch to a branch already checked out in another
   worktree.

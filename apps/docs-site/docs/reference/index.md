@@ -26,7 +26,7 @@ Use reference pages when you need exact facts: support boundaries, runtime behav
 
 ## Plugin author facts
 
-- [Plugins](/reference/plugins) — distribution modes, local development, and alpha guidance.
+- [Plugins](/reference/plugins) — distribution modes, local development, and beta guidance.
 - [App Runtime](/reference/app-runtime) — `@sero-ai/app-runtime` hooks, bridge APIs, and widget registry.
 - [Plugin Author Quick Path](/reference/plugin-author-quick-path) — practical path from package shape to extension, UI, runtime, and widgets.
 - [Plugin Quickstart](/reference/plugin-quickstart) — canonical starter example and success criteria.

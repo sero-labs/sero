@@ -53,7 +53,7 @@ with the local desktop session.
 | **Discord bot** | Lets allowed Discord users send prompts by DM or mention | Discord bot token and allowlist |
 
 Use Tailscale **serve** for tailnet-only exposure. Do not use public Tailscale
-funneling or direct public-internet exposure during the alpha. Treat tailnet
+funneling or direct public-internet exposure during the beta. Treat tailnet
 URLs as private access details and redact them from screenshots, logs, and
 support reports.
 
@@ -221,9 +221,9 @@ Practical guidance:
 Token URLs are sensitive because they can leak through browser history,
 autocomplete, screenshots, referrers, logs, or shared terminal output.
 
-## Known alpha limitations
+## Known beta limitations
 
-During the current source-only alpha, Remote Control does **not** promise:
+During the current public beta, Remote Control does **not** promise:
 
 - hardened remote administration
 - production deployment support
@@ -256,7 +256,7 @@ If Remote Control behaves unexpectedly, include these redacted details:
   traffic failed
 - whether Discord was configured with `SERO_DISCORD_TOKEN` and an explicit
   `SERO_DISCORD_USERS` allowlist
-- the active platform and source build details from
+- the active platform, install path, packaged artifact type or source-build details from
   [Support Scope](/reference/support-scope)
 - a minimal redacted log excerpt
 

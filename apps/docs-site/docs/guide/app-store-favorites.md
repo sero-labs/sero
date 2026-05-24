@@ -4,7 +4,7 @@ Sero's App Store dialog is the current user-facing place to browse installed app
 surfaces, discover community plugins, install or uninstall plugins, and choose
 which discovered apps appear in the main sidebar.
 
-This is an alpha management surface, not a stable commercial marketplace. Treat
+This is a beta management surface, not a stable commercial marketplace. Treat
 third-party plugins as trusted source code and install only from sources you are
 comfortable running locally.
 
@@ -58,7 +58,7 @@ Use Discover carefully:
 
 - do not treat search results as reviewed or officially supported by Sero
 - review source repositories before installing source plugins
-- expect compatibility and packaging behavior to evolve during alpha
+- expect compatibility and packaging behavior to evolve during beta
 - do not assume every external example is supported by maintainers
 
 ![App Discovery](../assets/images/app-discovery.jpg)
@@ -93,7 +93,7 @@ Sero can install plugins through the plugin management bridge. Public plugin
 distribution modes include npm, git repositories, and local paths, depending on
 what the current installer and plugin source support.
 
-During alpha:
+During beta:
 
 1. Install only from trusted sources.
 2. Check plugin metadata and compatibility notes.
@@ -151,12 +151,12 @@ Conservative rules:
 - do not assume Discover results are sandboxed or reviewed
 - keep secrets out of screenshots, logs, bug reports, and plugin issue reports
 
-See [Security / Privacy](/reference/security-privacy) for Sero's current alpha
+See [Security / Privacy](/reference/security-privacy) for Sero's current beta
 security posture.
 
-## What Sero does not claim during alpha
+## What Sero does not claim during beta
 
-The current alpha does **not** claim:
+The current beta does **not** claim:
 
 - a stable commercial marketplace
 - reviewed or officially supported third-party plugins

@@ -213,7 +213,9 @@ When attaching a Doctor report, also include:
 - CPU architecture
 - Node and pnpm versions
 - runtime mode: Host (`host`), Apple Container (`apple-container`), or Docker / Podman (`docker`)
-- source build branch and commit SHA
+- install path: packaged beta artifact or source build
+- packaged artifact type or release tag when relevant
+- source build branch and commit SHA when relevant
 - exact workflow or command that failed
 - relevant redacted logs
 

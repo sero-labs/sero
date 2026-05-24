@@ -4,7 +4,7 @@ Sero plugins can add app UIs, agent tools, commands, background runtime behavior
 provider metadata, and dashboard widgets. This guide gives the user-facing and
 author-facing mental model without replacing the detailed plugin references.
 
-Sero is still a **source-only OSS alpha**. Treat third-party plugins as trusted
+Sero is in **public beta**. Treat third-party plugins as trusted
 source code, expect plugin APIs to evolve, and do not assume external plugins are
 bundled Sero features.
 
@@ -21,7 +21,7 @@ Sero has a few app/plugin categories that users should keep separate:
   as other plugin-backed app surfaces, but they are not removed like an installed
   third-party plugin.
 - **Installed, external, or local plugins** live outside the core app. During
-  alpha, install them only from sources you trust.
+  beta, install them only from sources you trust.
 
 A plugin can provide one or more surfaces:
 
@@ -49,12 +49,12 @@ apps. It has two high-level views:
 Installed search filters local app manifests. Discover searches remote plugin
 sources through Sero's plugin search bridge.
 
-Keep the alpha caveats in mind:
+Keep the beta caveats in mind:
 
 - Do not treat Discover as a stable commercial marketplace.
 - Do not assume every discovered plugin is official or supported by Sero.
 - Do not install source plugins unless you trust the repository.
-- Auto-update behavior is not a public promise during alpha.
+- Auto-update behavior is not a public promise during beta.
 
 ### Favorites and the sidebar
 
@@ -71,7 +71,7 @@ Favorites are a convenience for keeping frequent plugin apps close at hand:
 - app launch goes through Sero's normal app-opening flow
 
 If a plugin is installed but does not appear where expected, it may be hidden by
-compatibility checks, missing capabilities, or alpha discovery behavior.
+compatibility checks, missing capabilities, or beta discovery behavior.
 
 ![Plugin app](../assets/images/plugin.jpg)
 
@@ -118,7 +118,7 @@ This protects users from some mismatches, but it is not a substitute for trust:
 - plugin code can include UI, extension logic, tools, and runtime behavior
 - credential-heavy integrations need extra care
 - local/source plugins should be reviewed like any other code you run locally
-- plugin contracts and host capabilities can change during alpha
+- plugin contracts and host capabilities can change during beta
 
 ## Building plugins
 
@@ -196,7 +196,7 @@ table. Current public-facing concepts include:
   the current renderer session
 
 These hooks expect to run inside the Sero shell with the `window.sero` bridge
-available. During alpha, some hooks may throw or degrade if a host capability is
+available. During beta, some hooks may throw or degrade if a host capability is
 missing.
 
 ### App state
@@ -233,7 +233,7 @@ agent-tool bridges, or provider integrations. Manifest requirements help Sero
 avoid loading unsupported apps, but they do not guarantee parity across every
 runtime mode.
 
-In public alpha docs, prefer conservative wording:
+In public beta docs, prefer conservative wording:
 
 - say a plugin **requires** a host capability when the manifest says so
 - mention that container-backed mode may expose more capabilities than reduced
@@ -241,7 +241,7 @@ In public alpha docs, prefer conservative wording:
 - avoid promising every plugin works identically in every profile, workspace, or
   runtime configuration
 
-## What not to assume during alpha
+## What not to assume during beta
 
 Avoid these claims unless a later product decision and runtime test confirm them:
 

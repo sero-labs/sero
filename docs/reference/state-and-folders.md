@@ -1,6 +1,6 @@
 # State and Folders Reference
 
-This page documents the current Sero OSS alpha storage model: where profile
+This page documents the current Sero public beta storage model: where profile
 state lives, which files are local-only, and which surfaces can talk to remote
 services.
 

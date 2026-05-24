@@ -1,7 +1,7 @@
 # Plugin Author Quick Path
 
 This page is the shortest conservative path for authoring a Sero plugin during
-the source-only OSS alpha. It connects the starter examples, app-runtime hooks,
+the public beta. It connects the starter examples, app-runtime hooks,
 file-backed state model, host capabilities, and Module Federation rules without
 pretending the plugin API is frozen.
 
@@ -11,9 +11,9 @@ want the broad model first, read [Plugins and Apps](/guide/plugins-and-apps). Us
 [App Runtime Reference](/reference/app-runtime) for the source-checked hook/API
 table.
 
-## Alpha expectations
+## Beta expectations
 
-During alpha:
+During beta:
 
 - plugin/runtime contracts may still evolve
 - third-party plugins are trusted source code, not sandboxed marketplace items
@@ -146,7 +146,7 @@ manifest describe the bridge policy.
 ## React UI and app-runtime hooks
 
 Plugin UIs are React modules loaded by Sero as federated remotes. Current
-alpha-safe app-runtime hooks include the table below; see
+beta app-runtime hooks include the table below; see
 [App Runtime Reference](/reference/app-runtime) for source paths, host caveats,
 and widget registry APIs.
 
@@ -292,7 +292,7 @@ Before sharing a plugin publicly:
 
 ## What not to claim
 
-Do not claim during alpha that:
+Do not claim during beta that:
 
 - app-runtime APIs are permanently stable
 - Discover is a stable commercial marketplace

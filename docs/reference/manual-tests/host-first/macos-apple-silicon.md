@@ -384,5 +384,5 @@ Mark the macOS Apple Silicon run as pass only if:
 - Host runtime works with real macOS paths and `/workspace` remains only a compatibility alias.
 - Managed tool and browser pack states are visible and actionable.
 - Apple Container and Docker work as optional container runtimes.
-- Browser automation works in containers and works on Host after published browser pack install, or pending artifact metadata is recorded as release-blocking.
+- Browser automation works in containers and works on Host after published browser pack install, or any future pending release-target artifact metadata is recorded as release-blocking.
 - Native build failures point to OS tools or container fallback, not Sero-managed compiler installs.

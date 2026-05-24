@@ -159,7 +159,7 @@ Expected:
 
 - The selected backend is `host`.
 - Core tools are `ready`, `installing`, `missing`, or `failed` with install/retry detail.
-- Browser automation is `installable` when the published Linux browser-pack artifact exists and is absent locally, then `ready` only after install and launch checks. If the Linux artifact is still pending in `generated-artifacts.json`, this is release-blocking and should show unavailable/non-installable with container fallback.
+- Browser automation is `installable` when the published Linux browser-pack artifact exists and is absent locally, then `ready` only after install and launch checks. If future release-target metadata is still pending in `generated-artifacts.json`, this is release-blocking and should show unavailable/non-installable with container fallback.
 - Native build tools are informational only. Sero must not claim it will install `build-essential`, GCC, Clang, or system headers as managed tools.
 
 ### 4.3 Verify managed tool storage
@@ -256,7 +256,7 @@ Expected:
 
 ### 4.8 Browser automation pack on Host
 
-Linux host browser automation is a release-supported target only after the Linux GitHub Release artifact is published and verified. Do not use a local artifact override as the supported path.
+Linux host browser automation is a release-supported beta target when the Linux GitHub Release artifact is published and verified. Do not use a local artifact override as the supported path.
 
 1. Run the release publication gate from the repo root:
 
@@ -265,7 +265,7 @@ Linux host browser automation is a release-supported target only after the Linux
    ```
 
 2. Open Runtime settings.
-3. Confirm browser automation is shown as `installable`, not ready, when the published Linux pack is absent locally. If metadata is still pending, record this as a release blocker and use Docker/Podman for browser automation.
+3. Confirm browser automation is shown as `installable`, not ready, when the published Linux pack is absent locally. If future release-target metadata is pending, record this as a release blocker and use Docker/Podman for browser automation.
 4. Click install for the browser automation pack when the published artifact is available.
 5. Watch progress until complete.
 6. Confirm files are under `~/.sero-ui/toolchains/<manifest-version>/browser/` and `.installed` exists.

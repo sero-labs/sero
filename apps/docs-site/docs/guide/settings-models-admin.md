@@ -6,7 +6,7 @@ and other support-oriented surfaces. Use this page as the entry point for
 Admin-related documentation.
 
 These screens are useful for understanding what the local profile is using, but
-they remain alpha UI and should not be treated as a stable public API.
+they remain beta UI and should not be treated as a stable public API.
 
 ## What lives here
 

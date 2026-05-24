@@ -1,6 +1,6 @@
 # Sero Documentation Model
 
-This file explains where documentation belongs during the OSS alpha effort.
+This file explains where documentation belongs during the public beta docs effort.
 
 ## Public vs internal docs
 
@@ -20,7 +20,8 @@ external contributors and early adopters.
 ### Root `docs/**` during migration
 
 The root `docs/**` tree remains the **source-material pool** and deeper
-reference set while migration is in progress.
+reference set while public docs are curated and kept in sync with beta release
+facts.
 
 Some files under `docs/**` are strong canonical references already, especially:
 - `docs/architecture.md`
@@ -57,7 +58,7 @@ those facts should be harvested into canonical docs before any cleanup happens.
 - **product and feature behavior** → `docs/features/**` and curated docs-site pages
 - **plugin guidance** → `docs/plugins/**`
 - **security / privacy posture** → `SECURITY.md`, `docs/security/**`, curated docs-site security pages
-- **release/process coordination** → `.pi/plans/2026-04-22-oss-release/**` during alpha prep
+- **release/process coordination** → local planning artifacts under `.pi/plans/**`; harvest durable facts into curated docs before linking publicly
 - **review lineage / cleanup programs** → `docs/deslopify/**`
 
 ## Inline API documentation standard
@@ -81,8 +82,5 @@ inline narratives when the better destination is external docs.
 ## Preserve before prune
 
 Do not blindly delete or move transient/internal docs.
-Use the OSS release plan artifacts under `.pi/plans/2026-04-22-oss-release/`
-first, especially:
-- `decision-log.md`
-- `migration-map.md`
-- `checklist.md`
+Use current planning artifacts as source material only. Durable facts should be
+moved into curated public docs or stable root references before pruning.

@@ -1,7 +1,7 @@
 # State and Folders
 
 This page maps where Sero stores profile state, app state, auth files, and debug
-artifacts during the OSS alpha. Use it when troubleshooting, filing issues, or
+artifacts during the public beta. Use it when troubleshooting, filing issues, or
 checking what should be redacted from screenshots and logs.
 
 Sero is local-first, but local state can still be sensitive. Treat the active
@@ -88,7 +88,7 @@ agent directory instead of a separate non-Sero agent directory.
 | `<SERO_HOME>/debug/memory/` | Memory plugin debug logs |
 
 Older notes may mention paths such as `~/.sero-ui/layout.json` or
-`~/.sero-ui/github-auth.json`. For current Sero alpha docs, prefer the
+`~/.sero-ui/github-auth.json`. For current Sero beta docs, prefer the
 profile-scoped `<SERO_HOME>/agent/...` paths above unless a page is explicitly
 describing legacy migration behavior.
 

@@ -6,8 +6,7 @@ project notes, identity/profile details, scratchpad items, and daily work logs
 that help future conversations start with less repeated setup. See the [Plugin Catalog](/plugins/catalog)
 for the built-in plugin inventory.
 
-Sero is still a **source-only OSS alpha**. Treat memory as helpful local context,
-not perfect recall or a complete audit log.
+Sero is in **public beta**. Treat memory as helpful local context, not perfect recall or a complete audit log, and expect behavior to evolve during beta.
 
 ## What memory stores
 
@@ -145,7 +144,7 @@ Examples:
 ```
 
 Slash commands route through the agent/session flow. Exact UI presentation may
-change during alpha.
+change during beta.
 
 ![Slash Commands](../assets/images/slash-commands.jpg)
 
@@ -210,7 +209,7 @@ sero memory read --target memory
 ### Consolidation is not a contract
 
 The plugin has hooks for daily logs, session handoff, transcript backfill, and
-memory consolidation. In the current alpha, do not depend on a precise
+memory consolidation. During beta, do not depend on a precise
 consolidation cadence, exact generated summaries, or complete transcript recall.
 
 ### Memory context may not be visible

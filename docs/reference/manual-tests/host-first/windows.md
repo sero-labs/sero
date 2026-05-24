@@ -146,7 +146,7 @@ Expected:
 
 - The selected backend is `host`.
 - Core tools are `ready`, `installing`, `missing`, or `failed` with install/retry detail.
-- Browser automation is `installable` when the published Windows x64 browser-pack artifact exists and is absent locally, then `ready` only after install and launch checks. If the Windows x64 artifact is still pending in `generated-artifacts.json`, this is release-blocking and should show unavailable/non-installable with container fallback.
+- Browser automation is `installable` when the published Windows x64 browser-pack artifact exists and is absent locally, then `ready` only after install and launch checks. If a future release target's artifact is still pending in `generated-artifacts.json`, this is release-blocking and should show unavailable/non-installable with container fallback.
 - Native build tools are informational only. Sero must not claim it will install Visual Studio Build Tools, MSVC, Windows SDK, or compiler stacks as managed tools.
 
 ### 4.3 Verify managed tool storage
@@ -243,7 +243,7 @@ Expected:
 
 ### 4.8 Browser automation pack on Host
 
-Windows x64 host browser automation is a release-supported target only after the Windows x64 GitHub Release artifact is published and verified. Do not use a local artifact override as the supported path. Windows arm64 remains future/unsupported.
+Windows x64 host browser automation is a release-supported beta target when the Windows x64 GitHub Release artifact is published and verified. Do not use a local artifact override as the supported path. Windows arm64 remains future/unsupported.
 
 1. Run the release publication gate from the repo root:
 
@@ -252,7 +252,7 @@ Windows x64 host browser automation is a release-supported target only after the
    ```
 
 2. Open Runtime settings.
-3. Confirm browser automation is shown as `installable`, not ready, when the published Windows x64 pack is absent locally. If metadata is still pending, record this as a release blocker and use Docker Desktop for browser automation.
+3. Confirm browser automation is shown as `installable`, not ready, when the published Windows x64 pack is absent locally. If future release-target metadata is pending, record this as a release blocker and use Docker Desktop for browser automation.
 4. Click install for the browser automation pack when the published artifact is available.
 5. Watch progress until complete.
 6. Confirm files are under `%USERPROFILE%\.sero-ui\toolchains\<manifest-version>\browser\` and `.installed` exists.
@@ -397,5 +397,5 @@ Mark the Windows run as pass only if:
 - Host terminal uses a verified Git Bash/MSYS-compatible shell, not WSL/PowerShell/cmd as the workspace shell.
 - Managed tool and browser pack states are visible and actionable.
 - Docker works as an optional container runtime with correct Windows-to-Linux path mapping.
-- Browser automation works in Docker and works on Host after published browser pack install, or reports the pending artifact as release-blocking without claiming support.
+- Browser automation works in Docker and works on Host after published browser pack install, or reports any future pending release-target artifact as release-blocking without claiming support.
 - Native build failures point to OS tools or container fallback, not Sero-managed compiler installs.

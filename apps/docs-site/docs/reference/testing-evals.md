@@ -1,6 +1,6 @@
 # Testing / Evals
 
-Sero uses repository tests and promptfoo evals as separate quality signals. The current alpha model is truthful rather than exhaustive: not every suite is a PR gate, and real LLM evals are usually manual/nightly/release-confidence checks.
+Sero uses repository tests and promptfoo evals as separate quality signals. The current beta model is truthful rather than exhaustive: not every suite is a PR gate, and real LLM evals are usually manual/nightly/release-confidence checks.
 
 ## Current root command surface
 
@@ -14,7 +14,7 @@ pnpm eval
 pnpm eval:view
 ```
 
-Do not describe a repo-wide `turbo run test` public contract for the alpha; the root public test commands are the ones above.
+Do not describe a repo-wide `turbo run test` public contract for the beta; the root public test commands are the ones above.
 
 ## PR gate
 
@@ -31,7 +31,7 @@ That expands to:
 3. `pnpm test` (desktop Vitest, non-watch)
 4. `pnpm --filter @sero/desktop test:e2e:ci`
 
-This is the current alpha PR-gate shape. It does not run every package/plugin suite or every eval.
+This is the current beta PR-gate shape. It does not run every package/plugin suite or every eval.
 
 ## Evals command reference
 

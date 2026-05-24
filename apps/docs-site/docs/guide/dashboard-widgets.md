@@ -21,7 +21,7 @@ If the Dashboard is empty or the widget list is short:
 - no installed app/plugin may expose widgets
 - a plugin may not be enabled or compatible in the current profile
 - runtime widgets may only appear while the plugin UI/runtime is loaded
-- alpha discovery may require reopening the app or restarting Sero
+- beta discovery may require reopening the app or restarting Sero
 
 Do not assume every app has a widget.
 
@@ -36,7 +36,7 @@ Both types mount inside Sero's app runtime provider so they can read app/workspa
 
 ## Move, resize, and remove
 
-Dashboard uses a draggable/resizable grid. Widget sizes and positions are user-adjustable hints, not fixed guarantees across every screen size or future alpha build.
+Dashboard uses a draggable/resizable grid. Widget sizes and positions are user-adjustable hints, not fixed guarantees across every screen size or future beta build.
 
 Typical actions:
 

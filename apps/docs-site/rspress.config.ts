@@ -7,7 +7,7 @@ const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const startSetup = [
   { text: 'Start Here', link: '/guide/overview' },
   { text: 'Get Sero Running', link: '/guide/getting-started' },
-  { text: 'Install from Source', link: '/guide/installation-requirements' },
+  { text: 'Installation / Requirements', link: '/guide/installation-requirements' },
   { text: 'Choose a Workspace Runtime', link: '/guide/choose-workspace-runtime' },
   { text: 'Profiles and Onboarding', link: '/guide/profiles-and-onboarding' },
   { text: 'Models and Providers', link: '/guide/models-and-providers' },

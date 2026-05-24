@@ -27,14 +27,17 @@ The container is the body. The Electron UI is the face. Pi is the mind.
 
 ## Platform & Constraints
 
-- **Supported alpha targets:** macOS, Linux, and Windows from source
+- **Supported beta targets:** macOS Apple Silicon, Linux x64/arm64, and Windows x64.
+- **Packaged desktop release:** public beta installers are available for supported targets; developers and contributors can still build from source.
+- **Unsupported:** macOS Intel/x64 and Windows arm64.
+- **Updates/signing:** no public auto-update guarantee; download new beta releases manually unless release notes say otherwise, and signing/notarization or SmartScreen warnings may still apply.
 - **Current maintainer-validated baseline:** macOS 26 Tahoe+ on Apple Silicon
 - **Electron 33** (TypeScript + React)
 - **Container-backed runtimes** are strongly recommended for the full Sero feature set: Apple Container on supported Apple Silicon Macs, Docker on macOS/Linux/Windows
 - **Pi SDK** (`@mariozechner/pi-coding-agent`) as the AI agent core
-- **Supported fallback:** Sero can continue in reduced host mode on macOS/Linux when containers are unavailable or intentionally disabled for a workspace; Windows workspace execution uses Docker
+- **Supported fallback:** Host is the default runtime on supported packaged targets when available. Sero can continue in reduced host mode when containers are unavailable or intentionally disabled; Docker/Podman and Apple Container remain explicit runtime choices where supported.
 
-For the canonical public alpha support contract, prefer
+For the canonical public beta support contract, prefer
 `apps/docs-site/docs/reference/support-scope.md` when wording needs to stay in
 sync across surfaces.
 
@@ -53,7 +56,8 @@ Container installation, verification, and recovery steps.
 ### Supported fallback: host mode
 
 If containers are unavailable, unhealthy, or turned off for a workspace, Sero
-can continue in host mode on macOS/Linux instead of blocking the product entirely.
+can continue in host mode on release-supported beta targets instead of blocking
+the product entirely.
 
 Host mode still supports core workflows such as:
 - onboarding and provider setup
@@ -62,7 +66,7 @@ Host mode still supports core workflows such as:
 - normal host-shell development workflows
 
 Host mode is intentionally a reduced experience. Current limitations include:
-- **no browser automation tool**
+- **browser automation requires an available host browser pack and passing Environment Doctor checks**
 - **no containerized language servers**
 - **reduced managed preview / dev-server automation**
 - **no Linux image parity or container networking semantics**
@@ -72,6 +76,7 @@ Host mode is intentionally a reduced experience. Current limitations include:
 Workspace runtime is configured per workspace through the workspace tree runtime
 toggle or the `runtime.backend` value in `.sero-workspace.json`.
 
-That means containers are the default/preferred path for new workspaces, but
-they are **not a hard requirement** for using Sero on macOS/Linux. Windows uses
-Docker for workspace execution.
+That means Host is the default on release-supported packaged targets, while
+container runtimes remain the preferred path for Linux parity, isolation, and
+preinstalled browser automation. Containers are **not a hard requirement** for
+using Sero on supported beta targets.

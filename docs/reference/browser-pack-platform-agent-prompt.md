@@ -4,7 +4,7 @@ Use this prompt for each native platform agent that will build and publish one S
 
 ---
 
-You are building one Sero browser-pack release artifact for PR #185 on the native machine you are currently running on.
+You are building one Sero browser-pack release artifact on the native machine you are currently running on.
 
 ## Goal
 
@@ -19,14 +19,14 @@ Required release targets only:
 | Linux arm64 | `linux-arm64.tar.gz` | `linux-arm64.json` |
 | Windows x64 using Git Bash/MSYS | `win-x64.tar.gz` | `win-x64.json` |
 
-Do **not** build Intel Mac/macOS x64; it is unsupported. Do not build Windows arm64 for this release; it remains a possible future target.
+Do **not** build Intel Mac/macOS x64; it is unsupported. Do not build Windows arm64 for the beta support matrix; it remains a possible future target.
 
 ## Important constraints
 
-- Work on branch `feat/enhanced-host-mode`.
+- Work on branch `<release-branch>`.
 - Browser-pack builds must run on the matching native OS/arch. Do not cross-build.
 - On Windows, run from Git Bash/MSYS, not PowerShell.
-- Upload artifacts to GitHub Release tag `browser-pack-2026-05-16` in `sero-labs/sero`.
+- Upload artifacts to GitHub Release tag `<browser-pack-release-tag>` in `sero-labs/sero`.
 - Do not commit generated files under `apps/desktop/dist/browser-pack/`.
 - Do not edit source unless a build script bug prevents completion; if that happens, stop and report the issue.
 
@@ -62,7 +62,7 @@ cd sero
 Then:
 
 ```bash
-git checkout feat/enhanced-host-mode
+git checkout <release-branch>
 git pull --ff-only
 pnpm install --frozen-lockfile
 ```
@@ -71,20 +71,20 @@ pnpm install --frozen-lockfile
 
 ```bash
 pnpm --filter @sero/desktop browser-pack:build -- \
-  --metadata-out dist/browser-pack/2026-05-16
+  --metadata-out dist/browser-pack/<browser-pack-version>
 ```
 
 The build should create exactly one archive and one small JSON receipt under:
 
 ```txt
-apps/desktop/dist/browser-pack/2026-05-16/
+apps/desktop/dist/browser-pack/<browser-pack-version>/
 ```
 
 Examples:
 
 ```txt
-apps/desktop/dist/browser-pack/2026-05-16/linux-x64.tar.gz
-apps/desktop/dist/browser-pack/2026-05-16/linux-x64.json
+apps/desktop/dist/browser-pack/<browser-pack-version>/linux-x64.tar.gz
+apps/desktop/dist/browser-pack/<browser-pack-version>/linux-x64.json
 ```
 
 ### 4. Upload both files
@@ -96,9 +96,9 @@ Use the pair produced for your current machine.
 macOS Apple Silicon:
 
 ```bash
-gh release upload browser-pack-2026-05-16 \
-  apps/desktop/dist/browser-pack/2026-05-16/mac-arm64.tar.gz \
-  apps/desktop/dist/browser-pack/2026-05-16/mac-arm64.json \
+gh release upload <browser-pack-release-tag> \
+  apps/desktop/dist/browser-pack/<browser-pack-version>/mac-arm64.tar.gz \
+  apps/desktop/dist/browser-pack/<browser-pack-version>/mac-arm64.json \
   --repo sero-labs/sero \
   --clobber
 ```
@@ -106,9 +106,9 @@ gh release upload browser-pack-2026-05-16 \
 Linux x64:
 
 ```bash
-gh release upload browser-pack-2026-05-16 \
-  apps/desktop/dist/browser-pack/2026-05-16/linux-x64.tar.gz \
-  apps/desktop/dist/browser-pack/2026-05-16/linux-x64.json \
+gh release upload <browser-pack-release-tag> \
+  apps/desktop/dist/browser-pack/<browser-pack-version>/linux-x64.tar.gz \
+  apps/desktop/dist/browser-pack/<browser-pack-version>/linux-x64.json \
   --repo sero-labs/sero \
   --clobber
 ```
@@ -116,9 +116,9 @@ gh release upload browser-pack-2026-05-16 \
 Linux arm64:
 
 ```bash
-gh release upload browser-pack-2026-05-16 \
-  apps/desktop/dist/browser-pack/2026-05-16/linux-arm64.tar.gz \
-  apps/desktop/dist/browser-pack/2026-05-16/linux-arm64.json \
+gh release upload <browser-pack-release-tag> \
+  apps/desktop/dist/browser-pack/<browser-pack-version>/linux-arm64.tar.gz \
+  apps/desktop/dist/browser-pack/<browser-pack-version>/linux-arm64.json \
   --repo sero-labs/sero \
   --clobber
 ```
@@ -126,9 +126,9 @@ gh release upload browser-pack-2026-05-16 \
 Windows x64 from Git Bash/MSYS:
 
 ```bash
-gh release upload browser-pack-2026-05-16 \
-  apps/desktop/dist/browser-pack/2026-05-16/win-x64.tar.gz \
-  apps/desktop/dist/browser-pack/2026-05-16/win-x64.json \
+gh release upload <browser-pack-release-tag> \
+  apps/desktop/dist/browser-pack/<browser-pack-version>/win-x64.tar.gz \
+  apps/desktop/dist/browser-pack/<browser-pack-version>/win-x64.json \
   --repo sero-labs/sero \
   --clobber
 ```
@@ -138,7 +138,7 @@ gh release upload browser-pack-2026-05-16 \
 Replace `<archive>` and `<json>` with your two filenames:
 
 ```bash
-gh release view browser-pack-2026-05-16 \
+gh release view <browser-pack-release-tag> \
   --repo sero-labs/sero \
   --json assets \
   --jq '.assets[].name' | grep -E '^(<archive>|<json>)$'
@@ -154,8 +154,8 @@ Platform machine: <macOS arm64 | Linux x64 | Linux arm64 | Windows x64 Git Bash>
 Git commit built: <git rev-parse HEAD>
 Archive uploaded: <filename.tar.gz>
 Receipt JSON uploaded: <filename.json>
-Archive URL: https://github.com/sero-labs/sero/releases/download/browser-pack-2026-05-16/<filename.tar.gz>
-Receipt JSON URL: https://github.com/sero-labs/sero/releases/download/browser-pack-2026-05-16/<filename.json>
+Archive URL: https://github.com/sero-labs/sero/releases/download/<browser-pack-release-tag>/<filename.tar.gz>
+Receipt JSON URL: https://github.com/sero-labs/sero/releases/download/<browser-pack-release-tag>/<filename.json>
 Receipt JSON contents:
 <copy the full contents of the generated .json receipt here>
 Build command exit status: <passed/failed>

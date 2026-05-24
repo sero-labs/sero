@@ -5,7 +5,7 @@ previews, browser/preview tabs, source-control views, and workspace terminals
 around the active workspace and agent session.
 
 Explorer is useful today, but it is not a promise of full IDE parity during the
-alpha. For runtime expectations, see [Containers and Host Mode](/reference/containers-host-mode); for dev-server setup, see [Containers and Dev Servers](/guide/containers-dev-servers).
+beta. For runtime expectations, see [Containers and Host Mode](/reference/containers-host-mode); for dev-server setup, see [Containers and Dev Servers](/guide/containers-dev-servers).
 
 ![Explorer workspace surfaces](../assets/generated/img15.jpg)
 
@@ -58,7 +58,7 @@ they are not the primary root.
 Typical file-tree actions include opening files and using context-menu actions
 such as rename or delete where available.
 
-Keep these alpha caveats in mind:
+Keep these beta caveats in mind:
 
 - The primary root and attached roots are runtime/workspace concepts, not a
   stable public plugin API.
@@ -66,7 +66,7 @@ Keep these alpha caveats in mind:
   supported platforms; choose Apple Container or Docker / Podman explicitly when
   you need container-provided tools, isolation, or container path behavior.
 - Avoid using Explorer as the only copy of important work until you are
-  comfortable with the current alpha behavior.
+  comfortable with the current beta behavior.
 
 Workspace references make attached roots and related project context visible
 without requiring every path to be part of the primary root.
@@ -174,9 +174,9 @@ sero app preview <registered-url>
 
 ## Runtime caveats
 
-For the current alpha:
+For the current beta:
 
-- macOS Apple Silicon, Linux x64/arm64, and Windows x64 source builds are in alpha scope.
+- Packaged beta installers are available for macOS Apple Silicon, Linux x64/arm64, and Windows x64; developers and contributors can still build from source.
 - macOS Apple Silicon is the maintainer-validated baseline.
 - Host is the default runtime on supported platforms, including Windows x64.
 - Choose Apple Container or Docker / Podman explicitly when you want container-provided tools, container isolation, browser automation from the runtime image, or container networking behavior.

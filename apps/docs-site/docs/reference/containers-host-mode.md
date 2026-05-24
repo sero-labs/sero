@@ -139,7 +139,7 @@ Check whether the feature requires browser automation, containerized language se
 
 ## Caveats
 
-During the current alpha, do not treat container runtimes as:
+During the current beta, do not treat container runtimes as:
 
 - a hardened multi-tenant security boundary
 - identical behavior on every operating system

@@ -10,9 +10,9 @@ voice input, see [Agent Sessions and Context](/guide/agent-sessions-and-context)
 
 ![Workspace desktop shell overview](../assets/images/explorer-view.jpg)
 
-## Alpha expectations
+## Beta expectations
 
-Sero is currently a **source-only OSS alpha** for **macOS Apple Silicon, Linux x64/arm64, and Windows x64**.
+Sero is currently a **public beta** for **macOS Apple Silicon, Linux x64/arm64, and Windows x64**. Packaged beta installers are available from [GitHub Releases](https://github.com/sero-labs/sero/releases); developers and contributors can still build from source.
 Host is the default workspace runtime on supported platforms. Apple Container
 and Docker / Podman are explicit container choices when you want container
 isolation, image-provided tools, or container networking behavior.
@@ -29,7 +29,7 @@ and local model configuration.
 
 Use profiles to separate local working environments such as Work and Personal.
 They are useful separation, not a cryptographic security boundary, and exact
-onboarding screens may change during alpha.
+onboarding screens may change during beta.
 
 For the complete profile flow, custom locations, restart-on-switch behavior,
 transferable credentials, deletion semantics, and redaction checklist, see
@@ -169,7 +169,7 @@ can include things like:
 - dashboard widget layout and browser-related layout state
 
 This is meant to make restarts feel continuous. If a layout looks wrong during
-alpha, try switching apps, collapsing/reopening panels, or restarting from the
+beta, try switching apps, collapsing/reopening panels, or restarting from the
 same profile before filing an issue.
 
 ## What to read next

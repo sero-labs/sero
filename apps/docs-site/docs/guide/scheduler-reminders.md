@@ -7,7 +7,7 @@ every weekday" or "remind me to review this synthetic plan tomorrow." Source
 checked: `plugins/sero-cron-plugin/package.json` and README. See the
 [Plugin Catalog](/plugins/catalog) for the built-in plugin inventory.
 
-Sero is still a **source-only OSS alpha**. Treat scheduler behavior as helpful
+Sero is in **public beta**. Treat scheduler behavior as helpful
 local automation, not guaranteed delivery or a replacement for a dedicated
 calendar, monitoring, or notification system.
 
@@ -162,7 +162,7 @@ Adding a reminder requires a `title` plus either:
 Updating, removing, snoozing, completing, enabling, or disabling a reminder uses
 its saved `id` plus the fields you want to change. Reminders can also include
 notes, a channel, type, and optional `recover_if_missed` flag. Status is saved
-state, not a field you set directly through the tool. The source-supported
+state, not a field you set directly through the tool. The implemented
 reminder types are one-time (`once`) and recurring (`recurring`).
 
 Example prompts:

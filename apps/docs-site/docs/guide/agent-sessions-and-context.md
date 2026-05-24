@@ -83,7 +83,7 @@ Examples:
 /agent explain the current plan before editing files.
 ```
 
-Exact command availability can change with focused app, installed plugins, and alpha runtime state.
+Exact command availability can change with focused app, installed plugins, and beta runtime state.
 
 ## Steering, stopping, and queued follow-ups
 

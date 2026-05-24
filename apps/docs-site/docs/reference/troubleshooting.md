@@ -40,7 +40,7 @@ pkill -f "vite"
 pkill -f "electron"
 ```
 
-4. From the repo root, retry the normal source-build path:
+4. If you are running from a source checkout, retry the normal source-build path:
 
 ```bash
 pnpm build
@@ -202,7 +202,7 @@ See [Checkpoints and Undo](/guide/checkpoints-and-undo).
 
 Sometimes the correct fix is to change platform or runtime.
 
-The current alpha does not support macOS Intel or Windows arm64. It also does not promise official public binaries, full Host/container parity, or a hardened multi-tenant security boundary.
+The current public beta does not support macOS Intel or Windows arm64. It also does not promise full Host/container parity, stable internal plugin/runtime APIs, automatic updates for every beta release, or a hardened multi-tenant security boundary.
 
 If your workflow depends on container-provided tools, container networking, or browser automation without Host browser packs, choose Apple Container or Docker / Podman on a supported platform.
 
@@ -214,7 +214,9 @@ Include the smallest reproducible signal and the support fields maintainers need
 - CPU architecture
 - Node and pnpm versions
 - runtime mode: Host (`host`), Apple Container (`apple-container`), or Docker / Podman (`docker`)
-- source build branch and commit SHA
+- install path: packaged beta artifact or source build
+- packaged artifact type or release tag when relevant
+- source build branch and commit SHA when relevant
 - exact command or workflow that failed
 - Environment Doctor result or exported report
 - relevant redacted log excerpts from `/tmp/sero-*.log`

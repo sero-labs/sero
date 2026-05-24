@@ -6,16 +6,16 @@ A **browser pack** is a `.tar.gz` archive containing the pinned Chromium, ffmpeg
 
 ## Required artifacts
 
-PR #185 requires these four release-target artifacts, matching [`host-mode-support.md`](./host-mode-support.md):
+The public beta requires these four release-target artifacts, matching [`host-mode-support.md`](./host-mode-support.md):
 
 | Machine you must use to build it | Browser-pack asset | Manifest artifact ID | Metadata sidecar asset | Current checked-in state |
 | --- | --- | --- | --- | --- |
 | Apple Silicon Mac | `mac-arm64.tar.gz` | `browser-darwin-arm64` | `mac-arm64.json` | Published/available |
-| Linux x64 machine | `linux-x64.tar.gz` | `browser-linux-x64` | `linux-x64.json` | Pending; non-installable release blocker |
-| Linux arm64 machine | `linux-arm64.tar.gz` | `browser-linux-arm64` | `linux-arm64.json` | Pending; non-installable release blocker |
-| Windows x64 machine using Git Bash | `win-x64.tar.gz` | `browser-win32-x64` | `win-x64.json` | Pending; non-installable release blocker |
+| Linux x64 machine | `linux-x64.tar.gz` | `browser-linux-x64` | `linux-x64.json` | Published/available |
+| Linux arm64 machine | `linux-arm64.tar.gz` | `browser-linux-arm64` | `linux-arm64.json` | Published/available |
+| Windows x64 machine using Git Bash | `win-x64.tar.gz` | `browser-win32-x64` | `win-x64.json` | Published/available |
 
-macOS on Intel CPUs is explicitly unsupported. Windows arm64 is intentionally not part of this release and remains a possible future target. Pending manifest entries are not supported installs; publish the GitHub Release asset, merge the sidecar metadata, and pass `browser-pack:verify-published` before claiming install support. Locally served artifacts via `SERO_BROWSER_PACK_BASE_URL` are developer diagnostics only.
+macOS on Intel CPUs is explicitly unsupported. Windows arm64 is intentionally not part of the beta support matrix and remains a possible future target. Pending manifest entries for any future release-supported target are not supported installs; publish the GitHub Release asset, merge the sidecar metadata, and pass `browser-pack:verify-published` before claiming install support. Locally served artifacts via `SERO_BROWSER_PACK_BASE_URL` are developer diagnostics only.
 
 **Important:** do not try to build another platform's artifact from your current machine. The build script intentionally blocks that because Playwright downloads browser binaries for the current OS/architecture only.
 
@@ -25,7 +25,7 @@ Use the `Browser Pack Artifacts` workflow when the native runners are available.
 
 ```bash
 gh workflow run browser-pack-artifacts.yml \
-  --ref feat/enhanced-host-mode \
+  --ref <release-branch> \
   -f commit_metadata=false
 ```
 
@@ -33,7 +33,7 @@ Set `commit_metadata=true` if you want the workflow to commit the generated meta
 
 ```bash
 gh workflow run browser-pack-artifacts.yml \
-  --ref feat/enhanced-host-mode \
+  --ref <release-branch> \
   -f commit_metadata=true
 ```
 
@@ -47,19 +47,19 @@ All artifacts go to this GitHub Release:
 
 ```txt
 Repository: sero-labs/sero
-Release tag: browser-pack-2026-05-16
+Release tag: <browser-pack-release-tag>
 ```
 
 Final public URLs must look like this:
 
 ```txt
-https://github.com/sero-labs/sero/releases/download/browser-pack-2026-05-16/<artifact-file>
+https://github.com/sero-labs/sero/releases/download/<browser-pack-release-tag>/<artifact-file>
 ```
 
 For example:
 
 ```txt
-https://github.com/sero-labs/sero/releases/download/browser-pack-2026-05-16/linux-x64.tar.gz
+https://github.com/sero-labs/sero/releases/download/<browser-pack-release-tag>/linux-x64.tar.gz
 ```
 
 ## Step 0 — prerequisites on every build machine
@@ -89,9 +89,9 @@ gh auth login
 Run this once from any machine with GitHub write access:
 
 ```bash
-gh release create browser-pack-2026-05-16 \
+gh release create <browser-pack-release-tag> \
   --repo sero-labs/sero \
-  --title "Sero Browser Pack 2026-05-16" \
+  --title "Sero Browser Pack <browser-pack-version>" \
   --notes "Pinned host browser automation packs for Sero. Integrity is enforced by generated-artifacts.json SHA-256 metadata." \
   --prerelease
 ```
@@ -107,7 +107,7 @@ First, get the branch and dependencies:
 ```bash
 git clone git@github.com:sero-labs/sero.git
 cd sero
-git checkout feat/enhanced-host-mode
+git checkout <release-branch>
 git pull
 pnpm install --frozen-lockfile
 ```
@@ -118,20 +118,20 @@ Then build the current machine's browser pack:
 
 ```bash
 pnpm --filter @sero/desktop browser-pack:build -- \
-  --metadata-out dist/browser-pack/2026-05-16
+  --metadata-out dist/browser-pack/<browser-pack-version>
 ```
 
 The command automatically detects the current OS/architecture and writes two files under:
 
 ```txt
-apps/desktop/dist/browser-pack/2026-05-16/
+apps/desktop/dist/browser-pack/<browser-pack-version>/
 ```
 
 Example on Linux x64:
 
 ```txt
-apps/desktop/dist/browser-pack/2026-05-16/linux-x64.tar.gz
-apps/desktop/dist/browser-pack/2026-05-16/linux-x64.json
+apps/desktop/dist/browser-pack/<browser-pack-version>/linux-x64.tar.gz
+apps/desktop/dist/browser-pack/<browser-pack-version>/linux-x64.json
 ```
 
 ## Step 3 — upload the artifact and sidecar from that machine
@@ -146,9 +146,9 @@ Use the correct command for the current machine:
 ### Apple Silicon Mac
 
 ```bash
-gh release upload browser-pack-2026-05-16 \
-  apps/desktop/dist/browser-pack/2026-05-16/mac-arm64.tar.gz \
-  apps/desktop/dist/browser-pack/2026-05-16/mac-arm64.json \
+gh release upload <browser-pack-release-tag> \
+  apps/desktop/dist/browser-pack/<browser-pack-version>/mac-arm64.tar.gz \
+  apps/desktop/dist/browser-pack/<browser-pack-version>/mac-arm64.json \
   --repo sero-labs/sero \
   --clobber
 ```
@@ -156,9 +156,9 @@ gh release upload browser-pack-2026-05-16 \
 ### Linux x64
 
 ```bash
-gh release upload browser-pack-2026-05-16 \
-  apps/desktop/dist/browser-pack/2026-05-16/linux-x64.tar.gz \
-  apps/desktop/dist/browser-pack/2026-05-16/linux-x64.json \
+gh release upload <browser-pack-release-tag> \
+  apps/desktop/dist/browser-pack/<browser-pack-version>/linux-x64.tar.gz \
+  apps/desktop/dist/browser-pack/<browser-pack-version>/linux-x64.json \
   --repo sero-labs/sero \
   --clobber
 ```
@@ -166,9 +166,9 @@ gh release upload browser-pack-2026-05-16 \
 ### Linux arm64
 
 ```bash
-gh release upload browser-pack-2026-05-16 \
-  apps/desktop/dist/browser-pack/2026-05-16/linux-arm64.tar.gz \
-  apps/desktop/dist/browser-pack/2026-05-16/linux-arm64.json \
+gh release upload <browser-pack-release-tag> \
+  apps/desktop/dist/browser-pack/<browser-pack-version>/linux-arm64.tar.gz \
+  apps/desktop/dist/browser-pack/<browser-pack-version>/linux-arm64.json \
   --repo sero-labs/sero \
   --clobber
 ```
@@ -178,9 +178,9 @@ gh release upload browser-pack-2026-05-16 \
 Run from Git Bash, not PowerShell:
 
 ```bash
-gh release upload browser-pack-2026-05-16 \
-  apps/desktop/dist/browser-pack/2026-05-16/win-x64.tar.gz \
-  apps/desktop/dist/browser-pack/2026-05-16/win-x64.json \
+gh release upload <browser-pack-release-tag> \
+  apps/desktop/dist/browser-pack/<browser-pack-version>/win-x64.tar.gz \
+  apps/desktop/dist/browser-pack/<browser-pack-version>/win-x64.json \
   --repo sero-labs/sero \
   --clobber
 ```
@@ -190,12 +190,12 @@ gh release upload browser-pack-2026-05-16 \
 After all four machines upload their `.json` sidecars, download them into one checkout:
 
 ```bash
-mkdir -p apps/desktop/dist/browser-pack/2026-05-16
+mkdir -p apps/desktop/dist/browser-pack/<browser-pack-version>
 for receipt in mac-arm64.json linux-x64.json linux-arm64.json win-x64.json; do
-  gh release download browser-pack-2026-05-16 \
+  gh release download <browser-pack-release-tag> \
     --repo sero-labs/sero \
     --pattern "$receipt" \
-    --dir apps/desktop/dist/browser-pack/2026-05-16 \
+    --dir apps/desktop/dist/browser-pack/<browser-pack-version> \
     --clobber
 done
 ```
@@ -203,10 +203,10 @@ done
 This should create:
 
 ```txt
-apps/desktop/dist/browser-pack/2026-05-16/mac-arm64.json
-apps/desktop/dist/browser-pack/2026-05-16/linux-x64.json
-apps/desktop/dist/browser-pack/2026-05-16/linux-arm64.json
-apps/desktop/dist/browser-pack/2026-05-16/win-x64.json
+apps/desktop/dist/browser-pack/<browser-pack-version>/mac-arm64.json
+apps/desktop/dist/browser-pack/<browser-pack-version>/linux-x64.json
+apps/desktop/dist/browser-pack/<browser-pack-version>/linux-arm64.json
+apps/desktop/dist/browser-pack/<browser-pack-version>/win-x64.json
 ```
 
 Do not commit these sidecar files.
@@ -217,7 +217,7 @@ From the checkout that has all four sidecars, run:
 
 ```bash
 pnpm --filter @sero/desktop browser-pack:merge-metadata -- \
-  --sidecar-dir dist/browser-pack/2026-05-16
+  --sidecar-dir dist/browser-pack/<browser-pack-version>
 ```
 
 This updates exactly this committed metadata file:
@@ -258,7 +258,7 @@ Commit command:
 ```bash
 git add apps/desktop/electron/features/workspace/runtime/browser-pack/generated-artifacts.json
 git commit -m "chore(desktop): publish browser pack metadata"
-git push origin feat/enhanced-host-mode
+git push origin <release-branch>
 ```
 
 ## Step 8 — final validation
@@ -275,10 +275,10 @@ pnpm --filter @sero/desktop verify:host-mode-release
 Then run the release workflow:
 
 ```bash
-gh workflow run release.yml --ref feat/enhanced-host-mode
+gh workflow run release.yml --ref <release-branch>
 ```
 
-The PR can only claim real multi-platform host browser automation after these checks pass.
+A future release can only claim real multi-platform host browser automation after these checks pass.
 
 ## Troubleshooting
 

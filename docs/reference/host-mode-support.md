@@ -1,19 +1,19 @@
 # Host-mode platform support
 
-Host-mode support follows `HOST_RELEASE_TARGETS` in `apps/desktop/electron/features/workspace/runtime/host-support-matrix.json`. The matrix below is the intended release support target; the final support claim is release-gated until the browser-pack artifacts are published and the desktop release workflow passes.
+Host-mode support follows `HOST_RELEASE_TARGETS` in `apps/desktop/electron/features/workspace/runtime/host-support-matrix.json`. The matrix below is the current beta release support target. Host browser automation is supported on release-supported platforms when the published browser pack is available and Environment Doctor passes. Future releases must keep browser-pack publication and smoke-test gates green before claiming support for a new artifact.
 
 | Platform | Arch | Host runtime | Host browser pack | Packaged app | Status |
 | --- | --- | --- | --- | --- | --- |
-| macOS | arm64 | Supported; default | Required published GitHub Release artifact (`browser-darwin-arm64`) | DMG/ZIP | Release-supported target |
+| macOS | arm64 | Supported; default | Published GitHub Release artifact (`browser-darwin-arm64`) | DMG | Release-supported beta target |
 | macOS | x64 | Unsupported | Not published | Not published | Unsupported |
-| Linux | x64 | Supported; default | Required published GitHub Release artifact (`browser-linux-x64`) | deb | Release-supported target; blocked until artifact/workflow gate passes |
-| Linux | arm64 | Supported; default | Required published GitHub Release artifact (`browser-linux-arm64`) | deb | Release-supported target; blocked until artifact/workflow gate passes |
-| Windows | x64 | Supported; default | Required published GitHub Release artifact (`browser-win32-x64`) | NSIS/ZIP | Release-supported target; blocked until artifact/workflow gate passes |
+| Linux | x64 | Supported; default | Published GitHub Release artifact (`browser-linux-x64`) | DEB | Release-supported beta target |
+| Linux | arm64 | Supported; default | Published GitHub Release artifact (`browser-linux-arm64`) | DEB | Release-supported beta target |
+| Windows | x64 | Supported; default | Published GitHub Release artifact (`browser-win32-x64`) | setup EXE | Release-supported beta target |
 | Windows | arm64 | Not defaulted | Not published | Not published | Future/unsupported |
 
-Supported-platform host browser automation uses the browser-pack manifest and published GitHub Release assets at `https://github.com/sero-labs/sero/releases/download/browser-pack-2026-05-16/<slug>.tar.gz`. `pnpm --filter @sero/desktop browser-pack:verify-published` must verify each release-supported artifact before docs or releases claim browser automation support on that platform.
+Supported-platform host browser automation uses the browser-pack manifest and published GitHub Release assets. `pnpm --filter @sero/desktop browser-pack:verify-published` must verify each release-supported artifact before a future release claims browser automation support on that platform.
 
-Current repository metadata may still have pending entries in `apps/desktop/electron/features/workspace/runtime/browser-pack/generated-artifacts.json`. Pending release-supported entries are release blockers, not instructions for users to build local packs.
+Current repository metadata should keep every release-supported target available. Pending entries for release-supported targets are future release blockers, not instructions for users to build local packs. Windows arm64 may remain pending because it is not a release-supported beta target.
 
 ## Required release gates
 

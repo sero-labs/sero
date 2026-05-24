@@ -47,7 +47,7 @@ Expected:
 
 - Host is shown as selected for the workspace.
 - Capability state includes core tools, browser automation, and native build tools install state.
-- Browser automation is `installable`, `installing`, `missing`, `failed`, or `ready`; it is ready only after browser pack install and Doctor launch success. Release-supported platforms must use published GitHub Release artifacts; any pending platform in `generated-artifacts.json` is a release blocker.
+- Browser automation is `installable`, `installing`, `missing`, `failed`, or `ready`; it is ready only after browser pack install and Doctor launch success. Release-supported platforms must use published GitHub Release artifacts; any pending future release-supported platform in `generated-artifacts.json` is a release blocker.
 - Native build tools are informational (`available`, `missing`, or `unknown`), not Sero-managed.
 
 ### 1.2 Path policy and file operations
@@ -158,7 +158,7 @@ To build and serve a local pack:
 pnpm --filter @sero/desktop browser-pack:build -- \
   --platform $(node -p "process.platform") \
   --arch $(node -p "process.arch") \
-  --url-base http://127.0.0.1:8787/browser-pack/2026-05-16
+  --url-base http://127.0.0.1:8787/browser-pack/<browser-pack-version>
 
 pnpm --filter @sero/desktop browser-pack:smoke -- \
   --pack-root dist/browser-pack/work/browser-$(node -p "process.platform")-$(node -p "process.arch")/browser \
@@ -171,13 +171,13 @@ python3 -m http.server 8787 --directory apps/desktop/dist
 Then start Sero in another terminal:
 
 ```bash
-SERO_BROWSER_PACK_BASE_URL=http://127.0.0.1:8787/browser-pack/2026-05-16 \
+SERO_BROWSER_PACK_BASE_URL=http://127.0.0.1:8787/browser-pack/<browser-pack-version> \
 pnpm dev
 ```
 
 Validation flow:
 
-1. Confirm diagnostics show browser automation as `installable` when a published pack is available but absent. Pending or unsupported targets should show `missing`/non-installable; pending release-supported targets block release.
+1. Confirm diagnostics show browser automation as `installable` when a published pack is available but absent. Pending or unsupported targets should show `missing`/non-installable; pending future release-supported targets block release.
 2. Trigger install from Runtime settings/onboarding or by first browser tool use only when a published/local pack is available.
 3. Confirm progress is visible and duplicate install actions attach to the same in-flight install.
 4. Confirm installed files live under `~/.sero-ui/toolchains/<manifest-version>/browser/` and `.installed` exists.
@@ -186,7 +186,7 @@ Validation flow:
 7. On Linux, verify missing shared-library launch failures produce OS instruction/container fallback detail. Doctor owns this remediation; browser-pack build/install does not manage compiler stacks or host shared libraries.
 8. Test uninstall from Runtime settings and confirm state returns to `installable`.
 
-Local archives stay in `apps/desktop/dist/browser-pack/2026-05-16/<slug>.tar.gz` and are not committed. Generated digest metadata is committed at `apps/desktop/electron/features/workspace/runtime/browser-pack/generated-artifacts.json`. Do not treat local artifact success as release support. Release support requires `pnpm --filter @sero/desktop browser-pack:verify-published` and the `release` workflow to pass.
+Local archives stay in `apps/desktop/dist/browser-pack/<browser-pack-version>/<slug>.tar.gz` and are not committed. Generated digest metadata is committed at `apps/desktop/electron/features/workspace/runtime/browser-pack/generated-artifacts.json`. Do not treat local artifact success as release support. Release support requires `pnpm --filter @sero/desktop browser-pack:verify-published` and the `release` workflow to pass.
 
 ## 2. Container runtime smoke
 

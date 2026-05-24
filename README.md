@@ -79,7 +79,7 @@ Public links:
 Sero is built on [Pi](https://github.com/badlogic/pi), the open-source coding
 agent platform. The current pinned Pi SDK baseline is **0.61.1**
 (`@mariozechner/pi-*` packages in `pnpm-workspace.yaml`). This will be updated
-during alpha: later Pi releases include breaking Extension API changes that Sero
+during beta: later Pi releases may include breaking Extension API changes that Sero
 needs to adopt before plugin contracts can settle.
 
 ## What Sero is not
@@ -94,23 +94,26 @@ Sero is intentionally not trying to be everything at once:
 - It is **not** a hosted agent platform, SaaS IDE, or cloud execution service.
   The default direction is local-first desktop software.
 - It is **not** API-stable yet. Plugin, runtime, and Extension API surfaces are
-  still expected to change during alpha.
-- It is **not** polished end-user software today. The current builds are for
+  still expected to change during beta.
+- It is **not** polished end-user software today. The current beta is for
   early adopters, contributors, and people interested in the direction.
 
-## Alpha status
+## Beta status
 
-Sero is currently intended for early adopters and contributors.
+Sero is available as a public beta desktop release for macOS Apple Silicon,
+Linux x64/arm64, and Windows x64. Download the packaged installer for your
+platform from [GitHub Releases](https://github.com/sero-labs/sero/releases), or
+build from source if you are developing Sero.
 
 Current release posture:
 
-- **Supported source platforms:** macOS, Linux, and Windows
+- **Supported packaged targets:** macOS Apple Silicon, Linux x64/arm64, and Windows x64
+- **Unsupported targets:** macOS Intel/x64 and Windows arm64
 - **Maintainer-validated baseline:** macOS on Apple Silicon
-- **Distribution:** build from source only
-- **Runtime options:** Apple Container, Docker/Podman (`docker`), and explicit Host where supported
-- **Full runtime-backed experience:** container-backed workspaces via Apple Container or Docker/Podman
-- **Host mode:** explicit reduced-capability runtime; see Support Scope for platform details
-- **Stability:** plugin/runtime contracts may change during alpha
+- **Distribution:** packaged beta installers are published through GitHub Releases; developers and contributors can still build from source
+- **Runtime options:** Host by default on supported targets, plus explicit Apple Container or Docker/Podman where supported
+- **Stability:** plugin/runtime contracts may change during beta
+- **Updates/support:** updates are manual unless release notes say otherwise; support is best effort
 - **UX polish:** rough and actively changing; layout, flows, and accessibility
   need refinement
 - **Theming:** CSS/theme support is patchy and will be normalized as the shell
@@ -118,10 +121,10 @@ Current release posture:
 - **Spotify / Widevine:** Sero uses stock Electron and does not ship Castlabs,
   Widevine/VMP signing, or DRM-dependent Spotify playback support.
 
-Sero does **not** currently promise official public binaries, stable internal
-APIs, or full feature parity without containers. Platform support is alpha-level
-and runtime capabilities vary by OS. For the current support contract, see
-[`Support Scope`](./apps/docs-site/docs/reference/support-scope.md).
+Sero does **not** currently promise stable internal APIs, a support SLA,
+auto-update for every beta release, or full feature parity without containers.
+Platform and runtime capabilities vary by OS. For the current beta support
+contract, see [`Support Scope`](./apps/docs-site/docs/reference/support-scope.md).
 
 ## Why Sero?
 
@@ -159,7 +162,7 @@ Key ideas:
 
 ## Screenshots
 
-Captured from the current source-only alpha on macOS Apple Silicon.
+Captured from the current beta on macOS Apple Silicon.
 
 **Desktop shell overview**
 
@@ -178,18 +181,21 @@ Captured from the current source-only alpha on macOS Apple Silicon.
 
 ## Quick start
 
-### Requirements
+### Install the beta
 
-- macOS, Linux, or Windows
-- Node.js 22
-- pnpm 10
-- Strongly recommended for the full runtime-backed experience: Docker/Podman, or
-  Apple's `container` CLI on Apple Silicon macOS
+Most users should download the current packaged beta installer for their
+platform from [GitHub Releases](https://github.com/sero-labs/sero/releases).
+Use Support Scope for exact supported targets and artifact types; GitHub
+Releases has the current filenames.
 
-For the exact validated baseline, see
+For the exact beta support contract, see
 [`Support Scope`](./apps/docs-site/docs/reference/support-scope.md).
 
-### Run from source
+### Run from source for development
+
+Developers and contributors can still run Sero from source. You need Node.js 22,
+pnpm 10, Git, and a platform covered by Support Scope.
+
 
 ```bash
 pnpm install
@@ -214,7 +220,7 @@ Notes:
 - `pnpm install` runs native-module repair hooks for `node-pty` and
   `better-sqlite3`.
 - `pnpm test` currently runs the desktop Vitest suite.
-- `pnpm test:ci` mirrors the alpha PR gate: typecheck, build, desktop tests, and
+- `pnpm test:ci` mirrors the beta PR gate: typecheck, build, desktop tests, and
   desktop CI e2e.
 - Explicit Host mode is available where supported for reduced-capability
   non-container workflows; see Support Scope for platform details.
@@ -247,7 +253,7 @@ Start here:
 - [`apps/docs-site/docs/guide/getting-started.md`](./apps/docs-site/docs/guide/getting-started.md)
   — first-run guide
 - [`apps/docs-site/docs/reference/support-scope.md`](./apps/docs-site/docs/reference/support-scope.md)
-  — current alpha support matrix
+  — current beta support matrix
 - [`apps/docs-site/docs/reference/environment-doctor.md`](./apps/docs-site/docs/reference/environment-doctor.md)
   — built-in diagnostics, safe-mode CLI, and the bundled `sero-doctor` shim
 - [`docs/sero.md`](./docs/sero.md) — vision, platform constraints, runtime modes
@@ -263,7 +269,7 @@ Start here:
 - [`docs/testing/eval-guide.md`](./docs/testing/eval-guide.md) — eval framework
 - [`SECURITY.md`](./SECURITY.md) — vulnerability reporting policy
 
-The docs site is intentionally compact during alpha and is being populated from
+The docs site is intentionally compact during beta and is being populated from
 canonical repo docs as public coverage matures.
 
 ## Plugins and ecosystem
@@ -276,11 +282,11 @@ Sero supports built-in and external plugins. A plugin can provide:
 - Optional runtime/background behavior
 - Optional model/provider metadata
 
-**External plugin disclaimer:** the current external plugins are very alpha and
-mostly throwaway. They exist to prove out the plugin system, Pi tool bridging,
-Module Federation loading, and local development workflow. Treat them as
-experiments, not production-quality apps. More realistic real-world apps are
-planned as the alpha hardens.
+**External plugin disclaimer:** the current external plugins are beta-era experiments.
+They exist to prove out the plugin system, Pi tool bridging, Module Federation
+loading, and local development workflow. Treat them as experiments, not
+production-quality apps. More realistic real-world apps are planned as the beta
+hardens.
 
 See [`docs/plugins/guide.md`](./docs/plugins/guide.md) and
 [`docs/plugins/quickstart.md`](./docs/plugins/quickstart.md) for packaging,
@@ -302,7 +308,7 @@ local paths, auth files, and other sensitive information.
 ## Contributing
 
 Contributions, issues, docs improvements, and plugin experiments are welcome,
-with the caveat that Sero is still alpha software.
+with the caveat that Sero is still beta software.
 
 Please read:
 

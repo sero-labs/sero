@@ -25,7 +25,7 @@ pnpm eval:snapshot
 - `pnpm typecheck` — workspace typecheck across packages and desktop Electron TS
 - `pnpm build` — workspace build
 - `pnpm test` — desktop Vitest suite
-- `pnpm test:ci` — current alpha PR-gate shape: typecheck, build, desktop tests, desktop CI e2e (`pnpm --filter @sero/desktop test:e2e:ci`)
+- `pnpm test:ci` — current beta PR-gate shape: typecheck, build, desktop tests, desktop CI e2e (`pnpm --filter @sero/desktop test:e2e:ci`)
 - `pnpm eval:snapshot` — fast prompt assembly/cache drift check
 
 For live provider evals, use `pnpm eval` only when credentials and budget are

@@ -1,25 +1,27 @@
 # Support Scope
 
-This page is the canonical public support matrix for the Sero OSS alpha.
-If another page is broader, more aspirational, or less specific, **this page wins** for current alpha expectations.
+This page is the canonical public support matrix for the Sero public beta desktop release. If another page is broader, more aspirational, or less specific, **this page wins**.
 
-## Supported alpha baseline
+## Supported beta baseline
 
 | Surface | Status | Notes |
 | --- | --- | --- |
-| Platform | Supported alpha | Source builds on macOS Apple Silicon, Linux x64/arm64, and Windows x64 |
+| Release status | Public beta | Packaged desktop installers are available for supported beta targets. |
+| Packaged desktop targets | Supported | macOS Apple Silicon, Linux x64/arm64, and Windows x64 |
+| Installer artifacts | Supported where published | macOS DMG, Linux DEB, and Windows setup EXE; see [GitHub Releases](https://github.com/sero-labs/sero/releases) for exact current filenames. |
+| Source builds | Supported for developers | Developers and contributors can still build from source on supported targets. |
 | Current maintainer-validated baseline | Validated | macOS `26.3`, `arm64`, Node `22.22.0`, pnpm `10.11.0` |
-| Distribution | Supported | Build from source only |
-| Default workspace runtime | Supported / recommended | Host is the default on supported Host platforms |
-| Container runtimes | Supported explicit choices | Apple Container on macOS arm64; Docker / Podman on macOS arm64, Linux, and Windows |
-| Browser automation | Supported where ready | Host requires an available browser pack and a passing Environment Doctor launch check; container runtimes use the runtime image |
-| Support channel | Supported | GitHub Issues and Pull Requests |
-| Official public binaries | Not supported | No public binary distribution promised in alpha |
-| Stable internal plugin/runtime APIs | Not promised | Contracts may still evolve during alpha |
+| Default workspace runtime | Supported / recommended | Host is the default on supported Host platforms. |
+| Container runtimes | Supported explicit choices | Apple Container on macOS arm64; Docker / Podman on macOS arm64, Linux, and Windows. |
+| Browser automation | Supported where ready | Host requires an available browser pack and a passing Environment Doctor launch check; container runtimes use the runtime image. |
+| Unsupported platforms | Not supported | macOS Intel/x64 and Windows arm64 |
+| Auto-update | Not promised | Download new beta releases manually unless release notes say otherwise. |
+| Stable internal plugin/runtime APIs | Not promised | Contracts may still evolve during beta. |
+| Support channel | Best effort | GitHub Issues and Pull Requests; there is no response SLA. |
 
 ## Runtime support matrix
 
-This table is the public support contract for the current source-only alpha.
+This table is the public runtime support contract for the current beta.
 
 | Runtime | macOS arm64 | Linux x64/arm64 | Windows x64 | Not supported |
 | --- | --- | --- | --- | --- |
@@ -28,6 +30,20 @@ This table is the public support contract for the current source-only alpha.
 | Docker / Podman (`docker`) | Supported explicit container choice | Supported explicit container choice | Supported explicit container choice | Requires a working Docker or Podman engine |
 
 If you are unsure which runtime to choose, use the default Host runtime. Select Apple Container or Docker / Podman explicitly when you want container-provided tools, isolation, Linux/container parity, or container networking behavior.
+
+## Desktop distribution
+
+Most beta users should download the packaged desktop artifact for their platform from [GitHub Releases](https://github.com/sero-labs/sero/releases):
+
+- macOS Apple Silicon: DMG installer
+- Linux x64/arm64: Debian package (`.deb`)
+- Windows x64: setup EXE installer
+
+GitHub Releases is the source of truth for exact current artifact names. Public docs intentionally avoid hardcoding versioned filenames.
+
+Developers and contributors can still build from source on supported targets. Source builds require the repository development toolchain and are not the simpler path for most beta users.
+
+New beta releases may require manual download and installation unless release notes say otherwise. macOS Gatekeeper/notarization warnings and Windows SmartScreen or unknown-publisher warnings may apply during beta.
 
 ## Host runtime
 
@@ -47,7 +63,7 @@ Host browser automation has two requirements:
 1. A browser pack artifact must be available for the platform.
 2. Environment Doctor must verify that Sero can install and launch it.
 
-Current available Host browser-pack artifacts are `browser-darwin-arm64`, `browser-linux-x64`, `browser-linux-arm64`, and `browser-win32-x64`. Windows arm64 has no available public pack today.
+Host browser packs are available for the release-supported targets: macOS arm64, Linux x64, Linux arm64, and Windows x64. Windows arm64 has no available public pack today.
 
 ## Container runtimes
 
@@ -57,17 +73,18 @@ Apple Container is available on Apple Silicon Macs through Apple's `container` C
 
 Existing containers do not automatically receive Dockerfile or base-tooling changes. Recreate affected workspace containers after Sero changes container images or installed tools.
 
-## Unsupported targets and alpha limits
+## Unsupported targets and beta limits
 
-The public alpha does **not** currently promise:
+The public beta does **not** currently promise:
 
 - macOS on Intel CPUs
 - Windows arm64 support
-- official public binaries
 - identical runtime capabilities on every OS
 - full feature parity between Host and container runtimes
 - frozen internal plugin/runtime contracts
 - a hardened multi-tenant security boundary
+- automatic updates for every beta release
+- a public support response SLA
 
 ## Issue-reporting guidance
 
@@ -75,40 +92,41 @@ When filing a bug, include which support surface you were using:
 
 - operating system and version
 - CPU architecture
-- Node / pnpm versions
+- install path: packaged beta artifact or source build
+- source build details when relevant: branch, tag, or commit SHA; Node / pnpm versions
 - runtime mode: Host (`host`), Apple Container (`apple-container`), or Docker / Podman (`docker`)
 - whether Environment Doctor passed, warned, or failed
 - whether browser automation was using Host browser packs or a container runtime
-- whether the issue happened in source-built alpha or a local experimental build
+- whether the issue happened in an official beta artifact, a source build, or a local experimental build
 
-## Early alpha support / triage plan
+## Beta support / triage plan
 
 Use the public support surfaces like this:
 
-- **Bug report** — regressions, broken supported workflows, or behavior that no longer matches the documented alpha support scope
+- **Bug report** — regressions, broken supported workflows, or behavior that no longer matches the documented beta support scope
 - **Support question** — setup help, troubleshooting, confusing docs, or uncertainty about runtime/configuration
 - **Pull request** — small fixes, docs improvements, or targeted corrections when you already know the change
 - **Private security reporting** — anything security-sensitive; follow `SECURITY.md` instead of filing publicly
 
-What maintainers will triage first during alpha:
+What maintainers will triage first during beta:
 
-- issues on the maintainer-validated baseline (`macOS` on Apple Silicon, source build)
+- issues on the maintainer-validated baseline (`macOS` on Apple Silicon)
 - install / launch / data-loss / security-sensitive regressions
 - documented Host and container runtime problems on supported targets
-- docs gaps that block setup or truthful usage of the alpha
+- docs gaps that block setup or truthful usage of the beta
 
 What reporters should expect:
 
-- **best-effort handling during alpha** — there is no response SLA yet
-- maintainers may ask for a minimal repro, commit SHA, runtime mode, Doctor result, and redacted logs before acting
-- unsupported platform/runtime combinations, unsupported binary expectations, heavily modified local builds, and third-party plugin issues may be redirected or closed as out of scope
+- **best-effort handling during beta** — there is no response SLA yet
+- maintainers may ask for a minimal repro, install path or artifact type, commit SHA when relevant, runtime mode, Doctor result, and redacted logs before acting
+- unsupported platform/runtime combinations, heavily modified local builds, and third-party plugin issues may be redirected or closed as out of scope
 - issues without enough detail to reproduce may be closed until more information is available
 
-A good first signal for early triage is:
+A good first signal for triage is:
 
 - the exact command or workflow that failed
 - whether you were using Host, Apple Container, or Docker / Podman
-- the commit, branch, or tag you tested
+- the packaged artifact type, release tag, branch, or commit you tested
 - the smallest redacted log excerpt that shows the failure
 
 ## Related docs

@@ -1,21 +1,21 @@
 # Security / Privacy
 
-Sero is a local-first developer tool in a **source-only OSS alpha** stage. It
+Sero is a local-first developer tool in a **public beta** stage. It
 runs on your machine, stores profile state locally, and can optionally connect
 to remote services such as model providers, GitHub, plugin registries, Discord,
 Tailscale, or the Sero gateway.
 
 This page is practical guidance, not a claim of hardened isolation. During the
-alpha, treat Sero like a powerful local automation environment: protect the
+beta, treat Sero like a powerful local automation environment: protect the
 profile directory, review what plugins and remote clients can reach, and report
 security issues privately.
 
-## Public alpha security posture
+## Public beta security posture
 
 Security reports are accepted for:
 
 - the latest `main` branch
-- current OSS alpha tags, best effort
+- current public beta releases, best effort
 - the desktop app, auth/token handling, local secret handling, gateway and
   remote-control surfaces, workspace/container execution boundaries, core plugin
   loading, and docs or examples that encourage unsafe behavior
@@ -186,7 +186,7 @@ IDs, but that is not a comprehensive per-tool or agent-action permission system.
 Because prompts can lead the agent to run tools, treat gateway credentials like
 high-privilege secrets.
 
-Important gateway caveats during alpha:
+Important gateway caveats during beta:
 
 - the master token is profile-scoped and should be stored/handled like a root
   password
@@ -214,9 +214,9 @@ The pairing dialog is security-relevant because it shows both the access scope
 and expiry for a remote web device. Treat real QR codes and login URLs from this
 screen as secrets; redact them from screenshots and rotate exposed tokens.
 
-## What Sero does not claim during alpha
+## What Sero does not claim during beta
 
-The public alpha does **not** claim:
+The public beta does **not** claim:
 
 - universal permission prompts for every tool or action
 - comprehensive blocking of all dangerous agent behavior

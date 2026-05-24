@@ -4,8 +4,11 @@ Sero is a desktop app for working on local software projects with an AI coding
 agent. It brings project workspaces, chat, terminals, previews, files, source
 control, and plugins into one local shell.
 
-The current alpha is for people who are comfortable building from source. If you
-want a packaged installer or a fully stable product, wait for a later release.
+Sero is available as a public beta desktop release. Most users should download
+the packaged installer for their platform from GitHub Releases; developers and
+contributors can still build from source. This is still beta software: support
+is best effort, updates are manual unless release notes say otherwise, and
+plugin/runtime APIs may change.
 
 ## What Sero helps you do
 
@@ -24,18 +27,18 @@ Use Sero when you want to:
 Sero is built on Pi, an open-source coding agent platform. You do not need to
 understand Pi internals to start using Sero.
 
-## Who the alpha is for
+## Who the beta is for
 
-The source-only alpha is a good fit if you are:
+The public beta is a good fit if you are:
 
-- a developer or contributor comfortable using a terminal
-- willing to install Node.js, pnpm, and source dependencies
-- testing Sero on a platform listed in [Support Scope](/reference/support-scope)
-- okay with alpha-quality workflows and changing plugin/runtime contracts
+- using a supported packaged desktop target listed in [Support Scope](/reference/support-scope)
+- an early adopter who is comfortable with beta-quality workflows
+- a developer or contributor who wants to build from source
+- okay with changing plugin/runtime contracts
 
 It is probably not the right fit yet if you need:
 
-- a one-click installer
+- stable commercial polish
 - production-stable workflows
 - a hosted cloud IDE
 - fully stable plugin APIs
@@ -45,8 +48,8 @@ It is probably not the right fit yet if you need:
 
 1. Check [Support Scope](/reference/support-scope) for the current platform and
    workspace runtime support contract.
-2. Follow [Get Sero Running](/guide/getting-started) to start the desktop app
-   from source.
+2. Follow [Get Sero Running](/guide/getting-started) to install the packaged
+   beta, or use the source-build path if you are developing Sero.
 3. When you open or configure a workspace, use the default runtime if you are
    unsure. Read [Choose a Workspace Runtime](/guide/choose-workspace-runtime) if
    you need container behavior or want to switch later.

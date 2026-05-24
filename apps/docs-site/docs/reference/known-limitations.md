@@ -1,12 +1,12 @@
 # Known Limitations
 
-Sero OSS alpha is intentionally narrow.
+Sero public beta is intentionally conservative.
 
 For the canonical supported / not-supported matrix, see [Support Scope](/reference/support-scope).
 
 ## Platform scope
 
-Current source-supported targets:
+Current packaged beta targets:
 
 - macOS Apple Silicon
 - Linux x64/arm64
@@ -20,7 +20,7 @@ Not currently promised:
 
 - macOS on Intel CPUs is unsupported
 - Windows arm64 is future/unsupported
-- official public binaries
+- packaged beta artifacts outside the supported targets
 - identical runtime capability on every OS
 
 ## Runtime limitations
@@ -40,7 +40,7 @@ Sero-managed Host tools live under `~/.sero-ui/toolchains/<manifest-version>/`, 
 
 ## Product maturity limitations
 
-During alpha, expect some churn in:
+During beta, expect some churn in:
 
 - plugin/runtime contracts
 - public docs completeness
@@ -49,4 +49,4 @@ During alpha, expect some churn in:
 
 ## Distribution limitations
 
-The current public recommendation is source-only alpha. Public binary expectations remain out of scope until third-party redistribution constraints and release posture are fully settled.
+Packaged beta artifacts are available for supported targets from [GitHub Releases](https://github.com/sero-labs/sero/releases). Exact filenames can change between beta releases, and new releases may require manual download unless release notes say otherwise. Developers and contributors can still build from source.

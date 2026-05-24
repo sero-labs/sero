@@ -42,4 +42,4 @@ This file tracks screenshot and media hygiene for the public docs site. Use it b
 
 ## Current omissions
 
-No new screenshots or recordings were captured in this pass. The docs continue to use existing source-only alpha screenshots under `assets/images/` and top-level legacy images where already present. Missing captures are explicit above so future passes can replace them with stable, redacted assets.
+No new screenshots or recordings were captured in this pass. The docs continue to use existing beta-era screenshots under `assets/images/` and top-level legacy images where already present. Missing captures are explicit above so future passes can replace them with stable, redacted assets.

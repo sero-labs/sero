@@ -6,9 +6,9 @@ If you need the exact platform or runtime support contract, use [Support Scope](
 
 ## First run
 
-- [Start Here](/guide/overview) — learn what Sero is, who the source-only alpha is for, and what to read next.
-- [Get Sero Running](/guide/getting-started) — follow the first-run tutorial to install dependencies, start Sero, and confirm the app opens.
-- [Install from Source](/guide/installation-requirements) — check local prerequisites and setup requirements before or during installation.
+- [Start Here](/guide/overview) — learn what Sero is, who the public beta is for, and what to read next.
+- [Get Sero Running](/guide/getting-started) — follow the first-run tutorial to install the packaged beta or use the source-build path for development.
+- [Installation / Requirements](/guide/installation-requirements) — check supported install paths, local prerequisites, and setup requirements.
 
 ## Workspace and runtime tasks
 
@@ -46,4 +46,4 @@ If you need the exact platform or runtime support contract, use [Support Scope](
 
 - [Architecture](/reference/architecture) — understand how the desktop shell, workspaces, runtimes, and plugins fit together.
 - [Security / Privacy](/reference/security-privacy) — understand Sero's local-first posture, remote surfaces, and sensitive state.
-- [Known Limitations](/reference/known-limitations) — understand current alpha boundaries before relying on Sero for critical work.
+- [Known Limitations](/reference/known-limitations) — understand current beta boundaries before relying on Sero for critical work.
