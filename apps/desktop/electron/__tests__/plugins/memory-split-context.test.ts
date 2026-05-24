@@ -94,9 +94,30 @@ describe('buildPriorityContextSplit', () => {
   });
 
   it('returns empty strings when no memory files exist', async () => {
-    const { staticContext, searchContext } = await buildPriorityContextSplit(root, 'hello');
+    const { staticContext, searchContext } = await buildPriorityContextSplit(
+      root,
+      'hello',
+    );
     expect(staticContext).toBe('');
     expect(searchContext).toBe('');
+  });
+});
+
+describe('System prompt stability for provider caching', () => {
+  it('staticContext is byte-identical across turns in frozen mode even when memory files change', async () => {
+    await writeFile('IDENTITY.md', '# Identity\n\n- **Name:** Sero');
+    await writeFile('USER.md', '# User\n\n- **Name:** Dan');
+    await seedMemory([{ type: 'fact', text: 'Initial fact' }]);
+
+    const turnOne = await buildPriorityContextSplit(root, 'hello', 'session-cache', 'frozen');
+
+    await seedMemory([{ type: 'fact', text: 'Changed fact' }]);
+
+    const turnTwo = await buildPriorityContextSplit(root, 'next prompt', 'session-cache', 'frozen');
+
+    // Static (system-prompt) context MUST remain byte-identical — that's what
+    // keeps the provider's cached prefix valid for the rest of the session.
+    expect(turnTwo.staticContext).toBe(turnOne.staticContext);
   });
 });
 

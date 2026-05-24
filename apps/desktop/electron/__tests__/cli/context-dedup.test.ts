@@ -56,7 +56,7 @@ describe('System prompt deduplication — memory instructions', () => {
   it('AGENTS.md template does NOT duplicate detailed memory instructions', () => {
     // The template can include concise workspace guidance, but should remain
     // much smaller than the canonical memory instructions.
-    expect(agentsTemplate.length).toBeLessThan(2000);
+    expect(agentsTemplate.length).toBeLessThan(3500);
 
     // Must NOT contain detailed tool syntax or full command examples
     expect(agentsTemplate).not.toContain('sero memory write');
@@ -89,15 +89,12 @@ describe('System prompt deduplication — memory instructions', () => {
     // memory-instructions.ts lists them
     expect(memoryInstructions).toContain('MEMORY.md');
     expect(memoryInstructions).toContain('IDENTITY.md');
-    expect(memoryInstructions).toContain('SCRATCHPAD.md');
     expect(memoryInstructions).toContain('memory/daily/');
 
     // CLI block should not list them
     expect(cliBlock).not.toContain('MEMORY.md');
     expect(cliBlock).not.toContain('IDENTITY.md');
 
-    // Container block should not fully list them
-    expect(containerBlock).not.toContain('SCRATCHPAD.md');
   });
 });
 

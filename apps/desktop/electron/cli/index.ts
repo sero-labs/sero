@@ -85,7 +85,6 @@ const CORE_TOOLS_TO_BRIDGE = new Set([
   'weight',
   'memory',
   'memory_search',
-  'scratchpad',
   // Media & services
   'generate_image',
   'starling',

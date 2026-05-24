@@ -2,12 +2,10 @@ import {
   readFile,
   getIdentityPath,
   getMemoryPath,
-  getScratchpadPath,
   getTargetUsage,
   getUserPath,
   statFile,
 } from './memory-manager';
-import { formatScratchpadForInjection, getOpenScratchpadItems } from './scratchpad';
 import { isQmdAvailable, searchRelevantMemories } from './qmd';
 import { formatRankedResults } from './retrieval';
 import {
@@ -33,7 +31,6 @@ import type { MemorySnapshotMode } from './memory-config';
 
 const BUDGET_IDENTITY = 1_000;
 const BUDGET_USER = 1_000;
-const BUDGET_SCRATCHPAD = 1_500;
 const BUDGET_SEARCH = 2_500;
 const BUDGET_MEMORY = 1_600;
 const BUDGET_TOTAL = 7_600;
@@ -98,7 +95,7 @@ function truncateMiddle(text: string, maxChars: number): { text: string; notice:
 async function buildManagedBlock(options: {
   label: string;
   path: string;
-  target: 'memory' | 'identity' | 'user' | 'scratchpad';
+  target: 'memory' | 'identity' | 'user';
   visibleContent: string;
   usageContent?: string;
   budget: number;
@@ -145,26 +142,6 @@ async function buildUserSection(root: string): Promise<string> {
     visibleContent: stripManagedFileMetadata(userContent),
     budget: BUDGET_USER,
     truncateMode: 'start',
-  });
-}
-
-async function buildScratchpadSection(root: string): Promise<string> {
-  const openScratchpadItems = await getOpenScratchpadItems();
-  if (openScratchpadItems.length === 0) return '';
-
-  const scratchpadPath = getScratchpadPath(root);
-  const scratchpadContent = await readFile(scratchpadPath);
-  if (!scratchpadContent?.trim()) return '';
-
-  return buildManagedBlock({
-    label: 'SCRATCHPAD.md',
-    path: scratchpadPath,
-    target: 'scratchpad',
-    visibleContent: formatScratchpadForInjection(openScratchpadItems),
-    usageContent: scratchpadContent,
-    budget: BUDGET_SCRATCHPAD,
-    truncateMode: 'start',
-    entryCount: openScratchpadItems.length,
   });
 }
 
@@ -257,12 +234,16 @@ export function clearPriorityContextCache(sessionId: string): void {
 }
 
 /**
- * Result of building priority context with search results separated out.
- * `staticContext` goes into the system prompt.
- * `searchContext` can be injected as a per-turn message (if auto-retrieve is on).
+ * Result of building priority context, split into three streams by mutation
+ * cadence so the system prompt can stay byte-identical across turns (required
+ * for provider-level prompt caching).
+ *
+ * - `staticContext` → system prompt. Identity, user, and long-term memory
+ *   only. In `frozen` snapshot mode these are captured once per session.
+ * - `searchContext` → per-turn message. QMD hits for the current prompt.
  */
 export interface PriorityContextResult {
-  /** Static memory sections (IDENTITY, USER, SCRATCHPAD, MEMORY.md) for the system prompt. */
+  /** Static memory sections (IDENTITY, USER, MEMORY.md) for the system prompt. */
   staticContext: string;
   /** Dynamic QMD search results for the current prompt. Empty if no results or QMD unavailable. */
   searchContext: string;
@@ -302,7 +283,6 @@ export async function buildPriorityContextSplit(
 
   addSection(frozenSnapshot?.identitySection ?? await buildIdentitySection(root));
   addSection(frozenSnapshot?.userSection ?? await buildUserSection(root));
-  addSection(await buildScratchpadSection(root));
   addSection(frozenSnapshot?.memorySection ?? await buildMemorySection(root));
 
   const searchSection = options.includeSearch === false
@@ -319,19 +299,25 @@ export async function buildPriorityContextSplit(
 /**
  * Build the full priority context as a single string.
  * Combines static memory + search results.
- * Used by tests and as a compatibility wrapper.
+ * Used by tests and as a debugging view; the runtime injection path uses
+ * `buildPriorityContextSplit` directly so each stream goes to the right place.
  */
 export async function buildPriorityContext(
   root: string,
   prompt: string,
   sessionId?: string,
-  snapshotMode: MemorySnapshotMode = 'live',
+  snapshotMode: MemorySnapshotMode = 'frozen',
 ): Promise<string> {
-  const { staticContext, searchContext } = await buildPriorityContextSplit(root, prompt, sessionId, snapshotMode);
-  if (!staticContext && !searchContext) return '';
-  if (!searchContext) return staticContext;
-  // Append search results after the static sections
-  return staticContext
-    ? `${staticContext}\n\n---\n\n${searchContext}`
-    : `\n\n## Memory\n\n${searchContext}`;
+  const { staticContext, searchContext } = await buildPriorityContextSplit(
+    root,
+    prompt,
+    sessionId,
+    snapshotMode,
+  );
+  const parts: string[] = [];
+  if (staticContext) parts.push(staticContext);
+  if (searchContext) {
+    parts.push(staticContext ? `---\n\n${searchContext}` : `\n\n## Memory\n\n${searchContext}`);
+  }
+  return parts.join('\n\n');
 }

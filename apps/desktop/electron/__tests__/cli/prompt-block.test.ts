@@ -23,13 +23,6 @@ describe('CLI prompt block', () => {
       execute,
     });
     registry.register({
-      name: 'scratchpad',
-      summary: 'Active working notes',
-      group: 'Apps',
-      source: 'app',
-      execute,
-    });
-    registry.register({
       name: 'workspace',
       summary: 'Manage workspaces',
       group: 'Builtin',
@@ -43,7 +36,6 @@ describe('CLI prompt block', () => {
     expect(prompt).toContain('Apps:');
     expect(prompt).toContain('memory — Manage long-term memory');
     expect(prompt).toContain('memory_search — Search memory and transcripts');
-    expect(prompt).toContain('scratchpad — Active working notes');
     expect(prompt).toContain('Builtin:');
     expect(prompt).toContain('workspace — Manage workspaces');
   });

@@ -5,7 +5,6 @@ export type MemorySearchSource =
   | 'memory'
   | 'identity'
   | 'user'
-  | 'scratchpad'
   | 'daily'
   | 'daily-summary'
   | 'session-transcript';
@@ -277,7 +276,6 @@ function classifySource(path: string | undefined, text: string): MemorySearchSou
   if (normalized.endsWith('/MEMORY.md') || normalized === 'MEMORY.md') return 'memory';
   if (normalized.endsWith('/IDENTITY.md') || normalized === 'IDENTITY.md') return 'identity';
   if (normalized.endsWith('/USER.md') || normalized === 'USER.md') return 'user';
-  if (normalized.endsWith('/SCRATCHPAD.md') || normalized === 'SCRATCHPAD.md') return 'scratchpad';
   return 'daily';
 }
 
@@ -352,8 +350,6 @@ function formatSourceLabel(source: MemorySearchSource): string {
       return 'Identity';
     case 'user':
       return 'User';
-    case 'scratchpad':
-      return 'Scratchpad';
     case 'daily':
       return 'Daily log';
   }

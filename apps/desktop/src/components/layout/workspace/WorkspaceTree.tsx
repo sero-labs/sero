@@ -11,7 +11,7 @@ import { useWorkspaceTreeRuntime } from './workspace-tree/useWorkspaceTreeRuntim
 /**
  * WorkspaceTree — tree view of workspaces → sessions.
  *
- * ▼ Scratchpad
+ * ▼ Personal
  *    ● Fix email draft        2m ago
  *    ○ Tax questions           1h ago
  * ▼ Sero Dev              🟢

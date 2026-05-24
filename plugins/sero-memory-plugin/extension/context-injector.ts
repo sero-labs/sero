@@ -1,18 +1,19 @@
 /**
  * ContextInjector — injects memory context into the agent's context.
  *
- * Split injection model:
- *   System prompt (static, per-session or per-turn depending on snapshot mode):
+ * Split injection model (designed for provider-level prompt caching):
+ *   System prompt (session-stable; captured once per session in `frozen` mode):
  *     - IDENTITY.md + USER.md — persona
- *     - SCRATCHPAD.md — active work items
  *     - MEMORY.md — curated long-term memory
- *     - Memory instructions — retrieval/storage commands
+ *     - Memory instructions — retrieval/storage commands (deterministic)
  *
- *   Per-turn message (dynamic, only when auto-retrieve is on):
+ *   Per-turn message stream (changes between turns):
  *     - QMD search results — memories relevant to the current user prompt
+ *       (only when auto-retrieve is on)
  *
- * The `context` event strips prior-turn search messages so only the
- * latest search results reach the LLM.
+ * The `context` event strips prior-turn search messages so only the latest
+ * copy reaches the LLM. The system-prompt addition
+ * is byte-identical across turns in frozen mode so cache hits are preserved.
  */
 
 import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
@@ -120,9 +121,11 @@ After receiving answers, write MEMORY.md:
  * Build the memory context for a normal (non-bootstrap) turn.
  *
  * Returns:
- *   - `systemPromptAddition`: static memory + instructions for the system prompt
+ *   - `systemPromptAddition`: session-stable memory + instructions for the
+ *     system prompt. Byte-identical across turns in frozen mode so provider
+ *     prompt caching keeps hitting.
  *   - `searchContext`: dynamic QMD search results for message injection
- *   - `contextBlock`: full combined context (for debug logging)
+ *   - `contextBlock`: full combined context (for debug logging only)
  */
 async function buildTurnContext(
   prompt: string,
@@ -145,10 +148,11 @@ async function buildTurnContext(
   );
   const memoryInstructions = getMemoryInstructions();
   const systemPromptAddition = staticContext + memoryInstructions;
-  // Full combined context for debug logging
-  const contextBlock = searchContext
-    ? (staticContext ? `${staticContext}\n\n---\n\n${searchContext}` : searchContext)
-    : staticContext;
+  // Full combined context for debug logging only — not the wire format.
+  const parts: string[] = [];
+  if (staticContext) parts.push(staticContext);
+  if (searchContext) parts.push(searchContext);
+  const contextBlock = parts.join('\n\n---\n\n');
 
   return { systemPromptAddition, searchContext, contextBlock, memoryInstructions };
 }

@@ -11,7 +11,6 @@ import {
   getIdentityPath,
   getMemoryPath,
   getTargetUsage,
-  getScratchpadPath,
   resolveMemoryRoot,
   getUserPath,
   readFile,
@@ -27,7 +26,6 @@ import {
   serializeMemoryEntries,
   stripManagedFileMetadata,
 } from './memory-format';
-import { parseScratchpad, serializeScratchpad } from './scratchpad';
 import { error, errorDetails, info } from './logger';
 
 const MEMORY_BACKUP_SUFFIX = '.pre-v2-backup';
@@ -135,36 +133,6 @@ async function compactManagedMarkdown(
 
   const normalized = normalizeManagedMarkdown(output);
   return getTargetUsage(label as 'identity' | 'user', normalized).chars <= maxChars ? normalized : null;
-}
-
-async function compactScratchpadContent(ctx: ExtensionContext, content: string, maxChars: number): Promise<string | null> {
-  const items = parseScratchpad(content);
-  const openItems = items.filter((item) => !item.done);
-  if (openItems.length === 0) return serializeScratchpad([]);
-
-  const withoutDone = serializeScratchpad(openItems);
-  if (getTargetUsage('scratchpad', withoutDone).chars <= maxChars) {
-    return withoutDone;
-  }
-
-  const output = await completeMarkdown(
-    ctx,
-    'You condense markdown checklists. Output only markdown checklist items.',
-    [
-      `Condense this scratchpad to fit within ${maxChars} visible characters.`,
-      'Keep only the open actionable items.',
-      'Shorten wording aggressively, but keep meaning.',
-      'Output markdown checklist only.',
-      '',
-      '<scratchpad>',
-      withoutDone,
-      '</scratchpad>',
-    ].join('\n'),
-  );
-  if (!output) return null;
-
-  const compacted = serializeScratchpad(parseScratchpad(output));
-  return getTargetUsage('scratchpad', compacted).chars <= maxChars ? compacted : null;
 }
 
 async function logMigrationNotes(root: string, notes: string[]): Promise<void> {
@@ -284,32 +252,6 @@ async function migrateManagedMarkdownFile(
   return true;
 }
 
-async function migrateScratchpadFile(ctx: ExtensionContext, root: string, notes: string[]): Promise<boolean> {
-  const filePath = getScratchpadPath(root);
-  const original = await readFile(filePath);
-  info('migration_scratchpad_scan', {
-    filePath,
-    exists: Boolean(original?.trim()),
-    chars: original?.length ?? 0,
-  });
-  if (!original?.trim()) return false;
-
-  const maxChars = getCapacityForTarget('scratchpad');
-  if (maxChars == null || getTargetUsage('scratchpad', original).chars <= maxChars) return false;
-
-  const compacted = await compactScratchpadContent(ctx, original, maxChars);
-  if (!compacted || compacted === original) return false;
-
-  await writeFile(filePath, compacted);
-  notes.push(`Auto-trimmed SCRATCHPAD.md to fit ${maxChars} chars.`);
-  info('migration_scratchpad_written', {
-    filePath,
-    charsBefore: original.length,
-    charsAfter: compacted.length,
-  });
-  return true;
-}
-
 export async function runPhase1Migration(ctx: ExtensionContext): Promise<MigrationSummary> {
   const root = resolveMemoryRoot();
   await ensureDirectories(root);
@@ -321,7 +263,6 @@ export async function runPhase1Migration(ctx: ExtensionContext): Promise<Migrati
       migrateMemoryFile(ctx, root, notes),
       migrateManagedMarkdownFile(ctx, 'identity', getIdentityPath(root), notes),
       migrateManagedMarkdownFile(ctx, 'user', getUserPath(root), notes),
-      migrateScratchpadFile(ctx, root, notes),
     ]);
 
     const changed = changedFlags.some(Boolean);

@@ -68,7 +68,6 @@ describe('container memory file guard', () => {
     const protectedRoot = getProtectedMemoryRoot();
 
     expect(isProtectedMemoryPath(path.join(protectedRoot, 'MEMORY.md'))).toBe(true);
-    expect(isProtectedMemoryPath(path.join(protectedRoot, 'SCRATCHPAD.md'))).toBe(true);
     expect(isProtectedMemoryPath(path.join(protectedRoot, 'memory', 'daily', '2026-04-02.md'))).toBe(true);
     expect(isProtectedMemoryPath(path.join(protectedRoot, 'memory', 'sessions', '2026-04-02-abcd1234.md'))).toBe(true);
 

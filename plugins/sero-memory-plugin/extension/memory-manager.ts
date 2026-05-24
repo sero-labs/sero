@@ -22,15 +22,14 @@ import { nowTimestamp, stripEntryIdComments, stripManagedFileMetadata } from './
 // ── Constants ──────────────────────────────────────────────────
 
 /** Only these root-level .md files are managed by the memory system. */
-const MEMORY_ROOT_FILES = new Set(['MEMORY.md', 'IDENTITY.md', 'USER.md', 'SCRATCHPAD.md']);
+const MEMORY_ROOT_FILES = new Set(['MEMORY.md', 'IDENTITY.md', 'USER.md']);
 
-export type CapacityTarget = 'memory' | 'identity' | 'user' | 'scratchpad';
+export type CapacityTarget = 'memory' | 'identity' | 'user';
 
 const TARGET_CAPACITIES: Record<CapacityTarget, number> = {
   memory: 4_000,
   user: 2_000,
   identity: 2_000,
-  scratchpad: 2_000,
 };
 
 // ── Path resolution ────────────────────────────────────────────
@@ -70,10 +69,6 @@ export function getSessionTranscriptDir(root: string): string {
 export function getSessionTranscriptPath(root: string, date: string, sessionId: string): string {
   const shortId = sessionId.slice(0, 8);
   return path.join(getSessionTranscriptDir(root), `${date}-${shortId}.md`);
-}
-
-export function getScratchpadPath(root: string): string {
-  return path.join(root, 'SCRATCHPAD.md');
 }
 
 export function todayStr(): string {
@@ -127,8 +122,6 @@ function normalizeVisibleContent(target: CapacityTarget, content: string): strin
     case 'identity':
     case 'user':
       return stripManagedFileMetadata(content).trim();
-    case 'scratchpad':
-      return content.trim();
   }
 }
 

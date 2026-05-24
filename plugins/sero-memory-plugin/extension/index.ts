@@ -2,14 +2,14 @@
  * Memory Extension — persistent memory for Sero with QMD semantic search.
  *
  * Stores long-term facts (MEMORY.md), agent identity (IDENTITY.md),
- * user profile (USER.md), scratchpad (SCRATCHPAD.md), and daily logs
+ * user profile (USER.md), and daily logs
  * in the global workspace. All files are git-tracked via Sero's
  * existing checkpoint system.
  *
  * QMD provides keyword, semantic, and hybrid search across all files.
  * Selective injection surfaces relevant past memories before each turn.
  *
- * Tools: memory (read/write/search/list), memory_search, scratchpad
+ * Tools: memory (read/write/search/list), memory_search
  * Hooks: before_agent_start (context injection), session lifecycle
  */
 
@@ -23,7 +23,6 @@ import {
 } from './phase1-migration-state';
 import { registerMemoryTool } from './memory-tool';
 import { registerSearchTool } from './search-tool';
-import { registerScratchpadTool } from './scratchpad';
 import { registerSessionLifecycle } from './session-lifecycle';
 import { registerActivityObserver } from './activity-observer';
 import { initQmd, runQmdUpdateNow } from './qmd';
@@ -234,7 +233,6 @@ export default function memoryExtension(pi: ExtensionAPI): void {
 
   registerMemoryTool(pi);
   registerSearchTool(pi);
-  registerScratchpadTool(pi);
 
   // ── Session lifecycle (handoff + exit summary) ─────────────
 
@@ -254,18 +252,6 @@ export default function memoryExtension(pi: ExtensionAPI): void {
         pi.sendUserMessage(`Using the memory tool: ${instruction}`);
       } else {
         pi.sendUserMessage('List all memory files using the memory tool.');
-      }
-    },
-  });
-
-  pi.registerCommand('scratchpad', {
-    description: 'Show scratchpad or manage items (pass instructions inline)',
-    handler: async (args) => {
-      const instruction = args.trim();
-      if (instruction) {
-        pi.sendUserMessage(`Using the scratchpad tool: ${instruction}`);
-      } else {
-        pi.sendUserMessage('List all scratchpad items using the scratchpad tool.');
       }
     },
   });

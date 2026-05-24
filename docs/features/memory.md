@@ -7,8 +7,8 @@
 ## Overview
 
 The memory system gives Sero persistent, cross-session recall. It stores
-long-term facts, user profile, agent identity, daily activity logs, and a
-working scratchpad — all as markdown files in the global workspace. Content is
+long-term facts, user profile, agent identity, and daily activity logs as
+markdown files in the global workspace. Content is
 injected into the system prompt before each turn, so the agent always has
 relevant context without being asked.
 
@@ -25,7 +25,6 @@ plugins/sero-memory-plugin/
 │   ├── context-injector.ts   — System prompt injection (priority-ordered)
 │   ├── activity-observer.ts  — Auto-logging of significant work per turn
 │   ├── session-lifecycle.ts  — Compaction handoff + exit summary
-│   ├── scratchpad.ts         — Persistent checklist tool
 │   └── qmd.ts                — QMD SDK integration (keyword/semantic/deep)
 ├── shared/
 │   └── types.ts              — Shared type definitions
@@ -41,7 +40,6 @@ All files live in `~/.sero-ui/workspaces/global/`:
 | `MEMORY.md` | Long-term facts, decisions, preferences, lessons learned |
 | `IDENTITY.md` | Agent persona, behavioural rules, communication style |
 | `USER.md` | User profile (name, role, location, tech stack, preferences) |
-| `SCRATCHPAD.md` | Persistent checklist with checkbox items |
 | `memory/daily/YYYY-MM-DD.md` | Append-only daily logs with timestamps |
 
 Files are git-tracked via Sero's existing checkpoint system.
@@ -75,16 +73,6 @@ Usage: `sero memory_search --query "..." --mode keyword`
 
 Gracefully degrades if QMD is unavailable — returns install instructions.
 
-### `scratchpad` — Persistent checklist
-
-| Action | Usage |
-|--------|-------|
-| `add` | `sero scratchpad add "Fix auth bug"` |
-| `done` | `sero scratchpad done "auth bug"` (substring match) |
-| `undo` | `sero scratchpad undo "auth bug"` |
-| `clear_done` | `sero scratchpad clear_done` |
-| `list` | `sero scratchpad list` |
-
 ## Context Injection
 
 On every `before_agent_start` event, the extension injects memory context into
@@ -95,14 +83,13 @@ the system prompt using a **priority-ordered budget** (8K chars total, ~2K token
 - **Live mode:** `sero memory config --snapshot live` rebuilds all memory
   context on every turn.
 - **Frozen mode:** `sero memory config --snapshot frozen` keeps the long-term
-  blocks fixed for the current session; scratchpad + QMD retrieval stay live.
+  blocks fixed for the current session; QMD retrieval stays live.
 
 | Priority | Content | Budget | Truncation |
 |----------|---------|--------|------------|
 | 1 | IDENTITY.md + USER.md | 2.0K | From start |
-| 2 | Open scratchpad items | 1.5K | From start |
-| 3 | QMD search results (auto-retrieved) | 2.5K | From start |
-| 4 | MEMORY.md (long-term) | 2.0K | Middle (preserve head + tail) |
+| 2 | QMD search results (auto-retrieved) | 2.5K | From start |
+| 3 | MEMORY.md (long-term) | 2.0K | Middle (preserve head + tail) |
 
 Daily logs are **not** injected directly — they surface through QMD selective
 injection (priority 3) when relevant to the current prompt.
@@ -169,9 +156,8 @@ interface TurnSummary {
 
 ### Compaction handoff (`session_before_compact`)
 
-When the context window compacts, the extension captures:
-- Open scratchpad items
-- Recent daily log tail (last 15 lines)
+When the context window compacts, the extension captures recent daily log tail
+(last 15 lines).
 
 Writes a "Session Handoff" section to today's daily log so context survives
 the reset.
@@ -258,7 +244,6 @@ Configure it in `~/.sero-ui/agent/settings.json` under `sero.memory.logging`:
 The memory extension registers its tools normally via `pi.registerTool()`:
 - `memory`
 - `memory_search`
-- `scratchpad`
 
 In Sero, plugin tool bridging is manifest-driven. Because the memory plugin is a
 `sero.plugin` package and does not opt out via `bridgeTools`, these tools are

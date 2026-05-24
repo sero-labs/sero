@@ -26,7 +26,7 @@ If you need the exact platform or runtime support contract, use [Support Scope](
 - [Local LLMs with LM Studio](/guide/local-llms-lm-studio) — connect local OpenAI-compatible model servers.
 - [Agent Sessions and Context](/guide/agent-sessions-and-context) — manage composer controls, context, snapshots, steering, and queues.
 - [Subagents and Collaboration](/guide/subagents) — delegate work to specialist agents and review their results.
-- [Memory](/guide/memory) — use durable context, scratchpads, and memory tools.
+- [Memory](/guide/memory) — use durable context and memory tools.
 - [Scheduler and Reminders](/guide/scheduler-reminders) — create recurring jobs, reminders, and notifications.
 - [Running Evals](/guide/running-evals) — run snapshot or live-provider evals and inspect results.
 

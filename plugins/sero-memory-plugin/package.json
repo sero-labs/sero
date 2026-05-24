@@ -1,7 +1,7 @@
 {
   "name": "@sero-ai/plugin-memory",
   "version": "0.1.0",
-  "description": "Persistent memory system for Sero \u2014 long-term facts, identity, user profile, and daily logs",
+  "description": "Persistent memory system for Sero — long-term facts, identity, user profile, and daily logs",
   "keywords": [
     "pi-package"
   ],

@@ -102,11 +102,9 @@ describe('Tool bridge policy', () => {
     const ext = makeExtResult([
       makeTool('memory'),
       makeTool('memory_search'),
-      makeTool('scratchpad'),
     ]);
     const result = bridgeExtensionTools(ext);
     expect(result.extensions[0]!.tools.has('memory')).toBe(false);
     expect(result.extensions[0]!.tools.has('memory_search')).toBe(false);
-    expect(result.extensions[0]!.tools.has('scratchpad')).toBe(false);
   });
 });

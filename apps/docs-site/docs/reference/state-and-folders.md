@@ -166,7 +166,6 @@ Memory uses the global workspace under the active profile:
 <SERO_HOME>/workspaces/global/MEMORY.md
 <SERO_HOME>/workspaces/global/IDENTITY.md
 <SERO_HOME>/workspaces/global/USER.md
-<SERO_HOME>/workspaces/global/SCRATCHPAD.md
 <SERO_HOME>/workspaces/global/memory/daily/YYYY-MM-DD.md
 ```
 

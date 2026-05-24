@@ -1,8 +1,8 @@
 /**
  * Session lifecycle hooks — compaction handoff and exit summary.
  *
- * - session_before_compact: auto-captures open scratchpad items +
- *   recent daily log context as a handoff entry in today's daily log.
+ * - session_before_compact: auto-captures recent daily log context as a
+ *   handoff entry in today's daily log.
  *   This survives context window resets.
  *
  * - session_shutdown: generates an LLM-powered session summary
@@ -21,7 +21,6 @@ import {
   todayStr,
 } from './memory-manager';
 import { nowTimestamp } from './memory-format';
-import { getOpenScratchpadItems } from './scratchpad';
 import { runQmdUpdateNow, clearUpdateTimer } from './qmd';
 import { error, errorDetails, info } from './logger';
 import { exportTranscriptForSession } from './session-transcripts';
@@ -140,15 +139,6 @@ export function registerSessionLifecycle(pi: ExtensionAPI): void {
 
   pi.on('session_before_compact', async () => {
     const parts: string[] = [];
-
-    // Open scratchpad items
-    const openItems = await getOpenScratchpadItems();
-    if (openItems.length > 0) {
-      parts.push('**Open scratchpad items:**');
-      for (const item of openItems) {
-        parts.push(`- [ ] ${item.text}`);
-      }
-    }
 
     // Recent daily log context (tail)
     const root = resolveMemoryRoot();

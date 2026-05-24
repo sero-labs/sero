@@ -3,7 +3,7 @@
 _Last reviewed: 2026-04-13_
 
 ## What this code does
-`plugins/sero-memory-plugin/` is Sero’s foundational persistence extension for long-term memory. It owns the bridged `memory`, `memory_search`, and `scratchpad` tools; injects identity/user/memory/scratchpad context into the system prompt; exports searchable session transcripts; writes daily activity and shutdown summaries; manages QMD indexing; and schedules automatic consolidation of stale daily logs into `MEMORY.md`.
+`plugins/sero-memory-plugin/` is Sero’s foundational persistence extension for long-term memory. It owns the bridged `memory` and `memory_search` tools; injects identity/user/memory context into the system prompt; exports searchable session transcripts; writes daily activity and shutdown summaries; manages QMD indexing; and schedules automatic consolidation of stale daily logs into `MEMORY.md`.
 
 ## Shape & metrics
 - Total reviewable files: 31
@@ -25,11 +25,11 @@ _Last reviewed: 2026-04-13_
   - Cron plugin state at `SERO_HOME/apps/cron/state.json`
 - Upstream callers / consumers of note:
   - Loaded as a Pi extension via `plugins/sero-memory-plugin/package.json`
-  - AD-020 bridges `memory`, `memory_search`, and `scratchpad` through `sero-cli`
+  - AD-020 bridges `memory` and `memory_search` through `sero-cli`
   - `before_agent_start`, `context`, `session_*`, `tool_*`, and `agent_*` hooks all depend on this package’s runtime behavior
   - Search/transcript recall depends on `PI_CODING_AGENT_DIR` / profile-scoped agent storage staying truthful
 - Downstream dependencies:
-  - `MEMORY.md`, `IDENTITY.md`, `USER.md`, `SCRATCHPAD.md`
+  - `MEMORY.md`, `IDENTITY.md`, `USER.md`
   - `memory/daily/*.md` and `memory/sessions/*.md`
   - `SERO_HOME/state/memory/{automation,config,entry-stats,transparency}.json`
   - `SERO_HOME/debug/{memory-plugin.log,memory-prompt-debug.jsonl}`
@@ -50,7 +50,7 @@ _Last reviewed: 2026-04-13_
 - `priority-context.ts` is prompt-cache-sensitive: frozen/live snapshot behavior, hidden search-context messages, and entry-hit scoring all affect what the model actually sees.
 - Transcript export and backfill must preserve profile scoping and avoid regressing search recall across session switch, fork, shutdown, and first-run backfill.
 - Auto-consolidation is not plugin-local. It mutates the cron plugin’s scheduler state and therefore must not wipe unrelated reminders/jobs or drift from cron’s canonical persisted contract.
-- Migration/compaction paths are behavior-sensitive because they may rewrite `MEMORY.md`, `IDENTITY.md`, `USER.md`, and `SCRATCHPAD.md` automatically on startup.
+- Migration/compaction paths are behavior-sensitive because they may rewrite `MEMORY.md`, `IDENTITY.md`, and `USER.md` automatically on startup.
 
 ## Surprising discoveries
 - `extension/qmd.ts` still falls back to `~/.pi/agent`, even though `extension/session-transcripts.ts` resolves the session store from `SERO_HOME/agent`. Search index and transcript recall can therefore diverge if the env bridge is missing.

@@ -160,7 +160,6 @@ describe('Memory instructions — bash prevention (Issue 3)', () => {
 
     expect(instructions).toContain('sero-cli');
     expect(instructions).toContain('never read/write/grep managed files');
-    expect(instructions).toContain('SCRATCHPAD.md');
     expect(instructions).toContain('bash');
   });
 
@@ -171,7 +170,6 @@ describe('Memory instructions — bash prevention (Issue 3)', () => {
     expect(instructions).toContain('sero memory_search');
     expect(instructions).toContain('ONE precise query');
     expect(instructions).toContain('do NOT fall back to bash/read');
-    expect(instructions).toContain('sero scratchpad list');
   });
 
   it('includes storage guidelines', () => {
