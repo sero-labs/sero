@@ -28,6 +28,13 @@ files:
   - node_modules/@mariozechner/**/*
   - node_modules/@sinclair/**/*
   - node_modules/@google/**/*
+  # Pi SDK runtime syntax highlighting dependencies. Include these explicitly so
+  # pnpm's nested chalk@4 dependency does not resolve to an incompatible chalk@5
+  # or ansi-styles@6 when packaged into app.asar.
+  - node_modules/cli-highlight/**/*
+  - node_modules/chalk/**/*
+  - node_modules/ansi-styles/**/*
+  - node_modules/supports-color/**/*
   - node_modules/ws/**/*
   - node_modules/discord.js/**/*
   - node_modules/@discordjs/**/*
@@ -68,9 +75,7 @@ mac:
 linux:
   maintainer: Sero Labs <hello@sero.ai>
   target:
-    - AppImage
     - deb
-    - tar.gz
   category: Development
   artifactName: "${productName}-${version}-${arch}.${ext}"
 
@@ -105,6 +110,7 @@ nsis:
 #   APPLE_APP_SPECIFIC_PASSWORD=app-specific-password
 #   APPLE_TEAM_ID=your-team-id
 afterSign: null
+afterPack: scripts/after-pack.mjs
 
 # ── Native module rebuild ─────────────────────────────────────
 # Disabled here because pnpm workspace symlinks break electron-builder's

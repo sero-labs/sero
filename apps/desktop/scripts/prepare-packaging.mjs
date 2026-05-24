@@ -1,9 +1,11 @@
 import { spawnSync } from 'child_process';
+import { createRequire } from 'module';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const requireFromScript = createRequire(import.meta.url);
 const projectRoot = path.resolve(__dirname, '..');
 const monoRoot = path.resolve(projectRoot, '../..');
 
@@ -64,8 +66,17 @@ function snapshotExistingPackage(packageName) {
   return { packageName, type: 'directory', backupPath };
 }
 
-function writePackagingState(entries) {
-  fs.writeFileSync(statePath, JSON.stringify({ entries }, null, 2) + '\n');
+function readPackagingState() {
+  if (!fs.existsSync(statePath)) return { entries: [], generatedPaths: [] };
+  const state = JSON.parse(fs.readFileSync(statePath, 'utf8'));
+  return {
+    entries: Array.isArray(state.entries) ? state.entries : [],
+    generatedPaths: Array.isArray(state.generatedPaths) ? state.generatedPaths : [],
+  };
+}
+
+function writePackagingState(state) {
+  fs.writeFileSync(statePath, JSON.stringify(state, null, 2) + '\n');
 }
 
 function materializeWorkspaceNodeModules() {
@@ -77,14 +88,14 @@ function materializeWorkspaceNodeModules() {
   }
 
   const packages = getWorkspaceNodeModules();
-  const entries = [];
+  const state = { entries: [], generatedPaths: [] };
 
   // electron-builder cannot pack pnpm workspace symlinks that resolve outside
   // apps/desktop, so copy workspace @sero-ai packages into place temporarily.
   for (const { packageName, source } of packages) {
     const dest = packageNodeModulePath(packageName);
-    entries.push(snapshotExistingPackage(packageName));
-    writePackagingState(entries);
+    state.entries.push(snapshotExistingPackage(packageName));
+    writePackagingState(state);
     fs.rmSync(dest, { recursive: true, force: true });
     fs.mkdirSync(path.dirname(dest), { recursive: true });
     fs.cpSync(source, dest, {
@@ -94,7 +105,7 @@ function materializeWorkspaceNodeModules() {
     });
   }
 
-  writePackagingState(entries);
+  writePackagingState(state);
   console.log('  Materialized workspace @sero-ai packages for packaging');
 }
 
@@ -106,6 +117,50 @@ function runCleanup() {
   if (status !== 0) {
     throw new Error('Failed to restore previous packaging state');
   }
+}
+
+function resolvePackageJson(packageName, fromPath = projectRoot) {
+  return requireFromScript.resolve(`${packageName}/package.json`, { paths: [fromPath] });
+}
+
+function copyGeneratedDependency(packageName, targetNodeModules, fromPath = projectRoot) {
+  const sourcePackageJson = resolvePackageJson(packageName, fromPath);
+  const source = path.dirname(sourcePackageJson);
+  const dest = path.join(targetNodeModules, packageName);
+
+  fs.rmSync(dest, { recursive: true, force: true });
+  fs.mkdirSync(path.dirname(dest), { recursive: true });
+  fs.cpSync(source, dest, { recursive: true, dereference: true });
+  return dest;
+}
+
+function materializeCliHighlightChalkDeps() {
+  const cliHighlightPackageJson = resolvePackageJson('cli-highlight');
+  const chalkPackageJson = resolvePackageJson('chalk', path.dirname(cliHighlightPackageJson));
+  const chalkPackage = JSON.parse(fs.readFileSync(chalkPackageJson, 'utf8'));
+  if (!String(chalkPackage.version).startsWith('4.')) {
+    throw new Error(`cli-highlight must package chalk 4.x, found ${chalkPackage.version}`);
+  }
+
+  const targetNodeModules = path.join(path.dirname(chalkPackageJson), 'node_modules');
+  const ansiStylesRoot = path.dirname(resolvePackageJson('ansi-styles'));
+  const colorConvertRoot = path.dirname(resolvePackageJson('color-convert', ansiStylesRoot));
+  const supportsColorRoot = path.dirname(resolvePackageJson('supports-color'));
+  const state = readPackagingState();
+  const generatedPaths = [...state.generatedPaths, targetNodeModules];
+  writePackagingState({ entries: state.entries, generatedPaths });
+
+  for (const [packageName, fromPath] of [
+    ['ansi-styles', projectRoot],
+    ['supports-color', projectRoot],
+    ['color-convert', ansiStylesRoot],
+    ['color-name', colorConvertRoot],
+    ['has-flag', supportsColorRoot],
+  ]) {
+    generatedPaths.push(copyGeneratedDependency(packageName, targetNodeModules, fromPath));
+    writePackagingState({ entries: state.entries, generatedPaths });
+  }
+  console.log('  Materialized cli-highlight chalk dependencies for packaging');
 }
 
 function materializeWebDistForPackaging() {
@@ -134,4 +189,5 @@ function materializeWebDistForPackaging() {
 ensureBuildOutputExists(electronMainPath, 'Electron bundle');
 ensureBuildOutputExists(rendererIndexPath, 'Renderer bundle');
 materializeWorkspaceNodeModules();
+materializeCliHighlightChalkDeps();
 materializeWebDistForPackaging();

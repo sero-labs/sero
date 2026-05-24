@@ -78,11 +78,11 @@ electron_builder_arch_flag() {
   esac
 }
 
-artifact_glob() {
+artifact_patterns() {
   case "$1" in
-    mac) echo "release/*.{dmg,zip}" ;;
-    linux) echo "release/*.{AppImage,deb,tar.gz}" ;;
-    win) echo "release/*.{exe,zip}" ;;
+    mac) echo "release/*.dmg release/*.zip" ;;
+    linux) echo "release/*.deb" ;;
+    win) echo "release/*.exe release/*.zip" ;;
   esac
 }
 
@@ -276,17 +276,19 @@ fi
 # ── Step 6: Package with electron-builder ────────────────────
 echo "▸ Step 6/6: Packaging with electron-builder..."
 BUILDER_ARGS=(--config electron-builder.yml "$BUILDER_FLAG")
-# electron-builder's bundled fpm helper is x64-only, so native Linux arm64
-# release jobs build AppImage + tar.gz and leave .deb to Linux x64.
+# Linux arm64 releases are Debian packages built with dpkg-deb after
+# electron-builder creates the unpacked app directory. electron-builder's
+# bundled fpm helper is x64-only and cannot run on native arm64 runners.
+MANUAL_DEB=false
 if [ "$TARGET" = "linux" ]; then
   if [ "$TARGET_ARCH" = "arm64" ]; then
-    BUILDER_ARGS+=(AppImage tar.gz)
+    MANUAL_DEB=true
   else
-    BUILDER_ARGS+=(AppImage deb tar.gz)
+    BUILDER_ARGS+=(deb)
   fi
 fi
 BUILDER_ARGS+=("$BUILDER_ARCH_FLAG")
-if [ "$DIR_BUILD" = true ]; then
+if [ "$DIR_BUILD" = true ] || [ "$MANUAL_DEB" = true ]; then
   BUILDER_ARGS+=(--dir)
 fi
 printf '▸ electron-builder args:'
@@ -305,12 +307,26 @@ else
   CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder "${BUILDER_ARGS[@]}"
 fi
 
+if [ "$MANUAL_DEB" = true ] && [ "$DIR_BUILD" = false ]; then
+  echo "▸ Building Linux arm64 .deb with dpkg-deb..."
+  node scripts/build-linux-deb.mjs
+fi
+
 # ── Done ─────────────────────────────────────────────────────
 echo ""
 echo "════════════════════════════════════════════════"
 echo "  Build complete! Output in: apps/desktop/release/"
 echo ""
-ARTIFACTS="$(artifact_glob "$TARGET")"
-# shellcheck disable=SC2086
-ls -lh $ARTIFACTS 2>/dev/null || echo "  (no artifacts found — check logs above)"
+FOUND_ARTIFACT=false
+for ARTIFACT_PATTERN in $(artifact_patterns "$TARGET"); do
+  for ARTIFACT in $ARTIFACT_PATTERN; do
+    if [ -e "$ARTIFACT" ]; then
+      ls -lh "$ARTIFACT"
+      FOUND_ARTIFACT=true
+    fi
+  done
+done
+if [ "$FOUND_ARTIFACT" = false ]; then
+  echo "  (no artifacts found — check logs above)"
+fi
 echo "════════════════════════════════════════════════"

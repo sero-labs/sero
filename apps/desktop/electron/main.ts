@@ -13,12 +13,32 @@
  * Static imports here MUST stay limited to:
  *   - the doctor CLI module (self-contained; touches no profile state)
  *   - Electron itself (loaded indirectly anyway by the dynamic branches)
+ *   - Node built-ins used by this bootstrap
  *
  * Anything else belongs inside one of the two dynamic-import paths.
  */
 
+import { existsSync, statSync } from 'node:fs';
+import path from 'node:path';
 import { app, protocol } from 'electron';
 import { isDoctorInvocation, runDoctorSafeMode } from './features/doctor/cli';
+
+function hasInvalidSetuidSandboxHelper(): boolean {
+  if (process.platform !== 'linux') return false;
+
+  const sandboxPath = path.join(path.dirname(process.resourcesPath), 'chrome-sandbox');
+  if (!existsSync(sandboxPath)) return false;
+
+  const sandbox = statSync(sandboxPath);
+  return sandbox.uid !== 0 || (sandbox.mode & 0o4000) === 0;
+}
+
+if (hasInvalidSetuidSandboxHelper()) {
+  // AppImage/tar launches expose chrome-sandbox as the launching user, so
+  // Chromium aborts if it tries the setuid helper. Disable only that legacy
+  // setuid helper path; Chromium can still use the namespace sandbox.
+  app.commandLine.appendSwitch('disable-setuid-sandbox');
+}
 
 // Must happen synchronously during main-module evaluation, before Electron's
 // ready event. Keeping it in the tiny bootstrap preserves the --doctor

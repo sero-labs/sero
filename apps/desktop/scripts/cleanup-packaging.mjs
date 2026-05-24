@@ -36,10 +36,15 @@ if (!fs.existsSync(statePath)) {
 
 const state = JSON.parse(fs.readFileSync(statePath, 'utf8'));
 const entries = Array.isArray(state.entries) ? state.entries : [];
+const generatedPaths = Array.isArray(state.generatedPaths) ? state.generatedPaths : [];
+
+for (const generatedPath of generatedPaths.reverse()) {
+  fs.rmSync(generatedPath, { recursive: true, force: true });
+}
 
 for (const entry of entries.reverse()) {
   restoreEntry(entry);
 }
 
 fs.rmSync(statePath, { force: true });
-console.log('  Restored workspace @sero-ai package links after packaging');
+console.log('  Restored packaging node_modules state');

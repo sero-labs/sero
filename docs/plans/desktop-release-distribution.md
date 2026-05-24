@@ -132,12 +132,12 @@ Gaps remaining before Sero can ship real, self-updating desktop releases on all 
 
 ## Gap 5 — Linux RPM target
 
-**Current state:** Linux builds produce AppImage, .deb, and tar.gz. Fedora, RHEL, openSUSE, and other RPM-based distros are excluded from managed package install.
+**Current state:** Linux builds produce `.deb` packages for x64 and arm64. Fedora, RHEL, openSUSE, and other RPM-based distros are excluded from managed package install.
 
 **What's needed:**
 
 - `.rpm` target for Linux x64 (and optionally arm64 when `fpm` supports it).
-- `fpm` is required by electron-builder for RPM; it's already used for `.deb` on x64.
+- `fpm` is required by electron-builder for RPM; the x64 `.deb` path uses it, while arm64 `.deb` is built with `dpkg-deb` because electron-builder's bundled `fpm` binary is x64-only.
 
 **Steps:**
 
@@ -146,14 +146,12 @@ Gaps remaining before Sero can ship real, self-updating desktop releases on all 
   ```yaml
   linux:
     target:
-      - AppImage
       - deb
       - rpm
-      - tar.gz
   ```
 
-- [ ] `fpm` gem is available on `ubuntu-24.04` runners. Verify it produces a valid `.rpm` (electron-builder handles this transparently alongside `.deb`).
-- [ ] RPM is only feasible on Linux x64 (same `fpm` arm64 limitation as `.deb`). The arm64 build keeps AppImage + tar.gz.
+- [ ] `fpm` gem is available on `ubuntu-24.04` runners. Verify it produces a valid `.rpm` (electron-builder handles this transparently alongside x64 `.deb`).
+- [ ] RPM is only feasible on Linux x64 unless we add a manual `rpmbuild` path equivalent to the arm64 `dpkg-deb` path.
 - [ ] Test the `.rpm` on a Fedora container: `podman run --rm -v ./release:/r fedora:latest rpm -i /r/Sero-*.rpm`.
 
 ---

@@ -141,17 +141,29 @@ jobs:
       - name: Build packaged artifacts
         run: pnpm --filter @sero/desktop ${{ matrix.dist }}
 
+      - name: Smoke test Linux Debian artifact
+        if: ${{ matrix.os == 'linux' }}
+        run: |
+          sudo apt-get install -y ./apps/desktop/release/*.deb
+          trap 'sudo apt-get remove -y sero' EXIT
+          set +e
+          timeout 30 xvfb-run -a /opt/Sero/@serodesktop --doctor --quick --json > /tmp/sero-doctor.json
+          status=$?
+          set -e
+          node -e "JSON.parse(require('fs').readFileSync('/tmp/sero-doctor.json', 'utf8'))"
+          if [ "$status" -gt 1 ]; then
+            exit "$status"
+          fi
+
       - name: Upload packaged artifacts
         uses: actions/upload-artifact@v4
         with:
           name: desktop-release-${{ matrix.target }}
           path: |
-            apps/desktop/release/*.AppImage
             apps/desktop/release/*.blockmap
             apps/desktop/release/*.deb
             apps/desktop/release/*.dmg
             apps/desktop/release/*.exe
-            apps/desktop/release/*.tar.gz
             apps/desktop/release/*.yml
             apps/desktop/release/*.zip
           if-no-files-found: error

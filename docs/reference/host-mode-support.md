@@ -6,8 +6,8 @@ Host-mode support follows `HOST_RELEASE_TARGETS` in `apps/desktop/electron/featu
 | --- | --- | --- | --- | --- | --- |
 | macOS | arm64 | Supported; default | Required published GitHub Release artifact (`browser-darwin-arm64`) | DMG/ZIP | Release-supported target |
 | macOS | x64 | Unsupported | Not published | Not published | Unsupported |
-| Linux | x64 | Supported; default | Required published GitHub Release artifact (`browser-linux-x64`) | AppImage/deb/tar.gz | Release-supported target; blocked until artifact/workflow gate passes |
-| Linux | arm64 | Supported; default | Required published GitHub Release artifact (`browser-linux-arm64`) | AppImage/deb/tar.gz | Release-supported target; blocked until artifact/workflow gate passes |
+| Linux | x64 | Supported; default | Required published GitHub Release artifact (`browser-linux-x64`) | deb | Release-supported target; blocked until artifact/workflow gate passes |
+| Linux | arm64 | Supported; default | Required published GitHub Release artifact (`browser-linux-arm64`) | deb | Release-supported target; blocked until artifact/workflow gate passes |
 | Windows | x64 | Supported; default | Required published GitHub Release artifact (`browser-win32-x64`) | NSIS/ZIP | Release-supported target; blocked until artifact/workflow gate passes |
 | Windows | arm64 | Not defaulted | Not published | Not published | Future/unsupported |
 

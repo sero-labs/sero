@@ -45,7 +45,7 @@ Detailed platform/arch release status lives in [`../reference/host-mode-support.
 | --- | --- | --- | --- | --- | --- |
 | macOS | arm64 | Supported; default | Required published GitHub Release artifact | DMG/ZIP | Release-supported target |
 | macOS | x64 | Unsupported | Not published | Not published | Unsupported |
-| Linux | x64/arm64 | Supported; default | Required published GitHub Release artifact | AppImage/deb/tar.gz | Release-supported target |
+| Linux | x64/arm64 | Supported; default | Required published GitHub Release artifact | deb | Release-supported target |
 | Windows | x64 | Supported; default | Required published GitHub Release artifact | NSIS/ZIP | Release-supported target |
 | Windows | arm64 | Not defaulted | Not published | Not published | Future/unsupported |
 
