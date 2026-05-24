@@ -20,6 +20,10 @@ import { describe, expect, it } from 'vitest';
 const MAIN_TS = path.resolve(__dirname, '../../../main.ts');
 
 const ALLOWED_STATIC_IMPORTS = new Set<string>([
+  // Node built-ins are allowed for tiny bootstrap checks that do not touch
+  // profile state, native addons, or the heavy app graph.
+  'node:fs',
+  'node:path',
   // Electron is allowed so the sero-ext privileged scheme can be registered
   // synchronously before app readiness without importing the heavy app graph.
   'electron',

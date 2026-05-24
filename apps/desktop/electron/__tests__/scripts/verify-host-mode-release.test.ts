@@ -83,10 +83,11 @@ describe('verify-host-mode-release', () => {
     await expect(verifyFixture()).rejects.toThrow('.github/workflows/release.yml: missing Linux arm64 hosted runner: ubuntu-24.04-arm');
   });
 
-  it('fails when Linux arm64 packaging would build deb/fpm', async () => {
+  it('fails when Linux packaging would build obsolete non-deb artifacts', async () => {
     await fs.writeFile(path.join(desktopRoot, 'scripts/build-release.sh'), 'BUILDER_ARGS+=(AppImage deb tar.gz)\n');
 
-    await expect(verifyFixture()).rejects.toThrow('apps/desktop/scripts/build-release.sh: Linux arm64 packaging must avoid deb/fpm');
+    await expect(verifyFixture()).rejects.toThrow('Linux arm64 packaging must build .deb without fpm');
+    await expect(verifyFixture()).rejects.toThrow('Linux release packaging must not build tar.gz artifacts');
   });
 
   it('fails on stale docs that require local browser-pack overrides for supported platforms', async () => {
@@ -203,9 +204,9 @@ jobs:
 function buildReleaseText() {
   return `if [ "$TARGET" = "linux" ]; then
   if [ "$TARGET_ARCH" = "arm64" ]; then
-    BUILDER_ARGS+=(AppImage tar.gz)
+    MANUAL_DEB=true
   else
-    BUILDER_ARGS+=(AppImage deb tar.gz)
+    BUILDER_ARGS+=(deb)
   fi
 fi
 `;

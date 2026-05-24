@@ -123,43 +123,49 @@ function resolvePackageJson(packageName, fromPath = projectRoot) {
   return requireFromScript.resolve(`${packageName}/package.json`, { paths: [fromPath] });
 }
 
-function copyGeneratedDependency(packageName, targetNodeModules, fromPath = projectRoot) {
+function materializePackage(packageName, fromPath = projectRoot) {
   const sourcePackageJson = resolvePackageJson(packageName, fromPath);
   const source = path.dirname(sourcePackageJson);
-  const dest = path.join(targetNodeModules, packageName);
+  const dest = packageNodeModulePath(packageName);
+  const state = readPackagingState();
 
+  state.entries.push(snapshotExistingPackage(packageName));
+  writePackagingState(state);
   fs.rmSync(dest, { recursive: true, force: true });
   fs.mkdirSync(path.dirname(dest), { recursive: true });
   fs.cpSync(source, dest, { recursive: true, dereference: true });
-  return dest;
+}
+
+function verifyCliHighlightRuntimeResolution() {
+  const requireFromDesktop = createRequire(path.join(projectRoot, 'package.json'));
+  const theme = requireFromDesktop('cli-highlight/dist/theme');
+  if (typeof theme.DEFAULT_THEME?.type !== 'function') {
+    throw new Error('cli-highlight runtime theme failed to resolve chalk styles');
+  }
 }
 
 function materializeCliHighlightChalkDeps() {
-  const cliHighlightPackageJson = resolvePackageJson('cli-highlight');
-  const chalkPackageJson = resolvePackageJson('chalk', path.dirname(cliHighlightPackageJson));
+  const runtimePackages = [
+    'cli-highlight',
+    'chalk',
+    'ansi-styles',
+    'supports-color',
+    'color-convert',
+    'color-name',
+    'has-flag',
+  ];
+
+  for (const packageName of runtimePackages) {
+    materializePackage(packageName);
+  }
+
+  const chalkPackageJson = packageNodeModulePath('chalk/package.json');
   const chalkPackage = JSON.parse(fs.readFileSync(chalkPackageJson, 'utf8'));
   if (!String(chalkPackage.version).startsWith('4.')) {
     throw new Error(`cli-highlight must package chalk 4.x, found ${chalkPackage.version}`);
   }
 
-  const targetNodeModules = path.join(path.dirname(chalkPackageJson), 'node_modules');
-  const ansiStylesRoot = path.dirname(resolvePackageJson('ansi-styles'));
-  const colorConvertRoot = path.dirname(resolvePackageJson('color-convert', ansiStylesRoot));
-  const supportsColorRoot = path.dirname(resolvePackageJson('supports-color'));
-  const state = readPackagingState();
-  const generatedPaths = [...state.generatedPaths, targetNodeModules];
-  writePackagingState({ entries: state.entries, generatedPaths });
-
-  for (const [packageName, fromPath] of [
-    ['ansi-styles', projectRoot],
-    ['supports-color', projectRoot],
-    ['color-convert', ansiStylesRoot],
-    ['color-name', colorConvertRoot],
-    ['has-flag', supportsColorRoot],
-  ]) {
-    generatedPaths.push(copyGeneratedDependency(packageName, targetNodeModules, fromPath));
-    writePackagingState({ entries: state.entries, generatedPaths });
-  }
+  verifyCliHighlightRuntimeResolution();
   console.log('  Materialized cli-highlight chalk dependencies for packaging');
 }
 
