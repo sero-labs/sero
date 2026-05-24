@@ -1,6 +1,6 @@
 {
   "name": "@sero/desktop",
-  "version": "0.1.0",
+  "version": "0.1.1-beta",
   "description": "Zero context switch, zero sprawl - an agent-first workspace",
   "homepage": "https://sero.ai",
   "author": {
