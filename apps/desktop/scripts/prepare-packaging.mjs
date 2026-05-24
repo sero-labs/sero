@@ -134,6 +134,7 @@ function materializePackage(packageName, fromPath = projectRoot) {
   fs.rmSync(dest, { recursive: true, force: true });
   fs.mkdirSync(path.dirname(dest), { recursive: true });
   fs.cpSync(source, dest, { recursive: true, dereference: true });
+  return source;
 }
 
 function verifyCliHighlightRuntimeResolution() {
@@ -145,19 +146,13 @@ function verifyCliHighlightRuntimeResolution() {
 }
 
 function materializeCliHighlightChalkDeps() {
-  const runtimePackages = [
-    'cli-highlight',
-    'chalk',
-    'ansi-styles',
-    'supports-color',
-    'color-convert',
-    'color-name',
-    'has-flag',
-  ];
-
-  for (const packageName of runtimePackages) {
-    materializePackage(packageName);
-  }
+  materializePackage('cli-highlight');
+  materializePackage('chalk');
+  const ansiStylesSource = materializePackage('ansi-styles');
+  const supportsColorSource = materializePackage('supports-color');
+  const colorConvertSource = materializePackage('color-convert', ansiStylesSource);
+  materializePackage('color-name', colorConvertSource);
+  materializePackage('has-flag', supportsColorSource);
 
   const chalkPackageJson = packageNodeModulePath('chalk/package.json');
   const chalkPackage = JSON.parse(fs.readFileSync(chalkPackageJson, 'utf8'));
