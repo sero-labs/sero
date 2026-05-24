@@ -101,7 +101,7 @@ const applicationsDir = path.join(stageDir, 'usr/share/applications');
 fs.mkdirSync(applicationsDir, { recursive: true });
 fs.writeFileSync(path.join(applicationsDir, 'sero.desktop'), buildDesktopEntry());
 
-const artifact = path.join(releaseDir, `Sero-${pkg.version}-${process.arch}.deb`);
+const artifact = path.join(releaseDir, `Sero-${pkg.version}-${debArch}.deb`);
 fs.rmSync(artifact, { force: true });
 run('dpkg-deb', ['--root-owner-group', '--build', stageDir, artifact]);
 fs.rmSync(stageDir, { recursive: true, force: true });

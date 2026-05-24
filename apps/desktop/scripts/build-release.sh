@@ -276,16 +276,13 @@ fi
 # ── Step 6: Package with electron-builder ────────────────────
 echo "▸ Step 6/6: Packaging with electron-builder..."
 BUILDER_ARGS=(--config electron-builder.yml "$BUILDER_FLAG")
-# Linux arm64 releases are Debian packages built with dpkg-deb after
-# electron-builder creates the unpacked app directory. electron-builder's
-# bundled fpm helper is x64-only and cannot run on native arm64 runners.
+# Linux releases are Debian packages built with dpkg-deb after electron-builder
+# creates the unpacked app directory. This keeps maintainer scripts consistent
+# across architectures and avoids electron-builder's bundled fpm helper, which
+# is x64-only and cannot run on native arm64 runners.
 MANUAL_DEB=false
 if [ "$TARGET" = "linux" ]; then
-  if [ "$TARGET_ARCH" = "arm64" ]; then
-    MANUAL_DEB=true
-  else
-    BUILDER_ARGS+=(deb)
-  fi
+  MANUAL_DEB=true
 fi
 BUILDER_ARGS+=("$BUILDER_ARCH_FLAG")
 if [ "$DIR_BUILD" = true ] || [ "$MANUAL_DEB" = true ]; then
@@ -308,7 +305,7 @@ else
 fi
 
 if [ "$MANUAL_DEB" = true ] && [ "$DIR_BUILD" = false ]; then
-  echo "▸ Building Linux arm64 .deb with dpkg-deb..."
+  echo "▸ Building Linux .deb with dpkg-deb..."
   node scripts/build-linux-deb.mjs
 fi
 

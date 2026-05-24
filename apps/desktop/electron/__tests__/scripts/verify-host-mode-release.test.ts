@@ -86,7 +86,7 @@ describe('verify-host-mode-release', () => {
   it('fails when Linux packaging would build obsolete non-deb artifacts', async () => {
     await fs.writeFile(path.join(desktopRoot, 'scripts/build-release.sh'), 'BUILDER_ARGS+=(AppImage deb tar.gz)\n');
 
-    await expect(verifyFixture()).rejects.toThrow('Linux arm64 packaging must build .deb without fpm');
+    await expect(verifyFixture()).rejects.toThrow('Linux packaging must build .deb without fpm');
     await expect(verifyFixture()).rejects.toThrow('Linux release packaging must not build tar.gz artifacts');
   });
 
@@ -203,11 +203,7 @@ jobs:
 
 function buildReleaseText() {
   return `if [ "$TARGET" = "linux" ]; then
-  if [ "$TARGET_ARCH" = "arm64" ]; then
-    MANUAL_DEB=true
-  else
-    BUILDER_ARGS+=(deb)
-  fi
+  MANUAL_DEB=true
 fi
 `;
 }

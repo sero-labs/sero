@@ -178,10 +178,10 @@ function checkBuildReleaseScript(buildReleasePath, buildReleaseText, failures) {
     return;
   }
   if (!buildReleaseText.includes('MANUAL_DEB=true')) {
-    failures.push(`${relativePath(buildReleasePath)}: Linux arm64 packaging must build .deb without fpm`);
+    failures.push(`${relativePath(buildReleasePath)}: Linux packaging must build .deb without fpm`);
   }
-  if (!buildReleaseText.includes('BUILDER_ARGS+=(deb)')) {
-    failures.push(`${relativePath(buildReleasePath)}: Linux x64 packaging must build .deb`);
+  if (buildReleaseText.includes('BUILDER_ARGS+=(deb)')) {
+    failures.push(`${relativePath(buildReleasePath)}: Linux packaging must use the dpkg-deb path for consistent maintainer scripts`);
   }
   if (buildReleaseText.includes('tar.gz')) {
     failures.push(`${relativePath(buildReleasePath)}: Linux release packaging must not build tar.gz artifacts`);
