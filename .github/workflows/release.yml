@@ -18,6 +18,20 @@ on:
         description: Existing workflow run ID containing desktop-release-* artifacts; skips rebuild
         type: string
         required: false
+      release_target:
+        description: Build one release target for testing, or all targets for a full release
+        type: choice
+        default: all
+        options:
+          - all
+          - macos-arm64
+          - linux-x64
+          - linux-arm64
+          - windows-x64
+      publish:
+        description: Create/update the GitHub Release after artifacts are available
+        type: boolean
+        default: true
 
 permissions:
   contents: write
@@ -43,14 +57,23 @@ jobs:
       matrix: ${{ steps.matrix.outputs.matrix }}
     steps:
       - id: matrix
+        env:
+          RELEASE_TARGET: ${{ github.event_name == 'workflow_dispatch' && inputs.release_target || 'all' }}
         run: |
           node <<'NODE' >> "$GITHUB_OUTPUT"
-          const include = [
+          const targets = [
             { target: 'macos-arm64', os: 'macos', arch: 'arm64', runner: 'macos-15', dist: 'dist:mac' },
             { target: 'linux-x64', os: 'linux', arch: 'x64', runner: 'ubuntu-24.04', dist: 'dist:linux:x64' },
             { target: 'linux-arm64', os: 'linux', arch: 'arm64', runner: 'ubuntu-24.04-arm', dist: 'dist:linux:arm64' },
             { target: 'windows-x64', os: 'windows', arch: 'x64', runner: 'windows-latest', dist: 'dist:win' },
           ];
+          const requested = process.env.RELEASE_TARGET || 'all';
+          const include = requested === 'all'
+            ? targets
+            : targets.filter((target) => target.target === requested);
+          if (include.length === 0) {
+            throw new Error(`Unknown release target: ${requested}`);
+          }
           console.log(`matrix=${JSON.stringify({ include })}`);
           NODE
 
@@ -147,7 +170,7 @@ jobs:
 
   publish:
     name: Publish GitHub Release
-    if: ${{ always() && (github.event_name != 'workflow_dispatch' || inputs.publish_run_id != '' || needs.build.result == 'success') }}
+    if: ${{ always() && (github.event_name != 'workflow_dispatch' || inputs.publish) && (github.event_name != 'workflow_dispatch' || inputs.publish_run_id != '' || needs.build.result == 'success') }}
     needs: build
     runs-on: ubuntu-24.04
     env:
