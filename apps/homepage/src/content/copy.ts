@@ -24,7 +24,7 @@ export const site = {
 	github: "https://github.com/sero-labs/sero",
 	tagline: "An agent you can make your own.",
 	description:
-		"A local-first desktop workspace for macOS, Linux, and Windows source builds — bringing coding agents, tools, memory, apps, and local runtimes together as your work changes.",
+		"A local-first desktop workspace for macOS, Linux, and Windows — bringing coding agents, tools, memory, apps together as your work changes.",
 };
 
 export const links = {
@@ -63,7 +63,7 @@ export const hero = {
 	headline: "Build the agent only you need.",
 	sub: site.description,
 	support:
-		"Start with Pi's proven agent loop, then add Sero's desktop shell for coding, research, plugins, memory, local runtimes, and day-to-day tasks.",
+		"Start with Pi's proven agent loop, then add Sero's desktop shell for coding, research, plugins, memory, secure environments, and day-to-day tasks.",
 	primary: { label: "Read setup requirements", href: links.install },
 	secondary: { label: "See how Sero grows", href: "#loop" },
 };
@@ -190,8 +190,8 @@ export type Feature = {
 export const features: Feature[] = [
 	{
 		id: "containers",
-		title: "Local runtimes without losing the workspace.",
-		body: "Use Apple Container or Docker/Podman for isolated container-backed projects, or explicit Host mode for direct local workflows where supported. Container-backed runtimes keep dev-server ports isolated across projects.",
+		title: "Local development workspaces.",
+		body: "Use Apple Container or Docker/Podman for isolated container-backed projects, or explicit Host mode for direct local workflows where supported. Container-backed runtimes keep dev-server ports isolated across projects - no more juggling ports!",
 		image: images.explorerDevServers,
 		imageAlt: "Dev Servers panel showing multiple projects running on isolated container-backed runtime addresses",
 	},

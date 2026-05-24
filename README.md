@@ -27,7 +27,7 @@
 
 ## What is Sero?
 
-Sero is the dedicated **local Workshop OS** built directly on the
+Sero is a **personal agent OS** built directly on the
 [Pi](https://github.com/badlogic/pi) coding agent.
 
 Pi gives you the minimal, stable agent loop. Sero adds the always-on desktop
@@ -35,7 +35,7 @@ shell: visual browser, runtime isolation, persistent project memory,
 self-building plugins, and one unified workspace.
 
 Put simply: Sero is where agent-assisted software work happens when the agent
-needs more than a chat box.
+needs more than a terminal.
 
 ## Features
 
