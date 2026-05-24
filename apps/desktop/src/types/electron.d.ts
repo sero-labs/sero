@@ -80,19 +80,6 @@ import type {
 } from './ipc';
 import type { SeroDoctorAPI } from './electron-doctor';
 
-interface SeroMemoryAPI {
-  scratchpad: {
-    /** Read open scratchpad items + file path. */
-    list(): Promise<{
-      path: string;
-      openCount: number;
-      openItems: Array<{ text: string }>;
-    }>;
-    /** Subscribe to filesystem changes on SCRATCHPAD.md. Returns unsubscribe. */
-    onChanged(callback: () => void): () => void;
-  };
-}
-
 interface SeroSessionsAPI {
   /** List sessions. Optionally filter by workspace ID. */
   list(workspaceId?: string): Promise<SeroSessionInfo[]>;
@@ -458,7 +445,6 @@ export interface SeroAPI {
   localModels: SeroLocalModelsAPI;
   pluginConfig: SeroPluginConfigAPI;
   doctor: SeroDoctorAPI;
-  memory: SeroMemoryAPI;
 }
 
 declare global {

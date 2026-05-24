@@ -112,7 +112,6 @@ describe('context injector auto-retrieve gating', () => {
       options?: { includeSearch?: boolean },
     ) => ({
       staticContext: '\n\n## Memory\n\nSTATIC',
-      scratchpadContext: '',
       searchContext: options?.includeSearch === false ? '' : 'SEARCH RESULT',
     }));
   });
@@ -171,37 +170,5 @@ describe('context injector auto-retrieve gating', () => {
       { customType: 'memory-search-context', content: 'SEARCH RESULT', display: false },
       { triggerTurn: false },
     );
-  });
-
-  it('emits scratchpad as a per-turn message and keeps it OUT of the system prompt', async () => {
-    mocks.getAutoRetrieveModeSync.mockReturnValue('off');
-    mocks.buildPriorityContextSplit.mockResolvedValue({
-      staticContext: '\n\n## Memory\n\nSTATIC',
-      scratchpadContext: '\n\n## Memory (live)\n\n### SCRATCHPAD.md ...\n\n- [ ] Item A',
-      searchContext: '',
-    });
-
-    const pi = createFakePi();
-    registerContextInjection(pi as any);
-
-    const beforeAgentStart = getHandler(pi, 'before_agent_start');
-    const result = await beforeAgentStart(
-      { prompt: 'work on it', systemPrompt: 'BASE' },
-      {
-        sessionManager: { getSessionId: () => 'session-scratch' },
-        getSystemPrompt: () => 'BASE',
-      },
-    );
-
-    // Scratchpad goes to the message stream, not the system prompt.
-    expect(pi.sendMessage).toHaveBeenCalledWith(
-      expect.objectContaining({ customType: 'memory-scratchpad-context' }),
-      { triggerTurn: false },
-    );
-    expect(result).toEqual({
-      systemPrompt: 'BASE\n\n## Memory\n\nSTATIC\n\n## Memory System',
-    });
-    expect((result as { systemPrompt: string }).systemPrompt).not.toContain('SCRATCHPAD');
-    expect((result as { systemPrompt: string }).systemPrompt).not.toContain('Item A');
   });
 });

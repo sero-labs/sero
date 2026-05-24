@@ -8,12 +8,11 @@
  *     - Memory instructions — retrieval/storage commands (deterministic)
  *
  *   Per-turn message stream (changes between turns):
- *     - SCRATCHPAD.md — active work items (always fresh, even in frozen mode)
  *     - QMD search results — memories relevant to the current user prompt
  *       (only when auto-retrieve is on)
  *
- * The `context` event strips prior-turn scratchpad and search messages so
- * only the latest copy of each reaches the LLM. The system-prompt addition
+ * The `context` event strips prior-turn search messages so only the latest
+ * copy reaches the LLM. The system-prompt addition
  * is byte-identical across turns in frozen mode so cache hits are preserved.
  */
 
@@ -48,9 +47,6 @@ import {
 
 /** Custom message type for auto-retrieved search results. */
 const SEARCH_CONTEXT_TYPE = 'memory-search-context';
-/** Custom message type for scratchpad updates (kept out of the system prompt). */
-const SCRATCHPAD_CONTEXT_TYPE = 'memory-scratchpad-context';
-const PER_TURN_CONTEXT_TYPES = new Set([SEARCH_CONTEXT_TYPE, SCRATCHPAD_CONTEXT_TYPE]);
 
 let cachedStatus: BootstrapStatus | null = null;
 
@@ -128,8 +124,6 @@ After receiving answers, write MEMORY.md:
  *   - `systemPromptAddition`: session-stable memory + instructions for the
  *     system prompt. Byte-identical across turns in frozen mode so provider
  *     prompt caching keeps hitting.
- *   - `scratchpadContext`: per-turn message body for SCRATCHPAD.md. Always
- *     fresh — kept out of the system prompt because it changes between turns.
  *   - `searchContext`: dynamic QMD search results for message injection
  *   - `contextBlock`: full combined context (for debug logging only)
  */
@@ -139,14 +133,13 @@ async function buildTurnContext(
   autoRetrieveMode: AutoRetrieveMode,
 ): Promise<{
   systemPromptAddition: string;
-  scratchpadContext: string;
   searchContext: string;
   contextBlock: string;
   memoryInstructions: string;
 }> {
   const root = resolveMemoryRoot();
   const snapshotMode = getMemorySnapshotModeSync();
-  const { staticContext, scratchpadContext, searchContext } = await buildPriorityContextSplit(
+  const { staticContext, searchContext } = await buildPriorityContextSplit(
     root,
     prompt,
     sessionId,
@@ -158,11 +151,10 @@ async function buildTurnContext(
   // Full combined context for debug logging only — not the wire format.
   const parts: string[] = [];
   if (staticContext) parts.push(staticContext);
-  if (scratchpadContext) parts.push(scratchpadContext);
   if (searchContext) parts.push(searchContext);
   const contextBlock = parts.join('\n\n---\n\n');
 
-  return { systemPromptAddition, scratchpadContext, searchContext, contextBlock, memoryInstructions };
+  return { systemPromptAddition, searchContext, contextBlock, memoryInstructions };
 }
 
 export function registerContextInjection(pi: ExtensionAPI): void {
@@ -174,15 +166,12 @@ export function registerContextInjection(pi: ExtensionAPI): void {
     resetBootstrapCache();
   });
 
-  // Strip prior-turn per-turn context messages (search results, scratchpad)
-  // so only the latest copy of each reaches the LLM. This keeps the message
-  // stream from accumulating stale memory snapshots across turns.
+  // Strip prior-turn search context messages so only the latest reaches the LLM.
   pi.on('context', async (event) => {
     return {
       messages: event.messages.filter((message) => {
         const custom = message as unknown as Record<string, unknown>;
-        const type = custom.customType;
-        return typeof type !== 'string' || !PER_TURN_CONTEXT_TYPES.has(type);
+        return custom.customType !== SEARCH_CONTEXT_TYPE;
       }),
     };
   });
@@ -208,7 +197,6 @@ export function registerContextInjection(pi: ExtensionAPI): void {
       let addition = '';
       let contextBlock = '';
       let memoryInstructions = '';
-      let scratchpadContext = '';
       let searchContext = '';
       let needsBootstrap = status.needsBootstrap;
 
@@ -239,7 +227,6 @@ export function registerContextInjection(pi: ExtensionAPI): void {
           addition = turn.systemPromptAddition;
           contextBlock = turn.contextBlock;
           memoryInstructions = turn.memoryInstructions;
-          scratchpadContext = turn.scratchpadContext;
           searchContext = turn.searchContext;
         }
       }
@@ -249,7 +236,6 @@ export function registerContextInjection(pi: ExtensionAPI): void {
         addition = turn.systemPromptAddition;
         contextBlock = turn.contextBlock;
         memoryInstructions = turn.memoryInstructions;
-        scratchpadContext = turn.scratchpadContext;
         searchContext = turn.searchContext;
       }
 
@@ -272,25 +258,9 @@ export function registerContextInjection(pi: ExtensionAPI): void {
         autoRetrieve: autoRetrieveMode,
         promptChars: event.prompt?.length ?? 0,
         contextChars: contextBlock.length,
-        scratchpadChars: scratchpadContext.length,
         searchChars: searchContext.length,
         additionChars: addition.length,
       });
-
-      // Inject SCRATCHPAD.md as a per-turn message. Scratchpad changes each
-      // time the agent edits items, so keeping it out of the system prompt
-      // protects provider prompt caching. The `context` event filter strips
-      // prior-turn scratchpad messages so only the latest reaches the LLM.
-      if (scratchpadContext.trim()) {
-        try {
-          pi.sendMessage(
-            { customType: SCRATCHPAD_CONTEXT_TYPE, content: scratchpadContext.trim(), display: false },
-            { triggerTurn: false },
-          );
-        } catch {
-          // Non-fatal — scratchpad is supplementary context, not critical.
-        }
-      }
 
       // Inject QMD search results as a per-turn message when auto-retrieve is on.
       // The `context` event filter strips these from prior turns so only the

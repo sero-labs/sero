@@ -86,7 +86,7 @@ export function registerSearchTool(pi: ExtensionAPI): void {
       '',
       'Scopes:',
       "- 'all' (default): search memory files and session transcript exports.",
-      "- 'memory': search MEMORY.md, USER.md, IDENTITY.md, SCRATCHPAD.md, and daily logs only.",
+      "- 'memory': search MEMORY.md, USER.md, IDENTITY.md, and daily logs only.",
       "- 'sessions': search exported past conversations only.",
       '',
       'For user questions like "what do you remember", "what did you tell me", "what jokes/examples/advice did you give", or anything about another session, call this tool before answering. Prefer scope: sessions for conversation recall.',

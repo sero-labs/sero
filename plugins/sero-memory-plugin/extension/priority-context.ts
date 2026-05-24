@@ -2,12 +2,10 @@ import {
   readFile,
   getIdentityPath,
   getMemoryPath,
-  getScratchpadPath,
   getTargetUsage,
   getUserPath,
   statFile,
 } from './memory-manager';
-import { formatScratchpadForInjection, getOpenScratchpadItems } from './scratchpad';
 import { isQmdAvailable, searchRelevantMemories } from './qmd';
 import { formatRankedResults } from './retrieval';
 import {
@@ -33,7 +31,6 @@ import type { MemorySnapshotMode } from './memory-config';
 
 const BUDGET_IDENTITY = 1_000;
 const BUDGET_USER = 1_000;
-const BUDGET_SCRATCHPAD = 1_500;
 const BUDGET_SEARCH = 2_500;
 const BUDGET_MEMORY = 1_600;
 const BUDGET_TOTAL = 7_600;
@@ -98,7 +95,7 @@ function truncateMiddle(text: string, maxChars: number): { text: string; notice:
 async function buildManagedBlock(options: {
   label: string;
   path: string;
-  target: 'memory' | 'identity' | 'user' | 'scratchpad';
+  target: 'memory' | 'identity' | 'user';
   visibleContent: string;
   usageContent?: string;
   budget: number;
@@ -145,26 +142,6 @@ async function buildUserSection(root: string): Promise<string> {
     visibleContent: stripManagedFileMetadata(userContent),
     budget: BUDGET_USER,
     truncateMode: 'start',
-  });
-}
-
-async function buildScratchpadSection(root: string): Promise<string> {
-  const openScratchpadItems = await getOpenScratchpadItems();
-  if (openScratchpadItems.length === 0) return '';
-
-  const scratchpadPath = getScratchpadPath(root);
-  const scratchpadContent = await readFile(scratchpadPath);
-  if (!scratchpadContent?.trim()) return '';
-
-  return buildManagedBlock({
-    label: 'SCRATCHPAD.md',
-    path: scratchpadPath,
-    target: 'scratchpad',
-    visibleContent: formatScratchpadForInjection(openScratchpadItems),
-    usageContent: scratchpadContent,
-    budget: BUDGET_SCRATCHPAD,
-    truncateMode: 'start',
-    entryCount: openScratchpadItems.length,
   });
 }
 
@@ -263,16 +240,11 @@ export function clearPriorityContextCache(sessionId: string): void {
  *
  * - `staticContext` → system prompt. Identity, user, and long-term memory
  *   only. In `frozen` snapshot mode these are captured once per session.
- * - `scratchpadContext` → per-turn message. Changes every time the agent
- *   adds/completes/clears scratchpad items, so we keep it out of the system
- *   prompt to avoid cache invalidation.
  * - `searchContext` → per-turn message. QMD hits for the current prompt.
  */
 export interface PriorityContextResult {
   /** Static memory sections (IDENTITY, USER, MEMORY.md) for the system prompt. */
   staticContext: string;
-  /** Scratchpad section (open items). Per-turn message — NOT system prompt. */
-  scratchpadContext: string;
   /** Dynamic QMD search results for the current prompt. Empty if no results or QMD unavailable. */
   searchContext: string;
 }
@@ -313,13 +285,6 @@ export async function buildPriorityContextSplit(
   addSection(frozenSnapshot?.userSection ?? await buildUserSection(root));
   addSection(frozenSnapshot?.memorySection ?? await buildMemorySection(root));
 
-  // Scratchpad is built fresh each turn and returned separately so the
-  // system prompt stays cache-friendly. It rides the per-turn message stream.
-  const scratchpadSection = await buildScratchpadSection(root);
-  const scratchpadContext = scratchpadSection
-    ? `\n\n## Memory (live)\n\n${scratchpadSection}`
-    : '';
-
   const searchSection = options.includeSearch === false
     ? ''
     : await buildSearchSection(prompt, sessionId);
@@ -328,12 +293,12 @@ export async function buildPriorityContextSplit(
     ? `\n\n## Memory\n\n${staticSections.join('\n\n---\n\n')}`
     : '';
 
-  return { staticContext, scratchpadContext, searchContext: searchSection };
+  return { staticContext, searchContext: searchSection };
 }
 
 /**
  * Build the full priority context as a single string.
- * Combines static memory + scratchpad + search results.
+ * Combines static memory + search results.
  * Used by tests and as a debugging view; the runtime injection path uses
  * `buildPriorityContextSplit` directly so each stream goes to the right place.
  */
@@ -343,7 +308,7 @@ export async function buildPriorityContext(
   sessionId?: string,
   snapshotMode: MemorySnapshotMode = 'frozen',
 ): Promise<string> {
-  const { staticContext, scratchpadContext, searchContext } = await buildPriorityContextSplit(
+  const { staticContext, searchContext } = await buildPriorityContextSplit(
     root,
     prompt,
     sessionId,
@@ -351,9 +316,8 @@ export async function buildPriorityContext(
   );
   const parts: string[] = [];
   if (staticContext) parts.push(staticContext);
-  if (scratchpadContext) parts.push(scratchpadContext);
   if (searchContext) {
-    parts.push(staticContext || scratchpadContext ? `---\n\n${searchContext}` : `\n\n## Memory\n\n${searchContext}`);
+    parts.push(staticContext ? `---\n\n${searchContext}` : `\n\n## Memory\n\n${searchContext}`);
   }
   return parts.join('\n\n');
 }

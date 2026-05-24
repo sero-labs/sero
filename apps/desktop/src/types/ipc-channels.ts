@@ -459,10 +459,4 @@ export const IpcChannels = {
     /** Reserved for v2 — invoke a registered repair. Returns 501 in v1. */
     repair: 'sero:doctor:repair',
   },
-  memory: {
-    /** Read open scratchpad items (returns `{ items, path }`). */
-    scratchpadList: 'sero:memory:scratchpad-list',
-    /** Main → renderer push: scratchpad changed (filesystem watch). */
-    scratchpadChanged: 'sero:memory:scratchpad-changed',
-  },
 } as const;

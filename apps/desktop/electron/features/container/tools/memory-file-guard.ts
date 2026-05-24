@@ -6,7 +6,6 @@ const PROTECTED_ROOT_FILES = new Set([
   'MEMORY.md',
   'IDENTITY.md',
   'USER.md',
-  'SCRATCHPAD.md',
 ]);
 
 const PROTECTED_SUBDIRS = new Set([
@@ -18,7 +17,6 @@ const MANAGED_MEMORY_LABEL = [
   'MEMORY.md',
   'IDENTITY.md',
   'USER.md',
-  'SCRATCHPAD.md',
   'memory/daily/',
   'memory/sessions/',
 ].join(', ');
@@ -125,7 +123,6 @@ function getSpecificCommandAliases(rootAlias: string): string[] {
     `${rootAlias}/MEMORY.md`,
     `${rootAlias}/IDENTITY.md`,
     `${rootAlias}/USER.md`,
-    `${rootAlias}/SCRATCHPAD.md`,
     `${rootAlias}/memory/daily`,
     `${rootAlias}/memory/sessions`,
   ];
@@ -325,7 +322,7 @@ export function getProtectedMemoryAccessError(source: 'bash' | 'read' | 'write' 
 
   return [
     `${action} access to managed Sero memory files is blocked.`,
-    `Use the \`sero-cli\` tool with \`sero memory\`, \`sero memory_search\`, or \`sero scratchpad\` instead of ${source}.`,
+    `Use the \`sero-cli\` tool with \`sero memory\` or \`sero memory_search\` instead of ${source}.`,
     `Protected locations: ${MANAGED_MEMORY_LABEL}.`,
     'If memory search is unavailable, report that limitation instead of bypassing the memory system with filesystem tools.',
   ].join(' ');

@@ -226,7 +226,6 @@ export async function ensureDefaultThemes(): Promise<void> {
  * - MEMORY.md absence triggers the bootstrap questionnaire flow
  * - IDENTITY.md and USER.md are written from the bootstrap answers so the
  *   user can define the agent's personality/identity and their own profile
- * - SCRATCHPAD.md is created lazily by the scratchpad tool when first used
  *
  * Only non-managed workspace guidance files (for example AGENTS.md) should
  * be copied from the built-in profile template set.
@@ -235,7 +234,6 @@ const SKIP_PROFILE_FILES = new Set([
   'MEMORY.md',
   'IDENTITY.md',
   'USER.md',
-  'SCRATCHPAD.md',
 ]);
 
 /**

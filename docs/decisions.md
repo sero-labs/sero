@@ -81,8 +81,7 @@ directory, `.sero-workspace.json` config, and PI SDK skill/extension discovery.
   `cwd`). Dev projects stay in `~/Dev/...`, not inside `~/.sero-ui/`.
 - **Workspace = PI SDK cwd** — each workspace maps to
   `createAgentSession({ cwd: workspace.path })` with `createCodingTools(cwd)`.
-- **Two default workspaces** — `scratchpad` (ad-hoc) and `global` (cross-cutting
-  personal data), created on first run under `~/.sero-ui/workspaces/`. - Scratchpad is now deprecated.
+- **Default workspace** — `global` (cross-cutting personal data), created on first run under `~/.sero-ui/workspaces/`.
 - **Composite environment** — multiple workspaces open simultaneously, summaries
   injected into system prompt for cross-workspace awareness.
 - **Open/closed is visual only** — the registry `open` flag controls sidebar

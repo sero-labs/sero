@@ -17,7 +17,7 @@ export function getMemoryInstructions(): string {
   return [
     '\n\n## Memory System',
     '',
-    `All memory files live in \`${root}\`. **Always use \`sero memory\`, \`sero memory_search\`, or \`sero scratchpad\` via \`sero-cli\`** — never read/write/grep managed files (\`MEMORY.md\`, \`IDENTITY.md\`, \`USER.md\`, \`SCRATCHPAD.md\`, \`memory/daily/\`, \`memory/sessions/\`) directly with bash, read, write, or edit tools. Direct access bypasses IDs, timestamps, capacity limits, duplicate detection, and search indexing.`,
+    `All memory files live in \`${root}\`. **Always use \`sero memory\` or \`sero memory_search\` via \`sero-cli\`** — never read/write/grep managed files (\`MEMORY.md\`, \`IDENTITY.md\`, \`USER.md\`, \`memory/daily/\`, \`memory/sessions/\`) directly with bash, read, write, or edit tools. Direct access bypasses IDs, timestamps, capacity limits, duplicate detection, and search indexing.`,
     '',
     ...getMemoryRetrievalInstructions(hasSearch),
     '',
@@ -52,7 +52,6 @@ function getMemoryRetrievalInstructions(hasSearch: boolean): string[] {
     'If `memory_search` returns no useful results after reasonable query/mode retries, say you searched memory and found nothing relevant. Do not pretend recall, and do not claim memory is unavailable without first using the tool.',
     'To view full file contents: `sero memory read --target memory|identity|user|daily` (add `--with_ids true` before replace/remove).',
     'For quick text grep (no transcripts): `sero memory search --query "..."`.',
-    'For scratchpad: `sero scratchpad list`.',
   );
 
   return lines;
@@ -68,14 +67,12 @@ function getMemoryStorageInstructions(): string[] {
     '- `sero memory remove --target memory --entry_id "mem-..."`',
     '- `sero memory consolidate [--schedule daily|weekly|off]`',
     '- `sero memory config [--snapshot frozen|live] [--auto_retrieve on|off]`',
-    '- `sero scratchpad add|done|undo|clear_done|list "..."`',
     '',
     '**Where to put what** — pick the target that matches the lifespan:',
-    '- `scratchpad` — open work items for the *current* session: TODOs, follow-ups you intend to do before this session ends, "remember to come back to X". Mark `done` as you finish; done items are auto-evicted at session shutdown so the list stays focused. Use whenever you defer or interrupt work mid-session.',
     '- `daily` — completed work / progress notes / blockers from *this* session that future-you will want to skim tomorrow. Written-once, append-only.',
     '- `memory` — durable cross-session knowledge: decisions that outlive the session, user preferences, project facts, lessons. Use type tags: [fact], [decision], [preference], [lesson], etc.',
     '',
-    'Default routing: a TODO you plan to finish before logout → `scratchpad`. A summary of what you finished → `daily`. A choice you made that the next session should respect → `memory`.',
+    'Default routing: a summary of what you finished → `daily`. A choice you made that the next session should respect → `memory`.',
     'Read with IDs before updating `memory` to avoid duplicates. Near capacity? Replace or remove stale entries instead of appending.',
   ];
 }

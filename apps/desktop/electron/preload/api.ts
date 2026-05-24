@@ -43,7 +43,6 @@ import {
 } from './api/core';
 import { editorBridge, filetreeBridge, terminalBridge, vcsBridge } from './api/workbench';
 import { doctorBridge } from './diagnostics';
-import { memoryBridge } from './memory';
 
 export const seroPreloadApi = {
   platform: process.platform,
@@ -92,5 +91,4 @@ export const seroPreloadApi = {
   debug: debugBridge,
   lsp: lspBridge,
   doctor: doctorBridge,
-  memory: memoryBridge,
 };

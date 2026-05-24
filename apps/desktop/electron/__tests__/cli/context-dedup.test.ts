@@ -89,15 +89,12 @@ describe('System prompt deduplication — memory instructions', () => {
     // memory-instructions.ts lists them
     expect(memoryInstructions).toContain('MEMORY.md');
     expect(memoryInstructions).toContain('IDENTITY.md');
-    expect(memoryInstructions).toContain('SCRATCHPAD.md');
     expect(memoryInstructions).toContain('memory/daily/');
 
     // CLI block should not list them
     expect(cliBlock).not.toContain('MEMORY.md');
     expect(cliBlock).not.toContain('IDENTITY.md');
 
-    // Container block should not fully list them
-    expect(containerBlock).not.toContain('SCRATCHPAD.md');
   });
 });
 

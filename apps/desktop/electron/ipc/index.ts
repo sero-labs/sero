@@ -48,7 +48,6 @@ import { registerPluginHandlers } from './integrations/plugins';
 import { registerPluginConfigHandlers } from './apps/plugin-config';
 import { registerThemeHandlers } from './platform/ui';
 import { registerDoctorHandlers } from './doctor/doctor';
-import { registerMemoryScratchpadHandlers } from './memory/scratchpad';
 
 export function registerAllIpcHandlers(): void {
   registerProfileHandlers();
@@ -93,5 +92,4 @@ export function registerAllIpcHandlers(): void {
   registerPluginConfigHandlers();
   registerThemeHandlers();
   registerDoctorHandlers();
-  registerMemoryScratchpadHandlers();
 }

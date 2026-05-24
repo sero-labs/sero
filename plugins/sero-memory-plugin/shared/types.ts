@@ -45,14 +45,6 @@ export function getResultText(r: QmdSearchResult): string {
   return r.content ?? r.chunk ?? r.snippet ?? '';
 }
 
-// ── Scratchpad ─────────────────────────────────────────────────
-
-export interface ScratchpadItem {
-  done: boolean;
-  text: string;
-  meta: string; // <!-- timestamp --> comment line
-}
-
 // ── Questionnaire types (matches Pi SDK `questionnaire` tool) ──
 
 export interface QuestionOption {

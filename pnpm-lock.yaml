@@ -870,27 +870,9 @@ importers:
       '@sero-ai/common':
         specifier: workspace:*
         version: link:../../packages/common
-      '@sero-ai/ui':
-        specifier: workspace:*
-        version: link:../../packages/ui
       '@types/node':
         specifier: 'catalog:'
         version: 22.19.15
-      '@types/react':
-        specifier: 'catalog:'
-        version: 19.2.14
-      '@types/react-dom':
-        specifier: 'catalog:'
-        version: 19.2.3(@types/react@19.2.14)
-      lucide-react:
-        specifier: 'catalog:'
-        version: 0.563.0(react@19.2.5)
-      react:
-        specifier: 'catalog:'
-        version: 19.2.5
-      react-dom:
-        specifier: 'catalog:'
-        version: 19.2.5(react@19.2.5)
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
