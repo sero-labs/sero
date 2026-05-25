@@ -145,7 +145,12 @@ jobs:
         if: ${{ matrix.os == 'macos' }}
         run: |
           set -euo pipefail
-          app_path="apps/desktop/release/mac-arm64/Sero.app"
+          # electron-builder emits to mac/ (x64), mac-arm64/, or mac-universal/ depending on arch.
+          app_path="$(find apps/desktop/release -maxdepth 2 -type d -name 'Sero.app' -print -quit)"
+          if [[ -z "$app_path" ]]; then
+            echo "::error::No Sero.app found under apps/desktop/release"
+            exit 1
+          fi
           codesign --verify --deep --strict --verbose=4 "$app_path"
 
       - name: Smoke test Linux Debian artifact
