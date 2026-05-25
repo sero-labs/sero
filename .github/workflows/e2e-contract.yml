@@ -1,12 +1,9 @@
 name: E2E Contract
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-    types: [opened, reopened, synchronize, ready_for_review]
   workflow_dispatch:
+  schedule:
+    - cron: '27 8 * * *'
 
 permissions:
   contents: read
@@ -22,7 +19,6 @@ env:
 jobs:
   contract:
     name: Contract (${{ matrix.os }})
-    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     strategy:
