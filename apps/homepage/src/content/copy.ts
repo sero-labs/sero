@@ -32,6 +32,7 @@ export const links = {
 	docs: site.docs,
 	pluginDocs: `${site.docs}/guide/plugins-and-apps`,
 	github: site.github,
+	releases: `${site.github}/releases`,
 	license: `${site.github}/blob/main/LICENSE`,
 };
 
@@ -59,7 +60,7 @@ export const navLinks = [
 ];
 
 export const hero = {
-	eyebrow: "Sero · source alpha · local-first",
+	eyebrow: "Sero · source beta · local-first",
 	headline: "Build the agent only you need.",
 	sub: site.description,
 	support:
@@ -229,7 +230,7 @@ export const cta = {
 };
 
 export const footer = {
-	tagline: "source alpha · macOS · Linux · Windows · local-first",
+	tagline: "source beta · macOS · Linux · Windows · local-first",
 	bottomLeft: "",
 	bottomRight: "© sero",
 	links: [
