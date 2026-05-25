@@ -1,4 +1,5 @@
 import { test, expect, type ElectronApplication, type Page } from '@playwright/test';
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { closeSeroApp, launchSeroApp } from './helpers/electron-app';
@@ -11,6 +12,7 @@ let page: Page;
 let parentDir: string;
 
 const editorBackends: RuntimeBackend[] = ['apple-container', 'docker'];
+const seroNodeImage = `ghcr.io/sero-labs/sero-node:${process.env.SERO_NODE_IMAGE_TAG?.trim() || 'latest'}`;
 const expectedVcsMethods = [
   'listCheckpoints',
   'getState',
@@ -55,11 +57,32 @@ async function removeWorkspaceIfPresent(workspaceId: string): Promise<void> {
   await page.evaluate((id) => window.sero.workspace.remove(id), workspaceId);
 }
 
+function canRun(command: string, args: string[]): boolean {
+  try {
+    execFileSync(command, args, { stdio: 'ignore' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function skipBackendReason(backend: RuntimeBackend): string | null {
   const platformSkip = runtimeSkipReason(backend);
   if (platformSkip) return platformSkip;
   if (process.env.CI) {
     return `Runtime "${backend}" editor behavior is skipped in CI to avoid daemon startup or image pulls.`;
+  }
+  if (backend === 'apple-container') {
+    if (!canRun('container', ['system', 'status'])) return 'Apple Container is not running.';
+    if (!canRun('container', ['image', 'inspect', seroNodeImage])) {
+      return `Apple Container image ${seroNodeImage} is not available locally.`;
+    }
+  }
+  if (backend === 'docker') {
+    if (!canRun('docker', ['info'])) return 'Docker is not running.';
+    if (!canRun('docker', ['image', 'inspect', seroNodeImage])) {
+      return `Docker image ${seroNodeImage} is not available locally.`;
+    }
   }
   return null;
 }
