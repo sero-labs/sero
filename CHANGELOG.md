@@ -5,6 +5,21 @@ All notable changes to Sero will be documented in this file.
 The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and beta release tags use a SemVer prerelease form.
 
+
+## [0.1.2-beta.0](https://github.com/sero-labs/sero/compare/v0.1.1-beta...v0.1.2-beta.0) (2026-05-25)
+
+### Bug Fixes
+
+* **desktop:** skip source app watchers in packaged builds ([#188](https://github.com/sero-labs/sero/issues/188)) ([bae61e5](https://github.com/sero-labs/sero/commit/bae61e5a5ed73d1e505bb0594f74cd6c6c4fc606))
+* **memory:** keep system prompt stable across turns for prompt caching ([#184](https://github.com/sero-labs/sero/issues/184)) ([0187ee7](https://github.com/sero-labs/sero/commit/0187ee704698006418610bfaf16a2b1f2ac8f936))
+
+### Documentation
+
+* align root beta governance docs ([3621275](https://github.com/sero-labs/sero/commit/362127549ecde5a9fb1e971e406d864e42dce07a))
+* minor AGENT.md update about copy rules ([3d22b69](https://github.com/sero-labs/sero/commit/3d22b699518f7fe3858ce09584b76860f46512c5))
+* minor copy changes ([cd19a40](https://github.com/sero-labs/sero/commit/cd19a403dfce4d9adc684e2ab7d9be35e65504b8))
+* update public beta release messaging ([abb7afd](https://github.com/sero-labs/sero/commit/abb7afdfdb5ec6620e28d305bb32155f1f1c7041))
+
 <!-- New release entries are prepended above this line by `pnpm release` -->
 
 ## Unreleased
