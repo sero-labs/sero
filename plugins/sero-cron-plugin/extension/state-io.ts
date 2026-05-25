@@ -89,9 +89,23 @@ async function enqueueFileWrite(filePath: string, write: () => Promise<void>): P
   }
 }
 
+// Codes Windows raises when a virus scanner or search indexer briefly holds the
+// destination open. They are transient, so retrying the rename clears them.
+const RENAME_RETRY_CODES = new Set(['EPERM', 'EACCES', 'EBUSY']);
+
 async function replaceFile(tmpPath: string, filePath: string): Promise<void> {
-  if (process.platform === 'win32') {
-    await fs.rm(filePath, { force: true });
+  // fs.rename replaces the destination atomically on every platform, so retry
+  // transient Windows lock errors rather than deleting the destination first —
+  // a delete-then-rename would briefly expose a missing file to concurrent
+  // readers, who would fall back to empty state.
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      await fs.rename(tmpPath, filePath);
+      return;
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (attempt >= 9 || !code || !RENAME_RETRY_CODES.has(code)) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 10 * (attempt + 1)));
+    }
   }
-  await fs.rename(tmpPath, filePath);
 }
