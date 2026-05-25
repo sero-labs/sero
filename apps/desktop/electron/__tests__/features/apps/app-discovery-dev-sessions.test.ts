@@ -210,7 +210,7 @@ describe('app discovery local plugin dev sessions', () => {
         id: 'fallback-dev-plugin',
         packagePath: packageDir,
         component: 'FallbackDevPluginApp',
-        uiEntry: expect.stringContaining('/dist/ui/remoteEntry.js'),
+        uiEntry: expect.stringContaining(path.join('dist', 'ui', 'remoteEntry.js')),
         devPort: undefined,
         remoteEntryOverride: null,
       });

@@ -8,8 +8,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "test": "vitest run",
-    "test:watch": "vitest",
+    "test": "pnpm exec vitest run",
+    "test:watch": "pnpm exec vitest",
     "typecheck": "tsc --noEmit -p ui/tsconfig.json"
   },
   "pi": {

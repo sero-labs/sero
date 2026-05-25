@@ -33,6 +33,8 @@ export function withStateLock<T>(fn: () => Promise<T>): Promise<T> {
 
 // ── Read / Write ───────────────────────────────────────────────
 
+const writeQueues = new Map<string, Promise<void>>();
+
 function isMissingFileError(error: unknown): boolean {
   return error instanceof Error && 'code' in error && error.code === 'ENOENT';
 }
@@ -67,9 +69,43 @@ export async function readState(filePath: string): Promise<CronState> {
 }
 
 export async function writeState(filePath: string, state: CronState): Promise<void> {
-  const dir = path.dirname(filePath);
-  await fs.mkdir(dir, { recursive: true });
-  const tmpPath = `${filePath}.tmp.${process.pid}.${Date.now()}.${randomUUID()}`;
-  await fs.writeFile(tmpPath, JSON.stringify(state, null, 2), 'utf8');
-  await fs.rename(tmpPath, filePath);
+  await enqueueFileWrite(filePath, async () => {
+    const dir = path.dirname(filePath);
+    await fs.mkdir(dir, { recursive: true });
+    const tmpPath = `${filePath}.tmp.${process.pid}.${Date.now()}.${randomUUID()}`;
+    await fs.writeFile(tmpPath, JSON.stringify(state, null, 2), 'utf8');
+    await replaceFile(tmpPath, filePath);
+  });
+}
+
+async function enqueueFileWrite(filePath: string, write: () => Promise<void>): Promise<void> {
+  const previous = writeQueues.get(filePath) ?? Promise.resolve();
+  const next = previous.catch(() => undefined).then(write);
+  writeQueues.set(filePath, next);
+  try {
+    await next;
+  } finally {
+    if (writeQueues.get(filePath) === next) writeQueues.delete(filePath);
+  }
+}
+
+// Codes Windows raises when a virus scanner or search indexer briefly holds the
+// destination open. They are transient, so retrying the rename clears them.
+const RENAME_RETRY_CODES = new Set(['EPERM', 'EACCES', 'EBUSY']);
+
+async function replaceFile(tmpPath: string, filePath: string): Promise<void> {
+  // fs.rename replaces the destination atomically on every platform, so retry
+  // transient Windows lock errors rather than deleting the destination first —
+  // a delete-then-rename would briefly expose a missing file to concurrent
+  // readers, who would fall back to empty state.
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      await fs.rename(tmpPath, filePath);
+      return;
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (attempt >= 9 || !code || !RENAME_RETRY_CODES.has(code)) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 10 * (attempt + 1)));
+    }
+  }
 }

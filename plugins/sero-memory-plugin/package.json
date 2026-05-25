@@ -6,8 +6,8 @@
     "pi-package"
   ],
   "scripts": {
-    "test": "../../node_modules/.pnpm/node_modules/.bin/vitest run",
-    "test:watch": "../../node_modules/.pnpm/node_modules/.bin/vitest",
+    "test": "pnpm exec vitest run",
+    "test:watch": "pnpm exec vitest",
     "typecheck": "tsc --noEmit -p extension/tsconfig.json"
   },
   "pi": {
