@@ -36,7 +36,7 @@ describe('MCP path helpers', () => {
     process.env.PI_CODING_AGENT_DIR = '/tmp/pi-agent';
 
     expect(getMcpAppDir()).toBe(path.join('/tmp/pi-agent', 'mcp'));
-    expect(getMcpStatePath('/workspace/project')).toBe(path.join('/workspace/project', '.sero', 'apps', 'mcp', 'state.json'));
+    expect(getMcpStatePath('/workspace/project')).toBe(path.join(path.resolve('/workspace/project'), '.sero', 'apps', 'mcp', 'state.json'));
     expect(getMcpConfigPath()).toBe(path.join('/tmp/pi-agent', 'mcp.json'));
     expect(getMcpMetadataCachePath()).toBe(path.join('/tmp/pi-agent', 'mcp-cache.json'));
     expect(getMcpOAuthDir()).toBe(path.join('/tmp/pi-agent', 'mcp-oauth'));

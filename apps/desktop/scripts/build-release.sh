@@ -234,10 +234,11 @@ cd "$MONO_ROOT"
 pnpm typecheck
 cd "$PROJECT_DIR"
 
-# ── Step 3: Build all packages (turbo) ───────────────────────
-echo "▸ Step 3/6: Building all packages..."
+# ── Step 3: Build desktop + bundled app packages ────────────
+echo "▸ Step 3/6: Building bundled app packages..."
 cd "$MONO_ROOT"
-pnpm build
+pnpm --filter "./packages/*" --filter "./plugins/*" --if-present build
+pnpm --filter @sero/desktop build
 cd "$PROJECT_DIR"
 
 # ── Step 4: Build web-remote SPA (if it exists) ─────────────

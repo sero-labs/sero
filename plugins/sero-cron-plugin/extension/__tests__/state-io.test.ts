@@ -26,7 +26,7 @@ describe('resolveStatePath', () => {
   it('resolves to SERO_HOME when set', () => {
     process.env.SERO_HOME = '/home/test/.sero-ui';
     const result = resolveStatePath('/any/cwd');
-    expect(result).toBe('/home/test/.sero-ui/apps/cron/state.json');
+    expect(result).toBe(path.join('/home/test/.sero-ui', 'apps', 'cron', 'state.json'));
   });
 
   it('resolves relative to cwd when SERO_HOME not set', () => {

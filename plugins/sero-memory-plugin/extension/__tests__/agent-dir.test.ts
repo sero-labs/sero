@@ -1,3 +1,4 @@
+import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { resolveAgentDir, resolveSessionStoreDir } from '../agent-dir';
@@ -19,18 +20,20 @@ describe('profile-scoped agent directory resolution', () => {
     process.env.PI_CODING_AGENT_DIR = '/tmp/sero-profile/agent';
     process.env.SERO_HOME = '/tmp/sero-profile';
 
-    expect(resolveAgentDir()).toBe('/tmp/sero-profile/agent');
-    expect(resolveQmdDbPath()).toBe('/tmp/sero-profile/agent/cache/qmd/index.sqlite');
-    expect(resolveSessionStoreDir()).toBe('/tmp/sero-profile/agent/sessions');
-    expect(getSessionStoreDir()).toBe('/tmp/sero-profile/agent/sessions');
+    const agentDir = '/tmp/sero-profile/agent';
+    expect(resolveAgentDir()).toBe(agentDir);
+    expect(resolveQmdDbPath()).toBe(path.join(agentDir, 'cache', 'qmd', 'index.sqlite'));
+    expect(resolveSessionStoreDir()).toBe(path.join(agentDir, 'sessions'));
+    expect(getSessionStoreDir()).toBe(path.join(agentDir, 'sessions'));
   });
 
   it('falls back to SERO_HOME/agent when the Pi env bridge is absent', () => {
     delete process.env.PI_CODING_AGENT_DIR;
     process.env.SERO_HOME = '/tmp/sero-fallback-home';
 
-    expect(resolveAgentDir()).toBe('/tmp/sero-fallback-home/agent');
-    expect(resolveQmdDbPath()).toBe('/tmp/sero-fallback-home/agent/cache/qmd/index.sqlite');
-    expect(resolveSessionStoreDir()).toBe('/tmp/sero-fallback-home/agent/sessions');
+    const agentDir = path.join('/tmp/sero-fallback-home', 'agent');
+    expect(resolveAgentDir()).toBe(agentDir);
+    expect(resolveQmdDbPath()).toBe(path.join(agentDir, 'cache', 'qmd', 'index.sqlite'));
+    expect(resolveSessionStoreDir()).toBe(path.join(agentDir, 'sessions'));
   });
 });

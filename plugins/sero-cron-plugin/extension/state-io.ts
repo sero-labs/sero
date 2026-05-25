@@ -33,6 +33,8 @@ export function withStateLock<T>(fn: () => Promise<T>): Promise<T> {
 
 // ── Read / Write ───────────────────────────────────────────────
 
+const writeQueues = new Map<string, Promise<void>>();
+
 function isMissingFileError(error: unknown): boolean {
   return error instanceof Error && 'code' in error && error.code === 'ENOENT';
 }
@@ -67,9 +69,29 @@ export async function readState(filePath: string): Promise<CronState> {
 }
 
 export async function writeState(filePath: string, state: CronState): Promise<void> {
-  const dir = path.dirname(filePath);
-  await fs.mkdir(dir, { recursive: true });
-  const tmpPath = `${filePath}.tmp.${process.pid}.${Date.now()}.${randomUUID()}`;
-  await fs.writeFile(tmpPath, JSON.stringify(state, null, 2), 'utf8');
+  await enqueueFileWrite(filePath, async () => {
+    const dir = path.dirname(filePath);
+    await fs.mkdir(dir, { recursive: true });
+    const tmpPath = `${filePath}.tmp.${process.pid}.${Date.now()}.${randomUUID()}`;
+    await fs.writeFile(tmpPath, JSON.stringify(state, null, 2), 'utf8');
+    await replaceFile(tmpPath, filePath);
+  });
+}
+
+async function enqueueFileWrite(filePath: string, write: () => Promise<void>): Promise<void> {
+  const previous = writeQueues.get(filePath) ?? Promise.resolve();
+  const next = previous.catch(() => undefined).then(write);
+  writeQueues.set(filePath, next);
+  try {
+    await next;
+  } finally {
+    if (writeQueues.get(filePath) === next) writeQueues.delete(filePath);
+  }
+}
+
+async function replaceFile(tmpPath: string, filePath: string): Promise<void> {
+  if (process.platform === 'win32') {
+    await fs.rm(filePath, { force: true });
+  }
   await fs.rename(tmpPath, filePath);
 }

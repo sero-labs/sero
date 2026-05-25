@@ -53,28 +53,47 @@ export function registerAppsHandlers(): void {
  * @param knownAppIds Set of app IDs discovered at startup
  */
 export function watchForNewApps(knownAppIds: Set<string>): void {
+  if (process.env.NODE_ENV !== 'development') {
+    console.log('[app-watcher] Skipping source app package watchers outside development');
+    return;
+  }
+
   const notified = new Set<string>();
+  let watcherCount = 0;
 
   for (const root of APP_ROOTS) {
     const rootDir = root.dir;
-    if (!rootDir || !existsSync(rootDir)) continue;
+    if (!rootDir || !isWatchableRootDir(rootDir)) continue;
 
     let debounce: ReturnType<typeof setTimeout> | null = null;
 
-    watch(rootDir, { recursive: true }, (_eventType, filename) => {
-      if (!filename || !filename.includes('package.json')) return;
+    try {
+      watch(rootDir, { recursive: true }, (_eventType, filename) => {
+        if (!filename || !filename.includes('package.json')) return;
 
-      const [topLevelDir] = filename.split(path.sep);
-      if (!topLevelDir || !root.matchesDirName(topLevelDir)) return;
+        const [topLevelDir] = filename.split(path.sep);
+        if (!topLevelDir || !root.matchesDirName(topLevelDir)) return;
 
-      if (debounce) clearTimeout(debounce);
-      debounce = setTimeout(() => {
-        void checkForNewApps(rootDir, root.matchesDirName, knownAppIds, notified);
-      }, 2000);
-    });
+        if (debounce) clearTimeout(debounce);
+        debounce = setTimeout(() => {
+          void checkForNewApps(rootDir, root.matchesDirName, knownAppIds, notified);
+        }, 2000);
+      });
+      watcherCount += 1;
+    } catch (err) {
+      console.warn('[app-watcher] Skipping app package watcher:', rootDir, err);
+    }
   }
 
-  console.log('[app-watcher] Watching for new app packages');
+  if (watcherCount > 0) {
+    console.log('[app-watcher] Watching for new app packages');
+  } else {
+    console.log('[app-watcher] No watchable app package roots found');
+  }
+}
+
+function isWatchableRootDir(rootDir: string): boolean {
+  return existsSync(rootDir) && !rootDir.split(/[\\/]/).includes('app.asar');
 }
 
 async function checkForNewApps(
