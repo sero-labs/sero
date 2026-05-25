@@ -198,6 +198,7 @@ jobs:
     steps:
       - run: pnpm --filter @sero/desktop browser-pack:verify-published
       - run: pnpm --filter @sero/desktop e2e:workflow -- runtime-host-release.workflow.spec.ts
+      - name: Verify macOS app bundle
 `;
 }
 

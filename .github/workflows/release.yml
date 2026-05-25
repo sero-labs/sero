@@ -141,6 +141,13 @@ jobs:
       - name: Build packaged artifacts
         run: pnpm --filter @sero/desktop ${{ matrix.dist }}
 
+      - name: Verify macOS app bundle
+        if: ${{ matrix.os == 'macos' }}
+        run: |
+          set -euo pipefail
+          app_path="apps/desktop/release/mac-arm64/Sero.app"
+          codesign --verify --deep --strict --verbose=4 "$app_path"
+
       - name: Smoke test Linux Debian artifact
         if: ${{ matrix.os == 'linux' }}
         run: |

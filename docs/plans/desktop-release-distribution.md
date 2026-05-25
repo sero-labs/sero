@@ -36,14 +36,13 @@ Gaps remaining before Sero can ship real, self-updating desktop releases on all 
 
 ## Gap 2 — macOS code signing and notarization
 
-**Current state:** `afterSign: null` in `electron-builder.yml`. `CSC_LINK`/`CSC_KEY_PASSWORD` env vars are documented but no CI secrets are configured. Unsigned `.app` bundles trigger Gatekeeper on macOS 15+ and require users to `xattr -dr com.apple.quarantine` or use "Open Anyway".
+**Current state:** macOS release jobs build an unsigned, ad-hoc-signed app by default so the bundle seal is valid, but Gatekeeper still requires users to approve the app with **right-click → Open** because the app is not notarized.
 
 **What's needed:**
 
 - An Apple Developer ID Application certificate exported as `.p12`.
 - Apple notarization credentials (Apple ID + app-specific password + Team ID).
 - CI secrets configured in the `sero-labs/sero` repository.
-- `afterSign` re-enabled in `electron-builder.yml` for the release workflow.
 
 **Steps:**
 
@@ -55,26 +54,7 @@ Gaps remaining before Sero can ship real, self-updating desktop releases on all 
   - `APPLE_ID` — Apple ID used for notarization
   - `APPLE_APP_SPECIFIC_PASSWORD` — app-specific password for that Apple ID
   - `APPLE_TEAM_ID` — 10-character team ID
-- [ ] In `release.yml`, pass these secrets as env vars to the macOS build step.
-- [ ] Set `afterSign` to the notarization script. electron-builder supports `afterSign: build/notarize.js`. A minimal notarize script:
-
-  ```js
-  // build/notarize.js
-  const { notarize } = require('@electron/notarize');
-  exports.default = async (context) => {
-    if (context.electronPlatformName !== 'darwin') return;
-    await notarize({
-      tool: 'notarytool',
-      appBundleId: 'app.sero',
-      appPath: context.appOutDir + '/Sero.app',
-      appleId: process.env.APPLE_ID,
-      appleIdPassword: process.env.APPLE_APP_SPECIFIC_PASSWORD,
-      teamId: process.env.APPLE_TEAM_ID,
-    });
-  };
-  ```
-
-- [ ] Add `@electron/notarize` as a dev dependency in `apps/desktop/`.
+- [x] Keep unsigned macOS releases installable by ad-hoc-signing the app bundle before the DMG is created. Users still need the normal first-launch **right-click → Open** approval because the app is not notarized.
 - [ ] Verify entitlements file `build/entitlements.mac.plist` includes `com.apple.security.cs.allow-jit` if needed for JIT (node-pty uses a pseudo-TTY, usually not required).
 - [ ] Test a signed + notarized build before wiring into CI by running `build-release.sh --sign` locally with the cert in Keychain.
 

@@ -56,6 +56,21 @@ Useful logs:
 
 If the failure mentions `node-pty`, `better-sqlite3`, `ERR_DLOPEN_FAILED`, or `NODE_MODULE_VERSION`, use the native-module steps below.
 
+### macOS says Sero is damaged or from an unidentified developer
+
+Sero macOS beta builds are unsigned but ad-hoc signed. They are not notarized.
+
+For a first launch from the DMG install:
+
+1. Drag Sero to Applications.
+2. Control-click or right-click **Sero**.
+3. Choose **Open**.
+4. Confirm **Open**.
+
+If macOS still shows a **damaged** warning, the app bundle signature is invalid.
+Delete the installed app, download the latest DMG again, and reinstall. If the
+same release still fails, report the release filename and macOS version.
+
 ## Terminals or memory features fail after install
 
 Interrupted installs and Electron ABI changes can leave native modules in the wrong state.
