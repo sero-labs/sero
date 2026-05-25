@@ -170,6 +170,9 @@ function checkWorkflow(workflowPath, workflowText, failures) {
   if (!workflowText.includes('runtime-host-release.workflow.spec.ts')) {
     failures.push(`${relativePath(workflowPath)}: missing host release smoke workflow spec`);
   }
+  if (!workflowText.includes('Verify macOS app bundle')) {
+    failures.push(`${relativePath(workflowPath)}: missing macOS app bundle verification gate`);
+  }
 }
 
 function checkBuildReleaseScript(buildReleasePath, buildReleaseText, failures) {

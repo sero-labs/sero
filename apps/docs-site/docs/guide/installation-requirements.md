@@ -16,6 +16,8 @@ Developers and contributors can still build from source on supported targets. Us
 
 New beta releases may require manual download and installation unless release notes say otherwise. macOS Gatekeeper/notarization warnings and Windows SmartScreen or unknown-publisher warnings may apply during beta.
 
+On macOS, Sero beta DMGs are unsigned but ad-hoc signed. After copying Sero to Applications, use **Control-click / right-click → Open** for the first launch and confirm **Open** if macOS warns that the developer cannot be verified.
+
 ## 2. Check your platform
 
 Sero's public beta currently targets:

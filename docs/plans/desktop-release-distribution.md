@@ -36,16 +36,21 @@ Gaps remaining before Sero can ship real, self-updating desktop releases on all 
 
 ## Gap 2 — macOS code signing and notarization
 
-**Current state:** `afterSign: null` in `electron-builder.yml`. `CSC_LINK`/`CSC_KEY_PASSWORD` env vars are documented but no CI secrets are configured. Unsigned `.app` bundles trigger Gatekeeper on macOS 15+ and require users to `xattr -dr com.apple.quarantine` or use "Open Anyway".
+**Current state:** macOS release jobs build an unsigned, ad-hoc-signed app by default so the bundle seal is valid, but Gatekeeper still requires users to approve the app with **right-click → Open** because the app is not notarized.
 
 **What's needed:**
 
 - An Apple Developer ID Application certificate exported as `.p12`.
 - Apple notarization credentials (Apple ID + app-specific password + Team ID).
 - CI secrets configured in the `sero-labs/sero` repository.
-- `afterSign` re-enabled in `electron-builder.yml` for the release workflow.
 
-**Steps:**
+**Done — ad-hoc signing (no Apple account):**
+
+- [x] Keep unsigned macOS releases installable by ad-hoc-signing the app bundle before the DMG is created (`scripts/after-pack.mjs`, gated on `CSC_IDENTITY_AUTO_DISCOVERY=false`). A release-workflow `codesign --verify` gate guards the seal. Users still need the normal first-launch **right-click → Open** approval because the app is not notarized.
+
+**Remaining — full Developer ID signing + notarization:**
+
+The ad-hoc path auto-disables once real signing is configured: setting `CSC_LINK` leaves `CSC_IDENTITY_AUTO_DISCOVERY` unset, so `after-pack.mjs` bails out and electron-builder does the real signing with hardened runtime. No conflict to unwind.
 
 - [ ] Export Developer ID Application certificate from Keychain as `.p12`. Base64-encode it:
   `base64 -i DeveloperID.p12 | pbcopy`
@@ -55,8 +60,8 @@ Gaps remaining before Sero can ship real, self-updating desktop releases on all 
   - `APPLE_ID` — Apple ID used for notarization
   - `APPLE_APP_SPECIFIC_PASSWORD` — app-specific password for that Apple ID
   - `APPLE_TEAM_ID` — 10-character team ID
-- [ ] In `release.yml`, pass these secrets as env vars to the macOS build step.
-- [ ] Set `afterSign` to the notarization script. electron-builder supports `afterSign: build/notarize.js`. A minimal notarize script:
+- [ ] In `release.yml`, pass these secrets as env vars to the macOS build step, and stop forcing the unsigned path (`build-release.sh --sign`) so electron-builder signs with the cert.
+- [ ] Re-enable `afterSign` in `electron-builder.yml` (currently `null`) to point at a notarization script. electron-builder supports `afterSign: build/notarize.js`. A minimal notarize script:
 
   ```js
   // build/notarize.js

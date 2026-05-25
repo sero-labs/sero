@@ -83,6 +83,12 @@ describe('verify-host-mode-release', () => {
     await expect(verifyFixture()).rejects.toThrow('.github/workflows/release.yml: missing Linux arm64 hosted runner: ubuntu-24.04-arm');
   });
 
+  it('fails when the release workflow is missing the macOS app bundle verification gate', async () => {
+    await fs.writeFile(workflowPath(), workflowText().replace('      - name: Verify macOS app bundle\n', ''));
+
+    await expect(verifyFixture()).rejects.toThrow('.github/workflows/release.yml: missing macOS app bundle verification gate');
+  });
+
   it('fails when Linux packaging would build obsolete non-deb artifacts', async () => {
     await fs.writeFile(path.join(desktopRoot, 'scripts/build-release.sh'), 'BUILDER_ARGS+=(AppImage deb tar.gz)\n');
 
@@ -198,6 +204,7 @@ jobs:
     steps:
       - run: pnpm --filter @sero/desktop browser-pack:verify-published
       - run: pnpm --filter @sero/desktop e2e:workflow -- runtime-host-release.workflow.spec.ts
+      - name: Verify macOS app bundle
 `;
 }
 

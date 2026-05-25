@@ -64,6 +64,8 @@ mac:
   # Generate with: bash scripts/generate-icon.sh path/to/1024x1024.png
   # icon: build/icon.icns
   darkModeSupport: true
+  # hardenedRuntime/entitlements apply only to signed (CSC_LINK) builds. Unsigned beta builds are
+  # ad-hoc signed without hardened runtime by scripts/after-pack.mjs.
   hardenedRuntime: true
   gatekeeperAssess: false
   entitlements: build/entitlements.mac.plist
