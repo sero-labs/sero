@@ -191,6 +191,7 @@ jobs:
             apps/desktop/release/*.dmg
             apps/desktop/release/*.exe
             apps/desktop/release/*.yml
+            !apps/desktop/release/builder-debug.yml
             apps/desktop/release/*.zip
           if-no-files-found: error
           retention-days: 14
@@ -262,6 +263,17 @@ jobs:
           else
             gh release create "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" "${create_args[@]}"
           fi
+
+      - name: Remove stale release assets
+        run: |
+          set -euo pipefail
+          release_version="${RELEASE_TAG#v}"
+          gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' |
+            while IFS= read -r asset; do
+              if [[ "$asset" == builder-debug.yml || ( "$asset" == Sero-* && "$asset" != Sero-"$release_version"-* ) ]]; then
+                gh release delete-asset "$RELEASE_TAG" "$asset" --repo "$GITHUB_REPOSITORY" --yes
+              fi
+            done
 
       - name: Upload release assets
         run: |
