@@ -56,18 +56,32 @@ Useful logs:
 
 If the failure mentions `node-pty`, `better-sqlite3`, `ERR_DLOPEN_FAILED`, or `NODE_MODULE_VERSION`, use the native-module steps below.
 
-### macOS says Sero is damaged or from an unidentified developer
+### macOS won't open Sero ("could not verify… free of malware")
 
-Sero macOS beta builds are unsigned but ad-hoc signed. They are not notarized.
+Sero macOS beta builds are ad-hoc signed but not notarized, so Gatekeeper blocks
+the first launch with "Apple could not verify Sero is free of malware". This is
+expected for a non-notarized beta — it does not mean the download is broken.
 
-For a first launch from the DMG install:
+To approve the app on macOS 15 (Sequoia) and later:
 
-1. Drag Sero to Applications.
-2. Control-click or right-click **Sero**.
-3. Choose **Open**.
-4. Confirm **Open**.
+1. Drag Sero to Applications and double-click it once (it will be blocked — click
+   **Done**).
+2. Open **System Settings → Privacy & Security**.
+3. Scroll to the **Security** section. You'll see "Sero was blocked to protect
+   your Mac" with an **Open Anyway** button. Click it.
+4. Authenticate, then click **Open Anyway** in the confirmation dialog.
 
-If macOS still shows a **damaged** warning, the app bundle signature is invalid.
+The Control-click / right-click → **Open** shortcut no longer bypasses Gatekeeper
+on macOS 15+, so it won't help here.
+
+If **Open Anyway** doesn't appear or doesn't work, remove the download quarantine
+flag from a terminal, then open the app normally:
+
+```sh
+xattr -dr com.apple.quarantine /Applications/Sero.app
+```
+
+If macOS instead says Sero is **damaged**, the app bundle signature is invalid.
 Delete the installed app, download the latest DMG again, and reinstall. If the
 same release still fails, report the release filename and macOS version.
 

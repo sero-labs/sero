@@ -37,9 +37,12 @@ not assume another artifact will work.
 Install Sero using the normal installer flow for your operating system, then open
 the desktop app.
 
-On macOS, Sero beta builds are unsigned but ad-hoc signed. After dragging Sero to
-Applications, open it with **Control-click / right-click → Open** the first time,
-then confirm **Open**. This is the supported no-Apple-account beta flow.
+On macOS, Sero beta builds are ad-hoc signed but not notarized. On first launch
+macOS blocks the app with "Apple could not verify Sero is free of malware". To
+approve it, open **System Settings → Privacy & Security**, scroll to the Security
+section, and click **Open Anyway** next to Sero, then confirm. (On macOS 15+ the
+old Control-click → Open shortcut no longer bypasses this.) This is the supported
+no-Apple-account beta flow.
 
 Expected result: the Sero window opens. During beta, macOS Gatekeeper or Windows
 SmartScreen / unknown-publisher prompts may appear depending on the published
