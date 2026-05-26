@@ -56,34 +56,22 @@ Useful logs:
 
 If the failure mentions `node-pty`, `better-sqlite3`, `ERR_DLOPEN_FAILED`, or `NODE_MODULE_VERSION`, use the native-module steps below.
 
-### macOS won't open Sero ("could not verify… free of malware")
+### macOS won't open Sero
 
-Sero macOS beta builds are ad-hoc signed but not notarized, so Gatekeeper blocks
-the first launch with "Apple could not verify Sero is free of malware". This is
-expected for a non-notarized beta — it does not mean the download is broken.
+Current Sero releases are signed with a Developer ID certificate and notarized by
+Apple, so the DMG should open normally with no Gatekeeper prompt.
 
-To approve the app on macOS 15 (Sequoia) and later:
+If macOS warns that it "could not verify Sero is free of malware" or says Sero is
+**damaged**, you almost certainly have an **older, pre-notarization build**. Delete
+the installed app, download the latest DMG from the releases page, and reinstall.
 
-1. Drag Sero to Applications and double-click it once (it will be blocked — click
-   **Done**).
-2. Open **System Settings → Privacy & Security**.
-3. Scroll to the **Security** section. You'll see "Sero was blocked to protect
-   your Mac" with an **Open Anyway** button. Click it.
-4. Authenticate, then click **Open Anyway** in the confirmation dialog.
-
-The Control-click / right-click → **Open** shortcut no longer bypasses Gatekeeper
-on macOS 15+, so it won't help here.
-
-If **Open Anyway** doesn't appear or doesn't work, remove the download quarantine
-flag from a terminal, then open the app normally:
+If the latest release still fails, report the release filename and your macOS
+version. As a last resort you can clear the download quarantine flag and open it
+manually:
 
 ```sh
 xattr -dr com.apple.quarantine /Applications/Sero.app
 ```
-
-If macOS instead says Sero is **damaged**, the app bundle signature is invalid.
-Delete the installed app, download the latest DMG again, and reinstall. If the
-same release still fails, report the release filename and macOS version.
 
 ## Terminals or memory features fail after install
 

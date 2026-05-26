@@ -37,16 +37,12 @@ not assume another artifact will work.
 Install Sero using the normal installer flow for your operating system, then open
 the desktop app.
 
-On macOS, Sero beta builds are ad-hoc signed but not notarized. On first launch
-macOS blocks the app with "Apple could not verify Sero is free of malware". To
-approve it, open **System Settings → Privacy & Security**, scroll to the Security
-section, and click **Open Anyway** next to Sero, then confirm. (On macOS 15+ the
-old Control-click → Open shortcut no longer bypasses this.) This is the supported
-no-Apple-account beta flow.
+On macOS, Sero is signed with a Developer ID certificate and notarized by Apple,
+so it opens normally — drag it to Applications and launch it, no Gatekeeper
+prompts.
 
-Expected result: the Sero window opens. During beta, macOS Gatekeeper or Windows
-SmartScreen / unknown-publisher prompts may appear depending on the published
-artifact and your system policy.
+Expected result: the Sero window opens. On Windows, SmartScreen / unknown-publisher
+prompts may still appear during beta because the Windows build is not yet signed.
 
 If the app does not open, keep any installer or launch error output and check
 [Troubleshooting](/reference/troubleshooting).

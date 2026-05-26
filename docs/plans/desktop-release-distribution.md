@@ -34,15 +34,11 @@ Gaps remaining before Sero can ship real, self-updating desktop releases on all 
 
 ---
 
-## Gap 2 — macOS code signing and notarization
+## Gap 2 — macOS code signing and notarization — ✅ DONE
 
-**Current state:** macOS release jobs build an unsigned, ad-hoc-signed app by default so the bundle seal is valid (no more "damaged" failures), but Gatekeeper still blocks the first launch with "Apple could not verify Sero is free of malware" because the app is not notarized. Users must approve it via **System Settings → Privacy & Security → Open Anyway** (on macOS 15+ the Control-click → Open shortcut no longer bypasses Gatekeeper).
+**Current state:** macOS releases are signed with a Developer ID Application certificate and notarized by Apple (Team `NLUPAVUUZ8`), so the DMG opens on double-click with no Gatekeeper prompt. CI secrets are configured in `sero-labs/sero`; the build auto-signs+notarizes when they are present and falls back to unsigned ad-hoc otherwise. Verified end-to-end (`spctl -a` → `accepted` / `source=Notarized Developer ID`) and shipped from `v0.1.2-beta.0`.
 
-**What's needed:**
-
-- An Apple Developer ID Application certificate exported as `.p12`.
-- Apple notarization credentials (Apple ID + app-specific password + Team ID).
-- CI secrets configured in the `sero-labs/sero` repository.
+The unsigned ad-hoc path (below) remains as the fallback for builds without the signing secrets (e.g. local `--dir` builds).
 
 **Done — ad-hoc signing (no Apple account):**
 
@@ -57,19 +53,14 @@ The build is wired for full Developer ID signing + notarization using electron-b
 - [x] The ad-hoc path auto-disables once signing is on: setting `CSC_LINK` leaves `CSC_IDENTITY_AUTO_DISCOVERY` unset, so `after-pack.mjs` bails out and electron-builder signs with hardened runtime. No conflict to unwind.
 - [x] Entitlements (`build/entitlements.mac.plist`) already include `allow-jit`, `allow-unsigned-executable-memory`, and `disable-library-validation` — all permitted under notarization.
 
-**Remaining — owner actions (require an Apple Developer account):**
+**Owner actions — completed:**
 
-- [ ] Enroll in the Apple Developer Program ($99/yr). Individual is fastest; an organization account (to show "Sero Labs" as the signer) needs a D-U-N-S number.
-- [ ] Create a **Developer ID Application** certificate and export it (with its private key) from Keychain as `.p12`. Base64-encode for CI: `base64 -i DeveloperID.p12 | pbcopy`.
-- [ ] Create an app-specific password for the Apple ID at appleid.apple.com (for notarytool).
-- [ ] Add GitHub Actions repository secrets (names must match exactly):
-  - `CSC_LINK` — base64-encoded `.p12`
-  - `CSC_KEY_PASSWORD` — certificate password
-  - `APPLE_ID` — Apple ID email used for notarization
-  - `APPLE_APP_SPECIFIC_PASSWORD` — app-specific password for that Apple ID
-  - `APPLE_TEAM_ID` — 10-character team ID
-- [ ] Test locally before relying on CI: `CSC_LINK=/path/to.p12 CSC_KEY_PASSWORD=… APPLE_ID=… APPLE_APP_SPECIFIC_PASSWORD=… APPLE_TEAM_ID=… pnpm --filter @sero/desktop release:signed`, then confirm with `spctl -a -vvv -t exec release/mac-arm64/Sero.app` (should say `accepted`/`source=Notarized Developer ID`) and `xcrun stapler validate release/mac-arm64/Sero.app`.
-- [ ] After the first notarized release ships, simplify the install docs (drop the "Open Anyway" instructions — the DMG will open on double-click).
+- [x] Enrolled in the Apple Developer Program (individual; Team `NLUPAVUUZ8`).
+- [x] Created a **Developer ID Application** certificate and exported it (cert + private key) from Keychain as `.p12`.
+- [x] Created an app-specific password for notarytool.
+- [x] Added GitHub Actions repository secrets: `CSC_LINK` (base64 `.p12`), `CSC_KEY_PASSWORD`, `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID`.
+- [x] Verified locally and in CI: `spctl -a -vvv -t exec` → `accepted` / `source=Notarized Developer ID`; `xcrun stapler validate` passes on the CI artifact.
+- [x] Simplified the install docs — the DMG opens on double-click; the "Open Anyway" instructions were removed.
 
 ---
 

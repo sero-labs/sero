@@ -14,9 +14,9 @@ Supported packaged beta artifacts are:
 
 Developers and contributors can still build from source on supported targets. Use the source path when you are modifying Sero, testing a branch, or contributing a fix.
 
-New beta releases may require manual download and installation unless release notes say otherwise. macOS Gatekeeper/notarization warnings and Windows SmartScreen or unknown-publisher warnings may apply during beta.
+New beta releases may require manual download and installation unless release notes say otherwise. Windows SmartScreen or unknown-publisher warnings may apply during beta.
 
-On macOS, Sero beta DMGs are ad-hoc signed but not notarized, so the first launch is blocked with "Apple could not verify Sero is free of malware". Approve it from **System Settings → Privacy & Security → Open Anyway**. On macOS 15+ the Control-click → Open shortcut no longer works for this.
+On macOS, Sero is Developer ID-signed and notarized by Apple, so the DMG opens without Gatekeeper warnings. The Windows build is not yet signed, so SmartScreen may still warn on first install.
 
 ## 2. Check your platform
 
