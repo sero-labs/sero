@@ -38,7 +38,10 @@ host architecture for the same native-module reason.
 Options:
   --target <target>  Target OS family. Defaults to current.
   --arch <arch>      Target CPU architecture. Defaults to current when omitted.
-  --sign             Enable existing macOS signing flow (requires CSC_LINK).
+  --sign             Force macOS Developer ID signing (requires CSC_LINK). Mac
+                     builds also sign automatically whenever CSC_LINK is set, and
+                     notarize when APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, and
+                     APPLE_TEAM_ID are also present.
   --dir              Build an unpacked app directory instead of distributables.
   -h, --help         Show this help.
 EOF
@@ -184,6 +187,13 @@ if [ "$TARGET_ARCH" != "$HOST_ARCH" ]; then
   exit 1
 fi
 
+# Auto-enable macOS Developer ID signing when a certificate is provided via env
+# (CI release with secrets configured, or a local signed test). Without CSC_LINK,
+# mac builds stay unsigned and are ad-hoc sealed by scripts/after-pack.mjs.
+if [ "$TARGET" = "mac" ] && [ -n "${CSC_LINK:-}" ]; then
+  SIGN=true
+fi
+
 if [ "$SIGN" = true ] && [ "$TARGET" != "mac" ]; then
   echo "ERROR: --sign currently preserves the existing macOS signing flow only."
   exit 1
@@ -296,12 +306,29 @@ printf '\n'
 if [ "$SIGN" = true ]; then
   # Signed build — requires CSC_LINK and CSC_KEY_PASSWORD env vars
   if [ -z "${CSC_LINK:-}" ]; then
-    echo "ERROR: --sign requires CSC_LINK env var (path to .p12 certificate)"
+    echo "ERROR: signing requires CSC_LINK env var (path to or base64 of the .p12 certificate)"
     exit 1
   fi
-  npx electron-builder "${BUILDER_ARGS[@]}"
+  # Notarization credentials are all-or-nothing. Skip notarization only when all three are
+  # absent (intentional sign-only build); if any is set, require all three and fail loudly.
+  # Otherwise a partial/misnamed secret would silently ship a signed-but-not-notarized app
+  # that passes `codesign --verify` yet still trips Gatekeeper for users.
+  if [ -n "${APPLE_TEAM_ID:-}" ] || [ -n "${APPLE_ID:-}" ] || [ -n "${APPLE_APP_SPECIFIC_PASSWORD:-}" ]; then
+    if [ -z "${APPLE_TEAM_ID:-}" ] || [ -z "${APPLE_ID:-}" ] || [ -z "${APPLE_APP_SPECIFIC_PASSWORD:-}" ]; then
+      echo "ERROR: incomplete notarization credentials. Set all of APPLE_TEAM_ID, APPLE_ID, and"
+      echo "       APPLE_APP_SPECIFIC_PASSWORD (check the secret names), or none for a sign-only build."
+      exit 1
+    fi
+    echo "▸ Signing with Developer ID and notarizing via notarytool (team ${APPLE_TEAM_ID})"
+    # electron-builder 25 reads APPLE_TEAM_ID / APPLE_ID / APPLE_APP_SPECIFIC_PASSWORD from the
+    # environment; notarize is enabled as a boolean (the notarize.teamId form is rejected).
+    npx electron-builder "${BUILDER_ARGS[@]}" -c.mac.notarize=true
+  else
+    echo "▸ Signing with Developer ID (no notarization credentials present — skipping notarization)"
+    npx electron-builder "${BUILDER_ARGS[@]}"
+  fi
 else
-  # Unsigned build — skip code signing entirely
+  # Unsigned build — skip code signing entirely (ad-hoc sealed in after-pack.mjs)
   CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder "${BUILDER_ARGS[@]}"
 fi
 

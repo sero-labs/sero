@@ -36,7 +36,7 @@ Gaps remaining before Sero can ship real, self-updating desktop releases on all 
 
 ## Gap 2 — macOS code signing and notarization
 
-**Current state:** macOS release jobs build an unsigned, ad-hoc-signed app by default so the bundle seal is valid, but Gatekeeper still requires users to approve the app with **right-click → Open** because the app is not notarized.
+**Current state:** macOS release jobs build an unsigned, ad-hoc-signed app by default so the bundle seal is valid (no more "damaged" failures), but Gatekeeper still blocks the first launch with "Apple could not verify Sero is free of malware" because the app is not notarized. Users must approve it via **System Settings → Privacy & Security → Open Anyway** (on macOS 15+ the Control-click → Open shortcut no longer bypasses Gatekeeper).
 
 **What's needed:**
 
@@ -46,42 +46,30 @@ Gaps remaining before Sero can ship real, self-updating desktop releases on all 
 
 **Done — ad-hoc signing (no Apple account):**
 
-- [x] Keep unsigned macOS releases installable by ad-hoc-signing the app bundle before the DMG is created (`scripts/after-pack.mjs`, gated on `CSC_IDENTITY_AUTO_DISCOVERY=false`). A release-workflow `codesign --verify` gate guards the seal. Users still need the normal first-launch **right-click → Open** approval because the app is not notarized.
+- [x] Keep unsigned macOS releases installable by ad-hoc-signing the app bundle before the DMG is created (`scripts/after-pack.mjs`, gated on `CSC_IDENTITY_AUTO_DISCOVERY=false`). A release-workflow `codesign --verify` gate guards the seal. Users still need the first-launch **System Settings → Privacy & Security → Open Anyway** approval because the app is not notarized.
 
-**Remaining — full Developer ID signing + notarization:**
+**Done — signing + notarization wiring (activates when secrets are present):**
 
-The ad-hoc path auto-disables once real signing is configured: setting `CSC_LINK` leaves `CSC_IDENTITY_AUTO_DISCOVERY` unset, so `after-pack.mjs` bails out and electron-builder does the real signing with hardened runtime. No conflict to unwind.
+The build is wired for full Developer ID signing + notarization using electron-builder 25's **native** notarize support (it bundles `@electron/notarize` and handles sign → submit → staple in one pass — no custom `afterSign` script or extra dependency needed; `afterSign` stays `null`).
 
-- [ ] Export Developer ID Application certificate from Keychain as `.p12`. Base64-encode it:
-  `base64 -i DeveloperID.p12 | pbcopy`
-- [ ] Add GitHub Actions repository secrets:
+- [x] `build-release.sh` auto-enables Developer ID signing for mac when `CSC_LINK` is set, and passes `-c.mac.notarize=true` to notarize (electron-builder 25 reads `APPLE_TEAM_ID` / `APPLE_ID` / `APPLE_APP_SPECIFIC_PASSWORD` from the environment; the `notarize.teamId` form is rejected). With no creds it falls back to the unsigned ad-hoc flow; with a cert but no notary creds it signs only. If notary creds are partially set, the build fails loudly rather than shipping a non-notarized app.
+- [x] `release.yml` passes `CSC_LINK`, `CSC_KEY_PASSWORD`, `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID` to the build step, scoped to macOS. They resolve to empty until configured, so the workflow keeps producing unsigned ad-hoc builds with no change in behavior.
+- [x] The ad-hoc path auto-disables once signing is on: setting `CSC_LINK` leaves `CSC_IDENTITY_AUTO_DISCOVERY` unset, so `after-pack.mjs` bails out and electron-builder signs with hardened runtime. No conflict to unwind.
+- [x] Entitlements (`build/entitlements.mac.plist`) already include `allow-jit`, `allow-unsigned-executable-memory`, and `disable-library-validation` — all permitted under notarization.
+
+**Remaining — owner actions (require an Apple Developer account):**
+
+- [ ] Enroll in the Apple Developer Program ($99/yr). Individual is fastest; an organization account (to show "Sero Labs" as the signer) needs a D-U-N-S number.
+- [ ] Create a **Developer ID Application** certificate and export it (with its private key) from Keychain as `.p12`. Base64-encode for CI: `base64 -i DeveloperID.p12 | pbcopy`.
+- [ ] Create an app-specific password for the Apple ID at appleid.apple.com (for notarytool).
+- [ ] Add GitHub Actions repository secrets (names must match exactly):
   - `CSC_LINK` — base64-encoded `.p12`
   - `CSC_KEY_PASSWORD` — certificate password
-  - `APPLE_ID` — Apple ID used for notarization
+  - `APPLE_ID` — Apple ID email used for notarization
   - `APPLE_APP_SPECIFIC_PASSWORD` — app-specific password for that Apple ID
   - `APPLE_TEAM_ID` — 10-character team ID
-- [ ] In `release.yml`, pass these secrets as env vars to the macOS build step, and stop forcing the unsigned path (`build-release.sh --sign`) so electron-builder signs with the cert.
-- [ ] Re-enable `afterSign` in `electron-builder.yml` (currently `null`) to point at a notarization script. electron-builder supports `afterSign: build/notarize.js`. A minimal notarize script:
-
-  ```js
-  // build/notarize.js
-  const { notarize } = require('@electron/notarize');
-  exports.default = async (context) => {
-    if (context.electronPlatformName !== 'darwin') return;
-    await notarize({
-      tool: 'notarytool',
-      appBundleId: 'app.sero',
-      appPath: context.appOutDir + '/Sero.app',
-      appleId: process.env.APPLE_ID,
-      appleIdPassword: process.env.APPLE_APP_SPECIFIC_PASSWORD,
-      teamId: process.env.APPLE_TEAM_ID,
-    });
-  };
-  ```
-
-- [ ] Add `@electron/notarize` as a dev dependency in `apps/desktop/`.
-- [ ] Verify entitlements file `build/entitlements.mac.plist` includes `com.apple.security.cs.allow-jit` if needed for JIT (node-pty uses a pseudo-TTY, usually not required).
-- [ ] Test a signed + notarized build before wiring into CI by running `build-release.sh --sign` locally with the cert in Keychain.
+- [ ] Test locally before relying on CI: `CSC_LINK=/path/to.p12 CSC_KEY_PASSWORD=… APPLE_ID=… APPLE_APP_SPECIFIC_PASSWORD=… APPLE_TEAM_ID=… pnpm --filter @sero/desktop release:signed`, then confirm with `spctl -a -vvv -t exec release/mac-arm64/Sero.app` (should say `accepted`/`source=Notarized Developer ID`) and `xcrun stapler validate release/mac-arm64/Sero.app`.
+- [ ] After the first notarized release ships, simplify the install docs (drop the "Open Anyway" instructions — the DMG will open on double-click).
 
 ---
 
