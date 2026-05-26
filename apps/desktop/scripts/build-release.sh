@@ -309,9 +309,16 @@ if [ "$SIGN" = true ]; then
     echo "ERROR: signing requires CSC_LINK env var (path to or base64 of the .p12 certificate)"
     exit 1
   fi
-  # Notarize when notarytool credentials are present; electron-builder signs with
-  # Developer ID, submits to Apple's notary service, and staples the ticket.
-  if [ "$TARGET" = "mac" ] && [ -n "${APPLE_TEAM_ID:-}" ] && [ -n "${APPLE_ID:-}" ] && [ -n "${APPLE_APP_SPECIFIC_PASSWORD:-}" ]; then
+  # Notarization credentials are all-or-nothing. Skip notarization only when all three are
+  # absent (intentional sign-only build); if any is set, require all three and fail loudly.
+  # Otherwise a partial/misnamed secret would silently ship a signed-but-not-notarized app
+  # that passes `codesign --verify` yet still trips Gatekeeper for users.
+  if [ -n "${APPLE_TEAM_ID:-}" ] || [ -n "${APPLE_ID:-}" ] || [ -n "${APPLE_APP_SPECIFIC_PASSWORD:-}" ]; then
+    if [ -z "${APPLE_TEAM_ID:-}" ] || [ -z "${APPLE_ID:-}" ] || [ -z "${APPLE_APP_SPECIFIC_PASSWORD:-}" ]; then
+      echo "ERROR: incomplete notarization credentials. Set all of APPLE_TEAM_ID, APPLE_ID, and"
+      echo "       APPLE_APP_SPECIFIC_PASSWORD (check the secret names), or none for a sign-only build."
+      exit 1
+    fi
     echo "▸ Signing with Developer ID and notarizing via notarytool (team ${APPLE_TEAM_ID})"
     # electron-builder 25 reads APPLE_TEAM_ID / APPLE_ID / APPLE_APP_SPECIFIC_PASSWORD from the
     # environment; notarize is enabled as a boolean (the notarize.teamId form is rejected).
