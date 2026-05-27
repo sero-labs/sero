@@ -9,3 +9,5 @@ dist/
 electron/features/gateway/web-dist/
 # electron-builder output
 release/
+# pnpm deploy bundle handed to electron-builder (scripts/build-release.sh)
+.package-deploy/

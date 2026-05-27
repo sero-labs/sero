@@ -21,8 +21,13 @@ MONO_ROOT="$(cd "$PROJECT_DIR/../.." && pwd)"
 
 cd "$PROJECT_DIR"
 
+# Self-contained production bundle produced by `pnpm deploy` and handed to
+# electron-builder. Kept out of the git tree (see .gitignore).
+DEPLOY_DIR="$PROJECT_DIR/.package-deploy"
+
 cleanup_packaging() {
   node "$PROJECT_DIR/scripts/cleanup-packaging.mjs" || true
+  rm -rf "$DEPLOY_DIR"
 }
 trap cleanup_packaging EXIT
 
@@ -265,21 +270,42 @@ fi
 # Replace the dev symlink with a real copy so electron-builder packages the SPA.
 node scripts/prepare-packaging.mjs
 
-# ── Step 5: Rebuild native modules for Electron ─────────────
-# electron-builder's npmRebuild is disabled (pnpm workspace symlinks break it),
-# so we rebuild node-pty and better-sqlite3 manually against Electron's Node ABI.
-echo "▸ Step 5/6: Rebuilding native modules for Electron..."
+# ── Step 5: Create a self-contained deploy bundle ───────────
+# pnpm's isolated node_modules layout makes electron-builder's dependency
+# collector silently drop transitive deps of externalized packages (e.g. the
+# pi SDK's @mariozechner/pi-ai → partial-json/openai/@anthropic-ai/sdk), which
+# crashes the packaged app at startup. `pnpm deploy` with a hoisted linker emits
+# a flat, fully-resolved *production* node_modules that electron-builder packages
+# reliably — so we no longer hand-maintain a node_modules allowlist.
+echo "▸ Step 5/6: Creating deploy bundle + rebuilding native modules..."
 ELECTRON_VERSION="$(ELECTRON_RUN_AS_NODE=1 pnpm --dir "$PROJECT_DIR" exec electron -e "process.stdout.write(process.versions.electron)")"
 if [ -z "$ELECTRON_VERSION" ]; then
   echo "ERROR: Failed to read installed Electron version"
   exit 1
 fi
-if pnpm --dir "$PROJECT_DIR" exec electron-rebuild -f --version "$ELECTRON_VERSION" --module-dir "$MONO_ROOT" -w node-pty,better-sqlite3; then
-  echo "  Rebuilt node-pty + better-sqlite3 for Electron ${ELECTRON_VERSION}"
+
+rm -rf "$DEPLOY_DIR"
+cd "$MONO_ROOT"
+# inject-workspace-packages: required by pnpm v10's lockfile-backed deploy
+# implementation. Keep this scoped to release packaging instead of changing the
+# workspace install layout repo-wide.
+# node-linker=hoisted: flat node_modules so every transitive dep resolves at the
+# top level and electron-builder collects the complete tree.
+# HUSKY=0 stops the deploy's lifecycle from re-running the repo's `prepare`
+# (husky git-hook install), which is pointless during packaging and aborts the
+# build when husky/git is unavailable in the release environment.
+HUSKY=0 NPM_CONFIG_NODE_LINKER=hoisted NPM_CONFIG_INJECT_WORKSPACE_PACKAGES=true \
+  pnpm --filter @sero/desktop deploy --prod "$DEPLOY_DIR"
+cd "$PROJECT_DIR"
+
+# Rebuild native modules against Electron's ABI inside the deploy bundle. The
+# deployed copies come from the pnpm store with prebuilt/host-ABI binaries.
+# electron-builder's own npmRebuild stays disabled (it cannot drive pnpm).
+if pnpm --dir "$PROJECT_DIR" exec electron-rebuild -f --version "$ELECTRON_VERSION" --module-dir "$DEPLOY_DIR" -w node-pty,better-sqlite3; then
+  echo "  Rebuilt native modules for Electron ${ELECTRON_VERSION} in deploy bundle"
 else
   echo ""
   echo "  ⚠ electron-rebuild failed — native modules may use host Node ABI"
-  echo "  Ensure @electron/rebuild is installed in apps/desktop"
   echo "  (terminals and database will fail in packaged build without correct ABI)"
   exit 1
 fi
@@ -293,7 +319,19 @@ echo "▸ Step 6/6: Packaging with electron-builder..."
 # than an electron-builder distributable target. Uploading is handled separately
 # by the release workflow's `gh release upload` step, so the build must never
 # push to GitHub itself (it also has no GH_TOKEN).
-BUILDER_ARGS=(--config electron-builder.yml --publish never "$BUILDER_FLAG")
+# Package the deploy bundle, not apps/desktop: --projectDir points electron-builder
+# at the flat production tree. electronVersion is pinned explicitly because the
+# `electron` devDependency is absent from the production deploy. Output is
+# redirected back to apps/desktop/release where the rest of this script (and the
+# release workflow) looks for artifacts.
+BUILDER_ARGS=(
+  --config "$DEPLOY_DIR/electron-builder.yml"
+  --projectDir "$DEPLOY_DIR"
+  -c.electronVersion="$ELECTRON_VERSION"
+  -c.directories.output="$PROJECT_DIR/release"
+  --publish never
+  "$BUILDER_FLAG"
+)
 # Linux releases are Debian packages built with dpkg-deb after electron-builder
 # creates the unpacked app directory. This keeps maintainer scripts consistent
 # across architectures and avoids electron-builder's bundled fpm helper, which
