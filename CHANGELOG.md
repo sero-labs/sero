@@ -6,6 +6,26 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 and beta release tags use a SemVer prerelease form.
 
 
+## [0.2.0-beta.0](https://github.com/sero-labs/sero/compare/v0.1.2-beta.0...v0.2.0-beta.0) (2026-05-27)
+
+### Features
+
+* macOS Developer ID signing + notarization ([#192](https://github.com/sero-labs/sero/issues/192)) ([f9cd8f4](https://github.com/sero-labs/sero/commit/f9cd8f4ef01cb43e47fbcd82a778f47dd41b3c2a))
+
+### Bug Fixes
+
+* ad-hoc sign macOS beta app bundles ([#191](https://github.com/sero-labs/sero/issues/191)) ([982ba61](https://github.com/sero-labs/sero/commit/982ba6198e52088579a2ef0589a7ad7f97bd66f6))
+* **deps:** apply safe dependabot updates ([b9ef7e0](https://github.com/sero-labs/sero/commit/b9ef7e095cf9acd01b13da938ca29d0972252d23))
+* **deps:** update tmp dependency chain ([59472ce](https://github.com/sero-labs/sero/commit/59472ce8ff22aabd490eb12c6fd5574401d92e94))
+* import electron updater autoUpdater correctly ([840ad55](https://github.com/sero-labs/sero/commit/840ad55c4e6b5a6be87b711af2c20440413848dc))
+* remove stale release assets ([68a467a](https://github.com/sero-labs/sero/commit/68a467a21ef9a8d1372088fa08d5daa8cac7f140))
+* sync desktop release version ([66c29a3](https://github.com/sero-labs/sero/commit/66c29a3c629db5fcc8fdd07c862236fffdc76cc5))
+
+### Documentation
+
+* add desktop auto-update analysis and recommendation ([#193](https://github.com/sero-labs/sero/issues/193)) ([27323bf](https://github.com/sero-labs/sero/commit/27323bf09294ea43cb49ade541b3fe77e86836c2))
+* macOS releases are signed + notarized — drop "Open Anyway" steps ([85827e3](https://github.com/sero-labs/sero/commit/85827e30515198085871e77e1a0e7e7bab7790f4))
+
 ## [0.1.2-beta.0](https://github.com/sero-labs/sero/compare/v0.1.1-beta...v0.1.2-beta.0) (2026-05-25)
 
 ### Bug Fixes
