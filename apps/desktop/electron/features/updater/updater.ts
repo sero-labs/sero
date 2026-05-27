@@ -11,7 +11,7 @@
  * so init/checks are no-ops outside a packaged build.
  */
 
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, dialog } from 'electron';
 import electronUpdater from 'electron-updater';
 import { IpcChannels } from '@/types/ipc-channels';
 import type { UpdaterStatusEvent } from '@/types/ipc';
@@ -36,6 +36,34 @@ function broadcast(status: UpdaterStatusEvent): void {
 
 export function getUpdaterStatus(): UpdaterStatusEvent {
   return lastStatus;
+}
+
+// A manual check from the app menu must give visible feedback even when nothing
+// is downloading. The renderer indicator only shows for in-flight updates, so
+// "up to date" and error results surface as a native dialog.
+function notifyManualResult(kind: 'up-to-date' | 'error', detail?: string): void {
+  const parent = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0] ?? null;
+  const options =
+    kind === 'up-to-date'
+      ? {
+          type: 'info' as const,
+          message: 'You’re up to date',
+          detail: `Sero ${app.getVersion()} is the latest version.`,
+          buttons: ['OK'],
+          defaultId: 0,
+        }
+      : {
+          type: 'error' as const,
+          message: 'Update check failed',
+          detail: detail ?? 'Could not check for updates. Please try again later.',
+          buttons: ['OK'],
+          defaultId: 0,
+        };
+  if (parent) {
+    void dialog.showMessageBox(parent, options);
+  } else {
+    void dialog.showMessageBox(options);
+  }
 }
 
 async function runCheck(manual: boolean): Promise<void> {
@@ -69,8 +97,10 @@ export function initUpdater(): void {
     broadcast({ state: 'available', version: info.version, manual: manualCheck });
   });
   autoUpdater.on('update-not-available', (info) => {
-    broadcast({ state: 'not-available', version: info?.version, manual: manualCheck });
+    const wasManual = manualCheck;
+    broadcast({ state: 'not-available', version: info?.version, manual: wasManual });
     manualCheck = false;
+    if (wasManual) notifyManualResult('up-to-date');
   });
   autoUpdater.on('download-progress', (progress) => {
     broadcast({ state: 'downloading', percent: Math.round(progress.percent) });
@@ -80,12 +110,11 @@ export function initUpdater(): void {
     manualCheck = false;
   });
   autoUpdater.on('error', (err) => {
-    broadcast({
-      state: 'error',
-      message: err instanceof Error ? err.message : String(err),
-      manual: manualCheck,
-    });
+    const wasManual = manualCheck;
+    const message = err instanceof Error ? err.message : String(err);
+    broadcast({ state: 'error', message, manual: wasManual });
     manualCheck = false;
+    if (wasManual) notifyManualResult('error', message);
   });
 
   void runCheck(false);

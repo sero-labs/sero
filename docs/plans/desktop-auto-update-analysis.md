@@ -61,10 +61,21 @@ toast ("Restart to update" / "Later").
 ### 2. Linux — `.deb` CAN self-update (revises earlier assumption)
 Current electron-updater (6.x) ships a `DebUpdater` (plus `RpmUpdater` /
 `PacmanUpdater`), added in electron-builder PR #7060 — so **`.deb` auto-update is
-supported natively and AppImage is not required**. The updater reads
-`latest-linux.yml` (already published by the pipeline), downloads the new `.deb`,
-and installs it via a GUI privilege prompt (pkexec / gksudo / kdesudo) running
-`dpkg -i … || apt-get install -f -y`.
+supported natively and AppImage is not required**. The updater reads the
+channel feed (`beta-linux.yml` for the current beta; `latest-linux.yml` once
+stable), downloads the new `.deb`, and installs it via a GUI privilege prompt
+(pkexec / gksudo / kdesudo) running `dpkg -i … || apt-get install -f -y`.
+
+**Important — the Linux feed is NOT produced by electron-builder in this repo.**
+The release path builds the `.deb` with `dpkg-deb` (electron-builder runs
+`--dir` only), to keep the chrome-sandbox setuid maintainer scripts consistent
+across x64/arm64 (a rule enforced by `verify-host-mode-release.mjs`). That path
+does not emit a distributable, so two things are produced manually in
+`build-linux-deb.mjs`: (1) the `resources/package-type` marker (`deb`) that
+electron-updater needs to select `DebUpdater` instead of the AppImage fallback,
+and (2) the arch-specific feed YAML (`<channel>-linux.yml` /
+`<channel>-linux-arm64.yml`). The embedded `resources/app-update.yml` (provider
++ channel) is still written by electron-builder's `--dir` afterPack stage.
 
 This is the right fit for the build-time / storage goals: keeping `deb`-only adds
 **no** extra artifacts and reuses the package already built. AppImage was removed in

@@ -286,10 +286,13 @@ fi
 
 # ── Step 6: Package with electron-builder ────────────────────
 echo "▸ Step 6/6: Packaging with electron-builder..."
-# --publish never: the GitHub `publish` stanza exists only so electron-builder
-# emits the auto-update metadata (latest*.yml + .blockmap). Uploading is handled
-# separately by the release workflow's `gh release upload` step, so the build
-# must never push to GitHub itself (it also has no GH_TOKEN).
+# --publish never: the GitHub `publish` stanza makes electron-builder embed
+# resources/app-update.yml and (for the mac/win distributable targets) emit the
+# update feed metadata (latest/beta*.yml + .blockmap). The Linux feed is produced
+# by build-linux-deb.mjs instead, because the .deb is built with dpkg-deb rather
+# than an electron-builder distributable target. Uploading is handled separately
+# by the release workflow's `gh release upload` step, so the build must never
+# push to GitHub itself (it also has no GH_TOKEN).
 BUILDER_ARGS=(--config electron-builder.yml --publish never "$BUILDER_FLAG")
 # Linux releases are Debian packages built with dpkg-deb after electron-builder
 # creates the unpacked app directory. This keeps maintainer scripts consistent
