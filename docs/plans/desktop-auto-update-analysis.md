@@ -55,12 +55,30 @@ toast ("Restart to update" / "Later").
   plan and is a prerequisite, not a parallel task. Until an Apple Developer ID
   cert is in CI, fall back to a "download update" link on macOS.
 
-### 2. Linux — `.deb` cannot self-update via electron-updater
-electron-updater supports only **AppImage** (and pacman) for Linux auto-update,
-**not `.deb`**. Linux target is `deb` only. Options: add an `AppImage` target for
-the self-updating path (keep `.deb` for apt-style install), or accept that Linux
-updates stay manual / handled by an apt repo. This is the largest gap between the
-distribution plan's "all platforms" claim and reality.
+### 2. Linux — `.deb` CAN self-update (revises earlier assumption)
+Current electron-updater (6.x) ships a `DebUpdater` (plus `RpmUpdater` /
+`PacmanUpdater`), added in electron-builder PR #7060 — so **`.deb` auto-update is
+supported natively and AppImage is not required**. The updater reads
+`latest-linux.yml` (already published by the pipeline), downloads the new `.deb`,
+and installs it via a GUI privilege prompt (pkexec / gksudo / kdesudo) running
+`dpkg -i … || apt-get install -f -y`.
+
+This is the right fit for the build-time / storage goals: keeping `deb`-only adds
+**no** extra artifacts and reuses the package already built. AppImage was removed in
+706ee3e for exactly those reasons and does **not** need to come back to enable
+auto-update.
+
+Trade-offs vs. AppImage:
+- **deb-only (recommended):** no extra artifacts. Cost — the update shows a
+  sudo/password prompt (not a silent swap), needs a graphical pkexec present, and
+  only covers Debian/Ubuntu derivatives (consistent with shipping `deb` anyway).
+- **AppImage:** seamless silent update, distro-agnostic — but adds a full packaged
+  artifact per arch (the build-time/storage cost just removed) and isn't
+  installable like a deb (no apt / menu integration), the original friction.
+
+Caveat: DebUpdater has had install-command quoting bugs on some Ubuntu versions
+(issue #8395). Pin a recent `electron-updater` and smoke-test an actual
+deb→deb update on a real Ubuntu box before relying on it.
 
 ### 3. Releases are drafts + version is a `-beta` prerelease
 - The workflow creates releases as **draft by default** (`release.yml:217`).
@@ -77,7 +95,9 @@ distribution plan's "all platforms" claim and reality.
 1. **Windows first** — NSIS supports electron-updater out of the box; no signing
    strictly required (only SmartScreen warnings). Fastest end-to-end proof.
 2. **macOS** — add `zip` target, then gate on signing/notarization (Gap 2).
-3. **Linux** — decide AppImage vs. manual; if AppImage, add the target.
+3. **Linux** — `.deb` auto-update via `DebUpdater` works with the package already
+   built; smoke-test on Ubuntu. Reinstate AppImage only if a silent (no-sudo)
+   update UX is required.
 
 ## Suggested first PR scope
 
@@ -87,4 +107,6 @@ Cross-platform plumbing + Windows (unblocked today):
 - channel / prerelease config
 - update-ready UI (toast / Admin or Doctor panel)
 
-Follow-ups: macOS zip target + signing/notarization; Linux AppImage decision.
+Follow-ups: macOS zip target + signing/notarization; Linux deb→deb update
+smoke-test on Ubuntu (optional AppImage only if a silent, no-sudo update UX is
+needed).
