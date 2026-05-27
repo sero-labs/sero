@@ -60,6 +60,8 @@ import {
 } from './shared/settings/model-fallback-chain';
 import { getDefaultMemoryLoggingSettings, ensureConfiguredMemoryLoggingSettings } from './shared/settings/memory-logging-settings';
 import { ensureHostSeroCliBridge } from './cli/host-bridge/server';
+import { initUpdater } from './features/updater/updater';
+import { installApplicationMenu } from './features/updater/menu';
 
 let mainWindow: BrowserWindow | null = null;
 let isGracefullyShuttingDown = false;
@@ -291,6 +293,10 @@ app.whenReady().then(async () => {
   }
 
   createWindow();
+
+  // Application menu (adds "Check for Updates…") + background auto-update.
+  installApplicationMenu();
+  initUpdater();
 });
 
 app.on('window-all-closed', () => {

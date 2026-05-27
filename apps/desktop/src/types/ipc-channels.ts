@@ -459,4 +459,14 @@ export const IpcChannels = {
     /** Reserved for v2 — invoke a registered repair. Returns 501 in v1. */
     repair: 'sero:doctor:repair',
   },
+  updater: {
+    /** Trigger a manual update check. */
+    check: 'sero:updater:check',
+    /** Read the latest known updater status. */
+    getStatus: 'sero:updater:get-status',
+    /** Quit and install a downloaded update. */
+    restart: 'sero:updater:restart',
+    /** Main → renderer push: updater status changes. */
+    event: 'sero:updater:event',
+  },
 } as const;

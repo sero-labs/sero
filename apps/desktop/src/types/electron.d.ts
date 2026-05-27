@@ -79,6 +79,7 @@ import type {
   TerminalCreateResult,
 } from './ipc';
 import type { SeroDoctorAPI } from './electron-doctor';
+import type { SeroUpdaterAPI } from './electron-updater';
 
 interface SeroSessionsAPI {
   /** List sessions. Optionally filter by workspace ID. */
@@ -445,6 +446,7 @@ export interface SeroAPI {
   localModels: SeroLocalModelsAPI;
   pluginConfig: SeroPluginConfigAPI;
   doctor: SeroDoctorAPI;
+  updater: SeroUpdaterAPI;
 }
 
 declare global {

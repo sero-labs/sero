@@ -498,3 +498,7 @@ export type {
   DoctorRunArgs,
   DoctorStatus,
 } from './doctor';
+
+// ── Auto-update ────────────────────────────────────────────────
+
+export type { UpdaterStatusEvent } from './updater';
