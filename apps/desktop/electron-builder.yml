@@ -28,24 +28,12 @@ files:
   # packaged app bundles. The app downloads/verifies them from published metadata.
   - "!dist/browser-pack/**"
   - "!release/**"
-  # Native modules — electron-builder rebuilds these for the target
-  - node_modules/node-pty/**/*
-  - node_modules/better-sqlite3/**/*
-  # Sero workspace packages + Pi SDK dependencies (externalized by builds)
-  - node_modules/@sero-ai/**/*
-  - node_modules/@mariozechner/**/*
-  - node_modules/@sinclair/**/*
-  - node_modules/@google/**/*
-  # Pi SDK runtime syntax highlighting dependencies. Include these explicitly so
-  # pnpm's nested chalk@4 dependency does not resolve to an incompatible chalk@5
-  # or ansi-styles@6 when packaged into app.asar.
-  - node_modules/cli-highlight/**/*
-  - node_modules/chalk/**/*
-  - node_modules/ansi-styles/**/*
-  - node_modules/supports-color/**/*
-  - node_modules/ws/**/*
-  - node_modules/discord.js/**/*
-  - node_modules/@discordjs/**/*
+  # Production node_modules are collected automatically by electron-builder from
+  # the flat `pnpm deploy` bundle that scripts/build-release.sh packages (via
+  # --projectDir). Do NOT reintroduce an explicit node_modules/* allowlist here:
+  # listing a package subtree makes electron-builder copy that package's own
+  # files but skip collecting its transitive dependencies, which silently drops
+  # them from app.asar (this is what broke the pi SDK's partial-json at startup).
   # Exclude dev/build artifacts
   - "!**/{test,tests,__tests__,__mocks__}/**"
   # Keep .ts sources: Pi package extensions are loaded via jiti at runtime,

@@ -1,21 +1,15 @@
-import { spawnSync } from 'child_process';
-import { createRequire } from 'module';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const requireFromScript = createRequire(import.meta.url);
 const projectRoot = path.resolve(__dirname, '..');
-const monoRoot = path.resolve(projectRoot, '../..');
 
 const electronMainPath = path.join(projectRoot, 'dist/electron/main.mjs');
 const rendererIndexPath = path.join(projectRoot, 'dist/renderer/index.html');
 const webDistSource = path.join(projectRoot, 'electron/features/gateway/web-dist');
 const webDistDest = path.join(projectRoot, 'dist/electron/web-dist');
 const webRemotePackageJson = path.resolve(projectRoot, '../web-remote/package.json');
-const desktopPackageJson = path.join(projectRoot, 'package.json');
-const statePath = path.join(projectRoot, '.sero-packaging-state.json');
 
 function ensureBuildOutputExists(filePath, description) {
   if (!fs.existsSync(filePath)) {
@@ -23,156 +17,14 @@ function ensureBuildOutputExists(filePath, description) {
   }
 }
 
-function packageNodeModulePath(packageName) {
-  return path.join(projectRoot, 'node_modules', ...packageName.split('/'));
-}
-
-function sourceForWorkspacePackage(packageName) {
-  const [, unscopedName] = packageName.split('/');
-  return path.join(monoRoot, 'packages', unscopedName ?? '');
-}
-
-function getWorkspaceNodeModules() {
-  const pkg = JSON.parse(fs.readFileSync(desktopPackageJson, 'utf8'));
-  const dependencyNames = [
-    ...Object.keys(pkg.dependencies ?? {}),
-    ...Object.keys(pkg.devDependencies ?? {}),
-  ];
-  return [...new Set(dependencyNames)]
-    .filter((packageName) => packageName.startsWith('@sero-ai/'))
-    .map((packageName) => ({ packageName, source: sourceForWorkspacePackage(packageName) }))
-    .filter(({ packageName, source }) => {
-      const exists = fs.existsSync(source);
-      if (!exists) console.warn(`  Skipping ${packageName}: workspace source not found at ${source}`);
-      return exists;
-    });
-}
-
-function snapshotExistingPackage(packageName) {
-  const dest = packageNodeModulePath(packageName);
-  if (!fs.existsSync(dest)) return { packageName, type: 'missing' };
-
-  const stat = fs.lstatSync(dest);
-  if (stat.isSymbolicLink()) {
-    return { packageName, type: 'symlink', target: fs.readlinkSync(dest) };
-  }
-
-  const backupPath = path.join(
-    path.dirname(dest),
-    `.${path.basename(dest)}.sero-packaging-backup`,
-  );
-  fs.rmSync(backupPath, { recursive: true, force: true });
-  fs.renameSync(dest, backupPath);
-  return { packageName, type: 'directory', backupPath };
-}
-
-function readPackagingState() {
-  if (!fs.existsSync(statePath)) return { entries: [], generatedPaths: [] };
-  const state = JSON.parse(fs.readFileSync(statePath, 'utf8'));
-  return {
-    entries: Array.isArray(state.entries) ? state.entries : [],
-    generatedPaths: Array.isArray(state.generatedPaths) ? state.generatedPaths : [],
-  };
-}
-
-function writePackagingState(state) {
-  fs.writeFileSync(statePath, JSON.stringify(state, null, 2) + '\n');
-}
-
-function materializeWorkspaceNodeModules() {
-  // Recover from an interrupted previous packaging run before taking a new
-  // snapshot. The cleanup script restores pnpm workspace symlinks if needed.
-  if (fs.existsSync(statePath)) {
-    console.warn('  Found previous packaging state; restoring before preparing again');
-    runCleanup();
-  }
-
-  const packages = getWorkspaceNodeModules();
-  const state = { entries: [], generatedPaths: [] };
-
-  // electron-builder cannot pack pnpm workspace symlinks that resolve outside
-  // apps/desktop, so copy workspace @sero-ai packages into place temporarily.
-  for (const { packageName, source } of packages) {
-    const dest = packageNodeModulePath(packageName);
-    state.entries.push(snapshotExistingPackage(packageName));
-    writePackagingState(state);
-    fs.rmSync(dest, { recursive: true, force: true });
-    fs.mkdirSync(path.dirname(dest), { recursive: true });
-    fs.cpSync(source, dest, {
-      recursive: true,
-      dereference: true,
-      filter: (entry) => !['.turbo', 'node_modules'].includes(path.basename(entry)),
-    });
-  }
-
-  writePackagingState(state);
-  console.log('  Materialized workspace @sero-ai packages for packaging');
-}
-
-function runCleanup() {
-  // Keep prepare-packaging self-healing while leaving cleanup-packaging as the
-  // normal post-packaging path used by npm scripts and build-release.sh.
-  const cleanupPath = path.join(__dirname, 'cleanup-packaging.mjs');
-  const { status } = spawnSync(process.execPath, [cleanupPath], { stdio: 'inherit' });
-  if (status !== 0) {
-    throw new Error('Failed to restore previous packaging state');
-  }
-}
-
-function resolvePackageJson(packageName, fromPath = projectRoot) {
-  return requireFromScript.resolve(`${packageName}/package.json`, { paths: [fromPath] });
-}
-
-function copyGeneratedDependency(packageName, targetNodeModules, fromPath = projectRoot) {
-  const sourcePackageJson = resolvePackageJson(packageName, fromPath);
-  const source = path.dirname(sourcePackageJson);
-  const dest = path.join(targetNodeModules, packageName);
-
-  fs.rmSync(dest, { recursive: true, force: true });
-  fs.mkdirSync(path.dirname(dest), { recursive: true });
-  fs.cpSync(source, dest, { recursive: true, dereference: true });
-  return dest;
-}
-
-function verifyCliHighlightRuntimeResolution() {
-  const requireFromDesktop = createRequire(path.join(projectRoot, 'package.json'));
-  const theme = requireFromDesktop('cli-highlight/dist/theme');
-  if (typeof theme.DEFAULT_THEME?.type !== 'function') {
-    throw new Error('cli-highlight runtime theme failed to resolve chalk styles');
-  }
-}
-
-function materializeCliHighlightChalkDeps() {
-  const cliHighlightPackageJson = resolvePackageJson('cli-highlight');
-  const chalkPackageJson = resolvePackageJson('chalk', path.dirname(cliHighlightPackageJson));
-  const chalkPackage = JSON.parse(fs.readFileSync(chalkPackageJson, 'utf8'));
-  if (!String(chalkPackage.version).startsWith('4.')) {
-    throw new Error(`cli-highlight must package chalk 4.x, found ${chalkPackage.version}`);
-  }
-
-  const targetNodeModules = path.join(path.dirname(chalkPackageJson), 'node_modules');
-  const ansiStylesRoot = path.dirname(resolvePackageJson('ansi-styles'));
-  const colorConvertRoot = path.dirname(resolvePackageJson('color-convert', ansiStylesRoot));
-  const supportsColorRoot = path.dirname(resolvePackageJson('supports-color'));
-  const state = readPackagingState();
-  const generatedPaths = [...state.generatedPaths, targetNodeModules];
-  writePackagingState({ entries: state.entries, generatedPaths });
-
-  for (const [packageName, fromPath] of [
-    ['ansi-styles', projectRoot],
-    ['supports-color', projectRoot],
-    ['color-convert', ansiStylesRoot],
-    ['color-name', colorConvertRoot],
-    ['has-flag', supportsColorRoot],
-  ]) {
-    generatedPaths.push(copyGeneratedDependency(packageName, targetNodeModules, fromPath));
-    writePackagingState({ entries: state.entries, generatedPaths });
-  }
-
-  verifyCliHighlightRuntimeResolution();
-  console.log('  Materialized cli-highlight chalk dependencies for packaging');
-}
-
+// build:electron leaves dist/electron/web-dist as a symlink into the source tree
+// for fast local iteration. Replace it with a real copy so the downstream
+// `pnpm deploy` bundle and electron-builder package the SPA contents instead of
+// a symlink that resolves outside the bundle.
+//
+// Workspace @sero-ai packages and the pi SDK's chalk@4 chain used to be
+// hand-materialized here too; the hoisted `pnpm deploy` bundle now resolves both
+// correctly, so that logic was removed (see scripts/build-release.sh).
 function materializeWebDistForPackaging() {
   const hasWebRemoteApp = fs.existsSync(webRemotePackageJson);
   if (!hasWebRemoteApp) {
@@ -198,6 +50,4 @@ function materializeWebDistForPackaging() {
 
 ensureBuildOutputExists(electronMainPath, 'Electron bundle');
 ensureBuildOutputExists(rendererIndexPath, 'Renderer bundle');
-materializeWorkspaceNodeModules();
-materializeCliHighlightChalkDeps();
 materializeWebDistForPackaging();
