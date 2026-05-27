@@ -286,14 +286,16 @@ fi
 
 rm -rf "$DEPLOY_DIR"
 cd "$MONO_ROOT"
-# --legacy: deploy without injected workspace packages (pnpm v10 default would
-# otherwise require inject-workspace-packages repo-wide).
+# inject-workspace-packages: required by pnpm v10's lockfile-backed deploy
+# implementation. Keep this scoped to release packaging instead of changing the
+# workspace install layout repo-wide.
 # node-linker=hoisted: flat node_modules so every transitive dep resolves at the
 # top level and electron-builder collects the complete tree.
 # HUSKY=0 stops the deploy's lifecycle from re-running the repo's `prepare`
 # (husky git-hook install), which is pointless during packaging and aborts the
 # build when husky/git is unavailable in the release environment.
-HUSKY=0 NPM_CONFIG_NODE_LINKER=hoisted pnpm --filter @sero/desktop deploy --prod --legacy "$DEPLOY_DIR"
+HUSKY=0 NPM_CONFIG_NODE_LINKER=hoisted NPM_CONFIG_INJECT_WORKSPACE_PACKAGES=true \
+  pnpm --filter @sero/desktop deploy --prod "$DEPLOY_DIR"
 cd "$PROJECT_DIR"
 
 # Rebuild native modules against Electron's ABI inside the deploy bundle. The
