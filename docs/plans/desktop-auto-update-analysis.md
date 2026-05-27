@@ -45,15 +45,18 @@ toast ("Restart to update" / "Later").
 
 ## Blockers / constraints to decide first
 
-### 1. macOS — needs a `zip` target AND signing (hard blocker)
-- Mac target is **`dmg` only** (`electron-builder.yml:57-59`). Squirrel.Mac
-  (electron-updater on macOS) can only update from a **`.zip`**, not a dmg. Ship
-  the dmg for first install *and* build a zip for the updater. (`build-release.sh:83`
-  already lists `release/*.zip` for mac, but nothing produces it yet.)
-- macOS auto-update **requires a signed + notarized build** — Squirrel validates
-  the signature or the update silently fails. This is Gap 2 in the distribution
-  plan and is a prerequisite, not a parallel task. Until an Apple Developer ID
-  cert is in CI, fall back to a "download update" link on macOS.
+### 1. macOS — signing/notarization DONE; only the `zip` target remains
+- **Signing + notarization is now in place** (commit f9cd8f4 / #192). `build-release.sh`
+  auto-enables Developer ID signing when `CSC_LINK` is set and notarizes via
+  electron-builder's native notarytool (`-c.mac.notarize=true`) when `APPLE_ID` /
+  `APPLE_APP_SPECIFIC_PASSWORD` / `APPLE_TEAM_ID` are present; `release.yml` passes
+  those secrets to the macOS build. This was the hard prerequisite (Gap 2) — Squirrel
+  validates the signature or the update silently fails — and it's resolved.
+- **Remaining blocker:** the mac target is still **`dmg` only**. Squirrel.Mac can only
+  update from a **`.zip`**, not a dmg, so add a `zip` target alongside `dmg` (ship the
+  dmg for first install, the zip for the updater). `build-release.sh:83` already lists
+  `release/*.zip` for mac, so the artifact glob is ready — nothing produces the zip yet.
+  Once the zip target is added, macOS silent auto-update is unblocked.
 
 ### 2. Linux — `.deb` CAN self-update (revises earlier assumption)
 Current electron-updater (6.x) ships a `DebUpdater` (plus `RpmUpdater` /
@@ -94,7 +97,8 @@ deb→deb update on a real Ubuntu box before relying on it.
 
 1. **Windows first** — NSIS supports electron-updater out of the box; no signing
    strictly required (only SmartScreen warnings). Fastest end-to-end proof.
-2. **macOS** — add `zip` target, then gate on signing/notarization (Gap 2).
+2. **macOS** — signing/notarization already done (#192); just add a `zip` target to
+   unblock Squirrel.Mac updates.
 3. **Linux** — `.deb` auto-update via `DebUpdater` works with the package already
    built; smoke-test on Ubuntu. Reinstate AppImage only if a silent (no-sudo)
    update UX is required.
@@ -107,6 +111,6 @@ Cross-platform plumbing + Windows (unblocked today):
 - channel / prerelease config
 - update-ready UI (toast / Admin or Doctor panel)
 
-Follow-ups: macOS zip target + signing/notarization; Linux deb→deb update
-smoke-test on Ubuntu (optional AppImage only if a silent, no-sudo update UX is
-needed).
+Follow-ups: macOS `zip` target (signing/notarization already landed in #192); Linux
+deb→deb update smoke-test on Ubuntu (optional AppImage only if a silent, no-sudo
+update UX is needed).
