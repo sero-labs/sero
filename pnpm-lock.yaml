@@ -120,24 +120,9 @@ importers:
 
   apps/desktop:
     dependencies:
-      '@dnd-kit/core':
-        specifier: ^6.3.1
-        version: 6.3.1(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
-      '@dnd-kit/sortable':
-        specifier: ^10.0.0
-        version: 10.0.0(@dnd-kit/core@6.3.1(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(react@19.2.5)
-      '@dnd-kit/utilities':
-        specifier: ^3.2.2
-        version: 3.2.2(react@19.2.5)
       '@google/genai':
         specifier: ^1.45.0
         version: 1.45.0(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(supports-color@7.2.0)(zod@4.4.3))(supports-color@7.2.0)
-      '@headless-tree/core':
-        specifier: ^1.6.3
-        version: 1.6.3
-      '@headless-tree/react':
-        specifier: ^1.6.3
-        version: 1.6.3(@headless-tree/core@1.6.3)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
       '@mariozechner/pi-agent-core':
         specifier: 'catalog:'
         version: 0.73.1(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(supports-color@7.2.0)(zod@4.4.3))(supports-color@7.2.0)(ws@8.21.0)(zod@4.4.3)
@@ -147,45 +132,9 @@ importers:
       '@mariozechner/pi-coding-agent':
         specifier: 'catalog:'
         version: 0.73.1(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(supports-color@7.2.0)(zod@4.4.3))(supports-color@7.2.0)(ws@8.21.0)(zod@4.4.3)
-      '@module-federation/enhanced':
-        specifier: 2.2.2
-        version: 2.2.2(@rspack/core@1.7.6(@swc/helpers@0.5.21))(node-fetch@3.3.2)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(supports-color@7.2.0)(typescript@5.9.3)(webpack@5.106.2(esbuild@0.27.4)(lightningcss@1.32.0))
-      '@module-federation/vite':
-        specifier: 'catalog:'
-        version: 1.11.0(rollup@4.60.4)(supports-color@7.2.0)(typescript@5.9.3)(vite@6.4.2(@types/node@22.19.15)(jiti@2.7.0)(lightningcss@1.32.0)(sass-embedded@1.99.0)(sass@1.99.0)(terser@5.48.0)(tsx@4.21.0)(yaml@2.9.0))
-      '@monaco-editor/react':
-        specifier: ^4.7.0
-        version: 4.7.0(monaco-editor@0.52.2)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
-      '@remixicon/react':
-        specifier: ^4.9.0
-        version: 4.9.0(react@19.2.5)
       '@sero-ai/common':
         specifier: workspace:*
         version: link:../../packages/common
-      '@streamdown/code':
-        specifier: ^1.1.0
-        version: 1.1.1(react@19.2.5)
-      '@streamdown/math':
-        specifier: ^1.0.2
-        version: 1.0.2(react@19.2.5)(supports-color@7.2.0)
-      '@streamdown/mermaid':
-        specifier: ^1.0.2
-        version: 1.0.2(react@19.2.5)
-      '@tailwindcss/vite':
-        specifier: 'catalog:'
-        version: 4.1.18(vite@6.4.2(@types/node@22.19.15)(jiti@2.7.0)(lightningcss@1.32.0)(sass-embedded@1.99.0)(sass@1.99.0)(terser@5.48.0)(tsx@4.21.0)(yaml@2.9.0))
-      '@types/ws':
-        specifier: ^8.18.1
-        version: 8.18.1
-      '@xterm/addon-fit':
-        specifier: ^0.11.0
-        version: 0.11.0
-      '@xterm/addon-web-links':
-        specifier: ^0.12.0
-        version: 0.12.0
-      '@xterm/xterm':
-        specifier: ^6.0.0
-        version: 6.0.0
       ansi-styles:
         specifier: 4.3.0
         version: 4.3.0
@@ -210,6 +159,118 @@ importers:
       glob:
         specifier: ^11.0.3
         version: 11.1.0
+      node-pty:
+        specifier: ^1.1.0
+        version: 1.1.0
+      qrcode:
+        specifier: ^1.5.4
+        version: 1.5.4
+      supports-color:
+        specifier: 7.2.0
+        version: 7.2.0
+      typebox:
+        specifier: 'catalog:'
+        version: 1.1.37
+      ws:
+        specifier: ^8.21.0
+        version: 8.21.0
+    devDependencies:
+      '@discordjs/rest':
+        specifier: ^2.6.1
+        version: 2.6.1
+      '@dnd-kit/core':
+        specifier: ^6.3.1
+        version: 6.3.1(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
+      '@dnd-kit/sortable':
+        specifier: ^10.0.0
+        version: 10.0.0(@dnd-kit/core@6.3.1(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(react@19.2.5)
+      '@dnd-kit/utilities':
+        specifier: ^3.2.2
+        version: 3.2.2(react@19.2.5)
+      '@electron/rebuild':
+        specifier: ^4.0.4
+        version: 4.0.4(supports-color@7.2.0)
+      '@emotion/is-prop-valid':
+        specifier: ^1.4.0
+        version: 1.4.0
+      '@headless-tree/core':
+        specifier: ^1.6.3
+        version: 1.6.3
+      '@headless-tree/react':
+        specifier: ^1.6.3
+        version: 1.6.3(@headless-tree/core@1.6.3)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
+      '@module-federation/enhanced':
+        specifier: 2.2.2
+        version: 2.2.2(@rspack/core@1.7.6(@swc/helpers@0.5.21))(node-fetch@3.3.2)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(supports-color@7.2.0)(typescript@5.9.3)(webpack@5.106.2(esbuild@0.27.4)(lightningcss@1.32.0))
+      '@module-federation/vite':
+        specifier: 'catalog:'
+        version: 1.11.0(rollup@4.60.4)(supports-color@7.2.0)(typescript@5.9.3)(vite@6.4.2(@types/node@22.19.15)(jiti@2.7.0)(lightningcss@1.32.0)(sass-embedded@1.99.0)(sass@1.99.0)(terser@5.48.0)(tsx@4.21.0)(yaml@2.9.0))
+      '@monaco-editor/react':
+        specifier: ^4.7.0
+        version: 4.7.0(monaco-editor@0.52.2)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
+      '@playwright/test':
+        specifier: ^1.59.1
+        version: 1.59.1
+      '@remixicon/react':
+        specifier: ^4.9.0
+        version: 4.9.0(react@19.2.5)
+      '@sero-ai/app-runtime':
+        specifier: workspace:@sero-ai/app-runtime@*
+        version: link:../../packages/app-runtime
+      '@sero-ai/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
+      '@streamdown/code':
+        specifier: ^1.1.0
+        version: 1.1.1(react@19.2.5)
+      '@streamdown/math':
+        specifier: ^1.0.2
+        version: 1.0.2(react@19.2.5)(supports-color@7.2.0)
+      '@streamdown/mermaid':
+        specifier: ^1.0.2
+        version: 1.0.2(react@19.2.5)
+      '@tailwindcss/vite':
+        specifier: 'catalog:'
+        version: 4.1.18(vite@6.4.2(@types/node@22.19.15)(jiti@2.7.0)(lightningcss@1.32.0)(sass-embedded@1.99.0)(sass@1.99.0)(terser@5.48.0)(tsx@4.21.0)(yaml@2.9.0))
+      '@types/node':
+        specifier: 'catalog:'
+        version: 22.19.15
+      '@types/qrcode':
+        specifier: ^1.5.6
+        version: 1.5.6
+      '@types/react':
+        specifier: 'catalog:'
+        version: 19.2.14
+      '@types/react-dom':
+        specifier: 'catalog:'
+        version: 19.2.3(@types/react@19.2.14)
+      '@types/ws':
+        specifier: ^8.18.1
+        version: 8.18.1
+      '@vitejs/plugin-react':
+        specifier: 'catalog:'
+        version: 4.7.0(supports-color@7.2.0)(vite@6.4.2(@types/node@22.19.15)(jiti@2.7.0)(lightningcss@1.32.0)(sass-embedded@1.99.0)(sass@1.99.0)(terser@5.48.0)(tsx@4.21.0)(yaml@2.9.0))
+      '@xterm/addon-fit':
+        specifier: ^0.11.0
+        version: 0.11.0
+      '@xterm/addon-web-links':
+        specifier: ^0.12.0
+        version: 0.12.0
+      '@xterm/xterm':
+        specifier: ^6.0.0
+        version: 6.0.0
+      concurrently:
+        specifier: ^9.2.1
+        version: 9.2.1
+      electron:
+        specifier: 41.6.1
+        version: 41.6.1(supports-color@7.2.0)
+      electron-builder:
+        specifier: ^26.8.1
+        version: 26.8.1(electron-builder-squirrel-windows@26.8.1)(supports-color@7.2.0)
+      jsdom:
+        specifier: ^26.1.0
+        version: 26.1.0(supports-color@7.2.0)
       lucide-react:
         specifier: 'catalog:'
         version: 0.563.0(react@19.2.5)
@@ -219,12 +280,6 @@ importers:
       motion:
         specifier: 'catalog:'
         version: 12.34.0(@emotion/is-prop-valid@1.4.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
-      node-pty:
-        specifier: ^1.1.0
-        version: 1.1.0
-      qrcode:
-        specifier: ^1.5.4
-        version: 1.5.4
       react:
         specifier: 'catalog:'
         version: 19.2.5
@@ -240,64 +295,6 @@ importers:
       streamdown:
         specifier: 'catalog:'
         version: 2.5.0(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(supports-color@7.2.0)
-      supports-color:
-        specifier: 7.2.0
-        version: 7.2.0
-      typebox:
-        specifier: 'catalog:'
-        version: 1.1.37
-      ws:
-        specifier: ^8.21.0
-        version: 8.21.0
-      zustand:
-        specifier: ^5.0.11
-        version: 5.0.12(@types/react@19.2.14)(react@19.2.5)(use-sync-external-store@1.6.0(react@19.2.5))
-    devDependencies:
-      '@discordjs/rest':
-        specifier: ^2.6.1
-        version: 2.6.1
-      '@electron/rebuild':
-        specifier: ^4.0.4
-        version: 4.0.4(supports-color@7.2.0)
-      '@emotion/is-prop-valid':
-        specifier: ^1.4.0
-        version: 1.4.0
-      '@playwright/test':
-        specifier: ^1.59.1
-        version: 1.59.1
-      '@sero-ai/app-runtime':
-        specifier: workspace:@sero-ai/app-runtime@*
-        version: link:../../packages/app-runtime
-      '@sero-ai/ui':
-        specifier: workspace:*
-        version: link:../../packages/ui
-      '@types/node':
-        specifier: 'catalog:'
-        version: 22.19.15
-      '@types/qrcode':
-        specifier: ^1.5.6
-        version: 1.5.6
-      '@types/react':
-        specifier: 'catalog:'
-        version: 19.2.14
-      '@types/react-dom':
-        specifier: 'catalog:'
-        version: 19.2.3(@types/react@19.2.14)
-      '@vitejs/plugin-react':
-        specifier: 'catalog:'
-        version: 4.7.0(supports-color@7.2.0)(vite@6.4.2(@types/node@22.19.15)(jiti@2.7.0)(lightningcss@1.32.0)(sass-embedded@1.99.0)(sass@1.99.0)(terser@5.48.0)(tsx@4.21.0)(yaml@2.9.0))
-      concurrently:
-        specifier: ^9.2.1
-        version: 9.2.1
-      electron:
-        specifier: 41.6.1
-        version: 41.6.1(supports-color@7.2.0)
-      electron-builder:
-        specifier: ^26.8.1
-        version: 26.8.1(electron-builder-squirrel-windows@26.8.1)(supports-color@7.2.0)
-      jsdom:
-        specifier: ^26.1.0
-        version: 26.1.0(supports-color@7.2.0)
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
@@ -307,6 +304,9 @@ importers:
       vitest:
         specifier: 'catalog:'
         version: 4.1.7(@opentelemetry/api@1.9.0)(@types/node@22.19.15)(jsdom@26.1.0(supports-color@7.2.0))(msw@2.12.10(@types/node@22.19.15)(typescript@5.9.3))(vite@6.4.2(@types/node@22.19.15)(jiti@2.7.0)(lightningcss@1.32.0)(sass-embedded@1.99.0)(sass@1.99.0)(terser@5.48.0)(tsx@4.21.0)(yaml@2.9.0))
+      zustand:
+        specifier: ^5.0.11
+        version: 5.0.12(@types/react@19.2.14)(react@19.2.5)(use-sync-external-store@1.6.0(react@19.2.5))
 
   apps/docs-site:
     devDependencies:
