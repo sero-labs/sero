@@ -12,11 +12,9 @@
  */
 
 import { app, BrowserWindow, dialog } from 'electron';
-import electronUpdater from 'electron-updater';
+import { autoUpdater } from 'electron-updater';
 import { IpcChannels } from '@/types/ipc-channels';
 import type { UpdaterStatusEvent } from '@/types/ipc';
-
-const { autoUpdater } = electronUpdater;
 
 const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours
 
