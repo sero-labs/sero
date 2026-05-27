@@ -5,6 +5,14 @@ appId: app.sero
 productName: Sero
 copyright: Copyright © 2025-2026 Sero
 
+# ── Auto-update feed ──────────────────────────────────────────
+# electron-builder embeds an app-update.yml pointing here and emits the
+# latest*.yml + .blockmap metadata that electron-updater consumes.
+publish:
+  provider: github
+  owner: sero-labs
+  repo: sero
+
 # ── Output ────────────────────────────────────────────────────
 directories:
   output: release
@@ -56,6 +64,11 @@ asarUnpack:
 mac:
   target:
     - target: dmg
+      arch:
+        - arm64
+    # zip is required for Squirrel.Mac auto-update (it cannot update from a dmg).
+    # The dmg is the first-install download; the zip is the updater feed artifact.
+    - target: zip
       arch:
         - arm64
   category: public.app-category.developer-tools

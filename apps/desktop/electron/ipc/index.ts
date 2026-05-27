@@ -48,6 +48,7 @@ import { registerPluginHandlers } from './integrations/plugins';
 import { registerPluginConfigHandlers } from './apps/plugin-config';
 import { registerThemeHandlers } from './platform/ui';
 import { registerDoctorHandlers } from './doctor/doctor';
+import { registerUpdaterHandlers } from './updater';
 
 export function registerAllIpcHandlers(): void {
   registerProfileHandlers();
@@ -92,4 +93,5 @@ export function registerAllIpcHandlers(): void {
   registerPluginConfigHandlers();
   registerThemeHandlers();
   registerDoctorHandlers();
+  registerUpdaterHandlers();
 }

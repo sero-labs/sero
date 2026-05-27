@@ -5,6 +5,7 @@ import { useAppStore } from '@/stores/app';
 import { useActiveWorkspace } from '@/stores/workspace';
 import { ProfileSwitcher } from '@/components/profiles/ProfileSwitcher';
 import { GitTitleBarControls } from '@/components/layout/titlebar/git/GitTitleBarControls';
+import { UpdateIndicator } from '@/components/layout/shell/UpdateIndicator';
 
 /**
  * TitleBar — macOS-style custom title bar.
@@ -55,6 +56,8 @@ export function TitleBar() {
 
       {/* ── Right-side actions ────────────────────────────────── */}
       <div className="no-drag flex shrink-0 items-center gap-2 pr-3">
+        <UpdateIndicator />
+
         <GitTitleBarControls />
 
         <ProfileSwitcher />
