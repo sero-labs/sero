@@ -6,6 +6,14 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 and beta release tags use a SemVer prerelease form.
 
 
+## [0.2.1-beta.0](https://github.com/sero-labs/sero/compare/v0.2.0-beta.0...v0.2.1-beta.0) (2026-05-27)
+
+### Bug Fixes
+
+* **release:** move renderer/build deps to devDependencies ([efd6e6e](https://github.com/sero-labs/sero/commit/efd6e6eb164bab41de50e6affae4658411d0ffc3))
+* **release:** package desktop from pnpm deploy bundle ([9b8cb9a](https://github.com/sero-labs/sero/commit/9b8cb9a61aac417111dcb8918f427ae71d71e615))
+* **release:** use lockfile-backed pnpm deploy ([0ec4e36](https://github.com/sero-labs/sero/commit/0ec4e368b3d07d3545a8f850f63519031de9657d))
+
 ## [0.2.0-beta.0](https://github.com/sero-labs/sero/compare/v0.1.2-beta.0...v0.2.0-beta.0) (2026-05-27)
 
 ### Features
