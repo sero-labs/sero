@@ -56,7 +56,7 @@
     "@mariozechner/pi-agent-core": "catalog:",
     "@mariozechner/pi-ai": "catalog:",
     "@mariozechner/pi-coding-agent": "catalog:",
-    "@module-federation/enhanced": "^2.2.0",
+    "@module-federation/enhanced": "2.2.2",
     "@module-federation/vite": "catalog:",
     "@monaco-editor/react": "^4.7.0",
     "@remixicon/react": "^4.9.0",
@@ -73,7 +73,7 @@
     "chalk": "4.1.2",
     "cli-highlight": "2.1.11",
     "diff": "^8.0.3",
-    "discord.js": "^14.25.1",
+    "discord.js": "^14.26.4",
     "electron-updater": "^6.8.3",
     "esbuild": "^0.27.4",
     "glob": "^11.0.3",
@@ -89,7 +89,7 @@
     "streamdown": "catalog:",
     "supports-color": "7.2.0",
     "typebox": "catalog:",
-    "ws": "^8.20.0",
+    "ws": "^8.21.0",
     "zustand": "^5.0.11"
   },
   "devDependencies": {

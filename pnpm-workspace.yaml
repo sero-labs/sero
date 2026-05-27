@@ -25,7 +25,7 @@ catalog:
   tailwindcss: "4.1.18"
   "@tailwindcss/vite": "4.1.18"
   typescript: "^5.9.3"
-  vite: "6.4.1"
+  vite: "6.4.2"
   "@vitejs/plugin-react": "^4.7.0"
   "@module-federation/vite": "1.11.0"
 
@@ -35,10 +35,10 @@ catalog:
   "@types/node": "^22.19.11"
 
   # Pi SDK
-  "@mariozechner/pi-agent-core": "^0.72.1"
-  "@mariozechner/pi-ai": "^0.72.1"
-  "@mariozechner/pi-coding-agent": "^0.72.1"
-  "@mariozechner/pi-tui": "^0.72.1"
+  "@mariozechner/pi-agent-core": "^0.73.1"
+  "@mariozechner/pi-ai": "^0.73.1"
+  "@mariozechner/pi-coding-agent": "^0.73.1"
+  "@mariozechner/pi-tui": "^0.73.1"
 
   # Zod (peer of @mariozechner/pi-* transitives: openai, @anthropic-ai/sdk, zod-to-json-schema)
   zod: "^4.3.6"
@@ -49,7 +49,7 @@ catalog:
   lucide-react: "^0.563.0"
   motion: "^12.34.0"
   streamdown: "^2.5.0"
-  vitest: "^4.0.18"
+  vitest: "^4.1.7"
 
 # ── Named catalogs ─────────────────────────────────────────────
 # Use "catalog:peer" in peerDependencies.

@@ -34,6 +34,6 @@
     "promptfoo": "0.121.12",
     "release-it": "^20.0.1",
     "turbo": "^2.9.14",
-    "wrangler": "^4.87.0"
+    "wrangler": "^4.95.0"
   }
 }

@@ -19,7 +19,7 @@
     "access": "public"
   },
   "dependencies": {
-    "@mariozechner/pi-agent-core": "^0.72.1"
+    "@mariozechner/pi-agent-core": "catalog:"
   },
   "devDependencies": {
     "typescript": "^5.9.3"
