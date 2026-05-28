@@ -20,7 +20,7 @@ import { useArtifactStore } from '@/stores/artifacts';
 import { useDevServerStore } from '@/stores/dev-servers';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { Button } from '@sero-ai/ui/components/ui/button';
-import { cn } from '@sero-ai/ui';
+import { cn } from '@sero-ai/ui/lib/utils';
 import { useIsMobile } from '@sero-ai/ui/hooks/use-mobile';
 import {
   Sheet,
