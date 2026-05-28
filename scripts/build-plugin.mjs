@@ -66,6 +66,31 @@ function getRuntimeExternals(pkg) {
   return expandExternalSpecifiers(runtimeExternals);
 }
 
+function getExtensionExternals(pkg) {
+  const extensionExternals = Array.isArray(pkg.sero?.plugin?.extensionExternals)
+    ? pkg.sero.plugin.extensionExternals
+    : [];
+  return expandExternalSpecifiers(extensionExternals);
+}
+
+function packageNameFromSpecifier(specifier) {
+  if (typeof specifier !== 'string' || !specifier.trim()) return null;
+  const normalized = specifier.trim().replace(/\/\*$/, '');
+  if (normalized.startsWith('@')) {
+    const [scope, name] = normalized.split('/');
+    return scope && name ? `${scope}/${name}` : null;
+  }
+  return normalized.split('/')[0] ?? null;
+}
+
+function dependencyNamesFromExternals(specifiers) {
+  return new Set(
+    specifiers
+      .map(packageNameFromSpecifier)
+      .filter((name) => typeof name === 'string' && name.length > 0),
+  );
+}
+
 async function loadWorkspaceCatalogs() {
   const raw = await fs.readFile(workspaceYamlPath, 'utf8');
   const defaultCatalog = {};
@@ -197,7 +222,10 @@ async function bundleNodeEntry(sourcePath, outputPath, externals) {
 
 async function bundleExtensions(pkg, outputDir) {
   const extensionEntries = Array.isArray(pkg.pi?.extensions) ? pkg.pi.extensions : [];
-  const peerExternals = getPeerExternals(pkg);
+  const extensionExternals = new Set([
+    ...getPeerExternals(pkg),
+    ...getExtensionExternals(pkg),
+  ]);
   const compiledEntries = [];
 
   for (const entry of extensionEntries) {
@@ -206,7 +234,7 @@ async function bundleExtensions(pkg, outputDir) {
     const outputPath = path.join(outputDir, outputRelativePath);
 
     console.log(`  → Bundling extension ${entry}...`);
-    await bundleNodeEntry(sourcePath, outputPath, peerExternals);
+    await bundleNodeEntry(sourcePath, outputPath, [...extensionExternals]);
     compiledEntries.push(`./${toPosix(outputRelativePath)}`);
   }
 
@@ -288,7 +316,31 @@ async function copyPackageResources(pkg, outputDir) {
   await copyIfExists(path.join(packageDir, 'LICENSE'), path.join(outputDir, 'LICENSE'));
 }
 
+function filterDependencyMap(dependencies, keepNames) {
+  if (!dependencies) return undefined;
+
+  const filtered = Object.fromEntries(
+    Object.entries(dependencies).filter(([name]) => keepNames.has(name)),
+  );
+
+  return Object.keys(filtered).length > 0 ? filtered : undefined;
+}
+
+function getPublishedDependencyNames(pkg) {
+  return new Set([
+    ...dependencyNamesFromExternals(getExtensionExternals(pkg)),
+    ...dependencyNamesFromExternals(getRuntimeExternals(pkg)),
+  ]);
+}
+
+function getPublishedDependencies(pkg, keepNames) {
+  return pkg.sero?.plugin?.bundleExtensions === true
+    ? filterDependencyMap(pkg.dependencies, keepNames)
+    : pkg.dependencies;
+}
+
 function buildPublishedManifest(pkg, compiledExtensions, compiledRuntimeEntry, catalogs) {
+  const publishedDependencyNames = getPublishedDependencyNames(pkg);
   const publishedAppManifest = pkg.sero?.app
     ? (() => {
         const {
@@ -308,7 +360,10 @@ function buildPublishedManifest(pkg, compiledExtensions, compiledRuntimeEntry, c
     scripts: undefined,
     devDependencies: undefined,
     private: undefined,
-    dependencies: resolveDependencyMap(pkg.dependencies, catalogs),
+    dependencies: resolveDependencyMap(
+      getPublishedDependencies(pkg, publishedDependencyNames),
+      catalogs,
+    ),
     peerDependencies: resolveDependencyMap(pkg.peerDependencies, catalogs),
     pi: pkg.pi
       ? {
@@ -350,9 +405,10 @@ function buildPublishedManifest(pkg, compiledExtensions, compiledRuntimeEntry, c
 
 async function main() {
   const pkg = await readPackageJson();
-  const appId = pkg.sero?.app?.id;
-  if (!appId) {
-    throw new Error(`No sero.app.id found in ${packageJsonPath}`);
+  const packageLabel = pkg.sero?.app?.id ?? pkg.name ?? path.basename(packageDir);
+  const hasExtensionEntries = Array.isArray(pkg.pi?.extensions) && pkg.pi.extensions.length > 0;
+  if (!pkg.sero?.app?.id && !hasExtensionEntries) {
+    throw new Error(`No sero.app.id or pi.extensions found in ${packageJsonPath}`);
   }
 
   const catalogs = await loadWorkspaceCatalogs();
@@ -360,7 +416,7 @@ async function main() {
   await fs.rm(outputDir, { recursive: true, force: true });
   await fs.mkdir(outputDir, { recursive: true });
 
-  console.log(`📦 Building plugin: ${appId} (${packageDir})`);
+  console.log(`📦 Building plugin: ${packageLabel} (${packageDir})`);
   await buildUiIfPresent(pkg);
   const compiledExtensions = await bundleExtensions(pkg, outputDir);
   const compiledRuntimeEntry = await bundleRuntimeIfPresent(pkg, outputDir);
@@ -374,7 +430,7 @@ async function main() {
     'utf8',
   );
 
-  console.log(`✅ Plugin ${appId} built successfully`);
+  console.log(`✅ Plugin ${packageLabel} built successfully`);
   console.log(`   Output: ${path.relative(process.cwd(), outputDir)}`);
   console.log('');
   console.log('To test locally:');

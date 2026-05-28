@@ -195,6 +195,8 @@ the downstream migration guide and capability-selection rules.
 | `minSeroVersion` | `string?` | Minimum Sero version required. Enforced during install/load. |
 | `requiredHostCapabilities` | `string[]?` | Explicit host seams the plugin depends on (for example `appAgent.invokeTool` or `tool.cli`). Enforced during install/load. |
 | `preBuilt` | `boolean?` | Controls git/local install behavior. `true` means the package already includes a valid pre-built UI bundle; `false`/omitted means Sero rebuilds it locally during install. npm bundles are always expected to ship pre-built artifacts. |
+| `bundleExtensions` | `boolean?` | Build-time hint for Sero's release packaging. When `true`, built-in packaging uses `scripts/build-plugin.mjs` and ships bundled JS `pi.extensions` instead of raw extension source. Local development sessions still use source directly. |
+| `extensionExternals` | `string[]?` | Packages to keep external when bundling Pi extension entrypoints. Use this for native, large, or runtime-loaded dependencies that must remain in `node_modules`. |
 | `bridgeTools` | `boolean \| string[]` | Controls manifest-driven CLI bridging for plugin tools. `true`/omitted bridges all plugin tools, `false` bridges none, and `string[]` bridges only the named tools. |
 
 ### `sero.providers` Fields

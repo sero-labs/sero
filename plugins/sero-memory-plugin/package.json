@@ -41,6 +41,10 @@
         "logs"
       ],
       "minSeroVersion": "0.1.0",
+      "bundleExtensions": true,
+      "extensionExternals": [
+        "@tobilu/qmd"
+      ],
       "preBuilt": false
     }
   }

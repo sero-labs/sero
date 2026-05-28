@@ -80,6 +80,62 @@ describe('plugin runtime packaging and source preparation', () => {
     expect(builtRuntime).not.toContain('NEEDS_EXTERNALIZATION');
   });
 
+  it('builds extension-only packages and keeps declared extensionExternals external', async () => {
+    const dir = await createTempPluginDir();
+    await mkdir(path.join(dir, 'extension'), { recursive: true });
+    await mkdir(path.join(dir, 'node_modules', 'tiny-lib'), { recursive: true });
+    await writeFile(
+      path.join(dir, 'node_modules', 'tiny-lib', 'package.json'),
+      JSON.stringify({ name: 'tiny-lib', version: '1.0.0', type: 'module', exports: './index.js' }, null, 2),
+      'utf8',
+    );
+    await writeFile(
+      path.join(dir, 'node_modules', 'tiny-lib', 'index.js'),
+      'export const tinyValue = "BUNDLED_VALUE";\n',
+      'utf8',
+    );
+    await writeFile(
+      path.join(dir, 'extension', 'index.ts'),
+      'import { externalValue } from "@acme/nativeish"; import { tinyValue } from "tiny-lib"; export default { externalValue, tinyValue };\n',
+      'utf8',
+    );
+    await writePackageJson(dir, {
+      name: '@acme/extension-only-plugin',
+      version: '1.0.0',
+      dependencies: {
+        '@acme/nativeish': '^1.0.0',
+        'tiny-lib': '^1.0.0',
+      },
+      pi: {
+        extensions: ['./extension/index.ts'],
+      },
+      sero: {
+        plugin: {
+          category: 'utilities',
+          tags: ['extension'],
+          bundleExtensions: true,
+          extensionExternals: ['@acme/nativeish'],
+        },
+      },
+      peerDependencies: {
+        '@mariozechner/pi-coding-agent': '^0.0.0',
+      },
+    });
+
+    await execFile(process.execPath, [buildPluginScript, dir], { cwd: repoRoot });
+
+    const builtPkg = JSON.parse(await readFile(path.join(dir, 'dist', 'plugin', 'package.json'), 'utf8')) as {
+      dependencies?: Record<string, string>;
+      pi?: { extensions?: string[] };
+    };
+    const builtExtension = await readFile(path.join(dir, 'dist', 'plugin', 'extension', 'index.js'), 'utf8');
+
+    expect(builtPkg.pi?.extensions).toEqual(['./extension/index.js']);
+    expect(builtPkg.dependencies).toEqual({ '@acme/nativeish': '^1.0.0' });
+    expect(builtExtension).toContain('@acme/nativeish');
+    expect(builtExtension).toContain('BUNDLED_VALUE');
+  });
+
   it.each([
     {
       label: 'runtime-only',

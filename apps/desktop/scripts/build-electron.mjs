@@ -7,8 +7,10 @@ import { isBuiltinPackageDir } from '../electron/platform/protocols/builtin-pack
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '..');
+const repoRoot = path.resolve(projectRoot, '../..');
 const monorepoPackagesDir = path.resolve(projectRoot, '../../packages');
 const monorepoPluginsDir = path.resolve(projectRoot, '../../plugins');
+const buildPluginScript = path.join(repoRoot, 'scripts/build-plugin.mjs');
 const desktopProvidedPluginDeps = new Set(['@sero-ai/common', 'typebox']);
 
 const shared = {
@@ -49,8 +51,23 @@ function runCommand(command, args, cwd) {
   }
 }
 
-function stagePluginRuntimeDependencies(srcDir, destDir) {
+function readPackageJson(srcDir) {
   const packageJsonPath = path.join(srcDir, 'package.json');
+  if (!fs.existsSync(packageJsonPath)) return null;
+  return JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+}
+
+function shouldBundlePackageExtensions(pkg) {
+  return pkg?.sero?.plugin?.bundleExtensions === true;
+}
+
+function buildPluginPackage(srcDir) {
+  runCommand(process.execPath, [buildPluginScript, srcDir], repoRoot);
+  return path.join(srcDir, 'dist/plugin');
+}
+
+function stagePluginRuntimeDependencies(srcDir, destDir, manifestDir = srcDir) {
+  const packageJsonPath = path.join(manifestDir, 'package.json');
   if (!fs.existsSync(packageJsonPath)) return;
 
   const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
@@ -78,6 +95,26 @@ function stagePluginRuntimeDependencies(srcDir, destDir) {
   }
 }
 
+function stagePackageResources(srcDir, destDir) {
+  const pkg = readPackageJson(srcDir);
+  if (shouldBundlePackageExtensions(pkg)) {
+    const builtDir = buildPluginPackage(srcDir);
+    fs.cpSync(builtDir, destDir, { recursive: true });
+    stagePluginRuntimeDependencies(srcDir, destDir, destDir);
+    return;
+  }
+
+  copyIfExists(path.join(srcDir, 'package.json'), path.join(destDir, 'package.json'));
+  copyIfExists(path.join(srcDir, 'README.md'), path.join(destDir, 'README.md'));
+  copyIfExists(path.join(srcDir, 'dist'), path.join(destDir, 'dist'));
+  copyIfExists(path.join(srcDir, 'extension'), path.join(destDir, 'extension'));
+  copyIfExists(path.join(srcDir, 'shared'), path.join(destDir, 'shared'));
+  copyIfExists(path.join(srcDir, 'skills'), path.join(destDir, 'skills'));
+  copyIfExists(path.join(srcDir, 'prompts'), path.join(destDir, 'prompts'));
+  copyIfExists(path.join(srcDir, 'themes'), path.join(destDir, 'themes'));
+  stagePluginRuntimeDependencies(srcDir, destDir);
+}
+
 function stageBuiltinResources() {
   const builtinRoot = path.join(projectRoot, 'dist/electron/builtin');
   const builtinPackagesDest = path.join(builtinRoot, 'packages');
@@ -102,15 +139,7 @@ function stageBuiltinResources() {
     const destDir = path.join(builtinPackagesDest, entry);
     fs.mkdirSync(destDir, { recursive: true });
 
-    copyIfExists(path.join(srcDir, 'package.json'), path.join(destDir, 'package.json'));
-    copyIfExists(path.join(srcDir, 'README.md'), path.join(destDir, 'README.md'));
-    copyIfExists(path.join(srcDir, 'dist'), path.join(destDir, 'dist'));
-    copyIfExists(path.join(srcDir, 'extension'), path.join(destDir, 'extension'));
-    copyIfExists(path.join(srcDir, 'shared'), path.join(destDir, 'shared'));
-    copyIfExists(path.join(srcDir, 'skills'), path.join(destDir, 'skills'));
-    copyIfExists(path.join(srcDir, 'prompts'), path.join(destDir, 'prompts'));
-    copyIfExists(path.join(srcDir, 'themes'), path.join(destDir, 'themes'));
-    stagePluginRuntimeDependencies(srcDir, destDir);
+    stagePackageResources(srcDir, destDir);
   }
 
   for (const entry of pluginEntries) {
@@ -121,15 +150,7 @@ function stageBuiltinResources() {
     const destDir = path.join(builtinPluginsDest, entry);
     fs.mkdirSync(destDir, { recursive: true });
 
-    copyIfExists(path.join(srcDir, 'package.json'), path.join(destDir, 'package.json'));
-    copyIfExists(path.join(srcDir, 'README.md'), path.join(destDir, 'README.md'));
-    copyIfExists(path.join(srcDir, 'dist'), path.join(destDir, 'dist'));
-    copyIfExists(path.join(srcDir, 'extension'), path.join(destDir, 'extension'));
-    copyIfExists(path.join(srcDir, 'shared'), path.join(destDir, 'shared'));
-    copyIfExists(path.join(srcDir, 'skills'), path.join(destDir, 'skills'));
-    copyIfExists(path.join(srcDir, 'prompts'), path.join(destDir, 'prompts'));
-    copyIfExists(path.join(srcDir, 'themes'), path.join(destDir, 'themes'));
-    stagePluginRuntimeDependencies(srcDir, destDir);
+    stagePackageResources(srcDir, destDir);
   }
 
   const templatesSrc = path.join(monorepoPackagesDir, 'templates');
