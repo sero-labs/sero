@@ -9,6 +9,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '..');
 const monorepoPackagesDir = path.resolve(projectRoot, '../../packages');
 const monorepoPluginsDir = path.resolve(projectRoot, '../../plugins');
+const desktopProvidedPluginDeps = new Set(['@sero-ai/common', 'typebox']);
 
 const shared = {
   platform: 'node',
@@ -53,7 +54,8 @@ function stagePluginRuntimeDependencies(srcDir, destDir) {
   if (!fs.existsSync(packageJsonPath)) return;
 
   const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
-  const runtimeDeps = Object.keys(pkg.dependencies ?? {});
+  const runtimeDeps = Object.keys(pkg.dependencies ?? {})
+    .filter((dep) => !desktopProvidedPluginDeps.has(dep));
   if (runtimeDeps.length === 0) return;
 
   const pluginNodeModules = path.join(srcDir, 'node_modules');
