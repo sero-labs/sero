@@ -95,6 +95,21 @@ function stagePluginRuntimeDependencies(srcDir, destDir, manifestDir = srcDir) {
   }
 }
 
+function stagePackageUiResources(pkg, srcDir, destDir) {
+  const uiEntry = typeof pkg?.sero?.app?.ui === 'string'
+    ? pkg.sero.app.ui.trim().replace(/^\.\//, '')
+    : '';
+  if (!uiEntry) return;
+
+  const uiDir = path.dirname(uiEntry);
+  if (uiDir === '.') {
+    copyIfExists(path.join(srcDir, uiEntry), path.join(destDir, uiEntry));
+    return;
+  }
+
+  copyIfExists(path.join(srcDir, uiDir), path.join(destDir, uiDir));
+}
+
 function stagePackageResources(srcDir, destDir) {
   const pkg = readPackageJson(srcDir);
   if (shouldBundlePackageExtensions(pkg)) {
@@ -106,7 +121,7 @@ function stagePackageResources(srcDir, destDir) {
 
   copyIfExists(path.join(srcDir, 'package.json'), path.join(destDir, 'package.json'));
   copyIfExists(path.join(srcDir, 'README.md'), path.join(destDir, 'README.md'));
-  copyIfExists(path.join(srcDir, 'dist'), path.join(destDir, 'dist'));
+  stagePackageUiResources(pkg, srcDir, destDir);
   copyIfExists(path.join(srcDir, 'extension'), path.join(destDir, 'extension'));
   copyIfExists(path.join(srcDir, 'shared'), path.join(destDir, 'shared'));
   copyIfExists(path.join(srcDir, 'skills'), path.join(destDir, 'skills'));
