@@ -5,7 +5,7 @@ import { format } from 'date-fns';
 import {
   SessionManager,
   type SessionMessageEntry,
-} from '@mariozechner/pi-coding-agent';
+} from '@earendil-works/pi-coding-agent';
 
 import {
   getSessionTranscriptPath,

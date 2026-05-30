@@ -70,9 +70,9 @@
     "unpdf": "^1.4.0"
   },
   "peerDependencies": {
-    "@mariozechner/pi-ai": "catalog:peer",
-    "@mariozechner/pi-coding-agent": "catalog:peer",
-    "@mariozechner/pi-tui": "catalog:peer",
+    "@earendil-works/pi-ai": "catalog:peer",
+    "@earendil-works/pi-coding-agent": "catalog:peer",
+    "@earendil-works/pi-tui": "catalog:peer",
     "zod": "catalog:peer"
   },
   "devDependencies": {

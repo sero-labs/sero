@@ -5,7 +5,7 @@
  * Re-exported from ipc.ts so existing imports continue to work.
  */
 
-import type { ThinkingLevel } from '@mariozechner/pi-agent-core';
+import type { ThinkingLevel } from '@earendil-works/pi-agent-core';
 import type { ChatComposerPrefill, ChatTurnUndoRef } from './turn-undo';
 
 // ── Chat Messages ──────────────────────────────────────────────

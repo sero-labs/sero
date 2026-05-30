@@ -14,8 +14,8 @@ import {
   Key,
   matchesKey,
   truncateToWidth
-} from '@mariozechner/pi-tui';
-import type { ExtensionUIContext, Theme } from '@mariozechner/pi-coding-agent';
+} from '@earendil-works/pi-tui';
+import type { ExtensionUIContext, Theme } from '@earendil-works/pi-coding-agent';
 import type { QuestionItem, QuestionAnswer } from '../shared/types';
 
 interface InterviewResult {

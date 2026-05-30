@@ -121,7 +121,7 @@ let _sdk: {
 
 async function loadSdk() {
   if (_sdk) return _sdk;
-  const mod = await import('@mariozechner/pi-coding-agent');
+  const mod = await import('@earendil-works/pi-coding-agent');
   _sdk = {
     createAgentSession: mod.createAgentSession,
     SessionManager: mod.SessionManager,

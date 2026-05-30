@@ -16,7 +16,7 @@
  * do not hang forever waiting for an answer.
  */
 
-import type { ExtensionAPI, ExtensionContext } from '@mariozechner/pi-coding-agent';
+import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent';
 import path from 'path';
 import { nextQuestionId, askQuestion, hasSeroIPCBridge } from './ipc-bridge';
 import { showPermissionWarningTUI } from './tui-permission-warning';

@@ -10,9 +10,9 @@
  *   daily log. Uses reasoning_effort: low for cost control.
  */
 
-import type { ExtensionAPI, SessionMessageEntry } from '@mariozechner/pi-coding-agent';
-import { complete, type Message } from '@mariozechner/pi-ai';
-import { convertToLlm, serializeConversation } from '@mariozechner/pi-coding-agent';
+import type { ExtensionAPI, SessionMessageEntry } from '@earendil-works/pi-coding-agent';
+import { complete, type Message } from '@earendil-works/pi-ai';
+import { convertToLlm, serializeConversation } from '@earendil-works/pi-coding-agent';
 
 import {
   resolveMemoryRoot,

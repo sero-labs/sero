@@ -115,6 +115,40 @@ export function PromptView({
   );
 }
 
+export function SelectView({
+  message,
+  options,
+  onSelect,
+  onCancel,
+}: {
+  message: string;
+  options: Array<{ id: string; label: string }>;
+  onSelect: (value: string) => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div className="space-y-3">
+      <p className="text-sm">{message}</p>
+      <div className="space-y-2">
+        {options.map((option) => (
+          <Button
+            key={option.id}
+            variant="outline"
+            size="sm"
+            onClick={() => onSelect(option.id)}
+            className="w-full justify-start"
+          >
+            {option.label}
+          </Button>
+        ))}
+      </div>
+      <Button variant="ghost" size="sm" onClick={onCancel} className="w-full">
+        Cancel
+      </Button>
+    </div>
+  );
+}
+
 export function ApiKeyEntryView({
   providerName,
   value,

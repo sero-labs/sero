@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { ToolDefinition } from '@mariozechner/pi-coding-agent';
+import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
 
 const createAgentBrowserMock = vi.fn();
 

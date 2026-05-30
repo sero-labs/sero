@@ -12,7 +12,7 @@
  */
 
 import { ipcMain } from 'electron';
-import type { AgentMessage } from '@mariozechner/pi-agent-core';
+import type { AgentMessage } from '@earendil-works/pi-agent-core';
 import { IpcChannels } from '@/types/ipc-channels';
 import type {
   CollaborationEvent,

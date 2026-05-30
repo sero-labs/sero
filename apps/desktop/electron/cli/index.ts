@@ -1,4 +1,4 @@
-import type { LoadExtensionsResult } from '@mariozechner/pi-coding-agent';
+import type { LoadExtensionsResult } from '@earendil-works/pi-coding-agent';
 import {
   registerAppControlCliCommands,
   registerAppStateCliCommands,

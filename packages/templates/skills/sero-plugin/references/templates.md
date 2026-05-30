@@ -72,9 +72,9 @@ If the plugin ships **prompt templates** or **skills**, add `prompts/` and/or
     "typebox": "catalog:"
   },
   "peerDependencies": {
-    "@mariozechner/pi-ai": "catalog:peer",
-    "@mariozechner/pi-coding-agent": "catalog:peer",
-    "@mariozechner/pi-tui": "catalog:peer",
+    "@earendil-works/pi-ai": "catalog:peer",
+    "@earendil-works/pi-coding-agent": "catalog:peer",
+    "@earendil-works/pi-tui": "catalog:peer",
     "zod": "catalog:peer"
   },
   "devDependencies": {
@@ -327,9 +327,9 @@ export const DEFAULT_STATE: MyAppState = {
 
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import { StringEnum } from '@mariozechner/pi-ai';
-import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
-import { Text } from '@mariozechner/pi-tui';
+import { StringEnum } from '@earendil-works/pi-ai';
+import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
+import { Text } from '@earendil-works/pi-tui';
 import { Type } from 'typebox';
 
 import type { MyAppState, MyItem } from '../shared/types';

@@ -6,7 +6,7 @@
  * which routes to host-side Sero commands.
  */
 
-import type { ToolDefinition } from '@mariozechner/pi-coding-agent';
+import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
 import type { RuntimeBackend } from '@electron/features/workspace/runtime/types';
 import { createBash, createRead, createWrite, createEdit } from './tools-coding';
 import { createBrowser } from './tools-browser';

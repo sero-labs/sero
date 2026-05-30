@@ -19,8 +19,8 @@
 
 import fs from 'fs';
 import { ipcMain, BrowserWindow, shell, type WebContents } from 'electron';
-import { getOAuthProviders } from '@mariozechner/pi-ai/oauth';
-import type { OAuthProviderId } from '@mariozechner/pi-ai';
+import { getOAuthProviders } from '@earendil-works/pi-ai/oauth';
+import type { OAuthProviderId } from '@earendil-works/pi-ai';
 
 import { IpcChannels } from '@/types/ipc-channels';
 import type {
@@ -74,6 +74,8 @@ let promptResolver: ((value: string) => void) | null = null;
 let promptRejecter: ((err: Error) => void) | null = null;
 let manualCodeResolver: ((value: string) => void) | null = null;
 let manualCodeRejecter: ((err: Error) => void) | null = null;
+let selectResolver: ((value: string | undefined) => void) | null = null;
+let selectRejecter: ((err: Error) => void) | null = null;
 
 /**
  * The webContents that initiated the current login flow.
@@ -106,6 +108,8 @@ function clearPending(): void {
   promptRejecter = null;
   manualCodeResolver = null;
   manualCodeRejecter = null;
+  selectResolver = null;
+  selectRejecter = null;
   abortController = null;
   loginOriginWebContents = null;
 }
@@ -207,6 +211,18 @@ export function registerAuthHandlers(): void {
             }
           },
 
+          onDeviceCode: (info) => {
+            shell.openExternal(info.verificationUri).catch(() => {
+              // Silently ignore — URL is shown in dialog anyway
+            });
+
+            sendAuthEvent({
+              type: 'auth',
+              url: info.verificationUri,
+              instructions: `Enter code: ${info.userCode}`,
+            });
+          },
+
           onPrompt: async (prompt) => {
             sendAuthEvent({
               type: 'prompt',
@@ -230,6 +246,19 @@ export function registerAuthHandlers(): void {
             return new Promise<string>((resolve, reject) => {
               manualCodeResolver = resolve;
               manualCodeRejecter = reject;
+            });
+          },
+
+          onSelect: async (prompt) => {
+            sendAuthEvent({
+              type: 'select',
+              message: prompt.message,
+              options: prompt.options,
+            });
+
+            return new Promise<string | undefined>((resolve, reject) => {
+              selectResolver = resolve;
+              selectRejecter = reject;
             });
           },
 
@@ -325,6 +354,21 @@ export function registerAuthHandlers(): void {
     },
   );
 
+  // ── Respond to pending selection ───────────────────────────
+  ipcMain.handle(
+    IpcChannels.auth.respondSelect,
+    async (_event, value: string): Promise<boolean> => {
+      if (selectResolver) {
+        selectResolver(value);
+        selectResolver = null;
+        selectRejecter = null;
+        return true;
+      }
+      console.warn('[auth] respondSelect called but no selection is pending — ignoring');
+      return false;
+    },
+  );
+
   // ── Cancel in-progress login ───────────────────────────────
   ipcMain.handle(
     IpcChannels.auth.cancel,
@@ -338,6 +382,9 @@ export function registerAuthHandlers(): void {
       }
       if (manualCodeRejecter) {
         manualCodeRejecter(new Error('Login cancelled'));
+      }
+      if (selectRejecter) {
+        selectRejecter(new Error('Login cancelled'));
       }
       clearPending();
     },

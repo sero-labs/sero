@@ -57,7 +57,7 @@ function createMockSession(opts?: {
   return instance;
 }
 
-vi.mock('@mariozechner/pi-coding-agent', () => ({
+vi.mock('@earendil-works/pi-coding-agent', () => ({
   createAgentSession: vi.fn(async () => {
     const session = createMockSession();
     return { session, extensionsResult: { extensions: [], errors: [], runtime: {} } };
@@ -73,7 +73,7 @@ vi.mock('../logger', () => ({
   error: vi.fn(),
 }));
 
-import { createAgentSession } from '@mariozechner/pi-coding-agent';
+import { createAgentSession } from '@earendil-works/pi-coding-agent';
 import {
   runTransientSession,
   setMaxConcurrent,
@@ -166,7 +166,7 @@ describe('runTransientSession', () => {
   });
 
   it('uses SessionManager.inMemory() — no files persisted', async () => {
-    const { SessionManager } = await import('@mariozechner/pi-coding-agent');
+    const { SessionManager } = await import('@earendil-works/pi-coding-agent');
     await runTransientSession('job-1', 'test');
 
     expect(SessionManager.inMemory).toHaveBeenCalled();

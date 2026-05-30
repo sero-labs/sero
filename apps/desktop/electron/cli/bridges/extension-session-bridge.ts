@@ -3,7 +3,7 @@ import {
   type Extension,
   type RegisteredCommand,
   type RegisteredTool,
-} from '@mariozechner/pi-coding-agent';
+} from '@earendil-works/pi-coding-agent';
 
 import type { CliCommandContext } from '../core/types';
 import { getCliSessionBridge } from './session-bridge';

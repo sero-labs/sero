@@ -1,4 +1,4 @@
-import type { AgentSession, ExtensionContext } from '@mariozechner/pi-coding-agent';
+import type { AgentSession, ExtensionContext } from '@earendil-works/pi-coding-agent';
 import type {
   AssistantMessage,
   ImageContent,
@@ -7,7 +7,7 @@ import type {
   ToolResultMessage,
   Usage,
   UserMessage,
-} from '@mariozechner/pi-ai';
+} from '@earendil-works/pi-ai';
 import type { ChatAttachment, ChatMessage, ChatToolCallMessage, AgentStreamEvent, ToolResultImage } from '@/types/ipc';
 import { getCliRegistry } from '@electron/cli';
 import type { CliContentBlock } from '@electron/cli/core';

@@ -9,7 +9,7 @@ import type {
   AgentSession,
   SessionBeforeSwitchEvent,
   SessionShutdownEvent,
-} from '@mariozechner/pi-coding-agent';
+} from '@earendil-works/pi-coding-agent';
 
 /**
  * Emit `session_shutdown` via the session's extension runner.

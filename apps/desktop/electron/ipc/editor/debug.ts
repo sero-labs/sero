@@ -17,7 +17,7 @@
 import { ipcMain, shell } from 'electron';
 import { promises as fs, createWriteStream, type WriteStream } from 'fs';
 import path from 'path';
-import type { AgentSession } from '@mariozechner/pi-coding-agent';
+import type { AgentSession } from '@earendil-works/pi-coding-agent';
 import { SERO_HOME } from '@electron/platform/env';
 import { IpcChannels } from '@/types/ipc-channels';
 import { tryParseImageJson } from '../agent/core/tool-result-images';

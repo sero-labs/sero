@@ -1,4 +1,4 @@
-import type { AgentSession } from '@mariozechner/pi-coding-agent';
+import type { AgentSession } from '@earendil-works/pi-coding-agent';
 import type { ContextOverrides, ContextToolInfo } from '@/types/ipc';
 import {
   rewriteSessionManagerFile,

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { AgentSession } from '@mariozechner/pi-coding-agent';
-import type { Api, Model } from '@mariozechner/pi-ai';
+import type { AgentSession } from '@earendil-works/pi-coding-agent';
+import type { Api, Model } from '@earendil-works/pi-ai';
 import { ensureSessionHasAvailableModel } from '@electron/ipc/agent/core/agent-session-model-sync';
 
 function createModel(provider: string, id: string): Model<Api> {

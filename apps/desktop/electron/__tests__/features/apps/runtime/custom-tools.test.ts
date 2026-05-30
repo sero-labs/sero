@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Type } from 'typebox';
-import type { ToolDefinition } from '@mariozechner/pi-coding-agent';
+import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { validateRuntimeCustomTools } from '@electron/features/apps/runtime/capabilities/custom-tools';
 
 describe('validateRuntimeCustomTools', () => {

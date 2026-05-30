@@ -1,4 +1,4 @@
-import { defineTool, type ToolDefinition } from '@mariozechner/pi-coding-agent';
+import { defineTool, type ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { Type } from 'typebox';
 import { containerManager, workspaceManager } from '@electron/shared/infra/shared-infra';
 import type { CliCommandContext } from './types';

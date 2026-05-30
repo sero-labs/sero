@@ -7,7 +7,7 @@ import {
   type SharedAvailableModelGroup,
   type SharedModelInfo,
 } from '@sero-ai/common';
-import type { ThinkingLevel } from '@mariozechner/pi-agent-core';
+import type { ThinkingLevel } from '@earendil-works/pi-agent-core';
 import type {
   GlobalModelConfigInput,
   GlobalModelConfigState,

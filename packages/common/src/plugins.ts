@@ -46,6 +46,10 @@ export interface PluginMeta {
   requiredHostCapabilities?: string[];
   /** true for pre-built npm bundles; false/undefined for source repos built on install */
   preBuilt?: boolean;
+  /** build-time hint for release packaging to ship bundled JS extension entries */
+  bundleExtensions?: boolean;
+  /** packages to keep external when bundling Pi extension entries */
+  extensionExternals?: string[];
   /** true/undefined = bridge all tools, false = none, string[] = listed tools only */
   bridgeTools?: boolean | string[];
 }

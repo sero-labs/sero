@@ -3,7 +3,7 @@
  */
 
 import { ipcMain } from 'electron';
-import type { AgentSession } from '@mariozechner/pi-coding-agent';
+import type { AgentSession } from '@earendil-works/pi-coding-agent';
 
 import { IpcChannels } from '@/types/ipc-channels';
 import type { AgentStreamEvent, ChatMessage, ChatTurnUndoRef } from '@/types/ipc';

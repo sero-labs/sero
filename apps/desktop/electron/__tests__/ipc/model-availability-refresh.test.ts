@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { AgentSession } from '@mariozechner/pi-coding-agent';
-import type { Api, Model } from '@mariozechner/pi-ai';
+import type { AgentSession } from '@earendil-works/pi-coding-agent';
+import type { Api, Model } from '@earendil-works/pi-ai';
 
 const mocks = vi.hoisted(() => ({
   modelRegistryRefresh: vi.fn(),

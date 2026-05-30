@@ -9,7 +9,7 @@
  * Compatible with the Pi SDK's ExtensionUIContext interface.
  */
 
-import { Theme, type ExtensionUIContext, type ThemeColor } from '@mariozechner/pi-coding-agent';
+import { Theme, type ExtensionUIContext, type ThemeColor } from '@earendil-works/pi-coding-agent';
 import { showNotification } from '@electron/platform/desktop/notifications';
 
 const SERO_UI_THEME_COLORS: Record<ThemeColor, string> = {

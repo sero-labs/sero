@@ -76,11 +76,9 @@ Public links:
 - Website: <https://sero-ai.dev/>
 - Docs: <https://docs.sero-ai.dev/>
 
-Sero is built on [Pi](https://github.com/badlogic/pi), the open-source coding
-agent platform. The current pinned Pi SDK baseline is **0.61.1**
-(`@mariozechner/pi-*` packages in `pnpm-workspace.yaml`). This will be updated
-during beta: later Pi releases may include breaking Extension API changes that Sero
-needs to adopt before plugin contracts can settle.
+Sero is built on [Pi](https://github.com/earendil-works/pi-mono), the
+open-source coding agent platform. The current pinned Pi SDK baseline is
+**0.78.0** (`@earendil-works/pi-*` packages in `pnpm-workspace.yaml`).
 
 ## What Sero is not
 

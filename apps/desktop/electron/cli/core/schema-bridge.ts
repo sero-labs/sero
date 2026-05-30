@@ -12,7 +12,7 @@
  * and re-register them as CLI commands (removing them from agent context).
  */
 
-import type { ToolDefinition } from '@mariozechner/pi-coding-agent';
+import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
 import type { CliCommand, CliCommandContext, CliContentBlock, CliResult } from './types';
 import { buildCommandContext, buildToolContext } from './bridge-context';
 import { getBridgedExtensionCommand, getBridgedExtensionTool } from '../bridges/extension-session-bridge';

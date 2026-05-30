@@ -6,7 +6,7 @@
  * by web-remote) can share the same behaviour.
  */
 
-import { getEnvApiKey } from '@mariozechner/pi-ai';
+import { getEnvApiKey } from '@earendil-works/pi-ai';
 
 import type {
   VoiceTranscriptionResult,

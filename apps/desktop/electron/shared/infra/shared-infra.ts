@@ -17,8 +17,8 @@ import {
   AuthStorage,
   ModelRegistry,
   SettingsManager,
-} from '@mariozechner/pi-coding-agent';
-import { type Api, type Model } from '@mariozechner/pi-ai';
+} from '@earendil-works/pi-coding-agent';
+import { type Api, type Model } from '@earendil-works/pi-ai';
 
 import { SERO_AGENT_DIR } from '@electron/platform/env';
 import { migrateLegacyProfileRootConfigsSync } from '@electron/features/profile/agent-config-migration';

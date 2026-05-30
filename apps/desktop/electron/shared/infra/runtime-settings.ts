@@ -1,5 +1,5 @@
-import type { Api, Model } from '@mariozechner/pi-ai';
-import { type ModelRegistry, type SettingsManager } from '@mariozechner/pi-coding-agent';
+import type { Api, Model } from '@earendil-works/pi-ai';
+import { type ModelRegistry, type SettingsManager } from '@earendil-works/pi-coding-agent';
 import { getConfiguredModelFallbackChain } from '../settings/model-fallback-chain';
 import { getModelTiers } from '../settings/model-tiers';
 import { subagentManager } from './singletons';

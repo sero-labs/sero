@@ -1,5 +1,5 @@
 import { ipcMain } from 'electron';
-import { SessionManager } from '@mariozechner/pi-coding-agent';
+import { SessionManager } from '@earendil-works/pi-coding-agent';
 import { IpcChannels } from '@/types/ipc-channels';
 import type {
   AgentStreamEvent,

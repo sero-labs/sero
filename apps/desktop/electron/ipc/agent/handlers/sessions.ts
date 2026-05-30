@@ -9,7 +9,7 @@
  */
 
 import { ipcMain } from 'electron';
-import { SessionManager } from '@mariozechner/pi-coding-agent';
+import { SessionManager } from '@earendil-works/pi-coding-agent';
 import { promises as fs } from 'fs';
 import os from 'os';
 import path from 'path';
@@ -19,6 +19,7 @@ import type { SeroSessionInfo } from '@/types/ipc';
 import { workspaceManager } from '@electron/features/workspace/manager';
 import { SERO_SESSION_DIR } from '@electron/shared/infra/shared-infra';
 import { extractOriginalCollaborationQuery } from '@electron/ipc/collaboration/collaboration-message';
+import { listSessionMetadata, type SessionMetadata } from '@electron/ipc/agent/core/session-metadata';
 
 /**
  * Legacy cwd used before workspaces existed.
@@ -82,17 +83,8 @@ export async function resolveSessionWorkspaceId(
   return detachedWorkspaceId(cwd);
 }
 
-/** Convert Pi SDK SessionInfo to our serialisable IPC shape. */
-async function toSeroSessionInfo(info: {
-  path: string;
-  id: string;
-  cwd: string;
-  name?: string;
-  created: Date;
-  modified: Date;
-  messageCount: number;
-  firstMessage: string;
-}): Promise<SeroSessionInfo> {
+/** Convert Pi SDK session metadata to our serialisable IPC shape. */
+async function toSeroSessionInfo(info: SessionMetadata): Promise<SeroSessionInfo> {
   return {
     path: info.path,
     id: info.id,
@@ -110,15 +102,14 @@ export function registerSessionHandlers(): void {
   // ── List all sessions ──────────────────────────────────────
   //    Optional workspaceId filter.
   //
-  //    SessionManager.list(cwd, sessionDir) with an explicit sessionDir
-  //    lists all .jsonl files in that directory regardless of cwd.
-  //    We use LEGACY_CWD as a dummy — the sessionDir override is what matters.
+  //    Pi SDK 0.78 filters SessionManager.list(cwd, sessionDir) by cwd when
+  //    sessionDir is explicit, so read the session directory directly here.
   ipcMain.handle(
     IpcChannels.sessions.list,
     async (_event, workspaceId?: string): Promise<SeroSessionInfo[]> => {
       await ensureSessionDir();
       try {
-        const allSessions = await SessionManager.list(LEGACY_CWD, SERO_SESSION_DIR);
+        const allSessions = await listSessionMetadata(SERO_SESSION_DIR);
         const mapped = await Promise.all(allSessions.map(toSeroSessionInfo));
 
         // Filter by workspace if requested

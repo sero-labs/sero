@@ -420,6 +420,10 @@ This builds a ready-to-install plugin bundle at `dist/plugin/` containing:
 - `prompts/` / `skills/` — copied runtime resources
 - `package.json` — cleaned manifest with compiled `pi.extensions` paths
 
+Extension dependencies are bundled by default. Add native, large, or
+runtime-loaded packages to `sero.plugin.extensionExternals` so the bundle keeps
+them in `node_modules` instead.
+
 Verify the output contains:
 
 ```

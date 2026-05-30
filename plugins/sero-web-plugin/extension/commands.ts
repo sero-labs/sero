@@ -1,4 +1,4 @@
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 function sendToolRoutedPrompt(pi: ExtensionAPI, lines: string[]): void {
 	pi.sendUserMessage(lines.filter(Boolean).join("\n"));

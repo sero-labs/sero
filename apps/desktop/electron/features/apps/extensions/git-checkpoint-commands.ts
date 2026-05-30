@@ -1,4 +1,4 @@
-import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
+import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 
 import { vcsManager } from '@electron/shared/infra/shared-infra';
 import type { GitCheckpointSessionEntries } from './git-checkpoint-session-entries';

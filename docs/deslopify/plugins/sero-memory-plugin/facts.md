@@ -17,7 +17,7 @@ _Last reviewed: 2026-04-13_
   - `plugins/sero-memory-plugin/extension/consolidation.ts` (335)
   - `plugins/sero-memory-plugin/extension/migration.ts` (334)
 - External dependencies of note:
-  - Pi SDK extension/session APIs (`@mariozechner/pi-coding-agent`, `@mariozechner/pi-ai`, `@mariozechner/pi-tui`)
+  - Pi SDK extension/session APIs (`@earendil-works/pi-coding-agent`, `@earendil-works/pi-ai`, `@earendil-works/pi-tui`)
   - `@tobilu/qmd` for ranked search/indexing
   - `date-fns` for date formatting
   - Global Sero workspace files under `SERO_HOME/workspaces/global`

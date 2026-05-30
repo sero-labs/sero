@@ -32,7 +32,7 @@
     ]
   },
   "peerDependencies": {
-    "@mariozechner/pi-coding-agent": "catalog:peer"
+    "@earendil-works/pi-coding-agent": "catalog:peer"
   },
   "devDependencies": {
     "@types/node": "catalog:",

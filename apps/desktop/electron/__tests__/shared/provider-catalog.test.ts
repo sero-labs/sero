@@ -13,7 +13,7 @@ import {
 const removedProviderIds = ['google-gemini-cli', 'google-antigravity'];
 
 describe('provider catalog', () => {
-  it('lists Pi 0.72 API-key providers exposed by Sero auth', () => {
+  it('lists Pi API-key providers exposed by Sero auth', () => {
     const ids = getApiKeyProviderCatalog().map((provider) => provider.id);
 
     expect(ids).toEqual(expect.arrayContaining([
@@ -21,6 +21,9 @@ describe('provider catalog', () => {
       'moonshotai',
       'moonshotai-cn',
       'xiaomi',
+      'xiaomi-token-plan-cn',
+      'xiaomi-token-plan-ams',
+      'xiaomi-token-plan-sgp',
     ]));
     expect(ids).not.toContain('cloudflare-workers-ai');
     expect(ids).not.toContain('cloudflare-ai-gateway');

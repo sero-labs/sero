@@ -27,6 +27,7 @@ import {
   AuthenticatingView,
   PromptView,
   ResultView,
+  SelectView,
   WaitingView,
 } from './auth-login-views/AuthFlowViews';
 import { ProviderListView } from './auth-login-views/ProviderListView';
@@ -36,6 +37,7 @@ import { ProviderListView } from './auth-login-views/ProviderListView';
 type DialogPhase =
   | 'providers'       // Provider list (initial)
   | 'authenticating'  // Browser opened, waiting for OAuth
+  | 'select'          // Waiting for user selection (OAuth)
   | 'prompt'          // Waiting for user text input (OAuth)
   | 'manual_input'    // Waiting for redirect URL paste (OAuth)
   | 'waiting'         // Polling (e.g. GitHub Copilot)
@@ -70,6 +72,7 @@ export function AuthLoginDialog({
   const [selectedProviderName, setSelectedProviderName] = useState('');
   const [authUrl, setAuthUrl] = useState<string | null>(null);
   const [promptMessage, setPromptMessage] = useState('');
+  const [selectOptions, setSelectOptions] = useState<Array<{ id: string; label: string }>>([]);
   const [promptPlaceholder, setPromptPlaceholder] = useState('');
   const [inputValue, setInputValue] = useState('');
   const [statusMessage, setStatusMessage] = useState('');
@@ -137,6 +140,11 @@ export function AuthLoginDialog({
           setInputValue('');
           setPhase('prompt');
           break;
+        case 'select':
+          setPromptMessage(event.message);
+          setSelectOptions(event.options);
+          setPhase('select');
+          break;
         case 'manual_input':
           setPromptMessage(event.prompt);
           setInputValue('');
@@ -177,7 +185,7 @@ export function AuthLoginDialog({
   // ── Cancel on close ─────────────────────────────────────────
   const handleOpenChange = useCallback(
     (next: boolean) => {
-      if (!next && (phase === 'authenticating' || phase === 'prompt' || phase === 'manual_input' || phase === 'waiting')) {
+      if (!next && ['authenticating', 'prompt', 'select', 'manual_input', 'waiting'].includes(phase)) {
         window.sero.auth.cancel();
       }
       onOpenChange(next);
@@ -219,6 +227,12 @@ export function AuthLoginDialog({
     setInputValue('');
     setPhase('authenticating');
   }, [inputValue]);
+
+  const handleSelectOption = useCallback((value: string) => {
+    window.sero.auth.respondSelect(value);
+    setSelectOptions([]);
+    setPhase('authenticating');
+  }, []);
 
   const handleOAuthCancel = useCallback(() => {
     window.sero.auth.cancel();
@@ -314,6 +328,15 @@ export function AuthLoginDialog({
 
           {phase === 'waiting' && (
             <WaitingView message={statusMessage} onCancel={handleOAuthCancel} />
+          )}
+
+          {phase === 'select' && (
+            <SelectView
+              message={promptMessage}
+              options={selectOptions}
+              onSelect={handleSelectOption}
+              onCancel={handleOAuthCancel}
+            />
           )}
 
           {(phase === 'prompt' || phase === 'manual_input') && (

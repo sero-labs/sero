@@ -162,6 +162,8 @@ export const authBridge = {
     ipcRenderer.invoke(IpcChannels.auth.removeApiKey, providerId),
   respondPrompt: (value: string): Promise<void> =>
     ipcRenderer.invoke(IpcChannels.auth.respondPrompt, value),
+  respondSelect: (value: string): Promise<void> =>
+    ipcRenderer.invoke(IpcChannels.auth.respondSelect, value),
   respondManualCode: (value: string): Promise<void> =>
     ipcRenderer.invoke(IpcChannels.auth.respondManualCode, value),
   cancel: (): Promise<void> =>

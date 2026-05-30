@@ -5,7 +5,7 @@
  * Extracted from agent.ts to keep it under 500 LOC.
  */
 
-import type { AgentSession } from '@mariozechner/pi-coding-agent';
+import type { AgentSession } from '@earendil-works/pi-coding-agent';
 import type {
   ChatAssistantMessage,
   ChatToolCallMessage,

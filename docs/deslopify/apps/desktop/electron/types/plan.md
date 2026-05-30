@@ -22,7 +22,7 @@ upstream package exposes the option natively.
    - Keep future additions package-specific and minimal.
 
 2. **Check upstream before touching it during future SDK upgrades.**
-   - If `@mariozechner/pi-coding-agent` gains native `systemPromptSuffix`
+   - If `@earendil-works/pi-coding-agent` gains native `systemPromptSuffix`
      support, delete the local augmentation instead of keeping duplicate typing.
    - If the upstream option shape changes, update this augmentation and the
      subagent runner in the same pass.
@@ -42,7 +42,7 @@ upstream package exposes the option natively.
 
 ## Next Steps
 1. ~~Mark this target as reviewed and move on to the heavier Wave A seams.~~ ✅ 2026-04-14 (`c7452f4d`)
-2. Revisit it only when upgrading `@mariozechner/pi-coding-agent` or changing
+2. Revisit it only when upgrading `@earendil-works/pi-coding-agent` or changing
    the subagent session-construction path.
 
 Verification checklist for future changes:

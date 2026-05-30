@@ -160,6 +160,33 @@ export function parsePluginMeta(plugin: unknown): ParsedPluginMetaResult {
     warnings.push('ignored non-boolean `sero.plugin.preBuilt`');
   }
 
+  if (typeof plugin.bundleExtensions === 'boolean') {
+    parsed.bundleExtensions = plugin.bundleExtensions;
+  } else if (plugin.bundleExtensions !== undefined) {
+    warnings.push('ignored non-boolean `sero.plugin.bundleExtensions`');
+  }
+
+  if (Array.isArray(plugin.extensionExternals)) {
+    const extensionExternals: string[] = [];
+    plugin.extensionExternals.forEach((external, index) => {
+      if (typeof external !== 'string') {
+        warnings.push(`ignored non-string \`sero.plugin.extensionExternals[${index}]\``);
+        return;
+      }
+      const trimmed = external.trim();
+      if (!trimmed) {
+        warnings.push(`ignored empty \`sero.plugin.extensionExternals[${index}]\``);
+        return;
+      }
+      extensionExternals.push(trimmed);
+    });
+    if (extensionExternals.length > 0) {
+      parsed.extensionExternals = extensionExternals;
+    }
+  } else if (plugin.extensionExternals !== undefined) {
+    warnings.push('ignored invalid `sero.plugin.extensionExternals`; expected string[]');
+  }
+
   if (typeof plugin.bridgeTools === 'boolean') {
     parsed.bridgeTools = plugin.bridgeTools;
   } else if (Array.isArray(plugin.bridgeTools)) {

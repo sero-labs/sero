@@ -1,4 +1,4 @@
-import { type Model, type Api } from '@mariozechner/pi-ai';
+import { type Model, type Api } from '@earendil-works/pi-ai';
 
 import {
   ensureInfra,

@@ -46,6 +46,7 @@
       "bridgeTools": [
         "mcp"
       ],
+      "bundleExtensions": true,
       "preBuilt": false
     }
   },
@@ -56,9 +57,9 @@
     "zod": "catalog:"
   },
   "peerDependencies": {
-    "@mariozechner/pi-ai": "catalog:peer",
-    "@mariozechner/pi-coding-agent": "catalog:peer",
-    "@mariozechner/pi-tui": "catalog:peer"
+    "@earendil-works/pi-ai": "catalog:peer",
+    "@earendil-works/pi-coding-agent": "catalog:peer",
+    "@earendil-works/pi-tui": "catalog:peer"
   },
   "devDependencies": {
     "@module-federation/vite": "catalog:",

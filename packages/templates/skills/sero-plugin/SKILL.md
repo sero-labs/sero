@@ -180,7 +180,7 @@ sero workspace mount-plugin /absolute/path/to/plugins/sero-<name>-plugin
 `extension/index.ts` is standard Pi. Template in `references/templates.md`.
 
 Key patterns:
-- Use `StringEnum` from `@mariozechner/pi-ai` for action enums (not `Type.Union`)
+- Use `StringEnum` from `@earendil-works/pi-ai` for action enums (not `Type.Union`)
 - Resolve `statePath` from `ctx.cwd` inside `execute` handlers; use `session_start` only as a warm fallback
 - Atomic writes only (temp → rename)
 - Keep tool output concise

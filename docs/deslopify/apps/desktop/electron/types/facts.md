@@ -16,7 +16,7 @@ subagent runtime uses to append markdown-defined agent instructions.
 - Upstream callers / consumers of note:
   - `apps/desktop/electron/features/subagent/runtime/runner.ts:191-202`
 - External dependencies of note:
-  - `@mariozechner/pi-coding-agent` module augmentation only
+  - `@earendil-works/pi-coding-agent` module augmentation only
 
 ## Architectural notes
 - This folder is not a general-purpose desktop types bucket; it is currently a

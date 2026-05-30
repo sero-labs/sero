@@ -1,8 +1,8 @@
 // tools-fetch.ts — fetch_content + get_search_content tool registrations.
 
 import path from "node:path";
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import { Text } from "@mariozechner/pi-tui";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 import { fetchAllContent, type ExtractedContent } from "./extract.js";
 import { generateId, getResult, storeResult, type StoredSearchData, type QueryResultData } from "./storage.js";

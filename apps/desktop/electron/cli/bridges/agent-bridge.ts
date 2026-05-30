@@ -1,4 +1,4 @@
-import type { AgentSession, DefaultResourceLoader } from '@mariozechner/pi-coding-agent';
+import type { AgentSession, DefaultResourceLoader } from '@earendil-works/pi-coding-agent';
 import type { AgentStreamEvent } from '@/types/ipc';
 import { installCliSessionBridge } from './session-bridge';
 

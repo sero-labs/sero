@@ -150,6 +150,8 @@ export const IpcChannels = {
     removeApiKey: 'sero:auth:remove-api-key',
     /** Respond to a pending prompt during login. */
     respondPrompt: 'sero:auth:respond-prompt',
+    /** Respond to a pending selection during login. */
+    respondSelect: 'sero:auth:respond-select',
     /** Respond to a pending manual code input during login. */
     respondManualCode: 'sero:auth:respond-manual-code',
     /** Cancel in-progress login. */

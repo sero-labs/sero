@@ -14,7 +14,7 @@
  */
 
 import path from 'path';
-import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
+import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import type { WorkspaceManager } from '@electron/features/workspace/manager';
 import type { ContainerState } from '@electron/features/container';
 import { buildContainerPromptBlock } from '@electron/features/container/tools/system-prompt';

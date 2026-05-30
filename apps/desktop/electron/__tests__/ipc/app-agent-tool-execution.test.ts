@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { AgentSession } from '@mariozechner/pi-coding-agent';
+import type { AgentSession } from '@earendil-works/pi-coding-agent';
 
 import { invokeAppSessionTool } from '@electron/ipc/agent/handlers/app-agent-tools';
 

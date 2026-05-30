@@ -10,7 +10,7 @@ This feature is Sero's AD-021 subagent runtime. It discovers markdown-defined ag
 - Largest file: `apps/desktop/electron/features/subagent/index.ts` (491 LOC)
 - Files over 500 LOC: none
 - Near-cap files (≥400 LOC): `apps/desktop/electron/features/subagent/index.ts` (491)
-- External dependencies of note: `@mariozechner/pi-coding-agent`, `@mariozechner/pi-agent-core`, TypeBox, container tools, shared infra/model registry, `SERO_AGENT_DIR`
+- External dependencies of note: `@earendil-works/pi-coding-agent`, `@earendil-works/pi-agent-core`, TypeBox, container tools, shared infra/model registry, `SERO_AGENT_DIR`
 - Upstream callers: `apps/desktop/electron/shared/infra/shared-infra.ts`, `apps/desktop/electron/features/apps/extensions/create-sero-extension.ts`, kanban implementation/planning/review executors, IPC subagent handlers, collaboration flows, subagent tests
 - Downstream dependencies: child-session prompt construction, tracker snapshots/events in renderer UI, container/host coding tool selection, agent-definition authoring under `~/.sero-ui/agent/agents/`
 

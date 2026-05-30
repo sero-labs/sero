@@ -14,9 +14,9 @@
 import {
   createAgentSession,
   SessionManager,
-} from '@mariozechner/pi-coding-agent';
-import type { AgentSession } from '@mariozechner/pi-coding-agent';
-import type { Model } from '@mariozechner/pi-ai';
+} from '@earendil-works/pi-coding-agent';
+import type { AgentSession } from '@earendil-works/pi-coding-agent';
+import type { Model } from '@earendil-works/pi-ai';
 import { info, error as logError } from './logger';
 
 // ── Types ───────────────────────────────────────────────────────

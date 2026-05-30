@@ -13,7 +13,7 @@
  * Hooks: before_agent_start (context injection), session lifecycle
  */
 
-import type { ExtensionAPI, ExtensionContext } from '@mariozechner/pi-coding-agent';
+import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent';
 
 import { checkBootstrapStatus } from './bootstrap';
 import { registerContextInjection, markBootstrapDone } from './context-injector';

@@ -1,5 +1,5 @@
-import type { AgentSession } from '@mariozechner/pi-coding-agent';
-import type { Api, Model } from '@mariozechner/pi-ai';
+import type { AgentSession } from '@earendil-works/pi-coding-agent';
+import type { Api, Model } from '@earendil-works/pi-ai';
 import { clearUnavailableSessionModel } from './agent-session-model-sync';
 import { setRuntimeSessionModel } from './agent-helpers';
 

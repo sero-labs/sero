@@ -12,7 +12,7 @@
  * scheduler exists per process. This prevents double job execution.
  */
 
-import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
+import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 
 import { createCronRuntime } from './runtime';
 import {

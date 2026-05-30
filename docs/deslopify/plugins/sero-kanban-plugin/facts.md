@@ -15,7 +15,7 @@ _Last reviewed: 2026-04-13_
   - `plugins/sero-kanban-plugin/ui/components/DescriptionEditor.tsx` (405)
   - `plugins/sero-kanban-plugin/ui/components/ActivityPanel.tsx` (393)
 - External dependencies of note:
-  - Pi extension/runtime APIs (`@mariozechner/pi-coding-agent`, `@mariozechner/pi-tui`)
+  - Pi extension/runtime APIs (`@earendil-works/pi-coding-agent`, `@earendil-works/pi-tui`)
   - `@sinclair/typebox` for the bridged `kanban` tool schema
   - `@sero-ai/app-runtime` for file-backed plugin state, AI hooks, and agent prompting
   - `motion/react` for the federated UI and widget

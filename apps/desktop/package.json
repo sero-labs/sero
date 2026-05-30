@@ -47,10 +47,10 @@
     "dist:win": "bash scripts/build-release.sh --target win"
   },
   "dependencies": {
-    "@google/genai": "^1.45.0",
-    "@mariozechner/pi-agent-core": "catalog:",
-    "@mariozechner/pi-ai": "catalog:",
-    "@mariozechner/pi-coding-agent": "catalog:",
+    "@google/genai": "^1.52.0",
+    "@earendil-works/pi-agent-core": "catalog:",
+    "@earendil-works/pi-ai": "catalog:",
+    "@earendil-works/pi-coding-agent": "catalog:",
     "@sero-ai/common": "workspace:*",
     "ansi-styles": "4.3.0",
     "chalk": "4.1.2",

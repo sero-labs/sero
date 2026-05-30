@@ -10,7 +10,7 @@ _Last reviewed: 2026-04-13_
 - Largest file: `plugins/sero-user-feedback-plugin/ui/QuestionnaireForm.tsx` (469 LOC)
 - Files over 500 LOC: none
 - Near-cap / hotspot files: `ui/QuestionnaireForm.tsx` (469), `extension/tui-questionnaire.ts` (416), `extension/index.ts` (339)
-- External dependencies of note: Pi SDK + `@mariozechner/pi-tui`, `@sinclair/typebox`, React, `@sero-ai/app-runtime`, `@sero-ai/ui`, `lucide-react`
+- External dependencies of note: Pi SDK + `@earendil-works/pi-tui`, `@sinclair/typebox`, React, `@sero-ai/app-runtime`, `@sero-ai/ui`, `lucide-react`
 - Upstream callers: Pi session resource loading loads `extension/index.ts`; Sero app/plugin discovery loads `UserFeedbackApp` via the manifest remote; desktop tests import the plugin UI/types directly
 - Downstream dependencies: `window.sero.userFeedback` + `window.sero.profiles` preload bridges, `apps/desktop/electron/ipc/platform/ui/user-feedback-questions.ts`, `apps/desktop/electron/shared/lib/user-feedback-bus.ts`, `apps/desktop/src/types/user-feedback.ts`, renderer user-feedback store/notice flows
 

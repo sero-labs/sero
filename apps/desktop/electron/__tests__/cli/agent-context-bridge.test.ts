@@ -3,7 +3,7 @@ import { Type } from 'typebox';
 
 import { bridgeTool } from '@electron/cli/core/schema-bridge';
 import type { CliCommandContext, CliInvocation } from '@electron/cli/core/types';
-import { defineTool, type ExtensionContext, type ToolDefinition } from '@mariozechner/pi-coding-agent';
+import { defineTool, type ExtensionContext, type ToolDefinition } from '@earendil-works/pi-coding-agent';
 import type { ContainerManager } from '@electron/features/container';
 import type { WorkspaceManager } from '@electron/features/workspace/manager';
 

@@ -14,9 +14,10 @@ const require = createRequire(import.meta.url);
 const esbuild = require(path.join(repoRoot, 'apps/desktop/node_modules/esbuild'));
 const workspaceYamlPath = path.join(repoRoot, 'pnpm-workspace.yaml');
 
-const packageArg = process.argv[2];
+const quiet = process.argv.includes('--quiet');
+const packageArg = process.argv.slice(2).find((arg) => !arg.startsWith('-'));
 if (!packageArg) {
-  console.error('Usage: node scripts/build-plugin.mjs <package-dir>');
+  console.error('Usage: node scripts/build-plugin.mjs <package-dir> [--quiet]');
   process.exit(1);
 }
 
@@ -33,6 +34,10 @@ function run(command, args, options = {}) {
   if (result.status !== 0) {
     process.exit(result.status ?? 1);
   }
+}
+
+function log(message = '') {
+  if (!quiet) console.log(message);
 }
 
 function toPosix(relativePath) {
@@ -64,6 +69,31 @@ function getRuntimeExternals(pkg) {
     ? pkg.sero.app.runtimeExternals
     : [];
   return expandExternalSpecifiers(runtimeExternals);
+}
+
+function getExtensionExternals(pkg) {
+  const extensionExternals = Array.isArray(pkg.sero?.plugin?.extensionExternals)
+    ? pkg.sero.plugin.extensionExternals
+    : [];
+  return expandExternalSpecifiers(extensionExternals);
+}
+
+function packageNameFromSpecifier(specifier) {
+  if (typeof specifier !== 'string' || !specifier.trim()) return null;
+  const normalized = specifier.trim().replace(/\/\*$/, '');
+  if (normalized.startsWith('@')) {
+    const [scope, name] = normalized.split('/');
+    return scope && name ? `${scope}/${name}` : null;
+  }
+  return normalized.split('/')[0] ?? null;
+}
+
+function dependencyNamesFromExternals(specifiers) {
+  return new Set(
+    specifiers
+      .map(packageNameFromSpecifier)
+      .filter((name) => typeof name === 'string' && name.length > 0),
+  );
 }
 
 async function loadWorkspaceCatalogs() {
@@ -170,8 +200,8 @@ async function listFilesRecursive(dirPath) {
 async function buildUiIfPresent(pkg) {
   if (!pkg.sero?.app?.ui) return;
 
-  console.log('  → Building UI remote...');
-  run('pnpm', ['exec', 'vite', 'build'], {
+  log('  → Building UI remote...');
+  run('pnpm', ['exec', 'vite', 'build', ...(quiet ? ['--logLevel', 'error'] : [])], {
     cwd: packageDir,
     env: {
       ...process.env,
@@ -192,12 +222,25 @@ async function bundleNodeEntry(sourcePath, outputPath, externals) {
     external: externals,
     sourcemap: false,
     legalComments: 'none',
+    banner: {
+      js: `
+import { createRequire as __createRequire } from 'module';
+import { fileURLToPath as __fileURLToPath } from 'url';
+import { dirname as __dirnameFn } from 'path';
+const require = __createRequire(import.meta.url);
+const __filename = __fileURLToPath(import.meta.url);
+const __dirname = __dirnameFn(__filename);
+`.trim(),
+    },
   });
 }
 
 async function bundleExtensions(pkg, outputDir) {
   const extensionEntries = Array.isArray(pkg.pi?.extensions) ? pkg.pi.extensions : [];
-  const peerExternals = getPeerExternals(pkg);
+  const extensionExternals = new Set([
+    ...getPeerExternals(pkg),
+    ...getExtensionExternals(pkg),
+  ]);
   const compiledEntries = [];
 
   for (const entry of extensionEntries) {
@@ -205,8 +248,8 @@ async function bundleExtensions(pkg, outputDir) {
     const outputRelativePath = toJsRelativePath(entry.replace(/^\.\//, ''));
     const outputPath = path.join(outputDir, outputRelativePath);
 
-    console.log(`  → Bundling extension ${entry}...`);
-    await bundleNodeEntry(sourcePath, outputPath, peerExternals);
+    log(`  → Bundling extension ${entry}...`);
+    await bundleNodeEntry(sourcePath, outputPath, [...extensionExternals]);
     compiledEntries.push(`./${toPosix(outputRelativePath)}`);
   }
 
@@ -227,7 +270,7 @@ async function bundleRuntimeIfPresent(pkg, outputDir) {
   const outputRelativePath = toJsRelativePath(runtimeEntry.replace(/^\.\//, ''));
   const outputPath = path.join(outputDir, outputRelativePath);
 
-  console.log(`  → Bundling runtime ${runtimeEntry}...`);
+  log(`  → Bundling runtime ${runtimeEntry}...`);
   await bundleNodeEntry(sourcePath, outputPath, [...runtimeExternals]);
   return `./${toPosix(outputRelativePath)}`;
 }
@@ -288,7 +331,50 @@ async function copyPackageResources(pkg, outputDir) {
   await copyIfExists(path.join(packageDir, 'LICENSE'), path.join(outputDir, 'LICENSE'));
 }
 
+function filterDependencyMap(dependencies, keepNames) {
+  if (!dependencies) return undefined;
+
+  const filtered = Object.fromEntries(
+    Object.entries(dependencies).filter(([name]) => keepNames.has(name)),
+  );
+
+  return Object.keys(filtered).length > 0 ? filtered : undefined;
+}
+
+function getPublishedDependencyNames(pkg) {
+  return new Set([
+    ...dependencyNamesFromExternals(getExtensionExternals(pkg)),
+    ...dependencyNamesFromExternals(getRuntimeExternals(pkg)),
+  ]);
+}
+
+function getPublishedDependencies(pkg, keepNames) {
+  return pkg.sero?.plugin?.bundleExtensions === true
+    ? filterDependencyMap(pkg.dependencies, keepNames)
+    : pkg.dependencies;
+}
+
+function compiledFileEntry(entry) {
+  return entry.replace(/^\.\//, '');
+}
+
+function buildPublishedFiles(compiledExtensions, compiledRuntimeEntry) {
+  const entries = new Set([
+    'package.json',
+    'README.md',
+    'LICENSE',
+    'dist/ui',
+    'shared',
+    'prompts',
+    'skills',
+  ]);
+  for (const entry of compiledExtensions) entries.add(compiledFileEntry(entry));
+  if (compiledRuntimeEntry) entries.add(compiledFileEntry(compiledRuntimeEntry));
+  return [...entries];
+}
+
 function buildPublishedManifest(pkg, compiledExtensions, compiledRuntimeEntry, catalogs) {
+  const publishedDependencyNames = getPublishedDependencyNames(pkg);
   const publishedAppManifest = pkg.sero?.app
     ? (() => {
         const {
@@ -308,7 +394,10 @@ function buildPublishedManifest(pkg, compiledExtensions, compiledRuntimeEntry, c
     scripts: undefined,
     devDependencies: undefined,
     private: undefined,
-    dependencies: resolveDependencyMap(pkg.dependencies, catalogs),
+    dependencies: resolveDependencyMap(
+      getPublishedDependencies(pkg, publishedDependencyNames),
+      catalogs,
+    ),
     peerDependencies: resolveDependencyMap(pkg.peerDependencies, catalogs),
     pi: pkg.pi
       ? {
@@ -330,17 +419,7 @@ function buildPublishedManifest(pkg, compiledExtensions, compiledRuntimeEntry, c
             : {}),
         }
       : undefined,
-    files: [
-      'package.json',
-      'README.md',
-      'LICENSE',
-      'dist/ui',
-      'extension',
-      ...(compiledRuntimeEntry ? ['runtime'] : []),
-      'shared',
-      'prompts',
-      'skills',
-    ],
+    files: buildPublishedFiles(compiledExtensions, compiledRuntimeEntry),
   };
 
   return Object.fromEntries(
@@ -350,9 +429,10 @@ function buildPublishedManifest(pkg, compiledExtensions, compiledRuntimeEntry, c
 
 async function main() {
   const pkg = await readPackageJson();
-  const appId = pkg.sero?.app?.id;
-  if (!appId) {
-    throw new Error(`No sero.app.id found in ${packageJsonPath}`);
+  const packageLabel = pkg.sero?.app?.id ?? pkg.name ?? path.basename(packageDir);
+  const hasExtensionEntries = Array.isArray(pkg.pi?.extensions) && pkg.pi.extensions.length > 0;
+  if (!pkg.sero?.app?.id && !hasExtensionEntries) {
+    throw new Error(`No sero.app.id or pi.extensions found in ${packageJsonPath}`);
   }
 
   const catalogs = await loadWorkspaceCatalogs();
@@ -360,7 +440,7 @@ async function main() {
   await fs.rm(outputDir, { recursive: true, force: true });
   await fs.mkdir(outputDir, { recursive: true });
 
-  console.log(`📦 Building plugin: ${appId} (${packageDir})`);
+  log(`📦 Building plugin: ${packageLabel} (${packageDir})`);
   await buildUiIfPresent(pkg);
   const compiledExtensions = await bundleExtensions(pkg, outputDir);
   const compiledRuntimeEntry = await bundleRuntimeIfPresent(pkg, outputDir);
@@ -374,14 +454,14 @@ async function main() {
     'utf8',
   );
 
-  console.log(`✅ Plugin ${appId} built successfully`);
-  console.log(`   Output: ${path.relative(process.cwd(), outputDir)}`);
-  console.log('');
-  console.log('To test locally:');
-  console.log(`   await window.sero.plugins.install('${outputDir}')`);
-  console.log('');
-  console.log('To inspect the publishable tarball:');
-  console.log(`   (cd '${outputDir}' && npm pack)`);
+  log(`✅ Plugin ${packageLabel} built successfully`);
+  log(`   Output: ${path.relative(process.cwd(), outputDir)}`);
+  log();
+  log('To test locally:');
+  log(`   await window.sero.plugins.install('${outputDir}')`);
+  log();
+  log('To inspect the publishable tarball:');
+  log(`   (cd '${outputDir}' && npm pack)`);
 }
 
 main().catch((error) => {

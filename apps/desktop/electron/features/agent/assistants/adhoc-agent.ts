@@ -1,6 +1,6 @@
-import { createAgentSession, SettingsManager, SessionManager } from '@mariozechner/pi-coding-agent';
-import type { ThinkingLevel } from '@mariozechner/pi-agent-core';
-import type { Api, Model } from '@mariozechner/pi-ai';
+import { createAgentSession, SettingsManager, SessionManager } from '@earendil-works/pi-coding-agent';
+import type { ThinkingLevel } from '@earendil-works/pi-agent-core';
+import type { Api, Model } from '@earendil-works/pi-ai';
 
 import { SERO_AGENT_DIR } from '@electron/platform/env';
 import { ensureInfra } from '@electron/shared/infra/shared-infra';

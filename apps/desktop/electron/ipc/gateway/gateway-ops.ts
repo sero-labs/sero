@@ -10,9 +10,8 @@
 
 import fs from 'fs/promises';
 import path from 'path';
-import os from 'os';
-import { SessionManager } from '@mariozechner/pi-coding-agent';
-import type { AgentSession } from '@mariozechner/pi-coding-agent';
+import { SessionManager } from '@earendil-works/pi-coding-agent';
+import type { AgentSession } from '@earendil-works/pi-coding-agent';
 import { workspaceManager } from '@electron/features/workspace/manager';
 import {
   artifactRegistry,
@@ -67,8 +66,8 @@ async function findSessionInfo(workspaceId: string, sessionId: string): Promise<
   const wsPath = workspaceManager.getPath(workspaceId);
   if (!wsPath) throw new Error(`Workspace not found: ${workspaceId}`);
 
-  const allSessions = await SessionManager.list(os.homedir(), SERO_SESSION_DIR);
-  return allSessions.find((session) => session.id === sessionId && session.cwd === wsPath) ?? null;
+  const workspaceSessions = await SessionManager.list(wsPath, SERO_SESSION_DIR);
+  return workspaceSessions.find((session) => session.id === sessionId) ?? null;
 }
 
 /**
@@ -131,8 +130,9 @@ export function buildGatewayOps(
     },
     listSessions: async (workspaceId) => {
       const wsPath = workspaceManager.getPath(workspaceId);
-      const all = await SessionManager.list(os.homedir(), SERO_SESSION_DIR);
-      return all.filter((s) => s.cwd === wsPath).map((s) => ({
+      if (!wsPath) return [];
+      const workspaceSessions = await SessionManager.list(wsPath, SERO_SESSION_DIR);
+      return workspaceSessions.map((s) => ({
         id: s.id, name: s.name || '', firstMessage: s.firstMessage || '',
       }));
     },

@@ -2,6 +2,7 @@ import { execFile as execFileCb } from 'child_process';
 import os from 'os';
 import path from 'path';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'fs/promises';
+import { pathToFileURL } from 'url';
 import { promisify } from 'util';
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -69,7 +70,7 @@ describe('plugin runtime packaging and source preparation', () => {
         },
       },
       peerDependencies: {
-        '@mariozechner/pi-coding-agent': '^0.0.0',
+        '@earendil-works/pi-coding-agent': '^0.0.0',
       },
     });
 
@@ -78,6 +79,96 @@ describe('plugin runtime packaging and source preparation', () => {
     const builtRuntime = await readFile(path.join(dir, 'dist', 'plugin', 'runtime', 'index.js'), 'utf8');
     expect(builtRuntime).toContain('@acme/nativeish');
     expect(builtRuntime).not.toContain('NEEDS_EXTERNALIZATION');
+  });
+
+  it('builds extension-only packages and keeps declared extensionExternals external', async () => {
+    const dir = await createTempPluginDir();
+    await mkdir(path.join(dir, 'extension'), { recursive: true });
+    await mkdir(path.join(dir, 'node_modules', 'tiny-lib'), { recursive: true });
+    await writeFile(
+      path.join(dir, 'node_modules', 'tiny-lib', 'package.json'),
+      JSON.stringify({ name: 'tiny-lib', version: '1.0.0', type: 'module', exports: './index.js' }, null, 2),
+      'utf8',
+    );
+    await writeFile(
+      path.join(dir, 'node_modules', 'tiny-lib', 'index.js'),
+      'export const tinyValue = "BUNDLED_VALUE";\n',
+      'utf8',
+    );
+    await writeFile(
+      path.join(dir, 'extension', 'index.ts'),
+      'import { externalValue } from "@acme/nativeish"; import { tinyValue } from "tiny-lib"; export default { externalValue, tinyValue };\n',
+      'utf8',
+    );
+    await writePackageJson(dir, {
+      name: '@acme/extension-only-plugin',
+      version: '1.0.0',
+      dependencies: {
+        '@acme/nativeish': '^1.0.0',
+        'tiny-lib': '^1.0.0',
+      },
+      pi: {
+        extensions: ['./extension/index.ts'],
+      },
+      sero: {
+        plugin: {
+          category: 'utilities',
+          tags: ['extension'],
+          bundleExtensions: true,
+          extensionExternals: ['@acme/nativeish'],
+        },
+      },
+      peerDependencies: {
+        '@earendil-works/pi-coding-agent': '^0.0.0',
+      },
+    });
+
+    await execFile(process.execPath, [buildPluginScript, dir], { cwd: repoRoot });
+
+    const builtPkg = JSON.parse(await readFile(path.join(dir, 'dist', 'plugin', 'package.json'), 'utf8')) as {
+      dependencies?: Record<string, string>;
+      pi?: { extensions?: string[] };
+    };
+    const builtExtension = await readFile(path.join(dir, 'dist', 'plugin', 'extension', 'index.js'), 'utf8');
+
+    expect(builtPkg.pi?.extensions).toEqual(['./extension/index.js']);
+    expect(builtPkg.dependencies).toEqual({ '@acme/nativeish': '^1.0.0' });
+    expect(builtExtension).toContain('@acme/nativeish');
+    expect(builtExtension).toContain('BUNDLED_VALUE');
+  });
+
+  it('supports bundled CommonJS dependencies that require Node builtins', async () => {
+    const dir = await createTempPluginDir();
+    await mkdir(path.join(dir, 'extension'), { recursive: true });
+    await mkdir(path.join(dir, 'node_modules', 'spawnish'), { recursive: true });
+    await writeFile(
+      path.join(dir, 'node_modules', 'spawnish', 'package.json'),
+      JSON.stringify({ name: 'spawnish', version: '1.0.0', main: './index.js' }, null, 2),
+      'utf8',
+    );
+    await writeFile(
+      path.join(dir, 'node_modules', 'spawnish', 'index.js'),
+      'const childProcess = require("child_process"); module.exports = { hasExecFile: typeof childProcess.execFile === "function" };\n',
+      'utf8',
+    );
+    await writeFile(
+      path.join(dir, 'extension', 'index.ts'),
+      'import spawnish from "spawnish"; export default { value: spawnish.hasExecFile };\n',
+      'utf8',
+    );
+    await writePackageJson(dir, {
+      name: '@acme/cjs-plugin',
+      version: '1.0.0',
+      dependencies: { spawnish: '^1.0.0' },
+      pi: { extensions: ['./extension/index.ts'] },
+      sero: { plugin: { category: 'utilities', tags: ['extension'], bundleExtensions: true } },
+    });
+
+    await execFile(process.execPath, [buildPluginScript, dir], { cwd: repoRoot });
+
+    const builtExtensionUrl = pathToFileURL(path.join(dir, 'dist', 'plugin', 'extension', 'index.js')).href;
+    const builtExtension = await import(builtExtensionUrl) as { default?: { value?: unknown } };
+    expect(builtExtension.default?.value).toBe(true);
   });
 
   it.each([

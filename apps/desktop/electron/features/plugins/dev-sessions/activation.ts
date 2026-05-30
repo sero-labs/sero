@@ -1,5 +1,5 @@
 import path from 'path';
-import type { PackageSource } from '@mariozechner/pi-coding-agent';
+import type { PackageSource } from '@earendil-works/pi-coding-agent';
 import type { SeroAppManifest } from '@/types/ipc';
 import { registerExtAssets, unregisterExtAssets } from '@electron/platform/protocols/ext-protocol';
 import { getPackagesArray, readSettings, writeSettings } from '../settings';

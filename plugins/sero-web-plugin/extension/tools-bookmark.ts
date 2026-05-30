@@ -1,9 +1,9 @@
 // tools-bookmark.ts — bookmark + clear_history tool registrations.
 
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import { Text } from "@mariozechner/pi-tui";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
-import { StringEnum } from "@mariozechner/pi-ai";
+import { StringEnum } from "@earendil-works/pi-ai";
 import { addBookmark, removeBookmark, listBookmarks, clearHistory } from "./state-sync.js";
 
 export function registerBookmarkTool(

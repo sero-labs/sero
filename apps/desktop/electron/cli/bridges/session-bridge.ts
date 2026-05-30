@@ -1,4 +1,4 @@
-import type { AgentSession } from '@mariozechner/pi-coding-agent';
+import type { AgentSession } from '@earendil-works/pi-coding-agent';
 
 export interface CliSessionEntry {
   sessionId: string;

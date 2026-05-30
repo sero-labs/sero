@@ -3,20 +3,25 @@ import { build } from 'esbuild';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { isBuiltinPackageDir } from '../electron/platform/protocols/builtin-package-detection.js';
+import builtinPackageDetection from '../electron/platform/protocols/builtin-package-detection.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '..');
+const repoRoot = path.resolve(projectRoot, '../..');
 const monorepoPackagesDir = path.resolve(projectRoot, '../../packages');
 const monorepoPluginsDir = path.resolve(projectRoot, '../../plugins');
+const buildPluginScript = path.join(repoRoot, 'scripts/build-plugin.mjs');
+const desktopProvidedPluginDeps = new Set(['@sero-ai/common', 'typebox']);
+const { isBuiltinPackageDir } = builtinPackageDetection;
+const electronOutDir = path.join(projectRoot, 'dist/electron');
 
 const shared = {
   platform: 'node',
-  target: 'node20',
+  target: 'node22',
   format: 'esm',
   bundle: true,
   sourcemap: true,
-  external: ['electron', 'node-pty', 'esbuild', '@mariozechner/*', 'typebox', '@google/genai', 'ws', 'discord.js'],
+  external: ['electron', 'node-pty', 'esbuild', '@earendil-works/*', 'typebox', '@google/genai', 'ws', 'discord.js'],
   outdir: 'dist/electron',
   logLevel: 'info',
   // Keep import.meta.url working for ESM dependencies (pi SDK)
@@ -31,6 +36,8 @@ const __dirname = __dirnameFn(__filename);
 `.trim(),
   },
 };
+
+fs.rmSync(electronOutDir, { recursive: true, force: true });
 
 function copyIfExists(src, dest) {
   if (!fs.existsSync(src)) return;
@@ -48,12 +55,28 @@ function runCommand(command, args, cwd) {
   }
 }
 
-function stagePluginRuntimeDependencies(srcDir, destDir) {
+function readPackageJson(srcDir) {
   const packageJsonPath = path.join(srcDir, 'package.json');
+  if (!fs.existsSync(packageJsonPath)) return null;
+  return JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+}
+
+function shouldBundlePackageExtensions(pkg) {
+  return pkg?.sero?.plugin?.bundleExtensions === true;
+}
+
+function buildPluginPackage(srcDir) {
+  runCommand(process.execPath, [buildPluginScript, srcDir, '--quiet'], repoRoot);
+  return path.join(srcDir, 'dist/plugin');
+}
+
+function stagePluginRuntimeDependencies(srcDir, destDir, manifestDir = srcDir) {
+  const packageJsonPath = path.join(manifestDir, 'package.json');
   if (!fs.existsSync(packageJsonPath)) return;
 
   const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
-  const runtimeDeps = Object.keys(pkg.dependencies ?? {});
+  const runtimeDeps = Object.keys(pkg.dependencies ?? {})
+    .filter((dep) => !desktopProvidedPluginDeps.has(dep));
   if (runtimeDeps.length === 0) return;
 
   const pluginNodeModules = path.join(srcDir, 'node_modules');
@@ -74,6 +97,41 @@ function stagePluginRuntimeDependencies(srcDir, destDir) {
   for (const dep of runtimeDeps) {
     copyIfExists(path.join(pluginNodeModules, dep), path.join(destNodeModules, dep));
   }
+}
+
+function stagePackageUiResources(pkg, srcDir, destDir) {
+  const uiEntry = typeof pkg?.sero?.app?.ui === 'string'
+    ? pkg.sero.app.ui.trim().replace(/^\.\//, '')
+    : '';
+  if (!uiEntry) return;
+
+  const uiDir = path.dirname(uiEntry);
+  if (uiDir === '.') {
+    copyIfExists(path.join(srcDir, uiEntry), path.join(destDir, uiEntry));
+    return;
+  }
+
+  copyIfExists(path.join(srcDir, uiDir), path.join(destDir, uiDir));
+}
+
+function stagePackageResources(srcDir, destDir) {
+  const pkg = readPackageJson(srcDir);
+  if (shouldBundlePackageExtensions(pkg)) {
+    const builtDir = buildPluginPackage(srcDir);
+    fs.cpSync(builtDir, destDir, { recursive: true });
+    stagePluginRuntimeDependencies(srcDir, destDir, destDir);
+    return;
+  }
+
+  copyIfExists(path.join(srcDir, 'package.json'), path.join(destDir, 'package.json'));
+  copyIfExists(path.join(srcDir, 'README.md'), path.join(destDir, 'README.md'));
+  stagePackageUiResources(pkg, srcDir, destDir);
+  copyIfExists(path.join(srcDir, 'extension'), path.join(destDir, 'extension'));
+  copyIfExists(path.join(srcDir, 'shared'), path.join(destDir, 'shared'));
+  copyIfExists(path.join(srcDir, 'skills'), path.join(destDir, 'skills'));
+  copyIfExists(path.join(srcDir, 'prompts'), path.join(destDir, 'prompts'));
+  copyIfExists(path.join(srcDir, 'themes'), path.join(destDir, 'themes'));
+  stagePluginRuntimeDependencies(srcDir, destDir);
 }
 
 function stageBuiltinResources() {
@@ -100,15 +158,7 @@ function stageBuiltinResources() {
     const destDir = path.join(builtinPackagesDest, entry);
     fs.mkdirSync(destDir, { recursive: true });
 
-    copyIfExists(path.join(srcDir, 'package.json'), path.join(destDir, 'package.json'));
-    copyIfExists(path.join(srcDir, 'README.md'), path.join(destDir, 'README.md'));
-    copyIfExists(path.join(srcDir, 'dist'), path.join(destDir, 'dist'));
-    copyIfExists(path.join(srcDir, 'extension'), path.join(destDir, 'extension'));
-    copyIfExists(path.join(srcDir, 'shared'), path.join(destDir, 'shared'));
-    copyIfExists(path.join(srcDir, 'skills'), path.join(destDir, 'skills'));
-    copyIfExists(path.join(srcDir, 'prompts'), path.join(destDir, 'prompts'));
-    copyIfExists(path.join(srcDir, 'themes'), path.join(destDir, 'themes'));
-    stagePluginRuntimeDependencies(srcDir, destDir);
+    stagePackageResources(srcDir, destDir);
   }
 
   for (const entry of pluginEntries) {
@@ -119,15 +169,7 @@ function stageBuiltinResources() {
     const destDir = path.join(builtinPluginsDest, entry);
     fs.mkdirSync(destDir, { recursive: true });
 
-    copyIfExists(path.join(srcDir, 'package.json'), path.join(destDir, 'package.json'));
-    copyIfExists(path.join(srcDir, 'README.md'), path.join(destDir, 'README.md'));
-    copyIfExists(path.join(srcDir, 'dist'), path.join(destDir, 'dist'));
-    copyIfExists(path.join(srcDir, 'extension'), path.join(destDir, 'extension'));
-    copyIfExists(path.join(srcDir, 'shared'), path.join(destDir, 'shared'));
-    copyIfExists(path.join(srcDir, 'skills'), path.join(destDir, 'skills'));
-    copyIfExists(path.join(srcDir, 'prompts'), path.join(destDir, 'prompts'));
-    copyIfExists(path.join(srcDir, 'themes'), path.join(destDir, 'themes'));
-    stagePluginRuntimeDependencies(srcDir, destDir);
+    stagePackageResources(srcDir, destDir);
   }
 
   const templatesSrc = path.join(monorepoPackagesDir, 'templates');

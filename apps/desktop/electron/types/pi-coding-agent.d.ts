@@ -1,8 +1,8 @@
-import '@mariozechner/pi-coding-agent';
+import '@earendil-works/pi-coding-agent';
 import type { TSchema } from 'typebox';
 import type { CustomToolCliBridge } from '../cli/core/schema-bridge';
 
-declare module '@mariozechner/pi-coding-agent' {
+declare module '@earendil-works/pi-coding-agent' {
   interface CreateAgentSessionOptions {
     /**
      * Sero-specific prompt suffix appended after the resolved system prompt.

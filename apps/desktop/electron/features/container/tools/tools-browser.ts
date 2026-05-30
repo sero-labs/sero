@@ -1,4 +1,4 @@
-import type { ToolDefinition } from '@mariozechner/pi-coding-agent';
+import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
 import type { RuntimeBackend } from '@electron/features/workspace/runtime/types';
 import { createAgentBrowser } from './tools-browser-agent';
 

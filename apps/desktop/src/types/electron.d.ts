@@ -169,6 +169,8 @@ interface SeroAuthAPI {
   removeApiKey(providerId: string): Promise<void>;
   /** Respond to a pending prompt during login. */
   respondPrompt(value: string): Promise<void>;
+  /** Respond to a pending selection during login. */
+  respondSelect(value: string): Promise<void>;
   /** Respond to a pending manual code input during login. */
   respondManualCode(value: string): Promise<void>;
   /** Cancel in-progress login. */
