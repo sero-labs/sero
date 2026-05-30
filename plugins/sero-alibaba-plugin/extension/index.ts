@@ -52,6 +52,17 @@ export default function (pi: ExtensionAPI) {
     api: 'openai-completions',
     models: [
       {
+        id: 'qwen3.6-plus',
+        name: 'Qwen3.6 Plus',
+        reasoning: true,
+        thinkingLevelMap: THINKING_LEVEL_MAP,
+        input: ['text', 'image'],
+        cost: { input: 0.5, output: 3.0, cacheRead: 0.05, cacheWrite: 0.625 },
+        contextWindow: 1000000,
+        maxTokens: 65536,
+        compat: reasoningCompat(),
+      },
+      {
         id: 'qwen3.5-plus',
         name: 'Qwen3.5 Plus',
         reasoning: true,
@@ -99,9 +110,9 @@ export default function (pi: ExtensionAPI) {
         reasoning: true,
         thinkingLevelMap: THINKING_LEVEL_MAP,
         input: ['text'],
-        cost: { input: 2.0, output: 6.0, cacheRead: 0, cacheWrite: 0 },
-        contextWindow: 131072,
-        maxTokens: 16384,
+        cost: { input: 1.4, output: 4.4, cacheRead: 0, cacheWrite: 0.26 },
+        contextWindow: 202000,
+        maxTokens: 128000,
         compat: reasoningCompat(),
       },
       {
