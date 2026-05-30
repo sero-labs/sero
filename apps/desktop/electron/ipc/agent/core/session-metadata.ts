@@ -1,6 +1,7 @@
+import { createReadStream } from 'fs';
 import { readdir, stat } from 'fs/promises';
 import path from 'path';
-import { SessionManager } from '@earendil-works/pi-coding-agent';
+import { createInterface } from 'readline';
 
 export interface SessionMetadata {
   path: string;
@@ -19,12 +20,16 @@ interface SessionHeader {
   timestamp: string;
 }
 
-interface SessionEntry {
-  type: string;
-  message?: {
-    role?: string;
-    content?: unknown;
-  };
+interface CachedSessionMetadata {
+  mtimeMs: number;
+  size: number;
+  metadata: SessionMetadata | null;
+}
+
+const metadataCache = new Map<string, CachedSessionMetadata>();
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === 'object';
 }
 
 function textFromContent(content: unknown): string {
@@ -48,32 +53,65 @@ async function sessionFileNames(sessionDir: string): Promise<string[]> {
     .map((entry) => entry.name);
 }
 
-async function readSessionMetadata(sessionDir: string, fileName: string): Promise<SessionMetadata | null> {
-  const filePath = path.join(sessionDir, fileName);
-  const fileStat = await stat(filePath);
-  const manager = SessionManager.open(filePath, sessionDir);
-  const header = manager.getHeader() as SessionHeader | undefined;
+function sessionHeaderFromEntry(entry: Record<string, unknown>): SessionHeader | null {
+  if (entry.type !== 'session') return null;
+  const { id, cwd, timestamp } = entry;
+  if (typeof id !== 'string' || typeof cwd !== 'string' || typeof timestamp !== 'string') return null;
+  return { id, cwd, timestamp };
+}
+
+async function scanSessionFile(filePath: string, modified: Date): Promise<SessionMetadata | null> {
+  const lines = createInterface({ input: createReadStream(filePath), crlfDelay: Infinity });
+  let header: SessionHeader | null = null;
+  let name: string | undefined;
+  let messageCount = 0;
+  let firstMessage = '';
+
+  for await (const line of lines) {
+    if (!line.trim()) continue;
+    const entry = JSON.parse(line) as unknown;
+    if (!isRecord(entry)) continue;
+
+    header ??= sessionHeaderFromEntry(entry);
+    if (entry.type === 'session_info' && typeof entry.name === 'string') name = entry.name;
+    if (entry.type !== 'message' || !isRecord(entry.message)) continue;
+
+    messageCount += 1;
+    if (!firstMessage && entry.message.role === 'user') {
+      firstMessage = textFromContent(entry.message.content);
+    }
+  }
+
   if (!header) return null;
-
-  const entries = manager.getEntries() as SessionEntry[];
-  const messages = entries.filter((entry) => entry.type === 'message' && entry.message);
-  const firstUserMessage = messages.find((entry) => entry.message?.role === 'user');
-
   return {
     path: filePath,
     id: header.id,
     cwd: header.cwd,
-    name: manager.getSessionName(),
+    name,
     created: new Date(header.timestamp),
-    modified: fileStat.mtime,
-    messageCount: messages.length,
-    firstMessage: textFromContent(firstUserMessage?.message?.content),
+    modified,
+    messageCount,
+    firstMessage,
   };
+}
+
+async function readSessionMetadata(sessionDir: string, fileName: string): Promise<SessionMetadata | null> {
+  const filePath = path.join(sessionDir, fileName);
+  const fileStat = await stat(filePath);
+  const cached = metadataCache.get(filePath);
+  if (cached && cached.mtimeMs === fileStat.mtimeMs && cached.size === fileStat.size) return cached.metadata;
+
+  const metadata = await scanSessionFile(filePath, fileStat.mtime);
+  metadataCache.set(filePath, { mtimeMs: fileStat.mtimeMs, size: fileStat.size, metadata });
+  return metadata;
 }
 
 export async function listSessionMetadata(sessionDir: string): Promise<SessionMetadata[]> {
   const files = await sessionFileNames(sessionDir);
   const metadata = await Promise.allSettled(files.map((file) => readSessionMetadata(sessionDir, file)));
+  for (const result of metadata) {
+    if (result.status === 'rejected') console.warn('[sessions] Failed to read session metadata:', result.reason);
+  }
   return metadata
     .filter((result): result is PromiseFulfilledResult<SessionMetadata | null> => result.status === 'fulfilled')
     .map((result) => result.value)
