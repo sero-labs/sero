@@ -22,6 +22,7 @@
     "after:bump": "node scripts/sync-release-package-version.mjs ${version}"
   },
   "git": {
+    "requireBranch": "main",
     "commitMessage": "chore: release v${version}",
     "tagName": "v${version}",
     "tagAnnotation": "Release v${version}",
