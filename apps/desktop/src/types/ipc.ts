@@ -370,21 +370,16 @@ export type {
   OnboardingState,
 } from './onboarding';
 
-/**
- * Events pushed from main → renderer during an OAuth login flow.
- * The renderer dialog reacts to each event to update its UI state.
- */
 export type OAuthEvent =
   | { type: 'auth'; url: string; instructions?: string }
   | { type: 'prompt'; message: string; placeholder?: string }
+  | { type: 'select'; message: string; options: Array<{ id: string; label: string }> }
   | { type: 'manual_input'; prompt: string }
   | { type: 'waiting'; message: string }
   | { type: 'progress'; message: string }
   | { type: 'success'; provider: string; message: string }
   | { type: 'error'; provider: string; message: string }
   | { type: 'cancelled' };
-
-// ── Response + User Feedback ───────────────────────────────────
 
 export type {
   ResponseFeedbackEntry,
@@ -395,8 +390,6 @@ export type {
   UserFeedbackAnswer,
   UserFeedbackResponse,
 } from './user-feedback';
-
-// ── Net Proxy ──────────────────────────────────────────────────
 
 /** Request payload for sero:net:fetch (main-process HTTP proxy). */
 export interface ProxyFetchRequest {

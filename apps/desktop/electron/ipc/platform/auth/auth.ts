@@ -74,6 +74,8 @@ let promptResolver: ((value: string) => void) | null = null;
 let promptRejecter: ((err: Error) => void) | null = null;
 let manualCodeResolver: ((value: string) => void) | null = null;
 let manualCodeRejecter: ((err: Error) => void) | null = null;
+let selectResolver: ((value: string | undefined) => void) | null = null;
+let selectRejecter: ((err: Error) => void) | null = null;
 
 /**
  * The webContents that initiated the current login flow.
@@ -106,6 +108,8 @@ function clearPending(): void {
   promptRejecter = null;
   manualCodeResolver = null;
   manualCodeRejecter = null;
+  selectResolver = null;
+  selectRejecter = null;
   abortController = null;
   loginOriginWebContents = null;
 }
@@ -245,7 +249,18 @@ export function registerAuthHandlers(): void {
             });
           },
 
-          onSelect: async (prompt) => prompt.options[0]?.id,
+          onSelect: async (prompt) => {
+            sendAuthEvent({
+              type: 'select',
+              message: prompt.message,
+              options: prompt.options,
+            });
+
+            return new Promise<string | undefined>((resolve, reject) => {
+              selectResolver = resolve;
+              selectRejecter = reject;
+            });
+          },
 
           signal: abortController.signal,
         });
@@ -339,6 +354,21 @@ export function registerAuthHandlers(): void {
     },
   );
 
+  // ── Respond to pending selection ───────────────────────────
+  ipcMain.handle(
+    IpcChannels.auth.respondSelect,
+    async (_event, value: string): Promise<boolean> => {
+      if (selectResolver) {
+        selectResolver(value);
+        selectResolver = null;
+        selectRejecter = null;
+        return true;
+      }
+      console.warn('[auth] respondSelect called but no selection is pending — ignoring');
+      return false;
+    },
+  );
+
   // ── Cancel in-progress login ───────────────────────────────
   ipcMain.handle(
     IpcChannels.auth.cancel,
@@ -352,6 +382,9 @@ export function registerAuthHandlers(): void {
       }
       if (manualCodeRejecter) {
         manualCodeRejecter(new Error('Login cancelled'));
+      }
+      if (selectRejecter) {
+        selectRejecter(new Error('Login cancelled'));
       }
       clearPending();
     },

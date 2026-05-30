@@ -354,6 +354,25 @@ function getPublishedDependencies(pkg, keepNames) {
     : pkg.dependencies;
 }
 
+function compiledFileEntry(entry) {
+  return entry.replace(/^\.\//, '');
+}
+
+function buildPublishedFiles(compiledExtensions, compiledRuntimeEntry) {
+  const entries = new Set([
+    'package.json',
+    'README.md',
+    'LICENSE',
+    'dist/ui',
+    'shared',
+    'prompts',
+    'skills',
+  ]);
+  for (const entry of compiledExtensions) entries.add(compiledFileEntry(entry));
+  if (compiledRuntimeEntry) entries.add(compiledFileEntry(compiledRuntimeEntry));
+  return [...entries];
+}
+
 function buildPublishedManifest(pkg, compiledExtensions, compiledRuntimeEntry, catalogs) {
   const publishedDependencyNames = getPublishedDependencyNames(pkg);
   const publishedAppManifest = pkg.sero?.app
@@ -400,17 +419,7 @@ function buildPublishedManifest(pkg, compiledExtensions, compiledRuntimeEntry, c
             : {}),
         }
       : undefined,
-    files: [
-      'package.json',
-      'README.md',
-      'LICENSE',
-      'dist/ui',
-      'extension',
-      ...(compiledRuntimeEntry ? ['runtime'] : []),
-      'shared',
-      'prompts',
-      'skills',
-    ],
+    files: buildPublishedFiles(compiledExtensions, compiledRuntimeEntry),
   };
 
   return Object.fromEntries(

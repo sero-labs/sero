@@ -47,6 +47,7 @@ asarUnpack:
   # Native modules must be unpacked (they contain .node binaries)
   - node_modules/node-pty/**/*
   - node_modules/better-sqlite3/**/*
+  - dist/electron/builtin/plugins/sero-web-plugin/node_modules/better-sqlite3/**/*
 
 # ── macOS ─────────────────────────────────────────────────────
 mac:

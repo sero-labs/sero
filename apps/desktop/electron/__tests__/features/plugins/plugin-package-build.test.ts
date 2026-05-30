@@ -134,8 +134,43 @@ describe('plugin package build helpers', () => {
     };
 
     expect(builtPkg.sero?.app?.runtime).toBe('./runtime/index.js');
-    expect(builtPkg.files).toContain('runtime');
+    expect(builtPkg.files).toContain('runtime/index.js');
     await expect(stat(path.join(dir, 'dist', 'plugin', 'runtime', 'index.js'))).resolves.toBeDefined();
+  });
+
+  it('whitelists compiled extension and runtime entries outside conventional folders', async () => {
+    const dir = await createTempPluginDir(tempDirs);
+    await mkdir(path.join(dir, 'agent'), { recursive: true });
+    await mkdir(path.join(dir, 'background'), { recursive: true });
+    await writeFile(path.join(dir, 'agent', 'main.ts'), 'export default { tools: [] };\n', 'utf8');
+    await writeFile(
+      path.join(dir, 'background', 'worker.ts'),
+      'export function createAppRuntime() { return { start() {}, handleStateChange() {}, dispose() {} }; }\n',
+      'utf8',
+    );
+    await writePackageJson(dir, {
+      name: '@acme/custom-layout-plugin',
+      pi: { extensions: ['./agent/main.ts'] },
+      sero: {
+        app: {
+          id: 'custom-layout-plugin',
+          name: 'Custom Layout Plugin',
+          runtime: './background/worker.ts',
+        },
+      },
+    });
+
+    await execFile(process.execPath, [buildPluginScript, dir], { cwd: repoRoot });
+
+    const builtPkg = JSON.parse(await readFile(path.join(dir, 'dist', 'plugin', 'package.json'), 'utf8')) as {
+      files?: string[];
+      pi?: { extensions?: string[] };
+      sero?: { app?: { runtime?: string } };
+    };
+
+    expect(builtPkg.pi?.extensions).toEqual(['./agent/main.js']);
+    expect(builtPkg.sero?.app?.runtime).toBe('./background/worker.js');
+    expect(builtPkg.files).toEqual(expect.arrayContaining(['agent/main.js', 'background/worker.js']));
   });
 
   it('exports runtime source trees with npm-installable tsconfig rewrites', async () => {

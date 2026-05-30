@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from 'fs/promises';
+import { mkdtemp, rm, utimes, writeFile } from 'fs/promises';
 import os from 'os';
 import path from 'path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -64,5 +64,51 @@ describe('session metadata listing', () => {
       firstMessage: '',
       messageCount: 0,
     });
+  });
+
+  it('sorts sessions by modified time newest first', async () => {
+    const sessionDir = await createTempSessionDir();
+    const oldPath = path.join(sessionDir, 'old.jsonl');
+    const newPath = path.join(sessionDir, 'new.jsonl');
+    await writeJsonl(oldPath, [{ type: 'session', id: 'old', timestamp: '2026-05-30T10:00:00.000Z', cwd: '/old' }]);
+    await writeJsonl(newPath, [{ type: 'session', id: 'new', timestamp: '2026-05-30T11:00:00.000Z', cwd: '/new' }]);
+    await utimes(oldPath, new Date('2026-05-30T10:00:00.000Z'), new Date('2026-05-30T10:00:00.000Z'));
+    await utimes(newPath, new Date('2026-05-30T12:00:00.000Z'), new Date('2026-05-30T12:00:00.000Z'));
+
+    const sessions = await listSessionMetadata(sessionDir);
+
+    expect(sessions.map((session) => session.id)).toEqual(['new', 'old']);
+  });
+
+  it('counts all message entries, including messages outside the active branch', async () => {
+    const sessionDir = await createTempSessionDir();
+    await writeJsonl(path.join(sessionDir, 'branched.jsonl'), [
+      { type: 'session', version: 3, id: 'branched', timestamp: '2026-05-30T10:00:00.000Z', cwd: '/workspace' },
+      {
+        type: 'message',
+        id: 'root-message',
+        parentId: null,
+        timestamp: '2026-05-30T10:00:01.000Z',
+        message: { role: 'user', content: 'start' },
+      },
+      {
+        type: 'message',
+        id: 'abandoned-branch',
+        parentId: 'root-message',
+        timestamp: '2026-05-30T10:00:02.000Z',
+        message: { role: 'assistant', content: 'old branch' },
+      },
+      {
+        type: 'message',
+        id: 'active-branch',
+        parentId: 'root-message',
+        timestamp: '2026-05-30T10:00:03.000Z',
+        message: { role: 'assistant', content: 'new branch' },
+      },
+    ]);
+
+    const sessions = await listSessionMetadata(sessionDir);
+
+    expect(sessions[0]?.messageCount).toBe(3);
   });
 });

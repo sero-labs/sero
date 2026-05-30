@@ -50,14 +50,14 @@ async function sessionFileNames(sessionDir: string): Promise<string[]> {
 
 async function readSessionMetadata(sessionDir: string, fileName: string): Promise<SessionMetadata | null> {
   const filePath = path.join(sessionDir, fileName);
+  const fileStat = await stat(filePath);
   const manager = SessionManager.open(filePath, sessionDir);
   const header = manager.getHeader() as SessionHeader | undefined;
   if (!header) return null;
 
-  const branch = manager.getBranch() as SessionEntry[];
-  const messages = branch.filter((entry) => entry.type === 'message' && entry.message);
+  const entries = manager.getEntries() as SessionEntry[];
+  const messages = entries.filter((entry) => entry.type === 'message' && entry.message);
   const firstUserMessage = messages.find((entry) => entry.message?.role === 'user');
-  const fileStat = await stat(filePath);
 
   return {
     path: filePath,
@@ -77,7 +77,8 @@ export async function listSessionMetadata(sessionDir: string): Promise<SessionMe
   return metadata
     .filter((result): result is PromiseFulfilledResult<SessionMetadata | null> => result.status === 'fulfilled')
     .map((result) => result.value)
-    .filter((session): session is SessionMetadata => session !== null);
+    .filter((session): session is SessionMetadata => session !== null)
+    .sort((a, b) => b.modified.getTime() - a.modified.getTime());
 }
 
 export async function findSessionMetadata(
