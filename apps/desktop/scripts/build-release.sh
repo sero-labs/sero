@@ -310,6 +310,8 @@ else
   exit 1
 fi
 
+node scripts/prune-release-artifacts.mjs "$DEPLOY_DIR"
+
 # ── Step 6: Package with electron-builder ────────────────────
 echo "▸ Step 6/6: Packaging with electron-builder..."
 # --publish never: the GitHub `publish` stanza makes electron-builder embed
