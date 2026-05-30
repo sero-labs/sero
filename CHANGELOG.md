@@ -6,6 +6,12 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 and beta release tags use a SemVer prerelease form.
 
 
+## [0.2.2-beta.0](https://github.com/sero-labs/sero/compare/v0.2.0-beta.0...v0.2.2-beta.0) (2026-05-30)
+
+### Bug Fixes
+
+* **release:** package desktop from pnpm deploy bundle + trim runtime deps ([#194](https://github.com/sero-labs/sero/issues/194)) ([72184f0](https://github.com/sero-labs/sero/commit/72184f04cacdb46cfe3586ab1b728529922818a4))
+
 ## [0.2.0-beta.0](https://github.com/sero-labs/sero/compare/v0.1.2-beta.0...v0.2.0-beta.0) (2026-05-27)
 
 ### Features
