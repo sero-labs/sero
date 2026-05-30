@@ -14,9 +14,10 @@ const require = createRequire(import.meta.url);
 const esbuild = require(path.join(repoRoot, 'apps/desktop/node_modules/esbuild'));
 const workspaceYamlPath = path.join(repoRoot, 'pnpm-workspace.yaml');
 
-const packageArg = process.argv[2];
+const quiet = process.argv.includes('--quiet');
+const packageArg = process.argv.slice(2).find((arg) => !arg.startsWith('-'));
 if (!packageArg) {
-  console.error('Usage: node scripts/build-plugin.mjs <package-dir>');
+  console.error('Usage: node scripts/build-plugin.mjs <package-dir> [--quiet]');
   process.exit(1);
 }
 
@@ -33,6 +34,10 @@ function run(command, args, options = {}) {
   if (result.status !== 0) {
     process.exit(result.status ?? 1);
   }
+}
+
+function log(message = '') {
+  if (!quiet) console.log(message);
 }
 
 function toPosix(relativePath) {
@@ -195,8 +200,8 @@ async function listFilesRecursive(dirPath) {
 async function buildUiIfPresent(pkg) {
   if (!pkg.sero?.app?.ui) return;
 
-  console.log('  → Building UI remote...');
-  run('pnpm', ['exec', 'vite', 'build'], {
+  log('  → Building UI remote...');
+  run('pnpm', ['exec', 'vite', 'build', ...(quiet ? ['--logLevel', 'error'] : [])], {
     cwd: packageDir,
     env: {
       ...process.env,
@@ -243,7 +248,7 @@ async function bundleExtensions(pkg, outputDir) {
     const outputRelativePath = toJsRelativePath(entry.replace(/^\.\//, ''));
     const outputPath = path.join(outputDir, outputRelativePath);
 
-    console.log(`  → Bundling extension ${entry}...`);
+    log(`  → Bundling extension ${entry}...`);
     await bundleNodeEntry(sourcePath, outputPath, [...extensionExternals]);
     compiledEntries.push(`./${toPosix(outputRelativePath)}`);
   }
@@ -265,7 +270,7 @@ async function bundleRuntimeIfPresent(pkg, outputDir) {
   const outputRelativePath = toJsRelativePath(runtimeEntry.replace(/^\.\//, ''));
   const outputPath = path.join(outputDir, outputRelativePath);
 
-  console.log(`  → Bundling runtime ${runtimeEntry}...`);
+  log(`  → Bundling runtime ${runtimeEntry}...`);
   await bundleNodeEntry(sourcePath, outputPath, [...runtimeExternals]);
   return `./${toPosix(outputRelativePath)}`;
 }
@@ -426,7 +431,7 @@ async function main() {
   await fs.rm(outputDir, { recursive: true, force: true });
   await fs.mkdir(outputDir, { recursive: true });
 
-  console.log(`📦 Building plugin: ${packageLabel} (${packageDir})`);
+  log(`📦 Building plugin: ${packageLabel} (${packageDir})`);
   await buildUiIfPresent(pkg);
   const compiledExtensions = await bundleExtensions(pkg, outputDir);
   const compiledRuntimeEntry = await bundleRuntimeIfPresent(pkg, outputDir);
@@ -440,14 +445,14 @@ async function main() {
     'utf8',
   );
 
-  console.log(`✅ Plugin ${packageLabel} built successfully`);
-  console.log(`   Output: ${path.relative(process.cwd(), outputDir)}`);
-  console.log('');
-  console.log('To test locally:');
-  console.log(`   await window.sero.plugins.install('${outputDir}')`);
-  console.log('');
-  console.log('To inspect the publishable tarball:');
-  console.log(`   (cd '${outputDir}' && npm pack)`);
+  log(`✅ Plugin ${packageLabel} built successfully`);
+  log(`   Output: ${path.relative(process.cwd(), outputDir)}`);
+  log();
+  log('To test locally:');
+  log(`   await window.sero.plugins.install('${outputDir}')`);
+  log();
+  log('To inspect the publishable tarball:');
+  log(`   (cd '${outputDir}' && npm pack)`);
 }
 
 main().catch((error) => {

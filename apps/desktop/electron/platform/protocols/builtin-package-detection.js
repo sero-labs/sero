@@ -1,8 +1,8 @@
-import fs from 'fs';
-import path from 'path';
+const fs = require('fs');
+const path = require('path');
 
 /** Check if a directory is a Sero extension/app package. */
-export function isBuiltinPackageDir(pkgPath) {
+function isBuiltinPackageDir(pkgPath) {
   const pkgJsonPath = path.join(pkgPath, 'package.json');
   if (!fs.existsSync(pkgJsonPath)) return false;
 
@@ -18,3 +18,5 @@ export function isBuiltinPackageDir(pkgPath) {
     return false;
   }
 }
+
+module.exports = { isBuiltinPackageDir };

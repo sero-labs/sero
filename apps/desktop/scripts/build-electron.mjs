@@ -3,7 +3,7 @@ import { build } from 'esbuild';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { isBuiltinPackageDir } from '../electron/platform/protocols/builtin-package-detection.js';
+import builtinPackageDetection from '../electron/platform/protocols/builtin-package-detection.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '..');
@@ -12,6 +12,7 @@ const monorepoPackagesDir = path.resolve(projectRoot, '../../packages');
 const monorepoPluginsDir = path.resolve(projectRoot, '../../plugins');
 const buildPluginScript = path.join(repoRoot, 'scripts/build-plugin.mjs');
 const desktopProvidedPluginDeps = new Set(['@sero-ai/common', 'typebox']);
+const { isBuiltinPackageDir } = builtinPackageDetection;
 
 const shared = {
   platform: 'node',
@@ -62,7 +63,7 @@ function shouldBundlePackageExtensions(pkg) {
 }
 
 function buildPluginPackage(srcDir) {
-  runCommand(process.execPath, [buildPluginScript, srcDir], repoRoot);
+  runCommand(process.execPath, [buildPluginScript, srcDir, '--quiet'], repoRoot);
   return path.join(srcDir, 'dist/plugin');
 }
 
