@@ -391,7 +391,7 @@ importers:
   packages/app-runtime:
     dependencies:
       react:
-        specifier: catalog:peer
+        specifier: ^19.2.4
         version: 19.2.5
     devDependencies:
       '@sero-ai/common':
