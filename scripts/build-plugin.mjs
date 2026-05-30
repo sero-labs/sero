@@ -217,6 +217,16 @@ async function bundleNodeEntry(sourcePath, outputPath, externals) {
     external: externals,
     sourcemap: false,
     legalComments: 'none',
+    banner: {
+      js: `
+import { createRequire as __createRequire } from 'module';
+import { fileURLToPath as __fileURLToPath } from 'url';
+import { dirname as __dirnameFn } from 'path';
+const require = __createRequire(import.meta.url);
+const __filename = __fileURLToPath(import.meta.url);
+const __dirname = __dirnameFn(__filename);
+`.trim(),
+    },
   });
 }
 

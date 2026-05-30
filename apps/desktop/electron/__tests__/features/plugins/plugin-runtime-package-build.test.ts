@@ -2,6 +2,7 @@ import { execFile as execFileCb } from 'child_process';
 import os from 'os';
 import path from 'path';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'fs/promises';
+import { pathToFileURL } from 'url';
 import { promisify } from 'util';
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -134,6 +135,40 @@ describe('plugin runtime packaging and source preparation', () => {
     expect(builtPkg.dependencies).toEqual({ '@acme/nativeish': '^1.0.0' });
     expect(builtExtension).toContain('@acme/nativeish');
     expect(builtExtension).toContain('BUNDLED_VALUE');
+  });
+
+  it('supports bundled CommonJS dependencies that require Node builtins', async () => {
+    const dir = await createTempPluginDir();
+    await mkdir(path.join(dir, 'extension'), { recursive: true });
+    await mkdir(path.join(dir, 'node_modules', 'spawnish'), { recursive: true });
+    await writeFile(
+      path.join(dir, 'node_modules', 'spawnish', 'package.json'),
+      JSON.stringify({ name: 'spawnish', version: '1.0.0', main: './index.js' }, null, 2),
+      'utf8',
+    );
+    await writeFile(
+      path.join(dir, 'node_modules', 'spawnish', 'index.js'),
+      'const childProcess = require("child_process"); module.exports = { hasExecFile: typeof childProcess.execFile === "function" };\n',
+      'utf8',
+    );
+    await writeFile(
+      path.join(dir, 'extension', 'index.ts'),
+      'import spawnish from "spawnish"; export default { value: spawnish.hasExecFile };\n',
+      'utf8',
+    );
+    await writePackageJson(dir, {
+      name: '@acme/cjs-plugin',
+      version: '1.0.0',
+      dependencies: { spawnish: '^1.0.0' },
+      pi: { extensions: ['./extension/index.ts'] },
+      sero: { plugin: { category: 'utilities', tags: ['extension'], bundleExtensions: true } },
+    });
+
+    await execFile(process.execPath, [buildPluginScript, dir], { cwd: repoRoot });
+
+    const builtExtensionUrl = pathToFileURL(path.join(dir, 'dist', 'plugin', 'extension', 'index.js')).href;
+    const builtExtension = await import(builtExtensionUrl) as { default?: { value?: unknown } };
+    expect(builtExtension.default?.value).toBe(true);
   });
 
   it.each([

@@ -46,6 +46,7 @@
       "bridgeTools": [
         "mcp"
       ],
+      "bundleExtensions": true,
       "preBuilt": false
     }
   },
