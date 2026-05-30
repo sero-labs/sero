@@ -5,7 +5,7 @@ I'm picking up after a session that fixed a broken v0.2.0-beta.0 macOS DMG (it i
 Repo
 
   - /Users/danielcarter/Documents/Dev/projects/sero/sero — pnpm monorepo (pinned pnpm@10.33.4), Electron desktop app in apps/desktop.
-  - Renderer: vite + module-federation, fully bundled. Main: esbuild bundled with a small external set declared in apps/desktop/scripts/build-electron.mjs: external: ['electron', 'node-pty', 'esbuild', '@mariozechner/*', 'typebox', '@google/genai', 'ws', 'discord.js']
+  - Renderer: vite + module-federation, fully bundled. Main: esbuild bundled with a small external set declared in apps/desktop/scripts/build-electron.mjs: external: ['electron', 'node-pty', 'esbuild', '@earendil-works/*', 'typebox', '@google/genai', 'ws', 'discord.js']
   - Release entry: apps/desktop/scripts/build-release.sh, config: apps/desktop/electron-builder.yml, CI: .github/workflows/release.yml.
 
   Root cause that was fixed (don't re-investigate)
@@ -46,8 +46,7 @@ Repo
   Top remaining size in the lean deploy node_modules — investigate these
 
    62M  node-pty               # native; ships prebuilds for win32-x64, win32-arm64, darwin-x64, darwin-arm64
-   28M  koffi                  # native FFI; transitive — find who pulls it
-   25M  @mariozechner          # pi SDK; .ts sources retained ("loaded via jiti at runtime" per electron-builder.yml comment)
+   25M  @earendil-works        # pi SDK; .ts sources retained ("loaded via jiti at runtime" per electron-builder.yml comment)
    22M  @mistralai/mistralai   } the pi-ai provider SDKs — all four
    13M  openai                 } are listed unconditionally as
   6.6M  @aws-sdk/*             } pi-ai dependencies and pi-ai is
@@ -61,17 +60,16 @@ Repo
 
   Concrete things to investigate (ordered by likely payoff)
 
-  1. Strip cross-platform prebuilds. node-pty (and possibly koffi) carry prebuilds for all four OS/arch combos. On a macOS-arm64 build, ~75% of node-pty's 62 M is
+  1. Strip cross-platform prebuilds. node-pty carries prebuilds for all four OS/arch combos. On a macOS-arm64 build, ~75% of node-pty's 62 M is
    dead weight (win32 + darwin-x64). Investigate electron-builder's mac/linux/win prebuild handling, or add an afterPack step that deletes non-target prebuilds/* under app.asar.unpacked/node_modules/node-pty/. Same for any other native module that ships fat prebuilds.
-  2. koffi 28 M — who depends on it, and is it actually used at runtime? Run pnpm why koffi from apps/desktop. If it's a transitive of a single feature, see if that feature can be deferred or its dependency relaxed. If it's used, multi-platform binaries are the trim target (same approach as node-pty).
-  3. Provider SDK reduction. pi-ai 0.73.1 declares all four provider SDKs (@aws-sdk/client-bedrock-runtime, @mistralai/mistralai, openai, @anthropic-ai/sdk) as hard dependencies (~48 M combined). Two angles:
+  2. Provider SDK reduction. pi-ai 0.73.1 declares all four provider SDKs (@aws-sdk/client-bedrock-runtime, @mistralai/mistralai, openai, @anthropic-ai/sdk) as hard dependencies (~48 M combined). Two angles:
     - Check if pi-ai upstream supports optional/peer provider deps; if so, omit unused ones.
     - If pi-ai must keep them, see whether @aws-sdk/client-bedrock-runtime can be replaced with the lighter aws4/raw HTTPS path (the AWS SDK has huge @smithy/*
   transitives).
-  4. @mariozechner 25 M includes .ts sources. electron-builder.yml keeps .ts because Pi extensions are loaded via jiti at runtime under dist/electron/builtin/.
-  Verify whether the external @mariozechner/* packages in node_modules also need their .ts retained, or if only the dist/electron/builtin/** staged copies do — if
+  3. @earendil-works 25 M includes .ts sources. electron-builder.yml keeps .ts because Pi extensions are loaded via jiti at runtime under dist/electron/builtin/.
+  Verify whether the external @earendil-works/* packages in node_modules also need their .ts retained, or if only the dist/electron/builtin/** staged copies do — if
    the latter, the node_modules .ts files can be excluded.
-  5. asar.unpacked is 54 M — audit what's in it. Currently only node-pty is unpacked. Confirm nothing else got unpacked accidentally and that node-pty's unpack is
+  4. asar.unpacked is 54 M — audit what's in it. Currently only node-pty is unpacked. Confirm nothing else got unpacked accidentally and that node-pty's unpack is
    darwin-arm64-only.
   6. Per-plugin better-sqlite3 situation. It's a per-plugin runtime external staged under
   dist/electron/builtin/plugins/sero-web-plugin/node_modules/better-sqlite3 (via stagePluginRuntimeDependencies in build-electron.mjs). Its .node lives inside the

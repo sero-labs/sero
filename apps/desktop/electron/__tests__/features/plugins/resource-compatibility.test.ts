@@ -8,7 +8,7 @@ import {
   type PromptTemplate,
   type Skill,
   type Theme,
-} from '@mariozechner/pi-coding-agent';
+} from '@earendil-works/pi-coding-agent';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {

@@ -1,4 +1,4 @@
-import type { ToolDefinition } from '@mariozechner/pi-coding-agent';
+import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
 
 function isToolDefinition(value: unknown): value is ToolDefinition {
   if (typeof value !== 'object' || value === null) {

@@ -11,7 +11,7 @@ This folder owns app/runtime glue in Electron main for Sero apps: app manifest d
 - Largest file: `apps/desktop/electron/features/apps/discovery/index.ts` (312 LOC)
 - Files over 500 LOC: none
 - External dependencies of note:
-  - Pi SDK extension APIs (`@mariozechner/pi-coding-agent`)
+  - Pi SDK extension APIs (`@earendil-works/pi-coding-agent`)
   - Electron `BrowserWindow` fanout in app-state change broadcaster
   - Workspace/container/subagent managers from Electron feature layer
   - Plugin-package internals from `@plugins/sero-admin-plugin` and `@plugins/sero-git-plugin`

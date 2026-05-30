@@ -5,8 +5,8 @@
  * Only used when ctx.hasUI === true.
  */
 
-import { Editor, type EditorTheme, Key, matchesKey } from '@mariozechner/pi-tui';
-import type { ExtensionUIContext } from '@mariozechner/pi-coding-agent';
+import { Editor, type EditorTheme, Key, matchesKey } from '@earendil-works/pi-tui';
+import type { ExtensionUIContext } from '@earendil-works/pi-coding-agent';
 
 import {
   canSubmitQuestionnaire,

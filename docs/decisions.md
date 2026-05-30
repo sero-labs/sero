@@ -57,7 +57,7 @@ Will integrate with Pi agent session via Vercel AI SDK `useChat` hook.
 | Main     | esbuild | `electron/main.ts`   | `dist/electron/main.mjs`  | ESM    |
 | Preload  | esbuild | `electron/preload.ts`| `dist/electron/preload.js`| CJS    |
 
-Preload must be CJS. `electron`, `node-pty`, `@mariozechner/*` are external.
+Preload must be CJS. `electron`, `node-pty`, `@earendil-works/*` are external.
 `scripts/dev.sh` starts Vite first, waits for :5173, then launches Electron.
 
 ## AD-008: Preload API (`window.sero`)

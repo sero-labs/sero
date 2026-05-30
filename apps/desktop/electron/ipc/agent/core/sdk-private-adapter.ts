@@ -1,7 +1,7 @@
-import type { AgentSession } from '@mariozechner/pi-coding-agent';
-import type { Api, Model } from '@mariozechner/pi-ai';
+import type { AgentSession } from '@earendil-works/pi-coding-agent';
+import type { Api, Model } from '@earendil-works/pi-ai';
 
-const VALIDATED_PI_CODING_AGENT_VERSION = '0.72.1';
+const VALIDATED_PI_CODING_AGENT_VERSION = '0.78.0';
 
 interface SessionPrivatePromptAccessor {
   _baseSystemPrompt?: string;

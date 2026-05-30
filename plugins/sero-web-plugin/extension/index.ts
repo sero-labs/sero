@@ -3,7 +3,7 @@
 // session lifecycle handlers, and Sero state file sync.
 // Curator (TUI-only) is omitted; the Sero UI provides result browsing.
 
-import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { fetchAllContent, type ExtractedContent } from "./extract.js";
 import { clearCloneCache } from "./github-extract.js";
 import { clearResults, generateId, storeResult, restoreFromSession, type QueryResultData, type StoredSearchData } from "./storage.js";

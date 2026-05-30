@@ -5,7 +5,7 @@
  * Shared by Electron main process and renderer.
  */
 
-import type { OpenAICompletionsCompat, ThinkingLevelMap } from '@mariozechner/pi-ai';
+import type { OpenAICompletionsCompat, ThinkingLevelMap } from '@earendil-works/pi-ai';
 
 /** Supported API types for local model providers. */
 export type LocalModelApi =

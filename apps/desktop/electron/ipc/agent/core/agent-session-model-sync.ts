@@ -1,4 +1,4 @@
-import type { AgentSession } from '@mariozechner/pi-coding-agent';
+import type { AgentSession } from '@earendil-works/pi-coding-agent';
 
 import { getConfiguredModelFallbackChain } from '@electron/shared/settings/model-fallback-chain';
 import { getModelTiers } from '@electron/shared/settings/model-tiers';

@@ -273,7 +273,7 @@ node scripts/prepare-packaging.mjs
 # ── Step 5: Create a self-contained deploy bundle ───────────
 # pnpm's isolated node_modules layout makes electron-builder's dependency
 # collector silently drop transitive deps of externalized packages (e.g. the
-# pi SDK's @mariozechner/pi-ai → partial-json/openai/@anthropic-ai/sdk), which
+# pi SDK's @earendil-works/pi-ai → partial-json/openai/@anthropic-ai/sdk), which
 # crashes the packaged app at startup. `pnpm deploy` with a hoisted linker emits
 # a flat, fully-resolved *production* node_modules that electron-builder packages
 # reliably — so we no longer hand-maintain a node_modules allowlist.

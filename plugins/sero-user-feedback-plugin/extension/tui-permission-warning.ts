@@ -5,8 +5,8 @@
  * Allow/Block options. Uses warning/error colors to make it stand out.
  */
 
-import { Key, matchesKey, truncateToWidth } from '@mariozechner/pi-tui';
-import type { ExtensionUIContext } from '@mariozechner/pi-coding-agent';
+import { Key, matchesKey, truncateToWidth } from '@earendil-works/pi-tui';
+import type { ExtensionUIContext } from '@earendil-works/pi-coding-agent';
 
 /**
  * Show a TUI warning prompt for a dangerous command.

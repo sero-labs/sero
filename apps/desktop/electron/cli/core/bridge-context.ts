@@ -4,7 +4,7 @@ import {
   SessionManager,
   type ExtensionCommandContext,
   type ExtensionContext,
-} from '@mariozechner/pi-coding-agent';
+} from '@earendil-works/pi-coding-agent';
 
 import { createSeroUIContext } from '@electron/features/apps/extensions/ui-context';
 import type { CliCommandContext, CliSessionRuntime } from './types';

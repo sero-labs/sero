@@ -1,5 +1,5 @@
-import { getEnvApiKey } from '@mariozechner/pi-ai';
-import { getOAuthProviders } from '@mariozechner/pi-ai/oauth';
+import { getEnvApiKey } from '@earendil-works/pi-ai';
+import { getOAuthProviders } from '@earendil-works/pi-ai/oauth';
 import { getPackageApiKeyProviders, getPackageProviderEnvVar } from '../providers/package-provider-manifests';
 
 export interface NamedProvider {
@@ -7,7 +7,7 @@ export interface NamedProvider {
   name: string;
 }
 
-// Mirrors Pi 0.72.1 API-key auth.json keys from docs/providers.md and
+// Mirrors Pi API-key auth.json keys from docs/providers.md and
 // env-api-keys.ts. Sero still stores credentials in ~/.sero-ui/agent/auth.json.
 const BUILTIN_API_KEY_PROVIDERS: NamedProvider[] = [
   { id: 'anthropic', name: 'Anthropic' }, // ANTHROPIC_OAUTH_TOKEN or ANTHROPIC_API_KEY
@@ -34,8 +34,10 @@ const BUILTIN_API_KEY_PROVIDERS: NamedProvider[] = [
   { id: 'moonshotai-cn', name: 'Moonshot AI (China)' }, // MOONSHOT_API_KEY
   { id: 'fireworks', name: 'Fireworks' }, // FIREWORKS_API_KEY
   { id: 'xiaomi', name: 'Xiaomi MiMo' }, // XIAOMI_API_KEY
+  { id: 'xiaomi-token-plan-cn', name: 'Xiaomi MiMo Token Plan CN' }, // XIAOMI_TOKEN_PLAN_CN_API_KEY
+  { id: 'xiaomi-token-plan-ams', name: 'Xiaomi MiMo Token Plan AMS' }, // XIAOMI_TOKEN_PLAN_AMS_API_KEY
+  { id: 'xiaomi-token-plan-sgp', name: 'Xiaomi MiMo Token Plan SGP' }, // XIAOMI_TOKEN_PLAN_SGP_API_KEY
   // google-gemini-cli and google-antigravity were removed from Pi built-ins in 0.71.
-  // xiaomi-token-plan-* are documented upstream but not exported by pi-ai 0.72.1.
 ];
 
 export function getApiKeyProviderCatalog(): NamedProvider[] {

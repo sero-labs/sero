@@ -17,7 +17,7 @@ _Last reviewed: 2026-04-13_
   - `plugins/sero-git-plugin/extension/git-service.ts` (457 LOC)
   - `plugins/sero-git-plugin/ui/components/BranchPanel.tsx` (421 LOC)
 - External dependencies of note:
-  - Pi extension/runtime APIs (`@mariozechner/pi-coding-agent`, `@mariozechner/pi-tui`, `@mariozechner/pi-ai`)
+  - Pi extension/runtime APIs (`@earendil-works/pi-coding-agent`, `@earendil-works/pi-tui`, `@earendil-works/pi-ai`)
   - Git CLI via `execFileSync` / `execFile`
   - `@sero-ai/app-runtime` for file-backed plugin state and the `window.sero` bridge
   - Module Federation + Vite for the remote UI (`vite.config.ts` uses production `base: './'` correctly)

@@ -4,7 +4,7 @@
  * Keep this file renderer-safe and framework-agnostic.
  */
 
-import type { ThinkingLevel } from '@mariozechner/pi-agent-core';
+import type { ThinkingLevel } from '@earendil-works/pi-agent-core';
 
 export type { ThinkingLevel };
 

@@ -70,7 +70,7 @@ describe('plugin runtime packaging and source preparation', () => {
         },
       },
       peerDependencies: {
-        '@mariozechner/pi-coding-agent': '^0.0.0',
+        '@earendil-works/pi-coding-agent': '^0.0.0',
       },
     });
 
@@ -119,7 +119,7 @@ describe('plugin runtime packaging and source preparation', () => {
         },
       },
       peerDependencies: {
-        '@mariozechner/pi-coding-agent': '^0.0.0',
+        '@earendil-works/pi-coding-agent': '^0.0.0',
       },
     });
 

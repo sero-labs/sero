@@ -4,7 +4,7 @@ import {
   emitSessionShutdown,
   emitSessionBeforeSwitch,
 } from '@electron/ipc/agent/core/agent-session-events';
-import type { AgentSession } from '@mariozechner/pi-coding-agent';
+import type { AgentSession } from '@earendil-works/pi-coding-agent';
 
 function createMockSession(opts?: {
   hasRunner?: boolean;

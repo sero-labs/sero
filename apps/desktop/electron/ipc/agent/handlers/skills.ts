@@ -17,7 +17,7 @@ import {
   parseFrontmatter,
   type SkillFrontmatter,
   type SourceInfo,
-} from '@mariozechner/pi-coding-agent';
+} from '@earendil-works/pi-coding-agent';
 import { IpcChannels } from '@/types/ipc-channels';
 import { SERO_AGENT_DIR, SERO_HOME } from '@electron/platform/env';
 import { appStateManager } from '@electron/features/apps/state/manager';

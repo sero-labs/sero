@@ -1,5 +1,5 @@
-import type { AgentSession } from '@mariozechner/pi-coding-agent';
-import type { ImageContent } from '@mariozechner/pi-ai';
+import type { AgentSession } from '@earendil-works/pi-coding-agent';
+import type { ImageContent } from '@earendil-works/pi-ai';
 import type {
   ChatAttachment,
   ChatAssistantMessage,

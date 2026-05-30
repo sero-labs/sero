@@ -252,7 +252,7 @@ export default class SnapshotProvider implements ApiProvider {
 
     try {
       // ── 1. Get the SDK base prompt ─────────────────────────────
-      const sdk = await import('@mariozechner/pi-coding-agent');
+      const sdk = await import('@earendil-works/pi-coding-agent');
 
       const authStorage = sdk.AuthStorage.create(`${agentDir}/auth.json`);
       const modelRegistry = new sdk.ModelRegistry(

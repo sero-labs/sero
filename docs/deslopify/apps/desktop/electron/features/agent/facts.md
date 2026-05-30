@@ -14,7 +14,7 @@ PR draft prompt/parsing helpers (`pr-draft.ts`), and OpenAI voice transcription
 - Largest file: `apps/desktop/electron/features/agent/assistants/voice-transcription.ts` (219 LOC)
 - Files over 500 LOC: none
 - External dependencies of note:
-  - Pi SDK session creation (`@mariozechner/pi-coding-agent`)
+  - Pi SDK session creation (`@earendil-works/pi-coding-agent`)
   - provider SDK clients (`@google/genai`, OpenAI HTTP API)
   - shared infra model/auth access
 - Upstream callers:

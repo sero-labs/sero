@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createSyntheticSourceInfo, type Skill } from '@mariozechner/pi-coding-agent';
+import { createSyntheticSourceInfo, type Skill } from '@earendil-works/pi-coding-agent';
 import { getDisabledModelSkills, withDisabledModelSkills } from '@sero-ai/common';
 import { createSkillVisibilityOverride } from '@electron/features/apps/extensions/skill-visibility';
 

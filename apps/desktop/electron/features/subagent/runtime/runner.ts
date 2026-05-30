@@ -10,9 +10,9 @@ import {
   createAgentSession,
   SessionManager,
   DefaultResourceLoader,
-} from '@mariozechner/pi-coding-agent';
-import type { CreateAgentSessionOptions } from '@mariozechner/pi-coding-agent';
-import type { ThinkingLevel, AgentMessage } from '@mariozechner/pi-agent-core';
+} from '@earendil-works/pi-coding-agent';
+import type { CreateAgentSessionOptions } from '@earendil-works/pi-coding-agent';
+import type { ThinkingLevel, AgentMessage } from '@earendil-works/pi-agent-core';
 import { getModelTierThinkingLevel, isModelTier } from '@sero-ai/common';
 
 import type { RunnerConfig, RunResult, SubagentUsage, SubagentToolActivity } from '../core/types';

@@ -34,7 +34,7 @@ The container is the body. The Electron UI is the face. Pi is the mind.
 - **Current maintainer-validated baseline:** macOS 26 Tahoe+ on Apple Silicon
 - **Electron 33** (TypeScript + React)
 - **Container-backed runtimes** are strongly recommended for the full Sero feature set: Apple Container on supported Apple Silicon Macs, Docker on macOS/Linux/Windows
-- **Pi SDK** (`@mariozechner/pi-coding-agent`) as the AI agent core
+- **Pi SDK** (`@earendil-works/pi-coding-agent`) as the AI agent core
 - **Supported fallback:** Host is the default runtime on supported packaged targets when available. Sero can continue in reduced host mode when containers are unavailable or intentionally disabled; Docker/Podman and Apple Container remain explicit runtime choices where supported.
 
 For the canonical public beta support contract, prefer

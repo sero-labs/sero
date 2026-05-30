@@ -19,8 +19,8 @@
 
 import fs from 'fs';
 import { ipcMain, BrowserWindow, shell, type WebContents } from 'electron';
-import { getOAuthProviders } from '@mariozechner/pi-ai/oauth';
-import type { OAuthProviderId } from '@mariozechner/pi-ai';
+import { getOAuthProviders } from '@earendil-works/pi-ai/oauth';
+import type { OAuthProviderId } from '@earendil-works/pi-ai';
 
 import { IpcChannels } from '@/types/ipc-channels';
 import type {
@@ -207,6 +207,18 @@ export function registerAuthHandlers(): void {
             }
           },
 
+          onDeviceCode: (info) => {
+            shell.openExternal(info.verificationUri).catch(() => {
+              // Silently ignore — URL is shown in dialog anyway
+            });
+
+            sendAuthEvent({
+              type: 'auth',
+              url: info.verificationUri,
+              instructions: `Enter code: ${info.userCode}`,
+            });
+          },
+
           onPrompt: async (prompt) => {
             sendAuthEvent({
               type: 'prompt',
@@ -232,6 +244,8 @@ export function registerAuthHandlers(): void {
               manualCodeRejecter = reject;
             });
           },
+
+          onSelect: async (prompt) => prompt.options[0]?.id,
 
           signal: abortController.signal,
         });

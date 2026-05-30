@@ -1,9 +1,9 @@
 // tools-search.ts — web_search tool registration.
 
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import { Text } from "@mariozechner/pi-tui";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
-import { StringEnum } from "@mariozechner/pi-ai";
+import { StringEnum } from "@earendil-works/pi-ai";
 import { search } from "./gemini-search.js";
 import type { ExtractedContent } from "./extract.js";
 import type { QueryResultData, StoredSearchData } from "./storage.js";

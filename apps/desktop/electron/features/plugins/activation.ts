@@ -5,7 +5,7 @@ import {
   DefaultPackageManager,
   type PackageSource,
   SettingsManager,
-} from '@mariozechner/pi-coding-agent';
+} from '@earendil-works/pi-coding-agent';
 import { SERO_AGENT_DIR } from '@electron/platform/env';
 import {
   discoverBuiltinPackagePaths,

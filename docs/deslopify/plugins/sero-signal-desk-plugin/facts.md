@@ -16,7 +16,7 @@ _Last reviewed: 2026-05-03_
   - `ui/styles.css` (1,345 LOC)
   - `ui/SignalDeskApp.tsx` (729 LOC)
 - External dependencies of note:
-  - Pi extension APIs (`@mariozechner/pi-coding-agent`, `@mariozechner/pi-ai`, `@mariozechner/pi-tui`)
+  - Pi extension APIs (`@earendil-works/pi-coding-agent`, `@earendil-works/pi-ai`, `@earendil-works/pi-tui`)
   - `@sero-ai/common` runtime contracts
   - `@sero-ai/app-runtime` declared for UI/runtime integration, though the current UI bypasses the hooks
   - `fast-xml-parser` for RSS/Atom parsing

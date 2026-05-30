@@ -6,7 +6,7 @@ import {
   type LoadExtensionsResult,
   type RegisteredCommand,
   type ToolDefinition,
-} from '@mariozechner/pi-coding-agent';
+} from '@earendil-works/pi-coding-agent';
 import { Type } from 'typebox';
 
 import {

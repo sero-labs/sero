@@ -11,7 +11,7 @@
  * notable commands. Only logs turns with real successful work.
  */
 
-import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
+import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import {
   resolveMemoryRoot,
   ensureDirectories,

@@ -5,8 +5,8 @@
  * `agent-messages.ts` and `sdk-private-adapter.ts`.
  */
 
-import type { AgentSession, DefaultResourceLoader } from '@mariozechner/pi-coding-agent';
-import type { ThinkingLevel } from '@mariozechner/pi-agent-core';
+import type { AgentSession, DefaultResourceLoader } from '@earendil-works/pi-coding-agent';
+import type { ThinkingLevel } from '@earendil-works/pi-agent-core';
 import { promises as fs } from 'fs';
 import type {
   SeroSlashCommandInfo,

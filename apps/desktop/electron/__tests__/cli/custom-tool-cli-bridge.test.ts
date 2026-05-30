@@ -2,7 +2,7 @@ import os from 'os';
 import path from 'path';
 import { mkdtemp, mkdir, rm, writeFile } from 'fs/promises';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createSyntheticSourceInfo, defineTool, type AgentSession, type LoadExtensionsResult, type ToolDefinition } from '@mariozechner/pi-coding-agent';
+import { createSyntheticSourceInfo, defineTool, type AgentSession, type LoadExtensionsResult, type ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { Type } from 'typebox';
 
 import {

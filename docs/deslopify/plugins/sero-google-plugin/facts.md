@@ -13,7 +13,7 @@ _Last reviewed: 2026-04-18_
 - Near-cap files (≥400 LOC): none
 - Test surface: none — no plugin-local `*test*` files are present today
 - External dependencies of note:
-  - Pi extension/runtime APIs (`@mariozechner/pi-coding-agent`, `@mariozechner/pi-ai`, `@mariozechner/pi-tui`)
+  - Pi extension/runtime APIs (`@earendil-works/pi-coding-agent`, `@earendil-works/pi-ai`, `@earendil-works/pi-tui`)
   - `@sero-ai/app-runtime` file-backed state bridge (`packages/app-runtime/src/use-app-state.ts:19-99`)
   - gogcli / `gog` on the host machine
   - Google OAuth endpoints + localhost loopback callback server

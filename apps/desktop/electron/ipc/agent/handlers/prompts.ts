@@ -14,7 +14,7 @@
 import { ipcMain } from 'electron';
 import { readFile, writeFile, mkdir, readdir, rm, rename, stat } from 'fs/promises';
 import path from 'path';
-import { parseFrontmatter } from '@mariozechner/pi-coding-agent';
+import { parseFrontmatter } from '@earendil-works/pi-coding-agent';
 import { IpcChannels } from '@/types/ipc-channels';
 import { SERO_AGENT_DIR } from '@electron/platform/env';
 import { reloadAllSessionResources } from '..';

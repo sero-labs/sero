@@ -2,7 +2,7 @@
  * Skill IPC types — shared by Electron main process and renderer.
  *
  * Based on the Pi SDK's `Skill` and `SkillFrontmatter` types from
- * `@mariozechner/pi-coding-agent/core/skills`.
+ * `@earendil-works/pi-coding-agent/core/skills`.
  */
 
 /** Skill source — matches the SDK's source identifiers. */

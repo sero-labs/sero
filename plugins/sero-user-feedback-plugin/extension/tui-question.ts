@@ -5,8 +5,8 @@
  * "Type something…" inline editor. Only used when ctx.hasUI === true.
  */
 
-import { Editor, type EditorTheme, Key, matchesKey, truncateToWidth } from '@mariozechner/pi-tui';
-import type { ExtensionUIContext } from '@mariozechner/pi-coding-agent';
+import { Editor, type EditorTheme, Key, matchesKey, truncateToWidth } from '@earendil-works/pi-tui';
+import type { ExtensionUIContext } from '@earendil-works/pi-coding-agent';
 import type { QuestionItem, QuestionAnswer } from '../shared/types';
 
 interface DisplayOption {

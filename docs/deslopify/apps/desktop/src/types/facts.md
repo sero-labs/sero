@@ -22,7 +22,7 @@ consumed by both renderer stores/components and Electron preload/main modules.
   - `IpcChannels` imported from `@/types/ipc` (not `@/types/ipc-channels`) in 59 files
 - Downstream dependencies of note:
   - `@sero-ai/common` (plugin/model validation contracts)
-  - `@mariozechner/pi-agent-core` and `@mariozechner/pi-ai` (model/thinking + local model compat)
+  - `@earendil-works/pi-agent-core` and `@earendil-works/pi-ai` (model/thinking + local model compat)
   - `@electron/features/container/core/types` re-exported as canonical `ContainerInfo`
   - `react-grid-layout` and `react` for dashboard/widget typing
 

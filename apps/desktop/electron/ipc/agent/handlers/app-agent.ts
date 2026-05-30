@@ -24,7 +24,7 @@ import {
   DefaultResourceLoader,
   SessionManager,
   type AgentSession,
-} from '@mariozechner/pi-coding-agent';
+} from '@earendil-works/pi-coding-agent';
 import os from 'os';
 import path from 'path';
 

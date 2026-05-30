@@ -1,6 +1,6 @@
 import type { Static } from 'typebox';
-import type { ToolDefinition, ExtensionContext } from '@mariozechner/pi-coding-agent';
-import type { AgentToolResult, AgentToolUpdateCallback } from '@mariozechner/pi-agent-core';
+import type { ToolDefinition, ExtensionContext } from '@earendil-works/pi-coding-agent';
+import type { AgentToolResult, AgentToolUpdateCallback } from '@earendil-works/pi-agent-core';
 import type { RuntimeBackend } from '@electron/features/workspace/runtime/types';
 import type { BrowserRuntimeAdapter } from '@electron/features/workspace/runtime/browser-pack/types';
 import {

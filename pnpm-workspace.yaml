@@ -35,12 +35,12 @@ catalog:
   "@types/node": "^22.19.11"
 
   # Pi SDK
-  "@mariozechner/pi-agent-core": "^0.73.1"
-  "@mariozechner/pi-ai": "^0.73.1"
-  "@mariozechner/pi-coding-agent": "^0.73.1"
-  "@mariozechner/pi-tui": "^0.73.1"
+  "@earendil-works/pi-agent-core": "0.78.0"
+  "@earendil-works/pi-ai": "0.78.0"
+  "@earendil-works/pi-coding-agent": "0.78.0"
+  "@earendil-works/pi-tui": "0.78.0"
 
-  # Zod (peer of @mariozechner/pi-* transitives: openai, @anthropic-ai/sdk, zod-to-json-schema)
+  # Zod (peer of @earendil-works/pi-* transitives: openai, @anthropic-ai/sdk, zod-to-json-schema)
   zod: "^4.3.6"
 
   # Shared libraries
@@ -55,10 +55,10 @@ catalog:
 # Use "catalog:peer" in peerDependencies.
 catalogs:
   peer:
-    "@mariozechner/pi-agent-core": ">=0.72.1"
-    "@mariozechner/pi-ai": ">=0.72.1"
-    "@mariozechner/pi-coding-agent": ">=0.72.1"
-    "@mariozechner/pi-tui": ">=0.72.1"
+    "@earendil-works/pi-agent-core": ">=0.78.0"
+    "@earendil-works/pi-ai": ">=0.78.0"
+    "@earendil-works/pi-coding-agent": ">=0.78.0"
+    "@earendil-works/pi-tui": ">=0.78.0"
     # Mirror the strict catalog above. See the comment there for why these
     # MUST stay aligned.
     react: "^19.2.4"

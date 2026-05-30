@@ -16,7 +16,7 @@
  * is byte-identical across turns in frozen mode so cache hits are preserved.
  */
 
-import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
+import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 
 import {
   checkBootstrapStatus,

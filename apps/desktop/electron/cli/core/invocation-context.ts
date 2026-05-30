@@ -1,4 +1,4 @@
-import type { ToolDefinition, ExtensionContext } from '@mariozechner/pi-coding-agent';
+import type { ToolDefinition, ExtensionContext } from '@earendil-works/pi-coding-agent';
 import type {
   BridgedAgentContext,
   CliCommandContext,

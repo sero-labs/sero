@@ -27,7 +27,7 @@
     "release:stable:dry": "release-it --dry-run --ci --no-preRelease"
   },
   "devDependencies": {
-    "@mariozechner/pi-coding-agent": "catalog:",
+    "@earendil-works/pi-coding-agent": "catalog:",
     "@release-it/conventional-changelog": "^11.0.0",
     "@sinclair/typebox": "catalog:",
     "husky": "^9.1.7",

@@ -7,7 +7,7 @@ import type {
   ResourceDiagnostic,
   Skill,
   Theme,
-} from '@mariozechner/pi-coding-agent';
+} from '@earendil-works/pi-coding-agent';
 import type { PluginCompatibilityStatus } from '@sero-ai/common';
 import {
   extractPluginCompatibilityRequirements,

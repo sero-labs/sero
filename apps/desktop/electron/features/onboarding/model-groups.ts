@@ -1,4 +1,4 @@
-import { getSupportedThinkingLevels, type Api, type Model } from '@mariozechner/pi-ai';
+import { getSupportedThinkingLevels, type Api, type Model } from '@earendil-works/pi-ai';
 import { THINKING_LEVELS, type ThinkingLevel } from '@sero-ai/common';
 import type { AvailableModelGroup } from '@/types/ipc';
 import { providerDisplayName, providerLogo } from './provider-metadata';

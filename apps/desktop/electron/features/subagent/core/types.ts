@@ -6,7 +6,7 @@
  * here. Main-process-only types (AgentConfig, RunnerConfig, etc.) are defined below.
  */
 
-import type { ToolDefinition } from '@mariozechner/pi-coding-agent';
+import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
 
 // Import IPC-shared types for local use
 import type {

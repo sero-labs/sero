@@ -21,8 +21,8 @@
       "@plugins/*": ["../../plugins/*"],
       "@packages/*": ["../../packages/*"],
       "@sero-ai/common": ["../../packages/common/src/index.ts"],
-      // Pi 0.72.1 exports this subpath, but moduleResolution:node still needs this mapping.
-      "@mariozechner/pi-ai/oauth": ["./node_modules/@mariozechner/pi-ai/dist/oauth"]
+      // Pi exports this subpath, but moduleResolution:node still needs this mapping.
+      "@earendil-works/pi-ai/oauth": ["./node_modules/@earendil-works/pi-ai/dist/oauth"]
     }
   },
   "include": ["electron/**/*", "src/types/ipc.ts", "src/types/ipc-channels.ts"],

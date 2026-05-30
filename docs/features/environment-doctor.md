@@ -91,7 +91,7 @@ The engine module **must not** import:
 
 - anything under `electron/features/` other than its own subtree
 - anything under `electron/ipc/`
-- `electron`, `node-pty`, `better-sqlite3`, `@mariozechner/pi-*` SDKs,
+- `electron`, `node-pty`, `better-sqlite3`, `@earendil-works/pi-*` SDKs,
   `@google/genai`, `@anthropic-ai/sdk`, etc.
 
 The engine **may** import:

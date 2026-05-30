@@ -17,7 +17,7 @@ used by onboarding, model configuration UIs, and agent model availability flows.
 - Near-cap files (≥390 LOC):
   - `packages/common/src/model-selection.ts` (396)
 - External dependencies of note:
-  - `@mariozechner/pi-agent-core` — `ThinkingLevel` type only
+  - `@earendil-works/pi-agent-core` — `ThinkingLevel` type only
 - Upstream callers / consumers of note:
   - `apps/desktop/src/components/layout/model-config.ts`
   - `apps/desktop/src/components/profiles/onboarding/SetupScreen.tsx`

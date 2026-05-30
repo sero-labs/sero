@@ -6,15 +6,15 @@ settings:
 
 catalogs:
   default:
-    '@mariozechner/pi-agent-core':
-      specifier: ^0.73.1
-      version: 0.73.1
-    '@mariozechner/pi-ai':
-      specifier: ^0.73.1
-      version: 0.73.1
-    '@mariozechner/pi-coding-agent':
-      specifier: ^0.73.1
-      version: 0.73.1
+    '@earendil-works/pi-agent-core':
+      specifier: 0.78.0
+      version: 0.78.0
+    '@earendil-works/pi-ai':
+      specifier: 0.78.0
+      version: 0.78.0
+    '@earendil-works/pi-coding-agent':
+      specifier: 0.78.0
+      version: 0.78.0
     '@module-federation/vite':
       specifier: 1.11.0
       version: 1.11.0
@@ -70,15 +70,15 @@ catalogs:
       specifier: ^4.3.6
       version: 4.3.6
   peer:
-    '@mariozechner/pi-ai':
-      specifier: '>=0.72.1'
-      version: 0.73.1
-    '@mariozechner/pi-coding-agent':
-      specifier: '>=0.72.1'
-      version: 0.73.1
-    '@mariozechner/pi-tui':
-      specifier: '>=0.72.1'
-      version: 0.73.1
+    '@earendil-works/pi-ai':
+      specifier: '>=0.78.0'
+      version: 0.78.0
+    '@earendil-works/pi-coding-agent':
+      specifier: '>=0.78.0'
+      version: 0.78.0
+    '@earendil-works/pi-tui':
+      specifier: '>=0.78.0'
+      version: 0.78.0
     react:
       specifier: ^19.2.4
       version: 19.2.5
@@ -93,9 +93,9 @@ importers:
 
   .:
     devDependencies:
-      '@mariozechner/pi-coding-agent':
+      '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
-        version: 0.73.1(ws@8.20.0)(zod@4.4.3)
+        version: 0.78.0(ws@8.20.0)(zod@4.4.3)
       '@release-it/conventional-changelog':
         specifier: ^11.0.0
         version: 11.0.0(conventional-commits-filter@5.0.0)(conventional-commits-parser@6.4.0)(release-it@20.0.1(@types/node@25.9.1)(magicast@0.5.3))
@@ -120,18 +120,18 @@ importers:
 
   apps/desktop:
     dependencies:
+      '@earendil-works/pi-agent-core':
+        specifier: 'catalog:'
+        version: 0.78.0(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(supports-color@7.2.0)(zod@4.4.3))(supports-color@7.2.0)(ws@8.21.0)(zod@4.4.3)
+      '@earendil-works/pi-ai':
+        specifier: 'catalog:'
+        version: 0.78.0(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(supports-color@7.2.0)(zod@4.4.3))(supports-color@7.2.0)(ws@8.21.0)(zod@4.4.3)
+      '@earendil-works/pi-coding-agent':
+        specifier: 'catalog:'
+        version: 0.78.0(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(supports-color@7.2.0)(zod@4.4.3))(supports-color@7.2.0)(ws@8.21.0)(zod@4.4.3)
       '@google/genai':
         specifier: ^1.45.0
         version: 1.45.0(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(supports-color@7.2.0)(zod@4.4.3))(supports-color@7.2.0)
-      '@mariozechner/pi-agent-core':
-        specifier: 'catalog:'
-        version: 0.73.1(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(supports-color@7.2.0)(zod@4.4.3))(supports-color@7.2.0)(ws@8.21.0)(zod@4.4.3)
-      '@mariozechner/pi-ai':
-        specifier: 'catalog:'
-        version: 0.73.1(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(supports-color@7.2.0)(zod@4.4.3))(supports-color@7.2.0)(ws@8.21.0)(zod@4.4.3)
-      '@mariozechner/pi-coding-agent':
-        specifier: 'catalog:'
-        version: 0.73.1(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(supports-color@7.2.0)(zod@4.4.3))(supports-color@7.2.0)(ws@8.21.0)(zod@4.4.3)
       '@sero-ai/common':
         specifier: workspace:*
         version: link:../../packages/common
@@ -406,9 +406,9 @@ importers:
 
   packages/common:
     dependencies:
-      '@mariozechner/pi-agent-core':
-        specifier: 'catalog:'
-        version: 0.73.1(ws@8.20.0)(zod@4.4.3)
+      '@earendil-works/pi-agent-core':
+        specifier: 0.78.0
+        version: 0.78.0(ws@8.20.0)(zod@4.4.3)
     devDependencies:
       typescript:
         specifier: ^5.9.3
@@ -567,15 +567,15 @@ importers:
 
   plugins/sero-admin-plugin:
     dependencies:
-      '@mariozechner/pi-ai':
+      '@earendil-works/pi-ai':
         specifier: catalog:peer
-        version: 0.73.1(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)
-      '@mariozechner/pi-coding-agent':
+        version: 0.78.0(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)
+      '@earendil-works/pi-coding-agent':
         specifier: catalog:peer
-        version: 0.73.1(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)
-      '@mariozechner/pi-tui':
+        version: 0.78.0(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)
+      '@earendil-works/pi-tui':
         specifier: catalog:peer
-        version: 0.73.1
+        version: 0.78.0
       typebox:
         specifier: 'catalog:'
         version: 1.1.37
@@ -634,9 +634,9 @@ importers:
 
   plugins/sero-alibaba-plugin:
     dependencies:
-      '@mariozechner/pi-coding-agent':
+      '@earendil-works/pi-coding-agent':
         specifier: catalog:peer
-        version: 0.73.1(ws@8.20.0)(zod@4.4.3)
+        version: 0.78.0(ws@8.20.0)(zod@4.4.3)
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -647,15 +647,15 @@ importers:
 
   plugins/sero-cron-plugin:
     dependencies:
-      '@mariozechner/pi-ai':
+      '@earendil-works/pi-ai':
         specifier: catalog:peer
-        version: 0.73.1(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)
-      '@mariozechner/pi-coding-agent':
+        version: 0.78.0(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)
+      '@earendil-works/pi-coding-agent':
         specifier: catalog:peer
-        version: 0.73.1(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)
-      '@mariozechner/pi-tui':
+        version: 0.78.0(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)
+      '@earendil-works/pi-tui':
         specifier: catalog:peer
-        version: 0.73.1
+        version: 0.78.0
       typebox:
         specifier: 'catalog:'
         version: 1.1.37
@@ -714,15 +714,15 @@ importers:
 
   plugins/sero-git-plugin:
     dependencies:
-      '@mariozechner/pi-ai':
+      '@earendil-works/pi-ai':
         specifier: catalog:peer
-        version: 0.73.1(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)
-      '@mariozechner/pi-coding-agent':
+        version: 0.78.0(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)
+      '@earendil-works/pi-coding-agent':
         specifier: catalog:peer
-        version: 0.73.1(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)
-      '@mariozechner/pi-tui':
+        version: 0.78.0(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)
+      '@earendil-works/pi-tui':
         specifier: catalog:peer
-        version: 0.73.1
+        version: 0.78.0
       typebox:
         specifier: 'catalog:'
         version: 1.1.37
@@ -778,15 +778,15 @@ importers:
 
   plugins/sero-mcp-plugin:
     dependencies:
-      '@mariozechner/pi-ai':
+      '@earendil-works/pi-ai':
         specifier: catalog:peer
-        version: 0.73.1(@modelcontextprotocol/sdk@1.27.1(@cfworker/json-schema@4.1.1)(zod@4.3.6))(ws@8.21.0)(zod@4.3.6)
-      '@mariozechner/pi-coding-agent':
+        version: 0.78.0(@modelcontextprotocol/sdk@1.27.1(@cfworker/json-schema@4.1.1)(zod@4.3.6))(ws@8.21.0)(zod@4.3.6)
+      '@earendil-works/pi-coding-agent':
         specifier: catalog:peer
-        version: 0.73.1(@modelcontextprotocol/sdk@1.27.1(@cfworker/json-schema@4.1.1)(zod@4.3.6))(ws@8.21.0)(zod@4.3.6)
-      '@mariozechner/pi-tui':
+        version: 0.78.0(@modelcontextprotocol/sdk@1.27.1(@cfworker/json-schema@4.1.1)(zod@4.3.6))(ws@8.21.0)(zod@4.3.6)
+      '@earendil-works/pi-tui':
         specifier: catalog:peer
-        version: 0.73.1
+        version: 0.78.0
       '@modelcontextprotocol/ext-apps':
         specifier: 1.2.2
         version: 1.2.2(@modelcontextprotocol/sdk@1.27.1(@cfworker/json-schema@4.1.1)(zod@4.3.6))(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(zod@4.3.6)
@@ -854,15 +854,15 @@ importers:
 
   plugins/sero-memory-plugin:
     dependencies:
-      '@mariozechner/pi-ai':
+      '@earendil-works/pi-ai':
         specifier: catalog:peer
-        version: 0.73.1(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)
-      '@mariozechner/pi-coding-agent':
+        version: 0.78.0(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)
+      '@earendil-works/pi-coding-agent':
         specifier: catalog:peer
-        version: 0.73.1(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)
-      '@mariozechner/pi-tui':
+        version: 0.78.0(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)
+      '@earendil-works/pi-tui':
         specifier: catalog:peer
-        version: 0.73.1
+        version: 0.78.0
       '@tobilu/qmd':
         specifier: ^2.5.2
         version: 2.5.2(@cfworker/json-schema@4.1.1)(typescript@5.9.3)
@@ -891,12 +891,12 @@ importers:
 
   plugins/sero-user-feedback-plugin:
     dependencies:
-      '@mariozechner/pi-coding-agent':
+      '@earendil-works/pi-coding-agent':
         specifier: catalog:peer
-        version: 0.73.1(ws@8.20.0)(zod@4.4.3)
-      '@mariozechner/pi-tui':
+        version: 0.78.0(ws@8.20.0)(zod@4.4.3)
+      '@earendil-works/pi-tui':
         specifier: catalog:peer
-        version: 0.73.1
+        version: 0.78.0
       '@sero-ai/common':
         specifier: workspace:*
         version: link:../../packages/common
@@ -955,15 +955,15 @@ importers:
 
   plugins/sero-web-plugin:
     dependencies:
-      '@mariozechner/pi-ai':
+      '@earendil-works/pi-ai':
         specifier: catalog:peer
-        version: 0.73.1(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)
-      '@mariozechner/pi-coding-agent':
+        version: 0.78.0(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)
+      '@earendil-works/pi-coding-agent':
         specifier: catalog:peer
-        version: 0.73.1(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)
-      '@mariozechner/pi-tui':
+        version: 0.78.0(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)
+      '@earendil-works/pi-tui':
         specifier: catalog:peer
-        version: 0.73.1
+        version: 0.78.0
       '@mozilla/readability':
         specifier: ^0.5.0
         version: 0.5.0
@@ -1242,6 +1242,10 @@ packages:
     resolution: {integrity: sha512-buKSmh/GJNvP9r9Ghx9nl6QPju3zRvLgX3WNKJztDWxoEe1WJAkL0Kh37P3JMQ2SWxx+JrSKQvuwF/4jY60mkQ==}
     engines: {node: '>=20.0.0'}
 
+  '@aws-sdk/client-bedrock-runtime@3.1048.0':
+    resolution: {integrity: sha512-u+NT61JZEkRFtpL0CAw1N1dwxnaLgwVXQl/zjJxTGgLyS/jTIdg2SdoEoCTHxgDyCnqa1HEi9QOoE9/pYRNpOQ==}
+    engines: {node: '>=20.0.0'}
+
   '@aws-sdk/client-bedrock-runtime@3.1054.0':
     resolution: {integrity: sha512-APBAWir5vHzUWZ11bHfG3fXJ9t359bcwehwLTScpiYwmUydw7DqH76RAbtiYSstrV76hJ1v3pHM8pGk//E/0uw==}
     engines: {node: '>=20.0.0'}
@@ -1380,6 +1384,10 @@ packages:
 
   '@aws-sdk/token-providers@3.1041.0':
     resolution: {integrity: sha512-Th7kPI6YPtvJUcdznooXJMy+9rQWjmEF81LxaJssngBzuysK4a/x+l8kjm1zb7nYsUPbndnBdUnwng/3PLvtGw==}
+    engines: {node: '>=20.0.0'}
+
+  '@aws-sdk/token-providers@3.1048.0':
+    resolution: {integrity: sha512-k0y/GcuesuSfWyUM0WamrGyeZmltRYaPbHO82UDA6mZ/doB+FOHKutikPAtSXMn/hDz970cF+iRuuiYO9VEbAA==}
     engines: {node: '>=20.0.0'}
 
   '@aws-sdk/token-providers@3.1054.0':
@@ -1900,6 +1908,24 @@ packages:
   '@dotenvx/dotenvx@1.55.1':
     resolution: {integrity: sha512-WEuKyoe9CA7dfcFBnNbL0ndbCNcptaEYBygfFo9X1qEG+HD7xku4CYIplw6sbAHJavesZWbVBHeRSpvri0eKqw==}
     hasBin: true
+
+  '@earendil-works/pi-agent-core@0.78.0':
+    resolution: {integrity: sha512-xhWd59Qzd8yO88gYQw2S4dEQstJJEiUtxRP01//YzVJ61jCtUASMfcyAmYhgGYR4Onp7GmwEAbBBGOiV6Iwk9g==}
+    engines: {node: '>=22.19.0'}
+
+  '@earendil-works/pi-ai@0.78.0':
+    resolution: {integrity: sha512-q0hUrvT6ngT6cgBX0oIbzfQfmzztgdkZobP8OTL+sCOOBlnG6+1YRt8g7zO9CC/4NdeYEqa7uGqWdQhH0fjCLA==}
+    engines: {node: '>=22.19.0'}
+    hasBin: true
+
+  '@earendil-works/pi-coding-agent@0.78.0':
+    resolution: {integrity: sha512-gXt6pD3BoSG0yLwfLqb6844vz6qAO87PvNrv+YSDYKP3QliTjcwIld9v4ihmDcmBjO13QwKswubq/lYCvn4bkg==}
+    engines: {node: '>=22.19.0'}
+    hasBin: true
+
+  '@earendil-works/pi-tui@0.78.0':
+    resolution: {integrity: sha512-3a705FnsVVUhAyceShNB3kS2rpxcxLcx+hqB0u6MMMpHwQGbW+m++MqA6r7eOzq/8FLx5e3vDh38h/SVTk2qzw==}
+    engines: {node: '>=22.19.0'}
 
   '@ecies/ciphers@0.2.5':
     resolution: {integrity: sha512-GalEZH4JgOMHYYcYmVqnFirFsjZHeoGMDt9IxEnM9F7GRUUyUksJ7Ou53L83WHJq3RWKD3AcBpo0iQh0oMpf8A==}
@@ -2641,6 +2667,15 @@ packages:
       '@modelcontextprotocol/sdk':
         optional: true
 
+  '@google/genai@1.52.0':
+    resolution: {integrity: sha512-gwSvbpiN/17O9TbsqSsE/OzZcpv5Fo4RQjdngGgogtuB9RsyJ8ZHhX5KjHj1bp5N9snN2eK8LDGXSaWW2hof8Q==}
+    engines: {node: '>=20.0.0'}
+    peerDependencies:
+      '@modelcontextprotocol/sdk': ^1.25.2
+    peerDependenciesMeta:
+      '@modelcontextprotocol/sdk':
+        optional: true
+
   '@googleapis/sheets@13.0.2':
     resolution: {integrity: sha512-b1tBlMcfvNEziM4DZCikLOc9iqSlgCK1e5bMKtNQIADRXr1CQmbkHV3ZBVvTsFsjLErgihqO58Itn/kzCnSZ0A==}
     engines: {node: '>=12.0.0'}
@@ -3203,95 +3238,73 @@ packages:
     resolution: {integrity: sha512-9QOtNffcOF/c1seMCDnjckb3R9WHcG34tky+FHpNKKCW0wc/scYLwMtO+ptyGUfMW0/b/n4qRiALlaFHc9Oj7Q==}
     engines: {node: '>= 10.0.0'}
 
-  '@mariozechner/clipboard-darwin-arm64@0.3.6':
-    resolution: {integrity: sha512-HjaisYCAbHi/1+N1yDAQHc8ZXGffufIUT5NSOSVR3f3AuMDusxTtnbK8tZ7JFDkShua1oNGZoNwQHsc8MPtE0Q==}
+  '@mariozechner/clipboard-darwin-arm64@0.3.9':
+    resolution: {integrity: sha512-BfgV7vCEWZwJwZJw03r6bP5+tf0iI/ANuQYCxi9RNn7FrWB3yzGuMKCrNLRl6V761vXRdL8+OqZ0wd4TqlsNOQ==}
     engines: {node: '>= 10'}
     cpu: [arm64]
     os: [darwin]
 
-  '@mariozechner/clipboard-darwin-universal@0.3.6':
-    resolution: {integrity: sha512-8BWtPjOtJOJoykml3w0fx0zRrfWP31mXrJwfoA7xzNprkZw1uolCNfgmjDiVBseoKjp16EGITz7bN+61qn8dWA==}
+  '@mariozechner/clipboard-darwin-universal@0.3.9':
+    resolution: {integrity: sha512-BGGR4iA9Z2shAjI65eI5xtyb3LYNlDW9X3gxKxDbqtbnREohsrqznov6zpKoIrsRWpzlYVEdKphS7ksJ0/ndSQ==}
     engines: {node: '>= 10'}
     os: [darwin]
 
-  '@mariozechner/clipboard-darwin-x64@0.3.6':
-    resolution: {integrity: sha512-p9syiZD1kU4I+1ya7f7g+zD1GiUvR8fdlRlNmgsZNWlyjtc8rlV2EjTLd/35x1LsdBq020GVvtzp0ZmPgBI09Q==}
+  '@mariozechner/clipboard-darwin-x64@0.3.9':
+    resolution: {integrity: sha512-4kURmCbS6nt8uYhtmWpUcJWyPHfmAr5dTpXD1nO3pIfa+TSQ9DbrGOYCKH+aEFW47XhQ4Vp8ZTszie+wfFvDKg==}
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [darwin]
 
-  '@mariozechner/clipboard-linux-arm64-gnu@0.3.6':
-    resolution: {integrity: sha512-5JFf5rGofrm+V29HNF+wLthXphHdQpMbKDUYJ5tML6/Z5DLlLOV/9Ak4kDPtYyZ+Dzf+kAusE0VsFg4+tfP1IA==}
+  '@mariozechner/clipboard-linux-arm64-gnu@0.3.9':
+    resolution: {integrity: sha512-g59OkUGP2DDfCOIKypHeYgv2M55u/cKvXa5dSxFbEJ34XvIQMdcVmpKCkGUro3ZgefXiGVdwguvTMQGpHWzIXw==}
     engines: {node: '>= 10'}
     cpu: [arm64]
     os: [linux]
     libc: [glibc]
 
-  '@mariozechner/clipboard-linux-arm64-musl@0.3.6':
-    resolution: {integrity: sha512-JlVjxxw0GbGC0djXYWRIqyteO3J1KZ/QG3udlEFaOD5TLOM1FnmXXAPDQBqr+aBVr720ef9K00dirYnJ0LDCtw==}
+  '@mariozechner/clipboard-linux-arm64-musl@0.3.9':
+    resolution: {integrity: sha512-AGuJdgKsmJdm4Pych7kv3sqe591ERRaAHW3xjLooiFzn8J+PxUyof++7YZrB5Y5tpnTO+K18Og3taj2NpluCRQ==}
     engines: {node: '>= 10'}
     cpu: [arm64]
     os: [linux]
     libc: [musl]
 
-  '@mariozechner/clipboard-linux-riscv64-gnu@0.3.6':
-    resolution: {integrity: sha512-4t8BUi5zZ+L77otFQVnVSlaTyAX4TVk9EqQm4syMrEQp96trFEHEwwNHcNEBGzYv5+K7mxay50TthYkz47OWzQ==}
+  '@mariozechner/clipboard-linux-riscv64-gnu@0.3.9':
+    resolution: {integrity: sha512-DXBEAiuMpk7dhS1a9NzNxVAFi1vaKoPu7rQNgY8LIDLGrK3lnIp3nT10DUum+PKVJoJppIP+NAA8IZe4DMNDPw==}
     engines: {node: '>= 10'}
     cpu: [riscv64]
     os: [linux]
     libc: [glibc]
 
-  '@mariozechner/clipboard-linux-x64-gnu@0.3.6':
-    resolution: {integrity: sha512-trtPwcNLW37irwQCJLtCxLw757jjJZk3TSnY/MU9bhtWtA3K9b/eLW0e4RGhUXDoFRds9opNWWaUDuFLa8dm0w==}
+  '@mariozechner/clipboard-linux-x64-gnu@0.3.9':
+    resolution: {integrity: sha512-WORrMLd6EpElEME7JRKfSaY34nW1P5LbdgK5YNCS1ncG2LqmITsSMEJ8nh2mpvxb3TxqbOOKgY7k9eMJYlW9Mw==}
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [linux]
     libc: [glibc]
 
-  '@mariozechner/clipboard-linux-x64-musl@0.3.6':
-    resolution: {integrity: sha512-WfnzIvOCCWQiN0MmltCEo6cLceUDbYe+I7xyFZjaps5A+2Op/M2CY7Rey+C4ucQhrvmpoHmTSFgY9ODWk7snoA==}
+  '@mariozechner/clipboard-linux-x64-musl@0.3.9':
+    resolution: {integrity: sha512-/DHn+1DrfL6oRaPPWXaOKvonFFrni666fxd+zFqiQEfvBH0tsHVWjq9iqBk0oDp0qaPA72lIMy5BptxISBEhZQ==}
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [linux]
     libc: [musl]
 
-  '@mariozechner/clipboard-win32-arm64-msvc@0.3.6':
-    resolution: {integrity: sha512-+8+1aHYsBPUjmW3otmWlg+Hijt0iJvoBBs5e0mxFeUd4gDaKMB8Bn6x7c6KVtscg7E5j5NFXnwQqNSIAO4p8zQ==}
+  '@mariozechner/clipboard-win32-arm64-msvc@0.3.9':
+    resolution: {integrity: sha512-O5FHD3ErkMwMhNzAfu3ggy0ug4z7btZuoQgwwxlzPrwV2bxlD6WDpqBY4NCgICAgZdDKdp+loUEKVAVt8aYnhQ==}
     engines: {node: '>= 10'}
     cpu: [arm64]
     os: [win32]
 
-  '@mariozechner/clipboard-win32-x64-msvc@0.3.6':
-    resolution: {integrity: sha512-S4xfPmERC8ZkiLHe3vekZCjdDwNEETCuvCgQK2kP6/TnvmUkq1y2Pk+DjM4t8uh9KMX9bH4zs5ePcKa8GTXmfg==}
+  '@mariozechner/clipboard-win32-x64-msvc@0.3.9':
+    resolution: {integrity: sha512-ihQC3EufqEY81vhXBgVBtK4prL+wc62zJsSvxrgz7K1hsdt6OObz6v9p3Rn1OG3GJksTTKMJF0u/guMISHPhSA==}
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [win32]
 
-  '@mariozechner/clipboard@0.3.6':
-    resolution: {integrity: sha512-MXdtr+6+ntlIVHdrZYuZNQydu6o8yZswFJ2Ln81j2O/Y9B/LDHvEaIm95xWNPkjGTWriSOeLnQJRFs6dYb60bg==}
+  '@mariozechner/clipboard@0.3.9':
+    resolution: {integrity: sha512-ABnA53mdfkGZwOFUdZNv2S0CWGO/EIuPj8Vv9xmBFmSYg/qFc7ihO6q5FcQjvoE67kZpWkEc4AhD6B/os04yuA==}
     engines: {node: '>= 10'}
-
-  '@mariozechner/pi-agent-core@0.73.1':
-    resolution: {integrity: sha512-Y/KVOhuKSgRQgYBlwmRtO2gPkUcoavOSqGF9bpQIINvNZvc19k6Z1H3bFDTce3Vp5ApMmTsfLH3+tNvOg75fAQ==}
-    engines: {node: '>=20.0.0'}
-    deprecated: please use @earendil-works/pi-agent-core instead going forward
-
-  '@mariozechner/pi-ai@0.73.1':
-    resolution: {integrity: sha512-Jh4lXawZYuC83HzSIYuVum9NBqJD49i4JOt3H96cGW/924cwJMOyUs1Mv/e4QPzTXnzrqMoGviNQnvGgSu1LSg==}
-    engines: {node: '>=20.0.0'}
-    deprecated: please use @earendil-works/pi-ai instead going forward
-    hasBin: true
-
-  '@mariozechner/pi-coding-agent@0.73.1':
-    resolution: {integrity: sha512-gXQh3SaZmWTfVMc4Ao5+LGbVeKvzyO7tolok0nLsZgq9nGjZx/EEU3NM8C+qUnB4Nvs2rswG5qOVgLzQkq0fHQ==}
-    engines: {node: '>=20.6.0'}
-    deprecated: please use @earendil-works/pi-coding-agent instead going forward
-    hasBin: true
-
-  '@mariozechner/pi-tui@0.73.1':
-    resolution: {integrity: sha512-ybVsRnUbzQRtbocltJ2OXb2QogrO67N2BlUyKjZz9BHcZYiDJtNkcKQockxDjsVvDc0uBCLDX6iZJoBElBd8fw==}
-    engines: {node: '>=20.0.0'}
-    deprecated: please use @earendil-works/pi-tui instead going forward
 
   '@mdx-js/loader@2.3.0':
     resolution: {integrity: sha512-IqsscXh7Q3Rzb+f5DXYk0HU71PK+WuFsEhf+mSV3fOhpLcEpgsHvTQ2h0T6TlZ5gHOaBeFjkXwB52by7ypMyNg==}
@@ -3309,8 +3322,8 @@ packages:
   '@mermaid-js/parser@1.1.1':
     resolution: {integrity: sha512-VuHdsYMK1bT6X2JbcAaWAhugTRvRBRyuZgd+c22swUeI9g/ntaxF7CY7dYarhZovofCbUNO0G7JesfmNtjYOCw==}
 
-  '@mistralai/mistralai@2.2.5':
-    resolution: {integrity: sha512-ATbWzKkNzNAZ+gtw9MI/c/ULTMG80tKUiRNIbQFfg4OP0uEZZpTfXZeBCNfs5Dq0uqMQ/tQWc4o6RRJQtMrpDA==}
+  '@mistralai/mistralai@2.2.1':
+    resolution: {integrity: sha512-uKU8CZmL2RzYKmplsU01hii4p3pe4HqJefpWNRWXm1Tcm0Sm4xXfwSLIy4k7ZCPlbETCGcp69E7hZs+WOJ5itQ==}
 
   '@mixmark-io/domino@2.2.0':
     resolution: {integrity: sha512-Y28PR25bHXUg88kCV7nivXrP2Nj2RueZ3/l/jdx6J9f8J4nsEGcgX0Qe6lt7Pa+J79+kPiJU3LguR6O/6zrLOw==}
@@ -5418,10 +5431,6 @@ packages:
     resolution: {integrity: sha512-TzDZcAnhTyAHbXVxWZo7/tEcrIeFq20IBk8So3OLOetWpR8EwY/yEqBMBFaJMeyEiREDq4NfEl+qO3OAUD+vbQ==}
     engines: {node: '>=18.0.0'}
 
-  '@smithy/core@3.23.17':
-    resolution: {integrity: sha512-x7BlLbUFL8NWCGjMF9C+1N5cVCxcPa7g6Tv9B4A2luWx3be3oU8hQ96wIwxe/s7OhIzvoJH73HAUSg5JXVlEtQ==}
-    engines: {node: '>=18.0.0'}
-
   '@smithy/core@3.24.4':
     resolution: {integrity: sha512-3UNRKEyQyAgVgM0LGlerCLm+ChZWZ1GPfde+jBEW6bm6bSBGU1p0EbblaUV3unbhwvidjLA5Zs3sOs7mnZwvAw==}
     engines: {node: '>=18.0.0'}
@@ -5484,6 +5493,10 @@ packages:
 
   '@smithy/node-http-handler@4.6.1':
     resolution: {integrity: sha512-iB+orM4x3xrr57X3YaXazfKnntl0LHlZB1kcXSGzMV1Tt0+YwEjGlbjk/44qEGtBzXAz6yFDzkYTKSV6Pj2HUg==}
+    engines: {node: '>=18.0.0'}
+
+  '@smithy/node-http-handler@4.7.3':
+    resolution: {integrity: sha512-/jPhevcTFPMVl6KNjbaI47iOg1zxC7IsnX4PQDGVZKMFceOXtB8IEYaB7a9VvkP/3oC60WzTeKocvSI7vLT0vA==}
     engines: {node: '>=18.0.0'}
 
   '@smithy/node-http-handler@4.7.4':
@@ -5872,9 +5885,6 @@ packages:
   '@tokenlens/models@1.3.0':
     resolution: {integrity: sha512-9mx7ZGeewW4ndXAiD7AT1bbCk4OpJeortbjHHyNkgap+pMPPn1chY6R5zqe1ggXIUzZ2l8VOAKfPqOvpcrisJw==}
 
-  '@tootallnate/quickjs-emscripten@0.23.0':
-    resolution: {integrity: sha512-C5Mc6rdnsaJDjO3UpGW/CQTHtCKaYlScZTly4JIu97Jxo/odCiH0ITnDXSJPTOrEKk/ycSZ0AOgTmkDtkOsvIA==}
-
   '@ts-morph/common@0.27.0':
     resolution: {integrity: sha512-Wf29UqxWDpc+i61k3oIOzcUfQt79PIT9y/MWfAGlrkjg6lBC1hwDECLXPVJAhWjiGbfBCxZd65F/LIZF3+jeJQ==}
 
@@ -6084,9 +6094,6 @@ packages:
 
   '@types/mdx@2.0.13':
     resolution: {integrity: sha512-+OWZQfAYyio6YkJb3HLxDrvnx6SWWDbC0zVPfBRzUk0/nqoDyf6dNxQi3eArPe8rJ473nobTMQ/8Zk+LxJ+Yuw==}
-
-  '@types/mime-types@2.1.4':
-    resolution: {integrity: sha512-lfU4b34HOri+kAY5UheuFMWPDOI+OPceBSHZKp69gEyTL/mmJ4cnU6Y/rlme3UL3GyOn6Y42hyIEw0/q8sWx5w==}
 
   '@types/ms@2.1.0':
     resolution: {integrity: sha512-GsCCIZDE/p3i96vtEqx+7dBUGXrc7zeSK3wwPHIaRThS+9OhWIXRqzs4d6k1SVU8g91DrNRWxWUGhp5KXQb2VA==}
@@ -6654,10 +6661,6 @@ packages:
     resolution: {integrity: sha512-VoMINM2rqJwJgfdHq6RiUudKt2BV+FY5ZFezP/ypmwayk68+NzzAQy4XXLlqsGD4MCzq3DrmNFD/uUmBJuGoXw==}
     engines: {node: '>=10.0.0'}
     deprecated: Security vulnerability fixed in 5.2.1, please upgrade
-
-  basic-ftp@5.3.1:
-    resolution: {integrity: sha512-bopVNp6ugyA150DDuZfPFdt1KZ5a94ZDiwX4hMgZDzF+GttD80lEy8kj98kbyhLXnPvhtIo93mdnLIjpCAeeOw==}
-    engines: {node: '>=10.0.0'}
 
   before-after-hook@4.0.0:
     resolution: {integrity: sha512-q6tR3RPqIB1pMiTRMFcZwuG5T8vwp+vUvEG0vuI6B+Rikh5BfPp2fQ82c925FOs+b0lcFQ8CFrL+KbilfZFhOQ==}
@@ -7441,10 +7444,6 @@ packages:
     resolution: {integrity: sha512-0R9ikRb668HB7QDxT1vkpuUBtqc53YyAwMwGeUFKRojY/NWKvdZ+9UYtRfGmhqNbRkTSVpMbmyhXipFFv2cb/A==}
     engines: {node: '>= 12'}
 
-  data-uri-to-buffer@6.0.2:
-    resolution: {integrity: sha512-7hvf7/GW8e86rW0ptuwS3OcBGDjIi6SZva7hCyWC0yYry2cOPmLIjXAUHI6DK2HsnwJd9ifmt57i8eV2n4YNpw==}
-    engines: {node: '>= 14'}
-
   data-uri-to-buffer@7.0.0:
     resolution: {integrity: sha512-CuRUx0TXGSbbWdEci3VK/XOZGP3n0P4pIKpsqpVtBqaIIuj3GKK8H45oAqA4Rg8FHipc+CzRdUzmD4YQXxv66Q==}
     engines: {node: '>= 14'}
@@ -7562,10 +7561,6 @@ packages:
 
   defu@6.1.7:
     resolution: {integrity: sha512-7z22QmUWiQ/2d0KkdYmANbRUVABpZ9SNYyH5vx6PZ+nE5bcC0l7uFvEfHlyld/HcGBFTL536ClDt3DEcSlEJAQ==}
-
-  degenerator@5.0.1:
-    resolution: {integrity: sha512-TllpMR/t0M5sqCXfj85i4XaAzxmS5tVA16dqvdkMwGmzI+dXLXnw3J+3Vdv7VKw+ThlTMboK6i9rnZ6Nntj5CQ==}
-    engines: {node: '>= 14'}
 
   degenerator@6.0.0:
     resolution: {integrity: sha512-j5MdXdefrecJeSqTpUrgZd4fBsD2IxZx0JlJD+n1Q7+aTf7/HcyXSfHsicPW6ekPurX159v1ZYla6OJgSPh2Dw==}
@@ -8278,10 +8273,6 @@ packages:
     resolution: {integrity: sha512-DLkUvGwep3poOV2wpzbHCOnSKGk1LzyXTv+aHFgN2VFl96wnp8YA9YjO2qPzg5PuL8q/SW9Pdi6WTkYOIh995w==}
     engines: {node: '>=20'}
 
-  file-type@21.3.4:
-    resolution: {integrity: sha512-Ievi/yy8DS3ygGvT47PjSfdFoX+2isQueoYP1cntFW1JLYAuS4GD7NUPGg4zv2iZfV52uDyk5w5Z0TdpRS6Q1g==}
-    engines: {node: '>=20'}
-
   file-uri-to-path@1.0.0:
     resolution: {integrity: sha512-0Zt+s3L7Vf1biwWZ29aARiVYLx7iMGnEUl9x33fbB/j3jR81u/O2LbqK+Bm1CDSNDKVtJ/YjwY7TUd5SkeLQLw==}
 
@@ -8500,10 +8491,6 @@ packages:
 
   get-tsconfig@4.13.7:
     resolution: {integrity: sha512-7tN6rFgBlMgpBML5j8typ92BKFi2sFQvIdpAqLA2beia5avZDrMs0FLZiM5etShWq5irVyGcGMEA1jcDaK7A/Q==}
-
-  get-uri@6.0.5:
-    resolution: {integrity: sha512-b1O07XYq8eRuVzBNgJLstU6FYc1tS6wnMtF1I1D9lE8LxZSOGZ7LhxN54yPP6mGw5f2CkXY2BQUL9Fx41qvcIg==}
-    engines: {node: '>= 14'}
 
   get-uri@7.0.0:
     resolution: {integrity: sha512-ZsC7KQxm1Hra8yO0RvMZ4lGJT7vnBtSNpEHKq39MPN7vjuvCiu1aQ8rkXUaIXG1y/TSDez97Gmv04ibnYqCp/A==}
@@ -9302,9 +9289,6 @@ packages:
   koa@3.0.3:
     resolution: {integrity: sha512-MeuwbCoN1daWS32/Ni5qkzmrOtQO2qrnfdxDHjrm6s4b59yG4nexAJ0pTEFyzjLp0pBVO80CZp0vW8Ze30Ebow==}
     engines: {node: '>= 18'}
-
-  koffi@2.16.2:
-    resolution: {integrity: sha512-owU0MRwv6xkrVqCd+33uw6BaYppkTRXbO/rVdJNI2dvZG0gzyRhYwW25eWtc5pauwK8TGh3AbkFONSezdykfSA==}
 
   kuler@2.0.0:
     resolution: {integrity: sha512-Xq9nH7KlWZmXAtodXDDRE7vs6DU1gTU8zYDHDiWLSip45Egwq3plLHzPn27NgvzL2r1LMPC1vdqh98sQxtqj4A==}
@@ -10314,10 +10298,6 @@ packages:
     resolution: {integrity: sha512-dBpDMdxv9Irdq66304OLfEmQ9tbNRFnFTuZiLo+bD+r332bBmMJ8GBLXklIXXgxd3+v9+KUnZaUR5PJMa75Gsg==}
     engines: {node: '>= 0.4.0'}
 
-  netmask@2.1.1:
-    resolution: {integrity: sha512-eonl3sLUha+S1GzTPxychyhnUzKyeQkZ7jLjKrBagJgPla13F+uQ71HgpFefyHgqrjEbCPkDArxYsjY8/+gLKA==}
-    engines: {node: '>= 0.4.0'}
-
   new-github-release-url@2.0.0:
     resolution: {integrity: sha512-NHDDGYudnvRutt/VhKFlX26IotXe1w0cmkDm6JGquh5bz/bDTw0LufSmH/GxTjEdpHEO+bVKFTwdrcGa/9XlKQ==}
     engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
@@ -10672,10 +10652,6 @@ packages:
     resolution: {integrity: sha512-R4nPAVTAU0B9D35/Gk3uJf/7XYbQcyohSKdvAxIRSNghFl4e71hVoGnBNQz9cWaXxO2I10KTC+3jMdvvoKw6dQ==}
     engines: {node: '>=6'}
 
-  pac-proxy-agent@7.2.0:
-    resolution: {integrity: sha512-TEB8ESquiLMc0lV8vcd5Ql/JAKAoyzHFXaStwjkzpOpC5Yv+pIzLfHvjTSdf3vpa2bMiUQrg9i6276yn8666aA==}
-    engines: {node: '>= 14'}
-
   pac-proxy-agent@8.0.0:
     resolution: {integrity: sha512-HyCoVbyQ/nbVlQ/R6wBu0YXhbG2oAnEK5BQ3xMyj1OffQmU5NoOnpLzgPlKHaobUzz5NK0+AZHby4TdydAEBUA==}
     engines: {node: '>= 14'}
@@ -10683,10 +10659,6 @@ packages:
   pac-proxy-agent@9.0.1:
     resolution: {integrity: sha512-3ZOSpLboOlpW4yp8Cuv21KlTULRqyJ5Uuad3wXpSKFrxdNgcHEyoa22GRaZ2UlgCVuR6z+5BiavtYVvbajL/Yw==}
     engines: {node: '>= 20'}
-
-  pac-resolver@7.0.1:
-    resolution: {integrity: sha512-5NPgf87AT2STgwa2ntRMr45jTKrYBGkVU36yT0ig/n/GMAa3oPqhZfIQ2kMEimReg0+t9kZViDVZ83qfVUlckg==}
-    engines: {node: '>= 14'}
 
   pac-resolver@8.0.0:
     resolution: {integrity: sha512-SVNzOxVq2zuTew3WAt7U8UghwzJzuWYuJryd3y8FxyLTZdjVoCzY8kLP39PpEqQCDvlMWdQXwViu0sYT3eiU2w==}
@@ -11085,10 +11057,6 @@ packages:
   proxy-addr@2.0.7:
     resolution: {integrity: sha512-llQsMLSUDUPT44jdrU/O37qlnifitDP+ZwrmmZcoSKyLKvtZxpyV0n2/bD/N4tBAAZ/gJEdZU7KMraoK1+XYAg==}
     engines: {node: '>= 0.10'}
-
-  proxy-agent@6.5.0:
-    resolution: {integrity: sha512-TmatMXdr2KlRiA2CyDu8GqR8EjahTG3aY3nXjdzFyoZbmB8hrBsTyMezhULIXKnC0jpfjlmiZ3+EaCzoInSu/A==}
-    engines: {node: '>= 14'}
 
   proxy-agent@7.0.0:
     resolution: {integrity: sha512-okTgt79rHTvMHkr/Ney5rZpgCHh3g1g3tI5uhkgN5b7OeI3n0Q/ui1uv9OdrnZNJM9WIZJqZPh/UJs+YtO/TMQ==}
@@ -12002,10 +11970,6 @@ packages:
     resolution: {integrity: sha512-pyp2YR3mNxAMu0mGLtzs4g7O3uT4/9sQOLAKcViAkaS9fJWkud7nmaf6ZREFqQEi24IPkBcjfHjXhPTUWjo3uA==}
     engines: {node: '>= 20'}
 
-  socks-proxy-agent@8.0.5:
-    resolution: {integrity: sha512-HehCEsotFqbPW9sJ8WVYB6UbmIMv7kUUORIF2Nncq4VQvBfNBLibW9YZR5dlYCSUhwcD628pRllm7n+E+YTzJw==}
-    engines: {node: '>= 14'}
-
   socks-proxy-agent@9.0.0:
     resolution: {integrity: sha512-fFlbMlfsXhK02ZB8aZY7Hwxh/IHBV9b1Oq9bvBk6tkFWXvdAxUgA0wbw/NYR5liU3Y5+KI6U4FH3kYJt9QYv0w==}
     engines: {node: '>= 14'}
@@ -12727,6 +12691,10 @@ packages:
     resolution: {integrity: sha512-3O9Tf67pGhgOv9jM35AbhkXAKi13f3oy3aE4CSgr+TckGeY+/iu97ZXN+J7DpHPzLbVApFd1IFhcnBjREYXYcg==}
     engines: {node: '>=20.18.1'}
 
+  undici@8.3.0:
+    resolution: {integrity: sha512-TkUDgb6tl7KOGZ+7e8E3d2FYgUQgF6z5YypqjWmixVQSQERFcVrVg0ySADm2LVLRh5ljAaHTCR5Fmz3Q34rB7Q==}
+    engines: {node: '>=22.19.0'}
+
   unenv@2.0.0-rc.24:
     resolution: {integrity: sha512-i7qRCmY42zmCwnYlh9H2SvLEypEFGye5iRmEMKjcGi7zk9UquigRjFtTLz0TYqr0ZGLZhaMHl/foy1bZR+Cwlw==}
 
@@ -12960,10 +12928,6 @@ packages:
 
   uuid@13.0.2:
     resolution: {integrity: sha512-vzi9uRZ926x4XV73S/4qQaTwPXM2JBj6/6lI/byHH1jOpCzb0zDbfytgA9LcN/hzb2l7WQSQnxITOVx5un/wGw==}
-    hasBin: true
-
-  uuid@14.0.0:
-    resolution: {integrity: sha512-Qo+uWgilfSmAhXCMav1uYFynlQO7fMFiMVZsQqZRMIXp0O7rR7qjkj+cPvBHLgBqi960QCoo/PH2/6ZtVqKvrg==}
     hasBin: true
 
   uvu@0.5.6:
@@ -13858,7 +13822,7 @@ snapshots:
   '@aws-crypto/crc32@5.2.0':
     dependencies:
       '@aws-crypto/util': 5.2.0
-      '@aws-sdk/types': 3.973.8
+      '@aws-sdk/types': 3.973.9
       tslib: 2.8.1
 
   '@aws-crypto/crc32c@5.2.0':
@@ -13883,7 +13847,7 @@ snapshots:
       '@aws-crypto/sha256-js': 5.2.0
       '@aws-crypto/supports-web-crypto': 5.2.0
       '@aws-crypto/util': 5.2.0
-      '@aws-sdk/types': 3.973.8
+      '@aws-sdk/types': 3.973.9
       '@aws-sdk/util-locate-window': 3.965.5
       '@smithy/util-utf8': 2.3.0
       tslib: 2.8.1
@@ -13891,7 +13855,7 @@ snapshots:
   '@aws-crypto/sha256-js@5.2.0':
     dependencies:
       '@aws-crypto/util': 5.2.0
-      '@aws-sdk/types': 3.973.8
+      '@aws-sdk/types': 3.973.9
       tslib: 2.8.1
 
   '@aws-crypto/supports-web-crypto@5.2.0':
@@ -13900,7 +13864,7 @@ snapshots:
 
   '@aws-crypto/util@5.2.0':
     dependencies:
-      '@aws-sdk/types': 3.973.8
+      '@aws-sdk/types': 3.973.9
       '@smithy/util-utf8': 2.3.0
       tslib: 2.8.1
 
@@ -13918,6 +13882,23 @@ snapshots:
       tslib: 2.8.1
     optional: true
 
+  '@aws-sdk/client-bedrock-runtime@3.1048.0':
+    dependencies:
+      '@aws-crypto/sha256-browser': 5.2.0
+      '@aws-crypto/sha256-js': 5.2.0
+      '@aws-sdk/core': 3.974.14
+      '@aws-sdk/credential-provider-node': 3.972.45
+      '@aws-sdk/eventstream-handler-node': 3.972.17
+      '@aws-sdk/middleware-eventstream': 3.972.13
+      '@aws-sdk/middleware-websocket': 3.972.22
+      '@aws-sdk/token-providers': 3.1048.0
+      '@aws-sdk/types': 3.973.9
+      '@smithy/core': 3.24.4
+      '@smithy/fetch-http-handler': 5.4.4
+      '@smithy/node-http-handler': 4.7.4
+      '@smithy/types': 4.14.2
+      tslib: 2.8.1
+
   '@aws-sdk/client-bedrock-runtime@3.1054.0':
     dependencies:
       '@aws-crypto/sha256-browser': 5.2.0
@@ -13934,6 +13915,7 @@ snapshots:
       '@smithy/node-http-handler': 4.7.4
       '@smithy/types': 4.14.2
       tslib: 2.8.1
+    optional: true
 
   '@aws-sdk/client-s3@3.1054.0':
     dependencies:
@@ -13984,15 +13966,15 @@ snapshots:
 
   '@aws-sdk/core@3.974.8':
     dependencies:
-      '@aws-sdk/types': 3.973.8
+      '@aws-sdk/types': 3.973.9
       '@aws-sdk/xml-builder': 3.972.22
-      '@smithy/core': 3.23.17
+      '@smithy/core': 3.24.4
       '@smithy/node-config-provider': 4.3.14
       '@smithy/property-provider': 4.2.14
       '@smithy/protocol-http': 5.3.14
       '@smithy/signature-v4': 5.3.14
       '@smithy/smithy-client': 4.12.13
-      '@smithy/types': 4.14.1
+      '@smithy/types': 4.14.2
       '@smithy/util-base64': 4.3.2
       '@smithy/util-middleware': 4.2.14
       '@smithy/util-retry': 4.3.8
@@ -14150,9 +14132,9 @@ snapshots:
 
   '@aws-sdk/middleware-host-header@3.972.10':
     dependencies:
-      '@aws-sdk/types': 3.973.8
+      '@aws-sdk/types': 3.973.9
       '@smithy/protocol-http': 5.3.14
-      '@smithy/types': 4.14.1
+      '@smithy/types': 4.14.2
       tslib: 2.8.1
     optional: true
 
@@ -14165,31 +14147,31 @@ snapshots:
 
   '@aws-sdk/middleware-logger@3.972.10':
     dependencies:
-      '@aws-sdk/types': 3.973.8
-      '@smithy/types': 4.14.1
+      '@aws-sdk/types': 3.973.9
+      '@smithy/types': 4.14.2
       tslib: 2.8.1
     optional: true
 
   '@aws-sdk/middleware-recursion-detection@3.972.11':
     dependencies:
-      '@aws-sdk/types': 3.973.8
+      '@aws-sdk/types': 3.973.9
       '@aws/lambda-invoke-store': 0.2.4
       '@smithy/protocol-http': 5.3.14
-      '@smithy/types': 4.14.1
+      '@smithy/types': 4.14.2
       tslib: 2.8.1
     optional: true
 
   '@aws-sdk/middleware-sdk-s3@3.972.37':
     dependencies:
-      '@aws-sdk/core': 3.974.8
-      '@aws-sdk/types': 3.973.8
+      '@aws-sdk/core': 3.974.14
+      '@aws-sdk/types': 3.973.9
       '@aws-sdk/util-arn-parser': 3.972.3
-      '@smithy/core': 3.23.17
+      '@smithy/core': 3.24.4
       '@smithy/node-config-provider': 4.3.14
       '@smithy/protocol-http': 5.3.14
-      '@smithy/signature-v4': 5.3.14
+      '@smithy/signature-v4': 5.4.4
       '@smithy/smithy-client': 4.12.13
-      '@smithy/types': 4.14.1
+      '@smithy/types': 4.14.2
       '@smithy/util-config-provider': 4.2.2
       '@smithy/util-middleware': 4.2.14
       '@smithy/util-stream': 4.5.25
@@ -14216,12 +14198,12 @@ snapshots:
 
   '@aws-sdk/middleware-user-agent@3.972.38':
     dependencies:
-      '@aws-sdk/core': 3.974.8
-      '@aws-sdk/types': 3.973.8
+      '@aws-sdk/core': 3.974.14
+      '@aws-sdk/types': 3.973.9
       '@aws-sdk/util-endpoints': 3.996.8
-      '@smithy/core': 3.23.17
+      '@smithy/core': 3.24.4
       '@smithy/protocol-http': 5.3.14
-      '@smithy/types': 4.14.1
+      '@smithy/types': 4.14.2
       '@smithy/util-retry': 4.3.8
       tslib: 2.8.1
     optional: true
@@ -14260,12 +14242,12 @@ snapshots:
       '@aws-sdk/middleware-user-agent': 3.972.38
       '@aws-sdk/region-config-resolver': 3.972.13
       '@aws-sdk/signature-v4-multi-region': 3.996.25
-      '@aws-sdk/types': 3.973.8
+      '@aws-sdk/types': 3.973.9
       '@aws-sdk/util-endpoints': 3.996.8
       '@aws-sdk/util-user-agent-browser': 3.972.10
       '@aws-sdk/util-user-agent-node': 3.973.24
       '@smithy/config-resolver': 4.4.17
-      '@smithy/core': 3.23.17
+      '@smithy/core': 3.24.4
       '@smithy/fetch-http-handler': 5.3.17
       '@smithy/hash-node': 4.2.14
       '@smithy/invalid-dependency': 4.2.14
@@ -14275,10 +14257,10 @@ snapshots:
       '@smithy/middleware-serde': 4.2.20
       '@smithy/middleware-stack': 4.2.14
       '@smithy/node-config-provider': 4.3.14
-      '@smithy/node-http-handler': 4.6.1
+      '@smithy/node-http-handler': 4.7.4
       '@smithy/protocol-http': 5.3.14
       '@smithy/smithy-client': 4.12.13
-      '@smithy/types': 4.14.1
+      '@smithy/types': 4.14.2
       '@smithy/url-parser': 4.2.14
       '@smithy/util-base64': 4.3.2
       '@smithy/util-body-length-browser': 4.2.2
@@ -14296,20 +14278,20 @@ snapshots:
 
   '@aws-sdk/region-config-resolver@3.972.13':
     dependencies:
-      '@aws-sdk/types': 3.973.8
+      '@aws-sdk/types': 3.973.9
       '@smithy/config-resolver': 4.4.17
       '@smithy/node-config-provider': 4.3.14
-      '@smithy/types': 4.14.1
+      '@smithy/types': 4.14.2
       tslib: 2.8.1
     optional: true
 
   '@aws-sdk/signature-v4-multi-region@3.996.25':
     dependencies:
       '@aws-sdk/middleware-sdk-s3': 3.972.37
-      '@aws-sdk/types': 3.973.8
+      '@aws-sdk/types': 3.973.9
       '@smithy/protocol-http': 5.3.14
-      '@smithy/signature-v4': 5.3.14
-      '@smithy/types': 4.14.1
+      '@smithy/signature-v4': 5.4.4
+      '@smithy/types': 4.14.2
       tslib: 2.8.1
     optional: true
 
@@ -14324,14 +14306,23 @@ snapshots:
     dependencies:
       '@aws-sdk/core': 3.974.8
       '@aws-sdk/nested-clients': 3.997.6
-      '@aws-sdk/types': 3.973.8
+      '@aws-sdk/types': 3.973.9
       '@smithy/property-provider': 4.2.14
       '@smithy/shared-ini-file-loader': 4.4.9
-      '@smithy/types': 4.14.1
+      '@smithy/types': 4.14.2
       tslib: 2.8.1
     transitivePeerDependencies:
       - aws-crt
     optional: true
+
+  '@aws-sdk/token-providers@3.1048.0':
+    dependencies:
+      '@aws-sdk/core': 3.974.14
+      '@aws-sdk/nested-clients': 3.997.12
+      '@aws-sdk/types': 3.973.9
+      '@smithy/core': 3.24.4
+      '@smithy/types': 4.14.2
+      tslib: 2.8.1
 
   '@aws-sdk/token-providers@3.1054.0':
     dependencies:
@@ -14344,8 +14335,9 @@ snapshots:
 
   '@aws-sdk/types@3.973.8':
     dependencies:
-      '@smithy/types': 4.14.1
+      '@smithy/types': 4.14.2
       tslib: 2.8.1
+    optional: true
 
   '@aws-sdk/types@3.973.9':
     dependencies:
@@ -14359,8 +14351,8 @@ snapshots:
 
   '@aws-sdk/util-endpoints@3.996.8':
     dependencies:
-      '@aws-sdk/types': 3.973.8
-      '@smithy/types': 4.14.1
+      '@aws-sdk/types': 3.973.9
+      '@smithy/types': 4.14.2
       '@smithy/url-parser': 4.2.14
       '@smithy/util-endpoints': 3.4.2
       tslib: 2.8.1
@@ -14372,8 +14364,8 @@ snapshots:
 
   '@aws-sdk/util-user-agent-browser@3.972.10':
     dependencies:
-      '@aws-sdk/types': 3.973.8
-      '@smithy/types': 4.14.1
+      '@aws-sdk/types': 3.973.9
+      '@smithy/types': 4.14.2
       bowser: 2.14.1
       tslib: 2.8.1
     optional: true
@@ -14381,9 +14373,9 @@ snapshots:
   '@aws-sdk/util-user-agent-node@3.973.24':
     dependencies:
       '@aws-sdk/middleware-user-agent': 3.972.38
-      '@aws-sdk/types': 3.973.8
+      '@aws-sdk/types': 3.973.9
       '@smithy/node-config-provider': 4.3.14
-      '@smithy/types': 4.14.1
+      '@smithy/types': 4.14.2
       '@smithy/util-config-provider': 4.2.2
       tslib: 2.8.1
     optional: true
@@ -14391,7 +14383,7 @@ snapshots:
   '@aws-sdk/xml-builder@3.972.22':
     dependencies:
       '@nodable/entities': 2.1.0
-      '@smithy/types': 4.14.1
+      '@smithy/types': 4.14.2
       fast-xml-parser: 5.7.2
       tslib: 2.8.1
     optional: true
@@ -14543,7 +14535,7 @@ snapshots:
 
   '@azure/core-xml@1.5.1':
     dependencies:
-      fast-xml-parser: 5.7.2
+      fast-xml-parser: 5.7.3
       tslib: 2.8.1
     optional: true
 
@@ -14857,8 +14849,7 @@ snapshots:
 
   '@babel/runtime@7.28.6': {}
 
-  '@babel/runtime@7.29.7':
-    optional: true
+  '@babel/runtime@7.29.7': {}
 
   '@babel/template@7.28.6':
     dependencies:
@@ -14912,7 +14903,8 @@ snapshots:
     optionalDependencies:
       '@types/react': 19.2.14
 
-  '@borewit/text-codec@0.2.2': {}
+  '@borewit/text-codec@0.2.2':
+    optional: true
 
   '@braintree/sanitize-url@7.1.2': {}
 
@@ -15103,6 +15095,263 @@ snapshots:
       object-treeify: 1.1.33
       picomatch: 4.0.4
       which: 4.0.0
+
+  '@earendil-works/pi-agent-core@0.78.0(@modelcontextprotocol/sdk@1.27.1(@cfworker/json-schema@4.1.1)(zod@4.3.6))(ws@8.21.0)(zod@4.3.6)':
+    dependencies:
+      '@earendil-works/pi-ai': 0.78.0(@modelcontextprotocol/sdk@1.27.1(@cfworker/json-schema@4.1.1)(zod@4.3.6))(ws@8.21.0)(zod@4.3.6)
+      ignore: 7.0.5
+      typebox: 1.1.38
+      yaml: 2.9.0
+    transitivePeerDependencies:
+      - '@modelcontextprotocol/sdk'
+      - bufferutil
+      - supports-color
+      - utf-8-validate
+      - ws
+      - zod
+
+  '@earendil-works/pi-agent-core@0.78.0(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(supports-color@7.2.0)(zod@4.4.3))(supports-color@7.2.0)(ws@8.21.0)(zod@4.4.3)':
+    dependencies:
+      '@earendil-works/pi-ai': 0.78.0(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(supports-color@7.2.0)(zod@4.4.3))(supports-color@7.2.0)(ws@8.21.0)(zod@4.4.3)
+      ignore: 7.0.5
+      typebox: 1.1.38
+      yaml: 2.9.0
+    transitivePeerDependencies:
+      - '@modelcontextprotocol/sdk'
+      - bufferutil
+      - supports-color
+      - utf-8-validate
+      - ws
+      - zod
+
+  '@earendil-works/pi-agent-core@0.78.0(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)':
+    dependencies:
+      '@earendil-works/pi-ai': 0.78.0(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)
+      ignore: 7.0.5
+      typebox: 1.1.38
+      yaml: 2.9.0
+    transitivePeerDependencies:
+      - '@modelcontextprotocol/sdk'
+      - bufferutil
+      - supports-color
+      - utf-8-validate
+      - ws
+      - zod
+
+  '@earendil-works/pi-agent-core@0.78.0(ws@8.20.0)(zod@4.4.3)':
+    dependencies:
+      '@earendil-works/pi-ai': 0.78.0(ws@8.20.0)(zod@4.4.3)
+      ignore: 7.0.5
+      typebox: 1.1.38
+      yaml: 2.9.0
+    transitivePeerDependencies:
+      - '@modelcontextprotocol/sdk'
+      - bufferutil
+      - supports-color
+      - utf-8-validate
+      - ws
+      - zod
+
+  '@earendil-works/pi-ai@0.78.0(@modelcontextprotocol/sdk@1.27.1(@cfworker/json-schema@4.1.1)(zod@4.3.6))(ws@8.21.0)(zod@4.3.6)':
+    dependencies:
+      '@anthropic-ai/sdk': 0.91.1(zod@4.3.6)
+      '@aws-sdk/client-bedrock-runtime': 3.1048.0
+      '@google/genai': 1.52.0(@modelcontextprotocol/sdk@1.27.1(@cfworker/json-schema@4.1.1)(zod@4.3.6))
+      '@mistralai/mistralai': 2.2.1
+      '@smithy/node-http-handler': 4.7.3
+      http-proxy-agent: 7.0.2(supports-color@7.2.0)
+      https-proxy-agent: 7.0.6(supports-color@7.2.0)
+      openai: 6.26.0(ws@8.21.0)(zod@4.3.6)
+      partial-json: 0.1.7
+      typebox: 1.1.38
+    transitivePeerDependencies:
+      - '@modelcontextprotocol/sdk'
+      - bufferutil
+      - supports-color
+      - utf-8-validate
+      - ws
+      - zod
+
+  '@earendil-works/pi-ai@0.78.0(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(supports-color@7.2.0)(zod@4.4.3))(supports-color@7.2.0)(ws@8.21.0)(zod@4.4.3)':
+    dependencies:
+      '@anthropic-ai/sdk': 0.91.1(zod@4.4.3)
+      '@aws-sdk/client-bedrock-runtime': 3.1048.0
+      '@google/genai': 1.52.0(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(supports-color@7.2.0)(zod@4.4.3))(supports-color@7.2.0)
+      '@mistralai/mistralai': 2.2.1
+      '@smithy/node-http-handler': 4.7.3
+      http-proxy-agent: 7.0.2(supports-color@7.2.0)
+      https-proxy-agent: 7.0.6(supports-color@7.2.0)
+      openai: 6.26.0(ws@8.21.0)(zod@4.4.3)
+      partial-json: 0.1.7
+      typebox: 1.1.38
+    transitivePeerDependencies:
+      - '@modelcontextprotocol/sdk'
+      - bufferutil
+      - supports-color
+      - utf-8-validate
+      - ws
+      - zod
+
+  '@earendil-works/pi-ai@0.78.0(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)':
+    dependencies:
+      '@anthropic-ai/sdk': 0.91.1(zod@4.4.3)
+      '@aws-sdk/client-bedrock-runtime': 3.1048.0
+      '@google/genai': 1.52.0(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))
+      '@mistralai/mistralai': 2.2.1
+      '@smithy/node-http-handler': 4.7.3
+      http-proxy-agent: 7.0.2(supports-color@7.2.0)
+      https-proxy-agent: 7.0.6(supports-color@7.2.0)
+      openai: 6.26.0(ws@8.21.0)(zod@4.4.3)
+      partial-json: 0.1.7
+      typebox: 1.1.38
+    transitivePeerDependencies:
+      - '@modelcontextprotocol/sdk'
+      - bufferutil
+      - supports-color
+      - utf-8-validate
+      - ws
+      - zod
+
+  '@earendil-works/pi-ai@0.78.0(ws@8.20.0)(zod@4.4.3)':
+    dependencies:
+      '@anthropic-ai/sdk': 0.91.1(zod@4.4.3)
+      '@aws-sdk/client-bedrock-runtime': 3.1048.0
+      '@google/genai': 1.52.0(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))
+      '@mistralai/mistralai': 2.2.1
+      '@smithy/node-http-handler': 4.7.3
+      http-proxy-agent: 7.0.2(supports-color@7.2.0)
+      https-proxy-agent: 7.0.6(supports-color@7.2.0)
+      openai: 6.26.0(ws@8.20.0)(zod@4.4.3)
+      partial-json: 0.1.7
+      typebox: 1.1.38
+    transitivePeerDependencies:
+      - '@modelcontextprotocol/sdk'
+      - bufferutil
+      - supports-color
+      - utf-8-validate
+      - ws
+      - zod
+
+  '@earendil-works/pi-coding-agent@0.78.0(@modelcontextprotocol/sdk@1.27.1(@cfworker/json-schema@4.1.1)(zod@4.3.6))(ws@8.21.0)(zod@4.3.6)':
+    dependencies:
+      '@earendil-works/pi-agent-core': 0.78.0(@modelcontextprotocol/sdk@1.27.1(@cfworker/json-schema@4.1.1)(zod@4.3.6))(ws@8.21.0)(zod@4.3.6)
+      '@earendil-works/pi-ai': 0.78.0(@modelcontextprotocol/sdk@1.27.1(@cfworker/json-schema@4.1.1)(zod@4.3.6))(ws@8.21.0)(zod@4.3.6)
+      '@earendil-works/pi-tui': 0.78.0
+      '@silvia-odwyer/photon-node': 0.3.4
+      chalk: 5.6.2
+      cross-spawn: 7.0.6
+      diff: 8.0.4
+      glob: 13.0.6
+      highlight.js: 10.7.3
+      hosted-git-info: 9.0.3
+      ignore: 7.0.5
+      jiti: 2.7.0
+      minimatch: 10.2.5
+      proper-lockfile: 4.1.2
+      typebox: 1.1.38
+      undici: 8.3.0
+      yaml: 2.9.0
+    optionalDependencies:
+      '@mariozechner/clipboard': 0.3.9
+    transitivePeerDependencies:
+      - '@modelcontextprotocol/sdk'
+      - bufferutil
+      - supports-color
+      - utf-8-validate
+      - ws
+      - zod
+
+  '@earendil-works/pi-coding-agent@0.78.0(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(supports-color@7.2.0)(zod@4.4.3))(supports-color@7.2.0)(ws@8.21.0)(zod@4.4.3)':
+    dependencies:
+      '@earendil-works/pi-agent-core': 0.78.0(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(supports-color@7.2.0)(zod@4.4.3))(supports-color@7.2.0)(ws@8.21.0)(zod@4.4.3)
+      '@earendil-works/pi-ai': 0.78.0(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(supports-color@7.2.0)(zod@4.4.3))(supports-color@7.2.0)(ws@8.21.0)(zod@4.4.3)
+      '@earendil-works/pi-tui': 0.78.0
+      '@silvia-odwyer/photon-node': 0.3.4
+      chalk: 5.6.2
+      cross-spawn: 7.0.6
+      diff: 8.0.4
+      glob: 13.0.6
+      highlight.js: 10.7.3
+      hosted-git-info: 9.0.3
+      ignore: 7.0.5
+      jiti: 2.7.0
+      minimatch: 10.2.5
+      proper-lockfile: 4.1.2
+      typebox: 1.1.38
+      undici: 8.3.0
+      yaml: 2.9.0
+    optionalDependencies:
+      '@mariozechner/clipboard': 0.3.9
+    transitivePeerDependencies:
+      - '@modelcontextprotocol/sdk'
+      - bufferutil
+      - supports-color
+      - utf-8-validate
+      - ws
+      - zod
+
+  '@earendil-works/pi-coding-agent@0.78.0(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)':
+    dependencies:
+      '@earendil-works/pi-agent-core': 0.78.0(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)
+      '@earendil-works/pi-ai': 0.78.0(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)
+      '@earendil-works/pi-tui': 0.78.0
+      '@silvia-odwyer/photon-node': 0.3.4
+      chalk: 5.6.2
+      cross-spawn: 7.0.6
+      diff: 8.0.4
+      glob: 13.0.6
+      highlight.js: 10.7.3
+      hosted-git-info: 9.0.3
+      ignore: 7.0.5
+      jiti: 2.7.0
+      minimatch: 10.2.5
+      proper-lockfile: 4.1.2
+      typebox: 1.1.38
+      undici: 8.3.0
+      yaml: 2.9.0
+    optionalDependencies:
+      '@mariozechner/clipboard': 0.3.9
+    transitivePeerDependencies:
+      - '@modelcontextprotocol/sdk'
+      - bufferutil
+      - supports-color
+      - utf-8-validate
+      - ws
+      - zod
+
+  '@earendil-works/pi-coding-agent@0.78.0(ws@8.20.0)(zod@4.4.3)':
+    dependencies:
+      '@earendil-works/pi-agent-core': 0.78.0(ws@8.20.0)(zod@4.4.3)
+      '@earendil-works/pi-ai': 0.78.0(ws@8.20.0)(zod@4.4.3)
+      '@earendil-works/pi-tui': 0.78.0
+      '@silvia-odwyer/photon-node': 0.3.4
+      chalk: 5.6.2
+      cross-spawn: 7.0.6
+      diff: 8.0.4
+      glob: 13.0.6
+      highlight.js: 10.7.3
+      hosted-git-info: 9.0.3
+      ignore: 7.0.5
+      jiti: 2.7.0
+      minimatch: 10.2.5
+      proper-lockfile: 4.1.2
+      typebox: 1.1.38
+      undici: 8.3.0
+      yaml: 2.9.0
+    optionalDependencies:
+      '@mariozechner/clipboard': 0.3.9
+    transitivePeerDependencies:
+      - '@modelcontextprotocol/sdk'
+      - bufferutil
+      - supports-color
+      - utf-8-validate
+      - ws
+      - zod
+
+  '@earendil-works/pi-tui@0.78.0':
+    dependencies:
+      get-east-asian-width: 1.6.0
+      marked: 15.0.12
 
   '@ecies/ciphers@0.2.5(@noble/ciphers@1.3.0)':
     dependencies:
@@ -15589,19 +15838,6 @@ snapshots:
 
   '@fontsource-variable/jetbrains-mono@5.2.8': {}
 
-  '@google/genai@1.45.0(@modelcontextprotocol/sdk@1.27.1(@cfworker/json-schema@4.1.1)(zod@4.3.6))':
-    dependencies:
-      google-auth-library: 10.6.1(supports-color@7.2.0)
-      p-retry: 4.6.2
-      protobufjs: 7.5.4
-      ws: 8.21.0
-    optionalDependencies:
-      '@modelcontextprotocol/sdk': 1.27.1(@cfworker/json-schema@4.1.1)(zod@4.3.6)
-    transitivePeerDependencies:
-      - bufferutil
-      - supports-color
-      - utf-8-validate
-
   '@google/genai@1.45.0(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(supports-color@7.2.0)(zod@4.4.3))(supports-color@7.2.0)':
     dependencies:
       google-auth-library: 10.6.1(supports-color@7.2.0)
@@ -15615,9 +15851,35 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  '@google/genai@1.45.0(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))':
+  '@google/genai@1.52.0(@modelcontextprotocol/sdk@1.27.1(@cfworker/json-schema@4.1.1)(zod@4.3.6))':
     dependencies:
-      google-auth-library: 10.6.1(supports-color@7.2.0)
+      google-auth-library: 10.6.2(supports-color@7.2.0)
+      p-retry: 4.6.2
+      protobufjs: 7.5.4
+      ws: 8.21.0
+    optionalDependencies:
+      '@modelcontextprotocol/sdk': 1.27.1(@cfworker/json-schema@4.1.1)(zod@4.3.6)
+    transitivePeerDependencies:
+      - bufferutil
+      - supports-color
+      - utf-8-validate
+
+  '@google/genai@1.52.0(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(supports-color@7.2.0)(zod@4.4.3))(supports-color@7.2.0)':
+    dependencies:
+      google-auth-library: 10.6.2(supports-color@7.2.0)
+      p-retry: 4.6.2
+      protobufjs: 7.5.4
+      ws: 8.21.0
+    optionalDependencies:
+      '@modelcontextprotocol/sdk': 1.29.0(@cfworker/json-schema@4.1.1)(supports-color@7.2.0)(zod@4.4.3)
+    transitivePeerDependencies:
+      - bufferutil
+      - supports-color
+      - utf-8-validate
+
+  '@google/genai@1.52.0(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))':
+    dependencies:
+      google-auth-library: 10.6.2(supports-color@7.2.0)
       p-retry: 4.6.2
       protobufjs: 7.5.4
       ws: 8.21.0
@@ -16194,323 +16456,49 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@mariozechner/clipboard-darwin-arm64@0.3.6':
+  '@mariozechner/clipboard-darwin-arm64@0.3.9':
     optional: true
 
-  '@mariozechner/clipboard-darwin-universal@0.3.6':
+  '@mariozechner/clipboard-darwin-universal@0.3.9':
     optional: true
 
-  '@mariozechner/clipboard-darwin-x64@0.3.6':
+  '@mariozechner/clipboard-darwin-x64@0.3.9':
     optional: true
 
-  '@mariozechner/clipboard-linux-arm64-gnu@0.3.6':
+  '@mariozechner/clipboard-linux-arm64-gnu@0.3.9':
     optional: true
 
-  '@mariozechner/clipboard-linux-arm64-musl@0.3.6':
+  '@mariozechner/clipboard-linux-arm64-musl@0.3.9':
     optional: true
 
-  '@mariozechner/clipboard-linux-riscv64-gnu@0.3.6':
+  '@mariozechner/clipboard-linux-riscv64-gnu@0.3.9':
     optional: true
 
-  '@mariozechner/clipboard-linux-x64-gnu@0.3.6':
+  '@mariozechner/clipboard-linux-x64-gnu@0.3.9':
     optional: true
 
-  '@mariozechner/clipboard-linux-x64-musl@0.3.6':
+  '@mariozechner/clipboard-linux-x64-musl@0.3.9':
     optional: true
 
-  '@mariozechner/clipboard-win32-arm64-msvc@0.3.6':
+  '@mariozechner/clipboard-win32-arm64-msvc@0.3.9':
     optional: true
 
-  '@mariozechner/clipboard-win32-x64-msvc@0.3.6':
+  '@mariozechner/clipboard-win32-x64-msvc@0.3.9':
     optional: true
 
-  '@mariozechner/clipboard@0.3.6':
+  '@mariozechner/clipboard@0.3.9':
     optionalDependencies:
-      '@mariozechner/clipboard-darwin-arm64': 0.3.6
-      '@mariozechner/clipboard-darwin-universal': 0.3.6
-      '@mariozechner/clipboard-darwin-x64': 0.3.6
-      '@mariozechner/clipboard-linux-arm64-gnu': 0.3.6
-      '@mariozechner/clipboard-linux-arm64-musl': 0.3.6
-      '@mariozechner/clipboard-linux-riscv64-gnu': 0.3.6
-      '@mariozechner/clipboard-linux-x64-gnu': 0.3.6
-      '@mariozechner/clipboard-linux-x64-musl': 0.3.6
-      '@mariozechner/clipboard-win32-arm64-msvc': 0.3.6
-      '@mariozechner/clipboard-win32-x64-msvc': 0.3.6
+      '@mariozechner/clipboard-darwin-arm64': 0.3.9
+      '@mariozechner/clipboard-darwin-universal': 0.3.9
+      '@mariozechner/clipboard-darwin-x64': 0.3.9
+      '@mariozechner/clipboard-linux-arm64-gnu': 0.3.9
+      '@mariozechner/clipboard-linux-arm64-musl': 0.3.9
+      '@mariozechner/clipboard-linux-riscv64-gnu': 0.3.9
+      '@mariozechner/clipboard-linux-x64-gnu': 0.3.9
+      '@mariozechner/clipboard-linux-x64-musl': 0.3.9
+      '@mariozechner/clipboard-win32-arm64-msvc': 0.3.9
+      '@mariozechner/clipboard-win32-x64-msvc': 0.3.9
     optional: true
-
-  '@mariozechner/pi-agent-core@0.73.1(@modelcontextprotocol/sdk@1.27.1(@cfworker/json-schema@4.1.1)(zod@4.3.6))(ws@8.21.0)(zod@4.3.6)':
-    dependencies:
-      '@mariozechner/pi-ai': 0.73.1(@modelcontextprotocol/sdk@1.27.1(@cfworker/json-schema@4.1.1)(zod@4.3.6))(ws@8.21.0)(zod@4.3.6)
-      typebox: 1.1.37
-    transitivePeerDependencies:
-      - '@modelcontextprotocol/sdk'
-      - bufferutil
-      - supports-color
-      - utf-8-validate
-      - ws
-      - zod
-
-  '@mariozechner/pi-agent-core@0.73.1(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(supports-color@7.2.0)(zod@4.4.3))(supports-color@7.2.0)(ws@8.21.0)(zod@4.4.3)':
-    dependencies:
-      '@mariozechner/pi-ai': 0.73.1(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(supports-color@7.2.0)(zod@4.4.3))(supports-color@7.2.0)(ws@8.21.0)(zod@4.4.3)
-      typebox: 1.1.37
-    transitivePeerDependencies:
-      - '@modelcontextprotocol/sdk'
-      - bufferutil
-      - supports-color
-      - utf-8-validate
-      - ws
-      - zod
-
-  '@mariozechner/pi-agent-core@0.73.1(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)':
-    dependencies:
-      '@mariozechner/pi-ai': 0.73.1(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)
-      typebox: 1.1.37
-    transitivePeerDependencies:
-      - '@modelcontextprotocol/sdk'
-      - bufferutil
-      - supports-color
-      - utf-8-validate
-      - ws
-      - zod
-
-  '@mariozechner/pi-agent-core@0.73.1(ws@8.20.0)(zod@4.4.3)':
-    dependencies:
-      '@mariozechner/pi-ai': 0.73.1(ws@8.20.0)(zod@4.4.3)
-      typebox: 1.1.37
-    transitivePeerDependencies:
-      - '@modelcontextprotocol/sdk'
-      - bufferutil
-      - supports-color
-      - utf-8-validate
-      - ws
-      - zod
-
-  '@mariozechner/pi-ai@0.73.1(@modelcontextprotocol/sdk@1.27.1(@cfworker/json-schema@4.1.1)(zod@4.3.6))(ws@8.21.0)(zod@4.3.6)':
-    dependencies:
-      '@anthropic-ai/sdk': 0.91.1(zod@4.3.6)
-      '@aws-sdk/client-bedrock-runtime': 3.1054.0
-      '@google/genai': 1.45.0(@modelcontextprotocol/sdk@1.27.1(@cfworker/json-schema@4.1.1)(zod@4.3.6))
-      '@mistralai/mistralai': 2.2.5
-      chalk: 5.6.2
-      openai: 6.26.0(ws@8.21.0)(zod@4.3.6)
-      partial-json: 0.1.7
-      proxy-agent: 6.5.0(supports-color@7.2.0)
-      typebox: 1.1.37
-      undici: 7.26.0
-      zod-to-json-schema: 3.25.2(zod@4.3.6)
-    transitivePeerDependencies:
-      - '@modelcontextprotocol/sdk'
-      - bufferutil
-      - supports-color
-      - utf-8-validate
-      - ws
-      - zod
-
-  '@mariozechner/pi-ai@0.73.1(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(supports-color@7.2.0)(zod@4.4.3))(supports-color@7.2.0)(ws@8.21.0)(zod@4.4.3)':
-    dependencies:
-      '@anthropic-ai/sdk': 0.91.1(zod@4.4.3)
-      '@aws-sdk/client-bedrock-runtime': 3.1054.0
-      '@google/genai': 1.45.0(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(supports-color@7.2.0)(zod@4.4.3))(supports-color@7.2.0)
-      '@mistralai/mistralai': 2.2.5
-      chalk: 5.6.2
-      openai: 6.26.0(ws@8.21.0)(zod@4.4.3)
-      partial-json: 0.1.7
-      proxy-agent: 6.5.0(supports-color@7.2.0)
-      typebox: 1.1.37
-      undici: 7.26.0
-      zod-to-json-schema: 3.25.2(zod@4.4.3)
-    transitivePeerDependencies:
-      - '@modelcontextprotocol/sdk'
-      - bufferutil
-      - supports-color
-      - utf-8-validate
-      - ws
-      - zod
-
-  '@mariozechner/pi-ai@0.73.1(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)':
-    dependencies:
-      '@anthropic-ai/sdk': 0.91.1(zod@4.4.3)
-      '@aws-sdk/client-bedrock-runtime': 3.1054.0
-      '@google/genai': 1.45.0(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))
-      '@mistralai/mistralai': 2.2.5
-      chalk: 5.6.2
-      openai: 6.26.0(ws@8.21.0)(zod@4.4.3)
-      partial-json: 0.1.7
-      proxy-agent: 6.5.0(supports-color@7.2.0)
-      typebox: 1.1.37
-      undici: 7.26.0
-      zod-to-json-schema: 3.25.2(zod@4.4.3)
-    transitivePeerDependencies:
-      - '@modelcontextprotocol/sdk'
-      - bufferutil
-      - supports-color
-      - utf-8-validate
-      - ws
-      - zod
-
-  '@mariozechner/pi-ai@0.73.1(ws@8.20.0)(zod@4.4.3)':
-    dependencies:
-      '@anthropic-ai/sdk': 0.91.1(zod@4.4.3)
-      '@aws-sdk/client-bedrock-runtime': 3.1054.0
-      '@google/genai': 1.45.0(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))
-      '@mistralai/mistralai': 2.2.5
-      chalk: 5.6.2
-      openai: 6.26.0(ws@8.20.0)(zod@4.4.3)
-      partial-json: 0.1.7
-      proxy-agent: 6.5.0(supports-color@7.2.0)
-      typebox: 1.1.37
-      undici: 7.26.0
-      zod-to-json-schema: 3.25.2(zod@4.4.3)
-    transitivePeerDependencies:
-      - '@modelcontextprotocol/sdk'
-      - bufferutil
-      - supports-color
-      - utf-8-validate
-      - ws
-      - zod
-
-  '@mariozechner/pi-coding-agent@0.73.1(@modelcontextprotocol/sdk@1.27.1(@cfworker/json-schema@4.1.1)(zod@4.3.6))(ws@8.21.0)(zod@4.3.6)':
-    dependencies:
-      '@mariozechner/pi-agent-core': 0.73.1(@modelcontextprotocol/sdk@1.27.1(@cfworker/json-schema@4.1.1)(zod@4.3.6))(ws@8.21.0)(zod@4.3.6)
-      '@mariozechner/pi-ai': 0.73.1(@modelcontextprotocol/sdk@1.27.1(@cfworker/json-schema@4.1.1)(zod@4.3.6))(ws@8.21.0)(zod@4.3.6)
-      '@mariozechner/pi-tui': 0.73.1
-      '@silvia-odwyer/photon-node': 0.3.4
-      chalk: 5.6.2
-      cli-highlight: 2.1.11
-      diff: 8.0.4
-      extract-zip: 2.0.1(supports-color@7.2.0)
-      file-type: 21.3.4(supports-color@7.2.0)
-      glob: 13.0.6
-      hosted-git-info: 9.0.3
-      ignore: 7.0.5
-      jiti: 2.7.0
-      marked: 15.0.12
-      minimatch: 10.2.5
-      proper-lockfile: 4.1.2
-      strip-ansi: 7.2.0
-      typebox: 1.1.38
-      undici: 7.26.0
-      uuid: 14.0.0
-      yaml: 2.9.0
-    optionalDependencies:
-      '@mariozechner/clipboard': 0.3.6
-    transitivePeerDependencies:
-      - '@modelcontextprotocol/sdk'
-      - bufferutil
-      - supports-color
-      - utf-8-validate
-      - ws
-      - zod
-
-  '@mariozechner/pi-coding-agent@0.73.1(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(supports-color@7.2.0)(zod@4.4.3))(supports-color@7.2.0)(ws@8.21.0)(zod@4.4.3)':
-    dependencies:
-      '@mariozechner/pi-agent-core': 0.73.1(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(supports-color@7.2.0)(zod@4.4.3))(supports-color@7.2.0)(ws@8.21.0)(zod@4.4.3)
-      '@mariozechner/pi-ai': 0.73.1(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(supports-color@7.2.0)(zod@4.4.3))(supports-color@7.2.0)(ws@8.21.0)(zod@4.4.3)
-      '@mariozechner/pi-tui': 0.73.1
-      '@silvia-odwyer/photon-node': 0.3.4
-      chalk: 5.6.2
-      cli-highlight: 2.1.11
-      diff: 8.0.4
-      extract-zip: 2.0.1(supports-color@7.2.0)
-      file-type: 21.3.4(supports-color@7.2.0)
-      glob: 13.0.6
-      hosted-git-info: 9.0.3
-      ignore: 7.0.5
-      jiti: 2.7.0
-      marked: 15.0.12
-      minimatch: 10.2.5
-      proper-lockfile: 4.1.2
-      strip-ansi: 7.2.0
-      typebox: 1.1.38
-      undici: 7.26.0
-      uuid: 14.0.0
-      yaml: 2.9.0
-    optionalDependencies:
-      '@mariozechner/clipboard': 0.3.6
-    transitivePeerDependencies:
-      - '@modelcontextprotocol/sdk'
-      - bufferutil
-      - supports-color
-      - utf-8-validate
-      - ws
-      - zod
-
-  '@mariozechner/pi-coding-agent@0.73.1(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)':
-    dependencies:
-      '@mariozechner/pi-agent-core': 0.73.1(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)
-      '@mariozechner/pi-ai': 0.73.1(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)
-      '@mariozechner/pi-tui': 0.73.1
-      '@silvia-odwyer/photon-node': 0.3.4
-      chalk: 5.6.2
-      cli-highlight: 2.1.11
-      diff: 8.0.4
-      extract-zip: 2.0.1(supports-color@7.2.0)
-      file-type: 21.3.4(supports-color@7.2.0)
-      glob: 13.0.6
-      hosted-git-info: 9.0.3
-      ignore: 7.0.5
-      jiti: 2.7.0
-      marked: 15.0.12
-      minimatch: 10.2.5
-      proper-lockfile: 4.1.2
-      strip-ansi: 7.2.0
-      typebox: 1.1.38
-      undici: 7.26.0
-      uuid: 14.0.0
-      yaml: 2.9.0
-    optionalDependencies:
-      '@mariozechner/clipboard': 0.3.6
-    transitivePeerDependencies:
-      - '@modelcontextprotocol/sdk'
-      - bufferutil
-      - supports-color
-      - utf-8-validate
-      - ws
-      - zod
-
-  '@mariozechner/pi-coding-agent@0.73.1(ws@8.20.0)(zod@4.4.3)':
-    dependencies:
-      '@mariozechner/pi-agent-core': 0.73.1(ws@8.20.0)(zod@4.4.3)
-      '@mariozechner/pi-ai': 0.73.1(ws@8.20.0)(zod@4.4.3)
-      '@mariozechner/pi-tui': 0.73.1
-      '@silvia-odwyer/photon-node': 0.3.4
-      chalk: 5.6.2
-      cli-highlight: 2.1.11
-      diff: 8.0.4
-      extract-zip: 2.0.1(supports-color@7.2.0)
-      file-type: 21.3.4(supports-color@7.2.0)
-      glob: 13.0.6
-      hosted-git-info: 9.0.3
-      ignore: 7.0.5
-      jiti: 2.7.0
-      marked: 15.0.12
-      minimatch: 10.2.5
-      proper-lockfile: 4.1.2
-      strip-ansi: 7.2.0
-      typebox: 1.1.38
-      undici: 7.26.0
-      uuid: 14.0.0
-      yaml: 2.9.0
-    optionalDependencies:
-      '@mariozechner/clipboard': 0.3.6
-    transitivePeerDependencies:
-      - '@modelcontextprotocol/sdk'
-      - bufferutil
-      - supports-color
-      - utf-8-validate
-      - ws
-      - zod
-
-  '@mariozechner/pi-tui@0.73.1':
-    dependencies:
-      '@types/mime-types': 2.1.4
-      chalk: 5.6.2
-      get-east-asian-width: 1.6.0
-      marked: 15.0.12
-      mime-types: 3.0.2
-    optionalDependencies:
-      koffi: 2.16.2
 
   '@mdx-js/loader@2.3.0(webpack@5.106.2)':
     dependencies:
@@ -16552,7 +16540,7 @@ snapshots:
     dependencies:
       '@chevrotain/types': 11.1.2
 
-  '@mistralai/mistralai@2.2.5':
+  '@mistralai/mistralai@2.2.1':
     dependencies:
       ws: 8.21.0
       zod: 4.4.3
@@ -18874,24 +18862,10 @@ snapshots:
   '@smithy/config-resolver@4.4.17':
     dependencies:
       '@smithy/node-config-provider': 4.3.14
-      '@smithy/types': 4.14.1
+      '@smithy/types': 4.14.2
       '@smithy/util-config-provider': 4.2.2
       '@smithy/util-endpoints': 3.4.2
       '@smithy/util-middleware': 4.2.14
-      tslib: 2.8.1
-    optional: true
-
-  '@smithy/core@3.23.17':
-    dependencies:
-      '@smithy/protocol-http': 5.3.14
-      '@smithy/types': 4.14.1
-      '@smithy/url-parser': 4.2.14
-      '@smithy/util-base64': 4.3.2
-      '@smithy/util-body-length-browser': 4.2.2
-      '@smithy/util-middleware': 4.2.14
-      '@smithy/util-stream': 4.5.25
-      '@smithy/util-utf8': 4.2.2
-      '@smithy/uuid': 1.1.2
       tslib: 2.8.1
     optional: true
 
@@ -18905,7 +18879,7 @@ snapshots:
     dependencies:
       '@smithy/node-config-provider': 4.3.14
       '@smithy/property-provider': 4.2.14
-      '@smithy/types': 4.14.1
+      '@smithy/types': 4.14.2
       '@smithy/url-parser': 4.2.14
       tslib: 2.8.1
     optional: true
@@ -18920,7 +18894,7 @@ snapshots:
     dependencies:
       '@smithy/protocol-http': 5.3.14
       '@smithy/querystring-builder': 4.2.14
-      '@smithy/types': 4.14.1
+      '@smithy/types': 4.14.2
       '@smithy/util-base64': 4.3.2
       tslib: 2.8.1
     optional: true
@@ -18933,7 +18907,7 @@ snapshots:
 
   '@smithy/hash-node@4.2.14':
     dependencies:
-      '@smithy/types': 4.14.1
+      '@smithy/types': 4.14.2
       '@smithy/util-buffer-from': 4.2.2
       '@smithy/util-utf8': 4.2.2
       tslib: 2.8.1
@@ -18941,7 +18915,7 @@ snapshots:
 
   '@smithy/invalid-dependency@4.2.14':
     dependencies:
-      '@smithy/types': 4.14.1
+      '@smithy/types': 4.14.2
       tslib: 2.8.1
     optional: true
 
@@ -18957,17 +18931,17 @@ snapshots:
   '@smithy/middleware-content-length@4.2.14':
     dependencies:
       '@smithy/protocol-http': 5.3.14
-      '@smithy/types': 4.14.1
+      '@smithy/types': 4.14.2
       tslib: 2.8.1
     optional: true
 
   '@smithy/middleware-endpoint@4.4.32':
     dependencies:
-      '@smithy/core': 3.23.17
+      '@smithy/core': 3.24.4
       '@smithy/middleware-serde': 4.2.20
       '@smithy/node-config-provider': 4.3.14
       '@smithy/shared-ini-file-loader': 4.4.9
-      '@smithy/types': 4.14.1
+      '@smithy/types': 4.14.2
       '@smithy/url-parser': 4.2.14
       '@smithy/util-middleware': 4.2.14
       tslib: 2.8.1
@@ -18975,12 +18949,12 @@ snapshots:
 
   '@smithy/middleware-retry@4.5.7':
     dependencies:
-      '@smithy/core': 3.23.17
+      '@smithy/core': 3.24.4
       '@smithy/node-config-provider': 4.3.14
       '@smithy/protocol-http': 5.3.14
       '@smithy/service-error-classification': 4.3.1
       '@smithy/smithy-client': 4.12.13
-      '@smithy/types': 4.14.1
+      '@smithy/types': 4.14.2
       '@smithy/util-middleware': 4.2.14
       '@smithy/util-retry': 4.3.8
       '@smithy/uuid': 1.1.2
@@ -18989,15 +18963,15 @@ snapshots:
 
   '@smithy/middleware-serde@4.2.20':
     dependencies:
-      '@smithy/core': 3.23.17
+      '@smithy/core': 3.24.4
       '@smithy/protocol-http': 5.3.14
-      '@smithy/types': 4.14.1
+      '@smithy/types': 4.14.2
       tslib: 2.8.1
     optional: true
 
   '@smithy/middleware-stack@4.2.14':
     dependencies:
-      '@smithy/types': 4.14.1
+      '@smithy/types': 4.14.2
       tslib: 2.8.1
     optional: true
 
@@ -19005,7 +18979,7 @@ snapshots:
     dependencies:
       '@smithy/property-provider': 4.2.14
       '@smithy/shared-ini-file-loader': 4.4.9
-      '@smithy/types': 4.14.1
+      '@smithy/types': 4.14.2
       tslib: 2.8.1
     optional: true
 
@@ -19017,6 +18991,12 @@ snapshots:
       tslib: 2.8.1
     optional: true
 
+  '@smithy/node-http-handler@4.7.3':
+    dependencies:
+      '@smithy/core': 3.24.4
+      '@smithy/types': 4.14.2
+      tslib: 2.8.1
+
   '@smithy/node-http-handler@4.7.4':
     dependencies:
       '@smithy/core': 3.24.4
@@ -19025,37 +19005,37 @@ snapshots:
 
   '@smithy/property-provider@4.2.14':
     dependencies:
-      '@smithy/types': 4.14.1
+      '@smithy/types': 4.14.2
       tslib: 2.8.1
     optional: true
 
   '@smithy/protocol-http@5.3.14':
     dependencies:
-      '@smithy/types': 4.14.1
+      '@smithy/types': 4.14.2
       tslib: 2.8.1
     optional: true
 
   '@smithy/querystring-builder@4.2.14':
     dependencies:
-      '@smithy/types': 4.14.1
+      '@smithy/types': 4.14.2
       '@smithy/util-uri-escape': 4.2.2
       tslib: 2.8.1
     optional: true
 
   '@smithy/querystring-parser@4.2.14':
     dependencies:
-      '@smithy/types': 4.14.1
+      '@smithy/types': 4.14.2
       tslib: 2.8.1
     optional: true
 
   '@smithy/service-error-classification@4.3.1':
     dependencies:
-      '@smithy/types': 4.14.1
+      '@smithy/types': 4.14.2
     optional: true
 
   '@smithy/shared-ini-file-loader@4.4.9':
     dependencies:
-      '@smithy/types': 4.14.1
+      '@smithy/types': 4.14.2
       tslib: 2.8.1
     optional: true
 
@@ -19063,7 +19043,7 @@ snapshots:
     dependencies:
       '@smithy/is-array-buffer': 4.2.2
       '@smithy/protocol-http': 5.3.14
-      '@smithy/types': 4.14.1
+      '@smithy/types': 4.14.2
       '@smithy/util-hex-encoding': 4.2.2
       '@smithy/util-middleware': 4.2.14
       '@smithy/util-uri-escape': 4.2.2
@@ -19079,11 +19059,11 @@ snapshots:
 
   '@smithy/smithy-client@4.12.13':
     dependencies:
-      '@smithy/core': 3.23.17
+      '@smithy/core': 3.24.4
       '@smithy/middleware-endpoint': 4.4.32
       '@smithy/middleware-stack': 4.2.14
       '@smithy/protocol-http': 5.3.14
-      '@smithy/types': 4.14.1
+      '@smithy/types': 4.14.2
       '@smithy/util-stream': 4.5.25
       tslib: 2.8.1
     optional: true
@@ -19091,6 +19071,7 @@ snapshots:
   '@smithy/types@4.14.1':
     dependencies:
       tslib: 2.8.1
+    optional: true
 
   '@smithy/types@4.14.2':
     dependencies:
@@ -19099,7 +19080,7 @@ snapshots:
   '@smithy/url-parser@4.2.14':
     dependencies:
       '@smithy/querystring-parser': 4.2.14
-      '@smithy/types': 4.14.1
+      '@smithy/types': 4.14.2
       tslib: 2.8.1
     optional: true
 
@@ -19140,7 +19121,7 @@ snapshots:
     dependencies:
       '@smithy/property-provider': 4.2.14
       '@smithy/smithy-client': 4.12.13
-      '@smithy/types': 4.14.1
+      '@smithy/types': 4.14.2
       tslib: 2.8.1
     optional: true
 
@@ -19151,14 +19132,14 @@ snapshots:
       '@smithy/node-config-provider': 4.3.14
       '@smithy/property-provider': 4.2.14
       '@smithy/smithy-client': 4.12.13
-      '@smithy/types': 4.14.1
+      '@smithy/types': 4.14.2
       tslib: 2.8.1
     optional: true
 
   '@smithy/util-endpoints@3.4.2':
     dependencies:
       '@smithy/node-config-provider': 4.3.14
-      '@smithy/types': 4.14.1
+      '@smithy/types': 4.14.2
       tslib: 2.8.1
     optional: true
 
@@ -19169,22 +19150,22 @@ snapshots:
 
   '@smithy/util-middleware@4.2.14':
     dependencies:
-      '@smithy/types': 4.14.1
+      '@smithy/types': 4.14.2
       tslib: 2.8.1
     optional: true
 
   '@smithy/util-retry@4.3.8':
     dependencies:
       '@smithy/service-error-classification': 4.3.1
-      '@smithy/types': 4.14.1
+      '@smithy/types': 4.14.2
       tslib: 2.8.1
     optional: true
 
   '@smithy/util-stream@4.5.25':
     dependencies:
-      '@smithy/fetch-http-handler': 5.3.17
-      '@smithy/node-http-handler': 4.6.1
-      '@smithy/types': 4.14.1
+      '@smithy/fetch-http-handler': 5.4.4
+      '@smithy/node-http-handler': 4.7.4
+      '@smithy/types': 4.14.2
       '@smithy/util-base64': 4.3.2
       '@smithy/util-buffer-from': 4.2.2
       '@smithy/util-hex-encoding': 4.2.2
@@ -19430,14 +19411,16 @@ snapshots:
       - supports-color
       - tree-sitter
 
-  '@tokenizer/inflate@0.4.1(supports-color@7.2.0)':
+  '@tokenizer/inflate@0.4.1':
     dependencies:
       debug: 4.4.3(supports-color@7.2.0)
       token-types: 6.1.2
     transitivePeerDependencies:
       - supports-color
+    optional: true
 
-  '@tokenizer/token@0.3.0': {}
+  '@tokenizer/token@0.3.0':
+    optional: true
 
   '@tokenlens/core@1.3.0': {}
 
@@ -19454,12 +19437,10 @@ snapshots:
     dependencies:
       '@tokenlens/core': 1.3.0
 
-  '@tootallnate/quickjs-emscripten@0.23.0': {}
-
   '@ts-morph/common@0.27.0':
     dependencies:
       fast-glob: 3.3.3
-      minimatch: 10.2.4
+      minimatch: 10.2.5
       path-browserify: 1.0.1
 
   '@turbo/darwin-64@2.9.14':
@@ -19704,8 +19685,6 @@ snapshots:
       '@types/unist': 3.0.3
 
   '@types/mdx@2.0.13': {}
-
-  '@types/mime-types@2.1.4': {}
 
   '@types/ms@2.1.0': {}
 
@@ -20472,8 +20451,6 @@ snapshots:
   baseline-browser-mapping@2.10.7: {}
 
   basic-ftp@5.2.0: {}
-
-  basic-ftp@5.3.1: {}
 
   before-after-hook@4.0.0: {}
 
@@ -21323,8 +21300,6 @@ snapshots:
 
   data-uri-to-buffer@4.0.1: {}
 
-  data-uri-to-buffer@6.0.2: {}
-
   data-uri-to-buffer@7.0.0: {}
 
   data-uri-to-buffer@8.0.0: {}
@@ -21409,12 +21384,6 @@ snapshots:
     optional: true
 
   defu@6.1.7: {}
-
-  degenerator@5.0.1:
-    dependencies:
-      ast-types: 0.13.4
-      escodegen: 2.1.0
-      esprima: 4.0.1
 
   degenerator@6.0.0(quickjs-wasi@0.0.1):
     dependencies:
@@ -21528,7 +21497,7 @@ snapshots:
 
   dom-helpers@5.2.1:
     dependencies:
-      '@babel/runtime': 7.28.6
+      '@babel/runtime': 7.29.7
       csstype: 3.2.3
 
   dom-serializer@1.4.1:
@@ -22231,22 +22200,13 @@ snapshots:
 
   file-type@21.3.2:
     dependencies:
-      '@tokenizer/inflate': 0.4.1(supports-color@7.2.0)
+      '@tokenizer/inflate': 0.4.1
       strtok3: 10.3.5
       token-types: 6.1.2
       uint8array-extras: 1.5.0
     transitivePeerDependencies:
       - supports-color
     optional: true
-
-  file-type@21.3.4(supports-color@7.2.0):
-    dependencies:
-      '@tokenizer/inflate': 0.4.1(supports-color@7.2.0)
-      strtok3: 10.3.5
-      token-types: 6.1.2
-      uint8array-extras: 1.5.0
-    transitivePeerDependencies:
-      - supports-color
 
   file-uri-to-path@1.0.0: {}
 
@@ -22419,7 +22379,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  gaxios@7.1.4:
+  gaxios@7.1.4(supports-color@7.2.0):
     dependencies:
       extend: 3.0.2
       https-proxy-agent: 7.0.6(supports-color@7.2.0)
@@ -22477,14 +22437,6 @@ snapshots:
   get-tsconfig@4.13.7:
     dependencies:
       resolve-pkg-maps: 1.0.0
-
-  get-uri@6.0.5(supports-color@7.2.0):
-    dependencies:
-      basic-ftp: 5.3.1
-      data-uri-to-buffer: 6.0.2
-      debug: 4.4.3(supports-color@7.2.0)
-    transitivePeerDependencies:
-      - supports-color
 
   get-uri@7.0.0:
     dependencies:
@@ -22554,7 +22506,7 @@ snapshots:
 
   glob@13.0.6:
     dependencies:
-      minimatch: 10.2.4
+      minimatch: 10.2.5
       minipass: 7.1.3
       path-scurry: 2.0.2
 
@@ -22608,11 +22560,11 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  google-auth-library@10.6.2:
+  google-auth-library@10.6.2(supports-color@7.2.0):
     dependencies:
       base64-js: 1.5.1
       ecdsa-sig-formatter: 1.0.11
-      gaxios: 7.1.4
+      gaxios: 7.1.4(supports-color@7.2.0)
       gcp-metadata: 8.1.2(supports-color@7.2.0)
       google-logging-utils: 1.1.3
       jws: 4.0.1
@@ -22625,7 +22577,7 @@ snapshots:
     dependencies:
       extend: 3.0.2
       gaxios: 7.1.3(supports-color@7.2.0)
-      google-auth-library: 10.6.2
+      google-auth-library: 10.6.2(supports-color@7.2.0)
       qs: 6.15.0
       url-template: 2.0.8
     transitivePeerDependencies:
@@ -23113,7 +23065,8 @@ snapshots:
 
   ip-address@10.1.0: {}
 
-  ip-address@10.2.0: {}
+  ip-address@10.2.0:
+    optional: true
 
   ipaddr.js@1.9.1: {}
 
@@ -23380,7 +23333,7 @@ snapshots:
 
   json-schema-to-ts@3.1.1:
     dependencies:
-      '@babel/runtime': 7.28.6
+      '@babel/runtime': 7.29.7
       ts-algebra: 2.0.0
 
   json-schema-traverse@0.4.1: {}
@@ -23497,9 +23450,6 @@ snapshots:
       statuses: 2.0.2
       type-is: 2.1.0
       vary: 1.1.2
-
-  koffi@2.16.2:
-    optional: true
 
   kuler@2.0.0: {}
 
@@ -24981,8 +24931,6 @@ snapshots:
 
   netmask@2.0.2: {}
 
-  netmask@2.1.1: {}
-
   new-github-release-url@2.0.0:
     dependencies:
       type-fest: 2.19.0
@@ -25406,19 +25354,6 @@ snapshots:
 
   p-try@2.2.0: {}
 
-  pac-proxy-agent@7.2.0(supports-color@7.2.0):
-    dependencies:
-      '@tootallnate/quickjs-emscripten': 0.23.0
-      agent-base: 7.1.4
-      debug: 4.4.3(supports-color@7.2.0)
-      get-uri: 6.0.5(supports-color@7.2.0)
-      http-proxy-agent: 7.0.2(supports-color@7.2.0)
-      https-proxy-agent: 7.0.6(supports-color@7.2.0)
-      pac-resolver: 7.0.1
-      socks-proxy-agent: 8.0.5(supports-color@7.2.0)
-    transitivePeerDependencies:
-      - supports-color
-
   pac-proxy-agent@8.0.0:
     dependencies:
       agent-base: 8.0.0
@@ -25444,11 +25379,6 @@ snapshots:
       socks-proxy-agent: 10.0.0
     transitivePeerDependencies:
       - supports-color
-
-  pac-resolver@7.0.1:
-    dependencies:
-      degenerator: 5.0.1
-      netmask: 2.1.1
 
   pac-resolver@8.0.0(quickjs-wasi@0.0.1):
     dependencies:
@@ -25923,7 +25853,7 @@ snapshots:
       '@swc/core-linux-x64-gnu': 1.15.40
       '@swc/core-linux-x64-musl': 1.15.40
       '@swc/core-win32-x64-msvc': 1.15.40
-      google-auth-library: 10.6.2
+      google-auth-library: 10.6.2(supports-color@7.2.0)
       hono: 4.12.8
       ibm-cloud-sdk-core: 5.4.20
       langfuse: 3.38.20
@@ -26034,19 +25964,6 @@ snapshots:
     dependencies:
       forwarded: 0.2.0
       ipaddr.js: 1.9.1
-
-  proxy-agent@6.5.0(supports-color@7.2.0):
-    dependencies:
-      agent-base: 7.1.4
-      debug: 4.4.3(supports-color@7.2.0)
-      http-proxy-agent: 7.0.2(supports-color@7.2.0)
-      https-proxy-agent: 7.0.6(supports-color@7.2.0)
-      lru-cache: 7.18.3
-      pac-proxy-agent: 7.2.0(supports-color@7.2.0)
-      proxy-from-env: 1.1.0
-      socks-proxy-agent: 8.0.5(supports-color@7.2.0)
-    transitivePeerDependencies:
-      - supports-color
 
   proxy-agent@7.0.0:
     dependencies:
@@ -26371,7 +26288,7 @@ snapshots:
 
   react-transition-group@4.4.5(react-dom@19.2.5(react@19.2.5))(react@19.2.5):
     dependencies:
-      '@babel/runtime': 7.28.6
+      '@babel/runtime': 7.29.7
       dom-helpers: 5.2.1
       loose-envify: 1.4.0
       prop-types: 15.8.1
@@ -27353,14 +27270,6 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  socks-proxy-agent@8.0.5(supports-color@7.2.0):
-    dependencies:
-      agent-base: 7.1.4
-      debug: 4.4.3(supports-color@7.2.0)
-      socks: 2.8.9
-    transitivePeerDependencies:
-      - supports-color
-
   socks-proxy-agent@9.0.0:
     dependencies:
       agent-base: 8.0.0
@@ -27378,6 +27287,7 @@ snapshots:
     dependencies:
       ip-address: 10.2.0
       smart-buffer: 4.2.0
+    optional: true
 
   sonner@2.0.7(react-dom@19.2.5(react@19.2.5))(react@19.2.5):
     dependencies:
@@ -27596,6 +27506,7 @@ snapshots:
   strtok3@10.3.5:
     dependencies:
       '@tokenizer/token': 0.3.0
+    optional: true
 
   style-to-js@1.1.21:
     dependencies:
@@ -27811,6 +27722,7 @@ snapshots:
       '@borewit/text-codec': 0.2.2
       '@tokenizer/token': 0.3.0
       ieee754: 1.2.1
+    optional: true
 
   tokenlens@1.3.1:
     dependencies:
@@ -27983,7 +27895,8 @@ snapshots:
 
   uhyphen@0.2.0: {}
 
-  uint8array-extras@1.5.0: {}
+  uint8array-extras@1.5.0:
+    optional: true
 
   ultrahtml@1.6.0: {}
 
@@ -28012,6 +27925,8 @@ snapshots:
   undici@7.24.8: {}
 
   undici@7.26.0: {}
+
+  undici@8.3.0: {}
 
   unenv@2.0.0-rc.24:
     dependencies:
@@ -28226,8 +28141,6 @@ snapshots:
 
   uuid@13.0.2:
     optional: true
-
-  uuid@14.0.0: {}
 
   uvu@0.5.6:
     dependencies:
@@ -28901,10 +28814,6 @@ snapshots:
   zod-to-json-schema@3.25.1(zod@4.4.3):
     dependencies:
       zod: 4.4.3
-
-  zod-to-json-schema@3.25.2(zod@4.3.6):
-    dependencies:
-      zod: 4.3.6
 
   zod-to-json-schema@3.25.2(zod@4.4.3):
     dependencies:

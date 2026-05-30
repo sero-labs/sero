@@ -17,7 +17,7 @@ VCS, collaboration, and platform UI services.
   - `apps/desktop/electron/ipc/agent/core/agent.ts` (498)
   - `apps/desktop/electron/ipc/agent/core/agent-helpers.ts` (453)
 - External dependencies of note:
-  - Pi SDK session/runtime (`@mariozechner/pi-coding-agent`, `@mariozechner/pi-agent-core`)
+  - Pi SDK session/runtime (`@earendil-works/pi-coding-agent`, `@earendil-works/pi-agent-core`)
   - shared infra singletons (`@electron/shared/infra/shared-infra`)
   - workspace/container systems (AD-018 paths)
   - gateway/subagent bridges (AD-021)

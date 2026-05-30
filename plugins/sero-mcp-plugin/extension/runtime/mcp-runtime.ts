@@ -1,4 +1,4 @@
-import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
+import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import type { McpServerEditorInput } from '../../shared/types';
 import { validateServerEditorInput } from '../../shared/types';
 import { ensureOAuthDir, hasOAuthTokens } from '../auth/storage';

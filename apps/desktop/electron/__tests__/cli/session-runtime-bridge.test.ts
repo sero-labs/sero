@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { AgentSession, ExtensionContext } from '@mariozechner/pi-coding-agent';
+import type { AgentSession, ExtensionContext } from '@earendil-works/pi-coding-agent';
 import { Type } from 'typebox';
 
 import { CliRegistry } from '@electron/cli/core/registry';

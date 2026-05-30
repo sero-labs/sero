@@ -13,14 +13,15 @@ const monorepoPluginsDir = path.resolve(projectRoot, '../../plugins');
 const buildPluginScript = path.join(repoRoot, 'scripts/build-plugin.mjs');
 const desktopProvidedPluginDeps = new Set(['@sero-ai/common', 'typebox']);
 const { isBuiltinPackageDir } = builtinPackageDetection;
+const electronOutDir = path.join(projectRoot, 'dist/electron');
 
 const shared = {
   platform: 'node',
-  target: 'node20',
+  target: 'node22',
   format: 'esm',
   bundle: true,
   sourcemap: true,
-  external: ['electron', 'node-pty', 'esbuild', '@mariozechner/*', 'typebox', '@google/genai', 'ws', 'discord.js'],
+  external: ['electron', 'node-pty', 'esbuild', '@earendil-works/*', 'typebox', '@google/genai', 'ws', 'discord.js'],
   outdir: 'dist/electron',
   logLevel: 'info',
   // Keep import.meta.url working for ESM dependencies (pi SDK)
@@ -35,6 +36,8 @@ const __dirname = __dirnameFn(__filename);
 `.trim(),
   },
 };
+
+fs.rmSync(electronOutDir, { recursive: true, force: true });
 
 function copyIfExists(src, dest) {
   if (!fs.existsSync(src)) return;

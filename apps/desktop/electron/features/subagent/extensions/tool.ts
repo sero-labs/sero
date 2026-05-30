@@ -11,8 +11,8 @@
 import { writeFile, readdir, mkdir } from 'fs/promises';
 import path from 'path';
 import { Type } from 'typebox';
-import type { ExtensionAPI, ExtensionContext } from '@mariozechner/pi-coding-agent';
-import type { AgentToolResult, AgentToolUpdateCallback } from '@mariozechner/pi-agent-core';
+import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent';
+import type { AgentToolResult, AgentToolUpdateCallback } from '@earendil-works/pi-agent-core';
 import type { SubagentManager } from '..';
 import { SERO_AGENT_DIR } from '@electron/platform/env';
 

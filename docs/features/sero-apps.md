@@ -190,7 +190,7 @@ A simplified pattern:
 ```ts
 import path from 'path';
 import { promises as fs } from 'fs';
-import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
+import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { Type } from '@sinclair/typebox';
 
 export default function (pi: ExtensionAPI) {
