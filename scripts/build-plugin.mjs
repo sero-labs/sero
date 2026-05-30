@@ -28,10 +28,12 @@ function run(command, args, options = {}) {
   const result = spawnSync(command, args, {
     stdio: 'inherit',
     env: process.env,
+    shell: process.platform === 'win32',
     ...options,
   });
 
   if (result.status !== 0) {
+    if (result.error) console.error(`Failed to run ${command}: ${result.error.message}`);
     process.exit(result.status ?? 1);
   }
 }

@@ -49,9 +49,11 @@ function runCommand(command, args, cwd) {
     cwd,
     stdio: 'inherit',
     env: process.env,
+    shell: process.platform === 'win32' && !path.isAbsolute(command),
   });
   if (result.status !== 0) {
-    throw new Error(`Command failed: ${command} ${args.join(' ')}`);
+    const detail = result.error ? `: ${result.error.message}` : '';
+    throw new Error(`Command failed: ${command} ${args.join(' ')}${detail}`);
   }
 }
 
