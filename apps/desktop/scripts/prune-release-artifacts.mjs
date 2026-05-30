@@ -14,8 +14,9 @@ const webPluginNodeModules = path.join(
   deployDir,
   'dist/electron/builtin/plugins/sero-web-plugin/node_modules',
 );
+const appNodeModules = path.join(deployDir, 'node_modules');
 
-const prunedPaths = [
+const webPluginPrunedPaths = [
   // better-sqlite3 needs lib/ and build/Release at runtime. The SQLite source
   // tree is only needed before electron-rebuild runs.
   'better-sqlite3/deps',
@@ -32,11 +33,22 @@ const prunedPaths = [
   'unpdf/dist/pdfjs.d.ts',
 ];
 
-for (const relativePath of prunedPaths) {
-  const target = path.join(webPluginNodeModules, relativePath);
-  if (fs.existsSync(target)) {
-    fs.rmSync(target, { recursive: true, force: true });
+const appPrunedPaths = [
+  // The esbuild JS API resolves the platform package binary under @esbuild/*.
+  // The top-level bin copy is a duplicate in packaged Sero.
+  'esbuild/bin/esbuild',
+];
+
+function prunePaths(rootDir, relativePaths) {
+  for (const relativePath of relativePaths) {
+    const target = path.join(rootDir, relativePath);
+    if (fs.existsSync(target)) {
+      fs.rmSync(target, { recursive: true, force: true });
+    }
   }
 }
 
-console.log('  Pruned release-only web plugin build artifacts');
+prunePaths(webPluginNodeModules, webPluginPrunedPaths);
+prunePaths(appNodeModules, appPrunedPaths);
+
+console.log('  Pruned release-only package artifacts');

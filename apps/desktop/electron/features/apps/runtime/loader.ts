@@ -1,15 +1,27 @@
 import { createHash } from 'crypto';
 import { existsSync } from 'fs';
 import { mkdir, readFile, stat, writeFile } from 'fs/promises';
+import { createRequire } from 'module';
 import path from 'path';
 import { pathToFileURL } from 'url';
-import { build } from 'esbuild';
+import type { BuildResult, build as esbuildBuild } from 'esbuild';
 import type { AppRuntimeModule, LoadAppRuntimeModuleOptions } from './types';
 
 const SUPPORTED_RUNTIME_EXTENSIONS = new Set(['.js', '.mjs', '.cjs', '.ts', '.mts', '.cts', '.tsx']);
 const TRANSPILED_RUNTIME_EXTENSIONS = new Set(['.ts', '.mts', '.cts', '.tsx']);
 const DEFAULT_RUNTIME_EXTERNALS = ['better-sqlite3', 'electron', 'keytar', 'node-pty'] as const;
 const RUNTIME_CACHE_VERSION = 2;
+const runtimeRequire = createRequire(__filename);
+
+const ESBUILD_PLATFORM_PACKAGES: Record<string, { packageName: string; binaryPath: string }> = {
+  'darwin arm64': { packageName: '@esbuild/darwin-arm64', binaryPath: 'bin/esbuild' },
+  'darwin x64': { packageName: '@esbuild/darwin-x64', binaryPath: 'bin/esbuild' },
+  'linux arm64': { packageName: '@esbuild/linux-arm64', binaryPath: 'bin/esbuild' },
+  'linux x64': { packageName: '@esbuild/linux-x64', binaryPath: 'bin/esbuild' },
+  'win32 arm64': { packageName: '@esbuild/win32-arm64', binaryPath: 'esbuild.exe' },
+  'win32 ia32': { packageName: '@esbuild/win32-ia32', binaryPath: 'esbuild.exe' },
+  'win32 x64': { packageName: '@esbuild/win32-x64', binaryPath: 'esbuild.exe' },
+};
 
 interface RuntimeInputSnapshot {
   path: string;
@@ -45,6 +57,37 @@ function normalizeRuntimeExternals(externals: string[] | undefined): string[] {
 
 function buildEsbuildExternalList(externals: string[]): string[] {
   return externals.flatMap((external) => [external, `${external}/*`]);
+}
+
+function resolveAsarUnpackedPath(filePath: string): string | null {
+  const asarSegment = `${path.sep}app.asar${path.sep}`;
+  if (!filePath.includes(asarSegment)) return null;
+  return filePath.replace(asarSegment, `${path.sep}app.asar.unpacked${path.sep}`);
+}
+
+function configurePackagedEsbuildBinary(): void {
+  if (process.env.ESBUILD_BINARY_PATH) return;
+
+  const platformPackage = ESBUILD_PLATFORM_PACKAGES[`${process.platform} ${process.arch}`];
+  if (!platformPackage) return;
+
+  let binaryPath: string;
+  try {
+    binaryPath = runtimeRequire.resolve(`${platformPackage.packageName}/${platformPackage.binaryPath}`);
+  } catch {
+    return;
+  }
+
+  const unpackedPath = resolveAsarUnpackedPath(binaryPath);
+  if (unpackedPath && existsSync(unpackedPath)) {
+    process.env.ESBUILD_BINARY_PATH = unpackedPath;
+  }
+}
+
+function loadEsbuildBuild(): typeof esbuildBuild {
+  configurePackagedEsbuildBinary();
+  const esbuild = runtimeRequire('esbuild') as { build: typeof esbuildBuild };
+  return esbuild.build;
 }
 
 function normalizeRuntimeModule(candidate: unknown, runtimeEntryPath: string): AppRuntimeModule {
@@ -168,9 +211,9 @@ async function buildTranspiledRuntime(runtimeEntryPath: string, externals: strin
 
   const outfile = path.join(cacheDir, `${outputPrefix}.mjs`);
 
-  let result: Awaited<ReturnType<typeof build>>;
+  let result: BuildResult;
   try {
-    result = await build({
+    result = await loadEsbuildBuild()({
       entryPoints: [runtimeEntryPath],
       outfile,
       absWorkingDir: packageDir,
