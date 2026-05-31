@@ -289,6 +289,7 @@ export class ToolchainManager {
   }
 
   private defaultSystemResolver = async (tool: ToolName): Promise<ToolStatus | null> => {
+    if (shouldForceManagedTool(tool)) return null;
     const candidates = systemToolCandidates(tool, this.platform);
     let fallbackStatus: ToolStatus | null = null;
 
@@ -300,6 +301,13 @@ export class ToolchainManager {
 
     return fallbackStatus;
   };
+}
+
+function shouldForceManagedTool(tool: ToolName): boolean {
+  if (process.env.NODE_ENV !== 'test') return false;
+  const tools = process.env.SERO_E2E_FORCE_MANAGED_TOOLS;
+  if (!tools) return false;
+  return tools.split(',').map((value) => value.trim()).includes(tool);
 }
 
 function uniqueTools(artifacts: ArtifactSpec[]): ToolName[] {

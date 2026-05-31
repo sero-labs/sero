@@ -52,6 +52,19 @@ describe('verify-toolchain-publication', () => {
       ),
     })).rejects.toThrow('npm-linux-x64 archive is unsafe: unsafe symlink target /tmp/build/npm-cli.js');
   });
+
+  it('fails when a published npm archive has a dereferenced broken wrapper', async () => {
+    const metadata = createMetadata();
+    metadata.artifacts['npm-linux-x64'].sha256 = createHash('sha256').update(brokenNpmWrapperTarGz()).digest('hex');
+
+    await expect(verifyToolchainPublication({
+      targets,
+      metadata,
+      downloadArtifact: async (_url: string, key: string) => (
+        key === 'npm-linux-x64' ? brokenNpmWrapperTarGz() : artifactBytes(key)
+      ),
+    })).rejects.toThrow('npm-linux-x64 archive is unsafe: bin/npm does not point to lib/node_modules/npm/bin/npm-cli.js');
+  });
 });
 
 function verify(metadata: ReturnType<typeof createMetadata>) {
@@ -62,26 +75,90 @@ function verify(metadata: ReturnType<typeof createMetadata>) {
   });
 }
 
-function artifactBytes(_key: string): Buffer {
-  return gzipSync(Buffer.alloc(1024));
+function artifactBytes(key: string): Buffer {
+  if (!key.startsWith('npm-')) return tarGz([]);
+  const entries: TarEntry[] = [
+    npmWrapper('bin/npm', 'npm-cli.js'),
+    npmWrapper('bin/npx', 'npx-cli.js'),
+  ];
+  if (key.includes('windows')) {
+    entries.push(
+      npmCmdWrapper('bin/npm.cmd', 'NPM_CLI_JS', 'npm-cli.js'),
+      npmCmdWrapper('bin/npx.cmd', 'NPX_CLI_JS', 'npx-cli.js'),
+    );
+  }
+  return tarGz(entries);
 }
 
 function unsafeSymlinkTarGz(): Buffer {
+  return tarGz([{ name: 'bin/npm', type: '2', linkName: '/tmp/build/npm-cli.js' }]);
+}
+
+function brokenNpmWrapperTarGz(): Buffer {
+  return tarGz([
+    { name: 'bin/npm', data: "#!/usr/bin/env node\nrequire('../lib/cli.js')(process)\n", mode: 0o755 },
+    npmWrapper('bin/npx', 'npx-cli.js'),
+  ]);
+}
+
+function npmWrapper(name: string, cli: string): TarEntry {
+  return {
+    name,
+    data: `#!/usr/bin/env node\nrequire('../lib/node_modules/npm/bin/${cli}')\n`,
+    mode: 0o755,
+  };
+}
+
+function npmCmdWrapper(name: string, variable: string, cli: string): TarEntry {
+  return {
+    name,
+    data: `@ECHO OFF\nSETLOCAL\nSET "NODE_EXE=node"\nSET "${variable}=%~dp0..\\lib\\node_modules\\npm\\bin\\${cli}"\n"%NODE_EXE%" "%${variable}%" %*\n`,
+    mode: 0o755,
+  };
+}
+
+interface TarEntry {
+  name: string;
+  data?: string;
+  mode?: number;
+  type?: '0' | '2';
+  linkName?: string;
+}
+
+function tarGz(entries: TarEntry[]): Buffer {
+  const chunks: Buffer[] = [];
+  for (const entry of entries) chunks.push(tarHeader(entry), tarData(entry.data ?? ''));
+  chunks.push(Buffer.alloc(1024));
+  return gzipSync(Buffer.concat(chunks));
+}
+
+function tarHeader(entry: TarEntry): Buffer {
   const header = Buffer.alloc(512);
-  header.write('bin/npm');
-  header.write('0000777\0', 100);
+  const data = Buffer.from(entry.data ?? '');
+  header.write(entry.name);
+  writeOctal(header, entry.mode ?? 0o644, 100, 8);
   header.write('0000000\0', 108);
   header.write('0000000\0', 116);
-  header.write('00000000000\0', 124);
+  writeOctal(header, data.length, 124, 12);
   header.write('00000000000\0', 136);
   header.fill(' ', 148, 156);
-  header.write('2', 156);
-  header.write('/tmp/build/npm-cli.js', 157);
+  header.write(entry.type ?? '0', 156);
+  if (entry.linkName) header.write(entry.linkName, 157);
   header.write('ustar\0', 257);
   header.write('00', 263);
   const checksum = [...header].reduce((sum, byte) => sum + byte, 0).toString(8).padStart(6, '0');
   header.write(`${checksum}\0 `, 148);
-  return gzipSync(Buffer.concat([header, Buffer.alloc(1024)]));
+  return header;
+}
+
+function tarData(value: string): Buffer {
+  const data = Buffer.from(value);
+  const padding = Buffer.alloc(Math.ceil(data.length / 512) * 512 - data.length);
+  return Buffer.concat([data, padding]);
+}
+
+function writeOctal(buffer: Buffer, value: number, offset: number, length: number): void {
+  buffer.write(value.toString(8).padStart(length - 2, '0') + '\0', offset);
 }
 
 function createMetadata() {

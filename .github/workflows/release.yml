@@ -47,6 +47,7 @@ env:
   SERO_E2E_RUNTIME: host
   SERO_HOST_FIRST: '1'
   SERO_E2E_HOST_RELEASE_SMOKE: '1'
+  SERO_E2E_FORCE_MANAGED_TOOLS: node,npm,pnpm
 
 jobs:
   prepare-matrix:

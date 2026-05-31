@@ -128,6 +128,26 @@ describe('ToolchainManager', () => {
     expect(downloader).not.toHaveBeenCalled();
   });
 
+  it('can force managed tools in release smoke tests', async () => {
+    vi.stubEnv('NODE_ENV', 'test');
+    vi.stubEnv('SERO_E2E_FORCE_MANAGED_TOOLS', 'node');
+    const harness = await createHarness();
+    cleanupVersions.push(harness.version);
+    const downloader = vi.fn(async (options: DownloadArtifactOptions) => {
+      await fs.promises.cp(harness.archiveRoot, options.destination, { recursive: true });
+    });
+    const manager = new ToolchainManager({
+      manifest: harness.manifest,
+      platform: 'darwin',
+      arch: 'arm64',
+      downloader,
+      verifier: readyVerifier,
+    });
+
+    await expect(manager.ensure('node', reason)).resolves.toMatchObject({ source: 'managed' });
+    expect(downloader).toHaveBeenCalledOnce();
+  });
+
   it('prefers the absolute Git Bash path on Windows even when bare bash is available', async () => {
     vi.stubEnv('ProgramFiles', 'C:\\Program Files');
     const harness = await createHarness('bash');

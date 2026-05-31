@@ -108,53 +108,109 @@ function assertSafeTarGz(bytes, key) {
   const tar = gunzipSync(bytes);
   let offset = 0;
   let sawEnd = false;
+  let nextLongName = null;
   let nextLongLink = null;
-  let nextPaxLink = null;
+  let nextPax = null;
+  const entries = new Map();
   while (offset + 512 <= tar.length) {
     const header = tar.subarray(offset, offset + 512);
     if (header.every((byte) => byte === 0)) {
       sawEnd = true;
       break;
     }
+    const headerName = tarEntryName(header);
     const type = readTarString(header, 156, 1) || '0';
     const size = readTarOctal(header, 124, 12);
-    const linkName = nextPaxLink ?? nextLongLink ?? readTarString(header, 157, 100);
-    nextPaxLink = null;
-    nextLongLink = null;
     const dataStart = offset + 512;
     const dataEnd = dataStart + size;
     if (dataEnd > tar.length) throw new Error('entry exceeds archive length');
-    if (type === '1') throw new Error('hardlinks are not supported by the runtime unpacker');
-    if (type === '2') validateTarLinkName(linkName);
+    if (type === 'x') nextPax = parsePaxHeader(tar.subarray(dataStart, dataEnd));
+    if (type === 'L') nextLongName = readTarPayloadString(tar.subarray(dataStart, dataEnd));
     if (type === 'K') nextLongLink = readTarPayloadString(tar.subarray(dataStart, dataEnd));
-    if (type === 'x') nextPaxLink = parsePaxLinkpath(tar.subarray(dataStart, dataEnd));
+    if (type !== 'x' && type !== 'g' && type !== 'L' && type !== 'K') {
+      const entryName = nextPax?.path ?? nextLongName ?? headerName;
+      const linkName = nextPax?.linkpath ?? nextLongLink ?? readTarString(header, 157, 100);
+      nextPax = null;
+      nextLongName = null;
+      nextLongLink = null;
+      validateTarPathName(entryName);
+      if (type === '1') throw new Error('hardlinks are not supported by the runtime unpacker');
+      if (type === '2') validateTarSymlinkTarget(entryName, linkName);
+      entries.set(normalizeTarEntryName(entryName), {
+        type,
+        linkName,
+        data: type === '0' || type === '' ? tar.subarray(dataStart, dataEnd) : Buffer.alloc(0),
+      });
+    }
     offset = dataStart + Math.ceil(size / 512) * 512;
   }
   if (!sawEnd) throw new Error(`${key} is missing tar end-of-archive marker`);
+  assertNpmWrappers(entries, key);
 }
 
-function validateTarLinkName(linkName) {
+function assertNpmWrappers(entries, key) {
+  if (!key.startsWith('npm-')) return;
+  assertBinPointsTo(entries, 'bin/npm', 'lib/node_modules/npm/bin/npm-cli.js');
+  assertBinPointsTo(entries, 'bin/npx', 'lib/node_modules/npm/bin/npx-cli.js');
+  if (!key.includes('windows')) return;
+  assertBinPointsTo(entries, 'bin/npm.cmd', 'lib/node_modules/npm/bin/npm-cli.js');
+  assertBinPointsTo(entries, 'bin/npx.cmd', 'lib/node_modules/npm/bin/npx-cli.js');
+}
+
+function assertBinPointsTo(entries, entryName, target) {
+  const entry = entries.get(entryName);
+  if (!entry) throw new Error(`${entryName} is missing`);
+  const text = entry.type === '2' ? entry.linkName : entry.data.toString('utf8');
+  const normalized = text.replace(/\\/g, '/');
+  if (!normalized.includes(target)) throw new Error(`${entryName} does not point to ${target}`);
+  if (normalized.includes("require('../lib/cli.js')") || normalized.includes('%~dp0/node_modules/npm/bin/')) {
+    throw new Error(`${entryName} uses a package-internal wrapper path that breaks after unpacking`);
+  }
+}
+
+function validateTarPathName(name, label = 'entry path') {
+  if (!name || name.includes('\0') || name.includes('\\')) throw new Error(`unsafe ${label} ${name}`);
+  if (/^[A-Za-z]:/.test(name) || path.posix.isAbsolute(name)) throw new Error(`unsafe ${label} ${name}`);
+  const normalized = path.posix.normalize(name);
+  if (normalized === '..' || normalized.startsWith('../') || normalized.includes('/../')) {
+    throw new Error(`unsafe ${label} ${name}`);
+  }
+}
+
+function validateTarSymlinkTarget(entryName, linkName) {
   if (!linkName || linkName.includes('\0') || linkName.includes('\\')) throw new Error(`unsafe symlink target ${linkName}`);
   if (/^[A-Za-z]:/.test(linkName) || path.posix.isAbsolute(linkName)) throw new Error(`unsafe symlink target ${linkName}`);
-  const normalized = path.posix.normalize(linkName);
-  if (normalized === '..' || normalized.startsWith('../') || normalized.includes('/../')) {
+  const resolved = path.posix.normalize(path.posix.join(path.posix.dirname(entryName), linkName));
+  if (resolved === '..' || resolved.startsWith('../') || resolved.includes('/../')) {
     throw new Error(`unsafe symlink target ${linkName}`);
   }
 }
 
-function parsePaxLinkpath(data) {
+function parsePaxHeader(data) {
+  const result = {};
   let offset = 0;
   while (offset < data.length) {
     const space = data.indexOf(32, offset);
-    if (space === -1) return null;
+    if (space === -1) return result;
     const length = Number.parseInt(data.subarray(offset, space).toString('utf8'), 10);
-    if (!Number.isFinite(length) || length <= 0) return null;
+    if (!Number.isFinite(length) || length <= 0) return result;
     const record = data.subarray(space + 1, offset + length).toString('utf8').replace(/\n$/, '');
     const equals = record.indexOf('=');
-    if (record.slice(0, equals) === 'linkpath') return record.slice(equals + 1);
+    const key = record.slice(0, equals);
+    if (key === 'path' || key === 'linkpath') result[key] = record.slice(equals + 1);
     offset += length;
   }
-  return null;
+  return result;
+}
+
+function normalizeTarEntryName(name) {
+  return path.posix.normalize(name.replace(/^\.\//, ''));
+}
+
+function tarEntryName(header) {
+  const name = readTarString(header, 0, 100);
+  const prefix = readTarString(header, 345, 155);
+  return prefix ? `${prefix}/${name}` : name;
 }
 
 function readTarPayloadString(data) {
