@@ -71,7 +71,7 @@ Callers must use runtime diagnostics instead of branching on provider-specific i
 - availability: is it available for this workspace right now?
 - install state: are core tools, browser pack, and native build tools ready/missing/installing/failed?
 
-Host browser automation is available only when the browser pack is installed and Doctor launch checks pass. Release-supported platforms require published GitHub Release browser-pack artifacts verified by `pnpm --filter @sero/desktop browser-pack:verify-published`; pending entries in `generated-artifacts.json` block the release claim. Local artifact overrides are developer diagnostics only. Native compiler stacks are informational and non-managed.
+Host browser automation is available only when the browser pack is installed and Doctor launch checks pass. Release-supported platforms require published GitHub Release browser-pack artifacts verified by `pnpm --filter @sero/desktop browser-pack:verify-published`; pending entries in `generated-artifacts.json` block the release claim. Core managed tools use the same GitHub Release asset model and are verified by `pnpm --filter @sero/desktop toolchain:verify-published`. Local artifact overrides are developer diagnostics only. Native compiler stacks are informational and non-managed.
 
 ## Managed host tooling
 

@@ -28,6 +28,7 @@ import type {
   ProviderHealthInfo,
 } from '@/types/ipc';
 import { BrowserPackOffer } from '@/components/runtime/BrowserPackOffer';
+import { CoreToolsOffer } from '@/components/runtime/CoreToolsOffer';
 import { ContainerRuntimeNotice } from './ContainerRuntimeNotice';
 import { GitHubConnectCard } from './GitHubConnectCard';
 import { useOnboardingGitHubStep } from './useOnboardingGitHubStep';
@@ -148,14 +149,15 @@ export function OnboardingSetupScreen({
             <Download className="size-5 text-[var(--status-success)]" />
           </div>
           <div>
-            <DialogTitle className="text-lg font-semibold text-[var(--text-primary)]">Install dependencies (optional)</DialogTitle>
+            <DialogTitle className="text-lg font-semibold text-[var(--text-primary)]">Install host dependencies</DialogTitle>
             <DialogDescription className="text-sm text-[var(--text-secondary)]">
-              If you are not using containers, installing browser support is strongly recommended for screenshots, recordings, and web tasks.
+              Sero checks core development tools during setup. Browser support is optional unless you need screenshots, recordings, or web tasks.
             </DialogDescription>
           </div>
         </div>
 
         <ContainerRuntimeNotice runtime={containerRuntime} />
+        <CoreToolsOffer reason="onboarding" autoInstall />
         <BrowserPackOffer reason="onboarding" />
 
         <div className="flex justify-between gap-2 pt-1">

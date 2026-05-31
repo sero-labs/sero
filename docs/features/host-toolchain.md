@@ -21,7 +21,7 @@ Managed host tools are stored under the fixed Sero root, not the active profile 
 
 Implementation uses `SERO_FIXED_ROOT` from `apps/desktop/electron/platform/env/index.ts`, which resolves to `~/.sero-ui`. Do not store shared toolchains under `SERO_HOME`, `~/.sero`, `~/.pi/agent`, or `~/.sero-ui/agent`.
 
-Installers download into staging paths, verify pinned SHA-256 checksums, and atomically activate final directories. Core tools share a version-level `.installed` marker that is removed before any core install and written only after every required core tool resolves successfully; absence of `.installed` means the managed toolchain version is incomplete and must not be used for PATH resolution. Non-core artifacts write the marker only after their own activation/verification completes. Concurrent installs for the same manifest/artifact attach to the same in-flight operation.
+Installers download from published GitHub Release assets into staging paths, verify pinned SHA-256 checksums, and atomically activate final directories. Core tools share a version-level `.installed` marker that is removed before any core install and written only after every required core tool resolves successfully; absence of `.installed` means the managed toolchain version is incomplete and must not be used for PATH resolution. Non-core artifacts write the marker only after their own activation/verification completes. Concurrent installs for the same manifest/artifact attach to the same in-flight operation.
 
 ## Resolution order
 
@@ -38,12 +38,22 @@ Verification runs version or smoke commands; PATH presence alone is not trusted.
 
 | Tier | Tools | Install behavior |
 | --- | --- | --- |
-| Core | `node`, `npm`, `pnpm`, `git`, `ssh`, `bash`/compatible shell | Auto-install on first Sero-owned use when missing/incompatible. |
+| Core | `node`, `npm`, `pnpm`, `git`, `ssh`, `bash`/compatible shell | Checked during onboarding and auto-install on first Sero-owned use when missing/incompatible. |
 | Small convenience | `rg`, `fd`, `jq`, `gh`, `curl`, `zip`, `unzip` | Install on demand for Sero features or declared dependencies. |
 | Large optional | Browser automation pack | Explicit/onboarding/settings install or first browser-tool use. |
 | Not managed | Xcode CLT, Linux build-essential/gcc/make, MSVC/Windows SDK | User-installed or use a container fallback. |
 
 Windows host mode is native Windows execution with a verified Git Bash/MSYS-compatible shell; it is not WSL by default.
+
+## Core toolchain publication
+
+Core managed tools use committed metadata in `apps/desktop/electron/features/workspace/runtime/toolchains/generated-artifacts.json`. Release-supported targets must point to GitHub Release assets such as:
+
+```txt
+https://github.com/sero-labs/sero/releases/download/toolchains-2026-05-16/node-linux-x64.tar.gz
+```
+
+Do not use `downloads.sero.ai`; that host is not part of Sero's distribution path. Release gates run `pnpm --filter @sero/desktop toolchain:verify-published` and fail if required core artifacts are missing, unpublished, or hash-mismatched. `SERO_TOOLCHAIN_BASE_URL` is only a local diagnostic override for serving rebuilt artifacts during development.
 
 ## Browser automation pack
 

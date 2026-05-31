@@ -130,6 +130,9 @@ jobs:
       - name: Verify published browser packs
         run: pnpm --filter @sero/desktop browser-pack:verify-published
 
+      - name: Verify published core toolchains
+        run: pnpm --filter @sero/desktop toolchain:verify-published
+
       - name: Run host release smoke
         run: |
           if [[ "${{ matrix.os }}" == "linux" ]] && command -v xvfb-run >/dev/null 2>&1; then

@@ -87,7 +87,10 @@ export function setRuntimeInstallManagersForTest(input: {
 
 async function ensureCoreToolsInternal(reason: string): Promise<ToolchainStatusIPC> {
   try {
-    await getToolchainManager().ensureCore({ kind: 'settings', detail: reason });
+    const installReason = reason === 'onboarding'
+      ? { kind: 'onboarding' as const }
+      : { kind: 'settings' as const, detail: reason };
+    await getToolchainManager().ensureCore(installReason);
     return buildToolchainStatus(false);
   } catch {
     return buildToolchainStatus(false);

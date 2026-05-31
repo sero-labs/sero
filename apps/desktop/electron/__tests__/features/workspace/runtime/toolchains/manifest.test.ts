@@ -62,6 +62,8 @@ describe('toolchain manifest helpers', () => {
     const loaded = loadBundledToolchainManifest();
     for (const artifact of Object.values(loaded.artifacts)) {
       expect(artifact.url).toMatch(/^https:\/\//);
+      expect(artifact.url).toMatch(/^https:\/\/github\.com\/sero-labs\/sero\/releases\/download\/toolchains-2026-05-16\//);
+      expect(artifact.url).not.toContain('downloads.sero.ai');
       expect(artifact.url).toMatch(/\.tar\.gz$/);
       expect(artifact.sha256).toMatch(/^[a-f0-9]{64}$/);
       expect(new Set(artifact.sha256).size).toBeGreaterThan(6);

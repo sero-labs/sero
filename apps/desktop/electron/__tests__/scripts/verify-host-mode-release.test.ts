@@ -57,6 +57,23 @@ describe('verify-host-mode-release', () => {
     await expect(verifyFixture()).rejects.toThrow('Missing built/available browser-pack artifact in committed metadata: browser-linux-x64');
   });
 
+  it('fails when a required core toolchain artifact is not built and available', async () => {
+    const metadata = createBuiltToolchainMetadata();
+    metadata.artifacts['node-linux-x64'] = createPendingToolchainArtifact('node', 'linux', 'x64', 'node-linux-x64');
+    await writeJson(toolchainMetadataPath(), metadata);
+
+    await expect(verifyFixture()).rejects.toThrow('Missing built/available core toolchain artifact in committed metadata: node-linux-x64');
+  });
+
+  it('fails when runtime artifact metadata references downloads.sero.ai', async () => {
+    const metadata = createBuiltToolchainMetadata();
+    metadata.artifacts['node-linux-x64'].url = 'https://downloads.sero.ai/toolchains/2026-05-16/node-linux-x64.tar.gz';
+    await writeJson(toolchainMetadataPath(), metadata);
+
+    await expect(verifyFixture()).rejects.toThrow('node-linux-x64 must use a GitHub Release core toolchain URL in committed metadata');
+    await expect(verifyFixture()).rejects.toThrow('runtime artifacts must not use downloads.sero.ai');
+  });
+
   it('fails when a required package script is missing', async () => {
     await writeJson(path.join(desktopRoot, 'package.json'), {
       scripts: {
@@ -65,6 +82,7 @@ describe('verify-host-mode-release', () => {
         'dist:linux:arm64': 'bash scripts/build-release.sh --target linux --arch arm64',
         'dist:win': 'bash scripts/build-release.sh --target win',
         'browser-pack:verify-published': 'node scripts/browser-pack/verify-browser-pack-publication.mjs',
+        'toolchain:verify-published': 'node scripts/toolchains/verify-toolchain-publication.mjs',
       },
     });
 
@@ -126,10 +144,12 @@ function verifyFixture() {
 async function writeFixture() {
   await fs.mkdir(path.dirname(matrixPath()), { recursive: true });
   await fs.mkdir(path.dirname(metadataPath()), { recursive: true });
+  await fs.mkdir(path.dirname(toolchainMetadataPath()), { recursive: true });
   await fs.mkdir(path.dirname(workflowPath()), { recursive: true });
   await fs.mkdir(path.join(repoRoot, 'docs/features'), { recursive: true });
   await writeJson(matrixPath(), matrix);
   await writeJson(metadataPath(), createBuiltMetadata());
+  await writeJson(toolchainMetadataPath(), createBuiltToolchainMetadata());
   await writeJson(path.join(desktopRoot, 'package.json'), {
     scripts: {
       'dist:mac': 'bash scripts/build-release.sh --target mac',
@@ -138,6 +158,7 @@ async function writeFixture() {
       'dist:linux:arm64': 'bash scripts/build-release.sh --target linux --arch arm64',
       'dist:win': 'bash scripts/build-release.sh --target win',
       'browser-pack:verify-published': 'node scripts/browser-pack/verify-browser-pack-publication.mjs',
+      'toolchain:verify-published': 'node scripts/toolchains/verify-toolchain-publication.mjs',
     },
   });
   await fs.writeFile(workflowPath(), workflowText());
@@ -155,6 +176,39 @@ function createBuiltMetadata() {
       : createPendingArtifact(target.platform, target.arch, slug);
   }
   return { artifacts };
+}
+
+function createBuiltToolchainMetadata() {
+  const artifacts: Record<string, FixtureArtifact & { tool: string; installPolicy: string }> = {};
+  for (const target of matrix) {
+    for (const tool of ['node', 'npm', 'pnpm', 'git', 'ssh', 'bash']) {
+      const slug = `${tool}-${toolchainSlugFor(target.platform, target.arch)}`;
+      artifacts[slug] = target.releaseSupported
+        ? createBuiltToolchainArtifact(tool, target.platform, target.arch, slug)
+        : createPendingToolchainArtifact(tool, target.platform, target.arch, slug);
+    }
+  }
+  return { version: '2026.05.16', releaseTag: 'toolchains-2026-05-16', artifacts };
+}
+
+function createBuiltToolchainArtifact(tool: string, platform: string, arch: string, slug: string) {
+  return {
+    ...createBuiltArtifact(platform, arch, slug),
+    tool,
+    url: `https://github.com/sero-labs/sero/releases/download/toolchains-2026-05-16/${slug}.tar.gz`,
+    unpackTo: slug,
+    binPaths: { [tool]: `bin/${tool}` },
+    minVersion: '1.0.0',
+    installPolicy: 'core',
+  };
+}
+
+function createPendingToolchainArtifact(tool: string, platform: string, arch: string, slug: string) {
+  return {
+    ...createPendingArtifact(platform, arch, slug),
+    tool,
+    installPolicy: 'core',
+  };
 }
 
 function createBuiltArtifact(platform: string, arch: string, slug: string): FixtureArtifact {
@@ -203,6 +257,7 @@ jobs:
             dist: dist:win
     steps:
       - run: pnpm --filter @sero/desktop browser-pack:verify-published
+      - run: pnpm --filter @sero/desktop toolchain:verify-published
       - run: pnpm --filter @sero/desktop e2e:workflow -- runtime-host-release.workflow.spec.ts
       - name: Verify macOS app bundle
 `;
@@ -222,6 +277,13 @@ function slugFor(platform: string, arch: string): string {
   throw new Error(`Unsupported fixture target: ${platform}/${arch}`);
 }
 
+function toolchainSlugFor(platform: string, arch: string): string {
+  if (platform === 'darwin') return arch === 'arm64' ? 'macos-arm64' : 'macos-x64';
+  if (platform === 'linux') return arch === 'arm64' ? 'linux-arm64' : 'linux-x64';
+  if (platform === 'win32') return arch === 'arm64' ? 'windows-arm64' : 'windows-x64';
+  throw new Error(`Unsupported fixture target: ${platform}/${arch}`);
+}
+
 async function writeJson(filePath: string, value: unknown) {
   await fs.mkdir(path.dirname(filePath), { recursive: true });
   await fs.writeFile(filePath, `${JSON.stringify(value, null, 2)}\n`);
@@ -233,6 +295,10 @@ function matrixPath() {
 
 function metadataPath() {
   return path.join(desktopRoot, 'electron/features/workspace/runtime/browser-pack/generated-artifacts.json');
+}
+
+function toolchainMetadataPath() {
+  return path.join(desktopRoot, 'electron/features/workspace/runtime/toolchains/generated-artifacts.json');
 }
 
 function workflowPath() {

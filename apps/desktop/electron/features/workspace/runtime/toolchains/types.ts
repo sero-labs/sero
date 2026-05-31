@@ -69,6 +69,7 @@ export type ToolInstallReasonKind =
   | 'workspace-shell'
   | 'workspace-terminal'
   | 'workspace-dev-server'
+  | 'onboarding'
   | 'doctor'
   | 'settings'
   | 'agent-tool'
