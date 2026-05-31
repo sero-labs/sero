@@ -30,6 +30,7 @@ import type {
 } from './types';
 import { verifyTool, type ToolVerifierOptions } from './verifiers';
 import { prependPathEntries } from './path-env';
+import { systemToolCandidates } from './system-candidates';
 
 export interface ToolchainManagerOptions {
   manifest: ToolchainManifest;
@@ -299,46 +300,6 @@ export class ToolchainManager {
 
     return fallbackStatus;
   };
-}
-
-function systemToolCandidates(tool: ToolName, platform: NodeJS.Platform): string[] {
-  const candidates: string[] = platform === 'win32'
-    ? [...windowsSystemToolCandidates(tool), tool]
-    : [tool];
-  return [...new Set(candidates)];
-}
-
-function windowsSystemToolCandidates(tool: ToolName): string[] {
-  const programFiles = [
-    process.env.ProgramFiles,
-    process.env['ProgramFiles(x86)'],
-  ].filter((value): value is string => Boolean(value));
-
-  const winPath = path.win32;
-  const gitRoots = programFiles.map((root) => winPath.join(root, 'Git'));
-  if (tool === 'git') {
-    return gitRoots.flatMap((root) => [
-      winPath.join(root, 'cmd', 'git.exe'),
-      winPath.join(root, 'bin', 'git.exe'),
-      winPath.join(root, 'mingw64', 'bin', 'git.exe'),
-    ]);
-  }
-  if (tool === 'bash') {
-    return gitRoots.flatMap((root) => [
-      winPath.join(root, 'bin', 'bash.exe'),
-      winPath.join(root, 'usr', 'bin', 'bash.exe'),
-    ]);
-  }
-  if (tool === 'ssh') {
-    const systemRoot = process.env.SystemRoot || 'C:\\Windows';
-    return [
-      winPath.join(systemRoot, 'System32', 'OpenSSH', 'ssh.exe'),
-      ...gitRoots.map((root) => winPath.join(root, 'usr', 'bin', 'ssh.exe')),
-    ];
-  }
-  if (tool === 'node') return ['node.exe'];
-  if (tool === 'npm' || tool === 'pnpm') return [`${tool}.cmd`, `${tool}.exe`];
-  return [];
 }
 
 function uniqueTools(artifacts: ArtifactSpec[]): ToolName[] {
