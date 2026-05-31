@@ -80,6 +80,17 @@ describe('toolchain verifiers', () => {
     });
   });
 
+  it('passes verifier env through to the command runner', async () => {
+    const run = runner({ stdout: '10.9.0\n', stderr: '', exitCode: 0 });
+    const env = { PATH: '/managed/bin:/usr/bin' };
+
+    await expect(verifyTool('npm', 'npm', { run, env })).resolves.toMatchObject({
+      tool: 'npm',
+      state: 'ready',
+    });
+    expect(run).toHaveBeenCalledWith('npm', ['--version'], { timeoutMs: 5_000, env });
+  });
+
   it('compares semantic version minimums', () => {
     expect(satisfiesMinimum('22.0.0', '22.0.0')).toBe(true);
     expect(satisfiesMinimum('22.1.0', '22.0.0')).toBe(true);

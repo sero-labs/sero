@@ -14,13 +14,14 @@ export interface ToolVerifierCommandResult {
 export type ToolVerifierRunner = (
   program: string,
   args: string[],
-  options: { timeoutMs: number },
+  options: { timeoutMs: number; env?: NodeJS.ProcessEnv },
 ) => Promise<ToolVerifierCommandResult>;
 
 export interface ToolVerifierOptions {
   source?: ToolSource;
   requiredVersion?: string;
   timeoutMs?: number;
+  env?: NodeJS.ProcessEnv;
   run?: ToolVerifierRunner;
 }
 
@@ -66,7 +67,8 @@ export async function verifyTool(
   const requiredVersion = options.requiredVersion ?? probe.minVersion;
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const run = options.run ?? runVerifierCommand;
-  const result = await run(candidate, probe.args, { timeoutMs });
+  const commandOptions = verifierCommandOptions(timeoutMs, options.env);
+  const result = await run(candidate, probe.args, commandOptions);
 
   if (isMissing(result)) return missingStatus(tool, source, candidate, 'Tool executable was not found.');
   if (result.timedOut) return failedStatus(tool, source, candidate, 'Tool verification timed out.', true);
@@ -95,7 +97,7 @@ export async function verifyTool(
   }
 
   if (probe.smokeArgs) {
-    const smoke = await run(candidate, probe.smokeArgs, { timeoutMs });
+    const smoke = await run(candidate, probe.smokeArgs, commandOptions);
     if (isMissing(smoke)) return missingStatus(tool, source, candidate, 'Tool executable was not found.');
     if (smoke.timedOut) return failedStatus(tool, source, candidate, 'Tool smoke test timed out.', true);
     if (smoke.exitCode !== 0 || (probe.smokeOutput && smoke.stdout !== probe.smokeOutput)) {
@@ -145,11 +147,11 @@ export function satisfiesMinimum(version: string, minimum: string): boolean {
 function runVerifierCommand(
   program: string,
   args: string[],
-  options: { timeoutMs: number },
+  options: { timeoutMs: number; env?: NodeJS.ProcessEnv },
 ): Promise<ToolVerifierCommandResult> {
   return new Promise((resolve) => {
     const rendered = process.platform === 'win32' ? renderWindowsCommandScript(program, args) : null;
-    execFile(rendered?.program ?? program, rendered?.args ?? args, { timeout: options.timeoutMs }, (error, stdout, stderr) => {
+    execFile(rendered?.program ?? program, rendered?.args ?? args, { timeout: options.timeoutMs, env: options.env }, (error, stdout, stderr) => {
       const status = error as NodeJS.ErrnoException | null;
       const errorCode = typeof status?.code === 'string' ? status.code : undefined;
       resolve({
@@ -161,6 +163,10 @@ function runVerifierCommand(
       });
     });
   });
+}
+
+function verifierCommandOptions(timeoutMs: number, env: NodeJS.ProcessEnv | undefined): { timeoutMs: number; env?: NodeJS.ProcessEnv } {
+  return env ? { timeoutMs, env } : { timeoutMs };
 }
 
 function missingStatus(tool: ToolName, source: ToolSource, candidate: string, message: string): ToolStatus {

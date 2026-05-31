@@ -335,6 +335,71 @@ describe('ToolchainManager', () => {
     await expectExists(installedMarkerPath(harness.version), false);
   });
 
+  it('verifies managed Windows package shims with installed managed bins on PATH', async () => {
+    const version = `test-windows-core-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    cleanupVersions.push(version);
+    const archiveRoot = path.join(SERO_FIXED_ROOT, 'toolchains-test-archives', version);
+    await fs.promises.mkdir(path.join(archiveRoot, 'node', 'bin'), { recursive: true });
+    await fs.promises.mkdir(path.join(archiveRoot, 'npm', 'bin'), { recursive: true });
+    await fs.promises.writeFile(path.join(archiveRoot, 'node', 'bin', 'node.exe'), 'node');
+    await fs.promises.writeFile(path.join(archiveRoot, 'npm', 'bin', 'npm.cmd'), 'npm');
+    const manifest: ToolchainManifest = {
+      version,
+      artifacts: {
+        'node-windows-x64': {
+          tool: 'node',
+          platform: 'win32',
+          arch: 'x64',
+          url: 'https://downloads.example.test/node.tgz',
+          sha256: sha256Text('node'),
+          unpackTo: 'node',
+          binPaths: { node: 'node/bin/node.exe' },
+          minVersion: '1.0.0',
+          installPolicy: 'core',
+        },
+        'npm-windows-x64': {
+          tool: 'npm',
+          platform: 'win32',
+          arch: 'x64',
+          url: 'https://downloads.example.test/npm.tgz',
+          sha256: sha256Text('npm'),
+          unpackTo: 'npm',
+          binPaths: { npm: 'npm/bin/npm.cmd' },
+          minVersion: '1.0.0',
+          installPolicy: 'core',
+        },
+      },
+    };
+    const nodeBinDir = path.dirname(managedBinPath(version, 'node/bin/node.exe'));
+    const npmBinDir = path.dirname(managedBinPath(version, 'npm/bin/npm.cmd'));
+    const verifier = vi.fn(async (tool: ToolName, candidate: string, options: ToolVerifierOptions): Promise<ToolStatus> => {
+      if (tool === 'npm') {
+        expect(options.env?.Path ?? options.env?.PATH).toContain(nodeBinDir);
+        expect(options.env?.Path ?? options.env?.PATH).toContain(npmBinDir);
+      }
+      return { tool, state: 'ready', source: 'managed', path: candidate, version: '1.2.3' };
+    });
+    const manager = new ToolchainManager({
+      manifest,
+      platform: 'win32',
+      arch: 'x64',
+      systemResolver: async (tool) => missingSystem(tool),
+      downloader: async (options) => {
+        const tool = path.basename(options.url, '.tgz');
+        await fs.promises.cp(path.join(archiveRoot, tool), options.destination, { recursive: true });
+      },
+      verifier,
+    });
+
+    await expect(manager.ensureCore(reason)).resolves.toEqual(expect.arrayContaining([
+      expect.objectContaining({ tool: 'node', source: 'managed' }),
+      expect.objectContaining({ tool: 'npm', source: 'managed' }),
+    ]));
+    expect(verifier).toHaveBeenCalledWith('npm', managedBinPath(version, 'npm/bin/npm.cmd'), expect.objectContaining({
+      env: expect.any(Object),
+    }));
+  });
+
   it('garbage collects all but current and previous toolchain versions', async () => {
     const harness = await createHarness();
     cleanupVersions.push(harness.version, 'old-a', 'old-b', 'previous');

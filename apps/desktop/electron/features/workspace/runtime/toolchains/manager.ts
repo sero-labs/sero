@@ -29,6 +29,7 @@ import type {
   ToolchainProgressEvent,
 } from './types';
 import { verifyTool, type ToolVerifierOptions } from './verifiers';
+import { prependPathEntries } from './path-env';
 
 export interface ToolchainManagerOptions {
   manifest: ToolchainManifest;
@@ -241,9 +242,26 @@ export class ToolchainManager {
     const status = await this.verifier(tool, candidate, {
       source: 'managed',
       requiredVersion: selection.artifact.minVersion,
+      env: await this.managedVerificationEnv(requireReadyMarker),
     });
     if (status.state !== 'ready') return null;
     return { tool, source: 'managed', path: candidate, version: status.version, binDir: path.dirname(candidate) };
+  }
+
+  private async managedVerificationEnv(requireReadyMarker: boolean): Promise<NodeJS.ProcessEnv> {
+    return prependPathEntries(process.env, await this.installedBinDirs(requireReadyMarker), this.platform);
+  }
+
+  private async installedBinDirs(requireReadyMarker: boolean): Promise<string[]> {
+    if (requireReadyMarker && !(await exists(installedMarkerPath(this.manifest.version)))) return [];
+    const dirs = new Set<string>();
+    for (const artifact of Object.values(this.manifest.artifacts)) {
+      for (const relativePath of Object.values(artifact.binPaths)) {
+        const binPath = managedBinPath(this.manifest.version, relativePath);
+        if (await exists(binPath)) dirs.add(path.dirname(binPath));
+      }
+    }
+    return [...dirs];
   }
 
   private findArtifact(tool: ToolName): ArtifactSelection | null {

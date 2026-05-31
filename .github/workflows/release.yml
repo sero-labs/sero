@@ -221,7 +221,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: desktop-release-${{ matrix.target }}-playwright
+          name: desktop-playwright-${{ matrix.target }}
           path: |
             apps/desktop/test-results/
             apps/desktop/playwright-report/
@@ -230,7 +230,7 @@ jobs:
 
   publish:
     name: Publish GitHub Release
-    if: ${{ always() && (github.event_name != 'workflow_dispatch' || inputs.publish) && (github.event_name != 'workflow_dispatch' || inputs.publish_run_id != '' || needs.build.result == 'success') }}
+    if: ${{ always() && ((github.event_name == 'push' && needs.build.result == 'success') || (github.event_name == 'workflow_dispatch' && inputs.publish && (inputs.publish_run_id != '' || needs.build.result == 'success'))) }}
     needs: build
     runs-on: ubuntu-24.04
     env:
@@ -253,10 +253,10 @@ jobs:
       - name: Verify downloaded release artifacts
         run: |
           set -euo pipefail
-          shopt -s nullglob
-          files=(release-artifacts/*)
+          mapfile -t files < <(find release-artifacts -maxdepth 1 -type f -print | sort)
           if (( ${#files[@]} == 0 )); then
             echo "::error::No release artifact files downloaded from run ${RELEASE_ARTIFACT_RUN_ID}"
+            find release-artifacts -maxdepth 2 -print || true
             exit 1
           fi
           printf 'Downloaded %d release artifact file(s):\n' "${#files[@]}"
@@ -299,6 +299,9 @@ jobs:
       - name: Upload release assets
         run: |
           set -euo pipefail
-          shopt -s nullglob
-          files=(release-artifacts/*)
+          mapfile -t files < <(find release-artifacts -maxdepth 1 -type f -print | sort)
+          if (( ${#files[@]} == 0 )); then
+            echo "::error::No release artifact files to upload from run ${RELEASE_ARTIFACT_RUN_ID}"
+            exit 1
+          fi
           gh release upload "$RELEASE_TAG" "${files[@]}" --repo "$GITHUB_REPOSITORY" --clobber
