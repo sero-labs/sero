@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { gzipSync } from 'node:zlib';
 
 import { describe, expect, it } from 'vitest';
 
@@ -15,7 +16,7 @@ const coreTools = ['node', 'npm', 'pnpm', 'git', 'ssh', 'bash'];
 const releaseTag = 'toolchains-2026-05-16';
 
 function shaFor(key: string): string {
-  return createHash('sha256').update(Buffer.from(key)).digest('hex');
+  return createHash('sha256').update(artifactBytes(key)).digest('hex');
 }
 
 describe('verify-toolchain-publication', () => {
@@ -38,14 +39,49 @@ describe('verify-toolchain-publication', () => {
       verifiedKeys: expect.arrayContaining(['node-macos-arm64', 'bash-windows-x64']),
     });
   });
+
+  it('fails when a published archive contains an unsafe absolute symlink', async () => {
+    const metadata = createMetadata();
+    metadata.artifacts['npm-linux-x64'].sha256 = createHash('sha256').update(unsafeSymlinkTarGz()).digest('hex');
+
+    await expect(verifyToolchainPublication({
+      targets,
+      metadata,
+      downloadArtifact: async (_url: string, key: string) => (
+        key === 'npm-linux-x64' ? unsafeSymlinkTarGz() : artifactBytes(key)
+      ),
+    })).rejects.toThrow('npm-linux-x64 archive is unsafe: unsafe symlink target /tmp/build/npm-cli.js');
+  });
 });
 
 function verify(metadata: ReturnType<typeof createMetadata>) {
   return verifyToolchainPublication({
     targets,
     metadata,
-    downloadArtifact: async (_url: string, key: string) => Buffer.from(key),
+    downloadArtifact: async (_url: string, key: string) => artifactBytes(key),
   });
+}
+
+function artifactBytes(_key: string): Buffer {
+  return gzipSync(Buffer.alloc(1024));
+}
+
+function unsafeSymlinkTarGz(): Buffer {
+  const header = Buffer.alloc(512);
+  header.write('bin/npm');
+  header.write('0000777\0', 100);
+  header.write('0000000\0', 108);
+  header.write('0000000\0', 116);
+  header.write('00000000000\0', 124);
+  header.write('00000000000\0', 136);
+  header.fill(' ', 148, 156);
+  header.write('2', 156);
+  header.write('/tmp/build/npm-cli.js', 157);
+  header.write('ustar\0', 257);
+  header.write('00', 263);
+  const checksum = [...header].reduce((sum, byte) => sum + byte, 0).toString(8).padStart(6, '0');
+  header.write(`${checksum}\0 `, 148);
+  return gzipSync(Buffer.concat([header, Buffer.alloc(1024)]));
 }
 
 function createMetadata() {
