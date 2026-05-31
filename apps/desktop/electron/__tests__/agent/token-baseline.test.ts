@@ -16,7 +16,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, existsSync } from 'fs';
 import path from 'path';
 
-import { buildContainerPromptBlock } from '@electron/features/container/tools/system-prompt';
+import { buildContainerPromptBlock, buildHostPromptBlock } from '@electron/features/container/tools/system-prompt';
 import { buildCliPromptBlock } from '@electron/cli';
 import {
   BashParams,
@@ -138,7 +138,7 @@ function buildSkillsListing(): string {
 // (ctx.sessionManager). Everything else is bridged into sero-cli.
 
 const CORE_TOOLS = [
-  { name: 'bash', description: 'Execute a bash command in the current working directory. Returns stdout and stderr. Output is truncated to last 2000 lines or 50KB.', parameters: BashParams },
+  { name: 'bash', description: 'Execute a bash command in the current working directory. Returns stdout and stderr. Output is truncated to last 2000 lines or 50KB. Do not hard-code PATH prefixes; inspect package.json and prefer project scripts over ad-hoc npx commands.', parameters: BashParams },
   { name: 'read', description: 'Read the contents of a file. Supports text files and images. Output is truncated to 2000 lines or 50KB. Use offset/limit for large files.', parameters: ReadParams },
   { name: 'write', description: "Write content to a file. Creates the file if it doesn't exist, overwrites if it does. Automatically creates parent directories.", parameters: WriteParams },
   { name: 'edit', description: 'Edit a file by replacing exact text. The oldText must match exactly (including whitespace). Use this for precise, surgical edits.', parameters: EditParams },
@@ -185,6 +185,14 @@ describe('Token Baseline Benchmark', () => {
     const block = buildContainerPromptBlock('test-workspace', '192.168.64.2');
     const tokens = measure('container_block', block);
     expect(tokens).toBeLessThan(2_500);
+  });
+
+  it('Host system prompt block', () => {
+    const block = buildHostPromptBlock('test-workspace', '/Users/me/workspace', { platform: 'darwin' });
+    const tokens = measure('host_block', block);
+    expect(tokens).toBeLessThan(700);
+    expect(block).toContain('Do NOT hard-code PATH prefixes');
+    expect(block).toContain('@types/react');
   });
 
   it('CLI prompt block', () => {

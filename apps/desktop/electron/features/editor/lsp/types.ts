@@ -47,6 +47,7 @@ const TYPESCRIPT_CLI_CANDIDATES = [
   '$LSP_NPM_PREFIX/node_modules/typescript-language-server/lib/cli.mjs',
 ];
 const TYPESCRIPT_FIND_CLI = `for cli in ${TYPESCRIPT_CLI_CANDIDATES.map((candidate) => `"${candidate}"`).join(' ')}; do test -f "$cli" && break; cli=""; done`;
+const TYPESCRIPT_RESOLVE_NODE = 'nodebin="$(command -v node 2>/dev/null || command -v node.exe 2>/dev/null)"';
 const TYPESCRIPT_RESOLVE_SERVER = 'server="$(command -v typescript-language-server 2>/dev/null || command -v typescript-language-server.cmd 2>/dev/null)"';
 
 const TYPESCRIPT_LANGUAGE_ID_MAP = buildLanguageIdMapForServer('typescript');
@@ -57,8 +58,8 @@ const TYPESCRIPT_EXTENSIONS = Object.keys(TYPESCRIPT_LANGUAGE_ID_MAP);
 const LANGUAGE_SERVERS: LspServerConfig[] = [
   {
     language: 'typescript',
-    command: `${LSP_PATH_SCRIPT}; ${TYPESCRIPT_FIND_CLI}; test -n "$cli" && exec node "$cli" --stdio; ${TYPESCRIPT_RESOLVE_SERVER} && exec "$server" --stdio; echo "typescript-language-server not found under $LSP_NPM_PREFIX" >&2; exit 127`,
-    checkCommand: `${LSP_PATH_SCRIPT}; ${TYPESCRIPT_FIND_CLI}; test -n "$cli" || command -v typescript-language-server >/dev/null 2>&1 || command -v typescript-language-server.cmd >/dev/null 2>&1`,
+    command: `${LSP_PATH_SCRIPT}; ${TYPESCRIPT_RESOLVE_NODE}; test -n "$nodebin" || { echo "node executable not found for typescript-language-server" >&2; exit 127; }; ${TYPESCRIPT_FIND_CLI}; test -n "$cli" && exec "$nodebin" "$cli" --stdio; ${TYPESCRIPT_RESOLVE_SERVER} && exec "$server" --stdio; echo "typescript-language-server not found under $LSP_NPM_PREFIX" >&2; exit 127`,
+    checkCommand: `${LSP_PATH_SCRIPT}; ${TYPESCRIPT_RESOLVE_NODE}; test -n "$nodebin" && { ${TYPESCRIPT_FIND_CLI}; test -n "$cli" || command -v typescript-language-server >/dev/null 2>&1 || command -v typescript-language-server.cmd >/dev/null 2>&1; }`,
     // Install into HOME so non-root Docker/Apple runtime users do not need /usr/local write access.
     // Include the prefix root in PATH because npm global shims live there on Windows.
     installCommand: `${LSP_NPM_PREFIX_SCRIPT}; mkdir -p "$LSP_NPM_PREFIX" && npm install -g --prefix "$LSP_NPM_PREFIX" ${TYPESCRIPT_INSTALL_COMMAND}`,

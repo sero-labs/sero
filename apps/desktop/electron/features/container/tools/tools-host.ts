@@ -201,7 +201,8 @@ function createHostBash(basedir: string): ToolDefinition {
       `Execute a bash command in the current working directory. ` +
       `Returns stdout and stderr. Output is truncated to last ` +
       `${DEFAULT_MAX_LINES} lines or ${DEFAULT_MAX_BYTES / 1024}KB ` +
-      `(whichever is hit first). Optionally provide a timeout in seconds.`,
+      `(whichever is hit first). Optionally provide a timeout in seconds. ` +
+      `Do not hard-code PATH prefixes; inspect package.json and prefer project scripts over ad-hoc npx commands.`,
     parameters: BashParams,
     execute: async (_toolCallId, params: Static<typeof BashParams>, signal?) => {
       if (signal?.aborted) throw new Error('Command aborted');

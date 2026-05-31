@@ -17,7 +17,7 @@ import path from 'path';
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import type { WorkspaceManager } from '@electron/features/workspace/manager';
 import type { ContainerState } from '@electron/features/container';
-import { buildContainerPromptBlock } from '@electron/features/container/tools/system-prompt';
+import { buildContainerPromptBlock, buildHostPromptBlock } from '@electron/features/container/tools/system-prompt';
 import { registerSeroBuiltinCommands } from './commands';
 import { buildCliPromptBlock } from '@electron/cli';
 import { registerGitCheckpointFeatures } from './git-checkpoints';
@@ -37,6 +37,10 @@ import type { SubagentManager } from '@electron/features/subagent';
 export interface SeroExtensionOptions {
   subagentManager?: SubagentManager;
   enableAgentManagementTools?: boolean;
+  hostRuntime?: {
+    workspacePath: string;
+    platform?: NodeJS.Platform;
+  };
 }
 
 export function createSeroExtensionFactory(
@@ -61,6 +65,12 @@ export function createSeroExtensionFactory(
         systemPrompt += buildContainerPromptBlock(
           currentWorkspaceId,
           containerState.ipAddress,
+        );
+      } else if (options?.hostRuntime) {
+        systemPrompt += buildHostPromptBlock(
+          currentWorkspaceId,
+          options.hostRuntime.workspacePath,
+          { platform: options.hostRuntime.platform },
         );
       }
 
