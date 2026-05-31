@@ -18,7 +18,6 @@ without losing sequencing discipline.
 
 ### Plugin targets
 - `plugins/sero-admin-plugin/`
-- `plugins/sero-alibaba-plugin/`
 - `plugins/sero-context-plugin/`
 - `plugins/sero-cron-plugin/`
 - `plugins/sero-git-plugin/`

@@ -12,6 +12,7 @@ import type {
   SessionUsageStats,
 } from '@/types/ipc';
 import {
+  buildModelState,
   buildTurnUndoMapByTurn,
   buildCommandList,
   convertSessionMessages,
@@ -50,9 +51,16 @@ export function getAgentPoolEntries(): Array<[string, PoolEntry]> {
 if (process.env.NODE_ENV === 'test') {
   (globalThis as Record<string, unknown>).__seroTestGetAgentPoolEntry = getAgentPoolEntry;
 }
-/** Reload all active session ResourceLoaders after edits. */
+/** Reload all active session runtimes after resource/package edits. */
 export async function reloadAllSessionResources(): Promise<void> {
-  await Promise.all([...pool.values()].map((entry) => entry.loader.reload()));
+  await Promise.all([...pool.entries()].map(async ([sessionId, entry]) => {
+    await entry.session.reload();
+    sendEvent({
+      type: 'model_change',
+      sessionId,
+      state: buildModelState(entry),
+    });
+  }));
 }
 function sendEvent(event: AgentStreamEvent): void {
   emitAgentEvent(event);

@@ -183,7 +183,7 @@ Rough size: ~110 contract, ~80 workflow, ~8 agent realism.
 - **C** VCS IPC surface present
 
 ### 9. Built-in plugins (smoke tests)
-For each of `admin`, `git`, `mcp`, `memory`, `cron`, `web`, `alibaba`, `user-feedback`:
+For each of `admin`, `git`, `mcp`, `memory`, `cron`, `web`, `user-feedback`:
 - **W** Plugin discovered → app tile appears in sidebar → click opens federated UI without error
 - **W** One primary action per plugin works (e.g. memory: add item → appears; cron: schedule fires; git: status renders; web: fetch URL)
 - **C** Plugin discovery scans built-in paths and reports the expected manifest set

@@ -320,13 +320,13 @@ describe('plugin manager discovery registration', () => {
     const { reconcileInstalledPluginActivation, agentDir } = await importModules();
 
     const memoryPluginPath = path.resolve(__dirname, '../../../../../plugins/sero-memory-plugin');
-    const alibabaPluginPath = path.resolve(__dirname, '../../../../../plugins/sero-alibaba-plugin');
+    const cronPluginPath = path.resolve(__dirname, '../../../../../plugins/sero-cron-plugin');
 
     await fs.mkdir(agentDir, { recursive: true });
     await fs.writeFile(
       path.join(agentDir, 'settings.json'),
       JSON.stringify({
-        packages: [memoryPluginPath, alibabaPluginPath],
+        packages: [memoryPluginPath, cronPluginPath],
       }, null, 2),
       'utf8',
     );
@@ -336,7 +336,7 @@ describe('plugin manager discovery registration', () => {
     const settings = JSON.parse(await fs.readFile(path.join(agentDir, 'settings.json'), 'utf8')) as {
       packages: string[];
     };
-    expect(settings.packages).toEqual([memoryPluginPath, alibabaPluginPath]);
+    expect(settings.packages).toEqual([memoryPluginPath, cronPluginPath]);
   });
 
   it('removes uninstalled plugins from discovery state without requiring a restart', async () => {
