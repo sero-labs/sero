@@ -32,7 +32,7 @@
       "status": "built",
       "available": true,
       "url": "https://github.com/sero-labs/sero/releases/download/toolchains-2026-05-31/npm-macos-arm64.tar.gz",
-      "sha256": "85b6876bbcfe1b5e5d6317cea2ac6693ffb52797896f79772abae2b9ac57f15f"
+      "sha256": "faf9e68ebe796f741ab8fcae7c813b38b3aaa3cf774ed3be7310689f557d15c4"
     },
     "pnpm-macos-arm64": {
       "tool": "pnpm",
@@ -206,7 +206,7 @@
       "status": "built",
       "available": true,
       "url": "https://github.com/sero-labs/sero/releases/download/toolchains-2026-05-31/npm-linux-arm64.tar.gz",
-      "sha256": "733e82278aa217b8fefbd188da48b4fcbf664fa66b8c135c4c2fec063a191f24"
+      "sha256": "49f1d068123325033a344a5e453c6333681fbdf84dcba0f0ff3871da2957953d"
     },
     "pnpm-linux-arm64": {
       "tool": "pnpm",
@@ -238,7 +238,7 @@
       "status": "built",
       "available": true,
       "url": "https://github.com/sero-labs/sero/releases/download/toolchains-2026-05-31/git-linux-arm64.tar.gz",
-      "sha256": "cc718bc6c0198482c1da6238599e93a952afbac717d6843c17f34eb3ac5a56a5"
+      "sha256": "dd693e1bfbe140e98fd6c4afe9d3d6da3e6a946e095322c24d69e50bd9b22d09"
     },
     "ssh-linux-arm64": {
       "tool": "ssh",
@@ -302,7 +302,7 @@
       "status": "built",
       "available": true,
       "url": "https://github.com/sero-labs/sero/releases/download/toolchains-2026-05-31/npm-linux-x64.tar.gz",
-      "sha256": "9adc70978f8a5f7d1af90331a9cb4d18c7d309e482b1816c9dae089037e85354"
+      "sha256": "7e5bd5f5cd20b9b14ec398cf83ea8ef8e8e3a69637a278f74c47ea2adf9b901c"
     },
     "pnpm-linux-x64": {
       "tool": "pnpm",
@@ -334,7 +334,7 @@
       "status": "built",
       "available": true,
       "url": "https://github.com/sero-labs/sero/releases/download/toolchains-2026-05-31/git-linux-x64.tar.gz",
-      "sha256": "c3c6c73529498e0026c21ae707b88af2f55f345be35d8d15fcfc1dd99b69c193"
+      "sha256": "33ce50b94914c05dab13c9f492cb28297b5b3c7dcd5ae2de4dcbd3c2453153a5"
     },
     "ssh-linux-x64": {
       "tool": "ssh",
