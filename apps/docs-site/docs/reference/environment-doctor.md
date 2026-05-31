@@ -131,7 +131,7 @@ Host checks cover Node, pnpm, Git/SSH, shell readiness, and Sero-managed host to
 ~/.sero-ui/toolchains/<manifest-version>/
 ```
 
-The tools are considered usable only after their readiness marker is present.
+The tools are considered usable only after their readiness marker is present. If compatible system tools are missing, Sero installs managed core tools from GitHub Release assets during onboarding, Runtime settings, or first use.
 
 Host is the default on supported macOS arm64, Linux x64/arm64, and Windows x64 systems. For the canonical matrix, see [Support Scope](/reference/support-scope).
 

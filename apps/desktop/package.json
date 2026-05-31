@@ -44,7 +44,9 @@
     "dist:linux": "bash scripts/build-release.sh --target linux",
     "dist:linux:x64": "bash scripts/build-release.sh --target linux --arch x64",
     "dist:linux:arm64": "bash scripts/build-release.sh --target linux --arch arm64",
-    "dist:win": "bash scripts/build-release.sh --target win"
+    "dist:win": "bash scripts/build-release.sh --target win",
+    "toolchain:verify-published": "node scripts/toolchains/verify-toolchain-publication.mjs",
+    "toolchain:merge-metadata": "node scripts/toolchains/merge-toolchain-metadata.mjs"
   },
   "dependencies": {
     "@google/genai": "^1.52.0",

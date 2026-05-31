@@ -1,5 +1,6 @@
 export interface VerifyHostModeReleaseResult {
   readonly requiredArtifactKeys: readonly string[];
+  readonly requiredToolchainArtifactKeys: readonly string[];
   readonly warnings: readonly string[];
 }
 

@@ -97,6 +97,15 @@ describe('OnboardingWizard', () => {
           writeText: vi.fn().mockResolvedValue(true),
         },
         workspace: {
+          getToolchainStatus: vi.fn().mockResolvedValue({
+            state: 'ready',
+            tools: [
+              { tool: 'node', state: 'ready', source: 'system' },
+              { tool: 'npm', state: 'ready', source: 'system' },
+            ],
+          }),
+          ensureCoreTools: vi.fn().mockResolvedValue({ state: 'ready', tools: [] }),
+          onToolchainProgress: vi.fn(() => () => {}),
           getBrowserPackStatus: vi.fn().mockResolvedValue({ state: 'installable', manifestVersion: 'test' }),
           ensureBrowserPack: vi.fn().mockResolvedValue({ state: 'installable', manifestVersion: 'test' }),
           onBrowserPackProgress: vi.fn(() => () => {}),
@@ -215,12 +224,40 @@ describe('OnboardingWizard', () => {
       continueButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
 
-    expect(document.body.textContent).toContain('Install dependencies (optional)');
-    expect(document.body.textContent).toContain('strongly recommended for screenshots');
+    expect(document.body.textContent).toContain('Install host dependencies');
+    expect(document.body.textContent).toContain('Sero checks core development tools during setup');
+    expect(document.body.textContent).toContain('Core development tools');
     expect(document.body.textContent).toContain('Browser automation');
     expect(document.body.textContent).toContain('Large download for browser screenshots');
     expect(document.body.textContent).toContain('Install browser support');
     expect(document.body.textContent).not.toContain('Skip for now');
+  });
+
+  it('starts core tool installation from the onboarding dependency step when host tools are missing', async () => {
+    const ensureCoreTools = vi.fn().mockResolvedValue({ state: 'ready', tools: [] });
+    window.sero.workspace.getToolchainStatus = vi.fn().mockResolvedValue({
+      state: 'missing',
+      tools: [{ tool: 'node', state: 'missing' }],
+      error: { code: 'TOOL_REQUIRED', message: 'node is missing', retryable: true, installable: true },
+    });
+    window.sero.workspace.ensureCoreTools = ensureCoreTools;
+    mockUseOnboardingLaunch.mockReturnValue(createLaunchState());
+
+    await act(async () => {
+      root?.render(<OnboardingWizard />);
+    });
+
+    const continueButton = Array.from(document.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('Continue'),
+    );
+    await act(async () => {
+      continueButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(ensureCoreTools).toHaveBeenCalledWith('onboarding');
   });
 
   it('omits the container warning when containers are available', async () => {

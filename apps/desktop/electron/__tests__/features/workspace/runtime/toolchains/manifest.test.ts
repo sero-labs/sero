@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import generatedArtifacts from '@electron/features/workspace/runtime/toolchains/generated-artifacts.json';
 import {
   createTestToolchainManifest,
   findArtifactForPlatform,
@@ -38,16 +39,15 @@ describe('toolchain manifest helpers', () => {
     const loaded = loadBundledToolchainManifest();
     const coreTools = ['node', 'npm', 'pnpm', 'git', 'ssh', 'bash'] as const;
     const targets = [
-      { platform: 'darwin', arch: 'arm64' },
-      { platform: 'darwin', arch: 'x64' },
-      { platform: 'linux', arch: 'arm64' },
-      { platform: 'linux', arch: 'x64' },
-      { platform: 'win32', arch: 'x64' },
+      { platform: 'darwin', arch: 'arm64', tools: ['node', 'npm', 'pnpm'] },
+      { platform: 'linux', arch: 'arm64', tools: coreTools },
+      { platform: 'linux', arch: 'x64', tools: coreTools },
+      { platform: 'win32', arch: 'x64', tools: coreTools },
     ] as const;
 
-    expect(Object.keys(loaded.artifacts).length).toBe(coreTools.length * targets.length);
+    expect(Object.keys(loaded.artifacts).length).toBe(targets.reduce((count, target) => count + target.tools.length, 0));
     for (const target of targets) {
-      for (const tool of coreTools) {
+      for (const tool of target.tools) {
         expect(findArtifactForPlatform(loaded, tool, target.platform, target.arch)).toMatchObject({
           tool,
           platform: target.platform,
@@ -62,11 +62,16 @@ describe('toolchain manifest helpers', () => {
     const loaded = loadBundledToolchainManifest();
     for (const artifact of Object.values(loaded.artifacts)) {
       expect(artifact.url).toMatch(/^https:\/\//);
+      expect(artifact.url).toMatch(new RegExp(`^https://github\\.com/sero-labs/sero/releases/download/${generatedArtifacts.releaseTag}/`));
+      expect(artifact.url).not.toContain('downloads.sero.ai');
       expect(artifact.url).toMatch(/\.tar\.gz$/);
       expect(artifact.sha256).toMatch(/^[a-f0-9]{64}$/);
       expect(new Set(artifact.sha256).size).toBeGreaterThan(6);
       expect(artifact.unpackTo).not.toContain('..');
       expect(Object.keys(artifact.binPaths)).toContain(artifact.tool);
+      for (const binPath of Object.values(artifact.binPaths)) {
+        expect(binPath.startsWith(`${artifact.unpackTo}/`)).toBe(true);
+      }
       expect(artifact.minVersion).toBeTruthy();
     }
   });

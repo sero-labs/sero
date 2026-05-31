@@ -1,5 +1,5 @@
 import { assertValidToolchainVersion } from './storage';
-import { bundledToolchainManifest } from './bundled-manifest-data';
+import { getBundledToolchainManifest } from './bundled-manifest-data';
 import type {
   ArtifactSpec,
   ManagedToolArch,
@@ -30,7 +30,7 @@ const POLICIES = new Set<ToolInstallPolicy>(['core', 'on-demand', 'large-explici
 const SHA_256_PATTERN = /^[a-f0-9]{64}$/i;
 
 export function loadBundledToolchainManifest(): ToolchainManifest {
-  return validateToolchainManifest(bundledToolchainManifest);
+  return validateToolchainManifest(getBundledToolchainManifest());
 }
 
 export function createTestToolchainManifest(

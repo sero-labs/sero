@@ -17,6 +17,7 @@ const requiredPackageScripts = [
   'dist:linux:arm64',
   'dist:win',
   'browser-pack:verify-published',
+  'toolchain:verify-published',
 ];
 
 const workflowRequirements = [
@@ -69,9 +70,9 @@ async function main() {
   });
 
   for (const warning of result.warnings) console.warn(`warning: ${warning}`);
-  console.log(`Host-mode release repository checks passed for ${result.requiredArtifactKeys.length} browser-pack target(s).`);
+  console.log(`Host-mode release repository checks passed for ${result.requiredArtifactKeys.length} browser-pack and ${result.requiredToolchainArtifactKeys.length} core toolchain artifact(s).`);
   if (!options.verifyPublished) {
-    console.log('Network publication verification was not run. Run `pnpm --filter @sero/desktop browser-pack:verify-published` before release.');
+    console.log('Network publication verification was not run. Run `pnpm --filter @sero/desktop browser-pack:verify-published` and `pnpm --filter @sero/desktop toolchain:verify-published` before release.');
   }
 }
 
@@ -80,32 +81,37 @@ export async function verifyHostModeRelease({ repoRoot = defaultRepoRoot, deskto
   const warnings = [];
   const matrixPath = path.join(desktopRoot, 'electron/features/workspace/runtime/host-support-matrix.json');
   const metadataPath = path.join(desktopRoot, 'electron/features/workspace/runtime/browser-pack/generated-artifacts.json');
+  const toolchainMetadataPath = path.join(desktopRoot, 'electron/features/workspace/runtime/toolchains/generated-artifacts.json');
   const packageJsonPath = path.join(desktopRoot, 'package.json');
   const workflowPath = path.join(repoRoot, '.github/workflows/release.yml');
   const buildReleasePath = path.join(desktopRoot, 'scripts/build-release.sh');
 
-  const [targets, metadata, packageJson, workflowText, buildReleaseText] = await Promise.all([
+  const [targets, metadata, toolchainMetadata, packageJson, workflowText, buildReleaseText] = await Promise.all([
     readJson(matrixPath),
     readJson(metadataPath),
+    readJson(toolchainMetadataPath),
     readJson(packageJsonPath),
     readOptionalText(workflowPath),
     readOptionalText(buildReleasePath),
   ]);
 
   const requiredArtifactKeys = checkBrowserPackMetadata(targets, metadata, failures);
+  const requiredToolchainArtifactKeys = checkToolchainMetadata(targets, toolchainMetadata, failures);
   checkPackageScripts(packageJson, failures);
   checkWorkflow(workflowPath, workflowText, failures);
   checkBuildReleaseScript(buildReleasePath, buildReleaseText, failures);
   await checkDocs(repoRoot, failures);
+  await checkForbiddenRuntimeDownloads(desktopRoot, failures);
 
   if (verifyPublished) {
     await runBrowserPackPublicationVerifier(desktopRoot, failures);
+    await runToolchainPublicationVerifier(desktopRoot, failures);
   } else {
-    warnings.push('Skipped network browser-pack publication verification; run browser-pack:verify-published separately.');
+    warnings.push('Skipped network artifact publication verification; run browser-pack:verify-published and toolchain:verify-published separately.');
   }
 
   if (failures.length > 0) throw new Error(failures.join('\n'));
-  return { requiredArtifactKeys, warnings };
+  return { requiredArtifactKeys, requiredToolchainArtifactKeys, warnings };
 }
 
 function checkBrowserPackMetadata(targets, metadata, failures) {
@@ -130,6 +136,43 @@ function checkBrowserPackMetadata(targets, metadata, failures) {
     }
   }
   return requiredArtifactKeys;
+}
+
+function checkToolchainMetadata(targets, metadata, failures) {
+  const requiredArtifactKeys = [];
+  const productionUrlPrefix = `https://github.com/sero-labs/sero/releases/download/${metadata?.releaseTag ?? ''}/`;
+  for (const target of targets) {
+    if (!target.releaseSupported) continue;
+    for (const tool of requiredCoreToolsForTarget(target)) {
+      const entry = Object.entries(metadata?.artifacts ?? {}).find(([, artifact]) => (
+        artifact.tool === tool && artifact.platform === target.platform && artifact.arch === target.arch
+      ));
+      const key = entry?.[0] ?? `${tool}-${target.platform}-${target.arch}`;
+      const artifact = entry?.[1];
+      requiredArtifactKeys.push(key);
+      if (!artifact || artifact.status !== 'built' || artifact.available !== true) {
+        failures.push(`Missing built/available core toolchain artifact in committed metadata: ${key}`);
+        continue;
+      }
+      if (typeof artifact.sha256 !== 'string' || !/^[a-f0-9]{64}$/.test(artifact.sha256)) {
+        failures.push(`${key} has invalid sha256 in committed metadata`);
+      }
+      if (typeof artifact.url !== 'string' || !artifact.url.startsWith(productionUrlPrefix)) {
+        failures.push(`${key} must use a GitHub Release core toolchain URL in committed metadata`);
+      }
+      if (artifact.url?.includes('downloads.sero.ai')) {
+        failures.push(`${key} must not use downloads.sero.ai`);
+      }
+    }
+  }
+  return requiredArtifactKeys;
+}
+
+
+function requiredCoreToolsForTarget(target) {
+  const coreTools = ['node', 'npm', 'pnpm', 'git', 'ssh', 'bash'];
+  if (target.platform === 'darwin') return coreTools.filter((tool) => !['git', 'ssh', 'bash'].includes(tool));
+  return coreTools;
 }
 
 function checkPackageScripts(packageJson, failures) {
@@ -167,12 +210,38 @@ function checkWorkflow(workflowPath, workflowText, failures) {
   if (!workflowText.includes('browser-pack:verify-published')) {
     failures.push(`${relativePath(workflowPath)}: missing browser-pack:verify-published release gate`);
   }
+  if (!workflowText.includes('toolchain:verify-published')) {
+    failures.push(`${relativePath(workflowPath)}: missing toolchain:verify-published release gate`);
+  }
   if (!workflowText.includes('runtime-host-release.workflow.spec.ts')) {
     failures.push(`${relativePath(workflowPath)}: missing host release smoke workflow spec`);
   }
   if (!workflowText.includes('Verify macOS app bundle')) {
     failures.push(`${relativePath(workflowPath)}: missing macOS app bundle verification gate`);
   }
+}
+
+async function checkForbiddenRuntimeDownloads(desktopRoot, failures) {
+  const runtimeRoot = path.join(desktopRoot, 'electron/features/workspace/runtime');
+  const files = await listFiles(runtimeRoot);
+  await Promise.all(files.map(async (filePath) => {
+    const text = await fs.readFile(filePath, 'utf8');
+    if (text.includes('downloads.sero.ai')) failures.push(`${relativePath(filePath)}: runtime artifacts must not use downloads.sero.ai`);
+  }));
+}
+
+async function listFiles(root) {
+  const entries = await fs.readdir(root, { withFileTypes: true }).catch((error) => {
+    if (error && error.code === 'ENOENT') return [];
+    throw error;
+  });
+  const files = [];
+  for (const entry of entries) {
+    const filePath = path.join(root, entry.name);
+    if (entry.isDirectory()) files.push(...await listFiles(filePath));
+    if (entry.isFile() && /\.(json|ts|tsx|js|mjs)$/.test(entry.name)) files.push(filePath);
+  }
+  return files;
 }
 
 function checkBuildReleaseScript(buildReleasePath, buildReleaseText, failures) {
@@ -211,6 +280,18 @@ async function runBrowserPackPublicationVerifier(desktopRoot, failures) {
     });
   } catch (error) {
     failures.push(`browser-pack publication verifier failed: ${errorOutput(error)}`);
+  }
+}
+
+async function runToolchainPublicationVerifier(desktopRoot, failures) {
+  try {
+    await execFileAsync('pnpm', ['--filter', '@sero/desktop', 'toolchain:verify-published'], {
+      cwd: path.resolve(desktopRoot, '../..'),
+      encoding: 'utf8',
+      maxBuffer: 1024 * 1024 * 20,
+    });
+  } catch (error) {
+    failures.push(`core toolchain publication verifier failed: ${errorOutput(error)}`);
   }
 }
 
