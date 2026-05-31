@@ -24,6 +24,8 @@ interface RuntimeProcessExit {
 
 type SpawnProcess = (input: RuntimeProcessInput) => Promise<RuntimeProcess>;
 
+const HOST_PREVIEW_ORIGIN = 'http://localhost';
+
 export interface HostDevServerManagerOptions {
   workspaceId: string;
   defaultCwd?: string;
@@ -96,7 +98,7 @@ export class HostDevServerManager {
           ? `Dev server exited before a listening port was detected${formatProcessExit(earlyExit)}.`
           : 'No listening port was detected after starting the command.');
       }
-      const url = `http://127.0.0.1:${port}`;
+      const url = hostPreviewUrl(port);
       recordId = `${baseId}:${port}`;
       const record: HostDevServerRecord = {
         id: recordId,
@@ -137,7 +139,7 @@ export class HostDevServerManager {
     const record: HostDevServerRecord = {
       id: `${this.workspaceId}:${scope}:${input.cardId ?? 'root'}:${input.port}`,
       port: input.port,
-      url: `http://127.0.0.1:${input.port}`,
+      url: hostPreviewUrl(input.port),
       command: input.command,
       cwd: input.cwd || this.defaultCwd,
       name: input.name,
@@ -249,7 +251,7 @@ export class HostDevServerManager {
   }
 
   async resolvePreviewUrl(input: RuntimePreviewUrlInput): Promise<RuntimePreviewUrl> {
-    const url = `http://127.0.0.1:${input.targetPort}${input.path ?? ''}`;
+    const url = hostPreviewUrl(input.targetPort, input.path);
     return { url, targetPort: input.targetPort, backend: 'host' };
   }
 
@@ -333,6 +335,10 @@ function toRuntimeServer(record: HostDevServerRecord): RuntimeDevServer {
     pid: record.pid,
     diagnosticCode: record.diagnosticCode,
   };
+}
+
+function hostPreviewUrl(port: number, path = ''): string {
+  return `${HOST_PREVIEW_ORIGIN}:${port}${path}`;
 }
 
 function isRecord(record: HostDevServerRecord | undefined): record is HostDevServerRecord {
