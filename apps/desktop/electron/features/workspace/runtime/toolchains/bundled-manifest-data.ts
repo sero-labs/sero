@@ -44,8 +44,6 @@ interface ToolchainGeneratedMetadata extends ToolchainGeneratedMetadataJson {
 
 const GENERATED_METADATA = normalizeGeneratedMetadata(generatedArtifacts);
 
-export const bundledToolchainManifest: ToolchainManifest = createToolchainManifest(GENERATED_METADATA, undefined);
-
 export function getBundledToolchainManifest(): ToolchainManifest {
   return createToolchainManifest(GENERATED_METADATA, process.env[LOCAL_URL_BASE_ENV]);
 }

@@ -63,17 +63,11 @@ export async function verifyToolchainPublication({ targets, metadata, downloadAr
 
       try {
         const bytes = await downloadArtifact(artifact.url, key);
-        const actualSize = byteLength(bytes);
         const actualSha = createHash('sha256').update(bytes).digest('hex');
-        if (Number.isInteger(artifact.sizeBytes) && actualSize !== artifact.sizeBytes) {
-          failures.push(`${key} downloaded size ${actualSize} does not match metadata size ${artifact.sizeBytes}`);
-        }
         if (actualSha !== artifact.sha256) {
           failures.push(`${key} sha256 mismatch: expected ${artifact.sha256}, got ${actualSha}`);
         }
-        if (actualSha === artifact.sha256 && (!Number.isInteger(artifact.sizeBytes) || actualSize === artifact.sizeBytes)) {
-          verifiedKeys.push(key);
-        }
+        if (actualSha === artifact.sha256) verifiedKeys.push(key);
       } catch (error) {
         failures.push(`${key} download failed from ${artifact.url}: ${errorMessage(error)}`);
       }
@@ -95,9 +89,6 @@ function validateArtifactMetadata({ key, artifact, productionUrlPrefix, releaseT
   if (typeof artifact.sha256 !== 'string' || !/^[a-f0-9]{64}$/.test(artifact.sha256)) {
     failures.push(`${key} has invalid sha256`);
   }
-  if (artifact.sizeBytes !== undefined && (!Number.isInteger(artifact.sizeBytes) || artifact.sizeBytes <= 0)) {
-    failures.push(`${key} has invalid sizeBytes`);
-  }
   return failures;
 }
 
@@ -107,13 +98,6 @@ async function fetchArtifactBytes(url) {
   const body = new Uint8Array(await response.arrayBuffer());
   if (body.byteLength === 0) throw new Error('downloaded artifact is empty');
   return body;
-}
-
-function byteLength(bytes) {
-  if (bytes instanceof Uint8Array) return bytes.byteLength;
-  if (Buffer.isBuffer(bytes)) return bytes.byteLength;
-  if (typeof bytes === 'string') return Buffer.byteLength(bytes);
-  throw new Error('download helper returned unsupported bytes');
 }
 
 function artifactKey(metadata, target, tool) {
