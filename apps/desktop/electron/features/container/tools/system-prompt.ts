@@ -103,3 +103,32 @@ Each bash tool call runs in an isolated \`sh -c\` shell.
 - For test work: run tests, fix failures, rerun until passing, then capture final evidence.
 - Prefer demos over diffs: prove the result works.`;
 }
+
+export function buildHostPromptBlock(
+  workspaceId: string,
+  workspacePath: string,
+  opts?: { platform?: NodeJS.Platform },
+): string {
+  const platform = opts?.platform ?? process.platform;
+  return `
+
+## Host Runtime Environment
+
+You are operating on the host runtime for workspace "${workspaceId}".
+Workspace root: ${workspacePath}.
+Use relative paths from the workspace root unless the task explicitly needs another workspace.
+
+**Command hygiene**
+- Do NOT hard-code PATH prefixes like \`PATH=/usr/local/bin:/opt/homebrew/...:$PATH\`. Sero already prepares managed Node/npm/pnpm/git/bash on PATH for tool calls.
+- Prefer project scripts over ad-hoc binaries: use \`npm run typecheck\`, \`pnpm run typecheck\`, or \`npm run build\` when package.json defines them.
+- Before running JS/TS checks in a new or changed project, inspect package.json and run the matching install command if node_modules is missing.
+- For React + TypeScript projects, include \`@types/react\`, \`@types/react-dom\`, and \`vite-env.d.ts\` before running \`tsc\`. This avoids predictable missing JSX/declaration errors.
+- Avoid bare \`npx tsc --noEmit\` unless the project has TypeScript dependencies installed and no package script exists.
+
+**Dev servers**
+- When starting a dev server, use the actual URL printed by that server. If Vite says \`Port 5173 is in use\` and moves to another port, register and report the new port.
+- In Sero development builds, \`localhost:5173\` is often Sero's own renderer. Do not register it for user preview apps unless that is explicitly the app you started.
+- Verify host previews with \`curl -I http://127.0.0.1:<port>\` before reporting the URL.
+
+Host platform: ${platform}.`;
+}

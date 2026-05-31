@@ -16,6 +16,15 @@ import {
   createNativeBuildToolsRequiredMetadata,
 } from '@electron/features/workspace/runtime/native-build/classifier';
 import { NativeBuildToolsRequiredError } from '@electron/features/workspace/runtime/native-build/types';
+import { ensureCoreTools } from '@electron/features/workspace/runtime/install-actions';
+import type { RuntimeBackend } from '@electron/features/workspace/runtime/types';
+
+class HostCoreToolsUnavailableError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'HostCoreToolsUnavailableError';
+  }
+}
 
 export class LspManager extends EventEmitter {
   /** workspaceId → language → LspServerProcess */
@@ -184,6 +193,8 @@ export class LspManager extends EventEmitter {
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       try {
+        await this.ensureHostCoreTools(runtime, config.language);
+
         const checkResult = await runtime.exec({ command: config.checkCommand });
         if (checkResult.exitCode === 0) return;
 
@@ -209,6 +220,8 @@ export class LspManager extends EventEmitter {
         console.log(`[lsp-manager] Installed ${config.language} server in ${runtime.workspaceId}`);
         return;
       } catch (err: unknown) {
+        if (err instanceof HostCoreToolsUnavailableError) throw err;
+
         const msg = err instanceof Error ? err.message : '';
         const isTransient = msg.includes('not running') || msg.includes('not found');
         if (isTransient && attempt < MAX_RETRIES) {
@@ -219,5 +232,18 @@ export class LspManager extends EventEmitter {
         throw err;
       }
     }
+  }
+
+  private async ensureHostCoreTools(runtime: RuntimeBackend, language: string): Promise<void> {
+    if (runtime.backend !== 'host') return;
+
+    const status = await ensureCoreTools(`language server: ${language}`);
+    if (status.state === 'ready') return;
+
+    const tool = status.tools.find((candidate) => candidate.state !== 'ready');
+    const detail = tool ? `${tool.tool} is ${tool.state}` : `core tools are ${status.state}`;
+    throw new HostCoreToolsUnavailableError(
+      `Host language servers require Sero managed core tools. ${detail}. Repair core tools in Runtime settings and try again.`,
+    );
   }
 }

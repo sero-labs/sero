@@ -37,6 +37,7 @@ export class RuntimeManager {
     const backend = this.createBackend(backendId, workspaceId, hostWorkspacePath);
     this.backends.set(cacheKey, backend);
     this.subscribeBackendDevServers(cacheKey, backend);
+    if (backend.backend === 'host') this.purgeLegacyDevServersForHostWorkspace(workspaceId);
     return backend;
   }
 
@@ -117,7 +118,9 @@ export class RuntimeManager {
     const runtimeServers = [...this.backends.entries()]
       .filter(([key]) => key.startsWith(`${workspaceId}:`))
       .flatMap(([, runtime]) => runtime.listDevServersSync?.() ?? []);
-    const legacyServers = this.dependencies.containerManager.devServers?.list(workspaceId) ?? [];
+    const legacyServers = this.hasCachedRuntime(workspaceId, 'host')
+      ? []
+      : this.dependencies.containerManager.devServers?.list(workspaceId) ?? [];
     return [...runtimeServers, ...legacyServers].map((server) => ({
       id: server.id,
       port: server.port,
@@ -151,7 +154,8 @@ export class RuntimeManager {
       const workspaceId = workspaceIdFromCacheKey(key);
       return (runtime.listDevServersSync?.() ?? []).map((server) => ({ workspaceId, ...server }));
     });
-    const legacyServers = this.dependencies.containerManager.devServers?.list() ?? [];
+    const legacyServers = (this.dependencies.containerManager.devServers?.list() ?? [])
+      .filter((server) => !this.hasCachedRuntime(server.workspaceId, 'host'));
     return [...runtimeServers, ...legacyServers].map((server) => ({
       workspaceId: server.workspaceId,
       id: server.id,
@@ -245,7 +249,12 @@ export class RuntimeManager {
 
   private subscribeBackendDevServers(cacheKey: string, backend: RuntimeBackend): void {
     this.unsubscribeBackendDevServers(cacheKey);
-    const unsubscribe = backend.onDevServerChange?.((event) => this.emitDevServerChange(event));
+    const unsubscribe = backend.onDevServerChange?.((event) => {
+      if (backend.backend === 'host' && event.type === 'registered') {
+        this.purgeLegacyDevServersForHostWorkspace(event.workspaceId);
+      }
+      this.emitDevServerChange(event);
+    });
     if (unsubscribe) this.backendDevServerUnsubs.set(cacheKey, unsubscribe);
   }
 
@@ -260,8 +269,10 @@ export class RuntimeManager {
 
   private ensureLegacyDevServerSubscription(): void {
     if (this.legacyDevServerUnsubscribe) return;
-    this.legacyDevServerUnsubscribe = this.dependencies.containerManager.devServers?.onChange((event) => {
-      this.emitDevServerChange(normalizeLegacyDevServerEvent(event));
+    this.legacyDevServerUnsubscribe = this.dependencies.containerManager.devServers?.onChange?.((event) => {
+      const normalized = normalizeLegacyDevServerEvent(event);
+      if (this.hasCachedRuntime(normalized.workspaceId, 'host')) return;
+      this.emitDevServerChange(normalized);
     });
   }
 
@@ -276,6 +287,25 @@ export class RuntimeManager {
     }
 
     return (await this.dependencies.workspaceManager.getRuntimeConfig(workspaceId)).backend;
+  }
+
+  private hasCachedRuntime(workspaceId: string, backendId: RuntimeBackendId): boolean {
+    return this.backends.has(`${workspaceId}:${backendId}`);
+  }
+
+  private purgeLegacyDevServersForHostWorkspace(workspaceId: string): void {
+    const legacyRegistry = this.dependencies.containerManager.devServers;
+    const legacyServers = legacyRegistry?.list(workspaceId) ?? [];
+    for (const server of legacyServers) {
+      if (legacyRegistry?.unregister(server.id)) {
+        this.emitDevServerChange({
+          type: 'unregistered',
+          workspaceId,
+          serverId: server.id,
+          status: 'stopped',
+        });
+      }
+    }
   }
 }
 

@@ -109,6 +109,9 @@ export async function openSessionInPool({
 
   const platformTools = await createRuntimeTools(runtime, sessionId);
   const globalAgentsFile = await readGlobalAgentsMd(workspaceId);
+  const hostRuntimeOptions = runtime.backend === 'host'
+    ? { workspacePath, platform: process.platform }
+    : undefined;
 
   const skillVisibilityOverride = createSkillVisibilityOverride(infra.settingsManager);
   const loader = new DefaultResourceLoader({
@@ -119,6 +122,7 @@ export async function openSessionInPool({
       createSeroExtensionFactory(workspaceManager, workspaceId, sessionId, undefined, {
         subagentManager,
         enableAgentManagementTools: true,
+        hostRuntime: hostRuntimeOptions,
       }),
     ],
     skillsOverride: (base) => filterCompatiblePluginSkills(skillVisibilityOverride(base)),

@@ -27,9 +27,11 @@ describe('lsp server config routing', () => {
     expect(config?.extensions).toEqual(expectedExtensions);
     expect(config?.command).toContain('PATH="$LSP_NPM_PREFIX/bin:$LSP_NPM_PREFIX:$LSP_NPM_PREFIX/node_modules/.bin:$PATH"');
     expect(config?.command).toContain('$LSP_NPM_PREFIX/node_modules/typescript-language-server/lib/cli.mjs');
-    expect(config?.command).toContain('exec node "$cli" --stdio');
+    expect(config?.command).toContain('command -v node.exe');
+    expect(config?.command).toContain('exec "$nodebin" "$cli" --stdio');
     expect(config?.command).toContain('command -v typescript-language-server.cmd');
     expect(config?.command).toContain('exec "$server" --stdio');
+    expect(config?.checkCommand).toContain('test -n "$nodebin"');
     expect(config?.checkCommand).toContain('test -n "$cli" || command -v typescript-language-server');
     expect(config?.checkCommand).toContain('command -v typescript-language-server.cmd');
     expect(config?.installCommand).toBe('LSP_NPM_PREFIX="${HOME:-/tmp/sero-home}/.sero/lsp/npm"; mkdir -p "$LSP_NPM_PREFIX" && npm install -g --prefix "$LSP_NPM_PREFIX" typescript-language-server@4.4.0 typescript@5.9.3');

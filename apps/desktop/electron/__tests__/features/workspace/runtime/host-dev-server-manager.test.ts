@@ -172,9 +172,21 @@ describe('HostDevServerManager', () => {
     const server = manager.register({ command: 'externally managed', cwd: '/workspace', port: 4321 });
     await manager.stop({ serverId: server.id });
 
+    expect(server.url).toBe('http://127.0.0.1:4321');
     expect(processAdapter.listenerPids).not.toHaveBeenCalled();
     expect(processAdapter.killPids).not.toHaveBeenCalled();
     expect(manager.list()).toEqual([expect.objectContaining({ id: server.id, status: 'stopped' })]);
+  });
+
+  it('resolves host preview URLs through localhost instead of IPv4 loopback', async () => {
+    const manager = createManager();
+
+    await expect(manager.resolvePreviewUrl({ targetPort: 5173, path: '/dashboard' }))
+      .resolves.toEqual({
+        url: 'http://127.0.0.1:5173/dashboard',
+        targetPort: 5173,
+        backend: 'host',
+      });
   });
 
   it('restart of a registered dev server force-kills the existing listener before respawning', async () => {
