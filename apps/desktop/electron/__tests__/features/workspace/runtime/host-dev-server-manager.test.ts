@@ -79,7 +79,7 @@ describe('HostDevServerManager', () => {
     expect(server).toMatchObject({
       id: 'workspace-a:workspace:root:5173',
       port: 5173,
-      url: 'http://localhost:5173',
+      url: 'http://127.0.0.1:5173',
       status: 'running',
     });
     expect(manager.list()).toEqual([server]);
@@ -172,7 +172,7 @@ describe('HostDevServerManager', () => {
     const server = manager.register({ command: 'externally managed', cwd: '/workspace', port: 4321 });
     await manager.stop({ serverId: server.id });
 
-    expect(server.url).toBe('http://localhost:4321');
+    expect(server.url).toBe('http://127.0.0.1:4321');
     expect(processAdapter.listenerPids).not.toHaveBeenCalled();
     expect(processAdapter.killPids).not.toHaveBeenCalled();
     expect(manager.list()).toEqual([expect.objectContaining({ id: server.id, status: 'stopped' })]);
@@ -183,7 +183,7 @@ describe('HostDevServerManager', () => {
 
     await expect(manager.resolvePreviewUrl({ targetPort: 5173, path: '/dashboard' }))
       .resolves.toEqual({
-        url: 'http://localhost:5173/dashboard',
+        url: 'http://127.0.0.1:5173/dashboard',
         targetPort: 5173,
         backend: 'host',
       });

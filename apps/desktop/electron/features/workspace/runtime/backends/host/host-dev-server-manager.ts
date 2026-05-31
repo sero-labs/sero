@@ -24,7 +24,7 @@ interface RuntimeProcessExit {
 
 type SpawnProcess = (input: RuntimeProcessInput) => Promise<RuntimeProcess>;
 
-const HOST_PREVIEW_ORIGIN = 'http://localhost';
+const HOST_PREVIEW_ORIGIN = 'http://127.0.0.1';
 
 export interface HostDevServerManagerOptions {
   workspaceId: string;

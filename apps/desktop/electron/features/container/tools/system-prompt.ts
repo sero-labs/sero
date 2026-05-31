@@ -125,5 +125,10 @@ Use relative paths from the workspace root unless the task explicitly needs anot
 - For React + TypeScript projects, include \`@types/react\`, \`@types/react-dom\`, and \`vite-env.d.ts\` before running \`tsc\`. This avoids predictable missing JSX/declaration errors.
 - Avoid bare \`npx tsc --noEmit\` unless the project has TypeScript dependencies installed and no package script exists.
 
+**Dev servers**
+- When starting a dev server, use the actual URL printed by that server. If Vite says \`Port 5173 is in use\` and moves to another port, register and report the new port.
+- In Sero development builds, \`localhost:5173\` is often Sero's own renderer. Do not register it for user preview apps unless that is explicitly the app you started.
+- Verify host previews with \`curl -I http://127.0.0.1:<port>\` before reporting the URL.
+
 Host platform: ${platform}.`;
 }

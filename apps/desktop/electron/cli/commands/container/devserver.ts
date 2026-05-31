@@ -34,6 +34,12 @@ async function handleDevServer(args: string[], ctx: CliCommandContext) {
         if (!Number.isFinite(port)) return fail(`Invalid port: ${portRaw}`);
 
         const runtime = await runtimeManager.getRuntime(ctx.workspaceId);
+        if (runtime.backend === 'host' && await isLocalhostOnlySeroDevPort(port)) {
+          return fail(
+            'Port 5173 is Sero\'s renderer in this development session, not the preview app. ' +
+            'Register the actual port printed by the dev server.',
+          );
+        }
         const server = runtime.registerDevServer
           ? await runtime.registerDevServer({ name, port, command, framework, cwd: ctx.cwd })
           : registry.register({ workspaceId: ctx.workspaceId, name, port, command, framework, cwd: ctx.cwd });
@@ -77,4 +83,20 @@ export function registerDevServerCliCommands(registry: CliRegistry): void {
     group: 'Dev Servers',
     execute: handleDevServer,
   });
+}
+
+async function isLocalhostOnlySeroDevPort(port: number): Promise<boolean> {
+  if (process.env.NODE_ENV !== 'development' || port !== 5173) return false;
+  const ipv4PreviewReachable = await canFetch('http://127.0.0.1:5173/');
+  if (ipv4PreviewReachable) return false;
+  return canFetch('http://localhost:5173/');
+}
+
+async function canFetch(url: string): Promise<boolean> {
+  try {
+    const response = await fetch(url, { signal: AbortSignal.timeout(1_000) });
+    return response.ok;
+  } catch {
+    return false;
+  }
 }
