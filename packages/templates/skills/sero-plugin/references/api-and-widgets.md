@@ -366,6 +366,7 @@ Widget runtime API:
 | `stateFile` | Yes | Path relative to workspace root. Convention: `.sero/apps/<id>/state.json`. For global apps, keep it in the manifest as the Pi CLI fallback even though Sero resolves state from `SERO_HOME`. |
 | `ui` | No | Path to built `remoteEntry.js`. Null if no UI. |
 | `runtime` | No | Path to the plugin-owned background runtime entry. Use when the plugin needs long-lived, workspace-scoped Sero behavior. |
+| `runtimeExternals` | No | Packages to keep external when transpiling/bundling the background runtime. Use for native or non-bundle-safe runtime imports. |
 | `component` | No | Exported component name. Required if `ui` is set. |
 | `devPort` | No | Vite dev server port. Required if `ui` is set. Must be unique. |
 | `widgets` | No | Array of widget definitions |
@@ -379,6 +380,8 @@ Widget runtime API:
 | `minSeroVersion` | Minimum compatible Sero version |
 | `requiredHostCapabilities` | Explicit host seams the plugin depends on, such as `appAgent.invokeTool` or `tool.cli` |
 | `preBuilt` | Whether plugin ships pre-built |
+| `bundleExtensions` | Build-time hint for built-in release packaging. When `true`, Sero packages compiled JS `pi.extensions` instead of raw extension source. |
+| `extensionExternals` | Packages to keep external when bundling Pi extension entrypoints. Use for native, large, or runtime-loaded extension dependencies that must remain in `node_modules`. |
 | `bridgeTools` | `true` (default/omit), `false`, or `string[]` of tool names |
 
 Common capability rules:

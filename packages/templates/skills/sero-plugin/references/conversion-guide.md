@@ -126,8 +126,11 @@ Original extension's npm packages go directly in your plugin's `dependencies`:
 ```
 
 **Built-in plugin packaging rule:** every runtime npm package must be declared
-in the plugin's own `dependencies` and installable as a plugin-local
-`node_modules/` tree. Don't rely on monorepo hoisting.
+in the plugin's own `dependencies`. Don't rely on monorepo hoisting. If the
+plugin sets `sero.plugin.bundleExtensions: true`, normal extension deps are
+bundled into the compiled entrypoint; native, large, or runtime-loaded deps
+must also be listed in `sero.plugin.extensionExternals` so they remain
+installable in the plugin-local `node_modules/` tree.
 
 ### 7. Design the UI-facing state shape
 
@@ -165,6 +168,7 @@ Strip large text content, base64 images, anything the UI doesn't render.
 - [ ] No `import` from the original package anywhere
 - [ ] Original package removed from `dependencies`
 - [ ] Original's npm deps added directly
+- [ ] Native / large / runtime-loaded extension deps listed in `sero.plugin.extensionExternals` when using `bundleExtensions`
 - [ ] Every source file under 500 LOC
 - [ ] State sync added: tool results -> state.json
 - [ ] Hardcoded `~/.pi` paths rewritten for `SERO_HOME` / `PI_CODING_AGENT_DIR`

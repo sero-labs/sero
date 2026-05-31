@@ -159,6 +159,7 @@ Critical:
 - If you need a same-name slash shortcut for a bridged tool, use a prompt template in `pi.prompts` rather than `pi.registerCommand` with the same name
 - Declare `requiredHostCapabilities` only for seams you use
 - For extension-only plugins, drop the Vite `dev`/`build` scripts
+- For built-in plugins with non-trivial extension deps, set `sero.plugin.bundleExtensions: true`; list native, large, or runtime-loaded extension packages in `sero.plugin.extensionExternals`
 
 ### 4. Define `shared/types.ts`
 
@@ -195,6 +196,7 @@ Required wiring:
 - `runtime/tsconfig.json` included in the `typecheck` script
 - `requiredHostCapabilities: ["appRuntime.background"]`
 - If the runtime imports native/non-bundle-safe packages, list them in `sero.app.runtimeExternals`
+- If the extension imports native/non-bundle-safe packages and uses bundled release packaging, list them in `sero.plugin.extensionExternals`
 
 Context provides: `appId`, `workspaceId`, `workspacePath`, `stateFilePath`,
 and `host.{appState, subagents, workspace, verification, git, devServers}`.
@@ -221,6 +223,7 @@ Also create: `vite.config.ts` (at package root), `ui/styles.css`,
 pnpm install
 pnpm --filter @sero-ai/plugin-<name> build       # UI only
 pnpm --filter @sero-ai/plugin-<name> typecheck
+bash scripts/build-plugin.sh plugins/sero-<name>-plugin   # installable bundle / release packaging
 ```
 
 All must pass before the plugin is ready.
@@ -294,6 +297,7 @@ Verify:
 | Agent missing tool | Restart dev server, check `pi.extensions` field |
 | UI changes not showing | Check remote Vite running; extension changes need full restart |
 | External plugin missing styles | Import `./styles.css` from every exposed MF entry; verify `@source` paths in `ui/styles.css` |
+| Packaged plugin missing an extension dependency | If it must stay in `node_modules`, add the package name to `sero.plugin.extensionExternals`; otherwise keep it in `dependencies` and let `bundleExtensions` include it in the JS entrypoint |
 | `Cannot find module './styles.css'` | Add `ui/vite-env.d.ts` with `/// <reference types="vite/client" />` |
 | Runtime never starts | Declare `sero.app.runtime` + `requiredHostCapabilities: ["appRuntime.background"]`; check `/tmp/sero-electron.log` |
 | Build fails because no HTML entry exists | Add `ui/index.html` |

@@ -105,6 +105,7 @@ If the plugin ships **prompt templates** or **skills**, add `prompts/` and/or
 - `runtime` is only needed when the plugin ships a background runtime; if present, add `runtime/tsconfig.json` to the package `typecheck` script
 - `pi.prompts` and `pi.skills` are optional, but when a plugin ships prompt templates or skills they must be declared there — folders alone are not discovered
 - For extension-only plugins, remove the Vite `dev` / `build` scripts and keep an extension-only `typecheck`
+- For built-in release packaging, `sero.plugin.bundleExtensions: true` ships compiled JS `pi.extensions` instead of raw source. Extension dependencies are bundled and pruned from `dist/plugin/package.json` unless listed in `sero.plugin.extensionExternals`.
 - `devPort` must be unique — check existing plugins first
 - Omit `bridgeTools` in `sero.plugin` to bridge all tools by default
 - Add `requiredHostCapabilities` only for seams the plugin actually needs:
@@ -124,6 +125,7 @@ If the plugin ships **prompt templates** or **skills**, add `prompts/` and/or
 | Plugin CLI subcommands mirror structured tool actions | Keep names aligned or support explicit aliases, and error on unknown subcommands | Silently fall back to another action when a subcommand is misspelled or mixed-style |
 | Plugin needs host support for direct UI->tool calls | Declare `requiredHostCapabilities: ["appAgent.invokeTool"]` | Assume every host supports it without declaring it |
 | Plugin needs bridged CLI behavior | Declare `requiredHostCapabilities: ["tool.cli"]` | Rely on unstated host behavior |
+| Extension imports a native, huge, or runtime-loaded dependency | Put the package name in `sero.plugin.extensionExternals` when using bundled release packaging | Let esbuild inline something that must remain in `node_modules` |
 | Extracting a built-in plugin to external | Move plugin-specific logic into the plugin | Leave plugin-specific preload/IPC/types in the Sero host |
 | External plugin needs a plugin-specific state model or validator | Keep it in the plugin's own `shared/` layer (or a plugin-owned package) | Promote it into Sero monorepo `packages/*` just because multiple plugin files use it |
 
@@ -241,6 +243,7 @@ Add these only when the plugin needs long-lived, workspace-scoped orchestration:
 Notes:
 - `sero.app.runtime` points at the source runtime entry in a source plugin repo
 - If the runtime imports native or otherwise non-bundle-safe packages, add `sero.app.runtimeExternals` so the TS runtime loader leaves them external
+- `sero.app.runtimeExternals` is for background runtime imports; use `sero.plugin.extensionExternals` for Pi extension imports
 - If the plugin also uses UI->tool calls or CLI bridging, include those capabilities too
 - Keep background-runtime behavior in `runtime/`, not in the host or renderer glue
 
