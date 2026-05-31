@@ -69,6 +69,9 @@ describe('toolchain manifest helpers', () => {
       expect(new Set(artifact.sha256).size).toBeGreaterThan(6);
       expect(artifact.unpackTo).not.toContain('..');
       expect(Object.keys(artifact.binPaths)).toContain(artifact.tool);
+      for (const binPath of Object.values(artifact.binPaths)) {
+        expect(binPath.startsWith(`${artifact.unpackTo}/`)).toBe(true);
+      }
       expect(artifact.minVersion).toBeTruthy();
     }
   });

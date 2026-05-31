@@ -50,7 +50,7 @@ Windows host mode is native Windows execution with a verified Git Bash/MSYS-comp
 Core managed tools use committed metadata in `apps/desktop/electron/features/workspace/runtime/toolchains/generated-artifacts.json`. Update it from release receipt JSON with `pnpm --filter @sero/desktop toolchain:merge-metadata -- --sidecar-dir <dir> --release-tag <tag> --version <version>`. Release-supported targets must point to GitHub Release assets such as:
 
 ```txt
-https://github.com/sero-labs/sero/releases/download/toolchains-2026-05-16/node-linux-x64.tar.gz
+https://github.com/sero-labs/sero/releases/download/toolchains-2026-05-31/node-linux-x64.tar.gz
 ```
 
 Do not use `downloads.sero.ai`; that host is not part of Sero's distribution path. Release gates run `pnpm --filter @sero/desktop toolchain:verify-published` and fail if required core artifacts are missing, unpublished, or hash-mismatched. `SERO_TOOLCHAIN_BASE_URL` is only a local diagnostic override for serving byte-identical mirrors of the committed artifacts; rebuilt artifacts with different bytes must update the committed SHA-256 metadata first. Unsupported host targets, such as macOS x64, stay `pending` so Sero does not offer unpublished installs.

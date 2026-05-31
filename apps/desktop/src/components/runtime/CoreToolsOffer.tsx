@@ -75,6 +75,7 @@ export function CoreToolsOffer({ reason, className, autoInstall = false }: CoreT
     && status !== null
     && status.state !== 'ready'
     && status.state !== 'installing'
+    && status.error?.installable !== false
     && (status.state !== 'failed' || canRetry);
 
   const install = async () => {

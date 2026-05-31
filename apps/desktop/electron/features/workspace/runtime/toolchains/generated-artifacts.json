@@ -1,474 +1,474 @@
 {
-  "version": "2026.05.16",
-  "releaseTag": "toolchains-2026-05-16",
+  "version": "2026.05.31",
+  "releaseTag": "toolchains-2026-05-31",
   "artifacts": {
     "node-macos-arm64": {
       "tool": "node",
       "platform": "darwin",
       "arch": "arm64",
       "slug": "node-macos-arm64",
-      "status": "built",
-      "available": true,
-      "url": "https://github.com/sero-labs/sero/releases/download/toolchains-2026-05-16/node-macos-arm64.tar.gz",
-      "sha256": "22ab6bc9a8f566a3c4a7f0d71dc7a4e1b5985a545a7145739ccb31929d66ab4b",
       "unpackTo": "node-macos-arm64",
       "binPaths": {
-        "node": "bin/node"
+        "node": "node-macos-arm64/bin/node"
       },
       "minVersion": "22.0.0",
-      "installPolicy": "core"
+      "installPolicy": "core",
+      "status": "built",
+      "available": true,
+      "url": "https://github.com/sero-labs/sero/releases/download/toolchains-2026-05-31/node-macos-arm64.tar.gz",
+      "sha256": "d59d206bb2b20f98e420f17131d8bc7546450c93ea0bb15254ff4be98b1f304e"
     },
     "npm-macos-arm64": {
       "tool": "npm",
       "platform": "darwin",
       "arch": "arm64",
       "slug": "npm-macos-arm64",
-      "status": "built",
-      "available": true,
-      "url": "https://github.com/sero-labs/sero/releases/download/toolchains-2026-05-16/npm-macos-arm64.tar.gz",
-      "sha256": "d75ef7ea84d99ff337352c1d5ce9fc41286f55982fd36dc052216235f3d10376",
       "unpackTo": "npm-macos-arm64",
       "binPaths": {
-        "npm": "bin/npm"
+        "npm": "npm-macos-arm64/bin/npm"
       },
       "minVersion": "10.0.0",
-      "installPolicy": "core"
+      "installPolicy": "core",
+      "status": "built",
+      "available": true,
+      "url": "https://github.com/sero-labs/sero/releases/download/toolchains-2026-05-31/npm-macos-arm64.tar.gz",
+      "sha256": "85b6876bbcfe1b5e5d6317cea2ac6693ffb52797896f79772abae2b9ac57f15f"
     },
     "pnpm-macos-arm64": {
       "tool": "pnpm",
       "platform": "darwin",
       "arch": "arm64",
       "slug": "pnpm-macos-arm64",
-      "status": "built",
-      "available": true,
-      "url": "https://github.com/sero-labs/sero/releases/download/toolchains-2026-05-16/pnpm-macos-arm64.tar.gz",
-      "sha256": "2600317cdafac1a32d4f864357642c13549d146e6e9d8a0da1bf085d8a313371",
       "unpackTo": "pnpm-macos-arm64",
       "binPaths": {
-        "pnpm": "bin/pnpm"
+        "pnpm": "pnpm-macos-arm64/bin/pnpm"
       },
       "minVersion": "9.0.0",
-      "installPolicy": "core"
+      "installPolicy": "core",
+      "status": "built",
+      "available": true,
+      "url": "https://github.com/sero-labs/sero/releases/download/toolchains-2026-05-31/pnpm-macos-arm64.tar.gz",
+      "sha256": "c0142ea5f23fe85e7c364ea5f27b56b86ce8c0b27bec07242e559f84e6f06994"
     },
     "git-macos-arm64": {
       "tool": "git",
       "platform": "darwin",
       "arch": "arm64",
       "slug": "git-macos-arm64",
-      "status": "built",
-      "available": true,
-      "url": "https://github.com/sero-labs/sero/releases/download/toolchains-2026-05-16/git-macos-arm64.tar.gz",
-      "sha256": "5119bd9811458665b6dcc8f2d5f0131c3c7f960287689b8031fbd4ddc83be2f2",
       "unpackTo": "git-macos-arm64",
       "binPaths": {
-        "git": "bin/git"
+        "git": "git-macos-arm64/bin/git"
       },
       "minVersion": "2.30.0",
-      "installPolicy": "core"
+      "installPolicy": "core",
+      "status": "built",
+      "available": true,
+      "url": "https://github.com/sero-labs/sero/releases/download/toolchains-2026-05-31/git-macos-arm64.tar.gz",
+      "sha256": "f6295044caecc1ab9cee33fbe05349a241aa0475560f6a86380c67336a035dc0"
     },
     "ssh-macos-arm64": {
       "tool": "ssh",
       "platform": "darwin",
       "arch": "arm64",
       "slug": "ssh-macos-arm64",
-      "status": "built",
-      "available": true,
-      "url": "https://github.com/sero-labs/sero/releases/download/toolchains-2026-05-16/ssh-macos-arm64.tar.gz",
-      "sha256": "8b545388e64477c7b0a20d13d47a7b31d418bd595f20a43d16056f724c89a05b",
       "unpackTo": "ssh-macos-arm64",
       "binPaths": {
-        "ssh": "bin/ssh"
+        "ssh": "ssh-macos-arm64/bin/ssh"
       },
       "minVersion": "8.0.0",
-      "installPolicy": "core"
+      "installPolicy": "core",
+      "status": "built",
+      "available": true,
+      "url": "https://github.com/sero-labs/sero/releases/download/toolchains-2026-05-31/ssh-macos-arm64.tar.gz",
+      "sha256": "692e12db100657fce105015305083be1f3daea8098be9e08757982ae50a45477"
     },
     "bash-macos-arm64": {
       "tool": "bash",
       "platform": "darwin",
       "arch": "arm64",
       "slug": "bash-macos-arm64",
-      "status": "built",
-      "available": true,
-      "url": "https://github.com/sero-labs/sero/releases/download/toolchains-2026-05-16/bash-macos-arm64.tar.gz",
-      "sha256": "95388d315d2c9a8809549e80948d71184a5f743995b8b58c0cc7c330fc4567ec",
       "unpackTo": "bash-macos-arm64",
       "binPaths": {
-        "bash": "bin/bash"
+        "bash": "bash-macos-arm64/bin/bash"
       },
       "minVersion": "3.2.0",
-      "installPolicy": "core"
+      "installPolicy": "core",
+      "status": "built",
+      "available": true,
+      "url": "https://github.com/sero-labs/sero/releases/download/toolchains-2026-05-31/bash-macos-arm64.tar.gz",
+      "sha256": "96337e8a22a34a4fa77d9d0319da2fa1b3cda74bd862b3fbba1afffc166669cf"
     },
     "node-macos-x64": {
       "tool": "node",
       "platform": "darwin",
       "arch": "x64",
       "slug": "node-macos-x64",
-      "status": "pending",
-      "available": false,
       "unpackTo": "node-macos-x64",
       "binPaths": {
-        "node": "bin/node"
+        "node": "node-macos-x64/bin/node"
       },
       "minVersion": "22.0.0",
-      "installPolicy": "core"
+      "installPolicy": "core",
+      "status": "pending",
+      "available": false
     },
     "npm-macos-x64": {
       "tool": "npm",
       "platform": "darwin",
       "arch": "x64",
       "slug": "npm-macos-x64",
-      "status": "pending",
-      "available": false,
       "unpackTo": "npm-macos-x64",
       "binPaths": {
-        "npm": "bin/npm"
+        "npm": "npm-macos-x64/bin/npm"
       },
       "minVersion": "10.0.0",
-      "installPolicy": "core"
+      "installPolicy": "core",
+      "status": "pending",
+      "available": false
     },
     "pnpm-macos-x64": {
       "tool": "pnpm",
       "platform": "darwin",
       "arch": "x64",
       "slug": "pnpm-macos-x64",
-      "status": "pending",
-      "available": false,
       "unpackTo": "pnpm-macos-x64",
       "binPaths": {
-        "pnpm": "bin/pnpm"
+        "pnpm": "pnpm-macos-x64/bin/pnpm"
       },
       "minVersion": "9.0.0",
-      "installPolicy": "core"
+      "installPolicy": "core",
+      "status": "pending",
+      "available": false
     },
     "git-macos-x64": {
       "tool": "git",
       "platform": "darwin",
       "arch": "x64",
       "slug": "git-macos-x64",
-      "status": "pending",
-      "available": false,
       "unpackTo": "git-macos-x64",
       "binPaths": {
-        "git": "bin/git"
+        "git": "git-macos-x64/bin/git"
       },
       "minVersion": "2.30.0",
-      "installPolicy": "core"
+      "installPolicy": "core",
+      "status": "pending",
+      "available": false
     },
     "ssh-macos-x64": {
       "tool": "ssh",
       "platform": "darwin",
       "arch": "x64",
       "slug": "ssh-macos-x64",
-      "status": "pending",
-      "available": false,
       "unpackTo": "ssh-macos-x64",
       "binPaths": {
-        "ssh": "bin/ssh"
+        "ssh": "ssh-macos-x64/bin/ssh"
       },
       "minVersion": "8.0.0",
-      "installPolicy": "core"
+      "installPolicy": "core",
+      "status": "pending",
+      "available": false
     },
     "bash-macos-x64": {
       "tool": "bash",
       "platform": "darwin",
       "arch": "x64",
       "slug": "bash-macos-x64",
-      "status": "pending",
-      "available": false,
       "unpackTo": "bash-macos-x64",
       "binPaths": {
-        "bash": "bin/bash"
+        "bash": "bash-macos-x64/bin/bash"
       },
       "minVersion": "3.2.0",
-      "installPolicy": "core"
+      "installPolicy": "core",
+      "status": "pending",
+      "available": false
     },
     "node-linux-arm64": {
       "tool": "node",
       "platform": "linux",
       "arch": "arm64",
       "slug": "node-linux-arm64",
-      "status": "built",
-      "available": true,
-      "url": "https://github.com/sero-labs/sero/releases/download/toolchains-2026-05-16/node-linux-arm64.tar.gz",
-      "sha256": "0e958a7c61eb52752c64696a6b35da38be512276e47182926c096e96ae25e0bf",
       "unpackTo": "node-linux-arm64",
       "binPaths": {
-        "node": "bin/node"
+        "node": "node-linux-arm64/bin/node"
       },
       "minVersion": "22.0.0",
-      "installPolicy": "core"
+      "installPolicy": "core",
+      "status": "built",
+      "available": true,
+      "url": "https://github.com/sero-labs/sero/releases/download/toolchains-2026-05-31/node-linux-arm64.tar.gz",
+      "sha256": "9467bd562198e7d99167ef18512c286a031a9d162deaa82ad49b279e5f5f131b"
     },
     "npm-linux-arm64": {
       "tool": "npm",
       "platform": "linux",
       "arch": "arm64",
       "slug": "npm-linux-arm64",
-      "status": "built",
-      "available": true,
-      "url": "https://github.com/sero-labs/sero/releases/download/toolchains-2026-05-16/npm-linux-arm64.tar.gz",
-      "sha256": "1a3e6d24fe00e1186859b2e45d743ff224e3eb683cb0e6ff87fcb8051042664b",
       "unpackTo": "npm-linux-arm64",
       "binPaths": {
-        "npm": "bin/npm"
+        "npm": "npm-linux-arm64/bin/npm"
       },
       "minVersion": "10.0.0",
-      "installPolicy": "core"
+      "installPolicy": "core",
+      "status": "built",
+      "available": true,
+      "url": "https://github.com/sero-labs/sero/releases/download/toolchains-2026-05-31/npm-linux-arm64.tar.gz",
+      "sha256": "733e82278aa217b8fefbd188da48b4fcbf664fa66b8c135c4c2fec063a191f24"
     },
     "pnpm-linux-arm64": {
       "tool": "pnpm",
       "platform": "linux",
       "arch": "arm64",
       "slug": "pnpm-linux-arm64",
-      "status": "built",
-      "available": true,
-      "url": "https://github.com/sero-labs/sero/releases/download/toolchains-2026-05-16/pnpm-linux-arm64.tar.gz",
-      "sha256": "f7dce46fd8918d8a40e3bb6e67d6dd34d6f52fd618df34f3ef227ad4edc7e33c",
       "unpackTo": "pnpm-linux-arm64",
       "binPaths": {
-        "pnpm": "bin/pnpm"
+        "pnpm": "pnpm-linux-arm64/bin/pnpm"
       },
       "minVersion": "9.0.0",
-      "installPolicy": "core"
+      "installPolicy": "core",
+      "status": "built",
+      "available": true,
+      "url": "https://github.com/sero-labs/sero/releases/download/toolchains-2026-05-31/pnpm-linux-arm64.tar.gz",
+      "sha256": "b725f11162a4ccfd39fa0170857a67b45e75547ba81e75ff5a3de32bb5246471"
     },
     "git-linux-arm64": {
       "tool": "git",
       "platform": "linux",
       "arch": "arm64",
       "slug": "git-linux-arm64",
-      "status": "built",
-      "available": true,
-      "url": "https://github.com/sero-labs/sero/releases/download/toolchains-2026-05-16/git-linux-arm64.tar.gz",
-      "sha256": "35cbf8f69e242dcf7614488d447cf028e24bd6251e3828b77642a74264417d49",
       "unpackTo": "git-linux-arm64",
       "binPaths": {
-        "git": "bin/git"
+        "git": "git-linux-arm64/bin/git"
       },
       "minVersion": "2.30.0",
-      "installPolicy": "core"
+      "installPolicy": "core",
+      "status": "built",
+      "available": true,
+      "url": "https://github.com/sero-labs/sero/releases/download/toolchains-2026-05-31/git-linux-arm64.tar.gz",
+      "sha256": "cc718bc6c0198482c1da6238599e93a952afbac717d6843c17f34eb3ac5a56a5"
     },
     "ssh-linux-arm64": {
       "tool": "ssh",
       "platform": "linux",
       "arch": "arm64",
       "slug": "ssh-linux-arm64",
-      "status": "built",
-      "available": true,
-      "url": "https://github.com/sero-labs/sero/releases/download/toolchains-2026-05-16/ssh-linux-arm64.tar.gz",
-      "sha256": "7f49957e4d2f479a54c382517152504875997905ebccdfb9f767e729ce64626e",
       "unpackTo": "ssh-linux-arm64",
       "binPaths": {
-        "ssh": "bin/ssh"
+        "ssh": "ssh-linux-arm64/bin/ssh"
       },
       "minVersion": "8.0.0",
-      "installPolicy": "core"
+      "installPolicy": "core",
+      "status": "built",
+      "available": true,
+      "url": "https://github.com/sero-labs/sero/releases/download/toolchains-2026-05-31/ssh-linux-arm64.tar.gz",
+      "sha256": "48b6ec33f3bc07af9b5c700b408fc3fd5ddf2493d93ce574844da90408f92f39"
     },
     "bash-linux-arm64": {
       "tool": "bash",
       "platform": "linux",
       "arch": "arm64",
       "slug": "bash-linux-arm64",
-      "status": "built",
-      "available": true,
-      "url": "https://github.com/sero-labs/sero/releases/download/toolchains-2026-05-16/bash-linux-arm64.tar.gz",
-      "sha256": "478cc6a68ef5198fbff527647753a07f1f2039e331d86a1246ac07e97de723b0",
       "unpackTo": "bash-linux-arm64",
       "binPaths": {
-        "bash": "bin/bash"
+        "bash": "bash-linux-arm64/bin/bash"
       },
       "minVersion": "3.2.0",
-      "installPolicy": "core"
+      "installPolicy": "core",
+      "status": "built",
+      "available": true,
+      "url": "https://github.com/sero-labs/sero/releases/download/toolchains-2026-05-31/bash-linux-arm64.tar.gz",
+      "sha256": "3a405d9cc943f7b7a34b640346d92b3272625b35cba137907fc2ab7c98794c81"
     },
     "node-linux-x64": {
       "tool": "node",
       "platform": "linux",
       "arch": "x64",
       "slug": "node-linux-x64",
-      "status": "built",
-      "available": true,
-      "url": "https://github.com/sero-labs/sero/releases/download/toolchains-2026-05-16/node-linux-x64.tar.gz",
-      "sha256": "4c175beb78eb3ce63721df399d16c88c5c1d5f157449e43bb54e782177a66a3d",
       "unpackTo": "node-linux-x64",
       "binPaths": {
-        "node": "bin/node"
+        "node": "node-linux-x64/bin/node"
       },
       "minVersion": "22.0.0",
-      "installPolicy": "core"
+      "installPolicy": "core",
+      "status": "built",
+      "available": true,
+      "url": "https://github.com/sero-labs/sero/releases/download/toolchains-2026-05-31/node-linux-x64.tar.gz",
+      "sha256": "828c25c73e2e8e6927820f4b788044de8ee5b3888c1fb0e464331e01d1508279"
     },
     "npm-linux-x64": {
       "tool": "npm",
       "platform": "linux",
       "arch": "x64",
       "slug": "npm-linux-x64",
-      "status": "built",
-      "available": true,
-      "url": "https://github.com/sero-labs/sero/releases/download/toolchains-2026-05-16/npm-linux-x64.tar.gz",
-      "sha256": "345d7b46412a51388cfa21873e5c1f36cc58d41ea01bb69f9a271469c9281298",
       "unpackTo": "npm-linux-x64",
       "binPaths": {
-        "npm": "bin/npm"
+        "npm": "npm-linux-x64/bin/npm"
       },
       "minVersion": "10.0.0",
-      "installPolicy": "core"
+      "installPolicy": "core",
+      "status": "built",
+      "available": true,
+      "url": "https://github.com/sero-labs/sero/releases/download/toolchains-2026-05-31/npm-linux-x64.tar.gz",
+      "sha256": "9adc70978f8a5f7d1af90331a9cb4d18c7d309e482b1816c9dae089037e85354"
     },
     "pnpm-linux-x64": {
       "tool": "pnpm",
       "platform": "linux",
       "arch": "x64",
       "slug": "pnpm-linux-x64",
-      "status": "built",
-      "available": true,
-      "url": "https://github.com/sero-labs/sero/releases/download/toolchains-2026-05-16/pnpm-linux-x64.tar.gz",
-      "sha256": "5f040cc7fd0cbb9d91c7c7cdd84cf74dd906bc2a7ea673f8fad143bd310f4952",
       "unpackTo": "pnpm-linux-x64",
       "binPaths": {
-        "pnpm": "bin/pnpm"
+        "pnpm": "pnpm-linux-x64/bin/pnpm"
       },
       "minVersion": "9.0.0",
-      "installPolicy": "core"
+      "installPolicy": "core",
+      "status": "built",
+      "available": true,
+      "url": "https://github.com/sero-labs/sero/releases/download/toolchains-2026-05-31/pnpm-linux-x64.tar.gz",
+      "sha256": "dd997b3450cfc191bfbdc6896e39647bfb088c82ca00b2767bc40a1957cfa824"
     },
     "git-linux-x64": {
       "tool": "git",
       "platform": "linux",
       "arch": "x64",
       "slug": "git-linux-x64",
-      "status": "built",
-      "available": true,
-      "url": "https://github.com/sero-labs/sero/releases/download/toolchains-2026-05-16/git-linux-x64.tar.gz",
-      "sha256": "8bb7986e3ff23ec3c8dafdbed621ac6fe4a20d935cd37a6c133b7e023aa50fff",
       "unpackTo": "git-linux-x64",
       "binPaths": {
-        "git": "bin/git"
+        "git": "git-linux-x64/bin/git"
       },
       "minVersion": "2.30.0",
-      "installPolicy": "core"
+      "installPolicy": "core",
+      "status": "built",
+      "available": true,
+      "url": "https://github.com/sero-labs/sero/releases/download/toolchains-2026-05-31/git-linux-x64.tar.gz",
+      "sha256": "c3c6c73529498e0026c21ae707b88af2f55f345be35d8d15fcfc1dd99b69c193"
     },
     "ssh-linux-x64": {
       "tool": "ssh",
       "platform": "linux",
       "arch": "x64",
       "slug": "ssh-linux-x64",
-      "status": "built",
-      "available": true,
-      "url": "https://github.com/sero-labs/sero/releases/download/toolchains-2026-05-16/ssh-linux-x64.tar.gz",
-      "sha256": "a2f43c0f2d8b53b7bb48c95404b6fac03410397d4b285e3fdd4c762a061840db",
       "unpackTo": "ssh-linux-x64",
       "binPaths": {
-        "ssh": "bin/ssh"
+        "ssh": "ssh-linux-x64/bin/ssh"
       },
       "minVersion": "8.0.0",
-      "installPolicy": "core"
+      "installPolicy": "core",
+      "status": "built",
+      "available": true,
+      "url": "https://github.com/sero-labs/sero/releases/download/toolchains-2026-05-31/ssh-linux-x64.tar.gz",
+      "sha256": "b93a8d3f523e7c44463ed0d78019a78865e4d24a162f2a3468fa899628646a8a"
     },
     "bash-linux-x64": {
       "tool": "bash",
       "platform": "linux",
       "arch": "x64",
       "slug": "bash-linux-x64",
-      "status": "built",
-      "available": true,
-      "url": "https://github.com/sero-labs/sero/releases/download/toolchains-2026-05-16/bash-linux-x64.tar.gz",
-      "sha256": "a686b40502d3f7d123aab13f339234cb506a13ab02e347e9172634dc3000531d",
       "unpackTo": "bash-linux-x64",
       "binPaths": {
-        "bash": "bin/bash"
+        "bash": "bash-linux-x64/bin/bash"
       },
       "minVersion": "3.2.0",
-      "installPolicy": "core"
+      "installPolicy": "core",
+      "status": "built",
+      "available": true,
+      "url": "https://github.com/sero-labs/sero/releases/download/toolchains-2026-05-31/bash-linux-x64.tar.gz",
+      "sha256": "e6077aae2b55b6a4302a5750bd39c8ab9e814ae1480db4b6e8c63b0c8cebd2ec"
     },
     "node-windows-x64": {
       "tool": "node",
       "platform": "win32",
       "arch": "x64",
       "slug": "node-windows-x64",
-      "status": "built",
-      "available": true,
-      "url": "https://github.com/sero-labs/sero/releases/download/toolchains-2026-05-16/node-windows-x64.tar.gz",
-      "sha256": "2fa2a169efdc97ba3db9f671d71f66bdb529e801c5933c1554b4009358a0fc92",
       "unpackTo": "node-windows-x64",
       "binPaths": {
-        "node": "bin/node.exe"
+        "node": "node-windows-x64/bin/node.exe"
       },
       "minVersion": "22.0.0",
-      "installPolicy": "core"
+      "installPolicy": "core",
+      "status": "built",
+      "available": true,
+      "url": "https://github.com/sero-labs/sero/releases/download/toolchains-2026-05-31/node-windows-x64.tar.gz",
+      "sha256": "7c58730bb447ac73d534eeabe102ce42279f92266cdd4ba98c5f8d57793415df"
     },
     "npm-windows-x64": {
       "tool": "npm",
       "platform": "win32",
       "arch": "x64",
       "slug": "npm-windows-x64",
-      "status": "built",
-      "available": true,
-      "url": "https://github.com/sero-labs/sero/releases/download/toolchains-2026-05-16/npm-windows-x64.tar.gz",
-      "sha256": "ad98a3e0d2b88fb5d6eecf0800bb260e5e1cb196c357f0e28562c3e7e6428389",
       "unpackTo": "npm-windows-x64",
       "binPaths": {
-        "npm": "bin/npm.cmd"
+        "npm": "npm-windows-x64/bin/npm.cmd"
       },
       "minVersion": "10.0.0",
-      "installPolicy": "core"
+      "installPolicy": "core",
+      "status": "built",
+      "available": true,
+      "url": "https://github.com/sero-labs/sero/releases/download/toolchains-2026-05-31/npm-windows-x64.tar.gz",
+      "sha256": "2e375ed6b595ffa6592fdced13fbf6f3be31d37b9ca8d454797d670999d0d2f6"
     },
     "pnpm-windows-x64": {
       "tool": "pnpm",
       "platform": "win32",
       "arch": "x64",
       "slug": "pnpm-windows-x64",
-      "status": "built",
-      "available": true,
-      "url": "https://github.com/sero-labs/sero/releases/download/toolchains-2026-05-16/pnpm-windows-x64.tar.gz",
-      "sha256": "c997f3e281a1213eac2e5ea00ee6cb273708f727ced85b42f40730dc40366555",
       "unpackTo": "pnpm-windows-x64",
       "binPaths": {
-        "pnpm": "bin/pnpm.cmd"
+        "pnpm": "pnpm-windows-x64/bin/pnpm.exe"
       },
       "minVersion": "9.0.0",
-      "installPolicy": "core"
+      "installPolicy": "core",
+      "status": "built",
+      "available": true,
+      "url": "https://github.com/sero-labs/sero/releases/download/toolchains-2026-05-31/pnpm-windows-x64.tar.gz",
+      "sha256": "dcddeb3c519ae5f16dd40d42f837790f0224237d3ae41b36e74ecae6470d89e1"
     },
     "git-windows-x64": {
       "tool": "git",
       "platform": "win32",
       "arch": "x64",
       "slug": "git-windows-x64",
-      "status": "built",
-      "available": true,
-      "url": "https://github.com/sero-labs/sero/releases/download/toolchains-2026-05-16/git-windows-x64.tar.gz",
-      "sha256": "4bf11bfc98b157d51e6f7494223bdb7af9bcd9f79a03cf58d499a715d09a8e35",
       "unpackTo": "git-windows-x64",
       "binPaths": {
-        "git": "mingw64/bin/git.exe"
+        "git": "git-windows-x64/cmd/git.exe"
       },
       "minVersion": "2.30.0",
-      "installPolicy": "core"
+      "installPolicy": "core",
+      "status": "built",
+      "available": true,
+      "url": "https://github.com/sero-labs/sero/releases/download/toolchains-2026-05-31/git-windows-x64.tar.gz",
+      "sha256": "32d745c48e78e918ec7769160c72fe51f006d1635297b94648eac8e0e541fc70"
     },
     "ssh-windows-x64": {
       "tool": "ssh",
       "platform": "win32",
       "arch": "x64",
       "slug": "ssh-windows-x64",
-      "status": "built",
-      "available": true,
-      "url": "https://github.com/sero-labs/sero/releases/download/toolchains-2026-05-16/ssh-windows-x64.tar.gz",
-      "sha256": "3d4b84e5853f43960d5df63ef14ca440414777586ad097375fb882f392c582e5",
       "unpackTo": "ssh-windows-x64",
       "binPaths": {
-        "ssh": "usr/bin/ssh.exe"
+        "ssh": "ssh-windows-x64/usr/bin/ssh.exe"
       },
       "minVersion": "8.0.0",
-      "installPolicy": "core"
+      "installPolicy": "core",
+      "status": "built",
+      "available": true,
+      "url": "https://github.com/sero-labs/sero/releases/download/toolchains-2026-05-31/ssh-windows-x64.tar.gz",
+      "sha256": "a037abb06a523768f7c4e0097892b7864d2aae920303fc108bd5dd5b08ae0aa8"
     },
     "bash-windows-x64": {
       "tool": "bash",
       "platform": "win32",
       "arch": "x64",
       "slug": "bash-windows-x64",
-      "status": "built",
-      "available": true,
-      "url": "https://github.com/sero-labs/sero/releases/download/toolchains-2026-05-16/bash-windows-x64.tar.gz",
-      "sha256": "78b6d9d3a92767d1d5fde162055dce02e6d8a7df496dbcb85b408b8e3373b7f4",
       "unpackTo": "bash-windows-x64",
       "binPaths": {
-        "bash": "usr/bin/bash.exe"
+        "bash": "bash-windows-x64/bin/bash.exe"
       },
       "minVersion": "3.2.0",
-      "installPolicy": "core"
+      "installPolicy": "core",
+      "status": "built",
+      "available": true,
+      "url": "https://github.com/sero-labs/sero/releases/download/toolchains-2026-05-31/bash-windows-x64.tar.gz",
+      "sha256": "3adbb6f9346f5e348bd7e9341d94d4bc1a41402aa06823cde2062e05099e5e55"
     }
   }
 }
