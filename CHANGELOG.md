@@ -6,6 +6,16 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 and beta release tags use a SemVer prerelease form.
 
 
+## [0.2.4-beta.0](https://github.com/sero-labs/sero/compare/v0.2.3-beta.0...v0.2.4-beta.0) (2026-05-31)
+
+### Documentation
+
+* update sero plugin packaging guidance ([bb1f954](https://github.com/sero-labs/sero/commit/bb1f95499b0aed115c21d6cc3fb495ba84515d73))
+
+### Refactoring
+
+* externalize Alibaba provider plugin ([#197](https://github.com/sero-labs/sero/issues/197)) ([28b517d](https://github.com/sero-labs/sero/commit/28b517dc9a5a0b240d6e2aa198e1fd5e5b49c9ca))
+
 ## [0.2.3-beta.0](https://github.com/sero-labs/sero/compare/v0.2.2-beta.0...v0.2.3-beta.0) (2026-05-30)
 
 ### Bug Fixes
