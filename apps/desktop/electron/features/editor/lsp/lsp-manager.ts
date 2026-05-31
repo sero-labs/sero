@@ -26,6 +26,11 @@ class HostCoreToolsUnavailableError extends Error {
   }
 }
 
+const HOST_NODE_NPM_PROBE = [
+  'node -e "process.exit(Number(process.versions.node.split(\'.\')[0]) >= 22 ? 0 : 1)"',
+  'npm --version',
+].map((command) => `${command} >/dev/null 2>&1`).join(' && ');
+
 export class LspManager extends EventEmitter {
   /** workspaceId → language → LspServerProcess */
   private servers = new Map<string, Map<string, LspServerProcess>>();
@@ -236,14 +241,21 @@ export class LspManager extends EventEmitter {
 
   private async ensureHostCoreTools(runtime: RuntimeBackend, language: string): Promise<void> {
     if (runtime.backend !== 'host') return;
+    if (await hostRuntimeHasNodeAndNpm(runtime)) return;
 
     const status = await ensureCoreTools(`language server: ${language}`);
     if (status.state === 'ready') return;
 
     const tool = status.tools.find((candidate) => candidate.state !== 'ready');
     const detail = tool ? `${tool.tool} is ${tool.state}` : `core tools are ${status.state}`;
+    const errorDetail = status.error ? ` ${status.error.message}.` : '';
     throw new HostCoreToolsUnavailableError(
-      `Host language servers require Sero managed core tools. ${detail}. Repair core tools in Runtime settings and try again.`,
+      `Host language servers require Sero managed core tools. ${detail}.${errorDetail} Repair core tools in Runtime settings and try again.`,
     );
   }
+}
+
+async function hostRuntimeHasNodeAndNpm(runtime: RuntimeBackend): Promise<boolean> {
+  const result = await runtime.exec({ command: HOST_NODE_NPM_PROBE, timeoutMs: 15_000 });
+  return result.exitCode === 0;
 }
