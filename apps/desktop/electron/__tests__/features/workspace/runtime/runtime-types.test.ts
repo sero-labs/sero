@@ -348,6 +348,45 @@ describe('runtime backend contract skeleton', () => {
     expect(legacyList).toHaveBeenCalledWith('workspace-a');
   });
 
+  it('purges stale legacy dev servers when a host runtime is active', async () => {
+    let legacyServers = [{
+      id: 'workspace-a:workspace:root:7000',
+      workspaceId: 'workspace-a',
+      port: 7000,
+      url: 'http://127.0.0.1:7000',
+      command: 'npm run dev',
+      cwd: '/workspace',
+      status: 'running' as const,
+    }];
+    const legacyList = vi.fn((workspaceId?: string) => (
+      workspaceId ? legacyServers.filter((server) => server.workspaceId === workspaceId) : legacyServers
+    ));
+    const unregister = vi.fn((serverId: string) => {
+      const exists = legacyServers.some((server) => server.id === serverId);
+      legacyServers = legacyServers.filter((server) => server.id !== serverId);
+      return exists;
+    });
+    const manager = new RuntimeManager({
+      workspaceManager: {
+        getPath: vi.fn().mockReturnValue('/Users/daniel/project'),
+        getRuntimeConfig: vi.fn().mockResolvedValue({ backend: 'host' }),
+      } as unknown as WorkspaceManager,
+      containerManager: { devServers: { list: legacyList, unregister } } as unknown as ContainerManager,
+    });
+    const events: unknown[] = [];
+
+    manager.onDevServerChange((event) => events.push(event));
+    await manager.getRuntime('workspace-a');
+
+    expect(unregister).toHaveBeenCalledWith('workspace-a:workspace:root:7000');
+    expect(events).toContainEqual(expect.objectContaining({
+      type: 'unregistered',
+      workspaceId: 'workspace-a',
+      serverId: 'workspace-a:workspace:root:7000',
+    }));
+    expect(manager.listDevServersSync('workspace-a')).toEqual([]);
+  });
+
   it('disposes terminal sessions without forcing a POSIX signal', async () => {
     const signal = vi.fn();
     const manager = new RuntimeManager({
