@@ -76,11 +76,11 @@ Scenarios:
 
 1. Built-in plugin package registration:
    - Launch with `createTempSeroHome()` and host runtime.
-   - Read `<SERO_HOME>/agent/settings.json` and assert all shipped plugin package paths are registered (`admin`, `alibaba`, `cron`, `git`, `mcp`, `memory`, `user-feedback`, `web`).
+   - Read `<SERO_HOME>/agent/settings.json` and assert all shipped plugin package paths are registered (`admin`, `cron`, `git`, `mcp`, `memory`, `user-feedback`, `web`).
 2. App discovery manifest contract:
    - `window.sero.apps.discover()` returns UI app manifests for `admin`, `cron`, `git`, `mcp`, `userfeedback`, and `web`.
    - Assert stable manifest fields: `id`, `name`, `scope`, `stateFile`, `packagePath`, `isPlugin`, `plugin.category/tags`, `component` for UI apps.
-   - Assert extension-only plugins (`memory`, `alibaba`) are registered in settings but not app manifests.
+   - Assert the extension-only Memory plugin is registered in settings but not app manifests.
 3. Built-ins are not installed plugins:
    - `window.sero.plugins.list()` starts empty.
    - `window.sero.plugins.isPlugin('mcp')` and `isPlugin('admin')` are false because built-ins do not appear in Plugin Manager installs.

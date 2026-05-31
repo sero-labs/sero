@@ -87,8 +87,8 @@ as backlog-only follow-ups, not active refactor-wave work.
 ## plugins/
 - [`plugins/sero-admin-plugin/`](./plugins/sero-admin-plugin/plan.md)
   — *Healthy — High bridge duplication plus E3/E5 session, refresh, dead-code, and coverage cleanup all cleared 2026-04-14*
-- `plugins/sero-alibaba-plugin/`
-  — *Phase 0 baseline mapped 2026-04-13; narrow provider-plugin review pending*
+- `github.com/sero-labs/sero-alibaba-plugin`
+  — *Moved out of the built-in Sero host into the external plugin repo on 2026-05-31*
 - [`plugins/sero-cron-plugin/`](./plugins/sero-cron-plugin/plan.md)
   — *Healthy — High persisted-state/startup-recovery items plus E4 reminder ownership and E5 logging/modularization/UI coverage cleanup all cleared 2026-04-14; Low widget-fidelity polish remains deferred*
 - [`plugins/sero-git-plugin/`](./plugins/sero-git-plugin/plan.md)

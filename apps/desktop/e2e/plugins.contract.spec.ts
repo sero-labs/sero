@@ -5,7 +5,7 @@ import { closeSeroApp, launchSeroApp } from './helpers/electron-app';
 import { createTempSeroHome, type TempSeroHome } from './helpers/seroHome';
 import type { SeroAppManifest } from '../src/types/ipc';
 
-const builtinPlugins = ['admin', 'alibaba', 'cron', 'git', 'mcp', 'memory', 'user-feedback', 'web'];
+const builtinPlugins = ['admin', 'cron', 'git', 'mcp', 'memory', 'user-feedback', 'web'];
 const uiBuiltins = ['admin', 'cron', 'git', 'mcp', 'userfeedback', 'web'];
 const fixturePath = path.resolve(__dirname, 'fixtures/test-plugin');
 
@@ -78,7 +78,6 @@ test.describe('Plugin manager and discovery contracts', () => {
     }
 
     expect(byId.has('memory')).toBe(false);
-    expect(byId.has('alibaba')).toBe(false);
   });
 
   test('keeps built-ins out of installed plugin manager list', async () => {

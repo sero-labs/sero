@@ -16,7 +16,6 @@ Built-in plugins may appear in app discovery or favorites, but they are not thir
 | Plugin | Package | Docs | Notes |
 | --- | --- | --- | --- |
 | Admin | `@sero-ai/plugin-admin` | [Guide](/guide/settings-models-admin) | Config editor, logs, sessions, agents/skills/prompts; global state file declared by manifest. |
-| Alibaba Coding Plan | `@sero-ai/plugin-alibaba` | [Models guide](/guide/models-and-providers#plugin-defined-providers) | Provider-only package; API key env var `ALIBABA_CODING_PLAN_KEY`; no app UI. |
 | Scheduler | `@sero-ai/plugin-cron` | [Guide](/guide/scheduler-reminders) | Reminders and recurring jobs; dashboard widget manifest. |
 | Git | `@sero-ai/plugin-git` | [Guide](/guide/git-integration) | Visual Git workspace manager. |
 | MCP | `@sero-ai/plugin-mcp` | [Guide](/guide/mcp) | MCP manager app; manifest bridges selected `mcp` tool behavior. |
@@ -46,6 +45,7 @@ These smaller or demo plugins are covered here to avoid sidebar bloat. They are 
 
 | Plugin | Package | Try first | Limitations / caveat |
 | --- | --- | --- | --- |
+| Alibaba Coding Plan | `@sero-ai/plugin-alibaba` | [Models guide](/guide/models-and-providers#plugin-defined-providers) | Provider-only package; install from `git:https://github.com/sero-labs/sero-alibaba-plugin.git`; API key env var `ALIBABA_CODING_PLAN_KEY`; no sidebar UI. |
 | Calculator | `@sero-ai/plugin-calc` | Ask Sero to calculate a harmless expression, or open the Calculator app if activated. | Utility/demo plugin; state is global app state per manifest. |
 | Daily Quote | `@sero-ai/plugin-daily-quote` | Open Daily Quote or ask for a demo quote. | Good author example; global state. See [App Runtime](/reference/app-runtime). |
 | Humanizer | `@sero-ai/plugin-humanizer` | Transform a short fake paragraph, then compare output in the side-by-side UI. | Do not market output as undetectable; verify claims manually. |

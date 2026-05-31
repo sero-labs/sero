@@ -50,7 +50,7 @@ Packages can add provider metadata through `sero.providers` in their manifest. S
 
 | Provider | Provider ID | Source | Auth mode | Notes |
 | --- | --- | --- | --- | --- |
-| Alibaba Coding Plan | `alibaba-coding-plan` | `plugins/sero-alibaba-plugin/package.json` | API key; env var `ALIBABA_CODING_PLAN_KEY` | Plugin manifest declares default tiers for Qwen-family models. Present when the package manifest is available and compatible. |
+| Alibaba Coding Plan | `alibaba-coding-plan` | `git:https://github.com/sero-labs/sero-alibaba-plugin.git` | API key; env var `ALIBABA_CODING_PLAN_KEY` | External provider-only plugin. Install it before selecting Qwen-family defaults. |
 
 Plugin-defined providers follow the same health/reconnect behavior as other API-key providers when their manifest declares `auth.type: "apiKey"`.
 

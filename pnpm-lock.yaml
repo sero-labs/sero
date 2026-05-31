@@ -632,19 +632,6 @@ importers:
         specifier: 'catalog:'
         version: 4.1.7(@opentelemetry/api@1.9.0)(@types/node@22.19.15)(jsdom@26.1.0(supports-color@7.2.0))(msw@2.12.10(@types/node@22.19.15)(typescript@5.9.3))(vite@6.4.2(@types/node@22.19.15)(jiti@2.7.0)(lightningcss@1.32.0)(sass-embedded@1.99.0)(sass@1.99.0)(terser@5.48.0)(tsx@4.21.0)(yaml@2.9.0))
 
-  plugins/sero-alibaba-plugin:
-    dependencies:
-      '@earendil-works/pi-coding-agent':
-        specifier: catalog:peer
-        version: 0.78.0(ws@8.20.0)(zod@4.4.3)
-    devDependencies:
-      '@types/node':
-        specifier: 'catalog:'
-        version: 22.19.15
-      typescript:
-        specifier: 'catalog:'
-        version: 5.9.3
-
   plugins/sero-cron-plugin:
     dependencies:
       '@earendil-works/pi-ai':
