@@ -39,15 +39,15 @@ describe('toolchain manifest helpers', () => {
     const loaded = loadBundledToolchainManifest();
     const coreTools = ['node', 'npm', 'pnpm', 'git', 'ssh', 'bash'] as const;
     const targets = [
-      { platform: 'darwin', arch: 'arm64' },
-      { platform: 'linux', arch: 'arm64' },
-      { platform: 'linux', arch: 'x64' },
-      { platform: 'win32', arch: 'x64' },
+      { platform: 'darwin', arch: 'arm64', tools: ['node', 'npm', 'pnpm'] },
+      { platform: 'linux', arch: 'arm64', tools: coreTools },
+      { platform: 'linux', arch: 'x64', tools: coreTools },
+      { platform: 'win32', arch: 'x64', tools: coreTools },
     ] as const;
 
-    expect(Object.keys(loaded.artifacts).length).toBe(coreTools.length * targets.length);
+    expect(Object.keys(loaded.artifacts).length).toBe(targets.reduce((count, target) => count + target.tools.length, 0));
     for (const target of targets) {
-      for (const tool of coreTools) {
+      for (const tool of target.tools) {
         expect(findArtifactForPlatform(loaded, tool, target.platform, target.arch)).toMatchObject({
           tool,
           platform: target.platform,

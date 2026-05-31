@@ -15,6 +15,7 @@ const hostReleaseMatrixPath = path.join(
   'electron/features/workspace/runtime/host-support-matrix.json',
 );
 const coreTools = ['node', 'npm', 'pnpm', 'git', 'ssh', 'bash'];
+const macosSystemCoreTools = new Set(['git', 'ssh', 'bash']);
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   main().catch((error) => {
@@ -47,7 +48,7 @@ export async function verifyToolchainPublication({ targets, metadata, downloadAr
   const productionUrlPrefix = `https://github.com/sero-labs/sero/releases/download/${releaseTag}/`;
 
   for (const target of targets) {
-    for (const tool of coreTools) {
+    for (const tool of requiredCoreToolsForTarget(target)) {
       const key = artifactKey(metadata, target, tool);
       const artifact = key ? metadata?.artifacts?.[key] : undefined;
       if (!target.releaseSupported) {
@@ -76,6 +77,11 @@ export async function verifyToolchainPublication({ targets, metadata, downloadAr
 
   if (failures.length > 0) throw new Error(failures.join('\n'));
   return { verifiedKeys, warnings };
+}
+
+function requiredCoreToolsForTarget(target) {
+  if (target.platform === 'darwin') return coreTools.filter((tool) => !macosSystemCoreTools.has(tool));
+  return coreTools;
 }
 
 function validateArtifactMetadata({ key, artifact, productionUrlPrefix, releaseTag }) {

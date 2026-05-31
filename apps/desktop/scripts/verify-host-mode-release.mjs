@@ -139,12 +139,11 @@ function checkBrowserPackMetadata(targets, metadata, failures) {
 }
 
 function checkToolchainMetadata(targets, metadata, failures) {
-  const coreTools = ['node', 'npm', 'pnpm', 'git', 'ssh', 'bash'];
   const requiredArtifactKeys = [];
   const productionUrlPrefix = `https://github.com/sero-labs/sero/releases/download/${metadata?.releaseTag ?? ''}/`;
   for (const target of targets) {
     if (!target.releaseSupported) continue;
-    for (const tool of coreTools) {
+    for (const tool of requiredCoreToolsForTarget(target)) {
       const entry = Object.entries(metadata?.artifacts ?? {}).find(([, artifact]) => (
         artifact.tool === tool && artifact.platform === target.platform && artifact.arch === target.arch
       ));
@@ -167,6 +166,13 @@ function checkToolchainMetadata(targets, metadata, failures) {
     }
   }
   return requiredArtifactKeys;
+}
+
+
+function requiredCoreToolsForTarget(target) {
+  const coreTools = ['node', 'npm', 'pnpm', 'git', 'ssh', 'bash'];
+  if (target.platform === 'darwin') return coreTools.filter((tool) => !['git', 'ssh', 'bash'].includes(tool));
+  return coreTools;
 }
 
 function checkPackageScripts(packageJson, failures) {

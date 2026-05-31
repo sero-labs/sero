@@ -61,10 +61,8 @@
       },
       "minVersion": "2.30.0",
       "installPolicy": "core",
-      "status": "built",
-      "available": true,
-      "url": "https://github.com/sero-labs/sero/releases/download/toolchains-2026-05-31/git-macos-arm64.tar.gz",
-      "sha256": "f6295044caecc1ab9cee33fbe05349a241aa0475560f6a86380c67336a035dc0"
+      "status": "pending",
+      "available": false
     },
     "ssh-macos-arm64": {
       "tool": "ssh",
@@ -77,10 +75,8 @@
       },
       "minVersion": "8.0.0",
       "installPolicy": "core",
-      "status": "built",
-      "available": true,
-      "url": "https://github.com/sero-labs/sero/releases/download/toolchains-2026-05-31/ssh-macos-arm64.tar.gz",
-      "sha256": "692e12db100657fce105015305083be1f3daea8098be9e08757982ae50a45477"
+      "status": "pending",
+      "available": false
     },
     "bash-macos-arm64": {
       "tool": "bash",
@@ -93,10 +89,8 @@
       },
       "minVersion": "3.2.0",
       "installPolicy": "core",
-      "status": "built",
-      "available": true,
-      "url": "https://github.com/sero-labs/sero/releases/download/toolchains-2026-05-31/bash-macos-arm64.tar.gz",
-      "sha256": "96337e8a22a34a4fa77d9d0319da2fa1b3cda74bd862b3fbba1afffc166669cf"
+      "status": "pending",
+      "available": false
     },
     "node-macos-x64": {
       "tool": "node",
