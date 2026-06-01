@@ -170,9 +170,10 @@ function buildStandardFeed(
 ): ChatItem[] {
   items.push({ kind: 'phase', key: 'phase-research', phase: 'research' });
 
+  const specialistsByRole = indexSpecialistsByRole(specialists);
   const completedRoles = new Set(specialists.map((s) => s.role));
 
-  const researcher = specialists.find((s) => s.role === 'researcher');
+  const researcher = specialistsByRole.get('researcher');
   if (researcher) {
     items.push({ kind: 'message', key: 'msg-researcher', role: 'researcher', text: researcher.response, durationMs: researcher.durationMs, isError: !!researcher.error });
   } else if (status === 'research') {
@@ -184,7 +185,7 @@ function buildStandardFeed(
   }
 
   for (const role of ['analyst', 'visionary'] as CollaborationRole[]) {
-    const spec = specialists.find((s) => s.role === role);
+    const spec = specialistsByRole.get(role);
     if (spec) {
       items.push({ kind: 'message', key: `msg-${role}`, role, text: spec.response, durationMs: spec.durationMs, isError: !!spec.error });
     } else if (status === 'specialists') {
@@ -196,7 +197,7 @@ function buildStandardFeed(
     items.push({ kind: 'phase', key: 'phase-synthesis', phase: 'synthesis' });
   }
 
-  const coordinator = specialists.find((s) => s.role === 'coordinator');
+  const coordinator = specialistsByRole.get('coordinator');
   if (coordinator) {
     items.push({ kind: 'message', key: 'msg-coordinator', role: 'coordinator', text: coordinator.response, durationMs: coordinator.durationMs, isError: !!coordinator.error });
   } else if (status === 'synthesis') {
@@ -215,12 +216,13 @@ function buildDebateFeed(
 ): ChatItem[] {
   const phases: string[] = ['decomposition', 'independent_analysis', 'debate', 'synthesis'];
   const currentIdx = phases.indexOf(debate.phase);
+  const specialistsByRole = indexSpecialistsByRole(specialists);
 
   for (let i = 0; i <= currentIdx; i++) {
     items.push({ kind: 'phase', key: `phase-${phases[i]}`, phase: phases[i]! });
 
     if (phases[i] === 'decomposition') {
-      const decomposition = specialists.find((s) => s.role === 'coordinator');
+      const decomposition = specialistsByRole.get('coordinator');
       const coordinatorStatus =
         debate.agentStatuses.coordinator ?? debate.agentStatuses['collab-coordinator'];
       if (decomposition) {
@@ -239,7 +241,7 @@ function buildDebateFeed(
 
     if (phases[i] === 'independent_analysis') {
       for (const role of ['researcher', 'analyst', 'visionary'] as CollaborationRole[]) {
-        const spec = specialists.find((s) => s.role === role);
+        const spec = specialistsByRole.get(role);
         const agentName = role === 'analyst' ? 'collab-analyst' : role;
         const agentStatus = debate.agentStatuses[agentName];
         if (spec) {
@@ -277,6 +279,14 @@ function buildDebateFeed(
   }
 
   return items;
+}
+
+function indexSpecialistsByRole(specialists: SpecialistEntry[]): Map<CollaborationRole, SpecialistEntry> {
+  const specialistsByRole = new Map<CollaborationRole, SpecialistEntry>();
+  for (const specialist of specialists) {
+    if (!specialistsByRole.has(specialist.role)) specialistsByRole.set(specialist.role, specialist);
+  }
+  return specialistsByRole;
 }
 
 function agentNameToRole(name: string): CollaborationRole | null {

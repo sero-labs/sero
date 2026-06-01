@@ -68,15 +68,14 @@ export function ChatPanel() {
     const imageFiles = files.filter((f) => f.type.startsWith('image/'));
     if (imageFiles.length === 0) return;
 
-    const newImages: PendingImage[] = [];
-    for (const file of imageFiles) {
+    const newImages = await Promise.all(imageFiles.map(async (file) => {
       const { data, mimeType } = await readFileAsBase64(file);
-      newImages.push({
+      return {
         data,
         mimeType,
         preview: URL.createObjectURL(file),
-      });
-    }
+      } satisfies PendingImage;
+    }));
     setPendingImages((prev) => [...prev, ...newImages]);
   }, []);
 

@@ -9,7 +9,7 @@
  */
 
 import type { DevServer } from '@/types/ipc';
-import type { PortScanner } from '../network/port-forward';
+import type { DetectedPort, PortScanner } from '../network/port-forward';
 import type { ContainerManager } from '..';
 import { WORKSPACE_DIR } from '../tools/tool-schemas';
 
@@ -228,18 +228,22 @@ export class DevServerRegistry {
 
   /** Check all registered servers against PortScanner data. */
   private checkLiveness(): void {
+    const portsByWorkspace = new Map<string, Map<number, DetectedPort>>();
+
     for (const server of this.servers.values()) {
-      const detectedPorts = this.portScanner.getPorts(server.workspaceId);
-      const isListening = detectedPorts.some((p) => p.port === server.port);
+      let detectedPorts = portsByWorkspace.get(server.workspaceId);
+      if (!detectedPorts) {
+        detectedPorts = new Map(this.portScanner.getPorts(server.workspaceId).map((p) => [p.port, p]));
+        portsByWorkspace.set(server.workspaceId, detectedPorts);
+      }
+      const detected = detectedPorts.get(server.port);
+      const isListening = !!detected;
       const newStatus: DevServer['status'] = isListening ? 'running' : 'stopped';
 
       if (server.status !== newStatus && server.status !== 'starting') {
         server.status = newStatus;
         // Update URL if port scanner has a fresher one
-        if (isListening) {
-          const detected = detectedPorts.find((p) => p.port === server.port);
-          if (detected) server.url = detected.url;
-        }
+        if (detected) server.url = detected.url;
         this.emit({ type: 'status_changed', serverId: server.id, status: newStatus });
       }
     }
