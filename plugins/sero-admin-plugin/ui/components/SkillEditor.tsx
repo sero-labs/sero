@@ -123,10 +123,11 @@ export function SkillEditor({
       )}
 
       <div className="flex flex-1 flex-col min-h-0 px-4 py-3">
-        <label className="mb-1.5 text-xs font-medium text-muted-foreground">
+        <label htmlFor="skill-body" className="mb-1.5 text-xs font-medium text-muted-foreground">
           Skill Body
         </label>
         <textarea
+          id="skill-body"
           value={data.body}
           onChange={(e) => update({ body: e.target.value })}
           placeholder="# My Skill&#10;&#10;Instructions for the agent when this skill is active..."

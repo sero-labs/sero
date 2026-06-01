@@ -18,7 +18,7 @@ export function GitShipActionPill({
   emphasis?: boolean;
 }) {
   return (
-    <button
+    <button type="button"
       onClick={onClick}
       disabled={disabled || busy}
       className={cn(

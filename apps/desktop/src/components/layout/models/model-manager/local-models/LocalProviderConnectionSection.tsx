@@ -56,7 +56,7 @@ export function LocalProviderConnectionSection({
               px-2.5 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)]
               outline-none focus:border-[var(--border-focus)]"
           />
-          <button
+          <button type="button"
             onClick={() => {
               void onTestConnection();
             }}

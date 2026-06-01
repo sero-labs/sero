@@ -89,7 +89,7 @@ function PermissionGateCard({ question }: { question: UserFeedbackPendingQuestio
         <span className="flex-1 text-xs font-semibold text-[var(--status-warning)]">
           dangerous command — approval required
         </span>
-        <button
+        <button type="button"
           onClick={handleCancel}
           aria-label="Block command"
           className="rounded p-0.5 text-[var(--text-muted)] hover:bg-[var(--status-warning-muted)] hover:text-[var(--status-warning)]"
@@ -210,7 +210,7 @@ function QuestionCardInner({ question }: { question: UserFeedbackPendingQuestion
       {/* Options */}
       <div className="space-y-0.5 px-2 py-2">
         {q.options.map((opt, i) => (
-          <button
+          <button type="button"
             key={opt.value}
             onClick={() => handleSelect(opt, i)}
             className={cn(
@@ -232,7 +232,7 @@ function QuestionCardInner({ question }: { question: UserFeedbackPendingQuestion
 
         {/* "Type something" option */}
         {q.allowOther && !customMode && (
-          <button
+          <button type="button"
             onClick={() => setCustomMode(true)}
             className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left hover:bg-[var(--bg-elevated)]/80"
           >

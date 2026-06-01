@@ -148,7 +148,7 @@ function HeaderButton({
   children: React.ReactNode;
 }) {
   return (
-    <button
+    <button type="button"
       onClick={onClick}
       disabled={loading}
       title={title}

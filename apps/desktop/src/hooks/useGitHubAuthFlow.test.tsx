@@ -48,7 +48,7 @@ function HookProbe() {
       data-copied={copied ? 'true' : 'false'}
       data-copy-failed={copyFailed ? 'true' : 'false'}
     >
-      <button onClick={() => void copyCode('ABCD-1234')}>Copy</button>
+      <button type="button" onClick={() => void copyCode('ABCD-1234')}>Copy</button>
     </div>
   );
 }

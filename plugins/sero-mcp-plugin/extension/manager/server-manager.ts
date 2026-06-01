@@ -119,8 +119,10 @@ export class McpServerManager {
 
     try {
       await client.connect(transport);
-      const tools = await this.fetchAllTools(client);
-      const resources = await this.fetchAllResources(client);
+      const [tools, resources] = await Promise.all([
+        this.fetchAllTools(client),
+        this.fetchAllResources(client),
+      ]);
       return this.createConnectedConnection(name, client, transport, tools, resources);
     } catch (error) {
       await this.safeClose(client, transport);
@@ -145,8 +147,10 @@ export class McpServerManager {
     const streamableTransport = new StreamableHTTPClientTransport(url, { requestInit, authProvider });
     try {
       await streamableClient.connect(streamableTransport);
-      const tools = await this.fetchAllTools(streamableClient);
-      const resources = await this.fetchAllResources(streamableClient);
+      const [tools, resources] = await Promise.all([
+        this.fetchAllTools(streamableClient),
+        this.fetchAllResources(streamableClient),
+      ]);
       return this.createConnectedConnection(name, streamableClient, streamableTransport, tools, resources);
     } catch (error) {
       await this.safeClose(streamableClient, streamableTransport);
@@ -159,8 +163,10 @@ export class McpServerManager {
     const sseTransport = new SSEClientTransport(url, { requestInit });
     try {
       await sseClient.connect(sseTransport);
-      const tools = await this.fetchAllTools(sseClient);
-      const resources = await this.fetchAllResources(sseClient);
+      const [tools, resources] = await Promise.all([
+        this.fetchAllTools(sseClient),
+        this.fetchAllResources(sseClient),
+      ]);
       return this.createConnectedConnection(name, sseClient, sseTransport, tools, resources);
     } catch (error) {
       await this.safeClose(sseClient, sseTransport);

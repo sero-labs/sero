@@ -242,7 +242,7 @@ export function ExplorerWorkspace() {
                             ` — ${diffState.initialPath.split('/').pop()}`}
                         </span>
                         <span className="flex-1" />
-                        <button
+                        <button type="button"
                           onClick={closeDiff}
                           className="flex size-5 items-center justify-center rounded text-sm text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]"
                           title="Close diff"

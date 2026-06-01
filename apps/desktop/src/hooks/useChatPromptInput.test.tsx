@@ -84,10 +84,10 @@ describe('useChatPromptInput', () => {
           value={input}
           onChange={(event) => setInput(event.target.value)}
         />
-        <button onClick={() => handleSlashSelect(BUILTIN_LOGIN_COMMAND)}>Slash login</button>
-        <button onClick={() => setInput('/logout ')}>Set logout input</button>
-        <button onClick={() => handleSubmit({ text: input, files: [] })}>Submit</button>
-        <button
+        <button type="button" onClick={() => handleSlashSelect(BUILTIN_LOGIN_COMMAND)}>Slash login</button>
+        <button type="button" onClick={() => setInput('/logout ')}>Set logout input</button>
+        <button type="button" onClick={() => handleSubmit({ text: input, files: [] })}>Submit</button>
+        <button type="button"
           onClick={() => setExternalDraft({
             requestId: 'prefill-1',
             text: 'Retry this request',
@@ -96,7 +96,7 @@ describe('useChatPromptInput', () => {
         >
           Apply draft
         </button>
-        <button
+        <button type="button"
           onClick={() => setExternalDraft({
             requestId: 'prefill-1',
             text: 'Retry this request',
@@ -105,7 +105,7 @@ describe('useChatPromptInput', () => {
         >
           Reapply same request
         </button>
-        <button
+        <button type="button"
           onClick={() => setExternalDraft({
             requestId: 'prefill-2',
             text: 'Retry this request',
@@ -114,7 +114,7 @@ describe('useChatPromptInput', () => {
         >
           Apply same text new request
         </button>
-        <button onClick={() => setInput('edited locally')}>Manual edit</button>
+        <button type="button" onClick={() => setInput('edited locally')}>Manual edit</button>
       </div>
     );
   }

@@ -164,7 +164,7 @@ export function ImageLightbox() {
 
           {/* Navigation arrows */}
           {hasMultiple && index > 0 && (
-            <button
+            <button type="button"
               onClick={(e) => { e.stopPropagation(); prev(); resetZoom(); }}
               className="absolute left-3 z-10 rounded-full bg-white/10 p-2 text-white/80 transition-colors hover:bg-white/20"
             >
@@ -172,7 +172,7 @@ export function ImageLightbox() {
             </button>
           )}
           {hasMultiple && index < images.length - 1 && (
-            <button
+            <button type="button"
               onClick={(e) => { e.stopPropagation(); next(); resetZoom(); }}
               className="absolute right-3 z-10 rounded-full bg-white/10 p-2 text-white/80 transition-colors hover:bg-white/20"
             >
@@ -227,7 +227,7 @@ function ToolbarButton({
   children: React.ReactNode;
 }) {
   return (
-    <button
+    <button type="button"
       onClick={(e) => { e.stopPropagation(); onClick(); }}
       title={title}
       className={cn(

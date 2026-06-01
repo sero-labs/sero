@@ -112,7 +112,7 @@ const LogSidebar = memo(function LogSidebar({
       </div>
       <ScrollArea className="min-h-0 flex-1">
         {logs.map((log) => (
-          <button
+          <button type="button"
             key={log.key}
             onClick={() => onSelect(log.key)}
             className={cn(

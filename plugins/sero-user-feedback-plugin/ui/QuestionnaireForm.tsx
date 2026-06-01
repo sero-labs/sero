@@ -134,7 +134,7 @@ export function QuestionnaireForm({ question, onSubmit, onCancel }: Props) {
         <h1 className="text-lg font-semibold text-foreground">Questionnaire</h1>
         <div className="mt-2 flex items-center gap-1.5">
           {questions.map((item, index) => (
-            <button
+            <button type="button"
               key={item.id}
               onClick={() => {
                 setCurrentStep(index);
@@ -154,7 +154,7 @@ export function QuestionnaireForm({ question, onSubmit, onCancel }: Props) {
               {hasQuestionAnswer(answers, item.id) ? <Check className="size-3" /> : index + 1} {item.label}
             </button>
           ))}
-          <button
+          <button type="button"
             onClick={() => setCurrentStep(questions.length)}
             className={cn(
               'rounded-full px-2.5 py-1 text-xs font-medium transition-colors',

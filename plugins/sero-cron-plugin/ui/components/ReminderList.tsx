@@ -77,7 +77,7 @@ export function ReminderList({
           const count = counts[f.key];
           if (f.key !== 'all' && count === 0) return null;
           return (
-            <button
+            <button type="button"
               key={f.key}
               onClick={() => setFilter(f.key)}
               className={cn(

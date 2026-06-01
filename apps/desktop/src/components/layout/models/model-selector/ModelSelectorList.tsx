@@ -16,7 +16,7 @@ const ModelItem = memo(function ModelItem({
   onSelect: (model: ModelInfo) => void;
 }) {
   return (
-    <button
+    <button type="button"
       onClick={() => onSelect(model)}
       className={`group relative flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors duration-100 active:scale-[0.98] ${
         isSelected

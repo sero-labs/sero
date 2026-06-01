@@ -111,10 +111,10 @@ export function ProfileForm({
 
       {/* Storage Location */}
       <div className="flex flex-col gap-1.5">
-        <label className="text-xs font-medium text-[var(--text-secondary)]">
+        <div className="text-xs font-medium text-[var(--text-secondary)]">
           Storage Location
           <span className="ml-1 font-normal text-[var(--text-muted)]">(optional)</span>
-        </label>
+        </div>
         <div className="flex items-center gap-2">
           <button
             type="button"

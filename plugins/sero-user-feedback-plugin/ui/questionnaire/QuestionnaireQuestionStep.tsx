@@ -52,7 +52,7 @@ export function QuestionnaireQuestionStep({
             (answer) => !answer.wasCustom && answer.value === option.value,
           );
           return (
-            <button
+            <button type="button"
               key={option.value}
               onClick={() => onSelectOption(option, index)}
               className={cn(
@@ -109,7 +109,7 @@ export function QuestionnaireQuestionStep({
         )}
 
         {question.allowOther && !customMode && !customAnswer && (
-          <button
+          <button type="button"
             onClick={onEnableCustom}
             className="flex w-full items-center gap-3 rounded-md border border-transparent px-3 py-2.5 text-left hover:border-border hover:bg-secondary"
           >

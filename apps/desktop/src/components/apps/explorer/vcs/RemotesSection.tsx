@@ -39,7 +39,7 @@ export function RemotesSection({ workspaceId, remotes }: Props) {
       count={remotes.length}
       defaultOpen={false}
       actions={
-        <button
+        <button type="button"
           onClick={() => setShowAdd((v) => !v)}
           title="Add remote"
           className={cn(
@@ -64,8 +64,9 @@ export function RemotesSection({ workspaceId, remotes }: Props) {
             >
               <div className="space-y-1.5 px-3 py-2 border-b border-[var(--border-subtle)]/30">
                 <div className="flex items-center gap-1.5">
-                  <label className="w-10 text-[10px] text-[var(--text-muted)]">Name</label>
+                  <label htmlFor="remote-name-input" className="w-10 text-[10px] text-[var(--text-muted)]">Name</label>
                   <input
+                    id="remote-name-input"
                     autoFocus
                     value={name}
                     onChange={(e) => setName(e.target.value)}
@@ -77,8 +78,9 @@ export function RemotesSection({ workspaceId, remotes }: Props) {
                   />
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <label className="w-10 text-[10px] text-[var(--text-muted)]">URL</label>
+                  <label htmlFor="remote-url-input" className="w-10 text-[10px] text-[var(--text-muted)]">URL</label>
                   <input
+                    id="remote-url-input"
                     value={url}
                     onChange={(e) => setUrl(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') void handleAdd(); }}
@@ -91,7 +93,7 @@ export function RemotesSection({ workspaceId, remotes }: Props) {
                   />
                 </div>
                 <div className="flex justify-end gap-1">
-                  <button
+                  <button type="button"
                     onClick={handleAdd}
                     className={cn(
                       'flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium',
@@ -101,7 +103,7 @@ export function RemotesSection({ workspaceId, remotes }: Props) {
                   >
                     <Check className="size-3" /> Add
                   </button>
-                  <button
+                  <button type="button"
                     onClick={() => setShowAdd(false)}
                     className="flex items-center gap-1 rounded px-2 py-0.5 text-[10px] text-[var(--text-muted)] hover:bg-[var(--bg-elevated)]"
                   >
@@ -137,7 +139,7 @@ export function RemotesSection({ workspaceId, remotes }: Props) {
               <span className="min-w-0 flex-1 truncate text-[10px] text-[var(--text-muted)]/40">
                 {remote.url}
               </span>
-              <button
+              <button type="button"
                 onClick={() => void store.removeRemote(workspaceId, remote.name)}
                 title="Remove remote"
                 className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100 text-[var(--text-muted)] hover:text-[var(--status-error)]"

@@ -49,7 +49,7 @@ export function ThinkingPicker({
           }}
         />
         {levels.map((level) => (
-          <button
+          <button type="button"
             key={level}
             onClick={() => onSelect(level)}
             className={`relative z-10 flex-1 rounded-md px-1 py-1 text-[11px] font-medium transition-colors duration-150 ${

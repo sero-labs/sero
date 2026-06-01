@@ -89,7 +89,7 @@ export function ProfileSwitcher() {
             </div>
 
             {profiles.map((profile) => (
-              <button
+              <button type="button"
                 key={profile.id}
                 onClick={() => handleSwitch(profile.id)}
                 disabled={switching !== null}
@@ -120,7 +120,7 @@ export function ProfileSwitcher() {
               <p className="px-2 py-1 text-[11px] text-[var(--status-error)]">{error}</p>
             )}
 
-            <button
+            <button type="button"
               onClick={() => {
                 clearError();
                 setOpen(false);

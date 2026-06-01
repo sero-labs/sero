@@ -109,7 +109,7 @@ export function WorkspaceReferencesMenu({ workspace }: { workspace: WorkspaceInf
               Add workspace
             </span>
             {available.map((ws) => (
-              <button
+              <button type="button"
                 key={ws.id}
                 onClick={() => addReference(workspace.id, ws.id)}
                 className="flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]"
@@ -142,7 +142,7 @@ export function WorkspaceReferencesMenu({ workspace }: { workspace: WorkspaceInf
         )}
 
         <div className="border-t border-[var(--border-subtle)] px-1 py-1">
-          <button
+          <button type="button"
             onClick={handleBrowseMount}
             className="flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]"
           >

@@ -272,7 +272,7 @@ function SnoozeDropdown({
       <div className="fixed inset-0 z-40" onClick={onClose} />
       <div className="absolute left-0 top-full z-50 mt-1 min-w-[160px] rounded-md border border-border bg-popover p-1 shadow-md">
         {SNOOZE_OPTIONS.map((opt) => (
-          <button
+          <button type="button"
             key={opt.minutes}
             className="w-full rounded-sm px-3 py-1.5 text-left text-xs text-popover-foreground hover:bg-accent"
             onClick={() => onSelect(opt.minutes)}

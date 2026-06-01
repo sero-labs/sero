@@ -31,7 +31,7 @@ export function StatusBar() {
           </span>
         )}
         {activeWorkspace && (
-          <button
+          <button type="button"
             className="max-w-[300px] truncate text-xs hover:text-[var(--text-primary)] transition-colors"
             onClick={() => window.sero.shell.showItemInFolder(activeWorkspace.path)}
             title="Reveal in file explorer"
@@ -51,7 +51,7 @@ export function StatusBar() {
           bookmarks={vcsState?.bookmarks ?? []}
         />
         <span>Sero v0.1.0</span>
-        <button
+        <button type="button"
           onClick={toggleMode}
           title={`Theme mode: ${themeMode} (click to cycle)`}
           className="flex items-center gap-1 hover:text-[var(--text-primary)] transition-colors"
@@ -93,7 +93,7 @@ function ActivePushBranchPicker({
 
   return (
     <div ref={rootRef} className="relative">
-      <button
+      <button type="button"
         onClick={() => setOpen((v) => !v)}
         title="Active push branch (click to change)"
         className="flex items-center gap-1 hover:text-[var(--text-primary)] transition-colors"
@@ -106,7 +106,7 @@ function ActivePushBranchPicker({
 
       {open && (
         <div className="absolute bottom-6 right-0 z-50 min-w-[180px] rounded-md border border-[var(--border-default)] bg-[var(--bg-elevated)] p-1 shadow-lg">
-          <button
+          <button type="button"
             onClick={() => {
               setActivePushBookmark(workspaceId, null);
               setOpen(false);
@@ -117,7 +117,7 @@ function ActivePushBranchPicker({
             {!activePushBookmark && <span className="text-[var(--status-info)]">active</span>}
           </button>
           {bookmarks.map((bm) => (
-            <button
+            <button type="button"
               key={bm.name}
               onClick={() => {
                 setActivePushBookmark(workspaceId, bm.name);
@@ -157,7 +157,7 @@ function DebugLogToggle() {
   }, []);
 
   return (
-    <button
+    <button type="button"
       onClick={toggle}
       onContextMenu={openLog}
       title={

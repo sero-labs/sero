@@ -20,6 +20,11 @@ function Slider({
           : [min, max],
     [value, defaultValue, min, max]
   )
+  const thumbKeysRef = React.useRef<string[]>([])
+  while (thumbKeysRef.current.length < _values.length) {
+    thumbKeysRef.current.push(`thumb-${thumbKeysRef.current.length}`)
+  }
+  const thumbKeys = thumbKeysRef.current.slice(0, _values.length)
 
   return (
     <SliderPrimitive.Root
@@ -50,7 +55,7 @@ function Slider({
       {_values.map((_, index) => (
         <SliderPrimitive.Thumb
           data-slot="slider-thumb"
-          key={index}
+          key={thumbKeys[index]}
           className="border-primary ring-ring/50 block size-4 shrink-0 rounded-full border bg-white shadow-sm transition-[color,box-shadow] hover:ring-4 focus-visible:ring-4 focus-visible:outline-hidden disabled:pointer-events-none disabled:opacity-50"
         />
       ))}

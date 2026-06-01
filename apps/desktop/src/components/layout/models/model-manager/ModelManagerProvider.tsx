@@ -41,7 +41,7 @@ const ModelManagerProvider = memo(function ModelManagerProvider({
     <div className="group/provider py-0.5">
       {/* Provider header */}
       <div className="flex items-center gap-2 px-3 py-1.5">
-        <button
+        <button type="button"
           onClick={() => setExpanded((p) => !p)}
           className="flex flex-1 items-center gap-2 text-left"
         >
@@ -67,7 +67,7 @@ const ModelManagerProvider = memo(function ModelManagerProvider({
         </button>
 
         {/* Provider-wide visibility toggle */}
-        <button
+        <button type="button"
           onClick={handleToggleProvider}
           title={isProviderHidden ? 'Show provider' : 'Hide entire provider'}
           className={`rounded-md p-1 transition-colors duration-150 ${

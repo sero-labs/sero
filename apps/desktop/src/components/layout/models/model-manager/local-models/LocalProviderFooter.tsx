@@ -23,14 +23,14 @@ export function LocalProviderFooter({
         <p className="text-[11px] text-[var(--status-error)]">{saveError}</p>
       )}
       <div className="flex justify-end gap-2 border-t border-[var(--border-subtle)] pt-3">
-        <button
+        <button type="button"
           onClick={onCancel}
           className="h-8 rounded-md px-3 text-xs font-medium text-[var(--text-secondary)]
             transition-colors hover:bg-[var(--bg-elevated)]"
         >
           Cancel
         </button>
-        <button
+        <button type="button"
           onClick={() => {
             void onSave();
           }}

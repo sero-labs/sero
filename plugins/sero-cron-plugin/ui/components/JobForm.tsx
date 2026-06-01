@@ -131,10 +131,11 @@ export function JobForm({ open, onClose, onSave, editingJob }: JobFormProps) {
         >
           {/* Name */}
           <div>
-            <label className="mb-1 block text-xs font-medium text-muted-foreground">
+            <label htmlFor="cron-job-name" className="mb-1 block text-xs font-medium text-muted-foreground">
               Name *
             </label>
             <input
+              id="cron-job-name"
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -156,10 +157,11 @@ export function JobForm({ open, onClose, onSave, editingJob }: JobFormProps) {
 
           {/* Schedule */}
           <div>
-            <label className="mb-1 block text-xs font-medium text-muted-foreground">
+            <label htmlFor="cron-job-schedule" className="mb-1 block text-xs font-medium text-muted-foreground">
               Schedule *
             </label>
             <input
+              id="cron-job-schedule"
               type="text"
               value={schedule}
               onChange={(e) => setSchedule(e.target.value)}
@@ -202,10 +204,11 @@ export function JobForm({ open, onClose, onSave, editingJob }: JobFormProps) {
 
           {/* Prompt */}
           <div>
-            <label className="mb-1 block text-xs font-medium text-muted-foreground">
+            <label htmlFor="cron-job-prompt" className="mb-1 block text-xs font-medium text-muted-foreground">
               Prompt *
             </label>
             <textarea
+              id="cron-job-prompt"
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               placeholder="What should the agent do when this job fires?"
@@ -216,10 +219,11 @@ export function JobForm({ open, onClose, onSave, editingJob }: JobFormProps) {
 
           {/* Channel */}
           <div>
-            <label className="mb-1 block text-xs font-medium text-muted-foreground">
+            <label htmlFor="cron-job-channel" className="mb-1 block text-xs font-medium text-muted-foreground">
               Channel
             </label>
             <input
+              id="cron-job-channel"
               type="text"
               value={channel}
               onChange={(e) => setChannel(e.target.value)}
@@ -233,9 +237,9 @@ export function JobForm({ open, onClose, onSave, editingJob }: JobFormProps) {
 
           {/* Model */}
           <div>
-            <label className="mb-1 block text-xs font-medium text-muted-foreground">
+            <div className="mb-1 block text-xs font-medium text-muted-foreground">
               Model
-            </label>
+            </div>
             <ModelPicker value={model} onChange={setModel} />
             <p className="mt-1 text-[11px] text-muted-foreground">
               Choose a model or leave as default.

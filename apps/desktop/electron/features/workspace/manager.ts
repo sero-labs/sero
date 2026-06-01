@@ -58,8 +58,10 @@ export class WorkspaceManager {
 
   /** Ensure required directories exist. */
   private async ensureDirs(): Promise<void> {
-    await fs.mkdir(this.agentDir, { recursive: true });
-    await fs.mkdir(this.workspacesDir, { recursive: true });
+    await Promise.all([
+      fs.mkdir(this.agentDir, { recursive: true }),
+      fs.mkdir(this.workspacesDir, { recursive: true }),
+    ]);
   }
 
   /** Load registry from ~/.sero-ui/agent/workspaces.json. */

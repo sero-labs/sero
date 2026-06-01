@@ -138,13 +138,13 @@ export function BookmarksSection({
                     'outline-none focus:border-[var(--border-focus)]',
                   )}
                 />
-                <button
+                <button type="button"
                   onClick={handleCreate}
                   className="text-[var(--status-success)] hover:brightness-125 transition-colors"
                 >
                   <Check className="size-3" />
                 </button>
-                <button
+                <button type="button"
                   onClick={() => setShowCreate(false)}
                   className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors"
                 >
@@ -252,16 +252,16 @@ function BookmarkRow({
       {/* Hover actions */}
       <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
         {!isActive && (
-          <button onClick={onSetActive} title="Set active push branch" className="text-[var(--text-muted)] hover:text-[var(--status-warning)] transition-colors">
+          <button type="button" onClick={onSetActive} title="Set active push branch" className="text-[var(--text-muted)] hover:text-[var(--status-warning)] transition-colors">
             <Star className="size-3" />
           </button>
         )}
         {hasRemotes && !synced && (
-          <button onClick={onPush} title="Push" className="text-[var(--text-muted)] hover:text-[var(--status-info)] transition-colors">
+          <button type="button" onClick={onPush} title="Push" className="text-[var(--text-muted)] hover:text-[var(--status-info)] transition-colors">
             <CloudUpload className="size-3" />
           </button>
         )}
-        <button onClick={onDelete} title="Delete" className="text-[var(--text-muted)] hover:text-[var(--status-error)] transition-colors">
+        <button type="button" onClick={onDelete} title="Delete" className="text-[var(--text-muted)] hover:text-[var(--status-error)] transition-colors">
           <Trash2 className="size-2.5" />
         </button>
       </div>
@@ -283,7 +283,7 @@ function SectionAction({
   children: React.ReactNode;
 }) {
   return (
-    <button
+    <button type="button"
       onClick={onClick}
       disabled={loading}
       title={title}

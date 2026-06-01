@@ -18,7 +18,7 @@ export function Section({
 }) {
   return (
     <div className="border-b border-[var(--g-border)]">
-      <button
+      <button type="button"
         onClick={onToggle}
         className="flex w-full items-center justify-between px-3 py-2 text-[10px] font-semibold tracking-wider text-[var(--g-dim)] transition-colors hover:text-[var(--g-muted)]"
       >
@@ -78,7 +78,7 @@ export function CreateBranchForm({
         </p>
       )}
       <div className="flex items-center gap-2">
-        <button
+        <button type="button"
           onClick={onSubmit}
           disabled={!value.trim() || branchNameExists}
           className="rounded-md bg-[var(--g-accent)] px-2 py-1 text-[10px] font-medium text-white
@@ -86,7 +86,7 @@ export function CreateBranchForm({
         >
           Create
         </button>
-        <button
+        <button type="button"
           onClick={onCancel}
           className="rounded-md border border-[var(--g-border)] px-2 py-1 text-[10px] text-[var(--g-muted)]
             transition-colors hover:border-[var(--g-border-bright)] hover:text-[var(--g-text)]"
@@ -106,7 +106,7 @@ export function SectionActionButton({
   onClick: () => void;
 }) {
   return (
-    <button
+    <button type="button"
       onClick={onClick}
       className="flex w-full items-center gap-2 px-3 py-1.5 text-[11px] text-[var(--g-dim)]
         transition-colors hover:bg-[var(--g-hover)] hover:text-[var(--g-accent)]"

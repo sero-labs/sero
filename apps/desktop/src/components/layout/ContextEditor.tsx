@@ -78,13 +78,13 @@ export function ContextEditor({ sessionId }: { sessionId: string }) {
         )}
 
         <DialogFooter>
-          <button
+          <button type="button"
             onClick={state.close}
             className="rounded-md border border-border/50 px-3 py-1.5 text-xs text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-elevated)]"
           >
             Cancel
           </button>
-          <button
+          <button type="button"
             onClick={() => {
               void state.handleApplyAndClose();
             }}

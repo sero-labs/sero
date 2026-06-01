@@ -39,7 +39,7 @@ export function SystemPromptSection({
                 : 'Using a custom system prompt for this session'}
           </span>
           {systemPrompt !== null && (
-            <button
+            <button type="button"
               onClick={() => onSystemPromptChange(null)}
               className="text-[10px] text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)]"
             >

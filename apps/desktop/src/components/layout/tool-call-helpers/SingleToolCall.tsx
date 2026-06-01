@@ -53,7 +53,7 @@ export function SingleToolCall({
             : 'border-[var(--border-subtle)] bg-[var(--bg-elevated)]/50',
       )}
     >
-      <button
+      <button type="button"
         onClick={() => setExpanded((previous) => !previous)}
         className={cn(
           'flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors duration-150',
@@ -138,7 +138,7 @@ export function SingleToolCall({
                       hasSummaryContent && 'border-t border-[var(--border-subtle)]/60',
                     )}
                   >
-                    <button
+                    <button type="button"
                       onClick={(event) => {
                         event.stopPropagation();
                         setShowDetails(true);
@@ -155,7 +155,7 @@ export function SingleToolCall({
                     <ToolDetail tool={tool} workspaceId={workspaceId} />
                   </div>
                   <div className="border-t border-[var(--border-subtle)]/60 px-3 py-1.5">
-                    <button
+                    <button type="button"
                       onClick={(event) => {
                         event.stopPropagation();
                         setShowDetails(false);

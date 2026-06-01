@@ -33,7 +33,7 @@ export function LocalProviderModelsSection({
   return (
     <LocalProviderField label="Models">
       <div className="flex flex-col gap-2">
-        <button
+        <button type="button"
           onClick={() => {
             void onFetchModels();
           }}
@@ -65,7 +65,7 @@ export function LocalProviderModelsSection({
                     <span className="ml-1.5 text-[var(--text-muted)]">{model.id}</span>
                   )}
                 </span>
-                <button
+                <button type="button"
                   onClick={() => onRemoveModel(model.id)}
                   className="text-[10px] text-[var(--text-muted)] opacity-0
                     transition-opacity group-hover:opacity-100 hover:text-[var(--status-error)]"
@@ -87,7 +87,7 @@ export function LocalProviderModelsSection({
               px-2 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)]
               outline-none focus:border-[var(--border-focus)]"
           />
-          <button
+          <button type="button"
             onClick={onAddModel}
             disabled={!newModelId.trim()}
             className="flex h-7 items-center gap-1 rounded-md border border-[var(--border-subtle)]

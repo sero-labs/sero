@@ -40,7 +40,7 @@ const ProviderRow = memo(function ProviderRow({
     <div className="rounded-lg border border-[var(--border-subtle)] transition-colors hover:border-[var(--border-default)]">
       {/* Provider header */}
       <div className="flex items-center gap-3 px-3 py-2.5">
-        <button
+        <button type="button"
           onClick={() => setExpanded((p) => !p)}
           className="flex flex-1 items-center gap-2.5 text-left"
         >
@@ -60,7 +60,7 @@ const ProviderRow = memo(function ProviderRow({
         </button>
 
         <div className="flex items-center gap-0.5">
-          <button
+          <button type="button"
             onClick={() => onEdit(name)}
             title="Edit provider"
             className="rounded-md p-1 text-[var(--text-muted)] transition-colors
@@ -68,7 +68,7 @@ const ProviderRow = memo(function ProviderRow({
           >
             <Settings2 className="size-3.5" />
           </button>
-          <button
+          <button type="button"
             onClick={() => onRemove(name)}
             title="Remove provider"
             className="rounded-md p-1 text-[var(--text-muted)] transition-colors
@@ -185,7 +185,7 @@ export function LocalModelsPanel({ localModels }: LocalModelsPanelProps) {
             ? 'Add a local LLM server to use models from Ollama, LM Studio, vLLM, or any OpenAI-compatible endpoint.'
             : `${providerNames.length} local ${providerNames.length === 1 ? 'provider' : 'providers'} configured`}
         </p>
-        <button
+        <button type="button"
           onClick={() => setView('add')}
           className="flex h-7 shrink-0 items-center gap-1.5 rounded-md border border-[var(--border-subtle)]
             px-2.5 text-[11px] font-medium text-[var(--text-secondary)]
@@ -236,7 +236,7 @@ function ErrorState({ error, onRetry }: { error: string; onRetry: () => Promise<
       <p className="text-[11px] text-[var(--text-muted)]">
         Fix the invalid models.json entry before adding or editing providers here.
       </p>
-      <button
+      <button type="button"
         onClick={() => { void onRetry(); }}
         className="flex h-8 items-center gap-1.5 self-start rounded-md border border-[var(--border-subtle)]
           px-3 text-xs font-medium text-[var(--text-secondary)] transition-colors
@@ -259,7 +259,7 @@ function EmptyState({ onAdd }: { onAdd: () => void }) {
           Connect Ollama, LM Studio, vLLM, or any OpenAI-compatible server
         </p>
       </div>
-      <button
+      <button type="button"
         onClick={onAdd}
         className="flex h-8 items-center gap-1.5 rounded-md bg-[var(--banner-primary)]
           px-3 text-xs font-medium text-white transition-colors

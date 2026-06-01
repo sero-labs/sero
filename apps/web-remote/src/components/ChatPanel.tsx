@@ -232,7 +232,7 @@ export function ChatPanel() {
                   alt={`Attachment ${i + 1}`}
                   className="w-16 h-16 object-cover rounded-md border border-border"
                 />
-                <button
+                <button type="button"
                   onClick={() => removeImage(i)}
                   className={cn(
                     'absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full',

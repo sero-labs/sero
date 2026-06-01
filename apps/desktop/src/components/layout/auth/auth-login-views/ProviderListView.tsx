@@ -46,7 +46,7 @@ export function ProviderListView({
           </h4>
           <div className="space-y-0.5">
             {sortProvidersByPreference(oauthProviders, preferredProviderId).map((provider) => (
-              <button
+              <button type="button"
                 key={provider.id}
                 onClick={() => {
                   if (provider.id === 'anthropic' && !anthropicWarning) {
@@ -87,7 +87,7 @@ export function ProviderListView({
                 key={provider.id}
                 className="group flex w-full items-center justify-between rounded-md px-3 py-2 text-sm transition-colors hover:bg-accent"
               >
-                <button
+                <button type="button"
                   onClick={() => {
                     if (provider.id === 'anthropic' && !anthropicWarning) {
                       setAnthropicWarning('anthropic-apikey');
@@ -106,7 +106,7 @@ export function ProviderListView({
                     <>
                       <ApiKeyBadge fromEnv={provider.fromEnv} />
                       {!provider.fromEnv ? (
-                        <button
+                        <button type="button"
                           onClick={(event) => {
                             event.stopPropagation();
                             onApiKeyRemove(provider.id);
@@ -149,7 +149,7 @@ export function ProviderListView({
   return (
     <div className="space-y-0.5">
       {savedProviders.map((provider) => (
-        <button
+        <button type="button"
           key={provider.id}
           onClick={() => onLogout(provider.id)}
           className="group flex w-full items-center justify-between rounded-md px-3 py-2.5 text-left text-sm transition-colors hover:bg-accent"
@@ -183,13 +183,13 @@ function AnthropicWarningBanner({
           We recommend using an API key with your own billing account.
         </p>
         <div className="flex gap-2">
-          <button
+          <button type="button"
             onClick={onContinue}
             className="text-xs font-medium text-[var(--text-primary)] hover:underline"
           >
             Continue anyway
           </button>
-          <button
+          <button type="button"
             onClick={onCancel}
             className="text-xs text-[var(--text-tertiary)] hover:underline"
           >

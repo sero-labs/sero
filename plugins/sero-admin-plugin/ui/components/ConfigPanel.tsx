@@ -89,7 +89,7 @@ const ConfigFileItem = memo(function ConfigFileItem({
   onSelect: () => void;
 }) {
   return (
-    <button
+    <button type="button"
       onClick={onSelect}
       className={cn(
         'admin-sidebar-item w-full border-l-2 border-l-transparent px-3 py-2 text-left transition-colors duration-150',

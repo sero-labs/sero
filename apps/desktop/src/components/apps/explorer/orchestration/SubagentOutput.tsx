@@ -29,7 +29,7 @@ export function SubagentOutput({ response, error, isFailed }: SubagentOutputProp
   return (
     <div className="mt-1.5 relative">
       {/* Copy button */}
-      <button
+      <button type="button"
         onClick={handleCopy}
         className="absolute right-1 top-1 rounded p-0.5 text-[var(--text-muted)] hover:bg-[var(--bg-surface)] hover:text-[var(--text-secondary)] transition-colors"
         title="Copy to clipboard"

@@ -274,20 +274,17 @@ export const useVcsStore = create<VcsStore>((set, get) => ({
 
   createBookmark: async (wsId, name, rev) => {
     await window.sero.vcs.createBookmark(wsId, name, rev);
-    await get().loadBookmarks(wsId);
-    await get().loadLog(wsId);
+    await Promise.all([get().loadBookmarks(wsId), get().loadLog(wsId)]);
   },
 
   deleteBookmark: async (wsId, name) => {
     await window.sero.vcs.deleteBookmark(wsId, name);
-    await get().loadBookmarks(wsId);
-    await get().loadLog(wsId);
+    await Promise.all([get().loadBookmarks(wsId), get().loadLog(wsId)]);
   },
 
   moveBookmark: async (wsId, name, toRev) => {
     await window.sero.vcs.moveBookmark(wsId, name, toRev);
-    await get().loadBookmarks(wsId);
-    await get().loadLog(wsId);
+    await Promise.all([get().loadBookmarks(wsId), get().loadLog(wsId)]);
   },
 
   setActivePushBookmark: (wsId, name) => {

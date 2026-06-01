@@ -46,7 +46,7 @@ export function LocalProviderForm({
   return (
     <div className="flex flex-col gap-4 p-4">
       <div className="flex items-center gap-2">
-        <button
+        <button type="button"
           onClick={onCancel}
           className="rounded-md p-1 text-[var(--text-muted)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]"
         >

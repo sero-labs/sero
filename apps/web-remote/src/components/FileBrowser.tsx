@@ -45,7 +45,7 @@ const FileTreeItem = memo(function FileTreeItem({
 
   return (
     <div>
-      <button
+      <button type="button"
         onClick={handleClick}
         className={cn(
           'w-full text-left flex items-center gap-1.5 py-1 px-2 text-sm',
@@ -125,7 +125,7 @@ export function FileBrowser() {
       <div className="flex-1 overflow-y-auto py-1">
         {!rootEntries ? (
           <div className="px-3 py-4 text-center">
-            <button
+            <button type="button"
               onClick={handleLoadRoot}
               className="text-xs text-primary hover:text-primary/80 transition-colors"
             >

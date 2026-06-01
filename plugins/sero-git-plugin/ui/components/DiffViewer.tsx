@@ -90,7 +90,7 @@ function DiffShell({
             )}
           </div>
         </div>
-        <button
+        <button type="button"
           onClick={onClose}
           className="p-1 text-[var(--g-dim)] hover:text-[var(--g-text)] transition-colors cursor-pointer"
         >

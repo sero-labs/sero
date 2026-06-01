@@ -48,7 +48,7 @@ export function ToolImages({
 
         return (
           <div key={`${image.filePath ?? image.description ?? 'image'}:${src}`} className="flex max-w-[220px] flex-col gap-1.5">
-            <button
+            <button type="button"
               onClick={() => handlePreview(index)}
               className={cn(
                 'group/img relative overflow-hidden rounded-md border border-[var(--border-subtle)]',
@@ -67,7 +67,7 @@ export function ToolImages({
             </button>
             {image.filePath ? (
               isOpenablePath ? (
-                <button
+                <button type="button"
                   onClick={() => handlePathClick(image.filePath!)}
                   className="truncate rounded bg-[var(--bg-elevated)] px-2 py-1 text-left font-mono text-[10px] text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]"
                   title={`Open ${image.filePath} in editor`}

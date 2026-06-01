@@ -45,7 +45,7 @@ export function AgentList({ agents, selected, onSelect }: AgentListProps) {
   return (
     <div className="flex-1 overflow-y-auto">
       {agents.map((agent) => (
-        <button
+        <button type="button"
           key={agent.name}
           onClick={() => onSelect(agent.name)}
           className={cn(

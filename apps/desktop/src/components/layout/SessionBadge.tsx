@@ -145,7 +145,7 @@ export function SessionBadge({ sessionId }: SessionBadgeProps) {
   return (
     <Popover onOpenChange={() => { setConfirmClear(false); setForkSuccess(false); setActionError(null); }}>
       <PopoverTrigger asChild>
-        <button
+        <button type="button"
           className="ml-auto flex items-center gap-1.5 rounded px-1.5 py-0.5 text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]"
           title="Session info"
         >
@@ -286,7 +286,7 @@ function CompactSection({
         className="w-full rounded border border-[var(--border-default)] bg-[var(--bg-surface)] px-2 py-1 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--border-focus)]"
         disabled={busy}
       />
-      <button
+      <button type="button"
         onClick={onCompact}
         disabled={busy}
         className="flex w-full items-center justify-center gap-1.5 rounded bg-[var(--bg-surface)] px-2 py-1 text-xs font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-elevated)] disabled:opacity-50"
@@ -314,7 +314,7 @@ interface SessionActionsProps {
 function SessionActions({ onFork, onClear, forking, forkSuccess, clearing, confirmClear, busy }: SessionActionsProps) {
   return (
     <div className="border-t border-[var(--border-subtle)] pt-2 flex gap-2">
-      <button
+      <button type="button"
         onClick={onFork}
         disabled={busy || forkSuccess}
         className={`flex flex-1 items-center justify-center gap-1.5 rounded px-2 py-1 text-xs font-medium transition-colors disabled:opacity-50 ${forkSuccess
@@ -326,7 +326,7 @@ function SessionActions({ onFork, onClear, forking, forkSuccess, clearing, confi
         {forking ? <Loader2 className="size-3 animate-spin" /> : forkSuccess ? <Check className="size-3" /> : <GitFork className="size-3" />}
         {forkSuccess ? 'Forked!' : 'Fork'}
       </button>
-      <button
+      <button type="button"
         onClick={onClear}
         disabled={busy}
         className={`flex flex-1 items-center justify-center gap-1.5 rounded px-2 py-1 text-xs font-medium transition-colors disabled:opacity-50 ${confirmClear

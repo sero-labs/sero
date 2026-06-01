@@ -82,7 +82,7 @@ export function DiffTab({ state }: Props) {
     <div className="flex h-full min-h-0 flex-col bg-[var(--bg-base)]">
       {/* ── Toolbar ────────────────────────────────────────── */}
       <div className="flex h-7 shrink-0 items-center gap-2 border-b border-[var(--border-subtle)] px-3">
-        <button
+        <button type="button"
           onClick={() => setNavOpen((v) => !v)}
           title="Toggle file navigator"
           className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors"
@@ -96,7 +96,7 @@ export function DiffTab({ state }: Props) {
           {fromRev.slice(0, 8)} → {toRev.slice(0, 8)}
         </span>
         <span className="flex-1" />
-        <button
+        <button type="button"
           onClick={() => setSideBySide((v) => !v)}
           title={sideBySide ? 'Inline diff' : 'Side-by-side diff'}
           className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors"
@@ -119,7 +119,7 @@ export function DiffTab({ state }: Props) {
             >
               <div className="h-full w-[180px] overflow-y-auto py-1">
                 {files.map((f) => (
-                  <button
+                  <button type="button"
                     key={f.path}
                     onClick={() => setActivePath(f.path)}
                     className={cn(

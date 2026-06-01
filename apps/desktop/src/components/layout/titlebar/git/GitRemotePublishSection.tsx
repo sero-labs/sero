@@ -280,7 +280,7 @@ export function GitRemotePublishSection({
             ) : null}
           </div>
 
-          <label className="space-y-1 text-[10px] uppercase tracking-[0.16em] text-[var(--text-muted)]">
+          <label htmlFor="publish-repo-name" className="space-y-1 text-[10px] uppercase tracking-[0.16em] text-[var(--text-muted)]">
             <span>Repository name</span>
             <Input
               id="publish-repo-name"
@@ -322,7 +322,7 @@ export function GitRemotePublishSection({
             Point <span className="font-medium text-[var(--text-primary)]">origin</span> at an existing GitHub or Git remote.
           </div>
 
-          <label className="space-y-1 text-[10px] uppercase tracking-[0.16em] text-[var(--text-muted)]">
+          <label htmlFor="publish-remote-url" className="space-y-1 text-[10px] uppercase tracking-[0.16em] text-[var(--text-muted)]">
             <span>Remote URL</span>
             <Input
               id="publish-remote-url"
@@ -379,7 +379,7 @@ function ModeButton({
   onClick: () => void;
 }) {
   return (
-    <button
+    <button type="button"
       onClick={onClick}
       className={cn(
         'inline-flex h-7 items-center gap-1.5 rounded-full px-2.5 text-[10px] font-medium transition-colors',
@@ -405,7 +405,7 @@ function VisibilityButton({
   onClick: () => void;
 }) {
   return (
-    <button
+    <button type="button"
       onClick={onClick}
       className={cn(
         'flex h-8 items-center justify-center gap-1.5 rounded-lg border text-[11px] font-medium transition-colors',

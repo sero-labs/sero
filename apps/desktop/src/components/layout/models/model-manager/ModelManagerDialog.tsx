@@ -64,7 +64,7 @@ export function ModelManagerDialog({ open, onOpenChange }: ModelManagerDialogPro
               Manage favourites and visibility for {counts.all} models
             </p>
           </div>
-          <button
+          <button type="button"
             onClick={() => onOpenChange(false)}
             className="rounded-lg p-1.5 text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]"
           >
@@ -89,7 +89,7 @@ export function ModelManagerDialog({ open, onOpenChange }: ModelManagerDialogPro
               className="h-8 text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
               endAdornment={
                 filter ? (
-                  <button
+                  <button type="button"
                     onClick={() => setFilter('')}
                     className="rounded p-0.5 text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
                   >
@@ -109,7 +109,7 @@ export function ModelManagerDialog({ open, onOpenChange }: ModelManagerDialogPro
           <>
             {activeTab === 'all' && displayGroups.length > 0 ? (
               <div className="flex items-center justify-end gap-1 border-b border-[var(--border-subtle)] px-4 py-1.5">
-                <button
+                <button type="button"
                   onClick={handleHideAll}
                   className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]"
                 >
@@ -117,7 +117,7 @@ export function ModelManagerDialog({ open, onOpenChange }: ModelManagerDialogPro
                   {filter ? 'Hide matches' : 'Hide all'}
                 </button>
                 {hasFavouritesInView ? (
-                  <button
+                  <button type="button"
                     onClick={handleHideAllIncludingFavourites}
                     className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]"
                   >
@@ -129,7 +129,7 @@ export function ModelManagerDialog({ open, onOpenChange }: ModelManagerDialogPro
             ) : null}
             {activeTab === 'hidden' && displayGroups.length > 0 ? (
               <div className="flex items-center justify-end border-b border-[var(--border-subtle)] px-4 py-1.5">
-                <button
+                <button type="button"
                   onClick={handleShowAll}
                   className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]"
                 >

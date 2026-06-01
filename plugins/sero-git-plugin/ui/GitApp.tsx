@@ -233,7 +233,7 @@ function DiffPlaceholder({
         <span className="text-xs text-[var(--g-muted)]">
           {resolved ? 'No diff available' : 'Loading diff…'}
         </span>
-        <button
+        <button type="button"
           onClick={onClose}
           className="cursor-pointer p-1 text-[var(--g-dim)] transition-colors hover:text-[var(--g-text)]"
         >
@@ -274,7 +274,7 @@ function GitActionNotice({
             {notice.message}
           </div>
         </div>
-        <button
+        <button type="button"
           onClick={onClose}
           className="shrink-0 p-1 text-[var(--g-dim)] transition-colors hover:text-[var(--g-text)]"
           aria-label="Dismiss git action notice"

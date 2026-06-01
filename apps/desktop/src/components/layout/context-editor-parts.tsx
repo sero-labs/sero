@@ -73,7 +73,7 @@ export function ContextSection({
         sectionBgClass[badgeVariant],
       )}
     >
-      <button
+      <button type="button"
         onClick={() => setExpanded((prev) => !prev)}
         className={cn(
           'flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors duration-150',
@@ -200,14 +200,14 @@ export function SavePresetInput({
           if (e.key === 'Escape') onCancel();
         }}
       />
-      <button
+      <button type="button"
         onClick={() => name.trim() && onSave(name.trim())}
         disabled={!name.trim()}
         className="rounded-md bg-[var(--accent-primary)] px-2 py-1 text-[11px] font-medium text-white disabled:opacity-50"
       >
         Save
       </button>
-      <button
+      <button type="button"
         onClick={onCancel}
         className="text-[11px] text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
       >

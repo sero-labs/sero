@@ -63,7 +63,7 @@ export function ChooseView({
 }) {
   return (
     <div className="flex flex-col gap-2 pt-1">
-      <button
+      <button type="button"
         onClick={onCreateNew}
         className="flex items-center gap-3 rounded-lg border border-[var(--border-subtle)] p-3 text-left transition-colors hover:border-[var(--border-default)] hover:bg-[var(--bg-elevated)]"
       >
@@ -75,7 +75,7 @@ export function ChooseView({
           <span className="text-xs text-[var(--text-muted)]">Create a repository and set it as origin</span>
         </div>
       </button>
-      <button
+      <button type="button"
         onClick={onConnectExisting}
         className="flex items-center gap-3 rounded-lg border border-[var(--border-subtle)] p-3 text-left transition-colors hover:border-[var(--border-default)] hover:bg-[var(--bg-elevated)]"
       >
@@ -434,7 +434,7 @@ export function ConnectedView({
 
 function BackButton({ onClick }: { onClick: () => void }) {
   return (
-    <button
+    <button type="button"
       onClick={onClick}
       className="flex items-center gap-1 self-start text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)]"
     >
