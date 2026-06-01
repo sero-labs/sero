@@ -6,6 +6,13 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 and beta release tags use a SemVer prerelease form.
 
 
+## [0.2.10-beta.0](https://github.com/sero-labs/sero/compare/v0.2.9-beta.0...v0.2.10-beta.0) (2026-06-01)
+
+### Bug Fixes
+
+* **desktop:** clean toolchain download staging ([914000b](https://github.com/sero-labs/sero/commit/914000be20bc41857a3b48621064a3a1b33033c7))
+* resolve plugin host tool paths ([dc94991](https://github.com/sero-labs/sero/commit/dc94991bdb13aca755b2d99da4f3e24c1f961d62))
+
 ## [0.2.9-beta.0](https://github.com/sero-labs/sero/compare/v0.2.7-beta.0...v0.2.9-beta.0) (2026-06-01)
 
 ### Bug Fixes
