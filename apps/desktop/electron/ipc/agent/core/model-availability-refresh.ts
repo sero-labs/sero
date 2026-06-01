@@ -29,24 +29,23 @@ function buildAvailableModelSelections(
 
 async function reconcileLiveChatSessions(): Promise<number> {
   const entries = getAgentPoolEntries();
-  let updated = 0;
 
-  for (const [sessionId, entry] of entries) {
+  const results = await Promise.all(entries.map(async ([sessionId, entry]) => {
     try {
-      if (await ensureSessionHasAvailableModel(entry.session)) {
-        updated += 1;
-      }
+      const updated = await ensureSessionHasAvailableModel(entry.session);
       emitAgentEvent({
         type: 'model_change',
         sessionId,
         state: buildModelState(entry),
       });
+      return updated ? 1 : 0;
     } catch (error) {
       console.warn(`[model-refresh] Failed to reconcile chat session ${sessionId}:`, error);
+      return 0;
     }
-  }
+  }));
 
-  return updated;
+  return results.reduce<number>((total, count) => total + count, 0);
 }
 
 export async function refreshModelAvailability(): Promise<ModelAvailabilityRefreshResult> {

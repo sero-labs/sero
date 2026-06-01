@@ -21,7 +21,7 @@ import {
 import { IpcChannels } from '@/types/ipc-channels';
 import { SERO_AGENT_DIR, SERO_HOME } from '@electron/platform/env';
 import { appStateManager } from '@electron/features/apps/state/manager';
-import { reloadAllSessionResources } from '..';
+import { reloadAllSessionResources } from '../core/agent';
 import { ensureInfra, applyRuntimeSettings, SERO_CONFIG_PATH } from '@electron/shared/infra/shared-infra';
 import { withDisabledModelSkills } from '@sero-ai/common';
 import type { SkillSummary, AvailableSkillSummary, SkillFileData, SkillSource } from '@/types/skills';

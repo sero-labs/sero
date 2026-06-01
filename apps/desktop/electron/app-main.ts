@@ -32,11 +32,11 @@ if (ACTIVE_PROFILE_ID) {
   app.setPath('userData', profileUserData);
 }
 import { registerAllIpcHandlers } from './ipc';
-import { disposeAllAgentSessions } from './ipc/agent';
+import { disposeAllAgentSessions } from './ipc/agent/core/agent';
 import { workspaceManager } from './features/workspace/manager';
 import { setupExtProtocol, registerAllExtAssets } from './platform/protocols/ext-protocol';
 import { discoverApps, registerAppPath } from './features/apps/discovery';
-import { watchForNewApps } from './ipc/apps';
+import { watchForNewApps } from './ipc/apps/apps';
 import { ensureDefaultAgents, ensureDefaultSkills, ensureDefaultThemes, ensureProfileTemplates } from './features/profile/setup';
 import { handleProfileRegistryRecovery } from './features/profile/recovery';
 import {
@@ -49,7 +49,7 @@ import {
   runtimeManager,
   vcsManager,
 } from './shared/infra/shared-infra';
-import { startGateway, stopGateway } from './ipc/gateway';
+import { startGateway, stopGateway } from './ipc/gateway/gateway';
 import { setupContentSecurityPolicy } from './platform/security/csp';
 import { setupMainWindowSecurity } from './platform/security/window-security';
 import { browserViewManager } from './features/browser/view-manager';

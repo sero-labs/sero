@@ -12,7 +12,7 @@ import { appStateManager } from '@electron/features/apps/state/manager';
 import { SERO_HOME } from '@electron/platform/env';
 import { gitWorkspaceStateManager } from '@electron/features/apps/git-app/manager';
 import { appRuntimeManager, ensureInfra, SERO_CONFIG_PATH, applyRuntimeSettings } from '@electron/shared/infra/shared-infra';
-import { reloadAllSessionResources } from '../agent';
+import { reloadAllSessionResources } from '../agent/core/agent';
 
 const SETTINGS_RELOAD_COALESCE_MS = 75;
 
@@ -49,14 +49,18 @@ function queueCoalescedRuntimeSettingsReload(): Promise<void> {
   runtimeSettingsReloadTask = (async () => {
     await new Promise((resolve) => setTimeout(resolve, SETTINGS_RELOAD_COALESCE_MS));
 
-    while (runtimeSettingsReloadPending) {
+    const drainPendingReload = async (): Promise<void> => {
+      if (!runtimeSettingsReloadPending) return;
       runtimeSettingsReloadPending = false;
       try {
         await runRuntimeSettingsReload();
       } catch (err) {
         console.error('[app-state] Failed to reload runtime settings:', err);
       }
-    }
+      await drainPendingReload();
+    };
+
+    await drainPendingReload();
   })().finally(() => {
     runtimeSettingsReloadTask = null;
   });

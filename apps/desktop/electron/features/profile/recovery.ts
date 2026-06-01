@@ -11,7 +11,7 @@ export interface ProfileRegistryStartupIssue {
 export async function handleProfileRegistryRecovery(
   issue: ProfileRegistryStartupIssue,
 ): Promise<'relaunch' | 'quit'> {
-  while (true) {
+  const recover = async (): Promise<'relaunch' | 'quit'> => {
     const choice = await dialog.showMessageBox({
       type: 'warning',
       buttons: ['Reset and Restart', 'Open Folder', 'Quit'],
@@ -61,15 +61,17 @@ export async function handleProfileRegistryRecovery(
         if (retry.response === 1) {
           return 'quit';
         }
-        continue;
+        return recover();
       }
     }
 
     if (choice.response === 1) {
       await shell.showItemInFolder(issue.registryPath);
-      continue;
+      return recover();
     }
 
     return 'quit';
-  }
+  };
+
+  return recover();
 }

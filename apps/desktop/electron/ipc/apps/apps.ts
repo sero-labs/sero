@@ -105,11 +105,11 @@ async function checkForNewApps(
   try {
     const dirs = await fs.readdir(rootDir);
 
-    for (const dir of dirs) {
-      if (!matchesDirName(dir)) continue;
+    await Promise.all(dirs.map(async (dir) => {
+      if (!matchesDirName(dir)) return;
 
       const pkgPath = path.join(rootDir, dir, 'package.json');
-      if (!existsSync(pkgPath)) continue;
+      if (!existsSync(pkgPath)) return;
 
       try {
         const rawPackage = await fs.readFile(pkgPath, 'utf8');
@@ -122,9 +122,9 @@ async function checkForNewApps(
           };
         };
         const app = pkg.sero?.app;
-        if (!app?.id || !app?.name) continue;
+        if (!app?.id || !app?.name) return;
 
-        if (knownAppIds.has(app.id) || notified.has(app.id)) continue;
+        if (knownAppIds.has(app.id) || notified.has(app.id)) return;
 
         notified.add(app.id);
         console.log(`[app-watcher] New app detected: ${app.name} (${app.id})`);
@@ -132,7 +132,7 @@ async function checkForNewApps(
       } catch {
         // package.json not yet valid JSON (still being written)
       }
-    }
+    }));
   } catch (err) {
     console.error('[app-watcher] Scan error:', err);
   }

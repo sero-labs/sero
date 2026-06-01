@@ -29,15 +29,18 @@ export class TailscaleIntegration {
   private async findBinary(): Promise<string | null> {
     if (this.tailscaleBin) return this.tailscaleBin;
 
-    for (const bin of [TAILSCALE_BIN, TAILSCALE_BIN_ALT, 'tailscale']) {
+    const candidates = [TAILSCALE_BIN, TAILSCALE_BIN_ALT, 'tailscale'];
+    const results = await Promise.all(candidates.map(async (bin) => {
       try {
         await execFileAsync(bin, ['version'], { timeout: 5000 });
-        this.tailscaleBin = bin;
         return bin;
       } catch {
-        // Not found, try next
+        return null;
       }
-    }
+    }));
+
+    this.tailscaleBin = results.find((bin): bin is string => bin !== null) ?? null;
+    if (this.tailscaleBin) return this.tailscaleBin;
     return null;
   }
 

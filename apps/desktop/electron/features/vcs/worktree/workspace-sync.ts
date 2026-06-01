@@ -138,10 +138,13 @@ async function detectDefaultBranch(workspacePath: string, runner: GitRunner): Pr
     // Fall through to common names.
   }
 
-  for (const branch of ['main', 'master']) {
-    if (await refExists(workspacePath, `refs/remotes/origin/${branch}`, runner)) return branch;
-    if (await refExists(workspacePath, `refs/heads/${branch}`, runner)) return branch;
-  }
+  const branchChecks = await Promise.all(['main', 'master'].map(async (branch) => ({
+    branch,
+    hasRemote: await refExists(workspacePath, `refs/remotes/origin/${branch}`, runner),
+    hasLocal: await refExists(workspacePath, `refs/heads/${branch}`, runner),
+  })));
+  const match = branchChecks.find(({ hasRemote, hasLocal }) => hasRemote || hasLocal);
+  if (match) return match.branch;
 
   return null;
 }

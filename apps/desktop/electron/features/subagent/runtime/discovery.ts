@@ -150,9 +150,7 @@ export async function discoverAgents(
   }
 
   const mdFiles = files.filter((f) => f.endsWith('.md'));
-  const agents: AgentConfig[] = [];
-
-  for (const file of mdFiles) {
+  const agents = await Promise.all(mdFiles.map(async (file) => {
     const absPath = path.join(agentsDir, file);
     try {
       const content = await readFile(absPath, 'utf-8');
@@ -160,7 +158,7 @@ export async function discoverAgents(
 
       if (!parsed) {
         console.warn(`[subagent/discovery] ${absPath}: no valid JSON frontmatter found, skipping`);
-        continue;
+        return null;
       }
 
       const warnings = validateFrontmatter(parsed.frontmatter, absPath);
@@ -168,7 +166,7 @@ export async function discoverAgents(
         for (const w of warnings) console.warn(w);
         // Skip if required fields are missing
         if (!parsed.frontmatter.name || !parsed.frontmatter.description) {
-          continue;
+          return null;
         }
       }
 
@@ -181,11 +179,12 @@ export async function discoverAgents(
       }
       // Structured model fields are validated at resolution time, not discovery
 
-      agents.push(toAgentConfig(parsed.frontmatter, parsed.body, absPath));
+      return toAgentConfig(parsed.frontmatter, parsed.body, absPath);
     } catch (err) {
       console.warn(`[subagent/discovery] ${absPath}: failed to read/parse, skipping`, err);
+      return null;
     }
-  }
+  }));
 
-  return agents;
+  return agents.filter((agent): agent is AgentConfig => agent !== null);
 }

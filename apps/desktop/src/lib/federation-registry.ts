@@ -284,10 +284,11 @@ async function resolveRemoteEntry(
   remoteEntryOverride: string | null,
 ): Promise<string> {
   const candidates = getRemoteEntryCandidates(appId, devPort, remoteEntryOverride);
-  for (const entry of candidates) {
-    if (await isRemoteEntryReachable(entry)) return entry;
-  }
-  return candidates[candidates.length - 1];
+  const reachability = await Promise.all(candidates.map(async (entry) => ({
+    entry,
+    reachable: await isRemoteEntryReachable(entry),
+  })));
+  return reachability.find((candidate) => candidate.reachable)?.entry ?? candidates[candidates.length - 1];
 }
 
 /**
@@ -303,8 +304,17 @@ async function loadRemoteModule(
   const modulePath = `${remoteName}/${component}`;
   const candidates = getRemoteEntryCandidates(appId, devPort, remoteEntryOverride);
 
-  for (const entry of candidates) {
-    if (!(await isRemoteEntryReachable(entry))) continue;
+  const reachability = await Promise.all(candidates.map(async (entry) => ({
+    entry,
+    reachable: await isRemoteEntryReachable(entry),
+  })));
+  const reachableEntries = reachability
+    .filter((candidate) => candidate.reachable)
+    .map((candidate) => candidate.entry);
+
+  const loadFirstReachable = async (index: number): Promise<LoadedRemoteModule | null> => {
+    const entry = reachableEntries[index];
+    if (!entry) return null;
 
     registerRemoteEntry(appId, entry);
 
@@ -314,15 +324,17 @@ async function loadRemoteModule(
         updateTransientState(appId, devPort, remoteEntryOverride, entry);
         return { entry, mod };
       }
+      return loadFirstReachable(index + 1);
     } catch (err) {
       // If the preferred entry disappeared between the probe and the load,
       // clear the cached availability and try the next fallback candidate.
       manifestReachable.delete(entry);
       console.warn(`[federation] Failed to load ${modulePath} from ${entry}:`, err);
+      return loadFirstReachable(index + 1);
     }
-  }
+  };
 
-  return null;
+  return loadFirstReachable(0);
 }
 
 /**

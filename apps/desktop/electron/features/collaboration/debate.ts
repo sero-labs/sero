@@ -327,12 +327,14 @@ export async function runDebateCollaboration(
 
   const effectiveRounds = Math.min(config.maxRounds, DEBATE_PAIRINGS.length);
 
-  for (let round = 0; round < effectiveRounds; round++) {
+  const runDebateRound = async (round: number): Promise<void> => {
+    if (round >= effectiveRounds) return;
+
     // Check time limit
     const elapsed = (Date.now() - debateStartTime) / 1000;
     if (elapsed >= config.timeLimitSec) {
       callbacks?.onUpdate?.(`Debate: Time limit (${config.timeLimitSec}s) reached, moving to synthesis...`);
-      break;
+      return;
     }
 
     const [challengerRole, defenderRole] = DEBATE_PAIRINGS[round % DEBATE_PAIRINGS.length];
@@ -359,7 +361,10 @@ export async function runDebateCollaboration(
 
     debateRounds.push({ challengerRole, defenderRole, summary: roundSummary });
     callbacks?.onRoundEnd?.(round + 1, roundSummary, roundDuration, challengerRole, defenderRole);
-  }
+    await runDebateRound(round + 1);
+  };
+
+  await runDebateRound(0);
 
   // ── Phase 4: Synthesis & Consensus ─────────────────────────
   callbacks?.onDebatePhase?.('synthesis');

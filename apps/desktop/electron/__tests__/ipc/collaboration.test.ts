@@ -56,7 +56,7 @@ vi.mock('@electron/shared/infra/shared-infra', () => ({
   subagentManager: mocks.subagentManager,
 }));
 
-vi.mock('../../ipc/agent', () => ({
+vi.mock('../../ipc/agent/core/agent', () => ({
   getAgentPoolEntry: mocks.getAgentPoolEntry,
   emitAgentEvent: mocks.emitAgentEvent,
 }));

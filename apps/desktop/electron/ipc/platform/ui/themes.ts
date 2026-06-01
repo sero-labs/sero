@@ -67,12 +67,10 @@ export function registerThemeHandlers(): void {
 
   // ── List all presets ────────────────────────────────────────
   ipcMain.handle(IpcChannels.themes.list, async (): Promise<ThemePresetMeta[]> => {
-    const metas: ThemePresetMeta[] = [];
-    for (const file of listThemeFiles()) {
-      const preset = await readThemeFile(file);
-      if (preset) metas.push(toMeta(preset));
-    }
-    return metas;
+    const presets = await Promise.all(listThemeFiles().map((file) => readThemeFile(file)));
+    return presets
+      .filter((preset): preset is ThemePreset => preset !== null)
+      .map((preset) => toMeta(preset));
   });
 
   // ── Load a single preset by ID ─────────────────────────────

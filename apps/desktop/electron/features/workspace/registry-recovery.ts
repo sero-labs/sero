@@ -15,20 +15,21 @@ export async function discoverManagedWorkspaceEntries(
   const knownIds = new Set(existing.map((entry) => entry.id));
   const knownPaths = new Set(existing.map((entry) => path.resolve(entry.path)));
   const dirents = await fs.readdir(workspacesDir, { withFileTypes: true }).catch(() => []);
-  const recovered: WorkspaceRegistryEntry[] = [];
-
-  for (const dirent of dirents) {
-    if (!dirent.isDirectory()) continue;
+  const candidates = await Promise.all(dirents.map(async (dirent) => {
+    if (!dirent.isDirectory()) return null;
     const workspacePath = path.join(workspacesDir, dirent.name);
-    if (knownPaths.has(path.resolve(workspacePath))) continue;
+    if (knownPaths.has(path.resolve(workspacePath))) return null;
     const config = await readWorkspaceConfig(workspacePath);
-    if (!isSafeWorkspaceId(config?.id) || knownIds.has(config.id)) continue;
-    recovered.push({ id: config.id, path: workspacePath, open: true });
-    knownIds.add(config.id);
-    knownPaths.add(path.resolve(workspacePath));
-  }
+    if (!isSafeWorkspaceId(config?.id)) return null;
+    return { id: config.id, path: workspacePath, open: true };
+  }));
 
-  return recovered;
+  return candidates.filter((entry): entry is WorkspaceRegistryEntry => {
+    if (!entry || knownIds.has(entry.id) || knownPaths.has(path.resolve(entry.path))) return false;
+    knownIds.add(entry.id);
+    knownPaths.add(path.resolve(entry.path));
+    return true;
+  });
 }
 
 async function readWorkspaceConfig(workspacePath: string): Promise<WorkspaceConfig | null> {

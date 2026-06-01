@@ -137,14 +137,14 @@ export class WorkspaceManager {
 
   /** Migrate legacy container flags to provider-aware runtime config. */
   private async migrateRuntimeConfig(): Promise<void> {
-    for (const entry of this.registry.workspaces) {
+    await Promise.all(this.registry.workspaces.map(async (entry) => {
       const config = await this.readConfig(entry.path);
       const runtimeBackend = config?.runtime?.backend as WorkspaceRuntimeBackendInput | undefined;
       // Deprecated compatibility input; normalize to host on write.
-      if (!config || (runtimeBackend && runtimeBackend !== 'mac-host' && config.container === undefined)) continue;
+      if (!config || (runtimeBackend && runtimeBackend !== 'mac-host' && config.container === undefined)) return;
       await this.writeConfig(entry.path, config);
       this.configCache.delete(entry.id);
-    }
+    }));
   }
 
   /** Read .sero-workspace.json from a workspace directory. */
@@ -178,14 +178,8 @@ export class WorkspaceManager {
 
   /** List all registered workspaces with merged config data. */
   async list(): Promise<WorkspaceInfo[]> {
-    const result: WorkspaceInfo[] = [];
-
-    for (const entry of this.registry.workspaces) {
-      const info = await this.getInfo(entry);
-      if (info) result.push(info);
-    }
-
-    return result;
+    const infos = await Promise.all(this.registry.workspaces.map((entry) => this.getInfo(entry)));
+    return infos.filter((info): info is WorkspaceInfo => info !== null);
   }
 
   /** Get full config for a workspace by ID. */

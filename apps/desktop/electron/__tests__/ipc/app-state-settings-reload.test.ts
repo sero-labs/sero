@@ -51,7 +51,7 @@ vi.mock('@electron/shared/infra/shared-infra', () => ({
   },
 }));
 
-vi.mock('@electron/ipc/agent', () => ({
+vi.mock('@electron/ipc/agent/core/agent', () => ({
   reloadAllSessionResources: mocks.reloadAllSessionResources,
 }));
 

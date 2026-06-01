@@ -118,13 +118,23 @@ export async function syncWorktreeBranchWithDefaultBranch(
     };
   }
 
-  for (let attempt = 1; attempt <= MAX_CONFLICT_RESOLUTION_ATTEMPTS; attempt++) {
+  const resolveConflicts = options.resolveConflicts;
+
+  const resolveConflictAttempt = async (attempt: number): Promise<WorktreeSyncResult | null> => {
+    if (attempt > MAX_CONFLICT_RESOLUTION_ATTEMPTS) return null;
+
     const conflictFiles = await listConflictFiles(worktreePath, runner);
     if (conflictFiles.length === 0) {
-      break;
+      return {
+        success: true,
+        baseBranch,
+        upstreamRef,
+        updated: true,
+        resolvedConflicts: true,
+      };
     }
 
-    const resolved = await options.resolveConflicts({
+    const resolved = await resolveConflicts({
       attempt,
       baseBranch,
       upstreamRef,
@@ -178,7 +188,12 @@ export async function syncWorktreeBranchWithDefaultBranch(
         error: continueResult.error,
       };
     }
-  }
+
+    return resolveConflictAttempt(attempt + 1);
+  };
+
+  const conflictResolution = await resolveConflictAttempt(1);
+  if (conflictResolution) return conflictResolution;
 
   await abortRebase(worktreePath, runner);
   return {
@@ -222,10 +237,13 @@ async function detectDefaultBranch(worktreePath: string, runner: GitRunner): Pro
     // Fall through to common branch names.
   }
 
-  for (const branch of ['main', 'master']) {
-    if (await refExists(worktreePath, `refs/remotes/origin/${branch}`, runner)) return branch;
-    if (await refExists(worktreePath, `refs/heads/${branch}`, runner)) return branch;
-  }
+  const branchChecks = await Promise.all(['main', 'master'].map(async (branch) => ({
+    branch,
+    hasRemote: await refExists(worktreePath, `refs/remotes/origin/${branch}`, runner),
+    hasLocal: await refExists(worktreePath, `refs/heads/${branch}`, runner),
+  })));
+  const match = branchChecks.find(({ hasRemote, hasLocal }) => hasRemote || hasLocal);
+  if (match) return match.branch;
 
   return null;
 }

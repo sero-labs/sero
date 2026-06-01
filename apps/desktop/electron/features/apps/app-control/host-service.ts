@@ -109,7 +109,9 @@ export const appControlHostService = {
     const pollMs = options.pollMs ?? APP_OPEN_READY_POLL_MS;
     const startedAt = Date.now();
 
-    while (Date.now() - startedAt < timeoutMs) {
+    const poll = async (): Promise<boolean> => {
+      if (Date.now() - startedAt >= timeoutMs) return false;
+
       const active = await this.active().catch(() => null);
       if (active === appId) {
         if (!options.requireVisiblePanel) return true;
@@ -117,9 +119,10 @@ export const appControlHostService = {
         if (hasVisibleRect(rect)) return true;
       }
       await sleep(pollMs);
-    }
+      return poll();
+    };
 
-    return false;
+    return poll();
   },
 
   async info(appId: string): Promise<AppControlEntry | null> {

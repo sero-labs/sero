@@ -448,14 +448,19 @@ export class AppleContainerBackend implements RuntimeBackend {
 
   private async waitForStartedPort(beforePorts: Set<number>, pid: number): Promise<number> {
     const startedAt = Date.now();
-    while (Date.now() - startedAt < DEV_SERVER_DETECT_TIMEOUT_MS) {
+    const poll = async (): Promise<number> => {
+      if (Date.now() - startedAt >= DEV_SERVER_DETECT_TIMEOUT_MS) {
+        throw new Error('No dev server port was detected after starting the command.');
+      }
       await sleep(DEV_SERVER_POLL_MS);
       if (!await this.isProcessAlive(pid)) throw new Error(`Dev server exited before a listening port was detected (pid ${pid}).`);
       const ports = await (await this.portManager()).detectPorts();
       const port = ports.find((candidate) => !beforePorts.has(candidate));
       if (port) return port;
-    }
-    throw new Error('No dev server port was detected after starting the command.');
+      return poll();
+    };
+
+    return poll();
   }
 
   private async isProcessAlive(pid: number): Promise<boolean> {

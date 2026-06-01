@@ -59,20 +59,20 @@ export class ConcurrencyPool {
     controller: AbortController,
     callGroup?: string,
   ): Promise<void> {
-    // Wait for global capacity
-    while (this.active.size >= this.maxTotal) {
+    const waitForCapacity = async (hasCapacity: () => boolean): Promise<void> => {
+      if (hasCapacity()) return;
       await new Promise<void>((resolve) => {
         this.waiters.push({ resolve });
       });
-    }
+      await waitForCapacity(hasCapacity);
+    };
+
+    // Wait for global capacity
+    await waitForCapacity(() => this.active.size < this.maxTotal);
 
     // Wait for per-call capacity (if call group is specified)
     if (callGroup) {
-      while ((this.callCounts.get(callGroup) ?? 0) >= this.maxConcurrent) {
-        await new Promise<void>((resolve) => {
-          this.waiters.push({ resolve });
-        });
-      }
+      await waitForCapacity(() => (this.callCounts.get(callGroup) ?? 0) < this.maxConcurrent);
       this.callCounts.set(callGroup, (this.callCounts.get(callGroup) ?? 0) + 1);
     }
 

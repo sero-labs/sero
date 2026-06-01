@@ -172,9 +172,7 @@ async function extractTarFile(tarPath: string, destination: string): Promise<voi
     }
 
     if (!sawEndOfArchive) throw new Error('Invalid tar archive: missing end-of-archive marker');
-    for (const symlink of pendingSymlinks) {
-      await materializeTarSymlink(symlink);
-    }
+    await Promise.all(pendingSymlinks.map((symlink) => materializeTarSymlink(symlink)));
   } finally {
     await handle.close();
   }

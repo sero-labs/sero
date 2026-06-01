@@ -221,19 +221,14 @@ async function probeRemoteEntryCandidates(
   remoteEntryOverrides: string[],
   expectedRemoteName?: string,
 ): Promise<{ remoteEntryOverride: string; probe: RemoteEntryProbeResult } | null> {
-  let mismatch: { remoteEntryOverride: string; probe: RemoteEntryProbeResult } | null = null;
+  const probes = await Promise.all(remoteEntryOverrides.map(async (remoteEntryOverride) => ({
+    remoteEntryOverride,
+    probe: await probeRemoteEntry(remoteEntryOverride, expectedRemoteName),
+  })));
 
-  for (const remoteEntryOverride of remoteEntryOverrides) {
-    const probe = await probeRemoteEntry(remoteEntryOverride, expectedRemoteName);
-    if (probe.status === 'ready') {
-      return { remoteEntryOverride, probe };
-    }
-    if (probe.status === 'mismatch' && !mismatch) {
-      mismatch = { remoteEntryOverride, probe };
-    }
-  }
-
-  return mismatch;
+  return probes.find(({ probe }) => probe.status === 'ready')
+    ?? probes.find(({ probe }) => probe.status === 'mismatch')
+    ?? null;
 }
 
 async function waitForRemoteEntry(
@@ -243,7 +238,9 @@ async function waitForRemoteEntry(
 ): Promise<{ remoteEntryOverride: string; probe: RemoteEntryProbeResult } | null> {
   const startedAt = Date.now();
 
-  while (Date.now() - startedAt < HEALTH_POLL_TIMEOUT_MS) {
+  const poll = async (): Promise<{ remoteEntryOverride: string; probe: RemoteEntryProbeResult } | null> => {
+    if (Date.now() - startedAt >= HEALTH_POLL_TIMEOUT_MS) return null;
+
     const resolvedProbe = await probeRemoteEntryCandidates(remoteEntryOverrides, expectedRemoteName);
 
     if (entry && (entry.child.exitCode !== null || entry.child.killed)) {
@@ -255,9 +252,10 @@ async function waitForRemoteEntry(
     }
 
     await sleep(HEALTH_POLL_INTERVAL_MS);
-  }
+    return poll();
+  };
 
-  return null;
+  return poll();
 }
 
 function summarizeStartupFailure(command: string, entry?: ManagedPluginDevServer): string {

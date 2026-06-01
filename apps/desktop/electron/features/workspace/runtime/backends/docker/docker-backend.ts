@@ -421,13 +421,18 @@ export class DockerBackend implements RuntimeBackend {
 
   private async waitForStartedPort(beforePorts: Set<number>): Promise<number> {
     const startedAt = Date.now();
-    while (Date.now() - startedAt < 20_000) {
+    const poll = async (): Promise<number> => {
+      if (Date.now() - startedAt >= 20_000) {
+        throw new Error('No dev server port was detected after starting the command.');
+      }
       await sleep(500);
       const ports = await (await this.portManager()).detectPorts();
       const port = ports.find((candidate) => !beforePorts.has(candidate));
       if (port) return port;
-    }
-    throw new Error('No dev server port was detected after starting the command.');
+      return poll();
+    };
+
+    return poll();
   }
 
   private async killPort(port: number): Promise<void> {

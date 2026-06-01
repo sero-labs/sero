@@ -223,15 +223,19 @@ export function useFileTreeModel({
     const prevChildren = items[targetParentId]?.children ?? [];
     const prevChildSet = new Set(prevChildren);
     const movedItems = newChildrenIds.filter((id) => !prevChildSet.has(id));
-    for (const movedId of movedItems) {
+    const allMoved = await movedItems.reduce<Promise<boolean>>((previous, movedId) => previous.then((previousOk) => {
+      if (!previousOk) return false;
       const fileName = movedId.split('/').pop();
-      if (!fileName) continue;
+      if (!fileName) return true;
       const newPath = `${targetParentId}/${fileName}`;
-      if (movedId === newPath) continue;
-      const ok = await moveItem(workspaceId, movedId, newPath);
-      if (!ok) return;
-      onPathChanged?.(movedId, newPath);
-    }
+      if (movedId === newPath) return true;
+      return moveItem(workspaceId, movedId, newPath).then((ok) => {
+        if (!ok) return false;
+        onPathChanged?.(movedId, newPath);
+        return true;
+      });
+    }), Promise.resolve(true));
+    if (!allMoved) return;
     await loadDirectory(targetParentId);
   });
 

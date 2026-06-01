@@ -28,7 +28,7 @@ import {
   listContainers,
 } from './core/lifecycle';
 import { readContainerFile, writeContainerFile, listContainerFiles } from './filesystem/files';
-import { TerminalManager } from './terminal';
+import { TerminalManager } from './terminal/terminal';
 import { ensureImage } from './core/image';
 import { PortScanner } from './network/port-forward';
 import { ContainerHttpProxy } from './network/http-proxy';

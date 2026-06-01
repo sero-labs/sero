@@ -80,7 +80,7 @@ async function ensureGithubDefaultBranch(worktreePath: string, branch: string): 
   }
 }
 
-async function useRemoteDefaultBranch(worktreePath: string, branch: string): Promise<string> {
+async function applyRemoteDefaultBranch(worktreePath: string, branch: string): Promise<string> {
   await ensureGithubDefaultBranch(worktreePath, branch);
   return branch;
 }
@@ -88,31 +88,34 @@ async function useRemoteDefaultBranch(worktreePath: string, branch: string): Pro
 export async function ensureRemoteDefaultBranch(worktreePath: string): Promise<string> {
   await fetchRemoteRefs(worktreePath);
 
-  for (const branch of ['main', 'master']) {
+  const sharedHistoryChecks = await Promise.all(['main', 'master'].map(async (branch) => {
     try {
       const r = await execFileAsync('git', ['ls-remote', '--heads', 'origin', branch], {
         cwd: worktreePath,
         timeout: 15_000,
       });
-      if (!r.stdout.trim()) continue;
+      if (!r.stdout.trim()) return null;
 
       await execFileAsync('git', ['merge-base', `origin/${branch}`, 'HEAD'], {
         cwd: worktreePath,
         timeout: 10_000,
       });
-      return useRemoteDefaultBranch(worktreePath, branch);
+      return branch;
     } catch {
       // no shared history or branch doesn't exist
+      return null;
     }
-  }
+  }));
+  const sharedHistoryBranch = sharedHistoryChecks.find((branch): branch is string => branch !== null);
+  if (sharedHistoryBranch) return applyRemoteDefaultBranch(worktreePath, sharedHistoryBranch);
 
-  for (const branch of ['main', 'master']) {
+  const existingRemoteChecks = await Promise.all(['main', 'master'].map(async (branch) => {
     try {
       const r = await execFileAsync('git', ['ls-remote', '--heads', 'origin', branch], {
         cwd: worktreePath,
         timeout: 15_000,
       });
-      if (!r.stdout.trim()) continue;
+      if (!r.stdout.trim()) return null;
 
       const countResult = await execFileAsync('git', [
         'rev-list', '--count', `origin/${branch}`,
@@ -124,12 +127,16 @@ export async function ensureRemoteDefaultBranch(worktreePath: string): Promise<s
           `[worktree-git] Remote '${branch}' has ${commitCount} commits but no shared history with HEAD. ` +
           `Using it as PR base to avoid overwriting existing work.`,
         );
-        return useRemoteDefaultBranch(worktreePath, branch);
+        return branch;
       }
     } catch {
       // branch doesn't exist or fetch failed
+      return null;
     }
-  }
+    return null;
+  }));
+  const existingRemoteBranch = existingRemoteChecks.find((branch): branch is string => branch !== null);
+  if (existingRemoteBranch) return applyRemoteDefaultBranch(worktreePath, existingRemoteBranch);
 
   console.log('[worktree-git] Setting up remote main from feature branch root commit');
   try {
@@ -172,26 +179,20 @@ async function resolveDefaultBranch(worktreePath: string): Promise<string> {
     // no remote HEAD
   }
 
-  for (const branch of ['main', 'master']) {
-    try {
-      await execFileAsync('git', ['rev-parse', '--verify', `origin/${branch}`], {
-        cwd: worktreePath,
-        timeout: 5_000,
-      });
-      return branch;
-    } catch {
-      // try local branch next
-    }
-    try {
-      await execFileAsync('git', ['rev-parse', '--verify', branch], {
-        cwd: worktreePath,
-        timeout: 5_000,
-      });
-      return branch;
-    } catch {
-      // try next branch
-    }
-  }
+  const branchChecks = await Promise.all(['main', 'master'].map(async (branch) => {
+    const hasRemote = await execFileAsync('git', ['rev-parse', '--verify', `origin/${branch}`], {
+      cwd: worktreePath,
+      timeout: 5_000,
+    }).then(() => true, () => false);
+    if (hasRemote) return branch;
+    const hasLocal = await execFileAsync('git', ['rev-parse', '--verify', branch], {
+      cwd: worktreePath,
+      timeout: 5_000,
+    }).then(() => true, () => false);
+    return hasLocal ? branch : null;
+  }));
+  const branch = branchChecks.find((candidate): candidate is string => candidate !== null);
+  if (branch) return branch;
 
   return 'main';
 }
