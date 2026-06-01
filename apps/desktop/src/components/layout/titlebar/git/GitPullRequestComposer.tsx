@@ -201,7 +201,7 @@ export function GitPullRequestComposer({
           <div className="grid grid-cols-2 gap-2">
             <label className="space-y-1 text-[10px] uppercase tracking-[0.16em] text-[var(--text-muted)]">
               <span>Source</span>
-              <select aria-label="Select option"
+              <select aria-label="Source branch"
                 value={sourceBranch}
                 onChange={(event) => setSourceBranch(event.target.value)}
                 className="h-8 w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-base)] px-2 text-[11px] text-[var(--text-primary)] outline-none"
@@ -214,7 +214,7 @@ export function GitPullRequestComposer({
             </label>
             <label className="space-y-1 text-[10px] uppercase tracking-[0.16em] text-[var(--text-muted)]">
               <span>Target</span>
-              <select aria-label="Select option"
+              <select aria-label="Target branch"
                 value={targetBranch}
                 onChange={(event) => setTargetBranch(event.target.value)}
                 className="h-8 w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-base)] px-2 text-[11px] text-[var(--text-primary)] outline-none"
@@ -254,13 +254,13 @@ export function GitPullRequestComposer({
             )}
           </div>
 
-          <input aria-label="Input"
+          <input aria-label="Pull request title"
             value={title}
             onChange={(event) => setTitle(event.target.value)}
             placeholder="Polish the PR title"
             className="h-8 w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-base)] px-3 text-[11px] text-[var(--text-primary)] outline-none"
           />
-          <textarea aria-label="Text input"
+          <textarea aria-label="Pull request description"
             value={body}
             onChange={(event) => setBody(event.target.value)}
             rows={4}

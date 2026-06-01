@@ -62,7 +62,7 @@ export function SliderRow({
         onValueChange={handleSlider}
         className="flex-1"
       />
-      <input aria-label="Number input"
+      <input aria-label={label}
         type="number"
         min={min}
         max={max}

@@ -92,7 +92,7 @@ export function StagingArea({ fileChanges, onAction, onSelectFile }: StagingArea
 
       {/* Commit input */}
       <div className="shrink-0 flex items-center gap-2 px-3 py-2 border-t border-[var(--g-border)] bg-[var(--g-bg)]">
-        <input aria-label="Text input"
+        <input aria-label="Commit message"
           type="text"
           value={commitMsg}
           onChange={(e) => setCommitMsg(e.target.value)}

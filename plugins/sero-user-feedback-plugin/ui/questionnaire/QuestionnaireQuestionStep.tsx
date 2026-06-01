@@ -122,7 +122,7 @@ export function QuestionnaireQuestionStep({
 
         {customMode && (
           <div className="flex gap-2 pt-2">
-            <input aria-label="Text input"
+            <input aria-label="Other answer"
               type="text"
               value={customText}
               onChange={(event) => onCustomTextChange(event.target.value)}

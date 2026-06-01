@@ -236,7 +236,7 @@ export function CollaborationToggle({ disabled }: { disabled: boolean }) {
                 <div className="flex flex-col gap-1.5">
                   <label className="flex items-center justify-between text-[11px] text-[var(--text-secondary)]">
                     <span>Max rounds</span>
-                    <input aria-label="Number input"
+                    <input aria-label="Max collaboration rounds"
                       type="number"
                       min={1}
                       max={5}
@@ -247,7 +247,7 @@ export function CollaborationToggle({ disabled }: { disabled: boolean }) {
                   </label>
                   <label className="flex items-center justify-between text-[11px] text-[var(--text-secondary)]">
                     <span>Time limit (sec)</span>
-                    <input aria-label="Number input"
+                    <input aria-label="Collaboration time limit in seconds"
                       type="number"
                       min={30}
                       max={600}

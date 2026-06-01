@@ -277,7 +277,7 @@ export function ChatPanel() {
             onTranscript={handleTranscript}
           />
 
-          <textarea aria-label="Text input"
+          <textarea aria-label="Message"
             ref={textareaRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}

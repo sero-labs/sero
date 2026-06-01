@@ -13,14 +13,14 @@ export function ThemeEditorDetailsSection({
 }: ThemeEditorDetailsSectionProps) {
   return (
     <div className="shrink-0 flex flex-col gap-2 border-b border-[var(--border-subtle)] px-4 py-3">
-      <input aria-label="Text input"
+      <input aria-label="Theme name"
         type="text"
         value={draft.name}
         onChange={(event) => onNameChange(event.target.value)}
         placeholder="Theme name..."
         className="rounded border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2 py-1.5 text-sm font-medium text-[var(--text-primary)] outline-none focus:border-[var(--border-focus)]"
       />
-      <input aria-label="Text input"
+      <input aria-label="Theme description"
         type="text"
         value={draft.description}
         onChange={(event) => onDescriptionChange(event.target.value)}

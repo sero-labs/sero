@@ -267,7 +267,7 @@ export function PullRequestSection({
           )}
         </div>
 
-        <input aria-label="Input"
+        <input aria-label="PR title"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="PR title"
@@ -277,7 +277,7 @@ export function PullRequestSection({
           )}
         />
 
-        <textarea aria-label="Text input"
+        <textarea aria-label="PR description"
           value={body}
           onChange={(e) => setBody(e.target.value)}
           placeholder="PR description"
@@ -356,7 +356,7 @@ function LabeledSelect({
       <label className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]/60">
         {label}
       </label>
-      <select aria-label="Select option"
+      <select aria-label={label}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}

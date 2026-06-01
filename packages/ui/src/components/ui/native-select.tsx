@@ -6,6 +6,7 @@ import { cn } from "../../lib/utils"
 function NativeSelect({
   className,
   size = "default",
+  "aria-label": ariaLabel,
   ...props
 }: Omit<React.ComponentProps<"select">, "size"> & { size?: "sm" | "default" }) {
   return (
@@ -13,7 +14,8 @@ function NativeSelect({
       className="group/native-select relative w-fit has-[select:disabled]:opacity-50"
       data-slot="native-select-wrapper"
     >
-      <select aria-label="Select option"
+      <select
+        aria-label={ariaLabel}
         data-slot="native-select"
         data-size={size}
         className={cn(

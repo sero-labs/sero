@@ -75,6 +75,7 @@ export function AddWidgetDialog({ availableWidgets }: AddWidgetDialogProps) {
           value={search}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
           className="mb-3"
+          autoFocus
         />
 
         <div className="max-h-80 space-y-4 overflow-y-auto">

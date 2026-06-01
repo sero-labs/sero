@@ -248,7 +248,7 @@ export function App() {
   // already guard on activeWorkspaceId inside SeroAppMount.
   if (!profileReady || !appsReady || !layoutReady) {
     return (
-      <div className="flex size-screen items-center justify-center bg-[var(--bg-base)]">
+      <div className="flex h-screen w-screen items-center justify-center bg-[var(--bg-base)]">
         <span className="text-xs text-[var(--text-muted)]">Loading…</span>
       </div>
     );
@@ -261,7 +261,7 @@ export function App() {
 
   return (
     <TooltipProvider delayDuration={400}>
-      <div className="flex size-screen flex-col overflow-hidden bg-[var(--bg-base)]">
+      <div className="flex h-screen w-screen flex-col overflow-hidden bg-[var(--bg-base)]">
         <TitleBar />
 
         <div className="flex min-h-0 flex-1">

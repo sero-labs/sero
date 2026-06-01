@@ -345,7 +345,7 @@ function ConfigEditor({
                 ) : null}
               </>
             ) : null}
-            <textarea aria-label="Text input"
+            <textarea aria-label="Config JSON"
               value={displayContent ?? ''}
               onChange={(e) => handleEdit(e.target.value)}
               readOnly={isReadOnly}

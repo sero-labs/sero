@@ -78,7 +78,7 @@ export function SkillEditor({
 
       <div className="grid grid-cols-2 gap-3 border-b border-border px-4 py-3">
         <Field label="Name" hint="lowercase, hyphens only">
-          <input aria-label="Text input"
+          <input aria-label="Skill name"
             type="text"
             value={data.name}
             onChange={(e) => update({ name: e.target.value })}
@@ -89,7 +89,7 @@ export function SkillEditor({
         </Field>
 
         <Field label="Description">
-          <input aria-label="Text input"
+          <input aria-label="Skill description"
             type="text"
             value={data.description}
             onChange={(e) => update({ description: e.target.value })}

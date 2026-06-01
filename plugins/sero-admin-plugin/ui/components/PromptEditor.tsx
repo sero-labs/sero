@@ -70,7 +70,7 @@ export function PromptEditor({ data, isNew, saving, onSave, onDelete, onChange }
       {/* ── Metadata fields ────────────────────────────── */}
       <div className="grid grid-cols-2 gap-3 border-b border-border px-4 py-3">
         <Field label="Name" hint="becomes /name command">
-          <input aria-label="Text input"
+          <input aria-label="Prompt name"
             type="text"
             value={data.name}
             onChange={(e) => update({ name: e.target.value })}
@@ -81,7 +81,7 @@ export function PromptEditor({ data, isNew, saving, onSave, onDelete, onChange }
         </Field>
 
         <Field label="Description">
-          <input aria-label="Text input"
+          <input aria-label="Prompt description"
             type="text"
             value={data.description}
             onChange={(e) => update({ description: e.target.value })}

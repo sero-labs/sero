@@ -244,7 +244,7 @@ function QuestionCardInner({ question }: { question: UserFeedbackPendingQuestion
         {/* Custom text input */}
         {customMode && (
           <div className="flex gap-1.5 px-0.5 pt-1">
-            <input aria-label="Text input"
+            <input aria-label="Custom answer"
               // eslint-disable-next-line jsx-a11y/no-autofocus
               type="text"
               value={customText}

@@ -134,7 +134,8 @@ export function ChangeDetail({ workspaceId, entry, onOpenDiff }: Props) {
       <div className="mb-2 flex items-start gap-1.5">
         {editing ? (
           <div className="flex flex-1 items-center gap-1">
-            <input aria-label="Input"
+            <input aria-label="Checkpoint description"
+              autoFocus
               value={descDraft}
               onChange={(e) => setDescDraft(e.target.value)}
               onKeyDown={(e) => {
@@ -261,7 +262,8 @@ export function ChangeDetail({ workspaceId, entry, onOpenDiff }: Props) {
       {showPushAs && (
         <div className="mt-2 flex items-center gap-1.5">
           <GitBranch className="size-3 shrink-0 text-[var(--text-muted)]" />
-          <input aria-label="Input"
+          <input aria-label="Branch name to publish"
+            autoFocus
             value={pushBranch}
             onChange={(e) => setPushBranch(e.target.value.replace(/\s+/g, '-'))}
             onKeyDown={(e) => {

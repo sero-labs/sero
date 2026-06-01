@@ -23,7 +23,7 @@ export function ProfileSetup() {
   };
 
   return (
-    <div className="flex size-screen flex-col items-center justify-center bg-[var(--bg-base)]">
+    <div className="flex h-screen w-screen flex-col items-center justify-center bg-[var(--bg-base)]">
       <div className="flex flex-col items-center gap-8 px-6">
         {/* ── Branding ─────────────────────────────────────── */}
         <div className="flex flex-col items-center gap-3">

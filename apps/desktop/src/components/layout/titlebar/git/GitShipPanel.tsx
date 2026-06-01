@@ -186,7 +186,7 @@ export function GitShipPanel({
             </span>
           </div>
 
-          <input aria-label="Input"
+          <input aria-label="Commit message"
             value={message}
             onChange={(event) => setMessage(event.target.value)}
             onKeyDown={(event) => {

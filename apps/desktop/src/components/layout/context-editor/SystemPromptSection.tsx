@@ -47,7 +47,7 @@ export function SystemPromptSection({
             </button>
           )}
         </div>
-        <textarea aria-label="Text input"
+        <textarea aria-label="System prompt"
           value={displayedPrompt}
           onChange={(event) => onSystemPromptChange(event.target.value)}
           className="h-80 w-full resize-y rounded-md border border-border/30 bg-[var(--bg-base)] p-2 font-mono text-[11px] text-[var(--text-secondary)] placeholder:text-[var(--text-muted)] outline-none focus:border-[var(--accent-primary)]"

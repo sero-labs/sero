@@ -78,7 +78,7 @@ export function LocalProviderModelsSection({
         )}
 
         <div className="flex gap-1.5">
-          <input aria-label="Input"
+          <input aria-label="Model ID"
             value={newModelId}
             onChange={(event) => onNewModelIdChange(event.target.value)}
             onKeyDown={handleKeyDown}

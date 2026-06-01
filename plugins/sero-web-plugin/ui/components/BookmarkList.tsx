@@ -116,12 +116,12 @@ function AddBookmarkForm(props: AddBookmarkFormProps) {
 
   return (
     <form onSubmit={(e) => { e.preventDefault(); void props.onSubmit(); }} className="flex flex-col gap-2">
-      <input aria-label="Text input" type="text" value={props.url} onChange={(e) => props.onUrlChange(e.target.value)}
-        placeholder="URL..." className={inputClass} />
-      <input aria-label="Text input" type="text" value={props.title} onChange={(e) => props.onTitleChange(e.target.value)}
-        placeholder="Title (optional)..." className={inputClass} />
-      <input aria-label="Text input" type="text" value={props.tags} onChange={(e) => props.onTagsChange(e.target.value)}
-        placeholder="Tags (comma-separated)..." className={inputClass} />
+      <input aria-label="Bookmark URL" type="text" value={props.url} onChange={(e) => props.onUrlChange(e.target.value)}
+        placeholder="URL…" autoFocus className={inputClass} />
+      <input aria-label="Bookmark title" type="text" value={props.title} onChange={(e) => props.onTitleChange(e.target.value)}
+        placeholder="Title (optional)…" className={inputClass} />
+      <input aria-label="Bookmark tags" type="text" value={props.tags} onChange={(e) => props.onTagsChange(e.target.value)}
+        placeholder="Tags (comma-separated)…" className={inputClass} />
       <div className="flex gap-2">
         <Button size="sm" disabled={!props.url.trim()} className="flex-1">Save</Button>
         <Button type="button" variant="ghost" size="sm" onClick={props.onCancel}>Cancel</Button>

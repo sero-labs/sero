@@ -122,7 +122,7 @@ export function SessionNode({
       {/* Title + metadata */}
       <div className="flex min-w-0 flex-1 flex-col">
         {isRenaming ? (
-          <input aria-label="Input"
+          <input aria-label="Session name"
             ref={renameInputRef}
             value={renameValue}
             onChange={(e) => setRenameValue(e.target.value)}

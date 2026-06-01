@@ -104,7 +104,7 @@ export function DevServerPreview({ tabPath }: Props) {
       {/* Navigation bar */}
       <div className="flex items-center gap-2 border-b border-[var(--border)] px-3 py-1.5">
         <Globe className="size-3.5 shrink-0 text-[var(--text-muted)]" />
-        <input aria-label="Text input"
+        <input aria-label="Preview URL"
           type="text"
           value={urlInput}
           onChange={(e) => setUrlInput(e.target.value)}

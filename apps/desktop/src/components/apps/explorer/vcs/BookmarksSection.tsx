@@ -123,7 +123,7 @@ export function BookmarksSection({
             >
               <div className="flex items-center gap-1.5 px-3 py-1.5">
                 <GitBranch className="size-3 shrink-0 text-[var(--text-muted)]" />
-                <input aria-label="Input"
+                <input aria-label="New branch name" autoFocus
                   value={newName}
                   onChange={(e) => setNewName(e.target.value.replace(/\s+/g, '-'))}
                   onKeyDown={(e) => {

@@ -57,7 +57,7 @@ export function ColorPicker({ label, value, onChange }: ColorPickerProps) {
       <span className="text-xs text-[var(--text-secondary)] w-20 truncate">
         {label}
       </span>
-      <input aria-label="Text input"
+      <input aria-label="Color value"
         type="text"
         value={value}
         onChange={handleTextChange}

@@ -151,7 +151,7 @@ export function SessionBadge({ sessionId }: SessionBadgeProps) {
         >
           <Gauge className="size-3.5" />
           <span className={`text-sm tabular-nums ${healthColor}`}>
-            {hasContextData ? `${Math.round(percent)}%` : ','}
+            {hasContextData ? `${Math.round(percent)}%` : '—'}
           </span>
           <span className="text-[var(--text-muted)]">·</span>
           <Coins className="size-3.5" />

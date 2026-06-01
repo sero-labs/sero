@@ -184,7 +184,7 @@ export function AgentEditor({ data, isNew, saving, onSave, onDelete, onChange }:
 
       <div className="grid grid-cols-2 gap-3 border-b border-border px-4 py-3">
         <Field label="Name" hint="lowercase, hyphens only">
-          <input aria-label="Text input"
+          <input aria-label="Agent name"
             type="text"
             value={data.name}
             onChange={(e) => update({ name: e.target.value })}
@@ -195,7 +195,7 @@ export function AgentEditor({ data, isNew, saving, onSave, onDelete, onChange }:
         </Field>
 
         <Field label="Description">
-          <input aria-label="Text input"
+          <input aria-label="Agent description"
             type="text"
             value={data.description}
             onChange={(e) => update({ description: e.target.value })}
@@ -205,7 +205,7 @@ export function AgentEditor({ data, isNew, saving, onSave, onDelete, onChange }:
         </Field>
 
         <Field label="Model choice" hint="usually LOW / MED / HIGH">
-          <select aria-label="Select option"
+          <select aria-label="Model choice"
             value={modelSelectValue}
             onChange={(e) => handleModelSelectChange(e.target.value)}
             className={fieldClass}
@@ -219,7 +219,7 @@ export function AgentEditor({ data, isNew, saving, onSave, onDelete, onChange }:
         </Field>
 
         <Field label="Thinking" hint={isPinnedModelMode ? 'only used for a pinned model' : 'inherited from the selected tier'}>
-          <select aria-label="Select option"
+          <select aria-label="Thinking mode"
             value={isPinnedModelMode ? (data.thinking || '') : ''}
             onChange={(e) => update({ thinking: e.target.value || undefined })}
             disabled={!isPinnedModelMode || !selectedPinnedModel}

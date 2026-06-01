@@ -87,7 +87,7 @@ export function FileTreeContextMenu({
         {newItemMode ? (
           <div className="px-2 py-1.5">
             <Input
-              ref={inputRef} className="-my-0.5 h-7 px-2 text-sm"
+              ref={inputRef} autoFocus className="-my-0.5 h-7 px-2 text-sm"
               placeholder={newItemMode === 'file' ? 'filename.ext' : 'folder-name'}
               value={newItemName}
               onChange={(e) => setNewItemName(e.target.value)}

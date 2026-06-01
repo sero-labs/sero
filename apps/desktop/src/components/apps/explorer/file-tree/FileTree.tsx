@@ -44,6 +44,7 @@ export function FileTree(props: FileTreeProps) {
                   {item.isRenaming() ? (
                     <Input
                       {...item.getRenameInputProps()}
+                      autoFocus
                       className="-my-0.5 h-5 px-1 text-[13px]"
                     />
                   ) : (

@@ -86,7 +86,7 @@ export function WorkingCopySection({ workspaceId, status, currentChangeId, onOpe
 
         {/* Checkpoint bar */}
         <div className="flex items-center gap-1.5">
-          <input aria-label="Input"
+          <input aria-label="Commit description"
             value={desc}
             onChange={(e) => setDesc(e.target.value)}
             onKeyDown={(e) => {
