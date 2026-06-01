@@ -162,6 +162,7 @@ function BinaryFilePreview({ workspaceId, filePath, spec }: BinaryFilePreviewPro
             <iframe
               src={blobUrl}
               title={`Preview: ${fileName}`}
+              sandbox="allow-same-origin"
               className="h-full w-full border-0"
             />
           </div>

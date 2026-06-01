@@ -52,6 +52,9 @@ export function AdminApp() {
   const agentCrud = useAgentCrud(setErrorMsg, setSaving);
   const skillCrud = useSkillCrud(setErrorMsg, setSaving);
   const promptCrud = usePromptCrud(setErrorMsg, setSaving);
+  const refreshAgents = agentCrud.refresh;
+  const refreshSkills = skillCrud.refresh;
+  const refreshPrompts = promptCrud.refresh;
 
   const profilePath = activeProfile?.path ?? null;
   const profileName = activeProfile?.name ?? null;
@@ -63,12 +66,10 @@ export function AdminApp() {
   useEffect(() => {
     setResourceLoading(true);
     setError(null);
-    Promise.all([agentCrud.refresh(), skillCrud.refresh(), promptCrud.refresh()]).finally(() => {
+    Promise.all([refreshAgents(), refreshSkills(), refreshPrompts()]).finally(() => {
       setResourceLoading(false);
     });
-    // Initial data load for CRUD sections.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [refreshAgents, refreshPrompts, refreshSkills]);
 
   useEffect(() => {
     if (resourceLoading || !state.lastAgent) return;

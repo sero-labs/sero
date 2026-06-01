@@ -108,7 +108,7 @@ export function JobForm({ open, onClose, onSave, editingJob }: JobFormProps) {
     if (runIfMissed) job.runIfMissed = true;
     onSave(job);
     onClose();
-  }, [canSave, name, schedule, prompt, channel, model, editingJob, onSave, onClose]);
+  }, [canSave, name, schedule, prompt, channel, model, runIfMissed, editingJob, onSave, onClose]);
 
   const inputCls =
     'w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring';

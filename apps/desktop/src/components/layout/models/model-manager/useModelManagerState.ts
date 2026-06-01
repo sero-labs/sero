@@ -11,6 +11,8 @@ import {
   getManagerEmptyMessage,
 } from './runtime';
 
+const EMPTY_MODEL_GROUPS: NonNullable<ReturnType<typeof useFocusedModelState>>['availableModels'] = [];
+
 export function useModelManagerState(open: boolean) {
   const [activeTab, setActiveTab] = useState<ManagerTab>('all');
   const [filter, setFilter] = useState('');
@@ -19,7 +21,7 @@ export function useModelManagerState(open: boolean) {
   const modelState = useFocusedModelState();
   const focusedSessionId = useFocusedSessionId();
   const fetchModelState = useAgentStore((state) => state.fetchModelState);
-  const groups = modelState?.availableModels ?? [];
+  const groups = modelState?.availableModels ?? EMPTY_MODEL_GROUPS;
 
   const refreshFocusedModels = useCallback(async () => {
     if (!focusedSessionId) return;

@@ -99,13 +99,11 @@ export class AppleContainerBackend implements RuntimeBackend {
   }
 
   private async ensureOnce(options?: { isolated?: boolean }): Promise<RuntimeSession> {
-    const config = await buildWorkspaceContainerConfig(
-      this.workspaceManager,
-      this.workspaceId,
-      this.hostWorkspacePath,
-      options?.isolated === undefined ? undefined : { isolated: options.isolated },
-    );
-    const ports = await this.portManager();
+    const [config, ports] = await Promise.all([
+      buildWorkspaceContainerConfig(this.workspaceManager, this.workspaceId, this.hostWorkspacePath,
+        options?.isolated === undefined ? undefined : { isolated: options.isolated }),
+      this.portManager(),
+    ]);
     config.previewPortMappings = await ports.prepareRunMappings();
     let state = await this.containerManager.ensure(config);
     try {

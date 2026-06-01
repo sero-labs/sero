@@ -203,8 +203,10 @@ async function reconnectAuthenticatedServer(
   serverName: string,
 ): Promise<SyncedRuntimeState> {
   const serverConfig = synced.config.mcpServers[serverName];
-  const connection = await options.manager.reconnect(serverName, serverConfig);
-  const metadataCache = await readMetadataCache();
+  const [connection, metadataCache] = await Promise.all([
+    options.manager.reconnect(serverName, serverConfig),
+    readMetadataCache(),
+  ]);
   const { nextCache, runtimeStatus } = await reconcileConnection({
     serverName,
     serverConfig,

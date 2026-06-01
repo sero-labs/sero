@@ -380,9 +380,11 @@ export class DockerBackend implements RuntimeBackend {
   }
 
   private async ensureOnce(options?: { isolated?: boolean }): Promise<RuntimeSession> {
-    const image = await ensureDockerImage({ imageRef: this.imageRef, run: this.run });
-    const config = await this.buildConfig(options);
-    const poolSize = await this.previewPortPoolSize();
+    const [image, config, poolSize] = await Promise.all([
+      ensureDockerImage({ imageRef: this.imageRef, run: this.run }),
+      this.buildConfig(options),
+      this.previewPortPoolSize(),
+    ]);
     let state = await ensureDockerContainer({ config, imageRef: this.imageRef, imageId: image.imageId, run: this.run, previewPortPoolSize: poolSize });
     try {
       await (await this.portManager(poolSize)).refreshFromInspect();
