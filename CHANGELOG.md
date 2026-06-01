@@ -6,6 +6,12 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 and beta release tags use a SemVer prerelease form.
 
 
+## [0.2.9-beta.0](https://github.com/sero-labs/sero/compare/v0.2.7-beta.0...v0.2.9-beta.0) (2026-06-01)
+
+### Bug Fixes
+
+* **desktop:** repair managed npm toolchains ([fc71390](https://github.com/sero-labs/sero/commit/fc7139035c4012d04de994d588950014ee1d8ee6))
+
 ## [0.2.6-beta.0](https://github.com/sero-labs/sero/compare/v0.2.5-beta.0...v0.2.6-beta.0) (2026-05-31)
 
 ### Bug Fixes
