@@ -92,9 +92,17 @@ function validatePluginDevAppShape(pkgJson: PluginDevPackageJson, sourcePath: st
 }
 
 function resolveDevCommand(sourcePath: string, pkgJson: PluginDevPackageJson): string | null {
-  return readString(pkgJson.scripts?.dev)
-    ? `${detectPackageManager(sourcePath)} run dev`
-    : null;
+  if (!readString(pkgJson.scripts?.dev)) return null;
+
+  const packageManager = detectPackageManager(sourcePath);
+  if (packageManager === 'yarn') {
+    throw createPluginDevSessionError(
+      'unsupported-package-manager',
+      `Unsupported plugin package manager: yarn. Sero local plugin dev sessions currently support npm and pnpm only: ${sourcePath}`,
+    );
+  }
+
+  return `${packageManager} run dev`;
 }
 
 function hasDeclaredUiSurface(pkgJson: PluginDevPackageJson): boolean {

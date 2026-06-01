@@ -1,14 +1,12 @@
-import { execFile as execFileCb } from 'child_process';
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import path from 'path';
-import { promisify } from 'util';
 import {
   classifyNativeBuildFailure,
   createNativeBuildToolsRequiredMetadata,
 } from '@electron/features/workspace/runtime/native-build/classifier';
 import { NativeBuildToolsRequiredError } from '@electron/features/workspace/runtime/native-build/types';
+import { runPluginHostCommand } from './host-command-runner';
 
-const execFile = promisify(execFileCb);
 const BUILT_UI_ENTRY = path.join('dist', 'ui', 'remoteEntry.js');
 
 type PluginSourceKind = 'npm' | 'git' | 'local';
@@ -153,11 +151,7 @@ async function defaultRunCommand(
   cwd: string,
   env?: NodeJS.ProcessEnv,
 ): Promise<void> {
-  await execFile(command, args, {
-    cwd,
-    env: env ?? process.env,
-    encoding: 'utf8',
-  });
+  await runPluginHostCommand(command, args, cwd, { env });
 }
 
 function getInstallCommand(pkg: PluginPackageJson): { command: string; args: string[] } {
@@ -166,7 +160,7 @@ function getInstallCommand(pkg: PluginPackageJson): { command: string; args: str
     return { command: 'pnpm', args: ['install', '--no-frozen-lockfile'] };
   }
   if (packageManager === 'yarn') {
-    return { command: 'yarn', args: ['install'] };
+    throw unsupportedPackageManagerError('yarn');
   }
   return { command: 'npm', args: ['install'] };
 }
@@ -184,9 +178,16 @@ function getBuildCommand(pkg: PluginPackageJson): { command: string; args: strin
     return { command: 'pnpm', args: ['run', 'build'] };
   }
   if (packageManager === 'yarn') {
-    return { command: 'yarn', args: ['build'] };
+    throw unsupportedPackageManagerError('yarn');
   }
   return { command: 'npm', args: ['run', 'build'] };
+}
+
+function unsupportedPackageManagerError(packageManager: string): Error {
+  return new Error(
+    `Unsupported plugin package manager: ${packageManager}. ` +
+    'Sero plugin source installs currently support npm and pnpm only.',
+  );
 }
 
 function assertStandaloneSourcePackage(pkg: PluginPackageJson): void {

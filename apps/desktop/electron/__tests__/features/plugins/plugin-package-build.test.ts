@@ -458,6 +458,27 @@ describe('plugin package build helpers', () => {
     );
   });
 
+  it('rejects yarn source packages with a clear unsupported-manager error', async () => {
+    const dir = await createTempPluginDir(tempDirs);
+    await writePackageJson(dir, {
+      packageManager: 'yarn@4.0.0',
+      scripts: {
+        build: 'vite build',
+      },
+      sero: {
+        app: {
+          id: 'todo',
+          name: 'Todo',
+          ui: './dist/ui/remoteEntry.js',
+        },
+      },
+    });
+
+    await expect(ensurePluginPackageReadyForInstall(dir, 'git')).rejects.toThrow(
+      /support npm and pnpm only/,
+    );
+  });
+
   it('rejects git source packages with workspace specs', async () => {
     const dir = await createTempPluginDir(tempDirs);
     await writePackageJson(dir, {

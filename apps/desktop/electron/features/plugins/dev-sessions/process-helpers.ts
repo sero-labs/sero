@@ -1,4 +1,5 @@
 import { execFile as execFileCb } from 'child_process';
+import { existsSync } from 'fs';
 import path from 'path';
 
 const PORT_RELEASE_TIMEOUT_MS = 5_000;
@@ -10,7 +11,7 @@ function normalizeSourcePath(sourcePath: string): string {
 
 function execFileAsync(command: string, args: string[]): Promise<string> {
   return new Promise((resolve, reject) => {
-    execFileCb(command, args, { encoding: 'utf8' }, (error, stdout) => {
+    execFileCb(resolveSystemCommand(command), args, { encoding: 'utf8' }, (error, stdout) => {
       if (error) {
         reject(error);
         return;
@@ -18,6 +19,17 @@ function execFileAsync(command: string, args: string[]): Promise<string> {
       resolve(stdout);
     });
   });
+}
+
+function resolveSystemCommand(command: string): string {
+  if (path.isAbsolute(command) || process.platform === 'win32') return command;
+  return systemCommandCandidates(command).find((candidate) => existsSync(candidate)) ?? command;
+}
+
+function systemCommandCandidates(command: string): string[] {
+  if (command === 'lsof') return ['/usr/sbin/lsof', '/usr/bin/lsof'];
+  if (command === 'ps') return ['/bin/ps', '/usr/bin/ps'];
+  return [];
 }
 
 async function readListeningProcessIds(port: number): Promise<number[]> {

@@ -4,6 +4,7 @@ import {
   createNativeBuildToolsRequiredMetadata,
 } from '@electron/features/workspace/runtime/native-build/classifier';
 import type { NativeBuildToolsRequiredMetadata } from '@electron/features/workspace/runtime/native-build/types';
+import { renderPluginHostCommand } from '../host-command-runner';
 
 const REPAIR_TIMEOUT_MS = 120_000;
 const REPAIR_OUTPUT_LIMIT = 4_000;
@@ -27,6 +28,13 @@ export function isNativeOptionalDependencyFailure(output: string): boolean {
 }
 
 export async function repairPluginNativeDeps(sourcePath: string): Promise<PluginNativeDepsRepairResult> {
+  let renderedCommand: Awaited<ReturnType<typeof renderPluginHostCommand>>;
+  try {
+    renderedCommand = await renderPluginHostCommand('pnpm', ['install', '--force'], sourcePath);
+  } catch (error) {
+    return createRepairResult(false, error instanceof Error ? error.message : String(error));
+  }
+
   return await new Promise((resolve) => {
     let settled = false;
     let output = '';
@@ -42,23 +50,12 @@ export async function repairPluginNativeDeps(sourcePath: string): Promise<Plugin
       settled = true;
       if (timeout) clearTimeout(timeout);
       const trimmedOutput = trimRepairOutput(output);
-      const failure = ok ? null : classifyNativeBuildFailure({
-        command: 'pnpm install --force',
-        exitCode: 1,
-        stdout: '',
-        stderr: trimmedOutput,
-        platform: process.platform,
-      });
-      resolve({
-        ok,
-        output: trimmedOutput,
-        nativeBuildToolsRequired: failure ? createNativeBuildToolsRequiredMetadata(failure) : undefined,
-      });
+      resolve(createRepairResult(ok, trimmedOutput));
     };
 
-    const child = spawn('pnpm', ['install', '--force'], {
-      cwd: sourcePath,
-      env: process.env,
+    const child = spawn(renderedCommand.program, renderedCommand.args, {
+      cwd: renderedCommand.cwd,
+      env: renderedCommand.env,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
 
@@ -76,6 +73,22 @@ export async function repairPluginNativeDeps(sourcePath: string): Promise<Plugin
     });
     child.on('exit', (code) => finish(code === 0));
   });
+}
+
+function createRepairResult(ok: boolean, output: string): PluginNativeDepsRepairResult {
+  const trimmedOutput = trimRepairOutput(output);
+  const failure = ok ? null : classifyNativeBuildFailure({
+    command: 'pnpm install --force',
+    exitCode: 1,
+    stdout: '',
+    stderr: trimmedOutput,
+    platform: process.platform,
+  });
+  return {
+    ok,
+    output: trimmedOutput,
+    nativeBuildToolsRequired: failure ? createNativeBuildToolsRequiredMetadata(failure) : undefined,
+  };
 }
 
 function trimRepairOutput(output: string): string {
