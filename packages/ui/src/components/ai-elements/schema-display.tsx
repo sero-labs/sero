@@ -10,7 +10,7 @@ import {
 } from "../ui/collapsible";
 import { cn } from "../../lib/utils";
 import { ChevronRightIcon } from "lucide-react";
-import { createContext, useContext, useMemo } from "react";
+import { createContext, use, useMemo } from "react";
 
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
@@ -144,7 +144,7 @@ export const SchemaDisplayMethod = ({
   children,
   ...props
 }: SchemaDisplayMethodProps) => {
-  const { method } = useContext(SchemaDisplayContext);
+  const { method } = use(SchemaDisplayContext);
 
   return (
     <Badge
@@ -164,7 +164,7 @@ export const SchemaDisplayPath = ({
   children,
   ...props
 }: SchemaDisplayPathProps) => {
-  const { path } = useContext(SchemaDisplayContext);
+  const { path } = use(SchemaDisplayContext);
 
   // Highlight path parameters
   const highlightedPath = path.replaceAll(
@@ -191,7 +191,7 @@ export const SchemaDisplayDescription = ({
   children,
   ...props
 }: SchemaDisplayDescriptionProps) => {
-  const { description } = useContext(SchemaDisplayContext);
+  const { description } = use(SchemaDisplayContext);
 
   return (
     <p
@@ -225,7 +225,7 @@ export const SchemaDisplayParameters = ({
   children,
   ...props
 }: SchemaDisplayParametersProps) => {
-  const { parameters } = useContext(SchemaDisplayContext);
+  const { parameters } = use(SchemaDisplayContext);
 
   return (
     <Collapsible className={cn(className)} defaultOpen {...props}>
@@ -293,7 +293,7 @@ export const SchemaDisplayRequest = ({
   children,
   ...props
 }: SchemaDisplayRequestProps) => {
-  const { requestBody } = useContext(SchemaDisplayContext);
+  const { requestBody } = use(SchemaDisplayContext);
 
   return (
     <Collapsible className={cn(className)} defaultOpen {...props}>
@@ -320,7 +320,7 @@ export const SchemaDisplayResponse = ({
   children,
   ...props
 }: SchemaDisplayResponseProps) => {
-  const { responseBody } = useContext(SchemaDisplayContext);
+  const { responseBody } = use(SchemaDisplayContext);
 
   return (
     <Collapsible className={cn(className)} defaultOpen {...props}>

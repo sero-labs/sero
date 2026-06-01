@@ -20,7 +20,7 @@ import { ChevronDownIcon } from "lucide-react";
 import {
   createContext,
   useCallback,
-  useContext,
+  use,
   useMemo,
   useState,
 } from "react";
@@ -35,7 +35,7 @@ export interface WebPreviewContextValue {
 const WebPreviewContext = createContext<WebPreviewContextValue | null>(null);
 
 const useWebPreview = () => {
-  const context = useContext(WebPreviewContext);
+  const context = use(WebPreviewContext);
   if (!context) {
     throw new Error("WebPreview components must be used within a WebPreview");
   }

@@ -1,5 +1,5 @@
 import type { AppToolResult } from '@sero-ai/common';
-import { useCallback, useContext, useMemo } from 'react';
+import { useCallback, use, useMemo } from 'react';
 
 import { AppContext } from './context';
 import { getSeroApi } from './sero-bridge';
@@ -9,7 +9,7 @@ export interface AppTools {
 }
 
 export function useAppTools(): AppTools {
-  const ctx = useContext(AppContext);
+  const ctx = use(AppContext);
 
   const run = useCallback<AppTools['run']>(
     async (toolName, params): Promise<AppToolResult> => {

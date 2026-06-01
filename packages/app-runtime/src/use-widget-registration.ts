@@ -21,7 +21,7 @@
  * ```
  */
 
-import { useContext, useEffect } from 'react';
+import { use, useEffect } from 'react';
 import type { ComponentType } from 'react';
 import { AppContext } from './context';
 import { registerWidget } from './widget-registry';
@@ -50,7 +50,7 @@ interface WidgetRegistrationOptions {
  * dashboard widget can keep rendering after the full app view unmounts.
  */
 export function useWidgetRegistration(options: WidgetRegistrationOptions): void {
-  const ctx = useContext(AppContext);
+  const ctx = use(AppContext);
   const appId = ctx?.appId;
   const { component, defaultSize, description, maxSize, minSize, name, widgetId } = options;
   const { h: defaultHeight, w: defaultWidth } = defaultSize;

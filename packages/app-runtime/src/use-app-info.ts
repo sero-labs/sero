@@ -2,7 +2,7 @@
  * useAppInfo — read-only context about the current app and workspace.
  */
 
-import { useContext } from 'react';
+import { use } from 'react';
 import { AppContext } from './context';
 
 export interface AppInfo {
@@ -12,7 +12,7 @@ export interface AppInfo {
 }
 
 export function useAppInfo(): AppInfo {
-  const ctx = useContext(AppContext);
+  const ctx = use(AppContext);
   if (!ctx) {
     throw new Error('useAppInfo must be used inside an <AppProvider>');
   }

@@ -6,7 +6,7 @@ import type { ComponentProps, ReactNode } from "react";
 import { Alert, AlertDescription } from "../ui/alert";
 import { Button } from "../ui/button";
 import { cn } from "../../lib/utils";
-import { createContext, useContext } from "react";
+import { createContext, use } from "react";
 
 type ToolUIPartApproval =
   | {
@@ -46,7 +46,7 @@ const ConfirmationContext = createContext<ConfirmationContextValue | null>(
 );
 
 const useConfirmation = () => {
-  const context = useContext(ConfirmationContext);
+  const context = use(ConfirmationContext);
 
   if (!context) {
     throw new Error("Confirmation components must be used within Confirmation");

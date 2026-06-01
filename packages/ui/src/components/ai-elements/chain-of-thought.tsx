@@ -12,7 +12,7 @@ import {
 } from "../ui/collapsible";
 import { cn } from "../../lib/utils";
 import { BrainIcon, ChevronDownIcon, DotIcon } from "lucide-react";
-import { createContext, memo, useContext, useMemo } from "react";
+import { createContext, memo, use, useMemo } from "react";
 
 interface ChainOfThoughtContextValue {
   isOpen: boolean;
@@ -24,7 +24,7 @@ const ChainOfThoughtContext = createContext<ChainOfThoughtContextValue | null>(
 );
 
 const useChainOfThought = () => {
-  const context = useContext(ChainOfThoughtContext);
+  const context = use(ChainOfThoughtContext);
   if (!context) {
     throw new Error(
       "ChainOfThought components must be used within ChainOfThought"
