@@ -112,7 +112,7 @@ export const ChatMessageComponent = memo(function ChatMessageComponent({
               const src = `data:${img.mimeType};base64,${img.base64}`;
               return (
                 <button
-                  key={i}
+                  key={src}
                   onClick={() => setLightboxSrc(src)}
                   className="cursor-zoom-in"
                 >

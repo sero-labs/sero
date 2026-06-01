@@ -143,12 +143,13 @@ export function QuestionnaireNotice({ tools, sessionLabel = null }: Props) {
 
   const pending = classification?.kind === 'interview' ? pendingInterview : pendingQuestionnaire;
   const count = pending?.questions.length ?? getQuestionCount(tools);
-
-  if (!classification) return null;
-
-  const mode = getMode(tools, Boolean(pending), classification);
-  const label = getPrimaryLabel(classification.kind, isOnboarding);
-  const secondary = getSecondaryLabel(mode, classification.kind);
+  const mode = classification ? getMode(tools, Boolean(pending), classification) : 'completed';
+  const label = classification
+    ? getPrimaryLabel(classification.kind, isOnboarding)
+    : 'Questions';
+  const secondary = classification
+    ? getSecondaryLabel(mode, classification.kind)
+    : 'Completed';
   const clickable = mode === 'active' && Boolean(pending);
 
   const handleClick = useCallback(() => {
@@ -165,6 +166,8 @@ export function QuestionnaireNotice({ tools, sessionLabel = null }: Props) {
     },
     [cancel, pending],
   );
+
+  if (!classification) return null;
 
   return (
     <motion.div

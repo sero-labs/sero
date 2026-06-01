@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback } from 'react';
 import { Bot, Check, Copy, RotateCcw, User } from 'lucide-react';
 import { useTransientFlag } from '@/components/apps/explorer/useTransientUiState';
 import { copyTextToClipboard } from '@/lib/copy-to-clipboard';
@@ -143,15 +143,9 @@ export const ChatMessageItem = memo(function ChatMessageItem({
       const showAvatar = hasContent;
       const showFeedback = isDone && hasContent && !!sessionId;
 
-      // Truncate excerpts for storage (keep feedback entries lean)
-      const promptExcerpt = useMemo(
-        () => previousUserText?.slice(0, 300),
-        [previousUserText],
-      );
-      const responseExcerpt = useMemo(
-        () => message.text?.slice(0, 300),
-        [message.text],
-      );
+      // Truncate excerpts for storage (keep feedback entries lean).
+      const promptExcerpt = previousUserText?.slice(0, 300);
+      const responseExcerpt = message.text?.slice(0, 300);
 
       return (
         <Message from="assistant" className="group/msg flex-row items-start gap-2">

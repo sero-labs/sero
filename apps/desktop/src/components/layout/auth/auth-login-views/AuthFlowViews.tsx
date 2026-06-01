@@ -45,8 +45,8 @@ export function AuthenticatingView({
 
       {progressMessages.length > 0 ? (
         <div className="space-y-0.5 text-xs text-muted-foreground">
-          {progressMessages.map((message, index) => (
-            <p key={index}>{message}</p>
+          {progressMessages.map((message) => (
+            <p key={message}>{message}</p>
           ))}
         </div>
       ) : null}

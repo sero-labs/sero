@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { act, useState, type MutableRefObject } from 'react';
+import { act, useState, type RefObject } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SeroEditorAPI, SeroFileTreeAPI, SeroVcsAPI } from '@/types/electron-workspace';
@@ -16,8 +16,8 @@ interface HarnessProps {
   activeTab: string | null;
   initialDirtyPaths?: Set<string>;
   initialContent?: string;
-  contentMapRef: MutableRefObject<Map<string, string>>;
-  savedContentRef: MutableRefObject<Map<string, string>>;
+  contentMapRef: RefObject<Map<string, string>>;
+  savedContentRef: RefObject<Map<string, string>>;
 }
 
 describe('useEditorRuntimeSync', () => {

@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import type {
   Dispatch,
-  MutableRefObject,
+  RefObject,
   SetStateAction,
 } from 'react';
 
@@ -10,8 +10,8 @@ interface UseEditorRuntimeSyncOptions {
   tabs: string[];
   activeTab: string | null;
   dirtyPaths: Set<string>;
-  contentMapRef: MutableRefObject<Map<string, string>>;
-  savedContentRef: MutableRefObject<Map<string, string>>;
+  contentMapRef: RefObject<Map<string, string>>;
+  savedContentRef: RefObject<Map<string, string>>;
   setContent: Dispatch<SetStateAction<string>>;
   setDirtyPaths: Dispatch<SetStateAction<Set<string>>>;
 }

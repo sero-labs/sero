@@ -54,7 +54,7 @@ const ToolCallItem = memo(function ToolCallItem({ tc }: { tc: ToolCall }) {
               const src = `data:${img.mimeType};base64,${img.data}`;
               return (
                 <button
-                  key={i}
+                  key={src}
                   onClick={() => setLightboxSrc(src)}
                   className="cursor-zoom-in"
                 >

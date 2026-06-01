@@ -117,8 +117,8 @@ function SourceLink({ title, url, domain }: { title: string; url: string; domain
 function SearchQueryDetails({ queries }: { queries: QueryInfo[] }) {
   return (
     <div className="flex flex-col gap-3">
-      {queries.map((q, i) => (
-        <div key={i} className="flex flex-col gap-1.5">
+      {queries.map((q) => (
+        <div key={`${q.provider ?? 'search'}:${q.query}`} className="flex flex-col gap-1.5">
           <div className="flex items-center gap-2">
             <span className="text-xs font-semibold text-foreground">{q.query}</span>
             {q.provider && <ProviderBadge provider={q.provider} />}
@@ -136,8 +136,8 @@ function SearchQueryDetails({ queries }: { queries: QueryInfo[] }) {
 
           {q.sources.length > 0 && (
             <div className="flex flex-col gap-0.5 pl-1">
-              {q.sources.slice(0, 8).map((s, j) => (
-                <SourceLink key={j} title={s.title} url={s.url} domain={extractDomain(s.url)} />
+              {q.sources.slice(0, 8).map((s) => (
+                <SourceLink key={s.url} title={s.title} url={s.url} domain={extractDomain(s.url)} />
               ))}
               {q.sources.length > 8 && (
                 <span className="text-[10px] text-muted-foreground/40 pl-5">
@@ -157,8 +157,8 @@ function SearchQueryDetails({ queries }: { queries: QueryInfo[] }) {
 function FetchUrlDetails({ urls }: { urls: UrlInfo[] }) {
   return (
     <div className="flex flex-col gap-0.5">
-      {urls.map((u, i) => (
-        <div key={i} className="flex items-center gap-2">
+      {urls.map((u) => (
+        <div key={u.url} className="flex items-center gap-2">
           <a
             href={u.url}
             target="_blank"

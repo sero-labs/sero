@@ -38,37 +38,41 @@ function PermissionGateCard({ question }: { question: UserFeedbackPendingQuestio
   const cancel = useUserFeedbackStore((s) => s.cancel);
 
   const q = question.questions[0];
-  if (!q) return null;
+  const qId = q?.id;
 
   // Extract the command from the prompt (between the two newlines after "detected:")
   const commandMatch = q.prompt.match(/:\n\n\s+(.+)\n\n/);
   const command = commandMatch?.[1]?.trim() ?? q.prompt;
 
   const handleAllow = useCallback(() => {
+    if (!qId) return;
     const ans: UserFeedbackAnswer = {
-      questionId: q.id,
+      questionId: qId,
       value: 'allow',
       label: 'Allow',
       wasCustom: false,
       index: 1,
     };
     answer(question.id, [ans]);
-  }, [q.id, question.id, answer]);
+  }, [qId, question.id, answer]);
 
   const handleBlock = useCallback(() => {
+    if (!qId) return;
     const ans: UserFeedbackAnswer = {
-      questionId: q.id,
+      questionId: qId,
       value: 'block',
       label: 'Block',
       wasCustom: false,
       index: 2,
     };
     answer(question.id, [ans]);
-  }, [q.id, question.id, answer]);
+  }, [qId, question.id, answer]);
 
   const handleCancel = useCallback(() => {
     cancel(question.id);
   }, [question.id, cancel]);
+
+  if (!q) return null;
 
   return (
     <motion.div
@@ -137,12 +141,13 @@ function QuestionCardInner({ question }: { question: UserFeedbackPendingQuestion
   const [customText, setCustomText] = useState('');
 
   const q = question.questions[0];
-  if (!q) return null;
+  const qId = q?.id;
 
   const handleSelect = useCallback(
     (opt: { value: string; label: string }, index: number) => {
+      if (!qId) return;
       const ans: UserFeedbackAnswer = {
-        questionId: q.id,
+        questionId: qId,
         value: opt.value,
         label: opt.label,
         wasCustom: false,
@@ -150,24 +155,27 @@ function QuestionCardInner({ question }: { question: UserFeedbackPendingQuestion
       };
       answer(question.id, [ans]);
     },
-    [q.id, question.id, answer],
+    [qId, question.id, answer],
   );
 
   const handleCustomSubmit = useCallback(() => {
+    if (!qId) return;
     const text = customText.trim();
     if (!text) return;
     const ans: UserFeedbackAnswer = {
-      questionId: q.id,
+      questionId: qId,
       value: text,
       label: text,
       wasCustom: true,
     };
     answer(question.id, [ans]);
-  }, [q.id, question.id, customText, answer]);
+  }, [qId, question.id, customText, answer]);
 
   const handleCancel = useCallback(() => {
     cancel(question.id);
   }, [question.id, cancel]);
+
+  if (!q) return null;
 
   return (
     <motion.div

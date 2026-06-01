@@ -10,7 +10,7 @@ import {
   useEffect,
   useCallback,
   useRef,
-  type MutableRefObject,
+  type RefObject,
 } from 'react';
 import {
   retainWorkspaceFiletreeWatch,
@@ -207,7 +207,7 @@ async function collectWorkspaceFiles(workspaceId: string): Promise<string[]> {
 async function loadWorkspaceFiles(
   workspaceId: string,
   abortGeneration: number,
-  abortRef: MutableRefObject<number>,
+  abortRef: RefObject<number>,
   setFiles: (files: string[]) => void,
   setIsLoading: (loading: boolean) => void,
   options: LoadWorkspaceFilesOptions = {},

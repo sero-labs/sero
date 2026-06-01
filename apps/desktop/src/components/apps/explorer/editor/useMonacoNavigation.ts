@@ -1,14 +1,14 @@
 import { useEffect } from 'react';
-import type { MutableRefObject } from 'react';
+import type { RefObject } from 'react';
 import type * as monacoApi from 'monaco-editor';
 import type { editor as MonacoEditor } from 'monaco-editor';
 import { applyGoto, type PendingGoto } from './editor-panel-shared';
 
 interface UseMonacoNavigationOptions {
   activeTab: string | null;
-  editorRef: MutableRefObject<MonacoEditor.IStandaloneCodeEditor | null>;
+  editorRef: RefObject<MonacoEditor.IStandaloneCodeEditor | null>;
   monacoInstance: typeof monacoApi | null;
-  pendingGotoRef: MutableRefObject<PendingGoto | null>;
+  pendingGotoRef: RefObject<PendingGoto | null>;
   handleOpenTab: (path: string) => void;
 }
 

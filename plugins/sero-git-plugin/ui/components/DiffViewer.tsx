@@ -41,7 +41,7 @@ export function DiffViewer({ diff, onClose }: DiffViewerProps) {
     <DiffShell path={diff.path} diff={diff} onClose={onClose}>
       <div className="overflow-auto git-scrollbar max-h-96">
         {diff.hunks.map((hunk, i) => (
-          <HunkView key={i} hunk={hunk} index={i} />
+          <HunkView key={`${hunk.oldStart}-${hunk.newStart}-${hunk.oldCount}-${hunk.newCount}`} hunk={hunk} index={i} />
         ))}
       </div>
     </DiffShell>
@@ -118,8 +118,8 @@ function HunkView({ hunk, index }: { hunk: DiffHunk; index: number }) {
 
       {/* Lines */}
       <div className="font-[var(--g-mono)] text-[11px] leading-[1.6]">
-        {hunk.lines.map((line, i) => (
-          <LineView key={i} line={line} />
+        {hunk.lines.map((line) => (
+          <LineView key={`${line.oldLineNo ?? ''}-${line.newLineNo ?? ''}-${line.type}-${line.content}`} line={line} />
         ))}
       </div>
     </div>

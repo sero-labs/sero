@@ -44,9 +44,9 @@ function HighlightedPath({
 
   return (
     <span className="min-w-0 truncate">
-      {path.split('').map((char, index) => (
+      {Array.from(path).map((char, index) => (
         <span
-          key={index}
+          key={path.slice(0, index + 1)}
           className={indexSet.has(index)
             ? selected
               ? 'text-white font-semibold'

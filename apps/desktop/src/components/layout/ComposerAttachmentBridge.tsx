@@ -13,15 +13,13 @@ export function ComposerAttachmentBridge() {
   const attachments = usePromptInputAttachments();
   const pendingCount = useComposerAttachmentQueue((s) => s.pending.length);
   const consume = useComposerAttachmentQueue((s) => s.consume);
+  const addAttachments = attachments.add;
 
   useEffect(() => {
     if (pendingCount === 0) return;
     const files = consume();
-    if (files.length > 0) attachments.add(files);
-    // `attachments` is recreated by the context on every render so we avoid
-    // depending on it directly — pendingCount is enough to trigger drain.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingCount, consume]);
+    if (files.length > 0) addAttachments(files);
+  }, [pendingCount, consume, addAttachments]);
 
   return null;
 }

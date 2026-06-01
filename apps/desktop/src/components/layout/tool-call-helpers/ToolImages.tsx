@@ -47,7 +47,7 @@ export function ToolImages({
         const isOpenablePath = !!workspaceId && !!image.filePath && looksLikeFilePath(image.filePath);
 
         return (
-          <div key={index} className="flex max-w-[220px] flex-col gap-1.5">
+          <div key={`${image.filePath ?? image.description ?? 'image'}:${src}`} className="flex max-w-[220px] flex-col gap-1.5">
             <button
               onClick={() => handlePreview(index)}
               className={cn(
