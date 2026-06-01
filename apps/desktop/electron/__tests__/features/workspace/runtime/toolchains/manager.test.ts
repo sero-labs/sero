@@ -10,6 +10,7 @@ import { ToolchainManager } from '@electron/features/workspace/runtime/toolchain
 import {
   artifactInstallPath,
   artifactStagingPath,
+  cleanupToolchainVersion,
   installedMarkerPath,
   managedBinPath,
   toolchainVersionRoot,
@@ -106,7 +107,7 @@ describe('ToolchainManager', () => {
 
   afterEach(async () => {
     vi.unstubAllEnvs();
-    await Promise.all(cleanupVersions.map((version) => fs.promises.rm(toolchainVersionRoot(version), { recursive: true, force: true })));
+    await Promise.all(cleanupVersions.map((version) => cleanupToolchainVersion(version)));
     await fs.promises.rm(path.join(SERO_FIXED_ROOT, 'toolchains-test-archives'), { recursive: true, force: true });
     cleanupVersions.length = 0;
   });

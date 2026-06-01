@@ -17,14 +17,14 @@ import {
 } from '@electron/features/workspace/runtime/browser-pack/storage';
 import type { BrowserPackManifest } from '@electron/features/workspace/runtime/browser-pack/types';
 import type { DownloadArtifactOptions } from '@electron/features/workspace/runtime/toolchains/download';
-import { toolchainStagingRoot, toolchainVersionRoot } from '@electron/features/workspace/runtime/toolchains/storage';
+import { cleanupToolchainVersion, toolchainStagingRoot, toolchainVersionRoot } from '@electron/features/workspace/runtime/toolchains/storage';
 
 const reason = { kind: 'test' as const, detail: 'browser pack test' };
 const cleanupVersions: string[] = [];
 
 describe('BrowserPackInstaller', () => {
   afterEach(async () => {
-    await Promise.all(cleanupVersions.map((version) => fs.promises.rm(toolchainVersionRoot(version), { recursive: true, force: true })));
+    await Promise.all(cleanupVersions.map((version) => cleanupToolchainVersion(version)));
     await fs.promises.rm(path.join(SERO_FIXED_ROOT, 'browser-pack-test-archives'), { recursive: true, force: true });
     cleanupVersions.length = 0;
   });

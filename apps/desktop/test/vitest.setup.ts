@@ -1,3 +1,8 @@
+import os from 'node:os';
+import path from 'node:path';
+
+process.env.SERO_FIXED_ROOT_OVERRIDE ??= path.join(os.tmpdir(), 'sero-vitest', String(process.pid));
+
 const QUIET_PATTERNS = [
   /^\[github-auth\]/,
   /^\[memory\]/,
