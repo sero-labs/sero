@@ -17,7 +17,7 @@ import path from 'path';
 import { parseFrontmatter } from '@earendil-works/pi-coding-agent';
 import { IpcChannels } from '@/types/ipc-channels';
 import { SERO_AGENT_DIR } from '@electron/platform/env';
-import { reloadAllSessionResources } from '..';
+import { reloadAllSessionResources } from '../core/agent';
 import type { PromptTemplateSummary, PromptTemplateFileData } from '@/types/prompts';
 
 const PROMPTS_DIR = path.join(SERO_AGENT_DIR, 'prompts');
@@ -62,18 +62,20 @@ async function collectMdFiles(dir: string): Promise<string[]> {
     return results;
   }
 
-  for (const entry of entries) {
+  const nested = await Promise.all(entries.map(async (entry) => {
     const full = path.join(dir, entry.name);
     try {
       if (entry.isDirectory()) {
-        results.push(...await collectMdFiles(full));
+        return collectMdFiles(full);
       } else if (entry.isFile() && entry.name.endsWith('.md')) {
-        results.push(full);
+        return [full];
       }
     } catch {
       // skip unreadable entries
     }
-  }
+    return [];
+  }));
+  results.push(...nested.flat());
   return results;
 }
 

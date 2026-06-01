@@ -222,10 +222,11 @@ export class SubagentManager {
     onUpdate?: (text: string) => void;
   }): Promise<string> {
     if (!this.deps) throw new Error('SubagentManager not initialized');
+    const deps = this.deps;
 
-    let previousOutput = '';
+    const runStep = async (step: number, previousOutput: string): Promise<string> => {
+      if (step >= params.chain.length) return previousOutput;
 
-    for (let step = 0; step < params.chain.length; step++) {
       const s = params.chain[step];
       const agent = await this.resolveAgent(s.agent);
       const taskOverride: TaskOverride = { model: s.model, thinking: s.thinking, timeoutMs: s.timeoutMs };
@@ -260,7 +261,7 @@ export class SubagentManager {
             onTextDelta: (delta) => this.tracker.appendLiveOutput(runId, delta),
             onUpdate: params.onUpdate,
           },
-          this.deps,
+          deps,
         );
 
         if (result.error) {
@@ -272,13 +273,13 @@ export class SubagentManager {
         this.tracker.complete(runId, result.response, result.usage);
         const dur = Math.round((Date.now() - entry.startedAt) / 1000);
         params.onUpdate?.(`✅ [Step ${step + 1}] ${agent.name} completed (${dur}s, ${result.usage.totalTokens} tokens)`);
-        previousOutput = result.response;
+        return runStep(step + 1, result.response);
       } finally {
         this.pool.releaseSlot(runId, params.parentSessionId);
       }
-    }
+    };
 
-    return previousOutput;
+    return runStep(0, '');
   }
 
   // ── Management ─────────────────────────────────────────────

@@ -75,15 +75,18 @@ function sleep(ms: number): Promise<void> {
 async function waitForPortRelease(port: number): Promise<boolean> {
   const startedAt = Date.now();
 
-  while (Date.now() - startedAt < PORT_RELEASE_TIMEOUT_MS) {
+  const poll = async (): Promise<boolean> => {
+    if (Date.now() - startedAt >= PORT_RELEASE_TIMEOUT_MS) return false;
+
     if ((await readListeningProcessIds(port)).length === 0) {
       return true;
     }
 
     await sleep(PORT_RELEASE_POLL_MS);
-  }
+    return poll();
+  };
 
-  return false;
+  return poll();
 }
 
 export async function stopStalePortListenersForSourcePath(

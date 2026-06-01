@@ -87,7 +87,11 @@ export async function ensureSystemRunning(): Promise<void> {
 /** Poll until the container API server responds, or timeout. */
 async function waitForSystem(timeoutMs: number): Promise<void> {
   const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
+  const poll = async (): Promise<void> => {
+    if (Date.now() >= deadline) {
+      throw new Error('Container API server did not become ready in time');
+    }
+
     try {
       const { stdout } = await execFileAsync(CONTAINER_BIN, ['system', 'status'], {
         timeout: 5_000,
@@ -97,8 +101,10 @@ async function waitForSystem(timeoutMs: number): Promise<void> {
       /* not ready yet */
     }
     await new Promise((r) => setTimeout(r, 1_000));
-  }
-  throw new Error('Container API server did not become ready in time');
+    return poll();
+  };
+
+  await poll();
 }
 
 /**
@@ -441,23 +447,24 @@ export async function listContainers(
   try {
     const { stdout } = await execFileAsync(CONTAINER_BIN, ['list'], { timeout: 10_000 });
     const lines = stdout.trim().split('\n').slice(1); // Skip header
-    const states: ContainerState[] = [];
-
-    for (const line of lines) {
+    const workspaceIds = lines.flatMap((line) => {
       const parts = line.split(/\s{2,}/);
-      if (parts.length < 2) continue;
+      if (parts.length < 2) return [];
       const id = parts[0].trim();
-      if (!id.startsWith('sero-')) continue;
+      if (!id.startsWith('sero-')) return [];
 
-      const workspaceId = id.replace(/^sero-/, '');
+      return [id.replace(/^sero-/, '')];
+    });
+
+    const states = await Promise.all(workspaceIds.map(async (workspaceId) => {
       try {
-        states.push(await inspectFn(workspaceId));
+        return await inspectFn(workspaceId);
       } catch {
-        /* Skip containers we can't inspect */
+        return null;
       }
-    }
+    }));
 
-    return states;
+    return states.filter((state): state is ContainerState => state !== null);
   } catch {
     return [];
   }

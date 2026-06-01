@@ -385,16 +385,16 @@ export class HostBackend implements RuntimeBackend {
       ...await this.additionalRootPaths(),
       ...this.agentRootPaths(),
     ];
-    for (const root of roots) {
-      const canonicalPath = await this.substrate.resolvePathInsideRoot(hostPath, root);
-      if (canonicalPath) {
-        return {
-          hostPath: canonicalPath,
-          rootHostPath: await this.resolvePathInsideRoot(root, root, hostPath),
-        };
-      }
-    }
-    return null;
+    const matches = await Promise.all(roots.map(async (root) => ({
+      root,
+      canonicalPath: await this.substrate.resolvePathInsideRoot(hostPath, root),
+    })));
+    const match = matches.find((candidate) => candidate.canonicalPath);
+    if (!match?.canonicalPath) return null;
+    return {
+      hostPath: match.canonicalPath,
+      rootHostPath: await this.resolvePathInsideRoot(match.root, match.root, hostPath),
+    };
   }
 
   private async resolvePathInsideRoot(hostPath: string, root: string, originalPath: string): Promise<string> {
@@ -425,20 +425,29 @@ export class HostBackend implements RuntimeBackend {
   ): Promise<void> {
     if (entries.length >= limit) return;
     const dirents = await this.substrate.listFiles(directoryPath);
-    for (const dirent of dirents) {
+    const candidates = await Promise.all(dirents.map(async (dirent) => {
       if (entries.length >= limit) return;
       const hostPath = path.join(directoryPath, dirent.name);
       const runtimePath = returnHostPaths ? hostPath : toRuntimeWorkspacePath(rootHostPath, hostPath);
-      if (!runtimePath) continue;
+      if (!runtimePath) return null;
       const canonicalChildPath = await this.substrate.resolvePathInsideRoot(hostPath, rootHostPath);
-      if (!canonicalChildPath) continue;
-      const type = dirent.type === 'directory' ? 'directory' : 'file';
+      if (!canonicalChildPath) return null;
+      const type: RuntimeDirectoryEntry['type'] = dirent.type === 'directory' ? 'directory' : 'file';
       const fileStat = await this.substrate.stat(canonicalChildPath);
-      entries.push({ name: dirent.name, path: runtimePath, type, size: fileStat.size });
-      if (recursive && dirent.type === 'directory') {
-        await this.collectEntries(rootHostPath, hostPath, recursive, limit, entries, returnHostPaths);
+      return {
+        entry: { name: dirent.name, path: runtimePath, type, size: fileStat.size },
+        hostPath,
+        shouldRecurse: recursive && dirent.type === 'directory',
+      };
+    }));
+
+    await candidates.reduce<Promise<void>>((previous, candidate) => previous.then(() => {
+      if (!candidate || entries.length >= limit) return;
+      entries.push(candidate.entry);
+      if (candidate.shouldRecurse) {
+        return this.collectEntries(rootHostPath, candidate.hostPath, recursive, limit, entries, returnHostPaths);
       }
-    }
+    }), Promise.resolve());
   }
 
   private async substratePathExists(filePath: string): Promise<boolean> {
@@ -478,4 +487,3 @@ function unsupported(message: string): Error {
 function isHostAbsolutePath(inputPath: string): boolean {
   return path.isAbsolute(inputPath);
 }
-

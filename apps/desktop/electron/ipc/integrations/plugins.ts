@@ -20,7 +20,7 @@ import {
 import { reconcileInstalledPluginActivation } from '@electron/features/plugins/activation';
 import { searchPlugins } from '@electron/features/plugins/discovery';
 import { toPluginDevSessionIPC } from '@electron/features/plugins/dev-sessions/types';
-import { reloadAllSessionResources } from '../agent';
+import { reloadAllSessionResources } from '../agent/core/agent';
 import { disposeAppSessionsForApp } from '../agent/handlers/app-agent';
 import {
   appRuntimeManager,

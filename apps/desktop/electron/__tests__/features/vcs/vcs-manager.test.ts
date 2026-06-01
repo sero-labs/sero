@@ -145,10 +145,7 @@ describe('VcsManager checkpoint source handling', () => {
       if (command === 'checkout target123 -- .') {
         return ok();
       }
-      if (command === 'rm -f -- joke.txt') {
-        return ok();
-      }
-      if (command === 'rm -f -- notes/extra.md') {
+      if (command === 'rm -f -- joke.txt notes/extra.md') {
         return ok();
       }
       if (command === 'clean -fd') {
@@ -180,8 +177,7 @@ describe('VcsManager checkpoint source handling', () => {
 
     await manager.restoreCheckpoint('ws-1', 'target123');
 
-    expect(run).toHaveBeenCalledWith('ws-1', ['rm', '-f', '--', 'joke.txt']);
-    expect(run).toHaveBeenCalledWith('ws-1', ['rm', '-f', '--', 'notes/extra.md']);
+    expect(run).toHaveBeenCalledWith('ws-1', ['rm', '-f', '--', 'joke.txt', 'notes/extra.md']);
     expect(run).toHaveBeenCalledWith('ws-1', ['commit', '-m', 'restore: target123']);
   });
 

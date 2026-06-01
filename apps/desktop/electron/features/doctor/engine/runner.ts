@@ -160,7 +160,7 @@ export async function runDoctor(options: RunOptions): Promise<DoctorReport> {
 
   emit({ kind: 'all-start', runId });
 
-  const checkPromises = selected.map(async (check) => {
+  const runSelectedCheck = async (check: DoctorCheck): Promise<void> => {
     emit({
       kind: 'check-start',
       runId,
@@ -178,7 +178,9 @@ export async function runDoctor(options: RunOptions): Promise<DoctorReport> {
       emit({ kind: 'check-done', runId, result });
       all.push(result);
     }
-  });
+  };
+
+  const checkPromises = selected.map((check) => runSelectedCheck(check));
 
   // Race the whole batch against the global budget. On budget exhaustion
   // we synthesise fail results for every check that did not complete and

@@ -300,12 +300,13 @@ async function applyModelEntry(
     const state = await deps.agent.getModelState(sessionId);
     if (!state) return false;
 
-    for (const group of state.availableModels) {
-      const match = group.models.find((model) => model.modelId === entry.modelId);
-      if (!match) continue;
-      await deps.agent.setModel(sessionId, match.provider, match.modelId);
-      return true;
-    }
+    const match = state.availableModels
+      .flatMap((group) => group.models)
+      .find((model) => model.modelId === entry.modelId);
+    if (!match) return false;
+
+    await deps.agent.setModel(sessionId, match.provider, match.modelId);
+    return true;
   } catch {
     // Ignore — onboarding will recover via preflight on the next refresh.
   }

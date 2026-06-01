@@ -113,13 +113,13 @@ export class ToolchainManager {
 
   async binDirs(): Promise<string[]> {
     if (!(await exists(installedMarkerPath(this.manifest.version)))) return [];
-    const dirs = new Set<string>();
-    for (const artifact of Object.values(this.manifest.artifacts)) {
-      for (const relativePath of Object.values(artifact.binPaths)) {
-        const binPath = managedBinPath(this.manifest.version, relativePath);
-        if (await exists(binPath)) dirs.add(path.dirname(binPath));
-      }
-    }
+    const binPaths = Object.values(this.manifest.artifacts)
+      .flatMap((artifact) => Object.values(artifact.binPaths))
+      .map((relativePath) => managedBinPath(this.manifest.version, relativePath));
+    const existing = await Promise.all(binPaths.map(async (binPath) => (
+      await exists(binPath) ? path.dirname(binPath) : null
+    )));
+    const dirs = new Set(existing.filter((dir): dir is string => dir !== null));
     return [...dirs];
   }
 
@@ -141,20 +141,19 @@ export class ToolchainManager {
     const installed: ToolResolution[] = [];
     const pending: Array<{ tool: ToolName; selection: ArtifactSelection | null }> = [];
 
-    for (const tool of coreTools) {
-      const resolved = await this.resolve(tool);
-      if (resolved) {
-        installed.push(resolved);
-      } else {
-        pending.push({ tool, selection: this.findArtifact(tool) });
-      }
+    const coreResolutions = await Promise.all(coreTools.map(async (tool) => ({
+      tool,
+      resolved: await this.resolve(tool),
+    })));
+
+    for (const { tool, resolved } of coreResolutions) {
+      if (resolved) installed.push(resolved);
+      else pending.push({ tool, selection: this.findArtifact(tool) });
     }
 
     if (pending.length > 0) {
       await fs.promises.rm(installedMarkerPath(this.manifest.version), { force: true });
-      for (const item of pending) {
-        installed.push(await this.ensureInternal(item.tool, reason, item.selection, false));
-      }
+      installed.push(...await this.ensurePendingCoreTools(pending, reason, 0, []));
       await this.writeVersionReadyMarker();
     }
 
@@ -221,6 +220,19 @@ export class ToolchainManager {
     }
   }
 
+  private async ensurePendingCoreTools(
+    pending: Array<{ tool: ToolName; selection: ArtifactSelection | null }>,
+    reason: ToolInstallReason,
+    index: number,
+    installed: ToolResolution[],
+  ): Promise<ToolResolution[]> {
+    const item = pending[index];
+    if (!item) return installed;
+    const resolution = await this.ensureInternal(item.tool, reason, item.selection, false);
+    installed.push(resolution);
+    return this.ensurePendingCoreTools(pending, reason, index + 1, installed);
+  }
+
   private async activate(selection: ArtifactSelection, writeReadyMarker: boolean): Promise<void> {
     const versionRoot = toolchainVersionRoot(this.manifest.version);
     const finalPath = artifactInstallPath(this.manifest.version, selection.artifact.unpackTo);
@@ -259,13 +271,13 @@ export class ToolchainManager {
 
   private async installedBinDirs(requireReadyMarker: boolean): Promise<string[]> {
     if (requireReadyMarker && !(await exists(installedMarkerPath(this.manifest.version)))) return [];
-    const dirs = new Set<string>();
-    for (const artifact of Object.values(this.manifest.artifacts)) {
-      for (const relativePath of Object.values(artifact.binPaths)) {
-        const binPath = managedBinPath(this.manifest.version, relativePath);
-        if (await exists(binPath)) dirs.add(path.dirname(binPath));
-      }
-    }
+    const binPaths = Object.values(this.manifest.artifacts)
+      .flatMap((artifact) => Object.values(artifact.binPaths))
+      .map((relativePath) => managedBinPath(this.manifest.version, relativePath));
+    const existing = await Promise.all(binPaths.map(async (binPath) => (
+      await exists(binPath) ? path.dirname(binPath) : null
+    )));
+    const dirs = new Set(existing.filter((dir): dir is string => dir !== null));
     return [...dirs];
   }
 
@@ -295,16 +307,21 @@ export class ToolchainManager {
   private defaultSystemResolver = async (tool: ToolName): Promise<ToolStatus | null> => {
     if (shouldForceManagedTool(tool)) return null;
     const candidates = systemToolCandidates(tool, this.platform);
-    let fallbackStatus: ToolStatus | null = null;
-
-    for (const candidate of candidates) {
-      const status = await this.verifier(tool, candidate, { source: 'system' });
-      if (status.state === 'ready') return status;
-      fallbackStatus ??= status;
-    }
-
-    return fallbackStatus;
+    return this.verifySystemCandidate(tool, candidates, 0, null);
   };
+
+  private async verifySystemCandidate(
+    tool: ToolName,
+    candidates: string[],
+    index: number,
+    firstStatus: ToolStatus | null,
+  ): Promise<ToolStatus | null> {
+    const candidate = candidates[index];
+    if (!candidate) return firstStatus;
+    const status = await this.verifier(tool, candidate, { source: 'system' });
+    if (status.state === 'ready') return status;
+    return this.verifySystemCandidate(tool, candidates, index + 1, firstStatus ?? status);
+  }
 }
 
 function shouldForceManagedTool(tool: ToolName): boolean {

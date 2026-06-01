@@ -257,13 +257,16 @@ export class HostDevServerManager {
 
   private async detectListeningPort(rootPid: number, shouldContinue: () => boolean = () => true): Promise<number | null> {
     const startedAt = Date.now();
-    while (Date.now() - startedAt < this.portDetectTimeoutMs && shouldContinue()) {
+    const poll = async (): Promise<number | null> => {
+      if (Date.now() - startedAt >= this.portDetectTimeoutMs || !shouldContinue()) return null;
       const pids = [rootPid, ...await this.processAdapter.descendantPids(rootPid)];
       const port = await this.processAdapter.listeningPort(pids);
       if (port) return port;
       await sleep(this.pollIntervalMs);
-    }
-    return null;
+      return poll();
+    };
+
+    return poll();
   }
 
   private async terminateServer(

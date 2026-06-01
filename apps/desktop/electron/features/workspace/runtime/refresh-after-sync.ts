@@ -91,11 +91,11 @@ export async function refreshWorkspaceRuntimeAfterSync(
     (server as RuntimeDevServer & { scope?: string }).scope !== 'card-preview'
   ));
   if (servers.length > 0) {
-    for (const server of servers) {
-      if (await restartDevServer(server.id)) {
-        result.restartedServerIds.push(server.id);
-      }
-    }
+    const restarted = await Promise.all(servers.map(async (server) => ({
+      id: server.id,
+      ok: await restartDevServer(server.id),
+    })));
+    result.restartedServerIds.push(...restarted.filter(({ ok }) => ok).map(({ id }) => id));
 
     if (result.restartedServerIds.length !== servers.length) {
       return {

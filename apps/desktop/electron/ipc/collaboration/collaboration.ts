@@ -23,7 +23,7 @@ import { DEFAULT_DEBATE_CONFIG } from '@/types/collaboration';
 import { runCollaboration } from '@electron/features/collaboration';
 import { runDebateCollaboration } from '@electron/features/collaboration/debate';
 import { subagentManager } from '@electron/shared/infra/shared-infra';
-import { getAgentPoolEntry, emitAgentEvent } from '../agent';
+import { getAgentPoolEntry, emitAgentEvent } from '../agent/core/agent';
 import { nextId } from '../agent/core/agent-helpers';
 import { extractOriginalCollaborationQuery } from './collaboration-message';
 import {

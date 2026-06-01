@@ -156,9 +156,7 @@ export class InternalSnapshotManager {
       toDelete.add(ref.refName);
     }
 
-    for (const refName of toDelete) {
-      await this.deleteSnapshotRefs(workspaceId, refName);
-    }
+    await Promise.all([...toDelete].map((refName) => this.deleteSnapshotRefs(workspaceId, refName)));
   }
 
   async hasWorkingTreeChangesSinceSnapshot(

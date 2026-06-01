@@ -29,11 +29,10 @@ export function buildPreviewInternalPorts(size: number): number[] {
 
 export async function allocateLoopbackHostPorts(size: number): Promise<PreviewPortMapping[]> {
   const ports = buildPreviewInternalPorts(size);
-  const mappings: PreviewPortMapping[] = [];
-  for (const internalPort of ports) {
-    mappings.push({ internalPort, hostPort: await reserveLoopbackPort() });
-  }
-  return mappings;
+  return Promise.all(ports.map(async (internalPort) => ({
+    internalPort,
+    hostPort: await reserveLoopbackPort(),
+  })));
 }
 
 export function createPreviewSlots(mappings: PreviewPortMapping[]): PreviewPortSlot[] {

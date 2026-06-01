@@ -148,32 +148,38 @@ async function collectRootFiles(
   const maxFilesForRoot = remainingSlots();
   if (maxFilesForRoot <= 0) return files;
 
-  const queue = [root.virtualPath];
+  const collectLevel = async (dirPaths: string[]): Promise<void> => {
+    if (dirPaths.length === 0 || files.length >= maxFilesForRoot) return;
 
-  while (queue.length > 0 && files.length < maxFilesForRoot) {
-    const dirPath = queue.shift();
-    if (!dirPath) continue;
-
-    let entries: Array<{ name: string; type: 'file' | 'directory'; size: number }>;
-    try {
-      entries = await window.sero.editor.listFiles(workspaceId, dirPath);
-    } catch {
-      continue;
-    }
-
-    for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
-      if (entry.type === 'directory') {
-        if (!EXCLUDED_DIRS.has(entry.name)) {
-          queue.push(joinVirtualPath(dirPath, entry.name));
-        }
-        continue;
+    const listedDirs = await Promise.all(dirPaths.map(async (dirPath) => {
+      try {
+        const entries = await window.sero.editor.listFiles(workspaceId, dirPath);
+        return { dirPath, entries };
+      } catch {
+        return { dirPath, entries: [] };
       }
+    }));
 
-      if (files.length >= maxFilesForRoot) break;
-      if (!shouldIncludeFile(entry.name)) continue;
-      files.push(toDisplayedPath(root, joinVirtualPath(dirPath, entry.name)));
+    const nextDirs: string[] = [];
+    for (const { dirPath, entries } of listedDirs) {
+      for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
+        if (entry.type === 'directory') {
+          if (!EXCLUDED_DIRS.has(entry.name)) {
+            nextDirs.push(joinVirtualPath(dirPath, entry.name));
+          }
+          continue;
+        }
+
+        if (files.length >= maxFilesForRoot) break;
+        if (!shouldIncludeFile(entry.name)) continue;
+        files.push(toDisplayedPath(root, joinVirtualPath(dirPath, entry.name)));
+      }
     }
-  }
+
+    await collectLevel(nextDirs);
+  };
+
+  await collectLevel([root.virtualPath]);
 
   return files;
 }
@@ -189,19 +195,13 @@ function sortWorkspaceFiles(files: string[]): string[] {
 
 async function collectWorkspaceFiles(workspaceId: string): Promise<string[]> {
   const roots = await window.sero.editor.getRoots(workspaceId);
-  const files: string[] = [];
+  const rootFiles = await Promise.all(roots.map((root) => collectRootFiles(
+    workspaceId,
+    root,
+    () => MAX_FILES,
+  )));
 
-  for (const root of roots) {
-    if (files.length >= MAX_FILES) break;
-    const rootFiles = await collectRootFiles(
-      workspaceId,
-      root,
-      () => MAX_FILES - files.length,
-    );
-    files.push(...rootFiles);
-  }
-
-  return sortWorkspaceFiles(files);
+  return sortWorkspaceFiles(rootFiles.flat().slice(0, MAX_FILES));
 }
 
 async function loadWorkspaceFiles(

@@ -261,11 +261,11 @@ export class VcsManager extends EventEmitter {
     }
 
     // Remove tracked files that were added after the target checkpoint.
-    for (const filePath of addedPaths) {
-      console.log(`[vcs] Removing file added after target checkpoint: ${filePath}`);
-      const remove = await this.runner.run(workspaceId, ['rm', '-f', '--', filePath]);
+    if (addedPaths.length > 0) {
+      console.log(`[vcs] Removing files added after target checkpoint: ${addedPaths.join(', ')}`);
+      const remove = await this.runner.run(workspaceId, ['rm', '-f', '--', ...addedPaths]);
       if (remove.exitCode !== 0) {
-        throw new Error(remove.stderr || `Failed to remove ${filePath} during restore`);
+        throw new Error(remove.stderr || 'Failed to remove added files during restore');
       }
     }
 

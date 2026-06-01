@@ -221,7 +221,11 @@ export class GitHubAuthManager {
     const interval = Math.max(device.interval * 1000, POLL_INTERVAL_MIN_MS);
     const deadline = Date.now() + device.expires_in * 1000;
 
-    while (Date.now() < deadline) {
+    const poll = async (): Promise<string> => {
+      if (Date.now() >= deadline) {
+        throw new Error('Device code expired. Please try again.');
+      }
+
       signal?.throwIfAborted();
 
       await sleep(interval);
@@ -230,10 +234,10 @@ export class GitHubAuthManager {
       const data = await this.requestAccessToken(device.device_code);
 
       if (data.accessToken) return data.accessToken;
-      if (data.error === 'authorization_pending') continue;
+      if (data.error === 'authorization_pending') return poll();
       if (data.error === 'slow_down') {
         await sleep(interval);
-        continue;
+        return poll();
       }
       if (data.error === 'expired_token') {
         throw new Error('Device code expired. Please try again.');
@@ -247,9 +251,9 @@ export class GitHubAuthManager {
       }
 
       throw new Error(`GitHub OAuth token polling returned an invalid response (${data.status} ${data.statusText}).`);
-    }
+    };
 
-    throw new Error('Device code expired. Please try again.');
+    return poll();
   }
 
   private async requestAccessToken(deviceCode: string): Promise<TokenPollResponse> {

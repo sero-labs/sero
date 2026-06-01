@@ -427,9 +427,10 @@ export class DiscordAdapter {
 
       // Discord has a 2000 character limit per message
       const chunks = splitMessage(text, 2000);
-      for (const chunk of chunks) {
-        await channel.send(chunk);
-      }
+      await chunks.reduce(
+        (sendPrevious, chunk) => sendPrevious.then(() => channel.send(chunk)).then(() => undefined),
+        Promise.resolve(),
+      );
     } catch (err) {
       console.error('[discord] Failed to send message:', err);
     }

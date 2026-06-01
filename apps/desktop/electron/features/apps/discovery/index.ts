@@ -248,20 +248,29 @@ async function appendManifestAtPath(
   activeDevSessionRecordMap: Map<string, PluginDevSessionRecord>,
   options: ReadAppManifestOptions = {},
 ): Promise<void> {
+  const manifest = await readManifestAtUnseenPath(packagePath, seenPaths, activeDevSessionRecordMap, options);
+  if (manifest) {
+    results.push(manifest);
+  }
+}
+
+async function readManifestAtUnseenPath(
+  packagePath: string,
+  seenPaths: Set<string>,
+  activeDevSessionRecordMap: Map<string, PluginDevSessionRecord>,
+  options: ReadAppManifestOptions = {},
+): Promise<SeroAppManifest | null> {
   const resolvedPath = path.resolve(packagePath);
-  if (seenPaths.has(resolvedPath)) return;
+  if (seenPaths.has(resolvedPath)) return null;
   seenPaths.add(resolvedPath);
 
-  const manifest = await readAppManifestFromPackagePath(
+  return readAppManifestFromPackagePath(
     resolvedPath,
     {
       ...getActiveDevSessionManifestOptions(resolvedPath, activeDevSessionRecordMap),
       ...options,
     },
   );
-  if (manifest) {
-    results.push(manifest);
-  }
 }
 
 async function scanDir(
@@ -273,16 +282,17 @@ async function scanDir(
 ): Promise<void> {
   try {
     const entries = await fs.readdir(dir, { withFileTypes: true });
-    for (const entry of entries) {
-      if (!entry.isDirectory()) continue;
-      await appendManifestAtPath(
-        results,
-        seenPaths,
-        path.join(dir, entry.name),
-        activeDevSessionRecordMap,
-        options,
-      );
-    }
+    const manifests = await Promise.all(
+      entries
+        .filter((entry) => entry.isDirectory())
+        .map((entry) => readManifestAtUnseenPath(
+          path.join(dir, entry.name),
+          seenPaths,
+          activeDevSessionRecordMap,
+          options,
+        )),
+    );
+    results.push(...manifests.filter((manifest): manifest is SeroAppManifest => manifest !== null));
   } catch {
     // Directory doesn't exist — skip.
   }
@@ -300,16 +310,20 @@ async function appendSettingsPaths(
       extensions?: string[];
     };
 
-    for (const pkgSource of settings.packages ?? []) {
+    const packagePaths = (settings.packages ?? []).flatMap((pkgSource) => {
       const source = typeof pkgSource === 'string' ? pkgSource : pkgSource.source;
-      if (typeof source !== 'string' || !source || source.startsWith('npm:') || source.startsWith('git:')) continue;
-      await appendManifestAtPath(results, seenPaths, source, activeDevSessionRecordMap);
-    }
+      return typeof source === 'string' && source && !source.startsWith('npm:') && !source.startsWith('git:')
+        ? [source]
+        : [];
+    });
 
-    for (const extensionPath of settings.extensions ?? []) {
-      if (extensionPath.startsWith('npm:') || extensionPath.startsWith('git:')) continue;
-      await appendManifestAtPath(results, seenPaths, extensionPath, activeDevSessionRecordMap);
-    }
+    const extensionPaths = (settings.extensions ?? [])
+      .filter((extensionPath) => !extensionPath.startsWith('npm:') && !extensionPath.startsWith('git:'));
+
+    const manifests = await Promise.all([...packagePaths, ...extensionPaths].map((source) => (
+      readManifestAtUnseenPath(source, seenPaths, activeDevSessionRecordMap)
+    )));
+    results.push(...manifests.filter((manifest): manifest is SeroAppManifest => manifest !== null));
   } catch {
     // settings.json missing or malformed — skip.
   }
@@ -322,14 +336,14 @@ async function appendActiveDevSessionPaths(
   seenPaths: Set<string>,
   activeDevSessionRecordMap: Map<string, PluginDevSessionRecord>,
 ): Promise<void> {
-  for (const record of activeDevSessionRecordMap.values()) {
-    await appendManifestAtPath(
-      results,
-      seenPaths,
+  const manifests = await Promise.all([...activeDevSessionRecordMap.values()].map((record) => (
+    readManifestAtUnseenPath(
       record.sourcePath,
+      seenPaths,
       activeDevSessionRecordMap,
-    );
-  }
+    )
+  )));
+  results.push(...manifests.filter((manifest): manifest is SeroAppManifest => manifest !== null));
 }
 
 const registeredPaths: string[] = [];
@@ -355,9 +369,10 @@ export async function discoverAppCandidates(): Promise<SeroAppManifest[]> {
   await scanDir(SERO_EXTENSIONS_DIR, results, seenPaths, activeDevSessionRecordMap);
   await appendSettingsPaths(results, seenPaths, activeDevSessionRecordMap);
 
-  for (const registeredPath of registeredPaths) {
-    await appendManifestAtPath(results, seenPaths, registeredPath, activeDevSessionRecordMap);
-  }
+  const registeredManifests = await Promise.all(registeredPaths.map((registeredPath) => (
+    readManifestAtUnseenPath(registeredPath, seenPaths, activeDevSessionRecordMap)
+  )));
+  results.push(...registeredManifests.filter((manifest): manifest is SeroAppManifest => manifest !== null));
 
   await appendActiveDevSessionPaths(results, seenPaths, activeDevSessionRecordMap);
   return results;

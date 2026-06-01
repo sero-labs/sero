@@ -68,10 +68,11 @@ async function resolveApiKey(): Promise<string> {
   // 2. Try Pi SDK auth providers (API-key-based ones like 'google')
   try {
     const infra = await ensureInfra();
-    for (const provider of AUTH_PROVIDERS) {
-      const key = await infra.authStorage.getApiKey(provider);
-      if (key) return key;
-    }
+    const keys = await Promise.all(
+      AUTH_PROVIDERS.map((provider) => infra.authStorage.getApiKey(provider)),
+    );
+    const key = keys.find((candidate): candidate is string => Boolean(candidate));
+    if (key) return key;
   } catch {
     // Swallow — no providers available
   }

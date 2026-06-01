@@ -92,12 +92,10 @@ async function copyMissingFiles(
   const matchingFiles = templateFiles.filter(
     (f) => f.endsWith(ext) && !(opts?.skip?.has(f)),
   );
-  let copied = 0;
-
-  for (const file of matchingFiles) {
+  const copiedFlags = await Promise.all(matchingFiles.map(async (file) => {
     if (existing.has(file)) {
       console.log(`[setup] Skipped (already exists): ${file} in ${destDir}`);
-      continue;
+      return 0;
     }
 
     const src = path.join(srcDir, file);
@@ -112,10 +110,10 @@ async function copyMissingFiles(
     }
 
     console.log(`[setup] Copied template: ${file} → ${destDir}`);
-    copied++;
-  }
+    return 1;
+  }));
 
-  return copied;
+  return copiedFlags.reduce<number>((total, copied) => total + copied, 0);
 }
 
 /**
@@ -176,21 +174,20 @@ async function copyMissingDirs(
     return 0;
   }
 
-  let copied = 0;
-  for (const entry of entries) {
+  const copiedFlags = await Promise.all(entries.map(async (entry) => {
     if (existing.has(entry)) {
       console.log(`[setup] Skipped (already exists): ${entry} in ${destDir}`);
-      continue;
+      return 0;
     }
 
     const src = path.join(srcDir, entry);
     const dest = path.join(destDir, entry);
     await cp(src, dest, { recursive: true });
     console.log(`[setup] Copied template: ${entry} → ${destDir}`);
-    copied++;
-  }
+    return 1;
+  }));
 
-  return copied;
+  return copiedFlags.reduce<number>((total, copied) => total + copied, 0);
 }
 
 const THEMES_DIR = path.join(SERO_HOME, 'themes');

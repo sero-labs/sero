@@ -191,18 +191,16 @@ async function isRuntimeBuildCacheFresh(cache: RuntimeBuildCache, externals: str
     return false;
   }
 
-  for (const input of cache.inputs) {
+  const freshness = await Promise.all(cache.inputs.map(async (input) => {
     try {
       const inputStat = await stat(input.path);
-      if (inputStat.mtimeMs !== input.mtimeMs || inputStat.size !== input.size) {
-        return false;
-      }
+      return inputStat.mtimeMs === input.mtimeMs && inputStat.size === input.size;
     } catch {
       return false;
     }
-  }
+  }));
 
-  return true;
+  return freshness.every(Boolean);
 }
 
 async function buildTranspiledRuntime(runtimeEntryPath: string, externals: string[]): Promise<string> {

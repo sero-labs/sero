@@ -47,10 +47,11 @@ export function createBrowserRuntimeAdapter(options: BrowserRuntimeAdapterOption
 }
 
 export async function firstExistingCandidate(candidates: string[]): Promise<string | null> {
-  for (const candidate of candidates) {
-    if (await exists(candidate)) return candidate;
-  }
-  return null;
+  const results = await Promise.all(candidates.map(async (candidate) => ({
+    candidate,
+    exists: await exists(candidate),
+  })));
+  return results.find((result) => result.exists)?.candidate ?? null;
 }
 
 export async function validateInstalledBrowserPack(root: string, artifact: BrowserPackArtifactSpec): Promise<void> {

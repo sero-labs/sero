@@ -160,15 +160,15 @@ async function hasCommits(cwd: string): Promise<boolean> {
 
 /** Resolve the base branch (main/master) for comparisons. */
 async function resolveBaseBranch(worktreePath: string): Promise<string> {
-  for (const branch of ['main', 'master']) {
-    try {
-      const r = await execFileAsync('git', ['rev-parse', '--verify', branch], {
+  const branchChecks = await Promise.all(['main', 'master'].map(async (branch) => {
+    const r = await execFileAsync('git', ['rev-parse', '--verify', branch], {
         cwd: worktreePath,
         timeout: 5_000,
-      });
-      if (r.stdout.trim()) return branch;
-    } catch { /* try next */ }
-  }
+      }).catch(() => null);
+    return r?.stdout.trim() ? branch : null;
+  }));
+  const branch = branchChecks.find((candidate): candidate is string => candidate !== null);
+  if (branch) return branch;
 
   // No main/master — check if HEAD~1 exists (more than one commit)
   try {

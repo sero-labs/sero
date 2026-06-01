@@ -196,7 +196,7 @@ export class LspManager extends EventEmitter {
     const MAX_RETRIES = 5;
     const RETRY_DELAY_MS = 2000;
 
-    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    const attemptInstall = async (attempt: number): Promise<void> => {
       try {
         await this.ensureHostCoreTools(runtime, config.language);
 
@@ -232,11 +232,13 @@ export class LspManager extends EventEmitter {
         if (isTransient && attempt < MAX_RETRIES) {
           console.log(`[lsp-manager] Runtime not ready for ${runtime.workspaceId}, retrying (${attempt}/${MAX_RETRIES})...`);
           await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
-          continue;
+          return attemptInstall(attempt + 1);
         }
         throw err;
       }
-    }
+    };
+
+    await attemptInstall(1);
   }
 
   private async ensureHostCoreTools(runtime: RuntimeBackend, language: string): Promise<void> {

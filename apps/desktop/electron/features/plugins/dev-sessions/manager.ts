@@ -449,11 +449,8 @@ export class PluginDevSessionManager {
     const activeManifests: Array<[string, SeroAppManifest]> = [];
     const bootstrapProbeSessionIds: string[] = [];
 
-    for (const record of persistedRecords) {
-      if (record.status === 'broken') {
-        nextRecords.push(record);
-        continue;
-      }
+    const bootstrappedRecords = await Promise.all(persistedRecords.map(async (record) => {
+      if (record.status === 'broken') return { record, manifest: null, shouldProbeDevServer: false };
 
       try {
         const validated = await validatePluginDevSourceManifest(record.sourcePath, {
@@ -471,15 +468,17 @@ export class PluginDevSessionManager {
           throw new Error(conflicts[0]!.message);
         }
 
-        const nextState = resolveBootstrapSessionState(record, validated);
-        nextRecords.push(nextState.record);
-        activeManifests.push([record.sessionId, nextState.manifest]);
-        if (nextState.shouldProbeDevServer) {
-          bootstrapProbeSessionIds.push(record.sessionId);
-        }
+        const { record: nextRecord, manifest, shouldProbeDevServer } = resolveBootstrapSessionState(record, validated);
+        return { record: nextRecord, manifest, shouldProbeDevServer };
       } catch (error) {
-        nextRecords.push(createBrokenPluginDevSessionRecord(record, error));
+        return { record: createBrokenPluginDevSessionRecord(record, error), manifest: null, shouldProbeDevServer: false };
       }
+    }));
+
+    for (const result of bootstrappedRecords) {
+      nextRecords.push(result.record);
+      if (result.manifest) activeManifests.push([result.record.sessionId, result.manifest]);
+      if (result.shouldProbeDevServer) bootstrapProbeSessionIds.push(result.record.sessionId);
     }
 
     writePluginDevSessionRecords(nextRecords);

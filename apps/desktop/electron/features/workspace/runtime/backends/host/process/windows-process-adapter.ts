@@ -50,11 +50,11 @@ export class WindowsHostProcessAdapter implements HostProcessAdapter {
   async killPids(signal: HostProcessSignal, pids: number[]): Promise<void> {
     const uniquePids = uniqueNumbers(pids);
     if (uniquePids.length === 0) return;
-    for (const pid of uniquePids) {
+    await Promise.all(uniquePids.map((pid) => {
       const args = ['/PID', String(pid), '/T'];
       if (signal === 'KILL') args.push('/F');
-      await this.execFile({ program: 'taskkill.exe', args, timeoutMs: 5_000 }).catch(() => undefined);
-    }
+      return this.execFile({ program: 'taskkill.exe', args, timeoutMs: 5_000 }).catch(() => undefined);
+    }));
   }
 
   private async netstatRows(): Promise<WindowsNetstatRow[]> {

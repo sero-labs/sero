@@ -245,15 +245,25 @@ export class GitHubRepoOps {
   }
 
   private async resolveBootstrapBranch(workspaceId: string): Promise<string | null> {
-    for (const branch of ['main', 'master']) {
-      const result = await this.runner.run(workspaceId, ['rev-parse', '--verify', branch]);
-      if (result.exitCode === 0) return branch;
-    }
+    const bootstrap = await this.resolveBootstrapBranchCandidate(workspaceId, ['main', 'master'], 0);
+    if (bootstrap) return bootstrap;
 
     const current = await this.runner.run(workspaceId, ['rev-parse', '--abbrev-ref', 'HEAD']);
     if (current.exitCode !== 0) return null;
     const branch = current.stdout.trim();
     return branch && branch !== 'HEAD' ? branch : null;
+  }
+
+  private async resolveBootstrapBranchCandidate(
+    workspaceId: string,
+    branches: string[],
+    index: number,
+  ): Promise<string | null> {
+    const branch = branches[index];
+    if (!branch) return null;
+    const result = await this.runner.run(workspaceId, ['rev-parse', '--verify', branch]);
+    if (result.exitCode === 0) return branch;
+    return this.resolveBootstrapBranchCandidate(workspaceId, branches, index + 1);
   }
 
   private async resolveCreatedRepoUrl(

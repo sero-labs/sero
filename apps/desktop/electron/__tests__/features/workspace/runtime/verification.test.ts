@@ -224,6 +224,34 @@ describe('runVerificationCommands', () => {
     expect(result.success).toBe(true);
     expect(runCommand).toHaveBeenCalledWith('npm test', tmpDir, 45_000);
   });
+
+  it('runs commands sequentially and stops after the first failure', async () => {
+    const runOrder: string[] = [];
+    const runCommand = vi.fn(async (command: string) => {
+      runOrder.push(command);
+      return command === 'npm install'
+        ? { stdout: '', stderr: 'install failed', exitCode: 1 }
+        : { stdout: 'should not run', stderr: '', exitCode: 0 };
+    });
+
+    const result = await runVerificationCommands(
+      tmpDir,
+      ['npm install', 'npm run build', 'npm test'],
+      45_000,
+      { runCommand },
+    );
+
+    expect(result.success).toBe(false);
+    expect(runOrder).toEqual(['npm install']);
+    expect(result.results).toHaveLength(1);
+    expect(result.results[0]).toMatchObject({
+      command: 'npm install',
+      success: false,
+      stderr: 'install failed',
+    });
+    expect(runCommand).not.toHaveBeenCalledWith('npm run build', tmpDir, 45_000);
+    expect(runCommand).not.toHaveBeenCalledWith('npm test', tmpDir, 45_000);
+  });
 });
 
 describe('runDevServerSmokeCheck', () => {

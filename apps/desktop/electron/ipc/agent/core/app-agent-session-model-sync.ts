@@ -37,15 +37,13 @@ export async function syncAppSessionPoolModels(
   sessions: Iterable<AgentSession>,
   sharedModel: Model<Api> | null,
 ): Promise<number> {
-  let updated = 0;
-  for (const session of sessions) {
+  const results = await Promise.all([...sessions].map(async (session) => {
     try {
-      if (await syncAppSessionModel(session, sharedModel)) {
-        updated += 1;
-      }
+      return await syncAppSessionModel(session, sharedModel) ? 1 : 0;
     } catch (error) {
       console.warn('[app-agent-model-sync] Failed to reconcile app session model:', error);
+      return 0;
     }
-  }
-  return updated;
+  }));
+  return results.reduce<number>((total, count) => total + count, 0);
 }

@@ -5,18 +5,21 @@ export class PosixHostProcessAdapter implements HostProcessAdapter {
 
   async descendantPids(rootPid: number): Promise<number[]> {
     const seen = new Set<number>();
-    const queue = [rootPid];
-    while (queue.length > 0) {
-      const parent = queue.shift();
-      if (!parent) continue;
-      const result = await this.execFile({ program: 'pgrep', args: ['-P', String(parent)], timeoutMs: 2_000 }).catch(() => null);
-      if (result?.exitCode !== 0) continue;
-      for (const pid of parsePidLines(result.stdout)) {
-        if (seen.has(pid)) continue;
+    const collectLevel = async (parents: number[]): Promise<void> => {
+      const results = await Promise.all(parents.map((parent) => (
+        this.execFile({ program: 'pgrep', args: ['-P', String(parent)], timeoutMs: 2_000 }).catch(() => null)
+      )));
+      const next = results.flatMap((result) => (
+        result?.exitCode === 0 ? parsePidLines(result.stdout) : []
+      )).filter((pid) => {
+        if (seen.has(pid)) return false;
         seen.add(pid);
-        queue.push(pid);
-      }
-    }
+        return true;
+      });
+      if (next.length > 0) await collectLevel(next);
+    };
+
+    await collectLevel([rootPid]);
     return [...seen];
   }
 
