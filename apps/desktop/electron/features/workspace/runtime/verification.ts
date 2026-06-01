@@ -184,33 +184,37 @@ export async function runVerificationCommands(
   options?: RunVerificationOptions,
 ): Promise<VerificationResult> {
   const runCommand = options?.runCommand ?? runHostCommand;
-  const results = await Promise.all(commands.map(async (cmd): Promise<CommandResult> => {
+  const runNextCommand = async (index: number, results: CommandResult[]): Promise<CommandResult[]> => {
+    const cmd = commands[index];
+    if (!cmd) return results;
+
     const start = Date.now();
     try {
       const { stdout, stderr, exitCode } = await runCommand(cmd, cwd, timeoutMs);
-      return {
+      const result = {
         command: cmd,
         success: exitCode === 0,
         stdout: stdout.slice(-4000),
         stderr: stderr.slice(-2000),
         durationMs: Date.now() - start,
       };
+      results.push(result);
+      return result.success ? runNextCommand(index + 1, results) : results;
     } catch (err: unknown) {
       const execErr = err as { stdout?: string; stderr?: string };
-      return {
+      results.push({
         command: cmd,
         success: false,
         stdout: (execErr.stdout ?? '').slice(-4000),
         stderr: (execErr.stderr ?? '').slice(-2000),
         durationMs: Date.now() - start,
-      };
+      });
+      return results;
     }
-  }));
+  };
 
-  const firstFailureIndex = results.findIndex((result) => !result.success);
-  return firstFailureIndex === -1
-    ? { success: true, results }
-    : { success: false, results: results.slice(0, firstFailureIndex + 1) };
+  const results = await runNextCommand(0, []);
+  return { success: results.every((result) => result.success), results };
 }
 
 interface RunDevServerSmokeOptions {
