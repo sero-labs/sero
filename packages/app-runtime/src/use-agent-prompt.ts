@@ -7,7 +7,7 @@
  * session IDs or storage details.
  */
 
-import { useContext, useCallback } from 'react';
+import { use, useCallback } from 'react';
 import { AppContext } from './context';
 
 /**
@@ -18,7 +18,7 @@ import { AppContext } from './context';
  *   prompt("Add a todo: buy milk");
  */
 export function useAgentPrompt(): (text: string) => void {
-  const ctx = useContext(AppContext);
+  const ctx = use(AppContext);
 
   return useCallback(
     (text: string) => {

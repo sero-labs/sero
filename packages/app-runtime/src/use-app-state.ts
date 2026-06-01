@@ -6,7 +6,7 @@
  * 3. Writes via IPC (atomic file write → watcher fires → all consumers update)
  */
 
-import { useState, useEffect, useCallback, useContext, useRef } from 'react';
+import { useState, useEffect, useCallback, use, useRef } from 'react';
 import { AppContext } from './context';
 import { getSeroApi, type SeroWindowAppStateBridge } from './sero-bridge';
 
@@ -44,7 +44,7 @@ function applyDefaultState<T>(defaultState: T, current: unknown): T {
 }
 
 export function useAppState<T>(defaultState: T): [T, (updater: (prev: T) => T) => void] {
-  const ctx = useContext(AppContext);
+  const ctx = use(AppContext);
   if (!ctx) {
     throw new Error('useAppState must be used inside an <AppProvider>');
   }

@@ -6,7 +6,7 @@
  * canvas rendering, charts, or conditional logic).
  */
 
-import { useContext } from 'react';
+import { use } from 'react';
 import { AppContext } from './context';
 
 export interface UseThemeResult {
@@ -17,7 +17,7 @@ export interface UseThemeResult {
 }
 
 export function useTheme(): UseThemeResult {
-  const ctx = useContext(AppContext);
+  const ctx = use(AppContext);
   return {
     mode: ctx?.themeMode ?? 'dark',
     presetId: ctx?.themePresetId ?? 'default',

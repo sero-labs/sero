@@ -16,7 +16,7 @@ import {
   CircleIcon,
   XCircleIcon,
 } from "lucide-react";
-import { createContext, useContext, useMemo } from "react";
+import { createContext, use, useMemo } from "react";
 
 type TestStatus = "passed" | "failed" | "skipped" | "running";
 
@@ -96,7 +96,7 @@ export const TestResultsSummary = ({
   children,
   ...props
 }: TestResultsSummaryProps) => {
-  const { summary } = useContext(TestResultsContext);
+  const { summary } = use(TestResultsContext);
 
   if (!summary) {
     return null;
@@ -144,7 +144,7 @@ export const TestResultsDuration = ({
   children,
   ...props
 }: TestResultsDurationProps) => {
-  const { summary } = useContext(TestResultsContext);
+  const { summary } = use(TestResultsContext);
 
   if (!summary?.duration) {
     return null;
@@ -164,7 +164,7 @@ export const TestResultsProgress = ({
   children,
   ...props
 }: TestResultsProgressProps) => {
-  const { summary } = useContext(TestResultsContext);
+  const { summary } = use(TestResultsContext);
 
   if (!summary) {
     return null;
@@ -251,7 +251,7 @@ export const TestSuiteName = ({
   children,
   ...props
 }: TestSuiteNameProps) => {
-  const { name, status } = useContext(TestSuiteContext);
+  const { name, status } = use(TestSuiteContext);
 
   return (
     <CollapsibleTrigger
@@ -395,7 +395,7 @@ export const TestStatus = ({
   children,
   ...props
 }: TestStatusProps) => {
-  const { status } = useContext(TestContext);
+  const { status } = use(TestContext);
 
   return (
     <span
@@ -410,7 +410,7 @@ export const TestStatus = ({
 export type TestNameProps = HTMLAttributes<HTMLSpanElement>;
 
 export const TestName = ({ className, children, ...props }: TestNameProps) => {
-  const { name } = useContext(TestContext);
+  const { name } = use(TestContext);
 
   return (
     <span className={cn("flex-1", className)} {...props}>
@@ -426,7 +426,7 @@ export const TestDuration = ({
   children,
   ...props
 }: TestDurationProps) => {
-  const { duration } = useContext(TestContext);
+  const { duration } = use(TestContext);
 
   if (duration === undefined) {
     return null;

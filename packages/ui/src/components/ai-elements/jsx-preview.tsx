@@ -9,7 +9,7 @@ import {
   createContext,
   memo,
   useCallback,
-  useContext,
+  use,
   useEffect,
   useMemo,
   useRef,
@@ -32,7 +32,7 @@ const JSXPreviewContext = createContext<JSXPreviewContextValue | null>(null);
 const TAG_REGEX = /<\/?([a-zA-Z][a-zA-Z0-9]*)\s*([^>]*?)(\/)?>/;
 
 export const useJSXPreview = () => {
-  const context = useContext(JSXPreviewContext);
+  const context = use(JSXPreviewContext);
   if (!context) {
     throw new Error("JSXPreview components must be used within JSXPreview");
   }

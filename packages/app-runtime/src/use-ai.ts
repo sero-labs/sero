@@ -11,7 +11,7 @@
  *   const response = await ai.prompt("Generate an inspirational quote.");
  */
 
-import { useContext, useCallback, useMemo } from 'react';
+import { use, useCallback, useMemo } from 'react';
 import { AppContext } from './context';
 import { getSeroApi } from './sero-bridge';
 
@@ -23,7 +23,7 @@ export interface AppAI {
 }
 
 export function useAI(): AppAI {
-  const ctx = useContext(AppContext);
+  const ctx = use(AppContext);
 
   const prompt = useCallback(
     async (text: string): Promise<string> => {

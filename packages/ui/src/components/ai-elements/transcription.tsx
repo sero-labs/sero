@@ -5,7 +5,7 @@ import type { ComponentProps, ReactNode } from "react";
 
 import { useControllableState } from "@radix-ui/react-use-controllable-state";
 import { cn } from "../../lib/utils";
-import { createContext, useCallback, useContext, useMemo } from "react";
+import { createContext, useCallback, use, useMemo } from "react";
 
 type TranscriptionSegment = TranscriptionResult["segments"][number];
 
@@ -21,7 +21,7 @@ const TranscriptionContext = createContext<TranscriptionContextValue | null>(
 );
 
 const useTranscription = () => {
-  const context = useContext(TranscriptionContext);
+  const context = use(TranscriptionContext);
   if (!context) {
     throw new Error(
       "Transcription components must be used within Transcription"
