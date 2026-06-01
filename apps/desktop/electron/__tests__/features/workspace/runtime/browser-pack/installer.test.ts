@@ -2,7 +2,18 @@ import { createHash } from 'crypto';
 import fs from 'fs';
 import path from 'path';
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+const testEnv = vi.hoisted(() => {
+  const root = `/tmp/sero-vitest/${process.pid}-browser-pack-${Math.random().toString(16).slice(2)}`;
+  return {
+    SERO_AGENT_DIR: `${root}/agent`,
+    SERO_FIXED_ROOT: root,
+    SERO_HOME: root,
+  };
+});
+
+vi.mock('@electron/platform/env', () => testEnv);
 
 import { SERO_FIXED_ROOT } from '@electron/platform/env';
 import { createBrowserRuntimeAdapter, firstExistingCandidate } from '@electron/features/workspace/runtime/browser-pack/adapter';

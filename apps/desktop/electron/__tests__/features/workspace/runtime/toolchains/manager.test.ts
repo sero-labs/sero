@@ -4,6 +4,17 @@ import path from 'path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+const testEnv = vi.hoisted(() => {
+  const root = `/tmp/sero-vitest/${process.pid}-toolchains-${Math.random().toString(16).slice(2)}`;
+  return {
+    SERO_AGENT_DIR: `${root}/agent`,
+    SERO_FIXED_ROOT: root,
+    SERO_HOME: root,
+  };
+});
+
+vi.mock('@electron/platform/env', () => testEnv);
+
 import { SERO_FIXED_ROOT } from '@electron/platform/env';
 import type { DownloadArtifactOptions } from '@electron/features/workspace/runtime/toolchains/download';
 import { ToolchainManager } from '@electron/features/workspace/runtime/toolchains/manager';
