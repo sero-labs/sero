@@ -6,6 +6,25 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 and beta release tags use a SemVer prerelease form.
 
 
+## [0.2.11-beta.0](https://github.com/sero-labs/sero/compare/v0.2.10-beta.0...v0.2.11-beta.0) (2026-06-01)
+
+### Bug Fixes
+
+* address high-value react doctor findings ([10df50e](https://github.com/sero-labs/sero/commit/10df50e6e8079555e9f0e118d8a4c0fccda6eb36))
+* address React Doctor cleanup regressions ([377a2c5](https://github.com/sero-labs/sero/commit/377a2c514d097e6a707a69684fe22527611d3771))
+* address react doctor cleanup review ([428b357](https://github.com/sero-labs/sero/commit/428b357d1792afaf67b859ca2bcc76e4e966974a))
+* address react doctor hook and key diagnostics ([5f90ce8](https://github.com/sero-labs/sero/commit/5f90ce8d0d7e56fd19d1b31d3f002048703f871b))
+* address react doctor top issues ([e3d83fd](https://github.com/sero-labs/sero/commit/e3d83fd3ec942c156e910de5d6947ebb0d611bd1))
+* keep verification commands sequential ([bf7c50d](https://github.com/sero-labs/sero/commit/bf7c50d7b456c61180dea3721bfc43c8a940906f))
+* reduce react doctor accessibility issues ([e86062e](https://github.com/sero-labs/sero/commit/e86062e696cc3164fa3d91ec8dc46cc8b189cc64))
+* reduce react doctor hook and async warnings ([5ea1f93](https://github.com/sero-labs/sero/commit/5ea1f932516f868fbc7a9ccfb407192e2c871d75))
+* replace deprecated React context APIs ([bbb894f](https://github.com/sero-labs/sero/commit/bbb894fb43ffde704e53df08b61dcc974caab7bb))
+* update profile setup branding ([b83fa5f](https://github.com/sero-labs/sero/commit/b83fa5f1a915b624b18db0f13ad2bd39acdb31b6))
+
+### Refactoring
+
+* reduce React Doctor findings ([8088b9d](https://github.com/sero-labs/sero/commit/8088b9dc1203fdee4c137c042cc3737c305075a7))
+
 ## [0.2.10-beta.0](https://github.com/sero-labs/sero/compare/v0.2.9-beta.0...v0.2.10-beta.0) (2026-06-01)
 
 ### Bug Fixes
