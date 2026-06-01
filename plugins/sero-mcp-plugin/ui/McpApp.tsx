@@ -43,12 +43,12 @@ export function McpApp() {
   }, [state.summary.connectedServers, state.summary.errorServers, state.summary.needsAuthServers, state.summary.totalServers]);
 
   return (
-    <div className="flex h-full w-full flex-col bg-background text-foreground">
+    <div className="flex size-full flex-col bg-background text-foreground">
       <header className="border-b border-border px-5 py-4">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0 space-y-2">
             <div className="flex items-center gap-2">
-              <PlugZap className="h-4 w-4 text-primary" />
+              <PlugZap className="size-4 text-primary" />
               <h1 className="text-base font-semibold">MCP</h1>
               <Badge variant="secondary">connected</Badge>
             </div>
@@ -63,7 +63,7 @@ export function McpApp() {
               disabled={diagnostics.loading}
               aria-pressed={diagnostics.isOpen}
             >
-              <AlertCircle className="mr-2 h-4 w-4" />
+              <AlertCircle className="mr-2 size-4" />
               Diagnostics
             </Button>
             <Button
@@ -74,11 +74,11 @@ export function McpApp() {
               disabled={rawConfig.loading || rawConfig.saving}
               aria-pressed={rawConfig.isOpen}
             >
-              <Wrench className="mr-2 h-4 w-4" />
+              <Wrench className="mr-2 size-4" />
               Raw config
             </Button>
             <Button type="button" variant="outline" size="sm" onClick={() => void bootstrap.refresh()} disabled={bootstrap.loading}>
-              <RefreshCw className={cn('mr-2 h-4 w-4', bootstrap.loading && 'animate-spin')} />
+              <RefreshCw className={cn('mr-2 size-4', bootstrap.loading && 'animate-spin')} />
               Refresh
             </Button>
           </div>
@@ -88,7 +88,7 @@ export function McpApp() {
       <div className="flex-1 space-y-4 overflow-auto p-5">
         {bootstrap.error && (
           <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
+            <AlertCircle className="size-4" />
             <AlertTitle>Bootstrap failed</AlertTitle>
             <AlertDescription>
               <p>{bootstrap.error}</p>
@@ -104,7 +104,7 @@ export function McpApp() {
               <Card key={card.label} className="animate-mcp-fade-in gap-3 border-border/75 py-4">
                 <CardHeader className="px-4">
                   <CardDescription className="flex items-center gap-2 text-xs uppercase tracking-wide">
-                    <Icon className="h-3.5 w-3.5" />
+                    <Icon className="size-3.5" />
                     {card.label}
                   </CardDescription>
                   <CardTitle className="text-3xl">{card.value}</CardTitle>

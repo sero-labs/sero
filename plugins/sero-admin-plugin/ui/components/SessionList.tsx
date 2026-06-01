@@ -1,5 +1,5 @@
 /**
- * SessionList — sidebar listing all sessions with metadata.
+ * SessionList, sidebar listing all sessions with metadata.
  *
  * Shows session ID (truncated), date, and workspace. Uses the
  * sessions API which returns lightweight metadata (no content parsing).
@@ -64,7 +64,7 @@ export const SessionList = memo(function SessionList({
                   'font-mono text-[10px]',
                   s.sessionId === selectedId ? 'text-foreground' : 'text-foreground/70',
                 )}>
-                  {s.sessionId.slice(0, 8)}…
+                  {s.sessionId.slice(0, 8)}...
                 </span>
                 <span className="text-[9px] text-muted-foreground/30">
                   {s.messageCount} msgs
@@ -72,7 +72,7 @@ export const SessionList = memo(function SessionList({
               </div>
               {s.name && (
                 <p className="mt-0.5 truncate text-[10px] text-foreground/50">
-                  {s.name.length > 50 ? s.name.slice(0, 50) + '…' : s.name}
+                  {s.name.length > 50 ? s.name.slice(0, 50) + '...' : s.name}
                 </p>
               )}
               <p className="mt-0.5 text-[10px] text-muted-foreground/40">

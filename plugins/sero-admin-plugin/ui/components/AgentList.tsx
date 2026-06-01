@@ -1,5 +1,5 @@
 /**
- * AgentList — scrollable list of agent cards in the left panel.
+ * AgentList, scrollable list of agent cards in the left panel.
  */
 
 import { cn } from '@sero-ai/ui/lib/utils';

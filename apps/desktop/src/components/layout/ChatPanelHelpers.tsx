@@ -1,11 +1,11 @@
 /**
  * Small helper components extracted from ChatPanel to keep it under 500 LOC.
  *
- * - ContextEditorMenuItem — "+" menu item that opens the context editor
- * - ThinkingBlocksToggle — toggle visibility of thinking blocks
- * - CollaborationToggle — toggle collaboration mode + strategy picker
- * - EmptyState — placeholder when no session / no messages
- * - ThinkingIndicator — shared inline streaming indicator
+ * - ContextEditorMenuItem, "+" menu item that opens the context editor
+ * - ThinkingBlocksToggle, toggle visibility of thinking blocks
+ * - CollaborationToggle, toggle collaboration mode + strategy picker
+ * - EmptyState, placeholder when no session / no messages
+ * - ThinkingIndicator, shared inline streaming indicator
  */
 
 import { useRef, useState, useCallback } from 'react';
@@ -184,7 +184,7 @@ export function CollaborationToggle({ disabled }: { disabled: boolean }) {
         </button>
       )}
 
-      {/* Strategy picker popover — fixed positioning to escape overflow:hidden on InputGroup */}
+      {/* Strategy picker popover, fixed positioning to escape overflow:hidden on InputGroup */}
       {popoverOpen && (
         <>
           {/* Backdrop */}
@@ -236,7 +236,7 @@ export function CollaborationToggle({ disabled }: { disabled: boolean }) {
                 <div className="flex flex-col gap-1.5">
                   <label className="flex items-center justify-between text-[11px] text-[var(--text-secondary)]">
                     <span>Max rounds</span>
-                    <input
+                    <input aria-label="Max collaboration rounds"
                       type="number"
                       min={1}
                       max={5}
@@ -247,7 +247,7 @@ export function CollaborationToggle({ disabled }: { disabled: boolean }) {
                   </label>
                   <label className="flex items-center justify-between text-[11px] text-[var(--text-secondary)]">
                     <span>Time limit (sec)</span>
-                    <input
+                    <input aria-label="Collaboration time limit in seconds"
                       type="number"
                       min={30}
                       max={600}
@@ -273,7 +273,7 @@ export function ThinkingIndicator({ className }: { className?: string }) {
   return (
     <div className={cn('flex items-center gap-2 px-2 py-1', className)}>
       <Loader2 className="size-3.5 animate-spin text-[var(--text-muted)]" />
-      <span className="text-xs text-[var(--text-muted)]">Thinking...</span>
+      <span className="text-xs text-[var(--text-muted)]">Thinking…</span>
     </div>
   );
 }

@@ -188,13 +188,12 @@ export function SavePresetInput({
 
   return (
     <div className="flex items-center gap-2">
-      <input
+      <input aria-label="Context item text"
         type="text"
         value={name}
         onChange={(e) => setName(e.target.value)}
         placeholder="Preset name..."
         className="flex-1 rounded-md border border-border/50 bg-[var(--bg-base)] px-2 py-1 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none focus:border-[var(--accent-primary)]"
-        autoFocus
         onKeyDown={(e) => {
           if (e.key === 'Enter' && name.trim()) onSave(name.trim());
           if (e.key === 'Escape') onCancel();

@@ -1,5 +1,5 @@
 /**
- * AddWidgetDialog — picker for adding widgets to the dashboard.
+ * AddWidgetDialog, picker for adding widgets to the dashboard.
  *
  * Shows all available widgets grouped by app, with a search filter.
  * Clicking a widget adds it to the dashboard grid.

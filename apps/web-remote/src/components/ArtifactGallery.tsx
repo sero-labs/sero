@@ -1,5 +1,5 @@
 /**
- * Artifact gallery — grid view of session screenshots/artifacts with lightbox.
+ * Artifact gallery, grid view of session screenshots/artifacts with lightbox.
  */
 
 import { useState, useCallback, memo } from 'react';
@@ -55,14 +55,14 @@ const ArtifactCard = memo(function ArtifactCard({
           <img
             src={`data:${artifact.mimeType};base64,${artifact.base64}`}
             alt={artifact.title}
-            className="w-full h-full object-cover"
+            className="size-full object-cover"
           />
         ) : (
           <div className="text-muted-foreground flex flex-col items-center gap-1">
             {!hasData ? (
-              <Loader2 className="w-6 h-6 animate-spin" />
+              <Loader2 className="size-6 animate-spin" />
             ) : (
-              <ImageIcon className="w-6 h-6 opacity-50" />
+              <ImageIcon className="size-6 opacity-50" />
             )}
           </div>
         )}
@@ -98,7 +98,7 @@ function Lightbox({
         onClick={onClose}
         className="absolute top-4 right-4 text-white/60 hover:text-white transition-colors"
       >
-        <X className="w-6 h-6" />
+        <X className="size-6" />
       </button>
 
       {/* Navigation */}
@@ -107,7 +107,7 @@ function Lightbox({
           onClick={() => onNavigate(-1)}
           className="absolute left-4 text-white/60 hover:text-white transition-colors"
         >
-          <ChevronLeft className="w-8 h-8" />
+          <ChevronLeft className="size-8" />
         </button>
       )}
       {index < artifacts.length - 1 && (
@@ -115,7 +115,7 @@ function Lightbox({
           onClick={() => onNavigate(1)}
           className="absolute right-4 text-white/60 hover:text-white transition-colors"
         >
-          <ChevronRight className="w-8 h-8" />
+          <ChevronRight className="size-8" />
         </button>
       )}
 
@@ -129,7 +129,7 @@ function Lightbox({
           />
         ) : (
           <div className="text-white/60 text-center">
-            <ImageIcon className="w-12 h-12 mx-auto mb-2" />
+            <ImageIcon className="size-12 mx-auto mb-2" />
             <p>No preview available</p>
           </div>
         )}
@@ -168,7 +168,7 @@ export function ArtifactGallery({ artifacts, onLoadArtifact }: ArtifactGalleryPr
     return (
       <div className="flex items-center justify-center h-full text-muted-foreground">
         <div className="text-center">
-          <ImageIcon className="w-8 h-8 mx-auto mb-2 opacity-50" />
+          <ImageIcon className="size-8 mx-auto mb-2 opacity-50" />
           <p className="text-sm">No artifacts yet</p>
         </div>
       </div>

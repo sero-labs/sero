@@ -174,7 +174,7 @@ export function OnboardingSetupScreen({
             onClick={() => void handleContinueFromDependencies()}
             disabled={continueDisabled || checkingGitHub}
           >
-            {checkingGitHub ? 'Checking GitHub…' : 'Continue'}
+            {checkingGitHub ? 'Checking GitHub...' : 'Continue'}
           </Button>
         </div>
       </div>
@@ -347,7 +347,7 @@ export function OnboardingSetupScreen({
           onClick={() => void handleTierContinue()}
           disabled={!canContinue || continueDisabled || checkingGitHub}
         >
-          {checkingGitHub ? 'Checking GitHub…' : 'Continue'}
+          {checkingGitHub ? 'Checking GitHub...' : 'Continue'}
         </Button>
       </div>
     </div>

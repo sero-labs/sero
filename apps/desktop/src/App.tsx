@@ -32,7 +32,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
  * App shell.
  *
  * ┌─────────────────────────────────────────────────────────────┐
- * │  TitleBar (⊞ sidebar toggle … app name … ⌘K … ⊟ chat)     │
+ * │  TitleBar (⊞ sidebar toggle ... app name ... ⌘K ... ⊟ chat)     │
  * ├──────────┬──────────────────────────────┬─┬─────────────────┤
  * │  Main    │                              │║│                 │
  * │  Sidebar │     Active App               │║│  Chat Panel     │
@@ -43,7 +43,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
  * └─────────────────────────────────────────────────────────────┘
  *
  * Both sidebars (MainSidebar left, ChatPanel right) are collapsible
- * via toggle buttons in the TitleBar. The ChatPanel is global —
+ * via toggle buttons in the TitleBar. The ChatPanel is global ,
  * it persists across all apps.
  */
 export function App() {
@@ -66,7 +66,7 @@ export function App() {
   const chatPanelLastExpandedPctRef = useRef(30);
   const mainSidebarDefaultRef = useRef<string | number>(0);
   const chatPanelDefaultRef = useRef<string | number>(0);
-  // Hydrate once — refs capture persisted values on the FIRST render where
+  // Hydrate once, refs capture persisted values on the FIRST render where
   // layoutReady=true, which is the same render that first mounts the panels
   // (because the loading guard returns early until then).
   const layoutHydratedRef = useRef(false);
@@ -244,7 +244,7 @@ export function App() {
   }, [chatPanelOpen, layoutReady, appsReady]);
 
   // Wait for profile + layout hydration + app discovery before rendering.
-  // Workspaces load in parallel but don't block — workspace-scoped apps
+  // Workspaces load in parallel but don't block, workspace-scoped apps
   // already guard on activeWorkspaceId inside SeroAppMount.
   if (!profileReady || !appsReady || !layoutReady) {
     return (

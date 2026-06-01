@@ -1,5 +1,5 @@
 /**
- * ChangeLog — dense, paginated change history.
+ * ChangeLog, dense, paginated change history.
  *
  * Each row: glyph · commitSha · age · description · [branches]
  * Click to expand inline detail. Context menu for actions.
@@ -88,7 +88,7 @@ export function ChangeLog({ workspaceId, entries, hasMore, onOpenDiff }: Props) 
             )}
           >
             <ChevronDown className={cn('size-3', loadingMore && 'animate-bounce')} />
-            {loadingMore ? 'Loading…' : 'Load more'}
+            {loadingMore ? 'Loading...' : 'Load more'}
           </motion.button>
         )}
       </div>

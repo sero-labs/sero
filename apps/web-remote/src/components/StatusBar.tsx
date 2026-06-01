@@ -1,5 +1,5 @@
 /**
- * Status bar — connection status, workspace info, version.
+ * Status bar, connection status, workspace info, version.
  * Hidden on mobile (see Layout.tsx).
  */
 
@@ -39,7 +39,7 @@ export function StatusBar() {
     <div className="h-7 px-3 bg-card border-t border-border flex items-center justify-between text-xs text-muted-foreground shrink-0">
       <div className="flex items-center gap-3">
         <span className="flex items-center gap-1.5">
-          <Circle className={cn('w-2 h-2 fill-current', statusColor)} />
+          <Circle className={cn('size-2 fill-current', statusColor)} />
           {statusText}
         </span>
         {activeWorkspace && (

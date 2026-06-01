@@ -1,5 +1,5 @@
 /**
- * SlashCommandMenu — floating autocomplete for PI slash commands.
+ * SlashCommandMenu, floating autocomplete for PI slash commands.
  *
  * Appears above the chat input when the user types "/" at the start.
  * Groups commands by source (Extensions, Prompts, Skills) matching

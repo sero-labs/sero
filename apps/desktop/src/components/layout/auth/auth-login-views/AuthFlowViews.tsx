@@ -181,7 +181,7 @@ export function ApiKeyEntryView({
             if (event.key === 'Enter') onSave();
             if (event.key === 'Escape') onCancel();
           }}
-          placeholder="sk-…"
+          placeholder="sk-..."
           className="pr-9 font-mono text-sm"
           autoComplete="off"
           spellCheck={false}

@@ -37,7 +37,7 @@ export function DownloadsList() {
   if (downloads.length === 0) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center py-16">
-        <Download className="mb-2 h-5 w-5 text-muted-foreground/40" />
+        <Download className="mb-2 size-5 text-muted-foreground/40" />
         <p className="text-sm text-muted-foreground">No downloads yet</p>
         <p className="mt-1 text-xs text-muted-foreground/60">
           Saved PDFs and other extracted files will appear here
@@ -88,7 +88,7 @@ function DownloadRow({ download, workspaceId, onDelete }: DownloadRowProps) {
   const displayPath = download.relativePath || download.absolutePath;
 
   return (
-    <div className="animate-web-fade-in border-b border-border px-3 py-3 last:border-b-0 hover:bg-secondary/30">
+    <div className="animate-web-fade-in border-b border-border p-3 last:border-b-0 hover:bg-secondary/30">
       <div className="flex items-start gap-2.5">
         <div className="mt-0.5 shrink-0">{statusIcon(download.status)}</div>
 
@@ -104,7 +104,7 @@ function DownloadRow({ download, workspaceId, onDelete }: DownloadRowProps) {
                 rel="noopener noreferrer"
                 className="mt-0.5 inline-flex items-center gap-1 text-[11px] text-blue-400/70 transition-colors hover:text-blue-400"
               >
-                <ExternalLink className="h-2.5 w-2.5" />
+                <ExternalLink className="size-2.5" />
                 <span className="truncate">{truncate(download.sourceUrl, 90)}</span>
               </a>
             </div>
@@ -154,7 +154,7 @@ function DownloadRow({ download, workspaceId, onDelete }: DownloadRowProps) {
               disabled={!download.relativePath || download.status !== 'completed'}
               onClick={() => { void openDownload(); }}
             >
-              <FolderOpen className="h-3 w-3" />
+              <FolderOpen className="size-3" />
               Open in editor
             </Button>
             <Button
@@ -164,7 +164,7 @@ function DownloadRow({ download, workspaceId, onDelete }: DownloadRowProps) {
               disabled={!download.absolutePath}
               onClick={() => { void revealDownload(); }}
             >
-              <ExternalLink className="h-3 w-3" />
+              <ExternalLink className="size-3" />
               Reveal in Finder
             </Button>
             <Button
@@ -174,7 +174,7 @@ function DownloadRow({ download, workspaceId, onDelete }: DownloadRowProps) {
               disabled={isActive}
               onClick={onDelete}
             >
-              <Trash2 className="h-3 w-3" />
+              <Trash2 className="size-3" />
               Delete
             </Button>
           </div>
@@ -187,14 +187,14 @@ function DownloadRow({ download, workspaceId, onDelete }: DownloadRowProps) {
 function statusIcon(status: WebDownload['status']) {
   switch (status) {
     case 'completed':
-      return <CheckCircle2 className="h-4 w-4 text-emerald-400" />;
+      return <CheckCircle2 className="size-4 text-emerald-400" />;
     case 'error':
-      return <AlertCircle className="h-4 w-4 text-destructive" />;
+      return <AlertCircle className="size-4 text-destructive" />;
     case 'downloading':
     case 'queued':
-      return <LoaderCircle className="h-4 w-4 animate-spin text-primary" />;
+      return <LoaderCircle className="size-4 animate-spin text-primary" />;
     default:
-      return <Download className="h-4 w-4 text-muted-foreground" />;
+      return <Download className="size-4 text-muted-foreground" />;
   }
 }
 

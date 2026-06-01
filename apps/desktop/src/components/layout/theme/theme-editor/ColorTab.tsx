@@ -1,5 +1,5 @@
 /**
- * ColorTab — all colour token groups for the theme editor.
+ * ColorTab, all colour token groups for the theme editor.
  * Renders one ColorSection per group for the currently active mode.
  */
 

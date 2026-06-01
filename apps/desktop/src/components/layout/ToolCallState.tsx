@@ -55,7 +55,7 @@ export function groupStatusLabel(status: GroupStatus, count: number) {
   const noun = count === 1 ? 'action' : 'actions';
   switch (status) {
     case 'running':
-      return `Running ${count} ${noun}…`;
+      return `Running ${count} ${noun}...`;
     case 'completed':
       return `${count} ${noun} completed`;
     case 'error':

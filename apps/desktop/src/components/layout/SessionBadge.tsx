@@ -29,7 +29,7 @@ export function SessionBadge({ sessionId }: SessionBadgeProps) {
   const [actionError, setActionError] = useState<string | null>(null);
   const loadSessions = useSessionStore((s) => s.loadSessions);
 
-  // True once the store has messages for this session — signals the main-process
+  // True once the store has messages for this session, signals the main-process
   // pool entry exists (open() resolved), so IPC calls will return real data.
   const sessionLoaded = useAgentStore(
     (s) => (s.agents[sessionId]?.messages?.length ?? 0) > 0,
@@ -44,7 +44,7 @@ export function SessionBadge({ sessionId }: SessionBadgeProps) {
       setUsage(ctx);
       setStats(usg);
     } catch {
-      // Ignore — session may have closed
+      // Ignore, session may have closed
     }
   }, [sessionId]);
 
@@ -277,6 +277,7 @@ function CompactSection({
         Session
       </div>
       <input
+        aria-label="Custom compact instructions"
         id="compact-instructions"
         type="text"
         placeholder="Custom instructions (optional)"

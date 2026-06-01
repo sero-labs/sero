@@ -1,5 +1,5 @@
 /**
- * Layout shell — sidebar + chat + panels.
+ * Layout shell, sidebar + chat + panels.
  *
  * Mobile (<768px): sidebar & right panels are Sheet overlays.
  * Header pinned top, input pinned bottom (via ChatPanel), only chat scrolls.
@@ -67,7 +67,7 @@ export function Layout() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Title bar — always pinned at top */}
+      {/* Title bar, always pinned at top */}
       <header className="h-11 px-3 bg-card border-b border-border flex items-center justify-between shrink-0 z-10">
         <div className="flex items-center gap-2">
           <img
@@ -127,19 +127,19 @@ export function Layout() {
 
       {/* Main content row */}
       <div className="flex flex-1 min-h-0 overflow-hidden">
-        {/* Desktop sidebar — inline panel */}
+        {/* Desktop sidebar, inline panel */}
         {!isMobile && sidebarOpen && (
           <div className="w-56 border-r border-border bg-card shrink-0 overflow-hidden">
             <WorkspacePicker />
           </div>
         )}
 
-        {/* Chat panel — fills remaining space */}
+        {/* Chat panel, fills remaining space */}
         <div className="flex-1 min-w-0">
           <ChatPanel />
         </div>
 
-        {/* Desktop right panel — inline panel */}
+        {/* Desktop right panel, inline panel */}
         {!isMobile && rightPanel && (
           <div
             className={`${rightPanel === 'preview' ? 'w-[28rem]' : 'w-80'} border-l border-border bg-card shrink-0 overflow-hidden`}
@@ -151,10 +151,10 @@ export function Layout() {
         )}
       </div>
 
-      {/* Status bar — hidden on mobile to save space */}
+      {/* Status bar, hidden on mobile to save space */}
       {!isMobile && <StatusBar />}
 
-      {/* Mobile sidebar — Sheet overlay from left */}
+      {/* Mobile sidebar, Sheet overlay from left */}
       {isMobile && (
         <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
           <SheetContent side="left" className="w-72 p-0" showCloseButton={false}>
@@ -168,7 +168,7 @@ export function Layout() {
         </Sheet>
       )}
 
-      {/* Mobile right panel — Sheet overlay from right */}
+      {/* Mobile right panel, Sheet overlay from right */}
       {isMobile && (
         <Sheet
           open={rightPanel !== null}
@@ -200,7 +200,7 @@ export function Layout() {
   );
 }
 
-/** Files panel — split between browser and preview. */
+/** Files panel, split between browser and preview. */
 function FilesPanel() {
   return (
     <div className="flex flex-col h-full">
@@ -214,7 +214,7 @@ function FilesPanel() {
   );
 }
 
-/** Artifact panel wrapper — connects ArtifactGallery to the store. */
+/** Artifact panel wrapper, connects ArtifactGallery to the store. */
 function ArtifactPanelConnected() {
   const artifacts = useArtifactStore((s) => s.artifacts);
   const loadArtifactData = useArtifactStore((s) => s.loadArtifactData);

@@ -1,5 +1,5 @@
 /**
- * VcsPanel — rich Git source control panel.
+ * VcsPanel, rich Git source control panel.
  *
  * Sections: Working Copy Status, Branches, Commit Log, Remotes.
  * Each section is a collapsible animated group.

@@ -31,7 +31,7 @@ function ContainerIndicator({ workspaceId, containerEnabled }: { workspaceId: st
 
   const config: Record<ContainerStatus, { color: string; title: string; animate?: boolean }> = {
     none: { color: '', title: '' },
-    starting: { color: 'bg-[var(--status-warning)]', title: 'Container starting…', animate: true },
+    starting: { color: 'bg-[var(--status-warning)]', title: 'Container starting...', animate: true },
     running: {
       color: 'bg-[var(--status-success)]',
       title: container.ipAddress ? `Container running (${container.ipAddress})` : 'Container running',

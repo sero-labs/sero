@@ -1,5 +1,5 @@
 /**
- * WidgetMount — loads and mounts a federated widget component.
+ * WidgetMount, loads and mounts a federated widget component.
  *
  * Similar to SeroAppMount but for widget-sized components. Wraps the
  * federated component in AppProvider so widgets have full access to

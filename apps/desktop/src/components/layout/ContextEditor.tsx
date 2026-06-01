@@ -39,7 +39,7 @@ export function ContextEditor({ sessionId }: { sessionId: string }) {
           <div className="flex items-center justify-center gap-2 py-8">
             <Loader2 className="size-4 animate-spin text-[var(--text-muted)]" />
             <span className="text-xs text-[var(--text-muted)]">
-              Loading session context...
+              Loading session context…
             </span>
           </div>
         ) : (

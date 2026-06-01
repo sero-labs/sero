@@ -1,6 +1,6 @@
 /**
- * Header — title bar with profile indicator.
- * Wrapped in React.memo — props are stable.
+ * Header, title bar with profile indicator.
+ * Wrapped in React.memo, props are stable.
  */
 
 import { memo } from 'react';
@@ -28,7 +28,7 @@ export const Header = memo(function Header({ profileName, activeSection }: Heade
   return (
     <div className="flex items-center justify-between border-b border-border/50 px-4 py-2.5">
       <div className="flex items-center gap-2.5">
-        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/15">
+        <div className="flex size-7 items-center justify-center rounded-lg bg-primary/15">
           <svg
             width="14"
             height="14"

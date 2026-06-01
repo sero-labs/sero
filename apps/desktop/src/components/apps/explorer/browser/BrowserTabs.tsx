@@ -1,5 +1,5 @@
 /**
- * BrowserTabs — draggable, scrollable tab strip for the in-app browser.
+ * BrowserTabs, draggable, scrollable tab strip for the in-app browser.
  * Mirrors the EditorTabBar style (dnd-kit reorder, context menu, overflow
  * fades) so Browser and Editor feel like the same tabbed surface.
  */
@@ -48,7 +48,7 @@ function SortableBrowserTab({
     opacity: isDragging ? 0.5 : 1,
     zIndex: isDragging ? 10 : undefined,
   };
-  const label = tab.isLoading && !tab.title ? 'Loading…' : (tab.title || tab.url);
+  const label = tab.isLoading && !tab.title ? 'Loading...' : (tab.title || tab.url);
 
   return (
     <div
@@ -209,7 +209,7 @@ export function BrowserTabs({ workspaceId }: BrowserTabsProps) {
           <div className="relative min-w-0 flex-1">
             <div
               ref={scrollRef}
-              className="flex h-full w-full items-stretch overflow-x-auto overflow-y-hidden scrollbar-none"
+              className="flex size-full items-stretch overflow-x-auto overflow-y-hidden scrollbar-none"
             >
               {tabs.map((tab) => (
                 <SortableBrowserTab

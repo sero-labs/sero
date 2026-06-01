@@ -10,7 +10,7 @@ interface SearchInputProps extends React.ComponentProps<"input"> {
 }
 
 const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
-  ({ containerClassName, className, endAdornment, iconClassName, ...props }, ref) => {
+  ({ containerClassName, className, endAdornment, iconClassName, placeholder, "aria-label": ariaLabel, ...props }, ref) => {
     return (
       <div
         data-slot="search-input"
@@ -21,6 +21,8 @@ const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
           className={cn("text-muted-foreground size-3.5 shrink-0", iconClassName)}
         />
         <input
+          aria-label={ariaLabel ?? (typeof placeholder === "string" ? placeholder : "Search")}
+          placeholder={placeholder}
           ref={ref}
           data-slot="search-input-control"
           className={cn(

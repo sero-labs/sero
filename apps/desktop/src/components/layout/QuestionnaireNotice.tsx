@@ -1,5 +1,5 @@
 /**
- * QuestionnaireNotice — friendly inline replacement for questionnaire/interview
+ * QuestionnaireNotice, friendly inline replacement for questionnaire/interview
  * related tool calls. Used for both direct tool calls and bridged `sero-cli`
  * commands such as `sero questionnaire ...` and `sero help questionnaire`.
  */
@@ -127,7 +127,7 @@ function getPrimaryLabel(kind: FeedbackKind, isOnboarding: boolean): string {
 }
 
 function getSecondaryLabel(mode: FeedbackNoticeMode, kind: FeedbackKind): string {
-  if (mode === 'preparing') return 'Preparing…';
+  if (mode === 'preparing') return 'Preparing...';
   if (mode === 'completed') return 'Completed';
   return kind === 'interview' ? 'Open in User Feedback' : 'Continue in User Feedback';
 }
@@ -173,7 +173,7 @@ export function QuestionnaireNotice({ tools, sessionLabel = null }: Props) {
     <motion.div
       role={clickable ? 'button' : undefined}
       tabIndex={clickable ? 0 : undefined}
-      aria-label={clickable ? `${label} — ${secondary}` : label}
+      aria-label={clickable ? `${label}, ${secondary}` : label}
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2 }}

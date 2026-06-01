@@ -97,7 +97,7 @@ export const InstalledPluginsSection = memo(function InstalledPluginsSection({
 
   return (
     <section className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-[0_20px_60px_-42px_rgba(0,0,0,0.7)]">
-      <div className="border-b border-[var(--border-subtle)] px-4 py-4">
+      <div className="border-b border-[var(--border-subtle)] p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex min-w-0 items-start gap-3">
             <div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl border border-[var(--banner-primary-border)] bg-[var(--banner-primary-muted)] text-[var(--banner-primary)]">
@@ -107,7 +107,7 @@ export const InstalledPluginsSection = memo(function InstalledPluginsSection({
               <h3 className="text-sm font-semibold text-[var(--text-primary)]">Installed Plugins</h3>
               <p className="max-w-3xl text-[11px] leading-5 text-[var(--text-muted)]">
                 Managed plugin installs for this profile. Use installs for packaged releases from npm,
-                git, or a built local bundle—local development sessions stay separate below.
+                git, or a built local bundle,local development sessions stay separate below.
               </p>
             </div>
           </div>
@@ -120,7 +120,7 @@ export const InstalledPluginsSection = memo(function InstalledPluginsSection({
         </div>
       </div>
 
-      <div className="space-y-4 px-4 py-4">
+      <div className="space-y-4 p-4">
         <div className="flex items-center gap-2">
           <div className="flex size-7 items-center justify-center rounded-lg border border-[var(--status-info-border)] bg-[var(--status-info-muted)] text-[var(--status-info)]">
             <PackagePlus className="size-3.5" />
@@ -180,7 +180,7 @@ export const InstalledPluginsSection = memo(function InstalledPluginsSection({
           </div>
 
           <div className="overflow-x-auto rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-base)]">
-            <div className="flex min-w-max items-center gap-1.5 px-2.5 py-2.5">
+            <div className="flex min-w-max items-center gap-1.5 p-2.5">
               <p className="shrink-0 pr-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">
                 Examples
               </p>
@@ -351,7 +351,7 @@ function InstalledPluginCard({
 function InstalledPluginsEmptyState() {
   return (
     <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-[var(--border-default)] bg-[var(--bg-base)] px-6 py-10 text-center">
-      <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-[var(--banner-primary-border)] bg-[var(--banner-primary-muted)] text-[var(--banner-primary)]">
+      <div className="flex size-14 items-center justify-center rounded-2xl border border-[var(--banner-primary-border)] bg-[var(--banner-primary-muted)] text-[var(--banner-primary)]">
         <PackagePlus className="size-6" />
       </div>
       <p className="mt-4 text-sm font-medium text-[var(--text-primary)]">No installed plugins yet</p>

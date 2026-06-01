@@ -40,7 +40,7 @@ export function CollaborationLiveActivity({
   if (!entry) return null;
 
   const liveOutput = entry.liveOutput.trim();
-  const preview = liveOutput.length > 700 ? `…${liveOutput.slice(-700)}` : liveOutput;
+  const preview = liveOutput.length > 700 ? `...${liveOutput.slice(-700)}` : liveOutput;
   const visibleToolActivity = entry.toolActivity.filter((item) => item.toolName);
   const currentToolActivity =
     [...visibleToolActivity].reverse().find((item) => item.running) ??

@@ -1,5 +1,5 @@
 /**
- * Tool call display — collapsible groups showing tool execution status,
+ * Tool call display, collapsible groups showing tool execution status,
  * with inline image rendering and lightbox support.
  */
 
@@ -47,7 +47,7 @@ const ToolCallItem = memo(function ToolCallItem({ tc }: { tc: ToolCall }) {
           <span className="font-mono truncate">{tc.toolName}</span>
         </CollapsibleTrigger>
 
-        {/* Tool result images — always visible, click to open lightbox */}
+        {/* Tool result images, always visible, click to open lightbox */}
         {hasImages && (
           <div className="mt-1 ml-6 flex flex-wrap gap-2">
             {tc.images!.map((img, i) => {

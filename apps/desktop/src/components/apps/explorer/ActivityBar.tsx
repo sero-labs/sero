@@ -34,7 +34,7 @@ interface ActivityBarProps {
 }
 
 /**
- * ActivityBar — narrow icon strip for the explorer workspace.
+ * ActivityBar, narrow icon strip for the explorer workspace.
  *
  * Explorer, Search, Source Control, Orchestration (top) and Terminal (bottom).
  * Shows a badge on the orchestration icon when subagents are running.

@@ -29,7 +29,7 @@ export function McpSearchWorkbenchPanel({
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <CardTitle className="flex items-center gap-2">
-              <Search className="h-4 w-4 text-primary" />
+              <Search className="size-4 text-primary" />
               Search workbench
             </CardTitle>
             <CardDescription>
@@ -41,8 +41,8 @@ export function McpSearchWorkbenchPanel({
               Clear
             </Button>
             <Button type="button" size="sm" onClick={() => void search.search()} disabled={search.loading}>
-              <Search className="mr-2 h-4 w-4" />
-              {search.loading ? 'Searching…' : 'Search MCP'}
+              <Search className="mr-2 size-4" />
+              {search.loading ? 'Searching...' : 'Search MCP'}
             </Button>
           </div>
         </div>
@@ -50,12 +50,12 @@ export function McpSearchWorkbenchPanel({
       <CardContent className="space-y-4">
         {search.error && (
           <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
+            <AlertCircle className="size-4" />
             <AlertTitle>MCP search failed</AlertTitle>
             <AlertDescription className="space-y-3">
               <p>{search.error}</p>
               <Button type="button" size="sm" onClick={() => promptAgent(buildSearchHelpPrompt(search.query, search.error ?? 'Unknown MCP search error.', search.serverFilter))}>
-                <LifeBuoy className="mr-2 h-4 w-4" />
+                <LifeBuoy className="mr-2 size-4" />
                 Ask Sero to help
               </Button>
             </AlertDescription>
@@ -96,8 +96,8 @@ export function McpSearchWorkbenchPanel({
           </div>
           <div className="flex items-end">
             <Button type="submit" className="w-full lg:w-auto" disabled={search.loading}>
-              <Search className="mr-2 h-4 w-4" />
-              {search.loading ? 'Searching…' : 'Run search'}
+              <Search className="mr-2 size-4" />
+              {search.loading ? 'Searching...' : 'Run search'}
             </Button>
           </div>
         </form>
@@ -134,7 +134,7 @@ export function McpSearchWorkbenchPanel({
                         size="sm"
                         onClick={() => onSelectServer(match.serverName)}
                       >
-                        <Server className="mr-2 h-4 w-4" />
+                        <Server className="mr-2 size-4" />
                         {isSelectedServer ? 'Viewing server' : 'Open server'}
                       </Button>
                     </div>

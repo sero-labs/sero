@@ -1,5 +1,5 @@
 /**
- * QuestionnaireForm — multi-step questionnaire form for the dedicated app UI.
+ * QuestionnaireForm, multi-step questionnaire form for the dedicated app UI.
  *
  * Shows questions as steps with option selection, custom text input,
  * review summary, and submit/cancel actions.
@@ -62,8 +62,8 @@ export function QuestionnaireForm({ question, onSubmit, onCancel }: Props) {
   const advanceLabel = currentStep < questions.length - 1 ? 'Next' : 'Review';
   const actionHint = isReview
     ? allAnswered
-      ? 'Everything looks good — submit when ready.'
-      : 'Some questions are still skipped — edit anything in amber or submit your partial answers.'
+      ? 'Everything looks good, submit when ready.'
+      : 'Some questions are still skipped, edit anything in amber or submit your partial answers.'
     : currentQuestionAnswered
       ? `${advanceLabel} is ready when you want to continue.`
       : 'Pick an answer, or use Skip if you want to leave this question unanswered.';

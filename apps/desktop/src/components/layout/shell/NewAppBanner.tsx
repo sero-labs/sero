@@ -14,7 +14,7 @@ export function NewAppBanner() {
     <div className="flex shrink-0 items-center justify-center gap-2 border-t border-[var(--banner-primary-border)] bg-[var(--banner-primary-muted)] px-4 py-1.5 text-xs text-[var(--banner-primary)]">
       <PackagePlus className="size-3.5" />
       <span>
-        <strong>{pendingNewApp}</strong> app created — restart Sero to load it
+        <strong>{pendingNewApp}</strong> app created, restart Sero to load it
       </span>
       <span className="text-[var(--banner-primary)]/50">
         (stop dev server, then <code className="rounded bg-[var(--banner-primary-subtle)] px-1 py-0.5 font-mono text-[11px]">bash scripts/dev.sh</code>)

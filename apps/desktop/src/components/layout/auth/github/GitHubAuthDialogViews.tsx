@@ -126,7 +126,7 @@ export function GitHubAuthCodeView({
       title="Authorize in GitHub"
       description="Enter this one-time code at GitHub, then come back here. Sero will finish the connection automatically."
     >
-      <div className="space-y-3 rounded-lg border border-[var(--status-info-border)] bg-[var(--status-info-muted)]/70 px-3 py-3">
+      <div className="space-y-3 rounded-lg border border-[var(--status-info-border)] bg-[var(--status-info-muted)]/70 p-3">
         <div className="space-y-2">
           <p className="text-xs text-[var(--text-secondary)]">Enter this code at github.com/login/device:</p>
           <div className="flex flex-wrap items-center gap-2">
@@ -155,7 +155,7 @@ export function GitHubAuthCodeView({
         </div>
 
         {copyFailed ? (
-          <p className="text-xs text-[var(--status-error)]">Copy failed — enter the code manually.</p>
+          <p className="text-xs text-[var(--status-error)]">Copy failed, enter the code manually.</p>
         ) : null}
       </div>
 

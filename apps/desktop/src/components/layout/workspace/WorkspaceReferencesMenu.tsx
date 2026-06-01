@@ -17,7 +17,7 @@ function basename(p: string): string {
 }
 
 /**
- * Popover menu to manage runtime mounts — workspace references
+ * Popover menu to manage runtime mounts, workspace references
  * and arbitrary host folders mounted into this workspace's runtime.
  */
 export function WorkspaceReferencesMenu({ workspace }: { workspace: WorkspaceInfo }) {
@@ -104,7 +104,7 @@ export function WorkspaceReferencesMenu({ workspace }: { workspace: WorkspaceInf
         )}
 
         {available.length > 0 && (
-          <div className="border-t border-[var(--border-subtle)] px-1 py-1">
+          <div className="border-t border-[var(--border-subtle)] p-1">
             <span className="px-2 py-1 text-xs text-[var(--text-muted)]">
               Add workspace
             </span>
@@ -141,7 +141,7 @@ export function WorkspaceReferencesMenu({ workspace }: { workspace: WorkspaceInf
           />
         )}
 
-        <div className="border-t border-[var(--border-subtle)] px-1 py-1">
+        <div className="border-t border-[var(--border-subtle)] p-1">
           <button type="button"
             onClick={handleBrowseMount}
             className="flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]"
@@ -164,7 +164,7 @@ function MountList({
   onRemove: (key: string) => void;
 }) {
   return (
-    <div className="border-t border-[var(--border-subtle)] px-1 py-1">
+    <div className="border-t border-[var(--border-subtle)] p-1">
       {items.map((item) => (
         <div
           key={item.key}

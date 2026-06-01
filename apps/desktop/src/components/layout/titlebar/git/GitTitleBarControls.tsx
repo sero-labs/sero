@@ -176,7 +176,7 @@ function getStatusSummary({
   behindCount: number;
   hasRemote: boolean;
 }): string {
-  if (!isCurrentWorkspace || loading) return 'Syncing…';
+  if (!isCurrentWorkspace || loading) return 'Syncing...';
   if (error) return 'Issue';
   if (!hasRemote) return 'No origin';
   if (stagedCount > 0) return `${stagedCount} staged`;

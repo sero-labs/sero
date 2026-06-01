@@ -1,5 +1,5 @@
 /**
- * File browser — read-only tree view of workspace files.
+ * File browser, read-only tree view of workspace files.
  */
 
 import { useCallback, memo } from 'react';
@@ -58,20 +58,20 @@ const FileTreeItem = memo(function FileTreeItem({
         {isDir ? (
           <>
             {isExpanded ? (
-              <ChevronDown className="w-3 h-3 shrink-0" />
+              <ChevronDown className="size-3 shrink-0" />
             ) : (
-              <ChevronRight className="w-3 h-3 shrink-0" />
+              <ChevronRight className="size-3 shrink-0" />
             )}
             {isExpanded ? (
-              <FolderOpen className="w-4 h-4 shrink-0 text-yellow-500" />
+              <FolderOpen className="size-4 shrink-0 text-yellow-500" />
             ) : (
-              <Folder className="w-4 h-4 shrink-0 text-yellow-500" />
+              <Folder className="size-4 shrink-0 text-yellow-500" />
             )}
           </>
         ) : (
           <>
-            <span className="w-3 h-3 shrink-0" />
-            <File className="w-4 h-4 shrink-0" />
+            <span className="size-3 shrink-0" />
+            <File className="size-4 shrink-0" />
           </>
         )}
         <span className="truncate">{entry.name}</span>
@@ -85,8 +85,8 @@ const FileTreeItem = memo(function FileTreeItem({
               className="flex items-center gap-1.5 py-1 text-xs text-muted-foreground"
               style={{ paddingLeft: `${(depth + 1) * 16 + 8}px` }}
             >
-              <Loader2 className="w-3 h-3 animate-spin" />
-              Loading...
+              <Loader2 className="size-3 animate-spin" />
+              Loading…
             </div>
           )}
           {children?.map((child) => (
@@ -119,7 +119,7 @@ export function FileBrowser() {
         <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
           Files
         </span>
-        {isLoading && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
+        {isLoading && <Loader2 className="size-3 animate-spin text-muted-foreground" />}
       </div>
 
       <div className="flex-1 overflow-y-auto py-1">

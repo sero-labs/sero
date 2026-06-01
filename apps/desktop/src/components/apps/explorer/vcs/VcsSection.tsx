@@ -1,5 +1,5 @@
 /**
- * VcsSection — animated collapsible section for the VCS panel.
+ * VcsSection, animated collapsible section for the VCS panel.
  */
 
 import { useState } from 'react';
@@ -28,7 +28,7 @@ export function VcsSection({
 
   return (
     <div className="border-b border-[var(--border-subtle)]/50">
-      {/* Header — uses <div> so the actions slot can contain <button type="button">s */}
+      {/* Header, uses <div> so the actions slot can contain <button type="button">s */}
       <div
         className={cn(
           'flex w-full items-center gap-1.5 px-3 py-1.5',

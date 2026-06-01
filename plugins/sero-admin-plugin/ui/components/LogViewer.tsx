@@ -1,5 +1,5 @@
 /**
- * LogViewer — displays Sero log files with auto-refresh.
+ * LogViewer, displays Sero log files with auto-refresh.
  *
  * Lists known log files (electron, vite, remotes) on the left,
  * shows the selected log's tail on the right with auto-scroll.
@@ -54,7 +54,7 @@ export const LogViewer = memo(function LogViewer() {
 
         setLogs([...KNOWN_LOGS, ...remoteLogs]);
       } catch {
-        // Discovery failed — keep known logs only
+        // Discovery failed, keep known logs only
       } finally {
         setDiscovering(false);
       }
@@ -107,7 +107,7 @@ const LogSidebar = memo(function LogSidebar({
           Log Files
         </p>
         {discovering && (
-          <span className="admin-loading text-[9px] text-muted-foreground/30">…</span>
+          <span className="admin-loading text-[9px] text-muted-foreground/30">...</span>
         )}
       </div>
       <ScrollArea className="min-h-0 flex-1">

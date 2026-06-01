@@ -16,7 +16,7 @@ interface MultiRootFileTreeProps {
 }
 
 /**
- * MultiRootFileTree — renders one collapsible <FileTree> per workspace root.
+ * MultiRootFileTree, renders one collapsible <FileTree> per workspace root.
  *
  * When a workspace has only the primary root, this collapses to a single
  * full-height FileTree (no header) so the UX is identical to the previous
@@ -106,7 +106,7 @@ const RootSection = memo(function RootSection({
           type="button"
           onClick={toggle}
           className="flex h-full flex-1 items-center gap-1 truncate pl-3 text-left hover:text-[var(--text-primary)]"
-          title={`${root.name} — ${root.virtualPath}`}
+          title={`${root.name}, ${root.virtualPath}`}
         >
           <ChevronRight
             className={cn(

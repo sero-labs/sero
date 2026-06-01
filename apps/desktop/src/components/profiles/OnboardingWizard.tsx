@@ -1,5 +1,5 @@
 /**
- * OnboardingWizard — recommendation-first profile onboarding.
+ * OnboardingWizard, recommendation-first profile onboarding.
  *
  * Electron preflight decides whether onboarding is ready, auth-blocked, or done.
  * The renderer only manages transient UI states like launching and recovery.

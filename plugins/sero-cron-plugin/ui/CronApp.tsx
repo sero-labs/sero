@@ -1,5 +1,5 @@
 /**
- * CronApp — Sero web UI for the cron scheduler extension.
+ * CronApp, Sero web UI for the cron scheduler extension.
  *
  * Tabs: Jobs | Reminders | History
  *

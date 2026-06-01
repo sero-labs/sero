@@ -1,5 +1,5 @@
 /**
- * JobCard — displays a single cron job with actions.
+ * JobCard, displays a single cron job with actions.
  */
 
 import { useState } from 'react';

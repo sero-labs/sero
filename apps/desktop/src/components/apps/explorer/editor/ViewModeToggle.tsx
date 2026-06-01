@@ -1,5 +1,5 @@
 /**
- * ViewModeToggle — code/preview toggle buttons shown in the editor tab bar
+ * ViewModeToggle, code/preview toggle buttons shown in the editor tab bar
  * for file types that support both source and rendered preview modes.
  */
 

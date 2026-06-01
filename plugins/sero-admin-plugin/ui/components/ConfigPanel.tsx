@@ -1,5 +1,5 @@
 /**
- * ConfigPanel — config file list + JSON editor.
+ * ConfigPanel, config file list + JSON editor.
  *
  * Lists known Sero config files on the left, shows the selected file's
  * JSON content in an editable textarea on the right. Supports save + reload.
@@ -144,7 +144,7 @@ function SensitiveAuthGate({
 }) {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-4">
-      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/10">
+      <div className="flex size-12 items-center justify-center rounded-xl bg-amber-500/10">
         <svg
           width="22"
           height="22"
@@ -345,7 +345,7 @@ function ConfigEditor({
                 ) : null}
               </>
             ) : null}
-            <textarea
+            <textarea aria-label="Config JSON"
               value={displayContent ?? ''}
               onChange={(e) => handleEdit(e.target.value)}
               readOnly={isReadOnly}
@@ -370,7 +370,7 @@ function ConfigEditor({
 const EmptyState = memo(function EmptyState() {
   return (
     <div className="flex h-full flex-col items-center justify-center">
-      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+      <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10">
         <svg
           width="18"
           height="18"

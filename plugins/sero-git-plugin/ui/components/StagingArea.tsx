@@ -1,5 +1,5 @@
 /**
- * Staging area — file changes with stage/unstage controls and commit form.
+ * Staging area, file changes with stage/unstage controls and commit form.
  *
  * Split into two sections: unstaged changes and staged changes,
  * with a commit message input at the bottom.
@@ -92,7 +92,7 @@ export function StagingArea({ fileChanges, onAction, onSelectFile }: StagingArea
 
       {/* Commit input */}
       <div className="shrink-0 flex items-center gap-2 px-3 py-2 border-t border-[var(--g-border)] bg-[var(--g-bg)]">
-        <input
+        <input aria-label="Commit message"
           type="text"
           value={commitMsg}
           onChange={(e) => setCommitMsg(e.target.value)}
@@ -183,7 +183,7 @@ function ChangeRow({
     <div className="flex items-center gap-1.5 px-2 py-1 hover:bg-[var(--g-hover)] group">
       <button type="button"
         onClick={onToggle}
-        className="w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold
+        className="size-5 rounded flex items-center justify-center text-[10px] font-bold
           border border-[var(--g-border)] text-[var(--g-muted)]
           hover:border-[var(--g-accent)] hover:text-[var(--g-accent)]
           transition-colors cursor-pointer shrink-0"
@@ -195,7 +195,7 @@ function ChangeRow({
         className="flex items-center gap-1 min-w-0 flex-1 cursor-pointer"
       >
         <span
-          className="w-1.5 h-1.5 rounded-full shrink-0"
+          className="size-1.5 rounded-full shrink-0"
           style={{ background: statusColor }}
         />
         <span className="text-[10px] text-[var(--g-dim)] git-mono truncate">{dir}</span>

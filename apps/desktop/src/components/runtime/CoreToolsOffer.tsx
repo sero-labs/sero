@@ -116,7 +116,7 @@ export function CoreToolsOffer({ reason, className, autoInstall = false }: CoreT
             <div className="flex flex-wrap gap-2">
               <Button type="button" size="sm" className="h-7 text-xs" disabled={!canInstall || installing} onClick={() => void install()}>
                 {installing ? <Loader2 className="mr-1.5 size-3 animate-spin" /> : null}
-                {failed ? 'Retry install' : installing ? 'Installing…' : 'Install core tools'}
+                {failed ? 'Retry install' : installing ? 'Installing...' : 'Install core tools'}
               </Button>
             </div>
           ) : null}

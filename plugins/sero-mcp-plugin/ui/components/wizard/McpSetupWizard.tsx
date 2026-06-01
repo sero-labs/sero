@@ -134,7 +134,7 @@ export function McpSetupWizard({ configPath, settings, onCreated }: McpSetupWiza
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <CardTitle className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-primary" />
+              <Sparkles className="size-4 text-primary" />
               First-run setup wizard
             </CardTitle>
             <CardDescription>
@@ -151,7 +151,7 @@ export function McpSetupWizard({ configPath, settings, onCreated }: McpSetupWiza
       <CardContent className="space-y-6">
         {(mutations.error || validationError) && (
           <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
+            <AlertCircle className="size-4" />
             <AlertTitle>Wizard blocked</AlertTitle>
             <AlertDescription>{validationError ?? mutations.error}</AlertDescription>
           </Alert>
@@ -224,7 +224,7 @@ export function McpSetupWizard({ configPath, settings, onCreated }: McpSetupWiza
 
           <section className="space-y-4 rounded-xl border border-border bg-background/70 p-4">
             <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-              <HardDriveDownload className="h-4 w-4 text-primary" />
+              <HardDriveDownload className="size-4 text-primary" />
               Guided server draft
             </div>
 
@@ -298,9 +298,9 @@ export function McpSetupWizard({ configPath, settings, onCreated }: McpSetupWiza
                 }}
                 disabled={mutations.pendingAction === 'save' || !!validationError}
               >
-                <Save className="mr-2 h-4 w-4" />
+                <Save className="mr-2 size-4" />
                 Save first server
-                <ArrowRight className="ml-2 h-4 w-4" />
+                <ArrowRight className="ml-2 size-4" />
               </Button>
             </div>
           </section>
@@ -333,7 +333,7 @@ function TransportButton({
       onClick={onClick}
     >
       <div className="flex items-center gap-2 font-medium text-foreground">
-        <Icon className="h-4 w-4 text-primary" />
+        <Icon className="size-4 text-primary" />
         {title}
       </div>
       <p className="mt-2 text-sm text-muted-foreground">{body}</p>

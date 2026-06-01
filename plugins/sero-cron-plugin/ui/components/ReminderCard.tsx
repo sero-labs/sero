@@ -1,5 +1,5 @@
 /**
- * ReminderCard — displays a single reminder with status, schedule, and actions.
+ * ReminderCard, displays a single reminder with status, schedule, and actions.
  */
 
 import { useState } from 'react';

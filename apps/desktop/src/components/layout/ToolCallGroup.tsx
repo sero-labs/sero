@@ -120,9 +120,9 @@ function toolDisplayFieldsEqual(a: ChatToolCallMessage, b: ChatToolCallMessage):
 }
 
 /**
- * @param tools       — tool messages in this group
- * @param isFinalized — true when a durable, non-ephemeral message follows this group
- * @param workspaceId — workspace ID for ctrl+click file path support
+ * @param tools      , tool messages in this group
+ * @param isFinalized, true when a durable, non-ephemeral message follows this group
+ * @param workspaceId, workspace ID for ctrl+click file path support
  */
 export const ToolCallGroup = memo(function ToolCallGroup({
   tools,
@@ -151,7 +151,7 @@ export const ToolCallGroup = memo(function ToolCallGroup({
   const wasEverRunning = useRef(isRunning);
   if (isRunning) wasEverRunning.current = true;
 
-  // Manual toggle override — `null` means follow automatic behaviour.
+  // Manual toggle override, `null` means follow automatic behaviour.
   const [manualExpanded, setManualExpanded] = useState<boolean | null>(null);
 
   // Auto behaviour:

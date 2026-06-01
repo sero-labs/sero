@@ -253,7 +253,7 @@ export const AttachmentPreview = ({
     }
 
     if (mediaCategory === "video" && data.type === "file" && data.url) {
-      return <video className="size-full object-cover" muted src={data.url} />;
+      return <video aria-label="Video preview" className="size-full object-cover" muted src={data.url} />;
     }
 
     const Icon = mediaCategoryIcons[mediaCategory];

@@ -1,5 +1,5 @@
 /**
- * ProfileSwitcher — dropdown in the TitleBar for switching profiles.
+ * ProfileSwitcher, dropdown in the TitleBar for switching profiles.
  *
  * Shows the current profile name with a badge. Clicking opens a popover
  * listing all profiles with switch/manage options. Switching triggers an

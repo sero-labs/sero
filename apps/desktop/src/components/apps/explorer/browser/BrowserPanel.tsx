@@ -1,5 +1,5 @@
 /**
- * BrowserPanel — host for the in-app web browser.
+ * BrowserPanel, host for the in-app web browser.
  *
  * The WebContents themselves live in the main process as WebContentsView
  * children of the window. This component only:
@@ -243,10 +243,10 @@ export function BrowserPanel({ workspaceId }: BrowserPanelProps) {
     [],
   );
 
-  // Empty state — no tabs yet in this workspace.
+  // Empty state, no tabs yet in this workspace.
   if (tabs.length === 0 || !activeTab) {
     return (
-      <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-[var(--bg-base)]">
+      <div className="flex size-full flex-col items-center justify-center gap-3 bg-[var(--bg-base)]">
         <Globe className="size-10 text-[var(--text-muted)] opacity-40" />
         <div className="text-sm text-[var(--text-muted)]">No browser tabs open in this workspace</div>
         <Button
@@ -261,7 +261,7 @@ export function BrowserPanel({ workspaceId }: BrowserPanelProps) {
   }
 
   return (
-    <div className="flex h-full w-full flex-col bg-[var(--bg-base)]">
+    <div className="flex size-full flex-col bg-[var(--bg-base)]">
       <BrowserTabs workspaceId={workspaceId} />
       <BrowserToolbar
         tab={activeTab}
@@ -276,7 +276,7 @@ export function BrowserPanel({ workspaceId }: BrowserPanelProps) {
       <BookmarksBar onNavigate={(url) => navigate(activeTab.id, url)} workspaceId={workspaceId} />
       {/*
         Native WebContentsView renders on top of this div at the bounds we
-        report. The div itself stays blank — it only exists to reserve space
+        report. The div itself stays blank, it only exists to reserve space
         and give the ResizeObserver something to track.
       */}
       <div ref={viewportRef} className="relative min-h-0 flex-1 overflow-hidden">
@@ -284,7 +284,7 @@ export function BrowserPanel({ workspaceId }: BrowserPanelProps) {
           <img
             src={`data:image/png;base64,${rendererOverlay.pngBase64}`}
             alt=""
-            className="pointer-events-none absolute inset-0 h-full w-full object-fill"
+            className="pointer-events-none absolute inset-0 size-full object-fill"
             draggable={false}
           />
         ) : null}

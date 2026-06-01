@@ -1,5 +1,5 @@
 /**
- * RemotesSection — manage Git remotes for the workspace.
+ * RemotesSection, manage Git remotes for the workspace.
  */
 
 import { useState, useCallback } from 'react';

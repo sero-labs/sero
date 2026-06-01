@@ -1,4 +1,4 @@
-// WebApp.tsx — Main Sero UI for the web access plugin.
+// WebApp.tsx, Main Sero UI for the web access plugin.
 // Two tabs: History (search/fetch results) and Bookmarks.
 
 import { useState, useMemo } from 'react';
@@ -31,20 +31,20 @@ export function WebApp() {
   }, [state.entries, state.bookmarks, state.downloads]);
 
   return (
-    <div className="flex h-full w-full flex-col bg-background">
+    <div className="flex size-full flex-col bg-background">
       {/* Header */}
       <div className="shrink-0 border-b border-border px-4 py-3">
         <div className="flex items-center gap-2.5">
-          <Globe className="h-4 w-4 text-muted-foreground" />
+          <Globe className="size-4 text-muted-foreground" />
           <h1 className="text-sm font-semibold text-foreground">Web Access</h1>
         </div>
 
         {/* Stats row */}
         <div className="mt-2 flex items-center gap-4">
-          <StatBadge icon={<SearchIcon className="h-3 w-3" />} label="searches" count={stats.searches} color="text-blue-400" />
-          <StatBadge icon={<FileText className="h-3 w-3" />} label="fetches" count={stats.fetches} color="text-amber-400" />
-          <StatBadge icon={<Bookmark className="h-3 w-3" />} label="bookmarks" count={stats.bookmarks} color="text-emerald-400" />
-          <StatBadge icon={<Download className="h-3 w-3" />} label="downloads" count={stats.downloads} color="text-violet-400" />
+          <StatBadge icon={<SearchIcon className="size-3" />} label="searches" count={stats.searches} color="text-blue-400" />
+          <StatBadge icon={<FileText className="size-3" />} label="fetches" count={stats.fetches} color="text-amber-400" />
+          <StatBadge icon={<Bookmark className="size-3" />} label="bookmarks" count={stats.bookmarks} color="text-emerald-400" />
+          <StatBadge icon={<Download className="size-3" />} label="downloads" count={stats.downloads} color="text-violet-400" />
         </div>
       </div>
 
@@ -52,21 +52,21 @@ export function WebApp() {
       <div className="flex shrink-0 border-b border-border">
         <TabButton
           label="History"
-          icon={<SearchIcon className="h-3.5 w-3.5" />}
+          icon={<SearchIcon className="size-3.5" />}
           active={activeTab === 'history'}
           count={state.entries.length}
           onClick={() => setActiveTab('history')}
         />
         <TabButton
           label="Bookmarks"
-          icon={<Bookmark className="h-3.5 w-3.5" />}
+          icon={<Bookmark className="size-3.5" />}
           active={activeTab === 'bookmarks'}
           count={stats.bookmarks}
           onClick={() => setActiveTab('bookmarks')}
         />
         <TabButton
           label="Downloads"
-          icon={<Download className="h-3.5 w-3.5" />}
+          icon={<Download className="size-3.5" />}
           active={activeTab === 'downloads'}
           count={stats.downloads}
           onClick={() => setActiveTab('downloads')}

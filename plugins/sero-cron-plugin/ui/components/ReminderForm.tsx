@@ -1,5 +1,5 @@
 /**
- * ReminderForm — dialog for adding or editing a reminder.
+ * ReminderForm, dialog for adding or editing a reminder.
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -151,7 +151,6 @@ export function ReminderForm({
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Phone mum"
               className={inputCls}
-              autoFocus
             />
           </div>
 
@@ -164,7 +163,7 @@ export function ReminderForm({
               id="reminder-notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Optional details…"
+              placeholder="Optional details..."
               rows={2}
               className={cn(inputCls, 'resize-y')}
             />
@@ -267,11 +266,11 @@ export function ReminderForm({
 
           {/* Recover if missed */}
           <label className="flex items-center gap-2 cursor-pointer">
-            <input
+            <input aria-label="Checkbox input"
               type="checkbox"
               checked={recoverIfMissed}
               onChange={(e) => setRecoverIfMissed(e.target.checked)}
-              className="h-4 w-4 rounded border-input accent-primary"
+              className="size-4 rounded border-input accent-primary"
             />
             <div>
               <span className="text-xs font-medium text-foreground">

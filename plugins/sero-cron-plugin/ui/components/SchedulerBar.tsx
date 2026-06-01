@@ -1,5 +1,5 @@
 /**
- * SchedulerBar — status indicator, autostart toggle, notification settings,
+ * SchedulerBar, status indicator, autostart toggle, notification settings,
  * and start/stop button.
  */
 
@@ -42,7 +42,7 @@ export function SchedulerBar({
       <div className="flex items-center gap-2">
         <span
           className={cn(
-            'h-2.5 w-2.5 rounded-full',
+            'size-2.5 rounded-full',
             active
               ? 'bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.4)]'
               : 'bg-muted-foreground/40',

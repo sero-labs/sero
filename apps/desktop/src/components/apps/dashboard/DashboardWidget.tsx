@@ -1,5 +1,5 @@
 /**
- * DashboardWidget — wrapper around a mounted widget on the dashboard grid.
+ * DashboardWidget, wrapper around a mounted widget on the dashboard grid.
  *
  * Provides a header with the widget name, app icon, and action buttons
  * (open full app, remove). The content area renders the federated widget
@@ -26,7 +26,7 @@ interface DashboardWidgetProps {
 }
 
 /**
- * forwardRef is required by react-grid-layout — it passes a ref to
+ * forwardRef is required by react-grid-layout, it passes a ref to
  * each grid child for measuring and positioning.
  */
 export const DashboardWidget = forwardRef<HTMLDivElement, DashboardWidgetProps>(

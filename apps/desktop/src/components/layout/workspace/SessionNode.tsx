@@ -19,7 +19,7 @@ export function SessionNode({
   workspaceSessions,
 }: {
   session: SeroSessionInfo;
-  /** All sessions in this workspace — needed for Shift+click range selection. */
+  /** All sessions in this workspace, needed for Shift+click range selection. */
   workspaceSessions: SeroSessionInfo[];
 }) {
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -81,15 +81,15 @@ export function SessionNode({
 
   const handleClick = (e: React.MouseEvent) => {
     if (e.shiftKey) {
-      // Shift+click — range select
+      // Shift+click, range select
       e.preventDefault();
       selectSessionRange(session.id, workspaceSessions);
     } else if (e.metaKey || e.ctrlKey) {
-      // Ctrl/Cmd+click — toggle individual
+      // Ctrl/Cmd+click, toggle individual
       e.preventDefault();
       toggleSelectSession(session.id);
     } else {
-      // Normal click — activate session and clear selection
+      // Normal click, activate session and clear selection
       if (hasSelection) clearSelection();
       setActiveSession(session.id);
     }
@@ -122,7 +122,7 @@ export function SessionNode({
       {/* Title + metadata */}
       <div className="flex min-w-0 flex-1 flex-col">
         {isRenaming ? (
-          <input
+          <input aria-label="Session name"
             ref={renameInputRef}
             value={renameValue}
             onChange={(e) => setRenameValue(e.target.value)}
@@ -151,7 +151,7 @@ export function SessionNode({
         </div>
       </div>
 
-      {/* Actions: rename + delete (hidden during multi-select — bulk actions live on workspace header) */}
+      {/* Actions: rename + delete (hidden during multi-select, bulk actions live on workspace header) */}
       <span className={cn(
         'flex shrink-0 items-center gap-0.5 transition-opacity',
         hasSelection ? 'opacity-0 pointer-events-none' : 'opacity-0 group-hover:opacity-100',

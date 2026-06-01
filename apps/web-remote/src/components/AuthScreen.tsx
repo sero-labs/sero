@@ -1,5 +1,5 @@
 /**
- * Connection screen — token entry plus reconnect state for saved pairings.
+ * Connection screen, token entry plus reconnect state for saved pairings.
  */
 
 import { useState, useCallback } from 'react';
@@ -45,7 +45,7 @@ export function AuthScreen({ mode, statusMessage }: AuthScreenProps) {
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
         <div className="w-[360px] max-w-[90vw] rounded-xl border border-border bg-card p-6 shadow-xl">
           <div className="mb-4 flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent">
+            <div className="flex size-10 items-center justify-center rounded-lg bg-accent">
               <Loader2 className="size-5 animate-spin text-muted-foreground" />
             </div>
             <div>
@@ -75,8 +75,8 @@ export function AuthScreen({ mode, statusMessage }: AuthScreenProps) {
     <div className="fixed inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-50">
       <div className="w-[360px] max-w-[90vw] bg-card border border-border rounded-xl p-6 shadow-xl">
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-lg bg-accent flex items-center justify-center">
-            <Lock className="w-5 h-5 text-muted-foreground" />
+          <div className="size-10 rounded-lg bg-accent flex items-center justify-center">
+            <Lock className="size-5 text-muted-foreground" />
           </div>
           <div>
             <h2 className="text-lg font-semibold text-foreground">Connect to Sero</h2>
@@ -90,7 +90,6 @@ export function AuthScreen({ mode, statusMessage }: AuthScreenProps) {
             value={tokenInput}
             onChange={(e) => setTokenInput(e.target.value)}
             placeholder="Auth token"
-            autoFocus
             disabled={isConnecting}
           />
 
@@ -109,7 +108,7 @@ export function AuthScreen({ mode, statusMessage }: AuthScreenProps) {
             {isConnecting ? (
               <>
                 <Loader2 className="size-4 animate-spin" />
-                Connecting...
+                Connecting…
               </>
             ) : (
               'Connect'

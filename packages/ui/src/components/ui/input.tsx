@@ -2,9 +2,11 @@ import * as React from "react"
 
 import { cn } from "../../lib/utils"
 
-function Input({ className, type, ...props }: React.ComponentProps<"input">) {
+function Input({ className, type, placeholder, "aria-label": ariaLabel, ...props }: React.ComponentProps<"input">) {
   return (
     <input
+      aria-label={ariaLabel ?? (typeof placeholder === "string" ? placeholder : undefined)}
+      placeholder={placeholder}
       type={type}
       data-slot="input"
       className={cn(

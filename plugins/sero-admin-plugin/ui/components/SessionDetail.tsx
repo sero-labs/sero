@@ -1,10 +1,10 @@
 /**
- * SessionDetail — session message viewer.
+ * SessionDetail, session message viewer.
  *
  * Reads the JSONL file directly via `readText` (no agent.open side
  * effects). Parses each line into a lightweight entry. Uses CSS
  * `content-visibility: auto` to skip layout/paint for off-screen
- * rows — not true virtualisation, but effective for most session sizes.
+ * rows, not true virtualisation, but effective for most session sizes.
  */
 
 import { useEffect, useMemo, useState, memo } from 'react';
@@ -112,7 +112,7 @@ export const SessionDetail = memo(function SessionDetail({
       <div className="flex items-center justify-between border-b border-border/30 px-4 py-2">
         <div className="flex items-center gap-2">
           <span className="font-mono text-[11px] text-foreground/80">
-            {sessionId.slice(0, 8)}…
+            {sessionId.slice(0, 8)}...
           </span>
           {session ? (
             <span className="text-[10px] text-muted-foreground/50">

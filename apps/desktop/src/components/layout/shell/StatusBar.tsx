@@ -8,7 +8,7 @@ import { useWorkspaceVcs, useVcsStore } from '@/stores/vcs';
 import type { Bookmark } from '@sero-ai/common';
 
 /**
- * StatusBar — bottom bar showing workspace info (à la VSCode).
+ * StatusBar, bottom bar showing workspace info (à la VSCode).
  *
  * Left side: active workspace name + path.
  * Right side: debug toggle, active agent count, version, theme.
@@ -162,8 +162,8 @@ function DebugLogToggle() {
       onContextMenu={openLog}
       title={
         enabled
-          ? 'SDK logging ON — click to disable, right-click to reveal log'
-          : 'SDK logging OFF — click to enable'
+          ? 'SDK logging ON, click to disable, right-click to reveal log'
+          : 'SDK logging OFF, click to enable'
       }
       className={`flex items-center gap-1 transition-colors ${
         enabled

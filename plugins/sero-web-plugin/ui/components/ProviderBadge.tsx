@@ -1,4 +1,4 @@
-// components/ProviderBadge.tsx — Small badge showing the search provider.
+// components/ProviderBadge.tsx, Small badge showing the search provider.
 
 import { Badge } from '@sero-ai/ui/components/ui/badge';
 import { cn } from '@sero-ai/ui/lib/utils';

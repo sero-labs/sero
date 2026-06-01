@@ -1,5 +1,5 @@
 /**
- * Dashboard — the default landing page with a draggable/resizable widget grid.
+ * Dashboard, the default landing page with a draggable/resizable widget grid.
  *
  * Uses react-grid-layout for the grid system. Widgets are federated
  * components from Sero apps, mounted with full AppProvider context.
@@ -60,14 +60,14 @@ export function Dashboard() {
 
   const handleLayoutChange = useCallback(
     (newLayout: Layout) => {
-      // Layout is readonly LayoutItem[] — copy to mutable for store
+      // Layout is readonly LayoutItem[], copy to mutable for store
       const mutable: LayoutItem[] = newLayout.map((item) => ({ ...item }));
       updateLayouts(mutable);
     },
     [updateLayouts],
   );
 
-  // Persist only once when drag/resize finishes — not on every frame
+  // Persist only once when drag/resize finishes, not on every frame
   const handleInteractionStop = useCallback(() => {
     persistLayouts();
   }, [persistLayouts]);

@@ -1,10 +1,10 @@
 /**
- * HtmlPreview — renders HTML files in a sandboxed iframe.
+ * HtmlPreview, renders HTML files in a sandboxed iframe.
  *
  * Uses a blob: URL so the content is fully isolated from the parent
  * renderer process. The iframe `sandbox="allow-scripts"` allows JS
  * execution (needed for interactive diagrams, charts, etc.) but gives
- * the frame a unique opaque origin — it cannot access the parent page,
+ * the frame a unique opaque origin, it cannot access the parent page,
  * cookies, localStorage, or anything in the host renderer.
  *
  * Limitation: relative asset paths (e.g. `<img src="./foo.png">`) will
@@ -68,7 +68,7 @@ export function HtmlPreview({ content, filePath }: Props) {
         <span>HTML Preview</span>
       </div>
 
-      {/* Sandboxed iframe — allow-scripts for interactive content,
+      {/* Sandboxed iframe, allow-scripts for interactive content,
           but no allow-same-origin so the frame stays fully isolated. */}
       <iframe
         src={blobUrl}

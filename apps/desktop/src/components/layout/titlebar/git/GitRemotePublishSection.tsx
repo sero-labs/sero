@@ -244,7 +244,7 @@ export function GitRemotePublishSection({
         <div className="space-y-3">
           <div
             className={cn(
-              'space-y-3 rounded-lg border px-3 py-3',
+              'space-y-3 rounded-lg border p-3',
               authRequired
                 ? 'border-[var(--status-info-border)] bg-[var(--status-info-faint)]'
                 : 'border-[var(--border-subtle)] bg-[var(--bg-base)]',

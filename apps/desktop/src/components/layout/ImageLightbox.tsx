@@ -1,5 +1,5 @@
 /**
- * ImageLightbox — full-screen modal overlay for previewing images.
+ * ImageLightbox, full-screen modal overlay for previewing images.
  *
  * Supports:
  * - Click-to-dismiss (click backdrop)
@@ -65,7 +65,7 @@ function toDataUrl(image: LightboxImage): string {
   if (image.src.startsWith('data:') || image.src.startsWith('http') || image.src.startsWith('blob:')) {
     return image.src;
   }
-  // Raw base64 — wrap with data URI
+  // Raw base64, wrap with data URI
   const mime = image.mimeType ?? 'image/png';
   return `data:${mime};base64,${image.src}`;
 }

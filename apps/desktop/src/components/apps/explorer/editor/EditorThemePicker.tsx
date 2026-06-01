@@ -1,5 +1,5 @@
 /**
- * EditorThemePicker — popover dropdown that lets the user pick a Monaco
+ * EditorThemePicker, popover dropdown that lets the user pick a Monaco
  * color scheme. The choice is persisted via the app store.
  */
 
@@ -53,7 +53,7 @@ export function EditorThemePicker() {
             </button>
           </PopoverTrigger>
         </TooltipTrigger>
-        <TooltipContent side="bottom">Editor theme — {activeLabel}</TooltipContent>
+        <TooltipContent side="bottom">Editor theme, {activeLabel}</TooltipContent>
       </Tooltip>
       <PopoverContent
         align="end"

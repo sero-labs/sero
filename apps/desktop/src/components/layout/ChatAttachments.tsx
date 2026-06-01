@@ -17,7 +17,7 @@ import { useLightbox, type LightboxImage } from './ImageLightbox';
 
 /**
  * Renders queued attachments inside the PromptInput header.
- * Uses the `inline` variant — compact badges with hover-reveal remove buttons.
+ * Uses the `inline` variant, compact badges with hover-reveal remove buttons.
  * Must be rendered inside a <PromptInput> context.
  *
  * Shows a compact count + "Clear all" affordance above the badges when more
@@ -70,7 +70,7 @@ interface MessageAttachmentsProps {
 
 /**
  * Renders attachments inside a user message bubble.
- * Uses the `grid` variant — visual thumbnails for images, icons for files.
+ * Uses the `grid` variant, visual thumbnails for images, icons for files.
  * Clicking an image opens the lightbox preview.
  */
 export function MessageAttachments({ attachments }: MessageAttachmentsProps) {

@@ -1,5 +1,5 @@
 /**
- * SubagentCard — individual subagent run card with live tool activity,
+ * SubagentCard, individual subagent run card with live tool activity,
  * ticking timer, token/cost stats, and expandable output.
  *
  * Matches the rounded-border card style from ToolCallGroup.
@@ -138,7 +138,7 @@ function LiveOutputPreview({ text }: { text: string }) {
   if (!text) return null;
 
   // Show last ~500 chars for a live preview
-  const preview = text.length > 500 ? '…' + text.slice(-500) : text;
+  const preview = text.length > 500 ? '...' + text.slice(-500) : text;
 
   return (
     <pre
@@ -240,7 +240,7 @@ export function SubagentCard({ entry }: SubagentCardProps) {
                 ? 'bg-[var(--status-error-border)] text-[var(--status-error)] hover:bg-[var(--status-error-subtle)]'
                 : 'text-[var(--text-muted)] hover:bg-[var(--bg-surface)] hover:text-[var(--status-error)]',
             )}
-            title={mayBeStalled ? 'Stop — tool appears stalled' : 'Stop subagent'}
+            title={mayBeStalled ? 'Stop, tool appears stalled' : 'Stop subagent'}
           >
             <Square className="size-3 fill-current" />
           </button>
@@ -264,7 +264,7 @@ export function SubagentCard({ entry }: SubagentCardProps) {
         <div className="flex items-center gap-1.5 border-t border-[var(--status-warning-border)] bg-[var(--status-warning-faint)] px-3 py-1">
           <AlertCircle className="size-3 shrink-0 text-[var(--status-warning)]" />
           <span className="text-[10px] text-[var(--status-warning)]">
-            Tool may be stalled — stop or wait for auto-timeout
+            Tool may be stalled, stop or wait for auto-timeout
           </span>
         </div>
       )}

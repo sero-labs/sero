@@ -1,5 +1,5 @@
 /**
- * FontPicker — scrollable list of font options, each rendered in its own
+ * FontPicker, scrollable list of font options, each rendered in its own
  * font face. Includes a "Custom…" option with a text input for arbitrary
  * CSS font stacks.
  */
@@ -91,7 +91,7 @@ export function FontPicker({ label, value, presets, onChange }: FontPickerProps)
       </div>
 
       {showCustom && (
-        <input
+        <input aria-label="e.g. 'Inter', system-ui, sans-serif"
           type="text"
           value={value}
           onChange={handleCustomInput}

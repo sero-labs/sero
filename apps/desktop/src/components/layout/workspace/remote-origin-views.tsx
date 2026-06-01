@@ -233,7 +233,6 @@ export function CreateGitHubView({
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="my-project"
-          autoFocus
           disabled={isCreating}
         />
       </div>
@@ -355,7 +354,6 @@ export function ConnectExistingView({
           value={url}
           onChange={(e) => setUrl(e.target.value)}
           placeholder="https://github.com/user/repo.git"
-          autoFocus
           disabled={isConnecting}
         />
         <span className="text-xs text-[var(--text-muted)]">

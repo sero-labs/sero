@@ -4,7 +4,7 @@ import { ChevronRight, Brain, Loader2 } from 'lucide-react';
 import { cn } from '@sero-ai/ui/lib/utils';
 
 /**
- * ThinkingBlock — collapsible card that renders model thinking/reasoning text.
+ * ThinkingBlock, collapsible card that renders model thinking/reasoning text.
  *
  * Styled to match ToolCallGroup: same rounded-lg border card, chevron toggle,
  * AnimatePresence expand/collapse, and text sizing conventions.
@@ -18,7 +18,7 @@ export function ThinkingBlock({
   /** True while thinking deltas are still arriving. */
   isStreaming?: boolean;
 }) {
-  // Manual toggle — null means follow automatic behaviour.
+  // Manual toggle, null means follow automatic behaviour.
   const [manualExpanded, setManualExpanded] = useState<boolean | null>(null);
   const contentRef = useRef<HTMLPreElement>(null);
 
@@ -40,7 +40,7 @@ export function ThinkingBlock({
   }, [thinking, isStreaming, expanded]);
 
   // Live elapsed-time counter (ticks every second while streaming,
-  // captures final value when streaming ends — even sub-1s durations).
+  // captures final value when streaming ends, even sub-1s durations).
   const startTime = useRef(0);
   const [elapsed, setElapsed] = useState(0);
 
@@ -96,7 +96,7 @@ export function ThinkingBlock({
           <>
             <Loader2 className="size-3 animate-spin text-[var(--status-warning)]" />
             <span className="text-xs font-medium text-[var(--status-warning)]">
-              Thinking{elapsed > 0 ? ` for ${elapsed}s` : '…'}
+              Thinking{elapsed > 0 ? ` for ${elapsed}s` : '...'}
             </span>
           </>
         ) : (

@@ -1,5 +1,5 @@
 /**
- * RunHistory — shows recent cron job execution results with expandable output.
+ * RunHistory, shows recent cron job execution results with expandable output.
  */
 
 import { useState } from 'react';
@@ -60,7 +60,7 @@ function RunResultRow({
         {/* Status dot */}
         <span
           className={cn(
-            'h-1.5 w-1.5 shrink-0 rounded-full',
+            'size-1.5 shrink-0 rounded-full',
             r.ok ? 'bg-emerald-500' : 'bg-destructive',
           )}
         />
@@ -76,7 +76,7 @@ function RunResultRow({
         {/* Inline preview (when collapsed and has output) */}
         {!expanded && hasOutput && (
           <span className="line-clamp-1 flex-1 text-muted-foreground">
-            {preview}{preview.length >= 80 ? '…' : ''}
+            {preview}{preview.length >= 80 ? '...' : ''}
           </span>
         )}
 

@@ -1,5 +1,5 @@
 /**
- * ModelPicker — dropdown for selecting a model from available providers.
+ * ModelPicker, dropdown for selecting a model from available providers.
  *
  * Uses @sero-ai/app-runtime's useAvailableModels() to fetch session-independent
  * model listings from the host's ModelRegistry. The selected value is stored
@@ -172,7 +172,7 @@ export function ModelPicker({ value, onChange, className }: ModelPickerProps) {
         )}
       </button>
 
-      {/* Dropdown — opens upward to avoid overflowing the dialog */}
+      {/* Dropdown, opens upward to avoid overflowing the dialog */}
       {open && (
         <div className="absolute bottom-full left-0 right-0 z-50 mb-1 overflow-hidden rounded-lg border border-border bg-background shadow-lg">
           {/* Search */}
@@ -217,7 +217,7 @@ export function ModelPicker({ value, onChange, className }: ModelPickerProps) {
           </div>
 
           {/* Default option */}
-          <div className="border-t border-border px-1 py-1">
+          <div className="border-t border-border p-1">
             <button
               type="button"
               onClick={() => { onChange(''); setOpen(false); }}

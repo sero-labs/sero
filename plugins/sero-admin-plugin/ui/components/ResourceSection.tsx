@@ -1,5 +1,5 @@
 /**
- * ResourceSection — shared list + editor layout for CRUD resource sections.
+ * ResourceSection, shared list + editor layout for CRUD resource sections.
  * Used by Agents, Skills, and Prompts sections.
  */
 
@@ -66,7 +66,7 @@ export function ResourceSection({
 function EmptyState({ label, onNew }: { label: string; onNew: () => void }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-3">
-      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+      <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10">
         <svg
           width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
           strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"

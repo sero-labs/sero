@@ -1,5 +1,5 @@
 /**
- * SubagentOutput — expandable output viewer within a card.
+ * SubagentOutput, expandable output viewer within a card.
  *
  * Renders the full response or error text with a copy button
  * and max-height scrollable container.

@@ -116,7 +116,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
                     <MessageAction
                       tooltip="Undo this turn"
                       label="Undo this turn"
-                      className="h-7 w-7 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-[var(--text-muted)] shadow-sm hover:text-[var(--text-primary)]"
+                      className="size-7 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-[var(--text-muted)] shadow-sm hover:text-[var(--text-primary)]"
                       onClick={() => onRestoreTurnUndo(turnUndo)}
                     >
                       <RotateCcw className="size-3.5" />

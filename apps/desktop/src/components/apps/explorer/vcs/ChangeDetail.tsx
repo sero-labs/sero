@@ -1,5 +1,5 @@
 /**
- * ChangeDetail — expanded inline detail for a change log row.
+ * ChangeDetail, expanded inline detail for a change log row.
  *
  * Shows file list with status indicators + action buttons.
  */
@@ -134,7 +134,7 @@ export function ChangeDetail({ workspaceId, entry, onOpenDiff }: Props) {
       <div className="mb-2 flex items-start gap-1.5">
         {editing ? (
           <div className="flex flex-1 items-center gap-1">
-            <input
+            <input aria-label="Checkpoint description"
               autoFocus
               value={descDraft}
               onChange={(e) => setDescDraft(e.target.value)}
@@ -262,7 +262,7 @@ export function ChangeDetail({ workspaceId, entry, onOpenDiff }: Props) {
       {showPushAs && (
         <div className="mt-2 flex items-center gap-1.5">
           <GitBranch className="size-3 shrink-0 text-[var(--text-muted)]" />
-          <input
+          <input aria-label="Branch name to publish"
             autoFocus
             value={pushBranch}
             onChange={(e) => setPushBranch(e.target.value.replace(/\s+/g, '-'))}

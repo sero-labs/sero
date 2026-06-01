@@ -1,5 +1,5 @@
 /**
- * SliderRow — labelled slider with a live px value display and text input.
+ * SliderRow, labelled slider with a live px value display and text input.
  * Used for spacing and radius controls in the theme editor.
  */
 
@@ -62,7 +62,7 @@ export function SliderRow({
         onValueChange={handleSlider}
         className="flex-1"
       />
-      <input
+      <input aria-label={label}
         type="number"
         min={min}
         max={max}

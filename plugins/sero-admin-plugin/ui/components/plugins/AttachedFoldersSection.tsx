@@ -29,7 +29,7 @@ export const AttachedFoldersSection = memo(function AttachedFoldersSection({
 
   return (
     <section className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-[0_20px_60px_-42px_rgba(0,0,0,0.7)]">
-      <div className="border-b border-[var(--border-subtle)] px-4 py-4">
+      <div className="border-b border-[var(--border-subtle)] p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex min-w-0 items-start gap-3">
             <div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl border border-[var(--collab-primary-border)] bg-[var(--collab-primary-muted)] text-[var(--collab-primary)]">
@@ -47,7 +47,7 @@ export const AttachedFoldersSection = memo(function AttachedFoldersSection({
               </div>
               <p className="max-w-3xl text-[11px] leading-5 text-[var(--text-muted)]">
                 Attach folders when you want a source tree visible in Explorer and bind-mounted into
-                the current workspace container. Attachment is for visibility and editing only—it
+                the current workspace container. Attachment is for visibility and editing only,it
                 does not activate a plugin or start local development.
               </p>
             </div>
@@ -73,7 +73,7 @@ export const AttachedFoldersSection = memo(function AttachedFoldersSection({
         </div>
       </div>
 
-      <div className="space-y-4 px-4 py-4">
+      <div className="space-y-4 p-4">
         {error ? (
           <div className="rounded-xl border border-[var(--status-error-border)] bg-[var(--status-error-faint)] px-3 py-2.5 text-[11px] text-[var(--status-error)]">
             {error}

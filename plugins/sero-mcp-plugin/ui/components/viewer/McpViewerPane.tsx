@@ -40,7 +40,7 @@ export function McpViewerPane({ viewer }: { viewer: McpViewerState }) {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <CardTitle className="flex items-center gap-2 text-base">
-              {activeKind === 'auth' ? <ShieldCheck className="h-4 w-4 text-primary" /> : <MonitorSmartphone className="h-4 w-4 text-primary" />}
+              {activeKind === 'auth' ? <ShieldCheck className="size-4 text-primary" /> : <MonitorSmartphone className="size-4 text-primary" />}
               {getPaneTitle(viewer)}
             </CardTitle>
             <CardDescription>{getPaneDescription(activeKind)}</CardDescription>
@@ -51,7 +51,7 @@ export function McpViewerPane({ viewer }: { viewer: McpViewerState }) {
             {authSession && activeKind !== 'auth' && <ToneBadge label={`auth active for ${authSession.serverName}`} tone="warning" />}
             {viewer.pane && (
               <Button type="button" variant="outline" size="sm" onClick={() => viewer.clearPane()}>
-                <X className="mr-2 h-4 w-4" />
+                <X className="mr-2 size-4" />
                 Clear pane
               </Button>
             )}
@@ -61,12 +61,12 @@ export function McpViewerPane({ viewer }: { viewer: McpViewerState }) {
       <CardContent className="space-y-4">
         {error && (
           <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
+            <AlertCircle className="size-4" />
             <AlertTitle>{activeKind === 'auth' ? 'Auth browser problem' : 'Viewer problem'}</AlertTitle>
             <AlertDescription className="space-y-3">
               <p>{error}</p>
               <Button type="button" size="sm" onClick={() => promptAgent(helpPrompt)}>
-                <LifeBuoy className="mr-2 h-4 w-4" />
+                <LifeBuoy className="mr-2 size-4" />
                 Ask Sero to help
               </Button>
             </AlertDescription>
@@ -91,7 +91,7 @@ export function McpViewerPane({ viewer }: { viewer: McpViewerState }) {
               </p>
             </div>
           ) : (
-            <PanePlaceholder message={viewer.authLoading ? 'Starting authentication session…' : 'Start authentication from an OAuth-backed server to open the sign-in flow here.'} />
+            <PanePlaceholder message={viewer.authLoading ? 'Starting authentication session...' : 'Start authentication from an OAuth-backed server to open the sign-in flow here.'} />
           )
         ) : activeKind === 'resource' || activeKind === 'tool-ui' ? (
           <McpResourceViewer preview={viewer.preview} session={viewer.session} loading={viewer.resourceLoading} kind={activeKind} />

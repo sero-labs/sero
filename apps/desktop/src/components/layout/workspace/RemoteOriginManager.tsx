@@ -1,5 +1,5 @@
 /**
- * RemoteOriginManager — manage the git remote origin for a workspace.
+ * RemoteOriginManager, manage the git remote origin for a workspace.
  *
  * Three modes:
  * 1. **No origin** → choose "Create new on GitHub" or "Connect existing repo"

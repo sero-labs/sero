@@ -174,6 +174,6 @@ describe('ChatMessageItem assistant chrome', () => {
 
     expect(container.querySelector('[data-icon="loader"]')).not.toBeNull();
     expect(container.querySelector('[data-icon="bot"]')).toBeNull();
-    expect(container.textContent).toContain('Thinking...');
+    expect(container.textContent).toContain('Thinking…');
   });
 });

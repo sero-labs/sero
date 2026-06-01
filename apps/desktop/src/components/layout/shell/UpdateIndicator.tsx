@@ -13,8 +13,8 @@ export function UpdateIndicator() {
 
   if (status.state === 'downloaded') {
     const tip = status.version
-      ? `Update ${status.version} is ready — restart to install`
-      : 'Update ready — restart to install';
+      ? `Update ${status.version} is ready, restart to install`
+      : 'Update ready, restart to install';
     return (
       <Tooltip>
         <TooltipTrigger asChild>
@@ -36,8 +36,8 @@ export function UpdateIndicator() {
   if (status.state === 'available' || status.state === 'downloading') {
     const label =
       status.state === 'downloading' && typeof status.percent === 'number'
-        ? `Downloading update… ${status.percent}%`
-        : 'Downloading update…';
+        ? `Downloading update... ${status.percent}%`
+        : 'Downloading update...';
     return (
       <Tooltip>
         <TooltipTrigger asChild>

@@ -1,4 +1,4 @@
-// components/SearchEntry.tsx — Expandable card for a single search or fetch entry.
+// components/SearchEntry.tsx, Expandable card for a single search or fetch entry.
 
 import { useState, useCallback } from 'react';
 import { cn } from '@sero-ai/ui/lib/utils';
@@ -46,10 +46,10 @@ export function SearchEntry({ entry }: SearchEntryProps) {
         )}
       >
         <div className={cn(
-          'flex h-6 w-6 shrink-0 items-center justify-center rounded-md',
+          'flex size-6 shrink-0 items-center justify-center rounded-md',
           isSearch ? 'bg-blue-500/10 text-blue-400' : 'bg-amber-500/10 text-amber-400',
         )}>
-          <Icon className="h-3.5 w-3.5" />
+          <Icon className="size-3.5" />
         </div>
 
         <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -65,7 +65,7 @@ export function SearchEntry({ entry }: SearchEntryProps) {
             <ProviderBadge provider={entry.queries[0].provider} />
           )}
           {hasError && (
-            <AlertCircle className="h-3 w-3 shrink-0 text-destructive" />
+            <AlertCircle className="size-3 shrink-0 text-destructive" />
           )}
         </div>
 
@@ -73,7 +73,7 @@ export function SearchEntry({ entry }: SearchEntryProps) {
           {relativeTime(entry.timestamp)}
         </span>
         <ChevronDown className={cn(
-          'h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform',
+          'size-3.5 shrink-0 text-muted-foreground transition-transform',
           expanded && 'rotate-180',
         )} />
       </button>
@@ -89,7 +89,7 @@ export function SearchEntry({ entry }: SearchEntryProps) {
   );
 }
 
-// ── Source link — clickable, opens in browser ───────────────
+// ── Source link, clickable, opens in browser ───────────────
 
 function SourceLink({ title, url, domain }: { title: string; url: string; domain: string }) {
   return (
@@ -99,7 +99,7 @@ function SourceLink({ title, url, domain }: { title: string; url: string; domain
       rel="noopener noreferrer"
       className="group/link flex items-center gap-1.5 rounded-sm px-1 py-0.5 -mx-1 hover:bg-blue-500/8 transition-colors"
     >
-      <ExternalLink className="h-2.5 w-2.5 shrink-0 text-blue-400/50 group-hover/link:text-blue-400 transition-colors" />
+      <ExternalLink className="size-2.5 shrink-0 text-blue-400/50 group-hover/link:text-blue-400 transition-colors" />
       <span className="truncate text-[11px] text-blue-400/80 group-hover/link:text-blue-400 transition-colors">
         {title || domain}
       </span>
@@ -165,7 +165,7 @@ function FetchUrlDetails({ urls }: { urls: UrlInfo[] }) {
             rel="noopener noreferrer"
             className="group/link flex min-w-0 flex-1 items-center gap-1.5 rounded-sm px-1 py-0.5 -mx-1 hover:bg-amber-500/8 transition-colors"
           >
-            <ExternalLink className="h-2.5 w-2.5 shrink-0 text-amber-400/50 group-hover/link:text-amber-400 transition-colors" />
+            <ExternalLink className="size-2.5 shrink-0 text-amber-400/50 group-hover/link:text-amber-400 transition-colors" />
             <span className="truncate text-[11px] text-amber-400/80 group-hover/link:text-amber-400 transition-colors">
               {u.title || extractDomain(u.url)}
             </span>

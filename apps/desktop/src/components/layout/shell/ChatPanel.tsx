@@ -44,7 +44,7 @@ import { ImageLightbox } from '@/components/layout/ImageLightbox';
 const EMPTY_MESSAGES: NonNullable<ReturnType<typeof useFocusedAgent>>['messages'] = [];
 
 /**
- * ChatPanel — agent chat panel wired to Pi SDK AgentSession pool.
+ * ChatPanel, agent chat panel wired to Pi SDK AgentSession pool.
  *
  * Uses ai-elements Conversation + Message + PromptInput + Tool.
  * Reads from the focused agent instance in the multi-session pool.
@@ -180,7 +180,7 @@ export function ChatPanel() {
       {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events,jsx-a11y/no-static-element-interactions */}
       <ConversationContent className="gap-2.5 p-3" onClick={conversationClickHandler}>
         {isSessionFocusPending ? (
-          <EmptyState message="Loading chat…" />
+          <EmptyState message="Loading chat..." />
         ) : !hasSession ? (
           <EmptyState message="Select or create a chat to begin" />
         ) : messages.length === 0 && !isStreaming ? (
@@ -285,7 +285,7 @@ export function ChatPanel() {
       {/* ── Pending question card (single questions only) ──── */}
       <PendingQuestionCard />
 
-      {/* ── Prompt input (memo'd — skips re-renders during streaming) */}
+      {/* ── Prompt input (memo'd, skips re-renders during streaming) */}
       <ChatPromptArea
         sessionId={sessionId}
         isStreaming={isStreaming}
@@ -306,7 +306,7 @@ export function ChatPanel() {
         onConfirm={checkpoint.confirmRestore}
       />
 
-      {/* Global image lightbox — mounted once, controlled via useLightbox store */}
+      {/* Global image lightbox, mounted once, controlled via useLightbox store */}
       <ImageLightbox />
     </div>
   );

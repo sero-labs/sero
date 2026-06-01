@@ -1,5 +1,5 @@
 /**
- * OrchestrationPanel — top-level container for subagent monitoring.
+ * OrchestrationPanel, top-level container for subagent monitoring.
  *
  * Hydrates the store on mount and workspace change. Renders the
  * subagent list + summary bar, or an empty state placeholder.
@@ -42,7 +42,7 @@ export function OrchestrationPanel({ workspaceId }: OrchestrationPanelProps) {
   const clearCompleted = useSubagentStore((s) => s.clearCompleted);
   const entries = useSubagentStore((s) => s.entries);
 
-  // Derive filtered + sorted entries — stable unless `entries` record changes
+  // Derive filtered + sorted entries, stable unless `entries` record changes
   const filtered = useMemo(
     () =>
       sortEntries(

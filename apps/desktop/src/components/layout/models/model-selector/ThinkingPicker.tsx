@@ -52,7 +52,7 @@ export function ThinkingPicker({
           <button type="button"
             key={level}
             onClick={() => onSelect(level)}
-            className={`relative z-10 flex-1 rounded-md px-1 py-1 text-[11px] font-medium transition-colors duration-150 ${
+            className={`relative z-10 flex-1 rounded-md p-1 text-[11px] font-medium transition-colors duration-150 ${
               current === level && !disabled
                 ? level === 'xhigh'
                   ? 'text-[var(--status-warning)]'

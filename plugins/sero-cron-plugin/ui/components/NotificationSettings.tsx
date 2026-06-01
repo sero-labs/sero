@@ -1,5 +1,5 @@
 /**
- * NotificationSettings — inline settings for notification sound.
+ * NotificationSettings, inline settings for notification sound.
  *
  * Rendered in the SchedulerBar area. Lets users toggle sound
  * on/off and pick a macOS system sound.
@@ -38,7 +38,7 @@ export function NotificationSettings({
         <Button
           variant="ghost"
           size="sm"
-          className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+          className="size-7 p-0 text-muted-foreground hover:text-foreground"
           title="Notification settings"
         >
           {effective.soundEnabled ? <Bell className="size-3.5" /> : <BellOff className="size-3.5" />}

@@ -23,12 +23,12 @@ export function McpServerDetailPanel({ server }: { server: McpServerSnapshot }) 
     <div className="space-y-4">
       {viewer.resourceError && viewer.pane?.serverName === server.serverName && (
         <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
+          <AlertCircle className="size-4" />
           <AlertTitle>Resource or UI preview failed</AlertTitle>
           <AlertDescription className="space-y-3">
             <p>{viewer.resourceError}</p>
             <Button type="button" size="sm" onClick={() => promptAgent(helpPrompt)}>
-              <LifeBuoy className="mr-2 h-4 w-4" />
+              <LifeBuoy className="mr-2 size-4" />
               Ask Sero to help
             </Button>
           </AlertDescription>
@@ -77,7 +77,7 @@ export function McpServerDetailPanel({ server }: { server: McpServerSnapshot }) 
                             onClick={() => void viewer.openResource(server.serverName, resource.uri, { kind: 'resource', title: resource.name })}
                             disabled={viewer.resourceLoading && isActive}
                           >
-                            <RefreshCw className={cn('mr-2 h-4 w-4', viewer.resourceLoading && isActive && 'animate-spin')} />
+                            <RefreshCw className={cn('mr-2 size-4', viewer.resourceLoading && isActive && 'animate-spin')} />
                             {isActive ? (isUiResource ? 'Reload UI' : 'Reload') : (isUiResource ? 'Open UI' : 'Preview')}
                           </Button>
                         </div>
@@ -91,7 +91,7 @@ export function McpServerDetailPanel({ server }: { server: McpServerSnapshot }) 
             <Card className="border-border/70 bg-card py-4">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
-                  <MonitorSmartphone className="h-4 w-4 text-primary" />
+                  <MonitorSmartphone className="size-4 text-primary" />
                   UI-capable tools
                 </CardTitle>
                 <CardDescription>
@@ -121,7 +121,7 @@ export function McpServerDetailPanel({ server }: { server: McpServerSnapshot }) 
                             onClick={() => void viewer.openResource(server.serverName, tool.resourceUri, { kind: 'tool-ui', title: tool.name, toolName: tool.name })}
                             disabled={viewer.resourceLoading && isActive}
                           >
-                            <MonitorSmartphone className="mr-2 h-4 w-4" />
+                            <MonitorSmartphone className="mr-2 size-4" />
                             {isActive ? 'Reload UI' : 'Launch UI'}
                           </Button>
                         </div>

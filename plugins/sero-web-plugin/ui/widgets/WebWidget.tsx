@@ -1,4 +1,4 @@
-// widgets/WebWidget.tsx — Dashboard widget for recent web activity.
+// widgets/WebWidget.tsx, Dashboard widget for recent web activity.
 
 import { useMemo } from 'react';
 import { useAppState } from '@sero-ai/app-runtime';
@@ -44,25 +44,25 @@ export function WebWidget() {
       {/* Stats header */}
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-1.5">
-          <Search className="h-3 w-3 text-muted-foreground" />
+          <Search className="size-3 text-muted-foreground" />
           <span className="text-sm font-bold tabular-nums text-foreground">
             {searches}
           </span>
         </div>
         <div className="flex items-center gap-1.5">
-          <FileText className="h-3 w-3 text-muted-foreground" />
+          <FileText className="size-3 text-muted-foreground" />
           <span className="text-sm font-bold tabular-nums text-foreground">
             {fetches}
           </span>
         </div>
         <div className="flex items-center gap-1.5">
-          <Bookmark className="h-3 w-3 text-muted-foreground" />
+          <Bookmark className="size-3 text-muted-foreground" />
           <span className="text-sm font-bold tabular-nums text-foreground">
             {state.bookmarks?.length ?? 0}
           </span>
         </div>
         <div className="flex items-center gap-1.5">
-          <Download className="h-3 w-3 text-muted-foreground" />
+          <Download className="size-3 text-muted-foreground" />
           <span className="text-sm font-bold tabular-nums text-foreground">
             {(state.downloads ?? []).filter(isVisibleDownload).length}
           </span>
@@ -72,7 +72,7 @@ export function WebWidget() {
           {(['exa', 'perplexity', 'gemini'] as const).map((p) => (
             <div
               key={p}
-              className={`h-1.5 w-1.5 rounded-full ${
+              className={`size-1.5 rounded-full ${
                 state.providers[p]
                   ? 'bg-emerald-400'
                   : 'bg-muted-foreground/20'
@@ -99,7 +99,7 @@ export function WebWidget() {
               key={entry.id}
               className="flex items-center gap-2 rounded-md bg-secondary/40 px-2 py-1"
             >
-              <Icon className="h-2.5 w-2.5 shrink-0 text-muted-foreground" />
+              <Icon className="size-2.5 shrink-0 text-muted-foreground" />
               <span className="min-w-0 flex-1 truncate text-[11px] text-foreground">
                 {truncate(entryLabel(entry), 40)}
               </span>

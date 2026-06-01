@@ -1,5 +1,5 @@
 /**
- * ChangeLogRow — single dense row in the change log.
+ * ChangeLogRow, single dense row in the change log.
  *
  * Format: <glyph> <changeId:8> <age> <description> [bookmark-badges]
  * ~28px height. Hover reveals context actions.

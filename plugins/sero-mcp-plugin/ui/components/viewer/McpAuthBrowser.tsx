@@ -124,7 +124,7 @@ export function McpAuthBrowser({
     <div className={cn('relative h-full min-h-0 w-full overflow-hidden rounded-xl border border-border bg-card', className)}>
       {loading && (
         <div className="absolute inset-x-0 top-0 z-10 flex items-center gap-2 border-b border-border bg-background/95 px-3 py-2 text-xs text-muted-foreground backdrop-blur">
-          <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+          <LoaderCircle className="size-3.5 animate-spin" />
           Loading authentication page…
         </div>
       )}
@@ -132,7 +132,7 @@ export function McpAuthBrowser({
       {error && (
         <div className="absolute inset-x-3 top-3 z-10">
           <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
+            <AlertCircle className="size-4" />
             <AlertTitle>Authentication browser warning</AlertTitle>
             <AlertDescription>{error}</AlertDescription>
           </Alert>
@@ -147,7 +147,7 @@ export function McpAuthBrowser({
         partition={partition}
         allowpopups={false}
         webpreferences="contextIsolation=yes,nodeIntegration=no,javascript=yes"
-        className="h-full w-full bg-background"
+        className="size-full bg-background"
       />
     </div>
   );
@@ -161,7 +161,7 @@ function AuthBrowserPlaceholder({
   className?: string;
 }) {
   return (
-    <div className={cn('flex h-full w-full items-center justify-center rounded-xl border border-dashed border-border bg-muted/20 p-6 text-center', className)}>
+    <div className={cn('flex size-full items-center justify-center rounded-xl border border-dashed border-border bg-muted/20 p-6 text-center', className)}>
       <div className="max-w-md space-y-2">
         <div className="text-sm font-medium text-foreground">Embedded auth browser</div>
         <p className="text-sm text-muted-foreground">{message}</p>

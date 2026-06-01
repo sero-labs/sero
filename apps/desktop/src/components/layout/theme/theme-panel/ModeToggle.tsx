@@ -1,5 +1,5 @@
 /**
- * ModeToggle — three-way toggle for Light / Dark / System theme mode.
+ * ModeToggle, three-way toggle for Light / Dark / System theme mode.
  */
 
 import { Monitor, Moon, Sun, type LucideIcon } from 'lucide-react';

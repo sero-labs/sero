@@ -28,7 +28,7 @@ export function McpServerToolRunnerPanel({
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <CardTitle className="flex items-center gap-2 text-base">
-              <Wrench className="h-4 w-4 text-primary" />
+              <Wrench className="size-4 text-primary" />
               Tool runner
             </CardTitle>
             <CardDescription>
@@ -36,7 +36,7 @@ export function McpServerToolRunnerPanel({
             </CardDescription>
           </div>
           <Button type="button" variant="outline" size="sm" onClick={() => void toolRunner.refresh()} disabled={toolRunner.loadingInventory || toolRunner.loadingDetails || toolRunner.running}>
-            <RefreshCw className={cn('mr-2 h-4 w-4', (toolRunner.loadingInventory || toolRunner.loadingDetails) && 'animate-spin')} />
+            <RefreshCw className={cn('mr-2 size-4', (toolRunner.loadingInventory || toolRunner.loadingDetails) && 'animate-spin')} />
             Refresh tools
           </Button>
         </div>
@@ -44,12 +44,12 @@ export function McpServerToolRunnerPanel({
       <CardContent className="space-y-4">
         {toolRunner.error && (
           <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
+            <AlertCircle className="size-4" />
             <AlertTitle>Tool execution problem</AlertTitle>
             <AlertDescription className="space-y-3">
               <p>{toolRunner.error}</p>
               <Button type="button" size="sm" onClick={() => promptAgent(helpPrompt)}>
-                <LifeBuoy className="mr-2 h-4 w-4" />
+                <LifeBuoy className="mr-2 size-4" />
                 Ask Sero to help
               </Button>
             </AlertDescription>
@@ -93,8 +93,8 @@ export function McpServerToolRunnerPanel({
                 />
                 <div className="flex flex-wrap gap-2">
                   <Button type="button" size="sm" onClick={() => void toolRunner.runTool()} disabled={toolRunner.running || toolRunner.loadingDetails}>
-                    <Play className="mr-2 h-4 w-4" />
-                    {toolRunner.running ? 'Running…' : 'Run tool'}
+                    <Play className="mr-2 size-4" />
+                    {toolRunner.running ? 'Running...' : 'Run tool'}
                   </Button>
                   {(selectedTool?.uiResourceUri || toolRunner.result?.uiResourceUri) && (
                     <Button
@@ -126,7 +126,7 @@ export function McpServerToolRunnerPanel({
                 <Label>Last result</Label>
                 {toolRunner.result && (
                   <Button type="button" variant="outline" size="sm" onClick={toolRunner.clearResult}>
-                    <X className="mr-2 h-4 w-4" />
+                    <X className="mr-2 size-4" />
                     Clear result
                   </Button>
                 )}

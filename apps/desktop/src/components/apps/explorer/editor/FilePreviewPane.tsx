@@ -1,5 +1,5 @@
 /**
- * FilePreviewPane — unified preview surface for markdown, HTML, and
+ * FilePreviewPane, unified preview surface for markdown, HTML, and
  * registry-backed binary media files.
  *
  * Markdown preview intentionally continues to use Streamdown.
@@ -131,7 +131,7 @@ function BinaryFilePreview({ workspaceId, filePath, spec }: BinaryFilePreviewPro
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 text-[var(--text-muted)]">
         <Loader2 className="size-6 animate-spin" />
-        <p className="text-sm">Loading {spec.kind}…</p>
+        <p className="text-sm">Loading {spec.kind}...</p>
       </div>
     );
   }
@@ -163,7 +163,7 @@ function BinaryFilePreview({ workspaceId, filePath, spec }: BinaryFilePreviewPro
               src={blobUrl}
               title={`Preview: ${fileName}`}
               sandbox="allow-same-origin"
-              className="h-full w-full border-0"
+              className="size-full border-0"
             />
           </div>
         </div>
@@ -186,14 +186,14 @@ function BinaryFilePreview({ workspaceId, filePath, spec }: BinaryFilePreviewPro
               }}
             />
           ) : spec.kind === 'video' ? (
-            <video
+            <video aria-label="Video preview"
               src={blobUrl}
               controls
               className="max-h-full max-w-full rounded-md shadow-lg"
             />
           ) : (
             <div className="w-full max-w-2xl rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] p-6 shadow-sm">
-              <audio
+              <audio aria-label="Audio preview"
                 src={blobUrl}
                 controls
                 className="w-full"

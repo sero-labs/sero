@@ -1,5 +1,5 @@
 /**
- * SubagentList — scrollable list of subagent run cards.
+ * SubagentList, scrollable list of subagent run cards.
  *
  * Running entries appear at top, completed/failed below.
  */

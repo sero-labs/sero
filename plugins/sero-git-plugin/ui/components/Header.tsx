@@ -1,5 +1,5 @@
 /**
- * Header bar — repo name, current branch, action buttons.
+ * Header bar, repo name, current branch, action buttons.
  */
 
 import type { GitAppState, GitManagerRequest } from '../../shared/types';
@@ -67,7 +67,7 @@ export function Header({ state, onAction }: HeaderProps) {
           title={state.error ? state.error : `Last update: ${state.lastRefresh}`}
         >
           <span
-            className={`h-1.5 w-1.5 rounded-full ${syncTone.dot} ${state.syncMode === 'watch' && !state.error ? 'animate-pulse' : ''}`}
+            className={`size-1.5 rounded-full ${syncTone.dot} ${state.syncMode === 'watch' && !state.error ? 'animate-pulse' : ''}`}
           />
           <span className={`text-[10px] font-semibold uppercase tracking-[0.18em] ${syncTone.text}`}>
             {syncLabel}
@@ -105,7 +105,7 @@ function ActionBtn({ label, icon, onClick }: { label: string; icon: string; onCl
 }
 
 function ActionIcon({ type }: { type: string }) {
-  const cn = "w-3.5 h-3.5";
+  const cn = "size-3.5";
   switch (type) {
     case 'fetch':
       return <svg className={cn} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M8 2v10M4 8l4 4 4-4" /></svg>;

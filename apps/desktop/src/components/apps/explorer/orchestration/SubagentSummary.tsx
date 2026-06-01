@@ -1,5 +1,5 @@
 /**
- * SubagentSummary — aggregate stats bar at the bottom of the
+ * SubagentSummary, aggregate stats bar at the bottom of the
  * orchestration panel.
  *
  * Format: "4 runs · $0.08 · 8.3k tokens · 90s"

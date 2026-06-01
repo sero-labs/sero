@@ -1,4 +1,4 @@
-// components/BookmarkList.tsx — Bookmark list with add form and delete.
+// components/BookmarkList.tsx, Bookmark list with add form and delete.
 
 import { useState, useCallback } from 'react';
 import { useAppInfo, useAppState, useAgentPrompt } from '@sero-ai/app-runtime';
@@ -58,7 +58,7 @@ export function BookmarkList() {
             className="w-full justify-start gap-2 text-muted-foreground"
             onClick={() => setShowAdd(true)}
           >
-            <Plus className="h-3.5 w-3.5" />
+            <Plus className="size-3.5" />
             Add bookmark
           </Button>
         ) : (
@@ -78,7 +78,7 @@ export function BookmarkList() {
       {/* Bookmark list */}
       {(state.bookmarks?.length ?? 0) === 0 ? (
         <div className="flex flex-1 flex-col items-center justify-center py-16">
-          <BookmarkIcon className="mb-2 h-5 w-5 text-muted-foreground/40" />
+          <BookmarkIcon className="mb-2 size-5 text-muted-foreground/40" />
           <p className="text-sm text-muted-foreground">No bookmarks yet</p>
           <p className="mt-1 text-xs text-muted-foreground/60">
             Save URLs here or ask the agent to bookmark a page
@@ -116,11 +116,11 @@ function AddBookmarkForm(props: AddBookmarkFormProps) {
 
   return (
     <form onSubmit={(e) => { e.preventDefault(); void props.onSubmit(); }} className="flex flex-col gap-2">
-      <input type="text" value={props.url} onChange={(e) => props.onUrlChange(e.target.value)}
+      <input aria-label="Bookmark URL" type="text" value={props.url} onChange={(e) => props.onUrlChange(e.target.value)}
         placeholder="URL…" autoFocus className={inputClass} />
-      <input type="text" value={props.title} onChange={(e) => props.onTitleChange(e.target.value)}
+      <input aria-label="Bookmark title" type="text" value={props.title} onChange={(e) => props.onTitleChange(e.target.value)}
         placeholder="Title (optional)…" className={inputClass} />
-      <input type="text" value={props.tags} onChange={(e) => props.onTagsChange(e.target.value)}
+      <input aria-label="Bookmark tags" type="text" value={props.tags} onChange={(e) => props.onTagsChange(e.target.value)}
         placeholder="Tags (comma-separated)…" className={inputClass} />
       <div className="flex gap-2">
         <Button size="sm" disabled={!props.url.trim()} className="flex-1">Save</Button>
@@ -146,12 +146,12 @@ function BookmarkRow({ bookmark, onRemove }: BookmarkRowProps) {
 
   return (
     <div className="group flex items-start gap-2.5 border-b border-border px-3 py-2.5 last:border-b-0 hover:bg-secondary/50 animate-web-fade-in">
-      <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-emerald-500/10">
-        <BookmarkIcon className="h-3.5 w-3.5 text-emerald-400" />
+      <div className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-md bg-emerald-500/10">
+        <BookmarkIcon className="size-3.5 text-emerald-400" />
       </div>
 
       <div className="flex min-w-0 flex-1 flex-col gap-1">
-        {/* Title — full, wrapping */}
+        {/* Title, full, wrapping */}
         <span className="text-sm font-medium text-foreground leading-snug break-words">
           {bookmark.title}
         </span>
@@ -165,7 +165,7 @@ function BookmarkRow({ bookmark, onRemove }: BookmarkRowProps) {
             className="group/link flex items-center gap-1 text-[11px] text-emerald-400/70 hover:text-emerald-400 transition-colors"
             title="Open in browser"
           >
-            <ExternalLink className="h-2.5 w-2.5 shrink-0" />
+            <ExternalLink className="size-2.5 shrink-0" />
             <span className="break-all">{bookmark.url}</span>
           </a>
           <button
@@ -174,7 +174,7 @@ function BookmarkRow({ bookmark, onRemove }: BookmarkRowProps) {
             className="flex items-center gap-1 text-[11px] text-muted-foreground/50 hover:text-primary transition-colors"
             title="Fetch and summarise via agent"
           >
-            <ArrowRight className="h-2.5 w-2.5" />
+            <ArrowRight className="size-2.5" />
             Fetch
           </button>
         </div>
@@ -198,7 +198,7 @@ function BookmarkRow({ bookmark, onRemove }: BookmarkRowProps) {
                 variant="outline"
                 className="px-1.5 py-0 text-[10px] leading-4 border-emerald-500/20 text-emerald-400/70 bg-emerald-500/5"
               >
-                <Tag className="mr-0.5 h-2 w-2" />
+                <Tag className="mr-0.5 size-2" />
                 {tag}
               </Badge>
             ))}
@@ -209,10 +209,10 @@ function BookmarkRow({ bookmark, onRemove }: BookmarkRowProps) {
       <Button
         variant="ghost"
         size="icon"
-        className="h-6 w-6 shrink-0 text-muted-foreground/30 opacity-0 hover:text-destructive group-hover:opacity-100 transition-all"
+        className="size-6 shrink-0 text-muted-foreground/30 opacity-0 hover:text-destructive group-hover:opacity-100 transition-all"
         onClick={() => { void onRemove(bookmark.id); }}
       >
-        <Trash2 className="h-3 w-3" />
+        <Trash2 className="size-3" />
       </Button>
     </div>
   );

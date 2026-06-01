@@ -9,7 +9,7 @@ import { WorkspaceNode } from './workspace-tree/WorkspaceNode';
 import { useWorkspaceTreeRuntime } from './workspace-tree/useWorkspaceTreeRuntime';
 
 /**
- * WorkspaceTree — tree view of workspaces → sessions.
+ * WorkspaceTree, tree view of workspaces → sessions.
  *
  * ▼ Personal
  *    ● Fix email draft        2m ago

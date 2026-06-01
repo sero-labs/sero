@@ -1,5 +1,5 @@
 /**
- * AdminApp — unified Sero Admin + Resources app.
+ * AdminApp, unified Sero Admin + Resources app.
  *
  * Sectioned vertical nav layout:
  *  - RESOURCES: Agents, Skills, Prompts (CRUD with list + editor)

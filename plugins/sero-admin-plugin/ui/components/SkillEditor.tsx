@@ -1,5 +1,5 @@
 /**
- * SkillEditor — form for editing skill metadata + SKILL.md body.
+ * SkillEditor, form for editing skill metadata + SKILL.md body.
  * Includes a visibility toggle (merged from Admin's SkillsPanel).
  */
 
@@ -67,7 +67,7 @@ export function SkillEditor({
           </Button>
         )}
         <Button type="submit" size="sm" disabled={!canSave || saving}>
-          {saving ? 'Saving…' : (
+          {saving ? 'Saving...' : (
             <>
               <Save className="size-3.5" />
               Save
@@ -78,7 +78,7 @@ export function SkillEditor({
 
       <div className="grid grid-cols-2 gap-3 border-b border-border px-4 py-3">
         <Field label="Name" hint="lowercase, hyphens only">
-          <input
+          <input aria-label="Skill name"
             type="text"
             value={data.name}
             onChange={(e) => update({ name: e.target.value })}
@@ -89,7 +89,7 @@ export function SkillEditor({
         </Field>
 
         <Field label="Description">
-          <input
+          <input aria-label="Skill description"
             type="text"
             value={data.description}
             onChange={(e) => update({ description: e.target.value })}
@@ -99,7 +99,7 @@ export function SkillEditor({
         </Field>
       </div>
 
-      {/* Visibility toggle — only for existing, non-new skills */}
+      {/* Visibility toggle, only for existing, non-new skills */}
       {!isNew && onVisibilityChange !== undefined && visibleToModel !== undefined && (
         <div className="flex items-center justify-between border-b border-border/50 px-4 py-2.5">
           <div className="space-y-0.5">
@@ -109,7 +109,7 @@ export function SkillEditor({
                 ? 'This skill requires explicit invocation'
                 : visibleToModel
                   ? 'Model can invoke this skill automatically'
-                  : 'Hidden — use /skill:name to invoke'}
+                  : 'Hidden, use /skill:name to invoke'}
             </p>
           </div>
           <Switch

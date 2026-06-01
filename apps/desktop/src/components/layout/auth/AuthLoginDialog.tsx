@@ -1,5 +1,5 @@
 /**
- * Auth login dialog — OAuth + API key management.
+ * Auth login dialog, OAuth + API key management.
  *
  * Self-contained component that drives OAuth login flows and API key
  * entry. Communicates with the main process via `window.sero.auth.*`.

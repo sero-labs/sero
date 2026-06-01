@@ -1,5 +1,5 @@
 /**
- * PreviewPanel — lists registered dev servers for the active workspace
+ * PreviewPanel, lists registered dev servers for the active workspace
  * and lets the user open one in an embedded iframe (or new tab) via the
  * gateway's `/p/<workspace>/<port>/...` reverse proxy.
  */
@@ -32,7 +32,7 @@ function StatusDot({ status }: { status: DevServer['status'] }) {
         : 'bg-muted-foreground/40';
   return (
     <span
-      className={`inline-block w-1.5 h-1.5 rounded-full ${color}`}
+      className={`inline-block size-1.5 rounded-full ${color}`}
       aria-label={status}
     />
   );
@@ -47,7 +47,7 @@ export function PreviewPanel() {
   const [active, setActive] = useState<ActivePreview | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Refresh when the workspace changes — registered servers are scoped to it.
+  // Refresh when the workspace changes, registered servers are scoped to it.
   useEffect(() => {
     if (!activeWorkspaceId) return;
     fetchServers();
@@ -178,7 +178,7 @@ export function PreviewPanel() {
             <Globe className="size-8 mb-2 opacity-50" />
             <p className="text-xs">No running dev servers</p>
             <p className="text-xs mt-1 opacity-70">
-              Ask the agent to start one — running servers show up here automatically.
+              Ask the agent to start one, running servers show up here automatically.
             </p>
           </div>
         ) : (

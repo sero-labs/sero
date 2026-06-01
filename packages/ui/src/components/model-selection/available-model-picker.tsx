@@ -37,7 +37,7 @@ export function AvailableModelPicker<
   value,
   onChange,
   placeholder = 'Choose a model',
-  searchPlaceholder = 'Search models…',
+  searchPlaceholder = 'Search models...',
   emptyLabel = 'No matching models',
   noModelsLabel = 'No models available',
   allowClear = false,

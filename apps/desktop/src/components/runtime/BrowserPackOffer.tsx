@@ -96,7 +96,7 @@ export function BrowserPackOffer({ reason, className, compact = false }: Browser
             <div className="flex flex-wrap gap-2">
               <Button type="button" size="sm" className="h-7 text-xs" disabled={!canInstall || installing} onClick={() => void install()}>
                 {installing ? <Loader2 className="mr-1.5 size-3 animate-spin" /> : null}
-                {failed ? 'Retry install' : installing ? 'Installing…' : 'Install browser support'}
+                {failed ? 'Retry install' : installing ? 'Installing...' : 'Install browser support'}
               </Button>
             </div>
           ) : null}

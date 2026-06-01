@@ -18,7 +18,7 @@ export function McpDiagnosticsPanel({ state }: { state: McpDiagnosticsState }) {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <CardTitle className="flex items-center gap-2">
-              <Stethoscope className="h-4 w-4 text-primary" />
+              <Stethoscope className="size-4 text-primary" />
               Diagnostics
             </CardTitle>
             <CardDescription>
@@ -27,15 +27,15 @@ export function McpDiagnosticsPanel({ state }: { state: McpDiagnosticsState }) {
           </div>
           <div className="flex gap-2">
             <Button type="button" variant="outline" size="sm" onClick={state.close}>
-              <X className="mr-2 h-4 w-4" />
+              <X className="mr-2 size-4" />
               Close
             </Button>
             <Button type="button" variant="outline" size="sm" onClick={() => void state.refresh()} disabled={state.loading}>
-              <RefreshCw className="mr-2 h-4 w-4" />
+              <RefreshCw className="mr-2 size-4" />
               Refresh
             </Button>
             <Button type="button" size="sm" onClick={() => promptAgent(helpPrompt)} disabled={!state.diagnostics}>
-              <LifeBuoy className="mr-2 h-4 w-4" />
+              <LifeBuoy className="mr-2 size-4" />
               Ask Sero to help
             </Button>
           </div>
@@ -44,14 +44,14 @@ export function McpDiagnosticsPanel({ state }: { state: McpDiagnosticsState }) {
       <CardContent className="space-y-4">
         {state.error && (
           <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
+            <AlertCircle className="size-4" />
             <AlertTitle>Diagnostics load error</AlertTitle>
             <AlertDescription>{state.error}</AlertDescription>
           </Alert>
         )}
 
         <pre className="overflow-x-auto rounded-lg border border-border bg-muted/20 p-4 text-xs leading-6 text-muted-foreground">
-          {state.loading ? 'Loading diagnostics…' : state.diagnostics || 'No diagnostics available yet.'}
+          {state.loading ? 'Loading diagnostics...' : state.diagnostics || 'No diagnostics available yet.'}
         </pre>
       </CardContent>
     </Card>

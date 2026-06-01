@@ -14,7 +14,7 @@ export function McpRawConfigPanel({ state }: { state: McpRawConfigState }) {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <CardTitle className="flex items-center gap-2">
-              <FileJson className="h-4 w-4 text-primary" />
+              <FileJson className="size-4 text-primary" />
               Raw MCP config
             </CardTitle>
             <CardDescription>
@@ -23,12 +23,12 @@ export function McpRawConfigPanel({ state }: { state: McpRawConfigState }) {
           </div>
           <div className="flex gap-2">
             <Button type="button" variant="outline" size="sm" onClick={state.close}>
-              <X className="mr-2 h-4 w-4" />
+              <X className="mr-2 size-4" />
               Close
             </Button>
             <Button type="button" size="sm" onClick={() => void state.save()} disabled={state.loading || state.saving}>
-              <Save className="mr-2 h-4 w-4" />
-              {state.saving ? 'Saving…' : 'Save config'}
+              <Save className="mr-2 size-4" />
+              {state.saving ? 'Saving...' : 'Save config'}
             </Button>
           </div>
         </div>
@@ -36,7 +36,7 @@ export function McpRawConfigPanel({ state }: { state: McpRawConfigState }) {
       <CardContent className="space-y-4">
         {state.error && (
           <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
+            <AlertCircle className="size-4" />
             <AlertTitle>Config error</AlertTitle>
             <AlertDescription>{state.error}</AlertDescription>
           </Alert>
@@ -47,7 +47,7 @@ export function McpRawConfigPanel({ state }: { state: McpRawConfigState }) {
           onChange={(event) => state.setRawConfig(event.target.value)}
           spellCheck={false}
           className="min-h-[24rem] font-mono text-xs"
-          placeholder={state.loading ? 'Loading MCP config…' : '{\n  "settings": {},\n  "mcpServers": {}\n}'}
+          placeholder={state.loading ? 'Loading MCP config...' : '{\n  "settings": {},\n  "mcpServers": {}\n}'}
         />
       </CardContent>
     </Card>

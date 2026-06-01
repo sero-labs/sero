@@ -1,5 +1,5 @@
 /**
- * Root App component — orchestrates auth, connection, and layout.
+ * Root App component, orchestrates auth, connection, and layout.
  */
 
 import { useEffect } from 'react';
@@ -20,7 +20,7 @@ export function App() {
   const disconnectReason = useConnectionStore((s) => s.disconnectReason);
   const fetchWorkspaces = useWorkspaceStore((s) => s.fetchWorkspaces);
 
-  // Set up the central message dispatcher (external WS source — valid useEffect)
+  // Set up the central message dispatcher (external WS source, valid useEffect)
   useGatewayDispatcher();
 
   // Try auto-connect from stored token on mount and wake reconnects on resume.
@@ -48,7 +48,7 @@ export function App() {
     };
   }, [initialize, retryConnection]);
 
-  // Fetch workspaces when connected (external event — valid useEffect)
+  // Fetch workspaces when connected (external event, valid useEffect)
   useEffect(() => {
     if (connectionState === 'connected') {
       fetchWorkspaces();

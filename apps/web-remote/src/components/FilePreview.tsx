@@ -1,5 +1,5 @@
 /**
- * File preview — code/text/image preview with syntax highlighting and tabs.
+ * File preview, code/text/image preview with syntax highlighting and tabs.
  */
 
 import { memo } from 'react';
@@ -63,7 +63,7 @@ const FileTab = memo(function FileTab({
         }}
         className="opacity-0 group-hover:opacity-100 hover:text-destructive transition-opacity"
       >
-        <X className="w-3 h-3" />
+        <X className="size-3" />
       </button>
     </div>
   );
@@ -81,7 +81,7 @@ export function FilePreview() {
     return (
       <div className="flex items-center justify-center h-full text-muted-foreground">
         <div className="text-center">
-          <FileText className="w-8 h-8 mx-auto mb-2 opacity-50" />
+          <FileText className="size-8 mx-auto mb-2 opacity-50" />
           <p className="text-sm">Select a file to preview</p>
         </div>
       </div>

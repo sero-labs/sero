@@ -61,9 +61,8 @@ export function CreateBranchForm({
 
   return (
     <div className="space-y-2 border-t border-[var(--g-border)] px-3 py-2">
-      <input
+      <input aria-label="Branch name"
         type="text"
-        autoFocus
         value={value}
         onChange={(event) => onChange(event.target.value)}
         onKeyDown={handleKeyDown}

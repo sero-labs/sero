@@ -1,5 +1,5 @@
 /**
- * ProfileSetup — first-run setup screen.
+ * ProfileSetup, first-run setup screen.
  *
  * Shown when no profile exists (fresh install). Covers the entire
  * window with a clean setup flow: enter name → create profile → launch.
@@ -46,7 +46,6 @@ export function ProfileSetup() {
           operationError={error}
           onClearOperationError={clearError}
           isLoading={isLoading}
-          autoFocus
         />
       </div>
     </div>
