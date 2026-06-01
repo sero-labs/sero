@@ -44,7 +44,7 @@ function HighlightedPath({
 
   return (
     <span className="min-w-0 truncate">
-      {Array.from(path).map((char, index) => (
+      {path.split('').map((char, index) => (
         <span
           key={path.slice(0, index + 1)}
           className={indexSet.has(index)

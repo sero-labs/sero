@@ -40,10 +40,6 @@ function PermissionGateCard({ question }: { question: UserFeedbackPendingQuestio
   const q = question.questions[0];
   const qId = q?.id;
 
-  // Extract the command from the prompt (between the two newlines after "detected:")
-  const commandMatch = q.prompt.match(/:\n\n\s+(.+)\n\n/);
-  const command = commandMatch?.[1]?.trim() ?? q.prompt;
-
   const handleAllow = useCallback(() => {
     if (!qId) return;
     const ans: UserFeedbackAnswer = {
@@ -73,6 +69,10 @@ function PermissionGateCard({ question }: { question: UserFeedbackPendingQuestio
   }, [question.id, cancel]);
 
   if (!q) return null;
+
+  // Extract the command from the prompt (between the two newlines after "detected:")
+  const commandMatch = q.prompt.match(/:\n\n\s+(.+)\n\n/);
+  const command = commandMatch?.[1]?.trim() ?? q.prompt;
 
   return (
     <motion.div
