@@ -203,6 +203,7 @@ export const useBrowserStore = create<BrowserState>((set, get) => ({
   reorderTabs: (workspaceId, ids) => {
     const { tabs } = get();
     const byId = new Map(tabs.map((t) => [t.id, t]));
+    const idsToKeep = new Set(ids);
 
     // Split current tabs into "belongs to workspace" (reordered) and "other" (kept in place).
     const wsTabsInNewOrder: BrowserTab[] = [];
@@ -212,7 +213,7 @@ export const useBrowserStore = create<BrowserState>((set, get) => ({
     }
     // Append any workspace tabs that got dropped (defensive).
     for (const t of tabs) {
-      if (t.workspaceId === workspaceId && !ids.includes(t.id)) wsTabsInNewOrder.push(t);
+      if (t.workspaceId === workspaceId && !idsToKeep.has(t.id)) wsTabsInNewOrder.push(t);
     }
 
     // Rebuild the flat list, slotting reordered workspace tabs into the
@@ -357,11 +358,13 @@ export const useBrowserStore = create<BrowserState>((set, get) => ({
     }
 
     // Backfill: every workspace with tabs should have an active tab.
-    const workspaces = new Set(hydratedTabs.map((t) => t.workspaceId));
-    for (const ws of workspaces) {
+    const firstTabByWorkspace = new Map<string, BrowserTab>();
+    for (const tab of hydratedTabs) {
+      if (!firstTabByWorkspace.has(tab.workspaceId)) firstTabByWorkspace.set(tab.workspaceId, tab);
+    }
+    for (const [ws, first] of firstTabByWorkspace) {
       if (!resolvedActiveIds[ws]) {
-        const first = hydratedTabs.find((t) => t.workspaceId === ws);
-        if (first) resolvedActiveIds[ws] = first.id;
+        resolvedActiveIds[ws] = first.id;
       }
     }
 

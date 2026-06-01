@@ -203,10 +203,10 @@ async function startGateway(): Promise<void> {
 }
 
 async function stopGateway(): Promise<void> {
-  await tailscale.unserve();
-
-  await webChatServer.stop();
-
-  await gatewayServer.stop();
+  await Promise.all([
+    tailscale.unserve(),
+    webChatServer.stop(),
+    gatewayServer.stop(),
+  ]);
   console.log('[gateway] All services stopped');
 }
