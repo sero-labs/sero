@@ -53,10 +53,10 @@ const FileTab = memo(function FileTab({
           : 'bg-card text-muted-foreground hover:text-foreground',
       )}
     >
-      <button onClick={onActivate} className="truncate max-w-[120px]">
+      <button type="button" onClick={onActivate} className="truncate max-w-[120px]">
         {fileName}
       </button>
-      <button
+      <button type="button"
         onClick={(e) => {
           e.stopPropagation();
           onClose();

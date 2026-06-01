@@ -56,7 +56,7 @@ export const NavSidebar = memo(function NavSidebar({ active, onSelect }: NavSide
             {group.title}
           </p>
           {group.items.map((item) => (
-            <button
+            <button type="button"
               key={item.id}
               onClick={() => onSelect(item.id)}
               className={cn(

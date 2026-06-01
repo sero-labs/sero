@@ -112,7 +112,7 @@ function Header({ showClear, onClear }: { showClear: boolean; onClear: () => voi
         Orchestration
       </span>
       {showClear && (
-        <button
+        <button type="button"
           onClick={onClear}
           className="flex items-center gap-1 text-[10px] text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)]"
           title="Clear completed runs"

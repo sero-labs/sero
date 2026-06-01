@@ -285,8 +285,9 @@ export function AgentEditor({ data, isNew, saving, onSave, onDelete, onChange }:
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col px-4 py-3">
-        <label className="mb-1.5 text-xs font-medium text-muted-foreground">System Prompt</label>
+        <label htmlFor="agent-system-prompt" className="mb-1.5 text-xs font-medium text-muted-foreground">System Prompt</label>
         <textarea
+          id="agent-system-prompt"
           value={data.systemPrompt}
           onChange={(e) => update({ systemPrompt: e.target.value })}
           placeholder="You are a specialist agent that..."

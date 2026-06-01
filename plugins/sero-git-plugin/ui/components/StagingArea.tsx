@@ -102,7 +102,7 @@ export function StagingArea({ fileChanges, onAction, onSelectFile }: StagingArea
             text-xs text-[var(--g-text)] placeholder-[var(--g-dim)] outline-none
             focus:border-[var(--g-accent)] transition-colors git-mono"
         />
-        <button
+        <button type="button"
           onClick={handleCommit}
           disabled={!commitMsg.trim() || staged.length === 0}
           className="px-3 py-1.5 text-xs font-medium rounded-md
@@ -141,7 +141,7 @@ function ChangeColumn({ title, count, className = '', action, children }: Change
           {title} ({count})
         </span>
         {action && (
-          <button
+          <button type="button"
             onClick={action.onClick}
             className={`text-[10px] transition-colors cursor-pointer ${actionClassName}`}
           >
@@ -181,7 +181,7 @@ function ChangeRow({
 
   return (
     <div className="flex items-center gap-1.5 px-2 py-1 hover:bg-[var(--g-hover)] group">
-      <button
+      <button type="button"
         onClick={onToggle}
         className="w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold
           border border-[var(--g-border)] text-[var(--g-muted)]

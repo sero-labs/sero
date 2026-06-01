@@ -49,7 +49,7 @@ export function TerminalTabs({ workspaceId }: TerminalTabsProps) {
       <div className="flex h-8 items-center gap-0.5 px-1">
         {/* Tabs */}
         {tabs.map((tab) => (
-          <button
+          <button type="button"
             key={tab.id}
             onClick={() => setActive(workspaceId, tab.id)}
             className={cn(
@@ -90,7 +90,7 @@ export function TerminalTabs({ workspaceId }: TerminalTabsProps) {
         ))}
 
         {/* New terminal button */}
-        <button
+        <button type="button"
           onClick={handleNewTerminal}
           className={cn(
             'flex h-6 items-center rounded px-1.5 text-[var(--text-muted)] transition-colors',

@@ -141,10 +141,11 @@ export function ReminderForm({
         >
           {/* Title */}
           <div>
-            <label className="mb-1 block text-xs font-medium text-muted-foreground">
+            <label htmlFor="reminder-title" className="mb-1 block text-xs font-medium text-muted-foreground">
               Title *
             </label>
             <input
+              id="reminder-title"
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -156,10 +157,11 @@ export function ReminderForm({
 
           {/* Notes */}
           <div>
-            <label className="mb-1 block text-xs font-medium text-muted-foreground">
+            <label htmlFor="reminder-notes" className="mb-1 block text-xs font-medium text-muted-foreground">
               Notes
             </label>
             <textarea
+              id="reminder-notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Optional details…"
@@ -170,9 +172,9 @@ export function ReminderForm({
 
           {/* Type toggle */}
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+            <div className="mb-1.5 block text-xs font-medium text-muted-foreground">
               Type *
-            </label>
+            </div>
             <div className="flex gap-2">
               {(['once', 'recurring'] as const).map((t) => (
                 <button
@@ -205,10 +207,11 @@ export function ReminderForm({
           {/* One-time: datetime picker */}
           {type === 'once' && (
             <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">
+              <label htmlFor="reminder-fire-at" className="mb-1 block text-xs font-medium text-muted-foreground">
                 When *
               </label>
               <input
+                id="reminder-fire-at"
                 type="datetime-local"
                 value={fireAt}
                 onChange={(e) => setFireAt(e.target.value)}
@@ -220,10 +223,11 @@ export function ReminderForm({
           {/* Recurring: cron expression */}
           {type === 'recurring' && (
             <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">
+              <label htmlFor="reminder-schedule" className="mb-1 block text-xs font-medium text-muted-foreground">
                 Schedule (cron) *
               </label>
               <input
+                id="reminder-schedule"
                 type="text"
                 value={schedule}
                 onChange={(e) => setSchedule(e.target.value)}
@@ -281,9 +285,9 @@ export function ReminderForm({
 
           {/* Channel */}
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+            <div className="mb-1.5 block text-xs font-medium text-muted-foreground">
               Notification Channel
-            </label>
+            </div>
             <div className="rounded-md border border-border bg-secondary/30 px-3 py-2 text-xs text-foreground">
               <div className="inline-flex items-center gap-1.5 font-medium">
                 <Monitor className="size-3.5" />

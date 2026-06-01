@@ -20,7 +20,7 @@ vi.mock('@sero-ai/app-runtime', () => ({
 
 vi.mock('./components/Header', () => ({
   Header: ({ onAction }: { onAction: (action: GitManagerRequest) => void }) => (
-    <button onClick={() => onAction({ action: 'fetch' })}>Trigger fetch</button>
+    <button type="button" onClick={() => onAction({ action: 'fetch' })}>Trigger fetch</button>
   ),
 }));
 

@@ -39,7 +39,7 @@ const ArtifactCard = memo(function ArtifactCard({
   const hasData = !!artifact.base64;
 
   return (
-    <button
+    <button type="button"
       onClick={() => {
         if (!hasData) onLoad();
         onClick();
@@ -94,7 +94,7 @@ function Lightbox({
   return (
     <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center">
       {/* Close button */}
-      <button
+      <button type="button"
         onClick={onClose}
         className="absolute top-4 right-4 text-white/60 hover:text-white transition-colors"
       >
@@ -103,7 +103,7 @@ function Lightbox({
 
       {/* Navigation */}
       {index > 0 && (
-        <button
+        <button type="button"
           onClick={() => onNavigate(-1)}
           className="absolute left-4 text-white/60 hover:text-white transition-colors"
         >
@@ -111,7 +111,7 @@ function Lightbox({
         </button>
       )}
       {index < artifacts.length - 1 && (
-        <button
+        <button type="button"
           onClick={() => onNavigate(1)}
           className="absolute right-4 text-white/60 hover:text-white transition-colors"
         >

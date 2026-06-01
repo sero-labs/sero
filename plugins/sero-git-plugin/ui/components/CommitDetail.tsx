@@ -82,13 +82,13 @@ export function CommitDetail({
                 the error toast will include next-step guidance.
               </div>
               <div className="mt-2 flex items-center gap-2">
-                <button
+                <button type="button"
                   onClick={handleAutoStashCherryPick}
                   className="rounded border border-[var(--g-border)] px-2 py-1 text-[10px] text-[var(--g-text)] transition-colors hover:border-[var(--g-border-bright)] hover:bg-[var(--g-elevated)]"
                 >
                   Auto-stash + cherry-pick
                 </button>
-                <button
+                <button type="button"
                   onClick={() => setConfirmCherryPick(false)}
                   className="rounded px-2 py-1 text-[10px] text-[var(--g-dim)] transition-colors hover:text-[var(--g-text)]"
                 >
@@ -99,14 +99,14 @@ export function CommitDetail({
           )}
         </div>
         <div className="ml-4 flex shrink-0 items-center gap-2">
-          <button
+          <button type="button"
             onClick={handleCherryPick}
             className="rounded border border-[var(--g-border)] px-2 py-1 text-[10px] text-[var(--g-muted)]
               transition-colors hover:bg-[var(--g-elevated)] hover:text-[var(--g-text)]"
           >
             {hasWorkingTreeChanges ? 'Cherry-pick…' : 'Cherry-pick'}
           </button>
-          <button
+          <button type="button"
             onClick={onClose}
             className="cursor-pointer p-1 text-[var(--g-dim)] transition-colors hover:text-[var(--g-text)]"
           >

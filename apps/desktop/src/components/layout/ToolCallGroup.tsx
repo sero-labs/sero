@@ -195,7 +195,7 @@ export const ToolCallGroup = memo(function ToolCallGroup({
       )}
     >
       {/* Summary bar */}
-      <button
+      <button type="button"
         onClick={() => setManualExpanded((prev) => !(prev ?? expanded))}
         className={cn(
           'flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors duration-150',
@@ -258,7 +258,7 @@ export const ToolCallGroup = memo(function ToolCallGroup({
                     </div>
                   ) : null}
                   <div className="border-t border-[var(--border-subtle)]/60 px-3 py-1.5">
-                    <button
+                    <button type="button"
                       onClick={(e) => {
                         e.stopPropagation();
                         setManualExpanded(true);
@@ -278,7 +278,7 @@ export const ToolCallGroup = memo(function ToolCallGroup({
                     ))}
                   </div>
                   <div className="border-t border-[var(--border-subtle)]/60 px-3 py-1.5">
-                    <button
+                    <button type="button"
                       onClick={(e) => {
                         e.stopPropagation();
                         setShowDetails(false);

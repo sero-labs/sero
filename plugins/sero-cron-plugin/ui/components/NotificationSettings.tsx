@@ -55,9 +55,10 @@ export function NotificationSettings({
           </p>
 
           {/* Sound enabled toggle */}
-          <label className="flex items-center justify-between">
+          <label htmlFor="notification-sound-enabled" className="flex items-center justify-between">
             <span className="text-xs text-muted-foreground">Play sound</span>
             <Switch
+              id="notification-sound-enabled"
               checked={effective.soundEnabled}
               onCheckedChange={(enabled) =>
                 onChange({ ...effective, soundEnabled: enabled })
@@ -72,7 +73,7 @@ export function NotificationSettings({
               <span className="text-[11px] text-muted-foreground">Sound</span>
               <div className="grid grid-cols-2 gap-1">
                 {NOTIFICATION_SOUNDS.map((sound) => (
-                  <button
+                  <button type="button"
                     key={sound}
                     onClick={() => onChange({ ...effective, soundName: sound })}
                     className={`rounded px-2 py-1 text-left text-xs transition-colors ${

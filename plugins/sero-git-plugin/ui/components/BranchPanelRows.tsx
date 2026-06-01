@@ -70,13 +70,13 @@ export function StashRow({
         <StashIcon />
         <span className="min-w-0 flex-1 truncate text-xs text-[var(--g-muted)]">{stash.message}</span>
         <div className="flex items-center gap-1 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100">
-          <button
+          <button type="button"
             onClick={onApply}
             className="rounded border border-[var(--g-border)] px-1.5 py-0.5 text-[9px] text-[var(--g-muted)] transition-colors hover:border-[var(--g-border-bright)] hover:text-[var(--g-text)]"
           >
             Apply
           </button>
-          <button
+          <button type="button"
             onClick={onPop}
             className={`rounded border px-1.5 py-0.5 text-[9px] transition-colors ${confirmPop
               ? 'border-[var(--g-red)] text-[var(--g-red)] hover:bg-[var(--g-red)]/10'

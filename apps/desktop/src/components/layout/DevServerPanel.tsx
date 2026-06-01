@@ -114,7 +114,7 @@ function ServerRow({ server }: { server: DevServer }) {
         <div className="flex items-center gap-1 text-[10px] text-[var(--text-muted)]">
           <span>:{server.port}</span>
           <span className="text-[var(--text-muted)]/50">·</span>
-          <button
+          <button type="button"
             className="truncate hover:text-[var(--text-secondary)] hover:underline"
             onClick={() => handleAction('open')}
             title="Open in Sero browser"
@@ -177,7 +177,7 @@ function ActionButton({
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <button
+        <button type="button"
           className={`rounded p-1 transition-colors ${
             destructive
               ? 'hover:bg-[var(--status-error-muted)] hover:text-[var(--status-error)]'
@@ -207,7 +207,7 @@ export const DevServerIndicator = memo(function DevServerIndicator() {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <button
+        <button type="button"
           className="flex items-center gap-1 rounded px-1.5 py-0.5 text-xs transition-colors hover:bg-[var(--bg-surface)] hover:text-[var(--text-primary)]"
           title="Dev Servers"
         >

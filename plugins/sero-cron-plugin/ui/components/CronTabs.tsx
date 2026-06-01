@@ -35,7 +35,7 @@ export function CronTabs({
   return (
     <div className="mb-3 flex gap-1 border-b border-border">
       {TAB_LABELS.map((tab) => (
-        <button
+        <button type="button"
           key={tab.key}
           onClick={() => onSelect(tab.key)}
           className={`border-b-2 px-3 py-1.5 text-xs font-medium transition-colors ${

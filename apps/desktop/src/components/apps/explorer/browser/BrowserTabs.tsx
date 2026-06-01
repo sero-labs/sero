@@ -80,7 +80,7 @@ function SortableBrowserTab({
           className="size-2 shrink-0 rounded-full border border-[var(--text-muted)] border-t-transparent animate-spin"
         />
       )}
-      <button
+      <button type="button"
         className={cn(
           'flex items-center justify-center size-4 border-none bg-transparent',
           'text-[var(--text-muted)] text-sm leading-none cursor-pointer rounded-sm',
@@ -237,7 +237,7 @@ export function BrowserTabs({ workspaceId }: BrowserTabsProps) {
           </div>
         </SortableContext>
       </DndContext>
-      <button
+      <button type="button"
         onClick={() => createTab(workspaceId)}
         className={cn(
           'flex h-full shrink-0 items-center border-l border-[var(--border-subtle)] px-2.5',

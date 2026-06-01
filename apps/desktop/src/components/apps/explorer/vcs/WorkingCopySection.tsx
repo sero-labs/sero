@@ -102,7 +102,7 @@ export function WorkingCopySection({ workspaceId, status, currentChangeId, onOpe
               'outline-none transition-colors focus:border-[var(--border-focus)]',
             )}
           />
-          <button
+          <button type="button"
             onClick={handleCheckpoint}
             disabled={creating}
             title="Create commit"

@@ -54,9 +54,9 @@ export function WorkspacePicker({ onSessionSelect }: WorkspacePickerProps) {
     <div className="flex flex-col h-full">
       {/* Workspace selector */}
       <div className="px-3 py-2 border-b border-border">
-        <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+        <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
           Workspace
-        </label>
+        </div>
         <Select
           value={activeWorkspaceId ?? ''}
           onValueChange={setActiveWorkspace}
@@ -105,7 +105,7 @@ export function WorkspacePicker({ onSessionSelect }: WorkspacePickerProps) {
             )}
 
             {sessions.map((session) => (
-              <button
+              <button type="button"
                 key={session.id}
                 onClick={() => handleSessionClick(session.id)}
                 className={cn(

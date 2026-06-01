@@ -90,7 +90,7 @@ export function Header({ state, onAction }: HeaderProps) {
 
 function ActionBtn({ label, icon, onClick }: { label: string; icon: string; onClick: () => void }) {
   return (
-    <button
+    <button type="button"
       onClick={onClick}
       title={label}
       className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium rounded-md

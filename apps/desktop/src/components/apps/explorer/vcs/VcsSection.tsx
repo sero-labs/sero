@@ -28,7 +28,7 @@ export function VcsSection({
 
   return (
     <div className="border-b border-[var(--border-subtle)]/50">
-      {/* Header — uses <div> so the actions slot can contain <button>s */}
+      {/* Header — uses <div> so the actions slot can contain <button type="button">s */}
       <div
         className={cn(
           'flex w-full items-center gap-1.5 px-3 py-1.5',
@@ -37,7 +37,7 @@ export function VcsSection({
         )}
       >
         {/* Clickable toggle region (left side) */}
-        <button
+        <button type="button"
           onClick={() => setOpen((v) => !v)}
           className="flex min-w-0 flex-1 items-center gap-1.5 text-left"
         >

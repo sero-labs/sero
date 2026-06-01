@@ -21,7 +21,7 @@ export function ModelSelectorTrigger({
 }) {
   return (
     <PopoverTrigger asChild disabled={disabled}>
-      <button
+      <button type="button"
         onFocus={onPrime}
         onMouseEnter={onPrime}
         className="group flex items-center gap-1.5 rounded-md px-2 py-1 text-xs

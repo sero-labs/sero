@@ -50,7 +50,7 @@ export const SessionList = memo(function SessionList({
       ) : (
         <ScrollArea className="min-h-0 flex-1">
           {sessions.map((s) => (
-            <button
+            <button type="button"
               key={s.sessionId}
               onClick={() => onSelect(s.sessionId)}
               className={cn(

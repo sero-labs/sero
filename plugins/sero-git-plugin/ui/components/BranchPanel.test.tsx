@@ -19,8 +19,8 @@ vi.mock('./BranchContextMenu', () => ({
   }) => (
     <div>
       {children}
-      {onForceDelete && <button onClick={onForceDelete}>Force delete branch</button>}
-      {onForceRemoveWorktree && <button onClick={onForceRemoveWorktree}>Force remove worktree</button>}
+      {onForceDelete && <button type="button" onClick={onForceDelete}>Force delete branch</button>}
+      {onForceRemoveWorktree && <button type="button" onClick={onForceRemoveWorktree}>Force remove worktree</button>}
     </div>
   ),
 }));

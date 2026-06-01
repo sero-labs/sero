@@ -21,7 +21,7 @@ const ThinkingBlock = memo(function ThinkingBlock({ text }: { text: string }) {
 
   return (
     <div className="mb-2">
-      <button
+      <button type="button"
         onClick={() => setExpanded(!expanded)}
         className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
       >
@@ -111,7 +111,7 @@ export const ChatMessageComponent = memo(function ChatMessageComponent({
             {message.images.map((img, i) => {
               const src = `data:${img.mimeType};base64,${img.base64}`;
               return (
-                <button
+                <button type="button"
                   key={src}
                   onClick={() => setLightboxSrc(src)}
                   className="cursor-zoom-in"

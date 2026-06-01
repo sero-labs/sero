@@ -77,7 +77,7 @@ function WarningBanner({
           {providers && providers.length > 0 ? (
             <div className="flex flex-wrap gap-2">
               {providers.map((provider) => (
-                <button
+                <button type="button"
                   key={provider.providerId}
                   onClick={() => onReconnectProvider(provider.providerId)}
                   className="rounded-full border border-[var(--border-default)] bg-[var(--bg-surface)] px-2.5 py-1 text-[10px] font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--bg-elevated)]"

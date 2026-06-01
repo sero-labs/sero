@@ -171,9 +171,11 @@ export async function clearServerAuthAction(options: {
     return createToolResult(`Error: Server "${serverName}" is not configured for OAuth authentication.`, { snapshotWritten: false });
   }
 
-  await options.authCoordinator.cancelAuth(serverName);
-  await options.manager.close(serverName);
-  await clearOAuthCredentials(serverName);
+  await Promise.all([
+    options.authCoordinator.cancelAuth(serverName),
+    options.manager.close(serverName),
+    clearOAuthCredentials(serverName),
+  ]);
   options.setRuntimeStatus(serverName, { authStatus: 'not-authenticated' });
   const nextState = await options.syncSnapshot(options.cwd, { config: synced.config });
   return createToolResult(`Cleared saved authentication for MCP server "${serverName}".`, {

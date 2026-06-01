@@ -68,7 +68,7 @@ export function ModelSelector({ disabled }: { disabled: boolean }) {
               iconClassName="text-[var(--text-muted)]"
               className="text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus-visible:outline-none"
               endAdornment={
-                <button
+                <button type="button"
                   onClick={handleOpenManager}
                   title="Manage models"
                   className="shrink-0 rounded-md p-1 text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]"

@@ -76,13 +76,17 @@ export async function listToolchainVersions(): Promise<string[]> {
 }
 
 export async function cleanupToolchainVersion(version: string): Promise<void> {
-  await fs.promises.rm(toolchainVersionRoot(version), { recursive: true, force: true });
-  await fs.promises.rm(toolchainStagingRoot(version), { recursive: true, force: true });
+  await Promise.all([
+    fs.promises.rm(toolchainVersionRoot(version), { recursive: true, force: true }),
+    fs.promises.rm(toolchainStagingRoot(version), { recursive: true, force: true }),
+  ]);
 }
 
 export async function cleanupArtifactInstall(version: string, unpackTo: string): Promise<void> {
-  await fs.promises.rm(artifactInstallPath(version, unpackTo), { recursive: true, force: true });
-  await fs.promises.rm(artifactStagingPath(version, unpackTo), { recursive: true, force: true });
+  await Promise.all([
+    fs.promises.rm(artifactInstallPath(version, unpackTo), { recursive: true, force: true }),
+    fs.promises.rm(artifactStagingPath(version, unpackTo), { recursive: true, force: true }),
+  ]);
 }
 
 export async function cleanupDownloadedArtifact(version: string, artifactKey: string): Promise<void> {

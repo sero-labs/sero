@@ -25,7 +25,7 @@ export const ModelManagerTabBar = memo(function ModelManagerTabBar({
         const Icon = tab.icon;
         const active = activeTab === tab.id;
         return (
-          <button
+          <button type="button"
             key={tab.id}
             onClick={() => onTabChange(tab.id)}
             className={`relative flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors duration-150 ${

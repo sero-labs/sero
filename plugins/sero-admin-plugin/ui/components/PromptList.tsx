@@ -30,7 +30,7 @@ export function PromptList({ prompts, selected, onSelect }: PromptListProps) {
   return (
     <div className="flex-1 overflow-y-auto">
       {prompts.map((prompt) => (
-        <button
+        <button type="button"
           key={prompt.filePath}
           onClick={() => onSelect(prompt.filePath)}
           className={cn(

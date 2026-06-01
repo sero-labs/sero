@@ -148,10 +148,10 @@ export function ChangeDetail({ workspaceId, entry, onOpenDiff }: Props) {
                 'outline-none focus:border-[var(--border-focus)]',
               )}
             />
-            <button onClick={handleSaveDesc} className="text-[var(--status-success)] hover:brightness-125">
+            <button type="button" onClick={handleSaveDesc} className="text-[var(--status-success)] hover:brightness-125">
               <Check className="size-3" />
             </button>
-            <button onClick={() => setEditing(false)} className="text-[var(--text-muted)] hover:text-[var(--text-secondary)]">
+            <button type="button" onClick={() => setEditing(false)} className="text-[var(--text-muted)] hover:text-[var(--text-secondary)]">
               <X className="size-3" />
             </button>
           </div>
@@ -164,7 +164,7 @@ export function ChangeDetail({ workspaceId, entry, onOpenDiff }: Props) {
               {entry.description}
             </span>
             {!entry.immutable && (
-              <button
+              <button type="button"
                 onClick={() => { setDescDraft(entry.description === '(no description)' ? '' : entry.description); setEditing(true); }}
                 title="Edit description"
                 className="text-[var(--text-muted)]/40 hover:text-[var(--text-secondary)] transition-colors"
@@ -277,7 +277,7 @@ export function ChangeDetail({ workspaceId, entry, onOpenDiff }: Props) {
               'outline-none focus:border-[var(--border-focus)]',
             )}
           />
-          <button
+          <button type="button"
             onClick={() => void handlePushAs()}
             disabled={pushing || !pushBranch.trim()}
             className="text-[var(--status-success)] hover:brightness-125 disabled:opacity-40"
@@ -285,7 +285,7 @@ export function ChangeDetail({ workspaceId, entry, onOpenDiff }: Props) {
           >
             <Check className="size-3" />
           </button>
-          <button
+          <button type="button"
             onClick={() => setShowPushAs(false)}
             disabled={pushing}
             className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] disabled:opacity-40"
@@ -326,7 +326,7 @@ function DetailAction({
   disabled?: boolean;
 }) {
   return (
-    <button
+    <button type="button"
       onClick={onClick}
       disabled={disabled}
       title={label}

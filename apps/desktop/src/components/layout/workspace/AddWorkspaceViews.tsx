@@ -13,14 +13,14 @@ export function PickView({
 }) {
   return (
     <div className="flex flex-col py-1">
-      <button
+      <button type="button"
         onClick={onCreateNew}
         className="flex items-center gap-2.5 px-3 py-2 text-left text-sm text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]"
       >
         <FolderPlus className="size-3.5 text-[var(--text-muted)]" />
         Create New
       </button>
-      <button
+      <button type="button"
         onClick={onImportExisting}
         className="flex items-center gap-2.5 px-3 py-2 text-left text-sm text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]"
       >
@@ -64,10 +64,11 @@ export function CreateView({
     >
       {/* Name */}
       <div>
-        <label className="mb-1 block text-xs font-medium text-[var(--text-secondary)]">
+        <label htmlFor="new-workspace-name" className="mb-1 block text-xs font-medium text-[var(--text-secondary)]">
           Name
         </label>
         <Input
+          id="new-workspace-name"
           ref={inputRef}
           value={name}
           onChange={(e) => onNameChange(e.target.value)}
@@ -79,9 +80,9 @@ export function CreateView({
 
       {/* Location */}
       <div>
-        <label className="mb-1 block text-xs font-medium text-[var(--text-secondary)]">
+        <div className="mb-1 block text-xs font-medium text-[var(--text-secondary)]">
           Location
-        </label>
+        </div>
         <button
           type="button"
           onClick={onPickLocation}

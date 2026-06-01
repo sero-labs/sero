@@ -96,9 +96,10 @@ export function SchedulerBar({
       )}
 
       {/* Autostart toggle */}
-      <label className="flex items-center gap-1.5">
+      <label htmlFor="scheduler-autostart" className="flex items-center gap-1.5">
         <span className="text-[11px] text-muted-foreground">Autostart</span>
         <Switch
+          id="scheduler-autostart"
           checked={autostart}
           onCheckedChange={onAutostartChange}
           className="scale-75"

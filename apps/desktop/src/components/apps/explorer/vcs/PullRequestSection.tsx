@@ -213,12 +213,13 @@ export function PullRequestSection({
             disabled={loadingState || generating || creating}
           />
           <div className="space-y-1">
-            <label className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]/60">
+            <label htmlFor="pull-request-target-branch" className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]/60">
               Target
             </label>
             <div className="flex items-center gap-1 rounded border border-[var(--border-subtle)] bg-[var(--bg-base)] px-1.5">
               <GitBranch className="size-3 text-[var(--text-muted)]/60" />
               <input
+                id="pull-request-target-branch"
                 list={listId}
                 value={targetBranch}
                 onChange={(e) => setTargetBranch(e.target.value)}
@@ -287,7 +288,7 @@ export function PullRequestSection({
         />
 
         <div className="flex items-center gap-1.5">
-          <button
+          <button type="button"
             onClick={() => void handleGenerateDraft()}
             disabled={generating || creating || !sourceBranch.trim()}
             className={cn(
@@ -300,7 +301,7 @@ export function PullRequestSection({
             {generating ? <Loader2 className="size-3 animate-spin" /> : <Sparkles className="size-3" />}
             Generate draft
           </button>
-          <button
+          <button type="button"
             onClick={() => void handleCreatePr()}
             disabled={!canCreate}
             className={cn(

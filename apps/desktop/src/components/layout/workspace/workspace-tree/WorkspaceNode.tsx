@@ -99,7 +99,7 @@ export function WorkspaceNode({ workspace, sessions }: WorkspaceNodeProps) {
 
   return (
     <div>
-      <button
+      <button type="button"
         data-testid={`workspace-node-${workspace.id}`}
         onClick={handleHeaderClick}
         className={cn(

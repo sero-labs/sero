@@ -64,7 +64,7 @@ export function BookmarksBar({ workspaceId, onNavigate }: BookmarksBarProps) {
     <>
       <div className="flex h-7 shrink-0 items-center gap-0.5 overflow-x-auto border-b border-[var(--border-subtle)] bg-[var(--bg-base)] px-1 scrollbar-none">
         {bookmarks.map((bm) => (
-          <button
+          <button type="button"
             key={bm.id}
             onClick={(e) => {
               if (e.metaKey || e.ctrlKey) createTab(workspaceId, bm.url);
@@ -125,13 +125,13 @@ function EditBookmarkDialog({ bookmark, onClose, onSave }: EditBookmarkDialogPro
           <DialogTitle>Edit bookmark</DialogTitle>
         </DialogHeader>
         <div className="flex flex-col gap-3 py-2">
-          <label className="flex flex-col gap-1 text-xs text-[var(--text-muted)]">
+          <label htmlFor="bookmark-title-input" className="flex flex-col gap-1 text-xs text-[var(--text-muted)]">
             Name
-            <Input value={title} onChange={(e) => setTitle(e.target.value)} autoFocus />
+            <Input id="bookmark-title-input" value={title} onChange={(e) => setTitle(e.target.value)} autoFocus />
           </label>
-          <label className="flex flex-col gap-1 text-xs text-[var(--text-muted)]">
+          <label htmlFor="bookmark-url-input" className="flex flex-col gap-1 text-xs text-[var(--text-muted)]">
             URL
-            <Input value={url} onChange={(e) => setUrl(e.target.value)} />
+            <Input id="bookmark-url-input" value={url} onChange={(e) => setUrl(e.target.value)} />
           </label>
         </div>
         <DialogFooter>

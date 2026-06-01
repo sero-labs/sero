@@ -47,7 +47,7 @@ function renderButton({
   disabled?: boolean;
 }) {
   return (
-    <button onClick={onClick} disabled={props.disabled} className={props.className}>
+    <button type="button" onClick={onClick} disabled={props.disabled} className={props.className}>
       {children}
     </button>
   );
@@ -70,7 +70,7 @@ vi.mock('./styles.css', () => ({ default: '' }));
 
 vi.mock('./components/SchedulerBar', () => ({
   SchedulerBar: ({ onToggle }: { onToggle: () => void }) => (
-    <button onClick={onToggle}>Toggle scheduler</button>
+    <button type="button" onClick={onToggle}>Toggle scheduler</button>
   ),
 }));
 
@@ -84,14 +84,14 @@ vi.mock('./components/ReminderList', () => ({
   }) => (
     <div>
       <div>Reminder count: {reminders.length}</div>
-      <button onClick={() => onComplete('rem-1')}>Complete reminder</button>
+      <button type="button" onClick={() => onComplete('rem-1')}>Complete reminder</button>
     </div>
   ),
 }));
 
 vi.mock('./components/JobsTab', () => ({
   JobsTab: ({ onRun }: { onRun: (name: string) => void }) => (
-    <button onClick={() => onRun('daily-report')}>Run job</button>
+    <button type="button" onClick={() => onRun('daily-report')}>Run job</button>
   ),
 }));
 

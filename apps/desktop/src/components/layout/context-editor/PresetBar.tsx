@@ -56,7 +56,7 @@ export function PresetBar({
         </Select>
 
         {activeUserPreset && (
-          <button
+          <button type="button"
             onClick={() => void onDelete(activeUserPreset.id)}
             className="flex items-center gap-1 rounded-md px-1.5 py-1 text-[var(--text-muted)] transition-colors hover:bg-[var(--status-error-muted)] hover:text-[var(--status-error)]"
             title={`Delete "${activeUserPreset.name}"`}
@@ -66,7 +66,7 @@ export function PresetBar({
         )}
 
         {!showSaveInput && (
-          <button
+          <button type="button"
             onClick={onShowSave}
             className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]"
           >
@@ -76,7 +76,7 @@ export function PresetBar({
         )}
 
         {hasOverrides && (
-          <button
+          <button type="button"
             onClick={onReset}
             className="ml-auto flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]"
           >

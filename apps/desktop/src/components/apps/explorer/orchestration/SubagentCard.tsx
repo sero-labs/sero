@@ -232,7 +232,7 @@ export function SubagentCard({ entry }: SubagentCardProps) {
         </div>
         {/* Stop button (running only) */}
         {isRunning && (
-          <button
+          <button type="button"
             onClick={handleAbort}
             className={cn(
               'ml-1 flex items-center justify-center rounded p-1 transition-colors',
@@ -273,7 +273,7 @@ export function SubagentCard({ entry }: SubagentCardProps) {
       <div className="flex items-center gap-2 border-t border-[var(--border-subtle)]/40 px-3 py-1">
         {/* Live output toggle (running) */}
         {hasLiveOutput && (
-          <button
+          <button type="button"
             onClick={() => setShowLiveOutput(!showLiveOutput)}
             className="text-[10px] text-[var(--status-info)] hover:brightness-125 transition-colors"
           >
@@ -283,7 +283,7 @@ export function SubagentCard({ entry }: SubagentCardProps) {
 
         {/* Final output toggle (completed) */}
         {hasOutput && !isRunning && (
-          <button
+          <button type="button"
             onClick={() => setExpanded(!expanded)}
             className="text-[10px] text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors"
           >

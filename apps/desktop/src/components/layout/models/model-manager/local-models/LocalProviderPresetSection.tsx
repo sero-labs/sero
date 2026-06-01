@@ -13,7 +13,7 @@ export function LocalProviderPresetSection({ onSelect }: LocalProviderPresetSect
         {PRESET_ORDER.map((preset) => {
           const cfg = PROVIDER_PRESETS[preset];
           return (
-            <button
+            <button type="button"
               key={preset}
               onClick={() => onSelect(preset)}
               className="rounded-lg border border-[var(--border-subtle)] px-2 py-2

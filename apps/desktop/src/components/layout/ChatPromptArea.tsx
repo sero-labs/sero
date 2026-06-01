@@ -142,7 +142,7 @@ export const ChatPromptArea = memo(function ChatPromptArea({
                     className="inline-flex items-center gap-1 rounded-full bg-[var(--status-info-muted)] px-2 py-0.5 text-[11px] text-[var(--status-info)]"
                   >
                     <span className="max-w-[150px] truncate">{msg.text}</span>
-                    <button
+                    <button type="button"
                       onClick={() => messageQueue.dequeue(msg.id)}
                       className="shrink-0 rounded-full p-0.5 hover:bg-[var(--status-info-border)]"
                       title="Remove queued message"

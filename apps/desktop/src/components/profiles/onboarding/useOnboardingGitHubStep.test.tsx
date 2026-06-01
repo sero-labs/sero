@@ -92,11 +92,11 @@ function HookProbe({ onContinue }: { onContinue: (config: GlobalModelConfigInput
       data-authenticated={githubAuth.authStatus?.authenticated ? 'true' : 'false'}
       data-last-outcome={lastOutcome?.outcome ?? ''}
     >
-      <button onClick={() => void handleTierContinue()}>Continue models</button>
-      <button onClick={() => void handleContinueFromDependencies()}>Continue dependencies</button>
-      <button onClick={() => void handleConnectGitHub()}>Connect GitHub</button>
-      <button onClick={handleBack}>Back</button>
-      <button onClick={handleContinueFromGitHub}>Skip GitHub</button>
+      <button type="button" onClick={() => void handleTierContinue()}>Continue models</button>
+      <button type="button" onClick={() => void handleContinueFromDependencies()}>Continue dependencies</button>
+      <button type="button" onClick={() => void handleConnectGitHub()}>Connect GitHub</button>
+      <button type="button" onClick={handleBack}>Back</button>
+      <button type="button" onClick={handleContinueFromGitHub}>Skip GitHub</button>
     </div>
   );
 }

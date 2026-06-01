@@ -62,7 +62,7 @@ export function QuestionnaireReviewStep({
                   </p>
                   <p className="mt-0.5 text-sm text-foreground">{question.prompt}</p>
                 </div>
-                <button
+                <button type="button"
                   onClick={() => onGoToStep(index)}
                   className={cn(
                     'shrink-0 text-xs hover:underline',

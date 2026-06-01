@@ -117,7 +117,7 @@ export function GitTitleBarControls() {
     <div className="flex items-center gap-2.5">
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
-          <button
+          <button type="button"
             disabled={disabled}
             className={cn(
               'inline-flex h-7 items-center gap-2.5 rounded-lg border px-3.5 text-[11px] font-semibold transition-colors',

@@ -67,7 +67,7 @@ export function ThinkingBlocksToggle({ disabled }: { disabled: boolean }) {
   const isActive = isReasoning && thinkingLevel !== 'off';
 
   return (
-    <button
+    <button type="button"
       onClick={toggle}
       disabled={disabled || !isActive}
       title={showThinking ? 'Hide thinking blocks' : 'Show thinking blocks'}
@@ -91,7 +91,7 @@ export function MemoryBlocksToggle({ disabled }: { disabled: boolean }) {
   const toggle = useAgentStore((s) => s.toggleMemoryBlocks);
 
   return (
-    <button
+    <button type="button"
       onClick={toggle}
       disabled={disabled}
       title={showMemory ? 'Hide memory context' : 'Show memory context'}
@@ -157,7 +157,7 @@ export function CollaborationToggle({ disabled }: { disabled: boolean }) {
   return (
     <div ref={containerRef} className="relative flex items-center">
       {/* Main toggle button */}
-      <button
+      <button type="button"
         onClick={handleToggle}
         disabled={disabled}
         title={isActive ? `Disable collaboration (${activeOption.label})` : 'Enable collaboration mode'}
@@ -174,7 +174,7 @@ export function CollaborationToggle({ disabled }: { disabled: boolean }) {
 
       {/* Strategy dropdown trigger (only visible when collaboration is active) */}
       {isActive && (
-        <button
+        <button type="button"
           onClick={() => setPopoverOpen(!popoverOpen)}
           disabled={disabled}
           className="ml-[-2px] rounded-md p-0.5 text-[var(--collab-primary)] hover:bg-[var(--collab-primary-muted)]"
@@ -205,7 +205,7 @@ export function CollaborationToggle({ disabled }: { disabled: boolean }) {
             {STRATEGY_OPTIONS.map((option) => {
               const Icon = option.icon;
               return (
-                <button
+                <button type="button"
                   key={option.value}
                   onClick={() => handleStrategyChange(option.value)}
                   className={cn(

@@ -99,9 +99,11 @@ function createMcpRuntime(): McpRuntime {
       sessionRefCount = Math.max(0, sessionRefCount - 1);
       if (sessionRefCount === 0) {
         keepAliveScheduler.stop();
-        await authCoordinator.cancelAll();
-        await uiSessions.closeActive('runtime-shutdown');
-        await manager.closeAll();
+        await Promise.all([
+          authCoordinator.cancelAll(),
+          uiSessions.closeActive('runtime-shutdown'),
+          manager.closeAll(),
+        ]);
         runtimeStatuses.clear();
 
         if (lastState || lastKnownCwd) {
@@ -422,9 +424,11 @@ function createMcpRuntime(): McpRuntime {
     const configPath = getMcpConfigPath();
     const statePath = getMcpStatePath(resolvedCwd);
     await ensureOAuthDir();
-    const config = options.config ?? await ensureConfigFile(configPath);
-    const rawConfigUpdatedAt = options.rawConfigUpdatedAt ?? await getConfigUpdatedAt(configPath);
-    const metadataCache = options.metadataCache ?? await readMetadataCache();
+    const [config, rawConfigUpdatedAt, metadataCache] = await Promise.all([
+      options.config !== undefined ? Promise.resolve(options.config) : ensureConfigFile(configPath),
+      options.rawConfigUpdatedAt != null ? Promise.resolve(options.rawConfigUpdatedAt) : getConfigUpdatedAt(configPath),
+      options.metadataCache !== undefined ? Promise.resolve(options.metadataCache) : readMetadataCache(),
+    ]);
     const snapshot = await buildSnapshot({
       configPath,
       rawConfigUpdatedAt,

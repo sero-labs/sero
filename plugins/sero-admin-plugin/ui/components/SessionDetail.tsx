@@ -171,7 +171,7 @@ const MessageRow = memo(function MessageRow({
   onToggle: () => void;
 }) {
   return (
-    <button
+    <button type="button"
       onClick={onToggle}
       className={cn(
         'admin-message-card w-full flex gap-3 px-4 py-2 border-b border-border/20',

@@ -96,7 +96,7 @@ export function SessionNode({
   };
 
   return (
-    <button
+    <button type="button"
       data-testid="session-item"
       data-session-id={session.id}
       onClick={handleClick}

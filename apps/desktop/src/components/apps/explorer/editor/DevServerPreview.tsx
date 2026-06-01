@@ -113,14 +113,14 @@ export function DevServerPreview({ tabPath }: Props) {
           className="flex-1 bg-[var(--bg-elevated)] rounded px-2 py-1 text-xs text-[var(--text-primary)] border border-[var(--border-subtle)] outline-none focus:border-[var(--accent)] transition-colors"
           spellCheck={false}
         />
-        <button
+        <button type="button"
           onClick={handleReload}
           className="flex size-6 items-center justify-center rounded text-[var(--text-muted)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)] transition-colors"
           title="Reload"
         >
           <RefreshCw className="size-3.5" />
         </button>
-        <button
+        <button type="button"
           onClick={handleOpenExternal}
           className="flex size-6 items-center justify-center rounded text-[var(--text-muted)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)] transition-colors"
           title="Open in browser"
@@ -152,7 +152,7 @@ export function DevServerPreview({ tabPath }: Props) {
               The preview pane only embeds local dev servers such as localhost, .local hosts, and private/container IPs.
               External URLs like Tailscale links can trigger frame-navigation security errors inside Electron.
             </p>
-            <button
+            <button type="button"
               onClick={handleOpenExternal}
               className="inline-flex items-center gap-2 rounded-md border border-[var(--border)] bg-[var(--bg-base)] px-3 py-2 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-hover)]"
             >

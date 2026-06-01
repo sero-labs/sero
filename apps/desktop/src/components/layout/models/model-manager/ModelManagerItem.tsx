@@ -78,7 +78,7 @@ const ModelManagerItem = memo(function ModelManagerItem({
 
       {/* Action buttons */}
       <div className="flex items-center gap-1">
-        <button
+        <button type="button"
           onClick={handleFavourite}
           title={isFavourite ? 'Remove from favourites' : 'Add to favourites'}
           className={`rounded-md p-1 transition-all duration-150 ${
@@ -93,7 +93,7 @@ const ModelManagerItem = memo(function ModelManagerItem({
           />
         </button>
 
-        <button
+        <button type="button"
           onClick={handleHidden}
           disabled={hideActionDisabled}
           title={hideActionTitle}

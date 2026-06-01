@@ -29,7 +29,7 @@ export function MemoryContextBlock({ context }: { context: string }) {
       )}
     >
       {/* Summary bar */}
-      <button
+      <button type="button"
         onClick={() => setExpanded((prev) => !prev)}
         className={cn(
           'flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors duration-150',

@@ -31,7 +31,7 @@ export function SkillList({ skills, selected, onSelect }: SkillListProps) {
   return (
     <div className="flex-1 overflow-y-auto">
       {skills.map((skill) => (
-        <button
+        <button type="button"
           key={skill.filePath}
           onClick={() => onSelect(skill.filePath)}
           className={cn(
