@@ -9,8 +9,19 @@ export function systemToolCandidates(
   platform: NodeJS.Platform,
   env: NodeJS.ProcessEnv = process.env,
 ): string[] {
-  if (platform !== 'win32') return [tool];
+  if (platform !== 'win32') return [...new Set([tool, ...posixSystemToolCandidates(tool, platform)])];
   return [...new Set([...windowsSystemToolCandidates(tool, env), tool])];
+}
+
+function posixSystemToolCandidates(tool: ToolName, platform: NodeJS.Platform): string[] {
+  return posixSearchRoots(platform).map((root) => path.posix.join(root, tool));
+}
+
+function posixSearchRoots(platform: NodeJS.Platform): string[] {
+  const homebrewRoots = platform === 'darwin'
+    ? ['/opt/homebrew/bin', '/usr/local/bin']
+    : ['/usr/local/bin'];
+  return [...homebrewRoots, '/usr/bin', '/bin', '/usr/sbin', '/sbin'];
 }
 
 function windowsSystemToolCandidates(tool: ToolName, env: NodeJS.ProcessEnv): string[] {

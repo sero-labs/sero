@@ -3,6 +3,19 @@ import { describe, expect, it } from 'vitest';
 import { systemToolCandidates } from '@electron/features/workspace/runtime/toolchains/system-candidates';
 
 describe('system tool candidates', () => {
+  it('uses absolute POSIX fallback paths when app launch PATH is sparse', () => {
+    expect(systemToolCandidates('git', 'darwin', {})).toEqual(expect.arrayContaining([
+      'git',
+      '/usr/bin/git',
+      '/opt/homebrew/bin/git',
+    ]));
+    expect(systemToolCandidates('bash', 'linux', {})).toEqual(expect.arrayContaining([
+      'bash',
+      '/bin/bash',
+      '/usr/bin/bash',
+    ]));
+  });
+
   it('converts Git Bash/MSYS PATH entries to Windows executable candidates', () => {
     const env = {
       ProgramFiles: 'C:\\Program Files',

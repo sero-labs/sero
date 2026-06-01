@@ -9,8 +9,6 @@
 import { promises as fs } from 'fs';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import path from 'path';
-import { execFile as execFileCb } from 'child_process';
-import { promisify } from 'util';
 
 import { SERO_AGENT_DIR } from '@electron/platform/env';
 import { discoverApps, registerAppPath, unregisterAppPath } from '../apps/discovery';
@@ -29,13 +27,12 @@ import { assertPluginCompatible } from './compatibility';
 import { clearPackageCompatibilityCache } from './resource-compatibility';
 import { assertPluginInstallAllowed } from './install-policy';
 import { ensurePluginPackageReadyForInstall } from './package-build';
+import { runPluginHostCommand } from './host-command-runner';
 import { assertValidPluginId, resolvePluginInstallDir } from './security';
 import {
   addPackageToSettings,
   removePackageFromSettings,
 } from './settings';
-const execFile = promisify(execFileCb);
-
 export { reconcileInstalledPluginActivation } from './activation';
 
 /** Directory where plugins are installed. */
@@ -189,10 +186,7 @@ async function cleanupDir(dirPath: string | null): Promise<void> {
 }
 
 async function runCommand(command: string, args: string[], cwd: string): Promise<string> {
-  const result = (await execFile(command, args, { cwd, encoding: 'utf8' })) as {
-    stdout: string;
-    stderr: string;
-  };
+  const result = await runPluginHostCommand(command, args, cwd);
   return result.stdout;
 }
 

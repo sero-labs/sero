@@ -84,6 +84,15 @@ describe('plugin dev manifest validation', () => {
     })).rejects.toThrow(/app id drifted from "old-plugin" to "renamed-plugin"/);
   });
 
+  it('rejects yarn local plugin dev sessions with a clear unsupported-manager error', async () => {
+    const sourcePath = await createPluginSource();
+    await writeFile(path.join(sourcePath, 'yarn.lock'), 'lockfile\n');
+
+    await expect(readPluginDevSourceManifest(sourcePath)).rejects.toThrow(
+      /support npm and pnpm only/,
+    );
+  });
+
   it('suppresses UI fields when the resolved session mode has no usable UI', async () => {
     const sourcePath = await createPluginSource();
     const manifest = (await readPluginDevSourceManifest(sourcePath)).manifest;

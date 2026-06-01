@@ -4,6 +4,7 @@ export type PluginDevSessionErrorCode =
   | 'source-package-json-invalid'
   | 'source-app-declaration-invalid'
   | 'source-manifest-parse-failed'
+  | 'unsupported-package-manager'
   | 'app-id-drifted'
   | 'app-id-conflict-built-in'
   | 'app-id-conflict-installed-plugin'
@@ -37,6 +38,7 @@ function isPluginDevSessionErrorCode(value: unknown): value is PluginDevSessionE
     case 'source-package-json-invalid':
     case 'source-app-declaration-invalid':
     case 'source-manifest-parse-failed':
+    case 'unsupported-package-manager':
     case 'app-id-drifted':
     case 'app-id-conflict-built-in':
     case 'app-id-conflict-installed-plugin':

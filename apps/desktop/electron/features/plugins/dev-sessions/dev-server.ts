@@ -12,6 +12,7 @@ import {
 } from '@electron/features/workspace/runtime/native-build/classifier';
 import type { NativeBuildToolsRequiredMetadata } from '@electron/features/workspace/runtime/native-build/types';
 import { stopStalePortListenersForSourcePath } from './process-helpers';
+import { renderPluginHostShellCommand } from '../host-command-runner';
 
 const HEALTH_POLL_INTERVAL_MS = 500;
 const HEALTH_POLL_TIMEOUT_MS = 20_000;
@@ -116,15 +117,16 @@ function getManagedServer(sourcePath: string): ManagedPluginDevServer | undefine
   return entry;
 }
 
-function startManagedServer(
+async function startManagedServer(
   sourcePath: string,
   command: string,
   declaredDevPort: number,
-): ManagedPluginDevServer {
+): Promise<ManagedPluginDevServer> {
   const normalizedSourcePath = normalizeSourcePath(sourcePath);
-  const child = spawn('sh', ['-c', command], {
-    cwd: normalizedSourcePath,
-    env: process.env,
+  const renderedCommand = await renderPluginHostShellCommand(command, normalizedSourcePath);
+  const child = spawn(renderedCommand.program, renderedCommand.args, {
+    cwd: renderedCommand.cwd,
+    env: renderedCommand.env,
     detached: true,
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -391,7 +393,7 @@ export async function ensurePluginDevServer(
 
   if (!entry) {
     try {
-      entry = startManagedServer(sourcePath, options.command, options.declaredDevPort);
+      entry = await startManagedServer(sourcePath, options.command, options.declaredDevPort);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'unknown error';
       return createFallbackResult(
@@ -428,7 +430,7 @@ export async function ensurePluginDevServer(
     const repair = await repairPluginNativeDeps(sourcePath);
     if (repair.ok) {
       try {
-        entry = startManagedServer(sourcePath, options.command, options.declaredDevPort);
+        entry = await startManagedServer(sourcePath, options.command, options.declaredDevPort);
       } catch (error) {
         const message = error instanceof Error ? error.message : 'unknown error';
         return createFallbackResult(

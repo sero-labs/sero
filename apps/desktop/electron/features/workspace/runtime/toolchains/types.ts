@@ -73,6 +73,7 @@ export type ToolInstallReasonKind =
   | 'doctor'
   | 'settings'
   | 'agent-tool'
+  | 'plugin-install'
   | 'test';
 
 export interface ToolInstallReason {
