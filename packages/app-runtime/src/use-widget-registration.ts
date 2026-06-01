@@ -52,6 +52,12 @@ interface WidgetRegistrationOptions {
 export function useWidgetRegistration(options: WidgetRegistrationOptions): void {
   const ctx = useContext(AppContext);
   const appId = ctx?.appId;
+  const { component, defaultSize, description, maxSize, minSize, name, widgetId } = options;
+  const { h: defaultHeight, w: defaultWidth } = defaultSize;
+  const minHeight = minSize?.h;
+  const minWidth = minSize?.w;
+  const maxHeight = maxSize?.h;
+  const maxWidth = maxSize?.w;
 
   // Acceptable useEffect — registration into a shared external registry
   useEffect(() => {
@@ -59,25 +65,25 @@ export function useWidgetRegistration(options: WidgetRegistrationOptions): void 
 
     registerWidget({
       appId,
-      widgetId: options.widgetId,
-      name: options.name,
-      component: options.component,
-      defaultSize: options.defaultSize,
-      minSize: options.minSize,
-      maxSize: options.maxSize,
-      description: options.description,
+      widgetId,
+      name,
+      component,
+      defaultSize: { w: defaultWidth, h: defaultHeight },
+      minSize: minWidth === undefined || minHeight === undefined ? undefined : { w: minWidth, h: minHeight },
+      maxSize: maxWidth === undefined || maxHeight === undefined ? undefined : { w: maxWidth, h: maxHeight },
+      description,
     });
   }, [
     appId,
-    options.widgetId,
-    options.name,
-    options.component,
-    options.defaultSize.w,
-    options.defaultSize.h,
-    options.minSize?.w,
-    options.minSize?.h,
-    options.maxSize?.w,
-    options.maxSize?.h,
-    options.description,
+    widgetId,
+    name,
+    component,
+    defaultHeight,
+    defaultWidth,
+    minHeight,
+    minWidth,
+    maxHeight,
+    maxWidth,
+    description,
   ]);
 }

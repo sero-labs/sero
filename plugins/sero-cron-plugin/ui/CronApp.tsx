@@ -31,6 +31,8 @@ import './styles.css';
 
 type Tab = 'jobs' | 'reminders' | 'history';
 
+const EMPTY_REMINDERS: Reminder[] = [];
+
 export function CronApp() {
   const [state, updateState] = useAppState<CronState>(DEFAULT_CRON_STATE);
   const prompt = useAgentPrompt();
@@ -42,7 +44,7 @@ export function CronApp() {
   const [activeTab, setActiveTab] = useState<Tab>('reminders');
 
   // Ensure reminders array exists (migration)
-  const reminders = state.reminders ?? [];
+  const reminders = state.reminders ?? EMPTY_REMINDERS;
 
   // ── Derived stats ────────────────────────────────────────
 

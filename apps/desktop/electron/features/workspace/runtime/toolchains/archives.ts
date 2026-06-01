@@ -104,9 +104,9 @@ function gunzipToTempTar(archivePath: string): Promise<string> {
 }
 
 async function extractTarFile(tarPath: string, destination: string): Promise<void> {
-  const tarStats = await fs.promises.stat(tarPath);
   const handle = await fs.promises.open(tarPath, 'r');
   try {
+    const tarStats = await handle.stat();
     let offset = 0;
     let sawEndOfArchive = false;
     let nextPaxHeader: PaxHeader | null = null;

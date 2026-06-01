@@ -370,8 +370,10 @@ export class HostBackend implements RuntimeBackend {
     }
 
     const hostPath = toHostWorkspacePath(this.hostWorkspacePath, runtimePath);
-    const canonicalPath = await this.resolvePathInsideRoot(hostPath, this.hostWorkspacePath, runtimePath);
-    const canonicalRoot = await this.resolvePathInsideRoot(this.hostWorkspacePath, this.hostWorkspacePath, runtimePath);
+    const [canonicalPath, canonicalRoot] = await Promise.all([
+      this.resolvePathInsideRoot(hostPath, this.hostWorkspacePath, runtimePath),
+      this.resolvePathInsideRoot(this.hostWorkspacePath, this.hostWorkspacePath, runtimePath),
+    ]);
     return {
       hostPath: canonicalPath,
       rootHostPath: canonicalRoot,

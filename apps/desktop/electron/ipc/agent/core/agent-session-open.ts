@@ -107,8 +107,10 @@ export async function openSessionInPool({
     throw new Error(`${runtime.backend} runtime failed to start for workspace ${workspaceId}: ${message}`);
   }
 
-  const platformTools = await createRuntimeTools(runtime, sessionId);
-  const globalAgentsFile = await readGlobalAgentsMd(workspaceId);
+  const [platformTools, globalAgentsFile] = await Promise.all([
+    createRuntimeTools(runtime, sessionId),
+    readGlobalAgentsMd(workspaceId),
+  ]);
   const hostRuntimeOptions = runtime.backend === 'host'
     ? { workspacePath, platform: process.platform }
     : undefined;

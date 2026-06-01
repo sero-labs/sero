@@ -121,7 +121,7 @@ export function ReminderForm({
 
     onSave(reminder);
     onClose();
-  }, [canSave, title, notes, channel, type, fireAt, schedule, editingReminder, onSave, onClose]);
+  }, [canSave, title, notes, channel, type, fireAt, schedule, recoverIfMissed, editingReminder, onSave, onClose]);
 
   const inputCls =
     'w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring';

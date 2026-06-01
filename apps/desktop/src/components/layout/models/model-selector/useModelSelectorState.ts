@@ -5,6 +5,9 @@ import { useModelPreferences } from '@/stores/model-preferences';
 import { findGroup, findModel, THINKING_LABELS } from '@sero-ai/common';
 import { applyPreferences, buildFavourites, filterGroups } from './filtering';
 
+const EMPTY_MODEL_GROUPS: NonNullable<ReturnType<typeof useFocusedModelState>>['availableModels'] = [];
+const EMPTY_THINKING_LEVELS: NonNullable<ReturnType<typeof useFocusedModelState>>['availableThinkingLevels'] = [];
+
 export function useModelSelectorState() {
   const [open, setOpen] = useState(false);
   const [managerOpen, setManagerOpen] = useState(false);
@@ -30,7 +33,7 @@ export function useModelSelectorState() {
     [preferences.hiddenProviders],
   );
 
-  const allGroups = focusedModelState?.availableModels ?? [];
+  const allGroups = focusedModelState?.availableModels ?? EMPTY_MODEL_GROUPS;
   const selectedProvider = focusedModelState?.model.provider ?? null;
   const selectedModelId = focusedModelState?.model.modelId ?? null;
   const activeSelectedModel = focusedModelState
@@ -151,7 +154,7 @@ export function useModelSelectorState() {
     selectedProvider,
     setFilter,
     setManagerOpen,
-    thinkingLevels: focusedModelState?.availableThinkingLevels ?? [],
+    thinkingLevels: focusedModelState?.availableThinkingLevels ?? EMPTY_THINKING_LEVELS,
     totalFiltered,
     triggerLabel,
     triggerProviderDisplayName: activeSelectedGroup?.displayName ?? null,

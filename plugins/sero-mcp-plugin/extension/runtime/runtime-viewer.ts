@@ -183,8 +183,10 @@ async function ensureConnectedServer(
     return { config: synced.config, serverName, snapshotWritten: false };
   }
 
-  const nextConnection = await options.manager.connect(serverName, serverConfig);
-  const metadataCache = await readMetadataCache();
+  const [nextConnection, metadataCache] = await Promise.all([
+    options.manager.connect(serverName, serverConfig),
+    readMetadataCache(),
+  ]);
   const { nextCache, runtimeStatus } = await reconcileConnection({
     serverName,
     serverConfig,

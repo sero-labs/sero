@@ -49,8 +49,10 @@ export function registerEditorHandlers(): void {
   ipcMain.handle(
     IpcChannels.editor.readFile,
     async (_e, workspaceId: string, filePath: string) => {
-      const runtime = await runtimeManager.getRuntime(workspaceId);
-      const runtimePath = await getRuntimePath(workspaceId, filePath);
+      const [runtime, runtimePath] = await Promise.all([
+        runtimeManager.getRuntime(workspaceId),
+        getRuntimePath(workspaceId, filePath),
+      ]);
       return (await runtime.readFile({ path: runtimePath })).content;
     },
   );
@@ -58,8 +60,10 @@ export function registerEditorHandlers(): void {
   ipcMain.handle(
     IpcChannels.editor.readBinaryFile,
     async (_e, workspaceId: string, filePath: string): Promise<string> => {
-      const runtime = await runtimeManager.getRuntime(workspaceId);
-      const runtimePath = await getRuntimePath(workspaceId, filePath);
+      const [runtime, runtimePath] = await Promise.all([
+        runtimeManager.getRuntime(workspaceId),
+        getRuntimePath(workspaceId, filePath),
+      ]);
       return (await runtime.readFile({ path: runtimePath, binary: true })).content;
     },
   );
@@ -67,8 +71,10 @@ export function registerEditorHandlers(): void {
   ipcMain.handle(
     IpcChannels.editor.writeFile,
     async (_e, workspaceId: string, filePath: string, content: string) => {
-      const runtime = await runtimeManager.getRuntime(workspaceId);
-      const runtimePath = await getRuntimePath(workspaceId, filePath);
+      const [runtime, runtimePath] = await Promise.all([
+        runtimeManager.getRuntime(workspaceId),
+        getRuntimePath(workspaceId, filePath),
+      ]);
       await runtime.writeFile({ path: runtimePath, content });
       invalidateGitWorkspace(workspaceId, 'editor:write-file');
     },
@@ -77,8 +83,10 @@ export function registerEditorHandlers(): void {
   ipcMain.handle(
     IpcChannels.editor.listFiles,
     async (_e, workspaceId: string, dirPath: string) => {
-      const runtime = await runtimeManager.getRuntime(workspaceId);
-      const runtimePath = await getRuntimePath(workspaceId, dirPath);
+      const [runtime, runtimePath] = await Promise.all([
+        runtimeManager.getRuntime(workspaceId),
+        getRuntimePath(workspaceId, dirPath),
+      ]);
       return toEditorEntries(await runtime.listFiles({ path: runtimePath }));
     },
   );

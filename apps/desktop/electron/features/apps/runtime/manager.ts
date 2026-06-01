@@ -100,8 +100,10 @@ export class AppRuntimeManager {
   }
 
   private async runReconcile(options: ReconcileAppRuntimeOptions): Promise<void> {
-    const manifests = options.manifests ?? await this.deps.discoverApps();
-    const workspaces = options.workspaces ?? await this.deps.getOpenWorkspaces();
+    const [manifests, workspaces] = await Promise.all([
+      options.manifests ?? this.deps.discoverApps(),
+      options.workspaces ?? this.deps.getOpenWorkspaces(),
+    ]);
     const desiredTargets = this.buildTargets(manifests, workspaces);
     const desiredByKey = new Map(desiredTargets.map((target) => [
       runtimeKey(target.manifest.id, target.workspace.id),
@@ -133,8 +135,10 @@ export class AppRuntimeManager {
   }
 
   private async runRestartApp(appId: string): Promise<void> {
-    const manifests = await this.deps.discoverApps();
-    const workspaces = await this.deps.getOpenWorkspaces();
+    const [manifests, workspaces] = await Promise.all([
+      this.deps.discoverApps(),
+      this.deps.getOpenWorkspaces(),
+    ]);
     const desiredTargets = this.buildTargets(manifests, workspaces)
       .filter((target) => target.manifest.id === appId);
     const desiredKeys = new Set(desiredTargets.map((target) => runtimeKey(target.manifest.id, target.workspace.id)));

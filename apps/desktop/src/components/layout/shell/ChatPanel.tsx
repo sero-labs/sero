@@ -41,6 +41,8 @@ import {
 import { ChatPromptArea } from '@/components/layout/ChatPromptArea';
 import { ImageLightbox } from '@/components/layout/ImageLightbox';
 
+const EMPTY_MESSAGES: NonNullable<ReturnType<typeof useFocusedAgent>>['messages'] = [];
+
 /**
  * ChatPanel — agent chat panel wired to Pi SDK AgentSession pool.
  *
@@ -69,7 +71,7 @@ export function ChatPanel() {
     (s) => s.setChatCollaborationSizePct,
   );
 
-  const messages = focused?.messages ?? [];
+  const messages = focused?.messages ?? EMPTY_MESSAGES;
   const isStreaming = focused?.isStreaming ?? false;
   const error = focused?.error ?? null;
   const sessionId = focused?.sessionId ?? null;

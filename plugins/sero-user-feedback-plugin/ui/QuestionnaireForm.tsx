@@ -36,6 +36,8 @@ interface Props {
   onCancel: (id: string) => void;
 }
 
+const EMPTY_ANSWERS: UserFeedbackAnswer[] = [];
+
 export function QuestionnaireForm({ question, onSubmit, onCancel }: Props) {
   const questions = question.questions;
   const [currentStep, setCurrentStep] = useState(0);
@@ -53,7 +55,7 @@ export function QuestionnaireForm({ question, onSubmit, onCancel }: Props) {
   const currentQuestion = questions[currentStep] as UserFeedbackQuestionItem | undefined;
   const currentAnswers = currentQuestion
     ? getQuestionAnswers(answers, currentQuestion.id)
-    : [];
+    : EMPTY_ANSWERS;
   const currentQuestionAnswered = currentQuestion
     ? hasQuestionAnswer(answers, currentQuestion.id)
     : false;
