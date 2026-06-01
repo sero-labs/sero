@@ -1,4 +1,4 @@
-// components/SearchHistory.tsx — Scrollable list of past searches/fetches
+// components/SearchHistory.tsx, Scrollable list of past searches/fetches
 // with a clear-all button.
 
 import { useCallback } from 'react';
@@ -42,7 +42,7 @@ export function SearchHistory({ entries }: SearchHistoryProps) {
           className="h-6 gap-1.5 px-2 text-[11px] text-muted-foreground hover:text-destructive"
           onClick={clearAll}
         >
-          <Trash2 className="h-3 w-3" />
+          <Trash2 className="size-3" />
           Clear history
         </Button>
       </div>

@@ -1,5 +1,5 @@
 /**
- * Provider section in the Model Manager — collapsible group with
+ * Provider section in the Model Manager, collapsible group with
  * a visibility toggle for the entire provider.
  */
 

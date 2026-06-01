@@ -1,5 +1,5 @@
 /**
- * CollaborationActivityPanel — "Group Chat" style visualization
+ * CollaborationActivityPanel, "Group Chat" style visualization
  * that makes multi-agent collaboration feel like eavesdropping on
  * a lively team chat room. Each agent has a distinct icon, color,
  * and personality. Messages appear as chat bubbles with typing
@@ -135,7 +135,7 @@ export function CollaborationActivityPanel() {
         <div className="flex items-center gap-1.5 border-t border-destructive/20 bg-destructive/5 px-3 py-2">
           <XCircle className="size-3 text-destructive" />
           <span className="text-[10px] text-destructive">
-            Connection lost — an error occurred
+            Connection lost, an error occurred
           </span>
         </div>
       )}

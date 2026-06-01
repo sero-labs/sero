@@ -35,7 +35,7 @@ export function LocalProviderConnectionSection({
   return (
     <>
       <LocalProviderField label="Provider Name">
-        <input
+        <input aria-label="Input"
           value={name}
           onChange={(event) => onNameChange(event.target.value)}
           placeholder="e.g. ollama, lm-studio"
@@ -48,7 +48,7 @@ export function LocalProviderConnectionSection({
 
       <LocalProviderField label="Base URL">
         <div className="flex gap-2">
-          <input
+          <input aria-label="Input"
             value={baseUrl}
             onChange={(event) => onBaseUrlChange(event.target.value)}
             placeholder="http://localhost:11434/v1"
@@ -81,7 +81,7 @@ export function LocalProviderConnectionSection({
       </LocalProviderField>
 
       <LocalProviderField label="API Type">
-        <select
+        <select aria-label="Select option"
           value={api}
           onChange={(event) => onApiChange(event.target.value as LocalModelApi)}
           className="h-8 w-full rounded-md border border-[var(--border-subtle)] bg-[var(--bg-base)]
@@ -94,7 +94,7 @@ export function LocalProviderConnectionSection({
       </LocalProviderField>
 
       <LocalProviderField label="API Key" hint="Literal value, env var name, or !command">
-        <input
+        <input aria-label="Input"
           value={apiKey}
           onChange={(event) => onApiKeyChange(event.target.value)}
           placeholder="ollama"

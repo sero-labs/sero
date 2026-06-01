@@ -1,5 +1,5 @@
 /**
- * UserFeedbackApp — dedicated Sero app UI for questionnaire & interview interactions.
+ * UserFeedbackApp, dedicated Sero app UI for questionnaire & interview interactions.
  *
  * - Questionnaire pending: shows the multi-step options form
  * - Interview pending: shows the open-ended text-area form
@@ -32,7 +32,7 @@ export function UserFeedbackApp() {
   // Minimal file state (just for app discovery / lastActivity tracking)
   const [_state, updateState] = useAppState<UserFeedbackState>(DEFAULT_STATE);
 
-  // Pending questionnaire/interview queue — received via IPC from main process.
+  // Pending questionnaire/interview queue, received via IPC from main process.
   // Keep insertion order so older prompts remain visible until resolved.
   const [pendingQuestions, setPendingQuestions] = useState<UserFeedbackPendingQuestion[]>([]);
 
@@ -67,7 +67,7 @@ export function UserFeedbackApp() {
       setPendingQuestions((prev) => removePendingQuestion(prev, data.id));
     });
 
-    // DOM event from preload's answer() — clears regardless of who answered
+    // DOM event from preload's answer(), clears regardless of who answered
     const onAnswered = (e: Event) => {
       const { id } = (e as CustomEvent<{ id: string }>).detail;
       setPendingQuestions((prev) => removePendingQuestion(prev, id));
@@ -132,13 +132,13 @@ function IdleState() {
       <div className="mt-4 rounded-lg border border-border bg-card p-4 text-xs text-muted-foreground">
         <p className="font-medium text-foreground">Available tools:</p>
         <ul className="mt-2 space-y-1">
-          <li>• <strong>question</strong> — single question with options (ChatPanel)</li>
-          <li>• <strong>questionnaire</strong> — multi-question form (this view)</li>
-          <li>• <strong>interview</strong> — open-ended deep-dive questions (this view)</li>
+          <li>• <strong>question</strong>, single question with options (ChatPanel)</li>
+          <li>• <strong>questionnaire</strong>, multi-question form (this view)</li>
+          <li>• <strong>interview</strong>, open-ended deep-dive questions (this view)</li>
         </ul>
         <p className="mt-3 font-medium text-foreground">Command:</p>
         <ul className="mt-1 space-y-1">
-          <li>• <code className="rounded bg-secondary px-1">/interview &lt;path&gt;</code> — start an interview and write a spec</li>
+          <li>• <code className="rounded bg-secondary px-1">/interview &lt;path&gt;</code>, start an interview and write a spec</li>
         </ul>
       </div>
     </div>

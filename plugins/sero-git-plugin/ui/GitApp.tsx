@@ -1,5 +1,5 @@
 /**
- * GitApp — Sero web UI for the Git workspace manager.
+ * GitApp, Sero web UI for the Git workspace manager.
  *
  * A GitKraken-inspired interface with a visual commit graph,
  * branch panel, staging area, and diff viewer. Uses useAppState
@@ -153,7 +153,7 @@ export function GitApp() {
   return (
     <>
       <style>{GIT_STYLES}</style>
-      <div className="git-root relative flex h-full w-full flex-col overflow-hidden">
+      <div className="git-root relative flex size-full flex-col overflow-hidden">
         <Header state={state} onAction={runAction} />
 
         {notice && (
@@ -234,6 +234,7 @@ function DiffPlaceholder({
           {resolved ? 'No diff available' : 'Loading diff…'}
         </span>
         <button type="button"
+          aria-label="Close diff"
           onClick={onClose}
           className="cursor-pointer p-1 text-[var(--g-dim)] transition-colors hover:text-[var(--g-text)]"
         >
@@ -245,7 +246,7 @@ function DiffPlaceholder({
       <div className="flex flex-1 items-center justify-center px-6 text-center text-xs text-[var(--g-dim)]">
         {resolved
           ? 'This file does not have a displayable diff in the selected state.'
-          : 'Preparing the diff for this file…'}
+          : 'Preparing the diff for this file...'}
       </div>
     </div>
   );
@@ -292,7 +293,7 @@ function WorkspaceLoadingState({ workspacePath }: { workspacePath: string }) {
   return (
     <div className="flex flex-1 items-center justify-center">
       <div className="flex max-w-sm flex-col items-center text-center">
-        <div className="git-loading mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[var(--g-elevated)] text-[var(--g-accent)]">
+        <div className="git-loading mb-4 flex size-16 items-center justify-center rounded-full bg-[var(--g-elevated)] text-[var(--g-accent)]">
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
             <path d="M9 3v12a3 3 0 003 3h0a3 3 0 003-3V9" />
             <circle cx="9" cy="3" r="2" />
@@ -313,7 +314,7 @@ function EmptyRepoState({ workspacePath }: { workspacePath: string }) {
   return (
     <div className="flex flex-1 items-center justify-center">
       <div className="flex max-w-sm flex-col items-center text-center">
-        <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[var(--g-elevated)]">
+        <div className="mb-4 flex size-16 items-center justify-center rounded-full bg-[var(--g-elevated)]">
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--g-dim)" strokeWidth="1.5" strokeLinecap="round">
             <path d="M9 3v12a3 3 0 003 3h0a3 3 0 003-3V9" />
             <circle cx="9" cy="3" r="2" />

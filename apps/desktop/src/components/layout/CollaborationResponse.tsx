@@ -1,5 +1,5 @@
 /**
- * CollaborationResponse — expandable display of specialist agent outputs.
+ * CollaborationResponse, expandable display of specialist agent outputs.
  *
  * Shown below the synthesized response when collaboration mode produced the answer.
  * Each specialist's output is collapsible for transparency.

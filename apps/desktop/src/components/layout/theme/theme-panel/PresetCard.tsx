@@ -1,5 +1,5 @@
 /**
- * PresetCard — thumbnail card for a theme preset in the browser grid.
+ * PresetCard, thumbnail card for a theme preset in the browser grid.
  * Shows name, description, author, active/builtin badges.
  * Actions: select, edit (custom or duplicate builtin), delete.
  */
@@ -63,7 +63,7 @@ export function PresetCard({ preset, isActive, onSelect, onDelete, onEdit }: Pre
         )}
       </div>
 
-      {/* Hover actions — rendered above the select button */}
+      {/* Hover actions, rendered above the select button */}
       <div className="absolute top-2 right-2 z-10 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
         {onEdit && (
           <IconAction

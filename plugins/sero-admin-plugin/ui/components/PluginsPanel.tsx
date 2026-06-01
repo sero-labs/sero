@@ -19,7 +19,7 @@ export const PluginsPanel = memo(function PluginsPanel() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[var(--bg-base)]">
-      <div className="border-b border-[var(--border-subtle)] bg-[var(--bg-surface)] px-4 py-4">
+      <div className="border-b border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex min-w-0 items-start gap-3">
             <div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl border border-[var(--banner-primary-border)] bg-[var(--banner-primary-muted)] text-[var(--banner-primary)]">

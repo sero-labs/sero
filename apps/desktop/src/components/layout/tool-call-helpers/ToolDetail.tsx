@@ -59,14 +59,14 @@ export function ToolDetail({
             />
             {!isComplete && tool.isPartialOutput && !progressModel ? (
               <div className="mt-2 text-xs italic text-[var(--status-info)]">
-                Live update — tool still running.
+                Live update, tool still running.
               </div>
             ) : null}
           </>
         ) : null}
         {isCancelled ? (
           <div className="text-xs italic text-[var(--status-warning)]">
-            Cancelled — agent was stopped before this tool completed.
+            Cancelled, agent was stopped before this tool completed.
           </div>
         ) : null}
       </ToolContent>

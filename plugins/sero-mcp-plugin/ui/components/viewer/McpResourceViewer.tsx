@@ -15,7 +15,7 @@ export function McpResourceViewer({
   kind: Exclude<McpViewerKind, 'auth'>;
 }) {
   if (loading && !preview && !session) {
-    return <ViewerPlaceholder body="Loading MCP content…" />;
+    return <ViewerPlaceholder body="Loading MCP content..." />;
   }
 
   if (session) {

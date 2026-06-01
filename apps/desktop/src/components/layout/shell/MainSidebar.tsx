@@ -18,7 +18,7 @@ import { AppStoreDialog } from '@/components/layout/AppStoreDialog';
 import { IconAction } from '@/components/ui/IconAction';
 
 /**
- * MainSidebar — the primary navigation sidebar.
+ * MainSidebar, the primary navigation sidebar.
  *
  * Top section: sidebar-visible apps (built-ins + favourited discovered apps)
  * Bottom section: workspace → session tree loaded from Pi SDK
@@ -39,7 +39,7 @@ export function MainSidebar() {
 
   return (
     <>
-      <aside className="flex h-full w-full min-w-0 flex-col border-r border-[var(--border-default)] bg-[var(--bg-surface)]">
+      <aside className="flex size-full min-w-0 flex-col border-r border-[var(--border-default)] bg-[var(--bg-surface)]">
         {/* ── Apps ──────────────────────────────────────────────── */}
         <div className="flex flex-col gap-0.5 p-2">
           <div className="flex items-center justify-between px-2 pb-1">
@@ -102,7 +102,7 @@ function SearchBar() {
       <div className="relative">
         <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-[var(--text-muted)]" />
         <Input
-          placeholder="Search sessions…"
+          placeholder="Search sessions..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="h-7 !pl-8 text-xs"

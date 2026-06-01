@@ -40,8 +40,8 @@ export function QuestionnaireReviewStep({
         )}
       >
         {skippedCount > 0
-          ? `${skippedCount} ${skippedCount === 1 ? 'question is' : 'questions are'} still skipped — edit anything in amber or submit when ready.`
-          : 'Everything is answered — submit when ready.'}
+          ? `${skippedCount} ${skippedCount === 1 ? 'question is' : 'questions are'} still skipped, edit anything in amber or submit when ready.`
+          : 'Everything is answered, submit when ready.'}
       </p>
       <div className="space-y-3">
         {questions.map((question, index) => {

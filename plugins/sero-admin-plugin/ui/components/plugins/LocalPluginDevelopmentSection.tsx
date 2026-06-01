@@ -34,7 +34,7 @@ export const LocalPluginDevelopmentSection = memo(function LocalPluginDevelopmen
 
   return (
     <section className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-[0_20px_60px_-42px_rgba(0,0,0,0.7)]">
-      <div className="border-b border-[var(--border-subtle)] px-4 py-4">
+      <div className="border-b border-[var(--border-subtle)] p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex min-w-0 items-start gap-3">
             <div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl border border-[var(--status-info-border)] bg-[var(--status-info-muted)] text-[var(--status-info)]">
@@ -84,7 +84,7 @@ export const LocalPluginDevelopmentSection = memo(function LocalPluginDevelopmen
         </div>
       </div>
 
-      <div className="space-y-4 px-4 py-4">
+      <div className="space-y-4 p-4">
         <div className="rounded-xl border border-[var(--status-info-border)] bg-[var(--status-info-muted)]/40 px-3.5 py-3">
           <p className="text-[11px] leading-5 text-[var(--text-secondary)]">
             These sessions are saved per profile and use the source checkout directly. Use the{' '}
@@ -138,7 +138,7 @@ export const LocalPluginDevelopmentSection = memo(function LocalPluginDevelopmen
 function EmptyState() {
   return (
     <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-[var(--border-default)] bg-[var(--bg-base)] px-6 py-10 text-center">
-      <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-[var(--status-info-border)] bg-[var(--status-info-muted)] text-[var(--status-info)]">
+      <div className="flex size-14 items-center justify-center rounded-2xl border border-[var(--status-info-border)] bg-[var(--status-info-muted)] text-[var(--status-info)]">
         <Code2 className="size-6" />
       </div>
       <p className="mt-4 text-sm font-medium text-[var(--text-primary)]">No local development sessions yet</p>

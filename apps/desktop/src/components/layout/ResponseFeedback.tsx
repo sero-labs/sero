@@ -1,5 +1,5 @@
 /**
- * ResponseFeedback — thumbs up / thumbs down on assistant messages.
+ * ResponseFeedback, thumbs up / thumbs down on assistant messages.
  *
  * Appears after an assistant response finishes streaming.
  * Persists ratings to ~/.sero-ui/agent/feedback.json for later review.

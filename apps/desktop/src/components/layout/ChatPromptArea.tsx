@@ -1,5 +1,5 @@
 /**
- * ChatPromptArea — extracted from ChatPanel so the prompt input tree
+ * ChatPromptArea, extracted from ChatPanel so the prompt input tree
  * doesn't re-render on every streaming token.
  *
  * Subscribes to store selectors that return primitives (sessionId,
@@ -165,10 +165,10 @@ export const ChatPromptArea = memo(function ChatPromptArea({
                 hasSession
                   ? collaborationMode
                     ? collaborationStrategy === 'debate'
-                      ? 'Debate Collaboration — agents will analyze, debate & synthesize…'
-                      : '4-Agent Collaboration active — ask a complex question…'
-                    : 'Ask Sero anything… (/ for commands, @ for files)'
-                  : 'Select a chat first…'
+                      ? 'Debate Collaboration, agents will analyze, debate & synthesize...'
+                      : '4-Agent Collaboration active, ask a complex question...'
+                    : 'Ask Sero anything... (/ for commands, @ for files)'
+                  : 'Select a chat first...'
               }
               disabled={!hasSession}
             />

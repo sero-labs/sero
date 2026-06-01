@@ -1,8 +1,8 @@
 /**
- * EditorPanel — Monaco editor with multi-tab support, dirty tracking,
+ * EditorPanel, Monaco editor with multi-tab support, dirty tracking,
  * view state persistence, and LSP integration.
  *
- * Does NOT render its own FileTree — the FileTree lives in ExplorerSidebar.
+ * Does NOT render its own FileTree, the FileTree lives in ExplorerSidebar.
  * Tab/file state is managed by the parent ExplorerWorkspace.
  */
 

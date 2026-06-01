@@ -1,5 +1,5 @@
 /**
- * AddWidgetDialog — picker for adding widgets to the dashboard.
+ * AddWidgetDialog, picker for adding widgets to the dashboard.
  *
  * Shows all available widgets grouped by app, with a search filter.
  * Clicking a widget adds it to the dashboard grid.
@@ -75,7 +75,6 @@ export function AddWidgetDialog({ availableWidgets }: AddWidgetDialogProps) {
           value={search}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
           className="mb-3"
-          autoFocus
         />
 
         <div className="max-h-80 space-y-4 overflow-y-auto">

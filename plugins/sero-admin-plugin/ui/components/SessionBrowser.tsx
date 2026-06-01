@@ -1,11 +1,11 @@
 /**
- * SessionBrowser — session list + message viewer.
+ * SessionBrowser, session list + message viewer.
  *
  * Sessions can be very large (500KB+ JSONL files with hundreds of
  * messages). We use:
  *  1. Session list from the sessions API (lightweight metadata)
  *  2. On select: load via appState.readText and parse JSONL
- *  3. CSS content-visibility: auto — browser skips layout/paint
+ *  3. CSS content-visibility: auto, browser skips layout/paint
  *     for off-screen rows, keeping scroll smooth without true
  *     virtualisation.
  */
@@ -60,7 +60,7 @@ export const SessionBrowser = memo(function SessionBrowser({
 const SessionEmptyState = memo(function SessionEmptyState({ count }: { count: number }) {
   return (
     <div className="flex h-full flex-col items-center justify-center">
-      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+      <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10">
         <svg
           width="18"
           height="18"

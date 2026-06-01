@@ -1,11 +1,11 @@
 /**
- * DiffTab — Monaco DiffEditor for comparing file contents between revisions.
+ * DiffTab, Monaco DiffEditor for comparing file contents between revisions.
  *
  * Renders a side-by-side (or inline) diff view with full syntax highlighting,
  * char-level diff decorations, and minimap.
  *
  * The DiffEditor is keyed on `activePath` so React fully unmounts/remounts it
- * on file switch — this avoids Monaco's "TextModel got disposed before
+ * on file switch, this avoids Monaco's "TextModel got disposed before
  * DiffEditorWidget model got reset" error that happens when swapping models
  * on a live widget.
  */
@@ -145,7 +145,7 @@ export function DiffTab({ state }: Props) {
           )}
         </AnimatePresence>
 
-        {/* Keyed DiffEditor — remounts cleanly per file */}
+        {/* Keyed DiffEditor, remounts cleanly per file */}
         <div className="min-w-0 flex-1">
           {activePath ? (
             <DiffFileView

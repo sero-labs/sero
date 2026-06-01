@@ -53,12 +53,12 @@ export function GitShipPanel({
   const canCommitAll = changedCount > 0;
 
   const heroText = useMemo(() => {
-    if (!isCurrentWorkspace) return 'Switching workspaces…';
+    if (!isCurrentWorkspace) return 'Switching workspaces...';
     if (gitState.error) return gitState.error;
     if (!hasRemote) return 'This repo is local-only. Publish it to GitHub or connect an origin to unlock push and PR actions.';
     if (stagedCount > 0 || changedCount > 0) return 'Wrap up the current changes and keep the branch moving.';
-    if (aheadCount > 0) return 'Branch is ahead — publish it and open the review lane.';
-    if (behindCount > 0) return 'Branch is behind — pull before you stack more work on top.';
+    if (aheadCount > 0) return 'Branch is ahead, publish it and open the review lane.';
+    if (behindCount > 0) return 'Branch is behind, pull before you stack more work on top.';
     return 'Working tree is clean. Draft the next PR whenever you are ready.';
   }, [aheadCount, behindCount, changedCount, gitState.error, hasRemote, isCurrentWorkspace, stagedCount]);
 
@@ -186,7 +186,7 @@ export function GitShipPanel({
             </span>
           </div>
 
-          <input
+          <input aria-label="Input"
             value={message}
             onChange={(event) => setMessage(event.target.value)}
             onKeyDown={(event) => {

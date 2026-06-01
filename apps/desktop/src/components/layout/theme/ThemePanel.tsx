@@ -1,5 +1,5 @@
 /**
- * ThemePanel — dialog for browsing and selecting theme presets.
+ * ThemePanel, dialog for browsing and selecting theme presets.
  *
  * For full editing (colours, typography, spacing, radius), opens the
  * separate ThemeEditorSheet which provides live preview.

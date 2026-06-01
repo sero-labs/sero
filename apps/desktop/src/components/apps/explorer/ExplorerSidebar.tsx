@@ -30,7 +30,7 @@ interface ExplorerSidebarProps {
 }
 
 /**
- * ExplorerSidebar — panel content for the explorer workspace activity bar.
+ * ExplorerSidebar, panel content for the explorer workspace activity bar.
  *
  * Explorer panel renders the FileTree; other panels are placeholders.
  */
@@ -38,8 +38,8 @@ export function ExplorerSidebar({ activePanel, workspaceId, fileTreeProps, onOpe
   const title = panelTitles[activePanel];
 
   return (
-    <aside className="flex h-full w-full flex-col bg-[var(--bg-surface)]">
-      {/* ── Header (hidden for git/orchestration — they have their own) ── */}
+    <aside className="flex size-full flex-col bg-[var(--bg-surface)]">
+      {/* ── Header (hidden for git/orchestration, they have their own) ── */}
       {activePanel !== 'git' && activePanel !== 'orchestration' && (
         <div className="flex h-7 shrink-0 items-center px-4">
           <span className="text-[11px] font-medium uppercase tracking-wider text-[var(--text-muted)]">

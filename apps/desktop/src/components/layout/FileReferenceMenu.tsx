@@ -1,5 +1,5 @@
 /**
- * FileReferenceMenu — floating autocomplete for @file references.
+ * FileReferenceMenu, floating autocomplete for @file references.
  *
  * Appears above the chat input when the user types "@" followed by
  * optional filter text.  Fuzzy-searches workspace files (excluding

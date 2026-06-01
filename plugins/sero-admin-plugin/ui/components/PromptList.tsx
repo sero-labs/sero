@@ -1,5 +1,5 @@
 /**
- * PromptList — scrollable list of prompt template cards in the left panel.
+ * PromptList, scrollable list of prompt template cards in the left panel.
  *
  * Selection is keyed by filePath (unique across the prompts tree).
  */

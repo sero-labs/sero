@@ -197,7 +197,7 @@ export function PullRequestSection({
     >
       {!loadingState && prState && !hasEligibleSourceBranch ? (
         <div className="px-2 pb-2">
-          <div className="rounded border border-[var(--border-subtle)] bg-[var(--bg-elevated)]/35 px-2 py-2 text-[10px] text-[var(--text-muted)]">
+          <div className="rounded border border-[var(--border-subtle)] bg-[var(--bg-elevated)]/35 p-2 text-[10px] text-[var(--text-muted)]">
             Pull request creation is disabled until a non-default branch exists.
             Create and push a feature branch first.
           </div>
@@ -219,6 +219,7 @@ export function PullRequestSection({
             <div className="flex items-center gap-1 rounded border border-[var(--border-subtle)] bg-[var(--bg-base)] px-1.5">
               <GitBranch className="size-3 text-[var(--text-muted)]/60" />
               <input
+                aria-label="Pull request target branch"
                 id="pull-request-target-branch"
                 list={listId}
                 value={targetBranch}
@@ -229,7 +230,7 @@ export function PullRequestSection({
             </div>
             <datalist id={listId}>
               {(prState?.targetBranches ?? []).map((branch) => (
-                <option key={branch} value={branch} />
+                <option key={branch} value={branch}>{branch}</option>
               ))}
             </datalist>
           </div>
@@ -266,7 +267,7 @@ export function PullRequestSection({
           )}
         </div>
 
-        <input
+        <input aria-label="Input"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="PR title"
@@ -276,7 +277,7 @@ export function PullRequestSection({
           )}
         />
 
-        <textarea
+        <textarea aria-label="Text input"
           value={body}
           onChange={(e) => setBody(e.target.value)}
           placeholder="PR description"
@@ -355,7 +356,7 @@ function LabeledSelect({
       <label className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]/60">
         {label}
       </label>
-      <select
+      <select aria-label="Select option"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}

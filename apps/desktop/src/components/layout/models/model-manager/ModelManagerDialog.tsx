@@ -1,5 +1,5 @@
 /**
- * Model Manager — full-screen dialog for managing model visibility
+ * Model Manager, full-screen dialog for managing model visibility
  * and favourites. Opened from the ModelSelector gear icon.
  */
 
@@ -83,7 +83,7 @@ export function ModelManagerDialog({ open, onOpenChange }: ModelManagerDialogPro
               ref={inputRef}
               value={filter}
               onChange={(event) => setFilter(event.target.value)}
-              placeholder="Search models, providers…"
+              placeholder="Search models, providers..."
               containerClassName="rounded-lg bg-[var(--bg-base)]"
               iconClassName="text-[var(--text-muted)]"
               className="h-8 text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"

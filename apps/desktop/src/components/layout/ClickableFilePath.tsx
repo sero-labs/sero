@@ -1,5 +1,5 @@
 /**
- * ClickableFilePath — renders a file path as a ctrl+clickable link.
+ * ClickableFilePath, renders a file path as a ctrl+clickable link.
  *
  * When ctrl+clicked (or cmd+clicked on macOS), opens the file in the
  * code editor via the editor-bridge store.

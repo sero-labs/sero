@@ -1,5 +1,5 @@
 /**
- * "Insert workspace snapshot" — menu item that packages the current
+ * "Insert workspace snapshot", menu item that packages the current
  * workspace's state into a concise markdown block and prefills the chat
  * composer with it. Useful as the opening message of a new turn: "here's
  * where I am, help me from here".
@@ -10,9 +10,9 @@
  *   - Currently open browser tabs (scoped to workspace)
  *
  * What's intentionally NOT in the snapshot:
- *   - Git diff / status — can be arbitrarily huge and the agent can run
+ *   - Git diff / status, can be arbitrarily huge and the agent can run
  *     `git status` itself if needed.
- *   - Terminal history — not tracked in a reliable per-workspace store yet.
+ *   - Terminal history, not tracked in a reliable per-workspace store yet.
  */
 
 import { FolderTree } from 'lucide-react';
@@ -50,7 +50,7 @@ async function buildSnapshot(workspaceId: string): Promise<string> {
     // Editor state is best-effort.
   }
 
-  const header = `## Workspace snapshot — ${workspace?.name ?? workspaceId}`;
+  const header = `## Workspace snapshot, ${workspace?.name ?? workspaceId}`;
   const primaryRoot = workspace?.roots?.[0]?.path;
   const rootLine = primaryRoot ? `\n_Root:_ \`${primaryRoot}\`\n` : '\n';
 

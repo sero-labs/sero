@@ -1,5 +1,5 @@
 /**
- * ColorSection — collapsible group of colour pickers for a token category.
+ * ColorSection, collapsible group of colour pickers for a token category.
  */
 
 import { useState } from 'react';

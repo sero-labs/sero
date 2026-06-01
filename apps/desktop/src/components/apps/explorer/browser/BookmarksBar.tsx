@@ -1,5 +1,5 @@
 /**
- * BookmarksBar — horizontal strip of user bookmarks below the toolbar.
+ * BookmarksBar, horizontal strip of user bookmarks below the toolbar.
  *
  * Click → navigate active tab. Middle-click or ⌘-click → open in new tab.
  * Right-click → rename / delete via context menu.
@@ -55,7 +55,7 @@ export function BookmarksBar({ workspaceId, onNavigate }: BookmarksBarProps) {
     return (
       <div className="flex h-7 shrink-0 items-center gap-1.5 border-b border-[var(--border-subtle)] bg-[var(--bg-base)] px-2 text-[11px] text-[var(--text-muted)]">
         <Star className="size-3" />
-        <span>No bookmarks yet — press ⌘B on any page to save it here.</span>
+        <span>No bookmarks yet, press ⌘B on any page to save it here.</span>
       </div>
     );
   }
@@ -127,7 +127,7 @@ function EditBookmarkDialog({ bookmark, onClose, onSave }: EditBookmarkDialogPro
         <div className="flex flex-col gap-3 py-2">
           <label htmlFor="bookmark-title-input" className="flex flex-col gap-1 text-xs text-[var(--text-muted)]">
             Name
-            <Input id="bookmark-title-input" value={title} onChange={(e) => setTitle(e.target.value)} autoFocus />
+            <Input id="bookmark-title-input" value={title} onChange={(e) => setTitle(e.target.value)} />
           </label>
           <label htmlFor="bookmark-url-input" className="flex flex-col gap-1 text-xs text-[var(--text-muted)]">
             URL

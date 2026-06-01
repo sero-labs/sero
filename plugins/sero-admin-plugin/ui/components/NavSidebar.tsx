@@ -1,5 +1,5 @@
 /**
- * NavSidebar — vertical nav with grouped sections for the Admin app.
+ * NavSidebar, vertical nav with grouped sections for the Admin app.
  */
 
 import { memo } from 'react';

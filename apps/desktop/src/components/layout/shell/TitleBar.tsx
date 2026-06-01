@@ -8,7 +8,7 @@ import { GitTitleBarControls } from '@/components/layout/titlebar/git/GitTitleBa
 import { UpdateIndicator } from '@/components/layout/shell/UpdateIndicator';
 
 /**
- * TitleBar — macOS-style custom title bar.
+ * TitleBar, macOS-style custom title bar.
  *
  * The entire bar is a drag region. Interactive elements opt out with `no-drag`.
  * Left: traffic-light spacer → sidebar toggle → active app name.
@@ -22,7 +22,7 @@ export function TitleBar() {
 
   const appsList = useAppStore((s) => s.apps);
   const appLabel = appsList.find((a: { id: string; label: string }) => a.id === activeApp)?.label ?? 'Sero';
-  const titleText = activeWorkspace?.name ? `${appLabel} — ${activeWorkspace.name}` : appLabel;
+  const titleText = activeWorkspace?.name ? `${appLabel}, ${activeWorkspace.name}` : appLabel;
 
   return (
     <header className="title-bar drag-region flex h-10 shrink-0 items-center border-b border-[var(--border-default)] bg-[var(--bg-base)]">

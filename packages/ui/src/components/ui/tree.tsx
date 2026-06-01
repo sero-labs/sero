@@ -61,7 +61,7 @@ interface TreeItemProps<T = any>
 }
 
 /**
- * TreeItem — full-width row button.
+ * TreeItem, full-width row button.
  *
  * The row carries hover / selected / drag-target backgrounds so the
  * highlight spans edge-to-edge (VSCode-style). Indentation is applied
@@ -140,7 +140,7 @@ interface TreeItemLabelProps<T = any>
 }
 
 /**
- * TreeItemLabel — content wrapper inside a TreeItem.
+ * TreeItemLabel, content wrapper inside a TreeItem.
  *
  * Layout-only (chevron + children). Background lives on the parent
  * TreeItem so it spans the full row width.

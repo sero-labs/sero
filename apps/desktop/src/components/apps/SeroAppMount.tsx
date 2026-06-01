@@ -1,5 +1,5 @@
 /**
- * SeroAppMount — loads and mounts a federated Sero app.
+ * SeroAppMount, loads and mounts a federated Sero app.
  *
  * Resolves the lazy component from the federated remote registry
  * (src/lib/federation-registry.ts) based on the manifest's app ID.
@@ -86,7 +86,7 @@ class AppErrorBoundary extends Component<AppErrorBoundaryProps, AppErrorBoundary
 
 function AppPlaceholder({ name, reason }: { name: string; reason: string }) {
   return (
-    <div className="flex h-full w-full flex-col items-center justify-center bg-[var(--bg-base)]">
+    <div className="flex size-full flex-col items-center justify-center bg-[var(--bg-base)]">
       <span className="text-sm font-medium text-[var(--text-secondary)]">
         {name}
       </span>
@@ -97,7 +97,7 @@ function AppPlaceholder({ name, reason }: { name: string; reason: string }) {
 
 function AppLoading({ name }: { name: string }) {
   return (
-    <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-[var(--bg-base)]">
+    <div className="flex size-full flex-col items-center justify-center gap-3 bg-[var(--bg-base)]">
       <Spinner className="size-5 text-[var(--status-success)]" />
       <span className="text-sm text-[var(--text-muted)]">
         Loading {name}

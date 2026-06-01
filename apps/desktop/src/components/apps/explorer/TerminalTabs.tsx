@@ -1,5 +1,5 @@
 /**
- * TerminalTabs — tab bar for multiple terminal sessions per workspace.
+ * TerminalTabs, tab bar for multiple terminal sessions per workspace.
  *
  * Shows terminal tabs with close buttons and a "+" button to create new ones.
  * Connected to the terminal store for state management.

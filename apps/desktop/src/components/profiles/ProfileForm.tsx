@@ -1,5 +1,5 @@
 /**
- * ProfileForm — shared form for creating profiles.
+ * ProfileForm, shared form for creating profiles.
  *
  * Used by both the setup screen and the create-profile dialog.
  * Handles name input, optional custom folder picker, and optional
@@ -22,8 +22,6 @@ interface ProfileFormProps {
   onClearOperationError?: () => void;
   /** If true, shows a loading spinner on the submit button. */
   isLoading?: boolean;
-  /** If true, the name input is autofocused. */
-  autoFocus?: boolean;
 }
 
 export function ProfileForm({
@@ -32,7 +30,6 @@ export function ProfileForm({
   operationError = null,
   onClearOperationError,
   isLoading = false,
-  autoFocus = true,
 }: ProfileFormProps) {
   const [name, setName] = useState('');
   const [customPath, setCustomPath] = useState<string | null>(null);
@@ -103,7 +100,6 @@ export function ProfileForm({
             setValidationError(null);
             onClearOperationError?.();
           }}
-          autoFocus={autoFocus}
           disabled={isLoading}
           className="bg-[var(--bg-surface)] text-[var(--text-primary)]"
         />
@@ -151,7 +147,7 @@ export function ProfileForm({
       {/* Copy Credentials */}
       {hasAuthSource && (
         <label className="flex cursor-pointer items-center gap-2.5 rounded-md border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-2.5">
-          <input
+          <input aria-label="Checkbox input"
             type="checkbox"
             checked={copyAuth}
             onChange={(e) => {
@@ -184,7 +180,7 @@ export function ProfileForm({
         {isLoading ? (
           <>
             <Loader2 className="mr-2 size-3.5 animate-spin" />
-            Creating...
+            Creating…
           </>
         ) : (
           submitLabel

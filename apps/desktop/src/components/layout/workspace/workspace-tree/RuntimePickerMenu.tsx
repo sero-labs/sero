@@ -174,7 +174,7 @@ export function RuntimePickerMenu({ workspace }: { workspace: WorkspaceInfo }) {
                   disabled={option.disabled || Boolean(pendingBackend)}
                   aria-current={selected ? 'true' : undefined}
                   className={cn(
-                    'group flex w-full items-start gap-2 rounded-lg border px-2.5 py-2.5 text-left transition-all duration-150',
+                    'group flex w-full items-start gap-2 rounded-lg border p-2.5 text-left transition-all duration-150',
                     'border-transparent hover:border-[var(--accent-primary)] hover:bg-[var(--status-info-faint)] hover:shadow-sm',
                     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]',
                     'disabled:cursor-not-allowed disabled:opacity-60',

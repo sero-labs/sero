@@ -135,7 +135,7 @@ export function DiscoverPluginCard({
             aria-label={`Uninstall ${plugin.displayName}`}
             disabled={isUninstalling}
             onClick={handleUninstall}
-            className="h-7 w-7 shrink-0 border-[var(--status-error-border)] bg-[var(--status-error-muted)] text-[var(--status-error)] hover:bg-[var(--status-error-subtle)]"
+            className="size-7 shrink-0 border-[var(--status-error-border)] bg-[var(--status-error-muted)] text-[var(--status-error)] hover:bg-[var(--status-error-subtle)]"
           >
             {isUninstalling ? (
               <Loader2 className="size-3 animate-spin" />

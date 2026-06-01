@@ -1,5 +1,5 @@
 /**
- * AgentEditor — form for editing agent metadata + system prompt.
+ * AgentEditor, form for editing agent metadata + system prompt.
  */
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
@@ -184,7 +184,7 @@ export function AgentEditor({ data, isNew, saving, onSave, onDelete, onChange }:
 
       <div className="grid grid-cols-2 gap-3 border-b border-border px-4 py-3">
         <Field label="Name" hint="lowercase, hyphens only">
-          <input
+          <input aria-label="Text input"
             type="text"
             value={data.name}
             onChange={(e) => update({ name: e.target.value })}
@@ -195,7 +195,7 @@ export function AgentEditor({ data, isNew, saving, onSave, onDelete, onChange }:
         </Field>
 
         <Field label="Description">
-          <input
+          <input aria-label="Text input"
             type="text"
             value={data.description}
             onChange={(e) => update({ description: e.target.value })}
@@ -205,21 +205,21 @@ export function AgentEditor({ data, isNew, saving, onSave, onDelete, onChange }:
         </Field>
 
         <Field label="Model choice" hint="usually LOW / MED / HIGH">
-          <select
+          <select aria-label="Select option"
             value={modelSelectValue}
             onChange={(e) => handleModelSelectChange(e.target.value)}
             className={fieldClass}
           >
             <option value={DEFAULT_MODEL_VALUE}>Use Sero default (recommended)</option>
-            <option value="LOW">LOW — fast</option>
-            <option value="MED">MED — balanced</option>
-            <option value="HIGH">HIGH — strongest</option>
+            <option value="LOW">LOW, fast</option>
+            <option value="MED">MED, balanced</option>
+            <option value="HIGH">HIGH, strongest</option>
             <option value={CUSTOM_MODEL_VALUE}>Pick a specific model…</option>
           </select>
         </Field>
 
         <Field label="Thinking" hint={isPinnedModelMode ? 'only used for a pinned model' : 'inherited from the selected tier'}>
-          <select
+          <select aria-label="Select option"
             value={isPinnedModelMode ? (data.thinking || '') : ''}
             onChange={(e) => update({ thinking: e.target.value || undefined })}
             disabled={!isPinnedModelMode || !selectedPinnedModel}

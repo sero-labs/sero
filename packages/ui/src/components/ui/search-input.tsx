@@ -20,7 +20,7 @@ const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
           data-slot="search-input-icon"
           className={cn("text-muted-foreground size-3.5 shrink-0", iconClassName)}
         />
-        <input
+        <input aria-label="Input"
           ref={ref}
           data-slot="search-input-control"
           className={cn(

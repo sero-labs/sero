@@ -1,5 +1,5 @@
 /**
- * PromptEditor — form for editing prompt template metadata + body.
+ * PromptEditor, form for editing prompt template metadata + body.
  *
  * Prompt templates are .md files with optional YAML frontmatter
  * (description). The filename becomes the /slash command name.
@@ -58,7 +58,7 @@ export function PromptEditor({ data, isNew, saving, onSave, onDelete, onChange }
           </Button>
         )}
         <Button type="submit" size="sm" disabled={!canSave || saving}>
-          {saving ? 'Saving…' : (
+          {saving ? 'Saving...' : (
             <>
               <Save className="size-3.5" />
               Save
@@ -70,7 +70,7 @@ export function PromptEditor({ data, isNew, saving, onSave, onDelete, onChange }
       {/* ── Metadata fields ────────────────────────────── */}
       <div className="grid grid-cols-2 gap-3 border-b border-border px-4 py-3">
         <Field label="Name" hint="becomes /name command">
-          <input
+          <input aria-label="Text input"
             type="text"
             value={data.name}
             onChange={(e) => update({ name: e.target.value })}
@@ -81,7 +81,7 @@ export function PromptEditor({ data, isNew, saving, onSave, onDelete, onChange }
         </Field>
 
         <Field label="Description">
-          <input
+          <input aria-label="Text input"
             type="text"
             value={data.description}
             onChange={(e) => update({ description: e.target.value })}

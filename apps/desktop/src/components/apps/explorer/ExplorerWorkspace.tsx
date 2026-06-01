@@ -27,7 +27,7 @@ import { useWorkspaceExplorer, useExplorerStore } from '@/stores/explorer';
 const TERMINAL_MIN_HEIGHT = 100;
 
 /**
- * ExplorerWorkspace — the full explorer app, mounted into the main area.
+ * ExplorerWorkspace, the full explorer app, mounted into the main area.
  *
  * ┌────┬──────┬───────────────────────────────────┐
  * │ A  │ Side │                                   │
@@ -170,7 +170,7 @@ export function ExplorerWorkspace() {
   );
 
   return (
-    <div className="flex h-full w-full min-h-0 flex-col">
+    <div className="flex size-full min-h-0 flex-col">
       {/* ── Top: activity bar + sidebar + editor ───────────── */}
       <div className="flex min-h-0 flex-1">
         <ActivityBar
@@ -239,7 +239,7 @@ export function ExplorerWorkspace() {
                         <span className="text-[11px] text-[var(--text-muted)]">
                           Diff: {diffState.fromRev.slice(0, 8)} → {diffState.toRev.slice(0, 8)}
                           {diffState.initialPath &&
-                            ` — ${diffState.initialPath.split('/').pop()}`}
+                            `, ${diffState.initialPath.split('/').pop()}`}
                         </span>
                         <span className="flex-1" />
                         <button type="button"
@@ -300,7 +300,7 @@ export function ExplorerWorkspace() {
                   {termTabs.length === 0 && (
                     <div className="flex h-full items-center justify-center">
                       <span className="text-xs text-[var(--text-muted)]">
-                        No terminals — click + to create one
+                        No terminals, click + to create one
                       </span>
                     </div>
                   )}

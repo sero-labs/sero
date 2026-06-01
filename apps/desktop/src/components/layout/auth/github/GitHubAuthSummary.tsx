@@ -69,7 +69,7 @@ export function GitHubAuthSummary({
   return (
     <div
       className={cn(
-        'flex items-center justify-between gap-2 rounded border border-[var(--border-subtle)] bg-[var(--bg-elevated)]/30 px-2 py-2',
+        'flex items-center justify-between gap-2 rounded border border-[var(--border-subtle)] bg-[var(--bg-elevated)]/30 p-2',
         className,
       )}
     >

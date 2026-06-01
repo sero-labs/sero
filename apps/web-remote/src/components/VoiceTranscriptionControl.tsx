@@ -105,7 +105,7 @@ export function VoiceTranscriptionControl({
    * recorder's onstop so it doesn't try to finalize through the (possibly
    * gone) gateway, stops the recorder, and releases the microphone stream.
    *
-   * Called on unmount and on disconnect — leaving these resources alive
+   * Called on unmount and on disconnect, leaving these resources alive
    * after the gateway drops would keep the mic LED on while the user has
    * no UI to stop it.
    */
@@ -394,7 +394,7 @@ export function VoiceTranscriptionControl({
         )}
       </button>
 
-      {/* Hide the device picker on small screens — phones expose only the system default mic. */}
+      {/* Hide the device picker on small screens, phones expose only the system default mic. */}
       {!isMobile && (
         <Popover open={deviceMenuOpen} onOpenChange={setDeviceMenuOpen}>
           <PopoverTrigger asChild>
@@ -423,7 +423,7 @@ export function VoiceTranscriptionControl({
             </div>
 
             {audioInputs.length === 0 ? (
-              <div className="px-2 py-2 text-xs text-muted-foreground">
+              <div className="p-2 text-xs text-muted-foreground">
                 No microphone devices detected.
               </div>
             ) : (

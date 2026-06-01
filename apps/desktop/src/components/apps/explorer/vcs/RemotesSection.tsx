@@ -1,5 +1,5 @@
 /**
- * RemotesSection — manage Git remotes for the workspace.
+ * RemotesSection, manage Git remotes for the workspace.
  */
 
 import { useState, useCallback } from 'react';
@@ -67,7 +67,6 @@ export function RemotesSection({ workspaceId, remotes }: Props) {
                   <label htmlFor="remote-name-input" className="w-10 text-[10px] text-[var(--text-muted)]">Name</label>
                   <input
                     id="remote-name-input"
-                    autoFocus
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     className={cn(

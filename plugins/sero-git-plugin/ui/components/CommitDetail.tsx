@@ -1,5 +1,5 @@
 /**
- * Commit detail panel — shown when a commit is selected.
+ * Commit detail panel, shown when a commit is selected.
  *
  * Displays commit metadata, stats, and changed files.
  */
@@ -107,6 +107,7 @@ export function CommitDetail({
             {hasWorkingTreeChanges ? 'Cherry-pick…' : 'Cherry-pick'}
           </button>
           <button type="button"
+            aria-label="Close commit details"
             onClick={onClose}
             className="cursor-pointer p-1 text-[var(--g-dim)] transition-colors hover:text-[var(--g-text)]"
           >
@@ -159,7 +160,7 @@ function FileRow({ diff, onClick }: { diff: FileDiff; onClick: () => void }) {
       className="flex cursor-pointer items-center gap-2 border-b border-[var(--g-border)] px-4 py-1.5 hover:bg-[var(--g-hover)] last:border-b-0"
     >
       <span
-        className="flex h-4 w-4 shrink-0 items-center justify-center rounded text-[9px] font-bold"
+        className="flex size-4 shrink-0 items-center justify-center rounded text-[9px] font-bold"
         style={{ background: `${statusColor}18`, color: statusColor }}
       >
         {statusLabel}
@@ -188,7 +189,7 @@ function StatBar({ additions, deletions }: { additions: number; deletions: numbe
       {Array.from({ length: blocks }, (_, index) => (
         <div
           key={index}
-          className="h-1.5 w-1.5 rounded-sm"
+          className="size-1.5 rounded-sm"
           style={{ background: index < addBlocks ? 'var(--g-green)' : 'var(--g-red)', opacity: 0.6 }}
         />
       ))}

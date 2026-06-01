@@ -1,9 +1,9 @@
 /**
- * PendingQuestionCard — interactive card for ChatPanel.
+ * PendingQuestionCard, interactive card for ChatPanel.
  *
  * Renders for two pending question types:
- *   - `question` — standard blue-themed option picker
- *   - `permission` — warning-styled amber/red card for dangerous command approval
+ *   - `question`, standard blue-themed option picker
+ *   - `permission`, warning-styled amber/red card for dangerous command approval
  *
  * Styled to match ToolCallGroup's visual language.
  */
@@ -21,7 +21,7 @@ export function PendingQuestionCard() {
   const questionPending = useUserFeedbackStore((s) => s.getPending('question'));
   const permissionPending = useUserFeedbackStore((s) => s.getPending('permission'));
 
-  // Permission gates take priority — show them first
+  // Permission gates take priority, show them first
   const pending = permissionPending ?? questionPending;
   if (!pending) return null;
 
@@ -87,7 +87,7 @@ function PermissionGateCard({ question }: { question: UserFeedbackPendingQuestio
         <ShieldAlert className="size-3.5 text-[var(--status-warning)]" />
         <span className="size-1.5 shrink-0 animate-pulse rounded-full bg-[var(--status-warning)]" />
         <span className="flex-1 text-xs font-semibold text-[var(--status-warning)]">
-          dangerous command — approval required
+          dangerous command, approval required
         </span>
         <button type="button"
           onClick={handleCancel}
@@ -185,7 +185,7 @@ function QuestionCardInner({ question }: { question: UserFeedbackPendingQuestion
       transition={{ duration: 0.2 }}
       className="mx-3 mb-2 overflow-hidden rounded-lg border border-[var(--status-info-border)] bg-[var(--status-info-faint)]"
     >
-      {/* Header — matches ToolCallGroup summary bar */}
+      {/* Header, matches ToolCallGroup summary bar */}
       <div className="flex items-center gap-2.5 px-3 py-2">
         <ChevronRight className="size-3.5 text-[var(--text-muted)]" />
         <span className="size-1.5 shrink-0 animate-pulse rounded-full bg-[var(--status-info)]" />
@@ -208,7 +208,7 @@ function QuestionCardInner({ question }: { question: UserFeedbackPendingQuestion
       </div>
 
       {/* Options */}
-      <div className="space-y-0.5 px-2 py-2">
+      <div className="space-y-0.5 p-2">
         {q.options.map((opt, i) => (
           <button type="button"
             key={opt.value}
@@ -244,9 +244,8 @@ function QuestionCardInner({ question }: { question: UserFeedbackPendingQuestion
         {/* Custom text input */}
         {customMode && (
           <div className="flex gap-1.5 px-0.5 pt-1">
-            <input
+            <input aria-label="Text input"
               // eslint-disable-next-line jsx-a11y/no-autofocus
-              autoFocus
               type="text"
               value={customText}
               onChange={(e) => setCustomText(e.target.value)}

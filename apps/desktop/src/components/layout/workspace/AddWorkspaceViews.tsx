@@ -3,7 +3,7 @@ import { Button } from '@sero-ai/ui/components/ui/button';
 import { Input } from '@sero-ai/ui/components/ui/input';
 import { cn } from '@sero-ai/ui/lib/utils';
 
-/** Initial view — two action rows. */
+/** Initial view, two action rows. */
 export function PickView({
   onCreateNew,
   onImportExisting,
@@ -31,7 +31,7 @@ export function PickView({
   );
 }
 
-/** Create form view — name input, optional location, create button. */
+/** Create form view, name input, optional location, create button. */
 export function CreateView({
   inputRef,
   name,
@@ -74,7 +74,6 @@ export function CreateView({
           onChange={(e) => onNameChange(e.target.value)}
           placeholder="My Project"
           className="h-7 text-xs"
-          autoFocus
         />
       </div>
 

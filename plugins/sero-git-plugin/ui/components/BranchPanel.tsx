@@ -1,5 +1,5 @@
 /**
- * Left sidebar — branches, remotes, stashes.
+ * Left sidebar, branches, remotes, stashes.
  */
 
 import { useMemo, useState } from 'react';

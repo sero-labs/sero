@@ -1,9 +1,9 @@
 /**
- * LayoutTab — spacing base unit and border radius controls.
+ * LayoutTab, spacing base unit and border radius controls.
  *
  * Tailwind 4 uses:
- *   --spacing   (base unit, default 0.25rem/4px) — p-4 = spacing * 4
- *   --radius    (base, ~10px) — --radius-sm/md/lg derived from it
+ *   --spacing   (base unit, default 0.25rem/4px), p-4 = spacing * 4
+ *   --radius    (base, ~10px), --radius-sm/md/lg derived from it
  *
  * We expose "md" from the preset as the control value and derive the
  * Tailwind variable from it in the theme engine.
@@ -37,7 +37,7 @@ export function LayoutTab({
             Spacing
           </h3>
           <p className="text-[11px] text-[var(--text-muted)] mt-0.5">
-            Base spacing unit — controls padding, margins, and gaps.
+            Base spacing unit, controls padding, margins, and gaps.
             Tailwind&apos;s <code className="font-mono text-[var(--accent-code)]">p-3</code> equals
             this value.
           </p>
@@ -60,7 +60,7 @@ export function LayoutTab({
             Border radius
           </h3>
           <p className="text-[11px] text-[var(--text-muted)] mt-0.5">
-            Base roundness — <code className="font-mono text-[var(--accent-code)]">rounded-lg</code> uses
+            Base roundness, <code className="font-mono text-[var(--accent-code)]">rounded-lg</code> uses
             this value. Smaller sizes are derived automatically.
           </p>
         </div>

@@ -38,7 +38,7 @@ export function DoctorPanel({ safeMode = false }: Props) {
     try {
       await navigator.clipboard.writeText(text);
     } catch {
-      /* ignore — clipboard may be unavailable in tests */
+      /* ignore, clipboard may be unavailable in tests */
     }
   };
 
@@ -46,7 +46,7 @@ export function DoctorPanel({ safeMode = false }: Props) {
     <div className="p-4 max-w-3xl mx-auto">
       {safeMode && (
         <div className="mb-4 rounded border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm">
-          <strong className="font-semibold">Recovery mode</strong> — Sero is not
+          <strong className="font-semibold">Recovery mode</strong>, Sero is not
           running normally. Some checks (workspace, providers) are skipped.
         </div>
       )}

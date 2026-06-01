@@ -1,5 +1,5 @@
 /**
- * ConnectDeviceDialog — generates and displays a QR code for pairing
+ * ConnectDeviceDialog, generates and displays a QR code for pairing
  * a remote device (phone/tablet) with Sero over Tailscale or LAN.
  *
  * Flow:
@@ -56,8 +56,8 @@ export function ConnectDeviceDialog({ open, onOpenChange }: Props) {
   }, []);
 
   // Generate QR data when the dialog opens. The parent controls `open`
-  // via props, so onOpenChange(true) is never called by radix — we need
-  // an effect to detect the open→true transition. (IPC init — valid useEffect.)
+  // via props, so onOpenChange(true) is never called by radix, we need
+  // an effect to detect the open→true transition. (IPC init, valid useEffect.)
   const wasOpen = useRef(false);
   useEffect(() => {
     if (open && !wasOpen.current) {
@@ -162,7 +162,7 @@ export function ConnectDeviceDialog({ open, onOpenChange }: Props) {
                 >
                   {copyFailed ? (
                     <span className="text-destructive">
-                      Copy failed — select the URL above manually
+                      Copy failed, select the URL above manually
                     </span>
                   ) : copied ? (
                     <>

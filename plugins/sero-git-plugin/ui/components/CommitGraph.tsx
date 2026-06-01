@@ -1,5 +1,5 @@
 /**
- * Interactive visual commit graph — the centerpiece of the Git app.
+ * Interactive visual commit graph, the centerpiece of the Git app.
  *
  * Renders an SVG-based graph of commits with colored branch lanes,
  * merge lines, ref labels, and author info. Clicking a row selects it.
@@ -255,7 +255,7 @@ function AuthorAvatar({ name, email }: { name: string; email: string }) {
 
   return (
     <div
-      className="w-5 h-5 rounded-full flex items-center justify-center text-[7px] font-bold shrink-0 ml-2"
+      className="size-5 rounded-full flex items-center justify-center text-[7px] font-bold shrink-0 ml-2"
       style={{ background: `hsl(${hue}, 50%, 25%)`, color: `hsl(${hue}, 70%, 75%)` }}
       title={`${name} <${email}>`}
     >

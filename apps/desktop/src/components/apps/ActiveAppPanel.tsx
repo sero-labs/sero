@@ -34,7 +34,7 @@ export function ActiveAppPanel({ app }: ActiveAppPanelProps) {
     content = (
       <div className="flex h-full items-center justify-center bg-[var(--bg-base)]">
         <span className="text-sm capitalize text-[var(--text-muted)]">
-          {app} app — coming soon
+          {app} app, coming soon
         </span>
       </div>
     );

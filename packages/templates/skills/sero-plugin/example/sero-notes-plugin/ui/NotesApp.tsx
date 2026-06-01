@@ -65,11 +65,11 @@ function createNote(title: string, state: NotesState): NotesState {
 }
 
 export function NotesApp() {
-  // File-backed reactive state — written atomically, reloaded on every change.
+  // File-backed reactive state, written atomically, reloaded on every change.
   const [state, updateState] = useAppState<NotesState>(DEFAULT_STATE);
   const currentState = normalizeNotesState(state);
 
-  // Context about the mount — appId and the current workspace path.
+  // Context about the mount, appId and the current workspace path.
   const { appId, workspacePath } = useAppInfo();
 
   // Direct invocation of this plugin's own tools.
@@ -79,7 +79,7 @@ export function NotesApp() {
   // Send a user message into the active chat session. Silently no-ops with no chat.
   const prompt = useAgentPrompt();
 
-  // Ad-hoc LLM calls — independent of the chat panel. No chat required.
+  // Ad-hoc LLM calls, independent of the chat panel. No chat required.
   const ai = useAI();
 
   const [title, setTitle] = useState('');
@@ -89,7 +89,7 @@ export function NotesApp() {
   const [toolError, setToolError] = useState('');
 
   // Register a widget dynamically. Equivalent to declaring it in the manifest,
-  // but scoped to the lifetime of this component — unregistered on unmount.
+  // but scoped to the lifetime of this component, unregistered on unmount.
   useWidgetRegistration({
     widgetId: 'notes-summary-dynamic',
     name: 'Notes Summary (dynamic)',
@@ -160,7 +160,7 @@ export function NotesApp() {
     prompt('Use the notes tool to summarize my open notes in one short paragraph.');
   };
 
-  // Example: ad-hoc LLM call — generate a note title and add it.
+  // Example: ad-hoc LLM call, generate a note title and add it.
   const generateNote = async () => {
     setSuggesting(true);
     try {
@@ -181,7 +181,7 @@ export function NotesApp() {
   const hasResult = Boolean(toolResult || toolError);
 
   return (
-    <div className="mx-auto flex h-full w-full max-w-2xl flex-col gap-4 overflow-hidden bg-background p-5 text-foreground">
+    <div className="mx-auto flex size-full max-w-2xl flex-col gap-4 overflow-hidden bg-background p-5 text-foreground">
       <header className="flex items-end justify-between gap-3 border-b border-border pb-3">
         <div className="min-w-0">
           <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
@@ -212,7 +212,7 @@ export function NotesApp() {
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder="Add a note…"
+          placeholder="Add a note..."
           aria-label="Add a note"
           className="h-9 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
         />
@@ -230,7 +230,7 @@ export function NotesApp() {
           }`}
         >
           <SparkleIcon />
-          {suggesting ? 'Generating…' : 'Generate'}
+          {suggesting ? 'Generating...' : 'Generate'}
         </Button>
       </form>
 
@@ -249,12 +249,12 @@ export function NotesApp() {
                 key={note.id}
                 className="group flex items-center gap-3 px-3 py-2 transition-colors hover:bg-secondary/40"
               >
-                <input
+                <input aria-label="Checkbox input"
                   type="checkbox"
                   checked={note.done}
                   onChange={() => toggleNote(note.id)}
                   aria-label={`Mark ${note.title} as ${note.done ? 'open' : 'done'}`}
-                  className="h-4 w-4 shrink-0 rounded border-input"
+                  className="size-4 shrink-0 rounded border-input"
                 />
                 <span
                   className={`min-w-0 flex-1 truncate text-sm ${
@@ -309,7 +309,7 @@ export function NotesApp() {
             onClick={runListTool}
             disabled={toolBusy}
           >
-            {toolBusy ? 'Running…' : 'Run notes tool'}
+            {toolBusy ? 'Running...' : 'Run notes tool'}
           </Button>
           <Button size="sm" variant="outline" onClick={askAgentToSummarize}>
             Ask agent to summarize

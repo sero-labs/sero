@@ -1,5 +1,5 @@
 /**
- * ProfileSetup — first-run setup screen.
+ * ProfileSetup, first-run setup screen.
  *
  * Shown when no profile exists (fresh install). Covers the entire
  * window with a clean setup flow: enter name → create profile → launch.
@@ -23,7 +23,7 @@ export function ProfileSetup() {
   };
 
   return (
-    <div className="flex h-screen w-screen flex-col items-center justify-center bg-[var(--bg-base)]">
+    <div className="flex size-screen flex-col items-center justify-center bg-[var(--bg-base)]">
       <div className="flex flex-col items-center gap-8 px-6">
         {/* ── Branding ─────────────────────────────────────── */}
         <div className="flex flex-col items-center gap-3">
@@ -46,7 +46,6 @@ export function ProfileSetup() {
           operationError={error}
           onClearOperationError={clearError}
           isLoading={isLoading}
-          autoFocus
         />
       </div>
     </div>

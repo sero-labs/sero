@@ -78,7 +78,7 @@ export type AudioPlayerElementProps = Omit<ComponentProps<"audio">, "src"> &
 
 export const AudioPlayerElement = ({ ...props }: AudioPlayerElementProps) => (
   // oxlint-disable-next-line eslint-plugin-jsx-a11y(media-has-caption) -- audio player captions are provided by consumer
-  <audio
+  <audio aria-label="Audio preview"
     data-slot="audio-player-element"
     slot="media"
     src={

@@ -77,7 +77,7 @@ export function AddWorkspaceMenu() {
   return (
     <>
     <Popover open={open} onOpenChange={(o) => {
-      if (!o && pickingFolderRef.current) return; // Native dialog stole focus — don't close
+      if (!o && pickingFolderRef.current) return; // Native dialog stole focus, don't close
       setOpen(o);
       if (!o) reset();
     }}>

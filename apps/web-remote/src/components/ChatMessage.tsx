@@ -1,5 +1,5 @@
 /**
- * Chat message renderer — handles user, assistant, and system messages
+ * Chat message renderer, handles user, assistant, and system messages
  * with markdown rendering, code highlighting, thinking blocks, and
  * image lightbox support.
  */
@@ -26,12 +26,12 @@ const ThinkingBlock = memo(function ThinkingBlock({ text }: { text: string }) {
         className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
       >
         {expanded ? (
-          <ChevronDown className="w-3 h-3" />
+          <ChevronDown className="size-3" />
         ) : (
-          <ChevronRight className="w-3 h-3" />
+          <ChevronRight className="size-3" />
         )}
-        <Brain className="w-3 h-3" />
-        Thinking...
+        <Brain className="size-3" />
+        Thinking…
       </button>
       {expanded && (
         <div className="mt-1 pl-4 border-l-2 border-muted text-xs text-muted-foreground whitespace-pre-wrap">
@@ -67,14 +67,14 @@ export const ChatMessageComponent = memo(function ChatMessageComponent({
       {/* Avatar */}
       <div
         className={cn(
-          'w-7 h-7 rounded-full flex items-center justify-center shrink-0',
+          'size-7 rounded-full flex items-center justify-center shrink-0',
           isUser ? 'bg-primary/20' : 'bg-accent',
         )}
       >
         {isUser ? (
-          <User className="w-4 h-4 text-primary" />
+          <User className="size-4 text-primary" />
         ) : (
-          <Bot className="w-4 h-4 text-foreground" />
+          <Bot className="size-4 text-foreground" />
         )}
       </div>
 
@@ -105,7 +105,7 @@ export const ChatMessageComponent = memo(function ChatMessageComponent({
           </div>
         )}
 
-        {/* Inline images — click to open lightbox */}
+        {/* Inline images, click to open lightbox */}
         {message.images && message.images.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-2">
             {message.images.map((img, i) => {

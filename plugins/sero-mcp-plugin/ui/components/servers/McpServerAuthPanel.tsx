@@ -32,7 +32,7 @@ export function McpServerAuthPanel({
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <CardTitle className="flex items-center gap-2 text-base">
-              <ShieldCheck className="h-4 w-4 text-primary" />
+              <ShieldCheck className="size-4 text-primary" />
               OAuth authentication
             </CardTitle>
             <CardDescription>
@@ -48,34 +48,34 @@ export function McpServerAuthPanel({
       <CardContent className="space-y-4">
         <div className="flex flex-wrap gap-2">
           <Button type="button" size="sm" disabled={viewer.authLoading} onClick={() => void viewer.startAuth(server.serverName)}>
-            {viewer.authLoading ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-2 h-4 w-4" />}
+            {viewer.authLoading ? <LoaderCircle className="mr-2 size-4 animate-spin" /> : <ShieldCheck className="mr-2 size-4" />}
             {server.authStatus === 'authenticated' ? 'Re-authenticate' : 'Authenticate'}
           </Button>
           {activeSession && !authPaneActive && (
             <Button type="button" variant="outline" size="sm" disabled={viewer.authLoading} onClick={viewer.focusAuthSession}>
-              <ShieldCheck className="mr-2 h-4 w-4" />
+              <ShieldCheck className="mr-2 size-4" />
               Show auth browser
             </Button>
           )}
           {activeSession && (
             <Button type="button" variant="outline" size="sm" disabled={viewer.authLoading} onClick={() => void viewer.cancelAuth(server.serverName)}>
-              <X className="mr-2 h-4 w-4" />
+              <X className="mr-2 size-4" />
               Cancel auth
             </Button>
           )}
           <Button type="button" variant="outline" size="sm" disabled={viewer.authLoading} onClick={() => void viewer.clearAuth(server.serverName)}>
-            <X className="mr-2 h-4 w-4" />
+            <X className="mr-2 size-4" />
             Clear saved auth
           </Button>
           <Button type="button" variant="outline" size="sm" disabled={!authError} onClick={() => promptAgent(helpPrompt)}>
-            <LifeBuoy className="mr-2 h-4 w-4" />
+            <LifeBuoy className="mr-2 size-4" />
             Ask Sero to help
           </Button>
         </div>
 
         {authError && (
           <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
+            <AlertCircle className="size-4" />
             <AlertTitle>OAuth flow error</AlertTitle>
             <AlertDescription>{authError}</AlertDescription>
           </Alert>

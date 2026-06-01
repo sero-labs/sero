@@ -42,7 +42,7 @@ export function McpServerCrudPanel({
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <CardTitle className="flex items-center gap-2">
-              <Server className="h-4 w-4 text-primary" />
+              <Server className="size-4 text-primary" />
               Servers
             </CardTitle>
             <CardDescription>
@@ -50,7 +50,7 @@ export function McpServerCrudPanel({
             </CardDescription>
           </div>
           <Button type="button" size="sm" onClick={() => setDraft(createEmptyServerEditorInput())}>
-            <Plus className="mr-2 h-4 w-4" />
+            <Plus className="mr-2 size-4" />
             Add server
           </Button>
         </div>
@@ -58,7 +58,7 @@ export function McpServerCrudPanel({
       <CardContent className="space-y-4">
         {(mutations.error || validationError) && (
           <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
+            <AlertCircle className="size-4" />
             <AlertTitle>Server update blocked</AlertTitle>
             <AlertDescription>{validationError ?? mutations.error}</AlertDescription>
           </Alert>
@@ -75,7 +75,7 @@ export function McpServerCrudPanel({
               </div>
               <div className="flex gap-2">
                 <Button type="button" variant="outline" size="sm" onClick={() => setDraft(null)}>
-                  <X className="mr-2 h-4 w-4" />
+                  <X className="mr-2 size-4" />
                   Cancel
                 </Button>
                 <Button
@@ -89,7 +89,7 @@ export function McpServerCrudPanel({
                     }
                   }}
                 >
-                  <Save className="mr-2 h-4 w-4" />
+                  <Save className="mr-2 size-4" />
                   Save server
                 </Button>
               </div>
@@ -210,11 +210,11 @@ export function McpServerCrudPanel({
                         onClick={() => setSelectedServerName(isExpanded ? null : server.serverName)}
                         aria-expanded={isExpanded}
                       >
-                        {isExpanded ? <ChevronUp className="mr-2 h-4 w-4" /> : <ChevronDown className="mr-2 h-4 w-4" />}
+                        {isExpanded ? <ChevronUp className="mr-2 size-4" /> : <ChevronDown className="mr-2 size-4" />}
                         {isExpanded ? 'Hide details' : 'Show details'}
                       </Button>
                       <Button type="button" variant="outline" size="sm" onClick={() => setDraft(createServerEditorInputFromSnapshot(server))}>
-                        <Pencil className="mr-2 h-4 w-4" />
+                        <Pencil className="mr-2 size-4" />
                         Edit
                       </Button>
                       <Button
@@ -224,15 +224,15 @@ export function McpServerCrudPanel({
                         disabled={!server.enabled || mutations.pendingAction === connectAction}
                         onClick={() => void mutations.connectServer(server.serverName, server.connectionStatus === 'connected')}
                       >
-                        <Server className="mr-2 h-4 w-4" />
+                        <Server className="mr-2 size-4" />
                         {server.connectionStatus === 'connected' ? 'Reconnect' : 'Connect'}
                       </Button>
                       <Button type="button" variant="outline" size="sm" disabled={mutations.pendingAction === toggleAction} onClick={() => void mutations.toggleServer(server.serverName, !server.enabled)}>
-                        <Power className="mr-2 h-4 w-4" />
+                        <Power className="mr-2 size-4" />
                         {server.enabled ? 'Disable' : 'Enable'}
                       </Button>
                       <Button type="button" variant="outline" size="sm" disabled={mutations.pendingAction === removeAction} onClick={() => void mutations.removeServer(server.serverName)}>
-                        <Trash2 className="mr-2 h-4 w-4" />
+                        <Trash2 className="mr-2 size-4" />
                         Remove
                       </Button>
                     </div>

@@ -1,5 +1,5 @@
 /**
- * Image lightbox — fullscreen overlay for viewing images at full resolution.
+ * Image lightbox, fullscreen overlay for viewing images at full resolution.
  * Click the backdrop or press Escape to close.
  */
 

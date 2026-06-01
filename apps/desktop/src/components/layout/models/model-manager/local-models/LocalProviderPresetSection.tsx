@@ -16,7 +16,7 @@ export function LocalProviderPresetSection({ onSelect }: LocalProviderPresetSect
             <button type="button"
               key={preset}
               onClick={() => onSelect(preset)}
-              className="rounded-lg border border-[var(--border-subtle)] px-2 py-2
+              className="rounded-lg border border-[var(--border-subtle)] p-2
                 text-center text-[11px] font-medium text-[var(--text-secondary)]
                 transition-colors hover:border-[var(--border-default)]
                 hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]"

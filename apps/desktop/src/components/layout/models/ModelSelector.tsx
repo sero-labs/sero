@@ -62,7 +62,7 @@ export function ModelSelector({ disabled }: { disabled: boolean }) {
               ref={inputRef}
               value={filter}
               onChange={(event) => setFilter(event.target.value)}
-              placeholder="Search models…"
+              placeholder="Search models..."
               data-slot="model-filter"
               containerClassName="border-b border-[var(--border-subtle)]"
               iconClassName="text-[var(--text-muted)]"

@@ -210,10 +210,9 @@ export function AppStoreDialog({
               <div className="relative">
                 <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-[var(--banner-primary)]" />
                 <Input
-                  autoFocus
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder="Search installed apps…"
+                  placeholder="Search installed apps..."
                   className="h-11 rounded-xl border-[var(--banner-primary-border)] bg-[var(--bg-base)] pl-10 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)]/75 focus-visible:border-[var(--border-focus)] focus-visible:ring-[var(--banner-primary-muted)]"
                 />
               </div>
@@ -253,7 +252,7 @@ export function AppStoreDialog({
                 <Input
                   value={discoverQuery}
                   onChange={(event) => handleDiscoverQueryChange(event.target.value)}
-                  placeholder="Search public plugins…"
+                  placeholder="Search public plugins..."
                   className="h-11 rounded-xl border-[var(--banner-primary-border)] bg-[var(--bg-base)] pl-10 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)]/75 focus-visible:border-[var(--border-focus)] focus-visible:ring-[var(--banner-primary-muted)]"
                 />
               </div>

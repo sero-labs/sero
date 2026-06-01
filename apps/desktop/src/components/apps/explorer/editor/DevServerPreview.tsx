@@ -1,5 +1,5 @@
 /**
- * DevServerPreview — renders a dev server URL in a sandboxed iframe
+ * DevServerPreview, renders a dev server URL in a sandboxed iframe
  * inside the editor panel.
  *
  * Tab paths use the convention `devserver://<url>` (e.g.
@@ -104,7 +104,7 @@ export function DevServerPreview({ tabPath }: Props) {
       {/* Navigation bar */}
       <div className="flex items-center gap-2 border-b border-[var(--border)] px-3 py-1.5">
         <Globe className="size-3.5 shrink-0 text-[var(--text-muted)]" />
-        <input
+        <input aria-label="Text input"
           type="text"
           value={urlInput}
           onChange={(e) => setUrlInput(e.target.value)}
@@ -133,7 +133,7 @@ export function DevServerPreview({ tabPath }: Props) {
       </div>
 
       {canEmbed ? (
-        /* Sandboxed iframe — allow-scripts + allow-same-origin for HMR,
+        /* Sandboxed iframe, allow-scripts + allow-same-origin for HMR,
             allow-forms + allow-popups for app functionality. */
         <iframe
           ref={iframeRef}

@@ -33,7 +33,7 @@ const ModelManagerItem = memo(function ModelManagerItem({
   const key = modelKey(model.provider, model.modelId);
   const hideActionDisabled = isHiddenByProvider;
   const hideActionTitle = hideActionDisabled
-    ? 'Hidden by provider — use the provider toggle to show these models'
+    ? 'Hidden by provider, use the provider toggle to show these models'
     : isHidden
       ? 'Show in selector'
       : 'Hide from selector';

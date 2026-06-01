@@ -1,9 +1,9 @@
 /**
- * ThemeEditorSheet — full live theme editor in a right-side sheet.
+ * ThemeEditorSheet, full live theme editor in a right-side sheet.
  *
  * Separate from ThemePanel (which handles preset browsing/selection).
- * This editor lets users customise every token — colours, typography,
- * spacing, and radius — with instant live preview. Changes are applied
+ * This editor lets users customise every token, colours, typography,
+ * spacing, and radius, with instant live preview. Changes are applied
  * to the DOM in real-time via the theme engine; Save persists to disk.
  */
 

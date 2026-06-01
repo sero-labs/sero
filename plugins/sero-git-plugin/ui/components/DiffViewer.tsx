@@ -1,5 +1,5 @@
 /**
- * Diff viewer — syntax-highlighted unified diff display.
+ * Diff viewer, syntax-highlighted unified diff display.
  *
  * Shows hunks with line numbers, additions (green),
  * deletions (red), and context lines. Supports a close action.
@@ -19,7 +19,7 @@ export function DiffViewer({ diff, onClose }: DiffViewerProps) {
     return (
       <DiffShell path={diff.path} diff={diff} onClose={onClose}>
         <div className="flex items-center justify-center py-12 text-[var(--g-dim)] text-xs">
-          Binary file — cannot display diff
+          Binary file, cannot display diff
         </div>
       </DiffShell>
     );
@@ -70,7 +70,7 @@ function DiffShell({
       <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--g-border)] bg-[var(--g-surface)]">
         <div className="min-w-0 flex items-center gap-2">
           <span
-            className="w-2 h-2 rounded-full shrink-0"
+            className="size-2 rounded-full shrink-0"
             style={{ background: statusColor }}
           />
           <div className="min-w-0">
@@ -91,6 +91,7 @@ function DiffShell({
           </div>
         </div>
         <button type="button"
+          aria-label="Close diff"
           onClick={onClose}
           className="p-1 text-[var(--g-dim)] hover:text-[var(--g-text)] transition-colors cursor-pointer"
         >

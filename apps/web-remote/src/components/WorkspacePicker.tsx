@@ -1,5 +1,5 @@
 /**
- * Workspace & session picker — sidebar panel for workspace and session selection.
+ * Workspace & session picker, sidebar panel for workspace and session selection.
  * Uses @sero-ai/ui Select and Button components.
  */
 
@@ -18,7 +18,7 @@ import {
 import { FolderOpen, MessageSquarePlus, MessageSquare } from 'lucide-react';
 
 interface WorkspacePickerProps {
-  /** Called after a session is selected — used on mobile to close the sidebar sheet. */
+  /** Called after a session is selected, used on mobile to close the sidebar sheet. */
   onSessionSelect?: () => void;
 }
 
@@ -74,7 +74,7 @@ export function WorkspacePicker({ onSessionSelect }: WorkspacePickerProps) {
         </Select>
         {activeWorkspaceId && (
           <p className="mt-1 text-xs text-muted-foreground truncate">
-            <FolderOpen className="w-3 h-3 inline mr-1" />
+            <FolderOpen className="size-3 inline mr-1" />
             {workspaces.find((w) => w.id === activeWorkspaceId)?.path}
           </p>
         )}
@@ -116,7 +116,7 @@ export function WorkspacePicker({ onSessionSelect }: WorkspacePickerProps) {
                     : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
                 )}
               >
-                <MessageSquare className="w-3.5 h-3.5 shrink-0" />
+                <MessageSquare className="size-3.5 shrink-0" />
                 <span className="truncate">
                   {session.name || session.firstMessage || session.id}
                 </span>

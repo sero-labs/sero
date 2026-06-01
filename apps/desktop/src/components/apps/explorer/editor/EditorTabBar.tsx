@@ -1,5 +1,5 @@
 /**
- * EditorTabBar — draggable, scrollable tab strip for open editor files.
+ * EditorTabBar, draggable, scrollable tab strip for open editor files.
  */
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -149,7 +149,7 @@ export function EditorTabBar({ tabs, activeTab, onSelectTab, onCloseTab, onClose
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd} modifiers={[restrictToHorizontal]}>
         <SortableContext items={tabs.map((t) => t.path)} strategy={horizontalListSortingStrategy}>
           <div className="relative min-w-0 flex-1">
-            <div ref={scrollRef} className="flex h-full w-full items-stretch overflow-x-auto overflow-y-hidden scrollbar-none">
+            <div ref={scrollRef} className="flex size-full items-stretch overflow-x-auto overflow-y-hidden scrollbar-none">
               {tabs.map((tab) => (
                 <SortableEditorTab
                   key={tab.path} tab={tab} isActive={tab.path === activeTab}

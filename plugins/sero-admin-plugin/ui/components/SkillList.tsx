@@ -1,5 +1,5 @@
 /**
- * SkillList — scrollable list of skill cards in the left panel.
+ * SkillList, scrollable list of skill cards in the left panel.
  *
  * Selection is keyed by filePath (unique), not name (can collide
  * across nested skill directories).

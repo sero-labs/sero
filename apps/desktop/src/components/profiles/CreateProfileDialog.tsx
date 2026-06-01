@@ -1,5 +1,5 @@
 /**
- * CreateProfileDialog — dialog for creating new profiles.
+ * CreateProfileDialog, dialog for creating new profiles.
  *
  * Opened from the ProfileSwitcher's "New Profile" button.
  * After creation, asks if the user wants to switch to the new profile.
@@ -92,7 +92,6 @@ export function CreateProfileDialog({ open, onOpenChange }: CreateProfileDialogP
               operationError={error}
               onClearOperationError={clearError}
               isLoading={isLoading}
-              autoFocus
             />
           </div>
         )}

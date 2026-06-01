@@ -1,6 +1,6 @@
 /**
- * ColorPicker — inline colour swatch + text input for editing a single token.
- * Clicking the swatch opens the native <input type="color"> picker.
+ * ColorPicker, inline colour swatch + text input for editing a single token.
+ * Clicking the swatch opens the native <input aria-label="Color input" type="color"> picker.
  */
 
 import { useCallback, useRef } from 'react';
@@ -40,12 +40,13 @@ export function ColorPicker({ label, value, onChange }: ColorPickerProps) {
     <div className="flex items-center gap-2">
       <button
         type="button"
+        aria-label={`Pick colour for ${label}`}
         onClick={handleSwatchClick}
-        className="h-6 w-6 shrink-0 rounded border border-[var(--border-default)] cursor-pointer"
+        className="size-6 shrink-0 rounded border border-[var(--border-default)] cursor-pointer"
         style={{ backgroundColor: value }}
         title={`Pick colour for ${label}`}
       />
-      <input
+      <input aria-label="Color input"
         ref={inputRef}
         type="color"
         value={value}
@@ -56,7 +57,7 @@ export function ColorPicker({ label, value, onChange }: ColorPickerProps) {
       <span className="text-xs text-[var(--text-secondary)] w-20 truncate">
         {label}
       </span>
-      <input
+      <input aria-label="Text input"
         type="text"
         value={value}
         onChange={handleTextChange}

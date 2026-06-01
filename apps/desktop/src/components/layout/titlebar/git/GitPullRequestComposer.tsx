@@ -201,7 +201,7 @@ export function GitPullRequestComposer({
           <div className="grid grid-cols-2 gap-2">
             <label className="space-y-1 text-[10px] uppercase tracking-[0.16em] text-[var(--text-muted)]">
               <span>Source</span>
-              <select
+              <select aria-label="Select option"
                 value={sourceBranch}
                 onChange={(event) => setSourceBranch(event.target.value)}
                 className="h-8 w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-base)] px-2 text-[11px] text-[var(--text-primary)] outline-none"
@@ -214,7 +214,7 @@ export function GitPullRequestComposer({
             </label>
             <label className="space-y-1 text-[10px] uppercase tracking-[0.16em] text-[var(--text-muted)]">
               <span>Target</span>
-              <select
+              <select aria-label="Select option"
                 value={targetBranch}
                 onChange={(event) => setTargetBranch(event.target.value)}
                 className="h-8 w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-base)] px-2 text-[11px] text-[var(--text-primary)] outline-none"
@@ -236,7 +236,7 @@ export function GitPullRequestComposer({
           >
             {action === 'preview' ? (
               <span className="inline-flex items-center gap-1.5">
-                <Loader2 className="size-3 animate-spin" /> Checking diff against {targetBranch || prState.defaultBaseBranch}…
+                <Loader2 className="size-3 animate-spin" /> Checking diff against {targetBranch || prState.defaultBaseBranch}...
               </span>
             ) : preview?.blockingReason ? (
               preview.blockingReason
@@ -254,13 +254,13 @@ export function GitPullRequestComposer({
             )}
           </div>
 
-          <input
+          <input aria-label="Input"
             value={title}
             onChange={(event) => setTitle(event.target.value)}
             placeholder="Polish the PR title"
             className="h-8 w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-base)] px-3 text-[11px] text-[var(--text-primary)] outline-none"
           />
-          <textarea
+          <textarea aria-label="Text input"
             value={body}
             onChange={(event) => setBody(event.target.value)}
             rows={4}

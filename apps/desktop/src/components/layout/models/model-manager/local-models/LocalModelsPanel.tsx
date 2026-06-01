@@ -1,5 +1,5 @@
 /**
- * Local models management panel — shows configured local LLM providers
+ * Local models management panel, shows configured local LLM providers
  * and allows adding, editing, and removing them.
  *
  * Appears as the "Local" tab in the Model Manager dialog.
@@ -197,7 +197,7 @@ export function LocalModelsPanel({ localModels }: LocalModelsPanelProps) {
       </div>
 
       {loading && (
-        <div className="py-6 text-center text-xs text-[var(--text-muted)]">Loading...</div>
+        <div className="py-6 text-center text-xs text-[var(--text-muted)]">Loading…</div>
       )}
 
       {!loading && providerNames.length === 0 && (

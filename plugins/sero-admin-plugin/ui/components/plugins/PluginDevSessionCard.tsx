@@ -163,7 +163,7 @@ export const PluginDevSessionCard = memo(function PluginDevSessionCard({
       </dl>
 
       {session.lastError ? (
-        <div className="mt-4 rounded-xl border border-[var(--status-error-border)] bg-[var(--status-error-faint)] px-3 py-3">
+        <div className="mt-4 rounded-xl border border-[var(--status-error-border)] bg-[var(--status-error-faint)] p-3">
           <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--status-error)]">Last error</p>
           <p className="mt-1 text-[11px] leading-5 text-[var(--status-error)]">{session.lastError}</p>
         </div>
@@ -178,7 +178,7 @@ export const PluginDevSessionCard = memo(function PluginDevSessionCard({
           onClick={onRefresh}
         >
           {refreshing ? <Loader2 className="size-3.5 animate-spin" /> : <RefreshCw className="size-3.5" />}
-          {refreshing ? 'Refreshing…' : refreshLabel}
+          {refreshing ? 'Refreshing...' : refreshLabel}
         </Button>
         <Button
           variant="outline"
@@ -198,7 +198,7 @@ export const PluginDevSessionCard = memo(function PluginDevSessionCard({
           onClick={onStop}
         >
           {stopping ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
-          {stopping ? `${stopLabel}…` : stopLabel}
+          {stopping ? `${stopLabel}...` : stopLabel}
         </Button>
       </div>
     </article>

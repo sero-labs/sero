@@ -1,5 +1,5 @@
 /**
- * DevServerPanel — StatusBar popover showing all registered dev servers.
+ * DevServerPanel, StatusBar popover showing all registered dev servers.
  *
  * Displays server name, URL, framework badge, and controls
  * (open in browser, stop, restart, unregister).

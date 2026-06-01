@@ -1,5 +1,5 @@
 /**
- * InterviewForm — single-page interview form for the Sero app UI.
+ * InterviewForm, single-page interview form for the Sero app UI.
  *
  * Shows all questions at once in a scrollable layout. Each question
  * has a text input that auto-grows. Submit when ready, skip any question.
@@ -56,7 +56,7 @@ export function InterviewForm({ question, onSubmit, onCancel }: Props) {
         </span>
       </div>
 
-      {/* All questions — scrollable */}
+      {/* All questions, scrollable */}
       <div className="flex-1 space-y-5 overflow-y-auto pr-1">
         {questions.map((q, i) => (
           <QuestionRow
@@ -134,11 +134,11 @@ function QuestionRow({
       {/* Question + input */}
       <div className="min-w-0 flex-1">
         <p className="mb-1.5 text-sm text-[var(--text-primary)]">{question.prompt}</p>
-        <textarea
+        <textarea aria-label="Type your answer"
           ref={ref}
           value={value}
           onChange={handleChange}
-          placeholder="Type your answer…"
+          placeholder="Type your answer..."
           rows={1}
           className={cn(
             'w-full resize-none rounded-md border px-2.5 py-1.5 text-sm',

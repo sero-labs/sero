@@ -1,5 +1,5 @@
 /**
- * TerminalPanel — xterm.js terminal connected to a workspace container.
+ * TerminalPanel, xterm.js terminal connected to a workspace container.
  *
  * Each instance represents a single terminal session. Uses @xterm/xterm
  * with fit and web-links addons. Data flows:
@@ -73,7 +73,7 @@ const TERMINAL_THEMES: Record<Theme, Record<string, string>> = {
 };
 
 /**
- * Single terminal instance — mounts xterm.js and bridges IPC.
+ * Single terminal instance, mounts xterm.js and bridges IPC.
  * Replays buffered output on mount so content survives workspace switches.
  */
 export function TerminalPanel({ terminalId, isActive }: TerminalPanelProps) {
@@ -217,7 +217,7 @@ export function TerminalPanel({ terminalId, isActive }: TerminalPanelProps) {
   return (
     <div
       ref={containerRef}
-      className="h-full w-full"
+      className="size-full"
       style={{ display: isActive ? 'block' : 'none' }}
     />
   );
@@ -242,7 +242,7 @@ async function replayAndSubscribe(
       term.write(buffer);
     }
   } catch {
-    /* terminal may not exist yet — fresh terminal */
+    /* terminal may not exist yet, fresh terminal */
   }
 
   // Now subscribe to live data (after replay so nothing is missed)

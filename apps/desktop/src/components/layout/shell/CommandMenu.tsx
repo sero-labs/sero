@@ -25,7 +25,7 @@ import { ConnectDeviceDialog } from '@/components/layout/device/ConnectDeviceDia
 import { DoctorPanel } from '@/components/diagnostics/DoctorPanel';
 
 /**
- * CommandMenu — ⌘K command palette for quick app switching.
+ * CommandMenu, ⌘K command palette for quick app switching.
  *
  * Lists all registered apps (built-in + discovered) and switches
  * to the selected app on selection. Also provides theme commands.
@@ -93,7 +93,7 @@ export function CommandMenu() {
         description="Search and open an app"
         showCloseButton={false}
       >
-        <CommandInput placeholder="Search apps…" />
+        <CommandInput placeholder="Search apps..." />
         <CommandList>
           <CommandEmpty>No results found.</CommandEmpty>
           <CommandGroup heading="Apps">

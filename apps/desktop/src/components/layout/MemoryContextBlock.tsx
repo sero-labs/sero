@@ -4,7 +4,7 @@ import { ChevronRight, Database } from 'lucide-react';
 import { cn } from '@sero-ai/ui/lib/utils';
 
 /**
- * MemoryContextBlock — collapsible card showing the memory context
+ * MemoryContextBlock, collapsible card showing the memory context
  * injected for this turn. Styled to match ThinkingBlock / ToolCallGroup.
  *
  * Starts collapsed by default (unlike ThinkingBlock which auto-expands

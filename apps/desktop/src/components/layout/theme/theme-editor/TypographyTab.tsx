@@ -1,5 +1,5 @@
 /**
- * TypographyTab — font family pickers and base font size slider.
+ * TypographyTab, font family pickers and base font size slider.
  */
 
 import type { TypographyTokens } from '@/types/theme';

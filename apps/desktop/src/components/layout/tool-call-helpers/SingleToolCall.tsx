@@ -127,7 +127,7 @@ export function SingleToolCall({
                       ) : null}
                       {isCancelled ? (
                         <div className="text-xs italic text-[var(--status-warning)]">
-                          Cancelled — agent was stopped before this tool completed.
+                          Cancelled, agent was stopped before this tool completed.
                         </div>
                       ) : null}
                     </div>

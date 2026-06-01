@@ -1,5 +1,5 @@
 /**
- * CronWidget — scheduler status and upcoming jobs/reminders for the dashboard.
+ * CronWidget, scheduler status and upcoming jobs/reminders for the dashboard.
  *
  * Shows scheduler status light, next firing jobs with countdown,
  * and active reminders as a compact stack.

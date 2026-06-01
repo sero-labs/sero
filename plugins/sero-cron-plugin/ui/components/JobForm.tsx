@@ -1,5 +1,5 @@
 /**
- * JobForm — dialog for adding or editing a cron job.
+ * JobForm, dialog for adding or editing a cron job.
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -142,7 +142,6 @@ export function JobForm({ open, onClose, onSave, editingJob }: JobFormProps) {
               placeholder="daily-standup"
               className={inputCls}
               disabled={isEditing}
-              autoFocus={!isEditing}
             />
             {nameError ? (
               <p className="mt-1 text-[11px] text-destructive">
@@ -150,7 +149,7 @@ export function JobForm({ open, onClose, onSave, editingJob }: JobFormProps) {
               </p>
             ) : (
               <p className="mt-1 text-[11px] text-muted-foreground">
-                Unique identifier — letters, numbers, hyphens, underscores only
+                Unique identifier, letters, numbers, hyphens, underscores only
               </p>
             )}
           </div>
@@ -167,7 +166,6 @@ export function JobForm({ open, onClose, onSave, editingJob }: JobFormProps) {
               onChange={(e) => setSchedule(e.target.value)}
               placeholder="0 9 * * 1-5"
               className={cn(inputCls, 'font-mono')}
-              autoFocus={isEditing}
             />
             {scheduleError ? (
               <p className="mt-1 text-[11px] text-destructive">
@@ -248,11 +246,11 @@ export function JobForm({ open, onClose, onSave, editingJob }: JobFormProps) {
 
           {/* Run if missed */}
           <label className="flex items-center gap-2 cursor-pointer">
-            <input
+            <input aria-label="Checkbox input"
               type="checkbox"
               checked={runIfMissed}
               onChange={(e) => setRunIfMissed(e.target.checked)}
-              className="h-4 w-4 rounded border-input accent-primary"
+              className="size-4 rounded border-input accent-primary"
             />
             <div>
               <span className="text-xs font-medium text-foreground">

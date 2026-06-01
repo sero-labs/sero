@@ -80,7 +80,7 @@ export const usePromptInputController = () => {
   return ctx;
 };
 
-/** Optional variant — does NOT throw. Useful for dual-mode components. */
+/** Optional variant, does NOT throw. Useful for dual-mode components. */
 export const useOptionalPromptInputController = () =>
   useContext(PromptInputController);
 

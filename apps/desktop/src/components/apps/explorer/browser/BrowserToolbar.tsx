@@ -80,7 +80,7 @@ export function BrowserToolbar({
       >
         {tab.isLoading ? <X className="size-[14px]" /> : <RotateCw className="size-[14px]" />}
       </Button>
-      <input
+      <input aria-label="Text input"
         type="text"
         value={draft}
         onChange={(e) => setDraft(e.target.value)}

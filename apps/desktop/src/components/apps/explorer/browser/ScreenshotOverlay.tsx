@@ -1,5 +1,5 @@
 /**
- * ScreenshotOverlay — modal region picker shown over the browser viewport.
+ * ScreenshotOverlay, modal region picker shown over the browser viewport.
  *
  * Behaviour:
  *   - Renders the full-page PNG as the backdrop.
@@ -8,7 +8,7 @@
  *   - Esc cancels.
  *
  * The overlay is positioned to cover the same area the WebContentsView
- * normally occupies — the parent is responsible for hiding the view
+ * normally occupies, the parent is responsible for hiding the view
  * while the overlay is up and for restoring it on close.
  */
 
@@ -129,13 +129,13 @@ export function ScreenshotOverlay({
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
-        className="relative h-full w-full cursor-crosshair overflow-hidden bg-black/50"
+        className="relative size-full cursor-crosshair overflow-hidden bg-black/50"
       >
         <img
           ref={imgRef}
           src={`data:image/png;base64,${pngBase64}`}
           alt=""
-          className="pointer-events-none absolute inset-0 h-full w-full object-fill opacity-90"
+          className="pointer-events-none absolute inset-0 size-full object-fill opacity-90"
           draggable={false}
         />
         {/* Dim everything outside the selected rect */}

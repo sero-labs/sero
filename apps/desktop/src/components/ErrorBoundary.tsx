@@ -127,7 +127,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
           <AlertTriangle className="size-5 text-[var(--text-muted)]" />
           <p className="text-xs text-[var(--text-muted)]">
             {isChunkError
-              ? 'Stale module — reload to recover'
+              ? 'Stale module, reload to recover'
               : region
                 ? `${region} crashed`
                 : 'Something went wrong'}
