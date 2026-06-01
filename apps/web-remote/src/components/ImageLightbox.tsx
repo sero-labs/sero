@@ -3,7 +3,7 @@
  * Click the backdrop or press Escape to close.
  */
 
-import { memo, useCallback } from 'react';
+import { memo, useEffect, useRef } from 'react';
 import { cn } from '@sero-ai/ui/lib/utils';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { X } from 'lucide-react';
@@ -19,47 +19,48 @@ export const ImageLightbox = memo(function ImageLightbox({
   alt,
   onClose,
 }: ImageLightboxProps) {
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    },
-    [onClose],
-  );
+  const dialogRef = useRef<HTMLDialogElement>(null);
 
-  const handleBackdropClick = useCallback(
-    (e: React.MouseEvent) => {
-      if (e.target === e.currentTarget) onClose();
-    },
-    [onClose],
-  );
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (dialog && !dialog.open) {
+      dialog.showModal();
+    }
+  }, []);
 
   return (
-    <div
+    <dialog
+      ref={dialogRef}
       className={cn(
-        'fixed inset-0 z-50 flex items-center justify-center',
-        'bg-black/80 backdrop-blur-sm',
+        'fixed inset-0 z-50 m-0 h-dvh max-h-none w-dvw max-w-none border-0 bg-transparent p-0',
+        'backdrop:bg-black/80 backdrop:backdrop-blur-sm',
       )}
-      onClick={handleBackdropClick}
-      onKeyDown={handleKeyDown}
-      tabIndex={0}
-      role="dialog"
+      onCancel={onClose}
       aria-label="Image preview"
     >
-      <Button
+      <button
+        type="button"
+        aria-label="Close image preview"
+        className="absolute inset-0 cursor-zoom-out"
         onClick={onClose}
-        variant="ghost"
-        size="icon"
-        className="absolute top-4 right-4 z-10 text-white hover:bg-white/20"
-        aria-label="Close"
-      >
-        <X className="size-5" />
-      </Button>
-
-      <img
-        src={src}
-        alt={alt ?? 'Full-size preview'}
-        className="max-w-[90vw] max-h-[90vh] object-contain rounded-lg"
       />
-    </div>
+      <div className="flex h-full w-full items-center justify-center">
+        <Button
+          onClick={onClose}
+          variant="ghost"
+          size="icon"
+          className="absolute top-4 right-4 z-10 text-white hover:bg-white/20"
+          aria-label="Close"
+        >
+          <X className="size-5" />
+        </Button>
+
+        <img
+          src={src}
+          alt={alt ?? 'Full-size preview'}
+          className="relative max-h-[90vh] max-w-[90vw] rounded-lg object-contain"
+        />
+      </div>
+    </dialog>
   );
 });
