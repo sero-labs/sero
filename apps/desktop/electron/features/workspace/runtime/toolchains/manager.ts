@@ -9,6 +9,7 @@ import {
   artifactInstallPath,
   artifactStagingPath,
   cleanupArtifactInstall,
+  cleanupDownloadedArtifact,
   cleanupToolchainVersion,
   downloadedArtifactPath,
   installedMarkerPath,
@@ -181,10 +182,11 @@ export class ToolchainManager {
     this.emit(selection, reason, 'queued');
     await fs.promises.rm(installedMarkerPath(this.manifest.version), { force: true });
     await cleanupArtifactInstall(this.manifest.version, selection.artifact.unpackTo);
+    await cleanupDownloadedArtifact(this.manifest.version, selection.key);
 
+    const downloadPath = downloadedArtifactPath(this.manifest.version, selection.key);
     try {
       this.emit(selection, reason, 'downloading');
-      const downloadPath = downloadedArtifactPath(this.manifest.version, selection.key);
       await this.downloader({
         url: selection.artifact.url,
         sha256: selection.artifact.sha256,
@@ -206,10 +208,12 @@ export class ToolchainManager {
       await this.activate(selection, writeReadyMarker);
       const installed = await this.resolveInstalled(tool, writeReadyMarker);
       if (!installed) throw new Error(`${tool} did not resolve after activation.`);
+      await cleanupDownloadedArtifact(this.manifest.version, selection.key);
       this.emit(selection, reason, 'ready');
       return installed;
     } catch (error) {
       await cleanupArtifactInstall(this.manifest.version, selection.artifact.unpackTo);
+      await cleanupDownloadedArtifact(this.manifest.version, selection.key);
       await fs.promises.rm(installedMarkerPath(this.manifest.version), { force: true });
       const failure = toInstallError(error, tool, selection.key, this.manifest.version);
       this.emit(selection, reason, 'failed', { error: failure });

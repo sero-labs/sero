@@ -22,8 +22,10 @@ import {
   artifactInstallPath,
   artifactStagingPath,
   cleanupToolchainVersion,
+  downloadedArtifactPath,
   installedMarkerPath,
   managedBinPath,
+  toolchainStagingRoot,
   toolchainVersionRoot,
 } from '@electron/features/workspace/runtime/toolchains/storage';
 import type { ToolName, ToolStatus, ToolchainManifest } from '@electron/features/workspace/runtime/toolchains/types';
@@ -237,6 +239,7 @@ describe('ToolchainManager', () => {
 
     await expect(manager.ensure('rg', reason)).resolves.toMatchObject({ tool: 'rg', source: 'managed' });
     expect(progressBytes).toEqual([10]);
+    await expectExists(toolchainStagingRoot(harness.version), false);
   });
 
   it('does not activate managed artifacts without .installed', async () => {
@@ -258,7 +261,10 @@ describe('ToolchainManager', () => {
   it('cleans staging and final partials after digest mismatch', async () => {
     const harness = await createHarness();
     cleanupVersions.push(harness.version);
+    const staleDownload = downloadedArtifactPath(harness.version, 'node-darwin-arm64');
     await fs.promises.mkdir(artifactInstallPath(harness.version, 'node'), { recursive: true });
+    await fs.promises.mkdir(path.dirname(staleDownload), { recursive: true });
+    await fs.promises.writeFile(`${staleDownload}.tmp-stale`, 'partial');
     const manager = new ToolchainManager({
       manifest: harness.manifest,
       platform: 'darwin',
@@ -275,6 +281,7 @@ describe('ToolchainManager', () => {
     await expect(manager.ensure('node', reason)).rejects.toMatchObject({ code: 'TOOL_INSTALL_FAILED', retryable: true });
     await expectExists(artifactInstallPath(harness.version, 'node'), false);
     await expectExists(artifactStagingPath(harness.version, 'node'), false);
+    await expectExists(toolchainStagingRoot(harness.version), false);
     await expectExists(installedMarkerPath(harness.version), false);
     expect(events).toContain('failed:TOOL_INSTALL_FAILED');
   });

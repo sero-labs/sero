@@ -85,6 +85,22 @@ export async function cleanupArtifactInstall(version: string, unpackTo: string):
   await fs.promises.rm(artifactStagingPath(version, unpackTo), { recursive: true, force: true });
 }
 
+export async function cleanupDownloadedArtifact(version: string, artifactKey: string): Promise<void> {
+  const downloadPath = downloadedArtifactPath(version, artifactKey);
+  const downloadsDir = path.dirname(downloadPath);
+  const downloadName = path.basename(downloadPath);
+
+  await fs.promises.rm(downloadPath, { recursive: true, force: true });
+  if (await exists(downloadsDir)) {
+    const entries = await fs.promises.readdir(downloadsDir);
+    await Promise.all(entries
+      .filter((entry) => entry.startsWith(`${downloadName}.tmp-`))
+      .map((entry) => fs.promises.rm(path.join(downloadsDir, entry), { recursive: true, force: true })));
+    await removeDirectoryIfEmpty(downloadsDir);
+  }
+  await removeDirectoryIfEmpty(toolchainStagingRoot(version));
+}
+
 function safeJoin(root: string, relativePath: string): string {
   if (!relativePath || path.isAbsolute(relativePath)) {
     throw new Error(`Invalid toolchain relative path: ${relativePath}`);
@@ -100,6 +116,22 @@ function safeJoin(root: string, relativePath: string): string {
 
 function isDefined<T>(value: T | undefined): value is T {
   return value !== undefined;
+}
+
+async function removeDirectoryIfEmpty(directory: string): Promise<void> {
+  if (!(await exists(directory))) return;
+  const entries = await fs.promises.readdir(directory);
+  if (entries.length === 0) await fs.promises.rmdir(directory);
+}
+
+async function exists(filePath: string): Promise<boolean> {
+  try {
+    await fs.promises.access(filePath);
+    return true;
+  } catch (error) {
+    if (isNotFound(error)) return false;
+    throw error;
+  }
 }
 
 function isNotFound(error: unknown): boolean {
