@@ -80,7 +80,6 @@ export function TerminalPanel({ terminalId, isActive }: TerminalPanelProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
-  const unsubDataRef = useRef<(() => void) | null>(null);
 
   // Set up terminal on mount, replay buffered content
   useEffect(() => {
@@ -116,7 +115,15 @@ export function TerminalPanel({ terminalId, isActive }: TerminalPanelProps) {
 
     // Replay buffered output from the main process, then subscribe to live data.
     // This ensures content persists across workspace switches.
-    replayAndSubscribe(term, terminalId, unsubDataRef);
+    let active = true;
+    let unsubscribeData: (() => void) | null = null;
+    void replayAndSubscribe(term, terminalId, (unsubscribe) => {
+      if (!active) {
+        unsubscribe();
+        return;
+      }
+      unsubscribeData = unsubscribe;
+    });
 
     // Forward user input to the main process
     term.onData((data) => {
@@ -131,8 +138,9 @@ export function TerminalPanel({ terminalId, isActive }: TerminalPanelProps) {
     }
 
     return () => {
-      unsubDataRef.current?.();
-      unsubDataRef.current = null;
+      active = false;
+      unsubscribeData?.();
+      unsubscribeData = null;
       term.dispose();
       termRef.current = null;
       fitRef.current = null;
@@ -224,7 +232,7 @@ export function TerminalPanel({ terminalId, isActive }: TerminalPanelProps) {
 async function replayAndSubscribe(
   term: Terminal,
   terminalId: string,
-  unsubRef: React.MutableRefObject<(() => void) | null>,
+  onSubscribe: (unsubscribe: () => void) => void,
 ): Promise<void> {
   try {
     const buffer = await window.sero.terminal.replay(terminalId);
@@ -243,5 +251,5 @@ async function replayAndSubscribe(
       term.write(data);
     }
   });
-  unsubRef.current = unsub;
+  onSubscribe(unsub);
 }

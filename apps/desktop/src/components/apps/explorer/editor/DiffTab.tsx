@@ -11,6 +11,7 @@
  */
 
 import { useEffect, useState, useCallback, useRef } from 'react';
+import type { RefObject } from 'react';
 import { DiffEditor } from '@monaco-editor/react';
 import type { editor as MonacoEditor } from 'monaco-editor';
 import { AnimatePresence, motion } from 'motion/react';
@@ -60,12 +61,12 @@ export function DiffTab({ state }: Props) {
       .then((f) => {
         if (cancelled) return;
         setFiles(f);
-        if (!activePath && f.length > 0) setActivePath(f[0].path);
+        setActivePath((currentPath) => currentPath ?? f[0]?.path ?? null);
         setLoading(false);
       })
       .catch(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [workspaceId, fromRev, toRev]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [workspaceId, fromRev, toRev]);
 
   const language = activePath ? langFromPath(activePath) : 'plaintext';
 
@@ -207,15 +208,7 @@ function DiffFileView({
 
   useEffect(() => {
     return () => {
-      const { original, modified } = modelRefs.current;
-      modelRefs.current = { original: null, modified: null };
-      if (!original && !modified) return;
-
-      // Defer model disposal until after DiffEditor has fully unmounted.
-      setTimeout(() => {
-        try { original?.dispose(); } catch {}
-        try { modified?.dispose(); } catch {}
-      }, 0);
+      disposeDiffModels(modelRefs);
     };
   }, []);
 
@@ -257,4 +250,19 @@ function DiffFileView({
       }}
     />
   );
+}
+
+function disposeDiffModels(refs: RefObject<{
+  original: MonacoEditor.ITextModel | null;
+  modified: MonacoEditor.ITextModel | null;
+}>) {
+  const { original, modified } = refs.current;
+  refs.current = { original: null, modified: null };
+  if (!original && !modified) return;
+
+  // Defer model disposal until after DiffEditor has fully unmounted.
+  setTimeout(() => {
+    try { original?.dispose(); } catch {}
+    try { modified?.dispose(); } catch {}
+  }, 0);
 }

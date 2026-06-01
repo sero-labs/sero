@@ -182,7 +182,7 @@ export function ImageLightbox() {
 
           {/* Image */}
           <motion.img
-            key={`${index}-${src.slice(0, 40)}`}
+            key={src}
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.9, opacity: 0 }}
