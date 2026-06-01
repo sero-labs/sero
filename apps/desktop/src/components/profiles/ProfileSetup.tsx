@@ -5,6 +5,7 @@
  * window with a clean setup flow: enter name → create profile → launch.
  */
 
+import seroLogoDarkUrl from '@assets/logo-dark.svg';
 import { createProfile } from '@/stores/profiles';
 import { ProfileForm } from './ProfileForm';
 import { useProfileOperationState } from './useProfileOperationState';
@@ -27,12 +28,7 @@ export function ProfileSetup() {
       <div className="flex flex-col items-center gap-8 px-6">
         {/* ── Branding ─────────────────────────────────────── */}
         <div className="flex flex-col items-center gap-3">
-          <div className="flex size-16 items-center justify-center rounded-2xl bg-[var(--bg-elevated)] shadow-lg">
-            <span className="text-2xl font-bold text-[var(--text-primary)]">S</span>
-          </div>
-          <h1 className="text-xl font-semibold text-[var(--text-primary)]">
-            Welcome to Sero
-          </h1>
+          <img src={seroLogoDarkUrl} alt="Sero" className="h-16 w-auto" draggable={false} />
           <p className="max-w-xs text-center text-sm text-[var(--text-muted)]">
             Create a profile to get started. Each profile has its own
             workspaces, sessions, and settings.
