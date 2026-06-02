@@ -115,6 +115,21 @@ export function registerVcsHandlers(): void {
     vcsOps.removeRemote(wsId, name),
   );
 
+  ipcMain.handle(Ch.checkoutRemote, async (_e, wsId: string, remote?: string) => {
+    const result = await vcsOps.checkoutRemote(wsId, remote);
+    if (result.success) {
+      const refresh = await gitWorkspaceStateManager.refreshWorkspace(wsId);
+      if (!refresh.ok) {
+        gitWorkspaceStateManager.invalidateWorkspace(wsId, 'vcs:checkout-remote');
+      }
+      broadcastToWindows(IpcChannels.filetree.changed, {
+        workspaceId: wsId,
+        directories: ['/workspace'],
+      });
+    }
+    return result;
+  });
+
   ipcMain.handle(Ch.fetch, async (_e, wsId: string, remote?: string) =>
     vcsOps.fetch(wsId, remote),
   );
@@ -176,4 +191,3 @@ export function registerVcsHandlers(): void {
     vcsOps.getOperationLog(wsId, limit ?? 20),
   );
 }
-

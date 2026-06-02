@@ -200,6 +200,7 @@ export interface SeroVcsAPI {
   addRemote(wsId: string, name: string, url: string): Promise<void>;
   setRemoteUrl(wsId: string, name: string, url: string): Promise<void>;
   removeRemote(wsId: string, name: string): Promise<void>;
+  checkoutRemote(wsId: string, remote?: string): Promise<SyncResult>;
   fetch(wsId: string, remote?: string): Promise<SyncResult>;
   push(wsId: string, bookmark?: string, changeId?: string): Promise<SyncResult>;
   pushDryRun(wsId: string, bookmark?: string, changeId?: string): Promise<PushPreview>;

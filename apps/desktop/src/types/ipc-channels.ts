@@ -309,6 +309,7 @@ export const IpcChannels = {
     addRemote: 'sero:vcs:add-remote',
     setRemoteUrl: 'sero:vcs:set-remote-url',
     removeRemote: 'sero:vcs:remove-remote',
+    checkoutRemote: 'sero:vcs:checkout-remote',
     fetch: 'sero:vcs:fetch',
     push: 'sero:vcs:push',
     pushDryRun: 'sero:vcs:push-dry-run',

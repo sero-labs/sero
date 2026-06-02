@@ -18,6 +18,7 @@ const seroBridge = {
     remotes: vi.fn(),
     addRemote: vi.fn(),
     setRemoteUrl: vi.fn(),
+    checkoutRemote: vi.fn(),
   },
   github: {
     status: vi.fn(),
@@ -26,6 +27,9 @@ const seroBridge = {
     login: vi.fn(),
     logout: vi.fn(),
     cancel: vi.fn(),
+  },
+  editor: {
+    listFiles: vi.fn(),
   },
 };
 
@@ -99,6 +103,8 @@ describe('RemoteOriginManager', () => {
     seroBridge.vcs.remotes.mockResolvedValue([]);
     seroBridge.vcs.addRemote.mockResolvedValue(undefined);
     seroBridge.vcs.setRemoteUrl.mockResolvedValue(undefined);
+    seroBridge.vcs.checkoutRemote.mockResolvedValue({ success: true, message: 'checked out origin/main' });
+    seroBridge.editor.listFiles.mockResolvedValue([]);
     seroBridge.github.status.mockImplementation(async () => githubStatus);
     seroBridge.github.createRepo.mockResolvedValue({
       success: true,
@@ -343,5 +349,27 @@ describe('RemoteOriginManager', () => {
       });
       expect(document.body.textContent).toContain('octocat/alpha-repo');
     });
+  });
+
+  it('shows a non-blocking warning when origin connects but import fails', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    seroBridge.vcs.checkoutRemote.mockResolvedValue({ success: false, message: 'checkout failed' });
+
+    await renderManager();
+
+    await vi.waitFor(() => {
+      expect(document.body.textContent).toContain('Connect existing repository');
+    });
+
+    await clickButton('Connect existing repository');
+    await setInputValue('remote-url', 'https://github.com/octocat/workspace-1.git');
+    await clickButton('Connect Repository');
+
+    await vi.waitFor(() => {
+      expect(document.body.textContent).toContain('octocat/workspace-1');
+      expect(document.body.textContent).toContain("Connected, but Sero couldn't import files: checkout failed");
+    });
+
+    warn.mockRestore();
   });
 });

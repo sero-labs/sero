@@ -17,6 +17,10 @@ const seroBridge = {
     remotes: vi.fn(),
     addRemote: vi.fn(),
     setRemoteUrl: vi.fn(),
+    checkoutRemote: vi.fn(),
+  },
+  editor: {
+    listFiles: vi.fn(),
   },
 };
 
@@ -25,6 +29,10 @@ const originalSeroDescriptor = Object.getOwnPropertyDescriptor(window, 'sero');
 describe('git remote workflow', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    seroBridge.vcs.addRemote.mockResolvedValue(undefined);
+    seroBridge.vcs.setRemoteUrl.mockResolvedValue(undefined);
+    seroBridge.vcs.checkoutRemote.mockResolvedValue({ success: true, message: 'checked out origin/main' });
+    seroBridge.editor.listFiles.mockResolvedValue([]);
     Object.defineProperty(window, 'sero', {
       configurable: true,
       value: seroBridge,
@@ -102,6 +110,71 @@ describe('git remote workflow', () => {
     });
     expect(seroBridge.vcs.addRemote).toHaveBeenCalledWith('workspace-1', 'origin', 'git@github.com:octocat/my-workspace.git');
     expect(seroBridge.vcs.setRemoteUrl).toHaveBeenCalledWith('workspace-1', 'origin', 'git@github.com:octocat/my-workspace.git');
+  });
+
+  it('imports repository files for an empty workspace when requested', async () => {
+    seroBridge.editor.listFiles.mockResolvedValue([
+      { name: '.sero-workspace.json', type: 'file', size: 32 },
+    ]);
+
+    const result = await connectOrigin({
+      workspaceId: 'workspace-1',
+      url: 'https://github.com/octocat/my-workspace.git',
+      importIfEmpty: true,
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      url: 'https://github.com/octocat/my-workspace.git',
+      webUrl: 'https://github.com/octocat/my-workspace',
+      updatedExisting: false,
+    });
+    expect(seroBridge.vcs.checkoutRemote).toHaveBeenCalledWith('workspace-1', 'origin');
+  });
+
+  it('leaves non-empty workspaces unchanged when connecting origin', async () => {
+    seroBridge.editor.listFiles.mockResolvedValue([
+      { name: 'package.json', type: 'file', size: 128 },
+    ]);
+
+    const result = await connectOrigin({
+      workspaceId: 'workspace-1',
+      url: 'https://github.com/octocat/my-workspace.git',
+      importIfEmpty: true,
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      url: 'https://github.com/octocat/my-workspace.git',
+      webUrl: 'https://github.com/octocat/my-workspace',
+      updatedExisting: false,
+    });
+    expect(seroBridge.vcs.checkoutRemote).not.toHaveBeenCalled();
+  });
+
+  it('keeps the origin connected when checkout import fails', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    seroBridge.editor.listFiles.mockResolvedValue([]);
+    seroBridge.vcs.checkoutRemote.mockResolvedValue({ success: false, message: 'checkout failed' });
+
+    const result = await connectOrigin({
+      workspaceId: 'workspace-1',
+      url: 'https://github.com/octocat/my-workspace.git',
+      importIfEmpty: true,
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      url: 'https://github.com/octocat/my-workspace.git',
+      webUrl: 'https://github.com/octocat/my-workspace',
+      updatedExisting: false,
+      warning: "Connected, but Sero couldn't import files: checkout failed",
+    });
+    expect(warn).toHaveBeenCalledWith(
+      '[git-remote] Remote connected, but import failed:',
+      'checkout failed',
+    );
+    warn.mockRestore();
   });
 
   it('reads and parses the current origin from vcs remotes', async () => {

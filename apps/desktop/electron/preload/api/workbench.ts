@@ -77,6 +77,8 @@ export const vcsBridge = {
     ipcRenderer.invoke(IpcChannels.vcs.setRemoteUrl, workspaceId, name, url),
   removeRemote: (workspaceId: string, name: string): Promise<void> =>
     ipcRenderer.invoke(IpcChannels.vcs.removeRemote, workspaceId, name),
+  checkoutRemote: (workspaceId: string, remote?: string): Promise<SyncResult> =>
+    ipcRenderer.invoke(IpcChannels.vcs.checkoutRemote, workspaceId, remote),
   fetch: (workspaceId: string, remote?: string): Promise<SyncResult> =>
     ipcRenderer.invoke(IpcChannels.vcs.fetch, workspaceId, remote),
   push: (workspaceId: string, bookmark?: string, changeId?: string): Promise<SyncResult> =>

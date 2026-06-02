@@ -35,6 +35,7 @@ const expectedVcsMethods = [
   'addRemote',
   'setRemoteUrl',
   'removeRemote',
+  'checkoutRemote',
   'fetch',
   'push',
   'pushDryRun',
