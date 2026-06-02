@@ -6,6 +6,17 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 and beta release tags use a SemVer prerelease form.
 
 
+## [0.3.0-beta.0](https://github.com/sero-labs/sero/compare/v0.2.11-beta.0...v0.3.0-beta.0) (2026-06-02)
+
+### Features
+
+* add shared theme customization ([c456636](https://github.com/sero-labs/sero/commit/c45663655baa800a05bc8c4482e368923d30328b))
+
+### Bug Fixes
+
+* allow loopback plugin dev remotes ([71c9e38](https://github.com/sero-labs/sero/commit/71c9e386151df6b1dd6ceea3da8d9e664026aa49))
+* **web-remote:** use native image lightbox dialog ([5d22c38](https://github.com/sero-labs/sero/commit/5d22c38877abe7dc48c01444b86497a67ebb13a8))
+
 ## [0.2.11-beta.0](https://github.com/sero-labs/sero/compare/v0.2.10-beta.0...v0.2.11-beta.0) (2026-06-01)
 
 ### Bug Fixes
