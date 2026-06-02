@@ -7,7 +7,7 @@
  * the renderer can load.
  *
  * Sources that must be allowed:
- * - Dev: localhost (Vite dev server + module federation remotes), ws: (HMR),
+ * - Dev: loopback HTTP (Vite dev server + module federation remotes), WS (HMR),
  *   and sero-ext: for selectively skipped apps loaded from built bundles
  * - Prod: sero-ext: (custom protocol for federated extension assets) plus
  *   tightly scoped loopback HTTP sources for embedded MCP viewers/auth rails
@@ -29,13 +29,19 @@ const LOOPBACK_HTTP_SRC = [
   'http://[::1]:*',
 ];
 
+const LOOPBACK_WS_SRC = [
+  'ws://localhost:*',
+  'ws://127.0.0.1:*',
+  'ws://[::1]:*',
+];
+
 export function buildContentSecurityPolicy(
   options: BuildContentSecurityPolicyOptions = {},
 ): string {
   const isDevelopment = options.isDevelopment ?? process.env.NODE_ENV === 'development';
   const extensionSrc = ['sero-ext:'];
-  const devHttpSrc = isDevelopment ? ['http://localhost:*'] : [];
-  const devConnectSrc = isDevelopment ? ['http://localhost:*', 'ws://localhost:*'] : [];
+  const devHttpSrc = isDevelopment ? LOOPBACK_HTTP_SRC : [];
+  const devConnectSrc = isDevelopment ? [...LOOPBACK_HTTP_SRC, ...LOOPBACK_WS_SRC] : [];
   const prodLoopbackSrc = isDevelopment ? [] : LOOPBACK_HTTP_SRC;
 
   // -- script-src --
