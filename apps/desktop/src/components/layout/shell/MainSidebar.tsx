@@ -138,7 +138,7 @@ function AppItem({
       )}
     >
       <span className="flex min-w-0 flex-1 items-center gap-2">
-        <Icon className={cn('size-4 shrink-0', active && 'text-[var(--status-success)]')} />
+        <Icon className={cn('size-4 shrink-0', active && 'text-[var(--brand-primary)]')} />
         <span className="truncate">{entry.label}</span>
       </span>
 

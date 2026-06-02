@@ -121,16 +121,16 @@ export function GitHubAuthCodeView({
 }) {
   return (
     <GitHubAuthStateFrame
-      icon={<Github className="size-4 text-[var(--status-info)]" />}
-      iconClassName="border-[var(--status-info-border)] bg-[var(--status-info-muted)]"
+      icon={<Github className="size-4 text-status-info" />}
+      iconClassName="border-status-info-border bg-status-info-muted"
       title="Authorize in GitHub"
       description="Enter this one-time code at GitHub, then come back here. Sero will finish the connection automatically."
     >
-      <div className="space-y-3 rounded-lg border border-[var(--status-info-border)] bg-[var(--status-info-muted)]/70 p-3">
+      <div className="space-y-3 rounded-lg border border-status-info-border bg-status-info-muted/70 p-3">
         <div className="space-y-2">
           <p className="text-xs text-[var(--text-secondary)]">Enter this code at github.com/login/device:</p>
           <div className="flex flex-wrap items-center gap-2">
-            <code className="rounded-md border border-[var(--status-info-border)] bg-[var(--bg-base)] px-3 py-2 font-mono text-lg font-bold tracking-[0.25em] text-[var(--status-info)]">
+            <code className="rounded-md border border-status-info-border bg-[var(--bg-base)] px-3 py-2 font-mono text-lg font-bold tracking-[0.25em] text-status-info">
               {userCode}
             </code>
             <Button variant="outline" size="sm" onClick={() => onCopyCode(userCode)}>
@@ -155,7 +155,7 @@ export function GitHubAuthCodeView({
         </div>
 
         {copyFailed ? (
-          <p className="text-xs text-[var(--status-error)]">Copy failed, enter the code manually.</p>
+          <p className="text-xs text-status-error">Copy failed, enter the code manually.</p>
         ) : null}
       </div>
 
@@ -175,12 +175,12 @@ export function GitHubAuthCodeView({
 export function GitHubAuthPollingView({ onCancel }: { onCancel: () => void }) {
   return (
     <GitHubAuthStateFrame
-      icon={<Loader2 className="size-4 animate-spin text-[var(--status-info)]" />}
-      iconClassName="border-[var(--status-info-border)] bg-[var(--status-info-muted)]"
+      icon={<Loader2 className="size-4 animate-spin text-status-info" />}
+      iconClassName="border-status-info-border bg-status-info-muted"
       title="Waiting for GitHub"
       description="Finish the device login in your browser. This dialog updates automatically when GitHub responds."
     >
-      <div className="rounded-lg border border-[var(--status-info-border)] bg-[var(--status-info-muted)]/70 px-3 py-2 text-xs text-[var(--text-secondary)]">
+      <div className="rounded-lg border border-status-info-border bg-status-info-muted/70 px-3 py-2 text-xs text-[var(--text-secondary)]">
         Still waiting for authorization…
       </div>
 
@@ -204,12 +204,12 @@ export function GitHubAuthConnectedView({
 }) {
   return (
     <GitHubAuthStateFrame
-      icon={<Check className="size-4 text-[var(--status-success)]" />}
-      iconClassName="border-[var(--status-success-border)] bg-[var(--status-success-muted)]"
+      icon={<Check className="size-4 text-status-success" />}
+      iconClassName="border-status-success-border bg-status-success-muted"
       title="GitHub connected"
       description="Your GitHub account is ready to use in Sero."
     >
-      <div className="rounded-lg border border-[var(--status-success-border)] bg-[var(--status-success-muted)]/70 px-3 py-2 text-xs text-[var(--text-secondary)]">
+      <div className="rounded-lg border border-status-success-border bg-status-success-muted/70 px-3 py-2 text-xs text-[var(--text-secondary)]">
         Connected as <span className="font-medium text-[var(--text-primary)]">{username}</span>.
       </div>
 
@@ -234,12 +234,12 @@ export function GitHubAuthErrorView({
 }) {
   return (
     <GitHubAuthStateFrame
-      icon={<AlertCircle className="size-4 text-[var(--status-error)]" />}
-      iconClassName="border-[var(--status-error-border)] bg-[var(--status-error-muted)]"
+      icon={<AlertCircle className="size-4 text-status-error" />}
+      iconClassName="border-status-error-border bg-status-error-muted"
       title="GitHub authentication failed"
       description="Retry the GitHub device login or close this dialog to return where you started."
     >
-      <div className="rounded-lg border border-[var(--status-error-border)] bg-[var(--status-error-muted)]/70 px-3 py-2 text-xs leading-relaxed text-[var(--status-error)]">
+      <div className="rounded-lg border border-status-error-border bg-status-error-muted/70 px-3 py-2 text-xs leading-relaxed text-status-error">
         {message}
       </div>
 

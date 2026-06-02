@@ -170,7 +170,7 @@ export function MessageBubble({
             {isError ? (
               <XCircle className="size-3 text-destructive" />
             ) : (
-              <CheckCircle2 className="size-3 text-[var(--status-success)]" />
+              <CheckCircle2 className="size-3 text-status-success" />
             )}
           </div>
           <div
@@ -222,16 +222,16 @@ export function DebateRoundBubble({
       initial={{ opacity: 0, x: -10, scale: 0.97 }}
       animate={{ opacity: 1, x: 0, scale: 1 }}
       transition={{ type: 'spring', stiffness: 350, damping: 25 }}
-      className="mx-2 flex flex-col gap-2 rounded-xl border border-[var(--status-warning-border)] bg-[var(--status-warning-faint)] p-3 shadow-sm"
+      className="mx-2 flex flex-col gap-2 rounded-xl border border-status-warning-border bg-status-warning-faint p-3 shadow-sm"
     >
       <div className="flex items-center gap-2">
-        <div className="flex items-center gap-1.5 rounded-full border border-[var(--status-warning-border)] bg-[var(--status-warning-subtle)] px-2 py-1 text-[10px] font-semibold text-[var(--status-warning)]">
+        <div className="flex items-center gap-1.5 rounded-full border border-status-warning-border bg-status-warning-subtle px-2 py-1 text-[10px] font-semibold text-status-warning">
           <Swords className="size-3" />
           Round {round}
         </div>
         <div className="flex items-center gap-1.5">
           <CollaborationRoleBadge role={challenger} size="sm" />
-          <Zap className="size-3 text-[var(--status-warning)]" />
+          <Zap className="size-3 text-status-warning" />
           <CollaborationRoleBadge role={defender} size="sm" />
         </div>
         <span className="ml-auto text-[9px] tabular-nums text-[var(--text-muted)]">
@@ -295,7 +295,7 @@ export function ElapsedTimer() {
 
   return (
     <span className="ml-auto flex items-center gap-1 text-[10px] tabular-nums text-[var(--text-muted)]">
-      <span className="size-1.5 rounded-full bg-[var(--status-success)] animate-pulse" />
+      <span className="size-1.5 rounded-full bg-status-success animate-pulse" />
       {mins > 0 ? `${mins}m ${secs}s` : `${secs}s`}
     </span>
   );

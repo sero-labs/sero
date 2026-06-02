@@ -47,9 +47,9 @@ export function SingleToolCall({
       className={cn(
         'group/tg overflow-hidden rounded-lg border transition-colors duration-200',
         isRunning
-          ? 'border-[var(--status-info-border)] bg-[var(--status-info-faint)]'
+          ? 'border-status-info-border bg-status-info-faint'
           : status === 'error'
-            ? 'border-[var(--status-error-border)] bg-[var(--status-error-faint)]'
+            ? 'border-status-error-border bg-status-error-faint'
             : 'border-[var(--border-subtle)] bg-[var(--bg-elevated)]/50',
       )}
     >
@@ -80,7 +80,7 @@ export function SingleToolCall({
           />
         ) : null}
         {progressModel ? (
-          <span className="rounded-full bg-[var(--status-info-subtle)] px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-[var(--status-info)]">
+          <span className="rounded-full bg-status-info-subtle px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-status-info">
             Live
           </span>
         ) : null}
@@ -126,7 +126,7 @@ export function SingleToolCall({
                         <ToolFileLinks details={tool.details} workspaceId={workspaceId} />
                       ) : null}
                       {isCancelled ? (
-                        <div className="text-xs italic text-[var(--status-warning)]">
+                        <div className="text-xs italic text-status-warning">
                           Cancelled, agent was stopped before this tool completed.
                         </div>
                       ) : null}

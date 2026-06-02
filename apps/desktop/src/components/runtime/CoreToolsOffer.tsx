@@ -103,12 +103,12 @@ export function CoreToolsOffer({ reason, className, autoInstall = false }: CoreT
     >
       <div className="flex items-start gap-3">
         <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-[var(--bg-base)]">
-          {ready ? <CheckCircle2 className="size-4 text-[var(--status-success)]" /> : failed ? <AlertCircle className="size-4 text-[var(--status-warning)]" /> : <Download className="size-4 text-[var(--accent-primary)]" />}
+          {ready ? <CheckCircle2 className="size-4 text-status-success" /> : failed ? <AlertCircle className="size-4 text-status-warning" /> : <Download className="size-4 text-[var(--accent-primary)]" />}
         </div>
         <div className="min-w-0 flex-1 space-y-2">
           <div className="space-y-1">
             <p className="font-medium text-[var(--text-primary)]">Core development tools</p>
-            <p className={cn(failed ? 'text-[var(--status-error)]' : 'text-[var(--text-muted)]')}>
+            <p className={cn(failed ? 'text-status-error' : 'text-[var(--text-muted)]')}>
               {coreToolsMessage(status)}
             </p>
           </div>

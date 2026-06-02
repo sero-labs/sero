@@ -1,0 +1,13 @@
+@import "@sero-ai/ui/styles/globals.css";
+
+@source "./**/*.{ts,tsx}";
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  overflow-x: hidden;
+}

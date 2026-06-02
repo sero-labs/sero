@@ -38,7 +38,7 @@ export function ModelSelectorTrigger({
         ) : null}
         <span className="max-w-[140px] truncate font-medium">{label}</span>
         {thinkingLabel ? (
-          <span className="rounded-full bg-[var(--status-warning-subtle)] px-1.5 py-px text-[10px] font-semibold text-[var(--status-warning)]">
+          <span className="rounded-full bg-status-warning-subtle px-1.5 py-px text-[10px] font-semibold text-status-warning">
             {thinkingLabel}
           </span>
         ) : null}

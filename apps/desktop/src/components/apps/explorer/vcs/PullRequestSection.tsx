@@ -240,7 +240,7 @@ export function PullRequestSection({
           className={cn(
             'rounded border px-2 py-1 text-[10px]',
             blockingReason
-              ? 'border-[var(--status-warning-subtle)] bg-[var(--status-warning-muted)] text-[var(--status-warning)]'
+              ? 'border-status-warning-subtle bg-status-warning-muted text-status-warning'
               : 'border-[var(--border-subtle)] bg-[var(--bg-elevated)]/50 text-[var(--text-muted)]',
           )}
         >
@@ -260,7 +260,7 @@ export function PullRequestSection({
               href={preview.existingPr.url}
               target="_blank"
               rel="noreferrer"
-              className="ml-1 text-[var(--status-info)] underline"
+              className="ml-1 text-status-info underline"
             >
               Open existing PR #{preview.existingPr.number}
             </a>
@@ -307,8 +307,8 @@ export function PullRequestSection({
             disabled={!canCreate}
             className={cn(
               'flex h-7 items-center gap-1 rounded px-2.5 text-[11px] font-semibold',
-              'bg-[var(--status-info-border)] text-[var(--status-info)] ring-1 ring-[var(--status-info-subtle)]',
-              'hover:bg-[var(--status-info-subtle)] hover:text-[var(--status-info)]',
+              'bg-status-info-border text-status-info ring-1 ring-status-info-subtle',
+              'hover:bg-status-info-subtle hover:text-status-info',
               'transition-colors disabled:opacity-40',
             )}
           >
@@ -321,7 +321,7 @@ export function PullRequestSection({
           <div
             className={cn(
               'rounded px-2 py-1 text-[10px]',
-              createFeedback.error ? 'bg-[var(--status-error-muted)] text-[var(--status-error)]' : 'bg-[var(--status-success-muted)] text-[var(--status-success)]',
+              createFeedback.error ? 'bg-status-error-muted text-status-error' : 'bg-status-success-muted text-status-success',
             )}
           >
             {createFeedback.message}

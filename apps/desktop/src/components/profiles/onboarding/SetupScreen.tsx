@@ -69,9 +69,9 @@ function WarningBanner({
     .filter((provider): provider is ProviderHealthInfo => Boolean(provider));
 
   return (
-    <div className="rounded-lg border border-[var(--status-warning)]/25 bg-[var(--status-warning)]/5 px-3 py-2.5 text-xs text-[var(--text-secondary)]">
+    <div className="rounded-lg border border-status-warning/25 bg-status-warning/5 px-3 py-2.5 text-xs text-[var(--text-secondary)]">
       <div className="flex items-start gap-2">
-        <TriangleAlert className="mt-0.5 size-4 shrink-0 text-[var(--status-warning)]" />
+        <TriangleAlert className="mt-0.5 size-4 shrink-0 text-status-warning" />
         <div className="min-w-0 flex-1 space-y-2">
           <p>{warning.message}</p>
           {providers && providers.length > 0 ? (
@@ -146,7 +146,7 @@ export function OnboardingSetupScreen({
       <div className="space-y-5">
         <div className="space-y-3">
           <div className="flex size-11 items-center justify-center rounded-xl bg-[var(--bg-elevated)]">
-            <Download className="size-5 text-[var(--status-success)]" />
+            <Download className="size-5 text-status-success" />
           </div>
           <div>
             <DialogTitle className="text-lg font-semibold text-[var(--text-primary)]">Install host dependencies</DialogTitle>
@@ -186,7 +186,7 @@ export function OnboardingSetupScreen({
       <div className="space-y-5">
         <div className="space-y-3">
           <div className="flex size-11 items-center justify-center rounded-xl bg-[var(--bg-elevated)]">
-            <Sparkles className="size-5 text-[var(--status-success)]" />
+            <Sparkles className="size-5 text-status-success" />
           </div>
           <div>
             <DialogTitle className="text-lg font-semibold text-[var(--text-primary)]">{GITHUB_STEP_CONFIG.title}</DialogTitle>
@@ -230,7 +230,7 @@ export function OnboardingSetupScreen({
     <div className="space-y-5">
       <div className="space-y-3">
         <div className="flex size-11 items-center justify-center rounded-xl bg-[var(--bg-elevated)]">
-          <Sparkles className="size-5 text-[var(--status-success)]" />
+          <Sparkles className="size-5 text-status-success" />
         </div>
         <div>
           <DialogTitle className="text-lg font-semibold text-[var(--text-primary)]">Choose your defaults</DialogTitle>
@@ -241,7 +241,7 @@ export function OnboardingSetupScreen({
       </div>
 
       {launchNotice ? (
-        <div className="rounded-lg border border-[var(--status-success)]/20 bg-[var(--status-success)]/5 px-3 py-2 text-xs text-[var(--text-secondary)]">
+        <div className="rounded-lg border border-status-success/20 bg-status-success/5 px-3 py-2 text-xs text-[var(--text-secondary)]">
           {launchNotice}
         </div>
       ) : null}

@@ -132,7 +132,7 @@ function ThemeOption({
       )}
     >
       <span className="truncate">{label}</span>
-      {active ? <Check className="size-3 shrink-0 text-[var(--status-success)]" /> : null}
+      {active ? <Check className="size-3 shrink-0 text-status-success" /> : null}
     </button>
   );
 }

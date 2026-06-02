@@ -41,13 +41,13 @@ export function deriveGroupStatus(tools: ChatToolCallMessage[]): GroupStatus {
 export function groupStatusIcon(status: GroupStatus) {
   switch (status) {
     case 'running':
-      return <Loader2 className="size-3.5 animate-spin text-[var(--status-info)]" />;
+      return <Loader2 className="size-3.5 animate-spin text-status-info" />;
     case 'completed':
-      return <CheckCircle2 className="size-3.5 text-[var(--status-success)]" />;
+      return <CheckCircle2 className="size-3.5 text-status-success" />;
     case 'error':
-      return <XCircle className="size-3.5 text-[var(--status-error)]" />;
+      return <XCircle className="size-3.5 text-status-error" />;
     case 'cancelled':
-      return <AlertCircle className="size-3.5 text-[var(--status-warning)]" />;
+      return <AlertCircle className="size-3.5 text-status-warning" />;
   }
 }
 
@@ -72,13 +72,13 @@ export function toolStatusDot(state: ChatToolCallMessage['state']) {
     case 'pending':
       return <span className="size-1.5 shrink-0 rounded-full bg-[var(--text-muted)]" />;
     case 'running':
-      return <span className="size-1.5 shrink-0 animate-pulse rounded-full bg-[var(--status-info)]" />;
+      return <span className="size-1.5 shrink-0 animate-pulse rounded-full bg-status-info" />;
     case 'completed':
-      return <span className="size-1.5 shrink-0 rounded-full bg-[var(--status-success)]" />;
+      return <span className="size-1.5 shrink-0 rounded-full bg-status-success" />;
     case 'error':
-      return <span className="size-1.5 shrink-0 rounded-full bg-[var(--status-error)]" />;
+      return <span className="size-1.5 shrink-0 rounded-full bg-status-error" />;
     case 'cancelled':
-      return <span className="size-1.5 shrink-0 rounded-full bg-[var(--status-warning)]" />;
+      return <span className="size-1.5 shrink-0 rounded-full bg-status-warning" />;
   }
 }
 

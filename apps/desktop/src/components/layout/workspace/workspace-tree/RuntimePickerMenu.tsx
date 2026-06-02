@@ -175,11 +175,11 @@ export function RuntimePickerMenu({ workspace }: { workspace: WorkspaceInfo }) {
                   aria-current={selected ? 'true' : undefined}
                   className={cn(
                     'group flex w-full items-start gap-2 rounded-lg border p-2.5 text-left transition-all duration-150',
-                    'border-transparent hover:border-[var(--accent-primary)] hover:bg-[var(--status-info-faint)] hover:shadow-sm',
+                    'border-transparent hover:border-[var(--accent-primary)] hover:bg-status-info-faint hover:shadow-sm',
                     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]',
                     'disabled:cursor-not-allowed disabled:opacity-60',
-                    selected && 'border-[var(--accent-primary)] bg-[var(--status-info-faint)]',
-                    pending && 'border-[var(--status-info)] bg-[var(--status-info-muted)]',
+                    selected && 'border-[var(--accent-primary)] bg-status-info-faint',
+                    pending && 'border-status-info bg-status-info-muted',
                   )}
                 >
                   <span className={cn(
@@ -193,12 +193,12 @@ export function RuntimePickerMenu({ workspace }: { workspace: WorkspaceInfo }) {
                     <span className="flex max-w-full flex-wrap items-center gap-1 text-sm font-medium text-[var(--text-primary)]">
                       {option.name}
                       {pending ? (
-                        <span className="rounded bg-[var(--bg-base)] px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-[var(--status-info)]">
+                        <span className="rounded bg-[var(--bg-base)] px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-status-info">
                           Switching
                         </span>
                       ) : null}
                       {option.recommended ? (
-                        <span className="rounded bg-[var(--status-success-faint)] px-1 py-0.5 text-[10px] uppercase tracking-wide text-[var(--status-success)]">
+                        <span className="rounded bg-status-success-faint px-1 py-0.5 text-[10px] uppercase tracking-wide text-[var(--brand-primary)]">
                           Default
                         </span>
                       ) : null}
@@ -213,7 +213,7 @@ export function RuntimePickerMenu({ workspace }: { workspace: WorkspaceInfo }) {
                     </span>
                   </span>
                   {pending ? (
-                    <Loader2 className="mt-1 size-3.5 animate-spin text-[var(--status-info)]" />
+                    <Loader2 className="mt-1 size-3.5 animate-spin text-status-info" />
                   ) : selected ? (
                     <Check className="mt-1 size-3.5 text-[var(--accent-primary)]" />
                   ) : null}
@@ -226,8 +226,8 @@ export function RuntimePickerMenu({ workspace }: { workspace: WorkspaceInfo }) {
             <div className={cn(
               'mx-2 mb-2 rounded-md border px-2 py-1.5 text-xs',
               errorMessage
-                ? 'border-[var(--status-error-border)] bg-[var(--status-error-faint)] text-[var(--status-error)]'
-                : 'border-[var(--status-info-border)] bg-[var(--status-info-faint)] text-[var(--text-secondary)]',
+                ? 'border-status-error-border bg-status-error-faint text-status-error'
+                : 'border-status-info-border bg-status-info-faint text-[var(--text-secondary)]',
             )}
             >
               {errorMessage ?? statusMessage}
@@ -239,7 +239,7 @@ export function RuntimePickerMenu({ workspace }: { workspace: WorkspaceInfo }) {
               type="button"
               variant="outline"
               size="sm"
-              className="h-7 w-full justify-between text-xs hover:border-[var(--accent-primary)] hover:bg-[var(--status-info-faint)]"
+              className="h-7 w-full justify-between text-xs hover:border-[var(--accent-primary)] hover:bg-status-info-faint"
               onClick={openDoctor}
             >
               Open Environment Doctor

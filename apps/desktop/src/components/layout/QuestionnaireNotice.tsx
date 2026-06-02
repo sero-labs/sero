@@ -189,18 +189,18 @@ export function QuestionnaireNotice({ tools, sessionLabel = null }: Props) {
         'overflow-hidden rounded-lg border px-3 py-2',
         'transition-colors',
         clickable
-          ? 'cursor-pointer border-[var(--status-info-border)] bg-[var(--status-info-faint)] hover:bg-[var(--status-info-muted)]'
+          ? 'cursor-pointer border-status-info-border bg-status-info-faint hover:bg-status-info-muted'
           : 'border-[var(--border-subtle)] bg-[var(--bg-elevated)]/50',
       ].join(' ')}
     >
       <div className="flex items-center gap-2.5">
         <ChevronRight className="size-3.5 text-[var(--text-muted)]" />
         {mode === 'completed' ? (
-          <CheckCircle2 className="size-3.5 shrink-0 text-[var(--status-success)]" />
+          <CheckCircle2 className="size-3.5 shrink-0 text-status-success" />
         ) : mode === 'preparing' ? (
           <Loader2 className="size-3.5 shrink-0 animate-spin text-[var(--text-muted)]" />
         ) : (
-          <span className="size-1.5 shrink-0 animate-pulse rounded-full bg-[var(--status-info)]" />
+          <span className="size-1.5 shrink-0 animate-pulse rounded-full bg-status-info" />
         )}
 
         <div className="min-w-0 flex-1">

@@ -75,7 +75,7 @@ export const AttachedFoldersSection = memo(function AttachedFoldersSection({
 
       <div className="space-y-4 p-4">
         {error ? (
-          <div className="rounded-xl border border-[var(--status-error-border)] bg-[var(--status-error-faint)] px-3 py-2.5 text-[11px] text-[var(--status-error)]">
+          <div className="rounded-xl border border-status-error-border bg-status-error-faint px-3 py-2.5 text-[11px] text-status-error">
             {error}
           </div>
         ) : null}
@@ -125,7 +125,7 @@ export const AttachedFoldersSection = memo(function AttachedFoldersSection({
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-7 border-[var(--status-error-border)] bg-[var(--status-error-muted)] px-2 text-[10px] text-[var(--status-error)] hover:bg-[var(--status-error-subtle)]"
+                    className="h-7 border-status-error-border bg-status-error-muted px-2 text-[10px] text-status-error hover:bg-status-error-subtle"
                     onClick={() => {
                       void onDetach(folder.id);
                     }}

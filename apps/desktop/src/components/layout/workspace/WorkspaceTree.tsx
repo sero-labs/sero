@@ -127,9 +127,9 @@ function RuntimePreparingNotice({ workspaces }: { workspaces: Array<{ id: string
   const names = workspaces.map((workspace) => workspace.name).join(', ');
 
   return (
-    <div className="mx-2 mb-2 rounded-md border border-[var(--status-info-border)] bg-[var(--status-info-faint)] p-2 text-xs text-[var(--text-secondary)]">
+    <div className="mx-2 mb-2 rounded-md border border-status-info-border bg-status-info-faint p-2 text-xs text-[var(--text-secondary)]">
       <div className="flex items-start gap-2">
-        <Loader2 className="mt-0.5 size-3.5 shrink-0 animate-spin text-[var(--status-info)]" />
+        <Loader2 className="mt-0.5 size-3.5 shrink-0 animate-spin text-status-info" />
         <div className="min-w-0 flex-1">
           <p className="font-medium text-[var(--text-primary)]">Preparing container runtime</p>
           <p className="mt-0.5">
@@ -153,15 +153,15 @@ function RuntimeErrorNotice({
   const names = workspaces.map((workspace) => workspace.name).join(', ');
 
   return (
-    <div className="mx-2 mb-2 rounded-md border border-[var(--status-error-border)] bg-[var(--status-error-faint)] p-2 text-xs text-[var(--status-error)]">
+    <div className="mx-2 mb-2 rounded-md border border-status-error-border bg-status-error-faint p-2 text-xs text-status-error">
       <div className="flex items-start gap-2">
         <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
         <div className="min-w-0 flex-1">
           <p className="font-medium">Container not available</p>
-          <p className="mt-0.5 text-[var(--status-error)]/85">
+          <p className="mt-0.5 text-status-error/85">
             Sero couldn't start {names}. Check that your container manager is running, or switch this workspace to Host.
           </p>
-          {error ? <p className="mt-1 line-clamp-1 text-[var(--status-error)]/70">Details: {error}</p> : null}
+          {error ? <p className="mt-1 line-clamp-1 text-status-error/70">Details: {error}</p> : null}
         </div>
       </div>
     </div>
@@ -173,12 +173,12 @@ function MissingWorkspaceNotice({ workspaces }: { workspaces: Array<{ id: string
   const names = workspaces.map((workspace) => workspace.name).join(', ');
 
   return (
-    <div className="mx-2 mb-2 rounded-md border border-[var(--status-warning-border)] bg-[var(--status-warning-muted)] p-2 text-xs text-[var(--status-warning)]">
+    <div className="mx-2 mb-2 rounded-md border border-status-warning-border bg-status-warning-muted p-2 text-xs text-status-warning">
       <div className="flex items-start gap-2">
         <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
         <div className="min-w-0 flex-1">
           <p className="font-medium">Workspace folder unavailable</p>
-          <p className="mt-0.5 text-[var(--status-warning)]/85">
+          <p className="mt-0.5 text-status-warning/85">
             {names} {workspaces.length === 1 ? 'points' : 'point'} to a folder that is missing right now. Sero kept the registry entry in case the folder is on removable media.
           </p>
           <button

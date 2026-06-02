@@ -14,12 +14,12 @@ export const GIT_STYLES = `
     --g-text: #e8e4df;
     --g-muted: #8b8d97;
     --g-dim: #5c5e6a;
-    --g-accent: #818cf8;
-    --g-accent-hover: #a5b4fc;
-    --g-green: #34d399;
-    --g-red: #f87171;
-    --g-yellow: #fbbf24;
-    --g-blue: #60a5fa;
+    --g-accent: var(--brand-secondary, #c4b5fd);
+    --g-accent-hover: var(--brand-secondary-hover, #ddd6fe);
+    --g-green: var(--color-status-success, #22c55e);
+    --g-red: var(--status-error, #ef4444);
+    --g-yellow: var(--status-warning, #f59e0b);
+    --g-blue: var(--status-info, #3b82f6);
     --g-border: rgba(255, 255, 255, 0.06);
     --g-border-bright: rgba(255, 255, 255, 0.10);
     --g-glow: rgba(129, 140, 248, 0.08);
@@ -37,6 +37,8 @@ export const GIT_STYLES = `
       --g-elevated: var(--bg-elevated, #1c1e28);
       --g-text: var(--text-primary, #e8e4df);
       --g-border: var(--border, rgba(255, 255, 255, 0.06));
+      --g-accent: var(--brand-secondary, #c4b5fd);
+      --g-accent-hover: var(--brand-secondary-hover, #ddd6fe);
     }
   }
 
@@ -57,14 +59,14 @@ export const GIT_STYLES = `
   .git-mono { font-family: var(--g-mono); }
 
   /* Diff line colors */
-  .diff-add { background: rgba(52, 211, 153, 0.08); }
-  .diff-add-text { color: #6ee7b7; }
-  .diff-del { background: rgba(248, 113, 113, 0.08); }
-  .diff-del-text { color: #fca5a5; }
-  .diff-hunk { background: rgba(129, 140, 248, 0.06); color: var(--g-accent); }
+  .diff-add { background: var(--color-status-success-faint, rgba(52, 211, 153, 0.08)); }
+  .diff-add-text { color: var(--g-green); }
+  .diff-del { background: var(--status-error-faint, rgba(248, 113, 113, 0.08)); }
+  .diff-del-text { color: var(--g-red); }
+  .diff-hunk { background: var(--brand-secondary-faint, rgba(129, 140, 248, 0.06)); color: var(--g-accent); }
 
   /* Graph selected row */
-  .graph-row-selected { background: rgba(129, 140, 248, 0.08) !important; }
+  .graph-row-selected { background: var(--brand-secondary-faint, rgba(129, 140, 248, 0.08)) !important; }
   .graph-row:hover { background: rgba(255, 255, 255, 0.02); }
 
   /* Subtle glow animation for loading */

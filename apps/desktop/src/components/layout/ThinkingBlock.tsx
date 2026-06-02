@@ -71,7 +71,7 @@ export function ThinkingBlock({
       className={cn(
         'group/tb overflow-hidden rounded-lg border transition-colors duration-200',
         isStreaming
-          ? 'border-[var(--status-warning-border)] bg-[var(--status-warning-faint)]'
+          ? 'border-status-warning-border bg-status-warning-faint'
           : 'border-[var(--border-subtle)] bg-[var(--bg-elevated)]/50',
       )}
     >
@@ -90,12 +90,12 @@ export function ThinkingBlock({
           <ChevronRight className="size-3.5 text-[var(--text-muted)]" />
         </motion.div>
 
-        <Brain className="size-3.5 text-[var(--status-warning)]" />
+        <Brain className="size-3.5 text-status-warning" />
 
         {isStreaming ? (
           <>
-            <Loader2 className="size-3 animate-spin text-[var(--status-warning)]" />
-            <span className="text-xs font-medium text-[var(--status-warning)]">
+            <Loader2 className="size-3 animate-spin text-status-warning" />
+            <span className="text-xs font-medium text-status-warning">
               Thinking{elapsed > 0 ? ` for ${elapsed}s` : '...'}
             </span>
           </>
@@ -133,7 +133,7 @@ export function ThinkingBlock({
               >
                 {thinking}
                 {isStreaming && (
-                  <span className="inline-block h-3 w-px animate-pulse bg-[var(--status-warning)]/60" />
+                  <span className="inline-block h-3 w-px animate-pulse bg-status-warning/60" />
                 )}
               </pre>
             </div>

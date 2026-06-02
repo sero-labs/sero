@@ -44,6 +44,8 @@ export interface LayoutState {
   theme?: string;
   /** Active theme preset ID. */
   activeThemeId?: string;
+  /** Whether the theme editor persists edits as fields change. */
+  themeEditorAutoSave?: boolean;
   /** Selected Monaco editor theme ID (defaults to 'auto' which follows the UI mode). */
   editorThemeId?: string;
   /** Last active workspace ID. */

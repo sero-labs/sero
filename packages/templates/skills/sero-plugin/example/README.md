@@ -22,7 +22,7 @@ plugin that exercises **every** surface a Sero plugin can ship.
 | Web UI (main) | `sero-notes-plugin/ui/NotesApp.tsx` | `useAppState`, `useAppInfo`, `useAppTools`, `useAgentPrompt`, `useAI`, dynamic widget registration via `useWidgetRegistration` |
 | Dashboard widget | `sero-notes-plugin/ui/widgets/NotesWidget.tsx` | Manifest-declared widget, compact layout, `h-full` wrapper contract |
 | Module Federation | `sero-notes-plugin/vite.config.ts` | package-root Vite root, `ui/index.html` Rollup input, `base: './'` for prod, singleton React, MF remote name `sero_notes`, `@sero-ai/app-runtime` excluded from `optimizeDeps` |
-| Styles | `sero-notes-plugin/ui/styles.css` | Tailwind 4 `@source` directives for plugin UI **and** `@sero-ai/ui` components, `@theme inline` mapping of semantic CSS variables |
+| Styles | `sero-notes-plugin/ui/styles.css` | Imports Sero's shared plugin stylesheet and scans plugin-local Tailwind classes |
 | TS configs | `extension/tsconfig.json`, `runtime/tsconfig.json`, `ui/tsconfig.json` | Self-contained compiler options; package resolution comes from workspace dependencies, not brittle relative `paths` |
 | CSS typings | `ui/vite-env.d.ts` | `vite/client` reference so `import './styles.css'` typechecks |
 | HTML shell | `ui/index.html` | Minimal entry used by `build.rollupOptions.input` |

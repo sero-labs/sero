@@ -27,7 +27,7 @@ export function RemoteOriginGitHubAuthNotice({
   return (
     <div
       className={cn(
-        'space-y-3 rounded-lg border border-[var(--status-info)]/20 bg-[var(--status-info)]/5 p-3',
+        'space-y-3 rounded-lg border border-status-info/20 bg-status-info/5 p-3',
         className,
       )}
     >

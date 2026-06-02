@@ -4,6 +4,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetTheme } from '@/lib/theme-engine';
+import { useAppStore } from '@/stores/app';
 import { useThemeStore } from '@/stores/theme';
 import {
   DEFAULT_DARK_COLORS,
@@ -20,6 +21,11 @@ import { useThemeEditorState } from './useThemeEditorState';
 ).IS_REACT_ACT_ENVIRONMENT = true;
 
 const initialThemeState = useThemeStore.getState();
+const initialAppState = useAppStore.getState();
+
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 function createPreset(overrides: Partial<ThemePreset> = {}): ThemePreset {
   return {
@@ -59,7 +65,9 @@ describe('useThemeEditorState', () => {
   const onOpenChangeSpy = vi.fn<(open: boolean) => void>();
   const resetThemePresetSpy = vi.fn<(id: string) => Promise<ThemePreset | null>>();
   const saveCustomPresetSpy = vi.fn<(preset: ThemePreset) => Promise<void>>();
+  const saveLayoutSpy = vi.fn<typeof window.sero.layout.save>();
   const setPresetSpy = vi.fn<(id: string) => Promise<void>>();
+  let consoleWarnSpy: ReturnType<typeof vi.spyOn>;
   const onOpenChange = (open: boolean) => {
     onOpenChangeSpy(open);
   };
@@ -77,7 +85,9 @@ describe('useThemeEditorState', () => {
     onOpenChangeSpy.mockReset();
     resetThemePresetSpy.mockReset();
     saveCustomPresetSpy.mockReset();
+    saveLayoutSpy.mockReset();
     setPresetSpy.mockReset();
+    consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     resetPreset = createPreset({
       name: 'Restored Ocean Glow',
       colors: {
@@ -87,9 +97,11 @@ describe('useThemeEditorState', () => {
     });
     resetThemePresetSpy.mockImplementation(async () => resetPreset);
     saveCustomPresetSpy.mockImplementation(async () => {});
+    saveLayoutSpy.mockImplementation(async () => {});
     setPresetSpy.mockImplementation(async () => {});
 
     useThemeStore.setState(initialThemeState, true);
+    useAppStore.setState(initialAppState, true);
     useThemeStore.setState({
       activePreset: createPreset(),
       activePresetId: 'ocean-glow',
@@ -113,8 +125,12 @@ describe('useThemeEditorState', () => {
       configurable: true,
       writable: true,
       value: {
+        layout: {
+          load: vi.fn(async () => null),
+          save: saveLayoutSpy,
+        },
         themes: mockThemes,
-      } satisfies Pick<typeof window.sero, 'themes'>,
+      } satisfies Pick<typeof window.sero, 'layout' | 'themes'>,
     });
 
     resetTheme();
@@ -133,9 +149,11 @@ describe('useThemeEditorState', () => {
     root = null;
     container.remove();
     Reflect.deleteProperty(window, 'sero');
+    consoleWarnSpy.mockRestore();
     resetTheme();
     document.documentElement.classList.remove('dark');
     useThemeStore.setState(initialThemeState, true);
+    useAppStore.setState(initialAppState, true);
   });
 
   it('initializes draft when the sheet opens and clears it when it closes', async () => {
@@ -196,6 +214,122 @@ describe('useThemeEditorState', () => {
     expect(setPresetSpy).toHaveBeenCalledWith('ocean-glow-redux');
     expect(onOpenChangeSpy).toHaveBeenCalledWith(false);
     expect(latestState?.draft).toBeNull();
+  });
+
+  it('debounces auto-save draft changes and persists the latest draft', async () => {
+    await act(async () => {
+      root?.render(<Harness open={true} onOpenChange={onOpenChange} editPresetId="ocean-glow" />);
+    });
+
+    act(() => {
+      latestState?.setAutoSave(true);
+    });
+
+    act(() => {
+      latestState?.handleColorChange('bgBase', '#123456');
+      latestState?.handleColorChange('bgBase', '#234567');
+      latestState?.handleColorChange('bgBase', '#345678');
+    });
+
+    expect(saveCustomPresetSpy).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await wait(450);
+    });
+
+    expect(saveCustomPresetSpy).toHaveBeenCalledTimes(1);
+    expect(saveCustomPresetSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'ocean-glow',
+        colors: expect.objectContaining({
+          dark: expect.objectContaining({ bgBase: '#345678' }),
+        }),
+      }),
+    );
+    expect(setPresetSpy).toHaveBeenCalledWith('ocean-glow');
+  });
+
+  it('persists the auto-save preference to layout state', async () => {
+    await act(async () => {
+      root?.render(<Harness open={true} onOpenChange={onOpenChange} editPresetId="ocean-glow" />);
+    });
+
+    act(() => {
+      latestState?.setAutoSave(true);
+    });
+
+    await act(async () => {
+      await wait(100);
+    });
+
+    expect(saveLayoutSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ themeEditorAutoSave: true }),
+    );
+  });
+
+  it('retries the latest debounced auto-save after a transient failure', async () => {
+    saveCustomPresetSpy
+      .mockRejectedValueOnce(new Error('disk busy'))
+      .mockResolvedValue(undefined);
+
+    await act(async () => {
+      root?.render(<Harness open={true} onOpenChange={onOpenChange} editPresetId="ocean-glow" />);
+    });
+
+    act(() => {
+      latestState?.setAutoSave(true);
+    });
+
+    act(() => {
+      latestState?.handleColorChange('bgBase', '#456789');
+    });
+
+    await act(async () => {
+      await wait(450);
+    });
+
+    expect(saveCustomPresetSpy).toHaveBeenCalledTimes(1);
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      '[theme-editor] Failed to auto-save theme draft:',
+      expect.any(Error),
+    );
+
+    await act(async () => {
+      await wait(450);
+    });
+
+    expect(saveCustomPresetSpy).toHaveBeenCalledTimes(2);
+    expect(saveCustomPresetSpy).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        colors: expect.objectContaining({
+          dark: expect.objectContaining({ bgBase: '#456789' }),
+        }),
+      }),
+    );
+  });
+
+  it('keeps auto-saved changes when the editor is explicitly closed', async () => {
+    await act(async () => {
+      root?.render(<Harness open={true} onOpenChange={onOpenChange} editPresetId="ocean-glow" />);
+    });
+
+    act(() => {
+      latestState?.setAutoSave(true);
+    });
+
+    act(() => {
+      latestState?.handleColorChange('bgBase', '#123456');
+      latestState?.handleCancel();
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(onOpenChangeSpy).toHaveBeenCalledWith(false);
+    expect(saveCustomPresetSpy).toHaveBeenCalled();
+    expect(document.documentElement.style.getPropertyValue('--bg-base')).toBe('#123456');
   });
 
   it('reloads the built-in preset template on reset and reapplies preview', async () => {

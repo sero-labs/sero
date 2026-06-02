@@ -97,7 +97,7 @@ export function RemotesSection({ workspaceId, remotes }: Props) {
                     onClick={handleAdd}
                     className={cn(
                       'flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium',
-                      'bg-[var(--status-success-muted)] text-[var(--status-success)] hover:bg-[var(--status-success-subtle)]',
+                      'bg-status-success-muted text-status-success hover:bg-status-success-subtle',
                       'transition-colors',
                     )}
                   >
@@ -142,7 +142,7 @@ export function RemotesSection({ workspaceId, remotes }: Props) {
               <button type="button"
                 onClick={() => void store.removeRemote(workspaceId, remote.name)}
                 title="Remove remote"
-                className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100 text-[var(--text-muted)] hover:text-[var(--status-error)]"
+                className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100 text-[var(--text-muted)] hover:text-status-error"
               >
                 <Trash2 className="size-2.5" />
               </button>

@@ -94,7 +94,7 @@ export function AppStoreCard({
           <Star
             className={cn(
               'size-4',
-              favourite ? 'fill-current text-[var(--status-warning)]' : 'text-[var(--text-muted)]',
+              favourite ? 'fill-current text-status-warning' : 'text-[var(--text-muted)]',
             )}
           />
         </Button>
@@ -104,14 +104,14 @@ export function AppStoreCard({
         {manifest.description ?? 'No description available.'}
       </p>
       {unsupportedReason ? (
-        <p className="mt-2 text-xs text-[var(--status-error)]">{unsupportedReason}</p>
+        <p className="mt-2 text-xs text-status-error">{unsupportedReason}</p>
       ) : null}
 
       <div className="mt-3 flex items-center gap-2">
         {category ? (
           <Badge
             variant="outline"
-            className="text-[11px] capitalize border-[var(--status-success-border)] bg-[var(--status-success-muted)] text-[var(--status-success)]"
+            className="text-[11px] capitalize border-status-success-border bg-status-success-muted text-status-success"
           >
             {formatLabel(category)}
           </Badge>
@@ -119,7 +119,7 @@ export function AppStoreCard({
         {unsupportedReason ? (
           <Badge
             variant="outline"
-            className="text-[11px] border-[var(--status-error-border)] bg-[var(--status-error-muted)] text-[var(--status-error)]"
+            className="text-[11px] border-status-error-border bg-status-error-muted text-status-error"
           >
             Unsupported host
           </Badge>

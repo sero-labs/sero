@@ -24,7 +24,7 @@ export function GitHubAuthOutcomeNote({
       className={cn(
         'flex items-center justify-between gap-2 rounded border px-2 py-1 text-[10px]',
         isError
-          ? 'border-[var(--status-error-border)] bg-[var(--status-error-muted)]/70 text-[var(--status-error)]'
+          ? 'border-status-error-border bg-status-error-muted/70 text-status-error'
           : 'border-[var(--border-subtle)] bg-[var(--bg-elevated)]/20 text-[var(--text-muted)]',
         className,
       )}
@@ -35,7 +35,7 @@ export function GitHubAuthOutcomeNote({
         onClick={onRetry}
         className={cn(
           'inline-flex shrink-0 items-center gap-1 text-[10px] font-medium transition-colors',
-          isError ? 'hover:text-[var(--status-error)]/80' : 'hover:text-[var(--text-primary)]',
+          isError ? 'hover:text-status-error/80' : 'hover:text-[var(--text-primary)]',
         )}
       >
         {isError ? <AlertCircle className="size-3" /> : <RotateCcw className="size-3" />}

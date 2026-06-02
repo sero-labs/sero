@@ -55,7 +55,7 @@ export function ThinkingPicker({
             className={`relative z-10 flex-1 rounded-md p-1 text-[11px] font-medium transition-colors duration-150 ${
               current === level && !disabled
                 ? level === 'xhigh'
-                  ? 'text-[var(--status-warning)]'
+                  ? 'text-status-warning'
                   : level === 'off'
                     ? 'text-[var(--text-secondary)]'
                     : 'text-[var(--banner-primary)]'

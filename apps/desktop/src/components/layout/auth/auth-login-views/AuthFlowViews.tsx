@@ -221,7 +221,7 @@ export function ResultView({
     <div className="space-y-3">
       <div className="flex items-start gap-2 text-sm">
         {isSuccess ? (
-          <CheckCircle className="mt-0.5 size-4 shrink-0 text-[var(--status-success)]" />
+          <CheckCircle className="mt-0.5 size-4 shrink-0 text-status-success" />
         ) : (
           <XCircle className="mt-0.5 size-4 shrink-0 text-destructive" />
         )}

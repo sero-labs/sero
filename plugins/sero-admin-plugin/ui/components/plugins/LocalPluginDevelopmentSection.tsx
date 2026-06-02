@@ -37,7 +37,7 @@ export const LocalPluginDevelopmentSection = memo(function LocalPluginDevelopmen
       <div className="border-b border-[var(--border-subtle)] p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex min-w-0 items-start gap-3">
-            <div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl border border-[var(--status-info-border)] bg-[var(--status-info-muted)] text-[var(--status-info)]">
+            <div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl border border-status-info-border bg-status-info-muted text-status-info">
               <Code2 className="size-4" />
             </div>
             <div className="min-w-0 space-y-1">
@@ -45,7 +45,7 @@ export const LocalPluginDevelopmentSection = memo(function LocalPluginDevelopmen
                 <h3 className="text-sm font-semibold text-[var(--text-primary)]">Local Plugin Development</h3>
                 <Badge
                   variant="outline"
-                  className="border-[var(--status-info-border)] bg-[var(--status-info-muted)] text-[10px] text-[var(--status-info)]"
+                  className="border-status-info-border bg-status-info-muted text-[10px] text-status-info"
                 >
                   Profile scoped
                 </Badge>
@@ -60,7 +60,7 @@ export const LocalPluginDevelopmentSection = memo(function LocalPluginDevelopmen
           <div className="flex items-center gap-2">
             <Badge
               variant="outline"
-              className="border-[var(--status-info-border)] bg-[var(--status-info-muted)] text-[10px] text-[var(--status-info)]"
+              className="border-status-info-border bg-status-info-muted text-[10px] text-status-info"
             >
               {countLabel}
             </Badge>
@@ -69,7 +69,7 @@ export const LocalPluginDevelopmentSection = memo(function LocalPluginDevelopmen
                 void onStart();
               }}
               disabled={starting}
-              className="h-9 bg-[var(--status-info)] px-3 text-xs font-medium text-white hover:bg-[var(--status-info)]/85"
+              className="h-9 bg-status-info px-3 text-xs font-medium text-white hover:bg-status-info/85"
             >
               {starting ? (
                 <>
@@ -85,7 +85,7 @@ export const LocalPluginDevelopmentSection = memo(function LocalPluginDevelopmen
       </div>
 
       <div className="space-y-4 p-4">
-        <div className="rounded-xl border border-[var(--status-info-border)] bg-[var(--status-info-muted)]/40 px-3.5 py-3">
+        <div className="rounded-xl border border-status-info-border bg-status-info-muted/40 px-3.5 py-3">
           <p className="text-[11px] leading-5 text-[var(--text-secondary)]">
             These sessions are saved per profile and use the source checkout directly. Use the{' '}
             <span className="font-medium text-[var(--text-primary)]">Attached folders</span>{' '}
@@ -95,7 +95,7 @@ export const LocalPluginDevelopmentSection = memo(function LocalPluginDevelopmen
         </div>
 
         {error ? (
-          <div className="rounded-xl border border-[var(--status-error-border)] bg-[var(--status-error-faint)] px-3 py-2.5 text-[11px] text-[var(--status-error)]">
+          <div className="rounded-xl border border-status-error-border bg-status-error-faint px-3 py-2.5 text-[11px] text-status-error">
             {error}
           </div>
         ) : null}
@@ -138,7 +138,7 @@ export const LocalPluginDevelopmentSection = memo(function LocalPluginDevelopmen
 function EmptyState() {
   return (
     <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-[var(--border-default)] bg-[var(--bg-base)] px-6 py-10 text-center">
-      <div className="flex size-14 items-center justify-center rounded-2xl border border-[var(--status-info-border)] bg-[var(--status-info-muted)] text-[var(--status-info)]">
+      <div className="flex size-14 items-center justify-center rounded-2xl border border-status-info-border bg-status-info-muted text-status-info">
         <Code2 className="size-6" />
       </div>
       <p className="mt-4 text-sm font-medium text-[var(--text-primary)]">No local development sessions yet</p>

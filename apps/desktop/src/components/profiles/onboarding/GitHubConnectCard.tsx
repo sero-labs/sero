@@ -27,21 +27,21 @@ export function GitHubConnectCard({
       className={cn(
         'rounded-lg border px-4 py-3',
         connected
-          ? 'border-[var(--status-success)]/20 bg-[var(--status-success)]/5'
-          : 'border-[var(--status-info)]/20 bg-[var(--status-info)]/5',
+          ? 'border-status-success/20 bg-status-success/5'
+          : 'border-status-info/20 bg-status-info/5',
       )}
     >
       <div className="flex items-start gap-3">
         <div
           className={cn(
             'flex size-9 shrink-0 items-center justify-center rounded-lg',
-            connected ? 'bg-[var(--status-success-muted)]/70' : 'bg-[var(--bg-elevated)]',
+            connected ? 'bg-status-success-muted/70' : 'bg-[var(--bg-elevated)]',
           )}
         >
           <Github
             className={cn(
               'size-4',
-              connected ? 'text-[var(--status-success)]' : 'text-[var(--text-primary)]',
+              connected ? 'text-status-success' : 'text-[var(--text-primary)]',
             )}
           />
         </div>
@@ -50,7 +50,7 @@ export function GitHubConnectCard({
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <p className="text-sm font-medium text-[var(--text-primary)]">Connect GitHub</p>
-              <span className="rounded-full border border-[var(--status-warning)]/25 bg-[var(--status-warning)]/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-[var(--status-warning)]">
+              <span className="rounded-full border border-status-warning/25 bg-status-warning/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-status-warning">
                 Recommended
               </span>
             </div>

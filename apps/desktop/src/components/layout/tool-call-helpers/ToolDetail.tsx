@@ -58,14 +58,14 @@ export function ToolDetail({
               errorText={tool.isError ? (tool.output ?? 'Tool execution failed') : undefined}
             />
             {!isComplete && tool.isPartialOutput && !progressModel ? (
-              <div className="mt-2 text-xs italic text-[var(--status-info)]">
+              <div className="mt-2 text-xs italic text-status-info">
                 Live update, tool still running.
               </div>
             ) : null}
           </>
         ) : null}
         {isCancelled ? (
-          <div className="text-xs italic text-[var(--status-warning)]">
+          <div className="text-xs italic text-status-warning">
             Cancelled, agent was stopped before this tool completed.
           </div>
         ) : null}

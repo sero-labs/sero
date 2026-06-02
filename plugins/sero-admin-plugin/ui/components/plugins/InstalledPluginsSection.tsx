@@ -15,12 +15,12 @@ const INSTALL_EXAMPLES = [
 
 const CATEGORY_ACCENTS: Record<PluginCategory, { icon: string; badge: string }> = {
   productivity: {
-    icon: 'border-[var(--status-success-border)] bg-[var(--status-success-muted)] text-[var(--status-success)]',
-    badge: 'border-[var(--status-success-border)] bg-[var(--status-success-muted)] text-[var(--status-success)]',
+    icon: 'border-status-success-border bg-status-success-muted text-status-success',
+    badge: 'border-status-success-border bg-status-success-muted text-status-success',
   },
   'developer-tools': {
-    icon: 'border-[var(--status-info-border)] bg-[var(--status-info-muted)] text-[var(--status-info)]',
-    badge: 'border-[var(--status-info-border)] bg-[var(--status-info-muted)] text-[var(--status-info)]',
+    icon: 'border-status-info-border bg-status-info-muted text-status-info',
+    badge: 'border-status-info-border bg-status-info-muted text-status-info',
   },
   entertainment: {
     icon: 'border-[var(--collab-primary-border)] bg-[var(--collab-primary-muted)] text-[var(--collab-primary)]',
@@ -31,12 +31,12 @@ const CATEGORY_ACCENTS: Record<PluginCategory, { icon: string; badge: string }> 
     badge: 'border-[var(--banner-primary-border)] bg-[var(--banner-primary-muted)] text-[var(--banner-primary)]',
   },
   finance: {
-    icon: 'border-[var(--status-warning-border)] bg-[var(--status-warning-muted)] text-[var(--status-warning)]',
-    badge: 'border-[var(--status-warning-border)] bg-[var(--status-warning-muted)] text-[var(--status-warning)]',
+    icon: 'border-status-warning-border bg-status-warning-muted text-status-warning',
+    badge: 'border-status-warning-border bg-status-warning-muted text-status-warning',
   },
   health: {
-    icon: 'border-[var(--status-success-border)] bg-[var(--status-success-muted)] text-[var(--status-success)]',
-    badge: 'border-[var(--status-success-border)] bg-[var(--status-success-muted)] text-[var(--status-success)]',
+    icon: 'border-status-success-border bg-status-success-muted text-status-success',
+    badge: 'border-status-success-border bg-status-success-muted text-status-success',
   },
   creative: {
     icon: 'border-[var(--collab-primary-border)] bg-[var(--collab-primary-muted)] text-[var(--collab-primary)]',
@@ -122,7 +122,7 @@ export const InstalledPluginsSection = memo(function InstalledPluginsSection({
 
       <div className="space-y-4 p-4">
         <div className="flex items-center gap-2">
-          <div className="flex size-7 items-center justify-center rounded-lg border border-[var(--status-info-border)] bg-[var(--status-info-muted)] text-[var(--status-info)]">
+          <div className="flex size-7 items-center justify-center rounded-lg border border-status-info-border bg-status-info-muted text-status-info">
             <PackagePlus className="size-3.5" />
           </div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">
@@ -201,7 +201,7 @@ export const InstalledPluginsSection = memo(function InstalledPluginsSection({
         </form>
 
         {error ? (
-          <div className="rounded-xl border border-[var(--status-error-border)] bg-[var(--status-error-faint)] px-3 py-2.5 text-[11px] text-[var(--status-error)]">
+          <div className="rounded-xl border border-status-error-border bg-status-error-faint px-3 py-2.5 text-[11px] text-status-error">
             {error}
           </div>
         ) : null}
@@ -269,7 +269,7 @@ function InstalledPluginCard({
                 {plugin.hasUI ? (
                   <Badge
                     variant="outline"
-                    className="h-5 border-[var(--status-info-border)] bg-[var(--status-info-muted)] px-1.5 text-[9px] text-[var(--status-info)]"
+                    className="h-5 border-status-info-border bg-status-info-muted px-1.5 text-[9px] text-status-info"
                   >
                     UI
                   </Badge>
@@ -337,7 +337,7 @@ function InstalledPluginCard({
           size="icon-xs"
           aria-label={uninstalling ? `Removing ${plugin.name}` : `Uninstall ${plugin.name}`}
           title={uninstalling ? 'Removing…' : 'Uninstall'}
-          className="size-8 rounded-lg border-[var(--status-error-border)] bg-[var(--status-error-muted)] text-[var(--status-error)] hover:bg-[var(--status-error-subtle)]"
+          className="size-8 rounded-lg border-status-error-border bg-status-error-muted text-status-error hover:bg-status-error-subtle"
           onClick={onUninstall}
           disabled={uninstalling}
         >

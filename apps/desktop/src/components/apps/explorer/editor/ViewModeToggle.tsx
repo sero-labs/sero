@@ -26,7 +26,7 @@ export function ViewModeToggle({ viewMode, onModeChange }: Props) {
             className={cn(
               'inline-flex size-7 items-center justify-center transition-colors duration-150',
               viewMode === 'code'
-                ? 'bg-[var(--status-success-subtle)] text-[var(--status-success)]'
+                ? 'bg-status-success-subtle text-status-success'
                 : 'text-[var(--text-muted)] hover:bg-[var(--bg-elevated)]/80 hover:text-[var(--text-secondary)]',
             )}
           >
@@ -44,7 +44,7 @@ export function ViewModeToggle({ viewMode, onModeChange }: Props) {
             className={cn(
               'inline-flex size-7 items-center justify-center transition-colors duration-150',
               viewMode === 'preview'
-                ? 'bg-[var(--status-success-subtle)] text-[var(--status-success)]'
+                ? 'bg-status-success-subtle text-status-success'
                 : 'text-[var(--text-muted)] hover:bg-[var(--bg-elevated)]/80 hover:text-[var(--text-secondary)]',
             )}
           >

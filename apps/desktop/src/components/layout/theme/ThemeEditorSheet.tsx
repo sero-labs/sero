@@ -14,6 +14,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@sero-ai/ui/components/ui/sheet';
+import { XIcon } from 'lucide-react';
 import { ThemeEditorDetailsSection } from './theme-editor/ThemeEditorDetailsSection';
 import { ThemeEditorFooter } from './theme-editor/ThemeEditorFooter';
 import { ThemeEditorTabs } from './theme-editor/ThemeEditorTabs';
@@ -33,6 +34,7 @@ export function ThemeEditorSheet({
 }: ThemeEditorSheetProps) {
   const {
     currentColors,
+    autoSave,
     draft,
     editPresetId: activeEditPresetId,
     effectiveMode,
@@ -44,17 +46,25 @@ export function ThemeEditorSheet({
     handleRadiusChange,
     handleReset,
     handleSave,
-    handleSheetClose,
     handleSpacingChange,
     handleTypographyChange,
     mode,
+    setAutoSave,
     setMode,
     setTab,
     tab,
   } = useThemeEditorState({ open, onOpenChange, editPresetId });
 
   return (
-    <Sheet open={open} onOpenChange={handleSheetClose} modal={false}>
+    <Sheet
+      open={open}
+      onOpenChange={(next) => {
+        if (next) {
+          onOpenChange(true);
+        }
+      }}
+      modal={false}
+    >
       <SheetContent
         side="right"
         overlay={false}
@@ -68,13 +78,23 @@ export function ThemeEditorSheet({
               Create or edit a theme preset with live preview
             </SheetDescription>
           </div>
-          <button
-            type="button"
-            onClick={handleNewTheme}
-            className="rounded px-2 py-1 text-[11px] font-medium text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]"
-          >
-            + New
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={handleNewTheme}
+              className="rounded px-2 py-1 text-[11px] font-medium text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]"
+            >
+              + New
+            </button>
+            <button
+              type="button"
+              onClick={handleCancel}
+              className="rounded p-1 text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]"
+            >
+              <XIcon className="size-4" />
+              <span className="sr-only">Close theme editor</span>
+            </button>
+          </div>
         </SheetHeader>
 
         {draft && (
@@ -100,7 +120,9 @@ export function ThemeEditorSheet({
             <ThemeEditorFooter
               canReset={Boolean(activeEditPresetId && activeEditPresetId !== '__new__')}
               canSave={Boolean(draft.name.trim())}
+              autoSave={autoSave}
               onCancel={handleCancel}
+              onAutoSaveChange={setAutoSave}
               onReset={handleReset}
               onSave={handleSave}
             />

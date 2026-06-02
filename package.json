@@ -6,9 +6,12 @@
   "scripts": {
     "postinstall": "node scripts/rebuild-node-pty.mjs && node scripts/rebuild-better-sqlite3.mjs",
     "dev": "pnpm --filter @sero/desktop dev",
+    "styleguide": "pnpm --filter @sero/styleguide dev",
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
+    "theme:audit": "node scripts/audit-theme-colors.mjs",
+    "theme:audit:strict": "node scripts/audit-theme-colors.mjs --strict",
     "e2e": "pnpm --filter @sero/desktop e2e",
     "e2e:contract": "pnpm --filter @sero/desktop e2e:contract",
     "e2e:workflow": "pnpm --filter @sero/desktop e2e:workflow",

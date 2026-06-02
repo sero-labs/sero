@@ -127,18 +127,18 @@ export function SessionBadge({ sessionId }: SessionBadgeProps) {
   const healthColor = !hasContextData
     ? 'text-[var(--text-muted)]'
     : percent < 50
-      ? 'text-[var(--status-success)]'
+      ? 'text-status-success'
       : percent < 80
-        ? 'text-[var(--status-warning)]'
-        : 'text-[var(--status-error)]';
+        ? 'text-status-warning'
+        : 'text-status-error';
 
   const barColor = !hasContextData
     ? 'bg-[var(--text-muted)]'
     : percent < 50
-      ? 'bg-[var(--status-success)]'
+      ? 'bg-status-success'
       : percent < 80
-        ? 'bg-[var(--status-warning)]'
-        : 'bg-[var(--status-error)]';
+        ? 'bg-status-warning'
+        : 'bg-status-error';
 
   const busy = compacting || clearing || forking;
 
@@ -155,7 +155,7 @@ export function SessionBadge({ sessionId }: SessionBadgeProps) {
           </span>
           <span className="text-[var(--text-muted)]">·</span>
           <Coins className="size-3.5" />
-          <span className="text-sm tabular-nums text-[var(--status-success)]">
+          <span className="text-sm tabular-nums text-brand-primary">
             {fmtCost(cost)}
           </span>
         </button>
@@ -222,7 +222,7 @@ export function SessionBadge({ sessionId }: SessionBadgeProps) {
           busy={busy}
         />
 
-        {actionError && <p className="text-xs text-[var(--status-error)]">{actionError}</p>}
+        {actionError && <p className="text-xs text-status-error">{actionError}</p>}
       </PopoverContent>
     </Popover>
   );
@@ -319,7 +319,7 @@ function SessionActions({ onFork, onClear, forking, forkSuccess, clearing, confi
         onClick={onFork}
         disabled={busy || forkSuccess}
         className={`flex flex-1 items-center justify-center gap-1.5 rounded px-2 py-1 text-xs font-medium transition-colors disabled:opacity-50 ${forkSuccess
-            ? 'bg-[var(--status-success-subtle)] text-[var(--status-success)]'
+            ? 'bg-status-success-subtle text-status-success'
             : 'bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]'
           }`}
         title="Fork: copy conversation to a new session"
@@ -331,8 +331,8 @@ function SessionActions({ onFork, onClear, forking, forkSuccess, clearing, confi
         onClick={onClear}
         disabled={busy}
         className={`flex flex-1 items-center justify-center gap-1.5 rounded px-2 py-1 text-xs font-medium transition-colors disabled:opacity-50 ${confirmClear
-            ? 'bg-[var(--status-error-border)] text-[var(--status-error)]'
-            : 'bg-[var(--bg-surface)] text-[var(--status-error)] hover:bg-[var(--status-error-muted)]'
+            ? 'bg-status-error-border text-status-error'
+            : 'bg-[var(--bg-surface)] text-status-error hover:bg-status-error-muted'
           }`}
         title="Reset conversation (branch from root)"
       >

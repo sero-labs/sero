@@ -58,7 +58,7 @@ export function DiscoverPluginCard({
       className={cn(
         'group rounded-xl border p-3 text-left transition-colors',
         plugin.installed
-          ? 'border-[var(--status-success-border)] bg-[var(--status-success-faint)] hover:bg-[var(--status-success-subtle)]'
+          ? 'border-status-success-border bg-status-success-faint hover:bg-status-success-subtle'
           : 'border-[var(--border-default)] bg-[var(--bg-surface)] hover:bg-[var(--bg-elevated)]',
       )}
     >
@@ -67,7 +67,7 @@ export function DiscoverPluginCard({
           className={cn(
             'mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md',
             plugin.installed
-              ? 'bg-[var(--status-success-muted)] text-[var(--status-success)]'
+              ? 'bg-status-success-muted text-status-success'
               : 'bg-[var(--bg-base)] text-[var(--text-secondary)]',
           )}
         >
@@ -94,7 +94,7 @@ export function DiscoverPluginCard({
         {plugin.description || 'No description available.'}
       </p>
 
-      {error ? <p className="mt-1 text-xs text-[var(--status-error)]">{error}</p> : null}
+      {error ? <p className="mt-1 text-xs text-status-error">{error}</p> : null}
 
       <div className="mt-3 flex items-end justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
@@ -110,7 +110,7 @@ export function DiscoverPluginCard({
           {plugin.npmPackage ? (
             <Badge
               variant="outline"
-              className="gap-1 border-[var(--status-error-border)] bg-[var(--status-error-muted)] text-[11px] text-[var(--status-error)]"
+              className="gap-1 border-status-error-border bg-status-error-muted text-[11px] text-status-error"
             >
               <Package className="size-3" />
               npm
@@ -135,7 +135,7 @@ export function DiscoverPluginCard({
             aria-label={`Uninstall ${plugin.displayName}`}
             disabled={isUninstalling}
             onClick={handleUninstall}
-            className="size-7 shrink-0 border-[var(--status-error-border)] bg-[var(--status-error-muted)] text-[var(--status-error)] hover:bg-[var(--status-error-subtle)]"
+            className="size-7 shrink-0 border-status-error-border bg-status-error-muted text-status-error hover:bg-status-error-subtle"
           >
             {isUninstalling ? (
               <Loader2 className="size-3 animate-spin" />
@@ -150,7 +150,7 @@ export function DiscoverPluginCard({
             size="xs"
             disabled={isInstalling}
             onClick={handleInstall}
-            className="h-7 shrink-0 border-[var(--status-success-border)] bg-[var(--status-success-muted)] px-2.5 text-[var(--status-success)] hover:bg-[var(--status-success-subtle)]"
+            className="h-7 shrink-0 border-status-success-border bg-status-success-muted px-2.5 text-status-success hover:bg-status-success-subtle"
           >
             {isInstalling ? (
               <Loader2 className="size-3 animate-spin" />

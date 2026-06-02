@@ -44,7 +44,7 @@ export const PluginsPanel = memo(function PluginsPanel() {
             </Badge>
             <Badge
               variant="outline"
-              className="border-[var(--status-info-border)] bg-[var(--status-info-muted)] text-[10px] text-[var(--status-info)]"
+              className="border-status-info-border bg-status-info-muted text-[10px] text-status-info"
             >
               {devSessions.sessions.length} local sessions
             </Badge>

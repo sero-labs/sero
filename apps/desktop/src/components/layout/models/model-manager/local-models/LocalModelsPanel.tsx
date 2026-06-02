@@ -72,7 +72,7 @@ const ProviderRow = memo(function ProviderRow({
             onClick={() => onRemove(name)}
             title="Remove provider"
             className="rounded-md p-1 text-[var(--text-muted)] transition-colors
-              hover:bg-[var(--bg-elevated)] hover:text-[var(--status-error)]"
+              hover:bg-[var(--bg-elevated)] hover:text-status-error"
           >
             <Trash2 className="size-3.5" />
           </button>
@@ -95,7 +95,7 @@ const ProviderRow = memo(function ProviderRow({
                   <div className="size-1.5 rounded-full bg-[var(--border-default)]" />
                   <span className="text-xs text-[var(--text-secondary)]">{m.name ?? m.id}</span>
                   {m.reasoning && (
-                    <span className="text-[10px] text-[var(--status-warning)]">reasoning</span>
+                    <span className="text-[10px] text-status-warning">reasoning</span>
                   )}
                 </div>
               ))}
@@ -215,7 +215,7 @@ export function LocalModelsPanel({ localModels }: LocalModelsPanelProps) {
                 onRemove={handleRemove}
               />
               {confirmRemove === name && (
-                <p className="mt-1 text-center text-[10px] text-[var(--status-error)]">
+                <p className="mt-1 text-center text-[10px] text-status-error">
                   Click remove again to confirm
                 </p>
               )}
@@ -230,7 +230,7 @@ export function LocalModelsPanel({ localModels }: LocalModelsPanelProps) {
 function ErrorState({ error, onRetry }: { error: string; onRetry: () => Promise<void> }) {
   return (
     <div className="flex flex-col gap-3 p-3">
-      <div className="rounded-lg bg-[var(--status-error)]/10 px-3 py-2 text-xs text-[var(--status-error)]">
+      <div className="rounded-lg bg-status-error/10 px-3 py-2 text-xs text-status-error">
         {error}
       </div>
       <p className="text-[11px] text-[var(--text-muted)]">

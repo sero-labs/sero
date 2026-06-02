@@ -15,31 +15,31 @@ type SectionTint = 'blue' | 'amber' | 'violet' | 'neutral';
 type BadgeVariant = 'default' | 'modified' | 'disabled' | 'partial';
 
 const iconTintClass: Record<SectionTint, string> = {
-  blue: 'text-[var(--status-info)]',
-  amber: 'text-[var(--status-warning)]',
+  blue: 'text-status-info',
+  amber: 'text-status-warning',
   violet: 'text-[var(--collab-primary)]',
   neutral: 'text-[var(--text-muted)]',
 };
 
 const badgeClass: Record<BadgeVariant, string> = {
   default: 'bg-[var(--bg-base)] text-[var(--text-muted)]',
-  modified: 'bg-[var(--status-warning-subtle)] text-[var(--status-warning)]',
-  disabled: 'bg-[var(--status-error-subtle)] text-[var(--status-error)]',
-  partial: 'bg-[var(--status-info-subtle)] text-[var(--status-info)]',
+  modified: 'bg-status-warning-subtle text-status-warning',
+  disabled: 'bg-status-error-subtle text-status-error',
+  partial: 'bg-status-info-subtle text-status-info',
 };
 
 const sectionBorderClass: Record<BadgeVariant, string> = {
   default: 'border-border/50',
-  modified: 'border-[var(--status-warning-border)]',
-  disabled: 'border-[var(--status-error-border)]',
-  partial: 'border-[var(--status-info-border)]',
+  modified: 'border-status-warning-border',
+  disabled: 'border-status-error-border',
+  partial: 'border-status-info-border',
 };
 
 const sectionBgClass: Record<BadgeVariant, string> = {
   default: 'bg-[var(--bg-elevated)]/50',
-  modified: 'bg-[var(--status-warning-faint)]',
-  disabled: 'bg-[var(--status-error-faint)]',
-  partial: 'bg-[var(--status-info-faint)]',
+  modified: 'bg-status-warning-faint',
+  disabled: 'bg-status-error-faint',
+  partial: 'bg-status-info-faint',
 };
 
 // ── Collapsible Section (ToolCallGroup style) ───────────────────

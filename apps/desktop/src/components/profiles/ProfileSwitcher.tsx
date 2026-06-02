@@ -117,7 +117,7 @@ export function ProfileSwitcher() {
             <div className="my-1 h-px bg-[var(--border-default)]" />
 
             {error && (
-              <p className="px-2 py-1 text-[11px] text-[var(--status-error)]">{error}</p>
+              <p className="px-2 py-1 text-[11px] text-status-error">{error}</p>
             )}
 
             <button type="button"

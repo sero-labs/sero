@@ -37,14 +37,14 @@ function StatusIcon({ status }: { status: string }) {
   switch (status) {
     case 'running':
     case 'queued':
-      return <Loader2 className="size-3.5 animate-spin text-[var(--status-info)]" />;
+      return <Loader2 className="size-3.5 animate-spin text-status-info" />;
     case 'completed':
-      return <CheckCircle2 className="size-3.5 text-[var(--status-success)]" />;
+      return <CheckCircle2 className="size-3.5 text-status-success" />;
     case 'failed':
     case 'timed_out':
-      return <XCircle className="size-3.5 text-[var(--status-error)]" />;
+      return <XCircle className="size-3.5 text-status-error" />;
     case 'aborted':
-      return <AlertCircle className="size-3.5 text-[var(--status-warning)]" />;
+      return <AlertCircle className="size-3.5 text-status-warning" />;
     default:
       return <Clock className="size-3.5 text-[var(--text-muted)]" />;
   }
@@ -105,9 +105,9 @@ function ToolActivityFeed({ activity }: { activity: SubagentToolActivity[] }) {
           className="flex items-center gap-1.5 px-0.5 py-[1px]"
         >
           {item.running ? (
-            <span className="size-1.5 shrink-0 animate-pulse rounded-full bg-[var(--status-info)]" />
+            <span className="size-1.5 shrink-0 animate-pulse rounded-full bg-status-info" />
           ) : (
-            <span className="size-1.5 shrink-0 rounded-full bg-[var(--status-success)]" />
+            <span className="size-1.5 shrink-0 rounded-full bg-status-success" />
           )}
           <span className="shrink-0 text-[10px]"><ToolIcon name={item.toolName} /></span>
           <span className="shrink-0 text-[10px] font-medium text-[var(--text-muted)]">
@@ -146,7 +146,7 @@ function LiveOutputPreview({ text }: { text: string }) {
       className="mt-1 max-h-32 overflow-y-auto rounded bg-[var(--bg-base)] p-1.5 text-[10px] leading-relaxed text-[var(--text-secondary)]/80 whitespace-pre-wrap break-words"
     >
       {preview}
-      <span className="animate-pulse text-[var(--status-info)]">█</span>
+      <span className="animate-pulse text-status-info">█</span>
     </pre>
   );
 }
@@ -196,11 +196,11 @@ export function SubagentCard({ entry }: SubagentCardProps) {
 
   // Border color based on status
   const borderClass = isRunning
-    ? 'border-[var(--status-info-border)] bg-[var(--status-info-faint)]'
+    ? 'border-status-info-border bg-status-info-faint'
     : isFailed
-      ? 'border-[var(--status-error-border)] bg-[var(--status-error-faint)]'
+      ? 'border-status-error-border bg-status-error-faint'
       : isAborted
-        ? 'border-[var(--status-warning-border)] bg-[var(--status-warning-faint)]'
+        ? 'border-status-warning-border bg-status-warning-faint'
         : 'border-[var(--border-subtle)] bg-[var(--bg-elevated)]/50';
 
   return (
@@ -227,7 +227,7 @@ export function SubagentCard({ entry }: SubagentCardProps) {
             <span>{formatTokens(entry.usage.totalTokens)}</span>
           )}
           {entry.usage.cost > 0 && (
-            <span className="text-[var(--status-success)]">{formatCost(entry.usage.cost)}</span>
+            <span className="text-status-success">{formatCost(entry.usage.cost)}</span>
           )}
         </div>
         {/* Stop button (running only) */}
@@ -237,8 +237,8 @@ export function SubagentCard({ entry }: SubagentCardProps) {
             className={cn(
               'ml-1 flex items-center justify-center rounded p-1 transition-colors',
               mayBeStalled
-                ? 'bg-[var(--status-error-border)] text-[var(--status-error)] hover:bg-[var(--status-error-subtle)]'
-                : 'text-[var(--text-muted)] hover:bg-[var(--bg-surface)] hover:text-[var(--status-error)]',
+                ? 'bg-status-error-border text-status-error hover:bg-status-error-subtle'
+                : 'text-[var(--text-muted)] hover:bg-[var(--bg-surface)] hover:text-status-error',
             )}
             title={mayBeStalled ? 'Stop, tool appears stalled' : 'Stop subagent'}
           >
@@ -261,9 +261,9 @@ export function SubagentCard({ entry }: SubagentCardProps) {
 
       {/* ── Stall warning ──────────────────────────────── */}
       {mayBeStalled && (
-        <div className="flex items-center gap-1.5 border-t border-[var(--status-warning-border)] bg-[var(--status-warning-faint)] px-3 py-1">
-          <AlertCircle className="size-3 shrink-0 text-[var(--status-warning)]" />
-          <span className="text-[10px] text-[var(--status-warning)]">
+        <div className="flex items-center gap-1.5 border-t border-status-warning-border bg-status-warning-faint px-3 py-1">
+          <AlertCircle className="size-3 shrink-0 text-status-warning" />
+          <span className="text-[10px] text-status-warning">
             Tool may be stalled, stop or wait for auto-timeout
           </span>
         </div>
@@ -275,7 +275,7 @@ export function SubagentCard({ entry }: SubagentCardProps) {
         {hasLiveOutput && (
           <button type="button"
             onClick={() => setShowLiveOutput(!showLiveOutput)}
-            className="text-[10px] text-[var(--status-info)] hover:brightness-125 transition-colors"
+            className="text-[10px] text-status-info hover:brightness-125 transition-colors"
           >
             {showLiveOutput ? '▲ Hide live' : '▼ Live output'}
           </button>
