@@ -81,7 +81,7 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           persist-credentials: false
 
@@ -110,11 +110,11 @@ jobs:
               ;;
           esac
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           run_install: false
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: pnpm
@@ -144,7 +144,7 @@ jobs:
             --clobber
 
       - name: Upload receipt workflow artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: browser-pack-receipt-${{ matrix.slug }}
           path: ${{ env.BROWSER_PACK_DIR }}/${{ matrix.receipt }}
@@ -163,16 +163,16 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ github.ref }}
           persist-credentials: false
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           run_install: false
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: pnpm
@@ -206,7 +206,7 @@ jobs:
         run: pnpm --filter @sero/desktop verify:host-mode-release
 
       - name: Upload generated metadata
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: browser-pack-generated-artifacts
           path: apps/desktop/electron/features/workspace/runtime/browser-pack/generated-artifacts.json

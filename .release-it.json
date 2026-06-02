@@ -19,13 +19,15 @@
     }
   },
   "hooks": {
-    "after:bump": "node scripts/sync-release-package-version.mjs ${version}"
+    "after:bump": "node scripts/sync-release-package-version.mjs ${version}",
+    "after:git:release": "git push origin refs/tags/v${version}:refs/tags/v${version}"
   },
   "git": {
     "requireBranch": "main",
     "commitMessage": "chore: release v${version}",
     "tagName": "v${version}",
     "tagAnnotation": "Release v${version}",
+    "pushArgs": ["origin", "HEAD:main"],
     "push": true
   },
   "github": {

@@ -91,7 +91,7 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install Linux display dependencies
         if: ${{ matrix.os == 'linux' }}
@@ -110,11 +110,11 @@ jobs:
           command -v bash >/dev/null 2>&1 || { echo "::error::bash is missing from PATH"; exit 1; }
           command -v git >/dev/null 2>&1 || { echo "::error::git is missing from PATH"; exit 1; }
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           run_install: false
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: pnpm
@@ -207,7 +207,7 @@ jobs:
           fi
 
       - name: Upload packaged artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: desktop-release-${{ matrix.target }}
           path: |
@@ -223,7 +223,7 @@ jobs:
 
       - name: Upload Playwright failure artifacts
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: desktop-playwright-${{ matrix.target }}
           path: |
@@ -246,7 +246,7 @@ jobs:
       - name: Check release token before downloading artifacts
         run: gh api "repos/${GITHUB_REPOSITORY}" --jq .full_name
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: desktop-release-*
           path: release-artifacts
