@@ -212,6 +212,8 @@ pnpm dev:isolated
 
 This uses `~/.sero-ui-dev` for dev state, so the source build and packaged app
 do not share profiles, settings, auth, or plugin paths.
+Profile switching is disabled in isolated mode; use `pnpm dev` when working on
+profile features.
 
 Plugin UI dev servers are opt-in. To live-reload a built-in plugin UI, set
 `SERO_DEV_PLUGINS`:

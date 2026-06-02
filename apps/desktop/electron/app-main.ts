@@ -62,6 +62,7 @@ import { getDefaultMemoryLoggingSettings, ensureConfiguredMemoryLoggingSettings 
 import { ensureHostSeroCliBridge } from './cli/host-bridge/server';
 import { initUpdater } from './features/updater/updater';
 import { installApplicationMenu } from './features/updater/menu';
+import { getPackageSource, removeStaleBuiltinPackages } from './platform/protocols/builtin-package-settings';
 
 let mainWindow: BrowserWindow | null = null;
 let isGracefullyShuttingDown = false;
@@ -74,53 +75,6 @@ app.commandLine.appendSwitch('use-mock-keychain');
 
 function getWorkspaceAppPaths(): string[] {
   return [...discoverBuiltinPackagePaths(), ...discoverBuiltinPluginPaths()];
-}
-
-function getPackageSource(entry: SettingsPackageSource): string | null {
-  if (typeof entry === 'string') return entry;
-  return typeof entry.source === 'string' ? entry.source : null;
-}
-
-function readSeroAppId(packagePath: string): string | null {
-  const packageJsonPath = path.join(packagePath, 'package.json');
-  if (!existsSync(packageJsonPath)) return null;
-
-  try {
-    const pkgJson = JSON.parse(readFileSync(packageJsonPath, 'utf8')) as {
-      sero?: { app?: { id?: unknown } };
-    };
-    return typeof pkgJson.sero?.app?.id === 'string' ? pkgJson.sero.app.id : null;
-  } catch {
-    return null;
-  }
-}
-
-function getCurrentBuiltinAppIds(packagePaths: string[]): Set<string> {
-  return new Set(packagePaths.map(readSeroAppId).filter((id): id is string => id !== null));
-}
-
-function removeStaleBuiltinPackages(
-  packages: SettingsPackageSource[],
-  currentPackagePaths: string[],
-): { packages: SettingsPackageSource[]; changed: boolean } {
-  const currentSources = new Set(currentPackagePaths.map((packagePath) => path.resolve(packagePath)));
-  const currentAppIds = getCurrentBuiltinAppIds(currentPackagePaths);
-  let changed = false;
-
-  const nextPackages = packages.filter((entry) => {
-    const source = getPackageSource(entry);
-    if (!source) return true;
-
-    const resolvedSource = path.resolve(source);
-    if (currentSources.has(resolvedSource)) return true;
-
-    const sourceAppId = readSeroAppId(resolvedSource);
-    const keep = !sourceAppId || !currentAppIds.has(sourceAppId);
-    if (!keep) changed = true;
-    return keep;
-  });
-
-  return { packages: nextPackages, changed };
 }
 
 /**
@@ -183,9 +137,11 @@ function ensureBuiltinPackages(): void {
   settings = memoryLoggingSettings.settings;
   if (memoryLoggingSettings.changed) changed = true;
   for (const p of workspacePackages) {
-    const hasPackagePath = packages.some((entry) =>
-      (typeof entry === 'string' ? entry : entry.source) === p,
-    );
+    const packagePath = path.resolve(p);
+    const hasPackagePath = packages.some((entry) => {
+      const source = getPackageSource(entry);
+      return source ? path.resolve(source) === packagePath : false;
+    });
     if (!hasPackagePath) {
       packages.push(p);
       changed = true;

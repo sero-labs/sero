@@ -47,7 +47,7 @@ const QUICK_PRESETS = [
     draft: createPresetDraft({
       transport: 'http',
       serverName: 'remote-oauth',
-      url: 'https://example.com/mcp',
+      url: '',
       authMode: 'oauth',
       lifecycle: 'eager',
     }),
