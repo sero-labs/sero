@@ -76,6 +76,53 @@ function getWorkspaceAppPaths(): string[] {
   return [...discoverBuiltinPackagePaths(), ...discoverBuiltinPluginPaths()];
 }
 
+function getPackageSource(entry: SettingsPackageSource): string | null {
+  if (typeof entry === 'string') return entry;
+  return typeof entry.source === 'string' ? entry.source : null;
+}
+
+function readSeroAppId(packagePath: string): string | null {
+  const packageJsonPath = path.join(packagePath, 'package.json');
+  if (!existsSync(packageJsonPath)) return null;
+
+  try {
+    const pkgJson = JSON.parse(readFileSync(packageJsonPath, 'utf8')) as {
+      sero?: { app?: { id?: unknown } };
+    };
+    return typeof pkgJson.sero?.app?.id === 'string' ? pkgJson.sero.app.id : null;
+  } catch {
+    return null;
+  }
+}
+
+function getCurrentBuiltinAppIds(packagePaths: string[]): Set<string> {
+  return new Set(packagePaths.map(readSeroAppId).filter((id): id is string => id !== null));
+}
+
+function removeStaleBuiltinPackages(
+  packages: SettingsPackageSource[],
+  currentPackagePaths: string[],
+): { packages: SettingsPackageSource[]; changed: boolean } {
+  const currentSources = new Set(currentPackagePaths.map((packagePath) => path.resolve(packagePath)));
+  const currentAppIds = getCurrentBuiltinAppIds(currentPackagePaths);
+  let changed = false;
+
+  const nextPackages = packages.filter((entry) => {
+    const source = getPackageSource(entry);
+    if (!source) return true;
+
+    const resolvedSource = path.resolve(source);
+    if (currentSources.has(resolvedSource)) return true;
+
+    const sourceAppId = readSeroAppId(resolvedSource);
+    const keep = !sourceAppId || !currentAppIds.has(sourceAppId);
+    if (!keep) changed = true;
+    return keep;
+  });
+
+  return { packages: nextPackages, changed };
+}
+
 /**
  * Bootstrap ~/.sero-ui/agent/ on first run.
  *
@@ -120,12 +167,14 @@ function ensureBuiltinPackages(): void {
     // Will be created by bootstrapAgentDir
   }
 
-  const packages = Array.isArray(settings.packages)
+  let packages = Array.isArray(settings.packages)
     ? settings.packages as SettingsPackageSource[]
     : [];
   const workspacePackages = getWorkspaceAppPaths();
+  const stalePackageCleanup = removeStaleBuiltinPackages(packages, workspacePackages);
+  packages = stalePackageCleanup.packages;
 
-  let changed = false;
+  let changed = stalePackageCleanup.changed;
   const fallbackSettings = ensureConfiguredModelFallbackChain(settings);
   settings = fallbackSettings.settings;
   if (fallbackSettings.changed) changed = true;

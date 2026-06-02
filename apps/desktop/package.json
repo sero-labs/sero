@@ -10,6 +10,7 @@
   "main": "dist/electron/main.mjs",
   "scripts": {
     "dev": "bash scripts/dev.sh",
+    "dev:isolated": "SERO_HOME_OVERRIDE=${SERO_HOME_OVERRIDE:-$HOME/.sero-ui-dev} SERO_DEV_PLUGINS=${SERO_DEV_PLUGINS:-} bash scripts/dev.sh",
     "dev:renderer": "vite",
     "dev:electron": "npm run build:electron && NODE_ENV=development electron .",
     "dev:raw": "concurrently --kill-others \"npm run dev:renderer\" \"npm run dev:electron\"",

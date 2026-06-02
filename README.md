@@ -203,6 +203,24 @@ pnpm dev
 
 This starts the desktop app from the monorepo root.
 
+If you also run the packaged Sero app on this machine, use the isolated dev
+launcher instead:
+
+```bash
+pnpm dev:isolated
+```
+
+This uses `~/.sero-ui-dev` for dev state, so the source build and packaged app
+do not share profiles, settings, auth, or plugin paths.
+
+Plugin UI dev servers are opt-in. To live-reload a built-in plugin UI, set
+`SERO_DEV_PLUGINS`:
+
+```bash
+SERO_DEV_PLUGINS=mcp pnpm dev:isolated
+SERO_DEV_PLUGINS=all pnpm dev:isolated
+```
+
 ### Common commands
 
 ```bash

@@ -3,11 +3,13 @@ import path from 'path';
 import { isBuiltinPackageDir } from './builtin-package-detection.js';
 
 const MONOREPO_PACKAGES_CANDIDATES = [
+  path.resolve(__dirname, '../../../../../../packages'),
   path.resolve(__dirname, '../../../../packages'),
   path.resolve(__dirname, '../../../packages'),
 ];
 
 const MONOREPO_PLUGINS_CANDIDATES = [
+  path.resolve(__dirname, '../../../../../../plugins'),
   path.resolve(__dirname, '../../../../plugins'),
   path.resolve(__dirname, '../../../plugins'),
 ];

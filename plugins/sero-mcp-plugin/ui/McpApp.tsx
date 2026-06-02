@@ -3,16 +3,14 @@ import { useAppState } from '@sero-ai/app-runtime';
 import { Alert, AlertDescription, AlertTitle } from '@sero-ai/ui/components/ui/alert';
 import { Badge } from '@sero-ai/ui/components/ui/badge';
 import { Button } from '@sero-ai/ui/components/ui/button';
-import { Card, CardDescription, CardHeader, CardTitle } from '@sero-ai/ui/components/ui/card';
 import { cn } from '@sero-ai/ui/lib/utils';
-import { AlertCircle, PlugZap, RefreshCw, Server, ShieldCheck, Wrench } from 'lucide-react';
+import { AlertCircle, FileJson, PlugZap, RefreshCw, Search, Server, ShieldCheck, Wrench } from 'lucide-react';
 import type { McpAppState } from '../shared/types';
 import { createDefaultMcpState } from '../shared/types';
 import { McpRawConfigPanel } from './components/config/McpRawConfigPanel';
 import { McpDiagnosticsPanel } from './components/diagnostics/McpDiagnosticsPanel';
 import { McpSearchWorkbenchPanel } from './components/search/McpSearchWorkbenchPanel';
 import { McpServerCrudPanel } from './components/servers/McpServerCrudPanel';
-import { McpSetupWizard } from './components/wizard/McpSetupWizard';
 import { useMcpBootstrap } from './hooks/useMcpBootstrap';
 import { useMcpDiagnostics } from './hooks/useMcpDiagnostics';
 import { useMcpRawConfig } from './hooks/useMcpRawConfig';
@@ -25,6 +23,7 @@ export function McpApp() {
   const diagnostics = useMcpDiagnostics();
   const rawConfig = useMcpRawConfig();
   const [selectedServerName, setSelectedServerName] = useState<string | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
 
   const resolvedSelectedServerName = useMemo(() => {
     if (selectedServerName && state.servers.some((server) => server.serverName === selectedServerName)) {
@@ -33,28 +32,39 @@ export function McpApp() {
     return null;
   }, [selectedServerName, state.servers]);
 
-  const summaryCards = useMemo(() => {
-    return [
-      { label: 'Servers', value: state.summary.totalServers, icon: Server },
-      { label: 'Connected', value: state.summary.connectedServers, icon: PlugZap },
-      { label: 'Needs auth', value: state.summary.needsAuthServers, icon: ShieldCheck },
-      { label: 'Errors', value: state.summary.errorServers, icon: AlertCircle },
-    ];
-  }, [state.summary.connectedServers, state.summary.errorServers, state.summary.needsAuthServers, state.summary.totalServers]);
+  const healthLabel = state.summary.errorServers > 0 ? 'has errors' : state.summary.needsAuthServers > 0 ? 'needs auth' : 'ready';
 
   return (
     <div className="flex size-full flex-col bg-background text-foreground">
-      <header className="border-b border-border px-5 py-4">
-        <div className="flex flex-wrap items-start justify-between gap-4">
+      <header className="border-b border-border px-5 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0 space-y-2">
             <div className="flex items-center gap-2">
               <PlugZap className="size-4 text-primary" />
               <h1 className="text-base font-semibold">MCP</h1>
-              <Badge variant="secondary">connected</Badge>
+              <Badge variant="secondary">{healthLabel}</Badge>
+            </div>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+              <Metric icon={Server} label="Servers" value={state.summary.totalServers} />
+              <Metric icon={PlugZap} label="Connected" value={state.summary.connectedServers} />
+              <Metric icon={ShieldCheck} label="Needs auth" value={state.summary.needsAuthServers} />
+              <Metric icon={AlertCircle} label="Errors" value={state.summary.errorServers} />
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            {state.servers.length > 0 && (
+              <Button
+                type="button"
+                variant={searchOpen ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setSearchOpen((open) => !open)}
+                aria-pressed={searchOpen}
+              >
+                <Search className="mr-2 size-4" />
+                Search
+              </Button>
+            )}
             <Button
               type="button"
               variant={diagnostics.isOpen ? 'default' : 'outline'}
@@ -63,7 +73,7 @@ export function McpApp() {
               disabled={diagnostics.loading}
               aria-pressed={diagnostics.isOpen}
             >
-              <AlertCircle className="mr-2 size-4" />
+              <Wrench className="mr-2 size-4" />
               Diagnostics
             </Button>
             <Button
@@ -74,7 +84,7 @@ export function McpApp() {
               disabled={rawConfig.loading || rawConfig.saving}
               aria-pressed={rawConfig.isOpen}
             >
-              <Wrench className="mr-2 size-4" />
+              <FileJson className="mr-2 size-4" />
               Raw config
             </Button>
             <Button type="button" variant="outline" size="sm" onClick={() => void bootstrap.refresh()} disabled={bootstrap.loading}>
@@ -97,26 +107,9 @@ export function McpApp() {
           </Alert>
         )}
 
-        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {summaryCards.map((card) => {
-            const Icon = card.icon;
-            return (
-              <Card key={card.label} className="animate-mcp-fade-in gap-3 border-border/75 py-4">
-                <CardHeader className="px-4">
-                  <CardDescription className="flex items-center gap-2 text-xs uppercase tracking-wide">
-                    <Icon className="size-3.5" />
-                    {card.label}
-                  </CardDescription>
-                  <CardTitle className="text-3xl">{card.value}</CardTitle>
-                </CardHeader>
-              </Card>
-            );
-          })}
-        </section>
-
         <McpDiagnosticsPanel state={diagnostics} />
         <McpRawConfigPanel state={rawConfig} />
-        {state.servers.length > 0 && (
+        {searchOpen && state.servers.length > 0 && (
           <McpSearchWorkbenchPanel
             servers={state.servers}
             selectedServerName={resolvedSelectedServerName}
@@ -128,16 +121,17 @@ export function McpApp() {
           selectedServerName={resolvedSelectedServerName}
           onSelectServerName={setSelectedServerName}
         />
-
-        {state.firstRun && (
-          <McpSetupWizard
-            configPath={state.configPath}
-            settings={state.settings}
-            onCreated={setSelectedServerName}
-          />
-        )}
       </div>
     </div>
+  );
+}
+
+function Metric({ icon: Icon, label, value }: { icon: typeof Server; label: string; value: number }) {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <Icon className="size-3.5" />
+      {label}: <strong className="font-medium text-foreground">{value}</strong>
+    </span>
   );
 }
 
