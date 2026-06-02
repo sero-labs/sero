@@ -16,6 +16,7 @@ const seroBridge = {
   vcs: {
     addRemote: vi.fn(),
     setRemoteUrl: vi.fn(),
+    checkoutRemote: vi.fn(),
   },
   github: {
     status: vi.fn(),
@@ -24,6 +25,9 @@ const seroBridge = {
     login: vi.fn(),
     logout: vi.fn(),
     cancel: vi.fn(),
+  },
+  editor: {
+    listFiles: vi.fn(),
   },
 };
 
@@ -85,6 +89,8 @@ describe('GitRemotePublishSection', () => {
 
     seroBridge.vcs.addRemote.mockResolvedValue(undefined);
     seroBridge.vcs.setRemoteUrl.mockResolvedValue(undefined);
+    seroBridge.vcs.checkoutRemote.mockResolvedValue({ success: true, message: 'checked out origin/main' });
+    seroBridge.editor.listFiles.mockResolvedValue([]);
     seroBridge.github.status.mockImplementation(async () => githubStatus);
     seroBridge.github.createRepo.mockResolvedValue({
       success: true,

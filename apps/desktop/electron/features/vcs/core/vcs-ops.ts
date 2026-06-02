@@ -15,6 +15,7 @@ import {
 } from './vcs-ops/bookmark-ops';
 import {
   addRemote,
+  checkoutRemote,
   listRemotes,
   removeRemote,
   resolvePushRemote,
@@ -162,6 +163,10 @@ export class VcsOps {
   /** Update the URL of an existing remote. */
   async setRemoteUrl(workspaceId: string, name: string, url: string): Promise<void> {
     return setRemoteUrl(this.runner, workspaceId, name, url);
+  }
+
+  async checkoutRemote(workspaceId: string, remote?: string): Promise<SyncResult> {
+    return checkoutRemote(this.runner, workspaceId, remote);
   }
 
   async fetch(workspaceId: string, remote?: string): Promise<SyncResult> {

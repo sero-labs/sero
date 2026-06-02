@@ -35,6 +35,7 @@ export type ConnectOriginResult =
       url: string;
       webUrl?: string;
       updatedExisting: boolean;
+      warning?: string;
     }
   | {
       ok: false;
@@ -151,25 +152,46 @@ export async function createGitHubOrigin({
 export async function connectOrigin({
   workspaceId,
   url,
+  importIfEmpty,
 }: {
   workspaceId: string;
   url: string;
+  importIfEmpty?: boolean;
 }): Promise<ConnectOriginResult> {
+  let connected: Extract<ConnectOriginResult, { ok: true }>;
   try {
     await window.sero.vcs.addRemote(workspaceId, 'origin', url);
-    return { ok: true, url, webUrl: toGitHubWebUrl(url), updatedExisting: false };
+    connected = { ok: true, url, webUrl: toGitHubWebUrl(url), updatedExisting: false };
   } catch (error) {
     const message = toErrorMessage(error, 'Failed to connect remote');
     if (!message.includes('already exists')) {
       return { ok: false, message };
     }
+    try {
+      await window.sero.vcs.setRemoteUrl(workspaceId, 'origin', url);
+      connected = { ok: true, url, webUrl: toGitHubWebUrl(url), updatedExisting: true };
+    } catch (setError) {
+      return { ok: false, message: toErrorMessage(setError, 'Failed to update remote URL') };
+    }
   }
 
+  if (!importIfEmpty || await hasVisibleWorkspaceFiles(workspaceId)) return connected;
+
+  const checkout = await window.sero.vcs.checkoutRemote(workspaceId, 'origin');
+  if (checkout.success) return connected;
+  console.warn('[git-remote] Remote connected, but import failed:', checkout.message);
+  return { ...connected, warning: `Connected, but Sero couldn't import files: ${checkout.message}` };
+}
+
+async function hasVisibleWorkspaceFiles(workspaceId: string): Promise<boolean> {
   try {
-    await window.sero.vcs.setRemoteUrl(workspaceId, 'origin', url);
-    return { ok: true, url, webUrl: toGitHubWebUrl(url), updatedExisting: true };
-  } catch (error) {
-    return { ok: false, message: toErrorMessage(error, 'Failed to update remote URL') };
+    const entries = await window.sero.editor.listFiles(workspaceId, '/workspace');
+    return entries.some((entry) => !isWorkspaceScaffoldFile(entry.name));
+  } catch {
+    return false;
   }
 }
 
+function isWorkspaceScaffoldFile(name: string): boolean {
+  return name === '.git' || name === '.sero-workspace.json' || name === '.DS_Store';
+}

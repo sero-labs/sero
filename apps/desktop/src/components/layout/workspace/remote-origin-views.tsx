@@ -84,7 +84,7 @@ export function ChooseView({
         </div>
         <div className="flex flex-col">
           <span className="text-sm font-medium text-[var(--text-primary)]">Connect existing repository</span>
-          <span className="text-xs text-[var(--text-muted)]">Add an existing remote URL as origin</span>
+          <span className="text-xs text-[var(--text-muted)]">Import files when the workspace is empty</span>
         </div>
       </button>
     </div>
@@ -309,7 +309,7 @@ export function ConnectExistingView({
 }: {
   workspace: WorkspaceInfo;
   onBack: () => void;
-  onConnected: (url: string) => void;
+  onConnected: (url: string, warning?: string) => void;
 }) {
   const [url, setUrl] = useState('');
   const [isConnecting, setIsConnecting] = useState(false);
@@ -322,9 +322,9 @@ export function ConnectExistingView({
     setIsConnecting(true);
     setError(null);
     try {
-      const result = await connectOrigin({ workspaceId: workspace.id, url: trimmed });
+      const result = await connectOrigin({ workspaceId: workspace.id, url: trimmed, importIfEmpty: true });
       if (result.ok) {
-        onConnected(result.url);
+        onConnected(result.url, result.warning);
         return;
       }
 
@@ -357,7 +357,7 @@ export function ConnectExistingView({
           disabled={isConnecting}
         />
         <span className="text-xs text-[var(--text-muted)]">
-          HTTPS or SSH URL for the remote repository
+          Empty workspaces are fetched and checked out automatically
         </span>
       </div>
 
@@ -367,9 +367,9 @@ export function ConnectExistingView({
         <Button variant="ghost" onClick={onBack} disabled={isConnecting}>Cancel</Button>
         <Button onClick={handleConnect} disabled={isConnecting || !url.trim()}>
           {isConnecting ? (
-            <><Loader2 className="mr-1.5 size-3.5 animate-spin" />Connecting…</>
+            <><Loader2 className="mr-1.5 size-3.5 animate-spin" />Importing…</>
           ) : (
-            'Connect'
+            'Connect Repository'
           )}
         </Button>
       </div>
@@ -381,10 +381,12 @@ export function ConnectExistingView({
 
 export function ConnectedView({
   origin,
+  warning,
   onChangeOrigin,
   onClose,
 }: {
   origin: OriginInfo;
+  warning?: string | null;
   onChangeOrigin: () => void;
   onClose: () => void;
 }) {
@@ -417,6 +419,8 @@ export function ConnectedView({
         )}
       </div>
 
+      {warning && <WarningBanner message={warning} />}
+
       <div className="flex justify-between">
         <Button variant="ghost" size="sm" onClick={onChangeOrigin}>
           <Pencil className="mr-1.5 size-3" />
@@ -448,6 +452,10 @@ function ErrorBanner({ message }: { message: string }) {
       {message}
     </p>
   );
+}
+
+function WarningBanner({ message }: { message: string }) {
+  return <p className="rounded-md bg-status-warning-muted p-2 text-xs text-status-warning">{message}</p>;
 }
 
 function VisibilityButton({

@@ -49,12 +49,14 @@ export function RemoteOriginManager({
   const [view, setView] = useState<View>('loading');
   const [origin, setOrigin] = useState<GitRemoteOriginInfo | null>(null);
   const [originLoadError, setOriginLoadError] = useState<string | null>(null);
+  const [originWarning, setOriginWarning] = useState<string | null>(null);
   const prevOpenRef = useRef(false);
 
   const loadOrigin = useCallback(async () => {
     setView('loading');
     setOrigin(null);
     setOriginLoadError(null);
+    setOriginWarning(null);
 
     const result = await fetchOriginInfo(workspace.id);
     if (!result.ok) {
@@ -75,8 +77,9 @@ export function RemoteOriginManager({
     prevOpenRef.current = open;
   }, [loadOrigin, open]);
 
-  const handleOriginSet = (url: string) => {
+  const handleOriginSet = (url: string, warning?: string) => {
     setOrigin(toOriginInfo(url));
+    setOriginWarning(warning ?? null);
     setView('connected');
   };
 
@@ -127,6 +130,7 @@ export function RemoteOriginManager({
         {view === 'connected' && origin && (
           <ConnectedView
             origin={origin}
+            warning={originWarning}
             onChangeOrigin={() => setView('choose')}
             onClose={handleClose}
           />
