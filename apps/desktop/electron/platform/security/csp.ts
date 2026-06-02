@@ -23,16 +23,16 @@ interface BuildContentSecurityPolicyOptions {
 }
 
 /** Build the CSP directive string for the current environment. */
+// Chromium treats IPv6 loopback literals like http://[::1]:* as invalid CSP
+// sources. Use localhost for IPv6-capable loopback servers instead.
 const LOOPBACK_HTTP_SRC = [
   'http://localhost:*',
   'http://127.0.0.1:*',
-  'http://[::1]:*',
 ];
 
 const LOOPBACK_WS_SRC = [
   'ws://localhost:*',
   'ws://127.0.0.1:*',
-  'ws://[::1]:*',
 ];
 
 export function buildContentSecurityPolicy(
