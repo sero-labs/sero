@@ -17,6 +17,43 @@ import {
 import { useMcpServerMutations } from '../../hooks/useMcpServerMutations';
 import { McpServerDetailPanel } from './McpServerDetailPanel';
 
+const QUICK_PRESETS = [
+  { label: 'Blank stdio', draft: createPresetDraft({ transport: 'stdio' }) },
+  {
+    label: 'Filesystem',
+    draft: createPresetDraft({
+      transport: 'stdio',
+      serverName: 'filesystem',
+      command: 'npx',
+      argsText: '-y\n@modelcontextprotocol/server-filesystem\n.',
+      cwd: '.',
+      lifecycle: 'keep-alive',
+    }),
+  },
+  {
+    label: 'GitHub',
+    draft: createPresetDraft({
+      transport: 'stdio',
+      serverName: 'github',
+      command: 'npx',
+      argsText: '-y\n@modelcontextprotocol/server-github',
+      authMode: 'bearer',
+      bearerTokenEnv: 'GITHUB_TOKEN',
+      lifecycle: 'eager',
+    }),
+  },
+  {
+    label: 'Remote OAuth',
+    draft: createPresetDraft({
+      transport: 'http',
+      serverName: 'remote-oauth',
+      url: '',
+      authMode: 'oauth',
+      lifecycle: 'eager',
+    }),
+  },
+];
+
 export function McpServerCrudPanel({
   servers,
   selectedServerName: controlledSelectedServerName,
@@ -28,6 +65,7 @@ export function McpServerCrudPanel({
 }) {
   const mutations = useMcpServerMutations();
   const [draft, setDraft] = useState<McpServerEditorInput | null>(null);
+  const [saveAttempted, setSaveAttempted] = useState(false);
   const [uncontrolledSelectedServerName, setUncontrolledSelectedServerName] = useState<string | null>(null);
 
   const sortedServers = useMemo(() => [...servers].sort((a, b) => a.serverName.localeCompare(b.serverName)), [servers]);
@@ -35,6 +73,11 @@ export function McpServerCrudPanel({
   const setSelectedServerName = onSelectServerName ?? setUncontrolledSelectedServerName;
   const validationError = useMemo(() => (draft ? validateServerEditorInput(draft) : null), [draft]);
   const title = draft?.originalServerName ? `Edit ${draft.originalServerName}` : 'Add MCP server';
+  const beginDraft = (nextDraft: McpServerEditorInput) => {
+    mutations.clearError();
+    setSaveAttempted(false);
+    setDraft(nextDraft);
+  };
 
   return (
     <Card className="animate-mcp-fade-in border-border/75 py-4">
@@ -45,22 +88,20 @@ export function McpServerCrudPanel({
               <Server className="size-4 text-primary" />
               Servers
             </CardTitle>
-            <CardDescription>
-              Forms-first MCP server management. Configure stdio or HTTP/SSE servers here without dropping into raw JSON.
-            </CardDescription>
+            <CardDescription>Add, connect, and inspect MCP servers. Raw JSON stays available for advanced edits.</CardDescription>
           </div>
-          <Button type="button" size="sm" onClick={() => setDraft(createEmptyServerEditorInput())}>
+          <Button type="button" size="sm" onClick={() => beginDraft(createEmptyServerEditorInput())}>
             <Plus className="mr-2 size-4" />
             Add server
           </Button>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {(mutations.error || validationError) && (
+        {(mutations.error || (saveAttempted && validationError)) && (
           <Alert variant="destructive">
             <AlertCircle className="size-4" />
             <AlertTitle>Server update blocked</AlertTitle>
-            <AlertDescription>{validationError ?? mutations.error}</AlertDescription>
+            <AlertDescription>{(saveAttempted && validationError) || mutations.error}</AlertDescription>
           </Alert>
         )}
 
@@ -70,7 +111,7 @@ export function McpServerCrudPanel({
               <div>
                 <div className="font-medium text-foreground">{title}</div>
                 <p className="text-sm text-muted-foreground">
-                  Use command + args for stdio servers, or a URL for HTTP/SSE servers. Auth can stay off, OAuth, or bearer-token based.
+                  Use a local command for stdio, or a URL for HTTP/SSE. Advanced options stay available after save.
                 </p>
               </div>
               <div className="flex gap-2">
@@ -81,8 +122,10 @@ export function McpServerCrudPanel({
                 <Button
                   type="button"
                   size="sm"
-                  disabled={mutations.pendingAction === 'save' || !!validationError}
+                  disabled={mutations.pendingAction === 'save'}
                   onClick={async () => {
+                    setSaveAttempted(true);
+                    if (validationError) return;
                     const ok = await mutations.upsertServer(draft);
                     if (ok) {
                       setDraft(null);
@@ -94,6 +137,17 @@ export function McpServerCrudPanel({
                 </Button>
               </div>
             </div>
+
+            {!draft.originalServerName && (
+              <div className="mb-4 flex flex-wrap items-center gap-2 text-sm">
+                <span className="text-muted-foreground">Start with</span>
+                {QUICK_PRESETS.map((preset) => (
+                  <Button key={preset.label} type="button" variant="outline" size="sm" onClick={() => beginDraft({ ...preset.draft })}>
+                    {preset.label}
+                  </Button>
+                ))}
+              </div>
+            )}
 
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               <Field label="Server name">
@@ -165,8 +219,22 @@ export function McpServerCrudPanel({
 
         <div className="space-y-3">
           {sortedServers.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-border bg-muted/20 p-6 text-sm text-muted-foreground">
-              No MCP servers yet. Add one above to start building the plugin’s global MCP config.
+            <div className="rounded-lg border border-dashed border-border bg-muted/20 p-6">
+              <div className="space-y-1 text-sm">
+                <div className="font-medium text-foreground">No MCP servers yet</div>
+                <p className="text-muted-foreground">Add a server manually or start from a common preset.</p>
+              </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Button type="button" size="sm" onClick={() => beginDraft(createEmptyServerEditorInput())}>
+                  <Plus className="mr-2 size-4" />
+                  Add server
+                </Button>
+                {QUICK_PRESETS.filter((preset) => preset.label !== 'Blank stdio').map((preset) => (
+                  <Button key={preset.label} type="button" variant="outline" size="sm" onClick={() => beginDraft({ ...preset.draft })}>
+                    {preset.label}
+                  </Button>
+                ))}
+              </div>
             </div>
           ) : (
             sortedServers.map((server) => {
@@ -213,7 +281,7 @@ export function McpServerCrudPanel({
                         {isExpanded ? <ChevronUp className="mr-2 size-4" /> : <ChevronDown className="mr-2 size-4" />}
                         {isExpanded ? 'Hide details' : 'Show details'}
                       </Button>
-                      <Button type="button" variant="outline" size="sm" onClick={() => setDraft(createServerEditorInputFromSnapshot(server))}>
+                      <Button type="button" variant="outline" size="sm" onClick={() => beginDraft(createServerEditorInputFromSnapshot(server))}>
                         <Pencil className="mr-2 size-4" />
                         Edit
                       </Button>
@@ -294,6 +362,16 @@ function formatCompactTimestamp(value: string): string {
     hour: 'numeric',
     minute: '2-digit',
   });
+}
+
+function createPresetDraft(input: Partial<McpServerEditorInput> & { transport: McpServerEditorInput['transport'] }): McpServerEditorInput {
+  const base = createEmptyServerEditorInput();
+  return {
+    ...base,
+    authMode: input.transport === 'http' ? 'oauth' : 'none',
+    lifecycle: input.transport === 'http' ? 'eager' : 'lazy',
+    ...input,
+  };
 }
 
 export default McpServerCrudPanel;

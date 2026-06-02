@@ -62,6 +62,7 @@ import { getDefaultMemoryLoggingSettings, ensureConfiguredMemoryLoggingSettings 
 import { ensureHostSeroCliBridge } from './cli/host-bridge/server';
 import { initUpdater } from './features/updater/updater';
 import { installApplicationMenu } from './features/updater/menu';
+import { getPackageSource, removeStaleBuiltinPackages } from './platform/protocols/builtin-package-settings';
 
 let mainWindow: BrowserWindow | null = null;
 let isGracefullyShuttingDown = false;
@@ -120,12 +121,14 @@ function ensureBuiltinPackages(): void {
     // Will be created by bootstrapAgentDir
   }
 
-  const packages = Array.isArray(settings.packages)
+  let packages = Array.isArray(settings.packages)
     ? settings.packages as SettingsPackageSource[]
     : [];
   const workspacePackages = getWorkspaceAppPaths();
+  const stalePackageCleanup = removeStaleBuiltinPackages(packages, workspacePackages);
+  packages = stalePackageCleanup.packages;
 
-  let changed = false;
+  let changed = stalePackageCleanup.changed;
   const fallbackSettings = ensureConfiguredModelFallbackChain(settings);
   settings = fallbackSettings.settings;
   if (fallbackSettings.changed) changed = true;
@@ -134,9 +137,11 @@ function ensureBuiltinPackages(): void {
   settings = memoryLoggingSettings.settings;
   if (memoryLoggingSettings.changed) changed = true;
   for (const p of workspacePackages) {
-    const hasPackagePath = packages.some((entry) =>
-      (typeof entry === 'string' ? entry : entry.source) === p,
-    );
+    const packagePath = path.resolve(p);
+    const hasPackagePath = packages.some((entry) => {
+      const source = getPackageSource(entry);
+      return source ? path.resolve(source) === packagePath : false;
+    });
     if (!hasPackagePath) {
       packages.push(p);
       changed = true;

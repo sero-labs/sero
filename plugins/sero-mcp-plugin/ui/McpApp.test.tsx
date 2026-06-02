@@ -32,10 +32,6 @@ vi.mock('./components/servers/McpServerCrudPanel', () => ({
   McpServerCrudPanel: () => <div>server-crud-panel</div>,
 }));
 
-vi.mock('./components/wizard/McpSetupWizard', () => ({
-  McpSetupWizard: () => <div>setup-wizard</div>,
-}));
-
 describe('McpApp', () => {
   let container: HTMLDivElement;
   let root: Root | null = null;
@@ -63,7 +59,7 @@ describe('McpApp', () => {
     Reflect.deleteProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT');
   });
 
-  it('bootstraps on mount and shows the first-run wizard when no servers are configured', async () => {
+  it('bootstraps on mount and keeps first-run setup inside the server panel', async () => {
     useAppStateMock.mockReturnValue([createState({ firstRun: true, servers: [] }), vi.fn()]);
 
     await act(async () => {
@@ -73,7 +69,7 @@ describe('McpApp', () => {
     });
 
     expect(runMock).toHaveBeenCalledWith('mcp_manager', { action: 'bootstrap' });
-    expect(container.textContent).toContain('setup-wizard');
+    expect(container.textContent).toContain('server-crud-panel');
     expect(container.textContent).not.toContain('search-workbench');
   });
 
@@ -98,7 +94,7 @@ describe('McpApp', () => {
     expect(runMock).toHaveBeenNthCalledWith(2, 'mcp_manager', { action: 'refresh' });
   });
 
-  it('hides the wizard and shows the search workbench once servers exist', async () => {
+  it('shows the server panel and keeps search collapsed once servers exist', async () => {
     useAppStateMock.mockReturnValue([
       createState({
         firstRun: false,
@@ -128,10 +124,55 @@ describe('McpApp', () => {
       await Promise.resolve();
     });
 
-    expect(container.textContent).not.toContain('setup-wizard');
+    expect(container.textContent).toContain('server-crud-panel');
+    expect(container.textContent).not.toContain('search-workbench');
+  });
+
+  it('opens search on demand once servers exist', async () => {
+    useAppStateMock.mockReturnValue([
+      createState({
+        firstRun: false,
+        servers: [
+          {
+            serverName: 'github',
+            enabled: true,
+            transport: 'http',
+            lifecycle: 'eager',
+            authMode: 'oauth',
+            connectionStatus: 'connected',
+            authStatus: 'authenticated',
+            toolCount: 3,
+            resourceCount: 2,
+            uiToolCount: 1,
+            resources: [],
+            uiTools: [],
+          },
+        ],
+      }),
+      vi.fn(),
+    ]);
+
+    await act(async () => {
+      root?.render(<McpApp />);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      clickButton(container, 'Search');
+    });
+
     expect(container.textContent).toContain('search-workbench');
   });
 });
+
+function clickButton(container: HTMLElement, label: string) {
+  const button = Array.from(container.querySelectorAll('button')).find((candidate) => candidate.textContent?.includes(label));
+  if (!(button instanceof HTMLButtonElement)) {
+    throw new Error(`Button not found: ${label}`);
+  }
+  button.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+}
 
 function createState(partial: Partial<McpAppState>): McpAppState {
   return {

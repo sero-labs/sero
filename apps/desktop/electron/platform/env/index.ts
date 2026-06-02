@@ -43,12 +43,14 @@ export const SERO_FIXED_ROOT = resolveSeroFixedRoot();
  * Resolve the active profile's SERO_HOME.
  *
  * Priority:
- * 1. SERO_HOME_OVERRIDE env var (testing only — never set by Sero itself)
+ * 1. SERO_HOME_OVERRIDE env var (tests and isolated source-dev launcher)
  * 2. Active profile from profiles.json
  * 3. Migration of existing install
  * 4. Fallback to ~/.sero-ui/ (fresh install, pre-setup)
  *
- * NOTE: We deliberately do NOT check process.env.SERO_HOME here.
+ * NOTE: SERO_HOME_OVERRIDE bypasses the profile registry, so ACTIVE_PROFILE_ID
+ * is null in isolated source-dev mode. We deliberately do NOT check
+ * process.env.SERO_HOME here.
  * loadSeroEnv() sets SERO_HOME for extensions to read, and app.relaunch()
  * inherits env vars from the parent process. If we checked SERO_HOME,
  * profile switching would be silently ignored after a relaunch.

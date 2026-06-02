@@ -6,6 +6,7 @@
   "scripts": {
     "postinstall": "node scripts/rebuild-node-pty.mjs && node scripts/rebuild-better-sqlite3.mjs",
     "dev": "pnpm --filter @sero/desktop dev",
+    "dev:isolated": "SERO_HOME_OVERRIDE=${SERO_HOME_OVERRIDE:-$HOME/.sero-ui-dev} SERO_DEV_PLUGINS=${SERO_DEV_PLUGINS:-} pnpm --filter @sero/desktop dev",
     "styleguide": "pnpm --filter @sero/styleguide dev",
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
