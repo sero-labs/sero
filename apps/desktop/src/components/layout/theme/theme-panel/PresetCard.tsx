@@ -57,7 +57,7 @@ export function PresetCard({ preset, isActive, onSelect, onDelete, onEdit }: Pre
           </span>
         )}
         {isActive && (
-          <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--status-success-muted)] text-[var(--status-success)]">
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-status-success-muted text-status-success">
             Active
           </span>
         )}
@@ -80,7 +80,7 @@ export function PresetCard({ preset, isActive, onSelect, onDelete, onEdit }: Pre
         {onDelete && !preset.builtin && (
           <IconAction
             onClick={(e) => { e.stopPropagation(); onDelete(preset.id); }}
-            className="p-1 hover:bg-[var(--status-error-muted)] hover:text-[var(--status-error)]"
+            className="p-1 hover:bg-status-error-muted hover:text-status-error"
             title="Delete theme"
           >
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

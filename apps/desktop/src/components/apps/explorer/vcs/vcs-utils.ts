@@ -50,11 +50,11 @@ export function statusCode(status: string): string {
 /** File status to color class. */
 export function statusColor(status: string): string {
   switch (status) {
-    case 'modified': return 'text-[var(--status-warning)]';
-    case 'added': return 'text-[var(--status-success)]';
-    case 'deleted': return 'text-[var(--status-error)]';
-    case 'renamed': return 'text-[var(--status-info)]';
-    case 'conflict': return 'text-[var(--status-error)]';
+    case 'modified': return 'text-status-warning';
+    case 'added': return 'text-status-success';
+    case 'deleted': return 'text-status-error';
+    case 'renamed': return 'text-status-info';
+    case 'conflict': return 'text-status-error';
     default: return 'text-[var(--text-muted)]';
   }
 }

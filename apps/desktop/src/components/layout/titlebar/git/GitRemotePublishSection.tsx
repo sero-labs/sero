@@ -246,7 +246,7 @@ export function GitRemotePublishSection({
             className={cn(
               'space-y-3 rounded-lg border p-3',
               authRequired
-                ? 'border-[var(--status-info-border)] bg-[var(--status-info-faint)]'
+                ? 'border-status-info-border bg-status-info-faint'
                 : 'border-[var(--border-subtle)] bg-[var(--bg-base)]',
             )}
           >
@@ -348,9 +348,9 @@ export function GitRemotePublishSection({
       {feedback && (
         <div className={cn(
           'rounded-xl border px-3 py-2 text-[11px] leading-relaxed',
-          feedback.tone === 'success' && 'border-[var(--status-success-border)] bg-[var(--status-success-faint)] text-[var(--status-success)]',
-          feedback.tone === 'error' && 'border-[var(--status-error-border)] bg-[var(--status-error-faint)] text-[var(--status-error)]',
-          feedback.tone === 'info' && 'border-[var(--status-info-border)] bg-[var(--status-info-faint)] text-[var(--status-info)]',
+          feedback.tone === 'success' && 'border-status-success-border bg-status-success-faint text-status-success',
+          feedback.tone === 'error' && 'border-status-error-border bg-status-error-faint text-status-error',
+          feedback.tone === 'info' && 'border-status-info-border bg-status-info-faint text-status-info',
         )}>
           <span>{feedback.message}</span>
           {feedback.url && (

@@ -17,9 +17,6 @@ export function ColorTab({ colors, mode, onChange }: ColorTabProps) {
 
   return (
     <div className="flex flex-col gap-0.5">
-      <p className="text-[11px] text-[var(--text-muted)] px-1 pb-1">
-        Editing <strong>{mode}</strong> mode colours. Changes apply instantly.
-      </p>
       {groups.map((group) => (
         <ColorSection
           key={group.title}
@@ -62,9 +59,20 @@ function buildColorGroups(colors: ColorTokens) {
       ],
     },
     {
-      title: 'Accent',
+      title: 'Brand',
       tokens: [
-        { key: 'accentPrimary', label: 'Primary', value: colors.accentPrimary },
+        { key: 'brandPrimary', label: 'Primary', value: colors.brandPrimary },
+        { key: 'brandPrimaryHover', label: 'Primary Hover', value: colors.brandPrimaryHover },
+        { key: 'brandPrimaryForeground', label: 'Primary Text', value: colors.brandPrimaryForeground },
+        { key: 'brandSecondary', label: 'Secondary', value: colors.brandSecondary },
+        { key: 'brandSecondaryHover', label: 'Secondary Hover', value: colors.brandSecondaryHover },
+        { key: 'brandSecondaryForeground', label: 'Secondary Text', value: colors.brandSecondaryForeground },
+      ],
+    },
+    {
+      title: 'Accent & Code',
+      tokens: [
+        { key: 'accentPrimary', label: 'Legacy Accent', value: colors.accentPrimary },
         { key: 'accentHover', label: 'Hover', value: colors.accentHover },
         { key: 'accentMuted', label: 'Muted', value: colors.accentMuted },
         { key: 'accentCode', label: 'Code', value: colors.accentCode },

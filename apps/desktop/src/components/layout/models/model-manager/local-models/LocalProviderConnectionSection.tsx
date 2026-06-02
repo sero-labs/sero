@@ -68,15 +68,15 @@ export function LocalProviderConnectionSection({
             {connectionStatus === 'testing' ? (
               <Loader2 className="size-3 animate-spin" />
             ) : connectionStatus === 'ok' ? (
-              <CheckCircle2 className="size-3 text-[var(--status-success)]" />
+              <CheckCircle2 className="size-3 text-status-success" />
             ) : connectionStatus === 'error' ? (
-              <XCircle className="size-3 text-[var(--status-error)]" />
+              <XCircle className="size-3 text-status-error" />
             ) : null}
             Test
           </button>
         </div>
         {connectionError && (
-          <p className="mt-1 text-[10px] text-[var(--status-error)]">{connectionError}</p>
+          <p className="mt-1 text-[10px] text-status-error">{connectionError}</p>
         )}
       </LocalProviderField>
 

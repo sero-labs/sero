@@ -74,7 +74,7 @@ export function ResponseFeedback({
         className={cn(
           'rounded-md p-1 transition-colors duration-100',
           rating === 'good'
-            ? 'text-[var(--status-success)]'
+            ? 'text-status-success'
             : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]',
         )}
         title="Good response"
@@ -88,7 +88,7 @@ export function ResponseFeedback({
         className={cn(
           'rounded-md p-1 transition-colors duration-100',
           rating === 'bad'
-            ? 'text-[var(--status-error)]'
+            ? 'text-status-error'
             : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]',
         )}
         title="Bad response"
@@ -103,7 +103,7 @@ export function ResponseFeedback({
         title="Copy to clipboard"
       >
         {copied ? (
-          <Check className="size-3 text-[var(--status-success)]" />
+          <Check className="size-3 text-status-success" />
         ) : (
           <Copy className="size-3" />
         )}

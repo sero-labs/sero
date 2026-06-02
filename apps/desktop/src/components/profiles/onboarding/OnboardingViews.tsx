@@ -47,7 +47,7 @@ export function AuthScreen({
     <div className="space-y-4">
       <div className="space-y-2">
         <div className="flex size-10 items-center justify-center rounded-lg bg-[var(--bg-elevated)]">
-          <KeyRound className="size-5 text-[var(--status-success)]" />
+          <KeyRound className="size-5 text-status-success" />
         </div>
         <div>
           <DialogTitle className="text-lg font-semibold text-[var(--text-primary)]">Connect a provider</DialogTitle>
@@ -58,7 +58,7 @@ export function AuthScreen({
       </div>
 
       {launchNotice ? (
-        <div className="rounded-lg border border-[var(--status-warning)]/20 bg-[var(--status-warning)]/5 px-3 py-2 text-xs text-[var(--text-secondary)]">
+        <div className="rounded-lg border border-status-warning/20 bg-status-warning/5 px-3 py-2 text-xs text-[var(--text-secondary)]">
           {launchNotice}
         </div>
       ) : null}
@@ -103,7 +103,7 @@ export function LaunchingScreen({ statusMessage }: { statusMessage?: string | nu
   return (
     <div className="space-y-3">
       <div className="flex size-10 items-center justify-center rounded-lg bg-[var(--bg-elevated)]">
-        <Loader2 className="size-5 animate-spin text-[var(--status-success)]" />
+        <Loader2 className="size-5 animate-spin text-status-success" />
       </div>
       <div>
         <DialogTitle className="text-lg font-semibold text-[var(--text-primary)]">Preparing Onboarding</DialogTitle>
@@ -133,7 +133,7 @@ export function ErrorScreen({
     <div className="space-y-4">
       <div className="space-y-2">
         <div className="flex size-10 items-center justify-center rounded-lg bg-[var(--bg-elevated)]">
-          <TriangleAlert className="size-5 text-[var(--status-warning)]" />
+          <TriangleAlert className="size-5 text-status-warning" />
         </div>
         <div>
           <DialogTitle className="text-lg font-semibold text-[var(--text-primary)]">Onboarding hit an error</DialogTitle>

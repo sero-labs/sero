@@ -40,7 +40,7 @@ function UserCopyButton({ text }: { text: string }) {
         title="Copy to clipboard"
       >
         {copied ? (
-          <Check className="size-3 text-[var(--status-success)]" />
+          <Check className="size-3 text-status-success" />
         ) : (
           <Copy className="size-3" />
         )}

@@ -33,7 +33,7 @@ export function IconAction({ as = 'button', tone = 'default', className, childre
   const classes = cn(
     'rounded p-0.5 transition-colors',
     tone === 'destructive'
-      ? 'text-[var(--status-error)] hover:bg-[var(--status-error)]/15'
+      ? 'text-status-error hover:bg-status-error/15'
       : 'text-[var(--text-muted)] hover:bg-[var(--bg-base)] hover:text-[var(--text-primary)]',
     className,
   );

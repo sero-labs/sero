@@ -36,10 +36,10 @@ import type { DevServer } from '@/types/ipc';
 
 function StatusDot({ status }: { status: DevServer['status'] }) {
   const colors: Record<DevServer['status'], string> = {
-    running: 'bg-[var(--status-success)]',
-    stopped: 'bg-[var(--status-error)]',
-    starting: 'bg-[var(--status-warning)] animate-pulse',
-    failed: 'bg-[var(--status-error)]',
+    running: 'bg-status-success',
+    stopped: 'bg-status-error',
+    starting: 'bg-status-warning animate-pulse',
+    failed: 'bg-status-error',
   };
   return <span className={`inline-block size-2 rounded-full ${colors[status]}`} />;
 }
@@ -180,7 +180,7 @@ function ActionButton({
         <button type="button"
           className={`rounded p-1 transition-colors ${
             destructive
-              ? 'hover:bg-[var(--status-error-muted)] hover:text-[var(--status-error)]'
+              ? 'hover:bg-status-error-muted hover:text-status-error'
               : 'hover:bg-[var(--bg-surface)] hover:text-[var(--text-primary)]'
           } text-[var(--text-muted)]`}
           onClick={onClick}
@@ -216,7 +216,7 @@ export const DevServerIndicator = memo(function DevServerIndicator() {
             {runningCount}/{servers.length}
           </span>
           {runningCount > 0 && (
-            <span className="size-1.5 rounded-full bg-[var(--status-success)]" />
+            <span className="size-1.5 rounded-full bg-status-success" />
           )}
         </button>
       </PopoverTrigger>

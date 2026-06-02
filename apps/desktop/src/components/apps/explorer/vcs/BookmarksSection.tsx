@@ -139,7 +139,7 @@ export function BookmarksSection({
                 />
                 <button type="button"
                   onClick={handleCreate}
-                  className="text-[var(--status-success)] hover:brightness-125 transition-colors"
+                  className="text-status-success hover:brightness-125 transition-colors"
                 >
                   <Check className="size-3" />
                 </button>
@@ -229,7 +229,7 @@ function BookmarkRow({
         {bookmark.name}
       </span>
       {isActive && (
-        <span className="rounded-sm border border-[var(--status-info-subtle)] bg-[var(--status-info-muted)] px-1 py-px text-[9px] text-[var(--status-info)]">
+        <span className="rounded-sm border border-status-info-subtle bg-status-info-muted px-1 py-px text-[9px] text-status-info">
           active
         </span>
       )}
@@ -239,10 +239,10 @@ function BookmarkRow({
 
       {/* Sync indicator */}
       {hasRemote && synced && (
-        <Check className="size-3 shrink-0 text-[var(--status-success)]" />
+        <Check className="size-3 shrink-0 text-status-success" />
       )}
       {hasRemote && !synced && (
-        <ArrowUpCircle className="size-3 shrink-0 text-[var(--status-warning)]" />
+        <ArrowUpCircle className="size-3 shrink-0 text-status-warning" />
       )}
       {!hasRemote && hasRemotes && (
         <span className="text-[9px] text-[var(--text-muted)]/40">local</span>
@@ -251,16 +251,16 @@ function BookmarkRow({
       {/* Hover actions */}
       <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
         {!isActive && (
-          <button type="button" onClick={onSetActive} title="Set active push branch" className="text-[var(--text-muted)] hover:text-[var(--status-warning)] transition-colors">
+          <button type="button" onClick={onSetActive} title="Set active push branch" className="text-[var(--text-muted)] hover:text-status-warning transition-colors">
             <Star className="size-3" />
           </button>
         )}
         {hasRemotes && !synced && (
-          <button type="button" onClick={onPush} title="Push" className="text-[var(--text-muted)] hover:text-[var(--status-info)] transition-colors">
+          <button type="button" onClick={onPush} title="Push" className="text-[var(--text-muted)] hover:text-status-info transition-colors">
             <CloudUpload className="size-3" />
           </button>
         )}
-        <button type="button" onClick={onDelete} title="Delete" className="text-[var(--text-muted)] hover:text-[var(--status-error)] transition-colors">
+        <button type="button" onClick={onDelete} title="Delete" className="text-[var(--text-muted)] hover:text-status-error transition-colors">
           <Trash2 className="size-2.5" />
         </button>
       </div>

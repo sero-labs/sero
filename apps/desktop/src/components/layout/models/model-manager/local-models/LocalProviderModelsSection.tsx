@@ -68,7 +68,7 @@ export function LocalProviderModelsSection({
                 <button type="button"
                   onClick={() => onRemoveModel(model.id)}
                   className="text-[10px] text-[var(--text-muted)] opacity-0
-                    transition-opacity group-hover:opacity-100 hover:text-[var(--status-error)]"
+                    transition-opacity group-hover:opacity-100 hover:text-status-error"
                 >
                   Remove
                 </button>

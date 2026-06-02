@@ -42,6 +42,9 @@ export async function loadLayout(): Promise<void> {
       if (typeof state.editorThemeId === 'string' && state.editorThemeId.length > 0) {
         update.editorThemeId = state.editorThemeId;
       }
+      if (typeof state.themeEditorAutoSave === 'boolean') {
+        update.themeEditorAutoSave = state.themeEditorAutoSave;
+      }
 
       // Hydrate active app
       if (state.activeApp && typeof state.activeApp === 'string') {

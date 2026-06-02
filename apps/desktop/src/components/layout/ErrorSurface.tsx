@@ -25,16 +25,16 @@ export function ErrorSurface({
     <Alert
       variant="destructive"
       className={cn(
-        'border-[var(--status-error-border)] bg-[var(--status-error-muted)] text-[var(--status-error)]',
+        'border-status-error-border bg-status-error-muted text-status-error',
         className,
       )}
     >
-      <AlertCircle className="mt-0.5 size-4 shrink-0 text-[var(--status-error)]" />
+      <AlertCircle className="mt-0.5 size-4 shrink-0 text-status-error" />
       <div className="flex min-w-0 flex-col gap-2">
         <div className="flex min-w-0 items-start gap-2">
           <div className="min-w-0 flex-1">
-            <AlertTitle className="text-[var(--status-error)]">{title}</AlertTitle>
-            <AlertDescription className="break-words text-[var(--status-error)]/90">
+            <AlertTitle className="text-status-error">{title}</AlertTitle>
+            <AlertDescription className="break-words text-status-error/90">
               {message}
             </AlertDescription>
           </div>
@@ -50,7 +50,7 @@ export function ErrorSurface({
                   onDismiss();
                 }
               }}
-              className="-mr-1 -mt-1 rounded-md text-[var(--status-error)] hover:bg-[var(--status-error-subtle)]"
+              className="-mr-1 -mt-1 rounded-md text-status-error hover:bg-status-error-subtle"
               title="Dismiss"
             >
               <X className="size-3.5" />
@@ -64,7 +64,7 @@ export function ErrorSurface({
               variant="outline"
               size="sm"
               onClick={onRetry}
-              className="h-7 gap-1.5 border-[var(--status-error-border)] bg-transparent px-2.5 text-xs text-[var(--status-error)] hover:bg-[var(--status-error-subtle)] hover:text-[var(--status-error)]"
+              className="h-7 gap-1.5 border-status-error-border bg-transparent px-2.5 text-xs text-status-error hover:bg-status-error-subtle hover:text-status-error"
             >
               <RotateCcw className="size-3" />
               {retryLabel}

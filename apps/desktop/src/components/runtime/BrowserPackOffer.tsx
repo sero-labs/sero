@@ -83,12 +83,12 @@ export function BrowserPackOffer({ reason, className, compact = false }: Browser
     >
       <div className="flex items-start gap-3">
         <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-[var(--bg-base)]">
-          {ready ? <CheckCircle2 className="size-4 text-[var(--status-success)]" /> : missing ? <AlertCircle className="size-4 text-[var(--status-warning)]" /> : <Download className="size-4 text-[var(--accent-primary)]" />}
+          {ready ? <CheckCircle2 className="size-4 text-status-success" /> : missing ? <AlertCircle className="size-4 text-status-warning" /> : <Download className="size-4 text-[var(--accent-primary)]" />}
         </div>
         <div className="min-w-0 flex-1 space-y-2">
           <div className="space-y-1">
             <p className="font-medium text-[var(--text-primary)]">Browser automation</p>
-            <p className={cn(compact ? 'text-xs' : undefined, failed ? 'text-[var(--status-error)]' : 'text-[var(--text-muted)]')}>
+            <p className={cn(compact ? 'text-xs' : undefined, failed ? 'text-status-error' : 'text-[var(--text-muted)]')}>
               {browserPackMessage(status)}
             </p>
           </div>

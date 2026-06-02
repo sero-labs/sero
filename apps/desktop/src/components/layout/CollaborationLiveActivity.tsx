@@ -78,8 +78,8 @@ export function CollaborationLiveActivity({
                 className={cn(
                   'size-1.5 shrink-0 rounded-full',
                   currentToolActivity.running
-                    ? 'animate-pulse bg-[var(--status-info)]'
-                    : 'bg-[var(--status-success)]',
+                    ? 'animate-pulse bg-status-info'
+                    : 'bg-status-success',
                 )}
               />
               <ToolIcon name={currentToolActivity.toolName} />

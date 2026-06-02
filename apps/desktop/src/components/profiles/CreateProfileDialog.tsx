@@ -73,7 +73,7 @@ export function CreateProfileDialog({ open, onOpenChange }: CreateProfileDialogP
               Switching profiles will restart the app.
             </p>
             {error && (
-              <p className="text-xs text-[var(--status-error)]">{error}</p>
+              <p className="text-xs text-status-error">{error}</p>
             )}
             <div className="flex justify-end gap-2">
               <Button variant="ghost" onClick={handleClose}>

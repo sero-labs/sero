@@ -98,7 +98,7 @@ function AppPlaceholder({ name, reason }: { name: string; reason: string }) {
 function AppLoading({ name }: { name: string }) {
   return (
     <div className="flex size-full flex-col items-center justify-center gap-3 bg-[var(--bg-base)]">
-      <Spinner className="size-5 text-[var(--status-success)]" />
+      <Spinner className="size-5 text-status-success" />
       <span className="text-sm text-[var(--text-muted)]">
         Loading {name}
       </span>

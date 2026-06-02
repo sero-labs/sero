@@ -175,8 +175,8 @@ function AnthropicWarningBanner({
   onCancel: () => void;
 }) {
   return (
-    <div className="mx-1 flex items-start gap-2 rounded-md border border-[var(--status-warning)]/30 bg-[var(--status-warning)]/5 px-3 py-2 text-xs text-[var(--text-secondary)]">
-      <TriangleAlert className="mt-0.5 size-3.5 shrink-0 text-[var(--status-warning)]" />
+    <div className="mx-1 flex items-start gap-2 rounded-md border border-status-warning/30 bg-status-warning/5 px-3 py-2 text-xs text-[var(--text-secondary)]">
+      <TriangleAlert className="mt-0.5 size-3.5 shrink-0 text-status-warning" />
       <div className="space-y-1.5">
         <p>
           Anthropic may restrict third-party use of consumer subscriptions.
@@ -203,7 +203,7 @@ function AnthropicWarningBanner({
 
 function PreferredProviderBadge() {
   return (
-    <span className="rounded-full border border-[var(--status-warning)]/30 px-1.5 py-0.5 text-[10px] text-[var(--status-warning)]">
+    <span className="rounded-full border border-status-warning/30 px-1.5 py-0.5 text-[10px] text-status-warning">
       reconnect
     </span>
   );
@@ -211,7 +211,7 @@ function PreferredProviderBadge() {
 
 function AuthBadge() {
   return (
-    <span className="flex items-center gap-1 text-xs text-[var(--status-success)]">
+    <span className="flex items-center gap-1 text-xs text-status-success">
       <CheckCircle className="size-3" />
       logged in
     </span>
@@ -220,7 +220,7 @@ function AuthBadge() {
 
 function ApiKeyBadge({ fromEnv }: { fromEnv: boolean }) {
   return (
-    <span className="flex items-center gap-1 text-xs text-[var(--status-success)]">
+    <span className="flex items-center gap-1 text-xs text-status-success">
       <CheckCircle className="size-3" />
       {fromEnv ? 'env' : 'saved'}
     </span>

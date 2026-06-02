@@ -31,14 +31,14 @@ function ContainerIndicator({ workspaceId, containerEnabled }: { workspaceId: st
 
   const config: Record<ContainerStatus, { color: string; title: string; animate?: boolean }> = {
     none: { color: '', title: '' },
-    starting: { color: 'bg-[var(--status-warning)]', title: 'Container starting...', animate: true },
+    starting: { color: 'bg-status-warning', title: 'Container starting...', animate: true },
     running: {
-      color: 'bg-[var(--status-success)]',
+      color: 'bg-status-success',
       title: container.ipAddress ? `Container running (${container.ipAddress})` : 'Container running',
     },
     stopped: { color: 'bg-zinc-500', title: 'Container stopped' },
     error: {
-      color: 'bg-[var(--status-error)]',
+      color: 'bg-status-error',
       title: container.error ? `Container error: ${container.error}` : 'Container error',
     },
   };

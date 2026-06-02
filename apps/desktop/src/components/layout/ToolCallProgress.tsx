@@ -195,9 +195,9 @@ export function ToolCallProgress({ tool }: { tool: ChatToolCallMessage }) {
     : `${clampProgress(model.progressPct ?? 0)}%`;
 
   return (
-    <div className="rounded-lg border border-[var(--status-info-border)] bg-[var(--status-info-faint)] p-3">
+    <div className="rounded-lg border border-status-info-border bg-status-info-faint p-3">
       <div className="flex items-start gap-3">
-        <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-[var(--status-info-subtle)] text-[var(--status-info)]">
+        <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-status-info-subtle text-status-info">
           <Icon className="size-4" />
         </div>
 
@@ -206,7 +206,7 @@ export function ToolCallProgress({ tool }: { tool: ChatToolCallMessage }) {
             <span className="text-sm font-medium text-[var(--text-primary)]">
               {model.title}
             </span>
-            <span className="inline-flex items-center gap-1 rounded-full bg-[var(--status-info-subtle)] px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-[var(--status-info)]">
+            <span className="inline-flex items-center gap-1 rounded-full bg-status-info-subtle px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-status-info">
               <Loader2 className="size-2.5 animate-spin" />
               Live
             </span>
@@ -221,7 +221,7 @@ export function ToolCallProgress({ tool }: { tool: ChatToolCallMessage }) {
           <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--bg-elevated)]/70">
             <div
               className={cn(
-                'h-full rounded-full bg-[var(--status-info)] transition-[width] duration-300',
+                'h-full rounded-full bg-status-info transition-[width] duration-300',
                 model.indeterminate && 'animate-pulse opacity-60',
               )}
               style={{ width: progressWidth }}
@@ -232,7 +232,7 @@ export function ToolCallProgress({ tool }: { tool: ChatToolCallMessage }) {
             {model.badges.map((badge) => (
               <span
                 key={badge}
-                className="rounded-full border border-[var(--status-info-border)] bg-[var(--status-info-subtle)] px-2 py-0.5 text-[10px] text-[var(--status-info)]"
+                className="rounded-full border border-status-info-border bg-status-info-subtle px-2 py-0.5 text-[10px] text-status-info"
               >
                 {badge}
               </span>

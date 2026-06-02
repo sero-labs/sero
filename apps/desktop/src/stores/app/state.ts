@@ -62,6 +62,8 @@ export interface AppState {
   theme: Theme;
   setTheme: (theme: Theme) => void;
   toggleTheme: () => void;
+  themeEditorAutoSave: boolean;
+  setThemeEditorAutoSave: (enabled: boolean) => void;
 
   // Monaco editor theme (separate from UI theme)
   editorThemeId: string;
@@ -232,6 +234,11 @@ export const useAppStore = create<AppState>((set, get) => ({
     useThemeStore.getState().toggleMode();
     const effective = useThemeStore.getState().effectiveMode;
     set({ theme: effective });
+  },
+  themeEditorAutoSave: false,
+  setThemeEditorAutoSave: (enabled) => {
+    set({ themeEditorAutoSave: enabled });
+    persistLayout({ themeEditorAutoSave: enabled });
   },
 
   // Monaco editor theme — defaults to 'auto' which follows the UI mode.

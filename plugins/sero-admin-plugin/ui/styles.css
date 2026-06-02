@@ -1,37 +1,6 @@
-@import "tailwindcss";
+@import "@sero-ai/ui/styles/plugin.css";
 
-@source "../../ui/src/components";
-@source "./components";
-@source "./hooks";
-@source "./lib";
-
-@custom-variant dark (&:is(.dark *));
-
-@theme inline {
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --radius-2xl: calc(var(--radius) + 8px);
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-}
+@source "./**/*.{ts,tsx}";
 
 /* ── Content fade-in (keyed remount) ────────────────────── */
 /* Applied via `key` prop — React unmounts the old div and mounts
@@ -52,9 +21,9 @@
 .admin-config-pane {
   background: linear-gradient(
     135deg,
-    hsl(var(--primary) / 0.03) 0%,
+    var(--brand-primary-faint) 0%,
     transparent 50%,
-    hsl(var(--primary) / 0.02) 100%
+    var(--brand-secondary-faint) 100%
   );
 }
 
@@ -73,7 +42,7 @@
 }
 
 .admin-editor::selection {
-  background: hsl(var(--primary) / 0.2);
+  background: var(--brand-primary-border);
 }
 
 /* ── content-visibility for all repeated rows ─────────── */
@@ -86,7 +55,7 @@
 }
 
 .admin-log-line:hover {
-  background: hsl(var(--primary) / 0.04);
+  background: var(--brand-primary-faint);
 }
 
 .admin-sidebar-item {
@@ -101,7 +70,7 @@
 }
 
 .admin-message-card:hover {
-  border-color: hsl(var(--primary) / 0.2);
+  border-color: var(--brand-primary-border);
 }
 
 /* ── Loading pulse ────────────────────────────────────── */

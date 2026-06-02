@@ -78,7 +78,7 @@ function fileIconColor(path: string): string {
     case 'mdx':
       return 'text-[var(--file-icon-markdown)]';
     case 'py':
-      return 'text-[var(--status-success)]';
+      return 'text-status-success';
     case 'rs':
       return 'text-[var(--file-icon-rust)]';
     default:

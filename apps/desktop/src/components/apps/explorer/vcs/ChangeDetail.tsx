@@ -148,7 +148,7 @@ export function ChangeDetail({ workspaceId, entry, onOpenDiff }: Props) {
                 'outline-none focus:border-[var(--border-focus)]',
               )}
             />
-            <button type="button" onClick={handleSaveDesc} className="text-[var(--status-success)] hover:brightness-125">
+            <button type="button" onClick={handleSaveDesc} className="text-status-success hover:brightness-125">
               <Check className="size-3" />
             </button>
             <button type="button" onClick={() => setEditing(false)} className="text-[var(--text-muted)] hover:text-[var(--text-secondary)]">
@@ -187,7 +187,7 @@ export function ChangeDetail({ workspaceId, entry, onOpenDiff }: Props) {
       {loading ? (
         <div className="py-1 text-[10px] text-[var(--text-muted)]/40">Loading files…</div>
       ) : fileLoadError ? (
-        <div className="rounded border border-[var(--status-warning-subtle)] bg-[var(--status-warning-muted)] px-2 py-1 text-[10px] text-[var(--status-warning)]">
+        <div className="rounded border border-status-warning-subtle bg-status-warning-muted px-2 py-1 text-[10px] text-status-warning">
           Failed to load changed files: {fileLoadError}
         </div>
       ) : files.length === 0 ? (
@@ -280,7 +280,7 @@ export function ChangeDetail({ workspaceId, entry, onOpenDiff }: Props) {
           <button type="button"
             onClick={() => void handlePushAs()}
             disabled={pushing || !pushBranch.trim()}
-            className="text-[var(--status-success)] hover:brightness-125 disabled:opacity-40"
+            className="text-status-success hover:brightness-125 disabled:opacity-40"
             title="Push to branch"
           >
             <Check className="size-3" />
@@ -301,8 +301,8 @@ export function ChangeDetail({ workspaceId, entry, onOpenDiff }: Props) {
           className={cn(
             'mt-2 rounded px-2 py-1 text-[10px]',
             pushNotice.error
-              ? 'bg-[var(--status-error-muted)] text-[var(--status-error)]'
-              : 'bg-[var(--status-success-muted)] text-[var(--status-success)]',
+              ? 'bg-status-error-muted text-status-error'
+              : 'bg-status-success-muted text-status-success',
           )}
         >
           {pushNotice.message}
@@ -335,7 +335,7 @@ function DetailAction({
         'transition-colors duration-100',
         'disabled:opacity-40',
         danger
-          ? 'text-[var(--text-muted)]/50 hover:bg-[var(--status-error-muted)] hover:text-[var(--status-error)]'
+          ? 'text-[var(--text-muted)]/50 hover:bg-status-error-muted hover:text-status-error'
           : 'text-[var(--text-muted)]/50 hover:bg-[var(--bg-muted)] hover:text-[var(--text-secondary)]',
       )}
     >

@@ -1,0 +1,4 @@
+@import "./globals.css";
+
+/* Federated Sero plugins should import this file, then add plugin-local
+   @source directives. It keeps Tailwind 4 token names aligned with the shell. */

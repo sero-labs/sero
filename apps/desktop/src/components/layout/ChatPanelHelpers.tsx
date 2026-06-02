@@ -74,7 +74,7 @@ export function ThinkingBlocksToggle({ disabled }: { disabled: boolean }) {
       className={cn(
         'rounded-md p-1.5 transition-colors duration-150',
         showThinking && isActive
-          ? 'bg-[var(--status-warning-subtle)] text-[var(--status-warning)]'
+          ? 'bg-status-warning-subtle text-status-warning'
           : 'text-[var(--text-muted)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]',
         'disabled:pointer-events-none disabled:opacity-40',
       )}

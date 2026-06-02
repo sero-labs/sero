@@ -169,7 +169,7 @@ export function ProfileForm({
       )}
 
       {(validationError ?? operationError) && (
-        <p className="text-xs text-[var(--status-error)]">{validationError ?? operationError}</p>
+        <p className="text-xs text-status-error">{validationError ?? operationError}</p>
       )}
 
       <Button

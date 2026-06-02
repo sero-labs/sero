@@ -85,7 +85,7 @@ export function CheckpointRestoreDialog({
               <span>Loading diff preview…</span>
             </div>
           ) : error ? (
-            <div className="rounded border border-[var(--status-error-border)] bg-[var(--status-error-muted)] px-3 py-2 text-xs text-[var(--status-error)]">
+            <div className="rounded border border-status-error-border bg-status-error-muted px-3 py-2 text-xs text-status-error">
               {error}
             </div>
           ) : files.length === 0 ? (
@@ -98,9 +98,9 @@ export function CheckpointRestoreDialog({
                 <div key={file.path} className="flex items-center justify-between text-sm">
                   <span className="truncate text-[var(--text-primary)]">{file.path}</span>
                   <span className="shrink-0 font-mono text-xs">
-                    <span className="text-[var(--status-success)]">+{file.additions}</span>
+                    <span className="text-status-success">+{file.additions}</span>
                     <span className="mx-1 text-[var(--text-muted)]"> </span>
-                    <span className="text-[var(--status-error)]">-{file.deletions}</span>
+                    <span className="text-status-error">-{file.deletions}</span>
                   </span>
                 </div>
               ))}

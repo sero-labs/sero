@@ -71,9 +71,9 @@ export function ContextEditor({ sessionId }: { sessionId: string }) {
         )}
 
         {state.applyError && (
-          <div className="flex items-start gap-2 rounded-md border border-[var(--status-error-border)] bg-[var(--status-error-muted)] px-3 py-2">
-            <AlertCircle className="mt-0.5 size-3.5 shrink-0 text-[var(--status-error)]" />
-            <span className="text-[11px] text-[var(--status-error)]">{state.applyError}</span>
+          <div className="flex items-start gap-2 rounded-md border border-status-error-border bg-status-error-muted px-3 py-2">
+            <AlertCircle className="mt-0.5 size-3.5 shrink-0 text-status-error" />
+            <span className="text-[11px] text-status-error">{state.applyError}</span>
           </div>
         )}
 

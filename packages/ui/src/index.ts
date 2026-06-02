@@ -14,6 +14,9 @@ export { cn } from "./lib/utils";
 // ── Hooks ──
 export { useIsMobile } from "./hooks/use-mobile";
 
+// ── Theme ──
+export * from "./theme";
+
 // ── UI Components ──
 export * from "./components/ui/accordion";
 export * from "./components/ui/alert-dialog";

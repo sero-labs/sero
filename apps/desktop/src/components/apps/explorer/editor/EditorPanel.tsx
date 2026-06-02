@@ -150,7 +150,7 @@ export function EditorPanel({
         }
       />
       {statusNotice ? (
-        <div className="border-b border-[var(--status-warning-border)] bg-[var(--status-warning-faint)] px-3 py-2 text-[11px] text-[var(--status-warning-text)]">
+        <div className="border-b border-status-warning-border bg-status-warning-faint px-3 py-2 text-[11px] text-[var(--status-warning-text)]">
           {statusNotice}
         </div>
       ) : null}
@@ -177,7 +177,7 @@ export function EditorPanel({
               theme={monacoThemeName}
               options={{
                 fontSize: 13,
-                fontFamily: "'SF Mono', 'Fira Code', 'JetBrains Mono', monospace",
+                fontFamily: "var(--font-mono, 'JetBrains Mono', 'SF Mono', monospace)",
                 minimap: { enabled: false },
                 lineNumbers: 'on',
                 scrollBeyondLastLine: false,

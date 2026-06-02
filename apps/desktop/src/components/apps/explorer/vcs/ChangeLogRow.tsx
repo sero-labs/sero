@@ -21,13 +21,13 @@ interface Props {
 
 function ChangeGlyph({ entry }: { entry: ChangeEntry }) {
   if (entry.isWorkingCopy) {
-    return <span className="text-[11px] font-bold text-[var(--status-info)]">@</span>;
+    return <span className="text-[11px] font-bold text-status-info">@</span>;
   }
   if (entry.immutable) {
-    return <CheckCircle2 className="size-3 text-[var(--status-success)]" />;
+    return <CheckCircle2 className="size-3 text-status-success" />;
   }
   if (entry.conflict) {
-    return <XCircle className="size-3 text-[var(--status-error)]" />;
+    return <XCircle className="size-3 text-status-error" />;
   }
   if (entry.empty) {
     return <Circle className="size-3 text-[var(--text-muted)]/30" />;
@@ -61,7 +61,7 @@ export const ChangeLogRow = memo(function ChangeLogRow({ entry, index, isExpande
         className={cn(
           'shrink-0 font-mono text-[10px]',
           entry.isWorkingCopy
-            ? 'text-[var(--status-info)]/80'
+            ? 'text-status-info/80'
             : 'text-[var(--text-muted)]/50',
         )}
       >
@@ -95,8 +95,8 @@ export const ChangeLogRow = memo(function ChangeLogRow({ entry, index, isExpande
               key={bm}
               className={cn(
                 'rounded-sm px-1 py-px text-[9px] font-medium leading-tight',
-                'bg-[var(--status-info-muted)] text-[var(--status-info)]',
-                'border border-[var(--status-info-subtle)]',
+                'bg-status-info-muted text-status-info',
+                'border border-status-info-subtle',
               )}
             >
               {truncate(bm, 18)}
@@ -112,7 +112,7 @@ export const ChangeLogRow = memo(function ChangeLogRow({ entry, index, isExpande
 
       {/* Conflict indicator */}
       {entry.conflict && (
-        <span className="shrink-0 text-[9px] font-bold text-[var(--status-error)]">CONFLICT</span>
+        <span className="shrink-0 text-[9px] font-bold text-status-error">CONFLICT</span>
       )}
     </motion.button>
   );

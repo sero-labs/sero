@@ -14,11 +14,17 @@
       "bgMuted": "#bcc0cc",
       "borderSubtle": "#ccd0da",
       "borderDefault": "#acb0be",
-      "borderFocus": "#8839ef",
+      "borderFocus": "#40a02b",
       "textPrimary": "#4c4f69",
       "textSecondary": "#5c5f77",
       "textMuted": "#6c6f85",
       "textInverse": "#eff1f5",
+      "brandPrimary": "#40a02b",
+      "brandPrimaryHover": "#179299",
+      "brandPrimaryForeground": "#eff1f5",
+      "brandSecondary": "#8839ef",
+      "brandSecondaryHover": "#7287fd",
+      "brandSecondaryForeground": "#eff1f5",
       "accentPrimary": "#8839ef",
       "accentHover": "#7287fd",
       "accentMuted": "#8839ef1a",
@@ -30,7 +36,7 @@
       "collabPrimary": "#8839ef",
       "voiceRecording": "#d20f39",
       "voiceProcessing": "#04a5e5",
-      "bannerPrimary": "#7287fd"
+      "bannerPrimary": "#8839ef"
     },
     "dark": {
       "bgBase": "#1e1e2e",
@@ -40,11 +46,17 @@
       "bgMuted": "#585b70",
       "borderSubtle": "#313244",
       "borderDefault": "#45475a",
-      "borderFocus": "#cba6f7",
+      "borderFocus": "#a6e3a1",
       "textPrimary": "#cdd6f4",
       "textSecondary": "#bac2de",
       "textMuted": "#a6adc8",
       "textInverse": "#1e1e2e",
+      "brandPrimary": "#a6e3a1",
+      "brandPrimaryHover": "#94e2d5",
+      "brandPrimaryForeground": "#1e1e2e",
+      "brandSecondary": "#cba6f7",
+      "brandSecondaryHover": "#b4befe",
+      "brandSecondaryForeground": "#1e1e2e",
       "accentPrimary": "#cba6f7",
       "accentHover": "#b4befe",
       "accentMuted": "#cba6f733",
@@ -56,7 +68,7 @@
       "collabPrimary": "#cba6f7",
       "voiceRecording": "#f38ba8",
       "voiceProcessing": "#89dceb",
-      "bannerPrimary": "#b4befe"
+      "bannerPrimary": "#cba6f7"
     }
   }
 }

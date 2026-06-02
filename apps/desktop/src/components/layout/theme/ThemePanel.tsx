@@ -6,6 +6,7 @@
  */
 
 import { useState, useCallback } from 'react';
+import { XIcon } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -50,6 +51,12 @@ export function ThemePanel({ open, onOpenChange }: ThemePanelProps) {
     setEditorOpen(true);
   }, [onOpenChange]);
 
+  const handlePanelOpenChange = useCallback((next: boolean) => {
+    if (next) {
+      onOpenChange(true);
+    }
+  }, [onOpenChange]);
+
   // Always show default even if not in presets list
   const hasDefault = presets.some((p) => p.id === DEFAULT_THEME_ID);
   const allPresets = hasDefault
@@ -58,10 +65,21 @@ export function ThemePanel({ open, onOpenChange }: ThemePanelProps) {
 
   return (
     <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
-          <DialogHeader>
+      <Dialog open={open} onOpenChange={handlePanelOpenChange}>
+        <DialogContent
+          className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col"
+          showCloseButton={false}
+        >
+          <DialogHeader className="relative pr-8">
             <DialogTitle>Themes</DialogTitle>
+            <button
+              type="button"
+              onClick={() => onOpenChange(false)}
+              className="absolute right-0 top-0 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-[var(--border-focus)]"
+            >
+              <XIcon className="size-4" />
+              <span className="sr-only">Close themes</span>
+            </button>
           </DialogHeader>
 
           {/* Mode toggle + actions */}

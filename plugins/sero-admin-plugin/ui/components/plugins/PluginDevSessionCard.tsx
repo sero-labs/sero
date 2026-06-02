@@ -8,30 +8,30 @@ import type { PluginDevSessionIPC } from '../../hooks/host';
 const STATUS_META = {
   starting: {
     label: 'Starting',
-    container: 'border-[var(--status-info-border)] bg-[var(--status-info-muted)]/20',
-    icon: 'border-[var(--status-info-border)] bg-[var(--status-info-muted)] text-[var(--status-info)]',
-    badge: 'border-[var(--status-info-border)] bg-[var(--status-info-muted)] text-[var(--status-info)]',
+    container: 'border-status-info-border bg-status-info-muted/20',
+    icon: 'border-status-info-border bg-status-info-muted text-status-info',
+    badge: 'border-status-info-border bg-status-info-muted text-status-info',
     description: 'Validating the plugin checkout and starting any available development services.',
   },
   active: {
     label: 'Active',
-    container: 'border-[var(--status-success-border)] bg-[var(--status-success-muted)]/15',
-    icon: 'border-[var(--status-success-border)] bg-[var(--status-success-muted)] text-[var(--status-success)]',
-    badge: 'border-[var(--status-success-border)] bg-[var(--status-success-muted)] text-[var(--status-success)]',
+    container: 'border-status-success-border bg-status-success-muted/15',
+    icon: 'border-status-success-border bg-status-success-muted text-status-success',
+    badge: 'border-status-success-border bg-status-success-muted text-status-success',
     description: 'Running directly from the local checkout for the active profile.',
   },
   'needs-attention': {
     label: 'Needs attention',
-    container: 'border-[var(--status-warning-border)] bg-[var(--status-warning-muted)]/20',
-    icon: 'border-[var(--status-warning-border)] bg-[var(--status-warning-muted)] text-[var(--status-warning)]',
-    badge: 'border-[var(--status-warning-border)] bg-[var(--status-warning-muted)] text-[var(--status-warning)]',
+    container: 'border-status-warning-border bg-status-warning-muted/20',
+    icon: 'border-status-warning-border bg-status-warning-muted text-status-warning',
+    badge: 'border-status-warning-border bg-status-warning-muted text-status-warning',
     description: 'Sero kept this session available where possible, but the last refresh needs review.',
   },
   broken: {
     label: 'Broken',
-    container: 'border-[var(--status-error-border)] bg-[var(--status-error-faint)]',
-    icon: 'border-[var(--status-error-border)] bg-[var(--status-error-muted)] text-[var(--status-error)]',
-    badge: 'border-[var(--status-error-border)] bg-[var(--status-error-muted)] text-[var(--status-error)]',
+    container: 'border-status-error-border bg-status-error-faint',
+    icon: 'border-status-error-border bg-status-error-muted text-status-error',
+    badge: 'border-status-error-border bg-status-error-muted text-status-error',
     description: 'Saved for recovery, but not currently active. Fix the folder and retry, or remove it.',
   },
 } as const;
@@ -39,12 +39,12 @@ const STATUS_META = {
 const UI_MODE_META = {
   'dev-server': {
     label: 'Live UI dev server',
-    badge: 'border-[var(--status-info-border)] bg-[var(--status-info-muted)] text-[var(--status-info)]',
+    badge: 'border-status-info-border bg-status-info-muted text-status-info',
     description: 'Using the managed local UI dev server for this session.',
   },
   'built-fallback': {
     label: 'Built UI fallback',
-    badge: 'border-[var(--status-success-border)] bg-[var(--status-success-muted)] text-[var(--status-success)]',
+    badge: 'border-status-success-border bg-status-success-muted text-status-success',
     description: 'Using built UI assets from the checkout because live UI was unavailable.',
   },
   'backend-only': {
@@ -54,7 +54,7 @@ const UI_MODE_META = {
   },
   unavailable: {
     label: 'UI unavailable',
-    badge: 'border-[var(--status-warning-border)] bg-[var(--status-warning-muted)] text-[var(--status-warning)]',
+    badge: 'border-status-warning-border bg-status-warning-muted text-status-warning',
     description: 'The session is active where possible, but no UI surface is currently available.',
   },
 } as const;
@@ -163,9 +163,9 @@ export const PluginDevSessionCard = memo(function PluginDevSessionCard({
       </dl>
 
       {session.lastError ? (
-        <div className="mt-4 rounded-xl border border-[var(--status-error-border)] bg-[var(--status-error-faint)] p-3">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--status-error)]">Last error</p>
-          <p className="mt-1 text-[11px] leading-5 text-[var(--status-error)]">{session.lastError}</p>
+        <div className="mt-4 rounded-xl border border-status-error-border bg-status-error-faint p-3">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-status-error">Last error</p>
+          <p className="mt-1 text-[11px] leading-5 text-status-error">{session.lastError}</p>
         </div>
       ) : null}
 
@@ -174,7 +174,7 @@ export const PluginDevSessionCard = memo(function PluginDevSessionCard({
           variant="outline"
           size="sm"
           disabled={refreshing || stopping}
-          className="h-8 border-[var(--status-info-border)] bg-[var(--status-info-muted)] text-[11px] text-[var(--status-info)] hover:bg-[var(--status-info-subtle)]"
+          className="h-8 border-status-info-border bg-status-info-muted text-[11px] text-status-info hover:bg-status-info-subtle"
           onClick={onRefresh}
         >
           {refreshing ? <Loader2 className="size-3.5 animate-spin" /> : <RefreshCw className="size-3.5" />}
@@ -194,7 +194,7 @@ export const PluginDevSessionCard = memo(function PluginDevSessionCard({
           variant="outline"
           size="sm"
           disabled={refreshing || stopping}
-          className="h-8 border-[var(--status-error-border)] bg-[var(--status-error-muted)] text-[11px] text-[var(--status-error)] hover:bg-[var(--status-error-subtle)]"
+          className="h-8 border-status-error-border bg-status-error-muted text-[11px] text-status-error hover:bg-status-error-subtle"
           onClick={onStop}
         >
           {stopping ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}

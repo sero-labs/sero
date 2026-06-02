@@ -58,7 +58,7 @@ export function PresetBar({
         {activeUserPreset && (
           <button type="button"
             onClick={() => void onDelete(activeUserPreset.id)}
-            className="flex items-center gap-1 rounded-md px-1.5 py-1 text-[var(--text-muted)] transition-colors hover:bg-[var(--status-error-muted)] hover:text-[var(--status-error)]"
+            className="flex items-center gap-1 rounded-md px-1.5 py-1 text-[var(--text-muted)] transition-colors hover:bg-status-error-muted hover:text-status-error"
             title={`Delete "${activeUserPreset.name}"`}
           >
             <Trash2 className="size-3" />

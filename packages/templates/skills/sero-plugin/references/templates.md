@@ -866,49 +866,16 @@ If you do this, declare:
 ## ui/styles.css
 
 ```css
-@import "tailwindcss";
+@import "@sero-ai/ui/styles/plugin.css";
 
 /* REQUIRED: Scan plugin-local UI files so external remotes emit the utility
    classes they use instead of depending on host CSS by accident. */
 @source "./**/*.{ts,tsx}";
-
-/* REQUIRED: Scan @sero-ai/ui component sources so Tailwind generates CSS
-   for utility classes used inside shared components (Button, Card, etc.). */
-@source "../../ui/src/components";
-
-@custom-variant dark (&:is(.dark *));
-
-@theme inline {
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --radius-2xl: calc(var(--radius) + 8px);
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-}
 ```
 
 **Why needed:**
+- `@import "@sero-ai/ui/styles/plugin.css"` — imports Sero's shared Tailwind 4 theme bridge and scans shared UI components
 - `@source "./**/*.{ts,tsx}"` — keeps external remotes from silently missing plugin-local utility classes at runtime
-- `@source "../../ui/src/components"` — Tailwind 4 doesn't auto-scan monorepo packages; without it, shared-component utility classes won't be generated
-- `@theme inline` — generates semantic Tailwind classes (`bg-background`, etc.) from host CSS variables at runtime
 
 ---
 

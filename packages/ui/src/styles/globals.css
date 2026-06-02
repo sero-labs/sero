@@ -22,7 +22,7 @@
   /* Border (light) */
   --border-subtle: #d4d8e0;
   --border-default: #bcc1cc;
-  --border-focus: #6366f1;
+  --border-focus: #059669;
 
   /* Text (light) */
   --text-primary: #0f1117;
@@ -30,10 +30,26 @@
   --text-muted: #6b7280;
   --text-inverse: #fafafa;
 
-  /* Accent (indigo) — brand accent colour used by Sero components */
-  --accent-primary: #6366f1;
-  --accent-hover: #818cf8;
-  --accent-muted: #6366f11a;
+  /* Brand colours — product identity, actions, active UI */
+  --brand-primary: #059669;
+  --brand-primary-hover: #047857;
+  --brand-primary-foreground: #ffffff;
+  --brand-primary-muted: color-mix(in srgb, var(--brand-primary) 10%, transparent);
+  --brand-primary-subtle: color-mix(in srgb, var(--brand-primary) 15%, transparent);
+  --brand-primary-faint: color-mix(in srgb, var(--brand-primary) 3%, transparent);
+  --brand-primary-border: color-mix(in srgb, var(--brand-primary) 20%, transparent);
+  --brand-secondary: #7c3aed;
+  --brand-secondary-hover: #6d28d9;
+  --brand-secondary-foreground: #ffffff;
+  --brand-secondary-muted: color-mix(in srgb, var(--brand-secondary) 10%, transparent);
+  --brand-secondary-subtle: color-mix(in srgb, var(--brand-secondary) 15%, transparent);
+  --brand-secondary-faint: color-mix(in srgb, var(--brand-secondary) 3%, transparent);
+  --brand-secondary-border: color-mix(in srgb, var(--brand-secondary) 20%, transparent);
+
+  /* Legacy accent / syntax accent */
+  --accent-primary: var(--brand-secondary);
+  --accent-hover: var(--brand-secondary-hover);
+  --accent-muted: var(--brand-secondary-muted);
   --accent-code: #7c3aed;
 
   /* Status — solid */
@@ -79,10 +95,10 @@
   --voice-processing-muted: rgba(6, 182, 212, 0.15);
 
   /* Semantic colours — indigo accent for notifications/banners */
-  --banner-primary: #6366f1;
-  --banner-primary-muted: rgba(99, 102, 241, 0.10);
-  --banner-primary-subtle: rgba(99, 102, 241, 0.15);
-  --banner-primary-border: rgba(99, 102, 241, 0.20);
+  --banner-primary: var(--brand-secondary);
+  --banner-primary-muted: color-mix(in srgb, var(--banner-primary) 10%, transparent);
+  --banner-primary-subtle: color-mix(in srgb, var(--banner-primary) 15%, transparent);
+  --banner-primary-border: color-mix(in srgb, var(--banner-primary) 20%, transparent);
 
   /* Thinking / reasoning gradients */
   --gradient-thinking-high: linear-gradient(135deg, rgba(245, 158, 11, 0.20), rgba(239, 68, 68, 0.20));
@@ -131,15 +147,15 @@
      shadcn component (Dialog, Command, Dropdown, Tooltip, …)
      automatically follows theme changes.
      NOTE: --accent here is the shadcn "hover/selection bg",
-     NOT the brand accent colour (that's --accent-primary). */
+     NOT a brand colour (use --brand-primary/secondary). */
   --background: var(--bg-base);
   --foreground: var(--text-primary);
   --card: var(--bg-surface);
   --card-foreground: var(--text-primary);
   --popover: var(--bg-elevated);
   --popover-foreground: var(--text-primary);
-  --primary: var(--text-primary);
-  --primary-foreground: var(--text-inverse);
+  --primary: var(--brand-primary);
+  --primary-foreground: var(--brand-primary-foreground);
   --secondary: var(--bg-surface);
   --secondary-foreground: var(--text-primary);
   --muted: var(--bg-muted);
@@ -157,8 +173,8 @@
   --chart-5: oklch(0.769 0.188 70.08);
   --sidebar: var(--bg-surface);
   --sidebar-foreground: var(--text-primary);
-  --sidebar-primary: var(--accent-primary);
-  --sidebar-primary-foreground: var(--text-inverse);
+  --sidebar-primary: var(--brand-primary);
+  --sidebar-primary-foreground: var(--brand-primary-foreground);
   --sidebar-accent: var(--bg-elevated);
   --sidebar-accent-foreground: var(--text-primary);
   --sidebar-border: var(--border-subtle);
@@ -208,6 +224,38 @@
   --radius-4xl: calc(var(--radius) + 16px);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-brand-primary: var(--brand-primary);
+  --color-brand-primary-foreground: var(--brand-primary-foreground);
+  --color-brand-primary-muted: var(--brand-primary-muted);
+  --color-brand-primary-subtle: var(--brand-primary-subtle);
+  --color-brand-primary-faint: var(--brand-primary-faint);
+  --color-brand-primary-border: var(--brand-primary-border);
+  --color-brand-secondary: var(--brand-secondary);
+  --color-brand-secondary-foreground: var(--brand-secondary-foreground);
+  --color-brand-secondary-muted: var(--brand-secondary-muted);
+  --color-brand-secondary-subtle: var(--brand-secondary-subtle);
+  --color-brand-secondary-faint: var(--brand-secondary-faint);
+  --color-brand-secondary-border: var(--brand-secondary-border);
+  --color-status-success: var(--status-success);
+  --color-status-success-muted: var(--status-success-muted);
+  --color-status-success-subtle: var(--status-success-subtle);
+  --color-status-success-faint: var(--status-success-faint);
+  --color-status-success-border: var(--status-success-border);
+  --color-status-warning: var(--status-warning);
+  --color-status-warning-muted: var(--status-warning-muted);
+  --color-status-warning-subtle: var(--status-warning-subtle);
+  --color-status-warning-faint: var(--status-warning-faint);
+  --color-status-warning-border: var(--status-warning-border);
+  --color-status-error: var(--status-error);
+  --color-status-error-muted: var(--status-error-muted);
+  --color-status-error-subtle: var(--status-error-subtle);
+  --color-status-error-faint: var(--status-error-faint);
+  --color-status-error-border: var(--status-error-border);
+  --color-status-info: var(--status-info);
+  --color-status-info-muted: var(--status-info-muted);
+  --color-status-info-subtle: var(--status-info-subtle);
+  --color-status-info-faint: var(--status-info-faint);
+  --color-status-info-border: var(--status-info-border);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
   --color-popover: var(--popover);
@@ -250,6 +298,7 @@
   /* Border (dark) */
   --border-subtle: #27272a;
   --border-default: #3f3f46;
+  --border-focus: #34d399;
 
   /* Text (dark) */
   --text-primary: #fafafa;
@@ -257,10 +306,26 @@
   --text-muted: #71717a;
   --text-inverse: #09090b;
 
-  /* Accent (dark) */
-  --accent-primary: #818cf8;
-  --accent-hover: #a5b4fc;
-  --accent-muted: #6366f133;
+  /* Brand colours (dark) */
+  --brand-primary: #34d399;
+  --brand-primary-hover: #6ee7b7;
+  --brand-primary-foreground: #052e1c;
+  --brand-primary-muted: color-mix(in srgb, var(--brand-primary) 10%, transparent);
+  --brand-primary-subtle: color-mix(in srgb, var(--brand-primary) 15%, transparent);
+  --brand-primary-faint: color-mix(in srgb, var(--brand-primary) 3%, transparent);
+  --brand-primary-border: color-mix(in srgb, var(--brand-primary) 20%, transparent);
+  --brand-secondary: #c4b5fd;
+  --brand-secondary-hover: #ddd6fe;
+  --brand-secondary-foreground: #1e1038;
+  --brand-secondary-muted: color-mix(in srgb, var(--brand-secondary) 10%, transparent);
+  --brand-secondary-subtle: color-mix(in srgb, var(--brand-secondary) 15%, transparent);
+  --brand-secondary-faint: color-mix(in srgb, var(--brand-secondary) 3%, transparent);
+  --brand-secondary-border: color-mix(in srgb, var(--brand-secondary) 20%, transparent);
+
+  /* Legacy accent / syntax accent (dark) */
+  --accent-primary: var(--brand-secondary);
+  --accent-hover: var(--brand-secondary-hover);
+  --accent-muted: var(--brand-secondary-muted);
   --accent-code: #c4b5fd;
 
   /* Status — solid (dark) */
@@ -306,10 +371,10 @@
   --voice-processing-muted: rgba(34, 211, 238, 0.15);
 
   /* Banner / notifications (dark) */
-  --banner-primary: #818cf8;
-  --banner-primary-muted: rgba(129, 140, 248, 0.10);
-  --banner-primary-subtle: rgba(129, 140, 248, 0.15);
-  --banner-primary-border: rgba(129, 140, 248, 0.20);
+  --banner-primary: var(--brand-secondary);
+  --banner-primary-muted: color-mix(in srgb, var(--banner-primary) 10%, transparent);
+  --banner-primary-subtle: color-mix(in srgb, var(--banner-primary) 15%, transparent);
+  --banner-primary-border: color-mix(in srgb, var(--banner-primary) 20%, transparent);
 
   /* Thinking gradients (dark) */
   --gradient-thinking-high: linear-gradient(135deg, rgba(245, 158, 11, 0.20), rgba(239, 68, 68, 0.20));
@@ -331,8 +396,8 @@
   --card-foreground: var(--text-primary);
   --popover: var(--bg-elevated);
   --popover-foreground: var(--text-primary);
-  --primary: var(--text-primary);
-  --primary-foreground: var(--text-inverse);
+  --primary: var(--brand-primary);
+  --primary-foreground: var(--brand-primary-foreground);
   --secondary: var(--bg-surface);
   --secondary-foreground: var(--text-primary);
   --muted: var(--bg-muted);
@@ -350,8 +415,8 @@
   --chart-5: oklch(0.645 0.246 16.439);
   --sidebar: var(--bg-surface);
   --sidebar-foreground: var(--text-primary);
-  --sidebar-primary: var(--accent-primary);
-  --sidebar-primary-foreground: var(--text-inverse);
+  --sidebar-primary: var(--brand-primary);
+  --sidebar-primary-foreground: var(--brand-primary-foreground);
   --sidebar-accent: var(--bg-elevated);
   --sidebar-accent-foreground: var(--text-primary);
   --sidebar-border: var(--border-subtle);

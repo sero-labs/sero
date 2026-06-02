@@ -23,9 +23,11 @@ Components                           Read via var(--token-name) or TW utilities
 | File | Role |
 |------|------|
 | `packages/templates/themes/*.json` | Built-in preset templates |
+| `packages/ui/src/theme/` | Shared theme types, defaults, validation, and DOM application |
 | `apps/desktop/electron/profile/setup.ts` | `ensureDefaultThemes()` — copies templates to `~/.sero-ui/themes/` |
 | `apps/desktop/electron/ipc/themes.ts` | IPC handlers: list, load, save, delete, import, export |
-| `apps/desktop/src/lib/theme-engine.ts` | `applyThemePreset()`, `resetTheme()`, `validateThemePreset()` |
+| `packages/ui/src/theme/apply-theme.ts` | `applyThemePreset()`, `resetTheme()`, `validateThemePreset()` |
+| `apps/desktop/src/lib/theme-engine.ts` | Desktop wrapper that adds Google Font loading |
 | `apps/desktop/src/lib/google-fonts.ts` | Google Fonts CDN loader (injects `<link>` tags) |
 | `apps/desktop/src/stores/theme.ts` | Zustand store + `hydrateThemeStore()` |
 | `apps/desktop/src/types/theme.ts` | `ThemePreset`, `ColorTokens`, defaults |
@@ -45,14 +47,14 @@ Sero design tokens          shadcn/ui tokens (bridged)
 --bg-elevated        →      --popover, --secondary, --sidebar-accent
 --bg-overlay         →      --accent (hover/selection bg)
 --bg-muted           →      --muted
---text-primary       →      --foreground, --primary
---text-inverse       →      --primary-foreground
+--text-primary       →      --foreground
+--brand-primary      →      --primary, --sidebar-primary
+--brand-primary-foreground → --primary-foreground
 --text-muted         →      --muted-foreground
 --border-default     →      --border
 --border-subtle      →      --input, --sidebar-border
 --border-focus       →      --ring, --sidebar-ring
 --status-error       →      --destructive
---accent-primary     →      --sidebar-primary
 ```
 
 **Sero tokens** are set by the theme engine via inline styles on `<html>`.
@@ -63,18 +65,32 @@ automatically follow when Sero tokens change.
 
 | Use case | Token | Notes |
 |----------|-------|-------|
-| Brand accent colour | `--accent-primary` | Indigo by default. Used for active indicators, focus decorations, dots. |
+| Primary brand colour | `--brand-primary` | Emerald by default. Use for primary actions, active indicators, and Sero product accents. |
+| Secondary brand colour | `--brand-secondary` | Purple by default. Use for section labels and secondary accents. |
 | Hover/selection background | `--accent` | shadcn token. Maps to `--bg-overlay`. Do NOT use for brand colour. |
+| Success state | `--status-success` | Only for successful/running/pass states. Do not use as the brand green. |
+| Code accent | `--accent-code` | Only for syntax/editor/code labels. Do not use as the brand purple. |
 | Surface levels | `--bg-base` → `--bg-surface` → `--bg-elevated` → `--bg-overlay` → `--bg-muted` | Each step is progressively more prominent. |
 
 ### Derived tokens
 
-The theme engine auto-generates opacity variants from base status/collab/voice/banner colours:
+The theme engine auto-generates opacity variants from base brand/status/collab/voice/banner colours:
 
+- `--brand-primary-muted` (10%), `-subtle` (15%), `-faint` (3%), `-border` (20%)
+- Same pattern for `--brand-secondary`
 - `--status-success-muted` (10%), `-subtle` (15%), `-faint` (3%), `-border` (20%)
 - Same pattern for `warning`, `error`, `info`, `collab-primary`, `voice-*`, `banner-primary`
 
 These do **not** need to be defined in preset JSON — they're computed at apply time.
+Derived colours use CSS `color-mix()`, so presets can use modern colour
+formats such as `oklch()` or `hsl()` and still get translucent variants.
+Desktop runs on Electron's Chromium engine; the styleguide expects a browser
+with `color-mix()` support.
+
+Older custom themes that do not define `brand*` tokens are normalised on load.
+`brandPrimary` falls back to the old success colour and `brandSecondary` falls
+back to the old code accent, so saved themes continue to render. Users can
+re-save the theme to choose distinct brand hover colours.
 
 ## Preset JSON Format
 
@@ -101,9 +117,15 @@ These do **not** need to be defined in preset JSON — they're computed at apply
       "textSecondary": "#3b4252",
       "textMuted": "#6b7280",
       "textInverse": "#fafafa",
-      "accentPrimary": "#6366f1",
-      "accentHover": "#818cf8",
-      "accentMuted": "#6366f11a",
+      "brandPrimary": "#059669",
+      "brandPrimaryHover": "#047857",
+      "brandPrimaryForeground": "#ffffff",
+      "brandSecondary": "#7c3aed",
+      "brandSecondaryHover": "#6d28d9",
+      "brandSecondaryForeground": "#ffffff",
+      "accentPrimary": "#7c3aed",
+      "accentHover": "#6d28d9",
+      "accentMuted": "#7c3aed1a",
       "accentCode": "#7c3aed",
       "statusSuccess": "#16a34a",
       "statusWarning": "#d97706",
@@ -197,6 +219,24 @@ from layout state and applies the saved theme.
 3. It will be copied to new installations on first launch
 4. Existing users won't get it automatically (by design — `ensureDefaultThemes` skips existing files). To force-update, users delete their copy and restart.
 
+## Styleguide App
+
+Use the isolated styleguide before changing production surfaces:
+
+```bash
+pnpm styleguide
+```
+
+The styleguide lives in `apps/styleguide` and includes desktop shell, chat,
+shared component, and plugin fixtures. Use the **Diagnostic Swap** preset to
+find places where brand colour is incorrectly wired to status or code tokens.
+
+Run the colour audit to see current hardcoded colour usage:
+
+```bash
+pnpm theme:audit
+```
+
 ## Component Guidelines
 
 ### DO
@@ -205,9 +245,12 @@ from layout state and applies the saved theme.
 // Use Sero design tokens for all styling
 className="bg-[var(--bg-surface)] text-[var(--text-primary)] border-[var(--border-subtle)]"
 
-// Use --accent-primary for brand accent colour
-className="text-[var(--accent-primary)]"
-className="bg-[var(--accent-primary)]"
+// Use brand tokens for product colour
+className="text-brand-primary"
+className="bg-brand-secondary/10"
+
+// Use status tokens only for state
+className="text-status-success"
 
 // shadcn components work automatically (bridged tokens)
 <CommandDialog />  // uses bg-popover → var(--bg-elevated)
@@ -219,8 +262,14 @@ className="bg-[var(--accent-primary)]"
 // ❌ Hardcoded colours
 className="bg-zinc-900 text-white border-zinc-700"
 
+// ❌ Brand green routed through success
+className="text-[var(--status-success)]" // Use text-brand-primary unless it is a success state
+
+// ❌ Brand purple routed through code
+className="text-[var(--accent-code)]" // Use text-brand-secondary unless it is code/syntax
+
 // ❌ var(--accent) for brand colour (that's the shadcn hover bg)
-className="text-[var(--accent)]"  // Use --accent-primary instead
+className="text-[var(--accent)]"  // Use --brand-primary or --brand-secondary instead
 
 // ❌ Undefined tokens
 className="bg-[var(--bg-hover)]"   // Use --bg-elevated
@@ -243,7 +292,8 @@ className="bg-[var(--bg-raised)]"  // Use --bg-elevated
 | Secondary text | `--text-secondary` |
 | Muted / placeholder text | `--text-muted` |
 | Inverted text (on solid bg) | `--text-inverse` |
-| Brand accent (indigo) | `--accent-primary` |
+| Primary brand (emerald) | `--brand-primary` |
+| Secondary brand (purple) | `--brand-secondary` |
 | Code / syntax accent | `--accent-code` |
 | Success | `--status-success` |
 | Warning | `--status-warning` |

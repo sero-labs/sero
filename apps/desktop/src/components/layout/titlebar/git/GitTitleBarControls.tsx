@@ -208,16 +208,16 @@ function getStatusTone({
     return 'border-[var(--border-subtle)] bg-[var(--bg-muted)]/50 text-[var(--text-muted)]';
   }
   if (error) {
-    return 'border-[var(--status-error-border)] bg-[var(--status-error-faint)] text-[var(--status-error)]';
+    return 'border-status-error-border bg-status-error-faint text-status-error';
   }
   if (!hasRemote) {
-    return 'border-[var(--status-warning-border)] bg-[var(--status-warning-faint)] text-[var(--status-warning)]';
+    return 'border-status-warning-border bg-status-warning-faint text-status-warning';
   }
   if (stagedCount > 0 || changedCount > 0) {
-    return 'border-[var(--status-warning-border)] bg-[var(--status-warning-faint)] text-[var(--text-secondary)]';
+    return 'border-status-warning-border bg-status-warning-faint text-[var(--text-secondary)]';
   }
   if (aheadCount > 0 || behindCount > 0) {
-    return 'border-[var(--status-info-border)] bg-[var(--status-info-faint)] text-[var(--text-secondary)]';
+    return 'border-status-info-border bg-status-info-faint text-[var(--text-secondary)]';
   }
   return 'border-[var(--border-subtle)] bg-[var(--bg-muted)]/50 text-[var(--text-muted)]';
 }

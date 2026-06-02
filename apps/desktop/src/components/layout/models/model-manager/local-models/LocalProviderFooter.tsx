@@ -20,7 +20,7 @@ export function LocalProviderFooter({
   return (
     <>
       {saveError && (
-        <p className="text-[11px] text-[var(--status-error)]">{saveError}</p>
+        <p className="text-[11px] text-status-error">{saveError}</p>
       )}
       <div className="flex justify-end gap-2 border-t border-[var(--border-subtle)] pt-3">
         <button type="button"

@@ -34,27 +34,27 @@ export const COLLABORATION_ROLE_VISUALS: Record<
   researcher: {
     label: 'Researcher',
     icon: Search,
-    color: 'text-[var(--status-info)]',
-    surface: 'bg-[var(--status-info-subtle)]',
-    border: 'border-[var(--status-info-border)]',
+    color: 'text-status-info',
+    surface: 'bg-status-info-subtle',
+    border: 'border-status-info-border',
     statusVerb: 'Investigating',
     lane: 'left',
   },
   analyst: {
     label: 'Analyst',
     icon: BarChart3,
-    color: 'text-[var(--status-success)]',
-    surface: 'bg-[var(--status-success-subtle)]',
-    border: 'border-[var(--status-success-border)]',
+    color: 'text-status-success',
+    surface: 'bg-status-success-subtle',
+    border: 'border-status-success-border',
     statusVerb: 'Crunching data',
     lane: 'right',
   },
   visionary: {
     label: 'Visionary',
     icon: Lightbulb,
-    color: 'text-[var(--status-warning)]',
-    surface: 'bg-[var(--status-warning-subtle)]',
-    border: 'border-[var(--status-warning-border)]',
+    color: 'text-status-warning',
+    surface: 'bg-status-warning-subtle',
+    border: 'border-status-warning-border',
     statusVerb: 'Brainstorming',
     lane: 'left',
   },
@@ -92,7 +92,7 @@ export function CollaborationRoleBadge({
     >
       <Icon strokeWidth={2.1} />
       {pulse && (
-        <span className="absolute -bottom-0.5 -right-0.5 size-2 rounded-full border border-[var(--bg-surface)] bg-[var(--status-success)] animate-pulse" />
+        <span className="absolute -bottom-0.5 -right-0.5 size-2 rounded-full border border-[var(--bg-surface)] bg-status-success animate-pulse" />
       )}
     </div>
   );

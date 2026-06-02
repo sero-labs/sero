@@ -115,7 +115,7 @@ export function SessionNode({
         {isSelected ? (
           <Check className="size-3 text-[var(--accent-primary)]" />
         ) : isStreaming ? (
-          <Loader2 className="size-3 animate-spin text-[var(--status-success)]" />
+          <Loader2 className="size-3 animate-spin text-[var(--brand-primary)]" />
         ) : null}
       </span>
 
@@ -133,10 +133,10 @@ export function SessionNode({
             }}
             onBlur={commitRename}
             onClick={(e) => e.stopPropagation()}
-            className="w-full truncate rounded border border-[var(--border-subtle)] bg-[var(--bg-base)] px-1 py-0 text-sm font-medium text-[var(--text-primary)] outline-none focus:border-[var(--status-success)]"
+            className="w-full truncate rounded border border-[var(--border-subtle)] bg-[var(--bg-base)] px-1 py-0 text-sm font-medium text-[var(--text-primary)] outline-none focus:border-status-success"
           />
         ) : (
-          <span className={cn('truncate text-sm font-medium', isActive ? 'text-[var(--status-success)]' : 'text-[var(--text-primary)]')}>
+          <span className={cn('truncate text-sm font-medium', isActive ? 'text-[var(--brand-primary)]' : 'text-[var(--text-primary)]')}>
             {title}
           </span>
         )}

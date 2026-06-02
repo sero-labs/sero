@@ -80,19 +80,19 @@ function PermissionGateCard({ question }: { question: UserFeedbackPendingQuestio
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 6 }}
       transition={{ duration: 0.2 }}
-      className="mx-3 mb-2 overflow-hidden rounded-lg border border-[var(--status-warning-border)] bg-[var(--status-warning-muted)]"
+      className="mx-3 mb-2 overflow-hidden rounded-lg border border-status-warning-border bg-status-warning-muted"
     >
       {/* Warning header */}
       <div className="flex items-center gap-2.5 px-3 py-2">
-        <ShieldAlert className="size-3.5 text-[var(--status-warning)]" />
-        <span className="size-1.5 shrink-0 animate-pulse rounded-full bg-[var(--status-warning)]" />
-        <span className="flex-1 text-xs font-semibold text-[var(--status-warning)]">
+        <ShieldAlert className="size-3.5 text-status-warning" />
+        <span className="size-1.5 shrink-0 animate-pulse rounded-full bg-status-warning" />
+        <span className="flex-1 text-xs font-semibold text-status-warning">
           dangerous command, approval required
         </span>
         <button type="button"
           onClick={handleCancel}
           aria-label="Block command"
-          className="rounded p-0.5 text-[var(--text-muted)] hover:bg-[var(--status-warning-muted)] hover:text-[var(--status-warning)]"
+          className="rounded p-0.5 text-[var(--text-muted)] hover:bg-status-warning-muted hover:text-status-warning"
           title="Block (cancel)"
         >
           <X className="size-3.5" />
@@ -100,19 +100,19 @@ function PermissionGateCard({ question }: { question: UserFeedbackPendingQuestio
       </div>
 
       {/* Command display */}
-      <div className="border-t border-[var(--status-warning-border)] px-3 pt-2.5 pb-2">
-        <code className="block whitespace-pre-wrap break-all rounded-md border border-[var(--status-error-border)] bg-[var(--status-error-muted)] px-2.5 py-1.5 font-mono text-[12px] leading-relaxed text-[var(--status-error)]">
+      <div className="border-t border-status-warning-border px-3 pt-2.5 pb-2">
+        <code className="block whitespace-pre-wrap break-all rounded-md border border-status-error-border bg-status-error-muted px-2.5 py-1.5 font-mono text-[12px] leading-relaxed text-status-error">
           {command}
         </code>
       </div>
 
       {/* Allow / Block buttons */}
-      <div className="flex items-center gap-2 border-t border-[var(--status-warning-border)] px-3 py-2">
+      <div className="flex items-center gap-2 border-t border-status-warning-border px-3 py-2">
         <Button
           size="sm"
           variant="ghost"
           onClick={handleAllow}
-          className="h-7 gap-1.5 border border-[var(--status-warning-border)] px-3 text-xs font-medium text-[var(--status-warning)] hover:bg-[var(--status-warning-muted)]"
+          className="h-7 gap-1.5 border border-status-warning-border px-3 text-xs font-medium text-status-warning hover:bg-status-warning-muted"
         >
           Allow
         </Button>
@@ -120,7 +120,7 @@ function PermissionGateCard({ question }: { question: UserFeedbackPendingQuestio
           size="sm"
           variant="ghost"
           onClick={handleBlock}
-          className="h-7 gap-1.5 border border-[var(--status-error-border)] bg-[var(--status-error-muted)] px-3 text-xs font-medium text-[var(--status-error)] hover:bg-[var(--status-error-subtle)]"
+          className="h-7 gap-1.5 border border-status-error-border bg-status-error-muted px-3 text-xs font-medium text-status-error hover:bg-status-error-subtle"
         >
           Block
         </Button>
@@ -183,12 +183,12 @@ function QuestionCardInner({ question }: { question: UserFeedbackPendingQuestion
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 6 }}
       transition={{ duration: 0.2 }}
-      className="mx-3 mb-2 overflow-hidden rounded-lg border border-[var(--status-info-border)] bg-[var(--status-info-faint)]"
+      className="mx-3 mb-2 overflow-hidden rounded-lg border border-status-info-border bg-status-info-faint"
     >
       {/* Header, matches ToolCallGroup summary bar */}
       <div className="flex items-center gap-2.5 px-3 py-2">
         <ChevronRight className="size-3.5 text-[var(--text-muted)]" />
-        <span className="size-1.5 shrink-0 animate-pulse rounded-full bg-[var(--status-info)]" />
+        <span className="size-1.5 shrink-0 animate-pulse rounded-full bg-status-info" />
         <span className="flex-1 text-xs font-medium text-[var(--text-secondary)]">
           question
         </span>
@@ -257,7 +257,7 @@ function QuestionCardInner({ question }: { question: UserFeedbackPendingQuestion
                 }
               }}
               placeholder="Type your answer…"
-              className="flex-1 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-base)] px-2.5 py-1 text-[13px] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--status-info-border)]"
+              className="flex-1 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-base)] px-2.5 py-1 text-[13px] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-1 focus:ring-status-info-border"
             />
             <Button
               size="sm"

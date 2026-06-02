@@ -46,7 +46,7 @@ export function GitHubAuthSummary({
           className,
         )}
       >
-        <span className="flex min-w-0 items-center gap-1.5 text-[10px] text-[var(--status-success)]">
+        <span className="flex min-w-0 items-center gap-1.5 text-[10px] text-status-success">
           <Github className="size-3 shrink-0" />
           <span className="truncate">
             Connected as <strong>{authStatus.username ?? 'GitHub user'}</strong>
@@ -57,7 +57,7 @@ export function GitHubAuthSummary({
           <button
             type="button"
             onClick={onDisconnect}
-            className="shrink-0 text-[10px] text-[var(--text-muted)] transition-colors hover:text-[var(--status-error)]"
+            className="shrink-0 text-[10px] text-[var(--text-muted)] transition-colors hover:text-status-error"
           >
             {disconnectLabel}
           </button>

@@ -293,7 +293,7 @@ export function VoiceTranscriptionControl({
               phase === 'recording' && 'bg-[var(--voice-recording-muted)] text-[var(--voice-recording)] shadow-[0_0_0_2px_var(--voice-recording-muted)]',
               phase === 'starting' && 'bg-[var(--voice-processing-muted)] text-[var(--voice-processing)]',
               phase === 'processing' && 'bg-[var(--voice-processing-muted)] text-[var(--voice-processing)]',
-              phase === 'error' && 'bg-[var(--status-warning-muted)] text-[var(--status-warning)]',
+              phase === 'error' && 'bg-status-warning-muted text-status-warning',
               phase === 'idle' && 'text-[var(--text-muted)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]',
               micDisabled && 'cursor-not-allowed opacity-50',
             )}
@@ -368,7 +368,7 @@ export function VoiceTranscriptionControl({
                     )}
                   >
                     <span className="min-w-0 flex-1 truncate">{input.label}</span>
-                    {selected && <Check className="size-3.5 shrink-0 text-[var(--status-success)]" />}
+                    {selected && <Check className="size-3.5 shrink-0 text-status-success" />}
                   </button>
                 );
               })}

@@ -240,8 +240,8 @@ export function GitShipPanel({
           <div className={cn(
             'rounded-xl border px-3 py-2 text-[11px] leading-relaxed',
             feedback.tone === 'success'
-              ? 'border-[var(--status-success-border)] bg-[var(--status-success-faint)] text-[var(--status-success)]'
-              : 'border-[var(--status-error-border)] bg-[var(--status-error-faint)] text-[var(--status-error)]',
+              ? 'border-status-success-border bg-status-success-faint text-status-success'
+              : 'border-status-error-border bg-status-error-faint text-status-error',
           )}>
             {feedback.message}
           </div>

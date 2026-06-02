@@ -100,7 +100,8 @@ If you change `apps/desktop/images/Dockerfile.sero-node` or container-installed 
 - Always use top-level imports (no inline `import('...')` type expressions)
 - When creating UI components, try to make them self-explanatorys and avoid duplicating descriptive text in multiple places
 - Before creating a PR check and update the `@apps/docs-site` documentation and update as required
-- When writing text/copy for Sero codebase or end-user documentation keep it simple, without convoluted long blocks of text.
+- When writing text/copy for Sero codebase or end-user documentation keep it simple, without convoluted long blocks of text
+- Do not add sub-labels descriptions on UI components unneccesarily - components should be self-explanatory
 
 ## File Size Rules (CRITICAL)
 

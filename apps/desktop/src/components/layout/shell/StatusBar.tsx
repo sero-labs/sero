@@ -99,7 +99,7 @@ function ActivePushBranchPicker({
         className="flex items-center gap-1 hover:text-[var(--text-primary)] transition-colors"
       >
         <GitBranch className="size-3" />
-        <span className="rounded-sm border border-[var(--status-info-border)] bg-[var(--status-info-muted)] px-1 py-px font-mono text-xs text-[var(--status-info)]">
+        <span className="rounded-sm border border-status-info-border bg-status-info-muted px-1 py-px font-mono text-xs text-status-info">
           {activePushBookmark ?? 'auto'}
         </span>
       </button>
@@ -114,7 +114,7 @@ function ActivePushBranchPicker({
             className="flex w-full items-center justify-between rounded px-2 py-1 text-left text-xs hover:bg-[var(--bg-muted)]"
           >
             <span>Auto (main/first)</span>
-            {!activePushBookmark && <span className="text-[var(--status-info)]">active</span>}
+            {!activePushBookmark && <span className="text-status-info">active</span>}
           </button>
           {bookmarks.map((bm) => (
             <button type="button"
@@ -126,7 +126,7 @@ function ActivePushBranchPicker({
               className="flex w-full items-center justify-between rounded px-2 py-1 text-left text-xs hover:bg-[var(--bg-muted)]"
             >
               <span className="truncate">{bm.name}</span>
-              {activePushBookmark === bm.name && <span className="text-[var(--status-info)]">active</span>}
+              {activePushBookmark === bm.name && <span className="text-status-info">active</span>}
             </button>
           ))}
         </div>
@@ -167,7 +167,7 @@ function DebugLogToggle() {
       }
       className={`flex items-center gap-1 transition-colors ${
         enabled
-          ? 'text-[var(--status-warning)] hover:text-[var(--status-warning)]/80'
+          ? 'text-status-warning hover:text-status-warning/80'
           : 'hover:text-[var(--text-primary)]'
       }`}
     >
