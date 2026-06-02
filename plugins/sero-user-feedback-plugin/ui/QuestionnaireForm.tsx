@@ -14,7 +14,7 @@ import { cn } from '@sero-ai/ui/lib/utils';
 import {
   flattenQuestionnaireAnswers,
   getQuestionAnswers,
-  hasQuestionAnswer,
+  hasQuestionAnswerDeep,
   removeCustomQuestionAnswer,
   selectQuestionOption,
   submitCustomQuestionAnswer,
@@ -36,14 +36,10 @@ interface Props {
   onCancel: (id: string) => void;
 }
 
-const EMPTY_ANSWERS: UserFeedbackAnswer[] = [];
-
 export function QuestionnaireForm({ question, onSubmit, onCancel }: Props) {
   const questions = question.questions;
   const [currentStep, setCurrentStep] = useState(0);
   const [answers, setAnswers] = useState<AnswerMap>(new Map());
-  const [customMode, setCustomMode] = useState(false);
-  const [customText, setCustomText] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -51,13 +47,10 @@ export function QuestionnaireForm({ question, onSubmit, onCancel }: Props) {
   }, []);
 
   const isReview = currentStep === questions.length;
-  const allAnswered = questions.every((item) => hasQuestionAnswer(answers, item.id));
+  const allAnswered = questions.every((item) => hasQuestionAnswerDeep(answers, item));
   const currentQuestion = questions[currentStep] as UserFeedbackQuestionItem | undefined;
-  const currentAnswers = currentQuestion
-    ? getQuestionAnswers(answers, currentQuestion.id)
-    : EMPTY_ANSWERS;
   const currentQuestionAnswered = currentQuestion
-    ? hasQuestionAnswer(answers, currentQuestion.id)
+    ? hasQuestionAnswerDeep(answers, currentQuestion)
     : false;
   const advanceLabel = currentStep < questions.length - 1 ? 'Next' : 'Review';
   const actionHint = isReview
@@ -68,57 +61,81 @@ export function QuestionnaireForm({ question, onSubmit, onCancel }: Props) {
       ? `${advanceLabel} is ready when you want to continue.`
       : 'Pick an answer, or use Skip if you want to leave this question unanswered.';
 
-  const resetCustomInput = useCallback(() => {
-    setCustomMode(false);
-    setCustomText('');
-  }, []);
-
-  const saveQuestionAnswers = useCallback((questionId: string, nextAnswers: UserFeedbackAnswer[]) => {
-    setAnswers((previous) => updateQuestionAnswers(previous, questionId, nextAnswers));
+  const clearQuestionTree = useCallback((next: AnswerMap, questionItem: UserFeedbackQuestionItem): AnswerMap => {
+    const cleaned = new Map(next);
+    cleaned.delete(questionItem.id);
+    for (const option of questionItem.options) {
+      if (option.subQuestion) clearQuestionTree(cleaned, option.subQuestion);
+    }
+    return cleaned;
   }, []);
 
   const goToNextStep = useCallback(() => {
     setCurrentStep((previous) => previous + 1);
-    resetCustomInput();
-  }, [resetCustomInput]);
+  }, []);
 
   const handleSelectOption = useCallback(
-    (option: UserFeedbackQuestionOption, index: number) => {
-      if (!currentQuestion) return;
+    (questionItem: UserFeedbackQuestionItem, option: UserFeedbackQuestionOption, index: number) => {
+      const isCurrentQuestion = currentQuestion?.id === questionItem.id;
+      const currentQuestionAnswers = getQuestionAnswers(answers, questionItem.id);
 
       const nextAnswers = selectQuestionOption(
-        currentQuestion,
+        questionItem,
         option,
         index,
-        currentAnswers,
+        currentQuestionAnswers,
       );
-      saveQuestionAnswers(currentQuestion.id, nextAnswers);
-      if (currentQuestion.multiSelect !== true) {
+      const selectedSubQuestionIds = new Set(
+        nextAnswers
+          .map((answer) => questionItem.options.find((item) => item.value === answer.value)?.subQuestion?.id)
+          .filter(Boolean),
+      );
+
+      setAnswers((previous) => {
+        const next = updateQuestionAnswers(previous, questionItem.id, nextAnswers);
+        let cleaned = next;
+        for (const optionItem of questionItem.options) {
+          const subQuestion = optionItem.subQuestion;
+          if (subQuestion && !selectedSubQuestionIds.has(subQuestion.id)) {
+            cleaned = clearQuestionTree(cleaned, subQuestion);
+          }
+        }
+        return cleaned;
+      });
+
+      if (isCurrentQuestion && questionItem.multiSelect !== true && !option.subQuestion) {
         goToNextStep();
       }
     },
-    [currentAnswers, currentQuestion, goToNextStep, saveQuestionAnswers],
+    [answers, clearQuestionTree, currentQuestion?.id, goToNextStep],
   );
 
-  const handleCustomSubmit = useCallback(() => {
-    if (!currentQuestion) return;
-    const text = customText.trim();
-    if (!text) return;
+  const handleCustomSubmit = useCallback((questionItem: UserFeedbackQuestionItem, text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
 
-    const nextAnswers = submitCustomQuestionAnswer(
-      currentQuestion,
-      currentAnswers,
-      text,
-    );
-    saveQuestionAnswers(currentQuestion.id, nextAnswers);
+    setAnswers((previous) => {
+      const currentQuestionAnswers = getQuestionAnswers(previous, questionItem.id);
+      const nextAnswers = submitCustomQuestionAnswer(questionItem, currentQuestionAnswers, trimmed);
+      let next = updateQuestionAnswers(previous, questionItem.id, nextAnswers);
+      for (const option of questionItem.options) {
+        if (option.subQuestion) next = clearQuestionTree(next, option.subQuestion);
+      }
+      return next;
+    });
 
-    if (currentQuestion.multiSelect !== true) {
+    if (currentQuestion?.id === questionItem.id && questionItem.multiSelect !== true) {
       goToNextStep();
-      return;
     }
+  }, [clearQuestionTree, currentQuestion?.id, goToNextStep]);
 
-    resetCustomInput();
-  }, [currentAnswers, currentQuestion, customText, goToNextStep, resetCustomInput, saveQuestionAnswers]);
+  const handleRemoveCustom = useCallback((questionItem: UserFeedbackQuestionItem) => {
+    setAnswers((previous) => updateQuestionAnswers(
+      previous,
+      questionItem.id,
+      removeCustomQuestionAnswer(getQuestionAnswers(previous, questionItem.id)),
+    ));
+  }, []);
 
   const handleSubmit = useCallback(() => {
     onSubmit(question.id, flattenQuestionnaireAnswers(questions, answers));
@@ -136,22 +153,19 @@ export function QuestionnaireForm({ question, onSubmit, onCancel }: Props) {
           {questions.map((item, index) => (
             <button type="button"
               key={item.id}
-              onClick={() => {
-                setCurrentStep(index);
-                resetCustomInput();
-              }}
+              onClick={() => setCurrentStep(index)}
               className={cn(
                 'flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors',
                 index === currentStep && !isReview
-                  ? hasQuestionAnswer(answers, item.id)
+                  ? hasQuestionAnswerDeep(answers, item)
                     ? 'bg-emerald-500 text-white'
                     : 'bg-amber-500 text-white'
-                  : hasQuestionAnswer(answers, item.id)
+                  : hasQuestionAnswerDeep(answers, item)
                     ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
                     : 'bg-secondary text-muted-foreground',
               )}
             >
-              {hasQuestionAnswer(answers, item.id) ? <Check className="size-3" /> : index + 1} {item.label}
+              {hasQuestionAnswerDeep(answers, item) ? <Check className="size-3" /> : index + 1} {item.label}
             </button>
           ))}
           <button type="button"
@@ -183,26 +197,10 @@ export function QuestionnaireForm({ question, onSubmit, onCancel }: Props) {
         ) : currentQuestion ? (
           <QuestionnaireQuestionStep
             question={currentQuestion}
-            answers={currentAnswers}
-            customMode={customMode}
-            customText={customText}
+            answers={answers}
             onSelectOption={handleSelectOption}
-            onEnableCustom={() => {
-              setCustomMode(true);
-              setCustomText(
-                currentAnswers.find((answer) => answer.wasCustom)?.label ?? '',
-              );
-            }}
-            onRemoveCustom={() => {
-              saveQuestionAnswers(
-                currentQuestion.id,
-                removeCustomQuestionAnswer(currentAnswers),
-              );
-              resetCustomInput();
-            }}
-            onCustomTextChange={setCustomText}
             onCustomSubmit={handleCustomSubmit}
-            onCancelCustom={resetCustomInput}
+            onRemoveCustom={handleRemoveCustom}
           />
         ) : null}
       </Card>
@@ -231,10 +229,7 @@ export function QuestionnaireForm({ question, onSubmit, onCancel }: Props) {
               <Button
                 variant="secondary"
                 size="sm"
-                onClick={() => {
-                  setCurrentStep(currentStep - 1);
-                  resetCustomInput();
-                }}
+                onClick={() => setCurrentStep(currentStep - 1)}
               >
                 Back
               </Button>
@@ -244,10 +239,7 @@ export function QuestionnaireForm({ question, onSubmit, onCancel }: Props) {
                 <Button
                   variant={currentQuestionAnswered ? 'ghost' : 'secondary'}
                   size="sm"
-                  onClick={() => {
-                    setCurrentStep(currentStep + 1);
-                    resetCustomInput();
-                  }}
+                  onClick={() => setCurrentStep(currentStep + 1)}
                   className={cn(
                     !currentQuestionAnswered &&
                       'border border-amber-500/30 bg-amber-500/10 text-amber-700 hover:bg-amber-500/20 hover:text-amber-800 dark:text-amber-300 dark:hover:bg-amber-500/15',

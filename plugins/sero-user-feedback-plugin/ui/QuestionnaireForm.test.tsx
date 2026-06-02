@@ -112,4 +112,67 @@ describe('QuestionnaireForm', () => {
     ]);
     expect(onCancel).not.toHaveBeenCalled();
   });
+
+  it('reveals an option sub-question inline when that option is selected', async () => {
+    const nestedQuestion: UserFeedbackPendingQuestion = {
+      ...pendingQuestion,
+      questions: [{
+        id: 'delivery',
+        label: 'Delivery',
+        prompt: 'How should this be delivered?',
+        allowOther: true,
+        multiSelect: true,
+        options: [
+          { value: 'summary', label: 'Summary only' },
+          {
+            value: 'customized',
+            label: 'Custom format',
+            subQuestion: {
+              id: 'format_depth',
+              label: 'Depth',
+              prompt: 'How much detail should the custom format include?',
+              allowOther: false,
+              options: [
+                { value: 'light', label: 'Light' },
+                { value: 'full', label: 'Full' },
+              ],
+            },
+          },
+        ],
+      }],
+    };
+
+    await act(async () => {
+      root?.render(
+        <QuestionnaireForm
+          question={nestedQuestion}
+          onSubmit={onSubmit}
+          onCancel={onCancel}
+        />,
+      );
+    });
+
+    await act(async () => {
+      clickButton(container, 'Custom format');
+    });
+
+    expect(container.textContent).toContain('How much detail should the custom format include?');
+
+    await act(async () => {
+      clickButton(container, 'Full');
+    });
+
+    await act(async () => {
+      clickButton(container, 'Review');
+    });
+
+    await act(async () => {
+      clickButton(container, 'Submit All Answers');
+    });
+
+    expect(onSubmit).toHaveBeenCalledWith('pending-1', [
+      expect.objectContaining({ questionId: 'delivery', value: 'customized' }),
+      expect.objectContaining({ questionId: 'format_depth', value: 'full' }),
+    ]);
+  });
 });

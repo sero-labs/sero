@@ -68,11 +68,17 @@ function getMemoryStorageInstructions(): string[] {
     '- `sero memory consolidate [--schedule daily|weekly|off]`',
     '- `sero memory config [--snapshot frozen|live] [--auto_retrieve on|off]`',
     '',
+    '**Update rule — never create contradictions:** if the user says change, update, switch, correct, remove, or turn off an existing memory, read the target first and modify the existing memory. Do not append a second conflicting line.',
+    '- `USER.md` and `IDENTITY.md` are profile files. Update them by reading the file, keeping unchanged fields, then writing the complete revised file with `--mode overwrite`.',
+    '- For profile fields, keep canonical lines like `- **Communication:** ...` and `- **Caveman Mode:** off|lite|full|ultra`. Do not append loose `Communication:` / `Rules:` paragraphs after existing fields.',
+    '- `MEMORY.md` is structured. Before changing a durable memory, run `sero memory read --target memory --with_ids true`, then use `replace` or `remove` with the entry id. Append only genuinely new, non-conflicting memories.',
+    '- `daily` is the only append-only target. Use it for session notes, not current preferences or profile changes.',
+    '',
     '**Where to put what** — pick the target that matches the lifespan:',
     '- `daily` — completed work / progress notes / blockers from *this* session that future-you will want to skim tomorrow. Written-once, append-only.',
     '- `memory` — durable cross-session knowledge: decisions that outlive the session, user preferences, project facts, lessons. Use type tags: [fact], [decision], [preference], [lesson], etc.',
     '',
     'Default routing: a summary of what you finished → `daily`. A choice you made that the next session should respect → `memory`.',
-    'Read with IDs before updating `memory` to avoid duplicates. Near capacity? Replace or remove stale entries instead of appending.',
+    'Near capacity? Replace or remove stale entries instead of appending.',
   ];
 }

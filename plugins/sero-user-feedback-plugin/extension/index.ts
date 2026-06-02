@@ -36,11 +36,28 @@ const QuestionParams = Type.Object({
   options: Type.Array(OptionSchema, { description: 'Options for the user to choose from' }),
 });
 
+const SubQuestionSchema = Type.Object({
+  id: Type.String({ description: 'Unique identifier for this sub-question' }),
+  label: Type.Optional(Type.String({ description: 'Short label for the nested choice' })),
+  prompt: Type.String({ description: 'The nested question text to display' }),
+  options: Type.Array(OptionSchema, { description: 'Available nested options' }),
+  allowOther: Type.Optional(Type.Boolean({ description: 'Allow custom text input (default: true)' })),
+  multiSelect: Type.Optional(Type.Boolean({ description: 'Allow selecting multiple nested options (default: false)' })),
+});
+
+const QuestionnaireOptionSchema = Type.Object({
+  label: Type.String({ description: 'Display label for the option' }),
+  value: Type.Optional(Type.String({ description: 'Value returned when selected (defaults to label)' })),
+  description: Type.Optional(Type.String({ description: 'Optional description shown below label' })),
+  exclusive: Type.Optional(Type.Boolean({ description: 'In multi-select mode, this option clears other selections (for example: None)' })),
+  subQuestion: Type.Optional(SubQuestionSchema),
+});
+
 const QuestionnaireQuestionSchema = Type.Object({
   id: Type.String({ description: 'Unique identifier for this question' }),
   label: Type.Optional(Type.String({ description: 'Short label for tab/step (defaults to Q1, Q2)' })),
   prompt: Type.String({ description: 'The full question text to display' }),
-  options: Type.Array(OptionSchema, { description: 'Available options' }),
+  options: Type.Array(QuestionnaireOptionSchema, { description: 'Available options' }),
   allowOther: Type.Optional(Type.Boolean({ description: 'Allow custom text input (default: true)' })),
   multiSelect: Type.Optional(Type.Boolean({ description: 'Allow selecting multiple options for this question (default: false)' })),
 });
@@ -177,19 +194,7 @@ function registerQuestionnaireTool(pi: ExtensionAPI) {
         };
       }
 
-      const questions: QuestionItem[] = params.questions.map((q, i) => ({
-        id: q.id,
-        label: q.label || `Q${i + 1}`,
-        prompt: q.prompt,
-        options: (q.options ?? []).map((o) => ({
-          value: o.value ?? o.label,
-          label: o.label,
-          description: o.description,
-          exclusive: o.exclusive,
-        })),
-        allowOther: q.allowOther !== false,
-        multiSelect: q.multiSelect === true,
-      }));
+      const questions: QuestionItem[] = params.questions.map((q, i) => normalizeQuestion(q, `Q${i + 1}`));
 
       // ── Sero mode: IPC bridge ──────────────────────────────
       if (hasSeroIPCBridge()) {
@@ -248,17 +253,48 @@ function registerQuestionnaireTool(pi: ExtensionAPI) {
   });
 }
 
+function normalizeQuestion(q: {
+  id: string;
+  label?: string;
+  prompt: string;
+  options?: Array<{
+    value?: string;
+    label: string;
+    description?: string;
+    exclusive?: boolean;
+    subQuestion?: Parameters<typeof normalizeQuestion>[0];
+  }>;
+  allowOther?: boolean;
+  multiSelect?: boolean;
+}, fallbackLabel: string): QuestionItem {
+  return {
+    id: q.id,
+    label: q.label || fallbackLabel,
+    prompt: q.prompt,
+    options: (q.options ?? []).map((o) => ({
+      value: o.value ?? o.label,
+      label: o.label,
+      description: o.description,
+      exclusive: o.exclusive,
+      subQuestion: o.subQuestion ? normalizeQuestion(o.subQuestion, o.subQuestion.label || o.subQuestion.id) : undefined,
+    })),
+    allowOther: q.allowOther !== false,
+    multiSelect: q.multiSelect === true,
+  };
+}
+
 // ── Result builders ────────────────────────────────────────────
 
 function groupAnswersByQuestion(
   questions: QuestionItem[],
   answers: QuestionAnswer[],
 ): Array<{ questionLabel: string; answers: QuestionAnswer[] }> {
-  const order = new Map<string, number>(questions.map((q, index) => [q.id, index]));
+  const flatQuestions = flattenQuestions(questions);
+  const order = new Map<string, number>(flatQuestions.map((q, index) => [q.id, index]));
   const grouped = new Map<string, { questionLabel: string; answers: QuestionAnswer[] }>();
 
   for (const answer of answers) {
-    const questionLabel = questions.find((q) => q.id === answer.questionId)?.label || answer.questionId;
+    const questionLabel = flatQuestions.find((q) => q.id === answer.questionId)?.label || answer.questionId;
     const existing = grouped.get(answer.questionId);
     if (existing) {
       existing.answers.push(answer);
@@ -270,6 +306,15 @@ function groupAnswersByQuestion(
   return Array.from(grouped.entries())
     .sort(([a], [b]) => (order.get(a) ?? Number.MAX_SAFE_INTEGER) - (order.get(b) ?? Number.MAX_SAFE_INTEGER))
     .map(([, group]) => group);
+}
+
+function flattenQuestions(questions: QuestionItem[]): QuestionItem[] {
+  return questions.flatMap((question) => [
+    question,
+    ...question.options.flatMap((option) => (
+      option.subQuestion ? flattenQuestions([option.subQuestion]) : []
+    )),
+  ]);
 }
 
 function formatAnswerText(answer: QuestionAnswer): string {

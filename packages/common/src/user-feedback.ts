@@ -9,6 +9,7 @@ export interface UserFeedbackQuestionOption {
   label: string;
   description?: string;
   exclusive?: boolean;
+  subQuestion?: UserFeedbackQuestionItem;
 }
 
 export interface UserFeedbackQuestionItem {

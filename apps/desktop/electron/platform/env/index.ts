@@ -31,11 +31,27 @@ function resolveSeroFixedRoot(): string {
   if (process.env.NODE_ENV === 'test' && process.env.SERO_FIXED_ROOT_OVERRIDE) {
     return path.resolve(process.env.SERO_FIXED_ROOT_OVERRIDE);
   }
+  if (process.env.SERO_HOME_OVERRIDE) {
+    return path.resolve(process.env.SERO_HOME_OVERRIDE);
+  }
   return path.join(os.homedir(), '.sero-ui');
 }
 
 /** The fixed Sero root directory. profiles.json always lives here. */
 export const SERO_FIXED_ROOT = resolveSeroFixedRoot();
+
+function resolveHostArtifactsRoot(): string {
+  if (process.env.NODE_ENV === 'test' && process.env.SERO_FIXED_ROOT_OVERRIDE) {
+    return path.resolve(process.env.SERO_FIXED_ROOT_OVERRIDE);
+  }
+  if (process.env.SERO_HOST_ARTIFACTS_ROOT_OVERRIDE) {
+    return path.resolve(process.env.SERO_HOST_ARTIFACTS_ROOT_OVERRIDE);
+  }
+  return path.join(os.homedir(), '.sero-ui');
+}
+
+/** Machine-level host artifacts shared by all profiles and source-dev roots. */
+export const SERO_HOST_ARTIFACTS_ROOT = resolveHostArtifactsRoot();
 
 // ── Profile-aware SERO_HOME resolution ──────────────────────
 
@@ -43,14 +59,15 @@ export const SERO_FIXED_ROOT = resolveSeroFixedRoot();
  * Resolve the active profile's SERO_HOME.
  *
  * Priority:
- * 1. SERO_HOME_OVERRIDE env var (tests and isolated source-dev launcher)
- * 2. Active profile from profiles.json
+ * 1. Active profile from profiles.json under SERO_HOME_OVERRIDE when set
+ * 2. Active profile from profiles.json under ~/.sero-ui
  * 3. Migration of existing install
  * 4. Fallback to ~/.sero-ui/ (fresh install, pre-setup)
  *
- * NOTE: SERO_HOME_OVERRIDE bypasses the profile registry, so ACTIVE_PROFILE_ID
- * is null in isolated source-dev mode. We deliberately do NOT check
- * process.env.SERO_HOME here.
+ * SERO_HOME_OVERRIDE changes the fixed registry root used by source-dev and
+ * tests. It must not bypass profile resolution, otherwise renderer profile
+ * state and extension/workspace paths drift apart after profile switching.
+ * We deliberately do NOT check process.env.SERO_HOME here.
  * loadSeroEnv() sets SERO_HOME for extensions to read, and app.relaunch()
  * inherits env vars from the parent process. If we checked SERO_HOME,
  * profile switching would be silently ignored after a relaunch.
@@ -112,7 +129,9 @@ function repairActiveProfile(
 }
 
 function resolveProfileHomeFromRegistry(): string {
-  migrateExistingInstall();
+  if (!process.env.SERO_HOME_OVERRIDE) {
+    migrateExistingInstall();
+  }
 
   const registry = loadRegistryForStartup();
   if (registry.activeProfileId) {
@@ -137,19 +156,13 @@ function resolveProfileHomeFromRegistry(): string {
 }
 
 function resolveSeroHome(): string {
-  if (process.env.SERO_HOME_OVERRIDE) {
-    return process.env.SERO_HOME_OVERRIDE;
-  }
   return resolveProfileHomeFromRegistry();
 }
 
-function readPostResolveRegistry(seroHome: string): {
+function readPostResolveRegistry(): {
   activeProfileId: string | null;
   profiles: Array<{ id: string }>;
 } {
-  if (process.env.SERO_HOME_OVERRIDE || seroHome === process.env.SERO_HOME_OVERRIDE) {
-    return { activeProfileId: null, profiles: [] };
-  }
   return loadRegistryForStartup();
 }
 
@@ -157,7 +170,7 @@ function resolveStartupEnv(): ResolvedSeroEnv {
   const seroHome = resolveSeroHome();
   const seroAgentDir = path.join(seroHome, 'agent');
   const envPath = path.join(seroAgentDir, '.env');
-  const postResolveRegistry = readPostResolveRegistry(seroHome);
+  const postResolveRegistry = readPostResolveRegistry();
 
   return {
     seroHome,

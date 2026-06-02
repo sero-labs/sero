@@ -129,6 +129,22 @@ export const USER_QUESTIONS: QuestionnairePayload = {
         { value: 'direct', label: 'Direct — no waffle, just answers', description: 'Optimise for speed and clarity' },
         { value: 'explanatory', label: 'Explanatory — teach me as we go', description: 'Include reasoning and learning context' },
         { value: 'collaborative', label: 'Collaborative — discuss options together', description: 'Explore trade-offs before deciding' },
+        {
+          value: 'caveman',
+          label: 'Caveman mode — compressed replies',
+          description: 'Cut filler and tokens while keeping technical accuracy',
+          subQuestion: {
+            id: 'caveman_level',
+            label: 'Caveman Level',
+            prompt: 'How strong should caveman mode be?',
+            options: [
+              { value: 'lite', label: 'Lite', description: 'Keep grammar. Remove filler and pleasantries.' },
+              { value: 'full', label: 'Full', description: 'Drop articles and filler. Fragments are fine.' },
+              { value: 'ultra', label: 'Ultra', description: 'Maximum compression with symbols and fragments.' },
+            ],
+            allowOther: false,
+          },
+        },
       ],
       allowOther: true,
       multiSelect: true,

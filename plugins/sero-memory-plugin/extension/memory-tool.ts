@@ -41,6 +41,7 @@ import {
   handleMemoryConfig,
   handleMemoryConsolidate,
 } from './memory-tool-admin';
+import { mergeManagedFieldUpdate } from './managed-markdown-fields';
 import type { AutoConsolidationCadence } from './automation-state';
 import type { ConsolidationTrigger } from './consolidation';
 import type { AutoRetrieveMode, MemorySnapshotMode } from './memory-config';
@@ -259,9 +260,10 @@ export async function handleWrite(root: string, target?: string, rawContent?: st
   }
 
   const existing = await readFile(resolved.path);
+  const fieldUpdate = mode === 'overwrite' ? null : mergeManagedFieldUpdate(existing, content);
   const nextBody = mode === 'overwrite'
     ? content
-    : [existing ? stripManagedFileMetadata(existing) : '', content].filter(Boolean).join('\n\n');
+    : fieldUpdate?.content ?? [existing ? stripManagedFileMetadata(existing) : '', content].filter(Boolean).join('\n\n');
   const nextContent = normalizeManagedMarkdown(nextBody);
   const managedTarget = target === 'identity' ? 'identity' : 'user';
   const error = capacityError(resolved.displayName, managedTarget, nextContent);
@@ -269,6 +271,9 @@ export async function handleWrite(root: string, target?: string, rawContent?: st
 
   await writeFile(resolved.path, nextContent);
   scheduleQmdUpdate();
+  if (fieldUpdate) {
+    return text(`${formatWarnings(warnings)}Updated ${resolved.displayName} (${fieldUpdate.updatedLabels.join(', ')})`.trim());
+  }
   return text(`${formatWarnings(warnings)}${mode === 'overwrite' ? 'Wrote to' : 'Appended to'} ${resolved.displayName}`.trim());
 }
 
@@ -382,6 +387,7 @@ export function registerMemoryTool(pi: ExtensionAPI): void {
       '',
       'Actions: read, write, replace, remove, search, list, consolidate, config.',
       'Targets: memory (MEMORY.md), identity (IDENTITY.md), user (USER.md), daily (daily log).',
+      'For updates, read first and change existing memory. Use overwrite for USER.md/IDENTITY.md, replace/remove for MEMORY.md ids, append only for new non-conflicting memory or daily logs.',
     ].join('\n'),
     parameters: MemoryParams,
 

@@ -24,6 +24,8 @@ vi.mock('../bootstrap', () => ({
 }));
 
 vi.mock('../memory-manager', () => ({
+  getUserPath: () => '/tmp/sero-memory-root/USER.md',
+  readFile: vi.fn(async () => null),
   resolveMemoryRoot: () => '/tmp/sero-memory-root',
 }));
 
@@ -159,5 +161,28 @@ describe('context injector phase-1 migration state', () => {
     });
     expect(firstResult).toEqual({ systemPrompt: 'baseStatic memory context\nMemory instructions' });
     expect(secondResult).toEqual({ systemPrompt: 'baseStatic memory context\nMemory instructions' });
+  });
+
+  it('adds caveman instructions when USER.md context enables caveman mode', async () => {
+    mocks.buildPriorityContextSplit.mockResolvedValue({
+      staticContext: '\n\n## Memory\n\n### USER.md\n\n# User\n\n- **Communication:** Caveman mode — compressed replies\n- **Caveman Mode:** full',
+      searchContext: '',
+    });
+
+    const { api, handlers } = createPiHarness();
+    registerContextInjection(api);
+    setPhase1MigrationState('session-caveman', false);
+
+    const beforeAgentStart = handlers.get('before_agent_start');
+    expect(beforeAgentStart).toBeDefined();
+
+    const result = await beforeAgentStart!(
+      { prompt: 'hello', systemPrompt: 'base' },
+      createBeforeAgentStartContext('session-caveman'),
+    );
+
+    expect(result).toMatchObject({
+      systemPrompt: expect.stringContaining('IMPORTANT: Respond in Caveman mode'),
+    });
   });
 });

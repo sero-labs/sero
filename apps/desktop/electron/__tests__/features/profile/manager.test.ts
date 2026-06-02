@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 describe('profile manager path validation', () => {
   let tmpHome: string | null = null;
   const originalHome = process.env.HOME;
+  const originalSeroHomeOverride = process.env.SERO_HOME_OVERRIDE;
 
   async function importManager() {
     if (!tmpHome) {
@@ -15,12 +16,18 @@ describe('profile manager path validation', () => {
 
     vi.resetModules();
     process.env.HOME = tmpHome;
+    delete process.env.SERO_HOME_OVERRIDE;
     return import('@electron/features/profile/manager');
   }
 
   afterEach(async () => {
     vi.resetModules();
     process.env.HOME = originalHome;
+    if (originalSeroHomeOverride === undefined) {
+      delete process.env.SERO_HOME_OVERRIDE;
+    } else {
+      process.env.SERO_HOME_OVERRIDE = originalSeroHomeOverride;
+    }
 
     if (tmpHome) {
       await fs.rm(tmpHome, { recursive: true, force: true });
@@ -38,6 +45,47 @@ describe('profile manager path validation', () => {
 
     expect(defaultProfile.path).toBe(path.join(tmpHome, '.sero-ui'));
     expect(workProfile.path).toBe(path.join(tmpHome, '.sero-ui', 'profiles', 'work'));
+  });
+
+  it('uses SERO_HOME_OVERRIDE as the isolated profile registry root', async () => {
+    tmpHome = await fs.mkdtemp(path.join(os.tmpdir(), 'profile-manager-override-'));
+
+    vi.resetModules();
+    process.env.HOME = path.join(tmpHome, 'real-home');
+    process.env.SERO_HOME_OVERRIDE = path.join(tmpHome, 'isolated-home');
+
+    const { profileManager, PROFILE_REGISTRY_PATH } = await import('@electron/features/profile/manager');
+
+    const defaultProfile = await profileManager.create('Default');
+    const workProfile = await profileManager.create('Work');
+
+    expect(PROFILE_REGISTRY_PATH).toBe(path.join(tmpHome, 'isolated-home', 'profiles.json'));
+    expect(defaultProfile.path).toBe(path.join(tmpHome, 'isolated-home', 'profiles', 'default'));
+    expect(workProfile.path).toBe(path.join(tmpHome, 'isolated-home', 'profiles', 'work'));
+  });
+
+  it('repairs isolated profiles that were created at the override root', async () => {
+    tmpHome = await fs.mkdtemp(path.join(os.tmpdir(), 'profile-manager-override-repair-'));
+    const isolatedHome = path.join(tmpHome, 'isolated-home');
+    await fs.mkdir(isolatedHome, { recursive: true });
+    await fs.writeFile(path.join(isolatedHome, 'profiles.json'), JSON.stringify({
+      version: 1,
+      activeProfileId: 'contaminated',
+      profiles: [{
+        id: 'contaminated',
+        name: 'Contaminated',
+        path: isolatedHome,
+        createdAt: '2026-06-02T00:00:00.000Z',
+      }],
+    }, null, 2));
+
+    vi.resetModules();
+    process.env.HOME = path.join(tmpHome, 'real-home');
+    process.env.SERO_HOME_OVERRIDE = isolatedHome;
+
+    const { profileManager } = await import('@electron/features/profile/manager');
+
+    expect(profileManager.getActive()?.path).toBe(path.join(isolatedHome, 'profiles', 'contaminated'));
   });
 
   it('rejects duplicate and overlapping custom profile roots', async () => {
