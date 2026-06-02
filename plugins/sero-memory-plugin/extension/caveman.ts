@@ -103,10 +103,13 @@ function parseLevel(value: string): CavemanLevel | null {
 }
 
 function isOff(value: string): boolean {
-  return /\b(off|none|disabled|false|no)\b/i.test(value);
+  return /\b(off|none|disabled|disable|false)\b/i.test(value);
 }
 
 export function getCavemanLevel(memoryContext: string): CavemanLevel | null {
+  // Prefer the last relevant field so legacy USER.md files with appended corrections
+  // can recover. Bootstrap writes `Caveman Mode` after `Communication`, and the
+  // managed field merge preserves that order for canonical profiles.
   const signal = parseManagedFieldLines(memoryContext)
     .filter((field) => CAVEMAN_FIELD_LABELS.has(field.normalizedLabel))
     .at(-1);

@@ -15,6 +15,12 @@ describe('caveman mode memory parsing', () => {
     expect(getCavemanLevel(context)).toBe('full');
   });
 
+  it('does not treat normal no-filler communication phrasing as disabled', () => {
+    const context = '# User\n\n- **Communication:** Caveman mode — compressed replies, no filler';
+
+    expect(getCavemanLevel(context)).toBe('full');
+  });
+
   it('does not enable caveman mode when stored as off', () => {
     const context = '# User\n\n- **Communication:** Direct\n- **Caveman Mode:** off';
 

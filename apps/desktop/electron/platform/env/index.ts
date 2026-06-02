@@ -159,7 +159,7 @@ function resolveSeroHome(): string {
   return resolveProfileHomeFromRegistry();
 }
 
-function readPostResolveRegistry(seroHome: string): {
+function readPostResolveRegistry(): {
   activeProfileId: string | null;
   profiles: Array<{ id: string }>;
 } {
@@ -170,7 +170,7 @@ function resolveStartupEnv(): ResolvedSeroEnv {
   const seroHome = resolveSeroHome();
   const seroAgentDir = path.join(seroHome, 'agent');
   const envPath = path.join(seroAgentDir, '.env');
-  const postResolveRegistry = readPostResolveRegistry(seroHome);
+  const postResolveRegistry = readPostResolveRegistry();
 
   return {
     seroHome,

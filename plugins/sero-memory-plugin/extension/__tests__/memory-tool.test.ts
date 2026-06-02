@@ -102,6 +102,22 @@ describe('memory tool CRUD semantics', () => {
     expect(content.match(/Communication:/g)).toHaveLength(1);
   });
 
+  it('keeps unmatched USER.md content when merging profile field updates', async () => {
+    await handleWrite(root, 'user', '# User\n\n- **Communication:** Direct', 'overwrite');
+
+    const updateResult = await handleWrite(
+      root,
+      'user',
+      'Communication: direct, no waffle\nEmployer: Acme Corp\nPrefers Postgres over MySQL.',
+    );
+
+    expect(getText(updateResult)).toBe('Updated USER.md (Communication)');
+    const content = await readFile(getUserPath(root), 'utf8');
+    expect(content).toContain('- **Communication:** direct, no waffle');
+    expect(content).toContain('Employer: Acme Corp');
+    expect(content).toContain('Prefers Postgres over MySQL.');
+  });
+
   it('still appends USER.md notes that are not field updates', async () => {
     await handleWrite(root, 'user', '# User\n\n- **Name:** Dan', 'overwrite');
 

@@ -44,10 +44,11 @@ export function mergeManagedFieldUpdate(
   incomingContent: string,
 ): ManagedFieldMergeResult | null {
   const existingBody = stripManagedFileMetadata(existingContent ?? '').trimEnd();
+  const incomingBody = stripManagedFileMetadata(incomingContent).trimEnd();
   if (!existingBody.trim()) return null;
 
   const existingFields = parseManagedFieldLines(existingBody);
-  const incomingFields = parseManagedFieldLines(incomingContent);
+  const incomingFields = parseManagedFieldLines(incomingBody);
   if (existingFields.length === 0 || incomingFields.length === 0) return null;
 
   const existingLabels = new Set(existingFields.map((field) => field.normalizedLabel));
@@ -58,6 +59,7 @@ export function mergeManagedFieldUpdate(
   if (matchingLabels.length === 0) return null;
 
   const fieldByLine = new Map(existingFields.map((field) => [field.lineIndex, field]));
+  const incomingFieldByLine = new Map(incomingFields.map((field) => [field.lineIndex, field]));
   const replacedLabels = new Set<string>();
   const updatedLabels: string[] = [];
   const nextLines: string[] = [];
@@ -75,6 +77,20 @@ export function mergeManagedFieldUpdate(
     nextLines.push(formatManagedFieldLine(existingField.label, incomingField.value));
     replacedLabels.add(existingField.normalizedLabel);
     updatedLabels.push(existingField.label);
+  }
+
+  const unmatchedIncomingLines = incomingBody
+    .split('\n')
+    .filter((line, lineIndex) => {
+      const incomingField = incomingFieldByLine.get(lineIndex);
+      return !incomingField || !existingLabels.has(incomingField.normalizedLabel);
+    })
+    .join('\n')
+    .trim();
+
+  if (unmatchedIncomingLines) {
+    if (nextLines.some((line) => line.trim())) nextLines.push('');
+    nextLines.push(unmatchedIncomingLines);
   }
 
   return {
