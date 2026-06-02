@@ -6,6 +6,15 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 and beta release tags use a SemVer prerelease form.
 
 
+## [0.3.1-beta.0](https://github.com/sero-labs/sero/compare/v0.3.0-beta.0...v0.3.1-beta.0) (2026-06-02)
+
+### Bug Fixes
+
+* address mcp ux review feedback ([45fd3f9](https://github.com/sero-labs/sero/commit/45fd3f92949adb420f09f14011df522f6d050dc9))
+* **desktop:** remove invalid ipv6 csp sources ([5a50dee](https://github.com/sero-labs/sero/commit/5a50dee01fc796634cfa7c202b95c812c3225843))
+* **mcp:** simplify empty server state ([ccb2b5e](https://github.com/sero-labs/sero/commit/ccb2b5ed1671ac0014f31943e4f2d22d750e9c88))
+* simplify mcp setup and isolate dev mode ([63cd357](https://github.com/sero-labs/sero/commit/63cd357b18f9043739ff31b75a331417cbfe2b8a))
+
 ## [0.3.0-beta.0](https://github.com/sero-labs/sero/compare/v0.2.11-beta.0...v0.3.0-beta.0) (2026-06-02)
 
 ### Features
