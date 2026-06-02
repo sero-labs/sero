@@ -5,6 +5,7 @@ import { Button } from '@sero-ai/ui/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@sero-ai/ui/components/ui/card';
 import { Input } from '@sero-ai/ui/components/ui/input';
 import { NativeSelect, NativeSelectOption } from '@sero-ai/ui/components/ui/native-select';
+import { Skeleton } from '@sero-ai/ui/components/ui/skeleton';
 import { Textarea } from '@sero-ai/ui/components/ui/textarea';
 import { cn } from '@sero-ai/ui/lib/utils';
 import { AlertCircle, ChevronDown, ChevronUp, Pencil, Plus, Power, Save, Server, Trash2, X } from 'lucide-react';
@@ -219,23 +220,7 @@ export function McpServerCrudPanel({
 
         <div className="space-y-3">
           {sortedServers.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-border bg-muted/20 p-6">
-              <div className="space-y-1 text-sm">
-                <div className="font-medium text-foreground">No MCP servers yet</div>
-                <p className="text-muted-foreground">Add a server manually or start from a common preset.</p>
-              </div>
-              <div className="mt-4 flex flex-wrap gap-2">
-                <Button type="button" size="sm" onClick={() => beginDraft(createEmptyServerEditorInput())}>
-                  <Plus className="mr-2 size-4" />
-                  Add server
-                </Button>
-                {QUICK_PRESETS.filter((preset) => preset.label !== 'Blank stdio').map((preset) => (
-                  <Button key={preset.label} type="button" variant="outline" size="sm" onClick={() => beginDraft({ ...preset.draft })}>
-                    {preset.label}
-                  </Button>
-                ))}
-              </div>
-            </div>
+            <EmptyServerSkeleton />
           ) : (
             sortedServers.map((server) => {
               const toggleAction = `${server.enabled ? 'disable' : 'enable'}:${server.serverName}`;
@@ -317,6 +302,33 @@ export function McpServerCrudPanel({
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function EmptyServerSkeleton() {
+  return (
+    <div className="rounded-lg border border-dashed border-border/70 bg-muted/15 p-4" aria-label="No current MCP servers">
+      <div className="mb-3 text-sm font-medium text-muted-foreground">No current MCP servers</div>
+      <div className="space-y-2" aria-hidden="true">
+        <div className="rounded-lg border border-border/60 bg-background/30 p-3">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0 flex-1 space-y-2">
+              <Skeleton className="h-4 w-36" />
+              <Skeleton className="h-3 w-56 max-w-full" />
+              <div className="flex gap-2">
+                <Skeleton className="h-5 w-16 rounded-full" />
+                <Skeleton className="h-5 w-20 rounded-full" />
+                <Skeleton className="h-5 w-24 rounded-full" />
+              </div>
+            </div>
+            <div className="hidden gap-2 sm:flex">
+              <Skeleton className="h-8 w-24" />
+              <Skeleton className="h-8 w-16" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
