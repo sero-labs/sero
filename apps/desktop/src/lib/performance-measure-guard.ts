@@ -1,3 +1,20 @@
+/**
+ * Performance measure/mark diagnostics (currently DISABLED).
+ *
+ * Monkey-patches `performance.measure` / `performance.mark` to count call
+ * frequency and watch for oversized `detail` payloads (>= LARGE_DETAIL_CHARS),
+ * which can bloat memory. Every REPORT_INTERVAL_MS it logs a summary via
+ * `console.warn`, up to MAX_REPORTS times, then goes quiet.
+ *
+ * This is a temporary investigation tool, not always-on instrumentation. In
+ * dev, React's own profiling measures (logComponentRender, commit*) dominate
+ * the output, so expect noisy warnings while it's active. A `large` count of 0
+ * means no oversized payloads were seen and there is nothing to investigate.
+ *
+ * To re-enable: add `import './lib/performance-measure-guard';` as the FIRST
+ * import in apps/desktop/src/main.tsx (it must run before React renders so the
+ * patch is in place for the very first measures). Remove that import to disable.
+ */
 const PATCH_FLAG = '__seroPerformanceDiagnosticsInstalled';
 const REPORT_INTERVAL_MS = 60_000;
 const MAX_REPORTS = 3;
