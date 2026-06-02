@@ -1,14 +1,14 @@
 import fs from 'fs';
 import path from 'path';
 
-import { SERO_FIXED_ROOT } from '@electron/platform/env';
+import { SERO_HOST_ARTIFACTS_ROOT } from '@electron/platform/env';
 
 export const TOOLCHAINS_DIR_NAME = 'toolchains';
 export const INSTALLED_MARKER = '.installed';
 export const STAGING_SUFFIX = '.staging';
 
 export function toolchainsRoot(): string {
-  return path.join(SERO_FIXED_ROOT, TOOLCHAINS_DIR_NAME);
+  return path.join(SERO_HOST_ARTIFACTS_ROOT, TOOLCHAINS_DIR_NAME);
 }
 
 export function assertValidToolchainVersion(version: string): void {

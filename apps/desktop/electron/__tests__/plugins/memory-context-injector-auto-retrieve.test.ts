@@ -26,6 +26,8 @@ vi.mock('@plugins/sero-memory-plugin/extension/bootstrap', () => ({
 }));
 
 vi.mock('@plugins/sero-memory-plugin/extension/memory-manager', () => ({
+  getUserPath: () => '/tmp/memory-root/USER.md',
+  readFile: vi.fn(async () => null),
   resolveMemoryRoot: () => '/tmp/memory-root',
 }));
 

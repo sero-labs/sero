@@ -19,7 +19,7 @@ Managed host tools are stored under the fixed Sero root, not the active profile 
 └── browser/
 ```
 
-Implementation uses `SERO_FIXED_ROOT` from `apps/desktop/electron/platform/env/index.ts`, which resolves to `~/.sero-ui`. Do not store shared toolchains under `SERO_HOME`, `~/.sero`, `~/.pi/agent`, or `~/.sero-ui/agent`.
+Implementation uses `SERO_HOST_ARTIFACTS_ROOT` from `apps/desktop/electron/platform/env/index.ts`, which resolves to `~/.sero-ui` unless tests explicitly override it. Do not store shared toolchains under `SERO_HOME`, `~/.sero`, `~/.pi/agent`, or `~/.sero-ui/agent`.
 
 Installers download from published GitHub Release assets into staging paths, verify pinned SHA-256 checksums, and atomically activate final directories. Core tools share a version-level `.installed` marker that is removed before any core install and written only after every required core tool resolves successfully; absence of `.installed` means the managed toolchain version is incomplete and must not be used for PATH resolution. Non-core artifacts write the marker only after their own activation/verification completes. Concurrent installs for the same manifest/artifact attach to the same in-flight operation.
 
@@ -28,7 +28,7 @@ Installers download from published GitHub Release assets into staging paths, ver
 For each tool, Sero resolves in this order:
 
 1. Compatible verified system tool.
-2. Existing Sero-managed tool under `SERO_FIXED_ROOT/toolchains/<manifest-version>/`.
+2. Existing Sero-managed tool under `SERO_HOST_ARTIFACTS_ROOT/toolchains/<manifest-version>/`.
 3. Managed first-use install when policy allows.
 4. Typed install failure with retry/fallback metadata.
 

@@ -57,7 +57,7 @@ Run on release-supported macOS Apple Silicon, Linux, and Windows x64 with backen
 ## Managed toolchain checks
 
 1. Locate the fixed toolchain root: `~/.sero-ui/toolchains/<manifest-version>/`.
-2. Confirm managed artifacts, if installed, are under `SERO_FIXED_ROOT` and not under profile-local `SERO_HOME`, `~/.sero`, or `~/.pi/agent`.
+2. Confirm managed artifacts, if installed, are under `SERO_HOST_ARTIFACTS_ROOT` and not under profile-local `SERO_HOME`, `~/.sero`, or `~/.pi/agent`.
 3. Confirm `.installed` is present for ready managed artifacts.
 4. In Runtime settings, trigger core tool install/retry when status permits and verify progress/failure details are visible.
 5. Confirm onboarding shows core development tools before browser automation and starts managed core install when host tools are missing.

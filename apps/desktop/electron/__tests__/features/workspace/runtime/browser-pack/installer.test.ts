@@ -9,6 +9,7 @@ const testEnv = vi.hoisted(() => {
   return {
     SERO_AGENT_DIR: `${root}/agent`,
     SERO_FIXED_ROOT: root,
+    SERO_HOST_ARTIFACTS_ROOT: root,
     SERO_HOME: root,
   };
 });

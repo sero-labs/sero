@@ -11,7 +11,7 @@ import {
   handleReplace,
   handleWrite,
 } from '../memory-tool';
-import { getMemoryPath } from '../memory-manager';
+import { getMemoryPath, getUserPath } from '../memory-manager';
 
 function getText(result: Awaited<ReturnType<typeof handleWrite>>): string {
   const firstBlock = result.content[0];
@@ -83,5 +83,32 @@ describe('memory tool CRUD semantics', () => {
 
     const readResult = await handleRead(root, 'memory');
     expect(getText(readResult)).toBe('MEMORY.md not found or empty.');
+  });
+
+  it('updates existing USER.md fields instead of appending conflicting profile lines', async () => {
+    await handleWrite(root, 'user', '# User\n\n- **Name:** Dan\n- **Communication:** Caveman mode — compressed replies\n- **Caveman Mode:** full', 'overwrite');
+
+    const updateResult = await handleWrite(
+      root,
+      'user',
+      'Communication: Normal concise style\nCaveman Mode: off',
+    );
+
+    expect(getText(updateResult)).toBe('Updated USER.md (Communication, Caveman Mode)');
+    const content = await readFile(getUserPath(root), 'utf8');
+    expect(content).toContain('- **Communication:** Normal concise style');
+    expect(content).toContain('- **Caveman Mode:** off');
+    expect(content).not.toContain('Caveman mode — compressed replies');
+    expect(content.match(/Communication:/g)).toHaveLength(1);
+  });
+
+  it('still appends USER.md notes that are not field updates', async () => {
+    await handleWrite(root, 'user', '# User\n\n- **Name:** Dan', 'overwrite');
+
+    const appendResult = await handleWrite(root, 'user', 'Prefers short implementation notes.');
+
+    expect(getText(appendResult)).toBe('Appended to USER.md');
+    const content = await readFile(getUserPath(root), 'utf8');
+    expect(content).toContain('Prefers short implementation notes.');
   });
 });

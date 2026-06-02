@@ -25,7 +25,7 @@ import {
   USER_QUESTIONS,
 } from './bootstrap';
 import type { BootstrapStatus } from './bootstrap';
-import { resolveMemoryRoot } from './memory-manager';
+import { getUserPath, readFile, resolveMemoryRoot } from './memory-manager';
 import { getAutoRetrieveModeSync, getMemorySnapshotModeSync } from './memory-config';
 import type { AutoRetrieveMode } from './memory-config';
 import { buildPriorityContextSplit, clearPriorityContextCache } from './priority-context';
@@ -38,6 +38,7 @@ import {
   setPhase1MigrationState,
 } from './phase1-migration-state';
 import { flushPendingStats } from './memory-scoring';
+import { getCavemanPromptAddition } from './caveman';
 import { getMemoryInstructions } from './memory-instructions';
 import {
   clearMemoryPromptDebugState,
@@ -84,7 +85,7 @@ function buildBootstrapInstructions(existingUserContent: string | null): string 
 The memory system is not yet initialised. You MUST set it up now before doing anything else.
 Use the \`questionnaire\` tool to ask the user three rounds of questions, then write the answers to memory files.${userNote}
 
-The questionnaire UI supports step-based multiple-choice forms, including multi-select questions. For any question that already includes predefined \`options\`, preserve those options exactly so the user gets clickable choices. Do NOT rewrite option-based questions into free-form chat. Only rely on custom text when none of the provided options fit.
+The questionnaire UI supports step-based multiple-choice forms, multi-select questions, and option-specific \`subQuestion\` choices. For any question that already includes predefined \`options\`, preserve those options exactly so the user gets clickable choices. Do NOT rewrite option-based questions into free-form chat. Only rely on custom text when none of the provided options fit.
 
 ### Step 1: Identity Setup
 YOU MUST call the \`questionnaire\` tool with the exact JSON parameters below to configure the agent persona. Preserve every \`options\`, \`label\`, \`description\`, \`exclusive\`, \`multiSelect\`, and \`allowOther\` field exactly as shown:
@@ -98,7 +99,9 @@ YOU MUST call the \`questionnaire\` tool again with the exact JSON parameters be
 ${userJson}
 
 After receiving answers, write USER.md:
-\`sero memory write --target user --mode overwrite --content "# User\\n\\n- **Name:** <name>\\n- **Role:** <role answers joined with commas if multiple>\\n- **Location:** <location>\\n- **Tech Stack:** <stack answers joined with commas if multiple>\\n- **Communication:** <communication answers joined with commas if multiple>"\`
+\`sero memory write --target user --mode overwrite --content "# User\\n\\n- **Name:** <name>\\n- **Role:** <role answers joined with commas if multiple>\\n- **Location:** <location>\\n- **Tech Stack:** <stack answers joined with commas if multiple>\\n- **Communication:** <communication answers joined with commas if multiple>\\n- **Caveman Mode:** <lite|full|ultra if selected, otherwise off>"\`
+
+If the user selected caveman mode but the level answer is unavailable, write \`full\` for \`Caveman Mode\`.
 
 ### Step 3: Long-term Memory
 YOU MUST call the \`questionnaire\` tool again with the exact JSON parameters below. Keep the option lists intact instead of converting these prompts into open-ended chat questions:
@@ -147,7 +150,9 @@ async function buildTurnContext(
     { includeSearch: autoRetrieveMode === 'on' },
   );
   const memoryInstructions = getMemoryInstructions();
-  const systemPromptAddition = staticContext + memoryInstructions;
+  const userContent = await readFile(getUserPath(root));
+  const cavemanInstructions = getCavemanPromptAddition(userContent ?? staticContext);
+  const systemPromptAddition = staticContext + memoryInstructions + cavemanInstructions;
   // Full combined context for debug logging only — not the wire format.
   const parts: string[] = [];
   if (staticContext) parts.push(staticContext);

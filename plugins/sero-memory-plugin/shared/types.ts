@@ -52,6 +52,7 @@ export interface QuestionOption {
   label: string;
   description?: string;
   exclusive?: boolean;
+  subQuestion?: QuestionDef;
 }
 
 export interface QuestionDef {

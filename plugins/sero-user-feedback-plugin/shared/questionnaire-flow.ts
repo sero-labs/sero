@@ -16,6 +16,26 @@ export function hasQuestionAnswer(
   return getQuestionAnswers(answers, questionId).length > 0;
 }
 
+export function getSelectedSubQuestions(
+  question: QuestionItem,
+  answers: ReadonlyMap<string, QuestionAnswer[]>,
+): QuestionItem[] {
+  return getQuestionAnswers(answers, question.id)
+    .filter((answer) => !answer.wasCustom)
+    .map((answer) => getOptionByValue(question, answer.value)?.subQuestion)
+    .filter((subQuestion): subQuestion is QuestionItem => Boolean(subQuestion));
+}
+
+export function hasQuestionAnswerDeep(
+  answers: ReadonlyMap<string, QuestionAnswer[]>,
+  question: QuestionItem,
+): boolean {
+  if (!hasQuestionAnswer(answers, question.id)) return false;
+  return getSelectedSubQuestions(question, answers).every((subQuestion) => (
+    hasQuestionAnswerDeep(answers, subQuestion)
+  ));
+}
+
 export function getCustomAnswer(
   answers: QuestionAnswer[],
 ): QuestionAnswer | undefined {
@@ -119,7 +139,7 @@ export function flattenQuestionnaireAnswers(
   questions: QuestionItem[],
   answers: ReadonlyMap<string, QuestionAnswer[]>,
 ): QuestionAnswer[] {
-  return questions.flatMap((question) => getQuestionAnswers(answers, question.id));
+  return questions.flatMap((question) => flattenQuestionAnswers(question, answers));
 }
 
 export function canSubmitQuestionnaire(
@@ -131,4 +151,15 @@ export function canSubmitQuestionnaire(
 
 export function formatQuestionnaireAnswerLabel(answer: QuestionAnswer): string {
   return answer.wasCustom ? `✎ ${answer.label}` : `${answer.index}. ${answer.label}`;
+}
+
+function flattenQuestionAnswers(
+  question: QuestionItem,
+  answers: ReadonlyMap<string, QuestionAnswer[]>,
+): QuestionAnswer[] {
+  const ownAnswers = getQuestionAnswers(answers, question.id);
+  const subAnswers = getSelectedSubQuestions(question, answers)
+    .flatMap((subQuestion) => flattenQuestionAnswers(subQuestion, answers));
+
+  return [...ownAnswers, ...subAnswers];
 }

@@ -26,6 +26,9 @@ function resolveSeroRoot(): string {
   if (process.env.NODE_ENV === 'test' && process.env.SERO_FIXED_ROOT_OVERRIDE) {
     return path.resolve(process.env.SERO_FIXED_ROOT_OVERRIDE);
   }
+  if (process.env.SERO_HOME_OVERRIDE) {
+    return path.resolve(process.env.SERO_HOME_OVERRIDE);
+  }
   return path.join(os.homedir(), '.sero-ui');
 }
 
@@ -69,6 +72,14 @@ function isAllowedDefaultProfileContainment(
   candidatePath: string,
 ): boolean {
   return existingPath === DEFAULT_PROFILE_PATH && isManagedNestedProfilePath(candidatePath);
+}
+
+function slugForProfileName(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    || 'profile';
 }
 
 function isProfileEntry(value: unknown): value is ProfileEntry {
@@ -141,6 +152,38 @@ function writeRegistrySync(registry: ProfileRegistry): void {
   writeFileSync(REGISTRY_PATH, JSON.stringify(registry, null, 2) + '\n', 'utf8');
 }
 
+function defaultManagedPathForName(name: string, existingProfiles: ProfileEntry[]): string {
+  const slug = slugForProfileName(name);
+  let candidate = path.join(MANAGED_PROFILES_ROOT, slug);
+  let suffix = 1;
+  while (existingProfiles.some((p) => p.path === candidate)) {
+    candidate = path.join(MANAGED_PROFILES_ROOT, `${slug}-${suffix}`);
+    suffix++;
+  }
+  return candidate;
+}
+
+function repairIsolatedRootProfiles(registry: ProfileRegistry): boolean {
+  if (!process.env.SERO_HOME_OVERRIDE) return false;
+
+  let changed = false;
+  const repairedProfiles: ProfileEntry[] = [];
+  for (const profile of registry.profiles) {
+    if (path.resolve(profile.path) !== DEFAULT_PROFILE_PATH) {
+      repairedProfiles.push(profile);
+      continue;
+    }
+
+    const repairedPath = defaultManagedPathForName(profile.name, repairedProfiles);
+    repairedProfiles.push({ ...profile, path: repairedPath });
+    mkdirSync(path.join(repairedPath, 'agent'), { recursive: true });
+    changed = true;
+  }
+
+  if (changed) registry.profiles = repairedProfiles;
+  return changed;
+}
+
 /** Write registry asynchronously (for non-critical-path mutations). */
 async function writeRegistryAsync(registry: ProfileRegistry): Promise<void> {
   await fs.mkdir(SERO_ROOT, { recursive: true });
@@ -182,6 +225,9 @@ class ProfileManager {
     const result = readRegistryLoadSync();
     this.registry = result.registry;
     this.loadError = result.error;
+    if (!this.loadError && repairIsolatedRootProfiles(this.registry)) {
+      writeRegistrySync(this.registry);
+    }
   }
 
   /** Reload registry from disk (e.g. after external modification). */
@@ -346,17 +392,19 @@ class ProfileManager {
 
   /** Generate a default path for a new profile. */
   private defaultPathForName(name: string): string {
-    // First profile gets the default SERO_ROOT
+    // Source-dev/test isolation roots may already contain scratch data. Keep
+    // every created profile under profiles/<slug> so fresh profiles are empty.
+    if (process.env.SERO_HOME_OVERRIDE) {
+      return defaultManagedPathForName(name, this.registry.profiles);
+    }
+
+    // First production profile gets the default SERO_ROOT for migration/back-compat.
     if (this.registry.profiles.length === 0) {
       return DEFAULT_PROFILE_PATH;
     }
 
     // Subsequent profiles go under ~/.sero-ui/profiles/<slug>/
-    const slug = name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-      || 'profile';
+    const slug = slugForProfileName(name);
 
     let candidate = path.join(SERO_ROOT, 'profiles', slug);
     let suffix = 1;

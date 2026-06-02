@@ -82,7 +82,7 @@ Packaged-app host mode resolves required CLIs through the host toolchain manager
 3. first-use managed install when policy permits,
 4. typed failure with retry/fallback metadata.
 
-Managed artifacts are stored under `SERO_FIXED_ROOT`, currently `~/.sero-ui/toolchains/<manifest-version>/`. They are not stored under profile-local `SERO_HOME`, `~/.sero`, or `~/.pi/agent`. See `docs/features/host-toolchain.md`.
+Managed artifacts are stored under `SERO_HOST_ARTIFACTS_ROOT`, currently `~/.sero-ui/toolchains/<manifest-version>/`. They are not stored under profile-local `SERO_HOME`, `~/.sero`, or `~/.pi/agent`. See `docs/features/host-toolchain.md`.
 
 Sero does not mutate global Corepack, npm prefixes, shell profiles, or machine PATH for these installs.
 

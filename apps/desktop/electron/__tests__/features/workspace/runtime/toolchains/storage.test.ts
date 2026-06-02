@@ -2,7 +2,7 @@ import path from 'path';
 
 import { describe, expect, it } from 'vitest';
 
-import { SERO_AGENT_DIR, SERO_FIXED_ROOT, SERO_HOME } from '@electron/platform/env';
+import { SERO_AGENT_DIR, SERO_FIXED_ROOT, SERO_HOME, SERO_HOST_ARTIFACTS_ROOT } from '@electron/platform/env';
 import {
   INSTALLED_MARKER,
   STAGING_SUFFIX,
@@ -17,15 +17,15 @@ import {
 } from '@electron/features/workspace/runtime/toolchains/storage';
 
 function expectUnderToolchainsRoot(value: string, version = '2026.05.16'): void {
-  const expectedRoot = path.join(SERO_FIXED_ROOT, 'toolchains', version);
+  const expectedRoot = path.join(SERO_HOST_ARTIFACTS_ROOT, 'toolchains', version);
   expect(path.relative(expectedRoot, value).startsWith('..')).toBe(false);
 }
 
 describe('toolchain storage paths', () => {
-  it('roots managed toolchains under SERO_FIXED_ROOT/toolchains', () => {
-    expect(toolchainsRoot()).toBe(path.join(SERO_FIXED_ROOT, 'toolchains'));
+  it('roots managed toolchains under the host artifacts root', () => {
+    expect(toolchainsRoot()).toBe(path.join(SERO_HOST_ARTIFACTS_ROOT, 'toolchains'));
     expect(toolchainVersionRoot('2026.05.16')).toBe(
-      path.join(SERO_FIXED_ROOT, 'toolchains', '2026.05.16'),
+      path.join(SERO_HOST_ARTIFACTS_ROOT, 'toolchains', '2026.05.16'),
     );
   });
 
@@ -38,13 +38,13 @@ describe('toolchain storage paths', () => {
 
   it('builds activation marker and staging paths deterministically', () => {
     expect(installedMarkerPath('2026.05.16')).toBe(
-      path.join(SERO_FIXED_ROOT, 'toolchains', '2026.05.16', INSTALLED_MARKER),
+      path.join(SERO_HOST_ARTIFACTS_ROOT, 'toolchains', '2026.05.16', INSTALLED_MARKER),
     );
     expect(toolchainStagingRoot('2026.05.16')).toBe(
-      `${path.join(SERO_FIXED_ROOT, 'toolchains', '2026.05.16')}${STAGING_SUFFIX}`,
+      `${path.join(SERO_HOST_ARTIFACTS_ROOT, 'toolchains', '2026.05.16')}${STAGING_SUFFIX}`,
     );
     expect(artifactStagingPath('2026.05.16', 'node')).toBe(
-      path.join(SERO_FIXED_ROOT, 'toolchains', `2026.05.16${STAGING_SUFFIX}`, 'node'),
+      path.join(SERO_HOST_ARTIFACTS_ROOT, 'toolchains', `2026.05.16${STAGING_SUFFIX}`, 'node'),
     );
   });
 

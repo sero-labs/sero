@@ -3,8 +3,9 @@ import { cn } from '@sero-ai/ui/lib/utils';
 
 import {
   canSubmitQuestionnaire,
+  flattenQuestionnaireAnswers,
   formatQuestionnaireAnswerLabel,
-  getQuestionAnswers,
+  hasQuestionAnswerDeep,
 } from '../../shared/questionnaire-flow';
 import type {
   UserFeedbackAnswer,
@@ -24,9 +25,7 @@ export function QuestionnaireReviewStep({
   onSubmit,
   onGoToStep,
 }: QuestionnaireReviewStepProps) {
-  const skippedCount = questions.filter(
-    (question) => getQuestionAnswers(answers, question.id).length === 0,
-  ).length;
+  const skippedCount = questions.filter((question) => !hasQuestionAnswerDeep(answers, question)).length;
 
   return (
     <div>
@@ -45,8 +44,8 @@ export function QuestionnaireReviewStep({
       </p>
       <div className="space-y-3">
         {questions.map((question, index) => {
-          const questionAnswers = getQuestionAnswers(answers, question.id);
-          const isSkipped = questionAnswers.length === 0;
+          const questionAnswers = flattenQuestionnaireAnswers([question], answers);
+          const isSkipped = !hasQuestionAnswerDeep(answers, question);
           return (
             <div
               key={question.id}

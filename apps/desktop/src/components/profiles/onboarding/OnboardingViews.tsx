@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { KeyRound, Loader2, TriangleAlert } from 'lucide-react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import {
@@ -7,6 +8,32 @@ import {
 import type { ProviderHealthInfo } from '@/types/ipc';
 
 export { OnboardingSetupScreen } from './SetupScreen';
+
+function CenteredStatusHeader({
+  icon,
+  title,
+  description,
+  step,
+}: {
+  icon: ReactNode;
+  title: string;
+  description: string;
+  step: string;
+}) {
+  return (
+    <div data-onboarding-step={step} className="flex flex-col items-center gap-3 text-center">
+      <div className="flex size-12 items-center justify-center rounded-xl bg-[var(--bg-elevated)]">
+        {icon}
+      </div>
+      <div className="max-w-sm space-y-1.5">
+        <DialogTitle className="text-lg font-semibold text-[var(--text-primary)]">{title}</DialogTitle>
+        <DialogDescription className="text-sm leading-6 text-[var(--text-secondary)]">
+          {description}
+        </DialogDescription>
+      </div>
+    </div>
+  );
+}
 
 function statusLabel(provider: ProviderHealthInfo): string {
   switch (provider.status) {
@@ -101,18 +128,15 @@ export function AuthScreen({
 
 export function LaunchingScreen({ statusMessage }: { statusMessage?: string | null }) {
   return (
-    <div className="space-y-3">
-      <div className="flex size-10 items-center justify-center rounded-lg bg-[var(--bg-elevated)]">
-        <Loader2 className="size-5 animate-spin text-status-success" />
-      </div>
-      <div>
-        <DialogTitle className="text-lg font-semibold text-[var(--text-primary)]">Preparing Onboarding</DialogTitle>
-        <DialogDescription className="text-sm text-[var(--text-secondary)]">
-          Sero is saving your model preferences and starting the memory onboarding workflow.
-        </DialogDescription>
-      </div>
+    <div className="flex flex-col items-center gap-4 py-2">
+      <CenteredStatusHeader
+        step="launching"
+        icon={<Loader2 className="size-5 animate-spin text-status-success" />}
+        title="Preparing Onboarding"
+        description="Sero is saving your model preferences and starting the memory onboarding workflow."
+      />
       {statusMessage ? (
-        <div className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-elevated)] px-3 py-2 text-xs text-[var(--text-secondary)]">
+        <div className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-elevated)] px-3 py-2 text-center text-xs text-[var(--text-secondary)]">
           {statusMessage}
         </div>
       ) : null}
@@ -131,20 +155,15 @@ export function ErrorScreen({
 }) {
   return (
     <div className="space-y-4">
-      <div className="space-y-2">
-        <div className="flex size-10 items-center justify-center rounded-lg bg-[var(--bg-elevated)]">
-          <TriangleAlert className="size-5 text-status-warning" />
-        </div>
-        <div>
-          <DialogTitle className="text-lg font-semibold text-[var(--text-primary)]">Onboarding hit an error</DialogTitle>
-          <DialogDescription className="text-sm text-[var(--text-secondary)]">
-            Something unexpected happened while Sero was preparing your first session.
-          </DialogDescription>
-        </div>
-      </div>
+      <CenteredStatusHeader
+        step="error"
+        icon={<TriangleAlert className="size-5 text-status-warning" />}
+        title="Onboarding hit an error"
+        description="Something unexpected happened while Sero was preparing your first session."
+      />
 
       {message ? (
-        <div className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-elevated)] px-3 py-2 text-xs text-[var(--text-secondary)]">
+        <div className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-elevated)] px-3 py-2 text-center text-xs text-[var(--text-secondary)]">
           {message}
         </div>
       ) : null}

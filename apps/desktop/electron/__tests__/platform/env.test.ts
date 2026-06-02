@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import os from 'os';
 
 const mocks = vi.hoisted(() => ({
   readFileSync: vi.fn(),
@@ -30,6 +31,7 @@ describe('staged env bootstrap', () => {
     vi.resetModules();
     delete process.env.SERO_HOME;
     delete process.env.PI_CODING_AGENT_DIR;
+    delete process.env.SERO_HOST_ARTIFACTS_ROOT_OVERRIDE;
     delete process.env.OPENAI_API_KEY;
     delete process.env.ANTHROPIC_API_KEY;
     process.env.SERO_HOME_OVERRIDE = '/tmp/sero-profile';
@@ -43,7 +45,10 @@ describe('staged env bootstrap', () => {
     mocks.writeFileSync.mockReset();
     mocks.mkdirSync.mockReset();
     mocks.migrateExistingInstall.mockReset();
-    mocks.readRegistryLoadSync.mockReset();
+    mocks.readRegistryLoadSync.mockReset().mockReturnValue({
+      registry: { version: 1, activeProfileId: null, profiles: [] },
+      error: null,
+    });
     mocks.readRegistrySync.mockReset();
   });
 
@@ -60,6 +65,44 @@ describe('staged env bootstrap', () => {
     expect(process.env.SERO_HOME).toBe('/tmp/sero-profile');
     expect(process.env.PI_CODING_AGENT_DIR).toBe('/tmp/sero-profile/agent');
     expect(process.env.OPENAI_API_KEY).toBe('test-key');
+  });
+
+  it('resolves the active profile path inside SERO_HOME_OVERRIDE', async () => {
+    mocks.readRegistryLoadSync.mockReturnValue({
+      registry: {
+        version: 1,
+        activeProfileId: 'work',
+        profiles: [{
+          id: 'work',
+          name: 'Work',
+          path: '/tmp/sero-profile/profiles/work',
+          createdAt: '2026-06-02T00:00:00.000Z',
+        }],
+      },
+      error: null,
+    });
+    mocks.readFileSync.mockReset().mockImplementation((filePath: string) => {
+      if (filePath === '/tmp/sero-profile/profiles/work/agent/.env') return '';
+      throw new Error(`Unexpected read: ${filePath}`);
+    });
+
+    const env = await import('@electron/platform/env');
+
+    expect(env.SERO_FIXED_ROOT).toBe('/tmp/sero-profile');
+    expect(env.SERO_HOST_ARTIFACTS_ROOT).toBe(`${os.homedir()}/.sero-ui`);
+    expect(env.SERO_HOME).toBe('/tmp/sero-profile/profiles/work');
+    expect(env.SERO_AGENT_DIR).toBe('/tmp/sero-profile/profiles/work/agent');
+    expect(env.ACTIVE_PROFILE_ID).toBe('work');
+    expect(mocks.migrateExistingInstall).not.toHaveBeenCalled();
+  });
+
+  it('allows tests to isolate host artifacts separately from profile state', async () => {
+    process.env.SERO_HOST_ARTIFACTS_ROOT_OVERRIDE = '/tmp/host-artifacts';
+
+    const env = await import('@electron/platform/env');
+
+    expect(env.SERO_FIXED_ROOT).toBe('/tmp/sero-profile');
+    expect(env.SERO_HOST_ARTIFACTS_ROOT).toBe('/tmp/host-artifacts');
   });
 
   it('clears only profile-loaded env values before profile relaunch', async () => {

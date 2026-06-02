@@ -4,6 +4,7 @@ import {
   canSubmitQuestionnaire,
   flattenQuestionnaireAnswers,
   formatQuestionnaireAnswerLabel,
+  hasQuestionAnswerDeep,
   selectQuestionOption,
   submitCustomQuestionAnswer,
 } from '../questionnaire-flow';
@@ -120,5 +121,35 @@ describe('questionnaire flow helpers', () => {
         wasCustom: true,
       }),
     ).toBe('✎ Custom answer');
+  });
+
+  it('requires selected sub-question answers and flattens them under their parent', () => {
+    const nestedQuestion: QuestionItem = {
+      ...singleQuestion,
+      options: [{
+        value: 'one',
+        label: 'One',
+        subQuestion: {
+          id: 'depth',
+          label: 'Depth',
+          prompt: 'Pick depth',
+          options: [{ value: 'full', label: 'Full' }],
+          allowOther: false,
+        },
+      }],
+    };
+    const parentAnswer = selectQuestionOption(nestedQuestion, nestedQuestion.options[0], 0, []);
+    const answers = new Map<string, QuestionAnswer[]>([[nestedQuestion.id, parentAnswer]]);
+
+    expect(hasQuestionAnswerDeep(answers, nestedQuestion)).toBe(false);
+
+    const subQuestion = nestedQuestion.options[0].subQuestion!;
+    answers.set(subQuestion.id, selectQuestionOption(subQuestion, subQuestion.options[0], 0, []));
+
+    expect(hasQuestionAnswerDeep(answers, nestedQuestion)).toBe(true);
+    expect(flattenQuestionnaireAnswers([nestedQuestion], answers).map((answer) => answer.questionId)).toEqual([
+      'q1',
+      'depth',
+    ]);
   });
 });
