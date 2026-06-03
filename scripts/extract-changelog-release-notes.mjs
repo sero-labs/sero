@@ -2,14 +2,14 @@
 
 import { readFile, writeFile } from 'node:fs/promises';
 
-const [, , rawTag, outputPath = 'release-notes.md'] = process.argv;
+const [, , rawTag, outputPath = 'release-notes.md', changelogPath = 'CHANGELOG.md'] = process.argv;
 
 if (!rawTag) {
   throw new Error('Usage: extract-changelog-release-notes.mjs <tag> [output-path]');
 }
 
 const version = rawTag.replace(/^v/, '');
-const changelog = await readFile('CHANGELOG.md', 'utf8');
+const changelog = await readFile(changelogPath, 'utf8');
 const headingPattern = /^##\s+\[([^\]]+)\].*$/gm;
 let match;
 let start = -1;

@@ -244,14 +244,16 @@ jobs:
       RELEASE_ARTIFACT_RUN_ID: ${{ inputs.publish_run_id || github.run_id }}
     steps:
       - uses: actions/checkout@v6
-        with:
-          ref: ${{ env.RELEASE_TAG }}
 
       - name: Check release token before downloading artifacts
         run: gh api "repos/${GITHUB_REPOSITORY}" --jq .full_name
 
       - name: Extract changelog release notes
-        run: node scripts/extract-changelog-release-notes.mjs "$RELEASE_TAG" release-notes.md
+        run: |
+          set -euo pipefail
+          git fetch --force --tags
+          git show "$RELEASE_TAG:CHANGELOG.md" > "$RUNNER_TEMP/release-changelog.md"
+          node scripts/extract-changelog-release-notes.mjs "$RELEASE_TAG" release-notes.md "$RUNNER_TEMP/release-changelog.md"
 
       - uses: actions/download-artifact@v8
         with:
