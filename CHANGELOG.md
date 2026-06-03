@@ -6,6 +6,17 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 and beta release tags use a SemVer prerelease form.
 
 
+## [0.4.0-beta.0](https://github.com/sero-labs/sero/compare/v0.3.1-beta.0...v0.4.0-beta.0) (2026-06-03)
+
+### Features
+
+* add caveman onboarding mode ([8eef7f8](https://github.com/sero-labs/sero/commit/8eef7f815e3c8d9e48edffdb59d30e20a2146808))
+
+### Bug Fixes
+
+* import files when connecting empty remote workspace ([a0b2221](https://github.com/sero-labs/sero/commit/a0b2221169f84c0a048cb9b5c1c5ade375e6d515))
+* preserve profile content during memory field updates ([65d1e58](https://github.com/sero-labs/sero/commit/65d1e5824206060b154511f5429e28279781379e))
+
 ## [0.3.1-beta.0](https://github.com/sero-labs/sero/compare/v0.3.0-beta.0...v0.3.1-beta.0) (2026-06-02)
 
 ### Bug Fixes
