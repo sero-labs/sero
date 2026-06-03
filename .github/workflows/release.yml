@@ -243,8 +243,15 @@ jobs:
       RELEASE_DRAFT: ${{ github.event_name != 'workflow_dispatch' || inputs.draft }}
       RELEASE_ARTIFACT_RUN_ID: ${{ inputs.publish_run_id || github.run_id }}
     steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+
       - name: Check release token before downloading artifacts
         run: gh api "repos/${GITHUB_REPOSITORY}" --jq .full_name
+
+      - name: Extract changelog release notes
+        run: node scripts/extract-changelog-release-notes.mjs "$RELEASE_TAG" release-notes.md
 
       - uses: actions/download-artifact@v8
         with:
@@ -275,7 +282,7 @@ jobs:
           fi
 
           draft_args=()
-          create_args=(--verify-tag --title "$RELEASE_TAG" --notes "Desktop release $RELEASE_TAG")
+          create_args=(--verify-tag --title "$RELEASE_TAG" --notes-file release-notes.md)
           if [[ "$RELEASE_DRAFT" == "true" ]]; then
             draft_args=(--draft)
             create_args+=(--draft)
@@ -284,7 +291,7 @@ jobs:
           fi
 
           if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --title "$RELEASE_TAG" "${draft_args[@]}"
+            gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --title "$RELEASE_TAG" --notes-file release-notes.md "${draft_args[@]}"
           else
             gh release create "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" "${create_args[@]}"
           fi
