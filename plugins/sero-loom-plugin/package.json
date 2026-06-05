@@ -1,0 +1,68 @@
+{
+  "name": "@sero-ai/plugin-loom",
+  "version": "0.1.0",
+  "description": "Loom — WebGPU generative art studio for Sero. Agent-driven, smoothly morphing GPU art with wallpaper capture.",
+  "keywords": ["pi-package", "sero-plugin"],
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit -p ui/tsconfig.json && tsc --noEmit -p extension/tsconfig.json"
+  },
+  "pi": {
+    "extensions": ["./extension/index.ts"],
+    "prompts": ["./prompts/loom.md"]
+  },
+  "sero": {
+    "app": {
+      "id": "loom",
+      "name": "Loom",
+      "icon": "palette",
+      "scope": "global",
+      "stateFile": ".sero/apps/loom/state.json",
+      "ui": "./dist/ui/remoteEntry.js",
+      "component": "LoomApp",
+      "devPort": 5197
+    },
+    "plugin": {
+      "category": "creative",
+      "tags": [
+        "generative",
+        "art",
+        "webgpu",
+        "shaders",
+        "particles",
+        "raymarching",
+        "wallpaper"
+      ],
+      "minSeroVersion": "0.1.0",
+      "requiredHostCapabilities": ["appAgent.invokeTool"],
+      "bridgeTools": false,
+      "preBuilt": false
+    }
+  },
+  "dependencies": {
+    "typebox": "catalog:"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "catalog:peer",
+    "@earendil-works/pi-coding-agent": "catalog:peer",
+    "@earendil-works/pi-tui": "catalog:peer"
+  },
+  "devDependencies": {
+    "@module-federation/vite": "catalog:",
+    "@sero-ai/app-runtime": "workspace:*",
+    "@sero-ai/common": "workspace:*",
+    "@sero-ai/ui": "workspace:*",
+    "@tailwindcss/vite": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "tailwindcss": "catalog:",
+    "three": "^0.184.0",
+    "typescript": "catalog:",
+    "vite": "catalog:"
+  }
+}
