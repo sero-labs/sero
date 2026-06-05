@@ -1,56 +1,45 @@
-// LoomEngine — owns the WebGPU renderer, both paradigm scenes, the render loop,
-// the smooth uniform tweener, and offscreen capture. Reads plain LoomConfig and
-// morphs toward it; never touches React or the DOM beyond the canvas.
+// LoomEngine — compiles a LoomGraph into ordered, blended layers and drives them.
+// Number fields are tweened uniforms (smooth, no recompile); expressions and
+// structure trigger a layer rebuild with a per-layer fade-in.
 
-import { PerspectiveCamera, RenderTarget, Scene, WebGPURenderer } from 'three/webgpu';
+import { uniform } from 'three/tsl';
+import { Color, OrthographicCamera, PerspectiveCamera, RenderTarget, Vector3, WebGPURenderer } from 'three/webgpu';
 
-import type { LoomConfig, Vec3 } from '../../shared/types';
-import { DEFAULT_CONFIG } from '../../shared/types';
-import { ParticleSystem } from './particles';
-import { RaymarchScene } from './raymarch';
-import { createUniforms, type LoomUniforms } from './uniforms';
+import type { LoomGraph } from '../../shared/graph';
+import { DEFAULT_GRAPH, rebuildKey } from '../../shared/graph';
+import { buildParticleLayer } from './layer-particles';
+import { buildRaymarchLayer } from './layer-raymarch';
+import type { LayerRuntime } from './layers';
+import { newRegistry, type Registry } from './scalars';
 
 export type Backend = 'webgpu' | 'webgl' | 'none';
 
-function fieldGravityMix(field: LoomConfig['particles']['field']): number {
-  switch (field) {
-    case 'gravity':
-      return 1;
-    case 'aizawa':
-      return 0.6;
-    case 'lorenz':
-      return 0.3;
-    case 'curl':
-    default:
-      return 0;
+function walk(obj: any, path: (string | number)[]): unknown {
+  let cur: any = obj;
+  for (const k of path) {
+    if (cur == null) return undefined;
+    cur = cur[k];
   }
-}
-
-function colorWeights(mode: LoomConfig['particles']['colorMode']): Vec3 {
-  switch (mode) {
-    case 'position':
-      return [1, 0, 0];
-    case 'age':
-      return [0, 1, 0];
-    case 'velocity':
-    default:
-      return [0, 0, 1];
-  }
+  return cur;
 }
 
 export class LoomEngine {
-  private readonly u: LoomUniforms = createUniforms();
+  private readonly uTime = uniform(0);
+  private readonly uAspect = uniform(1);
+
   private renderer: any = null;
   private backend: Backend = 'none';
 
-  private particleScene = new Scene();
-  private particleCamera = new PerspectiveCamera(60, 1, 0.1, 100);
-  private particles: ParticleSystem;
-  private raymarch: RaymarchScene;
+  private readonly orthoCam = new OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  private readonly perspCam = new PerspectiveCamera(60, 1, 0.1, 100);
+  private readonly clearColor = new Color();
 
-  private target: LoomConfig = DEFAULT_CONFIG;
-  private particleKey = '';
-  private raymarchKey = '';
+  private layers: LayerRuntime[] = [];
+  private reg: Registry = newRegistry();
+
+  private target: LoomGraph = DEFAULT_GRAPH;
+  private appliedKey = '';
+  private readonly bg = new Vector3(0.02, 0.02, 0.05);
 
   private timeSec = 0;
   private speedEased = 1;
@@ -61,63 +50,50 @@ export class LoomEngine {
   private height = 1;
 
   constructor(private readonly canvas: HTMLCanvasElement) {
-    this.particles = new ParticleSystem(this.u);
-    this.raymarch = new RaymarchScene(this.u);
-    this.particleCamera.position.set(0, 0, 4);
-    this.particleCamera.lookAt(0, 0, 0);
-    this.particleScene.add(this.particles.group);
+    this.orthoCam.position.z = 1;
+    this.perspCam.position.set(0, 0, 4);
+    this.perspCam.lookAt(0, 0, 0);
   }
 
   getBackend(): Backend {
     return this.backend;
   }
 
-  async init(initial: LoomConfig, prefer: 'auto' | 'webgpu' | 'webgl'): Promise<Backend> {
+  async init(initial: LoomGraph, prefer: 'auto' | 'webgpu' | 'webgl'): Promise<Backend> {
     this.target = initial;
-    const baseOpts = { canvas: this.canvas, antialias: true, alpha: false } as Record<string, unknown>;
-
     const make = async (forceWebGL: boolean): Promise<any> => {
-      const r = new WebGPURenderer({ ...baseOpts, forceWebGL } as never);
+      const r = new WebGPURenderer({ canvas: this.canvas, antialias: true, alpha: false, forceWebGL } as never);
       await r.init();
       return r;
     };
-
     try {
       this.renderer = await make(prefer === 'webgl');
     } catch (err) {
-      if (prefer !== 'webgl') {
-        // WebGPU unavailable — fall back to the WebGL backend.
-        try {
-          this.renderer = await make(true);
-        } catch {
-          this.backend = 'none';
-          throw err;
-        }
-      } else {
+      if (prefer === 'webgl') {
         this.backend = 'none';
         throw err;
       }
+      this.renderer = await make(true); // WebGPU unavailable → WebGL fallback
     }
 
-    const anyBackend = (this.renderer as unknown as { backend?: { isWebGPUBackend?: boolean } }).backend;
-    this.backend = anyBackend?.isWebGPUBackend ? 'webgpu' : 'webgl';
-
+    const be = (this.renderer as { backend?: { isWebGPUBackend?: boolean } }).backend;
+    this.backend = be?.isWebGPUBackend ? 'webgpu' : 'webgl';
+    this.renderer.autoClear = false;
     this.renderer.setPixelRatio(Math.min(globalThis.devicePixelRatio || 1, 2));
 
-    // Build both paradigm structures once, then snap uniforms to the initial
-    // config so the first frame is correct (no morph-in from defaults).
-    this.rebuildStructure(initial);
-    this.applyTargets(1);
-    this.speedEased = initial.motion.speed;
+    this.bg.set(initial.background[0], initial.background[1], initial.background[2]);
+    this.speedEased = initial.speed;
+    this.build(initial);
 
     this.lastFrame = performance.now();
     this.loop();
     return this.backend;
   }
 
-  setConfig(config: LoomConfig): void {
-    this.rebuildStructure(config);
-    this.target = config;
+  setGraph(graph: LoomGraph): void {
+    this.target = graph;
+    const key = rebuildKey(graph);
+    if (key !== this.appliedKey) this.build(graph);
   }
 
   setPaused(paused: boolean): void {
@@ -129,137 +105,106 @@ export class LoomEngine {
     this.height = Math.max(1, Math.floor(height));
     if (!this.renderer) return;
     this.renderer.setSize(this.width, this.height, false);
-    this.particleCamera.aspect = this.width / this.height;
-    this.particleCamera.updateProjectionMatrix();
-    this.u.uAspect.value = this.width / this.height;
+    this.perspCam.aspect = this.width / this.height;
+    this.perspCam.updateProjectionMatrix();
+    this.uAspect.value = this.width / this.height;
   }
 
-  // ── Structural rebuilds (count / shapes / fractal fold) ───────
+  // ── Build / compile ───────────────────────────────────────────
 
-  private rebuildStructure(c: LoomConfig): void {
-    const pKey = String(c.particles.count);
-    if (pKey !== this.particleKey) {
-      this.particles.setCount(c.particles.count);
-      this.particleKey = pKey;
-    }
-    const rKey = `${c.raymarch.fractalIterations}|${c.raymarch.primitives.map((p) => p.shape).join(',')}`;
-    if (rKey !== this.raymarchKey) {
-      this.raymarch.build(c.raymarch.primitives, c.raymarch.fractalIterations);
-      this.raymarchKey = rKey;
-    }
+  private build(graph: LoomGraph): void {
+    for (const l of this.layers) l.dispose();
+    this.reg = newRegistry();
+    const ctx = { uTime: this.uTime, uAspect: this.uAspect, reg: this.reg };
+    this.layers = graph.layers.map((layer, i) =>
+      layer.type === 'particles' ? buildParticleLayer(layer, i, ctx) : buildRaymarchLayer(layer, i, ctx),
+    );
+    this.appliedKey = rebuildKey(graph);
   }
 
   // ── Tweening ──────────────────────────────────────────────────
 
-  private easeScalar(uni: { value: number }, target: number, k: number): void {
-    uni.value += (target - uni.value) * k;
+  private easeTargets(k: number): void {
+    for (const e of this.reg.scalars) {
+      const t = walk(this.target, e.path);
+      if (typeof t === 'number' && Number.isFinite(t)) e.uni.value += (t - e.uni.value) * k;
+    }
+    for (const e of this.reg.vectors) {
+      const t = walk(this.target, e.path) as number[] | undefined;
+      if (Array.isArray(t) && t.length >= 3) {
+        e.uni.value.x += (t[0] - e.uni.value.x) * k;
+        e.uni.value.y += (t[1] - e.uni.value.y) * k;
+        e.uni.value.z += (t[2] - e.uni.value.z) * k;
+      }
+    }
+    const b = this.target.background;
+    this.bg.x += (b[0] - this.bg.x) * k;
+    this.bg.y += (b[1] - this.bg.y) * k;
+    this.bg.z += (b[2] - this.bg.z) * k;
   }
 
-  private easeVec(uni: { value: { x: number; y: number; z: number } }, t: Vec3, k: number): void {
-    uni.value.x += (t[0] - uni.value.x) * k;
-    uni.value.y += (t[1] - uni.value.y) * k;
-    uni.value.z += (t[2] - uni.value.z) * k;
-  }
+  // ── Render ────────────────────────────────────────────────────
 
-  private applyTargets(k: number): void {
-    const c = this.target;
-    const u = this.u;
-
-    // palette + background
-    this.easeVec(u.pa as never, c.palette.a, k);
-    this.easeVec(u.pb as never, c.palette.b, k);
-    this.easeVec(u.pc as never, c.palette.c, k);
-    this.easeVec(u.pd as never, c.palette.d, k);
-    this.easeVec(u.uBackground as never, c.background, k);
-    this.easeVec(u.pColorW as never, colorWeights(c.particles.colorMode), k);
-
-    // particle scalars
-    this.easeScalar(u.pNoiseFreq as never, c.particles.noiseFrequency, k);
-    this.easeScalar(u.pNoiseEvo as never, c.particles.noiseEvolution, k);
-    this.easeScalar(u.pFieldStrength as never, c.particles.fieldStrength, k);
-    this.easeScalar(u.pGravityMix as never, fieldGravityMix(c.particles.field), k);
-    this.easeScalar(u.pTurb as never, c.motion.turbulence, k);
-    this.easeScalar(u.pPointSize as never, c.particles.pointSize, k);
-
-    // raymarch scalars
-    this.easeScalar(u.rBlend as never, c.raymarch.blendSmoothness, k);
-    this.easeScalar(u.rCamDist as never, c.raymarch.cameraDistance, k);
-    this.easeScalar(u.rOrbit as never, c.raymarch.cameraOrbitSpeed, k);
-    this.easeScalar(u.rGlow as never, c.raymarch.glow, k);
-
-    // per-primitive (lengths match because structure rebuilds on shape changes)
-    const prims = this.raymarch.primUniforms;
-    for (let i = 0; i < prims.length && i < c.raymarch.primitives.length; i++) {
-      const p = c.raymarch.primitives[i];
-      this.easeVec(prims[i].pos as never, p.position, k);
-      this.easeScalar(prims[i].scale as never, p.scale, k);
-      this.easeScalar(prims[i].morph as never, p.morphAmount, k);
-      this.easeScalar(prims[i].morphSpeed as never, p.morphSpeed, k);
+  private renderFrame(): void {
+    const r = this.renderer;
+    r.setClearColor(this.clearColor.setRGB(this.bg.x, this.bg.y, this.bg.z), 1);
+    r.clear();
+    const layers = this.target.layers;
+    for (let i = 0; i < this.layers.length; i++) {
+      if (layers[i]?.enabled === false) continue;
+      const lr = this.layers[i];
+      r.render(lr.scene, lr.kind === 'ortho' ? this.orthoCam : this.perspCam);
     }
   }
-
-  // ── Render loop ───────────────────────────────────────────────
 
   private loop = (): void => {
     this.raf = requestAnimationFrame(this.loop);
-    const renderer = this.renderer;
-    if (!renderer) return;
-
+    if (!this.renderer) return;
     const now = performance.now();
     const dt = Math.min((now - this.lastFrame) / 1000, 0.05);
     this.lastFrame = now;
+    const k = 1 - Math.exp(-dt / 0.4);
 
-    // Smoothing factor from the (eased) transition window.
-    const tau = 0.4; // seconds to ~63% — gives a calm morph
-    const k = 1 - Math.exp(-dt / tau);
-
-    this.speedEased += (this.target.motion.speed - this.speedEased) * k;
+    this.speedEased += (this.target.speed - this.speedEased) * k;
     if (!this.paused) this.timeSec += dt * this.speedEased;
-    this.u.uTime.value = this.timeSec;
-    this.applyTargets(k);
-
-    if (this.target.paradigm === 'particles') {
-      this.particles.update(this.timeSec);
-      renderer.render(this.particleScene, this.particleCamera);
-    } else {
-      renderer.render(this.raymarch.scene, this.raymarch.camera);
-    }
+    this.uTime.value = this.timeSec;
+    this.easeTargets(k);
+    for (const l of this.layers) l.update(dt);
+    this.renderFrame();
   };
 
   // ── Capture (offscreen, arbitrary resolution) ─────────────────
 
   async capture(width: number, height: number): Promise<string> {
-    const renderer = this.renderer;
-    if (!renderer) throw new Error('Renderer not ready');
-
+    const r = this.renderer;
+    if (!r) throw new Error('Renderer not ready');
     const w = Math.max(16, Math.floor(width));
     const h = Math.max(16, Math.floor(height));
     const rt = new RenderTarget(w, h, { depthBuffer: true });
 
-    const prevAspect = this.u.uAspect.value;
-    this.u.uAspect.value = w / h;
-    this.particleCamera.aspect = w / h;
-    this.particleCamera.updateProjectionMatrix();
+    const prevAspect = this.uAspect.value;
+    this.uAspect.value = w / h;
+    this.perspCam.aspect = w / h;
+    this.perspCam.updateProjectionMatrix();
 
-    const usingParticles = this.target.paradigm === 'particles';
-    const scene = usingParticles ? this.particleScene : this.raymarch.scene;
-    const camera = usingParticles ? this.particleCamera : this.raymarch.camera;
+    r.setRenderTarget(rt);
+    r.setClearColor(this.clearColor.setRGB(this.bg.x, this.bg.y, this.bg.z), 1);
+    r.clear();
+    const layers = this.target.layers;
+    for (let i = 0; i < this.layers.length; i++) {
+      if (layers[i]?.enabled === false) continue;
+      const lr = this.layers[i];
+      await r.render(lr.scene, lr.kind === 'ortho' ? this.orthoCam : this.perspCam);
+    }
+    const raw = await r.readRenderTargetPixelsAsync(rt, 0, 0, w, h);
+    const buffer: Uint8Array = raw instanceof Uint8Array ? raw : new Uint8Array((raw as ArrayBufferView).buffer);
+    r.setRenderTarget(null);
 
-    renderer.setRenderTarget(rt);
-    await renderer.render(scene, camera);
-    // Returns the RGBA byte buffer (do not pass a 6th arg — that's faceIndex).
-    const raw = await renderer.readRenderTargetPixelsAsync(rt, 0, 0, w, h);
-    const buffer: Uint8Array =
-      raw instanceof Uint8Array ? raw : new Uint8Array((raw as ArrayBufferView).buffer);
-    renderer.setRenderTarget(null);
-
-    // restore live aspect
-    this.u.uAspect.value = prevAspect;
-    this.particleCamera.aspect = this.width / this.height;
-    this.particleCamera.updateProjectionMatrix();
+    this.uAspect.value = prevAspect;
+    this.perspCam.aspect = this.width / this.height;
+    this.perspCam.updateProjectionMatrix();
     rt.dispose();
 
-    // GPU readback is bottom-up; flip into a top-down canvas for PNG encoding.
     const canvas = document.createElement('canvas');
     canvas.width = w;
     canvas.height = h;
@@ -268,7 +213,7 @@ export class LoomEngine {
     const img = ctx.createImageData(w, h);
     const rowBytes = w * 4;
     for (let y = 0; y < h; y++) {
-      const src = (h - 1 - y) * rowBytes;
+      const src = (h - 1 - y) * rowBytes; // GPU readback is bottom-up
       img.data.set(buffer.subarray(src, src + rowBytes), y * rowBytes);
     }
     ctx.putImageData(img, 0, 0);
@@ -278,8 +223,8 @@ export class LoomEngine {
   dispose(): void {
     if (this.raf) cancelAnimationFrame(this.raf);
     this.raf = 0;
-    this.particles.dispose();
-    this.raymarch.dispose();
+    for (const l of this.layers) l.dispose();
+    this.layers = [];
     if (this.renderer) {
       try {
         this.renderer.dispose();

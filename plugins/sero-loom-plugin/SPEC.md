@@ -622,3 +622,45 @@ and is reflected consistently across the contract surface:
   unavailable state) rather than crashing or showing a blank canvas.
 - `pnpm --filter @sero-ai/plugin-loom build` and `typecheck` pass;
   `scripts/build-plugin.sh` / `export-plugin-source.sh` produce a valid bundle.
+
+---
+
+## 16. Addendum — v2: open graph + expression DSL
+
+§1–§15 describe the original fixed-config design. Implementation feedback ("it
+feels too restrictive") drove a pivot from *knob-twisting* to *graph-authoring*.
+The shipped model supersedes the rigid `LoomConfig` where they differ.
+
+**What changed**
+
+- **Layered scene graph.** State is now a `LoomGraph` = an ordered list of
+  **layers** that blend (`normal/add/screen`). Paradigms became layer *types*
+  (`raymarch`, `particles`) that can be **combined** in one piece.
+- **Expression DSL.** Any numeric field may be a constant or `{ "expr": "..." }`.
+  A pure parser (`shared/expr.ts`) → AST → TSL compiler (`ui/engine/expr-compile.ts`)
+  lets the agent drive anything with math (`sin`, `noise`, `mix`, `vec3`, vars
+  `t/p/id/depth/ny/speed`). Bounded and safe: no code execution, no loops.
+- **Composable SDF trees** (shapes / ops `smin·union·subtract·intersect` / warps
+  `twist·repeat`) replace the fixed primitive list — agents compose novel forms.
+- **Guardrails loosened.** Aesthetic clamps removed; only crash-safety bounds
+  remain (layer/particle/SDF caps, expression length/complexity). Invalid
+  expressions are *reported and fall back*, never rejected — a tight iteration loop.
+- **Agent gets a brain + eyes.** Tools are now `loom_get` (read & iterate),
+  `loom_compose` (set/patch graph, returns expression issues), `loom_direction`
+  (persistent creative direction), plus `loom_random`/`loom_preset`/`loom_capture`.
+  The prompt template is a creative brief, not a schema dump.
+- **Self-steering.** A persistent **Creative Direction** (`state.direction.guidance`)
+  is honored on every generation; an ad-hoc **talk box** steers in the moment;
+  `loom_get` lets the agent build on the current piece.
+
+**Smoothness model.** Plain numbers are tweened uniforms (smooth, no recompile);
+expression/structure changes rebuild the affected layer with a short fade-in.
+A `rebuildKey` (`shared/graph.ts`) decides which path applies.
+
+**Migration.** v1 state and presets (fixed `LoomConfig`) migrate to v2 graphs
+automatically (`migrateLegacyConfig` / `normalizeLoomState`).
+
+**Verification.** The expression parser and graph normalization/migration/
+validation/random-generation are pure and were unit-checked outside the GPU
+(parser 12/12 cases; all random graphs validate clean; v1→v2 migration verified).
+WebGPU rendering itself still needs a real device to validate.

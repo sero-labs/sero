@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
-import type { LoomConfig, RendererBackend } from '../../shared/types';
+import type { LoomGraph, RendererBackend } from '../../shared/types';
 import { LoomEngine, type Backend } from '../engine/LoomEngine';
 
 export interface EngineStatus {
@@ -15,7 +15,7 @@ export interface UseLoomEngineResult extends EngineStatus {
 }
 
 interface Options {
-  config: LoomConfig;
+  graph: LoomGraph;
   paused: boolean;
   backend: RendererBackend;
 }
@@ -28,9 +28,9 @@ export function useLoomEngine(
   const engineRef = useRef<LoomEngine | null>(null);
   const [status, setStatus] = useState<EngineStatus>({ backend: 'none', ready: false, error: null });
 
-  // Keep the latest config available to the init closure without re-mounting.
-  const configRef = useRef(opts.config);
-  configRef.current = opts.config;
+  // Keep the latest graph available to the init closure without re-mounting.
+  const graphRef = useRef(opts.graph);
+  graphRef.current = opts.graph;
 
   // Mount the engine once (re-mount only if the backend preference changes).
   useEffect(() => {
@@ -48,7 +48,7 @@ export function useLoomEngine(
     };
 
     engine
-      .init(configRef.current, opts.backend)
+      .init(graphRef.current, opts.backend)
       .then((backend) => {
         if (disposed) {
           engine.dispose();
@@ -77,10 +77,10 @@ export function useLoomEngine(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [opts.backend]);
 
-  // Sync config (smoothly morphs in the engine).
+  // Sync graph (smoothly morphs / rebuilds in the engine).
   useEffect(() => {
-    engineRef.current?.setConfig(opts.config);
-  }, [opts.config]);
+    engineRef.current?.setGraph(opts.graph);
+  }, [opts.graph]);
 
   // Sync pause.
   useEffect(() => {

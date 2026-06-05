@@ -2,25 +2,28 @@ import { useState } from 'react';
 import { Button } from '@sero-ai/ui';
 import type { AppAI, AppTools } from '@sero-ai/app-runtime';
 
-export function MoodBox({ ai, tools }: { ai: AppAI; tools: AppTools }) {
+export function TalkBox({ ai, tools }: { ai: AppAI; tools: AppTools }) {
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
 
-  const generate = async () => {
-    const mood = text.trim();
-    if (!mood || busy) return;
+  const send = async () => {
+    const instruction = text.trim();
+    if (!instruction || busy) return;
     setBusy(true);
-    setMsg('Composing…');
+    setMsg('Working…');
     try {
       const reply = await ai.prompt(
-        `Change the Loom generative art to feel like: "${mood}". ` +
-          `Call the loom_set tool with a partial config patch (palette, motion, paradigm, particles or raymarch). ` +
-          `Then reply with one short sentence describing the look.`,
+        `Loom instruction from the user: "${instruction}". ` +
+          `First call loom_get to read the current piece and creative direction, ` +
+          `then use loom_compose to apply the change — iterate on / combine with what's there, ` +
+          `honor the direction, and feel free to use expressions and multiple layers. ` +
+          `Reply with one short sentence on the look.`,
       );
       setMsg(reply.trim().slice(0, 240));
+      setText('');
     } catch (err) {
-      setMsg(err instanceof Error ? err.message : 'Generation failed');
+      setMsg(err instanceof Error ? err.message : 'Failed');
     } finally {
       setBusy(false);
     }
@@ -45,7 +48,7 @@ export function MoodBox({ ai, tools }: { ai: AppAI; tools: AppTools }) {
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          void generate();
+          void send();
         }}
         className="flex items-center gap-2"
       >
@@ -53,8 +56,8 @@ export function MoodBox({ ai, tools }: { ai: AppAI; tools: AppTools }) {
           type="text"
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder="Describe a mood… (e.g. stormy ocean at dusk)"
-          aria-label="Describe a mood"
+          placeholder="Tell Loom what to do…"
+          aria-label="Instruct Loom"
           className="h-9 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
         />
         <Button
@@ -63,7 +66,7 @@ export function MoodBox({ ai, tools }: { ai: AppAI; tools: AppTools }) {
           disabled={busy || !text.trim()}
           className="bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white hover:from-violet-500/90 hover:to-fuchsia-500/90"
         >
-          {busy ? '…' : 'Generate'}
+          {busy ? '…' : 'Send'}
         </Button>
       </form>
       <div className="flex items-center gap-2">

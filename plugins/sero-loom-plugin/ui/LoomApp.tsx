@@ -3,18 +3,21 @@ import { useAI, useAppState, useAppTools } from '@sero-ai/app-runtime';
 
 import {
   DEFAULT_LOOM_STATE,
-  clampConfig,
+  normalizeGraph,
   normalizeLoomState,
   structuredCloneState,
+  type CaptureResolution,
+  type LoomGraph,
   type LoomState,
 } from '../shared/types';
-import { ControlPanel } from './components/ControlPanel';
+import { DirectionBox } from './components/DirectionBox';
 import { Gallery } from './components/Gallery';
-import { MoodBox } from './components/MoodBox';
-import { PaletteEditor } from './components/PaletteEditor';
+import { GraphEditor } from './components/GraphEditor';
+import { LayerList } from './components/LayerList';
+import { TalkBox } from './components/TalkBox';
 import { Transport } from './components/Transport';
 import { useLoomEngine } from './hooks/useLoomEngine';
-import { captureDims, updateLive, updateSettings } from './lib/loom-ui';
+import { captureDims, setDirection, setGraph, updateGraph, updateSettings } from './lib/loom-ui';
 import './styles.css';
 
 function downloadDataUrl(dataUrl: string, filename: string): void {
@@ -36,12 +39,12 @@ export function LoomApp() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
-  // Referentially stable live config (so the engine only re-syncs on real change).
-  const liveKey = JSON.stringify(state.live);
-  const live = useMemo(() => state.live, [liveKey]);
+  // Referentially stable graph so the engine only re-syncs on real change.
+  const graphKey = JSON.stringify(state.graph);
+  const graph = useMemo(() => state.graph, [graphKey]);
 
   const { backend, ready, error, capture } = useLoomEngine(canvasRef, containerRef, {
-    config: live,
+    graph,
     paused: state.settings.paused,
     backend: state.settings.rendererBackend,
   });
@@ -49,43 +52,30 @@ export function LoomApp() {
   const [capturing, setCapturing] = useState(false);
   const [captureMsg, setCaptureMsg] = useState('');
 
-  const onLive = useCallback((recipe: Parameters<typeof updateLive>[1]) => updateLive(updateState, recipe), [updateState]);
-  const onSettings = useCallback((recipe: Parameters<typeof updateSettings>[1]) => updateSettings(updateState, recipe), [updateState]);
+  const mutate = useCallback((recipe: (g: LoomGraph) => void) => updateGraph(updateState, recipe), [updateState]);
 
-  const onSave = useCallback(
-    (name: string) => {
-      updateState((prev) => {
-        const s = normalizeLoomState(prev);
-        const id = `piece-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e4).toString(36)}`;
-        return {
-          ...s,
-          presets: [...s.presets, { id, name, createdAt: Date.now(), config: structuredCloneState(s.live) }],
-        };
-      });
-    },
-    [updateState],
-  );
+  const onSave = useCallback((name: string) => {
+    updateState((prev) => {
+      const s = normalizeLoomState(prev);
+      const id = `piece-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e4).toString(36)}`;
+      return { ...s, presets: [...s.presets, { id, name, createdAt: Date.now(), graph: structuredCloneState(s.graph) }] };
+    });
+  }, [updateState]);
 
-  const onLoad = useCallback(
-    (id: string) => {
-      updateState((prev) => {
-        const s = normalizeLoomState(prev);
-        const p = s.presets.find((x) => x.id === id);
-        return p ? { ...s, live: clampConfig(p.config) } : s;
-      });
-    },
-    [updateState],
-  );
+  const onLoad = useCallback((id: string) => {
+    updateState((prev) => {
+      const s = normalizeLoomState(prev);
+      const p = s.presets.find((x) => x.id === id);
+      return p ? { ...s, graph: normalizeGraph(p.graph) } : s;
+    });
+  }, [updateState]);
 
-  const onDelete = useCallback(
-    (id: string) => {
-      updateState((prev) => {
-        const s = normalizeLoomState(prev);
-        return { ...s, presets: s.presets.filter((x) => x.id !== id) };
-      });
-    },
-    [updateState],
-  );
+  const onDelete = useCallback((id: string) => {
+    updateState((prev) => {
+      const s = normalizeLoomState(prev);
+      return { ...s, presets: s.presets.filter((x) => x.id !== id) };
+    });
+  }, [updateState]);
 
   const onCapture = useCallback(async () => {
     if (capturing || !ready) return;
@@ -96,15 +86,11 @@ export function LoomApp() {
       const dataUrl = await capture(dims.w, dims.h);
       try {
         const res = await tools.run('loom_capture', {
-          dataUrl,
-          width: dims.w,
-          height: dims.h,
-          name: 'loom',
+          dataUrl, width: dims.w, height: dims.h, name: 'loom',
           writeSidecar: state.settings.capture.writeSidecarConfig,
         });
         setCaptureMsg(res.text || `Saved ${dims.w}×${dims.h}`);
       } catch {
-        // Fallback: hand the file straight to the browser.
         downloadDataUrl(dataUrl, `loom-${dims.w}x${dims.h}.png`);
         setCaptureMsg(`Downloaded ${dims.w}×${dims.h} (tool save unavailable)`);
       }
@@ -117,7 +103,6 @@ export function LoomApp() {
 
   return (
     <div className="flex size-full overflow-hidden bg-background text-foreground">
-      {/* Stage */}
       <div ref={containerRef} className="relative min-w-0 flex-1">
         <canvas ref={canvasRef} className="block size-full" />
         {(!ready || error) && (
@@ -126,9 +111,7 @@ export function LoomApp() {
               {error ? (
                 <>
                   <p className="text-sm font-medium text-destructive">Renderer unavailable</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    WebGPU and WebGL could not initialize on this device. {error}
-                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">WebGPU and WebGL could not initialize. {error}</p>
                 </>
               ) : (
                 <p className="text-sm text-muted-foreground">Initializing renderer…</p>
@@ -143,30 +126,31 @@ export function LoomApp() {
         )}
       </div>
 
-      {/* Control panel */}
-      <aside className="flex w-[320px] shrink-0 flex-col gap-3 overflow-y-auto border-l border-border bg-background p-4">
+      <aside className="flex w-[330px] shrink-0 flex-col gap-3 overflow-y-auto border-l border-border bg-background p-4">
         <header className="flex items-baseline justify-between">
           <h1 className="text-lg font-semibold tracking-tight">Loom</h1>
           <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">generative art</span>
         </header>
 
-        <MoodBox ai={ai} tools={tools} />
+        <TalkBox ai={ai} tools={tools} />
+        <DirectionBox value={state.direction.guidance} onCommit={(g) => setDirection(updateState, g)} />
         <Transport
-          config={live}
-          settings={state.settings}
-          onLive={onLive}
-          onSettings={onSettings}
+          speed={state.graph.speed}
+          paused={state.settings.paused}
+          captureResolution={state.settings.capture.resolution}
+          onSpeed={(v) => mutate((g) => { g.speed = v; })}
+          onTogglePause={() => updateSettings(updateState, (s) => { s.paused = !s.paused; })}
+          onCaptureResolution={(r: CaptureResolution) => updateSettings(updateState, (s) => { s.capture.resolution = r; })}
           onCapture={() => void onCapture()}
           capturing={capturing}
           captureMsg={captureMsg}
         />
-        <PaletteEditor palette={live.palette} onChange={(recipe) => onLive((d) => recipe(d.palette))} />
-        <ControlPanel config={live} onLive={onLive} />
+        <LayerList graph={graph} mutate={mutate} />
+        <GraphEditor graph={graph} onApply={(g) => setGraph(updateState, g)} />
         <Gallery presets={state.presets} onSave={onSave} onLoad={onLoad} onDelete={onDelete} />
       </aside>
     </div>
   );
 }
 
-// Both exports are required for Module Federation lazy loading.
 export default LoomApp;

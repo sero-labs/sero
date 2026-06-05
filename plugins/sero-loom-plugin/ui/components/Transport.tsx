@@ -1,75 +1,41 @@
 import { Button } from '@sero-ai/ui';
 
-import {
-  PARTICLE_BUDGET,
-  type CaptureResolution,
-  type LoomConfig,
-  type LoomSettings,
-  type Paradigm,
-  type Quality,
-} from '../../shared/types';
+import type { CaptureResolution } from '../../shared/types';
+import { Slider } from './primitives';
 
-type OnLive = (recipe: (d: LoomConfig) => void) => void;
-type OnSettings = (recipe: (s: LoomSettings) => void) => void;
-
-const PARADIGMS: readonly Paradigm[] = ['raymarch', 'particles'];
-const QUALITIES: readonly Quality[] = ['low', 'medium', 'high'];
 const RESOLUTIONS: readonly CaptureResolution[] = ['display', '1080p', '1440p', '4k', 'custom'];
 
 export function Transport({
-  config,
-  settings,
-  onLive,
-  onSettings,
+  speed,
+  paused,
+  captureResolution,
+  onSpeed,
+  onTogglePause,
+  onCaptureResolution,
   onCapture,
   capturing,
   captureMsg,
 }: {
-  config: LoomConfig;
-  settings: LoomSettings;
-  onLive: OnLive;
-  onSettings: OnSettings;
+  speed: number;
+  paused: boolean;
+  captureResolution: CaptureResolution;
+  onSpeed: (v: number) => void;
+  onTogglePause: () => void;
+  onCaptureResolution: (r: CaptureResolution) => void;
   onCapture: () => void;
   capturing: boolean;
   captureMsg: string;
 }) {
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-center gap-1 rounded-md bg-secondary/40 p-1">
-        {PARADIGMS.map((p) => (
-          <button
-            key={p}
-            type="button"
-            onClick={() => onLive((d) => { d.paradigm = p; })}
-            className={`flex-1 rounded px-2 py-1 text-xs capitalize transition-colors ${
-              config.paradigm === p ? 'bg-background font-medium text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            {p}
-          </button>
-        ))}
-      </div>
-
       <div className="flex items-center gap-2">
-        <Button size="sm" variant="outline" className="flex-1" onClick={() => onSettings((s) => { s.paused = !s.paused; })}>
-          {settings.paused ? '▶ Play' : '⏸ Pause'}
+        <Button size="sm" variant="outline" onClick={onTogglePause}>
+          {paused ? '▶' : '⏸'}
         </Button>
-        <select
-          value={settings.quality}
-          onChange={(e) => {
-            const q = e.target.value as Quality;
-            onSettings((s) => { s.quality = q; });
-            onLive((d) => { d.particles.count = PARTICLE_BUDGET[q]; });
-          }}
-          aria-label="Quality"
-          className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-        >
-          {QUALITIES.map((q) => (
-            <option key={q} value={q}>{q}</option>
-          ))}
-        </select>
+        <div className="flex-1">
+          <Slider label="speed" value={speed} min={0} max={4} onChange={onSpeed} />
+        </div>
       </div>
-
       <div className="flex items-center gap-2">
         <Button
           size="sm"
@@ -81,16 +47,15 @@ export function Transport({
           {capturing ? 'Capturing…' : '📷 Capture wallpaper'}
         </Button>
         <select
-          value={settings.capture.resolution}
-          onChange={(e) => {
-            const r = e.target.value as CaptureResolution;
-            onSettings((s) => { s.capture.resolution = r; });
-          }}
+          value={captureResolution}
+          onChange={(e) => onCaptureResolution(e.target.value as CaptureResolution)}
           aria-label="Capture resolution"
           className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
         >
           {RESOLUTIONS.map((r) => (
-            <option key={r} value={r}>{r}</option>
+            <option key={r} value={r}>
+              {r}
+            </option>
           ))}
         </select>
       </div>
