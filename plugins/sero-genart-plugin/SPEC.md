@@ -39,11 +39,14 @@ the human or the agent.
   `a,b,c,d`) so the agent can recolor a piece harmoniously with four vectors.
 - **Preset gallery:** save the live config as a named "piece," list/load/delete
   presets, and let the agent save and recall them.
+- **Capture / wallpaper export:** a camera button captures the current art as a
+  high-resolution PNG (display-matched or up to 4K) written to disk for use as an
+  OS or Sero wallpaper; the agent can trigger capture too.
 
 ### Non-goals (v1)
 
-- No video/GIF export, no high-res offline render farm (tracked as future work,
-  §12).
+- Still-image (PNG) capture for wallpaper **is** in v1 (§7.6). Video/GIF capture
+  and a high-res offline render farm remain future work (§12).
 - No timeline/keyframe editor — animation is procedural + transition-tween only.
 - No custom user-authored shader code entry in v1 (the agent and UI only twist
   exposed, typed knobs — this is deliberate, see §6).
@@ -124,6 +127,16 @@ interface GenartSettings {
   paused: boolean;            // freeze uTime advance
   quality: 'low' | 'medium' | 'high'; // particle count / raymarch step budget
   rendererBackend: 'auto' | 'webgpu' | 'webgl'; // see §8 fallback
+  capture: CaptureSettings;   // wallpaper export prefs (§7.6)
+}
+
+interface CaptureSettings {
+  // 'display' = match the user's screen (screen.width × height × devicePixelRatio)
+  resolution: 'display' | '1080p' | '1440p' | '4k' | 'custom';
+  customWidth: number;        // used when resolution === 'custom'
+  customHeight: number;
+  freezeOnCapture: boolean;   // pause uTime for the captured frame
+  writeSidecarConfig: boolean; // also write a <name>.json with the GenartConfig
 }
 ```
 
@@ -283,6 +296,7 @@ from `@earendil-works/pi-ai` for enums.
 | `genart_set` | Mutate the live config. Accepts a **partial** config patch so the agent can change only what it means to (e.g. just the palette). Merged over `state.live`, then written atomically. | `{ patch: DeepPartial<GenartConfig> }` |
 | `genart_preset` | Save / load / list / delete presets. | `{ action: 'save'\|'load'\|'list'\|'delete', name?, id? }` |
 | `genart_random` | Generate a fresh randomized config (optionally constrained to a paradigm or mood seed) and apply it. | `{ paradigm?, seed? }` |
+| `genart_capture` | Persist a captured frame to disk as a PNG (and optional sidecar config). The UI renders the pixels (§7.6) and hands them to this tool, which writes the file and returns its absolute path. The agent can also request a capture ("save a 4K wallpaper"); the host completes the render-and-write round-trip. | `{ dataUrl, width, height, name?, writeSidecar? }` |
 
 Tool writes go through the **same atomic write** (`temp → fs.rename`) the UI uses,
 so the file watcher reflects changes into the UI immediately. Tools resolve the
@@ -337,7 +351,8 @@ scope. Tracked as an open item (§11).
   "Surprise me" button (routes to `genart_random`).
 - **Gallery:** preset thumbnails with load/rename/delete; a "Save current as…"
   action.
-- **Transport:** play/pause, speed, quality, and paradigm toggle.
+- **Transport:** play/pause, speed, quality, paradigm toggle, and a **camera
+  button** (capture wallpaper — §7.6).
 
 ### 7.2 Controls reflect the active paradigm
 
@@ -368,6 +383,58 @@ preset `thumbnail`. Kept small to respect the JSON state size; large/raw frames
 are never stored in state.
 
 ---
+
+### 7.6 Capture & wallpaper export
+
+Clicking the **camera button** (or asking the agent) saves the current art as a
+high-resolution PNG suitable for an OS or Sero desktop wallpaper.
+
+**Why offscreen, not a panel grab.** The on-screen canvas matches the plugin
+panel's size and aspect ratio, which is wrong for a wallpaper. Capture therefore
+renders a dedicated frame **off-screen at the chosen resolution and aspect**, so
+the piece is composed correctly for the target screen rather than stretched from
+the panel. Concretely:
+
+1. Resolve the target size from `settings.capture` (`'display'` uses
+   `screen.width × screen.height × devicePixelRatio`; presets cover 1080p / 1440p
+   / 4K; `'custom'` uses `customWidth × customHeight`).
+2. Allocate an offscreen render target at that size and **recompute aspect-
+   dependent inputs** for the frame: raymarch camera aspect and fullscreen-pass
+   UVs, particle projection, and any resolution-relative parameters. Use the
+   current `uTime` (optionally frozen via `freezeOnCapture`) so the saved frame
+   matches what's on screen at click time.
+3. Render one frame into the target and read back the pixels
+   (`renderer.readRenderTargetPixelsAsync` for WebGPU), then encode a PNG
+   (`OffscreenCanvas` → `convertToBlob`, or canvas `toDataURL`).
+4. Restore the live on-screen size and resume animation.
+
+**Persisting the file.** The UI hands the encoded PNG to the `genart_capture`
+tool (§6.1) via `useAppTools().run('genart_capture', { dataUrl, width, height,
+name, writeSidecar })`. The Pi extension (Node `fs`) writes it atomically to a
+captures directory and returns the absolute path. This follows Sero's "UI →
+plugin tool" rule — no custom host bridge, consistent with how config writes
+already work.
+
+- **Destination:** default `~/.sero-ui/apps/genart/captures/<name>-<timestamp>.png`
+  (global app dir; resolved from `SERO_HOME` with the Pi-CLI fallback). The
+  returned absolute path is surfaced in a toast so the user can grab it and set it
+  as wallpaper.
+- **Browser-download fallback:** the UI also offers a direct download (anchor
+  `download`) so the user always gets the file even if the tool path is
+  unavailable in a given host build.
+- **Reproducibility:** when `writeSidecarConfig` is on, the tool also writes
+  `<name>-<timestamp>.json` containing the exact `GenartConfig` (incl. seed) next
+  to the PNG, so any captured wallpaper can be regenerated or tweaked later.
+  (Embedding the config in a PNG `tEXt` chunk is a possible future enhancement.)
+
+**Size / transport note.** A 4K PNG handed through a tool call as base64 can be
+tens of MB. For local single-shot exports this is acceptable over Sero's local
+IPC; if it proves heavy, switch to a temp-file handoff (UI writes to a temp path,
+tool moves it). Tracked alongside the bundle/perf risks (§11).
+
+**Agent path.** Because capture is a tool, the agent can drive it
+("save this piece as a 4K wallpaper"). The host performs the same offscreen
+render-and-write round-trip on the agent's behalf.
 
 ## 8. WebGPU availability & graceful degradation
 
@@ -472,6 +539,8 @@ Follows the standard plugin pattern (see `sero-cron-plugin/vite.config.ts`):
 | **Agent producing nonsense configs** | Validate + clamp all tool input to safe ranges; never reject — clamp and continue. Prompt template gives taste guidance. (§6.1/6.2) |
 | **Perf on low-end devices** | `settings.quality` + device-reported limits gate particle counts and raymarch steps; default to `medium`. |
 | **Thumbnail cost / state bloat** | Downscale + cap thumbnail size; never store full frames in `state.json`. (§7.5) |
+| **Large capture payloads** | 4K PNG base64 through a tool call can be tens of MB; acceptable for one-shot local exports, else switch to a temp-file handoff. PNGs are written to a captures dir, never into `state.json`. (§7.6) |
+| **Capture aspect/composition** | Wallpaper aspect differs from the panel; capture renders off-screen at the target resolution/aspect and recomputes camera/UVs rather than grabbing the on-screen canvas. (§7.6) |
 | **Headless tests** | Engine math (palette, tweener, field integrators, config validate/clamp) is unit-testable without a GPU; WebGPU rendering itself is validated manually in Sero. |
 
 ---
@@ -515,7 +584,11 @@ implementation to avoid a later rename.
    "stormy ocean" → tool call → morph.
 6. **M5 — Presets/gallery.** Save/load/delete named pieces with thumbnails; agent
    save/recall.
-7. **M6 — Polish & export.** Perf passes, bundle-size check, degradation states,
+7. **M6 — Capture / wallpaper.** Camera button + `genart_capture` tool: offscreen
+   high-res render at display/1080p/1440p/4K/custom, PNG write to the captures
+   dir with path toast, download fallback, optional sidecar config, agent-driven
+   capture.
+8. **M7 — Polish & export.** Perf passes, bundle-size check, degradation states,
    then `scripts/export-plugin-source.sh` to produce the standalone git repo and
    tag it `sero-agent-plugin` for distribution.
 
@@ -530,6 +603,10 @@ implementation to avoid a later rename.
   `genart_set` call that visibly + smoothly transforms the piece.
 - A piece can be saved as a named preset and reloaded later by both human and
   agent, restoring the same look.
+- Clicking the camera button writes a high-resolution PNG (display-matched or up
+  to 4K, composed at the target aspect) to the captures directory and surfaces
+  its path; the agent can trigger the same capture. With the sidecar option on, a
+  matching `.json` config is written next to the PNG.
 - On a device without WebGPU, the plugin degrades to WebGL (or a clear
   unavailable state) rather than crashing or showing a blank canvas.
 - `pnpm --filter @sero-ai/plugin-genart build` and `typecheck` pass;
