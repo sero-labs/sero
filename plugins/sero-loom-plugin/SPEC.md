@@ -1,11 +1,11 @@
-# Generative Art Studio — Functional Spec
+# Loom — Functional Spec
 
 > **Status:** Draft v1 · Functional specification (no implementation yet)
-> **Plugin id:** `genart` · **Package:** `@sero-ai/plugin-genart` · **Directory:** `plugins/sero-genart-plugin/`
+> **Plugin id:** `loom` · **Package:** `@sero-ai/plugin-loom` · **Directory:** `plugins/sero-loom-plugin/`
 > **Category:** `creative` · **Scope:** `global`
-> **Codename:** "Genart" (display name and branding are placeholders, see §13)
+> **Name:** "Loom" — confirmed display name and branding (see §13)
 
-A WebGPU-accelerated generative art plugin for Sero. It renders continuously
+**Loom** is a WebGPU-accelerated generative art plugin for Sero. It renders continuously
 morphing GPU art (compute-shader particle systems and raymarched SDF scenes)
 that is driven entirely by a JSON configuration in the plugin's file-backed
 state. A control panel lets a human twist the knobs; the **Sero agent** drives
@@ -66,14 +66,14 @@ so the plugin leans into Sero primitives instead of reinventing them:
                         ├─► state.json ──watch──►├─ TSL raymarch engine (Paradigm B)
    Sero agent (tools) ──┘   (State Registry)     └─ shared renderer + transition tweener
         ▲
-        └── useAI().prompt("stormy ocean")  ──► agent calls genart_set tool ──► writes state.json
+        └── useAI().prompt("stormy ocean")  ──► agent calls loom_set tool ──► writes state.json
 ```
 
 | Concept term            | Sero implementation                                                        |
 |-------------------------|----------------------------------------------------------------------------|
-| Central App State / "State Registry" | File-backed `state.json`, read/written in the UI via `useAppState<GenartState>()` (reactive, persistent, no `localStorage`). |
-| The "future AI agent"   | Sero's own agent. UI → agent via `useAI().prompt(...)`; agent → state via the plugin's `genart_set` tool. |
-| JSON payload            | `GenartConfig` (the typed live config). The tool's TypeBox schema **is** the contract the agent fills in. |
+| Central App State / "State Registry" | File-backed `state.json`, read/written in the UI via `useAppState<LoomState>()` (reactive, persistent, no `localStorage`). |
+| The "future AI agent"   | Sero's own agent. UI → agent via `useAI().prompt(...)`; agent → state via the plugin's `loom_set` tool. |
+| JSON payload            | `LoomConfig` (the typed live config). The tool's TypeBox schema **is** the contract the agent fills in. |
 | Render engine           | Three.js `WebGPURenderer` + TSL graph, mounted in the React UI component. |
 | Time-based uniforms     | A single global `uTime` uniform incremented per frame, plus a transition tweener for smooth morphs. |
 
@@ -89,7 +89,7 @@ file. This plugin uses all but the background runtime:
 
 | Surface | Used? | Responsibility |
 |---------|-------|----------------|
-| **Pi extension** (`extension/`) | ✅ | Registers agent tools (`genart_set`, `genart_preset`, `genart_random`), a `/genart` command, and the prompt template that teaches the agent the config schema. Pi-CLI-safe, no Sero imports. Reads/writes `state.json` atomically. |
+| **Pi extension** (`extension/`) | ✅ | Registers agent tools (`loom_set`, `loom_preset`, `loom_random`), a `/loom` command, and the prompt template that teaches the agent the config schema. Pi-CLI-safe, no Sero imports. Reads/writes `state.json` atomically. |
 | **Web UI** (`ui/`) | ✅ | The WebGPU canvas, the render engine, the control panel, the mood/prompt box, and the preset gallery. React, loaded via Module Federation. |
 | **Background runtime** (`runtime/`) | ❌ (v1) | Not needed — there is no long-lived workspace orchestration. The render loop lives in the UI; agent writes go through the extension tool. Deferred unless a headless render/scheduler is added (§12). |
 | **Dashboard widget** | ◻︎ Optional | A small live "now playing" thumbnail widget could expose the current piece on the Sero dashboard. Nice-to-have, not required for v1. |
@@ -99,29 +99,29 @@ file. This plugin uses all but the background runtime:
 ## 4. State model (the source of truth)
 
 All surfaces agree on one JSON-serialisable shape in `shared/types.ts`. Global
-scope means state lives at `~/.sero-ui/apps/genart/state.json` (with the
-`.sero/apps/genart/state.json` Pi-CLI fallback). State must be strictly
+scope means state lives at `~/.sero-ui/apps/loom/state.json` (with the
+`.sero/apps/loom/state.json` Pi-CLI fallback). State must be strictly
 JSON-serialisable — no `Date`, `Map`, `Set`, or functions.
 
 ### 4.1 Top-level shape
 
 ```ts
-interface GenartState {
+interface LoomState {
   version: 1;                 // schema version for migrations
-  live: GenartConfig;         // the currently-rendered config
-  presets: GenartPreset[];    // saved pieces (the gallery)
-  settings: GenartSettings;   // engine/runtime preferences
+  live: LoomConfig;         // the currently-rendered config
+  presets: LoomPreset[];    // saved pieces (the gallery)
+  settings: LoomSettings;   // engine/runtime preferences
 }
 
-interface GenartPreset {
+interface LoomPreset {
   id: string;                 // stable id (e.g. `piece-<counter>`)
   name: string;               // human/agent-given name, e.g. "Stormy Ocean"
   createdAt: number;          // epoch ms
-  config: GenartConfig;       // a frozen snapshot of `live`
+  config: LoomConfig;       // a frozen snapshot of `live`
   thumbnail?: string;         // optional data-URL preview (see §7.5)
 }
 
-interface GenartSettings {
+interface LoomSettings {
   transitionMs: number;       // default morph duration, e.g. 1500
   targetFps: number;          // soft cap, e.g. 60
   paused: boolean;            // freeze uTime advance
@@ -136,13 +136,13 @@ interface CaptureSettings {
   customWidth: number;        // used when resolution === 'custom'
   customHeight: number;
   freezeOnCapture: boolean;   // pause uTime for the captured frame
-  writeSidecarConfig: boolean; // also write a <name>.json with the GenartConfig
+  writeSidecarConfig: boolean; // also write a <name>.json with the LoomConfig
 }
 ```
 
 ### 4.2 The config (the agent-facing payload)
 
-`GenartConfig` is the heart of the spec — it is the JSON the agent produces and
+`LoomConfig` is the heart of the spec — it is the JSON the agent produces and
 the engine consumes. Every field is a plain number, string enum, or fixed-length
 numeric tuple so it is trivial for an LLM to fill in and impossible to inject raw
 shader code through.
@@ -150,7 +150,7 @@ shader code through.
 ```ts
 type Vec3 = [number, number, number];
 
-interface GenartConfig {
+interface LoomConfig {
   paradigm: 'particles' | 'raymarch';
 
   // Global time/motion — every animated value is a modifier of uTime,
@@ -199,7 +199,7 @@ interface SdfPrimitive {
 }
 ```
 
-`DEFAULT_GENART_STATE` ships a pleasant default piece so the canvas is never
+`DEFAULT_LOOM_STATE` ships a pleasant default piece so the canvas is never
 blank on first open.
 
 ### 4.3 Why this shape is "AI-friendly"
@@ -215,7 +215,7 @@ blank on first open.
 
 ## 5. The render engine (UI)
 
-A `GenartApp` React component owns a `<canvas>` and a renderer instance. Engine
+A `LoomApp` React component owns a `<canvas>` and a renderer instance. Engine
 modules live under `ui/engine/` and are deliberately split from React so they can
 be unit-tested headlessly where possible.
 
@@ -235,7 +235,7 @@ be unit-tested headlessly where possible.
 
 ### 5.2 Config → engine binding
 
-The engine reads from a single in-memory `GenartConfig` mirror of
+The engine reads from a single in-memory `LoomConfig` mirror of
 `state.live`. When `useAppState` reports a new `live` config (human edit, or an
 agent tool write picked up by the file watcher):
 
@@ -293,10 +293,10 @@ from `@earendil-works/pi-ai` for enums.
 
 | Tool | Purpose | Input (sketch) |
 |------|---------|----------------|
-| `genart_set` | Mutate the live config. Accepts a **partial** config patch so the agent can change only what it means to (e.g. just the palette). Merged over `state.live`, then written atomically. | `{ patch: DeepPartial<GenartConfig> }` |
-| `genart_preset` | Save / load / list / delete presets. | `{ action: 'save'\|'load'\|'list'\|'delete', name?, id? }` |
-| `genart_random` | Generate a fresh randomized config (optionally constrained to a paradigm or mood seed) and apply it. | `{ paradigm?, seed? }` |
-| `genart_capture` | Persist a captured frame to disk as a PNG (and optional sidecar config). The UI renders the pixels (§7.6) and hands them to this tool, which writes the file and returns its absolute path. The agent can also request a capture ("save a 4K wallpaper"); the host completes the render-and-write round-trip. | `{ dataUrl, width, height, name?, writeSidecar? }` |
+| `loom_set` | Mutate the live config. Accepts a **partial** config patch so the agent can change only what it means to (e.g. just the palette). Merged over `state.live`, then written atomically. | `{ patch: DeepPartial<LoomConfig> }` |
+| `loom_preset` | Save / load / list / delete presets. | `{ action: 'save'\|'load'\|'list'\|'delete', name?, id? }` |
+| `loom_random` | Generate a fresh randomized config (optionally constrained to a paradigm or mood seed) and apply it. | `{ paradigm?, seed? }` |
+| `loom_capture` | Persist a captured frame to disk as a PNG (and optional sidecar config). The UI renders the pixels (§7.6) and hands them to this tool, which writes the file and returns its absolute path. The agent can also request a capture ("save a 4K wallpaper"); the host completes the render-and-write round-trip. | `{ dataUrl, width, height, name?, writeSidecar? }` |
 
 Tool writes go through the **same atomic write** (`temp → fs.rename`) the UI uses,
 so the file watcher reflects changes into the UI immediately. Tools resolve the
@@ -309,32 +309,34 @@ clamped to safe ranges rather than rejected, to keep the creative loop smooth).
 
 ### 6.2 Prompt template (teaching the agent the knobs)
 
-A prompt template declared in `pi.prompts` (e.g. `./prompts/genart.md`)
-documents the `GenartConfig` schema, the palette math, and good-taste guidance
+A prompt template declared in `pi.prompts` (e.g. `./prompts/loom.md`)
+documents the `LoomConfig` schema, the palette math, and good-taste guidance
 ("map mood words to palette + motion; prefer smooth transitions; pick a paradigm
 that suits the description"). This is what lets "stormy ocean at dusk" become a
-sensible `genart_set` call. A `/genart` slash shortcut maps to this template.
+sensible `loom_set` call. A `/loom` slash shortcut maps to this template.
 
 ### 6.3 UI → agent path
 
 The control panel includes a **mood prompt box**. On submit, the UI calls
 `useAI().prompt("<user mood text>")` (or `promptStream` for token-by-token
-feedback). The agent — which has the `genart_set`/`genart_preset` tools in its
+feedback). The agent — which has the `loom_set`/`loom_preset` tools in its
 session — interprets the mood and calls the tool(s); the resulting state write
 morphs the canvas. The UI may also call tools directly without the LLM via
-`useAppTools().run('genart_random', {...})` for a deterministic "surprise me"
+`useAppTools().run('loom_random', {...})` for a deterministic "surprise me"
 button.
 
 Because the UI uses `useAI`/`useAppTools`, the manifest declares
 `requiredHostCapabilities: ["appAgent.invokeTool"]`.
 
-### 6.4 Scope note (validation item)
+### 6.4 Scope (decided: global)
 
-The plugin is specced as **`global`** scope (an art studio is not workspace-
-bound). `useAI`/`useAppTools` bind an agent session to an `appId × workspaceId`
-pair, so during implementation we must confirm a global app still resolves a
-current workspace for the agent bridge. If it does not, fall back to `workspace`
-scope. Tracked as an open item (§11).
+Loom is a **`global`** app — an art studio is not workspace-bound, and the same
+gallery of pieces should be available everywhere in Sero. This is confirmed, not
+provisional: the built-in `sero-cron-plugin` and `sero-mcp-plugin` are both
+`global` scope **and** use the agent bridge (`useAppTools` / `useAI` /
+`useAgentPrompt`), so a global app resolves the current workspace for its agent
+session. The mood box (`useAI`) and tool calls (`useAppTools`, incl.
+`loom_capture`) therefore work under global scope without a fallback.
 
 ---
 
@@ -348,7 +350,7 @@ scope. Tracked as an open item (§11).
   `text-foreground`, etc., not a bespoke theme) bound directly to `state.live`
   via `useAppState`. Twisting a control writes state → engine morphs.
 - **Mood box:** free-text prompt + "Generate" (routes to `useAI`) and a
-  "Surprise me" button (routes to `genart_random`).
+  "Surprise me" button (routes to `loom_random`).
 - **Gallery:** preset thumbnails with load/rename/delete; a "Save current as…"
   action.
 - **Transport:** play/pause, speed, quality, paradigm toggle, and a **camera
@@ -408,14 +410,14 @@ the panel. Concretely:
    (`OffscreenCanvas` → `convertToBlob`, or canvas `toDataURL`).
 4. Restore the live on-screen size and resume animation.
 
-**Persisting the file.** The UI hands the encoded PNG to the `genart_capture`
-tool (§6.1) via `useAppTools().run('genart_capture', { dataUrl, width, height,
+**Persisting the file.** The UI hands the encoded PNG to the `loom_capture`
+tool (§6.1) via `useAppTools().run('loom_capture', { dataUrl, width, height,
 name, writeSidecar })`. The Pi extension (Node `fs`) writes it atomically to a
 captures directory and returns the absolute path. This follows Sero's "UI →
 plugin tool" rule — no custom host bridge, consistent with how config writes
 already work.
 
-- **Destination:** default `~/.sero-ui/apps/genart/captures/<name>-<timestamp>.png`
+- **Destination:** default `~/.sero-ui/apps/loom/captures/<name>-<timestamp>.png`
   (global app dir; resolved from `SERO_HOME` with the Pi-CLI fallback). The
   returned absolute path is surfaced in a toast so the user can grab it and set it
   as wallpaper.
@@ -423,7 +425,7 @@ already work.
   `download`) so the user always gets the file even if the tool path is
   unavailable in a given host build.
 - **Reproducibility:** when `writeSidecarConfig` is on, the tool also writes
-  `<name>-<timestamp>.json` containing the exact `GenartConfig` (incl. seed) next
+  `<name>-<timestamp>.json` containing the exact `LoomConfig` (incl. seed) next
   to the PNG, so any captured wallpaper can be regenerated or tweaked later.
   (Embedding the config in a PNG `tEXt` chunk is a possible future enhancement.)
 
@@ -461,7 +463,7 @@ fixed during implementation:
 
 ```jsonc
 {
-  "name": "@sero-ai/plugin-genart",
+  "name": "@sero-ai/plugin-loom",
   "version": "0.1.0",
   "description": "WebGPU generative art studio for Sero — agent-driven, smoothly morphing GPU art.",
   "keywords": ["pi-package", "sero-plugin"],
@@ -473,17 +475,17 @@ fixed during implementation:
   },
   "pi": {
     "extensions": ["./extension/index.ts"],
-    "prompts": ["./prompts/genart.md"]
+    "prompts": ["./prompts/loom.md"]
   },
   "sero": {
     "app": {
-      "id": "genart",
-      "name": "Generative Art",
+      "id": "loom",
+      "name": "Loom",
       "icon": "sparkles",
       "scope": "global",
-      "stateFile": ".sero/apps/genart/state.json",
+      "stateFile": ".sero/apps/loom/state.json",
       "ui": "./dist/ui/remoteEntry.js",
-      "component": "GenartApp",
+      "component": "LoomApp",
       "devPort": 5197
     },
     "plugin": {
@@ -498,8 +500,8 @@ fixed during implementation:
 ```
 
 Notes:
-- `scope: "global"` (pending §6.4 validation), `stateFile` required even for
-  global apps (Pi-CLI fallback).
+- `scope: "global"` (decided — §6.4), `stateFile` required even for global apps
+  (Pi-CLI fallback).
 - `devPort: 5197` — next free port (5182/5188/5193–5196 are taken).
 - Three.js and React UI deps are bundled by Vite into the MF remote, so they live
   in `devDependencies` (like `motion` in existing plugins); Pi SDK packages go in
@@ -514,7 +516,7 @@ Notes:
 Follows the standard plugin pattern (see `sero-cron-plugin/vite.config.ts`):
 
 - `base: process.env.NODE_ENV === 'production' ? './' : '/'`.
-- `federation({ name: 'sero_genart', filename: 'remoteEntry.js', exposes: { './GenartApp': './ui/GenartApp.tsx' } })` (+ `./GenartWidget` if the dashboard widget is built).
+- `federation({ name: 'sero_loom', filename: 'remoteEntry.js', exposes: { './LoomApp': './ui/LoomApp.tsx' } })` (+ `./LoomWidget` if the dashboard widget is built).
 - `react`/`react-dom` shared singletons; `@sero-ai/app-runtime` **not** MF-shared
   and added to `optimizeDeps.exclude`.
 - `server.port` must equal `sero.app.devPort` (5197).
@@ -531,7 +533,6 @@ Follows the standard plugin pattern (see `sero-cron-plugin/vite.config.ts`):
 
 | Item | Notes / mitigation |
 |------|--------------------|
-| **Global scope vs agent bridge** | `useAI`/`useAppTools` bind to app×workspace. Confirm a global app resolves a workspace; else use `workspace` scope. (§6.4) |
 | **Bundle size** | Three.js + TSL is large. Use subpath imports, measure `dist/ui`, lazy-load the heavier paradigm if needed. (§10) |
 | **WebGPU not available** | Fallback to WebGL backend + reduced budgets; clear unavailable state. (§8) |
 | **GPU resource leaks** | Must dispose renderer/device + GPU buffers on unmount and on paradigm rebuilds. (§5.1) |
@@ -559,18 +560,28 @@ Follows the standard plugin pattern (see `sero-cron-plugin/vite.config.ts`):
 
 ## 13. Naming
 
-`genart` / "Generative Art" are working placeholders chosen for clarity. If a
-branded name is preferred (e.g. "Lumen", "Flux", "Aurora"), it changes
-`sero.app.id`, `sero.app.name`, the package name, the MF remote name
-(`sero_<id>`), the directory, and the tool prefix. Pin the name before
-implementation to avoid a later rename.
+The plugin is named **Loom**. The name evokes weaving threads — fitting for both
+the particle flow fields and the woven SDF surfaces. This is the confirmed name
+and is reflected consistently across the contract surface:
+
+| Surface | Value |
+|---------|-------|
+| App id (`sero.app.id`) | `loom` |
+| Display name (`sero.app.name`) | `Loom` |
+| npm package | `@sero-ai/plugin-loom` |
+| Directory | `plugins/sero-loom-plugin/` |
+| MF remote name | `sero_loom` |
+| Exposed component | `LoomApp` (+ optional `LoomWidget`) |
+| Tool prefix | `loom_` (`loom_set`, `loom_preset`, `loom_random`, `loom_capture`) |
+| Slash command | `/loom` |
+| State dir | `~/.sero-ui/apps/loom/` |
 
 ---
 
 ## 14. Milestones
 
 1. **M0 — Skeleton.** Plugin scaffold via the `sero-plugin` skill: manifest,
-   `shared/types.ts` with `GenartConfig` + `DEFAULT_GENART_STATE`, empty
+   `shared/types.ts` with `LoomConfig` + `DEFAULT_LOOM_STATE`, empty
    extension + UI, MF/Vite wiring. Appears in the Sero sidebar; blank canvas.
 2. **M1 — Engine core.** `WebGPURenderer` + `uTime` + cosine-palette TSL node +
    transition tweener. Raymarch paradigm rendering a default morphing piece from
@@ -579,12 +590,12 @@ implementation to avoid a later rename.
    quality budgets + WebGL fallback path.
 4. **M3 — Control panel.** Full panel bound to `useAppState` (palette editor,
    motion, paradigm-specific controls, transport). Two-way live sync.
-5. **M4 — Agent driver.** `genart_set` / `genart_preset` / `genart_random` tools,
-   `genart.md` prompt template, mood box wired to `useAI`. End-to-end:
+5. **M4 — Agent driver.** `loom_set` / `loom_preset` / `loom_random` tools,
+   `loom.md` prompt template, mood box wired to `useAI`. End-to-end:
    "stormy ocean" → tool call → morph.
 6. **M5 — Presets/gallery.** Save/load/delete named pieces with thumbnails; agent
    save/recall.
-7. **M6 — Capture / wallpaper.** Camera button + `genart_capture` tool: offscreen
+7. **M6 — Capture / wallpaper.** Camera button + `loom_capture` tool: offscreen
    high-res render at display/1080p/1440p/4K/custom, PNG write to the captures
    dir with path toast, download fallback, optional sidecar config, agent-driven
    capture.
@@ -600,7 +611,7 @@ implementation to avoid a later rename.
 - Switching paradigm (particles ⇄ raymarch) works without a renderer leak.
 - Editing any control morphs the art smoothly (no hard jumps).
 - Asking the agent (mood box or chat) to change the mood results in a
-  `genart_set` call that visibly + smoothly transforms the piece.
+  `loom_set` call that visibly + smoothly transforms the piece.
 - A piece can be saved as a named preset and reloaded later by both human and
   agent, restoring the same look.
 - Clicking the camera button writes a high-resolution PNG (display-matched or up
@@ -609,5 +620,5 @@ implementation to avoid a later rename.
   matching `.json` config is written next to the PNG.
 - On a device without WebGPU, the plugin degrades to WebGL (or a clear
   unavailable state) rather than crashing or showing a blank canvas.
-- `pnpm --filter @sero-ai/plugin-genart build` and `typecheck` pass;
+- `pnpm --filter @sero-ai/plugin-loom build` and `typecheck` pass;
   `scripts/build-plugin.sh` / `export-plugin-source.sh` produce a valid bundle.
