@@ -56,6 +56,19 @@ function getPluginChangeManifest(event: PluginChangeEvent): SeroAppManifest | nu
 }
 
 /**
+ * Local dev-session edits (UI or backend) deliver a freshly-validated,
+ * cache-busted manifest — the same data a full re-discovery would return.
+ * For these we can patch the single affected app in place rather than
+ * re-running discovery, which keeps the surrounding host state intact.
+ */
+function isInPlaceDevSessionReason(event: PluginChangeEvent): boolean {
+  return (
+    event.type === 'changed' &&
+    (event.reason === 'dev-session-ui-changed' || event.reason === 'dev-session-refreshed')
+  );
+}
+
+/**
  * Discover sero apps and merge them into the store.
  * Built-in apps are always first; discovered apps follow.
  */
@@ -114,17 +127,26 @@ export async function handlePluginChange(event: PluginChangeEvent): Promise<void
     console.log('[app-store] Plugin change without app id; rediscovering apps.');
   }
 
-  if (event.reason === 'dev-session-ui-changed' && appId && manifest) {
+  // Apply local dev-session edits in place instead of re-discovering every app.
+  // UI-only edits always take this path; backend (`extension/`, `runtime/`, …)
+  // refreshes take it too once the app is already registered, so editing plugin
+  // backend code no longer tears down and reloads the whole Sero host. A
+  // not-yet-registered session still falls through to full discovery so the new
+  // app appears in the registry.
+  if (appId && manifest && isInPlaceDevSessionReason(event)) {
     const appState = useAppStore.getState();
-    useAppStore.setState({
-      apps: appState.apps.map((entry) => (
-        entry.id === appId ? manifestToEntry(manifest) : entry
-      )),
-    });
-    if (appState.activeApp === appId) {
-      useAppStore.getState().reloadApp(appId);
+    const appAlreadyRegistered = appState.apps.some((entry) => entry.id === appId);
+    if (event.reason === 'dev-session-ui-changed' || appAlreadyRegistered) {
+      useAppStore.setState({
+        apps: appState.apps.map((entry) => (
+          entry.id === appId ? manifestToEntry(manifest) : entry
+        )),
+      });
+      if (appState.activeApp === appId) {
+        useAppStore.getState().reloadApp(appId);
+      }
+      return;
     }
-    return;
   }
 
   await discoverAndRegisterApps();

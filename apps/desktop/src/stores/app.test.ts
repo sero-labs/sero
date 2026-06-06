@@ -311,11 +311,6 @@ describe('discoverAndRegisterApps', () => {
 
     discover
       .mockResolvedValueOnce([installEvent.manifest])
-      .mockResolvedValueOnce([
-        createManifest('todo', 'TodoApp', 4101, {
-          remoteEntryOverride: 'http://127.0.0.1:4101/mf-manifest.json?t=2026-04-20T10%3A00%3A00.000Z',
-        }),
-      ])
       .mockResolvedValueOnce([]);
 
     await handlePluginChange(installEvent);
@@ -342,8 +337,14 @@ describe('discoverAndRegisterApps', () => {
       ],
     });
 
+    const discoverCallsBeforeRefresh = discover.mock.calls.length;
+
     await handlePluginChange(devSessionEvent);
 
+    // A backend dev-session refresh for an already-registered app patches the app
+    // in place and reloads only that app — it must NOT trigger a full re-discovery
+    // (which would churn the whole host and lose surrounding state).
+    expect(discover.mock.calls.length).toBe(discoverCallsBeforeRefresh);
     expect(federationMocks.invalidateRemote).toHaveBeenCalledWith('todo');
     expect(federationMocks.registerDynamicRemote).toHaveBeenCalledWith(
       'todo',
@@ -351,11 +352,13 @@ describe('discoverAndRegisterApps', () => {
       'http://127.0.0.1:4101/mf-manifest.json',
     );
     expect(federationMocks.refreshTransientRemote).toHaveBeenCalledWith('todo');
+    // The reload uses the manifest carried by the event itself (already
+    // cache-busted by the backend), not a freshly re-discovered one.
     expect(federationMocks.preloadFederatedModule).toHaveBeenCalledWith(
       'todo',
       'TodoApp',
       4101,
-      'http://127.0.0.1:4101/mf-manifest.json?t=2026-04-20T10%3A00%3A00.000Z',
+      'http://127.0.0.1:4101/mf-manifest.json',
     );
 
     await handlePluginChange({
