@@ -135,10 +135,16 @@ Memory-related debug logs live at:
 <SERO_HOME>/debug/memory/
 ```
 
-### Temporary runtime logs
+### Runtime logs
 
-Some desktop/dev runtime logs are written outside the profile tree under `/tmp/`,
-for example:
+Source-dev runtime logs are written to:
+
+```text
+~/.sero-ui/logs/
+```
+
+or to `$SERO_LOG_DIR` when that environment variable is set. Compatibility
+symlinks are also kept under `/tmp/` for older tooling:
 
 ```text
 /tmp/sero-vite.log
@@ -146,7 +152,18 @@ for example:
 /tmp/sero-remote-<app-id>.log
 ```
 
-Treat those as local developer-machine artifacts, not durable profile state.
+Container workspaces get an obvious read-only log portal at:
+
+```text
+/workspace/.sero/logs/
+```
+
+Start with `/workspace/.sero/logs/README.md`. It points agents to source-dev
+logs, profile debug logs, app logs, and session JSONL files without needing to
+guess host paths.
+
+Treat runtime logs as local developer-machine artifacts, not durable profile
+state.
 
 ## Auth and secrets
 

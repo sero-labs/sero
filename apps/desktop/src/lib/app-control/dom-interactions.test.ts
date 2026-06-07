@@ -35,6 +35,30 @@ function setPointStack(stack: Element[]): void {
   });
 }
 
+function setScrollMetrics(element: HTMLElement, values: { clientHeight: number; scrollHeight: number; scrollTop?: number }): void {
+  let scrollTop = values.scrollTop ?? 0;
+  Object.defineProperties(element, {
+    clientHeight: { configurable: true, value: values.clientHeight },
+    scrollHeight: { configurable: true, value: values.scrollHeight },
+    scrollTop: {
+      configurable: true,
+      get: () => scrollTop,
+      set: (value: number) => {
+        scrollTop = Math.max(0, Math.min(value, values.scrollHeight - values.clientHeight));
+      },
+    },
+    clientWidth: { configurable: true, value: 200 },
+    scrollWidth: { configurable: true, value: 200 },
+    scrollLeft: { configurable: true, writable: true, value: 0 },
+  });
+  Object.defineProperty(element, 'scrollBy', {
+    configurable: true,
+    value: ({ top = 0 }: { top?: number }) => {
+      element.scrollTop += top;
+    },
+  });
+}
+
 describe('app control DOM interactions', () => {
   let panel: HTMLElement;
   let button: HTMLButtonElement;
@@ -131,5 +155,25 @@ describe('app control DOM interactions', () => {
       message: 'Clicked at (35, 28)',
     });
     expect(events).toEqual(['mousedown', 'mouseup', 'click']);
+  });
+
+  it('scrolls the nearest scroll container under a point and reports actual movement', async () => {
+    const scroller = document.createElement('aside');
+    scroller.className = 'factory-inspector';
+    const child = document.createElement('div');
+    child.textContent = 'Read-only evidence';
+    scroller.appendChild(child);
+    panel.appendChild(scroller);
+    setRect(scroller, makeRect(180, 60, 120, 120));
+    setRect(child, makeRect(190, 80, 80, 40));
+    setScrollMetrics(scroller, { clientHeight: 120, scrollHeight: 2000, scrollTop: 420 });
+    setPointStack([child, scroller, panel]);
+
+    const result = await executeAppInteraction({ action: 'scroll', x: 180, y: 60, deltaY: 700, captureAfter: false });
+
+    expect(result).toEqual({
+      success: true,
+      message: 'Scrolled aside.factory-inspector by y 700px; scrollTop 420 → 1120',
+    });
   });
 });

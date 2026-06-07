@@ -5,6 +5,8 @@
  * hook when the workspace has an active container.
  */
 
+import { getHostPiDocsPaths, getRuntimePiDocsPaths } from '@electron/features/pi-docs/shared-pi-docs';
+
 /**
  * Build the container context block for injection into the system prompt.
  * Returns the block to append, or null if there's no container info to add.
@@ -18,6 +20,7 @@ export function buildContainerPromptBlock(
   const cwdNote = currentWorkingDir === '/workspace'
     ? 'Your current working directory is also /workspace.'
     : `Your current working directory for this session is ${currentWorkingDir}.`;
+  const piDocs = getRuntimePiDocsPaths();
 
   return `
 
@@ -35,6 +38,14 @@ If this session is in a git worktree subdirectory, do NOT reset yourself with \`
 - Network access for installing packages
 - Available tools: git, curl, wget, node, npm, python3, ss, netstat, dig, ps, less, jq
 ${containerIp ? `- Container IP: ${containerIp} (accessible from the host)` : ''}
+
+**Pi/Sero self-building documentation**
+- Pi docs are mounted read-only at \`${piDocs.root}\`.
+- Main documentation: \`${piDocs.readme}\`
+- Additional docs: \`${piDocs.docs}\`
+- Examples, when bundled: \`${piDocs.examples}\`
+- If the default Pi documentation paths in the base prompt point at host-only, missing, or package/asar-only locations, ignore those paths in container mode and use the mounted paths above.
+- When asked about Pi/Sero SDK, extensions, themes, skills, prompt templates, TUI, keybindings, models, packages, or custom providers, read these mounted docs first.
 
 **Version control (git)**
 - Mutating git commands in bash are BLOCKED.
@@ -76,6 +87,12 @@ Each bash tool call runs in an isolated \`sh -c\` shell.
 - The user may have interactive terminal sessions running in this container.
 - After starting a server, use the \`sero-cli\` tool with \`terminal read\` to inspect terminal output and proactively fix errors.
 
+**Sero logs**
+- Host-side Sero logs are mounted read-only under \`/workspace/.sero/logs\`.
+- Start with \`/workspace/.sero/logs/README.md\`; do not hunt through host temp paths first.
+- For local plugin crashes, check \`dev/sero-electron.log\` and \`dev/sero-remote-<app-id>.log\` with \`tail\` or tight \`rg\` patterns.
+- Session JSONL files can be large; avoid loading them wholesale when a targeted search or small extraction script will do.
+
 **Web search, fetching, and downloads**
 - For normal web tasks, prefer the Sero web tools exposed through \`sero-cli\`.
 - Use \`web_search\` for web search and current information lookup.
@@ -110,6 +127,7 @@ export function buildHostPromptBlock(
   opts?: { platform?: NodeJS.Platform },
 ): string {
   const platform = opts?.platform ?? process.platform;
+  const piDocs = getHostPiDocsPaths();
   return `
 
 ## Host Runtime Environment
@@ -117,6 +135,13 @@ export function buildHostPromptBlock(
 You are operating on the host runtime for workspace "${workspaceId}".
 Workspace root: ${workspacePath}.
 Use relative paths from the workspace root unless the task explicitly needs another workspace.
+
+**Pi/Sero self-building documentation fallback**
+- If the default Pi documentation paths in the base prompt are missing or point into an inaccessible package/asar location, use the shared Sero docs copy instead.
+- Main documentation: \`${piDocs.readme}\`
+- Additional docs: \`${piDocs.docs}\`
+- Examples, when bundled: \`${piDocs.examples}\`
+- When asked about Pi/Sero SDK, extensions, themes, skills, prompt templates, TUI, keybindings, models, packages, or custom providers, read these docs first.
 
 **Command hygiene**
 - Do NOT hard-code PATH prefixes like \`PATH=/usr/local/bin:/opt/homebrew/...:$PATH\`. Sero already prepares managed Node/npm/pnpm/git/bash on PATH for tool calls.

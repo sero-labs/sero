@@ -6,12 +6,13 @@ import {
   handleClick,
   handleGetText,
   handleHover,
-  handleScroll,
   handleSelect,
   handleType,
 } from './dom/actions';
 import { getAppPanel, getAppPanelRect } from './dom/geometry';
 import { handleInspect } from './dom/inspect';
+import { handleScroll, handleScrollContainers, handleScrollTo } from './dom/scrolling';
+import { handleSnapshot, handleVisible } from './dom/snapshot';
 
 export { getAppPanelRect };
 
@@ -28,6 +29,8 @@ export async function executeAppInteraction(
       return handleType(panel, params);
     case 'scroll':
       return handleScroll(panel, params);
+    case 'scroll-to':
+      return handleScrollTo(panel, params);
     case 'select':
       return handleSelect(panel, params);
     case 'hover':
@@ -36,6 +39,12 @@ export async function executeAppInteraction(
       return handleGetText(panel, params);
     case 'inspect':
       return handleInspect(panel, params);
+    case 'visible':
+      return handleVisible(panel, params);
+    case 'snapshot':
+      return handleSnapshot(panel);
+    case 'scroll-containers':
+      return handleScrollContainers(panel, params);
     default:
       return { success: false, message: `Unknown action: ${params.action}` };
   }

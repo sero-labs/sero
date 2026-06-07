@@ -100,6 +100,7 @@ async function openSessionInternal(
     sessionPath,
     workspaceId,
     sendEvent,
+    closeExisting: closePoolEntry,
   });
 }
 

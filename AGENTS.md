@@ -64,7 +64,7 @@ External plugin examples live alongside this repo under `../plugins/`, notably
 - [docs/plugins/guide.md](docs/plugins/guide.md) — creating, distributing, installing plugins
 - [docs/plugins/technical.md](docs/plugins/technical.md) — plugin system internals
 
-Logs: `/tmp/sero-vite.log`, `/tmp/sero-remote-<app-id>.log`, `/tmp/sero-electron.log`
+Logs: source-dev logs live in `~/.sero-ui/logs/` (or `$SERO_LOG_DIR`) with compatibility symlinks at `/tmp/sero-*.log`. Inside container workspaces, start at `/workspace/.sero/logs/README.md`; useful files include `dev/sero-electron.log`, `dev/sero-vite.log`, and `dev/sero-remote-<app-id>.log`.
 
 **Selective Dev**: `SERO_DEV_PLUGINS=admin,git bash scripts/dev.sh` (rebuild skipped plugins first with `pnpm build`).
 
@@ -102,6 +102,8 @@ If you change `apps/desktop/images/Dockerfile.sero-node` or container-installed 
 - Before creating a PR check and update the `@apps/docs-site` documentation and update as required
 - When writing text/copy for Sero codebase or end-user documentation keep it simple, without convoluted long blocks of text
 - Do not add sub-labels descriptions on UI components unneccesarily - components should be self-explanatory
+- Unless we are doing explanatory work - or you were asked specifically - DO NOT create heuristic solutions to solve things that should be done via the AI/LLM layer
+- NEVER add unnecessary clutter to UI components
 
 ## File Size Rules (CRITICAL)
 

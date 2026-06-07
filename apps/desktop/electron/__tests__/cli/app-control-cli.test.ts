@@ -61,7 +61,7 @@ describe('app control CLI', () => {
     );
 
     expect(result).toEqual({
-      output: 'ERROR: Use either a selector or --x/--y coordinates for inspect, not both.',
+      output: 'ERROR: Use only one inspect target: selector, --ref, or --x/--y coordinates.',
       exitCode: 1,
     });
     expect(executeJavaScript).not.toHaveBeenCalled();
@@ -91,6 +91,29 @@ describe('app control CLI', () => {
     );
     expect(result).toEqual({
       output: '{\n  "mode": "point",\n  "point": {\n    "x": 10,\n    "y": 12\n  },\n  "panelRect": {\n    "x": 20,\n    "y": 40,\n    "width": 320,\n    "height": 240\n  }\n}',
+      exitCode: 0,
+    });
+  });
+
+  it('passes direct scroll deltas and point targeting to the renderer', async () => {
+    executeJavaScript.mockResolvedValue({
+      success: true,
+      message: 'Scrolled aside.factory-inspector by y -900px; scrollTop 1120 → 220',
+    });
+
+    const registry = new CliRegistry();
+    registerAppControlCliCommands(registry);
+
+    const result = await registry.get('app')?.execute(
+      ['scroll', '--at-x', '450', '--at-y', '300', '--y', '-900'],
+      createContext(),
+    );
+
+    expect(executeJavaScript).toHaveBeenCalledWith(
+      'window.__appControl?.interact({"action":"scroll","direction":"down","amount":300,"deltaY":-900,"x":450,"y":300})',
+    );
+    expect(result).toEqual({
+      output: 'Scrolled aside.factory-inspector by y -900px; scrollTop 1120 → 220',
       exitCode: 0,
     });
   });

@@ -68,7 +68,11 @@ export function useWorkspaceTreeRuntime() {
       }
 
       if (sessionId && sessionPath) {
-        await openSession(sessionId, sessionPath, workspaceId);
+        const runtimeBackend = useWorkspaceStore
+          .getState()
+          .workspaces.find((workspace) => workspace.id === workspaceId)
+          ?.runtime.backend;
+        await openSession(sessionId, sessionPath, workspaceId, runtimeBackend);
         setActiveSession(sessionId);
       }
 

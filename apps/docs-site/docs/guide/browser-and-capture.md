@@ -76,13 +76,18 @@ Sero can perform simple interactions against the currently visible app panel.
 sero app click "button[data-testid='save']"
 sero app click --x 240 --y 180
 sero app type "hello" --selector "textarea"
-sero app scroll --direction down --amount 500
+sero app scroll --selector "aside.inspector" --y 700
+sero app scroll-to --text "Read-only evidence" --within "aside.inspector"
+sero app screenshot-around --text "Read-only evidence" --within "aside.inspector" --save ./evidence.png
+sero app visible --text "Read-only evidence"
+sero app scroll-containers
 sero app hover ".menu-item"
-sero app inspect --x 120 --y 80
-sero app get-text --selector "main"
+sero app inspect --visible-only --limit 20
+sero app get-text --app factory --selector "aside.inspector" --visible-only
 ```
 
-`click`, `type`, `scroll`, `select`, and `hover` auto-capture a screenshot after the action. `inspect` returns JSON and skips the post-action screenshot.
+`click`, `type`, `scroll`, `scroll-to`, `select`, and `hover` auto-capture a screenshot after the action. `inspect`, `visible`, `snapshot`, `scroll-containers`, and `get-text` return text/JSON and skip the post-action screenshot.
+`inspect` and `snapshot` include temporary element refs, which can be reused with commands such as `sero app click --ref e17` or `sero app scroll --ref e42 --y 500`.
 
 Limitations:
 

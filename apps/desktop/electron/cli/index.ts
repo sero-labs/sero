@@ -301,6 +301,10 @@ Run \`sero help <command>\` for details. Chain multiple commands (one per line).
 For \`sero app\`, skip help for common flows.
 - Screenshot apps directly: \`sero app screenshot --app "<name or id>" [--save <path>]\`
 - Names resolve too (\`Calculator\` → \`calc\`); use \`sero app list\` only if ambiguous.
+- Prefer selector/ref/text UI control over coordinate guessing: \`app inspect\`, \`app snapshot\`, \`app visible --text "..."\`, \`app scroll-to --text "..."\`.
+- For nested panels, use \`app scroll --selector <sel> --y <px>\` or \`app scroll --at-x <n> --at-y <n> --y <px>\`; scroll output reports the actual container and before/after scroll position.
+- Scope duplicated text with \`--within <selector>\` and use \`app screenshot-around --text "..." --within <selector> --save <path>\` for evidence captures.
+- Use \`app scroll-containers\` to find scrollable panels and \`app screenshot --selector <sel> --full\` for long containers.
 - \`appstate\` is JSON state only, not UI automation.
 - Use \`app click <selector>\` or \`app click --x <n> --y <n>\`; no \`app press\`.
 

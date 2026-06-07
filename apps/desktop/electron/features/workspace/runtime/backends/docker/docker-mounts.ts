@@ -2,6 +2,7 @@ import { existsSync } from 'fs';
 import path from 'path';
 import { SERO_AGENT_DIR } from '@electron/platform/env';
 import type { ContainerConfig } from '@electron/features/container/core/types';
+import { getSharedPiDocsRoot } from '@electron/features/pi-docs/shared-pi-docs';
 import { toRuntimeIdentityMountPath } from '../../runtime-paths';
 
 const WORKSPACE_TARGET = '/workspace';
@@ -20,6 +21,16 @@ export function buildDockerMounts(config: ContainerConfig, platform: NodeJS.Plat
   for (const hostPath of config.readOnlyMounts ?? defaultAgentReadOnlyMounts()) {
     if (existsSync(hostPath)) mounts.push({ source: normalizeDockerSource(hostPath, platform), target: normalizeIdentityTarget(hostPath), readonly: true });
   }
+  for (const mount of config.bindMounts ?? []) {
+    if (existsSync(mount.source)) {
+      const dockerMount: DockerMount = {
+        source: normalizeDockerSource(mount.source, platform),
+        target: mount.target,
+      };
+      if (mount.readonly) dockerMount.readonly = true;
+      mounts.push(dockerMount);
+    }
+  }
   return dedupeMounts(mounts);
 }
 
@@ -28,7 +39,11 @@ export function mountArgs(mounts: DockerMount[]): string[] {
 }
 
 export function defaultAgentReadOnlyMounts(): string[] {
-  return [path.join(SERO_AGENT_DIR, 'skills'), path.join(SERO_AGENT_DIR, 'prompts')];
+  return [
+    path.join(SERO_AGENT_DIR, 'skills'),
+    path.join(SERO_AGENT_DIR, 'prompts'),
+    getSharedPiDocsRoot(),
+  ];
 }
 
 export function formatMount(mount: DockerMount): string {

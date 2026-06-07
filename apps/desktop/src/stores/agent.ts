@@ -45,7 +45,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
   showMemoryBlocks: false,
   collaborations: {},
 
-  openSession: async (sessionId, sessionPath, workspaceId) => {
+  openSession: async (sessionId, sessionPath, workspaceId, runtimeBackend) => {
     notifyPreviousSessionSwitch(get().focusedSessionId, sessionId);
     set({ focusedSessionId: sessionId });
 
@@ -59,7 +59,8 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     // Check for `sessionId` field — partial entries created by events
     // (e.g. when a federated app calls agent.open via IPC directly)
     // won't have it set and need to be repaired.
-    if (get().agents[sessionId]?.sessionId) {
+    const existing = get().agents[sessionId];
+    if (existing?.sessionId && (!runtimeBackend || existing.runtimeBackend === runtimeBackend)) {
       return;
     }
 
@@ -75,6 +76,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
               sessionId,
               sessionPath,
               workspaceId,
+              runtimeBackend,
               messages: partial?.messages ?? [],
               isStreaming: partial?.isStreaming ?? false,
               error: partial?.error ?? null,
@@ -108,6 +110,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
             ...s.agents,
             [sessionId]: {
               ...s.agents[sessionId],
+              runtimeBackend,
               messages: history,
               commands,
               modelState,
