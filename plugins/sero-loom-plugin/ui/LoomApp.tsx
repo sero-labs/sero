@@ -83,7 +83,7 @@ export function LoomApp() {
     setCaptureMsg('Rendering…');
     const dims = captureDims(state.settings);
     try {
-      const dataUrl = await capture(dims.w, dims.h);
+      const dataUrl = await capture(dims.w, dims.h, state.settings.capture.freezeOnCapture);
       try {
         const res = await tools.run('loom_capture', {
           dataUrl, width: dims.w, height: dims.h, name: 'loom',

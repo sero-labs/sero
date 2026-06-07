@@ -44,6 +44,7 @@ export class LoomEngine {
   private timeSec = 0;
   private speedEased = 1;
   private paused = false;
+  private freeze = false; // holds time for the duration of a capture
   private raf = 0;
   private lastFrame = 0;
   private width = 1;
@@ -166,7 +167,7 @@ export class LoomEngine {
     const k = 1 - Math.exp(-dt / 0.4);
 
     this.speedEased += (this.target.speed - this.speedEased) * k;
-    if (!this.paused) this.timeSec += dt * this.speedEased;
+    if (!this.paused && !this.freeze) this.timeSec += dt * this.speedEased;
     this.uTime.value = this.timeSec;
     this.easeTargets(k);
     for (const l of this.layers) l.update(dt);
@@ -175,49 +176,54 @@ export class LoomEngine {
 
   // ── Capture (offscreen, arbitrary resolution) ─────────────────
 
-  async capture(width: number, height: number): Promise<string> {
+  async capture(width: number, height: number, freeze = false): Promise<string> {
     const r = this.renderer;
     if (!r) throw new Error('Renderer not ready');
     const w = Math.max(16, Math.floor(width));
     const h = Math.max(16, Math.floor(height));
     const rt = new RenderTarget(w, h, { depthBuffer: true });
 
+    // Hold time so the captured frame matches the on-screen instant and does not
+    // drift across the async readback. Restored in `finally`.
+    this.freeze = freeze;
     const prevAspect = this.uAspect.value;
     this.uAspect.value = w / h;
     this.perspCam.aspect = w / h;
     this.perspCam.updateProjectionMatrix();
+    try {
+      r.setRenderTarget(rt);
+      r.setClearColor(this.clearColor.setRGB(this.bg.x, this.bg.y, this.bg.z), 1);
+      r.clear();
+      const layers = this.target.layers;
+      for (let i = 0; i < this.layers.length; i++) {
+        if (layers[i]?.enabled === false) continue;
+        const lr = this.layers[i];
+        await r.render(lr.scene, lr.kind === 'ortho' ? this.orthoCam : this.perspCam);
+      }
+      const raw = await r.readRenderTargetPixelsAsync(rt, 0, 0, w, h);
+      const buffer: Uint8Array = raw instanceof Uint8Array ? raw : new Uint8Array((raw as ArrayBufferView).buffer);
+      r.setRenderTarget(null);
 
-    r.setRenderTarget(rt);
-    r.setClearColor(this.clearColor.setRGB(this.bg.x, this.bg.y, this.bg.z), 1);
-    r.clear();
-    const layers = this.target.layers;
-    for (let i = 0; i < this.layers.length; i++) {
-      if (layers[i]?.enabled === false) continue;
-      const lr = this.layers[i];
-      await r.render(lr.scene, lr.kind === 'ortho' ? this.orthoCam : this.perspCam);
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('2D context unavailable for capture');
+      const img = ctx.createImageData(w, h);
+      const rowBytes = w * 4;
+      for (let y = 0; y < h; y++) {
+        const src = (h - 1 - y) * rowBytes; // GPU readback is bottom-up
+        img.data.set(buffer.subarray(src, src + rowBytes), y * rowBytes);
+      }
+      ctx.putImageData(img, 0, 0);
+      return canvas.toDataURL('image/png');
+    } finally {
+      this.freeze = false;
+      this.uAspect.value = prevAspect;
+      this.perspCam.aspect = this.width / this.height;
+      this.perspCam.updateProjectionMatrix();
+      rt.dispose();
     }
-    const raw = await r.readRenderTargetPixelsAsync(rt, 0, 0, w, h);
-    const buffer: Uint8Array = raw instanceof Uint8Array ? raw : new Uint8Array((raw as ArrayBufferView).buffer);
-    r.setRenderTarget(null);
-
-    this.uAspect.value = prevAspect;
-    this.perspCam.aspect = this.width / this.height;
-    this.perspCam.updateProjectionMatrix();
-    rt.dispose();
-
-    const canvas = document.createElement('canvas');
-    canvas.width = w;
-    canvas.height = h;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) throw new Error('2D context unavailable for capture');
-    const img = ctx.createImageData(w, h);
-    const rowBytes = w * 4;
-    for (let y = 0; y < h; y++) {
-      const src = (h - 1 - y) * rowBytes; // GPU readback is bottom-up
-      img.data.set(buffer.subarray(src, src + rowBytes), y * rowBytes);
-    }
-    ctx.putImageData(img, 0, 0);
-    return canvas.toDataURL('image/png');
   }
 
   dispose(): void {

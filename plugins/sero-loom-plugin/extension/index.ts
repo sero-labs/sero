@@ -21,7 +21,7 @@ import {
   validateGraph,
   type LoomState,
 } from '../shared/types';
-import { readState, resolveStatePath, writeCapture, writeState } from './state-io';
+import { readState, resolveStatePath, updateLoomState, writeCapture } from './state-io';
 
 type ToolText = { content: { type: 'text'; text: string }[]; details: Record<string, never> };
 const text = (s: string): ToolText => ({ content: [{ type: 'text', text: s }], details: {} });
@@ -102,18 +102,15 @@ export default function (pi: ExtensionAPI) {
       'Author the art. Pass a full `graph` (replace) OR a `patch` (shallow-merged; `layers` replaces the whole list). The graph is a layered document — combine raymarch + particle layers freely. Any numeric field may be a number OR {"expr":"..."} using the expression language (vars: t, p, id, depth, ny; fns: sin, cos, noise, mix, clamp, length, vec3, …). Invalid expressions are reported and fall back, so iterate.',
     parameters: ComposeParams,
     async execute(_id, params, _signal, _onUpdate, ctx) {
-      const statePath = resolveStatePath(cwdFrom(ctx));
-      const state = await readState(statePath);
       if (params.graph === undefined && params.patch === undefined) {
         return text('Error: provide `graph` (full) or `patch` (partial).');
       }
-      const next =
-        params.graph !== undefined
-          ? normalizeGraph(params.graph)
-          : mergeGraphPatch(state.graph, params.patch);
-      state.graph = next;
-      await writeState(statePath, state);
-      return text(`Composed → ${summarize(state)}${issuesText(next)}`);
+      const statePath = resolveStatePath(cwdFrom(ctx));
+      const state = await updateLoomState(statePath, (s) => {
+        s.graph =
+          params.graph !== undefined ? normalizeGraph(params.graph) : mergeGraphPatch(s.graph, params.patch);
+      });
+      return text(`Composed → ${summarize(state)}${issuesText(state.graph)}`);
     },
   };
 
@@ -125,12 +122,13 @@ export default function (pi: ExtensionAPI) {
     parameters: DirectionParams,
     async execute(_id, params, _signal, _onUpdate, ctx) {
       const statePath = resolveStatePath(cwdFrom(ctx));
-      const state = await readState(statePath);
       if (params.action === 'get') {
+        const state = await readState(statePath);
         return text(state.direction.guidance || '(no creative direction set)');
       }
-      state.direction.guidance = params.guidance ?? '';
-      await writeState(statePath, state);
+      await updateLoomState(statePath, (s) => {
+        s.direction.guidance = params.guidance ?? '';
+      });
       return text('Creative direction updated.');
     },
   };
@@ -142,9 +140,9 @@ export default function (pi: ExtensionAPI) {
     parameters: RandomParams,
     async execute(_id, params, _signal, _onUpdate, ctx) {
       const statePath = resolveStatePath(cwdFrom(ctx));
-      const state = await readState(statePath);
-      state.graph = randomGraph(params.seed);
-      await writeState(statePath, state);
+      const state = await updateLoomState(statePath, (s) => {
+        s.graph = randomGraph(params.seed);
+      });
       return text(`New random piece → ${summarize(state)}`);
     },
   };
@@ -156,30 +154,43 @@ export default function (pi: ExtensionAPI) {
     parameters: PresetParams,
     async execute(_id, params, _signal, _onUpdate, ctx) {
       const statePath = resolveStatePath(cwdFrom(ctx));
-      const state = await readState(statePath);
+      const matches = (p: { id: string; name: string }) =>
+        (params.id && p.id === params.id) || (params.name && p.name === params.name);
+
       switch (params.action) {
-        case 'list':
+        case 'list': {
+          const state = await readState(statePath);
           return text(state.presets.length ? state.presets.map((p) => `• ${p.name} (${p.id})`).join('\n') : 'No saved pieces yet.');
+        }
         case 'save': {
           if (!params.name) return text('Error: name is required.');
-          const preset = { id: makePresetId(), name: params.name, createdAt: Date.now(), graph: structuredCloneState(state.graph) };
-          state.presets.push(preset);
-          await writeState(statePath, state);
-          return text(`Saved "${preset.name}" (${preset.id}).`);
+          let id = '';
+          await updateLoomState(statePath, (s) => {
+            id = makePresetId();
+            s.presets.push({ id, name: params.name!, createdAt: Date.now(), graph: structuredCloneState(s.graph) });
+          });
+          return text(`Saved "${params.name}" (${id}).`);
         }
         case 'load': {
-          const m = state.presets.find((p) => (params.id && p.id === params.id) || (params.name && p.name === params.name));
-          if (!m) return text(`Error: no piece matching ${params.name ?? params.id}.`);
-          state.graph = normalizeGraph(m.graph);
-          await writeState(statePath, state);
-          return text(`Loaded "${m.name}" → ${summarize(state)}`);
+          let loadedName = '';
+          const state = await updateLoomState(statePath, (s) => {
+            const m = s.presets.find(matches);
+            if (m) {
+              loadedName = m.name;
+              s.graph = normalizeGraph(m.graph);
+            }
+          });
+          if (!loadedName) return text(`Error: no piece matching ${params.name ?? params.id}.`);
+          return text(`Loaded "${loadedName}" → ${summarize(state)}`);
         }
         case 'delete': {
-          const before = state.presets.length;
-          state.presets = state.presets.filter((p) => !((params.id && p.id === params.id) || (params.name && p.name === params.name)));
-          if (state.presets.length === before) return text(`Error: no piece matching ${params.name ?? params.id}.`);
-          await writeState(statePath, state);
-          return text(`Deleted ${params.name ?? params.id}.`);
+          let removed = false;
+          await updateLoomState(statePath, (s) => {
+            const before = s.presets.length;
+            s.presets = s.presets.filter((p) => !matches(p));
+            removed = s.presets.length !== before;
+          });
+          return removed ? text(`Deleted ${params.name ?? params.id}.`) : text(`Error: no piece matching ${params.name ?? params.id}.`);
         }
       }
     },

@@ -37,23 +37,38 @@ export async function readState(filePath: string): Promise<LoomState> {
   }
 }
 
-// Serialize writes per path so concurrent tool calls don't clobber each other.
-const writeQueues = new Map<string, Promise<void>>();
+async function atomicWrite(filePath: string, state: LoomState): Promise<void> {
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
+  const tmp = `${filePath}.tmp.${process.pid}.${Date.now()}.${randomUUID()}`;
+  await fs.writeFile(tmp, JSON.stringify(state, null, 2), 'utf8');
+  await fs.rename(tmp, filePath);
+}
 
-export async function writeState(filePath: string, state: LoomState): Promise<void> {
-  const previous = writeQueues.get(filePath) ?? Promise.resolve();
-  const next = previous.catch(() => undefined).then(async () => {
-    await fs.mkdir(path.dirname(filePath), { recursive: true });
-    const tmp = `${filePath}.tmp.${process.pid}.${Date.now()}.${randomUUID()}`;
-    await fs.writeFile(tmp, JSON.stringify(state, null, 2), 'utf8');
-    await fs.rename(tmp, filePath);
-  });
-  writeQueues.set(filePath, next);
-  try {
-    await next;
-  } finally {
-    if (writeQueues.get(filePath) === next) writeQueues.delete(filePath);
-  }
+// Serialize the WHOLE read-modify-write per path so overlapping tool calls can't
+// clobber each other (a write queue alone leaves a stale-read race between
+// concurrent read→mutate→write transactions).
+const txQueues = new Map<string, Promise<unknown>>();
+
+/**
+ * Atomically read, mutate, and write Loom state under a per-path lock. The
+ * mutator runs against freshly-read state and may mutate it in place or return a
+ * new state. Returns the persisted state.
+ */
+export function updateLoomState(
+  filePath: string,
+  mutate: (state: LoomState) => LoomState | void,
+): Promise<LoomState> {
+  const prev = txQueues.get(filePath) ?? Promise.resolve();
+  const run = prev
+    .catch(() => undefined)
+    .then(async () => {
+      const state = await readState(filePath);
+      const next = mutate(state) ?? state;
+      await atomicWrite(filePath, next);
+      return next;
+    });
+  txQueues.set(filePath, run.catch(() => undefined));
+  return run;
 }
 
 export async function writeCapture(

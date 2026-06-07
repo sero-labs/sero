@@ -63,6 +63,7 @@
     "tailwindcss": "catalog:",
     "three": "^0.184.0",
     "typescript": "catalog:",
-    "vite": "catalog:"
+    "vite": "catalog:",
+    "vitest": "catalog:"
   }
 }

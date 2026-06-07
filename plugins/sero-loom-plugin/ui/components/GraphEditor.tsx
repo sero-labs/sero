@@ -1,12 +1,20 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '@sero-ai/ui';
 
 import type { LoomGraph } from '../../shared/graph';
 
 // Power-user / transparency escape hatch: edit the raw graph JSON directly.
+// Stays in sync with external changes (agent edits, Surprise, gallery loads,
+// layer tweaks) while not focused, so Apply never reverts newer state.
 export function GraphEditor({ graph, onApply }: { graph: LoomGraph; onApply: (g: LoomGraph) => void }) {
   const [text, setText] = useState(() => JSON.stringify(graph, null, 2));
   const [err, setErr] = useState('');
+  const focused = useRef(false);
+
+  const serialized = JSON.stringify(graph, null, 2);
+  useEffect(() => {
+    if (!focused.current) setText(serialized);
+  }, [serialized]);
 
   const apply = () => {
     try {
@@ -26,6 +34,12 @@ export function GraphEditor({ graph, onApply }: { graph: LoomGraph; onApply: (g:
         <textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
+          onFocus={() => {
+            focused.current = true;
+          }}
+          onBlur={() => {
+            focused.current = false;
+          }}
           spellCheck={false}
           rows={12}
           className="w-full resize-y rounded-md border border-input bg-background p-2 font-mono text-[10px] leading-relaxed text-foreground focus:outline-none focus:ring-1 focus:ring-ring"

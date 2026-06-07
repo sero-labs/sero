@@ -2,7 +2,7 @@
 // field may be a constant OR an { expr } string compiled to TSL. Layers blend in
 // order so paradigms (raymarch / particles) can be combined freely.
 
-import { validateExpr } from './expr';
+import { validateExprWith } from './expr';
 
 export type Vec3 = [number, number, number];
 export type Scalar = number | { expr: string };
@@ -253,50 +253,60 @@ export interface GraphIssue {
   error: string;
 }
 
-function checkScalar(s: Scalar, path: string, issues: GraphIssue[]): void {
+// Variable sets per field context — MUST match the env each field is compiled
+// with (see ui/engine/sdf-compile.ts and the layer builders). `pi` is implicit.
+const VARS = {
+  time: new Set(['t']),
+  sdf: new Set(['t', 'p']), // size / at / k / amount
+  rayDrive: new Set(['t', 'depth', 'ny']),
+  partField: new Set(['t', 'p', 'id']),
+  partDrive: new Set(['t', 'id', 'speed']),
+};
+
+function checkScalar(s: Scalar, path: string, vars: Set<string>, issues: GraphIssue[]): void {
   if (isExpr(s)) {
-    const r = validateExpr(s.expr);
+    const r = validateExprWith(s.expr, vars);
     if (!r.ok) issues.push({ path, expr: s.expr, error: r.error ?? 'invalid' });
   }
 }
 
 function checkSdf(n: SdfNode, path: string, issues: GraphIssue[]): void {
   if (n.kind === 'shape') {
-    checkScalar(n.size, `${path}.size`, issues);
-    n.at.forEach((c, i) => checkScalar(c, `${path}.at[${i}]`, issues));
+    checkScalar(n.size, `${path}.size`, VARS.sdf, issues);
+    n.at.forEach((c, i) => checkScalar(c, `${path}.at[${i}]`, VARS.sdf, issues));
   } else if (n.kind === 'op') {
-    checkScalar(n.k, `${path}.k`, issues);
+    checkScalar(n.k, `${path}.k`, VARS.sdf, issues);
     n.nodes.forEach((c, i) => checkSdf(c, `${path}.nodes[${i}]`, issues));
   } else {
-    checkScalar(n.amount, `${path}.amount`, issues);
+    checkScalar(n.amount, `${path}.amount`, VARS.sdf, issues);
     checkSdf(n.node, `${path}.node`, issues);
   }
 }
 
-/** Returns expression parse issues (empty = all good). String fields like
- *  `field`/`colorDrive` are validated too. */
+/** Returns expression issues (empty = all good), validated with each field's
+ *  exact variable scope so the agent learns about render-time fallbacks. */
 export function validateGraph(graph: LoomGraph): GraphIssue[] {
   const issues: GraphIssue[] = [];
   graph.layers.forEach((layer, i) => {
     const p = `layers[${i}]`;
-    checkScalar(layer.opacity, `${p}.opacity`, issues);
-    const addStr = (expr: string, key: string) => {
-      const r = validateExpr(expr);
+    checkScalar(layer.opacity, `${p}.opacity`, VARS.time, issues);
+    const addStr = (expr: string, key: string, vars: Set<string>) => {
+      const r = validateExprWith(expr, vars);
       if (!r.ok) issues.push({ path: `${p}.${key}`, expr, error: r.error ?? 'invalid' });
     };
     if (layer.type === 'raymarch') {
-      checkScalar(layer.camera.distance, `${p}.camera.distance`, issues);
-      checkScalar(layer.camera.orbitSpeed, `${p}.camera.orbitSpeed`, issues);
-      checkScalar(layer.camera.height, `${p}.camera.height`, issues);
-      checkScalar(layer.glow, `${p}.glow`, issues);
+      checkScalar(layer.camera.distance, `${p}.camera.distance`, VARS.time, issues);
+      checkScalar(layer.camera.orbitSpeed, `${p}.camera.orbitSpeed`, VARS.time, issues);
+      checkScalar(layer.camera.height, `${p}.camera.height`, VARS.time, issues);
+      checkScalar(layer.glow, `${p}.glow`, VARS.time, issues);
       checkSdf(layer.sdf, `${p}.sdf`, issues);
-      addStr(layer.colorDrive, 'colorDrive');
+      addStr(layer.colorDrive, 'colorDrive', VARS.rayDrive);
     } else {
-      checkScalar(layer.strength, `${p}.strength`, issues);
-      checkScalar(layer.spread, `${p}.spread`, issues);
-      checkScalar(layer.pointSize, `${p}.pointSize`, issues);
-      addStr(layer.field, 'field');
-      addStr(layer.colorDrive, 'colorDrive');
+      checkScalar(layer.strength, `${p}.strength`, VARS.time, issues);
+      checkScalar(layer.spread, `${p}.spread`, VARS.time, issues);
+      checkScalar(layer.pointSize, `${p}.pointSize`, VARS.time, issues);
+      addStr(layer.field, 'field', VARS.partField);
+      addStr(layer.colorDrive, 'colorDrive', VARS.partDrive);
     }
   });
   return issues;

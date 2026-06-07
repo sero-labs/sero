@@ -212,20 +212,41 @@ export function validateExpr(src: string): ExprCheck {
 }
 
 function firstUnknownVar(n: ExprNode): string | null {
+  return firstUnknownVarIn(n, EXPR_VARS);
+}
+
+/**
+ * Validate against an exact allowed-variable set for a specific field context
+ * (matches the env the UI compiler provides). `pi` is always allowed. This
+ * catches expressions that would parse but silently fall back at render time
+ * because they reference a variable not in that field's scope.
+ */
+export function validateExprWith(src: string, allowed: Set<string>): ExprCheck {
+  try {
+    const ast = parseExpr(src);
+    const bad = firstUnknownVarIn(ast, allowed);
+    if (bad) return { ok: false, error: `Unknown variable "${bad}" in this context` };
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : 'Invalid expression' };
+  }
+}
+
+function firstUnknownVarIn(n: ExprNode, allowed: Set<string>): string | null {
   switch (n.k) {
     case 'num':
       return null;
     case 'var':
-      return EXPR_VARS.has(n.name) ? null : n.name;
+      return n.name === 'pi' || allowed.has(n.name) ? null : n.name;
     case 'member':
-      return firstUnknownVar(n.obj);
+      return firstUnknownVarIn(n.obj, allowed);
     case 'unary':
-      return firstUnknownVar(n.x);
+      return firstUnknownVarIn(n.x, allowed);
     case 'bin':
-      return firstUnknownVar(n.a) ?? firstUnknownVar(n.b);
+      return firstUnknownVarIn(n.a, allowed) ?? firstUnknownVarIn(n.b, allowed);
     case 'call':
       for (const a of n.args) {
-        const r = firstUnknownVar(a);
+        const r = firstUnknownVarIn(a, allowed);
         if (r) return r;
       }
       return null;

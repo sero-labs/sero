@@ -10,8 +10,9 @@ export interface EngineStatus {
 }
 
 export interface UseLoomEngineResult extends EngineStatus {
-  /** Render one offscreen frame at the given size and return a PNG data URL. */
-  capture: (width: number, height: number) => Promise<string>;
+  /** Render one offscreen frame at the given size and return a PNG data URL.
+   *  `freeze` holds animation time for the captured frame. */
+  capture: (width: number, height: number, freeze?: boolean) => Promise<string>;
 }
 
 interface Options {
@@ -87,10 +88,10 @@ export function useLoomEngine(
     engineRef.current?.setPaused(opts.paused);
   }, [opts.paused]);
 
-  const capture = async (width: number, height: number): Promise<string> => {
+  const capture = async (width: number, height: number, freeze = false): Promise<string> => {
     const engine = engineRef.current;
     if (!engine) throw new Error('Engine not ready');
-    return engine.capture(width, height);
+    return engine.capture(width, height, freeze);
   };
 
   return { ...status, capture };
