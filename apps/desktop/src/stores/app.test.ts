@@ -303,8 +303,11 @@ describe('discoverAndRegisterApps', () => {
     const devSessionEvent: PluginChangeEvent = {
       type: 'changed',
       pluginId: 'todo',
+      // The backend stamps the remote entry with the session's `updatedAt`
+      // (via applyPluginDevSessionManifestRemoteEntry) before emitting the
+      // event, so the manifest the renderer receives is already cache-busted.
       manifest: createManifest('todo', 'TodoApp', 4101, {
-        remoteEntryOverride: 'http://127.0.0.1:4101/mf-manifest.json',
+        remoteEntryOverride: 'http://127.0.0.1:4101/mf-manifest.json?t=2026-06-07T06%3A38%3A00.000Z',
       }),
       reason: 'dev-session-refreshed',
     };
@@ -349,16 +352,17 @@ describe('discoverAndRegisterApps', () => {
     expect(federationMocks.registerDynamicRemote).toHaveBeenCalledWith(
       'todo',
       4101,
-      'http://127.0.0.1:4101/mf-manifest.json',
+      'http://127.0.0.1:4101/mf-manifest.json?t=2026-06-07T06%3A38%3A00.000Z',
     );
     expect(federationMocks.refreshTransientRemote).toHaveBeenCalledWith('todo');
-    // The reload uses the manifest carried by the event itself (already
-    // cache-busted by the backend), not a freshly re-discovered one.
+    // The reload uses the cache-busted manifest carried by the event itself,
+    // not a freshly re-discovered one — proving the in-place path consumes the
+    // event manifest rather than falling back to discovery.
     expect(federationMocks.preloadFederatedModule).toHaveBeenCalledWith(
       'todo',
       'TodoApp',
       4101,
-      'http://127.0.0.1:4101/mf-manifest.json',
+      'http://127.0.0.1:4101/mf-manifest.json?t=2026-06-07T06%3A38%3A00.000Z',
     );
 
     await handlePluginChange({
