@@ -33,6 +33,8 @@ export type {
   AppToolResult,
 } from './app-tools';
 
+export { WORKSPACE_COMMON_IGNORES } from './workspace-ignores';
+
 export type {
   WorkspaceAccessRootKind,
   WorkspaceAccessRootRuntimeBackend,
