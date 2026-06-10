@@ -14,7 +14,12 @@ export function systemToolCandidates(
 }
 
 function posixSystemToolCandidates(tool: ToolName, platform: NodeJS.Platform): string[] {
-  return posixSearchRoots(platform).map((root) => path.posix.join(root, tool));
+  const roots = posixSearchRoots(platform);
+  const home = process.env.HOME;
+  if (tool === 'uv' && home) {
+    roots.unshift(path.posix.join(home, '.local', 'bin'), path.posix.join(home, '.cargo', 'bin'));
+  }
+  return roots.map((root) => path.posix.join(root, tool));
 }
 
 function posixSearchRoots(platform: NodeJS.Platform): string[] {
@@ -54,6 +59,13 @@ function windowsSystemToolCandidates(tool: ToolName, env: NodeJS.ProcessEnv): st
       ...pathCandidates,
       winPath.join(systemRoot, 'System32', 'OpenSSH', 'ssh.exe'),
       ...gitRoots.map((root) => winPath.join(root, 'usr', 'bin', 'ssh.exe')),
+    ];
+  }
+  if (tool === 'uv' && env.USERPROFILE) {
+    return [
+      winPath.join(env.USERPROFILE, '.local', 'bin', 'uv.exe'),
+      winPath.join(env.USERPROFILE, '.cargo', 'bin', 'uv.exe'),
+      ...pathCandidates,
     ];
   }
   return pathCandidates;

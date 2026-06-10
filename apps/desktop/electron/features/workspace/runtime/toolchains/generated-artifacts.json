@@ -463,6 +463,84 @@
       "available": true,
       "url": "https://github.com/sero-labs/sero/releases/download/toolchains-2026-05-31/bash-windows-x64.tar.gz",
       "sha256": "3adbb6f9346f5e348bd7e9341d94d4bc1a41402aa06823cde2062e05099e5e55"
+    },
+    "uv-macos-arm64": {
+      "tool": "uv",
+      "platform": "darwin",
+      "arch": "arm64",
+      "slug": "uv-macos-arm64",
+      "unpackTo": "uv-macos-arm64",
+      "binPaths": {
+        "uv": "uv-macos-arm64/uv-aarch64-apple-darwin/uv"
+      },
+      "minVersion": "0.7.3",
+      "installPolicy": "on-demand",
+      "status": "built",
+      "available": true,
+      "url": "https://github.com/astral-sh/uv/releases/download/0.7.3/uv-aarch64-apple-darwin.tar.gz",
+      "sha256": "162b328fc63e0075d4267688201de91356e1c1b81db50419fa4466cfe2dfdebc"
+    },
+    "uv-macos-x64": {
+      "tool": "uv",
+      "platform": "darwin",
+      "arch": "x64",
+      "slug": "uv-macos-x64",
+      "unpackTo": "uv-macos-x64",
+      "binPaths": {
+        "uv": "uv-macos-x64/uv-x86_64-apple-darwin/uv"
+      },
+      "minVersion": "0.7.3",
+      "installPolicy": "on-demand",
+      "status": "built",
+      "available": true,
+      "url": "https://github.com/astral-sh/uv/releases/download/0.7.3/uv-x86_64-apple-darwin.tar.gz",
+      "sha256": "d676940b51bdd5606b218bc2965fed67731f94ad07926045716acbf78626e09b"
+    },
+    "uv-linux-x64": {
+      "tool": "uv",
+      "platform": "linux",
+      "arch": "x64",
+      "slug": "uv-linux-x64",
+      "unpackTo": "uv-linux-x64",
+      "binPaths": {
+        "uv": "uv-linux-x64/uv-x86_64-unknown-linux-gnu/uv"
+      },
+      "minVersion": "0.7.3",
+      "installPolicy": "on-demand",
+      "status": "built",
+      "available": true,
+      "url": "https://github.com/astral-sh/uv/releases/download/0.7.3/uv-x86_64-unknown-linux-gnu.tar.gz",
+      "sha256": "17fc118ba4d7e9303f84fcabdc0a593fc3480ba76eb6980668fdbbb96fe88562"
+    },
+    "uv-linux-arm64": {
+      "tool": "uv",
+      "platform": "linux",
+      "arch": "arm64",
+      "slug": "uv-linux-arm64",
+      "unpackTo": "uv-linux-arm64",
+      "binPaths": {
+        "uv": "uv-linux-arm64/uv-aarch64-unknown-linux-gnu/uv"
+      },
+      "minVersion": "0.7.3",
+      "installPolicy": "on-demand",
+      "status": "built",
+      "available": true,
+      "url": "https://github.com/astral-sh/uv/releases/download/0.7.3/uv-aarch64-unknown-linux-gnu.tar.gz",
+      "sha256": "2c2be8bbb83e9bc722f2013de8bb7506cfe6521d0e30b4ad046849d036b3eea6"
+    },
+    "uv-windows-x64": {
+      "tool": "uv",
+      "platform": "win32",
+      "arch": "x64",
+      "slug": "uv-windows-x64",
+      "unpackTo": "uv-windows-x64",
+      "binPaths": {
+        "uv": "uv-windows-x64/uv.exe"
+      },
+      "minVersion": "0.7.3",
+      "installPolicy": "on-demand",
+      "status": "pending",
+      "available": false
     }
   }
 }
