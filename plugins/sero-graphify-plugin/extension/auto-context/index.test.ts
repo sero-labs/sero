@@ -99,6 +99,20 @@ describe('session orientation', () => {
     expect(await handlers.get('before_agent_start')?.({ systemPrompt: 'p' }, { cwd })).toBeUndefined();
     expect(await handlers.get('tool_result')?.(grepEvent('auth'), { cwd })).toBeUndefined();
   });
+
+  it('stays idle in an unindexed workspace even when other workspaces are indexed', async () => {
+    // Regression: sessions in non-indexed workspaces were getting the
+    // [Graphify active] orientation via the profile-graph fallback.
+    const { cwd, paths } = await makeEnv({});
+    const { mkdir: mkdirFs, copyFile: copyFileFs } = await import('node:fs/promises');
+    await mkdirFs(path.dirname(paths.profileGraph), { recursive: true });
+    await copyFileFs(FIXTURE, paths.profileGraph);
+
+    const { handlers } = register(paths);
+    await handlers.get('session_start')?.({}, { cwd });
+    expect(await handlers.get('before_agent_start')?.({ systemPrompt: 'p' }, { cwd })).toBeUndefined();
+    expect(await handlers.get('tool_result')?.(grepEvent('auth'), { cwd })).toBeUndefined();
+  });
 });
 
 describe('tool-result augmentation', () => {

@@ -15,23 +15,23 @@ export interface GraphArtifactInfo {
 }
 
 /**
- * Detect graph/report paths for the session. Prefers the current workspace's
- * graph (resolved from plugin state + cwd), falling back to the profile graph.
+ * Detect graph/report paths for the session — STRICTLY the current
+ * workspace's own graph. No profile-graph fallback here: auto-context must
+ * stay completely silent in workspaces that are not indexed themselves
+ * (the graphify_query/search tools handle profile-wide fallback explicitly).
  * Cheap: existence + stat only, no content reads.
  */
 export async function detectGraphArtifacts(paths: GraphifyPaths, cwd: string): Promise<GraphArtifactInfo> {
   const state = await readStateFile(paths.stateFile);
   const entry = state ? resolveCurrentWorkspace(state, cwd) : null;
-
-  let graphPath = entry ? workspaceGraphJson(paths, entry.workspaceId) : paths.profileGraph;
-  let reportPath = entry ? workspaceGraphReport(paths, entry.workspaceId) : '';
-  if (entry && !existsSync(graphPath) && existsSync(paths.profileGraph)) {
-    graphPath = paths.profileGraph;
-    reportPath = '';
+  if (!entry) {
+    return { graphPath: '', reportPath: '', graphExists: false, reportExists: false, graphSize: 0, reportSize: 0 };
   }
 
+  const graphPath = workspaceGraphJson(paths, entry.workspaceId);
+  const reportPath = workspaceGraphReport(paths, entry.workspaceId);
   const graphExists = existsSync(graphPath);
-  const reportExists = Boolean(reportPath) && existsSync(reportPath);
+  const reportExists = existsSync(reportPath);
 
   let graphSize = 0;
   let reportSize = 0;

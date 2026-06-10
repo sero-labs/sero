@@ -44,12 +44,20 @@ describe('detectGraphArtifacts', () => {
     expect(info.graphPath).toContain(path.join('graphs', 'ws1'));
   });
 
-  it('falls back to the profile graph when the workspace is not indexed', async () => {
+  it('stays absent for unindexed workspaces even when a profile graph exists', async () => {
+    // Regression: the profile-graph fallback made auto-context fire in EVERY
+    // workspace once any one workspace was indexed.
     const cwd = await mkdtemp(path.join(os.tmpdir(), 'graphify-ws-'));
     const paths = await makeHome({ profileGraph: true, cwd });
     const info = await detectGraphArtifacts(paths, cwd);
-    expect(info.graphExists).toBe(true);
-    expect(info.graphPath).toBe(paths.profileGraph);
+    expect(info.graphExists).toBe(false);
+  });
+
+  it('stays absent for cwds that resolve to no workspace at all', async () => {
+    const cwd = await mkdtemp(path.join(os.tmpdir(), 'graphify-elsewhere-'));
+    const paths = await makeHome({ workspaceGraph: true, profileGraph: true, cwd: '/some/other/place' });
+    const info = await detectGraphArtifacts(paths, cwd);
+    expect(info.graphExists).toBe(false);
   });
 
   it('reports absent when nothing is built', async () => {
