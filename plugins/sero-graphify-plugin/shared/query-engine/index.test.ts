@@ -1,6 +1,6 @@
 import { describe, expect, it, beforeAll } from 'vitest';
 import path from 'node:path';
-import { loadGraph, queryGraph, findPath, explainNode, type KnowledgeGraph } from './index';
+import { loadGraph, queryGraph, findPath, explainNode, graphStats, type KnowledgeGraph } from './index';
 
 let graph: KnowledgeGraph;
 beforeAll(async () => {
@@ -8,10 +8,12 @@ beforeAll(async () => {
 });
 
 describe('queryGraph', () => {
-  it('returns seeds and related nodes', () => {
+  it('returns seeds and related nodes rendered with human labels', () => {
     const answer = queryGraph(graph, 'authentication sessions');
-    expect(answer).toContain('AuthService');
-    expect(answer).toContain('TokenStore');
+    expect(answer).toContain('Auth Service');
+    expect(answer).toContain('Token Store');
+    // Raw slug ids never leak into the rendered output.
+    expect(answer).not.toContain('AuthService');
   });
   it('renders a traversal header like graphify query', () => {
     const answer = queryGraph(graph, 'authentication sessions');
@@ -36,10 +38,17 @@ describe('findPath', () => {
   });
 });
 
+describe('graphStats', () => {
+  it('counts nodes, edges, and distinct communities from the graph itself', () => {
+    expect(graphStats(graph)).toEqual({ nodes: 6, edges: 4, communities: 3 });
+  });
+});
+
 describe('explainNode', () => {
-  it('renders neighborhood', () => {
+  it('renders neighborhood with human labels', () => {
     const answer = explainNode(graph, 'authservice');
     expect(answer).toContain('Outgoing:');
     expect(answer).toContain('Incoming:');
+    expect(answer).toContain('Token Store');
   });
 });

@@ -16,13 +16,33 @@ export function withinBudget(lines: string[], budgetTokens: number): string {
   return output.join('\n');
 }
 
-export function nodeLine(node: { id: string; type?: string; file_type?: string; description?: string }): string {
-  const type = node.type ?? node.file_type;
-  const typeSuffix = type ? ` (${type})` : '';
-  const description = node.description ? ` — ${node.description}` : '';
-  return `${node.id}${typeSuffix}${description}`;
+export interface DisplayNode {
+  id: string;
+  label?: string;
+  type?: string;
+  file_type?: string;
+  description?: string;
+  repo?: string;
+  source_file?: string;
 }
 
-export function edgeLine(edge: { source: string; relation: string; target: string }): string {
-  return `${edge.source} --${edge.relation}--> ${edge.target}`;
+/** Human display name: label when present (e.g. "App()"), else the raw id. */
+export function displayName(node: DisplayNode | undefined, fallbackId: string): string {
+  return node?.label || node?.id || fallbackId;
+}
+
+export function nodeLine(node: DisplayNode): string {
+  const type = node.type ?? node.file_type;
+  const where = [node.repo, node.source_file].filter(Boolean).join('/');
+  const parts = [`${displayName(node, node.id)}${type ? ` (${type})` : ''}`];
+  if (where) parts.push(where);
+  if (node.description) parts.push(node.description);
+  return parts.join(' — ');
+}
+
+export function edgeLine(
+  edge: { source: string; relation: string; target: string },
+  resolve: (id: string) => string = (id) => id,
+): string {
+  return `${resolve(edge.source)} --${edge.relation}--> ${resolve(edge.target)}`;
 }

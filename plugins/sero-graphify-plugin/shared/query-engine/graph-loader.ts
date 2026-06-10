@@ -7,6 +7,9 @@ export interface GraphNode {
   community?: number;
   file_type?: string;
   type?: string;
+  /** Workspace tag on merged profile graphs. */
+  repo?: string;
+  source_file?: string;
   [key: string]: unknown;
 }
 

@@ -17,7 +17,7 @@ describe('runAutoQuery', () => {
   it('answers from the graph within maxChars', async () => {
     const result = await runAutoQuery(FIXTURE, intent('how does AuthService work'), 800, 500);
     expect(result).toBeTruthy();
-    expect(result!).toContain('AuthService');
+    expect(result!).toContain('Auth Service');
     expect(result!.length).toBeLessThanOrEqual(501);
   });
 
