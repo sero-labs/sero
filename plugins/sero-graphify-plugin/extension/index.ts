@@ -1,5 +1,148 @@
-import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
+/**
+ * Graphify extension — knowledge-graph search tools for agent sessions.
+ *
+ * Queries run against sero-managed graph artifacts under
+ * SERO_HOME/apps/graphify/ via the pure TypeScript engine — no Python at
+ * query time, so everything works identically in container sessions
+ * (read-only access to the graphs dir is sufficient).
+ */
 
-export default function graphifyExtension(_pi: ExtensionAPI): void {
-  // Tools registered in Task 14.
+import { StringEnum } from '@earendil-works/pi-ai';
+import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
+import { Type } from 'typebox';
+
+import { resolveGraphifyPaths, workspaceGraphJson } from '../shared/paths';
+import { readStateFile, appendIndexRequest } from '../shared/state-io';
+import { loadGraph, queryGraph, findPath, explainNode } from '../shared/query-engine';
+import { resolveCurrentWorkspace } from './current-workspace';
+import { registerAutoContext } from './auto-context';
+
+type ToolResult = {
+  content: { type: 'text'; text: string }[];
+  details: Record<string, unknown>;
+};
+
+function text(message: string): ToolResult {
+  return { content: [{ type: 'text', text: message }], details: {} };
+}
+
+const NOT_BUILT = 'Profile graph not built yet. Enable workspace indexing in the Graphify panel or run: graphify_index enable-all';
+
+export default function graphifyExtension(pi: ExtensionAPI): void {
+  const paths = resolveGraphifyPaths();
+
+  pi.registerTool({
+    name: 'graphify_search',
+    label: 'Graphify Search',
+    description: 'Search the profile-wide knowledge graph spanning ALL indexed workspaces. Use for cross-project questions, architecture overviews, and finding which workspace owns a concept.',
+    parameters: Type.Object({
+      question: Type.String({ description: 'Natural-language question or concept keywords' }),
+      mode: Type.Optional(StringEnum(['bfs', 'dfs'] as const, { description: 'bfs = broad context (default), dfs = trace a specific chain' })),
+      budget: Type.Optional(Type.Number({ description: 'Max answer tokens (default 1200)' })),
+    }),
+    async execute(_toolCallId, params) {
+      const graph = await loadGraph(paths.profileGraph);
+      if (!graph) return text(NOT_BUILT);
+      return text(queryGraph(graph, params.question, { mode: params.mode, budget: params.budget }));
+    },
+  });
+
+  pi.registerTool({
+    name: 'graphify_query',
+    label: 'Graphify Query',
+    description: 'Query the knowledge graph of the CURRENT workspace (falls back to the profile graph when the workspace is not indexed).',
+    parameters: Type.Object({
+      question: Type.String({ description: 'Natural-language question or concept keywords' }),
+      mode: Type.Optional(StringEnum(['bfs', 'dfs'] as const)),
+      budget: Type.Optional(Type.Number()),
+    }),
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      const state = await readStateFile(paths.stateFile);
+      const entry = state && ctx ? resolveCurrentWorkspace(state, ctx.cwd) : null;
+      const graphPath = entry ? workspaceGraphJson(paths, entry.workspaceId) : paths.profileGraph;
+      const graph = (await loadGraph(graphPath)) ?? (await loadGraph(paths.profileGraph));
+      if (!graph) return text('No graph available for this workspace yet. Enable indexing in the Graphify panel.');
+      return text(queryGraph(graph, params.question, { mode: params.mode, budget: params.budget }));
+    },
+  });
+
+  pi.registerTool({
+    name: 'graphify_path',
+    label: 'Graphify Path',
+    description: 'Find the shortest connection between two concepts in the profile knowledge graph.',
+    parameters: Type.Object({
+      from: Type.String({ description: 'Source concept name or node id' }),
+      to: Type.String({ description: 'Target concept name or node id' }),
+    }),
+    async execute(_toolCallId, params) {
+      const graph = await loadGraph(paths.profileGraph);
+      if (!graph) return text(NOT_BUILT);
+      return text(findPath(graph, params.from, params.to));
+    },
+  });
+
+  pi.registerTool({
+    name: 'graphify_explain',
+    label: 'Graphify Explain',
+    description: 'Plain-language explanation of a single concept/node: everything connected to it.',
+    parameters: Type.Object({
+      concept: Type.String({ description: 'Concept name or node id to explain' }),
+    }),
+    async execute(_toolCallId, params) {
+      const graph = await loadGraph(paths.profileGraph);
+      if (!graph) return text(NOT_BUILT);
+      return text(explainNode(graph, params.concept));
+    },
+  });
+
+  pi.registerTool({
+    name: 'graphify_status',
+    label: 'Graphify Status',
+    description: 'Show graphify index status for all workspaces in the profile.',
+    parameters: Type.Object({}),
+    async execute() {
+      const state = await readStateFile(paths.stateFile);
+      if (!state) return text('Graphify has no state yet — open the Graphify panel to get started.');
+      const lines = [`Provisioning: ${state.provisioning.status}${state.provisioning.error ? ` (${state.provisioning.error})` : ''}`];
+      lines.push(`Profile graph: ${state.profileGraph.status}${state.profileGraph.nodes ? ` — ${state.profileGraph.nodes} nodes / ${state.profileGraph.edges} edges` : ''}`);
+      for (const entry of Object.values(state.workspaces)) {
+        const stats = entry.stats ? ` ${entry.stats.nodes}n/${entry.stats.edges}e` : '';
+        lines.push(`• ${entry.name} [${entry.enabled ? entry.status : 'disabled'}]${stats}${entry.lastError ? ` — ${entry.lastError}` : ''}`);
+      }
+      return text(lines.join('\n'));
+    },
+  });
+
+  pi.registerTool({
+    name: 'graphify_index',
+    label: 'Graphify Index',
+    description: 'Manage workspace indexing: enable, disable, rebuild, refresh a workspace, or enable-all. Builds run in the background; check progress with graphify_status.',
+    parameters: Type.Object({
+      action: StringEnum(['enable', 'disable', 'rebuild', 'refresh', 'enable-all'] as const),
+      workspace: Type.Optional(Type.String({ description: 'Workspace id or name (omit for enable-all, or to target the current workspace)' })),
+    }),
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      const state = await readStateFile(paths.stateFile);
+      let workspaceId: string | undefined;
+      if (params.action !== 'enable-all') {
+        const entries = Object.values(state?.workspaces ?? {});
+        const entry = params.workspace
+          ? entries.find((e) => e.workspaceId === params.workspace || e.name === params.workspace)
+          : state && ctx ? resolveCurrentWorkspace(state, ctx.cwd) : null;
+        if (!entry) {
+          return text(`Could not resolve workspace${params.workspace ? ` "${params.workspace}"` : ' from cwd'}. Known: ${entries.map((e) => e.workspaceId).join(', ') || '(none — runtime not started yet)'}`);
+        }
+        workspaceId = entry.workspaceId;
+      }
+      try {
+        const id = await appendIndexRequest(paths.stateFile, params.action, workspaceId);
+        return text(`Queued ${params.action}${workspaceId ? ` for ${workspaceId}` : ''} (request #${id}). Track with graphify_status.`);
+      } catch (error) {
+        // Container sessions may have the profile home mounted read-only.
+        return text(`Could not queue the request (state file not writable from this session): ${error instanceof Error ? error.message : String(error)}. Use the Graphify panel instead.`);
+      }
+    },
+  });
+
+  registerAutoContext(pi, paths);
 }
