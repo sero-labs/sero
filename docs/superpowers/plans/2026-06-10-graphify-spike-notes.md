@@ -158,12 +158,29 @@ with all 6 profile workspaces synced (enabled=false, status=idle) — proving
 the discovery → global runtime → `host.workspace.list()` → atomic state write
 chain end-to-end.
 
-Remaining manual E2E (checklist items 2–8: real LLM build, container session
-access, auto-context in live sessions, error paths) — **pending**: needs an
-interactive desktop session and an Anthropic API key for the build leg. Spike
-items 1 (output location) and 3 (credentials seam) are resolved above and in
-Task 4; spike item 2 (container read access to `SERO_HOME/apps/graphify/`)
-still needs the container leg of the E2E run.
+Manual E2E (2026-06-10, live dev app) — **ALL CHECKLIST ITEMS PASS**:
+
+- Host-mode builds with real Claude extraction (GStackPlugin, FactoryTest-1),
+  stats/cost shown, live progress streaming in the panel.
+- Container workspace (AppleContainerTest, apple-container backend) built
+  host-side as designed; **spike item 2 resolved**: from a session running
+  inside the container (`uname -s` → Linux), `graphify_status` and
+  `graphify_search` read the shared graphs under SERO_HOME, and
+  `graphify_index refresh` successfully wrote a state request.
+- Profile-wide search answers cross-workspace questions with per-workspace
+  provenance; single-workspace profiles work (copy instead of merge-graphs).
+- Auto-context orientation appears in indexed workspaces only (regression
+  test added for the unindexed-workspace case).
+- Error path exercised organically: missing backend SDK surfaced as a
+  per-workspace error with retry; queue continued; recovery worked after the
+  provisioner fix.
+
+Field findings folded back into the implementation during E2E: backend SDK
+extras + self-repair marker, machine-shared tools dir, `.graphifyignore`
+management from the canonical WORKSPACE_COMMON_IGNORES list (junk sources
+found live: `.sero/` 2,169 nodes, `.pnpm-store/` 41,063 nodes), authoritative
+stats from graph files (no-change updates print no stats line), startup
+catch-up gating, model override setting, human-label query rendering.
 
 ## Live verification record
 

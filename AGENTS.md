@@ -43,6 +43,19 @@ pkill -f "vite"; pkill -f "electron"
 - **`@sero-ai/common`** — shared renderer-safe types/utilities. Prefer moving neutral cross-package code here (no Electron/Node-only dependencies).
 - **`@sero-ai/ui`** - shared ui components 
 
+**Tool installs are machine-shared, NEVER per-profile.** When a plugin or
+feature provisions a heavyweight dependency (a Python environment, a CLI
+binary, model files, …), it must install it once per machine in the shared
+artifacts area — background runtimes get this via
+`host.toolchains.sharedToolsDir('<app-id>')` (`SERO_HOST_ARTIFACTS_ROOT/app-tools/<app-id>`);
+managed binaries themselves go through the toolchain manifest
+(`docs/features/host-toolchain.md`). Never install tools under the profile's
+`SERO_HOME` (e.g. `apps/<id>/`): profiles hold *data* (state, artifacts,
+settings), and per-profile tool copies duplicate hundreds of MB per profile.
+Resolution must follow the standard order: verified system tool first, shared
+managed install second, download on first use last — with zero manual install
+steps for the user.
+
 Built-in plugins live in `plugins/sero-*-plugin/`. Most complete in-repo examples:
 - `sero-git-plugin` — app + tool integration with a substantial UI
 - `sero-cron-plugin` — background jobs & reminders

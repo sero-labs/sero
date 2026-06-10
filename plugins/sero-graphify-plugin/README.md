@@ -39,6 +39,7 @@ caches, fully idle when no graph exists.
 | Setting | Default | Notes |
 |---|---|---|
 | `backend` | `claude` | `claude` / `openai` / `gemini` / `deepseek` / `kimi` / `ollama`; API key comes from Sero's provider credentials |
+| `model` | `''` | Model override (`--model`); empty = the backend's default (claude → `claude-sonnet-4-6`) |
 | `tokenBudget` | `0` | Per-chunk LLM token cap (`--token-budget`); 0 = graphify default |
 | `exclude` | node_modules, dist, … | Repeated `--exclude` patterns |
 | `refreshIntervalMinutes` | `10` | 0 disables the incremental refresh loop |
@@ -51,11 +52,15 @@ caches, fully idle when no graph exists.
 ## Storage layout
 
 ```
-SERO_HOME/apps/graphify/
+SERO_HOME/apps/graphify/                        per-profile DATA
 ├── state.json                                  status, settings, requests
-├── tools/                                      isolated uv + graphifyy install
 ├── graphs/<workspaceId>/graphify-out/          per-workspace graph.json + GRAPH_REPORT.md
 └── profile/graph.json                          merged profile-wide graph
+
+SERO_HOST_ARTIFACTS_ROOT/app-tools/graphify/    machine-shared TOOLS (all profiles)
+├── bin/graphify                                pinned graphifyy CLI
+├── uv-tools/                                   its Python environment
+└── python/                                     uv-downloaded CPython (only if no system Python)
 ```
 
 Graph artifacts never land inside workspaces (no repo pollution): `extract`
