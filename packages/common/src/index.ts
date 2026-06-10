@@ -83,6 +83,7 @@ export type {
   AppRuntimeNotificationsApi,
   AppRuntimeProviderApiKey,
   AppRuntimeCredentialsApi,
+  AppRuntimeToolchainsApi,
   AppRuntimeHost,
   AppRuntimeContext,
   AppRuntime,

@@ -82,6 +82,9 @@ function createHostStub(
     credentials: {
       getProviderApiKey: vi.fn(async () => null),
     },
+    toolchains: {
+      ensure: vi.fn(async () => ({ path: '/usr/bin/true' })),
+    },
     verification: {
       detectCompileCommands: vi.fn(async () => []),
       detectDependencyInstallCommand: vi.fn(async () => null),

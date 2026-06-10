@@ -355,6 +355,11 @@ export interface AppRuntimeCredentialsApi {
   getProviderApiKey(providerId: string): Promise<AppRuntimeProviderApiKey | null>;
 }
 
+export interface AppRuntimeToolchainsApi {
+  /** Resolve a Sero-managed tool, installing it on demand. Returns the executable path. */
+  ensure(tool: string): Promise<{ path: string }>;
+}
+
 export interface AppRuntimeHost {
   appState: AppRuntimeStateApi;
   subagents: AppRuntimeSubagentsApi;
@@ -364,6 +369,7 @@ export interface AppRuntimeHost {
   devServers: AppRuntimeDevServersApi;
   notifications: AppRuntimeNotificationsApi;
   credentials: AppRuntimeCredentialsApi;
+  toolchains: AppRuntimeToolchainsApi;
 }
 
 export interface AppRuntimeContext {

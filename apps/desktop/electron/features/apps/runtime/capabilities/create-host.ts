@@ -36,11 +36,23 @@ import {
   getPullRequestMergeState,
 } from '@electron/features/vcs/worktree/merge-status';
 import { SERO_HOME } from '@electron/platform/env';
+import {
+  createHostToolResolver,
+  isToolName,
+  type HostToolResolver,
+} from '@electron/features/workspace/runtime/toolchains/host-tool-resolver';
 import { validateRuntimeCustomTools } from './custom-tools';
 import { getProviderApiKey } from './provider-credentials';
 import type { AppRuntimeTarget, AppRuntimeHost } from '../types';
 
 const worktreeManager = new WorktreeManager();
+
+let hostToolResolver: HostToolResolver | null = null;
+
+function toolResolver(): HostToolResolver {
+  hostToolResolver ??= createHostToolResolver();
+  return hostToolResolver;
+}
 
 function matchesRun(
   entry: { workspaceId: string; parentSessionId: string } | undefined,
@@ -168,6 +180,13 @@ export function createAppRuntimeHost(_target: AppRuntimeTarget): AppRuntimeHost 
     },
     credentials: {
       getProviderApiKey: (providerId) => getProviderApiKey(providerId, SERO_HOME),
+    },
+    toolchains: {
+      ensure: async (tool) => {
+        if (!isToolName(tool)) throw new Error(`Unknown managed tool: ${tool}`);
+        const resolution = await toolResolver().ensure(tool, { kind: 'plugin-install' });
+        return { path: resolution.path };
+      },
     },
   };
 }
