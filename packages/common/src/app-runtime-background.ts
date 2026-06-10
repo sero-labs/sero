@@ -341,6 +341,20 @@ export interface AppRuntimeNotificationsApi {
   notify(options: AppRuntimeNotificationOptions): void;
 }
 
+export interface AppRuntimeProviderApiKey {
+  envVar: string;
+  key: string;
+}
+
+export interface AppRuntimeCredentialsApi {
+  /**
+   * Resolve the user's API key for a model provider (e.g. 'anthropic').
+   * Returns null when the provider is unknown or no key is configured.
+   * The key must only be placed in child-process env — never persisted.
+   */
+  getProviderApiKey(providerId: string): Promise<AppRuntimeProviderApiKey | null>;
+}
+
 export interface AppRuntimeHost {
   appState: AppRuntimeStateApi;
   subagents: AppRuntimeSubagentsApi;
@@ -349,6 +363,7 @@ export interface AppRuntimeHost {
   git: AppRuntimeGitApi;
   devServers: AppRuntimeDevServersApi;
   notifications: AppRuntimeNotificationsApi;
+  credentials: AppRuntimeCredentialsApi;
 }
 
 export interface AppRuntimeContext {

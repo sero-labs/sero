@@ -35,7 +35,9 @@ import {
   getPullRequestMergeError,
   getPullRequestMergeState,
 } from '@electron/features/vcs/worktree/merge-status';
+import { SERO_HOME } from '@electron/platform/env';
 import { validateRuntimeCustomTools } from './custom-tools';
+import { getProviderApiKey } from './provider-credentials';
 import type { AppRuntimeTarget, AppRuntimeHost } from '../types';
 
 const worktreeManager = new WorktreeManager();
@@ -163,6 +165,9 @@ export function createAppRuntimeHost(_target: AppRuntimeTarget): AppRuntimeHost 
       notify: (options) => {
         showNotification(options);
       },
+    },
+    credentials: {
+      getProviderApiKey: (providerId) => getProviderApiKey(providerId, SERO_HOME),
     },
   };
 }

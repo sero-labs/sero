@@ -79,6 +79,9 @@ function createHostStub(
       })),
       list: vi.fn(async () => []),
     },
+    credentials: {
+      getProviderApiKey: vi.fn(async () => null),
+    },
     verification: {
       detectCompileCommands: vi.fn(async () => []),
       detectDependencyInstallCommand: vi.fn(async () => null),
