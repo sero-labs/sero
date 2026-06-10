@@ -44,6 +44,8 @@ export const workspaceIpcChannels = {
   changed: 'sero:workspace:changed',
   /** List additional roots attached to a workspace. */
   listRoots: 'sero:workspace:list-roots',
+  /** List primary/referenced/mounted/additional roots with runtime paths. */
+  listAccessRoots: 'sero:workspace:list-access-roots',
   /** Add an additional root to a workspace. Args: id, { name, path, kind? }. */
   addRoot: 'sero:workspace:add-root',
   /** Remove an additional root from a workspace. Args: id, rootId. */

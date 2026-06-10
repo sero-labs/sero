@@ -34,6 +34,14 @@ export type {
 } from './app-tools';
 
 export type {
+  WorkspaceAccessRootKind,
+  WorkspaceAccessRootRuntimeBackend,
+  WorkspaceAccessRootRuntimeMode,
+  WorkspaceAccessRoot,
+  WorkspaceAccessRootsResult,
+} from './workspace-access-roots';
+
+export type {
   AppRuntimeStateApi,
   AppRuntimeSubagentRunParams,
   AppRuntimeSubagentResult,

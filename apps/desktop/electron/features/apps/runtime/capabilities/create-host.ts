@@ -1,5 +1,7 @@
 import { appStateManager } from '@electron/features/apps/state/manager';
 import { subagentManager } from '@electron/features/subagent/singleton';
+import { workspaceManager } from '@electron/features/workspace/manager';
+import { listWorkspaceAccessRoots } from '@electron/features/workspace/access-roots';
 import { runtimeManager } from '@electron/features/workspace/runtime/runtime-manager';
 import { showNotification } from '@electron/platform/desktop/notifications';
 import { runWorkspaceCommand } from '@electron/features/workspace/runtime/run-workspace-command';
@@ -84,6 +86,7 @@ export function createAppRuntimeHost(_target: AppRuntimeTarget): AppRuntimeHost 
       refreshAfterSync: (workspaceId, workspacePath) =>
         refreshWorkspaceRuntimeAfterSync(workspaceId, workspacePath),
       resolveRuntime: (workspaceId) => resolveWorkspaceRuntime(workspaceId),
+      listAccessRoots: (workspaceId) => listWorkspaceAccessRoots(workspaceManager, workspaceId),
     },
     verification: {
       detectCompileCommands,

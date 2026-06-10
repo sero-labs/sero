@@ -6,6 +6,8 @@
  * plugins can type against it without importing desktop-internal modules.
  */
 
+import type { WorkspaceAccessRootsResult } from './workspace-access-roots';
+
 export interface AppRuntimeStateApi {
   read<T = unknown>(filePath: string): Promise<T | null>;
   update<T = unknown>(filePath: string, updater: (current: T | null) => T): Promise<void>;
@@ -128,6 +130,7 @@ export interface AppRuntimeWorkspaceApi {
     workspacePath: string,
   ): Promise<AppRuntimeWorkspaceRefreshResult>;
   resolveRuntime(workspaceId: string): Promise<AppRuntimeWorkspaceRuntimeResolution>;
+  listAccessRoots(workspaceId: string): Promise<WorkspaceAccessRootsResult>;
 }
 
 export interface AppRuntimeVerificationDetectOptions {

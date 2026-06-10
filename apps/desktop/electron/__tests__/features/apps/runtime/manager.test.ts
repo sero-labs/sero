@@ -63,6 +63,12 @@ function createHostStub(
     workspace: {
       runCommand: vi.fn(async () => ({ stdout: '', stderr: '', exitCode: 0 })),
       refreshAfterSync: vi.fn(async () => ({ refreshed: false, dependenciesInstalled: false, restartedServerIds: [] })),
+      listAccessRoots: vi.fn(async () => ({
+        workspaceId: 'ws-1',
+        runtime: { backend: 'host' as const, mode: 'host' as const },
+        roots: [],
+        warnings: [],
+      })),
       resolveRuntime: vi.fn(async () => ({
         workspaceId: 'ws-1',
         workspacePath: '/repo-1',

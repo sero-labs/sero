@@ -59,6 +59,7 @@ ${containerIp ? `- Container IP: ${containerIp} (accessible from the host)` : ''
 - For the CURRENT workspace, stay in the current working directory or under \`/workspace\`, not its host absolute path.
 - Use absolute host paths only when you intentionally need a DIFFERENT workspace.
 - Use \`sero-cli\` with \`workspace list\` to discover workspace paths.
+- Use \`sero-cli\` with \`workspace access-roots --json\` to discover the exact bounded roots this session may inspect.
 
 **Dev servers and networking**
 - Dev servers MUST bind to \`0.0.0.0\`, not localhost/127.0.0.1.
@@ -135,6 +136,7 @@ export function buildHostPromptBlock(
 You are operating on the host runtime for workspace "${workspaceId}".
 Workspace root: ${workspacePath}.
 Use relative paths from the workspace root unless the task explicitly needs another workspace.
+Use \`sero-cli\` with \`workspace access-roots --json\` when you need the bounded list of additional roots, folder mounts, linked plugins, or referenced workspaces.
 
 **Pi/Sero self-building documentation fallback**
 - If the default Pi documentation paths in the base prompt are missing or point into an inaccessible package/asar location, use the shared Sero docs copy instead.

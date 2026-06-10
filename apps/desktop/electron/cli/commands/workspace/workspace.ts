@@ -3,11 +3,13 @@ import path from 'path';
 import { appRuntimeManager, workspaceManager } from '@electron/shared/infra/shared-infra';
 import { assertIsSeroPluginFolder } from '@electron/features/workspace/plugin-validation';
 import { recreateContainerIfRunning } from '@electron/features/workspace/container-sync';
+import { listWorkspaceAccessRoots } from '@electron/features/workspace/access-roots';
 import type { CliRegistry } from '@electron/cli/core/registry';
 import type { CliCommandContext } from '@electron/cli/core/types';
 import { askConfirm } from '@electron/cli/lib/ask-confirm';
-import { fail, ok, parseFlags } from '@electron/cli/lib/utils';
+import { fail, ok, parseFlags, stringifyJson } from '@electron/cli/lib/utils';
 import { broadcastToWindows } from '@electron/ipc/lib/window-broadcast';
+import type { WorkspaceAccessRootsResult } from '@sero-ai/common';
 
 function notifyWorkspaceChanged(): void {
   broadcastToWindows('sero:workspace:changed');
@@ -41,6 +43,17 @@ function formatWorkspaceList(currentWorkspaceId: string) {
  */
 function resolvePluginPath(rawPath: string, cwd: string): string {
   return path.resolve(cwd, rawPath);
+}
+
+function formatAccessRoots(result: WorkspaceAccessRootsResult): string {
+  const lines = [
+    `Workspace access roots (${result.workspaceId}) [${result.runtime.backend}/${result.runtime.mode}]:`,
+    ...result.roots.map((root) => `  - ${root.kind} ${root.name}: ${root.runtimePath}`),
+  ];
+  if (result.warnings.length) {
+    lines.push('Warnings:', ...result.warnings.map((warning) => `  - ${warning}`));
+  }
+  return lines.join('\n');
 }
 
 async function handleMountPlugin(
@@ -158,6 +171,13 @@ async function handleWorkspaceCommand(args: string[], ctx: CliCommandContext) {
         return ok(lines.join('\n'));
       }
 
+      case 'access-roots': {
+        const { positionals, flags } = parseFlags(rest);
+        const workspaceId = positionals[0] || ctx.workspaceId;
+        const result = await listWorkspaceAccessRoots(workspaceManager, workspaceId);
+        return ok(flags.get('json') === true ? stringifyJson(result) : formatAccessRoots(result));
+      }
+
       case 'create': {
         const { positionals, flags } = parseFlags(rest);
         const name = positionals.join(' ').trim();
@@ -220,6 +240,8 @@ export function registerWorkspaceCliCommands(registry: CliRegistry): void {
       'Actions:\n' +
       '  list                       List workspaces\n' +
       '  info [id]                  Show workspace details (default: current)\n' +
+      '  access-roots [id]          Show bounded workspace access roots\n' +
+      '                             Flags: --json\n' +
       '  create <name>              Create and register a new workspace\n' +
       '                             Flags: --parent <path>\n' +
       '  add-folder <path>          Register an existing folder as a workspace\n' +
