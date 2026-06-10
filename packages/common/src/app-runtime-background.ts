@@ -358,6 +358,13 @@ export interface AppRuntimeCredentialsApi {
 export interface AppRuntimeToolchainsApi {
   /** Resolve a Sero-managed tool, installing it on demand. Returns the executable path. */
   ensure(tool: string): Promise<{ path: string }>;
+  /**
+   * Machine-shared directory for an app's tool installs (Python envs, CLIs,
+   * model files, …). One copy per machine, shared by every profile — never
+   * store tool installs under the profile's SERO_HOME. The directory is
+   * created on first call.
+   */
+  sharedToolsDir(namespace: string): Promise<{ path: string }>;
 }
 
 export interface AppRuntimeHost {

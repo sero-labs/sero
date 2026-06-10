@@ -35,7 +35,10 @@ import {
   getPullRequestMergeError,
   getPullRequestMergeState,
 } from '@electron/features/vcs/worktree/merge-status';
-import { SERO_HOME } from '@electron/platform/env';
+import { mkdir } from 'fs/promises';
+import path from 'path';
+
+import { SERO_HOME, SERO_HOST_ARTIFACTS_ROOT } from '@electron/platform/env';
 import {
   createHostToolResolver,
   isToolName,
@@ -186,6 +189,16 @@ export function createAppRuntimeHost(_target: AppRuntimeTarget): AppRuntimeHost 
         if (!isToolName(tool)) throw new Error(`Unknown managed tool: ${tool}`);
         const resolution = await toolResolver().ensure(tool, { kind: 'plugin-install' });
         return { path: resolution.path };
+      },
+      sharedToolsDir: async (namespace) => {
+        if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(namespace)) {
+          throw new Error(`Invalid shared tools namespace: ${namespace}`);
+        }
+        // Machine-level, profile-independent — sibling of toolchains/ so the
+        // toolchain version GC never scans it.
+        const dir = path.join(SERO_HOST_ARTIFACTS_ROOT, 'app-tools', namespace);
+        await mkdir(dir, { recursive: true });
+        return { path: dir };
       },
     },
   };
