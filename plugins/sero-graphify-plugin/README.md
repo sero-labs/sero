@@ -1,0 +1,69 @@
+# Graphify — profile-wide knowledge graphs
+
+A global Sero plugin that builds [Graphify](https://github.com/safishamsi/graphify)
+knowledge graphs of every opted-in workspace in the active profile, merges them
+into one profile-wide graph, and gives agent sessions graph search tools plus
+automatic context injection. Works identically for host-mode and
+container-isolated workspaces: all Python/LLM extraction runs host-side in the
+plugin's single global background runtime; sessions answer queries with a pure
+TypeScript engine over `graph.json` (no Python at query time).
+
+## Indexing model
+
+Indexing is **opt-in per workspace** (toggle in the panel, "Index all", or the
+`graphify_index` tool). The first build is the only LLM-expensive step; after
+that the runtime refreshes incrementally (`graphify update`, AST-only, no LLM)
+on a configurable interval and re-merges the profile graph after every change.
+The toolchain (`uv` + pinned `graphifyy`) provisions itself on first build.
+
+## Agent tools
+
+| Tool | What it does |
+|---|---|
+| `graphify_search` | Search the merged profile-wide graph (all indexed workspaces) |
+| `graphify_query` | Query the current workspace's graph (BFS broad / DFS trace, token budget) |
+| `graphify_path` | Shortest connection between two concepts |
+| `graphify_explain` | Neighborhood explanation of a single node |
+| `graphify_status` | Index status per workspace + profile graph |
+| `graphify_index` | enable / disable / rebuild / refresh / enable-all |
+
+All tools are CLI-bridged (`sero graphify_search ...`).
+
+Auto-context (ported from pi-graphify) adds a one-time session orientation from
+the workspace's `GRAPH_REPORT.md` + profile-graph stats, and appends bounded
+graph-query hints to broad search results. Hard per-session budgets, dedup
+caches, fully idle when no graph exists.
+
+## Settings (`state.json` → `settings`)
+
+| Setting | Default | Notes |
+|---|---|---|
+| `backend` | `claude` | `claude` / `openai` / `gemini` / `deepseek` / `kimi` / `ollama`; API key comes from Sero's provider credentials |
+| `tokenBudget` | `0` | Per-chunk LLM token cap (`--token-budget`); 0 = graphify default |
+| `exclude` | node_modules, dist, … | Repeated `--exclude` patterns |
+| `refreshIntervalMinutes` | `10` | 0 disables the incremental refresh loop |
+| `autoContext.sessionSummary` | `true` | Session-start orientation |
+| `autoContext.augmentSearchResults` | `true` | Tool-result hints |
+| `autoContext.autoQuery` | `false` | Run real graph queries for high-confidence intents |
+| `autoContext.maxSessionAugments` | `8` | Per-session augment budget |
+| `autoContext.maxAugmentChars` | `1200` | Per-augment size bound |
+
+## Storage layout
+
+```
+SERO_HOME/apps/graphify/
+├── state.json                                  status, settings, requests
+├── tools/                                      isolated uv + graphifyy install
+├── graphs/<workspaceId>/graphify-out/          per-workspace graph.json + GRAPH_REPORT.md
+└── profile/graph.json                          merged profile-wide graph
+```
+
+Graph artifacts never land inside workspaces (no repo pollution): `extract`
+uses `--out`, `update` uses an absolute `GRAPHIFY_OUT`. Container sessions only
+need read access to this directory.
+
+## Credits
+
+Built on [Graphify](https://github.com/safishamsi/graphify) (PyPI `graphifyy`)
+by Safi Shamsi. The bounded-exec discipline, stat parsing, and auto-context
+design are adapted from the `pi-graphify` Pi extension.

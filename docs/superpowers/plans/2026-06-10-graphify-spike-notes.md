@@ -129,6 +129,42 @@ From `llm.py`: `claude` → `ANTHROPIC_API_KEY`, `openai` → `OPENAI_API_KEY`,
 `DEEPSEEK_API_KEY`, `kimi` → `MOONSHOT_API_KEY`, `ollama` → none
 (`OLLAMA_BASE_URL` optional, default `http://localhost:11434/v1`).
 
+## Implementation verification record (Task 17)
+
+Run on 2026-06-10 after completing all tasks:
+
+- `pnpm --filter @sero-ai/common typecheck` — PASS
+- `pnpm --filter @sero/desktop typecheck` — PASS
+- `pnpm --filter @sero/desktop test` — 1621/1622 pass. The single failure
+  (`token-baseline.test.ts › CLI prompt block`, 819 > 600 tokens) is
+  **pre-existing and unrelated**: the measured block contains no graphify
+  content (`block.includes('graphify') === false`); the static built-in CLI
+  guidance text alone is 2,292 chars ≈ 819 tokens. It grew before this work
+  (the app/browser CLI guidance lines).
+- `pnpm --filter @sero-ai/plugin-graphify typecheck` (ui + extension + runtime) — PASS
+- `pnpm --filter @sero-ai/plugin-graphify test` — 83/83 pass
+- `pnpm --filter @sero-ai/plugin-graphify build` — PASS (MF remote)
+- `bash scripts/build-plugin.sh plugins/sero-graphify-plugin` — PASS
+  (extension + runtime bundled; graphify is the first plugin exercising the
+  runtime bundling path)
+- `pnpm --filter @sero/desktop toolchain:verify-published` — PASS (uv is
+  on-demand, not gated)
+
+E2E smoke test (dev app: `SERO_DEV_PLUGINS=graphify bash scripts/dev.sh`) —
+**PASS** for checklist item 1: the plugin's vite remote came up on :5197, the
+global background runtime started in the Electron main process with no
+`[app-runtime]` errors, and `~/.sero-ui/apps/graphify/state.json` was created
+with all 6 profile workspaces synced (enabled=false, status=idle) — proving
+the discovery → global runtime → `host.workspace.list()` → atomic state write
+chain end-to-end.
+
+Remaining manual E2E (checklist items 2–8: real LLM build, container session
+access, auto-context in live sessions, error paths) — **pending**: needs an
+interactive desktop session and an Anthropic API key for the build leg. Spike
+items 1 (output location) and 3 (credentials seam) are resolved above and in
+Task 4; spike item 2 (container read access to `SERO_HOME/apps/graphify/`)
+still needs the container leg of the E2E run.
+
 ## Live verification record
 
 - Prior extract run (claude backend) against a one-file doc corpus succeeded:

@@ -80,7 +80,7 @@ export interface GraphifyState {
   profileGraph: ProfileGraphState;
 }
 
-export const DEFAULT_STATE: GraphifyState = {
+export const DEFAULT_STATE: GraphifyState = Object.freeze({
   settings: {
     backend: 'claude',
     tokenBudget: 0,
@@ -99,4 +99,4 @@ export const DEFAULT_STATE: GraphifyState = {
   requests: [],
   nextRequestId: 1,
   profileGraph: { status: 'absent' },
-};
+}) as GraphifyState;
