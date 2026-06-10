@@ -90,6 +90,9 @@ export function GraphifyApp() {
                   {entry.stats.inputTokens > 0 && ` · ${Math.round((entry.stats.inputTokens + entry.stats.outputTokens) / 1000)}k tokens used`}
                 </p>
               )}
+              {entry.progress && (entry.status === 'building' || entry.status === 'updating') && (
+                <p className="truncate text-xs text-muted-foreground animate-pulse" title={entry.progress}>{entry.progress}</p>
+              )}
               {entry.lastError && <p className="text-xs text-destructive">{entry.lastError}</p>}
             </div>
             <div className="flex shrink-0 items-center gap-2">

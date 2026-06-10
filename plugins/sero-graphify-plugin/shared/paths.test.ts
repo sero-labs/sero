@@ -19,9 +19,11 @@ describe('paths', () => {
     expect(p.home).toBe('/profile/apps/graphify');
     expect(p.stateFile).toBe('/profile/apps/graphify/state.json');
     expect(p.graphsDir).toBe('/profile/apps/graphify/graphs');
-    expect(p.toolsDir).toBe('/profile/apps/graphify/tools');
     expect(p.profileDir).toBe('/profile/apps/graphify/profile');
     expect(p.profileGraph).toBe('/profile/apps/graphify/profile/graph.json');
+    // Tool installs are machine-shared (host.toolchains.sharedToolsDir),
+    // never per-profile.
+    expect(p).not.toHaveProperty('toolsDir');
   });
 
   it('derives per-workspace artifact paths', () => {

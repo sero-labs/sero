@@ -13,8 +13,8 @@ export interface IndexerHost {
   updateState(updater: (current: GraphifyState) => GraphifyState): Promise<void>;
   listWorkspaces(): Promise<IndexerWorkspace[]>;
   ensureProvisioned(): Promise<void>;
-  buildGraph(workspace: { workspaceId: string; path: string }, settings: GraphifyState['settings']): Promise<WorkspaceIndexStats>;
-  updateGraph(workspace: { workspaceId: string; path: string }, settings: GraphifyState['settings']): Promise<WorkspaceIndexStats>;
+  buildGraph(workspace: { workspaceId: string; path: string }, settings: GraphifyState['settings'], onProgress?: (message: string) => void): Promise<WorkspaceIndexStats>;
+  updateGraph(workspace: { workspaceId: string; path: string }, settings: GraphifyState['settings'], onProgress?: (message: string) => void): Promise<WorkspaceIndexStats>;
   mergeProfileGraph(workspaceIds: string[]): Promise<{ nodes: number; edges: number }>;
   log(message: string): void;
 }
@@ -34,13 +34,27 @@ export class GraphifyIndexer {
   constructor(private readonly host: IndexerHost) {}
 
   async start(): Promise<void> {
+    // Snapshot BEFORE syncing: the sync normalizes in-flight statuses
+    // ('building' → 'idle'), which is exactly the interrupted-work signal
+    // the catch-up decisions need.
+    const before = await this.host.readState();
     await this.syncWorkspaceList();
-    const state = await this.host.readState();
-    // Catch up: anything enabled gets an incremental update; interrupted builds restart full.
-    for (const entry of Object.values(state?.workspaces ?? {})) {
-      if (entry.enabled) this.enqueue(entry.workspaceId, entry.status === 'building');
+    const minutes = before?.settings.refreshIntervalMinutes ?? DEFAULT_STATE.settings.refreshIntervalMinutes;
+
+    // Catch up only where needed — a restart must not churn fresh workspaces:
+    // interrupted full builds restart full, interrupted updates resume, and
+    // stale graphs (older than the refresh interval) get a cheap update.
+    for (const entry of Object.values(before?.workspaces ?? {})) {
+      if (!entry.enabled) continue;
+      if (entry.status === 'building' || !entry.lastBuiltAt) {
+        this.enqueue(entry.workspaceId, true);
+      } else if (entry.status === 'updating' || entry.status === 'queued') {
+        this.enqueue(entry.workspaceId, false);
+      } else if (minutes > 0 && Date.now() - Date.parse(entry.lastBuiltAt) > minutes * 60_000) {
+        this.enqueue(entry.workspaceId, false);
+      }
     }
-    const minutes = state?.settings.refreshIntervalMinutes ?? DEFAULT_STATE.settings.refreshIntervalMinutes;
+
     if (minutes > 0) {
       this.refreshTimer = setInterval(() => void this.refreshAll(), minutes * 60_000);
     }
@@ -172,19 +186,40 @@ export class GraphifyIndexer {
     const entry = state?.workspaces[job.workspaceId];
     if (!state || !entry?.enabled) return;
 
-    await this.setStatus(job.workspaceId, job.full ? 'building' : 'updating');
+    const runningStatus: WorkspaceIndexStatus = job.full ? 'building' : 'updating';
+    await this.setStatus(job.workspaceId, runningStatus, { progress: 'Starting…' });
+
+    // Throttled progress → state writes; the UI observes via the state bus.
+    let lastWrite = 0;
+    let lastMessage = '';
+    const onProgress = (message: string) => {
+      const trimmed = message.trim().slice(0, 300);
+      if (!trimmed || trimmed === lastMessage) return;
+      const now = Date.now();
+      if (now - lastWrite < 750) return;
+      lastWrite = now;
+      lastMessage = trimmed;
+      void this.setStatus(job.workspaceId, runningStatus, { progress: trimmed });
+    };
+
     try {
       await this.host.ensureProvisioned();
       const target = { workspaceId: entry.workspaceId, path: entry.path };
-      const stats = job.full
-        ? await this.host.buildGraph(target, state.settings)
-        : await this.host.updateGraph(target, state.settings);
-      await this.setStatus(job.workspaceId, 'idle', { stats, lastBuiltAt: new Date().toISOString(), lastError: undefined });
+      const fresh = job.full
+        ? await this.host.buildGraph(target, state.settings, onProgress)
+        : await this.host.updateGraph(target, state.settings, onProgress);
+      // Incremental updates never spend LLM tokens; keep the last build's cost visible.
+      const stats: WorkspaceIndexStats = {
+        ...fresh,
+        inputTokens: fresh.inputTokens || entry.stats?.inputTokens || 0,
+        outputTokens: fresh.outputTokens || entry.stats?.outputTokens || 0,
+      };
+      await this.setStatus(job.workspaceId, 'idle', { stats, lastBuiltAt: new Date().toISOString(), lastError: undefined, progress: undefined });
       await this.merge();
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.host.log(`[graphify] build failed for ${job.workspaceId}: ${message}`);
-      await this.setStatus(job.workspaceId, 'error', { lastError: message });
+      await this.setStatus(job.workspaceId, 'error', { lastError: message, progress: undefined });
     }
   }
 

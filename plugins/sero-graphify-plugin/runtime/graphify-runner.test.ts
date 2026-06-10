@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import os from 'node:os';
 import path from 'node:path';
-import { buildWorkspaceGraph, updateWorkspaceGraph, mergeProfileGraph, parseBuildStats } from './graphify-runner';
+import { buildWorkspaceGraph, updateWorkspaceGraph, mergeProfileGraph, parseBuildStats, ensureGraphifyIgnore } from './graphify-runner';
 import type { ExecResult } from './bounded-exec';
 
 const STORE = path.join(os.tmpdir(), 'graphify-runner-test', 'ws1');
@@ -60,6 +60,31 @@ describe('buildWorkspaceGraph', () => {
       { workspaceDir: STORE, inputPath: '/p', backend: 'claude', tokenBudget: 0, exclude: [] },
     )).rejects.toThrow(/boom/);
   });
+
+  it('passes --model when a model override is set', async () => {
+    const exec = vi.fn().mockResolvedValue(ok(EXTRACT_STDOUT));
+    await buildWorkspaceGraph(
+      { exec, graphifyPath: 'g', env: {} },
+      { workspaceDir: STORE, inputPath: '/p', backend: 'claude', model: 'claude-haiku-4-5-20251001', tokenBudget: 0, exclude: [] },
+    );
+    const [, args] = exec.mock.calls[0];
+    expect(args).toContain('--model');
+    expect(args[args.indexOf('--model') + 1]).toBe('claude-haiku-4-5-20251001');
+  });
+
+  it('streams progress lines with unbuffered python output', async () => {
+    const exec = vi.fn().mockImplementation(async (_cmd, _args, opts) => {
+      opts.onLine?.('[graphify extract] scanning /p');
+      return ok(EXTRACT_STDOUT);
+    });
+    const progress: string[] = [];
+    await buildWorkspaceGraph(
+      { exec, graphifyPath: 'g', env: { PATH: '/bin' } },
+      { workspaceDir: STORE, inputPath: '/p', backend: 'claude', tokenBudget: 0, exclude: [], onProgress: (m) => progress.push(m) },
+    );
+    expect(progress).toContain('[graphify extract] scanning /p');
+    expect(exec.mock.calls[0][2].env.PYTHONUNBUFFERED).toBe('1');
+  });
 });
 
 describe('updateWorkspaceGraph', () => {
@@ -77,10 +102,65 @@ describe('updateWorkspaceGraph', () => {
   });
 });
 
+describe('ensureGraphifyIgnore', () => {
+  it('creates .graphifyignore with all Sero internals in the workspace', async () => {
+    const { mkdtemp, readFile } = await import('node:fs/promises');
+    const ws = await mkdtemp(path.join(os.tmpdir(), 'graphify-ws-'));
+    await ensureGraphifyIgnore(ws);
+    const content = await readFile(path.join(ws, '.graphifyignore'), 'utf8');
+    expect(content).toContain('.sero/');
+    expect(content).toContain('.pnpm-store/');
+  });
+
+  it('appends to an existing ignore file without clobbering it', async () => {
+    const { mkdtemp, readFile, writeFile } = await import('node:fs/promises');
+    const ws = await mkdtemp(path.join(os.tmpdir(), 'graphify-ws-'));
+    await writeFile(path.join(ws, '.graphifyignore'), 'custom-dir/\n');
+    await ensureGraphifyIgnore(ws);
+    const content = await readFile(path.join(ws, '.graphifyignore'), 'utf8');
+    expect(content).toContain('custom-dir/');
+    expect(content).toContain('.sero/');
+    expect(content).toContain('.pnpm-store/');
+  });
+
+  it('tops up files written by older versions with newly required entries', async () => {
+    const { mkdtemp, readFile, writeFile } = await import('node:fs/promises');
+    const ws = await mkdtemp(path.join(os.tmpdir(), 'graphify-ws-'));
+    await writeFile(path.join(ws, '.graphifyignore'), '# Added by Sero Graphify: keep Sero workspace internals out of the knowledge graph\n.sero/\n');
+    await ensureGraphifyIgnore(ws);
+    const content = await readFile(path.join(ws, '.graphifyignore'), 'utf8');
+    expect(content).toContain('.pnpm-store/');
+    expect(content.match(/\.sero\//g)).toHaveLength(1); // no duplicates
+  });
+
+  it('is idempotent and never throws on bad paths', async () => {
+    const { mkdtemp, readFile } = await import('node:fs/promises');
+    const ws = await mkdtemp(path.join(os.tmpdir(), 'graphify-ws-'));
+    await ensureGraphifyIgnore(ws);
+    const first = await readFile(path.join(ws, '.graphifyignore'), 'utf8');
+    await ensureGraphifyIgnore(ws);
+    expect(await readFile(path.join(ws, '.graphifyignore'), 'utf8')).toBe(first);
+    await expect(ensureGraphifyIgnore('/nonexistent/nowhere')).resolves.toBeUndefined();
+  });
+});
+
 describe('mergeProfileGraph', () => {
   it('passes all graph paths and --out', async () => {
     const exec = vi.fn().mockResolvedValue(ok('Merged 2 graphs -> 61 nodes, 76 edges'));
     await mergeProfileGraph({ exec, graphifyPath: 'g', env: {} }, ['/a/graph.json', '/b/graph.json'], PROFILE_GRAPH);
     expect(exec.mock.calls[0][1]).toEqual(['merge-graphs', '/a/graph.json', '/b/graph.json', '--out', PROFILE_GRAPH]);
+  });
+
+  it('copies the single graph when only one workspace is indexed (merge-graphs needs two)', async () => {
+    const { mkdtemp, mkdir, writeFile, readFile } = await import('node:fs/promises');
+    const dir = await mkdtemp(path.join(os.tmpdir(), 'graphify-merge-'));
+    const source = path.join(dir, 'ws1', 'graph.json');
+    await mkdir(path.dirname(source), { recursive: true });
+    await writeFile(source, '{"nodes":[],"links":[]}');
+    const out = path.join(dir, 'profile', 'graph.json');
+    const exec = vi.fn();
+    await mergeProfileGraph({ exec, graphifyPath: 'g', env: {} }, [source], out);
+    expect(exec).not.toHaveBeenCalled();
+    expect(await readFile(out, 'utf8')).toBe('{"nodes":[],"links":[]}');
   });
 });

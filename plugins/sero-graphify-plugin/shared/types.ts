@@ -10,6 +10,8 @@ export interface AutoContextSettings {
 
 export interface GraphifySettings {
   backend: GraphifyBackend;
+  /** Model override passed as --model; '' = the backend's default model. */
+  model: string;
   /** Per-build LLM token cap passed as --token-budget; 0 = graphify default. */
   tokenBudget: number;
   /** Glob patterns passed as repeated --exclude flags. */
@@ -38,6 +40,8 @@ export interface WorkspaceIndexEntry {
   lastBuiltAt?: string;
   lastError?: string;
   stats?: WorkspaceIndexStats;
+  /** Latest build progress line; only set while building/updating. */
+  progress?: string;
 }
 
 export type IndexAction = 'enable' | 'disable' | 'rebuild' | 'refresh' | 'enable-all';
@@ -83,6 +87,7 @@ export interface GraphifyState {
 export const DEFAULT_STATE: GraphifyState = Object.freeze({
   settings: {
     backend: 'claude',
+    model: '',
     tokenBudget: 0,
     exclude: ['node_modules', 'dist', 'build', 'out', '.git', '*.lock', '*.min.js', '*.map'],
     refreshIntervalMinutes: 10,

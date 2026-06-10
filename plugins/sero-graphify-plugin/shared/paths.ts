@@ -11,11 +11,15 @@ export function resolveSeroHome(env: NodeJS.ProcessEnv = process.env): string {
   return path.join(os.homedir(), '.pi');
 }
 
+/**
+ * Per-profile graph artifact paths. Tool installs (uv/Python/graphifyy) are
+ * deliberately NOT here — they are machine-shared via
+ * `host.toolchains.sharedToolsDir('graphify')`, never per-profile.
+ */
 export interface GraphifyPaths {
   home: string;
   stateFile: string;
   graphsDir: string;
-  toolsDir: string;
   profileDir: string;
   profileGraph: string;
 }
@@ -25,7 +29,6 @@ export function graphifyPathsFromHome(home: string): GraphifyPaths {
     home,
     stateFile: path.join(home, 'state.json'),
     graphsDir: path.join(home, 'graphs'),
-    toolsDir: path.join(home, 'tools'),
     profileDir: path.join(home, 'profile'),
     profileGraph: path.join(home, 'profile', 'graph.json'),
   };

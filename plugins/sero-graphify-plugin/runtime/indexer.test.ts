@@ -4,8 +4,9 @@ import { DEFAULT_STATE, type GraphifyState, type WorkspaceIndexStats } from '../
 
 const STATS: WorkspaceIndexStats = { nodes: 10, edges: 20, communities: 2, inputTokens: 100, outputTokens: 50 };
 
-function makeHost(overrides: Partial<IndexerHost> = {}) {
+function makeHost(overrides: Partial<IndexerHost> = {}, seed?: (state: GraphifyState) => void) {
   let state: GraphifyState = structuredClone(DEFAULT_STATE);
+  seed?.(state);
   const host: IndexerHost = {
     readState: async () => structuredClone(state),
     updateState: async (updater) => { state = updater(structuredClone(state)); },
@@ -78,6 +79,87 @@ describe('GraphifyIndexer', () => {
     await indexer.handleStateChange({ ...getState(), requests: [{ id: 2, action: 'disable', workspaceId: 'ws1', requestedAt: 'now' }] });
     await indexer.idle();
     expect(getState().workspaces.ws1.enabled).toBe(false);
+    indexer.dispose();
+  });
+
+  it('does not rebuild or update fresh workspaces on start', async () => {
+    const { host } = makeHost({}, (state) => {
+      state.workspaces.ws1 = {
+        workspaceId: 'ws1', name: 'One', path: '/p/one', enabled: true,
+        status: 'idle', lastBuiltAt: new Date().toISOString(), stats: STATS,
+      };
+    });
+    const indexer = new GraphifyIndexer(host);
+    await indexer.start();
+    await indexer.idle();
+    expect(host.buildGraph).not.toHaveBeenCalled();
+    expect(host.updateGraph).not.toHaveBeenCalled();
+    indexer.dispose();
+  });
+
+  it('catches up stale workspaces with a cheap update on start', async () => {
+    const staleTime = new Date(Date.now() - 60 * 60_000).toISOString(); // 1h > 10m interval
+    const { host } = makeHost({}, (state) => {
+      state.workspaces.ws1 = {
+        workspaceId: 'ws1', name: 'One', path: '/p/one', enabled: true,
+        status: 'idle', lastBuiltAt: staleTime, stats: STATS,
+      };
+    });
+    const indexer = new GraphifyIndexer(host);
+    await indexer.start();
+    await indexer.idle();
+    expect(host.updateGraph).toHaveBeenCalledTimes(1);
+    expect(host.buildGraph).not.toHaveBeenCalled();
+    indexer.dispose();
+  });
+
+  it('restarts interrupted full builds on start', async () => {
+    const { host } = makeHost({}, (state) => {
+      state.workspaces.ws1 = {
+        workspaceId: 'ws1', name: 'One', path: '/p/one', enabled: true,
+        status: 'building', lastBuiltAt: new Date().toISOString(),
+      };
+    });
+    const indexer = new GraphifyIndexer(host);
+    await indexer.start();
+    await indexer.idle();
+    expect(host.buildGraph).toHaveBeenCalledTimes(1);
+    indexer.dispose();
+  });
+
+  it('keeps the last build token costs when an update reports none', async () => {
+    const { host, getState } = makeHost();
+    const indexer = new GraphifyIndexer(host);
+    await indexer.start();
+    await indexer.handleStateChange({ ...getState(), requests: [{ id: 1, action: 'enable', workspaceId: 'ws1', requestedAt: 'now' }] });
+    await indexer.idle();
+    expect(getState().workspaces.ws1.stats).toMatchObject({ inputTokens: 100, outputTokens: 50 });
+
+    (host.updateGraph as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ nodes: 12, edges: 22, communities: 3, inputTokens: 0, outputTokens: 0 });
+    await indexer.handleStateChange({ ...getState(), requests: [{ id: 2, action: 'refresh', workspaceId: 'ws1', requestedAt: 'now' }] });
+    await indexer.idle();
+    expect(getState().workspaces.ws1.stats).toMatchObject({ nodes: 12, edges: 22, inputTokens: 100, outputTokens: 50 });
+    indexer.dispose();
+  });
+
+  it('streams build progress into the workspace entry and clears it when done', async () => {
+    const { host, getState } = makeHost();
+    let sawProgress: string | undefined;
+    (host.buildGraph as ReturnType<typeof vi.fn>).mockImplementation(
+      async (_target: unknown, _settings: unknown, onProgress?: (m: string) => void) => {
+        onProgress?.('[graphify extract] scanning files');
+        // Give the throttled async state write a tick to land.
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        sawProgress = getState().workspaces.ws1.progress;
+        return STATS;
+      },
+    );
+    const indexer = new GraphifyIndexer(host);
+    await indexer.start();
+    await indexer.handleStateChange({ ...getState(), requests: [{ id: 1, action: 'enable', workspaceId: 'ws1', requestedAt: 'now' }] });
+    await indexer.idle();
+    expect(sawProgress).toBe('[graphify extract] scanning files');
+    expect(getState().workspaces.ws1.progress).toBeUndefined();
     indexer.dispose();
   });
 

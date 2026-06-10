@@ -24,4 +24,22 @@ describe('boundedExec', () => {
     expect(result.exitCode).not.toBe(0);
     expect(result.stderr).toContain('ENOENT');
   });
+
+  it('streams complete stdout lines to onLine', async () => {
+    const lines: string[] = [];
+    await boundedExec('sh', ['-c', 'echo first; echo second; printf "no-newline-tail"'], {
+      onLine: (line) => lines.push(line),
+    });
+    expect(lines).toEqual(['first', 'second']); // partial last line is not emitted
+  });
+
+  it('never lets a throwing onLine break the exec', async () => {
+    const result = await boundedExec('sh', ['-c', 'echo boom; exit 0'], {
+      onLine: () => {
+        throw new Error('listener bug');
+      },
+    });
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('boom');
+  });
 });

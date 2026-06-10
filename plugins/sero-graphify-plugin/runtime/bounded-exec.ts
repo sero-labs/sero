@@ -5,6 +5,8 @@ export interface ExecOptions {
   env?: NodeJS.ProcessEnv;
   timeoutMs?: number;
   maxOutputBytes?: number;
+  /** Called with each complete stdout line as it arrives (progress streaming). */
+  onLine?: (line: string) => void;
 }
 
 export interface ExecResult {
@@ -20,7 +22,7 @@ export const TIMEOUT_EXIT_CODE = 124;
 
 /** Spawn with hard output/time bounds. Never throws; failures land in exitCode/stderr. */
 export function boundedExec(command: string, args: string[], options: ExecOptions = {}): Promise<ExecResult> {
-  const { cwd, env, timeoutMs = 10 * 60_000, maxOutputBytes = DEFAULT_MAX_OUTPUT_BYTES } = options;
+  const { cwd, env, timeoutMs = 10 * 60_000, maxOutputBytes = DEFAULT_MAX_OUTPUT_BYTES, onLine } = options;
 
   return new Promise((resolve) => {
     let stdout = '';
@@ -29,6 +31,25 @@ export function boundedExec(command: string, args: string[], options: ExecOption
     let finished = false;
     let limitHit = false;
     let timedOut = false;
+    let lineBuffer = '';
+
+    const emitLines = (chunk: string) => {
+      if (!onLine) return;
+      lineBuffer += chunk;
+      let newline = lineBuffer.indexOf('\n');
+      while (newline !== -1) {
+        const line = lineBuffer.slice(0, newline);
+        lineBuffer = lineBuffer.slice(newline + 1);
+        if (line.trim()) {
+          try {
+            onLine(line);
+          } catch {
+            // Progress callbacks must never break the exec.
+          }
+        }
+        newline = lineBuffer.indexOf('\n');
+      }
+    };
 
     const child = spawn(command, args, { cwd, env, stdio: ['ignore', 'pipe', 'pipe'] });
 
@@ -46,8 +67,13 @@ export function boundedExec(command: string, args: string[], options: ExecOption
         }
         return;
       }
-      if (target === 'stdout') stdout += chunk.toString('utf8');
-      else stderr += chunk.toString('utf8');
+      const text = chunk.toString('utf8');
+      if (target === 'stdout') {
+        stdout += text;
+        emitLines(text);
+      } else {
+        stderr += text;
+      }
     };
 
     const finish = (exitCode: number, extraStderr?: string) => {
