@@ -87,6 +87,10 @@ export function createAppRuntimeHost(_target: AppRuntimeTarget): AppRuntimeHost 
         refreshWorkspaceRuntimeAfterSync(workspaceId, workspacePath),
       resolveRuntime: (workspaceId) => resolveWorkspaceRuntime(workspaceId),
       listAccessRoots: (workspaceId) => listWorkspaceAccessRoots(workspaceManager, workspaceId),
+      list: async () => {
+        const workspaces = await workspaceManager.list();
+        return workspaces.map((ws) => ({ id: ws.id, name: ws.name, path: ws.path, open: ws.open }));
+      },
     },
     verification: {
       detectCompileCommands,

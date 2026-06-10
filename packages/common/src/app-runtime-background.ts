@@ -117,6 +117,14 @@ export interface AppRuntimeWorkspaceRuntimeResolution {
   capabilityAudit: AppRuntimeWorkspaceRuntimeCapabilityAuditEntry[];
 }
 
+export interface AppRuntimeWorkspaceInfo {
+  id: string;
+  name: string;
+  /** Absolute host path to the workspace root. */
+  path: string;
+  open: boolean;
+}
+
 export interface AppRuntimeWorkspaceApi {
   runCommand(
     workspaceId: string,
@@ -131,6 +139,8 @@ export interface AppRuntimeWorkspaceApi {
   ): Promise<AppRuntimeWorkspaceRefreshResult>;
   resolveRuntime(workspaceId: string): Promise<AppRuntimeWorkspaceRuntimeResolution>;
   listAccessRoots(workspaceId: string): Promise<WorkspaceAccessRootsResult>;
+  /** All workspaces registered in the active profile (host paths). */
+  list(): Promise<AppRuntimeWorkspaceInfo[]>;
 }
 
 export interface AppRuntimeVerificationDetectOptions {

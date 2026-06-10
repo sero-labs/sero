@@ -77,6 +77,7 @@ function createHostStub(
         containerEnabled: false,
         capabilityAudit: [],
       })),
+      list: vi.fn(async () => []),
     },
     verification: {
       detectCompileCommands: vi.fn(async () => []),
