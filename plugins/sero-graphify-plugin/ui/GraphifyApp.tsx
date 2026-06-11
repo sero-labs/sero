@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAppState, useAppTools } from '@sero-ai/app-runtime';
 import { Badge, Button, Card, Input, Switch } from '@sero-ai/ui';
 import { Loader2, RefreshCw, Search, Waypoints } from 'lucide-react';
@@ -26,6 +26,13 @@ export function GraphifyApp() {
   const workspaces = Object.values(state.workspaces);
   const index = (action: string, workspaceId?: string) =>
     void run('graphify_index', { action, workspace: workspaceId });
+
+  // Push-based discovery: opening the panel asks the runtime to re-read the
+  // profile workspace list, so newly created workspaces appear immediately.
+  useEffect(() => {
+    void run('graphify_index', { action: 'sync' });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const search = async () => {
     if (!question.trim()) return;

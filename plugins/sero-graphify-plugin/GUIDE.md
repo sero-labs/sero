@@ -49,7 +49,8 @@ if no map exists.
 - Building a map for the first time uses an AI model to read your code, so it
   costs a little money (it uses the API key you've already given Sero).
   That's a **one-time cost per project** — after that, updates are quick,
-  local, and free, and run automatically every 10 minutes or so.
+  local, and free, and happen automatically the moment the AI finishes a
+  round of edits in that project (plus a quick catch-up when Sero starts).
 - All the maps live in Sero's own folder, **never inside your projects** —
   nothing gets added to your repos, nothing to gitignore.
 - If you run projects inside containers for isolation, everything still works

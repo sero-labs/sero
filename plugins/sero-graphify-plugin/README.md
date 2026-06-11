@@ -12,9 +12,20 @@ TypeScript engine over `graph.json` (no Python at query time).
 
 Indexing is **opt-in per workspace** (toggle in the panel, "Index all", or the
 `graphify_index` tool). The first build is the only LLM-expensive step; after
-that the runtime refreshes incrementally (`graphify update`, AST-only, no LLM)
-on a configurable interval and re-merges the profile graph after every change.
-The toolchain (`uv` + pinned `graphifyy`) provisions itself on first build.
+that updates are **push-based — no polling**:
+
+- **Agent edits** — the extension watches `tool_execution_end`/`agent_end` SDK
+  events and queues one incremental `refresh` (AST-only `graphify update`, no
+  LLM) per agent run that mutated files, for enabled workspaces only.
+- **Workspace discovery** — opening the Graphify panel (and any session
+  starting in a workspace graphify has not seen) queues a `sync` request that
+  re-reads the profile workspace list.
+- **Boot catch-up** — at runtime start, interrupted full builds restart and
+  every other enabled workspace gets one cheap update to absorb changes made
+  while Sero was closed.
+
+The profile graph re-merges after every change. The toolchain (`uv` + pinned
+`graphifyy`) provisions itself on first build.
 
 ## Agent tools
 
@@ -25,7 +36,7 @@ The toolchain (`uv` + pinned `graphifyy`) provisions itself on first build.
 | `graphify_path` | Shortest connection between two concepts |
 | `graphify_explain` | Neighborhood explanation of a single node |
 | `graphify_status` | Index status per workspace + profile graph |
-| `graphify_index` | enable / disable / rebuild / refresh / enable-all |
+| `graphify_index` | enable / disable / rebuild / refresh / enable-all / sync |
 
 All tools are CLI-bridged (`sero graphify_search ...`).
 
@@ -42,7 +53,6 @@ caches, fully idle when no graph exists.
 | `model` | `''` | Model override (`--model`); empty = the backend's default (claude → `claude-sonnet-4-6`) |
 | `tokenBudget` | `0` | Per-chunk LLM token cap (`--token-budget`); 0 = graphify default |
 | `exclude` | node_modules, dist, … | Repeated `--exclude` patterns |
-| `refreshIntervalMinutes` | `10` | 0 disables the incremental refresh loop |
 | `autoContext.sessionSummary` | `true` | Session-start orientation |
 | `autoContext.augmentSearchResults` | `true` | Tool-result hints |
 | `autoContext.autoQuery` | `false` | Run real graph queries for high-confidence intents |

@@ -16,6 +16,7 @@ import { readStateFile, appendIndexRequest } from '../shared/state-io';
 import { loadGraph, queryGraph, findPath, explainNode } from '../shared/query-engine';
 import { resolveCurrentWorkspace } from './current-workspace';
 import { registerAutoContext } from './auto-context';
+import { registerRefreshOnEdit } from './refresh-on-edit';
 
 type ToolResult = {
   content: { type: 'text'; text: string }[];
@@ -116,15 +117,15 @@ export default function graphifyExtension(pi: ExtensionAPI): void {
   pi.registerTool({
     name: 'graphify_index',
     label: 'Graphify Index',
-    description: 'Manage workspace indexing: enable, disable, rebuild, refresh a workspace, or enable-all. Builds run in the background; check progress with graphify_status.',
+    description: 'Manage workspace indexing: enable, disable, rebuild, refresh a workspace, enable-all, or sync the workspace list. Builds run in the background; check progress with graphify_status.',
     parameters: Type.Object({
-      action: StringEnum(['enable', 'disable', 'rebuild', 'refresh', 'enable-all'] as const),
-      workspace: Type.Optional(Type.String({ description: 'Workspace id or name (omit for enable-all, or to target the current workspace)' })),
+      action: StringEnum(['enable', 'disable', 'rebuild', 'refresh', 'enable-all', 'sync'] as const),
+      workspace: Type.Optional(Type.String({ description: 'Workspace id or name (omit for enable-all/sync, or to target the current workspace)' })),
     }),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const state = await readStateFile(paths.stateFile);
       let workspaceId: string | undefined;
-      if (params.action !== 'enable-all') {
+      if (params.action !== 'enable-all' && params.action !== 'sync') {
         const entries = Object.values(state?.workspaces ?? {});
         const entry = params.workspace
           ? entries.find((e) => e.workspaceId === params.workspace || e.name === params.workspace)
@@ -145,4 +146,5 @@ export default function graphifyExtension(pi: ExtensionAPI): void {
   });
 
   registerAutoContext(pi, paths);
+  registerRefreshOnEdit(pi, paths);
 }

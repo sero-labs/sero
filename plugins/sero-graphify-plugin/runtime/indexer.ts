@@ -24,47 +24,34 @@ interface Job {
   full: boolean;
 }
 
-/** Workspace discovery is cheap (one host IPC + optional state write), so it
- * runs on its own short interval, independent of the expensive graph-refresh
- * loop — workspaces created while Sero is running must appear without a restart. */
-const WORKSPACE_DISCOVERY_INTERVAL_MS = 60_000;
-
 export class GraphifyIndexer {
   private queue: Job[] = [];
   private current: Promise<void> = Promise.resolve();
   private processing = false;
-  private refreshTimer: ReturnType<typeof setInterval> | null = null;
-  private discoveryTimer: ReturnType<typeof setInterval> | null = null;
   private disposed = false;
 
   constructor(private readonly host: IndexerHost) {}
 
+  /**
+   * Push model — no timers, ever. After this boot pass, work arrives only as
+   * explicit requests: edit-triggered `refresh` from the extension's SDK
+   * hooks, `sync` from the panel / session-start discovery, and the panel's
+   * own enable/rebuild actions.
+   */
   async start(): Promise<void> {
     // Snapshot BEFORE syncing: the sync normalizes in-flight statuses
     // ('building' → 'idle'), which is exactly the interrupted-work signal
     // the catch-up decisions need.
     const before = await this.host.readState();
     await this.syncWorkspaces({ normalizeStatuses: true });
-    const minutes = before?.settings.refreshIntervalMinutes ?? DEFAULT_STATE.settings.refreshIntervalMinutes;
 
-    // Catch up only where needed — a restart must not churn fresh workspaces:
-    // interrupted full builds restart full, interrupted updates resume, and
-    // stale graphs (older than the refresh interval) get a cheap update.
+    // Boot catch-up: interrupted full builds restart full; everything else
+    // enabled gets one cheap AST-only update to absorb changes made while
+    // Sero was closed.
     for (const entry of Object.values(before?.workspaces ?? {})) {
       if (!entry.enabled) continue;
-      if (entry.status === 'building' || !entry.lastBuiltAt) {
-        this.enqueue(entry.workspaceId, true);
-      } else if (entry.status === 'updating' || entry.status === 'queued') {
-        this.enqueue(entry.workspaceId, false);
-      } else if (minutes > 0 && Date.now() - Date.parse(entry.lastBuiltAt) > minutes * 60_000) {
-        this.enqueue(entry.workspaceId, false);
-      }
+      this.enqueue(entry.workspaceId, entry.status === 'building' || !entry.lastBuiltAt);
     }
-
-    if (minutes > 0) {
-      this.refreshTimer = setInterval(() => void this.refreshAll(), minutes * 60_000);
-    }
-    this.discoveryTimer = setInterval(() => void this.syncWorkspaces(), WORKSPACE_DISCOVERY_INTERVAL_MS);
     this.kick();
   }
 
@@ -79,8 +66,6 @@ export class GraphifyIndexer {
 
   dispose(): void {
     this.disposed = true;
-    if (this.refreshTimer) clearInterval(this.refreshTimer);
-    if (this.discoveryTimer) clearInterval(this.discoveryTimer);
   }
 
   /** Resolves when the queue drains. Test/diagnostic helper. */
@@ -91,14 +76,6 @@ export class GraphifyIndexer {
       previous = this.current;
       await previous;
     } while (previous !== this.current);
-  }
-
-  async refreshAll(): Promise<void> {
-    const state = await this.host.readState();
-    for (const entry of Object.values(state?.workspaces ?? {})) {
-      if (entry.enabled && entry.status === 'idle') this.enqueue(entry.workspaceId, false);
-    }
-    this.kick();
   }
 
   /**
@@ -163,8 +140,16 @@ export class GraphifyIndexer {
       case 'rebuild':
         if (request.workspaceId) await enable(request.workspaceId, true);
         break;
-      case 'refresh':
-        if (request.workspaceId) await enable(request.workspaceId, false);
+      case 'refresh': {
+        // Refresh is the push-update path (edit hooks, panel). It must never
+        // resurrect a workspace the user disabled.
+        if (!request.workspaceId) break;
+        const state = await this.host.readState();
+        if (state?.workspaces[request.workspaceId]?.enabled) await enable(request.workspaceId, false);
+        break;
+      }
+      case 'sync':
+        await this.syncWorkspaces();
         break;
       case 'enable-all': {
         const state = await this.host.readState();

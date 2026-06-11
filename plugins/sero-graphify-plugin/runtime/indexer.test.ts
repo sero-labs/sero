@@ -82,27 +82,11 @@ describe('GraphifyIndexer', () => {
     indexer.dispose();
   });
 
-  it('does not rebuild or update fresh workspaces on start', async () => {
+  it('start catches up every enabled workspace with a cheap update, never a rebuild', async () => {
     const { host } = makeHost({}, (state) => {
       state.workspaces.ws1 = {
         workspaceId: 'ws1', name: 'One', path: '/p/one', enabled: true,
         status: 'idle', lastBuiltAt: new Date().toISOString(), stats: STATS,
-      };
-    });
-    const indexer = new GraphifyIndexer(host);
-    await indexer.start();
-    await indexer.idle();
-    expect(host.buildGraph).not.toHaveBeenCalled();
-    expect(host.updateGraph).not.toHaveBeenCalled();
-    indexer.dispose();
-  });
-
-  it('catches up stale workspaces with a cheap update on start', async () => {
-    const staleTime = new Date(Date.now() - 60 * 60_000).toISOString(); // 1h > 10m interval
-    const { host } = makeHost({}, (state) => {
-      state.workspaces.ws1 = {
-        workspaceId: 'ws1', name: 'One', path: '/p/one', enabled: true,
-        status: 'idle', lastBuiltAt: staleTime, stats: STATS,
       };
     });
     const indexer = new GraphifyIndexer(host);
@@ -163,17 +147,62 @@ describe('GraphifyIndexer', () => {
     indexer.dispose();
   });
 
-  it('refreshAll runs incremental updates for enabled workspaces only', async () => {
+  it('refresh requests are a no-op for disabled workspaces', async () => {
+    const { host, getState } = makeHost();
+    const indexer = new GraphifyIndexer(host);
+    await indexer.start();
+    await indexer.idle();
+    await indexer.handleStateChange({ ...getState(), requests: [{ id: 1, action: 'refresh', workspaceId: 'ws1', requestedAt: 'now' }] });
+    await indexer.idle();
+    expect(host.updateGraph).not.toHaveBeenCalled();
+    expect(host.buildGraph).not.toHaveBeenCalled();
+    expect(getState().workspaces.ws1.enabled).toBe(false);
+    indexer.dispose();
+  });
+
+  it('refresh requests run an incremental update for enabled workspaces', async () => {
     const { host, getState } = makeHost();
     const indexer = new GraphifyIndexer(host);
     await indexer.start();
     await indexer.handleStateChange({ ...getState(), requests: [{ id: 1, action: 'enable', workspaceId: 'ws1', requestedAt: 'now' }] });
     await indexer.idle();
     (host.updateGraph as ReturnType<typeof vi.fn>).mockClear();
-    await indexer.refreshAll();
+    await indexer.handleStateChange({ ...getState(), requests: [{ id: 2, action: 'refresh', workspaceId: 'ws1', requestedAt: 'now' }] });
     await indexer.idle();
     expect(host.updateGraph).toHaveBeenCalledTimes(1);
     indexer.dispose();
+  });
+
+  it('sync requests rediscover the workspace list on demand', async () => {
+    const live = [{ id: 'ws1', name: 'One', path: '/p/one', open: true }];
+    const { host, getState } = makeHost({ listWorkspaces: async () => [...live] });
+    const indexer = new GraphifyIndexer(host);
+    await indexer.start();
+    await indexer.idle();
+
+    live.push({ id: 'ws-new', name: 'HelloWorld', path: '/p/hello', open: true });
+    await indexer.handleStateChange({ ...getState(), requests: [{ id: 1, action: 'sync', requestedAt: 'now' }] });
+    await indexer.idle();
+    expect(getState().workspaces['ws-new']).toMatchObject({ name: 'HelloWorld', enabled: false, status: 'idle' });
+    indexer.dispose();
+  });
+
+  it('sets no timers: nothing fires after start without explicit requests', async () => {
+    vi.useFakeTimers();
+    try {
+      const live = [{ id: 'ws1', name: 'One', path: '/p/one', open: true }];
+      const { host, getState } = makeHost({ listWorkspaces: async () => [...live] });
+      const indexer = new GraphifyIndexer(host);
+      await indexer.start();
+
+      live.push({ id: 'ws-new', name: 'HelloWorld', path: '/p/hello', open: true });
+      await vi.advanceTimersByTimeAsync(60 * 60_000); // a full hour: no polling of any kind
+      expect(getState().workspaces['ws-new']).toBeUndefined();
+      expect(host.updateGraph).not.toHaveBeenCalled();
+      indexer.dispose();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('discovers workspaces created after start without a restart', async () => {
@@ -229,24 +258,4 @@ describe('GraphifyIndexer', () => {
     indexer.dispose();
   });
 
-  it('runs discovery on a timer and stops it on dispose', async () => {
-    vi.useFakeTimers();
-    try {
-      const live = [{ id: 'ws1', name: 'One', path: '/p/one', open: true }];
-      const { host, getState } = makeHost({ listWorkspaces: async () => [...live] });
-      const indexer = new GraphifyIndexer(host);
-      await indexer.start();
-
-      live.push({ id: 'ws-new', name: 'HelloWorld', path: '/p/hello', open: true });
-      await vi.advanceTimersByTimeAsync(60_000);
-      expect(getState().workspaces['ws-new']).toMatchObject({ name: 'HelloWorld', enabled: false });
-
-      indexer.dispose();
-      live.push({ id: 'ws-late', name: 'TooLate', path: '/p/late', open: true });
-      await vi.advanceTimersByTimeAsync(120_000);
-      expect(getState().workspaces['ws-late']).toBeUndefined();
-    } finally {
-      vi.useRealTimers();
-    }
-  });
 });

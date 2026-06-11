@@ -16,8 +16,6 @@ export interface GraphifySettings {
   tokenBudget: number;
   /** Glob patterns passed as repeated --exclude flags. */
   exclude: string[];
-  /** 0 disables the background refresh loop. */
-  refreshIntervalMinutes: number;
   autoContext: AutoContextSettings;
 }
 
@@ -44,7 +42,7 @@ export interface WorkspaceIndexEntry {
   progress?: string;
 }
 
-export type IndexAction = 'enable' | 'disable' | 'rebuild' | 'refresh' | 'enable-all';
+export type IndexAction = 'enable' | 'disable' | 'rebuild' | 'refresh' | 'enable-all' | 'sync';
 
 export interface IndexRequest {
   id: number;
@@ -90,7 +88,6 @@ export const DEFAULT_STATE: GraphifyState = Object.freeze({
     model: '',
     tokenBudget: 0,
     exclude: ['node_modules', 'dist', 'build', 'out', '.git', '*.lock', '*.min.js', '*.map'],
-    refreshIntervalMinutes: 10,
     autoContext: {
       sessionSummary: true,
       augmentSearchResults: true,
