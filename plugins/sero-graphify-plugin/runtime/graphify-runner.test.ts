@@ -53,6 +53,20 @@ describe('buildWorkspaceGraph', () => {
     expect(reportArgs).toEqual(['cluster-only', STORE, '--no-viz']);
   });
 
+  it('redirects the extraction cache into the store dir via GRAPHIFY_OUT', async () => {
+    // `--out` only moves the graph output; the AST/semantic cache resolves from
+    // the GRAPHIFY_OUT env var and otherwise lands inside the workspace
+    // (observed live: <workspace>/graphify-out/cache/*).
+    const exec = vi.fn().mockResolvedValue(ok(EXTRACT_STDOUT));
+    await buildWorkspaceGraph(
+      { exec, graphifyPath: 'g', env: { PATH: '/bin' } },
+      { workspaceDir: STORE, inputPath: '/home/me/proj', backend: 'claude', tokenBudget: 0, exclude: [] },
+    );
+    for (const call of exec.mock.calls) {
+      expect(call[2].env.GRAPHIFY_OUT).toBe(path.join(STORE, 'graphify-out'));
+    }
+  });
+
   it('throws with stderr tail on failure', async () => {
     const exec = vi.fn().mockResolvedValue({ stdout: '', stderr: 'boom', exitCode: 1 });
     await expect(buildWorkspaceGraph(

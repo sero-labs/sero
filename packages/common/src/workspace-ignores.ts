@@ -17,6 +17,8 @@ export const WORKSPACE_COMMON_IGNORES = [
   'coverage/',
   '.sero/',
   '.sero-workspace.json',
+  'graphify-out/',
+  '.graphifyignore',
   '__pycache__/',
   '*.pyc',
   'target/',

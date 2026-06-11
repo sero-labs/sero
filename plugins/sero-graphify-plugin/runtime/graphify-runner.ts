@@ -92,9 +92,13 @@ export async function ensureGraphifyIgnore(inputPath: string): Promise<void> {
 export async function buildWorkspaceGraph(deps: RunnerDeps, options: BuildOptions): Promise<WorkspaceIndexStats> {
   await mkdir(options.workspaceDir, { recursive: true });
   await ensureGraphifyIgnore(options.inputPath);
+  // `--out` only redirects the graph; the AST/semantic extraction cache
+  // resolves from the GRAPHIFY_OUT env var and would otherwise land inside
+  // the workspace as <inputPath>/graphify-out/cache (observed live).
+  const storeOutEnv = { ...liveEnv(deps.env), GRAPHIFY_OUT: path.join(options.workspaceDir, 'graphify-out') };
   const result = await deps.exec(deps.graphifyPath, buildArgs(options), {
     cwd: options.workspaceDir,
-    env: liveEnv(deps.env),
+    env: storeOutEnv,
     timeoutMs: BUILD_TIMEOUT_MS,
     onLine: options.onProgress,
   });
@@ -106,7 +110,7 @@ export async function buildWorkspaceGraph(deps: RunnerDeps, options: BuildOption
   options.onProgress?.('Generating GRAPH_REPORT.md and naming communities…');
   await deps.exec(deps.graphifyPath, ['cluster-only', options.workspaceDir, '--no-viz'], {
     cwd: options.workspaceDir,
-    env: liveEnv(deps.env),
+    env: storeOutEnv,
     timeoutMs: BUILD_TIMEOUT_MS,
     onLine: options.onProgress,
   });
