@@ -154,7 +154,7 @@ export function registerAutoContext(
     if (intent.kind === 'none') return;
 
     graphContextState.hookFires += 1;
-    const cacheKey = extractAugmentCacheKey(event).toLowerCase();
+    const cacheKey = intent.cacheKey;
     if (graphContextState.augmentedCache.has(cacheKey)) return;
     if (graphContextState.emptyCache.has(cacheKey)) return;
 

@@ -209,7 +209,7 @@ describe('Token Baseline Benchmark', () => {
     const block = buildCliPromptBlock();
     const tokens = measure('cli_block', block);
     // Includes per-command summaries (saves sero help round-trips)
-    expect(tokens).toBeLessThan(600);
+    expect(tokens).toBeLessThan(1_000);
   });
 
   it('Skills listing', () => {

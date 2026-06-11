@@ -92,9 +92,7 @@ describe('Docker runtime backend core', () => {
       if (args[0] === 'inspect') return ok(JSON.stringify([{ Config: { Image: 'image:test', Labels: expectedDockerLabels('image:test') }, State: { Running: true } }]));
       return ok(args[0] === 'run' ? 'container-id' : '');
     });
-
     await ensureDockerContainer({ config, imageRef: 'image:test', run });
-
     expect(calls.map((args) => args[0]).slice(0, 5)).toEqual(['inspect', 'start', 'inspect', 'rm', 'run']);
   });
 

@@ -539,8 +539,10 @@
       },
       "minVersion": "0.7.3",
       "installPolicy": "on-demand",
-      "status": "pending",
-      "available": false
+      "status": "built",
+      "available": true,
+      "url": "https://github.com/sero-labs/sero/releases/download/toolchains-2026-05-31/uv-windows-x64.tar.gz",
+      "sha256": "8c2d0d30af7004a2908445d95d40d73ee688f5ee13eaa86a06ed32d041bbb049"
     }
   }
 }

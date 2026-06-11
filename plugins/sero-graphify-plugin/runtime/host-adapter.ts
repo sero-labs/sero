@@ -14,6 +14,7 @@ import type { IndexerHost } from './indexer';
 export function createIndexerHost(ctx: AppRuntimeContext): { host: IndexerHost; paths: GraphifyPaths } {
   const paths = graphifyPathsFromHome(path.dirname(ctx.stateFilePath));
   let provisioned: { graphifyPath: string } | null = null;
+  let provisioningPromise: Promise<void> | null = null;
 
   // Tool installs (uv-managed Python + graphifyy venv) are machine-shared,
   // NOT per-profile — graph artifacts stay per-profile, binaries don't.
@@ -29,6 +30,14 @@ export function createIndexerHost(ctx: AppRuntimeContext): { host: IndexerHost; 
 
   const ensureProvisioned = async (): Promise<void> => {
     if (provisioned) return;
+    if (provisioningPromise) return provisioningPromise;
+    provisioningPromise = provisionGraphifyOnce().finally(() => {
+      provisioningPromise = null;
+    });
+    return provisioningPromise;
+  };
+
+  const provisionGraphifyOnce = async (): Promise<void> => {
     await updateState((state) => ({ ...state, provisioning: { ...state.provisioning, status: 'installing', updatedAt: new Date().toISOString() } }));
     try {
       const result = await provisionGraphify({

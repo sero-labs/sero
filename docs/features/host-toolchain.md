@@ -45,7 +45,7 @@ Verification runs version or smoke commands; PATH presence alone is not trusted.
 
 Windows host mode is native Windows execution with a verified Git Bash/MSYS-compatible shell; it is not WSL by default.
 
-`uv` installs from astral-sh's pinned upstream GitHub Release assets (sha256-verified) rather than the Sero toolchains release; on Windows it resolves from the system PATH only (upstream ships zip archives the unpacker does not support).
+`uv` installs from astral-sh's pinned upstream GitHub Release assets (sha256-verified) on macOS/Linux. Windows uses a Sero-published tar.gz repack of the pinned upstream `uv.exe` so the existing safe toolchain unpacker can install it on first use.
 
 ## Core toolchain publication
 
