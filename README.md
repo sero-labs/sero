@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <strong>Zero context switch, zero sprawl.</strong><br />
+  <strong>Escape the Terminal</strong><br />
   A local-first, agent-first desktop workspace for macOS, Linux, and Windows.
 </p>
 
