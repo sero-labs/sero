@@ -4,6 +4,7 @@ import { captureRegion } from '@electron/shared/media/capture';
 import { encodeFramesToMp4 } from '@electron/shared/media/video-encoder';
 import type {
   AppControlEntry,
+  AppFullScreenshotTarget,
   AppInteractionParams,
   AppInteractionResult,
   AppPanelRect,
@@ -70,6 +71,33 @@ async function captureRect(rect: AppPanelRect): Promise<string | null> {
 async function getBrowserCaptureTarget(): Promise<BrowserCaptureTarget | null> {
   return execRenderer<BrowserCaptureTarget | null>(
     'window.__appControl?.getBrowserCaptureTarget?.() ?? null',
+  );
+}
+
+async function prepareFullScreenshotTarget(selector?: string): Promise<AppFullScreenshotTarget | null> {
+  return execRenderer<AppFullScreenshotTarget | null>(
+    `window.__appControl?.prepareFullScreenshot?.(${JSON.stringify(selector)}) ?? null`,
+  );
+}
+
+async function setFullScreenshotScroll(ref: string, scrollTop: number): Promise<boolean> {
+  return execRenderer<boolean>(
+    `window.__appControl?.setFullScreenshotScroll?.(${JSON.stringify(ref)}, ${JSON.stringify(scrollTop)}) ?? false`,
+  );
+}
+
+async function restoreFullScreenshotScroll(ref: string, scrollTop: number, scrollLeft: number): Promise<boolean> {
+  return execRenderer<boolean>(
+    `window.__appControl?.restoreFullScreenshotScroll?.(${JSON.stringify(ref)}, ${JSON.stringify(scrollTop)}, ${JSON.stringify(scrollLeft)}) ?? false`,
+  );
+}
+
+async function stitchFullScreenshot(
+  target: AppFullScreenshotTarget,
+  pieces: Array<{ y: number; dataUrl: string }>,
+): Promise<string> {
+  return execRenderer<string>(
+    `window.__appControl?.stitchFullScreenshot?.(${JSON.stringify(target)}, ${JSON.stringify(pieces)})`,
   );
 }
 
@@ -160,6 +188,37 @@ export const appControlHostService = {
   async screenshot(): Promise<string | null> {
     const capture = await this.captureVisibleApp();
     return capture?.base64 ?? null;
+  },
+
+  async fullScreenshot(selector?: string): Promise<{ base64: string; target: AppFullScreenshotTarget } | null> {
+    const appRect = await this.getAppRect();
+    if (!hasVisibleRect(appRect)) return null;
+    const target = await prepareFullScreenshotTarget(selector);
+    if (!target) return null;
+
+    const pieces: Array<{ y: number; dataUrl: string }> = [];
+    const captureRectForTarget = {
+      x: appRect.x + target.rect.x,
+      y: appRect.y + target.rect.y,
+      width: Math.min(target.clientWidth, target.rect.width),
+      height: Math.min(target.clientHeight, target.rect.height),
+    };
+
+    try {
+      for (const position of target.positions) {
+        await setFullScreenshotScroll(target.ref, position);
+        await sleep(80);
+        const base64 = await captureRect(captureRectForTarget);
+        if (!base64) return null;
+        pieces.push({ y: position, dataUrl: `data:image/png;base64,${base64}` });
+      }
+      const base64 = pieces.length === 1 && target.scrollHeight <= target.clientHeight
+        ? pieces[0]!.dataUrl.replace(/^data:image\/png;base64,/, '')
+        : await stitchFullScreenshot(target, pieces);
+      return { base64, target };
+    } finally {
+      await restoreFullScreenshotScroll(target.ref, target.scrollTop, target.scrollLeft).catch(() => false);
+    }
   },
 
   async interact(params: AppInteractionParams): Promise<AppInteractionResult> {

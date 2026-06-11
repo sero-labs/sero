@@ -22,6 +22,7 @@ import {
   type ExecResult,
 } from './types';
 import { getContainerAvailability } from './availability';
+import { prepareWorkspaceLogPortal } from './log-access';
 
 const execFileAsync = promisify(execFile);
 
@@ -229,6 +230,7 @@ export async function createFreshContainer(
 ): Promise<ContainerState> {
   // Ensure host workspace directory exists
   fs.mkdirSync(config.hostPath, { recursive: true });
+  prepareWorkspaceLogPortal(config.hostPath);
 
   const args: string[] = [
     'run',
@@ -264,6 +266,13 @@ export async function createFreshContainer(
   for (const hostDir of config.writableMounts ?? []) {
     if (fs.existsSync(hostDir)) {
       args.push('--volume', `${hostDir}:${hostDir}`);
+    }
+  }
+
+  // Bind-mount explicit host directories into stable runtime paths.
+  for (const mount of config.bindMounts ?? []) {
+    if (fs.existsSync(mount.source)) {
+      args.push('--volume', `${mount.source}:${mount.target}${mount.readonly ? ':ro' : ''}`);
     }
   }
 

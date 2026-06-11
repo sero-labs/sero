@@ -13,8 +13,16 @@ import { useExplorerStore } from '@/stores/explorer';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { openApp } from '@/lib/open-app';
 import { executeAppInteraction, getAppPanelRect } from '@/lib/app-control/dom-interactions';
+import {
+  prepareFullScreenshot,
+  restoreFullScreenshotScroll as restoreFullScreenshotElementScroll,
+  setFullScreenshotScroll as setFullScreenshotElementScroll,
+  stitchFullScreenshot,
+  type ScreenshotPiece,
+} from '@/lib/app-control/dom/full-screenshot';
 import type {
   AppControlEntry,
+  AppFullScreenshotTarget,
   AppInteractionParams,
   AppInteractionResult,
   AppPanelRect,
@@ -38,6 +46,10 @@ interface AppControlBridge {
   getAppRect(): AppPanelRect | null;
   getBrowserCaptureTarget(): { workspaceId: string; tabId: string; rect: AppPanelRect } | null;
   interact(params: AppInteractionParams): Promise<AppInteractionResult>;
+  prepareFullScreenshot(selector?: string): AppFullScreenshotTarget | null;
+  setFullScreenshotScroll(ref: string, scrollTop: number): boolean;
+  restoreFullScreenshotScroll(ref: string, scrollTop: number, scrollLeft: number): boolean;
+  stitchFullScreenshot(target: AppFullScreenshotTarget, pieces: ScreenshotPiece[]): Promise<string>;
   recordStart(): boolean;
   recordStop(): boolean;
   getRecordingStatus(): AppRecordingStatus;
@@ -110,6 +122,19 @@ export function initAppControlBridge(): () => void {
       return tabId && rect ? { workspaceId, tabId, rect } : null;
     },
     interact: executeAppInteraction,
+    prepareFullScreenshot(selector?: string) {
+      const panel = document.querySelector('[data-app-panel]');
+      return panel instanceof HTMLElement ? prepareFullScreenshot(panel, selector) : null;
+    },
+    setFullScreenshotScroll(ref: string, scrollTop: number) {
+      const panel = document.querySelector('[data-app-panel]');
+      return panel instanceof HTMLElement && setFullScreenshotElementScroll(panel, ref, scrollTop);
+    },
+    restoreFullScreenshotScroll(ref: string, scrollTop: number, scrollLeft: number) {
+      const panel = document.querySelector('[data-app-panel]');
+      return panel instanceof HTMLElement && restoreFullScreenshotElementScroll(panel, ref, scrollTop, scrollLeft);
+    },
+    stitchFullScreenshot,
     recordStart() {
       if (recordingActive) return false;
       if (!getAppPanelRect()) return false;

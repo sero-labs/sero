@@ -2,6 +2,8 @@ import path from 'path';
 
 import { SERO_AGENT_DIR } from '@electron/platform/env';
 import type { WorkspaceManager } from '@electron/features/workspace/manager';
+import { getSharedPiDocsRoot } from '@electron/features/pi-docs/shared-pi-docs';
+import { buildSeroLogMounts } from './log-access';
 import type { ContainerConfig } from './types';
 
 export async function buildWorkspaceContainerConfig(
@@ -48,7 +50,9 @@ export async function buildWorkspaceContainerConfig(
     readOnlyMounts: [
       path.join(SERO_AGENT_DIR, 'skills'),
       path.join(SERO_AGENT_DIR, 'prompts'),
+      getSharedPiDocsRoot(),
     ],
     writableMounts,
+    bindMounts: buildSeroLogMounts(),
   };
 }

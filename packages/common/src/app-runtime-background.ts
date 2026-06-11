@@ -6,6 +6,8 @@
  * plugins can type against it without importing desktop-internal modules.
  */
 
+import type { WorkspaceAccessRootsResult } from './workspace-access-roots';
+
 export interface AppRuntimeStateApi {
   read<T = unknown>(filePath: string): Promise<T | null>;
   update<T = unknown>(filePath: string, updater: (current: T | null) => T): Promise<void>;
@@ -115,6 +117,14 @@ export interface AppRuntimeWorkspaceRuntimeResolution {
   capabilityAudit: AppRuntimeWorkspaceRuntimeCapabilityAuditEntry[];
 }
 
+export interface AppRuntimeWorkspaceInfo {
+  id: string;
+  name: string;
+  /** Absolute host path to the workspace root. */
+  path: string;
+  open: boolean;
+}
+
 export interface AppRuntimeWorkspaceApi {
   runCommand(
     workspaceId: string,
@@ -128,6 +138,9 @@ export interface AppRuntimeWorkspaceApi {
     workspacePath: string,
   ): Promise<AppRuntimeWorkspaceRefreshResult>;
   resolveRuntime(workspaceId: string): Promise<AppRuntimeWorkspaceRuntimeResolution>;
+  listAccessRoots(workspaceId: string): Promise<WorkspaceAccessRootsResult>;
+  /** All workspaces registered in the active profile (host paths). */
+  list(): Promise<AppRuntimeWorkspaceInfo[]>;
 }
 
 export interface AppRuntimeVerificationDetectOptions {
@@ -328,6 +341,32 @@ export interface AppRuntimeNotificationsApi {
   notify(options: AppRuntimeNotificationOptions): void;
 }
 
+export interface AppRuntimeProviderApiKey {
+  envVar: string;
+  key: string;
+}
+
+export interface AppRuntimeCredentialsApi {
+  /**
+   * Resolve the user's API key for a model provider (e.g. 'anthropic').
+   * Returns null when the provider is unknown or no key is configured.
+   * The key must only be placed in child-process env — never persisted.
+   */
+  getProviderApiKey(providerId: string): Promise<AppRuntimeProviderApiKey | null>;
+}
+
+export interface AppRuntimeToolchainsApi {
+  /** Resolve a Sero-managed tool, installing it on demand. Returns the executable path. */
+  ensure(tool: string): Promise<{ path: string }>;
+  /**
+   * Machine-shared directory for an app's tool installs (Python envs, CLIs,
+   * model files, …). One copy per machine, shared by every profile — never
+   * store tool installs under the profile's SERO_HOME. The directory is
+   * created on first call.
+   */
+  sharedToolsDir(namespace: string): Promise<{ path: string }>;
+}
+
 export interface AppRuntimeHost {
   appState: AppRuntimeStateApi;
   subagents: AppRuntimeSubagentsApi;
@@ -336,6 +375,8 @@ export interface AppRuntimeHost {
   git: AppRuntimeGitApi;
   devServers: AppRuntimeDevServersApi;
   notifications: AppRuntimeNotificationsApi;
+  credentials: AppRuntimeCredentialsApi;
+  toolchains: AppRuntimeToolchainsApi;
 }
 
 export interface AppRuntimeContext {

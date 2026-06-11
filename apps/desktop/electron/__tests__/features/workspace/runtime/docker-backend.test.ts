@@ -11,12 +11,12 @@ import { createDockerRunArgs, ensureDockerContainer } from '@electron/features/w
 import { mountArgs } from '@electron/features/workspace/runtime/backends/docker/docker-mounts';
 import { DockerBackend } from '@electron/features/workspace/runtime/backends/docker/docker-backend';
 import type { RuntimeDevServer } from '@electron/features/workspace/runtime/types';
-
 vi.mock('@electron/platform/env', () => ({
   SERO_AGENT_DIR: '/tmp/sero-agent',
+  SERO_FIXED_ROOT: '/tmp/sero-fixed',
+  SERO_HOST_ARTIFACTS_ROOT: '/tmp/sero-host-artifacts',
   SERO_HOME: '/tmp/sero-home',
 }));
-
 vi.mock('@electron/features/container/core/workspace-container-config', () => ({
   buildWorkspaceContainerConfig: vi.fn(async () => ({
     workspaceId: 'ws-1',
@@ -25,13 +25,11 @@ vi.mock('@electron/features/container/core/workspace-container-config', () => ({
     writableMounts: ['/tmp/sero-docker-shared'],
   })),
 }));
-
 describe('Docker runtime backend core', () => {
   it('builds docker run args with labels, env, user strategy, and mounts', () => {
     mkdirSync('/tmp/sero-agent/skills', { recursive: true });
     mkdirSync('/tmp/sero-agent/prompts', { recursive: true });
     mkdirSync('/tmp/sero-shared', { recursive: true });
-
     const args = createDockerRunArgs({
       workspaceId: 'ws-1',
       hostPath: '/host/workspace',
@@ -61,13 +59,11 @@ describe('Docker runtime backend core', () => {
     ]));
     if (process.platform !== 'win32') expect(args).toContain('--user');
   });
-
   it('normalizes Windows Docker Desktop bind source without shell quoting', () => {
     expect(mountArgs([{ source: 'C:\\Users\\daniel\\repo', target: '/workspace' }])).toEqual([
       '--mount', 'type=bind,source=C:\\Users\\daniel\\repo,target=/workspace',
     ]);
   });
-
   it('recreates an expected stopped Docker container when docker start exits but container is not running', async () => {
     const workspacePath = mkdtempSync(path.join(tmpdir(), 'sero-docker-ws-'));
     const calls: string[][] = [];
@@ -96,9 +92,7 @@ describe('Docker runtime backend core', () => {
       if (args[0] === 'inspect') return ok(JSON.stringify([{ Config: { Image: 'image:test', Labels: expectedDockerLabels('image:test') }, State: { Running: true } }]));
       return ok(args[0] === 'run' ? 'container-id' : '');
     });
-
     await ensureDockerContainer({ config, imageRef: 'image:test', run });
-
     expect(calls.map((args) => args[0]).slice(0, 5)).toEqual(['inspect', 'start', 'inspect', 'rm', 'run']);
   });
 

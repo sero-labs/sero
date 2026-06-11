@@ -20,6 +20,15 @@ cd "$(dirname "$0")/.."
 PACKAGES_DIR="$(cd ../../packages && pwd)"
 PLUGINS_DIR="$(cd ../../plugins && pwd)"
 SERO_DEV_PLUGINS="${SERO_DEV_PLUGINS:-}"
+SERO_LOG_DIR="${SERO_LOG_DIR:-${SERO_HOME_OVERRIDE:-$HOME/.sero-ui}/logs}"
+mkdir -p "$SERO_LOG_DIR"
+
+log_path() {
+  local name="$1"
+  local target="$SERO_LOG_DIR/$name"
+  ln -sf "$target" "/tmp/$name" 2>/dev/null || true
+  printf "%s" "$target"
+}
 
 # ── Cleanup trap ────────────────────────────────────────────
 CHILD_PIDS=()
@@ -177,9 +186,11 @@ sleep 1
 
 WEB_REMOTE_DIR="$(cd ../../apps/web-remote && pwd)"
 if [ -f "$WEB_REMOTE_DIR/package.json" ]; then
-  (cd "$WEB_REMOTE_DIR" && npx vite build) > /tmp/sero-web-remote-build.log 2>&1
+  WEB_REMOTE_BUILD_LOG="$(log_path sero-web-remote-build.log)"
+  WEB_REMOTE_WATCH_LOG="$(log_path sero-web-remote-watch.log)"
+  (cd "$WEB_REMOTE_DIR" && npx vite build) > "$WEB_REMOTE_BUILD_LOG" 2>&1
   echo "  Built web-remote SPA"
-  (cd "$WEB_REMOTE_DIR" && exec npx vite build --watch) > /tmp/sero-web-remote-watch.log 2>&1 &
+  (cd "$WEB_REMOTE_DIR" && exec npx vite build --watch) > "$WEB_REMOTE_WATCH_LOG" 2>&1 &
   WEB_REMOTE_PID=$!
   CHILD_PIDS+=($WEB_REMOTE_PID)
 fi
@@ -188,12 +199,15 @@ node scripts/build-electron.mjs
 
 # ── Start remote dev servers ──────────────────────────────────
 REMOTE_PIDS=()
+REMOTE_LOGS=()
 for i in "${!REMOTE_DIRS[@]}"; do
   dir="${REMOTE_DIRS[$i]}"
   name="${REMOTE_NAMES[$i]}"
-  (cd "$dir" && exec npx vite) > "/tmp/sero-remote-${name}.log" 2>&1 &
+  remote_log="$(log_path "sero-remote-${name}.log")"
+  (cd "$dir" && exec npx vite) > "$remote_log" 2>&1 &
   pid=$!
   REMOTE_PIDS+=($pid)
+  REMOTE_LOGS+=("$remote_log")
   CHILD_PIDS+=($pid)
 done
 
@@ -208,7 +222,8 @@ if [ ${#REMOTE_PORTS[@]} -gt 0 ]; then
   done
 fi
 
-SERO_DEV_PLUGINS="$SERO_DEV_PLUGINS" npx vite > /tmp/sero-vite.log 2>&1 &
+VITE_LOG="$(log_path sero-vite.log)"
+SERO_DEV_PLUGINS="$SERO_DEV_PLUGINS" npx vite > "$VITE_LOG" 2>&1 &
 VITE_PID=$!
 CHILD_PIDS+=($VITE_PID)
 
@@ -227,7 +242,8 @@ if [ "$(uname -s)" = "Linux" ]; then
   fi
 fi
 
-SERO_DEV_PLUGINS="$SERO_DEV_PLUGINS" NODE_ENV=development npx electron . > /tmp/sero-electron.log 2>&1 &
+ELECTRON_LOG="$(log_path sero-electron.log)"
+SERO_DEV_PLUGINS="$SERO_DEV_PLUGINS" NODE_ENV=development npx electron . > "$ELECTRON_LOG" 2>&1 &
 ELECTRON_PID=$!
 CHILD_PIDS+=($ELECTRON_PID)
 
@@ -245,12 +261,13 @@ echo "  Host (vite)            = $VITE_PID   → http://localhost:5173"
 echo "  Electron               = $ELECTRON_PID"
 echo ""
 echo "Logs:"
-echo "  /tmp/sero-vite.log"
-for name in "${REMOTE_NAMES[@]}"; do
-  echo "  /tmp/sero-remote-${name}.log"
+echo "  $VITE_LOG"
+for log in "${REMOTE_LOGS[@]}"; do
+  echo "  $log"
 done
-[ -n "$WEB_REMOTE_PID" ] && echo "  /tmp/sero-web-remote-watch.log"
-echo "  /tmp/sero-electron.log"
+[ -n "$WEB_REMOTE_PID" ] && echo "  $WEB_REMOTE_WATCH_LOG"
+echo "  $ELECTRON_LOG"
+echo "  Compatibility symlinks: /tmp/sero-*.log"
 echo ""
 
 wait $ELECTRON_PID 2>/dev/null

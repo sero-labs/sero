@@ -1,5 +1,7 @@
 import { appStateManager } from '@electron/features/apps/state/manager';
 import { subagentManager } from '@electron/features/subagent/singleton';
+import { workspaceManager } from '@electron/features/workspace/manager';
+import { listWorkspaceAccessRoots } from '@electron/features/workspace/access-roots';
 import { runtimeManager } from '@electron/features/workspace/runtime/runtime-manager';
 import { showNotification } from '@electron/platform/desktop/notifications';
 import { runWorkspaceCommand } from '@electron/features/workspace/runtime/run-workspace-command';
@@ -33,10 +35,27 @@ import {
   getPullRequestMergeError,
   getPullRequestMergeState,
 } from '@electron/features/vcs/worktree/merge-status';
+import { mkdir } from 'fs/promises';
+import path from 'path';
+
+import { SERO_HOME, SERO_HOST_ARTIFACTS_ROOT } from '@electron/platform/env';
+import {
+  createHostToolResolver,
+  isToolName,
+  type HostToolResolver,
+} from '@electron/features/workspace/runtime/toolchains/host-tool-resolver';
 import { validateRuntimeCustomTools } from './custom-tools';
+import { getProviderApiKey } from './provider-credentials';
 import type { AppRuntimeTarget, AppRuntimeHost } from '../types';
 
 const worktreeManager = new WorktreeManager();
+
+let hostToolResolver: HostToolResolver | null = null;
+
+function toolResolver(): HostToolResolver {
+  hostToolResolver ??= createHostToolResolver();
+  return hostToolResolver;
+}
 
 function matchesRun(
   entry: { workspaceId: string; parentSessionId: string } | undefined,
@@ -84,6 +103,11 @@ export function createAppRuntimeHost(_target: AppRuntimeTarget): AppRuntimeHost 
       refreshAfterSync: (workspaceId, workspacePath) =>
         refreshWorkspaceRuntimeAfterSync(workspaceId, workspacePath),
       resolveRuntime: (workspaceId) => resolveWorkspaceRuntime(workspaceId),
+      listAccessRoots: (workspaceId) => listWorkspaceAccessRoots(workspaceManager, workspaceId),
+      list: async () => {
+        const workspaces = await workspaceManager.list();
+        return workspaces.map((ws) => ({ id: ws.id, name: ws.name, path: ws.path, open: ws.open }));
+      },
     },
     verification: {
       detectCompileCommands,
@@ -155,6 +179,26 @@ export function createAppRuntimeHost(_target: AppRuntimeTarget): AppRuntimeHost 
     notifications: {
       notify: (options) => {
         showNotification(options);
+      },
+    },
+    credentials: {
+      getProviderApiKey: (providerId) => getProviderApiKey(providerId, SERO_HOME),
+    },
+    toolchains: {
+      ensure: async (tool) => {
+        if (!isToolName(tool)) throw new Error(`Unknown managed tool: ${tool}`);
+        const resolution = await toolResolver().ensure(tool, { kind: 'plugin-install' });
+        return { path: resolution.path };
+      },
+      sharedToolsDir: async (namespace) => {
+        if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(namespace)) {
+          throw new Error(`Invalid shared tools namespace: ${namespace}`);
+        }
+        // Machine-level, profile-independent — sibling of toolchains/ so the
+        // toolchain version GC never scans it.
+        const dir = path.join(SERO_HOST_ARTIFACTS_ROOT, 'app-tools', namespace);
+        await mkdir(dir, { recursive: true });
+        return { path: dir };
       },
     },
   };

@@ -63,6 +63,12 @@ function createHostStub(
     workspace: {
       runCommand: vi.fn(async () => ({ stdout: '', stderr: '', exitCode: 0 })),
       refreshAfterSync: vi.fn(async () => ({ refreshed: false, dependenciesInstalled: false, restartedServerIds: [] })),
+      listAccessRoots: vi.fn(async () => ({
+        workspaceId: 'ws-1',
+        runtime: { backend: 'host' as const, mode: 'host' as const },
+        roots: [],
+        warnings: [],
+      })),
       resolveRuntime: vi.fn(async () => ({
         workspaceId: 'ws-1',
         workspacePath: '/repo-1',
@@ -71,6 +77,14 @@ function createHostStub(
         containerEnabled: false,
         capabilityAudit: [],
       })),
+      list: vi.fn(async () => []),
+    },
+    credentials: {
+      getProviderApiKey: vi.fn(async () => null),
+    },
+    toolchains: {
+      ensure: vi.fn(async () => ({ path: '/usr/bin/true' })),
+      sharedToolsDir: vi.fn(async () => ({ path: '/tmp/app-tools/test' })),
     },
     verification: {
       detectCompileCommands: vi.fn(async () => []),
