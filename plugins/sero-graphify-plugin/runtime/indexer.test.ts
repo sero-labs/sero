@@ -175,4 +175,78 @@ describe('GraphifyIndexer', () => {
     expect(host.updateGraph).toHaveBeenCalledTimes(1);
     indexer.dispose();
   });
+
+  it('discovers workspaces created after start without a restart', async () => {
+    const live = [{ id: 'ws1', name: 'One', path: '/p/one', open: true }];
+    const { host, getState } = makeHost({ listWorkspaces: async () => [...live] });
+    const indexer = new GraphifyIndexer(host);
+    await indexer.start();
+    await indexer.idle();
+    expect(Object.keys(getState().workspaces)).toEqual(['ws1']);
+
+    live.push({ id: 'ws-new', name: 'HelloWorld', path: '/p/hello', open: true });
+    await indexer.syncWorkspaces();
+    expect(getState().workspaces['ws-new']).toMatchObject({ name: 'HelloWorld', enabled: false, status: 'idle' });
+    indexer.dispose();
+  });
+
+  it('periodic discovery preserves in-flight statuses and skips no-op writes', async () => {
+    const { host, getState } = makeHost();
+    let writes = 0;
+    const baseUpdate = host.updateState;
+    host.updateState = async (updater) => { writes += 1; await baseUpdate(updater); };
+    const indexer = new GraphifyIndexer(host);
+    await indexer.start();
+    await indexer.idle();
+    // Simulate an in-flight build between discovery ticks.
+    await host.updateState((state) => ({
+      ...state,
+      workspaces: { ...state.workspaces, ws1: { ...state.workspaces.ws1, enabled: true, status: 'building' } },
+    }));
+    const before = writes;
+    await indexer.syncWorkspaces();
+    expect(getState().workspaces.ws1.status).toBe('building');
+    expect(writes).toBe(before); // nothing changed → no state write, no bus churn
+    indexer.dispose();
+  });
+
+  it('drops removed workspaces and re-merges when they were indexed', async () => {
+    const live = [
+      { id: 'ws1', name: 'One', path: '/p/one', open: true },
+      { id: 'ws2', name: 'Two', path: '/p/two', open: false },
+    ];
+    const { host, getState } = makeHost({ listWorkspaces: async () => [...live] });
+    const indexer = new GraphifyIndexer(host);
+    await indexer.start();
+    await indexer.handleStateChange({ ...getState(), requests: [{ id: 1, action: 'enable', workspaceId: 'ws1', requestedAt: 'now' }] });
+    await indexer.idle();
+    (host.mergeProfileGraph as ReturnType<typeof vi.fn>).mockClear();
+
+    live.splice(0, 1); // ws1 deleted from the profile
+    await indexer.syncWorkspaces();
+    expect(getState().workspaces.ws1).toBeUndefined();
+    expect(getState().profileGraph.status).toBe('absent'); // no indexed workspaces left
+    indexer.dispose();
+  });
+
+  it('runs discovery on a timer and stops it on dispose', async () => {
+    vi.useFakeTimers();
+    try {
+      const live = [{ id: 'ws1', name: 'One', path: '/p/one', open: true }];
+      const { host, getState } = makeHost({ listWorkspaces: async () => [...live] });
+      const indexer = new GraphifyIndexer(host);
+      await indexer.start();
+
+      live.push({ id: 'ws-new', name: 'HelloWorld', path: '/p/hello', open: true });
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(getState().workspaces['ws-new']).toMatchObject({ name: 'HelloWorld', enabled: false });
+
+      indexer.dispose();
+      live.push({ id: 'ws-late', name: 'TooLate', path: '/p/late', open: true });
+      await vi.advanceTimersByTimeAsync(120_000);
+      expect(getState().workspaces['ws-late']).toBeUndefined();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

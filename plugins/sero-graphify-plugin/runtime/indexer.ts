@@ -24,11 +24,17 @@ interface Job {
   full: boolean;
 }
 
+/** Workspace discovery is cheap (one host IPC + optional state write), so it
+ * runs on its own short interval, independent of the expensive graph-refresh
+ * loop — workspaces created while Sero is running must appear without a restart. */
+const WORKSPACE_DISCOVERY_INTERVAL_MS = 60_000;
+
 export class GraphifyIndexer {
   private queue: Job[] = [];
   private current: Promise<void> = Promise.resolve();
   private processing = false;
   private refreshTimer: ReturnType<typeof setInterval> | null = null;
+  private discoveryTimer: ReturnType<typeof setInterval> | null = null;
   private disposed = false;
 
   constructor(private readonly host: IndexerHost) {}
@@ -38,7 +44,7 @@ export class GraphifyIndexer {
     // ('building' → 'idle'), which is exactly the interrupted-work signal
     // the catch-up decisions need.
     const before = await this.host.readState();
-    await this.syncWorkspaceList();
+    await this.syncWorkspaces({ normalizeStatuses: true });
     const minutes = before?.settings.refreshIntervalMinutes ?? DEFAULT_STATE.settings.refreshIntervalMinutes;
 
     // Catch up only where needed — a restart must not churn fresh workspaces:
@@ -58,6 +64,7 @@ export class GraphifyIndexer {
     if (minutes > 0) {
       this.refreshTimer = setInterval(() => void this.refreshAll(), minutes * 60_000);
     }
+    this.discoveryTimer = setInterval(() => void this.syncWorkspaces(), WORKSPACE_DISCOVERY_INTERVAL_MS);
     this.kick();
   }
 
@@ -73,6 +80,7 @@ export class GraphifyIndexer {
   dispose(): void {
     this.disposed = true;
     if (this.refreshTimer) clearInterval(this.refreshTimer);
+    if (this.discoveryTimer) clearInterval(this.discoveryTimer);
   }
 
   /** Resolves when the queue drains. Test/diagnostic helper. */
@@ -93,16 +101,41 @@ export class GraphifyIndexer {
     this.kick();
   }
 
-  private async syncWorkspaceList(): Promise<void> {
-    const workspaces = await this.host.listWorkspaces();
-    await this.host.updateState((current) => {
-      const state = current ?? structuredClone(DEFAULT_STATE);
+  /**
+   * Reconcile the profile workspace list into state. Runs once at start
+   * (normalizing statuses interrupted by the previous process) and then on
+   * the discovery interval so new/renamed/removed workspaces show up live.
+   * Skips the state write entirely when nothing changed — every write
+   * broadcasts on the state bus and re-enters handleStateChange.
+   */
+  async syncWorkspaces(options: { normalizeStatuses?: boolean } = {}): Promise<void> {
+    const normalize = options.normalizeStatuses === true;
+    const workspaces = (await this.host.listWorkspaces()).filter((ws) => ws.id !== 'global');
+    const current = (await this.host.readState())?.workspaces ?? {};
+
+    // Outside start(), live statuses (queued/building/updating) must survive a
+    // discovery tick; only the boot pass may normalize interrupted work to idle.
+    const nextStatus = (existing: GraphifyState['workspaces'][string]): WorkspaceIndexStatus =>
+      normalize ? (existing.status === 'error' ? 'error' : 'idle') : existing.status;
+
+    const unchanged = workspaces.length === Object.keys(current).length
+      && workspaces.every((ws) => {
+        const existing = current[ws.id];
+        return existing && existing.name === ws.name && existing.path === ws.path && existing.status === nextStatus(existing);
+      });
+    if (unchanged) return;
+
+    const removedIndexed = Object.values(current).some(
+      (entry) => entry.enabled && entry.lastBuiltAt && !workspaces.some((ws) => ws.id === entry.workspaceId),
+    );
+
+    await this.host.updateState((raw) => {
+      const state = raw ?? structuredClone(DEFAULT_STATE);
       const next = { ...state, workspaces: { ...state.workspaces } };
       for (const ws of workspaces) {
-        if (ws.id === 'global') continue;
         const existing = next.workspaces[ws.id];
         next.workspaces[ws.id] = existing
-          ? { ...existing, name: ws.name, path: ws.path, status: existing.status === 'error' ? 'error' : 'idle' }
+          ? { ...existing, name: ws.name, path: ws.path, status: nextStatus(existing) }
           : { workspaceId: ws.id, name: ws.name, path: ws.path, enabled: false, status: 'idle' };
       }
       for (const id of Object.keys(next.workspaces)) {
@@ -110,6 +143,9 @@ export class GraphifyIndexer {
       }
       return next;
     });
+    // A deleted workspace that was part of the profile graph leaves stale
+    // nodes behind until the next merge — re-merge promptly.
+    if (removedIndexed) await this.merge();
   }
 
   private async applyRequest(request: IndexRequest): Promise<void> {
