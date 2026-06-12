@@ -145,6 +145,8 @@ export interface RunnerConfig {
   onUpdate?: (text: string) => void;
   /** Extra run-scoped tools to expose to the subagent session. */
   customTools?: ToolDefinition[];
+  /** Platform tool surface: 'all' (default), 'readOnly' (read only), or 'none'. */
+  platformTools?: PlatformToolPolicy;
 }
 
 // ── Task Overrides (from tool params) ────────────────────────
@@ -154,3 +156,8 @@ export interface TaskOverride {
   thinking?: string;
   timeoutMs?: number;
 }
+
+// ── Platform tool policy ─────────────────────────────────────
+
+/** Platform tool surface granted to a subagent session. */
+export type PlatformToolPolicy = 'all' | 'readOnly' | 'none';

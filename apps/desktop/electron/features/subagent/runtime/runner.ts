@@ -11,11 +11,11 @@ import {
   SessionManager,
   DefaultResourceLoader,
 } from '@earendil-works/pi-coding-agent';
-import type { CreateAgentSessionOptions } from '@earendil-works/pi-coding-agent';
+import type { CreateAgentSessionOptions, ToolDefinition } from '@earendil-works/pi-coding-agent';
 import type { ThinkingLevel, AgentMessage } from '@earendil-works/pi-agent-core';
 import { getModelTierThinkingLevel, isModelTier } from '@sero-ai/common';
 
-import type { RunnerConfig, RunResult, SubagentUsage, SubagentToolActivity } from '../core/types';
+import type { RunnerConfig, RunResult, SubagentUsage, SubagentToolActivity, PlatformToolPolicy } from '../core/types';
 import type { SharedInfra } from '@electron/shared/infra/shared-infra';
 import type { WorkspaceManager } from '@electron/features/workspace/manager';
 import { createRuntimeTools } from '@electron/features/container/tools';
@@ -101,6 +101,36 @@ export function resolveSubagentPaths(
   };
 }
 
+/**
+ * Apply the platform-tool policy to the workspace tool set.
+ * 'none' callers skip building platform tools entirely; this filter
+ * handles 'all' and 'readOnly'.
+ */
+export function filterPlatformTools(
+  tools: ToolDefinition[],
+  policy: PlatformToolPolicy,
+): ToolDefinition[] {
+  if (policy === 'none') return [];
+  if (policy === 'readOnly') return tools.filter((tool) => tool.name === 'read');
+  return tools;
+}
+
+/**
+ * Session tool enforcement for the platform-tool policy.
+ *
+ * `noTools: 'builtin'` disables only Pi built-ins; tools registered by
+ * extensions loaded into the session survive it. Restricted policies
+ * therefore set an explicit allowlist of exactly the session's tools,
+ * which excludes extension-registered tools as well.
+ */
+export function sessionToolOptions(
+  policy: PlatformToolPolicy,
+  sessionTools: ToolDefinition[],
+): Pick<CreateAgentSessionOptions, 'noTools' | 'tools'> {
+  if (policy === 'all') return { noTools: 'builtin' };
+  return { noTools: 'builtin', tools: sessionTools.map((tool) => tool.name) };
+}
+
 export interface RunnerDeps {
   infra: SharedInfra;
   workspaceManager: WorkspaceManager;
@@ -135,20 +165,26 @@ export async function runSubagent(
   // Generate a unique session ID for this subagent run
   const subagentSessionId = `subagent-${config.parentSessionId}-${Date.now()}`;
 
-  const runtime = await runtimeManager.getRuntime(workspaceId);
-  try {
-    await runtime.ensure();
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.warn(`[subagent/runner] ${runtime.backend} runtime unavailable: ${message}`);
-    return {
-      response: '',
-      usage: { ...EMPTY_USAGE },
-      error: `${runtime.backend} runtime failed to start for workspace ${workspaceId}: ${message}`,
-    };
+  const policy = config.platformTools ?? 'all';
+  let platformTools: ToolDefinition[] = [];
+  if (policy !== 'none') {
+    const runtime = await runtimeManager.getRuntime(workspaceId);
+    try {
+      await runtime.ensure();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.warn(`[subagent/runner] ${runtime.backend} runtime unavailable: ${message}`);
+      return {
+        response: '',
+        usage: { ...EMPTY_USAGE },
+        error: `${runtime.backend} runtime failed to start for workspace ${workspaceId}: ${message}`,
+      };
+    }
+    platformTools = filterPlatformTools(
+      await createRuntimeTools(runtime, subagentSessionId, containerCwd),
+      policy,
+    );
   }
-
-  const platformTools = await createRuntimeTools(runtime, subagentSessionId, containerCwd);
   const customTools = [...platformTools, ...(config.customTools ?? [])];
 
   // Build a reduced extension factory for the child session
@@ -194,7 +230,7 @@ export async function runSubagent(
       agentDir: SERO_AGENT_DIR,
       authStorage: infra.authStorage,
       modelRegistry: infra.modelRegistry,
-      noTools: 'builtin',
+      ...sessionToolOptions(policy, customTools),
       customTools,
       resourceLoader: loader,
       sessionManager: SessionManager.inMemory(sessionPath),

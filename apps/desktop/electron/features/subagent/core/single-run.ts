@@ -5,6 +5,7 @@ import type { ConcurrencyPool } from './pool';
 import type { SubagentTracker } from './tracker';
 import type {
   AgentConfig,
+  PlatformToolPolicy,
   SubagentEntry,
   SubagentSettings,
   SubagentUsage,
@@ -36,6 +37,8 @@ export interface SingleRunParams {
   isolated?: boolean;
   /** Extra run-scoped tools to expose only for this subagent session. */
   customTools?: ToolDefinition[];
+  /** Platform tool surface for the session. Default: 'all'. */
+  platformTools?: PlatformToolPolicy;
   onUpdate?: (text: string) => void;
 }
 
@@ -121,6 +124,7 @@ export async function executeSingleRun(options: ExecuteSingleRunOptions): Promis
         cwdOverride: params.cwd,
         isolated: params.isolated,
         customTools: params.customTools,
+        platformTools: params.platformTools,
         onProgress: (usage) => tracker.progress(runId, usage),
         onToolActivity: (name, summary, running) =>
           tracker.updateToolActivity(runId, name, summary, running),
