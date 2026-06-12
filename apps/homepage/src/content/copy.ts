@@ -15,6 +15,7 @@ import cronJobsEditor from "@docs-images/cron-jobs-editor-crop.jpg";
 import gitManagement from "@docs-images/git-management.jpg";
 import mcpManager from "@docs-images/mcp.jpg";
 import adminAgents from "@docs-images/admin-agents.jpg";
+import contextManagement from "@docs-images/context-management.jpg";
 
 export const site = {
 	name: "Sero",
@@ -49,6 +50,7 @@ export const images = {
 	gitManagement,
 	mcpManager,
 	adminAgents,
+	contextManagement,
 };
 
 export const navLinks = [
@@ -189,6 +191,13 @@ export type Feature = {
 };
 
 export const features: Feature[] = [
+	{
+		id: "graphify",
+		title: "Your agent knows your codebase.",
+		body: "Graphify builds a knowledge graph of every opted-in workspace and merges them into one profile-wide graph. Index once — your AI provider is only used for that first build. After that, updates happen automatically after each coding session, with no extra cost. Ask the agent how modules connect, where something is called, or what a subsystem does. It already knows.",
+		image: images.contextManagement,
+		imageAlt: "Context management view showing the agent navigating workspace file relationships",
+	},
 	{
 		id: "containers",
 		title: "Local development workspaces.",
