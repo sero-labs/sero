@@ -28,11 +28,42 @@ export interface AppRuntimeSubagentRunParams {
   isolated?: boolean;
   customTools?: unknown[];
   onUpdate?: (text: string) => void;
+  /**
+   * Platform tool surface for the subagent session.
+   * - 'all' (default): bash, read, write, edit, sero-cli, browser
+   * - 'readOnly': the platform read tool only
+   * - 'none': no platform tools and no workspace-runtime startup —
+   *   the session gets only customTools (enforced via a session tool
+   *   allowlist, which also excludes extension-registered tools)
+   */
+  platformTools?: 'all' | 'readOnly' | 'none';
+  /**
+   * Optional external cancellation. Aborting resolves the run (never
+   * throws) with an `error` beginning with 'Aborted' — 'Aborted' for an
+   * in-flight run, 'Aborted before start' for one that never started.
+   * Aborting a run still queued for a concurrency slot resolves it
+   * promptly without consuming a slot.
+   */
+  signal?: AbortSignal;
+}
+
+export interface AppRuntimeSubagentUsage {
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
 }
 
 export interface AppRuntimeSubagentResult {
   response: string;
   error?: string;
+  /** Concrete model id the session ran with (when resolvable; best effort on failure paths). */
+  modelId?: string;
+  /** Provider id for modelId — model ids are not globally unique. */
+  providerId?: string;
+  /** Wall-clock duration of the run in milliseconds. */
+  durationMs?: number;
+  /** Token usage totals (when the provider reports them). */
+  usage?: AppRuntimeSubagentUsage;
 }
 
 export interface AppRuntimeSubagentsApi {
