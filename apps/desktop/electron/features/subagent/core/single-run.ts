@@ -5,6 +5,7 @@ import type { ConcurrencyPool } from './pool';
 import type { SubagentTracker } from './tracker';
 import type {
   AgentConfig,
+  PlatformToolPolicy,
   SubagentEntry,
   SubagentSettings,
   SubagentUsage,
@@ -36,6 +37,10 @@ export interface SingleRunParams {
   isolated?: boolean;
   /** Extra run-scoped tools to expose only for this subagent session. */
   customTools?: ToolDefinition[];
+  /** Platform tool surface for the session. Default: 'all'. */
+  platformTools?: PlatformToolPolicy;
+  /** Optional external cancellation. Aborting resolves the run with an error beginning with 'Aborted'. */
+  signal?: AbortSignal;
   onUpdate?: (text: string) => void;
 }
 
@@ -51,6 +56,14 @@ interface ExecuteSingleRunOptions {
 export interface SingleRunResult {
   response: string;
   error?: string;
+  /** Concrete model id the session ran with (when resolvable). */
+  modelId?: string;
+  /** Provider id for modelId — model ids are not globally unique. */
+  providerId?: string;
+  /** Wall-clock duration of the run in milliseconds. */
+  durationMs?: number;
+  /** Token usage totals. */
+  usage?: { inputTokens: number; outputTokens: number; totalTokens: number };
 }
 
 /**
@@ -87,6 +100,14 @@ export async function executeSingleRun(options: ExecuteSingleRunOptions): Promis
   const runId = randomUUID();
   const controller = new AbortController();
 
+  const externalSignal = params.signal;
+  const onExternalAbort = () => controller.abort();
+  if (externalSignal?.aborted) {
+    controller.abort();
+  } else {
+    externalSignal?.addEventListener('abort', onExternalAbort, { once: true });
+  }
+
   const entry: SubagentEntry = {
     id: runId,
     agentName: agent.name,
@@ -121,6 +142,7 @@ export async function executeSingleRun(options: ExecuteSingleRunOptions): Promis
         cwdOverride: params.cwd,
         isolated: params.isolated,
         customTools: params.customTools,
+        platformTools: params.platformTools,
         onProgress: (usage) => tracker.progress(runId, usage),
         onToolActivity: (name, summary, running) =>
           tracker.updateToolActivity(runId, name, summary, running),
@@ -130,23 +152,44 @@ export async function executeSingleRun(options: ExecuteSingleRunOptions): Promis
       deps,
     );
 
+    const durationMs = Date.now() - entry.startedAt;
+    const usage = {
+      inputTokens: result.usage.inputTokens,
+      outputTokens: result.usage.outputTokens,
+      totalTokens: result.usage.totalTokens,
+    };
+
     if (result.error) {
       tracker.fail(runId, result.error, result.usage);
       onUpdate?.(`❌ ${agent.name} failed — ${result.error}`);
-      return { response: '', error: result.error };
+      return {
+        response: '',
+        error: result.error,
+        modelId: result.modelId,
+        providerId: result.providerId,
+        durationMs,
+        usage,
+      };
     }
 
     tracker.complete(runId, result.response, result.usage);
-    const durationSec = Math.round((Date.now() - entry.startedAt) / 1000);
+    const durationSec = Math.round(durationMs / 1000);
     const tokenCount = result.usage.totalTokens;
     onUpdate?.(`✅ ${agent.name} completed (${durationSec}s, ${tokenCount} tokens)`);
-    return { response: result.response };
+    return {
+      response: result.response,
+      modelId: result.modelId,
+      providerId: result.providerId,
+      durationMs,
+      usage,
+    };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     tracker.fail(runId, msg);
     onUpdate?.(`❌ ${agent.name} failed — ${msg}`);
-    return { response: '', error: msg };
+    return { response: '', error: msg, durationMs: Date.now() - entry.startedAt };
   } finally {
+    externalSignal?.removeEventListener('abort', onExternalAbort);
     pool.releaseSlot(runId, parentSessionId);
   }
 }

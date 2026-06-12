@@ -10,7 +10,7 @@ import { discoverAgents } from './runtime/discovery';
 import { ConcurrencyPool } from './core/pool';
 import { SubagentTracker } from './core/tracker';
 import { resolveConfig } from './core/resolve';
-import { executeSingleRun, type SingleRunParams } from './core/single-run';
+import { executeSingleRun, type SingleRunParams, type SingleRunResult } from './core/single-run';
 import { runSubagent, type RunnerDeps } from './runtime/runner';
 import type {
   AgentConfig,
@@ -116,7 +116,7 @@ export class SubagentManager {
    * Use this when the caller needs to distinguish errors from
    * agent responses that happen to start with "Error:".
    */
-  async runSingleStructured(params: SingleRunParams): Promise<{ response: string; error?: string }> {
+  async runSingleStructured(params: SingleRunParams): Promise<SingleRunResult> {
     if (!this.deps) throw new Error('SubagentManager not initialized — call setDeps()');
 
     return executeSingleRun({
