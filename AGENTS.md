@@ -117,6 +117,7 @@ If you change `apps/desktop/images/Dockerfile.sero-node` or container-installed 
 - Do not add sub-labels descriptions on UI components unneccesarily - components should be self-explanatory
 - Unless we are doing explanatory work - or you were asked specifically - DO NOT create heuristic solutions to solve things that should be done via the AI/LLM layer
 - NEVER add unnecessary clutter to UI components
+- When giving instructions to manually review changes do so in simple unambiguous terms - no jargon or expectation of recent familiarity with the subject
 
 ## File Size Rules (CRITICAL)
 
