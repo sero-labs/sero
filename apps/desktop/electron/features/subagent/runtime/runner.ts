@@ -210,6 +210,10 @@ export async function runSubagent(
   });
   await loader.reload();
 
+  if (signal.aborted) {
+    return { response: '', usage: { ...EMPTY_USAGE }, error: 'Aborted before start' };
+  }
+
   let session: Awaited<ReturnType<typeof createAgentSession>>['session'] | null = null;
 
   // Stall timer state — hoisted above try so finally can access clearStallTimer
@@ -271,11 +275,18 @@ export async function runSubagent(
       // Fall back to default
     }
 
+    const usage: SubagentUsage = { ...EMPTY_USAGE };
+
     // Set up abort handler
     const abortHandler = () => {
       try { session?.abort(); } catch { /* ignore */ }
     };
     signal.addEventListener('abort', abortHandler, { once: true });
+    if (signal.aborted) {
+      abortHandler();
+      signal.removeEventListener('abort', abortHandler);
+      return { response: '', usage, modelId: session.model?.id, providerId: session.model?.provider, error: 'Aborted' };
+    }
 
     // Set up timeout
     const timeoutId = setTimeout(() => {
@@ -284,8 +295,6 @@ export async function runSubagent(
 
     // Track usage, tool activity, live output + debug logging
     const { onToolActivity, onTextDelta, onUpdate: onStatusUpdate } = config;
-    const usage: SubagentUsage = { ...EMPTY_USAGE };
-
     // ── Per-tool stall detection ──────────────────────────────
     // If a single tool call runs longer than toolStallTimeoutMs, abort.
     const toolStallMs = resolved.toolStallTimeoutMs ?? 120_000;
