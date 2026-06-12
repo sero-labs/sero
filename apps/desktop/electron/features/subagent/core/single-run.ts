@@ -39,6 +39,8 @@ export interface SingleRunParams {
   customTools?: ToolDefinition[];
   /** Platform tool surface for the session. Default: 'all'. */
   platformTools?: PlatformToolPolicy;
+  /** Optional external cancellation. Aborting resolves the run with an error beginning with 'Aborted'. */
+  signal?: AbortSignal;
   onUpdate?: (text: string) => void;
 }
 
@@ -97,6 +99,14 @@ export async function executeSingleRun(options: ExecuteSingleRunOptions): Promis
 
   const runId = randomUUID();
   const controller = new AbortController();
+
+  const externalSignal = params.signal;
+  const onExternalAbort = () => controller.abort();
+  if (externalSignal?.aborted) {
+    controller.abort();
+  } else {
+    externalSignal?.addEventListener('abort', onExternalAbort, { once: true });
+  }
 
   const entry: SubagentEntry = {
     id: runId,
@@ -179,6 +189,7 @@ export async function executeSingleRun(options: ExecuteSingleRunOptions): Promis
     onUpdate?.(`❌ ${agent.name} failed — ${msg}`);
     return { response: '', error: msg, durationMs: Date.now() - entry.startedAt };
   } finally {
+    externalSignal?.removeEventListener('abort', onExternalAbort);
     pool.releaseSlot(runId, parentSessionId);
   }
 }

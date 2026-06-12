@@ -115,4 +115,30 @@ describe('executeSingleRun result metadata', () => {
       expect.anything(),
     );
   });
+
+  it('aborts the run when the external signal is already aborted', async () => {
+    mockRunSubagent.mockImplementation(async (config) => {
+      expect(config.signal.aborted).toBe(true);
+      return { response: '', usage: USAGE, error: 'Aborted before start' };
+    });
+
+    const controller = new AbortController();
+    controller.abort();
+    const result = await executeSingleRun(options({ signal: controller.signal }));
+
+    expect(result.error).toBe('Aborted before start');
+  });
+
+  it('forwards a later external abort to the runner signal', async () => {
+    const controller = new AbortController();
+    mockRunSubagent.mockImplementation(async (config) => {
+      controller.abort();
+      expect(config.signal.aborted).toBe(true);
+      return { response: '', usage: USAGE, error: 'Aborted' };
+    });
+
+    const result = await executeSingleRun(options({ signal: controller.signal }));
+
+    expect(result.error).toBe('Aborted');
+  });
 });
