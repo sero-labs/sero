@@ -62,6 +62,7 @@ These values are currently recognized by the host:
 
 - `appAgent.invokeTool`
 - `tool.cli`
+- `appRuntime.background`
 
 Unknown capability strings are treated as unmet host requirements, so older
 hosts fail closed instead of partially loading the plugin. Downstream plugins
@@ -86,6 +87,36 @@ Declare this when your extension depends on tool-level CLI bridging, including:
 - custom `definition.cli` metadata
 - custom raw-args handlers via `definition.cli.execute`
 - builtin override behavior such as replacing `sero google ...`
+
+### `appRuntime.background`
+
+Declare this when your plugin ships a background runtime (`sero.app.runtime`).
+The runtime receives the `ctx.host` capability surface typed by
+`@sero-ai/common` (`app-runtime-background.ts`), including
+`host.subagents.runStructured(...)`.
+
+#### Subagent run options and result metadata (2026-06)
+
+`host.subagents.runStructured(...)` accepts three additive options:
+
+- `platformTools?: 'all' | 'readOnly' | 'none'` — platform tool surface for the
+  session. `'all'` (default) grants bash, read, write, edit, sero-cli, and
+  browser; `'readOnly'` grants the read tool only; `'none'` grants no platform
+  tools — the session is restricted to your `customTools` via a tool allowlist
+  (extension-registered tools are excluded too) and skips workspace-runtime
+  startup, so tool-less runs work without a container runtime. Use `'none'`
+  when the plugin owns its full tool envelope (e.g. read-only planning agents).
+- `signal?: AbortSignal` — external cancellation. Aborting resolves the call
+  (never throws) with an `error` beginning with `'Aborted'` — `'Aborted'` for
+  an in-flight run, `'Aborted before start'` for one that never started. Runs
+  still queued for a concurrency slot resolve promptly without taking a slot.
+
+The result includes optional metadata when available: `modelId` and
+`providerId` (the concrete model that ran — provider-qualified, since model ids
+are not globally unique), `durationMs`, and `usage` (`inputTokens`,
+`outputTokens`, `totalTokens`). Metadata is best-effort on failure paths too.
+Record the resolved identity rather than the requested model when you need
+honest provenance — tier aliases resolve at run time.
 
 ## Compatibility behavior
 
