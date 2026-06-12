@@ -361,7 +361,7 @@ export async function runSubagent(
 
     // Check if we were aborted or timed out
     if (signal.aborted) {
-      return { response: '', usage, error: 'Aborted' };
+      return { response: '', usage, modelId: session.model?.id, providerId: session.model?.provider, error: 'Aborted' };
     }
 
     // Extract the full response from session messages
@@ -380,16 +380,32 @@ export async function runSubagent(
       }
     } catch { /* ignore */ }
 
-    return { response, usage };
+    return { response, usage, modelId: session.model?.id, providerId: session.model?.provider };
   } catch (err: unknown) {
     const errorMsg = err instanceof Error ? err.message : String(err);
 
+    // Best-effort provenance — the session may exist even when the run failed
+    const usage: SubagentUsage = { ...EMPTY_USAGE };
+    try {
+      const stats = session?.getSessionStats();
+      if (stats) {
+        usage.inputTokens = stats.tokens.input;
+        usage.outputTokens = stats.tokens.output;
+        usage.cacheReadTokens = stats.tokens.cacheRead;
+        usage.cacheWriteTokens = stats.tokens.cacheWrite;
+        usage.totalTokens = stats.tokens.total;
+        usage.cost = stats.cost;
+      }
+    } catch { /* session unusable — keep zeros */ }
+    const modelId = session?.model?.id;
+    const providerId = session?.model?.provider;
+
     // Distinguish timeout from other errors
     if (signal.aborted) {
-      return { response: '', usage: { ...EMPTY_USAGE }, error: 'Aborted' };
+      return { response: '', usage, modelId, providerId, error: 'Aborted' };
     }
 
-    return { response: '', usage: { ...EMPTY_USAGE }, error: errorMsg };
+    return { response: '', usage, modelId, providerId, error: errorMsg };
   } finally {
     clearStallTimer();
     try { session?.dispose(); } catch { /* ignore */ }

@@ -87,6 +87,10 @@ export interface RunResult {
   response: string;
   /** Token and cost usage. */
   usage: SubagentUsage;
+  /** Concrete model id the session ran with (when resolvable). */
+  modelId?: string;
+  /** Provider id for modelId — model ids are not globally unique. */
+  providerId?: string;
   /** Error message if the run failed. */
   error?: string;
 }
