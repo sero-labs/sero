@@ -33,6 +33,16 @@ export type {
   AppToolResult,
 } from './app-tools';
 
+export { WORKSPACE_COMMON_IGNORES } from './workspace-ignores';
+
+export type {
+  WorkspaceAccessRootKind,
+  WorkspaceAccessRootRuntimeBackend,
+  WorkspaceAccessRootRuntimeMode,
+  WorkspaceAccessRoot,
+  WorkspaceAccessRootsResult,
+} from './workspace-access-roots';
+
 export type {
   AppRuntimeStateApi,
   AppRuntimeSubagentRunParams,
@@ -46,6 +56,7 @@ export type {
   AppRuntimeWorkspaceRuntimeCapabilityKey,
   AppRuntimeWorkspaceRuntimeCapabilityAuditEntry,
   AppRuntimeWorkspaceRuntimeResolution,
+  AppRuntimeWorkspaceInfo,
   AppRuntimeWorkspaceApi,
   AppRuntimeVerificationDetectOptions,
   AppRuntimeVerificationCommandResult,
@@ -72,6 +83,9 @@ export type {
   AppRuntimeNotificationType,
   AppRuntimeNotificationOptions,
   AppRuntimeNotificationsApi,
+  AppRuntimeProviderApiKey,
+  AppRuntimeCredentialsApi,
+  AppRuntimeToolchainsApi,
   AppRuntimeHost,
   AppRuntimeContext,
   AppRuntime,

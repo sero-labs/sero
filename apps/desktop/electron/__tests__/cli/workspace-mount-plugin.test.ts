@@ -9,10 +9,12 @@ const mocks = vi.hoisted(() => ({
   workspaceManager: {
     getPath: vi.fn(),
     getRoots: vi.fn(),
+    getMounts: vi.fn(),
     addRoot: vi.fn(),
     list: vi.fn(),
     getConfig: vi.fn(),
     getRuntimeConfig: vi.fn(),
+    getRuntimeBackendDetails: vi.fn(),
     isContainerEnabled: vi.fn(),
     create: vi.fn(),
     addFolder: vi.fn(),
@@ -108,7 +110,9 @@ describe('sero workspace mount-plugin', () => {
 
     mocks.workspaceManager.getPath.mockReturnValue('/host/ws');
     mocks.workspaceManager.getRoots.mockResolvedValue([]);
+    mocks.workspaceManager.getMounts.mockResolvedValue([]);
     mocks.workspaceManager.getRuntimeConfig.mockResolvedValue({ backend: 'host' });
+    mocks.workspaceManager.getRuntimeBackendDetails.mockResolvedValue({ backend: 'host', configuredBackend: 'host' });
 
     registry = makeRegistry();
     registerWorkspaceCliCommands(registry as never);
@@ -229,6 +233,21 @@ describe('sero workspace mount-plugin', () => {
     expect(result.exitCode).toBe(0);
     expect(result.output).toContain('[host]');
     expect(result.output).toContain('[apple-container]');
+  });
+
+  it('emits access roots as JSON for plugins', async () => {
+    mocks.workspaceManager.getPath.mockReturnValue(tmpRoot);
+    mocks.workspaceManager.getConfig.mockResolvedValue({ id: 'ws-1', name: 'Workspace 1' });
+
+    const result = await registry.invoke(['access-roots', '--json'], makeContext());
+    const parsed = JSON.parse(result.output);
+
+    expect(result.exitCode).toBe(0);
+    expect(parsed).toEqual(expect.objectContaining({
+      workspaceId: 'ws-1',
+      runtime: { backend: 'host', mode: 'host' },
+      roots: [expect.objectContaining({ kind: 'primary', hostPath: tmpRoot })],
+    }));
   });
 
   it('passes --parent when creating a workspace', async () => {

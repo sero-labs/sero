@@ -14,6 +14,7 @@ import { readdir, copyFile, readFile, writeFile, mkdir, cp } from 'fs/promises';
 import path from 'path';
 import { SERO_AGENT_DIR, SERO_HOME } from '@electron/platform/env';
 import { resolveBuiltinTemplatesDir } from '@electron/platform/protocols/builtin-resources';
+import { ensureSharedPiDocs } from '@electron/features/pi-docs/shared-pi-docs';
 
 const AGENTS_DIR = path.join(SERO_AGENT_DIR, 'agents');
 const SKILLS_DIR = path.join(SERO_AGENT_DIR, 'skills');
@@ -150,6 +151,22 @@ export async function ensureDefaultSkills(): Promise<void> {
     }
   } catch (err) {
     console.warn('[setup] Failed to copy skill templates:', err);
+  }
+}
+
+/**
+ * Ensure bundled Pi docs are available from one machine-level shared location.
+ *
+ * This deliberately does not write under SERO_HOME/SERO_AGENT_DIR because those
+ * are profile-scoped. Container and host prompt fallbacks both point at this
+ * shared copy so every profile can read the same documentation without
+ * duplicating it.
+ */
+export async function ensureBundledPiDocs(): Promise<void> {
+  try {
+    await ensureSharedPiDocs();
+  } catch (err) {
+    console.warn('[setup] Failed to prepare shared Pi documentation:', err);
   }
 }
 

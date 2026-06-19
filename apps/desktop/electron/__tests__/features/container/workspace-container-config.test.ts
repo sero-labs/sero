@@ -6,6 +6,9 @@ import path from 'path';
 // fixed path so the test stays hermetic.
 vi.mock('@electron/platform/env', () => ({
   SERO_AGENT_DIR: '/tmp/sero-agent',
+  SERO_FIXED_ROOT: '/tmp/sero-fixed',
+  SERO_HOST_ARTIFACTS_ROOT: '/tmp/sero-host-artifacts',
+  SERO_HOME: '/tmp/sero-home',
 }));
 
 import { buildWorkspaceContainerConfig } from '@electron/features/container/core/workspace-container-config';
@@ -42,8 +45,16 @@ describe('buildWorkspaceContainerConfig', () => {
       readOnlyMounts: [
         path.join('/tmp/sero-agent', 'skills'),
         path.join('/tmp/sero-agent', 'prompts'),
+        path.join('/tmp/sero-host-artifacts', 'shared', 'pi-docs'),
       ],
       writableMounts: [],
+      bindMounts: [
+        { source: path.join('/tmp/sero-fixed', 'logs'), target: '/workspace/.sero/logs/dev', readonly: true },
+        { source: path.join('/tmp/sero-home', 'logs'), target: '/workspace/.sero/logs/profile', readonly: true },
+        { source: path.join('/tmp/sero-home', 'debug'), target: '/workspace/.sero/logs/debug', readonly: true },
+        { source: path.join('/tmp/sero-home', 'apps'), target: '/workspace/.sero/logs/apps', readonly: true },
+        { source: path.join('/tmp/sero-agent', 'sessions'), target: '/workspace/.sero/logs/sessions', readonly: true },
+      ],
     });
   });
 
@@ -117,6 +128,10 @@ describe('buildWorkspaceContainerConfig', () => {
     });
 
     expect(cfg.writableMounts).toEqual([]);
+    expect(cfg.bindMounts).toEqual(expect.arrayContaining([
+      expect.objectContaining({ target: '/workspace/.sero/logs/dev' }),
+      expect.objectContaining({ target: '/workspace/.sero/logs/sessions' }),
+    ]));
     expect(mgr.getReferences).not.toHaveBeenCalled();
     expect(mgr.getMounts).not.toHaveBeenCalled();
     expect(mgr.getRoots).not.toHaveBeenCalled();

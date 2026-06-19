@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useAgentStore } from '@/stores/agent';
 import { useSessionStore } from '@/stores/sessions';
+import { useWorkspaceStore } from '@/stores/workspace';
 
 export function useActiveSessionSync(): void {
   const activeSessionId = useSessionStore((state) => state.activeSessionId);
@@ -14,8 +15,17 @@ export function useActiveSessionSync(): void {
       ? state.sessions.find((session) => session.id === state.activeSessionId)?.workspaceId ?? null
       : null,
   );
+  const activeWorkspaceBackend = useWorkspaceStore((state) =>
+    activeWorkspaceId
+      ? state.workspaces.find((workspace) => workspace.id === activeWorkspaceId)
+          ?.runtime.backend
+      : undefined,
+  );
   const activeAgentReady = useAgentStore((state) =>
-    activeSessionId ? Boolean(state.agents[activeSessionId]?.sessionId) : false,
+    activeSessionId
+      ? Boolean(state.agents[activeSessionId]?.sessionId)
+        && (!activeWorkspaceBackend || state.agents[activeSessionId]?.runtimeBackend === activeWorkspaceBackend)
+      : false,
   );
   const openSession = useAgentStore((state) => state.openSession);
   const focusSession = useAgentStore((state) => state.focusSession);
@@ -43,6 +53,7 @@ export function useActiveSessionSync(): void {
             activeSessionId,
             activeSessionPath,
             activeWorkspaceId,
+            activeWorkspaceBackend,
           );
         }
 
@@ -64,6 +75,7 @@ export function useActiveSessionSync(): void {
     activeSessionId,
     activeSessionPath,
     activeWorkspaceId,
+    activeWorkspaceBackend,
     clearFocus,
     focusSession,
     hydrateCollaborationState,

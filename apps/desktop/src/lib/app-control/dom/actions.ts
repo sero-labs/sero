@@ -2,7 +2,29 @@ import type {
   AppInteractionParams,
   AppInteractionResult,
 } from '@/types/ipc';
-import { findInPanel, resolveClickTarget } from './targeting';
+import { getElementByRef } from './refs';
+import {
+  findByText,
+  findInPanel,
+  findSearchRoot,
+  isElementVisible,
+  normaliseDomText,
+  resolveClickTarget,
+} from './targeting';
+
+function findTarget(panel: HTMLElement, params: AppInteractionParams): Element | null {
+  if (params.ref) return getElementByRef(panel, params.ref);
+  if (params.selector) return findInPanel(panel, params.selector);
+  if (params.text) {
+    const root = findSearchRoot(panel, params.withinSelector, params.containerText);
+    return root ? findByText(root, params.text) : null;
+  }
+  return null;
+}
+
+function targetLabel(params: AppInteractionParams): string {
+  return params.selector ?? params.ref ?? params.text ?? 'target';
+}
 
 function clickTarget(target: HTMLElement): void {
   target.focus({ preventScroll: true });
@@ -55,11 +77,11 @@ function clickTargetAt(target: HTMLElement, clientX: number, clientY: number): v
 }
 
 export function handleClick(panel: HTMLElement, params: AppInteractionParams): AppInteractionResult {
-  if (params.selector) {
-    const target = resolveClickTarget(panel, findInPanel(panel, params.selector));
-    if (!target) return { success: false, message: `No element found: ${params.selector}` };
+  if (params.selector || params.ref || params.text) {
+    const target = resolveClickTarget(panel, findTarget(panel, params));
+    if (!target) return { success: false, message: `No element found: ${targetLabel(params)}` };
     clickTarget(target);
-    return { success: true, message: `Clicked: ${params.selector}` };
+    return { success: true, message: `Clicked: ${targetLabel(params)}` };
   }
 
   if (params.x !== undefined && params.y !== undefined) {
@@ -92,9 +114,9 @@ export function handleType(panel: HTMLElement, params: AppInteractionParams): Ap
   if (!params.text) return { success: false, message: 'Type action requires text' };
 
   let target: Element | null = null;
-  if (params.selector) {
-    target = findInPanel(panel, params.selector);
-    if (!target) return { success: false, message: `No element found: ${params.selector}` };
+  if (params.selector || params.ref) {
+    target = findTarget(panel, params);
+    if (!target) return { success: false, message: `No element found: ${targetLabel(params)}` };
     if (target instanceof HTMLElement) target.focus();
   } else {
     target = panel.contains(document.activeElement) ? document.activeElement : null;
@@ -110,7 +132,7 @@ export function handleType(panel: HTMLElement, params: AppInteractionParams): Ap
     } else {
       target.value += params.text;
     }
-    return { success: true, message: `Typed "${params.text}" into ${params.selector ?? 'focused element'}` };
+    return { success: true, message: `Typed "${params.text}" into ${targetLabel(params)}` };
   }
 
   if (target instanceof HTMLElement && target.isContentEditable) {
@@ -141,29 +163,47 @@ export function handleScroll(panel: HTMLElement, params: AppInteractionParams): 
 }
 
 export function handleSelect(panel: HTMLElement, params: AppInteractionParams): AppInteractionResult {
-  if (!params.selector) return { success: false, message: 'Select requires a selector' };
-  const element = findInPanel(panel, params.selector);
-  if (!element) return { success: false, message: `No element found: ${params.selector}` };
+  if (!params.selector && !params.ref) return { success: false, message: 'Select requires a selector or ref' };
+  const element = findTarget(panel, params);
+  if (!element) return { success: false, message: `No element found: ${targetLabel(params)}` };
   if (element instanceof HTMLElement) element.focus();
-  return { success: true, message: `Selected: ${params.selector}` };
+  return { success: true, message: `Selected: ${targetLabel(params)}` };
 }
 
 export function handleHover(panel: HTMLElement, params: AppInteractionParams): AppInteractionResult {
-  if (!params.selector) return { success: false, message: 'Hover requires a selector' };
-  const element = findInPanel(panel, params.selector);
-  if (!element) return { success: false, message: `No element found: ${params.selector}` };
+  if (!params.selector && !params.ref) return { success: false, message: 'Hover requires a selector or ref' };
+  const element = findTarget(panel, params);
+  if (!element) return { success: false, message: `No element found: ${targetLabel(params)}` };
   element.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
   element.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
-  return { success: true, message: `Hovered: ${params.selector}` };
+  return { success: true, message: `Hovered: ${targetLabel(params)}` };
 }
 
 export function handleGetText(panel: HTMLElement, params: AppInteractionParams): AppInteractionResult {
   let target: Element = panel;
-  if (params.selector) {
-    const element = findInPanel(panel, params.selector);
-    if (!element) return { success: false, message: `No element found: ${params.selector}` };
+  if (params.selector || params.ref) {
+    const element = findTarget(panel, params);
+    if (!element) return { success: false, message: `No element found: ${targetLabel(params)}` };
     target = element;
   }
-  const text = target.textContent?.trim() ?? '';
+
+  if (params.aroundText) {
+    const root = findSearchRoot(
+      target instanceof HTMLElement ? target : panel,
+      params.withinSelector,
+      params.containerText,
+    );
+    const element = root ? findByText(root, params.aroundText) : null;
+    if (!element) return { success: false, message: `No text found around: ${params.aroundText}` };
+    target = element;
+  }
+
+  const text = params.visibleOnly && target instanceof HTMLElement
+    ? Array.from(target.querySelectorAll('*'))
+      .filter((element) => isElementVisible(element, panel))
+      .map((element) => normaliseDomText(element.textContent))
+      .filter(Boolean)
+      .join('\n')
+    : target.textContent?.trim() ?? '';
   return { success: true, message: `Text content (${text.length} chars)`, textContent: text };
 }

@@ -3,6 +3,7 @@ import { mkdirSync } from 'fs';
 import { promisify } from 'util';
 import type { ContainerConfig, ContainerState } from '@electron/features/container/core/types';
 import { containerId, DEFAULT_CPUS, DEFAULT_IMAGE, DEFAULT_MEMORY_MB } from '@electron/features/container/core/types';
+import { prepareWorkspaceLogPortal } from '@electron/features/container/core/log-access';
 import { mountArgs, buildDockerMounts } from './docker-mounts';
 import { checkDocker, type DockerRunner } from './docker-cli';
 import { buildPreviewInternalPorts } from '../preview-port-pool';
@@ -36,6 +37,8 @@ export function dockerContainerName(workspaceId: string): string {
 export async function ensureDockerContainer(options: DockerLifecycleOptions): Promise<ContainerState> {
   const run = options.run ?? checkDocker;
   const cid = dockerContainerName(options.config.workspaceId);
+  mkdirSync(options.config.hostPath, { recursive: true });
+  prepareWorkspaceLogPortal(options.config.hostPath);
   const existing = await inspectDockerContainer(cid, run).catch(() => null);
   if (existing) {
     if (isExpectedContainer(existing, options.config, options.imageRef, options.imageId)) {
@@ -55,7 +58,6 @@ export async function ensureDockerContainer(options: DockerLifecycleOptions): Pr
     await removeDockerContainer(cid, run);
   }
 
-  mkdirSync(options.config.hostPath, { recursive: true });
   const created = await run(createDockerRunArgs(options.config, options.imageRef, options.previewPortPoolSize), { timeoutMs: 60_000 });
   if (created.exitCode !== 0) {
     throw new Error(`Failed to create Docker container ${cid}: ${created.stderr || created.stdout}`.trim());

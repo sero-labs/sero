@@ -6,6 +6,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import type { SeroSessionInfo } from '@/types/ipc';
 import { useAgentStore } from '@/stores/agent';
 import { useSessionStore } from '@/stores/sessions';
+import { useWorkspaceStore } from '@/stores/workspace';
 import { useActiveSessionSync } from './useActiveSessionSync';
 
 (
@@ -14,6 +15,7 @@ import { useActiveSessionSync } from './useActiveSessionSync';
 
 const initialAgentState = useAgentStore.getState();
 const initialSessionState = useSessionStore.getState();
+const initialWorkspaceState = useWorkspaceStore.getState();
 
 function createSession(overrides: Partial<SeroSessionInfo> = {}): SeroSessionInfo {
   return {
@@ -54,6 +56,7 @@ describe('useActiveSessionSync', () => {
 
     useAgentStore.setState(initialAgentState, true);
     useSessionStore.setState(initialSessionState, true);
+    useWorkspaceStore.setState(initialWorkspaceState, true);
 
     Object.defineProperty(window, 'sero', {
       configurable: true,
@@ -88,6 +91,7 @@ describe('useActiveSessionSync', () => {
     Reflect.deleteProperty(window, 'sero');
     useAgentStore.setState(initialAgentState, true);
     useSessionStore.setState(initialSessionState, true);
+    useWorkspaceStore.setState(initialWorkspaceState, true);
   });
 
   it('does not resync when session list refreshes metadata for the active session', async () => {
@@ -97,12 +101,26 @@ describe('useActiveSessionSync', () => {
       sessions: [session],
       activeSessionId: session.id,
     });
+    useWorkspaceStore.setState({
+      workspaces: [{
+        id: session.workspaceId,
+        name: 'Workspace 1',
+        path: session.cwd,
+        open: true,
+        container: false,
+        runtime: { backend: 'host' },
+        references: [],
+        mounts: [],
+        roots: [],
+      }],
+    });
     useAgentStore.setState({
       agents: {
         [session.id]: {
           sessionId: session.id,
           sessionPath: session.path,
           workspaceId: session.workspaceId,
+          runtimeBackend: 'host',
           messages: [],
           isStreaming: false,
           error: null,
@@ -145,5 +163,80 @@ describe('useActiveSessionSync', () => {
     expect(getState).toHaveBeenCalledTimes(1);
     expect(focusSession).toHaveBeenCalledTimes(1);
     expect(hydrateCollaborationState).toHaveBeenCalledTimes(1);
+  });
+
+  it('reopens the active session when the workspace runtime backend changes', async () => {
+    const session = createSession();
+
+    useSessionStore.setState({
+      sessions: [session],
+      activeSessionId: session.id,
+    });
+    useWorkspaceStore.setState({
+      workspaces: [{
+        id: session.workspaceId,
+        name: 'Workspace 1',
+        path: session.cwd,
+        open: true,
+        container: false,
+        runtime: { backend: 'host' },
+        references: [],
+        mounts: [],
+        roots: [],
+      }],
+    });
+    useAgentStore.setState({
+      agents: {
+        [session.id]: {
+          sessionId: session.id,
+          sessionPath: session.path,
+          workspaceId: session.workspaceId,
+          runtimeBackend: 'host',
+          messages: [],
+          isStreaming: false,
+          error: null,
+          commands: [],
+          modelState: null,
+        },
+      },
+      openSession,
+      focusSession,
+      clearFocus,
+      hydrateCollaborationState,
+    });
+
+    await act(async () => {
+      root?.render(<Harness />);
+    });
+
+    await vi.waitFor(() => {
+      expect(focusSession).toHaveBeenCalledTimes(1);
+    });
+    expect(openSession).not.toHaveBeenCalled();
+
+    await act(async () => {
+      useWorkspaceStore.setState({
+        workspaces: [{
+          id: session.workspaceId,
+          name: 'Workspace 1',
+          path: session.cwd,
+          open: true,
+          container: true,
+          runtime: { backend: 'apple-container' },
+          references: [],
+          mounts: [],
+          roots: [],
+        }],
+      });
+    });
+
+    await vi.waitFor(() => {
+      expect(openSession).toHaveBeenCalledWith(
+        session.id,
+        session.path,
+        session.workspaceId,
+        'apple-container',
+      );
+    });
   });
 });

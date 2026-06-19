@@ -45,7 +45,12 @@ describe('toolchain manifest helpers', () => {
       { platform: 'win32', arch: 'x64', tools: coreTools },
     ] as const;
 
-    expect(Object.keys(loaded.artifacts).length).toBe(targets.reduce((count, target) => count + target.tools.length, 0));
+    // uv is on-demand (not core) and ships for darwin arm64/x64, linux arm64/x64, and Windows x64.
+    const uvArtifactCount = Object.values(loaded.artifacts).filter((artifact) => artifact.tool === 'uv').length;
+    expect(uvArtifactCount).toBe(5);
+    expect(Object.keys(loaded.artifacts).length).toBe(
+      targets.reduce((count, target) => count + target.tools.length, 0) + uvArtifactCount,
+    );
     for (const target of targets) {
       for (const tool of target.tools) {
         expect(findArtifactForPlatform(loaded, tool, target.platform, target.arch)).toMatchObject({
@@ -62,7 +67,11 @@ describe('toolchain manifest helpers', () => {
     const loaded = loadBundledToolchainManifest();
     for (const artifact of Object.values(loaded.artifacts)) {
       expect(artifact.url).toMatch(/^https:\/\//);
-      expect(artifact.url).toMatch(new RegExp(`^https://github\\.com/sero-labs/sero/releases/download/${generatedArtifacts.releaseTag}/`));
+      // uv installs from astral's pinned upstream release assets except Windows, where Sero republishes a tar.gz.
+      const expectedUrlPattern = artifact.tool === 'uv' && artifact.platform !== 'win32'
+        ? /^https:\/\/github\.com\/astral-sh\/uv\/releases\/download\/\d+\.\d+\.\d+\//
+        : new RegExp(`^https://github\\.com/sero-labs/sero/releases/download/${generatedArtifacts.releaseTag}/`);
+      expect(artifact.url).toMatch(expectedUrlPattern);
       expect(artifact.url).not.toContain('downloads.sero.ai');
       expect(artifact.url).toMatch(/\.tar\.gz$/);
       expect(artifact.sha256).toMatch(/^[a-f0-9]{64}$/);

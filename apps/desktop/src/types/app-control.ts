@@ -27,6 +27,7 @@ export interface AppElementRect {
 
 /** Description of an element discovered by app inspection. */
 export interface AppElementInfo {
+  ref: string;
   tagName: string;
   id: string | null;
   className: string | null;
@@ -38,6 +39,30 @@ export interface AppElementInfo {
   rect: AppElementRect;
   interactive: boolean;
   selectorHint: string | null;
+}
+
+export interface AppScrollInfo {
+  ref: string;
+  selectorHint: string | null;
+  label: string;
+  rect: AppElementRect;
+  scrollTop: number;
+  scrollLeft: number;
+  maxScrollTop: number;
+  maxScrollLeft: number;
+  clientHeight: number;
+  clientWidth: number;
+  scrollHeight: number;
+  scrollWidth: number;
+}
+
+export interface AppAccessibilitySnapshot {
+  panelRect: AppPanelRect;
+  headings: AppElementInfo[];
+  sections: AppElementInfo[];
+  buttons: AppElementInfo[];
+  links: AppElementInfo[];
+  inputs: AppElementInfo[];
 }
 
 /** Result of an inspection query against the app panel. */
@@ -62,25 +87,71 @@ export interface AppInteractionResult {
   textContent?: string;
   /** DOM inspection output for inspection queries. */
   inspection?: AppInspectionResult;
+  /** Structured visible element summary for accessibility snapshot queries. */
+  snapshot?: AppAccessibilitySnapshot;
+  /** Scroll containers discovered in the app panel. */
+  scrollContainers?: AppScrollInfo[];
 }
 
 /** Parameters for an app interaction command. */
 export interface AppInteractionParams {
-  action: 'click' | 'type' | 'scroll' | 'select' | 'get-text' | 'hover' | 'inspect';
+  action:
+    | 'click'
+    | 'type'
+    | 'scroll'
+    | 'scroll-to'
+    | 'select'
+    | 'get-text'
+    | 'hover'
+    | 'inspect'
+    | 'visible'
+    | 'snapshot'
+    | 'scroll-containers';
   /** CSS selector targeting an element within the app panel. */
   selector?: string;
+  /** Temporary element ref returned by inspect/snapshot. */
+  ref?: string;
   /** X coordinate relative to app panel (for positional click). */
   x?: number;
   /** Y coordinate relative to app panel (for positional click). */
   y?: number;
   /** Text to type (for type action). */
   text?: string;
+  /** Text to find for visible/scroll-to/get-text around queries. */
+  aroundText?: string;
+  /** CSS selector that scopes text search. */
+  withinSelector?: string;
+  /** Visible container text that scopes text search. */
+  containerText?: string;
+  /** Horizontal scroll delta in CSS pixels. */
+  deltaX?: number;
+  /** Vertical scroll delta in CSS pixels. */
+  deltaY?: number;
   /** Scroll direction (for scroll action). */
   direction?: 'up' | 'down' | 'left' | 'right';
   /** Scroll amount in pixels (default: 300). */
   amount?: number;
+  /** Return only text from nodes intersecting the visible viewport. */
+  visibleOnly?: boolean;
+  /** Return only interactive elements during inspection. */
+  interactiveOnly?: boolean;
+  /** Maximum number of elements returned by inspection/listing commands. */
+  limit?: number;
   /** Whether to capture a screenshot after the action (default: true). */
   captureAfter?: boolean;
+}
+
+export interface AppFullScreenshotTarget {
+  ref: string;
+  label: string;
+  rect: AppPanelRect;
+  scrollTop: number;
+  scrollLeft: number;
+  scrollHeight: number;
+  scrollWidth: number;
+  clientHeight: number;
+  clientWidth: number;
+  positions: number[];
 }
 
 /** Bounding rect of the app panel in CSS px relative to the renderer viewport. */

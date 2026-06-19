@@ -144,6 +144,7 @@ describe('useSessionAgent', () => {
           sessionId: initialSession.id,
           sessionPath: initialSession.path,
           workspaceId: initialSession.workspaceId,
+          runtimeBackend: 'host',
           messages: [],
           isStreaming: true,
           error: null,

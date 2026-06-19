@@ -39,11 +39,13 @@ Verification runs version or smoke commands; PATH presence alone is not trusted.
 | Tier | Tools | Install behavior |
 | --- | --- | --- |
 | Core | `node`, `npm`, `pnpm`, `git`, `ssh`, `bash`/compatible shell | Checked during onboarding and auto-install on first Sero-owned use when missing/incompatible. |
-| Small convenience | `rg`, `fd`, `jq`, `gh`, `curl`, `zip`, `unzip` | Install on demand for Sero features or declared dependencies. |
+| Small convenience | `rg`, `fd`, `jq`, `gh`, `curl`, `zip`, `unzip`, `uv` | Install on demand for Sero features or declared dependencies. |
 | Large optional | Browser automation pack | Explicit/onboarding/settings install or first browser-tool use. |
 | Not managed | Xcode CLT, Linux build-essential/gcc/make, MSVC/Windows SDK | User-installed or use a container fallback. |
 
 Windows host mode is native Windows execution with a verified Git Bash/MSYS-compatible shell; it is not WSL by default.
+
+`uv` installs from astral-sh's pinned upstream GitHub Release assets (sha256-verified) on macOS/Linux. Windows uses a Sero-published tar.gz repack of the pinned upstream `uv.exe` so the existing safe toolchain unpacker can install it on first use.
 
 ## Core toolchain publication
 

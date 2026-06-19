@@ -25,6 +25,7 @@ import type {
   BrowserPackStatusIPC,
   ToolchainProgressIPC,
   ToolchainStatusIPC,
+  WorkspaceAccessRootsResult,
   WorkspaceRuntimeDiagnosticsIPC,
 } from '@sero-ai/common';
 
@@ -130,6 +131,8 @@ export const workspaceBridge = {
     ipcRenderer.invoke(IpcChannels.workspace.setExpanded, id, expanded),
   listRoots: (id: string): Promise<WorkspaceRoot[]> =>
     ipcRenderer.invoke(IpcChannels.workspace.listRoots, id),
+  listAccessRoots: (id: string): Promise<WorkspaceAccessRootsResult> =>
+    ipcRenderer.invoke(IpcChannels.workspace.listAccessRoots, id),
   addRoot: (
     id: string,
     input: { name: string; path: string; kind?: WorkspaceRoot['kind'] },

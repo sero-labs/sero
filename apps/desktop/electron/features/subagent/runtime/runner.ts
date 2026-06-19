@@ -11,11 +11,11 @@ import {
   SessionManager,
   DefaultResourceLoader,
 } from '@earendil-works/pi-coding-agent';
-import type { CreateAgentSessionOptions } from '@earendil-works/pi-coding-agent';
+import type { CreateAgentSessionOptions, ToolDefinition } from '@earendil-works/pi-coding-agent';
 import type { ThinkingLevel, AgentMessage } from '@earendil-works/pi-agent-core';
 import { getModelTierThinkingLevel, isModelTier } from '@sero-ai/common';
 
-import type { RunnerConfig, RunResult, SubagentUsage, SubagentToolActivity } from '../core/types';
+import type { RunnerConfig, RunResult, SubagentUsage, SubagentToolActivity, PlatformToolPolicy } from '../core/types';
 import type { SharedInfra } from '@electron/shared/infra/shared-infra';
 import type { WorkspaceManager } from '@electron/features/workspace/manager';
 import { createRuntimeTools } from '@electron/features/container/tools';
@@ -101,6 +101,36 @@ export function resolveSubagentPaths(
   };
 }
 
+/**
+ * Apply the platform-tool policy to the workspace tool set.
+ * 'none' callers skip building platform tools entirely; this filter
+ * handles 'all' and 'readOnly'.
+ */
+export function filterPlatformTools(
+  tools: ToolDefinition[],
+  policy: PlatformToolPolicy,
+): ToolDefinition[] {
+  if (policy === 'none') return [];
+  if (policy === 'readOnly') return tools.filter((tool) => tool.name === 'read');
+  return tools;
+}
+
+/**
+ * Session tool enforcement for the platform-tool policy.
+ *
+ * `noTools: 'builtin'` disables only Pi built-ins; tools registered by
+ * extensions loaded into the session survive it. Restricted policies
+ * therefore set an explicit allowlist of exactly the session's tools,
+ * which excludes extension-registered tools as well.
+ */
+export function sessionToolOptions(
+  policy: PlatformToolPolicy,
+  sessionTools: ToolDefinition[],
+): Pick<CreateAgentSessionOptions, 'noTools' | 'tools'> {
+  if (policy === 'all') return { noTools: 'builtin' };
+  return { noTools: 'builtin', tools: sessionTools.map((tool) => tool.name) };
+}
+
 export interface RunnerDeps {
   infra: SharedInfra;
   workspaceManager: WorkspaceManager;
@@ -135,20 +165,26 @@ export async function runSubagent(
   // Generate a unique session ID for this subagent run
   const subagentSessionId = `subagent-${config.parentSessionId}-${Date.now()}`;
 
-  const runtime = await runtimeManager.getRuntime(workspaceId);
-  try {
-    await runtime.ensure();
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.warn(`[subagent/runner] ${runtime.backend} runtime unavailable: ${message}`);
-    return {
-      response: '',
-      usage: { ...EMPTY_USAGE },
-      error: `${runtime.backend} runtime failed to start for workspace ${workspaceId}: ${message}`,
-    };
+  const policy = config.platformTools ?? 'all';
+  let platformTools: ToolDefinition[] = [];
+  if (policy !== 'none') {
+    const runtime = await runtimeManager.getRuntime(workspaceId);
+    try {
+      await runtime.ensure();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.warn(`[subagent/runner] ${runtime.backend} runtime unavailable: ${message}`);
+      return {
+        response: '',
+        usage: { ...EMPTY_USAGE },
+        error: `${runtime.backend} runtime failed to start for workspace ${workspaceId}: ${message}`,
+      };
+    }
+    platformTools = filterPlatformTools(
+      await createRuntimeTools(runtime, subagentSessionId, containerCwd),
+      policy,
+    );
   }
-
-  const platformTools = await createRuntimeTools(runtime, subagentSessionId, containerCwd);
   const customTools = [...platformTools, ...(config.customTools ?? [])];
 
   // Build a reduced extension factory for the child session
@@ -174,6 +210,10 @@ export async function runSubagent(
   });
   await loader.reload();
 
+  if (signal.aborted) {
+    return { response: '', usage: { ...EMPTY_USAGE }, error: 'Aborted before start' };
+  }
+
   let session: Awaited<ReturnType<typeof createAgentSession>>['session'] | null = null;
 
   // Stall timer state — hoisted above try so finally can access clearStallTimer
@@ -194,7 +234,7 @@ export async function runSubagent(
       agentDir: SERO_AGENT_DIR,
       authStorage: infra.authStorage,
       modelRegistry: infra.modelRegistry,
-      noTools: 'builtin',
+      ...sessionToolOptions(policy, customTools),
       customTools,
       resourceLoader: loader,
       sessionManager: SessionManager.inMemory(sessionPath),
@@ -235,11 +275,18 @@ export async function runSubagent(
       // Fall back to default
     }
 
+    const usage: SubagentUsage = { ...EMPTY_USAGE };
+
     // Set up abort handler
     const abortHandler = () => {
       try { session?.abort(); } catch { /* ignore */ }
     };
     signal.addEventListener('abort', abortHandler, { once: true });
+    if (signal.aborted) {
+      abortHandler();
+      signal.removeEventListener('abort', abortHandler);
+      return { response: '', usage, modelId: session.model?.id, providerId: session.model?.provider, error: 'Aborted' };
+    }
 
     // Set up timeout
     const timeoutId = setTimeout(() => {
@@ -248,8 +295,6 @@ export async function runSubagent(
 
     // Track usage, tool activity, live output + debug logging
     const { onToolActivity, onTextDelta, onUpdate: onStatusUpdate } = config;
-    const usage: SubagentUsage = { ...EMPTY_USAGE };
-
     // ── Per-tool stall detection ──────────────────────────────
     // If a single tool call runs longer than toolStallTimeoutMs, abort.
     const toolStallMs = resolved.toolStallTimeoutMs ?? 120_000;
@@ -325,7 +370,7 @@ export async function runSubagent(
 
     // Check if we were aborted or timed out
     if (signal.aborted) {
-      return { response: '', usage, error: 'Aborted' };
+      return { response: '', usage, modelId: session.model?.id, providerId: session.model?.provider, error: 'Aborted' };
     }
 
     // Extract the full response from session messages
@@ -344,16 +389,32 @@ export async function runSubagent(
       }
     } catch { /* ignore */ }
 
-    return { response, usage };
+    return { response, usage, modelId: session.model?.id, providerId: session.model?.provider };
   } catch (err: unknown) {
     const errorMsg = err instanceof Error ? err.message : String(err);
 
+    // Best-effort provenance — the session may exist even when the run failed
+    const usage: SubagentUsage = { ...EMPTY_USAGE };
+    try {
+      const stats = session?.getSessionStats();
+      if (stats) {
+        usage.inputTokens = stats.tokens.input;
+        usage.outputTokens = stats.tokens.output;
+        usage.cacheReadTokens = stats.tokens.cacheRead;
+        usage.cacheWriteTokens = stats.tokens.cacheWrite;
+        usage.totalTokens = stats.tokens.total;
+        usage.cost = stats.cost;
+      }
+    } catch { /* session unusable — keep zeros */ }
+    const modelId = session?.model?.id;
+    const providerId = session?.model?.provider;
+
     // Distinguish timeout from other errors
     if (signal.aborted) {
-      return { response: '', usage: { ...EMPTY_USAGE }, error: 'Aborted' };
+      return { response: '', usage, modelId, providerId, error: 'Aborted' };
     }
 
-    return { response: '', usage: { ...EMPTY_USAGE }, error: errorMsg };
+    return { response: '', usage, modelId, providerId, error: errorMsg };
   } finally {
     clearStallTimer();
     try { session?.dispose(); } catch { /* ignore */ }

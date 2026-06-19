@@ -11,12 +11,14 @@ import type {
   DebateConfig,
 } from '@/types/collaboration';
 import type { CollaborationSessionMap } from '@/stores/agent-collaboration';
+import type { WorkspaceRuntimeBackend } from '@/types/workspace-runtime';
 
 /** State for a single agent session in the pool. */
 export interface AgentInstance {
   sessionId: string;
   sessionPath: string;
   workspaceId: string;
+  runtimeBackend?: WorkspaceRuntimeBackend;
   messages: ChatMessage[];
   isStreaming: boolean;
   error: string | null;
@@ -40,7 +42,12 @@ export interface AgentState {
   /** Collaboration UI state, keyed by session ID. */
   collaborations: CollaborationSessionMap;
   /** Open a session — creates an AgentSession in the main-process pool. */
-  openSession: (sessionId: string, sessionPath: string, workspaceId: string) => Promise<void>;
+  openSession: (
+    sessionId: string,
+    sessionPath: string,
+    workspaceId: string,
+    runtimeBackend?: WorkspaceRuntimeBackend,
+  ) => Promise<void>;
   /** Close a session — disposes its AgentSession. */
   closeSession: (sessionId: string) => Promise<void>;
   /** Send a prompt to a specific session, optionally with file attachments. */

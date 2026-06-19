@@ -9,9 +9,10 @@ import { ipcMain, dialog, BrowserWindow } from 'electron';
 import { IpcChannels } from '@/types/ipc-channels';
 import type { WorkspaceInfo, WorkspaceConfig, WorkspaceRoot } from '@/types/ipc';
 import type { WorkspaceRuntimeBackend, WorkspaceRuntimeConfig } from '@/types/workspace-runtime';
-import type { BrowserPackStatusIPC, ToolchainStatusIPC, WorkspaceRuntimeDiagnosticsIPC } from '@sero-ai/common';
+import type { BrowserPackStatusIPC, ToolchainStatusIPC, WorkspaceAccessRootsResult, WorkspaceRuntimeDiagnosticsIPC } from '@sero-ai/common';
 import { workspaceManager } from '@electron/features/workspace/manager';
 import { isWorkspaceRuntimeBackend } from '@electron/features/workspace/runtime/config';
+import { listWorkspaceAccessRoots } from '@electron/features/workspace/access-roots';
 import { resolveWorkspaceRuntime } from '@electron/features/workspace/runtime-resolution';
 import { assertIsSeroPluginFolder } from '@electron/features/workspace/plugin-validation';
 import { recreateContainerIfRunning } from '@electron/features/workspace/container-sync';
@@ -258,6 +259,13 @@ export function registerWorkspaceHandlers(): void {
   );
 
   ipcMain.handle(
+    IpcChannels.workspace.listAccessRoots,
+    async (_event, id: string): Promise<WorkspaceAccessRootsResult> => {
+      return listWorkspaceAccessRoots(workspaceManager, id);
+    },
+  );
+
+  ipcMain.handle(
     IpcChannels.workspace.addRoot,
     async (
       _event,
@@ -312,4 +320,3 @@ export function registerWorkspaceHandlers(): void {
     },
   );
 }
-

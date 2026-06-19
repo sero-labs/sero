@@ -14,9 +14,14 @@ import {
   handleGetText,
   handleHover,
   handleInspect,
+  handleScrollContainers,
+  handleScrollTo,
+  handleScreenshotAround,
   handleScroll,
   handleSelect,
+  handleSnapshot,
   handleType,
+  handleVisible,
 } from './app-control-interactions';
 import { handleRecord } from './app-control-recording';
 import { handleScreenshot } from './app-control-screenshot';
@@ -29,17 +34,22 @@ async function handleApp(args: string[], ctx: CliCommandContext) {
     case 'active': return handleActive();
     case 'info': return handleInfo(rest);
     case 'screenshot': return handleScreenshot(rest, ctx);
+    case 'screenshot-around': return handleScreenshotAround(rest, ctx);
     case 'click': return handleClick(rest);
     case 'type': return handleType(rest);
     case 'scroll': return handleScroll(rest);
+    case 'scroll-to': return handleScrollTo(rest);
     case 'select': return handleSelect(rest);
     case 'hover': return handleHover(rest);
     case 'inspect': return handleInspect(rest);
     case 'get-text': return handleGetText(rest);
+    case 'visible': return handleVisible(rest);
+    case 'snapshot': return handleSnapshot(rest);
+    case 'scroll-containers': return handleScrollContainers(rest);
     case 'record': return handleRecord(rest, ctx);
     case 'preview': return handlePreview(rest);
     default:
-      return fail('Usage: sero app <list|open|active|info|screenshot|click|type|scroll|select|hover|inspect|get-text|record|preview>');
+      return fail('Usage: sero app <list|open|active|info|screenshot|screenshot-around|click|type|scroll|scroll-to|select|hover|inspect|get-text|visible|snapshot|scroll-containers|record|preview>');
   }
 }
 
@@ -59,6 +69,8 @@ export function registerAppControlCliCommands(registry: CliRegistry): void {
       '  sero app screenshot                 Capture the active app (inline image)\n' +
       '  sero app screenshot --app <id|name> Navigate to app then capture\n' +
       '  sero app screenshot --save <path>   Save screenshot to file\n' +
+      '  sero app screenshot --selector <sel> --full  Capture full scroll container\n' +
+      '  sero app screenshot-around --text "text" [--within <sel>] [--save <path>]\n' +
       '  sero app screenshot --app todo --save ./shot.png\n' +
       '  Browser pages: use sero browser screenshot. Do not use\n' +
       '  sero app screenshot --app web; web is a separate app/plugin.\n\n' +
@@ -66,12 +78,18 @@ export function registerAppControlCliCommands(registry: CliRegistry): void {
       '  sero app click <selector>           Click by CSS selector\n' +
       '  sero app click --x <n> --y <n>      Click at coordinates relative to the app screenshot\n' +
       '  sero app type "<text>" [--selector <sel>]\n' +
-      '  sero app scroll --direction <dir> [--amount <px>]\n' +
+      '  sero app scroll --direction <dir> [--amount <px>] [--selector <sel>]\n' +
+      '  sero app scroll --y <px> [--x <px>] [--selector <sel>|--ref <ref>]\n' +
+      '  sero app scroll --at-x <n> --at-y <n> --y <px>\n' +
+      '  sero app scroll-to --selector <sel>|--text "text"|--ref <ref> [--within <sel>]\n' +
       '  sero app select <selector>          Focus an element\n' +
       '  sero app hover <selector>           Hover over an element\n' +
-      '  sero app inspect [<selector>] [--x <n> --y <n>]\n' +
+      '  sero app inspect [<selector>] [--x <n> --y <n>] [--visible-only] [--limit <n>]\n' +
       '                                     Inspect elements / point hits\n' +
-      '  sero app get-text <selector>        Read text content\n\n' +
+      '  sero app visible --text "text"      Check visible text/selector/ref\n' +
+      '  sero app snapshot                   JSON of visible headings/controls\n' +
+      '  sero app scroll-containers          JSON list of scrollable containers\n' +
+      '  sero app get-text <selector> [--visible-only] [--around "text"]\n\n' +
       'Recording (MP4 video capture):\n' +
       '  sero app record start               Start recording (2 FPS)\n' +
       '  sero app record stop                 Wait 3s, stop, save MP4 in <workspace>/sero-recordings/\n' +

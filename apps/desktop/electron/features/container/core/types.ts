@@ -86,8 +86,21 @@ export interface ContainerConfig {
    * Directories that don't exist on the host are silently skipped.
    */
   writableMounts?: string[];
+  /**
+   * Explicit bind mounts for host directories that should appear at a specific
+   * runtime path instead of the same absolute path. Used for the workspace log
+   * portal under /workspace/.sero/logs.
+   * Directories that don't exist on the host are silently skipped.
+   */
+  bindMounts?: ContainerBindMount[];
   /** Internal preview gateway ports published to loopback host ports at creation. */
   previewPortMappings?: Array<{ internalPort: number; hostPort?: number }>;
+}
+
+export interface ContainerBindMount {
+  source: string;
+  target: string;
+  readonly?: boolean;
 }
 
 /**
