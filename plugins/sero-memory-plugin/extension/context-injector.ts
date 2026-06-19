@@ -49,6 +49,15 @@ import {
 /** Custom message type for auto-retrieved search results. */
 const SEARCH_CONTEXT_TYPE = 'memory-search-context';
 
+/**
+ * Custom message type for the display-only memory context block. The desktop
+ * renderer intercepts this (see agent-subscription.ts) and surfaces it as a
+ * collapsible block gated behind the MemoryBlocksToggle. It is stripped from
+ * the LLM-bound message stream by the `context` hook so it never duplicates
+ * the static memory already injected into the system prompt.
+ */
+const MEMORY_CONTEXT_DISPLAY_TYPE = 'memory-context';
+
 let cachedStatus: BootstrapStatus | null = null;
 
 async function getCachedBootstrapStatus(): Promise<BootstrapStatus> {
@@ -171,12 +180,16 @@ export function registerContextInjection(pi: ExtensionAPI): void {
     resetBootstrapCache();
   });
 
-  // Strip prior-turn search context messages so only the latest reaches the LLM.
+  // Strip prior-turn search context messages so only the latest reaches the
+  // LLM, and strip the display-only memory-context block entirely (it exists
+  // purely for the renderer; the static memory it mirrors is already in the
+  // system prompt).
   pi.on('context', async (event) => {
     return {
       messages: event.messages.filter((message) => {
         const custom = message as unknown as Record<string, unknown>;
-        return custom.customType !== SEARCH_CONTEXT_TYPE;
+        return custom.customType !== SEARCH_CONTEXT_TYPE
+          && custom.customType !== MEMORY_CONTEXT_DISPLAY_TYPE;
       }),
     };
   });
@@ -278,6 +291,24 @@ export function registerContextInjection(pi: ExtensionAPI): void {
           );
         } catch {
           // Non-fatal — search results are supplementary context, not critical.
+        }
+      }
+
+      // Mirror the combined context (static memory + search results) to the
+      // renderer as a display-only message. The `context` hook strips this
+      // before it reaches the LLM, so it adds no tokens — it just lets the
+      // MemoryBlocksToggle surface exactly what contributed to this turn.
+      if (contextBlock.trim()) {
+        try {
+          // Awaited so the message lands before the assistant turn's
+          // message_start — the renderer stashes it as pending memory context
+          // and attaches it to the next assistant message, so ordering matters.
+          await pi.sendMessage(
+            { customType: MEMORY_CONTEXT_DISPLAY_TYPE, content: contextBlock.trim(), display: false },
+            { triggerTurn: false },
+          );
+        } catch {
+          // Non-fatal — the display block is informational, not critical.
         }
       }
 

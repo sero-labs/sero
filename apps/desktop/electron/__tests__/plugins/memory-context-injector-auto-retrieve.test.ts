@@ -140,7 +140,13 @@ describe('context injector auto-retrieve gating', () => {
       'live',
       { includeSearch: false },
     );
-    expect(pi.sendMessage).not.toHaveBeenCalled();
+    // No per-turn search context message (auto-retrieve off), but the static
+    // memory is still mirrored to the renderer as a display-only block.
+    expect(pi.sendMessage).toHaveBeenCalledTimes(1);
+    expect(pi.sendMessage).toHaveBeenCalledWith(
+      { customType: 'memory-context', content: '## Memory\n\nSTATIC', display: false },
+      { triggerTurn: false },
+    );
     expect(result).toEqual({
       systemPrompt: 'BASE\n\n## Memory\n\nSTATIC\n\n## Memory System',
     });
@@ -170,6 +176,15 @@ describe('context injector auto-retrieve gating', () => {
     );
     expect(pi.sendMessage).toHaveBeenCalledWith(
       { customType: 'memory-search-context', content: 'SEARCH RESULT', display: false },
+      { triggerTurn: false },
+    );
+    // Combined static memory + search results are mirrored as a display block.
+    expect(pi.sendMessage).toHaveBeenCalledWith(
+      {
+        customType: 'memory-context',
+        content: '## Memory\n\nSTATIC\n\n---\n\nSEARCH RESULT',
+        display: false,
+      },
       { triggerTurn: false },
     );
   });
