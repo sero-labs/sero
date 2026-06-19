@@ -96,15 +96,23 @@ injection (priority 3) when relevant to the current prompt.
 
 ### Memory context visibility
 
-The injected memory context is also sent to the renderer as a `memory_context`
-event, which attaches it to the next assistant message. Users can toggle
-visibility of memory context blocks in the ChatPanel using the Database icon
-in the prompt area toolbar — similar to how thinking blocks work.
+The combined context that contributed to a turn (static memory + auto-retrieved
+search results, i.e. `contextBlock`) is also mirrored to the renderer as a
+display-only `memory-context` message. Users can toggle visibility of these
+blocks in the ChatPanel using the Database icon in the prompt area toolbar —
+similar to how thinking blocks work.
+
+This message is **display-only**: the `context` hook strips it from the
+LLM-bound message stream, so it adds no tokens. The static memory it mirrors is
+already injected into the system prompt (and search results via the separate
+`memory-search-context` message), so this purely lets the UI surface what the
+model saw.
 
 **Data flow:**
 ```
 Extension (before_agent_start)
-  → pi.sendMessage({ customType: 'memory-context', display: false })
+  → pi.sendMessage({ customType: 'memory-context', content: contextBlock, display: false })
+  → context hook strips it from the LLM-bound messages (no token cost)
   → agent-subscription.ts intercepts → sendEvent({ type: 'memory_context' })
   → agent-utils.ts stashes in pendingMemoryContext map
   → Attached to next ChatAssistantMessage as memoryContext field
