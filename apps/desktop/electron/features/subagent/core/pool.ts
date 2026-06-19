@@ -59,20 +59,37 @@ export class ConcurrencyPool {
     controller: AbortController,
     callGroup?: string,
   ): Promise<void> {
+    const signal = controller.signal;
+
     const waitForCapacity = async (hasCapacity: () => boolean): Promise<void> => {
-      if (hasCapacity()) return;
+      if (signal.aborted || hasCapacity()) return;
       await new Promise<void>((resolve) => {
-        this.waiters.push({ resolve });
+        const waiter: Waiter = {
+          resolve: () => {
+            signal.removeEventListener('abort', onAbort);
+            resolve();
+          },
+        };
+        const onAbort = () => {
+          const idx = this.waiters.indexOf(waiter);
+          if (idx >= 0) this.waiters.splice(idx, 1);
+          resolve();
+        };
+        signal.addEventListener('abort', onAbort, { once: true });
+        this.waiters.push(waiter);
       });
+      if (signal.aborted) return;
       await waitForCapacity(hasCapacity);
     };
 
     // Wait for global capacity
     await waitForCapacity(() => this.active.size < this.maxTotal);
+    if (signal.aborted) return; // aborted while queued — do not take the slot
 
     // Wait for per-call capacity (if call group is specified)
     if (callGroup) {
       await waitForCapacity(() => (this.callCounts.get(callGroup) ?? 0) < this.maxConcurrent);
+      if (signal.aborted) return;
       this.callCounts.set(callGroup, (this.callCounts.get(callGroup) ?? 0) + 1);
     }
 

@@ -21,6 +21,7 @@ import {
   subagentManager,
 } from '@electron/shared/infra/shared-infra';
 import { createSeroUIContext } from '@electron/features/apps/extensions/ui-context';
+import type { RuntimeBackendId } from '@electron/features/workspace/runtime/types';
 import { bridgeExtensionTools } from '@electron/cli';
 import { createSkillVisibilityOverride } from '@electron/features/apps/extensions/skill-visibility';
 import {
@@ -44,6 +45,8 @@ export interface PoolEntry {
   loader: DefaultResourceLoader;
   unsubscribe: () => void;
   workspaceId: string;
+  sessionPath: string;
+  runtimeBackend: RuntimeBackendId;
   currentAssistantId: string | null;
   lastSessionName: string | undefined;
   /** Renderer user-message id awaiting same-turn undo metadata after the active turn ends. */
@@ -59,6 +62,7 @@ interface OpenSessionInPoolArgs {
   sessionPath: string;
   workspaceId: string;
   sendEvent: (event: AgentStreamEvent) => void;
+  closeExisting?: (sessionId: string) => Promise<void>;
 }
 
 function toErrorMessage(error: unknown, fallback: string): string {
@@ -75,24 +79,39 @@ export async function openSessionInPool({
   sessionPath,
   workspaceId,
   sendEvent,
+  closeExisting,
 }: OpenSessionInPoolArgs): Promise<ChatMessage[]> {
-  const existing = pool.get(sessionId);
-  if (existing) {
-    return convertSessionMessages(
-      existing.session.messages,
-      buildTurnUndoMapByTurn(existing.session, existing.workspaceId),
-    );
-  }
-
-  const infra = await ensureInfra();
   const workspacePath = workspaceManager.getPath(workspaceId);
   if (!workspacePath) throw new Error(`Workspace not found: ${workspaceId}`);
 
   const runtime = await runtimeManager.getRuntime(workspaceId);
+
+  const existing = pool.get(sessionId);
+  if (existing) {
+    if (existing.workspaceId === workspaceId && existing.runtimeBackend === runtime.backend) {
+      return convertSessionMessages(
+        existing.session.messages,
+        buildTurnUndoMapByTurn(existing.session, existing.workspaceId),
+      );
+    }
+
+    console.log(
+      `[agent] Reopening session ${sessionId} after runtime change `
+      + `(${existing.workspaceId}:${existing.runtimeBackend} -> ${workspaceId}:${runtime.backend})`,
+    );
+    if (closeExisting) {
+      await closeExisting(sessionId);
+    } else {
+      existing.unsubscribe();
+      existing.session.dispose();
+      pool.delete(sessionId);
+    }
+  }
+
+  const infra = await ensureInfra();
+  console.log(`[agent] Using ${runtime.backend} runtime for workspace ${workspaceId}`);
   if (isContainerLikeRuntime(runtime.backend)) {
     sendEvent({ type: 'container_starting', sessionId, workspaceId });
-  } else {
-    console.log(`[agent] Using ${runtime.backend} runtime for workspace ${workspaceId}`);
   }
 
   try {
@@ -181,6 +200,8 @@ export async function openSessionInPool({
       sendEvent,
     ),
     workspaceId,
+    sessionPath,
+    runtimeBackend: runtime.backend,
     currentAssistantId: null,
     lastSessionName: session.sessionName,
     pendingTurnUndoUserMessageId: null,

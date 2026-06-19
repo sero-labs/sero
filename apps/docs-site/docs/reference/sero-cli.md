@@ -77,13 +77,19 @@ See [Browser and Capture](/guide/browser-and-capture). `app` commands are UI-bac
 | `sero app active` | Prints active app id. |
 | `sero app info <appId\|name>` | JSON app metadata. |
 | `sero app screenshot [--app <id\|name>] [--save <path>]` | Returns PNG image block; optional file save relative to cwd. |
-| <code>sero app click &lt;selector&gt;</code><br /><code>--x &lt;n&gt; --y &lt;n&gt;</code> | Clicks and returns a post-action screenshot. |
-| <code>sero app type "&lt;text&gt;"</code><br /><code>[--selector &lt;sel&gt;]</code> | Types into focused/selected input and returns screenshot. |
-| <code>sero app scroll --direction &lt;dir&gt;</code><br /><code>[--amount &lt;px&gt;]</code><br /><code>[--selector &lt;sel&gt;]</code> | Scrolls, default amount 300px, returns screenshot. |
-| `sero app select <selector>` | Focuses/selects element, returns screenshot. |
-| `sero app hover <selector>` | Hovers element, returns screenshot. |
-| <code>sero app inspect [&lt;selector&gt;]</code><br /><code>[--x &lt;n&gt; --y &lt;n&gt;]</code> | Returns JSON inspection data; no post-action screenshot. |
-| `sero app get-text [<selector>\|--selector <sel>]` | Returns text content. |
+| `sero app screenshot --selector <sel> --full` | Captures a full long scroll container. |
+| `sero app screenshot-around --text "text" [--within <sel>] [--save <path>]` | Scrolls to text, confirms the target, then captures the app. |
+| <code>sero app click &lt;selector&gt;</code><br /><code>--ref &lt;ref&gt;</code><br /><code>--x &lt;n&gt; --y &lt;n&gt;</code> | Clicks and returns a post-action screenshot. |
+| <code>sero app type "&lt;text&gt;"</code><br /><code>[--selector &lt;sel&gt;\|--ref &lt;ref&gt;]</code> | Types into focused/selected input and returns screenshot. |
+| <code>sero app scroll --y &lt;px&gt; [--x &lt;px&gt;]</code><br /><code>[--selector &lt;sel&gt;\|--ref &lt;ref&gt;]</code><br /><code>[--at-x &lt;n&gt; --at-y &lt;n&gt;]</code> | Scrolls the selected or nearest scroll container and reports the actual target. |
+| <code>sero app scroll-to --selector &lt;sel&gt;</code><br /><code>--text "text"\|--ref &lt;ref&gt;</code><br /><code>[--within &lt;sel&gt;\|--container "text"]</code> | Scrolls a target element/text into view and reports visibility/rect. |
+| `sero app select <selector\|--ref ref>` | Focuses/selects element, returns screenshot. |
+| `sero app hover <selector\|--ref ref>` | Hovers element, returns screenshot. |
+| <code>sero app inspect [&lt;selector&gt;]</code><br /><code>[--x &lt;n&gt; --y &lt;n&gt;\|--ref &lt;ref&gt;]</code><br /><code>[--visible-only] [--interactive-only] [--limit &lt;n&gt;]</code> | Returns JSON inspection data with temporary refs; no post-action screenshot. |
+| `sero app visible --text "text"\|--selector <sel>\|--ref <ref>` | Checks whether an element/text is visible. |
+| `sero app snapshot` | Returns visible headings, sections, buttons, links, and inputs as JSON. |
+| `sero app scroll-containers` | Lists scrollable containers with refs, dimensions, scrollTop, and max scroll. |
+| `sero app get-text [--app <id\|name>] [<selector>\|--selector <sel>] [--visible-only] [--around "text"]` | Returns text content, optionally limited to visible or nearby text. |
 | `sero app record start` | Starts 2 FPS capture. |
 | `sero app record status` | Shows recording state/duration. |
 | `sero app record stop [--save <path>]` | Saves MP4 or PNG frame folder. Default: `<workspace>/sero-recordings/`. |

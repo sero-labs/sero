@@ -11,6 +11,7 @@ import type {
   BrowserPackStatusIPC,
   ToolchainProgressIPC,
   ToolchainStatusIPC,
+  WorkspaceAccessRootsResult,
   WorkspaceRuntimeDiagnosticsIPC,
 } from '@sero-ai/common';
 import type { LspNotification } from '@/lsp/lsp-protocol';
@@ -83,6 +84,8 @@ export interface SeroWorkspaceAPI {
   setExpanded(id: string, expanded: boolean): Promise<void>;
   /** List all roots for a workspace (primary + linked). */
   listRoots(id: string): Promise<WorkspaceRoot[]>;
+  /** List bounded workspace access roots with host and runtime paths. */
+  listAccessRoots(id: string): Promise<WorkspaceAccessRootsResult>;
   /** Add an additional root (folder or linked plugin) to a workspace. */
   addRoot(
     id: string,

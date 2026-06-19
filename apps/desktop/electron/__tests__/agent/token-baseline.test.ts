@@ -12,9 +12,16 @@
  * enough for regression tracking.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { readFileSync, existsSync } from 'fs';
 import path from 'path';
+
+vi.mock('@electron/platform/env', () => ({
+  SERO_AGENT_DIR: '/tmp/sero-agent',
+  SERO_FIXED_ROOT: '/tmp/sero-fixed',
+  SERO_HOST_ARTIFACTS_ROOT: '/tmp/sero-host-artifacts',
+  SERO_HOME: '/tmp/sero-home',
+}));
 
 import { buildContainerPromptBlock, buildHostPromptBlock } from '@electron/features/container/tools/system-prompt';
 import { buildCliPromptBlock } from '@electron/cli';
@@ -184,22 +191,25 @@ describe('Token Baseline Benchmark', () => {
   it('Container system prompt block', () => {
     const block = buildContainerPromptBlock('test-workspace', '192.168.64.2');
     const tokens = measure('container_block', block);
-    expect(tokens).toBeLessThan(2_500);
+    expect(tokens).toBeLessThan(2_650);
+    expect(block).toContain('Pi/Sero self-building documentation');
+    expect(block).toContain('/tmp/sero-host-artifacts/shared/pi-docs/docs');
   });
 
   it('Host system prompt block', () => {
     const block = buildHostPromptBlock('test-workspace', '/Users/me/workspace', { platform: 'darwin' });
     const tokens = measure('host_block', block);
-    expect(tokens).toBeLessThan(700);
+    expect(tokens).toBeLessThan(850);
     expect(block).toContain('Do NOT hard-code PATH prefixes');
     expect(block).toContain('@types/react');
+    expect(block).toContain('self-building documentation fallback');
   });
 
   it('CLI prompt block', () => {
     const block = buildCliPromptBlock();
     const tokens = measure('cli_block', block);
     // Includes per-command summaries (saves sero help round-trips)
-    expect(tokens).toBeLessThan(600);
+    expect(tokens).toBeLessThan(1_000);
   });
 
   it('Skills listing', () => {

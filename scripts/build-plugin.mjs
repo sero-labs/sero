@@ -283,6 +283,9 @@ async function transpileShared(outputDir) {
 
   const sharedFiles = await listFilesRecursive(sharedDir);
   for (const sourcePath of sharedFiles) {
+    // Tests never ship in the plugin bundle (and stale transpiled copies
+    // would get picked up by vitest runs in the source package).
+    if (/\.test\.[cm]?[jt]sx?$/.test(sourcePath)) continue;
     const relativePath = path.relative(packageDir, sourcePath);
     const extension = path.extname(sourcePath).toLowerCase();
     const outputRelativePath = ['.ts', '.tsx', '.js', '.jsx', '.mts', '.cts'].includes(extension)

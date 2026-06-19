@@ -1,0 +1,3 @@
+@import "@sero-ai/ui/styles/plugin.css";
+
+@source "./**/*.{ts,tsx}";

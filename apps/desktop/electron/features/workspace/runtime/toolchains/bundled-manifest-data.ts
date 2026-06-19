@@ -117,7 +117,7 @@ function withUrlBaseOverride(defaultUrl: string, slug: string, urlBaseOverride: 
 }
 
 function isToolName(tool: string): tool is ToolName {
-  return ['node', 'npm', 'pnpm', 'git', 'ssh', 'bash', 'rg', 'fd', 'jq', 'gh', 'curl', 'zip', 'unzip'].includes(tool);
+  return ['node', 'npm', 'pnpm', 'git', 'ssh', 'bash', 'rg', 'fd', 'jq', 'gh', 'curl', 'zip', 'unzip', 'uv'].includes(tool);
 }
 
 function isToolchainPlatform(platform: string): platform is ManagedToolPlatform {

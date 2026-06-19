@@ -7,6 +7,7 @@ import type {
   UserFeedbackCancelPayload,
 } from './user-feedback';
 import type { SeroWebAppBridge } from './web-app';
+import type { WorkspaceAccessRootsResult } from './workspace-access-roots';
 
 export interface GlobalModelConfigStateIPC {
   tiers: Partial<Record<'LOW' | 'MED' | 'HIGH', {
@@ -348,6 +349,7 @@ export interface SeroWorkspaceBridge {
   onBrowserPackProgress?(callback: (event: BrowserPackProgressIPC) => void): () => void;
   pickFolder(): Promise<string | null>;
   listRoots(workspaceId: string): Promise<WorkspaceRootIPC[]>;
+  listAccessRoots(workspaceId: string): Promise<WorkspaceAccessRootsResult>;
   addRoot(
     workspaceId: string,
     input: { name: string; path: string; kind?: WorkspaceRootIPC['kind'] },

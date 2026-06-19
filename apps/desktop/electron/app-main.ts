@@ -37,7 +37,7 @@ import { workspaceManager } from './features/workspace/manager';
 import { setupExtProtocol, registerAllExtAssets } from './platform/protocols/ext-protocol';
 import { discoverApps, registerAppPath } from './features/apps/discovery';
 import { watchForNewApps } from './ipc/apps/apps';
-import { ensureDefaultAgents, ensureDefaultSkills, ensureDefaultThemes, ensureProfileTemplates } from './features/profile/setup';
+import { ensureBundledPiDocs, ensureDefaultAgents, ensureDefaultSkills, ensureDefaultThemes, ensureProfileTemplates } from './features/profile/setup';
 import { handleProfileRegistryRecovery } from './features/profile/recovery';
 import {
   appRuntimeManager,
@@ -263,6 +263,7 @@ app.whenReady().then(async () => {
   ensureDefaultSkills().catch((err) => console.warn('[sero] Skill template copy failed:', err));
   ensureProfileTemplates().catch((err) => console.warn('[sero] Profile template copy failed:', err));
   ensureDefaultThemes().catch((err) => console.warn('[sero] Theme template copy failed:', err));
+  await ensureBundledPiDocs().catch((err) => console.warn('[sero] Pi docs copy failed:', err));
 
   // ── User-Agent ────────────────────────────────────────────────
   // Keep embedded browser sessions closer to Chrome so login flows and

@@ -1,0 +1,20 @@
+{
+  "directed": false,
+  "multigraph": false,
+  "graph": {},
+  "nodes": [
+    { "id": "AuthService", "label": "Auth Service", "file_type": "code", "community": 0, "description": "Handles user authentication and sessions" },
+    { "id": "TokenStore", "label": "Token Store", "file_type": "code", "community": 0, "description": "Persists refresh tokens" },
+    { "id": "LoginHandler", "label": "Login Handler", "file_type": "code", "community": 0, "description": "HTTP login endpoint" },
+    { "id": "BillingService", "label": "Billing Service", "file_type": "code", "community": 1, "description": "Subscription billing" },
+    { "id": "InvoiceJob", "label": "Invoice Job", "file_type": "code", "community": 1, "description": "Nightly invoice generation" },
+    { "id": "Orphan", "label": "Orphan", "file_type": "document", "community": 2, "description": "Disconnected node" }
+  ],
+  "links": [
+    { "source": "LoginHandler", "target": "AuthService", "relation": "CALLS", "confidence": "EXTRACTED", "weight": 1.0 },
+    { "source": "AuthService", "target": "TokenStore", "relation": "USES", "confidence": "EXTRACTED", "weight": 1.0 },
+    { "source": "BillingService", "target": "AuthService", "relation": "DEPENDS_ON", "confidence": "INFERRED", "weight": 1.0 },
+    { "source": "InvoiceJob", "target": "BillingService", "relation": "CALLS", "confidence": "EXTRACTED", "weight": 1.0 }
+  ],
+  "hyperedges": []
+}

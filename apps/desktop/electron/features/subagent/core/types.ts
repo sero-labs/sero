@@ -87,6 +87,10 @@ export interface RunResult {
   response: string;
   /** Token and cost usage. */
   usage: SubagentUsage;
+  /** Concrete model id the session ran with (when resolvable). */
+  modelId?: string;
+  /** Provider id for modelId — model ids are not globally unique. */
+  providerId?: string;
   /** Error message if the run failed. */
   error?: string;
 }
@@ -145,6 +149,8 @@ export interface RunnerConfig {
   onUpdate?: (text: string) => void;
   /** Extra run-scoped tools to expose to the subagent session. */
   customTools?: ToolDefinition[];
+  /** Platform tool surface: 'all' (default), 'readOnly' (read only), or 'none'. */
+  platformTools?: PlatformToolPolicy;
 }
 
 // ── Task Overrides (from tool params) ────────────────────────
@@ -154,3 +160,8 @@ export interface TaskOverride {
   thinking?: string;
   timeoutMs?: number;
 }
+
+// ── Platform tool policy ─────────────────────────────────────
+
+/** Platform tool surface granted to a subagent session. */
+export type PlatformToolPolicy = 'all' | 'readOnly' | 'none';

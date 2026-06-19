@@ -4,6 +4,7 @@ import { execFile } from 'child_process';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { promisify } from 'util';
+import { WORKSPACE_COMMON_IGNORES } from '@sero-ai/common';
 import { warnCleanupFailure } from '@electron/features/vcs/support/cleanup-warnings';
 export { ensureRemoteDefaultBranch, createPrFromWorktree } from './pull-request';
 
@@ -258,24 +259,7 @@ export async function getWorktreeDiff(worktreePath: string): Promise<string> {
  * Common .gitignore patterns that should always be present.
  * Prevents massive diffs from committed node_modules, dist, etc.
  */
-const COMMON_IGNORE_PATTERNS = [
-  'node_modules/',
-  'dist/',
-  'build/',
-  '.DS_Store',
-  '*.log',
-  '.env',
-  '.env.local',
-  'coverage/',
-  '.sero/',
-  '.sero-workspace.json',
-  '__pycache__/',
-  '*.pyc',
-  'target/',
-  '.next/',
-  '.nuxt/',
-  '.turbo/',
-];
+const COMMON_IGNORE_PATTERNS = WORKSPACE_COMMON_IGNORES;
 
 /**
  * Ensure common patterns are in the worktree's .gitignore.

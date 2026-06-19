@@ -20,6 +20,7 @@ const TOOL_NAMES = new Set<ToolName>([
   'curl',
   'zip',
   'unzip',
+  'uv',
 ]);
 
 export interface HostToolResolverOptions {

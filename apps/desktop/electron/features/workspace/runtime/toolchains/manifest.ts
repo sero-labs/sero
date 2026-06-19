@@ -23,6 +23,7 @@ const TOOL_NAMES = new Set<ToolName>([
   'curl',
   'zip',
   'unzip',
+  'uv',
 ]);
 const PLATFORMS = new Set<ManagedToolPlatform>(['darwin', 'linux', 'win32']);
 const ARCHES = new Set<ManagedToolArch>(['x64', 'arm64']);

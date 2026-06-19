@@ -11,7 +11,8 @@ export type ToolName =
   | 'gh'
   | 'curl'
   | 'zip'
-  | 'unzip';
+  | 'unzip'
+  | 'uv';
 
 export type ManagedToolPlatform = Extract<NodeJS.Platform, 'darwin' | 'linux' | 'win32'>;
 export type ManagedToolArch = 'x64' | 'arm64';

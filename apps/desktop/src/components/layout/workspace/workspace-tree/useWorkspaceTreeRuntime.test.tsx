@@ -176,7 +176,7 @@ describe('useWorkspaceTreeRuntime', () => {
 
     await vi.waitFor(() => {
       expect(openWorkspace).toHaveBeenCalledWith('workspace-1');
-      expect(openSession).toHaveBeenCalledWith('session-1', '/tmp/session-1.jsonl', 'workspace-1');
+      expect(openSession).toHaveBeenCalledWith('session-1', '/tmp/session-1.jsonl', 'workspace-1', 'host');
       expect(setActiveSession).toHaveBeenCalledWith('session-1');
       expect(setChatPanelOpen).toHaveBeenCalledWith(true);
     });
@@ -206,7 +206,7 @@ describe('useWorkspaceTreeRuntime', () => {
       expect(container.querySelector('[data-testid="open-session-error"]')?.textContent).toBe(
         'workspace registry unavailable',
       );
-      expect(openSession).toHaveBeenCalledWith('session-1', '/tmp/session-1.jsonl', 'workspace-1');
+      expect(openSession).toHaveBeenCalledWith('session-1', '/tmp/session-1.jsonl', 'workspace-1', 'host');
       expect(setActiveSession).toHaveBeenCalledWith('session-1');
       expect(setChatPanelOpen).toHaveBeenCalledWith(true);
     });

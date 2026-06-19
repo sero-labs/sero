@@ -55,6 +55,7 @@ const TOOL_PROBES: Record<ToolName, ToolProbe> = {
   curl: { args: ['--version'], parseVersion: parseFirstVersion },
   zip: { args: ['--version'], parseVersion: parseFirstVersion },
   unzip: { args: ['-v'], parseVersion: parseFirstVersion },
+  uv: { args: ['--version'], minVersion: '0.7.3', parseVersion: parseFirstVersion },
 };
 
 export async function verifyTool(

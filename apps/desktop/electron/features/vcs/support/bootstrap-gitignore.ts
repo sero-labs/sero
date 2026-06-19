@@ -1,24 +1,8 @@
 import { promises as fs } from 'fs';
 import path from 'path';
+import { WORKSPACE_COMMON_IGNORES } from '@sero-ai/common';
 
-const WORKSPACE_BOOTSTRAP_GITIGNORE_PATTERNS = [
-  'node_modules/',
-  'dist/',
-  'build/',
-  '.DS_Store',
-  '*.log',
-  '.env',
-  '.env.local',
-  'coverage/',
-  '.sero/',
-  '.sero-workspace.json',
-  '__pycache__/',
-  '*.pyc',
-  'target/',
-  '.next/',
-  '.nuxt/',
-  '.turbo/',
-];
+const WORKSPACE_BOOTSTRAP_GITIGNORE_PATTERNS = WORKSPACE_COMMON_IGNORES;
 
 export async function ensureBootstrapGitignore(workspacePath: string): Promise<void> {
   const gitignorePath = path.join(workspacePath, '.gitignore');

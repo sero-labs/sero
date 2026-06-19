@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@electron/platform/env', () => ({
   SERO_AGENT_DIR: '/tmp/sero-agent',
+  SERO_HOST_ARTIFACTS_ROOT: '/tmp/sero-host-artifacts',
   SERO_HOME: '/tmp/sero-home',
 }));
 
@@ -68,5 +69,25 @@ describe('buildDockerMounts', () => {
 
   it('maps Windows additional roots to the Linux bind target used inside Docker', () => {
     expect(toRuntimeIdentityMountPath('D:\\projects\\linked-root')).toBe('/mnt/d/projects/linked-root');
+  });
+
+  it('keeps explicit bind mount targets stable', () => {
+    mkdirSync('/tmp/sero-dev-logs', { recursive: true });
+
+    const mounts = buildDockerMounts({
+      workspaceId: 'ws-1',
+      hostPath: '/tmp/sero-workspace',
+      bindMounts: [{
+        source: '/tmp/sero-dev-logs',
+        target: '/workspace/.sero/logs/dev',
+        readonly: true,
+      }],
+    });
+
+    expect(mounts).toContainEqual({
+      source: '/tmp/sero-dev-logs',
+      target: '/workspace/.sero/logs/dev',
+      readonly: true,
+    });
   });
 });

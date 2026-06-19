@@ -33,6 +33,7 @@ import { ensureImage } from './core/image';
 import { PortScanner } from './network/port-forward';
 import { ContainerHttpProxy } from './network/http-proxy';
 import { DevServerRegistry } from './registries/dev-server-registry';
+import { LOG_PORTAL_SENTINEL_PATH, prepareWorkspaceLogPortal } from './core/log-access';
 
 export type { ContainerConfig, ContainerState, ExecResult };
 
@@ -172,6 +173,7 @@ export class ContainerManager {
 
   private async ensureInternal(config: ContainerConfig): Promise<ContainerState> {
     const cid = containerId(config.workspaceId);
+    prepareWorkspaceLogPortal(config.hostPath);
 
     const existingState = await resolveExistingContainer(
       config.workspaceId,
@@ -179,7 +181,13 @@ export class ContainerManager {
       (wsId) => this.inspect(wsId),
       this.containers,
     );
-    if (existingState) return existingState;
+    if (existingState) {
+      if (!expectsLogPortalMount(config) || await this.hasLogPortalMount(config.workspaceId)) {
+        return existingState;
+      }
+      console.log(`[container] Recreating ${cid} to attach Sero log portal mounts`);
+      await this.remove(config.workspaceId);
+    }
 
     return createFreshContainer(
       config,
@@ -189,6 +197,16 @@ export class ContainerManager {
       (wsId) => this.inspect(wsId),
       this.proxyUrl ?? undefined,
     );
+  }
+
+  private async hasLogPortalMount(workspaceId: string): Promise<boolean> {
+    const result = await this.exec(
+      workspaceId,
+      `test -f ${LOG_PORTAL_SENTINEL_PATH}`,
+      '/workspace',
+      5_000,
+    );
+    return result.exitCode === 0;
   }
 
   /** Check if a workspace has a container registered (may not be running). */
@@ -314,4 +332,10 @@ export class ContainerManager {
   private getContainerId(workspaceId: string): string {
     return this.containers.get(workspaceId) ?? containerId(workspaceId);
   }
+}
+
+function expectsLogPortalMount(config: ContainerConfig): boolean {
+  return (config.bindMounts ?? []).some((mount) => (
+    LOG_PORTAL_SENTINEL_PATH.startsWith(`${mount.target}/`)
+  ));
 }

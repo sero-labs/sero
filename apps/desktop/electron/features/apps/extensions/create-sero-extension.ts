@@ -17,7 +17,9 @@ import path from 'path';
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import type { WorkspaceManager } from '@electron/features/workspace/manager';
 import type { ContainerState } from '@electron/features/container';
+import type { WorkspaceAccessRootsResult } from '@sero-ai/common';
 import { buildContainerPromptBlock, buildHostPromptBlock } from '@electron/features/container/tools/system-prompt';
+import { listWorkspaceAccessRoots } from '@electron/features/workspace/access-roots';
 import { registerSeroBuiltinCommands } from './commands';
 import { buildCliPromptBlock } from '@electron/cli';
 import { registerGitCheckpointFeatures } from './git-checkpoints';
@@ -153,6 +155,7 @@ export function createSeroExtensionFactory(
           case 'info': {
             const config = await wsManager.getConfig(currentWorkspaceId);
             if (config) {
+              const accessRoots = await listWorkspaceAccessRoots(wsManager, currentWorkspaceId);
               const lines = [
                 `**Workspace:** ${config.name} (\`${currentWorkspaceId}\`)`,
                 `**Path:** ${wsManager.getPath(currentWorkspaceId)}`,
@@ -163,6 +166,7 @@ export function createSeroExtensionFactory(
                 config.tags?.length
                   ? `**Tags:** ${config.tags.join(', ')}`
                   : '',
+                formatAccessRootsForMessage(accessRoots),
               ].filter(Boolean);
               pi.sendMessage({
                 customType: 'sero-workspace',
@@ -256,6 +260,15 @@ export function createSeroExtensionFactory(
 }
 
 // ── Helpers ──────────────────────────────────────────────────
+
+function formatAccessRootsForMessage(result: WorkspaceAccessRootsResult): string {
+  const roots = result.roots.slice(0, 8);
+  const lines = roots.map((root) => `- ${root.kind} ${root.name}: \`${root.runtimePath}\``);
+  const hiddenCount = result.roots.length - roots.length;
+  if (hiddenCount > 0) lines.push(`- … ${hiddenCount} more`);
+  if (result.warnings.length) lines.push(`- ${result.warnings.length} warning(s); run \`sero workspace access-roots --json\``);
+  return `**Access roots:**\n${lines.join('\n')}`;
+}
 
 /**
  * Expand @ws:workspace-id/path references to absolute paths.
