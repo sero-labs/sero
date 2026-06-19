@@ -303,19 +303,17 @@ describe('discoverAndRegisterApps', () => {
     const devSessionEvent: PluginChangeEvent = {
       type: 'changed',
       pluginId: 'todo',
+      // The backend stamps the remote entry with the session's `updatedAt`
+      // (via applyPluginDevSessionManifestRemoteEntry) before emitting the
+      // event, so the manifest the renderer receives is already cache-busted.
       manifest: createManifest('todo', 'TodoApp', 4101, {
-        remoteEntryOverride: 'http://127.0.0.1:4101/mf-manifest.json',
+        remoteEntryOverride: 'http://127.0.0.1:4101/mf-manifest.json?t=2026-06-07T06%3A38%3A00.000Z',
       }),
       reason: 'dev-session-refreshed',
     };
 
     discover
       .mockResolvedValueOnce([installEvent.manifest])
-      .mockResolvedValueOnce([
-        createManifest('todo', 'TodoApp', 4101, {
-          remoteEntryOverride: 'http://127.0.0.1:4101/mf-manifest.json?t=2026-04-20T10%3A00%3A00.000Z',
-        }),
-      ])
       .mockResolvedValueOnce([]);
 
     await handlePluginChange(installEvent);
@@ -342,20 +340,29 @@ describe('discoverAndRegisterApps', () => {
       ],
     });
 
+    const discoverCallsBeforeRefresh = discover.mock.calls.length;
+
     await handlePluginChange(devSessionEvent);
 
+    // A backend dev-session refresh for an already-registered app patches the app
+    // in place and reloads only that app — it must NOT trigger a full re-discovery
+    // (which would churn the whole host and lose surrounding state).
+    expect(discover.mock.calls.length).toBe(discoverCallsBeforeRefresh);
     expect(federationMocks.invalidateRemote).toHaveBeenCalledWith('todo');
     expect(federationMocks.registerDynamicRemote).toHaveBeenCalledWith(
       'todo',
       4101,
-      'http://127.0.0.1:4101/mf-manifest.json',
+      'http://127.0.0.1:4101/mf-manifest.json?t=2026-06-07T06%3A38%3A00.000Z',
     );
     expect(federationMocks.refreshTransientRemote).toHaveBeenCalledWith('todo');
+    // The reload uses the cache-busted manifest carried by the event itself,
+    // not a freshly re-discovered one — proving the in-place path consumes the
+    // event manifest rather than falling back to discovery.
     expect(federationMocks.preloadFederatedModule).toHaveBeenCalledWith(
       'todo',
       'TodoApp',
       4101,
-      'http://127.0.0.1:4101/mf-manifest.json?t=2026-04-20T10%3A00%3A00.000Z',
+      'http://127.0.0.1:4101/mf-manifest.json?t=2026-06-07T06%3A38%3A00.000Z',
     );
 
     await handlePluginChange({
