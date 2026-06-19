@@ -335,10 +335,17 @@ export async function runSubagent(
         clearStallTimer();
       }
 
-      // Text deltas → live output stream
+      // Text + reasoning deltas → live output stream. Reasoning is forwarded
+      // alongside the answer text so structured-output agents (which emit
+      // almost no answer text before their terminating tool call) still show
+      // live progress. The final response is rebuilt from message text only,
+      // so reasoning never leaks into the structured result.
       if (event.type === 'message_update') {
         const ame = event.assistantMessageEvent as Record<string, unknown> | undefined;
-        if (ame?.type === 'text_delta' && typeof ame.delta === 'string') {
+        if (
+          (ame?.type === 'text_delta' || ame?.type === 'thinking_delta') &&
+          typeof ame.delta === 'string'
+        ) {
           onTextDelta?.(ame.delta);
         }
       }

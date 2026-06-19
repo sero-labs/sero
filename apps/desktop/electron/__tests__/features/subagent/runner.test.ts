@@ -71,7 +71,7 @@ function createSession() {
   return {
     model: { id: 'claude-test-1', provider: 'anthropic' },
     setThinkingLevel: vi.fn(),
-    subscribe: vi.fn(() => vi.fn()),
+    subscribe: vi.fn((_listener?: (event: Record<string, unknown>) => void) => vi.fn()),
     prompt: vi.fn(async () => {}),
     messages: [],
     getSessionStats: vi.fn(() => ({
@@ -172,6 +172,37 @@ describe('resolveSubagentPaths', () => {
     expect(resolved.sessionPath).toBe('/tmp/outside');
     expect(resolved.containerHostPath).toBe('/Users/me/project');
     expect(resolved.containerCwd).toBeUndefined();
+  });
+});
+
+function createStreamingSession(events: Array<Record<string, unknown>>) {
+  const session = createSession();
+  let listener: ((event: Record<string, unknown>) => void) | null = null;
+  session.subscribe = vi.fn((cb?: (event: Record<string, unknown>) => void) => {
+    listener = cb ?? null;
+    return vi.fn();
+  });
+  session.prompt = vi.fn(async () => {
+    for (const event of events) listener?.(event);
+  });
+  return session;
+}
+
+describe('runSubagent live output', () => {
+  it('forwards both text and reasoning deltas into the live-output channel', async () => {
+    const session = createStreamingSession([
+      { type: 'message_update', assistantMessageEvent: { type: 'thinking_delta', delta: 'weighing options…' } },
+      { type: 'message_update', assistantMessageEvent: { type: 'text_delta', delta: 'final answer' } },
+    ]);
+    mocks.createAgentSession.mockImplementationOnce(async () => ({ session }));
+
+    const deltas: string[] = [];
+    const config = createConfig(new AbortController().signal);
+    config.onTextDelta = (delta) => deltas.push(delta);
+
+    await runSubagent(config, createDeps());
+
+    expect(deltas).toEqual(['weighing options…', 'final answer']);
   });
 });
 
