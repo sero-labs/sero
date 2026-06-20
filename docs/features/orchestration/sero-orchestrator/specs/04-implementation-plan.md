@@ -14,7 +14,7 @@ material progress in the loop ledger too.
 | Phase | Title | Status | Exit gate |
 | --- | --- | --- | --- |
 | 0 | Full architecture spec | ✅ Done | This spec reviewed + decisions accepted |
-| 1 | Plugin shell, state, UI | ⬜ Not started | Loops created/listed/shown; state persists; UI renders |
+| 1 | Plugin shell, state, UI | ✅ Done | Loops created/listed/shown; state persists; UI renders |
 | 1.5 | Session seam spike | ⬜ Not started | Coordinator safely sends a diagnostic follow-up |
 | 2 | Durable coordinator core | ⬜ Not started | Single executor + locks + stop rules + artifacts |
 | 2.5 | Scheduling lifecycle (catch-up-on-open) | ⬜ Not started | Missed cron fires recomputed on workspace open |
@@ -33,8 +33,8 @@ phase. (D-NN refer to decisions in [00-architecture.md](00-architecture.md).)
 
 | FR | Requirement | Phase | Decision | Status |
 | --- | --- | --- | --- | --- |
-| FR-01 | Workspace-scoped plugin with persisted loop state | 1 | D-03 | ⬜ |
-| FR-02 | Create/list/show/pause/resume/stop/run_next via tools + UI | 1 | D-01 | ⬜ |
+| FR-01 | Workspace-scoped plugin with persisted loop state | 1 | D-03 | ✅ |
+| FR-02 | Create/list/show/pause/resume/stop/run_next via tools + UI | 1 | D-01 | ✅ |
 | FR-03 | Single-executor coordinator; tools/UI only request | 2 | D-01 | ⬜ |
 | FR-04 | Per-loop execution lock; attempts never overlap in a loop | 2 | D-11 | ⬜ |
 | FR-05 | Canonical attempt cwd used by worker/checks/VCS/artifacts | 2/3 | D-06 | ⬜ |
@@ -92,24 +92,42 @@ shared types, runtime registration, CLI tools, and read-only-ish UI.
 **Depends on:** Phase 0.
 
 **Tasks**
-- [ ] Scaffold the plugin per [02 §Plugin shell](02-integration-seams.md#plugin-shell)
+- [x] Scaffold the plugin per [02 §Plugin shell](02-integration-seams.md#plugin-shell)
   (`package.json` with `scope: "workspace"`, runtime + ui entries, `pi.extensions`).
-- [ ] Implement `shared/types.ts` from [01](01-data-model.md).
-- [ ] Implement `runtime/index.ts` `createAppRuntime(ctx)` registering an empty
+- [x] Implement `shared/types.ts` from [01](01-data-model.md).
+- [x] Implement `runtime/index.ts` `createAppRuntime(ctx)` registering an empty
   coordinator in the main-process registry on `start()`, unregistering on `dispose()`.
-- [ ] Implement `extension/tools.ts` + `commands.ts` for the seven actions,
+- [x] Implement `extension/tools.ts` + `commands.ts` for the seven actions,
   forwarding to `registry.get(workspaceId).requestAction(...)`.
-- [ ] Persist `OrchestratorState` via `host.appState.read/update/watch`.
-- [ ] Build UI: goal list, goal detail, checks, attempt timeline placeholder,
+- [x] Persist `OrchestratorState` via `host.appState.read/update/watch`.
+- [x] Build UI: goal list, goal detail, checks, attempt timeline placeholder,
   and pause/resume/stop/run-next controls (no execution yet).
 
 **Acceptance**
-- [ ] `orchestrator.create` then `orchestrator.list` returns the loop; state file
+- [x] `orchestrator.create` then `orchestrator.list` returns the loop; state file
   exists at `.sero/apps/orchestrator/state.json` and survives reload.
-- [ ] `pause`/`resume`/`stop` mutate `status` only through `requestAction`.
-- [ ] UI renders loops and reflects state changes via `host.appState` watch.
-- [ ] `pnpm typecheck` passes; no file exceeds 500 LOC.
-- [ ] FR-01, FR-02 satisfied.
+- [x] `pause`/`resume`/`stop` mutate `status` only through `requestAction`.
+- [x] UI renders loops and reflects state changes via `host.appState` watch.
+- [x] `pnpm typecheck` passes; no file exceeds 500 LOC.
+- [x] FR-01, FR-02 satisfied.
+
+**Implementation notes (Phase 1 as built)**
+- The coordinator registry lives in `shared/registry.ts` (not `runtime/`): the
+  Pi-safe extension may only import from `shared/`, and it must reach the same
+  process-wide `globalThis` singleton the runtime registers into. It is indexed
+  by **both** workspace id and absolute workspace path because the structured
+  tool path (UI / `useAppTools` / app-agent) supplies only `cwd`, while the CLI
+  bridge path supplies `workspaceId`.
+- One `orchestrator` tool exposes all seven actions (an `action` discriminator
+  plus a `cli` subcommand surface), mirroring the `OrchestratorAction` union.
+  The `/orchestrator` slash command shares the same dispatch; its name matches
+  the bridged tool, so Sero skips CLI-bridging it (no `sero orchestrator`
+  shadow) and it stays a chat-only shortcut.
+- `run_next` is accepted but does not advance an attempt yet — it returns a
+  truthful "execution lands in a later phase" message (Phase 2/3).
+- Validation: full-monorepo `pnpm typecheck` (18 tasks) green; plugin UI build
+  green; plugin discovery + CLI-bridge suites green. End-to-end click-through in
+  a running workspace is the remaining manual confirmation.
 
 ---
 

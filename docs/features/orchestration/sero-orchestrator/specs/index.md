@@ -51,8 +51,10 @@ Phase 0 (this spec) is reviewed; the open product decisions are **confirmed**:
 - **Unsaved edits:** a dirty-root start gate offers auto-save / isolate / defer,
   auto-saving if you don't respond (D-07).
 
-No implementation has started. See the
-[progress dashboard](04-implementation-plan.md#progress-dashboard).
+Phase 1 (plugin shell, state, control-plane tools/command, and UI) is built and
+statically validated — see `plugins/sero-orchestrator-plugin/`. See the
+[progress dashboard](04-implementation-plan.md#progress-dashboard) for the live
+record.
 
 ## Non-goals
 

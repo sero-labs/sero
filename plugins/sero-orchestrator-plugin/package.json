@@ -1,0 +1,63 @@
+{
+  "name": "@sero-ai/plugin-orchestrator",
+  "version": "0.1.0",
+  "description": "Sero Orchestrator — durable workflow loops over Sero's subagent, verification, VCS, and session primitives",
+  "keywords": ["pi-package"],
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit -p ui/tsconfig.json && tsc --noEmit -p extension/tsconfig.json && tsc --noEmit -p runtime/tsconfig.json"
+  },
+  "pi": {
+    "extensions": ["./extension/index.ts"]
+  },
+  "sero": {
+    "app": {
+      "id": "orchestrator",
+      "name": "Sero Orchestrator",
+      "icon": "workflow",
+      "scope": "workspace",
+      "stateFile": ".sero/apps/orchestrator/state.json",
+      "ui": "./dist/ui/remoteEntry.js",
+      "component": "OrchestratorApp",
+      "runtime": "./runtime/index.ts",
+      "devPort": 5198
+    },
+    "plugin": {
+      "category": "developer-tools",
+      "tags": ["orchestration"],
+      "minSeroVersion": "0.1.0",
+      "requiredHostCapabilities": [
+        "appAgent.invokeTool",
+        "tool.cli",
+        "appRuntime.background"
+      ],
+      "bridgeTools": ["orchestrator"]
+    }
+  },
+  "dependencies": {
+    "typebox": "catalog:"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "catalog:peer",
+    "@earendil-works/pi-coding-agent": "catalog:peer",
+    "@earendil-works/pi-tui": "catalog:peer",
+    "zod": "catalog:peer"
+  },
+  "devDependencies": {
+    "@module-federation/vite": "catalog:",
+    "@sero-ai/app-runtime": "workspace:*",
+    "@sero-ai/common": "workspace:*",
+    "@sero-ai/ui": "workspace:*",
+    "@tailwindcss/vite": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "tailwindcss": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:"
+  }
+}
