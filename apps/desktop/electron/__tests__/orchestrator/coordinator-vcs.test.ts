@@ -109,14 +109,22 @@ describe('coordinator core — check normalization (D-12)', () => {
     expect(failed?.summary).toMatch(/Check failed/);
   });
 
-  it('reports review checks as skipped until Phase 3', async () => {
-    const h = use(createHarness({ adapter: completes() }));
+  it('runs review checks through a reviewer worker (Phase 3)', async () => {
+    // A fake adapter still performs the change, but the review check now runs a
+    // real reviewer subagent via the harness `runWorker` script (D-10).
+    const h = use(
+      createHarness({
+        adapter: completes(),
+        runWorker: async () => ({ response: '```json\n{ "verdict": "pass", "summary": "ok" }\n```' }),
+      }),
+    );
     const loopId = await h.createLoop({
       checks: [{ type: 'review', reviewer: 'quality-reviewer', required: false }],
     });
     await h.coordinator.requestAction({ kind: 'run_next', loopId });
     const result = (await h.loop(loopId))?.attempts.at(-1)?.checkResults.at(0);
-    expect(result?.status).toBe('skipped');
+    expect(result?.status).toBe('passed');
+    expect(result?.summary).toBe('ok');
   });
 });
 

@@ -18,7 +18,7 @@ material progress in the loop ledger too.
 | 1.5 | Session seam spike | ✅ Done | Coordinator safely sends a diagnostic follow-up |
 | 2 | Durable coordinator core | ✅ Done | Single executor + locks + stop rules + artifacts |
 | 2.5 | Scheduling lifecycle (catch-up-on-open) | ✅ Done | Missed cron fires recomputed on workspace open |
-| 3 | Background-worker execution | ⬜ Not started | Worker → checks → checkpoint → retry loop runs green |
+| 3 | Background-worker execution | ✅ Done | Worker → checks → checkpoint → retry loop runs green |
 | 4 | Active-session execution | ⬜ Not started | Idle-gated steer + turn observation + retry |
 | 5 | Scheduling and events | ⬜ Not started | Manual/cron/event/hybrid triggers mark loops due |
 | 6 | Isolation and PR workflow | ⬜ Not started | Worktree isolation + branch/PR + restore |
@@ -37,15 +37,15 @@ phase. (D-NN refer to decisions in [00-architecture.md](00-architecture.md).)
 | FR-02 | Create/list/show/pause/resume/stop/run_next via tools + UI | 1 | D-01 | ✅ |
 | FR-03 | Single-executor coordinator; tools/UI only request | 2 | D-01 | ✅ |
 | FR-04 | Per-loop execution lock; attempts never overlap in a loop | 2 | D-11 | ✅ |
-| FR-05 | Canonical attempt cwd used by worker/checks/VCS/artifacts | 2/3 | D-06 | 🟡 |
+| FR-05 | Canonical attempt cwd used by worker/checks/VCS/artifacts | 2/3 | D-06 | ✅ |
 | FR-06 | Normalized `CheckResult` across verification/command/review | 2/3 | D-12 | ✅ |
 | FR-07 | Stop rule: success / maxAttempts / no-progress / pause / unsafe | 2 | D-13 | ✅ |
 | FR-08 | Bounded state + artifact retention | 2 | D-14 | ✅ |
-| FR-09 | Generated `WorkerInstruction` per attempt | 3 | D-08 | ⬜ |
-| FR-10 | Coordinator-side output-schema parse/validate | 3 | D-08 | ⬜ |
-| FR-11 | Subagent run with attempt cwd + parentSessionId + tool policy | 3 | D-10/D-15 | ⬜ |
-| FR-12 | Live output streamed to UI | 3 | — | ⬜ |
-| FR-13 | Pre-attempt `baseRef` baseline; restore via git reset; dirty-root safe | 2/3 | D-07 | 🟡 |
+| FR-09 | Generated `WorkerInstruction` per attempt | 3 | D-08 | ✅ |
+| FR-10 | Coordinator-side output-schema parse/validate | 3 | D-08 | ✅ |
+| FR-11 | Subagent run with attempt cwd + parentSessionId + tool policy | 3 | D-10/D-15 | ✅ |
+| FR-12 | Live output streamed to UI | 3 | — | ✅ |
+| FR-13 | Pre-attempt `baseRef` baseline; restore via git reset; dirty-root safe | 2/3 | D-07 | ✅ |
 | FR-14 | New `host.session` seam: find/state/two send methods/onTurnComplete | 1.5/4 | D-05 | 🟡 |
 | FR-15 | Idle + no-pending gating before any send | 4 | D-05 | ⬜ |
 | FR-16 | Active-session steer + turn observation + retry | 4 | — | ⬜ |
@@ -54,11 +54,18 @@ phase. (D-NN refer to decisions in [00-architecture.md](00-architecture.md).)
 | FR-19 | Catch-up-on-open for closed-workspace cron loops | 2.5/5 | D-04 | ✅ |
 | FR-20 | Worktree isolation (in-workspace) | 6 | D-06 | ⬜ |
 | FR-21 | Branch naming + PR creation | 6 | — | ⬜ |
-| FR-22 | Recursion guardrails on workers (coordinator-side rejection) | 3 | D-16 | ⬜ |
+| FR-22 | Recursion guardrails on workers (coordinator-side rejection) | 3 | D-16 | ✅ |
 | FR-24 | Active-session attempts restricted to workspace-root | 4 | D-06 | ⬜ |
 | FR-25 | Turn-completion emitter (onTurnComplete correlated by turnId) | 1.5 | D-05 | ✅ |
 | FR-26 | Dirty-root start gate: auto-save / isolate / defer, auto-save on timeout | 2/6 | D-07 | 🟡 |
-| FR-27 | Per-loop run budgets: wall-clock, tokens/cost, changed-files, command-runtime | 2/3 | D-17 | 🟡 |
+| FR-27 | Per-loop run budgets: wall-clock, tokens/cost, changed-files, command-runtime | 2/3 | D-17 | ✅¹ |
+
+¹ Wall-clock, **tokens**, changed-files, and command-runtime budgets are enforced.
+`maxCostUsd` is inert: the subagent host API
+(`AppRuntimeSubagentResult.usage`) exposes token counts but no per-run USD, so
+recorded cost is 0. Tokens are the enforced spend ceiling; wiring cost needs a
+`cost` field added to that host surface (small follow-up, deliberately not done
+in Phase 3 to keep the work plugin-side).
 
 ---
 
@@ -337,33 +344,80 @@ verification, checkpointing, failure summaries, retries, reviewer workers.
 **Depends on:** Phase 2.
 
 **Tasks**
-- [ ] Implement `workers.ts` building `WorkerInstruction` per attempt with
+- [x] Implement `workers.ts` building `WorkerInstruction` per attempt with
   role-based tool policy (D-08, D-10).
-- [ ] Run workers via `host.subagents.runStructured` with attempt cwd +
+- [x] Run workers via `host.subagents.runStructured` with attempt cwd +
   `parentSessionId` (D-15); stream `onLiveOutput` to the UI.
-- [ ] Coordinator-side fenced-JSON parse/validate against `outputSchema`; soft-fail
+- [x] Coordinator-side fenced-JSON parse/validate against `outputSchema`; soft-fail
   on parse error with raw text retained (D-08).
-- [ ] Restore-on-rollback via `git reset --hard <baseRef>` through
+- [x] Restore-on-rollback via `git reset --hard <baseRef>` through
   `host.workspace.runCommand`; remove attempt-created untracked files by path,
   never a blanket `git clean`. Optional post-attempt checkpoint commit for
   inspection (D-07).
-- [ ] Run required checks against attempt cwd; build next-attempt context from
+- [x] Run required checks against attempt cwd; build next-attempt context from
   `summarizeFailure` + tail.
-- [ ] Add reviewer workers (`quality-reviewer`, `spec-reviewer`) as optional
+- [x] Add reviewer workers (`quality-reviewer`, `spec-reviewer`) as optional
   post-pass checks.
-- [ ] Accumulate worker token/cost into the loop's run-budget usage and enforce
-  `maxTotalTokens` / `maxCostUsd` (completes FR-27, D-17).
-- [ ] Enforce recursion guardrails: the coordinator rejects worker-sourced
+- [x] Accumulate worker token/cost into the loop's run-budget usage and enforce
+  `maxTotalTokens` / `maxCostUsd` (completes FR-27, D-17). *(Tokens enforced;
+  `maxCostUsd` awaits a `cost` field on the subagent host surface — see FR-27 note.)*
+- [x] Enforce recursion guardrails: the coordinator rejects worker-sourced
   `requestAction` (the enforced guard). A filtered `sero-cli` surface hiding
   `orchestrator.*` from workers is optional defense-in-depth, Phase 6 (D-16).
 
 **Acceptance**
-- [ ] A failing-then-fixable goal runs: worker change → checks fail → summarized
+- [x] A failing-then-fixable goal runs: worker change → checks fail → summarized
   retry → checks pass → `complete`, all against one cwd.
-- [ ] Worker model/usage/duration and a response artifact are recorded per attempt.
-- [ ] Live output appears in the UI keyed by `parentSessionId`.
-- [ ] A worker that tries to create an Orchestrator loop is rejected.
-- [ ] FR-05, FR-09, FR-10, FR-11, FR-12, FR-13, FR-22, FR-27 satisfied.
+- [x] Worker model/usage/duration and a response artifact are recorded per attempt.
+- [x] Live output appears in the UI keyed by `parentSessionId` (the shell's shared
+  subagent-activity surface; workers run under `attempt.parentSessionId`).
+- [x] A worker that tries to create an Orchestrator loop is rejected.
+- [x] FR-05, FR-09, FR-10, FR-11, FR-12, FR-13, FR-22, FR-27 satisfied
+  (FR-27 cost caveat noted).
+
+**Implementation notes (Phase 3 as built)**
+- The Phase 2 seam held: the core (`attempt-runner.ts`/`engine.ts`) was not
+  re-plumbed. Phase 3 added `runtime/adapters/background-worker.ts` (the first
+  real `AttemptAdapter`) plus the worker/VCS/guard pieces it needs; the
+  coordinator registers it by default when no adapter is injected (tests still
+  inject fakes or omit it for the "not yet" path).
+- `workers.ts` builds the **implementer** `WorkerInstruction` (system prompt +
+  task from goal/active task/prior failure/checks/attempts-left, tool policy by
+  role D-10, the fenced-JSON output contract) and parses the worker's trailing
+  JSON block (`parseWorkerOutput`) — a parse miss is a soft failure with the raw
+  text retained to an artifact (D-08). The instruction never carries a cwd (D-06).
+- The adapter runs the worker via `host.subagents.runStructured` at the canonical
+  `attempt.workdir.cwd` with `parentSessionId` (loop session or
+  `orchestrator:<loopId>`, D-15), then **measures** the change with git at that
+  same cwd: `git status --porcelain` → `changedFiles`, `sha1(getDiff)` →
+  `diffFingerprint`. Live output needs no new channel — running under the
+  attempt's `parentSessionId` keys the subagent tracker, which the shell's
+  subagent-activity UI already renders (reuse-existing-streaming).
+- **Restore-on-rollback (D-07)** lives in the runner: a *completed-but-failing*
+  attempt keeps its changes so the next attempt iterates forward on the same cwd;
+  an *errored/timed-out* attempt is rolled back with `git reset --hard <baseRef>`
+  + a path-scoped `git clean -f -- <changedFiles>` (never a blanket clean). A
+  `changed-files-exceeded` block keeps the changes (D-17), and user-cancel leaves
+  the tree untouched.
+- **Reviewer workers (D-10):** `review` checks now execute a read-only reviewer
+  subagent (`reviewers.ts`) injected into `checks.ts`; they have no `sero-cli`
+  surface so they can't recurse. checks.ts stays the single `CheckResult`
+  normalizer.
+- **Token budget (FR-27):** the adapter populates `attempt.usage`, which the
+  existing derived budget code sums — `maxTotalTokens` is enforced pre- and
+  post-attempt with no new counter (Principle 3). `maxCostUsd` is inert pending a
+  host cost field (FR-27 note).
+- **Recursion guard (D-16, enforced):** the coordinator owns a
+  `WorkerSessionRegistry`; the adapter marks the worker's parent session active
+  for the run, and `requestAction(action, source)` rejects control actions whose
+  `source.sessionId` is an orchestrator worker (synthetic `orchestrator:*` parent
+  by name, or any live worker parent by the registry). Read-only actions stay
+  allowed. The extension threads the invoking session id from the CLI bridge.
+- Validation: full-monorepo `pnpm typecheck` (18 tasks) green; orchestrator unit
+  suites **54 tests** green (18 new across `workers.test.ts` +
+  `background-worker.test.ts`, incl. the failing→fixable end-to-end run through
+  the real adapter). No desktop-core files changed — all new work is plugin-side
+  behind the existing `host.*` surface.
 
 ---
 

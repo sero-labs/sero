@@ -17,6 +17,7 @@ import type { OrchestratorCoordinator } from '../shared/registry';
 import {
   DEFAULT_LOG_POLICY,
   DEFAULT_STOP_RULE,
+  type ActionSource,
   type CreateLoopInput,
   type LoopGoal,
   type LoopStatus,
@@ -27,6 +28,8 @@ import {
   MapAdapterRegistry,
   type AdapterRegistry,
 } from './adapter';
+import { createBackgroundWorkerAdapter } from './adapters/background-worker';
+import { WorkerSessionRegistry } from './recursion-guard';
 import { isoNow, systemClock, type Clock } from './clock';
 import { diagnoseSession } from './diagnostics';
 import { AttemptEngine } from './engine';
@@ -67,6 +70,8 @@ export class WorkspaceCoordinator implements OrchestratorCoordinator {
   private readonly clock: Clock;
   private readonly engine: AttemptEngine;
   private readonly scheduler: Scheduler;
+  /** Tracks in-flight worker parent sessions for the recursion guard (D-16). */
+  private readonly workerSessions = new WorkerSessionRegistry();
 
   constructor(private readonly ctx: CoordinatorContext) {
     this.clock = ctx.clock ?? systemClock;
@@ -79,7 +84,13 @@ export class WorkspaceCoordinator implements OrchestratorCoordinator {
       store: this.store,
       locks: new LoopLocks(),
       semaphore: new Semaphore(ctx.maxConcurrentAttempts ?? DEFAULT_WORKSPACE_CONCURRENCY),
-      adapters: ctx.adapters ?? new MapAdapterRegistry(),
+      // Production wires the real background-worker adapter (Phase 3); tests inject
+      // their own. An empty injected registry keeps `run_next` at "not yet".
+      adapters:
+        ctx.adapters ??
+        new MapAdapterRegistry([
+          createBackgroundWorkerAdapter({ workerSessions: this.workerSessions }),
+        ]),
       gate: ctx.dirtyRootGate ?? createDefaultDirtyRootGate(ctx.host),
       clock: this.clock,
     });
@@ -104,7 +115,18 @@ export class WorkspaceCoordinator implements OrchestratorCoordinator {
     return this.scheduler.catchUpOnOpen();
   }
 
-  async requestAction(action: OrchestratorAction): Promise<OrchestratorActionResult> {
+  async requestAction(
+    action: OrchestratorAction,
+    source?: ActionSource,
+  ): Promise<OrchestratorActionResult> {
+    // Recursion guard (D-16): a worker session may not create or control loops.
+    // Read-only actions (list/show/diagnose) are harmless and stay allowed.
+    if (isControlAction(action) && this.workerSessions.isWorkerSession(source?.sessionId)) {
+      return {
+        ok: false,
+        error: 'Orchestrator workers cannot create or control loops.',
+      };
+    }
     switch (action.kind) {
       case 'create':
         return this.create(action.input);
@@ -234,6 +256,19 @@ export class WorkspaceCoordinator implements OrchestratorCoordinator {
       updatedAt: now,
     };
   }
+}
+
+/** Actions that create, modify, or run a loop — barred from worker sessions (D-16). */
+const CONTROL_ACTIONS: ReadonlySet<OrchestratorAction['kind']> = new Set([
+  'create',
+  'pause',
+  'resume',
+  'stop',
+  'run_next',
+]);
+
+function isControlAction(action: OrchestratorAction): boolean {
+  return CONTROL_ACTIONS.has(action.kind);
 }
 
 function verb(status: 'paused' | 'stopped'): string {

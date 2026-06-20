@@ -31,8 +31,10 @@ export function cumulativeTokens(loop: LoopGoal): number {
   return loop.attempts.reduce((sum, attempt) => sum + (attempt.usage?.totalTokens ?? 0), 0);
 }
 
-// Cost needs provider pricing; it wires in with worker usage in Phase 3. Until
-// then there is no recorded cost, so cumulative cost is 0.
+// Cost would need per-run USD from the subagent host API, which exposes only
+// token counts today (AppRuntimeSubagentResult.usage). Until a `cost` field is
+// added to that host surface, recorded cost is 0 and `maxCostUsd` is inert;
+// `maxTotalTokens` is the enforced spend ceiling (D-17).
 export function cumulativeCostUsd(_loop: LoopGoal): number {
   return 0;
 }

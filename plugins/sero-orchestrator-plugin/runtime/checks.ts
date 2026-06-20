@@ -1,9 +1,10 @@
 // Check normalization (D-12). Every check backend — verification, command, and
-// (Phase 3) review — collapses to one `CheckResult` shape so stop rules and
-// learning never branch on the backend. `verification` and `command` checks
-// both run through `host.verification.runCommands` (which gives us
-// `summarizeFailure`, incl. native-dependency detection); `review` checks need a
-// reviewer subagent and are reported `skipped` until Phase 3.
+// review — collapses to one `CheckResult` shape so stop rules and learning never
+// branch on the backend. `verification` and `command` checks both run through
+// `host.verification.runCommands` (which gives us `summarizeFailure`, incl.
+// native-dependency detection); `review` checks run a read-only reviewer subagent
+// via the injected `reviewer` runner (reviewers.ts), and are reported `skipped`
+// only when no reviewer runner is available.
 //
 // Output beyond `maxInlineOutputBytes` is written in full to an artifact and
 // referenced by path; the inline `summary` always carries a short failure tail.
@@ -21,6 +22,7 @@ import type {
 } from '../shared/types';
 import { safeArtifactName, writeArtifact } from './artifacts';
 import { isoNow, type Clock } from './clock';
+import type { ReviewerRunner } from './reviewers';
 
 const SUMMARY_TAIL_BYTES = 800;
 
@@ -34,6 +36,8 @@ export interface RunChecksDeps {
   commandTimeoutMs?: number;
   maxInlineOutputBytes: number;
   clock: Clock;
+  /** Runs `review` checks via a reviewer subagent; absent → review checks skip. */
+  reviewer?: ReviewerRunner;
 }
 
 /** Run every check in order, normalizing each into a `CheckResult`. */
@@ -63,13 +67,27 @@ async function runOne(
   const id = checkId(check, index);
 
   if (check.type === 'review') {
+    if (!deps.reviewer) {
+      return {
+        checkId: id,
+        type: 'review',
+        status: 'skipped',
+        summary: `Reviewer "${check.reviewer}" needs a background worker to run.`,
+        startedAt,
+        endedAt: isoNow(deps.clock),
+      };
+    }
+    const verdict = await deps.reviewer(check.reviewer);
+    const endedAt = isoNow(deps.clock);
+    const stdoutPath = await maybeArtifact(deps, id, 'review', verdict.response);
     return {
       checkId: id,
       type: 'review',
-      status: 'skipped',
-      summary: `Reviewer "${check.reviewer}" runs once background workers land (Phase 3).`,
+      status: verdict.passed ? 'passed' : 'failed',
+      summary: verdict.summary,
+      stdoutPath,
       startedAt,
-      endedAt: isoNow(deps.clock),
+      endedAt,
     };
   }
 
@@ -135,7 +153,7 @@ async function normalize(
 async function maybeArtifact(
   deps: RunChecksDeps,
   id: string,
-  kind: 'stdout' | 'stderr',
+  kind: 'stdout' | 'stderr' | 'review',
   content: string,
 ): Promise<string | undefined> {
   if (!content || content.length <= deps.maxInlineOutputBytes) return undefined;

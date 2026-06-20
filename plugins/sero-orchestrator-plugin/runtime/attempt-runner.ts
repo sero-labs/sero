@@ -20,10 +20,12 @@ import { runChecks } from './checks';
 import { isoNow, type Clock } from './clock';
 import { requiredChecksPassed } from './stop-rules';
 import { writeArtifact } from './artifacts';
+import { createReviewerRunner } from './reviewers';
 import {
   autoSaveBaseline,
   captureBaseRef,
   isWorkspaceDirty,
+  restoreToBaseRef,
   type DirtyRootGate,
 } from './vcs';
 import type { StateStore } from './state-store';
@@ -128,9 +130,14 @@ export async function runAttempt(
     return { deferred: false, attempt, cancelled: false, changedFilesExceeded: true, requiredPassed: false };
   }
 
+  // A broken or incomplete attempt (worker error / timeout, not user cancel) is
+  // rolled back to its baseline so the next attempt starts from a clean tree
+  // (D-07). A completed-but-failing attempt keeps its changes so the next attempt
+  // iterates forward on the same cwd.
   if (execution.status !== 'completed') {
+    await restoreToBaseRef(deps.host, deps.workspaceId, workdir.cwd, attempt.baseRef, attempt.changedFiles);
     attempt.status = 'failed';
-    attempt.learned = execution.error ?? `Attempt ${execution.status}.`;
+    attempt.learned = execution.summary ?? execution.error ?? `Attempt ${execution.status}.`;
     attempt.nextAction = 'Retry with the recorded failure as context.';
     attempt.endedAt = isoNow(deps.clock);
     return { deferred: false, attempt, cancelled: false, changedFilesExceeded: false, requiredPassed: false };
@@ -146,15 +153,26 @@ export async function runAttempt(
       commandTimeoutMs: commandTimeoutMs(loop.budget),
       maxInlineOutputBytes: loop.logPolicy.maxInlineOutputBytes,
       clock: deps.clock,
+      reviewer: createReviewerRunner({
+        host: deps.host,
+        workspaceId: deps.workspaceId,
+        cwd: workdir.cwd,
+        parentSessionId: attempt.parentSessionId,
+        loop,
+      }),
     },
     loop.checks,
   );
   attempt.checkResults = results;
   const requiredPassed = requiredChecksPassed(loop.checks, results);
   attempt.status = requiredPassed ? 'passed' : 'failed';
-  if (!requiredPassed) {
+  if (requiredPassed) {
+    attempt.learned = execution.summary;
+  } else {
     const failed = results.find((result) => result.status === 'failed');
-    attempt.learned = failed?.summary ?? 'A required check failed.';
+    attempt.learned = [execution.summary, failed?.summary ?? 'A required check failed.']
+      .filter(Boolean)
+      .join('\n');
     attempt.nextAction = 'Address the failing check and retry.';
   }
   attempt.endedAt = isoNow(deps.clock);

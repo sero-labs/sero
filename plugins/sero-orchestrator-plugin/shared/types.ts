@@ -93,12 +93,14 @@ export interface LoopTrigger {
 
 // ── Loop check ───────────────────────────────────────────────────────────────
 
+export type ReviewerKind = 'quality-reviewer' | 'spec-reviewer';
+
 export type LoopCheck =
   | { type: 'verification'; command: string; required: boolean }
   | { type: 'command'; command: string; required: boolean }
   | {
       type: 'review';
-      reviewer: 'quality-reviewer' | 'spec-reviewer';
+      reviewer: ReviewerKind;
       required: boolean;
     };
 
@@ -296,6 +298,15 @@ export type OrchestratorAction =
   | { kind: 'diagnose_session' };
 
 export type OrchestratorActionKind = OrchestratorAction['kind'];
+
+/**
+ * Who issued an action. The coordinator uses `sessionId` to reject control
+ * requests that originate from an orchestrator worker session (D-16 recursion
+ * guard). Trusted callers (UI, the scheduler) omit it.
+ */
+export interface ActionSource {
+  sessionId?: string | null;
+}
 
 export interface OrchestratorActionResult {
   ok: boolean;

@@ -11,6 +11,8 @@ import { dirname, join } from 'node:path';
 import type {
   AppRuntimeHost,
   AppRuntimeNotificationOptions,
+  AppRuntimeSubagentRunParams,
+  AppRuntimeSubagentResult,
   AppRuntimeVerificationCommandResult,
 } from '@sero-ai/common';
 
@@ -62,6 +64,35 @@ const okVerify: VerifyFn = (command) => ({
   durationMs: 5,
 });
 
+/**
+ * A scriptable worker for the REAL background-worker adapter. It returns the
+ * subagent reply and may declare the files/diff it produced; the harness applies
+ * those to the stateful git world so post-attempt `git status`/`git diff`
+ * reflect them (and a later `git reset --hard` clears them).
+ */
+export type WorkerScript = (
+  params: AppRuntimeSubagentRunParams,
+  world: FakeGitWorld,
+) => Promise<WorkerScriptResult> | WorkerScriptResult;
+
+export interface WorkerScriptResult {
+  response?: string;
+  error?: string;
+  usage?: { inputTokens: number; outputTokens: number; totalTokens: number };
+  modelId?: string;
+  /** Files the worker produced — become the post-attempt `git status` delta. */
+  changedFiles?: string[];
+  /** Diff text the worker produced — drives the diff fingerprint. */
+  diff?: string;
+}
+
+/** Mutable git state the scriptable worker drives across an attempt. */
+export interface FakeGitWorld {
+  head: string;
+  changed: string[];
+  diff: string;
+}
+
 export interface HarnessOptions {
   adapter?: AttemptAdapter;
   gate?: DirtyRootGate;
@@ -72,6 +103,8 @@ export interface HarnessOptions {
   checkpoint?: string | null;
   maxConcurrentAttempts?: number;
   schedulerLog?: SchedulerLog;
+  /** Drives `host.subagents.runStructured` for tests of the real adapter. */
+  runWorker?: WorkerScript;
 }
 
 export interface Harness {
@@ -80,6 +113,8 @@ export interface Harness {
   stateFilePath: string;
   artifactRoot: string;
   notifications: AppRuntimeNotificationOptions[];
+  /** Stateful git the real adapter reads/writes; inspect after a run. */
+  world: FakeGitWorld;
   readState(): Promise<OrchestratorState>;
   loop(id: string): Promise<LoopGoal | undefined>;
   patchLoop(id: string, patch: (loop: LoopGoal) => void): Promise<void>;
@@ -91,13 +126,13 @@ export interface Harness {
 interface FakeState {
   files: Map<string, string>;
   notifications: AppRuntimeNotificationOptions[];
+  world: FakeGitWorld;
 }
 
 function makeHost(opts: HarnessOptions, fake: FakeState): AppRuntimeHost {
   const verify = opts.verify ?? okVerify;
-  const head = opts.head ?? 'HEAD0000';
-  const dirty = opts.dirty ?? false;
   const checkpoint = opts.checkpoint === undefined ? 'SAVED111' : opts.checkpoint;
+  const world = fake.world;
 
   const host = {
     appState: {
@@ -113,6 +148,23 @@ function makeHost(opts: HarnessOptions, fake: FakeState): AppRuntimeHost {
       watch() {},
       unwatch() {},
     },
+    subagents: {
+      async runStructured(params: AppRuntimeSubagentRunParams): Promise<AppRuntimeSubagentResult> {
+        if (!opts.runWorker) return { response: '' };
+        const result = await opts.runWorker(params, world);
+        if (result.changedFiles) world.changed = [...result.changedFiles];
+        if (result.diff !== undefined) world.diff = result.diff;
+        return {
+          response: result.response ?? '',
+          error: result.error,
+          usage: result.usage,
+          modelId: result.modelId,
+        };
+      },
+      onLiveOutput() {
+        return () => {};
+      },
+    },
     verification: {
       async runCommands(_workspaceId: string, _cwd: string, commands: string[]) {
         const results = commands.map((command) => verify(command));
@@ -125,17 +177,35 @@ function makeHost(opts: HarnessOptions, fake: FakeState): AppRuntimeHost {
     workspace: {
       async runCommand(_workspaceId: string, _cwd: string, command: string) {
         if (command === 'git rev-parse HEAD') {
-          return { stdout: `${head}\n`, stderr: '', exitCode: 0 };
+          return { stdout: `${world.head}\n`, stderr: '', exitCode: 0 };
         }
         if (command === 'git status --porcelain') {
-          return { stdout: dirty ? ' M src/file.ts\n' : '', stderr: '', exitCode: 0 };
+          const stdout = world.changed.map((file) => ` M ${file}`).join('\n');
+          return { stdout: stdout ? `${stdout}\n` : '', stderr: '', exitCode: 0 };
+        }
+        if (command.startsWith('git reset --hard')) {
+          world.changed = [];
+          world.diff = '';
+          return { stdout: '', stderr: '', exitCode: 0 };
         }
         return { stdout: '', stderr: '', exitCode: 0 };
       },
     },
     git: {
       async createCheckpoint(_cwd: string, _message: string) {
+        // Model a commit: the working-tree delta folds into a new HEAD.
+        if (checkpoint) {
+          world.changed = [];
+          world.diff = '';
+          world.head = checkpoint;
+        }
         return checkpoint;
+      },
+      async getDiff(_cwd: string) {
+        return world.diff;
+      },
+      async getDiffSummary(_cwd: string) {
+        return world.diff;
       },
     },
     notifications: {
@@ -152,7 +222,15 @@ export function createHarness(opts: HarnessOptions = {}): Harness {
   const dir = mkdtempSync(join(tmpdir(), 'orch-core-'));
   const stateFilePath = join(dir, '.sero', 'apps', 'orchestrator', 'state.json');
   const artifactRoot = join(dirname(stateFilePath), 'artifacts');
-  const fake: FakeState = { files: new Map(), notifications: [] };
+  const fake: FakeState = {
+    files: new Map(),
+    notifications: [],
+    world: {
+      head: opts.head ?? 'HEAD0000',
+      changed: opts.dirty ? ['src/file.ts'] : [],
+      diff: '',
+    },
+  };
   const host = makeHost(opts, fake);
 
   const ctx: CoordinatorContext = {
@@ -160,7 +238,14 @@ export function createHarness(opts: HarnessOptions = {}): Harness {
     workspaceId: WORKSPACE_ID,
     workspacePath: dir,
     stateFilePath,
-    adapters: opts.adapter ? new MapAdapterRegistry([opts.adapter]) : new MapAdapterRegistry(),
+    // A fake adapter is injected directly; otherwise a `runWorker` script means
+    // the test wants the REAL default adapter (omit `adapters` so the coordinator
+    // builds it); with neither, an empty registry keeps `run_next` at "not yet".
+    adapters: opts.adapter
+      ? new MapAdapterRegistry([opts.adapter])
+      : opts.runWorker
+        ? undefined
+        : new MapAdapterRegistry(),
     dirtyRootGate: opts.gate,
     clock: opts.clock,
     maxConcurrentAttempts: opts.maxConcurrentAttempts,
@@ -179,6 +264,7 @@ export function createHarness(opts: HarnessOptions = {}): Harness {
     stateFilePath,
     artifactRoot,
     notifications: fake.notifications,
+    world: fake.world,
     readState,
     async loop(id) {
       const state = await readState();

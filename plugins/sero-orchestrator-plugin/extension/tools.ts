@@ -250,6 +250,9 @@ export function tokenize(input: string): string[] {
 interface SeroCliContext {
   workspaceId?: string;
   cwd?: string;
+  // The bridged CLI context carries the invoking session; the coordinator uses
+  // it to reject worker-sourced control requests (D-16 recursion guard).
+  invocation?: { sessionId?: string | null };
 }
 
 interface SeroCliResult {
@@ -303,7 +306,9 @@ export function createOrchestratorTool(): SeroCliTool<ToolDefinition<typeof Para
         if (!coordinator) return { output: NOT_READY, exitCode: 1 };
         const action = actionFromCli([...args]);
         if (isError(action)) return { output: action.error, exitCode: 1 };
-        const result = await coordinator.requestAction(action);
+        const result = await coordinator.requestAction(action, {
+          sessionId: context.invocation?.sessionId,
+        });
         return { output: formatResult(result), exitCode: result.ok ? 0 : 1 };
       },
     },

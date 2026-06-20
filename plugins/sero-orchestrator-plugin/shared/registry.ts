@@ -11,14 +11,19 @@
 // the runtime is the same instance a bridged tool resolves. Pure JS with no
 // imports keeps it Pi-safe.
 
-import type { OrchestratorAction, OrchestratorActionResult } from './types';
+import type { ActionSource, OrchestratorAction, OrchestratorActionResult } from './types';
 
 /**
  * The single executor for one workspace. Tools/UI/CLI only ever call
  * `requestAction`; they never run attempts themselves (Principle 1, D-01).
+ * `source` carries the invoking session so the coordinator can reject
+ * worker-sourced control requests (D-16 recursion guard); trusted callers omit it.
  */
 export interface OrchestratorCoordinator {
-  requestAction(action: OrchestratorAction): Promise<OrchestratorActionResult>;
+  requestAction(
+    action: OrchestratorAction,
+    source?: ActionSource,
+  ): Promise<OrchestratorActionResult>;
 }
 
 export interface OrchestratorCoordinatorRegistry {
