@@ -418,6 +418,19 @@ verification, checkpointing, failure summaries, retries, reviewer workers.
   `background-worker.test.ts`, incl. the failing→fixable end-to-end run through
   the real adapter). No desktop-core files changed — all new work is plugin-side
   behind the existing `host.*` surface.
+- **Live click-through (standing gap closed).** Ran the real app (Electron
+  41.6.1, orchestrator in dev mode) against a throwaway host-runtime workspace
+  with a failing `node test.js` (a buggy `sum`). A due cron trigger fired via
+  catch-up-on-open → the real background-worker adapter ran a real subagent
+  (model `gpt-5.5`) → it fixed `sum.js` → the check passed at the canonical cwd →
+  the loop reached `complete` in one attempt, with workdir/baseRef/usage/model/
+  instruction/response-artifact all recorded. This is the first end-to-end
+  execution in a running app. Two findings from the run: (1) `host.git.getDiff`
+  diffs committed changes only, so the diff fingerprint was empty for the
+  uncommitted worker change — **fixed** to use `git diff <baseRef>`; (2) the model
+  didn't emit the fenced-JSON output block, which the soft-fail path handled
+  correctly (the diff is measured from git, not the worker's self-report), so the
+  loop still completed.
 
 ---
 
