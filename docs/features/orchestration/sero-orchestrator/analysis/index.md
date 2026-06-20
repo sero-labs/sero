@@ -1,5 +1,11 @@
 # Sero Orchestrator analysis
 
+> **Next:** this analysis has been turned into a formal technical spec and
+> phased implementation plan — see [../specs/index.md](../specs/index.md). The
+> spec corrects a few assumptions here against the live codebase (subagents have
+> no output-schema validation, VCS restore is not on the host surface, worktree
+> naming is card-specific, `parentSessionId` is required for worker runs).
+
 ## Purpose
 
 This document maps the clean-room `pi-loop`, `pi-tasks`, and `pi-subagents`
