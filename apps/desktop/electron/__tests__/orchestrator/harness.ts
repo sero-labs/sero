@@ -183,6 +183,9 @@ function makeHost(opts: HarnessOptions, fake: FakeState): AppRuntimeHost {
           const stdout = world.changed.map((file) => ` M ${file}`).join('\n');
           return { stdout: stdout ? `${stdout}\n` : '', stderr: '', exitCode: 0 };
         }
+        if (command.startsWith('git diff')) {
+          return { stdout: world.diff, stderr: '', exitCode: 0 };
+        }
         if (command.startsWith('git reset --hard')) {
           world.changed = [];
           world.diff = '';

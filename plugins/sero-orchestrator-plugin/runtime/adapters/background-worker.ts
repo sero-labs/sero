@@ -84,7 +84,9 @@ async function execute(
 
   const changedFiles = await listChangedFiles(ctx.host, ctx.workspaceId, ctx.cwd);
   const diffFingerprint =
-    changedFiles.length > 0 ? await computeDiffFingerprint(ctx.host, ctx.cwd) : undefined;
+    changedFiles.length > 0
+      ? await computeDiffFingerprint(ctx.host, ctx.workspaceId, ctx.cwd, ctx.attempt.baseRef)
+      : undefined;
   const parsed: WorkerOutput | null = parseWorkerOutput(result.response);
 
   return {

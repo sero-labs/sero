@@ -39,12 +39,10 @@ function fakeHost(opts: FakeHostOptions): AppRuntimeHost {
         if (command === 'git status --porcelain') {
           return { stdout: opts.porcelain ?? '', stderr: '', exitCode: 0 };
         }
+        if (command.startsWith('git diff')) {
+          return { stdout: opts.diff ?? '', stderr: '', exitCode: 0 };
+        }
         return { stdout: '', stderr: '', exitCode: 0 };
-      },
-    },
-    git: {
-      async getDiff() {
-        return opts.diff ?? '';
       },
     },
   } as unknown as AppRuntimeHost;

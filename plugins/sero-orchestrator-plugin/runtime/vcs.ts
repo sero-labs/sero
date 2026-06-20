@@ -67,10 +67,23 @@ export async function listChangedFiles(
   return files;
 }
 
-/** Hash of the attempt's diff — a proxy for "equivalent diff" in no-progress (D-13). */
-export async function computeDiffFingerprint(host: AppRuntimeHost, cwd: string): Promise<string> {
-  const diff = await host.git.getDiff(cwd);
-  return createHash('sha1').update(diff).digest('hex');
+/**
+ * Hash of the attempt's working-tree diff vs its baseline — a proxy for
+ * "equivalent diff" in no-progress detection (D-13). Uses `git diff <baseRef>`
+ * (not `host.git.getDiff`, which diffs committed changes `base...HEAD` and so
+ * returns empty for an uncommitted worker change at the workspace root).
+ * Undefined on an unversioned tree or when the diff can't be read.
+ */
+export async function computeDiffFingerprint(
+  host: AppRuntimeHost,
+  workspaceId: string,
+  cwd: string,
+  baseRef: string,
+): Promise<string | undefined> {
+  if (!baseRef || baseRef === UNVERSIONED_BASE_REF) return undefined;
+  const result = await host.workspace.runCommand(workspaceId, cwd, `git diff ${baseRef}`);
+  if (result.exitCode !== 0) return undefined;
+  return createHash('sha1').update(result.stdout).digest('hex');
 }
 
 /**
