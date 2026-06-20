@@ -52,11 +52,13 @@ Phase 0 (this spec) is reviewed; the open product decisions are **confirmed**:
   auto-saving if you don't respond (D-07).
 
 Phases 1 (plugin shell, state, control-plane tools/command, and UI), 1.5
-(active-session host seam), and 2 (durable coordinator core — state machine,
-locks, stop rules, budgets, baseRef + dirty-root gate, artifacts) are built and
-statically validated — see `plugins/sero-orchestrator-plugin/`. Execution
-adapters (Phase 3 background-worker, Phase 4 active-session) plug into the Phase
-2 core; until then `run_next` reports a truthful "not yet". See the
+(active-session host seam), 2 (durable coordinator core — state machine, locks,
+stop rules, budgets, baseRef + dirty-root gate, artifacts), and 2.5
+(catch-up-on-open scheduling — missed cron fires recomputed once per workspace
+open, no always-on watcher) are built and statically validated — see
+`plugins/sero-orchestrator-plugin/`. Execution adapters (Phase 3
+background-worker, Phase 4 active-session) plug into the Phase 2 core; until then
+`run_next` reports a truthful "not yet". See the
 [progress dashboard](04-implementation-plan.md#progress-dashboard) for the live
 record.
 

@@ -17,7 +17,7 @@ material progress in the loop ledger too.
 | 1 | Plugin shell, state, UI | ✅ Done | Loops created/listed/shown; state persists; UI renders |
 | 1.5 | Session seam spike | ✅ Done | Coordinator safely sends a diagnostic follow-up |
 | 2 | Durable coordinator core | ✅ Done | Single executor + locks + stop rules + artifacts |
-| 2.5 | Scheduling lifecycle (catch-up-on-open) | ⬜ Not started | Missed cron fires recomputed on workspace open |
+| 2.5 | Scheduling lifecycle (catch-up-on-open) | ✅ Done | Missed cron fires recomputed on workspace open |
 | 3 | Background-worker execution | ⬜ Not started | Worker → checks → checkpoint → retry loop runs green |
 | 4 | Active-session execution | ⬜ Not started | Idle-gated steer + turn observation + retry |
 | 5 | Scheduling and events | ⬜ Not started | Manual/cron/event/hybrid triggers mark loops due |
@@ -51,7 +51,7 @@ phase. (D-NN refer to decisions in [00-architecture.md](00-architecture.md).)
 | FR-16 | Active-session steer + turn observation + retry | 4 | — | ⬜ |
 | FR-17 | Hybrid routing per attempt | 4 | D-09 | ⬜ |
 | FR-18 | Manual/cron/event/hybrid triggers mark loops due | 5 | D-02 | ⬜ |
-| FR-19 | Catch-up-on-open for closed-workspace cron loops | 2.5/5 | D-04 | ⬜ |
+| FR-19 | Catch-up-on-open for closed-workspace cron loops | 2.5/5 | D-04 | ✅ |
 | FR-20 | Worktree isolation (in-workspace) | 6 | D-06 | ⬜ |
 | FR-21 | Branch naming + PR creation | 6 | — | ⬜ |
 | FR-22 | Recursion guardrails on workers (coordinator-side rejection) | 3 | D-16 | ⬜ |
@@ -274,7 +274,7 @@ independent of which adapter runs.
 
 ---
 
-## Phase 2.5 — Scheduling lifecycle (decided: catch-up-on-open)
+## Phase 2.5 — Scheduling lifecycle (decided: catch-up-on-open) ✅
 
 **Goal.** Implement catch-up-on-open. The global supervisor is **not** built
 (D-04, confirmed with product owner).
@@ -282,15 +282,50 @@ independent of which adapter runs.
 **Depends on:** Phase 2.
 
 **Tasks**
-- [ ] On workspace runtime start, recompute each cron trigger's missed fires from
+- [x] On workspace runtime start, recompute each cron trigger's missed fires from
   `lastFireAt` + `schedule`, collapse to a single catch-up, and run due loops.
-- [ ] Log event triggers that fired while the workspace was closed as missed.
+- [x] Log event triggers that fired while the workspace was closed as missed.
 
 **Acceptance**
-- [ ] A cron loop due while its workspace was closed runs once on next open, never
+- [x] A cron loop due while its workspace was closed runs once on next open, never
   twice.
-- [ ] Missed while-closed event triggers are logged, not silently dropped.
-- [ ] FR-19 satisfied (catch-up-on-open).
+- [x] Missed while-closed event triggers are logged, not silently dropped.
+- [x] FR-19 satisfied (catch-up-on-open).
+
+**Implementation notes (Phase 2.5 as built)**
+- Catch-up runs **once per open**, from `OrchestratorRuntime.start()` →
+  `coordinator.catchUpOnOpen()` — a state transition, never an interval
+  (Principle 6 / no-polling). The live per-minute cron tick and event
+  subscriptions stay in Phase 5; nothing here adds an always-on watcher (D-04).
+- Cron math is **copied, not imported** from the cron plugin (D-02):
+  `runtime/cron.ts` compiles a 5-field expression once into per-field sets and
+  adds `nextFireAfter(compiled, from)`, a minute-stepped forward scan capped at
+  ~1 year so a pathological schedule still terminates. Matching uses local time,
+  identical to the cron plugin.
+- `runtime/scheduler.ts` holds the pure `reconcileLoop(loop, now)` and the
+  `Scheduler.catchUpOnOpen()` driver. A cron trigger is **due** when the next
+  scheduled minute after its anchor (`lastFireAt`, or `loop.createdAt` on first
+  arm) is already in the past — so any number of missed minutes **collapses to a
+  single catch-up**, and advancing `lastFireAt`/`fireCount` guarantees it never
+  fires twice across opens. Only `active` loops are reconciled (a paused/blocked
+  loop keeps its anchor, so a later resume still sees the missed fire).
+- **Single executor / single writer preserved.** The whole reconcile (advance
+  every cron trigger's debounce across all loops) runs inside **one**
+  `host.appState` mutation; due loops are then dispatched through the gated
+  `requestAction({ kind: 'run_next' })` path, so the per-loop lock, eligibility,
+  and stop rule still apply. `catchUpOnOpen()` returns after the
+  reconcile + dispatch and **never awaits the runs** (`CatchUpReport.settled` is
+  for tests), so `start()` is never blocked by attempt execution.
+- Event/hybrid triggers that fired while closed are unobservable (no listener
+  existed); they are **logged, never silent** via an injectable `SchedulerLog`
+  (default = Electron-main console). The scheduling path is exercised now even
+  though no adapter executes until Phase 3 — `run_next` returns the truthful
+  "not yet", while the debounce dedup is fully tested.
+- Validation: full-monorepo `pnpm typecheck` (18 tasks) green; new
+  `orchestrator/coordinator-scheduling.test.ts` (10 tests: cron math +
+  due/never-twice/collapse/arm/paused-skip/event-log) plus the existing
+  orchestrator suites — **36 tests** green. Live click-through remains the
+  standing manual gap (nothing executes until a Phase 3 adapter lands).
 
 ---
 

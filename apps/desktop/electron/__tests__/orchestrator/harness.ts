@@ -20,6 +20,7 @@ import {
 } from '@plugins/sero-orchestrator-plugin/runtime/coordinator';
 import { MapAdapterRegistry, type AttemptAdapter } from '@plugins/sero-orchestrator-plugin/runtime/adapter';
 import type { Clock } from '@plugins/sero-orchestrator-plugin/runtime/clock';
+import type { SchedulerLog } from '@plugins/sero-orchestrator-plugin/runtime/scheduler';
 import type { DirtyRootGate } from '@plugins/sero-orchestrator-plugin/runtime/vcs';
 import type {
   CreateLoopInput,
@@ -70,6 +71,7 @@ export interface HarnessOptions {
   dirty?: boolean;
   checkpoint?: string | null;
   maxConcurrentAttempts?: number;
+  schedulerLog?: SchedulerLog;
 }
 
 export interface Harness {
@@ -162,6 +164,7 @@ export function createHarness(opts: HarnessOptions = {}): Harness {
     dirtyRootGate: opts.gate,
     clock: opts.clock,
     maxConcurrentAttempts: opts.maxConcurrentAttempts,
+    schedulerLog: opts.schedulerLog,
   };
   const coordinator = new WorkspaceCoordinator(ctx);
 

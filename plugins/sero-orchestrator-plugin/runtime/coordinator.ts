@@ -35,6 +35,11 @@ import {
   LoopLocks,
   Semaphore,
 } from './locks';
+import {
+  Scheduler,
+  type CatchUpReport,
+  type SchedulerLog,
+} from './scheduler';
 import { StateStore } from './state-store';
 import { createDefaultDirtyRootGate, type DirtyRootGate } from './vcs';
 
@@ -53,12 +58,15 @@ export interface CoordinatorContext {
   clock?: Clock;
   /** Concurrent-attempt cap across loops in this workspace (D-11). */
   maxConcurrentAttempts?: number;
+  /** Catch-up-on-open log seam; defaults to a console logger (tests inject a spy). */
+  schedulerLog?: SchedulerLog;
 }
 
 export class WorkspaceCoordinator implements OrchestratorCoordinator {
   private readonly store: StateStore;
   private readonly clock: Clock;
   private readonly engine: AttemptEngine;
+  private readonly scheduler: Scheduler;
 
   constructor(private readonly ctx: CoordinatorContext) {
     this.clock = ctx.clock ?? systemClock;
@@ -75,6 +83,25 @@ export class WorkspaceCoordinator implements OrchestratorCoordinator {
       gate: ctx.dirtyRootGate ?? createDefaultDirtyRootGate(ctx.host),
       clock: this.clock,
     });
+    this.scheduler = new Scheduler({
+      store: this.store,
+      clock: this.clock,
+      // Catch-up requests run through the gated control plane (D-01): the
+      // engine still enforces the per-loop lock, eligibility, and stop rule.
+      runLoop: (loopId) => this.requestAction({ kind: 'run_next', loopId }),
+      log: ctx.schedulerLog,
+    });
+  }
+
+  /**
+   * Catch-up-on-open (Phase 2.5, D-04): run any cron loop that came due while
+   * the workspace was closed, collapsing missed fires to one run per loop, and
+   * log event triggers that could not be observed while closed. Awaiting this
+   * waits only for the reconcile + dispatch — never for the runs themselves
+   * (see {@link CatchUpReport.settled}).
+   */
+  async catchUpOnOpen(): Promise<CatchUpReport> {
+    return this.scheduler.catchUpOnOpen();
   }
 
   async requestAction(action: OrchestratorAction): Promise<OrchestratorActionResult> {
