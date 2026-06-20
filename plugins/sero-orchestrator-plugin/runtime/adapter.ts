@@ -12,10 +12,10 @@ import type { AppRuntimeHost } from '@sero-ai/common';
 
 import type {
   AttemptExecutionMode,
-  ExecutionMode,
   LoopAttempt,
   LoopGoal,
 } from '../shared/types';
+import { probeSessionAvailability, routeHybrid } from './hybrid';
 
 /** Everything an adapter needs to perform one attempt's change. */
 export interface AttemptContext {
@@ -55,20 +55,61 @@ export interface AttemptExecutionResult {
   error?: string;
 }
 
-export interface AttemptAdapter {
-  readonly mode: AttemptExecutionMode;
-  execute(ctx: AttemptContext): Promise<AttemptExecutionResult>;
-}
-
-export interface AdapterRegistry {
-  /** Resolve the adapter for a loop's execution mode, or null when none exists. */
-  resolve(mode: ExecutionMode, loop: LoopGoal): AttemptAdapter | null;
+/** Context for an adapter's readiness gate — runs before the attempt is created. */
+export interface AttemptPreflightContext {
+  loop: LoopGoal;
+  host: AppRuntimeHost;
+  workspaceId: string;
+  workspacePath: string;
 }
 
 /**
- * Default registry keyed by attempt execution mode. Hybrid routing (per-attempt
- * choice via `HybridPolicy`) lands in Phase 4, so `hybrid` resolves to null for
- * now — the loop reports "not yet" rather than guessing an adapter.
+ * The result of an adapter's readiness gate. A not-ready result DEFERS the run
+ * (no attempt is created or counted) so the loop stays active and retries on its
+ * next trigger — used by the active-session adapter when the target session is
+ * busy (D-05), distinct from a failed attempt.
+ */
+export type AttemptPreflight = { ready: true } | { ready: false; reason: string };
+
+export interface AttemptAdapter {
+  readonly mode: AttemptExecutionMode;
+  /**
+   * Optional readiness gate, run by the core BEFORE the attempt record is
+   * created (so a not-ready result defers cleanly without burning an attempt).
+   * The background worker is always ready; the active-session adapter gates on
+   * an idle, resolvable target session.
+   */
+  preflight?(ctx: AttemptPreflightContext): Promise<AttemptPreflight>;
+  execute(ctx: AttemptContext): Promise<AttemptExecutionResult>;
+}
+
+/** The adapter chosen for an attempt plus, for hybrid loops, why it was chosen. */
+export interface AdapterResolution {
+  adapter: AttemptAdapter;
+  /** Recorded on the attempt for hybrid loops (D-09); undefined for fixed modes. */
+  routingReason?: string;
+}
+
+/** What the registry needs to route a `hybrid` loop (probe the live session). */
+export interface ResolveContext {
+  host: AppRuntimeHost;
+  workspaceId: string;
+}
+
+export interface AdapterRegistry {
+  /**
+   * Resolve the adapter for a loop, or null when none is registered. For a
+   * `hybrid` loop this picks background-worker vs active-session per the loop's
+   * `HybridPolicy` and the live session state (D-09), recording the reason.
+   */
+  resolve(loop: LoopGoal, ctx: ResolveContext): Promise<AdapterResolution | null>;
+}
+
+/**
+ * Default registry keyed by attempt execution mode. A fixed-mode loop resolves
+ * straight to its adapter; a `hybrid` loop is routed per attempt (Phase 4) by
+ * {@link routeHybrid} against the probed session state, with the chosen reason
+ * recorded for the attempt.
  */
 export class MapAdapterRegistry implements AdapterRegistry {
   private readonly byMode = new Map<AttemptExecutionMode, AttemptAdapter>();
@@ -81,8 +122,20 @@ export class MapAdapterRegistry implements AdapterRegistry {
     this.byMode.set(adapter.mode, adapter);
   }
 
-  resolve(mode: ExecutionMode, _loop: LoopGoal): AttemptAdapter | null {
-    if (mode === 'hybrid') return null;
-    return this.byMode.get(mode) ?? null;
+  async resolve(loop: LoopGoal, ctx: ResolveContext): Promise<AdapterResolution | null> {
+    if (loop.executionMode !== 'hybrid') {
+      const adapter = this.byMode.get(loop.executionMode);
+      return adapter ? { adapter } : null;
+    }
+    const session = await probeSessionAvailability(ctx.host, ctx.workspaceId);
+    const route = routeHybrid({
+      policy: loop.hybridPolicy ?? 'prefer-background-worker',
+      session,
+      // Worktree isolation is Phase 6; active-session attempts are always
+      // workspace-root, so no hybrid attempt uses a worktree yet (D-06).
+      useWorktree: false,
+    });
+    const adapter = this.byMode.get(route.mode);
+    return adapter ? { adapter, routingReason: route.reason } : null;
   }
 }

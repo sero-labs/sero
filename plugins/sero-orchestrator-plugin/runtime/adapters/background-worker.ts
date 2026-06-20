@@ -13,7 +13,6 @@
 
 import type { AppRuntimeSubagentResult } from '@sero-ai/common';
 
-import type { LoopAttempt, LoopGoal } from '../../shared/types';
 import type {
   AttemptAdapter,
   AttemptContext,
@@ -25,6 +24,7 @@ import { computeDiffFingerprint, listChangedFiles } from '../vcs';
 import {
   buildImplementerInstruction,
   parseWorkerOutput,
+  priorFinishedAttempt,
   type WorkerOutput,
 } from '../workers';
 
@@ -105,13 +105,4 @@ async function execute(
 function outcomeStatus(result: AppRuntimeSubagentResult): AttemptOutcomeStatus {
   if (!result.error) return 'completed';
   return result.error.startsWith('Aborted') ? 'aborted' : 'error';
-}
-
-/** The most recent finished attempt (its failure becomes next-attempt context). */
-function priorFinishedAttempt(loop: LoopGoal, current: LoopAttempt): LoopAttempt | undefined {
-  for (let index = loop.attempts.length - 1; index >= 0; index--) {
-    const attempt = loop.attempts[index]!;
-    if (attempt.id !== current.id && attempt.status !== 'running') return attempt;
-  }
-  return undefined;
 }

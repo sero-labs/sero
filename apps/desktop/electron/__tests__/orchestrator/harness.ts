@@ -9,11 +9,17 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
 import type {
+  ActiveSession,
   AppRuntimeHost,
   AppRuntimeNotificationOptions,
+  AppRuntimeSessionHost,
   AppRuntimeSubagentRunParams,
   AppRuntimeSubagentResult,
   AppRuntimeVerificationCommandResult,
+  ExtensionRuntimeContent,
+  SessionState,
+  TurnCompletion,
+  TurnCompletionStatus,
 } from '@sero-ai/common';
 
 import {
@@ -93,6 +99,32 @@ export interface FakeGitWorld {
   diff: string;
 }
 
+/** What a steered active-session turn produces (active-session adapter, Phase 4). */
+export interface SteerResult {
+  /** How the turn ends; defaults to `completed`. */
+  status?: TurnCompletionStatus;
+  /** Files the steered turn produced — become the post-turn `git status` delta. */
+  changedFiles?: string[];
+  /** Diff text the steered turn produced — drives the diff fingerprint. */
+  diff?: string;
+}
+
+/** Drives a steered active-session turn: mutates the git world, resolves the turn. */
+export type SteerScript = (
+  content: ExtensionRuntimeContent,
+  world: FakeGitWorld,
+) => Promise<SteerResult> | SteerResult;
+
+/** Configures the fake `host.session` used by the active-session adapter (Phase 4). */
+export interface SessionOptions {
+  /** Resolved active session; `null` → none to steer. Defaults to a live session. */
+  active?: ActiveSession | null;
+  /** Idle/pending snapshot. Defaults to idle with no pending messages. */
+  state?: SessionState;
+  /** Steers a turn when one is triggered; absent → the turn completes as a no-op. */
+  steer?: SteerScript;
+}
+
 export interface HarnessOptions {
   adapter?: AttemptAdapter;
   gate?: DirtyRootGate;
@@ -105,6 +137,8 @@ export interface HarnessOptions {
   schedulerLog?: SchedulerLog;
   /** Drives `host.subagents.runStructured` for tests of the real adapter. */
   runWorker?: WorkerScript;
+  /** Configures `host.session` for active-session / hybrid tests (Phase 4). */
+  session?: SessionOptions;
 }
 
 export interface Harness {
@@ -216,9 +250,60 @@ function makeHost(opts: HarnessOptions, fake: FakeState): AppRuntimeHost {
         fake.notifications.push(options);
       },
     },
+    session: makeSessionHost(opts, world),
   };
 
   return host as unknown as AppRuntimeHost;
+}
+
+const DEFAULT_ACTIVE_SESSION: ActiveSession = {
+  sessionId: 'live-session',
+  workspaceId: WORKSPACE_ID,
+};
+
+/**
+ * Fake `host.session` for active-session / hybrid tests. A steered turn runs the
+ * `steer` script (mutating the same git world the post-turn diff is measured
+ * against), then emits its completion on a microtask so the adapter's
+ * subscribe-before-send observation matches by turn id.
+ */
+function makeSessionHost(opts: HarnessOptions, world: FakeGitWorld): AppRuntimeSessionHost {
+  const config = opts.session ?? {};
+  const active = config.active === undefined ? DEFAULT_ACTIVE_SESSION : config.active;
+  const state: SessionState = config.state ?? { idle: true, pendingMessages: 0, activeTurnId: null };
+  const listeners = new Set<(completion: TurnCompletion) => void>();
+  let turnSeq = 0;
+
+  const triggerTurn = async (content: ExtensionRuntimeContent): Promise<string> => {
+    const turnId = `turn-${++turnSeq}`;
+    const result = (await config.steer?.(content, world)) ?? {};
+    if (result.changedFiles) world.changed = [...result.changedFiles];
+    if (result.diff !== undefined) world.diff = result.diff;
+    const status: TurnCompletionStatus = result.status ?? 'completed';
+    queueMicrotask(() => {
+      for (const cb of [...listeners]) cb({ turnId, status });
+    });
+    return turnId;
+  };
+
+  return {
+    async getActiveForWorkspace() {
+      return active;
+    },
+    async getState() {
+      return state;
+    },
+    async sendUserSteer(_sessionId, content) {
+      return { turnId: await triggerTurn(content) };
+    },
+    async sendContextMessage(_sessionId, message, options) {
+      return { turnId: options.triggerTurn ? await triggerTurn(message.content) : null };
+    },
+    onTurnComplete(_sessionId, cb) {
+      listeners.add(cb);
+      return () => listeners.delete(cb);
+    },
+  };
 }
 
 export function createHarness(opts: HarnessOptions = {}): Harness {
@@ -241,12 +326,13 @@ export function createHarness(opts: HarnessOptions = {}): Harness {
     workspaceId: WORKSPACE_ID,
     workspacePath: dir,
     stateFilePath,
-    // A fake adapter is injected directly; otherwise a `runWorker` script means
-    // the test wants the REAL default adapter (omit `adapters` so the coordinator
-    // builds it); with neither, an empty registry keeps `run_next` at "not yet".
+    // A fake adapter is injected directly; otherwise a `runWorker` or `session`
+    // script means the test wants the REAL default adapters (omit `adapters` so
+    // the coordinator builds them); with neither, an empty registry keeps
+    // `run_next` at "not yet".
     adapters: opts.adapter
       ? new MapAdapterRegistry([opts.adapter])
-      : opts.runWorker
+      : opts.runWorker || opts.session
         ? undefined
         : new MapAdapterRegistry(),
     dirtyRootGate: opts.gate,

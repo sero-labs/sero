@@ -19,7 +19,7 @@ material progress in the loop ledger too.
 | 2 | Durable coordinator core | ✅ Done | Single executor + locks + stop rules + artifacts |
 | 2.5 | Scheduling lifecycle (catch-up-on-open) | ✅ Done | Missed cron fires recomputed on workspace open |
 | 3 | Background-worker execution | ✅ Done | Worker → checks → checkpoint → retry loop runs green |
-| 4 | Active-session execution | ⬜ Not started | Idle-gated steer + turn observation + retry |
+| 4 | Active-session execution | ✅ Done | Idle-gated steer + turn observation + retry |
 | 5 | Scheduling and events | ⬜ Not started | Manual/cron/event/hybrid triggers mark loops due |
 | 6 | Isolation and PR workflow | ⬜ Not started | Worktree isolation + branch/PR + restore |
 | 7 | Reusable task system | ⬜ Deferred | Only if a second surface needs durable tasks |
@@ -46,16 +46,16 @@ phase. (D-NN refer to decisions in [00-architecture.md](00-architecture.md).)
 | FR-11 | Subagent run with attempt cwd + parentSessionId + tool policy | 3 | D-10/D-15 | ✅ |
 | FR-12 | Live output streamed to UI | 3 | — | ✅ |
 | FR-13 | Pre-attempt `baseRef` baseline; restore via git reset; dirty-root safe | 2/3 | D-07 | ✅ |
-| FR-14 | New `host.session` seam: find/state/two send methods/onTurnComplete | 1.5/4 | D-05 | 🟡 |
-| FR-15 | Idle + no-pending gating before any send | 4 | D-05 | ⬜ |
-| FR-16 | Active-session steer + turn observation + retry | 4 | — | ⬜ |
-| FR-17 | Hybrid routing per attempt | 4 | D-09 | ⬜ |
+| FR-14 | New `host.session` seam: find/state/two send methods/onTurnComplete | 1.5/4 | D-05 | ✅ |
+| FR-15 | Idle + no-pending gating before any send | 4 | D-05 | ✅ |
+| FR-16 | Active-session steer + turn observation + retry | 4 | — | ✅ |
+| FR-17 | Hybrid routing per attempt | 4 | D-09 | ✅ |
 | FR-18 | Manual/cron/event/hybrid triggers mark loops due | 5 | D-02 | ⬜ |
 | FR-19 | Catch-up-on-open for closed-workspace cron loops | 2.5/5 | D-04 | ✅ |
 | FR-20 | Worktree isolation (in-workspace) | 6 | D-06 | ⬜ |
 | FR-21 | Branch naming + PR creation | 6 | — | ⬜ |
 | FR-22 | Recursion guardrails on workers (coordinator-side rejection) | 3 | D-16 | ✅ |
-| FR-24 | Active-session attempts restricted to workspace-root | 4 | D-06 | ⬜ |
+| FR-24 | Active-session attempts restricted to workspace-root | 4 | D-06 | ✅ |
 | FR-25 | Turn-completion emitter (onTurnComplete correlated by turnId) | 1.5 | D-05 | ✅ |
 | FR-26 | Dirty-root start gate: auto-save / isolate / defer, auto-save on timeout | 2/6 | D-07 | 🟡 |
 | FR-27 | Per-loop run budgets: wall-clock, tokens/cost, changed-files, command-runtime | 2/3 | D-17 | ✅ |
@@ -448,25 +448,72 @@ and retry, built on the Phase 1.5 seam.
 **Depends on:** Phase 1.5, Phase 2.
 
 **Tasks**
-- [ ] Implement the active-session adapter: enforce `workdir.mode ===
+- [x] Implement the active-session adapter: enforce `workdir.mode ===
   "workspace-root"`, resolve `SessionTarget`, gate on idle + no pending, send via
   `sendUserSteer` / `sendContextMessage` capturing `turnId`, hold the lock,
   observe completion by `turnId` (D-05, D-06).
-- [ ] Run checks/diff against the attempt cwd (= workspace root) after the turn.
-- [ ] Implement hybrid routing per `HybridPolicy`, forcing background-worker for
+- [x] Run checks/diff against the attempt cwd (= workspace root) after the turn.
+- [x] Implement hybrid routing per `HybridPolicy`, forcing background-worker for
   worktree attempts, with recorded reason (D-09).
-- [ ] Handle long-busy sessions → `blocked: session-busy`, retried on next trigger.
+- [x] Handle long-busy sessions → `blocked: session-busy`, retried on next trigger.
 
 **Acceptance**
-- [ ] A steer is delivered only when the target session is idle with no pending
+- [x] A steer is delivered only when the target session is idle with no pending
   messages; otherwise deferred with reason.
-- [ ] The coordinator observes turn completion (by `turnId`) and runs checks
+- [x] The coordinator observes turn completion (by `turnId`) and runs checks
   without blocking.
-- [ ] A hybrid loop chooses the adapter per policy and records why; a worktree
+- [x] A hybrid loop chooses the adapter per policy and records why; a worktree
   attempt is always routed to background-worker.
-- [ ] An active-session attempt with a worktree workdir is rejected/rerouted;
+- [x] An active-session attempt with a worktree workdir is rejected/rerouted;
   active-session only ever runs at workspace root.
-- [ ] FR-14 (full), FR-15, FR-16, FR-17, FR-24 satisfied.
+- [x] FR-14 (full), FR-15, FR-16, FR-17, FR-24 satisfied.
+
+**Implementation notes (Phase 4 as built)**
+- The Phase 2 seam held again: `attempt-runner.ts` / `engine.ts` were not
+  re-plumbed. Phase 4 added the second real adapter,
+  `runtime/adapters/active-session.ts`, registered alongside the background
+  worker via the same default `MapAdapterRegistry` (both share the one
+  `WorkerSessionRegistry`, so the recursion guard covers either path, D-16).
+- **The idle-gate is a deferral, not a burned attempt.** The adapter interface
+  gained an optional `preflight(ctx)` readiness gate the runner calls *before*
+  creating the attempt record. The active-session adapter's preflight resolves
+  the `SessionTarget` (bound `loop.sessionId` → `specific-session`, else
+  `most-recent-active`) and gates on idle + no pending; a busy or unavailable
+  session returns not-ready, which the runner turns into a clean **defer** —
+  no attempt recorded, no attempt counted, the loop stays `active` and retries on
+  its next trigger. ("Long-busy → blocked: session-busy" is surfaced as that
+  defer reason; a hard `blocked` status would never reconcile, so the soft defer
+  is the only self-consistent reading.) This is the same `AttemptReport.deferred`
+  path the dirty-root gate already used, generalized with a `deferReason`.
+- **execute** mirrors `diagnostics.ts`: subscribe to `onTurnComplete` *before*
+  sending so a fast turn can't complete unobserved, send the generated implementer
+  task prompt via `sendUserSteer` (capturing `turnId`), observe completion
+  correlated by that id (bounded by the per-attempt timeout `signal`, with a
+  generous fallback), then **measure the diff with git at the cwd** exactly like
+  the background worker (`git status --porcelain` → changedFiles, `git diff
+  <baseRef>` → fingerprint). The steered session is held active in the worker
+  registry for the turn so a control action it issues is rejected (D-16); the
+  hold is released the instant the turn resolves.
+- **Workspace-root only (D-06):** preflight never sees a worktree (the runner
+  only makes workspace-root workdirs), and `execute` rejects a worktree workdir
+  defensively.
+- **Hybrid routing (D-09)** lives in `runtime/hybrid.ts`: a pure `routeHybrid`
+  picks background-worker vs active-session per `HybridPolicy` and the probed
+  session state, with worktree isolation always forcing the background worker.
+  `MapAdapterRegistry.resolve` is now async — it probes the live session for a
+  `hybrid` loop and records the chosen `routingReason` on the attempt
+  (`LoopAttempt.routingReason`). `active-if-session-idle` routes to the worker
+  when the session is busy (rather than deferring); `prefer-active-session`
+  routes to the session and lets preflight defer if it is busy.
+- Validation: full-monorepo `pnpm typecheck` (18 tasks) green; orchestrator unit
+  suites **75 tests** green (20 new in `active-session.test.ts`: preflight
+  idle-gate / no-session / pending / bound-session defers, turn-id correlation +
+  diff measurement, workspace-root enforcement, not-observed timeout, recursion
+  hold, end-to-end steer-to-complete, busy defer with no burned attempt,
+  failing-then-fixable, the full `routeHybrid` truth table, and end-to-end hybrid
+  routing both directions). No desktop-core files changed — all new work is
+  plugin-side behind the existing `host.*` surface (the harness gained a fake
+  `host.session` + steer script).
 
 ---
 

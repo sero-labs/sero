@@ -43,6 +43,8 @@ export interface RunAttemptDeps {
 
 export interface RunAttemptOptions {
   adapter: AttemptAdapter;
+  /** Why hybrid routing picked this adapter; recorded on the attempt (D-09). */
+  routingReason?: string;
   triggerId?: string;
   overrideNoProgress: boolean;
   /** Whether the loop must flip to `active` as this attempt starts (override / draft). */
@@ -52,8 +54,10 @@ export interface RunAttemptOptions {
 }
 
 export interface AttemptReport {
-  /** Dirty-root defer: no attempt ran; the loop stays active for the next trigger. */
+  /** Defer: no attempt ran; the loop stays active for the next trigger. */
   deferred: boolean;
+  /** Plain-English defer reason (dirty root, busy session, …); undefined → dirty-root default. */
+  deferReason?: string;
   /** Finalized attempt record (absent only when deferred). */
   attempt?: LoopAttempt;
   /** Cancelled mid-flight — the loop's status was set by stop/pause, not here. */
@@ -75,6 +79,27 @@ export async function runAttempt(
     cwd: deps.workspacePath,
   };
 
+  // Adapter readiness gate (D-05): runs before any baseline/attempt is created so
+  // a not-ready adapter (e.g. a busy active session) defers cleanly — no attempt
+  // recorded, no attempt counted, the loop retries on its next trigger.
+  if (opts.adapter.preflight) {
+    const pre = await opts.adapter.preflight({
+      loop,
+      host: deps.host,
+      workspaceId: deps.workspaceId,
+      workspacePath: deps.workspacePath,
+    });
+    if (!pre.ready) {
+      return {
+        deferred: true,
+        deferReason: pre.reason,
+        cancelled: false,
+        changedFilesExceeded: false,
+        requiredPassed: false,
+      };
+    }
+  }
+
   const baseline = await resolveBaseline(deps, loop, workdir.cwd);
   if (baseline.defer) {
     return { deferred: true, cancelled: false, changedFilesExceeded: false, requiredPassed: false };
@@ -84,6 +109,7 @@ export async function runAttempt(
     id: `attempt-${randomUUID()}`,
     attemptNumber: nextAttemptNumber(loop),
     executionMode: opts.adapter.mode,
+    routingReason: opts.routingReason,
     status: 'running',
     workdir,
     parentSessionId: loop.sessionId ?? `orchestrator:${loop.id}`,

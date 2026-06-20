@@ -74,8 +74,11 @@ export class AttemptEngine {
       const eligibility = checkEligibility(loop, overrideNoProgress);
       if (!eligibility.proceed) return { ...eligibility.result, loop };
 
-      const adapter = this.deps.adapters.resolve(loop.executionMode, loop);
-      if (!adapter) return { ok: true, loop, message: NOT_YET };
+      const resolved = await this.deps.adapters.resolve(loop, {
+        host: this.deps.host,
+        workspaceId: this.deps.workspaceId,
+      });
+      if (!resolved) return { ok: true, loop, message: NOT_YET };
 
       if (cumulativeBudgetExhausted(loop)) {
         const updated = await this.block(loopId, 'budget-exhausted');
@@ -92,7 +95,8 @@ export class AttemptEngine {
       semaphoreHeld = true;
 
       const report = await runAttempt(this.attemptDeps(), loop, {
-        adapter,
+        adapter: resolved.adapter,
+        routingReason: resolved.routingReason,
         overrideNoProgress,
         activateOnStart: loop.status !== 'active',
         cancelSignal: cancel.signal,
@@ -109,15 +113,17 @@ export class AttemptEngine {
 
   private async finalize(loopId: string, report: AttemptReport): Promise<OrchestratorActionResult> {
     if (report.deferred) {
+      // Dirty-root defer keeps its specific wording; an adapter-supplied reason
+      // (e.g. a busy active session) drives the generic message (D-05/D-07).
+      const reason = report.deferReason ?? 'unsaved changes in the workspace root';
+      const message = report.deferReason
+        ? `Deferred: ${reason} — the goal retries on its next trigger.`
+        : 'Deferred: unsaved changes — nothing was committed; the goal retries on its next trigger.';
       const updated = await this.deps.store.updateLoop(loopId, (loop) => {
-        loop.statusReason = 'Deferred: unsaved changes in the workspace root.';
+        loop.statusReason = `Deferred: ${reason}.`;
         loop.updatedAt = isoNow(this.deps.clock);
       });
-      return {
-        ok: true,
-        loop: updated ?? undefined,
-        message: 'Deferred: unsaved changes — nothing was committed; the goal retries on its next trigger.',
-      };
+      return { ok: true, loop: updated ?? undefined, message };
     }
 
     const finalized = report.attempt!;

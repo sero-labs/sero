@@ -173,6 +173,21 @@ function describeCheck(check: LoopGoal['checks'][number]): string {
   return `- \`${check.command}\` (${required})`;
 }
 
+/**
+ * The most recent finished (non-running) attempt — its failure becomes the next
+ * attempt's context. Shared by the background-worker and active-session adapters.
+ */
+export function priorFinishedAttempt(
+  loop: LoopGoal,
+  current: LoopAttempt,
+): LoopAttempt | undefined {
+  for (let index = loop.attempts.length - 1; index >= 0; index--) {
+    const attempt = loop.attempts[index]!;
+    if (attempt.id !== current.id && attempt.status !== 'running') return attempt;
+  }
+  return undefined;
+}
+
 /** The task the loop is currently working — first active, else first todo. */
 export function activeTask(loop: LoopGoal): LoopTask | undefined {
   return (

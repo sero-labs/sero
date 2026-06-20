@@ -28,6 +28,7 @@ import {
   MapAdapterRegistry,
   type AdapterRegistry,
 } from './adapter';
+import { createActiveSessionAdapter } from './adapters/active-session';
 import { createBackgroundWorkerAdapter } from './adapters/background-worker';
 import { WorkerSessionRegistry } from './recursion-guard';
 import { isoNow, systemClock, type Clock } from './clock';
@@ -84,12 +85,15 @@ export class WorkspaceCoordinator implements OrchestratorCoordinator {
       store: this.store,
       locks: new LoopLocks(),
       semaphore: new Semaphore(ctx.maxConcurrentAttempts ?? DEFAULT_WORKSPACE_CONCURRENCY),
-      // Production wires the real background-worker adapter (Phase 3); tests inject
-      // their own. An empty injected registry keeps `run_next` at "not yet".
+      // Production wires the real adapters (background-worker → Phase 3,
+      // active-session → Phase 4); tests inject their own. An empty injected
+      // registry keeps `run_next` at "not yet". Both adapters share the one
+      // worker-session registry so the recursion guard covers either path (D-16).
       adapters:
         ctx.adapters ??
         new MapAdapterRegistry([
           createBackgroundWorkerAdapter({ workerSessions: this.workerSessions }),
+          createActiveSessionAdapter({ workerSessions: this.workerSessions }),
         ]),
       gate: ctx.dirtyRootGate ?? createDefaultDirtyRootGate(ctx.host),
       clock: this.clock,
