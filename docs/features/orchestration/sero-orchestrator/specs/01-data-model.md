@@ -31,6 +31,10 @@ interface LoopGoal {
   sessionId?: string;            // bound target session (active-session/hybrid)
   executionMode: "background-worker" | "active-session" | "hybrid";
   hybridPolicy?: HybridPolicy;   // required when executionMode === "hybrid"
+  isolation?: "workspace-root" | "worktree"; // worktree isolation, opt-in (Phase 6, D-06)
+  worktree?: LoopWorktree;       // lazily-created, reused in-workspace worktree (Phase 6)
+  prPolicy?: PullRequestPolicy;  // open a PR on complete, opt-in (Phase 6)
+  pullRequest?: PullRequestRef;  // the PR opened for this loop, once complete (Phase 6)
   title: string;
   goal: string;
   status: "draft" | "active" | "paused" | "blocked" | "complete" | "stopped";
@@ -173,6 +177,36 @@ anything else ([02 §Verified facts](02-integration-seams.md#verified-facts)).
 **Active-session attempts require `mode: "workspace-root"`** — a live session's
 tool cwd cannot be repointed at a worktree, so only background-worker attempts
 may use `mode: "worktree"` (D-06).
+
+## Worktree + pull request (Phase 6)
+
+```ts
+interface LoopWorktree {
+  workItemId: string;            // neutral id mapped onto the host card slot
+  path: string;                  // absolute worktree path under .sero/worktrees/
+  branch: string;                // branch checked out in the worktree; the PR head
+}
+
+interface PullRequestPolicy {
+  openOnComplete: boolean;       // open a PR when the loop completes (opt-in)
+  draft?: boolean;
+  baseBranch?: string;           // host default when omitted
+}
+
+interface PullRequestRef {       // recorded after the PR opens
+  number: number;
+  url: string;
+  state: "open" | "merged" | "closed" | "unknown";
+  branch: string;
+  openedAt: string;
+}
+```
+
+Worktree isolation is background-worker only and opt-in (`isolation:
+"worktree"`, or implied by `prPolicy.openOnComplete`). The worktree is created
+once per loop via the neutral `runtime/worktree.ts` wrapper and reused across
+attempts. A completed worktree loop that opted in pushes its branch and opens a
+PR with a deterministically generated title/body; merging stays a manual action.
 
 ## Worker instruction
 

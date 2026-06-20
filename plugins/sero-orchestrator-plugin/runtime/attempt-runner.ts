@@ -9,10 +9,12 @@
 import { randomUUID } from 'node:crypto';
 
 import type {
+  AttemptExecutionMode,
   AttemptWorkdir,
   DirtyRootDecision,
   LoopAttempt,
   LoopGoal,
+  LoopWorktree,
 } from '../shared/types';
 import type { AttemptAdapter, AttemptExecutionResult } from './adapter';
 import { changedFilesExceeded, attemptTimeoutMs, commandTimeoutMs } from './budget';
@@ -21,6 +23,7 @@ import { isoNow, type Clock } from './clock';
 import { requiredChecksPassed } from './stop-rules';
 import { writeArtifact } from './artifacts';
 import { createReviewerRunner } from './reviewers';
+import { ensureLoopWorktree } from './worktree';
 import {
   autoSaveBaseline,
   captureBaseRef,
@@ -71,17 +74,9 @@ export async function runAttempt(
   loop: LoopGoal,
   opts: RunAttemptOptions,
 ): Promise<AttemptReport> {
-  // Phase 2: workspace-root only. Worktree isolation is Phase 6; active-session
-  // is permanently workspace-root (D-06). cwd is canonical for every later step.
-  const workdir: AttemptWorkdir = {
-    mode: 'workspace-root',
-    workspaceRoot: deps.workspacePath,
-    cwd: deps.workspacePath,
-  };
-
-  // Adapter readiness gate (D-05): runs before any baseline/attempt is created so
-  // a not-ready adapter (e.g. a busy active session) defers cleanly — no attempt
-  // recorded, no attempt counted, the loop retries on its next trigger.
+  // Adapter readiness gate (D-05): runs before any worktree/baseline/attempt is
+  // created so a not-ready adapter (e.g. a busy active session) defers cleanly —
+  // no worktree spun up, no attempt recorded, the loop retries on its next trigger.
   if (opts.adapter.preflight) {
     const pre = await opts.adapter.preflight({
       loop,
@@ -100,10 +95,14 @@ export async function runAttempt(
     }
   }
 
-  const baseline = await resolveBaseline(deps, loop, workdir.cwd);
-  if (baseline.defer) {
+  // Resolve the canonical workdir (workspace root or an in-workspace worktree,
+  // D-06) together with the pre-attempt baseRef. cwd is canonical for every later
+  // step (worker, checks, diff, VCS, artifacts).
+  const resolved = await resolveWorkdir(deps, loop, opts.adapter.mode);
+  if (resolved.defer) {
     return { deferred: true, cancelled: false, changedFilesExceeded: false, requiredPassed: false };
   }
+  const { workdir, baseRef, decision, worktree } = resolved;
 
   const attempt: LoopAttempt = {
     id: `attempt-${randomUUID()}`,
@@ -113,8 +112,8 @@ export async function runAttempt(
     status: 'running',
     workdir,
     parentSessionId: loop.sessionId ?? `orchestrator:${loop.id}`,
-    baseRef: baseline.baseRef,
-    dirtyRootDecision: baseline.decision,
+    baseRef,
+    dirtyRootDecision: decision,
     triggerId: opts.triggerId,
     noProgressOverride: opts.overrideNoProgress || undefined,
     changedFiles: [],
@@ -124,6 +123,12 @@ export async function runAttempt(
 
   await deps.store.updateLoop(loop.id, (current) => {
     current.attempts.push(attempt);
+    // Persist a newly-created/isolated worktree so later attempts reuse it and
+    // routing forces the background worker for the rest of the loop's life (D-06).
+    if (worktree && !current.worktree) {
+      current.worktree = worktree;
+      current.isolation = 'worktree';
+    }
     if (opts.activateOnStart) {
       current.status = 'active';
       current.statusReason = undefined;
@@ -207,30 +212,81 @@ export async function runAttempt(
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
-interface Baseline {
-  defer: boolean;
-  baseRef: string;
-  decision?: DirtyRootDecision;
-}
+type WorkdirResolution =
+  | { defer: true }
+  | {
+      defer: false;
+      workdir: AttemptWorkdir;
+      baseRef: string;
+      decision?: DirtyRootDecision;
+      /** A worktree created/reused this attempt — persisted on the loop by the caller. */
+      worktree?: LoopWorktree;
+    };
 
-async function resolveBaseline(
+/**
+ * Resolve the attempt's canonical cwd and pre-attempt baseRef (D-06/D-07).
+ *
+ * - A loop already configured for (or previously switched to) worktree isolation
+ *   runs in its worktree — created on first use, reused after — with no dirty-root
+ *   gate (its dirtiness across attempts is the loop's own iteration, not user
+ *   work to preserve). Worktree isolation is background-worker only; an
+ *   active-session attempt always resolves to workspace root.
+ * - Otherwise the attempt runs at the workspace root. A clean root captures
+ *   `HEAD` as the baseRef; a dirty root runs the start gate (D-07): auto-save
+ *   commits the user's work as the baseline, defer stops here, and isolate
+ *   reroutes to a fresh worktree leaving the dirty root untouched (the missing
+ *   branch this phase adds — completes FR-26).
+ */
+async function resolveWorkdir(
   deps: RunAttemptDeps,
   loop: LoopGoal,
-  cwd: string,
-): Promise<Baseline> {
-  const dirty = await isWorkspaceDirty(deps.host, deps.workspaceId, cwd);
-  if (!dirty) {
-    return { defer: false, baseRef: await captureBaseRef(deps.host, deps.workspaceId, cwd) };
+  adapterMode: AttemptExecutionMode,
+): Promise<WorkdirResolution> {
+  const canIsolate = adapterMode === 'background-worker';
+
+  if (canIsolate && (loop.isolation === 'worktree' || loop.worktree)) {
+    return resolveWorktree(deps, loop);
   }
+
+  const cwd = deps.workspacePath;
+  const rootWorkdir: AttemptWorkdir = { mode: 'workspace-root', workspaceRoot: cwd, cwd };
+  if (!(await isWorkspaceDirty(deps.host, deps.workspaceId, cwd))) {
+    return { defer: false, workdir: rootWorkdir, baseRef: await captureBaseRef(deps.host, deps.workspaceId, cwd) };
+  }
+
   const choice = await deps.gate.prompt({ loopId: loop.id, loopTitle: loop.title, cwd });
-  if (choice === 'defer') return { defer: true, baseRef: '' };
+  if (choice === 'defer') return { defer: true };
+  // Isolate is only honoured for the background worker (D-06); an active session
+  // can't run in a worktree, so any other adapter falls back to auto-save.
+  if (choice === 'isolate' && canIsolate) {
+    return resolveWorktree(deps, loop, 'isolated');
+  }
   const saved = await autoSaveBaseline(deps.host, cwd);
   const baseRef = saved ?? (await captureBaseRef(deps.host, deps.workspaceId, cwd));
   return {
     defer: false,
+    workdir: rootWorkdir,
     baseRef,
     decision: choice === 'timeout' ? 'auto-save-timeout' : 'auto-save',
   };
+}
+
+/** Create/reuse the loop's worktree and capture its baseRef. */
+async function resolveWorktree(
+  deps: RunAttemptDeps,
+  loop: LoopGoal,
+  decision?: DirtyRootDecision,
+): Promise<Extract<WorkdirResolution, { defer: false }>> {
+  const worktree = await ensureLoopWorktree(deps.host, deps.workspacePath, loop);
+  const workdir: AttemptWorkdir = {
+    mode: 'worktree',
+    workspaceRoot: deps.workspacePath,
+    cwd: worktree.path,
+    worktreePath: worktree.path,
+    branchName: worktree.branch,
+  };
+  const baseRef = await captureBaseRef(deps.host, deps.workspaceId, worktree.path);
+  return { defer: false, workdir, baseRef, decision, worktree };
 }
 
 /** Run the adapter under a combined timeout + cancellation signal. */

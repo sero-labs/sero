@@ -52,6 +52,14 @@ export const Params = Type.Object({
       description: 'How attempts run (for create); defaults to background-worker',
     }),
   ),
+  isolate: Type.Optional(
+    Type.Boolean({
+      description: 'create only: run attempts in an isolated worktree (background-worker)',
+    }),
+  ),
+  openPr: Type.Optional(
+    Type.Boolean({ description: 'create only: open a PR when the goal completes (implies isolate)' }),
+  ),
   overrideNoProgress: Type.Optional(
     Type.Boolean({ description: 'run_next only: override a no-progress block once' }),
   ),
@@ -63,6 +71,8 @@ export type OrchestratorParams = {
   title?: string;
   goal?: string;
   executionMode?: string;
+  isolate?: boolean;
+  openPr?: boolean;
   overrideNoProgress?: boolean;
 };
 
@@ -72,7 +82,7 @@ export const HELP = [
   'Usage:',
   '  sero orchestrator list',
   '  sero orchestrator show <id>',
-  '  sero orchestrator create --title "<title>" --goal "<goal>" [--mode background-worker|active-session|hybrid]',
+  '  sero orchestrator create --title "<title>" --goal "<goal>" [--mode background-worker|active-session|hybrid] [--isolate] [--pr]',
   '  sero orchestrator pause <id>',
   '  sero orchestrator resume <id>',
   '  sero orchestrator stop <id>',
@@ -115,6 +125,8 @@ export function actionFromParams(params: OrchestratorParams): ActionOrError {
           title: params.title,
           goal: params.goal,
           executionMode: normalizeMode(params.executionMode),
+          isolation: params.isolate || params.openPr ? 'worktree' : undefined,
+          prPolicy: params.openPr ? { openOnComplete: true } : undefined,
         },
       };
     case 'show':
@@ -148,6 +160,8 @@ export function actionFromCli(argv: string[]): ActionOrError {
         title: flags.get('title'),
         goal: flags.get('goal'),
         executionMode: flags.get('mode') ?? flags.get('executionMode'),
+        isolate: flags.has('isolate') || flags.has('worktree'),
+        openPr: flags.has('pr') || flags.has('open-pr'),
       });
     case 'show':
     case 'pause':
@@ -190,13 +204,15 @@ function renderLoopList(loops: LoopGoal[]): string {
 }
 
 function renderLoop(loop: LoopGoal): string {
+  const mode = loop.isolation === 'worktree' ? `${loop.executionMode} · worktree` : loop.executionMode;
   const lines = [
     `${loop.title} — ${loop.status}`,
     `id: ${loop.id}`,
     `goal: ${loop.goal}`,
-    `mode: ${loop.executionMode}`,
+    `mode: ${mode}`,
     `checks: ${loop.checks.length} · attempts: ${loop.attempts.length}`,
   ];
+  if (loop.pullRequest) lines.push(`PR: #${loop.pullRequest.number} (${loop.pullRequest.state}) ${loop.pullRequest.url}`);
   if (loop.statusReason) lines.push(`reason: ${loop.statusReason}`);
   return lines.join('\n');
 }

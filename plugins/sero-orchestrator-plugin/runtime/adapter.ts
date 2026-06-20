@@ -131,9 +131,10 @@ export class MapAdapterRegistry implements AdapterRegistry {
     const route = routeHybrid({
       policy: loop.hybridPolicy ?? 'prefer-background-worker',
       session,
-      // Worktree isolation is Phase 6; active-session attempts are always
-      // workspace-root, so no hybrid attempt uses a worktree yet (D-06).
-      useWorktree: false,
+      // Worktree isolation forces the background worker — an active session can't
+      // be repointed at a worktree (D-06). Once a loop has isolated (configured or
+      // via the dirty-root gate) every later attempt routes to the worker.
+      useWorktree: loop.isolation === 'worktree' || loop.worktree !== undefined,
     });
     const adapter = this.byMode.get(route.mode);
     return adapter ? { adapter, routingReason: route.reason } : null;

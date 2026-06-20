@@ -186,12 +186,18 @@ coordinator; the coordinator still gates on the per-loop lock and stop rule.
 ## Worktree strategy
 
 Start with checkpoints in the workspace root; add worktree isolation after the
-checkpoint-based loop works. When added, use `host.git.createWorktree` with an
-attempt id as `cardId` — accepting the card-flavored naming until Phase 6
-neutralizes it ([02 §VCS](02-integration-seams.md#vcs-checkpoints-worktrees)).
-In-workspace worktrees under `.sero/worktrees/` work with existing verification,
-command execution, and subagent cwd mapping. External worktrees need runtime
-mount changes first (D-06).
+checkpoint-based loop works (the Phase 2.5 → Phase 6 order as built). Isolation
+goes through `runtime/worktree.ts`, a neutral work-item wrapper over
+`host.git.createWorktree` — Orchestrator maps the loop id onto the card slot so
+no card-specific concept leaks into the coordinator
+([02 §VCS](02-integration-seams.md#vcs-checkpoints-worktrees)). The worktree is
+created once per loop and reused across attempts (recorded on `loop.worktree`),
+so the loop iterates forward on one branch. In-workspace worktrees under
+`.sero/worktrees/` work with existing verification, command execution, and
+subagent cwd mapping; the worktree cwd is canonical for the worker, checks,
+diff, VCS, and artifacts. External worktrees need runtime mount changes first
+(D-06), so they stay out of scope. Isolation is background-worker only — an
+active session always steers the workspace root.
 
 ## UI strategy
 

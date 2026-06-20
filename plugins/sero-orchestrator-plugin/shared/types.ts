@@ -44,6 +44,14 @@ export interface LoopGoal {
   sessionId?: string; // bound target session (active-session/hybrid)
   executionMode: ExecutionMode;
   hybridPolicy?: HybridPolicy; // required when executionMode === "hybrid"
+  /** Working-tree strategy for attempts: workspace root (default) or an in-workspace worktree (D-06). */
+  isolation?: WorkdirMode;
+  /** Lazily-created, reused in-workspace worktree for isolated attempts (Phase 6). */
+  worktree?: LoopWorktree;
+  /** PR-on-complete policy (opt-in); a PR opens only when a worktree loop completes (Phase 6). */
+  prPolicy?: PullRequestPolicy;
+  /** The PR opened for this loop once it completes (Phase 6). */
+  pullRequest?: PullRequestRef;
   title: string;
   goal: string;
   status: LoopStatus;
@@ -151,12 +159,46 @@ export interface LoopAttempt {
 
 // ── Attempt workdir ──────────────────────────────────────────────────────────
 
+export type WorkdirMode = 'workspace-root' | 'worktree';
+
 export interface AttemptWorkdir {
-  mode: 'workspace-root' | 'worktree';
+  mode: WorkdirMode;
   workspaceRoot: string; // absolute host path of the registered workspace
   cwd: string; // workspaceRoot or a path under .sero/worktrees/
   worktreePath?: string;
   branchName?: string;
+}
+
+/**
+ * An in-workspace git worktree owned by a loop (Phase 6, D-06). Created lazily
+ * on the first isolated attempt and reused across attempts so the loop iterates
+ * forward on one branch. The work-item id is a neutral handle mapped onto the
+ * host worktree API's card slot — Orchestrator never speaks "card".
+ */
+export interface LoopWorktree {
+  workItemId: string;
+  path: string; // absolute worktree path under .sero/worktrees/ — the attempt cwd
+  branch: string; // branch checked out in the worktree; the PR head
+}
+
+// ── Pull request (Phase 6) ───────────────────────────────────────────────────
+
+export interface PullRequestPolicy {
+  /** Open a PR automatically when the loop completes (opt-in; needs worktree isolation). */
+  openOnComplete: boolean;
+  draft?: boolean; // open as a draft PR
+  baseBranch?: string; // base branch; the host default when omitted
+}
+
+/** Mirrors host `AppRuntimePullRequestMergeState` (kept local — shared/ is dependency-free). */
+export type PullRequestState = 'open' | 'merged' | 'closed' | 'unknown';
+
+export interface PullRequestRef {
+  number: number;
+  url: string;
+  state: PullRequestState;
+  branch: string;
+  openedAt: string;
 }
 
 // ── Worker instruction ───────────────────────────────────────────────────────
@@ -274,6 +316,10 @@ export interface CreateLoopInput {
   goal: string;
   executionMode?: ExecutionMode;
   hybridPolicy?: HybridPolicy;
+  /** Run attempts in an isolated in-workspace worktree (background-worker only, D-06). */
+  isolation?: WorkdirMode;
+  /** Open a PR when the loop completes (opt-in; requires worktree isolation). */
+  prPolicy?: PullRequestPolicy;
   sessionId?: string;
   defaultCwd?: string;
   triggers?: LoopTrigger[];

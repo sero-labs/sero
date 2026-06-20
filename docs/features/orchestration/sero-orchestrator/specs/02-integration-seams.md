@@ -153,9 +153,11 @@ pushBranch / createPr / mergePr / getPrMergeState ...               // Phase 6 P
   `.sero/worktrees/card-<cardId>` with branch `<type>/<slug>-<cardId>`, and
   `list()` only matches `card-*`
   ([worktree/manager.ts](../../../../../apps/desktop/electron/features/vcs/worktree/manager.ts)).
-  Orchestrator reuses it by passing an attempt/loop id as `cardId` — it works,
-  but the naming is card-flavored. Neutralizing to a generic work-item concept
-  is Phase 6.
+  The host signature is fixed, so Phase 6 **wraps it cleanly** plugin-side in
+  `runtime/worktree.ts` (`ensureLoopWorktree`): Orchestrator maps a neutral
+  `workItemId` (the loop id) onto the `cardId` slot and never speaks "card". The
+  physical `card-<id>` dir is desktop core's concern; the coordinator only sees a
+  `LoopWorktree { workItemId, path, branch }`, created once per loop and reused.
 - **Checkpoint id** is a 12-char short SHA (or a `turn-undo:<ts>-<uuid>` internal
   snapshot from the desktop VCS path, which Orchestrator does not produce).
 

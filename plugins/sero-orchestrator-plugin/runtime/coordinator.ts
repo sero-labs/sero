@@ -281,6 +281,11 @@ export class WorkspaceCoordinator implements OrchestratorCoordinator {
   private buildLoop(input: CreateLoopInput): LoopGoal {
     const now = isoNow(this.clock);
     const executionMode = input.executionMode ?? 'background-worker';
+    // Worktree isolation is background-worker only (D-06/FR-24); a fixed
+    // active-session loop can't run in a worktree, so the option is dropped.
+    // A PR needs a worktree branch, so PR-on-complete implies isolation.
+    const wantsWorktree = input.isolation === 'worktree' || Boolean(input.prPolicy?.openOnComplete);
+    const isolation = wantsWorktree && executionMode !== 'active-session' ? 'worktree' : undefined;
     return {
       id: `loop-${randomUUID()}`,
       workspaceId: this.ctx.workspaceId,
@@ -291,6 +296,8 @@ export class WorkspaceCoordinator implements OrchestratorCoordinator {
         executionMode === 'hybrid'
           ? input.hybridPolicy ?? 'prefer-background-worker'
           : input.hybridPolicy,
+      isolation,
+      prPolicy: isolation && input.prPolicy?.openOnComplete ? input.prPolicy : undefined,
       title: input.title.trim(),
       goal: input.goal.trim(),
       status: 'active',

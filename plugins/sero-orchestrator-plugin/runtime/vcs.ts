@@ -129,7 +129,11 @@ function shellQuote(path: string): string {
   return `'${path.replace(/'/g, `'\\''`)}'`;
 }
 
-export type DirtyRootChoice = 'auto-save' | 'defer';
+// 'isolate' reroutes the attempt to a fresh worktree, leaving the user's dirty
+// work untouched at the root (background-worker only, D-06/D-07). The default
+// gate never returns it (it times out to auto-save); a real UI offers it only
+// when the resolved adapter can isolate.
+export type DirtyRootChoice = 'auto-save' | 'defer' | 'isolate';
 
 export interface DirtyRootPrompt {
   loopId: string;

@@ -20,6 +20,7 @@ import { cumulativeBudgetExhausted } from './budget';
 import { isoNow, type Clock } from './clock';
 import { LoopLocks, Semaphore } from './locks';
 import { runAttempt, type AttemptReport } from './attempt-runner';
+import { openPullRequestForLoop } from './pr';
 import type { StateStore } from './state-store';
 import {
   blockReasonText,
@@ -187,7 +188,54 @@ export class AttemptEngine {
     if (removedIds.length && updated && !updated.logPolicy.retainArtifacts) {
       await deleteAttemptArtifacts(this.deps.stateFilePath, removedIds);
     }
-    return { ok: true, loop: updated ?? undefined, message: outcomeMessage(updated, report) };
+
+    // A completed worktree loop that opted in opens a PR (FR-21). This runs after
+    // the status write (a separate, coordinator-owned write — single executor
+    // holds) so the PR side effect never sits inside the transition mutation.
+    let finalLoop = updated;
+    let prNote: string | undefined;
+    if (updated?.status === 'complete') {
+      const pr = await this.maybeOpenPr(loopId, updated);
+      finalLoop = pr.loop ?? finalLoop;
+      prNote = pr.note;
+    }
+    const message = [outcomeMessage(finalLoop, report), prNote].filter(Boolean).join(' ');
+    return { ok: true, loop: finalLoop ?? undefined, message };
+  }
+
+  /**
+   * Open a PR for a just-completed loop when it opted in and ran in a worktree
+   * (FR-21). Opt-in open only — merging stays a manual user action. Records the
+   * PR ref on the loop and notifies; a failure notifies but never blocks the
+   * completion.
+   */
+  private async maybeOpenPr(
+    loopId: string,
+    loop: LoopGoal,
+  ): Promise<{ loop?: LoopGoal | null; note?: string }> {
+    if (!loop.prPolicy?.openOnComplete || !loop.worktree || loop.pullRequest) return {};
+    const outcome = await openPullRequestForLoop(
+      { host: this.deps.host, clock: this.deps.clock },
+      loop,
+    );
+    if (!outcome.ok) {
+      this.deps.host.notifications.notify({
+        type: 'warning',
+        source: 'orchestrator',
+        message: `Could not open a PR for "${loop.title}": ${outcome.reason}.`,
+      });
+      return { note: `PR not opened (${outcome.reason}).` };
+    }
+    const updated = await this.deps.store.updateLoop(loopId, (current) => {
+      current.pullRequest = outcome.ref;
+      current.updatedAt = isoNow(this.deps.clock);
+    });
+    this.deps.host.notifications.notify({
+      type: 'info',
+      source: 'orchestrator',
+      message: `Opened PR #${outcome.ref.number} for "${loop.title}".`,
+    });
+    return { loop: updated, note: `Opened PR #${outcome.ref.number}.` };
   }
 
   private async block(loopId: string, reason: BlockedReason): Promise<LoopGoal | null> {

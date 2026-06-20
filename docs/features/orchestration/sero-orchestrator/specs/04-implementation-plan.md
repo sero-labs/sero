@@ -21,7 +21,7 @@ material progress in the loop ledger too.
 | 3 | Background-worker execution | ✅ Done | Worker → checks → checkpoint → retry loop runs green |
 | 4 | Active-session execution | ✅ Done | Idle-gated steer + turn observation + retry |
 | 5 | Scheduling and events | ✅ Done | Manual/cron/event/hybrid triggers mark loops due |
-| 6 | Isolation and PR workflow | ⬜ Not started | Worktree isolation + branch/PR + restore |
+| 6 | Isolation and PR workflow | ✅ Done | Worktree isolation + branch/PR + isolate gate |
 | 7 | Reusable task system | ⬜ Deferred | Only if a second surface needs durable tasks |
 
 Status legend: ✅ Done · 🟡 In progress · ⬜ Not started · ⛔ Blocked · 🟦 Deferred.
@@ -52,12 +52,12 @@ phase. (D-NN refer to decisions in [00-architecture.md](00-architecture.md).)
 | FR-17 | Hybrid routing per attempt | 4 | D-09 | ✅ |
 | FR-18 | Manual/cron/event/hybrid triggers mark loops due | 5 | D-02 | ✅ |
 | FR-19 | Catch-up-on-open for closed-workspace cron loops | 2.5/5 | D-04 | ✅ |
-| FR-20 | Worktree isolation (in-workspace) | 6 | D-06 | ⬜ |
-| FR-21 | Branch naming + PR creation | 6 | — | ⬜ |
+| FR-20 | Worktree isolation (in-workspace) | 6 | D-06 | ✅ |
+| FR-21 | Branch naming + PR creation | 6 | — | ✅ |
 | FR-22 | Recursion guardrails on workers (coordinator-side rejection) | 3 | D-16 | ✅ |
 | FR-24 | Active-session attempts restricted to workspace-root | 4 | D-06 | ✅ |
 | FR-25 | Turn-completion emitter (onTurnComplete correlated by turnId) | 1.5 | D-05 | ✅ |
-| FR-26 | Dirty-root start gate: auto-save / isolate / defer, auto-save on timeout | 2/6 | D-07 | 🟡 |
+| FR-26 | Dirty-root start gate: auto-save / isolate / defer, auto-save on timeout | 2/6 | D-07 | ✅ |
 | FR-27 | Per-loop run budgets: wall-clock, tokens/cost, changed-files, command-runtime | 2/3 | D-17 | ✅ |
 
 All five budgets are enforced. The subagent host now reports per-run USD on
@@ -607,7 +607,7 @@ patterns behind an adapter (never cron's transient session runner).
 
 ---
 
-## Phase 6 — Isolation and PR workflow
+## Phase 6 — Isolation and PR workflow ✅
 
 **Goal.** Worktree isolation, branch naming, PR creation, richer checks, and any
 cross-plugin coordination via events.
@@ -615,22 +615,86 @@ cross-plugin coordination via events.
 **Depends on:** Phase 3.
 
 **Tasks**
-- [ ] Resolve attempt workdir to an in-workspace worktree via `host.git.createWorktree`.
-- [ ] Neutralize card-specific worktree naming to a generic work-item concept, or
+- [x] Resolve attempt workdir to an in-workspace worktree via `host.git.createWorktree`.
+- [x] Neutralize card-specific worktree naming to a generic work-item concept, or
   wrap it cleanly ([02 §VCS](02-integration-seams.md#vcs-checkpoints-worktrees)).
-- [ ] Branch naming + `host.git.createPr`/`mergePr`/`getPrMergeState` for PR flow.
+- [x] Branch naming + `host.git.createPr`/`mergePr`/`getPrMergeState` for PR flow.
 - [ ] Optional dedicated `host.git.restoreCheckpoint` if git-reset proves insufficient (D-07).
+  *(Deferred — `git reset --hard <baseRef>` + path-scoped clean is sufficient; no need surfaced.)*
 - [ ] Optional filtered `sero-cli` surface that hides `orchestrator.*` from worker
-  sessions — defense-in-depth on top of coordinator rejection (D-16).
-- [ ] Add the "isolate" choice to the dirty-root start gate — reroute the attempt
+  sessions — defense-in-depth on top of coordinator rejection (D-16). *(Deferred —
+  the coordinator's enforced recursion rejection already covers this.)*
+- [x] Add the "isolate" choice to the dirty-root start gate — reroute the attempt
   to a fresh worktree (completes FR-26, D-07).
-- [ ] Add eval/promptfoo command-backed check type.
+- [ ] Add eval/promptfoo command-backed check type. *(Deferred — independent of
+  isolation/PR; can layer onto the existing `command` check type later.)*
 
 **Acceptance**
-- [ ] A loop runs entirely inside `.sero/worktrees/...` with checks, diffs, and
+- [x] A loop runs entirely inside `.sero/worktrees/...` with checks, diffs, and
   checkpoints all targeting the worktree cwd.
-- [ ] A completed loop can open a PR with a generated title/body.
-- [ ] FR-20, FR-21 satisfied.
+- [x] A completed loop can open a PR with a generated title/body.
+- [x] FR-20, FR-21 satisfied.
+
+**Implementation notes (Phase 6 as built)**
+- **No desktop-core changes — Phase 6 is fully plugin-side.** Every host seam it
+  needs already exists and is implemented in
+  [create-host.ts](../../../../../apps/desktop/electron/features/apps/runtime/capabilities/create-host.ts)
+  (`createWorktree` / `removeWorktree` / `pushBranch` / `createPr` / `mergePr` /
+  `getPrMergeState`). Unlike the Phase 3 `maxCostUsd` follow-up, nothing crossed
+  the `host.*` boundary this phase.
+- **Worktree resolution is a workdir change, not a re-plumb.** The Phase 2 seam
+  held again: `attempt-runner.ts` previously hard-coded a workspace-root workdir;
+  Phase 6 generalizes only that one spot into `resolveWorkdir`, which returns the
+  canonical cwd (workspace root **or** an in-workspace worktree) plus the
+  baseRef. The worktree cwd is canonical end to end — the worker, checks, diff,
+  VCS, and artifacts all target it (verified: every `runCommand`/`runStructured`
+  cwd in the worktree test equals the worktree path, never the root).
+- **Neutral work-item wrapper (`runtime/worktree.ts`).** The host worktree API is
+  card-flavored (`createWorktree(workspacePath, cardId, cardTitle)` → `card-<id>`
+  dir, `<type>/<slug>-<id>` branch) and the signature is fixed in desktop core.
+  Rather than touch desktop core, Orchestrator wraps it: `ensureLoopWorktree`
+  maps a neutral `workItemId` (the loop id) onto the card slot, so no
+  card-specific concept leaks into the coordinator. The worktree is created once
+  per loop and **reused across attempts** (recorded on `loop.worktree`), so the
+  loop iterates forward on one branch.
+- **Isolation is background-worker only (D-06).** A loop opts in with
+  `isolation: 'worktree'` (or `--isolate` / `--pr`). `MapAdapterRegistry.resolve`
+  passes `useWorktree` to `routeHybrid`, so a hybrid loop with isolation always
+  forces the background worker even with an idle session; a fixed active-session
+  loop has the option dropped at create (FR-24). Once a loop isolates (configured
+  or via the gate) it is isolation-locked for the rest of its life.
+- **The "isolate" dirty-root choice (completes FR-26).** `DirtyRootChoice` gained
+  `'isolate'`. On a dirty root the gate can now reroute the attempt to a fresh
+  worktree, leaving the user's uncommitted work untouched at the root (no
+  auto-save commit). It is honoured only for the background worker; any other
+  adapter degrades to auto-save. The decision is recorded as
+  `dirtyRootDecision: 'isolated'`.
+- **PR flow — opt-in open, never auto-merge (decided with the product owner).** A
+  completed worktree loop that set `prPolicy.openOnComplete` pushes its branch and
+  opens a PR (`runtime/pr.ts`) with a **deterministic** title/body generated from
+  the loop's known facts (goal, branch, attempt count, passed checks, changed
+  files) — no extra LLM round-trip. The PR open runs after the status write (a
+  separate coordinator-owned write — single-executor holds), records
+  `loop.pullRequest`, and notifies. `getPrMergeState` / `mergePr` are wired as
+  helpers for status display and a manual merge; **nothing merges automatically**.
+- **Worktree removal is available but not auto-wired.** `removeLoopWorktree` keeps
+  the branch by default; Phase 6 does not auto-remove on stop/complete to avoid
+  discarding uncommitted worktree work — a deliberate cautious default.
+- **Deferred with the product owner:** the non-session event sources
+  (`vcs`/`check`/`workspace`) stay logged as not-yet-wired — they would need new
+  desktop-core seams (`host.git.onCommit` / `host.verification.onCheck` /
+  `host.workspace.onChange`) and nothing in scope needs them yet, so they remain a
+  separate `host.*` follow-up. The optional filtered `sero-cli` surface and the
+  eval check type are likewise deferred (the recursion guard already covers the
+  former; the latter is independent of isolation/PR).
+- Validation: full-monorepo `pnpm typecheck` (18 tasks) green; orchestrator unit
+  suites **96 tests** green (9 new in `coordinator-worktree.test.ts`: worktree
+  workdir resolution + cwd-targeting + reuse-across-attempts, the dirty-root
+  isolate reroute + active-session fallback, the PR flow with a generated
+  title/body, merge-state/merge helpers, and isolation routing both directions).
+  The harness gained worktree/PR host fakes (`harness-git.ts`) and cwd capture; no
+  desktop-core files changed. Not live-clicked (the worktree/PR path needs a real
+  git remote; the unit suite drives the full plugin flow against host fakes).
 
 ---
 

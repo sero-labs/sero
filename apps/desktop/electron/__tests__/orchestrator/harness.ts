@@ -10,8 +10,11 @@ import { dirname, join } from 'node:path';
 
 import type {
   ActiveSession,
+  AppRuntimeCreatePullRequestResult,
   AppRuntimeHost,
+  AppRuntimeMergePullRequestResult,
   AppRuntimeNotificationOptions,
+  AppRuntimePullRequestMergeState,
   AppRuntimeSessionHost,
   AppRuntimeSubagentRunParams,
   AppRuntimeSubagentResult,
@@ -21,6 +24,8 @@ import type {
   TurnCompletion,
   TurnCompletionStatus,
 } from '@sero-ai/common';
+
+import { type GitControl, makeGitControl, makeWorktreePrGit } from './harness-git';
 
 import {
   WorkspaceCoordinator,
@@ -170,6 +175,14 @@ export interface HarnessOptions {
   runWorker?: WorkerScript;
   /** Configures `host.session` for active-session / hybrid tests (Phase 4). */
   session?: SessionOptions;
+  /** `host.git.pushBranch` result for PR tests (Phase 6); defaults to success. */
+  pushBranch?: boolean;
+  /** `host.git.createPr` result for PR tests (Phase 6); defaults to a success ref. */
+  createPrResult?: AppRuntimeCreatePullRequestResult;
+  /** `host.git.mergePr` result for PR tests (Phase 6); defaults to merged. */
+  mergePrResult?: AppRuntimeMergePullRequestResult;
+  /** `host.git.getPrMergeState` result for PR tests (Phase 6); defaults to 'open'. */
+  prMergeState?: AppRuntimePullRequestMergeState;
 }
 
 /** Drives a session turn completion for event-router tests (Phase 5). */
@@ -184,12 +197,20 @@ export interface Harness {
   coordinator: WorkspaceCoordinator;
   host: AppRuntimeHost;
   stateFilePath: string;
+  /** Absolute workspace root (worktrees resolve under `<workspacePath>/.sero/worktrees`). */
+  workspacePath: string;
   artifactRoot: string;
   notifications: AppRuntimeNotificationOptions[];
   /** Controllable cron alarm timer (Phase 5); inspect/fire after `armSchedule()`. */
   timer: FakeAlarmTimer;
   /** Emit session turn completions for event-trigger tests (Phase 5). */
   session: SessionControl;
+  /** Worktree/PR host-call recorder for the Phase 6 isolation + PR flow. */
+  git: GitControl;
+  /** Every cwd passed to `host.workspace.runCommand` — proves checks/diff target the worktree. */
+  commandCwds: string[];
+  /** Every cwd passed to `host.subagents.runStructured` — proves the worker runs at the worktree. */
+  subagentCwds: string[];
   /** Stateful git the real adapter reads/writes; inspect after a run. */
   world: FakeGitWorld;
   readState(): Promise<OrchestratorState>;
@@ -205,12 +226,16 @@ interface FakeState {
   notifications: AppRuntimeNotificationOptions[];
   world: FakeGitWorld;
   session: SessionControl;
+  git: GitControl;
+  commandCwds: string[];
+  subagentCwds: string[];
 }
 
 function makeHost(opts: HarnessOptions, fake: FakeState, session: AppRuntimeSessionHost): AppRuntimeHost {
   const verify = opts.verify ?? okVerify;
   const checkpoint = opts.checkpoint === undefined ? 'SAVED111' : opts.checkpoint;
   const world = fake.world;
+  const git = fake.git;
 
   const host = {
     appState: {
@@ -228,6 +253,7 @@ function makeHost(opts: HarnessOptions, fake: FakeState, session: AppRuntimeSess
     },
     subagents: {
       async runStructured(params: AppRuntimeSubagentRunParams): Promise<AppRuntimeSubagentResult> {
+        if (params.cwd) fake.subagentCwds.push(params.cwd);
         if (!opts.runWorker) return { response: '' };
         const result = await opts.runWorker(params, world);
         if (result.changedFiles) world.changed = [...result.changedFiles];
@@ -254,6 +280,7 @@ function makeHost(opts: HarnessOptions, fake: FakeState, session: AppRuntimeSess
     },
     workspace: {
       async runCommand(_workspaceId: string, _cwd: string, command: string) {
+        fake.commandCwds.push(_cwd);
         if (command === 'git rev-parse HEAD') {
           return { stdout: `${world.head}\n`, stderr: '', exitCode: 0 };
         }
@@ -288,6 +315,8 @@ function makeHost(opts: HarnessOptions, fake: FakeState, session: AppRuntimeSess
       async getDiffSummary(_cwd: string) {
         return world.diff;
       },
+      // Phase 6: worktree isolation + PR flow (split into harness-git.ts).
+      ...makeWorktreePrGit(opts, git),
     },
     notifications: {
       notify(options: AppRuntimeNotificationOptions) {
@@ -383,6 +412,9 @@ export function createHarness(opts: HarnessOptions = {}): Harness {
     notifications: [],
     world,
     session: session.control,
+    git: makeGitControl(dir),
+    commandCwds: [],
+    subagentCwds: [],
   };
   const host = makeHost(opts, fake, session.host);
   const timer = makeFakeTimer();
@@ -418,10 +450,14 @@ export function createHarness(opts: HarnessOptions = {}): Harness {
     coordinator,
     host,
     stateFilePath,
+    workspacePath: dir,
     artifactRoot,
     notifications: fake.notifications,
     timer,
     session: fake.session,
+    git: fake.git,
+    commandCwds: fake.commandCwds,
+    subagentCwds: fake.subagentCwds,
     world: fake.world,
     readState,
     async loop(id) {
