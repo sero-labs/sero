@@ -51,8 +51,12 @@ Phase 0 (this spec) is reviewed; the open product decisions are **confirmed**:
 - **Unsaved edits:** a dirty-root start gate offers auto-save / isolate / defer,
   auto-saving if you don't respond (D-07).
 
-Phase 1 (plugin shell, state, control-plane tools/command, and UI) is built and
-statically validated — see `plugins/sero-orchestrator-plugin/`. See the
+Phases 1 (plugin shell, state, control-plane tools/command, and UI), 1.5
+(active-session host seam), and 2 (durable coordinator core — state machine,
+locks, stop rules, budgets, baseRef + dirty-root gate, artifacts) are built and
+statically validated — see `plugins/sero-orchestrator-plugin/`. Execution
+adapters (Phase 3 background-worker, Phase 4 active-session) plug into the Phase
+2 core; until then `run_next` reports a truthful "not yet". See the
 [progress dashboard](04-implementation-plan.md#progress-dashboard) for the live
 record.
 

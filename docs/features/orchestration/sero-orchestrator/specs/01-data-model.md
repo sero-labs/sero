@@ -34,6 +34,8 @@ interface LoopGoal {
   title: string;
   goal: string;
   status: "draft" | "active" | "paused" | "blocked" | "complete" | "stopped";
+  statusReason?: string;         // plain-English blocker/stop reason for the UI
+  blockedReason?: BlockedReason; // machine-readable block reason; governs recovery
   triggers: LoopTrigger[];
   checks: LoopCheck[];
   stopRule: StopRule;
@@ -44,7 +46,19 @@ interface LoopGoal {
   createdAt: string;
   updatedAt: string;
 }
+
+type BlockedReason =
+  | "no-progress"            // overridable once via run_next --override-no-progress
+  | "budget-exhausted"      // clears only when the limit is raised + resumed
+  | "changed-files-exceeded"// clears only when the limit is raised + resumed
+  | "unsafe";
 ```
+
+`statusReason` is the human-facing string; `blockedReason` is the structured
+discriminator the coordinator branches on when deciding whether `run_next` may
+override a block (no-progress) or whether the user must raise a limit first
+(budget / changed-files) — see [00 §D-13](00-architecture.md#d-13-stop-rules) /
+[D-17](00-architecture.md#d-17-run-budgets).
 
 `defaultCwd` only seeds a new attempt's workdir resolution. Once an attempt
 starts, `LoopAttempt.workdir.cwd` is the single source of truth (D-06).
@@ -124,6 +138,8 @@ interface LoopAttempt {
   workerInstruction?: WorkerInstruction;  // redacted; full prompt for replay
   workerResponsePath?: string;   // artifact: raw worker text (D-08/D-14)
   changedFiles: string[];
+  diffFingerprint?: string;      // hash of the diff; proxy for "equivalent diff" in no-progress (D-13)
+  noProgressOverride?: boolean;  // this attempt ran past a no-progress block via an explicit override (D-13)
   checkResults: CheckResult[];
   learned?: string;              // summary distilled into next-attempt context
   nextAction?: string;

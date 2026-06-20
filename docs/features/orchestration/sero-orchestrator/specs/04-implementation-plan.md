@@ -16,7 +16,7 @@ material progress in the loop ledger too.
 | 0 | Full architecture spec | ✅ Done | This spec reviewed + decisions accepted |
 | 1 | Plugin shell, state, UI | ✅ Done | Loops created/listed/shown; state persists; UI renders |
 | 1.5 | Session seam spike | ✅ Done | Coordinator safely sends a diagnostic follow-up |
-| 2 | Durable coordinator core | ⬜ Not started | Single executor + locks + stop rules + artifacts |
+| 2 | Durable coordinator core | ✅ Done | Single executor + locks + stop rules + artifacts |
 | 2.5 | Scheduling lifecycle (catch-up-on-open) | ⬜ Not started | Missed cron fires recomputed on workspace open |
 | 3 | Background-worker execution | ⬜ Not started | Worker → checks → checkpoint → retry loop runs green |
 | 4 | Active-session execution | ⬜ Not started | Idle-gated steer + turn observation + retry |
@@ -35,17 +35,17 @@ phase. (D-NN refer to decisions in [00-architecture.md](00-architecture.md).)
 | --- | --- | --- | --- | --- |
 | FR-01 | Workspace-scoped plugin with persisted loop state | 1 | D-03 | ✅ |
 | FR-02 | Create/list/show/pause/resume/stop/run_next via tools + UI | 1 | D-01 | ✅ |
-| FR-03 | Single-executor coordinator; tools/UI only request | 2 | D-01 | ⬜ |
-| FR-04 | Per-loop execution lock; attempts never overlap in a loop | 2 | D-11 | ⬜ |
-| FR-05 | Canonical attempt cwd used by worker/checks/VCS/artifacts | 2/3 | D-06 | ⬜ |
-| FR-06 | Normalized `CheckResult` across verification/command/review | 2/3 | D-12 | ⬜ |
-| FR-07 | Stop rule: success / maxAttempts / no-progress / pause / unsafe | 2 | D-13 | ⬜ |
-| FR-08 | Bounded state + artifact retention | 2 | D-14 | ⬜ |
+| FR-03 | Single-executor coordinator; tools/UI only request | 2 | D-01 | ✅ |
+| FR-04 | Per-loop execution lock; attempts never overlap in a loop | 2 | D-11 | ✅ |
+| FR-05 | Canonical attempt cwd used by worker/checks/VCS/artifacts | 2/3 | D-06 | 🟡 |
+| FR-06 | Normalized `CheckResult` across verification/command/review | 2/3 | D-12 | ✅ |
+| FR-07 | Stop rule: success / maxAttempts / no-progress / pause / unsafe | 2 | D-13 | ✅ |
+| FR-08 | Bounded state + artifact retention | 2 | D-14 | ✅ |
 | FR-09 | Generated `WorkerInstruction` per attempt | 3 | D-08 | ⬜ |
 | FR-10 | Coordinator-side output-schema parse/validate | 3 | D-08 | ⬜ |
 | FR-11 | Subagent run with attempt cwd + parentSessionId + tool policy | 3 | D-10/D-15 | ⬜ |
 | FR-12 | Live output streamed to UI | 3 | — | ⬜ |
-| FR-13 | Pre-attempt `baseRef` baseline; restore via git reset; dirty-root safe | 2/3 | D-07 | ⬜ |
+| FR-13 | Pre-attempt `baseRef` baseline; restore via git reset; dirty-root safe | 2/3 | D-07 | 🟡 |
 | FR-14 | New `host.session` seam: find/state/two send methods/onTurnComplete | 1.5/4 | D-05 | 🟡 |
 | FR-15 | Idle + no-pending gating before any send | 4 | D-05 | ⬜ |
 | FR-16 | Active-session steer + turn observation + retry | 4 | — | ⬜ |
@@ -57,8 +57,8 @@ phase. (D-NN refer to decisions in [00-architecture.md](00-architecture.md).)
 | FR-22 | Recursion guardrails on workers (coordinator-side rejection) | 3 | D-16 | ⬜ |
 | FR-24 | Active-session attempts restricted to workspace-root | 4 | D-06 | ⬜ |
 | FR-25 | Turn-completion emitter (onTurnComplete correlated by turnId) | 1.5 | D-05 | ✅ |
-| FR-26 | Dirty-root start gate: auto-save / isolate / defer, auto-save on timeout | 2/6 | D-07 | ⬜ |
-| FR-27 | Per-loop run budgets: wall-clock, tokens/cost, changed-files, command-runtime | 2/3 | D-17 | ⬜ |
+| FR-26 | Dirty-root start gate: auto-save / isolate / defer, auto-save on timeout | 2/6 | D-07 | 🟡 |
+| FR-27 | Per-loop run budgets: wall-clock, tokens/cost, changed-files, command-runtime | 2/3 | D-17 | 🟡 |
 
 ---
 
@@ -198,42 +198,79 @@ independent of which adapter runs.
 **Depends on:** Phase 1.
 
 **Tasks**
-- [ ] Implement the state machine and transitions from [03](03-execution-and-scheduling.md#coordinator-state-machine).
-- [ ] Implement the in-process per-loop execution lock + workspace semaphore (D-11).
-- [ ] Implement `checks.ts` normalizing verification/command results to `CheckResult`.
-- [ ] Implement stop-rule evaluation incl. no-progress detection (D-13).
-- [ ] Implement `artifacts.ts` for output beyond `maxInlineOutputBytes` and
+- [x] Implement the state machine and transitions from [03](03-execution-and-scheduling.md#coordinator-state-machine).
+- [x] Implement the in-process per-loop execution lock + workspace semaphore (D-11).
+- [x] Implement `checks.ts` normalizing verification/command results to `CheckResult`.
+- [x] Implement stop-rule evaluation incl. no-progress detection (D-13).
+- [x] Implement `artifacts.ts` for output beyond `maxInlineOutputBytes` and
   attempt retention pruning (D-14).
-- [ ] Capture the pre-attempt baseline `baseRef` on attempt start. Implement the
+- [x] Capture the pre-attempt baseline `baseRef` on attempt start. Implement the
   dirty-root start gate (D-07): notify + confirm with auto-save / defer (isolate
   added in Phase 6), defaulting to auto-save when unanswered; record the decision.
-- [ ] Enforce `RunBudget` (D-17): per-attempt hard timeout; `maxChangedFiles` →
+- [x] Enforce `RunBudget` (D-17): per-attempt hard timeout; `maxChangedFiles` →
   block the loop for review with changes kept (`changed-files-exceeded`);
   per-command `maxCommandRuntimeMs`; cumulative wall-clock → `blocked:
   budget-exhausted`. Both budget blocks recover by raising the limit. Token/cost
   accumulation wires in with worker usage (Phase 3).
-- [ ] Wire `requestAction` to drive all transitions; reject execution from
+- [x] Wire `requestAction` to drive all transitions; reject execution from
   non-coordinator sources.
 
 **Acceptance**
-- [ ] Two concurrent `run_next` calls on one loop → exactly one attempt advances;
+- [x] Two concurrent `run_next` calls on one loop → exactly one attempt advances;
   the other is rejected/queued.
-- [ ] A loop reaching `maxAttempts` transitions to `stopped`; no-progress over
+- [x] A loop reaching `maxAttempts` transitions to `stopped`; no-progress over
   threshold transitions to `blocked`.
-- [ ] `CheckResult` shape is identical regardless of backend.
-- [ ] Large command output is stored as an artifact and referenced by path; state
+- [x] `CheckResult` shape is identical regardless of backend.
+- [x] Large command output is stored as an artifact and referenced by path; state
   file stays within retention bounds.
-- [ ] Every attempt records a `baseRef`; a dirty workspace root is preserved as a
+- [x] Every attempt records a `baseRef`; a dirty workspace root is preserved as a
   baseline commit before any mutation.
-- [ ] On a dirty root the start gate appears; choosing defer stops the attempt; no
+- [x] On a dirty root the start gate appears; choosing defer stops the attempt; no
   response within the window auto-saves and proceeds; the decision is recorded.
-- [ ] A loop exceeding its wall-clock budget transitions to `blocked:
+- [x] A loop exceeding its wall-clock budget transitions to `blocked:
   budget-exhausted` and resumes only after the budget is raised; an attempt
   exceeding `maxChangedFiles` blocks the loop for review with its changes left in
   place (`changed-files-exceeded`).
-- [ ] FR-03, FR-04, FR-06, FR-07, FR-08 satisfied; FR-05 enforced where attempts
+- [x] FR-03, FR-04, FR-06, FR-07, FR-08 satisfied; FR-05 enforced where attempts
   exist; FR-13 (baseline capture) partial; FR-26 (gate minus isolate) partial;
   FR-27 (wall-clock/changed-files/command-runtime) partial.
+
+**Implementation notes (Phase 2 as built)**
+- The coordinator core is split into focused `runtime/` modules under 500 LOC
+  each, with one clean seam between *coordinator core* and *execution adapter*:
+  `adapter.ts` (`AttemptAdapter` / `AttemptExecutionResult`). The core owns the
+  whole attempt lifecycle; an adapter performs only the change and reports what
+  changed at the attempt cwd (D-06). Phase 3 (background-worker) and Phase 4
+  (active-session) register real adapters — until then the registry is empty and
+  `run_next` returns the truthful "not yet" without touching the lock.
+- Modules: `engine.ts` (lock-first `run_next`, transitions, cancellation),
+  `attempt-runner.ts` (one attempt's lifecycle), `checks.ts`, `stop-rules.ts`,
+  `budget.ts`, `vcs.ts` (baseRef + dirty-root gate), `artifacts.ts`, `locks.ts`,
+  `state-store.ts`, `clock.ts`, plus `diagnostics.ts` (the Phase 1.5 spike,
+  extracted from the coordinator). The coordinator is now a thin dispatcher that
+  composes these and delegates `run_next` to the engine.
+- **Single executor / single writer.** All transition logic (stop rules,
+  no-progress, budgets) runs as pure functions *inside one `host.appState`
+  mutator* in `engine.finalize`, so a loop's status and its finalized attempt are
+  written atomically against a fresh snapshot. The per-loop lock is acquired
+  synchronously before the first `await`, so two concurrent `run_next` calls
+  cannot both start an attempt (verified by test).
+- **Three small, spec-aligned model additions** (`shared/types.ts`,
+  [01](01-data-model.md)): `LoopGoal.blockedReason` (structured block
+  discriminator governing recovery), `LoopAttempt.diffFingerprint` (no-progress
+  proxy), `LoopAttempt.noProgressOverride` (records a one-shot override).
+- **Seams left injectable for later phases:** the dirty-root decision is a
+  `DirtyRootGate` (default = notify + auto-save-on-timeout; a real UI round-trip
+  arrives with the response channel); the clock is injectable for deterministic
+  budget tests. Token/cost budget accumulation is wired but reads 0 until worker
+  usage lands (Phase 3); the per-attempt timeout, `maxChangedFiles`, and
+  `maxCommandRuntimeMs` are fully enforced now.
+- Validation: full-monorepo `pnpm typecheck` (18 tasks) green; new suites
+  `orchestrator/coordinator-core.test.ts` and `coordinator-vcs.test.ts` (20
+  tests) plus the existing `session-seam.test.ts` (6) green. End-to-end
+  click-through in a running workspace remains the standing manual gap (same as
+  Phases 1 / 1.5) — no adapter executes yet, so there is nothing new to click
+  until Phase 3.
 
 ---
 
