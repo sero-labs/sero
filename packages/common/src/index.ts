@@ -101,6 +101,14 @@ export type {
   ExtensionSessionRuntime,
 } from './session-runtime';
 
+export type {
+  ActiveSession,
+  SessionState,
+  TurnCompletion,
+  TurnCompletionStatus,
+  AppRuntimeSessionHost,
+} from './session-host';
+
 export {
   THINKING_LEVELS,
   THINKING_LABELS,

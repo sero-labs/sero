@@ -77,6 +77,7 @@ export const HELP = [
   '  sero orchestrator resume <id>',
   '  sero orchestrator stop <id>',
   '  sero orchestrator run-next <id> [--override-no-progress]',
+  '  sero orchestrator diagnose-session',
 ].join('\n');
 
 // ── Coordinator resolution ──────────────────────────────────────────────────
@@ -162,6 +163,9 @@ export function actionFromCli(argv: string[]): ActionOrError {
         loopId: id,
         overrideNoProgress: flags.has('override-no-progress'),
       };
+    case 'diagnose-session':
+    case 'diagnose_session':
+      return { kind: 'diagnose_session' };
     case 'help':
       return { error: HELP };
     default:

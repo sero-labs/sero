@@ -68,7 +68,8 @@ function sendEvent(event: AgentStreamEvent): void {
 async function closePoolEntry(sessionId: string): Promise<void> {
   const entry = pool.get(sessionId);
   if (!entry) return;
-  noteCliTurnEnd(sessionId);
+  // Session is being torn down — any in-flight turn ends as aborted.
+  noteCliTurnEnd(sessionId, 'aborted');
 
   // Fire session_shutdown so extensions (e.g. memory) can export transcripts
   // and run cleanup. The SDK's dispose() does NOT fire this event.

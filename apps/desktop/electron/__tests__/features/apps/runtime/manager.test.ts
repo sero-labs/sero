@@ -126,6 +126,13 @@ function createHostStub(
     notifications: {
       notify: vi.fn(),
     },
+    session: {
+      getActiveForWorkspace: vi.fn(async () => null),
+      getState: vi.fn(async () => ({ idle: true, pendingMessages: 0, activeTurnId: null })),
+      sendUserSteer: vi.fn(async () => ({ turnId: 'turn-test' })),
+      sendContextMessage: vi.fn(async () => ({ turnId: null })),
+      onTurnComplete: vi.fn(() => () => {}),
+    },
   };
 }
 

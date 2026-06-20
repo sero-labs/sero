@@ -15,7 +15,7 @@ material progress in the loop ledger too.
 | --- | --- | --- | --- |
 | 0 | Full architecture spec | ✅ Done | This spec reviewed + decisions accepted |
 | 1 | Plugin shell, state, UI | ✅ Done | Loops created/listed/shown; state persists; UI renders |
-| 1.5 | Session seam spike | ⬜ Not started | Coordinator safely sends a diagnostic follow-up |
+| 1.5 | Session seam spike | ✅ Done | Coordinator safely sends a diagnostic follow-up |
 | 2 | Durable coordinator core | ⬜ Not started | Single executor + locks + stop rules + artifacts |
 | 2.5 | Scheduling lifecycle (catch-up-on-open) | ⬜ Not started | Missed cron fires recomputed on workspace open |
 | 3 | Background-worker execution | ⬜ Not started | Worker → checks → checkpoint → retry loop runs green |
@@ -46,7 +46,7 @@ phase. (D-NN refer to decisions in [00-architecture.md](00-architecture.md).)
 | FR-11 | Subagent run with attempt cwd + parentSessionId + tool policy | 3 | D-10/D-15 | ⬜ |
 | FR-12 | Live output streamed to UI | 3 | — | ⬜ |
 | FR-13 | Pre-attempt `baseRef` baseline; restore via git reset; dirty-root safe | 2/3 | D-07 | ⬜ |
-| FR-14 | New `host.session` seam: find/state/two send methods/onTurnComplete | 1.5/4 | D-05 | ⬜ |
+| FR-14 | New `host.session` seam: find/state/two send methods/onTurnComplete | 1.5/4 | D-05 | 🟡 |
 | FR-15 | Idle + no-pending gating before any send | 4 | D-05 | ⬜ |
 | FR-16 | Active-session steer + turn observation + retry | 4 | — | ⬜ |
 | FR-17 | Hybrid routing per attempt | 4 | D-09 | ⬜ |
@@ -56,7 +56,7 @@ phase. (D-NN refer to decisions in [00-architecture.md](00-architecture.md).)
 | FR-21 | Branch naming + PR creation | 6 | — | ⬜ |
 | FR-22 | Recursion guardrails on workers (coordinator-side rejection) | 3 | D-16 | ⬜ |
 | FR-24 | Active-session attempts restricted to workspace-root | 4 | D-06 | ⬜ |
-| FR-25 | Turn-completion emitter (onTurnComplete correlated by turnId) | 1.5 | D-05 | ⬜ |
+| FR-25 | Turn-completion emitter (onTurnComplete correlated by turnId) | 1.5 | D-05 | ✅ |
 | FR-26 | Dirty-root start gate: auto-save / isolate / defer, auto-save on timeout | 2/6 | D-07 | ⬜ |
 | FR-27 | Per-loop run budgets: wall-clock, tokens/cost, changed-files, command-runtime | 2/3 | D-17 | ⬜ |
 
@@ -139,24 +139,53 @@ slice of the active-session host seam.
 **Depends on:** Phase 1.
 
 **Tasks**
-- [ ] Add `host.session.getActiveForWorkspace` and `getState`
+- [x] Add `host.session.getActiveForWorkspace` and `getState`
   (`{ idle, pendingMessages, activeTurnId }`) wrapping `getCliSessionBridge()`
   ([02 §New seam](02-integration-seams.md#new-seam-active-session-host)).
-- [ ] Add `host.session.sendUserSteer` (wraps `sendUserMessage`) and
+- [x] Add `host.session.sendUserSteer` (wraps `sendUserMessage`) and
   `sendContextMessage` (wraps `sendCustomMessage`), each returning a `turnId`.
-- [ ] Add the `onTurnComplete` emitter in the session bridge, firing on
+- [x] Add the `onTurnComplete` emitter in the session bridge, firing on
   `noteTurnEnd` with the correlating `turnId` (new desktop-core work).
-- [ ] Prove the coordinator can resolve the active session, read idle/pending,
+- [x] Prove the coordinator can resolve the active session, read idle/pending,
   send a no-op diagnostic message, and observe its turn completion by `turnId`.
 
 **Acceptance**
-- [ ] Coordinator resolves the workspace's active session and reads
+- [x] Coordinator resolves the workspace's active session and reads
   `{ idle, pendingMessages, activeTurnId }` correctly.
-- [ ] A diagnostic message is delivered only when idle + no pending messages;
+- [x] A diagnostic message is delivered only when idle + no pending messages;
   otherwise it defers with a logged reason.
-- [ ] No effect on a busy session; no double-delivery.
-- [ ] `onTurnComplete` fires once for the diagnostic turn, matched by `turnId`.
-- [ ] Partial FR-14; FR-25 satisfied.
+- [x] No effect on a busy session; no double-delivery.
+- [x] `onTurnComplete` fires once for the diagnostic turn, matched by `turnId`.
+- [x] Partial FR-14; FR-25 satisfied.
+
+**Implementation notes (Phase 1.5 as built)**
+- The seam contract is `AppRuntimeSessionHost` in
+  `packages/common/src/session-host.ts`, added to `AppRuntimeHost.session`. It is
+  renderer-safe and reuses the existing `ExtensionRuntimeContent` /
+  `ExtensionRuntimeMessage` payload types — no duplication.
+- Desktop-core implementation is `createSessionHost()`
+  (`apps/desktop/electron/features/apps/runtime/capabilities/session-host.ts`),
+  wired into `create-host.ts`. It resolves `getCliSessionBridge()` **lazily per
+  call** (the bridge is installed after the host object is built) and reads idle
+  from `session.agent.state.isStreaming` + `getActiveTurnId() === null`.
+- **`onTurnComplete` is loop-scoped, not per-LLM-turn.** `noteCliTurnStart`
+  regenerates a turn id on every `turn_start` (budget accounting), so the emitter
+  tracks a separate `loopTurns` id: pinned at the loop's first `turn_start`,
+  reported once at `agent_end`. A send returns that same loop id (captured via
+  `waitForCliTurnStart`), so the id from a send always matches its completion,
+  even across multi-turn loops. Status is derived from the final assistant
+  message's `stopReason` (`aborted` / `error` / else `completed`); a forced
+  session teardown reports `aborted`.
+- The coordinator proof is `WorkspaceCoordinator.diagnoseSession()`, reachable
+  via `sero orchestrator diagnose-session` (CLI-only — deliberately not added to
+  the structured tool `action` enum or the UI). It gates on idle + no pending,
+  subscribes to completion **before** sending (tolerating a turn that completes
+  before the send resolves), and reports turn-id correlation. It is read-only
+  with respect to loop state, preserving the single-executor invariant.
+- Validation: full-monorepo `pnpm typecheck` (18 tasks) green; new unit suites
+  `turn-lifecycle.test.ts` and `orchestrator/session-seam.test.ts` (15 tests)
+  green; touched CLI / app-runtime / agent suites (267 tests) green. A live
+  click-through in a running app was not performed (same standing gap as Phase 1).
 
 ---
 

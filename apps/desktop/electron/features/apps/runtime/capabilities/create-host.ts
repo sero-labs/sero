@@ -46,6 +46,7 @@ import {
 } from '@electron/features/workspace/runtime/toolchains/host-tool-resolver';
 import { validateRuntimeCustomTools } from './custom-tools';
 import { getProviderApiKey } from './provider-credentials';
+import { createSessionHost } from './session-host';
 import type { AppRuntimeTarget, AppRuntimeHost } from '../types';
 
 const worktreeManager = new WorktreeManager();
@@ -181,6 +182,7 @@ export function createAppRuntimeHost(_target: AppRuntimeTarget): AppRuntimeHost 
         showNotification(options);
       },
     },
+    session: createSessionHost(),
     credentials: {
       getProviderApiKey: (providerId) => getProviderApiKey(providerId, SERO_HOME),
     },

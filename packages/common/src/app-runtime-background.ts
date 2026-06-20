@@ -7,6 +7,7 @@
  */
 
 import type { WorkspaceAccessRootsResult } from './workspace-access-roots';
+import type { AppRuntimeSessionHost } from './session-host';
 
 export interface AppRuntimeStateApi {
   read<T = unknown>(filePath: string): Promise<T | null>;
@@ -408,6 +409,8 @@ export interface AppRuntimeHost {
   notifications: AppRuntimeNotificationsApi;
   credentials: AppRuntimeCredentialsApi;
   toolchains: AppRuntimeToolchainsApi;
+  /** Active-session re-wake seam (specs/02 §New seam) — see session-host.ts. */
+  session: AppRuntimeSessionHost;
 }
 
 export interface AppRuntimeContext {

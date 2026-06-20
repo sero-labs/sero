@@ -271,7 +271,11 @@ export type OrchestratorAction =
   | { kind: 'pause'; loopId: string }
   | { kind: 'resume'; loopId: string }
   | { kind: 'stop'; loopId: string }
-  | { kind: 'run_next'; loopId: string; overrideNoProgress?: boolean };
+  | { kind: 'run_next'; loopId: string; overrideNoProgress?: boolean }
+  // Phase 1.5 spike: prove the active-session host seam end to end (idle-gated
+  // send + turn-completion observation). CLI-only; not part of the structured
+  // tool / UI surface.
+  | { kind: 'diagnose_session' };
 
 export type OrchestratorActionKind = OrchestratorAction['kind'];
 

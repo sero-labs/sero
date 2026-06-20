@@ -8,7 +8,7 @@
 // single-executor invariant even before execution exists.
 
 import { randomUUID } from 'node:crypto';
-import type { AppRuntimeHost } from '@sero-ai/common';
+import type { AppRuntimeHost, TurnCompletion } from '@sero-ai/common';
 
 import type { OrchestratorCoordinator } from '../shared/registry';
 import {
@@ -25,6 +25,10 @@ import {
 } from '../shared/types';
 
 const TERMINAL: ReadonlySet<LoopStatus> = new Set<LoopStatus>(['complete', 'stopped']);
+
+// How long to wait for the diagnostic turn to complete before reporting it as
+// unobserved. A real turn can take a while; the timer is cleared on completion.
+const DIAGNOSTIC_TURN_TIMEOUT_MS = 60_000;
 
 export interface CoordinatorContext {
   host: AppRuntimeHost;
@@ -52,6 +56,8 @@ export class WorkspaceCoordinator implements OrchestratorCoordinator {
         return this.setStatus(action.loopId, 'stopped');
       case 'run_next':
         return this.runNext(action.loopId);
+      case 'diagnose_session':
+        return this.diagnoseSession();
     }
   }
 
@@ -138,6 +144,78 @@ export class WorkspaceCoordinator implements OrchestratorCoordinator {
       loop,
       message: 'Running goals is not available yet — execution lands in a later phase.',
     };
+  }
+
+  // ── Session seam spike (Phase 1.5) ───────────────────────────────────────────
+
+  /**
+   * Prove the active-session host seam (specs/02 §New seam): resolve the
+   * workspace's live session, read idle/pending, send a no-op diagnostic only
+   * when it is safe (idle + no pending), and observe that turn's completion
+   * correlated by `turnId`. Read-only with respect to loop state — it never
+   * touches an attempt or a goal. CLI-only proof surface; not in the UI.
+   */
+  private async diagnoseSession(): Promise<OrchestratorActionResult> {
+    const { session } = this.ctx.host;
+    const active = await session.getActiveForWorkspace(this.ctx.workspaceId);
+    if (!active) {
+      return { ok: true, message: 'No active session in this workspace to diagnose.' };
+    }
+
+    const state = await session.getState(active.sessionId);
+    if (!state.idle || state.pendingMessages > 0) {
+      const reason = !state.idle ? 'a turn is in progress' : `${state.pendingMessages} message(s) pending`;
+      return {
+        ok: true,
+        message: `Deferred: session ${active.sessionId} is busy (${reason}). No message sent.`,
+      };
+    }
+
+    // Subscribe before sending so a fast turn cannot complete unobserved.
+    const completion = this.observeNextTurn(active.sessionId);
+    const { turnId } = await session.sendContextMessage(
+      active.sessionId,
+      {
+        customType: 'orchestrator-diagnostic',
+        content: 'Orchestrator session diagnostic — reply with a one-line acknowledgement.',
+        display: false,
+      },
+      { deliverAs: 'nextTurn', triggerTurn: true, source: 'orchestrator' },
+    );
+
+    if (!turnId) {
+      return { ok: false, error: 'Diagnostic delivered but no turn id was returned.' };
+    }
+
+    const result = await completion;
+    if (!result) {
+      return {
+        ok: true,
+        message: `Diagnostic turn ${turnId} sent to ${active.sessionId}; completion not observed within the window.`,
+      };
+    }
+
+    const correlation = result.turnId === turnId ? 'matched' : `MISMATCH (observed ${result.turnId})`;
+    return {
+      ok: true,
+      message: `Diagnostic ok — session ${active.sessionId}, turn ${turnId} ${result.status}, correlation ${correlation}.`,
+    };
+  }
+
+  /** Resolve with the next observed turn completion, or null after a timeout. */
+  private observeNextTurn(sessionId: string): Promise<TurnCompletion | null> {
+    return new Promise((resolve) => {
+      let settled = false;
+      const finish = (value: TurnCompletion | null) => {
+        if (settled) return;
+        settled = true;
+        unsubscribe();
+        clearTimeout(timer);
+        resolve(value);
+      };
+      const unsubscribe = this.ctx.host.session.onTurnComplete(sessionId, (c) => finish(c));
+      const timer = setTimeout(() => finish(null), DIAGNOSTIC_TURN_TIMEOUT_MS);
+    });
   }
 
   /** Shared find + mutate + persist for status transitions. */

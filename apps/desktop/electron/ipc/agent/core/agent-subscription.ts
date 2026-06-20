@@ -61,7 +61,7 @@ export function subscribeToSession(
         break;
 
       case 'agent_end':
-        noteCliTurnEnd(sessionId);
+        noteCliTurnEnd(sessionId, turnEndStatus(entry.session));
         sendEvent({ type: 'agent_end', sessionId });
         {
           const pendingUserMessageId = entry.pendingTurnUndoUserMessageId;
@@ -207,6 +207,22 @@ export function subscribeToSession(
 }
 
 // ── Helpers ───────────────────────────────────────────────────
+
+/**
+ * Classify how a finished agent loop ended, from the final assistant message's
+ * stop reason, for the orchestrator turn-completion seam (see agent-bridge.ts).
+ */
+function turnEndStatus(session: AgentSession): 'completed' | 'aborted' | 'error' {
+  const messages = session.state.messages;
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    const message = messages[i];
+    if (message?.role !== 'assistant') continue;
+    if (message.stopReason === 'aborted') return 'aborted';
+    if (message.stopReason === 'error') return 'error';
+    return 'completed';
+  }
+  return 'completed';
+}
 
 function extractToolOutput(result: unknown): {
   text: string | null;

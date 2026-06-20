@@ -7,6 +7,78 @@ let turnSeq = 0;
 const activeTurns = new Map<string, string>();
 const turnBudgets = new Map<string, { turnId: string; count: number }>();
 
+// ── Turn-lifecycle observation (Sero Orchestrator active-session seam) ────────
+//
+// `activeTurns` regenerates a turn id on every `turn_start` (per LLM round) for
+// budget accounting. Background observers instead want one id that spans a whole
+// agent loop, so it matches the id captured when the loop was kicked off. We
+// track that loop id separately: set once at the loop's first `turn_start`,
+// cleared and reported at `agent_end`. See capabilities/session-host.ts.
+
+export type CliTurnStatus = 'completed' | 'aborted' | 'error';
+
+export interface CliTurnCompletion {
+  turnId: string;
+  status: CliTurnStatus;
+}
+
+const loopTurns = new Map<string, string>();
+const turnStartListeners = new Map<string, Set<(turnId: string) => void>>();
+const turnCompleteListeners = new Map<string, Set<(completion: CliTurnCompletion) => void>>();
+
+function emit<T>(listeners: Map<string, Set<(value: T) => void>>, sessionId: string, value: T): void {
+  const set = listeners.get(sessionId);
+  if (!set) return;
+  for (const cb of [...set]) cb(value);
+}
+
+function subscribe<T>(
+  listeners: Map<string, Set<(value: T) => void>>,
+  sessionId: string,
+  cb: (value: T) => void,
+): () => void {
+  let set = listeners.get(sessionId);
+  if (!set) {
+    set = new Set();
+    listeners.set(sessionId, set);
+  }
+  set.add(cb);
+  return () => {
+    const current = listeners.get(sessionId);
+    if (!current) return;
+    current.delete(cb);
+    if (current.size === 0) listeners.delete(sessionId);
+  };
+}
+
+/** Observe loop-scoped turn completion for a session. Returns an unsubscribe fn. */
+export function onCliTurnComplete(
+  sessionId: string,
+  cb: (completion: CliTurnCompletion) => void,
+): () => void {
+  return subscribe(turnCompleteListeners, sessionId, cb);
+}
+
+/**
+ * Resolve with the loop turn id of the next agent loop that starts on this
+ * session, or null if none starts within `timeoutMs`. Used to capture the
+ * correlation id of the turn a send triggers (the send itself returns void).
+ */
+export function waitForCliTurnStart(sessionId: string, timeoutMs: number): Promise<string | null> {
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (turnId: string | null) => {
+      if (settled) return;
+      settled = true;
+      unsubscribe();
+      clearTimeout(timer);
+      resolve(turnId);
+    };
+    const unsubscribe = subscribe(turnStartListeners, sessionId, (turnId) => finish(turnId));
+    const timer = setTimeout(() => finish(null), timeoutMs);
+  });
+}
+
 interface AgentPoolEntryLike {
   session: AgentSession;
   loader: DefaultResourceLoader;
@@ -26,11 +98,21 @@ function nextTurnId(): string {
 }
 
 export function noteCliTurnStart(sessionId: string): void {
-  activeTurns.set(sessionId, nextTurnId());
+  const turnId = nextTurnId();
+  activeTurns.set(sessionId, turnId);
+  // First turn of a fresh agent loop: pin the loop id and announce the start.
+  if (!loopTurns.has(sessionId)) {
+    loopTurns.set(sessionId, turnId);
+    emit(turnStartListeners, sessionId, turnId);
+  }
 }
 
-export function noteCliTurnEnd(sessionId: string): void {
+export function noteCliTurnEnd(sessionId: string, status: CliTurnStatus = 'completed'): void {
   activeTurns.delete(sessionId);
+  const turnId = loopTurns.get(sessionId);
+  if (turnId === undefined) return;
+  loopTurns.delete(sessionId);
+  emit(turnCompleteListeners, sessionId, { turnId, status });
 }
 
 export function installCliAgentBridge(options: InstallCliAgentBridgeOptions): void {
