@@ -20,7 +20,7 @@ material progress in the loop ledger too.
 | 2.5 | Scheduling lifecycle (catch-up-on-open) | ✅ Done | Missed cron fires recomputed on workspace open |
 | 3 | Background-worker execution | ✅ Done | Worker → checks → checkpoint → retry loop runs green |
 | 4 | Active-session execution | ✅ Done | Idle-gated steer + turn observation + retry |
-| 5 | Scheduling and events | ⬜ Not started | Manual/cron/event/hybrid triggers mark loops due |
+| 5 | Scheduling and events | ✅ Done | Manual/cron/event/hybrid triggers mark loops due |
 | 6 | Isolation and PR workflow | ⬜ Not started | Worktree isolation + branch/PR + restore |
 | 7 | Reusable task system | ⬜ Deferred | Only if a second surface needs durable tasks |
 
@@ -50,7 +50,7 @@ phase. (D-NN refer to decisions in [00-architecture.md](00-architecture.md).)
 | FR-15 | Idle + no-pending gating before any send | 4 | D-05 | ✅ |
 | FR-16 | Active-session steer + turn observation + retry | 4 | — | ✅ |
 | FR-17 | Hybrid routing per attempt | 4 | D-09 | ✅ |
-| FR-18 | Manual/cron/event/hybrid triggers mark loops due | 5 | D-02 | ⬜ |
+| FR-18 | Manual/cron/event/hybrid triggers mark loops due | 5 | D-02 | ✅ |
 | FR-19 | Catch-up-on-open for closed-workspace cron loops | 2.5/5 | D-04 | ✅ |
 | FR-20 | Worktree isolation (in-workspace) | 6 | D-06 | ⬜ |
 | FR-21 | Branch naming + PR creation | 6 | — | ⬜ |
@@ -517,7 +517,7 @@ and retry, built on the Phase 1.5 seam.
 
 ---
 
-## Phase 5 — Scheduling and events
+## Phase 5 — Scheduling and events ✅
 
 **Goal.** Manual/cron/event/hybrid triggers that mark loops due, using cron
 patterns behind an adapter (never cron's transient session runner).
@@ -525,18 +525,85 @@ patterns behind an adapter (never cron's transient session runner).
 **Depends on:** Phase 2 (and Phase 2.5 outcome).
 
 **Tasks**
-- [ ] Implement `scheduler.ts` with cron debounce/missed-run carry-over (D-02).
-- [ ] Subscribe `event` triggers to workspace/VCS/check/session lifecycle events.
-- [ ] Collapse missed cron fires into one catch-up; set "due again" instead of
-  overlapping attempts; persist debounce across restart.
-- [ ] Enqueue due loops as `run_next` to the coordinator (lock + stop rule still gate).
+- [x] Implement `scheduler.ts` with cron debounce/missed-run carry-over (D-02).
+  *(Live `tick()` shares the Phase 2.5 reconcile; the open-workspace wake is the
+  smart-alarm in `alarm.ts`, not a poll — see notes.)*
+- [x] Subscribe `event` triggers to session lifecycle events
+  (`host.session.onTurnComplete`, `events.ts`). The other declared sources
+  (`vcs`, `check`, `workspace`) have no host subscription seam yet and are logged
+  as not-yet-wired (deferred to a Phase 6 `host.*` follow-up, decided with the
+  product owner).
+- [x] Collapse missed cron fires into one catch-up; set "due again" instead of
+  overlapping attempts; persist debounce across restart (debounce persists on the
+  trigger via `lastFireAt`, unchanged from Phase 2.5).
+- [x] Enqueue due loops as `run_next` to the coordinator (lock + stop rule still gate).
 
 **Acceptance**
-- [ ] A cron trigger marks a loop due at the scheduled minute exactly once.
-- [ ] An event during a running attempt does not start a second attempt; it runs
+- [x] A cron trigger marks a loop due at the scheduled minute exactly once.
+- [x] An event during a running attempt does not start a second attempt; it runs
   after the current one resolves.
-- [ ] Missed fires while closed collapse to a single catch-up on reconcile.
-- [ ] FR-18 satisfied; FR-19 confirmed end-to-end.
+- [x] Missed fires while closed collapse to a single catch-up on reconcile.
+- [x] FR-18 satisfied; FR-19 confirmed end-to-end.
+
+**Implementation notes (Phase 5 as built)**
+- **No always-on poll — a smart single alarm (decided with the product owner).**
+  Scheduled goals are time-driven (nothing pushes "a minute passed"), so an open
+  workspace needs a timer. To honour the no-polling rule (Principle 6, D-04) the
+  cron alarm (`runtime/alarm.ts`) is **not** a fixed-interval tick: `CronAlarm`
+  arms ONE timer for the single next moment any cron trigger is due
+  (`earliestNextFire`), fires the live reconcile then, and re-arms for the
+  following due moment. With no schedulable trigger it disarms entirely, so an
+  idle workspace never wakes. The timer is an injectable `AlarmTimer` seam
+  (default `setTimeout`, `unref`'d; tests inject a controllable fake), and long
+  waits chunk at ~24.8 days.
+- **Re-arm is push-driven.** The runtime calls `coordinator.armSchedule()` after
+  catch-up on `start()` and again from `handleStateChange` (now async), so adding,
+  editing, or pausing a scheduled goal resets the alarm to the next due moment
+  immediately. `armSchedule` only READS state, so it never recurses with the
+  coordinator's own writes. Catch-up-on-open still backstops anything the timer
+  ever drops (e.g. a fire missed while the machine slept — collapsed by the same
+  reconcile on the next wake).
+- **One reconcile, two callers.** `scheduler.ts` keeps the Phase 2.5
+  `reconcileLoop` (collapse missed minutes, advance `lastFireAt` so a loop never
+  fires twice) and now shares it between `catchUpOnOpen()` (while-closed wording +
+  missed-event log) and the live `tick()` (fires happening now). Both advance the
+  debounce in ONE atomic mutation (single-writer) and dispatch due loops through
+  the gated `run_next` path.
+- **Event triggers (`runtime/events.ts`).** `EventRouter.sync()` subscribes to
+  the workspace's active session via `host.session.onTurnComplete` for every
+  enabled `session` event/hybrid trigger (bound `sessionId` else most-recent-
+  active), drops sessions no longer referenced, and warns once per not-yet-wired
+  source. A completion marks every matching loop due (respecting `debounceMs` /
+  `maxFires`, advancing `fireCount`/`lastFireAt` in one mutation) through the same
+  gated `run_next`. `sync()` runs on start and on every state change, so trigger
+  edits re-target immediately.
+- **Self-retrigger guard.** A loop's own active-session steer also completes a
+  turn. The active-session adapter now tags its steered turn id in the shared
+  `WorkerSessionRegistry` (`markTurn`/`clearTurn`) before the turn can complete,
+  and the event router skips a completion whose turn id is orchestrator-initiated
+  (`isOrchestratorTurn`) — so a session trigger never re-fires on the loop's own
+  work.
+- **"Due again" deferral (D-02).** A trigger that fires while an attempt is in
+  flight does not start a second attempt. The scheduler and event router both
+  dispatch `run_next` with an internal `queueIfBusy` flag; if the per-loop lock is
+  held, the engine records ONE pending rerun and drains it (one microtask off the
+  stack) after the in-flight attempt releases the lock — eligibility and stop
+  rules still gate, so a loop that just completed/blocked simply no-ops. A manual
+  `run_next` (tools/UI never set `queueIfBusy`) still gets the "already running"
+  error. A stop/pause clears any pending rerun.
+- **Scope decided with the product owner:** the smart single alarm (over a 30s
+  poll or no live tick) and "session event triggers now, stub the rest" — the
+  non-session sources need new desktop-core seams (`host.git.onCommit` /
+  `host.verification.onCheck` / `host.workspace.onChange`), a Phase 6 follow-up.
+- Validation: full-monorepo `pnpm typecheck` (18 tasks) green; orchestrator unit
+  suites **87 tests** green (12 new in `coordinator-live-scheduling.test.ts`:
+  `earliestNextFire` math, the alarm arming/disarming/firing-once/sleep-collapse/
+  end-to-end, session-event mark-due + not-yet-wired log + self-retrigger guard,
+  and the due-again deferral both directions). No desktop-core files changed —
+  all new work is plugin-side behind the existing `host.*` surface (the harness
+  gained a controllable alarm timer + a session turn-emit control). Live
+  click-through remains the standing manual gap (the live cron path was already
+  exercised end-to-end via catch-up-on-open in Phase 3).
 
 ---
 

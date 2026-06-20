@@ -19,6 +19,13 @@ export const ORCHESTRATOR_SESSION_PREFIX = 'orchestrator:';
 export class WorkerSessionRegistry {
   // Ref-counted: many loops can run workers concurrently under distinct parents.
   private readonly active = new Map<string, number>();
+  // Turn ids the orchestrator itself started by steering a live session. The
+  // event router consults this so a loop's OWN active-session turn completing
+  // never re-fires that loop's session event trigger (Phase 5 self-retrigger
+  // guard). Marked synchronously before the turn can complete and cleared once
+  // the steer finishes, so a router listener firing on the completion always
+  // sees it still marked.
+  private readonly orchestratorTurns = new Set<string>();
 
   /** Mark a worker's parent session id active for the duration of its run. */
   markActive(parentSessionId: string): void {
@@ -31,6 +38,21 @@ export class WorkerSessionRegistry {
     if (count === undefined) return;
     if (count <= 1) this.active.delete(parentSessionId);
     else this.active.set(parentSessionId, count - 1);
+  }
+
+  /** Record a turn the orchestrator started by steering a live session. */
+  markTurn(turnId: string): void {
+    this.orchestratorTurns.add(turnId);
+  }
+
+  /** Forget a steered turn once its attempt finishes observing it. */
+  clearTurn(turnId: string): void {
+    this.orchestratorTurns.delete(turnId);
+  }
+
+  /** Whether this completing turn was one the orchestrator itself steered. */
+  isOrchestratorTurn(turnId: string | null | undefined): boolean {
+    return Boolean(turnId) && this.orchestratorTurns.has(turnId!);
   }
 
   /**

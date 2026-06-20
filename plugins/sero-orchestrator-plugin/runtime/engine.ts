@@ -43,6 +43,13 @@ export interface EngineDeps {
 
 export interface RunNextOptions {
   overrideNoProgress?: boolean;
+  /**
+   * Trigger path only: if an attempt is already running for this loop, record a
+   * single "due again" and run once more after the current attempt resolves,
+   * rather than rejecting (03 §Scheduling — event during a running attempt).
+   * Many events during one attempt collapse to one rerun.
+   */
+  queueIfBusy?: boolean;
 }
 
 const NOT_YET =
@@ -51,17 +58,30 @@ const NOT_YET =
 export class AttemptEngine {
   /** Per-loop cancellers for in-flight attempts (user stop/pause aborts these). */
   private readonly cancellers = new Map<string, AbortController>();
+  /** Loops a trigger fired for while busy — drained once each resolves (D-02). */
+  private readonly pendingReruns = new Set<string>();
 
   constructor(private readonly deps: EngineDeps) {}
 
   /** Abort a loop's in-flight attempt, if any (called by stop/pause). */
   cancel(loopId: string): void {
     this.cancellers.get(loopId)?.abort();
+    // A stop/pause supersedes any queued trigger rerun for this loop.
+    this.pendingReruns.delete(loopId);
   }
 
   async runNext(loopId: string, options: RunNextOptions = {}): Promise<OrchestratorActionResult> {
     const overrideNoProgress = options.overrideNoProgress ?? false;
     if (!this.deps.locks.tryAcquire(loopId)) {
+      // Trigger-sourced run while busy: defer one rerun to after the in-flight
+      // attempt resolves (per-loop lock still serializes attempts, D-11).
+      if (options.queueIfBusy) {
+        this.pendingReruns.add(loopId);
+        return {
+          ok: true,
+          message: 'An attempt is already running; queued to run once after it finishes.',
+        };
+      }
       return { ok: false, error: 'An attempt is already running for this goal.' };
     }
     const cancel = new AbortController();
@@ -106,7 +126,21 @@ export class AttemptEngine {
       if (semaphoreHeld) this.deps.semaphore.release();
       this.cancellers.delete(loopId);
       this.deps.locks.release(loopId);
+      this.drainPendingRerun(loopId);
     }
+  }
+
+  /**
+   * After the per-loop lock is released, run once more if a trigger fired while
+   * the attempt was in flight. Scheduled off the stack so the just-finished
+   * `runNext` returns first; eligibility/stop rules still gate the rerun, so a
+   * loop that just completed/blocked simply no-ops.
+   */
+  private drainPendingRerun(loopId: string): void {
+    if (!this.pendingReruns.delete(loopId)) return;
+    queueMicrotask(() => {
+      void this.runNext(loopId, { queueIfBusy: true }).catch(() => undefined);
+    });
   }
 
   // ── transitions ────────────────────────────────────────────────────────────

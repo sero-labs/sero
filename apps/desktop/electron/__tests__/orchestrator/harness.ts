@@ -27,6 +27,7 @@ import {
   type CoordinatorContext,
 } from '@plugins/sero-orchestrator-plugin/runtime/coordinator';
 import { MapAdapterRegistry, type AttemptAdapter } from '@plugins/sero-orchestrator-plugin/runtime/adapter';
+import type { AlarmTimer } from '@plugins/sero-orchestrator-plugin/runtime/alarm';
 import type { Clock } from '@plugins/sero-orchestrator-plugin/runtime/clock';
 import type { SchedulerLog } from '@plugins/sero-orchestrator-plugin/runtime/scheduler';
 import type { DirtyRootGate } from '@plugins/sero-orchestrator-plugin/runtime/vcs';
@@ -59,6 +60,36 @@ export function makeClock(startMs = DEFAULT_NOW): ClockControl {
     nowMs: () => now,
   };
 }
+
+/** A controllable one-shot {@link AlarmTimer} for cron-alarm tests (Phase 5). */
+export interface FakeAlarmTimer extends AlarmTimer {
+  /** The currently-armed delay in ms, or null when disarmed. */
+  armedDelay(): number | null;
+  /** Invoke the armed callback (simulate the timer elapsing). */
+  fire(): void;
+}
+
+export function makeFakeTimer(): FakeAlarmTimer {
+  let delay: number | null = null;
+  let cb: (() => void) | null = null;
+  return {
+    arm(d, c) {
+      delay = d;
+      cb = c;
+    },
+    disarm() {
+      delay = null;
+      cb = null;
+    },
+    armedDelay: () => delay,
+    fire: () => cb?.(),
+  };
+}
+
+/** Lets async work scheduled by a fired alarm/event settle (no real timers used). */
+export const settle = async (): Promise<void> => {
+  for (let i = 0; i < 6; i += 1) await new Promise((resolve) => setTimeout(resolve, 0));
+};
 
 export type VerifyFn = (command: string) => AppRuntimeVerificationCommandResult;
 
@@ -141,12 +172,24 @@ export interface HarnessOptions {
   session?: SessionOptions;
 }
 
+/** Drives a session turn completion for event-router tests (Phase 5). */
+export interface SessionControl {
+  /** Fire `onTurnComplete` for every subscriber with this turn id/status. */
+  emitTurn(turnId: string, status?: TurnCompletionStatus): void;
+  /** How many live `onTurnComplete` subscribers there are. */
+  listenerCount(): number;
+}
+
 export interface Harness {
   coordinator: WorkspaceCoordinator;
   host: AppRuntimeHost;
   stateFilePath: string;
   artifactRoot: string;
   notifications: AppRuntimeNotificationOptions[];
+  /** Controllable cron alarm timer (Phase 5); inspect/fire after `armSchedule()`. */
+  timer: FakeAlarmTimer;
+  /** Emit session turn completions for event-trigger tests (Phase 5). */
+  session: SessionControl;
   /** Stateful git the real adapter reads/writes; inspect after a run. */
   world: FakeGitWorld;
   readState(): Promise<OrchestratorState>;
@@ -161,9 +204,10 @@ interface FakeState {
   files: Map<string, string>;
   notifications: AppRuntimeNotificationOptions[];
   world: FakeGitWorld;
+  session: SessionControl;
 }
 
-function makeHost(opts: HarnessOptions, fake: FakeState): AppRuntimeHost {
+function makeHost(opts: HarnessOptions, fake: FakeState, session: AppRuntimeSessionHost): AppRuntimeHost {
   const verify = opts.verify ?? okVerify;
   const checkpoint = opts.checkpoint === undefined ? 'SAVED111' : opts.checkpoint;
   const world = fake.world;
@@ -250,7 +294,7 @@ function makeHost(opts: HarnessOptions, fake: FakeState): AppRuntimeHost {
         fake.notifications.push(options);
       },
     },
-    session: makeSessionHost(opts, world),
+    session,
   };
 
   return host as unknown as AppRuntimeHost;
@@ -262,17 +306,26 @@ const DEFAULT_ACTIVE_SESSION: ActiveSession = {
 };
 
 /**
- * Fake `host.session` for active-session / hybrid tests. A steered turn runs the
- * `steer` script (mutating the same git world the post-turn diff is measured
- * against), then emits its completion on a microtask so the adapter's
- * subscribe-before-send observation matches by turn id.
+ * Fake `host.session` for active-session / hybrid / event tests. A steered turn
+ * runs the `steer` script (mutating the same git world the post-turn diff is
+ * measured against), then emits its completion on a microtask so the adapter's
+ * subscribe-before-send observation matches by turn id. Tests can also emit a
+ * turn completion directly via the returned {@link SessionControl} to exercise
+ * session event triggers (Phase 5).
  */
-function makeSessionHost(opts: HarnessOptions, world: FakeGitWorld): AppRuntimeSessionHost {
+function makeSessionHost(
+  opts: HarnessOptions,
+  world: FakeGitWorld,
+): { host: AppRuntimeSessionHost; control: SessionControl } {
   const config = opts.session ?? {};
   const active = config.active === undefined ? DEFAULT_ACTIVE_SESSION : config.active;
   const state: SessionState = config.state ?? { idle: true, pendingMessages: 0, activeTurnId: null };
   const listeners = new Set<(completion: TurnCompletion) => void>();
   let turnSeq = 0;
+
+  const emit = (turnId: string, status: TurnCompletionStatus): void => {
+    for (const cb of [...listeners]) cb({ turnId, status });
+  };
 
   const triggerTurn = async (content: ExtensionRuntimeContent): Promise<string> => {
     const turnId = `turn-${++turnSeq}`;
@@ -280,13 +333,15 @@ function makeSessionHost(opts: HarnessOptions, world: FakeGitWorld): AppRuntimeS
     if (result.changedFiles) world.changed = [...result.changedFiles];
     if (result.diff !== undefined) world.diff = result.diff;
     const status: TurnCompletionStatus = result.status ?? 'completed';
-    queueMicrotask(() => {
-      for (const cb of [...listeners]) cb({ turnId, status });
-    });
+    // Emit on a macrotask so the completion lands AFTER `sendUserSteer` resolves
+    // (mirroring the real seam: turn_start returns the id, agent_end fires later).
+    // This lets the adapter tag the turn id before any listener sees the
+    // completion — the Phase 5 self-retrigger guard relies on that ordering.
+    setTimeout(() => emit(turnId, status), 0);
     return turnId;
   };
 
-  return {
+  const host: AppRuntimeSessionHost = {
     async getActiveForWorkspace() {
       return active;
     },
@@ -304,22 +359,33 @@ function makeSessionHost(opts: HarnessOptions, world: FakeGitWorld): AppRuntimeS
       return () => listeners.delete(cb);
     },
   };
+
+  const control: SessionControl = {
+    emitTurn: (turnId, status = 'completed') => emit(turnId, status),
+    listenerCount: () => listeners.size,
+  };
+
+  return { host, control };
 }
 
 export function createHarness(opts: HarnessOptions = {}): Harness {
   const dir = mkdtempSync(join(tmpdir(), 'orch-core-'));
   const stateFilePath = join(dir, '.sero', 'apps', 'orchestrator', 'state.json');
   const artifactRoot = join(dirname(stateFilePath), 'artifacts');
+  const world: FakeGitWorld = {
+    head: opts.head ?? 'HEAD0000',
+    changed: opts.dirty ? ['src/file.ts'] : [],
+    diff: '',
+  };
+  const session = makeSessionHost(opts, world);
   const fake: FakeState = {
     files: new Map(),
     notifications: [],
-    world: {
-      head: opts.head ?? 'HEAD0000',
-      changed: opts.dirty ? ['src/file.ts'] : [],
-      diff: '',
-    },
+    world,
+    session: session.control,
   };
-  const host = makeHost(opts, fake);
+  const host = makeHost(opts, fake, session.host);
+  const timer = makeFakeTimer();
 
   const ctx: CoordinatorContext = {
     host,
@@ -339,6 +405,7 @@ export function createHarness(opts: HarnessOptions = {}): Harness {
     clock: opts.clock,
     maxConcurrentAttempts: opts.maxConcurrentAttempts,
     schedulerLog: opts.schedulerLog,
+    alarmTimer: timer,
   };
   const coordinator = new WorkspaceCoordinator(ctx);
 
@@ -353,6 +420,8 @@ export function createHarness(opts: HarnessOptions = {}): Harness {
     stateFilePath,
     artifactRoot,
     notifications: fake.notifications,
+    timer,
+    session: fake.session,
     world: fake.world,
     readState,
     async loop(id) {

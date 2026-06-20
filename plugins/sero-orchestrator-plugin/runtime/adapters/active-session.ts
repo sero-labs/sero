@@ -107,11 +107,16 @@ async function execute(
   // control action it issues (D-16).
   const completion = observeTurn(ctx.host, sessionId, ctx.signal, ctx.timeoutMs);
   deps.workerSessions.markActive(sessionId);
+  let steeredTurnId: string | undefined;
   try {
     const { turnId } = await ctx.host.session.sendUserSteer(sessionId, instruction.taskPrompt, {
       deliverAs: resolved.target.deliverAs,
       source: 'orchestrator',
     });
+    // Tag the turn as orchestrator-initiated BEFORE it can complete so a session
+    // event trigger on this same loop doesn't re-fire on its own steer (Phase 5).
+    steeredTurnId = turnId;
+    deps.workerSessions.markTurn(turnId);
     const outcome = await completion;
 
     if (ctx.signal.aborted) {
@@ -134,6 +139,7 @@ async function execute(
     };
   } finally {
     deps.workerSessions.clear(sessionId);
+    if (steeredTurnId) deps.workerSessions.clearTurn(steeredTurnId);
   }
 }
 

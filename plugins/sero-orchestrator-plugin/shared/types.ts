@@ -291,7 +291,16 @@ export type OrchestratorAction =
   | { kind: 'pause'; loopId: string }
   | { kind: 'resume'; loopId: string }
   | { kind: 'stop'; loopId: string }
-  | { kind: 'run_next'; loopId: string; overrideNoProgress?: boolean }
+  | {
+      kind: 'run_next';
+      loopId: string;
+      overrideNoProgress?: boolean;
+      // Internal (scheduler/event-router only): when an attempt is already in
+      // flight for this loop, queue ONE rerun to fire after it resolves instead
+      // of rejecting (D-02 "due again"). Tools/UI never set this, so a manual
+      // run_next on a busy loop still gets the "already running" error.
+      queueIfBusy?: boolean;
+    }
   // Phase 1.5 spike: prove the active-session host seam end to end (idle-gated
   // send + turn-completion observation). CLI-only; not part of the structured
   // tool / UI surface.

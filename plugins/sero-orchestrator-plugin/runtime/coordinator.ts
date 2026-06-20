@@ -30,10 +30,12 @@ import {
 } from './adapter';
 import { createActiveSessionAdapter } from './adapters/active-session';
 import { createBackgroundWorkerAdapter } from './adapters/background-worker';
+import { CronAlarm, createSystemTimer, type AlarmTimer } from './alarm';
 import { WorkerSessionRegistry } from './recursion-guard';
 import { isoNow, systemClock, type Clock } from './clock';
 import { diagnoseSession } from './diagnostics';
 import { AttemptEngine } from './engine';
+import { EventRouter } from './events';
 import {
   DEFAULT_WORKSPACE_CONCURRENCY,
   LoopLocks,
@@ -62,8 +64,10 @@ export interface CoordinatorContext {
   clock?: Clock;
   /** Concurrent-attempt cap across loops in this workspace (D-11). */
   maxConcurrentAttempts?: number;
-  /** Catch-up-on-open log seam; defaults to a console logger (tests inject a spy). */
+  /** Catch-up-on-open / live-tick / event log seam; defaults to a console logger. */
   schedulerLog?: SchedulerLog;
+  /** Cron-alarm timer seam; defaults to `setTimeout` (tests inject a fake). */
+  alarmTimer?: AlarmTimer;
 }
 
 export class WorkspaceCoordinator implements OrchestratorCoordinator {
@@ -71,6 +75,10 @@ export class WorkspaceCoordinator implements OrchestratorCoordinator {
   private readonly clock: Clock;
   private readonly engine: AttemptEngine;
   private readonly scheduler: Scheduler;
+  /** Smart cron alarm: one timer for the next due moment (Phase 5). */
+  private readonly cronAlarm: CronAlarm;
+  /** Event-trigger router: session subscriptions mark loops due (Phase 5). */
+  private readonly eventRouter: EventRouter;
   /** Tracks in-flight worker parent sessions for the recursion guard (D-16). */
   private readonly workerSessions = new WorkerSessionRegistry();
 
@@ -98,12 +106,32 @@ export class WorkspaceCoordinator implements OrchestratorCoordinator {
       gate: ctx.dirtyRootGate ?? createDefaultDirtyRootGate(ctx.host),
       clock: this.clock,
     });
+    // Both the cron scheduler and the event router mark loops due through the SAME
+    // gated control plane (D-01): the engine still enforces the per-loop lock,
+    // eligibility, and stop rule, and `queueIfBusy` defers a fire that lands
+    // during a running attempt to one rerun afterwards (D-02 "due again").
+    const runLoop = (loopId: string) =>
+      this.requestAction({ kind: 'run_next', loopId, queueIfBusy: true });
     this.scheduler = new Scheduler({
       store: this.store,
       clock: this.clock,
-      // Catch-up requests run through the gated control plane (D-01): the
-      // engine still enforces the per-loop lock, eligibility, and stop rule.
-      runLoop: (loopId) => this.requestAction({ kind: 'run_next', loopId }),
+      runLoop,
+      log: ctx.schedulerLog,
+    });
+    this.cronAlarm = new CronAlarm({
+      store: this.store,
+      clock: this.clock,
+      timer: ctx.alarmTimer ?? createSystemTimer(),
+      tick: () => this.scheduler.tick(),
+      log: ctx.schedulerLog,
+    });
+    this.eventRouter = new EventRouter({
+      host: ctx.host,
+      workspaceId: ctx.workspaceId,
+      store: this.store,
+      clock: this.clock,
+      runLoop,
+      workerSessions: this.workerSessions,
       log: ctx.schedulerLog,
     });
   }
@@ -117,6 +145,22 @@ export class WorkspaceCoordinator implements OrchestratorCoordinator {
    */
   async catchUpOnOpen(): Promise<CatchUpReport> {
     return this.scheduler.catchUpOnOpen();
+  }
+
+  /**
+   * Arm the live schedule (Phase 5): the smart cron alarm (one timer for the next
+   * due moment) and the event-trigger subscriptions. Idempotent — the runtime
+   * calls it after catch-up and on every state change, so adding or editing a
+   * trigger re-targets immediately (push, not poll).
+   */
+  async armSchedule(): Promise<void> {
+    await Promise.all([this.cronAlarm.rearm(), this.eventRouter.sync()]);
+  }
+
+  /** Tear down the live schedule when the workspace closes. */
+  disposeSchedule(): void {
+    this.cronAlarm.dispose();
+    this.eventRouter.dispose();
   }
 
   async requestAction(
@@ -147,6 +191,7 @@ export class WorkspaceCoordinator implements OrchestratorCoordinator {
       case 'run_next':
         return this.engine.runNext(action.loopId, {
           overrideNoProgress: action.overrideNoProgress,
+          queueIfBusy: action.queueIfBusy,
         });
       case 'diagnose_session':
         return diagnoseSession({ host: this.ctx.host, workspaceId: this.ctx.workspaceId });

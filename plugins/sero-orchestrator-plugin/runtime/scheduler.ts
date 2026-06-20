@@ -1,16 +1,23 @@
-// Catch-up-on-open scheduling (Phase 2.5, D-04). There is no always-on watcher:
-// a workspace coordinator is the only executor, so nothing records a cron fire
-// while a workspace is closed. Instead, when the runtime starts, the scheduler
-// recomputes each cron trigger's missed fires from `lastFireAt` + `schedule`,
-// collapses any number of missed fires into a SINGLE catch-up per loop, and
-// enqueues one `run_next` per due loop through the coordinator (which still gates
-// on the per-loop lock and stop rule). Event triggers that fired while the
-// workspace was closed are missed — no listener existed — and are logged, never
-// silent.
+// Cron scheduling for the orchestrator. Two entry points share one reconcile
+// pass (D-02):
 //
-// This runs ONCE per open (a state transition), never on an interval
-// (Principle 6 / no-polling). The live per-minute cron tick and event
-// subscriptions are Phase 5.
+//   • catchUpOnOpen() — runs ONCE per open (Phase 2.5, D-04). With no always-on
+//     watcher, nothing records a cron fire while a workspace is closed, so on
+//     start the scheduler recomputes each cron trigger's missed fires from
+//     `lastFireAt` + `schedule`, collapses any number of missed fires into a
+//     SINGLE catch-up per loop, and enqueues one `run_next` per due loop. Event
+//     triggers that fired while closed are missed (no listener existed) — logged,
+//     never silent.
+//
+//   • tick(now) — the open-workspace live pass (Phase 5). Driven by the
+//     smart-alarm (alarm.ts), which arms a single timer for the NEXT due minute
+//     (earliestNextFire) and re-arms after each fire — not a fixed-interval poll
+//     (Principle 6 / no-polling). When it fires, this reconcile marks cron loops
+//     due exactly as catch-up does (collapse + advance lastFireAt, so a loop
+//     never fires twice), then dispatches them.
+//
+// Both paths advance the debounce in ONE atomic mutation (single-writer) and
+// dispatch through the gated `run_next` path (per-loop lock + stop rule apply).
 
 import type { LoopGoal, LoopTrigger, OrchestratorState } from '../shared/types';
 import { isoNow, type Clock } from './clock';
@@ -93,6 +100,41 @@ export function reconcileLoop(loop: LoopGoal, now: Date): LoopReconcile {
   return { triggers, changed, due, missedEventTriggers };
 }
 
+/** A cron trigger that can still fire (enabled, schedule present, under maxFires). */
+function isArmableCron(trigger: LoopTrigger): boolean {
+  if (!isCronTrigger(trigger)) return false;
+  return trigger.maxFires === undefined || trigger.fireCount < trigger.maxFires;
+}
+
+/**
+ * The earliest moment any active loop's cron trigger is next scheduled to fire,
+ * or null when nothing is schedulable. Pure and read-only — the smart-alarm uses
+ * it to arm ONE timer for the next due minute instead of polling (Phase 5). A
+ * trigger already overdue (its next fire is in the past) reports that past time,
+ * so the alarm fires promptly and the reconcile collapses the miss.
+ */
+export function earliestNextFire(loops: LoopGoal[], now: Date): Date | null {
+  let earliest: number | null = null;
+  for (const loop of loops) {
+    if (loop.status !== 'active') continue;
+    for (const trigger of loop.triggers) {
+      if (!isArmableCron(trigger)) continue;
+      let cron;
+      try {
+        cron = compileCron(trigger.schedule!);
+      } catch {
+        continue; // malformed schedule — never arm on it
+      }
+      const anchor = new Date(trigger.lastFireAt ?? loop.createdAt);
+      const next = nextFireAfter(cron, anchor);
+      if (next === null) continue;
+      const ms = next.getTime();
+      if (earliest === null || ms < earliest) earliest = ms;
+    }
+  }
+  return earliest === null ? null : new Date(earliest);
+}
+
 export type SchedulerLog = (message: string, detail?: Record<string, unknown>) => void;
 
 const defaultLog: SchedulerLog = (message, detail) => {
@@ -120,21 +162,59 @@ export interface CatchUpReport {
 export class Scheduler {
   constructor(private readonly deps: SchedulerDeps) {}
 
+  private get log(): SchedulerLog {
+    return this.deps.log ?? defaultLog;
+  }
+
   /**
    * Reconcile every active loop's cron triggers once, persist the advanced
    * debounce in a single atomic mutation (single-writer), then enqueue one
    * `run_next` per due loop. Returns after the reconcile + dispatch; the runs
    * themselves complete asynchronously (await `report.settled` to observe them).
+   *
+   * Catch-up wording: due fires are ones missed while the workspace was closed,
+   * and event triggers that fired while closed are unobservable — logged here.
    */
   async catchUpOnOpen(): Promise<CatchUpReport> {
-    const log = this.deps.log ?? defaultLog;
+    const { dueLoopIds, missedEventTriggers } = await this.reconcile();
+    if (missedEventTriggers > 0) {
+      this.log('event triggers cannot be caught up while closed (no listener existed)', {
+        missedEventTriggers,
+      });
+    }
+    if (dueLoopIds.length > 0) {
+      this.log('running catch-up for cron loops due while closed', { dueLoopIds });
+    }
+    return { dueLoopIds, missedEventTriggers, settled: this.dispatch(dueLoopIds) };
+  }
+
+  /**
+   * The open-workspace live pass (Phase 5), driven by the smart-alarm. Same
+   * reconcile as catch-up — collapse missed minutes, advance `lastFireAt` so a
+   * loop never fires twice — but the fires are happening now, not recovered, so
+   * the missed-event log is skipped.
+   */
+  async tick(): Promise<CatchUpReport> {
+    const { dueLoopIds, missedEventTriggers } = await this.reconcile();
+    if (dueLoopIds.length > 0) {
+      this.log('running cron loops due now', { dueLoopIds });
+    }
+    return { dueLoopIds, missedEventTriggers, settled: this.dispatch(dueLoopIds) };
+  }
+
+  /**
+   * Advance every active loop's cron debounce in ONE atomic mutation
+   * (single-writer) and collect which loops are due plus how many while-closed
+   * event fires were missed. Does not dispatch.
+   */
+  private async reconcile(): Promise<{ dueLoopIds: string[]; missedEventTriggers: number }> {
     const now = new Date(this.deps.clock());
     const dueLoopIds: string[] = [];
     let missedEventTriggers = 0;
 
     await this.deps.store.mutate((state: OrchestratorState) => {
       for (const loop of state.loops) {
-        if (loop.status !== 'active') continue; // only runnable loops catch up
+        if (loop.status !== 'active') continue; // only runnable loops reconcile
         const result = reconcileLoop(loop, now);
         missedEventTriggers += result.missedEventTriggers;
         if (result.changed) {
@@ -146,28 +226,19 @@ export class Scheduler {
       return null;
     });
 
-    if (missedEventTriggers > 0) {
-      log('event triggers cannot be caught up while closed (no listener existed)', {
-        missedEventTriggers,
-      });
-    }
-    if (dueLoopIds.length > 0) {
-      log('running catch-up for cron loops due while closed', { dueLoopIds });
-    }
+    return { dueLoopIds, missedEventTriggers };
+  }
 
+  /** Enqueue one gated `run_next` per due loop; resolves when all settle. */
+  private dispatch(dueLoopIds: string[]): Promise<void> {
     const runs = dueLoopIds.map((loopId) =>
       this.deps.runLoop(loopId).catch((err) => {
-        log('catch-up run failed', {
+        this.log('cron run failed', {
           loopId,
           error: err instanceof Error ? err.message : String(err),
         });
       }),
     );
-
-    return {
-      dueLoopIds,
-      missedEventTriggers,
-      settled: Promise.allSettled(runs).then(() => undefined),
-    };
+    return Promise.allSettled(runs).then(() => undefined);
   }
 }
