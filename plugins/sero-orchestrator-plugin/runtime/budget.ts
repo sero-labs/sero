@@ -31,12 +31,10 @@ export function cumulativeTokens(loop: LoopGoal): number {
   return loop.attempts.reduce((sum, attempt) => sum + (attempt.usage?.totalTokens ?? 0), 0);
 }
 
-// Cost would need per-run USD from the subagent host API, which exposes only
-// token counts today (AppRuntimeSubagentResult.usage). Until a `cost` field is
-// added to that host surface, recorded cost is 0 and `maxCostUsd` is inert;
-// `maxTotalTokens` is the enforced spend ceiling (D-17).
-export function cumulativeCostUsd(_loop: LoopGoal): number {
-  return 0;
+// Per-run USD cost reported by the subagent host (AppRuntimeSubagentResult.usage.cost)
+// is summed across attempts, so `maxCostUsd` is enforced alongside `maxTotalTokens` (D-17).
+export function cumulativeCostUsd(loop: LoopGoal): number {
+  return loop.attempts.reduce((sum, attempt) => sum + (attempt.usage?.cost ?? 0), 0);
 }
 
 /**

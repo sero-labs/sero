@@ -58,14 +58,11 @@ phase. (D-NN refer to decisions in [00-architecture.md](00-architecture.md).)
 | FR-24 | Active-session attempts restricted to workspace-root | 4 | D-06 | ⬜ |
 | FR-25 | Turn-completion emitter (onTurnComplete correlated by turnId) | 1.5 | D-05 | ✅ |
 | FR-26 | Dirty-root start gate: auto-save / isolate / defer, auto-save on timeout | 2/6 | D-07 | 🟡 |
-| FR-27 | Per-loop run budgets: wall-clock, tokens/cost, changed-files, command-runtime | 2/3 | D-17 | ✅¹ |
+| FR-27 | Per-loop run budgets: wall-clock, tokens/cost, changed-files, command-runtime | 2/3 | D-17 | ✅ |
 
-¹ Wall-clock, **tokens**, changed-files, and command-runtime budgets are enforced.
-`maxCostUsd` is inert: the subagent host API
-(`AppRuntimeSubagentResult.usage`) exposes token counts but no per-run USD, so
-recorded cost is 0. Tokens are the enforced spend ceiling; wiring cost needs a
-`cost` field added to that host surface (small follow-up, deliberately not done
-in Phase 3 to keep the work plugin-side).
+All five budgets are enforced. The subagent host now reports per-run USD on
+`AppRuntimeSubagentResult.usage.cost`, which the derived budget sums across
+attempts, so `maxCostUsd` blocks the loop alongside `maxTotalTokens` (D-17).
 
 ---
 
@@ -359,8 +356,8 @@ verification, checkpointing, failure summaries, retries, reviewer workers.
 - [x] Add reviewer workers (`quality-reviewer`, `spec-reviewer`) as optional
   post-pass checks.
 - [x] Accumulate worker token/cost into the loop's run-budget usage and enforce
-  `maxTotalTokens` / `maxCostUsd` (completes FR-27, D-17). *(Tokens enforced;
-  `maxCostUsd` awaits a `cost` field on the subagent host surface — see FR-27 note.)*
+  `maxTotalTokens` / `maxCostUsd` (completes FR-27, D-17). *(Both enforced — the
+  host now reports per-run USD on `usage.cost`; see Phase 3 follow-up note.)*
 - [x] Enforce recursion guardrails: the coordinator rejects worker-sourced
   `requestAction` (the enforced guard). A filtered `sero-cli` surface hiding
   `orchestrator.*` from workers is optional defense-in-depth, Phase 6 (D-16).
@@ -373,7 +370,7 @@ verification, checkpointing, failure summaries, retries, reviewer workers.
   subagent-activity surface; workers run under `attempt.parentSessionId`).
 - [x] A worker that tries to create an Orchestrator loop is rejected.
 - [x] FR-05, FR-09, FR-10, FR-11, FR-12, FR-13, FR-22, FR-27 satisfied
-  (FR-27 cost caveat noted).
+  (FR-27 fully enforced — `maxCostUsd` wired by the Phase 3 follow-up).
 
 **Implementation notes (Phase 3 as built)**
 - The Phase 2 seam held: the core (`attempt-runner.ts`/`engine.ts`) was not
@@ -403,10 +400,12 @@ verification, checkpointing, failure summaries, retries, reviewer workers.
   subagent (`reviewers.ts`) injected into `checks.ts`; they have no `sero-cli`
   surface so they can't recurse. checks.ts stays the single `CheckResult`
   normalizer.
-- **Token budget (FR-27):** the adapter populates `attempt.usage`, which the
+- **Token/cost budget (FR-27):** the adapter populates `attempt.usage`, which the
   existing derived budget code sums — `maxTotalTokens` is enforced pre- and
-  post-attempt with no new counter (Principle 3). `maxCostUsd` is inert pending a
-  host cost field (FR-27 note).
+  post-attempt with no new counter (Principle 3). A small Phase 3 follow-up added
+  `cost` to the subagent host usage surface
+  (`AppRuntimeSubagentResult.usage.cost`, mapped in `single-run.ts`), so
+  `cumulativeCostUsd` now sums real per-run USD and `maxCostUsd` is enforced too.
 - **Recursion guard (D-16, enforced):** the coordinator owns a
   `WorkerSessionRegistry`; the adapter marks the worker's parent session active
   for the run, and `requestAction(action, source)` rejects control actions whose
@@ -431,6 +430,13 @@ verification, checkpointing, failure summaries, retries, reviewer workers.
   didn't emit the fenced-JSON output block, which the soft-fail path handled
   correctly (the diff is measured from git, not the worker's self-report), so the
   loop still completed.
+- **Follow-up: `maxCostUsd` enforcement.** The one part of the orchestrator work
+  that crosses the `host.*` boundary: `cost` was added to
+  `AppRuntimeSubagentUsage` and mapped in `single-run.ts` (the cost is computed
+  internally already — only the host-API mapping dropped it). Plugin-side,
+  `cumulativeCostUsd` now sums `attempt.usage.cost`, so the cost ceiling enforces
+  exactly like `maxTotalTokens`. Covered by a `maxCostUsd` block test in
+  `background-worker.test.ts` mirroring the tokens one.
 
 ---
 

@@ -62,8 +62,8 @@ export interface SingleRunResult {
   providerId?: string;
   /** Wall-clock duration of the run in milliseconds. */
   durationMs?: number;
-  /** Token usage totals. */
-  usage?: { inputTokens: number; outputTokens: number; totalTokens: number };
+  /** Token usage totals (and run cost in USD when reported). */
+  usage?: { inputTokens: number; outputTokens: number; totalTokens: number; cost?: number };
 }
 
 /**
@@ -157,6 +157,7 @@ export async function executeSingleRun(options: ExecuteSingleRunOptions): Promis
       inputTokens: result.usage.inputTokens,
       outputTokens: result.usage.outputTokens,
       totalTokens: result.usage.totalTokens,
+      cost: result.usage.cost,
     };
 
     if (result.error) {

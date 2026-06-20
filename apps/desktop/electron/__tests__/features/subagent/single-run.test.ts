@@ -83,7 +83,7 @@ describe('executeSingleRun result metadata', () => {
     expect(result.response).toBe('done');
     expect(result.modelId).toBe('claude-test-1');
     expect(result.providerId).toBe('anthropic');
-    expect(result.usage).toEqual({ inputTokens: 100, outputTokens: 50, totalTokens: 150 });
+    expect(result.usage).toEqual({ inputTokens: 100, outputTokens: 50, totalTokens: 150, cost: 0.01 });
     expect(result.durationMs).toBeGreaterThanOrEqual(0);
   });
 

@@ -78,7 +78,7 @@ export type WorkerScript = (
 export interface WorkerScriptResult {
   response?: string;
   error?: string;
-  usage?: { inputTokens: number; outputTokens: number; totalTokens: number };
+  usage?: { inputTokens: number; outputTokens: number; totalTokens: number; cost?: number };
   modelId?: string;
   /** Files the worker produced — become the post-attempt `git status` delta. */
   changedFiles?: string[];

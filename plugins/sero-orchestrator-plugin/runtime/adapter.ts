@@ -45,7 +45,7 @@ export interface AttemptExecutionResult {
   response?: string;
   /** Distilled worker summary (from parsed output) — feeds next-attempt context (D-08). */
   summary?: string;
-  usage?: { inputTokens: number; outputTokens: number; totalTokens: number };
+  usage?: { inputTokens: number; outputTokens: number; totalTokens: number; cost?: number };
   model?: string;
   /** Active-session turn correlation id (D-05). */
   sessionTurnId?: string;

@@ -289,6 +289,38 @@ describe('background-worker — end to end (Phase 3 acceptance)', () => {
     expect(loop?.blockedReason).toBe('budget-exhausted');
     expect(loop?.attempts).toHaveLength(2);
   });
+
+  it('accumulates worker cost and blocks on maxCostUsd (D-17/FR-27)', async () => {
+    let n = 0;
+    const h = use(
+      createHarness({
+        verify: (command) => ({ command, success: false, stdout: '', stderr: 'x', durationMs: 1 }),
+        gate: { prompt: async () => 'auto-save' },
+        runWorker: async (params) => {
+          if (params.platformTools === 'readOnly') return { response: passVerdict };
+          n += 1;
+          return {
+            response: changesMade(n),
+            changedFiles: [`src/f-${n}.ts`],
+            diff: `d-${n}`,
+            usage: { inputTokens: 100, outputTokens: 100, totalTokens: 200, cost: 0.6 },
+          };
+        },
+      }),
+    );
+    const loopId = await h.createLoop({
+      checks: [{ type: 'command', command: 'pnpm test', required: true }],
+      budget: { maxCostUsd: 1 },
+    });
+
+    await h.coordinator.requestAction({ kind: 'run_next', loopId });
+    expect((await h.loop(loopId))?.status).toBe('active'); // 0.6 < 1
+    await h.coordinator.requestAction({ kind: 'run_next', loopId });
+    const loop = await h.loop(loopId);
+    expect(loop?.status).toBe('blocked'); // 1.2 >= 1
+    expect(loop?.blockedReason).toBe('budget-exhausted');
+    expect(loop?.attempts).toHaveLength(2);
+  });
 });
 
 describe('background-worker — reviewer workers (D-10)', () => {

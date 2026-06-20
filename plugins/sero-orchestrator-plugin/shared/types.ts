@@ -143,7 +143,7 @@ export interface LoopAttempt {
   checkResults: CheckResult[];
   learned?: string; // summary distilled into next-attempt context
   nextAction?: string;
-  usage?: { inputTokens: number; outputTokens: number; totalTokens: number };
+  usage?: { inputTokens: number; outputTokens: number; totalTokens: number; cost?: number };
   model?: string;
   startedAt: string;
   endedAt?: string;
