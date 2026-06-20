@@ -25,6 +25,18 @@ export type LoopStatus =
   | 'complete'
   | 'stopped';
 
+/**
+ * Structured reason a loop is `blocked`. Drives recovery: a `no-progress` block
+ * can be overridden once via `run_next --override-no-progress`; a budget block
+ * (`budget-exhausted` / `changed-files-exceeded`) clears only when the relevant
+ * limit is raised and the loop is resumed (D-13, D-17).
+ */
+export type BlockedReason =
+  | 'no-progress'
+  | 'budget-exhausted'
+  | 'changed-files-exceeded'
+  | 'unsafe';
+
 export interface LoopGoal {
   id: string;
   workspaceId: string;
@@ -37,6 +49,8 @@ export interface LoopGoal {
   status: LoopStatus;
   /** Reason the loop is blocked/stopped, surfaced to the UI in plain English. */
   statusReason?: string;
+  /** Machine-readable block reason; governs how the block recovers (D-13/D-17). */
+  blockedReason?: BlockedReason;
   triggers: LoopTrigger[];
   checks: LoopCheck[];
   stopRule: StopRule;
@@ -120,6 +134,10 @@ export interface LoopAttempt {
   workerInstruction?: WorkerInstruction; // redacted; full prompt for replay
   workerResponsePath?: string; // artifact: raw worker text (D-08/D-14)
   changedFiles: string[];
+  /** Hash of the attempt's diff; proxy for "equivalent diff" in no-progress detection (D-13). */
+  diffFingerprint?: string;
+  /** True when this attempt ran past a no-progress block via an explicit override (D-13). */
+  noProgressOverride?: boolean;
   checkResults: CheckResult[];
   learned?: string; // summary distilled into next-attempt context
   nextAction?: string;
