@@ -10,7 +10,7 @@ plans.
 | 1 | Plugin shell, state, and UI | ✅ Done | Loops persist and render; controls call coordinator |
 | 2 | Planning and validation | ✅ Done | Prompt creates a validated draft from `PlanningResponse` |
 | 3 | Coordinator core | ✅ Done | Lifecycle, locks, runs, step states, attempts, and artifacts work |
-| 4 | Step execution, workspace isolation, and limits | ⬜ Not started | Ready steps run through Sero execution in the user-selected workspace |
+| 4 | Step execution, workspace isolation, and limits | ✅ Done | Ready steps run through Sero execution in the user-selected workspace |
 | 5 | Outcomes, recovery, and completion signals | ⬜ Not started | Failed steps recover through the LLM; planned steps can signal completion |
 | 6 | Active-session execution | ⬜ Not started | Active-session steps send and observe by `turnId` |
 | 7 | Scheduling and events | ⬜ Not started | Manual/cron/event/hybrid triggers mark loops due |
@@ -29,8 +29,8 @@ Status legend: ✅ Done · 🟡 In progress · ⬜ Not started · ⛔ Blocked ·
 | FR-05 | Step dependencies support sequential and parallel plans | 3 | D-01/D-10 | ✅ |
 | FR-06 | Single coordinator and per-loop run lock | 3 | D-10 | ✅ |
 | FR-07 | Generic run, step state, attempt, observation, and artifact history | 3 | D-14 | ✅ |
-| FR-08 | Orchestrator enforces max attempts, concurrency, wall-clock, and token/cost limits | 4 | D-05 | ⬜ |
-| FR-09 | Background-agent steps run through standard Sero background execution | 4 | D-02 | ⬜ |
+| FR-08 | Orchestrator enforces max attempts, concurrency, wall-clock, and token/cost limits | 4 | D-05 | ✅ |
+| FR-09 | Background-agent steps run through standard Sero background execution | 4 | D-02 | ✅ |
 | FR-10 | Step outcome is LLM-reported or LLM-evaluated, not heuristic | 5 | D-03/D-04 | ⬜ |
 | FR-11 | Failed steps ask the LLM for recovery or revision | 5 | D-04/D-13 | ⬜ |
 | FR-12 | Completion is signaled by planned step outcomes, not a coordinator-triggered completion check | 5 | D-03 | ⬜ |
@@ -40,10 +40,10 @@ Status legend: ✅ Done · 🟡 In progress · ⬜ Not started · ⛔ Blocked ·
 | FR-16 | Closed-workspace cron catch-up collapses to one run | 7 | D-08/D-12 | ⬜ |
 | FR-17 | Plan revisions are structurally validated and recorded | 5 | D-13 | ⬜ |
 | FR-18 | UI displays generated plan, dependency graph, step states, attempts, recovery, completion, and limits | 1/3/5/8 | D-01 | 🟡 |
-| FR-19 | No Orchestrator permission, approval, command, git, PR, or tool-policy layer | 4 | D-02 | ⬜ |
-| FR-20 | User-selected loop workspace isolation supports managed worktree by default and workspace root by option | 4 | D-06 | ⬜ |
-| FR-21 | Workspace-root loops with dirty roots prompt the user to stash, create a worktree, or defer, with timeout fallback to worktree | 4 | D-06 | ⬜ |
-| FR-22 | Model steps run through the model path and validate prompted structured output | 4 | D-02 | ⬜ |
+| FR-19 | No Orchestrator permission, approval, command, git, PR, or tool-policy layer | 4 | D-02 | ✅ |
+| FR-20 | User-selected loop workspace isolation supports managed worktree by default and workspace root by option | 4 | D-06 | ✅ |
+| FR-21 | Workspace-root loops with dirty roots prompt the user to stash, create a worktree, or defer, with timeout fallback to worktree | 4 | D-06 | ✅ |
+| FR-22 | Model steps run through the model path and validate prompted structured output | 4 | D-02 | ✅ |
 | FR-23 | Restart recovery marks orphaned runs and attempts before new scheduling | 3 | D-08 | ✅ |
 
 ---
@@ -153,67 +153,67 @@ management limits.
 
 **Tasks**
 
-- [ ] Add `LoopWorkspaceSettings` to loop creation with
+- [x] Add `LoopWorkspaceSettings` to loop creation with
   `useManagedWorktree: true` by default.
-- [ ] Resolve loop workspace from the user-selected setting before filesystem
+- [x] Resolve loop workspace from the user-selected setting before filesystem
   work starts.
-- [ ] Check the registered workspace root for uncommitted changes only when a
+- [x] Check the registered workspace root for uncommitted changes only when a
   workspace-root loop is about to start background filesystem work.
-- [ ] Show a visible dirty-workspace notification with choices to stash current
+- [x] Show a visible dirty-workspace notification with choices to stash current
   changes, create a managed worktree, or defer for workspace-root dirty roots.
-- [ ] Use a 30-second timeout for the dirty-workspace notification.
-- [ ] On timeout, create a managed worktree and proceed there.
-- [ ] Create or reuse one Sero-managed worktree for loops that use managed
+- [x] Use a 30-second timeout for the dirty-workspace notification.
+- [x] On timeout, create a managed worktree and proceed there.
+- [x] Create or reuse one Sero-managed worktree for loops that use managed
   worktree isolation.
-- [ ] Stash current workspace changes only when the user chooses that option.
-- [ ] Record the resolved workspace on every step attempt that uses filesystem
+- [x] Stash current workspace changes only when the user chooses that option.
+- [x] Record the resolved workspace on every step attempt that uses filesystem
   work.
-- [ ] Implement background-agent step execution using
+- [x] Implement background-agent step execution using
   `host.subagents.runStructured`.
-- [ ] Pass step instructions, global instructions, runtime variables, relevant
+- [x] Pass step instructions, global instructions, runtime variables, relevant
   observations, and expected outcome into the Sero agent.
-- [ ] Pass the resolved loop workspace cwd to Sero for background-agent steps.
-- [ ] Pass and persist the loop-scoped `parentSessionId` for background-agent
+- [x] Pass the resolved loop workspace cwd to Sero for background-agent steps.
+- [x] Pass and persist the loop-scoped `parentSessionId` for background-agent
   and model calls.
-- [ ] Stream live output to UI through `host.subagents.onLiveOutput`.
-- [ ] Record response text, artifacts, model id, provider id, duration, and usage
+- [x] Stream live output to UI through `host.subagents.onLiveOutput`.
+- [x] Record response text, artifacts, model id, provider id, duration, and usage
   when available.
-- [ ] Implement model step execution for structured model output, including
+- [x] Implement model step execution for structured model output, including
   prompt-based `outputSchema` instructions and returned-text validation.
-- [ ] Enforce `maxAttemptsPerStep`, `maxAttemptsTotal`, `maxConcurrentSteps`,
+- [x] Enforce `maxAttemptsPerStep`, `maxAttemptsTotal`, `maxConcurrentSteps`,
   `maxWallClockMs`, `maxTotalTokens`, and `maxCostUsd`.
-- [ ] Block the loop with `LoopBlock.kind = "management-limit"` when a limit is
+- [x] Block the loop with `LoopBlock.kind = "management-limit"` when a limit is
   reached.
-- [ ] Confirm step execution uses standard Sero runtime behavior without an
+- [x] Confirm step execution uses standard Sero runtime behavior without an
   Orchestrator permission/tool/command layer.
 
 **Acceptance**
 
-- [ ] A generated one-step loop starts a background agent and records its
+- [x] A generated one-step loop starts a background agent and records its
   attempt.
-- [ ] A new loop defaults to managed worktree isolation unless the user chooses
+- [x] A new loop defaults to managed worktree isolation unless the user chooses
   workspace root.
-- [ ] A managed-worktree loop creates or reuses one worktree and runs background
+- [x] A managed-worktree loop creates or reuses one worktree and runs background
   agents with that cwd.
-- [ ] A dirty workspace root does not prompt for a managed-worktree loop.
-- [ ] A workspace-root loop runs background agents in the registered workspace
+- [x] A dirty workspace root does not prompt for a managed-worktree loop.
+- [x] A workspace-root loop runs background agents in the registered workspace
   root when the workspace is clean.
-- [ ] A dirty workspace-root loop shows a visible choice notification before
+- [x] A dirty workspace-root loop shows a visible choice notification before
   steps start.
-- [ ] Dirty-workspace timeout creates a managed worktree and proceeds there.
-- [ ] Dirty-workspace stash choice stashes current changes and runs in the
+- [x] Dirty-workspace timeout creates a managed worktree and proceeds there.
+- [x] Dirty-workspace stash choice stashes current changes and runs in the
   workspace root.
-- [ ] Dirty-workspace defer choice leaves the loop waiting without starting
+- [x] Dirty-workspace defer choice leaves the loop waiting without starting
   steps.
-- [ ] Active-session steps keep using the live session's workspace root even
+- [x] Active-session steps keep using the live session's workspace root even
   when background-agent steps use a managed worktree.
-- [ ] A generated parallel plan starts multiple ready steps up to
+- [x] A generated parallel plan starts multiple ready steps up to
   `maxConcurrentSteps`.
-- [ ] Max attempts and token limits block new attempts with clear reasons.
-- [ ] Background-agent output appears in the UI and is recorded in history.
-- [ ] Model step `outputSchema` is included in the prompt and the response is
+- [x] Max attempts and token limits block new attempts with clear reasons.
+- [x] Background-agent output appears in the UI and is recorded in history.
+- [x] Model step `outputSchema` is included in the prompt and the response is
   parsed and validated.
-- [ ] FR-08, FR-09, FR-19, FR-20, FR-21, FR-22, and partial FR-18 satisfied.
+- [x] FR-08, FR-09, FR-19, FR-20, FR-21, FR-22, and partial FR-18 satisfied.
 
 ---
 

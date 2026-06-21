@@ -8,10 +8,12 @@ import type { AppRuntime, AppRuntimeContext, AppRuntimeModule } from '@sero-ai/c
 import { Coordinator } from './coordinator';
 import { createOrchestratorHost } from './host-adapter';
 import { registerCoordinator, unregisterCoordinator } from './registry';
+import { LoopLocks } from './locks';
+import { createEngineDeps } from './executors';
 
 export function createAppRuntime(ctx: AppRuntimeContext): AppRuntime {
   const host = createOrchestratorHost(ctx);
-  const coordinator = new Coordinator(host);
+  const coordinator = new Coordinator(host, createEngineDeps(new LoopLocks()));
 
   return {
     start: async () => {

@@ -41,6 +41,29 @@ export interface ModelRunResult {
   usage?: ModelRunUsage;
 }
 
+export interface WorktreeHandle {
+  worktreePath: string;
+  branchName: string;
+}
+
+export interface WorkspaceStatus {
+  isGitRepository: boolean;
+  hasUncommittedChanges: boolean;
+  summary: string;
+}
+
+export interface ChoiceRequest {
+  title: string;
+  body: string;
+  choices: { id: string; label: string }[];
+  timeoutMs: number;
+}
+
+export interface ChoiceResult {
+  choiceId: string | null;
+  timedOut: boolean;
+}
+
 export interface OrchestratorHost {
   /** Workspace this host (and its coordinator) is scoped to. */
   readonly workspaceId: string;
@@ -62,6 +85,20 @@ export interface OrchestratorHost {
   writeArtifact(relativePath: string, content: string): Promise<string>;
   /** Reads artifact content by the reference returned from writeArtifact. */
   readArtifact(ref: string): Promise<string | null>;
+
+  // ── Workspace isolation (user-selected placement) ─────────
+  /** Creates or reuses one managed worktree for a loop. */
+  createWorktree(loopId: string, title: string): Promise<WorktreeHandle>;
+  removeWorktree(loopId: string, options?: { deleteBranch?: boolean; force?: boolean }): Promise<void>;
+  /** Workspace-root dirty preflight (workspace-root mode only). */
+  getWorkspaceStatus(): Promise<WorkspaceStatus>;
+  /** Stashes current workspace changes after an explicit user choice. */
+  stashWorkspaceChanges(message: string): Promise<{ stashRef: string | null }>;
+
+  // ── Notifications ─────────────────────────────────────────
+  notify(message: string, type?: 'info' | 'warning' | 'error'): void;
+  /** Visible choice notification with timeout fallback. */
+  requestChoice(request: ChoiceRequest): Promise<ChoiceResult>;
 
   // ── Deterministic utilities ───────────────────────────────
   /** ISO timestamp. Injectable so tests are deterministic. */

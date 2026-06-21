@@ -5,7 +5,13 @@
 
 import { DEFAULT_STATE } from '../../shared/defaults';
 import type { OrchestratorState } from '../../shared/types';
-import type { ModelRunParams, ModelRunResult, OrchestratorHost } from '../host';
+import type {
+  ChoiceResult,
+  ModelRunParams,
+  ModelRunResult,
+  OrchestratorHost,
+  WorkspaceStatus,
+} from '../host';
 
 export interface FakeHostOptions {
   workspaceId?: string;
@@ -25,6 +31,16 @@ export interface FakeHost extends OrchestratorHost {
   modelCalls: ModelRunParams[];
   /** In-memory artifact store keyed by reference. */
   artifacts: Map<string, string>;
+  /** Configurable workspace status for dirty preflight tests. */
+  workspaceStatus: WorkspaceStatus;
+  /** Configurable choice result for dirty-workspace prompt tests. */
+  choiceResult: ChoiceResult;
+  /** Records created/removed worktrees and notifications/choices. */
+  worktreesCreated: string[];
+  worktreesRemoved: string[];
+  notifications: { message: string; type?: string }[];
+  choiceRequests: { title: string; body: string }[];
+  stashes: string[];
 }
 
 export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
@@ -39,6 +55,13 @@ export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
     modelResponses: [],
     modelCalls: [],
     artifacts: new Map<string, string>(),
+    workspaceStatus: { isGitRepository: true, hasUncommittedChanges: false, summary: 'Clean working tree' },
+    choiceResult: { choiceId: null, timedOut: true },
+    worktreesCreated: [],
+    worktreesRemoved: [],
+    notifications: [],
+    choiceRequests: [],
+    stashes: [],
 
     async readState() {
       return structuredClone(this.state);
@@ -58,6 +81,27 @@ export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
     },
     async readArtifact(ref) {
       return this.artifacts.get(ref) ?? null;
+    },
+    async createWorktree(loopId) {
+      this.worktreesCreated.push(loopId);
+      return { worktreePath: `${this.workspacePath}/.sero/worktrees/${loopId}`, branchName: `orchestrator/${loopId}` };
+    },
+    async removeWorktree(loopId) {
+      this.worktreesRemoved.push(loopId);
+    },
+    async getWorkspaceStatus() {
+      return this.workspaceStatus;
+    },
+    async stashWorkspaceChanges(message) {
+      this.stashes.push(message);
+      return { stashRef: `stash@{0}:${message}` };
+    },
+    notify(message, type) {
+      this.notifications.push({ message, type });
+    },
+    async requestChoice(request) {
+      this.choiceRequests.push({ title: request.title, body: request.body });
+      return this.choiceResult;
     },
     now() {
       // Advance one second per call so ordering is deterministic and distinct.

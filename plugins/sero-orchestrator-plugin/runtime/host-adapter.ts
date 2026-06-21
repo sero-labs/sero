@@ -57,6 +57,17 @@ export function createOrchestratorHost(ctx: AppRuntimeContext): OrchestratorHost
       }
     },
 
+    createWorktree: async (loopId, title) => {
+      const result = await ctx.host.git.createWorktree(ctx.workspacePath, loopId, title);
+      return { worktreePath: result.worktreePath, branchName: result.branchName };
+    },
+    removeWorktree: (loopId, options) => ctx.host.git.removeWorktree(ctx.workspacePath, loopId, options),
+    getWorkspaceStatus: () => ctx.host.git.getWorkspaceStatus(ctx.workspacePath),
+    stashWorkspaceChanges: (message) => ctx.host.git.stashWorkspaceChanges(ctx.workspacePath, message),
+
+    notify: (message, type) => ctx.host.notifications.notify({ message, type }),
+    requestChoice: (request) => ctx.host.notifications.requestChoice(request),
+
     now: () => new Date().toISOString(),
     newId: (prefix) => (prefix ? `${prefix}_${randomUUID()}` : randomUUID()),
     log: (message) => console.log(`[orchestrator] ${message}`),

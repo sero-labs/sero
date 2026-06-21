@@ -272,6 +272,16 @@ export type AppRuntimeMergePullRequestResult =
 
 export type AppRuntimePullRequestMergeState = 'merged' | 'open' | 'closed' | 'unknown';
 
+export interface AppRuntimeWorkspaceStatusResult {
+  isGitRepository: boolean;
+  hasUncommittedChanges: boolean;
+  summary: string;
+}
+
+export interface AppRuntimeDirtyWorkspaceStashResult {
+  stashRef: string | null;
+}
+
 export interface AppRuntimeGitApi {
   createWorktree(
     workspacePath: string,
@@ -283,6 +293,17 @@ export interface AppRuntimeGitApi {
     cardId: string,
     options?: AppRuntimeWorktreeRemoveOptions,
   ): Promise<void>;
+  /**
+   * Workspace-root dirty preflight (Orchestrator workspace-root mode only).
+   * Reports whether the registered workspace root has uncommitted changes,
+   * ignoring Sero-managed paths under `.sero/`.
+   */
+  getWorkspaceStatus(workspacePath: string): Promise<AppRuntimeWorkspaceStatusResult>;
+  /** Stashes current workspace changes after an explicit user choice. */
+  stashWorkspaceChanges(
+    workspacePath: string,
+    message: string,
+  ): Promise<AppRuntimeDirtyWorkspaceStashResult>;
   syncWorktreeWithDefaultBranch(
     worktreePath: string,
     options?: AppRuntimeWorktreeSyncOptions,
@@ -368,8 +389,32 @@ export interface AppRuntimeNotificationOptions {
   subtitle?: string;
 }
 
+export interface AppRuntimeNotificationChoice {
+  id: string;
+  label: string;
+}
+
+export interface AppRuntimeNotificationChoiceResult {
+  choiceId: string | null;
+  timedOut: boolean;
+}
+
+export interface AppRuntimeNotificationChoiceOptions {
+  title: string;
+  body: string;
+  choices: AppRuntimeNotificationChoice[];
+  timeoutMs: number;
+}
+
 export interface AppRuntimeNotificationsApi {
   notify(options: AppRuntimeNotificationOptions): void;
+  /**
+   * Shows a visible choice notification and resolves with the chosen id, or
+   * `timedOut: true` when the user does not choose within `timeoutMs`.
+   */
+  requestChoice(
+    options: AppRuntimeNotificationChoiceOptions,
+  ): Promise<AppRuntimeNotificationChoiceResult>;
 }
 
 export interface AppRuntimeProviderApiKey {

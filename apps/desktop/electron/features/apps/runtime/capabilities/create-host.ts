@@ -4,6 +4,7 @@ import { workspaceManager } from '@electron/features/workspace/manager';
 import { listWorkspaceAccessRoots } from '@electron/features/workspace/access-roots';
 import { runtimeManager } from '@electron/features/workspace/runtime/runtime-manager';
 import { showNotification } from '@electron/platform/desktop/notifications';
+import { requestChoice } from '@electron/platform/desktop/request-choice';
 import { runWorkspaceCommand } from '@electron/features/workspace/runtime/run-workspace-command';
 import { refreshWorkspaceRuntimeAfterSync } from '@electron/features/workspace/runtime/refresh-after-sync';
 import { resolveWorkspaceRuntime } from '@electron/features/workspace/runtime-resolution';
@@ -31,6 +32,7 @@ import {
 } from '@electron/features/vcs/worktree/pull-request';
 import { syncWorktreeBranchWithDefaultBranch } from '@electron/features/vcs/worktree/sync';
 import { syncWorkspaceRootToDefaultBranch } from '@electron/features/vcs/worktree/workspace-sync';
+import { getWorkspaceStatus, stashWorkspaceChanges } from '@electron/features/vcs/worktree/workspace-preflight';
 import {
   getPullRequestMergeError,
   getPullRequestMergeState,
@@ -132,6 +134,8 @@ export function createAppRuntimeHost(_target: AppRuntimeTarget): AppRuntimeHost 
         worktreeManager.create(workspacePath, cardId, cardTitle),
       removeWorktree: (workspacePath, cardId, options) =>
         worktreeManager.remove(workspacePath, cardId, options),
+      getWorkspaceStatus,
+      stashWorkspaceChanges,
       syncWorktreeWithDefaultBranch: (worktreePath, options) =>
         syncWorktreeBranchWithDefaultBranch(worktreePath, options),
       syncWorkspaceRootToDefaultBranch,
@@ -180,6 +184,7 @@ export function createAppRuntimeHost(_target: AppRuntimeTarget): AppRuntimeHost 
       notify: (options) => {
         showNotification(options);
       },
+      requestChoice,
     },
     credentials: {
       getProviderApiKey: (providerId) => getProviderApiKey(providerId, SERO_HOME),

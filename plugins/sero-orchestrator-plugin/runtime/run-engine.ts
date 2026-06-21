@@ -8,13 +8,14 @@
  * (engine-types.ts) so this orchestration is testable with fakes.
  */
 
-import type { Loop, LoopRun, LoopStepDefinition, StepAttempt, StepOutcome } from '../shared/types';
+import type { Loop, LoopBlock, LoopRun, LoopStepDefinition, StepAttempt, StepOutcome } from '../shared/types';
 import type { OrchestratorHost } from './host';
 import type { EngineDeps } from './engine-types';
 import { computeReadySteps, hasRunningSteps, validateRuntime } from './readiness';
 import { applyStepOutcome, recordCompletion } from './outcomes';
 import { applyRecovery } from './recovery-apply';
 import { pruneRuns } from './artifacts';
+import { checkManagementLimits } from './limits';
 
 export interface RunResult {
   acquired: boolean;
@@ -87,20 +88,18 @@ export class RunEngine {
     };
     await this.persist(loop);
 
-    if (this.deps.workspaceResolver) {
-      const resolved = await this.deps.workspaceResolver.resolve(this.host, loop);
-      loop = resolved.loop;
-      if (resolved.deferred) {
-        run = { ...run, status: 'waiting' };
-        return await this.finalize(loop, run, resolved.deferred);
-      }
-    }
-
     let stop = false;
+    let deferred: string | undefined;
     while (!stop) {
       const validation = validateRuntime(loop);
       if (!validation.ok) {
         loop = this.blockRuntime(loop, validation.error ?? 'invalid runtime state');
+        run = { ...run, status: 'blocked', block: loop.runtime.block };
+        break;
+      }
+      const limit = checkManagementLimits(loop, run, Date.parse(this.host.now()));
+      if (!limit.ok) {
+        loop = this.blockLimit(loop, limit.limit, limit.reason ?? 'management limit reached');
         run = { ...run, status: 'blocked', block: loop.runtime.block };
         break;
       }
@@ -110,12 +109,31 @@ export class RunEngine {
         break;
       }
       const batch = ready.slice(0, loop.limits.maxConcurrentSteps ?? ready.length);
+
+      // Resolve the loop workspace lazily, only when a background-agent
+      // filesystem step is about to start (D-06).
+      if (this.needsWorkspace(loop, batch) && this.deps.workspaceResolver) {
+        const resolution = await this.deps.workspaceResolver.resolve(this.host, loop);
+        loop = resolution.loop;
+        await this.persist(loop);
+        if (resolution.deferred) {
+          run = { ...run, status: 'waiting' };
+          deferred = resolution.deferred;
+          break;
+        }
+      }
+
       const result = await this.runBatch(loop, run, batch);
       loop = result.loop;
       run = result.run;
       stop = result.stop;
     }
-    return await this.finalize(loop, run);
+    return await this.finalize(loop, run, deferred);
+  }
+
+  private needsWorkspace(loop: Loop, batch: string[]): boolean {
+    if (loop.runtime.workspace.resolved) return false;
+    return batch.some((id) => this.step(loop, id).execution.type === 'background-agent');
   }
 
   private async runBatch(
@@ -219,6 +237,11 @@ export class RunEngine {
   private blockRuntime(loop: Loop, reason: string): Loop {
     const now = this.host.now();
     return { ...loop, status: 'blocked', runtime: { ...loop.runtime, block: { kind: 'runtime-error', reason, createdAt: now } }, updatedAt: now };
+  }
+
+  private blockLimit(loop: Loop, limit: LoopBlock['limit'], reason: string): Loop {
+    const now = this.host.now();
+    return { ...loop, status: 'blocked', runtime: { ...loop.runtime, block: { kind: 'management-limit', reason, createdAt: now, limit } }, updatedAt: now };
   }
 
   private step(loop: Loop, id: string): LoopStepDefinition {

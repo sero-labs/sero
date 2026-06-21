@@ -104,6 +104,8 @@ function createHostStub(
     git: {
       createWorktree: vi.fn(async () => ({ worktreePath: '', branchName: '', greenfield: false })),
       removeWorktree: vi.fn(async () => {}),
+      getWorkspaceStatus: vi.fn(async () => ({ isGitRepository: true, hasUncommittedChanges: false, summary: 'Clean working tree' })),
+      stashWorkspaceChanges: vi.fn(async () => ({ stashRef: null })),
       syncWorktreeWithDefaultBranch: vi.fn(async () => ({ success: true, updated: false, resolvedConflicts: false })),
       syncWorkspaceRootToDefaultBranch: vi.fn(async () => ({ synced: true })),
       createCheckpoint: vi.fn(async () => null),
@@ -125,6 +127,7 @@ function createHostStub(
     },
     notifications: {
       notify: vi.fn(),
+      requestChoice: vi.fn(async () => ({ choiceId: null, timedOut: true })),
     },
   };
 }
