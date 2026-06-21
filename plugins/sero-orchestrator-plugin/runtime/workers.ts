@@ -247,6 +247,49 @@ export function lastFencedJsonBlock(text: string): string | null {
   return last;
 }
 
+/**
+ * Parse a JSON object out of a model reply, tolerant of how real models actually
+ * format it: prefer a fenced ```json block, else fall back to the first
+ * brace-balanced object in the text (models often emit bare JSON despite being
+ * asked to fence it). Shared by the planner and judge parsers.
+ */
+export function extractJsonObject(response: string): Record<string, unknown> | null {
+  const candidates = [lastFencedJsonBlock(response), firstBalancedObject(response)].filter(
+    (c): c is string => !!c,
+  );
+  for (const candidate of candidates) {
+    try {
+      const parsed: unknown = JSON.parse(candidate);
+      if (isRecord(parsed)) return parsed;
+    } catch {
+      // try the next candidate
+    }
+  }
+  return null;
+}
+
+/** The first brace-balanced JSON object substring in `text` (string-aware). */
+export function firstBalancedObject(text: string): string | null {
+  const start = text.indexOf('{');
+  if (start < 0) return null;
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let i = start; i < text.length; i += 1) {
+    const ch = text[i]!;
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (ch === '\\') escaped = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') inString = true;
+    else if (ch === '{') depth += 1;
+    else if (ch === '}' && --depth === 0) return text.slice(start, i + 1);
+  }
+  return null;
+}
+
 function tail(text: string, max: number): string {
   if (text.length <= max) return text;
   return `…${text.slice(text.length - max)}`;

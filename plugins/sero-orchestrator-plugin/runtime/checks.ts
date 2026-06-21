@@ -188,8 +188,10 @@ export async function maybeArtifact(
   id: string,
   kind: 'stdout' | 'stderr' | 'review' | 'judge' | 'evidence',
   content: string,
+  /** Retain even when small — e.g. a judge reply with no parseable verdict (diagnosis). */
+  always = false,
 ): Promise<string | undefined> {
-  if (!content || content.length <= sink.maxInlineOutputBytes) return undefined;
+  if (!content || (!always && content.length <= sink.maxInlineOutputBytes)) return undefined;
   return writeArtifact(
     sink.stateFilePath,
     sink.attemptId,

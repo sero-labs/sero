@@ -10,14 +10,16 @@ import type { AppRuntimeHost } from '@sero-ai/common';
 
 import type { LoopGoal, SuccessCriterion } from '../shared/types';
 import { formatEvidence, type GatheredEvidence } from './evidence';
-import { lastFencedJsonBlock, toolPolicyForRole } from './workers';
+import { extractJsonObject, toolPolicyForRole } from './workers';
 
 /** A raw judge verdict; criteria.ts normalizes it into a CheckResult (D-12). */
 export interface JudgeVerdict {
   passed: boolean;
   summary: string;
-  /** Full judge reply, retained to an artifact when oversized (D-14). */
+  /** Full judge reply, retained to an artifact when oversized (D-14) or unparseable. */
   response: string;
+  /** Whether a verdict was actually parsed (false → criteria.ts always retains the reply). */
+  parsed: boolean;
 }
 
 /** Judges one criterion against its gathered evidence; injected into criteria.ts. */
@@ -52,6 +54,7 @@ export function createCriterionJudge(deps: CriterionJudgeDeps): CriterionJudge {
       passed: verdict?.verdict === 'pass' && !result.error,
       summary: verdict?.summary ?? result.error ?? 'Judge returned no verdict.',
       response: result.response,
+      parsed: !!verdict,
     };
   };
 }
@@ -92,19 +95,35 @@ export interface ParsedVerdict {
   summary?: string;
 }
 
-/** Extract a `{ verdict, summary }` from a judge/reviewer reply (shared, D-08). */
+/**
+ * Extract a `{ verdict, summary }` from a judge/reviewer reply (shared, D-08).
+ * Tolerant of how real models phrase the verdict (observed live): a fenced block
+ * OR bare JSON, `verdict` as pass/fail/passed/failed (any case), or a boolean
+ * `passed`/`pass` field. A missing/unrecognized verdict returns null → the caller
+ * fails safe and retains the raw reply for diagnosis.
+ */
 export function parseVerdict(response: string): ParsedVerdict | null {
-  const raw = lastFencedJsonBlock(response);
-  if (!raw) return null;
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    return null;
-  }
-  if (typeof parsed !== 'object' || parsed === null) return null;
-  const record = parsed as Record<string, unknown>;
-  const verdict = record.verdict === 'pass' ? 'pass' : record.verdict === 'fail' ? 'fail' : null;
+  const record = extractJsonObject(response);
+  if (!record) return null;
+  const verdict = readVerdict(record);
   if (!verdict) return null;
-  return { verdict, summary: typeof record.summary === 'string' ? record.summary : undefined };
+  const summary =
+    typeof record.summary === 'string'
+      ? record.summary
+      : typeof record.reason === 'string'
+        ? record.reason
+        : undefined;
+  return { verdict, summary };
+}
+
+/** Read a pass/fail verdict from the common shapes models emit. */
+function readVerdict(record: Record<string, unknown>): 'pass' | 'fail' | null {
+  const raw = record.verdict ?? record.result ?? record.status;
+  if (typeof raw === 'string') {
+    if (/^pass|^satisf|^success|^yes\b/i.test(raw.trim())) return 'pass';
+    if (/^fail|^reject|^no\b/i.test(raw.trim())) return 'fail';
+  }
+  const bool = record.passed ?? record.pass;
+  if (typeof bool === 'boolean') return bool ? 'pass' : 'fail';
+  return null;
 }

@@ -407,3 +407,22 @@ description from any of `description`/`criterion`/`name`/`title`/`expected`. Thi
 field-name tolerance, not heuristic scoring — what each criterion MEANS still comes
 from the model (UI-style checks with no machine decision fall back to judge-on-diff,
 as designed). The exact live reply is pinned as a regression fixture.
+
+**Live-test hardening (judge + diff evidence).** With the plan deriving and the
+worker making the change (text → blue, build passing), all three judge criteria
+returned "Judge returned no verdict" and the attempt failed. Two causes: (1) the
+SAME strictness `parseVerdict` had — it required a fenced block and the literal
+`pass`/`fail`, but the model emitted bare JSON / synonyms. Fixed by sharing the
+planner's tolerant `extractJsonObject`/`firstBalancedObject` (moved to `workers.ts`)
+and reading pass/fail from `verdict`/`result`/`status` (any case, pass/passed/…) or
+a boolean `passed`/`pass`. (2) The judge's `diff` evidence was gathered with
+`host.git.getDiff`, which diffs committed `base...HEAD` and is EMPTY for the
+worker's uncommitted change at the workspace root — the exact trap `vcs.ts`
+documents and the worker measurement already avoids. `evidence.ts` now takes the
+diff via `git diff <baseRef>` (baseRef threaded through `RunCriteriaDeps`), falling
+back to `getDiff` only when there is no usable baseRef. Diagnosability: a judge
+reply with no parseable verdict is now ALWAYS retained to an artifact (a `parsed`
+flag on `JudgeVerdict` drives `maybeArtifact(..., always)`), so "no verdict" is no
+longer a black box. Guards in `verification-judge.test.ts`: a bare-JSON verdict
+completes end-to-end, the `parseVerdict` synonym table, and the diff evidence goes
+through `git diff <baseRef>`.

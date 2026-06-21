@@ -28,6 +28,8 @@ export interface GatherEvidenceDeps {
   cwd: string;
   /** Per-command timeout (RunBudget.maxCommandRuntimeMs); host default when undefined. */
   commandTimeoutMs?: number;
+  /** The attempt's pre-attempt baseline; `diff` evidence is taken against it. */
+  baseRef?: string;
 }
 
 /** Gather every evidence step in order at the attempt cwd. */
@@ -69,8 +71,7 @@ async function gatherOne(deps: GatherEvidenceDeps, step: EvidenceStep): Promise<
       return { kind: 'read', label: `read ${step.path}`, content: out.stdout };
     }
     case 'diff': {
-      const diff = await deps.host.git.getDiff(deps.cwd);
-      return { kind: 'diff', label: 'diff', content: diff };
+      return { kind: 'diff', label: 'diff', content: await diffAgainstBase(deps) };
     }
     case 'gitLog': {
       const command = step.since
@@ -89,6 +90,26 @@ async function gatherOne(deps: GatherEvidenceDeps, step: EvidenceStep): Promise<
       };
     }
   }
+}
+
+/**
+ * The attempt's diff. Uses `git diff <baseRef>` so the worker's UNCOMMITTED change
+ * is visible — `host.git.getDiff` diffs committed `base...HEAD` only and returns
+ * empty for it (the same trap `computeDiffFingerprint` documents in vcs.ts). Falls
+ * back to getDiff when there is no usable baseRef (the sentinel makes the command
+ * exit non-zero, which we treat as "no baseRef").
+ */
+async function diffAgainstBase(deps: GatherEvidenceDeps): Promise<string> {
+  if (deps.baseRef) {
+    const out = await deps.host.workspace.runCommand(
+      deps.workspaceId,
+      deps.cwd,
+      `git diff ${deps.baseRef}`,
+      deps.commandTimeoutMs,
+    );
+    if (out.exitCode === 0) return out.stdout;
+  }
+  return deps.host.git.getDiff(deps.cwd);
 }
 
 /** Render an evidence bundle as labelled blocks for a judge prompt. */

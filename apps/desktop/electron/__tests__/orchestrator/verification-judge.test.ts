@@ -8,6 +8,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { createHarness, settle, type WorkerScript } from './harness';
+import { parseVerdict } from '@plugins/sero-orchestrator-plugin/runtime/judge';
 import type { PlannerRunner } from '@plugins/sero-orchestrator-plugin/runtime/planner';
 import type { EvidenceStep, SuccessCriterion } from '@plugins/sero-orchestrator-plugin/shared/types';
 
@@ -83,6 +84,25 @@ describe('P-B — criterion-judge', () => {
     h.cleanup();
   });
 
+  it('completes when the judge replies with bare JSON (no fence) — the live failure shape', async () => {
+    // Live, the judge ruled correctly but emitted bare JSON with no ```json fence,
+    // so the old strict parser returned "no verdict" and the change was marked
+    // failed even though it was right. A bare-JSON pass must now complete.
+    const bareJsonJudge: WorkerScript = (params) =>
+      isJudge(params.systemPrompt)
+        ? { response: '{"verdict": "pass", "summary": "text is blue"}' }
+        : { response: 'implemented', changedFiles: ['x.ts'], diff: 'slate->blue' };
+    const h = createHarness({
+      planner: planWith([judgeCriterion([{ kind: 'diff' }])]),
+      runWorker: bareJsonJudge,
+    });
+    const id = await h.createLoop();
+    await settle();
+    await h.coordinator.requestAction({ kind: 'run_next', loopId: id });
+    expect((await h.loop(id))!.status).toBe('complete');
+    h.cleanup();
+  });
+
   it('feeds the gathered diff into the judge', async () => {
     const sink = { tasks: [] as string[] };
     const h = createHarness({
@@ -95,6 +115,9 @@ describe('P-B — criterion-judge', () => {
 
     expect(sink.tasks).toHaveLength(1);
     expect(sink.tasks[0]).toContain('DIFFBODY'); // the worker's diff reached the judge
+    // The diff is taken via `git diff <baseRef>` (captures the worker's UNCOMMITTED
+    // change) — NOT host.git.getDiff, which would be empty for it at the root.
+    expect(h.commands.some((c) => c.startsWith('git diff '))).toBe(true);
     h.cleanup();
   });
 
@@ -123,6 +146,22 @@ describe('P-B — criterion-judge', () => {
     expect(h.commands).toContain('cat -- "CHANGELOG.md"');
     expect((await h.loop(id))!.status).toBe('complete');
     h.cleanup();
+  });
+
+  describe('parseVerdict — tolerant of real model output', () => {
+    it('reads a bare-JSON verdict and verdict/passed synonyms', () => {
+      expect(parseVerdict('{"verdict":"pass","summary":"ok"}')).toEqual({ verdict: 'pass', summary: 'ok' });
+      expect(parseVerdict('here:\n{"verdict":"PASSED"}')!.verdict).toBe('pass');
+      expect(parseVerdict('{"verdict":"Failed"}')!.verdict).toBe('fail');
+      expect(parseVerdict('{"passed": true}')!.verdict).toBe('pass');
+      expect(parseVerdict('{"passed": false, "reason": "nope"}')).toEqual({ verdict: 'fail', summary: 'nope' });
+      expect(parseVerdict('```json\n{"verdict":"pass"}\n```')!.verdict).toBe('pass');
+    });
+
+    it('returns null for a genuine no-verdict reply', () => {
+      expect(parseVerdict('I am not sure either way.')).toBeNull();
+      expect(parseVerdict('{"note": "thinking about it"}')).toBeNull();
+    });
   });
 
   it('dead-code shape: a mechanical exit-zero AND a judge criterion both gate completion', async () => {

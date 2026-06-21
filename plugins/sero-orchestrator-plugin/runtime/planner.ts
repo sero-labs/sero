@@ -25,7 +25,7 @@ import type {
   VerificationPlan,
 } from '../shared/types';
 import { writeArtifact } from './artifacts';
-import { lastFencedJsonBlock, toolPolicyForRole } from './workers';
+import { extractJsonObject, toolPolicyForRole } from './workers';
 
 /** A derived plan minus provenance — the coordinator stamps `derivedFrom`. */
 export interface PlanDerivation {
@@ -218,7 +218,7 @@ interface ParsedPlan {
  * criterion MEANS still comes from the model.
  */
 export function parsePlannerOutput(response: string): ParsedPlan | null {
-  const root = extractPlanObject(response);
+  const root = extractJsonObject(response);
   if (!root) return null;
   const plan = unwrapPlan(root);
 
@@ -239,22 +239,6 @@ export function parsePlannerOutput(response: string): ParsedPlan | null {
   return { criteria, stopConditions };
 }
 
-/** Parse the plan JSON: prefer a fenced block, fall back to a bare JSON object. */
-function extractPlanObject(response: string): Record<string, unknown> | null {
-  const candidates = [lastFencedJsonBlock(response), firstBalancedObject(response)].filter(
-    (c): c is string => !!c,
-  );
-  for (const candidate of candidates) {
-    try {
-      const parsed: unknown = JSON.parse(candidate);
-      if (isRecord(parsed)) return parsed;
-    } catch {
-      // try the next candidate
-    }
-  }
-  return null;
-}
-
 /** The criteria may sit under a single wrapper key (e.g. `{ verification_plan: {...} }`). */
 function unwrapPlan(obj: Record<string, unknown>): Record<string, unknown> {
   if (Array.isArray(obj.criteria) || Array.isArray(obj.checks)) return obj;
@@ -270,28 +254,6 @@ function firstArray(obj: Record<string, unknown>, keys: string[]): unknown[] {
     if (Array.isArray(obj[key])) return obj[key] as unknown[];
   }
   return [];
-}
-
-/** The first brace-balanced JSON object in the text (string-aware). */
-function firstBalancedObject(text: string): string | null {
-  const start = text.indexOf('{');
-  if (start < 0) return null;
-  let depth = 0;
-  let inString = false;
-  let escaped = false;
-  for (let i = start; i < text.length; i += 1) {
-    const ch = text[i]!;
-    if (inString) {
-      if (escaped) escaped = false;
-      else if (ch === '\\') escaped = true;
-      else if (ch === '"') inString = false;
-      continue;
-    }
-    if (ch === '"') inString = true;
-    else if (ch === '{') depth += 1;
-    else if (ch === '}' && --depth === 0) return text.slice(start, i + 1);
-  }
-  return null;
 }
 
 // The parser is deliberately FORGIVING of real model output (a strict parser that

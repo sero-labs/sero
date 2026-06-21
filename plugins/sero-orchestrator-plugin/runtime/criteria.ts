@@ -26,6 +26,8 @@ export interface RunCriteriaDeps extends ArtifactSink {
   cwd: string;
   /** Per-command timeout (RunBudget.maxCommandRuntimeMs); host default when undefined. */
   commandTimeoutMs?: number;
+  /** The attempt's pre-attempt baseline; `diff` evidence is taken against it. */
+  baseRef?: string;
   clock: Clock;
   /** Judges `judge` criteria (spec 05 §6.3); absent → judge criteria skip. */
   judge?: CriterionJudge;
@@ -70,7 +72,8 @@ async function evaluateJudge(
   const evidence = await gatherEvidence(deps, criterion.evidence);
   const verdict = await deps.judge(criterion, evidence);
   const endedAt = isoNow(deps.clock);
-  const stdoutPath = await maybeArtifact(deps, criterion.id, 'judge', verdict.response);
+  // Always retain the reply when no verdict parsed, so "no verdict" is diagnosable.
+  const stdoutPath = await maybeArtifact(deps, criterion.id, 'judge', verdict.response, !verdict.parsed);
   return {
     checkId: criterion.id,
     type: 'criterion',

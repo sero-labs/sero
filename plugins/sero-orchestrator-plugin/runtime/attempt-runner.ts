@@ -215,6 +215,7 @@ async function runVerification(
     attemptId: attempt.id,
     commandTimeoutMs: commandTimeoutMs(loop.budget),
     maxInlineOutputBytes: loop.logPolicy.maxInlineOutputBytes,
+    baseRef: attempt.baseRef,
     clock: deps.clock,
   };
   const plan = loop.verificationPlan;
