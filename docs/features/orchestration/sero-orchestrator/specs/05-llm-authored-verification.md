@@ -375,3 +375,15 @@ reflector are injected/scripted in `harness.ts`. Suites `verification-plan`,
 `verification-edit`, `verification-reflection` — **47** new tests, orchestrator
 suite **152** green; typecheck 18/18. No desktop-core changes — all plugin-side
 behind the existing `host.*` surface.
+
+**Live-test hardening (planner role).** On a real run, a tiny concrete goal
+("make this text red") made the planner slip into implementer mode — it described
+the edit and complained it had no file-edit tool, emitting `tsx` code fences but no
+plan JSON, so the loop stayed `draft` ("could not derive a plan"). Fixed at the
+prompt layer (`PLANNER_SYSTEM_PROMPT`): the planner is told emphatically it is not
+the implementer, that having no edit tool is expected, that every goal — however
+small — gets a plan (a single judge criterion reading the diff is complete), and to
+end with the JSON block only. Parsing prose into a plan is deliberately *not* done
+(that is the forbidden heuristic). Regression guard in `planner-robustness.test.ts`
+pins that this exact implementer-style reply parses to `null`, never a plan coerced
+from a stray non-JSON fence.

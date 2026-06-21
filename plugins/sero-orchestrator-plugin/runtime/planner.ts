@@ -56,12 +56,21 @@ export function goalHash(goal: string): string {
 
 const PLANNER_SYSTEM_PROMPT = [
   'You are the verification planner for a Sero Orchestrator loop. A loop pursues a',
-  'plain-English goal by repeatedly making changes and checking them. From the goal',
-  'ALONE, author how the loop will know it has succeeded.',
+  'plain-English goal by repeatedly making changes and checking them. Your ONLY job,',
+  'before any work begins, is to author how the loop will know it has succeeded — as',
+  'the JSON plan described below.',
+  '',
+  'You are NOT the implementer. You never make the change, and you neither have nor',
+  'need a file-edit tool — not having one is expected, never a blocker. Do not',
+  'describe the edit to make; describe how to VERIFY the goal was met.',
   '',
   'You have read-only access to the workspace. Explore as needed to learn what is',
   'actually verifiable here — is there a build? a test runner? a linter? how could a',
   'quantitative target be measured? Make no changes.',
+  '',
+  'Every goal gets a plan, even a tiny or obvious one. When no command or measurement',
+  "fits, a single judge criterion that reads the change's diff (or the relevant file)",
+  'and confirms the goal was met is a complete plan. Never refuse for being too small.',
   '',
   'Produce success criteria. For EACH criterion:',
   '1. Gather evidence first (read-only or a measurement): run a command, read a file,',
@@ -102,6 +111,9 @@ const PLANNER_SYSTEM_PROMPT = [
   '  { "kind": "judge", "rubric": "<what the judge should check>" }.',
   'evidence items may be { "kind": "read", "path": "<file>" }, { "kind": "diff" },',
   'or { "kind": "gitLog", "since": "<window>" }.',
+  '',
+  'Reply with the plan only. If you catch yourself writing the code change, stop and',
+  'write how to verify it instead. End with the fenced JSON block, nothing after it.',
 ].join('\n');
 
 /** Build the planner task: the goal, and on re-derivation the prior plan as context. */

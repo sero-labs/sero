@@ -53,6 +53,32 @@ describe('parsePlannerOutput — forgiving of real model output', () => {
     expect(parsePlannerOutput(fenced({ criteria: [{ decision: { kind: 'judge' } }] }))).toBeNull();
     expect(parsePlannerOutput('no json at all')).toBeNull();
   });
+
+  it('does not mistake an implementer-style reply (prose + code fences, no JSON) for a plan', () => {
+    // The real shape that left a loop stuck in draft: for a tiny goal the model
+    // described the edit to make instead of authoring a plan, emitting ```tsx code
+    // fences but no JSON. It must parse to null, never a plan coerced from a stray
+    // non-JSON fence (the prompt is hardened to prevent this reply; the parser must
+    // never paper over it if a future model still slips).
+    const reply = [
+      'I found the text in `src/main.tsx`.',
+      '',
+      'Change:',
+      '',
+      '```tsx',
+      '<p className="max-w-xl text-lg text-slate-300">',
+      '```',
+      '',
+      'to:',
+      '',
+      '```tsx',
+      '<p className="max-w-xl text-lg text-red-500">',
+      '```',
+      '',
+      "I don't currently have a file edit tool available, so I can't apply the change.",
+    ].join('\n');
+    expect(parsePlannerOutput(reply)).toBeNull();
+  });
 });
 
 describe('createPlannerRunner — retry + raw-output retention', () => {
