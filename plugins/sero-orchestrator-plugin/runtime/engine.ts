@@ -13,6 +13,7 @@ import type {
   BlockedReason,
   LoopGoal,
   OrchestratorActionResult,
+  ReflectionTrigger,
 } from '../shared/types';
 import type { AdapterRegistry } from './adapter';
 import { deleteAttemptArtifacts, trimAttempts } from './artifacts';
@@ -22,6 +23,7 @@ import { LoopLocks, Semaphore } from './locks';
 import { runAttempt, type AttemptReport } from './attempt-runner';
 import { openPullRequestForLoop } from './pr';
 import type { WorkerSessionRegistry } from './recursion-guard';
+import { toReflection, type Reflector } from './reflection';
 import type { StateStore } from './state-store';
 import {
   blockReasonText,
@@ -44,6 +46,8 @@ export interface EngineDeps {
   /** Shared with the adapters + event router; marks the workspace busy per attempt
    *  so a loop's own file/commit footprint never re-fires its vcs/workspace triggers. */
   workerSessions: WorkerSessionRegistry;
+  /** Advisory health critic (the redefined P-E); absent → no reflection. */
+  reflector?: Reflector;
 }
 
 export interface RunNextOptions {
@@ -222,8 +226,44 @@ export class AttemptEngine {
       finalLoop = pr.loop ?? finalLoop;
       prNote = pr.note;
     }
+
+    // Advisory reflection (the redefined P-E): when a loop blocks for a reason
+    // that needs a human's read (not the approval pause) or stops, an independent
+    // read-only critic assesses why and what to do. Push-model, never auto-acted-on;
+    // runs after the status write, off the lock.
+    if (
+      updated &&
+      ((updated.status === 'blocked' && updated.blockedReason !== 'approval-required') ||
+        updated.status === 'stopped')
+    ) {
+      void this.reflect(loopId, updated.status).catch(() => undefined);
+    }
+
     const message = [outcomeMessage(finalLoop, report), prNote].filter(Boolean).join(' ');
     return { ok: true, loop: finalLoop ?? undefined, message };
+  }
+
+  /**
+   * Run the advisory reflector on a loop and store its verdict (the redefined
+   * P-E). Read-only and advisory: it records a {@link LoopReflection} and notifies,
+   * but never changes the plan or control state — the user acts via edit / replan /
+   * resume. A null result (parse miss / error) is simply skipped.
+   */
+  private async reflect(loopId: string, trigger: ReflectionTrigger): Promise<void> {
+    if (!this.deps.reflector) return;
+    const loop = await this.deps.store.getLoop(loopId);
+    if (!loop) return;
+    const result = await this.deps.reflector(loop, trigger);
+    if (!result) return;
+    await this.deps.store.updateLoop(loopId, (current) => {
+      current.reflection = toReflection(result, trigger, isoNow(this.deps.clock));
+      current.updatedAt = isoNow(this.deps.clock);
+    });
+    this.deps.host.notifications.notify({
+      type: 'info',
+      source: 'orchestrator',
+      message: `Reflection on "${loop.title}": ${result.summary}`,
+    });
   }
 
   /**

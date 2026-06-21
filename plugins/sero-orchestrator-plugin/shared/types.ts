@@ -6,7 +6,14 @@
 // never stored inline; it is referenced by artifact path (see LogPolicy and
 // CheckResult.*Path).
 
+import type { LoopReflection } from './reflection';
 import type { DecisionKind, VerificationPlan } from './verification';
+
+export type {
+  LoopReflection,
+  ReflectionTrigger,
+  ReflectionVerdict,
+} from './reflection';
 
 // The LLM-authored verification model (spec 05) lives in its own Pi-safe module;
 // re-export it here so the rest of the plugin imports everything from one place.
@@ -82,6 +89,8 @@ export interface LoopGoal {
   blockedReason?: BlockedReason;
   /** Latches once the user approves an `approval-required` block (spec 05 §7). */
   approvalGranted?: boolean;
+  /** Latest advisory reflection on the loop's health (the redefined P-E). */
+  reflection?: LoopReflection;
   triggers: LoopTrigger[];
   /**
    * LLM-authored definition of "done" (spec 05, D-18). When present it is the
@@ -385,6 +394,9 @@ export type OrchestratorAction =
       // run_next on a busy loop still gets the "already running" error.
       queueIfBusy?: boolean;
     }
+  // Advisory cross-loop health check (the redefined P-E): reflect on each in-flight
+  // loop and return a plain-English report. Never changes plans/control state.
+  | { kind: 'health' }
   // Phase 1.5 spike: prove the active-session host seam end to end (idle-gated
   // send + turn-completion observation). CLI-only; not part of the structured
   // tool / UI surface.

@@ -23,6 +23,8 @@ export interface OrchestratorActions {
   create(input: CreateGoalInput): Promise<boolean>;
   edit(loopId: string, input: { title?: string; goal?: string }): Promise<boolean>;
   replan(loopId: string): Promise<boolean>;
+  /** Advisory health check across all in-flight goals (the redefined P-E). */
+  health(): Promise<boolean>;
   pause(loopId: string): Promise<boolean>;
   resume(loopId: string): Promise<boolean>;
   stop(loopId: string): Promise<boolean>;
@@ -85,6 +87,7 @@ export function useOrchestratorActions(): OrchestratorActions {
       [invoke],
     ),
     replan: useCallback((loopId) => invoke({ action: 'replan', loopId }), [invoke]),
+    health: useCallback(() => invoke({ action: 'health' }), [invoke]),
     pause: useCallback((loopId) => invoke({ action: 'pause', loopId }), [invoke]),
     resume: useCallback((loopId) => invoke({ action: 'resume', loopId }), [invoke]),
     stop: useCallback((loopId) => invoke({ action: 'stop', loopId }), [invoke]),

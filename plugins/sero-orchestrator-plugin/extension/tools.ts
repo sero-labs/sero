@@ -40,6 +40,7 @@ export const Params = Type.Object({
     'show',
     'edit',
     'replan',
+    'health',
     'pause',
     'resume',
     'stop',
@@ -71,7 +72,7 @@ export const Params = Type.Object({
 });
 
 export type OrchestratorParams = {
-  action: 'create' | 'list' | 'show' | 'edit' | 'replan' | 'pause' | 'resume' | 'stop' | 'run_next';
+  action: 'create' | 'list' | 'show' | 'edit' | 'replan' | 'health' | 'pause' | 'resume' | 'stop' | 'run_next';
   loopId?: string;
   title?: string;
   goal?: string;
@@ -94,6 +95,7 @@ export const HELP = [
   '  sero orchestrator resume <id>',
   '  sero orchestrator stop <id>',
   '  sero orchestrator run-next <id> [--override-no-progress]',
+  '  sero orchestrator health                                             # advisory health check across all in-flight goals',
   '  sero orchestrator diagnose-session',
 ].join('\n');
 
@@ -122,6 +124,8 @@ export function actionFromParams(params: OrchestratorParams): ActionOrError {
   switch (params.action) {
     case 'list':
       return { kind: 'list' };
+    case 'health':
+      return { kind: 'health' };
     case 'create':
       if (!params.title?.trim() || !params.goal?.trim()) {
         return { error: 'create needs a title and a goal.' };
@@ -170,6 +174,8 @@ export function actionFromCli(argv: string[]): ActionOrError {
   switch (sub) {
     case 'list':
       return { kind: 'list' };
+    case 'health':
+      return { kind: 'health' };
     case 'create':
       return actionFromParams({
         action: 'create',
@@ -326,7 +332,7 @@ export function createOrchestratorTool(): SeroCliTool<ToolDefinition<typeof Para
     name: 'orchestrator',
     label: 'Sero Orchestrator',
     description:
-      'Manage durable workflow loops (goals). Actions: list, show (id), create (title+goal), edit (id, title?/goal?), replan (id), pause (id), resume (id), stop (id), run_next (id).',
+      'Manage durable workflow loops (goals). Actions: list, show (id), create (title+goal), edit (id, title?/goal?), replan (id), health, pause (id), resume (id), stop (id), run_next (id).',
     parameters: Params,
 
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {

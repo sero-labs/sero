@@ -38,6 +38,8 @@ import { AttemptEngine } from './engine';
 import { EventRouter } from './events';
 import { createPlannerRunner, type PlannerRunner } from './planner';
 import { derivePlan } from './plan-deriver';
+import { runHealthCheck } from './health';
+import { createReflector, type Reflector } from './reflection';
 import {
   DEFAULT_WORKSPACE_CONCURRENCY,
   LoopLocks,
@@ -78,6 +80,12 @@ export interface CoordinatorContext {
    * deterministic fake (planning tests).
    */
   planner?: PlannerRunner | null;
+  /**
+   * Advisory reflector seam (the redefined P-E). `undefined` → build the real
+   * read-only critic; `null` → disabled (the test default); a function injects a
+   * deterministic fake. Advisory only — never changes plans or control state.
+   */
+  reflector?: Reflector | null;
 }
 
 export class WorkspaceCoordinator implements OrchestratorCoordinator {
@@ -93,6 +101,8 @@ export class WorkspaceCoordinator implements OrchestratorCoordinator {
   private readonly workerSessions = new WorkerSessionRegistry();
   /** Verification planner (spec 05); null disables planning (legacy active path). */
   private readonly planner: PlannerRunner | null;
+  /** Advisory health critic (the redefined P-E); null disables reflection. */
+  private readonly reflector: Reflector | null;
 
   constructor(private readonly ctx: CoordinatorContext) {
     this.clock = ctx.clock ?? systemClock;
@@ -102,6 +112,10 @@ export class WorkspaceCoordinator implements OrchestratorCoordinator {
       ctx.planner === undefined
         ? createPlannerRunner({ host: ctx.host, workspaceId: ctx.workspaceId, cwd: ctx.workspacePath })
         : ctx.planner;
+    this.reflector =
+      ctx.reflector === undefined
+        ? createReflector({ host: ctx.host, workspaceId: ctx.workspaceId, cwd: ctx.workspacePath })
+        : ctx.reflector;
     this.engine = new AttemptEngine({
       host: ctx.host,
       workspaceId: ctx.workspaceId,
@@ -123,6 +137,7 @@ export class WorkspaceCoordinator implements OrchestratorCoordinator {
       gate: ctx.dirtyRootGate ?? createDefaultDirtyRootGate(ctx.host),
       clock: this.clock,
       workerSessions: this.workerSessions,
+      reflector: this.reflector ?? undefined,
     });
     // Both the cron scheduler and the event router mark loops due through the SAME
     // gated control plane (D-01): the engine still enforces the per-loop lock,
@@ -215,6 +230,8 @@ export class WorkspaceCoordinator implements OrchestratorCoordinator {
           overrideNoProgress: action.overrideNoProgress,
           queueIfBusy: action.queueIfBusy,
         });
+      case 'health':
+        return this.healthCheck();
       case 'diagnose_session':
         return diagnoseSession({ host: this.ctx.host, workspaceId: this.ctx.workspaceId });
     }
@@ -347,6 +364,15 @@ export class WorkspaceCoordinator implements OrchestratorCoordinator {
     return { ok: true, loop };
   }
 
+  /**
+   * Advisory cross-loop health check (the redefined P-E) — delegates to
+   * {@link runHealthCheck}. On-demand only; stores each loop's reflection but never
+   * changes plans or control state. Workers cannot trigger it (D-16).
+   */
+  private healthCheck(): Promise<OrchestratorActionResult> {
+    return runHealthCheck({ store: this.store, clock: this.clock, reflector: this.reflector });
+  }
+
   private async resume(loopId: string): Promise<OrchestratorActionResult> {
     const current = await this.store.getLoop(loopId);
     // Resuming an approval-required block IS the approval: the work already meets
@@ -456,6 +482,8 @@ const CONTROL_ACTIONS: ReadonlySet<OrchestratorAction['kind']> = new Set([
   'resume',
   'stop',
   'run_next',
+  // health triggers reflector subagents; keep workers from driving that cost.
+  'health',
 ]);
 
 function isControlAction(action: OrchestratorAction): boolean {

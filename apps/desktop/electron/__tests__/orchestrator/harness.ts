@@ -40,6 +40,7 @@ import { MapAdapterRegistry, type AttemptAdapter } from '@plugins/sero-orchestra
 import type { AlarmTimer } from '@plugins/sero-orchestrator-plugin/runtime/alarm';
 import type { Clock } from '@plugins/sero-orchestrator-plugin/runtime/clock';
 import type { PlannerRunner } from '@plugins/sero-orchestrator-plugin/runtime/planner';
+import type { Reflector } from '@plugins/sero-orchestrator-plugin/runtime/reflection';
 import type { SchedulerLog } from '@plugins/sero-orchestrator-plugin/runtime/scheduler';
 import type { DirtyRootGate } from '@plugins/sero-orchestrator-plugin/runtime/vcs';
 import type {
@@ -186,6 +187,12 @@ export interface HarnessOptions {
    * the flip to `active`).
    */
   planner?: PlannerRunner;
+  /**
+   * Advisory reflector seam (the redefined P-E). Omitted → reflection disabled
+   * (the default); provided → reflects on blocked/stopped transitions and the
+   * health check (settle to observe).
+   */
+  reflector?: Reflector;
   /** Configures `host.session` for active-session / hybrid tests (Phase 4). */
   session?: SessionOptions;
   /** `host.git.pushBranch` result for PR tests (Phase 6); defaults to success. */
@@ -410,6 +417,8 @@ export function createHarness(opts: HarnessOptions = {}): Harness {
     // null disables planning (legacy active-on-create) so existing suites are
     // untouched; a provided script opts into the spec-05 draft→derive→active flow.
     planner: opts.planner ?? null,
+    // null disables reflection by default so existing suites are untouched.
+    reflector: opts.reflector ?? null,
   };
   const coordinator = new WorkspaceCoordinator(ctx);
 

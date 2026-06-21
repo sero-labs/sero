@@ -136,6 +136,20 @@ export function GoalDetail({ loop, actions }: GoalDetailProps) {
         )}
       </Section>
 
+      {loop.reflection && (
+        <Section title="Reflection">
+          <div className="flex flex-col gap-1 rounded-md border border-border px-3 py-2">
+            <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+              {loop.reflection.verdict.replace(/-/g, ' ')}
+            </span>
+            <p className="text-sm text-foreground">{loop.reflection.summary}</p>
+            {loop.reflection.suggestion && (
+              <p className="text-xs text-muted-foreground">Suggestion: {loop.reflection.suggestion}</p>
+            )}
+          </div>
+        </Section>
+      )}
+
       <Section title="Attempts">
         <AttemptTimeline attempts={loop.attempts} />
       </Section>

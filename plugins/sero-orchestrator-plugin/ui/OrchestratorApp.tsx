@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useAppState } from '@sero-ai/app-runtime';
+import { Button } from '@sero-ai/ui';
 
 import {
   DEFAULT_STATE,
@@ -30,9 +31,16 @@ export function OrchestratorApp() {
     <div className="flex size-full flex-col overflow-hidden bg-background text-foreground">
       <header className="flex items-center justify-between border-b border-border px-4 py-2.5">
         <h1 className="text-sm font-semibold tracking-tight">Orchestrator</h1>
-        <span className="text-xs text-muted-foreground tabular-nums">
-          {state.loops.length} goal{state.loops.length === 1 ? '' : 's'}
-        </span>
+        <div className="flex items-center gap-3">
+          {state.loops.length > 0 && (
+            <Button size="sm" variant="outline" disabled={actions.busy} onClick={() => actions.health()}>
+              Health check
+            </Button>
+          )}
+          <span className="text-xs text-muted-foreground tabular-nums">
+            {state.loops.length} goal{state.loops.length === 1 ? '' : 's'}
+          </span>
+        </div>
       </header>
 
       {banner && (
