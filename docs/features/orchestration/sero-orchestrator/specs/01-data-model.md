@@ -41,6 +41,7 @@ interface LoopGoal {
   statusReason?: string;         // plain-English blocker/stop reason for the UI
   blockedReason?: BlockedReason; // machine-readable block reason; governs recovery
   approvalGranted?: boolean;     // latches once the user approves an approval-required block (spec 05)
+  reflection?: LoopReflection;   // latest advisory health reflection (D-21, the redefined P-E)
   triggers: LoopTrigger[];
   verificationPlan?: VerificationPlan; // LLM-authored definition of "done" (spec 05, D-18)
   checks: LoopCheck[];           // legacy; retired from the eval path when a plan exists
@@ -172,6 +173,28 @@ Each criterion evaluates (`runtime/criteria.ts`) into one `CheckResult` with
 on the mechanism (D-12). `exit-zero` and `threshold` are mechanical; `judge`
 (`runtime/judge.ts`, generalized from `reviewers.ts`) reads the gathered evidence
 (`runtime/evidence.ts`). An ambiguous measurement falls back to a judge (D-20).
+
+## Reflection (spec 05, D-21 — the redefined P-E)
+
+An advisory health verdict from an independent read-only critic
+(`runtime/reflection.ts`), in `shared/reflection.ts`. Advisory only — stored and
+surfaced, never acted on automatically.
+
+```ts
+interface LoopReflection {
+  verdict: "healthy" | "stuck" | "plan-mismatch" | "suspicious-completion" | "needs-attention";
+  summary: string;                    // plain-English assessment of where the loop stands
+  suggestion?: string;                // plain-English recommended next step (advisory)
+  trigger: "blocked" | "stopped" | "complete" | "health-check";
+  at: string;
+  model?: string;
+  usage?: TokenUsage;
+}
+```
+
+The critic runs per-loop on a `blocked` (non-approval) / `stopped` transition
+(push) and on the on-demand `health` action; it never rewrites the plan or control
+state. The user acts on a suggestion via `edit` / `replan` / `resume`.
 
 ## Loop attempt
 
@@ -404,8 +427,11 @@ type OrchestratorAction =
   | { kind: "create"; loop: Omit<LoopGoal, "id" | "attempts" | "createdAt" | "updatedAt"> }
   | { kind: "list"; }
   | { kind: "show"; loopId: string }
+  | { kind: "edit"; loopId: string; title?: string; goal?: string }  // goal change re-derives the plan (spec 05)
+  | { kind: "replan"; loopId: string }                               // force a fresh plan on the same goal
+  | { kind: "health" }                                               // advisory cross-loop health check (D-21)
   | { kind: "pause"; loopId: string }
-  | { kind: "resume"; loopId: string }
+  | { kind: "resume"; loopId: string }   // on an approval-required block, Resume = approval (spec 05 §7)
   | { kind: "stop"; loopId: string }
   | { kind: "run_next"; loopId: string; overrideNoProgress?: boolean };
 

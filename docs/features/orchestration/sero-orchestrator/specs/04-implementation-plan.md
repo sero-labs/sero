@@ -60,6 +60,7 @@ phase. (D-NN refer to decisions in [00-architecture.md](00-architecture.md).)
 | FR-26 | Dirty-root start gate: auto-save / isolate / defer, auto-save on timeout | 2/6 | D-07 | ✅ |
 | FR-27 | Per-loop run budgets: wall-clock, tokens/cost, changed-files, command-runtime | 2/3 | D-17 | ✅ |
 | FR-28 | LLM-authored verification: derived criteria + per-criterion strategy + stop conditions | [05](05-llm-authored-verification.md) | D-18/D-19/D-20 | ✅ |
+| FR-29 | Edit/replan a goal (re-derive reachable) + advisory reflective health layer | [05](05-llm-authored-verification.md) | D-19/D-21 | ✅ |
 
 All five budgets are enforced. The subagent host now reports per-run USD on
 `AppRuntimeSubagentResult.usage.cost`, which the derived budget sums across
@@ -785,12 +786,22 @@ deferred. No desktop-core changes — all plugin-side behind the existing `host.
 - **P-D** — stop conditions: `verification-unavailable` (block, don't run blind)
   and `approval-required` (block + notify; **Resume is the approval**, latched via
   `LoopGoal.approvalGranted` + `engine.approve`).
+- **Re-derivation reachability** — `edit` (change title/goal → re-derive) and
+  `replan` (force re-derive) actions, reachable from UI + CLI + tool. Closes the
+  "built but unreachable" gap and fixes goal immutability.
+- **P-E (redefined) — reflective revision layer (advisory).** Auto-re-planning
+  redefined into a read-only health critic (`runtime/reflection.ts`) — an observer,
+  not a contestant, so it can't weaken the criteria to "win" (D-21). Per-loop
+  auto-reflection on `blocked` (non-approval) / `stopped` (push) + an on-demand
+  cross-loop `health` check (`runtime/health.ts`). Advisory only; never rewrites
+  the plan or control state.
 
-**Validation.** `pnpm typecheck` 18/18; orchestrator unit suites **139 tests** (33
+**Validation.** `pnpm typecheck` 18/18; orchestrator unit suites **152 tests** (47
 new across `verification-plan` / `verification-judge` / `verification-measurement`
-/ `verification-stop-conditions`). The planner and judge are deterministic seams
-in `harness.ts` (no live model). The UI detail panel's "Verification" section
-shows the derived criteria; the CLI `show` reports criteria count.
+/ `verification-stop-conditions` / `verification-edit` / `verification-reflection`).
+The planner, judge, and reflector are deterministic seams in `harness.ts` (no live
+model). The UI detail panel shows the derived criteria + an editor + the advisory
+reflection; the CLI gains `edit` / `replan` / `health`.
 
 ---
 

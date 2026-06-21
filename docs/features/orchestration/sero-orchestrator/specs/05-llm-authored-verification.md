@@ -1,9 +1,10 @@
 # 05 — LLM-authored verification (derived criteria & evaluation)
 
-**Status:** P-A–P-D **built & committed** on `feat/sero-orchestrator`; P-E
-(adaptive re-plan) deferred. Supersedes the deferred "eval/promptfoo check type"
-line in [04 Phase 6](04-implementation-plan.md#phase-6--isolation-and-pr-workflow).
-See [§10 Phasing](#10-phasing) for the per-phase build status and
+**Status:** P-A–P-E **built & committed** on `feat/sero-orchestrator` (P-E
+redefined from auto-re-planning to an advisory reflective layer). Supersedes the
+deferred "eval/promptfoo check type" line in
+[04 Phase 6](04-implementation-plan.md#phase-6--isolation-and-pr-workflow). See
+[§10 Phasing](#10-phasing) for the per-phase build status and
 [§14 As built](#14-as-built) for the implementation notes.
 
 This document is self-contained so a fresh session can execute it. Read it
@@ -261,10 +262,22 @@ it out like the `maxCostUsd` follow-up).
   declares → block, refuse run) and `approval-required` (block on criteria-met →
   Resume is the approval, latches completion via `engine.approve`). Tests: each
   transition.
-- **P-E — Adaptive re-plan (optional).** ⬜ Deferred. Re-derive on stall/unverifiable,
-  gated so it fires ONLY on `verification-unavailable` (never on plain check
-  failures — that could weaken the criteria to declare a softened goal "done").
-  Create + goal-change re-derivation already ship in P-A.
+- **P-E — Reflective revision layer (advisory).** ✅ Done — **redefined** from
+  auto-re-planning to a reflective health critic (the product owner's call). The
+  risk with auto-re-planning was a conflict of interest: the same loop motivated to
+  pass its criteria would get to rewrite them, so a stuck loop could "win" by
+  weakening its own bar. A reflective step is an **observer, not a contestant** —
+  it never sits in the path that wants to pass, so it cannot weaken the bar. An
+  independent **read-only LLM critic** (`runtime/reflection.ts`) assesses a loop's
+  health from its real history (verdict ∈ healthy / stuck / plan-mismatch /
+  suspicious-completion / needs-attention + a plain-English summary + an advisory
+  suggestion). **Advisory only:** it stores a `LoopReflection` and notifies, but
+  never rewrites the plan or control state — the user acts via edit / replan /
+  resume. Two modes: per-loop auto-reflection on a `blocked` (non-approval) /
+  `stopped` transition (push), and an on-demand cross-loop **health check**
+  (`runtime/health.ts`, the `health` action). No-poll preserved (transition-driven
+  + on-demand). Goal-change re-derivation is now reachable via the `edit`/`replan`
+  actions (see §14).
 
 ## 11. Testing strategy
 
@@ -312,9 +325,10 @@ questions in §12 were resolved with the product owner before coding:
 - **Measurement extraction (§12 Q2):** mechanical compare on planner-shaped
   output, with judge-fallback when no clean number can be extracted. The threshold
   and the command are both LLM-derived.
-- **Re-plan (§12 Q3):** create + goal-change re-derivation ship in P-A; the
-  adaptive mid-loop re-plan (P-E) is deferred and, when built, fires only on
-  `verification-unavailable` — never on plain check failures.
+- **Re-plan (§12 Q3):** create + goal-change re-derivation ship in P-A (reachable
+  via `edit`/`replan`). Auto-re-planning was **redefined** into the advisory
+  reflective layer (P-E) — a critic that observes and suggests rather than a loop
+  that rewrites its own criteria, so it cannot weaken the bar to "win".
 - **Planner model/budget (§12 Q5):** host default model (no tier logic); the
   planner's token/cost usage is recorded on `derivedFrom.usage` and folded into
   the cumulative run budget (D-17). The create-time derivation is never
@@ -338,9 +352,26 @@ test fake) so the legacy suites are untouched.
 `verification-unavailable` / `approval-required`; `LoopGoal.verificationPlan` /
 `approvalGranted`; `CheckType` gains `criterion`; `CheckResult.decisionKind`.
 
-**Tests (deterministic seams, no live model — spec §11):** the planner and judge
-are injected/scripted in `harness.ts`. New suites `verification-plan.test.ts`,
-`verification-judge.test.ts`, `verification-measurement.test.ts`,
-`verification-stop-conditions.test.ts` — **33** new tests, orchestrator suite
-**139** green; typecheck 18/18. No desktop-core changes — all plugin-side behind
-the existing `host.*` surface.
+**Re-derivation reachability (edit / replan).** Re-derivation was built but only
+fired at create. Two control actions now reach it from UI + CLI + tool: **`edit`**
+(change title/goal — a goal-text change drops the loop to `draft`, unless paused,
+and re-derives, fixing goal immutability too) and **`replan`** (force a fresh plan
+on the same goal). Finished loops are not editable. `ensurePlan` gained a `force`
+flag and stamps the hash of the goal the planner saw (a goal edited mid-derivation
+is detected as stale). Derivation logic lives in `runtime/plan-deriver.ts`.
+
+**P-E reflective layer (advisory).** `shared/reflection.ts` (`LoopReflection` +
+verdict/trigger), `runtime/reflection.ts` (read-only critic + `parseReflection`),
+`runtime/health.ts` (`runHealthCheck`). Auto-reflection fires from `engine.finalize`
+on a `blocked` (non-approval) / `stopped` transition; the cross-loop `health` action
+reflects on each in-flight loop on demand. `LoopGoal.reflection` is shown in the
+detail panel + a "Health check" button. The reflector seam is injectable
+(`CoordinatorContext.reflector`). Advisory only — it never changes the plan or
+control state.
+
+**Tests (deterministic seams, no live model — spec §11):** the planner, judge, and
+reflector are injected/scripted in `harness.ts`. Suites `verification-plan`,
+`verification-judge`, `verification-measurement`, `verification-stop-conditions`,
+`verification-edit`, `verification-reflection` — **47** new tests, orchestrator
+suite **152** green; typecheck 18/18. No desktop-core changes — all plugin-side
+behind the existing `host.*` surface.

@@ -363,12 +363,13 @@ check/command/threshold/path for the loop to know it succeeded, it is wrong.
 
 ### D-19 — The verification planner
 The planner is a read-only `WorkerRole: 'planner'` subagent. It runs **at create**
-(loop starts `draft` → derive → `active`), **on goal change** (provenance via
-`derivedFrom.goalHash`), and **adaptively** in a later phase (deferred, P-E). It
-returns *data* only; the coordinator writes the plan inside its own `host.appState`
-mutation (single-writer). It uses the host default model; its usage is recorded on
-`derivedFrom.usage` and folded into the run budget (D-17). On derivation failure
-the loop stays `draft` with a reason — it never runs with no definition of done.
+(loop starts `draft` → derive → `active`) and **on goal change** (provenance via
+`derivedFrom.goalHash`), reachable via the `edit` (change title/goal) and `replan`
+(force re-derive) actions. It returns *data* only; the coordinator writes the plan
+inside its own `host.appState` mutation (single-writer). It uses the host default
+model; its usage is recorded on `derivedFrom.usage` and folded into the run budget
+(D-17). On derivation failure the loop stays `draft` with a reason — it never runs
+with no definition of done.
 
 ### D-20 — Mechanical-when-conclusive-else-judge
 The planner classifies each criterion by what settles it: `exit-zero` /
@@ -380,6 +381,17 @@ measurement whose number cannot be cleanly extracted falls back to a judge. Two
 LLM-derived stop conditions map onto the engine: `verification-unavailable` (no
 sound way to verify → block, do not run blind) and `approval-required` (criteria
 met but needs sign-off → block + notify; Resume is the approval, latched).
+
+### D-21 — Reflective revision (advisory; the redefined P-E)
+A loop does **not** rewrite its own success criteria when it stalls — that would be
+a conflict of interest (a stuck loop could "win" by weakening its bar). Instead an
+**independent read-only LLM critic** assesses a loop's health from its real history
+(verdict + plain-English summary + an advisory suggestion). It is an observer, not a
+contestant: **advisory only** — it stores a `LoopReflection` and notifies, but never
+rewrites the plan or control state. The user acts on suggestions via `edit` /
+`replan` / `resume`. It runs per-loop on a `blocked` (non-approval) / `stopped`
+transition (push) and on an on-demand cross-loop `health` check; no background poll.
+The critic is read-only (no `sero-cli` → cannot recurse, D-16), like the judge.
 
 ## Key risks (and the decision that contains each)
 
