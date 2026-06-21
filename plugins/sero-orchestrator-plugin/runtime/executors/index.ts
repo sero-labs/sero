@@ -13,6 +13,7 @@ import { backgroundAgentExecutor } from './background-agent';
 import { modelExecutor } from './model';
 import { activeSessionExecutor } from './active-session';
 import { workspaceResolver } from '../workspace';
+import { llmDecider, llmEvaluator } from '../llm-decisions';
 
 export function createDispatchExecutor(activeSession: StepExecutor = activeSessionExecutor): StepExecutor {
   return {
@@ -52,8 +53,8 @@ export interface EngineDepsOverrides {
 export function createEngineDeps(locks: LoopLocks, overrides: EngineDepsOverrides = {}): EngineDeps {
   return {
     executor: overrides.executor ?? createDispatchExecutor(),
-    decider: overrides.decider ?? blockingDecider,
-    evaluator: overrides.evaluator,
+    decider: overrides.decider ?? llmDecider,
+    evaluator: overrides.evaluator ?? llmEvaluator,
     locks,
     workspaceResolver,
   };

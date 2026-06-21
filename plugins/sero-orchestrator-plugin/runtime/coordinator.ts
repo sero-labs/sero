@@ -25,6 +25,10 @@ import { applyPlanningResponse, planIsActivatable } from './plan-mapping';
 import { RunEngine } from './run-engine';
 import type { EngineDeps } from './engine-types';
 import { reconcileAll } from './reconcile';
+import { applyRecovery } from './recovery-apply';
+import { proposeRevisedPlan } from './llm-decisions';
+import { validateLoopPlan } from './schema';
+import type { PlanRevision, RecoveryDecision } from '../shared/types';
 
 export class Coordinator {
   protected readonly engine?: RunEngine;
@@ -59,7 +63,7 @@ export class Coordinator {
       case 'revise':
         return this.revise(action.loopId, action.prompt);
       case 'choose_recovery':
-        return this.chooseRecovery(action.loopId);
+        return this.chooseRecovery(action.loopId, action.decision);
       default: {
         const exhaustive: never = action;
         return { ok: false, error: `Unknown action: ${JSON.stringify(exhaustive)}` };
@@ -205,15 +209,72 @@ export class Coordinator {
     return { ok: true, loop: updated, run: result.run };
   }
 
-  async revise(loopId: string, _prompt?: string): Promise<OrchestratorActionResult> {
+  /** Manual plan revision: ask the LLM for a revised plan, validate, and apply. */
+  async revise(loopId: string, prompt?: string): Promise<OrchestratorActionResult> {
     const loop = await this.findLoop(loopId);
     if (!loop) return { ok: false, error: `Loop not found: ${loopId}` };
-    return { ok: false, error: 'Revision is not available yet.' };
+
+    const proposal = await proposeRevisedPlan(this.host, loop, prompt);
+    if (proposal.error || !proposal.plan) {
+      await this.recordRejectedRevision(loop, proposal.error ?? 'no plan returned');
+      return { ok: false, error: proposal.error ?? 'Revision failed.' };
+    }
+    const errors = validateLoopPlan(proposal.plan);
+    if (errors.length > 0) {
+      await this.recordRejectedRevision(loop, errors.join('; '));
+      return { ok: false, error: `Revised plan invalid: ${errors.join('; ')}` };
+    }
+
+    const decision: RecoveryDecision = {
+      id: this.host.newId('recovery'),
+      stepId: loop.plan.steps[0]?.id ?? '',
+      failedAttemptId: '',
+      decision: 'revise-plan',
+      reason: prompt ?? 'manual revision',
+      revisedPlan: proposal.plan,
+      createdAt: this.host.now(),
+      modelResponsePath: proposal.modelResponsePath,
+    };
+    const applied = applyRecovery(this.host, loop, decision);
+    if (applied.rejection) {
+      await this.recordRejectedRevision(loop, applied.rejection);
+      return { ok: false, error: applied.rejection };
+    }
+    await this.replaceLoop(applied.loop);
+    return { ok: true, loop: applied.loop };
   }
 
-  async chooseRecovery(loopId: string): Promise<OrchestratorActionResult> {
+  /** Applies a user-supplied recovery decision (manual override). */
+  async chooseRecovery(loopId: string, decision: RecoveryDecision): Promise<OrchestratorActionResult> {
     const loop = await this.findLoop(loopId);
     if (!loop) return { ok: false, error: `Loop not found: ${loopId}` };
-    return { ok: false, error: 'Recovery selection is not available yet.' };
+    const applied = applyRecovery(this.host, loop, decision);
+    if (applied.rejection) return { ok: false, error: applied.rejection };
+    await this.replaceLoop(applied.loop);
+    if (applied.loop.status === 'active' && !applied.stop) {
+      return this.runNext(loopId, applied.loop);
+    }
+    return { ok: true, loop: applied.loop };
+  }
+
+  protected async recordRejectedRevision(loop: Loop, reason: string): Promise<void> {
+    const revision: PlanRevision = {
+      revision: loop.plan.revision + 1,
+      previousRevision: loop.plan.revision,
+      reason,
+      proposedBy: loop.status === 'draft' ? 'model' : 'user',
+      status: 'rejected',
+      plan: loop.plan,
+      createdAt: this.host.now(),
+      rejectionReason: reason,
+    };
+    await this.replaceLoop({ ...loop, revisions: [...loop.revisions, revision] });
+  }
+
+  protected async replaceLoop(loop: Loop): Promise<void> {
+    await this.host.updateState((state) => ({
+      ...state,
+      loops: state.loops.map((l) => (l.id === loop.id ? loop : l)),
+    }));
   }
 }

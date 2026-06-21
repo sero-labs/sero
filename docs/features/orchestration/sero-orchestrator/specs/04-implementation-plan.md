@@ -11,7 +11,7 @@ plans.
 | 2 | Planning and validation | ✅ Done | Prompt creates a validated draft from `PlanningResponse` |
 | 3 | Coordinator core | ✅ Done | Lifecycle, locks, runs, step states, attempts, and artifacts work |
 | 4 | Step execution, workspace isolation, and limits | ✅ Done | Ready steps run through Sero execution in the user-selected workspace |
-| 5 | Outcomes, recovery, and completion signals | ⬜ Not started | Failed steps recover through the LLM; planned steps can signal completion |
+| 5 | Outcomes, recovery, and completion signals | ✅ Done | Failed steps recover through the LLM; planned steps can signal completion |
 | 6 | Active-session execution | ⬜ Not started | Active-session steps send and observe by `turnId` |
 | 7 | Scheduling and events | ⬜ Not started | Manual/cron/event/hybrid triggers mark loops due |
 | 8 | Polish and docs | ⬜ Not started | UI and docs explain generated step plans clearly |
@@ -31,14 +31,14 @@ Status legend: ✅ Done · 🟡 In progress · ⬜ Not started · ⛔ Blocked ·
 | FR-07 | Generic run, step state, attempt, observation, and artifact history | 3 | D-14 | ✅ |
 | FR-08 | Orchestrator enforces max attempts, concurrency, wall-clock, and token/cost limits | 4 | D-05 | ✅ |
 | FR-09 | Background-agent steps run through standard Sero background execution | 4 | D-02 | ✅ |
-| FR-10 | Step outcome is LLM-reported or LLM-evaluated, not heuristic | 5 | D-03/D-04 | ⬜ |
-| FR-11 | Failed steps ask the LLM for recovery or revision | 5 | D-04/D-13 | ⬜ |
-| FR-12 | Completion is signaled by planned step outcomes, not a coordinator-triggered completion check | 5 | D-03 | ⬜ |
+| FR-10 | Step outcome is LLM-reported or LLM-evaluated, not heuristic | 5 | D-03/D-04 | ✅ |
+| FR-11 | Failed steps ask the LLM for recovery or revision | 5 | D-04/D-13 | ✅ |
+| FR-12 | Completion is signaled by planned step outcomes, not a coordinator-triggered completion check | 5 | D-03 | ✅ |
 | FR-13 | New `host.session` seam for active-session steps | 6 | D-11 | ⬜ |
 | FR-14 | Active-session steps send and observe by `turnId` | 6 | D-11 | ⬜ |
 | FR-15 | Manual/cron/event/hybrid triggers mark loops due | 7 | D-12 | ⬜ |
 | FR-16 | Closed-workspace cron catch-up collapses to one run | 7 | D-08/D-12 | ⬜ |
-| FR-17 | Plan revisions are structurally validated and recorded | 5 | D-13 | ⬜ |
+| FR-17 | Plan revisions are structurally validated and recorded | 5 | D-13 | ✅ |
 | FR-18 | UI displays generated plan, dependency graph, step states, attempts, recovery, completion, and limits | 1/3/5/8 | D-01 | 🟡 |
 | FR-19 | No Orchestrator permission, approval, command, git, PR, or tool-policy layer | 4 | D-02 | ✅ |
 | FR-20 | User-selected loop workspace isolation supports managed worktree by default and workspace root by option | 4 | D-06 | ✅ |
@@ -224,40 +224,40 @@ from planned execution.
 
 **Tasks**
 
-- [ ] Parse structured `StepOutcome` from execution output when present.
-- [ ] Ask the LLM to evaluate raw execution output when no structured outcome is
+- [x] Parse structured `StepOutcome` from execution output when present.
+- [x] Ask the LLM to evaluate raw execution output when no structured outcome is
   present.
-- [ ] Ask the LLM for a `RecoveryDecision` after failed, blocked, or
+- [x] Ask the LLM for a `RecoveryDecision` after failed, blocked, or
   needs-revision outcomes.
-- [ ] Apply retry, revised step, revised plan, skip, wait, and block recovery
+- [x] Apply retry, revised step, revised plan, skip, wait, and block recovery
   decisions.
-- [ ] Merge accepted `StepOutcome.variables` into `runtime.variables`.
-- [ ] Validate revised steps and plans before applying them.
-- [ ] Record `CompletionSignal` when a planned step outcome includes
+- [x] Merge accepted `StepOutcome.variables` into `runtime.variables`.
+- [x] Validate revised steps and plans before applying them.
+- [x] Record `CompletionSignal` when a planned step outcome includes
   `completion`.
-- [ ] Record typed `LoopBlock` data for planned blocks, recovery blocks, and
+- [x] Record typed `LoopBlock` data for planned blocks, recovery blocks, and
   management blocks.
-- [ ] Ensure Orchestrator never runs an ad hoc completion check when no work is
+- [x] Ensure Orchestrator never runs an ad hoc completion check when no work is
   ready or all known steps have succeeded.
-- [ ] Ensure Orchestrator never marks a loop complete without
+- [x] Ensure Orchestrator never marks a loop complete without
   `outcome.completion.status === "complete"`.
 
 **Acceptance**
 
-- [ ] A failed step can be revised by the LLM and then succeed.
-- [ ] A failed step can lead to new steps being added by the LLM.
-- [ ] A failed step can be skipped by LLM recovery when that is the chosen
+- [x] A failed step can be revised by the LLM and then succeed.
+- [x] A failed step can lead to new steps being added by the LLM.
+- [x] A failed step can be skipped by LLM recovery when that is the chosen
   decision.
-- [ ] A `block-loop` recovery decision blocks with `LoopBlock.kind =
+- [x] A `block-loop` recovery decision blocks with `LoopBlock.kind =
   "recovery-block"`.
-- [ ] A complete set of successful steps without a completion signal does not
+- [x] A complete set of successful steps without a completion signal does not
   complete the loop.
-- [ ] A planned validation/finalization step can emit a completion signal and
+- [x] A planned validation/finalization step can emit a completion signal and
   complete the loop.
-- [ ] Invalid revisions are rejected and recorded.
-- [ ] UI and state can distinguish planned blocks, recovery blocks, and
+- [x] Invalid revisions are rejected and recorded.
+- [x] UI and state can distinguish planned blocks, recovery blocks, and
   management-limit blocks.
-- [ ] FR-10, FR-11, FR-12, FR-17, and partial FR-18 satisfied.
+- [x] FR-10, FR-11, FR-12, FR-17, and partial FR-18 satisfied.
 
 ---
 
