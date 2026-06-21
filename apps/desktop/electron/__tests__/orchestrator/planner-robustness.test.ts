@@ -11,7 +11,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { AppRuntimeHost, AppRuntimeSubagentResult } from '@sero-ai/common';
 
-import { createPlannerRunner, parsePlannerOutput } from '@plugins/sero-orchestrator-plugin/runtime/planner';
+import { buildPlannerTask, createPlannerRunner, parsePlannerOutput } from '@plugins/sero-orchestrator-plugin/runtime/planner';
 import type { LoopGoal } from '@plugins/sero-orchestrator-plugin/shared/types';
 
 const fenced = (obj: unknown) => `Here is the plan.\n\`\`\`json\n${JSON.stringify(obj)}\n\`\`\``;
@@ -78,6 +78,22 @@ describe('parsePlannerOutput — forgiving of real model output', () => {
       "I don't currently have a file edit tool available, so I can't apply the change.",
     ].join('\n');
     expect(parsePlannerOutput(reply)).toBeNull();
+  });
+});
+
+describe('buildPlannerTask — frames the goal as someone else’s job', () => {
+  // The planner runs on the base coding-agent prompt (our text is only a suffix),
+  // so a command-shaped task makes the model implement instead of plan. The task
+  // must put distance between the planner and the doing.
+  const loop = { id: 'l', title: 'Red text', goal: 'make the heading red' } as LoopGoal;
+
+  it('tells the planner an implementer does the goal and it only writes the plan', () => {
+    const task = buildPlannerTask(loop);
+    expect(task).toContain('separate implementer');
+    expect(task).toContain('not perform the goal');
+    expect(task).toContain('verification plan');
+    // the goal text is still present for the planner to plan against
+    expect(task).toContain('make the heading red');
   });
 });
 

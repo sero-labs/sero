@@ -116,9 +116,24 @@ const PLANNER_SYSTEM_PROMPT = [
   'write how to verify it instead. End with the fenced JSON block, nothing after it.',
 ].join('\n');
 
-/** Build the planner task: the goal, and on re-derivation the prior plan as context. */
+/**
+ * Build the planner task. The framing matters as much as the system prompt: the
+ * planner runs on the base coding-agent prompt (our instructions are only a
+ * suffix), so a bare "# Goal: make the text red" reads as a command and the model
+ * tries to DO it. We frame the goal as a separate implementer's job and the
+ * planner's deliverable as the acceptance test — the same analytical framing the
+ * judge task uses successfully through the same suffix mechanism.
+ */
 export function buildPlannerTask(loop: LoopGoal, prior?: VerificationPlan): string {
-  const sections: string[] = [`# Goal: ${loop.title}`, loop.goal];
+  const sections: string[] = [
+    [
+      'A separate implementer agent will carry out the goal below. You are NOT that',
+      'agent and must not perform the goal yourself. Your only deliverable is the',
+      'verification plan — the acceptance test that decides whether the implementer',
+      'succeeded — as the JSON described in your instructions.',
+    ].join('\n'),
+    `## Goal the implementer will pursue\n${loop.title}\n${loop.goal}`,
+  ];
   if (prior?.criteria.length) {
     sections.push(
       [

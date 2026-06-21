@@ -379,11 +379,20 @@ behind the existing `host.*` surface.
 **Live-test hardening (planner role).** On a real run, a tiny concrete goal
 ("make this text red") made the planner slip into implementer mode — it described
 the edit and complained it had no file-edit tool, emitting `tsx` code fences but no
-plan JSON, so the loop stayed `draft` ("could not derive a plan"). Fixed at the
-prompt layer (`PLANNER_SYSTEM_PROMPT`): the planner is told emphatically it is not
-the implementer, that having no edit tool is expected, that every goal — however
-small — gets a plan (a single judge criterion reading the diff is complete), and to
-end with the JSON block only. Parsing prose into a plan is deliberately *not* done
-(that is the forbidden heuristic). Regression guard in `planner-robustness.test.ts`
-pins that this exact implementer-style reply parses to `null`, never a plan coerced
-from a stray non-JSON fence.
+plan JSON, so the loop stayed `draft` ("could not derive a plan"). **Structural
+root cause:** a subagent's `systemPrompt` is applied as `systemPromptSuffix` on top
+of the full Sero coding-agent system prompt (`subagent/runtime/runner.ts`), so the
+planner reads "you are a coding agent — make the change" first and our planner text
+only as an addendum. The implementer role aligns with that base; the judge/reviewer
+tasks read as analytical so they steer fine through the same suffix; the planner is
+the one role whose job contradicts the base, and a bare `# Goal: <do X>` task
+reinforced the implement instinct. Fixed at two layers: (1) `PLANNER_SYSTEM_PROMPT`
+states emphatically it is not the implementer, that having no edit tool is expected,
+that every goal — however small — gets a plan (a single judge criterion reading the
+diff is complete), end with the JSON block only; (2) `buildPlannerTask` reframes the
+goal as a *separate implementer's* job and the planner's deliverable as the
+acceptance test — the same analytical framing the judge task uses successfully.
+Parsing prose into a plan is deliberately *not* done (that is the forbidden
+heuristic). Guards in `planner-robustness.test.ts`: the implementer-style reply
+parses to `null` (never coerced from a stray non-JSON fence), and the task carries
+the "separate implementer / not the planner's job / verification plan" framing.
