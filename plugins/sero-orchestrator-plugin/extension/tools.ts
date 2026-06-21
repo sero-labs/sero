@@ -208,12 +208,16 @@ function renderLoopList(loops: LoopGoal[]): string {
 
 function renderLoop(loop: LoopGoal): string {
   const mode = loop.isolation === 'worktree' ? `${loop.executionMode} · worktree` : loop.executionMode;
+  // A loop with an LLM-authored plan reports its criteria; legacy loops, checks.
+  const verification = loop.verificationPlan
+    ? `${loop.verificationPlan.criteria.length} criteria`
+    : `${loop.checks.length} checks`;
   const lines = [
     `${loop.title} — ${loop.status}`,
     `id: ${loop.id}`,
     `goal: ${loop.goal}`,
     `mode: ${mode}`,
-    `checks: ${loop.checks.length} · attempts: ${loop.attempts.length}`,
+    `${verification} · attempts: ${loop.attempts.length}`,
   ];
   if (loop.pullRequest) lines.push(`PR: #${loop.pullRequest.number} (${loop.pullRequest.state}) ${loop.pullRequest.url}`);
   if (loop.statusReason) lines.push(`reason: ${loop.statusReason}`);

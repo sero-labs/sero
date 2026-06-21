@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-import type { LoopCheck, LoopGoal } from '../../shared/types';
+import type { DecisionKind, LoopCheck, LoopGoal, SuccessCriterion } from '../../shared/types';
 import type { OrchestratorActions } from '../lib/actions';
 import { AttemptTimeline } from './AttemptTimeline';
 import { LoopControls } from './LoopControls';
@@ -13,9 +13,38 @@ const MODE_LABEL = {
   hybrid: 'Hybrid',
 } as const;
 
+// How each criterion is checked, in plain words (spec 05).
+const DECISION_LABEL: Record<DecisionKind, string> = {
+  'exit-zero': 'command',
+  threshold: 'measure',
+  judge: 'judge',
+};
+
 function checkLabel(check: LoopCheck): string {
   if (check.type === 'review') return `Review — ${check.reviewer}`;
   return `${check.type === 'verification' ? 'Verify' : 'Command'} — ${check.command}`;
+}
+
+/** One row per LLM-authored success criterion. */
+function CriteriaList({ criteria }: { criteria: SuccessCriterion[] }) {
+  return (
+    <ul className="flex flex-col gap-1.5">
+      {criteria.map((criterion) => (
+        <li
+          key={criterion.id}
+          className="flex items-center gap-2 rounded-md border border-border px-2.5 py-1.5 text-sm"
+        >
+          <span className="min-w-0 flex-1 truncate text-foreground">{criterion.description}</span>
+          <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+            {DECISION_LABEL[criterion.decision.kind]}
+          </span>
+          {criterion.required && (
+            <span className="text-[10px] uppercase tracking-wide text-muted-foreground">required</span>
+          )}
+        </li>
+      ))}
+    </ul>
+  );
 }
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
@@ -55,8 +84,12 @@ export function GoalDetail({ loop, actions }: GoalDetailProps) {
         </p>
       </Section>
 
-      <Section title="Checks">
-        {loop.checks.length === 0 ? (
+      <Section title="Verification">
+        {loop.status === 'draft' ? (
+          <p className="text-sm text-muted-foreground">Working out how to check this goal…</p>
+        ) : loop.verificationPlan ? (
+          <CriteriaList criteria={loop.verificationPlan.criteria} />
+        ) : loop.checks.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             No checks yet — Sero will detect them when the loop first runs.
           </p>
