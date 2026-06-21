@@ -426,3 +426,15 @@ flag on `JudgeVerdict` drives `maybeArtifact(..., always)`), so "no verdict" is 
 longer a black box. Guards in `verification-judge.test.ts`: a bare-JSON verdict
 completes end-to-end, the `parseVerdict` synonym table, and the diff evidence goes
 through `git diff <baseRef>`.
+
+**Cumulative verification baseline.** The diff evidence must be taken against the
+LOOP baseline (the first attempt's baseRef), NOT the current attempt's baseRef. A
+`diff` criterion asks "did the loop achieve the goal?", so it has to see changes
+made in EARLIER attempts too. Otherwise a change made in attempt N (then folded
+into attempt N+1's baseRef by the dirty-root auto-save) shows an empty diff on the
+re-run and the judge fails it — which is exactly what blocked a re-run of an
+already-applied change. `attempt-runner.ts` now passes `loopBaselineRef(loop,
+attempt) = loop.attempts[0]?.baseRef ?? attempt.baseRef` (the pre-push snapshot, so
+the first attempt uses its own baseRef). Unit-guarded in `verification-judge.test.ts`
+(the harness models `git diff` as ref-insensitive, so the which-ref logic is tested
+directly rather than e2e).

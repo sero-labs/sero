@@ -196,6 +196,17 @@ export async function runAttempt(
 // ── helpers ──────────────────────────────────────────────────────────────────
 
 /**
+ * The loop's original baseline for cumulative evidence diffs: the first attempt's
+ * baseRef (an ancestor of every later auto-save commit), so `diff` evidence shows
+ * everything the loop changed, not just the latest attempt. `loop.attempts` here is
+ * the pre-push snapshot, so for the FIRST attempt it is empty and we use this
+ * attempt's own baseRef (which is the baseline).
+ */
+export function loopBaselineRef(loop: LoopGoal, attempt: LoopAttempt): string {
+  return loop.attempts[0]?.baseRef ?? attempt.baseRef;
+}
+
+/**
  * Run the attempt's verification at the canonical cwd. A loop with an
  * LLM-authored verification plan (spec 05) evaluates its criteria directly; a
  * legacy loop runs its `checks`. Both yield `CheckResult[]` (D-12) plus whether
@@ -215,7 +226,11 @@ async function runVerification(
     attemptId: attempt.id,
     commandTimeoutMs: commandTimeoutMs(loop.budget),
     maxInlineOutputBytes: loop.logPolicy.maxInlineOutputBytes,
-    baseRef: attempt.baseRef,
+    // Verify against the LOOP baseline, not this attempt's. A `diff` criterion asks
+    // "did the loop achieve the goal?", so it must see changes made in EARLIER
+    // attempts too — otherwise a change made last attempt (now folded into this
+    // attempt's baseRef by auto-save) shows an empty diff and the judge fails it.
+    baseRef: loopBaselineRef(loop, attempt),
     clock: deps.clock,
   };
   const plan = loop.verificationPlan;

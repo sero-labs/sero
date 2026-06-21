@@ -8,9 +8,10 @@
 import { describe, expect, it } from 'vitest';
 
 import { createHarness, settle, type WorkerScript } from './harness';
+import { loopBaselineRef } from '@plugins/sero-orchestrator-plugin/runtime/attempt-runner';
 import { parseVerdict } from '@plugins/sero-orchestrator-plugin/runtime/judge';
 import type { PlannerRunner } from '@plugins/sero-orchestrator-plugin/runtime/planner';
-import type { EvidenceStep, SuccessCriterion } from '@plugins/sero-orchestrator-plugin/shared/types';
+import type { LoopAttempt, LoopGoal, EvidenceStep, SuccessCriterion } from '@plugins/sero-orchestrator-plugin/shared/types';
 
 const verdict = (v: 'pass' | 'fail', summary = v) =>
   `\`\`\`json\n{"verdict":"${v}","summary":"${summary}"}\n\`\`\``;
@@ -146,6 +147,23 @@ describe('P-B — criterion-judge', () => {
     expect(h.commands).toContain('cat -- "CHANGELOG.md"');
     expect((await h.loop(id))!.status).toBe('complete');
     h.cleanup();
+  });
+
+  describe('loopBaselineRef — diff evidence is cumulative from the loop baseline', () => {
+    const attempt = (baseRef: string) => ({ baseRef } as LoopAttempt);
+
+    it('uses the FIRST attempt baseRef so a change from an earlier attempt stays visible', () => {
+      // Pre-push snapshot: on a 2nd attempt, loop.attempts holds attempt 1 (B0).
+      // Its change was folded into this attempt's baseRef (B1) by auto-save, so
+      // verifying must diff vs B0 (the loop baseline), not B1.
+      const loop = { attempts: [attempt('B0')] } as LoopGoal;
+      expect(loopBaselineRef(loop, attempt('B1'))).toBe('B0');
+    });
+
+    it('falls back to this attempt baseRef on the first attempt (no prior attempts)', () => {
+      const loop = { attempts: [] } as unknown as LoopGoal;
+      expect(loopBaselineRef(loop, attempt('B0'))).toBe('B0');
+    });
   });
 
   describe('parseVerdict — tolerant of real model output', () => {
