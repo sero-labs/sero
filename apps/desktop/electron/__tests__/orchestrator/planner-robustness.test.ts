@@ -54,6 +54,40 @@ describe('parsePlannerOutput — forgiving of real model output', () => {
     expect(parsePlannerOutput('no json at all')).toBeNull();
   });
 
+  it('parses a bare JSON object with no fence', () => {
+    const parsed = parsePlannerOutput(
+      JSON.stringify({ criteria: [{ description: 'builds', decision: { kind: 'exit-zero' }, evidence: ['b'] }] }),
+    );
+    expect(parsed!.criteria).toHaveLength(1);
+    expect(parsed!.criteria[0]!.decision.kind).toBe('exit-zero');
+  });
+
+  it('unwraps a verification_plan wrapper and accepts checks/name (the real live shape)', () => {
+    // The exact reply observed live: wrapped in `verification_plan`, `checks`
+    // instead of `criteria`, items keyed by name/type/steps/expected, no fence.
+    const reply = JSON.stringify({
+      verification_plan: {
+        goal: 'make the text blue',
+        checks: [
+          { name: 'Target text is present', type: 'ui', expected: 'visible' },
+          { name: 'Target text colour is blue', type: 'ui_style', expected: 'computed colour is blue' },
+          { name: 'No unrelated text colour changes', type: 'regression', expected: 'only the requested change' },
+        ],
+        pass_condition: 'All checks pass.',
+      },
+    });
+    const parsed = parsePlannerOutput(reply);
+    expect(parsed!.criteria).toHaveLength(3);
+    expect(parsed!.criteria.map((c) => c.description)).toEqual([
+      'Target text is present',
+      'Target text colour is blue',
+      'No unrelated text colour changes',
+    ]);
+    // UI-style checks carry no machine decision → judge on the diff.
+    expect(parsed!.criteria.every((c) => c.decision.kind === 'judge')).toBe(true);
+    expect(parsed!.criteria.every((c) => c.evidence.length === 1 && c.evidence[0]!.kind === 'diff')).toBe(true);
+  });
+
   it('does not mistake an implementer-style reply (prose + code fences, no JSON) for a plan', () => {
     // The real shape that left a loop stuck in draft: for a tiny goal the model
     // described the edit to make instead of authoring a plan, emitting ```tsx code

@@ -209,31 +209,26 @@ interface ParsedPlan {
 }
 
 /**
- * Extract and validate the planner's trailing fenced JSON. Malformed criteria
- * are dropped; a plan with no valid criteria returns null (a real failure). The
- * decision/evidence shapes are validated so the evaluator never sees junk.
+ * Extract and validate the planner's JSON. Malformed criteria are dropped; a plan
+ * with no valid criteria returns null (a real failure). The decision/evidence
+ * shapes are validated so the evaluator never sees junk. We tolerate the shapes
+ * real models actually emit (observed live): a fenced block OR a bare JSON object,
+ * an outer wrapper key (e.g. `verification_plan`), and `checks` as an alias for
+ * `criteria`. This is field-name tolerance, not heuristic scoring — what each
+ * criterion MEANS still comes from the model.
  */
 export function parsePlannerOutput(response: string): ParsedPlan | null {
-  const raw = lastFencedJsonBlock(response);
-  if (!raw) return null;
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    return null;
-  }
-  if (!isRecord(parsed)) return null;
+  const root = extractPlanObject(response);
+  if (!root) return null;
+  const plan = unwrapPlan(root);
 
-  const criteria = Array.isArray(parsed.criteria)
-    ? parsed.criteria
-        .map((value, index) => parseCriterion(value, index))
-        .filter((c): c is SuccessCriterion => c !== null)
-    : [];
+  const rawCriteria = firstArray(plan, ['criteria', 'checks']);
+  const criteria = rawCriteria
+    .map((value, index) => parseCriterion(value, index))
+    .filter((c): c is SuccessCriterion => c !== null);
 
-  const stopConditions = Array.isArray(parsed.stopConditions)
-    ? parsed.stopConditions
-        .map(parseStopCondition)
-        .filter((c): c is StopCondition => c !== null)
+  const stopConditions = Array.isArray(plan.stopConditions)
+    ? plan.stopConditions.map(parseStopCondition).filter((c): c is StopCondition => c !== null)
     : [];
 
   // A plan needs criteria, unless the planner explicitly flagged that the goal
@@ -244,6 +239,61 @@ export function parsePlannerOutput(response: string): ParsedPlan | null {
   return { criteria, stopConditions };
 }
 
+/** Parse the plan JSON: prefer a fenced block, fall back to a bare JSON object. */
+function extractPlanObject(response: string): Record<string, unknown> | null {
+  const candidates = [lastFencedJsonBlock(response), firstBalancedObject(response)].filter(
+    (c): c is string => !!c,
+  );
+  for (const candidate of candidates) {
+    try {
+      const parsed: unknown = JSON.parse(candidate);
+      if (isRecord(parsed)) return parsed;
+    } catch {
+      // try the next candidate
+    }
+  }
+  return null;
+}
+
+/** The criteria may sit under a single wrapper key (e.g. `{ verification_plan: {...} }`). */
+function unwrapPlan(obj: Record<string, unknown>): Record<string, unknown> {
+  if (Array.isArray(obj.criteria) || Array.isArray(obj.checks)) return obj;
+  for (const value of Object.values(obj)) {
+    if (isRecord(value) && (Array.isArray(value.criteria) || Array.isArray(value.checks))) return value;
+  }
+  return obj;
+}
+
+/** First of `keys` whose value is an array; [] if none. */
+function firstArray(obj: Record<string, unknown>, keys: string[]): unknown[] {
+  for (const key of keys) {
+    if (Array.isArray(obj[key])) return obj[key] as unknown[];
+  }
+  return [];
+}
+
+/** The first brace-balanced JSON object in the text (string-aware). */
+function firstBalancedObject(text: string): string | null {
+  const start = text.indexOf('{');
+  if (start < 0) return null;
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let i = start; i < text.length; i += 1) {
+    const ch = text[i]!;
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (ch === '\\') escaped = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') inString = true;
+    else if (ch === '{') depth += 1;
+    else if (ch === '}' && --depth === 0) return text.slice(start, i + 1);
+  }
+  return null;
+}
+
 // The parser is deliberately FORGIVING of real model output (a strict parser that
 // silently drops criteria leaves a loop stuck in `draft` with no plan). A
 // criterion is kept whenever it has a description: a missing/unrecognized decision
@@ -252,12 +302,8 @@ export function parsePlannerOutput(response: string): ParsedPlan | null {
 // always retained, so over-coercion is visible rather than hidden.
 function parseCriterion(value: unknown, index: number): SuccessCriterion | null {
   if (!isRecord(value)) return null;
-  const description =
-    typeof value.description === 'string' && value.description.trim()
-      ? value.description.trim()
-      : typeof value.criterion === 'string' && value.criterion.trim()
-        ? value.criterion.trim()
-        : '';
+  // Description may arrive under any of these keys (observed across models).
+  const description = firstString(value, ['description', 'criterion', 'name', 'title', 'expected']);
   if (!description) return null;
   const decision = parseDecision(value.decision, description) ?? { kind: 'judge', rubric: description };
   let evidence = Array.isArray(value.evidence)
@@ -356,4 +402,13 @@ function parseStopCondition(value: unknown): StopCondition | null {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
+}
+
+/** First of `keys` whose value is a non-empty string, trimmed; '' if none. */
+function firstString(obj: Record<string, unknown>, keys: string[]): string {
+  for (const key of keys) {
+    const value = obj[key];
+    if (typeof value === 'string' && value.trim()) return value.trim();
+  }
+  return '';
 }

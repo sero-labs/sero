@@ -396,3 +396,14 @@ Parsing prose into a plan is deliberately *not* done (that is the forbidden
 heuristic). Guards in `planner-robustness.test.ts`: the implementer-style reply
 parses to `null` (never coerced from a stray non-JSON fence), and the task carries
 the "separate implementer / not the planner's job / verification plan" framing.
+
+After the reframe, the model stopped implementing and produced a real plan — but in
+a shape `parsePlannerOutput` didn't accept (a bare JSON object with no fence, an
+outer `verification_plan` wrapper, `checks` instead of `criteria`, items keyed by
+`name`/`type`/`expected`). The parser was made tolerant of the shapes real models
+emit: a fenced block OR a bare brace-balanced JSON object (`firstBalancedObject`),
+an outer wrapper key (`unwrapPlan`), `checks` as a `criteria` alias, and
+description from any of `description`/`criterion`/`name`/`title`/`expected`. This is
+field-name tolerance, not heuristic scoring — what each criterion MEANS still comes
+from the model (UI-style checks with no machine decision fall back to judge-on-diff,
+as designed). The exact live reply is pinned as a regression fixture.
