@@ -26,6 +26,14 @@ export class WorkerSessionRegistry {
   // the steer finishes, so a router listener firing on the completion always
   // sees it still marked.
   private readonly orchestratorTurns = new Set<string>();
+  // Workspaces with an orchestrator attempt in flight, ref-counted, plus when each
+  // last finished. An attempt edits files (and writes state) in its workspace; the
+  // event router consults this so a loop's OWN vcs/workspace footprint never
+  // re-fires that loop's vcs/workspace trigger (the non-session self-retrigger
+  // guard). The grace window absorbs the file-watcher's debounce tail after an
+  // attempt resolves.
+  private readonly attemptsByWorkspace = new Map<string, number>();
+  private readonly lastAttemptEndedAt = new Map<string, number>();
 
   /** Mark a worker's parent session id active for the duration of its run. */
   markActive(parentSessionId: string): void {
@@ -53,6 +61,31 @@ export class WorkerSessionRegistry {
   /** Whether this completing turn was one the orchestrator itself steered. */
   isOrchestratorTurn(turnId: string | null | undefined): boolean {
     return Boolean(turnId) && this.orchestratorTurns.has(turnId!);
+  }
+
+  /** Mark an attempt in flight in a workspace (engine, around the whole attempt). */
+  markAttempt(workspaceId: string): void {
+    this.attemptsByWorkspace.set(workspaceId, (this.attemptsByWorkspace.get(workspaceId) ?? 0) + 1);
+  }
+
+  /** Release one attempt hold and record when it ended (for the grace window). */
+  clearAttempt(workspaceId: string, atMs: number): void {
+    const count = this.attemptsByWorkspace.get(workspaceId);
+    if (count === undefined) return;
+    if (count <= 1) this.attemptsByWorkspace.delete(workspaceId);
+    else this.attemptsByWorkspace.set(workspaceId, count - 1);
+    this.lastAttemptEndedAt.set(workspaceId, atMs);
+  }
+
+  /**
+   * Whether an orchestrator attempt is mutating this workspace right now, or did
+   * within `graceMs` — so vcs/workspace events in that window are the loop's own
+   * footprint and must not re-trigger it (non-session self-retrigger guard).
+   */
+  isWorkspaceSettling(workspaceId: string, nowMs: number, graceMs: number): boolean {
+    if ((this.attemptsByWorkspace.get(workspaceId) ?? 0) > 0) return true;
+    const endedAt = this.lastAttemptEndedAt.get(workspaceId);
+    return endedAt !== undefined && nowMs - endedAt < graceMs;
   }
 
   /**

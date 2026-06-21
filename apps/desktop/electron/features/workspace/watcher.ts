@@ -38,9 +38,32 @@ interface WorkspaceWatcher {
 export class FileWatcherManager {
   private watchers = new Map<string, WorkspaceWatcher>();
   private window: BrowserWindow | null = null;
+  /** In-process change subscribers per workspace (background runtimes / plugins). */
+  private listeners = new Map<string, Set<(directories: string[]) => void>>();
 
   setWindow(win: BrowserWindow): void {
     this.window = win;
+  }
+
+  /**
+   * Subscribe to debounced file-tree changes for a workspace in-process (the
+   * renderer gets the same batch over IPC). Push-model — no extra watcher is
+   * started; this taps the recursive `fs.watch` already running for the
+   * workspace. Returns an unsubscribe function.
+   */
+  onChange(workspaceId: string, cb: (directories: string[]) => void): () => void {
+    let set = this.listeners.get(workspaceId);
+    if (!set) {
+      set = new Set();
+      this.listeners.set(workspaceId, set);
+    }
+    set.add(cb);
+    return () => {
+      const current = this.listeners.get(workspaceId);
+      if (!current) return;
+      current.delete(cb);
+      if (current.size === 0) this.listeners.delete(workspaceId);
+    };
   }
 
   /** Start or refresh watching all roots for a workspace. */
@@ -152,8 +175,15 @@ export class FileWatcherManager {
       workspace.debounceTimer = null;
       const directories = Array.from(workspace.pendingDirs);
       workspace.pendingDirs.clear();
+      if (directories.length === 0) return;
 
-      if (directories.length > 0 && this.window && !this.window.isDestroyed()) {
+      // In-process subscribers (background runtimes) — independent of any window.
+      const subscribers = this.listeners.get(workspace.workspaceId);
+      if (subscribers) {
+        for (const cb of [...subscribers]) cb(directories);
+      }
+
+      if (this.window && !this.window.isDestroyed()) {
         this.window.webContents.send(IpcChannels.filetree.changed, {
           workspaceId: workspace.workspaceId,
           directories,

@@ -78,6 +78,7 @@ function createHostStub(
         capabilityAudit: [],
       })),
       list: vi.fn(async () => []),
+      onChange: vi.fn(() => () => {}),
     },
     credentials: {
       getProviderApiKey: vi.fn(async () => null),
@@ -115,6 +116,7 @@ function createHostStub(
       mergePr: vi.fn(async () => ({ success: true as const, state: 'merged' as const })),
       getPrMergeState: vi.fn(async () => 'unknown' as const),
       getPrMergeError: vi.fn(async () => null),
+      onCommit: vi.fn(() => () => {}),
     },
     devServers: {
       startManaged: vi.fn(async () => ({ reason: 'not-used' })),

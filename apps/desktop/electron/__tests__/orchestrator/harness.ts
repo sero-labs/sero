@@ -21,11 +21,16 @@ import type {
   AppRuntimeVerificationCommandResult,
   ExtensionRuntimeContent,
   SessionState,
-  TurnCompletion,
   TurnCompletionStatus,
 } from '@sero-ai/common';
 
 import { type GitControl, makeGitControl, makeWorktreePrGit } from './harness-git';
+import {
+  makeSessionHost,
+  makeWorkspaceEvents,
+  type WorkspaceEventControl,
+  type WorkspaceEventFakes,
+} from './harness-events';
 
 import {
   WorkspaceCoordinator,
@@ -205,6 +210,8 @@ export interface Harness {
   timer: FakeAlarmTimer;
   /** Emit session turn completions for event-trigger tests (Phase 5). */
   session: SessionControl;
+  /** Emit vcs commits / workspace changes for event-trigger tests (Phase 6). */
+  events: WorkspaceEventControl;
   /** Worktree/PR host-call recorder for the Phase 6 isolation + PR flow. */
   git: GitControl;
   /** Every cwd passed to `host.workspace.runCommand` — proves checks/diff target the worktree. */
@@ -229,6 +236,7 @@ interface FakeState {
   git: GitControl;
   commandCwds: string[];
   subagentCwds: string[];
+  events: WorkspaceEventFakes;
 }
 
 function makeHost(opts: HarnessOptions, fake: FakeState, session: AppRuntimeSessionHost): AppRuntimeHost {
@@ -298,6 +306,7 @@ function makeHost(opts: HarnessOptions, fake: FakeState, session: AppRuntimeSess
         }
         return { stdout: '', stderr: '', exitCode: 0 };
       },
+      onChange: fake.events.onChange,
     },
     git: {
       async createCheckpoint(_cwd: string, _message: string) {
@@ -315,6 +324,7 @@ function makeHost(opts: HarnessOptions, fake: FakeState, session: AppRuntimeSess
       async getDiffSummary(_cwd: string) {
         return world.diff;
       },
+      onCommit: fake.events.onCommit,
       // Phase 6: worktree isolation + PR flow (split into harness-git.ts).
       ...makeWorktreePrGit(opts, git),
     },
@@ -329,74 +339,6 @@ function makeHost(opts: HarnessOptions, fake: FakeState, session: AppRuntimeSess
   return host as unknown as AppRuntimeHost;
 }
 
-const DEFAULT_ACTIVE_SESSION: ActiveSession = {
-  sessionId: 'live-session',
-  workspaceId: WORKSPACE_ID,
-};
-
-/**
- * Fake `host.session` for active-session / hybrid / event tests. A steered turn
- * runs the `steer` script (mutating the same git world the post-turn diff is
- * measured against), then emits its completion on a microtask so the adapter's
- * subscribe-before-send observation matches by turn id. Tests can also emit a
- * turn completion directly via the returned {@link SessionControl} to exercise
- * session event triggers (Phase 5).
- */
-function makeSessionHost(
-  opts: HarnessOptions,
-  world: FakeGitWorld,
-): { host: AppRuntimeSessionHost; control: SessionControl } {
-  const config = opts.session ?? {};
-  const active = config.active === undefined ? DEFAULT_ACTIVE_SESSION : config.active;
-  const state: SessionState = config.state ?? { idle: true, pendingMessages: 0, activeTurnId: null };
-  const listeners = new Set<(completion: TurnCompletion) => void>();
-  let turnSeq = 0;
-
-  const emit = (turnId: string, status: TurnCompletionStatus): void => {
-    for (const cb of [...listeners]) cb({ turnId, status });
-  };
-
-  const triggerTurn = async (content: ExtensionRuntimeContent): Promise<string> => {
-    const turnId = `turn-${++turnSeq}`;
-    const result = (await config.steer?.(content, world)) ?? {};
-    if (result.changedFiles) world.changed = [...result.changedFiles];
-    if (result.diff !== undefined) world.diff = result.diff;
-    const status: TurnCompletionStatus = result.status ?? 'completed';
-    // Emit on a macrotask so the completion lands AFTER `sendUserSteer` resolves
-    // (mirroring the real seam: turn_start returns the id, agent_end fires later).
-    // This lets the adapter tag the turn id before any listener sees the
-    // completion — the Phase 5 self-retrigger guard relies on that ordering.
-    setTimeout(() => emit(turnId, status), 0);
-    return turnId;
-  };
-
-  const host: AppRuntimeSessionHost = {
-    async getActiveForWorkspace() {
-      return active;
-    },
-    async getState() {
-      return state;
-    },
-    async sendUserSteer(_sessionId, content) {
-      return { turnId: await triggerTurn(content) };
-    },
-    async sendContextMessage(_sessionId, message, options) {
-      return { turnId: options.triggerTurn ? await triggerTurn(message.content) : null };
-    },
-    onTurnComplete(_sessionId, cb) {
-      listeners.add(cb);
-      return () => listeners.delete(cb);
-    },
-  };
-
-  const control: SessionControl = {
-    emitTurn: (turnId, status = 'completed') => emit(turnId, status),
-    listenerCount: () => listeners.size,
-  };
-
-  return { host, control };
-}
-
 export function createHarness(opts: HarnessOptions = {}): Harness {
   const dir = mkdtempSync(join(tmpdir(), 'orch-core-'));
   const stateFilePath = join(dir, '.sero', 'apps', 'orchestrator', 'state.json');
@@ -406,7 +348,8 @@ export function createHarness(opts: HarnessOptions = {}): Harness {
     changed: opts.dirty ? ['src/file.ts'] : [],
     diff: '',
   };
-  const session = makeSessionHost(opts, world);
+  const session = makeSessionHost(opts.session, world, WORKSPACE_ID);
+  const events = makeWorkspaceEvents(WORKSPACE_ID);
   const fake: FakeState = {
     files: new Map(),
     notifications: [],
@@ -415,6 +358,7 @@ export function createHarness(opts: HarnessOptions = {}): Harness {
     git: makeGitControl(dir),
     commandCwds: [],
     subagentCwds: [],
+    events,
   };
   const host = makeHost(opts, fake, session.host);
   const timer = makeFakeTimer();
@@ -455,6 +399,7 @@ export function createHarness(opts: HarnessOptions = {}): Harness {
     notifications: fake.notifications,
     timer,
     session: fake.session,
+    events: events.control,
     git: fake.git,
     commandCwds: fake.commandCwds,
     subagentCwds: fake.subagentCwds,

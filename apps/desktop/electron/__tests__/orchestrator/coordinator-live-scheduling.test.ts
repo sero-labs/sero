@@ -210,17 +210,17 @@ describe('session event triggers', () => {
     expect(loop?.attempts).toHaveLength(1); // marked due → ran an attempt
   });
 
-  it('logs other event sources as not-yet-wired rather than dropping them', async () => {
+  it('logs still-unwired event sources (check) as not-yet-wired rather than dropping them', async () => {
     const logs: { message: string; detail?: Record<string, unknown> }[] = [];
     const clock = makeClock(NOW);
     const h = use(createHarness({ clock: clock.clock, schedulerLog: (m, d) => logs.push({ message: m, detail: d }) }));
     const loopId = await h.createLoop();
     await h.patchLoop(loopId, (loop) => {
-      loop.triggers = [sessionTrigger(loopId, { id: 'trg-vcs', eventSource: 'vcs' })];
+      loop.triggers = [sessionTrigger(loopId, { id: 'trg-check', eventSource: 'check' })];
     });
 
     await h.coordinator.armSchedule();
-    expect(logs.some((e) => /no host subscription seam yet/i.test(e.message) && e.detail?.source === 'vcs')).toBe(true);
+    expect(logs.some((e) => /no host subscription seam yet/i.test(e.message) && e.detail?.source === 'check')).toBe(true);
   });
 
   it('does not re-fire a loop on its OWN active-session steer (self-retrigger guard)', async () => {

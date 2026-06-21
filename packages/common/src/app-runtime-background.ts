@@ -8,6 +8,7 @@
 
 import type { WorkspaceAccessRootsResult } from './workspace-access-roots';
 import type { AppRuntimeSessionHost } from './session-host';
+import type { VcsCheckpointSource } from './vcs';
 
 export interface AppRuntimeStateApi {
   read<T = unknown>(filePath: string): Promise<T | null>;
@@ -159,6 +160,13 @@ export interface AppRuntimeWorkspaceInfo {
   open: boolean;
 }
 
+/** A debounced file-tree change in a workspace (the existing recursive watcher). */
+export interface AppRuntimeWorkspaceChangeEvent {
+  workspaceId: string;
+  /** Virtual directories that changed, e.g. "/workspace/src". */
+  directories: string[];
+}
+
 export interface AppRuntimeWorkspaceApi {
   runCommand(
     workspaceId: string,
@@ -175,6 +183,16 @@ export interface AppRuntimeWorkspaceApi {
   listAccessRoots(workspaceId: string): Promise<WorkspaceAccessRootsResult>;
   /** All workspaces registered in the active profile (host paths). */
   list(): Promise<AppRuntimeWorkspaceInfo[]>;
+  /**
+   * Observe file-tree changes in a workspace, push-model — wraps the existing
+   * recursive `fs.watch` (no polling), which is already running for an open
+   * workspace. Fires once per debounced batch with the changed virtual
+   * directories. Returns an unsubscribe function.
+   */
+  onChange(
+    workspaceId: string,
+    cb: (event: AppRuntimeWorkspaceChangeEvent) => void,
+  ): () => void;
 }
 
 export interface AppRuntimeVerificationDetectOptions {
@@ -275,6 +293,15 @@ export type AppRuntimeMergePullRequestResult =
 
 export type AppRuntimePullRequestMergeState = 'merged' | 'open' | 'closed' | 'unknown';
 
+/** A commit/checkpoint landing in a workspace (the VcsManager event stream). */
+export interface AppRuntimeCommitEvent {
+  workspaceId: string;
+  /** Short change id / SHA of the new checkpoint. */
+  changeId: string;
+  /** How the checkpoint was created (turn / fs / manual / restore). */
+  source: VcsCheckpointSource;
+}
+
 export interface AppRuntimeGitApi {
   createWorktree(
     workspacePath: string,
@@ -312,6 +339,15 @@ export interface AppRuntimeGitApi {
     prNumber: number,
   ): Promise<AppRuntimePullRequestMergeState>;
   getPrMergeError(worktreePath: string, prNumber: number): Promise<string | null>;
+  /**
+   * Observe commits/checkpoints landing in a workspace, push-model — wraps the
+   * VcsManager event stream filtered to this workspace. Fires on each new
+   * checkpoint. Returns an unsubscribe function.
+   */
+  onCommit(
+    workspaceId: string,
+    cb: (event: AppRuntimeCommitEvent) => void,
+  ): () => void;
 }
 
 export type AppRuntimeDevServerScope = 'workspace' | 'card-preview';

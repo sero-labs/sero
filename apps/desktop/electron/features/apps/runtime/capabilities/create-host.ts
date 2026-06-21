@@ -1,6 +1,8 @@
 import { appStateManager } from '@electron/features/apps/state/manager';
 import { subagentManager } from '@electron/features/subagent/singleton';
 import { workspaceManager } from '@electron/features/workspace/manager';
+import { vcsManager, fileWatcherManager } from '@electron/shared/infra/singletons';
+import type { VcsEvent } from '@sero-ai/common';
 import { listWorkspaceAccessRoots } from '@electron/features/workspace/access-roots';
 import { runtimeManager } from '@electron/features/workspace/runtime/runtime-manager';
 import { showNotification } from '@electron/platform/desktop/notifications';
@@ -109,6 +111,12 @@ export function createAppRuntimeHost(_target: AppRuntimeTarget): AppRuntimeHost 
         const workspaces = await workspaceManager.list();
         return workspaces.map((ws) => ({ id: ws.id, name: ws.name, path: ws.path, open: ws.open }));
       },
+      // Push-model: taps the recursive fs.watch already running for the open
+      // workspace (no new watcher, no polling).
+      onChange: (workspaceId, cb) =>
+        fileWatcherManager.onChange(workspaceId, (directories) =>
+          cb({ workspaceId, directories }),
+        ),
     },
     verification: {
       detectCompileCommands,
@@ -145,6 +153,18 @@ export function createAppRuntimeHost(_target: AppRuntimeTarget): AppRuntimeHost 
       mergePr: mergePrFromWorktree,
       getPrMergeState: getPullRequestMergeState,
       getPrMergeError: getPullRequestMergeError,
+      // Push-model: filters the existing VcsManager event stream to this
+      // workspace's new checkpoints (no polling).
+      onCommit: (workspaceId, cb) => {
+        const handler = (event: VcsEvent) => {
+          if (event.type !== 'checkpoint_created' || event.workspaceId !== workspaceId) return;
+          cb({ workspaceId, changeId: event.checkpoint.changeId, source: event.checkpoint.source });
+        };
+        vcsManager.on('event', handler);
+        return () => {
+          vcsManager.off('event', handler);
+        };
+      },
     },
     devServers: {
       startManaged: startManagedDevServer,

@@ -281,6 +281,46 @@ fires on `noteTurnEnd` carrying the `turnId`. Idle and pending-message checks
 stay centralized in desktop core; the coordinator calls `getState` before every
 send and only proceeds when idle with no pending messages (D-05).
 
+## New seams: non-session event sources (vcs + workspace)
+
+Two push-model subscription seams added so `vcs` and `workspace` event triggers
+fire on real lifecycle events (Principle 6 — no polling). Both tap event sources
+that already exist and run in desktop-core; neither starts a new watcher.
+
+```ts
+interface AppRuntimeGitApi {
+  // …existing worktree/PR methods…
+  onCommit(
+    workspaceId: string,
+    cb: (event: AppRuntimeCommitEvent) => void, // { workspaceId, changeId, source }
+  ): () => void;
+}
+
+interface AppRuntimeWorkspaceApi {
+  // …existing methods…
+  onChange(
+    workspaceId: string,
+    cb: (event: AppRuntimeWorkspaceChangeEvent) => void, // { workspaceId, directories }
+  ): () => void;
+}
+```
+
+- **`onCommit`** wraps the existing `VcsManager` `EventEmitter` (singleton; already
+  feeds the git UI), filtered to the workspace's `checkpoint_created` events.
+- **`onChange`** taps the recursive `fs.watch` (`FileWatcherManager`) that already
+  runs for an open workspace and previously only pushed to the renderer over IPC;
+  a small in-process fan-out lets a background runtime subscribe too.
+- **`check` has no seam** — verification is on-demand with no completion event and
+  the orchestrator is its only caller, so a `check` trigger would fire on the
+  loop's own checks. Left logged as not-yet-wired by design.
+
+**Self-retrigger guards** (in the plugin event router, not the host): a loop's own
+attempt mutates its workspace, so the engine marks the workspace busy for each
+attempt (`WorkerSessionRegistry`), and the router ignores vcs/workspace events
+while busy + a short grace window (file-watcher debounce tail), and ignores
+`.sero/` changes (Sero's own state/artifacts/worktrees). See
+[04 §Follow-up](04-implementation-plan.md#follow-up--non-session-event-seams-vcs--workspace).
+
 ## Verified facts
 
 Treat these as binding contracts:

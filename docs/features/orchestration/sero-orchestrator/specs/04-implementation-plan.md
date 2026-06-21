@@ -64,6 +64,10 @@ All five budgets are enforced. The subagent host now reports per-run USD on
 `AppRuntimeSubagentResult.usage.cost`, which the derived budget sums across
 attempts, so `maxCostUsd` blocks the loop alongside `maxTotalTokens` (D-17).
 
+FR-18 event triggers: `session`, `vcs`, and `workspace` are wired to real
+push-model host seams; `check` stays not-yet-wired by design (no event source —
+see [Follow-up: non-session event seams](#follow-up--non-session-event-seams-vcs--workspace)).
+
 ---
 
 ## Phase 0 — Full architecture spec ✅
@@ -529,10 +533,11 @@ patterns behind an adapter (never cron's transient session runner).
   *(Live `tick()` shares the Phase 2.5 reconcile; the open-workspace wake is the
   smart-alarm in `alarm.ts`, not a poll — see notes.)*
 - [x] Subscribe `event` triggers to session lifecycle events
-  (`host.session.onTurnComplete`, `events.ts`). The other declared sources
-  (`vcs`, `check`, `workspace`) have no host subscription seam yet and are logged
-  as not-yet-wired (deferred to a Phase 6 `host.*` follow-up, decided with the
-  product owner).
+  (`host.session.onTurnComplete`, `events.ts`). At Phase 5 the other declared
+  sources (`vcs`, `check`, `workspace`) had no host subscription seam and were
+  logged as not-yet-wired; the `vcs` and `workspace` seams were added as a
+  follow-up (see [Follow-up: non-session event seams](#follow-up--non-session-event-seams-vcs--workspace)).
+  `check` stays not-yet-wired by design (no real source).
 - [x] Collapse missed cron fires into one catch-up; set "due again" instead of
   overlapping attempts; persist debounce across restart (debounce persists on the
   trigger via `lastFireAt`, unchanged from Phase 2.5).
@@ -681,12 +686,14 @@ cross-plugin coordination via events.
   the branch by default; Phase 6 does not auto-remove on stop/complete to avoid
   discarding uncommitted worktree work — a deliberate cautious default.
 - **Deferred with the product owner:** the non-session event sources
-  (`vcs`/`check`/`workspace`) stay logged as not-yet-wired — they would need new
-  desktop-core seams (`host.git.onCommit` / `host.verification.onCheck` /
-  `host.workspace.onChange`) and nothing in scope needs them yet, so they remain a
-  separate `host.*` follow-up. The optional filtered `sero-cli` surface and the
-  eval check type are likewise deferred (the recursion guard already covers the
-  former; the latter is independent of isolation/PR).
+  (`vcs`/`check`/`workspace`) were logged as not-yet-wired at Phase 6. The `vcs`
+  and `workspace` seams were since built (see
+  [Follow-up: non-session event seams](#follow-up--non-session-event-seams-vcs--workspace)).
+  `check` stays deferred — verification has no event source and the orchestrator
+  is its only caller, so a `check` trigger would fire on the loop's own checks
+  (fabricating it would be speculative). The optional filtered `sero-cli` surface
+  and the eval check type are likewise deferred (the recursion guard already
+  covers the former; the latter is independent of isolation/PR).
 - Validation: full-monorepo `pnpm typecheck` (18 tasks) green; orchestrator unit
   suites **96 tests** green (9 new in `coordinator-worktree.test.ts`: worktree
   workdir resolution + cwd-targeting + reuse-across-attempts, the dirty-root
@@ -695,6 +702,59 @@ cross-plugin coordination via events.
   The harness gained worktree/PR host fakes (`harness-git.ts`) and cwd capture; no
   desktop-core files changed. Not live-clicked (the worktree/PR path needs a real
   git remote; the unit suite drives the full plugin flow against host fakes).
+
+---
+
+## Follow-up — non-session event seams (vcs + workspace)
+
+Phase 5 wired only `session` event triggers because that was the one host
+subscription seam that existed. This follow-up adds the `vcs` and `workspace`
+sources by exposing two new push-model `host.*` seams over event sources that
+already run in desktop-core — no new watchers, no polling (Principle 6).
+
+- **`host.git.onCommit(workspaceId, cb)`** — wraps the existing `VcsManager`
+  `EventEmitter` (a singleton that already feeds the git UI), filtered to the
+  workspace's `checkpoint_created` events. Carries `{ workspaceId, changeId,
+  source }`.
+- **`host.workspace.onChange(workspaceId, cb)`** — taps the recursive `fs.watch`
+  (`FileWatcherManager`) that is already running for an open workspace and only
+  pushed to the renderer over IPC; a small in-process fan-out was added so a
+  background runtime can subscribe too. Carries `{ workspaceId, directories }`
+  (debounced).
+- **`check` stays not-yet-wired by design.** Verification is on-demand only with
+  no completion event, and the orchestrator is its sole caller — a `check`
+  trigger would fire on the loop's own checks. Building an emitter for it would be
+  speculative, so it is left logged as not-yet-wired (decided with the product
+  owner).
+
+**Self-retrigger guards (the load-bearing correctness piece).** A loop's own
+attempt mutates its workspace; without guards a `vcs`/`workspace` trigger would
+re-fire on that footprint and cascade.
+
+- The engine marks the workspace busy for the whole duration of every attempt
+  (`WorkerSessionRegistry.markAttempt`/`clearAttempt`); the event router ignores
+  `vcs`/`workspace` events while busy, plus a short grace window
+  (`SELF_TRIGGER_GRACE_MS`) afterwards to absorb the file-watcher's debounce tail.
+- The router also ignores `workspace` changes confined to `.sero/` (the
+  orchestrator's own state, artifacts, and worktrees all live there), so the
+  coordinator's constant state writes never self-trigger.
+- This mirrors the existing session self-retrigger guard (a loop's own steered
+  turn is tagged and skipped). The chosen semantic is per-workspace suppression:
+  while any orchestrator attempt is mutating the workspace, vcs/workspace events
+  are treated as our own footprint — this prevents cross-loop cascades, not just a
+  single loop re-firing itself.
+
+**Scope/altitude.** Fully push-model and additive: `packages/common` contract
+(`AppRuntimeCommitEvent` / `AppRuntimeWorkspaceChangeEvent` + the two methods),
+desktop-core wiring (`create-host.ts` + the `FileWatcherManager` fan-out), and the
+plugin event router generalized to all three sources. No coordinator core
+re-plumb; `check` left deferred.
+
+**Validation.** `pnpm typecheck` 18/18; orchestrator unit suites **102 tests**
+(6 new in `coordinator-event-sources.test.ts`: vcs commit → due, workspace change
+→ due, `.sero/`-only change ignored, subscription drop, the self-retrigger guard
+for both sources, and the grace-window boundary). The harness gained vcs/workspace
+event fakes + emit controls (`harness-events.ts`).
 
 ---
 

@@ -21,6 +21,7 @@ import { isoNow, type Clock } from './clock';
 import { LoopLocks, Semaphore } from './locks';
 import { runAttempt, type AttemptReport } from './attempt-runner';
 import { openPullRequestForLoop } from './pr';
+import type { WorkerSessionRegistry } from './recursion-guard';
 import type { StateStore } from './state-store';
 import {
   blockReasonText,
@@ -40,6 +41,9 @@ export interface EngineDeps {
   adapters: AdapterRegistry;
   gate: DirtyRootGate;
   clock: Clock;
+  /** Shared with the adapters + event router; marks the workspace busy per attempt
+   *  so a loop's own file/commit footprint never re-fires its vcs/workspace triggers. */
+  workerSessions: WorkerSessionRegistry;
 }
 
 export interface RunNextOptions {
@@ -88,6 +92,7 @@ export class AttemptEngine {
     const cancel = new AbortController();
     this.cancellers.set(loopId, cancel);
     let semaphoreHeld = false;
+    let attemptMarked = false;
     try {
       const loop = await this.deps.store.getLoop(loopId);
       if (!loop) return { ok: false, error: `No goal with id ${loopId}.` };
@@ -114,6 +119,10 @@ export class AttemptEngine {
         };
       }
       semaphoreHeld = true;
+      // Mark the workspace busy for the whole attempt so the loop's own edits and
+      // commits don't re-fire its vcs/workspace event triggers (self-retrigger).
+      this.deps.workerSessions.markAttempt(this.deps.workspaceId);
+      attemptMarked = true;
 
       const report = await runAttempt(this.attemptDeps(), loop, {
         adapter: resolved.adapter,
@@ -124,6 +133,9 @@ export class AttemptEngine {
       });
       return await this.finalize(loopId, report);
     } finally {
+      if (attemptMarked) {
+        this.deps.workerSessions.clearAttempt(this.deps.workspaceId, this.deps.clock());
+      }
       if (semaphoreHeld) this.deps.semaphore.release();
       this.cancellers.delete(loopId);
       this.deps.locks.release(loopId);

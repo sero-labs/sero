@@ -105,6 +105,7 @@ export class WorkspaceCoordinator implements OrchestratorCoordinator {
         ]),
       gate: ctx.dirtyRootGate ?? createDefaultDirtyRootGate(ctx.host),
       clock: this.clock,
+      workerSessions: this.workerSessions,
     });
     // Both the cron scheduler and the event router mark loops due through the SAME
     // gated control plane (D-01): the engine still enforces the per-loop lock,
