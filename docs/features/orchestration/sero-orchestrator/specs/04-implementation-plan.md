@@ -7,7 +7,7 @@ plans.
 
 | Phase | Title | Status | Exit gate |
 | --- | --- | --- | --- |
-| 1 | Plugin shell, state, and UI | ⬜ Not started | Loops persist and render; controls call coordinator |
+| 1 | Plugin shell, state, and UI | ✅ Done | Loops persist and render; controls call coordinator |
 | 2 | Planning and validation | ⬜ Not started | Prompt creates a validated draft from `PlanningResponse` |
 | 3 | Coordinator core | ⬜ Not started | Lifecycle, locks, runs, step states, attempts, and artifacts work |
 | 4 | Step execution, workspace isolation, and limits | ⬜ Not started | Ready steps run through Sero execution in the user-selected workspace |
@@ -22,8 +22,8 @@ Status legend: ✅ Done · 🟡 In progress · ⬜ Not started · ⛔ Blocked ·
 
 | FR | Requirement | Phase | Decision | Status |
 | --- | --- | --- | --- | --- |
-| FR-01 | Workspace-scoped plugin with persisted loop state | 1 | D-07 | ⬜ |
-| FR-02 | Create/list/show/activate/pause/resume/stop/run_next/revise/choose_recovery via tools and UI | 1 | D-10 | ⬜ |
+| FR-01 | Workspace-scoped plugin with persisted loop state | 1 | D-07 | ✅ |
+| FR-02 | Create/list/show/activate/pause/resume/stop/run_next/revise/choose_recovery via tools and UI | 1 | D-10 | ✅ |
 | FR-03 | Prompt-to-LLM planning produces a curated `PlanningResponse` | 2 | D-01 | ⬜ |
 | FR-04 | `PlanningResponse` and `LoopPlan` structural validation and repair path | 2 | D-09 | ⬜ |
 | FR-05 | Step dependencies support sequential and parallel plans | 3 | D-01/D-10 | ⬜ |
@@ -39,7 +39,7 @@ Status legend: ✅ Done · 🟡 In progress · ⬜ Not started · ⛔ Blocked ·
 | FR-15 | Manual/cron/event/hybrid triggers mark loops due | 7 | D-12 | ⬜ |
 | FR-16 | Closed-workspace cron catch-up collapses to one run | 7 | D-08/D-12 | ⬜ |
 | FR-17 | Plan revisions are structurally validated and recorded | 5 | D-13 | ⬜ |
-| FR-18 | UI displays generated plan, dependency graph, step states, attempts, recovery, completion, and limits | 1/3/5/8 | D-01 | ⬜ |
+| FR-18 | UI displays generated plan, dependency graph, step states, attempts, recovery, completion, and limits | 1/3/5/8 | D-01 | 🟡 |
 | FR-19 | No Orchestrator permission, approval, command, git, PR, or tool-policy layer | 4 | D-02 | ⬜ |
 | FR-20 | User-selected loop workspace isolation supports managed worktree by default and workspace root by option | 4 | D-06 | ⬜ |
 | FR-21 | Workspace-root loops with dirty roots prompt the user to stash, create a worktree, or defer, with timeout fallback to worktree | 4 | D-06 | ⬜ |
@@ -55,28 +55,28 @@ tools, and basic UI.
 
 **Tasks**
 
-- [ ] Scaffold `plugins/sero-orchestrator-plugin` with workspace scope, runtime,
+- [x] Scaffold `plugins/sero-orchestrator-plugin` with workspace scope, runtime,
   UI, and Pi extension entries.
-- [ ] Implement shared types from [01](01-data-model.md).
-- [ ] Implement `runtime/index.ts` and coordinator registry.
-- [ ] Implement tools and slash command for `create`, `list`, `show`,
+- [x] Implement shared types from [01](01-data-model.md).
+- [x] Implement `runtime/index.ts` and coordinator registry.
+- [x] Implement tools and slash command for `create`, `list`, `show`,
   `activate`, `pause`, `resume`, `stop`, `run_next`, `revise`, and
   `choose_recovery`.
-- [ ] Return a clear error when a bridged command targets a workspace whose
+- [x] Return a clear error when a bridged command targets a workspace whose
   runtime coordinator is not loaded.
-- [ ] Persist `OrchestratorState` through `host.appState`.
-- [ ] Build UI for loop list, loop detail, generated plan placeholder, step
+- [x] Persist `OrchestratorState` through `host.appState`.
+- [x] Build UI for loop list, loop detail, generated plan placeholder, step
   status placeholder, workspace isolation placeholder, attempt history placeholder,
   and controls.
 
 **Acceptance**
 
-- [ ] Creating a loop stores a draft record.
-- [ ] Listing and showing loops reads the persisted state file.
-- [ ] Lifecycle controls mutate state only through `requestAction`.
-- [ ] UI reflects state changes from `host.appState` watch.
-- [ ] `pnpm typecheck` passes; no source file exceeds 500 LOC.
-- [ ] FR-01, FR-02, and partial FR-18 satisfied.
+- [x] Creating a loop stores a draft record.
+- [x] Listing and showing loops reads the persisted state file.
+- [x] Lifecycle controls mutate state only through `requestAction`.
+- [x] UI reflects state changes from `host.appState` watch.
+- [x] `pnpm typecheck` passes; no source file exceeds 500 LOC.
+- [x] FR-01, FR-02, and partial FR-18 satisfied.
 
 ---
 

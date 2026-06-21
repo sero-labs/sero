@@ -1,0 +1,72 @@
+import { describe, expect, it } from 'vitest';
+import { Coordinator } from '../../runtime/coordinator';
+import { createFakeHost } from '../../runtime/__tests__/fake-host';
+import { buildAction, executeOrchestratorTool } from '../tools';
+import { parseCommand } from '../commands';
+
+describe('buildAction', () => {
+  it('builds a create action with options', () => {
+    const action = buildAction({ action: 'create', prompt: 'hi', activate: true, useManagedWorktree: false });
+    expect(action).toEqual({
+      kind: 'create',
+      prompt: 'hi',
+      title: undefined,
+      options: { activate: true, workspace: { useManagedWorktree: false } },
+    });
+  });
+
+  it('requires a loopId for lifecycle actions', () => {
+    expect(buildAction({ action: 'activate' })).toEqual({ error: 'activate requires a loopId' });
+  });
+
+  it('parses a recovery decision from JSON', () => {
+    const decision = { id: 'r1', stepId: 's1', failedAttemptId: 'a1', decision: 'retry-step', reason: 'x', createdAt: 'now' };
+    const action = buildAction({ action: 'choose_recovery', loopId: 'l1', decisionJson: JSON.stringify(decision) });
+    expect(action).toMatchObject({ kind: 'choose_recovery', loopId: 'l1', decision });
+  });
+
+  it('rejects malformed recovery JSON', () => {
+    expect(buildAction({ action: 'choose_recovery', loopId: 'l1', decisionJson: '{bad' })).toEqual({
+      error: 'decisionJson is not valid JSON',
+    });
+  });
+});
+
+describe('executeOrchestratorTool', () => {
+  it('returns a clear error when no coordinator is loaded for the cwd', async () => {
+    const res = await executeOrchestratorTool({ action: 'list' }, '/unknown', () => undefined);
+    expect(res.details.ok).toBe(false);
+    expect(res.text).toContain('runtime is not loaded');
+  });
+
+  it('requires a cwd', async () => {
+    const res = await executeOrchestratorTool({ action: 'list' }, undefined);
+    expect(res.details.ok).toBe(false);
+  });
+
+  it('routes through the resolved coordinator', async () => {
+    const coordinator = new Coordinator(createFakeHost());
+    const res = await executeOrchestratorTool(
+      { action: 'create', prompt: 'do it' },
+      '/workspaces/ws-1',
+      () => coordinator,
+    );
+    expect(res.details.ok).toBe(true);
+    expect(res.text).toContain('Created loop');
+  });
+});
+
+describe('parseCommand', () => {
+  it('parses create with a multi-word prompt', () => {
+    expect(parseCommand('create build the thing')).toEqual({ action: 'create', prompt: 'build the thing' });
+  });
+
+  it('parses lifecycle actions with a loopId', () => {
+    expect(parseCommand('activate loop_0001')).toEqual({ action: 'activate', loopId: 'loop_0001' });
+  });
+
+  it('returns help on unknown action', () => {
+    const res = parseCommand('frobnicate');
+    expect('error' in res).toBe(true);
+  });
+});
