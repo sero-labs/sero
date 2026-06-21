@@ -110,7 +110,12 @@ export class WorkspaceCoordinator implements OrchestratorCoordinator {
     // undefined → real planner; null → disabled; a fn → injected (tests).
     this.planner =
       ctx.planner === undefined
-        ? createPlannerRunner({ host: ctx.host, workspaceId: ctx.workspaceId, cwd: ctx.workspacePath })
+        ? createPlannerRunner({
+            host: ctx.host,
+            workspaceId: ctx.workspaceId,
+            cwd: ctx.workspacePath,
+            stateFilePath: ctx.stateFilePath,
+          })
         : ctx.planner;
     this.reflector =
       ctx.reflector === undefined

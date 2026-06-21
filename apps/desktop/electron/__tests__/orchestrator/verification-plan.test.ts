@@ -218,13 +218,13 @@ describe('P-A — parsePlannerOutput (defensive)', () => {
     expect(parsed!.stopConditions[0]).toMatchObject({ kind: 'approval-required' });
   });
 
-  it('drops malformed criteria and returns null when none remain', () => {
-    expect(
-      parsePlannerOutput(fenced({ criteria: [{ description: 'no decision' }, { decision: { kind: 'exit-zero' } }] })),
-    ).toBeNull();
+  it('drops only criteria with no description, and returns null when none remain', () => {
+    // A criterion with a description but no decision is KEPT (judged) — see
+    // planner-robustness.test.ts; only a description-less one is dropped.
+    expect(parsePlannerOutput(fenced({ criteria: [{ decision: { kind: 'exit-zero' } }] }))).toBeNull();
   });
 
-  it('drops a criterion with an unknown decision kind but keeps valid ones', () => {
+  it('keeps a described criterion even with an unknown decision kind (falls back to judge)', () => {
     const parsed = parsePlannerOutput(
       fenced({
         criteria: [
@@ -233,8 +233,9 @@ describe('P-A — parsePlannerOutput (defensive)', () => {
         ],
       }),
     );
-    expect(parsed!.criteria).toHaveLength(1);
-    expect(parsed!.criteria[0]!.description).toBe('good');
+    expect(parsed!.criteria).toHaveLength(2);
+    expect(parsed!.criteria[0]!.decision.kind).toBe('judge'); // unknown → judge fallback
+    expect(parsed!.criteria[1]!.decision.kind).toBe('exit-zero');
     expect(parsed!.criteria[0]!.required).toBe(true); // defaults to required
   });
 

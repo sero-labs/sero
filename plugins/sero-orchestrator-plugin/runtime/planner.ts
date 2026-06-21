@@ -12,7 +12,7 @@
 
 import { createHash } from 'node:crypto';
 
-import type { AppRuntimeHost } from '@sero-ai/common';
+import type { AppRuntimeHost, AppRuntimeSubagentResult } from '@sero-ai/common';
 
 import type {
   Decision,
@@ -24,6 +24,7 @@ import type {
   ThresholdOp,
   VerificationPlan,
 } from '../shared/types';
+import { writeArtifact } from './artifacts';
 import { lastFencedJsonBlock, toolPolicyForRole } from './workers';
 
 /** A derived plan minus provenance — the coordinator stamps `derivedFrom`. */
@@ -41,7 +42,12 @@ export interface PlannerRunnerDeps {
   host: AppRuntimeHost;
   workspaceId: string;
   cwd: string;
+  /** State file path — the planner's raw output is retained beside it for diagnosis. */
+  stateFilePath: string;
 }
+
+/** A planner run is retried a few times because model JSON output is not deterministic. */
+const PLANNER_MAX_ATTEMPTS = 3;
 
 /** Stable hash of the goal text; a plan is stale when the goal's hash drifts. */
 export function goalHash(goal: string): string {
@@ -112,22 +118,60 @@ export function buildPlannerTask(loop: LoopGoal, prior?: VerificationPlan): stri
   return sections.filter(Boolean).join('\n\n');
 }
 
-/** Create the planner runner the coordinator invokes at create / on goal change. */
+/**
+ * Create the planner runner the coordinator invokes at create / on goal change.
+ * The model's raw reply is ALWAYS retained to an artifact (success or failure) so
+ * a "could not derive a plan" outcome is diagnosable, and the run is retried a few
+ * times because the model's JSON output is not deterministic.
+ */
 export function createPlannerRunner(deps: PlannerRunnerDeps): PlannerRunner {
   return async (loop, prior) => {
-    const result = await deps.host.subagents.runStructured({
-      task: buildPlannerTask(loop, prior),
-      systemPrompt: PLANNER_SYSTEM_PROMPT,
-      platformTools: toolPolicyForRole('planner'),
-      parentSessionId: loop.sessionId ?? `orchestrator:${loop.id}`,
-      workspaceId: deps.workspaceId,
-      cwd: deps.cwd,
-    });
-    if (result.error) return null;
-    const parsed = parsePlannerOutput(result.response);
-    if (!parsed) return null;
-    return { ...parsed, model: result.modelId, usage: result.usage };
+    let lastError: string | undefined;
+    for (let attempt = 1; attempt <= PLANNER_MAX_ATTEMPTS; attempt += 1) {
+      const result = await deps.host.subagents.runStructured({
+        task: buildPlannerTask(loop, prior),
+        systemPrompt: PLANNER_SYSTEM_PROMPT,
+        platformTools: toolPolicyForRole('planner'),
+        parentSessionId: loop.sessionId ?? `orchestrator:${loop.id}`,
+        workspaceId: deps.workspaceId,
+        cwd: deps.cwd,
+      });
+      lastError = result.error;
+      const parsed = result.error ? null : parsePlannerOutput(result.response);
+      await retainPlannerOutput(deps.stateFilePath, loop.id, attempt, result, parsed);
+      if (parsed) return { ...parsed, model: result.modelId, usage: result.usage };
+    }
+    console.error(
+      `[orchestrator] planner could not derive a plan for "${loop.title}" after ${PLANNER_MAX_ATTEMPTS} attempt(s)` +
+        ` (${lastError ? `error: ${lastError}` : 'no parseable plan'}); raw output at artifacts/planner-${loop.id}/planner-response.txt`,
+    );
+    return null;
   };
+}
+
+/** Retain the planner's raw reply beside the state file so failures are diagnosable. */
+async function retainPlannerOutput(
+  stateFilePath: string,
+  loopId: string,
+  attempt: number,
+  result: AppRuntimeSubagentResult,
+  parsed: { criteria: SuccessCriterion[] } | null,
+): Promise<void> {
+  const header = [
+    `attempt: ${attempt}/${PLANNER_MAX_ATTEMPTS}`,
+    `parsed: ${parsed ? `${parsed.criteria.length} criteria` : 'NO — no parseable plan'}`,
+    result.error ? `subagent error: ${result.error}` : undefined,
+    `model: ${result.modelId ?? 'unknown'}`,
+    '--- raw response ---',
+    result.response ?? '(empty)',
+  ]
+    .filter((line) => line !== undefined)
+    .join('\n');
+  try {
+    await writeArtifact(stateFilePath, `planner-${loopId}`, 'planner-response.txt', header);
+  } catch {
+    // Diagnostics are best-effort; never let artifact I/O break planning.
+  }
 }
 
 // ── Parsing (defensive — the subagent is not schema-validated, D-08) ──────────
@@ -173,15 +217,27 @@ export function parsePlannerOutput(response: string): ParsedPlan | null {
   return { criteria, stopConditions };
 }
 
+// The parser is deliberately FORGIVING of real model output (a strict parser that
+// silently drops criteria leaves a loop stuck in `draft` with no plan). A
+// criterion is kept whenever it has a description: a missing/unrecognized decision
+// falls back to `judge` (an LLM can evaluate any described criterion), and a judge
+// with no evidence gets the diff so it has something to look at. The raw reply is
+// always retained, so over-coercion is visible rather than hidden.
 function parseCriterion(value: unknown, index: number): SuccessCriterion | null {
   if (!isRecord(value)) return null;
-  const description = typeof value.description === 'string' ? value.description.trim() : '';
+  const description =
+    typeof value.description === 'string' && value.description.trim()
+      ? value.description.trim()
+      : typeof value.criterion === 'string' && value.criterion.trim()
+        ? value.criterion.trim()
+        : '';
   if (!description) return null;
-  const decision = parseDecision(value.decision);
-  if (!decision) return null;
-  const evidence = Array.isArray(value.evidence)
+  const decision = parseDecision(value.decision, description) ?? { kind: 'judge', rubric: description };
+  let evidence = Array.isArray(value.evidence)
     ? value.evidence.map(parseEvidence).filter((e): e is EvidenceStep => e !== null)
     : [];
+  // A judge needs something to look at; default it to the attempt's diff.
+  if (decision.kind === 'judge' && evidence.length === 0) evidence = [{ kind: 'diff' }];
   const id = typeof value.id === 'string' && value.id.trim() ? value.id.trim() : `criterion-${index + 1}`;
   // Default to required: a derived criterion gates completion unless the planner
   // explicitly marks it informational.
@@ -190,9 +246,14 @@ function parseCriterion(value: unknown, index: number): SuccessCriterion | null 
 }
 
 function parseEvidence(value: unknown): EvidenceStep | null {
+  // A bare string is taken as a command to run.
+  if (typeof value === 'string') {
+    return value.trim() ? { kind: 'run', command: value.trim() } : null;
+  }
   if (!isRecord(value)) return null;
   switch (value.kind) {
     case 'run':
+    case 'command':
       return typeof value.command === 'string' && value.command.trim()
         ? { kind: 'run', command: value.command.trim() }
         : null;
@@ -211,20 +272,34 @@ function parseEvidence(value: unknown): EvidenceStep | null {
 
 const THRESHOLD_OPS: ReadonlyArray<ThresholdOp> = ['<', '<=', '>', '>=', '=='];
 
-function parseDecision(value: unknown): Decision | null {
+function parseDecision(value: unknown, description: string): Decision | null {
+  // A bare string names the kind (e.g. "judge", "exit-zero").
+  if (typeof value === 'string') {
+    const kind = value.trim().toLowerCase();
+    if (kind === 'exit-zero' || kind === 'command') return { kind: 'exit-zero' };
+    if (kind === 'judge' || kind === 'review') return { kind: 'judge', rubric: description };
+    // A bare "threshold"/"measure" lacks metric/op/value, so judge it instead.
+    if (kind === 'threshold' || kind === 'measure') return { kind: 'judge', rubric: description };
+    return null;
+  }
   if (!isRecord(value)) return null;
   switch (value.kind) {
     case 'exit-zero':
+    case 'command':
       return { kind: 'exit-zero' };
     case 'judge':
-      return typeof value.rubric === 'string' && value.rubric.trim()
-        ? { kind: 'judge', rubric: value.rubric.trim() }
-        : null;
-    case 'threshold': {
+    case 'review':
+      // rubric optional — the judge also receives the criterion description.
+      return {
+        kind: 'judge',
+        rubric: typeof value.rubric === 'string' && value.rubric.trim() ? value.rubric.trim() : description,
+      };
+    case 'threshold':
+    case 'measure': {
       const op = THRESHOLD_OPS.find((candidate) => candidate === value.op);
       const metric = typeof value.metric === 'string' ? value.metric.trim() : '';
       if (!op || !metric || typeof value.value !== 'number' || !Number.isFinite(value.value)) {
-        return null;
+        return null; // malformed measurement → fall back to judge (caller default)
       }
       return { kind: 'threshold', metric, op, value: value.value, aggregate: parseAggregate(value.aggregate) };
     }
