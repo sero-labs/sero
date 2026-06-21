@@ -196,6 +196,10 @@ export interface HarnessOptions {
   mergePrResult?: AppRuntimeMergePullRequestResult;
   /** `host.git.getPrMergeState` result for PR tests (Phase 6); defaults to 'open'. */
   prMergeState?: AppRuntimePullRequestMergeState;
+  /** `git log …` output for `gitLog` evidence gathering (spec 05); defaults to ''. */
+  gitLog?: string;
+  /** File contents returned for `read` evidence (`cat -- <path>`), keyed by path. */
+  files?: Record<string, string>;
 }
 
 /** Drives a session turn completion for event-router tests (Phase 5). */
@@ -224,6 +228,8 @@ export interface Harness {
   git: GitControl;
   /** Every cwd passed to `host.workspace.runCommand` — proves checks/diff target the worktree. */
   commandCwds: string[];
+  /** Every command string passed to `host.workspace.runCommand` (evidence gathering, VCS). */
+  commands: string[];
   /** Every cwd passed to `host.subagents.runStructured` — proves the worker runs at the worktree. */
   subagentCwds: string[];
   /** Stateful git the real adapter reads/writes; inspect after a run. */
@@ -243,6 +249,7 @@ interface FakeState {
   session: SessionControl;
   git: GitControl;
   commandCwds: string[];
+  commands: string[];
   subagentCwds: string[];
   events: WorkspaceEventFakes;
 }
@@ -297,6 +304,7 @@ function makeHost(opts: HarnessOptions, fake: FakeState, session: AppRuntimeSess
     workspace: {
       async runCommand(_workspaceId: string, _cwd: string, command: string) {
         fake.commandCwds.push(_cwd);
+        fake.commands.push(command);
         if (command === 'git rev-parse HEAD') {
           return { stdout: `${world.head}\n`, stderr: '', exitCode: 0 };
         }
@@ -311,6 +319,14 @@ function makeHost(opts: HarnessOptions, fake: FakeState, session: AppRuntimeSess
           world.changed = [];
           world.diff = '';
           return { stdout: '', stderr: '', exitCode: 0 };
+        }
+        // Evidence gathering (spec 05): `gitLog` and `read` evidence steps.
+        if (command.startsWith('git log')) {
+          return { stdout: opts.gitLog ?? '', stderr: '', exitCode: 0 };
+        }
+        if (command.startsWith('cat -- ')) {
+          const path = command.slice('cat -- '.length).replace(/^"|"$/g, '');
+          return { stdout: opts.files?.[path] ?? '', stderr: '', exitCode: 0 };
         }
         return { stdout: '', stderr: '', exitCode: 0 };
       },
@@ -365,6 +381,7 @@ export function createHarness(opts: HarnessOptions = {}): Harness {
     session: session.control,
     git: makeGitControl(dir),
     commandCwds: [],
+    commands: [],
     subagentCwds: [],
     events,
   };
@@ -413,6 +430,7 @@ export function createHarness(opts: HarnessOptions = {}): Harness {
     events: events.control,
     git: fake.git,
     commandCwds: fake.commandCwds,
+    commands: fake.commands,
     subagentCwds: fake.subagentCwds,
     world: fake.world,
     readState,

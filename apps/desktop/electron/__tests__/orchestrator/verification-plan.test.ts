@@ -177,20 +177,20 @@ describe('P-A — criterion evaluation', () => {
     h.cleanup();
   });
 
-  it('a required judge criterion is skipped (P-B placeholder) so the loop does not complete', async () => {
-    const judgePlanner: PlannerRunner = async () => ({
+  it('a required threshold criterion is skipped (P-C placeholder) so the loop does not complete', async () => {
+    const thresholdPlanner: PlannerRunner = async () => ({
       criteria: [
         {
-          id: 'judged',
-          description: 'is it good?',
-          evidence: [{ kind: 'diff' }],
-          decision: { kind: 'judge', rubric: 'is it good' },
+          id: 'fast',
+          description: 'fast enough',
+          evidence: [{ kind: 'run', command: 'measure' }],
+          decision: { kind: 'threshold', metric: 'ms', op: '<', value: 50 },
           required: true,
         },
       ],
       stopConditions: [],
     });
-    const h = createHarness({ planner: judgePlanner, runWorker: changeWorker });
+    const h = createHarness({ planner: thresholdPlanner, runWorker: changeWorker });
     const id = await h.createLoop({ stopRule: { maxAttempts: 1 } });
     await settle();
 
@@ -199,7 +199,7 @@ describe('P-A — criterion evaluation', () => {
     expect(loop!.status).not.toBe('complete');
     const result = loop!.attempts.at(-1)!.checkResults[0]!;
     expect(result.status).toBe('skipped');
-    expect(result.decisionKind).toBe('judge');
+    expect(result.decisionKind).toBe('threshold');
     h.cleanup();
   });
 

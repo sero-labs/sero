@@ -22,6 +22,7 @@ import { changedFilesExceeded, attemptTimeoutMs, commandTimeoutMs } from './budg
 import { runChecks } from './checks';
 import { runCriteria } from './criteria';
 import { isoNow, type Clock } from './clock';
+import { createCriterionJudge } from './judge';
 import { requiredChecksPassed, requiredCriteriaPassed } from './stop-rules';
 import { writeArtifact } from './artifacts';
 import { createReviewerRunner } from './reviewers';
@@ -218,7 +219,19 @@ async function runVerification(
   };
   const plan = loop.verificationPlan;
   if (plan) {
-    const results = await runCriteria(base, plan.criteria);
+    const results = await runCriteria(
+      {
+        ...base,
+        judge: createCriterionJudge({
+          host: deps.host,
+          workspaceId: deps.workspaceId,
+          cwd,
+          parentSessionId: attempt.parentSessionId,
+          loop,
+        }),
+      },
+      plan.criteria,
+    );
     return { results, requiredPassed: requiredCriteriaPassed(plan.criteria, results) };
   }
   const results = await runChecks(

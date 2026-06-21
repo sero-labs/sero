@@ -10,7 +10,8 @@
 import type { AppRuntimeHost } from '@sero-ai/common';
 
 import type { LoopGoal, ReviewerKind } from '../shared/types';
-import { lastFencedJsonBlock, toolPolicyForRole } from './workers';
+import { parseVerdict } from './judge';
+import { toolPolicyForRole } from './workers';
 
 /** A raw reviewer verdict; checks.ts normalizes it into a CheckResult. */
 export interface ReviewVerdict {
@@ -83,25 +84,4 @@ function buildReviewerTask(loop: LoopGoal, diffSummary: string): string {
 async function safeDiffSummary(host: AppRuntimeHost, cwd: string): Promise<string> {
   const summary = await host.git.getDiffSummary(cwd);
   return summary.trim();
-}
-
-interface ParsedVerdict {
-  verdict: 'pass' | 'fail';
-  summary?: string;
-}
-
-function parseVerdict(response: string): ParsedVerdict | null {
-  const raw = lastFencedJsonBlock(response);
-  if (!raw) return null;
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    return null;
-  }
-  if (typeof parsed !== 'object' || parsed === null) return null;
-  const record = parsed as Record<string, unknown>;
-  const verdict = record.verdict === 'pass' ? 'pass' : record.verdict === 'fail' ? 'fail' : null;
-  if (!verdict) return null;
-  return { verdict, summary: typeof record.summary === 'string' ? record.summary : undefined };
 }

@@ -15,8 +15,10 @@ import type {
   EvidenceStep,
   SuccessCriterion,
 } from '../shared/types';
-import { type ArtifactSink, commandResultToCheck } from './checks';
+import { type ArtifactSink, commandResultToCheck, maybeArtifact } from './checks';
 import { isoNow, type Clock } from './clock';
+import { gatherEvidence } from './evidence';
+import type { CriterionJudge } from './judge';
 
 export interface RunCriteriaDeps extends ArtifactSink {
   workspaceId: string;
@@ -24,6 +26,8 @@ export interface RunCriteriaDeps extends ArtifactSink {
   /** Per-command timeout (RunBudget.maxCommandRuntimeMs); host default when undefined. */
   commandTimeoutMs?: number;
   clock: Clock;
+  /** Judges `judge` criteria (spec 05 §6.3); absent → judge criteria skip. */
+  judge?: CriterionJudge;
 }
 
 /** Evaluate every criterion in order, each normalizing into one CheckResult. */
@@ -46,12 +50,36 @@ async function evaluateCriterion(
     case 'exit-zero':
       return evaluateExitZero(deps, criterion);
     case 'judge':
-      // Generalized reviewer judge lands in P-B.
-      return placeholder(deps, criterion, 'Judge evaluation is not available yet.');
+      return evaluateJudge(deps, criterion);
     case 'threshold':
       // Measurement extraction + compare lands in P-C.
       return placeholder(deps, criterion, 'Measurement evaluation is not available yet.');
   }
+}
+
+/** Judgement: a read-only judge reads the gathered evidence and rules (spec 05 §6.3). */
+async function evaluateJudge(
+  deps: RunCriteriaDeps,
+  criterion: SuccessCriterion,
+): Promise<CheckResult> {
+  const startedAt = isoNow(deps.clock);
+  if (!deps.judge) {
+    return result(criterion, 'skipped', 'Judge evaluation needs a background worker.', startedAt, isoNow(deps.clock));
+  }
+  const evidence = await gatherEvidence(deps, criterion.evidence);
+  const verdict = await deps.judge(criterion, evidence);
+  const endedAt = isoNow(deps.clock);
+  const stdoutPath = await maybeArtifact(deps, criterion.id, 'judge', verdict.response);
+  return {
+    checkId: criterion.id,
+    type: 'criterion',
+    decisionKind: 'judge',
+    status: verdict.passed ? 'passed' : 'failed',
+    summary: verdict.summary,
+    stdoutPath,
+    startedAt,
+    endedAt,
+  };
 }
 
 /** Mechanical: pass iff every `run` evidence command exits 0 (spec 05 §4.2). */
