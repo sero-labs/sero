@@ -23,6 +23,8 @@ export interface FakeHost extends OrchestratorHost {
   modelResponses: ModelRunResult[];
   /** Records every runStructured call for assertions. */
   modelCalls: ModelRunParams[];
+  /** In-memory artifact store keyed by reference. */
+  artifacts: Map<string, string>;
 }
 
 export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
@@ -36,6 +38,7 @@ export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
     clockMs: Date.parse('2026-01-01T00:00:00.000Z'),
     modelResponses: [],
     modelCalls: [],
+    artifacts: new Map<string, string>(),
 
     async readState() {
       return structuredClone(this.state);
@@ -47,6 +50,14 @@ export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
       this.modelCalls.push(params);
       const next = this.modelResponses.shift();
       return next ?? { response: '', error: 'no scripted model response' };
+    },
+    async writeArtifact(relativePath, content) {
+      const ref = `artifact://${relativePath}`;
+      this.artifacts.set(ref, content);
+      return ref;
+    },
+    async readArtifact(ref) {
+      return this.artifacts.get(ref) ?? null;
     },
     now() {
       // Advance one second per call so ordering is deterministic and distinct.

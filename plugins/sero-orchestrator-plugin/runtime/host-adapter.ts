@@ -7,6 +7,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { AppRuntimeContext } from '@sero-ai/common';
 import { DEFAULT_STATE } from '../shared/defaults';
@@ -15,6 +16,7 @@ import type { OrchestratorHost } from './host';
 
 export function createOrchestratorHost(ctx: AppRuntimeContext): OrchestratorHost {
   const stateDir = path.dirname(ctx.stateFilePath);
+  const artifactsRoot = path.join(stateDir, 'artifacts');
 
   return {
     workspaceId: ctx.workspaceId,
@@ -40,6 +42,20 @@ export function createOrchestratorHost(ctx: AppRuntimeContext): OrchestratorHost
         signal: params.signal,
         onUpdate: params.onUpdate,
       }),
+
+    writeArtifact: async (relativePath, content) => {
+      const absolute = path.join(artifactsRoot, relativePath);
+      await mkdir(path.dirname(absolute), { recursive: true });
+      await writeFile(absolute, content, 'utf8');
+      return absolute;
+    },
+    readArtifact: async (ref) => {
+      try {
+        return await readFile(ref, 'utf8');
+      } catch {
+        return null;
+      }
+    },
 
     now: () => new Date().toISOString(),
     newId: (prefix) => (prefix ? `${prefix}_${randomUUID()}` : randomUUID()),

@@ -14,8 +14,10 @@ export function createAppRuntime(ctx: AppRuntimeContext): AppRuntime {
   const coordinator = new Coordinator(host);
 
   return {
-    start: () => {
+    start: async () => {
       registerCoordinator(ctx.workspaceId, ctx.workspacePath, coordinator);
+      // Restart recovery: reconcile orphaned runs/attempts before any scheduling.
+      await coordinator.reconcile();
       host.log(`runtime started for workspace ${ctx.workspaceId}`);
     },
     handleStateChange: () => {

@@ -9,7 +9,7 @@ plans.
 | --- | --- | --- | --- |
 | 1 | Plugin shell, state, and UI | ✅ Done | Loops persist and render; controls call coordinator |
 | 2 | Planning and validation | ✅ Done | Prompt creates a validated draft from `PlanningResponse` |
-| 3 | Coordinator core | ⬜ Not started | Lifecycle, locks, runs, step states, attempts, and artifacts work |
+| 3 | Coordinator core | ✅ Done | Lifecycle, locks, runs, step states, attempts, and artifacts work |
 | 4 | Step execution, workspace isolation, and limits | ⬜ Not started | Ready steps run through Sero execution in the user-selected workspace |
 | 5 | Outcomes, recovery, and completion signals | ⬜ Not started | Failed steps recover through the LLM; planned steps can signal completion |
 | 6 | Active-session execution | ⬜ Not started | Active-session steps send and observe by `turnId` |
@@ -26,9 +26,9 @@ Status legend: ✅ Done · 🟡 In progress · ⬜ Not started · ⛔ Blocked ·
 | FR-02 | Create/list/show/activate/pause/resume/stop/run_next/revise/choose_recovery via tools and UI | 1 | D-10 | ✅ |
 | FR-03 | Prompt-to-LLM planning produces a curated `PlanningResponse` | 2 | D-01 | ✅ |
 | FR-04 | `PlanningResponse` and `LoopPlan` structural validation and repair path | 2 | D-09 | ✅ |
-| FR-05 | Step dependencies support sequential and parallel plans | 3 | D-01/D-10 | ⬜ |
-| FR-06 | Single coordinator and per-loop run lock | 3 | D-10 | ⬜ |
-| FR-07 | Generic run, step state, attempt, observation, and artifact history | 3 | D-14 | ⬜ |
+| FR-05 | Step dependencies support sequential and parallel plans | 3 | D-01/D-10 | ✅ |
+| FR-06 | Single coordinator and per-loop run lock | 3 | D-10 | ✅ |
+| FR-07 | Generic run, step state, attempt, observation, and artifact history | 3 | D-14 | ✅ |
 | FR-08 | Orchestrator enforces max attempts, concurrency, wall-clock, and token/cost limits | 4 | D-05 | ⬜ |
 | FR-09 | Background-agent steps run through standard Sero background execution | 4 | D-02 | ⬜ |
 | FR-10 | Step outcome is LLM-reported or LLM-evaluated, not heuristic | 5 | D-03/D-04 | ⬜ |
@@ -44,7 +44,7 @@ Status legend: ✅ Done · 🟡 In progress · ⬜ Not started · ⛔ Blocked ·
 | FR-20 | User-selected loop workspace isolation supports managed worktree by default and workspace root by option | 4 | D-06 | ⬜ |
 | FR-21 | Workspace-root loops with dirty roots prompt the user to stash, create a worktree, or defer, with timeout fallback to worktree | 4 | D-06 | ⬜ |
 | FR-22 | Model steps run through the model path and validate prompted structured output | 4 | D-02 | ⬜ |
-| FR-23 | Restart recovery marks orphaned runs and attempts before new scheduling | 3 | D-08 | ⬜ |
+| FR-23 | Restart recovery marks orphaned runs and attempts before new scheduling | 3 | D-08 | ✅ |
 
 ---
 
@@ -118,31 +118,31 @@ observations, and artifacts.
 
 **Tasks**
 
-- [ ] Implement lifecycle transitions from [03](03-execution-and-scheduling.md).
-- [ ] Implement per-loop coordinator lock.
-- [ ] Initialize `StepRuntimeState` for each plan step.
-- [ ] Compute ready steps from dependencies and step outcomes.
-- [ ] Implement `LoopRun`, `StepAttempt`, `Observation`, `RecoveryDecision`, and
+- [x] Implement lifecycle transitions from [03](03-execution-and-scheduling.md).
+- [x] Implement per-loop coordinator lock.
+- [x] Initialize `StepRuntimeState` for each plan step.
+- [x] Compute ready steps from dependencies and step outcomes.
+- [x] Implement `LoopRun`, `StepAttempt`, `Observation`, `RecoveryDecision`, and
   `CompletionSignal` recording.
-- [ ] Implement artifact writing and retention.
-- [ ] Create and persist a loop-scoped synthetic `parentSessionId`.
-- [ ] Implement restart reconciliation for `runtime.activeRunId`, orphaned runs,
+- [x] Implement artifact writing and retention.
+- [x] Create and persist a loop-scoped synthetic `parentSessionId`.
+- [x] Implement restart reconciliation for `runtime.activeRunId`, orphaned runs,
   and orphaned running attempts.
-- [ ] Set `runtime.dueAgain` when triggers arrive during an active coordinator
+- [x] Set `runtime.dueAgain` when triggers arrive during an active coordinator
   run.
 
 **Acceptance**
 
-- [ ] Two concurrent `run_next` requests on one loop produce at most one
+- [x] Two concurrent `run_next` requests on one loop produce at most one
   coordinator run.
-- [ ] Dependent steps do not become ready before dependencies succeed.
-- [ ] Independent steps can both become ready.
-- [ ] A missing dependency or invalid runtime state blocks the loop with a clear
+- [x] Dependent steps do not become ready before dependencies succeed.
+- [x] Independent steps can both become ready.
+- [x] A missing dependency or invalid runtime state blocks the loop with a clear
   reason.
-- [ ] Large output can be stored as an artifact and referenced from state.
-- [ ] A persisted running attempt is marked `orphaned` on restart and the loop
+- [x] Large output can be stored as an artifact and referenced from state.
+- [x] A persisted running attempt is marked `orphaned` on restart and the loop
   can continue through normal recovery.
-- [ ] FR-05, FR-06, FR-07, FR-23, and partial FR-18 satisfied.
+- [x] FR-05, FR-06, FR-07, FR-23, and partial FR-18 satisfied.
 
 ---
 

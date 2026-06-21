@@ -3,7 +3,11 @@
  * can be fed straight into the fake host's scripted model responses.
  */
 
-import type { PlanningResponse } from '../../shared/types';
+import type { Loop, LoopPlan, PlanningResponse } from '../../shared/types';
+import { loopParentSessionId } from '../../shared/ids';
+import { DEFAULT_LIMITS, DEFAULT_LOG_POLICY, DEFAULT_WORKSPACE_SETTINGS } from '../../shared/defaults';
+import { initStepStates } from '../plan-mapping';
+import type { FakeHost } from './fake-host';
 
 export function oneStepPlan(): PlanningResponse {
   return {
@@ -65,4 +69,35 @@ export function parallelPlan(): PlanningResponse {
 
 export function planJson(response: PlanningResponse): string {
   return JSON.stringify(response);
+}
+
+/** Seeds an active loop with the given plan directly into the fake host state. */
+export function seedActiveLoop(host: FakeHost, plan: LoopPlan, id = 'loop-1'): Loop {
+  const now = host.now();
+  const loop: Loop = {
+    id,
+    workspaceId: host.workspaceId,
+    title: 'Seeded',
+    prompt: 'p',
+    summary: 's',
+    status: 'active',
+    workspace: { ...DEFAULT_WORKSPACE_SETTINGS },
+    plan,
+    runtime: {
+      parentSessionId: loopParentSessionId(host.workspaceId, id),
+      variables: {},
+      stepStates: initStepStates(plan, now),
+      workspace: {},
+    },
+    triggers: [],
+    limits: { ...DEFAULT_LIMITS },
+    logPolicy: { ...DEFAULT_LOG_POLICY },
+    warnings: [],
+    runs: [],
+    revisions: [],
+    createdAt: now,
+    updatedAt: now,
+  };
+  host.state = { ...host.state, loops: [...host.state.loops, loop] };
+  return loop;
 }

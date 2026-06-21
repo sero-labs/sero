@@ -57,6 +57,12 @@ export interface OrchestratorHost {
   /** Runs a model or background agent and returns plain text plus metadata. */
   runStructured(params: ModelRunParams): Promise<ModelRunResult>;
 
+  // ── Artifacts (large outputs under the state dir) ─────────
+  /** Persists artifact content and returns a stable reference (path). */
+  writeArtifact(relativePath: string, content: string): Promise<string>;
+  /** Reads artifact content by the reference returned from writeArtifact. */
+  readArtifact(ref: string): Promise<string | null>;
+
   // ── Deterministic utilities ───────────────────────────────
   /** ISO timestamp. Injectable so tests are deterministic. */
   now(): string;

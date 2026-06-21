@@ -22,9 +22,21 @@ import { buildDraftLoop } from './loop-factory';
 import { activate, pause, resume, stop, type TransitionResult } from './lifecycle';
 import { planLoop } from './planner';
 import { applyPlanningResponse, planIsActivatable } from './plan-mapping';
+import { RunEngine } from './run-engine';
+import type { EngineDeps } from './engine-types';
+import { reconcileAll } from './reconcile';
 
 export class Coordinator {
-  constructor(protected readonly host: OrchestratorHost) {}
+  protected readonly engine?: RunEngine;
+
+  constructor(protected readonly host: OrchestratorHost, deps?: EngineDeps) {
+    if (deps) this.engine = new RunEngine(host, deps);
+  }
+
+  /** Restart recovery: reconcile orphaned runs/attempts before scheduling. */
+  async reconcile(): Promise<void> {
+    await reconcileAll(this.host);
+  }
 
   async requestAction(action: OrchestratorAction): Promise<OrchestratorActionResult> {
     switch (action.kind) {
@@ -187,7 +199,10 @@ export class Coordinator {
     if (loop.status !== 'active') {
       return { ok: false, error: `Loop ${loopId} is "${loop.status}", not active.` };
     }
-    return { ok: true, loop };
+    if (!this.engine) return { ok: true, loop };
+    const result = await this.engine.run(loopId);
+    const updated = await this.findLoop(loopId);
+    return { ok: true, loop: updated, run: result.run };
   }
 
   async revise(loopId: string, _prompt?: string): Promise<OrchestratorActionResult> {
