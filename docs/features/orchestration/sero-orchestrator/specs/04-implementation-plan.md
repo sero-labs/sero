@@ -59,6 +59,7 @@ phase. (D-NN refer to decisions in [00-architecture.md](00-architecture.md).)
 | FR-25 | Turn-completion emitter (onTurnComplete correlated by turnId) | 1.5 | D-05 | ✅ |
 | FR-26 | Dirty-root start gate: auto-save / isolate / defer, auto-save on timeout | 2/6 | D-07 | ✅ |
 | FR-27 | Per-loop run budgets: wall-clock, tokens/cost, changed-files, command-runtime | 2/3 | D-17 | ✅ |
+| FR-28 | LLM-authored verification: derived criteria + per-criterion strategy + stop conditions | [05](05-llm-authored-verification.md) | D-18/D-19/D-20 | ✅ |
 
 All five budgets are enforced. The subagent host now reports per-run USD on
 `AppRuntimeSubagentResult.usage.cost`, which the derived budget sums across
@@ -633,10 +634,11 @@ cross-plugin coordination via events.
   control-action rejection, which stays the load-bearing guard.)*
 - [x] Add the "isolate" choice to the dirty-root start gate — reroute the attempt
   to a fresh worktree (completes FR-26, D-07).
-- [ ] ~~Add eval/promptfoo command-backed check type.~~ **Redesigned** — a
+- [x] ~~Add eval/promptfoo command-backed check type.~~ **Redesigned + built** — a
   user/test-supplied check with a mechanical score parser was the wrong shape
-  (no author surface; wrong layer). Replaced by LLM-authored verification: see
-  [05-llm-authored-verification.md](05-llm-authored-verification.md).
+  (no author surface; wrong layer). Replaced by LLM-authored verification
+  ([05-llm-authored-verification.md](05-llm-authored-verification.md)), P-A–P-D
+  built; see [Follow-up: LLM-authored verification](#follow-up--llm-authored-verification-spec-05).
 
 **Acceptance**
 - [x] A loop runs entirely inside `.sero/worktrees/...` with checks, diffs, and
@@ -759,6 +761,36 @@ re-plumb; `check` left deferred.
 → due, `.sero/`-only change ignored, subscription drop, the self-retrigger guard
 for both sources, and the grace-window boundary). The harness gained vcs/workspace
 event fakes + emit controls (`harness-events.ts`).
+
+---
+
+## Follow-up — LLM-authored verification (spec 05)
+
+Replaces the rolled-back mechanical `eval` check. A loop's definition of "done" is
+now **derived by the LLM from the plain-English goal alone** (D-18) — never typed
+by a user, a test, or a heuristic. See
+[05-llm-authored-verification.md](05-llm-authored-verification.md) for the full
+design + as-built notes. Built P-A → P-D (one commit each); P-E (adaptive re-plan)
+deferred. No desktop-core changes — all plugin-side behind the existing `host.*`.
+
+- **P-A** — `VerificationPlan` model (`shared/verification.ts`); the read-only
+  planner worker (`runtime/planner.ts`, D-19); create → `draft` → derive →
+  `active` in the background (push-model, single-writer); criteria evaluated
+  directly into `CheckResult` (`runtime/criteria.ts`, D-12) — `exit-zero`
+  mechanical. Planner seam injectable so legacy suites stay on the active path.
+- **P-B** — criterion-judge (`runtime/judge.ts`, generalized from `reviewers.ts`)
+  + evidence gathering (`runtime/evidence.ts`: run/read/diff/gitLog).
+- **P-C** — measurement/threshold (`runtime/measurement.ts`): extract → compare →
+  aggregate, with judge-fallback on ambiguous output (D-20).
+- **P-D** — stop conditions: `verification-unavailable` (block, don't run blind)
+  and `approval-required` (block + notify; **Resume is the approval**, latched via
+  `LoopGoal.approvalGranted` + `engine.approve`).
+
+**Validation.** `pnpm typecheck` 18/18; orchestrator unit suites **139 tests** (33
+new across `verification-plan` / `verification-judge` / `verification-measurement`
+/ `verification-stop-conditions`). The planner and judge are deterministic seams
+in `harness.ts` (no live model). The UI detail panel's "Verification" section
+shows the derived criteria; the CLI `show` reports criteria count.
 
 ---
 

@@ -1,7 +1,10 @@
 # 05 — LLM-authored verification (derived criteria & evaluation)
 
-**Status:** Design + plan, not started. Supersedes the deferred "eval/promptfoo
-check type" line in [04 Phase 6](04-implementation-plan.md#phase-6--isolation-and-pr-workflow).
+**Status:** P-A–P-D **built & committed** on `feat/sero-orchestrator`; P-E
+(adaptive re-plan) deferred. Supersedes the deferred "eval/promptfoo check type"
+line in [04 Phase 6](04-implementation-plan.md#phase-6--isolation-and-pr-workflow).
+See [§10 Phasing](#10-phasing) for the per-phase build status and
+[§14 As built](#14-as-built) for the implementation notes.
 
 This document is self-contained so a fresh session can execute it. Read it
 top-to-bottom, then re-read [00-architecture.md](00-architecture.md),
@@ -239,19 +242,29 @@ Each phase: `pnpm typecheck` green, orchestrator suite green, every source file
 < 500 LOC, no desktop-core change unless a host seam is genuinely required (call
 it out like the `maxCostUsd` follow-up).
 
-- **P-A — Plan data model + planner + create flow.** Add `VerificationPlan` types;
-  the planner worker; create → `draft` → derive → `active`; store the plan
-  (single-writer). Tests: deterministic planner output → plan persisted; goal
-  change re-derives.
-- **P-B — Judgement mechanism.** Generalize `reviewers.ts` into a criterion-judge
-  with arbitrary `evidence` + criterion; route through `checks.ts`. Tests: judge
-  pass/fail → `CheckResult`; evidence gathered from diff/gitLog/read.
-- **P-C — Measurement/threshold mechanism.** Run measurement, extract/aggregate,
-  compare; judge-fallback. Tests: per-item aggregation, threshold both directions.
-- **P-D — Stop-condition extensions.** `verification-unavailable`,
-  `approval-required` (+ resume path). Tests: each transition.
-- **P-E — Adaptive re-plan (optional).** Re-derive on stall/unverifiable. Gate
-  carefully; log when it fires (no silent re-planning).
+- **P-A — Plan data model + planner + create flow.** ✅ Done. `VerificationPlan`
+  types (`shared/verification.ts`); the planner worker (`runtime/planner.ts`);
+  create → `draft` → derive → `active` (single-writer); store the plan. Criteria
+  evaluated directly by `runtime/criteria.ts` (exit-zero mechanical; judge/threshold
+  placeholders until P-B/P-C). Tests: planner output → plan persisted; goal change
+  re-derives; failure stays draft.
+- **P-B — Judgement mechanism.** ✅ Done. Generalized `reviewers.ts` into a
+  criterion-judge (`runtime/judge.ts`) with arbitrary `evidence`
+  (`runtime/evidence.ts`: run/read/diff/gitLog) + criterion; routed through
+  `criteria.ts` → `CheckResult`. Tests: judge pass/fail, fail-safe, changelog +
+  dead-code shapes.
+- **P-C — Measurement/threshold mechanism.** ✅ Done. `runtime/measurement.ts`:
+  extract number(s), compare, aggregate (`all` | `fraction-at-least`);
+  judge-fallback on ambiguous output. Tests: extraction + compare units,
+  page-load<50ms both directions, fallback.
+- **P-D — Stop-condition extensions.** ✅ Done. `verification-unavailable` (planner
+  declares → block, refuse run) and `approval-required` (block on criteria-met →
+  Resume is the approval, latches completion via `engine.approve`). Tests: each
+  transition.
+- **P-E — Adaptive re-plan (optional).** ⬜ Deferred. Re-derive on stall/unverifiable,
+  gated so it fires ONLY on `verification-unavailable` (never on plain check
+  failures — that could weaken the criteria to declare a softened goal "done").
+  Create + goal-change re-derivation already ship in P-A.
 
 ## 11. Testing strategy
 
@@ -285,3 +298,49 @@ model calls in unit tests. Mirror `harness.ts` patterns (scriptable `runWorker` 
 - Not a replacement for the implementer/adapter/scheduling work — those are done.
 - The `check` event trigger source stays not-yet-wired (no event source; the
   orchestrator is verification's only caller — unchanged by this work).
+
+## 14. As built
+
+Built P-A → P-D in sequence (one commit per phase); P-E deferred. The open
+questions in §12 were resolved with the product owner before coding:
+
+- **Plan → eval (§12 Q1):** `checks.ts` consumes criteria directly. The plan is
+  the source of truth; `runtime/criteria.ts` evaluates each criterion into a
+  `CheckResult` (D-12) via the shared `commandResultToCheck` normalizer extracted
+  in `checks.ts`. `LoopGoal.checks` stays in the type but is retired from the
+  evaluation path for a plan-bearing loop — nobody authors it.
+- **Measurement extraction (§12 Q2):** mechanical compare on planner-shaped
+  output, with judge-fallback when no clean number can be extracted. The threshold
+  and the command are both LLM-derived.
+- **Re-plan (§12 Q3):** create + goal-change re-derivation ship in P-A; the
+  adaptive mid-loop re-plan (P-E) is deferred and, when built, fires only on
+  `verification-unavailable` — never on plain check failures.
+- **Planner model/budget (§12 Q5):** host default model (no tier logic); the
+  planner's token/cost usage is recorded on `derivedFrom.usage` and folded into
+  the cumulative run budget (D-17). The create-time derivation is never
+  budget-blocked (a loop must have a definition of done).
+- **Approval UX (§12 Q6):** `approval-required` reuses the existing **Resume**
+  action as the approval (latched via `LoopGoal.approvalGranted` so it completes
+  rather than re-blocking). No new control action, tool param, or dialog.
+- **Judge honesty (§12 Q4):** single judge (the generalized `reviewers.ts`); the
+  adversarial multi-vote pass stays a later option.
+
+**Create flow:** `create` returns the `draft` loop immediately and the planner
+derives the plan in the background (push-model), flipping `draft → active` when it
+lands. On derivation failure the loop stays `draft` with a reason; a draft loop is
+not runnable. The planner seam is injectable (`CoordinatorContext.planner`:
+`undefined` = real planner, `null` = disabled/legacy-active, a fn = deterministic
+test fake) so the legacy suites are untouched.
+
+**Modules:** `shared/verification.ts` (plan types, re-exported from `types.ts`),
+`runtime/planner.ts`, `runtime/criteria.ts`, `runtime/evidence.ts`,
+`runtime/judge.ts`, `runtime/measurement.ts`. New `BlockedReason`s
+`verification-unavailable` / `approval-required`; `LoopGoal.verificationPlan` /
+`approvalGranted`; `CheckType` gains `criterion`; `CheckResult.decisionKind`.
+
+**Tests (deterministic seams, no live model — spec §11):** the planner and judge
+are injected/scripted in `harness.ts`. New suites `verification-plan.test.ts`,
+`verification-judge.test.ts`, `verification-measurement.test.ts`,
+`verification-stop-conditions.test.ts` — **33** new tests, orchestrator suite
+**139** green; typecheck 18/18. No desktop-core changes — all plugin-side behind
+the existing `host.*` surface.

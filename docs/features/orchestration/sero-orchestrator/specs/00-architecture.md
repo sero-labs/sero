@@ -277,12 +277,18 @@ subagent (`AbortSignal` → `host.subagents` abort) and marking the attempt
 but does not abort the user's session.
 
 ### D-12 — Checks and evals
-Check types: `verification`, `command`, `review` (extensible to `eval` later).
-All normalize to `CheckResult` ([01](01-data-model.md#check-result)) so stop
-rules and learning never depend on the backend. Timeouts are per check; output
-beyond `LogPolicy.maxInlineOutputBytes` is truncated inline and written in full
-to an artifact file referenced by path. A failed required check becomes
-next-attempt context via `summarizeFailure` plus the truncated tail.
+Check types: `verification`, `command`, `review`. All normalize to `CheckResult`
+([01](01-data-model.md#check-result)) so stop rules and learning never depend on
+the backend. Timeouts are per check; output beyond `LogPolicy.maxInlineOutputBytes`
+is truncated inline and written in full to an artifact file referenced by path. A
+failed required check becomes next-attempt context via `summarizeFailure` plus the
+truncated tail. **Verification is now LLM-authored (D-18, spec 05):** a loop with a
+`verificationPlan` evaluates its derived **criteria** directly (a fourth
+`CheckResult.type`, `criterion`) — `checks.ts` stays the single normalizer
+(`commandResultToCheck`), reused by `criteria.ts`. The legacy `checks` array is
+retired from the evaluation path for a plan-bearing loop. The earlier mechanical
+`eval` check type was built then rolled back (no author surface; heuristic layer)
+and replaced by D-18.
 
 ### D-13 — Stop rules
 A loop stops on: all required checks pass (success); `maxAttempts` reached; a
@@ -343,7 +349,37 @@ and per-attempt limits, enforced by the coordinator:
 Consumption is **derived** from attempt records, not a separate counter
 (Principle 3). Token/cost limits bound background-worker spend; active-session
 turns are attributed best-effort from the observed turn result. Budgets are
-independent of `maxAttempts` — whichever limit trips first stops the loop.
+independent of `maxAttempts` — whichever limit trips first stops the loop. The
+verification planner's spend (D-19) folds into the cumulative token/cost budget.
+
+### D-18 — LLM-authored verification (spec 05)
+A loop's definition of "done" is **derived by the LLM from the plain-English goal
+alone** — never typed by a user, supplied by a test, or hard-coded as a heuristic.
+A `verificationPlan` ([01](01-data-model.md#verification-plan)) holds **success
+criteria**, each with an LLM-chosen **evaluation strategy** (evidence to gather +
+a `decision`), plus LLM-derived stop conditions. This replaces the rolled-back
+mechanical `eval` check. Litmus test: if a human or a test has to type a
+check/command/threshold/path for the loop to know it succeeded, it is wrong.
+
+### D-19 — The verification planner
+The planner is a read-only `WorkerRole: 'planner'` subagent. It runs **at create**
+(loop starts `draft` → derive → `active`), **on goal change** (provenance via
+`derivedFrom.goalHash`), and **adaptively** in a later phase (deferred, P-E). It
+returns *data* only; the coordinator writes the plan inside its own `host.appState`
+mutation (single-writer). It uses the host default model; its usage is recorded on
+`derivedFrom.usage` and folded into the run budget (D-17). On derivation failure
+the loop stays `draft` with a reason — it never runs with no definition of done.
+
+### D-20 — Mechanical-when-conclusive-else-judge
+The planner classifies each criterion by what settles it: `exit-zero` /
+`threshold` are **mechanical** (a command's exit status, or a number compared to an
+LLM-authored threshold); `judge` is an **LLM** read-only verdict over gathered
+evidence for inherently judgemental criteria. Mechanical when the evidence is
+conclusive, judge when it is a judgement — and the **planner** decides which. A
+measurement whose number cannot be cleanly extracted falls back to a judge. Two
+LLM-derived stop conditions map onto the engine: `verification-unavailable` (no
+sound way to verify → block, do not run blind) and `approval-required` (criteria
+met but needs sign-off → block + notify; Resume is the approval, latched).
 
 ## Key risks (and the decision that contains each)
 

@@ -40,8 +40,10 @@ interface LoopGoal {
   status: "draft" | "active" | "paused" | "blocked" | "complete" | "stopped";
   statusReason?: string;         // plain-English blocker/stop reason for the UI
   blockedReason?: BlockedReason; // machine-readable block reason; governs recovery
+  approvalGranted?: boolean;     // latches once the user approves an approval-required block (spec 05)
   triggers: LoopTrigger[];
-  checks: LoopCheck[];
+  verificationPlan?: VerificationPlan; // LLM-authored definition of "done" (spec 05, D-18)
+  checks: LoopCheck[];           // legacy; retired from the eval path when a plan exists
   stopRule: StopRule;
   budget?: RunBudget;            // cost/blast-radius limits beyond maxAttempts (D-17)
   logPolicy: LogPolicy;
@@ -55,6 +57,8 @@ type BlockedReason =
   | "no-progress"            // overridable once via run_next --override-no-progress
   | "budget-exhausted"      // clears only when the limit is raised + resumed
   | "changed-files-exceeded"// clears only when the limit is raised + resumed
+  | "verification-unavailable" // planner found no sound way to verify (spec 05); refine the goal
+  | "approval-required"     // criteria met, awaiting human sign-off (spec 05); Resume = approve
   | "unsafe";
 ```
 
@@ -120,7 +124,54 @@ type LoopCheck =
 ```
 
 `verification` checks are seeded from `host.verification.detectVerificationCommands`
-when the user provides none. `eval` is a future command-backed check type.
+when the user provides none. The legacy `checks` array is retired from the
+evaluation path once a loop has a `verificationPlan` (spec 05); criteria are
+evaluated directly and nobody authors `checks`.
+
+## Verification plan (spec 05, D-18)
+
+The LLM-authored definition of "done", in `shared/verification.ts` (re-exported
+from `types.ts`). Derived by the planner (D-19) from the goal alone — never typed
+by a user, a test, or a heuristic.
+
+```ts
+interface VerificationPlan {
+  criteria: SuccessCriterion[];
+  stopConditions: StopCondition[];   // approval-required / verification-unavailable
+  derivedFrom: { goalHash: string; at: string; model?: string; usage?: TokenUsage };
+}
+
+interface SuccessCriterion {
+  id: string;
+  description: string;               // plain-English, LLM-authored from the goal
+  evidence: EvidenceStep[];          // read-only / measurement gathering before the decision
+  decision: Decision;                // how evidence becomes pass/fail
+  required: boolean;                 // must-pass (gates completion) vs informational
+}
+
+type EvidenceStep =
+  | { kind: "run"; command: string } // capture stdout/stderr/exit (build/tests/measurement)
+  | { kind: "read"; path: string }
+  | { kind: "diff" }                 // the attempt's diff at the cwd
+  | { kind: "gitLog"; since?: string };
+
+type Decision =
+  | { kind: "exit-zero" }            // mechanical: pass iff a run step exited 0
+  | { kind: "threshold"; metric: string; op: "<" | "<=" | ">" | ">=" | "==";
+      value: number; aggregate?: { kind: "all" } | { kind: "fraction-at-least"; fraction: number } }
+  | { kind: "judge"; rubric: string }; // LLM: a read-only judge grades the evidence
+
+interface StopCondition {
+  kind: "approval-required" | "verification-unavailable";
+  reason?: string;
+}
+```
+
+Each criterion evaluates (`runtime/criteria.ts`) into one `CheckResult` with
+`type: "criterion"` and `decisionKind` set, so stop rules and the UI never branch
+on the mechanism (D-12). `exit-zero` and `threshold` are mechanical; `judge`
+(`runtime/judge.ts`, generalized from `reviewers.ts`) reads the gathered evidence
+(`runtime/evidence.ts`). An ambiguous measurement falls back to a judge (D-20).
 
 ## Loop attempt
 
@@ -305,7 +356,8 @@ Normalized across all backends (D-12).
 ```ts
 interface CheckResult {
   checkId: string;
-  type: LoopCheck["type"];
+  type: LoopCheck["type"] | "criterion";  // "criterion" = a verification-plan result (spec 05)
+  decisionKind?: "exit-zero" | "threshold" | "judge"; // how a criterion was decided
   status: "passed" | "failed" | "skipped" | "cancelled";
   command?: string;
   summary: string;               // from host.verification.summarizeFailure + tail
