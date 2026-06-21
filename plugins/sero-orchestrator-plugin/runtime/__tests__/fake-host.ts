@@ -27,6 +27,8 @@ export interface FakeHost extends OrchestratorHost {
   logs: string[];
   idCounter: number;
   clockMs: number;
+  /** When set, now() returns this fixed ISO string instead of advancing. */
+  frozenNow?: string;
   /** Scripted model responses consumed FIFO by runStructured. */
   modelResponses: ModelRunResult[];
   /** Records every runStructured call for assertions. */
@@ -135,6 +137,7 @@ export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
       },
     },
     now() {
+      if (this.frozenNow) return this.frozenNow;
       // Advance one second per call so ordering is deterministic and distinct.
       this.clockMs += 1000;
       return new Date(this.clockMs).toISOString();

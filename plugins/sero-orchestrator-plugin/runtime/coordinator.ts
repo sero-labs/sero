@@ -28,6 +28,7 @@ import { reconcileAll } from './reconcile';
 import { applyRecovery } from './recovery-apply';
 import { proposeRevisedPlan } from './llm-decisions';
 import { validateLoopPlan } from './schema';
+import { evaluateCronTriggers, fireEventTriggers } from './scheduler';
 import type { PlanRevision, RecoveryDecision } from '../shared/types';
 
 export class Coordinator {
@@ -40,6 +41,34 @@ export class Coordinator {
   /** Restart recovery: reconcile orphaned runs/attempts before scheduling. */
   async reconcile(): Promise<void> {
     await reconcileAll(this.host);
+  }
+
+  /**
+   * Evaluates cron/hybrid triggers for every loop and runs the ones now due.
+   * Missed fires while the workspace was closed collapse into one catch-up run.
+   * Called on workspace open and on a coarse interval (FR-15, FR-16).
+   */
+  async tick(): Promise<void> {
+    const nowMs = Date.parse(this.host.now());
+    const state = await this.readState();
+    const dueLoopIds: string[] = [];
+    for (const loop of state.loops) {
+      if (loop.status !== 'active') continue;
+      const { loop: updated, due } = evaluateCronTriggers(loop, nowMs);
+      if (updated !== loop) await this.replaceLoop(updated);
+      if (due) dueLoopIds.push(loop.id);
+    }
+    for (const loopId of dueLoopIds) await this.runNext(loopId);
+  }
+
+  /** Fires event/hybrid triggers for a loop and runs it if newly due. */
+  async fireEvent(loopId: string, eventSource: string): Promise<OrchestratorActionResult> {
+    const loop = await this.findLoop(loopId);
+    if (!loop) return { ok: false, error: `Loop not found: ${loopId}` };
+    const { loop: updated, due } = fireEventTriggers(loop, eventSource, Date.parse(this.host.now()));
+    await this.replaceLoop(updated);
+    if (due && updated.status === 'active') return this.runNext(loopId, updated);
+    return { ok: true, loop: updated };
   }
 
   async requestAction(action: OrchestratorAction): Promise<OrchestratorActionResult> {

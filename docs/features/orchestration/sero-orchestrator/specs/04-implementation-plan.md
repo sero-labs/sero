@@ -13,7 +13,7 @@ plans.
 | 4 | Step execution, workspace isolation, and limits | ✅ Done | Ready steps run through Sero execution in the user-selected workspace |
 | 5 | Outcomes, recovery, and completion signals | ✅ Done | Failed steps recover through the LLM; planned steps can signal completion |
 | 6 | Active-session execution | ✅ Done | Active-session steps send and observe by `turnId` |
-| 7 | Scheduling and events | ⬜ Not started | Manual/cron/event/hybrid triggers mark loops due |
+| 7 | Scheduling and events | ✅ Done | Manual/cron/event/hybrid triggers mark loops due |
 | 8 | Polish and docs | ⬜ Not started | UI and docs explain generated step plans clearly |
 
 Status legend: ✅ Done · 🟡 In progress · ⬜ Not started · ⛔ Blocked · 🟦 Deferred.
@@ -36,8 +36,8 @@ Status legend: ✅ Done · 🟡 In progress · ⬜ Not started · ⛔ Blocked ·
 | FR-12 | Completion is signaled by planned step outcomes, not a coordinator-triggered completion check | 5 | D-03 | ✅ |
 | FR-13 | New `host.session` seam for active-session steps | 6 | D-11 | ✅ |
 | FR-14 | Active-session steps send and observe by `turnId` | 6 | D-11 | ✅ |
-| FR-15 | Manual/cron/event/hybrid triggers mark loops due | 7 | D-12 | ⬜ |
-| FR-16 | Closed-workspace cron catch-up collapses to one run | 7 | D-08/D-12 | ⬜ |
+| FR-15 | Manual/cron/event/hybrid triggers mark loops due | 7 | D-12 | ✅ |
+| FR-16 | Closed-workspace cron catch-up collapses to one run | 7 | D-08/D-12 | ✅ |
 | FR-17 | Plan revisions are structurally validated and recorded | 5 | D-13 | ✅ |
 | FR-18 | UI displays generated plan, dependency graph, step states, attempts, recovery, completion, and limits | 1/3/5/8 | D-01 | 🟡 |
 | FR-19 | No Orchestrator permission, approval, command, git, PR, or tool-policy layer | 4 | D-02 | ✅ |
@@ -291,22 +291,23 @@ from planned execution.
 
 **Tasks**
 
-- [ ] Implement scheduler state for cron triggers.
-- [ ] Recompute missed cron fires when workspace runtime starts.
-- [ ] Collapse missed cron fires into one catch-up run.
-- [ ] Add event trigger subscriptions for workspace, session, and future event
-  sources where available.
-- [ ] Persist event debounce state.
-- [ ] Disable a trigger after its `fireCount` reaches `maxFires`.
+- [x] Implement scheduler state for cron triggers.
+- [x] Recompute missed cron fires when workspace runtime starts.
+- [x] Collapse missed cron fires into one catch-up run.
+- [x] Add event trigger subscriptions for workspace, session, and future event
+  sources where available. *(coordinator.fireEvent mechanism; concrete event
+  sources subscribe where the host exposes them.)*
+- [x] Persist event debounce state.
+- [x] Disable a trigger after its `fireCount` reaches `maxFires`.
 
 **Acceptance**
 
-- [ ] A cron loop due while closed runs once on next open.
-- [ ] A trigger during an active coordinator run sets `runtime.dueAgain`.
-- [ ] Event triggers mark a loop due but do not bypass lifecycle, locks, or
+- [x] A cron loop due while closed runs once on next open.
+- [x] A trigger during an active coordinator run sets `runtime.dueAgain`.
+- [x] Event triggers mark a loop due but do not bypass lifecycle, locks, or
   limits.
-- [ ] A trigger with `maxFires` stops firing after the final allowed fire.
-- [ ] FR-15 and FR-16 satisfied.
+- [x] A trigger with `maxFires` stops firing after the final allowed fire.
+- [x] FR-15 and FR-16 satisfied.
 
 ---
 

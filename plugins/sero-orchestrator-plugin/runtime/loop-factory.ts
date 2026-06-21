@@ -21,6 +21,7 @@ import type {
   LoopWorkspaceSettings,
 } from '../shared/types';
 import type { OrchestratorHost } from './host';
+import { nextFireAfter } from './scheduler';
 
 export function emptyPlan(): LoopPlan {
   return { schemaVersion: 1, revision: 0, objective: '', steps: [] };
@@ -45,18 +46,24 @@ export function materializeTriggers(
   loopId: string,
   suggestions: LoopTriggerSuggestion[],
 ): LoopTrigger[] {
-  return suggestions.map((s) => ({
-    id: host.newId('trigger'),
-    loopId,
-    workspaceId: host.workspaceId,
-    type: s.type,
-    schedule: s.schedule,
-    eventSource: s.eventSource,
-    eventFilter: s.eventFilter,
-    debounceMs: s.debounceMs,
-    maxFires: s.maxFires,
-    fireCount: 0,
-  }));
+  const nowMs = Date.parse(host.now());
+  return suggestions.map((s) => {
+    const cronLike = (s.type === 'cron' || s.type === 'hybrid') && s.schedule;
+    const next = cronLike ? nextFireAfter(s.schedule!, nowMs) : null;
+    return {
+      id: host.newId('trigger'),
+      loopId,
+      workspaceId: host.workspaceId,
+      type: s.type,
+      schedule: s.schedule,
+      eventSource: s.eventSource,
+      eventFilter: s.eventFilter,
+      debounceMs: s.debounceMs,
+      maxFires: s.maxFires,
+      fireCount: 0,
+      nextFireAt: next !== null ? new Date(next).toISOString() : undefined,
+    };
+  });
 }
 
 export interface BuildDraftArgs {
