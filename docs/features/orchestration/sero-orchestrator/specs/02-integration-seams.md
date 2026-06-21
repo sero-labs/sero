@@ -1,26 +1,26 @@
-# 02 — Integration seams
+# 02 — Integration Seams
 
-What Orchestrator reuses, the exact contracts, what must be newly built, and
-where the analysis was wrong. Every signature below was checked against the
-current codebase. File paths are clickable.
+This file lists the host APIs Orchestrator reuses and the runtime boundaries
+implementors must preserve.
 
-## Plugin shell
+Orchestrator stores and schedules loops. Work inside a step runs through standard
+Sero background-agent, active-session, or model execution.
 
-A workspace-scoped built-in plugin, registered automatically because it lives in
-`plugins/sero-orchestrator-plugin/` and declares `sero.app`.
+## Plugin Shell
+
+Orchestrator is a workspace-scoped built-in plugin.
 
 ```jsonc
-// package.json
 {
   "sero": {
     "app": {
       "id": "orchestrator",
       "name": "Sero Orchestrator",
-      "scope": "workspace",                          // goals/checks/attempts are workspace data
+      "scope": "workspace",
       "stateFile": ".sero/apps/orchestrator/state.json",
       "ui": "./dist/ui/remoteEntry.js",
       "component": "OrchestratorApp",
-      "runtime": "./runtime/index.ts"                // background coordinator entry
+      "runtime": "./runtime/index.ts"
     },
     "plugin": { "category": "developer-tools", "tags": ["orchestration"] }
   },
@@ -28,51 +28,63 @@ A workspace-scoped built-in plugin, registered automatically because it lives in
 }
 ```
 
-The runtime entry exports `createAppRuntime(ctx)`; `ctx` provides `appId`,
-`workspaceId`, `workspacePath`, `stateFilePath`, and `host` (the full capability
-surface). `start()`, `handleStateChange(state)`, and `dispose()` are the
-lifecycle hooks — see [package-build.ts](../../../../../apps/desktop/electron/features/plugins/package-build.ts).
+The runtime entry exports `createAppRuntime(ctx)`. `ctx` provides `appId`,
+`workspaceId`, `workspacePath`, `stateFilePath`, and `host`.
 
-## Loop step → existing capability
+Source: [package-build.ts](../../../../../apps/desktop/electron/features/plugins/package-build.ts).
 
-| Loop step | Capability | Source |
+## Orchestrator Need to Host Capability
+
+| Need | Capability | Notes |
 | --- | --- | --- |
-| Change (worker) | `host.subagents.runStructured` | [app-runtime-background.ts](../../../../../packages/common/src/app-runtime-background.ts) |
-| Stream progress | `host.subagents.onLiveOutput` | same |
-| Check | `host.verification.detectVerificationCommands`, `runCommands`, `summarizeFailure` | [verification.ts](../../../../../apps/desktop/electron/features/workspace/runtime/verification.ts) |
-| Diff / learn | `host.git.getDiff`, `getDiffSummary` | [vcs/worktree](../../../../../apps/desktop/electron/features/vcs/worktree/) |
-| Checkpoint | `host.git.createCheckpoint` | same |
-| Isolate | `host.git.createWorktree`, `removeWorktree` | same |
-| Persist state | `host.appState.read`, `update`, `watch` | [apps/state/manager.ts](../../../../../apps/desktop/electron/features/apps/state/manager.ts) |
-| Notify | `host.notifications.notify` | [create-host.ts](../../../../../apps/desktop/electron/features/apps/runtime/capabilities/create-host.ts) |
-| Run command check | `host.workspace.runCommand` | [run-workspace-command.ts](../../../../../apps/desktop/electron/features/workspace/runtime/run-workspace-command.ts) |
-| Steer session | **new** `host.session` seam | see below |
+| Persist loop state | `host.appState.read`, `update`, `watch` | Authoritative state file |
+| Create step plan | `host.subagents.runStructured` | Model call with plan schema instructions |
+| Resolve loop workspace isolation | `host.git.createWorktree`, `removeWorktree` | User-selected workflow placement |
+| Check dirty workspace-root mode before start | new `host.git.getWorkspaceStatus` or equivalent | Workspace-root preflight only |
+| Stash dirty workspace after user choice | new `host.git.stashWorkspaceChanges` or equivalent | User-directed preflight only |
+| Run background step | `host.subagents.runStructured` | Normal Sero background agent execution |
+| Stream background output | `host.subagents.onLiveOutput` | UI subscribes by `(workspaceId, parentSessionId)` |
+| Evaluate step outcome | `host.subagents.runStructured` | Model call when execution output is not structured |
+| Decide recovery | `host.subagents.runStructured` | Model call after failed step |
+| Ask user how to handle dirty workspace | new `host.notifications.requestChoice` or equivalent | Visible notification with timeout |
+| Notify user of loop status | `host.notifications.notify` | Status notification only |
+| Run active-session step | new `host.session` seam | Defined below |
 
-## Subagents
+Commands, verification commands, git operations, PR work, browser work, and
+external integrations are performed by the Sero agent/session when the normal
+Sero runtime exposes those tools. Orchestrator does not call those host APIs as
+workflow-specific steps.
 
-Real entry point — `host.subagents.runStructured` (internally
-`runSingleStructured`, [single-run.ts](../../../../../apps/desktop/electron/features/subagent/core/single-run.ts)):
+Orchestrator may call git host APIs before workflow work starts to check whether
+the workspace root is dirty in workspace-root mode, create or remove a managed
+worktree, or stash current changes after the user chooses that option. These are
+workspace preflight and placement operations. They are not generated workflow
+steps.
+
+## Subagents and Model Calls
+
+Current host API:
 
 ```ts
 interface AppRuntimeSubagentRunParams {
   agent?: string;
-  task: string;                  // NOTE: the field is `task`, not `taskPrompt`
+  task: string;
   model?: string;
   thinking?: string;
   timeoutMs?: number;
-  systemPrompt?: string;         // inline ad-hoc agent — supported
-  parentSessionId: string;       // REQUIRED
+  systemPrompt?: string;
+  parentSessionId: string;
   workspaceId: string;
-  cwd?: string;                  // worktree override, mapped to container cwd
-  isolated?: boolean;            // workspace-only mounts
+  cwd?: string;
+  isolated?: boolean;
   customTools?: unknown[];
   onUpdate?: (text: string) => void;
   platformTools?: "all" | "readOnly" | "none";
-  signal?: AbortSignal;          // abort resolves with error "Aborted"
+  signal?: AbortSignal;
 }
 
 interface AppRuntimeSubagentResult {
-  response: string;              // PLAIN TEXT — no schema validation
+  response: string;
   error?: string;
   modelId?: string;
   providerId?: string;
@@ -80,141 +92,231 @@ interface AppRuntimeSubagentResult {
   usage?: { inputTokens: number; outputTokens: number; totalTokens: number };
 }
 
-onLiveOutput(workspaceId, parentSessionId, cb: (agentName, text) => void): () => void;
+interface AppRuntimeSubagentsApi {
+  runStructured(params: AppRuntimeSubagentRunParams): Promise<AppRuntimeSubagentResult>;
+  onLiveOutput(
+    workspaceId: string,
+    parentSessionId: string,
+    cb: (agentName: string, text: string) => void,
+  ): () => void;
+}
 ```
 
-**Corrections to the analysis:**
+Source: [app-runtime-background.ts](../../../../../packages/common/src/app-runtime-background.ts).
 
-- **No `outputSchema`.** `runStructured` returns plain text plus metadata. The
-  "structured" in the name refers to the result *object*, not schema-validated
-  output. `WorkerInstruction.outputSchema` is enforced by the **coordinator**:
-  the system prompt asks for a fenced JSON block; the coordinator parses and
-  validates it. Parse failure → soft attempt failure, raw text retained (D-08).
-- **`parentSessionId` is required.** The coordinator supplies the loop's bound
-  session id, or a synthetic `orchestrator:<loopId>` when there is none (D-15).
-  `onLiveOutput` is keyed by `(workspaceId, parentSessionId)`, so this id is
-  also how the UI subscribes to live output.
-- **Tracker is in-memory only** ([tracker.ts](../../../../../apps/desktop/electron/features/subagent/core/tracker.ts)).
-  Run handles and results die on process restart. Durable attempt history lives
-  in Orchestrator state; `workerRunId` is a live-UI correlation only.
+Important host facts:
 
-**Confirmed:** inline `systemPrompt`, per-run `platformTools` policy, external
-`AbortSignal`, `cwd` override for worktrees (mapped to container cwd via
-[resolveSubagentPaths](../../../../../apps/desktop/electron/features/subagent/runtime/runner.ts)),
-and per-run abort (`abortOne`) / session abort (`abortAll`).
+- `runStructured` returns plain text plus metadata. It does not validate output
+  schema.
+- Orchestrator parses and validates generated `PlanningResponse`,
+  `StepOutcome`, `RecoveryDecision`, and `CompletionSignal` JSON.
+- `parentSessionId` is required.
+- Subagent tracker state is in-memory. Durable history must be stored in
+  Orchestrator state and artifacts.
 
-## Verification
+### Parent Session Ids for Autonomous Runs
 
-[verification.ts](../../../../../apps/desktop/electron/features/workspace/runtime/verification.ts):
+Background app runtimes may run loops without a visible user session. For every
+loop, Orchestrator creates a stable synthetic parent session id, for example:
+
+```text
+orchestrator:<workspaceId>:<loopId>
+```
+
+The id is stored at `runtime.parentSessionId` and copied onto every
+`StepAttempt`. Orchestrator passes it to `runStructured.parentSessionId`.
+
+The UI uses the attempt's `parentSessionId` with
+`host.subagents.onLiveOutput(workspaceId, parentSessionId, cb)`.
+
+### Background Step Execution
+
+For `execution.type = "background-agent"`, Orchestrator calls
+`host.subagents.runStructured` with generated step instructions, loop context,
+and relevant observations.
+
+The background agent receives normal Sero runtime behavior. Orchestrator must
+not add its own tool allowlist, command layer, or approval layer.
+
+If the loop resolves to a managed worktree, Orchestrator passes that worktree
+cwd through `runStructured.cwd`. If the loop resolves to the workspace root,
+Orchestrator passes the workspace root cwd. The same loop-scoped
+`parentSessionId` is used for background-agent and model calls.
+
+## Workflow Workspace Isolation
+
+Current host API:
 
 ```ts
-detectVerificationCommands(workspacePath, options?: { testingEnabled?: boolean }): Promise<string[]>;
-runCommands(workspaceId, cwd, commands, timeoutMs?, options?): Promise<AppRuntimeVerificationResult>;
-summarizeFailure(result: AppRuntimeVerificationCommandResult): string;
+createWorktree(
+  workspacePath: string,
+  cardId: string,
+  cardTitle: string,
+): Promise<{ worktreePath: string; branchName: string; greenfield: boolean }>;
+
+removeWorktree(
+  workspacePath: string,
+  cardId: string,
+  options?: { deleteBranch?: boolean; force?: boolean },
+): Promise<void>;
 ```
 
-`runCommands` runs sequentially and stops on first failure; each result carries
-`{ command, success, stdout (last 4000 chars), stderr (last 2000 chars),
-durationMs }`. The detector orders typecheck before tests and understands pnpm /
-npm / yarn / cargo / pytest. `summarizeFailure` also detects native-dependency
-mismatches. The host method is literally named `summarizeFailure`; the
-underlying export is `summarizeVerificationFailure` — there is **no** generic
-"summarizeFailure" beyond verification.
+Source: [app-runtime-background.ts](../../../../../packages/common/src/app-runtime-background.ts).
 
-These map directly to `LoopCheck` types `verification` and `command`, normalized
-into `CheckResult`.
+Constraints:
 
-## VCS, checkpoints, worktrees
+- Worktrees are created under `.sero/worktrees/`, inside the registered
+  workspace root.
+- Existing worktree naming is card-flavored. Orchestrator should wrap that with
+  loop ids rather than exposing card terminology in its state.
+- Background agents can run with a worktree cwd because `runStructured` accepts
+  `cwd`.
+- Active sessions cannot be repointed to a worktree. Active-session steps always
+  use the active session's workspace-root context.
+- Orchestrator uses worktree APIs only for user-selected workspace isolation.
+  Git commits, diffs, PRs, and other workflow-level git work remain normal Sero
+  agent/session work.
 
-Host git surface ([app-runtime-background.ts](../../../../../packages/common/src/app-runtime-background.ts)):
+### Dirty Workspace Preflight
+
+Dirty preflight applies only when the user chose workspace-root execution and
+Orchestrator is about to start background filesystem work in the registered
+workspace root. Managed-worktree loops do not prompt for dirty workspace-root
+changes.
+
+Needed host shape:
 
 ```ts
-createWorktree(workspacePath, cardId, cardTitle): Promise<{ worktreePath; branchName; greenfield }>;
-removeWorktree(workspacePath, cardId, options?: { deleteBranch?; force? }): Promise<void>;
-createCheckpoint(worktreePath, message): Promise<string | null>;   // git add -A && commit; short SHA or null
-getDiff(worktreePath): Promise<string>;
-getDiffSummary(worktreePath): Promise<string>;
-pushBranch / createPr / mergePr / getPrMergeState ...               // Phase 6 PR workflow
+interface WorkspaceStatusResult {
+  isGitRepository: boolean;
+  hasUncommittedChanges: boolean;
+  summary: string;
+}
+
+interface DirtyWorkspaceStashResult {
+  stashRef: string | null;
+}
+
+interface AppRuntimeGitPreflightApi {
+  getWorkspaceStatus(workspacePath: string): Promise<WorkspaceStatusResult>;
+  stashWorkspaceChanges(
+    workspacePath: string,
+    message: string,
+  ): Promise<DirtyWorkspaceStashResult>;
+}
 ```
 
-**Corrections / constraints:**
+If `hasUncommittedChanges` is true in workspace-root mode, Orchestrator shows a
+visible choice notification:
 
-- **No host restore; restore via a pre-attempt `baseRef`.**
-  `VcsManager.restoreCheckpoint`
-  ([vcs-manager.ts](../../../../../apps/desktop/electron/features/vcs/core/vcs-manager.ts))
-  is desktop-core, not on the host. `createCheckpoint` returns **null on a clean
-  tree** and otherwise commits *current* changes, so it is not a pre-attempt
-  rollback target. Each attempt records `baseRef = git rev-parse HEAD` before
-  mutation; restore = `host.workspace.runCommand(.., cwd, "git reset --hard
-  <baseRef>")` against the attempt cwd. On a **dirty workspace root** the
-  coordinator first commits the user's dirty work as the baseline so nothing is
-  lost (D-07). Optional dedicated host capability is Phase 6.
-- **Worktree naming is card-specific.** `createWorktree` makes
-  `.sero/worktrees/card-<cardId>` with branch `<type>/<slug>-<cardId>`, and
-  `list()` only matches `card-*`
-  ([worktree/manager.ts](../../../../../apps/desktop/electron/features/vcs/worktree/manager.ts)).
-  Orchestrator reuses it by passing an attempt/loop id as `cardId` — it works,
-  but the naming is card-flavored. Neutralizing to a generic work-item concept
-  is Phase 6.
-- **Checkpoint id** is a 12-char short SHA (or a `turn-undo:<ts>-<uuid>` internal
-  snapshot from the desktop VCS path, which Orchestrator does not produce).
+```ts
+interface NotificationChoice {
+  id: string;
+  label: string;
+}
 
-## App state
+interface NotificationChoiceResult {
+  choiceId: string | null;
+  timedOut: boolean;
+}
 
-[apps/state/manager.ts](../../../../../apps/desktop/electron/features/apps/state/manager.ts):
+interface AppRuntimeNotificationChoiceApi {
+  requestChoice(options: {
+    title: string;
+    body: string;
+    choices: NotificationChoice[];
+    timeoutMs: number;
+  }): Promise<NotificationChoiceResult>;
+}
+```
+
+Choices:
+
+- `stash-current-changes`: stash current changes and run in the workspace root;
+- `create-managed-worktree`: create an isolated worktree and run there;
+- `defer-workflow`: leave the loop waiting without starting steps.
+
+The timeout is 30 seconds. On timeout, Orchestrator treats the result as
+`create-managed-worktree`.
+
+### Model Decisions
+
+Planning, outcome evaluation, failure recovery, and plan revisions are model
+calls. Until a direct model host API exists, Orchestrator can use
+`host.subagents.runStructured` for these calls and parse the response.
+
+If a model step declares `outputSchema`, Orchestrator includes that schema in
+the prompt text. The current host API does not enforce schemas.
+
+## App State
+
+Current host API:
 
 ```ts
 read<T>(filePath): Promise<T | null>;
-update<T>(filePath, updater: (current: T | null) => T): Promise<void>;  // serialized per file, atomic tmp+rename
-watch(filePath): void;   // broadcasts sero:app-state:change to renderer
+update<T>(filePath, updater: (current: T | null) => T): Promise<void>;
+watch(filePath): void;
 unwatch(filePath): void;
 ```
 
-`update` serializes writes per file (safe for concurrent updaters) but does
-**not** provide execution mutual exclusion — the coordinator still holds an
-in-process per-loop lock so two attempts cannot advance one loop (D-11).
-Workspace-scope state resolves under the workspace at
-`.sero/apps/orchestrator/state.json`.
+Source: [apps/state/manager.ts](../../../../../apps/desktop/electron/features/apps/state/manager.ts).
 
-## Cron patterns
+`update` serializes writes per file. It does not provide an execution lock. The
+coordinator still owns per-loop locking so two coordinator runs do not corrupt
+loop state.
 
-Reuse the shapes, don't depend on the system.
-[scheduler.ts](../../../../../plugins/sero-cron-plugin/extension/scheduler.ts),
-[state-io.ts](../../../../../plugins/sero-cron-plugin/extension/state-io.ts):
+## Cron Patterns
 
-- 30s tick, per-minute debounce via `lastTickMinute`, carry-over on restart so a
-  job doesn't re-run within the same minute. Orchestrator's scheduler copies
-  this debounce/missed-run shape behind an adapter (D-02).
-- Mutex-protected JSON state with atomic tmp+rename writes — same pattern
-  Orchestrator state uses via `host.appState`.
-- **Do not** reuse `session-runner.ts`'s transient session
-  ([session-runner.ts](../../../../../plugins/sero-cron-plugin/extension/session-runner.ts)):
-  it runs an in-memory session with tools `['read','bash','edit','write']` and
-  sets `SERO_CRON_SUBPROCESS=1`. That is the wrong execution model for loops,
-  which need durable attempt state and (for active-session mode) safe steering.
-- Cron tools/commands run with **no `host.*`** — same boundary as Orchestrator's
-  bridged tools.
+Reuse the pattern, not cron's execution model.
 
-## CLI bridge boundary
+Sources:
 
-[cli/index.ts](../../../../../apps/desktop/electron/cli/index.ts),
-[invocation-context.ts](../../../../../apps/desktop/electron/cli/core/invocation-context.ts):
+- [scheduler.ts](../../../../../plugins/sero-cron-plugin/extension/scheduler.ts)
+- [state-io.ts](../../../../../plugins/sero-cron-plugin/extension/state-io.ts)
+- [session-runner.ts](../../../../../plugins/sero-cron-plugin/extension/session-runner.ts)
 
-- Orchestrator's `orchestrator.*` tools and `/orchestrator` command are bridged
-  through the CLI registry (AD-020). Bridged contexts receive session context
-  and an optional `sessionRuntime`, but **not** `host.*`. They must call the
-  coordinator registry (D-01).
-- `sessionRuntime` targets the *current* (invoking) session only. Active-session
-  mode needs to target a possibly-different session, which is why the new host
-  seam (below) is required rather than reusing `sessionRuntime`.
+Useful pieces:
 
-## New seam: active-session host
+- coarse tick;
+- per-minute debounce;
+- persisted last-fire state;
+- carry-over after restart.
 
-This is the one genuinely new desktop-core capability. The building blocks
-already exist in the CLI session bridge
-([session-bridge.ts](../../../../../apps/desktop/electron/cli/bridges/session-bridge.ts),
-[session-runtime.ts](../../../../../packages/common/src/session-runtime.ts)) —
-they are simply not exposed to background runtime code:
+Do not run Orchestrator through cron's transient session runner. Orchestrator
+needs durable loop state, step attempt history, recovery history, completion
+signals, and active-session correlation.
+
+## CLI Bridge Boundary
+
+Orchestrator tools and slash commands are bridged through the CLI registry.
+Bridged contexts receive session context and an optional `sessionRuntime`. They
+do not receive `host.*`.
+
+Therefore extension commands must call:
+
+```ts
+registry.get(workspaceId)?.requestAction(action)
+```
+
+They must not start steps directly.
+
+If `registry.get(workspaceId)` is empty, the workspace runtime is not loaded.
+The command returns a clear error telling the caller to open the workspace before
+running Orchestrator actions. It must not create an ad hoc coordinator outside
+the workspace runtime.
+
+Sources:
+
+- [cli/index.ts](../../../../../apps/desktop/electron/cli/index.ts)
+- [invocation-context.ts](../../../../../apps/desktop/electron/cli/core/invocation-context.ts)
+
+## New Seam: Active-Session Host
+
+Active-session steps require a new host seam. The needed primitives already
+exist in the CLI session bridge, but background app runtimes cannot use them
+today and there is no turn-completion subscription.
+
+Existing building blocks:
 
 | Need | Exists today | Where |
 | --- | --- | --- |
@@ -222,41 +324,37 @@ they are simply not exposed to background runtime code:
 | Idle / busy | yes | `entry.session.isStreaming` |
 | Pending user messages | yes | `entry.session.pendingMessageCount` |
 | Steer vs follow-up | yes | `entry.session.sendUserMessage(content, { deliverAs })` |
-| Trigger a turn | partial | `sendMessage(message, { triggerTurn })` |
-| Observe turn completion from background | **missing** | needs an event off `noteTurnStart` / `noteTurnEnd` |
+| Trigger a custom turn | partial | `sendMessage(message, { triggerTurn })` |
+| Observe turn completion from background | no | needs emitter from `noteTurnEnd` |
 
-So the seam **wraps** existing bridge primitives and adds turn-completion
-observation. It lives in desktop core (where active-session state already lives)
-and is exposed on the runtime host. **Two send methods**, not one — they map 1:1
-onto the two existing `AgentSession` APIs, which have different payload shapes
-and turn semantics and must not be collapsed into a single `string` method:
+Required host API:
 
 ```ts
 interface AppRuntimeSessionHost {
   getActiveForWorkspace(workspaceId: string): Promise<ActiveSession | null>;
+
   getState(sessionId: string): Promise<{
     idle: boolean;
     pendingMessages: number;
     activeTurnId: string | null;
   }>;
 
-  // user-visible steer / follow-up; wraps session.sendUserMessage(content, { deliverAs }).
-  // Triggers a turn. Returns the turn correlation id.
   sendUserSteer(
     sessionId: string,
     content: ExtensionRuntimeContent,
     options: { deliverAs: "steer" | "followUp"; source: "orchestrator" },
   ): Promise<{ turnId: string }>;
 
-  // inject context; wraps session.sendCustomMessage(message, { triggerTurn, deliverAs }).
-  // Triggers a turn only when triggerTurn is true.
   sendContextMessage(
     sessionId: string,
     message: ExtensionRuntimeMessage,
-    options: { deliverAs: "steer" | "followUp" | "nextTurn"; triggerTurn: boolean; source: "orchestrator" },
+    options: {
+      deliverAs: "steer" | "followUp" | "nextTurn";
+      triggerTurn: boolean;
+      source: "orchestrator";
+    },
   ): Promise<{ turnId: string | null }>;
 
-  // NEW emitter — correlate by turnId.
   onTurnComplete(
     sessionId: string,
     cb: (result: { turnId: string; status: "completed" | "aborted" | "error" }) => void,
@@ -264,44 +362,30 @@ interface AppRuntimeSessionHost {
 }
 ```
 
-`ExtensionRuntimeContent` / `ExtensionRuntimeMessage` are the existing payload
-types ([session-runtime.ts](../../../../../packages/common/src/session-runtime.ts)):
-`sendUserMessage(content, { deliverAs: "steer" | "followUp" })` and
-`sendMessage(message, { triggerTurn, deliverAs: "steer" | "followUp" | "nextTurn" })`
-(the latter wired to `session.sendCustomMessage`). Each send returns the turn
-correlation id (from `getActiveTurnId`) so the coordinator can match
-`onTurnComplete`.
+Sources:
 
-**`onTurnComplete` is genuinely new desktop-core work.** The bridge records
-`noteTurnStart` / `noteTurnEnd` and exposes `getActiveTurnId`, but offers **no
-subscription or correlation emitter**. Phase 1.5/4 must add an emitter that
-fires on `noteTurnEnd` carrying the `turnId`. Idle and pending-message checks
-stay centralized in desktop core; the coordinator calls `getState` before every
-send and only proceeds when idle with no pending messages (D-05).
+- [session-bridge.ts](../../../../../apps/desktop/electron/cli/bridges/session-bridge.ts)
+- [session-runtime.ts](../../../../../packages/common/src/session-runtime.ts)
 
-## Verified facts
+`onTurnComplete` is new desktop-core work. It must fire once per completed turn
+and include the `turnId` so Orchestrator can correlate the step attempt.
+
+The active session itself continues to operate under normal Sero session rules.
+
+## Verified Facts
 
 Treat these as binding contracts:
 
-- `sero-cli` commands execute through the Electron-side `CliRegistry`; agent-tool
-  and host-bridge invocations both land in Electron main.
-- App runtimes load in Electron main and receive `host.*` via
-  `createAppRuntimeHost`. Bridged extension tools/commands do **not** receive
-  `host.*` — hence the coordinator registry.
-- `host.appState.update` serializes per-file writes; it is not an execution lock.
-- `detectVerificationCommands(workspacePath)` reads the supplied path.
-- `runCommands(workspaceId, cwd, ...)` delegates to `runWorkspaceCommand(...)`.
-- `runWorkspaceCommand` maps `cwd` into the workspace runtime **only when `cwd`
-  is inside the registered workspace root** (`toRuntimeWorkspacePath` returns
-  null otherwise → command refused). `.sero/worktrees/...` is inside root and is
-  accepted.
-- `WorktreeManager` creates `.sero/worktrees/card-<id>` under the workspace root,
-  so verification and workspace commands target Sero-managed worktrees with no
-  host change.
-- Subagent execution accepts a worktree `cwd` inside the workspace root and maps
-  it to the container cwd.
-
-**Boundary:** all of the above holds for Sero-managed *in-workspace* worktrees.
-Sibling or external worktrees outside the registered root would break workspace
-command execution, verification, and container mounts, and require host/runtime
-changes before use (D-06).
+- App runtimes load in Electron main and receive `host.*`.
+- Bridged extension tools and commands do not receive `host.*`.
+- `host.appState.update` serializes file writes but is not an execution lock.
+- `host.subagents.runStructured` accepts inline `systemPrompt`, `cwd`,
+  `platformTools`, `parentSessionId`, and `AbortSignal`.
+- `host.subagents.runStructured` does not validate output schema.
+- `host.subagents.onLiveOutput` is keyed by `(workspaceId, parentSessionId)`.
+- Active-session control needs a new background-runtime host seam.
+- Dirty workspace status, dirty-workspace stashing, and notification choice with
+  timeout need new host seams.
+- Orchestrator does not call verification, command, PR, or workflow-level git
+  host APIs as workflow phases. Generated agents may use standard Sero tools for
+  that work when those tools are available.

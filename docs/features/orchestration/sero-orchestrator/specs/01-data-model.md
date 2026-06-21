@@ -1,84 +1,332 @@
-# 01 — Data model
+# 01 — Data Model
 
-The complete state model, in `plugins/sero-orchestrator-plugin/shared/types.ts`.
-It is specific enough to support both execution modes, scheduled triggers,
-generated workers, normalized checks, and attempt history — without becoming a
-generic `pi-tasks` clone.
+This is the persisted state model for `plugins/sero-orchestrator-plugin/shared/types.ts`.
 
-All of this is persisted through `host.appState` at the workspace-scope state
-path ([02 §App state](02-integration-seams.md#app-state)). Large output is
-**not** stored inline — see `LogPolicy` and `CheckResult.*Path`.
+The model stores LLM-authored step plans, user-selected workspace settings, and
+generic runtime history. It does not encode a fixed workflow and it does not add
+Orchestrator-specific execution restrictions.
 
-## Top-level state
+All state is persisted through `host.appState` at the workspace-scope state path
+defined in [02](02-integration-seams.md#app-state). Large outputs are stored as
+artifacts and referenced by path.
+
+Open-ended plan, runtime, observation, and schema data uses TypeScript-native
+shapes such as `Record<string, unknown>` or `unknown`. Implementations can add
+generic parameters where a concrete caller needs narrower types.
+
+## Top-Level State
 
 ```ts
 interface OrchestratorState {
   version: 1;
-  loops: LoopGoal[];
+  loops: Loop[];
 }
 ```
 
-Any cross-workspace dashboard index (D-03) is a separate derived structure, not
-part of this authoritative file.
+Any cross-workspace dashboard index is derived. It is not authoritative.
 
-## Loop goal
+## Loop
 
 ```ts
-interface LoopGoal {
+interface Loop {
   id: string;
   workspaceId: string;
-  defaultCwd?: string;            // preference only; attempt.workdir.cwd is canonical
-  sessionId?: string;            // bound target session (active-session/hybrid)
-  executionMode: "background-worker" | "active-session" | "hybrid";
-  hybridPolicy?: HybridPolicy;   // required when executionMode === "hybrid"
   title: string;
-  goal: string;
-  status: "draft" | "active" | "paused" | "blocked" | "complete" | "stopped";
+  prompt: string;
+  summary: string;
+  status: LoopStatus;
+  workspace: LoopWorkspaceSettings;
+  plan: LoopPlan;
+  runtime: LoopRuntimeState;
   triggers: LoopTrigger[];
-  checks: LoopCheck[];
-  stopRule: StopRule;
-  budget?: RunBudget;            // cost/blast-radius limits beyond maxAttempts (D-17)
+  limits: LoopLimits;
   logPolicy: LogPolicy;
-  tasks: LoopTask[];
-  attempts: LoopAttempt[];       // bounded to LogPolicy.retainAttempts
+  warnings: LoopWarning[];
+  runs: LoopRun[];
+  revisions: PlanRevision[];
   createdAt: string;
   updatedAt: string;
 }
+
+type LoopStatus =
+  | "draft"
+  | "active"
+  | "paused"
+  | "blocked"
+  | "complete"
+  | "stopped";
 ```
 
-`defaultCwd` only seeds a new attempt's workdir resolution. Once an attempt
-starts, `LoopAttempt.workdir.cwd` is the single source of truth (D-06).
-
-## Hybrid policy
+`status` is the Orchestrator lifecycle. Logical completion is signaled by a
+planned step outcome and recorded in `runtime.completion`.
 
 ```ts
-type HybridPolicy =
-  | "prefer-active-session"
-  | "prefer-background-worker"
-  | "active-if-session-idle"
-  | "ask-user";
+interface LoopWarning {
+  id: string;
+  code: "mixed-workspace-targets";
+  message: string;
+  createdAt: string;
+}
 ```
 
-Routing semantics are defined in
-[00 §D-09](00-architecture.md#d-09-hybrid-routing). The chosen mode and its
-reason are recorded on each attempt.
+Warnings do not block activation. They expose important execution consequences
+to the user and UI.
 
-## Loop trigger
+## Loop Workspace Settings
 
-Triggers mark loop work **due**; they never execute detached prompts (Principle
-6). Modeled separately from cron's job shape because Orchestrator carries far
-more metadata.
+Workspace isolation is a user-level loop setting. The LLM-authored plan does not
+choose whether a loop runs in the workspace root or in a worktree.
+
+```ts
+interface LoopWorkspaceSettings {
+  useManagedWorktree: boolean;
+  reuseExistingWorktree: boolean;
+  dirtyWorkspacePromptTimeoutMs: number;
+  dirtyWorkspaceDefaultAction: "create-managed-worktree";
+}
+```
+
+Defaults for a new loop:
+
+- `useManagedWorktree: true`;
+- `reuseExistingWorktree: true`;
+- `dirtyWorkspacePromptTimeoutMs: 30_000`;
+- `dirtyWorkspaceDefaultAction: "create-managed-worktree"`.
+
+If `useManagedWorktree` is true, Orchestrator creates or reuses one managed
+worktree for the loop and runs background-agent filesystem work there. If it is
+false, Orchestrator normally uses the registered workspace root.
+
+## Loop Plan
+
+The planner returns a `PlanningResponse`. The contained `LoopPlan` is the
+LLM-authored workflow. The surrounding response fields map onto `Loop` fields.
+
+```ts
+interface PlanningResponse {
+  schemaVersion: 1;
+  title: string;
+  summary: string;
+  plan: LoopPlan;
+  suggestedTriggers?: LoopTriggerSuggestion[];
+  suggestedLimits?: Partial<LoopLimits>;
+}
+
+interface LoopTriggerSuggestion {
+  type: "manual" | "cron" | "event" | "hybrid";
+  schedule?: string;
+  eventSource?: string;
+  eventFilter?: Record<string, unknown>;
+  debounceMs?: number;
+  maxFires?: number;
+}
+```
+
+Mapping rules:
+
+- `PlanningResponse.title` maps to `Loop.title` unless the user supplied a
+  title;
+- `PlanningResponse.summary` maps to `Loop.summary`;
+- `PlanningResponse.plan` maps to `Loop.plan`;
+- `PlanningResponse.suggestedTriggers` are materialized into persisted
+  `LoopTrigger` records unless the user supplied trigger options;
+- `PlanningResponse.suggestedLimits` are merged with default limits and then
+  overridden by user-supplied limits.
+
+```ts
+interface LoopPlan {
+  schemaVersion: 1;
+  revision: number;
+  objective: string;
+  steps: LoopStepDefinition[];
+  globalInstructions?: string;
+  variablesSchema?: unknown;
+}
+```
+
+Validation rules:
+
+- step ids must be unique;
+- `dependsOn` references must point at existing steps;
+- dependency graphs must be acyclic;
+- execution targets must be supported;
+- at least one step must exist.
+
+Validation only checks structure. It does not decide whether the workflow is
+safe, cheap, advisable, or likely to succeed.
+
+## Step Definition
+
+```ts
+interface LoopStepDefinition {
+  id: string;
+  title: string;
+  instructions: string;
+  expectedOutcome?: string;
+  dependsOn?: string[];
+  execution: StepExecutionTarget;
+  onFailure?: string;            // optional LLM-authored recovery hint
+  maxAttempts?: number;          // optional per-step limit, capped by loop limits
+}
+```
+
+Sequential work is represented by `dependsOn`. Parallel work is represented by
+multiple steps with satisfied dependencies.
+
+## Step Execution Target
+
+```ts
+type StepExecutionTarget =
+  | BackgroundAgentTarget
+  | ActiveSessionTarget
+  | ModelTarget;
+
+interface BackgroundAgentTarget {
+  type: "background-agent";
+  model?: string;
+  thinking?: string;
+}
+
+interface ActiveSessionTarget {
+  type: "active-session";
+  sessionTarget: SessionTarget;
+}
+
+interface ModelTarget {
+  type: "model";
+  model?: string;
+  thinking?: string;
+  outputSchema?: unknown;
+}
+```
+
+These targets identify which standard Sero execution path to use. They do not
+define a separate Orchestrator permission model.
+
+`ModelTarget.outputSchema` is included in the model prompt as an expected output
+shape. The current `runStructured` host API does not accept or enforce a schema
+parameter, so Orchestrator still parses and validates the returned text.
+
+## Workflow Workspace Context
+
+```ts
+interface ResolvedWorkspaceContext {
+  id: string;
+  type: "workspace-root" | "managed-worktree";
+  workspaceRoot: string;
+  cwd: string;
+  worktreePath?: string;
+  branchName?: string;
+  resolvedBy:
+    | "create-option"
+    | "clean-workspace"
+    | "dirty-workspace-choice"
+    | "dirty-workspace-timeout";
+  createdAt: string;
+}
+
+type DirtyWorkspaceAction =
+  | "stash-current-changes"
+  | "create-managed-worktree"
+  | "defer-workflow";
+
+interface DirtyWorkspacePrompt {
+  id: string;
+  status: "pending" | "resolved" | "timed-out";
+  detectedAt: string;
+  expiresAt: string;
+  decision?: DirtyWorkspaceDecision;
+}
+
+interface DirtyWorkspaceDecision {
+  action: DirtyWorkspaceAction;
+  source: "user" | "timeout";
+  decidedAt: string;
+  stashRef?: string;
+  contextId?: string;
+}
+
+interface LoopWorkspaceRuntime {
+  resolved?: ResolvedWorkspaceContext;
+  dirtyPrompt?: DirtyWorkspacePrompt;
+  lastDirtyCheckAt?: string;
+  deferredReason?: string;
+}
+```
+
+Workspace rules:
+
+- Background-agent steps use the resolved loop workspace cwd.
+- Active-session steps use the active session's workspace root. A live session
+  cannot be repointed to a managed worktree.
+- Model-only steps use no filesystem cwd unless relevant context is included in
+  the prompt as text.
+- Managed worktrees are created and tracked by Orchestrator, but work inside
+  them still runs through standard Sero execution.
+- Stashing current workspace changes is only allowed after an explicit user
+  choice from the dirty-workspace prompt.
+
+## Runtime State
+
+```ts
+interface LoopRuntimeState {
+  parentSessionId: string;
+  variables: Record<string, unknown>;
+  stepStates: Record<string, StepRuntimeState>;
+  workspace: LoopWorkspaceRuntime;
+  activeRunId?: string;
+  dueAgain?: boolean;
+  completion?: CompletionSignal;
+  block?: LoopBlock;
+  lastRunAt?: string;
+}
+
+interface LoopBlock {
+  kind:
+    | "planned-block"
+    | "recovery-block"
+    | "management-limit"
+    | "validation-error"
+    | "runtime-error";
+  reason: string;
+  createdAt: string;
+  sourceStepId?: string;
+  sourceAttemptId?: string;
+  limit?: keyof LoopLimits;
+}
+
+interface StepRuntimeState {
+  status: StepStatus;
+  attempts: number;
+  lastAttemptId?: string;
+  outcome?: StepOutcome;
+  updatedAt: string;
+}
+
+type StepStatus =
+  | "pending"
+  | "ready"
+  | "running"
+  | "succeeded"
+  | "failed"
+  | "blocked"
+  | "skipped"
+  | "needs-revision";
+```
+
+`ready` is derived from dependencies but may be stored for UI convenience.
+
+## Trigger
 
 ```ts
 interface LoopTrigger {
   id: string;
   loopId: string;
   workspaceId: string;
-  sessionId?: string;
   type: "manual" | "cron" | "event" | "hybrid";
-  schedule?: string;             // 5-field cron expr when type includes cron
-  eventSource?: string;          // e.g. "vcs", "check", "session", "workspace"
-  eventFilter?: unknown;
+  schedule?: string;
+  eventSource?: string;
+  eventFilter?: Record<string, unknown>;
   debounceMs?: number;
   maxFires?: number;
   fireCount: number;
@@ -88,229 +336,263 @@ interface LoopTrigger {
 }
 ```
 
-Debounce state (`lastFireAt`, `fireCount`) is persisted so it survives restart,
-mirroring cron's `lastTickMinute` carry-over
-([02 §Cron patterns](02-integration-seams.md#cron-patterns)).
+Triggers mark a loop due. They do not execute workflow work directly.
 
-## Loop check
+When `maxFires` is set and `fireCount` reaches it, Orchestrator sets
+`disabled: true` after recording the final fire.
+
+## Loop Limits
 
 ```ts
-type LoopCheck =
-  | { type: "verification"; command: string; required: boolean }
-  | { type: "command"; command: string; required: boolean }
-  | { type: "review"; reviewer: "quality-reviewer" | "spec-reviewer"; required: boolean };
+interface LoopLimits {
+  maxAttemptsPerStep?: number;
+  maxAttemptsTotal?: number;
+  maxConcurrentSteps?: number;
+  maxWallClockMs?: number;
+  maxTotalTokens?: number;
+  maxCostUsd?: number;
+}
 ```
 
-`verification` checks are seeded from `host.verification.detectVerificationCommands`
-when the user provides none. `eval` is a future command-backed check type.
+Limits are Orchestrator management controls. They do not restrict what a Sero
+agent can do inside an execution. When a limit is reached, Orchestrator stops
+starting new attempts and blocks the loop with `LoopBlock.kind =
+"management-limit"`.
 
-## Loop attempt
+## Loop Run
 
 ```ts
-interface LoopAttempt {
+interface LoopRun {
   id: string;
-  attemptNumber: number;
-  executionMode: "background-worker" | "active-session";
-  routingReason?: string;        // why hybrid picked this mode (D-09)
-  status: "running" | "passed" | "failed" | "blocked" | "cancelled";
-  workdir: AttemptWorkdir;
-  parentSessionId: string;       // D-15: loop sessionId or "orchestrator:<loopId>"
-  baseRef: string;               // pre-attempt HEAD — the rollback target (D-07)
-  dirtyRootDecision?: "auto-save" | "auto-save-timeout" | "isolated";  // dirty-root start gate (D-07); deferrals logged at loop level
-  checkpointId?: string;         // optional post-attempt commit for inspection, NOT the rollback target
+  runNumber: number;
+  status: LoopRunStatus;
   triggerId?: string;
-  workerRunId?: string;          // subagent run UUID (in-memory tracker correlation)
-  sessionTurnId?: string;        // active-session: correlation id returned by host.session send (D-05)
-  workerInstruction?: WorkerInstruction;  // redacted; full prompt for replay
-  workerResponsePath?: string;   // artifact: raw worker text (D-08/D-14)
-  changedFiles: string[];
-  checkResults: CheckResult[];
-  learned?: string;              // summary distilled into next-attempt context
-  nextAction?: string;
-  usage?: { inputTokens: number; outputTokens: number; totalTokens: number };
-  model?: string;
+  startedStepIds: string[];
+  stepAttempts: StepAttempt[];
+  recoveryDecisions: RecoveryDecision[];
+  completionSignal?: CompletionSignal;
+  observations: Observation[];
+  usage?: UsageSummary;
   startedAt: string;
   endedAt?: string;
+  block?: LoopBlock;
 }
+
+type LoopRunStatus =
+  | "running"
+  | "waiting"
+  | "completed"
+  | "blocked"
+  | "failed"
+  | "cancelled"
+  | "orphaned";
 ```
 
-`workerRunId` correlates to the in-memory subagent tracker only and is **not**
-durable across restart — the durable record is everything else on this object
-([02 §Subagents](02-integration-seams.md#subagents)).
+`waiting` means the LLM or plan left no runnable step until a future trigger,
+manual action, or revision.
 
-## Attempt workdir
-
-The correctness boundary (D-06). Every operation in an attempt uses `cwd`.
+## Step Attempt
 
 ```ts
-interface AttemptWorkdir {
-  mode: "workspace-root" | "worktree";
-  workspaceRoot: string;         // absolute host path of the registered workspace
-  cwd: string;                   // workspaceRoot or a path under .sero/worktrees/
-  worktreePath?: string;
-  branchName?: string;
-}
-```
-
-`cwd` must always be inside `workspaceRoot`; `runWorkspaceCommand` rejects
-anything else ([02 §Verified facts](02-integration-seams.md#verified-facts)).
-**Active-session attempts require `mode: "workspace-root"`** — a live session's
-tool cwd cannot be repointed at a worktree, so only background-worker attempts
-may use `mode: "worktree"` (D-06).
-
-## Worker instruction
-
-The first-class generated-worker contract (D-08). `agent` is not just a template
-name — each attempt builds a full instruction.
-
-```ts
-interface WorkerInstruction {
-  role: "planner" | "implementer" | "reviewer" | "summarizer" | "custom";
-  systemPrompt: string;          // passed inline to runStructured
-  taskPrompt: string;            // becomes runStructured `task`
-  outputSchema?: unknown;        // enforced by the COORDINATOR, not the subagent
-  platformTools: "all" | "readOnly" | "none";
-  isolated?: boolean;            // true on worktrees
-  timeoutMs?: number;
-  model?: string;
-  thinking?: string;
-}
-```
-
-The coordinator derives the worker `cwd` from `LoopAttempt.workdir.cwd`; the
-instruction never carries the working directory (D-06). Default tool policy by
-role is fixed in [00 §D-10](00-architecture.md#d-10-tool-policies).
-
-## Stop rule
-
-```ts
-interface StopRule {
-  maxAttempts: number;
-  requireAllChecks: boolean;
-  stopOnNoProgressAttempts?: number;
-  noProgressPolicy?: NoProgressPolicy;
-}
-
-interface NoProgressPolicy {
-  compareFailedChecks: boolean;
-  compareDiffFingerprint: boolean;
-  compareChangedFiles: boolean;
-}
-```
-
-No-progress signals: equivalent failing checks, empty/equivalent diff, unchanged
-file set, repeated error class, or a worker/reviewer reporting no material path
-forward. Enforcement in [00 §D-13](00-architecture.md#d-13-stop-rules).
-
-## Run budget
-
-`maxAttempts` bounds *count*, not *cost or blast radius*. `RunBudget` adds
-cumulative and per-attempt limits, enforced by the coordinator (D-17).
-
-```ts
-interface RunBudget {
-  // cumulative across the whole loop (all attempts)
-  maxWallClockMs?: number;       // summed attempt durations
-  maxTotalTokens?: number;       // summed background-worker token usage
-  maxCostUsd?: number;           // optional cost ceiling derived from usage
-  // per attempt
-  maxChangedFiles?: number;      // diff over this blocks the loop for review (changes kept)
-  maxAttemptWallClockMs?: number;// hard per-attempt timeout (worker timeoutMs / turn-wait cap)
-  // per command / check
-  maxCommandRuntimeMs?: number;  // default timeout for each check/command run
-}
-```
-
-Consumption is **derived** by summing attempt records (durations, `usage`, and
-`changedFiles.length`) plus the in-flight attempt's elapsed time — there is no
-separate authoritative counter (Principle 3). A cumulative overrun blocks the
-loop with reason `budget-exhausted`; a per-attempt `maxChangedFiles` overrun
-blocks the loop for review (reason `changed-files-exceeded`) with the attempt's
-changes left in place. Both are recoverable by raising the relevant limit.
-Token/cost limits bound background-worker spend; active-session turns run in the
-user's own session and are attributed best-effort from the observed turn result.
-
-## Loop task
-
-Loop-scoped only (Phase 7 deferred).
-
-```ts
-interface LoopTask {
+interface StepAttempt {
   id: string;
-  title: string;
-  description?: string;
-  status: "todo" | "active" | "blocked" | "done" | "cancelled";
-  blockedBy?: string[];
-  acceptance?: string[];
-  assignedRole?: WorkerInstruction["role"];
-  createdAt: string;
-  updatedAt: string;
-}
-```
-
-## Check result
-
-Normalized across all backends (D-12).
-
-```ts
-interface CheckResult {
-  checkId: string;
-  type: LoopCheck["type"];
-  status: "passed" | "failed" | "skipped" | "cancelled";
-  command?: string;
-  summary: string;               // from host.verification.summarizeFailure + tail
-  stdoutPath?: string;           // artifact path; full output never inline
-  stderrPath?: string;
-  exitCode?: number;
-  durationMs?: number;
+  stepId: string;
+  attemptNumber: number;
+  parentSessionId: string;
+  executionType: StepExecutionTarget["type"];
+  status: StepAttemptStatus;
+  outcome?: StepOutcome;
+  workspace?: ResolvedWorkspaceContext;
+  workerRunId?: string;
+  resolvedSessionId?: string;
+  sessionTurnId?: string;
+  model?: string;
+  outputPath?: string;
+  observations: Observation[];
+  usage?: UsageSummary;
   startedAt: string;
-  endedAt: string;
+  endedAt?: string;
+  error?: string;
+}
+
+type StepAttemptStatus =
+  | "running"
+  | "completed"
+  | "failed"
+  | "cancelled"
+  | "orphaned";
+
+interface StepOutcome {
+  status:
+    | "succeeded"
+    | "failed"
+    | "blocked"
+    | "skipped"
+    | "needs-revision";
+  summary: string;
+  variables?: Record<string, unknown>;
+  completion?: StepCompletion;
 }
 ```
 
-## Log policy
+`status` is the mechanical execution status. `outcome` is the LLM-reported or
+LLM-evaluated logical result of the step. A loop completes only when a planned
+step outcome includes `completion.status === "complete"`.
+
+When `StepOutcome.variables` is present, Orchestrator shallow-merges those keys
+into `runtime.variables` after accepting the outcome. Later values replace
+earlier values for the same key. If `variables` is omitted, runtime variables do
+not change.
+
+## Recovery Decision
 
 ```ts
-interface LogPolicy {
-  retainAttempts: number;        // older attempts pruned from state, artifacts optional
-  retainArtifacts: boolean;
-  maxInlineOutputBytes: number;  // output beyond this goes to artifact files only
+interface RecoveryDecision {
+  id: string;
+  stepId: string;
+  failedAttemptId: string;
+  decision:
+    | "retry-step"
+    | "revise-step"
+    | "revise-plan"
+    | "skip-step"
+    | "wait"
+  | "block-loop";
+  reason: string;
+  revisedStep?: LoopStepDefinition;
+  revisedPlan?: LoopPlan;
+  createdAt: string;
+  modelResponsePath?: string;
 }
 ```
 
-## Session target
+The canonical recovery decisions are `retry-step`, `revise-step`,
+`revise-plan`, `skip-step`, `wait`, and `block-loop`. `revise-plan` is the way
+to add, remove, or reorder steps. `block-loop` sets `LoopBlock.kind =
+"recovery-block"`. Orchestrator validates any revised step or plan before
+applying it.
 
-Intentionally smaller than the reference `pi-tasks` model. Expands only if
-reusable cross-plugin task management becomes a real requirement.
+## Completion Signal
+
+```ts
+interface CompletionSignal {
+  status: "complete" | "blocked";
+  sourceStepId: string;
+  sourceAttemptId: string;
+  reason: string;
+  createdAt: string;
+  modelResponsePath?: string;
+}
+
+interface StepCompletion {
+  status: "complete" | "blocked";
+  reason: string;
+}
+```
+
+Completion is signaled by planned step execution. Orchestrator does not ask for
+an unplanned completion check when queues are empty or steps succeed.
+
+## Observation
+
+```ts
+interface Observation {
+  id: string;
+  source:
+    | "model"
+    | "background-agent"
+    | "active-session"
+    | "manual"
+    | "event"
+    | "system";
+  summary: string;
+  data?: Record<string, unknown>;
+  artifactPath?: string;
+  createdAt: string;
+}
+```
+
+## Plan Revision
+
+```ts
+interface PlanRevision {
+  revision: number;
+  previousRevision: number;
+  reason: string;
+  proposedBy: "model" | "user";
+  status: "applied" | "rejected";
+  plan: LoopPlan;
+  createdAt: string;
+  appliedAt?: string;
+  rejectionReason?: string;
+}
+```
+
+## Session Target
 
 ```ts
 interface SessionTarget {
   workspaceId: string;
   sessionId?: string;
   strategy: "specific-session" | "most-recent-active" | "ask-user";
-  deliverAs: "steer" | "followUp";
+  deliverAs: "steer" | "followUp" | "nextTurn";
   triggerTurn: boolean;
 }
 ```
 
-## Coordinator action (control plane)
+## Usage Summary
 
-The request envelope tools/CLI/UI send to the single executor (D-01).
+```ts
+interface UsageSummary {
+  inputTokens?: number;
+  outputTokens?: number;
+  totalTokens?: number;
+  costUsd?: number;
+  durationMs?: number;
+}
+```
+
+Usage is recorded when the underlying Sero execution reports it.
+
+## Log Policy
+
+```ts
+interface LogPolicy {
+  retainRuns: number;
+  retainArtifacts: boolean;
+  maxInlineOutputBytes: number;
+}
+```
+
+## Coordinator Actions
+
+Tools, slash commands, and UI send these request envelopes to the coordinator.
 
 ```ts
 type OrchestratorAction =
-  | { kind: "create"; loop: Omit<LoopGoal, "id" | "attempts" | "createdAt" | "updatedAt"> }
-  | { kind: "list"; }
+  | { kind: "create"; prompt: string; title?: string; options?: CreateLoopOptions }
+  | { kind: "activate"; loopId: string }
+  | { kind: "list" }
   | { kind: "show"; loopId: string }
   | { kind: "pause"; loopId: string }
   | { kind: "resume"; loopId: string }
   | { kind: "stop"; loopId: string }
-  | { kind: "run_next"; loopId: string; overrideNoProgress?: boolean };
+  | { kind: "run_next"; loopId: string }
+  | { kind: "revise"; loopId: string; prompt?: string }
+  | { kind: "choose_recovery"; loopId: string; decision: RecoveryDecision };
+
+interface CreateLoopOptions {
+  activate?: boolean;
+  triggers?: LoopTriggerSuggestion[];
+  limits?: Partial<LoopLimits>;
+  workspace?: Partial<LoopWorkspaceSettings>;
+}
 
 interface OrchestratorActionResult {
   ok: boolean;
-  loop?: LoopGoal;
-  loops?: LoopGoal[];
+  loop?: Loop;
+  loops?: Loop[];
+  run?: LoopRun;
   error?: string;
 }
 ```

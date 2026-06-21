@@ -1,207 +1,340 @@
-# 03 — Execution and scheduling
+# 03 — Execution and Scheduling
 
-How the coordinator advances a loop: the state machine, the two execution
-adapters, and how triggers schedule work. The control-plane rule (D-01) holds
-throughout — only the coordinator executes.
+This file describes how Orchestrator creates, runs, pauses, resumes, and
+schedules step-based loops.
 
-## Coordinator state machine
+## Lifecycle
 
-A loop moves through states driven by events, never by polling (Principle 6).
+Loop lifecycle is generic and separate from step outcomes.
 
 ```text
-        create
-draft ─────────► active ──run_next/trigger──► (attempt running)
-  │                ▲  │                              │
-  │ pause          │  │ resume                       │ attempt result
-  ▼                │  ▼                              ▼
-paused ◄───────────┘  blocked ◄──no-progress / unsafe─┤
-                                                      │
-            all required checks pass ─► complete      │
-            maxAttempts / user stop  ─► stopped ◄─────┘
+create prompt
+    │
+    ▼
+  draft ──activate──► active ──trigger/manual──► coordinator run
+    │                    ▲  │                         │
+    │ stop               │  │ pause                   │
+    ▼                    │  ▼                         ▼
+ stopped             paused ◄────────────── waiting for trigger/revision
+                         │
+                         │ limit reached / invalid plan / unrecoverable error
+                         ▼
+                      blocked
+
+planned completion signal: complete / blocked
 ```
 
-State transitions:
+Lifecycle transitions:
 
-| From | Event | To |
-| --- | --- | --- |
-| `draft` | `create` finalized | `active` |
-| `active` | `run_next` / trigger due, lock acquired | attempt `running` |
-| attempt `running` | required checks pass + stop rule satisfied | `complete` |
-| attempt `running` | checks fail, attempts remain | `active` (next attempt) |
-| attempt `running` | no-progress over threshold / unsafe workspace | `blocked` |
-| attempt `running` | `maxChangedFiles` exceeded | `blocked` (reason `changed-files-exceeded`), changes kept |
-| `active` | `RunBudget` cumulative limit exhausted | `blocked` (reason `budget-exhausted`) |
-| `active`/`blocked` | `maxAttempts` reached / user `stop` | `stopped` |
-| any non-terminal | user `pause` | `paused` |
-| `paused` | user `resume` | `active` |
-| `blocked` | `run_next` with `overrideNoProgress` | attempt `running` (override recorded) |
+| Event | Result |
+| --- | --- |
+| Prompt creates valid plan | `draft` |
+| User or tool activates draft | `active` |
+| Manual run or due trigger while active | starts a coordinator run |
+| No runnable work and no completion signal | run `waiting`, loop remains `active` or blocks with a clear reason |
+| Planned step emits complete signal | loop `complete` |
+| Planned step emits blocked signal | loop `blocked` with `runtime.block.kind = "planned-block"` |
+| Recovery decision is `block-loop` | loop `blocked` with `runtime.block.kind = "recovery-block"` |
+| Management limit is reached | loop `blocked` with `runtime.block.kind = "management-limit"` |
+| User pauses | loop `paused`; cancellable background execution is aborted |
+| User resumes | loop `active` |
+| User stops | loop `stopped` |
 
-### Per-loop execution lock
+Orchestrator does not mark a loop complete without an explicit completion signal
+from a planned step outcome.
 
-Before starting an attempt the coordinator acquires an in-process lock keyed by
-`loopId`. If held, the request is rejected (or queued for triggers). This is
-what guarantees attempts within a loop never overlap (D-11); `host.appState`
-serialization alone cannot provide it ([02 §App state](02-integration-seams.md#app-state)).
-A workspace-level semaphore (default 2) bounds concurrent attempts across loops.
+## Planning Flow
 
-### Cancellation
+1. Receive a user prompt and optional scheduling or limit hints.
+2. Build a planning request containing:
+   - the `PlanningResponse` schema;
+   - available Sero execution targets;
+   - the user's prompt.
+3. Call the model through the current Sero model execution path.
+4. Parse the model response as JSON.
+5. Validate the generated response and contained plan structurally.
+6. If validation fails, ask the model to repair the response once with the
+   validation errors. If it still fails, store a blocked draft with the errors.
+7. Map the response onto `Loop`: title, summary, plan, materialized triggers,
+   and merged limits.
+8. Add non-blocking warnings such as mixed background-agent and active-session
+   dependencies in managed-worktree loops.
+9. Persist the loop as `draft`.
+10. If the create request explicitly asked to activate, activate only after
+   validation succeeds.
 
-`stop`/`pause` aborts a running background worker via its `AbortSignal`
-(propagated to `host.subagents` abort) and marks the attempt `cancelled`. For an
-active-session attempt, the coordinator stops observing the turn (unsubscribes
-`onTurnComplete`) but never aborts the user's live session.
+The user-facing summary should describe the generated steps and dependencies in
+plain language.
 
-## Shared loop flow
+The planning prompt must not ask the model to choose workspace root or worktree
+use. That choice comes from the user's loop creation options.
 
-1. Create loop goal with checks and stop rule.
-2. If the user gave no checks, seed them from
-   `host.verification.detectVerificationCommands(cwd)`.
-3. Resolve the attempt workdir — workspace root or a worktree (D-06).
-   Active-session attempts must resolve to workspace-root; a worktree forces
-   background-worker mode.
-4. Capture the pre-attempt baseline `baseRef`. On a clean tree `baseRef = HEAD`.
-   On a **dirty** workspace root, run the start gate (D-07): prompt with
-   auto-save / isolate / defer, defaulting to auto-save if unanswered. Auto-save
-   commits the dirty work as the baseline; isolate reroutes to a worktree; defer
-   stops here and retries next trigger. `baseRef` is the rollback target — not a
-   post-attempt checkpoint.
-5. If no task plan exists, run a generated **planner** worker.
-6. Execute the attempt through the selected adapter (below).
-7. Run required checks against the attempt cwd; normalize to `CheckResult`.
-8. On failure: `summarizeFailure` + truncated tail → `learned` / `nextAction`;
-   start the next attempt if the stop rule allows.
-9. On pass: run optional **reviewer** workers.
-10. Complete when required checks pass and the stop rule is satisfied.
-11. Block or stop on exhausted attempts, an exhausted run budget (D-17),
-    no-progress, or unsafe workspace.
+## Coordinator Run Flow
 
-## Adapter: background-worker
+When a loop is due, the coordinator runs this algorithm:
 
-The coordinator owns the loop; the actor is a generated subagent.
+1. Check lifecycle. Only `active` loops can start a run.
+2. Acquire the per-loop lock. If the lock is held, set `runtime.dueAgain = true`
+   and return.
+3. Check management limits before starting new step attempts.
+4. Resolve the loop workspace if a background-agent filesystem step may start.
+5. Compute ready steps:
+   - status is `pending`, `ready`, or `failed` with an LLM retry decision;
+   - all `dependsOn` steps have outcome status `succeeded` or `skipped`;
+   - the step is not already running;
+   - the step has attempts remaining.
+6. Start ready steps, up to `limits.maxConcurrentSteps`.
+7. As each step attempt completes:
+   - record mechanical status, output, artifacts, and usage;
+   - parse a structured step outcome if present;
+   - otherwise ask the LLM to evaluate the raw result into a `StepOutcome`;
+   - update the step runtime state.
+   - if the step outcome includes a completion signal, apply it and stop.
+8. If a step outcome is `failed`, `blocked`, or `needs-revision`, ask the LLM
+   for a `RecoveryDecision`.
+9. Apply the recovery decision:
+   - retry the step;
+   - revise the step;
+   - revise the plan;
+   - skip the step;
+   - wait;
+   - block the loop with `runtime.block.kind = "recovery-block"`.
+10. When no step is running and no step is ready, leave the loop waiting unless a
+   step outcome already emitted a completion signal or a management condition
+   blocks the loop.
+11. Persist the run and updated runtime state.
+12. Release the lock.
+13. If `runtime.dueAgain` was set during the run and the loop is still active,
+    clear the flag and enqueue one more run.
 
-1. Build a `WorkerInstruction` from goal, active task, prior failures, changed
-   files, check output, and stop rule. Tool policy by role (D-10).
-2. Run via `host.subagents.runStructured({ task, systemPrompt, cwd, platformTools,
-   isolated, parentSessionId, model, thinking, timeoutMs, signal })`.
-   `parentSessionId` is the loop session or `orchestrator:<loopId>` (D-15).
-3. Stream live output through
-   `host.subagents.onLiveOutput(workspaceId, parentSessionId, cb)` to the UI.
-4. Parse the worker's fenced JSON against `outputSchema` (D-08). On parse
-   failure, record raw text to an artifact and mark a soft failure.
-5. Record worker metadata — model, duration, usage, response artifact path — on
-   the attempt.
-6. Run checks and diff against the **same** attempt cwd; restore to `baseRef`
-   via `git reset --hard` when an attempt must be rolled back (D-07).
-7. Compute next-attempt context.
+The coordinator never invents steps, retries, recovery actions, validation, or
+completion.
 
-## Adapter: active-session
+## Sequential and Parallel Steps
 
-The coordinator tracks the loop; the actor is the user's live session.
+Sequential execution is represented by dependencies:
 
-0. **Precondition:** `workdir.mode === "workspace-root"` (D-06). A worktree
-   attempt is never routed here — there is no seam to repoint a live session's
-   tool cwd at a worktree.
-1. Resolve the `SessionTarget` (D-05) → `sessionId`.
-2. `host.session.getState(sessionId)`; proceed only if idle and no pending
-   messages. Otherwise defer (do not silently fall back unless `HybridPolicy`
-   says so).
-3. Build the steer from goal, active task, prior failures, check output, and
-   stop rule.
-4. Send it: `host.session.sendUserSteer(sessionId, content, { deliverAs,
-   source: "orchestrator" })` for a user-visible steer, or `sendContextMessage`
-   to inject context with explicit `triggerTurn`. Record the returned `turnId`
-   on `attempt.sessionTurnId`. Hold the attempt lock.
-5. Observe completion via `host.session.onTurnComplete(sessionId, cb)`,
-   correlating by `turnId`; update the attempt with the turn result.
-6. Run checks and diff against the attempt cwd (= workspace root).
-7. Compute next-attempt context.
+```text
+step-1 -> step-2 -> step-3 -> step-4
+```
 
-The lock stays held across the externally-driven turn so no other attempt
-advances the loop meanwhile.
+Parallel execution is represented by independent ready steps:
 
-## Budget enforcement
+```text
+step-1 ─┬─> step-2
+        ├─> step-3
+        └─> step-4
+```
 
-The coordinator enforces `RunBudget` (D-17) around every attempt:
+If `step-2`, `step-3`, and `step-4` all depend only on `step-1`, Orchestrator may
+start them together after `step-1` succeeds, subject to `maxConcurrentSteps`.
 
-1. **Before starting:** if a cumulative limit (`maxWallClockMs`, `maxTotalTokens`,
-   `maxCostUsd`) is already met, do not start — block the loop with reason
-   `budget-exhausted`. Otherwise set the attempt's hard timeout to
-   `min(maxAttemptWallClockMs, remaining maxWallClockMs)`, passed as the worker
-   `timeoutMs` (background) or the turn-wait cap (active-session).
-2. **During:** trip the attempt's `AbortSignal` when its timeout elapses. After a
-   background worker reports its diff, if `changedFiles.length > maxChangedFiles`,
-   stop and block the loop for review with the changes left in place (reason
-   `changed-files-exceeded`); `baseRef` stays available for manual rollback. Each
-   check/command runs with `timeoutMs = maxCommandRuntimeMs`.
-3. **After:** accumulate the attempt's duration, `usage`, and changed-file count
-   (derived from attempt records). If a cumulative limit is now met, block the
-   loop.
+## Workspace Preflight and Step Execution
 
-Token/cost limits bound background-worker spend; active-session turns are
-attributed best-effort from the observed turn result.
+### Workspace Preflight
+
+Before a workflow starts filesystem work, Orchestrator resolves the loop's
+workspace setting. This is a user setting stored on the loop, not a generated
+step-plan field.
+
+New loops default to `useManagedWorktree: true`.
+
+If the registered workspace root is clean:
+
+- `useManagedWorktree: true` creates or reuses one managed worktree for the
+  loop and uses that cwd for background-agent filesystem work;
+- `useManagedWorktree: false` uses the registered workspace root.
+
+If `useManagedWorktree: true`, Orchestrator does not prompt about dirty
+workspace-root changes. The loop runs in the managed worktree and the root's
+uncommitted changes are left untouched.
+
+If `useManagedWorktree: false` and the registered workspace root has
+uncommitted changes, Orchestrator shows a visible notification for 30 seconds
+with three choices:
+
+- stash current changes and run in the workspace root;
+- create an isolated managed worktree and run there;
+- defer the workflow.
+
+If the user does not choose before the timeout, Orchestrator creates a managed
+worktree and proceeds there.
+
+The resolved workspace is recorded on each step attempt that uses it.
+
+### Background Agent Step
+
+Orchestrator starts a normal background Sero agent with the generated step
+instructions, global plan instructions, current variables, relevant
+observations, and expected outcome.
+
+Orchestrator passes the resolved workspace cwd to Sero as the background agent
+cwd.
+
+Every background-agent run uses the loop-scoped `runtime.parentSessionId`. The
+same `parentSessionId` is stored on the `StepAttempt` so the UI can subscribe to
+live output with `(workspaceId, parentSessionId)`.
+
+The background agent uses standard Sero runtime behavior. Orchestrator records
+the response, usage when available, live output, and artifact paths.
+
+### Active-Session Step
+
+Orchestrator resolves the target session and sends the generated instructions as
+a steer, follow-up, next-turn context, or custom message according to the
+generated `SessionTarget`.
+
+The active session continues as a normal Sero session. Orchestrator records the
+resolved `sessionId`, records the `turnId`, observes completion, and stores the
+turn result.
+
+Active-session steps always operate in the live session's workspace root, even
+when background-agent steps for the same loop use a managed worktree.
+
+### Model Step
+
+Orchestrator asks the model for structured output using the generated step
+instructions. Model steps are also used for planning, outcome evaluation,
+recovery, validation, completion signaling, and revision decisions when the plan
+contains those steps.
+
+If a `ModelTarget` includes `outputSchema`, Orchestrator includes that schema in
+the prompt text. The current host call does not enforce schemas, so Orchestrator
+must still parse and validate the returned text.
+
+## Failure Recovery
+
+Step failure always goes back to the LLM unless a management limit has already
+blocked the loop.
+
+The recovery prompt includes:
+
+- original user prompt;
+- current plan;
+- failed step definition;
+- failed attempt output and observations;
+- prior attempts for the step;
+- completed step outcomes;
+- remaining management limits.
+
+The LLM returns a `RecoveryDecision`. Orchestrator validates any revised step or
+plan before applying it.
+
+Canonical recovery decisions are `retry-step`, `revise-step`, `revise-plan`,
+`skip-step`, `wait`, and `block-loop`. `revise-plan` is the recovery decision
+that adds, removes, or reorders steps. `block-loop` sets `runtime.block.kind =
+"recovery-block"`.
+
+## Completion Signal
+
+The LLM decides when and how validation happens by including validation or
+finalization steps in the plan. Those steps can emit a completion signal in their
+`StepOutcome`.
+
+Only a step outcome with `completion.status === "complete"` moves the loop to
+`complete`. A step outcome with `completion.status === "blocked"` moves the loop
+to `blocked` with `runtime.block.kind = "planned-block"`.
+
+If a step outcome includes `variables`, Orchestrator shallow-merges those keys
+into `runtime.variables` after accepting the outcome.
+
+If all current steps have succeeded but no planned step emits a completion
+signal, no extra completion check runs. The loop waits for a trigger, manual
+revision, or a recovery/plan revision path that adds the missing validation
+step.
+
+## Management Limits
+
+Orchestrator manages execution limits:
+
+- `maxAttemptsPerStep`;
+- `maxAttemptsTotal`;
+- `maxConcurrentSteps`;
+- `maxWallClockMs`;
+- `maxTotalTokens`;
+- `maxCostUsd`.
+
+When a limit is reached, Orchestrator stops starting new attempts and blocks the
+loop with `runtime.block.kind = "management-limit"`. Limit exhaustion is not
+completion.
+
+Run and artifact retention are controlled by `LogPolicy`.
+
+## Restart Recovery
+
+On workspace runtime start, before evaluating triggers, Orchestrator reconciles
+persisted in-flight state:
+
+1. If `runtime.activeRunId` points to a run that is no longer observable, mark
+   the run `orphaned`.
+2. Mark persisted `running` attempts in that run `orphaned`.
+3. Move the affected step states to `failed`.
+4. Clear `runtime.activeRunId`.
+5. Record a system observation explaining that the previous process ended.
+6. If the loop is still active, continue through normal failure recovery so the
+   LLM decides whether to retry, revise, skip, wait, or block.
+
+## Cancellation
+
+`pause` or `stop` cancels cancellable work.
+
+- Background-agent and model executions receive an `AbortSignal`.
+- Active-session executions stop being observed, but Orchestrator does not abort
+  the user's live session.
+
+The run records `cancelled`.
 
 ## Scheduling
 
-Triggers mark work **due**; they never run detached prompts. Loop progress comes
-from durable transitions: trigger due, worker complete, check complete, session
-idle, user pause/resume/stop, workspace safety change.
+Triggers mark a loop due. They never execute directly.
 
-### Trigger types
+Trigger types:
 
-- `manual` — user/tool runs the next eligible attempt (`run_next`).
-- `cron` — a schedule marks the loop due.
-- `event` — a workspace/VCS/check/task/session lifecycle event marks it due.
-- `hybrid` — event trigger with a cron safety net.
+- `manual`: user, tool, or UI requests `run_next`;
+- `cron`: schedule marks the loop due;
+- `event`: workspace, session, or future event source marks the loop due;
+- `hybrid`: event trigger with a cron safety net.
 
 ### Evaluation
 
-`runtime/scheduler.ts` copies cron's debounce/missed-run shape behind an adapter
-(D-02): a coarse tick evaluates `cron` triggers per minute with carry-over
-(`LoopTrigger.lastFireAt`/`fireCount` persisted), while `event` triggers fire
-from subscriptions. Marking a loop due enqueues a `run_next` request to the
-coordinator; the coordinator still gates on the per-loop lock and stop rule.
+`runtime/scheduler.ts` copies cron's debounce and missed-run pattern behind an
+Orchestrator scheduler. Cron triggers persist `lastFireAt`, `nextFireAt`, and
+`fireCount`.
 
-### Decisions for the scheduler
+When a trigger fires:
 
-- **Closed workspaces (D-04):** with no always-on watcher, nothing records a due
-  trigger at its due time for a closed workspace. Behavior is **compute-on-open**:
-  when a workspace runtime starts, each `cron` trigger's missed fires are
-  recomputed from `lastFireAt` + `schedule` (collapsed to a single catch-up).
-  `event` triggers fired while the workspace was closed are missed — no listener
-  existed — which is logged, never silent.
-- **Missed cron fires:** collapse into a single due mark (one catch-up attempt),
-  not a backlog of attempts.
-- **Event during a running attempt:** does not start a second attempt; it sets a
-  "due again" flag the coordinator consumes after the current attempt resolves
-  (respecting the per-loop lock).
-- **Long-busy session (active-session):** the attempt stays pending behind the
-  lock; if the session stays busy past `timeoutMs`, the attempt is marked
-  `blocked` with reason `session-busy` and retried on the next trigger.
-- **Debounce across restart:** persisted on the trigger, mirroring cron's
-  carry-over.
-- **Scheduler locking:** the per-loop execution lock prevents two runtimes from
-  executing the same loop; the supervisor (when present) holds the cross-process
-  due-marking authority.
+1. mark the loop due;
+2. call coordinator `run_next`;
+3. let lifecycle, step readiness, locks, and limits decide what starts.
 
-## Worktree strategy
+### Closed Workspaces
 
-Start with checkpoints in the workspace root; add worktree isolation after the
-checkpoint-based loop works. When added, use `host.git.createWorktree` with an
-attempt id as `cardId` — accepting the card-flavored naming until Phase 6
-neutralizes it ([02 §VCS](02-integration-seams.md#vcs-checkpoints-worktrees)).
-In-workspace worktrees under `.sero/worktrees/` work with existing verification,
-command execution, and subagent cwd mapping. External worktrees need runtime
-mount changes first (D-06).
+There is no always-on executor. When a workspace opens, Orchestrator recomputes
+missed cron fires from trigger state and collapses them into one catch-up run.
 
-## UI strategy
+Event triggers that fired while the workspace was closed are missed and logged.
 
-Functional and compact, no long explanatory copy:
+### Trigger During Running Loop
 
-- Goal list and goal detail.
-- Checks with latest results.
-- Attempt timeline (status, mode, checks, learned, next action).
-- Pause / resume / stop / run-next controls.
-- Current blocker or next action.
+If a trigger fires while a coordinator run is active, Orchestrator sets
+`runtime.dueAgain = true`. It does not start a second coordinator run. After the
+current run ends, the coordinator consumes that flag and starts one more run if
+the loop is still active.
 
-The UI reads state via `host.appState` watch and issues actions through bridged
-commands — it owns no execution (D-01).
+## UI Strategy
+
+The UI should be compact and operational:
+
+- loop list;
+- loop detail;
+- generated plan viewer;
+- step dependency graph;
+- step runtime status;
+- attempt history;
+- recovery decisions;
+- completion signal;
+- trigger and limit settings;
+- pause, resume, stop, activate, and run-next controls.
+
+The UI must display generated steps and outcomes. It must not describe a fixed
+workflow.
