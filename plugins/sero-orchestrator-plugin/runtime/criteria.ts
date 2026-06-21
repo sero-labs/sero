@@ -19,6 +19,7 @@ import { type ArtifactSink, commandResultToCheck, maybeArtifact } from './checks
 import { isoNow, type Clock } from './clock';
 import { gatherEvidence } from './evidence';
 import type { CriterionJudge } from './judge';
+import { compareThreshold, extractNumbers } from './measurement';
 
 export interface RunCriteriaDeps extends ArtifactSink {
   workspaceId: string;
@@ -52,8 +53,7 @@ async function evaluateCriterion(
     case 'judge':
       return evaluateJudge(deps, criterion);
     case 'threshold':
-      // Measurement extraction + compare lands in P-C.
-      return placeholder(deps, criterion, 'Measurement evaluation is not available yet.');
+      return evaluateThreshold(deps, criterion);
   }
 }
 
@@ -61,10 +61,11 @@ async function evaluateCriterion(
 async function evaluateJudge(
   deps: RunCriteriaDeps,
   criterion: SuccessCriterion,
+  note?: string,
 ): Promise<CheckResult> {
   const startedAt = isoNow(deps.clock);
   if (!deps.judge) {
-    return result(criterion, 'skipped', 'Judge evaluation needs a background worker.', startedAt, isoNow(deps.clock));
+    return result(criterion, 'skipped', note ?? 'Judge evaluation needs a background worker.', startedAt, isoNow(deps.clock));
   }
   const evidence = await gatherEvidence(deps, criterion.evidence);
   const verdict = await deps.judge(criterion, evidence);
@@ -73,12 +74,55 @@ async function evaluateJudge(
   return {
     checkId: criterion.id,
     type: 'criterion',
-    decisionKind: 'judge',
+    decisionKind: criterion.decision.kind,
     status: verdict.passed ? 'passed' : 'failed',
-    summary: verdict.summary,
+    summary: note ? `${note} ${verdict.summary}` : verdict.summary,
     stdoutPath,
     startedAt,
     endedAt,
+  };
+}
+
+/**
+ * Measurement: run the measurement command, extract the number(s), compare
+ * against the LLM-authored threshold, aggregate (spec 05 §6.2). When extraction
+ * is ambiguous (no clean number) the criterion falls back to the judge so a fuzzy
+ * measurement never passes/fails on a guess.
+ */
+async function evaluateThreshold(
+  deps: RunCriteriaDeps,
+  criterion: SuccessCriterion,
+): Promise<CheckResult> {
+  const decision = criterion.decision;
+  if (decision.kind !== 'threshold') {
+    return placeholder(deps, criterion, 'Not a threshold criterion.');
+  }
+  const startedAt = isoNow(deps.clock);
+  const commands = runCommands(criterion.evidence);
+  if (commands.length === 0) {
+    return result(criterion, 'failed', 'No measurement command for this threshold criterion.', startedAt, isoNow(deps.clock));
+  }
+  const verification = await deps.host.verification.runCommands(
+    deps.workspaceId,
+    deps.cwd,
+    commands,
+    deps.commandTimeoutMs,
+  );
+  const output = verification.results.map((r) => r.stdout).filter(Boolean).join('\n');
+  const numbers = extractNumbers(output, decision.metric);
+  if (numbers.length === 0) {
+    // Ambiguous extraction → judge-fallback (spec 05 §4.2).
+    return evaluateJudge(deps, criterion, 'Measurement output was not a clean number, so it was judged:');
+  }
+  const { passed, summary } = compareThreshold(numbers, decision);
+  return {
+    checkId: criterion.id,
+    type: 'criterion',
+    decisionKind: 'threshold',
+    status: passed ? 'passed' : 'failed',
+    summary,
+    startedAt,
+    endedAt: isoNow(deps.clock),
   };
 }
 

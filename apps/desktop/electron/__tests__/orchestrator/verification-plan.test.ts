@@ -177,32 +177,6 @@ describe('P-A — criterion evaluation', () => {
     h.cleanup();
   });
 
-  it('a required threshold criterion is skipped (P-C placeholder) so the loop does not complete', async () => {
-    const thresholdPlanner: PlannerRunner = async () => ({
-      criteria: [
-        {
-          id: 'fast',
-          description: 'fast enough',
-          evidence: [{ kind: 'run', command: 'measure' }],
-          decision: { kind: 'threshold', metric: 'ms', op: '<', value: 50 },
-          required: true,
-        },
-      ],
-      stopConditions: [],
-    });
-    const h = createHarness({ planner: thresholdPlanner, runWorker: changeWorker });
-    const id = await h.createLoop({ stopRule: { maxAttempts: 1 } });
-    await settle();
-
-    await h.coordinator.requestAction({ kind: 'run_next', loopId: id });
-    const loop = await h.loop(id);
-    expect(loop!.status).not.toBe('complete');
-    const result = loop!.attempts.at(-1)!.checkResults[0]!;
-    expect(result.status).toBe('skipped');
-    expect(result.decisionKind).toBe('threshold');
-    h.cleanup();
-  });
-
   it('folds planner spend into the cumulative token budget', async () => {
     const h = createHarness({
       planner: goalPlanner({ usage: { totalTokens: 500 } }),
