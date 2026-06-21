@@ -68,6 +68,8 @@ export function createOrchestratorHost(ctx: AppRuntimeContext): OrchestratorHost
     notify: (message, type) => ctx.host.notifications.notify({ message, type }),
     requestChoice: (request) => ctx.host.notifications.requestChoice(request),
 
+    session: ctx.host.session,
+
     now: () => new Date().toISOString(),
     newId: (prefix) => (prefix ? `${prefix}_${randomUUID()}` : randomUUID()),
     log: (message) => console.log(`[orchestrator] ${message}`),

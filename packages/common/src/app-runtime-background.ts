@@ -7,6 +7,7 @@
  */
 
 import type { WorkspaceAccessRootsResult } from './workspace-access-roots';
+import type { ExtensionRuntimeContent, ExtensionRuntimeMessage } from './session-runtime';
 
 export interface AppRuntimeStateApi {
   read<T = unknown>(filePath: string): Promise<T | null>;
@@ -443,6 +444,45 @@ export interface AppRuntimeToolchainsApi {
   sharedToolsDir(namespace: string): Promise<{ path: string }>;
 }
 
+export interface AppRuntimeActiveSession {
+  sessionId: string;
+  workspaceId: string;
+}
+
+export interface AppRuntimeSessionState {
+  idle: boolean;
+  pendingMessages: number;
+  activeTurnId: string | null;
+}
+
+export type AppRuntimeTurnStatus = 'completed' | 'aborted' | 'error';
+
+export interface AppRuntimeTurnResult {
+  turnId: string;
+  status: AppRuntimeTurnStatus;
+}
+
+/**
+ * Active-session control for background app runtimes (Orchestrator
+ * active-session steps). The live session continues under standard Sero
+ * session rules; Orchestrator only sends and observes.
+ */
+export interface AppRuntimeSessionHost {
+  getActiveForWorkspace(workspaceId: string): Promise<AppRuntimeActiveSession | null>;
+  getState(sessionId: string): Promise<AppRuntimeSessionState>;
+  sendUserSteer(
+    sessionId: string,
+    content: ExtensionRuntimeContent,
+    options: { deliverAs: 'steer' | 'followUp'; source: 'orchestrator' },
+  ): Promise<{ turnId: string }>;
+  sendContextMessage(
+    sessionId: string,
+    message: ExtensionRuntimeMessage,
+    options: { deliverAs: 'steer' | 'followUp' | 'nextTurn'; triggerTurn: boolean; source: 'orchestrator' },
+  ): Promise<{ turnId: string | null }>;
+  onTurnComplete(sessionId: string, cb: (result: AppRuntimeTurnResult) => void): () => void;
+}
+
 export interface AppRuntimeHost {
   appState: AppRuntimeStateApi;
   subagents: AppRuntimeSubagentsApi;
@@ -453,6 +493,7 @@ export interface AppRuntimeHost {
   notifications: AppRuntimeNotificationsApi;
   credentials: AppRuntimeCredentialsApi;
   toolchains: AppRuntimeToolchainsApi;
+  session: AppRuntimeSessionHost;
 }
 
 export interface AppRuntimeContext {

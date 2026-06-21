@@ -33,6 +33,11 @@ export function noteCliTurnEnd(sessionId: string): void {
   activeTurns.delete(sessionId);
 }
 
+/** Current turn id for a session, or null. Read before noteCliTurnEnd clears it. */
+export function getCliActiveTurnId(sessionId: string): string | null {
+  return activeTurns.get(sessionId) ?? null;
+}
+
 export function installCliAgentBridge(options: InstallCliAgentBridgeOptions): void {
   installCliSessionBridge({
     getSessionEntry(sessionId) {

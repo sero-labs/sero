@@ -9,7 +9,46 @@
  * active-session capabilities come online.
  */
 
+import type {
+  ExtensionRuntimeContent,
+  ExtensionRuntimeMessage,
+} from '@sero-ai/common';
 import type { OrchestratorState } from '../shared/types';
+
+export interface ActiveSessionInfo {
+  sessionId: string;
+  workspaceId: string;
+}
+
+export interface SessionState {
+  idle: boolean;
+  pendingMessages: number;
+  activeTurnId: string | null;
+}
+
+export type TurnStatus = 'completed' | 'aborted' | 'error';
+
+export interface TurnResult {
+  turnId: string;
+  status: TurnStatus;
+}
+
+/** Active-session control (Orchestrator active-session steps). */
+export interface SessionHost {
+  getActiveForWorkspace(workspaceId: string): Promise<ActiveSessionInfo | null>;
+  getState(sessionId: string): Promise<SessionState>;
+  sendUserSteer(
+    sessionId: string,
+    content: ExtensionRuntimeContent,
+    options: { deliverAs: 'steer' | 'followUp'; source: 'orchestrator' },
+  ): Promise<{ turnId: string }>;
+  sendContextMessage(
+    sessionId: string,
+    message: ExtensionRuntimeMessage,
+    options: { deliverAs: 'steer' | 'followUp' | 'nextTurn'; triggerTurn: boolean; source: 'orchestrator' },
+  ): Promise<{ turnId: string | null }>;
+  onTurnComplete(sessionId: string, cb: (result: TurnResult) => void): () => void;
+}
 
 /** Parameters for a model / background-agent run (subset of the host seam). */
 export interface ModelRunParams {
@@ -99,6 +138,9 @@ export interface OrchestratorHost {
   notify(message: string, type?: 'info' | 'warning' | 'error'): void;
   /** Visible choice notification with timeout fallback. */
   requestChoice(request: ChoiceRequest): Promise<ChoiceResult>;
+
+  // ── Active-session control ────────────────────────────────
+  session: SessionHost;
 
   // ── Deterministic utilities ───────────────────────────────
   /** ISO timestamp. Injectable so tests are deterministic. */

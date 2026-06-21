@@ -129,6 +129,13 @@ function createHostStub(
       notify: vi.fn(),
       requestChoice: vi.fn(async () => ({ choiceId: null, timedOut: true })),
     },
+    session: {
+      getActiveForWorkspace: vi.fn(async () => null),
+      getState: vi.fn(async () => ({ idle: true, pendingMessages: 0, activeTurnId: null })),
+      sendUserSteer: vi.fn(async () => ({ turnId: 'turn-1' })),
+      sendContextMessage: vi.fn(async () => ({ turnId: null })),
+      onTurnComplete: vi.fn(() => () => {}),
+    },
   };
 }
 

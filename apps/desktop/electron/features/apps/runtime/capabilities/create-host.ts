@@ -48,6 +48,7 @@ import {
 } from '@electron/features/workspace/runtime/toolchains/host-tool-resolver';
 import { validateRuntimeCustomTools } from './custom-tools';
 import { getProviderApiKey } from './provider-credentials';
+import { createSessionHost } from './session-host';
 import type { AppRuntimeTarget, AppRuntimeHost } from '../types';
 
 const worktreeManager = new WorktreeManager();
@@ -189,6 +190,7 @@ export function createAppRuntimeHost(_target: AppRuntimeTarget): AppRuntimeHost 
     credentials: {
       getProviderApiKey: (providerId) => getProviderApiKey(providerId, SERO_HOME),
     },
+    session: createSessionHost(),
     toolchains: {
       ensure: async (tool) => {
         if (!isToolName(tool)) throw new Error(`Unknown managed tool: ${tool}`);

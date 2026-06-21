@@ -6,10 +6,12 @@
 import { DEFAULT_STATE } from '../../shared/defaults';
 import type { OrchestratorState } from '../../shared/types';
 import type {
+  ActiveSessionInfo,
   ChoiceResult,
   ModelRunParams,
   ModelRunResult,
   OrchestratorHost,
+  TurnResult,
   WorkspaceStatus,
 } from '../host';
 
@@ -41,6 +43,12 @@ export interface FakeHost extends OrchestratorHost {
   notifications: { message: string; type?: string }[];
   choiceRequests: { title: string; body: string }[];
   stashes: string[];
+  /** Active session returned by session.getActiveForWorkspace (null = none). */
+  activeSession: ActiveSessionInfo | null;
+  /** Turn result delivered to the next onTurnComplete subscriber. */
+  turnResult: TurnResult;
+  /** Records active-session sends. */
+  sessionSends: { sessionId: string; kind: 'steer' | 'context' }[];
 }
 
 export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
@@ -62,6 +70,9 @@ export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
     notifications: [],
     choiceRequests: [],
     stashes: [],
+    activeSession: { sessionId: 'sess-1', workspaceId: options.workspaceId ?? 'ws-1' },
+    turnResult: { turnId: 'turn-1', status: 'completed' },
+    sessionSends: [],
 
     async readState() {
       return structuredClone(this.state);
@@ -102,6 +113,26 @@ export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
     async requestChoice(request) {
       this.choiceRequests.push({ title: request.title, body: request.body });
       return this.choiceResult;
+    },
+    session: {
+      async getActiveForWorkspace() {
+        return host.activeSession;
+      },
+      async getState() {
+        return { idle: true, pendingMessages: 0, activeTurnId: null };
+      },
+      async sendUserSteer(sessionId) {
+        host.sessionSends.push({ sessionId, kind: 'steer' });
+        return { turnId: host.turnResult.turnId };
+      },
+      async sendContextMessage(sessionId, _message, options) {
+        host.sessionSends.push({ sessionId, kind: 'context' });
+        return { turnId: options.triggerTurn ? host.turnResult.turnId : null };
+      },
+      onTurnComplete(_sessionId, cb) {
+        const timer = setTimeout(() => cb(host.turnResult), 0);
+        return () => clearTimeout(timer);
+      },
     },
     now() {
       // Advance one second per call so ordering is deterministic and distinct.

@@ -12,7 +12,7 @@ plans.
 | 3 | Coordinator core | ✅ Done | Lifecycle, locks, runs, step states, attempts, and artifacts work |
 | 4 | Step execution, workspace isolation, and limits | ✅ Done | Ready steps run through Sero execution in the user-selected workspace |
 | 5 | Outcomes, recovery, and completion signals | ✅ Done | Failed steps recover through the LLM; planned steps can signal completion |
-| 6 | Active-session execution | ⬜ Not started | Active-session steps send and observe by `turnId` |
+| 6 | Active-session execution | ✅ Done | Active-session steps send and observe by `turnId` |
 | 7 | Scheduling and events | ⬜ Not started | Manual/cron/event/hybrid triggers mark loops due |
 | 8 | Polish and docs | ⬜ Not started | UI and docs explain generated step plans clearly |
 
@@ -34,8 +34,8 @@ Status legend: ✅ Done · 🟡 In progress · ⬜ Not started · ⛔ Blocked ·
 | FR-10 | Step outcome is LLM-reported or LLM-evaluated, not heuristic | 5 | D-03/D-04 | ✅ |
 | FR-11 | Failed steps ask the LLM for recovery or revision | 5 | D-04/D-13 | ✅ |
 | FR-12 | Completion is signaled by planned step outcomes, not a coordinator-triggered completion check | 5 | D-03 | ✅ |
-| FR-13 | New `host.session` seam for active-session steps | 6 | D-11 | ⬜ |
-| FR-14 | Active-session steps send and observe by `turnId` | 6 | D-11 | ⬜ |
+| FR-13 | New `host.session` seam for active-session steps | 6 | D-11 | ✅ |
+| FR-14 | Active-session steps send and observe by `turnId` | 6 | D-11 | ✅ |
 | FR-15 | Manual/cron/event/hybrid triggers mark loops due | 7 | D-12 | ⬜ |
 | FR-16 | Closed-workspace cron catch-up collapses to one run | 7 | D-08/D-12 | ⬜ |
 | FR-17 | Plan revisions are structurally validated and recorded | 5 | D-13 | ✅ |
@@ -267,21 +267,21 @@ from planned execution.
 
 **Tasks**
 
-- [ ] Add `host.session.getActiveForWorkspace` and `getState`.
-- [ ] Add `sendUserSteer` and `sendContextMessage`.
-- [ ] Add `onTurnComplete` emitter from session turn lifecycle.
-- [ ] Implement active-session step execution.
-- [ ] Correlate turn completion by `turnId`.
-- [ ] Record the resolved active `sessionId` on the step attempt.
-- [ ] Record turn result as observations and artifacts.
+- [x] Add `host.session.getActiveForWorkspace` and `getState`.
+- [x] Add `sendUserSteer` and `sendContextMessage`.
+- [x] Add `onTurnComplete` emitter from session turn lifecycle.
+- [x] Implement active-session step execution.
+- [x] Correlate turn completion by `turnId`.
+- [x] Record the resolved active `sessionId` on the step attempt.
+- [x] Record turn result as observations and artifacts.
 
 **Acceptance**
 
-- [ ] An active-session step sends to the selected session.
-- [ ] Turn completion is recorded once by `turnId`.
-- [ ] The attempt records the resolved active `sessionId`.
-- [ ] The active session continues under standard Sero session behavior.
-- [ ] FR-13 and FR-14 satisfied.
+- [x] An active-session step sends to the selected session.
+- [x] Turn completion is recorded once by `turnId`.
+- [x] The attempt records the resolved active `sessionId`.
+- [x] The active session continues under standard Sero session behavior.
+- [x] FR-13 and FR-14 satisfied.
 
 ---
 
