@@ -1,8 +1,10 @@
-import type { ReactNode } from 'react';
+import { type ReactNode, useState } from 'react';
+import { Button } from '@sero-ai/ui';
 
-import type { DecisionKind, LoopCheck, LoopGoal, SuccessCriterion } from '../../shared/types';
+import type { DecisionKind, LoopCheck, LoopGoal, LoopStatus, SuccessCriterion } from '../../shared/types';
 import type { OrchestratorActions } from '../lib/actions';
 import { AttemptTimeline } from './AttemptTimeline';
+import { EditGoalForm } from './EditGoalForm';
 import { LoopControls } from './LoopControls';
 import { StatusBadge } from './StatusBadge';
 import '../styles.css';
@@ -12,6 +14,9 @@ const MODE_LABEL = {
   'active-session': 'Active chat',
   hybrid: 'Hybrid',
 } as const;
+
+// A finished goal is immutable; everything else can be edited / re-planned.
+const TERMINAL: ReadonlySet<LoopStatus> = new Set<LoopStatus>(['complete', 'stopped']);
 
 // How each criterion is checked, in plain words (spec 05).
 const DECISION_LABEL: Record<DecisionKind, string> = {
@@ -64,6 +69,9 @@ interface GoalDetailProps {
 }
 
 export function GoalDetail({ loop, actions }: GoalDetailProps) {
+  const [editing, setEditing] = useState(false);
+  const editable = !TERMINAL.has(loop.status);
+
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto p-5">
       <header className="flex flex-col gap-3">
@@ -78,10 +86,26 @@ export function GoalDetail({ loop, actions }: GoalDetailProps) {
       </header>
 
       <Section title="Goal">
-        <p className="whitespace-pre-wrap text-sm text-foreground">{loop.goal}</p>
-        <p className="text-xs text-muted-foreground">
-          Runs as {MODE_LABEL[loop.executionMode]} · stops after {loop.stopRule.maxAttempts} attempts
-        </p>
+        {editing ? (
+          <EditGoalForm loop={loop} actions={actions} onDone={() => setEditing(false)} />
+        ) : (
+          <>
+            <p className="whitespace-pre-wrap text-sm text-foreground">{loop.goal}</p>
+            <p className="text-xs text-muted-foreground">
+              Runs as {MODE_LABEL[loop.executionMode]} · stops after {loop.stopRule.maxAttempts} attempts
+            </p>
+            {editable && (
+              <div className="flex items-center gap-2">
+                <Button size="sm" variant="outline" disabled={actions.busy} onClick={() => setEditing(true)}>
+                  Edit goal
+                </Button>
+                <Button size="sm" variant="outline" disabled={actions.busy} onClick={() => actions.replan(loop.id)}>
+                  Re-derive plan
+                </Button>
+              </div>
+            )}
+          </>
+        )}
       </Section>
 
       <Section title="Verification">

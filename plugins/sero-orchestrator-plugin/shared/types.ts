@@ -368,6 +368,10 @@ export type OrchestratorAction =
   | { kind: 'create'; input: CreateLoopInput }
   | { kind: 'list' }
   | { kind: 'show'; loopId: string }
+  // Edit a goal's title/goal text; a goal-text change re-derives the plan (spec 05).
+  | { kind: 'edit'; loopId: string; title?: string; goal?: string }
+  // Force a fresh verification plan on the same goal (e.g. after the repo changed).
+  | { kind: 'replan'; loopId: string }
   | { kind: 'pause'; loopId: string }
   | { kind: 'resume'; loopId: string }
   | { kind: 'stop'; loopId: string }

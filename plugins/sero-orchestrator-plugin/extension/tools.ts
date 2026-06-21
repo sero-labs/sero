@@ -38,17 +38,19 @@ export const Params = Type.Object({
     'create',
     'list',
     'show',
+    'edit',
+    'replan',
     'pause',
     'resume',
     'stop',
     'run_next',
   ] as const),
   loopId: Type.Optional(
-    Type.String({ description: 'Goal id (for show/pause/resume/stop/run_next)' }),
+    Type.String({ description: 'Goal id (for show/edit/replan/pause/resume/stop/run_next)' }),
   ),
-  title: Type.Optional(Type.String({ description: 'Short title (for create)' })),
+  title: Type.Optional(Type.String({ description: 'Short title (for create/edit)' })),
   goal: Type.Optional(
-    Type.String({ description: 'What the loop should achieve (for create)' }),
+    Type.String({ description: 'What the loop should achieve (for create/edit)' }),
   ),
   executionMode: Type.Optional(
     StringEnum(['background-worker', 'active-session', 'hybrid'] as const, {
@@ -69,7 +71,7 @@ export const Params = Type.Object({
 });
 
 export type OrchestratorParams = {
-  action: 'create' | 'list' | 'show' | 'pause' | 'resume' | 'stop' | 'run_next';
+  action: 'create' | 'list' | 'show' | 'edit' | 'replan' | 'pause' | 'resume' | 'stop' | 'run_next';
   loopId?: string;
   title?: string;
   goal?: string;
@@ -86,6 +88,8 @@ export const HELP = [
   '  sero orchestrator list',
   '  sero orchestrator show <id>',
   '  sero orchestrator create --title "<title>" --goal "<goal>" [--mode background-worker|active-session|hybrid] [--isolate] [--pr]',
+  '  sero orchestrator edit <id> [--title "<title>"] [--goal "<goal>"]   # a goal change re-derives the plan',
+  '  sero orchestrator replan <id>                                        # re-derive the plan on the same goal',
   '  sero orchestrator pause <id>',
   '  sero orchestrator resume <id>',
   '  sero orchestrator stop <id>',
@@ -132,6 +136,15 @@ export function actionFromParams(params: OrchestratorParams): ActionOrError {
           prPolicy: params.openPr ? { openOnComplete: true } : undefined,
         },
       };
+    case 'edit':
+      if (!params.loopId?.trim()) return { error: 'edit needs a goal id.' };
+      if (params.title === undefined && params.goal === undefined) {
+        return { error: 'edit needs a new title or goal.' };
+      }
+      return { kind: 'edit', loopId: params.loopId, title: params.title, goal: params.goal };
+    case 'replan':
+      if (!params.loopId?.trim()) return { error: 'replan needs a goal id.' };
+      return { kind: 'replan', loopId: params.loopId };
     case 'show':
     case 'pause':
     case 'resume':
@@ -166,6 +179,18 @@ export function actionFromCli(argv: string[]): ActionOrError {
         isolate: flags.has('isolate') || flags.has('worktree'),
         openPr: flags.has('pr') || flags.has('open-pr'),
       });
+    case 'edit':
+      if (!id) return { error: 'edit needs a goal id.' };
+      return actionFromParams({
+        action: 'edit',
+        loopId: id,
+        title: flags.get('title'),
+        goal: flags.get('goal'),
+      });
+    case 'replan':
+    case 're-plan':
+      if (!id) return { error: 'replan needs a goal id.' };
+      return { kind: 'replan', loopId: id };
     case 'show':
     case 'pause':
     case 'resume':
@@ -301,7 +326,7 @@ export function createOrchestratorTool(): SeroCliTool<ToolDefinition<typeof Para
     name: 'orchestrator',
     label: 'Sero Orchestrator',
     description:
-      'Manage durable workflow loops (goals). Actions: list, show (id), create (title+goal), pause (id), resume (id), stop (id), run_next (id).',
+      'Manage durable workflow loops (goals). Actions: list, show (id), create (title+goal), edit (id, title?/goal?), replan (id), pause (id), resume (id), stop (id), run_next (id).',
     parameters: Params,
 
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {

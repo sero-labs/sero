@@ -21,6 +21,8 @@ export interface OrchestratorActions {
   notice: string | null;
   dismiss(): void;
   create(input: CreateGoalInput): Promise<boolean>;
+  edit(loopId: string, input: { title?: string; goal?: string }): Promise<boolean>;
+  replan(loopId: string): Promise<boolean>;
   pause(loopId: string): Promise<boolean>;
   resume(loopId: string): Promise<boolean>;
   stop(loopId: string): Promise<boolean>;
@@ -78,6 +80,11 @@ export function useOrchestratorActions(): OrchestratorActions {
         }),
       [invoke],
     ),
+    edit: useCallback(
+      (loopId, input) => invoke({ action: 'edit', loopId, title: input.title, goal: input.goal }),
+      [invoke],
+    ),
+    replan: useCallback((loopId) => invoke({ action: 'replan', loopId }), [invoke]),
     pause: useCallback((loopId) => invoke({ action: 'pause', loopId }), [invoke]),
     resume: useCallback((loopId) => invoke({ action: 'resume', loopId }), [invoke]),
     stop: useCallback((loopId) => invoke({ action: 'stop', loopId }), [invoke]),

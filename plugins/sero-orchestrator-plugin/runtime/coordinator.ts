@@ -36,12 +36,8 @@ import { isoNow, systemClock, type Clock } from './clock';
 import { diagnoseSession } from './diagnostics';
 import { AttemptEngine } from './engine';
 import { EventRouter } from './events';
-import {
-  createPlannerRunner,
-  goalHash,
-  type PlanDerivation,
-  type PlannerRunner,
-} from './planner';
+import { createPlannerRunner, type PlannerRunner } from './planner';
+import { derivePlan } from './plan-deriver';
 import {
   DEFAULT_WORKSPACE_CONCURRENCY,
   LoopLocks,
@@ -204,6 +200,10 @@ export class WorkspaceCoordinator implements OrchestratorCoordinator {
         return this.list();
       case 'show':
         return this.show(action.loopId);
+      case 'edit':
+        return this.edit(action.loopId, { title: action.title, goal: action.goal });
+      case 'replan':
+        return this.replan(action.loopId);
       case 'pause':
         return this.setStatus(action.loopId, 'paused');
       case 'resume':
@@ -232,6 +232,75 @@ export class WorkspaceCoordinator implements OrchestratorCoordinator {
 
   // ── Control-plane actions ────────────────────────────────────────────────────
 
+  /**
+   * Edit a goal's title/text. A goal-text change re-derives the verification plan
+   * (spec 05): the loop drops to `draft` (unless paused — a paused loop won't run)
+   * so no attempt runs against the stale plan, and the planner re-derives in the
+   * background, flipping it back to `active`. Finished loops are not editable.
+   */
+  private async edit(
+    loopId: string,
+    input: { title?: string; goal?: string },
+  ): Promise<OrchestratorActionResult> {
+    const loop = await this.store.getLoop(loopId);
+    if (!loop) return { ok: false, error: `No goal with id ${loopId}.` };
+    if (TERMINAL.has(loop.status)) {
+      return { ok: false, error: `Cannot edit a ${loop.status} goal.` };
+    }
+    const title = input.title?.trim();
+    const goal = input.goal?.trim();
+    if (input.title !== undefined && !title) return { ok: false, error: 'A goal needs a title.' };
+    if (input.goal !== undefined && !goal) return { ok: false, error: 'A goal needs a description.' };
+    if (title === undefined && goal === undefined) {
+      return { ok: false, error: 'Provide a new title or goal to edit.' };
+    }
+    const goalChanged = goal !== undefined && goal !== loop.goal;
+    const rederive = goalChanged && Boolean(this.planner);
+    const updated = await this.store.updateLoop(loopId, (current) => {
+      if (title) current.title = title;
+      if (goal) current.goal = goal;
+      if (rederive && current.status !== 'paused') {
+        current.status = 'draft';
+        current.statusReason = undefined;
+        current.blockedReason = undefined;
+      }
+      current.updatedAt = isoNow(this.clock);
+    });
+    if (rederive) {
+      void this.ensurePlan(loopId).catch((err) => {
+        console.error('[orchestrator] re-derive after edit failed', err);
+      });
+      return { ok: true, loop: updated ?? undefined, message: `Updated "${updated?.title}" — re-deriving its verification plan.` };
+    }
+    return { ok: true, loop: updated ?? undefined, message: `Updated "${updated?.title}".` };
+  }
+
+  /**
+   * Force a fresh verification plan on the same goal (e.g. the repo gained a test
+   * runner). Drops to `draft` (unless paused) and re-derives; finished loops are
+   * not re-planned.
+   */
+  private async replan(loopId: string): Promise<OrchestratorActionResult> {
+    if (!this.planner) return { ok: false, error: 'Verification planning is not available.' };
+    const loop = await this.store.getLoop(loopId);
+    if (!loop) return { ok: false, error: `No goal with id ${loopId}.` };
+    if (TERMINAL.has(loop.status)) {
+      return { ok: false, error: `Cannot re-derive a ${loop.status} goal.` };
+    }
+    if (loop.status !== 'paused') {
+      await this.store.updateLoop(loopId, (current) => {
+        current.status = 'draft';
+        current.statusReason = undefined;
+        current.blockedReason = undefined;
+        current.updatedAt = isoNow(this.clock);
+      });
+    }
+    void this.ensurePlan(loopId, true).catch((err) => {
+      console.error('[orchestrator] replan failed', err);
+    });
+    return { ok: true, loop: (await this.store.getLoop(loopId)) ?? undefined, message: `Re-deriving the verification plan for "${loop.title}".` };
+  }
+
   private async create(input: CreateLoopInput): Promise<OrchestratorActionResult> {
     if (!input.title?.trim() || !input.goal?.trim()) {
       return { ok: false, error: 'A goal needs both a title and a goal description.' };
@@ -255,74 +324,16 @@ export class WorkspaceCoordinator implements OrchestratorCoordinator {
   }
 
   /**
-   * Derive (or re-derive) a loop's verification plan (spec 05, D-19) and write it
-   * under the coordinator's own state mutation (single-writer). Runs at create
-   * and again when the goal text changes (provenance via `derivedFrom.goalHash`).
-   * A freshly-derived `draft` loop becomes `active`; if derivation fails the loop
-   * stays `draft` with a reason — it never runs with no definition of done. Public
-   * so a future goal-edit surface (and tests) can re-derive; the planner returns
-   * data only and never mutates loop state itself.
+   * Derive (or re-derive) a loop's verification plan (spec 05, D-19) — delegates to
+   * `derivePlan` (single-writer). Runs at create, on goal edit, and on a forced
+   * re-plan. Public so the edit/replan surfaces and tests can re-derive.
    */
-  async ensurePlan(loopId: string): Promise<void> {
-    if (!this.planner) return;
-    const loop = await this.store.getLoop(loopId);
-    if (!loop) return;
-    const upToDate = loop.verificationPlan?.derivedFrom.goalHash === goalHash(loop.goal);
-    if (upToDate && loop.status !== 'draft') return; // nothing to do
-
-    const derivation: PlanDerivation | null = upToDate
-      ? null
-      : await this.planner(loop, loop.verificationPlan);
-
-    let failedDraft = false;
-    let unavailable: string | undefined;
-    await this.store.updateLoop(loopId, (current) => {
-      if (derivation) {
-        current.verificationPlan = {
-          criteria: derivation.criteria,
-          stopConditions: derivation.stopConditions,
-          derivedFrom: {
-            goalHash: goalHash(current.goal),
-            at: isoNow(this.clock),
-            model: derivation.model,
-            usage: derivation.usage,
-          },
-        };
-      }
-      const hasPlan = current.verificationPlan?.derivedFrom.goalHash === goalHash(current.goal);
-      const unavailableCondition = current.verificationPlan?.stopConditions.find(
-        (condition) => condition.kind === 'verification-unavailable',
-      );
-      if (current.status === 'draft') {
-        if (!hasPlan) {
-          current.statusReason =
-            'Could not derive a verification plan from the goal yet. Edit the goal or try again.';
-          failedDraft = true;
-        } else if (unavailableCondition) {
-          // The planner found no sound way to verify the goal (spec 05 §7); block
-          // for the user rather than run blind.
-          unavailable =
-            unavailableCondition.reason ?? 'No sound way to verify this goal was found.';
-          current.status = 'blocked';
-          current.blockedReason = 'verification-unavailable';
-          current.statusReason = unavailable;
-        } else {
-          current.status = 'active';
-          current.statusReason = undefined;
-        }
-      }
-      current.updatedAt = isoNow(this.clock);
-    });
-
-    if (failedDraft || unavailable) {
-      this.ctx.host.notifications.notify({
-        type: 'warning',
-        source: 'orchestrator',
-        message: unavailable
-          ? `"${loop.title}" cannot be verified yet: ${unavailable}`
-          : `Could not derive a verification plan for "${loop.title}".`,
-      });
-    }
+  async ensurePlan(loopId: string, force = false): Promise<void> {
+    return derivePlan(
+      { planner: this.planner, store: this.store, clock: this.clock, host: this.ctx.host },
+      loopId,
+      force,
+    );
   }
 
   private async list(): Promise<OrchestratorActionResult> {
@@ -439,6 +450,8 @@ export class WorkspaceCoordinator implements OrchestratorCoordinator {
 /** Actions that create, modify, or run a loop — barred from worker sessions (D-16). */
 const CONTROL_ACTIONS: ReadonlySet<OrchestratorAction['kind']> = new Set([
   'create',
+  'edit',
+  'replan',
   'pause',
   'resume',
   'stop',
