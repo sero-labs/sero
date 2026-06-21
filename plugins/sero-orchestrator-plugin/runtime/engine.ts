@@ -279,6 +279,14 @@ type Eligibility =
   | { proceed: false; result: { ok: boolean; message?: string; error?: string } };
 
 function checkEligibility(loop: LoopGoal, override: boolean): Eligibility {
+  if (loop.status === 'draft') {
+    // Still deriving its verification plan (spec 05); it activates when the plan
+    // lands. Not an error — a trigger/run just no-ops until then.
+    return {
+      proceed: false,
+      result: { ok: true, message: `"${loop.title}" is still deriving its verification plan.` },
+    };
+  }
   if (loop.status === 'complete' || loop.status === 'stopped') {
     return {
       proceed: false,

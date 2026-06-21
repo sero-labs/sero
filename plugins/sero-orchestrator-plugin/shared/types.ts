@@ -6,6 +6,23 @@
 // never stored inline; it is referenced by artifact path (see LogPolicy and
 // CheckResult.*Path).
 
+import type { DecisionKind, VerificationPlan } from './verification';
+
+// The LLM-authored verification model (spec 05) lives in its own Pi-safe module;
+// re-export it here so the rest of the plugin imports everything from one place.
+export type {
+  Decision,
+  DecisionKind,
+  EvidenceKind,
+  EvidenceStep,
+  PlanProvenance,
+  StopCondition,
+  SuccessCriterion,
+  ThresholdAggregate,
+  ThresholdOp,
+  VerificationPlan,
+} from './verification';
+
 // ── Top-level state ──────────────────────────────────────────────────────────
 
 export interface OrchestratorState {
@@ -60,6 +77,13 @@ export interface LoopGoal {
   /** Machine-readable block reason; governs how the block recovers (D-13/D-17). */
   blockedReason?: BlockedReason;
   triggers: LoopTrigger[];
+  /**
+   * LLM-authored definition of "done" (spec 05, D-18). When present it is the
+   * evaluation source — criteria are evaluated directly (D-12) and the legacy
+   * `checks` array is retired from the eval path. Nobody types this; the
+   * verification planner derives it from the goal.
+   */
+  verificationPlan?: VerificationPlan;
   checks: LoopCheck[];
   stopRule: StopRule;
   budget?: RunBudget; // cost/blast-radius limits beyond maxAttempts (D-17)
@@ -112,7 +136,9 @@ export type LoopCheck =
       required: boolean;
     };
 
-export type CheckType = LoopCheck['type'];
+// `criterion` is a verification-plan criterion result (spec 05); the others are
+// legacy `LoopCheck` backends. Every backend still normalizes to one CheckResult.
+export type CheckType = LoopCheck['type'] | 'criterion';
 
 // ── Loop attempt ─────────────────────────────────────────────────────────────
 
@@ -275,6 +301,8 @@ export interface CheckResult {
   checkId: string;
   type: CheckType;
   status: CheckStatus;
+  /** For `criterion` results: how this criterion was decided (spec 05). */
+  decisionKind?: DecisionKind;
   command?: string;
   summary: string; // from host.verification.summarizeFailure + tail
   stdoutPath?: string; // artifact path; full output never inline

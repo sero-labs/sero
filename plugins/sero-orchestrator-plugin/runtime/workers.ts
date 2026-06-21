@@ -14,6 +14,7 @@ import type {
   LoopAttempt,
   LoopGoal,
   LoopTask,
+  SuccessCriterion,
   WorkerInstruction,
   WorkerRole,
 } from '../shared/types';
@@ -136,7 +137,18 @@ function buildImplementerTask(ctx: ImplementerContext): string {
     sections.push(priorFailureSection(priorAttempt));
   }
 
-  if (loop.checks.length) {
+  // When the loop has an LLM-authored verification plan (spec 05), tell the
+  // implementer what "done" means in plain English so it works toward the same
+  // criteria the loop will evaluate it against. Fall back to legacy checks.
+  const plan = loop.verificationPlan;
+  if (plan?.criteria.length) {
+    sections.push(
+      [
+        '## What "done" means',
+        ...plan.criteria.map(describeCriterion),
+      ].join('\n'),
+    );
+  } else if (loop.checks.length) {
     sections.push(
       ['## Checks that must pass', ...loop.checks.map(describeCheck)].join('\n'),
     );
@@ -171,6 +183,10 @@ function describeCheck(check: LoopGoal['checks'][number]): string {
   const required = check.required ? 'required' : 'optional';
   if (check.type === 'review') return `- review by ${check.reviewer} (${required})`;
   return `- \`${check.command}\` (${required})`;
+}
+
+function describeCriterion(criterion: SuccessCriterion): string {
+  return `- ${criterion.description} (${criterion.required ? 'required' : 'optional'})`;
 }
 
 /**

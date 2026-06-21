@@ -11,6 +11,7 @@ import { randomUUID } from 'node:crypto';
 import type {
   AttemptExecutionMode,
   AttemptWorkdir,
+  CheckResult,
   DirtyRootDecision,
   LoopAttempt,
   LoopGoal,
@@ -19,8 +20,9 @@ import type {
 import type { AttemptAdapter, AttemptExecutionResult } from './adapter';
 import { changedFilesExceeded, attemptTimeoutMs, commandTimeoutMs } from './budget';
 import { runChecks } from './checks';
+import { runCriteria } from './criteria';
 import { isoNow, type Clock } from './clock';
-import { requiredChecksPassed } from './stop-rules';
+import { requiredChecksPassed, requiredCriteriaPassed } from './stop-rules';
 import { writeArtifact } from './artifacts';
 import { createReviewerRunner } from './reviewers';
 import { ensureLoopWorktree } from './worktree';
@@ -174,28 +176,8 @@ export async function runAttempt(
     return { deferred: false, attempt, cancelled: false, changedFilesExceeded: false, requiredPassed: false };
   }
 
-  const results = await runChecks(
-    {
-      host: deps.host,
-      workspaceId: deps.workspaceId,
-      cwd: workdir.cwd,
-      stateFilePath: deps.stateFilePath,
-      attemptId: attempt.id,
-      commandTimeoutMs: commandTimeoutMs(loop.budget),
-      maxInlineOutputBytes: loop.logPolicy.maxInlineOutputBytes,
-      clock: deps.clock,
-      reviewer: createReviewerRunner({
-        host: deps.host,
-        workspaceId: deps.workspaceId,
-        cwd: workdir.cwd,
-        parentSessionId: attempt.parentSessionId,
-        loop,
-      }),
-    },
-    loop.checks,
-  );
+  const { results, requiredPassed } = await runVerification(deps, loop, attempt, workdir.cwd);
   attempt.checkResults = results;
-  const requiredPassed = requiredChecksPassed(loop.checks, results);
   attempt.status = requiredPassed ? 'passed' : 'failed';
   if (requiredPassed) {
     attempt.learned = execution.summary;
@@ -211,6 +193,49 @@ export async function runAttempt(
 }
 
 // ── helpers ──────────────────────────────────────────────────────────────────
+
+/**
+ * Run the attempt's verification at the canonical cwd. A loop with an
+ * LLM-authored verification plan (spec 05) evaluates its criteria directly; a
+ * legacy loop runs its `checks`. Both yield `CheckResult[]` (D-12) plus whether
+ * every required item passed.
+ */
+async function runVerification(
+  deps: RunAttemptDeps,
+  loop: LoopGoal,
+  attempt: LoopAttempt,
+  cwd: string,
+): Promise<{ results: CheckResult[]; requiredPassed: boolean }> {
+  const base = {
+    host: deps.host,
+    workspaceId: deps.workspaceId,
+    cwd,
+    stateFilePath: deps.stateFilePath,
+    attemptId: attempt.id,
+    commandTimeoutMs: commandTimeoutMs(loop.budget),
+    maxInlineOutputBytes: loop.logPolicy.maxInlineOutputBytes,
+    clock: deps.clock,
+  };
+  const plan = loop.verificationPlan;
+  if (plan) {
+    const results = await runCriteria(base, plan.criteria);
+    return { results, requiredPassed: requiredCriteriaPassed(plan.criteria, results) };
+  }
+  const results = await runChecks(
+    {
+      ...base,
+      reviewer: createReviewerRunner({
+        host: deps.host,
+        workspaceId: deps.workspaceId,
+        cwd,
+        parentSessionId: attempt.parentSessionId,
+        loop,
+      }),
+    },
+    loop.checks,
+  );
+  return { results, requiredPassed: requiredChecksPassed(loop.checks, results) };
+}
 
 type WorkdirResolution =
   | { defer: true }

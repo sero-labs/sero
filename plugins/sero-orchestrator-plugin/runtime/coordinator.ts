@@ -37,6 +37,12 @@ import { diagnoseSession } from './diagnostics';
 import { AttemptEngine } from './engine';
 import { EventRouter } from './events';
 import {
+  createPlannerRunner,
+  goalHash,
+  type PlanDerivation,
+  type PlannerRunner,
+} from './planner';
+import {
   DEFAULT_WORKSPACE_CONCURRENCY,
   LoopLocks,
   Semaphore,
@@ -68,6 +74,14 @@ export interface CoordinatorContext {
   schedulerLog?: SchedulerLog;
   /** Cron-alarm timer seam; defaults to `setTimeout` (tests inject a fake). */
   alarmTimer?: AlarmTimer;
+  /**
+   * Verification planner seam (spec 05, D-19). `undefined` → build the real
+   * read-only planner worker (production: every loop derives a plan). `null` →
+   * planning disabled; loops are created `active` with no plan (legacy path,
+   * the default in tests that don't exercise planning). A function injects a
+   * deterministic fake (planning tests).
+   */
+  planner?: PlannerRunner | null;
 }
 
 export class WorkspaceCoordinator implements OrchestratorCoordinator {
@@ -81,10 +95,17 @@ export class WorkspaceCoordinator implements OrchestratorCoordinator {
   private readonly eventRouter: EventRouter;
   /** Tracks in-flight worker parent sessions for the recursion guard (D-16). */
   private readonly workerSessions = new WorkerSessionRegistry();
+  /** Verification planner (spec 05); null disables planning (legacy active path). */
+  private readonly planner: PlannerRunner | null;
 
   constructor(private readonly ctx: CoordinatorContext) {
     this.clock = ctx.clock ?? systemClock;
     this.store = new StateStore(ctx.host, ctx.stateFilePath);
+    // undefined → real planner; null → disabled; a fn → injected (tests).
+    this.planner =
+      ctx.planner === undefined
+        ? createPlannerRunner({ host: ctx.host, workspaceId: ctx.workspaceId, cwd: ctx.workspacePath })
+        : ctx.planner;
     this.engine = new AttemptEngine({
       host: ctx.host,
       workspaceId: ctx.workspaceId,
@@ -220,7 +241,74 @@ export class WorkspaceCoordinator implements OrchestratorCoordinator {
       state.loops.push(loop);
       return loop;
     });
+    if (this.planner && loop.status === 'draft') {
+      // Derive the verification plan in the background (spec 05, push-model):
+      // create returns the draft immediately; the planner flips it to `active`
+      // when the plan lands, so the tool/CLI response is never blocked on an LLM
+      // call. State writes stay inside the coordinator (single executor).
+      void this.ensurePlan(loop.id).catch((err) => {
+        console.error('[orchestrator] verification planning failed', err);
+      });
+      return { ok: true, loop, message: `Created goal "${loop.title}" — deriving its verification plan.` };
+    }
     return { ok: true, loop, message: `Created goal "${loop.title}".` };
+  }
+
+  /**
+   * Derive (or re-derive) a loop's verification plan (spec 05, D-19) and write it
+   * under the coordinator's own state mutation (single-writer). Runs at create
+   * and again when the goal text changes (provenance via `derivedFrom.goalHash`).
+   * A freshly-derived `draft` loop becomes `active`; if derivation fails the loop
+   * stays `draft` with a reason — it never runs with no definition of done. Public
+   * so a future goal-edit surface (and tests) can re-derive; the planner returns
+   * data only and never mutates loop state itself.
+   */
+  async ensurePlan(loopId: string): Promise<void> {
+    if (!this.planner) return;
+    const loop = await this.store.getLoop(loopId);
+    if (!loop) return;
+    const upToDate = loop.verificationPlan?.derivedFrom.goalHash === goalHash(loop.goal);
+    if (upToDate && loop.status !== 'draft') return; // nothing to do
+
+    const derivation: PlanDerivation | null = upToDate
+      ? null
+      : await this.planner(loop, loop.verificationPlan);
+
+    let failedDraft = false;
+    await this.store.updateLoop(loopId, (current) => {
+      if (derivation) {
+        current.verificationPlan = {
+          criteria: derivation.criteria,
+          stopConditions: derivation.stopConditions,
+          derivedFrom: {
+            goalHash: goalHash(current.goal),
+            at: isoNow(this.clock),
+            model: derivation.model,
+            usage: derivation.usage,
+          },
+        };
+      }
+      const hasPlan = current.verificationPlan?.derivedFrom.goalHash === goalHash(current.goal);
+      if (current.status === 'draft') {
+        if (hasPlan) {
+          current.status = 'active';
+          current.statusReason = undefined;
+        } else {
+          current.statusReason =
+            'Could not derive a verification plan from the goal yet. Edit the goal or try again.';
+          failedDraft = true;
+        }
+      }
+      current.updatedAt = isoNow(this.clock);
+    });
+
+    if (failedDraft) {
+      this.ctx.host.notifications.notify({
+        type: 'warning',
+        source: 'orchestrator',
+        message: `Could not derive a verification plan for "${loop.title}".`,
+      });
+    }
   }
 
   private async list(): Promise<OrchestratorActionResult> {
@@ -311,7 +399,10 @@ export class WorkspaceCoordinator implements OrchestratorCoordinator {
       prPolicy: isolation && input.prPolicy?.openOnComplete ? input.prPolicy : undefined,
       title: input.title.trim(),
       goal: input.goal.trim(),
-      status: 'active',
+      // With a planner the loop starts `draft` and the planner flips it to
+      // `active` once the verification plan lands (spec 05); with planning
+      // disabled it starts `active` (legacy).
+      status: this.planner ? 'draft' : 'active',
       triggers: input.triggers ?? [],
       checks: input.checks ?? [],
       stopRule: { ...DEFAULT_STOP_RULE, ...input.stopRule },

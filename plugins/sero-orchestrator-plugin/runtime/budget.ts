@@ -28,13 +28,18 @@ export function cumulativeWallClockMs(loop: LoopGoal): number {
 }
 
 export function cumulativeTokens(loop: LoopGoal): number {
-  return loop.attempts.reduce((sum, attempt) => sum + (attempt.usage?.totalTokens ?? 0), 0);
+  // Includes the verification planner's spend (spec 05) so authoring the plan
+  // counts against the same token budget as the attempts it governs (D-17).
+  const attempts = loop.attempts.reduce((sum, attempt) => sum + (attempt.usage?.totalTokens ?? 0), 0);
+  return attempts + (loop.verificationPlan?.derivedFrom.usage?.totalTokens ?? 0);
 }
 
 // Per-run USD cost reported by the subagent host (AppRuntimeSubagentResult.usage.cost)
-// is summed across attempts, so `maxCostUsd` is enforced alongside `maxTotalTokens` (D-17).
+// is summed across attempts (plus the planner's spend), so `maxCostUsd` is
+// enforced alongside `maxTotalTokens` (D-17).
 export function cumulativeCostUsd(loop: LoopGoal): number {
-  return loop.attempts.reduce((sum, attempt) => sum + (attempt.usage?.cost ?? 0), 0);
+  const attempts = loop.attempts.reduce((sum, attempt) => sum + (attempt.usage?.cost ?? 0), 0);
+  return attempts + (loop.verificationPlan?.derivedFrom.usage?.cost ?? 0);
 }
 
 /**

@@ -39,6 +39,7 @@ import {
 import { MapAdapterRegistry, type AttemptAdapter } from '@plugins/sero-orchestrator-plugin/runtime/adapter';
 import type { AlarmTimer } from '@plugins/sero-orchestrator-plugin/runtime/alarm';
 import type { Clock } from '@plugins/sero-orchestrator-plugin/runtime/clock';
+import type { PlannerRunner } from '@plugins/sero-orchestrator-plugin/runtime/planner';
 import type { SchedulerLog } from '@plugins/sero-orchestrator-plugin/runtime/scheduler';
 import type { DirtyRootGate } from '@plugins/sero-orchestrator-plugin/runtime/vcs';
 import type {
@@ -178,6 +179,13 @@ export interface HarnessOptions {
   schedulerLog?: SchedulerLog;
   /** Drives `host.subagents.runStructured` for tests of the real adapter. */
   runWorker?: WorkerScript;
+  /**
+   * Verification planner seam (spec 05). Omitted → planning disabled, loops are
+   * created `active` with no plan (the legacy default these suites rely on).
+   * Provided → loops start `draft` and this derives the plan (settle to observe
+   * the flip to `active`).
+   */
+  planner?: PlannerRunner;
   /** Configures `host.session` for active-session / hybrid tests (Phase 4). */
   session?: SessionOptions;
   /** `host.git.pushBranch` result for PR tests (Phase 6); defaults to success. */
@@ -382,6 +390,9 @@ export function createHarness(opts: HarnessOptions = {}): Harness {
     maxConcurrentAttempts: opts.maxConcurrentAttempts,
     schedulerLog: opts.schedulerLog,
     alarmTimer: timer,
+    // null disables planning (legacy active-on-create) so existing suites are
+    // untouched; a provided script opts into the spec-05 draft→derive→active flow.
+    planner: opts.planner ?? null,
   };
   const coordinator = new WorkspaceCoordinator(ctx);
 

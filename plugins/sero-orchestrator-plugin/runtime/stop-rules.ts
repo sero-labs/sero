@@ -11,6 +11,7 @@ import type {
   LoopAttempt,
   LoopCheck,
   LoopGoal,
+  SuccessCriterion,
 } from '../shared/types';
 
 /** All required checks passed (positional pairing: `results[i]` ↔ `checks[i]`). */
@@ -20,6 +21,22 @@ export function requiredChecksPassed(
 ): boolean {
   return checks.every((check, index) => {
     if (!check.required) return true;
+    return results[index]?.status === 'passed';
+  });
+}
+
+/**
+ * All required criteria passed (spec 05). Positional pairing: `results[i]` ↔
+ * `criteria[i]` (criteria.ts evaluates in order). A required criterion that is
+ * skipped or failed gates completion, so the loop never "completes" on an
+ * unevaluated criterion.
+ */
+export function requiredCriteriaPassed(
+  criteria: SuccessCriterion[],
+  results: CheckResult[],
+): boolean {
+  return criteria.every((criterion, index) => {
+    if (!criterion.required) return true;
     return results[index]?.status === 'passed';
   });
 }

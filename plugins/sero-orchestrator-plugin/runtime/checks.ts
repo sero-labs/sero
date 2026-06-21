@@ -18,6 +18,7 @@ import type {
   CheckResult,
   CheckStatus,
   CheckType,
+  DecisionKind,
   LoopCheck,
 } from '../shared/types';
 import { safeArtifactName, writeArtifact } from './artifacts';
@@ -25,6 +26,18 @@ import { isoNow, type Clock } from './clock';
 import type { ReviewerRunner } from './reviewers';
 
 const SUMMARY_TAIL_BYTES = 800;
+
+/**
+ * Where oversized check output is written (D-14). A {@link RunChecksDeps} is
+ * structurally an `ArtifactSink`, so both the legacy check path and the
+ * verification-plan criteria path (criteria.ts) normalize through the same code.
+ */
+export interface ArtifactSink {
+  host: AppRuntimeHost;
+  stateFilePath: string;
+  attemptId: string;
+  maxInlineOutputBytes: number;
+}
 
 export interface RunChecksDeps {
   host: AppRuntimeHost;
@@ -111,61 +124,81 @@ async function runOne(
       endedAt,
     };
   }
-  return normalize(deps, check.type, id, command, result, startedAt, endedAt);
+  return commandResultToCheck(deps, {
+    checkId: id,
+    type: check.type,
+    command,
+    result,
+    startedAt,
+    endedAt,
+  });
 }
 
-async function normalize(
-  deps: RunChecksDeps,
-  type: CheckType,
-  id: string,
-  command: string,
-  result: AppRuntimeVerificationCommandResult,
-  startedAt: string,
-  endedAt: string,
+export interface CommandResultInput {
+  checkId: string;
+  type: CheckType;
+  /** For criterion results: how this criterion was decided (spec 05). */
+  decisionKind?: DecisionKind;
+  command: string;
+  result: AppRuntimeVerificationCommandResult;
+  startedAt: string;
+  endedAt: string;
+}
+
+/**
+ * Normalize a host verification command result into a `CheckResult` (D-12) —
+ * the single place a command outcome becomes a CheckResult, shared by legacy
+ * checks and verification-plan criteria.
+ */
+export async function commandResultToCheck(
+  sink: ArtifactSink,
+  input: CommandResultInput,
 ): Promise<CheckResult> {
+  const { result } = input;
   const status: CheckStatus = result.success ? 'passed' : 'failed';
-  const stdoutPath = await maybeArtifact(deps, id, 'stdout', result.stdout);
-  const stderrPath = await maybeArtifact(deps, id, 'stderr', result.stderr);
+  const stdoutPath = await maybeArtifact(sink, input.checkId, 'stdout', result.stdout);
+  const stderrPath = await maybeArtifact(sink, input.checkId, 'stderr', result.stderr);
   const summary = result.success
     ? `Passed in ${result.durationMs}ms.`
     : [
-        deps.host.verification.summarizeFailure(result),
+        sink.host.verification.summarizeFailure(result),
         tail(result.stderr || result.stdout, SUMMARY_TAIL_BYTES),
       ]
         .filter(Boolean)
         .join('\n')
         .trim();
   return {
-    checkId: id,
-    type,
+    checkId: input.checkId,
+    type: input.type,
+    decisionKind: input.decisionKind,
     status,
-    command,
+    command: input.command,
     summary,
     stdoutPath,
     stderrPath,
     durationMs: result.durationMs,
-    startedAt,
-    endedAt,
+    startedAt: input.startedAt,
+    endedAt: input.endedAt,
   };
 }
 
 /** Persist output to an artifact only when it exceeds the inline budget. */
-async function maybeArtifact(
-  deps: RunChecksDeps,
+export async function maybeArtifact(
+  sink: ArtifactSink,
   id: string,
-  kind: 'stdout' | 'stderr' | 'review',
+  kind: 'stdout' | 'stderr' | 'review' | 'judge' | 'evidence',
   content: string,
 ): Promise<string | undefined> {
-  if (!content || content.length <= deps.maxInlineOutputBytes) return undefined;
+  if (!content || content.length <= sink.maxInlineOutputBytes) return undefined;
   return writeArtifact(
-    deps.stateFilePath,
-    deps.attemptId,
+    sink.stateFilePath,
+    sink.attemptId,
     `check-${safeArtifactName(id)}-${kind}.txt`,
     content,
   );
 }
 
-function tail(text: string, max: number): string {
+export function tail(text: string, max: number): string {
   if (text.length <= max) return text;
   return `…${text.slice(text.length - max)}`;
 }
