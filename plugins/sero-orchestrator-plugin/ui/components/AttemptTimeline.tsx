@@ -34,7 +34,7 @@ export function AttemptTimeline({ attempts }: { attempts: LoopAttempt[] }) {
   if (attempts.length === 0) {
     return (
       <p className="text-sm text-muted-foreground">
-        No attempts yet. Running goals lands in a later phase.
+        No attempts yet. Use “Run next” to run one.
       </p>
     );
   }
