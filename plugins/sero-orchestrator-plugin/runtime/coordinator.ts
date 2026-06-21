@@ -199,6 +199,16 @@ export class WorkspaceCoordinator implements OrchestratorCoordinator {
     }
   }
 
+  /**
+   * Whether a session id belongs to an in-flight orchestrator worker (D-16).
+   * The CLI surface consults this to refuse the whole `orchestrator.*` surface
+   * to workers; `requestAction` still independently rejects worker-sourced
+   * control actions, so this is belt-and-suspenders, not the load-bearing guard.
+   */
+  isWorkerSession(sessionId: string | null | undefined): boolean {
+    return this.workerSessions.isWorkerSession(sessionId);
+  }
+
   // ── Control-plane actions ────────────────────────────────────────────────────
 
   private async create(input: CreateLoopInput): Promise<OrchestratorActionResult> {

@@ -29,6 +29,7 @@ into the user's active session**, both governed by the same loop state.
 | [02-integration-seams.md](02-integration-seams.md) | Exact host APIs reused, the new session host seam, verified-facts table, corrections to the analysis |
 | [03-execution-and-scheduling.md](03-execution-and-scheduling.md) | Coordinator state machine, the two execution adapters, scheduling/triggers/supervisor, runtime flows |
 | [04-implementation-plan.md](04-implementation-plan.md) | Phased tasklist with acceptance criteria, progress dashboard, and FR traceability matrix |
+| [05-llm-authored-verification.md](05-llm-authored-verification.md) | Design + plan for LLM-derived success criteria and per-criterion evaluation (replaces the deferred "eval check") |
 
 ## How to read this
 

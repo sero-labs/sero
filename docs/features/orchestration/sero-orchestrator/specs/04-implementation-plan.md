@@ -626,13 +626,17 @@ cross-plugin coordination via events.
 - [x] Branch naming + `host.git.createPr`/`mergePr`/`getPrMergeState` for PR flow.
 - [ ] Optional dedicated `host.git.restoreCheckpoint` if git-reset proves insufficient (D-07).
   *(Deferred — `git reset --hard <baseRef>` + path-scoped clean is sufficient; no need surfaced.)*
-- [ ] Optional filtered `sero-cli` surface that hides `orchestrator.*` from worker
-  sessions — defense-in-depth on top of coordinator rejection (D-16). *(Deferred —
-  the coordinator's enforced recursion rejection already covers this.)*
+- [x] Optional filtered `sero-cli` surface that hides `orchestrator.*` from worker
+  sessions — defense-in-depth on top of coordinator rejection (D-16). *(Built — the
+  coordinator exposes read-only `isWorkerSession()`; the CLI refuses its whole
+  surface to worker sessions before dispatch, broader than `requestAction`'s
+  control-action rejection, which stays the load-bearing guard.)*
 - [x] Add the "isolate" choice to the dirty-root start gate — reroute the attempt
   to a fresh worktree (completes FR-26, D-07).
-- [ ] Add eval/promptfoo command-backed check type. *(Deferred — independent of
-  isolation/PR; can layer onto the existing `command` check type later.)*
+- [ ] ~~Add eval/promptfoo command-backed check type.~~ **Redesigned** — a
+  user/test-supplied check with a mechanical score parser was the wrong shape
+  (no author surface; wrong layer). Replaced by LLM-authored verification: see
+  [05-llm-authored-verification.md](05-llm-authored-verification.md).
 
 **Acceptance**
 - [x] A loop runs entirely inside `.sero/worktrees/...` with checks, diffs, and

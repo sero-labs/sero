@@ -24,6 +24,12 @@ export interface OrchestratorCoordinator {
     action: OrchestratorAction,
     source?: ActionSource,
   ): Promise<OrchestratorActionResult>;
+  /**
+   * Whether a session id belongs to an in-flight orchestrator worker (D-16).
+   * Read-only. The CLI surface uses it to hide `orchestrator.*` from workers
+   * entirely — defense-in-depth over `requestAction`'s control-action rejection.
+   */
+  isWorkerSession(sessionId: string | null | undefined): boolean;
 }
 
 export interface OrchestratorCoordinatorRegistry {

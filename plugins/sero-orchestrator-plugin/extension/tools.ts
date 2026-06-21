@@ -24,6 +24,9 @@ import type {
 const NOT_READY =
   'Orchestrator is not running for this workspace. Open the workspace in Sero and try again.';
 
+const WORKER_FILTERED =
+  'The orchestrator CLI is not available to orchestrator worker sessions.';
+
 const EXECUTION_MODES: readonly ExecutionMode[] = [
   'background-worker',
   'active-session',
@@ -320,6 +323,13 @@ export function createOrchestratorTool(): SeroCliTool<ToolDefinition<typeof Para
       async execute(args, context) {
         const coordinator = resolveCoordinator(context.workspaceId ?? context.cwd);
         if (!coordinator) return { output: NOT_READY, exitCode: 1 };
+        // Defense-in-depth (D-16): hide the whole orchestrator CLI from worker
+        // sessions, one layer earlier than — and broader than — the coordinator's
+        // control-action rejection (which still allows read-only list/show). A
+        // worker has no business reaching the orchestrator at all.
+        if (coordinator.isWorkerSession(context.invocation?.sessionId)) {
+          return { output: WORKER_FILTERED, exitCode: 1 };
+        }
         const action = actionFromCli([...args]);
         if (isError(action)) return { output: action.error, exitCode: 1 };
         const result = await coordinator.requestAction(action, {
