@@ -11,6 +11,36 @@
 
 import type { OrchestratorState } from '../shared/types';
 
+/** Parameters for a model / background-agent run (subset of the host seam). */
+export interface ModelRunParams {
+  task: string;
+  systemPrompt?: string;
+  model?: string;
+  thinking?: string;
+  parentSessionId: string;
+  /** Working directory for filesystem-backed runs (background agents). */
+  cwd?: string;
+  /** Tool surface: 'none' for pure model calls, 'all' for background agents. */
+  platformTools?: 'all' | 'readOnly' | 'none';
+  signal?: AbortSignal;
+  onUpdate?: (text: string) => void;
+}
+
+export interface ModelRunUsage {
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+}
+
+export interface ModelRunResult {
+  response: string;
+  error?: string;
+  modelId?: string;
+  providerId?: string;
+  durationMs?: number;
+  usage?: ModelRunUsage;
+}
+
 export interface OrchestratorHost {
   /** Workspace this host (and its coordinator) is scoped to. */
   readonly workspaceId: string;
@@ -22,6 +52,10 @@ export interface OrchestratorHost {
   // ── State persistence (authoritative state file) ──────────
   readState(): Promise<OrchestratorState | null>;
   updateState(updater: (current: OrchestratorState) => OrchestratorState): Promise<void>;
+
+  // ── Model / agent execution (standard Sero runtime) ───────
+  /** Runs a model or background agent and returns plain text plus metadata. */
+  runStructured(params: ModelRunParams): Promise<ModelRunResult>;
 
   // ── Deterministic utilities ───────────────────────────────
   /** ISO timestamp. Injectable so tests are deterministic. */

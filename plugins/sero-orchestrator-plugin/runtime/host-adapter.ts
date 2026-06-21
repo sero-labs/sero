@@ -27,6 +27,20 @@ export function createOrchestratorHost(ctx: AppRuntimeContext): OrchestratorHost
         updater(current ?? structuredClone(DEFAULT_STATE)),
       ),
 
+    runStructured: (params) =>
+      ctx.host.subagents.runStructured({
+        task: params.task,
+        systemPrompt: params.systemPrompt,
+        model: params.model,
+        thinking: params.thinking,
+        parentSessionId: params.parentSessionId,
+        workspaceId: ctx.workspaceId,
+        cwd: params.cwd,
+        platformTools: params.platformTools,
+        signal: params.signal,
+        onUpdate: params.onUpdate,
+      }),
+
     now: () => new Date().toISOString(),
     newId: (prefix) => (prefix ? `${prefix}_${randomUUID()}` : randomUUID()),
     log: (message) => console.log(`[orchestrator] ${message}`),

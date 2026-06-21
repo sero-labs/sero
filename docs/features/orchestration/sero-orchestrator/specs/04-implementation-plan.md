@@ -8,7 +8,7 @@ plans.
 | Phase | Title | Status | Exit gate |
 | --- | --- | --- | --- |
 | 1 | Plugin shell, state, and UI | ✅ Done | Loops persist and render; controls call coordinator |
-| 2 | Planning and validation | ⬜ Not started | Prompt creates a validated draft from `PlanningResponse` |
+| 2 | Planning and validation | ✅ Done | Prompt creates a validated draft from `PlanningResponse` |
 | 3 | Coordinator core | ⬜ Not started | Lifecycle, locks, runs, step states, attempts, and artifacts work |
 | 4 | Step execution, workspace isolation, and limits | ⬜ Not started | Ready steps run through Sero execution in the user-selected workspace |
 | 5 | Outcomes, recovery, and completion signals | ⬜ Not started | Failed steps recover through the LLM; planned steps can signal completion |
@@ -24,8 +24,8 @@ Status legend: ✅ Done · 🟡 In progress · ⬜ Not started · ⛔ Blocked ·
 | --- | --- | --- | --- | --- |
 | FR-01 | Workspace-scoped plugin with persisted loop state | 1 | D-07 | ✅ |
 | FR-02 | Create/list/show/activate/pause/resume/stop/run_next/revise/choose_recovery via tools and UI | 1 | D-10 | ✅ |
-| FR-03 | Prompt-to-LLM planning produces a curated `PlanningResponse` | 2 | D-01 | ⬜ |
-| FR-04 | `PlanningResponse` and `LoopPlan` structural validation and repair path | 2 | D-09 | ⬜ |
+| FR-03 | Prompt-to-LLM planning produces a curated `PlanningResponse` | 2 | D-01 | ✅ |
+| FR-04 | `PlanningResponse` and `LoopPlan` structural validation and repair path | 2 | D-09 | ✅ |
 | FR-05 | Step dependencies support sequential and parallel plans | 3 | D-01/D-10 | ⬜ |
 | FR-06 | Single coordinator and per-loop run lock | 3 | D-10 | ⬜ |
 | FR-07 | Generic run, step state, attempt, observation, and artifact history | 3 | D-14 | ⬜ |
@@ -86,28 +86,28 @@ tools, and basic UI.
 
 **Tasks**
 
-- [ ] Implement `planner.ts` using the current Sero model execution path and
+- [x] Implement `planner.ts` using the current Sero model execution path and
   the `PlanningResponse` schema.
-- [ ] Implement `schema.ts` validation for unique step ids, dependency
+- [x] Implement `schema.ts` validation for unique step ids, dependency
   references, strict acyclic dependencies, execution target names, and at least
   one step.
-- [ ] Add one repair pass when generated JSON fails validation.
-- [ ] Map `PlanningResponse.title`, `summary`, `plan`, `suggestedTriggers`, and
+- [x] Add one repair pass when generated JSON fails validation.
+- [x] Map `PlanningResponse.title`, `summary`, `plan`, `suggestedTriggers`, and
   `suggestedLimits` onto the persisted `Loop`.
-- [ ] Record non-blocking warnings for managed-worktree loops that mix
+- [x] Record non-blocking warnings for managed-worktree loops that mix
   background-agent and active-session dependencies.
-- [ ] Store invalid drafts as blocked drafts with clear validation errors.
-- [ ] Show the curated plan in UI: title, summary, steps, dependencies, expected
+- [x] Store invalid drafts as blocked drafts with clear validation errors.
+- [x] Show the curated plan in UI: title, summary, steps, dependencies, expected
   outcomes, triggers, and suggested limits.
 
 **Acceptance**
 
-- [ ] A prompt can create a valid one-step plan.
-- [ ] A prompt can create a valid sequential plan.
-- [ ] A prompt can create a valid parallel plan.
-- [ ] Invalid model output is repaired once or stored with clear errors.
-- [ ] No invalid plan can be activated.
-- [ ] FR-03 and FR-04 satisfied.
+- [x] A prompt can create a valid one-step plan.
+- [x] A prompt can create a valid sequential plan.
+- [x] A prompt can create a valid parallel plan.
+- [x] Invalid model output is repaired once or stored with clear errors.
+- [x] No invalid plan can be activated.
+- [x] FR-03 and FR-04 satisfied.
 
 ---
 

@@ -1,8 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { Coordinator } from '../coordinator';
-import { createFakeHost } from './fake-host';
+import { createFakeHost, type FakeHost } from './fake-host';
+import { oneStepPlan, planJson } from './fixtures';
 
-async function createLoop(coordinator: Coordinator, prompt = 'do the thing') {
+function setup(): { host: FakeHost; coordinator: Coordinator } {
+  const host = createFakeHost();
+  return { host, coordinator: new Coordinator(host) };
+}
+
+async function createLoop(host: FakeHost, coordinator: Coordinator, prompt = 'do the thing') {
+  host.modelResponses.push({ response: planJson(oneStepPlan()) });
   const res = await coordinator.requestAction({ kind: 'create', prompt });
   expect(res.ok).toBe(true);
   return res.loop!;
@@ -10,26 +17,27 @@ async function createLoop(coordinator: Coordinator, prompt = 'do the thing') {
 
 describe('Coordinator — Phase 1 lifecycle', () => {
   it('create stores a draft record persisted in state', async () => {
-    const host = createFakeHost();
-    const coordinator = new Coordinator(host);
-    const loop = await createLoop(coordinator);
+    const { host, coordinator } = setup();
+    const loop = await createLoop(host, coordinator);
 
     expect(loop.status).toBe('draft');
     expect(loop.workspaceId).toBe('ws-1');
     expect(loop.runtime.parentSessionId).toBe(`orchestrator:ws-1:${loop.id}`);
+    expect(loop.plan.steps).toHaveLength(1);
+    expect(Object.keys(loop.runtime.stepStates)).toEqual(['step-1']);
     expect(host.state.loops).toHaveLength(1);
     expect(host.state.loops[0].id).toBe(loop.id);
   });
 
   it('rejects creating a loop with an empty prompt', async () => {
-    const coordinator = new Coordinator(createFakeHost());
+    const { coordinator } = setup();
     const res = await coordinator.requestAction({ kind: 'create', prompt: '   ' });
     expect(res.ok).toBe(false);
   });
 
   it('list and show read persisted state', async () => {
-    const coordinator = new Coordinator(createFakeHost());
-    const loop = await createLoop(coordinator);
+    const { host, coordinator } = setup();
+    const loop = await createLoop(host, coordinator);
 
     const list = await coordinator.requestAction({ kind: 'list' });
     expect(list.loops).toHaveLength(1);
@@ -42,9 +50,8 @@ describe('Coordinator — Phase 1 lifecycle', () => {
   });
 
   it('activate moves draft -> active and persists', async () => {
-    const host = createFakeHost();
-    const coordinator = new Coordinator(host);
-    const loop = await createLoop(coordinator);
+    const { host, coordinator } = setup();
+    const loop = await createLoop(host, coordinator);
 
     const res = await coordinator.requestAction({ kind: 'activate', loopId: loop.id });
     expect(res.ok).toBe(true);
@@ -53,8 +60,8 @@ describe('Coordinator — Phase 1 lifecycle', () => {
   });
 
   it('pause then resume round-trips active <-> paused', async () => {
-    const coordinator = new Coordinator(createFakeHost());
-    const loop = await createLoop(coordinator);
+    const { host, coordinator } = setup();
+    const loop = await createLoop(host, coordinator);
     await coordinator.requestAction({ kind: 'activate', loopId: loop.id });
 
     const paused = await coordinator.requestAction({ kind: 'pause', loopId: loop.id });
@@ -65,8 +72,8 @@ describe('Coordinator — Phase 1 lifecycle', () => {
   });
 
   it('rejects invalid transitions with a clear error', async () => {
-    const coordinator = new Coordinator(createFakeHost());
-    const loop = await createLoop(coordinator);
+    const { host, coordinator } = setup();
+    const loop = await createLoop(host, coordinator);
     // Cannot pause a draft.
     const res = await coordinator.requestAction({ kind: 'pause', loopId: loop.id });
     expect(res.ok).toBe(false);
@@ -74,8 +81,8 @@ describe('Coordinator — Phase 1 lifecycle', () => {
   });
 
   it('stop moves a loop to stopped and blocks further lifecycle', async () => {
-    const coordinator = new Coordinator(createFakeHost());
-    const loop = await createLoop(coordinator);
+    const { host, coordinator } = setup();
+    const loop = await createLoop(host, coordinator);
     const stopped = await coordinator.requestAction({ kind: 'stop', loopId: loop.id });
     expect(stopped.loop?.status).toBe('stopped');
 
@@ -84,8 +91,8 @@ describe('Coordinator — Phase 1 lifecycle', () => {
   });
 
   it('run_next requires an active loop', async () => {
-    const coordinator = new Coordinator(createFakeHost());
-    const loop = await createLoop(coordinator);
+    const { host, coordinator } = setup();
+    const loop = await createLoop(host, coordinator);
     const res = await coordinator.requestAction({ kind: 'run_next', loopId: loop.id });
     expect(res.ok).toBe(false);
     expect(res.error).toContain('not active');

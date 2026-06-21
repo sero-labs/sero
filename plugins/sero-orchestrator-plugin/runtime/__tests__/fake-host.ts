@@ -5,7 +5,7 @@
 
 import { DEFAULT_STATE } from '../../shared/defaults';
 import type { OrchestratorState } from '../../shared/types';
-import type { OrchestratorHost } from '../host';
+import type { ModelRunParams, ModelRunResult, OrchestratorHost } from '../host';
 
 export interface FakeHostOptions {
   workspaceId?: string;
@@ -19,6 +19,10 @@ export interface FakeHost extends OrchestratorHost {
   logs: string[];
   idCounter: number;
   clockMs: number;
+  /** Scripted model responses consumed FIFO by runStructured. */
+  modelResponses: ModelRunResult[];
+  /** Records every runStructured call for assertions. */
+  modelCalls: ModelRunParams[];
 }
 
 export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
@@ -30,12 +34,19 @@ export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
     logs: [],
     idCounter: 0,
     clockMs: Date.parse('2026-01-01T00:00:00.000Z'),
+    modelResponses: [],
+    modelCalls: [],
 
     async readState() {
       return structuredClone(this.state);
     },
     async updateState(updater) {
       this.state = updater(structuredClone(this.state));
+    },
+    async runStructured(params) {
+      this.modelCalls.push(params);
+      const next = this.modelResponses.shift();
+      return next ?? { response: '', error: 'no scripted model response' };
     },
     now() {
       // Advance one second per call so ordering is deterministic and distinct.

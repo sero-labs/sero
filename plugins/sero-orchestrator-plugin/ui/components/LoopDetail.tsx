@@ -1,7 +1,18 @@
 import { Badge, Card, Separator } from '@sero-ai/ui';
 import { AlertTriangle, GitBranch, FolderGit2 } from 'lucide-react';
-import type { Loop, OrchestratorAction } from '../../shared/types';
+import type { Loop, LoopLimits, OrchestratorAction } from '../../shared/types';
 import { LOOP_STATUS_LABEL, loopStatusVariant, formatTime } from '../lib/format';
+
+function formatLimits(limits: LoopLimits): string {
+  const parts: string[] = [];
+  if (limits.maxAttemptsPerStep) parts.push(`${limits.maxAttemptsPerStep} attempts/step`);
+  if (limits.maxConcurrentSteps) parts.push(`${limits.maxConcurrentSteps} concurrent`);
+  if (limits.maxAttemptsTotal) parts.push(`${limits.maxAttemptsTotal} attempts total`);
+  if (limits.maxTotalTokens) parts.push(`${limits.maxTotalTokens.toLocaleString()} tokens`);
+  if (limits.maxCostUsd) parts.push(`$${limits.maxCostUsd} cost`);
+  if (limits.maxWallClockMs) parts.push(`${Math.round(limits.maxWallClockMs / 60000)} min wall-clock`);
+  return parts.length ? `Limits: ${parts.join(' · ')}` : 'No limits set';
+}
 import { LoopControls } from './LoopControls';
 import { PlanView } from './PlanView';
 import { AttemptHistory } from './AttemptHistory';
@@ -74,6 +85,22 @@ export function LoopDetail({ loop, busy, onAction }: LoopDetailProps) {
             {workspace.useManagedWorktree ? 'Managed worktree' : 'Workspace root'}
             {resolved ? ` · ${resolved.type} (${resolved.cwd})` : ' · not resolved yet'}
           </span>
+        </Card>
+      </Section>
+
+      <Section title="Triggers & limits">
+        <Card className="flex flex-col gap-1 p-3 text-xs">
+          <div>
+            <span className="font-medium">Triggers: </span>
+            {loop.triggers.length === 0
+              ? 'Manual only'
+              : loop.triggers
+                  .map((t) => `${t.type}${t.schedule ? ` (${t.schedule})` : ''}${t.disabled ? ' — disabled' : ''}`)
+                  .join(', ')}
+          </div>
+          <div className="text-muted-foreground">
+            {formatLimits(loop.limits)}
+          </div>
         </Card>
       </Section>
 

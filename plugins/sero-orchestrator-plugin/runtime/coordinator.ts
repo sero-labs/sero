@@ -20,6 +20,8 @@ import { DEFAULT_STATE } from '../shared/defaults';
 import type { OrchestratorHost } from './host';
 import { buildDraftLoop } from './loop-factory';
 import { activate, pause, resume, stop, type TransitionResult } from './lifecycle';
+import { planLoop } from './planner';
+import { applyPlanningResponse, planIsActivatable } from './plan-mapping';
 
 export class Coordinator {
   constructor(protected readonly host: OrchestratorHost) {}
@@ -33,7 +35,7 @@ export class Coordinator {
       case 'show':
         return this.show(action.loopId);
       case 'activate':
-        return this.transition(action.loopId, (loop) => activate(loop, this.host.now()));
+        return this.activateLoop(action.loopId);
       case 'pause':
         return this.transition(action.loopId, (loop) => pause(loop, this.host.now()));
       case 'resume':
@@ -82,10 +84,51 @@ export class Coordinator {
     options?: CreateLoopOptions,
   ): Promise<OrchestratorActionResult> {
     if (!prompt.trim()) return { ok: false, error: 'A loop prompt is required.' };
+    // Build the draft first so we have a stable id and parentSessionId for the
+    // planning model call.
     const draft = buildDraftLoop(this.host, { prompt, title, options });
-    await this.appendLoop(draft);
-    this.host.log(`Created draft loop ${draft.id}`);
-    return { ok: true, loop: draft };
+
+    const outcome = await planLoop(this.host, {
+      prompt,
+      parentSessionId: draft.runtime.parentSessionId,
+    });
+
+    let loop: Loop;
+    if (outcome.ok) {
+      loop = applyPlanningResponse(this.host, draft, outcome.response, options, title);
+      this.host.log(`Created loop ${loop.id} with ${loop.plan.steps.length} step(s)`);
+    } else {
+      // Store an invalid plan as a blocked draft with clear validation errors.
+      loop = {
+        ...draft,
+        summary: 'Plan generation failed validation.',
+        runtime: {
+          ...draft.runtime,
+          block: {
+            kind: 'validation-error',
+            reason: outcome.errors.join('; '),
+            createdAt: this.host.now(),
+          },
+        },
+      };
+      this.host.log(`Created blocked draft ${loop.id}: ${outcome.errors.join('; ')}`);
+    }
+
+    await this.appendLoop(loop);
+
+    if (outcome.ok && options?.activate) {
+      return this.activateLoop(loop.id);
+    }
+    return { ok: true, loop };
+  }
+
+  /** Activates a draft only after confirming its plan is structurally valid. */
+  async activateLoop(loopId: string): Promise<OrchestratorActionResult> {
+    const loop = await this.findLoop(loopId);
+    if (!loop) return { ok: false, error: `Loop not found: ${loopId}` };
+    const gate = planIsActivatable(loop);
+    if (!gate.ok) return { ok: false, error: gate.error };
+    return this.transition(loopId, (current) => activate(current, this.host.now()));
   }
 
   protected async appendLoop(loop: Loop): Promise<void> {
