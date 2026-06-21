@@ -52,6 +52,13 @@ export function PlanView({ loop }: PlanViewProps) {
             {step.dependsOn && step.dependsOn.length > 0 && (
               <p className="text-xs text-muted-foreground">Depends on: {step.dependsOn.join(', ')}</p>
             )}
+            {state?.outcome && (
+              <p className="text-xs text-muted-foreground">
+                <span className="font-medium text-foreground">Outcome: </span>
+                {state.outcome.summary}
+                {state.attempts > 0 ? ` · ${state.attempts} attempt(s)` : ''}
+              </p>
+            )}
           </Card>
         );
       })}

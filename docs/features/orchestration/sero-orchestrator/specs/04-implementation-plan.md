@@ -14,7 +14,7 @@ plans.
 | 5 | Outcomes, recovery, and completion signals | ✅ Done | Failed steps recover through the LLM; planned steps can signal completion |
 | 6 | Active-session execution | ✅ Done | Active-session steps send and observe by `turnId` |
 | 7 | Scheduling and events | ✅ Done | Manual/cron/event/hybrid triggers mark loops due |
-| 8 | Polish and docs | ⬜ Not started | UI and docs explain generated step plans clearly |
+| 8 | Polish and docs | ✅ Done | UI and docs explain generated step plans clearly |
 
 Status legend: ✅ Done · 🟡 In progress · ⬜ Not started · ⛔ Blocked · 🟦 Deferred.
 
@@ -39,7 +39,7 @@ Status legend: ✅ Done · 🟡 In progress · ⬜ Not started · ⛔ Blocked ·
 | FR-15 | Manual/cron/event/hybrid triggers mark loops due | 7 | D-12 | ✅ |
 | FR-16 | Closed-workspace cron catch-up collapses to one run | 7 | D-08/D-12 | ✅ |
 | FR-17 | Plan revisions are structurally validated and recorded | 5 | D-13 | ✅ |
-| FR-18 | UI displays generated plan, dependency graph, step states, attempts, recovery, completion, and limits | 1/3/5/8 | D-01 | 🟡 |
+| FR-18 | UI displays generated plan, dependency graph, step states, attempts, recovery, completion, and limits | 1/3/5/8 | D-01 | ✅ |
 | FR-19 | No Orchestrator permission, approval, command, git, PR, or tool-policy layer | 4 | D-02 | ✅ |
 | FR-20 | User-selected loop workspace isolation supports managed worktree by default and workspace root by option | 4 | D-06 | ✅ |
 | FR-21 | Workspace-root loops with dirty roots prompt the user to stash, create a worktree, or defer, with timeout fallback to worktree | 4 | D-06 | ✅ |
@@ -317,36 +317,36 @@ from planned execution.
 
 **Tasks**
 
-- [ ] Refine UI copy to describe generated step plans without implying a fixed
+- [x] Refine UI copy to describe generated step plans without implying a fixed
   workflow.
-- [ ] Add docs-site documentation for creating, inspecting, pausing, resuming,
+- [x] Add docs-site documentation for creating, inspecting, pausing, resuming,
   and stopping loops.
-- [ ] Add examples that show one-step, sequential, and parallel plans.
-- [ ] Explain that recovery is an LLM decision and completion comes from planned
+- [x] Add examples that show one-step, sequential, and parallel plans.
+- [x] Explain that recovery is an LLM decision and completion comes from planned
   step outcomes.
 
 **Acceptance**
 
-- [ ] UI shows generated steps, dependencies, workspace isolation, attempts,
+- [x] UI shows generated steps, dependencies, workspace isolation, attempts,
   outcomes, recovery, and completion clearly.
-- [ ] Docs explain Orchestrator management limits without implying tool
+- [x] Docs explain Orchestrator management limits without implying tool
   restrictions.
-- [ ] FR-18 complete.
+- [x] FR-18 complete.
 
 ---
 
 ## Cross-Cutting Acceptance
 
-- [ ] `pnpm typecheck` passes from the monorepo root.
-- [ ] No source file exceeds 500 LOC.
-- [ ] No `any`, `@ts-ignore`, or `@ts-expect-error` without an explanatory
+- [x] `pnpm typecheck` passes from the monorepo root.
+- [x] No source file exceeds 500 LOC.
+- [x] No `any`, `@ts-ignore`, or `@ts-expect-error` without an explanatory
   comment.
-- [ ] State changes flow through `host.appState`, never renderer storage.
-- [ ] Tools, commands, and UI request coordinator actions; they do not start
+- [x] State changes flow through `host.appState`, never renderer storage.
+- [x] Tools, commands, and UI request coordinator actions; they do not start
   steps directly.
-- [ ] Generated plans are structurally validated before activation.
-- [ ] Orchestrator does not add a separate permission, approval, command, git,
+- [x] Generated plans are structurally validated before activation.
+- [x] Orchestrator does not add a separate permission, approval, command, git,
   PR, or tool-policy system.
-- [ ] Orchestrator does not mark completion without a planned step completion
+- [x] Orchestrator does not mark completion without a planned step completion
   signal.
-- [ ] `@apps/docs-site` is updated before a PR when user-facing behavior changes.
+- [x] `@apps/docs-site` is updated before a PR when user-facing behavior changes.
