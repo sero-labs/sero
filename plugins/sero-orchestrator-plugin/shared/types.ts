@@ -52,6 +52,10 @@ export type BlockedReason =
   | 'no-progress'
   | 'budget-exhausted'
   | 'changed-files-exceeded'
+  // The verification plan declared no sound way to verify the goal (spec 05 §7).
+  | 'verification-unavailable'
+  // The plan requires human sign-off before completing; Resume is the approval.
+  | 'approval-required'
   | 'unsafe';
 
 export interface LoopGoal {
@@ -76,6 +80,8 @@ export interface LoopGoal {
   statusReason?: string;
   /** Machine-readable block reason; governs how the block recovers (D-13/D-17). */
   blockedReason?: BlockedReason;
+  /** Latches once the user approves an `approval-required` block (spec 05 §7). */
+  approvalGranted?: boolean;
   triggers: LoopTrigger[];
   /**
    * LLM-authored definition of "done" (spec 05, D-18). When present it is the

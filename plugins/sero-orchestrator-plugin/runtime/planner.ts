@@ -151,18 +151,24 @@ export function parsePlannerOutput(response: string): ParsedPlan | null {
   } catch {
     return null;
   }
-  if (!isRecord(parsed) || !Array.isArray(parsed.criteria)) return null;
+  if (!isRecord(parsed)) return null;
 
-  const criteria = parsed.criteria
-    .map((value, index) => parseCriterion(value, index))
-    .filter((c): c is SuccessCriterion => c !== null);
-  if (criteria.length === 0) return null;
+  const criteria = Array.isArray(parsed.criteria)
+    ? parsed.criteria
+        .map((value, index) => parseCriterion(value, index))
+        .filter((c): c is SuccessCriterion => c !== null)
+    : [];
 
   const stopConditions = Array.isArray(parsed.stopConditions)
     ? parsed.stopConditions
         .map(parseStopCondition)
         .filter((c): c is StopCondition => c !== null)
     : [];
+
+  // A plan needs criteria, unless the planner explicitly flagged that the goal
+  // cannot be verified here (spec 05 §7) — that is a valid, actionable plan too.
+  const unavailable = stopConditions.some((condition) => condition.kind === 'verification-unavailable');
+  if (criteria.length === 0 && !unavailable) return null;
 
   return { criteria, stopConditions };
 }

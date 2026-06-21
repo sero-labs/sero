@@ -187,6 +187,7 @@ export class AttemptEngine {
           requiredPassed: report.requiredPassed,
           changedFilesExceeded: report.changedFilesExceeded,
           overrodeNoProgress: Boolean(finalized.noProgressOverride),
+          approvalRequired: planRequiresApproval(loop),
         });
         loop.status = transition.status;
         loop.statusReason = transitionReasonText(transition);
@@ -201,6 +202,16 @@ export class AttemptEngine {
       await deleteAttemptArtifacts(this.deps.stateFilePath, removedIds);
     }
 
+    // A loop that meets its criteria but needs sign-off blocks for approval and
+    // notifies; Resume is the approval (spec 05 §7).
+    if (updated?.status === 'blocked' && updated.blockedReason === 'approval-required') {
+      this.deps.host.notifications.notify({
+        type: 'info',
+        source: 'orchestrator',
+        message: `"${updated.title}" meets its criteria and is awaiting your approval. Resume it to finish.`,
+      });
+    }
+
     // A completed worktree loop that opted in opens a PR (FR-21). This runs after
     // the status write (a separate, coordinator-owned write — single executor
     // holds) so the PR side effect never sits inside the transition mutation.
@@ -213,6 +224,26 @@ export class AttemptEngine {
     }
     const message = [outcomeMessage(finalLoop, report), prNote].filter(Boolean).join(' ');
     return { ok: true, loop: finalLoop ?? undefined, message };
+  }
+
+  /**
+   * Approve an `approval-required` block (spec 05 §7): the work already meets the
+   * criteria, so granting approval completes the loop (latching `approvalGranted`
+   * so it never re-blocks) and opens a PR if the loop opted in. Called by the
+   * coordinator when the user resumes an approval-required loop.
+   */
+  async approve(loopId: string): Promise<OrchestratorActionResult> {
+    const updated = await this.deps.store.updateLoop(loopId, (loop) => {
+      loop.approvalGranted = true;
+      loop.status = 'complete';
+      loop.statusReason = undefined;
+      loop.blockedReason = undefined;
+      loop.updatedAt = isoNow(this.deps.clock);
+    });
+    if (!updated) return { ok: false, error: `No goal with id ${loopId}.` };
+    const pr = await this.maybeOpenPr(loopId, updated);
+    const message = [`Approved "${updated.title}" — goal complete.`, pr.note].filter(Boolean).join(' ');
+    return { ok: true, loop: pr.loop ?? updated, message };
   }
 
   /**
@@ -273,6 +304,11 @@ export class AttemptEngine {
 }
 
 // ── eligibility & messaging ────────────────────────────────────────────────────
+
+/** Whether the loop's verification plan requires human sign-off (spec 05 §7). */
+function planRequiresApproval(loop: LoopGoal): boolean {
+  return loop.verificationPlan?.stopConditions.some((c) => c.kind === 'approval-required') ?? false;
+}
 
 type Eligibility =
   | { proceed: true }

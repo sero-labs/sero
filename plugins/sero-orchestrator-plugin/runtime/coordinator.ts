@@ -275,6 +275,7 @@ export class WorkspaceCoordinator implements OrchestratorCoordinator {
       : await this.planner(loop, loop.verificationPlan);
 
     let failedDraft = false;
+    let unavailable: string | undefined;
     await this.store.updateLoop(loopId, (current) => {
       if (derivation) {
         current.verificationPlan = {
@@ -289,24 +290,37 @@ export class WorkspaceCoordinator implements OrchestratorCoordinator {
         };
       }
       const hasPlan = current.verificationPlan?.derivedFrom.goalHash === goalHash(current.goal);
+      const unavailableCondition = current.verificationPlan?.stopConditions.find(
+        (condition) => condition.kind === 'verification-unavailable',
+      );
       if (current.status === 'draft') {
-        if (hasPlan) {
-          current.status = 'active';
-          current.statusReason = undefined;
-        } else {
+        if (!hasPlan) {
           current.statusReason =
             'Could not derive a verification plan from the goal yet. Edit the goal or try again.';
           failedDraft = true;
+        } else if (unavailableCondition) {
+          // The planner found no sound way to verify the goal (spec 05 §7); block
+          // for the user rather than run blind.
+          unavailable =
+            unavailableCondition.reason ?? 'No sound way to verify this goal was found.';
+          current.status = 'blocked';
+          current.blockedReason = 'verification-unavailable';
+          current.statusReason = unavailable;
+        } else {
+          current.status = 'active';
+          current.statusReason = undefined;
         }
       }
       current.updatedAt = isoNow(this.clock);
     });
 
-    if (failedDraft) {
+    if (failedDraft || unavailable) {
       this.ctx.host.notifications.notify({
         type: 'warning',
         source: 'orchestrator',
-        message: `Could not derive a verification plan for "${loop.title}".`,
+        message: unavailable
+          ? `"${loop.title}" cannot be verified yet: ${unavailable}`
+          : `Could not derive a verification plan for "${loop.title}".`,
       });
     }
   }
@@ -323,6 +337,12 @@ export class WorkspaceCoordinator implements OrchestratorCoordinator {
   }
 
   private async resume(loopId: string): Promise<OrchestratorActionResult> {
+    const current = await this.store.getLoop(loopId);
+    // Resuming an approval-required block IS the approval: the work already meets
+    // its criteria, so this completes the loop (spec 05 §7) rather than rerunning.
+    if (current?.status === 'blocked' && current.blockedReason === 'approval-required') {
+      return this.engine.approve(loopId);
+    }
     return this.transition(loopId, (loop) => {
       if (loop.status === 'active') return { loop, message: `"${loop.title}" is already running.` };
       if (loop.status !== 'paused' && loop.status !== 'blocked') {

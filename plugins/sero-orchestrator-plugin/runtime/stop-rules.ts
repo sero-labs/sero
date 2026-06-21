@@ -100,12 +100,15 @@ export interface EvaluateInput {
   changedFilesExceeded: boolean;
   /** This attempt ran past a no-progress block via an explicit override. */
   overrodeNoProgress: boolean;
+  /** The plan requires human sign-off before completing (spec 05 §7). */
+  approvalRequired: boolean;
 }
 
 /**
  * Decide the loop's next state after an attempt completes. Priority: a
- * changed-files block keeps the change for review; a passing attempt completes;
- * then cumulative budget, no-progress, and the attempt ceiling.
+ * changed-files block keeps the change for review; a passing attempt that needs
+ * sign-off blocks for approval; a passing attempt completes; then cumulative
+ * budget, no-progress, and the attempt ceiling.
  */
 export function evaluateAfterAttempt(input: EvaluateInput): LoopTransition {
   const { loop, attempt, requiredPassed } = input;
@@ -114,6 +117,11 @@ export function evaluateAfterAttempt(input: EvaluateInput): LoopTransition {
     return { status: 'blocked', reason: 'changed-files-exceeded' };
   }
   if (requiredPassed && attempt.status === 'passed') {
+    // The work satisfies the criteria; pause for human sign-off if the plan
+    // requires it and it has not been granted yet. Resume is the approval.
+    if (input.approvalRequired && !loop.approvalGranted) {
+      return { status: 'blocked', reason: 'approval-required' };
+    }
     return { status: 'complete' };
   }
   if (cumulativeBudgetExhausted(loop)) {
@@ -135,6 +143,10 @@ const BLOCK_TEXT: Record<BlockedReason, string> = {
     'Blocked: the run budget is exhausted. Raise the budget and resume to continue.',
   'changed-files-exceeded':
     'Blocked for review: an attempt changed more files than the budget allows. The changes were kept.',
+  'verification-unavailable':
+    'Blocked: no sound way to verify this goal was found. Refine the goal so success is checkable.',
+  'approval-required':
+    'Awaiting approval: the work meets its criteria and needs sign-off. Resume to approve and finish.',
   unsafe: 'Blocked: the workspace is in an unsafe state.',
 };
 
