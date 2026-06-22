@@ -39,18 +39,28 @@ Return ONLY a single JSON object (no prose before or after). The top-level objec
   "suggestedLimits": { "maxAttemptsPerStep": number?, "maxConcurrentSteps": number?, "maxTotalTokens": number? }?
 }
 
+The user describes only the GOAL. You are responsible for the mechanics they should never have to spell out — always add the finalization and delivery steps yourself:
+
+- ALWAYS end the plan with a finalization step that checks the work was done correctly and, in its StepOutcome, emits the completion signal. Every plan must be able to complete on its own — the user will not ask it to "mark complete".
+- The DELIVERY rule for this loop is given in the task below (it depends on where the loop runs). Add the delivery step(s) it describes; the user will not ask for delivery either.
+
 Rules:
 - Sequential work is expressed with dependsOn. Parallel work is independent steps with satisfied dependencies.
-- To make a loop able to COMPLETE, include a validation/finalization step whose work decides completion. Completion is signaled by a step outcome, never inferred.
 - Use "background-agent" for filesystem/code/tool work, "model" for pure reasoning/structured output, "active-session" only when the work must happen in the user's live session.
-- Do NOT mention worktrees, the workspace root, git stashing, or any workspace-isolation choice. That is decided by the user, not the plan.
+- Do NOT decide where the loop runs (worktree vs workspace root) — that is the user's setting, already decided. Just follow the delivery rule given.
 - Step ids must be unique and dependsOn must reference existing step ids. The dependency graph must be acyclic.`;
 
-export function buildPlanningTask(prompt: string): string {
-  return `A background agent will carry out the work below. Author the step plan it should follow — do not perform the work yourself.
+const WORKTREE_DELIVERY = `Delivery rule for this loop: the work runs on its own isolated git branch, so the change must be DELIVERED or it is lost. After the change is made and verified, add a step that commits it on the current branch with a clear message; if the repository has a git remote and the \`gh\` CLI is available, that step should also push the branch and open a pull request describing the change. Then the finalization step emits completion.`;
 
-Work to plan for:
+const WORKSPACE_ROOT_DELIVERY = `Delivery rule for this loop: the work runs directly in the user's workspace files, so no commit or PR is needed — leave the change in the working tree unless the goal explicitly asks to commit. The finalization step just verifies the change and emits completion.`;
+
+export function buildPlanningTask(prompt: string, useManagedWorktree: boolean): string {
+  return `A background agent will carry out the work below. Author the step plan it should follow — do not perform the work yourself, and do not ask the user to specify mechanics like committing, opening a PR, or marking the loop complete. Add those yourself per the rules.
+
+Goal:
 ${prompt}
+
+${useManagedWorktree ? WORKTREE_DELIVERY : WORKSPACE_ROOT_DELIVERY}
 
 Return the PlanningResponse JSON now (one object, top-level "plan", no prose).`;
 }

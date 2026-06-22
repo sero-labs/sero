@@ -136,6 +136,7 @@ export class Coordinator {
     const outcome = await planLoop(this.host, {
       prompt,
       parentSessionId: draft.runtime.parentSessionId,
+      useManagedWorktree: draft.workspace.useManagedWorktree,
     });
 
     let loop: Loop;

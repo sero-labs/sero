@@ -3,7 +3,7 @@ import { planLoop } from '../planner';
 import { createFakeHost } from './fake-host';
 import { oneStepPlan, parallelPlan, planJson, sequentialPlan } from './fixtures';
 
-const req = { prompt: 'do something', parentSessionId: 'orchestrator:ws-1:loop-1' };
+const req = { prompt: 'do something', parentSessionId: 'orchestrator:ws-1:loop-1', useManagedWorktree: true };
 
 describe('planLoop', () => {
   it('returns a validated one-step plan', async () => {
@@ -31,6 +31,19 @@ describe('planLoop', () => {
     await planLoop(host, req);
     expect(host.modelCalls[0].platformTools).toBe('none');
     expect(host.modelCalls[0].parentSessionId).toBe('orchestrator:ws-1:loop-1');
+  });
+
+  it('tells the planner to deliver (commit/PR) for worktree loops, and not for workspace-root', async () => {
+    const wt = createFakeHost();
+    wt.modelResponses.push({ response: planJson(oneStepPlan()) });
+    await planLoop(wt, { ...req, useManagedWorktree: true });
+    expect(wt.modelCalls[0].task).toContain('isolated git branch');
+    expect(wt.modelCalls[0].task).toContain('pull request');
+
+    const root = createFakeHost();
+    root.modelResponses.push({ response: planJson(oneStepPlan()) });
+    await planLoop(root, { ...req, useManagedWorktree: false });
+    expect(root.modelCalls[0].task).toContain('no commit or PR is needed');
   });
 
   it('repairs once when the first response is invalid', async () => {

@@ -12,6 +12,8 @@ import { extractJson, validatePlanningResponse } from './schema';
 export interface PlanRequest {
   prompt: string;
   parentSessionId: string;
+  /** The loop's workspace isolation, so the planner adds the right delivery step. */
+  useManagedWorktree: boolean;
   model?: string;
   thinking?: string;
   signal?: AbortSignal;
@@ -47,7 +49,7 @@ export async function planLoop(host: OrchestratorHost, req: PlanRequest): Promis
 
   let first: string;
   try {
-    first = await runPlanning(host, req, buildPlanningTask(req.prompt));
+    first = await runPlanning(host, req, buildPlanningTask(req.prompt, req.useManagedWorktree));
   } catch (error) {
     return { ok: false, errors: [`planning model call failed: ${asMessage(error)}`], modelResponses };
   }
