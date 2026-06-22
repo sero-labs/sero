@@ -22,15 +22,6 @@ import type { OutcomeEvaluator, RecoveryDecider } from './engine-types';
 import { extractJson } from './schema';
 import { parseStepOutcome } from './executors/prompt';
 
-const RECOVERY_KINDS = new Set<RecoveryDecisionKind>([
-  'retry-step',
-  'revise-step',
-  'revise-plan',
-  'skip-step',
-  'wait',
-  'block-loop',
-]);
-
 async function attemptOutput(host: OrchestratorHost, attempt: StepAttempt): Promise<string> {
   if (attempt.outputPath) {
     const content = await host.readArtifact(attempt.outputPath);
@@ -41,9 +32,18 @@ async function attemptOutput(host: OrchestratorHost, attempt: StepAttempt): Prom
 
 // ── Outcome evaluation ──────────────────────────────────────
 
-const EVALUATE_SYSTEM = `You evaluate the raw output of one Orchestrator step into a StepOutcome.
-Return ONLY a JSON object: { "status": "succeeded"|"failed"|"blocked"|"skipped"|"needs-revision", "summary": string, "variables"?: object, "completion"?: { "status": "complete"|"blocked", "reason": string } }.
-Only include "completion" if this step's job was to decide whether the whole loop is done.`;
+const EVALUATE_SYSTEM = `You judge the raw output of one Orchestrator step and report a StepOutcome.
+
+Respond with ONLY one JSON object, in a \`\`\`json fence, nothing else, using these EXACT field names and status values:
+
+\`\`\`json
+{
+  "status": "succeeded",
+  "summary": "one sentence on what happened"
+}
+\`\`\`
+
+"status" MUST be exactly one of: succeeded, failed, blocked, skipped, needs-revision (use the field name "status", not "result" or "outcome"). Add "variables" only if the step produced values later steps need. Add "completion": { "status": "complete"|"blocked", "reason": string } ONLY if this step's job was to decide the whole loop is done.`;
 
 export const llmEvaluator: OutcomeEvaluator = {
   async evaluate({ host, loop, step, attempt }) {
@@ -62,14 +62,23 @@ export const llmEvaluator: OutcomeEvaluator = {
 // ── Recovery decisions ──────────────────────────────────────
 
 const RECOVERY_SYSTEM = `You decide how an Orchestrator loop recovers from a failed/blocked/needs-revision step.
-Return ONLY a JSON object:
+
+Respond with ONLY one JSON object, in a \`\`\`json fence, nothing else, using these EXACT field names and values:
+
+\`\`\`json
 {
-  "decision": "retry-step"|"revise-step"|"revise-plan"|"skip-step"|"wait"|"block-loop",
-  "reason": string,
-  "revisedStep"?: <a full step definition, for revise-step>,
-  "revisedPlan"?: <a full LoopPlan, for revise-plan — this is how to add/remove/reorder steps>
+  "decision": "retry-step",
+  "reason": "why you chose this",
+  "revisedStep": {},
+  "revisedPlan": {}
 }
-Choose revise-plan to add a validation/finalization step that can emit a completion signal. Choose block-loop only when no recovery is possible.`;
+\`\`\`
+
+Rules:
+- The field MUST be named "decision" (not "action").
+- "decision" MUST be the full form, exactly one of: retry-step, revise-step, revise-plan, skip-step, wait, block-loop. Do not abbreviate (use "retry-step", never "retry").
+- Include "revisedStep" (a full step definition) ONLY for revise-step. Include "revisedPlan" (a full LoopPlan) ONLY for revise-plan — that is how you add/remove/reorder steps. Omit both otherwise.
+- Prefer retry-step or revise-step for a recoverable step; choose block-loop only when no recovery is possible.`;
 
 function remainingLimits(loop: Loop): string {
   return JSON.stringify(loop.limits);
@@ -101,13 +110,34 @@ async function buildRecoveryTask(host: OrchestratorHost, loop: Loop, step: LoopS
   ].join('\n');
 }
 
+// Minimal defensive synonym map: the prompt asks for the exact full form, this
+// just absorbs the most common shorthand a model still slips in.
+const DECISION_SYNONYMS: Record<string, RecoveryDecisionKind> = {
+  'retry-step': 'retry-step', retry: 'retry-step', retry_step: 'retry-step',
+  'revise-step': 'revise-step', revise_step: 'revise-step', revise: 'revise-step',
+  'revise-plan': 'revise-plan', revise_plan: 'revise-plan', replan: 'revise-plan',
+  'skip-step': 'skip-step', skip: 'skip-step',
+  wait: 'wait',
+  'block-loop': 'block-loop', block: 'block-loop', blocked: 'block-loop',
+};
+
+function normalizeDecision(record: Record<string, unknown>): RecoveryDecisionKind | undefined {
+  const raw = record.decision ?? record.action;
+  if (typeof raw !== 'string') return undefined;
+  const mapped = DECISION_SYNONYMS[raw.trim().toLowerCase()];
+  // A bare "revise" disambiguates by which revised payload is present.
+  if (mapped === 'revise-step' && !record.revisedStep && record.revisedPlan) return 'revise-plan';
+  return mapped;
+}
+
 function parseDecision(text: string): { decision: RecoveryDecisionKind; reason: string; revisedStep?: LoopStepDefinition; revisedPlan?: LoopPlan } | undefined {
   const parsed = extractJson(text);
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return undefined;
   const record = parsed as Record<string, unknown>;
-  if (typeof record.decision !== 'string' || !RECOVERY_KINDS.has(record.decision as RecoveryDecisionKind)) return undefined;
+  const decision = normalizeDecision(record);
+  if (!decision) return undefined;
   return {
-    decision: record.decision as RecoveryDecisionKind,
+    decision,
     reason: typeof record.reason === 'string' ? record.reason : '',
     revisedStep: (record.revisedStep as LoopStepDefinition) ?? undefined,
     revisedPlan: (record.revisedPlan as LoopPlan) ?? undefined,

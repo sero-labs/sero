@@ -165,38 +165,15 @@ export function validateLoopPlan(plan: LoopPlan): string[] {
   return errors;
 }
 
-function firstString(record: Record<string, unknown>, keys: string[]): string | undefined {
-  for (const key of keys) {
-    const value = record[key];
-    if (typeof value === 'string' && value.trim()) return value;
-  }
-  return undefined;
-}
-
 function truncate(text: string, max: number): string {
   return text.length <= max ? text : `${text.slice(0, max - 1).trimEnd()}…`;
 }
 
-function normalizeExecution(raw: unknown): StepExecutionTarget {
-  if (isRecord(raw) && typeof raw.type === 'string') {
-    if (raw.type === 'model') {
-      return { type: 'model', model: firstString(raw, ['model']), thinking: firstString(raw, ['thinking']), outputSchema: raw.outputSchema };
-    }
-    if (raw.type === 'active-session' && isRecord(raw.sessionTarget)) {
-      return raw as unknown as StepExecutionTarget; // validated downstream
-    }
-    if (raw.type === 'background-agent') {
-      return { type: 'background-agent', model: firstString(raw, ['model']), thinking: firstString(raw, ['thinking']) };
-    }
-  }
-  return { type: 'background-agent' };
-}
-
 /**
- * Turns a loose steps array (plain strings, or objects with varied field names)
- * into canonical LoopStepDefinitions. A bare ordered string list becomes a
- * sequential plan (each step depends on the previous); objects keep their own
- * dependsOn. Step MEANING stays the model's — this only supplies the envelope.
+ * Minimal step normalization. The planner prompt specifies the exact step shape;
+ * the only tolerance kept is the one models reach for constantly — a bare ordered
+ * list of strings, which becomes a sequential background-agent plan. Object steps
+ * pass through (only id/execution are defaulted) and are validated strictly.
  */
 function normalizeSteps(raw: unknown[]): unknown[] {
   const ids = raw.map((entry, i) =>
@@ -214,77 +191,43 @@ function normalizeSteps(raw: unknown[]): unknown[] {
       };
     }
     if (isRecord(entry)) {
-      const instructions = firstString(entry, ['instructions', 'description', 'step', 'task', 'detail', 'action']) ?? '';
-      const dependsOn =
-        Array.isArray(entry.dependsOn) && entry.dependsOn.every((d) => typeof d === 'string')
-          ? (entry.dependsOn as string[])
-          : undefined;
-      return {
-        id,
-        title: firstString(entry, ['title', 'name']) ?? (instructions ? truncate(instructions, 60) : `Step ${i + 1}`),
-        instructions,
-        expectedOutcome: firstString(entry, ['expectedOutcome', 'expected', 'outcome']),
-        dependsOn,
-        execution: normalizeExecution(entry.execution),
-        maxAttempts: typeof entry.maxAttempts === 'number' ? entry.maxAttempts : undefined,
-        onFailure: firstString(entry, ['onFailure']),
-      };
+      return { ...entry, id, execution: isRecord(entry.execution) ? entry.execution : { type: 'background-agent' } };
     }
     return { id, title: `Step ${i + 1}`, instructions: String(entry), execution: { type: 'background-agent' } };
   });
 }
 
 /**
- * Reshapes common real-model variants into the canonical PlanningResponse shape
- * BEFORE validation. Field-shape tolerance only — step meaning stays the model's:
- *  - a single wrapper key (`{ verification_plan: {...} }`) is descended;
- *  - the steps source is found at `plan` (object or array), `steps`, `workflow`,
- *    or `loopPlan`;
- *  - a plain string array of steps becomes a sequential plan;
- *  - loose step objects are filled to the required step shape.
+ * Thin pre-validation reshape. The planner prompt carries the exact shape; this
+ * only locates the steps (canonical `plan.steps`, a bare `plan` array, or a flat
+ * top-level `steps`) and supplies the envelope. Everything else is left to the
+ * strict validator + the one repair pass.
  */
 export function coercePlanningShape(input: unknown): unknown {
   if (!isRecord(input)) return input;
-  let value = input;
-
-  if (!hasStepsSource(value) && typeof value.title !== 'string') {
-    const keys = Object.keys(value);
-    if (keys.length === 1 && isRecord(value[keys[0]])) value = value[keys[0]] as Record<string, unknown>;
-  }
-
-  const planObj = [value.plan, value.workflow, value.loopPlan].find(isRecord) as Record<string, unknown> | undefined;
+  const value = input;
+  const planObj = isRecord(value.plan) ? value.plan : undefined;
   const rawSteps =
-    planObj && Array.isArray(planObj.steps)
-      ? planObj.steps
-      : [value.plan, value.steps, value.workflow, value.loopPlan].find(Array.isArray);
+    planObj && Array.isArray(planObj.steps) ? planObj.steps
+    : Array.isArray(value.plan) ? value.plan
+    : Array.isArray(value.steps) ? value.steps
+    : undefined;
 
   if (!Array.isArray(rawSteps)) return value; // nothing to coerce; strict validator reports
 
-  const objective =
-    (planObj && typeof planObj.objective === 'string' && planObj.objective) ||
-    (typeof value.objective === 'string' ? value.objective : '');
   return {
     ...value,
     plan: {
       schemaVersion: 1,
       revision: planObj && typeof planObj.revision === 'number' ? planObj.revision : 0,
-      objective,
+      objective:
+        (planObj && typeof planObj.objective === 'string' && planObj.objective) ||
+        (typeof value.objective === 'string' ? value.objective : ''),
       steps: normalizeSteps(rawSteps),
       globalInstructions: (planObj?.globalInstructions ?? value.globalInstructions) as string | undefined,
       variablesSchema: planObj?.variablesSchema ?? value.variablesSchema,
     },
   };
-}
-
-function hasStepsSource(value: Record<string, unknown>): boolean {
-  return (
-    isRecord(value.plan) ||
-    Array.isArray(value.plan) ||
-    Array.isArray(value.steps) ||
-    isRecord(value.workflow) ||
-    Array.isArray(value.workflow) ||
-    isRecord(value.loopPlan)
-  );
 }
 
 /** Validates raw model output into a PlanningResponse. */

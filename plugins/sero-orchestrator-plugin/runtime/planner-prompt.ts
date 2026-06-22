@@ -45,7 +45,7 @@ The user describes only the GOAL. You are responsible for the mechanics they sho
 - The DELIVERY rule for this loop is given in the task below (it depends on where the loop runs). Add the delivery step(s) it describes; the user will not ask for delivery either.
 
 Rules:
-- Sequential work is expressed with dependsOn. Parallel work is independent steps with satisfied dependencies.
+- Order dependent work with dependsOn. If a step needs an earlier step's result (e.g. inspect → edit → check → verify), set dependsOn so they run in order. Leave steps independent (no dependsOn) ONLY when they are genuinely safe to run at the same time.
 - Use "background-agent" for filesystem/code/tool work, "model" for pure reasoning/structured output, "active-session" only when the work must happen in the user's live session.
 - Do NOT decide where the loop runs (worktree vs workspace root) — that is the user's setting, already decided. Just follow the delivery rule given.
 - Step ids must be unique and dependsOn must reference existing step ids. The dependency graph must be acyclic.`;

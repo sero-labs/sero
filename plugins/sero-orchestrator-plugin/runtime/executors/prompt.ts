@@ -9,20 +9,39 @@
 import type { Loop, LoopStepDefinition, StepOutcome } from '../../shared/types';
 import { extractJson } from '../schema';
 
-const OUTCOME_STATUSES = new Set(['succeeded', 'failed', 'blocked', 'skipped', 'needs-revision']);
+// Minimal defensive synonym map: the prompt asks for the exact value, this just
+// absorbs the most common shorthand a model still slips in.
+const STATUS_SYNONYMS: Record<string, StepOutcome['status']> = {
+  succeeded: 'succeeded', success: 'succeeded', successful: 'succeeded', passed: 'succeeded', pass: 'succeeded', ok: 'succeeded', done: 'succeeded',
+  failed: 'failed', fail: 'failed', failure: 'failed', error: 'failed',
+  blocked: 'blocked', block: 'blocked',
+  skipped: 'skipped', skip: 'skipped',
+  'needs-revision': 'needs-revision', needs_revision: 'needs-revision', 'needs revision': 'needs-revision', revise: 'needs-revision', revision: 'needs-revision',
+};
 
-export const STEP_SYSTEM_PROMPT = `You are executing one step of a Sero Orchestrator loop.
-
-Do the work described, then END your response with a single JSON object describing the outcome (fenced as \`\`\`json):
-
-{
-  "status": "succeeded" | "failed" | "blocked" | "skipped" | "needs-revision",
-  "summary": string,                       // one-line result
-  "variables": { ... }?,                   // values to merge into loop variables for later steps
-  "completion": { "status": "complete" | "blocked", "reason": string }?  // ONLY from a validation/finalization step
+function normalizeStatus(raw: unknown): StepOutcome['status'] | undefined {
+  return typeof raw === 'string' ? STATUS_SYNONYMS[raw.trim().toLowerCase()] : undefined;
 }
 
-Only include "completion" when this step's job is to decide whether the whole loop is done. Do not claim completion otherwise.`;
+export const STEP_SYSTEM_PROMPT = `You are executing ONE step of a Sero Orchestrator loop. Do the work the step describes using your normal tools.
+
+CRITICAL — how to report the result: after doing the work, your reply MUST END with exactly one JSON object, wrapped in a \`\`\`json code fence, and nothing after it. Use these EXACT field names and these EXACT status values:
+
+\`\`\`json
+{
+  "status": "succeeded",
+  "summary": "one sentence describing the result",
+  "variables": {},
+  "completion": { "status": "complete", "reason": "why the loop is done" }
+}
+\`\`\`
+
+Rules for that JSON:
+- "status" MUST be exactly one of: succeeded, failed, blocked, skipped, needs-revision. Do not invent other values.
+- Use the field name "status" (not "result", "outcome", or "action").
+- "variables" is optional — values later steps will need.
+- Include "completion" ONLY if THIS step's job is to decide the whole loop is done; its "status" is "complete" or "blocked". Omit it otherwise.
+- Put nothing after the closing fence.`;
 
 /** Observations relevant to a step: the summaries of its dependencies' outcomes. */
 function dependencyContext(loop: Loop, step: LoopStepDefinition): string {
@@ -49,7 +68,7 @@ export function buildStepTask(loop: Loop, step: LoopStepDefinition): string {
   if (step.execution.type === 'model' && step.execution.outputSchema !== undefined) {
     parts.push(`\nReturn output matching this schema (include it in the StepOutcome variables):\n${JSON.stringify(step.execution.outputSchema, null, 2)}`);
   }
-  parts.push('\nWhen finished, end with the StepOutcome JSON described in the system prompt.');
+  parts.push('\nWhen finished, end your reply with the StepOutcome JSON block (exact fields: "status", "summary") in a ```json fence, and nothing after it.');
   return parts.filter(Boolean).join('\n');
 }
 
@@ -58,9 +77,10 @@ export function parseStepOutcome(text: string): StepOutcome | undefined {
   const parsed = extractJson(text);
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return undefined;
   const record = parsed as Record<string, unknown>;
-  if (typeof record.status !== 'string' || !OUTCOME_STATUSES.has(record.status)) return undefined;
+  const status = normalizeStatus(record.status ?? record.outcome ?? record.result);
+  if (!status) return undefined;
   const outcome: StepOutcome = {
-    status: record.status as StepOutcome['status'],
+    status,
     summary: typeof record.summary === 'string' ? record.summary : '',
   };
   if (record.variables && typeof record.variables === 'object' && !Array.isArray(record.variables)) {

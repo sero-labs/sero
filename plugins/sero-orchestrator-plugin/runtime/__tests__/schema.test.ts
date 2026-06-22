@@ -106,22 +106,6 @@ describe('validatePlanningResponse', () => {
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.value.plan.steps).toHaveLength(1);
   });
-  it('descends a single wrapper key', () => {
-    const result = validatePlanningResponse({
-      verification_plan: {
-        objective: 'o',
-        steps: [{ id: 's1', title: 'S1', instructions: 'go', execution: { type: 'model' } }],
-      },
-    });
-    expect(result.ok).toBe(true);
-  });
-  it('accepts a "workflow" plan alias', () => {
-    const result = validatePlanningResponse({
-      title: 'Aliased',
-      workflow: { objective: 'o', steps: [{ id: 's1', title: 'S1', instructions: 'go', execution: { type: 'model' } }] },
-    });
-    expect(result.ok).toBe(true);
-  });
   it('accepts a plain string array as the plan (the live failure case)', () => {
     const result = validatePlanningResponse({
       plan: [
@@ -138,17 +122,6 @@ describe('validatePlanningResponse', () => {
       expect(result.value.plan.steps[1].dependsOn).toEqual([result.value.plan.steps[0].id]);
       expect(result.value.plan.steps[2].dependsOn).toEqual([result.value.plan.steps[1].id]);
       expect(result.value.plan.steps[0].execution.type).toBe('background-agent');
-    }
-  });
-  it('fills loose step objects with varied field names', () => {
-    const result = validatePlanningResponse({
-      plan: { steps: [{ name: 'Do it', description: 'make the change', execution: { type: 'model' } }] },
-    });
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.value.plan.steps[0].title).toBe('Do it');
-      expect(result.value.plan.steps[0].instructions).toBe('make the change');
-      expect(result.value.plan.steps[0].execution.type).toBe('model');
     }
   });
   it('defaults a missing title rather than failing a sound plan', () => {

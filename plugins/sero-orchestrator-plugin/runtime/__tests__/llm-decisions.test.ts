@@ -50,6 +50,15 @@ describe('llmDecider', () => {
     const decision = await llmDecider.decide({ host, loop, step: loop.plan.steps[0], attempt: attempt(host), outcome });
     expect(decision.decision).toBe('block-loop');
   });
+
+  it('tolerates the action/shorthand shape the live model used', async () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, oneStepPlan().plan);
+    // The exact reply that previously blocked the loop: "action":"retry".
+    host.modelResponses.push({ response: '{"action":"retry","stepId":"step-1","reason":"transient"}' });
+    const decision = await llmDecider.decide({ host, loop, step: loop.plan.steps[0], attempt: attempt(host), outcome });
+    expect(decision.decision).toBe('retry-step');
+  });
 });
 
 describe('proposeRevisedPlan', () => {

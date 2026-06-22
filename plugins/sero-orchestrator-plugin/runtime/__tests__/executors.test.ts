@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { backgroundAgentExecutor } from '../executors/background-agent';
 import { modelExecutor } from '../executors/model';
+import { parseStepOutcome } from '../executors/prompt';
 import type { StepRunInput } from '../engine-types';
 import type { Loop, LoopRun, ResolvedWorkspaceContext, StepOutcome } from '../../shared/types';
 import { createFakeHost, type FakeHost } from './fake-host';
@@ -23,6 +24,20 @@ function inputFor(host: FakeHost, loop: Loop, stepId: string, workspace?: Resolv
 }
 
 const outcome = (o: StepOutcome) => JSON.stringify(o);
+
+describe('parseStepOutcome', () => {
+  it('parses the exact shape', () => {
+    expect(parseStepOutcome('```json\n{"status":"succeeded","summary":"done"}\n```')?.status).toBe('succeeded');
+  });
+  it('tolerates common status shorthand', () => {
+    expect(parseStepOutcome('{"status":"success","summary":"x"}')?.status).toBe('succeeded');
+    expect(parseStepOutcome('{"status":"done","summary":"x"}')?.status).toBe('succeeded');
+    expect(parseStepOutcome('{"outcome":"fail","summary":"x"}')?.status).toBe('failed');
+  });
+  it('returns undefined when there is no usable status', () => {
+    expect(parseStepOutcome('I finished the work.')).toBeUndefined();
+  });
+});
 
 describe('backgroundAgentExecutor', () => {
   it('runs with the resolved cwd and full tool surface and records the outcome', async () => {
