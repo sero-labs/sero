@@ -165,42 +165,126 @@ export function validateLoopPlan(plan: LoopPlan): string[] {
   return errors;
 }
 
+function firstString(record: Record<string, unknown>, keys: string[]): string | undefined {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === 'string' && value.trim()) return value;
+  }
+  return undefined;
+}
+
+function truncate(text: string, max: number): string {
+  return text.length <= max ? text : `${text.slice(0, max - 1).trimEnd()}…`;
+}
+
+function normalizeExecution(raw: unknown): StepExecutionTarget {
+  if (isRecord(raw) && typeof raw.type === 'string') {
+    if (raw.type === 'model') {
+      return { type: 'model', model: firstString(raw, ['model']), thinking: firstString(raw, ['thinking']), outputSchema: raw.outputSchema };
+    }
+    if (raw.type === 'active-session' && isRecord(raw.sessionTarget)) {
+      return raw as unknown as StepExecutionTarget; // validated downstream
+    }
+    if (raw.type === 'background-agent') {
+      return { type: 'background-agent', model: firstString(raw, ['model']), thinking: firstString(raw, ['thinking']) };
+    }
+  }
+  return { type: 'background-agent' };
+}
+
+/**
+ * Turns a loose steps array (plain strings, or objects with varied field names)
+ * into canonical LoopStepDefinitions. A bare ordered string list becomes a
+ * sequential plan (each step depends on the previous); objects keep their own
+ * dependsOn. Step MEANING stays the model's — this only supplies the envelope.
+ */
+function normalizeSteps(raw: unknown[]): unknown[] {
+  const ids = raw.map((entry, i) =>
+    isRecord(entry) && typeof entry.id === 'string' && entry.id.trim() ? entry.id : `step-${i + 1}`,
+  );
+  return raw.map((entry, i) => {
+    const id = ids[i];
+    if (typeof entry === 'string') {
+      return {
+        id,
+        title: truncate(entry, 60),
+        instructions: entry,
+        execution: { type: 'background-agent' },
+        dependsOn: i > 0 ? [ids[i - 1]] : undefined,
+      };
+    }
+    if (isRecord(entry)) {
+      const instructions = firstString(entry, ['instructions', 'description', 'step', 'task', 'detail', 'action']) ?? '';
+      const dependsOn =
+        Array.isArray(entry.dependsOn) && entry.dependsOn.every((d) => typeof d === 'string')
+          ? (entry.dependsOn as string[])
+          : undefined;
+      return {
+        id,
+        title: firstString(entry, ['title', 'name']) ?? (instructions ? truncate(instructions, 60) : `Step ${i + 1}`),
+        instructions,
+        expectedOutcome: firstString(entry, ['expectedOutcome', 'expected', 'outcome']),
+        dependsOn,
+        execution: normalizeExecution(entry.execution),
+        maxAttempts: typeof entry.maxAttempts === 'number' ? entry.maxAttempts : undefined,
+        onFailure: firstString(entry, ['onFailure']),
+      };
+    }
+    return { id, title: `Step ${i + 1}`, instructions: String(entry), execution: { type: 'background-agent' } };
+  });
+}
+
 /**
  * Reshapes common real-model variants into the canonical PlanningResponse shape
- * BEFORE validation. This is field-shape tolerance only — what the steps mean
- * still comes entirely from the model:
+ * BEFORE validation. Field-shape tolerance only — step meaning stays the model's:
  *  - a single wrapper key (`{ verification_plan: {...} }`) is descended;
- *  - `plan` aliases (`workflow`, `loopPlan`) are accepted;
- *  - a flat response with top-level `steps` (no `plan`) is wrapped into `plan`.
+ *  - the steps source is found at `plan` (object or array), `steps`, `workflow`,
+ *    or `loopPlan`;
+ *  - a plain string array of steps becomes a sequential plan;
+ *  - loose step objects are filled to the required step shape.
  */
 export function coercePlanningShape(input: unknown): unknown {
   if (!isRecord(input)) return input;
   let value = input;
 
-  // Descend one wrapper key when the top level is clearly not the response/plan.
-  if (!isRecord(value.plan) && !Array.isArray(value.steps) && typeof value.title !== 'string') {
+  if (!hasStepsSource(value) && typeof value.title !== 'string') {
     const keys = Object.keys(value);
     if (keys.length === 1 && isRecord(value[keys[0]])) value = value[keys[0]] as Record<string, unknown>;
   }
 
-  const planAlias = value.plan ?? value.workflow ?? value.loopPlan;
-  if (isRecord(planAlias)) return { ...value, plan: planAlias };
+  const planObj = [value.plan, value.workflow, value.loopPlan].find(isRecord) as Record<string, unknown> | undefined;
+  const rawSteps =
+    planObj && Array.isArray(planObj.steps)
+      ? planObj.steps
+      : [value.plan, value.steps, value.workflow, value.loopPlan].find(Array.isArray);
 
-  if (Array.isArray(value.steps)) {
-    const objective = typeof value.objective === 'string' ? value.objective : '';
-    return {
-      ...value,
-      plan: {
-        schemaVersion: 1,
-        revision: typeof value.revision === 'number' ? value.revision : 0,
-        objective,
-        steps: value.steps,
-        globalInstructions: value.globalInstructions,
-        variablesSchema: value.variablesSchema,
-      },
-    };
-  }
-  return value;
+  if (!Array.isArray(rawSteps)) return value; // nothing to coerce; strict validator reports
+
+  const objective =
+    (planObj && typeof planObj.objective === 'string' && planObj.objective) ||
+    (typeof value.objective === 'string' ? value.objective : '');
+  return {
+    ...value,
+    plan: {
+      schemaVersion: 1,
+      revision: planObj && typeof planObj.revision === 'number' ? planObj.revision : 0,
+      objective,
+      steps: normalizeSteps(rawSteps),
+      globalInstructions: (planObj?.globalInstructions ?? value.globalInstructions) as string | undefined,
+      variablesSchema: planObj?.variablesSchema ?? value.variablesSchema,
+    },
+  };
+}
+
+function hasStepsSource(value: Record<string, unknown>): boolean {
+  return (
+    isRecord(value.plan) ||
+    Array.isArray(value.plan) ||
+    Array.isArray(value.steps) ||
+    isRecord(value.workflow) ||
+    Array.isArray(value.workflow) ||
+    isRecord(value.loopPlan)
+  );
 }
 
 /** Validates raw model output into a PlanningResponse. */

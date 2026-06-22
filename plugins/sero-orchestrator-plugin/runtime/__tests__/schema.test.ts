@@ -122,6 +122,35 @@ describe('validatePlanningResponse', () => {
     });
     expect(result.ok).toBe(true);
   });
+  it('accepts a plain string array as the plan (the live failure case)', () => {
+    const result = validatePlanningResponse({
+      plan: [
+        'Locate the text in the codebase.',
+        'Update the styling so it renders red.',
+        'Verify the change.',
+      ],
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.plan.steps).toHaveLength(3);
+      // Ordered string list becomes a sequential plan.
+      expect(result.value.plan.steps[0].dependsOn).toBeUndefined();
+      expect(result.value.plan.steps[1].dependsOn).toEqual([result.value.plan.steps[0].id]);
+      expect(result.value.plan.steps[2].dependsOn).toEqual([result.value.plan.steps[1].id]);
+      expect(result.value.plan.steps[0].execution.type).toBe('background-agent');
+    }
+  });
+  it('fills loose step objects with varied field names', () => {
+    const result = validatePlanningResponse({
+      plan: { steps: [{ name: 'Do it', description: 'make the change', execution: { type: 'model' } }] },
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.plan.steps[0].title).toBe('Do it');
+      expect(result.value.plan.steps[0].instructions).toBe('make the change');
+      expect(result.value.plan.steps[0].execution.type).toBe('model');
+    }
+  });
   it('defaults a missing title rather than failing a sound plan', () => {
     const result = validatePlanningResponse({
       plan: { objective: 'o', steps: [{ id: 's1', title: 'S1', instructions: 'go', execution: { type: 'model' } }] },
