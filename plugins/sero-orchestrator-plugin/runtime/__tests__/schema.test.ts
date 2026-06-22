@@ -90,9 +90,43 @@ describe('validatePlanningResponse', () => {
       expect(result.value.plan.steps).toHaveLength(1);
     }
   });
-  it('reports missing fields', () => {
-    const result = validatePlanningResponse({ summary: 's', plan: { objective: 'o', steps: [] } });
+  it('reports a missing plan', () => {
+    const result = validatePlanningResponse({ summary: 's', notes: 'nothing here' });
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.errors.length).toBeGreaterThan(0);
+    if (!result.ok) expect(result.errors).toContain('plan is required');
+  });
+
+  // Tolerance for real-model shape variants (field-shape only, not meaning).
+  it('accepts a flat response with top-level steps (no plan wrapper)', () => {
+    const result = validatePlanningResponse({
+      title: 'Flat',
+      objective: 'do it',
+      steps: [{ id: 's1', title: 'S1', instructions: 'go', execution: { type: 'background-agent' } }],
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value.plan.steps).toHaveLength(1);
+  });
+  it('descends a single wrapper key', () => {
+    const result = validatePlanningResponse({
+      verification_plan: {
+        objective: 'o',
+        steps: [{ id: 's1', title: 'S1', instructions: 'go', execution: { type: 'model' } }],
+      },
+    });
+    expect(result.ok).toBe(true);
+  });
+  it('accepts a "workflow" plan alias', () => {
+    const result = validatePlanningResponse({
+      title: 'Aliased',
+      workflow: { objective: 'o', steps: [{ id: 's1', title: 'S1', instructions: 'go', execution: { type: 'model' } }] },
+    });
+    expect(result.ok).toBe(true);
+  });
+  it('defaults a missing title rather than failing a sound plan', () => {
+    const result = validatePlanningResponse({
+      plan: { objective: 'o', steps: [{ id: 's1', title: 'S1', instructions: 'go', execution: { type: 'model' } }] },
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value.title).toBe('Untitled loop');
   });
 });

@@ -165,29 +165,70 @@ export function validateLoopPlan(plan: LoopPlan): string[] {
   return errors;
 }
 
-/** Validates raw model output into a PlanningResponse. */
-export function validatePlanningResponse(value: unknown): ValidationResult<PlanningResponse> {
-  const errors: string[] = [];
-  if (!isRecord(value)) return { ok: false, errors: ['response must be a JSON object'] };
-  if (typeof value.title !== 'string' || !value.title.trim()) errors.push('title is required');
-  if (typeof value.summary !== 'string') errors.push('summary is required');
-  if (!isRecord(value.plan)) {
-    errors.push('plan is required');
-    return { ok: false, errors };
+/**
+ * Reshapes common real-model variants into the canonical PlanningResponse shape
+ * BEFORE validation. This is field-shape tolerance only — what the steps mean
+ * still comes entirely from the model:
+ *  - a single wrapper key (`{ verification_plan: {...} }`) is descended;
+ *  - `plan` aliases (`workflow`, `loopPlan`) are accepted;
+ *  - a flat response with top-level `steps` (no `plan`) is wrapped into `plan`.
+ */
+export function coercePlanningShape(input: unknown): unknown {
+  if (!isRecord(input)) return input;
+  let value = input;
+
+  // Descend one wrapper key when the top level is clearly not the response/plan.
+  if (!isRecord(value.plan) && !Array.isArray(value.steps) && typeof value.title !== 'string') {
+    const keys = Object.keys(value);
+    if (keys.length === 1 && isRecord(value[keys[0]])) value = value[keys[0]] as Record<string, unknown>;
   }
+
+  const planAlias = value.plan ?? value.workflow ?? value.loopPlan;
+  if (isRecord(planAlias)) return { ...value, plan: planAlias };
+
+  if (Array.isArray(value.steps)) {
+    const objective = typeof value.objective === 'string' ? value.objective : '';
+    return {
+      ...value,
+      plan: {
+        schemaVersion: 1,
+        revision: typeof value.revision === 'number' ? value.revision : 0,
+        objective,
+        steps: value.steps,
+        globalInstructions: value.globalInstructions,
+        variablesSchema: value.variablesSchema,
+      },
+    };
+  }
+  return value;
+}
+
+/** Validates raw model output into a PlanningResponse. */
+export function validatePlanningResponse(input: unknown): ValidationResult<PlanningResponse> {
+  const value = coercePlanningShape(input);
+  if (!isRecord(value)) return { ok: false, errors: ['response must be a JSON object'] };
+  if (!isRecord(value.plan)) return { ok: false, errors: ['plan is required'] };
+
   const plan = value.plan as Record<string, unknown>;
-  if (typeof plan.objective !== 'string') errors.push('plan.objective is required');
-  errors.push(...validateLoopPlan(plan as unknown as LoopPlan));
+  const errors = validateLoopPlan(plan as unknown as LoopPlan);
   if (errors.length > 0) return { ok: false, errors };
 
+  // Title/summary are cosmetic — default them rather than failing a sound plan.
+  const title = typeof value.title === 'string' && value.title.trim() ? value.title : 'Untitled loop';
+  const summary =
+    typeof value.summary === 'string'
+      ? value.summary
+      : typeof plan.objective === 'string'
+        ? plan.objective
+        : '';
   const normalized: PlanningResponse = {
     schemaVersion: 1,
-    title: value.title as string,
-    summary: value.summary as string,
+    title,
+    summary,
     plan: {
       schemaVersion: 1,
       revision: typeof plan.revision === 'number' ? plan.revision : 0,
-      objective: plan.objective as string,
+      objective: typeof plan.objective === 'string' ? plan.objective : '',
       steps: plan.steps as LoopStepDefinition[],
       globalInstructions: typeof plan.globalInstructions === 'string' ? plan.globalInstructions : undefined,
       variablesSchema: plan.variablesSchema,

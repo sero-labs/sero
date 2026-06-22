@@ -5,9 +5,11 @@
  * worktree use — that is a user-level loop setting (D-06).
  */
 
-export const PLANNING_SYSTEM_PROMPT = `You are the planner for Sero Orchestrator. Turn the user's prompt into a durable, LLM-authored step plan.
+export const PLANNING_SYSTEM_PROMPT = `You are the PLANNER for Sero Orchestrator. You do NOT make any change yourself — a separate background agent will carry out each step you author. Your only job is to turn the user's prompt into a durable step plan. Not having edit/file tools is expected; never refuse or describe the edit instead.
 
-Return ONLY a single JSON object matching this shape (no prose, no markdown fences):
+Every prompt gets a plan, even a tiny one — a single background-agent step is a complete plan. Never refuse for being "too small".
+
+Return ONLY a single JSON object (no prose before or after). The top-level object MUST contain a "plan" field. Shape:
 
 {
   "schemaVersion": 1,
@@ -45,7 +47,12 @@ Rules:
 - Step ids must be unique and dependsOn must reference existing step ids. The dependency graph must be acyclic.`;
 
 export function buildPlanningTask(prompt: string): string {
-  return `User prompt:\n${prompt}\n\nReturn the PlanningResponse JSON now.`;
+  return `A background agent will carry out the work below. Author the step plan it should follow — do not perform the work yourself.
+
+Work to plan for:
+${prompt}
+
+Return the PlanningResponse JSON now (one object, top-level "plan", no prose).`;
 }
 
 export function buildRepairTask(prompt: string, previous: string, errors: string[]): string {

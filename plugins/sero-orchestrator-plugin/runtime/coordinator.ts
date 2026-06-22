@@ -144,19 +144,25 @@ export class Coordinator {
       this.host.log(`Created loop ${loop.id} with ${loop.plan.steps.length} step(s)`);
     } else {
       // Store an invalid plan as a blocked draft with clear validation errors.
+      // Retain the raw model reply so the failure is diagnosable, not a black box.
+      const rawRef = outcome.modelResponses.length
+        ? await this.host.writeArtifact(
+            `planner/${draft.id}.txt`,
+            outcome.modelResponses.join('\n\n--- next attempt ---\n\n'),
+          )
+        : undefined;
+      const reason = rawRef
+        ? `${outcome.errors.join('; ')} — raw model reply saved to ${rawRef}`
+        : outcome.errors.join('; ');
       loop = {
         ...draft,
         summary: 'Plan generation failed validation.',
         runtime: {
           ...draft.runtime,
-          block: {
-            kind: 'validation-error',
-            reason: outcome.errors.join('; '),
-            createdAt: this.host.now(),
-          },
+          block: { kind: 'validation-error', reason, createdAt: this.host.now() },
         },
       };
-      this.host.log(`Created blocked draft ${loop.id}: ${outcome.errors.join('; ')}`);
+      this.host.log(`Created blocked draft ${loop.id}: ${reason}`);
     }
 
     await this.appendLoop(loop);
