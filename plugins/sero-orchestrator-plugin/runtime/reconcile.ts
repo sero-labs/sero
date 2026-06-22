@@ -18,7 +18,9 @@ import type { OrchestratorHost } from './host';
 
 /** Reconciles a single loop. Returns the loop unchanged when nothing is in flight. */
 export function reconcileLoop(host: OrchestratorHost, loop: Loop): Loop {
-  const activeRunId = loop.runtime.activeRunId;
+  // Tolerate loops persisted by an incompatible/older schema (no runtime field):
+  // skip them rather than crashing the whole workspace runtime start.
+  const activeRunId = loop.runtime?.activeRunId;
   if (!activeRunId) return loop;
 
   const now = host.now();

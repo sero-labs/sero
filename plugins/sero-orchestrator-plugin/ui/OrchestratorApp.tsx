@@ -20,6 +20,7 @@ export function OrchestratorApp() {
   const { run } = useAppTools();
   const [view, setView] = useState<View>({ mode: 'detail', loopId: null });
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const selectedId = view.mode === 'detail' ? view.loopId : null;
   const selected = useMemo(
@@ -29,8 +30,15 @@ export function OrchestratorApp() {
 
   const dispatch = async (params: Record<string, unknown>) => {
     setBusy(true);
+    setError(null);
     try {
-      return await run('orchestrator', params);
+      const res = await run('orchestrator', params);
+      const details = res.details as { ok?: boolean; error?: string } | null;
+      if (details && details.ok === false) setError(details.error ?? 'Action failed.');
+      return res;
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+      return null;
     } finally {
       setBusy(false);
     }
@@ -49,8 +57,9 @@ export function OrchestratorApp() {
       useManagedWorktree: values.useManagedWorktree,
       activate: values.activate,
     });
-    const loopId = (res.details as { loop?: { id?: string } } | null)?.loop?.id ?? null;
-    setView({ mode: 'detail', loopId });
+    const details = res?.details as { ok?: boolean; loop?: { id?: string } } | null;
+    if (!details || details.ok === false) return; // stay on the form; error banner shows why
+    setView({ mode: 'detail', loopId: details.loop?.id ?? null });
   };
 
   return (
@@ -60,6 +69,13 @@ export function OrchestratorApp() {
         <h1 className="text-base font-semibold">Sero Orchestrator</h1>
         <span className="ml-auto text-xs text-muted-foreground">{state.loops.length} loop(s)</span>
       </header>
+
+      {error && (
+        <div className="flex items-center justify-between gap-2 border-b border-destructive/40 bg-destructive/10 px-4 py-2 text-xs text-destructive">
+          <span>{error}</span>
+          <button type="button" className="shrink-0 underline" onClick={() => setError(null)}>dismiss</button>
+        </div>
+      )}
 
       <div className="flex min-h-0 flex-1">
         <LoopList

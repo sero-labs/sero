@@ -37,4 +37,15 @@ describe('coordinator registry', () => {
     unregisterCoordinator('ws-1');
     expect(getCoordinator('ws-1')).toBeUndefined();
   });
+
+  it('stores the registry on globalThis so separately-loaded modules share it', () => {
+    const coordinator = new Coordinator(createFakeHost());
+    registerCoordinator('ws-shared', '/workspaces/ws-shared', coordinator);
+    // A second module instance (runtime bundle vs extension bundle) reaches the
+    // same Map via this global key — the fix for the two-loader split.
+    const shared = (globalThis as Record<string, unknown>)['__seroOrchestratorCoordinators__'] as
+      | Map<string, { coordinator: Coordinator }>
+      | undefined;
+    expect(shared?.get('ws-shared')?.coordinator).toBe(coordinator);
+  });
 });
