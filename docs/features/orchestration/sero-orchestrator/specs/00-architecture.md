@@ -223,6 +223,15 @@ Orchestrator validates the response and the contained plan before activation.
 Invalid responses are sent back to the LLM for repair. A loop cannot activate
 with an invalid plan.
 
+### LLM seam validation
+
+Every LLM seam — planner, step-outcome envelope, outcome evaluator, and recovery
+decision — uses the same contract: the prompt specifies the exact JSON shape and
+allowed values, the response is validated **strictly** (exact field names, exact
+enum values; no value-guessing or synonym coercion), and any mismatch is sent
+back to the model with the precise reason for a bounded repair pass. An
+unexpected value is rejected and corrected, never silently mapped.
+
 ## Step Scheduling
 
 The coordinator starts a step when:
@@ -361,8 +370,9 @@ attempts before evaluating triggers.
 ### D-09 — Plan Validation
 
 Plans are validated before activation. Validation checks schema shape, unique
-ids, valid dependencies, supported execution targets, and acyclic dependency
-graphs.
+ids, valid dependencies, supported execution targets, acyclic dependency
+graphs, and that the plan funnels to exactly one final step (single sink) so it
+has one place to emit completion.
 
 ### D-10 — Run Locking
 

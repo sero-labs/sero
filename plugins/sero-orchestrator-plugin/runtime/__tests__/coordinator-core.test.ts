@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Coordinator } from '../coordinator';
 import { LoopLocks } from '../locks';
 import type { EngineDeps } from '../engine-types';
-import type { StepOutcome } from '../../shared/types';
+import type { ResolvedWorkspaceContext, StepOutcome } from '../../shared/types';
 import { createFakeHost, type FakeHost } from './fake-host';
 import { oneStepPlan, seedActiveLoop } from './fixtures';
 import { fakeDecider, fakeExecutor, gatedExecutor } from './engine-fakes';
@@ -51,5 +51,54 @@ describe('Coordinator core (Phase 3)', () => {
     expect(blocked.status).toBe('blocked');
     expect(blocked.runtime.block?.kind).toBe('runtime-error');
     expect(blocked.runtime.block?.reason).toContain('missing runtime state');
+  });
+});
+
+describe('Coordinator delete', () => {
+  const managedWorktree: ResolvedWorkspaceContext = {
+    id: 'ws', type: 'managed-worktree', workspaceRoot: '/root',
+    cwd: '/root/.sero/worktrees/loop-1', worktreePath: '/root/.sero/worktrees/loop-1',
+    branchName: 'orchestrator/loop-1', resolvedBy: 'create-option', createdAt: 't',
+  };
+
+  it('removes the loop from state', async () => {
+    const host = createFakeHost();
+    seedActiveLoop(host, oneStepPlan().plan);
+    const res = await new Coordinator(host).requestAction({ kind: 'delete', loopId: 'loop-1' });
+    expect(res.ok).toBe(true);
+    expect(host.state.loops).toHaveLength(0);
+  });
+
+  it('removes a resolved managed worktree on delete, keeping the branch by default', async () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, oneStepPlan().plan);
+    loop.runtime.workspace.resolved = managedWorktree;
+    host.state = { ...host.state, loops: [loop] };
+    await new Coordinator(host).requestAction({ kind: 'delete', loopId: 'loop-1' });
+    expect(host.worktreesRemoved).toContain('loop-1');
+    expect(host.worktreeRemovals[0]).toMatchObject({ loopId: 'loop-1', deleteBranch: undefined });
+    expect(host.state.loops).toHaveLength(0);
+  });
+
+  it('deletes the local branch too when deleteBranch is set', async () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, oneStepPlan().plan);
+    loop.runtime.workspace.resolved = managedWorktree;
+    host.state = { ...host.state, loops: [loop] };
+    await new Coordinator(host).requestAction({ kind: 'delete', loopId: 'loop-1', deleteBranch: true });
+    expect(host.worktreeRemovals[0]).toMatchObject({ loopId: 'loop-1', deleteBranch: true });
+  });
+
+  it('touches no worktree when none was resolved', async () => {
+    const host = createFakeHost();
+    seedActiveLoop(host, oneStepPlan().plan);
+    await new Coordinator(host).requestAction({ kind: 'delete', loopId: 'loop-1' });
+    expect(host.worktreesRemoved).toHaveLength(0);
+  });
+
+  it('errors for an unknown loop', async () => {
+    const host = createFakeHost();
+    const res = await new Coordinator(host).requestAction({ kind: 'delete', loopId: 'nope' });
+    expect(res.ok).toBe(false);
   });
 });

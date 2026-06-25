@@ -1,5 +1,6 @@
-import { Button } from '@sero-ai/ui';
-import { Pause, Play, Square, StepForward, Zap } from 'lucide-react';
+import { useState } from 'react';
+import { Button, Checkbox, Label } from '@sero-ai/ui';
+import { Pause, Play, Square, StepForward, Trash2, Zap } from 'lucide-react';
 import type { Loop, OrchestratorAction } from '../../shared/types';
 
 interface LoopControlsProps {
@@ -11,6 +12,22 @@ interface LoopControlsProps {
 /** Lifecycle controls. Each button maps to exactly one coordinator action. */
 export function LoopControls({ loop, busy, onAction }: LoopControlsProps) {
   const { id, status } = loop;
+  // Keyed by loop id so switching loops mid-confirm never targets the wrong one.
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deleteBranch, setDeleteBranch] = useState(false);
+  const confirmingDelete = confirmDeleteId === id;
+  // A branch only exists if this loop resolved a managed worktree.
+  const hasBranch = loop.runtime.workspace.resolved?.type === 'managed-worktree';
+
+  const startDelete = () => {
+    setDeleteBranch(false);
+    setConfirmDeleteId(id);
+  };
+  const cancelDelete = () => {
+    setDeleteBranch(false);
+    setConfirmDeleteId(null);
+  };
+
   return (
     <div className="flex flex-wrap items-center gap-2">
       {status === 'draft' && (
@@ -38,6 +55,37 @@ export function LoopControls({ loop, busy, onAction }: LoopControlsProps) {
           <Square className="mr-1 h-3.5 w-3.5" /> Stop
         </Button>
       )}
+
+      <div className="ml-auto flex flex-wrap items-center gap-2">
+        {confirmingDelete ? (
+          <>
+            <span className="text-xs text-muted-foreground">Delete this loop and its config?</span>
+            {hasBranch && (
+              <div className="flex items-center gap-1.5">
+                <Checkbox
+                  id={`delete-branch-${id}`}
+                  checked={deleteBranch}
+                  disabled={busy}
+                  onCheckedChange={(checked) => setDeleteBranch(checked === true)}
+                />
+                <Label htmlFor={`delete-branch-${id}`} className="text-xs font-normal text-muted-foreground">
+                  Also delete the git branch
+                </Label>
+              </div>
+            )}
+            <Button size="sm" variant="destructive" disabled={busy} onClick={() => onAction({ kind: 'delete', loopId: id, deleteBranch })}>
+              <Trash2 className="mr-1 h-3.5 w-3.5" /> Confirm delete
+            </Button>
+            <Button size="sm" variant="ghost" disabled={busy} onClick={cancelDelete}>
+              Cancel
+            </Button>
+          </>
+        ) : (
+          <Button size="sm" variant="ghost" disabled={busy} onClick={startDelete}>
+            <Trash2 className="mr-1 h-3.5 w-3.5" /> Delete
+          </Button>
+        )}
+      </div>
     </div>
   );
 }

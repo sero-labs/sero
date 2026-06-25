@@ -150,7 +150,12 @@ Validation rules:
 - `dependsOn` references must point at existing steps;
 - dependency graphs must be acyclic;
 - execution targets must be supported;
-- at least one step must exist.
+- at least one step must exist;
+- the plan must funnel to exactly one final step — one step that nothing else
+  depends on — which emits the completion signal. When the model wires no
+  `dependsOn` at all, the ordered step list is normalized into a sequential
+  chain (each step after the previous); when it wires some dependencies, that
+  structure must already converge on one final step or the plan is rejected.
 
 Validation only checks structure. It does not decide whether the workflow is
 safe, cheap, advisable, or likely to succeed.
@@ -456,19 +461,25 @@ interface RecoveryDecision {
     | "revise-step"
     | "revise-plan"
     | "skip-step"
+    | "accept-step"
     | "wait"
   | "block-loop";
   reason: string;
   revisedStep?: LoopStepDefinition;
   revisedPlan?: LoopPlan;
+  acceptedOutcome?: StepOutcome;
   createdAt: string;
   modelResponsePath?: string;
 }
 ```
 
 The canonical recovery decisions are `retry-step`, `revise-step`,
-`revise-plan`, `skip-step`, `wait`, and `block-loop`. `revise-plan` is the way
-to add, remove, or reorder steps. `block-loop` sets `LoopBlock.kind =
+`revise-plan`, `skip-step`, `accept-step`, `wait`, and `block-loop`.
+`revise-plan` is the way to add, remove, or reorder steps. `accept-step` is for
+when the step actually met its goal but its outcome was mis-reported: the
+decision carries `acceptedOutcome` (the success `StepOutcome` the step should
+have reported), which the engine applies through the normal outcome path so its
+variables and any completion signal flow. `block-loop` sets `LoopBlock.kind =
 "recovery-block"`. Orchestrator validates any revised step or plan before
 applying it.
 

@@ -178,12 +178,11 @@ export class RunEngine {
       const outcome = await this.resolveOutcome(loop, step, attempt);
       const recorded: StepAttempt = { ...attempt, outcome };
       run = { ...run, stepAttempts: [...run.stepAttempts, recorded], observations: [...run.observations, ...recorded.observations] };
-      loop = applyStepOutcome(loop, step.id, recorded, outcome, this.host.now());
 
-      if (outcome.completion) {
-        const completed = recordCompletion(this.host, loop, step.id, recorded, outcome);
-        loop = completed.loop;
-        run = { ...run, completionSignal: completed.signal, status: completed.signal.status === 'complete' ? 'completed' : 'blocked' };
+      const applied = this.applyOutcome(loop, run, step.id, recorded, outcome);
+      loop = applied.loop;
+      run = applied.run;
+      if (applied.completed) {
         await this.persist(loop);
         return { loop, run, stop: true };
       }
@@ -191,12 +190,26 @@ export class RunEngine {
       if (TERMINAL_OUTCOMES.has(outcome.status)) {
         const decision = await this.deps.decider.decide({ host: this.host, loop, step, attempt: recorded, outcome });
         run = { ...run, recoveryDecisions: [...run.recoveryDecisions, decision] };
-        const applied = applyRecovery(this.host, loop, decision);
-        loop = applied.loop;
-        if (applied.rejection) {
-          run = { ...run, observations: [...run.observations, this.observation('system', applied.rejection)] };
+
+        if (decision.decision === 'accept-step' && decision.acceptedOutcome) {
+          // The model judged the step actually succeeded; re-apply the corrected
+          // outcome exactly like a reported one so its variables and completion flow.
+          const accepted = this.applyOutcome(loop, run, step.id, recorded, decision.acceptedOutcome);
+          loop = accepted.loop;
+          run = accepted.run;
+          if (accepted.completed) {
+            await this.persist(loop);
+            return { loop, run, stop: true };
+          }
+          continue;
         }
-        if (applied.stop) {
+
+        const recovery = applyRecovery(this.host, loop, decision);
+        loop = recovery.loop;
+        if (recovery.rejection) {
+          run = { ...run, observations: [...run.observations, this.observation('system', recovery.rejection)] };
+        }
+        if (recovery.stop) {
           run = { ...run, status: decision.decision === 'block-loop' ? 'blocked' : 'waiting' };
           stop = true;
           break;
@@ -205,6 +218,28 @@ export class RunEngine {
     }
     await this.persist(loop);
     return { loop, run, stop };
+  }
+
+  /**
+   * Records a StepOutcome on loop state and, if it carries a completion signal,
+   * moves the loop to complete/blocked. Shared by the normal outcome path and
+   * the accept-step recovery path so completion is handled identically.
+   */
+  private applyOutcome(
+    loop: Loop,
+    run: LoopRun,
+    stepId: string,
+    attempt: StepAttempt,
+    outcome: StepOutcome,
+  ): { loop: Loop; run: LoopRun; completed: boolean } {
+    loop = applyStepOutcome(loop, stepId, attempt, outcome, this.host.now());
+    if (!outcome.completion) return { loop, run, completed: false };
+    const completed = recordCompletion(this.host, loop, stepId, attempt, outcome);
+    return {
+      loop: completed.loop,
+      run: { ...run, completionSignal: completed.signal, status: completed.signal.status === 'complete' ? 'completed' : 'blocked' },
+      completed: true,
+    };
   }
 
   /** Uses the reported outcome, else the evaluator, else a mechanical fallback. */

@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { backgroundAgentExecutor } from '../executors/background-agent';
 import { modelExecutor } from '../executors/model';
-import { parseStepOutcome } from '../executors/prompt';
+import { buildStepTask, parseStepOutcome, parseStepOutcomeStrict } from '../executors/prompt';
 import type { StepRunInput } from '../engine-types';
-import type { Loop, LoopRun, ResolvedWorkspaceContext, StepOutcome } from '../../shared/types';
+import type { Loop, LoopPlan, LoopRun, ResolvedWorkspaceContext, StepOutcome } from '../../shared/types';
 import { createFakeHost, type FakeHost } from './fake-host';
-import { oneStepPlan, seedActiveLoop } from './fixtures';
+import { oneStepPlan, sequentialPlan, seedActiveLoop } from './fixtures';
 
 function emptyRun(host: FakeHost): LoopRun {
   return { id: host.newId('run'), runNumber: 1, status: 'running', startedStepIds: [], stepAttempts: [], recoveryDecisions: [], observations: [], startedAt: host.now() };
@@ -29,13 +29,67 @@ describe('parseStepOutcome', () => {
   it('parses the exact shape', () => {
     expect(parseStepOutcome('```json\n{"status":"succeeded","summary":"done"}\n```')?.status).toBe('succeeded');
   });
-  it('tolerates common status shorthand', () => {
-    expect(parseStepOutcome('{"status":"success","summary":"x"}')?.status).toBe('succeeded');
-    expect(parseStepOutcome('{"status":"done","summary":"x"}')?.status).toBe('succeeded');
-    expect(parseStepOutcome('{"outcome":"fail","summary":"x"}')?.status).toBe('failed');
+  it('rejects near-miss status words instead of guessing', () => {
+    // The live failure: a background agent reported "completed" (not an allowed value).
+    expect(parseStepOutcome('{"status":"completed","summary":"x"}')).toBeUndefined();
+    expect(parseStepOutcome('{"status":"success","summary":"x"}')).toBeUndefined();
+    expect(parseStepOutcome('{"outcome":"succeeded","summary":"x"}')).toBeUndefined();
   });
   it('returns undefined when there is no usable status', () => {
     expect(parseStepOutcome('I finished the work.')).toBeUndefined();
+  });
+});
+
+describe('parseStepOutcomeStrict', () => {
+  it('reports the exact reason a near-miss status is rejected', () => {
+    const result = parseStepOutcomeStrict({ status: 'completed', summary: 'x' });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.errors[0]).toContain('succeeded, failed, blocked, skipped, needs-revision');
+      expect(result.errors[0]).toContain('"completed"');
+    }
+  });
+  it('rejects a malformed completion block', () => {
+    const result = parseStepOutcomeStrict({ status: 'succeeded', summary: 'x', completion: { status: 'done' } });
+    expect(result.ok).toBe(false);
+  });
+  it('accepts the exact shape with completion', () => {
+    const result = parseStepOutcomeStrict({ status: 'succeeded', summary: 'x', completion: { status: 'complete', reason: 'done' } });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value.completion?.status).toBe('complete');
+  });
+});
+
+describe('buildStepTask finalization signal', () => {
+  it('tells the single sink step to emit the completion signal', () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, oneStepPlan().plan);
+    const task = buildStepTask(loop, loop.plan.steps[0]);
+    expect(task).toContain('FINAL step');
+    expect(task).toContain('"completion"');
+  });
+
+  it('asks only the sink step (not its dependencies) to complete the loop', () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, sequentialPlan().plan); // a -> b; b is the sink
+    const stepA = loop.plan.steps.find((s) => s.id === 'a')!;
+    const stepB = loop.plan.steps.find((s) => s.id === 'b')!;
+    expect(buildStepTask(loop, stepA)).not.toContain('FINAL step');
+    expect(buildStepTask(loop, stepB)).toContain('FINAL step');
+  });
+
+  it('forces completion on no step when the graph has multiple leaves', () => {
+    const host = createFakeHost();
+    const plan: LoopPlan = {
+      schemaVersion: 1, revision: 0, objective: 'o',
+      steps: [
+        { id: 'a', title: 'A', instructions: 'do a', execution: { type: 'background-agent' } },
+        { id: 'b', title: 'B', instructions: 'do b', execution: { type: 'background-agent' } },
+      ],
+    };
+    const loop = seedActiveLoop(host, plan);
+    expect(buildStepTask(loop, loop.plan.steps[0])).not.toContain('FINAL step');
+    expect(buildStepTask(loop, loop.plan.steps[1])).not.toContain('FINAL step');
   });
 });
 

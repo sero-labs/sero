@@ -41,11 +41,12 @@ Return ONLY a single JSON object (no prose before or after). The top-level objec
 
 The user describes only the GOAL. You are responsible for the mechanics they should never have to spell out — always add the finalization and delivery steps yourself:
 
-- ALWAYS end the plan with a finalization step that checks the work was done correctly and, in its StepOutcome, emits the completion signal. Every plan must be able to complete on its own — the user will not ask it to "mark complete".
+- ALWAYS end the plan with exactly ONE finalization step that nothing else depends on (the single final step every other step ultimately leads to). Its "instructions" must tell the agent to confirm the objective is met and then EMIT THE COMPLETION SIGNAL in its StepOutcome (completion.status "complete", or "blocked" if the objective cannot be met). This is the ONLY way a loop ends — a plan whose last step just "reports" or "summarizes" without emitting completion will run forever. Every plan must be able to complete on its own; the user will not ask it to "mark complete".
 - The DELIVERY rule for this loop is given in the task below (it depends on where the loop runs). Add the delivery step(s) it describes; the user will not ask for delivery either.
 
 Rules:
-- Order dependent work with dependsOn. If a step needs an earlier step's result (e.g. inspect → edit → check → verify), set dependsOn so they run in order. Leave steps independent (no dependsOn) ONLY when they are genuinely safe to run at the same time.
+- STEP ORDERING. List steps in the order they should run. A typical change is fully sequential — inspect → edit → verify → review → deliver → finalize. Prefer to make this explicit with "dependsOn" (e.g. "edit" has "dependsOn":["inspect"], "verify" has "dependsOn":["edit"], down to "finalize"). If you provide NO "dependsOn" on any step, the steps are treated as a sequential chain in the order given. To run steps in parallel, wire "dependsOn" explicitly so independent steps share a prerequisite and a later step depends on all of them.
+- The plan MUST funnel to a single finalization step: exactly one step that nothing else depends on, reached (directly or through the chain) from the work steps. Do not leave several independent loose ends.
 - Use "background-agent" for filesystem/code/tool work, "model" for pure reasoning/structured output, "active-session" only when the work must happen in the user's live session.
 - Do NOT decide where the loop runs (worktree vs workspace root) — that is the user's setting, already decided. Just follow the delivery rule given.
 - Step ids must be unique and dependsOn must reference existing step ids. The dependency graph must be acyclic.`;

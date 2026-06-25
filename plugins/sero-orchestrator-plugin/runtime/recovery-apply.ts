@@ -5,7 +5,10 @@
  *
  *   retry-step | revise-step | revise-plan | skip-step | wait | block-loop
  *
- * Revised steps and plans are structurally validated before they are applied.
+ * `accept-step` is handled by the run engine (it re-applies a corrected outcome
+ * through the same path normal outcomes take, so completion is uniform) and
+ * never reaches here. Revised steps and plans are structurally validated before
+ * they are applied.
  */
 
 import type {
@@ -133,6 +136,10 @@ export function applyRecovery(host: OrchestratorHost, loop: Loop, decision: Reco
 
     case 'block-loop':
       return { loop: blockLoop(loop, 'recovery-block', decision.reason, stepId, now), stop: true };
+
+    default:
+      // accept-step is handled upstream; any other (future/unknown) kind blocks safely.
+      return { loop: blockLoop(loop, 'recovery-block', `unsupported recovery decision: ${decision.decision}`, stepId, now), stop: true };
   }
 }
 

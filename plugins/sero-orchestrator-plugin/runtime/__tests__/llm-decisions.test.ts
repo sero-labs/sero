@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { llmDecider, llmEvaluator, proposeRevisedPlan } from '../llm-decisions';
 import type { StepAttempt, StepOutcome } from '../../shared/types';
 import { createFakeHost, type FakeHost } from './fake-host';
-import { oneStepPlan, planJson, seedActiveLoop } from './fixtures';
+import { oneStepPlan, seedActiveLoop } from './fixtures';
 
 function attempt(host: FakeHost): StepAttempt {
   return {
@@ -22,12 +22,26 @@ describe('llmEvaluator', () => {
     expect(host.modelCalls[0].platformTools).toBe('none');
   });
 
-  it('falls back to failed when evaluation is unparseable', async () => {
+  it('rejects a near-miss status and repairs with the exact error fed back', async () => {
     const host = createFakeHost();
     const loop = seedActiveLoop(host, oneStepPlan().plan);
-    host.modelResponses.push({ response: 'not json' });
+    host.modelResponses.push(
+      { response: JSON.stringify({ status: 'completed', summary: 'x' }) }, // invalid value
+      { response: JSON.stringify({ status: 'succeeded', summary: 'x' }) }, // corrected
+    );
+    const outcome = await llmEvaluator.evaluate({ host, loop, step: loop.plan.steps[0], attempt: attempt(host) });
+    expect(outcome.status).toBe('succeeded');
+    expect(host.modelCalls.length).toBe(2);
+    expect(host.modelCalls[1].task).toContain('succeeded, failed, blocked, skipped, needs-revision');
+  });
+
+  it('falls back to failed only after a repair pass also fails', async () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, oneStepPlan().plan);
+    host.modelResponses.push({ response: 'not json' }, { response: 'still not json' });
     const outcome = await llmEvaluator.evaluate({ host, loop, step: loop.plan.steps[0], attempt: attempt(host) });
     expect(outcome.status).toBe('failed');
+    expect(host.modelCalls.length).toBe(2);
   });
 });
 
@@ -43,21 +57,53 @@ describe('llmDecider', () => {
     expect(decision.modelResponsePath).toBeTruthy();
   });
 
-  it('falls back to block-loop when the decision is unparseable', async () => {
+  it('falls back to block-loop only after a repair pass also fails', async () => {
     const host = createFakeHost();
     const loop = seedActiveLoop(host, oneStepPlan().plan);
-    host.modelResponses.push({ response: 'gibberish' });
+    host.modelResponses.push({ response: 'gibberish' }, { response: 'still gibberish' });
     const decision = await llmDecider.decide({ host, loop, step: loop.plan.steps[0], attempt: attempt(host), outcome });
     expect(decision.decision).toBe('block-loop');
+    expect(host.modelCalls.length).toBe(2);
   });
 
-  it('tolerates the action/shorthand shape the live model used', async () => {
+  it('rejects an unknown decision keyword and repairs with the exact allowed values', async () => {
     const host = createFakeHost();
     const loop = seedActiveLoop(host, oneStepPlan().plan);
-    // The exact reply that previously blocked the loop: "action":"retry".
-    host.modelResponses.push({ response: '{"action":"retry","stepId":"step-1","reason":"transient"}' });
+    // The shapes the live model previously reached for: wrong field, shorthand.
+    host.modelResponses.push(
+      { response: '{"action":"retry","stepId":"step-1","reason":"transient"}' },
+      { response: '{"decision":"retry-step","reason":"transient"}' },
+    );
     const decision = await llmDecider.decide({ host, loop, step: loop.plan.steps[0], attempt: attempt(host), outcome });
     expect(decision.decision).toBe('retry-step');
+    expect(host.modelCalls.length).toBe(2);
+    expect(host.modelCalls[1].task).toContain('retry-step, revise-step, revise-plan, skip-step, accept-step, wait, block-loop');
+  });
+
+  it('parses an accept-step decision with its corrected outcome', async () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, oneStepPlan().plan);
+    host.modelResponses.push({ response: JSON.stringify({
+      decision: 'accept-step',
+      reason: 'the work was done, only mis-reported',
+      acceptedOutcome: { status: 'succeeded', summary: 'found the file' },
+    }) });
+    const decision = await llmDecider.decide({ host, loop, step: loop.plan.steps[0], attempt: attempt(host), outcome });
+    expect(decision.decision).toBe('accept-step');
+    expect(decision.acceptedOutcome?.status).toBe('succeeded');
+  });
+
+  it('rejects accept-step without a valid acceptedOutcome and repairs', async () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, oneStepPlan().plan);
+    host.modelResponses.push(
+      { response: JSON.stringify({ decision: 'accept-step', reason: 'done' }) }, // missing acceptedOutcome
+      { response: JSON.stringify({ decision: 'accept-step', reason: 'done', acceptedOutcome: { status: 'succeeded', summary: 'ok' } }) },
+    );
+    const decision = await llmDecider.decide({ host, loop, step: loop.plan.steps[0], attempt: attempt(host), outcome });
+    expect(decision.decision).toBe('accept-step');
+    expect(host.modelCalls.length).toBe(2);
+    expect(host.modelCalls[1].task).toContain('"acceptedOutcome"');
   });
 });
 
@@ -65,16 +111,17 @@ describe('proposeRevisedPlan', () => {
   it('returns a parsed plan', async () => {
     const host = createFakeHost();
     const loop = seedActiveLoop(host, oneStepPlan().plan);
-    host.modelResponses.push({ response: planJson(oneStepPlan()).replace('"One step loop"', '"x"') });
+    host.modelResponses.push({ response: JSON.stringify({ ...oneStepPlan().plan, objective: 'revised' }) });
     const proposal = await proposeRevisedPlan(host, loop, 'add a finalization step');
-    expect(proposal.plan).toBeTruthy();
+    expect(proposal.plan?.objective).toBe('revised');
   });
 
-  it('reports an error for non-JSON', async () => {
+  it('reports an error when the revision stays invalid after repair', async () => {
     const host = createFakeHost();
     const loop = seedActiveLoop(host, oneStepPlan().plan);
-    host.modelResponses.push({ response: 'nope' });
+    host.modelResponses.push({ response: 'nope' }, { response: 'still nope' });
     const proposal = await proposeRevisedPlan(host, loop);
     expect(proposal.error).toBeTruthy();
+    expect(host.modelCalls.length).toBe(2);
   });
 });

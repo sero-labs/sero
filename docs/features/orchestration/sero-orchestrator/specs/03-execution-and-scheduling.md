@@ -221,15 +221,26 @@ The LLM returns a `RecoveryDecision`. Orchestrator validates any revised step or
 plan before applying it.
 
 Canonical recovery decisions are `retry-step`, `revise-step`, `revise-plan`,
-`skip-step`, `wait`, and `block-loop`. `revise-plan` is the recovery decision
-that adds, removes, or reorders steps. `block-loop` sets `runtime.block.kind =
-"recovery-block"`.
+`skip-step`, `accept-step`, `wait`, and `block-loop`. `revise-plan` is the
+recovery decision that adds, removes, or reorders steps. `accept-step` is used
+when the step actually met its goal but its outcome was mis-reported; the
+decision carries `acceptedOutcome`, which the engine applies through the normal
+outcome path (so variables and any completion signal flow). `block-loop` sets
+`runtime.block.kind = "recovery-block"`.
 
 ## Completion Signal
 
 The LLM decides when and how validation happens by including validation or
 finalization steps in the plan. Those steps can emit a completion signal in their
 `StepOutcome`.
+
+The planner authors exactly one finalization step: the single dependency-graph
+sink (the step nothing else depends on). Because only a planned step outcome can
+emit completion, the step task builder deterministically reinforces that sink's
+prompt to judge the objective and emit a completion signal — so a plan with one
+clear final step always has a way to end. When a plan has several leaf steps no
+single sink can be identified, and completion is left to the authored step
+instructions.
 
 Only a step outcome with `completion.status === "complete"` moves the loop to
 `complete`. A step outcome with `completion.status === "blocked"` moves the loop

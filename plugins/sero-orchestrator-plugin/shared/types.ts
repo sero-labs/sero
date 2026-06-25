@@ -322,6 +322,7 @@ export type RecoveryDecisionKind =
   | 'revise-step'
   | 'revise-plan'
   | 'skip-step'
+  | 'accept-step'
   | 'wait'
   | 'block-loop';
 
@@ -333,6 +334,8 @@ export interface RecoveryDecision {
   reason: string;
   revisedStep?: LoopStepDefinition;
   revisedPlan?: LoopPlan;
+  /** Set for accept-step: the success outcome the step should have reported. */
+  acceptedOutcome?: StepOutcome;
   createdAt: string;
   modelResponsePath?: string;
 }
@@ -419,7 +422,8 @@ export type OrchestratorAction =
   | { kind: 'stop'; loopId: string }
   | { kind: 'run_next'; loopId: string }
   | { kind: 'revise'; loopId: string; prompt?: string }
-  | { kind: 'choose_recovery'; loopId: string; decision: RecoveryDecision };
+  | { kind: 'choose_recovery'; loopId: string; decision: RecoveryDecision }
+  | { kind: 'delete'; loopId: string; deleteBranch?: boolean };
 
 export interface OrchestratorActionResult {
   ok: boolean;

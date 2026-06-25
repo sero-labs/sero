@@ -28,6 +28,7 @@ export const ORCHESTRATOR_ACTIONS = [
   'run_next',
   'revise',
   'choose_recovery',
+  'delete',
 ] as const;
 
 export const OrchestratorToolParams = Type.Object({
@@ -40,6 +41,7 @@ export const OrchestratorToolParams = Type.Object({
   activate: Type.Optional(Type.Boolean({ description: 'Activate the loop immediately after create' })),
   useManagedWorktree: Type.Optional(Type.Boolean({ description: 'Workspace isolation for create (default true)' })),
   decisionJson: Type.Optional(Type.String({ description: 'JSON-encoded RecoveryDecision for choose_recovery' })),
+  deleteBranch: Type.Optional(Type.Boolean({ description: 'For delete: also delete the loop\'s local git branch (default false — branch is kept)' })),
 });
 
 export interface OrchestratorToolParamsShape {
@@ -50,6 +52,7 @@ export interface OrchestratorToolParamsShape {
   activate?: boolean;
   useManagedWorktree?: boolean;
   decisionJson?: string;
+  deleteBranch?: boolean;
 }
 
 interface ToolResult {
@@ -94,6 +97,9 @@ export function buildAction(params: OrchestratorToolParamsShape): OrchestratorAc
       }
       return { kind: 'choose_recovery', loopId: params.loopId, decision };
     }
+    case 'delete':
+      if (!params.loopId) return { error: 'delete requires a loopId' };
+      return { kind: 'delete', loopId: params.loopId, deleteBranch: params.deleteBranch };
     default: {
       if (!params.loopId) return { error: `${params.action} requires a loopId` };
       // The switch guarantees params.action is one of the single-loopId kinds
@@ -112,6 +118,8 @@ function summarize(action: OrchestratorAction, res: OrchestratorActionResult): s
       return `${res.loops?.length ?? 0} loop(s).`;
     case 'show':
       return `Loop ${res.loop?.id} — "${res.loop?.title}" (status: ${res.loop?.status}).`;
+    case 'delete':
+      return `Deleted loop ${action.loopId}.`;
     default:
       return `${action.kind} ok — loop ${res.loop?.id ?? action.loopId} now "${res.loop?.status ?? '?'}".`;
   }

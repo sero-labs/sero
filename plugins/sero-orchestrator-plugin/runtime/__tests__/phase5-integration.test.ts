@@ -36,22 +36,26 @@ describe('Phase 5 — outcomes, recovery, completion', () => {
   it('a failed step leads to new steps via revise-plan', async () => {
     const host = createFakeHost();
     seedActiveLoop(host, oneStepPlan().plan);
+    // Revise-plan replaces the failed approach with a fresh chain that funnels
+    // to one final step (step-3), so step-2 then step-3 run in order.
     const revisedPlan: LoopPlan = {
       schemaVersion: 1, revision: 0, objective: 'o',
       steps: [
-        { id: 'step-1', title: 'orig', instructions: 'x', execution: { type: 'background-agent' } },
         { id: 'step-2', title: 'Added', instructions: 'do the new thing', execution: { type: 'model' } },
+        { id: 'step-3', title: 'Finalize', instructions: 'wrap up', dependsOn: ['step-2'], execution: { type: 'model' } },
       ],
     };
     host.modelResponses.push(
       { response: failed() },
       { response: json({ decision: 'revise-plan', reason: 'need another step', revisedPlan }) },
       { response: succeeded('new step done') },
+      { response: succeeded('finalized') },
     );
     await engineFor(host).run('loop-1');
     const loop = loopOf(host);
     expect(loop.plan.steps.map((s) => s.id)).toContain('step-2');
     expect(loop.runtime.stepStates['step-2'].status).toBe('succeeded');
+    expect(loop.runtime.stepStates['step-3'].status).toBe('succeeded');
     expect(loop.revisions.some((r) => r.status === 'applied')).toBe(true);
   });
 
@@ -100,6 +104,45 @@ describe('Phase 5 — outcomes, recovery, completion', () => {
     );
     await engineFor(host).run('loop-1');
     expect(loopOf(host).runtime.stepStates['step-1'].status).toBe('succeeded');
+  });
+
+  it('recovers the live failure: a "completed" status is rejected, the evaluator repairs, and the step succeeds', async () => {
+    const host = createFakeHost();
+    seedActiveLoop(host, oneStepPlan().plan);
+    host.modelResponses.push(
+      // executor: did the work but reported a near-miss status word, with prose around it
+      { response: 'Identified the file.\n```json\n{"status":"completed","summary":"found it"}\n```' },
+      { response: json({ status: 'completed', summary: 'found it' }) }, // evaluator mirrors the bad word
+      { response: succeeded('found it') }, // evaluator repairs to an allowed value
+    );
+    await engineFor(host).run('loop-1');
+    expect(loopOf(host).runtime.stepStates['step-1'].status).toBe('succeeded');
+  });
+
+  it('accepts a mis-reported step via recovery and marks it succeeded with its variables', async () => {
+    const host = createFakeHost();
+    seedActiveLoop(host, oneStepPlan().plan);
+    host.modelResponses.push(
+      { response: failed('evaluation could not parse') },
+      { response: json({ decision: 'accept-step', reason: 'the work was actually done', acceptedOutcome: { status: 'succeeded', summary: 'really done', variables: { file: 'src/main.tsx' } } }) },
+    );
+    await engineFor(host).run('loop-1');
+    const loop = loopOf(host);
+    expect(loop.runtime.stepStates['step-1'].status).toBe('succeeded');
+    expect(loop.runtime.variables.file).toBe('src/main.tsx');
+  });
+
+  it('an accept-step outcome that carries completion completes the loop', async () => {
+    const host = createFakeHost();
+    seedActiveLoop(host, oneStepPlan().plan);
+    host.modelResponses.push(
+      { response: failed() },
+      { response: json({ decision: 'accept-step', reason: 'finalization actually passed', acceptedOutcome: { status: 'succeeded', summary: 'verified', completion: { status: 'complete', reason: 'all good' } } }) },
+    );
+    await engineFor(host).run('loop-1');
+    const loop = loopOf(host);
+    expect(loop.status).toBe('complete');
+    expect(loop.runtime.completion?.status).toBe('complete');
   });
 
   it('rejects and records an invalid revision', async () => {

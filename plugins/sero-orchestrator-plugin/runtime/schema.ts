@@ -2,9 +2,9 @@
  * Structural validation for LLM-authored plans (D-09).
  *
  * Validation only checks structure: unique step ids, valid dependency
- * references, an acyclic dependency graph, supported execution targets, and at
- * least one step. It does NOT judge whether a workflow is safe, cheap, or
- * likely to succeed.
+ * references, an acyclic dependency graph, supported execution targets, at least
+ * one step, and that the plan funnels to exactly one final step (single sink).
+ * It does NOT judge whether a workflow is safe, cheap, or likely to succeed.
  *
  * All functions are pure so they can be unit tested directly.
  */
@@ -117,6 +117,25 @@ function validateDependencies(steps: LoopStepDefinition[], errors: string[]): vo
   if (cycle) errors.push(`dependency cycle detected: ${cycle.join(' -> ')}`);
 }
 
+/**
+ * A well-formed plan funnels to exactly one finalization step — the single sink
+ * (the step nothing else depends on) that emits the completion signal (D-03).
+ * More than one sink means the plan has parallel loose ends that never converge,
+ * so the loop has no single place to finish; with several steps and no
+ * dependencies at all, every step is a sink and they would all run at once.
+ */
+function validateSingleFinalStep(steps: LoopStepDefinition[], errors: string[]): void {
+  if (steps.length < 2) return;
+  const dependedOn = new Set<string>();
+  for (const step of steps) for (const dep of step.dependsOn ?? []) dependedOn.add(dep);
+  const sinks = steps.filter((s) => !dependedOn.has(s.id)).map((s) => s.id);
+  if (sinks.length !== 1) {
+    errors.push(
+      `plan must funnel to exactly one final step (a step nothing else depends on); found ${sinks.length}: ${sinks.join(', ')}. Use dependsOn to order the work so every step leads into a single finalization step that emits completion.`,
+    );
+  }
+}
+
 /** Returns a cycle path if the dependency graph is not acyclic, else null. */
 export function findCycle(steps: LoopStepDefinition[]): string[] | null {
   const edges = new Map<string, string[]>();
@@ -161,7 +180,10 @@ export function validateLoopPlan(plan: LoopPlan): string[] {
   const ids = plan.steps.map((s) => s.id).filter((id): id is string => typeof id === 'string');
   const duplicates = ids.filter((id, i) => ids.indexOf(id) !== i);
   for (const dup of new Set(duplicates)) errors.push(`duplicate step id "${dup}"`);
-  if (errors.length === 0) validateDependencies(plan.steps, errors);
+  if (errors.length === 0) {
+    validateDependencies(plan.steps, errors);
+    if (errors.length === 0) validateSingleFinalStep(plan.steps, errors);
+  }
   return errors;
 }
 
@@ -171,14 +193,20 @@ function truncate(text: string, max: number): string {
 
 /**
  * Minimal step normalization. The planner prompt specifies the exact step shape;
- * the only tolerance kept is the one models reach for constantly — a bare ordered
- * list of strings, which becomes a sequential background-agent plan. Object steps
- * pass through (only id/execution are defaulted) and are validated strictly.
+ * the tolerance kept is the one models reach for constantly — a bare ordered list
+ * of steps (strings or objects) with no dependencies. When NO step wires a
+ * dependsOn, the order is read as a sequence and each step is chained to the
+ * previous one (so it funnels to a single final step). When the model wires any
+ * dependsOn itself, that structure is respected and nothing is added. ids and
+ * execution are defaulted; everything else is validated strictly.
  */
 function normalizeSteps(raw: unknown[]): unknown[] {
   const ids = raw.map((entry, i) =>
     isRecord(entry) && typeof entry.id === 'string' && entry.id.trim() ? entry.id : `step-${i + 1}`,
   );
+  const hasExplicitDeps = raw.some((e) => isRecord(e) && Array.isArray(e.dependsOn) && e.dependsOn.length > 0);
+  const sequentialDep = (i: number): string[] | undefined => (!hasExplicitDeps && i > 0 ? [ids[i - 1]] : undefined);
+
   return raw.map((entry, i) => {
     const id = ids[i];
     if (typeof entry === 'string') {
@@ -187,13 +215,18 @@ function normalizeSteps(raw: unknown[]): unknown[] {
         title: truncate(entry, 60),
         instructions: entry,
         execution: { type: 'background-agent' },
-        dependsOn: i > 0 ? [ids[i - 1]] : undefined,
+        dependsOn: sequentialDep(i),
       };
     }
     if (isRecord(entry)) {
-      return { ...entry, id, execution: isRecord(entry.execution) ? entry.execution : { type: 'background-agent' } };
+      return {
+        ...entry,
+        id,
+        execution: isRecord(entry.execution) ? entry.execution : { type: 'background-agent' },
+        dependsOn: Array.isArray(entry.dependsOn) ? entry.dependsOn : sequentialDep(i),
+      };
     }
-    return { id, title: `Step ${i + 1}`, instructions: String(entry), execution: { type: 'background-agent' } };
+    return { id, title: `Step ${i + 1}`, instructions: String(entry), execution: { type: 'background-agent' }, dependsOn: sequentialDep(i) };
   });
 }
 

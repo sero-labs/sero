@@ -42,6 +42,8 @@ export interface FakeHost extends OrchestratorHost {
   /** Records created/removed worktrees and notifications/choices. */
   worktreesCreated: string[];
   worktreesRemoved: string[];
+  /** Full removeWorktree calls, including the options passed. */
+  worktreeRemovals: { loopId: string; deleteBranch?: boolean; force?: boolean }[];
   notifications: { message: string; type?: string }[];
   choiceRequests: { title: string; body: string }[];
   stashes: string[];
@@ -69,6 +71,7 @@ export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
     choiceResult: { choiceId: null, timedOut: true },
     worktreesCreated: [],
     worktreesRemoved: [],
+    worktreeRemovals: [],
     notifications: [],
     choiceRequests: [],
     stashes: [],
@@ -99,8 +102,9 @@ export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
       this.worktreesCreated.push(loopId);
       return { worktreePath: `${this.workspacePath}/.sero/worktrees/${loopId}`, branchName: `orchestrator/${loopId}` };
     },
-    async removeWorktree(loopId) {
+    async removeWorktree(loopId, options) {
       this.worktreesRemoved.push(loopId);
+      this.worktreeRemovals.push({ loopId, deleteBranch: options?.deleteBranch, force: options?.force });
     },
     async getWorkspaceStatus() {
       return this.workspaceStatus;

@@ -93,6 +93,8 @@ export class Coordinator {
         return this.revise(action.loopId, action.prompt);
       case 'choose_recovery':
         return this.chooseRecovery(action.loopId, action.decision);
+      case 'delete':
+        return this.delete(action.loopId, action.deleteBranch);
       default: {
         const exhaustive: never = action;
         return { ok: false, error: `Unknown action: ${JSON.stringify(exhaustive)}` };
@@ -185,6 +187,29 @@ export class Coordinator {
 
   protected async appendLoop(loop: Loop): Promise<void> {
     await this.host.updateState((state) => ({ ...state, loops: [...state.loops, loop] }));
+  }
+
+  // ── Delete ────────────────────────────────────────────────
+
+  /**
+   * Permanently removes a loop and its config. If the loop resolved a managed
+   * worktree, that worktree is removed (best-effort and tolerant of an
+   * already-gone worktree). By default its branch is kept so any committed or
+   * PR'd work survives; pass `deleteBranch` to delete the local branch too. The
+   * loop is then dropped from state. Allowed from any status.
+   */
+  async delete(loopId: string, deleteBranch?: boolean): Promise<OrchestratorActionResult> {
+    const loop = await this.findLoop(loopId);
+    if (!loop) return { ok: false, error: `Loop not found: ${loopId}` };
+    if (loop.runtime.workspace.resolved?.type === 'managed-worktree') {
+      await this.host.removeWorktree(loopId, { force: true, deleteBranch });
+    }
+    await this.host.updateState((state) => ({
+      ...state,
+      loops: state.loops.filter((l) => l.id !== loopId),
+    }));
+    this.host.log(`Deleted loop ${loopId}`);
+    return { ok: true };
   }
 
   // ── Lifecycle transitions ─────────────────────────────────

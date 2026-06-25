@@ -19,6 +19,16 @@ describe('buildAction', () => {
     expect(buildAction({ action: 'activate' })).toEqual({ error: 'activate requires a loopId' });
   });
 
+  it('builds a delete action from a loopId', () => {
+    expect(buildAction({ action: 'delete', loopId: 'l1' })).toEqual({ kind: 'delete', loopId: 'l1' });
+  });
+
+  it('builds a delete action that also deletes the branch', () => {
+    expect(buildAction({ action: 'delete', loopId: 'l1', deleteBranch: true })).toEqual({
+      kind: 'delete', loopId: 'l1', deleteBranch: true,
+    });
+  });
+
   it('parses a recovery decision from JSON', () => {
     const decision = { id: 'r1', stepId: 's1', failedAttemptId: 'a1', decision: 'retry-step', reason: 'x', createdAt: 'now' };
     const action = buildAction({ action: 'choose_recovery', loopId: 'l1', decisionJson: JSON.stringify(decision) });

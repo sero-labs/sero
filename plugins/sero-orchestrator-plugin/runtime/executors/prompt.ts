@@ -6,22 +6,11 @@
  * the engine falls back to an LLM evaluator (Phase 5) or a mechanical status.
  */
 
-import type { Loop, LoopStepDefinition, StepOutcome } from '../../shared/types';
+import type { Loop, LoopStepDefinition, StepCompletion, StepOutcome } from '../../shared/types';
 import { extractJson } from '../schema';
+import { describeValue, isRecord, type ParseResult } from '../structured-call';
 
-// Minimal defensive synonym map: the prompt asks for the exact value, this just
-// absorbs the most common shorthand a model still slips in.
-const STATUS_SYNONYMS: Record<string, StepOutcome['status']> = {
-  succeeded: 'succeeded', success: 'succeeded', successful: 'succeeded', passed: 'succeeded', pass: 'succeeded', ok: 'succeeded', done: 'succeeded',
-  failed: 'failed', fail: 'failed', failure: 'failed', error: 'failed',
-  blocked: 'blocked', block: 'blocked',
-  skipped: 'skipped', skip: 'skipped',
-  'needs-revision': 'needs-revision', needs_revision: 'needs-revision', 'needs revision': 'needs-revision', revise: 'needs-revision', revision: 'needs-revision',
-};
-
-function normalizeStatus(raw: unknown): StepOutcome['status'] | undefined {
-  return typeof raw === 'string' ? STATUS_SYNONYMS[raw.trim().toLowerCase()] : undefined;
-}
+const STEP_STATUSES: readonly StepOutcome['status'][] = ['succeeded', 'failed', 'blocked', 'skipped', 'needs-revision'];
 
 export const STEP_SYSTEM_PROMPT = `You are executing ONE step of a Sero Orchestrator loop. Do the work the step describes using your normal tools.
 
@@ -39,6 +28,7 @@ CRITICAL — how to report the result: after doing the work, your reply MUST END
 Rules for that JSON:
 - "status" MUST be exactly one of: succeeded, failed, blocked, skipped, needs-revision. Do not invent other values.
 - Use the field name "status" (not "result", "outcome", or "action").
+- Choosing the status: use "skipped" when the step's precondition is not met or it is simply not applicable (e.g. an "if available" step whose condition is false) — that is a normal, non-failing outcome, NOT "blocked". Use "blocked" only when the step SHOULD run but cannot make progress and needs a human. Use "failed" when the work was attempted but did not succeed.
 - "variables" is optional — values later steps will need.
 - Include "completion" ONLY if THIS step's job is to decide the whole loop is done; its "status" is "complete" or "blocked". Omit it otherwise.
 - Put nothing after the closing fence.`;
@@ -58,6 +48,20 @@ function variablesContext(loop: Loop): string {
   return keys.length ? `\nCurrent loop variables:\n${JSON.stringify(loop.runtime.variables, null, 2)}` : '';
 }
 
+/**
+ * The loop's finalization step is its single dependency-graph sink — the one
+ * step nothing else depends on. Only a planned step outcome emits completion
+ * (D-03), so that sink must decide it or the loop never ends. When the graph has
+ * several leaves we can't single one out, so we leave it to the step's authored
+ * instructions and don't force a completion signal anywhere.
+ */
+function finalizationStepId(loop: Loop): string | undefined {
+  const sinks = loop.plan.steps.filter(
+    (step) => !loop.plan.steps.some((s) => (s.dependsOn ?? []).includes(step.id)),
+  );
+  return sinks.length === 1 ? sinks[0].id : undefined;
+}
+
 export function buildStepTask(loop: Loop, step: LoopStepDefinition): string {
   const parts = [`Loop objective: ${loop.plan.objective}`];
   if (loop.plan.globalInstructions) parts.push(`Global instructions: ${loop.plan.globalInstructions}`);
@@ -68,29 +72,53 @@ export function buildStepTask(loop: Loop, step: LoopStepDefinition): string {
   if (step.execution.type === 'model' && step.execution.outputSchema !== undefined) {
     parts.push(`\nReturn output matching this schema (include it in the StepOutcome variables):\n${JSON.stringify(step.execution.outputSchema, null, 2)}`);
   }
+  if (finalizationStepId(loop) === step.id) {
+    parts.push('\nThis is the loop\'s FINAL step — nothing runs after it, so the loop only ends if you end it here. After doing the work, judge whether the loop\'s overall objective is now fully met, then include a "completion" object in your StepOutcome: { "status": "complete", "reason": ... } if it is met, or { "status": "blocked", "reason": ... } if it cannot be. Without a completion signal the loop never finishes.');
+  }
   parts.push('\nWhen finished, end your reply with the StepOutcome JSON block (exact fields: "status", "summary") in a ```json fence, and nothing after it.');
   return parts.filter(Boolean).join('\n');
 }
 
-/** Parses a StepOutcome envelope from raw response text, if present and valid. */
+/**
+ * Strictly validates a StepOutcome. No value coercion: an unexpected `status`,
+ * a missing `summary`, or a malformed `completion`/`variables` is rejected with
+ * a precise reason the caller feeds back to the model for repair.
+ */
+export function parseStepOutcomeStrict(value: unknown): ParseResult<StepOutcome> {
+  if (!isRecord(value)) {
+    return { ok: false, errors: ['Reply must contain exactly one JSON object with the StepOutcome fields.'] };
+  }
+  const errors: string[] = [];
+  const status = value.status;
+  if (typeof status !== 'string' || !(STEP_STATUSES as readonly string[]).includes(status)) {
+    errors.push(`"status" must be exactly one of: ${STEP_STATUSES.join(', ')} — got ${describeValue(value.status)}. Use the field name "status".`);
+  }
+  if (typeof value.summary !== 'string' || !value.summary.trim()) {
+    errors.push(`"summary" must be a non-empty string — got ${describeValue(value.summary)}.`);
+  }
+  if (value.variables !== undefined && !isRecord(value.variables)) {
+    errors.push(`"variables", if present, must be a JSON object — got ${describeValue(value.variables)}.`);
+  }
+  const completion = parseCompletion(value.completion, errors);
+  if (errors.length > 0) return { ok: false, errors };
+
+  const outcome: StepOutcome = { status: status as StepOutcome['status'], summary: value.summary as string };
+  if (isRecord(value.variables)) outcome.variables = value.variables as Record<string, unknown>;
+  if (completion) outcome.completion = completion;
+  return { ok: true, value: outcome };
+}
+
+function parseCompletion(raw: unknown, errors: string[]): StepCompletion | undefined {
+  if (raw === undefined) return undefined;
+  if (!isRecord(raw) || (raw.status !== 'complete' && raw.status !== 'blocked') || typeof raw.reason !== 'string' || !raw.reason.trim()) {
+    errors.push('"completion", if present, must be { "status": "complete" | "blocked", "reason": <non-empty string> }.');
+    return undefined;
+  }
+  return { status: raw.status, reason: raw.reason };
+}
+
+/** Fast-path parse of a step's own envelope; undefined when absent or invalid. */
 export function parseStepOutcome(text: string): StepOutcome | undefined {
-  const parsed = extractJson(text);
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return undefined;
-  const record = parsed as Record<string, unknown>;
-  const status = normalizeStatus(record.status ?? record.outcome ?? record.result);
-  if (!status) return undefined;
-  const outcome: StepOutcome = {
-    status,
-    summary: typeof record.summary === 'string' ? record.summary : '',
-  };
-  if (record.variables && typeof record.variables === 'object' && !Array.isArray(record.variables)) {
-    outcome.variables = record.variables as Record<string, unknown>;
-  }
-  if (record.completion && typeof record.completion === 'object' && !Array.isArray(record.completion)) {
-    const completion = record.completion as Record<string, unknown>;
-    if ((completion.status === 'complete' || completion.status === 'blocked') && typeof completion.reason === 'string') {
-      outcome.completion = { status: completion.status, reason: completion.reason };
-    }
-  }
-  return outcome;
+  const parsed = parseStepOutcomeStrict(extractJson(text));
+  return parsed.ok ? parsed.value : undefined;
 }

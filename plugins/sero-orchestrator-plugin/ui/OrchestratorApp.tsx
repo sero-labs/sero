@@ -46,7 +46,11 @@ export function OrchestratorApp() {
 
   const onAction = async (action: OrchestratorAction) => {
     if (action.kind === 'create' || action.kind === 'list') return;
-    await dispatch({ action: action.kind, loopId: action.loopId });
+    const res = await dispatch({ action: action.kind, loopId: action.loopId });
+    if (action.kind === 'delete') {
+      const details = res?.details as { ok?: boolean } | null;
+      if (details?.ok !== false) setView({ mode: 'detail', loopId: null });
+    }
   };
 
   const onCreate = async (values: CreateLoopSubmit) => {
