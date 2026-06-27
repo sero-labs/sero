@@ -8,6 +8,7 @@
 
 import type { WorkspaceAccessRootsResult } from './workspace-access-roots';
 import type { ExtensionRuntimeContent, ExtensionRuntimeMessage } from './session-runtime';
+import type { SharedAvailableModelGroup } from './model-selection/types';
 
 export interface AppRuntimeStateApi {
   read<T = unknown>(filePath: string): Promise<T | null>;
@@ -444,6 +445,17 @@ export interface AppRuntimeToolchainsApi {
   sharedToolsDir(namespace: string): Promise<{ path: string }>;
 }
 
+export interface AppRuntimeModelsApi {
+  /**
+   * Lists the models currently available to this machine (every provider with a
+   * configured key), grouped by provider. Background runtimes use this to resolve
+   * a step's chosen model before running and to detect a pinned model that is no
+   * longer installed. Tier aliases ('LOW' | 'MED' | 'HIGH') are resolved by the
+   * subagent runner, not listed here.
+   */
+  list(): Promise<SharedAvailableModelGroup[]>;
+}
+
 export interface AppRuntimeActiveSession {
   sessionId: string;
   workspaceId: string;
@@ -493,6 +505,7 @@ export interface AppRuntimeHost {
   notifications: AppRuntimeNotificationsApi;
   credentials: AppRuntimeCredentialsApi;
   toolchains: AppRuntimeToolchainsApi;
+  models: AppRuntimeModelsApi;
   session: AppRuntimeSessionHost;
 }
 

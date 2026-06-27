@@ -59,6 +59,16 @@ function validateExecution(execution: unknown, stepId: string, errors: string[])
     errors.push(`step "${stepId}": unsupported execution target "${String(type)}"`);
     return;
   }
+  if (type === 'background-agent' || type === 'model') {
+    // model/thinking are optional. When present they must be strings — a tier
+    // ("LOW"/"MED"/"HIGH") or a "provider/modelId" ref the user pinned later.
+    if (execution.model !== undefined && (typeof execution.model !== 'string' || !execution.model.trim())) {
+      errors.push(`step "${stepId}": execution.model must be a non-empty string (a tier "LOW"/"MED"/"HIGH" or a "provider/modelId")`);
+    }
+    if (execution.thinking !== undefined && typeof execution.thinking !== 'string') {
+      errors.push(`step "${stepId}": execution.thinking must be a string`);
+    }
+  }
   if (type === 'active-session') {
     const target = execution.sessionTarget;
     if (!isRecord(target)) {

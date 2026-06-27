@@ -39,6 +39,8 @@ export function createOrchestratorHost(ctx: AppRuntimeContext): OrchestratorHost
         onUpdate: params.onUpdate,
       }),
 
+    listAvailableModels: () => ctx.host.models.list(),
+
     writeArtifact: async (relativePath, content) => {
       // relativePath is resolved under the state dir, so callers place artifacts
       // in their per-loop folder (loops/<loopId>/artifacts/...).

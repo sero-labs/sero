@@ -65,14 +65,17 @@ planned step outcome and recorded in `runtime.completion`.
 ```ts
 interface LoopWarning {
   id: string;
-  code: "mixed-workspace-targets";
+  code: "mixed-workspace-targets" | "model-unavailable";
   message: string;
+  stepId?: string; // the step a runtime warning refers to (model-unavailable)
   createdAt: string;
 }
 ```
 
 Warnings do not block activation. They expose important execution consequences
-to the user and UI.
+to the user and UI. `model-unavailable` is a runtime warning: a step's pinned
+model was not available, so the `MED` tier was used instead. It is re-evaluated
+each run (cleared at the start of a run, re-added if the model is still gone).
 
 ## Loop Workspace Settings
 
@@ -209,6 +212,16 @@ interface ModelTarget {
 
 These targets identify which standard Sero execution path to use. They do not
 define a separate Orchestrator permission model.
+
+`model` on a background-agent or model step is the per-step model choice. The
+planner picks a **tier** (`"LOW"` | `"MED"` | `"HIGH"`) for each step based on
+how hard the step is; the user can override it from the plan view (keep the
+tier, pick a different tier, or pin a specific `"provider/modelId"`). At run
+time the step's model is resolved against the machine's available models
+(`host.listAvailableModels()`): tiers pass straight through (the subagent runner
+maps them to the user's configured tier model), and a **pinned model that is no
+longer available falls back to the `MED` tier** with a `model-unavailable`
+warning on the loop. An absent `model` uses the session default.
 
 `ModelTarget.outputSchema` is included in the model prompt as an expected output
 shape. The current `runStructured` host API does not accept or enforce a schema

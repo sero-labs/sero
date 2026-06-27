@@ -5,9 +5,11 @@
  * command, or approval layer is added (D-02, FR-19).
  */
 
+import { isModelTier } from '@sero-ai/common';
 import type { Observation, StepAttempt, StepOutcome, UsageSummary } from '../../shared/types';
 import type { StepRunInput } from '../engine-types';
 import { artifactPath, storeOutput } from '../artifacts';
+import { resolveStepModel, type ResolvedStepModel } from '../model-resolution';
 import { buildStepTask, parseStepOutcome, STEP_SYSTEM_PROMPT } from './prompt';
 
 export interface RunStepOptions {
@@ -26,10 +28,19 @@ export async function runStepAttempt(input: StepRunInput, options: RunStepOption
   const { host, loop, run, step, attemptNumber, parentSessionId, workspace, signal } = input;
   const task = buildStepTask(loop, step);
 
+  // Resolve the step's chosen model. Tiers and "no preference" pass straight
+  // through; a pinned model that is no longer available falls back to MED (we
+  // only pay the listAvailableModels call when a specific model is pinned).
+  const requested = 'model' in step.execution ? step.execution.model : undefined;
+  const resolved: ResolvedStepModel =
+    requested && !isModelTier(requested)
+      ? resolveStepModel(requested, await host.listAvailableModels())
+      : { model: requested };
+
   const result = await host.runStructured({
     task,
     systemPrompt: STEP_SYSTEM_PROMPT,
-    model: 'model' in step.execution ? step.execution.model : undefined,
+    model: resolved.model,
     thinking: 'thinking' in step.execution ? step.execution.thinking : undefined,
     parentSessionId,
     cwd: options.cwd,
@@ -59,6 +70,7 @@ export async function runStepAttempt(input: StepRunInput, options: RunStepOption
     outcome,
     workspace,
     model: result.modelId,
+    modelFallback: resolved.fallbackFrom ? { requestedModel: resolved.fallbackFrom } : undefined,
     outputPath: stored.artifactRef,
     observations: [observation],
     usage: toUsage(result.durationMs, result.usage),

@@ -8,7 +8,7 @@
  * (engine-types.ts) so this orchestration is testable with fakes.
  */
 
-import type { Loop, LoopBlock, LoopRun, LoopStepDefinition, StepAttempt, StepOutcome } from '../shared/types';
+import type { Loop, LoopBlock, LoopRun, LoopStepDefinition, LoopWarning, StepAttempt, StepOutcome } from '../shared/types';
 import type { OrchestratorHost } from './host';
 import type { EngineDeps } from './engine-types';
 import { computeReadySteps, hasRunningSteps, validateRuntime } from './readiness';
@@ -85,6 +85,8 @@ export class RunEngine {
     let loop: Loop = {
       ...initial,
       runs: [...initial.runs, run],
+      // Drop last run's model-unavailable warnings; this run re-discovers them.
+      warnings: initial.warnings.filter((w) => w.code !== 'model-unavailable'),
       runtime: { ...initial.runtime, activeRunId: run.id, lastRunAt: now },
     };
     loop = await this.commit(loop);
@@ -191,6 +193,9 @@ export class RunEngine {
       const outcome = await this.resolveOutcome(loop, step, attempt);
       const recorded: StepAttempt = { ...attempt, outcome };
       run = { ...run, stepAttempts: [...run.stepAttempts, recorded], observations: [...run.observations, ...recorded.observations] };
+      if (recorded.modelFallback) {
+        loop = this.recordModelWarning(loop, step.id, recorded.modelFallback.requestedModel);
+      }
 
       const applied = this.applyOutcome(loop, run, step.id, recorded, outcome);
       loop = applied.loop;
@@ -310,6 +315,24 @@ export class RunEngine {
     const step = loop.plan.steps.find((s) => s.id === id);
     if (!step) throw new Error(`step not found: ${id}`);
     return step;
+  }
+
+  /**
+   * Records (replacing any prior one for the same step) a warning that a step's
+   * pinned model was unavailable and the MED tier was used instead. Surfaced as
+   * an amber card on the loop; cleared at the start of the next run.
+   */
+  private recordModelWarning(loop: Loop, stepId: string, requestedModel: string): Loop {
+    const title = loop.plan.steps.find((s) => s.id === stepId)?.title ?? stepId;
+    const warning: LoopWarning = {
+      id: this.host.newId('warning'),
+      code: 'model-unavailable',
+      stepId,
+      message: `Step "${title}" requested model "${requestedModel}", which isn't available — using the MED tier instead.`,
+      createdAt: this.host.now(),
+    };
+    const kept = loop.warnings.filter((w) => !(w.code === 'model-unavailable' && w.stepId === stepId));
+    return { ...loop, warnings: [...kept, warning] };
   }
 
   private observation(source: 'system', summary: string) {

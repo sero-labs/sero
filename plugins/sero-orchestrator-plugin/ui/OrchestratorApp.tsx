@@ -57,6 +57,12 @@ export function OrchestratorApp() {
     const params: Record<string, unknown> = { action: action.kind, loopId: action.loopId };
     if (action.kind === 'revise' && action.prompt) params.prompt = action.prompt;
     if (action.kind === 'delete') params.deleteBranch = action.deleteBranch;
+    if (action.kind === 'set_step_model') {
+      params.stepId = action.stepId;
+      // Omit model/thinking when clearing so the step reverts to the default.
+      if (action.model !== undefined) params.model = action.model;
+      if (action.thinking !== undefined) params.thinking = action.thinking;
+    }
     const res = await dispatch(params);
     if (action.kind === 'delete') {
       const details = res?.details as { ok?: boolean } | null;

@@ -46,6 +46,8 @@ import {
   isToolName,
   type HostToolResolver,
 } from '@electron/features/workspace/runtime/toolchains/host-tool-resolver';
+import { ensureInfra } from '@electron/shared/infra/shared-infra';
+import { buildAvailableModelGroups } from '@electron/ipc/agent/core/model-groups';
 import { validateRuntimeCustomTools } from './custom-tools';
 import { getProviderApiKey } from './provider-credentials';
 import { createSessionHost } from './session-host';
@@ -189,6 +191,14 @@ export function createAppRuntimeHost(_target: AppRuntimeTarget): AppRuntimeHost 
     },
     credentials: {
       getProviderApiKey: (providerId) => getProviderApiKey(providerId, SERO_HOME),
+    },
+    models: {
+      list: async () => {
+        const { modelRegistry } = await ensureInfra();
+        // Reload auth so newly-added (or removed) provider keys are reflected.
+        modelRegistry.authStorage.reload();
+        return buildAvailableModelGroups(modelRegistry.getAvailable());
+      },
     },
     session: createSessionHost(),
     toolchains: {

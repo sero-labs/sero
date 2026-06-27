@@ -28,6 +28,7 @@ export const ORCHESTRATOR_ACTIONS = [
   'run_again',
   'revise',
   'choose_recovery',
+  'set_step_model',
   'delete',
 ] as const;
 
@@ -41,6 +42,9 @@ export const OrchestratorToolParams = Type.Object({
   activate: Type.Optional(Type.Boolean({ description: 'Activate the loop immediately after create' })),
   useManagedWorktree: Type.Optional(Type.Boolean({ description: 'Workspace isolation for create (default true)' })),
   decisionJson: Type.Optional(Type.String({ description: 'JSON-encoded RecoveryDecision for choose_recovery' })),
+  stepId: Type.Optional(Type.String({ description: 'Target step id (required for set_step_model)' })),
+  model: Type.Optional(Type.String({ description: 'For set_step_model: a tier ("LOW"/"MED"/"HIGH") or a "provider/modelId"; omit to revert the step to the default' })),
+  thinking: Type.Optional(Type.String({ description: 'For set_step_model: thinking level for a pinned model' })),
   deleteBranch: Type.Optional(Type.Boolean({ description: 'For delete: also delete the loop\'s local git branch (default false — branch is kept)' })),
 });
 
@@ -52,6 +56,9 @@ export interface OrchestratorToolParamsShape {
   activate?: boolean;
   useManagedWorktree?: boolean;
   decisionJson?: string;
+  stepId?: string;
+  model?: string;
+  thinking?: string;
   deleteBranch?: boolean;
 }
 
@@ -97,6 +104,10 @@ export function buildAction(params: OrchestratorToolParamsShape): OrchestratorAc
       }
       return { kind: 'choose_recovery', loopId: params.loopId, decision };
     }
+    case 'set_step_model':
+      if (!params.loopId) return { error: 'set_step_model requires a loopId' };
+      if (!params.stepId) return { error: 'set_step_model requires a stepId' };
+      return { kind: 'set_step_model', loopId: params.loopId, stepId: params.stepId, model: params.model, thinking: params.thinking };
     case 'delete':
       if (!params.loopId) return { error: 'delete requires a loopId' };
       return { kind: 'delete', loopId: params.loopId, deleteBranch: params.deleteBranch };

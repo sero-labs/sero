@@ -22,7 +22,7 @@ import { buildDraftLoop } from './loop-factory';
 import { activate, disable, enable, type TransitionResult } from './lifecycle';
 import { planLoop } from './planner';
 import { extractSchedule } from './schedule-extractor';
-import { applyPlanningResponse, planIsActivatable } from './plan-mapping';
+import { applyPlanningResponse, applyStepModel, planIsActivatable } from './plan-mapping';
 import { RunEngine } from './run-engine';
 import type { EngineDeps } from './engine-types';
 import { reconcileAll } from './reconcile';
@@ -123,6 +123,8 @@ export class Coordinator {
         return this.revise(action.loopId, action.prompt);
       case 'choose_recovery':
         return this.chooseRecovery(action.loopId, action.decision);
+      case 'set_step_model':
+        return this.setStepModel(action.loopId, action.stepId, action.model, action.thinking);
       case 'delete':
         return this.delete(action.loopId, action.deleteBranch);
       default: {
@@ -422,6 +424,19 @@ export class Coordinator {
     }
     await this.replaceLoop(next);
     return { ok: true, loop: next };
+  }
+
+  /**
+   * Sets or clears a step's model override (the user changing the tier the
+   * planner chose, or pinning a specific model). Takes effect on the next run.
+   */
+  async setStepModel(loopId: string, stepId: string, model?: string, thinking?: string): Promise<OrchestratorActionResult> {
+    const loop = await this.findLoop(loopId);
+    if (!loop) return { ok: false, error: `Loop not found: ${loopId}` };
+    const result = applyStepModel(loop, stepId, model, thinking, this.host.now());
+    if (!result.ok || !result.loop) return { ok: false, error: result.error };
+    await this.replaceLoop(result.loop);
+    return { ok: true, loop: result.loop };
   }
 
   /** Applies a user-supplied recovery decision (manual override). */

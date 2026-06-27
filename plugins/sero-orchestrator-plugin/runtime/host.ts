@@ -12,6 +12,7 @@
 import type {
   ExtensionRuntimeContent,
   ExtensionRuntimeMessage,
+  SharedAvailableModelGroup,
 } from '@sero-ai/common';
 import type { OrchestratorState } from '../shared/types';
 
@@ -118,6 +119,12 @@ export interface OrchestratorHost {
   // ── Model / agent execution (standard Sero runtime) ───────
   /** Runs a model or background agent and returns plain text plus metadata. */
   runStructured(params: ModelRunParams): Promise<ModelRunResult>;
+  /**
+   * Lists the models available on this machine, grouped by provider. Used to
+   * resolve a step's chosen model before a run and to detect a pinned model that
+   * is no longer installed (falls back to the MED tier with a warning).
+   */
+  listAvailableModels(): Promise<SharedAvailableModelGroup[]>;
 
   // ── Artifacts (large outputs under the state dir) ─────────
   /** Persists artifact content (relativePath resolved under the state dir) and returns a stable reference. */

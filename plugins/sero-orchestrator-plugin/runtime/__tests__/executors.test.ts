@@ -125,6 +125,54 @@ describe('backgroundAgentExecutor', () => {
   });
 });
 
+describe('step model resolution', () => {
+  const availableModels = [
+    {
+      provider: 'anthropic',
+      displayName: 'Anthropic',
+      logo: '',
+      models: [{ provider: 'anthropic', modelId: 'claude-x', name: 'Claude X', reasoning: true }],
+    },
+  ];
+  const ok = () => outcome({ status: 'succeeded', summary: 'done' });
+
+  it('passes a tier straight through without listing models', async () => {
+    const host = createFakeHost();
+    host.availableModels = availableModels;
+    const plan = oneStepPlan().plan;
+    plan.steps[0].execution = { type: 'background-agent', model: 'HIGH' };
+    const loop = seedActiveLoop(host, plan);
+    host.modelResponses.push({ response: ok(), modelId: 'claude-x' });
+    const attempt = await backgroundAgentExecutor.run(inputFor(host, loop, 'step-1'));
+    expect(host.modelCalls[0].model).toBe('HIGH');
+    expect(attempt.modelFallback).toBeUndefined();
+  });
+
+  it('passes a pinned model through when it is available', async () => {
+    const host = createFakeHost();
+    host.availableModels = availableModels;
+    const plan = oneStepPlan().plan;
+    plan.steps[0].execution = { type: 'background-agent', model: 'anthropic/claude-x' };
+    const loop = seedActiveLoop(host, plan);
+    host.modelResponses.push({ response: ok(), modelId: 'claude-x' });
+    const attempt = await backgroundAgentExecutor.run(inputFor(host, loop, 'step-1'));
+    expect(host.modelCalls[0].model).toBe('anthropic/claude-x');
+    expect(attempt.modelFallback).toBeUndefined();
+  });
+
+  it('falls back to MED and flags the attempt when a pinned model is unavailable', async () => {
+    const host = createFakeHost();
+    host.availableModels = availableModels;
+    const plan = oneStepPlan().plan;
+    plan.steps[0].execution = { type: 'background-agent', model: 'openai/gpt-9' };
+    const loop = seedActiveLoop(host, plan);
+    host.modelResponses.push({ response: ok(), modelId: 'med-model' });
+    const attempt = await backgroundAgentExecutor.run(inputFor(host, loop, 'step-1'));
+    expect(host.modelCalls[0].model).toBe('MED');
+    expect(attempt.modelFallback).toEqual({ requestedModel: 'openai/gpt-9' });
+  });
+});
+
 describe('modelExecutor', () => {
   it('runs as a pure model call (no platform tools)', async () => {
     const host = createFakeHost();

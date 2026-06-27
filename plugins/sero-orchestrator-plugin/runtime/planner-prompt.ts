@@ -29,8 +29,8 @@ Return ONLY a single JSON object (no prose before or after). The top-level objec
         "instructions": string,          // what this step must do
         "expectedOutcome": string?,      // what success looks like
         "dependsOn": string[]?,          // ids of steps that must succeed first
-        "execution": { "type": "background-agent" }
-          | { "type": "model", "outputSchema": object? }
+        "execution": { "type": "background-agent", "model": "LOW"|"MED"|"HIGH" }
+          | { "type": "model", "model": "LOW"|"MED"|"HIGH", "outputSchema": object? }
           | { "type": "active-session", "sessionTarget": {
                 "workspaceId": string, "strategy": "specific-session"|"most-recent-active"|"ask-user",
                 "deliverAs": "steer"|"followUp"|"nextTurn", "triggerTurn": boolean } }
@@ -55,6 +55,7 @@ Rules:
 - STEP ORDERING. List steps in the order they should run. A typical change is fully sequential — inspect → edit → verify → review → deliver → finalize. Prefer to make this explicit with "dependsOn" (e.g. "edit" has "dependsOn":["inspect"], "verify" has "dependsOn":["edit"], down to "finalize"). If you provide NO "dependsOn" on any step, the steps are treated as a sequential chain in the order given. To run steps in parallel, wire "dependsOn" explicitly so independent steps share a prerequisite and a later step depends on all of them.
 - The plan MUST funnel to a single finalization step: exactly one step that nothing else depends on, reached (directly or through the chain) from the work steps. Do not leave several independent loose ends.
 - Use "background-agent" for filesystem/code/tool work, "model" for pure reasoning/structured output, "active-session" only when the work must happen in the user's live session.
+- MODEL TIER. For every "background-agent" and "model" step, set "execution.model" to the CHEAPEST tier that still does the step well: "LOW" for simple, mechanical work (running a known command, a small/obvious edit, reading or reformatting, a status check); "MED" — the balanced default — for ordinary implementation, code changes, and verification; "HIGH" only for genuinely hard reasoning (involved design, tricky debugging, multi-file refactors, careful review). When unsure, use "MED". Only ever use the tier words LOW/MED/HIGH — never name a specific provider model; the user can pin a specific model later. "active-session" steps take no model (they run in the user's live session).
 - Do NOT decide where the loop runs (worktree vs workspace root) — that is the user's setting, already decided. Just follow the delivery rule given.
 - For any recurring cadence in the goal, follow the RECURRING / SCHEDULED LOOPS rule above: shape the plan as ONE iteration with no wait/repeat steps (the schedule is set up separately).
 - Step ids must be unique and dependsOn must reference existing step ids. The dependency graph must be acyclic.`;

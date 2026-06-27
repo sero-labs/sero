@@ -66,8 +66,10 @@ export interface Loop {
 
 export interface LoopWarning {
   id: string;
-  code: 'mixed-workspace-targets';
+  code: 'mixed-workspace-targets' | 'model-unavailable';
   message: string;
+  /** The step a runtime warning refers to (model-unavailable), for de-duplication. */
+  stepId?: string;
   createdAt: string;
 }
 
@@ -352,6 +354,8 @@ export interface StepAttempt {
   resolvedSessionId?: string;
   sessionTurnId?: string;
   model?: string;
+  /** Set when the step's pinned model was unavailable and the MED tier was used instead. */
+  modelFallback?: { requestedModel: string };
   outputPath?: string;
   observations: Observation[];
   usage?: UsageSummary;
@@ -483,6 +487,7 @@ export type OrchestratorAction =
   | { kind: 'run_again'; loopId: string }
   | { kind: 'revise'; loopId: string; prompt?: string }
   | { kind: 'choose_recovery'; loopId: string; decision: RecoveryDecision }
+  | { kind: 'set_step_model'; loopId: string; stepId: string; model?: string; thinking?: string }
   | { kind: 'delete'; loopId: string; deleteBranch?: boolean };
 
 export interface OrchestratorActionResult {

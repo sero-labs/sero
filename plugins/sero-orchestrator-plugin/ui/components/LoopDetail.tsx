@@ -123,7 +123,7 @@ export function LoopDetail({ loop, busy, onAction, stateDir }: LoopDetailProps) 
       </Section>
 
       <Section title="Generated plan">
-        <PlanView loop={loop} />
+        <PlanView loop={loop} onAction={onAction} />
         {REFINABLE.has(loop.status) && (
           <RefinePlan key={loop.id} busy={busy} onRefine={(prompt) => onAction({ kind: 'revise', loopId: loop.id, prompt })} />
         )}

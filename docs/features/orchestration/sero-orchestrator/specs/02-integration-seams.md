@@ -43,6 +43,7 @@ Source: [package-build.ts](../../../../../apps/desktop/electron/features/plugins
 | Check dirty workspace-root mode before start | new `host.git.getWorkspaceStatus` or equivalent | Workspace-root preflight only |
 | Stash dirty workspace after user choice | new `host.git.stashWorkspaceChanges` or equivalent | User-directed preflight only |
 | Run background step | `host.subagents.runStructured` | Normal Sero background agent execution |
+| Resolve a step's model / detect a missing pinned model | `host.models.list` | Per-step tier or pinned model; unavailable pin falls back to MED |
 | Stream background output | `host.subagents.onLiveOutput` | UI subscribes by `(workspaceId, parentSessionId)` |
 | Evaluate step outcome | `host.subagents.runStructured` | Model call when execution output is not structured |
 | Decide recovery | `host.subagents.runStructured` | Model call after failed step |

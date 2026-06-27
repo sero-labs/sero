@@ -3,6 +3,7 @@
  * assertions are stable. Grows alongside the real host interface.
  */
 
+import type { SharedAvailableModelGroup } from '@sero-ai/common';
 import { DEFAULT_STATE } from '../../shared/defaults';
 import type { OrchestratorState } from '../../shared/types';
 import type {
@@ -33,6 +34,8 @@ export interface FakeHost extends OrchestratorHost {
   modelResponses: ModelRunResult[];
   /** Records every runStructured call for assertions. */
   modelCalls: ModelRunParams[];
+  /** Model groups returned by listAvailableModels (empty by default). */
+  availableModels: SharedAvailableModelGroup[];
   /** In-memory artifact store keyed by reference. */
   artifacts: Map<string, string>;
   /** Configurable workspace status for dirty preflight tests. */
@@ -66,6 +69,7 @@ export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
     clockMs: Date.parse('2026-01-01T00:00:00.000Z'),
     modelResponses: [],
     modelCalls: [],
+    availableModels: [],
     artifacts: new Map<string, string>(),
     workspaceStatus: { isGitRepository: true, hasUncommittedChanges: false, summary: 'Clean working tree' },
     choiceResult: { choiceId: null, timedOut: true },
@@ -89,6 +93,9 @@ export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
       this.modelCalls.push(params);
       const next = this.modelResponses.shift();
       return next ?? { response: '', error: 'no scripted model response' };
+    },
+    async listAvailableModels() {
+      return this.availableModels;
     },
     async writeArtifact(relativePath, content) {
       const ref = `artifact://${relativePath}`;

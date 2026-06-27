@@ -86,6 +86,9 @@ function createHostStub(
       ensure: vi.fn(async () => ({ path: '/usr/bin/true' })),
       sharedToolsDir: vi.fn(async () => ({ path: '/tmp/app-tools/test' })),
     },
+    models: {
+      list: vi.fn(async () => []),
+    },
     verification: {
       detectCompileCommands: vi.fn(async () => []),
       detectDependencyInstallCommand: vi.fn(async () => null),

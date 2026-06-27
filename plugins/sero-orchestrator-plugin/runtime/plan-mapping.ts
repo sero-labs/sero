@@ -95,6 +95,30 @@ export function applyPlanningResponse(
   return { ...withPlan, warnings: computeWarnings(host, withPlan) };
 }
 
+/**
+ * Sets (or clears) one step's model preference — the user override for the tier
+ * the planner picked. `model`/`thinking` are a tier ("LOW"/"MED"/"HIGH") or a
+ * "provider/modelId" ref; passing an empty/undefined `model` reverts the step to
+ * the orchestrator default. Only background-agent and model steps carry a model
+ * (active-session steps run in the user's live session).
+ */
+export function applyStepModel(
+  loop: Loop,
+  stepId: string,
+  model: string | undefined,
+  thinking: string | undefined,
+  now: string,
+): { ok: boolean; loop?: Loop; error?: string } {
+  const step = loop.plan.steps.find((s) => s.id === stepId);
+  if (!step) return { ok: false, error: `Step not found: ${stepId}` };
+  if (step.execution.type !== 'background-agent' && step.execution.type !== 'model') {
+    return { ok: false, error: `Step "${stepId}" (${step.execution.type}) has no model to set.` };
+  }
+  const execution = { ...step.execution, model: model?.trim() || undefined, thinking: thinking?.trim() || undefined };
+  const steps = loop.plan.steps.map((s) => (s.id === stepId ? { ...s, execution } : s));
+  return { ok: true, loop: { ...loop, plan: { ...loop.plan, steps }, updatedAt: now } };
+}
+
 /** True when a loop's plan is structurally valid and not validation-blocked. */
 export function planIsActivatable(loop: Loop): { ok: boolean; error?: string } {
   if (loop.runtime.block?.kind === 'validation-error') {
