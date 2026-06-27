@@ -7,7 +7,7 @@
 
 import { isModelTier } from '@sero-ai/common';
 import type { Observation, StepAttempt, StepOutcome, UsageSummary } from '../../shared/types';
-import { LEAN_TOOL_BASELINE } from '../../shared/constants';
+import { DEFAULT_TOOLS } from '../../shared/constants';
 import type { StepRunInput } from '../engine-types';
 import { artifactPath, storeOutput } from '../artifacts';
 import { extractJson } from '../schema';
@@ -59,12 +59,12 @@ export async function runStepAttempt(input: StepRunInput, options: RunStepOption
   const ctxOverride = loop.contextOverrides;
 
   // Per-step tool allowlist — only for background agents (which run with the
-  // full platform surface). The lean coding baseline is ALWAYS included; the
-  // planner's per-step picks are layered on top. Pure-model runs ('none') get no
-  // allowlist. A lean allowlist also trims the per-tool prompt guidance.
+  // full platform surface). The default tools are ALWAYS included; the planner's
+  // per-step picks are layered on top. Pure-model runs ('none') get no allowlist.
+  // A lean allowlist also trims the per-tool prompt guidance.
   const stepTools =
     options.platformTools === 'all' && step.execution.type === 'background-agent'
-      ? [...new Set([...LEAN_TOOL_BASELINE, ...(step.execution.tools ?? [])])]
+      ? [...new Set([...DEFAULT_TOOLS, ...(step.execution.tools ?? [])])]
       : undefined;
 
   const result = await host.runStructured({

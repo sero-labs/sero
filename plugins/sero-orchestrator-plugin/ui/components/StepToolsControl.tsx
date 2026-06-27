@@ -1,10 +1,9 @@
-import type { ReactNode } from 'react';
 import { Lock, Wrench } from 'lucide-react';
 import type { ContextToolInfo } from '@sero-ai/common';
 import { Button, Checkbox, Popover, PopoverContent, PopoverTrigger } from '@sero-ai/ui';
 import { cn } from '@sero-ai/ui/lib/utils';
 import type { LoopStepDefinition } from '../../shared/types';
-import { LEAN_TOOL_BASELINE, isBaselineTool } from '../../shared/constants';
+import { DEFAULT_TOOLS, isDefaultTool } from '../../shared/constants';
 
 interface StepToolsControlProps {
   step: LoopStepDefinition;
@@ -14,21 +13,17 @@ interface StepToolsControlProps {
 
 function currentExtras(step: LoopStepDefinition): string[] {
   const tools = step.execution.type === 'background-agent' ? step.execution.tools : undefined;
-  return (tools ?? []).filter((name) => !isBaselineTool(name));
+  return (tools ?? []).filter((name) => !isDefaultTool(name));
 }
 
 /**
- * Per-step tool selector. The lean coding baseline is always on and locked; the
- * planner picks extra tools per step and the user can add/remove those extras.
- * The trigger summarizes the selection; the popover separates the locked baseline
- * from the optional catalog tools.
+ * Per-step tool selector. The default tools are always on and locked (shown as a
+ * single item); the planner picks extra tools per step and the user can add or
+ * remove those extras. The trigger summarizes the selection.
  */
 export function StepToolsControl({ step, catalog, onChange }: StepToolsControlProps) {
   const extras = new Set(currentExtras(step));
-  const baselineItems: ContextToolInfo[] = LEAN_TOOL_BASELINE.map(
-    (name) => catalog.find((t) => t.name === name) ?? { name },
-  );
-  const optionalItems = catalog.filter((tool) => !isBaselineTool(tool.name));
+  const optionalItems = catalog.filter((tool) => !isDefaultTool(tool.name));
 
   const toggle = (name: string) => {
     const next = new Set(extras);
@@ -44,7 +39,7 @@ export function StepToolsControl({ step, catalog, onChange }: StepToolsControlPr
         <PopoverTrigger asChild>
           <button type="button" aria-label={`Tools for ${step.title}`} className={triggerClass}>
             <Wrench className="h-3 w-3" />
-            {extras.size > 0 ? `Baseline + ${extras.size}` : 'Lean baseline'}
+            {extras.size > 0 ? `Default tools + ${extras.size}` : 'Default tools'}
           </button>
         </PopoverTrigger>
         <PopoverContent align="start" className="w-72 p-0">
@@ -62,62 +57,42 @@ export function StepToolsControl({ step, catalog, onChange }: StepToolsControlPr
             </Button>
           </div>
           <div className="max-h-64 overflow-y-auto p-2">
-            <GroupLabel>Always included</GroupLabel>
-            {baselineItems.map((tool) => (
-              <ToolRow key={tool.name} tool={tool} checked disabled locked />
-            ))}
-            {optionalItems.length > 0 && <GroupLabel>Add as needed</GroupLabel>}
+            {/* Default tools collapsed into one locked, always-on item. */}
+            <div
+              className="flex items-center gap-2 rounded-md px-2 py-1.5 opacity-80"
+              title={`Always included: ${DEFAULT_TOOLS.join(', ')}`}
+            >
+              <Lock className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="min-w-0">
+                <span className="block text-xs font-medium">Default tools</span>
+                <span className="block text-[11px] text-muted-foreground">Always included</span>
+              </span>
+            </div>
+
+            {optionalItems.length > 0 && (
+              <div className="px-2 pb-1 pt-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                Add as needed
+              </div>
+            )}
             {optionalItems.map((tool) => (
-              <ToolRow
+              <label
                 key={tool.name}
-                tool={tool}
-                checked={extras.has(tool.name)}
-                onToggle={() => toggle(tool.name)}
-              />
+                className="flex cursor-pointer items-start gap-2 rounded-md px-2 py-1.5 hover:bg-accent"
+                title={tool.description}
+              >
+                <Checkbox checked={extras.has(tool.name)} onCheckedChange={() => toggle(tool.name)} className="mt-0.5" />
+                <span className="min-w-0">
+                  <span className="block text-xs font-medium">{tool.name}</span>
+                  {tool.description && (
+                    <span className="block truncate text-[11px] text-muted-foreground">{tool.description}</span>
+                  )}
+                </span>
+              </label>
             ))}
           </div>
         </PopoverContent>
       </Popover>
     </div>
-  );
-}
-
-function GroupLabel({ children }: { children: ReactNode }) {
-  return <div className="px-2 pb-1 pt-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{children}</div>;
-}
-
-function ToolRow({
-  tool,
-  checked,
-  disabled,
-  locked,
-  onToggle,
-}: {
-  tool: ContextToolInfo;
-  checked: boolean;
-  disabled?: boolean;
-  locked?: boolean;
-  onToggle?: () => void;
-}) {
-  return (
-    <label
-      className={cn(
-        'flex items-start gap-2 rounded-md px-2 py-1.5',
-        disabled ? 'opacity-70' : 'cursor-pointer hover:bg-accent',
-      )}
-      title={tool.description}
-    >
-      <Checkbox checked={checked} disabled={disabled} onCheckedChange={onToggle} className="mt-0.5" />
-      <span className="min-w-0">
-        <span className="flex items-center gap-1 text-xs font-medium">
-          {tool.name}
-          {locked && <Lock className="h-2.5 w-2.5 text-muted-foreground" />}
-        </span>
-        {tool.description && (
-          <span className="block truncate text-[11px] text-muted-foreground">{tool.description}</span>
-        )}
-      </span>
-    </label>
   );
 }
 

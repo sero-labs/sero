@@ -453,7 +453,7 @@ export class Coordinator {
     return this.applyOverride(loopId, (loop, now) => applyStepModel(loop, stepId, model, thinking, now));
   }
 
-  /** Sets/clears a step's tool allowlist; empty reverts to the lean baseline. */
+  /** Sets/clears a step's extra tools; empty reverts to the default tools. */
   setStepTools(loopId: string, stepId: string, tools?: string[]): Promise<OrchestratorActionResult> {
     return this.applyOverride(loopId, (loop, now) => applyStepTools(loop, stepId, tools, now));
   }

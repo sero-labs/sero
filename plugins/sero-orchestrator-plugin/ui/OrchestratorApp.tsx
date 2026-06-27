@@ -65,7 +65,7 @@ export function OrchestratorApp() {
     }
     if (action.kind === 'set_step_tools') {
       params.stepId = action.stepId;
-      // null reverts the step to the lean baseline; an array sets the allowlist.
+      // null reverts the step to the default tools; an array sets the extras.
       params.toolsJson = JSON.stringify(action.tools ?? null);
     }
     if (action.kind === 'set_loop_context') {

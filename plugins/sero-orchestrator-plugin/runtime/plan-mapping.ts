@@ -14,7 +14,7 @@ import type {
   StepRuntimeState,
 } from '../shared/types';
 import type { OrchestratorHost } from './host';
-import { isBaselineTool } from '../shared/constants';
+import { isDefaultTool } from '../shared/constants';
 import { mergeLimits, materializeTriggers } from './loop-factory';
 import { mergeScheduleIntoTriggers, type ScheduleExtraction } from './schedule-extractor';
 import { validateLoopPlan } from './schema';
@@ -61,16 +61,16 @@ export function computeWarnings(host: OrchestratorHost, loop: Loop): LoopWarning
 }
 
 /**
- * Strips always-on baseline names from each background-agent step's tools so the
- * stored `execution.tools` holds only the extras — matching the user-edit path
- * (applyStepTools). The runtime re-adds the baseline at run time.
+ * Strips always-on default-tool names from each background-agent step's tools so
+ * the stored `execution.tools` holds only the extras — matching the user-edit
+ * path (applyStepTools). The runtime re-adds the default tools at run time.
  */
 function normalizePlanStepTools(plan: LoopPlan): LoopPlan {
   return {
     ...plan,
     steps: plan.steps.map((step) => {
       if (step.execution.type !== 'background-agent' || !step.execution.tools) return step;
-      const extras = step.execution.tools.filter((t) => !isBaselineTool(t));
+      const extras = step.execution.tools.filter((t) => !isDefaultTool(t));
       return { ...step, execution: { ...step.execution, tools: extras.length > 0 ? extras : undefined } };
     }),
   };
@@ -140,9 +140,9 @@ export function applyStepModel(
 
 /**
  * Sets (or clears) one background-agent step's EXTRA tools — the tools layered on
- * top of the always-on lean baseline (which can't be removed). Baseline names are
- * stripped (they're implicit); an empty result clears the field (baseline only).
- * Only background-agent steps carry tools (model steps are pure reasoning;
+ * top of the always-on default tools (which can't be removed). Default-tool names
+ * are stripped (they're implicit); an empty result clears the field (defaults
+ * only). Only background-agent steps carry tools (model steps are pure reasoning;
  * active-session steps run in the user's live session).
  */
 export function applyStepTools(
@@ -156,7 +156,7 @@ export function applyStepTools(
   if (step.execution.type !== 'background-agent') {
     return { ok: false, error: `Step "${stepId}" (${step.execution.type}) has no tools to set.` };
   }
-  const extras = tools?.map((t) => t.trim()).filter((t) => t && !isBaselineTool(t));
+  const extras = tools?.map((t) => t.trim()).filter((t) => t && !isDefaultTool(t));
   const execution = { ...step.execution, tools: extras && extras.length > 0 ? extras : undefined };
   const steps = loop.plan.steps.map((s) => (s.id === stepId ? { ...s, execution } : s));
   return { ok: true, loop: { ...loop, plan: { ...loop.plan, steps }, updatedAt: now } };

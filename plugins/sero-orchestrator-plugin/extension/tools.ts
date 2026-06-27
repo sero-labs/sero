@@ -48,7 +48,7 @@ export const OrchestratorToolParams = Type.Object({
   stepId: Type.Optional(Type.String({ description: 'Target step id (required for set_step_model/set_step_tools)' })),
   model: Type.Optional(Type.String({ description: 'For set_step_model: a tier ("LOW"/"MED"/"HIGH") or a "provider/modelId"; omit to revert the step to the default' })),
   thinking: Type.Optional(Type.String({ description: 'For set_step_model: thinking level for a pinned model' })),
-  toolsJson: Type.Optional(Type.String({ description: 'For set_step_tools: JSON-encoded array of tool names (e.g. ["bash","read","web_search"]) or "null"/"[]" to revert the step to the lean baseline' })),
+  toolsJson: Type.Optional(Type.String({ description: 'For set_step_tools: JSON-encoded array of EXTRA tool names beyond the always-on default tools (e.g. ["web_search","git_manager"]) or "null"/"[]" to use the default tools only' })),
   contextJson: Type.Optional(Type.String({ description: 'For set_loop_context: JSON-encoded ContextOverrides ({systemPrompt?, disabledTools?, disabledSkills?}) or "null" to clear' })),
   deleteBranch: Type.Optional(Type.Boolean({ description: 'For delete: also delete the loop\'s local git branch (default false — branch is kept)' })),
 });

@@ -6,7 +6,7 @@ import type { StepRunInput } from '../engine-types';
 import type { Loop, LoopPlan, LoopRun, ResolvedWorkspaceContext, StepOutcome } from '../../shared/types';
 import { createFakeHost, type FakeHost } from './fake-host';
 import { oneStepPlan, sequentialPlan, seedActiveLoop } from './fixtures';
-import { LEAN_TOOL_BASELINE } from '../../shared/constants';
+import { DEFAULT_TOOLS } from '../../shared/constants';
 
 function emptyRun(host: FakeHost): LoopRun {
   return { id: host.newId('run'), runNumber: 1, status: 'running', startedStepIds: [], stepAttempts: [], recoveryDecisions: [], observations: [], startedAt: host.now() };
@@ -261,12 +261,12 @@ describe('modelExecutor', () => {
 describe('per-step tools', () => {
   const ok = () => outcome({ status: 'succeeded', summary: 'done' });
 
-  it('runs a background-agent step with no extras on the lean baseline only', async () => {
+  it('runs a background-agent step with no extras on the default tools only', async () => {
     const host = createFakeHost();
     const loop = seedActiveLoop(host, oneStepPlan().plan);
     host.modelResponses.push({ response: ok() });
     await backgroundAgentExecutor.run(inputFor(host, loop, 'step-1'));
-    expect(host.modelCalls[0].tools).toEqual(LEAN_TOOL_BASELINE);
+    expect(host.modelCalls[0].tools).toEqual(DEFAULT_TOOLS);
   });
 
   it('layers the step\'s extra tools on top of the always-on baseline', async () => {
@@ -276,6 +276,6 @@ describe('per-step tools', () => {
     const loop = seedActiveLoop(host, plan);
     host.modelResponses.push({ response: ok() });
     await backgroundAgentExecutor.run(inputFor(host, loop, 'step-1'));
-    expect(host.modelCalls[0].tools).toEqual([...LEAN_TOOL_BASELINE, 'web_search']);
+    expect(host.modelCalls[0].tools).toEqual([...DEFAULT_TOOLS, 'web_search']);
   });
 });

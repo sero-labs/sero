@@ -72,7 +72,7 @@ describe('Coordinator — planning integration (Phase 2)', () => {
     expect((await create(createFakeHost(), parallelPlan())).res.loop?.plan.steps).toHaveLength(4);
   });
 
-  it('stores only the extras from a planner step (baseline names stripped)', async () => {
+  it('stores only the extras from a planner step (default-tool names stripped)', async () => {
     const host = createFakeHost();
     const planned: PlanningResponse = {
       schemaVersion: 1,
