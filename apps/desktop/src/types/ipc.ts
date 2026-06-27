@@ -147,54 +147,16 @@ export interface SeroSessionInfo {
 }
 
 // ── Context Editor ─────────────────────────────────────────────
+// Contracts live in @sero-ai/common so app modules (e.g. the Orchestrator loop
+// context override) can reuse them. Re-exported here for existing renderer imports.
 
-/** Tool info for the context editor (renderer-safe, no execute function). */
-export interface ContextToolInfo {
-  name: string;
-  label?: string;
-  description?: string;
-}
-
-/** Skill info for the context editor. */
-export interface ContextSkillInfo {
-  name: string;
-  description?: string;
-  filePath?: string;
-}
-
-/** Full session context returned by getSessionContext. */
-export interface SessionContext {
-  /** Base system prompt before any per-session overrides are applied. */
-  systemPrompt: string;
-  /** Full tool list available to the session before per-session filtering. */
-  tools: ContextToolInfo[];
-  /** Full skill list available to the session. */
-  skills: ContextSkillInfo[];
-  /** Currently applied per-session overrides, if any. */
-  overrides: ContextOverrides | null;
-}
-
-/** Context overrides sent to the main process. */
-export interface ContextOverrides {
-  /** If set, replaces the default system prompt entirely. */
-  systemPrompt?: string | null;
-  /** Tool names to disable (removed from the tool list). */
-  disabledTools?: string[];
-  /** Skill names to disable (stripped from system prompt). */
-  disabledSkills?: string[];
-}
-
-/** A saved context editor preset (persisted to disk via IPC). */
-export interface ContextPreset {
-  id: string;
-  name: string;
-  /** If null, use the default system prompt. If string, override with this. */
-  systemPrompt: string | null;
-  /** Tool names to disable. */
-  disabledTools: string[];
-  /** Skill names to disable. */
-  disabledSkills: string[];
-}
+export type {
+  ContextToolInfo,
+  ContextSkillInfo,
+  SessionContext,
+  ContextOverrides,
+  ContextPreset,
+} from '@sero-ai/common';
 
 // ── Slash Commands ─────────────────────────────────────────────
 

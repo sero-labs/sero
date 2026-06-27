@@ -45,6 +45,7 @@ export type {
 
 export type {
   AppRuntimeStateApi,
+  AppRuntimeSubagentRepair,
   AppRuntimeSubagentRunParams,
   AppRuntimeSubagentResult,
   AppRuntimeSubagentsApi,
@@ -101,6 +102,15 @@ export type {
   AppRuntime,
   AppRuntimeModule,
 } from './app-runtime-background';
+
+export type {
+  ContextToolInfo,
+  ContextSkillInfo,
+  ContextOverrides,
+  ContextPreset,
+  AvailableContext,
+  SessionContext,
+} from './context-editor';
 
 export type {
   ExtensionRuntimeTextContent,

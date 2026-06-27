@@ -63,6 +63,9 @@ export function OrchestratorApp() {
       if (action.model !== undefined) params.model = action.model;
       if (action.thinking !== undefined) params.thinking = action.thinking;
     }
+    if (action.kind === 'set_loop_context') {
+      params.contextJson = JSON.stringify(action.overrides);
+    }
     const res = await dispatch(params);
     if (action.kind === 'delete') {
       const details = res?.details as { ok?: boolean } | null;

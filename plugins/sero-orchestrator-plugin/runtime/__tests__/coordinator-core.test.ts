@@ -54,6 +54,35 @@ describe('Coordinator core (Phase 3)', () => {
   });
 });
 
+describe('Coordinator set_loop_context', () => {
+  it('stores a user context override on the loop', async () => {
+    const host = createFakeHost();
+    seedActiveLoop(host, oneStepPlan().plan);
+    const overrides = { systemPrompt: 'Be terse.', disabledTools: ['bash'], disabledSkills: ['secret'] };
+    const res = await new Coordinator(host).requestAction({ kind: 'set_loop_context', loopId: 'loop-1', overrides });
+    expect(res.ok).toBe(true);
+    expect(res.loop?.contextOverrides).toEqual(overrides);
+    expect(host.state.loops[0].contextOverrides).toEqual(overrides);
+  });
+
+  it('clears the override when passed null', async () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, oneStepPlan().plan);
+    loop.contextOverrides = { systemPrompt: 'Be terse.' };
+    host.state = { ...host.state, loops: [loop] };
+    const res = await new Coordinator(host).requestAction({ kind: 'set_loop_context', loopId: 'loop-1', overrides: null });
+    expect(res.ok).toBe(true);
+    expect(res.loop?.contextOverrides).toBeUndefined();
+    expect(host.state.loops[0].contextOverrides).toBeUndefined();
+  });
+
+  it('errors for an unknown loop', async () => {
+    const host = createFakeHost();
+    const res = await new Coordinator(host).requestAction({ kind: 'set_loop_context', loopId: 'nope', overrides: null });
+    expect(res.ok).toBe(false);
+  });
+});
+
 describe('Coordinator delete', () => {
   const managedWorktree: ResolvedWorkspaceContext = {
     id: 'ws', type: 'managed-worktree', workspaceRoot: '/root',

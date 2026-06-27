@@ -1,4 +1,5 @@
 import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
+import type { AppRuntimeSubagentRepair } from '@sero-ai/common';
 import { randomUUID } from 'crypto';
 import { resolveConfig } from './resolve';
 import type { ConcurrencyPool } from './pool';
@@ -39,8 +40,16 @@ export interface SingleRunParams {
   customTools?: ToolDefinition[];
   /** Platform tool surface for the session. Default: 'all'. */
   platformTools?: PlatformToolPolicy;
+  /** Replaces the base system prompt for this run (user context override). '' excludes it. The agent suffix still applies. */
+  systemPromptOverride?: string;
+  /** Tool names to remove from this run's surface (user context override). */
+  disabledTools?: string[];
+  /** Skill names to hide from the model for this run (user context override). */
+  disabledSkills?: string[];
   /** Optional external cancellation. Aborting resolves the run with an error beginning with 'Aborted'. */
   signal?: AbortSignal;
+  /** Optional in-session structured-output repair (reuses the session, no new subagent). */
+  repair?: AppRuntimeSubagentRepair;
   onUpdate?: (text: string) => void;
 }
 
@@ -143,6 +152,10 @@ export async function executeSingleRun(options: ExecuteSingleRunOptions): Promis
         isolated: params.isolated,
         customTools: params.customTools,
         platformTools: params.platformTools,
+        systemPromptOverride: params.systemPromptOverride,
+        disabledTools: params.disabledTools,
+        disabledSkills: params.disabledSkills,
+        repair: params.repair,
         onProgress: (usage) => tracker.progress(runId, usage),
         onToolActivity: (name, summary, running) =>
           tracker.updateToolActivity(runId, name, summary, running),

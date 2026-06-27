@@ -15,6 +15,7 @@ import { skillsBridge } from './agent/skills';
 import { promptsBridge } from './agent/prompts';
 import { collaborationBridge } from './collaboration';
 import { modelsBridge } from './agent/models';
+import { subagentContextBridge } from './agent/subagent-context';
 import { localModelsBridge } from './agent/local-models';
 import { imagegenBridge } from './integrations/imagegen';
 import { modelConfigBridge, onboardingBridge } from './onboarding';
@@ -62,6 +63,7 @@ export const seroPreloadApi = {
   browser: browserBridge,
   appControl: appControlBridge,
   models: modelsBridge,
+  subagentContext: subagentContextBridge,
   localModels: localModelsBridge,
   modelConfig: modelConfigBridge,
   onboarding: onboardingBridge,

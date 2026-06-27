@@ -44,6 +44,8 @@ interface Loop {
   limits: LoopLimits;
   logPolicy: LogPolicy;
   warnings: LoopWarning[];
+  /** Optional user context override (custom instructions + disabled tools/skills) for the loop's subagents. UI-only, never planner-managed. */
+  contextOverrides?: ContextOverrides;
   runs: LoopRun[];
   revisions: PlanRevision[];
   createdAt: string;
@@ -603,12 +605,15 @@ type OrchestratorAction =
   | { kind: "activate"; loopId: string }
   | { kind: "list" }
   | { kind: "show"; loopId: string }
-  | { kind: "pause"; loopId: string }
-  | { kind: "resume"; loopId: string }
-  | { kind: "stop"; loopId: string }
+  | { kind: "disable"; loopId: string }
+  | { kind: "enable"; loopId: string }
   | { kind: "run_next"; loopId: string }
+  | { kind: "run_again"; loopId: string }
   | { kind: "revise"; loopId: string; prompt?: string }
-  | { kind: "choose_recovery"; loopId: string; decision: RecoveryDecision };
+  | { kind: "choose_recovery"; loopId: string; decision: RecoveryDecision }
+  | { kind: "set_step_model"; loopId: string; stepId: string; model?: string; thinking?: string }
+  | { kind: "set_loop_context"; loopId: string; overrides: ContextOverrides | null }
+  | { kind: "delete"; loopId: string; deleteBranch?: boolean };
 
 interface CreateLoopOptions {
   activate?: boolean;

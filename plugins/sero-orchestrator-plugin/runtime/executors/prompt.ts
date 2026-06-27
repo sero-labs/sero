@@ -30,7 +30,7 @@ CRITICAL — how to report the result: after doing the work, your reply MUST END
 \`\`\`
 
 Rules for that JSON:
-- "status" MUST be exactly one of: succeeded, failed, blocked, skipped, needs-revision. Do not invent other values.
+- "status" MUST be exactly one of: succeeded, failed, blocked, skipped, needs-revision. These are the ONLY allowed values. For a step that did its job, the value is exactly "succeeded" — NOT "completed", "complete", "done", "ok", or "success". Any other word is rejected and forces a costly re-evaluation, so use "succeeded".
 - Use the field name "status" (not "result", "outcome", or "action").
 - Choosing the status: use "skipped" when the step's precondition is not met or it is simply not applicable (e.g. an "if available" step whose condition is false) — that is a normal, non-failing outcome, NOT "blocked". Use "blocked" only when the step SHOULD run but cannot make progress and needs a human. Use "failed" when the work was attempted but did not succeed.
 - "variables" is optional — record the values/notes later steps will need (see "USE THE CONTEXT" above); "notes" accumulates as a shared scratchpad.
@@ -127,4 +127,17 @@ function parseCompletion(raw: unknown, errors: string[]): StepCompletion | undef
 export function parseStepOutcome(text: string): StepOutcome | undefined {
   const parsed = parseStepOutcomeStrict(extractJson(text));
   return parsed.ok ? parsed.value : undefined;
+}
+
+/**
+ * In-session repair message for a missing/invalid StepOutcome envelope. Sent as
+ * a follow-up turn in the SAME subagent session (no new subagent), so the agent
+ * keeps all its context and only needs to re-emit the JSON correctly.
+ */
+export function buildOutcomeRepair(errors: string[]): string {
+  return [
+    'Your reply did not end with a valid StepOutcome JSON block.',
+    `\nProblems:\n${errors.map((e) => `- ${e}`).join('\n')}`,
+    '\nDo NOT redo the work or run more tools. Reply with ONLY the corrected StepOutcome JSON in a ```json fence and nothing after it, using these EXACT field names and one of these EXACT status values: succeeded, failed, blocked, skipped, needs-revision.',
+  ].join('\n');
 }

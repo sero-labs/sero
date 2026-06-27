@@ -17,18 +17,43 @@ export interface AppRuntimeStateApi {
   unwatch(filePath: string): void;
 }
 
+/**
+ * In-session structured-output repair. After the agent replies, `validate` is
+ * called with the reply text: return null to accept it, or a follow-up message
+ * to send IN THE SAME session (reusing its context and tools — no new subagent)
+ * for another reply. Repeated up to `maxAttempts` times, then the last reply is
+ * returned as-is. Callbacks run in-process, so this is for runtime (host.*)
+ * callers, not serialized renderer/IPC callers.
+ */
+export interface AppRuntimeSubagentRepair {
+  maxAttempts: number;
+  validate: (reply: string) => string | null;
+}
+
 export interface AppRuntimeSubagentRunParams {
   agent?: string;
   task: string;
   model?: string;
   thinking?: string;
+  repair?: AppRuntimeSubagentRepair;
   timeoutMs?: number;
+  /** Appended after the base system prompt (e.g. an agent body / step contract). */
   systemPrompt?: string;
+  /**
+   * Replaces the base system prompt for this run (user context override). An
+   * empty string excludes the base prompt entirely. The `systemPrompt` suffix
+   * (if any) still applies on top, so callers keep their non-negotiable rules.
+   */
+  systemPromptOverride?: string;
   parentSessionId: string;
   workspaceId: string;
   cwd?: string;
   isolated?: boolean;
   customTools?: unknown[];
+  /** Tool names to remove from this run's tool surface (user context override). */
+  disabledTools?: string[];
+  /** Skill names to hide from the model for this run (user context override). */
+  disabledSkills?: string[];
   onUpdate?: (text: string) => void;
   /**
    * Platform tool surface for the subagent session.

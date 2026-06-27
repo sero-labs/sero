@@ -7,6 +7,10 @@
  * Orchestrator-specific execution restrictions.
  */
 
+import type { ContextOverrides } from '@sero-ai/common';
+
+export type { ContextOverrides };
+
 // ── Top-level state ─────────────────────────────────────────
 
 export interface OrchestratorState {
@@ -58,6 +62,8 @@ export interface Loop {
   limits: LoopLimits;
   logPolicy: LogPolicy;
   warnings: LoopWarning[];
+  /** Optional user context override for the loop's subagents (UI-only, never planner-managed). */
+  contextOverrides?: ContextOverrides;
   runs: LoopRun[];
   revisions: PlanRevision[];
   createdAt: string;
@@ -468,32 +474,10 @@ export interface LogPolicy {
 }
 
 // ── Coordinator actions ─────────────────────────────────────
+// Split into actions.ts (500-LOC limit); re-exported here for existing imports.
 
-export interface CreateLoopOptions {
-  activate?: boolean;
-  triggers?: LoopTriggerSuggestion[];
-  limits?: Partial<LoopLimits>;
-  workspace?: Partial<LoopWorkspaceSettings>;
-}
-
-export type OrchestratorAction =
-  | { kind: 'create'; prompt: string; title?: string; options?: CreateLoopOptions }
-  | { kind: 'activate'; loopId: string }
-  | { kind: 'list' }
-  | { kind: 'show'; loopId: string }
-  | { kind: 'disable'; loopId: string }
-  | { kind: 'enable'; loopId: string }
-  | { kind: 'run_next'; loopId: string }
-  | { kind: 'run_again'; loopId: string }
-  | { kind: 'revise'; loopId: string; prompt?: string }
-  | { kind: 'choose_recovery'; loopId: string; decision: RecoveryDecision }
-  | { kind: 'set_step_model'; loopId: string; stepId: string; model?: string; thinking?: string }
-  | { kind: 'delete'; loopId: string; deleteBranch?: boolean };
-
-export interface OrchestratorActionResult {
-  ok: boolean;
-  loop?: Loop;
-  loops?: Loop[];
-  run?: LoopRun;
-  error?: string;
-}
+export type {
+  CreateLoopOptions,
+  OrchestratorAction,
+  OrchestratorActionResult,
+} from './actions';

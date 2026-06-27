@@ -5,6 +5,7 @@
  */
 
 import type {
+  ContextOverrides,
   CreateLoopOptions,
   Loop,
   LoopPlan,
@@ -117,6 +118,22 @@ export function applyStepModel(
   const execution = { ...step.execution, model: model?.trim() || undefined, thinking: thinking?.trim() || undefined };
   const steps = loop.plan.steps.map((s) => (s.id === stepId ? { ...s, execution } : s));
   return { ok: true, loop: { ...loop, plan: { ...loop.plan, steps }, updatedAt: now } };
+}
+
+/**
+ * Sets (or clears) the loop's user context override — custom instructions plus
+ * disabled tools/skills applied to its background subagents. A `null` override
+ * reverts the loop to the default context. User-level only (never the planner).
+ */
+export function applyLoopContext(
+  loop: Loop,
+  overrides: ContextOverrides | null,
+  now: string,
+): Loop {
+  const next: Loop = { ...loop, updatedAt: now };
+  if (overrides) next.contextOverrides = overrides;
+  else delete next.contextOverrides;
+  return next;
 }
 
 /** True when a loop's plan is structurally valid and not validation-blocked. */

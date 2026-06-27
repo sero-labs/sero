@@ -1,13 +1,13 @@
 import { RotateCcw, Save, Trash2 } from 'lucide-react';
+import type { ContextPreset } from '@sero-ai/common';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@sero-ai/ui/components/ui/select';
-import type { ContextPreset } from '@/types/ipc';
-import { SavePresetInput } from '../context-editor-parts';
+} from '../ui/select';
+import { SavePresetInput } from './parts';
 
 interface PresetBarProps {
   allPresets: ContextPreset[];
@@ -16,7 +16,7 @@ interface PresetBarProps {
   hasOverrides: boolean;
   showSaveInput: boolean;
   onPresetChange: (id: string) => void;
-  onDelete: (id: string) => Promise<void>;
+  onDelete: (id: string) => void;
   onReset: () => void;
   onShowSave: () => void;
   onSave: (name: string) => void;
@@ -57,7 +57,7 @@ export function PresetBar({
 
         {activeUserPreset && (
           <button type="button"
-            onClick={() => void onDelete(activeUserPreset.id)}
+            onClick={() => onDelete(activeUserPreset.id)}
             className="flex items-center gap-1 rounded-md px-1.5 py-1 text-[var(--text-muted)] transition-colors hover:bg-status-error-muted hover:text-status-error"
             title={`Delete "${activeUserPreset.name}"`}
           >

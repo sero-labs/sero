@@ -10,6 +10,7 @@
  */
 
 import type {
+  AppRuntimeSubagentRepair,
   ExtensionRuntimeContent,
   ExtensionRuntimeMessage,
   SharedAvailableModelGroup,
@@ -54,7 +55,10 @@ export interface SessionHost {
 /** Parameters for a model / background-agent run (subset of the host seam). */
 export interface ModelRunParams {
   task: string;
+  /** Step suffix appended after the base prompt (the orchestrator's step contract). */
   systemPrompt?: string;
+  /** Replaces the base Sero system prompt for this run (user context override). '' excludes it. */
+  systemPromptOverride?: string;
   model?: string;
   thinking?: string;
   parentSessionId: string;
@@ -62,7 +66,13 @@ export interface ModelRunParams {
   cwd?: string;
   /** Tool surface: 'none' for pure model calls, 'all' for background agents. */
   platformTools?: 'all' | 'readOnly' | 'none';
+  /** User context override: tool names to remove from this run's surface. */
+  disabledTools?: string[];
+  /** User context override: skill names to hide from the model for this run. */
+  disabledSkills?: string[];
   signal?: AbortSignal;
+  /** In-session structured-output repair: re-prompt the SAME session for a valid reply. */
+  repair?: AppRuntimeSubagentRepair;
   onUpdate?: (text: string) => void;
 }
 

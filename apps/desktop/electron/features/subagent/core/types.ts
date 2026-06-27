@@ -7,6 +7,7 @@
  */
 
 import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
+import type { AppRuntimeSubagentRepair } from '@sero-ai/common';
 
 // Import IPC-shared types for local use
 import type {
@@ -151,6 +152,14 @@ export interface RunnerConfig {
   customTools?: ToolDefinition[];
   /** Platform tool surface: 'all' (default), 'readOnly' (read only), or 'none'. */
   platformTools?: PlatformToolPolicy;
+  /** Replaces the base system prompt for this run (user context override). '' excludes it. The agent suffix still applies. */
+  systemPromptOverride?: string;
+  /** Tool names to remove from this run's surface (user context override). */
+  disabledTools?: string[];
+  /** Skill names to hide from the model for this run (user context override). */
+  disabledSkills?: string[];
+  /** Optional in-session structured-output repair (reuses the session, no new subagent). */
+  repair?: AppRuntimeSubagentRepair;
 }
 
 // ── Task Overrides (from tool params) ────────────────────────

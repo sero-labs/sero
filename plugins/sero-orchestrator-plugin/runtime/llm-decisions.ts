@@ -54,7 +54,7 @@ Return ONLY one JSON object, in a \`\`\`json fence and nothing else, with these 
 }
 \`\`\`
 
-- "status" MUST be exactly one of: succeeded, failed, blocked, skipped, needs-revision. Use the field name "status" (not "result" or "outcome").
+- "status" MUST be exactly one of: succeeded, failed, blocked, skipped, needs-revision. Use the field name "status" (not "result" or "outcome"). The raw output may contain its OWN status word such as "completed" — ignore it and map to the correct allowed value ("succeeded" when the work got done). Never echo a value outside the allowed set.
 - Add "variables" (a JSON object) only if the step produced values later steps need.
 - Add "completion": { "status": "complete" | "blocked", "reason": <string> } ONLY if this step's job was to decide the whole loop is done.`;
 

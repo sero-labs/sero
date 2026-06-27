@@ -1,9 +1,9 @@
-import { Sparkles } from 'lucide-react';
-import type { ContextSkillInfo } from '@/types/ipc';
+import { Wrench } from 'lucide-react';
+import type { ContextToolInfo } from '@sero-ai/common';
 import { CapabilitySection } from './CapabilitySection';
 
-interface SkillsSectionProps {
-  skills: ContextSkillInfo[];
+interface ToolsSectionProps {
+  items: ContextToolInfo[];
   allDisabled: boolean;
   enabledCount: number;
   isEnabled: (name: string) => boolean;
@@ -11,22 +11,22 @@ interface SkillsSectionProps {
   onToggleAll: (disabled: boolean) => void;
 }
 
-export function SkillsSection({
-  skills,
+export function ToolsSection({
+  items,
   allDisabled,
   enabledCount,
   isEnabled,
   onToggle,
   onToggleAll,
-}: SkillsSectionProps) {
+}: ToolsSectionProps) {
   return (
     <CapabilitySection
-      icon={Sparkles}
-      title="Skills"
-      tint="violet"
-      includeAllLabel="Include all skills"
-      emptyLabel="No skills available"
-      items={skills}
+      icon={Wrench}
+      title="Tools"
+      tint="amber"
+      includeAllLabel="Include all tools"
+      emptyLabel="No tools available"
+      items={items}
       allDisabled={allDisabled}
       enabledCount={enabledCount}
       isEnabled={isEnabled}

@@ -1,7 +1,7 @@
 import type { LucideIcon } from 'lucide-react';
-import { Switch } from '@sero-ai/ui/components/ui/switch';
-import type { ContextSkillInfo, ContextToolInfo } from '@/types/ipc';
-import { ContextSection, ToggleRow } from '../context-editor-parts';
+import type { ContextSkillInfo, ContextToolInfo } from '@sero-ai/common';
+import { Switch } from '../ui/switch';
+import { ContextSection, ToggleRow } from './parts';
 
 interface CapabilitySectionProps<TItem extends ContextToolInfo | ContextSkillInfo> {
   icon: LucideIcon;

@@ -91,8 +91,18 @@ export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
     },
     async runStructured(params) {
       this.modelCalls.push(params);
-      const next = this.modelResponses.shift();
-      return next ?? { response: '', error: 'no scripted model response' };
+      let result = this.modelResponses.shift() ?? { response: '', error: 'no scripted model response' };
+      // Simulate in-session repair: while the caller rejects the reply, consume
+      // the next scripted response (the same session would re-prompt here).
+      if (params.repair && !result.error) {
+        for (let i = 0; i < params.repair.maxAttempts; i += 1) {
+          if (params.repair.validate(result.response) == null) break;
+          const next = this.modelResponses.shift();
+          if (!next) break;
+          result = next;
+        }
+      }
+      return result;
     },
     async listAvailableModels() {
       return this.availableModels;

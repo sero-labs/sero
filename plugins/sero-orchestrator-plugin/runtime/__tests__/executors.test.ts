@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { backgroundAgentExecutor } from '../executors/background-agent';
 import { modelExecutor } from '../executors/model';
-import { buildStepTask, parseStepOutcome, parseStepOutcomeStrict } from '../executors/prompt';
+import { buildStepTask, parseStepOutcome, parseStepOutcomeStrict, STEP_SYSTEM_PROMPT } from '../executors/prompt';
 import type { StepRunInput } from '../engine-types';
 import type { Loop, LoopPlan, LoopRun, ResolvedWorkspaceContext, StepOutcome } from '../../shared/types';
 import { createFakeHost, type FakeHost } from './fake-host';
@@ -122,6 +122,55 @@ describe('backgroundAgentExecutor', () => {
     const attempt = await backgroundAgentExecutor.run(inputFor(host, loop, 'step-1'));
     expect(attempt.status).toBe('failed');
     expect(attempt.error).toBe('agent crashed');
+  });
+
+  it('applies the loop context override to the subagent run', async () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, oneStepPlan().plan);
+    loop.contextOverrides = {
+      systemPrompt: 'Always answer in British English.',
+      disabledTools: ['bash'],
+      disabledSkills: ['secret-skill'],
+    };
+    host.modelResponses.push({ response: outcome({ status: 'succeeded', summary: 'done' }), modelId: 'm' });
+
+    await backgroundAgentExecutor.run(inputFor(host, loop, 'step-1'));
+
+    const call = host.modelCalls[0];
+    expect(call.disabledTools).toEqual(['bash']);
+    expect(call.disabledSkills).toEqual(['secret-skill']);
+    // The override REPLACES the base prompt; the step contract stays as the suffix.
+    expect(call.systemPromptOverride).toBe('Always answer in British English.');
+    expect(call.systemPrompt).toBe(STEP_SYSTEM_PROMPT);
+  });
+
+  it('leaves the step context untouched when the loop has no override', async () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, oneStepPlan().plan);
+    host.modelResponses.push({ response: outcome({ status: 'succeeded', summary: 'done' }), modelId: 'm' });
+
+    await backgroundAgentExecutor.run(inputFor(host, loop, 'step-1'));
+
+    const call = host.modelCalls[0];
+    expect(call.disabledTools).toBeUndefined();
+    expect(call.disabledSkills).toBeUndefined();
+    expect(call.systemPromptOverride).toBeUndefined();
+    expect(call.systemPrompt).toBe(STEP_SYSTEM_PROMPT);
+  });
+
+  it('repairs an invalid StepOutcome in the same session — no separate evaluator', async () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, oneStepPlan().plan);
+    // First reply uses the invalid status "completed"; the in-session repair
+    // re-prompt yields a valid "succeeded" — all within one runStructured call.
+    host.modelResponses.push(
+      { response: outcome({ status: 'completed' as 'succeeded', summary: 'did it' }), modelId: 'm' },
+      { response: outcome({ status: 'succeeded', summary: 'did it' }), modelId: 'm' },
+    );
+    const attempt = await backgroundAgentExecutor.run(inputFor(host, loop, 'step-1'));
+    expect(host.modelCalls).toHaveLength(1); // one session, repaired in-session
+    expect(host.modelResponses).toHaveLength(0); // the repair consumed the 2nd reply
+    expect(attempt.outcome?.status).toBe('succeeded');
   });
 });
 

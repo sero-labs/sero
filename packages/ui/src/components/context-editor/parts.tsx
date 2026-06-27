@@ -1,13 +1,13 @@
 /**
- * Presentational sub-components for the ContextEditor dialog.
- * Extracted to keep ContextEditor.tsx under the 500-line limit.
+ * Presentational sub-components for the shared ContextEditor dialog.
+ * Controlled, host-agnostic — no window.sero / session coupling.
  */
 
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { ChevronRight } from 'lucide-react';
-import { cn } from '@sero-ai/ui/lib/utils';
-import { Switch } from '@sero-ai/ui/components/ui/switch';
+import { cn } from '../../lib/utils';
+import { Switch } from '../ui/switch';
 
 // ── Color tint definitions ──────────────────────────────────────
 
@@ -42,7 +42,7 @@ const sectionBgClass: Record<BadgeVariant, string> = {
   partial: 'bg-status-info-faint',
 };
 
-// ── Collapsible Section (ToolCallGroup style) ───────────────────
+// ── Collapsible Section ─────────────────────────────────────────
 
 export function ContextSection({
   icon: Icon,
@@ -188,7 +188,7 @@ export function SavePresetInput({
 
   return (
     <div className="flex items-center gap-2">
-      <input aria-label="Context item text"
+      <input aria-label="Preset name"
         type="text"
         value={name}
         onChange={(e) => setName(e.target.value)}

@@ -5,6 +5,8 @@ const mocks = vi.hoisted(() => ({
   reloadResources: vi.fn(async () => {}),
   createRuntimeTools: vi.fn(async () => []),
   getRuntime: vi.fn(),
+  // Captures the last DefaultResourceLoader constructor options (e.g. skillsOverride).
+  lastLoaderOptions: null as Record<string, unknown> | null,
 }));
 
 vi.mock('@earendil-works/pi-coding-agent', () => ({
@@ -13,6 +15,9 @@ vi.mock('@earendil-works/pi-coding-agent', () => ({
     inMemory: vi.fn((cwd: string) => ({ cwd })),
   },
   DefaultResourceLoader: class {
+    constructor(options: Record<string, unknown>) {
+      mocks.lastLoaderOptions = options;
+    }
     async reload() {
       await mocks.reloadResources();
     }
@@ -235,5 +240,69 @@ describe('runSubagent abort handling', () => {
     expect(session.abort).toHaveBeenCalledTimes(1);
     expect(session.prompt).not.toHaveBeenCalled();
     expect(session.dispose).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('runSubagent context overrides', () => {
+  it('drops disabled tools from the session tool surface', async () => {
+    mocks.createRuntimeTools.mockResolvedValueOnce([
+      { name: 'bash', description: '', parameters: {}, execute: vi.fn() },
+      { name: 'read', description: '', parameters: {}, execute: vi.fn() },
+    ] as never);
+    mocks.createAgentSession.mockImplementationOnce(async () => ({ session: createSession() }));
+
+    const config = createConfig(new AbortController().signal);
+    config.platformTools = 'all';
+    config.disabledTools = ['bash'];
+
+    await runSubagent(config, createDeps());
+
+    const options = mocks.createAgentSession.mock.calls[0][0] as { customTools: { name: string }[] };
+    const names = options.customTools.map((t) => t.name);
+    expect(names).toContain('read');
+    expect(names).not.toContain('bash');
+  });
+
+  it('replaces the base system prompt via the resource loader override', async () => {
+    mocks.createAgentSession.mockImplementationOnce(async () => ({ session: createSession() }));
+
+    const config = createConfig(new AbortController().signal);
+    config.systemPromptOverride = 'You are a terse reviewer.';
+
+    await runSubagent(config, createDeps());
+
+    const override = mocks.lastLoaderOptions?.systemPromptOverride as
+      | ((base: string | undefined) => string | undefined)
+      | undefined;
+    expect(override?.('original base prompt')).toBe('You are a terse reviewer.');
+  });
+
+  it('does not set a prompt override when none is requested', async () => {
+    mocks.createAgentSession.mockImplementationOnce(async () => ({ session: createSession() }));
+
+    await runSubagent(createConfig(new AbortController().signal), createDeps());
+
+    expect(mocks.lastLoaderOptions?.systemPromptOverride).toBeUndefined();
+  });
+
+  it('hides disabled skills from the model via the resource loader override', async () => {
+    mocks.createAgentSession.mockImplementationOnce(async () => ({ session: createSession() }));
+
+    const config = createConfig(new AbortController().signal);
+    config.disabledSkills = ['secret-skill'];
+
+    await runSubagent(config, createDeps());
+
+    const skillsOverride = mocks.lastLoaderOptions?.skillsOverride as (
+      base: { skills: { name: string; disableModelInvocation?: boolean }[]; diagnostics: unknown[] },
+    ) => { skills: { name: string; disableModelInvocation?: boolean }[] };
+    const result = skillsOverride({
+      skills: [{ name: 'secret-skill' }, { name: 'ok-skill' }],
+      diagnostics: [],
+    });
+    const secret = result.skills.find((s) => s.name === 'secret-skill');
+    const ok = result.skills.find((s) => s.name === 'ok-skill');
+    expect(secret?.disableModelInvocation).toBe(true);
+    expect(ok?.disableModelInvocation).toBeUndefined();
   });
 });

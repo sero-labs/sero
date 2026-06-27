@@ -10,6 +10,7 @@
  */
 
 import type {
+  ContextOverrides,
   CreateLoopOptions,
   Loop,
   OrchestratorAction,
@@ -22,7 +23,7 @@ import { buildDraftLoop } from './loop-factory';
 import { activate, disable, enable, type TransitionResult } from './lifecycle';
 import { planLoop } from './planner';
 import { extractSchedule } from './schedule-extractor';
-import { applyPlanningResponse, applyStepModel, planIsActivatable } from './plan-mapping';
+import { applyLoopContext, applyPlanningResponse, applyStepModel, planIsActivatable } from './plan-mapping';
 import { RunEngine } from './run-engine';
 import type { EngineDeps } from './engine-types';
 import { reconcileAll } from './reconcile';
@@ -125,6 +126,8 @@ export class Coordinator {
         return this.chooseRecovery(action.loopId, action.decision);
       case 'set_step_model':
         return this.setStepModel(action.loopId, action.stepId, action.model, action.thinking);
+      case 'set_loop_context':
+        return this.setLoopContext(action.loopId, action.overrides);
       case 'delete':
         return this.delete(action.loopId, action.deleteBranch);
       default: {
@@ -437,6 +440,19 @@ export class Coordinator {
     if (!result.ok || !result.loop) return { ok: false, error: result.error };
     await this.replaceLoop(result.loop);
     return { ok: true, loop: result.loop };
+  }
+
+  /**
+   * Sets or clears the loop's user context override (custom instructions +
+   * disabled tools/skills for its background subagents). Takes effect on the
+   * next run. User-level only — never set by the planner.
+   */
+  async setLoopContext(loopId: string, overrides: ContextOverrides | null): Promise<OrchestratorActionResult> {
+    const loop = await this.findLoop(loopId);
+    if (!loop) return { ok: false, error: `Loop not found: ${loopId}` };
+    const next = applyLoopContext(loop, overrides, this.host.now());
+    await this.replaceLoop(next);
+    return { ok: true, loop: next };
   }
 
   /** Applies a user-supplied recovery decision (manual override). */

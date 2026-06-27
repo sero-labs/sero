@@ -109,6 +109,19 @@ Important host facts:
 
 - `runStructured` returns plain text plus metadata. It does not validate output
   schema.
+- `runStructured` accepts an optional `repair` spec: when a step's reply is not a
+  valid `StepOutcome`, the SAME subagent session is re-prompted for a corrected
+  envelope (full context/tools retained — no new subagent) up to a bounded number
+  of follow-ups. The engine's separate LLM evaluator remains the last-resort
+  fallback only when in-session repair is exhausted.
+- `runStructured` accepts optional `systemPromptOverride`, `disabledTools`, and
+  `disabledSkills`. The runner drops disabled tools from the subagent's tool
+  surface, hides disabled skills from the model, and — when `systemPromptOverride`
+  is set — REPLACES the base Sero system prompt (via the resource loader's
+  `systemPromptOverride` hook; `''` excludes it). The `systemPrompt` suffix (the
+  orchestrator's step contract) still rides on top, so the `StepOutcome` rules
+  always survive. These carry the loop's optional user context override
+  (`Loop.contextOverrides`).
 - Orchestrator parses and validates generated `PlanningResponse`,
   `StepOutcome`, `RecoveryDecision`, and `CompletionSignal` JSON.
 - `parentSessionId` is required.
@@ -143,6 +156,26 @@ If the loop resolves to a managed worktree, Orchestrator passes that worktree
 cwd through `runStructured.cwd`. If the loop resolves to the workspace root,
 Orchestrator passes the workspace root cwd. The same loop-scoped
 `parentSessionId` is used for background-agent and model calls.
+
+### Loop Context Override (user-level)
+
+A loop may carry an optional `Loop.contextOverrides` authored by the user — never
+the planner. The loop panel reuses the shared `@sero-ai/ui` `ContextEditor` (the
+same component the chat session editor uses) to edit a custom system prompt plus
+disabled tools/skills, or to pick a saved preset. Supporting renderer seams:
+
+- `window.sero.subagentContext.get(workspaceId)` → `AvailableContext` — the
+  session-independent tools + skills a background subagent would receive, so the
+  editor can list toggles without an active session
+  (`useSubagentContext` in `@sero-ai/app-runtime`).
+- `window.sero.contextPresets` — the same profile-level presets the chat editor
+  saves (`useContextPresets`).
+
+The override is persisted on the loop and applied at run time via the
+`systemPromptOverride` / `disabledTools` / `disabledSkills` run params described
+above. The editor's system-prompt field starts blank (no live preview): blank
+keeps the default Sero prompt, text replaces it. It is set through the
+`set_loop_context` coordinator action.
 
 ## Workflow Workspace Isolation
 

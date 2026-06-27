@@ -11,6 +11,7 @@ import { Type } from 'typebox';
 import { resolveCoordinatorByCwd } from '../runtime/registry';
 import type { Coordinator } from '../runtime/coordinator';
 import type {
+  ContextOverrides,
   CreateLoopOptions,
   OrchestratorAction,
   OrchestratorActionResult,
@@ -29,6 +30,7 @@ export const ORCHESTRATOR_ACTIONS = [
   'revise',
   'choose_recovery',
   'set_step_model',
+  'set_loop_context',
   'delete',
 ] as const;
 
@@ -45,6 +47,7 @@ export const OrchestratorToolParams = Type.Object({
   stepId: Type.Optional(Type.String({ description: 'Target step id (required for set_step_model)' })),
   model: Type.Optional(Type.String({ description: 'For set_step_model: a tier ("LOW"/"MED"/"HIGH") or a "provider/modelId"; omit to revert the step to the default' })),
   thinking: Type.Optional(Type.String({ description: 'For set_step_model: thinking level for a pinned model' })),
+  contextJson: Type.Optional(Type.String({ description: 'For set_loop_context: JSON-encoded ContextOverrides ({systemPrompt?, disabledTools?, disabledSkills?}) or "null" to clear' })),
   deleteBranch: Type.Optional(Type.Boolean({ description: 'For delete: also delete the loop\'s local git branch (default false — branch is kept)' })),
 });
 
@@ -59,6 +62,7 @@ export interface OrchestratorToolParamsShape {
   stepId?: string;
   model?: string;
   thinking?: string;
+  contextJson?: string;
   deleteBranch?: boolean;
 }
 
@@ -108,6 +112,17 @@ export function buildAction(params: OrchestratorToolParamsShape): OrchestratorAc
       if (!params.loopId) return { error: 'set_step_model requires a loopId' };
       if (!params.stepId) return { error: 'set_step_model requires a stepId' };
       return { kind: 'set_step_model', loopId: params.loopId, stepId: params.stepId, model: params.model, thinking: params.thinking };
+    case 'set_loop_context': {
+      if (!params.loopId) return { error: 'set_loop_context requires a loopId' };
+      if (params.contextJson === undefined) return { error: 'set_loop_context requires contextJson' };
+      let overrides: ContextOverrides | null;
+      try {
+        overrides = JSON.parse(params.contextJson) as ContextOverrides | null;
+      } catch {
+        return { error: 'contextJson is not valid JSON' };
+      }
+      return { kind: 'set_loop_context', loopId: params.loopId, overrides };
+    }
     case 'delete':
       if (!params.loopId) return { error: 'delete requires a loopId' };
       return { kind: 'delete', loopId: params.loopId, deleteBranch: params.deleteBranch };

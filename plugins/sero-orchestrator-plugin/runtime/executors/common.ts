@@ -9,8 +9,22 @@ import { isModelTier } from '@sero-ai/common';
 import type { Observation, StepAttempt, StepOutcome, UsageSummary } from '../../shared/types';
 import type { StepRunInput } from '../engine-types';
 import { artifactPath, storeOutput } from '../artifacts';
+import { extractJson } from '../schema';
 import { resolveStepModel, type ResolvedStepModel } from '../model-resolution';
-import { buildStepTask, parseStepOutcome, STEP_SYSTEM_PROMPT } from './prompt';
+import { buildOutcomeRepair, buildStepTask, parseStepOutcome, parseStepOutcomeStrict, STEP_SYSTEM_PROMPT } from './prompt';
+
+/**
+ * In-session repair: if the step's reply isn't a valid StepOutcome, the same
+ * subagent session is re-prompted (up to 2 follow-ups) for a corrected envelope
+ * — far cheaper than spawning a separate evaluator subagent.
+ */
+const OUTCOME_REPAIR = {
+  maxAttempts: 2,
+  validate: (reply: string): string | null => {
+    const parsed = parseStepOutcomeStrict(extractJson(reply));
+    return parsed.ok ? null : buildOutcomeRepair(parsed.errors);
+  },
+};
 
 export interface RunStepOptions {
   platformTools: 'all' | 'readOnly' | 'none';
@@ -37,15 +51,25 @@ export async function runStepAttempt(input: StepRunInput, options: RunStepOption
       ? resolveStepModel(requested, await host.listAvailableModels())
       : { model: requested };
 
+  // User context override (optional, set via the UI — not the planner). The
+  // override REPLACES the base Sero system prompt (like the chat context editor);
+  // the orchestrator's STEP_SYSTEM_PROMPT rides on as the step suffix so the
+  // outcome envelope rules always survive. Disabled tools/skills are filtered out.
+  const ctxOverride = loop.contextOverrides;
+
   const result = await host.runStructured({
     task,
     systemPrompt: STEP_SYSTEM_PROMPT,
+    systemPromptOverride: ctxOverride?.systemPrompt ?? undefined,
     model: resolved.model,
     thinking: 'thinking' in step.execution ? step.execution.thinking : undefined,
     parentSessionId,
     cwd: options.cwd,
     platformTools: options.platformTools,
+    disabledTools: ctxOverride?.disabledTools,
+    disabledSkills: ctxOverride?.disabledSkills,
     signal,
+    repair: OUTCOME_REPAIR,
   });
 
   const stored = await storeOutput(host, loop.logPolicy, artifactPath(loop.id, run.id, `${step.id}-a${attemptNumber}.txt`), result.response);

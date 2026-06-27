@@ -185,7 +185,14 @@ export async function runSubagent(
       policy,
     );
   }
-  const customTools = [...platformTools, ...(config.customTools ?? [])];
+  // User context override: drop disabled tools from the surface entirely.
+  const disabledTools = new Set(config.disabledTools ?? []);
+  const customTools = [...platformTools, ...(config.customTools ?? [])].filter(
+    (tool) => !disabledTools.has(tool.name),
+  );
+
+  // User context override: hide disabled skills from the model.
+  const disabledSkills = new Set(config.disabledSkills ?? []);
 
   // Build a reduced extension factory for the child session
   const skillVisibilityOverride = createSkillVisibilityOverride(infra.settingsManager);
@@ -202,7 +209,18 @@ export async function runSubagent(
         containerCwd,
       ),
     ],
-    skillsOverride: (base) => filterCompatiblePluginSkills(skillVisibilityOverride(base)),
+    skillsOverride: (base) => {
+      const filtered = filterCompatiblePluginSkills(skillVisibilityOverride(base));
+      if (disabledSkills.size === 0) return filtered;
+      return {
+        ...filtered,
+        skills: filtered.skills.map((skill) =>
+          disabledSkills.has(skill.name) ? { ...skill, disableModelInvocation: true } : skill,
+        ),
+      };
+    },
+    // User context override: replace the base system prompt (the agent suffix still applies on top).
+    systemPromptOverride: config.systemPromptOverride !== undefined ? () => config.systemPromptOverride : undefined,
     promptsOverride: filterCompatiblePluginPrompts,
     themesOverride: filterCompatiblePluginThemes,
     extensionsOverride: filterCompatiblePluginExtensions,
@@ -369,6 +387,25 @@ export async function runSubagent(
 
     // Send the task and wait for completion
     await session.prompt(task);
+    let response = extractResponse(session.messages);
+
+    // In-session structured-output repair: if the caller validates the reply
+    // and asks for a correction, send the follow-up IN THIS SAME session (full
+    // context and tools retained — no new subagent), up to maxAttempts.
+    const repair = config.repair;
+    if (repair) {
+      for (let i = 0; i < repair.maxAttempts && !signal.aborted; i += 1) {
+        let followUp: string | null;
+        try {
+          followUp = repair.validate(response);
+        } catch {
+          break; // a throwing validator never blocks the run
+        }
+        if (followUp == null) break;
+        await session.prompt(followUp);
+        response = extractResponse(session.messages);
+      }
+    }
 
     clearTimeout(timeoutId);
     clearStallTimer();
@@ -379,9 +416,6 @@ export async function runSubagent(
     if (signal.aborted) {
       return { response: '', usage, modelId: session.model?.id, providerId: session.model?.provider, error: 'Aborted' };
     }
-
-    // Extract the full response from session messages
-    const response = extractResponse(session.messages);
 
     // Final usage stats
     try {

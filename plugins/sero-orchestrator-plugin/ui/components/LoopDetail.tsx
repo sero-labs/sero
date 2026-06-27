@@ -16,6 +16,7 @@ function formatLimits(limits: LoopLimits): string {
   return parts.length ? `Limits: ${parts.join(' · ')}` : 'No limits set';
 }
 import { LoopControls } from './LoopControls';
+import { LoopContextControl } from './LoopContextControl';
 import { PlanView } from './PlanView';
 import { RefinePlan } from './RefinePlan';
 import { AttemptHistory } from './AttemptHistory';
@@ -52,7 +53,10 @@ export function LoopDetail({ loop, busy, onAction, stateDir }: LoopDetailProps) 
           <Badge variant={loopStatusVariant(loop.status)}>{LOOP_STATUS_LABEL[loop.status]}</Badge>
         </div>
         <p className="text-sm text-muted-foreground">{loop.summary || loop.prompt}</p>
-        <LoopControls loop={loop} busy={busy} onAction={onAction} />
+        <div className="flex flex-wrap items-center gap-2">
+          <LoopControls loop={loop} busy={busy} onAction={onAction} />
+          <LoopContextControl loop={loop} onAction={onAction} />
+        </div>
       </header>
 
       {loop.warnings.length > 0 && (

@@ -29,13 +29,17 @@ export function createOrchestratorHost(ctx: AppRuntimeContext): OrchestratorHost
       ctx.host.subagents.runStructured({
         task: params.task,
         systemPrompt: params.systemPrompt,
+        systemPromptOverride: params.systemPromptOverride,
         model: params.model,
         thinking: params.thinking,
         parentSessionId: params.parentSessionId,
         workspaceId: ctx.workspaceId,
         cwd: params.cwd,
         platformTools: params.platformTools,
+        disabledTools: params.disabledTools,
+        disabledSkills: params.disabledSkills,
         signal: params.signal,
+        repair: params.repair,
         onUpdate: params.onUpdate,
       }),
 

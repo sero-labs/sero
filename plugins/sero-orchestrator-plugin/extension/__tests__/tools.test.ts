@@ -40,6 +40,24 @@ describe('buildAction', () => {
       error: 'decisionJson is not valid JSON',
     });
   });
+
+  it('parses a loop context override from JSON', () => {
+    const overrides = { systemPrompt: 'Be terse.', disabledTools: ['bash'] };
+    const action = buildAction({ action: 'set_loop_context', loopId: 'l1', contextJson: JSON.stringify(overrides) });
+    expect(action).toEqual({ kind: 'set_loop_context', loopId: 'l1', overrides });
+  });
+
+  it('parses a null override to clear the loop context', () => {
+    expect(buildAction({ action: 'set_loop_context', loopId: 'l1', contextJson: 'null' })).toEqual({
+      kind: 'set_loop_context', loopId: 'l1', overrides: null,
+    });
+  });
+
+  it('rejects set_loop_context without contextJson', () => {
+    expect(buildAction({ action: 'set_loop_context', loopId: 'l1' })).toEqual({
+      error: 'set_loop_context requires contextJson',
+    });
+  });
 });
 
 describe('executeOrchestratorTool', () => {
