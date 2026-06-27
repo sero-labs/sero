@@ -65,7 +65,7 @@ export function StepToolsControl({ step, catalog, onChange }: StepToolsControlPr
               <Lock className="h-3.5 w-3.5 text-muted-foreground" />
               <span className="min-w-0">
                 <span className="block text-xs font-medium">Default tools</span>
-                <span className="block text-[11px] text-muted-foreground">Always included</span>
+                <span className="block text-[11px] text-muted-foreground">'bash', 'read', 'write', 'edit', etc.</span>
               </span>
             </div>
 
