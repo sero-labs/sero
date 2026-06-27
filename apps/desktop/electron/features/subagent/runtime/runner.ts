@@ -446,17 +446,16 @@ export async function runSubagent(
  */
 function extractToolArgsSummary(toolName: string, args?: Record<string, unknown>): string {
   if (!args) return '';
-  // Try common tool input shapes
-  if (args.command && typeof args.command === 'string') {
-    return args.command.length > 80 ? args.command.slice(0, 80) + '…' : args.command;
-  }
-  if (args.path && typeof args.path === 'string') return args.path as string;
-  if (args.file_path && typeof args.file_path === 'string') return args.file_path as string;
-  if (args.query && typeof args.query === 'string') return args.query as string;
-  if (args.pattern && typeof args.pattern === 'string') return args.pattern as string;
+  // Return the full value, the tracker caps its length (MAX_TOOL_ARGS_CHARS) and
+  // the UI truncates it to fit, showing the full command on hover.
+  if (typeof args.command === 'string') return args.command;
+  if (typeof args.path === 'string') return args.path;
+  if (typeof args.file_path === 'string') return args.file_path;
+  if (typeof args.query === 'string') return args.query;
+  if (typeof args.pattern === 'string') return args.pattern;
   // Fallback: first string value
   const first = Object.values(args).find((v) => typeof v === 'string');
-  return typeof first === 'string' ? (first.length > 80 ? first.slice(0, 80) + '…' : first) : '';
+  return typeof first === 'string' ? first : '';
 }
 
 /**
