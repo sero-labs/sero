@@ -1,5 +1,16 @@
 # Plan — Subagent context fixes + per-step tool selection
 
+> **STATUS (2026-06-27, feat/sero-orchestrator-2):** Issue 3 ✅ and Issue 1 ✅
+> (commit `05aa053aa`); per-step tool selection ✅ (commit `f641e9c8a`).
+> **Issue 2 — NOT A BUG** ❌: the provider payload (`model-messages.jsonl`
+> `provider_request`) shows memory injected exactly once (in `instructions`);
+> the `memory-context` custom message is stripped by the memory plugin's
+> `context` hook before the model sees it. The apparent duplication was an
+> artifact of reading `turn-context.json` (captured at `turn_start`, pre-strip).
+> All validated via a real run; `pnpm typecheck` 18/18, orchestrator 273 tests,
+> desktop subagent 81 tests.
+
+
 Covers three subagent bugs (dropped step contract, stub tool list, duplicated
 memory) **and** a new feature decided with Dan: **per-step tool selection** (the
 planner picks each step's tools; the user can override) — the productized,
@@ -111,7 +122,19 @@ tool off and running a step shows that tool absent from the run's
 
 ---
 
-## Issue 2 — Memory is injected twice (~2.7 KB duplicated)
+## Issue 2 — Memory is injected twice (~2.7 KB duplicated) — RESOLVED: NOT A BUG
+
+**Conclusion (verified against ground truth).** Memory is injected **once**. The
+true provider payloads (`model-messages.jsonl`, `_type: "provider_request"`,
+responses-API fields `instructions`/`input`) carry memory only in `instructions`
+across all 13 subagent requests; the `display:false` `memory-context` custom
+message never reaches `input` — the memory plugin's `context` hook
+(`context-injector.ts`) strips it. The apparent duplication came from
+`turn-context.json`, a debug snapshot taken at `turn_start` (before the `context`
+hook runs). No code change. The original (incorrect) analysis follows for the
+record.
+
+
 
 **Root cause (to confirm).** The memory plugin's `before_agent_start`
 (`plugins/sero-memory-plugin/extension/context-injector.ts`,
