@@ -268,6 +268,25 @@ describe('runSubagent context overrides', () => {
     expect(names).not.toContain('bash');
   });
 
+  it('applies a per-step tool allowlist to the session', async () => {
+    mocks.createRuntimeTools.mockResolvedValueOnce([
+      { name: 'bash', description: '', parameters: {}, execute: vi.fn() },
+      { name: 'read', description: '', parameters: {}, execute: vi.fn() },
+      { name: 'web_search', description: '', parameters: {}, execute: vi.fn() },
+    ] as never);
+    mocks.createAgentSession.mockImplementationOnce(async () => ({ session: createSession() }));
+
+    const config = createConfig(new AbortController().signal);
+    config.platformTools = 'all';
+    config.tools = ['bash', 'web_search'];
+
+    await runSubagent(config, createDeps());
+
+    const options = mocks.createAgentSession.mock.calls[0][0] as { noTools?: string; tools?: string[] };
+    expect(options.noTools).toBe('builtin');
+    expect(options.tools).toEqual(['bash', 'web_search']);
+  });
+
   it('replaces the base system prompt via the resource loader override', async () => {
     mocks.createAgentSession.mockImplementationOnce(async () => ({ session: createSession() }));
 

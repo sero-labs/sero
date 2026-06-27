@@ -58,6 +58,31 @@ describe('buildAction', () => {
       error: 'set_loop_context requires contextJson',
     });
   });
+
+  it('parses a set_step_tools allowlist from JSON', () => {
+    expect(buildAction({ action: 'set_step_tools', loopId: 'l1', stepId: 's1', toolsJson: '["bash","web_search"]' })).toEqual({
+      kind: 'set_step_tools', loopId: 'l1', stepId: 's1', tools: ['bash', 'web_search'],
+    });
+  });
+
+  it('parses a null/omitted set_step_tools as a revert to baseline', () => {
+    expect(buildAction({ action: 'set_step_tools', loopId: 'l1', stepId: 's1', toolsJson: 'null' })).toEqual({
+      kind: 'set_step_tools', loopId: 'l1', stepId: 's1', tools: undefined,
+    });
+    expect(buildAction({ action: 'set_step_tools', loopId: 'l1', stepId: 's1' })).toEqual({
+      kind: 'set_step_tools', loopId: 'l1', stepId: 's1', tools: undefined,
+    });
+  });
+
+  it('rejects a set_step_tools payload that is not a string array', () => {
+    expect(buildAction({ action: 'set_step_tools', loopId: 'l1', stepId: 's1', toolsJson: '[1,2]' })).toEqual({
+      error: 'toolsJson must be a JSON array of tool-name strings, or "null"',
+    });
+    expect(buildAction({ action: 'set_step_tools', loopId: 'l1', stepId: 's1' as string })).toBeDefined();
+    expect(buildAction({ action: 'set_step_tools', loopId: 'l1' })).toEqual({
+      error: 'set_step_tools requires a stepId',
+    });
+  });
 });
 
 describe('executeOrchestratorTool', () => {

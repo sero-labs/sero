@@ -30,6 +30,7 @@ export const ORCHESTRATOR_ACTIONS = [
   'revise',
   'choose_recovery',
   'set_step_model',
+  'set_step_tools',
   'set_loop_context',
   'delete',
 ] as const;
@@ -44,9 +45,10 @@ export const OrchestratorToolParams = Type.Object({
   activate: Type.Optional(Type.Boolean({ description: 'Activate the loop immediately after create' })),
   useManagedWorktree: Type.Optional(Type.Boolean({ description: 'Workspace isolation for create (default true)' })),
   decisionJson: Type.Optional(Type.String({ description: 'JSON-encoded RecoveryDecision for choose_recovery' })),
-  stepId: Type.Optional(Type.String({ description: 'Target step id (required for set_step_model)' })),
+  stepId: Type.Optional(Type.String({ description: 'Target step id (required for set_step_model/set_step_tools)' })),
   model: Type.Optional(Type.String({ description: 'For set_step_model: a tier ("LOW"/"MED"/"HIGH") or a "provider/modelId"; omit to revert the step to the default' })),
   thinking: Type.Optional(Type.String({ description: 'For set_step_model: thinking level for a pinned model' })),
+  toolsJson: Type.Optional(Type.String({ description: 'For set_step_tools: JSON-encoded array of tool names (e.g. ["bash","read","web_search"]) or "null"/"[]" to revert the step to the lean baseline' })),
   contextJson: Type.Optional(Type.String({ description: 'For set_loop_context: JSON-encoded ContextOverrides ({systemPrompt?, disabledTools?, disabledSkills?}) or "null" to clear' })),
   deleteBranch: Type.Optional(Type.Boolean({ description: 'For delete: also delete the loop\'s local git branch (default false — branch is kept)' })),
 });
@@ -62,6 +64,7 @@ export interface OrchestratorToolParamsShape {
   stepId?: string;
   model?: string;
   thinking?: string;
+  toolsJson?: string;
   contextJson?: string;
   deleteBranch?: boolean;
 }
@@ -112,6 +115,22 @@ export function buildAction(params: OrchestratorToolParamsShape): OrchestratorAc
       if (!params.loopId) return { error: 'set_step_model requires a loopId' };
       if (!params.stepId) return { error: 'set_step_model requires a stepId' };
       return { kind: 'set_step_model', loopId: params.loopId, stepId: params.stepId, model: params.model, thinking: params.thinking };
+    case 'set_step_tools': {
+      if (!params.loopId) return { error: 'set_step_tools requires a loopId' };
+      if (!params.stepId) return { error: 'set_step_tools requires a stepId' };
+      let tools: string[] | undefined;
+      if (params.toolsJson !== undefined) {
+        try {
+          const parsed = JSON.parse(params.toolsJson) as unknown;
+          if (parsed === null) tools = undefined;
+          else if (Array.isArray(parsed) && parsed.every((t) => typeof t === 'string')) tools = parsed as string[];
+          else return { error: 'toolsJson must be a JSON array of tool-name strings, or "null"' };
+        } catch {
+          return { error: 'toolsJson is not valid JSON' };
+        }
+      }
+      return { kind: 'set_step_tools', loopId: params.loopId, stepId: params.stepId, tools };
+    }
     case 'set_loop_context': {
       if (!params.loopId) return { error: 'set_loop_context requires a loopId' };
       if (params.contextJson === undefined) return { error: 'set_loop_context requires contextJson' };

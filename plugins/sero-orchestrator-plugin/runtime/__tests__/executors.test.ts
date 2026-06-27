@@ -6,6 +6,7 @@ import type { StepRunInput } from '../engine-types';
 import type { Loop, LoopPlan, LoopRun, ResolvedWorkspaceContext, StepOutcome } from '../../shared/types';
 import { createFakeHost, type FakeHost } from './fake-host';
 import { oneStepPlan, sequentialPlan, seedActiveLoop } from './fixtures';
+import { LEAN_TOOL_BASELINE } from '../../shared/constants';
 
 function emptyRun(host: FakeHost): LoopRun {
   return { id: host.newId('run'), runNumber: 1, status: 'running', startedStepIds: [], stepAttempts: [], recoveryDecisions: [], observations: [], startedAt: host.now() };
@@ -229,6 +230,8 @@ describe('modelExecutor', () => {
     host.modelResponses.push({ response: outcome({ status: 'succeeded', summary: 'ok' }) });
     await modelExecutor.run(inputFor(host, loop, 'step-1'));
     expect(host.modelCalls[0].platformTools).toBe('none');
+    // Model steps are pure reasoning — no per-step tool allowlist.
+    expect(host.modelCalls[0].tools).toBeUndefined();
   });
 
   it('includes the outputSchema in the prompt and validates the JSON', async () => {
@@ -252,5 +255,27 @@ describe('modelExecutor', () => {
     host.modelResponses.push({ response: 'no json here at all' });
     const attempt = await modelExecutor.run(inputFor(host, loop, 'step-1'));
     expect(attempt.outcome?.status).toBe('failed');
+  });
+});
+
+describe('per-step tools', () => {
+  const ok = () => outcome({ status: 'succeeded', summary: 'done' });
+
+  it('defaults a background-agent step with no tools to the lean baseline', async () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, oneStepPlan().plan);
+    host.modelResponses.push({ response: ok() });
+    await backgroundAgentExecutor.run(inputFor(host, loop, 'step-1'));
+    expect(host.modelCalls[0].tools).toEqual(LEAN_TOOL_BASELINE);
+  });
+
+  it("passes the step's explicit tool allowlist through", async () => {
+    const host = createFakeHost();
+    const plan = oneStepPlan().plan;
+    plan.steps[0].execution = { type: 'background-agent', tools: ['bash', 'web_search'] };
+    const loop = seedActiveLoop(host, plan);
+    host.modelResponses.push({ response: ok() });
+    await backgroundAgentExecutor.run(inputFor(host, loop, 'step-1'));
+    expect(host.modelCalls[0].tools).toEqual(['bash', 'web_search']);
   });
 });

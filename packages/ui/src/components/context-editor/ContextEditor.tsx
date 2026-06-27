@@ -41,6 +41,8 @@ export interface ContextEditorProps {
   description?: string;
   systemPromptCopy?: SystemPromptCopy;
   applyLabel?: string;
+  /** Hide the Tools section (e.g. the Orchestrator picks tools per step, not per loop). */
+  hideTools?: boolean;
 }
 
 export function ContextEditor({
@@ -57,6 +59,7 @@ export function ContextEditor({
   description = 'Configure what is included in the LLM context.',
   systemPromptCopy,
   applyLabel = 'Apply',
+  hideTools = false,
 }: ContextEditorProps) {
   const model = useContextEditorModel({ open, available, initialOverrides, presets, onSavePreset, onDeletePreset });
   const [applying, setApplying] = useState(false);
@@ -101,7 +104,7 @@ export function ContextEditor({
                 onSystemPromptChange={model.setSystemPrompt}
                 copy={systemPromptCopy}
               />
-              <ToolsSection {...model.tools} />
+              {!hideTools && <ToolsSection {...model.tools} />}
               <SkillsSection {...model.skills} />
             </div>
           </ScrollArea>

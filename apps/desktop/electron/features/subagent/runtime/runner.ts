@@ -118,7 +118,11 @@ export function filterPlatformTools(
 export function sessionToolOptions(
   policy: PlatformToolPolicy,
   sessionTools: ToolDefinition[],
+  allowlist?: string[],
 ): Pick<CreateAgentSessionOptions, 'noTools' | 'tools'> {
+  // A per-step allowlist wins: activate only those tools (the SDK ignores names
+  // it doesn't recognise). This also trims the per-tool prompt guidance.
+  if (allowlist && allowlist.length > 0) return { noTools: 'builtin', tools: allowlist };
   if (policy === 'all') return { noTools: 'builtin' };
   return { noTools: 'builtin', tools: sessionTools.map((tool) => tool.name) };
 }
@@ -223,7 +227,7 @@ export async function runSubagent(
       agentDir: SERO_AGENT_DIR,
       authStorage: infra.authStorage,
       modelRegistry: infra.modelRegistry,
-      ...sessionToolOptions(policy, customTools),
+      ...sessionToolOptions(policy, customTools, config.tools),
       customTools,
       resourceLoader: loader,
       sessionManager: SessionManager.inMemory(sessionPath),

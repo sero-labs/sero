@@ -69,6 +69,13 @@ function validateExecution(execution: unknown, stepId: string, errors: string[])
       errors.push(`step "${stepId}": execution.thinking must be a string`);
     }
   }
+  if (type === 'background-agent' && execution.tools !== undefined) {
+    // Optional per-step tool allowlist. Structure only — unknown names are
+    // harmlessly ignored by the session allowlist, so we don't check membership.
+    if (!Array.isArray(execution.tools) || execution.tools.some((t) => typeof t !== 'string' || !t.trim())) {
+      errors.push(`step "${stepId}": execution.tools must be an array of non-empty tool-name strings`);
+    }
+  }
   if (type === 'active-session') {
     const target = execution.sessionTarget;
     if (!isRecord(target)) {

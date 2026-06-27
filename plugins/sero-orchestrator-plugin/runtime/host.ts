@@ -11,6 +11,7 @@
 
 import type {
   AppRuntimeSubagentRepair,
+  ContextToolInfo,
   ExtensionRuntimeContent,
   ExtensionRuntimeMessage,
   SharedAvailableModelGroup,
@@ -66,6 +67,8 @@ export interface ModelRunParams {
   cwd?: string;
   /** Tool surface: 'none' for pure model calls, 'all' for background agents. */
   platformTools?: 'all' | 'readOnly' | 'none';
+  /** Per-step allowlist: tool names this run may use. When set, only these are active. */
+  tools?: string[];
   /** User context override: tool names to remove from this run's surface. */
   disabledTools?: string[];
   /** User context override: skill names to hide from the model for this run. */
@@ -135,6 +138,12 @@ export interface OrchestratorHost {
    * is no longer installed (falls back to the MED tier with a warning).
    */
   listAvailableModels(): Promise<SharedAvailableModelGroup[]>;
+  /**
+   * The real tool surface a background subagent loads in this workspace, so the
+   * planner can pick each step's tools from the actual catalog (not a hardcoded
+   * list). Published once at startup and refreshed from real runs.
+   */
+  listToolCatalog(): Promise<ContextToolInfo[]>;
 
   // ── Artifacts (large outputs under the state dir) ─────────
   /** Persists artifact content (relativePath resolved under the state dir) and returns a stable reference. */

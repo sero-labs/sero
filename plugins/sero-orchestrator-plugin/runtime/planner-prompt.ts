@@ -29,7 +29,7 @@ Return ONLY a single JSON object (no prose before or after). The top-level objec
         "instructions": string,          // what this step must do
         "expectedOutcome": string?,      // what success looks like
         "dependsOn": string[]?,          // ids of steps that must succeed first
-        "execution": { "type": "background-agent", "model": "LOW"|"MED"|"HIGH" }
+        "execution": { "type": "background-agent", "model": "LOW"|"MED"|"HIGH", "tools": string[]? }
           | { "type": "model", "model": "LOW"|"MED"|"HIGH", "outputSchema": object? }
           | { "type": "active-session", "sessionTarget": {
                 "workspaceId": string, "strategy": "specific-session"|"most-recent-active"|"ask-user",
@@ -56,6 +56,7 @@ Rules:
 - The plan MUST funnel to a single finalization step: exactly one step that nothing else depends on, reached (directly or through the chain) from the work steps. Do not leave several independent loose ends.
 - Use "background-agent" for filesystem/code/tool work, "model" for pure reasoning/structured output, "active-session" only when the work must happen in the user's live session.
 - MODEL TIER. For every "background-agent" and "model" step, set "execution.model" to the CHEAPEST tier that still does the step well: "LOW" for simple, mechanical work (running a known command, a small/obvious edit, reading or reformatting, a status check); "MED" — the balanced default — for ordinary implementation, code changes, and verification; "HIGH" only for genuinely hard reasoning (involved design, tricky debugging, multi-file refactors, careful review). When unsure, use "MED". Only ever use the tier words LOW/MED/HIGH — never name a specific provider model; the user can pin a specific model later. "active-session" steps take no model (they run in the user's live session).
+- STEP TOOLS. For every "background-agent" step, set "execution.tools" to the MINIMAL set of tool names that step needs, chosen from the AVAILABLE TOOLS catalog in the task. Be lean: most coding steps need only the baseline (bash, read, write, edit, sero-cli) — OMIT "tools" entirely to use that baseline. Add extras (e.g. "web_search", "git_manager") only when the step plainly needs them. Use exact tool names from the catalog. "model" and "active-session" steps take no tools.
 - Do NOT decide where the loop runs (worktree vs workspace root) — that is the user's setting, already decided. Just follow the delivery rule given.
 - For any recurring cadence in the goal, follow the RECURRING / SCHEDULED LOOPS rule above: shape the plan as ONE iteration with no wait/repeat steps (the schedule is set up separately).
 - Step ids must be unique and dependsOn must reference existing step ids. The dependency graph must be acyclic.`;
@@ -64,7 +65,29 @@ const WORKTREE_DELIVERY = `Delivery rule for this loop: the work runs on its own
 
 const WORKSPACE_ROOT_DELIVERY = `Delivery rule for this loop: the work runs directly in the user's workspace files, so no commit or PR is needed — leave the change in the working tree unless the goal explicitly asks to commit. The finalization step just verifies the change and emits completion.`;
 
-export function buildPlanningTask(prompt: string, useManagedWorktree: boolean): string {
+/** Tool catalog entry the planner picks each background-agent step's tools from. */
+export interface PlanningToolInfo {
+  name: string;
+  description?: string;
+}
+
+/** Renders the AVAILABLE TOOLS block the planner picks each step's tools from. */
+export function buildToolCatalogBlock(catalog: PlanningToolInfo[]): string {
+  if (catalog.length === 0) return '';
+  const lines = catalog.map((tool) =>
+    tool.description ? `- ${tool.name}: ${tool.description}` : `- ${tool.name}`,
+  );
+  return `AVAILABLE TOOLS for "background-agent" steps. Pick each step's "execution.tools" from this list (exact names). Omit "tools" to use the lean baseline (bash, read, write, edit, sero-cli); add others only when the step plainly needs them:
+${lines.join('\n')}
+
+`;
+}
+
+export function buildPlanningTask(
+  prompt: string,
+  useManagedWorktree: boolean,
+  toolCatalog: PlanningToolInfo[] = [],
+): string {
   return `A background agent will carry out the work below. Author the step plan it should follow — do not perform the work yourself, and do not ask the user to specify mechanics like committing, opening a PR, or marking the loop complete. Add those yourself per the rules.
 
 Goal:
@@ -72,7 +95,7 @@ ${prompt}
 
 If this goal mentions any cadence or repetition ("every N minutes", "hourly", "each morning", "periodically", "until …"), the loop is ALREADY scheduled to re-run automatically — author exactly ONE pass of the work. Do NOT add a step that waits, sleeps, delays, polls on a timer, or repeats/loops the plan; such a step is wrong. Process one item per run (e.g. resolve ONE issue). You do NOT need to detect or handle the goal's stop condition — that is judged separately after each run.
 
-${useManagedWorktree ? WORKTREE_DELIVERY : WORKSPACE_ROOT_DELIVERY}
+${buildToolCatalogBlock(toolCatalog)}${useManagedWorktree ? WORKTREE_DELIVERY : WORKSPACE_ROOT_DELIVERY}
 
 Return the PlanningResponse JSON now (one object, top-level "plan", no prose).`;
 }

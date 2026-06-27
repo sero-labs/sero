@@ -1,5 +1,6 @@
 import { appStateManager } from '@electron/features/apps/state/manager';
 import { subagentManager } from '@electron/features/subagent/singleton';
+import { getSubagentToolCatalog, warmSubagentToolCatalog } from '@electron/features/subagent/runtime/tool-catalog';
 import { workspaceManager } from '@electron/features/workspace/manager';
 import { listWorkspaceAccessRoots } from '@electron/features/workspace/access-roots';
 import { runtimeManager } from '@electron/features/workspace/runtime/runtime-manager';
@@ -89,6 +90,12 @@ export function createAppRuntimeHost(_target: AppRuntimeTarget): AppRuntimeHost 
         ...params,
         customTools: validateRuntimeCustomTools(params.customTools),
       }),
+      async listToolCatalog(_workspaceId) {
+        // The catalog is profile-global (plugin tools are profile-scoped), so it
+        // ignores workspaceId; warm ensures it is published before first use.
+        await warmSubagentToolCatalog();
+        return getSubagentToolCatalog();
+      },
       onLiveOutput(workspaceId, parentSessionId, cb) {
         const handleLiveOutput = (id: string, text: string) => {
           const entry = subagentManager.tracker.get(id);

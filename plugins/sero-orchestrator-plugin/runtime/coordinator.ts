@@ -23,7 +23,7 @@ import { buildDraftLoop } from './loop-factory';
 import { activate, disable, enable, type TransitionResult } from './lifecycle';
 import { planLoop } from './planner';
 import { extractSchedule } from './schedule-extractor';
-import { applyLoopContext, applyPlanningResponse, applyStepModel, planIsActivatable } from './plan-mapping';
+import { applyLoopContext, applyPlanningResponse, applyStepModel, applyStepTools, planIsActivatable } from './plan-mapping';
 import { RunEngine } from './run-engine';
 import type { EngineDeps } from './engine-types';
 import { reconcileAll } from './reconcile';
@@ -126,6 +126,8 @@ export class Coordinator {
         return this.chooseRecovery(action.loopId, action.decision);
       case 'set_step_model':
         return this.setStepModel(action.loopId, action.stepId, action.model, action.thinking);
+      case 'set_step_tools':
+        return this.setStepTools(action.loopId, action.stepId, action.tools);
       case 'set_loop_context':
         return this.setLoopContext(action.loopId, action.overrides);
       case 'delete':
@@ -170,10 +172,14 @@ export class Coordinator {
     // planning model call.
     const draft = buildDraftLoop(this.host, { prompt, title, options });
 
+    // Planner picks each step's tools from the real catalog (fail-soft to []).
+    const toolCatalog = await this.host.listToolCatalog().catch(() => []);
+
     const outcome = await planLoop(this.host, {
       prompt,
       parentSessionId: draft.runtime.parentSessionId,
       useManagedWorktree: draft.workspace.useManagedWorktree,
+      toolCatalog,
     });
     // A focused, single-purpose schedule call is far more reliable than asking
     // the planner to remember to emit a trigger. Run it after planning (not in
@@ -429,30 +435,32 @@ export class Coordinator {
     return { ok: true, loop: next };
   }
 
-  /**
-   * Sets or clears a step's model override (the user changing the tier the
-   * planner chose, or pinning a specific model). Takes effect on the next run.
-   */
-  async setStepModel(loopId: string, stepId: string, model?: string, thinking?: string): Promise<OrchestratorActionResult> {
+  /** Finds a loop, applies a pure { ok, loop } mapping, and persists it. Shared by the override handlers (next run). */
+  private async applyOverride(
+    loopId: string,
+    apply: (loop: Loop, now: string) => { ok: boolean; loop?: Loop; error?: string },
+  ): Promise<OrchestratorActionResult> {
     const loop = await this.findLoop(loopId);
     if (!loop) return { ok: false, error: `Loop not found: ${loopId}` };
-    const result = applyStepModel(loop, stepId, model, thinking, this.host.now());
+    const result = apply(loop, this.host.now());
     if (!result.ok || !result.loop) return { ok: false, error: result.error };
     await this.replaceLoop(result.loop);
     return { ok: true, loop: result.loop };
   }
 
-  /**
-   * Sets or clears the loop's user context override (custom instructions +
-   * disabled tools/skills for its background subagents). Takes effect on the
-   * next run. User-level only — never set by the planner.
-   */
-  async setLoopContext(loopId: string, overrides: ContextOverrides | null): Promise<OrchestratorActionResult> {
-    const loop = await this.findLoop(loopId);
-    if (!loop) return { ok: false, error: `Loop not found: ${loopId}` };
-    const next = applyLoopContext(loop, overrides, this.host.now());
-    await this.replaceLoop(next);
-    return { ok: true, loop: next };
+  /** Sets/clears a step's model override (tier or pinned model). */
+  setStepModel(loopId: string, stepId: string, model?: string, thinking?: string): Promise<OrchestratorActionResult> {
+    return this.applyOverride(loopId, (loop, now) => applyStepModel(loop, stepId, model, thinking, now));
+  }
+
+  /** Sets/clears a step's tool allowlist; empty reverts to the lean baseline. */
+  setStepTools(loopId: string, stepId: string, tools?: string[]): Promise<OrchestratorActionResult> {
+    return this.applyOverride(loopId, (loop, now) => applyStepTools(loop, stepId, tools, now));
+  }
+
+  /** Sets/clears the loop's user context override (prompt + skills). User-level only. */
+  setLoopContext(loopId: string, overrides: ContextOverrides | null): Promise<OrchestratorActionResult> {
+    return this.applyOverride(loopId, (loop, now) => ({ ok: true, loop: applyLoopContext(loop, overrides, now) }));
   }
 
   /** Applies a user-supplied recovery decision (manual override). */

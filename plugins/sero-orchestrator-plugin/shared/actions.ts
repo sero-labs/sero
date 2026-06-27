@@ -32,6 +32,7 @@ export type OrchestratorAction =
   | { kind: 'revise'; loopId: string; prompt?: string }
   | { kind: 'choose_recovery'; loopId: string; decision: RecoveryDecision }
   | { kind: 'set_step_model'; loopId: string; stepId: string; model?: string; thinking?: string }
+  | { kind: 'set_step_tools'; loopId: string; stepId: string; tools?: string[] }
   | { kind: 'set_loop_context'; loopId: string; overrides: ContextOverrides | null }
   | { kind: 'delete'; loopId: string; deleteBranch?: boolean };
 

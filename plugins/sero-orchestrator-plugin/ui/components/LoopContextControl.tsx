@@ -55,9 +55,10 @@ function LoopContextDialog({
       }}
       onDeletePreset={(id) => void save(presets.filter((p) => p.id !== id))}
       title="Loop context"
-      description="Optional override applied to this loop's background subagents. Not managed by the orchestrator."
+      description="System prompt and skills for this loop's background subagents. Tools are chosen per step in the plan."
       systemPromptCopy={LOOP_PROMPT_COPY}
       applyLabel="Save context"
+      hideTools
     />
   );
 }

@@ -9,6 +9,7 @@
 import type { WorkspaceAccessRootsResult } from './workspace-access-roots';
 import type { ExtensionRuntimeContent, ExtensionRuntimeMessage } from './session-runtime';
 import type { SharedAvailableModelGroup } from './model-selection/types';
+import type { ContextToolInfo } from './context-editor';
 
 export interface AppRuntimeStateApi {
   read<T = unknown>(filePath: string): Promise<T | null>;
@@ -50,6 +51,12 @@ export interface AppRuntimeSubagentRunParams {
   cwd?: string;
   isolated?: boolean;
   customTools?: unknown[];
+  /**
+   * Allowlist of tool names this run may use. When set, the session activates
+   * only these tools (and the SDK ignores any name it doesn't recognise), which
+   * also trims the per-tool prompt guidance. Omitted = the full platform surface.
+   */
+  tools?: string[];
   /** Tool names to remove from this run's tool surface (user context override). */
   disabledTools?: string[];
   /** Skill names to hide from the model for this run (user context override). */
@@ -100,6 +107,12 @@ export interface AppRuntimeSubagentsApi {
     parentSessionId: string,
     cb: (agentName: string, text: string) => void,
   ): () => void;
+  /**
+   * The real tool surface a background subagent loads in this workspace (name +
+   * description), so callers (e.g. the Orchestrator planner) can pick a step's
+   * tools from the actual catalog rather than a hardcoded list.
+   */
+  listToolCatalog(workspaceId: string): Promise<ContextToolInfo[]>;
 }
 
 export interface AppRuntimeNativeBuildFallbackAction {

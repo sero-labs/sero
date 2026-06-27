@@ -36,6 +36,7 @@ export function createOrchestratorHost(ctx: AppRuntimeContext): OrchestratorHost
         workspaceId: ctx.workspaceId,
         cwd: params.cwd,
         platformTools: params.platformTools,
+        tools: params.tools,
         disabledTools: params.disabledTools,
         disabledSkills: params.disabledSkills,
         signal: params.signal,
@@ -44,6 +45,8 @@ export function createOrchestratorHost(ctx: AppRuntimeContext): OrchestratorHost
       }),
 
     listAvailableModels: () => ctx.host.models.list(),
+
+    listToolCatalog: () => ctx.host.subagents.listToolCatalog(ctx.workspaceId),
 
     writeArtifact: async (relativePath, content) => {
       // relativePath is resolved under the state dir, so callers place artifacts

@@ -79,6 +79,17 @@ describe('validateLoopPlan', () => {
       { id: 'b', title: 'B', instructions: 'i', dependsOn: ['a'], execution: { type: 'model' } },
     ]))).toEqual([]);
   });
+  it('accepts a background-agent step with a tools allowlist', () => {
+    expect(validateLoopPlan(plan([
+      { id: 'a', title: 'A', instructions: 'i', execution: { type: 'background-agent', tools: ['bash', 'read', 'web_search'] } },
+    ]))).toEqual([]);
+  });
+  it('rejects execution.tools that is not an array of non-empty strings', () => {
+    const errors = validateLoopPlan(plan([
+      { id: 'a', title: 'A', instructions: 'i', execution: { type: 'background-agent', tools: ['bash', ''] } as never },
+    ]));
+    expect(errors.some((e) => e.includes('execution.tools must be an array'))).toBe(true);
+  });
 });
 
 describe('findCycle', () => {

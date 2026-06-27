@@ -3,7 +3,7 @@
  * assertions are stable. Grows alongside the real host interface.
  */
 
-import type { SharedAvailableModelGroup } from '@sero-ai/common';
+import type { ContextToolInfo, SharedAvailableModelGroup } from '@sero-ai/common';
 import { DEFAULT_STATE } from '../../shared/defaults';
 import type { OrchestratorState } from '../../shared/types';
 import type {
@@ -36,6 +36,8 @@ export interface FakeHost extends OrchestratorHost {
   modelCalls: ModelRunParams[];
   /** Model groups returned by listAvailableModels (empty by default). */
   availableModels: SharedAvailableModelGroup[];
+  /** Tool catalog returned by listToolCatalog (empty by default). */
+  toolCatalog: ContextToolInfo[];
   /** In-memory artifact store keyed by reference. */
   artifacts: Map<string, string>;
   /** Configurable workspace status for dirty preflight tests. */
@@ -70,6 +72,7 @@ export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
     modelResponses: [],
     modelCalls: [],
     availableModels: [],
+    toolCatalog: [],
     artifacts: new Map<string, string>(),
     workspaceStatus: { isGitRepository: true, hasUncommittedChanges: false, summary: 'Clean working tree' },
     choiceResult: { choiceId: null, timedOut: true },
@@ -106,6 +109,9 @@ export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
     },
     async listAvailableModels() {
       return this.availableModels;
+    },
+    async listToolCatalog() {
+      return this.toolCatalog;
     },
     async writeArtifact(relativePath, content) {
       const ref = `artifact://${relativePath}`;

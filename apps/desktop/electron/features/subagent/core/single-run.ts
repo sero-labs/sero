@@ -40,6 +40,8 @@ export interface SingleRunParams {
   customTools?: ToolDefinition[];
   /** Platform tool surface for the session. Default: 'all'. */
   platformTools?: PlatformToolPolicy;
+  /** Allowlist of tool names this run may use (e.g. a step's per-step tools). When set, only these tools are active. */
+  tools?: string[];
   /** Replaces the base system prompt for this run (user context override). '' excludes it. The agent suffix still applies. */
   systemPromptOverride?: string;
   /** Tool names to remove from this run's surface (user context override). */
@@ -152,6 +154,7 @@ export async function executeSingleRun(options: ExecuteSingleRunOptions): Promis
         isolated: params.isolated,
         customTools: params.customTools,
         platformTools: params.platformTools,
+        tools: params.tools,
         systemPromptOverride: params.systemPromptOverride,
         disabledTools: params.disabledTools,
         disabledSkills: params.disabledSkills,

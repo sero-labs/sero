@@ -7,6 +7,7 @@
 
 import { isModelTier } from '@sero-ai/common';
 import type { Observation, StepAttempt, StepOutcome, UsageSummary } from '../../shared/types';
+import { LEAN_TOOL_BASELINE } from '../../shared/constants';
 import type { StepRunInput } from '../engine-types';
 import { artifactPath, storeOutput } from '../artifacts';
 import { extractJson } from '../schema';
@@ -57,6 +58,17 @@ export async function runStepAttempt(input: StepRunInput, options: RunStepOption
   // outcome envelope rules always survive. Disabled tools/skills are filtered out.
   const ctxOverride = loop.contextOverrides;
 
+  // Per-step tool allowlist — only for background agents (which run with the
+  // full platform surface). The planner picks the step's tools; a step with none
+  // falls back to the lean coding baseline. Pure-model runs ('none') get no
+  // allowlist. A lean allowlist also trims the per-tool prompt guidance.
+  const stepTools =
+    options.platformTools === 'all' && step.execution.type === 'background-agent'
+      ? step.execution.tools && step.execution.tools.length > 0
+        ? step.execution.tools
+        : LEAN_TOOL_BASELINE
+      : undefined;
+
   const result = await host.runStructured({
     task,
     systemPrompt: STEP_SYSTEM_PROMPT,
@@ -66,6 +78,7 @@ export async function runStepAttempt(input: StepRunInput, options: RunStepOption
     parentSessionId,
     cwd: options.cwd,
     platformTools: options.platformTools,
+    tools: stepTools,
     disabledTools: ctxOverride?.disabledTools,
     disabledSkills: ctxOverride?.disabledSkills,
     signal,

@@ -4,6 +4,7 @@
  * failure it performs exactly one repair pass before giving up (D-01, D-09).
  */
 
+import type { ContextToolInfo } from '@sero-ai/common';
 import type { PlanningResponse } from '../shared/types';
 import type { OrchestratorHost } from './host';
 import { PLANNING_SYSTEM_PROMPT, buildPlanningTask, buildRepairTask } from './planner-prompt';
@@ -14,6 +15,8 @@ export interface PlanRequest {
   parentSessionId: string;
   /** The loop's workspace isolation, so the planner adds the right delivery step. */
   useManagedWorktree: boolean;
+  /** The real tool catalog the planner picks each step's tools from. */
+  toolCatalog?: ContextToolInfo[];
   model?: string;
   thinking?: string;
   signal?: AbortSignal;
@@ -49,7 +52,7 @@ export async function planLoop(host: OrchestratorHost, req: PlanRequest): Promis
 
   let first: string;
   try {
-    first = await runPlanning(host, req, buildPlanningTask(req.prompt, req.useManagedWorktree));
+    first = await runPlanning(host, req, buildPlanningTask(req.prompt, req.useManagedWorktree, req.toolCatalog));
   } catch (error) {
     return { ok: false, errors: [`planning model call failed: ${asMessage(error)}`], modelResponses };
   }

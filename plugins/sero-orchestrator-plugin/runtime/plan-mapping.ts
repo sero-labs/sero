@@ -121,6 +121,29 @@ export function applyStepModel(
 }
 
 /**
+ * Sets (or clears) one background-agent step's tool allowlist — the user override
+ * for the tools the planner picked. An empty/undefined `tools` reverts the step
+ * to the lean coding baseline. Only background-agent steps carry tools (model
+ * steps are pure reasoning; active-session steps run in the user's live session).
+ */
+export function applyStepTools(
+  loop: Loop,
+  stepId: string,
+  tools: string[] | undefined,
+  now: string,
+): { ok: boolean; loop?: Loop; error?: string } {
+  const step = loop.plan.steps.find((s) => s.id === stepId);
+  if (!step) return { ok: false, error: `Step not found: ${stepId}` };
+  if (step.execution.type !== 'background-agent') {
+    return { ok: false, error: `Step "${stepId}" (${step.execution.type}) has no tools to set.` };
+  }
+  const cleaned = tools?.map((t) => t.trim()).filter(Boolean);
+  const execution = { ...step.execution, tools: cleaned && cleaned.length > 0 ? cleaned : undefined };
+  const steps = loop.plan.steps.map((s) => (s.id === stepId ? { ...s, execution } : s));
+  return { ok: true, loop: { ...loop, plan: { ...loop.plan, steps }, updatedAt: now } };
+}
+
+/**
  * Sets (or clears) the loop's user context override — custom instructions plus
  * disabled tools/skills applied to its background subagents. A `null` override
  * reverts the loop to the default context. User-level only (never the planner).

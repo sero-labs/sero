@@ -63,6 +63,11 @@ export function OrchestratorApp() {
       if (action.model !== undefined) params.model = action.model;
       if (action.thinking !== undefined) params.thinking = action.thinking;
     }
+    if (action.kind === 'set_step_tools') {
+      params.stepId = action.stepId;
+      // null reverts the step to the lean baseline; an array sets the allowlist.
+      params.toolsJson = JSON.stringify(action.tools ?? null);
+    }
     if (action.kind === 'set_loop_context') {
       params.contextJson = JSON.stringify(action.overrides);
     }
