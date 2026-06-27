@@ -32,6 +32,10 @@ vi.mock('@electron/features/subagent/runtime/loader', () => ({
   createSubagentExtensionFactory: vi.fn(() => vi.fn()),
 }));
 
+vi.mock('@electron/features/subagent/runtime/tool-catalog', () => ({
+  recordRunToolCatalog: vi.fn(),
+}));
+
 vi.mock('@electron/features/workspace/runtime/runtime-manager', () => ({
   runtimeManager: {
     getRuntime: mocks.getRuntime,
@@ -78,6 +82,7 @@ function createSession() {
     setThinkingLevel: vi.fn(),
     subscribe: vi.fn((_listener?: (event: Record<string, unknown>) => void) => vi.fn()),
     prompt: vi.fn(async () => {}),
+    getAllTools: vi.fn(() => []),
     messages: [],
     getSessionStats: vi.fn(() => ({
       tokens: {
@@ -275,6 +280,19 @@ describe('runSubagent context overrides', () => {
       | ((base: string | undefined) => string | undefined)
       | undefined;
     expect(override?.('original base prompt')).toBe('You are a terse reviewer.');
+  });
+
+  it('delivers the agent prompt via the resource loader appendSystemPrompt slot', async () => {
+    mocks.createAgentSession.mockImplementationOnce(async () => ({ session: createSession() }));
+
+    await runSubagent(createConfig(new AbortController().signal), createDeps());
+
+    // The agent .md body / step contract must ride on appendSystemPrompt so it
+    // survives a base systemPromptOverride. The dead systemPromptSuffix option
+    // must no longer be passed to createAgentSession.
+    expect(mocks.lastLoaderOptions?.appendSystemPrompt).toEqual(['You are a test agent.']);
+    const sessionOptions = mocks.createAgentSession.mock.calls[0][0] as Record<string, unknown>;
+    expect(sessionOptions.systemPromptSuffix).toBeUndefined();
   });
 
   it('does not set a prompt override when none is requested', async () => {

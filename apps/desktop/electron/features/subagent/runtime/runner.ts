@@ -2,14 +2,13 @@
  * SubagentRunner — executes a single subagent task via a transient AgentSession.
  *
  * Each run creates an in-memory session with the full Sero system prompt,
- * the agent's .md body as systemPromptSuffix, and workspace tools.
- * The session is disposed immediately after completion.
+ * the agent's .md body appended via the resource loader's appendSystemPrompt,
+ * and workspace tools. The session is disposed immediately after completion.
  */
 
 import {
   createAgentSession,
   SessionManager,
-  DefaultResourceLoader,
 } from '@earendil-works/pi-coding-agent';
 import type { CreateAgentSessionOptions, ToolDefinition } from '@earendil-works/pi-coding-agent';
 import type { ThinkingLevel, AgentMessage } from '@earendil-works/pi-agent-core';
@@ -20,17 +19,10 @@ import type { SharedInfra } from '@electron/shared/infra/shared-infra';
 import type { WorkspaceManager } from '@electron/features/workspace/manager';
 import { createRuntimeTools } from '@electron/features/container/tools';
 import { WORKSPACE_DIR } from '@electron/features/container/tools/tool-schemas';
-import { createSubagentExtensionFactory } from './loader';
+import { createSubagentResourceLoader } from './resource-loader';
+import { recordRunToolCatalog } from './tool-catalog';
 import { SERO_AGENT_DIR } from '@electron/platform/env';
 import { logRawEvent, logTurnContext } from '@electron/ipc/editor/debug';
-import { createSkillVisibilityOverride } from '@electron/features/apps/extensions/skill-visibility';
-import {
-  filterCompatiblePluginAgentsFiles,
-  filterCompatiblePluginExtensions,
-  filterCompatiblePluginPrompts,
-  filterCompatiblePluginSkills,
-  filterCompatiblePluginThemes,
-} from '@electron/features/plugins/resource-compatibility';
 import { runtimeManager } from '@electron/features/workspace/runtime/runtime-manager';
 import { parseModelField, resolveTierModel } from '@electron/shared/settings/resolve-tier-model';
 import { getModelTiers } from '@electron/shared/settings/model-tiers';
@@ -191,40 +183,19 @@ export async function runSubagent(
     (tool) => !disabledTools.has(tool.name),
   );
 
-  // User context override: hide disabled skills from the model.
-  const disabledSkills = new Set(config.disabledSkills ?? []);
-
-  // Build a reduced extension factory for the child session
-  const skillVisibilityOverride = createSkillVisibilityOverride(infra.settingsManager);
-  const loader = new DefaultResourceLoader({
+  // Build the child session's resource loader (shared with the tool-catalog
+  // enumeration). The agent prompt rides on appendSystemPrompt so it survives a
+  // base systemPromptOverride; disabled skills are hidden from the model.
+  const loader = createSubagentResourceLoader({
     cwd: sessionPath,
-    agentDir: SERO_AGENT_DIR,
+    workspaceManager,
+    workspaceId,
+    sessionId: subagentSessionId,
     settingsManager: infra.settingsManager,
-    extensionFactories: [
-      createSubagentExtensionFactory(
-        workspaceManager,
-        workspaceId,
-        subagentSessionId,
-        undefined,
-        containerCwd,
-      ),
-    ],
-    skillsOverride: (base) => {
-      const filtered = filterCompatiblePluginSkills(skillVisibilityOverride(base));
-      if (disabledSkills.size === 0) return filtered;
-      return {
-        ...filtered,
-        skills: filtered.skills.map((skill) =>
-          disabledSkills.has(skill.name) ? { ...skill, disableModelInvocation: true } : skill,
-        ),
-      };
-    },
-    // User context override: replace the base system prompt (the agent suffix still applies on top).
-    systemPromptOverride: config.systemPromptOverride !== undefined ? () => config.systemPromptOverride : undefined,
-    promptsOverride: filterCompatiblePluginPrompts,
-    themesOverride: filterCompatiblePluginThemes,
-    extensionsOverride: filterCompatiblePluginExtensions,
-    agentsFilesOverride: filterCompatiblePluginAgentsFiles,
+    containerCwd,
+    systemPromptOverride: config.systemPromptOverride,
+    appendSystemPrompt: agent.systemPrompt ? [agent.systemPrompt] : undefined,
+    disabledSkills: config.disabledSkills,
   });
   await loader.reload();
 
@@ -247,7 +218,7 @@ export async function runSubagent(
   }
 
   try {
-    const sessionOptions: CreateAgentSessionOptions & { systemPromptSuffix?: string } = {
+    const sessionOptions: CreateAgentSessionOptions = {
       cwd: sessionPath,
       agentDir: SERO_AGENT_DIR,
       authStorage: infra.authStorage,
@@ -257,7 +228,6 @@ export async function runSubagent(
       resourceLoader: loader,
       sessionManager: SessionManager.inMemory(sessionPath),
       settingsManager: infra.settingsManager,
-      systemPromptSuffix: agent.systemPrompt,
     };
     const result = await createAgentSession(sessionOptions);
     session = result.session;
@@ -387,6 +357,11 @@ export async function runSubagent(
 
     // Send the task and wait for completion
     await session.prompt(task);
+
+    // Publish the run's resolved tool surface to the shared catalog (the planner
+    // and loop context editor read it). Best-effort — never blocks the run.
+    try { recordRunToolCatalog(session.getAllTools()); } catch { /* catalog is best-effort */ }
+
     let response = extractResponse(session.messages);
 
     // In-session structured-output repair: if the caller validates the reply
