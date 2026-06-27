@@ -140,10 +140,11 @@ export interface BackgroundAgentTarget {
   model?: string;
   thinking?: string;
   /**
-   * Allowlist of tool names this step's agent may use (picked by the planner,
-   * user-overridable). Omitted/empty falls back to the lean coding baseline
-   * (LEAN_TOOL_BASELINE). Restricts the session's active tool surface, which
-   * also trims the per-tool prompt guidance.
+   * EXTRA tools this step needs beyond the always-on lean baseline
+   * (LEAN_TOOL_BASELINE), picked by the planner and user-overridable. The
+   * effective allowlist is baseline ∪ tools; the baseline can't be removed.
+   * Omitted/empty means baseline only. Restricting the active surface also
+   * trims the per-tool prompt guidance.
    */
   tools?: string[];
 }

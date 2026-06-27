@@ -59,14 +59,12 @@ export async function runStepAttempt(input: StepRunInput, options: RunStepOption
   const ctxOverride = loop.contextOverrides;
 
   // Per-step tool allowlist — only for background agents (which run with the
-  // full platform surface). The planner picks the step's tools; a step with none
-  // falls back to the lean coding baseline. Pure-model runs ('none') get no
+  // full platform surface). The lean coding baseline is ALWAYS included; the
+  // planner's per-step picks are layered on top. Pure-model runs ('none') get no
   // allowlist. A lean allowlist also trims the per-tool prompt guidance.
   const stepTools =
     options.platformTools === 'all' && step.execution.type === 'background-agent'
-      ? step.execution.tools && step.execution.tools.length > 0
-        ? step.execution.tools
-        : LEAN_TOOL_BASELINE
+      ? [...new Set([...LEAN_TOOL_BASELINE, ...(step.execution.tools ?? [])])]
       : undefined;
 
   const result = await host.runStructured({

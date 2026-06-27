@@ -5,6 +5,8 @@
  * worktree use — that is a user-level loop setting (D-06).
  */
 
+import { LEAN_TOOL_BASELINE } from '../shared/constants';
+
 export const PLANNING_SYSTEM_PROMPT = `You are the PLANNER for Sero Orchestrator. You do NOT make any change yourself — a separate background agent will carry out each step you author. Your only job is to turn the user's prompt into a durable step plan. Not having edit/file tools is expected; never refuse or describe the edit instead.
 
 Every prompt gets a plan, even a tiny one — a single background-agent step is a complete plan. Never refuse for being "too small".
@@ -56,7 +58,7 @@ Rules:
 - The plan MUST funnel to a single finalization step: exactly one step that nothing else depends on, reached (directly or through the chain) from the work steps. Do not leave several independent loose ends.
 - Use "background-agent" for filesystem/code/tool work, "model" for pure reasoning/structured output, "active-session" only when the work must happen in the user's live session.
 - MODEL TIER. For every "background-agent" and "model" step, set "execution.model" to the CHEAPEST tier that still does the step well: "LOW" for simple, mechanical work (running a known command, a small/obvious edit, reading or reformatting, a status check); "MED" — the balanced default — for ordinary implementation, code changes, and verification; "HIGH" only for genuinely hard reasoning (involved design, tricky debugging, multi-file refactors, careful review). When unsure, use "MED". Only ever use the tier words LOW/MED/HIGH — never name a specific provider model; the user can pin a specific model later. "active-session" steps take no model (they run in the user's live session).
-- STEP TOOLS. For every "background-agent" step, set "execution.tools" to the MINIMAL set of tool names that step needs, chosen from the AVAILABLE TOOLS catalog in the task. Be lean: most coding steps need only the baseline (bash, read, write, edit, sero-cli) — OMIT "tools" entirely to use that baseline. Add extras (e.g. "web_search", "git_manager") only when the step plainly needs them. Use exact tool names from the catalog. "model" and "active-session" steps take no tools.
+- STEP TOOLS. The lean coding baseline (bash, read, write, edit, sero-cli) is ALWAYS available to every "background-agent" step — never list it. In "execution.tools" put ONLY the ADDITIONAL tools a step needs beyond that baseline, chosen from the AVAILABLE TOOLS catalog in the task. Be lean: omit "tools" entirely for a pure coding step; add extras (e.g. "web_search", "git_manager") only when the step plainly needs them. Use exact tool names from the catalog. "model" and "active-session" steps take no tools.
 - Do NOT decide where the loop runs (worktree vs workspace root) — that is the user's setting, already decided. Just follow the delivery rule given.
 - For any recurring cadence in the goal, follow the RECURRING / SCHEDULED LOOPS rule above: shape the plan as ONE iteration with no wait/repeat steps (the schedule is set up separately).
 - Step ids must be unique and dependsOn must reference existing step ids. The dependency graph must be acyclic.`;
@@ -71,13 +73,17 @@ export interface PlanningToolInfo {
   description?: string;
 }
 
-/** Renders the AVAILABLE TOOLS block the planner picks each step's tools from. */
+/**
+ * Renders the AVAILABLE TOOLS block — the ADDITIONAL tools the planner can add to
+ * a step. The lean baseline is always available, so it is excluded from the list.
+ */
 export function buildToolCatalogBlock(catalog: PlanningToolInfo[]): string {
-  if (catalog.length === 0) return '';
-  const lines = catalog.map((tool) =>
+  const extras = catalog.filter((tool) => !LEAN_TOOL_BASELINE.includes(tool.name));
+  if (extras.length === 0) return '';
+  const lines = extras.map((tool) =>
     tool.description ? `- ${tool.name}: ${tool.description}` : `- ${tool.name}`,
   );
-  return `AVAILABLE TOOLS for "background-agent" steps. Pick each step's "execution.tools" from this list (exact names). Omit "tools" to use the lean baseline (bash, read, write, edit, sero-cli); add others only when the step plainly needs them:
+  return `AVAILABLE TOOLS — the lean baseline (bash, read, write, edit, sero-cli) is ALWAYS available to every background-agent step (never list it). Add any of these ADDITIONAL tools to a step's "execution.tools" only when it plainly needs them (exact names):
 ${lines.join('\n')}
 
 `;

@@ -11,15 +11,16 @@ function toolsOf(host: FakeHost, stepId: string): string[] | undefined {
 }
 
 describe('set_step_tools action', () => {
-  it('sets a tool allowlist and reverts to the lean baseline', async () => {
+  it('stores only the extras (baseline names are implicit) and reverts to baseline', async () => {
     const host = createFakeHost();
     seedActiveLoop(host, oneStepPlan().plan);
     const coordinator = new Coordinator(host);
 
+    // bash/read are baseline (always on) → stripped; only web_search is stored.
     await coordinator.requestAction({ kind: 'set_step_tools', loopId: 'loop-1', stepId: 'step-1', tools: ['bash', 'read', 'web_search'] });
-    expect(toolsOf(host, 'step-1')).toEqual(['bash', 'read', 'web_search']);
+    expect(toolsOf(host, 'step-1')).toEqual(['web_search']);
 
-    // No tools (or empty) → revert to the lean baseline (undefined on the step).
+    // No tools (or only baseline) → revert to baseline only (undefined on the step).
     await coordinator.requestAction({ kind: 'set_step_tools', loopId: 'loop-1', stepId: 'step-1' });
     expect(toolsOf(host, 'step-1')).toBeUndefined();
   });
@@ -39,14 +40,16 @@ describe('applyStepTools', () => {
     expect(result.ok).toBe(false);
   });
 
-  it('trims names and treats an all-empty list as a revert to baseline', () => {
+  it('trims names, strips baseline, and clears when only baseline remains', () => {
     const loop = { plan: { steps: [{ id: 's', title: 'S', instructions: 'x', execution: { type: 'background-agent' } as StepExecutionTarget }] }, updatedAt: '' } as Loop;
-    const set = applyStepTools(loop, 's', [' bash ', 'read', ''], 't1');
+    const set = applyStepTools(loop, 's', [' web_search ', 'bash', 'git_manager', ''], 't1');
     const setExec = set.loop?.plan.steps[0].execution;
-    expect(setExec && setExec.type === 'background-agent' ? setExec.tools : null).toEqual(['bash', 'read']);
+    // bash (baseline) and the empty string are dropped; the extras are kept trimmed.
+    expect(setExec && setExec.type === 'background-agent' ? setExec.tools : null).toEqual(['web_search', 'git_manager']);
 
-    const cleared = applyStepTools(set.loop as Loop, 's', ['  ', ''], 't2');
+    const cleared = applyStepTools(set.loop as Loop, 's', ['read', 'edit'], 't2');
     const clearedExec = cleared.loop?.plan.steps[0].execution;
+    // Only baseline names → no extras → field cleared.
     expect(clearedExec && clearedExec.type === 'background-agent' ? clearedExec.tools : 'x').toBeUndefined();
   });
 });

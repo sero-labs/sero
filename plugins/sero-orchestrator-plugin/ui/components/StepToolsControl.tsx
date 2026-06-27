@@ -1,9 +1,10 @@
-import { Wrench } from 'lucide-react';
+import type { ReactNode } from 'react';
+import { Lock, Wrench } from 'lucide-react';
 import type { ContextToolInfo } from '@sero-ai/common';
 import { Button, Checkbox, Popover, PopoverContent, PopoverTrigger } from '@sero-ai/ui';
 import { cn } from '@sero-ai/ui/lib/utils';
 import type { LoopStepDefinition } from '../../shared/types';
-import { LEAN_TOOL_BASELINE } from '../../shared/constants';
+import { LEAN_TOOL_BASELINE, isBaselineTool } from '../../shared/constants';
 
 interface StepToolsControlProps {
   step: LoopStepDefinition;
@@ -11,27 +12,26 @@ interface StepToolsControlProps {
   onChange: (tools?: string[]) => void;
 }
 
-function currentTools(step: LoopStepDefinition): string[] | undefined {
-  return step.execution.type === 'background-agent' ? step.execution.tools : undefined;
+function currentExtras(step: LoopStepDefinition): string[] {
+  const tools = step.execution.type === 'background-agent' ? step.execution.tools : undefined;
+  return (tools ?? []).filter((name) => !isBaselineTool(name));
 }
 
 /**
- * Per-step tool selector. The planner picks each background-agent step's tools;
- * this lets the user override them. A step with no explicit tools runs on the
- * lean coding baseline (bash/read/write/edit/sero-cli). The trigger summarizes
- * the selection; the popover is the catalog with the step's tools checked.
+ * Per-step tool selector. The lean coding baseline is always on and locked; the
+ * planner picks extra tools per step and the user can add/remove those extras.
+ * The trigger summarizes the selection; the popover separates the locked baseline
+ * from the optional catalog tools.
  */
 export function StepToolsControl({ step, catalog, onChange }: StepToolsControlProps) {
-  const explicit = currentTools(step);
-  const isBaseline = !explicit || explicit.length === 0;
-  const selected = new Set(explicit ?? LEAN_TOOL_BASELINE);
-  // Show the lean baseline even when the catalog hasn't loaded the names yet.
-  const items: ContextToolInfo[] = catalog.length > 0
-    ? catalog
-    : LEAN_TOOL_BASELINE.map((name) => ({ name }));
+  const extras = new Set(currentExtras(step));
+  const baselineItems: ContextToolInfo[] = LEAN_TOOL_BASELINE.map(
+    (name) => catalog.find((t) => t.name === name) ?? { name },
+  );
+  const optionalItems = catalog.filter((tool) => !isBaselineTool(tool.name));
 
   const toggle = (name: string) => {
-    const next = new Set(selected);
+    const next = new Set(extras);
     if (next.has(name)) next.delete(name);
     else next.add(name);
     onChange(next.size > 0 ? [...next] : undefined);
@@ -42,13 +42,9 @@ export function StepToolsControl({ step, catalog, onChange }: StepToolsControlPr
       <span className="text-xs text-muted-foreground">Tools</span>
       <Popover>
         <PopoverTrigger asChild>
-          <button
-            type="button"
-            aria-label={`Tools for ${step.title}`}
-            className={triggerClass}
-          >
+          <button type="button" aria-label={`Tools for ${step.title}`} className={triggerClass}>
             <Wrench className="h-3 w-3" />
-            {isBaseline ? 'Lean baseline' : `${selected.size} selected`}
+            {extras.size > 0 ? `Baseline + ${extras.size}` : 'Lean baseline'}
           </button>
         </PopoverTrigger>
         <PopoverContent align="start" className="w-72 p-0">
@@ -59,36 +55,69 @@ export function StepToolsControl({ step, catalog, onChange }: StepToolsControlPr
               variant="ghost"
               size="sm"
               className="h-6 px-2 text-xs"
-              disabled={isBaseline}
+              disabled={extras.size === 0}
               onClick={() => onChange(undefined)}
             >
-              Reset to baseline
+              Clear extras
             </Button>
           </div>
           <div className="max-h-64 overflow-y-auto p-2">
-            {items.map((tool) => (
-              <label
+            <GroupLabel>Always included</GroupLabel>
+            {baselineItems.map((tool) => (
+              <ToolRow key={tool.name} tool={tool} checked disabled locked />
+            ))}
+            {optionalItems.length > 0 && <GroupLabel>Add as needed</GroupLabel>}
+            {optionalItems.map((tool) => (
+              <ToolRow
                 key={tool.name}
-                className="flex cursor-pointer items-start gap-2 rounded-md px-2 py-1.5 hover:bg-accent"
-                title={tool.description}
-              >
-                <Checkbox
-                  checked={selected.has(tool.name)}
-                  onCheckedChange={() => toggle(tool.name)}
-                  className="mt-0.5"
-                />
-                <span className="min-w-0">
-                  <span className="block text-xs font-medium">{tool.name}</span>
-                  {tool.description && (
-                    <span className="block truncate text-[11px] text-muted-foreground">{tool.description}</span>
-                  )}
-                </span>
-              </label>
+                tool={tool}
+                checked={extras.has(tool.name)}
+                onToggle={() => toggle(tool.name)}
+              />
             ))}
           </div>
         </PopoverContent>
       </Popover>
     </div>
+  );
+}
+
+function GroupLabel({ children }: { children: ReactNode }) {
+  return <div className="px-2 pb-1 pt-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{children}</div>;
+}
+
+function ToolRow({
+  tool,
+  checked,
+  disabled,
+  locked,
+  onToggle,
+}: {
+  tool: ContextToolInfo;
+  checked: boolean;
+  disabled?: boolean;
+  locked?: boolean;
+  onToggle?: () => void;
+}) {
+  return (
+    <label
+      className={cn(
+        'flex items-start gap-2 rounded-md px-2 py-1.5',
+        disabled ? 'opacity-70' : 'cursor-pointer hover:bg-accent',
+      )}
+      title={tool.description}
+    >
+      <Checkbox checked={checked} disabled={disabled} onCheckedChange={onToggle} className="mt-0.5" />
+      <span className="min-w-0">
+        <span className="flex items-center gap-1 text-xs font-medium">
+          {tool.name}
+          {locked && <Lock className="h-2.5 w-2.5 text-muted-foreground" />}
+        </span>
+        {tool.description && (
+          <span className="block truncate text-[11px] text-muted-foreground">{tool.description}</span>
+        )}
+      </span>
+    </label>
   );
 }
 

@@ -14,6 +14,7 @@ import type {
   StepRuntimeState,
 } from '../shared/types';
 import type { OrchestratorHost } from './host';
+import { isBaselineTool } from '../shared/constants';
 import { mergeLimits, materializeTriggers } from './loop-factory';
 import { mergeScheduleIntoTriggers, type ScheduleExtraction } from './schedule-extractor';
 import { validateLoopPlan } from './schema';
@@ -121,10 +122,11 @@ export function applyStepModel(
 }
 
 /**
- * Sets (or clears) one background-agent step's tool allowlist — the user override
- * for the tools the planner picked. An empty/undefined `tools` reverts the step
- * to the lean coding baseline. Only background-agent steps carry tools (model
- * steps are pure reasoning; active-session steps run in the user's live session).
+ * Sets (or clears) one background-agent step's EXTRA tools — the tools layered on
+ * top of the always-on lean baseline (which can't be removed). Baseline names are
+ * stripped (they're implicit); an empty result clears the field (baseline only).
+ * Only background-agent steps carry tools (model steps are pure reasoning;
+ * active-session steps run in the user's live session).
  */
 export function applyStepTools(
   loop: Loop,
@@ -137,8 +139,8 @@ export function applyStepTools(
   if (step.execution.type !== 'background-agent') {
     return { ok: false, error: `Step "${stepId}" (${step.execution.type}) has no tools to set.` };
   }
-  const cleaned = tools?.map((t) => t.trim()).filter(Boolean);
-  const execution = { ...step.execution, tools: cleaned && cleaned.length > 0 ? cleaned : undefined };
+  const extras = tools?.map((t) => t.trim()).filter((t) => t && !isBaselineTool(t));
+  const execution = { ...step.execution, tools: extras && extras.length > 0 ? extras : undefined };
   const steps = loop.plan.steps.map((s) => (s.id === stepId ? { ...s, execution } : s));
   return { ok: true, loop: { ...loop, plan: { ...loop.plan, steps }, updatedAt: now } };
 }

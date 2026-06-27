@@ -261,7 +261,7 @@ describe('modelExecutor', () => {
 describe('per-step tools', () => {
   const ok = () => outcome({ status: 'succeeded', summary: 'done' });
 
-  it('defaults a background-agent step with no tools to the lean baseline', async () => {
+  it('runs a background-agent step with no extras on the lean baseline only', async () => {
     const host = createFakeHost();
     const loop = seedActiveLoop(host, oneStepPlan().plan);
     host.modelResponses.push({ response: ok() });
@@ -269,13 +269,13 @@ describe('per-step tools', () => {
     expect(host.modelCalls[0].tools).toEqual(LEAN_TOOL_BASELINE);
   });
 
-  it("passes the step's explicit tool allowlist through", async () => {
+  it('layers the step\'s extra tools on top of the always-on baseline', async () => {
     const host = createFakeHost();
     const plan = oneStepPlan().plan;
-    plan.steps[0].execution = { type: 'background-agent', tools: ['bash', 'web_search'] };
+    plan.steps[0].execution = { type: 'background-agent', tools: ['web_search'] };
     const loop = seedActiveLoop(host, plan);
     host.modelResponses.push({ response: ok() });
     await backgroundAgentExecutor.run(inputFor(host, loop, 'step-1'));
-    expect(host.modelCalls[0].tools).toEqual(['bash', 'web_search']);
+    expect(host.modelCalls[0].tools).toEqual([...LEAN_TOOL_BASELINE, 'web_search']);
   });
 });
