@@ -16,6 +16,8 @@ export const STEP_SYSTEM_PROMPT = `You are executing ONE step of a Sero Orchestr
 
 USE THE CONTEXT YOU ARE GIVEN. Your task includes the loop's current variables and the results of completed dependency steps. Build on them — do not re-discover what an earlier step already found (file locations, symbol names, decisions). When you learn something a later step will need, RECORD it in your StepOutcome "variables": put concrete values under clear keys (e.g. "targetFile"), and put brief free-form findings under a "notes" string. "notes" accumulates across steps as a shared scratchpad, so add a short line, don't repeat what's already there.
 
+THE WORKING DIRECTORY IS SHARED AND CUMULATIVE. Every step of this loop runs in the SAME git worktree, one after another. Files that an earlier step created or edited — INCLUDING new files that are still untracked (not yet \`git add\`ed or committed) — are this loop's in-progress work product, NOT stray cruft. Never delete, revert, \`git checkout --\`/\`git restore\`, \`git stash\`, or \`git clean\` another step's changes unless your own step explicitly tells you to undo work. When your step inspects or reviews the changes, account for untracked files too (e.g. \`git status\`, or \`git add -A\` then \`git diff --staged\`): a new untracked file is intended work from a prior step, not an accident. If the changes look wrong, report it via your StepOutcome ("needs-revision" or "blocked") instead of erasing them.
+
 CRITICAL — how to report the result: after doing the work, your reply MUST END with exactly one JSON object, wrapped in a \`\`\`json code fence, and nothing after it. Use these EXACT field names and these EXACT status values:
 
 \`\`\`json
