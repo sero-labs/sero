@@ -108,12 +108,13 @@ describe('llmDecider', () => {
 });
 
 describe('proposeRevisedPlan', () => {
-  it('returns a parsed plan', async () => {
+  it('returns a parsed goal and plan', async () => {
     const host = createFakeHost();
     const loop = seedActiveLoop(host, oneStepPlan().plan);
-    host.modelResponses.push({ response: JSON.stringify({ ...oneStepPlan().plan, objective: 'revised' }) });
+    host.modelResponses.push({ response: JSON.stringify({ goal: 'updated goal', plan: { ...oneStepPlan().plan, objective: 'revised' } }) });
     const proposal = await proposeRevisedPlan(host, loop, 'add a finalization step');
     expect(proposal.plan?.objective).toBe('revised');
+    expect(proposal.goal).toBe('updated goal');
   });
 
   it('reports an error when the revision stays invalid after repair', async () => {

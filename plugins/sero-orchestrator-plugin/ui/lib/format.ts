@@ -3,10 +3,9 @@ import type { LoopStatus, StepStatus } from '../../shared/types';
 export const LOOP_STATUS_LABEL: Record<LoopStatus, string> = {
   draft: 'Draft',
   active: 'Active',
-  paused: 'Paused',
   blocked: 'Blocked',
   complete: 'Complete',
-  stopped: 'Stopped',
+  disabled: 'Disabled',
 };
 
 export type BadgeVariant = 'default' | 'secondary' | 'outline' | 'destructive';
@@ -20,8 +19,7 @@ export function loopStatusVariant(status: LoopStatus): BadgeVariant {
     case 'blocked':
       return 'destructive';
     case 'draft':
-    case 'paused':
-    case 'stopped':
+    case 'disabled':
       return 'outline';
   }
 }

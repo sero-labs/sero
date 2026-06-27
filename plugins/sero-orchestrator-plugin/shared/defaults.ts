@@ -6,12 +6,24 @@ import type {
   LoopLimits,
   LoopWorkspaceSettings,
   LogPolicy,
+  OrchestratorIndex,
   OrchestratorState,
+  RunIndex,
 } from './types';
 
 export const DEFAULT_STATE: OrchestratorState = {
   version: 1,
   loops: [],
+};
+
+export const DEFAULT_INDEX: OrchestratorIndex = {
+  version: 1,
+  loops: [],
+};
+
+export const DEFAULT_RUN_INDEX: RunIndex = {
+  version: 1,
+  runs: [],
 };
 
 export const DEFAULT_WORKSPACE_SETTINGS: LoopWorkspaceSettings = {

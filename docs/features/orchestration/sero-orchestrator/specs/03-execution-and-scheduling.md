@@ -254,6 +254,32 @@ signal, no extra completion check runs. The loop waits for a trigger, manual
 revision, or a recovery/plan revision path that adds the missing validation
 step.
 
+## Scheduled / Recurring Loops
+
+A loop with an enabled `cron` (or `hybrid`) trigger that is still scheduled to
+fire (`isRecurring`) is recurring: it stays `active` between fires. The planner
+emits the cron trigger from a natural-language schedule on create (e.g. "every
+10 minutes" → `*/10 * * * *`), validated as a 5-field expression (an invalid
+schedule fails validation and is repaired).
+
+Each cron fire runs a fresh full pass of the plan:
+
+1. The coordinator skips a loop whose previous iteration is still running
+   (`runtime.activeRunId` set) — no overlap.
+2. When a fire is due, the prior iteration's managed worktree is removed (its
+   branch/PR kept) and the loop is **re-armed**: step states reset to `pending`,
+   run context (variables/completion/block/active run) and the resolved
+   workspace cleared. The plan, triggers, and run history are kept.
+3. The loop runs; each recurring iteration resolves a per-iteration worktree key
+   (`<loopId>-r<runNumber>`) so it opens its own pull request.
+
+For a recurring loop, a finalization step's `completion.status === "complete"`
+means "this iteration is done" — the loop stays `active` and runs again next
+fire. To stop the schedule for good, the step emits `completion.final === true`
+(the success criteria the planner encoded from the user's "finish when"), which
+makes completion terminal. `maxFires` also stops it: once the trigger is
+exhausted the loop is no longer recurring, so the next completion is terminal.
+
 ## Management Limits
 
 Orchestrator manages execution limits:

@@ -16,6 +16,7 @@ import { applyStepOutcome, recordCompletion } from './outcomes';
 import { applyRecovery } from './recovery-apply';
 import { pruneRuns } from './artifacts';
 import { checkManagementLimits } from './limits';
+import { isRecurring } from './scheduler';
 
 export interface RunResult {
   acquired: boolean;
@@ -29,11 +30,11 @@ export class RunEngine {
   constructor(private readonly host: OrchestratorHost, private readonly deps: EngineDeps) {}
 
   /** Runs the loop, then drains any `dueAgain` follow-up triggered during the run. */
-  async run(loopId: string): Promise<RunResult> {
-    const first = await this.runOnce(loopId);
+  async run(loopId: string, signal?: AbortSignal): Promise<RunResult> {
+    const first = await this.runOnce(loopId, signal);
     if (!first.acquired) return first; // lock held: the holder drains dueAgain.
-    while (await this.consumeDueAgain(loopId)) {
-      const more = await this.runOnce(loopId);
+    while (!signal?.aborted && (await this.consumeDueAgain(loopId))) {
+      const more = await this.runOnce(loopId, signal);
       if (!more.acquired) break;
     }
     return first;
@@ -52,7 +53,7 @@ export class RunEngine {
     return consumed;
   }
 
-  private async runOnce(loopId: string): Promise<RunResult> {
+  private async runOnce(loopId: string, signal?: AbortSignal): Promise<RunResult> {
     const loop = await this.find(loopId);
     if (!loop) return { acquired: false, reason: 'loop not found' };
     if (loop.status !== 'active') return { acquired: false, reason: `loop is ${loop.status}` };
@@ -62,14 +63,14 @@ export class RunEngine {
       return { acquired: false, reason: 'locked' };
     }
     try {
-      const run = await this.execute(loop);
+      const run = await this.execute(loop, signal);
       return { acquired: true, run };
     } finally {
       this.deps.locks.release(loopId);
     }
   }
 
-  private async execute(initial: Loop): Promise<LoopRun> {
+  private async execute(initial: Loop, signal?: AbortSignal): Promise<LoopRun> {
     const now = this.host.now();
     let run: LoopRun = {
       id: this.host.newId('run'),
@@ -86,11 +87,16 @@ export class RunEngine {
       runs: [...initial.runs, run],
       runtime: { ...initial.runtime, activeRunId: run.id, lastRunAt: now },
     };
-    await this.persist(loop);
+    loop = await this.commit(loop);
 
     let stop = false;
     let deferred: string | undefined;
     while (!stop) {
+      // A `disable` may have aborted this run and turned the loop off mid-flight.
+      if (signal?.aborted || loop.status === 'disabled') {
+        run = { ...run, status: 'cancelled' };
+        break;
+      }
       const validation = validateRuntime(loop);
       if (!validation.ok) {
         loop = this.blockRuntime(loop, validation.error ?? 'invalid runtime state');
@@ -114,8 +120,7 @@ export class RunEngine {
       // filesystem step is about to start (D-06).
       if (this.needsWorkspace(loop, batch) && this.deps.workspaceResolver) {
         const resolution = await this.deps.workspaceResolver.resolve(this.host, loop);
-        loop = resolution.loop;
-        await this.persist(loop);
+        loop = await this.commit(resolution.loop);
         if (resolution.deferred) {
           run = { ...run, status: 'waiting' };
           deferred = resolution.deferred;
@@ -123,7 +128,7 @@ export class RunEngine {
         }
       }
 
-      const result = await this.runBatch(loop, run, batch);
+      const result = await this.runBatch(loop, run, batch, signal);
       loop = result.loop;
       run = result.run;
       stop = result.stop;
@@ -140,6 +145,7 @@ export class RunEngine {
     loop: Loop,
     run: LoopRun,
     batch: string[],
+    signal?: AbortSignal,
   ): Promise<{ loop: Loop; run: LoopRun; stop: boolean }> {
     const startNow = this.host.now();
     // Mark the batch running and persist so the UI shows live progress.
@@ -154,7 +160,7 @@ export class RunEngine {
       };
     }
     run = { ...run, startedStepIds: [...run.startedStepIds, ...batch] };
-    await this.persist(loop);
+    loop = await this.commit(loop);
 
     const steps = batch.map((id) => this.step(loop, id));
     const attempts = await Promise.all(
@@ -167,9 +173,16 @@ export class RunEngine {
           attemptNumber: loop.runtime.stepStates[step.id].attempts,
           parentSessionId: loop.runtime.parentSessionId,
           workspace: loop.runtime.workspace.resolved,
+          signal,
         }),
       ),
     );
+
+    // If a `disable` aborted mid-batch, stop here: do not apply the aborted
+    // attempts' outcomes or run recovery (which would mask the disable).
+    if (signal?.aborted) {
+      return { loop, run: { ...run, status: 'cancelled' }, stop: true };
+    }
 
     let stop = false;
     for (let i = 0; i < steps.length; i += 1) {
@@ -183,8 +196,22 @@ export class RunEngine {
       loop = applied.loop;
       run = applied.run;
       if (applied.completed) {
-        await this.persist(loop);
+        loop = await this.commit(loop);
         return { loop, run, stop: true };
+      }
+
+      // Recurring loops: after any non-completing step, a dedicated check can end
+      // THIS RUN early — so an iteration that finds nothing to do skips its
+      // remaining steps instead of running them all. This ends the iteration, NOT
+      // the loop: a scheduled loop stays active and fires again next interval. The
+      // checker is told that starting/claiming work means "keep going".
+      if (this.deps.stopChecker && !TERMINAL_OUTCOMES.has(outcome.status) && isRecurring(loop)) {
+        const decision = await this.deps.stopChecker.check({ host: this.host, loop, run });
+        if (decision.stop) {
+          this.host.log(`Loop ${loop.id} run ended early — nothing to do: ${decision.reason}`);
+          run = { ...run, status: 'completed' };
+          return { loop, run, stop: true };
+        }
       }
 
       if (TERMINAL_OUTCOMES.has(outcome.status)) {
@@ -198,7 +225,7 @@ export class RunEngine {
           loop = accepted.loop;
           run = accepted.run;
           if (accepted.completed) {
-            await this.persist(loop);
+            loop = await this.commit(loop);
             return { loop, run, stop: true };
           }
           continue;
@@ -216,7 +243,7 @@ export class RunEngine {
         }
       }
     }
-    await this.persist(loop);
+    loop = await this.commit(loop);
     return { loop, run, stop };
   }
 
@@ -263,7 +290,7 @@ export class RunEngine {
       runtime: { ...loop.runtime, activeRunId: undefined, workspace },
       updatedAt: now,
     };
-    await this.persist(cleared);
+    await this.commit(cleared);
     return finishedRun;
   }
 
@@ -301,11 +328,22 @@ export class RunEngine {
     return state?.loops.find((l) => l.id === loopId);
   }
 
-  private async persist(loop: Loop): Promise<void> {
-    await this.host.updateState((state) => ({
-      ...state,
-      loops: state.loops.map((l) => (l.id === loop.id ? loop : l)),
-    }));
+  /**
+   * Persists the loop, but yields to a `disable` that landed mid-run: if the
+   * loop was turned off while this run was still in progress, the off state is
+   * kept instead of being revived by the engine's stale in-memory copy. The
+   * returned loop carries the corrected status so `execute` stops promptly.
+   */
+  private async commit(loop: Loop): Promise<Loop> {
+    let result = loop;
+    await this.host.updateState((state) => {
+      const current = state.loops.find((l) => l.id === loop.id);
+      if (current?.status === 'disabled' && loop.status === 'active') {
+        result = { ...loop, status: 'disabled', runtime: { ...loop.runtime, activeRunId: undefined } };
+      }
+      return { ...state, loops: state.loops.map((l) => (l.id === loop.id ? result : l)) };
+    });
+    return result;
   }
 }
 

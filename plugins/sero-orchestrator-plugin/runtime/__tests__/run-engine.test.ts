@@ -135,10 +135,10 @@ describe('RunEngine', () => {
     expect(await host.readArtifact(attempt.outputPath!)).toBe(big);
   });
 
-  it('does not run a paused loop', async () => {
+  it('does not run a disabled loop', async () => {
     const host = createFakeHost();
     const loop = seedActiveLoop(host, oneStepPlan().plan);
-    loop.status = 'paused';
+    loop.status = 'disabled';
     host.state = { ...host.state, loops: [loop] };
     const result = await new RunEngine(host, deps({})).run('loop-1');
     expect(result.acquired).toBe(false);

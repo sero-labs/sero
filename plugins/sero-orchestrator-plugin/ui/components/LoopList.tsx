@@ -1,13 +1,13 @@
 import { useMemo, useState } from 'react';
 import { Badge, Button, Card, Input } from '@sero-ai/ui';
 import { Plus, Search } from 'lucide-react';
-import type { Loop } from '../../shared/types';
+import type { LoopSummary } from '../../shared/types';
 import { LOOP_STATUS_LABEL, loopStatusVariant } from '../lib/format';
 
 const PAGE = 10;
 
 interface LoopListProps {
-  loops: Loop[];
+  loops: LoopSummary[];
   selectedId: string | null;
   onSelect: (loopId: string) => void;
   onNew: () => void;

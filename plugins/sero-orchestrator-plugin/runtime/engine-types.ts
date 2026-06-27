@@ -55,10 +55,20 @@ export interface WorkspaceResolver {
   resolve(host: OrchestratorHost, loop: Loop): Promise<{ loop: Loop; workspace?: ResolvedWorkspaceContext; deferred?: string }>;
 }
 
+/**
+ * Judges, after a step in a recurring loop, whether the loop's overall stop
+ * condition is now met so the pass can end immediately. Optional: unset in unit
+ * tests (no model call); the real LLM checker is wired in production.
+ */
+export interface StopChecker {
+  check(input: { host: OrchestratorHost; loop: Loop; run: LoopRun }): Promise<{ stop: boolean; reason: string }>;
+}
+
 export interface EngineDeps {
   executor: StepExecutor;
   decider: RecoveryDecider;
   locks: LoopLocks;
   evaluator?: OutcomeEvaluator;
   workspaceResolver?: WorkspaceResolver;
+  stopChecker?: StopChecker;
 }

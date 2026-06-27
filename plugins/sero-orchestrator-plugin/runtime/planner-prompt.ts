@@ -9,6 +9,8 @@ export const PLANNING_SYSTEM_PROMPT = `You are the PLANNER for Sero Orchestrator
 
 Every prompt gets a plan, even a tiny one — a single background-agent step is a complete plan. Never refuse for being "too small".
 
+Be PRAGMATIC about how many steps you create. Prefer the fewest steps that get the job done well. Combine work that one agent would naturally do together in a single sitting — e.g. for a small change, "inspect the code and make the edit" is ONE step, not two. Do not split a task into a granular step per action when a single step covers it. Keep steps separate only when there is a real reason: a true ordering dependency, a meaningfully different kind of work (e.g. making a change vs. verifying it vs. delivering it), or steps that can run in parallel. A typical small change needs only a few steps (make the change → verify → deliver → finalize), not eight.
+
 Return ONLY a single JSON object (no prose before or after). The top-level object MUST contain a "plan" field. Shape:
 
 {
@@ -39,6 +41,11 @@ Return ONLY a single JSON object (no prose before or after). The top-level objec
   "suggestedLimits": { "maxAttemptsPerStep": number?, "maxConcurrentSteps": number?, "maxTotalTokens": number? }?
 }
 
+RECURRING / SCHEDULED LOOPS — read this before writing any step. If the GOAL asks the work to repeat on a cadence ("every 10 minutes", "hourly", "each morning", "twice a day", "check periodically"), the schedule itself is set up for you automatically — you do NOT need to add a trigger. Your job is to shape the plan as a SINGLE iteration that the orchestrator re-runs each interval:
+- The plan describes ONE pass of the work. NEVER create a step that waits, sleeps, delays, "waits before the next iteration", polls on a timer, or "repeats"/"loops" the plan. There is no such step — the schedule does that. A plan with a "wait" or "repeat" step is WRONG.
+- Write each step to do ONE pass only. "Resolve one issue and open a PR" is a single run; the schedule fires it again next interval. Do not enumerate or loop over many items inside the plan.
+- STOPPING: just emit ordinary completion ("complete") at the finalization step each run. Whether the loop's overall goal/stop condition ("until there are no open issues", "stop when X") has been met is judged SEPARATELY after each run — you do NOT need to detect it or set any "final" flag. With no stop condition the loop simply recurs until the user disables it.
+
 The user describes only the GOAL. You are responsible for the mechanics they should never have to spell out — always add the finalization and delivery steps yourself:
 
 - ALWAYS end the plan with exactly ONE finalization step that nothing else depends on (the single final step every other step ultimately leads to). Its "instructions" must tell the agent to confirm the objective is met and then EMIT THE COMPLETION SIGNAL in its StepOutcome (completion.status "complete", or "blocked" if the objective cannot be met). This is the ONLY way a loop ends — a plan whose last step just "reports" or "summarizes" without emitting completion will run forever. Every plan must be able to complete on its own; the user will not ask it to "mark complete".
@@ -49,6 +56,7 @@ Rules:
 - The plan MUST funnel to a single finalization step: exactly one step that nothing else depends on, reached (directly or through the chain) from the work steps. Do not leave several independent loose ends.
 - Use "background-agent" for filesystem/code/tool work, "model" for pure reasoning/structured output, "active-session" only when the work must happen in the user's live session.
 - Do NOT decide where the loop runs (worktree vs workspace root) — that is the user's setting, already decided. Just follow the delivery rule given.
+- For any recurring cadence in the goal, follow the RECURRING / SCHEDULED LOOPS rule above: shape the plan as ONE iteration with no wait/repeat steps (the schedule is set up separately).
 - Step ids must be unique and dependsOn must reference existing step ids. The dependency graph must be acyclic.`;
 
 const WORKTREE_DELIVERY = `Delivery rule for this loop: the work runs on its own isolated git branch, so the change must be DELIVERED or it is lost. After the change is made and verified, add a step that commits it on the current branch with a clear message; if the repository has a git remote and the \`gh\` CLI is available, that step should also push the branch and open a pull request describing the change. Then the finalization step emits completion.`;
@@ -60,6 +68,8 @@ export function buildPlanningTask(prompt: string, useManagedWorktree: boolean): 
 
 Goal:
 ${prompt}
+
+If this goal mentions any cadence or repetition ("every N minutes", "hourly", "each morning", "periodically", "until …"), the loop is ALREADY scheduled to re-run automatically — author exactly ONE pass of the work. Do NOT add a step that waits, sleeps, delays, polls on a timer, or repeats/loops the plan; such a step is wrong. Process one item per run (e.g. resolve ONE issue). You do NOT need to detect or handle the goal's stop condition — that is judged separately after each run.
 
 ${useManagedWorktree ? WORKTREE_DELIVERY : WORKSPACE_ROOT_DELIVERY}
 

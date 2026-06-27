@@ -40,7 +40,7 @@ export function CreateLoopForm({ busy, onSubmit, onCancel }: CreateLoopFormProps
             id="loop-prompt"
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
-            placeholder="Describe the work. The model turns this into a step plan."
+            placeholder='Describe the work — include any schedule, e.g. "Every 10 minutes, check GitHub issues and open a PR." The model turns this into a step plan.'
             rows={5}
           />
         </div>

@@ -349,14 +349,24 @@ roots.
 
 ### D-07 — State Scope
 
-Workspace-scoped state is authoritative at:
+Workspace-scoped state is authoritative under `.sero/apps/orchestrator/`, split
+one file per loop so a loop's frequent run-time writes never rewrite any other:
 
 ```text
-.sero/apps/orchestrator/state.json
+.sero/apps/orchestrator/
+  index.json                 # lightweight summary per loop (drives the list)
+  loops/<loopId>/
+    loop.json                # the full Loop (the source of truth)
+    artifacts/
+      runs/<runId>/...        # run-scoped step outputs
+      planner.txt · recovery/ · evaluation/ · revision/
 ```
 
-Cross-workspace dashboards may keep derived indexes, but those indexes are not
-the source of truth.
+The runtime keeps an in-memory cache and writes only the loop files that changed
+(plus the index when a summary field changed). A legacy single `state.json` is
+migrated into this layout on first load and kept as `state.json.pre-split-backup`.
+Cross-workspace dashboards may keep derived indexes, but those are not the source
+of truth.
 
 ### D-08 — Coordinator Lifecycle
 
@@ -397,8 +407,11 @@ recorded.
 
 ### D-14 — Logging and Retention
 
-The state file stores bounded summaries and references. Large outputs, model
-responses, and agent responses are stored as artifacts under the state dir.
+A loop file stores bounded summaries and references. Large outputs, model
+responses, and agent responses are stored as artifacts under that loop's own
+folder (`loops/<loopId>/artifacts/`), with step outputs scoped by run
+(`artifacts/runs/<runId>/`). Deleting a loop removes its folder (state +
+artifacts) and, for a managed-worktree loop, its worktree.
 
 ## Abstraction Tests
 

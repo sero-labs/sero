@@ -48,6 +48,7 @@ export interface EngineDepsOverrides {
   executor?: StepExecutor;
   decider?: RecoveryDecider;
   evaluator?: EngineDeps['evaluator'];
+  stopChecker?: EngineDeps['stopChecker'];
 }
 
 export function createEngineDeps(locks: LoopLocks, overrides: EngineDepsOverrides = {}): EngineDeps {
@@ -55,6 +56,9 @@ export function createEngineDeps(locks: LoopLocks, overrides: EngineDepsOverride
     executor: overrides.executor ?? createDispatchExecutor(),
     decider: overrides.decider ?? llmDecider,
     evaluator: overrides.evaluator ?? llmEvaluator,
+    // Left unset by default so unit tests make no per-step model call; the real
+    // runtime wires `llmStopChecker` explicitly (runtime/index.ts).
+    stopChecker: overrides.stopChecker,
     locks,
     workspaceResolver,
   };

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Button, Checkbox, Label } from '@sero-ai/ui';
-import { Pause, Play, Square, StepForward, Trash2, Zap } from 'lucide-react';
+import { Power, PowerOff, RotateCcw, StepForward, Trash2, Zap } from 'lucide-react';
 import type { Loop, OrchestratorAction } from '../../shared/types';
 
 interface LoopControlsProps {
@@ -36,23 +36,26 @@ export function LoopControls({ loop, busy, onAction }: LoopControlsProps) {
         </Button>
       )}
       {status === 'active' && (
-        <>
-          <Button size="sm" variant="outline" disabled={busy} onClick={() => onAction({ kind: 'run_next', loopId: id })}>
-            <StepForward className="mr-1 h-3.5 w-3.5" /> Run next
-          </Button>
-          <Button size="sm" variant="outline" disabled={busy} onClick={() => onAction({ kind: 'pause', loopId: id })}>
-            <Pause className="mr-1 h-3.5 w-3.5" /> Pause
-          </Button>
-        </>
-      )}
-      {(status === 'paused' || status === 'blocked') && (
-        <Button size="sm" disabled={busy} onClick={() => onAction({ kind: 'resume', loopId: id })}>
-          <Play className="mr-1 h-3.5 w-3.5" /> Resume
+        <Button size="sm" variant="outline" disabled={busy} onClick={() => onAction({ kind: 'run_next', loopId: id })}>
+          <StepForward className="mr-1 h-3.5 w-3.5" /> Run next
         </Button>
       )}
-      {status !== 'complete' && status !== 'stopped' && (
-        <Button size="sm" variant="destructive" disabled={busy} onClick={() => onAction({ kind: 'stop', loopId: id })}>
-          <Square className="mr-1 h-3.5 w-3.5" /> Stop
+      {(status === 'disabled' || status === 'blocked') && (
+        <Button size="sm" disabled={busy} onClick={() => onAction({ kind: 'enable', loopId: id })}>
+          <Power className="mr-1 h-3.5 w-3.5" /> Enable
+        </Button>
+      )}
+      {status === 'complete' && (
+        <Button size="sm" disabled={busy} onClick={() => onAction({ kind: 'run_again', loopId: id })}>
+          <RotateCcw className="mr-1 h-3.5 w-3.5" /> Run again
+        </Button>
+      )}
+      {(status === 'active' || status === 'blocked') && (
+        // Not gated by `busy`: Disable is the interrupt — it must work WHILE a
+        // run is in flight (which is exactly when `busy` is true), since that is
+        // when the user needs to kill the active subagents.
+        <Button size="sm" variant="outline" onClick={() => onAction({ kind: 'disable', loopId: id })}>
+          <PowerOff className="mr-1 h-3.5 w-3.5" /> Disable
         </Button>
       )}
 

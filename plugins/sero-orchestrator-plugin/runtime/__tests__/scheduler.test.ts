@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { evaluateCronTriggers, fireEventTriggers, nextFireAfter, parseCron } from '../scheduler';
+import { evaluateCronTriggers, fireEventTriggers, isRecurring, nextFireAfter, parseCron, rearmLoop } from '../scheduler';
 import type { Loop, LoopTrigger } from '../../shared/types';
 import { createFakeHost } from './fake-host';
 import { oneStepPlan, seedActiveLoop } from './fixtures';
@@ -57,6 +57,38 @@ describe('evaluateCronTriggers', () => {
     expect(result.loop.triggers[0].fireCount).toBe(3);
     expect(result.loop.triggers[0].disabled).toBe(true);
     expect(result.loop.triggers[0].nextFireAt).toBeUndefined();
+  });
+});
+
+describe('recurrence helpers', () => {
+  const base = () => seedActiveLoop(createFakeHost(), oneStepPlan().plan);
+  const fireAt = new Date(T0).toISOString();
+
+  it('isRecurring is true only for an enabled cron trigger still scheduled to fire', () => {
+    expect(isRecurring(withTriggers(base(), [cronTrigger({ nextFireAt: fireAt })]))).toBe(true);
+    expect(isRecurring(withTriggers(base(), []))).toBe(false);
+    expect(isRecurring(withTriggers(base(), [cronTrigger({ disabled: true, nextFireAt: fireAt })]))).toBe(false);
+    expect(isRecurring(withTriggers(base(), [cronTrigger({ nextFireAt: undefined })]))).toBe(false); // exhausted
+  });
+
+  it('rearmLoop resets steps to pending and clears run context + workspace', () => {
+    const loop = base();
+    const dirty: Loop = {
+      ...loop,
+      runtime: {
+        ...loop.runtime,
+        stepStates: { 'step-1': { status: 'succeeded', attempts: 1, updatedAt: 't' } },
+        variables: { notes: 'stale' },
+        completion: { status: 'complete', sourceStepId: 's', sourceAttemptId: 'a', reason: 'r', createdAt: 't' },
+        workspace: { resolved: { id: 'w', type: 'managed-worktree', workspaceRoot: '/r', cwd: '/r/wt', worktreeKey: 'loop-1-r1', resolvedBy: 'create-option', createdAt: 't' } },
+      },
+    };
+    const rearmed = rearmLoop(dirty, 'now');
+    expect(rearmed.runtime.stepStates['step-1'].status).toBe('pending');
+    expect(rearmed.runtime.variables).toEqual({});
+    expect(rearmed.runtime.completion).toBeUndefined();
+    expect(rearmed.runtime.workspace.resolved).toBeUndefined();
+    expect(rearmed.plan).toBe(loop.plan); // plan kept
   });
 });
 

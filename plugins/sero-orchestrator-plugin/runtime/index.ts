@@ -10,13 +10,14 @@ import { createOrchestratorHost } from './host-adapter';
 import { registerCoordinator, unregisterCoordinator } from './registry';
 import { LoopLocks } from './locks';
 import { createEngineDeps } from './executors';
+import { llmStopChecker } from './stop-condition';
 
 /** Coarse scheduler tick — cron triggers are minute-resolution. */
 const TICK_INTERVAL_MS = 60_000;
 
 export function createAppRuntime(ctx: AppRuntimeContext): AppRuntime {
   const host = createOrchestratorHost(ctx);
-  const coordinator = new Coordinator(host, createEngineDeps(new LoopLocks()));
+  const coordinator = new Coordinator(host, createEngineDeps(new LoopLocks(), { stopChecker: llmStopChecker }));
   let tickTimer: ReturnType<typeof setInterval> | undefined;
 
   return {

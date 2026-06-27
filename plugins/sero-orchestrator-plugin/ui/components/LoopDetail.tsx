@@ -1,7 +1,9 @@
 import { Badge, Card, Separator } from '@sero-ai/ui';
 import { AlertTriangle, GitBranch, FolderGit2 } from 'lucide-react';
-import type { Loop, LoopLimits, OrchestratorAction } from '../../shared/types';
+import type { Loop, LoopLimits, OrchestratorAction, RunIndex } from '../../shared/types';
+import { DEFAULT_RUN_INDEX } from '../../shared/defaults';
 import { LOOP_STATUS_LABEL, loopStatusVariant, formatTime } from '../lib/format';
+import { useWatchedJson } from '../lib/use-watched-json';
 
 function formatLimits(limits: LoopLimits): string {
   const parts: string[] = [];
@@ -15,12 +17,17 @@ function formatLimits(limits: LoopLimits): string {
 }
 import { LoopControls } from './LoopControls';
 import { PlanView } from './PlanView';
+import { RefinePlan } from './RefinePlan';
 import { AttemptHistory } from './AttemptHistory';
+
+const REFINABLE: ReadonlySet<Loop['status']> = new Set(['draft', 'active', 'disabled', 'blocked']);
 
 interface LoopDetailProps {
   loop: Loop;
   busy: boolean;
   onAction: (action: OrchestratorAction) => void;
+  /** State directory, used to watch this loop's runs/index.json for run history. */
+  stateDir: string;
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -32,9 +39,10 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-export function LoopDetail({ loop, busy, onAction }: LoopDetailProps) {
+export function LoopDetail({ loop, busy, onAction, stateDir }: LoopDetailProps) {
   const { runtime, workspace } = loop;
   const resolved = runtime.workspace.resolved;
+  const runIndex = useWatchedJson<RunIndex>(`${stateDir}/loops/${loop.id}/runs/index.json`, DEFAULT_RUN_INDEX);
 
   return (
     <div className="flex h-full flex-1 flex-col gap-4 overflow-auto p-4">
@@ -90,30 +98,43 @@ export function LoopDetail({ loop, busy, onAction }: LoopDetailProps) {
 
       <Section title="Triggers & limits">
         <Card className="flex flex-col gap-1 p-3 text-xs">
-          <div>
-            <span className="font-medium">Triggers: </span>
-            {loop.triggers.length === 0
-              ? 'Manual only'
-              : loop.triggers
-                  .map((t) => `${t.type}${t.schedule ? ` (${t.schedule})` : ''}${t.disabled ? ' — disabled' : ''}`)
-                  .join(', ')}
-          </div>
-          <div className="text-muted-foreground">
-            {formatLimits(loop.limits)}
-          </div>
+          {loop.triggers.length === 0 ? (
+            <div><span className="font-medium">Triggers: </span>Manual only</div>
+          ) : (
+            loop.triggers.map((t) => (
+              <div key={t.id}>
+                <span className="font-medium">{t.type === 'cron' || t.type === 'hybrid' ? 'Schedule' : 'Trigger'}: </span>
+                {t.type}
+                {t.schedule ? ` · ${t.schedule}` : ''}
+                {t.disabled ? ' · disabled' : ''}
+                {(t.type === 'cron' || t.type === 'hybrid') && !t.disabled && (
+                  <span className="text-muted-foreground">
+                    {' · '}next {formatTime(t.nextFireAt)}
+                    {t.lastFireAt ? ` · last ${formatTime(t.lastFireAt)}` : ''}
+                    {` · ${t.fireCount} run(s)`}
+                    {t.maxFires ? ` of ${t.maxFires}` : ''}
+                  </span>
+                )}
+              </div>
+            ))
+          )}
+          <div className="text-muted-foreground">{formatLimits(loop.limits)}</div>
         </Card>
       </Section>
 
       <Section title="Generated plan">
         <PlanView loop={loop} />
+        {REFINABLE.has(loop.status) && (
+          <RefinePlan key={loop.id} busy={busy} onRefine={(prompt) => onAction({ kind: 'revise', loopId: loop.id, prompt })} />
+        )}
       </Section>
 
       <Section title="Attempt history">
-        <AttemptHistory loop={loop} />
+        <AttemptHistory runs={runIndex.runs} />
       </Section>
 
       <footer className="text-xs text-muted-foreground">
-        Created {formatTime(loop.createdAt)} · Updated {formatTime(loop.updatedAt)} · {loop.runs.length} run(s)
+        Created {formatTime(loop.createdAt)} · Updated {formatTime(loop.updatedAt)} · {runIndex.runs.length} run(s)
       </footer>
     </div>
   );

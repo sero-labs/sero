@@ -59,35 +59,38 @@ describe('Coordinator — Phase 1 lifecycle', () => {
     expect(host.state.loops[0].status).toBe('active');
   });
 
-  it('pause then resume round-trips active <-> paused', async () => {
+  it('disable then enable round-trips active <-> disabled', async () => {
     const { host, coordinator } = setup();
     const loop = await createLoop(host, coordinator);
     await coordinator.requestAction({ kind: 'activate', loopId: loop.id });
 
-    const paused = await coordinator.requestAction({ kind: 'pause', loopId: loop.id });
-    expect(paused.loop?.status).toBe('paused');
+    const disabled = await coordinator.requestAction({ kind: 'disable', loopId: loop.id });
+    expect(disabled.loop?.status).toBe('disabled');
 
-    const resumed = await coordinator.requestAction({ kind: 'resume', loopId: loop.id });
-    expect(resumed.loop?.status).toBe('active');
+    const enabled = await coordinator.requestAction({ kind: 'enable', loopId: loop.id });
+    expect(enabled.loop?.status).toBe('active');
   });
 
   it('rejects invalid transitions with a clear error', async () => {
     const { host, coordinator } = setup();
     const loop = await createLoop(host, coordinator);
-    // Cannot pause a draft.
-    const res = await coordinator.requestAction({ kind: 'pause', loopId: loop.id });
+    // Cannot enable a draft — only a disabled or blocked loop can be enabled.
+    const res = await coordinator.requestAction({ kind: 'enable', loopId: loop.id });
     expect(res.ok).toBe(false);
-    expect(res.error).toContain('Cannot pause');
+    expect(res.error).toContain('Cannot enable');
   });
 
-  it('stop moves a loop to stopped and blocks further lifecycle', async () => {
+  it('disable is reversible — an off loop can be enabled again (not terminal)', async () => {
     const { host, coordinator } = setup();
     const loop = await createLoop(host, coordinator);
-    const stopped = await coordinator.requestAction({ kind: 'stop', loopId: loop.id });
-    expect(stopped.loop?.status).toBe('stopped');
+    await coordinator.requestAction({ kind: 'activate', loopId: loop.id });
+    const disabled = await coordinator.requestAction({ kind: 'disable', loopId: loop.id });
+    expect(disabled.loop?.status).toBe('disabled');
+    expect(disabled.loop?.runtime.activeRunId).toBeUndefined();
 
-    const again = await coordinator.requestAction({ kind: 'activate', loopId: loop.id });
-    expect(again.ok).toBe(false);
+    const again = await coordinator.requestAction({ kind: 'enable', loopId: loop.id });
+    expect(again.ok).toBe(true);
+    expect(again.loop?.status).toBe('active');
   });
 
   it('run_next requires an active loop', async () => {

@@ -21,6 +21,43 @@ async function create(host: FakeHost, plan: PlanningResponse, activate = false) 
 }
 
 describe('Coordinator — planning integration (Phase 2)', () => {
+  it('materializes a cron trigger the planner derived from the description', async () => {
+    const host = createFakeHost();
+    const scheduled: PlanningResponse = { ...oneStepPlan(), suggestedTriggers: [{ type: 'cron', schedule: '*/10 * * * *' }] };
+    host.modelResponses.push({ response: planJson(scheduled) });
+    const res = await new Coordinator(host).requestAction({ kind: 'create', prompt: 'every 10 minutes, check issues' });
+    const triggers = res.loop?.triggers ?? [];
+    expect(triggers).toHaveLength(1);
+    expect(triggers[0].type).toBe('cron');
+    expect(triggers[0].schedule).toBe('*/10 * * * *');
+    expect(triggers[0].nextFireAt).toBeTruthy(); // first fire time set on materialization
+  });
+
+  it('schedules a recurring loop from the dedicated extractor even when the planner emits no trigger', async () => {
+    const host = createFakeHost();
+    // Planner returns a plain plan with NO suggestedTriggers (the failure mode);
+    // the dedicated schedule call supplies the cron.
+    host.modelResponses.push({ response: planJson(oneStepPlan()) });
+    host.modelResponses.push({ response: JSON.stringify({ recurring: true, schedule: '*/10 * * * *' }) });
+    const res = await new Coordinator(host).requestAction({
+      kind: 'create',
+      prompt: 'every 10 minutes, check GitHub issues and open a PR',
+    });
+    const triggers = res.loop?.triggers ?? [];
+    expect(triggers).toHaveLength(1);
+    expect(triggers[0].type).toBe('cron');
+    expect(triggers[0].schedule).toBe('*/10 * * * *');
+    expect(triggers[0].nextFireAt).toBeTruthy();
+  });
+
+  it('leaves a one-off loop manual when the extractor says not recurring', async () => {
+    const host = createFakeHost();
+    host.modelResponses.push({ response: planJson(oneStepPlan()) });
+    host.modelResponses.push({ response: JSON.stringify({ recurring: false }) });
+    const res = await new Coordinator(host).requestAction({ kind: 'create', prompt: 'fix the off-by-one bug' });
+    expect(res.loop?.triggers ?? []).toHaveLength(0);
+  });
+
   it('creates a valid one-step plan as a draft', async () => {
     const host = createFakeHost();
     const { res } = await create(host, oneStepPlan());

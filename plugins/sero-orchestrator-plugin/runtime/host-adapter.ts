@@ -10,24 +10,20 @@ import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { AppRuntimeContext } from '@sero-ai/common';
-import { DEFAULT_STATE } from '../shared/defaults';
-import type { OrchestratorState } from '../shared/types';
 import type { OrchestratorHost } from './host';
+import { createLoopStore } from './loop-store';
 
 export function createOrchestratorHost(ctx: AppRuntimeContext): OrchestratorHost {
   const stateDir = path.dirname(ctx.stateFilePath);
-  const artifactsRoot = path.join(stateDir, 'artifacts');
+  const store = createLoopStore(ctx);
 
   return {
     workspaceId: ctx.workspaceId,
     workspacePath: ctx.workspacePath,
     stateDir,
 
-    readState: () => ctx.host.appState.read<OrchestratorState>(ctx.stateFilePath),
-    updateState: (updater) =>
-      ctx.host.appState.update<OrchestratorState>(ctx.stateFilePath, (current) =>
-        updater(current ?? structuredClone(DEFAULT_STATE)),
-      ),
+    readState: () => store.readState(),
+    updateState: (updater) => store.updateState(updater),
 
     runStructured: (params) =>
       ctx.host.subagents.runStructured({
@@ -44,7 +40,9 @@ export function createOrchestratorHost(ctx: AppRuntimeContext): OrchestratorHost
       }),
 
     writeArtifact: async (relativePath, content) => {
-      const absolute = path.join(artifactsRoot, relativePath);
+      // relativePath is resolved under the state dir, so callers place artifacts
+      // in their per-loop folder (loops/<loopId>/artifacts/...).
+      const absolute = path.join(stateDir, relativePath);
       await mkdir(path.dirname(absolute), { recursive: true });
       await writeFile(absolute, content, 'utf8');
       return absolute;

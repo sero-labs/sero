@@ -5,7 +5,7 @@
  *   /orchestrator list
  *   /orchestrator create <prompt...>
  *   /orchestrator show <loopId>
- *   /orchestrator activate|pause|resume|stop|run_next|delete <loopId>
+ *   /orchestrator activate|disable|enable|run_next|run_again|delete <loopId>
  *   /orchestrator revise <loopId> [request...]
  */
 
@@ -16,7 +16,7 @@ const HELP = `Usage:
   /orchestrator list
   /orchestrator create <prompt>
   /orchestrator show <loopId>
-  /orchestrator activate|pause|resume|stop|run_next|delete <loopId>
+  /orchestrator activate|disable|enable|run_next|run_again|delete <loopId>
   /orchestrator revise <loopId> [request]`;
 
 export function parseCommand(args: string): OrchestratorToolParamsShape | { error: string } {
@@ -49,7 +49,7 @@ export function parseCommand(args: string): OrchestratorToolParamsShape | { erro
 
 export function registerOrchestratorCommand(pi: ExtensionAPI): void {
   pi.registerCommand('orchestrator', {
-    description: 'Manage Orchestrator loops: list, create, show, activate, pause, resume, stop, run_next, revise, delete',
+    description: 'Manage Orchestrator loops: list, create, show, activate, disable, enable, run_next, run_again, revise, delete',
     handler: async (args, ctx) => {
       const parsed = parseCommand(args ?? '');
       if ('error' in parsed) {

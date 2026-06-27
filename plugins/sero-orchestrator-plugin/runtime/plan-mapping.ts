@@ -14,6 +14,7 @@ import type {
 } from '../shared/types';
 import type { OrchestratorHost } from './host';
 import { mergeLimits, materializeTriggers } from './loop-factory';
+import { mergeScheduleIntoTriggers, type ScheduleExtraction } from './schedule-extractor';
 import { validateLoopPlan } from './schema';
 
 /** Initial (pending) runtime state for every step in a plan. */
@@ -57,18 +58,24 @@ export function computeWarnings(host: OrchestratorHost, loop: Loop): LoopWarning
   ];
 }
 
-/** Applies a successful PlanningResponse to a draft loop. */
+/**
+ * Applies a successful PlanningResponse to a draft loop. An explicit
+ * `options.triggers` wins; otherwise the dedicated schedule extraction (if the
+ * goal recurs) is folded into the planner's suggested triggers so a recurring
+ * loop is scheduled even when the planner omitted the trigger itself.
+ */
 export function applyPlanningResponse(
   host: OrchestratorHost,
   draft: Loop,
   response: PlanningResponse,
   options?: CreateLoopOptions,
   userTitle?: string,
+  schedule?: ScheduleExtraction,
 ): Loop {
   const now = host.now();
-  const triggers = options?.triggers
-    ? materializeTriggers(host, draft.id, options.triggers)
-    : materializeTriggers(host, draft.id, response.suggestedTriggers ?? []);
+  const suggestions = options?.triggers
+    ?? mergeScheduleIntoTriggers(response.suggestedTriggers, schedule ?? { recurring: false });
+  const triggers = materializeTriggers(host, draft.id, suggestions);
   const limits = mergeLimits(response.suggestedLimits, options?.limits);
 
   const withPlan: Loop = {

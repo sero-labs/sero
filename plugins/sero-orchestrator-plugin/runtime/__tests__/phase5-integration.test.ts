@@ -145,6 +145,38 @@ describe('Phase 5 — outcomes, recovery, completion', () => {
     expect(loop.runtime.completion?.status).toBe('complete');
   });
 
+  function makeRecurring(host: FakeHost, loopId: string) {
+    host.state = {
+      ...host.state,
+      loops: host.state.loops.map((l) =>
+        l.id === loopId
+          ? { ...l, triggers: [{ id: 't', loopId, workspaceId: host.workspaceId, type: 'cron' as const, schedule: '* * * * *', fireCount: 0, nextFireAt: '2030-01-01T00:00:00.000Z' }] }
+          : l,
+      ),
+    };
+  }
+
+  it('a scheduled loop stays active (scheduled) after an ordinary iteration completes', async () => {
+    const host = createFakeHost();
+    seedActiveLoop(host, oneStepPlan().plan);
+    makeRecurring(host, 'loop-1');
+    host.modelResponses.push({ response: json({ status: 'succeeded', summary: 'iteration done', completion: { status: 'complete', reason: 'this run is done' } }) });
+    await engineFor(host).run('loop-1');
+    expect(loopOf(host).status).toBe('active'); // re-runs next fire, not terminally complete
+    expect(loopOf(host).runtime.completion).toBeUndefined();
+  });
+
+  it('a scheduled loop completes for good when the step signals final', async () => {
+    const host = createFakeHost();
+    seedActiveLoop(host, oneStepPlan().plan);
+    makeRecurring(host, 'loop-1');
+    host.modelResponses.push({ response: json({ status: 'succeeded', summary: 'goal met', completion: { status: 'complete', final: true, reason: 'no open issues remain' } }) });
+    await engineFor(host).run('loop-1');
+    const loop = loopOf(host);
+    expect(loop.status).toBe('complete');
+    expect(loop.runtime.completion?.final).toBe(true);
+  });
+
   it('rejects and records an invalid revision', async () => {
     const host = createFakeHost();
     seedActiveLoop(host, oneStepPlan().plan);

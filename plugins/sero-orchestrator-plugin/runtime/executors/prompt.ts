@@ -14,6 +14,8 @@ const STEP_STATUSES: readonly StepOutcome['status'][] = ['succeeded', 'failed', 
 
 export const STEP_SYSTEM_PROMPT = `You are executing ONE step of a Sero Orchestrator loop. Do the work the step describes using your normal tools.
 
+USE THE CONTEXT YOU ARE GIVEN. Your task includes the loop's current variables and the results of completed dependency steps. Build on them — do not re-discover what an earlier step already found (file locations, symbol names, decisions). When you learn something a later step will need, RECORD it in your StepOutcome "variables": put concrete values under clear keys (e.g. "targetFile"), and put brief free-form findings under a "notes" string. "notes" accumulates across steps as a shared scratchpad, so add a short line, don't repeat what's already there.
+
 CRITICAL — how to report the result: after doing the work, your reply MUST END with exactly one JSON object, wrapped in a \`\`\`json code fence, and nothing after it. Use these EXACT field names and these EXACT status values:
 
 \`\`\`json
@@ -29,7 +31,7 @@ Rules for that JSON:
 - "status" MUST be exactly one of: succeeded, failed, blocked, skipped, needs-revision. Do not invent other values.
 - Use the field name "status" (not "result", "outcome", or "action").
 - Choosing the status: use "skipped" when the step's precondition is not met or it is simply not applicable (e.g. an "if available" step whose condition is false) — that is a normal, non-failing outcome, NOT "blocked". Use "blocked" only when the step SHOULD run but cannot make progress and needs a human. Use "failed" when the work was attempted but did not succeed.
-- "variables" is optional — values later steps will need.
+- "variables" is optional — record the values/notes later steps will need (see "USE THE CONTEXT" above); "notes" accumulates as a shared scratchpad.
 - Include "completion" ONLY if THIS step's job is to decide the whole loop is done; its "status" is "complete" or "blocked". Omit it otherwise.
 - Put nothing after the closing fence.`;
 
@@ -111,10 +113,12 @@ export function parseStepOutcomeStrict(value: unknown): ParseResult<StepOutcome>
 function parseCompletion(raw: unknown, errors: string[]): StepCompletion | undefined {
   if (raw === undefined) return undefined;
   if (!isRecord(raw) || (raw.status !== 'complete' && raw.status !== 'blocked') || typeof raw.reason !== 'string' || !raw.reason.trim()) {
-    errors.push('"completion", if present, must be { "status": "complete" | "blocked", "reason": <non-empty string> }.');
+    errors.push('"completion", if present, must be { "status": "complete" | "blocked", "reason": <non-empty string> } (add "final": true to stop a scheduled loop for good).');
     return undefined;
   }
-  return { status: raw.status, reason: raw.reason };
+  const completion: StepCompletion = { status: raw.status, reason: raw.reason };
+  if (raw.final === true) completion.final = true;
+  return completion;
 }
 
 /** Fast-path parse of a step's own envelope; undefined when absent or invalid. */

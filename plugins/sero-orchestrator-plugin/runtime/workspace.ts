@@ -13,6 +13,16 @@
 import type { DirtyWorkspaceDecision, Loop, ResolvedWorkspaceContext } from '../shared/types';
 import type { OrchestratorHost } from './host';
 import type { WorkspaceResolver } from './engine-types';
+import { isRecurring } from './scheduler';
+
+/**
+ * Worktree key for a loop. One-shot loops use the loop id. Recurring loops use a
+ * per-iteration key so each scheduled run gets its own branch and pull request
+ * (and re-arm removes the prior iteration's worktree).
+ */
+export function worktreeKeyFor(loop: Loop): string {
+  return isRecurring(loop) ? `${loop.id}-r${loop.runs.length}` : loop.id;
+}
 
 const DIRTY_CHOICES = [
   { id: 'stash-current-changes', label: 'Stash current changes and run in the workspace root' },
@@ -31,7 +41,8 @@ async function resolveManagedWorktree(
   loop: Loop,
   resolvedBy: ResolvedWorkspaceContext['resolvedBy'],
 ): Promise<ResolvedWorkspaceContext> {
-  const handle = await host.createWorktree(loop.id, loop.title);
+  const worktreeKey = worktreeKeyFor(loop);
+  const handle = await host.createWorktree(worktreeKey, loop.title);
   return {
     id: host.newId('ws'),
     type: 'managed-worktree',
@@ -39,6 +50,7 @@ async function resolveManagedWorktree(
     cwd: handle.worktreePath,
     worktreePath: handle.worktreePath,
     branchName: handle.branchName,
+    worktreeKey,
     resolvedBy,
     createdAt: host.now(),
   };

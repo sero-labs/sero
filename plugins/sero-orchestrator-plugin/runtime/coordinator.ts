@@ -19,20 +19,25 @@ import type {
 import { DEFAULT_STATE } from '../shared/defaults';
 import type { OrchestratorHost } from './host';
 import { buildDraftLoop } from './loop-factory';
-import { activate, pause, resume, stop, type TransitionResult } from './lifecycle';
+import { activate, disable, enable, type TransitionResult } from './lifecycle';
 import { planLoop } from './planner';
+import { extractSchedule } from './schedule-extractor';
 import { applyPlanningResponse, planIsActivatable } from './plan-mapping';
 import { RunEngine } from './run-engine';
 import type { EngineDeps } from './engine-types';
 import { reconcileAll } from './reconcile';
+import { loopArtifactDir } from './artifacts';
 import { applyRecovery } from './recovery-apply';
 import { proposeRevisedPlan } from './llm-decisions';
 import { validateLoopPlan } from './schema';
-import { evaluateCronTriggers, fireEventTriggers } from './scheduler';
+import { evaluateCronTriggers, fireEventTriggers, isRecurring, rearmLoop, reapplySchedule, reenableSchedule } from './scheduler';
+import { computeReadySteps, hasRunningSteps } from './readiness';
 import type { PlanRevision, RecoveryDecision } from '../shared/types';
 
 export class Coordinator {
   protected readonly engine?: RunEngine;
+  /** Per-loop abort handle for the in-flight run, so `disable` can kill its subagents. */
+  private readonly running = new Map<string, AbortController>();
 
   constructor(protected readonly host: OrchestratorHost, deps?: EngineDeps) {
     if (deps) this.engine = new RunEngine(host, deps);
@@ -54,11 +59,36 @@ export class Coordinator {
     const dueLoopIds: string[] = [];
     for (const loop of state.loops) {
       if (loop.status !== 'active') continue;
+      // Don't overlap: skip a loop whose previous iteration is still running.
+      if (loop.runtime.activeRunId) continue;
       const { loop: updated, due } = evaluateCronTriggers(loop, nowMs);
       if (updated !== loop) await this.replaceLoop(updated);
       if (due) dueLoopIds.push(loop.id);
     }
-    for (const loopId of dueLoopIds) await this.runNext(loopId);
+    for (const loopId of dueLoopIds) await this.fireScheduled(loopId);
+  }
+
+  /** Runs one scheduled iteration as a fresh pass. */
+  private async fireScheduled(loopId: string): Promise<void> {
+    const loop = await this.findLoop(loopId);
+    if (!loop || loop.status !== 'active') return;
+    await this.runFreshPass(loop);
+  }
+
+  /**
+   * Starts a fresh iteration: drops the previous iteration's worktree (its
+   * branch/PR is kept), re-arms the plan (steps back to pending, run context
+   * cleared), then runs it. Shared by scheduled fires and a manual "Run next"
+   * on a loop whose previous pass already finished.
+   */
+  private async runFreshPass(loop: Loop): Promise<OrchestratorActionResult> {
+    const prior = loop.runtime.workspace.resolved;
+    if (prior?.type === 'managed-worktree') {
+      await this.host.removeWorktree(prior.worktreeKey ?? loop.id, { force: true });
+    }
+    const rearmed = rearmLoop(loop, this.host.now());
+    await this.replaceLoop(rearmed);
+    return this.runNext(loop.id, rearmed);
   }
 
   /** Fires event/hybrid triggers for a loop and runs it if newly due. */
@@ -81,14 +111,14 @@ export class Coordinator {
         return this.show(action.loopId);
       case 'activate':
         return this.activateLoop(action.loopId);
-      case 'pause':
-        return this.transition(action.loopId, (loop) => pause(loop, this.host.now()));
-      case 'resume':
-        return this.transition(action.loopId, (loop) => resume(loop, this.host.now()));
-      case 'stop':
-        return this.transition(action.loopId, (loop) => stop(loop, this.host.now()));
+      case 'disable':
+        return this.disableLoop(action.loopId);
+      case 'enable':
+        return this.transition(action.loopId, (loop) => enable(loop, this.host.now()));
       case 'run_next':
-        return this.runNext(action.loopId);
+        return this.manualRunNext(action.loopId);
+      case 'run_again':
+        return this.runAgain(action.loopId);
       case 'revise':
         return this.revise(action.loopId, action.prompt);
       case 'choose_recovery':
@@ -140,17 +170,25 @@ export class Coordinator {
       parentSessionId: draft.runtime.parentSessionId,
       useManagedWorktree: draft.workspace.useManagedWorktree,
     });
+    // A focused, single-purpose schedule call is far more reliable than asking
+    // the planner to remember to emit a trigger. Run it after planning (not in
+    // parallel) so it never blocks plan authoring and reads cleanly.
+    const schedule = await extractSchedule(this.host, {
+      prompt,
+      parentSessionId: draft.runtime.parentSessionId,
+      loopId: draft.id,
+    });
 
     let loop: Loop;
     if (outcome.ok) {
-      loop = applyPlanningResponse(this.host, draft, outcome.response, options, title);
+      loop = applyPlanningResponse(this.host, draft, outcome.response, options, title, schedule);
       this.host.log(`Created loop ${loop.id} with ${loop.plan.steps.length} step(s)`);
     } else {
       // Store an invalid plan as a blocked draft with clear validation errors.
       // Retain the raw model reply so the failure is diagnosable, not a black box.
       const rawRef = outcome.modelResponses.length
         ? await this.host.writeArtifact(
-            `planner/${draft.id}.txt`,
+            `${loopArtifactDir(draft.id)}/planner.txt`,
             outcome.modelResponses.join('\n\n--- next attempt ---\n\n'),
           )
         : undefined;
@@ -201,8 +239,9 @@ export class Coordinator {
   async delete(loopId: string, deleteBranch?: boolean): Promise<OrchestratorActionResult> {
     const loop = await this.findLoop(loopId);
     if (!loop) return { ok: false, error: `Loop not found: ${loopId}` };
-    if (loop.runtime.workspace.resolved?.type === 'managed-worktree') {
-      await this.host.removeWorktree(loopId, { force: true, deleteBranch });
+    const resolved = loop.runtime.workspace.resolved;
+    if (resolved?.type === 'managed-worktree') {
+      await this.host.removeWorktree(resolved.worktreeKey ?? loopId, { force: true, deleteBranch });
     }
     await this.host.updateState((state) => ({
       ...state,
@@ -213,6 +252,16 @@ export class Coordinator {
   }
 
   // ── Lifecycle transitions ─────────────────────────────────
+
+  /**
+   * Disables a loop: aborts any in-flight run first (so its background
+   * subagents stop promptly), then marks the loop `disabled` and clears its
+   * active run. Scheduled triggers no longer fire until the loop is `enable`d.
+   */
+  protected async disableLoop(loopId: string): Promise<OrchestratorActionResult> {
+    this.running.get(loopId)?.abort();
+    return this.mutateLoop(loopId, (loop) => disable(loop, this.host.now()));
+  }
 
   protected async transition(
     loopId: string,
@@ -258,6 +307,52 @@ export class Coordinator {
    * loop is active; the run engine, locks, and step execution arrive in later
    * phases. `known` lets callers pass a freshly-transitioned loop.
    */
+  /**
+   * Manual "Run next". A whole pass runs in one `runNext`, so if the previous
+   * pass already finished (no run in flight, nothing ready or running) on a
+   * recurring loop, this starts a FRESH iteration — re-arming like a scheduled
+   * fire — instead of producing an empty no-op run. A pass still in progress, or
+   * a non-recurring loop, advances normally.
+   */
+  async manualRunNext(loopId: string): Promise<OrchestratorActionResult> {
+    const loop = await this.findLoop(loopId);
+    if (!loop) return { ok: false, error: `Loop not found: ${loopId}` };
+    if (loop.status !== 'active') {
+      return { ok: false, error: `Loop ${loopId} is "${loop.status}", not active.` };
+    }
+    const passSettled =
+      !loop.runtime.activeRunId && !hasRunningSteps(loop) && computeReadySteps(loop).length === 0;
+    if (passSettled && isRecurring(loop)) return this.runFreshPass(loop);
+    return this.runNext(loopId, loop);
+  }
+
+  /**
+   * Re-runs a completed loop. A loop reaching `complete` is not the end of the
+   * road: this re-arms the plan, re-enables any schedule that was disabled when
+   * it completed (so a scheduled loop resumes firing), sets it active, and runs a
+   * fresh pass now — covering both scheduled loops and one-off loops the user
+   * wants to run again.
+   */
+  async runAgain(loopId: string): Promise<OrchestratorActionResult> {
+    const loop = await this.findLoop(loopId);
+    if (!loop) return { ok: false, error: `Loop not found: ${loopId}` };
+    if (loop.status !== 'complete') {
+      return { ok: false, error: `Run again is only available for a completed loop (this loop is "${loop.status}").` };
+    }
+    const now = this.host.now();
+    // Drop the finished iteration's worktree (its branch/PR is kept) before a fresh pass.
+    const prior = loop.runtime.workspace.resolved;
+    if (prior?.type === 'managed-worktree') {
+      await this.host.removeWorktree(prior.worktreeKey ?? loopId, { force: true });
+    }
+    const reactivated: Loop = {
+      ...rearmLoop({ ...loop, triggers: reenableSchedule(loop, now) }, now),
+      status: 'active',
+    };
+    await this.replaceLoop(reactivated);
+    return this.runNext(loopId, reactivated);
+  }
+
   async runNext(loopId: string, known?: Loop): Promise<OrchestratorActionResult> {
     const loop = known ?? (await this.findLoop(loopId));
     if (!loop) return { ok: false, error: `Loop not found: ${loopId}` };
@@ -265,9 +360,16 @@ export class Coordinator {
       return { ok: false, error: `Loop ${loopId} is "${loop.status}", not active.` };
     }
     if (!this.engine) return { ok: true, loop };
-    const result = await this.engine.run(loopId);
-    const updated = await this.findLoop(loopId);
-    return { ok: true, loop: updated, run: result.run };
+    // Track an abort handle so `disable` can cancel this run's subagents mid-flight.
+    const controller = new AbortController();
+    this.running.set(loopId, controller);
+    try {
+      const result = await this.engine.run(loopId, controller.signal);
+      const updated = await this.findLoop(loopId);
+      return { ok: true, loop: updated, run: result.run };
+    } finally {
+      this.running.delete(loopId);
+    }
   }
 
   /** Manual plan revision: ask the LLM for a revised plan, validate, and apply. */
@@ -301,8 +403,25 @@ export class Coordinator {
       await this.recordRejectedRevision(loop, applied.rejection);
       return { ok: false, error: applied.rejection };
     }
-    await this.replaceLoop(applied.loop);
-    return { ok: true, loop: applied.loop };
+
+    // A refinement can change the GOAL itself (its stop condition or cadence).
+    // The goal is the single source the stop-condition evaluator and the
+    // schedule are derived from, so when it changes we update `prompt` (which the
+    // evaluator reads) and re-derive the schedule, preserving existing fire
+    // counts.
+    let next = applied.loop;
+    const newGoal = proposal.goal?.trim();
+    if (newGoal && newGoal !== loop.prompt) {
+      const schedule = await extractSchedule(this.host, {
+        prompt: newGoal,
+        parentSessionId: loop.runtime.parentSessionId,
+        loopId: loop.id,
+      });
+      next = { ...next, prompt: newGoal, triggers: reapplySchedule(this.host, loop.id, next.triggers, schedule) };
+      this.host.log(`Loop ${loop.id} goal updated by refinement`);
+    }
+    await this.replaceLoop(next);
+    return { ok: true, loop: next };
   }
 
   /** Applies a user-supplied recovery decision (manual override). */

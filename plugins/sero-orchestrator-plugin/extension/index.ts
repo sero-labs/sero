@@ -15,7 +15,7 @@ export default function orchestratorExtension(pi: ExtensionAPI): void {
     label: 'Orchestrator',
     description:
       'Manage durable Orchestrator loops (LLM-authored step plans). Actions: create, list, show, ' +
-      'activate, pause, resume, stop, run_next, revise, choose_recovery.',
+      'activate, disable, enable, run_next, run_again, revise, choose_recovery.',
     parameters: OrchestratorToolParams,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       return executeOrchestratorTool(params as OrchestratorToolParamsShape, ctx?.cwd);

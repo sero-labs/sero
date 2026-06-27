@@ -2,13 +2,18 @@ import { describe, expect, it } from 'vitest';
 import { Coordinator } from '../coordinator';
 import { LoopLocks } from '../locks';
 import { createEngineDeps } from '../executors';
-import type { EngineDeps } from '../engine-types';
+import type { EngineDeps, StepExecutor } from '../engine-types';
 import type { Loop, LoopTrigger, StepOutcome } from '../../shared/types';
 import { createFakeHost, type FakeHost } from './fake-host';
-import { oneStepPlan, seedActiveLoop } from './fixtures';
+import { oneStepPlan, seedActiveLoop, sequentialPlan } from './fixtures';
 import { fakeExecutor, gatedExecutor } from './engine-fakes';
 
 const SUCCESS: StepOutcome = { status: 'succeeded', summary: 'ok' };
+const ITERATION_DONE: StepOutcome = {
+  status: 'succeeded',
+  summary: 'iteration done',
+  completion: { status: 'complete', reason: 'this iteration finished' },
+};
 const NOW = '2026-06-22T10:00:00.000Z';
 
 function coordinator(host: FakeHost, overrides: Partial<EngineDeps> = {}): Coordinator {
@@ -33,7 +38,25 @@ describe('Coordinator scheduling (Phase 7)', () => {
     expect(host.state.loops[0].triggers[0].fireCount).toBe(1); // collapsed to one fire
   });
 
-  it('event triggers run through normal lifecycle (active runs, paused does not)', async () => {
+  it('a recurring cron loop re-arms and runs the plan again on the next fire', async () => {
+    const host = createFakeHost();
+    host.frozenNow = NOW;
+    seedActiveLoop(host, oneStepPlan().plan);
+    addTrigger(host, { id: 'c', loopId: 'loop-1', workspaceId: 'ws-1', type: 'cron', schedule: '* * * * *', nextFireAt: '2026-06-22T09:59:00.000Z', fireCount: 0 });
+    const executor = fakeExecutor({ 'step-1': SUCCESS });
+    const c = coordinator(host, { executor });
+
+    await c.tick(); // first fire
+    expect(host.state.loops[0].runtime.stepStates['step-1'].status).toBe('succeeded');
+    expect(executor.calls).toEqual(['step-1']);
+
+    host.frozenNow = '2026-06-22T10:02:00.000Z'; // trigger is due again
+    await c.tick(); // second fire → re-arm + run again
+    expect(executor.calls).toEqual(['step-1', 'step-1']);
+    expect(host.state.loops[0].status).toBe('active'); // still scheduled, not terminally complete
+  });
+
+  it('event triggers run through normal lifecycle (active runs, disabled does not)', async () => {
     const host = createFakeHost();
     host.frozenNow = NOW;
     seedActiveLoop(host, oneStepPlan().plan);
@@ -43,8 +66,8 @@ describe('Coordinator scheduling (Phase 7)', () => {
     await c.fireEvent('loop-1', 'x');
     expect(host.state.loops[0].runtime.stepStates['step-1'].status).toBe('succeeded');
 
-    // Pause and fire again: the trigger marks due but the loop does not run.
-    host.state = { ...host.state, loops: [{ ...host.state.loops[0], status: 'paused', runtime: { ...host.state.loops[0].runtime, stepStates: { 'step-1': { status: 'pending', attempts: 0, updatedAt: 't' } } } }] };
+    // Disable and fire again: the trigger marks due but the loop does not run.
+    host.state = { ...host.state, loops: [{ ...host.state.loops[0], status: 'disabled', runtime: { ...host.state.loops[0].runtime, stepStates: { 'step-1': { status: 'pending', attempts: 0, updatedAt: 't' } } } }] };
     await c.fireEvent('loop-1', 'x');
     expect(host.state.loops[0].runtime.stepStates['step-1'].status).toBe('pending');
   });
@@ -66,6 +89,134 @@ describe('Coordinator scheduling (Phase 7)', () => {
     release();
     await running;
     expect(executor.calls).toEqual(['step-1']); // still only one execution
+  });
+
+  it('a recurring iteration that completes stays active and scheduled (does not finish forever)', async () => {
+    const host = createFakeHost();
+    host.frozenNow = NOW;
+    seedActiveLoop(host, oneStepPlan().plan);
+    addTrigger(host, { id: 'c', loopId: 'loop-1', workspaceId: 'ws-1', type: 'cron', schedule: '* * * * *', nextFireAt: '2026-06-22T09:59:00.000Z', fireCount: 0 });
+
+    await coordinator(host, { executor: fakeExecutor({ 'step-1': ITERATION_DONE }) }).tick();
+
+    expect(host.state.loops[0].status).toBe('active'); // keeps checking on schedule, not complete
+    expect(host.state.loops[0].triggers[0].disabled).toBeFalsy();
+    expect(host.state.loops[0].triggers[0].nextFireAt).toBeDefined();
+  });
+
+  it('a recurring iteration with no completion signal also stays active and scheduled', async () => {
+    const host = createFakeHost();
+    host.frozenNow = NOW;
+    seedActiveLoop(host, oneStepPlan().plan);
+    addTrigger(host, { id: 'c', loopId: 'loop-1', workspaceId: 'ws-1', type: 'cron', schedule: '* * * * *', nextFireAt: '2026-06-22T09:59:00.000Z', fireCount: 0 });
+
+    await coordinator(host, { executor: fakeExecutor({ 'step-1': SUCCESS }) }).tick();
+
+    expect(host.state.loops[0].status).toBe('active');
+    expect(host.state.loops[0].triggers[0].disabled).toBeFalsy();
+  });
+
+  it('disable aborts the in-flight run and leaves the loop disabled (not revived)', async () => {
+    const host = createFakeHost();
+    host.frozenNow = NOW;
+    seedActiveLoop(host, oneStepPlan().plan);
+
+    let captured: AbortSignal | undefined;
+    let open!: () => void;
+    const gate = new Promise<void>((r) => { open = r; });
+    const executor: StepExecutor = {
+      async run(input) {
+        captured = input.signal;
+        await gate;
+        // Mimic a real subagent: an aborted run resolves with an error, no outcome.
+        return {
+          id: input.host.newId('attempt'), stepId: input.step.id, attemptNumber: input.attemptNumber,
+          parentSessionId: input.parentSessionId, executionType: input.step.execution.type,
+          status: 'failed', observations: [], startedAt: input.host.now(), endedAt: input.host.now(),
+          error: 'Aborted',
+        };
+      },
+    };
+    const c = coordinator(host, { executor });
+
+    const running = c.runNext('loop-1');
+    await new Promise((r) => setTimeout(r, 0)); // let the run reach the gate
+    await c.requestAction({ kind: 'disable', loopId: 'loop-1' });
+    expect(captured?.aborted).toBe(true); // the in-flight step's signal was aborted
+
+    open();
+    await running;
+
+    // The disable is not clobbered by the engine's finalize, and no block is raised.
+    expect(host.state.loops[0].status).toBe('disabled');
+    expect(host.state.loops[0].runtime.activeRunId).toBeUndefined();
+    expect(host.state.loops[0].runtime.block).toBeUndefined();
+  });
+
+  it('manual Run next re-arms a recurring loop whose previous pass already finished', async () => {
+    const host = createFakeHost();
+    host.frozenNow = NOW;
+    seedActiveLoop(host, oneStepPlan().plan);
+    const loop = addTrigger(host, { id: 'c', loopId: 'loop-1', workspaceId: 'ws-1', type: 'cron', schedule: '0 * * * *', nextFireAt: '2026-06-22T11:00:00.000Z', fireCount: 1 });
+    // Previous pass finished: the only step is already succeeded, with a recorded run.
+    loop.runtime.stepStates['step-1'] = { status: 'succeeded', attempts: 1, outcome: { status: 'succeeded', summary: 'done' }, updatedAt: 't' };
+    loop.runs = [{ id: 'run-0', runNumber: 1, status: 'waiting', startedStepIds: ['step-1'], stepAttempts: [], recoveryDecisions: [], observations: [], startedAt: 't', endedAt: 't' }];
+    host.state = { ...host.state, loops: [loop] };
+
+    const executor = fakeExecutor({ 'step-1': SUCCESS });
+    await coordinator(host, { executor }).requestAction({ kind: 'run_next', loopId: 'loop-1' });
+
+    expect(executor.calls).toEqual(['step-1']); // the plan ran again (re-armed), not a no-op
+    expect(host.state.loops[0].runs.length).toBe(2); // a fresh run was recorded
+    expect(host.state.loops[0].status).toBe('active');
+  });
+
+  it('the stop checker ends a run EARLY (skips remaining steps) but keeps the loop scheduled', async () => {
+    const host = createFakeHost();
+    host.frozenNow = NOW;
+    seedActiveLoop(host, sequentialPlan().plan); // steps a -> b
+    addTrigger(host, { id: 'c', loopId: 'loop-1', workspaceId: 'ws-1', type: 'cron', schedule: '0 * * * *', nextFireAt: '2026-06-22T11:00:00.000Z', fireCount: 1 });
+    const executor = fakeExecutor({ a: SUCCESS, b: SUCCESS });
+    const stopChecker = { check: async () => ({ stop: true, reason: 'no work found this run' }) };
+
+    await coordinator(host, { executor, stopChecker }).requestAction({ kind: 'run_next', loopId: 'loop-1' });
+
+    expect(executor.calls).toEqual(['a']); // step b skipped — the RUN ended early
+    expect(host.state.loops[0].status).toBe('active'); // the LOOP keeps checking, not complete
+    expect(host.state.loops[0].triggers[0].disabled).toBeFalsy(); // schedule still on
+  });
+
+  it('a recurring loop runs the whole pass when the stop checker says keep going', async () => {
+    const host = createFakeHost();
+    host.frozenNow = NOW;
+    seedActiveLoop(host, sequentialPlan().plan);
+    addTrigger(host, { id: 'c', loopId: 'loop-1', workspaceId: 'ws-1', type: 'cron', schedule: '0 * * * *', nextFireAt: '2026-06-22T11:00:00.000Z', fireCount: 1 });
+    const executor = fakeExecutor({ a: SUCCESS, b: SUCCESS });
+    const stopChecker = { check: async () => ({ stop: false, reason: 'work in progress' }) };
+
+    await coordinator(host, { executor, stopChecker }).requestAction({ kind: 'run_next', loopId: 'loop-1' });
+
+    expect(executor.calls).toEqual(['a', 'b']); // both steps ran
+    expect(host.state.loops[0].status).toBe('active'); // still scheduled
+  });
+
+  it('run again re-activates a completed loop and resumes its disabled schedule', async () => {
+    const host = createFakeHost();
+    host.frozenNow = NOW;
+    seedActiveLoop(host, oneStepPlan().plan);
+    // A completed scheduled loop: status complete, cron trigger disabled.
+    const loop = addTrigger(host, { id: 'c', loopId: 'loop-1', workspaceId: 'ws-1', type: 'cron', schedule: '0 * * * *', fireCount: 3, disabled: true });
+    loop.status = 'complete';
+    loop.runtime.stepStates['step-1'] = { status: 'succeeded', attempts: 1, outcome: { status: 'succeeded', summary: 'done' }, updatedAt: 't' };
+    host.state = { ...host.state, loops: [loop] };
+
+    const executor = fakeExecutor({ 'step-1': SUCCESS });
+    await coordinator(host, { executor }).requestAction({ kind: 'run_again', loopId: 'loop-1' });
+
+    expect(host.state.loops[0].status).toBe('active'); // re-activated
+    expect(host.state.loops[0].triggers[0].disabled).toBeFalsy(); // schedule resumed
+    expect(host.state.loops[0].triggers[0].nextFireAt).toBeDefined();
+    expect(executor.calls).toEqual(['step-1']); // ran a fresh pass
   });
 
   it('a maxFires trigger stops firing after the final allowed fire', async () => {

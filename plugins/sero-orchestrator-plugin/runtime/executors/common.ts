@@ -37,7 +37,7 @@ export async function runStepAttempt(input: StepRunInput, options: RunStepOption
     signal,
   });
 
-  const stored = await storeOutput(host, loop.logPolicy, artifactPath(run.id, `${step.id}-a${attemptNumber}.txt`), result.response);
+  const stored = await storeOutput(host, loop.logPolicy, artifactPath(loop.id, run.id, `${step.id}-a${attemptNumber}.txt`), result.response);
   const parsed = result.error ? undefined : parseStepOutcome(result.response);
   const outcome = options.refineOutcome ? options.refineOutcome(result.response, parsed) : parsed;
 

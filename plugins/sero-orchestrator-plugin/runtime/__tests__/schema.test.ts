@@ -171,6 +171,23 @@ describe('validatePlanningResponse', () => {
       expect(result.value.plan.steps[0].execution.type).toBe('background-agent');
     }
   });
+  it('rejects a cron trigger with an invalid schedule (forces repair)', () => {
+    const result = validatePlanningResponse({
+      plan: { objective: 'o', steps: [{ id: 's1', title: 'S', instructions: 'go', execution: { type: 'background-agent' } }] },
+      suggestedTriggers: [{ type: 'cron', schedule: 'every 10 minutes' }],
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.errors.some((e) => e.includes('cron'))).toBe(true);
+  });
+
+  it('accepts a valid cron trigger', () => {
+    const result = validatePlanningResponse({
+      plan: { objective: 'o', steps: [{ id: 's1', title: 'S', instructions: 'go', execution: { type: 'background-agent' } }] },
+      suggestedTriggers: [{ type: 'cron', schedule: '*/10 * * * *' }],
+    });
+    expect(result.ok).toBe(true);
+  });
+
   it('defaults a missing title rather than failing a sound plan', () => {
     const result = validatePlanningResponse({
       plan: { objective: 'o', steps: [{ id: 's1', title: 'S1', instructions: 'go', execution: { type: 'model' } }] },

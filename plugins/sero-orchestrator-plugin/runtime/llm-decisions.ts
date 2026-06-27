@@ -24,6 +24,7 @@ import type {
 import type { OrchestratorHost } from './host';
 import type { OutcomeEvaluator, RecoveryDecider } from './engine-types';
 import { validateLoopPlan } from './schema';
+import { loopArtifactDir } from './artifacts';
 import { parseStepOutcomeStrict } from './executors/prompt';
 import { describeValue, isRecord, runStructuredJson, type ParseResult } from './structured-call';
 
@@ -81,7 +82,7 @@ export const llmEvaluator: OutcomeEvaluator = {
       parentSessionId: loop.runtime.parentSessionId,
     });
     if (result.responses.length > 0) {
-      await host.writeArtifact(`evaluation/${attempt.id}.txt`, joinResponses(result.responses));
+      await host.writeArtifact(`${loopArtifactDir(loop.id)}/evaluation/${attempt.id}.txt`, joinResponses(result.responses));
     }
     if (result.ok) return result.value!;
     return { status: 'failed', summary: result.errors[0] ?? 'could not evaluate step output' };
@@ -207,7 +208,7 @@ export const llmDecider: RecoveryDecider = {
       parentSessionId: loop.runtime.parentSessionId,
     });
     const modelResponsePath = result.responses.length
-      ? await host.writeArtifact(`recovery/${attempt.id}.txt`, joinResponses(result.responses))
+      ? await host.writeArtifact(`${loopArtifactDir(loop.id)}/recovery/${attempt.id}.txt`, joinResponses(result.responses))
       : undefined;
     const base = {
       id: host.newId('recovery'),
@@ -226,52 +227,72 @@ export const llmDecider: RecoveryDecider = {
 
 // ── Manual plan revision (the `revise` action) ──────────────
 
-const REVISE_SYSTEM = `You revise an Orchestrator loop's plan based on the user's request.
-Return ONLY a JSON object that is a full LoopPlan: { "schemaVersion": 1, "revision": <number>, "objective": string, "steps": [...], "globalInstructions"?: string }.
+const REVISE_SYSTEM = `You revise an Orchestrator loop based on the user's request. A loop has a GOAL (its plain-English description — including any cadence and stop condition) and a step PLAN. A refinement may change either or both.
+
+Return ONLY a single JSON object with BOTH keys (no prose):
+{
+  "goal": <the loop's full goal as plain English, restated to reflect the request — e.g. a changed stop condition ("stop when there are no unassigned issues left") or cadence. Keep it self-contained: the cadence, what the loop does, and the stop condition. If the request changes ONLY the steps and not the goal, return the current goal VERBATIM>,
+  "plan": <a full LoopPlan: { "schemaVersion": 1, "revision": <number>, "objective": string, "steps": [...], "globalInstructions"?: string }>
+}
 Keep step ids stable where steps are unchanged. The dependency graph must be acyclic.`;
 
 export interface RevisionProposal {
+  /** The loop's goal, restated to reflect the refinement (verbatim if unchanged). */
+  goal?: string;
   plan?: LoopPlan;
   modelResponsePath?: string;
   error?: string;
 }
 
+interface RevisionResult {
+  goal: string;
+  plan: LoopPlan;
+}
+
 function buildRevisionTask(loop: Loop, prompt?: string): string {
   return [
-    `Original user prompt:\n${loop.prompt}`,
+    `Current goal:\n${loop.prompt}`,
     `\nCurrent plan:\n${JSON.stringify(loop.plan, null, 2)}`,
-    prompt ? `\nRevision request:\n${prompt}` : '\nRevision request: improve the plan so the loop can make progress and eventually emit a completion signal.',
-    `\nReturn the revised LoopPlan JSON.`,
+    prompt ? `\nRefinement request:\n${prompt}` : '\nRefinement request: improve the plan so the loop can make progress and eventually emit a completion signal.',
+    `\nReturn the updated { "goal", "plan" } JSON. If the refinement does not change the goal, return the current goal verbatim.`,
   ].join('\n');
 }
 
 function buildRevisionRepair(previous: string, errors: string[]): string {
   return [
-    'Your previous LoopPlan was invalid.',
+    'Your previous revision was invalid.',
     `\nYour previous reply:\n${previous}`,
     `\nProblems:\n${errors.map((e) => `- ${e}`).join('\n')}`,
-    '\nReturn a corrected LoopPlan JSON that fixes every problem. Output ONLY the JSON object.',
+    '\nReturn a corrected { "goal", "plan" } JSON that fixes every problem. Output ONLY the JSON object.',
   ].join('\n');
 }
 
-function parseRevisedPlan(value: unknown): ParseResult<LoopPlan> {
-  if (!isRecord(value)) return { ok: false, errors: ['Reply must be a single JSON object that is a full LoopPlan.'] };
-  const errors = validateLoopPlan(value as unknown as LoopPlan);
+function parseRevision(value: unknown): ParseResult<RevisionResult> {
+  if (!isRecord(value)) return { ok: false, errors: ['Reply must be a single JSON object with "goal" and "plan".'] };
+  const errors: string[] = [];
+  if (typeof value.goal !== 'string' || !value.goal.trim()) {
+    errors.push('"goal" must be a non-empty string (the loop\'s full plain-English goal).');
+  }
+  if (!isRecord(value.plan)) {
+    errors.push('"plan" must be a full LoopPlan object.');
+  } else {
+    errors.push(...validateLoopPlan(value.plan as unknown as LoopPlan));
+  }
   if (errors.length > 0) return { ok: false, errors };
-  return { ok: true, value: value as unknown as LoopPlan };
+  return { ok: true, value: { goal: (value.goal as string).trim(), plan: value.plan as unknown as LoopPlan } };
 }
 
 export async function proposeRevisedPlan(host: OrchestratorHost, loop: Loop, prompt?: string): Promise<RevisionProposal> {
-  const result = await runStructuredJson<LoopPlan>(host, {
+  const result = await runStructuredJson<RevisionResult>(host, {
     systemPrompt: REVISE_SYSTEM,
     task: buildRevisionTask(loop, prompt),
-    parse: parseRevisedPlan,
+    parse: parseRevision,
     buildRepair: buildRevisionRepair,
     parentSessionId: loop.runtime.parentSessionId,
   });
   const modelResponsePath = result.responses.length
-    ? await host.writeArtifact(`revision/${host.newId('rev')}.txt`, joinResponses(result.responses))
+    ? await host.writeArtifact(`${loopArtifactDir(loop.id)}/revision/${host.newId('rev')}.txt`, joinResponses(result.responses))
     : undefined;
-  if (result.ok) return { plan: result.value!, modelResponsePath };
+  if (result.ok) return { goal: result.value!.goal, plan: result.value!.plan, modelResponsePath };
   return { error: result.errors[0] ?? 'revision response was invalid', modelResponsePath };
 }

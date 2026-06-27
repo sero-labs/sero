@@ -10,8 +10,14 @@
 import type { LogPolicy, LoopRun } from '../shared/types';
 import type { OrchestratorHost } from './host';
 
-export function artifactPath(runId: string, name: string): string {
-  return `${runId}/${name}`;
+/** Per-loop artifact base — every artifact for a loop lives under its own folder. */
+export function loopArtifactDir(loopId: string): string {
+  return `loops/${loopId}/artifacts`;
+}
+
+/** Run-scoped step output path: loops/<loopId>/artifacts/runs/<runId>/<name>. */
+export function artifactPath(loopId: string, runId: string, name: string): string {
+  return `${loopArtifactDir(loopId)}/runs/${runId}/${name}`;
 }
 
 export interface StoredOutput {

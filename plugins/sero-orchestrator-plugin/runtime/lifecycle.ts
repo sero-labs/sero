@@ -15,7 +15,9 @@ export interface TransitionResult {
   error?: string;
 }
 
-const TERMINAL: LoopStatus[] = ['complete', 'stopped'];
+// `complete` is the only terminal status. `disabled` is an off switch the user
+// can turn back on with `enable`, so it is NOT terminal.
+const TERMINAL: LoopStatus[] = ['complete'];
 
 function withStatus(loop: Loop, status: LoopStatus, now: string): Loop {
   return { ...loop, status, updatedAt: now };
@@ -34,35 +36,28 @@ export function activate(loop: Loop, now: string): TransitionResult {
   return { ok: true, loop: withStatus(loop, 'active', now) };
 }
 
-/** active -> paused. */
-export function pause(loop: Loop, now: string): TransitionResult {
-  if (loop.status === 'paused') return { ok: true, loop };
-  if (loop.status !== 'active') {
-    return { ok: false, error: `Cannot pause a loop in status "${loop.status}".` };
+/**
+ * any non-complete -> disabled. The off switch: the coordinator first aborts any
+ * in-flight run (killing active subagents), then this marks the loop disabled
+ * and clears its active run so scheduled triggers stop firing until re-enabled.
+ */
+export function disable(loop: Loop, now: string): TransitionResult {
+  if (loop.status === 'disabled') return { ok: true, loop };
+  if (loop.status === 'complete') {
+    return { ok: false, error: 'Cannot disable a completed loop.' };
   }
-  return { ok: true, loop: withStatus(loop, 'paused', now) };
+  const cleared = { ...loop, runtime: { ...loop.runtime, activeRunId: undefined } };
+  return { ok: true, loop: withStatus(cleared, 'disabled', now) };
 }
 
-/** paused -> active. Also recovers a blocked loop back to active. */
-export function resume(loop: Loop, now: string): TransitionResult {
+/** disabled | blocked -> active, clearing any block so the coordinator re-evaluates. */
+export function enable(loop: Loop, now: string): TransitionResult {
   if (loop.status === 'active') return { ok: true, loop };
-  if (loop.status !== 'paused' && loop.status !== 'blocked') {
-    return { ok: false, error: `Cannot resume a loop in status "${loop.status}".` };
+  if (loop.status !== 'disabled' && loop.status !== 'blocked') {
+    return { ok: false, error: `Cannot enable a loop in status "${loop.status}".` };
   }
-  // Resuming clears a previous block so the coordinator can re-evaluate.
-  const cleared = loop.status === 'blocked'
-    ? { ...loop, runtime: { ...loop.runtime, block: undefined } }
-    : loop;
+  const cleared = { ...loop, runtime: { ...loop.runtime, block: undefined } };
   return { ok: true, loop: withStatus(cleared, 'active', now) };
-}
-
-/** any non-terminal -> stopped. */
-export function stop(loop: Loop, now: string): TransitionResult {
-  if (loop.status === 'stopped') return { ok: true, loop };
-  if (TERMINAL.includes(loop.status)) {
-    return { ok: false, error: `Cannot stop a loop in status "${loop.status}".` };
-  }
-  return { ok: true, loop: withStatus(loop, 'stopped', now) };
 }
 
 export function isTerminal(status: LoopStatus): boolean {

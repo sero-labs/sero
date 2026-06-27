@@ -120,7 +120,7 @@ export interface OrchestratorHost {
   runStructured(params: ModelRunParams): Promise<ModelRunResult>;
 
   // ── Artifacts (large outputs under the state dir) ─────────
-  /** Persists artifact content and returns a stable reference (path). */
+  /** Persists artifact content (relativePath resolved under the state dir) and returns a stable reference. */
   writeArtifact(relativePath: string, content: string): Promise<string>;
   /** Reads artifact content by the reference returned from writeArtifact. */
   readArtifact(ref: string): Promise<string | null>;

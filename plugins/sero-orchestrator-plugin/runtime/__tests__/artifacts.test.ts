@@ -12,7 +12,7 @@ function run(id: string): LoopRun {
 describe('storeOutput', () => {
   it('keeps small output inline without an artifact', async () => {
     const host = createFakeHost();
-    const result = await storeOutput(host, policy, artifactPath('r1', 'out.txt'), 'tiny');
+    const result = await storeOutput(host, policy, artifactPath('loop-1', 'r1', 'out.txt'), 'tiny');
     expect(result.inline).toBe('tiny');
     expect(result.artifactRef).toBeUndefined();
     expect(host.artifacts.size).toBe(0);
@@ -21,7 +21,7 @@ describe('storeOutput', () => {
   it('writes an artifact and truncates inline when over budget', async () => {
     const host = createFakeHost();
     const big = 'y'.repeat(1000);
-    const result = await storeOutput(host, policy, artifactPath('r1', 'out.txt'), big);
+    const result = await storeOutput(host, policy, artifactPath('loop-1', 'r1', 'out.txt'), big);
     expect(result.artifactRef).toBeTruthy();
     expect(result.inline.length).toBeLessThan(big.length);
     expect(await host.readArtifact(result.artifactRef!)).toBe(big);
@@ -29,7 +29,7 @@ describe('storeOutput', () => {
 
   it('honours retainArtifacts=false (truncate but do not persist)', async () => {
     const host = createFakeHost();
-    const result = await storeOutput(host, { ...policy, retainArtifacts: false }, artifactPath('r1', 'o'), 'z'.repeat(100));
+    const result = await storeOutput(host, { ...policy, retainArtifacts: false }, artifactPath('loop-1', 'r1', 'o'), 'z'.repeat(100));
     expect(result.artifactRef).toBeUndefined();
     expect(host.artifacts.size).toBe(0);
   });

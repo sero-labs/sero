@@ -15,6 +15,7 @@ import type {
   PlanningResponse,
   StepExecutionTarget,
 } from '../shared/types';
+import { isValidCron } from './cron';
 
 export const STEP_EXECUTION_TYPES = ['background-agent', 'active-session', 'model'] as const;
 const SESSION_STRATEGIES = ['specific-session', 'most-recent-active', 'ask-user'];
@@ -263,6 +264,19 @@ export function coercePlanningShape(input: unknown): unknown {
   };
 }
 
+/** A cron/hybrid trigger must carry a valid 5-field cron schedule, else it never fires. */
+function validateSuggestedTriggers(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  const errors: string[] = [];
+  raw.forEach((trigger, i) => {
+    if (!isRecord(trigger) || (trigger.type !== 'cron' && trigger.type !== 'hybrid')) return;
+    if (typeof trigger.schedule !== 'string' || !isValidCron(trigger.schedule)) {
+      errors.push(`suggestedTriggers[${i}]: a "${String(trigger.type)}" trigger needs a valid 5-field cron "schedule" (minute hour day-of-month month day-of-week), got ${JSON.stringify(trigger.schedule)}.`);
+    }
+  });
+  return errors;
+}
+
 /** Validates raw model output into a PlanningResponse. */
 export function validatePlanningResponse(input: unknown): ValidationResult<PlanningResponse> {
   const value = coercePlanningShape(input);
@@ -272,6 +286,9 @@ export function validatePlanningResponse(input: unknown): ValidationResult<Plann
   const plan = value.plan as Record<string, unknown>;
   const errors = validateLoopPlan(plan as unknown as LoopPlan);
   if (errors.length > 0) return { ok: false, errors };
+
+  const triggerErrors = validateSuggestedTriggers(value.suggestedTriggers);
+  if (triggerErrors.length > 0) return { ok: false, errors: triggerErrors };
 
   // Title/summary are cosmetic — default them rather than failing a sound plan.
   const title = typeof value.title === 'string' && value.title.trim() ? value.title : 'Untitled loop';

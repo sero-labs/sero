@@ -22,10 +22,10 @@ export const ORCHESTRATOR_ACTIONS = [
   'list',
   'show',
   'activate',
-  'pause',
-  'resume',
-  'stop',
+  'disable',
+  'enable',
   'run_next',
+  'run_again',
   'revise',
   'choose_recovery',
   'delete',
@@ -103,7 +103,7 @@ export function buildAction(params: OrchestratorToolParamsShape): OrchestratorAc
     default: {
       if (!params.loopId) return { error: `${params.action} requires a loopId` };
       // The switch guarantees params.action is one of the single-loopId kinds
-      // (show/activate/pause/resume/stop/run_next), all of shape { kind; loopId }.
+      // (show/activate/disable/enable/run_next), all of shape { kind; loopId }.
       return { kind: params.action, loopId: params.loopId } as OrchestratorAction;
     }
   }

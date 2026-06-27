@@ -14,15 +14,35 @@ export interface OrchestratorState {
   loops: Loop[];
 }
 
+/** Lightweight per-loop entry for the watched index (drives the loop list). */
+export interface LoopSummary {
+  id: string;
+  title: string;
+  status: LoopStatus;
+  summary: string;
+  prompt: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * The watched index file: one small entry per loop. Full loops are persisted in
+ * their own files (loops/<id>/loop.json), so a loop's frequent run-time writes
+ * never rewrite every other loop.
+ */
+export interface OrchestratorIndex {
+  version: 1;
+  loops: LoopSummary[];
+}
+
 // ── Loop ────────────────────────────────────────────────────
 
 export type LoopStatus =
   | 'draft'
   | 'active'
-  | 'paused'
   | 'blocked'
   | 'complete'
-  | 'stopped';
+  | 'disabled';
 
 export interface Loop {
   id: string;
@@ -142,6 +162,8 @@ export interface ResolvedWorkspaceContext {
   cwd: string;
   worktreePath?: string;
   branchName?: string;
+  /** Key the worktree was created under (per-iteration for recurring loops); used for cleanup. */
+  worktreeKey?: string;
   resolvedBy:
     | 'create-option'
     | 'clean-workspace'
@@ -280,6 +302,36 @@ export interface LoopRun {
   block?: LoopBlock;
 }
 
+/**
+ * Compact per-run summary stored in `loops/<id>/runs/index.json`. Full runs live
+ * one-per-file (`runs/<runId>.json`) so a loop's frequent run writes never bloat
+ * loop.json; the UI reads this lightweight index to render run history without
+ * loading every run file.
+ */
+export interface LoopRunStepSummary {
+  stepId: string;
+  attemptNumber: number;
+  executionType: StepExecutionTarget['type'];
+  status: StepAttemptStatus;
+  outcomeStatus?: StepOutcome['status'];
+}
+
+export interface LoopRunSummary {
+  id: string;
+  runNumber: number;
+  status: LoopRunStatus;
+  startedAt: string;
+  endedAt?: string;
+  completionStatus?: CompletionSignal['status'];
+  steps: LoopRunStepSummary[];
+  recoveries: { decision: RecoveryDecisionKind; reason: string }[];
+}
+
+export interface RunIndex {
+  version: 1;
+  runs: LoopRunSummary[];
+}
+
 export type StepAttemptStatus =
   | 'running'
   | 'completed'
@@ -344,6 +396,8 @@ export interface RecoveryDecision {
 
 export interface CompletionSignal {
   status: 'complete' | 'blocked';
+  /** For a scheduled (recurring) loop: stop the schedule permanently (success criteria met). */
+  final?: boolean;
   sourceStepId: string;
   sourceAttemptId: string;
   reason: string;
@@ -354,6 +408,12 @@ export interface CompletionSignal {
 export interface StepCompletion {
   status: 'complete' | 'blocked';
   reason: string;
+  /**
+   * Recurring loops only: set true when the loop's overall success criteria is
+   * met, to stop the schedule for good. Omitted/false means "this iteration is
+   * done" — the loop stays scheduled and runs again on its next fire.
+   */
+  final?: boolean;
 }
 
 // ── Observation ─────────────────────────────────────────────
@@ -417,10 +477,10 @@ export type OrchestratorAction =
   | { kind: 'activate'; loopId: string }
   | { kind: 'list' }
   | { kind: 'show'; loopId: string }
-  | { kind: 'pause'; loopId: string }
-  | { kind: 'resume'; loopId: string }
-  | { kind: 'stop'; loopId: string }
+  | { kind: 'disable'; loopId: string }
+  | { kind: 'enable'; loopId: string }
   | { kind: 'run_next'; loopId: string }
+  | { kind: 'run_again'; loopId: string }
   | { kind: 'revise'; loopId: string; prompt?: string }
   | { kind: 'choose_recovery'; loopId: string; decision: RecoveryDecision }
   | { kind: 'delete'; loopId: string; deleteBranch?: boolean };

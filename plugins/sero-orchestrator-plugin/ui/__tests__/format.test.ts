@@ -6,12 +6,14 @@ describe('UI format helpers', () => {
     expect(LOOP_STATUS_LABEL.active).toBe('Active');
     expect(LOOP_STATUS_LABEL.blocked).toBe('Blocked');
     expect(LOOP_STATUS_LABEL.complete).toBe('Complete');
+    expect(LOOP_STATUS_LABEL.disabled).toBe('Disabled');
   });
 
   it('maps loop status to a badge variant', () => {
     expect(loopStatusVariant('blocked')).toBe('destructive');
     expect(loopStatusVariant('active')).toBe('default');
     expect(loopStatusVariant('draft')).toBe('outline');
+    expect(loopStatusVariant('disabled')).toBe('outline');
   });
 
   it('maps step status to a badge variant', () => {

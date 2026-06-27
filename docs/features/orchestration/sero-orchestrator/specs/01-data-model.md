@@ -6,9 +6,11 @@ The model stores LLM-authored step plans, user-selected workspace settings, and
 generic runtime history. It does not encode a fixed workflow and it does not add
 Orchestrator-specific execution restrictions.
 
-All state is persisted through `host.appState` at the workspace-scope state path
-defined in [02](02-integration-seams.md#app-state). Large outputs are stored as
-artifacts and referenced by path.
+State is persisted one file per loop (`loops/<loopId>/loop.json`) with a
+lightweight `index.json` summary list, all through `host.appState` under the
+workspace-scope app dir (see [00 D-07](00-architecture.md#d-07--state-scope)).
+`OrchestratorState` is the in-memory composition of those files. Large outputs
+are stored as artifacts under each loop's folder and referenced by path.
 
 Open-ended plan, runtime, observation, and schema data uses TypeScript-native
 shapes such as `Record<string, unknown>` or `unknown`. Implementations can add
@@ -445,9 +447,12 @@ LLM-evaluated logical result of the step. A loop completes only when a planned
 step outcome includes `completion.status === "complete"`.
 
 When `StepOutcome.variables` is present, Orchestrator shallow-merges those keys
-into `runtime.variables` after accepting the outcome. Later values replace
-earlier values for the same key. If `variables` is omitted, runtime variables do
-not change.
+into `runtime.variables` after accepting the outcome, and injects the current
+`runtime.variables` plus completed dependency results into each step's prompt —
+this is how steps share context instead of re-discovering it. Later values
+replace earlier values for the same key, EXCEPT the reserved `notes` key, which
+accumulates (append) into a running shared scratchpad across steps. If
+`variables` is omitted, runtime variables do not change.
 
 ## Recovery Decision
 

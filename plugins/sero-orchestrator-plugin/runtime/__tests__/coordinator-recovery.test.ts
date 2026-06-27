@@ -11,23 +11,42 @@ function fail(host: FakeHost, stepId: string) {
 }
 
 describe('Coordinator.revise (manual)', () => {
-  it('applies a validated revised plan', async () => {
+  it('applies a validated revised plan (goal unchanged → no schedule call)', async () => {
     const host = createFakeHost();
-    seedActiveLoop(host, oneStepPlan().plan);
-    host.modelResponses.push({ response: JSON.stringify(sequentialPlan().plan) });
+    seedActiveLoop(host, oneStepPlan().plan); // prompt is 'p'
+    host.modelResponses.push({ response: JSON.stringify({ goal: 'p', plan: sequentialPlan().plan }) });
     const res = await new Coordinator(host).revise('loop-1', 'split into two steps');
     expect(res.ok).toBe(true);
     expect(host.state.loops[0].plan.steps).toHaveLength(2);
+    expect(host.state.loops[0].prompt).toBe('p'); // goal returned verbatim
     expect(host.state.loops[0].revisions.some((r) => r.status === 'applied')).toBe(true);
   });
 
   it('rejects and records an invalid revised plan', async () => {
     const host = createFakeHost();
     seedActiveLoop(host, oneStepPlan().plan);
-    host.modelResponses.push({ response: JSON.stringify({ schemaVersion: 1, revision: 0, objective: 'o', steps: [] }) });
+    host.modelResponses.push({ response: JSON.stringify({ goal: 'p', plan: { schemaVersion: 1, revision: 0, objective: 'o', steps: [] } }) });
     const res = await new Coordinator(host).revise('loop-1');
     expect(res.ok).toBe(false);
     expect(host.state.loops[0].revisions.some((r) => r.status === 'rejected')).toBe(true);
+  });
+
+  it('updates the goal and re-derives the schedule when the refinement changes the goal', async () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, oneStepPlan().plan);
+    // Existing hourly schedule with run history to preserve.
+    loop.triggers = [{ id: 't', loopId: 'loop-1', workspaceId: 'ws-1', type: 'cron', schedule: '0 * * * *', fireCount: 2, nextFireAt: '2026-01-01T01:00:00.000Z' }];
+    host.state = { ...host.state, loops: [loop] };
+    // 1) revise returns a NEW goal + plan; 2) the dedicated schedule call derives the new cadence.
+    host.modelResponses.push({ response: JSON.stringify({ goal: 'every 10 minutes, do the thing; stop when done', plan: oneStepPlan().plan }) });
+    host.modelResponses.push({ response: JSON.stringify({ recurring: true, schedule: '*/10 * * * *' }) });
+
+    const res = await new Coordinator(host).revise('loop-1', 'run every 10 minutes instead');
+    expect(res.ok).toBe(true);
+    expect(host.state.loops[0].prompt).toBe('every 10 minutes, do the thing; stop when done');
+    const trigger = host.state.loops[0].triggers[0];
+    expect(trigger.schedule).toBe('*/10 * * * *'); // cadence updated from the new goal
+    expect(trigger.fireCount).toBe(2); // run history preserved
   });
 });
 
