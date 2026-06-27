@@ -72,6 +72,26 @@ describe('Coordinator — planning integration (Phase 2)', () => {
     expect((await create(createFakeHost(), parallelPlan())).res.loop?.plan.steps).toHaveLength(4);
   });
 
+  it('stores only the extras from a planner step (baseline names stripped)', async () => {
+    const host = createFakeHost();
+    const planned: PlanningResponse = {
+      schemaVersion: 1,
+      title: 'T',
+      summary: 's',
+      plan: {
+        schemaVersion: 1,
+        revision: 0,
+        objective: 'o',
+        steps: [
+          { id: 's1', title: 'S1', instructions: 'i', execution: { type: 'background-agent', tools: ['bash', 'git_manager'] } },
+        ],
+      },
+    };
+    const { res } = await create(host, planned);
+    const exec = res.loop?.plan.steps[0].execution;
+    expect(exec && exec.type === 'background-agent' ? exec.tools : null).toEqual(['git_manager']);
+  });
+
   it('repairs invalid model output once, then succeeds', async () => {
     const host = createFakeHost();
     host.modelResponses.push({ response: '{ garbage' });

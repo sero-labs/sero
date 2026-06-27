@@ -61,6 +61,22 @@ export function computeWarnings(host: OrchestratorHost, loop: Loop): LoopWarning
 }
 
 /**
+ * Strips always-on baseline names from each background-agent step's tools so the
+ * stored `execution.tools` holds only the extras — matching the user-edit path
+ * (applyStepTools). The runtime re-adds the baseline at run time.
+ */
+function normalizePlanStepTools(plan: LoopPlan): LoopPlan {
+  return {
+    ...plan,
+    steps: plan.steps.map((step) => {
+      if (step.execution.type !== 'background-agent' || !step.execution.tools) return step;
+      const extras = step.execution.tools.filter((t) => !isBaselineTool(t));
+      return { ...step, execution: { ...step.execution, tools: extras.length > 0 ? extras : undefined } };
+    }),
+  };
+}
+
+/**
  * Applies a successful PlanningResponse to a draft loop. An explicit
  * `options.triggers` wins; otherwise the dedicated schedule extraction (if the
  * goal recurs) is folded into the planner's suggested triggers so a recurring
@@ -79,17 +95,18 @@ export function applyPlanningResponse(
     ?? mergeScheduleIntoTriggers(response.suggestedTriggers, schedule ?? { recurring: false });
   const triggers = materializeTriggers(host, draft.id, suggestions);
   const limits = mergeLimits(response.suggestedLimits, options?.limits);
+  const plan = normalizePlanStepTools(response.plan);
 
   const withPlan: Loop = {
     ...draft,
     title: userTitle ?? response.title,
     summary: response.summary,
-    plan: response.plan,
+    plan,
     triggers,
     limits,
     runtime: {
       ...draft.runtime,
-      stepStates: initStepStates(response.plan, now),
+      stepStates: initStepStates(plan, now),
       block: undefined,
     },
     updatedAt: now,
