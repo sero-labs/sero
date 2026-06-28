@@ -63,7 +63,7 @@ Rules:
 - For any recurring cadence in the goal, follow the RECURRING / SCHEDULED LOOPS rule above: shape the plan as ONE iteration with no wait/repeat steps (the schedule is set up separately).
 - Step ids must be unique and dependsOn must reference existing step ids. The dependency graph must be acyclic.`;
 
-const WORKTREE_DELIVERY = `Delivery rule for this loop: the work runs on its own isolated git branch, so the change must be DELIVERED or it is lost. After the change is made and verified, add a step that commits it on the current branch with a clear message; if the repository has a git remote and the \`gh\` CLI is available, that step should also push the branch and open a pull request describing the change. Then the finalization step emits completion.`;
+const WORKTREE_DELIVERY = `Delivery rule for this loop: the work runs on its own isolated git branch, so the change must be DELIVERED or it is lost. After the change is made and verified, add a step that commits it on the current branch with a clear message; if the repository has a git remote and the \`gh\` CLI is available, that step should also push the branch and open a pull request describing the change. Then the finalization step emits completion. For a recurring loop, the FIRST step should review any open pull requests listed in its run context and skip work an open PR already covers before implementing.`;
 
 const WORKSPACE_ROOT_DELIVERY = `Delivery rule for this loop: the work runs directly in the user's workspace files, so no commit or PR is needed — leave the change in the working tree unless the goal explicitly asks to commit. The finalization step just verifies the change and emits completion.`;
 

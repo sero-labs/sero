@@ -117,6 +117,7 @@ function createHostStub(
       getDiff: vi.fn(async () => ''),
       pushBranch: vi.fn(async () => true),
       ensureRemoteDefaultBranch: vi.fn(async () => 'main'),
+      listPullRequests: vi.fn(async () => []),
       createPr: vi.fn(async () => ({ success: true as const, url: '', number: 0 })),
       mergePr: vi.fn(async () => ({ success: true as const, state: 'merged' as const })),
       getPrMergeState: vi.fn(async () => 'unknown' as const),

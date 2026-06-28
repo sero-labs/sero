@@ -71,6 +71,7 @@ export function createOrchestratorHost(ctx: AppRuntimeContext): OrchestratorHost
     removeWorktree: (loopId, options) => ctx.host.git.removeWorktree(ctx.workspacePath, loopId, options),
     getWorkspaceStatus: () => ctx.host.git.getWorkspaceStatus(ctx.workspacePath),
     stashWorkspaceChanges: (message) => ctx.host.git.stashWorkspaceChanges(ctx.workspacePath, message),
+    listPullRequests: () => ctx.host.git.listPullRequests(ctx.workspacePath),
 
     notify: (message, type) => ctx.host.notifications.notify({ message, type }),
     requestChoice: (request) => ctx.host.notifications.requestChoice(request),

@@ -3,7 +3,7 @@
  * assertions are stable. Grows alongside the real host interface.
  */
 
-import type { ContextToolInfo, SharedAvailableModelGroup } from '@sero-ai/common';
+import type { AppRuntimePullRequestSummary, ContextToolInfo, SharedAvailableModelGroup } from '@sero-ai/common';
 import { DEFAULT_STATE } from '../../shared/defaults';
 import type { OrchestratorState } from '../../shared/types';
 import type {
@@ -52,6 +52,8 @@ export interface FakeHost extends OrchestratorHost {
   notifications: { message: string; type?: string }[];
   choiceRequests: { title: string; body: string }[];
   stashes: string[];
+  /** Open PRs returned by listPullRequests (empty by default). */
+  pullRequests: AppRuntimePullRequestSummary[];
   /** Active session returned by session.getActiveForWorkspace (null = none). */
   activeSession: ActiveSessionInfo | null;
   /** Turn result delivered to the next onTurnComplete subscriber. */
@@ -82,6 +84,7 @@ export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
     notifications: [],
     choiceRequests: [],
     stashes: [],
+    pullRequests: [],
     activeSession: { sessionId: 'sess-1', workspaceId: options.workspaceId ?? 'ws-1' },
     turnResult: { turnId: 'turn-1', status: 'completed' },
     sessionSends: [],
@@ -135,6 +138,9 @@ export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
     async stashWorkspaceChanges(message) {
       this.stashes.push(message);
       return { stashRef: `stash@{0}:${message}` };
+    },
+    async listPullRequests() {
+      return this.pullRequests;
     },
     notify(message, type) {
       this.notifications.push({ message, type });

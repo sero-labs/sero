@@ -53,6 +53,20 @@ function variablesContext(loop: Loop): string {
 }
 
 /**
+ * Inventory of the loop's own open PRs (branch matches the loop id, refreshed at
+ * run start). Injected for background-agent steps only — they touch the repo — so
+ * a recurring loop doesn't redo work an open PR already covers. The model judges
+ * coverage; we only feed it the list.
+ */
+function openPullRequestsContext(loop: Loop, step: LoopStepDefinition): string {
+  if (step.execution.type !== 'background-agent') return '';
+  const prs = loop.runtime.pullRequests ?? [];
+  if (prs.length === 0) return '';
+  const lines = prs.map((pr) => `- #${pr.number} "${pr.title}" (branch ${pr.headRefName})`);
+  return `\nOpen pull requests already raised by this loop (do not duplicate work an open PR already covers — judge coverage yourself):\n${lines.join('\n')}`;
+}
+
+/**
  * The loop's finalization step is its single dependency-graph sink — the one
  * step nothing else depends on. Only a planned step outcome emits completion
  * (D-03), so that sink must decide it or the loop never ends. When the graph has
@@ -73,6 +87,7 @@ export function buildStepTask(loop: Loop, step: LoopStepDefinition): string {
   if (step.expectedOutcome) parts.push(`\nExpected outcome: ${step.expectedOutcome}`);
   parts.push(dependencyContext(loop, step));
   parts.push(variablesContext(loop));
+  parts.push(openPullRequestsContext(loop, step));
   if (step.execution.type === 'model' && step.execution.outputSchema !== undefined) {
     parts.push(`\nReturn output matching this schema (include it in the StepOutcome variables):\n${JSON.stringify(step.execution.outputSchema, null, 2)}`);
   }

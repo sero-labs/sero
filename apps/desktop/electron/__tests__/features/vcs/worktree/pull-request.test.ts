@@ -17,7 +17,7 @@ vi.mock('@electron/features/vcs/worktree/merge-status', () => ({
   getPullRequestMergeState: getPullRequestMergeStateMock,
 }));
 
-import { mergePrFromWorktree } from '@electron/features/vcs/worktree/pull-request';
+import { listOpenPullRequests, mergePrFromWorktree } from '@electron/features/vcs/worktree/pull-request';
 
 describe('mergePrFromWorktree', () => {
   beforeEach(() => {
@@ -68,5 +68,49 @@ describe('mergePrFromWorktree', () => {
       success: false,
       error: 'auto-merge is not enabled for this repository',
     });
+  });
+});
+
+describe('listOpenPullRequests', () => {
+  beforeEach(() => {
+    execFileMock.mockReset();
+  });
+
+  it('parses the gh JSON list of open PRs', async () => {
+    const prs = [
+      { number: 7, url: 'https://github.com/o/r/pull/7', title: 'Fix bug', headRefName: 'fix/bug-loop_1', updatedAt: '2026-06-27T00:00:00Z' },
+    ];
+    execFileMock.mockResolvedValue({ stdout: JSON.stringify(prs), stderr: '' });
+
+    const result = await listOpenPullRequests('/tmp/repo');
+
+    expect(result).toEqual(prs);
+    expect(execFileMock).toHaveBeenCalledWith(
+      'gh',
+      ['pr', 'list', '--state', 'open', '--json', 'number,url,title,headRefName,updatedAt,body'],
+      expect.objectContaining({ cwd: '/tmp/repo', timeout: 30_000 }),
+    );
+  });
+
+  it('adds an author filter when provided', async () => {
+    execFileMock.mockResolvedValue({ stdout: '[]', stderr: '' });
+
+    await listOpenPullRequests('/tmp/repo', { author: '@me' });
+
+    expect(execFileMock).toHaveBeenCalledWith(
+      'gh',
+      ['pr', 'list', '--state', 'open', '--json', 'number,url,title,headRefName,updatedAt,body', '--author', '@me'],
+      expect.objectContaining({ cwd: '/tmp/repo' }),
+    );
+  });
+
+  it('fails soft to [] when gh exits non-zero', async () => {
+    execFileMock.mockRejectedValue({ stderr: 'gh: not found', message: 'command failed' });
+    expect(await listOpenPullRequests('/tmp/repo')).toEqual([]);
+  });
+
+  it('fails soft to [] on invalid JSON', async () => {
+    execFileMock.mockResolvedValue({ stdout: 'not json', stderr: '' });
+    expect(await listOpenPullRequests('/tmp/repo')).toEqual([]);
   });
 });

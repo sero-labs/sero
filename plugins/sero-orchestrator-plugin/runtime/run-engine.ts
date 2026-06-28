@@ -90,6 +90,7 @@ export class RunEngine {
       runtime: { ...initial.runtime, activeRunId: run.id, lastRunAt: now },
     };
     loop = await this.commit(loop);
+    loop = await this.reconcilePullRequests(loop);
 
     let stop = false;
     let deferred: string | undefined;
@@ -136,6 +137,19 @@ export class RunEngine {
       stop = result.stop;
     }
     return await this.finalize(loop, run, deferred);
+  }
+
+  /**
+   * Refreshes the loop's open-PR inventory at run start: lists open PRs and keeps
+   * those whose branch name contains the loop id (worktree branches embed it).
+   * Stateless — merged/closed PRs simply drop out because they're no longer open,
+   * and PRs merged externally between runs disappear too. Steps read this to avoid
+   * redoing work an open PR already covers (the model judges coverage).
+   */
+  private async reconcilePullRequests(loop: Loop): Promise<Loop> {
+    const open = await this.host.listPullRequests().catch(() => []);
+    const mine = open.filter((pr) => pr.headRefName.includes(loop.id));
+    return this.commit({ ...loop, runtime: { ...loop.runtime, pullRequests: mine } });
   }
 
   private needsWorkspace(loop: Loop, batch: string[]): boolean {

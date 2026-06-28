@@ -7,9 +7,9 @@
  * Orchestrator-specific execution restrictions.
  */
 
-import type { ContextOverrides } from '@sero-ai/common';
+import type { AppRuntimePullRequestSummary, ContextOverrides } from '@sero-ai/common';
 
-export type { ContextOverrides };
+export type { AppRuntimePullRequestSummary, ContextOverrides };
 
 // ── Top-level state ─────────────────────────────────────────
 
@@ -228,6 +228,12 @@ export interface LoopRuntimeState {
   completion?: CompletionSignal;
   block?: LoopBlock;
   lastRunAt?: string;
+  /**
+   * Open PRs this loop has raised — branch name matches the loop id. Refreshed at
+   * each run start (stale/merged PRs drop out); injected into step context so an
+   * iteration doesn't redo work an open PR already covers.
+   */
+  pullRequests?: AppRuntimePullRequestSummary[];
 }
 
 export interface LoopBlock {

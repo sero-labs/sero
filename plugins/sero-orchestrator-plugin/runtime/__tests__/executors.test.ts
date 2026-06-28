@@ -94,6 +94,25 @@ describe('buildStepTask finalization signal', () => {
   });
 });
 
+describe('buildStepTask open-PR awareness', () => {
+  it('renders the open-PR block for a background-agent step when the loop has PRs', () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, oneStepPlan().plan);
+    loop.runtime.pullRequests = [
+      { number: 12, url: 'u', title: 'Fix flaky test', headRefName: 'fix/flaky-loop-1', updatedAt: 't' },
+    ];
+    const task = buildStepTask(loop, loop.plan.steps[0]);
+    expect(task).toContain('Open pull requests already raised by this loop');
+    expect(task).toContain('#12 "Fix flaky test"');
+  });
+
+  it('omits the block when the loop has no open PRs', () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, oneStepPlan().plan);
+    expect(buildStepTask(loop, loop.plan.steps[0])).not.toContain('Open pull requests already raised');
+  });
+});
+
 describe('backgroundAgentExecutor', () => {
   it('runs with the resolved cwd and full tool surface and records the outcome', async () => {
     const host = createFakeHost();

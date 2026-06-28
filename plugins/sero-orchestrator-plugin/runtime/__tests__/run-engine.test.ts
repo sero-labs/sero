@@ -38,6 +38,18 @@ describe('RunEngine', () => {
     expect(loop.runtime.activeRunId).toBeUndefined();
   });
 
+  it('reconciles the loop\'s open PRs by branch match at run start', async () => {
+    const host = createFakeHost();
+    seedActiveLoop(host, oneStepPlan().plan);
+    host.pullRequests = [
+      { number: 1, url: 'u1', title: 'mine', headRefName: 'fix/x-loop-1', updatedAt: 't' },
+      { number: 2, url: 'u2', title: 'other loop', headRefName: 'fix/y-loop-2', updatedAt: 't' },
+    ];
+    await new RunEngine(host, deps({ executor: fakeExecutor({ 'step-1': SUCCESS }) })).run('loop-1');
+    const prs = loopOf(host).runtime.pullRequests ?? [];
+    expect(prs.map((p) => p.number)).toEqual([1]);
+  });
+
   it('runs sequential steps in dependency order', async () => {
     const host = createFakeHost();
     seedActiveLoop(host, sequentialPlan().plan);

@@ -10,6 +10,7 @@
  */
 
 import type {
+  AppRuntimePullRequestSummary,
   AppRuntimeSubagentRepair,
   ContextToolInfo,
   ExtensionRuntimeContent,
@@ -159,6 +160,12 @@ export interface OrchestratorHost {
   getWorkspaceStatus(): Promise<WorkspaceStatus>;
   /** Stashes current workspace changes after an explicit user choice. */
   stashWorkspaceChanges(message: string): Promise<{ stashRef: string | null }>;
+  /**
+   * Open pull requests in this workspace's repo. Repo-scoped (works before any
+   * worktree exists); per-loop attribution is done by the caller via branch-name
+   * match. Fail-soft to `[]` when `gh`/the remote/PRs are absent.
+   */
+  listPullRequests(): Promise<AppRuntimePullRequestSummary[]>;
 
   // ── Notifications ─────────────────────────────────────────
   notify(message: string, type?: 'info' | 'warning' | 'error'): void;

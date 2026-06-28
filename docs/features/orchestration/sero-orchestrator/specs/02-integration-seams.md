@@ -42,6 +42,7 @@ Source: [package-build.ts](../../../../../apps/desktop/electron/features/plugins
 | Resolve loop workspace isolation | `host.git.createWorktree`, `removeWorktree` | User-selected workflow placement |
 | Check dirty workspace-root mode before start | new `host.git.getWorkspaceStatus` or equivalent | Workspace-root preflight only |
 | Stash dirty workspace after user choice | new `host.git.stashWorkspaceChanges` or equivalent | User-directed preflight only |
+| Track each loop's open PRs | `host.git.listPullRequests` → `OrchestratorHost.listPullRequests` | Run-start reconcile + step awareness |
 | Run background step | `host.subagents.runStructured` | Normal Sero background agent execution |
 | Resolve a step's model / detect a missing pinned model | `host.models.list` | Per-step tier or pinned model; unavailable pin falls back to MED |
 | Stream background output | `host.subagents.onLiveOutput` | UI subscribes by `(workspaceId, parentSessionId)` |
@@ -239,6 +240,39 @@ interface AppRuntimeGitPreflightApi {
   ): Promise<DirtyWorkspaceStashResult>;
 }
 ```
+
+### PR Awareness & Tracking
+
+Delivery stays agent-authored (the step shells out `gh pr create`). The
+orchestrator only *tracks* what a loop has published and feeds that back into the
+next iteration, so a recurring loop doesn't redo work an open PR already covers.
+
+```ts
+interface AppRuntimePullRequestSummary {
+  number: number;
+  url: string;
+  title: string;
+  headRefName: string;
+  updatedAt: string;
+  body?: string;
+}
+
+// app-runtime git seam (desktop): repo-scoped, fail-soft to [].
+listPullRequests(
+  workspacePath: string,
+  options?: { author?: string },
+): Promise<AppRuntimePullRequestSummary[]>;
+
+// OrchestratorHost seam: lists open PRs in this workspace's repo.
+listPullRequests(): Promise<AppRuntimePullRequestSummary[]>;
+```
+
+At run start `RunEngine` lists open PRs and keeps those whose `headRefName`
+contains the loop id (worktree branch names embed it), storing them on
+`loop.runtime.pullRequests`. The attribution is stateless: merged/closed PRs drop
+out because they're no longer open. Background-agent step context then lists the
+loop's open PRs; the model judges coverage (no code-computed overlap map). See
+[pr-awareness-and-tracking-plan.md](../pr-awareness-and-tracking-plan.md).
 
 If `hasUncommittedChanges` is true in workspace-root mode, Orchestrator shows a
 visible choice notification:

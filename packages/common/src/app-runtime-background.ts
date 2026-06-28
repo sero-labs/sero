@@ -10,6 +10,27 @@ import type { WorkspaceAccessRootsResult } from './workspace-access-roots';
 import type { ExtensionRuntimeContent, ExtensionRuntimeMessage } from './session-runtime';
 import type { SharedAvailableModelGroup } from './model-selection/types';
 import type { ContextToolInfo } from './context-editor';
+import type { AppRuntimeGitApi } from './app-runtime-git';
+
+// The git surface lives in ./app-runtime-git; re-exported here so existing
+// imports from '@sero-ai/common' (via this module) keep resolving unchanged.
+export type {
+  AppRuntimeWorktreeCreateResult,
+  AppRuntimeWorktreeRemoveOptions,
+  AppRuntimeConflictResolutionContext,
+  AppRuntimeWorktreeSyncOptions,
+  AppRuntimeWorktreeSyncResult,
+  AppRuntimeWorkspaceSyncResult,
+  AppRuntimeCreatePullRequestOptions,
+  AppRuntimeCreatePullRequestResult,
+  AppRuntimePullRequestMergeMethod,
+  AppRuntimeMergePullRequestResult,
+  AppRuntimePullRequestMergeState,
+  AppRuntimePullRequestSummary,
+  AppRuntimeWorkspaceStatusResult,
+  AppRuntimeDirtyWorkspaceStashResult,
+  AppRuntimeGitApi,
+} from './app-runtime-git';
 
 export interface AppRuntimeStateApi {
   read<T = unknown>(filePath: string): Promise<T | null>;
@@ -253,123 +274,6 @@ export interface AppRuntimeVerificationApi {
     options?: AppRuntimeRunCommandOptions & { startupTimeoutMs?: number },
   ): Promise<AppRuntimeVerificationCommandResult>;
   summarizeFailure(result: AppRuntimeVerificationCommandResult): string;
-}
-
-export interface AppRuntimeWorktreeCreateResult {
-  worktreePath: string;
-  branchName: string;
-  greenfield: boolean;
-}
-
-export interface AppRuntimeWorktreeRemoveOptions {
-  deleteBranch?: boolean;
-  force?: boolean;
-}
-
-export interface AppRuntimeConflictResolutionContext {
-  attempt: number;
-  baseBranch: string;
-  upstreamRef: string;
-  conflictFiles: string[];
-}
-
-export interface AppRuntimeWorktreeSyncOptions {
-  resolveConflicts?: (context: AppRuntimeConflictResolutionContext) => Promise<boolean>;
-}
-
-export interface AppRuntimeWorktreeSyncResult {
-  success: boolean;
-  baseBranch?: string;
-  upstreamRef?: string;
-  updated: boolean;
-  resolvedConflicts: boolean;
-  error?: string;
-}
-
-export interface AppRuntimeWorkspaceSyncResult {
-  synced: boolean;
-  branch?: string;
-  headChanged?: boolean;
-  reason?: string;
-}
-
-export interface AppRuntimeCreatePullRequestOptions {
-  title: string;
-  body: string;
-  baseBranch?: string;
-  draft?: boolean;
-}
-
-export type AppRuntimeCreatePullRequestResult =
-  | { success: true; url: string; number: number }
-  | { success: false; error: string };
-
-export type AppRuntimePullRequestMergeMethod = 'merge' | 'squash' | 'rebase';
-
-export type AppRuntimeMergePullRequestResult =
-  | { success: true; state: 'merged' | 'scheduled' }
-  | { success: false; error: string };
-
-export type AppRuntimePullRequestMergeState = 'merged' | 'open' | 'closed' | 'unknown';
-
-export interface AppRuntimeWorkspaceStatusResult {
-  isGitRepository: boolean;
-  hasUncommittedChanges: boolean;
-  summary: string;
-}
-
-export interface AppRuntimeDirtyWorkspaceStashResult {
-  stashRef: string | null;
-}
-
-export interface AppRuntimeGitApi {
-  createWorktree(
-    workspacePath: string,
-    cardId: string,
-    cardTitle: string,
-  ): Promise<AppRuntimeWorktreeCreateResult>;
-  removeWorktree(
-    workspacePath: string,
-    cardId: string,
-    options?: AppRuntimeWorktreeRemoveOptions,
-  ): Promise<void>;
-  /**
-   * Workspace-root dirty preflight (Orchestrator workspace-root mode only).
-   * Reports whether the registered workspace root has uncommitted changes,
-   * ignoring Sero-managed paths under `.sero/`.
-   */
-  getWorkspaceStatus(workspacePath: string): Promise<AppRuntimeWorkspaceStatusResult>;
-  /** Stashes current workspace changes after an explicit user choice. */
-  stashWorkspaceChanges(
-    workspacePath: string,
-    message: string,
-  ): Promise<AppRuntimeDirtyWorkspaceStashResult>;
-  syncWorktreeWithDefaultBranch(
-    worktreePath: string,
-    options?: AppRuntimeWorktreeSyncOptions,
-  ): Promise<AppRuntimeWorktreeSyncResult>;
-  syncWorkspaceRootToDefaultBranch(
-    workspacePath: string,
-  ): Promise<AppRuntimeWorkspaceSyncResult>;
-  createCheckpoint(worktreePath: string, message: string): Promise<string | null>;
-  getDiffSummary(worktreePath: string): Promise<string>;
-  getDiff(worktreePath: string): Promise<string>;
-  pushBranch(worktreePath: string, branchName: string): Promise<boolean>;
-  ensureRemoteDefaultBranch(worktreePath: string): Promise<string>;
-  createPr(
-    worktreePath: string,
-    options: AppRuntimeCreatePullRequestOptions,
-  ): Promise<AppRuntimeCreatePullRequestResult>;
-  mergePr(
-    worktreePath: string,
-    prNumber: number,
-    options?: { method?: AppRuntimePullRequestMergeMethod },
-  ): Promise<AppRuntimeMergePullRequestResult>;
-  getPrMergeState(
-    worktreePath: string,
-    prNumber: number,
-  ): Promise<AppRuntimePullRequestMergeState>;
-  getPrMergeError(worktreePath: string, prNumber: number): Promise<string | null>;
 }
 
 export type AppRuntimeDevServerScope = 'workspace' | 'card-preview';

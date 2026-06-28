@@ -301,6 +301,10 @@ interface LoopRuntimeState {
   completion?: CompletionSignal;
   block?: LoopBlock;
   lastRunAt?: string;
+  // Open PRs this loop has raised — branch name matches the loop id. Refreshed at
+  // each run start (merged/closed PRs drop out); injected into background-agent
+  // step context so an iteration doesn't redo work an open PR already covers.
+  pullRequests?: AppRuntimePullRequestSummary[];
 }
 
 interface LoopBlock {
