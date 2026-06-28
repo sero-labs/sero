@@ -32,9 +32,10 @@ no new completion semantics, no cycles, the graph stays acyclic.
 
 Goals:
 
-- A judge step records a **routing variable**; other steps carry an optional
-  **guard** that gates them on that variable. Un-taken steps are skipped; the
-  skip cascades down the un-taken branch; convergence is automatic.
+- A judge step records a **routing variable**; every step that belongs to a branch
+  carries a **guard** keyed to it. A step is skipped when its own guard doesn't
+  match; unguarded steps always run, so the main line and convergence continue past
+  skipped ones (a skipped dependency already satisfies dependents).
 - All routing values and branch shapes are **planner-authored**.
 - Guards are **per-step and optional** — only conditional steps carry one. A
   "branch" can be a single optional step up to an N-way switch.
@@ -115,16 +116,19 @@ assess ─► judge ─┼─ standard-impl (when route in [standard])┼─► 
 ```
 
 Exactly one alternative per routing variable is taken (one value ⇒ at most one
-`in` guard matches). The `fallback` carries `when: { var: "route", default: true }`
-and is taken only when the value matched no sibling `in` guard — this is the
-**planner-authored default** that prevents a dead-end when the judge returns an
-unforeseen value.
+`in` guard matches). **Every step inside a branch carries that branch's guard** —
+not just the head — so a multi-step branch skips entirely when its route isn't
+chosen. The `fallback` carries `when: { var: "route", default: true }` and is taken
+only when the value matched no sibling `in` guard — the **planner-authored default**
+that guarantees work runs when the judge returns an unforeseen value.
 
 ### Multiple / nested branch points
 
 A plan may have several branch points keyed to different variables, including a
-branch inside a branch. Nesting is free — the inner judge runs only on the taken
-outer path (its dependencies skip otherwise, cascading the skip inward).
+branch inside a branch. Nesting is free — the inner judge is guarded on the outer
+route, so it only runs on the taken outer path; when it doesn't run, its routing
+variable stays unset, and the inner branch steps (guarded on that variable) skip
+because an unset route is never taken.
 
 ## Data model
 
@@ -152,8 +156,8 @@ export interface LoopStepDefinition {
 
 `produces` is advisory for validation/UI; the runtime source of truth is whatever
 the step actually records in `variables`. If a step declares `produces:["route"]`
-but never sets `route`, guards on `route` simply find no value → no match →
-skip/default/block (see below). No silent coercion.
+but never sets `route`, guards on `route` find no value → not taken → those steps
+skip. No silent coercion.
 
 > Open decision to confirm: `produces` is the one small structural addition beyond
 > pure convention. It is what lets the validator check "a guard's variable is
@@ -164,49 +168,49 @@ skip/default/block (see below). No silent coercion.
 ## Engine behavior
 
 Branch resolution runs each tick **before** `computeReadySteps`, as a pure
-function over loop state. It marks steps `skipped` so their dependents and the UI
-see the decision.
+function over loop state. It marks guarded steps `skipped` so their dependents and
+the UI see the decision. **There is no cascade**: a step is skipped only by its
+*own* guard. Unguarded steps always run.
 
 ```text
 resolveBranchSkips(loop):
-  repeat until no change:
-    for each step S with status 'pending' whose every dependency has an outcome:
-      if S has ≥1 dependency and ALL dependency outcomes are 'skipped':
-        mark S skipped("branch not taken")            # cascade down an un-taken branch
-      else if S.when is set:
-        v := loop.runtime.variables[S.when.var]
-        taken := S.when.default
-                   ? noSiblingInGuardMatched(S.when.var, v)
-                   : (v is set AND S.when.in includes v)
-        if not taken: mark S skipped("guard " + S.when.var + " did not match")
+  repeat until no change:                                # a chain of guards settles in one tick
+    for each step S with status 'pending', a guard S.when, and every dependency resolved:
+      v := loop.runtime.variables[S.when.var]
+      taken := (v is undefined) ? false                 # judge for this route never ran
+             : S.when.default    ? noSiblingInGuardMatched(S.when.var, v)
+             :                      (S.when.in includes v)
+      if not taken: mark S skipped("route " + S.when.var + " did not match")
 ```
 
 Key properties:
 
-- **Guard never evaluates before its variable exists.** The validator requires the
-  guard's `var` to be produced by a dependency-ancestor, and the loop only
-  evaluates a step once all its dependencies have an outcome. By then the producer
-  has either completed (variable set) or was itself skipped (its branch wasn't
-  taken) — in which case the cascade rule skips this step first, before the guard
-  is read.
-- **Cascade before guard.** A step on an un-taken branch is skipped by the
-  all-deps-skipped rule, so inner guards on un-set variables are never read.
-- **Convergence runs.** A convergence step has at least one non-skipped dependency
-  (the taken branch), so it is *not* all-skipped → it runs (subject to its own
-  guard, usually none).
-- **Mark `skipped` = record outcome** `{ status: 'skipped', summary }`, so the
-  step status is `skipped` and dependents are satisfied.
+- **Every branch step carries a guard.** A step is skipped only when its own guard
+  doesn't match — so the planner must guard *every* step that belongs to a branch
+  (its head, its interior, and its internal convergence), not just the first.
+  Unguarded steps always run.
+- **The main line continues past a skipped optional step.** A skipped dependency
+  already satisfies dependents, so an unguarded step whose only dependency skipped
+  still runs (this is the *"simple → straight to implementation"* case).
+- **Un-taken nested branches skip for free.** A guard is only evaluated once its
+  dependencies resolved; if its routing variable is still unset (its judge was
+  itself skipped on an un-taken outer branch) the guard is *not taken*, so the
+  inner step skips without needing the outer condition repeated.
+- **Convergence runs.** An unguarded convergence/finalization step runs whichever
+  branch was taken — its skipped dependencies still satisfy it.
+- **Mark `skipped` = record outcome** `{ status: 'skipped', summary }`, so the step
+  status is `skipped` and dependents are satisfied.
 
-### No-match safety net
+### No-match
 
 If the judge returns a value that matches no `in` guard and the planner authored
-no `default`, the alternatives all skip. If that cascades to the single
-finalization sink (it becomes `skipped`), the loop has nothing that can emit
-completion. The engine detects a **settled run whose finalization sink is
-`skipped`** and blocks the loop with a clear reason
-("all branches were skipped and no default branch ran — the judge's route matched
-nothing"), surfacing it for a human (and the new Retry control). This is the
-agreed "block on no-match without a default" behavior.
+no `default`, the alternatives all skip — but the **finalization step is unguarded
+and still runs**. Per the completion model it confirms whether the objective is met
+and, finding nothing was done, emits `blocked` — so the loop blocks with the
+finalize step's own (informative) reason rather than a synthetic engine error. A
+planner-authored `default` branch is how you guarantee *some* work runs instead.
+No special engine machinery; "block on no-match without a default" falls out of the
+existing completion path.
 
 ### Recurring loops
 
@@ -225,12 +229,12 @@ Existing rules (acyclic, single finalization sink) are unchanged. New rules:
    This guarantees deterministic ordering (the route is decided before it is read).
 2. **Guard shape (hard error).** `when` must have exactly one of: a non-empty `in`,
    or `default: true`.
-3. **Default needs alternatives (warning).** A `default: true` guard on `V` with no
-   sibling `in`-guard on `V` is pointless; warn, don't fail.
 
 Deliberately **not** validated: that the judge can produce the values the `in`
-guards expect (values are the model's domain — the default/block path handles
-mismatches), and "exactly one branch" (see below).
+guards expect (values are the model's domain — a `default` branch or the finalize
+step's judgment handles a mismatch), "exactly one branch" (see below), and a lone
+`default` with no sibling `in`-guard (harmless — it simply runs whenever its
+variable was set).
 
 ## "Exactly one" is guidance, not a rule
 
@@ -250,8 +254,10 @@ keeping it strictly optional:
 - Default to a **linear** plan. Use branching only when the work genuinely diverges
   (a path that should sometimes be skipped, or alternative paths by what's found).
 - To branch: author a **judge step** that records a routing variable (declare it in
-  `produces`) and decides its value, then put a `when` guard on each conditional
-  step. Unguarded steps always run.
+  `produces`) and decides its value, then put a `when` guard on **every** step that
+  belongs to a branch — its head, its interior steps, and its internal convergence,
+  not just the first. Unguarded steps always run, so leave only the true main line
+  unguarded.
 - Keep guards on one variable **mutually exclusive** (one value ⇒ one path). For an
   exhaustive switch, include a `default` branch so an unexpected value still has a
   home.
@@ -289,10 +295,10 @@ Full branch-tree rendering in `PlanView`
 | ID | Requirement |
 | --- | --- |
 | FR-B1 | A step may declare `produces` (routing variables) and a `when` guard; absent guard ⇒ always runs. |
-| FR-B2 | Before readiness each tick, a guarded step whose value doesn't match is skipped; a step whose dependencies all skipped is skipped (cascade). |
+| FR-B2 | Before readiness each tick, a guarded step whose route doesn't match is skipped; there is no cascade — only a step's own guard skips it. |
 | FR-B3 | A `default` guard is taken only when no sibling `in`-guard on the same variable matched. |
-| FR-B4 | A guard never evaluates before its variable's producer has resolved (validation + cascade guarantee). |
-| FR-B5 | A settled run whose finalization sink is skipped blocks the loop with a clear reason. |
+| FR-B4 | A guard never evaluates before its dependencies have resolved (so its routing variable is decided, or its judge was skipped → unset → not taken). |
+| FR-B5 | On no-match with no default, branches skip and the unguarded finalization step runs and judges completion (emits `blocked` if nothing was done). |
 | FR-B6 | `validateLoopPlan` rejects a guard whose variable is not produced by a dependency-ancestor, and an ill-formed `when`. |
 | FR-B7 | Recurring loops re-judge and re-route each iteration. |
 | FR-B8 | revise-plan / revise-step / Refine may author and modify branches; revised plans are validated. |
@@ -304,17 +310,17 @@ Full branch-tree rendering in `PlanView`
 Engine / readiness (mirror `readiness`/`run-engine` tests):
 
 - guard match → taken; no match → skipped; default taken only when nothing matched.
-- cascade: a multi-step un-taken branch fully skips from the head down.
-- convergence: a step with one skipped + one succeeded dep runs.
-- finalization-sink-skipped → loop blocks with the no-match reason.
-- one optional step: `implement dependsOn [planning]` runs whether `planning` ran
-  or skipped.
-- nested branch: inner judge only runs on the taken outer path.
+- every-step-guarded: a multi-step un-taken branch fully skips (each via its guard).
+- convergence: an unguarded step with one skipped + one succeeded dep runs.
+- one optional step: `implement dependsOn [planning]` (unguarded) runs whether
+  `planning` ran or skipped.
+- nested branch: inner branch steps skip when the outer route isn't taken (their
+  routing variable stays unset).
+- no-match with no default: branches skip; the unguarded finalize step still runs.
 
 Schema:
 
-- guard var not produced by an ancestor → error; `in`+`default` both/neither → error;
-  lone `default` → warning.
+- guard var not produced by an ancestor → error; `in`+`default` both/neither → error.
 
 Recurring: two iterations with different judge outputs route differently.
 
@@ -327,8 +333,8 @@ Regression: every existing (non-branching) plan and test stays green (FR-B10).
 ## Phased implementation
 
 1. **Engine + schema** — `StepGuard` / `produces` types, validation rules, the
-   `resolveBranchSkips` pass, the finalization-skipped block. Unit tests. No UI; the
-   planner doesn't author branches yet (hand-authored plans exercise it).
+   `resolveBranchSkips` pass. Unit tests. No UI; the planner doesn't author branches
+   yet (hand-authored plans exercise it).
 2. **Planner** — the BRANCHING prompt section so the planner authors branches when
    work diverges (linear by default). Fixture-prompt tests.
 3. **UI** — full branch-tree rendering + skipped styling in `PlanView`.

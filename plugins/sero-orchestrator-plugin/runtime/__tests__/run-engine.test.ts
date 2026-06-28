@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { RunEngine } from '../run-engine';
 import { LoopLocks } from '../locks';
 import type { EngineDeps } from '../engine-types';
-import type { StepOutcome } from '../../shared/types';
+import type { LoopPlan, StepOutcome } from '../../shared/types';
 import { createFakeHost, type FakeHost } from './fake-host';
 import { oneStepPlan, parallelPlan, sequentialPlan, seedActiveLoop } from './fixtures';
 import { artifactExecutor, fakeDecider, fakeExecutor, gatedExecutor } from './engine-fakes';
@@ -154,5 +154,51 @@ describe('RunEngine', () => {
     host.state = { ...host.state, loops: [loop] };
     const result = await new RunEngine(host, deps({})).run('loop-1');
     expect(result.acquired).toBe(false);
+  });
+});
+
+describe('RunEngine — branching', () => {
+  const branchPlan: LoopPlan = {
+    schemaVersion: 1,
+    revision: 0,
+    objective: 'route the work',
+    steps: [
+      { id: 'judge', title: 'Judge', instructions: 'decide', execution: { type: 'model' }, produces: ['route'] },
+      { id: 'a', title: 'A', instructions: 'do a', execution: { type: 'background-agent' }, dependsOn: ['judge'], when: { var: 'route', in: ['x'] } },
+      { id: 'b', title: 'B', instructions: 'do b', execution: { type: 'background-agent' }, dependsOn: ['judge'], when: { var: 'route', in: ['y'] } },
+      { id: 'end', title: 'End', instructions: 'finalize', execution: { type: 'model' }, dependsOn: ['a', 'b'] },
+    ],
+  };
+
+  it('runs the taken branch and never executes the un-taken one', async () => {
+    const host = createFakeHost();
+    seedActiveLoop(host, branchPlan);
+    const executor = fakeExecutor({
+      judge: { status: 'succeeded', summary: 'route x', variables: { route: 'x' } },
+      a: SUCCESS,
+      end: SUCCESS,
+    });
+    await new RunEngine(host, deps({ executor })).run('loop-1');
+    expect(executor.calls).toContain('a');
+    expect(executor.calls).not.toContain('b');
+    const loop = loopOf(host);
+    expect(loop.runtime.stepStates.a.status).toBe('succeeded');
+    expect(loop.runtime.stepStates.b.status).toBe('skipped');
+    expect(loop.runtime.stepStates.end.status).toBe('succeeded'); // unguarded convergence ran
+  });
+
+  it('on no-match, skips every branch and still runs the unguarded finalize step', async () => {
+    const host = createFakeHost();
+    seedActiveLoop(host, branchPlan);
+    const executor = fakeExecutor({
+      judge: { status: 'succeeded', summary: 'route z', variables: { route: 'z' } },
+      end: SUCCESS,
+    });
+    await new RunEngine(host, deps({ executor })).run('loop-1');
+    expect(executor.calls).toEqual(['judge', 'end']); // neither branch executed
+    const loop = loopOf(host);
+    expect(loop.runtime.stepStates.a.status).toBe('skipped');
+    expect(loop.runtime.stepStates.b.status).toBe('skipped');
+    expect(loop.runtime.stepStates.end.status).toBe('succeeded');
   });
 });

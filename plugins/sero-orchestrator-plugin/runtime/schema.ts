@@ -118,7 +118,57 @@ function validateStepShape(step: unknown, index: number, errors: string[]): step
     ok = false;
   }
   validateExecution(step.execution, String(step.id), errors);
+  validateBranching(step, errors);
   return ok;
+}
+
+const GUARD_VALUE_TYPES = ['string', 'number', 'boolean'];
+
+/** Validates the optional `produces` declaration and `when` guard shape on a step. */
+function validateBranching(step: Record<string, unknown>, errors: string[]): void {
+  const id = String(step.id);
+  if (step.produces !== undefined && (!Array.isArray(step.produces) || step.produces.some((p) => typeof p !== 'string' || !p.trim()))) {
+    errors.push(`step "${id}": produces must be an array of non-empty variable names`);
+  }
+  if (step.when === undefined) return;
+  const guard = step.when;
+  if (!isRecord(guard)) {
+    errors.push(`step "${id}": when must be an object { var, in | default }`);
+    return;
+  }
+  if (typeof guard.var !== 'string' || !guard.var.trim()) errors.push(`step "${id}": when.var is required`);
+  const hasIn = guard.in !== undefined;
+  const hasDefault = guard.default !== undefined;
+  if (hasIn === hasDefault) {
+    errors.push(`step "${id}": when needs exactly one of "in" (a non-empty list) or "default": true`);
+  }
+  if (hasIn && (!Array.isArray(guard.in) || guard.in.length === 0 || guard.in.some((v) => !GUARD_VALUE_TYPES.includes(typeof v)))) {
+    errors.push(`step "${id}": when.in must be a non-empty array of string/number/boolean values`);
+  }
+  if (hasDefault && guard.default !== true) errors.push(`step "${id}": when.default must be true`);
+}
+
+/** A guard's routing variable must be produced by a dependency-ancestor step. */
+function validateGuardSources(steps: LoopStepDefinition[], errors: string[]): void {
+  const byId = new Map(steps.map((s) => [s.id, s]));
+  const ancestorsOf = (startId: string): Set<string> => {
+    const seen = new Set<string>();
+    const stack = [...(byId.get(startId)?.dependsOn ?? [])];
+    while (stack.length) {
+      const id = stack.pop()!;
+      if (seen.has(id)) continue;
+      seen.add(id);
+      for (const dep of byId.get(id)?.dependsOn ?? []) stack.push(dep);
+    }
+    return seen;
+  };
+  for (const step of steps) {
+    if (!step.when) continue;
+    const produced = [...ancestorsOf(step.id)].some((a) => (byId.get(a)?.produces ?? []).includes(step.when!.var));
+    if (!produced) {
+      errors.push(`step "${step.id}": guard variable "${step.when.var}" is not produced by any upstream step (a dependency-ancestor must list it in "produces")`);
+    }
+  }
 }
 
 // ── Dependency graph ────────────────────────────────────────
@@ -200,7 +250,10 @@ export function validateLoopPlan(plan: LoopPlan): string[] {
   for (const dup of new Set(duplicates)) errors.push(`duplicate step id "${dup}"`);
   if (errors.length === 0) {
     validateDependencies(plan.steps, errors);
-    if (errors.length === 0) validateSingleFinalStep(plan.steps, errors);
+    if (errors.length === 0) {
+      validateSingleFinalStep(plan.steps, errors);
+      validateGuardSources(plan.steps, errors);
+    }
   }
   return errors;
 }

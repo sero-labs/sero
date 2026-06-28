@@ -120,6 +120,19 @@ export interface LoopPlan {
   variablesSchema?: unknown;
 }
 
+/**
+ * A branch guard gating whether a step runs, matched against a routing variable an
+ * upstream step recorded. See specs/05-branching.md. Exactly one of `in`/`default`.
+ */
+export interface StepGuard {
+  /** Routing variable read from loop.runtime.variables. */
+  var: string;
+  /** Taken when the variable's value is one of these. */
+  in?: (string | number | boolean)[];
+  /** Default branch: taken only when no sibling guard on the same `var` matched its value. */
+  default?: true;
+}
+
 export interface LoopStepDefinition {
   id: string;
   title: string;
@@ -129,6 +142,14 @@ export interface LoopStepDefinition {
   execution: StepExecutionTarget;
   onFailure?: string;
   maxAttempts?: number;
+  /**
+   * Routing variables this step records in its StepOutcome — declares a branch
+   * decision so guards can be validated and the UI can mark the branch point.
+   * Advisory; the runtime source of truth is what the step actually records.
+   */
+  produces?: string[];
+  /** Branch guard. Absent → the step always runs (the main line). */
+  when?: StepGuard;
 }
 
 // ── Execution targets ───────────────────────────────────────

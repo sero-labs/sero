@@ -12,6 +12,7 @@ import type { Loop, LoopBlock, LoopRun, LoopStepDefinition, LoopWarning, StepAtt
 import type { OrchestratorHost } from './host';
 import type { EngineDeps } from './engine-types';
 import { computeReadySteps, hasRunningSteps, validateRuntime } from './readiness';
+import { resolveBranchSkips } from './branching';
 import { applyStepOutcome, recordCompletion } from './outcomes';
 import { applyRecovery } from './recovery-apply';
 import { pruneRuns } from './artifacts';
@@ -112,6 +113,13 @@ export class RunEngine {
         run = { ...run, status: 'blocked', block: loop.runtime.block };
         break;
       }
+
+      // Resolve branch decisions before readiness: skip guarded steps whose route
+      // didn't match. The unguarded finalization step still runs and judges the
+      // outcome, so a no-match (every branch skipped) surfaces as its completion.
+      const branched = resolveBranchSkips(loop, this.host.now());
+      if (branched !== loop) loop = await this.commit(branched);
+
       const ready = computeReadySteps(loop);
       if (ready.length === 0) {
         run = { ...run, status: hasRunningSteps(loop) ? 'running' : 'waiting' };

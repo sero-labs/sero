@@ -207,3 +207,50 @@ describe('validatePlanningResponse', () => {
     if (result.ok) expect(result.value.title).toBe('Untitled loop');
   });
 });
+
+describe('validateLoopPlan — branching guards', () => {
+  const work = (id: string, deps: string[], extra: Partial<LoopStepDefinition> = {}): LoopStepDefinition =>
+    ({ id, title: id, instructions: 'x', execution: { type: 'background-agent' }, dependsOn: deps, ...extra });
+
+  it('accepts a guard whose variable is produced by a dependency-ancestor', () => {
+    const errors = validateLoopPlan(plan([
+      { id: 'judge', title: 'J', instructions: 'decide', execution: { type: 'model' }, produces: ['route'] },
+      work('a', ['judge'], { when: { var: 'route', in: ['x'] } }),
+      work('end', ['a']),
+    ]));
+    expect(errors).toEqual([]);
+  });
+
+  it('rejects a guard whose variable is not produced upstream', () => {
+    const errors = validateLoopPlan(plan([
+      { id: 'judge', title: 'J', instructions: 'decide', execution: { type: 'model' } },
+      work('a', ['judge'], { when: { var: 'route', in: ['x'] } }),
+      work('end', ['a']),
+    ]));
+    expect(errors.some((e) => e.includes('not produced by any upstream step'))).toBe(true);
+  });
+
+  it('rejects a guard with both in and default, or neither', () => {
+    const both = validateLoopPlan(plan([
+      { id: 'judge', title: 'J', instructions: 'd', execution: { type: 'model' }, produces: ['route'] },
+      work('a', ['judge'], { when: { var: 'route', in: ['x'], default: true } }),
+      work('end', ['a']),
+    ]));
+    expect(both.some((e) => e.includes('exactly one of'))).toBe(true);
+
+    const neither = validateLoopPlan(plan([
+      { id: 'judge', title: 'J', instructions: 'd', execution: { type: 'model' }, produces: ['route'] },
+      work('a', ['judge'], { when: { var: 'route' } }),
+      work('end', ['a']),
+    ]));
+    expect(neither.some((e) => e.includes('exactly one of'))).toBe(true);
+  });
+
+  it('rejects a malformed produces declaration', () => {
+    const errors = validateLoopPlan(plan([
+      { id: 'judge', title: 'J', instructions: 'd', execution: { type: 'model' }, produces: [''] },
+      work('end', ['judge']),
+    ]));
+    expect(errors.some((e) => e.includes('produces must be'))).toBe(true);
+  });
+});
