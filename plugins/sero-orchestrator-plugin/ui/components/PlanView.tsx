@@ -1,11 +1,19 @@
 import { Badge, Card } from '@sero-ai/ui';
 import { useAvailableModels, useSubagentContext, type AppModelGroup } from '@sero-ai/app-runtime';
 import type { ContextToolInfo } from '@sero-ai/common';
-import type { Loop, LoopStepDefinition, OrchestratorAction, StepRuntimeState } from '../../shared/types';
+import type { Loop, LoopStepDefinition, OrchestratorAction, StepGuard, StepRuntimeState } from '../../shared/types';
 import { stepStatusVariant } from '../lib/format';
 import { groupStepsByLevel } from '../lib/plan-levels';
 import { StepModelControl } from './StepModelControl';
 import { StepToolsControl } from './StepToolsControl';
+
+const routeText = (value: unknown): string => (typeof value === 'string' ? value : JSON.stringify(value));
+
+/** Human-readable guard condition, e.g. "only if route = simple / standard" or "route: default branch". */
+function guardLabel(when: StepGuard): string {
+  if (when.default) return `${when.var}: default branch`;
+  return `only if ${when.var} = ${(when.in ?? []).map(routeText).join(' / ')}`;
+}
 
 interface PlanViewProps {
   loop: Loop;
@@ -46,20 +54,28 @@ export function PlanView({ loop, onAction }: PlanViewProps) {
           {plan.objective}
         </p>
       )}
-      {levels.map((group) =>
-        group.length === 1 ? (
-          <StepCard key={group[0].id} step={group[0]} number={numberOf.get(group[0].id)!} state={runtime.stepStates[group[0].id]} groups={groups} toolCatalog={toolCatalog} onSetModel={setStepModel} onSetTools={setStepTools} />
-        ) : (
+      {levels.map((group) => {
+        if (group.length === 1) {
+          return <StepCard key={group[0].id} step={group[0]} number={numberOf.get(group[0].id)!} state={runtime.stepStates[group[0].id]} groups={groups} toolCatalog={toolCatalog} onSetModel={setStepModel} onSetTools={setStepTools} />;
+        }
+        // A level whose steps carry guards is a branch point (alternatives), not
+        // parallel work; label it by the deciding variable and the chosen route.
+        const branchVar = group.find((s) => s.when)?.when?.var;
+        const chosen = branchVar ? runtime.variables[branchVar] : undefined;
+        const header = branchVar
+          ? `Branch · ${branchVar}${chosen !== undefined ? ` = ${routeText(chosen)}` : ' (not decided yet)'}`
+          : `Run in parallel · ${group.length} steps`;
+        return (
           <div key={group.map((s) => s.id).join('+')} className="flex flex-col gap-1 rounded-md border border-dashed border-border p-2">
-            <span className="text-xs font-medium text-muted-foreground">Run in parallel · {group.length} steps</span>
+            <span className="text-xs font-medium text-muted-foreground">{header}</span>
             <div className="grid gap-2 sm:grid-cols-2">
               {group.map((step) => (
                 <StepCard key={step.id} step={step} number={numberOf.get(step.id)!} state={runtime.stepStates[step.id]} groups={groups} toolCatalog={toolCatalog} onSetModel={setStepModel} onSetTools={setStepTools} />
               ))}
             </div>
           </div>
-        ),
-      )}
+        );
+      })}
     </div>
   );
 }
@@ -75,8 +91,10 @@ interface StepCardProps {
 }
 
 function StepCard({ step, number, state, groups, toolCatalog, onSetModel, onSetTools }: StepCardProps) {
+  // A branch not taken is greyed so the path that ran stands out.
+  const skipped = state?.status === 'skipped';
   return (
-    <Card className="flex flex-col gap-1 p-3">
+    <Card className={`flex flex-col gap-1 p-3${skipped ? ' opacity-60' : ''}`}>
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground">{number}.</span>
@@ -85,6 +103,12 @@ function StepCard({ step, number, state, groups, toolCatalog, onSetModel, onSetT
         </div>
         {state && <Badge variant={stepStatusVariant(state.status)}>{state.status}</Badge>}
       </div>
+      {(step.produces?.length || step.when) && (
+        <div className="flex flex-wrap items-center gap-1">
+          {step.produces?.length ? <Badge variant="outline" className="text-[10px] font-normal">decides {step.produces.join(', ')}</Badge> : null}
+          {step.when ? <Badge variant="outline" className="text-[10px] font-normal">{guardLabel(step.when)}</Badge> : null}
+        </div>
+      )}
       <p className="whitespace-pre-wrap text-xs text-muted-foreground">{step.instructions}</p>
       {step.expectedOutcome && (
         <p className="text-xs text-muted-foreground">
