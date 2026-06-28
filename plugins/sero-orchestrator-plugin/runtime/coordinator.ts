@@ -21,16 +21,15 @@ import { DEFAULT_STATE } from '../shared/defaults';
 import type { OrchestratorHost } from './host';
 import { buildDraftLoop } from './loop-factory';
 import { activate, disable, enable, type TransitionResult } from './lifecycle';
-import { planLoop } from './planner';
-import { extractSchedule } from './schedule-extractor';
-import { applyLoopContext, applyPlanningResponse, applyStepModel, applyStepTools, planIsActivatable } from './plan-mapping';
+import { applyLoopContext, applyStepModel, applyStepTools, planIsActivatable } from './plan-mapping';
+import { runPlanningFlow } from './planning-flow';
 import { RunEngine } from './run-engine';
 import type { EngineDeps } from './engine-types';
 import { reconcileAll } from './reconcile';
-import { loopArtifactDir } from './artifacts';
 import { applyRecovery, retryStuckLoop } from './recovery-apply';
 import { buildRevisedLoop } from './revise';
 import { handleReflectAction } from './reflect-actions';
+import { applyAnswerInput } from './input-actions';
 import { evaluateCronTriggers, fireEventTriggers, isRecurring, rearmLoop, reenableSchedule } from './scheduler';
 import { computeReadySteps, hasRunningSteps } from './readiness';
 import type { PlanRevision, RecoveryDecision } from '../shared/types';
@@ -62,6 +61,8 @@ export class Coordinator {
       if (loop.status !== 'active') continue;
       // Don't overlap: skip a loop whose previous iteration is still running.
       if (loop.runtime.activeRunId) continue;
+      // Parked on a human question: hold off scheduled fires until it's answered.
+      if (loop.runtime.pendingInput) continue;
       const { loop: updated, due } = evaluateCronTriggers(loop, nowMs);
       if (updated !== loop) await this.replaceLoop(updated);
       if (due) dueLoopIds.push(loop.id);
@@ -136,6 +137,8 @@ export class Coordinator {
       case 'reflect_workspace':
       case 'choose_suggestion':
         return handleReflectAction(this.host, action);
+      case 'answer_input':
+        return this.answerInput(action);
       case 'delete':
         return this.delete(action.loopId, action.deleteBranch);
       default: {
@@ -175,60 +178,33 @@ export class Coordinator {
   ): Promise<OrchestratorActionResult> {
     if (!prompt.trim()) return { ok: false, error: 'A loop prompt is required.' };
     // Build the draft first so we have a stable id and parentSessionId for the
-    // planning model call.
+    // planning model call, then run the shared planning flow (plan / clarifying
+    // questions / blocked draft).
     const draft = buildDraftLoop(this.host, { prompt, title, options });
-
-    // Planner picks each step's tools from the real catalog (fail-soft to []).
-    const toolCatalog = await this.host.listToolCatalog().catch(() => []);
-
-    const outcome = await planLoop(this.host, {
-      prompt,
-      parentSessionId: draft.runtime.parentSessionId,
-      useManagedWorktree: draft.workspace.useManagedWorktree,
-      toolCatalog,
-    });
-    // A focused, single-purpose schedule call is far more reliable than asking
-    // the planner to remember to emit a trigger. Run it after planning (not in
-    // parallel) so it never blocks plan authoring and reads cleanly.
-    const schedule = await extractSchedule(this.host, {
-      prompt,
-      parentSessionId: draft.runtime.parentSessionId,
-      loopId: draft.id,
-    });
-
-    let loop: Loop;
-    if (outcome.ok) {
-      loop = applyPlanningResponse(this.host, draft, outcome.response, options, title, schedule);
-      this.host.log(`Created loop ${loop.id} with ${loop.plan.steps.length} step(s)`);
-    } else {
-      // Store an invalid plan as a blocked draft with clear validation errors.
-      // Retain the raw model reply so the failure is diagnosable, not a black box.
-      const rawRef = outcome.modelResponses.length
-        ? await this.host.writeArtifact(
-            `${loopArtifactDir(draft.id)}/planner.txt`,
-            outcome.modelResponses.join('\n\n--- next attempt ---\n\n'),
-          )
-        : undefined;
-      const reason = rawRef
-        ? `${outcome.errors.join('; ')} — raw model reply saved to ${rawRef}`
-        : outcome.errors.join('; ');
-      loop = {
-        ...draft,
-        summary: 'Plan generation failed validation.',
-        runtime: {
-          ...draft.runtime,
-          block: { kind: 'validation-error', reason, createdAt: this.host.now() },
-        },
-      };
-      this.host.log(`Created blocked draft ${loop.id}: ${reason}`);
-    }
-
+    const loop = await runPlanningFlow(this.host, draft, { prompt, options, title });
     await this.appendLoop(loop);
 
-    if (outcome.ok && options?.activate) {
+    // Activate-after-create only when a valid plan landed (no pending question,
+    // no validation block).
+    if (options?.activate && !loop.runtime.pendingInput && !loop.runtime.block) {
       return this.activateLoop(loop.id);
     }
     return { ok: true, loop };
+  }
+
+  /**
+   * Records the user's answer to a loop's pending question. A step question
+   * resumes the run (the asking step re-runs with the answer in its notes); a
+   * planner question re-runs the planner with the answers folded in.
+   */
+  async answerInput(action: Extract<OrchestratorAction, { kind: 'answer_input' }>): Promise<OrchestratorActionResult> {
+    const result = await applyAnswerInput(this.host, action);
+    if (!result.ok || !result.loop) return { ok: result.ok, error: result.error, loop: result.loop };
+    await this.replaceLoop(result.loop);
+    if (result.resume && result.loop.status === 'active') {
+      return this.runNext(result.loop.id, result.loop);
+    }
+    return { ok: true, loop: result.loop };
   }
 
   /** Activates a draft only after confirming its plan is structurally valid. */
@@ -337,6 +313,9 @@ export class Coordinator {
     if (loop.status !== 'active') {
       return { ok: false, error: `Loop ${loopId} is "${loop.status}", not active.` };
     }
+    if (loop.runtime.pendingInput) {
+      return { ok: false, error: 'This loop is waiting for you to answer a question.', loop };
+    }
     const passSettled =
       !loop.runtime.activeRunId && !hasRunningSteps(loop) && computeReadySteps(loop).length === 0;
     if (passSettled && isRecurring(loop)) return this.runFreshPass(loop);
@@ -375,6 +354,10 @@ export class Coordinator {
     if (!loop) return { ok: false, error: `Loop not found: ${loopId}` };
     if (loop.status !== 'active') {
       return { ok: false, error: `Loop ${loopId} is "${loop.status}", not active.` };
+    }
+    // Parked on a human question: nothing runs until the user answers it.
+    if (loop.runtime.pendingInput) {
+      return { ok: false, error: 'This loop is waiting for you to answer a question.', loop };
     }
     if (!this.engine) return { ok: true, loop };
     // Track an abort handle so `disable` can cancel this run's subagents mid-flight.

@@ -5,6 +5,7 @@
 
 import type { ContextOverrides } from '@sero-ai/common';
 import type {
+  InputAnswer,
   Loop,
   LoopLimits,
   LoopRun,
@@ -38,6 +39,7 @@ export type OrchestratorAction =
   | { kind: 'reflect'; loopId: string }
   | { kind: 'reflect_workspace' }
   | { kind: 'choose_suggestion'; loopId: string; suggestionId: string; decision: 'approve' | 'reject'; rejectionReason?: string }
+  | { kind: 'answer_input'; loopId: string; requestId: string; answers: InputAnswer[] }
   | { kind: 'delete'; loopId: string; deleteBranch?: boolean };
 
 /** Per-loop result of a workspace-wide reflection sweep. */

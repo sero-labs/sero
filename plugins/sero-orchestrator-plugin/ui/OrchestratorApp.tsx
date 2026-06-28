@@ -63,6 +63,10 @@ export function OrchestratorApp() {
       params.decision = action.decision;
       if (action.rejectionReason !== undefined) params.rejectionReason = action.rejectionReason;
     }
+    if (action.kind === 'answer_input') {
+      params.requestId = action.requestId;
+      params.answersJson = JSON.stringify(action.answers);
+    }
     if (action.kind === 'revise' && action.prompt) params.prompt = action.prompt;
     if (action.kind === 'delete') params.deleteBranch = action.deleteBranch;
     if (action.kind === 'set_step_model') {

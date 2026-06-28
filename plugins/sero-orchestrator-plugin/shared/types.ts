@@ -10,6 +10,8 @@
 import type { AppRuntimePullRequestSummary, ContextOverrides } from '@sero-ai/common';
 import type { LoopWorkspaceRuntime, LoopWorkspaceSettings, ResolvedWorkspaceContext } from './workspace-types';
 import type { LoopInsight, LoopSuggestion } from './reflection-types';
+import type { AnsweredInput, HumanQuestion, PendingInput } from './human-input-types';
+import type { CompletionSignal, RecoveryDecision, RecoveryDecisionKind, StepCompletion } from './recovery-types';
 
 export type { AppRuntimePullRequestSummary, ContextOverrides };
 
@@ -36,6 +38,17 @@ export type {
   SuggestionStatus,
 } from './reflection-types';
 
+// Human-input (ask-the-user) types live in human-input-types.ts (500-LOC limit);
+// re-exported here so existing imports from './types' keep resolving.
+export type {
+  HumanChoice,
+  HumanQuestion,
+  PendingInput,
+  InputAnswer,
+  AnsweredInput,
+  ClarifyingResponse,
+} from './human-input-types';
+
 // ── Top-level state ─────────────────────────────────────────
 
 export interface OrchestratorState {
@@ -52,6 +65,8 @@ export interface LoopSummary {
   prompt: string;
   /** Count of pending reflection suggestions — drives the loop-list badge. */
   pendingSuggestions?: number;
+  /** Count of open questions the loop is waiting on — drives the input badge. */
+  pendingInput?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -97,6 +112,8 @@ export interface Loop {
   insights?: LoopInsight[];
   /** History-driven improvements pending the user's approve/reject. */
   suggestions?: LoopSuggestion[];
+  /** Resolved human-input requests (planner clarifications + step questions). */
+  answeredInputs?: AnsweredInput[];
   createdAt: string;
   updatedAt: string;
 }
@@ -223,6 +240,12 @@ export interface LoopRuntimeState {
   dueAgain?: boolean;
   completion?: CompletionSignal;
   block?: LoopBlock;
+  /**
+   * A durable question the loop is waiting on. While set, the loop is parked: no
+   * steps start and scheduled fires hold off until the user answers (no timeout,
+   * no default). Cleared by the `answer_input` action.
+   */
+  pendingInput?: PendingInput;
   lastRunAt?: string;
   /**
    * Open PRs this loop has raised — branch name matches the loop id. Refreshed at
@@ -385,56 +408,23 @@ export interface StepOutcome {
   summary: string;
   variables?: Record<string, unknown>;
   completion?: StepCompletion;
-}
-
-// ── Recovery ────────────────────────────────────────────────
-
-export type RecoveryDecisionKind =
-  | 'retry-step'
-  | 'revise-step'
-  | 'revise-plan'
-  | 'skip-step'
-  | 'accept-step'
-  | 'wait'
-  | 'block-loop';
-
-export interface RecoveryDecision {
-  id: string;
-  stepId: string;
-  failedAttemptId: string;
-  decision: RecoveryDecisionKind;
-  reason: string;
-  revisedStep?: LoopStepDefinition;
-  revisedPlan?: LoopPlan;
-  /** Set for accept-step: the success outcome the step should have reported. */
-  acceptedOutcome?: StepOutcome;
-  createdAt: string;
-  modelResponsePath?: string;
-}
-
-// ── Completion ──────────────────────────────────────────────
-
-export interface CompletionSignal {
-  status: 'complete' | 'blocked';
-  /** For a scheduled (recurring) loop: stop the schedule permanently (success criteria met). */
-  final?: boolean;
-  sourceStepId: string;
-  sourceAttemptId: string;
-  reason: string;
-  createdAt: string;
-  modelResponsePath?: string;
-}
-
-export interface StepCompletion {
-  status: 'complete' | 'blocked';
-  reason: string;
   /**
-   * Recurring loops only: set true when the loop's overall success criteria is
-   * met, to stop the schedule for good. Omitted/false means "this iteration is
-   * done" — the loop stays scheduled and runs again on its next fire.
+   * The step needs the user to answer before it can finish. When present, the
+   * loop parks (the step re-runs with the answer once the user responds) instead
+   * of applying this outcome or running recovery.
    */
-  final?: boolean;
+  questions?: HumanQuestion[];
 }
+
+// ── Recovery & completion ───────────────────────────────────
+// Recovery decision and completion signal types live in recovery-types.ts
+// (500-LOC limit); re-exported here so existing imports from './types' resolve.
+export type {
+  RecoveryDecisionKind,
+  RecoveryDecision,
+  CompletionSignal,
+  StepCompletion,
+} from './recovery-types';
 
 // ── Observation ─────────────────────────────────────────────
 

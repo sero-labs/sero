@@ -15,9 +15,12 @@ interface LoopControlsProps {
 /** Lifecycle controls. Each button maps to exactly one coordinator action. */
 export function LoopControls({ loop, busy, canReflect, onAction }: LoopControlsProps) {
   const { id, status } = loop;
+  // While parked on a human question, nothing can run until it is answered — so
+  // Activate / Run next / Retry are suppressed (the question card is the action).
+  const awaitingInput = !!loop.runtime.pendingInput;
   // Retry is offered whenever the loop has something to recover (a blocked/failed
   // step, a runtime block, or a blocked completion) and no run is in flight.
-  const canRetry = !loop.runtime.activeRunId && isRetryableLoop(loop);
+  const canRetry = !awaitingInput && !loop.runtime.activeRunId && isRetryableLoop(loop);
   // Keyed by loop id so switching loops mid-confirm never targets the wrong one.
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deleteBranch, setDeleteBranch] = useState(false);
@@ -36,13 +39,13 @@ export function LoopControls({ loop, busy, canReflect, onAction }: LoopControlsP
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      {status === 'draft' && (
+      {status === 'draft' && !awaitingInput && (
         <Button size="sm" disabled={busy} onClick={() => onAction({ kind: 'activate', loopId: id })}>
           <Zap className="mr-1 h-3.5 w-3.5" /> Activate
         </Button>
       )}
       {status === 'active' && (
-        <Button size="sm" variant="outline" disabled={busy} onClick={() => onAction({ kind: 'run_next', loopId: id })}>
+        <Button size="sm" variant="outline" disabled={busy || awaitingInput} onClick={() => onAction({ kind: 'run_next', loopId: id })}>
           <StepForward className="mr-1 h-3.5 w-3.5" /> Run next
         </Button>
       )}

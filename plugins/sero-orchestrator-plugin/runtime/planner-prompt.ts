@@ -9,7 +9,13 @@ import { DEFAULT_TOOLS } from '../shared/constants';
 
 export const PLANNING_SYSTEM_PROMPT = `You are the PLANNER for Sero Orchestrator. You do NOT make any change yourself — a separate background agent will carry out each step you author. Your only job is to turn the user's prompt into a durable step plan. Not having edit/file tools is expected; never refuse or describe the edit instead.
 
-Every prompt gets a plan, even a tiny one — a single background-agent step is a complete plan. Never refuse for being "too small".
+Every prompt gets a plan, even a tiny one — a single background-agent step is a complete plan. Never refuse for being "too small". DEFAULT TO PLANNING: make reasonable assumptions and proceed rather than asking.
+
+ASKING THE USER FIRST (rare). Only when the request is missing information you genuinely cannot proceed without — and cannot reasonably assume — may you ask the user instead of planning. In that case return ONLY this object and NO "plan":
+
+{ "clarifyingQuestions": [ { "prompt": "<the one thing you must know>", "choices": ["<option>", "<option>"]? } ] }
+
+Each question needs a "prompt"; "choices" (a string array) is optional and the user can always answer free-text. Ask the fewest questions that unblock you (usually one). Do NOT ask about mechanics you are told to handle yourself (committing, PRs, marking complete, worktree vs root) or anything you can discover by inspecting the workspace — that is the background agent's job, not a question. When the user's answers are provided below, use them and return a normal plan; do not ask again unless something is still genuinely missing.
 
 Be PRAGMATIC about how many steps you create. Prefer the fewest steps that get the job done well. Combine work that one agent would naturally do together in a single sitting — e.g. for a small change, "inspect the code and make the edit" is ONE step, not two. Do not split a task into a granular step per action when a single step covers it. Keep steps separate only when there is a real reason: a true ordering dependency, a meaningfully different kind of work (e.g. making a change vs. verifying it vs. delivering it), or steps that can run in parallel. A typical small change needs only a few steps (make the change → verify → deliver → finalize), not eight.
 
@@ -98,21 +104,32 @@ ${lines.join('\n')}
 `;
 }
 
+/** Renders answered clarifying questions so a re-plan uses the user's answers. */
+export function buildClarificationsBlock(clarifications: { prompt: string; answer: string }[]): string {
+  if (clarifications.length === 0) return '';
+  const lines = clarifications.map((c) => `- Q: ${c.prompt}\n  A: ${c.answer}`);
+  return `The user has answered your earlier questions — use these answers and return a normal plan (do not ask again unless something is still genuinely missing):
+${lines.join('\n')}
+
+`;
+}
+
 export function buildPlanningTask(
   prompt: string,
   useManagedWorktree: boolean,
   toolCatalog: PlanningToolInfo[] = [],
+  clarifications: { prompt: string; answer: string }[] = [],
 ): string {
   return `A background agent will carry out the work below. Author the step plan it should follow — do not perform the work yourself, and do not ask the user to specify mechanics like committing, opening a PR, or marking the loop complete. Add those yourself per the rules.
 
 Goal:
 ${prompt}
 
-If this goal mentions any cadence or repetition ("every N minutes", "hourly", "each morning", "periodically", "until …"), the loop is ALREADY scheduled to re-run automatically — author exactly ONE pass of the work. Do NOT add a step that waits, sleeps, delays, polls on a timer, or repeats/loops the plan; such a step is wrong. Process one item per run (e.g. resolve ONE issue). You do NOT need to detect or handle the goal's stop condition — that is judged separately after each run.
+${buildClarificationsBlock(clarifications)}If this goal mentions any cadence or repetition ("every N minutes", "hourly", "each morning", "periodically", "until …"), the loop is ALREADY scheduled to re-run automatically — author exactly ONE pass of the work. Do NOT add a step that waits, sleeps, delays, polls on a timer, or repeats/loops the plan; such a step is wrong. Process one item per run (e.g. resolve ONE issue). You do NOT need to detect or handle the goal's stop condition — that is judged separately after each run.
 
 ${buildToolCatalogBlock(toolCatalog)}${useManagedWorktree ? WORKTREE_DELIVERY : WORKSPACE_ROOT_DELIVERY}
 
-Return the PlanningResponse JSON now (one object, top-level "plan", no prose).`;
+Return the PlanningResponse JSON now (one object, top-level "plan", no prose) — or the clarifyingQuestions object if you are genuinely blocked.`;
 }
 
 export function buildRepairTask(prompt: string, previous: string, errors: string[]): string {

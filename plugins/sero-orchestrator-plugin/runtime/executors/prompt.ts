@@ -9,6 +9,7 @@
 import type { Loop, LoopStepDefinition, StepCompletion, StepOutcome } from '../../shared/types';
 import { extractJson } from '../schema';
 import { describeValue, isRecord, type ParseResult } from '../structured-call';
+import { parseHumanQuestions } from '../human-input';
 
 const STEP_STATUSES: readonly StepOutcome['status'][] = ['succeeded', 'failed', 'blocked', 'skipped', 'needs-revision'];
 
@@ -35,7 +36,21 @@ Rules for that JSON:
 - Choosing the status: use "skipped" when the step's precondition is not met or it is simply not applicable (e.g. an "if available" step whose condition is false) — that is a normal, non-failing outcome, NOT "blocked". Use "blocked" only when the step SHOULD run but cannot make progress and needs a human. Use "failed" when the work was attempted but did not succeed.
 - "variables" is optional — record the values/notes later steps will need (see "USE THE CONTEXT" above); "notes" accumulates as a shared scratchpad.
 - Include "completion" ONLY if THIS step's job is to decide the whole loop is done; its "status" is "complete" or "blocked". Omit it otherwise.
-- Put nothing after the closing fence.`;
+- Put nothing after the closing fence.
+
+ASKING THE USER. If you genuinely cannot finish this step without a decision or information only the user can give — an irreversible/destructive choice, an ambiguous requirement, a missing value, or an explicit "confirm before doing X" — you may ask instead of guessing. Add a "questions" array to your StepOutcome and set "status" to "needs-revision":
+
+\`\`\`json
+{
+  "status": "needs-revision",
+  "summary": "waiting on the user to confirm whether to drop the legacy table",
+  "questions": [
+    { "prompt": "The migration drops invoices_old (12,400 rows). Drop it, or keep it and only add the new tables?", "choices": ["Drop it", "Keep it, add new tables only"] }
+  ]
+}
+\`\`\`
+
+The loop PAUSES until the user answers; this step then runs again with their answer added to the notes. Use this sparingly — only when proceeding without the answer would be wrong or unsafe. Each question needs a "prompt"; "choices" (a string array of quick options) is optional, and the user can always type a free-text answer. Record any work you already did in "variables"/"notes" before asking, since the step restarts from the top on resume. Do NOT ask for things you can find or decide yourself.`;
 
 /** Observations relevant to a step: the summaries of its dependencies' outcomes. */
 function dependencyContext(loop: Loop, step: LoopStepDefinition): string {
@@ -124,6 +139,10 @@ export function parseStepOutcomeStrict(value: unknown): ParseResult<StepOutcome>
   const outcome: StepOutcome = { status: status as StepOutcome['status'], summary: value.summary as string };
   if (isRecord(value.variables)) outcome.variables = value.variables as Record<string, unknown>;
   if (completion) outcome.completion = completion;
+  // Lenient: a malformed `questions` is simply dropped (the step proceeds) rather
+  // than failing the whole envelope — the model decides whether to ask at all.
+  const questions = parseHumanQuestions(value.questions);
+  if (questions) outcome.questions = questions;
   return { ok: true, value: outcome };
 }
 

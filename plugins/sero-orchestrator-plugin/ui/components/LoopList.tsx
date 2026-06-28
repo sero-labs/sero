@@ -61,6 +61,14 @@ export function LoopList({ loops, selectedId, onSelect, onNew }: LoopListProps) 
             <div className="flex items-center justify-between gap-2">
               <span className="truncate font-medium">{loop.title}</span>
               <div className="flex shrink-0 items-center gap-1.5">
+                {loop.pendingInput ? (
+                  <span
+                    title={`${loop.pendingInput} question(s) waiting for your answer`}
+                    className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary/15 px-1 text-[10px] font-semibold text-primary"
+                  >
+                    {loop.pendingInput}
+                  </span>
+                ) : null}
                 {loop.pendingSuggestions ? (
                   <span
                     title={`${loop.pendingSuggestions} suggestion(s) to review`}

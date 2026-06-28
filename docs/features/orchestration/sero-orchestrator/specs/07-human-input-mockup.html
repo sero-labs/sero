@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Orchestrator — Human-input mockup</title>
+<style>
+  :root{
+    --bg:#0b0c10; --panel:#111318; --panel2:#15171d; --border:#23262e;
+    --fg:#e7e9ee; --muted:#9aa1ad; --faint:#6b7280;
+    --accent:#7c9cff; --accent-bg:#1b2440; --accent-bd:#33457e;
+    --amber:#e0a23b; --amber-bg:#2a2113;
+    --green:#46b277; --green-bg:#13251b;
+    --red:#e06a6a; --red-bg:#2a1717;
+    --radius:8px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+    font:14px/1.5 ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;}
+  .app{height:100vh;display:flex;flex-direction:column}
+
+  /* ── header ───────────────────────────── */
+  header{display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);
+    padding:10px 16px;background:var(--panel)}
+  header .inf{font-size:18px;color:var(--muted)}
+  header h1{font-size:15px;font-weight:600;margin:0}
+  header .spacer{margin-left:auto}
+  .count{color:var(--muted);font-size:12px}
+  .btn{border:1px solid var(--border);background:var(--panel2);color:var(--fg);
+    border-radius:6px;padding:5px 11px;font-size:13px;cursor:pointer;display:inline-flex;
+    align-items:center;gap:6px}
+  .btn:hover{border-color:#33384353}
+  .btn.primary{background:var(--accent-bg);border-color:var(--accent-bd);color:#cdd9ff}
+  .btn.ghost{background:transparent}
+  .btn[disabled]{opacity:.4;cursor:not-allowed}
+  .btn.sm{padding:3px 9px;font-size:12px}
+
+  /* ── body split ───────────────────────── */
+  .body{flex:1;display:flex;min-height:0}
+
+  /* ── loop list ────────────────────────── */
+  .list{width:280px;border-right:1px solid var(--border);background:var(--panel);
+    display:flex;flex-direction:column;min-height:0}
+  .list .new{margin:10px;justify-content:center}
+  .list .scroll{overflow:auto;padding:0 8px 8px}
+  .loop{display:flex;align-items:center;gap:8px;padding:9px 10px;border-radius:6px;cursor:pointer}
+  .loop:hover{background:var(--panel2)}
+  .loop.active{background:#171a22;outline:1px solid #2a2f3a}
+  .loop .name{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .dot{width:8px;height:8px;border-radius:50%;flex:none}
+  .dot.active{background:#46b277}
+  .dot.paused{background:#9aa1ad}
+  .dot.complete{background:#7c9cff}
+  .dot.blocked{background:#e06a6a}
+  .dot.waiting{background:var(--accent);box-shadow:0 0 0 3px var(--accent-bg)}
+  /* the new bit: a "needs your answer" badge (blue, distinct from amber suggestions) */
+  .ask-badge{flex:none;min-width:18px;height:18px;padding:0 6px;border-radius:9px;
+    background:var(--accent-bg);color:#cdd9ff;border:1px solid var(--accent-bd);
+    font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center}
+
+  /* ── detail ───────────────────────────── */
+  .detail{flex:1;min-width:0;overflow:auto;padding:16px 20px}
+  .crumb{color:var(--faint);font-size:12px;margin-bottom:6px}
+  .title-row{display:flex;align-items:center;gap:10px;margin-bottom:4px}
+  .title-row h2{margin:0;font-size:17px}
+  .pill{font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--border);color:var(--muted)}
+  .pill.waiting{color:#cdd9ff;border-color:var(--accent-bd);background:var(--accent-bg)}
+  .objective{color:var(--muted);font-size:13px;margin:2px 0 14px}
+
+  .controls{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}
+
+  .card{border:1px solid var(--border);background:var(--panel);border-radius:var(--radius);
+    margin-bottom:14px;overflow:hidden}
+  .card.ask{border-color:var(--accent-bd)}
+  .card .hd{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--border);
+    background:var(--panel2)}
+  .card.ask .hd{background:var(--accent-bg);border-color:var(--accent-bd)}
+  .card .hd h3{margin:0;font-size:13.5px;font-weight:600}
+  .card .hd .n{color:#cdd9ff;font-weight:600}
+  .card .bd{padding:6px 14px 14px}
+
+  .q{border:1px solid var(--border);border-radius:7px;padding:12px;margin-top:10px;background:var(--panel2)}
+  .q .src{font-size:11.5px;color:var(--faint);margin-bottom:6px}
+  .q .src b{color:var(--muted);font-weight:600}
+  .q .prompt{font-size:13.5px;color:var(--fg);margin:0 0 10px}
+  /* free-text answer */
+  .answer{width:100%;background:var(--bg);border:1px solid var(--accent-bd);border-radius:6px;
+    color:var(--fg);padding:8px 10px;font-size:13px;font-family:inherit;resize:vertical;min-height:58px}
+  .answer::placeholder{color:var(--faint)}
+  /* optional offered choices = quick-pick buttons */
+  .choices{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 0}
+  .choice{font-size:12.5px;padding:5px 11px;border-radius:6px;background:var(--panel);
+    border:1px solid var(--border);color:var(--fg);cursor:pointer}
+  .choice:hover{border-color:var(--accent-bd)}
+  .choice.picked{background:var(--accent-bg);border-color:var(--accent-bd);color:#cdd9ff}
+  .q .send{display:flex;justify-content:flex-end;margin-top:11px}
+
+  .meta{color:var(--faint);font-size:11.5px;margin-top:10px;border-top:1px dashed var(--border);padding-top:9px}
+
+  /* plan preview (light) */
+  .steps{display:flex;flex-direction:column;gap:6px}
+  .step{display:flex;align-items:center;gap:10px;border:1px solid var(--border);border-radius:6px;padding:8px 11px;background:var(--panel)}
+  .step .idx{color:var(--faint);font-size:12px;width:14px}
+  .step .st{margin-left:auto;font-size:11px;color:var(--muted)}
+  .step.asking{outline:1px solid var(--accent-bd);background:#0f1422}
+  .step.asking .flag{font-size:10.5px;color:#cdd9ff;border:1px solid var(--accent-bd);border-radius:4px;padding:1px 6px;background:var(--accent-bg)}
+
+  .note{color:var(--faint);font-size:11.5px;margin-top:6px}
+  .divide{margin:26px 0 10px;color:var(--faint);font-size:12px;text-transform:uppercase;letter-spacing:.06em;
+    border-top:1px solid var(--border);padding-top:14px}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <span class="inf">∞</span>
+    <h1>Sero Orchestrator</h1>
+    <span class="spacer"></span>
+    <button class="btn primary">✦ Reflect All</button>
+    <span class="count">6 loop(s)</span>
+  </header>
+
+  <div class="body">
+
+    <!-- LEFT: loop list. A parked loop shows a blue "needs your answer" badge. -->
+    <div class="list">
+      <button class="btn ghost new">+ New loop</button>
+      <div class="scroll">
+        <div class="loop active">
+          <span class="dot waiting"></span>
+          <span class="name">DB migration helper</span>
+          <span class="ask-badge">1</span>
+        </div>
+        <div class="loop">
+          <span class="dot active"></span>
+          <span class="name">Daily PR review</span>
+        </div>
+        <div class="loop">
+          <span class="dot active"></span>
+          <span class="name">Counter increment</span>
+        </div>
+        <div class="loop">
+          <span class="dot paused"></span>
+          <span class="name">Inbox triage</span>
+        </div>
+        <div class="loop">
+          <span class="dot waiting"></span>
+          <span class="name">Landing-page copy</span>
+          <span class="ask-badge">2</span>
+        </div>
+        <div class="loop">
+          <span class="dot complete"></span>
+          <span class="name">Dependency upgrades</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT -->
+    <div class="detail">
+      <div class="crumb">DB migration helper</div>
+      <div class="title-row">
+        <h2>DB migration helper</h2>
+        <span class="pill waiting">waiting for you</span>
+      </div>
+      <p class="objective">Write and apply the schema migration for the new billing tables.</p>
+
+      <div class="controls">
+        <button class="btn" disabled>▸ Run next</button>
+        <button class="btn" disabled>⟳ Retry</button>
+        <button class="btn primary">✦ Reflect</button>
+        <button class="btn ghost">Refine…</button>
+        <button class="btn ghost">Disable</button>
+      </div>
+
+      <!-- ███ SCENARIO A — a STEP paused to ask the user ███ -->
+      <div class="card ask">
+        <div class="hd">
+          <h3>Needs your input</h3>
+          <span class="n">1 question</span>
+        </div>
+        <div class="bd">
+          <div class="q">
+            <div class="src">Asked by step <b>“apply-migration”</b> · the loop is paused until you answer</div>
+            <p class="prompt">The migration drops the legacy <code>invoices_old</code> table, which still has
+              12,400 rows. Do you want me to drop it, or keep it and only add the new tables?</p>
+
+            <!-- optional offered choices: quick picks the model supplied -->
+            <div class="choices">
+              <span class="choice picked">Drop it</span>
+              <span class="choice">Keep it, add new tables only</span>
+            </div>
+
+            <!-- free text is always available -->
+            <textarea class="answer" placeholder="Or type your own answer…">Drop it — it was archived to S3 last week.</textarea>
+
+            <div class="send">
+              <button class="btn primary sm">Send answer &amp; continue</button>
+            </div>
+          </div>
+          <p class="meta">Your answer is added to the loop’s shared notes and the step runs again with it in
+            view. Nothing happens until you answer — the loop won’t time out or pick a default, and scheduled
+            runs hold off while a question is waiting.</p>
+        </div>
+      </div>
+
+      <!-- plan preview: the asking step is flagged -->
+      <div class="card">
+        <div class="hd"><h3>Plan</h3></div>
+        <div class="bd">
+          <div class="steps">
+            <div class="step"><span class="idx">1.</span><span>read-schema</span><span class="st">succeeded</span></div>
+            <div class="step"><span class="idx">2.</span><span>write-migration</span><span class="st">succeeded</span></div>
+            <div class="step asking"><span class="idx">3.</span><span>apply-migration</span><span class="flag">waiting on you</span><span class="st">paused</span></div>
+            <div class="step"><span class="idx">4.</span><span>verify</span><span class="st">pending</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ███ SCENARIO B — the PLANNER asked before the loop can start ███ -->
+      <div class="divide">Other entry point — the planner asks at create time</div>
+
+      <div class="crumb">Landing-page copy</div>
+      <div class="title-row">
+        <h2>Landing-page copy</h2>
+        <span class="pill waiting">needs answers to start</span>
+      </div>
+      <p class="objective">Rewrite the homepage hero and the three feature blurbs.</p>
+
+      <div class="card ask">
+        <div class="hd">
+          <h3>The planner needs a few answers first</h3>
+          <span class="n">2 questions</span>
+        </div>
+        <div class="bd">
+          <div class="q">
+            <div class="src">Question 1 of 2</div>
+            <p class="prompt">Who is the primary audience for this copy?</p>
+            <div class="choices">
+              <span class="choice">Developers</span>
+              <span class="choice picked">Engineering managers</span>
+              <span class="choice">Founders</span>
+            </div>
+            <textarea class="answer" placeholder="Or type your own answer…"></textarea>
+          </div>
+          <div class="q">
+            <div class="src">Question 2 of 2</div>
+            <p class="prompt">Is there an existing voice/tone guide I should follow? If so, where is it?</p>
+            <textarea class="answer" placeholder="Type your answer…">docs/brand/voice.md — keep it plain and concrete.</textarea>
+          </div>
+          <div class="send" style="justify-content:flex-end;margin-top:6px">
+            <button class="btn primary sm">Submit answers &amp; build the plan</button>
+          </div>
+          <p class="meta">The loop is created but not started. Your answers are handed back to the planner,
+            which then builds the step plan. You still review and activate it as usual.</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+</body>
+</html>

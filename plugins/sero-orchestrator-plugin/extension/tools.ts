@@ -13,6 +13,7 @@ import type { Coordinator } from '../runtime/coordinator';
 import type {
   ContextOverrides,
   CreateLoopOptions,
+  InputAnswer,
   OrchestratorAction,
   OrchestratorActionResult,
   RecoveryDecision,
@@ -36,6 +37,7 @@ export const ORCHESTRATOR_ACTIONS = [
   'reflect',
   'reflect_workspace',
   'choose_suggestion',
+  'answer_input',
   'delete',
 ] as const;
 
@@ -60,6 +62,8 @@ export const OrchestratorToolParams = Type.Object({
   suggestionId: Type.Optional(Type.String({ description: 'For choose_suggestion: the reflection suggestion id to approve/reject' })),
   decision: Type.Optional(StringEnum(SUGGESTION_DECISIONS, { description: 'For choose_suggestion: approve (apply the proposed plan) or reject' })),
   rejectionReason: Type.Optional(Type.String({ description: 'For choose_suggestion reject: why, so the same idea is not re-proposed' })),
+  requestId: Type.Optional(Type.String({ description: 'For answer_input: the pending question request id (loop.runtime.pendingInput.id)' })),
+  answersJson: Type.Optional(Type.String({ description: 'For answer_input: JSON array of answers [{ questionId, choiceId?, text? }] — answer every question with a picked choiceId and/or free text' })),
   deleteBranch: Type.Optional(Type.Boolean({ description: 'For delete: also delete the loop\'s local git branch (default false — branch is kept)' })),
 });
 
@@ -80,6 +84,8 @@ export interface OrchestratorToolParamsShape {
   suggestionId?: string;
   decision?: (typeof SUGGESTION_DECISIONS)[number];
   rejectionReason?: string;
+  requestId?: string;
+  answersJson?: string;
   deleteBranch?: boolean;
 }
 
@@ -166,6 +172,20 @@ export function buildAction(params: OrchestratorToolParamsShape): OrchestratorAc
       if (!params.decision) return { error: 'choose_suggestion requires a decision (approve|reject)' };
       return { kind: 'choose_suggestion', loopId: params.loopId, suggestionId: params.suggestionId, decision: params.decision, rejectionReason: params.rejectionReason };
     }
+    case 'answer_input': {
+      if (!params.loopId) return { error: 'answer_input requires a loopId' };
+      if (!params.requestId) return { error: 'answer_input requires a requestId' };
+      if (!params.answersJson) return { error: 'answer_input requires answersJson' };
+      let answers: InputAnswer[];
+      try {
+        const parsed = JSON.parse(params.answersJson) as unknown;
+        if (!Array.isArray(parsed)) return { error: 'answersJson must be a JSON array of answers' };
+        answers = parsed as InputAnswer[];
+      } catch {
+        return { error: 'answersJson is not valid JSON' };
+      }
+      return { kind: 'answer_input', loopId: params.loopId, requestId: params.requestId, answers };
+    }
     case 'delete':
       if (!params.loopId) return { error: 'delete requires a loopId' };
       return { kind: 'delete', loopId: params.loopId, deleteBranch: params.deleteBranch };
@@ -196,6 +216,8 @@ function summarize(action: OrchestratorAction, res: OrchestratorActionResult): s
       return `Reflected ${res.workspaceReflection?.reflected ?? 0} loop(s) — ${res.workspaceReflection?.suggestionCount ?? 0} suggestion(s) for review.`;
     case 'choose_suggestion':
       return `Suggestion ${action.decision === 'approve' ? 'approved and applied' : 'rejected'}.`;
+    case 'answer_input':
+      return `Answer recorded for loop ${action.loopId} — ${res.loop?.runtime.pendingInput ? 'more questions are waiting' : `loop now "${res.loop?.status ?? '?'}"`}.`;
     default:
       return `${action.kind} ok — loop ${res.loop?.id ?? action.loopId} now "${res.loop?.status ?? '?'}".`;
   }

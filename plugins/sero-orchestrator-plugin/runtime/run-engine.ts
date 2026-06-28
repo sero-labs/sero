@@ -8,12 +8,13 @@
  * (engine-types.ts) so this orchestration is testable with fakes.
  */
 
-import type { Loop, LoopBlock, LoopRun, LoopStepDefinition, LoopWarning, StepAttempt, StepOutcome } from '../shared/types';
+import type { HumanQuestion, Loop, LoopBlock, LoopRun, LoopStepDefinition, LoopWarning, StepAttempt, StepOutcome } from '../shared/types';
 import type { OrchestratorHost } from './host';
 import type { EngineDeps } from './engine-types';
 import { computeReadySteps, hasRunningSteps, validateRuntime } from './readiness';
 import { resolveBranchSkips } from './branching';
 import { applyStepOutcome, recordCompletion } from './outcomes';
+import { parkForInput } from './human-input';
 import { applyRecovery } from './recovery-apply';
 import { pruneRuns } from './artifacts';
 import { appendDigest, buildRunDigest } from './digest';
@@ -101,6 +102,11 @@ export class RunEngine {
       // A `disable` may have aborted this run and turned the loop off mid-flight.
       if (signal?.aborted || loop.status === 'disabled') {
         run = { ...run, status: 'cancelled' };
+        break;
+      }
+      // Parked on a human question: do not start any step until it is answered.
+      if (loop.runtime.pendingInput) {
+        run = { ...run, status: 'waiting' };
         break;
       }
       const validation = validateRuntime(loop);
@@ -211,6 +217,9 @@ export class RunEngine {
     }
 
     let stop = false;
+    // A step in this batch that asked the user; the loop parks on it after the
+    // batch's other (non-asking) outcomes are applied.
+    let parked: { stepId: string; questions: HumanQuestion[] } | undefined;
     for (let i = 0; i < steps.length; i += 1) {
       const step = steps[i];
       const attempt = attempts[i];
@@ -219,6 +228,14 @@ export class RunEngine {
       run = { ...run, stepAttempts: [...run.stepAttempts, recorded], observations: [...run.observations, ...recorded.observations] };
       if (recorded.modelFallback) {
         loop = this.recordModelWarning(loop, step.id, recorded.modelFallback.requestedModel);
+      }
+
+      // The step asked the user. Reset it to pending so it re-runs with the answer,
+      // and remember to park the loop; do not apply this outcome or run recovery.
+      if (outcome.questions && outcome.questions.length > 0) {
+        loop = this.resetStepPending(loop, step.id);
+        if (!parked) parked = { stepId: step.id, questions: outcome.questions };
+        continue;
       }
 
       const applied = this.applyOutcome(loop, run, step.id, recorded, outcome);
@@ -272,8 +289,29 @@ export class RunEngine {
         }
       }
     }
+    // A step asked the user: park the loop (durable pendingInput) and stop the run.
+    if (parked && !stop) {
+      loop = parkForInput(this.host, loop, parked.stepId, parked.questions);
+      run = { ...run, status: 'waiting' };
+      loop = await this.commit(loop);
+      return { loop, run, stop: true };
+    }
     loop = await this.commit(loop);
     return { loop, run, stop };
+  }
+
+  /** Resets a step to pending (clearing its outcome) — e.g. after it asks the user. */
+  private resetStepPending(loop: Loop, stepId: string): Loop {
+    const prev = loop.runtime.stepStates[stepId];
+    if (!prev) return loop;
+    const now = this.host.now();
+    return {
+      ...loop,
+      runtime: {
+        ...loop.runtime,
+        stepStates: { ...loop.runtime.stepStates, [stepId]: { ...prev, status: 'pending', outcome: undefined, updatedAt: now } },
+      },
+    };
   }
 
   /**

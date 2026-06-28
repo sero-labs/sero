@@ -46,6 +46,34 @@ describe('planLoop', () => {
     expect(root.modelCalls[0].task).toContain('no commit or PR is needed');
   });
 
+  it('returns clarifying questions instead of a plan when the model asks', async () => {
+    const host = createFakeHost();
+    host.modelResponses.push({
+      response: JSON.stringify({
+        clarifyingQuestions: [{ prompt: 'Which database?', choices: ['Postgres', 'MySQL'] }],
+      }),
+    });
+    const outcome = await planLoop(host, req);
+    expect(outcome.ok).toBe(false);
+    if (!outcome.ok && outcome.needsInput) {
+      expect(outcome.questions).toHaveLength(1);
+      expect(outcome.questions[0].prompt).toBe('Which database?');
+      expect(outcome.questions[0].choices).toHaveLength(2);
+    } else {
+      throw new Error('expected needsInput outcome');
+    }
+    // No repair pass for a clarifying-questions reply.
+    expect(host.modelCalls).toHaveLength(1);
+  });
+
+  it('folds answered clarifications into a re-plan task', async () => {
+    const host = createFakeHost();
+    host.modelResponses.push({ response: planJson(oneStepPlan()) });
+    await planLoop(host, { ...req, clarifications: [{ prompt: 'Which database?', answer: 'Postgres' }] });
+    expect(host.modelCalls[0].task).toContain('answered your earlier questions');
+    expect(host.modelCalls[0].task).toContain('Postgres');
+  });
+
   it('repairs once when the first response is invalid', async () => {
     const host = createFakeHost();
     host.modelResponses.push({ response: '{ not json' });
@@ -62,7 +90,7 @@ describe('planLoop', () => {
     host.modelResponses.push({ response: '{"title":"x","summary":"y","plan":{"objective":"o","steps":[]}}' });
     const outcome = await planLoop(host, req);
     expect(outcome.ok).toBe(false);
-    if (!outcome.ok) expect(outcome.errors.length).toBeGreaterThan(0);
+    if (!outcome.ok && !outcome.needsInput) expect(outcome.errors.length).toBeGreaterThan(0);
     expect(host.modelCalls).toHaveLength(2);
   });
 
@@ -71,6 +99,6 @@ describe('planLoop', () => {
     host.modelResponses.push({ response: '', error: 'model exploded' });
     const outcome = await planLoop(host, req);
     expect(outcome.ok).toBe(false);
-    if (!outcome.ok) expect(outcome.errors[0]).toContain('model exploded');
+    if (!outcome.ok && !outcome.needsInput) expect(outcome.errors[0]).toContain('model exploded');
   });
 });

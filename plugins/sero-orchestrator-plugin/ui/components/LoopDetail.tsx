@@ -21,6 +21,7 @@ import { PlanView } from './PlanView';
 import { RefinePlan } from './RefinePlan';
 import { AttemptHistory } from './AttemptHistory';
 import { SuggestionsInbox } from './SuggestionsInbox';
+import { InputRequestCard } from './InputRequestCard';
 
 const REFINABLE: ReadonlySet<Loop['status']> = new Set(['draft', 'active', 'disabled', 'blocked']);
 
@@ -51,7 +52,12 @@ export function LoopDetail({ loop, busy, onAction, stateDir }: LoopDetailProps) 
       <header className="flex flex-col gap-2">
         <div className="flex items-center justify-between gap-2">
           <h1 className="text-lg font-semibold">{loop.title}</h1>
-          <Badge variant={loopStatusVariant(loop.status)}>{LOOP_STATUS_LABEL[loop.status]}</Badge>
+          <div className="flex items-center gap-2">
+            {runtime.pendingInput && (
+              <Badge variant="outline" className="border-primary/40 text-primary">Waiting for you</Badge>
+            )}
+            <Badge variant={loopStatusVariant(loop.status)}>{LOOP_STATUS_LABEL[loop.status]}</Badge>
+          </div>
         </div>
         <p className="text-sm text-muted-foreground">{loop.summary || loop.prompt}</p>
         <div className="flex flex-wrap items-center gap-2">
@@ -59,6 +65,8 @@ export function LoopDetail({ loop, busy, onAction, stateDir }: LoopDetailProps) 
           <LoopContextControl loop={loop} onAction={onAction} />
         </div>
       </header>
+
+      <InputRequestCard loop={loop} busy={busy} onAction={onAction} />
 
       <SuggestionsInbox loop={loop} busy={busy} onAction={onAction} />
 

@@ -53,6 +53,10 @@ from a planned step outcome.
 3. Call the model through the current Sero model execution path.
 4. Parse the model response as JSON.
 5. Validate the generated response and contained plan structurally.
+5a. If the model replied with clarifying questions instead of a plan, create the
+   loop as a draft parked on `runtime.pendingInput` (`source: "planner"`) and stop
+   — answering re-runs the planner with the answers folded in. No repair pass.
+   See [07-human-input.md](07-human-input.md).
 6. If validation fails, ask the model to repair the response once with the
    validation errors. If it still fails, store a blocked draft with the errors.
 7. Map the response onto `Loop`: title, summary, plan, materialized triggers,
@@ -73,7 +77,10 @@ use. That choice comes from the user's loop creation options.
 
 When a loop is due, the coordinator runs this algorithm:
 
-1. Check lifecycle. Only `active` loops can start a run.
+1. Check lifecycle. Only `active` loops can start a run. A loop parked on a human
+   question (`runtime.pendingInput` set) does not start a run — `run_next` and the
+   scheduler skip it until the question is answered. See
+   [07-human-input.md](07-human-input.md).
 2. Acquire the per-loop lock. If the lock is held, set `runtime.dueAgain = true`
    and return.
 3. Check management limits before starting new step attempts.
@@ -94,6 +101,10 @@ When a loop is due, the coordinator runs this algorithm:
    - otherwise ask the LLM to evaluate the raw result into a `StepOutcome`;
    - update the step runtime state.
    - if the step outcome includes a completion signal, apply it and stop.
+   - if the step outcome includes `questions`, do NOT apply it or run recovery:
+     reset the step to `pending`, record a durable `runtime.pendingInput`, stop
+     the run as `waiting`, and notify the user. Answering (`answer_input`) resumes
+     the run with the answer in the loop's notes. See [07-human-input.md](07-human-input.md).
 8. If a step outcome is `failed`, `blocked`, or `needs-revision`, ask the LLM
    for a `RecoveryDecision`.
 9. Apply the recovery decision:

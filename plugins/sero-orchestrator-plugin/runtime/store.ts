@@ -76,6 +76,7 @@ export function diffRuns(prev: LoopRun[], next: LoopRun[]): RunsDiff {
 
 export function toSummary(loop: Loop): LoopSummary {
   const pendingSuggestions = (loop.suggestions ?? []).filter((s) => s.status === 'pending').length;
+  const pendingInput = loop.runtime.pendingInput?.questions.length ?? 0;
   return {
     id: loop.id,
     title: loop.title,
@@ -83,6 +84,7 @@ export function toSummary(loop: Loop): LoopSummary {
     summary: loop.summary,
     prompt: loop.prompt,
     pendingSuggestions: pendingSuggestions || undefined,
+    pendingInput: pendingInput || undefined,
     createdAt: loop.createdAt,
     updatedAt: loop.updatedAt,
   };

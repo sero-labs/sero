@@ -52,6 +52,8 @@ interface Loop {
   insights?: LoopInsight[];
   /** History-driven improvements pending the user's approve/reject (see 06-reflection.md). */
   suggestions?: LoopSuggestion[];
+  /** Resolved human-input requests — planner clarifications + step questions (see 07-human-input.md). */
+  answeredInputs?: AnsweredInput[];
   createdAt: string;
   updatedAt: string;
 }
@@ -324,6 +326,9 @@ interface LoopRuntimeState {
   dueAgain?: boolean;
   completion?: CompletionSignal;
   block?: LoopBlock;
+  // A durable question the loop is waiting on. While set, the loop is parked: no
+  // steps start and scheduled fires hold off until answered (see 07-human-input.md).
+  pendingInput?: PendingInput;
   lastRunAt?: string;
   // Open PRs this loop has raised — branch name matches the loop id. Refreshed at
   // each run start (merged/closed PRs drop out); injected into background-agent
@@ -482,6 +487,10 @@ interface StepOutcome {
   summary: string;
   variables?: Record<string, unknown>;
   completion?: StepCompletion;
+  // The step needs the user to answer before it can finish. When present, the
+  // loop parks instead of applying this outcome or running recovery, and the
+  // step re-runs once answered (see 07-human-input.md).
+  questions?: HumanQuestion[];
 }
 ```
 
@@ -641,6 +650,20 @@ to its plan. The full model lives in
 The watched `LoopSummary` carries a `pendingSuggestions` count for the loop-list
 badge.
 
+## Human input (ask the user)
+
+A step or the planner can raise a question that parks the loop until the user
+answers. The full model lives in [07-human-input.md](07-human-input.md); the
+persisted additions are:
+
+- `PendingInput` — the durable question(s) the loop is parked on
+  (`runtime.pendingInput`), with `source: "planner" | "step"`. No timeout, no
+  default — the loop waits until answered, and scheduled fires hold off.
+- `AnsweredInput` — a resolved request (`Loop.answeredInputs`), kept for history
+  and (for step questions) fed back into the asking step's next attempt.
+- `StepOutcome.questions` / `ClarifyingResponse` — how a step / the planner asks.
+- The watched `LoopSummary` carries a `pendingInput` count for the loop-list badge.
+
 ## Coordinator Actions
 
 Tools, slash commands, and UI send these request envelopes to the coordinator.
@@ -662,6 +685,7 @@ type OrchestratorAction =
   | { kind: "reflect"; loopId: string }
   | { kind: "reflect_workspace" }
   | { kind: "choose_suggestion"; loopId: string; suggestionId: string; decision: "approve" | "reject"; rejectionReason?: string }
+  | { kind: "answer_input"; loopId: string; requestId: string; answers: InputAnswer[] }
   | { kind: "delete"; loopId: string; deleteBranch?: boolean };
 
 interface CreateLoopOptions {

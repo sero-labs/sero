@@ -48,6 +48,7 @@ You can also use the agent tool or slash command:
 /orchestrator retry <loopId>
 /orchestrator reflect <loopId>
 /orchestrator reflect_workspace
+/orchestrator answer <loopId> yes, drop the old table
 /orchestrator revise <loopId> add a final validation step
 ```
 
@@ -103,6 +104,24 @@ guards the model writes into the plan.
   loop is "done". The model includes a validation or finalization step, and that
   step emits an explicit completion signal. If every known step has succeeded but
   no step signals completion, the loop simply waits.
+
+## Questions and approvals
+
+A loop can pause to ask you something — when a step hits a decision only you
+should make (an irreversible change, a missing detail, "confirm before doing
+this"), or when the plan can't be built without more information.
+
+- **A step asks.** The loop pauses with a **Needs your input** card on the loop:
+  the question, any quick-pick buttons, and a box to type your own answer. The
+  step runs again with your answer once you send it.
+- **The planner asks.** If your description is missing something essential, the
+  new loop is created but not started — it shows the planner's questions. Answer
+  them and the plan is built; you then review and activate it as usual.
+
+The loop **waits** until you answer — there's no timeout and no default, and a
+scheduled loop won't run again while a question is open. Loops with a question
+waiting show a small blue count in the loop list. You can also answer from the
+agent with `/orchestrator answer <loopId> <your answer>`.
 
 ## Reflection (self-improvement)
 

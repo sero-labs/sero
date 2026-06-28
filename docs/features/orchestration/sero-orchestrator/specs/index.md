@@ -50,12 +50,16 @@ restrictions.
 | [04-implementation-plan.md](04-implementation-plan.md) | Phased tasklist with acceptance criteria and FR traceability matrix |
 | [05-branching.md](05-branching.md) | LLM-judged conditional branching: judge step, routing variables, guards, skip cascade, validation, branch-tree UI |
 | [06-reflection.md](06-reflection.md) | On-demand loop reflection: durable run digests, history-driven improvement suggestions, per-loop + workspace Reflect, approve/reject inbox |
+| [07-human-input.md](07-human-input.md) | Ask the user: durable pending questions a step or the planner can raise, the answer card, park-and-resume, planner clarifications |
 
 ## Non-Goals
 
 - A generic cross-plugin task queue. Orchestrator stores loop runtime data only.
 - A new Orchestrator permission, approval, or tool policy system. Standard Sero
-  agent/session/tool restrictions remain the execution authority.
+  agent/session/tool restrictions remain the execution authority. (Human input —
+  a step or the planner *choosing* to ask the user a question, see
+  [07-human-input.md](07-human-input.md) — is not such a layer: it gates nothing
+  the agent does, it is a durable question the model may raise.)
 - A workflow engine with built-in business process semantics. Orchestrator does
   not define concepts such as "issue", "ticket", "incident", "review", "test",
   or "fix".
