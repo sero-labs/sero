@@ -48,6 +48,7 @@ restrictions.
 | [02-integration-seams.md](02-integration-seams.md) | Host APIs reused for persistence, background agents, model decisions, scheduling, and active sessions |
 | [03-execution-and-scheduling.md](03-execution-and-scheduling.md) | Prompt-to-plan flow, step scheduling, parallel execution, failure recovery, completion signals |
 | [04-implementation-plan.md](04-implementation-plan.md) | Phased tasklist with acceptance criteria and FR traceability matrix |
+| [05-branching.md](05-branching.md) | LLM-judged conditional branching: judge step, routing variables, guards, skip cascade, validation, branch-tree UI |
 
 ## Non-Goals
 
