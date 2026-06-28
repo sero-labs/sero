@@ -81,12 +81,29 @@ export function LoopDetail({ loop, busy, onAction, stateDir }: LoopDetailProps) 
         </Card>
       )}
 
-      {runtime.block && (
-        <Card className="border-destructive/50 p-3 text-sm">
-          <span className="font-medium text-destructive">Blocked ({runtime.block.kind}): </span>
-          {runtime.block.reason}
-        </Card>
-      )}
+      {runtime.block && (() => {
+        // A step-owned block (planned/recovery) points at the step, where the
+        // reason and a Retry button live. Loop-wide blocks (limit/validation/
+        // runtime) show the reason here with the whole-loop recovery options.
+        const blockedStep = runtime.block.sourceStepId
+          ? loop.plan.steps.find((s) => s.id === runtime.block!.sourceStepId)
+          : undefined;
+        return (
+          <Card className="border-destructive/50 p-3 text-sm">
+            {blockedStep ? (
+              <span>
+                <span className="font-medium text-destructive">Blocked at “{blockedStep.title}”. </span>
+                Fix the cause, then <span className="font-medium">Retry step</span> on it in the plan below — or <span className="font-medium">Restart</span> the loop.
+              </span>
+            ) : (
+              <span>
+                <span className="font-medium text-destructive">Blocked ({runtime.block.kind}): </span>
+                {runtime.block.reason} — <span className="font-medium">Restart</span> the loop or <span className="font-medium">Refine</span> the plan.
+              </span>
+            )}
+          </Card>
+        );
+      })()}
 
       {runtime.completion && (
         <Card className="border-emerald-500/40 p-3 text-sm">

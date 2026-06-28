@@ -1,7 +1,9 @@
-import { Badge, Card } from '@sero-ai/ui';
+import { Badge, Button, Card } from '@sero-ai/ui';
+import { RefreshCw } from 'lucide-react';
 import { useAvailableModels, useSubagentContext, type AppModelGroup } from '@sero-ai/app-runtime';
 import type { ContextToolInfo } from '@sero-ai/common';
 import type { Loop, LoopStepDefinition, OrchestratorAction, StepGuard, StepRuntimeState } from '../../shared/types';
+import { isStuckOnAttempts, RECOVERABLE_STEP_STATUSES } from '../../shared/recovery';
 import { stepStatusVariant } from '../lib/format';
 import { groupStepsByLevel } from '../lib/plan-levels';
 import { StepModelControl } from './StepModelControl';
@@ -35,6 +37,16 @@ export function PlanView({ loop, onAction }: PlanViewProps) {
   const setStepTools = (stepId: string, tools?: string[]) =>
     onAction({ kind: 'set_step_tools', loopId: loop.id, stepId, tools });
 
+  // Per-step Retry: offered on a blocked/failed/needs-revision (or attempts-stuck)
+  // step when no run is in flight. Resets that step and runs the loop on from there.
+  const canRunRecovery = !runtime.activeRunId;
+  const onRetryFor = (step: LoopStepDefinition): (() => void) | undefined => {
+    const state = runtime.stepStates[step.id];
+    if (!canRunRecovery || !state) return undefined;
+    const recoverable = RECOVERABLE_STEP_STATUSES.has(state.status) || isStuckOnAttempts(loop, step, state);
+    return recoverable ? () => onAction({ kind: 'retry_step', loopId: loop.id, stepId: step.id }) : undefined;
+  };
+
   if (plan.steps.length === 0) {
     return (
       <Card className="p-3 text-sm text-muted-foreground">
@@ -56,7 +68,7 @@ export function PlanView({ loop, onAction }: PlanViewProps) {
       )}
       {levels.map((group) => {
         if (group.length === 1) {
-          return <StepCard key={group[0].id} step={group[0]} number={numberOf.get(group[0].id)!} state={runtime.stepStates[group[0].id]} groups={groups} toolCatalog={toolCatalog} onSetModel={setStepModel} onSetTools={setStepTools} />;
+          return <StepCard key={group[0].id} step={group[0]} number={numberOf.get(group[0].id)!} state={runtime.stepStates[group[0].id]} groups={groups} toolCatalog={toolCatalog} onSetModel={setStepModel} onSetTools={setStepTools} onRetry={onRetryFor(group[0])} />;
         }
         // A level whose steps carry guards is a branch point (alternatives), not
         // parallel work; label it by the deciding variable and the chosen route.
@@ -70,7 +82,7 @@ export function PlanView({ loop, onAction }: PlanViewProps) {
             <span className="text-xs font-medium text-muted-foreground">{header}</span>
             <div className="grid gap-2 sm:grid-cols-2">
               {group.map((step) => (
-                <StepCard key={step.id} step={step} number={numberOf.get(step.id)!} state={runtime.stepStates[step.id]} groups={groups} toolCatalog={toolCatalog} onSetModel={setStepModel} onSetTools={setStepTools} />
+                <StepCard key={step.id} step={step} number={numberOf.get(step.id)!} state={runtime.stepStates[step.id]} groups={groups} toolCatalog={toolCatalog} onSetModel={setStepModel} onSetTools={setStepTools} onRetry={onRetryFor(step)} />
               ))}
             </div>
           </div>
@@ -88,11 +100,16 @@ interface StepCardProps {
   toolCatalog: ContextToolInfo[];
   onSetModel: (stepId: string, model?: string, thinking?: string) => void;
   onSetTools: (stepId: string, tools?: string[]) => void;
+  /** Provided only when this step is recoverable and runnable — renders Retry. */
+  onRetry?: () => void;
 }
 
-function StepCard({ step, number, state, groups, toolCatalog, onSetModel, onSetTools }: StepCardProps) {
+const PROBLEM_STATUSES = new Set(['failed', 'blocked', 'needs-revision']);
+
+function StepCard({ step, number, state, groups, toolCatalog, onSetModel, onSetTools, onRetry }: StepCardProps) {
   // A branch not taken is greyed so the path that ran stands out.
   const skipped = state?.status === 'skipped';
+  const isProblem = !!state && PROBLEM_STATUSES.has(state.status);
   return (
     <Card className={`flex flex-col gap-1 p-3${skipped ? ' opacity-60' : ''}`}>
       <div className="flex items-center justify-between gap-2">
@@ -126,11 +143,16 @@ function StepCard({ step, number, state, groups, toolCatalog, onSetModel, onSetT
         <StepToolsControl step={step} catalog={toolCatalog} onChange={(tools) => onSetTools(step.id, tools)} />
       )}
       {state?.outcome && (
-        <p className="text-xs text-muted-foreground">
-          <span className="font-medium text-foreground">Outcome: </span>
+        <p className={`text-xs ${isProblem ? 'text-destructive' : 'text-muted-foreground'}`}>
+          <span className={`font-medium ${isProblem ? '' : 'text-foreground'}`}>{isProblem ? `${state.status}: ` : 'Outcome: '}</span>
           {state.outcome.summary}
           {state.attempts > 0 ? ` · ${state.attempts} attempt(s)` : ''}
         </p>
+      )}
+      {onRetry && (
+        <Button size="sm" variant="outline" className="self-start" onClick={onRetry} title="Reset this step and run the loop on from here (keeps finished work)">
+          <RefreshCw className="mr-1 h-3.5 w-3.5" /> Retry step
+        </Button>
       )}
     </Card>
   );

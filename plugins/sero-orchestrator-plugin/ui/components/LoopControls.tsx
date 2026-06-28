@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { Button, Checkbox, Label } from '@sero-ai/ui';
-import { Power, PowerOff, RefreshCw, RotateCcw, Sparkles, StepForward, Trash2, Zap } from 'lucide-react';
+import { Power, PowerOff, RotateCcw, Sparkles, StepForward, Trash2, Zap } from 'lucide-react';
 import type { Loop, OrchestratorAction } from '../../shared/types';
-import { isRetryableLoop } from '../../shared/recovery';
 
 interface LoopControlsProps {
   loop: Loop;
@@ -16,11 +15,9 @@ interface LoopControlsProps {
 export function LoopControls({ loop, busy, canReflect, onAction }: LoopControlsProps) {
   const { id, status } = loop;
   // While parked on a human question, nothing can run until it is answered — so
-  // Activate / Run next / Retry are suppressed (the question card is the action).
+  // Activate / Run next are suppressed (the question card is the action). Per-step
+  // Retry lives on the blocked/failed step itself, in the plan view below.
   const awaitingInput = !!loop.runtime.pendingInput;
-  // Retry is offered whenever the loop has something to recover (a blocked/failed
-  // step, a runtime block, or a blocked completion) and no run is in flight.
-  const canRetry = !awaitingInput && !loop.runtime.activeRunId && isRetryableLoop(loop);
   // Keyed by loop id so switching loops mid-confirm never targets the wrong one.
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deleteBranch, setDeleteBranch] = useState(false);
@@ -57,11 +54,6 @@ export function LoopControls({ loop, busy, canReflect, onAction }: LoopControlsP
       {status === 'complete' && (
         <Button size="sm" disabled={busy} onClick={() => onAction({ kind: 'run_again', loopId: id })}>
           <RotateCcw className="mr-1 h-3.5 w-3.5" /> Run again
-        </Button>
-      )}
-      {canRetry && (
-        <Button size="sm" disabled={busy} onClick={() => onAction({ kind: 'retry', loopId: id })} title="Resume from the stuck step, keeping finished work">
-          <RefreshCw className="mr-1 h-3.5 w-3.5" /> Retry
         </Button>
       )}
       {(status === 'blocked' || status === 'disabled') && (

@@ -60,6 +60,38 @@ export function retryStuckLoop(loop: Loop, now: string): Loop | null {
   };
 }
 
+/**
+ * Per-step retry: recover ONE blocked/failed/needs-revision (or attempts-stuck)
+ * step. Resets that step to pending with a fresh attempt budget, clears the loop
+ * block and any blocked completion (there is a single block field; clearing it
+ * gets the loop running again), and reactivates so the engine continues from the
+ * reset step. Returns null when the step isn't in a recoverable state. Other
+ * steps are left untouched; if a second step is also blocked it simply resurfaces
+ * for its own retry.
+ */
+export function retryStep(loop: Loop, stepId: string, now: string): Loop | null {
+  const step = loop.plan.steps.find((s) => s.id === stepId);
+  const state = step ? loop.runtime.stepStates[stepId] : undefined;
+  if (!step || !state) return null;
+  if (!RECOVERABLE_STEP_STATUSES.has(state.status) && !isStuckOnAttempts(loop, step, state)) return null;
+  const stepStates = {
+    ...loop.runtime.stepStates,
+    [stepId]: { ...state, status: 'pending' as const, outcome: undefined, attempts: 0, updatedAt: now },
+  };
+  const blockedCompletion = loop.runtime.completion?.status === 'blocked';
+  return {
+    ...loop,
+    status: 'active',
+    runtime: {
+      ...loop.runtime,
+      stepStates,
+      block: undefined,
+      completion: blockedCompletion ? undefined : loop.runtime.completion,
+    },
+    updatedAt: now,
+  };
+}
+
 export interface RecoveryApplication {
   loop: Loop;
   /** True when the run should stop after this decision (wait / block / invalid). */

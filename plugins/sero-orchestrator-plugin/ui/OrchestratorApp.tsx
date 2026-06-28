@@ -68,6 +68,7 @@ export function OrchestratorApp() {
       params.answersJson = JSON.stringify(action.answers);
     }
     if (action.kind === 'revise' && action.prompt) params.prompt = action.prompt;
+    if (action.kind === 'retry_step') params.stepId = action.stepId;
     if (action.kind === 'delete') params.deleteBranch = action.deleteBranch;
     if (action.kind === 'set_step_model') {
       params.stepId = action.stepId;

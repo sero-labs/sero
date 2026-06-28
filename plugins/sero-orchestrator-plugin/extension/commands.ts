@@ -20,6 +20,7 @@ const HELP = `Usage:
   /orchestrator create <prompt>
   /orchestrator show <loopId>
   /orchestrator activate|disable|enable|run_next|run_again|retry|reflect|delete <loopId>
+  /orchestrator retry_step <loopId> <stepId>
   /orchestrator reflect_workspace
   /orchestrator answer <loopId> <your answer>
   /orchestrator revise <loopId> [request]`;
@@ -56,6 +57,11 @@ export function parseCommand(args: string): ParsedCommand {
       const [loopId, ...promptParts] = rest;
       if (!loopId) return { error: 'revise requires a loopId' };
       return { action, loopId, prompt: promptParts.join(' ') || undefined };
+    }
+    case 'retry_step': {
+      const [loopId, stepId] = rest;
+      if (!loopId || !stepId) return { error: 'retry_step requires a loopId and a stepId' };
+      return { action, loopId, stepId };
     }
     default: {
       const loopId = rest[0];

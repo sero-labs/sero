@@ -29,6 +29,7 @@ export const ORCHESTRATOR_ACTIONS = [
   'run_next',
   'run_again',
   'retry',
+  'retry_step',
   'revise',
   'choose_recovery',
   'set_step_model',
@@ -133,6 +134,10 @@ export function buildAction(params: OrchestratorToolParamsShape): OrchestratorAc
       }
       return { kind: 'choose_recovery', loopId: params.loopId, decision };
     }
+    case 'retry_step':
+      if (!params.loopId) return { error: 'retry_step requires a loopId' };
+      if (!params.stepId) return { error: 'retry_step requires a stepId' };
+      return { kind: 'retry_step', loopId: params.loopId, stepId: params.stepId };
     case 'set_step_model':
       if (!params.loopId) return { error: 'set_step_model requires a loopId' };
       if (!params.stepId) return { error: 'set_step_model requires a stepId' };
@@ -218,6 +223,8 @@ function summarize(action: OrchestratorAction, res: OrchestratorActionResult): s
       return `Suggestion ${action.decision === 'approve' ? 'approved and applied' : 'rejected'}.`;
     case 'answer_input':
       return `Answer recorded for loop ${action.loopId} — ${res.loop?.runtime.pendingInput ? 'more questions are waiting' : `loop now "${res.loop?.status ?? '?'}"`}.`;
+    case 'retry_step':
+      return `Retried step "${action.stepId}" — loop ${action.loopId} now "${res.loop?.status ?? '?'}".`;
     default:
       return `${action.kind} ok — loop ${res.loop?.id ?? action.loopId} now "${res.loop?.status ?? '?'}".`;
   }

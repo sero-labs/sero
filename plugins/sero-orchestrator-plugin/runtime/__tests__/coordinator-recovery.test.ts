@@ -144,3 +144,48 @@ describe('Coordinator.retryLoop', () => {
     expect(res.error).toMatch(/in progress/i);
   });
 });
+
+describe('Coordinator.retryStepAction (per-step retry)', () => {
+  /** Seeds a blocked loop: a succeeded, b blocked, a runtime block + blocked completion owned by b. */
+  function seedBlockedAtB(host: FakeHost) {
+    const loop = seedActiveLoop(host, sequentialPlan().plan); // a -> b
+    loop.status = 'blocked';
+    loop.runtime.stepStates['a'] = { status: 'succeeded', attempts: 1, outcome: { status: 'succeeded', summary: 'ok' }, updatedAt: 't' };
+    loop.runtime.stepStates['b'] = { status: 'blocked', attempts: 1, outcome: { status: 'blocked', summary: 'denied' }, updatedAt: 't' };
+    loop.runtime.block = { kind: 'planned-block', reason: 'user said no', createdAt: 't', sourceStepId: 'b' };
+    loop.runtime.completion = { status: 'blocked', final: false, sourceStepId: 'b', sourceAttemptId: 'x', reason: 'user said no', createdAt: 't' };
+    host.state = { ...host.state, loops: [loop] };
+  }
+
+  it('resets one blocked step (fresh budget), clears the block, reactivates, leaves other steps', async () => {
+    const host = createFakeHost();
+    seedBlockedAtB(host);
+    const res = await new Coordinator(host).retryStepAction('loop-1', 'b');
+    expect(res.ok).toBe(true);
+    const updated = host.state.loops[0];
+    expect(updated.status).toBe('active');
+    expect(updated.runtime.stepStates['b'].status).toBe('pending');
+    expect(updated.runtime.stepStates['b'].attempts).toBe(0);
+    expect(updated.runtime.stepStates['b'].outcome).toBeUndefined();
+    expect(updated.runtime.stepStates['a'].status).toBe('succeeded'); // prior work kept
+    expect(updated.runtime.block).toBeUndefined();
+    expect(updated.runtime.completion).toBeUndefined();
+  });
+
+  it('refuses to retry a step that is not blocked/failed', async () => {
+    const host = createFakeHost();
+    seedBlockedAtB(host);
+    const res = await new Coordinator(host).retryStepAction('loop-1', 'a'); // a is succeeded
+    expect(res.ok).toBe(false);
+    expect(res.error).toMatch(/not blocked or failed/i);
+  });
+
+  it('refuses while a run is already in progress', async () => {
+    const host = createFakeHost();
+    seedBlockedAtB(host);
+    host.state.loops[0].runtime.activeRunId = 'run-x';
+    const res = await new Coordinator(host).retryStepAction('loop-1', 'b');
+    expect(res.ok).toBe(false);
+    expect(res.error).toMatch(/in progress/i);
+  });
+});

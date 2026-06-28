@@ -26,7 +26,7 @@ import { runPlanningFlow } from './planning-flow';
 import { RunEngine } from './run-engine';
 import type { EngineDeps } from './engine-types';
 import { reconcileAll } from './reconcile';
-import { applyRecovery, retryStuckLoop } from './recovery-apply';
+import { applyRecovery, retryStep, retryStuckLoop } from './recovery-apply';
 import { buildRevisedLoop } from './revise';
 import { handleReflectAction } from './reflect-actions';
 import { applyAnswerInput } from './input-actions';
@@ -123,6 +123,8 @@ export class Coordinator {
         return this.runAgain(action.loopId);
       case 'retry':
         return this.retryLoop(action.loopId);
+      case 'retry_step':
+        return this.retryStepAction(action.loopId, action.stepId);
       case 'revise':
         return this.revise(action.loopId, action.prompt);
       case 'choose_recovery':
@@ -405,6 +407,23 @@ export class Coordinator {
     }
     const retried = retryStuckLoop(loop, this.host.now());
     if (!retried) return { ok: false, error: 'Nothing to retry — no blocked or failed steps.' };
+    await this.replaceLoop(retried);
+    return this.runNext(loopId, retried);
+  }
+
+  /**
+   * Retries a single blocked/failed step: resets that step (fresh attempt budget),
+   * clears the loop block, reactivates, and runs the loop on from there. Other
+   * steps are untouched, so finished work is never redone.
+   */
+  async retryStepAction(loopId: string, stepId: string): Promise<OrchestratorActionResult> {
+    const loop = await this.findLoop(loopId);
+    if (!loop) return { ok: false, error: `Loop not found: ${loopId}` };
+    if (loop.runtime.activeRunId || hasRunningSteps(loop)) {
+      return { ok: false, error: 'A run is already in progress.' };
+    }
+    const retried = retryStep(loop, stepId, this.host.now());
+    if (!retried) return { ok: false, error: `Step "${stepId}" is not blocked or failed.` };
     await this.replaceLoop(retried);
     return this.runNext(loopId, retried);
   }
