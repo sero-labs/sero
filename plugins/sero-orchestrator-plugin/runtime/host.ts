@@ -84,6 +84,8 @@ export interface ModelRunUsage {
   inputTokens: number;
   outputTokens: number;
   totalTokens: number;
+  /** Run cost in USD, when the model has known pricing. */
+  costUsd?: number;
 }
 
 export interface ModelRunResult {

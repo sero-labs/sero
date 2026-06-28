@@ -1,11 +1,11 @@
 /**
- * Usage aggregation for run stats. The runtime reports per-attempt token counts
- * and model time (cost is not reported today); this rolls a run's attempts up to
- * a single per-run total for the run cards.
+ * Usage aggregation for run stats. Each attempt reports token counts, model time,
+ * and cost (priced from the model + tokens by the pi session; absent for unpriced
+ * models); this rolls a run's attempts up to a single per-run total for the cards.
  *
  * Every field stays optional and is only present when at least one attempt
  * reported it, so the UI renders a stat only when it actually has data — no
- * misleading zeros (e.g. cost stays hidden until the runtime ever reports it).
+ * misleading zeros (e.g. cost stays hidden for models with no known pricing).
  */
 
 import type { UsageSummary } from './types';

@@ -106,6 +106,8 @@ export interface AppRuntimeSubagentUsage {
   inputTokens: number;
   outputTokens: number;
   totalTokens: number;
+  /** Run cost in USD, when the provider/model has known pricing. */
+  costUsd?: number;
 }
 
 export interface AppRuntimeSubagentResult {

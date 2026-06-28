@@ -73,8 +73,8 @@ export interface SingleRunResult {
   providerId?: string;
   /** Wall-clock duration of the run in milliseconds. */
   durationMs?: number;
-  /** Token usage totals. */
-  usage?: { inputTokens: number; outputTokens: number; totalTokens: number };
+  /** Token usage totals, plus run cost in USD when the model has known pricing. */
+  usage?: { inputTokens: number; outputTokens: number; totalTokens: number; costUsd?: number };
 }
 
 /**
@@ -173,6 +173,10 @@ export async function executeSingleRun(options: ExecuteSingleRunOptions): Promis
       inputTokens: result.usage.inputTokens,
       outputTokens: result.usage.outputTokens,
       totalTokens: result.usage.totalTokens,
+      // The pi session tracks cumulative cost (priced from the model + tokens);
+      // surface it as USD. Omit a non-positive value so callers show no cost
+      // rather than a misleading $0 for unpriced models.
+      costUsd: result.usage.cost > 0 ? result.usage.cost : undefined,
     };
 
     if (result.error) {

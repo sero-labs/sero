@@ -86,8 +86,8 @@ The loop detail view shows:
 - triggers and management limits.
 
 Each run in the history has a small **stats** icon. Open it to see that run's
-totals — tokens used, model time, and how many steps and attempts ran (and cost,
-when the runtime reports it). The section stays collapsed by default so the
+totals — tokens used, model time, cost (for models with known pricing), and how
+many steps and attempts ran. The section stays collapsed by default so the
 history reads cleanly.
 
 ## Example plans

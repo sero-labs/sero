@@ -34,7 +34,7 @@ export interface RunStepOptions {
   refineOutcome?: (response: string, parsed: StepOutcome | undefined) => StepOutcome | undefined;
 }
 
-function toUsage(durationMs?: number, usage?: { inputTokens: number; outputTokens: number; totalTokens: number }): UsageSummary | undefined {
+function toUsage(durationMs?: number, usage?: { inputTokens: number; outputTokens: number; totalTokens: number; costUsd?: number }): UsageSummary | undefined {
   if (!usage && durationMs === undefined) return undefined;
   return { ...usage, durationMs };
 }
