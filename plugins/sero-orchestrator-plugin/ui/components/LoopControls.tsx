@@ -70,9 +70,9 @@ export function LoopControls({ loop, busy, canReflect, onAction }: LoopControlsP
           variant="outline"
           disabled={busy}
           onClick={() => onAction({ kind: 'run_again', loopId: id })}
-          title="Start over from the first step (discards this run's progress; any commits or PRs are kept)"
+          title="Restart from the first step (discards this run's progress; any commits or PRs are kept)"
         >
-          <RotateCcw className="mr-1 h-3.5 w-3.5" /> Start over
+          <RotateCcw className="mr-1 h-3.5 w-3.5" /> Restart
         </Button>
       )}
       {canReflect && (

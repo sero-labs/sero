@@ -323,7 +323,7 @@ export class Coordinator {
   }
 
   /**
-   * Start over: re-run the whole plan from the first step. Re-arms every step
+   * Restart: re-run the whole plan from the first step. Re-arms every step
    * (back to pending, attempts cleared, run context and block/completion cleared),
    * drops the previous worktree (its branch/PR is kept), re-enables any disabled
    * schedule, sets the loop active, and runs a fresh pass now.
@@ -340,7 +340,7 @@ export class Coordinator {
       return { ok: false, error: 'This loop has not started yet — use Activate.' };
     }
     if (loop.runtime.activeRunId || hasRunningSteps(loop)) {
-      return { ok: false, error: 'A run is already in progress — disable it first, then start over.' };
+      return { ok: false, error: 'A run is already in progress — disable it first, then restart.' };
     }
     const now = this.host.now();
     // Drop the previous run's worktree (its branch/PR is kept) before a fresh pass.

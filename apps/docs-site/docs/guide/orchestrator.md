@@ -59,13 +59,13 @@ can't fix on its own), you have two recovery buttons on the loop:
   you've fixed the underlying cause; it resets the blocked step, clears the
   block, and runs the loop on from there. Steps that already succeeded are left
   alone, so finished work is never redone.
-- **Start over** — *re-run the whole plan from the first step*, discarding this
+- **Restart** — *re-run the whole plan from the first step*, discarding this
   run's progress (any commits or PRs already made are kept). Use this when you
   want a clean restart — for example to make a different choice this time. A loop
-  is never a dead end: a blocked loop can always be started over.
+  is never a dead end: a blocked loop can always be restarted.
 
 Retry alone won't help if nothing has changed — the final check will reach the
-same conclusion and block again. In that case, either Start over and choose
+same conclusion and block again. In that case, either Restart and choose
 differently, or **Refine** the plan.
 
 When you create a loop, the model returns a plan and Orchestrator checks it
