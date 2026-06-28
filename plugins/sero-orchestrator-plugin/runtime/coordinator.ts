@@ -28,10 +28,9 @@ import { RunEngine } from './run-engine';
 import type { EngineDeps } from './engine-types';
 import { reconcileAll } from './reconcile';
 import { loopArtifactDir } from './artifacts';
-import { applyRecovery } from './recovery-apply';
-import { proposeRevisedPlan } from './llm-decisions';
-import { validateLoopPlan } from './schema';
-import { evaluateCronTriggers, fireEventTriggers, isRecurring, rearmLoop, reapplySchedule, reenableSchedule } from './scheduler';
+import { applyRecovery, retryStuckLoop } from './recovery-apply';
+import { buildRevisedLoop } from './revise';
+import { evaluateCronTriggers, fireEventTriggers, isRecurring, rearmLoop, reenableSchedule } from './scheduler';
 import { computeReadySteps, hasRunningSteps } from './readiness';
 import type { PlanRevision, RecoveryDecision } from '../shared/types';
 
@@ -120,6 +119,8 @@ export class Coordinator {
         return this.manualRunNext(action.loopId);
       case 'run_again':
         return this.runAgain(action.loopId);
+      case 'retry':
+        return this.retryLoop(action.loopId);
       case 'revise':
         return this.revise(action.loopId, action.prompt);
       case 'choose_recovery':
@@ -387,52 +388,30 @@ export class Coordinator {
   async revise(loopId: string, prompt?: string): Promise<OrchestratorActionResult> {
     const loop = await this.findLoop(loopId);
     if (!loop) return { ok: false, error: `Loop not found: ${loopId}` };
+    const outcome = await buildRevisedLoop(this.host, loop, prompt);
+    if (outcome.error || !outcome.loop) {
+      await this.recordRejectedRevision(loop, outcome.rejectionReason ?? outcome.error ?? 'Revision failed.');
+      return { ok: false, error: outcome.error ?? 'Revision failed.' };
+    }
+    await this.replaceLoop(outcome.loop);
+    return { ok: true, loop: outcome.loop };
+  }
 
-    const proposal = await proposeRevisedPlan(this.host, loop, prompt);
-    if (proposal.error || !proposal.plan) {
-      await this.recordRejectedRevision(loop, proposal.error ?? 'no plan returned');
-      return { ok: false, error: proposal.error ?? 'Revision failed.' };
+  /**
+   * User-initiated retry of a stuck loop: resets its blocked/failed steps,
+   * clears the block, and runs the next ready step. Refuses while a run is in
+   * flight or when there is nothing to recover.
+   */
+  async retryLoop(loopId: string): Promise<OrchestratorActionResult> {
+    const loop = await this.findLoop(loopId);
+    if (!loop) return { ok: false, error: `Loop not found: ${loopId}` };
+    if (loop.runtime.activeRunId || hasRunningSteps(loop)) {
+      return { ok: false, error: 'A run is already in progress.' };
     }
-    const errors = validateLoopPlan(proposal.plan);
-    if (errors.length > 0) {
-      await this.recordRejectedRevision(loop, errors.join('; '));
-      return { ok: false, error: `Revised plan invalid: ${errors.join('; ')}` };
-    }
-
-    const decision: RecoveryDecision = {
-      id: this.host.newId('recovery'),
-      stepId: loop.plan.steps[0]?.id ?? '',
-      failedAttemptId: '',
-      decision: 'revise-plan',
-      reason: prompt ?? 'manual revision',
-      revisedPlan: proposal.plan,
-      createdAt: this.host.now(),
-      modelResponsePath: proposal.modelResponsePath,
-    };
-    const applied = applyRecovery(this.host, loop, decision);
-    if (applied.rejection) {
-      await this.recordRejectedRevision(loop, applied.rejection);
-      return { ok: false, error: applied.rejection };
-    }
-
-    // A refinement can change the GOAL itself (its stop condition or cadence).
-    // The goal is the single source the stop-condition evaluator and the
-    // schedule are derived from, so when it changes we update `prompt` (which the
-    // evaluator reads) and re-derive the schedule, preserving existing fire
-    // counts.
-    let next = applied.loop;
-    const newGoal = proposal.goal?.trim();
-    if (newGoal && newGoal !== loop.prompt) {
-      const schedule = await extractSchedule(this.host, {
-        prompt: newGoal,
-        parentSessionId: loop.runtime.parentSessionId,
-        loopId: loop.id,
-      });
-      next = { ...next, prompt: newGoal, triggers: reapplySchedule(this.host, loop.id, next.triggers, schedule) };
-      this.host.log(`Loop ${loop.id} goal updated by refinement`);
-    }
-    await this.replaceLoop(next);
-    return { ok: true, loop: next };
+    const retried = retryStuckLoop(loop, this.host.now());
+    if (!retried) return { ok: false, error: 'Nothing to retry — no blocked or failed steps.' };
+    await this.replaceLoop(retried);
+    return this.runNext(loopId, retried);
   }
 
   /** Finds a loop, applies a pure { ok, loop } mapping, and persists it. Shared by the override handlers (next run). */

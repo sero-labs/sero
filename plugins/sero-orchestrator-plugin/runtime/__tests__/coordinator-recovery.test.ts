@@ -63,3 +63,47 @@ describe('Coordinator.chooseRecovery (manual override)', () => {
     expect(host.state.loops[0].runtime.stepStates['step-1'].status).toBe('skipped');
   });
 });
+
+describe('Coordinator.retryLoop', () => {
+  function blockStep(host: FakeHost, stepId: string) {
+    const loop = host.state.loops[0];
+    loop.runtime.stepStates[stepId] = { status: 'blocked', attempts: 1, outcome: { status: 'blocked', summary: 'bad data' }, updatedAt: 't' };
+    loop.runtime.completion = { status: 'blocked', final: false, sourceStepId: stepId, sourceAttemptId: 'x', reason: 'bad data', createdAt: 't' };
+    host.state = { ...host.state, loops: [loop] };
+  }
+
+  it('resets the blocked step, clears the block, and leaves succeeded steps alone', async () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, sequentialPlan().plan);
+    loop.runtime.stepStates['a'] = { status: 'succeeded', attempts: 1, outcome: { status: 'succeeded', summary: 'ok' }, updatedAt: 't' };
+    host.state = { ...host.state, loops: [loop] };
+    blockStep(host, 'b');
+
+    const res = await new Coordinator(host).retryLoop('loop-1');
+    expect(res.ok).toBe(true);
+    const updated = host.state.loops[0];
+    expect(updated.runtime.stepStates['b'].status).toBe('pending');
+    expect(updated.runtime.stepStates['b'].outcome).toBeUndefined();
+    expect(updated.runtime.stepStates['a'].status).toBe('succeeded'); // prior work kept
+    expect(updated.runtime.completion).toBeUndefined();
+    expect(updated.status).toBe('active');
+  });
+
+  it('refuses when there is nothing to retry', async () => {
+    const host = createFakeHost();
+    seedActiveLoop(host, oneStepPlan().plan);
+    const res = await new Coordinator(host).retryLoop('loop-1');
+    expect(res.ok).toBe(false);
+    expect(res.error).toMatch(/nothing to retry/i);
+  });
+
+  it('refuses while a run is already in progress', async () => {
+    const host = createFakeHost();
+    seedActiveLoop(host, oneStepPlan().plan);
+    blockStep(host, 'step-1');
+    host.state.loops[0].runtime.activeRunId = 'run-x';
+    const res = await new Coordinator(host).retryLoop('loop-1');
+    expect(res.ok).toBe(false);
+    expect(res.error).toMatch(/in progress/i);
+  });
+});

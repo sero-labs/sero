@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Button, Checkbox, Label } from '@sero-ai/ui';
-import { Power, PowerOff, RotateCcw, StepForward, Trash2, Zap } from 'lucide-react';
+import { Power, PowerOff, RefreshCw, RotateCcw, StepForward, Trash2, Zap } from 'lucide-react';
 import type { Loop, OrchestratorAction } from '../../shared/types';
+import { isRetryableLoop } from '../../shared/recovery';
 
 interface LoopControlsProps {
   loop: Loop;
@@ -12,6 +13,9 @@ interface LoopControlsProps {
 /** Lifecycle controls. Each button maps to exactly one coordinator action. */
 export function LoopControls({ loop, busy, onAction }: LoopControlsProps) {
   const { id, status } = loop;
+  // Retry is offered whenever the loop has something to recover (a blocked/failed
+  // step, a runtime block, or a blocked completion) and no run is in flight.
+  const canRetry = !loop.runtime.activeRunId && isRetryableLoop(loop);
   // Keyed by loop id so switching loops mid-confirm never targets the wrong one.
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deleteBranch, setDeleteBranch] = useState(false);
@@ -48,6 +52,11 @@ export function LoopControls({ loop, busy, onAction }: LoopControlsProps) {
       {status === 'complete' && (
         <Button size="sm" disabled={busy} onClick={() => onAction({ kind: 'run_again', loopId: id })}>
           <RotateCcw className="mr-1 h-3.5 w-3.5" /> Run again
+        </Button>
+      )}
+      {canRetry && (
+        <Button size="sm" disabled={busy} onClick={() => onAction({ kind: 'retry', loopId: id })}>
+          <RefreshCw className="mr-1 h-3.5 w-3.5" /> Retry
         </Button>
       )}
       {(status === 'active' || status === 'blocked') && (

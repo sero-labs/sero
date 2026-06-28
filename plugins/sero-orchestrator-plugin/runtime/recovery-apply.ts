@@ -19,8 +19,38 @@ import type {
   StepRuntimeState,
 } from '../shared/types';
 import type { OrchestratorHost } from './host';
+import { isRetryableLoop, RECOVERABLE_STEP_STATUSES } from '../shared/recovery';
 import { validateLoopPlan } from './schema';
 import { initStepStates } from './plan-mapping';
+
+/**
+ * User-initiated Retry: resets every blocked/failed step back to pending, clears
+ * any runtime block and blocked completion, and re-activates the loop so the
+ * engine can run the reset steps again. Returns null when there is nothing to
+ * recover (the caller surfaces "nothing to retry"). Succeeded steps are left
+ * untouched, so prior work is never redone.
+ */
+export function retryStuckLoop(loop: Loop, now: string): Loop | null {
+  if (!isRetryableLoop(loop)) return null;
+  const stepStates = { ...loop.runtime.stepStates };
+  for (const [id, state] of Object.entries(stepStates)) {
+    if (RECOVERABLE_STEP_STATUSES.has(state.status)) {
+      stepStates[id] = { ...state, status: 'pending', outcome: undefined, updatedAt: now };
+    }
+  }
+  const blockedCompletion = loop.runtime.completion?.status === 'blocked';
+  return {
+    ...loop,
+    status: 'active',
+    runtime: {
+      ...loop.runtime,
+      stepStates,
+      block: undefined,
+      completion: blockedCompletion ? undefined : loop.runtime.completion,
+    },
+    updatedAt: now,
+  };
+}
 
 export interface RecoveryApplication {
   loop: Loop;

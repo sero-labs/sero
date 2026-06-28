@@ -45,8 +45,15 @@ You can also use the agent tool or slash command:
 /orchestrator resume <loopId>
 /orchestrator stop <loopId>
 /orchestrator run_next <loopId>
+/orchestrator retry <loopId>
 /orchestrator revise <loopId> add a final validation step
 ```
+
+If a step **blocks** (it stops and waits for you — e.g. it found a problem it
+can't fix on its own), fix the underlying cause and then **Retry**: this resets
+the blocked step, clears the block, and runs the loop on from there. Steps that
+already succeeded are left alone, so finished work is never redone. Retry is also
+a button on the loop detail view whenever a loop has a blocked or failed step.
 
 When you create a loop, the model returns a plan and Orchestrator checks it
 (unique step ids, valid and acyclic dependencies, supported step types, at least

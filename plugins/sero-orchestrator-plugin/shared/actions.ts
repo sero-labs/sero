@@ -29,6 +29,7 @@ export type OrchestratorAction =
   | { kind: 'enable'; loopId: string }
   | { kind: 'run_next'; loopId: string }
   | { kind: 'run_again'; loopId: string }
+  | { kind: 'retry'; loopId: string }
   | { kind: 'revise'; loopId: string; prompt?: string }
   | { kind: 'choose_recovery'; loopId: string; decision: RecoveryDecision }
   | { kind: 'set_step_model'; loopId: string; stepId: string; model?: string; thinking?: string }

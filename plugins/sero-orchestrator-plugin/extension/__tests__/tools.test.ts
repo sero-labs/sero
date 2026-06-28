@@ -29,6 +29,11 @@ describe('buildAction', () => {
     expect(buildAction({ action: 'activate' })).toEqual({ error: 'activate requires a loopId' });
   });
 
+  it('builds a retry action from a loopId', () => {
+    expect(buildAction({ action: 'retry', loopId: 'l1' })).toEqual({ kind: 'retry', loopId: 'l1' });
+    expect(buildAction({ action: 'retry' })).toEqual({ error: 'retry requires a loopId' });
+  });
+
   it('builds a delete action from a loopId', () => {
     expect(buildAction({ action: 'delete', loopId: 'l1' })).toEqual({ kind: 'delete', loopId: 'l1' });
   });
