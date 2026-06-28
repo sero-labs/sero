@@ -8,7 +8,7 @@ function loopFromPlan(plan: Loop['plan']): Loop {
   for (const step of plan.steps) stepStates[step.id] = { status: 'pending', attempts: 0, updatedAt: 't' };
   return {
     id: 'l', workspaceId: 'ws', title: 't', prompt: 'p', summary: '', status: 'active',
-    workspace: { useManagedWorktree: true, reuseExistingWorktree: true, dirtyWorkspacePromptTimeoutMs: 0, dirtyWorkspaceDefaultAction: 'create-managed-worktree' },
+    workspace: { useManagedWorktree: true, reuseExistingWorktree: true, dirtyWorkspacePromptTimeoutMs: 0, dirtyWorkspaceDefaultAction: 'create-managed-worktree', allowDirtyWorkspaceRoot: false },
     plan, runtime: { parentSessionId: 'pid', variables: {}, stepStates, workspace: {} },
     triggers: [], limits: { maxConcurrentSteps: 5 }, logPolicy: { retainRuns: 5, retainArtifacts: true, maxInlineOutputBytes: 100 },
     warnings: [], runs: [], revisions: [], createdAt: 't', updatedAt: 't',

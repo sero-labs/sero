@@ -8,6 +8,10 @@ function workspaceRootLoop(loop: Loop): Loop {
   return { ...loop, workspace: { ...loop.workspace, useManagedWorktree: false } };
 }
 
+function allowDirtyLoop(loop: Loop): Loop {
+  return { ...loop, workspace: { ...loop.workspace, useManagedWorktree: false, allowDirtyWorkspaceRoot: true } };
+}
+
 describe('workspace resolution', () => {
   it('managed-worktree loops create a worktree without a dirty prompt', async () => {
     const host = createFakeHost();
@@ -67,6 +71,39 @@ describe('workspace resolution', () => {
     const result = await resolve(host, loop);
     expect(result.workspace?.type).toBe('managed-worktree');
     expect(result.workspace?.resolvedBy).toBe('dirty-workspace-choice');
+  });
+
+  it('allowDirtyWorkspaceRoot runs in the root without a status check or prompt', async () => {
+    const host = createFakeHost();
+    host.workspaceStatus = { isGitRepository: true, hasUncommittedChanges: true, summary: 'dirty' };
+    const loop = allowDirtyLoop(seedActiveLoop(host, oneStepPlan().plan));
+    const result = await resolve(host, loop);
+    expect(result.workspace?.type).toBe('workspace-root');
+    expect(result.workspace?.resolvedBy).toBe('dirty-workspace-allowed');
+    expect(host.choiceRequests).toHaveLength(0);
+  });
+
+  it('dirty workspace-root "run here" choice runs in the root without stashing or persisting', async () => {
+    const host = createFakeHost();
+    host.workspaceStatus = { isGitRepository: true, hasUncommittedChanges: true, summary: 'dirty' };
+    host.choiceResult = { choiceId: 'run-in-workspace-root', timedOut: false };
+    const loop = workspaceRootLoop(seedActiveLoop(host, oneStepPlan().plan));
+    const result = await resolve(host, loop);
+    expect(result.workspace?.type).toBe('workspace-root');
+    expect(host.stashes).toHaveLength(0);
+    expect(result.loop.workspace.allowDirtyWorkspaceRoot).toBe(false);
+    expect(result.loop.runtime.workspace.dirtyPrompt?.decision?.action).toBe('run-in-workspace-root');
+  });
+
+  it('dirty workspace-root "don\'t ask again" choice persists the override on the loop', async () => {
+    const host = createFakeHost();
+    host.workspaceStatus = { isGitRepository: true, hasUncommittedChanges: true, summary: 'dirty' };
+    host.choiceResult = { choiceId: 'run-in-workspace-root-always', timedOut: false };
+    const loop = workspaceRootLoop(seedActiveLoop(host, oneStepPlan().plan));
+    const result = await resolve(host, loop);
+    expect(result.workspace?.type).toBe('workspace-root');
+    expect(host.stashes).toHaveLength(0);
+    expect(result.loop.workspace.allowDirtyWorkspaceRoot).toBe(true);
   });
 
   it('dirty workspace-root defer leaves the loop waiting without resolving', async () => {

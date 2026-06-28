@@ -95,6 +95,7 @@ export function LoopDetail({ loop, busy, onAction, stateDir }: LoopDetailProps) 
           )}
           <span>
             {workspace.useManagedWorktree ? 'Managed worktree' : 'Workspace root'}
+            {!workspace.useManagedWorktree && workspace.allowDirtyWorkspaceRoot ? ' · runs in place even when dirty' : ''}
             {resolved ? ` · ${resolved.type} (${resolved.cwd})` : ' · not resolved yet'}
           </span>
         </Card>

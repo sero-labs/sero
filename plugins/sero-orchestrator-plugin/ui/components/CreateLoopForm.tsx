@@ -6,6 +6,7 @@ export interface CreateLoopSubmit {
   prompt: string;
   title?: string;
   useManagedWorktree: boolean;
+  allowDirtyWorkspaceRoot: boolean;
   activate: boolean;
 }
 
@@ -19,11 +20,19 @@ export function CreateLoopForm({ busy, onSubmit, onCancel }: CreateLoopFormProps
   const [prompt, setPrompt] = useState('');
   const [title, setTitle] = useState('');
   const [useManagedWorktree, setUseManagedWorktree] = useState(true);
+  const [allowDirtyWorkspaceRoot, setAllowDirtyWorkspaceRoot] = useState(false);
   const [activate, setActivate] = useState(false);
 
   const submit = () => {
     if (!prompt.trim()) return;
-    onSubmit({ prompt: prompt.trim(), title: title.trim() || undefined, useManagedWorktree, activate });
+    onSubmit({
+      prompt: prompt.trim(),
+      title: title.trim() || undefined,
+      useManagedWorktree,
+      // Only meaningful in workspace-root mode; never persist it under a worktree.
+      allowDirtyWorkspaceRoot: useManagedWorktree ? false : allowDirtyWorkspaceRoot,
+      activate,
+    });
   };
 
   return (
@@ -48,6 +57,12 @@ export function CreateLoopForm({ busy, onSubmit, onCancel }: CreateLoopFormProps
           <Label htmlFor="loop-worktree">Run in a managed worktree</Label>
           <Switch id="loop-worktree" checked={useManagedWorktree} onCheckedChange={setUseManagedWorktree} />
         </div>
+        {!useManagedWorktree && (
+          <div className="flex items-center justify-between">
+            <Label htmlFor="loop-allow-dirty">Run here even with uncommitted changes</Label>
+            <Switch id="loop-allow-dirty" checked={allowDirtyWorkspaceRoot} onCheckedChange={setAllowDirtyWorkspaceRoot} />
+          </div>
+        )}
         <div className="flex items-center justify-between">
           <Label htmlFor="loop-activate">Activate after creating</Label>
           <Switch id="loop-activate" checked={activate} onCheckedChange={setActivate} />

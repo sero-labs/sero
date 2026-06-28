@@ -8,8 +8,20 @@
  */
 
 import type { AppRuntimePullRequestSummary, ContextOverrides } from '@sero-ai/common';
+import type { LoopWorkspaceRuntime, LoopWorkspaceSettings, ResolvedWorkspaceContext } from './workspace-types';
 
 export type { AppRuntimePullRequestSummary, ContextOverrides };
+
+// Workspace settings & runtime-context types live in workspace-types.ts (500-LOC
+// limit); re-exported here so existing imports from './types' keep resolving.
+export type {
+  LoopWorkspaceSettings,
+  ResolvedWorkspaceContext,
+  DirtyWorkspaceAction,
+  DirtyWorkspacePrompt,
+  DirtyWorkspaceDecision,
+  LoopWorkspaceRuntime,
+} from './workspace-types';
 
 // ── Top-level state ─────────────────────────────────────────
 
@@ -77,15 +89,6 @@ export interface LoopWarning {
   /** The step a runtime warning refers to (model-unavailable), for de-duplication. */
   stepId?: string;
   createdAt: string;
-}
-
-// ── Workspace settings ──────────────────────────────────────
-
-export interface LoopWorkspaceSettings {
-  useManagedWorktree: boolean;
-  reuseExistingWorktree: boolean;
-  dirtyWorkspacePromptTimeoutMs: number;
-  dirtyWorkspaceDefaultAction: 'create-managed-worktree';
 }
 
 // ── Planning response & plan ────────────────────────────────
@@ -167,53 +170,6 @@ export interface SessionTarget {
   strategy: 'specific-session' | 'most-recent-active' | 'ask-user';
   deliverAs: 'steer' | 'followUp' | 'nextTurn';
   triggerTurn: boolean;
-}
-
-// ── Workspace runtime context ───────────────────────────────
-
-export interface ResolvedWorkspaceContext {
-  id: string;
-  type: 'workspace-root' | 'managed-worktree';
-  workspaceRoot: string;
-  cwd: string;
-  worktreePath?: string;
-  branchName?: string;
-  /** Key the worktree was created under (per-iteration for recurring loops); used for cleanup. */
-  worktreeKey?: string;
-  resolvedBy:
-    | 'create-option'
-    | 'clean-workspace'
-    | 'dirty-workspace-choice'
-    | 'dirty-workspace-timeout';
-  createdAt: string;
-}
-
-export type DirtyWorkspaceAction =
-  | 'stash-current-changes'
-  | 'create-managed-worktree'
-  | 'defer-workflow';
-
-export interface DirtyWorkspacePrompt {
-  id: string;
-  status: 'pending' | 'resolved' | 'timed-out';
-  detectedAt: string;
-  expiresAt: string;
-  decision?: DirtyWorkspaceDecision;
-}
-
-export interface DirtyWorkspaceDecision {
-  action: DirtyWorkspaceAction;
-  source: 'user' | 'timeout';
-  decidedAt: string;
-  stashRef?: string;
-  contextId?: string;
-}
-
-export interface LoopWorkspaceRuntime {
-  resolved?: ResolvedWorkspaceContext;
-  dirtyPrompt?: DirtyWorkspacePrompt;
-  lastDirtyCheckAt?: string;
-  deferredReason?: string;
 }
 
 // ── Runtime state ───────────────────────────────────────────

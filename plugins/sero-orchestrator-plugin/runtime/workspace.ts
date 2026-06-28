@@ -25,6 +25,8 @@ export function worktreeKeyFor(loop: Loop): string {
 }
 
 const DIRTY_CHOICES = [
+  { id: 'run-in-workspace-root', label: 'Run here, keep my changes' },
+  { id: 'run-in-workspace-root-always', label: "Run here, and don't ask again for this loop" },
   { id: 'stash-current-changes', label: 'Stash current changes and run in the workspace root' },
   { id: 'create-managed-worktree', label: 'Create an isolated worktree and run there' },
   { id: 'defer-workflow', label: 'Defer — do not start steps now' },
@@ -98,6 +100,13 @@ export async function resolve(host: OrchestratorHost, loop: Loop): Promise<Resol
     return { loop: withResolved(loop, resolved), workspace: resolved };
   }
 
+  // Workspace-root mode with the user-owned override: run in place as-is and
+  // skip the dirty preflight entirely (no git status call, no prompt).
+  if (loop.workspace.allowDirtyWorkspaceRoot) {
+    const resolved = workspaceRootContext(host, 'dirty-workspace-allowed');
+    return { loop: withResolved(loop, resolved), workspace: resolved };
+  }
+
   // Workspace-root mode: dirty preflight before background filesystem work.
   const status = await host.getWorkspaceStatus();
   if (!status.isGitRepository || !status.hasUncommittedChanges) {
@@ -123,6 +132,17 @@ async function resolveDirty(host: OrchestratorHost, loop: Loop, summary: string)
     const resolved = await resolveManagedWorktree(host, loop, resolvedBy);
     const decision: DirtyWorkspaceDecision = { action: 'create-managed-worktree', source: choice.timedOut ? 'timeout' : 'user', decidedAt: now };
     return { loop: withResolved(loop, resolved, decision), workspace: resolved };
+  }
+
+  if (action === 'run-in-workspace-root' || action === 'run-in-workspace-root-always') {
+    // Run in the workspace root as-is — no stash. The "-always" variant persists
+    // the override on the loop so later runs skip the prompt entirely.
+    const base = action === 'run-in-workspace-root-always'
+      ? { ...loop, workspace: { ...loop.workspace, allowDirtyWorkspaceRoot: true } }
+      : loop;
+    const resolved = workspaceRootContext(host, 'dirty-workspace-choice');
+    const decision: DirtyWorkspaceDecision = { action: 'run-in-workspace-root', source: 'user', decidedAt: now };
+    return { loop: withResolved(base, resolved, decision), workspace: resolved };
   }
 
   if (action === 'stash-current-changes') {

@@ -219,6 +219,11 @@ Orchestrator is about to start background filesystem work in the registered
 workspace root. Managed-worktree loops do not prompt for dirty workspace-root
 changes.
 
+If the loop's `allowDirtyWorkspaceRoot` setting is true, resolution
+short-circuits before the preflight: the loop runs in the workspace root as-is
+(`resolvedBy: "dirty-workspace-allowed"`), with no `getWorkspaceStatus` call and
+no prompt. This is the user-owned opt-in for recurring edit-in-place loops.
+
 Needed host shape:
 
 ```ts
@@ -300,6 +305,11 @@ interface AppRuntimeNotificationChoiceApi {
 
 Choices:
 
+- `run-in-workspace-root`: run in the workspace root as-is, keeping the current
+  changes (no stash), this run only;
+- `run-in-workspace-root-always`: same, and persist `allowDirtyWorkspaceRoot` on
+  the loop so later runs skip the prompt entirely (the "don't ask again"
+  equivalent — modeled as a choice because the shared prompt has no checkbox);
 - `stash-current-changes`: stash current changes and run in the workspace root;
 - `create-managed-worktree`: create an isolated worktree and run there;
 - `defer-workflow`: leave the loop waiting without starting steps.

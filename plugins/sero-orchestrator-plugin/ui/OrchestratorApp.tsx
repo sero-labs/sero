@@ -84,6 +84,7 @@ export function OrchestratorApp() {
       prompt: values.prompt,
       title: values.title,
       useManagedWorktree: values.useManagedWorktree,
+      allowDirtyWorkspaceRoot: values.allowDirtyWorkspaceRoot,
       activate: values.activate,
     });
     const details = res?.details as { ok?: boolean; loop?: { id?: string } } | null;

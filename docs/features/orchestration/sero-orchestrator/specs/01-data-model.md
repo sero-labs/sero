@@ -90,6 +90,7 @@ interface LoopWorkspaceSettings {
   reuseExistingWorktree: boolean;
   dirtyWorkspacePromptTimeoutMs: number;
   dirtyWorkspaceDefaultAction: "create-managed-worktree";
+  allowDirtyWorkspaceRoot: boolean;
 }
 ```
 
@@ -98,11 +99,19 @@ Defaults for a new loop:
 - `useManagedWorktree: true`;
 - `reuseExistingWorktree: true`;
 - `dirtyWorkspacePromptTimeoutMs: 30_000`;
-- `dirtyWorkspaceDefaultAction: "create-managed-worktree"`.
+- `dirtyWorkspaceDefaultAction: "create-managed-worktree"`;
+- `allowDirtyWorkspaceRoot: false`.
 
 If `useManagedWorktree` is true, Orchestrator creates or reuses one managed
 worktree for the loop and runs background-agent filesystem work there. If it is
 false, Orchestrator normally uses the registered workspace root.
+
+`allowDirtyWorkspaceRoot` is a user-owned opt-in that only applies in
+workspace-root mode: when set, the loop runs in the workspace root even when it
+has uncommitted changes, skipping the dirty preflight (no git status call, no
+prompt). It has no effect under a managed worktree. This is the predictable
+primitive for recurring edit-in-place loops whose own leftover changes would
+otherwise look "dirty" on the next run.
 
 ## Loop Plan
 

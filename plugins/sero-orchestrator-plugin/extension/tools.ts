@@ -44,6 +44,7 @@ export const OrchestratorToolParams = Type.Object({
   title: Type.Optional(Type.String({ description: 'Optional loop title for create' })),
   activate: Type.Optional(Type.Boolean({ description: 'Activate the loop immediately after create' })),
   useManagedWorktree: Type.Optional(Type.Boolean({ description: 'Workspace isolation for create (default true)' })),
+  allowDirtyWorkspaceRoot: Type.Optional(Type.Boolean({ description: 'For create in workspace-root mode (useManagedWorktree false): run in place even when the workspace is dirty, skipping the dirty preflight (default false)' })),
   decisionJson: Type.Optional(Type.String({ description: 'JSON-encoded RecoveryDecision for choose_recovery' })),
   stepId: Type.Optional(Type.String({ description: 'Target step id (required for set_step_model/set_step_tools)' })),
   model: Type.Optional(Type.String({ description: 'For set_step_model: a tier ("LOW"/"MED"/"HIGH") or a "provider/modelId"; omit to revert the step to the default' })),
@@ -60,6 +61,7 @@ export interface OrchestratorToolParamsShape {
   title?: string;
   activate?: boolean;
   useManagedWorktree?: boolean;
+  allowDirtyWorkspaceRoot?: boolean;
   decisionJson?: string;
   stepId?: string;
   model?: string;
@@ -90,8 +92,10 @@ export function buildAction(params: OrchestratorToolParamsShape): OrchestratorAc
       if (!params.prompt) return { error: 'create requires a prompt' };
       const options: CreateLoopOptions = {};
       if (params.activate !== undefined) options.activate = params.activate;
-      if (params.useManagedWorktree !== undefined) {
-        options.workspace = { useManagedWorktree: params.useManagedWorktree };
+      if (params.useManagedWorktree !== undefined || params.allowDirtyWorkspaceRoot !== undefined) {
+        options.workspace = {};
+        if (params.useManagedWorktree !== undefined) options.workspace.useManagedWorktree = params.useManagedWorktree;
+        if (params.allowDirtyWorkspaceRoot !== undefined) options.workspace.allowDirtyWorkspaceRoot = params.allowDirtyWorkspaceRoot;
       }
       return { kind: 'create', prompt: params.prompt, title: params.title, options };
     }

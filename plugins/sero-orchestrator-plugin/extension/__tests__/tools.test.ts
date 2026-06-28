@@ -15,6 +15,16 @@ describe('buildAction', () => {
     });
   });
 
+  it('folds allowDirtyWorkspaceRoot into the create workspace options', () => {
+    const action = buildAction({ action: 'create', prompt: 'hi', useManagedWorktree: false, allowDirtyWorkspaceRoot: true });
+    expect(action).toEqual({
+      kind: 'create',
+      prompt: 'hi',
+      title: undefined,
+      options: { workspace: { useManagedWorktree: false, allowDirtyWorkspaceRoot: true } },
+    });
+  });
+
   it('requires a loopId for lifecycle actions', () => {
     expect(buildAction({ action: 'activate' })).toEqual({ error: 'activate requires a loopId' });
   });

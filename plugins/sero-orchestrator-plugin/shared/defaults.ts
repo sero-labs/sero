@@ -31,6 +31,7 @@ export const DEFAULT_WORKSPACE_SETTINGS: LoopWorkspaceSettings = {
   reuseExistingWorktree: true,
   dirtyWorkspacePromptTimeoutMs: 30_000,
   dirtyWorkspaceDefaultAction: 'create-managed-worktree',
+  allowDirtyWorkspaceRoot: false,
 };
 
 /**
