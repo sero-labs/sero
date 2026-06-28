@@ -49,7 +49,7 @@ export function LoopControls({ loop, busy, canReflect, onAction }: LoopControlsP
           <StepForward className="mr-1 h-3.5 w-3.5" /> Run next
         </Button>
       )}
-      {(status === 'disabled' || status === 'blocked') && (
+      {status === 'disabled' && (
         <Button size="sm" disabled={busy} onClick={() => onAction({ kind: 'enable', loopId: id })}>
           <Power className="mr-1 h-3.5 w-3.5" /> Enable
         </Button>
@@ -60,8 +60,19 @@ export function LoopControls({ loop, busy, canReflect, onAction }: LoopControlsP
         </Button>
       )}
       {canRetry && (
-        <Button size="sm" disabled={busy} onClick={() => onAction({ kind: 'retry', loopId: id })}>
+        <Button size="sm" disabled={busy} onClick={() => onAction({ kind: 'retry', loopId: id })} title="Resume from the stuck step, keeping finished work">
           <RefreshCw className="mr-1 h-3.5 w-3.5" /> Retry
+        </Button>
+      )}
+      {(status === 'blocked' || status === 'disabled') && (
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={busy}
+          onClick={() => onAction({ kind: 'run_again', loopId: id })}
+          title="Start over from the first step (discards this run's progress; any commits or PRs are kept)"
+        >
+          <RotateCcw className="mr-1 h-3.5 w-3.5" /> Start over
         </Button>
       )}
       {canReflect && (

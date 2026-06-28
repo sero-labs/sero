@@ -53,10 +53,20 @@ You can also use the agent tool or slash command:
 ```
 
 If a step **blocks** (it stops and waits for you — e.g. it found a problem it
-can't fix on its own), fix the underlying cause and then **Retry**: this resets
-the blocked step, clears the block, and runs the loop on from there. Steps that
-already succeeded are left alone, so finished work is never redone. Retry is also
-a button on the loop detail view whenever a loop has a blocked or failed step.
+can't fix on its own), you have two recovery buttons on the loop:
+
+- **Retry** — *resume* from the stuck step, keeping finished work. Use this when
+  you've fixed the underlying cause; it resets the blocked step, clears the
+  block, and runs the loop on from there. Steps that already succeeded are left
+  alone, so finished work is never redone.
+- **Start over** — *re-run the whole plan from the first step*, discarding this
+  run's progress (any commits or PRs already made are kept). Use this when you
+  want a clean restart — for example to make a different choice this time. A loop
+  is never a dead end: a blocked loop can always be started over.
+
+Retry alone won't help if nothing has changed — the final check will reach the
+same conclusion and block again. In that case, either Start over and choose
+differently, or **Refine** the plan.
 
 When you create a loop, the model returns a plan and Orchestrator checks it
 (unique step ids, valid and acyclic dependencies, supported step types, at least

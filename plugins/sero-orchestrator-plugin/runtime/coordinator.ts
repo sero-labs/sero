@@ -323,20 +323,27 @@ export class Coordinator {
   }
 
   /**
-   * Re-runs a completed loop. A loop reaching `complete` is not the end of the
-   * road: this re-arms the plan, re-enables any schedule that was disabled when
-   * it completed (so a scheduled loop resumes firing), sets it active, and runs a
-   * fresh pass now — covering both scheduled loops and one-off loops the user
-   * wants to run again.
+   * Start over: re-run the whole plan from the first step. Re-arms every step
+   * (back to pending, attempts cleared, run context and block/completion cleared),
+   * drops the previous worktree (its branch/PR is kept), re-enables any disabled
+   * schedule, sets the loop active, and runs a fresh pass now.
+   *
+   * Available from any loop the user might want to restart — completed, blocked,
+   * or disabled (and an idle active loop) — so a loop is never a dead end: a
+   * blocked loop can be re-run to make a different choice this time. Refused only
+   * for a never-started draft (use Activate) or while a run is in flight.
    */
   async runAgain(loopId: string): Promise<OrchestratorActionResult> {
     const loop = await this.findLoop(loopId);
     if (!loop) return { ok: false, error: `Loop not found: ${loopId}` };
-    if (loop.status !== 'complete') {
-      return { ok: false, error: `Run again is only available for a completed loop (this loop is "${loop.status}").` };
+    if (loop.status === 'draft') {
+      return { ok: false, error: 'This loop has not started yet — use Activate.' };
+    }
+    if (loop.runtime.activeRunId || hasRunningSteps(loop)) {
+      return { ok: false, error: 'A run is already in progress — disable it first, then start over.' };
     }
     const now = this.host.now();
-    // Drop the finished iteration's worktree (its branch/PR is kept) before a fresh pass.
+    // Drop the previous run's worktree (its branch/PR is kept) before a fresh pass.
     const prior = loop.runtime.workspace.resolved;
     if (prior?.type === 'managed-worktree') {
       await this.host.removeWorktree(prior.worktreeKey ?? loopId, { force: true });

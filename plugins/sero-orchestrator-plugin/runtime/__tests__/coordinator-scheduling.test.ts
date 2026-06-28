@@ -219,6 +219,39 @@ describe('Coordinator scheduling (Phase 7)', () => {
     expect(executor.calls).toEqual(['step-1']); // ran a fresh pass
   });
 
+  it('start over re-runs a BLOCKED loop from the first step (clears the block, re-arms every step)', async () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, sequentialPlan().plan); // a -> b
+    // A blocked loop: a succeeded, b blocked, a runtime block + blocked completion.
+    loop.status = 'blocked';
+    loop.runtime.stepStates['a'] = { status: 'succeeded', attempts: 1, outcome: { status: 'succeeded', summary: 'ok' }, updatedAt: 't' };
+    loop.runtime.stepStates['b'] = { status: 'blocked', attempts: 1, outcome: { status: 'blocked', summary: 'denied' }, updatedAt: 't' };
+    loop.runtime.block = { kind: 'planned-block', reason: 'user said no', createdAt: 't' };
+    loop.runtime.completion = { status: 'blocked', final: false, sourceStepId: 'b', sourceAttemptId: 'x', reason: 'user said no', createdAt: 't' };
+    host.state = { ...host.state, loops: [loop] };
+
+    const executor = fakeExecutor({ a: SUCCESS, b: SUCCESS });
+    const res = await coordinator(host, { executor }).requestAction({ kind: 'run_again', loopId: 'loop-1' });
+    expect(res.ok).toBe(true);
+
+    const updated = host.state.loops[0];
+    expect(updated.runtime.block).toBeUndefined(); // block cleared
+    expect(updated.runtime.completion).toBeUndefined(); // blocked completion cleared
+    expect(executor.calls).toEqual(['a', 'b']); // ran the WHOLE plan from the start, not just b
+    expect(updated.runtime.stepStates['a'].status).toBe('succeeded');
+    expect(updated.runtime.stepStates['b'].status).toBe('succeeded');
+  });
+
+  it('start over is refused only for a draft or while a run is in flight', async () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, oneStepPlan().plan);
+    loop.status = 'draft';
+    host.state = { ...host.state, loops: [loop] };
+    const draftRes = await coordinator(host).requestAction({ kind: 'run_again', loopId: 'loop-1' });
+    expect(draftRes.ok).toBe(false);
+    expect(draftRes.error).toMatch(/Activate/i);
+  });
+
   it('a maxFires trigger stops firing after the final allowed fire', async () => {
     const host = createFakeHost();
     host.frozenNow = NOW;
