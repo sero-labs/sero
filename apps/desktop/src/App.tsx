@@ -27,6 +27,8 @@ import { hydrateShellState } from '@/lib/app-startup';
 import { ActiveAppPanel } from '@/components/apps/ActiveAppPanel';
 import { useAgentStore } from '@/stores/agent';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { useUserFeedbackInit } from '@/hooks/useUserFeedbackInit';
+import { GlobalQuestionPrompt } from '@/components/layout/shell/GlobalQuestionPrompt';
 
 /**
  * App shell.
@@ -80,6 +82,11 @@ export function App() {
 
   // Bridge: session selection → agent lifecycle
   useSessionAgent();
+
+  // Always-on user-feedback listeners so background-job questions (e.g. an
+  // Orchestrator loop's dirty-workspace prompt) are received even when the chat
+  // panel is closed. Ref-counted, so per-panel inits stay safe.
+  useUserFeedbackInit();
 
   // Global keyboard shortcuts (⌘B sidebar, ⌘L chat)
   useKeyboardShortcuts();
@@ -324,6 +331,7 @@ export function App() {
         <GitHubAuthDialog />
         <NewAppBanner />
         <OnboardingWizard />
+        <GlobalQuestionPrompt />
         <StatusBar />
       </div>
     </TooltipProvider>
