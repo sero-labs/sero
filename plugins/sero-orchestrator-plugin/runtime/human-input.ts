@@ -138,7 +138,10 @@ export function formatAnswerNote(answered: AnsweredInput): string {
 function resetStepPending(loop: Loop, stepId: string, now: string): Loop {
   const prev = loop.runtime.stepStates[stepId];
   if (!prev) return loop;
-  const next: StepRuntimeState = { ...prev, status: 'pending', outcome: undefined, updatedAt: now };
+  // attempts: 0 — asking the user is a deliberate pause, not a failed work
+  // attempt, so the step keeps a full budget for its re-run (avoids a wedge when
+  // maxAttemptsPerStep is small).
+  const next: StepRuntimeState = { ...prev, status: 'pending', outcome: undefined, attempts: 0, updatedAt: now };
   return { ...loop, runtime: { ...loop.runtime, stepStates: { ...loop.runtime.stepStates, [stepId]: next } } };
 }
 

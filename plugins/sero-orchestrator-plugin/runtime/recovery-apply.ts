@@ -19,7 +19,7 @@ import type {
   StepRuntimeState,
 } from '../shared/types';
 import type { OrchestratorHost } from './host';
-import { isRetryableLoop, RECOVERABLE_STEP_STATUSES } from '../shared/recovery';
+import { isRetryableLoop, isStuckOnAttempts, RECOVERABLE_STEP_STATUSES } from '../shared/recovery';
 import { validateLoopPlan } from './schema';
 import { initStepStates } from './plan-mapping';
 
@@ -33,9 +33,17 @@ import { initStepStates } from './plan-mapping';
 export function retryStuckLoop(loop: Loop, now: string): Loop | null {
   if (!isRetryableLoop(loop)) return null;
   const stepStates = { ...loop.runtime.stepStates };
-  for (const [id, state] of Object.entries(stepStates)) {
+  for (const step of loop.plan.steps) {
+    const state = stepStates[step.id];
+    if (!state) continue;
     if (RECOVERABLE_STEP_STATUSES.has(state.status)) {
-      stepStates[id] = { ...state, status: 'pending', outcome: undefined, updatedAt: now };
+      // Recover the step AND restore its attempt budget: the user explicitly asked
+      // to try again, so a small maxAttemptsPerStep must not block the re-run.
+      stepStates[step.id] = { ...state, status: 'pending', outcome: undefined, attempts: 0, updatedAt: now };
+    } else if (isStuckOnAttempts(loop, step, state)) {
+      // Pending/ready but out of attempts (e.g. reset by an earlier retry without
+      // restoring the count): give it budget so it can finally run.
+      stepStates[step.id] = { ...state, attempts: 0, updatedAt: now };
     }
   }
   const blockedCompletion = loop.runtime.completion?.status === 'blocked';
@@ -60,15 +68,25 @@ export interface RecoveryApplication {
   rejection?: string;
 }
 
-function resetStep(loop: Loop, stepId: string, status: StepRuntimeState['status'], now: string): Loop {
+function resetStep(
+  loop: Loop,
+  stepId: string,
+  status: StepRuntimeState['status'],
+  now: string,
+  resetAttempts = false,
+): Loop {
   const prev = loop.runtime.stepStates[stepId];
   if (!prev) return loop;
+  const next: StepRuntimeState = {
+    ...prev,
+    status,
+    outcome: undefined,
+    updatedAt: now,
+    ...(resetAttempts ? { attempts: 0 } : {}),
+  };
   return {
     ...loop,
-    runtime: {
-      ...loop.runtime,
-      stepStates: { ...loop.runtime.stepStates, [stepId]: { ...prev, status, outcome: undefined, updatedAt: now } },
-    },
+    runtime: { ...loop.runtime, stepStates: { ...loop.runtime.stepStates, [stepId]: next } },
   };
 }
 
@@ -136,7 +154,8 @@ export function applyRecovery(host: OrchestratorHost, loop: Loop, decision: Reco
       if (errors.length > 0) {
         return { loop, stop: true, rejection: `revised step invalid: ${errors.join('; ')}` };
       }
-      const revised = resetStep(replaceStep(loop, decision.revisedStep), decision.revisedStep.id, 'pending', now);
+      // The step was rewritten — give it a fresh attempt budget for the new wording.
+      const revised = resetStep(replaceStep(loop, decision.revisedStep), decision.revisedStep.id, 'pending', now, true);
       return { loop: { ...revised, updatedAt: now }, stop: false };
     }
 

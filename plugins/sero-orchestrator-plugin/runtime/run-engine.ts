@@ -300,7 +300,11 @@ export class RunEngine {
     return { loop, run, stop };
   }
 
-  /** Resets a step to pending (clearing its outcome) — e.g. after it asks the user. */
+  /**
+   * Resets a step to pending (clearing its outcome) when it asks the user. The
+   * attempt count is reset too: asking is a deliberate pause, not a failed work
+   * attempt, so the step keeps a full budget for its re-run after the answer.
+   */
   private resetStepPending(loop: Loop, stepId: string): Loop {
     const prev = loop.runtime.stepStates[stepId];
     if (!prev) return loop;
@@ -309,7 +313,7 @@ export class RunEngine {
       ...loop,
       runtime: {
         ...loop.runtime,
-        stepStates: { ...loop.runtime.stepStates, [stepId]: { ...prev, status: 'pending', outcome: undefined, updatedAt: now } },
+        stepStates: { ...loop.runtime.stepStates, [stepId]: { ...prev, status: 'pending', outcome: undefined, attempts: 0, updatedAt: now } },
       },
     };
   }

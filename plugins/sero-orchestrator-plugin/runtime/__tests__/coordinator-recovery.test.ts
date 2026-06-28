@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { Coordinator } from '../coordinator';
 import type { RecoveryDecision } from '../../shared/types';
+import { computeReadySteps } from '../readiness';
+import { isRetryableLoop } from '../../shared/recovery';
 import { createFakeHost, type FakeHost } from './fake-host';
 import { oneStepPlan, seedActiveLoop, sequentialPlan } from './fixtures';
 
@@ -87,6 +89,41 @@ describe('Coordinator.retryLoop', () => {
     expect(updated.runtime.stepStates['a'].status).toBe('succeeded'); // prior work kept
     expect(updated.runtime.completion).toBeUndefined();
     expect(updated.status).toBe('active');
+  });
+
+  it('restores the recovered step\'s attempt budget so a tight maxAttemptsPerStep cannot block the re-run', async () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, sequentialPlan().plan);
+    loop.limits = { ...loop.limits, maxAttemptsPerStep: 1 };
+    loop.runtime.stepStates['a'] = { status: 'succeeded', attempts: 1, outcome: { status: 'succeeded', summary: 'ok' }, updatedAt: 't' };
+    host.state = { ...host.state, loops: [loop] };
+    blockStep(host, 'b'); // blocked, attempts: 1 (== cap)
+
+    const res = await new Coordinator(host).retryLoop('loop-1');
+    expect(res.ok).toBe(true);
+    const updated = host.state.loops[0];
+    expect(updated.runtime.stepStates['b'].status).toBe('pending');
+    expect(updated.runtime.stepStates['b'].attempts).toBe(0); // budget restored
+    expect(computeReadySteps(updated)).toContain('b'); // genuinely runnable again
+  });
+
+  it('rescues a step left pending but out of attempts (the wedge: pending + attempts == cap, no block)', async () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, sequentialPlan().plan);
+    loop.limits = { ...loop.limits, maxAttemptsPerStep: 1 };
+    loop.runtime.stepStates['a'] = { status: 'succeeded', attempts: 1, outcome: { status: 'succeeded', summary: 'ok' }, updatedAt: 't' };
+    // 'b' looks runnable (pending) but already used its one attempt — readiness skips it forever.
+    loop.runtime.stepStates['b'] = { status: 'pending', attempts: 1, updatedAt: 't' };
+    host.state = { ...host.state, loops: [loop] };
+
+    expect(isRetryableLoop(host.state.loops[0])).toBe(true); // Retry button appears
+    expect(computeReadySteps(host.state.loops[0])).not.toContain('b'); // stuck before retry
+
+    const res = await new Coordinator(host).retryLoop('loop-1');
+    expect(res.ok).toBe(true);
+    const updated = host.state.loops[0];
+    expect(updated.runtime.stepStates['b'].attempts).toBe(0);
+    expect(computeReadySteps(updated)).toContain('b'); // unwedged
   });
 
   it('refuses when there is nothing to retry', async () => {
