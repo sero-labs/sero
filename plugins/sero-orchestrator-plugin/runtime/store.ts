@@ -16,6 +16,7 @@ import type {
   OrchestratorState,
   RunIndex,
 } from '../shared/types';
+import { aggregateUsage } from '../shared/usage';
 
 /**
  * The slimmed loop persisted to loop.json: run history and revisions are stored
@@ -43,6 +44,7 @@ export function toRunSummary(run: LoopRun): RunIndex['runs'][number] {
       outcomeStatus: a.outcome?.status,
     })),
     recoveries: run.recoveryDecisions.map((d) => ({ decision: d.decision, reason: d.reason })),
+    usage: aggregateUsage(run.stepAttempts),
   };
 }
 

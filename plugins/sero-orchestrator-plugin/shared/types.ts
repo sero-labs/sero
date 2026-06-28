@@ -366,6 +366,8 @@ export interface LoopRunSummary {
   completionStatus?: CompletionSignal['status'];
   steps: LoopRunStepSummary[];
   recoveries: { decision: RecoveryDecisionKind; reason: string }[];
+  /** Rolled-up token/time totals across this run's attempts (cost when reported). */
+  usage?: UsageSummary;
 }
 
 export interface RunIndex {

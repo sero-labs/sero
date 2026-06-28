@@ -83,6 +83,14 @@ describe('run-split helpers', () => {
     expect(index.runs[0].steps[0]).toMatchObject({ stepId: 's', outcomeStatus: 'succeeded' });
   });
 
+  it('rolls each run\'s attempt usage up into the summary (and omits it when none reported)', () => {
+    const withUsage = run('r1');
+    withUsage.stepAttempts[0].usage = { inputTokens: 100, outputTokens: 20, totalTokens: 120, durationMs: 900 };
+    const index = buildRunIndex([withUsage, run('r2')]);
+    expect(index.runs[0].usage).toEqual({ inputTokens: 100, outputTokens: 20, totalTokens: 120, durationMs: 900 });
+    expect(index.runs[1].usage).toBeUndefined(); // r2 reported nothing
+  });
+
   it('diffs runs by value so only the changed run is rewritten (clones are not "changed")', () => {
     const a = run('r1', 'first');
     const b = run('r2', 'second');
