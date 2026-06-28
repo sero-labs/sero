@@ -253,4 +253,23 @@ describe('validateLoopPlan — branching guards', () => {
     ]));
     expect(errors.some((e) => e.includes('produces must be'))).toBe(true);
   });
+
+  it('accepts a planner-shaped branching response and preserves produces/when', () => {
+    const result = validatePlanningResponse({
+      plan: { objective: 'route the work', steps: [
+        { id: 'judge', title: 'Judge', instructions: 'decide route', execution: { type: 'model' }, produces: ['route'] },
+        { id: 'simple', title: 'Simple', instructions: 'implement', execution: { type: 'background-agent' }, dependsOn: ['judge'], when: { var: 'route', in: ['simple'] } },
+        { id: 'complex', title: 'Complex', instructions: 'plan then implement', execution: { type: 'background-agent' }, dependsOn: ['judge'], when: { var: 'route', in: ['complex'] } },
+        { id: 'fallback', title: 'Fallback', instructions: 'safe default', execution: { type: 'background-agent' }, dependsOn: ['judge'], when: { var: 'route', default: true } },
+        { id: 'finalize', title: 'Finalize', instructions: 'confirm and complete', execution: { type: 'model' }, dependsOn: ['simple', 'complex', 'fallback'] },
+      ] },
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      const byId = (id: string) => result.value.plan.steps.find((s) => s.id === id)!;
+      expect(byId('judge').produces).toEqual(['route']);
+      expect(byId('simple').when).toEqual({ var: 'route', in: ['simple'] });
+      expect(byId('fallback').when).toEqual({ var: 'route', default: true });
+    }
+  });
 });

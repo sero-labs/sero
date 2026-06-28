@@ -31,6 +31,8 @@ Return ONLY a single JSON object (no prose before or after). The top-level objec
         "instructions": string,          // what this step must do
         "expectedOutcome": string?,      // what success looks like
         "dependsOn": string[]?,          // ids of steps that must succeed first
+        "produces": string[]?,           // BRANCHING: routing variables this step records (declare before any guard reads them)
+        "when": ({ "var": string, "in": (string|number|boolean)[] } | { "var": string, "default": true })?,  // BRANCHING: run this step only when the route matches; omit ⇒ always runs
         "execution": { "type": "background-agent", "model": "LOW"|"MED"|"HIGH", "tools": string[]? }
           | { "type": "model", "model": "LOW"|"MED"|"HIGH", "outputSchema": object? }
           | { "type": "active-session", "sessionTarget": {
@@ -52,6 +54,13 @@ The user describes only the GOAL. You are responsible for the mechanics they sho
 
 - ALWAYS end the plan with exactly ONE finalization step that nothing else depends on (the single final step every other step ultimately leads to). Its "instructions" must tell the agent to confirm the objective is met and then EMIT THE COMPLETION SIGNAL in its StepOutcome (completion.status "complete", or "blocked" if the objective cannot be met). This is the ONLY way a loop ends — a plan whose last step just "reports" or "summarizes" without emitting completion will run forever. Every plan must be able to complete on its own; the user will not ask it to "mark complete".
 - The DELIVERY rule for this loop is given in the task below (it depends on where the loop runs). Add the delivery step(s) it describes; the user will not ask for delivery either.
+
+BRANCHING (optional — MOST plans are linear; use this ONLY when the work genuinely forks). Sometimes the right next steps depend on what an earlier step finds — e.g. "if the change is simple, implement directly; if it's hard, plan first", or progressively heavier paths for harder requests. Express that with a judge + guards; never guess the path up front by authoring just one branch.
+- JUDGE STEP. Author a step that decides the route and records it under a variable in its StepOutcome "variables" (e.g. variables: { "route": "complex" }), and list that variable name in the step's "produces". The judge is a "model" step when it only needs data earlier steps already recorded, or a "background-agent" when it must inspect files to decide (per EXECUTION TYPE).
+- ROUTE VALUES ARE YOURS. Invent the variable name and its values to fit THIS decision — there is no fixed set (not "simple/standard/complex"); it need not be binary.
+- GUARD EVERY BRANCH STEP. Put a "when" guard on EVERY step that belongs to a branch — its first step, its middle steps, and its own join step — not just the first. A step with NO "when" ALWAYS runs (the main line). Because a skipped step still satisfies the steps after it, an unguarded step whose only prerequisite was a skipped optional step still runs — that is exactly how "if simple, go straight to implementation" works: guard only the optional "plan" step and leave "implement" unguarded.
+- ONE PATH PER VARIABLE. Keep the "in" guards for one variable mutually exclusive (one value picks one path). If the judge might return a value you didn't enumerate, add a default branch ("when": { "var": "<v>", "default": true }) so some path always runs; without one, an unmatched route does nothing and the loop blocks at finalization.
+- WIRING. A guarded step's variable MUST be set by an earlier step it (transitively) depends on, so wire "dependsOn" from the judge into the guarded steps. Branches still converge into the single finalization step. You may nest branches (a judge inside a branch) and have several independent branch points.
 
 Rules:
 - STEP ORDERING. List steps in the order they should run. A typical change is fully sequential — inspect → edit → verify → review → deliver → finalize. Prefer to make this explicit with "dependsOn" (e.g. "edit" has "dependsOn":["inspect"], "verify" has "dependsOn":["edit"], down to "finalize"). If you provide NO "dependsOn" on any step, the steps are treated as a sequential chain in the order given. To run steps in parallel, wire "dependsOn" explicitly so independent steps share a prerequisite and a later step depends on all of them.
