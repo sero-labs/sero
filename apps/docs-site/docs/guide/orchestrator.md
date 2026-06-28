@@ -81,8 +81,15 @@ succeeds.
 together after *root* succeeds (up to the concurrency limit), then a *join* step
 combines them.
 
-You do not author these shapes directly — they fall out of the dependencies the
-model writes into the plan.
+**Branching** — when the right next steps depend on what an earlier step finds
+(e.g. *"if the change is simple, implement directly; if it's hard, plan first"*),
+the model adds a **judge** step that decides a route and **guarded** steps that run
+only on the matching route. The branch that isn't taken is skipped; the rest of the
+plan continues. The plan view shows the branch point, the route that was chosen,
+and greys out the steps that didn't run.
+
+You do not author these shapes directly — they fall out of the dependencies and
+guards the model writes into the plan.
 
 ## How loops recover and finish
 

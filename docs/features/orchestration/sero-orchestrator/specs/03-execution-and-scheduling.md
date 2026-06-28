@@ -78,6 +78,10 @@ When a loop is due, the coordinator runs this algorithm:
    and return.
 3. Check management limits before starting new step attempts.
 4. Resolve the loop workspace if a background-agent filesystem step may start.
+4a. Resolve branches: a pending step with a `when` guard whose route did not match
+   is marked `skipped` (a judge step recorded the routing variable). There is no
+   cascade — a step is skipped only by its own guard; unguarded steps always run.
+   See [05-branching.md](05-branching.md).
 5. Compute ready steps:
    - status is `pending`, `ready`, or `failed` with an LLM retry decision;
    - all `dependsOn` steps have outcome status `succeeded` or `skipped`;
@@ -128,6 +132,11 @@ step-1 ─┬─> step-2
 
 If `step-2`, `step-3`, and `step-4` all depend only on `step-1`, Orchestrator may
 start them together after `step-1` succeeds, subject to `maxConcurrentSteps`.
+
+Conditional execution is represented by guards: a judge step records a routing
+variable and branch steps carry a `when` guard, so an un-taken branch is skipped
+while the taken one runs and convergence steps continue (a skipped dependency
+satisfies its dependents). Full design in [05-branching.md](05-branching.md).
 
 ## Workspace Preflight and Step Execution
 

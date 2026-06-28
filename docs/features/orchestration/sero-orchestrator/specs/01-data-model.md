@@ -188,11 +188,22 @@ interface LoopStepDefinition {
   execution: StepExecutionTarget;
   onFailure?: string;            // optional LLM-authored recovery hint
   maxAttempts?: number;          // optional per-step limit, capped by loop limits
+  produces?: string[];           // routing variables this step records (branching)
+  when?: StepGuard;              // branch guard; absent ⇒ the step always runs
+}
+
+interface StepGuard {
+  var: string;                            // routing variable read from runtime.variables
+  in?: (string | number | boolean)[];     // taken when the value is one of these
+  default?: true;                         // taken only when no sibling in-guard matched
 }
 ```
 
 Sequential work is represented by `dependsOn`. Parallel work is represented by
-multiple steps with satisfied dependencies.
+multiple steps with satisfied dependencies. Conditional work is represented by
+guards: a judge step records a routing variable (declared in `produces`) and
+branch steps carry a `when` guard on it — see
+[05-branching.md](05-branching.md).
 
 ## Step Execution Target
 
