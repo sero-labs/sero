@@ -9,6 +9,7 @@
 
 import type { AppRuntimePullRequestSummary, ContextOverrides } from '@sero-ai/common';
 import type { LoopWorkspaceRuntime, LoopWorkspaceSettings, ResolvedWorkspaceContext } from './workspace-types';
+import type { LoopInsight, LoopSuggestion } from './reflection-types';
 
 export type { AppRuntimePullRequestSummary, ContextOverrides };
 
@@ -22,6 +23,18 @@ export type {
   DirtyWorkspaceDecision,
   LoopWorkspaceRuntime,
 } from './workspace-types';
+
+// Reflection (self-improvement) types live in reflection-types.ts (500-LOC
+// limit); re-exported here so existing imports from './types' keep resolving.
+export type {
+  RunDigest,
+  RunDigestStep,
+  DigestLog,
+  LoopInsight,
+  LoopSuggestion,
+  SuggestionConfidence,
+  SuggestionStatus,
+} from './reflection-types';
 
 // ── Top-level state ─────────────────────────────────────────
 
@@ -37,6 +50,8 @@ export interface LoopSummary {
   status: LoopStatus;
   summary: string;
   prompt: string;
+  /** Count of pending reflection suggestions — drives the loop-list badge. */
+  pendingSuggestions?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -78,6 +93,10 @@ export interface Loop {
   contextOverrides?: ContextOverrides;
   runs: LoopRun[];
   revisions: PlanRevision[];
+  /** Durable lessons reflection learned from this loop's run history (see specs/06-reflection.md). */
+  insights?: LoopInsight[];
+  /** History-driven improvements pending the user's approve/reject. */
+  suggestions?: LoopSuggestion[];
   createdAt: string;
   updatedAt: string;
 }
@@ -462,6 +481,8 @@ export interface LogPolicy {
   retainRuns: number;
   retainArtifacts: boolean;
   maxInlineOutputBytes: number;
+  /** Durable run digests kept for reflection (survive run pruning). Default 50. */
+  retainDigests?: number;
 }
 
 // ── Coordinator actions ─────────────────────────────────────
@@ -471,4 +492,5 @@ export type {
   CreateLoopOptions,
   OrchestratorAction,
   OrchestratorActionResult,
+  ReflectedLoopSummary,
 } from './actions';

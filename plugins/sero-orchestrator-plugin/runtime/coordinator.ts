@@ -30,6 +30,7 @@ import { reconcileAll } from './reconcile';
 import { loopArtifactDir } from './artifacts';
 import { applyRecovery, retryStuckLoop } from './recovery-apply';
 import { buildRevisedLoop } from './revise';
+import { handleReflectAction } from './reflect-actions';
 import { evaluateCronTriggers, fireEventTriggers, isRecurring, rearmLoop, reenableSchedule } from './scheduler';
 import { computeReadySteps, hasRunningSteps } from './readiness';
 import type { PlanRevision, RecoveryDecision } from '../shared/types';
@@ -131,6 +132,10 @@ export class Coordinator {
         return this.setStepTools(action.loopId, action.stepId, action.tools);
       case 'set_loop_context':
         return this.setLoopContext(action.loopId, action.overrides);
+      case 'reflect':
+      case 'reflect_workspace':
+      case 'choose_suggestion':
+        return handleReflectAction(this.host, action);
       case 'delete':
         return this.delete(action.loopId, action.deleteBranch);
       default: {

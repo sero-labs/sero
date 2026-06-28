@@ -48,6 +48,10 @@ interface Loop {
   contextOverrides?: ContextOverrides;
   runs: LoopRun[];
   revisions: PlanRevision[];
+  /** Durable lessons reflection learned from this loop's history (see 06-reflection.md). */
+  insights?: LoopInsight[];
+  /** History-driven improvements pending the user's approve/reject (see 06-reflection.md). */
+  suggestions?: LoopSuggestion[];
   createdAt: string;
   updatedAt: string;
 }
@@ -616,8 +620,26 @@ interface LogPolicy {
   retainRuns: number;
   retainArtifacts: boolean;
   maxInlineOutputBytes: number;
+  /** Durable run digests kept for reflection (survive run pruning). Default 50. */
+  retainDigests?: number;
 }
 ```
+
+## Reflection (self-improvement)
+
+On-demand reflection reads a loop's durable run history and proposes improvements
+to its plan. The full model lives in
+[06-reflection.md](06-reflection.md); the persisted additions are:
+
+- `RunDigest` — a compact, durable per-run record stored in the loop's colocated
+  `loops/<id>/digests.json` (outside `loop.json` and outside run pruning).
+- `LoopInsight` — a durable lesson carried across reflection passes (`Loop.insights`).
+- `LoopSuggestion` — a pending plan improvement (`Loop.suggestions`) the user
+  approves (applied through the revise path, recording a `PlanRevision`) or rejects
+  (kept with a reason for the reflection feed).
+
+The watched `LoopSummary` carries a `pendingSuggestions` count for the loop-list
+badge.
 
 ## Coordinator Actions
 
@@ -637,6 +659,9 @@ type OrchestratorAction =
   | { kind: "choose_recovery"; loopId: string; decision: RecoveryDecision }
   | { kind: "set_step_model"; loopId: string; stepId: string; model?: string; thinking?: string }
   | { kind: "set_loop_context"; loopId: string; overrides: ContextOverrides | null }
+  | { kind: "reflect"; loopId: string }
+  | { kind: "reflect_workspace" }
+  | { kind: "choose_suggestion"; loopId: string; suggestionId: string; decision: "approve" | "reject"; rejectionReason?: string }
   | { kind: "delete"; loopId: string; deleteBranch?: boolean };
 
 interface CreateLoopOptions {

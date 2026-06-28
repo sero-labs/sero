@@ -1,6 +1,7 @@
 import { use, useMemo, useState } from 'react';
 import { AppContext, useAppTools } from '@sero-ai/app-runtime';
-import { Infinity as InfinityIcon } from 'lucide-react';
+import { Button } from '@sero-ai/ui';
+import { Infinity as InfinityIcon, Sparkles } from 'lucide-react';
 import { DEFAULT_INDEX } from '../shared/defaults';
 import type { Loop, OrchestratorAction, OrchestratorIndex } from '../shared/types';
 import { LoopList } from './components/LoopList';
@@ -30,6 +31,7 @@ export function OrchestratorApp() {
   const [view, setView] = useState<View>({ mode: 'detail', loopId: null });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [reflectSummary, setReflectSummary] = useState<string | null>(null);
 
   const index = useWatchedJson<OrchestratorIndex>(stateDir ? `${stateDir}/index.json` : null, DEFAULT_INDEX);
   const selectedId = view.mode === 'detail' ? view.loopId : null;
@@ -54,7 +56,13 @@ export function OrchestratorApp() {
 
   const onAction = async (action: OrchestratorAction) => {
     if (action.kind === 'create' || action.kind === 'list') return;
-    const params: Record<string, unknown> = { action: action.kind, loopId: action.loopId };
+    const params: Record<string, unknown> = { action: action.kind };
+    if ('loopId' in action) params.loopId = action.loopId;
+    if (action.kind === 'choose_suggestion') {
+      params.suggestionId = action.suggestionId;
+      params.decision = action.decision;
+      if (action.rejectionReason !== undefined) params.rejectionReason = action.rejectionReason;
+    }
     if (action.kind === 'revise' && action.prompt) params.prompt = action.prompt;
     if (action.kind === 'delete') params.deleteBranch = action.deleteBranch;
     if (action.kind === 'set_step_model') {
@@ -92,13 +100,43 @@ export function OrchestratorApp() {
     setView({ mode: 'detail', loopId: details.loop?.id ?? null });
   };
 
+  // Reflect on every loop with run history, one after another. Suggestions queue
+  // per-loop (the list badges update via the watched index); this only summarizes.
+  const reflectAll = async () => {
+    setReflectSummary(null);
+    const res = await dispatch({ action: 'reflect_workspace' });
+    const details = res?.details as { workspaceReflection?: { reflected: number; suggestionCount: number } } | null;
+    const summary = details?.workspaceReflection;
+    if (summary) {
+      setReflectSummary(`Reflected ${summary.reflected} loop(s) · ${summary.suggestionCount} suggestion(s) to review.`);
+    }
+  };
+
   return (
     <div className="flex h-full flex-col bg-background text-foreground">
       <header className="flex items-center gap-2 border-b border-border px-4 py-2">
         <InfinityIcon className="h-5 w-5" />
         <h1 className="text-base font-semibold">Sero Orchestrator</h1>
-        <span className="ml-auto text-xs text-muted-foreground">{index.loops.length} loop(s)</span>
+        <div className="ml-auto flex items-center gap-3">
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={busy || index.loops.length === 0}
+            onClick={reflectAll}
+            title="Learn from every loop's past runs and suggest improvements"
+          >
+            <Sparkles className="mr-1 h-3.5 w-3.5" /> Reflect All
+          </Button>
+          <span className="text-xs text-muted-foreground">{index.loops.length} loop(s)</span>
+        </div>
       </header>
+
+      {reflectSummary && (
+        <div className="flex items-center justify-between gap-2 border-b border-border bg-accent/40 px-4 py-2 text-xs">
+          <span>{reflectSummary}</span>
+          <button type="button" className="shrink-0 underline" onClick={() => setReflectSummary(null)}>dismiss</button>
+        </div>
+      )}
 
       {error && (
         <div className="flex items-center justify-between gap-2 border-b border-destructive/40 bg-destructive/10 px-4 py-2 text-xs text-destructive">

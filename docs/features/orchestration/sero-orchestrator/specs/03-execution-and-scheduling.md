@@ -106,7 +106,10 @@ When a loop is due, the coordinator runs this algorithm:
 10. When no step is running and no step is ready, leave the loop waiting unless a
    step outcome already emitted a completion signal or a management condition
    blocks the loop.
-11. Persist the run and updated runtime state.
+11. Persist the run and updated runtime state. At finalize, a compact `RunDigest`
+    of the run is appended to the loop's colocated `digests.json` (best-effort,
+    outside run pruning) as durable memory for on-demand reflection — see
+    [06-reflection.md](06-reflection.md).
 12. Release the lock.
 13. If `runtime.dueAgain` was set during the run and the loop is still active,
     clear the flag and enqueue one more run.

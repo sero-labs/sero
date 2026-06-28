@@ -20,6 +20,7 @@ import { LoopContextControl } from './LoopContextControl';
 import { PlanView } from './PlanView';
 import { RefinePlan } from './RefinePlan';
 import { AttemptHistory } from './AttemptHistory';
+import { SuggestionsInbox } from './SuggestionsInbox';
 
 const REFINABLE: ReadonlySet<Loop['status']> = new Set(['draft', 'active', 'disabled', 'blocked']);
 
@@ -54,10 +55,12 @@ export function LoopDetail({ loop, busy, onAction, stateDir }: LoopDetailProps) 
         </div>
         <p className="text-sm text-muted-foreground">{loop.summary || loop.prompt}</p>
         <div className="flex flex-wrap items-center gap-2">
-          <LoopControls loop={loop} busy={busy} onAction={onAction} />
+          <LoopControls loop={loop} busy={busy} canReflect={runIndex.runs.length > 0} onAction={onAction} />
           <LoopContextControl loop={loop} onAction={onAction} />
         </div>
       </header>
+
+      <SuggestionsInbox loop={loop} busy={busy} onAction={onAction} />
 
       {loop.warnings.length > 0 && (
         <Card className="flex flex-col gap-1 border-amber-500/40 p-3 text-sm">

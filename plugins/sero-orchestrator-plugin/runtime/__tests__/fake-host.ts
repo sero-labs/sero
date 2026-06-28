@@ -122,7 +122,8 @@ export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
       return ref;
     },
     async readArtifact(ref) {
-      return this.artifacts.get(ref) ?? null;
+      // Mirror the real host: accept the write ref OR a state-dir-relative path.
+      return this.artifacts.get(ref) ?? this.artifacts.get(`artifact://${ref}`) ?? null;
     },
     async createWorktree(loopId) {
       this.worktreesCreated.push(loopId);

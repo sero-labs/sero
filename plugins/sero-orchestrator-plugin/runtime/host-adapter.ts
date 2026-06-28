@@ -57,8 +57,12 @@ export function createOrchestratorHost(ctx: AppRuntimeContext): OrchestratorHost
       return absolute;
     },
     readArtifact: async (ref) => {
+      // Accept an absolute ref (as returned by writeArtifact) OR a path relative
+      // to the state dir — so callers can read a known colocated file (e.g. a
+      // loop's digests.json) without having persisted the write ref.
+      const absolute = path.isAbsolute(ref) ? ref : path.join(stateDir, ref);
       try {
-        return await readFile(ref, 'utf8');
+        return await readFile(absolute, 'utf8');
       } catch {
         return null;
       }

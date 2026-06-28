@@ -16,6 +16,8 @@ import { resolveBranchSkips } from './branching';
 import { applyStepOutcome, recordCompletion } from './outcomes';
 import { applyRecovery } from './recovery-apply';
 import { pruneRuns } from './artifacts';
+import { appendDigest, buildRunDigest } from './digest';
+import { DEFAULT_RETAIN_DIGESTS } from '../shared/defaults';
 import { checkManagementLimits } from './limits';
 import { isRecurring } from './scheduler';
 
@@ -309,6 +311,10 @@ export class RunEngine {
   private async finalize(loop: Loop, run: LoopRun, deferredReason?: string): Promise<LoopRun> {
     const now = this.host.now();
     const finishedRun: LoopRun = { ...run, endedAt: now };
+    // Durable digest for reflection — colocated with the loop, outside run
+    // pruning. Best-effort: a digest write must never fail the run.
+    await appendDigest(this.host, loop.id, buildRunDigest(loop, finishedRun), loop.logPolicy.retainDigests ?? DEFAULT_RETAIN_DIGESTS)
+      .catch((error) => this.host.log(`digest write failed for ${loop.id}: ${error}`));
     const runs = pruneRuns(replaceRun(loop.runs, finishedRun), loop.logPolicy.retainRuns);
     const workspace = deferredReason ? { ...loop.runtime.workspace, deferredReason } : loop.runtime.workspace;
     const cleared: Loop = {

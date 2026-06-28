@@ -33,8 +33,13 @@ export const ORCHESTRATOR_ACTIONS = [
   'set_step_model',
   'set_step_tools',
   'set_loop_context',
+  'reflect',
+  'reflect_workspace',
+  'choose_suggestion',
   'delete',
 ] as const;
+
+const SUGGESTION_DECISIONS = ['approve', 'reject'] as const;
 
 export const OrchestratorToolParams = Type.Object({
   action: StringEnum(ORCHESTRATOR_ACTIONS, {
@@ -52,6 +57,9 @@ export const OrchestratorToolParams = Type.Object({
   thinking: Type.Optional(Type.String({ description: 'For set_step_model: thinking level for a pinned model' })),
   toolsJson: Type.Optional(Type.String({ description: 'For set_step_tools: JSON-encoded array of EXTRA tool names beyond the always-on default tools (e.g. ["web_search","git_manager"]) or "null"/"[]" to use the default tools only' })),
   contextJson: Type.Optional(Type.String({ description: 'For set_loop_context: JSON-encoded ContextOverrides ({systemPrompt?, disabledTools?, disabledSkills?}) or "null" to clear' })),
+  suggestionId: Type.Optional(Type.String({ description: 'For choose_suggestion: the reflection suggestion id to approve/reject' })),
+  decision: Type.Optional(StringEnum(SUGGESTION_DECISIONS, { description: 'For choose_suggestion: approve (apply the proposed plan) or reject' })),
+  rejectionReason: Type.Optional(Type.String({ description: 'For choose_suggestion reject: why, so the same idea is not re-proposed' })),
   deleteBranch: Type.Optional(Type.Boolean({ description: 'For delete: also delete the loop\'s local git branch (default false — branch is kept)' })),
 });
 
@@ -69,6 +77,9 @@ export interface OrchestratorToolParamsShape {
   thinking?: string;
   toolsJson?: string;
   contextJson?: string;
+  suggestionId?: string;
+  decision?: (typeof SUGGESTION_DECISIONS)[number];
+  rejectionReason?: string;
   deleteBranch?: boolean;
 }
 
@@ -147,14 +158,22 @@ export function buildAction(params: OrchestratorToolParamsShape): OrchestratorAc
       }
       return { kind: 'set_loop_context', loopId: params.loopId, overrides };
     }
+    case 'reflect_workspace':
+      return { kind: 'reflect_workspace' };
+    case 'choose_suggestion': {
+      if (!params.loopId) return { error: 'choose_suggestion requires a loopId' };
+      if (!params.suggestionId) return { error: 'choose_suggestion requires a suggestionId' };
+      if (!params.decision) return { error: 'choose_suggestion requires a decision (approve|reject)' };
+      return { kind: 'choose_suggestion', loopId: params.loopId, suggestionId: params.suggestionId, decision: params.decision, rejectionReason: params.rejectionReason };
+    }
     case 'delete':
       if (!params.loopId) return { error: 'delete requires a loopId' };
       return { kind: 'delete', loopId: params.loopId, deleteBranch: params.deleteBranch };
     default: {
       if (!params.loopId) return { error: `${params.action} requires a loopId` };
       // The switch guarantees params.action is one of the single-loopId kinds
-      // (show/activate/disable/enable/run_next/run_again/retry), all of shape
-      // { kind; loopId }.
+      // (show/activate/disable/enable/run_next/run_again/retry/reflect), all of
+      // shape { kind; loopId }.
       return { kind: params.action, loopId: params.loopId } as OrchestratorAction;
     }
   }
@@ -171,6 +190,12 @@ function summarize(action: OrchestratorAction, res: OrchestratorActionResult): s
       return `Loop ${res.loop?.id} — "${res.loop?.title}" (status: ${res.loop?.status}).`;
     case 'delete':
       return `Deleted loop ${action.loopId}.`;
+    case 'reflect':
+      return `Reflected loop ${action.loopId} — ${res.reflection?.suggestionCount ?? 0} suggestion(s) for review.`;
+    case 'reflect_workspace':
+      return `Reflected ${res.workspaceReflection?.reflected ?? 0} loop(s) — ${res.workspaceReflection?.suggestionCount ?? 0} suggestion(s) for review.`;
+    case 'choose_suggestion':
+      return `Suggestion ${action.decision === 'approve' ? 'approved and applied' : 'rejected'}.`;
     default:
       return `${action.kind} ok — loop ${res.loop?.id ?? action.loopId} now "${res.loop?.status ?? '?'}".`;
   }

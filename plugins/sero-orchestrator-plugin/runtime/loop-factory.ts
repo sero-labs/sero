@@ -100,6 +100,8 @@ export function buildDraftLoop(host: OrchestratorHost, args: BuildDraftArgs): Lo
     warnings: [],
     runs: [],
     revisions: [],
+    insights: [],
+    suggestions: [],
     createdAt: now,
     updatedAt: now,
   };

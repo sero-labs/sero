@@ -1,17 +1,19 @@
 import { useState } from 'react';
 import { Button, Checkbox, Label } from '@sero-ai/ui';
-import { Power, PowerOff, RefreshCw, RotateCcw, StepForward, Trash2, Zap } from 'lucide-react';
+import { Power, PowerOff, RefreshCw, RotateCcw, Sparkles, StepForward, Trash2, Zap } from 'lucide-react';
 import type { Loop, OrchestratorAction } from '../../shared/types';
 import { isRetryableLoop } from '../../shared/recovery';
 
 interface LoopControlsProps {
   loop: Loop;
   busy: boolean;
+  /** True once the loop has run at least once — reflection needs history to read. */
+  canReflect: boolean;
   onAction: (action: OrchestratorAction) => void;
 }
 
 /** Lifecycle controls. Each button maps to exactly one coordinator action. */
-export function LoopControls({ loop, busy, onAction }: LoopControlsProps) {
+export function LoopControls({ loop, busy, canReflect, onAction }: LoopControlsProps) {
   const { id, status } = loop;
   // Retry is offered whenever the loop has something to recover (a blocked/failed
   // step, a runtime block, or a blocked completion) and no run is in flight.
@@ -57,6 +59,11 @@ export function LoopControls({ loop, busy, onAction }: LoopControlsProps) {
       {canRetry && (
         <Button size="sm" disabled={busy} onClick={() => onAction({ kind: 'retry', loopId: id })}>
           <RefreshCw className="mr-1 h-3.5 w-3.5" /> Retry
+        </Button>
+      )}
+      {canReflect && (
+        <Button size="sm" variant="outline" disabled={busy} onClick={() => onAction({ kind: 'reflect', loopId: id })} title="Learn from past runs and suggest improvements">
+          <Sparkles className="mr-1 h-3.5 w-3.5" /> Reflect
         </Button>
       )}
       {(status === 'active' || status === 'blocked') && (

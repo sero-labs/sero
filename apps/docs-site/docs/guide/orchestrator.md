@@ -46,6 +46,8 @@ You can also use the agent tool or slash command:
 /orchestrator stop <loopId>
 /orchestrator run_next <loopId>
 /orchestrator retry <loopId>
+/orchestrator reflect <loopId>
+/orchestrator reflect_workspace
 /orchestrator revise <loopId> add a final validation step
 ```
 
@@ -101,6 +103,27 @@ guards the model writes into the plan.
   loop is "done". The model includes a validation or finalization step, and that
   step emits an explicit completion signal. If every known step has succeeded but
   no step signals completion, the loop simply waits.
+
+## Reflection (self-improvement)
+
+Loops keep a short, durable record of each run — what each step did, what failed,
+what was retried — stored alongside the loop. **Reflect** reads that history and
+suggests how the loop could run better next time.
+
+- **Reflect** (on a loop) looks at that one loop's past runs and proposes
+  improvements to its plan or a step's wording. If nothing is clearly worth
+  changing, it says so — it won't invent busywork.
+- **Reflect All** (top of the panel) runs the same pass over every loop with run
+  history, one after another, and tells you how many suggestions it found.
+
+Each suggestion waits for you. **Approve** applies it to the plan straight away
+(recorded in the loop's revision history, exactly like a manual refine);
+**Reject** asks for a one-line reason and keeps it, so the same idea isn't
+suggested again. Nothing changes on its own. Loops with suggestions waiting show a
+small count in the loop list.
+
+Reflection only suggests changes to the plan and step instructions, and only when
+you ask — it never runs on its own.
 
 ## Triggers
 

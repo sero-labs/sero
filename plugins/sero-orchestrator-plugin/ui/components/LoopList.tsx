@@ -60,7 +60,17 @@ export function LoopList({ loops, selectedId, onSelect, onNew }: LoopListProps) 
           >
             <div className="flex items-center justify-between gap-2">
               <span className="truncate font-medium">{loop.title}</span>
-              <Badge variant={loopStatusVariant(loop.status)}>{LOOP_STATUS_LABEL[loop.status]}</Badge>
+              <div className="flex shrink-0 items-center gap-1.5">
+                {loop.pendingSuggestions ? (
+                  <span
+                    title={`${loop.pendingSuggestions} suggestion(s) to review`}
+                    className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500/15 px-1 text-[10px] font-semibold text-amber-500"
+                  >
+                    {loop.pendingSuggestions}
+                  </span>
+                ) : null}
+                <Badge variant={loopStatusVariant(loop.status)}>{LOOP_STATUS_LABEL[loop.status]}</Badge>
+              </div>
             </div>
             <span className="truncate text-xs text-muted-foreground">{loop.summary || loop.prompt}</span>
           </button>

@@ -149,7 +149,7 @@ export interface OrchestratorHost {
   // ── Artifacts (large outputs under the state dir) ─────────
   /** Persists artifact content (relativePath resolved under the state dir) and returns a stable reference. */
   writeArtifact(relativePath: string, content: string): Promise<string>;
-  /** Reads artifact content by the reference returned from writeArtifact. */
+  /** Reads artifact content by the write ref OR a path relative to the state dir (null when absent). */
   readArtifact(ref: string): Promise<string | null>;
 
   // ── Workspace isolation (user-selected placement) ─────────

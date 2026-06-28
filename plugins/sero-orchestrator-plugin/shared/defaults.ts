@@ -49,8 +49,12 @@ export const DEFAULT_LIMITS: Required<Pick<
   maxWallClockMs: 30 * 60_000,
 };
 
+/** Durable run digests retained for reflection — many more than full runs, since each is tiny. */
+export const DEFAULT_RETAIN_DIGESTS = 50;
+
 export const DEFAULT_LOG_POLICY: LogPolicy = {
   retainRuns: 20,
   retainArtifacts: true,
   maxInlineOutputBytes: 8_000,
+  retainDigests: DEFAULT_RETAIN_DIGESTS,
 };
