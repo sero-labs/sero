@@ -51,7 +51,7 @@ Status legend: ✅ Done · 🟡 In progress · ⬜ Not started · ⛔ Blocked ·
 | FR-L3 | A loaded loop links to `(entryId, version)`; Update/Downgrade selects any retained version | 9 | 08 | ✅ |
 | FR-L4 | A version switch replaces the plan and replays the local step-override overlay | 9 | 08 | ✅ |
 | FR-L5 | Push-based "update available" via the watched library index — no polling | 9 | D-07/08 | ✅ |
-| FR-L6 | Library-managed plan: no in-place editor; recovery divergence is derived and surfaced | 9 | 08 | 🟡 |
+| FR-L6 | Library-managed plan: no in-place editor; recovery divergence is derived and surfaced | 9 | 08 | ✅ |
 | FR-L7 | Version switch only when idle; plan re-validated on load and switch | 9 | D-09/08 | ✅ |
 | FR-L8 | Profile-global store at `$SERO_HOME/apps/orchestrator-library/`; deletes never break loaded loops | 9 | D-07/08 | ✅ |
 | FR-L9 | Unlink detaches a loaded loop into a standalone loop | 9 | 08 | ✅ |
@@ -384,13 +384,12 @@ downgrade. Full design in [08-loop-library.md](08-loop-library.md).
   idle-only guard; re-validate the plan.
 - [x] Record `set_step_model` / `set_step_tools` into `stepOverrides` on linked
   loops; replay onto matching steps after a switch; warn on dropped step ids.
-- [ ] Derived structural-divergence indicator (compare plans with overlay fields
-  ignored); Save / Re-sync affordances. *(Deferred — recovery-revised linked
-  loops aren't yet flagged as "modified locally".)*
+- [x] Derived structural-divergence indicator (`plansStructurallyDiffer`, overlay
+  fields ignored); "modified locally" notice with Save-as-new-version / Re-sync.
 - [x] `library_unlink`; `library_delete` (never cascades to loaded loops).
 - [x] Push-based "update available": the linked-loop detail watches the library
-  index and surfaces "vN available". *(Loop-LIST badge deferred — needs
-  `LoopSummary` to carry link/update info.)*
+  index and surfaces "vN available"; the loop list shows a per-row update icon
+  (`LoopSummary.libraryLink` + the watched index).
 
 **9e — Docs and tests**
 
@@ -408,8 +407,7 @@ downgrade. Full design in [08-loop-library.md](08-loop-library.md).
 - [x] A version switch is refused mid-run and an invalid saved plan blocks on load
   with clear errors.
 - [x] Deleting a library entry leaves loaded loops working.
-- [~] FR-L1 … FR-L9 satisfied (FR-L6 partial: library-managed plan + no in-place
-  editor done; derived divergence indicator deferred).
+- [x] FR-L1 … FR-L9 satisfied.
 
 ---
 

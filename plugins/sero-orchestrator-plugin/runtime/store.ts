@@ -87,6 +87,7 @@ export function toSummary(loop: Loop): LoopSummary {
     prompt: loop.prompt,
     pendingSuggestions: pendingSuggestions || undefined,
     pendingInput: pendingInput || undefined,
+    libraryLink: loop.libraryLink,
     createdAt: loop.createdAt,
     updatedAt: loop.updatedAt,
   };

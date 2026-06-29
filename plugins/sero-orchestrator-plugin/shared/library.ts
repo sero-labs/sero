@@ -9,6 +9,7 @@ import type {
   LibraryVersion,
   Loop,
   LoopLibraryLink,
+  LoopPlan,
   LoopTrigger,
   SharedLoopDefinition,
   SharedTriggerConfig,
@@ -81,4 +82,26 @@ export function buildLibrarySave(params: {
     createdAt: now,
   };
   return { entry, version, link: { entryId: entry.id, version: versionNumber, syncedAt: now } };
+}
+
+/**
+ * A canonical signature of a plan's STRUCTURE — steps, instructions, deps,
+ * guards, objective — with the per-step model/tool overlay fields removed. Two
+ * plans share a signature when they differ only by local model/tool picks.
+ */
+export function structuralPlanSignature(plan: LoopPlan): string {
+  const steps = plan.steps.map((step) => {
+    const execution = { ...(step.execution as unknown as Record<string, unknown>) };
+    // Overlay fields are a local layer (see specs/08-loop-library.md), not structure.
+    delete execution.model;
+    delete execution.thinking;
+    delete execution.tools;
+    return { ...step, execution };
+  });
+  return JSON.stringify({ objective: plan.objective, globalInstructions: plan.globalInstructions, variablesSchema: plan.variablesSchema, steps });
+}
+
+/** True when two plans differ in structure (ignoring the local model/tool overlay). */
+export function plansStructurallyDiffer(a: LoopPlan, b: LoopPlan): boolean {
+  return structuralPlanSignature(a) !== structuralPlanSignature(b);
 }

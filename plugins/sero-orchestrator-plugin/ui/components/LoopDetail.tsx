@@ -1,6 +1,6 @@
 import { Badge, Card, Separator } from '@sero-ai/ui';
 import { AlertTriangle, GitBranch, FolderGit2 } from 'lucide-react';
-import type { Loop, LoopLimits, OrchestratorAction, RunIndex } from '../../shared/types';
+import type { LibraryIndex, Loop, LoopLimits, OrchestratorAction, RunIndex } from '../../shared/types';
 import { DEFAULT_RUN_INDEX } from '../../shared/defaults';
 import { LOOP_STATUS_LABEL, loopStatusVariant, formatTime } from '../lib/format';
 import { useWatchedJson } from '../lib/use-watched-json';
@@ -35,6 +35,8 @@ interface LoopDetailProps {
   stateDir: string;
   /** Profile-global library dir, for a linked loop's status + update controls. */
   libraryDir: string | null;
+  /** The watched library index, for a linked loop's version status. */
+  libraryIndex: LibraryIndex;
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -46,7 +48,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-export function LoopDetail({ loop, busy, onAction, stateDir, libraryDir }: LoopDetailProps) {
+export function LoopDetail({ loop, busy, onAction, stateDir, libraryDir, libraryIndex }: LoopDetailProps) {
   const { runtime, workspace } = loop;
   const resolved = runtime.workspace.resolved;
   const runIndex = useWatchedJson<RunIndex>(`${stateDir}/loops/${loop.id}/runs/index.json`, DEFAULT_RUN_INDEX);
@@ -121,7 +123,7 @@ export function LoopDetail({ loop, busy, onAction, stateDir, libraryDir }: LoopD
 
       {loop.libraryLink && (
         <Section title="Library">
-          <LibraryLinkSection loop={loop} libraryDir={libraryDir} busy={busy} onAction={onAction} />
+          <LibraryLinkSection loop={loop} libraryDir={libraryDir} libraryIndex={libraryIndex} busy={busy} onAction={onAction} />
         </Section>
       )}
 

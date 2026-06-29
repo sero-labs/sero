@@ -357,11 +357,9 @@ writers are not a concern within one profile.
   design (nothing changes on its own).
 - **Version pruning / retention UI** — all versions are kept.
 - **Entry organisation** — folders, tags, ownership. v1 is a flat searchable list.
-- **Derived divergence indicator** (FR-L6, partial) — a linked loop whose plan
-  was changed by autonomous recovery/reflection is not yet flagged "modified
-  locally". The library-managed model still holds (no in-place plan editor; a
-  version switch replaces the plan and replays the overlay); surfacing structural
-  drift + a Save/Re-sync affordance is a follow-up.
-- **Loop-list update badge** — "update available" is surfaced on the linked
-  loop's detail; a count badge on the loop *list* needs `LoopSummary` to carry
-  link/update info and is deferred.
+- **Activate-after-load** — Load creates a draft; the browser does not yet offer
+  a one-click "load and activate" (the user reviews, then Activates). The
+  `activate` action already exists to chain.
+- **Version metadata in the browser** — the version picker shows numbers only;
+  each version's "what changed" note and save date (stored on the version) are
+  not surfaced yet.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildLibrarySave, toSharedDefinition, toSharedTrigger } from '../library';
+import { buildLibrarySave, plansStructurallyDiffer, toSharedDefinition, toSharedTrigger } from '../library';
 import { DEFAULT_LIMITS, DEFAULT_LOG_POLICY, DEFAULT_WORKSPACE_SETTINGS } from '../defaults';
 import { loopParentSessionId } from '../ids';
 import type { LibraryEntry, Loop, LoopPlan, LoopTrigger } from '../types';
@@ -169,5 +169,32 @@ describe('buildLibrarySave', () => {
       loop: makeLoop(), existing: null, entryId: 'e', name: 'n', note: '   ', now: 'now', savedFromWorkspaceId: 'ws-1',
     });
     expect(blank.version.note).toBeUndefined();
+  });
+});
+
+describe('plansStructurallyDiffer', () => {
+  it('is false for the same plan', () => {
+    expect(plansStructurallyDiffer(PLAN, structuredClone(PLAN))).toBe(false);
+  });
+
+  it('ignores local model/tool picks (the overlay)', () => {
+    const tweaked = structuredClone(PLAN);
+    tweaked.steps[0].execution = { type: 'background-agent', model: 'LOW', tools: ['web_search'] };
+    tweaked.steps[1].execution = { type: 'model', model: 'HIGH', thinking: 'high' };
+    expect(plansStructurallyDiffer(PLAN, tweaked)).toBe(false);
+  });
+
+  it('is true when the structure changes', () => {
+    const reworded = structuredClone(PLAN);
+    reworded.steps[0].instructions = 'do something else';
+    expect(plansStructurallyDiffer(PLAN, reworded)).toBe(true);
+
+    const reObjectived = structuredClone(PLAN);
+    reObjectived.objective = 'A different objective';
+    expect(plansStructurallyDiffer(PLAN, reObjectived)).toBe(true);
+
+    const added = structuredClone(PLAN);
+    added.steps.push({ id: 'c', title: 'C', instructions: 'new', dependsOn: ['b'], execution: { type: 'model' } });
+    expect(plansStructurallyDiffer(PLAN, added)).toBe(true);
   });
 });

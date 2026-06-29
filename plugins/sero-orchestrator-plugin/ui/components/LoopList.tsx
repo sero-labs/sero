@@ -1,19 +1,30 @@
 import { useMemo, useState } from 'react';
 import { Badge, Button, Card, Input } from '@sero-ai/ui';
-import { Plus, Search } from 'lucide-react';
-import type { LoopSummary } from '../../shared/types';
+import { ArrowUpCircle, Plus, Search } from 'lucide-react';
+import { DEFAULT_LIBRARY_INDEX } from '../../shared/defaults';
+import type { LibraryIndex, LoopSummary } from '../../shared/types';
 import { LOOP_STATUS_LABEL, loopStatusVariant } from '../lib/format';
 
 const PAGE = 10;
 
 interface LoopListProps {
   loops: LoopSummary[];
+  /** The watched library index, to flag loops with a newer version available. */
+  libraryIndex?: LibraryIndex;
   selectedId: string | null;
   onSelect: (loopId: string) => void;
   onNew: () => void;
 }
 
-export function LoopList({ loops, selectedId, onSelect, onNew }: LoopListProps) {
+/** True when a linked loop's entry has a version newer than the one it is on. */
+function hasUpdate(loop: LoopSummary, index: LibraryIndex): boolean {
+  const link = loop.libraryLink;
+  if (!link) return false;
+  const entry = index.entries.find((e) => e.id === link.entryId);
+  return !!entry && entry.latestVersion > link.version;
+}
+
+export function LoopList({ loops, libraryIndex = DEFAULT_LIBRARY_INDEX, selectedId, onSelect, onNew }: LoopListProps) {
   const [query, setQuery] = useState('');
   const [shown, setShown] = useState(PAGE);
 
@@ -61,6 +72,12 @@ export function LoopList({ loops, selectedId, onSelect, onNew }: LoopListProps) 
             <div className="flex items-center justify-between gap-2">
               <span className="truncate font-medium">{loop.title}</span>
               <div className="flex shrink-0 items-center gap-1.5">
+                {hasUpdate(loop, libraryIndex) ? (
+                  <ArrowUpCircle
+                    className="h-3.5 w-3.5 text-primary"
+                    aria-label="A newer library version is available"
+                  />
+                ) : null}
                 {loop.pendingInput ? (
                   <span
                     title={`${loop.pendingInput} question(s) waiting for your answer`}

@@ -82,6 +82,8 @@ export interface LoopSummary {
   pendingSuggestions?: number;
   /** Count of open questions the loop is waiting on — drives the input badge. */
   pendingInput?: number;
+  /** Library link, when loaded from / saved to the Library — drives the update badge. */
+  libraryLink?: LoopLibraryLink;
   createdAt: string;
   updatedAt: string;
 }

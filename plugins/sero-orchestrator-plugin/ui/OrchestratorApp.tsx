@@ -2,8 +2,8 @@ import { use, useEffect, useMemo, useState } from 'react';
 import { AppContext, useAppTools } from '@sero-ai/app-runtime';
 import { Button } from '@sero-ai/ui';
 import { Infinity as InfinityIcon, Library, Sparkles } from 'lucide-react';
-import { DEFAULT_INDEX } from '../shared/defaults';
-import type { Loop, OrchestratorAction, OrchestratorIndex } from '../shared/types';
+import { DEFAULT_INDEX, DEFAULT_LIBRARY_INDEX } from '../shared/defaults';
+import type { LibraryIndex, Loop, OrchestratorAction, OrchestratorIndex } from '../shared/types';
 import { LoopList } from './components/LoopList';
 import { LoopDetail } from './components/LoopDetail';
 import { LibraryBrowser } from './components/LibraryBrowser';
@@ -41,6 +41,8 @@ export function OrchestratorApp() {
   const selectedId = view.mode === 'detail' ? view.loopId : null;
   const loopPath = selectedId && stateDir ? `${stateDir}/loops/${selectedId}/loop.json` : null;
   const selected = useWatchedJson<Loop | null>(loopPath, null);
+  // The global library index drives Library update badges (list + linked loop).
+  const libraryIndex = useWatchedJson<LibraryIndex>(libraryDir ? `${libraryDir}/index.json` : null, DEFAULT_LIBRARY_INDEX);
 
   // Resolve the profile-global library dir once (the renderer can't derive it).
   // A linked loop's update-available status then comes from watching its index.
@@ -203,6 +205,7 @@ export function OrchestratorApp() {
       <div className="flex min-h-0 flex-1">
         <LoopList
           loops={index.loops}
+          libraryIndex={libraryIndex}
           selectedId={selectedId}
           onSelect={(loopId) => setView({ mode: 'detail', loopId })}
           onNew={() => setView({ mode: 'create' })}
@@ -217,7 +220,7 @@ export function OrchestratorApp() {
             onClose={() => setView({ mode: 'detail', loopId: null })}
           />
         ) : selected ? (
-          <LoopDetail loop={selected} busy={busy} onAction={onAction} stateDir={stateDir} libraryDir={libraryDir} />
+          <LoopDetail loop={selected} busy={busy} onAction={onAction} stateDir={stateDir} libraryDir={libraryDir} libraryIndex={libraryIndex} />
         ) : (
           <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
             Select a loop or create a new one.
