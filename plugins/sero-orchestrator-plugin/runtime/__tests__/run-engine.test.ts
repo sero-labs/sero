@@ -157,6 +157,34 @@ describe('RunEngine', () => {
   });
 });
 
+describe('RunEngine — outcome notifications', () => {
+  it('notifies once with an info message when the loop completes', async () => {
+    const host = createFakeHost();
+    seedActiveLoop(host, oneStepPlan().plan);
+    const completing: StepOutcome = { status: 'succeeded', summary: 'validated', completion: { status: 'complete', reason: 'all good' } };
+    await new RunEngine(host, deps({ executor: fakeExecutor({ 'step-1': completing }) })).run('loop-1');
+    expect(host.notifications).toEqual([{ message: 'Loop "Seeded" finished.', type: 'info' }]);
+  });
+
+  it('notifies once with a warning when the loop blocks', async () => {
+    const host = createFakeHost();
+    seedActiveLoop(host, oneStepPlan().plan);
+    const engine = new RunEngine(host, deps({
+      executor: fakeExecutor({ 'step-1': { status: 'failed', summary: 'boom' } }),
+      decider: fakeDecider({ decision: 'block-loop', reason: 'unrecoverable' }),
+    }));
+    await engine.run('loop-1');
+    expect(host.notifications).toEqual([{ message: 'Loop "Seeded" is blocked — unrecoverable.', type: 'warning' }]);
+  });
+
+  it('does not notify when a run ends without completing or blocking', async () => {
+    const host = createFakeHost();
+    seedActiveLoop(host, oneStepPlan().plan);
+    await new RunEngine(host, deps({ executor: fakeExecutor({ 'step-1': SUCCESS }) })).run('loop-1');
+    expect(host.notifications).toEqual([]);
+  });
+});
+
 describe('RunEngine — branching', () => {
   const branchPlan: LoopPlan = {
     schemaVersion: 1,

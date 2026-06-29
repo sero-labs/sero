@@ -31,7 +31,14 @@ The Orchestrator panel opens on **Home**: a single "Needs you" list that gathers
 every loop waiting on you — questions to answer and suggested improvements to
 approve or reject — so you can clear them in one place without opening each loop.
 Below it is an overview of all your loops, grouped by status. Click any loop to
-open its detail view.
+open its detail view. Once you have a lot of loops, a **search** box appears to
+filter the overview by name, and each status group shows the most recent first
+with a **Show more** to reveal the rest.
+
+You don't have to keep the panel open. When a loop **finishes** or **blocks**
+(stops on a problem it can't get past) while you're away, Sero sends you a
+notification with the loop's name and what happened — the same way it tells you
+when a loop has a question.
 
 ## Create a loop
 
@@ -100,6 +107,13 @@ Each run in the history has a small **stats** icon. Open it to see that run's
 totals — tokens used, model time, cost (for models with known pricing), and how
 many steps and attempts ran. The section stays collapsed by default so the
 history reads cleanly.
+
+**Context.** The **Context** button on a loop sets a custom system prompt and
+hides chosen skills for that loop's background work. Leave the system prompt
+blank to use Sero's default, type to replace it, or clear it to drop the default
+entirely. This applies to every background step the loop runs (the per-step rules
+the loop needs to report its results always still apply). Tools are chosen per
+step in the plan, not here.
 
 ## Loop Library
 

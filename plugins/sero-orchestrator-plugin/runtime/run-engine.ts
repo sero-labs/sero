@@ -15,6 +15,7 @@ import { computeReadySteps, hasRunningSteps, validateRuntime } from './readiness
 import { resolveBranchSkips } from './branching';
 import { applyStepOutcome, recordCompletion } from './outcomes';
 import { parkForInput } from './human-input';
+import { notifyOutcome } from './notify-outcome';
 import { applyRecovery } from './recovery-apply';
 import { pruneRuns } from './artifacts';
 import { appendDigest, buildRunDigest } from './digest';
@@ -366,6 +367,10 @@ export class RunEngine {
       updatedAt: now,
     };
     await this.commit(cleared);
+    // Nudge the user once if this run left the loop complete or blocked (a
+    // pending question already notified separately). Finalize runs once per run,
+    // and a terminal loop cannot run again, so this fires once per transition.
+    notifyOutcome(this.host, cleared);
     return finishedRun;
   }
 

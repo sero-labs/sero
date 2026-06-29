@@ -2,17 +2,20 @@
  * The loops overview on the home view (specs/09-ui-redesign.md): every loop as a
  * compact card, grouped by status (active first). Active runs show a live progress
  * bar; other loops show a status line. Needs-you signals and a blocked tint draw
- * the eye. Clicking a card opens its detail.
+ * the eye. Clicking a card opens its detail. Each group is bounded (last-N by
+ * recency) with a "Show more" — no unbounded scroll (the "paginate, don't scroll"
+ * rule the sidebar LoopList follows).
  */
 
-import { useMemo } from 'react';
-import { Card } from '@sero-ai/ui';
+import { useMemo, useState } from 'react';
+import { Button, Card } from '@sero-ai/ui';
 import type { LoopStatus, LoopSummary } from '../../shared/types';
 import { formatRelative } from '../lib/format';
 import { LOOP_STATUS_STYLE } from '../lib/status-style';
 import { NeedsYouBadge, StatusDot } from './StatusBadge';
 
 const STATUS_ORDER: LoopStatus[] = ['active', 'blocked', 'draft', 'complete', 'disabled'];
+const GROUP_PAGE = 9; // 3 rows on the widest grid; a "Show more" reveals the rest.
 
 export function LoopsOverview({ loops, onOpenLoop }: { loops: LoopSummary[]; onOpenLoop: (loopId: string) => void }) {
   const grouped = useMemo(() => {
@@ -31,15 +34,30 @@ export function LoopsOverview({ loops, onOpenLoop }: { loops: LoopSummary[]; onO
   return (
     <div className="flex flex-col gap-4">
       {grouped.map(({ status, loops: group }) => (
-        <div key={status} className="flex flex-col gap-2">
-          <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            <StatusDot status={status} /> {LOOP_STATUS_STYLE[status].label} · {group.length}
-          </span>
-          <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
-            {group.map((loop) => <LoopCard key={loop.id} loop={loop} onOpen={onOpenLoop} />)}
-          </div>
-        </div>
+        <StatusGroup key={status} status={status} loops={group} onOpenLoop={onOpenLoop} />
       ))}
+    </div>
+  );
+}
+
+/** One status section, capped at GROUP_PAGE with an incremental "Show more". */
+function StatusGroup({ status, loops, onOpenLoop }: { status: LoopStatus; loops: LoopSummary[]; onOpenLoop: (loopId: string) => void }) {
+  const [shown, setShown] = useState(GROUP_PAGE);
+  const visible = loops.slice(0, shown);
+
+  return (
+    <div className="flex flex-col gap-2">
+      <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <StatusDot status={status} /> {LOOP_STATUS_STYLE[status].label} · {loops.length}
+      </span>
+      <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
+        {visible.map((loop) => <LoopCard key={loop.id} loop={loop} onOpen={onOpenLoop} />)}
+      </div>
+      {loops.length > shown && (
+        <Button size="sm" variant="ghost" className="self-start" onClick={() => setShown((n) => n + GROUP_PAGE)}>
+          Show {loops.length - shown} more
+        </Button>
+      )}
     </div>
   );
 }

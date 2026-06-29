@@ -21,7 +21,7 @@ Priorities: **P0** = fix before an initial release · **P1** = soon after ·
 
 ## P0 — fix before initial release
 
-### RR-1 · Home overview: pagination + search
+### RR-1 · Home overview: pagination + search — ✅ done
 **Problem.** The home `LoopsOverview` renders *every* loop in every status group
 with no pagination and no search — contradicts the "paginate, don't scroll" rule.
 The sidebar `LoopList` already does this correctly (last 10 + Load more + search).
@@ -31,8 +31,14 @@ or per-group with a "Show more"). Reuse the `LoopList` pattern; no new state sto
 **Files.** `ui/components/HomeView.tsx`, `ui/components/LoopsOverview.tsx`.
 **Acceptance.** With many loops the home shows a search field and bounded lists
 with Load/Show more; the attention queue is unaffected; no unbounded scroll.
+**Done.** `HomeView` owns a `query` (no store) that filters only the overview by
+title/summary/prompt — the "Needs you" queue still sees every loop. The search box
+appears once there are >10 loops; a no-match search shows "No loops match your
+search". `LoopsOverview` now bounds each status group to the 9 most recent (a
+`StatusGroup` sub-component holding its own count) with an incremental "Show N
+more" — no unbounded scroll.
 
-### RR-2 · Completion & blocked notifications
+### RR-2 · Completion & blocked notifications — ✅ done
 **Problem.** `notifyAsked` fires a host notification when a loop asks a question
 ([runtime/human-input.ts](../../../../plugins/sero-orchestrator-plugin/runtime/human-input.ts)),
 but nothing notifies when a loop **completes** or **blocks** (error/limit) without
@@ -47,8 +53,19 @@ maybe a small `notifyOutcome` helper next to `notifyAsked`.
 **Acceptance.** Completing or blocking a loop emits exactly one notification with
 the loop title and outcome; re-persisting the same state does not re-notify; a
 unit test covers the transition.
+**Done.** New pure helper `runtime/notify-outcome.ts` (`outcomeNotification` +
+`notifyOutcome`) maps a finalized loop to a one-line message — `info` "Loop \"X\"
+finished." on complete, `warning` "Loop \"X\" is blocked — <reason>." on block,
+`null` otherwise. `RunEngine.finalize` calls it once. Because a run only starts
+from an `active` loop and a terminal loop can't run again, "fired at finalize" is
+"fired once per transition" — re-persisting never routes through here. A pending
+question keeps the loop `active`, so it's untouched (it already notifies via
+`notifyAsked`); a recurring loop's per-iteration complete stays `active`, so cron
+ticks don't spam. Tests: `notify-outcome.test.ts` (pure transition cases) plus
+three `run-engine.test.ts` cases (complete ⇒ one info, block ⇒ one warning,
+plain success ⇒ none).
 
-### RR-3 · Verify the loop context override actually applies
+### RR-3 · Verify the loop context override actually applies — ✅ verified (control kept)
 **Problem.** The "Context" override stores `contextOverrides`; the executor wires
 `disabledTools`/`disabledSkills`
 ([runtime/executors/common.ts](../../../../plugins/sero-orchestrator-plugin/runtime/executors/common.ts)),
@@ -66,6 +83,22 @@ SDK docs for subagent system-prompt overrides.
 **Acceptance.** A loop with a custom system prompt demonstrably uses it in a
 background-agent step (manual `/run` verification), **or** the option is removed
 with the limitation documented. Tools/skills disabling stays working.
+**Verified — the control works; nothing removed.** The dead `systemPromptSuffix`
+was already replaced (orchestrator commit `05aa053aa`, validated by a real run —
+see the `orchestrator-subagent-context-bugs` note). Traced the live chain end to
+end: `contextOverrides.systemPrompt` → `executors/common.ts` passes it as
+`systemPromptOverride` (and `STEP_SYSTEM_PROMPT` as the always-on `systemPrompt`)
+→ `host-adapter` → `subagents.runStructured` → `single-run` (`resolveAgent` turns
+`systemPrompt` into `agent.systemPrompt`) → `runner` sets the loader's
+`systemPromptOverride` (replaces base) and `appendSystemPrompt: [agent.systemPrompt]`
+(step contract rides on top) → pi 0.78 `DefaultResourceLoader`, whose typed
+options confirm both `systemPromptOverride: (base) => …` and `appendSystemPrompt`
+are honored (and `systemPromptSuffix` is gone). Covered at both layers: the
+desktop `runner.test.ts` (override replaces base, agent prompt on `appendSystemPrompt`,
+no suffix) and the orchestrator `executors.test.ts` ("applies the loop context
+override" + a new "empty override ⇒ excludes base prompt" guard on the fragile
+`?? undefined`). Tools/skills disabling is asserted in the same tests. No
+`/run` needed: the chain is proven by types + tests at every hop.
 
 ---
 

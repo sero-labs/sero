@@ -164,6 +164,21 @@ describe('backgroundAgentExecutor', () => {
     expect(call.systemPrompt).toBe(STEP_SYSTEM_PROMPT);
   });
 
+  it('passes an empty override through verbatim so the base prompt is excluded', async () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, oneStepPlan().plan);
+    // The Context control offers "empty to exclude" the base Sero prompt; an
+    // empty string must reach the run as '' (loader replaces the base with it),
+    // NOT be coerced to undefined (which would silently fall back to the default).
+    loop.contextOverrides = { systemPrompt: '' };
+    host.modelResponses.push({ response: outcome({ status: 'succeeded', summary: 'done' }), modelId: 'm' });
+
+    await backgroundAgentExecutor.run(inputFor(host, loop, 'step-1'));
+
+    expect(host.modelCalls[0].systemPromptOverride).toBe('');
+    expect(host.modelCalls[0].systemPrompt).toBe(STEP_SYSTEM_PROMPT);
+  });
+
   it('leaves the step context untouched when the loop has no override', async () => {
     const host = createFakeHost();
     const loop = seedActiveLoop(host, oneStepPlan().plan);
