@@ -112,6 +112,7 @@ Types live in `src/types/ipc.ts`. Keep renderer and main-process types in sync.
 If you change `apps/desktop/images/Dockerfile.sero-node` or container-installed tools, rebuild `sero-node:latest` and recreate affected workspace containers. New workspaces do **not** automatically pick up Dockerfile changes.
 
 **General**
+- When asked to explain something, explain in clear, unambigous terms without jargon. Assume the user doesn't have the full context of the feature/problem.
 - Save new documentation/plans in `@docs/` or typed subfolders
 - Never commit local Pi scratch/planning files under `.pi/` (especially `.pi/plans/`); the directory is gitignored and should remain local-only.
 - Use Conventional Commit messages
