@@ -106,7 +106,7 @@ export function LoopControls({ loop, busy, canReflect, onAction }: LoopControlsP
             </Button>
           </>
         ) : (
-          <Button size="sm" variant="ghost" disabled={busy} onClick={startDelete}>
+          <Button size="sm" variant="outline" disabled={busy} onClick={startDelete}>
             <Trash2 className="mr-1 h-3.5 w-3.5" /> Delete
           </Button>
         )}

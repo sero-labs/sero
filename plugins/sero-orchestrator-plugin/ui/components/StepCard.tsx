@@ -30,6 +30,9 @@ const PROBLEM_STATUSES = new Set(['failed', 'blocked', 'needs-revision']);
 export interface StepCardProps {
   step: LoopStepDefinition;
   number: number;
+  /** Show the step number in the card. Off for single steps (the spine rail shows
+   * it); on inside a parallel/branch group, whose rail marker is a glyph. */
+  showNumber?: boolean;
   state?: StepRuntimeState;
   groups: AppModelGroup[];
   toolCatalog: ContextToolInfo[];
@@ -39,7 +42,7 @@ export interface StepCardProps {
   onRetry?: () => void;
 }
 
-export function StepCard({ step, number, state, groups, toolCatalog, onSetModel, onSetTools, onRetry }: StepCardProps) {
+export function StepCard({ step, number, showNumber = true, state, groups, toolCatalog, onSetModel, onSetTools, onRetry }: StepCardProps) {
   const [tuning, setTuning] = useState(false);
   const skipped = state?.status === 'skipped';
   const isProblem = !!state && PROBLEM_STATUSES.has(state.status);
@@ -50,11 +53,27 @@ export function StepCard({ step, number, state, groups, toolCatalog, onSetModel,
     <Card className={`flex flex-col gap-1.5 p-3 ${tint}${skipped ? ' opacity-60' : ''}`}>
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
-          <span className="text-xs tabular-nums text-muted-foreground">{number}.</span>
+          {showNumber && <span className="text-xs tabular-nums text-muted-foreground">{number}.</span>}
           <span className="truncate font-medium">{step.title}</span>
-          <Badge variant="outline" className="shrink-0 text-[10px] font-normal text-muted-foreground">{step.execution.type}</Badge>
         </div>
-        {state && <StepStatusPill status={state.status} />}
+        <div className="flex shrink-0 items-center gap-2">
+          {state && <StepStatusPill status={state.status} />}
+          <Badge variant="outline" className="text-[10px] font-normal text-muted-foreground">{step.execution.type}</Badge>
+          {canTune && (
+            <Button
+              size="xs"
+              variant="ghost"
+              className="h-6 px-1.5 text-muted-foreground"
+              onClick={() => setTuning((t) => !t)}
+              aria-expanded={tuning}
+              aria-label="Tune model & tools"
+              title="Tune model & tools"
+            >
+              <SlidersHorizontal className="h-3.5 w-3.5" />
+              <ChevronDown className={`ml-0.5 h-3 w-3 transition-transform ${tuning ? 'rotate-180' : ''}`} />
+            </Button>
+          )}
+        </div>
       </div>
 
       {(step.produces?.length || step.when) && (
@@ -65,36 +84,35 @@ export function StepCard({ step, number, state, groups, toolCatalog, onSetModel,
       )}
 
       <p className="whitespace-pre-wrap text-xs text-muted-foreground">{step.instructions}</p>
-      {step.expectedOutcome && (
-        <p className="text-xs text-muted-foreground">
-          <span className="font-medium text-foreground">Expected: </span>{step.expectedOutcome}
-        </p>
+
+      {(step.expectedOutcome || state?.outcome) && (
+        <dl className="mt-1 flex flex-col gap-1.5 border-t border-border/60 pt-2.5 text-xs">
+          {step.expectedOutcome && (
+            <div className="flex gap-5">
+              <dt className="w-16 shrink-0 text-[10px] font-semibold uppercase tracking-wide text-foreground">Expected</dt>
+              <dd className="text-muted-foreground">{step.expectedOutcome}</dd>
+            </div>
+          )}
+          {state?.outcome && (
+            <div className="flex gap-5">
+              <dt className="w-16 shrink-0 text-[10px] font-semibold uppercase tracking-wide text-foreground">Outcome</dt>
+              <dd className={isProblem ? 'text-destructive' : 'text-muted-foreground'}>
+                {state.outcome.summary}
+                {state.attempts > 0 && <span> · {state.attempts} attempt(s)</span>}
+              </dd>
+            </div>
+          )}
+        </dl>
       )}
 
-      {state?.outcome && (
-        <p className={`text-xs ${isProblem ? 'text-destructive' : 'text-muted-foreground'}`}>
-          <span className={`font-medium ${isProblem ? '' : 'text-foreground'}`}>{isProblem ? `${state.status}: ` : 'Outcome: '}</span>
-          {state.outcome.summary}
-          {state.attempts > 0 ? ` · ${state.attempts} attempt(s)` : ''}
-        </p>
+      {onRetry && (
+        <Button size="xs" variant="outline" className="self-start" onClick={onRetry} title="Reset this step and run the loop on from here (keeps finished work)">
+          <RefreshCw className="mr-1 h-3.5 w-3.5" /> Retry step
+        </Button>
       )}
-
-      <div className="flex items-center gap-2 pt-0.5">
-        {onRetry && (
-          <Button size="xs" variant="outline" onClick={onRetry} title="Reset this step and run the loop on from here (keeps finished work)">
-            <RefreshCw className="mr-1 h-3.5 w-3.5" /> Retry step
-          </Button>
-        )}
-        {canTune && (
-          <Button size="xs" variant="ghost" className="text-muted-foreground" onClick={() => setTuning((t) => !t)} aria-expanded={tuning}>
-            <SlidersHorizontal className="mr-1 h-3.5 w-3.5" /> Tune
-            <ChevronDown className={`ml-1 h-3.5 w-3.5 transition-transform ${tuning ? 'rotate-180' : ''}`} />
-          </Button>
-        )}
-      </div>
 
       {canTune && tuning && (
-        <div className="flex flex-col gap-2 rounded-md border border-border bg-background/40 p-2">
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-md border border-border bg-background/40 p-2">
           <StepModelControl step={step} groups={groups} onChange={(model, thinking) => onSetModel(step.id, model, thinking)} />
           {step.execution.type === 'background-agent' && (
             <StepToolsControl step={step} catalog={toolCatalog} onChange={(tools) => onSetTools(step.id, tools)} />

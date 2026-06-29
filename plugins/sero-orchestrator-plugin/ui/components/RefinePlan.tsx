@@ -29,12 +29,12 @@ export function RefinePlan({ busy, onRefine }: RefinePlanProps) {
       <Textarea
         value={prompt}
         onChange={(e) => setPrompt(e.target.value)}
-        placeholder="Refine this loop — its stop condition (e.g. “stop when there are no unassigned issues left”), its schedule, or its steps."
-        rows={2}
+        placeholder="Update the plan — its stop condition (e.g. “stop when there are no unassigned issues left”), its schedule, or its steps."
+        className="min-h-28"
         disabled={busy}
       />
       <Button size="sm" variant="outline" className="self-start" disabled={busy || !trimmed} onClick={submit}>
-        <Wand2 className="mr-1 h-3.5 w-3.5" /> Refine loop
+        <Wand2 className="mr-1 h-3.5 w-3.5" /> Update plan
       </Button>
     </div>
   );

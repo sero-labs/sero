@@ -2,13 +2,14 @@ import { Card } from '@sero-ai/ui';
 import { AlertTriangle } from 'lucide-react';
 import type { LibraryIndex, Loop, OrchestratorAction, RunIndex } from '../../shared/types';
 import { DEFAULT_RUN_INDEX } from '../../shared/defaults';
-import { formatTime } from '../lib/format';
 import { useWatchedJson } from '../lib/use-watched-json';
+import { useLibraryLink } from '../lib/use-library-link';
 import { LoopStatusBadge, NeedsYouBadge } from './StatusBadge';
 import { LoopControls } from './LoopControls';
 import { LoopContextControl } from './LoopContextControl';
 import { LoopMetaStrip } from './LoopMetaStrip';
 import { LibrarySaveControl } from './LibrarySaveControl';
+import { LibraryLinkBadge } from './LibraryLinkBadge';
 import { LibraryLinkSection } from './LibraryLinkSection';
 import { LiveActivityStrip } from './LiveActivityStrip';
 import { CollapsibleSection } from './CollapsibleSection';
@@ -41,6 +42,7 @@ interface LoopDetailProps {
 export function LoopDetail({ loop, busy, onAction, stateDir, libraryDir, libraryIndex }: LoopDetailProps) {
   const { runtime } = loop;
   const runIndex = useWatchedJson<RunIndex>(`${stateDir}/loops/${loop.id}/runs/index.json`, DEFAULT_RUN_INDEX);
+  const linkStatus = useLibraryLink(loop, libraryDir, libraryIndex);
   const pendingInput = runtime.pendingInput?.questions.length ?? 0;
   const pendingSuggestions = (loop.suggestions ?? []).filter((s) => s.status === 'pending').length;
 
@@ -52,6 +54,7 @@ export function LoopDetail({ loop, busy, onAction, stateDir, libraryDir, library
           <div className="flex items-center gap-2">
             <NeedsYouBadge kind="input" count={pendingInput} />
             <NeedsYouBadge kind="suggestions" count={pendingSuggestions} />
+            {linkStatus && <LibraryLinkBadge loop={loop} status={linkStatus} busy={busy} onAction={onAction} />}
             <LoopStatusBadge status={loop.status} />
           </div>
         </div>
@@ -89,9 +92,9 @@ export function LoopDetail({ loop, busy, onAction, stateDir, libraryDir, library
         </Card>
       )}
 
-      {loop.libraryLink && (
+      {linkStatus?.hasActions && (
         <CollapsibleSection title="Library" defaultOpen>
-          <LibraryLinkSection loop={loop} libraryDir={libraryDir} libraryIndex={libraryIndex} busy={busy} onAction={onAction} />
+          <LibraryLinkSection loop={loop} status={linkStatus} busy={busy} onAction={onAction} />
         </CollapsibleSection>
       )}
 
@@ -105,10 +108,6 @@ export function LoopDetail({ loop, busy, onAction, stateDir, libraryDir, library
       <CollapsibleSection title="Attempt history" hint={`${runIndex.runs.length} run(s)`}>
         <AttemptHistory runs={runIndex.runs} />
       </CollapsibleSection>
-
-      <footer className="text-xs text-muted-foreground">
-        Created {formatTime(loop.createdAt)} · Updated {formatTime(loop.updatedAt)} · {runIndex.runs.length} run(s)
-      </footer>
     </div>
   );
 }

@@ -9,6 +9,7 @@
 
 import { useState } from 'react';
 import { Settings2 } from 'lucide-react';
+import { Button } from '@sero-ai/ui';
 import type { ContextPreset } from '@sero-ai/common';
 import { useSubagentContext, useContextPresets } from '@sero-ai/app-runtime';
 import { ContextEditor } from '@sero-ai/ui/components/context-editor/ContextEditor';
@@ -75,14 +76,11 @@ export function LoopContextControl({
 
   return (
     <>
-      <button type="button"
-        onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-      >
-        <Settings2 className="h-3.5 w-3.5" />
+      <Button size="sm" variant="outline" onClick={() => setOpen(true)} title="Custom system prompt and skills for this loop">
+        <Settings2 className="mr-1 h-3.5 w-3.5" />
         Context
-        {active && <span className="ml-0.5 size-1.5 rounded-full bg-[var(--accent-primary)]" />}
-      </button>
+        {active && <span className="ml-1 size-1.5 rounded-full bg-primary" />}
+      </Button>
       {open && (
         <LoopContextDialog loop={loop} onAction={onAction} open={open} onOpenChange={setOpen} />
       )}

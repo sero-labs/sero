@@ -49,11 +49,14 @@ export function PlanView({ loop, onAction }: PlanViewProps) {
 
   const levels = groupStepsByLevel(plan.steps);
   const numberOf = new Map(plan.steps.map((s, i) => [s.id, i + 1]));
-  const renderCard = (step: LoopStepDefinition) => (
+  // showNumber is off for a lone step (the spine rail shows its number) and on
+  // inside a parallel/branch group, whose rail marker is a glyph not a number.
+  const renderCard = (step: LoopStepDefinition, showNumber: boolean) => (
     <StepCard
       key={step.id}
       step={step}
       number={numberOf.get(step.id)!}
+      showNumber={showNumber}
       state={runtime.stepStates[step.id]}
       groups={groups}
       toolCatalog={toolCatalog}
@@ -76,7 +79,7 @@ export function PlanView({ loop, onAction }: PlanViewProps) {
           if (group.length === 1) {
             return (
               <SpineRow key={group[0].id} marker={String(numberOf.get(group[0].id))} isLast={isLast}>
-                {renderCard(group[0])}
+                {renderCard(group[0], false)}
               </SpineRow>
             );
           }
@@ -89,7 +92,7 @@ export function PlanView({ loop, onAction }: PlanViewProps) {
             <SpineRow key={group.map((s) => s.id).join('+')} marker={branchVar ? '⌥' : '⇉'} isLast={isLast}>
               <div className="flex flex-col gap-2 rounded-md border border-dashed border-border p-2">
                 <span className="text-xs font-medium text-muted-foreground">{header}</span>
-                <div className="grid gap-2 sm:grid-cols-2">{group.map(renderCard)}</div>
+                <div className="grid gap-2 sm:grid-cols-2">{group.map((step) => renderCard(step, true))}</div>
               </div>
             </SpineRow>
           );

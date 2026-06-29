@@ -49,17 +49,11 @@ export function LibrarySaveControl({
 
   return (
     <>
-      <button
-        type="button"
-        disabled={busy}
-        onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50"
-        title="Save this loop to the Library"
-      >
-        <BookmarkPlus className="h-3.5 w-3.5" />
+      <Button size="sm" variant="outline" disabled={busy} onClick={() => setOpen(true)} title="Save this loop to the Library">
+        <BookmarkPlus className="mr-1 h-3.5 w-3.5" />
         Library
-        {linked && <span className="ml-0.5 text-[10px] font-medium text-foreground">v{linked.version}</span>}
-      </button>
+        {linked && <span className="ml-1 text-[10px] font-medium">v{linked.version}</span>}
+      </Button>
 
       <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
         <DialogContent className="sm:max-w-md">
