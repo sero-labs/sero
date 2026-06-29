@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Badge, Button, Card } from '@sero-ai/ui';
 import type { LoopRunStatus, LoopRunSummary } from '../../shared/types';
-import { formatCost, formatDuration, formatTime } from '../lib/format';
+import { formatCost, formatDuration, formatTime, formatTokens } from '../lib/format';
+import { summarizeRun } from '../lib/run-summary';
 
 const PAGE = 5;
 
@@ -19,27 +20,6 @@ const RUN_STATUS_CLASS: Record<LoopRunStatus, string> = {
   cancelled: 'border-border text-muted-foreground',
   orphaned: 'border-border text-muted-foreground',
 };
-
-const OUTCOME_LABEL: Record<string, string> = { succeeded: 'done', 'needs-revision': 'recovering' };
-
-/** One-line summary of a run's step outcomes, e.g. "2 done · 1 blocked · 1 recovery". */
-function summarizeRun(run: LoopRunSummary): string {
-  const parts: string[] = [];
-  if (run.steps.length > 0) {
-    const counts = new Map<string, number>();
-    for (const s of run.steps) {
-      const key = s.outcomeStatus ?? s.status;
-      counts.set(key, (counts.get(key) ?? 0) + 1);
-    }
-    parts.push(...[...counts].map(([key, n]) => `${n} ${OUTCOME_LABEL[key] ?? key}`));
-  }
-  if (run.recoveries.length > 0) parts.push(`${run.recoveries.length} recovery`);
-  return parts.length ? parts.join(' · ') : 'no steps run';
-}
-
-function formatTokens(n: number): string {
-  return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : `${n}`;
-}
 
 // Shared stat column widths so the header labels line up with each row's values.
 const COL = { time: 'w-12', tokens: 'w-16', cost: 'w-16' } as const;

@@ -59,16 +59,20 @@ You can also use the agent tool or slash command:
 /orchestrator list
 /orchestrator show <loopId>
 /orchestrator activate <loopId>
-/orchestrator pause <loopId>
-/orchestrator resume <loopId>
-/orchestrator stop <loopId>
+/orchestrator disable <loopId>
+/orchestrator enable <loopId>
 /orchestrator run_next <loopId>
+/orchestrator run_again <loopId>
 /orchestrator retry_step <loopId> <stepId>
 /orchestrator reflect <loopId>
 /orchestrator reflect_workspace
 /orchestrator answer <loopId> yes, drop the old table
 /orchestrator revise <loopId> add a final validation step
+/orchestrator delete <loopId>
 ```
+
+**Disable** turns a running loop off and stops any work in progress; **Enable**
+turns a disabled loop back on. **Run again** restarts a finished loop.
 
 If a step **blocks** or **fails** (it stops — e.g. it found a problem it can't
 fix on its own), you have two ways to recover:
@@ -95,18 +99,30 @@ blocked draft with the errors and **cannot be activated**.
 
 ## Inspect a loop
 
-The loop detail view shows:
+Open a loop to get a single, calm column. From the top:
 
-- the generated steps, their dependencies, and expected outcomes;
-- each step's status and attempt history;
-- which workspace the loop resolved to;
-- recovery decisions, the completion signal, and any block;
-- triggers and management limits.
+- a **header** with the title, the loop's status, and badges for anything that
+  needs you (questions, suggestions) or a newer Library version;
+- a **summary line** of the essentials — which workspace it runs in, its schedule
+  (or "Manual only"), how many times it has run, operational limits, and a
+  **lifetime usage** chip (total tokens and cost, and — when you've set a token or
+  cost limit — how much budget is left);
+- the **controls** for this loop (see above), the **Context** button, and **Save
+  to Library**.
 
-Each run in the history has a small **stats** icon. Open it to see that run's
-totals — tokens used, model time, cost (for models with known pricing), and how
-many steps and attempts ran. The section stays collapsed by default so the
-history reads cleanly.
+Below the header, anything that needs attention surfaces first: a question to
+answer, suggested improvements, warnings, and any block. While a loop is running,
+a small **live-activity** strip shows what it's doing right now.
+
+Two sections then hold the detail and stay out of the way until you open them:
+
+- **Plan** (open by default) — the steps grouped by order, each with its status
+  and, on a blocked or failed step, the reason and a **Retry step** button. Below
+  the plan is a box to **refine** it in plain English (which can also change the
+  loop's goal, schedule, or stop condition).
+- **Attempt history** (collapsed) — one row per run, newest first, with a one-line
+  summary of what happened and that run's time, tokens, and cost (cost shows only
+  for models with known pricing). It pages with **Show more**.
 
 **Context.** The **Context** button on a loop sets a custom system prompt and
 hides chosen skills for that loop's background work. Leave the system prompt
@@ -232,6 +248,13 @@ the lifecycle, the per-loop lock, and the limits before anything runs. A cron
 loop that became due while Sero was closed runs once on next open (missed fires
 collapse into a single catch-up run).
 
+You don't set a schedule through a form — you describe the cadence in the loop's
+prompt (for example, "every weekday at 9am"). This is deliberate: a loop is
+authored in plain language, not dialled in through fields. To change the timing
+later, **Refine** the loop and describe the new cadence — Sero re-derives the
+schedule from your wording. The schedule and triggers are shown read-only in the
+summary line so you can see what's set.
+
 ## Management limits
 
 Orchestrator caps how a loop runs: maximum attempts per step, maximum total
@@ -242,3 +265,8 @@ These are management controls only. They do **not** restrict what a step's agent
 is allowed to do — step work runs through standard Sero execution with the normal
 runtime tools. Orchestrator adds no separate permission, approval, command, or
 tool-policy layer.
+
+Limits are set when the loop is created — sensible defaults, adjusted from your
+description — and aren't edited through a form afterwards, by design (the same
+plain-language authoring as the schedule). The summary line shows the caps and,
+once a token or cost limit is set, how much budget is left.

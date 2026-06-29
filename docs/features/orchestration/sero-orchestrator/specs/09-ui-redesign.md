@@ -1,6 +1,6 @@
 # 09 · UI redesign — wireframe-aligned shell
 
-Status: **in build** (all phases, one pass). Source design:
+Status: **done** (all phases shipped). Source design:
 `design/Sero_Orchestrator_Wireframes.html` (mid-fi, dark). The wireframe is the
 **source of truth** for layout and visual language. Where it conflicts with the
 shipped UI, we redesign to match it; where it is silent (Loop Library, post-dated

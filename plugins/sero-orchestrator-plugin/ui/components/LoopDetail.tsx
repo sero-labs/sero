@@ -59,7 +59,7 @@ export function LoopDetail({ loop, busy, onAction, stateDir, libraryDir, library
           </div>
         </div>
         <p className="text-sm text-muted-foreground">{loop.summary || loop.prompt}</p>
-        <LoopMetaStrip loop={loop} />
+        <LoopMetaStrip loop={loop} runs={runIndex.runs} />
         <div className="flex flex-wrap items-center gap-2 pt-1">
           <LoopControls loop={loop} busy={busy} canReflect={runIndex.runs.length > 0} onAction={onAction} />
           <LoopContextControl loop={loop} onAction={onAction} />

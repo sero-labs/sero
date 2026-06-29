@@ -1,29 +1,32 @@
 /**
  * Compact one-line meta strip for the loop detail (specs/09-ui-redesign.md):
- * workspace isolation · schedule/triggers · limits — replacing the old stacked
- * cards with a single muted line of icon+text chips, matching the wireframe.
+ * workspace isolation · schedule/triggers · run count · operational limits ·
+ * lifetime usage / budget — a single muted line of icon+text chips.
  */
 
-import { Clock, Coins, FolderGit2, GitBranch, Repeat } from 'lucide-react';
-import type { Loop } from '../../shared/types';
+import { Clock, Coins, FolderGit2, GitBranch, Gauge, Repeat } from 'lucide-react';
+import type { Loop, LoopRunSummary } from '../../shared/types';
 import { formatTime } from '../lib/format';
+import { formatLoopUsage, summarizeLoopUsage } from '../lib/usage-summary';
 
+/** Operational caps (attempts/concurrency/wall-clock). Token & cost budgets show
+ * in the usage chip, where they pair with lifetime spend. */
 function limitsSummary(loop: Loop): string | null {
   const l = loop.limits;
   const parts: string[] = [];
   if (l.maxAttemptsTotal) parts.push(`${l.maxAttemptsTotal} attempts`);
   if (l.maxConcurrentSteps) parts.push(`${l.maxConcurrentSteps} concurrent`);
-  if (l.maxTotalTokens) parts.push(`${(l.maxTotalTokens / 1000).toFixed(0)}k tok`);
-  if (l.maxCostUsd) parts.push(`$${l.maxCostUsd}`);
   if (l.maxWallClockMs) parts.push(`${Math.round(l.maxWallClockMs / 60000)} min`);
   return parts.length ? parts.join(' · ') : null;
 }
 
-export function LoopMetaStrip({ loop }: { loop: Loop }) {
+export function LoopMetaStrip({ loop, runs = [] }: { loop: Loop; runs?: LoopRunSummary[] }) {
   const { workspace } = loop;
   const resolved = loop.runtime.workspace.resolved;
   const scheduled = loop.triggers.find((t) => (t.type === 'cron' || t.type === 'hybrid') && !t.disabled);
   const limits = limitsSummary(loop);
+  const usage = summarizeLoopUsage(runs, loop.limits);
+  const usageText = usage ? formatLoopUsage(usage) : null;
 
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
@@ -52,7 +55,10 @@ export function LoopMetaStrip({ loop }: { loop: Loop }) {
         ) : null;
       })()}
       {limits && (
-        <span className="flex items-center gap-1.5"><Coins className="h-3.5 w-3.5" /> {limits}</span>
+        <span className="flex items-center gap-1.5"><Gauge className="h-3.5 w-3.5" /> {limits}</span>
+      )}
+      {usageText && (
+        <span className="flex items-center gap-1.5"><Coins className="h-3.5 w-3.5" /> {usageText}</span>
       )}
     </div>
   );

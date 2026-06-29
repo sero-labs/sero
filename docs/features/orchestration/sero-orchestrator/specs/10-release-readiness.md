@@ -104,7 +104,7 @@ override" + a new "empty override ⇒ excludes base prompt" guard on the fragile
 
 ## P1 — soon after
 
-### RR-4 · UI component / logic tests
+### RR-4 · UI component / logic tests — ✅ done
 **Problem.** The renderer is almost untested (only `answer-draft`, `format`,
 `plan-levels`); the redesign added a lot of derived display logic.
 **Approach.** Add focused unit tests for the pure/derived bits first: the
@@ -114,8 +114,16 @@ logic, `AttemptHistory` `summarizeRun`, and the `status-style` maps. Extract any
 inline logic that's hard to test into small pure helpers.
 **Files.** new `ui/__tests__/*.test.ts(x)`; minor refactors to expose pure logic.
 **Acceptance.** Meaningful coverage of the new derived logic; suite stays green.
+**Done.** Extracted four inline bits into pure, testable helpers: the wizard stage
+selector (`ui/lib/create-stage.ts` `deriveCreateStage`), the library-link
+resolution (`use-library-link.ts` `deriveLibraryLink`, split out of the hook), the
+card status line (`ui/lib/loop-card.ts` `loopCardStatus`), and the run summary
+(`ui/lib/run-summary.ts` `summarizeRun`, moved out of `AttemptHistory.tsx`). New
+tests under `ui/__tests__/`: `create-stage`, `library-link`, `loop-card`,
+`run-summary`, `usage-summary` (RR-6), plus `formatTokens`/`formatCost` and a
+status-style completeness check added to `format.test.ts`. Suite green (423 tests).
 
-### RR-5 · Docs refresh
+### RR-5 · Docs refresh — ✅ done
 **Problem.** The docs-site guide's **"Inspect a loop"** section predates the
 redesign (collapsible plan/history, live-activity strip, library header badge,
 compact run-history table, "Update plan"). `specs/09` is still marked "in build".
@@ -123,8 +131,15 @@ compact run-history table, "Update plan"). `specs/09` is still marked "in build"
 flip `09-ui-redesign.md` status to Done.
 **Files.** `apps/docs-site/docs/guide/orchestrator.md`, `specs/09-ui-redesign.md`.
 **Acceptance.** The guide matches what ships; spec 09 reads Done.
+**Done.** Rewrote "Inspect a loop" to the calm single-column layout (header +
+badges, the summary line incl. the RR-6 usage/budget chip, the attention-first
+order, the live-activity strip, and the collapsible Plan / Attempt-history
+sections). Also fixed the stale slash-command block (the removed
+`pause`/`resume`/`stop` → the real `disable`/`enable`/`run_again`/`delete`, verified
+against `extension/commands.ts`) and added the RR-7 schedule/limits notes. Spec 09
+flipped to **done**.
 
-### RR-6 · Per-loop aggregate cost / budget
+### RR-6 · Per-loop aggregate cost / budget — ✅ done
 **Problem.** History shows per-run tokens/cost, but there's no loop **total** or a
 budget-vs-limit indicator, despite `maxCostUsd`/`maxTotalTokens` limits existing.
 **Approach.** Aggregate usage across the watched `runs/index.json` (already loaded
@@ -134,8 +149,16 @@ is set, a remaining-budget hint. Pure derivation in the renderer; no new data.
 meta strip), `ui/lib/format.ts`.
 **Acceptance.** The detail shows lifetime tokens/cost and, when limited, how much
 budget remains.
+**Done.** New pure `ui/lib/usage-summary.ts` (`summarizeLoopUsage` + `formatLoopUsage`)
+rolls the watched `runs/index.json` up with `shared/usage.ts` `aggregateUsage` —
+the same per-run rollup the engine sums for limit enforcement, so the remaining-budget
+hint lines up exactly with when `maxTotalTokens`/`maxCostUsd` would block. Shown as a
+usage chip in `LoopMetaStrip` ("45.2k tok · $1.20" and, when limited, "… · 55k tok
+left · $3.80 left"); the token/cost caps moved off the operational-limits chip into
+this one to avoid duplication. `formatTokens` moved to `ui/lib/format.ts` (shared
+with `AttemptHistory`). Tested in `ui/__tests__/usage-summary.test.ts`.
 
-### RR-7 · Decide: direct schedule/limit editing
+### RR-7 · Decide: direct schedule/limit editing — ✅ decided (a: intentional, documented)
 **Problem.** Schedule, triggers, and limits are read-only in the UI; they change
 only via natural-language "Update plan". Consistent with LLM-authoring, but some
 users expect to tweak a cron time or cost cap directly.
@@ -145,6 +168,17 @@ coordinator action (kept off the model's authoring path per the no-rails rule).
 Recommended: ship (a) for the initial release, note it in the guide.
 **Files.** decision note in this spec / the guide; optional new action + editor.
 **Acceptance.** A documented decision; if (b), an editor with validation + a test.
+**Decision: (a) — intentional, no direct editor.** Loops are authored in plain
+language, not dialled in through forms — the no-rails principle. Verified the
+actual behaviour before documenting: the **schedule** is derived from the loop's
+prompt and **is** adjustable later via **Refine** (`runtime/revise.ts` re-runs
+`extractSchedule` + `reapplySchedule` when the refinement changes the goal). The
+**limits** are set once at creation (`mergeLimits(suggestedLimits, options)` over
+`DEFAULT_LIMITS`); `revise` does **not** touch them, so they're effectively fixed
+after creation — there is intentionally no UI editor. The guide's **Triggers** and
+**Management limits** sections now state this; the detail summary line shows the
+schedule/triggers/limits read-only (with remaining budget once a limit is set). No
+editor shipped.
 
 ---
 

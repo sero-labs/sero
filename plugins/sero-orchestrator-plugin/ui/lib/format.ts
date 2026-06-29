@@ -38,6 +38,14 @@ export function formatDuration(ms?: number): string {
   return minutes ? `${hours}h ${minutes}m` : `${hours}h`;
 }
 
+/** Compact token count: "920", "4.2k", "1.2M". */
+export function formatTokens(n?: number): string {
+  if (n === undefined) return '—';
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
+  return `${n}`;
+}
+
 /** USD with cents, extending to 4 dp for sub-cent amounts. */
 export function formatCost(usd?: number): string {
   if (usd === undefined) return '—';

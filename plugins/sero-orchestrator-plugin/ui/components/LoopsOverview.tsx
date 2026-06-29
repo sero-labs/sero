@@ -12,6 +12,7 @@ import { Button, Card } from '@sero-ai/ui';
 import type { LoopStatus, LoopSummary } from '../../shared/types';
 import { formatRelative } from '../lib/format';
 import { LOOP_STATUS_STYLE } from '../lib/status-style';
+import { loopCardStatus } from '../lib/loop-card';
 import { NeedsYouBadge, StatusDot } from './StatusBadge';
 
 const STATUS_ORDER: LoopStatus[] = ['active', 'blocked', 'draft', 'complete', 'disabled'];
@@ -89,22 +90,18 @@ function LoopCard({ loop, onOpen }: { loop: LoopSummary; onOpen: (loopId: string
 
 /** A live progress bar while running, otherwise a status line in the card footer. */
 function CardStatusLine({ loop }: { loop: LoopSummary }) {
-  const p = loop.progress;
-  if (p?.running && p.total > 0) {
-    const current = Math.min(p.done + 1, p.total);
+  const status = loopCardStatus(loop);
+  if (status.kind === 'progress') {
     return (
       <div className="mt-auto flex flex-col gap-1">
         <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-          <div className="h-full rounded-full bg-emerald-500 transition-[width]" style={{ width: `${(p.done / p.total) * 100}%` }} />
+          <div className="h-full rounded-full bg-emerald-500 transition-[width]" style={{ width: `${(status.done / status.total) * 100}%` }} />
         </div>
-        <span className="text-[11px] text-emerald-400/90">step {current} / {p.total}</span>
+        <span className="text-[11px] text-emerald-400/90">step {status.current} / {status.total}</span>
       </div>
     );
   }
-  const blocked = loop.status === 'blocked';
-  const text =
-    loop.status === 'complete' ? `Complete${formatRelative(loop.updatedAt) ? ` · ${formatRelative(loop.updatedAt)}` : ''}`
-    : blocked ? (loop.pendingInput ? 'Blocked — needs input' : 'Blocked')
-    : LOOP_STATUS_STYLE[loop.status].label;
-  return <span className={`mt-auto text-[11px] ${blocked ? 'text-amber-400' : 'text-muted-foreground'}`}>{text}</span>;
+  const rel = status.showRelativeTime ? formatRelative(loop.updatedAt) : '';
+  const text = rel ? `${status.text} · ${rel}` : status.text;
+  return <span className={`mt-auto text-[11px] ${status.tone === 'blocked' ? 'text-amber-400' : 'text-muted-foreground'}`}>{text}</span>;
 }

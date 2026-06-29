@@ -13,6 +13,7 @@ import { Button, Card } from '@sero-ai/ui';
 import { Loader2, Sparkles } from 'lucide-react';
 import type { Loop, OrchestratorAction } from '../../shared/types';
 import { useWatchedJson } from '../lib/use-watched-json';
+import { deriveCreateStage, type CreateStage as Stage } from '../lib/create-stage';
 import { CreateLoopForm, type CreateLoopSubmit } from './CreateLoopForm';
 import { InputRequestCard } from './InputRequestCard';
 import { PlanView } from './PlanView';
@@ -29,7 +30,6 @@ interface CreateLoopWizardProps {
   onCancel: () => void;
 }
 
-type Stage = 'describe' | 'planning' | 'clarify' | 'review';
 const STEPS: { key: Stage; label: string }[] = [
   { key: 'describe', label: 'Describe' },
   { key: 'clarify', label: 'Clarify' },
@@ -40,7 +40,7 @@ export function CreateLoopWizard({ busy, stateDir, onCreate, onAction, onOpenLoo
   const [loopId, setLoopId] = useState<string | null>(null);
   const loop = useWatchedJson<Loop | null>(loopId && stateDir ? `${stateDir}/loops/${loopId}/loop.json` : null, null);
 
-  const stage: Stage = !loopId ? 'describe' : !loop ? 'planning' : loop.runtime.pendingInput ? 'clarify' : 'review';
+  const stage = deriveCreateStage(loopId, loop);
 
   const create = async (values: CreateLoopSubmit) => {
     const id = await onCreate(values);

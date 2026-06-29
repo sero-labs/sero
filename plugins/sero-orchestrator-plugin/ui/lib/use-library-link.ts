@@ -30,6 +30,21 @@ export function useLibraryLink(loop: Loop, libraryDir: string | null, libraryInd
   // Hook runs unconditionally; the path is null (no watch) when not linked.
   const versionPath = link && libraryDir ? `${libraryDir}/entries/${link.entryId}/versions/${link.version}.json` : null;
   const linkedVersion = useWatchedJson<LibraryVersion | null>(versionPath, null);
+  return deriveLibraryLink(loop, libraryDir, libraryIndex, linkedVersion);
+}
+
+/**
+ * Pure resolution of a linked loop's status from already-loaded data (the
+ * watched index + the watched linked-version file). Split from the hook so the
+ * update/divergence/`hasActions` logic can be unit-tested without React.
+ */
+export function deriveLibraryLink(
+  loop: Loop,
+  libraryDir: string | null,
+  libraryIndex: LibraryIndex,
+  linkedVersion: LibraryVersion | null,
+): LibraryLinkStatus | null {
+  const link = loop.libraryLink;
   if (!link) return null;
 
   const entry = libraryIndex.entries.find((e) => e.id === link.entryId);
