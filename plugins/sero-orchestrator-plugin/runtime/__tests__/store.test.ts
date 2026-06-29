@@ -26,7 +26,24 @@ describe('store helpers', () => {
     expect(toSummary(loop)).toEqual({
       id: 'loop-a', title: loop.title, status: loop.status,
       summary: loop.summary, prompt: loop.prompt, createdAt: loop.createdAt, updatedAt: loop.updatedAt,
+      progress: { total: 1, done: 0, running: false },
     });
+  });
+
+  it('reports step progress (succeeded count + running flag)', () => {
+    const host = createFakeHost();
+    const plan = oneStepPlan().plan;
+    const base = seedActiveLoop(host, plan, 'loop-a');
+    const stepId = plan.steps[0].id;
+    const loop: Loop = {
+      ...base,
+      runtime: {
+        ...base.runtime,
+        activeRunId: 'run_1',
+        stepStates: { ...base.runtime.stepStates, [stepId]: { status: 'succeeded', attempts: 1, updatedAt: 't' } },
+      },
+    };
+    expect(toSummary(loop).progress).toEqual({ total: 1, done: 1, running: true });
   });
 
   it('omits the attention payload when nothing needs the user', () => {

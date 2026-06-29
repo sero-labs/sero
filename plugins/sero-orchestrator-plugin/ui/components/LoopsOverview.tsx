@@ -1,14 +1,16 @@
 /**
  * The loops overview on the home view (specs/09-ui-redesign.md): every loop as a
- * compact card, grouped by status (active first), with the needs-you signals.
- * Clicking a card opens its detail.
+ * compact card, grouped by status (active first). Active runs show a live progress
+ * bar; other loops show a status line. Needs-you signals and a blocked tint draw
+ * the eye. Clicking a card opens its detail.
  */
 
 import { useMemo } from 'react';
 import { Card } from '@sero-ai/ui';
 import type { LoopStatus, LoopSummary } from '../../shared/types';
+import { formatRelative } from '../lib/format';
 import { LOOP_STATUS_STYLE } from '../lib/status-style';
-import { LoopStatusBadge, NeedsYouBadge, StatusDot } from './StatusBadge';
+import { NeedsYouBadge, StatusDot } from './StatusBadge';
 
 const STATUS_ORDER: LoopStatus[] = ['active', 'blocked', 'draft', 'complete', 'disabled'];
 
@@ -33,30 +35,58 @@ export function LoopsOverview({ loops, onOpenLoop }: { loops: LoopSummary[]; onO
           <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             <StatusDot status={status} /> {LOOP_STATUS_STYLE[status].label} · {group.length}
           </span>
-          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-            {group.map((loop) => (
-              <Card
-                key={loop.id}
-                role="button"
-                tabIndex={0}
-                onClick={() => onOpenLoop(loop.id)}
-                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenLoop(loop.id); } }}
-                className="flex cursor-pointer flex-col gap-1.5 p-3 transition-colors hover:bg-accent/50"
-              >
-                <div className="flex items-center gap-2">
-                  <span className="truncate text-sm font-medium">{loop.title}</span>
-                  <div className="ml-auto flex shrink-0 items-center gap-1.5">
-                    <NeedsYouBadge kind="input" count={loop.pendingInput ?? 0} />
-                    <NeedsYouBadge kind="suggestions" count={loop.pendingSuggestions ?? 0} />
-                    <LoopStatusBadge status={loop.status} />
-                  </div>
-                </div>
-                <p className="line-clamp-2 text-xs text-muted-foreground">{loop.summary || loop.prompt}</p>
-              </Card>
-            ))}
+          <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
+            {group.map((loop) => <LoopCard key={loop.id} loop={loop} onOpen={onOpenLoop} />)}
           </div>
         </div>
       ))}
     </div>
   );
+}
+
+function LoopCard({ loop, onOpen }: { loop: LoopSummary; onOpen: (loopId: string) => void }) {
+  const tint =
+    loop.status === 'blocked' ? 'border-amber-500/30 bg-amber-500/[0.04]' : loop.status === 'disabled' ? 'opacity-60' : '';
+  return (
+    <Card
+      role="button"
+      tabIndex={0}
+      onClick={() => onOpen(loop.id)}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(loop.id); } }}
+      className={`flex min-h-[92px] cursor-pointer flex-col gap-2 p-3.5 transition-colors hover:bg-accent/40 ${tint}`}
+    >
+      <div className="flex items-center gap-2">
+        <StatusDot status={loop.status} />
+        <span className="truncate text-sm font-medium">{loop.title}</span>
+        <div className="ml-auto flex shrink-0 items-center gap-1.5">
+          <NeedsYouBadge kind="input" count={loop.pendingInput ?? 0} />
+          <NeedsYouBadge kind="suggestions" count={loop.pendingSuggestions ?? 0} />
+        </div>
+      </div>
+      <p className="line-clamp-1 text-xs text-muted-foreground">{loop.summary || loop.prompt}</p>
+      <CardStatusLine loop={loop} />
+    </Card>
+  );
+}
+
+/** A live progress bar while running, otherwise a status line in the card footer. */
+function CardStatusLine({ loop }: { loop: LoopSummary }) {
+  const p = loop.progress;
+  if (p?.running && p.total > 0) {
+    const current = Math.min(p.done + 1, p.total);
+    return (
+      <div className="mt-auto flex flex-col gap-1">
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+          <div className="h-full rounded-full bg-emerald-500 transition-[width]" style={{ width: `${(p.done / p.total) * 100}%` }} />
+        </div>
+        <span className="text-[11px] text-emerald-400/90">step {current} / {p.total}</span>
+      </div>
+    );
+  }
+  const blocked = loop.status === 'blocked';
+  const text =
+    loop.status === 'complete' ? `Complete${formatRelative(loop.updatedAt) ? ` · ${formatRelative(loop.updatedAt)}` : ''}`
+    : blocked ? (loop.pendingInput ? 'Blocked — needs input' : 'Blocked')
+    : LOOP_STATUS_STYLE[loop.status].label;
+  return <span className={`mt-auto text-[11px] ${blocked ? 'text-amber-400' : 'text-muted-foreground'}`}>{text}</span>;
 }

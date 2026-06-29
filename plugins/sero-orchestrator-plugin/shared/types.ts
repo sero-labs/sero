@@ -81,7 +81,7 @@ export interface OrchestratorState {
 
 // The watched-index summary types live in index-types.ts (500-LOC limit);
 // re-exported here so existing imports from './types' keep resolving.
-export type { LoopSummary, OrchestratorIndex } from './index-types';
+export type { LoopSummary, OrchestratorIndex, LoopProgress } from './index-types';
 
 // ── Loop ────────────────────────────────────────────────────
 

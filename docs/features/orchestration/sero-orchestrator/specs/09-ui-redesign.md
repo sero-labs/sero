@@ -83,6 +83,10 @@ existing `pendingInput`/`pendingSuggestions` counts stay (list badges). The inde
 rewrites only when attention content changes (a question asked/answered, a
 suggestion raised/decided) — exactly the moments the home should update.
 
+`LoopSummary` also gains `progress?: LoopProgress` (`{ total, done, running }`,
+derived from the plan + step states) so the home overview can show a live progress
+bar on running loops without reading each loop file.
+
 Inbox actions reuse existing coordinator actions verbatim, both invokable with
 just `loopId` + ids:
 - `answer_input` — `{ loopId, requestId, answers }`

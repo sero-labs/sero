@@ -8,6 +8,20 @@ export function formatTime(iso?: string): string {
   return date.toLocaleString();
 }
 
+/** Compact relative time: "just now", "5m ago", "2h ago", "3d ago". */
+export function formatRelative(iso?: string): string {
+  if (!iso) return '';
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return '';
+  const sec = Math.round((Date.now() - then) / 1000);
+  if (sec < 60) return 'just now';
+  const min = Math.round(sec / 60);
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.round(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  return `${Math.round(hr / 24)}d ago`;
+}
+
 /** Compact human duration: "820 ms", "4.2s", "1m 20s", "2h 5m". */
 export function formatDuration(ms?: number): string {
   if (ms === undefined || ms < 0) return '—';

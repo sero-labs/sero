@@ -1,14 +1,14 @@
 /**
  * The cross-loop "Needs you" queue (specs/09-ui-redesign.md, A2 hybrid). Renders
  * every loop's pending questions and suggestions from the watched index's
- * attention payload, so the user resolves them inline — answering a question or
- * approving/rejecting a suggestion — without opening each loop. All actions reuse
- * the existing coordinator actions (answer_input / choose_suggestion).
+ * attention payload, side by side, so the user resolves them inline — answering a
+ * question or approving/rejecting a suggestion — without opening each loop. All
+ * actions reuse the existing coordinator actions (answer_input / choose_suggestion).
  */
 
 import { useMemo, useState } from 'react';
-import { Badge, Button, Card, Textarea } from '@sero-ai/ui';
-import { MessageCircleQuestion, Sparkles, ArrowRight } from 'lucide-react';
+import { Button, Card, Textarea } from '@sero-ai/ui';
+import { ArrowRight, Sparkles } from 'lucide-react';
 import type { LoopAttentionInput, LoopAttentionSuggestion, LoopSummary, OrchestratorAction } from '../../shared/types';
 import { allAnswered, buildAnswers, withChoice, withText, type AnswerDraft } from '../lib/answer-draft';
 
@@ -21,16 +21,14 @@ interface AttentionQueueProps {
 
 export function AttentionQueue({ loops, busy, onAction, onOpenLoop }: AttentionQueueProps) {
   const inputs = loops.flatMap((l) => (l.attention?.input ? [{ loop: l, input: l.attention.input }] : []));
-  const suggestions = loops.flatMap((l) =>
-    (l.attention?.suggestions ?? []).map((s) => ({ loop: l, suggestion: s })),
-  );
+  const suggestions = loops.flatMap((l) => (l.attention?.suggestions ?? []).map((s) => ({ loop: l, suggestion: s })));
 
   if (inputs.length === 0 && suggestions.length === 0) {
     return <p className="text-sm text-muted-foreground">Nothing needs you right now.</p>;
   }
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="grid gap-3 md:grid-cols-2">
       {inputs.map(({ loop, input }) => (
         <AttentionInputCard key={`${loop.id}:${input.requestId}`} loop={loop} input={input} busy={busy} onAction={onAction} onOpenLoop={onOpenLoop} />
       ))}
@@ -43,7 +41,7 @@ export function AttentionQueue({ loops, busy, onAction, onOpenLoop }: AttentionQ
 
 function OpenLink({ title, onClick }: { title: string; onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} className="ml-auto flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+    <button type="button" onClick={onClick} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
       {title} <ArrowRight className="h-3.5 w-3.5" />
     </button>
   );
@@ -55,18 +53,16 @@ function AttentionInputCard({ loop, input, busy, onAction, onOpenLoop }: { loop:
   const fromPlanner = input.source === 'planner';
 
   return (
-    <Card className="flex flex-col gap-2 border-amber-500/30 bg-amber-500/5 p-3">
+    <Card className="flex flex-col gap-2 border-amber-500/30 bg-amber-500/[0.06] p-3">
       <div className="flex items-center gap-2">
-        <MessageCircleQuestion className="h-4 w-4 text-amber-400" />
-        <span className="text-sm font-semibold">{loop.title}</span>
-        <Badge variant="outline" className="border-amber-500/40 text-amber-400 text-[10px]">
-          {fromPlanner ? 'planner needs answers' : 'waiting on you'}
-        </Badge>
-        <OpenLink title="Open" onClick={() => onOpenLoop(loop.id)} />
+        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-amber-500/20 text-[11px] font-bold text-amber-400">?</span>
+        <span className="text-sm font-semibold text-amber-400">{fromPlanner ? 'Planner needs answers' : 'Waiting on your answer'}</span>
+        <span className="ml-auto"><OpenLink title="Open" onClick={() => onOpenLoop(loop.id)} /></span>
       </div>
+      <span className="text-sm font-medium">{loop.title}</span>
       {input.questions.map((q) => (
         <div key={q.id} className="flex flex-col gap-2">
-          <p className="text-sm">{q.prompt}</p>
+          <p className="text-sm text-muted-foreground">{q.prompt}</p>
           {q.choices && q.choices.length > 0 && (
             <div className="flex flex-wrap gap-2">
               {q.choices.map((c) => (
@@ -80,7 +76,7 @@ function AttentionInputCard({ loop, input, busy, onAction, onOpenLoop }: { loop:
             value={draft[q.id]?.text ?? ''}
             onChange={(e) => setDraft((d) => withText(d, q.id, e.target.value))}
             placeholder={q.choices?.length ? 'Or type your own answer…' : 'Type your answer…'}
-            className="min-h-[48px] text-sm"
+            className="min-h-12 text-sm"
           />
         </div>
       ))}
@@ -103,18 +99,18 @@ function AttentionSuggestionCard({ loop, suggestion, busy, onAction, onOpenLoop 
   const [reason, setReason] = useState('');
 
   return (
-    <Card className="flex flex-col gap-2 border-sky-500/30 bg-sky-500/5 p-3">
+    <Card className="flex flex-col gap-2 border-sky-500/30 bg-sky-500/[0.06] p-3">
       <div className="flex items-center gap-2">
-        <Sparkles className="h-4 w-4 text-sky-400" />
-        <span className="text-sm font-semibold">{loop.title}</span>
-        <Badge variant="outline" className="border-sky-500/40 text-sky-400 text-[10px]">conf. {CONFIDENCE_LABEL[suggestion.confidence]}</Badge>
-        <OpenLink title="Review" onClick={() => onOpenLoop(loop.id)} />
+        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-sky-500/20 text-sky-400"><Sparkles className="h-3 w-3" /></span>
+        <span className="text-sm font-semibold text-sky-400">Suggested improvement</span>
+        <span className="ml-auto text-[10px] uppercase tracking-wide text-muted-foreground">conf. {CONFIDENCE_LABEL[suggestion.confidence]}</span>
       </div>
+      <span className="text-sm font-medium">{loop.title}</span>
       <p className="text-sm text-muted-foreground">{suggestion.rationale}</p>
       <span className="text-xs text-muted-foreground">Changes {suggestion.changedStepCount} step(s).</span>
       {rejecting ? (
         <div className="flex flex-col gap-2">
-          <Textarea value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Why reject? (helps future suggestions)" className="min-h-[44px] text-sm" />
+          <Textarea value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Why reject? (helps future suggestions)" className="min-h-11 text-sm" />
           <div className="flex justify-end gap-2">
             <Button size="sm" variant="ghost" disabled={busy} onClick={() => setRejecting(false)}>Cancel</Button>
             <Button size="sm" variant="outline" disabled={busy} onClick={() => onAction({ kind: 'choose_suggestion', loopId: loop.id, suggestionId: suggestion.id, decision: 'reject', rejectionReason: reason.trim() || undefined })}>
@@ -123,11 +119,12 @@ function AttentionSuggestionCard({ loop, suggestion, busy, onAction, onOpenLoop 
           </div>
         </div>
       ) : (
-        <div className="flex justify-end gap-2">
-          <Button size="sm" variant="ghost" disabled={busy} onClick={() => setRejecting(true)}>Reject</Button>
+        <div className="mt-auto flex items-center gap-2">
           <Button size="sm" disabled={busy} onClick={() => onAction({ kind: 'choose_suggestion', loopId: loop.id, suggestionId: suggestion.id, decision: 'approve' })}>
             Approve
           </Button>
+          <Button size="sm" variant="ghost" disabled={busy} onClick={() => setRejecting(true)}>Reject</Button>
+          <span className="ml-auto"><OpenLink title="Review" onClick={() => onOpenLoop(loop.id)} /></span>
         </div>
       )}
     </Card>

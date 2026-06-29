@@ -12,6 +12,16 @@ import type { LoopStatus } from './types';
 import type { LoopAttention } from './attention-types';
 import type { LoopLibraryLink } from './library-types';
 
+/** Step progress for the home overview's active-loop cards (no per-loop read needed). */
+export interface LoopProgress {
+  /** Total steps in the plan. */
+  total: number;
+  /** Steps that have succeeded. */
+  done: number;
+  /** Whether a run is currently in flight. */
+  running: boolean;
+}
+
 /** Lightweight per-loop entry for the watched index (drives the loop list + home). */
 export interface LoopSummary {
   id: string;
@@ -23,6 +33,8 @@ export interface LoopSummary {
   pendingSuggestions?: number;
   /** Count of open questions the loop is waiting on — drives the input badge. */
   pendingInput?: number;
+  /** Step progress (present when the plan has steps) — drives the overview progress bar. */
+  progress?: LoopProgress;
   /**
    * Compact "needs you" content (pending input + suggestions) so the home inbox
    * can resolve it inline from the watched index alone. Present only when the

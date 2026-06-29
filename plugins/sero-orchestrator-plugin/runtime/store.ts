@@ -11,6 +11,7 @@
 import type {
   Loop,
   LoopAttention,
+  LoopProgress,
   LoopRun,
   LoopSummary,
   OrchestratorIndex,
@@ -18,6 +19,14 @@ import type {
   RunIndex,
 } from '../shared/types';
 import { aggregateUsage } from '../shared/usage';
+
+/** Step progress for the home overview, derived from the plan + step states. */
+function toProgress(loop: Loop): LoopProgress | undefined {
+  const total = loop.plan.steps.length;
+  if (total === 0) return undefined;
+  const done = Object.values(loop.runtime.stepStates).filter((s) => s.status === 'succeeded').length;
+  return { total, done, running: !!loop.runtime.activeRunId };
+}
 
 /**
  * The compact "needs you" content embedded in a loop summary, so the home inbox
@@ -111,6 +120,7 @@ export function toSummary(loop: Loop): LoopSummary {
     prompt: loop.prompt,
     pendingSuggestions: pendingSuggestions || undefined,
     pendingInput: pendingInput || undefined,
+    progress: toProgress(loop),
     attention: toAttention(loop),
     libraryLink: loop.libraryLink,
     createdAt: loop.createdAt,
