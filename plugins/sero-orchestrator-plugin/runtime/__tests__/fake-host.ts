@@ -4,8 +4,8 @@
  */
 
 import type { AppRuntimePullRequestSummary, ContextToolInfo, SharedAvailableModelGroup } from '@sero-ai/common';
-import { DEFAULT_STATE } from '../../shared/defaults';
-import type { OrchestratorState } from '../../shared/types';
+import { DEFAULT_LIBRARY_INDEX, DEFAULT_STATE } from '../../shared/defaults';
+import type { LibraryEntry, LibraryIndex, LibraryVersion, OrchestratorState } from '../../shared/types';
 import type {
   ActiveSessionInfo,
   ChoiceResult,
@@ -60,6 +60,11 @@ export interface FakeHost extends OrchestratorHost {
   turnResult: TurnResult;
   /** Records active-session sends. */
   sessionSends: { sessionId: string; kind: 'steer' | 'context' }[];
+  /** In-memory Loop Library state (profile-global store stand-in). */
+  libraryEntries: Map<string, LibraryEntry>;
+  libraryVersions: Map<string, LibraryVersion>;
+  libraryIndex: LibraryIndex;
+  libraryWatching: boolean;
 }
 
 export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
@@ -88,6 +93,10 @@ export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
     activeSession: { sessionId: 'sess-1', workspaceId: options.workspaceId ?? 'ws-1' },
     turnResult: { turnId: 'turn-1', status: 'completed' },
     sessionSends: [],
+    libraryEntries: new Map<string, LibraryEntry>(),
+    libraryVersions: new Map<string, LibraryVersion>(),
+    libraryIndex: structuredClone(DEFAULT_LIBRARY_INDEX),
+    libraryWatching: false,
 
     async readState() {
       return structuredClone(this.state);
@@ -168,6 +177,56 @@ export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
       onTurnComplete(_sessionId, cb) {
         const timer = setTimeout(() => cb(host.turnResult), 0);
         return () => clearTimeout(timer);
+      },
+    },
+    library: {
+      async dir() {
+        return '/library';
+      },
+      async readIndex() {
+        return structuredClone(host.libraryIndex);
+      },
+      async readEntry(entryId) {
+        const entry = host.libraryEntries.get(entryId);
+        return entry ? structuredClone(entry) : null;
+      },
+      async readVersion(entryId, version) {
+        const found = host.libraryVersions.get(`${entryId}@${version}`);
+        return found ? structuredClone(found) : null;
+      },
+      async putVersion(entry, version) {
+        host.libraryEntries.set(entry.id, structuredClone(entry));
+        host.libraryVersions.set(`${entry.id}@${version.version}`, structuredClone(version));
+        host.libraryIndex = {
+          version: 1,
+          entries: [
+            ...host.libraryIndex.entries.filter((e) => e.id !== entry.id),
+            {
+              id: entry.id,
+              name: entry.name,
+              summary: entry.summary,
+              latestVersion: entry.latestVersion,
+              versionCount: entry.latestVersion,
+              updatedAt: entry.updatedAt,
+            },
+          ],
+        };
+      },
+      async deleteEntry(entryId) {
+        host.libraryEntries.delete(entryId);
+        for (const key of [...host.libraryVersions.keys()]) {
+          if (key.startsWith(`${entryId}@`)) host.libraryVersions.delete(key);
+        }
+        host.libraryIndex = {
+          version: 1,
+          entries: host.libraryIndex.entries.filter((e) => e.id !== entryId),
+        };
+      },
+      async watchIndex() {
+        host.libraryWatching = true;
+      },
+      async unwatchIndex() {
+        host.libraryWatching = false;
       },
     },
     now() {

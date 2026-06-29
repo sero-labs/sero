@@ -12,10 +12,12 @@ import path from 'node:path';
 import type { AppRuntimeContext } from '@sero-ai/common';
 import type { OrchestratorHost } from './host';
 import { createLoopStore } from './loop-store';
+import { createLibraryStore } from './library-store';
 
 export function createOrchestratorHost(ctx: AppRuntimeContext): OrchestratorHost {
   const stateDir = path.dirname(ctx.stateFilePath);
   const store = createLoopStore(ctx);
+  const library = createLibraryStore(ctx);
 
   return {
     workspaceId: ctx.workspaceId,
@@ -81,6 +83,8 @@ export function createOrchestratorHost(ctx: AppRuntimeContext): OrchestratorHost
     requestChoice: (request) => ctx.host.notifications.requestChoice(request),
 
     session: ctx.host.session,
+
+    library,
 
     now: () => new Date().toISOString(),
     newId: (prefix) => (prefix ? `${prefix}_${randomUUID()}` : randomUUID()),

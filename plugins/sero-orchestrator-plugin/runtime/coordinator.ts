@@ -29,6 +29,7 @@ import { reconcileAll } from './reconcile';
 import { applyRecovery, retryStep, retryStuckLoop } from './recovery-apply';
 import { buildRevisedLoop } from './revise';
 import { handleReflectAction } from './reflect-actions';
+import { handleLibraryAction, isLibraryAction } from './library-actions';
 import { applyAnswerInput } from './input-actions';
 import { evaluateCronTriggers, fireEventTriggers, isRecurring, rearmLoop, reenableSchedule } from './scheduler';
 import { computeReadySteps, hasRunningSteps } from './readiness';
@@ -104,6 +105,9 @@ export class Coordinator {
   }
 
   async requestAction(action: OrchestratorAction): Promise<OrchestratorActionResult> {
+    // Loop Library actions (library_*) are routed as a group, keeping the switch
+    // below focused on per-loop lifecycle.
+    if (isLibraryAction(action)) return handleLibraryAction(this.host, action);
     switch (action.kind) {
       case 'create':
         return this.create(action.prompt, action.title, action.options);

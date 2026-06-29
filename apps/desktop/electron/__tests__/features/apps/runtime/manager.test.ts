@@ -55,6 +55,7 @@ function createHostStub(
       update: vi.fn(async () => {}),
       watch: (filePath: string) => watch(filePath),
       unwatch: (filePath: string) => unwatch(filePath),
+      globalDir: vi.fn(async (namespace: string) => ({ path: `/tmp/sero/apps/${namespace}` })),
     },
     subagents: {
       runStructured: vi.fn(async () => ({ response: '' })),

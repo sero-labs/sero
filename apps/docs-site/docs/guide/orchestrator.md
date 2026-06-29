@@ -90,6 +90,43 @@ totals — tokens used, model time, cost (for models with known pricing), and ho
 many steps and attempts ran. The section stays collapsed by default so the
 history reads cleanly.
 
+## Loop Library
+
+The **Loop Library** is a shared collection of saved loops. Build a loop once,
+save it to the Library, and load it into any of your workspaces. It is shared
+across every workspace in your Sero profile — one place to keep the loops you
+reuse.
+
+**Save a loop.** On a loop, open **Library** and choose **Save to Library**. The
+first save creates a new entry; later saves add a new **version** to it. You can
+add a short "what changed" note. Saving stores the loop's plan, triggers, limits,
+and context — never its run history.
+
+**Load a loop.** Click **Library** in the panel header to open the browser. Pick
+an entry and **Load** it (the latest version by default, or open **Versions** to
+load an older one). Loading creates a fresh draft loop in the current workspace,
+linked back to that version. Review it, then activate it like any new loop.
+
+**Stay up to date.** A loaded loop shows which version it is on. When a newer
+version is saved — from any workspace — the loop shows **"vN available"**; click
+**Update** to move to it, or pick any version to **switch** (you can roll back
+too). Switching only changes the plan: your own triggers, limits, context, and
+per-step model choices stay put. You can switch only when the loop isn't mid-run.
+
+**Unlink** detaches a loop from the Library — it keeps its current plan and stops
+tracking versions. Deleting a Library entry never affects loops already loaded
+from it.
+
+You can also use the agent or slash command:
+
+```text
+/orchestrator library_list
+/orchestrator library_save <loopId> new-version
+/orchestrator library_load <entryId> [version]
+/orchestrator library_set_version <loopId> <version>
+/orchestrator library_unlink <loopId>
+```
+
 ## Example plans
 
 **One step** — a single background-agent step that does the work.

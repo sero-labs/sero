@@ -38,6 +38,7 @@ Source: [package-build.ts](../../../../../apps/desktop/electron/features/plugins
 | Need | Capability | Notes |
 | --- | --- | --- |
 | Persist loop state | `host.appState.read`, `update`, `watch` | Authoritative state file |
+| Save / load loops to the profile-global library | new `host.library` seam | Global store at `$SERO_HOME/apps/orchestrator-library/`; see [08-loop-library.md](08-loop-library.md) |
 | Create step plan | `host.subagents.runStructured` | Model call with plan schema instructions |
 | Resolve loop workspace isolation | `host.git.createWorktree`, `removeWorktree` | User-selected workflow placement |
 | Check dirty workspace-root mode before start | new `host.git.getWorkspaceStatus` or equivalent | Workspace-root preflight only |
@@ -342,6 +343,38 @@ Source: [apps/state/manager.ts](../../../../../apps/desktop/electron/features/ap
 `update` serializes writes per file. It does not provide an execution lock. The
 coordinator still owns per-loop locking so two coordinator runs do not corrupt
 loop state.
+
+## New Seam: Library Store
+
+The Loop Library is a profile-global store, so it lives outside any workspace's
+state file. The desktop side resolves its root —
+`path.join(SERO_HOME, "apps", "orchestrator-library")`, the same convention a
+`scope: "global"` app uses (`features/apps/discovery/index.ts`) — and injects it
+into the adapter; the plugin never imports `SERO_HOME`. Backed by the same
+`host.appState` read/update/watch primitives pointed at that root.
+
+```ts
+interface LibraryStore {
+  readIndex(): Promise<LibraryIndex>;
+  readEntry(entryId: string): Promise<LibraryEntry | null>;
+  readVersion(entryId: string, version: number): Promise<LibraryVersion | null>;
+  /** Appends a version and updates entry.json + index.json as one serialized write. */
+  putVersion(entry: LibraryEntry, version: LibraryVersion): Promise<void>;
+  deleteEntry(entryId: string): Promise<void>;
+  watchIndex(): void;
+  unwatchIndex(): void;
+}
+
+interface OrchestratorHost {
+  // …existing…
+  library: LibraryStore;
+}
+```
+
+All workspaces run in one Electron main process per profile, so library writes
+serialize through `host.appState.update`'s per-file ordering plus the
+coordinator's in-process queue. Cross-process writers are not a concern within
+one profile. See [08-loop-library.md](08-loop-library.md).
 
 ## Cron Patterns
 

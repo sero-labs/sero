@@ -39,10 +39,17 @@ export const ORCHESTRATOR_ACTIONS = [
   'reflect_workspace',
   'choose_suggestion',
   'answer_input',
+  'library_save',
+  'library_load',
+  'library_list',
+  'library_set_version',
+  'library_unlink',
+  'library_delete',
   'delete',
 ] as const;
 
 const SUGGESTION_DECISIONS = ['approve', 'reject'] as const;
+const LIBRARY_SAVE_MODES = ['new-version', 'new-entry'] as const;
 
 export const OrchestratorToolParams = Type.Object({
   action: StringEnum(ORCHESTRATOR_ACTIONS, {
@@ -66,6 +73,11 @@ export const OrchestratorToolParams = Type.Object({
   requestId: Type.Optional(Type.String({ description: 'For answer_input: the pending question request id (loop.runtime.pendingInput.id)' })),
   answersJson: Type.Optional(Type.String({ description: 'For answer_input: JSON array of answers [{ questionId, choiceId?, text? }] — answer every question with a picked choiceId and/or free text' })),
   deleteBranch: Type.Optional(Type.Boolean({ description: 'For delete: also delete the loop\'s local git branch (default false — branch is kept)' })),
+  mode: Type.Optional(StringEnum(LIBRARY_SAVE_MODES, { description: 'For library_save: "new-version" bumps the loop\'s linked entry; "new-entry" creates a fresh library entry' })),
+  name: Type.Optional(Type.String({ description: 'For library_save new-entry: the library entry name (defaults to the loop title)' })),
+  note: Type.Optional(Type.String({ description: 'For library_save: an optional one-line "what changed" note on the version' })),
+  entryId: Type.Optional(Type.String({ description: 'For library_load/library_delete: the library entry id' })),
+  version: Type.Optional(Type.Number({ description: 'For library_load (defaults to latest) or library_set_version (required): the entry version' })),
 });
 
 export interface OrchestratorToolParamsShape {
@@ -88,6 +100,11 @@ export interface OrchestratorToolParamsShape {
   requestId?: string;
   answersJson?: string;
   deleteBranch?: boolean;
+  mode?: (typeof LIBRARY_SAVE_MODES)[number];
+  name?: string;
+  note?: string;
+  entryId?: string;
+  version?: number;
 }
 
 interface ToolResult {
@@ -191,6 +208,26 @@ export function buildAction(params: OrchestratorToolParamsShape): OrchestratorAc
       }
       return { kind: 'answer_input', loopId: params.loopId, requestId: params.requestId, answers };
     }
+    case 'library_save': {
+      if (!params.loopId) return { error: 'library_save requires a loopId' };
+      if (!params.mode) return { error: 'library_save requires a mode ("new-version"|"new-entry")' };
+      return { kind: 'library_save', loopId: params.loopId, mode: params.mode, name: params.name, note: params.note };
+    }
+    case 'library_load':
+      if (!params.entryId) return { error: 'library_load requires an entryId' };
+      return { kind: 'library_load', entryId: params.entryId, version: params.version };
+    case 'library_list':
+      return { kind: 'library_list' };
+    case 'library_set_version':
+      if (!params.loopId) return { error: 'library_set_version requires a loopId' };
+      if (params.version === undefined) return { error: 'library_set_version requires a version' };
+      return { kind: 'library_set_version', loopId: params.loopId, version: params.version };
+    case 'library_unlink':
+      if (!params.loopId) return { error: 'library_unlink requires a loopId' };
+      return { kind: 'library_unlink', loopId: params.loopId };
+    case 'library_delete':
+      if (!params.entryId) return { error: 'library_delete requires an entryId' };
+      return { kind: 'library_delete', entryId: params.entryId };
     case 'delete':
       if (!params.loopId) return { error: 'delete requires a loopId' };
       return { kind: 'delete', loopId: params.loopId, deleteBranch: params.deleteBranch };
@@ -225,6 +262,18 @@ function summarize(action: OrchestratorAction, res: OrchestratorActionResult): s
       return `Answer recorded for loop ${action.loopId} — ${res.loop?.runtime.pendingInput ? 'more questions are waiting' : `loop now "${res.loop?.status ?? '?'}"`}.`;
     case 'retry_step':
       return `Retried step "${action.stepId}" — loop ${action.loopId} now "${res.loop?.status ?? '?'}".`;
+    case 'library_save':
+      return `Saved loop to the library (now ${res.loop?.libraryLink ? `v${res.loop.libraryLink.version}` : 'linked'}).`;
+    case 'library_load':
+      return `Loaded library entry ${action.entryId} into loop ${res.loop?.id} (status: ${res.loop?.status}).`;
+    case 'library_list':
+      return `${res.libraryIndex?.entries.length ?? 0} library entr(ies).`;
+    case 'library_set_version':
+      return `Loop ${action.loopId} switched to library v${action.version}.`;
+    case 'library_unlink':
+      return `Loop ${action.loopId} unlinked from the library.`;
+    case 'library_delete':
+      return `Deleted library entry ${action.entryId}.`;
     default:
       return `${action.kind} ok — loop ${res.loop?.id ?? action.loopId} now "${res.loop?.status ?? '?'}".`;
   }

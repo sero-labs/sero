@@ -3,6 +3,7 @@
  */
 
 import type {
+  LibraryIndex,
   LoopLimits,
   LoopWorkspaceSettings,
   LogPolicy,
@@ -24,6 +25,12 @@ export const DEFAULT_INDEX: OrchestratorIndex = {
 export const DEFAULT_RUN_INDEX: RunIndex = {
   version: 1,
   runs: [],
+};
+
+/** Empty Loop Library index (profile-global; see specs/08-loop-library.md). */
+export const DEFAULT_LIBRARY_INDEX: LibraryIndex = {
+  version: 1,
+  entries: [],
 };
 
 export const DEFAULT_WORKSPACE_SETTINGS: LoopWorkspaceSettings = {

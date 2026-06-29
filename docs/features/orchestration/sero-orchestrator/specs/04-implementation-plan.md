@@ -15,6 +15,7 @@ plans.
 | 6 | Active-session execution | ✅ Done | Active-session steps send and observe by `turnId` |
 | 7 | Scheduling and events | ✅ Done | Manual/cron/event/hybrid triggers mark loops due |
 | 8 | Polish and docs | ✅ Done | UI and docs explain generated step plans clearly |
+| 9 | Loop Library | ✅ Done | Save/load loops to a profile-global versioned store; linked loops update/downgrade |
 
 Status legend: ✅ Done · 🟡 In progress · ⬜ Not started · ⛔ Blocked · 🟦 Deferred.
 
@@ -45,6 +46,15 @@ Status legend: ✅ Done · 🟡 In progress · ⬜ Not started · ⛔ Blocked ·
 | FR-21 | Workspace-root loops with dirty roots prompt the user to stash, create a worktree, or defer, with timeout fallback to worktree | 4 | D-06 | ✅ |
 | FR-22 | Model steps run through the model path and validate prompted structured output | 4 | D-02 | ✅ |
 | FR-23 | Restart recovery marks orphaned runs and attempts before new scheduling | 3 | D-08 | ✅ |
+| FR-L1 | Save publishes a loop's definition as a new immutable library version (or a new entry) | 9 | 08 | ✅ |
+| FR-L2 | Load instantiates a fresh linked loop in the current workspace from a chosen version | 9 | 08 | ✅ |
+| FR-L3 | A loaded loop links to `(entryId, version)`; Update/Downgrade selects any retained version | 9 | 08 | ✅ |
+| FR-L4 | A version switch replaces the plan and replays the local step-override overlay | 9 | 08 | ✅ |
+| FR-L5 | Push-based "update available" via the watched library index — no polling | 9 | D-07/08 | ✅ |
+| FR-L6 | Library-managed plan: no in-place editor; recovery divergence is derived and surfaced | 9 | 08 | 🟡 |
+| FR-L7 | Version switch only when idle; plan re-validated on load and switch | 9 | D-09/08 | ✅ |
+| FR-L8 | Profile-global store at `$SERO_HOME/apps/orchestrator-library/`; deletes never break loaded loops | 9 | D-07/08 | ✅ |
+| FR-L9 | Unlink detaches a loaded loop into a standalone loop | 9 | 08 | ✅ |
 
 ---
 
@@ -332,6 +342,74 @@ from planned execution.
 - [x] Docs explain Orchestrator management limits without implying tool
   restrictions.
 - [x] FR-18 complete.
+
+---
+
+## Phase 9 — Loop Library
+
+**Goal.** A profile-global, versioned store of loop definitions: Save a loop into
+it, Load a loop from it into any workspace, and let linked loops update or
+downgrade. Full design in [08-loop-library.md](08-loop-library.md).
+
+**9a — Store, types, and host seam**
+
+- [x] Add `shared/library-types.ts` (`SharedLoopDefinition`, `SharedTriggerConfig`,
+  `LibraryEntry`, `LibraryVersion`, `LibraryEntrySummary`, `LibraryIndex`) and the
+  `Loop.libraryLink` / `Loop.stepOverrides` fields; re-export from `shared/types.ts`.
+- [x] Add the `host.library` seam to `OrchestratorHost`, backed on the desktop
+  side by app-state read/update/watch pointed at
+  `path.join(SERO_HOME, "apps", "orchestrator-library")` (resolved on desktop via
+  `appState.globalDir` — the plugin never imports `SERO_HOME`).
+- [x] Pure `toSharedDefinition(loop)` and `instantiate(host, def, link)` transforms
+  with unit tests.
+
+**9b — Save**
+
+- [x] `library_save` action: `new-version` (append `versions/{latest+1}.json`,
+  bump entry + index, set link) and `new-entry` (create entry at `v1`, link it).
+- [x] Optional change `note`; default the entry name to the loop title.
+
+**9c — Load and browser**
+
+- [x] `library_load` action: instantiate a fresh draft loop, run the normal
+  create validate path. (Load creates a draft; activation is the existing
+  `activate` action — the UI can chain it.)
+- [x] Watched read of the library index for the renderer (`library_list` returns
+  the dir; the browser watches its index.json); Library browser UI (full-panel
+  view, searchable entry list, per-entry versions, Load).
+
+**9d — Link, update/downgrade, overlay**
+
+- [x] `library_set_version` (update + downgrade) reusing `initStepStates`;
+  idle-only guard; re-validate the plan.
+- [x] Record `set_step_model` / `set_step_tools` into `stepOverrides` on linked
+  loops; replay onto matching steps after a switch; warn on dropped step ids.
+- [ ] Derived structural-divergence indicator (compare plans with overlay fields
+  ignored); Save / Re-sync affordances. *(Deferred — recovery-revised linked
+  loops aren't yet flagged as "modified locally".)*
+- [x] `library_unlink`; `library_delete` (never cascades to loaded loops).
+- [x] Push-based "update available": the linked-loop detail watches the library
+  index and surfaces "vN available". *(Loop-LIST badge deferred — needs
+  `LoopSummary` to carry link/update info.)*
+
+**9e — Docs and tests**
+
+- [x] Slash commands (`library_list`/`library_save`/`library_load`/`library_set_version`/`library_unlink`/`library_delete`).
+- [x] `apps/docs-site` guide section.
+- [x] Store/transform/action unit tests; typecheck; 500-LOC check.
+
+**Acceptance**
+
+- [x] A loop can be saved to the library and loaded into a second workspace.
+- [x] Saving a linked loop creates a new version; the other instance shows
+  "update available" without any polling.
+- [x] Update and Downgrade switch the plan and preserve local step picks,
+  triggers, limits, and context overrides.
+- [x] A version switch is refused mid-run and an invalid saved plan blocks on load
+  with clear errors.
+- [x] Deleting a library entry leaves loaded loops working.
+- [~] FR-L1 … FR-L9 satisfied (FR-L6 partial: library-managed plan + no in-place
+  editor done; derived divergence indicator deferred).
 
 ---
 

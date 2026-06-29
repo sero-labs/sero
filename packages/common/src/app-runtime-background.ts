@@ -37,6 +37,14 @@ export interface AppRuntimeStateApi {
   update<T = unknown>(filePath: string, updater: (current: T | null) => T): Promise<void>;
   watch(filePath: string): void;
   unwatch(filePath: string): void;
+  /**
+   * Resolve (creating on first use) a profile-global app-state directory at
+   * `$SERO_HOME/apps/<namespace>/`. Unlike the per-workspace `stateFilePath`,
+   * this is shared across every workspace in the active profile — the home for
+   * cross-workspace stores (e.g. the Orchestrator Loop Library). Read/update/watch
+   * still operate on the concrete file paths under it.
+   */
+  globalDir(namespace: string): Promise<{ path: string }>;
 }
 
 /**

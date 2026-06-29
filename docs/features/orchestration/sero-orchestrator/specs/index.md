@@ -51,6 +51,7 @@ restrictions.
 | [05-branching.md](05-branching.md) | LLM-judged conditional branching: judge step, routing variables, guards, skip cascade, validation, branch-tree UI |
 | [06-reflection.md](06-reflection.md) | On-demand loop reflection: durable run digests, history-driven improvement suggestions, per-loop + workspace Reflect, approve/reject inbox |
 | [07-human-input.md](07-human-input.md) | Ask the user: durable pending questions a step or the planner can raise, the answer card, park-and-resume, planner clarifications |
+| [08-loop-library.md](08-loop-library.md) | Loop Library: profile-global versioned store of loop definitions, save/load, linked instances, update/downgrade, local step-override overlay |
 
 ## Non-Goals
 

@@ -17,7 +17,7 @@ import type {
   ExtensionRuntimeMessage,
   SharedAvailableModelGroup,
 } from '@sero-ai/common';
-import type { OrchestratorState } from '../shared/types';
+import type { LibraryEntry, LibraryIndex, LibraryVersion, OrchestratorState } from '../shared/types';
 
 export interface ActiveSessionInfo {
   sessionId: string;
@@ -120,6 +120,27 @@ export interface ChoiceResult {
   timedOut: boolean;
 }
 
+/**
+ * Profile-global Loop Library store (see specs/08-loop-library.md). Reads and
+ * writes the versioned definition store shared across all of the profile's
+ * workspaces. Implemented against the global app-state dir; tests fake it.
+ */
+export interface LibraryStore {
+  /** Absolute path of the profile-global library dir, so the renderer can watch its index.json. */
+  dir(): Promise<string>;
+  /** The watched entry list (empty index when nothing has been saved yet). */
+  readIndex(): Promise<LibraryIndex>;
+  readEntry(entryId: string): Promise<LibraryEntry | null>;
+  readVersion(entryId: string, version: number): Promise<LibraryVersion | null>;
+  /** Persists a version file and updates entry.json + the index (serialized). */
+  putVersion(entry: LibraryEntry, version: LibraryVersion): Promise<void>;
+  /** Removes an entry and all its versions; never touches loaded loops. */
+  deleteEntry(entryId: string): Promise<void>;
+  /** Subscribe the renderer to the library index (push-based update detection). */
+  watchIndex(): Promise<void>;
+  unwatchIndex(): Promise<void>;
+}
+
 export interface OrchestratorHost {
   /** Workspace this host (and its coordinator) is scoped to. */
   readonly workspaceId: string;
@@ -176,6 +197,9 @@ export interface OrchestratorHost {
 
   // ── Active-session control ────────────────────────────────
   session: SessionHost;
+
+  // ── Loop Library (profile-global versioned definition store) ──
+  library: LibraryStore;
 
   // ── Deterministic utilities ───────────────────────────────
   /** ISO timestamp. Injectable so tests are deterministic. */

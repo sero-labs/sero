@@ -8,6 +8,8 @@
  */
 
 import type { AppRuntimePullRequestSummary, ContextOverrides } from '@sero-ai/common';
+import type { LoopLibraryLink, StepOverride } from './library-types';
+import type { LogPolicy, UsageSummary } from './usage-types';
 import type { LoopWorkspaceRuntime, LoopWorkspaceSettings, ResolvedWorkspaceContext } from './workspace-types';
 import type { LoopInsight, LoopSuggestion } from './reflection-types';
 import type { AnsweredInput, HumanQuestion, PendingInput } from './human-input-types';
@@ -48,6 +50,19 @@ export type {
   AnsweredInput,
   ClarifyingResponse,
 } from './human-input-types';
+
+// Loop Library types live in library-types.ts (see specs/08-loop-library.md);
+// re-exported here so existing imports from './types' keep resolving.
+export type {
+  SharedTriggerConfig,
+  SharedLoopDefinition,
+  LibraryVersion,
+  LibraryEntry,
+  LibraryEntrySummary,
+  LibraryIndex,
+  LoopLibraryLink,
+  StepOverride,
+} from './library-types';
 
 // ── Top-level state ─────────────────────────────────────────
 
@@ -114,6 +129,10 @@ export interface Loop {
   suggestions?: LoopSuggestion[];
   /** Resolved human-input requests (planner clarifications + step questions). */
   answeredInputs?: AnsweredInput[];
+  /** Set when the loop was loaded from / saved to the library (see specs/08-loop-library.md). Absent ⇒ standalone. */
+  libraryLink?: LoopLibraryLink;
+  /** Local per-step overrides, replayed after a library version switch so they survive the plan being replaced. */
+  stepOverrides?: Record<string, StepOverride>;
   createdAt: string;
   updatedAt: string;
 }
@@ -460,22 +479,8 @@ export interface PlanRevision {
 }
 
 // ── Usage & log policy ──────────────────────────────────────
-
-export interface UsageSummary {
-  inputTokens?: number;
-  outputTokens?: number;
-  totalTokens?: number;
-  costUsd?: number;
-  durationMs?: number;
-}
-
-export interface LogPolicy {
-  retainRuns: number;
-  retainArtifacts: boolean;
-  maxInlineOutputBytes: number;
-  /** Durable run digests kept for reflection (survive run pruning). Default 50. */
-  retainDigests?: number;
-}
+// Split into usage-types.ts (500-LOC limit); re-exported here for existing imports.
+export type { UsageSummary, LogPolicy } from './usage-types';
 
 // ── Coordinator actions ─────────────────────────────────────
 // Split into actions.ts (500-LOC limit); re-exported here for existing imports.

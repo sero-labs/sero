@@ -17,6 +17,8 @@ function formatLimits(limits: LoopLimits): string {
 }
 import { LoopControls } from './LoopControls';
 import { LoopContextControl } from './LoopContextControl';
+import { LibrarySaveControl } from './LibrarySaveControl';
+import { LibraryLinkSection } from './LibraryLinkSection';
 import { PlanView } from './PlanView';
 import { RefinePlan } from './RefinePlan';
 import { AttemptHistory } from './AttemptHistory';
@@ -31,6 +33,8 @@ interface LoopDetailProps {
   onAction: (action: OrchestratorAction) => void;
   /** State directory, used to watch this loop's runs/index.json for run history. */
   stateDir: string;
+  /** Profile-global library dir, for a linked loop's status + update controls. */
+  libraryDir: string | null;
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -42,7 +46,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-export function LoopDetail({ loop, busy, onAction, stateDir }: LoopDetailProps) {
+export function LoopDetail({ loop, busy, onAction, stateDir, libraryDir }: LoopDetailProps) {
   const { runtime, workspace } = loop;
   const resolved = runtime.workspace.resolved;
   const runIndex = useWatchedJson<RunIndex>(`${stateDir}/loops/${loop.id}/runs/index.json`, DEFAULT_RUN_INDEX);
@@ -63,6 +67,7 @@ export function LoopDetail({ loop, busy, onAction, stateDir }: LoopDetailProps) 
         <div className="flex flex-wrap items-center gap-2">
           <LoopControls loop={loop} busy={busy} canReflect={runIndex.runs.length > 0} onAction={onAction} />
           <LoopContextControl loop={loop} onAction={onAction} />
+          <LibrarySaveControl loop={loop} busy={busy} onAction={onAction} />
         </div>
       </header>
 
@@ -113,6 +118,12 @@ export function LoopDetail({ loop, busy, onAction, stateDir }: LoopDetailProps) 
       )}
 
       <Separator />
+
+      {loop.libraryLink && (
+        <Section title="Library">
+          <LibraryLinkSection loop={loop} libraryDir={libraryDir} busy={busy} onAction={onAction} />
+        </Section>
+      )}
 
       <Section title="Workspace isolation">
         <Card className="flex items-center gap-2 p-3 text-sm">

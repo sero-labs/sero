@@ -23,7 +23,13 @@ const HELP = `Usage:
   /orchestrator retry_step <loopId> <stepId>
   /orchestrator reflect_workspace
   /orchestrator answer <loopId> <your answer>
-  /orchestrator revise <loopId> [request]`;
+  /orchestrator revise <loopId> [request]
+  /orchestrator library_list
+  /orchestrator library_save <loopId> <new-version|new-entry> [note]
+  /orchestrator library_load <entryId> [version]
+  /orchestrator library_set_version <loopId> <version>
+  /orchestrator library_unlink <loopId>
+  /orchestrator library_delete <entryId>`;
 
 /** Parsed command: either tool params, an answer request (resolved separately), or an error. */
 export type ParsedCommand =
@@ -49,10 +55,35 @@ export function parseCommand(args: string): ParsedCommand {
   switch (action) {
     case 'list':
     case 'reflect_workspace':
+    case 'library_list':
       return { action };
     case 'create':
       if (!remainder) return { error: 'create requires a prompt' };
       return { action, prompt: remainder };
+    case 'library_save': {
+      const [loopId, mode, ...noteParts] = rest;
+      if (!loopId) return { error: 'library_save requires a loopId' };
+      if (mode !== 'new-version' && mode !== 'new-entry') return { error: 'library_save requires a mode: new-version | new-entry' };
+      return { action, loopId, mode, note: noteParts.join(' ') || undefined };
+    }
+    case 'library_load': {
+      const [entryId, versionStr] = rest;
+      if (!entryId) return { error: 'library_load requires an entryId' };
+      const version = versionStr ? Number(versionStr) : undefined;
+      if (versionStr !== undefined && !Number.isInteger(version)) return { error: 'version must be a whole number' };
+      return { action, entryId, version };
+    }
+    case 'library_set_version': {
+      const [loopId, versionStr] = rest;
+      const version = Number(versionStr);
+      if (!loopId || !Number.isInteger(version)) return { error: 'library_set_version requires a loopId and a numeric version' };
+      return { action, loopId, version };
+    }
+    case 'library_delete': {
+      const [entryId] = rest;
+      if (!entryId) return { error: 'library_delete requires an entryId' };
+      return { action, entryId };
+    }
     case 'revise': {
       const [loopId, ...promptParts] = rest;
       if (!loopId) return { error: 'revise requires a loopId' };
@@ -88,7 +119,7 @@ async function answerViaText(cwd: string | undefined, loopId: string, text: stri
 
 export function registerOrchestratorCommand(pi: ExtensionAPI): void {
   pi.registerCommand('orchestrator', {
-    description: 'Manage Orchestrator loops: list, create, show, activate, disable, enable, run_next, run_again, retry, revise, reflect, reflect_workspace, answer, delete',
+    description: 'Manage Orchestrator loops: list, create, show, activate, disable, enable, run_next, run_again, retry, revise, reflect, reflect_workspace, answer, delete, and the Loop Library (library_list/save/load/set_version/unlink/delete)',
     handler: async (args, ctx) => {
       const parsed = parseCommand(args ?? '');
       if ('error' in parsed) {

@@ -664,6 +664,23 @@ persisted additions are:
 - `StepOutcome.questions` / `ClarifyingResponse` — how a step / the planner asks.
 - The watched `LoopSummary` carries a `pendingInput` count for the loop-list badge.
 
+## Loop Library
+
+A loop's definition can be saved into a profile-global, versioned library and
+loaded into any workspace. The full model lives in
+[08-loop-library.md](08-loop-library.md); the persisted additions are:
+
+- `Loop.libraryLink?: { entryId; version; syncedAt }` — set when a loop was
+  loaded from / saved to the library, tracking the version it is on. Absent ⇒
+  standalone.
+- `Loop.stepOverrides?: Record<stepId, { model?; thinking?; tools? }>` —
+  instance-local per-step picks, replayed after a version switch so they survive
+  the plan being replaced. Not part of the saved definition.
+- `SharedLoopDefinition` / `LibraryEntry` / `LibraryVersion` / `LibraryIndex`
+  (`shared/library-types.ts`) — the saved payload (loop minus all instance/runtime
+  state) and the global store's entries and immutable versions, persisted under
+  `$SERO_HOME/apps/orchestrator-library/`, not in any workspace's `loop.json`.
+
 ## Coordinator Actions
 
 Tools, slash commands, and UI send these request envelopes to the coordinator.
@@ -688,6 +705,11 @@ type OrchestratorAction =
   | { kind: "reflect_workspace" }
   | { kind: "choose_suggestion"; loopId: string; suggestionId: string; decision: "approve" | "reject"; rejectionReason?: string }
   | { kind: "answer_input"; loopId: string; requestId: string; answers: InputAnswer[] }
+  | { kind: "library_save"; loopId: string; mode: "new-version" | "new-entry"; name?: string; note?: string }
+  | { kind: "library_load"; entryId: string; version?: number; options?: { activate?: boolean } }
+  | { kind: "library_set_version"; loopId: string; version: number }
+  | { kind: "library_unlink"; loopId: string }
+  | { kind: "library_delete"; entryId: string }
   | { kind: "delete"; loopId: string; deleteBranch?: boolean };
 
 interface CreateLoopOptions {

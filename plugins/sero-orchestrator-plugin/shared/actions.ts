@@ -6,6 +6,7 @@
 import type { ContextOverrides } from '@sero-ai/common';
 import type {
   InputAnswer,
+  LibraryIndex,
   Loop,
   LoopLimits,
   LoopRun,
@@ -41,6 +42,12 @@ export type OrchestratorAction =
   | { kind: 'reflect_workspace' }
   | { kind: 'choose_suggestion'; loopId: string; suggestionId: string; decision: 'approve' | 'reject'; rejectionReason?: string }
   | { kind: 'answer_input'; loopId: string; requestId: string; answers: InputAnswer[] }
+  | { kind: 'library_save'; loopId: string; mode: 'new-version' | 'new-entry'; name?: string; note?: string }
+  | { kind: 'library_load'; entryId: string; version?: number }
+  | { kind: 'library_list' }
+  | { kind: 'library_set_version'; loopId: string; version: number }
+  | { kind: 'library_unlink'; loopId: string }
+  | { kind: 'library_delete'; entryId: string }
   | { kind: 'delete'; loopId: string; deleteBranch?: boolean };
 
 /** Per-loop result of a workspace-wide reflection sweep. */
@@ -60,4 +67,8 @@ export interface OrchestratorActionResult {
   reflection?: { suggestionCount: number };
   /** Set by `reflect_workspace`: the consecutive per-loop sweep summary. */
   workspaceReflection?: { reflected: number; suggestionCount: number; perLoop: ReflectedLoopSummary[] };
+  /** Set by `library_list`: the resolved profile-global library dir (so the UI can watch its index.json). */
+  libraryDir?: string;
+  /** Set by `library_list`: a snapshot of the library index (the live data comes from watching the dir). */
+  libraryIndex?: LibraryIndex;
 }

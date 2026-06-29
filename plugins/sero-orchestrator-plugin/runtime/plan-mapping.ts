@@ -18,6 +18,7 @@ import { isDefaultTool } from '../shared/constants';
 import { mergeLimits, materializeTriggers } from './loop-factory';
 import { mergeScheduleIntoTriggers, type ScheduleExtraction } from './schedule-extractor';
 import { validateLoopPlan } from './schema';
+import { mergeStepOverride } from './library-overlay';
 
 /** Initial (pending) runtime state for every step in a plan. */
 export function initStepStates(plan: LoopPlan, now: string): Record<string, StepRuntimeState> {
@@ -135,7 +136,11 @@ export function applyStepModel(
   }
   const execution = { ...step.execution, model: model?.trim() || undefined, thinking: thinking?.trim() || undefined };
   const steps = loop.plan.steps.map((s) => (s.id === stepId ? { ...s, execution } : s));
-  return { ok: true, loop: { ...loop, plan: { ...loop.plan, steps }, updatedAt: now } };
+  const next: Loop = { ...loop, plan: { ...loop.plan, steps }, updatedAt: now };
+  // On a library-linked loop, mirror the pick into the overlay so a later version
+  // switch (which replaces the plan) keeps it. See specs/08-loop-library.md.
+  if (next.libraryLink) next.stepOverrides = mergeStepOverride(next.stepOverrides, stepId, { model: execution.model, thinking: execution.thinking });
+  return { ok: true, loop: next };
 }
 
 /**
@@ -159,7 +164,9 @@ export function applyStepTools(
   const extras = tools?.map((t) => t.trim()).filter((t) => t && !isDefaultTool(t));
   const execution = { ...step.execution, tools: extras && extras.length > 0 ? extras : undefined };
   const steps = loop.plan.steps.map((s) => (s.id === stepId ? { ...s, execution } : s));
-  return { ok: true, loop: { ...loop, plan: { ...loop.plan, steps }, updatedAt: now } };
+  const next: Loop = { ...loop, plan: { ...loop.plan, steps }, updatedAt: now };
+  if (next.libraryLink) next.stepOverrides = mergeStepOverride(next.stepOverrides, stepId, { tools: execution.tools });
+  return { ok: true, loop: next };
 }
 
 /**

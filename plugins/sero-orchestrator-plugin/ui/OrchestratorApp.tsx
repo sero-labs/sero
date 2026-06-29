@@ -1,16 +1,17 @@
-import { use, useMemo, useState } from 'react';
+import { use, useEffect, useMemo, useState } from 'react';
 import { AppContext, useAppTools } from '@sero-ai/app-runtime';
 import { Button } from '@sero-ai/ui';
-import { Infinity as InfinityIcon, Sparkles } from 'lucide-react';
+import { Infinity as InfinityIcon, Library, Sparkles } from 'lucide-react';
 import { DEFAULT_INDEX } from '../shared/defaults';
 import type { Loop, OrchestratorAction, OrchestratorIndex } from '../shared/types';
 import { LoopList } from './components/LoopList';
 import { LoopDetail } from './components/LoopDetail';
+import { LibraryBrowser } from './components/LibraryBrowser';
 import { CreateLoopForm, type CreateLoopSubmit } from './components/CreateLoopForm';
 import { useWatchedJson } from './lib/use-watched-json';
 import './styles.css';
 
-type View = { mode: 'detail'; loopId: string | null } | { mode: 'create' };
+type View = { mode: 'detail'; loopId: string | null } | { mode: 'create' } | { mode: 'library' };
 
 /** Directory of a file path, tolerant of either separator (renderer has no node:path). */
 function dirOf(filePath: string): string {
@@ -32,11 +33,27 @@ export function OrchestratorApp() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reflectSummary, setReflectSummary] = useState<string | null>(null);
+  // Resolved once from the runtime (the renderer can't derive the profile-global
+  // path), then the browser watches its index.json live.
+  const [libraryDir, setLibraryDir] = useState<string | null>(null);
 
   const index = useWatchedJson<OrchestratorIndex>(stateDir ? `${stateDir}/index.json` : null, DEFAULT_INDEX);
   const selectedId = view.mode === 'detail' ? view.loopId : null;
   const loopPath = selectedId && stateDir ? `${stateDir}/loops/${selectedId}/loop.json` : null;
   const selected = useWatchedJson<Loop | null>(loopPath, null);
+
+  // Resolve the profile-global library dir once (the renderer can't derive it).
+  // A linked loop's update-available status then comes from watching its index.
+  useEffect(() => {
+    let active = true;
+    void run('orchestrator', { action: 'library_list' })
+      .then((res) => {
+        const dir = (res?.details as { libraryDir?: string } | null)?.libraryDir;
+        if (active && dir) setLibraryDir(dir);
+      })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [run]);
 
   const dispatch = async (params: Record<string, unknown>) => {
     setBusy(true);
@@ -84,10 +101,34 @@ export function OrchestratorApp() {
     if (action.kind === 'set_loop_context') {
       params.contextJson = JSON.stringify(action.overrides);
     }
+    if (action.kind === 'library_save') {
+      params.mode = action.mode;
+      if (action.name !== undefined) params.name = action.name;
+      if (action.note !== undefined) params.note = action.note;
+    }
+    if (action.kind === 'library_set_version') params.version = action.version;
+    if (action.kind === 'library_delete') params.entryId = action.entryId;
     const res = await dispatch(params);
     if (action.kind === 'delete') {
       const details = res?.details as { ok?: boolean } | null;
       if (details?.ok !== false) setView({ mode: 'detail', loopId: null });
+    }
+  };
+
+  const openLibrary = async () => {
+    if (libraryDir === null) {
+      const res = await dispatch({ action: 'library_list' });
+      const details = res?.details as { libraryDir?: string } | null;
+      if (details?.libraryDir) setLibraryDir(details.libraryDir);
+    }
+    setView({ mode: 'library' });
+  };
+
+  const onLoadFromLibrary = async (entryId: string, version?: number) => {
+    const res = await dispatch({ action: 'library_load', entryId, version });
+    const details = res?.details as { ok?: boolean; loop?: { id?: string } } | null;
+    if (details && details.ok !== false && details.loop?.id) {
+      setView({ mode: 'detail', loopId: details.loop.id });
     }
   };
 
@@ -126,6 +167,15 @@ export function OrchestratorApp() {
           <Button
             size="sm"
             variant="outline"
+            disabled={busy}
+            onClick={openLibrary}
+            title="Browse and load saved loops"
+          >
+            <Library className="mr-1 h-3.5 w-3.5" /> Library
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
             disabled={busy || index.loops.length === 0}
             onClick={reflectAll}
             title="Learn from every loop's past runs and suggest improvements"
@@ -159,8 +209,15 @@ export function OrchestratorApp() {
         />
         {view.mode === 'create' ? (
           <CreateLoopForm busy={busy} onSubmit={onCreate} onCancel={() => setView({ mode: 'detail', loopId: selectedId })} />
+        ) : view.mode === 'library' ? (
+          <LibraryBrowser
+            libraryDir={libraryDir}
+            busy={busy}
+            onLoad={onLoadFromLibrary}
+            onClose={() => setView({ mode: 'detail', loopId: null })}
+          />
         ) : selected ? (
-          <LoopDetail loop={selected} busy={busy} onAction={onAction} stateDir={stateDir} />
+          <LoopDetail loop={selected} busy={busy} onAction={onAction} stateDir={stateDir} libraryDir={libraryDir} />
         ) : (
           <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
             Select a loop or create a new one.

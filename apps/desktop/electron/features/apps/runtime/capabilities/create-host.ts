@@ -85,6 +85,16 @@ export function createAppRuntimeHost(_target: AppRuntimeTarget): AppRuntimeHost 
       update: <T = unknown>(filePath: string, updater: (current: T | null) => T) => appStateManager.update(filePath, updater),
       watch: (filePath) => appStateManager.watch(filePath),
       unwatch: (filePath) => appStateManager.unwatch(filePath),
+      globalDir: async (namespace) => {
+        if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(namespace)) {
+          throw new Error(`Invalid global app-state namespace: ${namespace}`);
+        }
+        // Profile-scoped, shared across all the profile's workspaces — the same
+        // convention a `scope: "global"` app uses for its state file.
+        const dir = path.join(SERO_HOME, 'apps', namespace);
+        await mkdir(dir, { recursive: true });
+        return { path: dir };
+      },
     },
     subagents: {
       runStructured: async (params) => subagentManager.runSingleStructured({
