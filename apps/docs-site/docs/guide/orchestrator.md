@@ -25,14 +25,25 @@ A loop holds:
 Steps can run one after another (sequential) or at the same time (parallel),
 depending on how the plan wires their dependencies.
 
+## Home — what needs you
+
+The Orchestrator panel opens on **Home**: a single "Needs you" list that gathers
+every loop waiting on you — questions to answer and suggested improvements to
+approve or reject — so you can clear them in one place without opening each loop.
+Below it is an overview of all your loops, grouped by status. Click any loop to
+open its detail view.
+
 ## Create a loop
 
-In the Orchestrator panel, click **New loop**, describe the work, and choose:
+Click **New loop** and you're walked through three steps:
 
-- **Run in a managed worktree** (default) — background work runs in an isolated
-  copy of the repo, leaving your working files untouched.
-- **Activate after creating** — start the loop immediately once the plan is
-  valid.
+1. **Describe** — say what you want done (include any schedule). Choose whether to
+   run in a **managed worktree** (default — an isolated copy of the repo, leaving
+   your working files untouched) or in the workspace directly.
+2. **Clarify** — if the AI needs more detail before it can plan, it asks a few
+   questions here. Answer them and it builds the plan.
+3. **Review** — read the plan the AI wrote, refine it in plain English, then
+   **Save as draft** or **Activate** the loop.
 
 You can also use the agent tool or slash command:
 
@@ -173,8 +184,9 @@ this"), or when the plan can't be built without more information.
   them and the plan is built; you then review and activate it as usual.
 
 The loop **waits** until you answer — there's no timeout and no default, and a
-scheduled loop won't run again while a question is open. Loops with a question
-waiting show a small blue count in the loop list. You can also answer from the
+scheduled loop won't run again while a question is open. Open questions appear in
+the **Home** "Needs you" list (and as a count in the loop list), and you can
+answer them right there without opening the loop. You can also answer from the
 agent with `/orchestrator answer <loopId> <your answer>`.
 
 ## Reflection (self-improvement)
@@ -192,8 +204,8 @@ suggests how the loop could run better next time.
 Each suggestion waits for you. **Approve** applies it to the plan straight away
 (recorded in the loop's revision history, exactly like a manual refine);
 **Reject** asks for a one-line reason and keeps it, so the same idea isn't
-suggested again. Nothing changes on its own. Loops with suggestions waiting show a
-small count in the loop list.
+suggested again. Nothing changes on its own. Pending suggestions appear in the
+**Home** "Needs you" list, where you can approve or reject them in place.
 
 Reflection only suggests changes to the plan and step instructions, and only when
 you ask — it never runs on its own.

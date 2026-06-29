@@ -1,30 +1,32 @@
 import { describe, expect, it } from 'vitest';
-import { LOOP_STATUS_LABEL, loopStatusVariant, stepStatusVariant, formatTime } from '../lib/format';
+import { formatTime } from '../lib/format';
+import { LOOP_STATUS_STYLE, STEP_STATUS_STYLE } from '../lib/status-style';
 
 describe('UI format helpers', () => {
-  it('labels every loop status', () => {
-    expect(LOOP_STATUS_LABEL.active).toBe('Active');
-    expect(LOOP_STATUS_LABEL.blocked).toBe('Blocked');
-    expect(LOOP_STATUS_LABEL.complete).toBe('Complete');
-    expect(LOOP_STATUS_LABEL.disabled).toBe('Disabled');
-  });
-
-  it('maps loop status to a badge variant', () => {
-    expect(loopStatusVariant('blocked')).toBe('destructive');
-    expect(loopStatusVariant('active')).toBe('default');
-    expect(loopStatusVariant('draft')).toBe('outline');
-    expect(loopStatusVariant('disabled')).toBe('outline');
-  });
-
-  it('maps step status to a badge variant', () => {
-    expect(stepStatusVariant('failed')).toBe('destructive');
-    expect(stepStatusVariant('succeeded')).toBe('secondary');
-    expect(stepStatusVariant('running')).toBe('default');
-  });
-
   it('formats time and tolerates empty/invalid input', () => {
     expect(formatTime(undefined)).toBe('—');
     expect(formatTime('not-a-date')).toBe('not-a-date');
     expect(formatTime('2026-06-22T10:00:00.000Z')).not.toBe('—');
+  });
+});
+
+describe('status visual language', () => {
+  it('labels every loop status', () => {
+    expect(LOOP_STATUS_STYLE.active.label).toBe('Active');
+    expect(LOOP_STATUS_STYLE.blocked.label).toBe('Blocked');
+    expect(LOOP_STATUS_STYLE.complete.label).toBe('Complete');
+    expect(LOOP_STATUS_STYLE.disabled.label).toBe('Disabled');
+  });
+
+  it('presents the data step statuses with the wireframe labels', () => {
+    expect(STEP_STATUS_STYLE.succeeded.label).toBe('done');
+    expect(STEP_STATUS_STYLE['needs-revision'].label).toBe('recovering');
+    expect(STEP_STATUS_STYLE.running.label).toBe('running');
+  });
+
+  it('gives running and done a green accent, failed a red one', () => {
+    expect(STEP_STATUS_STYLE.running.dot).toContain('emerald');
+    expect(STEP_STATUS_STYLE.succeeded.dot).toContain('emerald');
+    expect(STEP_STATUS_STYLE.failed.dot).toContain('rose');
   });
 });

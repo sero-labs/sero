@@ -1,24 +1,17 @@
-import { Badge, Card, Separator } from '@sero-ai/ui';
-import { AlertTriangle, GitBranch, FolderGit2 } from 'lucide-react';
-import type { LibraryIndex, Loop, LoopLimits, OrchestratorAction, RunIndex } from '../../shared/types';
+import { Card } from '@sero-ai/ui';
+import { AlertTriangle } from 'lucide-react';
+import type { LibraryIndex, Loop, OrchestratorAction, RunIndex } from '../../shared/types';
 import { DEFAULT_RUN_INDEX } from '../../shared/defaults';
-import { LOOP_STATUS_LABEL, loopStatusVariant, formatTime } from '../lib/format';
+import { formatTime } from '../lib/format';
 import { useWatchedJson } from '../lib/use-watched-json';
-
-function formatLimits(limits: LoopLimits): string {
-  const parts: string[] = [];
-  if (limits.maxAttemptsPerStep) parts.push(`${limits.maxAttemptsPerStep} attempts/step`);
-  if (limits.maxConcurrentSteps) parts.push(`${limits.maxConcurrentSteps} concurrent`);
-  if (limits.maxAttemptsTotal) parts.push(`${limits.maxAttemptsTotal} attempts total`);
-  if (limits.maxTotalTokens) parts.push(`${limits.maxTotalTokens.toLocaleString()} tokens`);
-  if (limits.maxCostUsd) parts.push(`$${limits.maxCostUsd} cost`);
-  if (limits.maxWallClockMs) parts.push(`${Math.round(limits.maxWallClockMs / 60000)} min wall-clock`);
-  return parts.length ? `Limits: ${parts.join(' · ')}` : 'No limits set';
-}
+import { LoopStatusBadge, NeedsYouBadge } from './StatusBadge';
 import { LoopControls } from './LoopControls';
 import { LoopContextControl } from './LoopContextControl';
+import { LoopMetaStrip } from './LoopMetaStrip';
 import { LibrarySaveControl } from './LibrarySaveControl';
 import { LibraryLinkSection } from './LibraryLinkSection';
+import { LiveActivityStrip } from './LiveActivityStrip';
+import { CollapsibleSection } from './CollapsibleSection';
 import { PlanView } from './PlanView';
 import { RefinePlan } from './RefinePlan';
 import { AttemptHistory } from './AttemptHistory';
@@ -39,19 +32,17 @@ interface LoopDetailProps {
   libraryIndex: LibraryIndex;
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section className="flex flex-col gap-2">
-      <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</h2>
-      {children}
-    </section>
-  );
-}
-
+/**
+ * Calm single-column loop detail (specs/09-ui-redesign.md, B1 + B3 touch). The
+ * input request gets top weight (the moment that needs you); a live-activity
+ * strip shows while running; plan and history collapse for progressive
+ * disclosure. The Library link + save controls are folded in.
+ */
 export function LoopDetail({ loop, busy, onAction, stateDir, libraryDir, libraryIndex }: LoopDetailProps) {
-  const { runtime, workspace } = loop;
-  const resolved = runtime.workspace.resolved;
+  const { runtime } = loop;
   const runIndex = useWatchedJson<RunIndex>(`${stateDir}/loops/${loop.id}/runs/index.json`, DEFAULT_RUN_INDEX);
+  const pendingInput = runtime.pendingInput?.questions.length ?? 0;
+  const pendingSuggestions = (loop.suggestions ?? []).filter((s) => s.status === 'pending').length;
 
   return (
     <div className="flex h-full flex-1 flex-col gap-4 overflow-auto p-4">
@@ -59,22 +50,23 @@ export function LoopDetail({ loop, busy, onAction, stateDir, libraryDir, library
         <div className="flex items-center justify-between gap-2">
           <h1 className="text-lg font-semibold">{loop.title}</h1>
           <div className="flex items-center gap-2">
-            {runtime.pendingInput && (
-              <Badge variant="outline" className="border-primary/40 text-primary">Waiting for you</Badge>
-            )}
-            <Badge variant={loopStatusVariant(loop.status)}>{LOOP_STATUS_LABEL[loop.status]}</Badge>
+            <NeedsYouBadge kind="input" count={pendingInput} />
+            <NeedsYouBadge kind="suggestions" count={pendingSuggestions} />
+            <LoopStatusBadge status={loop.status} />
           </div>
         </div>
         <p className="text-sm text-muted-foreground">{loop.summary || loop.prompt}</p>
-        <div className="flex flex-wrap items-center gap-2">
+        <LoopMetaStrip loop={loop} />
+        <div className="flex flex-wrap items-center gap-2 pt-1">
           <LoopControls loop={loop} busy={busy} canReflect={runIndex.runs.length > 0} onAction={onAction} />
           <LoopContextControl loop={loop} onAction={onAction} />
           <LibrarySaveControl loop={loop} busy={busy} onAction={onAction} />
         </div>
       </header>
 
-      <InputRequestCard loop={loop} busy={busy} onAction={onAction} />
+      <LiveActivityStrip loop={loop} runIndex={runIndex} />
 
+      <InputRequestCard loop={loop} busy={busy} onAction={onAction} />
       <SuggestionsInbox loop={loop} busy={busy} onAction={onAction} />
 
       {loop.warnings.length > 0 && (
@@ -88,29 +80,7 @@ export function LoopDetail({ loop, busy, onAction, stateDir, libraryDir, library
         </Card>
       )}
 
-      {runtime.block && (() => {
-        // A step-owned block (planned/recovery) points at the step, where the
-        // reason and a Retry button live. Loop-wide blocks (limit/validation/
-        // runtime) show the reason here with the whole-loop recovery options.
-        const blockedStep = runtime.block.sourceStepId
-          ? loop.plan.steps.find((s) => s.id === runtime.block!.sourceStepId)
-          : undefined;
-        return (
-          <Card className="border-destructive/50 p-3 text-sm">
-            {blockedStep ? (
-              <span>
-                <span className="font-medium text-destructive">Blocked at “{blockedStep.title}”. </span>
-                Fix the cause, then <span className="font-medium">Retry step</span> on it in the plan below — or <span className="font-medium">Restart</span> the loop.
-              </span>
-            ) : (
-              <span>
-                <span className="font-medium text-destructive">Blocked ({runtime.block.kind}): </span>
-                {runtime.block.reason} — <span className="font-medium">Restart</span> the loop or <span className="font-medium">Refine</span> the plan.
-              </span>
-            )}
-          </Card>
-        );
-      })()}
+      <BlockNotice loop={loop} />
 
       {runtime.completion && (
         <Card className="border-emerald-500/40 p-3 text-sm">
@@ -119,69 +89,52 @@ export function LoopDetail({ loop, busy, onAction, stateDir, libraryDir, library
         </Card>
       )}
 
-      <Separator />
-
       {loop.libraryLink && (
-        <Section title="Library">
+        <CollapsibleSection title="Library" defaultOpen>
           <LibraryLinkSection loop={loop} libraryDir={libraryDir} libraryIndex={libraryIndex} busy={busy} onAction={onAction} />
-        </Section>
+        </CollapsibleSection>
       )}
 
-      <Section title="Workspace isolation">
-        <Card className="flex items-center gap-2 p-3 text-sm">
-          {workspace.useManagedWorktree ? (
-            <GitBranch className="h-4 w-4 text-muted-foreground" />
-          ) : (
-            <FolderGit2 className="h-4 w-4 text-muted-foreground" />
-          )}
-          <span>
-            {workspace.useManagedWorktree ? 'Managed worktree' : 'Workspace root'}
-            {!workspace.useManagedWorktree && workspace.allowDirtyWorkspaceRoot ? ' · runs in place even when dirty' : ''}
-            {resolved ? ` · ${resolved.type} (${resolved.cwd})` : ' · not resolved yet'}
-          </span>
-        </Card>
-      </Section>
-
-      <Section title="Triggers & limits">
-        <Card className="flex flex-col gap-1 p-3 text-xs">
-          {loop.triggers.length === 0 ? (
-            <div><span className="font-medium">Triggers: </span>Manual only</div>
-          ) : (
-            loop.triggers.map((t) => (
-              <div key={t.id}>
-                <span className="font-medium">{t.type === 'cron' || t.type === 'hybrid' ? 'Schedule' : 'Trigger'}: </span>
-                {t.type}
-                {t.schedule ? ` · ${t.schedule}` : ''}
-                {t.disabled ? ' · disabled' : ''}
-                {(t.type === 'cron' || t.type === 'hybrid') && !t.disabled && (
-                  <span className="text-muted-foreground">
-                    {' · '}next {formatTime(t.nextFireAt)}
-                    {t.lastFireAt ? ` · last ${formatTime(t.lastFireAt)}` : ''}
-                    {` · ${t.fireCount} run(s)`}
-                    {t.maxFires ? ` of ${t.maxFires}` : ''}
-                  </span>
-                )}
-              </div>
-            ))
-          )}
-          <div className="text-muted-foreground">{formatLimits(loop.limits)}</div>
-        </Card>
-      </Section>
-
-      <Section title="Generated plan">
+      <CollapsibleSection title="Plan" hint={`${loop.plan.steps.length} step(s)`} defaultOpen>
         <PlanView loop={loop} onAction={onAction} />
         {REFINABLE.has(loop.status) && (
           <RefinePlan key={loop.id} busy={busy} onRefine={(prompt) => onAction({ kind: 'revise', loopId: loop.id, prompt })} />
         )}
-      </Section>
+      </CollapsibleSection>
 
-      <Section title="Attempt history">
+      <CollapsibleSection title="Attempt history" hint={`${runIndex.runs.length} run(s)`}>
         <AttemptHistory runs={runIndex.runs} />
-      </Section>
+      </CollapsibleSection>
 
       <footer className="text-xs text-muted-foreground">
         Created {formatTime(loop.createdAt)} · Updated {formatTime(loop.updatedAt)} · {runIndex.runs.length} run(s)
       </footer>
     </div>
+  );
+}
+
+/**
+ * A step-owned block (planned/recovery) points at the step, where the reason and
+ * a Retry button live. Loop-wide blocks (limit/validation/runtime) show the
+ * reason here with the whole-loop recovery options.
+ */
+function BlockNotice({ loop }: { loop: Loop }) {
+  const block = loop.runtime.block;
+  if (!block) return null;
+  const blockedStep = block.sourceStepId ? loop.plan.steps.find((s) => s.id === block.sourceStepId) : undefined;
+  return (
+    <Card className="border-destructive/50 p-3 text-sm">
+      {blockedStep ? (
+        <span>
+          <span className="font-medium text-destructive">Blocked at “{blockedStep.title}”. </span>
+          Fix the cause, then <span className="font-medium">Retry step</span> on it in the plan below — or <span className="font-medium">Restart</span> the loop.
+        </span>
+      ) : (
+        <span>
+          <span className="font-medium text-destructive">Blocked ({block.kind}): </span>
+          {block.reason} — <span className="font-medium">Restart</span> the loop or <span className="font-medium">Refine</span> the plan.
+        </span>
+      )}
+    </Card>
   );
 }

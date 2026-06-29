@@ -1,20 +1,13 @@
 import { useMemo, useState } from 'react';
 import { Badge, Button, Card, Textarea } from '@sero-ai/ui';
 import { MessageCircleQuestion } from 'lucide-react';
-import type { HumanQuestion, InputAnswer, Loop, OrchestratorAction } from '../../shared/types';
+import type { Loop, OrchestratorAction } from '../../shared/types';
+import { allAnswered as allAnsweredFn, buildAnswers, withChoice, withText, type AnswerDraft } from '../lib/answer-draft';
 
 interface InputRequestCardProps {
   loop: Loop;
   busy: boolean;
   onAction: (action: OrchestratorAction) => void;
-}
-
-/** Per-question draft answer: a picked choice and/or free text. */
-type Draft = Record<string, { choiceId?: string; text: string }>;
-
-function isAnswered(q: HumanQuestion, draft: Draft): boolean {
-  const d = draft[q.id];
-  return Boolean(d && (d.choiceId || d.text.trim()));
 }
 
 /**
@@ -24,29 +17,21 @@ function isAnswered(q: HumanQuestion, draft: Draft): boolean {
  */
 export function InputRequestCard({ loop, busy, onAction }: InputRequestCardProps) {
   const pending = loop.runtime.pendingInput;
-  const [draft, setDraft] = useState<Draft>({});
+  const [draft, setDraft] = useState<AnswerDraft>({});
 
   const allAnswered = useMemo(
-    () => (pending ? pending.questions.every((q) => isAnswered(q, draft)) : false),
+    () => (pending ? allAnsweredFn(pending.questions, draft) : false),
     [pending, draft],
   );
 
   if (!pending) return null;
   const fromPlanner = pending.source === 'planner';
 
-  const setChoice = (qid: string, choiceId: string) =>
-    setDraft((d) => ({ ...d, [qid]: { choiceId: d[qid]?.choiceId === choiceId ? undefined : choiceId, text: d[qid]?.text ?? '' } }));
-  const setText = (qid: string, text: string) =>
-    setDraft((d) => ({ ...d, [qid]: { choiceId: d[qid]?.choiceId, text } }));
+  const setChoice = (qid: string, choiceId: string) => setDraft((d) => withChoice(d, qid, choiceId));
+  const setText = (qid: string, text: string) => setDraft((d) => withText(d, qid, text));
 
-  const submit = () => {
-    const answers: InputAnswer[] = pending.questions.map((q) => {
-      const d = draft[q.id];
-      const text = d?.text.trim();
-      return { questionId: q.id, ...(d?.choiceId ? { choiceId: d.choiceId } : {}), ...(text ? { text } : {}) };
-    });
-    onAction({ kind: 'answer_input', loopId: loop.id, requestId: pending.id, answers });
-  };
+  const submit = () =>
+    onAction({ kind: 'answer_input', loopId: loop.id, requestId: pending.id, answers: buildAnswers(pending.questions, draft) });
 
   return (
     <Card className="flex flex-col gap-3 border-primary/40 p-3">

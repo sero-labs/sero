@@ -10,6 +10,7 @@
 
 import type {
   Loop,
+  LoopAttention,
   LoopRun,
   LoopSummary,
   OrchestratorIndex,
@@ -17,6 +18,29 @@ import type {
   RunIndex,
 } from '../shared/types';
 import { aggregateUsage } from '../shared/usage';
+
+/**
+ * The compact "needs you" content embedded in a loop summary, so the home inbox
+ * resolves questions/suggestions inline from the watched index alone (no per-loop
+ * reads). Returns undefined when the loop is not waiting on the user, keeping the
+ * index small. See specs/09-ui-redesign.md.
+ */
+function toAttention(loop: Loop): LoopAttention | undefined {
+  const pending = loop.runtime.pendingInput;
+  const input = pending
+    ? { requestId: pending.id, source: pending.source, questions: pending.questions }
+    : undefined;
+  const suggestions = (loop.suggestions ?? [])
+    .filter((s) => s.status === 'pending')
+    .map((s) => ({
+      id: s.id,
+      rationale: s.rationale,
+      confidence: s.confidence,
+      changedStepCount: s.changedStepIds.length,
+    }));
+  if (!input && suggestions.length === 0) return undefined;
+  return { input, suggestions: suggestions.length ? suggestions : undefined };
+}
 
 /**
  * The slimmed loop persisted to loop.json: run history and revisions are stored
@@ -87,6 +111,7 @@ export function toSummary(loop: Loop): LoopSummary {
     prompt: loop.prompt,
     pendingSuggestions: pendingSuggestions || undefined,
     pendingInput: pendingInput || undefined,
+    attention: toAttention(loop),
     libraryLink: loop.libraryLink,
     createdAt: loop.createdAt,
     updatedAt: loop.updatedAt,

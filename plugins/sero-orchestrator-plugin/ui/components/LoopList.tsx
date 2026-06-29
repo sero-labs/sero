@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react';
-import { Badge, Button, Card, Input } from '@sero-ai/ui';
+import { Button, Input } from '@sero-ai/ui';
 import { ArrowUpCircle, Plus, Search } from 'lucide-react';
 import { DEFAULT_LIBRARY_INDEX } from '../../shared/defaults';
 import type { LibraryIndex, LoopSummary } from '../../shared/types';
-import { LOOP_STATUS_LABEL, loopStatusVariant } from '../lib/format';
+import { LoopStatusBadge, NeedsYouBadge } from './StatusBadge';
 
 const PAGE = 10;
 
@@ -73,28 +73,11 @@ export function LoopList({ loops, libraryIndex = DEFAULT_LIBRARY_INDEX, selected
               <span className="truncate font-medium">{loop.title}</span>
               <div className="flex shrink-0 items-center gap-1.5">
                 {hasUpdate(loop, libraryIndex) ? (
-                  <ArrowUpCircle
-                    className="h-3.5 w-3.5 text-primary"
-                    aria-label="A newer library version is available"
-                  />
+                  <ArrowUpCircle className="h-3.5 w-3.5 text-primary" aria-label="A newer library version is available" />
                 ) : null}
-                {loop.pendingInput ? (
-                  <span
-                    title={`${loop.pendingInput} question(s) waiting for your answer`}
-                    className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary/15 px-1 text-[10px] font-semibold text-primary"
-                  >
-                    {loop.pendingInput}
-                  </span>
-                ) : null}
-                {loop.pendingSuggestions ? (
-                  <span
-                    title={`${loop.pendingSuggestions} suggestion(s) to review`}
-                    className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500/15 px-1 text-[10px] font-semibold text-amber-500"
-                  >
-                    {loop.pendingSuggestions}
-                  </span>
-                ) : null}
-                <Badge variant={loopStatusVariant(loop.status)}>{LOOP_STATUS_LABEL[loop.status]}</Badge>
+                <NeedsYouBadge kind="input" count={loop.pendingInput ?? 0} />
+                <NeedsYouBadge kind="suggestions" count={loop.pendingSuggestions ?? 0} />
+                <LoopStatusBadge status={loop.status} />
               </div>
             </div>
             <span className="truncate text-xs text-muted-foreground">{loop.summary || loop.prompt}</span>

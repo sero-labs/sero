@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { buildIndex, buildRunIndex, composeState, diffRuns, diffState, stripLoopForPersist, toSummary } from '../store';
 import { createFakeHost } from './fake-host';
 import { oneStepPlan, seedActiveLoop } from './fixtures';
-import type { LoopRun } from '../../shared/types';
+import type { Loop, LoopRun } from '../../shared/types';
 
 function run(id: string, summary = 'ok'): LoopRun {
   return {
@@ -27,6 +27,33 @@ describe('store helpers', () => {
       id: 'loop-a', title: loop.title, status: loop.status,
       summary: loop.summary, prompt: loop.prompt, createdAt: loop.createdAt, updatedAt: loop.updatedAt,
     });
+  });
+
+  it('omits the attention payload when nothing needs the user', () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, oneStepPlan().plan, 'loop-a');
+    expect(toSummary(loop).attention).toBeUndefined();
+  });
+
+  it('embeds pending input + suggestions as the index attention payload', () => {
+    const host = createFakeHost();
+    const base = seedActiveLoop(host, oneStepPlan().plan, 'loop-a');
+    const loop: Loop = {
+      ...base,
+      runtime: {
+        ...base.runtime,
+        pendingInput: { id: 'in_1', source: 'planner', questions: [{ id: 'q1', prompt: 'Which repo?' }], askedAt: 't' },
+      },
+      suggestions: [
+        { id: 'sg_1', createdAt: 't', target: 'plan', rationale: 'Tighten step 2', confidence: 'high', proposedPlan: base.plan, changedStepIds: ['s'], status: 'pending' },
+        { id: 'sg_2', createdAt: 't', target: 'plan', rationale: 'already decided', confidence: 'low', proposedPlan: base.plan, changedStepIds: [], status: 'approved' },
+      ],
+    };
+    const summary = toSummary(loop);
+    expect(summary.pendingInput).toBe(1);
+    expect(summary.pendingSuggestions).toBe(1); // only the pending one counts
+    expect(summary.attention?.input).toEqual({ requestId: 'in_1', source: 'planner', questions: [{ id: 'q1', prompt: 'Which repo?' }] });
+    expect(summary.attention?.suggestions).toEqual([{ id: 'sg_1', rationale: 'Tighten step 2', confidence: 'high', changedStepCount: 1 }]);
   });
 
   it('writes only the loop that changed (reference diff)', () => {

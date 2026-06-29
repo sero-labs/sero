@@ -51,6 +51,14 @@ export type {
   ClarifyingResponse,
 } from './human-input-types';
 
+// Index attention payload (home inbox) lives in attention-types.ts (see
+// specs/09-ui-redesign.md); re-exported here so './types' imports keep resolving.
+export type {
+  LoopAttention,
+  LoopAttentionInput,
+  LoopAttentionSuggestion,
+} from './attention-types';
+
 // Loop Library types live in library-types.ts (see specs/08-loop-library.md);
 // re-exported here so existing imports from './types' keep resolving.
 export type {
@@ -71,32 +79,9 @@ export interface OrchestratorState {
   loops: Loop[];
 }
 
-/** Lightweight per-loop entry for the watched index (drives the loop list). */
-export interface LoopSummary {
-  id: string;
-  title: string;
-  status: LoopStatus;
-  summary: string;
-  prompt: string;
-  /** Count of pending reflection suggestions — drives the loop-list badge. */
-  pendingSuggestions?: number;
-  /** Count of open questions the loop is waiting on — drives the input badge. */
-  pendingInput?: number;
-  /** Library link, when loaded from / saved to the Library — drives the update badge. */
-  libraryLink?: LoopLibraryLink;
-  createdAt: string;
-  updatedAt: string;
-}
-
-/**
- * The watched index file: one small entry per loop. Full loops are persisted in
- * their own files (loops/<id>/loop.json), so a loop's frequent run-time writes
- * never rewrite every other loop.
- */
-export interface OrchestratorIndex {
-  version: 1;
-  loops: LoopSummary[];
-}
+// The watched-index summary types live in index-types.ts (500-LOC limit);
+// re-exported here so existing imports from './types' keep resolving.
+export type { LoopSummary, OrchestratorIndex } from './index-types';
 
 // ── Loop ────────────────────────────────────────────────────
 
