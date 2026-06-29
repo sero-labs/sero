@@ -53,6 +53,7 @@ restrictions.
 | [07-human-input.md](07-human-input.md) | Ask the user: durable pending questions a step or the planner can raise, the answer card, park-and-resume, planner clarifications |
 | [08-loop-library.md](08-loop-library.md) | Loop Library: profile-global versioned store of loop definitions, save/load, linked instances, update/downgrade, local step-override overlay |
 | [09-ui-redesign.md](09-ui-redesign.md) | Wireframe-aligned UI: state visual language, cross-loop "Needs you" home inbox (enriched index attention payload), B1 calm detail + live-activity strip, C3 plan spine, guided D1→D2→D3 create flow |
+| [10-release-readiness.md](10-release-readiness.md) | Post-redesign backlog: prioritized gaps to close before/after an initial release (home pagination, completion notifications, context-override verification, UI tests, docs refresh, cost visibility) with acceptance criteria |
 
 ## Non-Goals
 
