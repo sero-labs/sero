@@ -103,4 +103,18 @@ describe('activeSessionExecutor', () => {
     expect(attempt.outcome?.summary).toContain('timed out');
     expect(attempt.sessionTurnId).toBeUndefined();
   });
+
+  it('times out promptly when the wall-clock budget is already exhausted', async () => {
+    const host = createFakeHost();
+    host.frozenNow = '2026-01-01T00:00:00.000Z';
+    host.session.onTurnComplete = () => () => {}; // never completes
+    const loop = seedActiveLoop(host, sessionPlan(target()));
+    loop.limits = { ...loop.limits, maxWallClockMs: 1000 };
+    const input = inputFor(host, loop);
+    input.run.startedAt = '2025-12-31T23:00:00.000Z'; // an hour ago — budget long gone
+    const attempt = await activeSessionExecutor.run(input);
+    // Does not grant a fresh fallback window; fails promptly instead.
+    expect(attempt.outcome?.status).toBe('failed');
+    expect(attempt.outcome?.summary).toContain('timed out');
+  });
 });

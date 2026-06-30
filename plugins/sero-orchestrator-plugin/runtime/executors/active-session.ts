@@ -54,7 +54,11 @@ function turnTimeoutMs(input: StepRunInput): number {
   const budget = input.loop.limits.maxWallClockMs;
   if (budget === undefined) return DEFAULT_TURN_TIMEOUT_MS;
   const remaining = budget - (Date.parse(input.host.now()) - Date.parse(input.run.startedAt));
-  return Number.isFinite(remaining) && remaining > 0 ? remaining : DEFAULT_TURN_TIMEOUT_MS;
+  // The fallback applies only when remaining can't be computed (e.g. an invalid
+  // startedAt). An already-exhausted budget must time out promptly, not be
+  // granted a fresh window.
+  if (!Number.isFinite(remaining)) return DEFAULT_TURN_TIMEOUT_MS;
+  return remaining > 0 ? remaining : 1;
 }
 
 /**
