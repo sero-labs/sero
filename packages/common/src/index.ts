@@ -107,6 +107,7 @@ export type {
 export type {
   ContextToolInfo,
   ContextSkillInfo,
+  ContextAgentInfo,
   ContextOverrides,
   ContextPreset,
   AvailableContext,

@@ -21,7 +21,7 @@ import { DEFAULT_STATE } from '../shared/defaults';
 import type { OrchestratorHost } from './host';
 import { buildDraftLoop } from './loop-factory';
 import { activate, disable, enable, type TransitionResult } from './lifecycle';
-import { applyLoopContext, applyStepModel, applyStepTools, planIsActivatable } from './plan-mapping';
+import { applyLoopContext, applyStepAgent, applyStepModel, applyStepTools, planIsActivatable } from './plan-mapping';
 import { runPlanningFlow } from './planning-flow';
 import { RunEngine } from './run-engine';
 import type { EngineDeps } from './engine-types';
@@ -134,9 +134,11 @@ export class Coordinator {
       case 'choose_recovery':
         return this.chooseRecovery(action.loopId, action.decision);
       case 'set_step_model':
-        return this.setStepModel(action.loopId, action.stepId, action.model, action.thinking);
+        return this.applyOverride(action.loopId, (loop, now) => applyStepModel(loop, action.stepId, action.model, action.thinking, now));
       case 'set_step_tools':
-        return this.setStepTools(action.loopId, action.stepId, action.tools);
+        return this.applyOverride(action.loopId, (loop, now) => applyStepTools(loop, action.stepId, action.tools, now));
+      case 'set_step_agent':
+        return this.applyOverride(action.loopId, (loop, now) => applyStepAgent(loop, action.stepId, action.agent, now));
       case 'set_loop_context':
         return this.setLoopContext(action.loopId, action.overrides);
       case 'reflect':
@@ -443,16 +445,6 @@ export class Coordinator {
     if (!result.ok || !result.loop) return { ok: false, error: result.error };
     await this.replaceLoop(result.loop);
     return { ok: true, loop: result.loop };
-  }
-
-  /** Sets/clears a step's model override (tier or pinned model). */
-  setStepModel(loopId: string, stepId: string, model?: string, thinking?: string): Promise<OrchestratorActionResult> {
-    return this.applyOverride(loopId, (loop, now) => applyStepModel(loop, stepId, model, thinking, now));
-  }
-
-  /** Sets/clears a step's extra tools; empty reverts to the default tools. */
-  setStepTools(loopId: string, stepId: string, tools?: string[]): Promise<OrchestratorActionResult> {
-    return this.applyOverride(loopId, (loop, now) => applyStepTools(loop, stepId, tools, now));
   }
 
   /** Sets/clears the loop's user context override (prompt + skills). User-level only. */

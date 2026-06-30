@@ -3,7 +3,7 @@
  * assertions are stable. Grows alongside the real host interface.
  */
 
-import type { AppRuntimePullRequestSummary, ContextToolInfo, SharedAvailableModelGroup } from '@sero-ai/common';
+import type { AppRuntimePullRequestSummary, ContextAgentInfo, ContextToolInfo, SharedAvailableModelGroup } from '@sero-ai/common';
 import { DEFAULT_LIBRARY_INDEX, DEFAULT_STATE } from '../../shared/defaults';
 import type { LibraryEntry, LibraryIndex, LibraryVersion, OrchestratorState } from '../../shared/types';
 import type {
@@ -38,6 +38,8 @@ export interface FakeHost extends OrchestratorHost {
   availableModels: SharedAvailableModelGroup[];
   /** Tool catalog returned by listToolCatalog (empty by default). */
   toolCatalog: ContextToolInfo[];
+  /** Agent-role catalog returned by listAgentCatalog (empty by default). */
+  agentCatalog: ContextAgentInfo[];
   /** In-memory artifact store keyed by reference. */
   artifacts: Map<string, string>;
   /** Configurable workspace status for dirty preflight tests. */
@@ -80,6 +82,7 @@ export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
     modelCalls: [],
     availableModels: [],
     toolCatalog: [],
+    agentCatalog: [],
     artifacts: new Map<string, string>(),
     workspaceStatus: { isGitRepository: true, hasUncommittedChanges: false, summary: 'Clean working tree' },
     choiceResult: { choiceId: null, timedOut: true },
@@ -124,6 +127,9 @@ export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
     },
     async listToolCatalog() {
       return this.toolCatalog;
+    },
+    async listAgentCatalog() {
+      return this.agentCatalog;
     },
     async writeArtifact(relativePath, content) {
       const ref = `artifact://${relativePath}`;

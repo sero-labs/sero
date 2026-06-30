@@ -44,6 +44,8 @@ export interface SingleRunParams {
   tools?: string[];
   /** Replaces the base system prompt for this run (user context override). '' excludes it. The agent suffix still applies. */
   systemPromptOverride?: string;
+  /** Extra prompt sections appended AFTER the agent body (a caller's must-keep rules, e.g. a step contract). */
+  appendSystemPrompt?: string[];
   /** Tool names to remove from this run's surface (user context override). */
   disabledTools?: string[];
   /** Skill names to hide from the model for this run (user context override). */
@@ -156,6 +158,7 @@ export async function executeSingleRun(options: ExecuteSingleRunOptions): Promis
         platformTools: params.platformTools,
         tools: params.tools,
         systemPromptOverride: params.systemPromptOverride,
+        appendSystemPrompt: params.appendSystemPrompt,
         disabledTools: params.disabledTools,
         disabledSkills: params.disabledSkills,
         repair: params.repair,

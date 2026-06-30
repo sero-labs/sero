@@ -74,6 +74,7 @@ Rules:
 - EXECUTION TYPE. Use "background-agent" for anything that touches files, code, commands, or tools — this is the default and the right choice whenever the step must look at or change the workspace. Use "model" ONLY for pure reasoning over data EARLIER STEPS ALREADY RECORDED: a "model" step has NO tools and CANNOT read files or run commands — it sees only the loop variables and its dependencies' recorded outcomes. So pick it only when a prior background-agent step has already captured what this step needs into "variables" (e.g. classify, score, summarise, or decide over that data — ideally with an "outputSchema" for validated JSON on a cheaper tier). If the reasoning needs to inspect a file or command output itself, it MUST be a "background-agent" step. Use "active-session" only when the work must happen in the user's live session.
 - MODEL TIER. For every "background-agent" and "model" step, set "execution.model" to the CHEAPEST tier that still does the step well: "LOW" for simple, mechanical work (running a known command, a small/obvious edit, reading or reformatting, a status check); "MED" — the balanced default — for ordinary implementation, code changes, and verification; "HIGH" only for genuinely hard reasoning (involved design, tricky debugging, multi-file refactors, careful review). When unsure, use "MED". Only ever use the tier words LOW/MED/HIGH — never name a specific provider model; the user can pin a specific model later. "active-session" steps take no model (they run in the user's live session).
 - STEP TOOLS. The default tools (bash, read, write, edit, sero-cli) are ALWAYS available to every "background-agent" step — never list them. In "execution.tools" put ONLY the ADDITIONAL tools a step needs beyond the defaults, chosen from the AVAILABLE TOOLS catalog in the task. Be lean: omit "tools" entirely for a pure coding step; add extras (e.g. "web_search", "git_manager") only when the step plainly needs them. Use exact tool names from the catalog. "model" and "active-session" steps take no tools.
+- STEP AGENT (optional). For a "background-agent" step you MAY set "execution.agent" to one of the AVAILABLE AGENTS listed in the task — a specialist role whose instructions and default model suit the step. Use the exact agent name. OMIT "execution.agent" to use the default general agent; only assign a role when a listed one clearly fits the step better. "model" and "active-session" steps take no agent.
 - Do NOT decide where the loop runs (worktree vs workspace root) — that is the user's setting, already decided. Just follow the delivery rule given.
 - For any recurring cadence in the goal, follow the RECURRING / SCHEDULED LOOPS rule above: shape the plan as ONE iteration with no wait/repeat steps (the schedule is set up separately).
 - Step ids must be unique and dependsOn must reference existing step ids. The dependency graph must be acyclic.`;
@@ -104,6 +105,28 @@ ${lines.join('\n')}
 `;
 }
 
+/** Agent-role catalog entry the planner may assign a background-agent step to. */
+export interface PlanningAgentInfo {
+  name: string;
+  description?: string;
+}
+
+/**
+ * Renders the AVAILABLE AGENTS block — specialist roles the planner may assign to
+ * a background-agent step. Empty when the workspace has no agents (the field is
+ * then simply never used).
+ */
+export function buildAgentCatalogBlock(catalog: PlanningAgentInfo[]): string {
+  if (catalog.length === 0) return '';
+  const lines = catalog.map((agent) =>
+    agent.description ? `- ${agent.name}: ${agent.description}` : `- ${agent.name}`,
+  );
+  return `AVAILABLE AGENTS — specialist roles you MAY assign to a background-agent step via "execution.agent" (exact name) when one clearly fits; otherwise omit it to use the default agent:
+${lines.join('\n')}
+
+`;
+}
+
 /** Renders answered clarifying questions so a re-plan uses the user's answers. */
 export function buildClarificationsBlock(clarifications: { prompt: string; answer: string }[]): string {
   if (clarifications.length === 0) return '';
@@ -119,6 +142,7 @@ export function buildPlanningTask(
   useManagedWorktree: boolean,
   toolCatalog: PlanningToolInfo[] = [],
   clarifications: { prompt: string; answer: string }[] = [],
+  agentCatalog: PlanningAgentInfo[] = [],
 ): string {
   return `A background agent will carry out the work below. Author the step plan it should follow — do not perform the work yourself, and do not ask the user to specify mechanics like committing, opening a PR, or marking the loop complete. Add those yourself per the rules.
 
@@ -127,7 +151,7 @@ ${prompt}
 
 ${buildClarificationsBlock(clarifications)}If this goal mentions any cadence or repetition ("every N minutes", "hourly", "each morning", "periodically", "until …"), the loop is ALREADY scheduled to re-run automatically — author exactly ONE pass of the work. Do NOT add a step that waits, sleeps, delays, polls on a timer, or repeats/loops the plan; such a step is wrong. Process one item per run (e.g. resolve ONE issue). You do NOT need to detect or handle the goal's stop condition — that is judged separately after each run.
 
-${buildToolCatalogBlock(toolCatalog)}${useManagedWorktree ? WORKTREE_DELIVERY : WORKSPACE_ROOT_DELIVERY}
+${buildToolCatalogBlock(toolCatalog)}${buildAgentCatalogBlock(agentCatalog)}${useManagedWorktree ? WORKTREE_DELIVERY : WORKSPACE_ROOT_DELIVERY}
 
 Return the PlanningResponse JSON now (one object, top-level "plan", no prose) — or the clarifyingQuestions object if you are genuinely blocked.`;
 }

@@ -10,12 +10,13 @@ import { useState } from 'react';
 import { Badge, Button, Card } from '@sero-ai/ui';
 import { ChevronDown, RefreshCw, SlidersHorizontal } from 'lucide-react';
 import type { AppModelGroup } from '@sero-ai/app-runtime';
-import type { ContextToolInfo } from '@sero-ai/common';
+import type { ContextAgentInfo, ContextToolInfo } from '@sero-ai/common';
 import type { LoopStepDefinition, StepGuard, StepRuntimeState } from '../../shared/types';
 import { STEP_STATUS_STYLE } from '../lib/status-style';
 import { StepStatusPill } from './StatusBadge';
 import { StepModelControl } from './StepModelControl';
 import { StepToolsControl } from './StepToolsControl';
+import { StepAgentControl } from './StepAgentControl';
 
 const routeText = (value: unknown): string => (typeof value === 'string' ? value : JSON.stringify(value));
 
@@ -36,13 +37,15 @@ export interface StepCardProps {
   state?: StepRuntimeState;
   groups: AppModelGroup[];
   toolCatalog: ContextToolInfo[];
+  agentCatalog: ContextAgentInfo[];
   onSetModel: (stepId: string, model?: string, thinking?: string) => void;
   onSetTools: (stepId: string, tools?: string[]) => void;
+  onSetAgent: (stepId: string, agent?: string) => void;
   /** Provided only when this step is recoverable and runnable — renders Retry. */
   onRetry?: () => void;
 }
 
-export function StepCard({ step, number, showNumber = true, state, groups, toolCatalog, onSetModel, onSetTools, onRetry }: StepCardProps) {
+export function StepCard({ step, number, showNumber = true, state, groups, toolCatalog, agentCatalog, onSetModel, onSetTools, onSetAgent, onRetry }: StepCardProps) {
   const [tuning, setTuning] = useState(false);
   const skipped = state?.status === 'skipped';
   const isProblem = !!state && PROBLEM_STATUSES.has(state.status);
@@ -115,7 +118,10 @@ export function StepCard({ step, number, showNumber = true, state, groups, toolC
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-md border border-border bg-background/40 p-2">
           <StepModelControl step={step} groups={groups} onChange={(model, thinking) => onSetModel(step.id, model, thinking)} />
           {step.execution.type === 'background-agent' && (
-            <StepToolsControl step={step} catalog={toolCatalog} onChange={(tools) => onSetTools(step.id, tools)} />
+            <>
+              <StepAgentControl step={step} catalog={agentCatalog} onChange={(agent) => onSetAgent(step.id, agent)} />
+              <StepToolsControl step={step} catalog={toolCatalog} onChange={(tools) => onSetTools(step.id, tools)} />
+            </>
           )}
         </div>
       )}

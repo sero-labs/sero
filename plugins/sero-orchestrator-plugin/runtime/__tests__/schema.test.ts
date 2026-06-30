@@ -90,6 +90,17 @@ describe('validateLoopPlan', () => {
     ]));
     expect(errors.some((e) => e.includes('execution.tools must be an array'))).toBe(true);
   });
+  it('accepts a background-agent step with a named agent role', () => {
+    expect(validateLoopPlan(plan([
+      { id: 'a', title: 'A', instructions: 'i', execution: { type: 'background-agent', agent: 'reviewer' } },
+    ]))).toEqual([]);
+  });
+  it('rejects execution.agent that is not a non-empty string', () => {
+    const errors = validateLoopPlan(plan([
+      { id: 'a', title: 'A', instructions: 'i', execution: { type: 'background-agent', agent: '' } as never },
+    ]));
+    expect(errors.some((e) => e.includes('execution.agent must be a non-empty'))).toBe(true);
+  });
 });
 
 describe('findCycle', () => {

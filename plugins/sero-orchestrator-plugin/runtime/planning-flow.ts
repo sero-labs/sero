@@ -42,14 +42,19 @@ export function plannerClarifications(loop: Loop): { prompt: string; answer: str
 }
 
 export async function runPlanningFlow(host: OrchestratorHost, draft: Loop, args: PlanningFlowArgs): Promise<Loop> {
-  // Planner picks each step's tools from the real catalog (fail-soft to []).
-  const toolCatalog = await host.listToolCatalog().catch(() => []);
+  // Planner picks each step's tools and (optionally) agent role from the real
+  // catalogs (fail-soft to [] so planning never blocks on enumeration).
+  const [toolCatalog, agentCatalog] = await Promise.all([
+    host.listToolCatalog().catch(() => []),
+    host.listAgentCatalog().catch(() => []),
+  ]);
 
   const outcome = await planLoop(host, {
     prompt: args.prompt,
     parentSessionId: draft.runtime.parentSessionId,
     useManagedWorktree: draft.workspace.useManagedWorktree,
     toolCatalog,
+    agentCatalog,
     clarifications: args.clarifications,
   });
 

@@ -10,9 +10,10 @@
  * published once at startup and refreshed from real runs (see `tool-catalog`).
  */
 
+import path from 'path';
 import { ipcMain } from 'electron';
 import { DefaultResourceLoader } from '@earendil-works/pi-coding-agent';
-import type { AvailableContext, ContextSkillInfo } from '@sero-ai/common';
+import type { AvailableContext, ContextAgentInfo, ContextSkillInfo } from '@sero-ai/common';
 import { IpcChannels } from '@/types/ipc-channels';
 import { ensureInfra } from '@electron/shared/infra/shared-infra';
 import { workspaceManager } from '@electron/features/workspace/manager';
@@ -20,6 +21,14 @@ import { SERO_AGENT_DIR } from '@electron/platform/env';
 import { createSkillVisibilityOverride } from '@electron/features/apps/extensions/skill-visibility';
 import { filterCompatiblePluginSkills } from '@electron/features/plugins/resource-compatibility';
 import { getSubagentToolCatalog, warmSubagentToolCatalog } from '@electron/features/subagent/runtime/tool-catalog';
+import { discoverAgents } from '@electron/features/subagent/runtime/discovery';
+
+const AGENTS_DIR = path.join(SERO_AGENT_DIR, 'agents');
+
+async function listWorkspaceAgents(): Promise<ContextAgentInfo[]> {
+  const agents = await discoverAgents(AGENTS_DIR);
+  return agents.map((a) => ({ name: a.name, description: a.description }));
+}
 
 async function listWorkspaceSkills(workspaceId: string): Promise<ContextSkillInfo[]> {
   const infra = await ensureInfra();
@@ -49,7 +58,13 @@ export async function getSubagentAvailableContext(workspaceId: string): Promise<
   } catch (err) {
     console.warn('[subagent-context] skill enumeration failed:', err);
   }
-  return { systemPrompt: '', tools: getSubagentToolCatalog(), skills, overrides: null };
+  let agents: ContextAgentInfo[] = [];
+  try {
+    agents = await listWorkspaceAgents();
+  } catch (err) {
+    console.warn('[subagent-context] agent enumeration failed:', err);
+  }
+  return { systemPrompt: '', tools: getSubagentToolCatalog(), skills, agents, overrides: null };
 }
 
 export function registerSubagentContextHandlers(): void {

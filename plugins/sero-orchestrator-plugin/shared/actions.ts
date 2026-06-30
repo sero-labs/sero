@@ -37,6 +37,7 @@ export type OrchestratorAction =
   | { kind: 'choose_recovery'; loopId: string; decision: RecoveryDecision }
   | { kind: 'set_step_model'; loopId: string; stepId: string; model?: string; thinking?: string }
   | { kind: 'set_step_tools'; loopId: string; stepId: string; tools?: string[] }
+  | { kind: 'set_step_agent'; loopId: string; stepId: string; agent?: string }
   | { kind: 'set_loop_context'; loopId: string; overrides: ContextOverrides | null }
   | { kind: 'reflect'; loopId: string }
   | { kind: 'reflect_workspace' }

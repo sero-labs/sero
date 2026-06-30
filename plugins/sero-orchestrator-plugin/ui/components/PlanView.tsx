@@ -23,11 +23,14 @@ export function PlanView({ loop, onAction }: PlanViewProps) {
   const { groups } = useAvailableModels();
   const { context } = useSubagentContext(loop.workspaceId);
   const toolCatalog = context?.tools ?? [];
+  const agentCatalog = context?.agents ?? [];
 
   const setStepModel = (stepId: string, model?: string, thinking?: string) =>
     onAction({ kind: 'set_step_model', loopId: loop.id, stepId, model, thinking });
   const setStepTools = (stepId: string, tools?: string[]) =>
     onAction({ kind: 'set_step_tools', loopId: loop.id, stepId, tools });
+  const setStepAgent = (stepId: string, agent?: string) =>
+    onAction({ kind: 'set_step_agent', loopId: loop.id, stepId, agent });
 
   // Per-step Retry: a blocked/failed/needs-revision (or attempts-stuck) step when
   // no run is in flight. Resets that step and runs the loop on from there.
@@ -60,8 +63,10 @@ export function PlanView({ loop, onAction }: PlanViewProps) {
       state={runtime.stepStates[step.id]}
       groups={groups}
       toolCatalog={toolCatalog}
+      agentCatalog={agentCatalog}
       onSetModel={setStepModel}
       onSetTools={setStepTools}
+      onSetAgent={setStepAgent}
       onRetry={onRetryFor(step)}
     />
   );

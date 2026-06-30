@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Coordinator } from '../coordinator';
-import { applyStepTools } from '../plan-mapping';
+import { applyStepAgent, applyStepTools } from '../plan-mapping';
 import type { Loop, StepExecutionTarget } from '../../shared/types';
 import { createFakeHost, type FakeHost } from './fake-host';
 import { oneStepPlan, seedActiveLoop } from './fixtures';
@@ -8,6 +8,11 @@ import { oneStepPlan, seedActiveLoop } from './fixtures';
 function toolsOf(host: FakeHost, stepId: string): string[] | undefined {
   const exec = host.state.loops[0].plan.steps.find((s) => s.id === stepId)?.execution;
   return exec && exec.type === 'background-agent' ? exec.tools : undefined;
+}
+
+function agentOf(host: FakeHost, stepId: string): string | undefined {
+  const exec = host.state.loops[0].plan.steps.find((s) => s.id === stepId)?.execution;
+  return exec && exec.type === 'background-agent' ? exec.agent : undefined;
 }
 
 describe('set_step_tools action', () => {
@@ -30,6 +35,46 @@ describe('set_step_tools action', () => {
     seedActiveLoop(host, oneStepPlan().plan);
     const res = await new Coordinator(host).requestAction({ kind: 'set_step_tools', loopId: 'loop-1', stepId: 'nope', tools: ['bash'] });
     expect(res.ok).toBe(false);
+  });
+});
+
+describe('set_step_agent action', () => {
+  it('sets and clears a background-agent step\'s role', async () => {
+    const host = createFakeHost();
+    seedActiveLoop(host, oneStepPlan().plan);
+    const coordinator = new Coordinator(host);
+
+    await coordinator.requestAction({ kind: 'set_step_agent', loopId: 'loop-1', stepId: 'step-1', agent: 'reviewer' });
+    expect(agentOf(host, 'step-1')).toBe('reviewer');
+
+    // Empty/omitted reverts to the default agent (undefined on the step).
+    await coordinator.requestAction({ kind: 'set_step_agent', loopId: 'loop-1', stepId: 'step-1' });
+    expect(agentOf(host, 'step-1')).toBeUndefined();
+  });
+
+  it('rejects an unknown step', async () => {
+    const host = createFakeHost();
+    seedActiveLoop(host, oneStepPlan().plan);
+    const res = await new Coordinator(host).requestAction({ kind: 'set_step_agent', loopId: 'loop-1', stepId: 'nope', agent: 'reviewer' });
+    expect(res.ok).toBe(false);
+  });
+});
+
+describe('applyStepAgent', () => {
+  it('refuses a model step (it has no agent)', () => {
+    const loop = { plan: { steps: [{ id: 's', title: 'S', instructions: 'x', execution: { type: 'model' } as StepExecutionTarget }] } } as Loop;
+    expect(applyStepAgent(loop, 's', 'reviewer', 't').ok).toBe(false);
+  });
+
+  it('trims the name and clears the role on an empty value', () => {
+    const loop = { plan: { steps: [{ id: 's', title: 'S', instructions: 'x', execution: { type: 'background-agent' } as StepExecutionTarget }] }, updatedAt: '' } as Loop;
+    const set = applyStepAgent(loop, 's', '  reviewer  ', 't1');
+    const setExec = set.loop?.plan.steps[0].execution;
+    expect(setExec && setExec.type === 'background-agent' ? setExec.agent : null).toBe('reviewer');
+
+    const cleared = applyStepAgent(set.loop as Loop, 's', '   ', 't2');
+    const clearedExec = cleared.loop?.plan.steps[0].execution;
+    expect(clearedExec && clearedExec.type === 'background-agent' ? clearedExec.agent : 'x').toBeUndefined();
   });
 });
 

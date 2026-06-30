@@ -34,6 +34,7 @@ export const ORCHESTRATOR_ACTIONS = [
   'choose_recovery',
   'set_step_model',
   'set_step_tools',
+  'set_step_agent',
   'set_loop_context',
   'reflect',
   'reflect_workspace',
@@ -66,6 +67,7 @@ export const OrchestratorToolParams = Type.Object({
   model: Type.Optional(Type.String({ description: 'For set_step_model: a tier ("LOW"/"MED"/"HIGH") or a "provider/modelId"; omit to revert the step to the default' })),
   thinking: Type.Optional(Type.String({ description: 'For set_step_model: thinking level for a pinned model' })),
   toolsJson: Type.Optional(Type.String({ description: 'For set_step_tools: JSON-encoded array of EXTRA tool names beyond the always-on default tools (e.g. ["web_search","git_manager"]) or "null"/"[]" to use the default tools only' })),
+  agent: Type.Optional(Type.String({ description: 'For set_step_agent: a named agent role for the background-agent step; omit/empty to revert the step to the default agent' })),
   contextJson: Type.Optional(Type.String({ description: 'For set_loop_context: JSON-encoded ContextOverrides ({systemPrompt?, disabledTools?, disabledSkills?}) or "null" to clear' })),
   suggestionId: Type.Optional(Type.String({ description: 'For choose_suggestion: the reflection suggestion id to approve/reject' })),
   decision: Type.Optional(StringEnum(SUGGESTION_DECISIONS, { description: 'For choose_suggestion: approve (apply the proposed plan) or reject' })),
@@ -93,6 +95,7 @@ export interface OrchestratorToolParamsShape {
   model?: string;
   thinking?: string;
   toolsJson?: string;
+  agent?: string;
   contextJson?: string;
   suggestionId?: string;
   decision?: (typeof SUGGESTION_DECISIONS)[number];
@@ -175,6 +178,10 @@ export function buildAction(params: OrchestratorToolParamsShape): OrchestratorAc
       }
       return { kind: 'set_step_tools', loopId: params.loopId, stepId: params.stepId, tools };
     }
+    case 'set_step_agent':
+      if (!params.loopId) return { error: 'set_step_agent requires a loopId' };
+      if (!params.stepId) return { error: 'set_step_agent requires a stepId' };
+      return { kind: 'set_step_agent', loopId: params.loopId, stepId: params.stepId, agent: params.agent };
     case 'set_loop_context': {
       if (!params.loopId) return { error: 'set_loop_context requires a loopId' };
       if (params.contextJson === undefined) return { error: 'set_loop_context requires contextJson' };

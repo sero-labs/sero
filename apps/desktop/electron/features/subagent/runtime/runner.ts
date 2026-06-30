@@ -189,7 +189,12 @@ export async function runSubagent(
 
   // Build the child session's resource loader (shared with the tool-catalog
   // enumeration). The agent prompt rides on appendSystemPrompt so it survives a
-  // base systemPromptOverride; disabled skills are hidden from the model.
+  // base systemPromptOverride; disabled skills are hidden from the model. A
+  // caller's `appendSystemPrompt` (e.g. the Orchestrator's step contract) rides
+  // AFTER the agent body, so it survives even when a named agent is used.
+  const appendSystemPrompt = [agent.systemPrompt, ...(config.appendSystemPrompt ?? [])].filter(
+    (section): section is string => !!section,
+  );
   const loader = createSubagentResourceLoader({
     cwd: sessionPath,
     workspaceManager,
@@ -198,7 +203,7 @@ export async function runSubagent(
     settingsManager: infra.settingsManager,
     containerCwd,
     systemPromptOverride: config.systemPromptOverride,
-    appendSystemPrompt: agent.systemPrompt ? [agent.systemPrompt] : undefined,
+    appendSystemPrompt: appendSystemPrompt.length > 0 ? appendSystemPrompt : undefined,
     disabledSkills: config.disabledSkills,
   });
   await loader.reload();

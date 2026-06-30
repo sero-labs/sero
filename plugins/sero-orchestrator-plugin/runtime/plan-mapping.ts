@@ -170,6 +170,32 @@ export function applyStepTools(
 }
 
 /**
+ * Sets (or clears) one background-agent step's named agent role — the specialist
+ * the step runs as (planner-picked or user-chosen). An empty/undefined value
+ * reverts the step to the default ad-hoc agent. Only background-agent steps carry
+ * an agent (model steps are pure reasoning; active-session runs in the user's live
+ * session). Membership isn't checked here — an unknown role falls back to the
+ * default with a warning at run time (spec 11).
+ */
+export function applyStepAgent(
+  loop: Loop,
+  stepId: string,
+  agent: string | undefined,
+  now: string,
+): { ok: boolean; loop?: Loop; error?: string } {
+  const step = loop.plan.steps.find((s) => s.id === stepId);
+  if (!step) return { ok: false, error: `Step not found: ${stepId}` };
+  if (step.execution.type !== 'background-agent') {
+    return { ok: false, error: `Step "${stepId}" (${step.execution.type}) has no agent to set.` };
+  }
+  const execution = { ...step.execution, agent: agent?.trim() || undefined };
+  const steps = loop.plan.steps.map((s) => (s.id === stepId ? { ...s, execution } : s));
+  const next: Loop = { ...loop, plan: { ...loop.plan, steps }, updatedAt: now };
+  if (next.libraryLink) next.stepOverrides = mergeStepOverride(next.stepOverrides, stepId, { agent: execution.agent });
+  return { ok: true, loop: next };
+}
+
+/**
  * Sets (or clears) the loop's user context override — custom instructions plus
  * disabled tools/skills applied to its background subagents. A `null` override
  * reverts the loop to the default context. User-level only (never the planner).

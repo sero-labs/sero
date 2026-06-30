@@ -126,9 +126,9 @@ export interface Loop {
 
 export interface LoopWarning {
   id: string;
-  code: 'mixed-workspace-targets' | 'model-unavailable';
+  code: 'mixed-workspace-targets' | 'model-unavailable' | 'agent-unavailable';
   message: string;
-  /** The step a runtime warning refers to (model-unavailable), for de-duplication. */
+  /** The step a runtime warning refers to (model/agent-unavailable), for de-duplication. */
   stepId?: string;
   createdAt: string;
 }
@@ -205,6 +205,14 @@ export interface BackgroundAgentTarget {
   type: 'background-agent';
   model?: string;
   thinking?: string;
+  /**
+   * Named agent role to run this step as (one of the workspace's `.md` agents),
+   * picked by the planner and user-overridable. Omitted ⇒ the default ad-hoc
+   * agent. A role contributes its system prompt and its default model/thinking;
+   * the orchestrator's step contract always still applies. An unknown role at run
+   * time falls back to the default with a warning (see spec 11).
+   */
+  agent?: string;
   /**
    * EXTRA tools this step needs beyond the always-on default tools
    * (DEFAULT_TOOLS), picked by the planner and user-overridable. The effective
@@ -403,6 +411,8 @@ export interface StepAttempt {
   model?: string;
   /** Set when the step's pinned model was unavailable and the MED tier was used instead. */
   modelFallback?: { requestedModel: string };
+  /** Set when the step's chosen agent role was unavailable and the default ad-hoc agent ran instead. */
+  agentFallback?: { requestedAgent: string };
   outputPath?: string;
   observations: Observation[];
   usage?: UsageSummary;

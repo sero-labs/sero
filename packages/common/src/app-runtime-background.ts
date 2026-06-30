@@ -9,7 +9,7 @@
 import type { WorkspaceAccessRootsResult } from './workspace-access-roots';
 import type { ExtensionRuntimeContent, ExtensionRuntimeMessage } from './session-runtime';
 import type { SharedAvailableModelGroup } from './model-selection/types';
-import type { ContextToolInfo } from './context-editor';
+import type { ContextAgentInfo, ContextToolInfo } from './context-editor';
 import type { AppRuntimeGitApi } from './app-runtime-git';
 
 // The git surface lives in ./app-runtime-git; re-exported here so existing
@@ -75,6 +75,14 @@ export interface AppRuntimeSubagentRunParams {
    * (if any) still applies on top, so callers keep their non-negotiable rules.
    */
   systemPromptOverride?: string;
+  /**
+   * Extra system-prompt sections appended AFTER the resolved agent body — for a
+   * caller's non-negotiable rules (e.g. the Orchestrator's step-outcome contract)
+   * that must survive even when a named `agent` is used. Unlike `systemPrompt`
+   * (which the resolver treats as an ad-hoc agent body and is dropped once a named
+   * `agent` is set), these always ride on top of whatever agent is resolved.
+   */
+  appendSystemPrompt?: string[];
   parentSessionId: string;
   workspaceId: string;
   cwd?: string;
@@ -144,6 +152,12 @@ export interface AppRuntimeSubagentsApi {
    * tools from the actual catalog rather than a hardcoded list.
    */
   listToolCatalog(workspaceId: string): Promise<ContextToolInfo[]>;
+  /**
+   * The named agent roles available in this workspace, so callers (e.g. the
+   * Orchestrator planner and its per-step agent picker) can choose a role from
+   * the real catalog rather than guessing names.
+   */
+  listAgentCatalog(workspaceId: string): Promise<ContextAgentInfo[]>;
 }
 
 export interface AppRuntimeNativeBuildFallbackAction {

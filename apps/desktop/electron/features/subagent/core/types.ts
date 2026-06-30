@@ -160,6 +160,8 @@ export interface RunnerConfig {
   tools?: string[];
   /** Replaces the base system prompt for this run (user context override). '' excludes it. The agent suffix still applies. */
   systemPromptOverride?: string;
+  /** Extra prompt sections appended AFTER the agent body (a caller's must-keep rules). */
+  appendSystemPrompt?: string[];
   /** Tool names to remove from this run's surface (user context override). */
   disabledTools?: string[];
   /** Skill names to hide from the model for this run (user context override). */

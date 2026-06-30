@@ -193,6 +193,55 @@ describe('backgroundAgentExecutor', () => {
     expect(call.systemPrompt).toBe(STEP_SYSTEM_PROMPT);
   });
 
+  it('runs a step as its named agent role, with the step contract on appendSystemPrompt', async () => {
+    const host = createFakeHost();
+    host.agentCatalog = [{ name: 'reviewer', description: 'Careful code reviewer' }];
+    const plan = oneStepPlan().plan;
+    plan.steps[0].execution = { type: 'background-agent', agent: 'reviewer' };
+    const loop = seedActiveLoop(host, plan);
+    host.modelResponses.push({ response: outcome({ status: 'succeeded', summary: 'done' }), modelId: 'm' });
+
+    const attempt = await backgroundAgentExecutor.run(inputFor(host, loop, 'step-1'));
+
+    const call = host.modelCalls[0];
+    expect(call.agent).toBe('reviewer');
+    // The contract rides on appendSystemPrompt (the agent body is the base), NOT
+    // the ad-hoc systemPrompt channel (which a named agent would displace).
+    expect(call.appendSystemPrompt).toEqual([STEP_SYSTEM_PROMPT]);
+    expect(call.systemPrompt).toBeUndefined();
+    expect(attempt.agentFallback).toBeUndefined();
+  });
+
+  it('falls back to the default agent and flags the attempt when the role is unknown', async () => {
+    const host = createFakeHost();
+    host.agentCatalog = [{ name: 'reviewer', description: '' }]; // 'ghost' is not in the catalog
+    const plan = oneStepPlan().plan;
+    plan.steps[0].execution = { type: 'background-agent', agent: 'ghost' };
+    const loop = seedActiveLoop(host, plan);
+    host.modelResponses.push({ response: outcome({ status: 'succeeded', summary: 'done' }), modelId: 'm' });
+
+    const attempt = await backgroundAgentExecutor.run(inputFor(host, loop, 'step-1'));
+
+    const call = host.modelCalls[0];
+    expect(call.agent).toBeUndefined();
+    expect(call.systemPrompt).toBe(STEP_SYSTEM_PROMPT);
+    expect(call.appendSystemPrompt).toBeUndefined();
+    expect(attempt.agentFallback).toEqual({ requestedAgent: 'ghost' });
+  });
+
+  it('uses the ad-hoc default (no agent) when the step pins none', async () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, oneStepPlan().plan);
+    host.modelResponses.push({ response: outcome({ status: 'succeeded', summary: 'done' }), modelId: 'm' });
+
+    await backgroundAgentExecutor.run(inputFor(host, loop, 'step-1'));
+
+    const call = host.modelCalls[0];
+    expect(call.agent).toBeUndefined();
+    expect(call.appendSystemPrompt).toBeUndefined();
+    expect(call.systemPrompt).toBe(STEP_SYSTEM_PROMPT);
+  });
+
   it('repairs an invalid StepOutcome in the same session — no separate evaluator', async () => {
     const host = createFakeHost();
     const loop = seedActiveLoop(host, oneStepPlan().plan);

@@ -85,4 +85,5 @@ export interface StepOverride {
   model?: string;
   thinking?: string;
   tools?: string[];
+  agent?: string;
 }

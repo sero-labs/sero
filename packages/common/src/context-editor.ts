@@ -22,6 +22,14 @@ export interface ContextSkillInfo {
   filePath?: string;
 }
 
+/** A named agent role available to a workspace's background subagents. */
+export interface ContextAgentInfo {
+  /** Agent name (frontmatter `name` / the `.md` filename). */
+  name: string;
+  /** What the agent does (frontmatter `description`). */
+  description?: string;
+}
+
 /** Context overrides authored in the editor. */
 export interface ContextOverrides {
   /**
@@ -60,6 +68,8 @@ export interface AvailableContext {
   tools: ContextToolInfo[];
   /** Full skill list available before per-target filtering. */
   skills: ContextSkillInfo[];
+  /** Named agent roles available to this workspace's background subagents. */
+  agents?: ContextAgentInfo[];
   /** Currently applied overrides, if any. */
   overrides: ContextOverrides | null;
 }

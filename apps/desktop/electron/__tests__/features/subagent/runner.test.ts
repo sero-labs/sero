@@ -314,6 +314,20 @@ describe('runSubagent context overrides', () => {
     expect(sessionOptions.systemPromptSuffix).toBeUndefined();
   });
 
+  it('appends a caller appendSystemPrompt after the agent body (so a step contract survives a named agent)', async () => {
+    mocks.createAgentSession.mockImplementationOnce(async () => ({ session: createSession() }));
+
+    const config = createConfig(new AbortController().signal);
+    config.appendSystemPrompt = ['STEP CONTRACT: emit the outcome envelope.'];
+
+    await runSubagent(config, createDeps());
+
+    expect(mocks.lastLoaderOptions?.appendSystemPrompt).toEqual([
+      'You are a test agent.',
+      'STEP CONTRACT: emit the outcome envelope.',
+    ]);
+  });
+
   it('does not set a prompt override when none is requested', async () => {
     mocks.createAgentSession.mockImplementationOnce(async () => ({ session: createSession() }));
 

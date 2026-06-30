@@ -61,6 +61,7 @@ function createHostStub(
       runStructured: vi.fn(async () => ({ response: '' })),
       onLiveOutput: vi.fn(() => () => {}),
       listToolCatalog: vi.fn(async () => []),
+      listAgentCatalog: vi.fn(async () => []),
     },
     workspace: {
       runCommand: vi.fn(async () => ({ stdout: '', stderr: '', exitCode: 0 })),

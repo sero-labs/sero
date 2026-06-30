@@ -25,6 +25,7 @@ export function mergeStepOverride(
   if (merged.model !== undefined) cleaned.model = merged.model;
   if (merged.thinking !== undefined) cleaned.thinking = merged.thinking;
   if (merged.tools !== undefined) cleaned.tools = merged.tools;
+  if (merged.agent !== undefined) cleaned.agent = merged.agent;
   if (Object.keys(cleaned).length === 0) delete next[stepId];
   else next[stepId] = cleaned;
   return Object.keys(next).length === 0 ? undefined : next;
@@ -53,6 +54,7 @@ export function replayStepOverrides(
           model: ov.model ?? step.execution.model,
           thinking: ov.thinking ?? step.execution.thinking,
           tools: ov.tools ?? step.execution.tools,
+          agent: ov.agent ?? step.execution.agent,
         },
       };
     }

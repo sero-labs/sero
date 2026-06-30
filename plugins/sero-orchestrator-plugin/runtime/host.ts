@@ -12,6 +12,7 @@
 import type {
   AppRuntimePullRequestSummary,
   AppRuntimeSubagentRepair,
+  ContextAgentInfo,
   ContextToolInfo,
   ExtensionRuntimeContent,
   ExtensionRuntimeMessage,
@@ -57,8 +58,16 @@ export interface SessionHost {
 /** Parameters for a model / background-agent run (subset of the host seam). */
 export interface ModelRunParams {
   task: string;
+  /** Named agent role to run as (one of the workspace agents). Omitted ⇒ ad-hoc. */
+  agent?: string;
   /** Step suffix appended after the base prompt (the orchestrator's step contract). */
   systemPrompt?: string;
+  /**
+   * Prompt sections appended AFTER the resolved agent body — used to carry the
+   * step contract on top of a named agent's `.md` body (which the ad-hoc
+   * `systemPrompt` channel can't, since a named agent displaces it).
+   */
+  appendSystemPrompt?: string[];
   /** Replaces the base Sero system prompt for this run (user context override). '' excludes it. */
   systemPromptOverride?: string;
   model?: string;
@@ -168,6 +177,12 @@ export interface OrchestratorHost {
    * list). Published once at startup and refreshed from real runs.
    */
   listToolCatalog(): Promise<ContextToolInfo[]>;
+  /**
+   * The named agent roles available in this workspace, so the planner and the
+   * per-step agent picker choose from the real catalog. Background steps may run
+   * as one of these (spec 11).
+   */
+  listAgentCatalog(): Promise<ContextAgentInfo[]>;
 
   // ── Artifacts (large outputs under the state dir) ─────────
   /** Persists artifact content (relativePath resolved under the state dir) and returns a stable reference. */

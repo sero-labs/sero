@@ -30,7 +30,9 @@ export function createOrchestratorHost(ctx: AppRuntimeContext): OrchestratorHost
     runStructured: (params) =>
       ctx.host.subagents.runStructured({
         task: params.task,
+        agent: params.agent,
         systemPrompt: params.systemPrompt,
+        appendSystemPrompt: params.appendSystemPrompt,
         systemPromptOverride: params.systemPromptOverride,
         model: params.model,
         thinking: params.thinking,
@@ -49,6 +51,8 @@ export function createOrchestratorHost(ctx: AppRuntimeContext): OrchestratorHost
     listAvailableModels: () => ctx.host.models.list(),
 
     listToolCatalog: () => ctx.host.subagents.listToolCatalog(ctx.workspaceId),
+
+    listAgentCatalog: () => ctx.host.subagents.listAgentCatalog(ctx.workspaceId),
 
     writeArtifact: async (relativePath, content) => {
       // relativePath is resolved under the state dir, so callers place artifacts

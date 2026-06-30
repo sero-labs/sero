@@ -8,7 +8,7 @@
  * outcome (see specs/07-human-input.md) and skips the repair pass.
  */
 
-import type { ContextToolInfo } from '@sero-ai/common';
+import type { ContextAgentInfo, ContextToolInfo } from '@sero-ai/common';
 import type { HumanQuestion, PlanningResponse } from '../shared/types';
 import type { OrchestratorHost } from './host';
 import { PLANNING_SYSTEM_PROMPT, buildPlanningTask, buildRepairTask } from './planner-prompt';
@@ -23,6 +23,8 @@ export interface PlanRequest {
   useManagedWorktree: boolean;
   /** The real tool catalog the planner picks each step's tools from. */
   toolCatalog?: ContextToolInfo[];
+  /** The real agent-role catalog the planner may assign each background step to. */
+  agentCatalog?: ContextAgentInfo[];
   /** Answered clarifying questions folded into a re-plan. */
   clarifications?: { prompt: string; answer: string }[];
   model?: string;
@@ -71,7 +73,7 @@ export async function planLoop(host: OrchestratorHost, req: PlanRequest): Promis
 
   let first: string;
   try {
-    first = await runPlanning(host, req, buildPlanningTask(req.prompt, req.useManagedWorktree, req.toolCatalog, req.clarifications));
+    first = await runPlanning(host, req, buildPlanningTask(req.prompt, req.useManagedWorktree, req.toolCatalog, req.clarifications, req.agentCatalog));
   } catch (error) {
     return { ok: false, errors: [`planning model call failed: ${asMessage(error)}`], modelResponses };
   }

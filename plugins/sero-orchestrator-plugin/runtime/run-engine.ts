@@ -90,8 +90,8 @@ export class RunEngine {
     let loop: Loop = {
       ...initial,
       runs: [...initial.runs, run],
-      // Drop last run's model-unavailable warnings; this run re-discovers them.
-      warnings: initial.warnings.filter((w) => w.code !== 'model-unavailable'),
+      // Drop last run's model/agent-unavailable warnings; this run re-discovers them.
+      warnings: initial.warnings.filter((w) => w.code !== 'model-unavailable' && w.code !== 'agent-unavailable'),
       runtime: { ...initial.runtime, activeRunId: run.id, lastRunAt: now },
     };
     loop = await this.commit(loop);
@@ -229,6 +229,9 @@ export class RunEngine {
       run = { ...run, stepAttempts: [...run.stepAttempts, recorded], observations: [...run.observations, ...recorded.observations] };
       if (recorded.modelFallback) {
         loop = this.recordModelWarning(loop, step.id, recorded.modelFallback.requestedModel);
+      }
+      if (recorded.agentFallback) {
+        loop = this.recordAgentWarning(loop, step.id, recorded.agentFallback.requestedAgent);
       }
 
       // The step asked the user. Reset it to pending so it re-runs with the answer,
@@ -407,6 +410,24 @@ export class RunEngine {
       createdAt: this.host.now(),
     };
     const kept = loop.warnings.filter((w) => !(w.code === 'model-unavailable' && w.stepId === stepId));
+    return { ...loop, warnings: [...kept, warning] };
+  }
+
+  /**
+   * Records (replacing any prior one for the same step) a warning that a step's
+   * chosen agent role was unavailable and the default ad-hoc agent ran instead.
+   * Surfaced as an amber card on the loop; cleared at the start of the next run.
+   */
+  private recordAgentWarning(loop: Loop, stepId: string, requestedAgent: string): Loop {
+    const title = loop.plan.steps.find((s) => s.id === stepId)?.title ?? stepId;
+    const warning: LoopWarning = {
+      id: this.host.newId('warning'),
+      code: 'agent-unavailable',
+      stepId,
+      message: `Step "${title}" requested agent "${requestedAgent}", which isn't available — using the default agent instead.`,
+      createdAt: this.host.now(),
+    };
+    const kept = loop.warnings.filter((w) => !(w.code === 'agent-unavailable' && w.stepId === stepId));
     return { ...loop, warnings: [...kept, warning] };
   }
 

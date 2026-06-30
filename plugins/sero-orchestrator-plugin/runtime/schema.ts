@@ -76,6 +76,13 @@ function validateExecution(execution: unknown, stepId: string, errors: string[])
       errors.push(`step "${stepId}": execution.tools must be an array of non-empty tool-name strings`);
     }
   }
+  if (type === 'background-agent' && execution.agent !== undefined) {
+    // Optional named agent role. Structure only — an unknown role is handled at
+    // run time (fall back to the default + warn), so we don't check membership.
+    if (typeof execution.agent !== 'string' || !execution.agent.trim()) {
+      errors.push(`step "${stepId}": execution.agent must be a non-empty agent-name string`);
+    }
+  }
   if (type === 'active-session') {
     const target = execution.sessionTarget;
     if (!isRecord(target)) {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { RunEngine } from '../run-engine';
 import { LoopLocks } from '../locks';
-import type { EngineDeps } from '../engine-types';
+import type { EngineDeps, StepExecutor } from '../engine-types';
 import type { LoopPlan, StepOutcome } from '../../shared/types';
 import { createFakeHost, type FakeHost } from './fake-host';
 import { oneStepPlan, parallelPlan, sequentialPlan, seedActiveLoop } from './fixtures';
@@ -154,6 +154,35 @@ describe('RunEngine', () => {
     host.state = { ...host.state, loops: [loop] };
     const result = await new RunEngine(host, deps({})).run('loop-1');
     expect(result.acquired).toBe(false);
+  });
+});
+
+describe('RunEngine — agent fallback warning', () => {
+  it('records one agent-unavailable warning when a step fell back from its role', async () => {
+    const host = createFakeHost();
+    seedActiveLoop(host, oneStepPlan().plan);
+    const executor: StepExecutor = {
+      async run(input) {
+        return {
+          id: input.host.newId('attempt'),
+          stepId: input.step.id,
+          attemptNumber: input.attemptNumber,
+          parentSessionId: input.parentSessionId,
+          executionType: input.step.execution.type,
+          status: 'completed',
+          outcome: SUCCESS,
+          agentFallback: { requestedAgent: 'ghost' },
+          observations: [],
+          startedAt: input.host.now(),
+          endedAt: input.host.now(),
+        };
+      },
+    };
+    await new RunEngine(host, deps({ executor })).run('loop-1');
+    const warnings = loopOf(host).warnings.filter((w) => w.code === 'agent-unavailable');
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0].stepId).toBe('step-1');
+    expect(warnings[0].message).toContain('ghost');
   });
 });
 

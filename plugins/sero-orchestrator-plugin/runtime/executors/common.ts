@@ -52,6 +52,21 @@ export async function runStepAttempt(input: StepRunInput, options: RunStepOption
       ? resolveStepModel(requested, await host.listAvailableModels())
       : { model: requested };
 
+  // Named agent role (background-agent steps only; planner-picked or user-set).
+  // Verify it against the real catalog before the run — only when one is pinned —
+  // so an unknown role (deleted/renamed since planning, or a planner mistake)
+  // falls back to the default ad-hoc agent with a warning instead of hard-failing
+  // the step (spec 11). With a role, the step contract rides on appendSystemPrompt
+  // (the role's .md body is the base); without one, on the ad-hoc systemPrompt.
+  const requestedAgent = step.execution.type === 'background-agent' ? step.execution.agent : undefined;
+  let agent: string | undefined;
+  let agentFallback: { requestedAgent: string } | undefined;
+  if (requestedAgent) {
+    const known = (await host.listAgentCatalog()).some((a) => a.name === requestedAgent);
+    if (known) agent = requestedAgent;
+    else agentFallback = { requestedAgent };
+  }
+
   // User context override (optional, set via the UI — not the planner). The
   // override REPLACES the base Sero system prompt (like the chat context editor);
   // the orchestrator's STEP_SYSTEM_PROMPT rides on as the step suffix so the
@@ -69,7 +84,12 @@ export async function runStepAttempt(input: StepRunInput, options: RunStepOption
 
   const result = await host.runStructured({
     task,
-    systemPrompt: STEP_SYSTEM_PROMPT,
+    agent,
+    // The step contract must always apply: with a named agent it rides on top of
+    // the agent body via appendSystemPrompt; with no agent we use the ad-hoc
+    // systemPrompt channel (which would be displaced by a named agent).
+    systemPrompt: agent ? undefined : STEP_SYSTEM_PROMPT,
+    appendSystemPrompt: agent ? [STEP_SYSTEM_PROMPT] : undefined,
     systemPromptOverride: ctxOverride?.systemPrompt ?? undefined,
     model: resolved.model,
     thinking: 'thinking' in step.execution ? step.execution.thinking : undefined,
@@ -106,6 +126,7 @@ export async function runStepAttempt(input: StepRunInput, options: RunStepOption
     workspace,
     model: result.modelId,
     modelFallback: resolved.fallbackFrom ? { requestedModel: resolved.fallbackFrom } : undefined,
+    agentFallback,
     outputPath: stored.artifactRef,
     observations: [observation],
     usage: toUsage(result.durationMs, result.usage),

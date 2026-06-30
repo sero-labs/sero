@@ -107,6 +107,11 @@ export function createAppRuntimeHost(_target: AppRuntimeTarget): AppRuntimeHost 
         await warmSubagentToolCatalog();
         return getSubagentToolCatalog();
       },
+      async listAgentCatalog(_workspaceId) {
+        // Named agent roles live in the profile-global agents dir (workspace-independent).
+        const agents = await subagentManager.listAgents();
+        return agents.map((agent) => ({ name: agent.name, description: agent.description }));
+      },
       onLiveOutput(workspaceId, parentSessionId, cb) {
         const handleLiveOutput = (id: string, text: string) => {
           const entry = subagentManager.tracker.get(id);

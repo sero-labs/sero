@@ -117,9 +117,11 @@ a small **live-activity** strip shows what it's doing right now.
 Two sections then hold the detail and stay out of the way until you open them:
 
 - **Plan** (open by default) — the steps grouped by order, each with its status
-  and, on a blocked or failed step, the reason and a **Retry step** button. Below
-  the plan is a box to **refine** it in plain English (which can also change the
-  loop's goal, schedule, or stop condition).
+  and, on a blocked or failed step, the reason and a **Retry step** button. Each
+  step has a small **Tune** control to set its **model**, its **agent** (a named
+  specialist role — see below), and its extra **tools** — overriding what the
+  planner chose. Below the plan is a box to **refine** it in plain English (which
+  can also change the loop's goal, schedule, or stop condition).
 - **Attempt history** (collapsed) — one row per run, newest first, with a one-line
   summary of what happened and that run's time, tokens, and cost (cost shows only
   for models with known pricing). It pages with **Show more**.
@@ -130,6 +132,15 @@ blank to use Sero's default, type to replace it, or clear it to drop the default
 entirely. This applies to every background step the loop runs (the per-step rules
 the loop needs to report its results always still apply). Tools are chosen per
 step in the plan, not here.
+
+**Agent roles.** A background-agent step can run as one of your workspace's named
+**agents** — the same specialist roles (in `~/.sero-ui/agent/agents/`) the rest of
+Sero uses. The planner assigns a role when one clearly fits the step, and you can
+change or clear it per step with **Tune → Agent** (the default is a general
+agent). A role brings its own instructions and default model; the orchestrator's
+step rules always still apply on top. If a chosen role has been deleted by the
+time the step runs, that step falls back to the default agent and the loop shows a
+warning — it never gets stuck on a missing role.
 
 ## Loop Library
 
