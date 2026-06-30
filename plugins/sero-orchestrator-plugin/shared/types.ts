@@ -252,6 +252,13 @@ export interface LoopRuntimeState {
   workspace: LoopWorkspaceRuntime;
   activeRunId?: string;
   dueAgain?: boolean;
+  /**
+   * Monotonic count of runs ever started for this loop. Unlike `runs.length`
+   * (capped by run-history pruning), it never repeats, so it yields a unique
+   * iteration id for each scheduled run — used for the per-iteration managed
+   * worktree key/branch name and as the run's display number.
+   */
+  runSeq?: number;
   completion?: CompletionSignal;
   block?: LoopBlock;
   /**

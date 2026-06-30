@@ -251,4 +251,22 @@ describe('library_delete', () => {
     // The loaded loop is untouched (still linked, plan intact).
     expect(host.state.loops[0].libraryLink?.entryId).toBe(entryId);
   });
+
+  it('rejects a path-traversal entryId instead of deleting outside the library', async () => {
+    const host = createFakeHost();
+    for (const badId of ['../../etc', 'a/b', '..']) {
+      const res = await handleLibraryAction(host, { kind: 'library_delete', entryId: badId });
+      expect(res.ok).toBe(false);
+      expect(res.error).toContain('Invalid library entry id');
+    }
+  });
+});
+
+describe('library_load id validation', () => {
+  it('rejects a path-traversal entryId', async () => {
+    const host = createFakeHost();
+    const res = await handleLibraryAction(host, { kind: 'library_load', entryId: '../../secret' });
+    expect(res.ok).toBe(false);
+    expect(res.error).toContain('Invalid library entry id');
+  });
 });

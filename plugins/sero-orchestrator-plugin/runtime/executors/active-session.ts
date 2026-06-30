@@ -10,6 +10,9 @@ import type { StepExecutor, StepRunInput } from '../engine-types';
 import type { ActiveSessionTarget, Observation, StepAttempt, StepOutcome } from '../../shared/types';
 import { buildStepTask } from './prompt';
 
+/** Fallback per-step turn timeout when the loop sets no wall-clock budget. */
+const DEFAULT_TURN_TIMEOUT_MS = 30 * 60_000;
+
 function failedAttempt(input: StepRunInput, error: string): StepAttempt {
   const now = input.host.now();
   return {
@@ -36,16 +39,56 @@ async function resolveSessionId(input: StepRunInput, target: ActiveSessionTarget
   return active?.sessionId ?? null;
 }
 
-function awaitTurn(input: StepRunInput, sessionId: string): Promise<{ turnId: string; status: 'completed' | 'aborted' | 'error' }> {
+interface TurnObservation {
+  turnId: string;
+  status: 'completed' | 'aborted' | 'error' | 'timeout';
+}
+
+/**
+ * Per-step turn timeout. A live session that never finishes its turn must not
+ * keep an Orchestrator run active forever (limit checks only run between
+ * batches). The bound is the loop's remaining wall-clock budget; with no
+ * wall-clock limit set, a generous fixed fallback applies.
+ */
+function turnTimeoutMs(input: StepRunInput): number {
+  const budget = input.loop.limits.maxWallClockMs;
+  if (budget === undefined) return DEFAULT_TURN_TIMEOUT_MS;
+  const remaining = budget - (Date.parse(input.host.now()) - Date.parse(input.run.startedAt));
+  return Number.isFinite(remaining) && remaining > 0 ? remaining : DEFAULT_TURN_TIMEOUT_MS;
+}
+
+/**
+ * Awaits the completion of the turn Orchestrator triggered, bounded by a
+ * timeout. When a concrete `expectedTurnId` is known, completions for other
+ * turns are ignored so an unrelated turn finishing first cannot be mistaken for
+ * this step's result; when it is unknown (the bridge could not observe a
+ * distinct turn id), the next completion is taken — still timeout-bounded.
+ */
+function awaitTurn(
+  input: StepRunInput,
+  sessionId: string,
+  expectedTurnId: string | undefined,
+  timeoutMs: number,
+): Promise<TurnObservation> {
   return new Promise((resolve) => {
-    const off = input.host.session.onTurnComplete(sessionId, (result) => {
+    let settled = false;
+    let off = () => {};
+    let timer: ReturnType<typeof setTimeout>;
+    const onAbort = () => finish({ turnId: 'aborted', status: 'aborted' });
+    function finish(result: TurnObservation): void {
+      if (settled) return;
+      settled = true;
       off();
+      clearTimeout(timer);
+      input.signal?.removeEventListener('abort', onAbort);
       resolve(result);
+    }
+    off = input.host.session.onTurnComplete(sessionId, (result) => {
+      if (expectedTurnId && result.turnId !== expectedTurnId) return; // not our turn
+      finish(result);
     });
-    input.signal?.addEventListener('abort', () => {
-      off();
-      resolve({ turnId: 'aborted', status: 'aborted' });
-    }, { once: true });
+    timer = setTimeout(() => finish({ turnId: expectedTurnId ?? 'unknown', status: 'timeout' }), timeoutMs);
+    input.signal?.addEventListener('abort', onAbort, { once: true });
   });
 }
 
@@ -59,28 +102,36 @@ export const activeSessionExecutor: StepExecutor = {
     const deliverAs = target.sessionTarget.deliverAs;
     const startedAt = input.host.now();
 
+    // `triggered` is decided here (not inferred from a turn id): a steer/follow-up
+    // always runs a turn; a context message runs one only when triggerTurn is set.
     let turnId: string | null;
+    let triggered: boolean;
     if (deliverAs === 'steer' || deliverAs === 'followUp') {
       ({ turnId } = await input.host.session.sendUserSteer(sessionId, task, { deliverAs, source: 'orchestrator' }));
+      triggered = true;
     } else {
       ({ turnId } = await input.host.session.sendContextMessage(
         sessionId,
         { customType: 'orchestrator-context', content: task, display: true },
         { deliverAs, triggerTurn: target.sessionTarget.triggerTurn, source: 'orchestrator' },
       ));
+      triggered = target.sessionTarget.triggerTurn;
     }
 
     // No turn was triggered (e.g. queued next-turn context): nothing to observe.
-    if (!turnId) {
+    if (!triggered) {
       return finishAttempt(input, sessionId, undefined, startedAt, { status: 'succeeded', summary: 'context delivered to session (no turn triggered)' });
     }
 
-    const result = await awaitTurn(input, sessionId);
+    const timeoutMs = turnTimeoutMs(input);
+    const result = await awaitTurn(input, sessionId, turnId ?? undefined, timeoutMs);
     const outcome: StepOutcome =
       result.status === 'completed'
         ? { status: 'succeeded', summary: `session turn ${result.turnId} completed` }
-        : { status: 'failed', summary: `session turn ${result.turnId} ${result.status}` };
-    return finishAttempt(input, sessionId, result.turnId, startedAt, outcome);
+        : result.status === 'timeout'
+          ? { status: 'failed', summary: `active-session step timed out after ${Math.round(timeoutMs / 1000)}s waiting for the live session to finish its turn` }
+          : { status: 'failed', summary: `session turn ${result.turnId} ${result.status}` };
+    return finishAttempt(input, sessionId, result.status === 'timeout' ? undefined : result.turnId, startedAt, outcome);
   },
 };
 

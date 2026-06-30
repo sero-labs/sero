@@ -155,7 +155,56 @@ describe('RunEngine', () => {
     const result = await new RunEngine(host, deps({})).run('loop-1');
     expect(result.acquired).toBe(false);
   });
+
+  it('resets in-flight steps to pending when a run is cancelled mid-batch', async () => {
+    const host = createFakeHost();
+    seedActiveLoop(host, oneStepPlan().plan);
+    const { executor, release } = gatedExecutor(SUCCESS);
+    const controller = new AbortController();
+    const runPromise = new RunEngine(host, deps({ executor })).run('loop-1', controller.signal);
+
+    // Wait until the engine has committed the step as running and entered the
+    // (gated) executor — i.e. we are mid-batch.
+    await waitFor(() => executor.calls.length === 1);
+    expect(loopOf(host).runtime.stepStates['step-1'].status).toBe('running');
+
+    // A disable would abort here, then mark the loop disabled.
+    controller.abort();
+    release();
+    const result = await runPromise;
+
+    expect(result.run?.status).toBe('cancelled');
+    const loop = loopOf(host);
+    // The step is back to pending (not left stuck at 'running'), so re-enabling
+    // and running again picks it up without an app restart.
+    expect(loop.runtime.stepStates['step-1'].status).toBe('pending');
+    expect(loop.runtime.activeRunId).toBeUndefined();
+  });
+
+  it('numbers runs by a monotonic counter that survives run-history pruning', async () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, oneStepPlan().plan);
+    loop.logPolicy.retainRuns = 1; // prune to a single run after each pass
+    host.state = { ...host.state, loops: [loop] };
+    const engine = new RunEngine(host, deps({ executor: fakeExecutor({ 'step-1': SUCCESS }) }));
+
+    await engine.run('loop-1');
+    await engine.run('loop-1');
+    const after = loopOf(host);
+    expect(after.runs).toHaveLength(1); // pruned
+    expect(after.runtime.runSeq).toBe(2); // but the counter kept climbing
+    expect(after.runs[0].runNumber).toBe(2);
+  });
 });
+
+/** Polls until `cond` holds (or fails after a bounded number of macrotasks). */
+async function waitFor(cond: () => boolean): Promise<void> {
+  for (let i = 0; i < 200; i += 1) {
+    if (cond()) return;
+    await new Promise((r) => setTimeout(r, 0));
+  }
+  throw new Error('waitFor timed out');
+}
 
 describe('RunEngine — agent fallback warning', () => {
   it('records one agent-unavailable warning when a step fell back from its role', async () => {

@@ -9,6 +9,15 @@ import { fakeDecider, fakeExecutor, gatedExecutor } from './engine-fakes';
 
 const SUCCESS: StepOutcome = { status: 'succeeded', summary: 'ok' };
 
+/** Polls until `cond` holds (or fails after a bounded number of macrotasks). */
+async function waitFor(cond: () => boolean): Promise<void> {
+  for (let i = 0; i < 200; i += 1) {
+    if (cond()) return;
+    await new Promise((r) => setTimeout(r, 0));
+  }
+  throw new Error('waitFor timed out');
+}
+
 function coordinatorWith(host: FakeHost, partial: Partial<EngineDeps>): Coordinator {
   const deps: EngineDeps = {
     executor: partial.executor ?? fakeExecutor({}),
@@ -38,6 +47,31 @@ describe('Coordinator core (Phase 3)', () => {
     release();
     await Promise.all([a, b]);
     expect(executor.calls).toEqual(['step-1']);
+  });
+
+  it('keeps the in-flight abort handle so disable cancels the running step despite a concurrent run_next', async () => {
+    const host = createFakeHost();
+    seedActiveLoop(host, oneStepPlan().plan);
+    const { executor, release } = gatedExecutor(SUCCESS);
+    const coordinator = coordinatorWith(host, { executor });
+
+    const first = coordinator.requestAction({ kind: 'run_next', loopId: 'loop-1' });
+    await waitFor(() => executor.calls.length === 1); // first run is mid-step
+
+    // A concurrent run_next must not replace the in-flight run's abort handle…
+    const second = await coordinator.requestAction({ kind: 'run_next', loopId: 'loop-1' });
+    expect(second.ok).toBe(true);
+    // …so disable still aborts the run that is actually executing.
+    await coordinator.requestAction({ kind: 'disable', loopId: 'loop-1' });
+    release();
+    await Promise.all([first, second]);
+
+    const loop = host.state.loops[0];
+    expect(loop.status).toBe('disabled');
+    // Cancelled (not completed) — the abort reached the right run — and reset to
+    // pending so re-enabling runs it again without an app restart.
+    expect(loop.runtime.stepStates['step-1'].status).toBe('pending');
+    expect(executor.calls).toEqual(['step-1']); // no second engine run started
   });
 
   it('blocks the loop with a clear reason on invalid runtime state', async () => {

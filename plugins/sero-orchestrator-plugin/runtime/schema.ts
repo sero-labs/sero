@@ -29,6 +29,15 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+/**
+ * Step ids must be a safe slug: they are interpolated into artifact file paths
+ * (`loops/<id>/artifacts/runs/<runId>/<stepId>-a<n>.txt`). Rejecting `/`, `..`,
+ * and other path characters keeps an LLM-authored or library-loaded plan from
+ * writing outside the Orchestrator state dir. The host artifact store enforces
+ * the same containment as a backstop.
+ */
+export const SAFE_STEP_ID = /^[A-Za-z0-9_-]{1,64}$/;
+
 /** Parses JSON from raw model text, tolerating ```json fences and surrounding prose. */
 export function extractJson(text: string): unknown {
   const trimmed = text.trim();
@@ -110,6 +119,9 @@ function validateStepShape(step: unknown, index: number, errors: string[]): step
   let ok = true;
   if (typeof step.id !== 'string' || !step.id.trim()) {
     errors.push(`step #${index}: id is required`);
+    ok = false;
+  } else if (!SAFE_STEP_ID.test(step.id)) {
+    errors.push(`step "${step.id}": id must be a slug of letters, numbers, "_" or "-" (1–64 chars) — it is used in artifact file paths`);
     ok = false;
   }
   if (typeof step.title !== 'string' || !step.title.trim()) {

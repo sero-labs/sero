@@ -14,6 +14,18 @@ import type { OrchestratorHost } from './host';
 import { createLoopStore } from './loop-store';
 import { createLibraryStore } from './library-store';
 
+/**
+ * Resolves `relativePath` under `baseDir` and confirms the result stays inside
+ * it — an artifact path must never escape the state dir (defence-in-depth on top
+ * of step-id slug validation). Returns null when the path escapes.
+ */
+function resolveWithin(baseDir: string, target: string): string | null {
+  const absolute = path.isAbsolute(target) ? target : path.resolve(baseDir, target);
+  const rel = path.relative(baseDir, absolute);
+  if (rel === '' || rel.startsWith('..') || path.isAbsolute(rel)) return null;
+  return absolute;
+}
+
 export function createOrchestratorHost(ctx: AppRuntimeContext): OrchestratorHost {
   const stateDir = path.dirname(ctx.stateFilePath);
   const store = createLoopStore(ctx);
@@ -56,8 +68,10 @@ export function createOrchestratorHost(ctx: AppRuntimeContext): OrchestratorHost
 
     writeArtifact: async (relativePath, content) => {
       // relativePath is resolved under the state dir, so callers place artifacts
-      // in their per-loop folder (loops/<loopId>/artifacts/...).
-      const absolute = path.join(stateDir, relativePath);
+      // in their per-loop folder (loops/<loopId>/artifacts/...). Containment is
+      // enforced so a crafted path can never write outside the state tree.
+      const absolute = resolveWithin(stateDir, relativePath);
+      if (!absolute) throw new Error(`artifact path escapes the state dir: ${relativePath}`);
       await mkdir(path.dirname(absolute), { recursive: true });
       await writeFile(absolute, content, 'utf8');
       return absolute;
@@ -65,8 +79,10 @@ export function createOrchestratorHost(ctx: AppRuntimeContext): OrchestratorHost
     readArtifact: async (ref) => {
       // Accept an absolute ref (as returned by writeArtifact) OR a path relative
       // to the state dir — so callers can read a known colocated file (e.g. a
-      // loop's digests.json) without having persisted the write ref.
-      const absolute = path.isAbsolute(ref) ? ref : path.join(stateDir, ref);
+      // loop's digests.json) without having persisted the write ref. A ref that
+      // resolves outside the state dir is treated as absent.
+      const absolute = resolveWithin(stateDir, ref);
+      if (!absolute) return null;
       try {
         return await readFile(absolute, 'utf8');
       } catch {

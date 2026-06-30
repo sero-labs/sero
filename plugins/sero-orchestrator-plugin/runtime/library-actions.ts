@@ -17,6 +17,14 @@ import { validateLoopPlan } from './schema';
 
 export type LibraryAction = Extract<OrchestratorAction, { kind: `library_${string}` }>;
 
+/**
+ * Library entry ids are generated as `libentry_<uuid>` and used directly in
+ * filesystem paths. The tool surface accepts an arbitrary `entryId`, so reject
+ * anything that isn't a plain id before it reaches a path (the store enforces
+ * the same containment as a backstop).
+ */
+const SAFE_ENTRY_ID = /^[A-Za-z0-9_-]+$/;
+
 /** True for every `library_*` action — lets the coordinator route them in one line. */
 export function isLibraryAction(action: OrchestratorAction): action is LibraryAction {
   return action.kind.startsWith('library_');
@@ -72,6 +80,7 @@ async function loadFromLibrary(
   host: OrchestratorHost,
   action: Extract<LibraryAction, { kind: 'library_load' }>,
 ): Promise<OrchestratorActionResult> {
+  if (!SAFE_ENTRY_ID.test(action.entryId)) return { ok: false, error: `Invalid library entry id: ${JSON.stringify(action.entryId)}` };
   const entry = await host.library.readEntry(action.entryId);
   if (!entry) return { ok: false, error: `Library entry not found: ${action.entryId}` };
   const versionNumber = action.version ?? entry.latestVersion;
@@ -157,6 +166,7 @@ async function deleteEntry(
   host: OrchestratorHost,
   action: Extract<LibraryAction, { kind: 'library_delete' }>,
 ): Promise<OrchestratorActionResult> {
+  if (!SAFE_ENTRY_ID.test(action.entryId)) return { ok: false, error: `Invalid library entry id: ${JSON.stringify(action.entryId)}` };
   await host.library.deleteEntry(action.entryId);
   host.log(`Deleted library entry ${action.entryId}`);
   return { ok: true };

@@ -74,4 +74,33 @@ describe('activeSessionExecutor', () => {
     const attempt = await activeSessionExecutor.run(inputFor(host, loop));
     expect(attempt.resolvedSessionId).toBe('sess-specific');
   });
+
+  it('ignores an unrelated turn completion and matches its own turn id', async () => {
+    const host = createFakeHost();
+    host.turnResult = { turnId: 'turn-expected', status: 'completed' };
+    // The bridge delivers an unrelated turn's completion first, then ours.
+    host.session.onTurnComplete = (_sessionId, cb) => {
+      setTimeout(() => cb({ turnId: 'turn-other', status: 'completed' }), 0);
+      setTimeout(() => cb({ turnId: 'turn-expected', status: 'completed' }), 0);
+      return () => {};
+    };
+    const loop = seedActiveLoop(host, sessionPlan(target()));
+    const attempt = await activeSessionExecutor.run(inputFor(host, loop));
+    expect(attempt.outcome?.status).toBe('succeeded');
+    expect(attempt.sessionTurnId).toBe('turn-expected');
+  });
+
+  it('fails with a timeout when the live session never finishes its turn', async () => {
+    const host = createFakeHost();
+    host.frozenNow = '2026-01-01T00:00:00.000Z';
+    host.session.onTurnComplete = () => () => {}; // never completes
+    const loop = seedActiveLoop(host, sessionPlan(target()));
+    loop.limits = { ...loop.limits, maxWallClockMs: 20 };
+    const input = inputFor(host, loop);
+    input.run.startedAt = host.now();
+    const attempt = await activeSessionExecutor.run(input);
+    expect(attempt.outcome?.status).toBe('failed');
+    expect(attempt.outcome?.summary).toContain('timed out');
+    expect(attempt.sessionTurnId).toBeUndefined();
+  });
 });

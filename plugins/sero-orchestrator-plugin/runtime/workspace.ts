@@ -18,10 +18,12 @@ import { isRecurring } from './scheduler';
 /**
  * Worktree key for a loop. One-shot loops use the loop id. Recurring loops use a
  * per-iteration key so each scheduled run gets its own branch and pull request
- * (and re-arm removes the prior iteration's worktree).
+ * (and re-arm removes the prior iteration's worktree). The iteration number is
+ * the monotonic run counter — NOT `runs.length`, which repeats once run-history
+ * pruning caps it and would reuse a worktree key/branch across iterations.
  */
 export function worktreeKeyFor(loop: Loop): string {
-  return isRecurring(loop) ? `${loop.id}-r${loop.runs.length}` : loop.id;
+  return isRecurring(loop) ? `${loop.id}-r${loop.runtime.runSeq ?? loop.runs.length}` : loop.id;
 }
 
 const DIRTY_CHOICES = [

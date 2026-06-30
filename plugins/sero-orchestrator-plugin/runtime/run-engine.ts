@@ -8,7 +8,7 @@
  * (engine-types.ts) so this orchestration is testable with fakes.
  */
 
-import type { HumanQuestion, Loop, LoopBlock, LoopRun, LoopStepDefinition, LoopWarning, StepAttempt, StepOutcome } from '../shared/types';
+import type { HumanQuestion, Loop, LoopBlock, LoopRun, LoopStepDefinition, StepAttempt, StepOutcome } from '../shared/types';
 import type { OrchestratorHost } from './host';
 import type { EngineDeps } from './engine-types';
 import { computeReadySteps, hasRunningSteps, validateRuntime } from './readiness';
@@ -21,6 +21,7 @@ import { pruneRuns } from './artifacts';
 import { appendDigest, buildRunDigest } from './digest';
 import { DEFAULT_RETAIN_DIGESTS } from '../shared/defaults';
 import { checkManagementLimits } from './limits';
+import { recordAgentWarning, recordModelWarning } from './run-warnings';
 import { isRecurring } from './scheduler';
 
 export interface RunResult {
@@ -43,6 +44,16 @@ export class RunEngine {
       if (!more.acquired) break;
     }
     return first;
+  }
+
+  /**
+   * Flags a loop to run again once the in-flight run drains. Used by the
+   * coordinator's single-flight `runNext`: a concurrent run request must not
+   * start a second engine run (which would clobber the in-flight run's abort
+   * handle), so it is folded into the existing run via `dueAgain` instead.
+   */
+  async requestRerun(loopId: string): Promise<void> {
+    await this.markDueAgain(loopId);
   }
 
   private async consumeDueAgain(loopId: string): Promise<boolean> {
@@ -77,9 +88,12 @@ export class RunEngine {
 
   private async execute(initial: Loop, signal?: AbortSignal): Promise<LoopRun> {
     const now = this.host.now();
+    // Monotonic, never reused — `runs.length` repeats once run-history pruning
+    // caps it, which would reuse worktree keys/branch names across iterations.
+    const runSeq = (initial.runtime.runSeq ?? initial.runs.length) + 1;
     let run: LoopRun = {
       id: this.host.newId('run'),
-      runNumber: initial.runs.length + 1,
+      runNumber: runSeq,
       status: 'running',
       startedStepIds: [],
       stepAttempts: [],
@@ -92,7 +106,7 @@ export class RunEngine {
       runs: [...initial.runs, run],
       // Drop last run's model/agent-unavailable warnings; this run re-discovers them.
       warnings: initial.warnings.filter((w) => w.code !== 'model-unavailable' && w.code !== 'agent-unavailable'),
-      runtime: { ...initial.runtime, activeRunId: run.id, lastRunAt: now },
+      runtime: { ...initial.runtime, activeRunId: run.id, lastRunAt: now, runSeq },
     };
     loop = await this.commit(loop);
     loop = await this.reconcilePullRequests(loop);
@@ -228,10 +242,10 @@ export class RunEngine {
       const recorded: StepAttempt = { ...attempt, outcome };
       run = { ...run, stepAttempts: [...run.stepAttempts, recorded], observations: [...run.observations, ...recorded.observations] };
       if (recorded.modelFallback) {
-        loop = this.recordModelWarning(loop, step.id, recorded.modelFallback.requestedModel);
+        loop = recordModelWarning(this.host, loop, step.id, recorded.modelFallback.requestedModel);
       }
       if (recorded.agentFallback) {
-        loop = this.recordAgentWarning(loop, step.id, recorded.agentFallback.requestedAgent);
+        loop = recordAgentWarning(this.host, loop, step.id, recorded.agentFallback.requestedAgent);
       }
 
       // The step asked the user. Reset it to pending so it re-runs with the answer,
@@ -363,10 +377,18 @@ export class RunEngine {
       .catch((error) => this.host.log(`digest write failed for ${loop.id}: ${error}`));
     const runs = pruneRuns(replaceRun(loop.runs, finishedRun), loop.logPolicy.retainRuns);
     const workspace = deferredReason ? { ...loop.runtime.workspace, deferredReason } : loop.runtime.workspace;
+    // A cancelled run (e.g. a `disable` mid-batch) committed its batch's steps as
+    // `running` before aborting. Reset those to `pending` so the loop is runnable
+    // again when re-enabled — otherwise readiness never restarts them (it only
+    // starts pending/ready) and `hasRunningSteps` reads them as still active,
+    // wedging the loop until a restart-time reconcile. Live disable doesn't run
+    // the reconciler, so this is the only place that clears them.
+    const stepStates =
+      run.status === 'cancelled' ? resetRunningSteps(loop.runtime.stepStates, now) : loop.runtime.stepStates;
     const cleared: Loop = {
       ...loop,
       runs,
-      runtime: { ...loop.runtime, activeRunId: undefined, workspace },
+      runtime: { ...loop.runtime, activeRunId: undefined, workspace, stepStates },
       updatedAt: now,
     };
     await this.commit(cleared);
@@ -393,42 +415,6 @@ export class RunEngine {
     const step = loop.plan.steps.find((s) => s.id === id);
     if (!step) throw new Error(`step not found: ${id}`);
     return step;
-  }
-
-  /**
-   * Records (replacing any prior one for the same step) a warning that a step's
-   * pinned model was unavailable and the MED tier was used instead. Surfaced as
-   * an amber card on the loop; cleared at the start of the next run.
-   */
-  private recordModelWarning(loop: Loop, stepId: string, requestedModel: string): Loop {
-    const title = loop.plan.steps.find((s) => s.id === stepId)?.title ?? stepId;
-    const warning: LoopWarning = {
-      id: this.host.newId('warning'),
-      code: 'model-unavailable',
-      stepId,
-      message: `Step "${title}" requested model "${requestedModel}", which isn't available — using the MED tier instead.`,
-      createdAt: this.host.now(),
-    };
-    const kept = loop.warnings.filter((w) => !(w.code === 'model-unavailable' && w.stepId === stepId));
-    return { ...loop, warnings: [...kept, warning] };
-  }
-
-  /**
-   * Records (replacing any prior one for the same step) a warning that a step's
-   * chosen agent role was unavailable and the default ad-hoc agent ran instead.
-   * Surfaced as an amber card on the loop; cleared at the start of the next run.
-   */
-  private recordAgentWarning(loop: Loop, stepId: string, requestedAgent: string): Loop {
-    const title = loop.plan.steps.find((s) => s.id === stepId)?.title ?? stepId;
-    const warning: LoopWarning = {
-      id: this.host.newId('warning'),
-      code: 'agent-unavailable',
-      stepId,
-      message: `Step "${title}" requested agent "${requestedAgent}", which isn't available — using the default agent instead.`,
-      createdAt: this.host.now(),
-    };
-    const kept = loop.warnings.filter((w) => !(w.code === 'agent-unavailable' && w.stepId === stepId));
-    return { ...loop, warnings: [...kept, warning] };
   }
 
   private observation(source: 'system', summary: string) {
@@ -464,6 +450,24 @@ export class RunEngine {
     });
     return result;
   }
+}
+
+/** Resets every `running` step back to `pending` (used when a run is cancelled). */
+function resetRunningSteps(
+  stepStates: Loop['runtime']['stepStates'],
+  now: string,
+): Loop['runtime']['stepStates'] {
+  let changed = false;
+  const next: Loop['runtime']['stepStates'] = {};
+  for (const [id, state] of Object.entries(stepStates)) {
+    if (state.status === 'running') {
+      next[id] = { ...state, status: 'pending', updatedAt: now };
+      changed = true;
+    } else {
+      next[id] = state;
+    }
+  }
+  return changed ? next : stepStates;
 }
 
 function replaceRun(runs: LoopRun[], run: LoopRun): LoopRun[] {

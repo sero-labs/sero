@@ -375,7 +375,13 @@ export class Coordinator {
       return { ok: false, error: 'This loop is waiting for you to answer a question.', loop };
     }
     if (!this.engine) return { ok: true, loop };
-    // Track an abort handle so `disable` can cancel this run's subagents mid-flight.
+    // Single-flight per loop: one in-flight run owns the loop's abort handle. A
+    // concurrent `run_next` must not overwrite it (which `disable` relies on) —
+    // fold the request into the in-flight run via the engine's `dueAgain` drain.
+    if (this.running.has(loopId)) {
+      await this.engine.requestRerun(loopId);
+      return { ok: true, loop };
+    }
     const controller = new AbortController();
     this.running.set(loopId, controller);
     try {
@@ -383,7 +389,10 @@ export class Coordinator {
       const updated = await this.findLoop(loopId);
       return { ok: true, loop: updated, run: result.run };
     } finally {
-      this.running.delete(loopId);
+      // Clear the handle only if it is still ours (single-flight guarantees it).
+      if (this.running.get(loopId) === controller) {
+        this.running.delete(loopId);
+      }
     }
   }
 

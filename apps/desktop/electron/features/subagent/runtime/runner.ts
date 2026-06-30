@@ -13,6 +13,7 @@ import {
 import type { CreateAgentSessionOptions, ToolDefinition } from '@earendil-works/pi-coding-agent';
 import type { ThinkingLevel, AgentMessage } from '@earendil-works/pi-agent-core';
 import { getModelTierThinkingLevel, isModelTier } from '@sero-ai/common';
+import { randomUUID } from 'node:crypto';
 
 import type { RunnerConfig, RunResult, SubagentUsage, SubagentToolActivity, PlatformToolPolicy } from '../core/types';
 import type { SharedInfra } from '@electron/shared/infra/shared-infra';
@@ -158,8 +159,11 @@ export async function runSubagent(
     return { response: '', usage: { ...EMPTY_USAGE }, error: 'Aborted before start' };
   }
 
-  // Generate a unique session ID for this subagent run
-  const subagentSessionId = `subagent-${config.parentSessionId}-${Date.now()}`;
+  // Generate a unique session ID for this subagent run. A random suffix is
+  // required on top of the timestamp: parallel steps under the same parent (e.g.
+  // an Orchestrator batch) can start in the same millisecond and would otherwise
+  // collide on the id, which keys container tools, debug logs, and the session.
+  const subagentSessionId = `subagent-${config.parentSessionId}-${Date.now()}-${randomUUID().slice(0, 8)}`;
 
   const policy = config.platformTools ?? 'all';
   let platformTools: ToolDefinition[] = [];

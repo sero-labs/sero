@@ -40,6 +40,19 @@ describe('validateLoopPlan', () => {
     ]));
     expect(errors.some((e) => e.includes('duplicate step id "x"'))).toBe(true);
   });
+  it('rejects step ids that are not safe path slugs (artifact paths use the id)', () => {
+    for (const badId of ['../../outside/file', 'a/b', 'with space', '..', 'tab\tname']) {
+      const errors = validateLoopPlan(plan([
+        { id: badId, title: 'X', instructions: 'i', execution: { type: 'model' } },
+      ]));
+      expect(errors.some((e) => e.includes('must be a slug'))).toBe(true);
+    }
+  });
+  it('accepts ordinary slug step ids', () => {
+    expect(validateLoopPlan(plan([
+      { id: 'step-1_final', title: 'X', instructions: 'i', execution: { type: 'model' } },
+    ]))).toEqual([]);
+  });
   it('rejects unknown dependency references', () => {
     const errors = validateLoopPlan(plan([
       { id: 'a', title: 'A', instructions: 'i', dependsOn: ['ghost'], execution: { type: 'model' } },

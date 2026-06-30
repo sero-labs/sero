@@ -452,7 +452,7 @@ export interface AppRuntimeSessionHost {
     sessionId: string,
     content: ExtensionRuntimeContent,
     options: { deliverAs: 'steer' | 'followUp'; source: 'orchestrator' },
-  ): Promise<{ turnId: string }>;
+  ): Promise<{ turnId: string | null }>;
   sendContextMessage(
     sessionId: string,
     message: ExtensionRuntimeMessage,

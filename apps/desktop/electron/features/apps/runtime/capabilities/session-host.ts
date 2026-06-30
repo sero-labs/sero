@@ -14,8 +14,6 @@ import type {
 } from '@sero-ai/common';
 import { getCliSessionBridge, onCliTurnComplete } from '@electron/cli/bridges';
 
-let steerSeq = 0;
-
 function toPiContent(content: ExtensionRuntimeContent): string | Array<{ type: 'text'; text: string } | { type: 'image'; data: string; mimeType: string }> {
   if (typeof content === 'string') return content;
   return content.map((block) =>
@@ -48,8 +46,11 @@ export function createSessionHost(): AppRuntimeSessionHost {
       const entry = bridge.getSessionEntry(sessionId);
       if (!entry) throw new Error(`No active session: ${sessionId}`);
       await entry.session.sendUserMessage(toPiContent(content), { deliverAs: options.deliverAs });
-      steerSeq += 1;
-      return { turnId: bridge.getActiveTurnId(sessionId) ?? `orchestrator-turn-${steerSeq}` };
+      // Return the real active turn id when one is observable, else null. The
+      // observer (active-session executor) treats a concrete id as the turn to
+      // match and null as "observe the next completion" — never a synthesized id
+      // that could never match a real completion event.
+      return { turnId: bridge.getActiveTurnId(sessionId) };
     },
 
     async sendContextMessage(sessionId, message, options) {
@@ -61,8 +62,7 @@ export function createSessionHost(): AppRuntimeSessionHost {
         { triggerTurn: options.triggerTurn, deliverAs: options.deliverAs },
       );
       if (!options.triggerTurn) return { turnId: null };
-      steerSeq += 1;
-      return { turnId: bridge.getActiveTurnId(sessionId) ?? `orchestrator-turn-${steerSeq}` };
+      return { turnId: bridge.getActiveTurnId(sessionId) };
     },
 
     onTurnComplete(sessionId, cb) {

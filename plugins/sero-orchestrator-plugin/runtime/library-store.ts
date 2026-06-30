@@ -41,7 +41,18 @@ export function createLibraryStore(ctx: AppRuntimeContext): LibraryStore {
   const root = () => (rootPromise ??= appState.globalDir(LIBRARY_NAMESPACE).then((r) => r.path));
 
   const indexFile = async () => path.join(await root(), 'index.json');
-  const entryDir = async (id: string) => path.join(await root(), 'entries', id);
+  const entryDir = async (id: string) => {
+    // Containment chokepoint: entryFile/versionFile/deleteEntry all resolve here,
+    // so a crafted entryId (e.g. "../../x") can never read, write, or recursively
+    // delete outside the library tree.
+    const base = path.join(await root(), 'entries');
+    const dir = path.resolve(base, id);
+    const rel = path.relative(base, dir);
+    if (rel === '' || rel.startsWith('..') || path.isAbsolute(rel)) {
+      throw new Error(`unsafe library entry id: ${JSON.stringify(id)}`);
+    }
+    return dir;
+  };
   const entryFile = async (id: string) => path.join(await entryDir(id), 'entry.json');
   const versionFile = async (id: string, v: number) => path.join(await entryDir(id), 'versions', `${v}.json`);
 

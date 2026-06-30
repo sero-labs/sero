@@ -1,11 +1,25 @@
 import { describe, expect, it } from 'vitest';
-import { resolve } from '../workspace';
+import { resolve, worktreeKeyFor } from '../workspace';
 import { createFakeHost } from './fake-host';
 import { oneStepPlan, seedActiveLoop } from './fixtures';
-import type { Loop } from '../../shared/types';
+import type { Loop, LoopRun } from '../../shared/types';
 
 function workspaceRootLoop(loop: Loop): Loop {
   return { ...loop, workspace: { ...loop.workspace, useManagedWorktree: false } };
+}
+
+function recurring(loop: Loop): Loop {
+  return {
+    ...loop,
+    triggers: [{ id: 't1', loopId: loop.id, workspaceId: loop.workspaceId, type: 'cron', schedule: '0 * * * *', nextFireAt: '2999-01-01T00:00:00Z', fireCount: 0 }],
+  };
+}
+
+function stubRuns(n: number): LoopRun[] {
+  return Array.from({ length: n }, (_, i) => ({
+    id: `run-${i}`, runNumber: i + 1, status: 'completed' as const,
+    startedStepIds: [], stepAttempts: [], recoveryDecisions: [], observations: [], startedAt: 't',
+  }));
 }
 
 function allowDirtyLoop(loop: Loop): Loop {
@@ -115,5 +129,25 @@ describe('workspace resolution', () => {
     expect(result.deferred).toBeTruthy();
     expect(result.workspace).toBeUndefined();
     expect(host.worktreesCreated).toHaveLength(0);
+  });
+});
+
+describe('worktreeKeyFor', () => {
+  it('uses the loop id for a one-shot loop', () => {
+    const host = createFakeHost();
+    expect(worktreeKeyFor(seedActiveLoop(host, oneStepPlan().plan))).toBe('loop-1');
+  });
+
+  it('keys a recurring iteration by the monotonic run counter, not runs.length', () => {
+    const host = createFakeHost();
+    const base = recurring(seedActiveLoop(host, oneStepPlan().plan));
+    // Run history is pruned to a fixed retention, so two later iterations share
+    // the same runs.length — but the monotonic runSeq differs, so the worktree
+    // keys (and thus branch names / PRs) stay distinct.
+    const iterA: Loop = { ...base, runs: stubRuns(20), runtime: { ...base.runtime, runSeq: 21 } };
+    const iterB: Loop = { ...base, runs: stubRuns(20), runtime: { ...base.runtime, runSeq: 22 } };
+    expect(worktreeKeyFor(iterA)).toBe('loop-1-r21');
+    expect(worktreeKeyFor(iterB)).toBe('loop-1-r22');
+    expect(worktreeKeyFor(iterA)).not.toBe(worktreeKeyFor(iterB));
   });
 });
