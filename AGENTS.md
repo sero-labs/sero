@@ -1,5 +1,16 @@
 # Sero Monorepo
 
+Pi documentation (read only when the user asks about pi itself, its SDK, extensions, themes, skills, or TUI):
+- Main documentation: /Users/danielcarter/Documents/Dev/projects/sero/sero/node_modules/.pnpm/@earendil-works+pi-coding-agent@0.78.0_@modelcontextprotocol+sdk@1.29.0_@cfworker+json-_6cb89bf1e2efe7bfe3a0efa204ed2203/node_modules/@earendil-works/pi-coding-agent/README.md
+- Additional docs: /Users/danielcarter/Documents/Dev/projects/sero/sero/node_modules/.pnpm/@earendil-works+pi-coding-agent@0.78.0_@modelcontextprotocol+sdk@1.29.0_@cfworker+json-_6cb89bf1e2efe7bfe3a0efa204ed2203/node_modules/@earendil-works/pi-coding-agent/docs
+- Examples: /Users/danielcarter/Documents/Dev/projects/sero/sero/node_modules/.pnpm/@earendil-works+pi-coding-agent@0.78.0_@modelcontextprotocol+sdk@1.29.0_@cfworker+json-_6cb89bf1e2efe7bfe3a0efa204ed2203/node_modules/@earendil-works/pi-coding-agent/examples (extensions, custom tools, SDK)
+- When reading pi docs or examples, resolve docs/... under Additional docs and examples/... under Examples, not the current working directory
+- When asked about: extensions (docs/extensions.md, examples/extensions/), themes (docs/themes.md), skills (docs/skills.md), prompt templates (docs/prompt-templates.md), TUI components (docs/tui.md), keybindings (docs/keybindings.md), SDK integrations (docs/sdk.md), custom providers (docs/custom-provider.md), adding models (docs/models.md), pi packages (docs/packages.md)
+- When working on pi topics, read the docs and examples, and follow .md cross-references before implementing
+- Always read pi .md files completely and follow links to related docs (e.g., tui.md for TUI API details)
+
+
+
 ## Structure
 
 ```
@@ -101,6 +112,7 @@ Types live in `src/types/ipc.ts`. Keep renderer and main-process types in sync.
 If you change `apps/desktop/images/Dockerfile.sero-node` or container-installed tools, rebuild `sero-node:latest` and recreate affected workspace containers. New workspaces do **not** automatically pick up Dockerfile changes.
 
 **General**
+- When asked to explain something, explain in clear, unambigous terms without jargon. Assume the user doesn't have the full context of the feature/problem.
 - Save new documentation/plans in `@docs/` or typed subfolders
 - Never commit local Pi scratch/planning files under `.pi/` (especially `.pi/plans/`); the directory is gitignored and should remain local-only.
 - Use Conventional Commit messages

@@ -6,7 +6,10 @@
  * Toggled on/off from the UI via a debug icon in the StatusBar.
  *
  * Three log entry types:
- *   1. **event** — every raw AgentSessionEvent (message_start/end, tool_*, etc.)
+ *   1. **event** — raw AgentSessionEvents (message_start/end, tool_*, etc.).
+ *      Streaming `message_update` deltas (text/thinking/toolcall) are skipped:
+ *      they're per-token noise and their content is captured by the
+ *      surrounding start/end boundaries.
  *   2. **turn_context** — pre-filter request snapshot on `turn_start`:
  *      systemPrompt, tools (name + description + parameters), all messages,
  *      model, and thinkingLevel.
@@ -73,11 +76,27 @@ async function setEnabled(value: boolean): Promise<boolean> {
 // ── Public logging API (called from agent.ts) ────────────────
 
 /**
+ * Streaming `assistantMessageEvent` sub-types that flood the log with
+ * token-by-token chunks (each also carrying a full `partial` accumulator).
+ * The `*_start` / `*_end` / `done` boundaries and `message_end` are kept, so
+ * dropping these loses no information — only the per-token noise.
+ */
+const STREAMING_DELTA_TYPES = new Set(['text_delta', 'thinking_delta', 'toolcall_delta']);
+
+/** True for `message_update` events whose inner assistant event is a streaming delta. */
+function isStreamingDelta(event: unknown): boolean {
+  if (!event || typeof event !== 'object') return false;
+  const e = event as { type?: unknown; assistantMessageEvent?: { type?: unknown } };
+  return e.type === 'message_update' && STREAMING_DELTA_TYPES.has(e.assistantMessageEvent?.type as string);
+}
+
+/**
  * Log a raw AgentSessionEvent.
- * No-op if logging is disabled.
+ * No-op if logging is disabled or the event is a streaming delta.
  */
 export function logRawEvent(sessionId: string, event: unknown): void {
   if (!enabled) return;
+  if (isStreamingDelta(event)) return;
   writeEntry({ _type: 'event', timestamp: new Date().toISOString(), sessionId, event });
 }
 

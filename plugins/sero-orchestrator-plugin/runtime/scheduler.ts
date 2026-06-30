@@ -1,0 +1,154 @@
+/**
+ * Trigger scheduling (D-12, FR-15/FR-16). Triggers MARK a loop due; they never
+ * execute detached prompts. The coordinator still applies lifecycle, readiness,
+ * locks, and limits.
+ *
+ * Cron uses a minimal 5-field matcher (min hour dom month dow) in UTC. Missed
+ * cron fires while the workspace was closed collapse into a single catch-up run
+ * by advancing nextFireAt past "now" and firing once.
+ */
+
+import type { Loop, LoopTrigger } from '../shared/types';
+import type { OrchestratorHost } from './host';
+import type { ScheduleExtraction } from './schedule-extractor';
+import { initStepStates } from './plan-mapping';
+import { isValidCron, nextFireAfter, parseCron } from './cron';
+
+// Cron parsing lives in cron.ts (pure, no deps); re-exported for existing callers.
+export { isValidCron, nextFireAfter, parseCron };
+
+// ── Trigger evaluation ──────────────────────────────────────
+
+function fire(trigger: LoopTrigger, nowMs: number, nextFireAt?: string): LoopTrigger {
+  const fireCount = trigger.fireCount + 1;
+  const disabled = trigger.maxFires !== undefined && fireCount >= trigger.maxFires;
+  return {
+    ...trigger,
+    fireCount,
+    lastFireAt: new Date(nowMs).toISOString(),
+    nextFireAt: disabled ? undefined : nextFireAt,
+    disabled: disabled || trigger.disabled,
+  };
+}
+
+/** Marks cron/hybrid triggers due when their nextFireAt has passed. Collapses missed fires. */
+export function evaluateCronTriggers(loop: Loop, nowMs: number): { loop: Loop; due: boolean } {
+  let due = false;
+  const triggers = loop.triggers.map((trigger) => {
+    if (trigger.disabled) return trigger;
+    if (trigger.type !== 'cron' && trigger.type !== 'hybrid') return trigger;
+    if (!trigger.schedule || !trigger.nextFireAt) return trigger;
+    if (Date.parse(trigger.nextFireAt) > nowMs) return trigger;
+    due = true;
+    const next = nextFireAfter(trigger.schedule, nowMs);
+    return fire(trigger, nowMs, next !== null ? new Date(next).toISOString() : undefined);
+  });
+  return { loop: { ...loop, triggers }, due };
+}
+
+/**
+ * A loop is recurring when it has an enabled cron/hybrid trigger still scheduled
+ * to fire again (a schedule and a future-or-pending nextFireAt). Once a trigger
+ * is exhausted (maxFires clears its nextFireAt), the loop stops being recurring,
+ * so the next completion is terminal.
+ */
+export function isRecurring(loop: Loop): boolean {
+  return loop.triggers.some(
+    (t) => !t.disabled && (t.type === 'cron' || t.type === 'hybrid') && !!t.schedule && !!t.nextFireAt,
+  );
+}
+
+/**
+ * Resets a loop for a fresh scheduled iteration: all steps back to pending, run
+ * context (variables/completion/block/active run) cleared, and the resolved
+ * workspace cleared so the next run resolves a clean worktree. The plan, triggers,
+ * limits, and run history are kept.
+ */
+export function rearmLoop(loop: Loop, now: string): Loop {
+  return {
+    ...loop,
+    runtime: {
+      ...loop.runtime,
+      stepStates: initStepStates(loop.plan, now),
+      variables: {},
+      completion: undefined,
+      block: undefined,
+      activeRunId: undefined,
+      dueAgain: false,
+      workspace: {},
+    },
+    updatedAt: now,
+  };
+}
+
+/**
+ * Re-enables a loop's cron/hybrid triggers that were disabled when it completed,
+ * re-arming nextFireAt from now. Used by "run again" so a finished scheduled loop
+ * resumes its schedule.
+ */
+export function reenableSchedule(loop: Loop, now: string): LoopTrigger[] {
+  const nowMs = Date.parse(now);
+  return loop.triggers.map((t) => {
+    if ((t.type === 'cron' || t.type === 'hybrid') && t.disabled && t.schedule) {
+      const next = nextFireAfter(t.schedule, nowMs);
+      return { ...t, disabled: false, nextFireAt: next !== null ? new Date(next).toISOString() : undefined };
+    }
+    return t;
+  });
+}
+
+/**
+ * Re-applies a goal-derived schedule to a loop's EXISTING triggers without
+ * resetting run history (used when a refinement changes the goal's cadence): an
+ * existing cron/hybrid trigger keeps its fireCount/lastFireAt but adopts the new
+ * schedule and re-arms nextFireAt; if the goal newly recurs and no cron trigger
+ * exists, one is added. A non-recurring extraction leaves triggers untouched —
+ * refine never silently strips a loop's schedule.
+ */
+export function reapplySchedule(
+  host: OrchestratorHost,
+  loopId: string,
+  triggers: LoopTrigger[],
+  extraction: ScheduleExtraction,
+): LoopTrigger[] {
+  if (!extraction.recurring) return triggers;
+  const next = nextFireAfter(extraction.schedule, Date.parse(host.now()));
+  const nextFireAt = next !== null ? new Date(next).toISOString() : undefined;
+  const index = triggers.findIndex((t) => t.type === 'cron' || t.type === 'hybrid');
+  if (index === -1) {
+    return [
+      ...triggers,
+      {
+        id: host.newId('trigger'),
+        loopId,
+        workspaceId: host.workspaceId,
+        type: 'cron',
+        schedule: extraction.schedule,
+        maxFires: extraction.maxFires,
+        fireCount: 0,
+        nextFireAt,
+      },
+    ];
+  }
+  const existing = triggers[index];
+  if (existing.schedule === extraction.schedule) return triggers; // unchanged cadence
+  const updated = [...triggers];
+  updated[index] = { ...existing, schedule: extraction.schedule, nextFireAt, disabled: false };
+  return updated;
+}
+
+/** Marks event/hybrid triggers due for an event, respecting debounce + maxFires. */
+export function fireEventTriggers(loop: Loop, eventSource: string, nowMs: number): { loop: Loop; due: boolean } {
+  let due = false;
+  const triggers = loop.triggers.map((trigger) => {
+    if (trigger.disabled) return trigger;
+    if (trigger.type !== 'event' && trigger.type !== 'hybrid') return trigger;
+    if (trigger.eventSource && trigger.eventSource !== eventSource) return trigger;
+    if (trigger.debounceMs && trigger.lastFireAt && nowMs - Date.parse(trigger.lastFireAt) < trigger.debounceMs) {
+      return trigger;
+    }
+    due = true;
+    return fire(trigger, nowMs, trigger.nextFireAt);
+  });
+  return { loop: { ...loop, triggers }, due };
+}

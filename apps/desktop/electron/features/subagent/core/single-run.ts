@@ -1,4 +1,5 @@
 import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
+import type { AppRuntimeSubagentRepair } from '@sero-ai/common';
 import { randomUUID } from 'crypto';
 import { resolveConfig } from './resolve';
 import type { ConcurrencyPool } from './pool';
@@ -39,8 +40,20 @@ export interface SingleRunParams {
   customTools?: ToolDefinition[];
   /** Platform tool surface for the session. Default: 'all'. */
   platformTools?: PlatformToolPolicy;
+  /** Allowlist of tool names this run may use (e.g. a step's per-step tools). When set, only these tools are active. */
+  tools?: string[];
+  /** Replaces the base system prompt for this run (user context override). '' excludes it. The agent suffix still applies. */
+  systemPromptOverride?: string;
+  /** Extra prompt sections appended AFTER the agent body (a caller's must-keep rules, e.g. a step contract). */
+  appendSystemPrompt?: string[];
+  /** Tool names to remove from this run's surface (user context override). */
+  disabledTools?: string[];
+  /** Skill names to hide from the model for this run (user context override). */
+  disabledSkills?: string[];
   /** Optional external cancellation. Aborting resolves the run with an error beginning with 'Aborted'. */
   signal?: AbortSignal;
+  /** Optional in-session structured-output repair (reuses the session, no new subagent). */
+  repair?: AppRuntimeSubagentRepair;
   onUpdate?: (text: string) => void;
 }
 
@@ -62,8 +75,8 @@ export interface SingleRunResult {
   providerId?: string;
   /** Wall-clock duration of the run in milliseconds. */
   durationMs?: number;
-  /** Token usage totals. */
-  usage?: { inputTokens: number; outputTokens: number; totalTokens: number };
+  /** Token usage totals, plus run cost in USD when the model has known pricing. */
+  usage?: { inputTokens: number; outputTokens: number; totalTokens: number; costUsd?: number };
 }
 
 /**
@@ -143,6 +156,12 @@ export async function executeSingleRun(options: ExecuteSingleRunOptions): Promis
         isolated: params.isolated,
         customTools: params.customTools,
         platformTools: params.platformTools,
+        tools: params.tools,
+        systemPromptOverride: params.systemPromptOverride,
+        appendSystemPrompt: params.appendSystemPrompt,
+        disabledTools: params.disabledTools,
+        disabledSkills: params.disabledSkills,
+        repair: params.repair,
         onProgress: (usage) => tracker.progress(runId, usage),
         onToolActivity: (name, summary, running) =>
           tracker.updateToolActivity(runId, name, summary, running),
@@ -157,6 +176,10 @@ export async function executeSingleRun(options: ExecuteSingleRunOptions): Promis
       inputTokens: result.usage.inputTokens,
       outputTokens: result.usage.outputTokens,
       totalTokens: result.usage.totalTokens,
+      // The pi session tracks cumulative cost (priced from the model + tokens);
+      // surface it as USD. Omit a non-positive value so callers show no cost
+      // rather than a misleading $0 for unpriced models.
+      costUsd: result.usage.cost > 0 ? result.usage.cost : undefined,
     };
 
     if (result.error) {

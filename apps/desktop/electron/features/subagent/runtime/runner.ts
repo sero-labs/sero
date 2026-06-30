@@ -2,35 +2,28 @@
  * SubagentRunner — executes a single subagent task via a transient AgentSession.
  *
  * Each run creates an in-memory session with the full Sero system prompt,
- * the agent's .md body as systemPromptSuffix, and workspace tools.
- * The session is disposed immediately after completion.
+ * the agent's .md body appended via the resource loader's appendSystemPrompt,
+ * and workspace tools. The session is disposed immediately after completion.
  */
 
 import {
   createAgentSession,
   SessionManager,
-  DefaultResourceLoader,
 } from '@earendil-works/pi-coding-agent';
 import type { CreateAgentSessionOptions, ToolDefinition } from '@earendil-works/pi-coding-agent';
 import type { ThinkingLevel, AgentMessage } from '@earendil-works/pi-agent-core';
 import { getModelTierThinkingLevel, isModelTier } from '@sero-ai/common';
+import { randomUUID } from 'node:crypto';
 
 import type { RunnerConfig, RunResult, SubagentUsage, SubagentToolActivity, PlatformToolPolicy } from '../core/types';
 import type { SharedInfra } from '@electron/shared/infra/shared-infra';
 import type { WorkspaceManager } from '@electron/features/workspace/manager';
 import { createRuntimeTools } from '@electron/features/container/tools';
 import { WORKSPACE_DIR } from '@electron/features/container/tools/tool-schemas';
-import { createSubagentExtensionFactory } from './loader';
+import { createSubagentResourceLoader } from './resource-loader';
+import { recordRunToolCatalog } from './tool-catalog';
 import { SERO_AGENT_DIR } from '@electron/platform/env';
 import { logRawEvent, logTurnContext } from '@electron/ipc/editor/debug';
-import { createSkillVisibilityOverride } from '@electron/features/apps/extensions/skill-visibility';
-import {
-  filterCompatiblePluginAgentsFiles,
-  filterCompatiblePluginExtensions,
-  filterCompatiblePluginPrompts,
-  filterCompatiblePluginSkills,
-  filterCompatiblePluginThemes,
-} from '@electron/features/plugins/resource-compatibility';
 import { runtimeManager } from '@electron/features/workspace/runtime/runtime-manager';
 import { parseModelField, resolveTierModel } from '@electron/shared/settings/resolve-tier-model';
 import { getModelTiers } from '@electron/shared/settings/model-tiers';
@@ -126,7 +119,11 @@ export function filterPlatformTools(
 export function sessionToolOptions(
   policy: PlatformToolPolicy,
   sessionTools: ToolDefinition[],
+  allowlist?: string[],
 ): Pick<CreateAgentSessionOptions, 'noTools' | 'tools'> {
+  // A per-step allowlist wins: activate only those tools (the SDK ignores names
+  // it doesn't recognise). This also trims the per-tool prompt guidance.
+  if (allowlist && allowlist.length > 0) return { noTools: 'builtin', tools: allowlist };
   if (policy === 'all') return { noTools: 'builtin' };
   return { noTools: 'builtin', tools: sessionTools.map((tool) => tool.name) };
 }
@@ -162,8 +159,11 @@ export async function runSubagent(
     return { response: '', usage: { ...EMPTY_USAGE }, error: 'Aborted before start' };
   }
 
-  // Generate a unique session ID for this subagent run
-  const subagentSessionId = `subagent-${config.parentSessionId}-${Date.now()}`;
+  // Generate a unique session ID for this subagent run. A random suffix is
+  // required on top of the timestamp: parallel steps under the same parent (e.g.
+  // an Orchestrator batch) can start in the same millisecond and would otherwise
+  // collide on the id, which keys container tools, debug logs, and the session.
+  const subagentSessionId = `subagent-${config.parentSessionId}-${Date.now()}-${randomUUID().slice(0, 8)}`;
 
   const policy = config.platformTools ?? 'all';
   let platformTools: ToolDefinition[] = [];
@@ -185,28 +185,30 @@ export async function runSubagent(
       policy,
     );
   }
-  const customTools = [...platformTools, ...(config.customTools ?? [])];
+  // User context override: drop disabled tools from the surface entirely.
+  const disabledTools = new Set(config.disabledTools ?? []);
+  const customTools = [...platformTools, ...(config.customTools ?? [])].filter(
+    (tool) => !disabledTools.has(tool.name),
+  );
 
-  // Build a reduced extension factory for the child session
-  const skillVisibilityOverride = createSkillVisibilityOverride(infra.settingsManager);
-  const loader = new DefaultResourceLoader({
+  // Build the child session's resource loader (shared with the tool-catalog
+  // enumeration). The agent prompt rides on appendSystemPrompt so it survives a
+  // base systemPromptOverride; disabled skills are hidden from the model. A
+  // caller's `appendSystemPrompt` (e.g. the Orchestrator's step contract) rides
+  // AFTER the agent body, so it survives even when a named agent is used.
+  const appendSystemPrompt = [agent.systemPrompt, ...(config.appendSystemPrompt ?? [])].filter(
+    (section): section is string => !!section,
+  );
+  const loader = createSubagentResourceLoader({
     cwd: sessionPath,
-    agentDir: SERO_AGENT_DIR,
+    workspaceManager,
+    workspaceId,
+    sessionId: subagentSessionId,
     settingsManager: infra.settingsManager,
-    extensionFactories: [
-      createSubagentExtensionFactory(
-        workspaceManager,
-        workspaceId,
-        subagentSessionId,
-        undefined,
-        containerCwd,
-      ),
-    ],
-    skillsOverride: (base) => filterCompatiblePluginSkills(skillVisibilityOverride(base)),
-    promptsOverride: filterCompatiblePluginPrompts,
-    themesOverride: filterCompatiblePluginThemes,
-    extensionsOverride: filterCompatiblePluginExtensions,
-    agentsFilesOverride: filterCompatiblePluginAgentsFiles,
+    containerCwd,
+    systemPromptOverride: config.systemPromptOverride,
+    appendSystemPrompt: appendSystemPrompt.length > 0 ? appendSystemPrompt : undefined,
+    disabledSkills: config.disabledSkills,
   });
   await loader.reload();
 
@@ -229,17 +231,16 @@ export async function runSubagent(
   }
 
   try {
-    const sessionOptions: CreateAgentSessionOptions & { systemPromptSuffix?: string } = {
+    const sessionOptions: CreateAgentSessionOptions = {
       cwd: sessionPath,
       agentDir: SERO_AGENT_DIR,
       authStorage: infra.authStorage,
       modelRegistry: infra.modelRegistry,
-      ...sessionToolOptions(policy, customTools),
+      ...sessionToolOptions(policy, customTools, config.tools),
       customTools,
       resourceLoader: loader,
       sessionManager: SessionManager.inMemory(sessionPath),
       settingsManager: infra.settingsManager,
-      systemPromptSuffix: agent.systemPrompt,
     };
     const result = await createAgentSession(sessionOptions);
     session = result.session;
@@ -370,6 +371,30 @@ export async function runSubagent(
     // Send the task and wait for completion
     await session.prompt(task);
 
+    // Publish the run's resolved tool surface to the shared catalog (the planner
+    // and loop context editor read it). Best-effort — never blocks the run.
+    try { recordRunToolCatalog(session.getAllTools()); } catch { /* catalog is best-effort */ }
+
+    let response = extractResponse(session.messages);
+
+    // In-session structured-output repair: if the caller validates the reply
+    // and asks for a correction, send the follow-up IN THIS SAME session (full
+    // context and tools retained — no new subagent), up to maxAttempts.
+    const repair = config.repair;
+    if (repair) {
+      for (let i = 0; i < repair.maxAttempts && !signal.aborted; i += 1) {
+        let followUp: string | null;
+        try {
+          followUp = repair.validate(response);
+        } catch {
+          break; // a throwing validator never blocks the run
+        }
+        if (followUp == null) break;
+        await session.prompt(followUp);
+        response = extractResponse(session.messages);
+      }
+    }
+
     clearTimeout(timeoutId);
     clearStallTimer();
     signal.removeEventListener('abort', abortHandler);
@@ -379,9 +404,6 @@ export async function runSubagent(
     if (signal.aborted) {
       return { response: '', usage, modelId: session.model?.id, providerId: session.model?.provider, error: 'Aborted' };
     }
-
-    // Extract the full response from session messages
-    const response = extractResponse(session.messages);
 
     // Final usage stats
     try {
@@ -433,17 +455,16 @@ export async function runSubagent(
  */
 function extractToolArgsSummary(toolName: string, args?: Record<string, unknown>): string {
   if (!args) return '';
-  // Try common tool input shapes
-  if (args.command && typeof args.command === 'string') {
-    return args.command.length > 80 ? args.command.slice(0, 80) + '…' : args.command;
-  }
-  if (args.path && typeof args.path === 'string') return args.path as string;
-  if (args.file_path && typeof args.file_path === 'string') return args.file_path as string;
-  if (args.query && typeof args.query === 'string') return args.query as string;
-  if (args.pattern && typeof args.pattern === 'string') return args.pattern as string;
+  // Return the full value, the tracker caps its length (MAX_TOOL_ARGS_CHARS) and
+  // the UI truncates it to fit, showing the full command on hover.
+  if (typeof args.command === 'string') return args.command;
+  if (typeof args.path === 'string') return args.path;
+  if (typeof args.file_path === 'string') return args.file_path;
+  if (typeof args.query === 'string') return args.query;
+  if (typeof args.pattern === 'string') return args.pattern;
   // Fallback: first string value
   const first = Object.values(args).find((v) => typeof v === 'string');
-  return typeof first === 'string' ? (first.length > 80 ? first.slice(0, 80) + '…' : first) : '';
+  return typeof first === 'string' ? first : '';
 }
 
 /**

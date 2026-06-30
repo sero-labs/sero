@@ -89,6 +89,13 @@ export const useUserFeedbackStore = create<UserFeedbackState>((set, get) => {
     if (removed) maybeRestoreReturnApp();
   };
 
+  // Ref-counted IPC subscription so multiple callers (App root, ChatPanel,
+  // OrchestrationPanel) share a single set of listeners. The real listeners are
+  // created on the first init and torn down when the last caller unsubscribes;
+  // the always-mounted App-root caller keeps them alive for the app's lifetime.
+  let listenerRefCount = 0;
+  let teardownListeners: (() => void) | null = null;
+
   return {
     pending: new Map(),
     returnApp: null,
@@ -126,38 +133,49 @@ export const useUserFeedbackStore = create<UserFeedbackState>((set, get) => {
     },
 
     initListeners() {
-      // New question arrived from an extension tool — add to pending.
-      // Only multi-step forms switch to the User Feedback app; single
-      // questions and permission prompts stay in the chat panel.
-      const unsubQuestion = window.sero.userFeedback.onQuestion((data) => {
-        set((state) => {
-          const next = new Map(state.pending);
-          next.set(data.id, data);
-          return { pending: next };
+      listenerRefCount += 1;
+      if (listenerRefCount === 1) {
+        // New question arrived from an extension tool — add to pending.
+        // Only multi-step forms switch to the User Feedback app; single
+        // questions and permission prompts stay in the chat panel.
+        const unsubQuestion = window.sero.userFeedback.onQuestion((data) => {
+          set((state) => {
+            const next = new Map(state.pending);
+            next.set(data.id, data);
+            return { pending: next };
+          });
+          if (isMultiStepQuestion(data)) {
+            get().openFeedbackApp();
+          }
         });
-        if (isMultiStepQuestion(data)) {
-          get().openFeedbackApp();
-        }
-      });
 
-      // Main process cancelled a question (e.g. tool aborted)
-      const unsubCancel = window.sero.userFeedback.onCancel((data) => {
-        clearPending(data.id);
-      });
+        // Main process cancelled a question (e.g. tool aborted)
+        const unsubCancel = window.sero.userFeedback.onCancel((data) => {
+          clearPending(data.id);
+        });
 
-      // DOM event: any call to window.sero.userFeedback.answer() fires this
-      // synchronously, so the store clears even if the answer came from the
-      // federated UserFeedbackApp (which doesn't use this Zustand store).
-      const onAnswered = (e: Event) => {
-        const { id } = (e as CustomEvent<{ id: string }>).detail;
-        clearPending(id);
-      };
-      window.addEventListener('sero:user-feedback:answered', onAnswered);
+        // DOM event: any call to window.sero.userFeedback.answer() fires this
+        // synchronously, so the store clears even if the answer came from the
+        // federated UserFeedbackApp (which doesn't use this Zustand store).
+        const onAnswered = (e: Event) => {
+          const { id } = (e as CustomEvent<{ id: string }>).detail;
+          clearPending(id);
+        };
+        window.addEventListener('sero:user-feedback:answered', onAnswered);
+
+        teardownListeners = () => {
+          unsubQuestion();
+          unsubCancel();
+          window.removeEventListener('sero:user-feedback:answered', onAnswered);
+        };
+      }
 
       return () => {
-        unsubQuestion();
-        unsubCancel();
-        window.removeEventListener('sero:user-feedback:answered', onAnswered);
+        listenerRefCount -= 1;
+        if (listenerRefCount === 0 && teardownListeners) {
+          teardownListeners();
+          teardownListeners = null;
+        }
       };
     },
   };

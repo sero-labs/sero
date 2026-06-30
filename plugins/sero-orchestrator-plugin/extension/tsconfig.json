@@ -1,0 +1,4 @@
+{
+  "extends": "../../../packages/tsconfig.extension.json",
+  "include": ["./**/*", "../shared/**/*", "../runtime/**/*"]
+}

@@ -197,6 +197,36 @@ async function resolveDefaultBranch(worktreePath: string): Promise<string> {
   return 'main';
 }
 
+export interface OpenPullRequestSummary {
+  number: number;
+  url: string;
+  title: string;
+  headRefName: string;
+  updatedAt: string;
+  body?: string;
+}
+
+/**
+ * Lists open pull requests in `cwd`'s repo via `gh`. Repo-scoped, so it works
+ * before any worktree exists. Fail-soft to `[]` (no `gh`, no remote, no PRs),
+ * exactly like the sibling helpers.
+ */
+export async function listOpenPullRequests(
+  cwd: string,
+  opts: { author?: string } = {},
+): Promise<OpenPullRequestSummary[]> {
+  const args = ['pr', 'list', '--state', 'open',
+    '--json', 'number,url,title,headRefName,updatedAt,body'];
+  if (opts.author) args.push('--author', opts.author);
+  try {
+    const r = await execFileAsync('gh', args, { cwd, timeout: 30_000 });
+    const parsed = JSON.parse(r.stdout) as OpenPullRequestSummary[];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 export async function createPrFromWorktree(
   worktreePath: string,
   opts: { title: string; body: string; baseBranch?: string; draft?: boolean },

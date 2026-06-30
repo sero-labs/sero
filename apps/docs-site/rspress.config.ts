@@ -29,6 +29,7 @@ const agentsAutomation = [
   { text: 'Subagents and Collaboration', link: '/guide/subagents' },
   { text: 'Memory', link: '/guide/memory' },
   { text: 'Scheduler and Reminders', link: '/guide/scheduler-reminders' },
+  { text: 'Orchestrator', link: '/guide/orchestrator' },
   { text: 'Running Evals', link: '/guide/running-evals' }
 ];
 

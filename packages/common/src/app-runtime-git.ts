@@ -1,0 +1,145 @@
+/**
+ * Git surface of the background app runtime contract — worktrees, sync, and
+ * pull-request operations shared between the desktop host and runtime-enabled
+ * Sero plugins.
+ *
+ * Split out of app-runtime-background.ts to keep that file under the source-size
+ * limit. Renderer-safe / Node-agnostic (types only), so external plugins can type
+ * against it without importing desktop-internal modules.
+ */
+
+export interface AppRuntimeWorktreeCreateResult {
+  worktreePath: string;
+  branchName: string;
+  greenfield: boolean;
+}
+
+export interface AppRuntimeWorktreeRemoveOptions {
+  deleteBranch?: boolean;
+  force?: boolean;
+}
+
+export interface AppRuntimeConflictResolutionContext {
+  attempt: number;
+  baseBranch: string;
+  upstreamRef: string;
+  conflictFiles: string[];
+}
+
+export interface AppRuntimeWorktreeSyncOptions {
+  resolveConflicts?: (context: AppRuntimeConflictResolutionContext) => Promise<boolean>;
+}
+
+export interface AppRuntimeWorktreeSyncResult {
+  success: boolean;
+  baseBranch?: string;
+  upstreamRef?: string;
+  updated: boolean;
+  resolvedConflicts: boolean;
+  error?: string;
+}
+
+export interface AppRuntimeWorkspaceSyncResult {
+  synced: boolean;
+  branch?: string;
+  headChanged?: boolean;
+  reason?: string;
+}
+
+export interface AppRuntimeCreatePullRequestOptions {
+  title: string;
+  body: string;
+  baseBranch?: string;
+  draft?: boolean;
+}
+
+export type AppRuntimeCreatePullRequestResult =
+  | { success: true; url: string; number: number }
+  | { success: false; error: string };
+
+export type AppRuntimePullRequestMergeMethod = 'merge' | 'squash' | 'rebase';
+
+export type AppRuntimeMergePullRequestResult =
+  | { success: true; state: 'merged' | 'scheduled' }
+  | { success: false; error: string };
+
+export type AppRuntimePullRequestMergeState = 'merged' | 'open' | 'closed' | 'unknown';
+
+/** An open pull request in this workspace's repo (from `gh pr list`). */
+export interface AppRuntimePullRequestSummary {
+  number: number;
+  url: string;
+  title: string;
+  headRefName: string;
+  updatedAt: string;
+  body?: string;
+}
+
+export interface AppRuntimeWorkspaceStatusResult {
+  isGitRepository: boolean;
+  hasUncommittedChanges: boolean;
+  summary: string;
+}
+
+export interface AppRuntimeDirtyWorkspaceStashResult {
+  stashRef: string | null;
+}
+
+export interface AppRuntimeGitApi {
+  createWorktree(
+    workspacePath: string,
+    cardId: string,
+    cardTitle: string,
+  ): Promise<AppRuntimeWorktreeCreateResult>;
+  removeWorktree(
+    workspacePath: string,
+    cardId: string,
+    options?: AppRuntimeWorktreeRemoveOptions,
+  ): Promise<void>;
+  /**
+   * Workspace-root dirty preflight (Orchestrator workspace-root mode only).
+   * Reports whether the registered workspace root has uncommitted changes,
+   * ignoring Sero-managed paths under `.sero/`.
+   */
+  getWorkspaceStatus(workspacePath: string): Promise<AppRuntimeWorkspaceStatusResult>;
+  /** Stashes current workspace changes after an explicit user choice. */
+  stashWorkspaceChanges(
+    workspacePath: string,
+    message: string,
+  ): Promise<AppRuntimeDirtyWorkspaceStashResult>;
+  syncWorktreeWithDefaultBranch(
+    worktreePath: string,
+    options?: AppRuntimeWorktreeSyncOptions,
+  ): Promise<AppRuntimeWorktreeSyncResult>;
+  syncWorkspaceRootToDefaultBranch(
+    workspacePath: string,
+  ): Promise<AppRuntimeWorkspaceSyncResult>;
+  createCheckpoint(worktreePath: string, message: string): Promise<string | null>;
+  getDiffSummary(worktreePath: string): Promise<string>;
+  getDiff(worktreePath: string): Promise<string>;
+  pushBranch(worktreePath: string, branchName: string): Promise<boolean>;
+  ensureRemoteDefaultBranch(worktreePath: string): Promise<string>;
+  /**
+   * Lists open pull requests in this workspace's repo (repo-scoped, so it works
+   * before any worktree exists). Fail-soft to `[]` when `gh`, the remote, or PRs
+   * are absent. Per-loop attribution is done by the caller via branch-name match.
+   */
+  listPullRequests(
+    workspacePath: string,
+    options?: { author?: string },
+  ): Promise<AppRuntimePullRequestSummary[]>;
+  createPr(
+    worktreePath: string,
+    options: AppRuntimeCreatePullRequestOptions,
+  ): Promise<AppRuntimeCreatePullRequestResult>;
+  mergePr(
+    worktreePath: string,
+    prNumber: number,
+    options?: { method?: AppRuntimePullRequestMergeMethod },
+  ): Promise<AppRuntimeMergePullRequestResult>;
+  getPrMergeState(
+    worktreePath: string,
+    prNumber: number,
+  ): Promise<AppRuntimePullRequestMergeState>;
+  getPrMergeError(worktreePath: string, prNumber: number): Promise<string | null>;
+}

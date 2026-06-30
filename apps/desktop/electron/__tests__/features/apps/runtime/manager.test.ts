@@ -55,10 +55,13 @@ function createHostStub(
       update: vi.fn(async () => {}),
       watch: (filePath: string) => watch(filePath),
       unwatch: (filePath: string) => unwatch(filePath),
+      globalDir: vi.fn(async (namespace: string) => ({ path: `/tmp/sero/apps/${namespace}` })),
     },
     subagents: {
       runStructured: vi.fn(async () => ({ response: '' })),
       onLiveOutput: vi.fn(() => () => {}),
+      listToolCatalog: vi.fn(async () => []),
+      listAgentCatalog: vi.fn(async () => []),
     },
     workspace: {
       runCommand: vi.fn(async () => ({ stdout: '', stderr: '', exitCode: 0 })),
@@ -86,6 +89,9 @@ function createHostStub(
       ensure: vi.fn(async () => ({ path: '/usr/bin/true' })),
       sharedToolsDir: vi.fn(async () => ({ path: '/tmp/app-tools/test' })),
     },
+    models: {
+      list: vi.fn(async () => []),
+    },
     verification: {
       detectCompileCommands: vi.fn(async () => []),
       detectDependencyInstallCommand: vi.fn(async () => null),
@@ -104,6 +110,8 @@ function createHostStub(
     git: {
       createWorktree: vi.fn(async () => ({ worktreePath: '', branchName: '', greenfield: false })),
       removeWorktree: vi.fn(async () => {}),
+      getWorkspaceStatus: vi.fn(async () => ({ isGitRepository: true, hasUncommittedChanges: false, summary: 'Clean working tree' })),
+      stashWorkspaceChanges: vi.fn(async () => ({ stashRef: null })),
       syncWorktreeWithDefaultBranch: vi.fn(async () => ({ success: true, updated: false, resolvedConflicts: false })),
       syncWorkspaceRootToDefaultBranch: vi.fn(async () => ({ synced: true })),
       createCheckpoint: vi.fn(async () => null),
@@ -111,6 +119,7 @@ function createHostStub(
       getDiff: vi.fn(async () => ''),
       pushBranch: vi.fn(async () => true),
       ensureRemoteDefaultBranch: vi.fn(async () => 'main'),
+      listPullRequests: vi.fn(async () => []),
       createPr: vi.fn(async () => ({ success: true as const, url: '', number: 0 })),
       mergePr: vi.fn(async () => ({ success: true as const, state: 'merged' as const })),
       getPrMergeState: vi.fn(async () => 'unknown' as const),
@@ -125,6 +134,14 @@ function createHostStub(
     },
     notifications: {
       notify: vi.fn(),
+      requestChoice: vi.fn(async () => ({ choiceId: null, timedOut: true })),
+    },
+    session: {
+      getActiveForWorkspace: vi.fn(async () => null),
+      getState: vi.fn(async () => ({ idle: true, pendingMessages: 0, activeTurnId: null })),
+      sendUserSteer: vi.fn(async () => ({ turnId: 'turn-1' })),
+      sendContextMessage: vi.fn(async () => ({ turnId: null })),
+      onTurnComplete: vi.fn(() => () => {}),
     },
   };
 }

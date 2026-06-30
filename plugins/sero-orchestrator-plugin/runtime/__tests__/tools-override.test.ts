@@ -1,0 +1,100 @@
+import { describe, expect, it } from 'vitest';
+import { Coordinator } from '../coordinator';
+import { applyStepAgent, applyStepTools } from '../plan-mapping';
+import type { Loop, StepExecutionTarget } from '../../shared/types';
+import { createFakeHost, type FakeHost } from './fake-host';
+import { oneStepPlan, seedActiveLoop } from './fixtures';
+
+function toolsOf(host: FakeHost, stepId: string): string[] | undefined {
+  const exec = host.state.loops[0].plan.steps.find((s) => s.id === stepId)?.execution;
+  return exec && exec.type === 'background-agent' ? exec.tools : undefined;
+}
+
+function agentOf(host: FakeHost, stepId: string): string | undefined {
+  const exec = host.state.loops[0].plan.steps.find((s) => s.id === stepId)?.execution;
+  return exec && exec.type === 'background-agent' ? exec.agent : undefined;
+}
+
+describe('set_step_tools action', () => {
+  it('stores only the extras (default-tool names are implicit) and reverts to defaults', async () => {
+    const host = createFakeHost();
+    seedActiveLoop(host, oneStepPlan().plan);
+    const coordinator = new Coordinator(host);
+
+    // bash/read are default tools (always on) → stripped; only web_search is stored.
+    await coordinator.requestAction({ kind: 'set_step_tools', loopId: 'loop-1', stepId: 'step-1', tools: ['bash', 'read', 'web_search'] });
+    expect(toolsOf(host, 'step-1')).toEqual(['web_search']);
+
+    // No tools (or only defaults) → revert to defaults only (undefined on the step).
+    await coordinator.requestAction({ kind: 'set_step_tools', loopId: 'loop-1', stepId: 'step-1' });
+    expect(toolsOf(host, 'step-1')).toBeUndefined();
+  });
+
+  it('rejects an unknown step', async () => {
+    const host = createFakeHost();
+    seedActiveLoop(host, oneStepPlan().plan);
+    const res = await new Coordinator(host).requestAction({ kind: 'set_step_tools', loopId: 'loop-1', stepId: 'nope', tools: ['bash'] });
+    expect(res.ok).toBe(false);
+  });
+});
+
+describe('set_step_agent action', () => {
+  it('sets and clears a background-agent step\'s role', async () => {
+    const host = createFakeHost();
+    seedActiveLoop(host, oneStepPlan().plan);
+    const coordinator = new Coordinator(host);
+
+    await coordinator.requestAction({ kind: 'set_step_agent', loopId: 'loop-1', stepId: 'step-1', agent: 'reviewer' });
+    expect(agentOf(host, 'step-1')).toBe('reviewer');
+
+    // Empty/omitted reverts to the default agent (undefined on the step).
+    await coordinator.requestAction({ kind: 'set_step_agent', loopId: 'loop-1', stepId: 'step-1' });
+    expect(agentOf(host, 'step-1')).toBeUndefined();
+  });
+
+  it('rejects an unknown step', async () => {
+    const host = createFakeHost();
+    seedActiveLoop(host, oneStepPlan().plan);
+    const res = await new Coordinator(host).requestAction({ kind: 'set_step_agent', loopId: 'loop-1', stepId: 'nope', agent: 'reviewer' });
+    expect(res.ok).toBe(false);
+  });
+});
+
+describe('applyStepAgent', () => {
+  it('refuses a model step (it has no agent)', () => {
+    const loop = { plan: { steps: [{ id: 's', title: 'S', instructions: 'x', execution: { type: 'model' } as StepExecutionTarget }] } } as Loop;
+    expect(applyStepAgent(loop, 's', 'reviewer', 't').ok).toBe(false);
+  });
+
+  it('trims the name and clears the role on an empty value', () => {
+    const loop = { plan: { steps: [{ id: 's', title: 'S', instructions: 'x', execution: { type: 'background-agent' } as StepExecutionTarget }] }, updatedAt: '' } as Loop;
+    const set = applyStepAgent(loop, 's', '  reviewer  ', 't1');
+    const setExec = set.loop?.plan.steps[0].execution;
+    expect(setExec && setExec.type === 'background-agent' ? setExec.agent : null).toBe('reviewer');
+
+    const cleared = applyStepAgent(set.loop as Loop, 's', '   ', 't2');
+    const clearedExec = cleared.loop?.plan.steps[0].execution;
+    expect(clearedExec && clearedExec.type === 'background-agent' ? clearedExec.agent : 'x').toBeUndefined();
+  });
+});
+
+describe('applyStepTools', () => {
+  it('refuses a model step (it has no tools)', () => {
+    const loop = { plan: { steps: [{ id: 's', title: 'S', instructions: 'x', execution: { type: 'model' } as StepExecutionTarget }] } } as Loop;
+    const result = applyStepTools(loop, 's', ['bash'], 't');
+    expect(result.ok).toBe(false);
+  });
+
+  it('trims names, strips default tools, and clears when only defaults remain', () => {
+    const loop = { plan: { steps: [{ id: 's', title: 'S', instructions: 'x', execution: { type: 'background-agent' } as StepExecutionTarget }] }, updatedAt: '' } as Loop;
+    const set = applyStepTools(loop, 's', [' web_search ', 'bash', 'git_manager', ''], 't1');
+    const setExec = set.loop?.plan.steps[0].execution;
+    // bash (a default tool) and the empty string are dropped; the extras are kept trimmed.
+    expect(setExec && setExec.type === 'background-agent' ? setExec.tools : null).toEqual(['web_search', 'git_manager']);
+
+    const cleared = applyStepTools(set.loop as Loop, 's', ['read', 'edit'], 't2');
+    const clearedExec = cleared.loop?.plan.steps[0].execution;
+    // Only default-tool names → no extras → field cleared.
+    expect(clearedExec && clearedExec.type === 'background-agent' ? clearedExec.tools : 'x').toBeUndefined();
+  });
+});

@@ -20,7 +20,7 @@ import {
 } from './agent-helpers';
 import { extractImageFilePath, tryParseImageJson } from './tool-result-images';
 import { logRawEvent, logTurnContext } from '@electron/ipc/editor/debug';
-import { noteCliTurnEnd, noteCliTurnStart } from '@electron/cli/bridges';
+import { emitTurnComplete, getCliActiveTurnId, noteCliTurnEnd, noteCliTurnStart } from '@electron/cli/bridges';
 
 export interface SubscriptionPoolEntry {
   session: AgentSession;
@@ -60,8 +60,10 @@ export function subscribeToSession(
         sendEvent({ type: 'agent_start', sessionId });
         break;
 
-      case 'agent_end':
+      case 'agent_end': {
+        const completedTurnId = getCliActiveTurnId(sessionId);
         noteCliTurnEnd(sessionId);
+        if (completedTurnId) emitTurnComplete(sessionId, { turnId: completedTurnId, status: 'completed' });
         sendEvent({ type: 'agent_end', sessionId });
         {
           const pendingUserMessageId = entry.pendingTurnUndoUserMessageId;
@@ -82,6 +84,7 @@ export function subscribeToSession(
           }
         }
         break;
+      }
 
       case 'message_start': {
         if (event.message.role === 'assistant') {

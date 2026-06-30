@@ -7,12 +7,57 @@
  */
 
 import type { WorkspaceAccessRootsResult } from './workspace-access-roots';
+import type { ExtensionRuntimeContent, ExtensionRuntimeMessage } from './session-runtime';
+import type { SharedAvailableModelGroup } from './model-selection/types';
+import type { ContextAgentInfo, ContextToolInfo } from './context-editor';
+import type { AppRuntimeGitApi } from './app-runtime-git';
+
+// The git surface lives in ./app-runtime-git; re-exported here so existing
+// imports from '@sero-ai/common' (via this module) keep resolving unchanged.
+export type {
+  AppRuntimeWorktreeCreateResult,
+  AppRuntimeWorktreeRemoveOptions,
+  AppRuntimeConflictResolutionContext,
+  AppRuntimeWorktreeSyncOptions,
+  AppRuntimeWorktreeSyncResult,
+  AppRuntimeWorkspaceSyncResult,
+  AppRuntimeCreatePullRequestOptions,
+  AppRuntimeCreatePullRequestResult,
+  AppRuntimePullRequestMergeMethod,
+  AppRuntimeMergePullRequestResult,
+  AppRuntimePullRequestMergeState,
+  AppRuntimePullRequestSummary,
+  AppRuntimeWorkspaceStatusResult,
+  AppRuntimeDirtyWorkspaceStashResult,
+  AppRuntimeGitApi,
+} from './app-runtime-git';
 
 export interface AppRuntimeStateApi {
   read<T = unknown>(filePath: string): Promise<T | null>;
   update<T = unknown>(filePath: string, updater: (current: T | null) => T): Promise<void>;
   watch(filePath: string): void;
   unwatch(filePath: string): void;
+  /**
+   * Resolve (creating on first use) a profile-global app-state directory at
+   * `$SERO_HOME/apps/<namespace>/`. Unlike the per-workspace `stateFilePath`,
+   * this is shared across every workspace in the active profile — the home for
+   * cross-workspace stores (e.g. the Orchestrator Loop Library). Read/update/watch
+   * still operate on the concrete file paths under it.
+   */
+  globalDir(namespace: string): Promise<{ path: string }>;
+}
+
+/**
+ * In-session structured-output repair. After the agent replies, `validate` is
+ * called with the reply text: return null to accept it, or a follow-up message
+ * to send IN THE SAME session (reusing its context and tools — no new subagent)
+ * for another reply. Repeated up to `maxAttempts` times, then the last reply is
+ * returned as-is. Callbacks run in-process, so this is for runtime (host.*)
+ * callers, not serialized renderer/IPC callers.
+ */
+export interface AppRuntimeSubagentRepair {
+  maxAttempts: number;
+  validate: (reply: string) => string | null;
 }
 
 export interface AppRuntimeSubagentRunParams {
@@ -20,13 +65,39 @@ export interface AppRuntimeSubagentRunParams {
   task: string;
   model?: string;
   thinking?: string;
+  repair?: AppRuntimeSubagentRepair;
   timeoutMs?: number;
+  /** Appended after the base system prompt (e.g. an agent body / step contract). */
   systemPrompt?: string;
+  /**
+   * Replaces the base system prompt for this run (user context override). An
+   * empty string excludes the base prompt entirely. The `systemPrompt` suffix
+   * (if any) still applies on top, so callers keep their non-negotiable rules.
+   */
+  systemPromptOverride?: string;
+  /**
+   * Extra system-prompt sections appended AFTER the resolved agent body — for a
+   * caller's non-negotiable rules (e.g. the Orchestrator's step-outcome contract)
+   * that must survive even when a named `agent` is used. Unlike `systemPrompt`
+   * (which the resolver treats as an ad-hoc agent body and is dropped once a named
+   * `agent` is set), these always ride on top of whatever agent is resolved.
+   */
+  appendSystemPrompt?: string[];
   parentSessionId: string;
   workspaceId: string;
   cwd?: string;
   isolated?: boolean;
   customTools?: unknown[];
+  /**
+   * Allowlist of tool names this run may use. When set, the session activates
+   * only these tools (and the SDK ignores any name it doesn't recognise), which
+   * also trims the per-tool prompt guidance. Omitted = the full platform surface.
+   */
+  tools?: string[];
+  /** Tool names to remove from this run's tool surface (user context override). */
+  disabledTools?: string[];
+  /** Skill names to hide from the model for this run (user context override). */
+  disabledSkills?: string[];
   onUpdate?: (text: string) => void;
   /**
    * Platform tool surface for the subagent session.
@@ -51,6 +122,8 @@ export interface AppRuntimeSubagentUsage {
   inputTokens: number;
   outputTokens: number;
   totalTokens: number;
+  /** Run cost in USD, when the provider/model has known pricing. */
+  costUsd?: number;
 }
 
 export interface AppRuntimeSubagentResult {
@@ -73,6 +146,18 @@ export interface AppRuntimeSubagentsApi {
     parentSessionId: string,
     cb: (agentName: string, text: string) => void,
   ): () => void;
+  /**
+   * The real tool surface a background subagent loads in this workspace (name +
+   * description), so callers (e.g. the Orchestrator planner) can pick a step's
+   * tools from the actual catalog rather than a hardcoded list.
+   */
+  listToolCatalog(workspaceId: string): Promise<ContextToolInfo[]>;
+  /**
+   * The named agent roles available in this workspace, so callers (e.g. the
+   * Orchestrator planner and its per-step agent picker) can choose a role from
+   * the real catalog rather than guessing names.
+   */
+  listAgentCatalog(workspaceId: string): Promise<ContextAgentInfo[]>;
 }
 
 export interface AppRuntimeNativeBuildFallbackAction {
@@ -215,102 +300,6 @@ export interface AppRuntimeVerificationApi {
   summarizeFailure(result: AppRuntimeVerificationCommandResult): string;
 }
 
-export interface AppRuntimeWorktreeCreateResult {
-  worktreePath: string;
-  branchName: string;
-  greenfield: boolean;
-}
-
-export interface AppRuntimeWorktreeRemoveOptions {
-  deleteBranch?: boolean;
-  force?: boolean;
-}
-
-export interface AppRuntimeConflictResolutionContext {
-  attempt: number;
-  baseBranch: string;
-  upstreamRef: string;
-  conflictFiles: string[];
-}
-
-export interface AppRuntimeWorktreeSyncOptions {
-  resolveConflicts?: (context: AppRuntimeConflictResolutionContext) => Promise<boolean>;
-}
-
-export interface AppRuntimeWorktreeSyncResult {
-  success: boolean;
-  baseBranch?: string;
-  upstreamRef?: string;
-  updated: boolean;
-  resolvedConflicts: boolean;
-  error?: string;
-}
-
-export interface AppRuntimeWorkspaceSyncResult {
-  synced: boolean;
-  branch?: string;
-  headChanged?: boolean;
-  reason?: string;
-}
-
-export interface AppRuntimeCreatePullRequestOptions {
-  title: string;
-  body: string;
-  baseBranch?: string;
-  draft?: boolean;
-}
-
-export type AppRuntimeCreatePullRequestResult =
-  | { success: true; url: string; number: number }
-  | { success: false; error: string };
-
-export type AppRuntimePullRequestMergeMethod = 'merge' | 'squash' | 'rebase';
-
-export type AppRuntimeMergePullRequestResult =
-  | { success: true; state: 'merged' | 'scheduled' }
-  | { success: false; error: string };
-
-export type AppRuntimePullRequestMergeState = 'merged' | 'open' | 'closed' | 'unknown';
-
-export interface AppRuntimeGitApi {
-  createWorktree(
-    workspacePath: string,
-    cardId: string,
-    cardTitle: string,
-  ): Promise<AppRuntimeWorktreeCreateResult>;
-  removeWorktree(
-    workspacePath: string,
-    cardId: string,
-    options?: AppRuntimeWorktreeRemoveOptions,
-  ): Promise<void>;
-  syncWorktreeWithDefaultBranch(
-    worktreePath: string,
-    options?: AppRuntimeWorktreeSyncOptions,
-  ): Promise<AppRuntimeWorktreeSyncResult>;
-  syncWorkspaceRootToDefaultBranch(
-    workspacePath: string,
-  ): Promise<AppRuntimeWorkspaceSyncResult>;
-  createCheckpoint(worktreePath: string, message: string): Promise<string | null>;
-  getDiffSummary(worktreePath: string): Promise<string>;
-  getDiff(worktreePath: string): Promise<string>;
-  pushBranch(worktreePath: string, branchName: string): Promise<boolean>;
-  ensureRemoteDefaultBranch(worktreePath: string): Promise<string>;
-  createPr(
-    worktreePath: string,
-    options: AppRuntimeCreatePullRequestOptions,
-  ): Promise<AppRuntimeCreatePullRequestResult>;
-  mergePr(
-    worktreePath: string,
-    prNumber: number,
-    options?: { method?: AppRuntimePullRequestMergeMethod },
-  ): Promise<AppRuntimeMergePullRequestResult>;
-  getPrMergeState(
-    worktreePath: string,
-    prNumber: number,
-  ): Promise<AppRuntimePullRequestMergeState>;
-  getPrMergeError(worktreePath: string, prNumber: number): Promise<string | null>;
-}
-
 export type AppRuntimeDevServerScope = 'workspace' | 'card-preview';
 export type AppRuntimeDevServerStatus = 'running' | 'stopped' | 'starting';
 
@@ -368,8 +357,32 @@ export interface AppRuntimeNotificationOptions {
   subtitle?: string;
 }
 
+export interface AppRuntimeNotificationChoice {
+  id: string;
+  label: string;
+}
+
+export interface AppRuntimeNotificationChoiceResult {
+  choiceId: string | null;
+  timedOut: boolean;
+}
+
+export interface AppRuntimeNotificationChoiceOptions {
+  title: string;
+  body: string;
+  choices: AppRuntimeNotificationChoice[];
+  timeoutMs: number;
+}
+
 export interface AppRuntimeNotificationsApi {
   notify(options: AppRuntimeNotificationOptions): void;
+  /**
+   * Shows a visible choice notification and resolves with the chosen id, or
+   * `timedOut: true` when the user does not choose within `timeoutMs`.
+   */
+  requestChoice(
+    options: AppRuntimeNotificationChoiceOptions,
+  ): Promise<AppRuntimeNotificationChoiceResult>;
 }
 
 export interface AppRuntimeProviderApiKey {
@@ -398,6 +411,56 @@ export interface AppRuntimeToolchainsApi {
   sharedToolsDir(namespace: string): Promise<{ path: string }>;
 }
 
+export interface AppRuntimeModelsApi {
+  /**
+   * Lists the models currently available to this machine (every provider with a
+   * configured key), grouped by provider. Background runtimes use this to resolve
+   * a step's chosen model before running and to detect a pinned model that is no
+   * longer installed. Tier aliases ('LOW' | 'MED' | 'HIGH') are resolved by the
+   * subagent runner, not listed here.
+   */
+  list(): Promise<SharedAvailableModelGroup[]>;
+}
+
+export interface AppRuntimeActiveSession {
+  sessionId: string;
+  workspaceId: string;
+}
+
+export interface AppRuntimeSessionState {
+  idle: boolean;
+  pendingMessages: number;
+  activeTurnId: string | null;
+}
+
+export type AppRuntimeTurnStatus = 'completed' | 'aborted' | 'error';
+
+export interface AppRuntimeTurnResult {
+  turnId: string;
+  status: AppRuntimeTurnStatus;
+}
+
+/**
+ * Active-session control for background app runtimes (Orchestrator
+ * active-session steps). The live session continues under standard Sero
+ * session rules; Orchestrator only sends and observes.
+ */
+export interface AppRuntimeSessionHost {
+  getActiveForWorkspace(workspaceId: string): Promise<AppRuntimeActiveSession | null>;
+  getState(sessionId: string): Promise<AppRuntimeSessionState>;
+  sendUserSteer(
+    sessionId: string,
+    content: ExtensionRuntimeContent,
+    options: { deliverAs: 'steer' | 'followUp'; source: 'orchestrator' },
+  ): Promise<{ turnId: string | null }>;
+  sendContextMessage(
+    sessionId: string,
+    message: ExtensionRuntimeMessage,
+    options: { deliverAs: 'steer' | 'followUp' | 'nextTurn'; triggerTurn: boolean; source: 'orchestrator' },
+  ): Promise<{ turnId: string | null }>;
+  onTurnComplete(sessionId: string, cb: (result: AppRuntimeTurnResult) => void): () => void;
+}
+
 export interface AppRuntimeHost {
   appState: AppRuntimeStateApi;
   subagents: AppRuntimeSubagentsApi;
@@ -408,6 +471,8 @@ export interface AppRuntimeHost {
   notifications: AppRuntimeNotificationsApi;
   credentials: AppRuntimeCredentialsApi;
   toolchains: AppRuntimeToolchainsApi;
+  models: AppRuntimeModelsApi;
+  session: AppRuntimeSessionHost;
 }
 
 export interface AppRuntimeContext {

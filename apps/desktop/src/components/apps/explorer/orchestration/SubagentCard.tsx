@@ -103,6 +103,7 @@ function ToolActivityFeed({ activity }: { activity: SubagentToolActivity[] }) {
         <div
           key={`${item.toolName}-${i}`}
           className="flex items-center gap-1.5 px-0.5 py-[1px]"
+          title={item.argsSummary ? `${item.toolName} ${item.argsSummary}` : item.toolName}
         >
           {item.running ? (
             <span className="size-1.5 shrink-0 animate-pulse rounded-full bg-status-info" />
@@ -114,7 +115,7 @@ function ToolActivityFeed({ activity }: { activity: SubagentToolActivity[] }) {
             {item.toolName}
           </span>
           {item.argsSummary && (
-            <span className="min-w-0 truncate text-[10px] text-[var(--text-secondary)]/70">
+            <span className="min-w-0 flex-1 truncate text-[10px] text-[var(--text-secondary)]/70">
               {item.argsSummary}
             </span>
           )}

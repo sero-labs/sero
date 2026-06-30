@@ -45,6 +45,7 @@ export type {
 
 export type {
   AppRuntimeStateApi,
+  AppRuntimeSubagentRepair,
   AppRuntimeSubagentRunParams,
   AppRuntimeSubagentResult,
   AppRuntimeSubagentsApi,
@@ -73,6 +74,9 @@ export type {
   AppRuntimePullRequestMergeMethod,
   AppRuntimeMergePullRequestResult,
   AppRuntimePullRequestMergeState,
+  AppRuntimePullRequestSummary,
+  AppRuntimeWorkspaceStatusResult,
+  AppRuntimeDirtyWorkspaceStashResult,
   AppRuntimeGitApi,
   AppRuntimeDevServerScope,
   AppRuntimeDevServerStatus,
@@ -82,15 +86,33 @@ export type {
   AppRuntimeDevServersApi,
   AppRuntimeNotificationType,
   AppRuntimeNotificationOptions,
+  AppRuntimeNotificationChoice,
+  AppRuntimeNotificationChoiceResult,
+  AppRuntimeNotificationChoiceOptions,
   AppRuntimeNotificationsApi,
   AppRuntimeProviderApiKey,
   AppRuntimeCredentialsApi,
   AppRuntimeToolchainsApi,
+  AppRuntimeActiveSession,
+  AppRuntimeSessionState,
+  AppRuntimeTurnStatus,
+  AppRuntimeTurnResult,
+  AppRuntimeSessionHost,
   AppRuntimeHost,
   AppRuntimeContext,
   AppRuntime,
   AppRuntimeModule,
 } from './app-runtime-background';
+
+export type {
+  ContextToolInfo,
+  ContextSkillInfo,
+  ContextAgentInfo,
+  ContextOverrides,
+  ContextPreset,
+  AvailableContext,
+  SessionContext,
+} from './context-editor';
 
 export type {
   ExtensionRuntimeTextContent,

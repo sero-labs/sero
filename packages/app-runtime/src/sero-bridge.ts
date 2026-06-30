@@ -9,6 +9,8 @@
 
 import type {
   AppToolResult,
+  AvailableContext,
+  ContextPreset,
   GitActionResult,
   GitManagerRequest,
   SharedAvailableModelGroup,
@@ -71,6 +73,18 @@ export interface SeroModelsBridge {
   list(): Promise<AppModelGroup[]>;
 }
 
+export interface SeroSubagentContextBridge {
+  /** Available context (tools + skills) for a workspace's background subagents, no session. */
+  get(workspaceId: string): Promise<AvailableContext>;
+}
+
+export interface SeroContextPresetsBridge {
+  /** Load profile-level context presets. */
+  load(): Promise<ContextPreset[]>;
+  /** Persist the full preset list. */
+  save(presets: ContextPreset[]): Promise<void>;
+}
+
 export interface SeroBridge {
   appState: SeroWindowAppStateBridge;
   appAgent: SeroAppAgentBridge;
@@ -78,6 +92,8 @@ export interface SeroBridge {
   webApp?: SeroWebAppBridge;
   editor?: SeroEditorBridge;
   models?: SeroModelsBridge;
+  subagentContext?: SeroSubagentContextBridge;
+  contextPresets?: SeroContextPresetsBridge;
 }
 
 function readWindowSero(value: Window): unknown {

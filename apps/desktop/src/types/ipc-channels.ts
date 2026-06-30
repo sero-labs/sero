@@ -115,6 +115,10 @@ export const IpcChannels = {
     /** List all available models (session-independent). Returns AvailableModelGroup[]. */
     list: 'sero:models:list',
   },
+  subagentContext: {
+    /** Available context (tools + skills) for a workspace's background subagents, no session. */
+    get: 'sero:subagent-context:get',
+  },
   modelConfig: {
     get: 'sero:model-config:get',
     set: 'sero:model-config:set',

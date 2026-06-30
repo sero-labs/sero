@@ -12,6 +12,8 @@ export { useAgentPrompt } from './use-agent-prompt';
 export { useAI, type AppAI } from './use-ai';
 export { useAppTools, type AppTools } from './use-app-tools';
 export { useAvailableModels, type UseAvailableModelsResult } from './use-available-models';
+export { useSubagentContext, type UseSubagentContextResult } from './use-subagent-context';
+export { useContextPresets, type UseContextPresetsResult } from './use-context-presets';
 export { useTheme, type UseThemeResult } from './use-theme';
 export { getSeroApi } from './sero-bridge';
 export type { AppModelInfo, AppModelGroup } from './sero-bridge';

@@ -1,9 +1,11 @@
 import { appStateManager } from '@electron/features/apps/state/manager';
 import { subagentManager } from '@electron/features/subagent/singleton';
+import { getSubagentToolCatalog, warmSubagentToolCatalog } from '@electron/features/subagent/runtime/tool-catalog';
 import { workspaceManager } from '@electron/features/workspace/manager';
 import { listWorkspaceAccessRoots } from '@electron/features/workspace/access-roots';
 import { runtimeManager } from '@electron/features/workspace/runtime/runtime-manager';
 import { showNotification } from '@electron/platform/desktop/notifications';
+import { requestChoice } from '@electron/platform/desktop/request-choice';
 import { runWorkspaceCommand } from '@electron/features/workspace/runtime/run-workspace-command';
 import { refreshWorkspaceRuntimeAfterSync } from '@electron/features/workspace/runtime/refresh-after-sync';
 import { resolveWorkspaceRuntime } from '@electron/features/workspace/runtime-resolution';
@@ -27,10 +29,12 @@ import {
 import {
   createPrFromWorktree,
   ensureRemoteDefaultBranch,
+  listOpenPullRequests,
   mergePrFromWorktree,
 } from '@electron/features/vcs/worktree/pull-request';
 import { syncWorktreeBranchWithDefaultBranch } from '@electron/features/vcs/worktree/sync';
 import { syncWorkspaceRootToDefaultBranch } from '@electron/features/vcs/worktree/workspace-sync';
+import { getWorkspaceStatus, stashWorkspaceChanges } from '@electron/features/vcs/worktree/workspace-preflight';
 import {
   getPullRequestMergeError,
   getPullRequestMergeState,
@@ -44,8 +48,11 @@ import {
   isToolName,
   type HostToolResolver,
 } from '@electron/features/workspace/runtime/toolchains/host-tool-resolver';
+import { ensureInfra } from '@electron/shared/infra/shared-infra';
+import { buildAvailableModelGroups } from '@electron/ipc/agent/core/model-groups';
 import { validateRuntimeCustomTools } from './custom-tools';
 import { getProviderApiKey } from './provider-credentials';
+import { createSessionHost } from './session-host';
 import type { AppRuntimeTarget, AppRuntimeHost } from '../types';
 
 const worktreeManager = new WorktreeManager();
@@ -78,12 +85,33 @@ export function createAppRuntimeHost(_target: AppRuntimeTarget): AppRuntimeHost 
       update: <T = unknown>(filePath: string, updater: (current: T | null) => T) => appStateManager.update(filePath, updater),
       watch: (filePath) => appStateManager.watch(filePath),
       unwatch: (filePath) => appStateManager.unwatch(filePath),
+      globalDir: async (namespace) => {
+        if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(namespace)) {
+          throw new Error(`Invalid global app-state namespace: ${namespace}`);
+        }
+        // Profile-scoped, shared across all the profile's workspaces — the same
+        // convention a `scope: "global"` app uses for its state file.
+        const dir = path.join(SERO_HOME, 'apps', namespace);
+        await mkdir(dir, { recursive: true });
+        return { path: dir };
+      },
     },
     subagents: {
       runStructured: async (params) => subagentManager.runSingleStructured({
         ...params,
         customTools: validateRuntimeCustomTools(params.customTools),
       }),
+      async listToolCatalog(_workspaceId) {
+        // The catalog is profile-global (plugin tools are profile-scoped), so it
+        // ignores workspaceId; warm ensures it is published before first use.
+        await warmSubagentToolCatalog();
+        return getSubagentToolCatalog();
+      },
+      async listAgentCatalog(_workspaceId) {
+        // Named agent roles live in the profile-global agents dir (workspace-independent).
+        const agents = await subagentManager.listAgents();
+        return agents.map((agent) => ({ name: agent.name, description: agent.description }));
+      },
       onLiveOutput(workspaceId, parentSessionId, cb) {
         const handleLiveOutput = (id: string, text: string) => {
           const entry = subagentManager.tracker.get(id);
@@ -132,6 +160,8 @@ export function createAppRuntimeHost(_target: AppRuntimeTarget): AppRuntimeHost 
         worktreeManager.create(workspacePath, cardId, cardTitle),
       removeWorktree: (workspacePath, cardId, options) =>
         worktreeManager.remove(workspacePath, cardId, options),
+      getWorkspaceStatus,
+      stashWorkspaceChanges,
       syncWorktreeWithDefaultBranch: (worktreePath, options) =>
         syncWorktreeBranchWithDefaultBranch(worktreePath, options),
       syncWorkspaceRootToDefaultBranch,
@@ -140,6 +170,7 @@ export function createAppRuntimeHost(_target: AppRuntimeTarget): AppRuntimeHost 
       getDiff: getWorktreeDiff,
       pushBranch: pushWorktreeBranch,
       ensureRemoteDefaultBranch,
+      listPullRequests: (cwd, options) => listOpenPullRequests(cwd, options),
       createPr: createPrFromWorktree,
       mergePr: mergePrFromWorktree,
       getPrMergeState: getPullRequestMergeState,
@@ -180,10 +211,20 @@ export function createAppRuntimeHost(_target: AppRuntimeTarget): AppRuntimeHost 
       notify: (options) => {
         showNotification(options);
       },
+      requestChoice,
     },
     credentials: {
       getProviderApiKey: (providerId) => getProviderApiKey(providerId, SERO_HOME),
     },
+    models: {
+      list: async () => {
+        const { modelRegistry } = await ensureInfra();
+        // Reload auth so newly-added (or removed) provider keys are reflected.
+        modelRegistry.authStorage.reload();
+        return buildAvailableModelGroups(modelRegistry.getAvailable());
+      },
+    },
+    session: createSessionHost(),
     toolchains: {
       ensure: async (tool) => {
         if (!isToolName(tool)) throw new Error(`Unknown managed tool: ${tool}`);

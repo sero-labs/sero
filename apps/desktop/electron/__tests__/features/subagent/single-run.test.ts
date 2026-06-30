@@ -83,8 +83,17 @@ describe('executeSingleRun result metadata', () => {
     expect(result.response).toBe('done');
     expect(result.modelId).toBe('claude-test-1');
     expect(result.providerId).toBe('anthropic');
-    expect(result.usage).toEqual({ inputTokens: 100, outputTokens: 50, totalTokens: 150 });
+    expect(result.usage).toEqual({ inputTokens: 100, outputTokens: 50, totalTokens: 150, costUsd: 0.01 });
     expect(result.durationMs).toBeGreaterThanOrEqual(0);
+  });
+
+  it('omits cost when the model is unpriced (cost 0)', async () => {
+    mockRunSubagent.mockResolvedValue({ response: 'done', usage: { ...USAGE, cost: 0 } });
+
+    const result = await executeSingleRun(options());
+
+    expect(result.usage?.costUsd).toBeUndefined();
+    expect(result.usage?.totalTokens).toBe(150);
   });
 
   it('returns metadata alongside the error on failure', async () => {

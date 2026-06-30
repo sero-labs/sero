@@ -69,6 +69,7 @@ import type {
   GlobalModelConfigInput,
   GlobalModelConfigState,
   AvailableModelGroup,
+  AvailableContext,
   AppControlEntry,
   AppInteractionParams,
   AppInteractionResult,
@@ -346,6 +347,11 @@ interface SeroModelsAPI {
   list(): Promise<AvailableModelGroup[]>;
 }
 
+interface SeroSubagentContextAPI {
+  /** Available context (tools + skills) for a workspace's background subagents, no session. */
+  get(workspaceId: string): Promise<AvailableContext>;
+}
+
 interface SeroModelConfigAPI {
   /** Read the current global model tiers and validation warnings. */
   get(): Promise<GlobalModelConfigState>;
@@ -442,6 +448,7 @@ export interface SeroAPI {
   prompts: SeroPromptsAPI;
   github: SeroGitHubAPI;
   models: SeroModelsAPI;
+  subagentContext: SeroSubagentContextAPI;
   modelConfig: SeroModelConfigAPI;
   onboarding: SeroOnboardingAPI;
   plugins: SeroPluginsAPI;
