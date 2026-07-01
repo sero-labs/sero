@@ -16,6 +16,7 @@ Use reference pages when you need exact facts: support boundaries, runtime behav
 - [Container Isolation](/reference/container-isolation) — container lifecycle, mounts, networking, and dev-server registry behavior.
 - [State and Folders](/reference/state-and-folders) — profile paths, workspace state, app state, memory storage, and redaction guidance.
 - [Sero CLI](/reference/sero-cli) — command syntax, namespaces, output, side effects, batch behavior, and plugin bridging.
+- [Orchestrator](/reference/orchestrator) — loop actions, commands, plan rules, recovery, triggers, limits, library, and on-disk state.
 
 ## Configuration facts
 
