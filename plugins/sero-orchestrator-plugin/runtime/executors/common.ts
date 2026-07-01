@@ -49,7 +49,7 @@ function toUsage(durationMs?: number, usage?: { inputTokens: number; outputToken
 
 export async function runStepAttempt(input: StepRunInput, options: RunStepOptions): Promise<StepAttempt> {
   const { host, loop, run, step, attemptNumber, parentSessionId, workspace, signal } = input;
-  const task = buildStepTask(loop, step);
+  const task = buildStepTask(loop, step, run);
 
   // Resolve the step's chosen model. Tiers and "no preference" pass straight
   // through; a pinned model that is no longer available falls back to MED (we

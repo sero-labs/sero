@@ -8,7 +8,7 @@ each independently shippable and gated on `pnpm typecheck` + green tests.
 
 | Phase | Title | Status | Exit gate |
 | --- | --- | --- | --- |
-| 1 | Event engine core | ⬜ Not started | Broadcast `fireEvent` with payloads, filters, conditions, fresh-pass/coalescing semantics |
+| 1 | Event engine core | ✅ Done | Broadcast `fireEvent` with payloads, filters, conditions, fresh-pass/coalescing semantics |
 | 2 | Source manager + internal loop events | ⬜ Not started | Demand-driven adapters; loop→loop triggering with cycle guard |
 | 3 | Local adapters: filesystem + webhook | ⬜ Not started | File changes and local webhooks fire loops |
 | 4 | GitHub adapter | ⬜ Not started | CI/PR/issue events fire loops within the anti-abuse envelope |
@@ -20,16 +20,16 @@ Status legend: ✅ Done · 🟡 In progress · ⬜ Not started · ⛔ Blocked ·
 
 | FR | Requirement | Phase | Status |
 | --- | --- | --- | --- |
-| FR-E1 | Broadcast `fireEvent(event)`: exact source, debounce, code-matched filter, model-evaluated condition, `maxFires` | 1 | ⬜ |
-| FR-E2 | Fresh pass on idle; latest-wins `pendingEvent` coalescing mid-run; `fireCount` always increments | 1 | ⬜ |
-| FR-E3 | Payload reaches step context as `Observation(source: "event")`; run records `firedBy` | 1 | ⬜ |
+| FR-E1 | Broadcast `fireEvent(event)`: exact source, debounce, code-matched filter, model-evaluated condition, `maxFires` | 1 | ✅ |
+| FR-E2 | Fresh pass on idle; latest-wins `pendingEvent` coalescing mid-run; `fireCount` always increments | 1 | ✅ |
+| FR-E3 | Payload reaches step context as `Observation(source: "event")`; run records `firedBy` | 1 | ✅ |
 | FR-E4 | Demand-driven sources: no matching active trigger ⇒ zero background activity; in-process re-sync | 2 | ⬜ |
 | FR-E5 | GitHub poller: shared per repo, 60s floor, conditional requests, rate-limit backoff, demand-scoped endpoints, restart-safe cursor | 4 | ⬜ |
 | FR-E6 | Internal `loop:*` events at complete/block/question; self-exclusion + chain-depth cap with warning | 2 | ⬜ |
 | FR-E7 | Webhook listener loopback-only, per-hook secret, `POST /hooks/<name>` → `webhook:<name>` | 3 | ⬜ |
-| FR-E8 | Planner authors event/hybrid triggers from the prompt vs. a source catalog; mechanical validation blocks at create | 1 (validation) / 5 (authoring) | ⬜ |
+| FR-E8 | Planner authors event/hybrid triggers from the prompt vs. a source catalog; mechanical validation blocks at create | 1 (validation) / 5 (authoring) | 🟡 validation done |
 | FR-E9 | Filesystem source with debounce + default ignores | 3 | ⬜ |
-| FR-E10 | Event triggers, fired-by, source health in UI; `eventCondition` round-trips through the library | 1 (round-trip) / 5 (UI) | ⬜ |
+| FR-E10 | Event triggers, fired-by, source health in UI; `eventCondition` round-trips through the library | 1 (round-trip) / 5 (UI) | 🟡 round-trip done |
 
 ---
 
@@ -41,49 +41,56 @@ correctly end to end.
 
 **Tasks**
 
-- [ ] Shared types (`shared/types.ts`): `OrchestratorEvent` (id, source,
-  payload, occurredAt, dedupeKey, chainDepth); `eventCondition?` on
+- [x] Shared types (`shared/event-types.ts`, re-exported from `types.ts`):
+  `OrchestratorEvent` (id, source, payload, occurredAt, summary, dedupeKey,
+  chainDepth, sourceLoopId) + `EventFiredBy`; `eventCondition?` on
   `LoopTrigger` + `LoopTriggerSuggestion`; `pendingEvent?` on
-  `LoopRuntimeState`; `firedBy?` on `LoopRun`.
-- [ ] Library round-trip: `eventCondition` on `SharedTriggerConfig`
+  `LoopRuntimeState`; `firedBy?` on `LoopRun`; `recentEventKeys` ring on
+  `OrchestratorState`.
+- [x] Library round-trip: `eventCondition` on `SharedTriggerConfig`
   (`shared/library-types.ts`) and through `toSharedTrigger` /
   `materializeTriggers` (`shared/library.ts`, `runtime/loop-factory.ts`).
-- [ ] Matching (`runtime/scheduler.ts`, split an `event-match.ts` helper if it
-  crowds 500 LOC): extend `fireEventTriggers` to take the event — exact
-  source, debounce, then `eventFilter` predicates against payload top-level
-  fields (strict equality; array value = "one of").
-- [ ] `eventCondition` evaluation: LOW-tier structured model call (reuse
-  `structured-call.ts` machinery) run **after** code filters pass; a
-  condition-evaluation failure skips the fire and logs, never crashes the
-  broadcast.
-- [ ] Coordinator (`runtime/coordinator.ts`): replace the loop-targeted
-  `fireEvent(loopId, source)` with broadcast `fireEvent(event)`; due + idle →
-  `runFreshPass` with the event injected as `Observation(source: "event")`
-  and `firedBy` on the run; due + run in flight → `pendingEvent` latest-wins,
-  consumed at run end through the existing rerun seam; `fireCount` increments
-  on every fire.
-- [ ] `dedupeKey` backstop: recently-seen keys (persisted small ring) drop
-  duplicate deliveries across adapter restarts.
-- [ ] Validation (`runtime/schema.ts`): event/hybrid triggers — known source
-  namespace, flat `eventFilter` object, `debounceMs >= 0`, bounded
-  `eventCondition` length; invalid triggers block at create like cron.
-- [ ] Tests: matching order (filter before condition; condition call count),
-  coalescing (two fires mid-run ⇒ one follow-up run with the latest payload),
-  fresh-pass vs the old fold-in behavior, dedupe, schema rejections, library
-  round-trip.
+- [x] Matching: code half in `runtime/event-match.ts`
+  (`codeMatchEventTrigger` — exact source, `eventFilter` predicates with
+  strict equality / array = "one of", debounce); fire bookkeeping stays in
+  `scheduler.ts` (`applyEventFires`, replacing `fireEventTriggers`).
+- [x] `eventCondition` evaluation (`runtime/event-condition.ts`): LOW-tier
+  structured model call run **after** code filters pass; an evaluation
+  failure skips the fire and logs, never crashes the broadcast.
+- [x] Coordinator: broadcast `fireEvent(event)` + stash/drain live in
+  `runtime/event-delivery.ts` behind a narrow `CoordinatorRunSeam`; due +
+  idle → fresh event pass (engine consumes the event into `firedBy` + an
+  `event` observation); due + busy → `pendingEvent` latest-wins, drained
+  after the in-flight run ends (and by `tick` after a restart). Engine
+  commits preserve coordinator-authored concurrent state (trigger fire
+  counters via per-trigger merge, `dueAgain`, un-consumed `pendingEvent`) —
+  `run-engine.ts` + `run-engine-helpers.ts`.
+- [x] `dedupeKey` backstop: persisted `recentEventKeys` ring drops duplicate
+  deliveries across adapter restarts.
+- [x] Validation (`runtime/schema.ts`): event/hybrid triggers — known source
+  namespace (`shared/constants.ts` `EVENT_SOURCE_NAMESPACES`), flat
+  `eventFilter`, `debounceMs >= 0`, bounded `eventCondition`; hybrid needs
+  both halves; invalid triggers block at create like cron.
+- [x] Tests: `event-match.test.ts`, `coordinator-events.test.ts` (broadcast,
+  filter, condition order + verdicts, dedupe, chain-depth cap,
+  self-exclusion, parked stash, tick drain, step-task payload),
+  coalescing + maxFires in `coordinator-scheduling.test.ts`, schema
+  rejections, library round-trip.
 
 **Acceptance**
 
-- [ ] A synthetic event fires only matching active loops; the payload is
+- [x] A synthetic event fires only matching active loops; the payload is
   visible in the started run's step context.
-- [ ] Mid-run fires coalesce latest-wins and produce exactly one follow-up
+- [x] Mid-run fires coalesce latest-wins and produce exactly one follow-up
   run.
-- [ ] A trigger with `eventCondition` calls the model only when code filters
+- [x] A trigger with `eventCondition` calls the model only when code filters
   pass, and the fire follows the model's verdict.
-- [ ] Invalid event triggers cannot be created; valid ones survive a library
+- [x] Invalid event triggers cannot be created; valid ones survive a library
   save/load.
-- [ ] `pnpm typecheck` passes; no file exceeds 500 LOC.
-- [ ] FR-E1, FR-E2, FR-E3 satisfied; FR-E8 validation half; FR-E10 round-trip
+- [x] `pnpm typecheck` passes (18/18, forced full run); no file exceeds 500
+  LOC (coordinator/run-engine/types split into event-delivery,
+  restart-actions, run-engine-helpers, event-types, index-types).
+- [x] FR-E1, FR-E2, FR-E3 satisfied; FR-E8 validation half; FR-E10 round-trip
   half.
 
 ---

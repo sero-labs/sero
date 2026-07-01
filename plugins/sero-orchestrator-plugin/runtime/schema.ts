@@ -15,6 +15,7 @@ import type {
   PlanningResponse,
   StepExecutionTarget,
 } from '../shared/types';
+import { EVENT_SOURCE_NAMESPACES, isKnownEventSource } from '../shared/constants';
 import { isValidCron } from './cron';
 
 export const STEP_EXECUTION_TYPES = ['background-agent', 'active-session', 'model'] as const;
@@ -353,14 +354,59 @@ export function coercePlanningShape(input: unknown): unknown {
   };
 }
 
-/** A cron/hybrid trigger must carry a valid 5-field cron schedule, else it never fires. */
+/** Max length of a natural-language event condition (a sentence, not an essay). */
+const EVENT_CONDITION_MAX_LENGTH = 500;
+
+function isPrimitive(value: unknown): boolean {
+  return typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean' || value === null;
+}
+
+/**
+ * Event-half validation for an event/hybrid trigger: a well-formed source in a
+ * known namespace, a flat structured filter (primitives / arrays of primitives),
+ * a bounded condition string, and a sane debounce. Mechanical only — what the
+ * condition MEANS is the model's business at fire time.
+ */
+function validateEventTrigger(trigger: Record<string, unknown>, i: number, errors: string[]): void {
+  if (typeof trigger.eventSource !== 'string' || !isKnownEventSource(trigger.eventSource)) {
+    errors.push(`suggestedTriggers[${i}]: a "${String(trigger.type)}" trigger needs an "eventSource" of the form "<namespace>:<kind>" with a known namespace (${EVENT_SOURCE_NAMESPACES.join(', ')}), got ${JSON.stringify(trigger.eventSource)}.`);
+  }
+  if (trigger.eventFilter !== undefined) {
+    const flat =
+      isRecord(trigger.eventFilter) &&
+      Object.values(trigger.eventFilter).every((v) => isPrimitive(v) || (Array.isArray(v) && v.every(isPrimitive)));
+    if (!flat) {
+      errors.push(`suggestedTriggers[${i}]: "eventFilter" must be a flat object of primitive values (or arrays of primitives, meaning "one of").`);
+    }
+  }
+  if (trigger.eventCondition !== undefined) {
+    const text = trigger.eventCondition;
+    if (typeof text !== 'string' || !text.trim() || text.length > EVENT_CONDITION_MAX_LENGTH) {
+      errors.push(`suggestedTriggers[${i}]: "eventCondition" must be a non-empty string of at most ${EVENT_CONDITION_MAX_LENGTH} characters.`);
+    }
+  }
+  if (trigger.debounceMs !== undefined && (typeof trigger.debounceMs !== 'number' || !Number.isFinite(trigger.debounceMs) || trigger.debounceMs < 0)) {
+    errors.push(`suggestedTriggers[${i}]: "debounceMs" must be a non-negative number.`);
+  }
+}
+
+/**
+ * A cron/hybrid trigger must carry a valid 5-field cron schedule, and an
+ * event/hybrid trigger a valid event half — else it never fires (or fires on
+ * everything).
+ */
 function validateSuggestedTriggers(raw: unknown): string[] {
   if (!Array.isArray(raw)) return [];
   const errors: string[] = [];
   raw.forEach((trigger, i) => {
-    if (!isRecord(trigger) || (trigger.type !== 'cron' && trigger.type !== 'hybrid')) return;
-    if (typeof trigger.schedule !== 'string' || !isValidCron(trigger.schedule)) {
-      errors.push(`suggestedTriggers[${i}]: a "${String(trigger.type)}" trigger needs a valid 5-field cron "schedule" (minute hour day-of-month month day-of-week), got ${JSON.stringify(trigger.schedule)}.`);
+    if (!isRecord(trigger)) return;
+    if (trigger.type === 'cron' || trigger.type === 'hybrid') {
+      if (typeof trigger.schedule !== 'string' || !isValidCron(trigger.schedule)) {
+        errors.push(`suggestedTriggers[${i}]: a "${String(trigger.type)}" trigger needs a valid 5-field cron "schedule" (minute hour day-of-month month day-of-week), got ${JSON.stringify(trigger.schedule)}.`);
+      }
+    }
+    if (trigger.type === 'event' || trigger.type === 'hybrid') {
+      validateEventTrigger(trigger, i, errors);
     }
   });
   return errors;

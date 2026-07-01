@@ -8,6 +8,7 @@
  */
 
 import type { AppRuntimePullRequestSummary, ContextOverrides } from '@sero-ai/common';
+import type { EventFiredBy, OrchestratorEvent } from './event-types';
 import type { LoopLibraryLink, StepOverride } from './library-types';
 import type { LogPolicy, UsageSummary } from './usage-types';
 import type { LoopWorkspaceRuntime, LoopWorkspaceSettings, ResolvedWorkspaceContext } from './workspace-types';
@@ -77,7 +78,17 @@ export type {
 export interface OrchestratorState {
   version: 1;
   loops: Loop[];
+  /**
+   * Ring of recently delivered event keys (`source#dedupeKey`), so a source
+   * adapter restart never re-fires an event it already delivered. Only events
+   * that carry a `dedupeKey` are recorded. Oldest entries fall off.
+   */
+  recentEventKeys?: string[];
 }
+
+// Event types (Living Loops, spec 12) live in event-types.ts (500-LOC limit);
+// re-exported here so existing imports from './types' keep resolving.
+export type { OrchestratorEvent, EventFiredBy } from './event-types';
 
 // The watched-index summary types live in index-types.ts (500-LOC limit);
 // re-exported here so existing imports from './types' keep resolving.
@@ -126,7 +137,7 @@ export interface Loop {
 
 export interface LoopWarning {
   id: string;
-  code: 'mixed-workspace-targets' | 'model-unavailable' | 'agent-unavailable';
+  code: 'mixed-workspace-targets' | 'model-unavailable' | 'agent-unavailable' | 'event-chain-depth';
   message: string;
   /** The step a runtime warning refers to (model/agent-unavailable), for de-duplication. */
   stepId?: string;
@@ -149,6 +160,8 @@ export interface LoopTriggerSuggestion {
   schedule?: string;
   eventSource?: string;
   eventFilter?: Record<string, unknown>;
+  /** Natural-language condition judged by a model call at fire time (never parsed by code). */
+  eventCondition?: string;
   debounceMs?: number;
   maxFires?: number;
 }
@@ -274,6 +287,13 @@ export interface LoopRuntimeState {
    * iteration doesn't redo work an open PR already covers.
    */
   pullRequests?: AppRuntimePullRequestSummary[];
+  /**
+   * The latest event that fired while this loop was busy (run in flight or
+   * parked on a question) — latest wins, at most one pending fire. Consumed by
+   * the next iteration: the engine turns it into the run's `firedBy` + an
+   * `event` observation. Only the coordinator writes this field.
+   */
+  pendingEvent?: OrchestratorEvent;
 }
 
 export interface LoopBlock {
@@ -317,7 +337,13 @@ export interface LoopTrigger {
   type: 'manual' | 'cron' | 'event' | 'hybrid';
   schedule?: string;
   eventSource?: string;
+  /**
+   * Flat field predicates matched in code against the event payload's top-level
+   * fields: strict equality, an array value means "payload value is one of".
+   */
   eventFilter?: Record<string, unknown>;
+  /** Natural-language condition judged by a model call at fire time (never parsed by code). */
+  eventCondition?: string;
   debounceMs?: number;
   maxFires?: number;
   fireCount: number;
@@ -353,6 +379,8 @@ export interface LoopRun {
   runNumber: number;
   status: LoopRunStatus;
   triggerId?: string;
+  /** Set when this run was started by an event fire (Living Loops). */
+  firedBy?: EventFiredBy;
   startedStepIds: string[];
   stepAttempts: StepAttempt[];
   recoveryDecisions: RecoveryDecision[];
@@ -364,37 +392,9 @@ export interface LoopRun {
   block?: LoopBlock;
 }
 
-/**
- * Compact per-run summary stored in `loops/<id>/runs/index.json`. Full runs live
- * one-per-file (`runs/<runId>.json`) so a loop's frequent run writes never bloat
- * loop.json; the UI reads this lightweight index to render run history without
- * loading every run file.
- */
-export interface LoopRunStepSummary {
-  stepId: string;
-  attemptNumber: number;
-  executionType: StepExecutionTarget['type'];
-  status: StepAttemptStatus;
-  outcomeStatus?: StepOutcome['status'];
-}
-
-export interface LoopRunSummary {
-  id: string;
-  runNumber: number;
-  status: LoopRunStatus;
-  startedAt: string;
-  endedAt?: string;
-  completionStatus?: CompletionSignal['status'];
-  steps: LoopRunStepSummary[];
-  recoveries: { decision: RecoveryDecisionKind; reason: string }[];
-  /** Rolled-up token/time totals across this run's attempts (cost when reported). */
-  usage?: UsageSummary;
-}
-
-export interface RunIndex {
-  version: 1;
-  runs: LoopRunSummary[];
-}
+// The per-run summary index types (runs/index.json) live in index-types.ts
+// (500-LOC limit); re-exported here so imports from './types' keep resolving.
+export type { LoopRunStepSummary, LoopRunSummary, RunIndex } from './index-types';
 
 export type StepAttemptStatus =
   | 'running'

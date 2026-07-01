@@ -24,6 +24,8 @@ import { DEFAULT_RETAIN_DIGESTS } from '../shared/defaults';
 import { checkManagementLimits } from './limits';
 import { recordAgentWarning, recordModelWarning } from './run-warnings';
 import { isRecurring } from './scheduler';
+import { toEventObservation } from './event-match';
+import { mergeTriggers, replaceRun, resetRunningSteps } from './run-engine-helpers';
 
 export interface RunResult {
   acquired: boolean;
@@ -34,6 +36,13 @@ export interface RunResult {
 const TERMINAL_OUTCOMES = new Set<StepOutcome['status']>(['failed', 'blocked', 'needs-revision']);
 
 export class RunEngine {
+  /**
+   * The pendingEvent id each in-flight run consumed at start, so `commit` can
+   * tell the consumed stash (cleared) from a NEWER event the coordinator
+   * stashed mid-run (preserved).
+   */
+  private readonly consumedEvents = new Map<string, string>();
+
   constructor(private readonly host: OrchestratorHost, private readonly deps: EngineDeps) {}
 
   /** Runs the loop, then drains any `dueAgain` follow-up triggered during the run. */
@@ -92,14 +101,21 @@ export class RunEngine {
     // Monotonic, never reused — `runs.length` repeats once run-history pruning
     // caps it, which would reuse worktree keys/branch names across iterations.
     const runSeq = (initial.runtime.runSeq ?? initial.runs.length) + 1;
+    // Consume the event this iteration was fired by (Living Loops): it becomes
+    // the run's `firedBy` plus an `event` observation the steps read, and the
+    // stash is cleared. A NEW event stashed while this run is in flight is a
+    // different id and survives `commit`'s preservation for the next iteration.
+    const event = initial.runtime.pendingEvent;
+    if (event) this.consumedEvents.set(initial.id, event.id);
     let run: LoopRun = {
       id: this.host.newId('run'),
       runNumber: runSeq,
       status: 'running',
+      firedBy: event ? { source: event.source, occurredAt: event.occurredAt, summary: event.summary ?? event.source } : undefined,
       startedStepIds: [],
       stepAttempts: [],
       recoveryDecisions: [],
-      observations: [],
+      observations: event ? [toEventObservation(event, this.host.newId('obs'), now)] : [],
       startedAt: now,
     };
     let loop: Loop = {
@@ -107,7 +123,7 @@ export class RunEngine {
       runs: [...initial.runs, run],
       // Drop last run's model/agent-unavailable warnings; this run re-discovers them.
       warnings: initial.warnings.filter((w) => w.code !== 'model-unavailable' && w.code !== 'agent-unavailable'),
-      runtime: { ...initial.runtime, activeRunId: run.id, lastRunAt: now, runSeq },
+      runtime: { ...initial.runtime, activeRunId: run.id, lastRunAt: now, runSeq, pendingEvent: undefined },
     };
     loop = await this.commit(loop);
     loop = await this.reconcilePullRequests(loop);
@@ -376,6 +392,7 @@ export class RunEngine {
 
   private async finalize(loop: Loop, run: LoopRun, deferredReason?: string): Promise<LoopRun> {
     const now = this.host.now();
+    this.consumedEvents.delete(loop.id);
     const finishedRun: LoopRun = { ...run, endedAt: now };
     // Durable digest for reflection — colocated with the loop, outside run
     // pruning. Best-effort: a digest write must never fail the run.
@@ -440,17 +457,40 @@ export class RunEngine {
   }
 
   /**
-   * Persists the loop, but yields to a `disable` that landed mid-run: if the
-   * loop was turned off while this run was still in progress, the off state is
-   * kept instead of being revived by the engine's stale in-memory copy. The
-   * returned loop carries the corrected status so `execute` stops promptly.
+   * Persists the loop, but never lets the engine's in-memory copy clobber what
+   * the coordinator wrote concurrently:
+   *
+   * - a `disable` that landed mid-run is kept (the off state wins, and the
+   *   returned loop carries it so `execute` stops promptly);
+   * - trigger fire bookkeeping (counters, self-disables) is coordinator-
+   *   authored — an event fire recorded mid-run must survive this run's
+   *   snapshots. The on-disk trigger is the base; the engine's only legitimate
+   *   trigger write (the terminal-completion disable) is merged on top;
+   * - `dueAgain` (a folded rerun request) is only ever SET concurrently, so a
+   *   set flag on disk wins over the engine's stale false;
+   * - `pendingEvent` is coordinator-stashed; the engine only clears the one it
+   *   consumed at run start — a NEWER stash (different id) is preserved.
    */
   private async commit(loop: Loop): Promise<Loop> {
     let result = loop;
     await this.host.updateState((state) => {
       const current = state.loops.find((l) => l.id === loop.id);
+      result = loop;
+      if (current) {
+        const consumedId = this.consumedEvents.get(loop.id);
+        const stashed = current.runtime.pendingEvent;
+        result = {
+          ...result,
+          triggers: mergeTriggers(current.triggers, result.triggers),
+          runtime: {
+            ...result.runtime,
+            dueAgain: current.runtime.dueAgain || result.runtime.dueAgain,
+            pendingEvent: stashed && stashed.id !== consumedId ? stashed : result.runtime.pendingEvent,
+          },
+        };
+      }
       if (current?.status === 'disabled' && loop.status === 'active') {
-        result = { ...loop, status: 'disabled', runtime: { ...loop.runtime, activeRunId: undefined } };
+        result = { ...result, status: 'disabled', runtime: { ...result.runtime, activeRunId: undefined } };
       }
       return { ...state, loops: state.loops.map((l) => (l.id === loop.id ? result : l)) };
     });
@@ -458,28 +498,3 @@ export class RunEngine {
   }
 }
 
-/** Resets every `running` step back to `pending` (used when a run is cancelled). */
-function resetRunningSteps(
-  stepStates: Loop['runtime']['stepStates'],
-  now: string,
-): Loop['runtime']['stepStates'] {
-  let changed = false;
-  const next: Loop['runtime']['stepStates'] = {};
-  for (const [id, state] of Object.entries(stepStates)) {
-    if (state.status === 'running') {
-      next[id] = { ...state, status: 'pending', updatedAt: now };
-      changed = true;
-    } else {
-      next[id] = state;
-    }
-  }
-  return changed ? next : stepStates;
-}
-
-function replaceRun(runs: LoopRun[], run: LoopRun): LoopRun[] {
-  const index = runs.findIndex((r) => r.id === run.id);
-  if (index === -1) return [...runs, run];
-  const next = [...runs];
-  next[index] = run;
-  return next;
-}

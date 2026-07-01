@@ -137,18 +137,15 @@ export function reapplySchedule(
   return updated;
 }
 
-/** Marks event/hybrid triggers due for an event, respecting debounce + maxFires. */
-export function fireEventTriggers(loop: Loop, eventSource: string, nowMs: number): { loop: Loop; due: boolean } {
-  let due = false;
-  const triggers = loop.triggers.map((trigger) => {
-    if (trigger.disabled) return trigger;
-    if (trigger.type !== 'event' && trigger.type !== 'hybrid') return trigger;
-    if (trigger.eventSource && trigger.eventSource !== eventSource) return trigger;
-    if (trigger.debounceMs && trigger.lastFireAt && nowMs - Date.parse(trigger.lastFireAt) < trigger.debounceMs) {
-      return trigger;
-    }
-    due = true;
-    return fire(trigger, nowMs, trigger.nextFireAt);
-  });
-  return { loop: { ...loop, triggers }, due };
+/**
+ * Records event fires on the named triggers: bumps fireCount/lastFireAt and
+ * self-disables at maxFires via `fire()`. WHICH triggers fire is decided by the
+ * caller (code match in event-match.ts + the model-judged condition); this only
+ * applies the bookkeeping.
+ */
+export function applyEventFires(loop: Loop, triggerIds: string[], nowMs: number): Loop {
+  if (triggerIds.length === 0) return loop;
+  const ids = new Set(triggerIds);
+  const triggers = loop.triggers.map((trigger) => (ids.has(trigger.id) ? fire(trigger, nowMs, trigger.nextFireAt) : trigger));
+  return { ...loop, triggers };
 }

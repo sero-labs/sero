@@ -6,7 +6,7 @@
  * the engine falls back to an LLM evaluator (Phase 5) or a mechanical status.
  */
 
-import type { Loop, LoopStepDefinition, StepCompletion, StepOutcome } from '../../shared/types';
+import type { Loop, LoopRun, LoopStepDefinition, StepCompletion, StepOutcome } from '../../shared/types';
 import { extractJson } from '../schema';
 import { describeValue, isRecord, type ParseResult } from '../structured-call';
 import { parseHumanQuestions } from '../human-input';
@@ -83,9 +83,22 @@ function openPullRequestsContext(loop: Loop, step: LoopStepDefinition): string {
   return `\nOpen pull requests already raised by this loop (do not duplicate work an open PR already covers — judge coverage yourself):\n${lines.join('\n')}`;
 }
 
-export function buildStepTask(loop: Loop, step: LoopStepDefinition): string {
+/**
+ * The event that started this run (Living Loops): what fired and its payload,
+ * so the steps act on the concrete occurrence — the failing PR, the changed
+ * files — instead of re-discovering it.
+ */
+function eventContext(run?: LoopRun): string {
+  if (!run?.firedBy) return '';
+  const observation = run.observations.find((o) => o.source === 'event');
+  const payload = observation?.data ? `\nEvent payload:\n${JSON.stringify(observation.data, null, 2)}` : '';
+  return `\nThis iteration was fired by an event — ${run.firedBy.source} at ${run.firedBy.occurredAt}: ${run.firedBy.summary}.${payload}`;
+}
+
+export function buildStepTask(loop: Loop, step: LoopStepDefinition, run?: LoopRun): string {
   const parts = [`Loop objective: ${loop.plan.objective}`];
   if (loop.plan.globalInstructions) parts.push(`Global instructions: ${loop.plan.globalInstructions}`);
+  parts.push(eventContext(run));
   parts.push(`\nStep: ${step.title}\n${step.instructions}`);
   if (step.expectedOutcome) parts.push(`\nExpected outcome: ${step.expectedOutcome}`);
   parts.push(dependencyContext(loop, step));

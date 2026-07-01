@@ -102,7 +102,7 @@ export const activeSessionExecutor: StepExecutor = {
     const sessionId = await resolveSessionId(input, target);
     if (!sessionId) return failedAttempt(input, 'no active session available for this workspace');
 
-    const task = buildStepTask(input.loop, input.step);
+    const task = buildStepTask(input.loop, input.step, input.run);
     const deliverAs = target.sessionTarget.deliverAs;
     const startedAt = input.host.now();
 

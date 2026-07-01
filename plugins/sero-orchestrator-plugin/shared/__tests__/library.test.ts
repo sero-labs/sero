@@ -66,6 +66,26 @@ describe('toSharedTrigger', () => {
       maxFires: undefined,
     });
   });
+
+  it('round-trips the event half (source, filter, condition, debounce)', () => {
+    expect(
+      toSharedTrigger({
+        ...TRIGGER,
+        type: 'event',
+        schedule: undefined,
+        eventSource: 'github:ci-failed',
+        eventFilter: { repo: 'sero' },
+        eventCondition: 'the failing PR was opened by this loop',
+        debounceMs: 60_000,
+      }),
+    ).toEqual({
+      type: 'event',
+      eventSource: 'github:ci-failed',
+      eventFilter: { repo: 'sero' },
+      eventCondition: 'the failing PR was opened by this loop',
+      debounceMs: 60_000,
+    });
+  });
 });
 
 describe('toSharedDefinition', () => {

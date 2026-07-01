@@ -13,8 +13,10 @@ import type {
   ContextOverrides,
   CreateLoopOptions,
   Loop,
+  LoopRun,
   OrchestratorAction,
   OrchestratorActionResult,
+  OrchestratorEvent,
   OrchestratorState,
 } from '../shared/types';
 import { DEFAULT_STATE } from '../shared/defaults';
@@ -26,12 +28,14 @@ import { runPlanningFlow } from './planning-flow';
 import { RunEngine } from './run-engine';
 import type { EngineDeps } from './engine-types';
 import { reconcileAll } from './reconcile';
-import { applyRecovery, retryStep, retryStuckLoop } from './recovery-apply';
+import { applyRecovery } from './recovery-apply';
 import { buildRevisedLoop } from './revise';
 import { handleReflectAction } from './reflect-actions';
 import { handleLibraryAction, isLibraryAction } from './library-actions';
 import { applyAnswerInput } from './input-actions';
-import { evaluateCronTriggers, fireEventTriggers, isRecurring, rearmLoop, reenableSchedule } from './scheduler';
+import { evaluateCronTriggers, isRecurring, rearmLoop } from './scheduler';
+import { broadcastEvent, drainPendingEvent, type CoordinatorRunSeam } from './event-delivery';
+import { retryLoop, retryStepAction, runAgain } from './restart-actions';
 import { computeReadySteps, hasRunningSteps } from './readiness';
 import type { PlanRevision, RecoveryDecision } from '../shared/types';
 
@@ -69,6 +73,11 @@ export class Coordinator {
       if (due) dueLoopIds.push(loop.id);
     }
     for (const loopId of dueLoopIds) await this.fireScheduled(loopId);
+    // Restart safety: an event stashed while the loop was busy (or while the
+    // app was quitting) still owes the loop a fresh iteration — consume it.
+    for (const loop of state.loops) {
+      if (loop.runtime.pendingEvent) await this.drainPendingEvent(loop.id);
+    }
   }
 
   /** Runs one scheduled iteration as a fresh pass. */
@@ -94,14 +103,28 @@ export class Coordinator {
     return this.runNext(loop.id, rearmed);
   }
 
-  /** Fires event/hybrid triggers for a loop and runs it if newly due. */
-  async fireEvent(loopId: string, eventSource: string): Promise<OrchestratorActionResult> {
-    const loop = await this.findLoop(loopId);
-    if (!loop) return { ok: false, error: `Loop not found: ${loopId}` };
-    const { loop: updated, due } = fireEventTriggers(loop, eventSource, Date.parse(this.host.now()));
-    await this.replaceLoop(updated);
-    if (due && updated.status === 'active') return this.runNext(loopId, updated);
-    return { ok: true, loop: updated };
+  /**
+   * Broadcasts one event to every active loop (Living Loops, spec 12).
+   * Semantics live in event-delivery.ts; the seam keeps the coordinator the
+   * only component that starts runs.
+   */
+  fireEvent(event: OrchestratorEvent): Promise<void> {
+    return broadcastEvent(this.host, this.runSeam(), event);
+  }
+
+  /** Consumes a stashed pending event once the loop is idle (event-delivery.ts). */
+  private drainPendingEvent(loopId: string): Promise<void> {
+    return drainPendingEvent(this.host, this.runSeam(), loopId);
+  }
+
+  /** The coordinator internals event delivery reaches back through. */
+  private runSeam(): CoordinatorRunSeam {
+    return {
+      isRunning: (loopId) => this.running.has(loopId),
+      findLoop: (loopId) => this.findLoop(loopId),
+      replaceLoop: (loop) => this.replaceLoop(loop),
+      runNext: (loopId, known) => this.runNext(loopId, known),
+    };
   }
 
   async requestAction(action: OrchestratorAction): Promise<OrchestratorActionResult> {
@@ -330,38 +353,9 @@ export class Coordinator {
     return this.runNext(loopId, loop);
   }
 
-  /**
-   * Restart: re-run the whole plan from the first step. Re-arms every step
-   * (back to pending, attempts cleared, run context and block/completion cleared),
-   * drops the previous worktree (its branch/PR is kept), re-enables any disabled
-   * schedule, sets the loop active, and runs a fresh pass now.
-   *
-   * Available from any loop the user might want to restart — completed, blocked,
-   * or disabled (and an idle active loop) — so a loop is never a dead end: a
-   * blocked loop can be re-run to make a different choice this time. Refused only
-   * for a never-started draft (use Activate) or while a run is in flight.
-   */
-  async runAgain(loopId: string): Promise<OrchestratorActionResult> {
-    const loop = await this.findLoop(loopId);
-    if (!loop) return { ok: false, error: `Loop not found: ${loopId}` };
-    if (loop.status === 'draft') {
-      return { ok: false, error: 'This loop has not started yet — use Activate.' };
-    }
-    if (loop.runtime.activeRunId || hasRunningSteps(loop)) {
-      return { ok: false, error: 'A run is already in progress — disable it first, then restart.' };
-    }
-    const now = this.host.now();
-    // Drop the previous run's worktree (its branch/PR is kept) before a fresh pass.
-    const prior = loop.runtime.workspace.resolved;
-    if (prior?.type === 'managed-worktree') {
-      await this.host.removeWorktree(prior.worktreeKey ?? loopId, { force: true });
-    }
-    const reactivated: Loop = {
-      ...rearmLoop({ ...loop, triggers: reenableSchedule(loop, now) }, now),
-      status: 'active',
-    };
-    await this.replaceLoop(reactivated);
-    return this.runNext(loopId, reactivated);
+  /** Restart the whole plan from the first step (restart-actions.ts). */
+  runAgain(loopId: string): Promise<OrchestratorActionResult> {
+    return runAgain(this.host, this.runSeam(), loopId);
   }
 
   async runNext(loopId: string, known?: Loop): Promise<OrchestratorActionResult> {
@@ -384,16 +378,20 @@ export class Coordinator {
     }
     const controller = new AbortController();
     this.running.set(loopId, controller);
+    let run: LoopRun | undefined;
     try {
-      const result = await this.engine.run(loopId, controller.signal);
-      const updated = await this.findLoop(loopId);
-      return { ok: true, loop: updated, run: result.run };
+      run = (await this.engine.run(loopId, controller.signal)).run;
     } finally {
       // Clear the handle only if it is still ours (single-flight guarantees it).
       if (this.running.get(loopId) === controller) {
         this.running.delete(loopId);
       }
     }
+    // An event that fired while this run was in flight owes the loop a fresh
+    // iteration — consume the stash now that the loop is idle again.
+    await this.drainPendingEvent(loopId);
+    const updated = await this.findLoop(loopId);
+    return { ok: true, loop: updated, run };
   }
 
   /** Manual plan revision: ask the LLM for a revised plan, validate, and apply. */
@@ -409,38 +407,14 @@ export class Coordinator {
     return { ok: true, loop: outcome.loop };
   }
 
-  /**
-   * User-initiated retry of a stuck loop: resets its blocked/failed steps,
-   * clears the block, and runs the next ready step. Refuses while a run is in
-   * flight or when there is nothing to recover.
-   */
-  async retryLoop(loopId: string): Promise<OrchestratorActionResult> {
-    const loop = await this.findLoop(loopId);
-    if (!loop) return { ok: false, error: `Loop not found: ${loopId}` };
-    if (loop.runtime.activeRunId || hasRunningSteps(loop)) {
-      return { ok: false, error: 'A run is already in progress.' };
-    }
-    const retried = retryStuckLoop(loop, this.host.now());
-    if (!retried) return { ok: false, error: 'Nothing to retry — no blocked or failed steps.' };
-    await this.replaceLoop(retried);
-    return this.runNext(loopId, retried);
+  /** Retry a stuck loop's blocked/failed steps (restart-actions.ts). */
+  retryLoop(loopId: string): Promise<OrchestratorActionResult> {
+    return retryLoop(this.host, this.runSeam(), loopId);
   }
 
-  /**
-   * Retries a single blocked/failed step: resets that step (fresh attempt budget),
-   * clears the loop block, reactivates, and runs the loop on from there. Other
-   * steps are untouched, so finished work is never redone.
-   */
-  async retryStepAction(loopId: string, stepId: string): Promise<OrchestratorActionResult> {
-    const loop = await this.findLoop(loopId);
-    if (!loop) return { ok: false, error: `Loop not found: ${loopId}` };
-    if (loop.runtime.activeRunId || hasRunningSteps(loop)) {
-      return { ok: false, error: 'A run is already in progress.' };
-    }
-    const retried = retryStep(loop, stepId, this.host.now());
-    if (!retried) return { ok: false, error: `Step "${stepId}" is not blocked or failed.` };
-    await this.replaceLoop(retried);
-    return this.runNext(loopId, retried);
+  /** Retry a single blocked/failed step (restart-actions.ts). */
+  retryStepAction(loopId: string, stepId: string): Promise<OrchestratorActionResult> {
+    return retryStepAction(this.host, this.runSeam(), loopId, stepId);
   }
 
   /** Finds a loop, applies a pure { ok, loop } mapping, and persists it. Shared by the override handlers (next run). */

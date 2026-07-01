@@ -58,6 +58,7 @@ export function materializeTriggers(
       schedule: s.schedule,
       eventSource: s.eventSource,
       eventFilter: s.eventFilter,
+      eventCondition: s.eventCondition,
       debounceMs: s.debounceMs,
       maxFires: s.maxFires,
       fireCount: 0,

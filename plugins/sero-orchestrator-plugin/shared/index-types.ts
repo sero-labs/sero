@@ -8,7 +8,16 @@
  * specs/09-ui-redesign.md). Type-only imports keep the re-export cycle harmless.
  */
 
-import type { LoopStatus } from './types';
+import type {
+  CompletionSignal,
+  LoopRunStatus,
+  LoopStatus,
+  RecoveryDecisionKind,
+  StepAttemptStatus,
+  StepExecutionTarget,
+  StepOutcome,
+  UsageSummary,
+} from './types';
 import type { LoopAttention } from './attention-types';
 import type { LoopLibraryLink } from './library-types';
 
@@ -51,4 +60,36 @@ export interface LoopSummary {
 export interface OrchestratorIndex {
   version: 1;
   loops: LoopSummary[];
+}
+
+/**
+ * Compact per-run summary stored in `loops/<id>/runs/index.json`. Full runs live
+ * one-per-file (`runs/<runId>.json`) so a loop's frequent run writes never bloat
+ * loop.json; the UI reads this lightweight index to render run history without
+ * loading every run file.
+ */
+export interface LoopRunStepSummary {
+  stepId: string;
+  attemptNumber: number;
+  executionType: StepExecutionTarget['type'];
+  status: StepAttemptStatus;
+  outcomeStatus?: StepOutcome['status'];
+}
+
+export interface LoopRunSummary {
+  id: string;
+  runNumber: number;
+  status: LoopRunStatus;
+  startedAt: string;
+  endedAt?: string;
+  completionStatus?: CompletionSignal['status'];
+  steps: LoopRunStepSummary[];
+  recoveries: { decision: RecoveryDecisionKind; reason: string }[];
+  /** Rolled-up token/time totals across this run's attempts (cost when reported). */
+  usage?: UsageSummary;
+}
+
+export interface RunIndex {
+  version: 1;
+  runs: LoopRunSummary[];
 }

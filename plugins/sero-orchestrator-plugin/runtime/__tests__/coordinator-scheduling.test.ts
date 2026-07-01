@@ -63,16 +63,16 @@ describe('Coordinator scheduling (Phase 7)', () => {
     addTrigger(host, { id: 'e', loopId: 'loop-1', workspaceId: 'ws-1', type: 'event', eventSource: 'x', fireCount: 0 });
 
     const c = coordinator(host, { executor: fakeExecutor({ 'step-1': SUCCESS }) });
-    await c.fireEvent('loop-1', 'x');
+    await c.fireEvent({ id: 'evt-1', source: 'x', payload: {}, occurredAt: NOW });
     expect(host.state.loops[0].runtime.stepStates['step-1'].status).toBe('succeeded');
 
-    // Disable and fire again: the trigger marks due but the loop does not run.
+    // Disable and fire again: a disabled loop receives nothing.
     host.state = { ...host.state, loops: [{ ...host.state.loops[0], status: 'disabled', runtime: { ...host.state.loops[0].runtime, stepStates: { 'step-1': { status: 'pending', attempts: 0, updatedAt: 't' } } } }] };
-    await c.fireEvent('loop-1', 'x');
+    await c.fireEvent({ id: 'evt-2', source: 'x', payload: {}, occurredAt: NOW });
     expect(host.state.loops[0].runtime.stepStates['step-1'].status).toBe('pending');
   });
 
-  it('a trigger during an active run sets runtime.dueAgain instead of a second run', async () => {
+  it('events during an active run coalesce latest-wins into ONE fresh follow-up iteration', async () => {
     const host = createFakeHost();
     host.frozenNow = NOW;
     seedActiveLoop(host, oneStepPlan().plan);
@@ -83,12 +83,23 @@ describe('Coordinator scheduling (Phase 7)', () => {
     const running = c.runNext('loop-1');
     await Promise.resolve(); // let the run acquire the lock and reach the gate
     await new Promise((r) => setTimeout(r, 0));
-    await c.fireEvent('loop-1', 'x'); // arrives while the run holds the lock
-    expect(host.state.loops[0].runtime.dueAgain).toBe(true);
+    // Two events arrive while the run holds the lock: both count as fires, the
+    // stash keeps only the latest.
+    await c.fireEvent({ id: 'evt-1', source: 'x', payload: { n: 1 }, occurredAt: NOW });
+    await c.fireEvent({ id: 'evt-2', source: 'x', payload: { n: 2 }, occurredAt: NOW });
+    expect(host.state.loops[0].runtime.pendingEvent?.id).toBe('evt-2');
+    expect(host.state.loops[0].triggers[0].fireCount).toBe(2);
 
     release();
     await running;
-    expect(executor.calls).toEqual(['step-1']); // still only one execution
+    // Exactly one follow-up iteration, seeded with the latest event; the engine's
+    // mid-run snapshots did not clobber the stash or the fire counters.
+    expect(executor.calls).toEqual(['step-1', 'step-1']);
+    expect(host.state.loops[0].triggers[0].fireCount).toBe(2);
+    expect(host.state.loops[0].runtime.pendingEvent).toBeUndefined();
+    const lastRun = host.state.loops[0].runs.at(-1)!;
+    expect(lastRun.firedBy?.source).toBe('x');
+    expect(lastRun.observations.find((o) => o.source === 'event')?.data).toEqual({ n: 2 });
   });
 
   it('a recurring iteration that completes stays active and scheduled (does not finish forever)', async () => {
@@ -259,12 +270,12 @@ describe('Coordinator scheduling (Phase 7)', () => {
     addTrigger(host, { id: 'e', loopId: 'loop-1', workspaceId: 'ws-1', type: 'event', eventSource: 'x', fireCount: 0, maxFires: 1 });
     const c = coordinator(host, { executor: fakeExecutor({ 'step-1': SUCCESS }) });
 
-    await c.fireEvent('loop-1', 'x');
+    await c.fireEvent({ id: 'evt-1', source: 'x', payload: {}, occurredAt: NOW });
     expect(host.state.loops[0].triggers[0].fireCount).toBe(1);
     expect(host.state.loops[0].triggers[0].disabled).toBe(true);
 
     const before = host.state.loops[0].triggers[0].fireCount;
-    await c.fireEvent('loop-1', 'x');
+    await c.fireEvent({ id: 'evt-2', source: 'x', payload: {}, occurredAt: NOW });
     expect(host.state.loops[0].triggers[0].fireCount).toBe(before); // no further fire
   });
 });

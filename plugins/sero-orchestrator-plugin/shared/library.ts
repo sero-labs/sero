@@ -22,6 +22,7 @@ export function toSharedTrigger(trigger: LoopTrigger): SharedTriggerConfig {
     schedule: trigger.schedule,
     eventSource: trigger.eventSource,
     eventFilter: trigger.eventFilter,
+    eventCondition: trigger.eventCondition,
     debounceMs: trigger.debounceMs,
     maxFires: trigger.maxFires,
   };

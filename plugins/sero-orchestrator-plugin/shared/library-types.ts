@@ -15,6 +15,8 @@ export interface SharedTriggerConfig {
   schedule?: string;
   eventSource?: string;
   eventFilter?: Record<string, unknown>;
+  /** Natural-language condition judged by a model call at fire time (never parsed by code). */
+  eventCondition?: string;
   debounceMs?: number;
   maxFires?: number;
 }
