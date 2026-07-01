@@ -53,7 +53,8 @@ const referenceRuntime = [
   { text: 'Sero CLI', link: '/reference/sero-cli' },
   { text: 'State and Folders', link: '/reference/state-and-folders' },
   { text: 'models.json', link: '/reference/models-json' },
-  { text: 'Agent Definitions', link: '/reference/agent-definitions' }
+  { text: 'Agent Definitions', link: '/reference/agent-definitions' },
+  { text: 'Orchestrator', link: '/reference/orchestrator' }
 ];
 
 const referenceAuthors = [

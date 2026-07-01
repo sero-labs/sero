@@ -10,10 +10,12 @@ import type {
   CompletionSignal,
   Loop,
   StepAttempt,
+  StepCompletion,
   StepOutcome,
   StepRuntimeState,
 } from '../shared/types';
 import type { OrchestratorHost } from './host';
+import { finalizationStepId } from './readiness';
 import { isRecurring } from './scheduler';
 
 /** Maps a step outcome status to the matching step runtime status. */
@@ -72,6 +74,28 @@ export function applyStepOutcome(
   };
   const variables = mergeVariables(loop.runtime.variables, outcome.variables);
   return { ...loop, runtime: { ...loop.runtime, stepStates, variables }, updatedAt: now };
+}
+
+/**
+ * Whether a step's completion signal should end the loop. A `complete` signal is
+ * terminal ONLY from the finalization step (the single sink): a non-final step
+ * that slips one in is ignored, so the planned finalization/summary step still
+ * runs (the model sometimes declares the loop done a step early). A `blocked`
+ * signal is honored from any step — a step that genuinely cannot proceed should
+ * stop the loop. With no single sink, fall back to accepting it anywhere so the
+ * loop can still end.
+ */
+export function acceptsCompletion(
+  host: OrchestratorHost,
+  loop: Loop,
+  stepId: string,
+  completion: StepCompletion,
+): boolean {
+  if (completion.status === 'blocked') return true;
+  const finalId = finalizationStepId(loop);
+  if (finalId === undefined || finalId === stepId) return true;
+  host.log(`Loop ${loop.id}: ignored an early completion from non-final step "${stepId}" — deferring to "${finalId}".`);
+  return false;
 }
 
 export interface CompletionResult {

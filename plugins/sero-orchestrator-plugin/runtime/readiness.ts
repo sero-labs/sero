@@ -65,3 +65,19 @@ export function computeReadySteps(loop: Loop): string[] {
 export function hasRunningSteps(loop: Loop): boolean {
   return Object.values(loop.runtime.stepStates).some((s) => s.status === 'running');
 }
+
+/**
+ * The loop's finalization step — the single dependency-graph sink (the one step
+ * nothing else depends on). Only a planned step outcome emits completion (D-03),
+ * and a `complete` signal is honored ONLY from this step, so a mid-plan step that
+ * slips one in cannot short-circuit the remaining planned work. When the graph has
+ * several leaves we can't single one out, so this returns undefined and the engine
+ * falls back to accepting completion from any step (and no step is forced to emit
+ * one). Validation funnels every plan to a single sink, so this is normally set.
+ */
+export function finalizationStepId(loop: Loop): string | undefined {
+  const sinks = loop.plan.steps.filter(
+    (step) => !loop.plan.steps.some((s) => (s.dependsOn ?? []).includes(step.id)),
+  );
+  return sinks.length === 1 ? sinks[0].id : undefined;
+}

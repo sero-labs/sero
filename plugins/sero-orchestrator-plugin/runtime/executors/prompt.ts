@@ -10,6 +10,8 @@ import type { Loop, LoopStepDefinition, StepCompletion, StepOutcome } from '../.
 import { extractJson } from '../schema';
 import { describeValue, isRecord, type ParseResult } from '../structured-call';
 import { parseHumanQuestions } from '../human-input';
+import { formatRouteContract, routeVariableRequirements } from '../route-contract';
+import { finalizationStepId } from '../readiness';
 
 const STEP_STATUSES: readonly StepOutcome['status'][] = ['succeeded', 'failed', 'blocked', 'skipped', 'needs-revision'];
 
@@ -50,7 +52,7 @@ ASKING THE USER. If you genuinely cannot finish this step without a decision or 
 }
 \`\`\`
 
-The loop PAUSES until the user answers; this step then runs again with their answer added to the notes. Use this sparingly — only when proceeding without the answer would be wrong or unsafe. Each question needs a "prompt"; "choices" (a string array of quick options) is optional, and the user can always type a free-text answer. Record any work you already did in "variables"/"notes" before asking, since the step restarts from the top on resume. Do NOT ask for things you can find or decide yourself.`;
+The loop PAUSES until the user answers; this step then runs again with their answer added to the notes. Use this sparingly — only when proceeding without the answer would be wrong or unsafe. Each question needs a "prompt"; "choices" (a string array of quick options) is optional, and the user can always type a free-text answer. Record any work you already did in "variables"/"notes" before asking, since the step restarts from the top on resume. Do NOT ask for things you can find or decide yourself. Always ask THROUGH this "questions" array — never through a separate question/ask/confirm tool, which does not pause the loop and is not recorded; and never assume or invent the user's answer.`;
 
 /** Observations relevant to a step: the summaries of its dependencies' outcomes. */
 function dependencyContext(loop: Loop, step: LoopStepDefinition): string {
@@ -81,20 +83,6 @@ function openPullRequestsContext(loop: Loop, step: LoopStepDefinition): string {
   return `\nOpen pull requests already raised by this loop (do not duplicate work an open PR already covers — judge coverage yourself):\n${lines.join('\n')}`;
 }
 
-/**
- * The loop's finalization step is its single dependency-graph sink — the one
- * step nothing else depends on. Only a planned step outcome emits completion
- * (D-03), so that sink must decide it or the loop never ends. When the graph has
- * several leaves we can't single one out, so we leave it to the step's authored
- * instructions and don't force a completion signal anywhere.
- */
-function finalizationStepId(loop: Loop): string | undefined {
-  const sinks = loop.plan.steps.filter(
-    (step) => !loop.plan.steps.some((s) => (s.dependsOn ?? []).includes(step.id)),
-  );
-  return sinks.length === 1 ? sinks[0].id : undefined;
-}
-
 export function buildStepTask(loop: Loop, step: LoopStepDefinition): string {
   const parts = [`Loop objective: ${loop.plan.objective}`];
   if (loop.plan.globalInstructions) parts.push(`Global instructions: ${loop.plan.globalInstructions}`);
@@ -103,11 +91,15 @@ export function buildStepTask(loop: Loop, step: LoopStepDefinition): string {
   parts.push(dependencyContext(loop, step));
   parts.push(variablesContext(loop));
   parts.push(openPullRequestsContext(loop, step));
+  parts.push(formatRouteContract(routeVariableRequirements(loop, step)));
   if (step.execution.type === 'model' && step.execution.outputSchema !== undefined) {
     parts.push(`\nReturn output matching this schema (include it in the StepOutcome variables):\n${JSON.stringify(step.execution.outputSchema, null, 2)}`);
   }
-  if (finalizationStepId(loop) === step.id) {
+  const finalId = finalizationStepId(loop);
+  if (finalId === step.id) {
     parts.push('\nThis is the loop\'s FINAL step — nothing runs after it, so the loop only ends if you end it here. After doing the work, judge whether the loop\'s overall objective is now fully met, then include a "completion" object in your StepOutcome: { "status": "complete", "reason": ... } if it is met, or { "status": "blocked", "reason": ... } if it cannot be. Without a completion signal the loop never finishes.');
+  } else if (finalId !== undefined) {
+    parts.push('\nThis is NOT the loop\'s final step — do NOT include a "completion" object; a later finalization step decides when the whole loop is done. (If you genuinely cannot proceed, report it with your "status", not a completion.)');
   }
   parts.push('\nWhen finished, end your reply with the StepOutcome JSON block (exact fields: "status", "summary") in a ```json fence, and nothing after it.');
   return parts.filter(Boolean).join('\n');

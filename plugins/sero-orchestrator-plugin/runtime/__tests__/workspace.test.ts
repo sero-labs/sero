@@ -30,10 +30,11 @@ describe('workspace resolution', () => {
   it('managed-worktree loops create a worktree without a dirty prompt', async () => {
     const host = createFakeHost();
     host.workspaceStatus = { isGitRepository: true, hasUncommittedChanges: true, summary: 'dirty' };
-    const loop = seedActiveLoop(host, oneStepPlan().plan);
+    const seeded = seedActiveLoop(host, oneStepPlan().plan);
+    const loop: Loop = { ...seeded, runtime: { ...seeded.runtime, runSeq: 1 } };
     const result = await resolve(host, loop);
     expect(result.workspace?.type).toBe('managed-worktree');
-    expect(host.worktreesCreated).toEqual(['loop-1']);
+    expect(host.worktreesCreated).toEqual(['loop-1-r1']); // per-run branch
     expect(host.choiceRequests).toHaveLength(0); // no dirty prompt for managed worktree
   });
 
@@ -133,9 +134,12 @@ describe('workspace resolution', () => {
 });
 
 describe('worktreeKeyFor', () => {
-  it('uses the loop id for a one-shot loop', () => {
+  it('keys a one-shot loop by its run counter so each fresh run gets its own branch (not a reuse of the prior run)', () => {
     const host = createFakeHost();
-    expect(worktreeKeyFor(seedActiveLoop(host, oneStepPlan().plan))).toBe('loop-1');
+    const loop = seedActiveLoop(host, oneStepPlan().plan);
+    expect(worktreeKeyFor({ ...loop, runtime: { ...loop.runtime, runSeq: 1 } })).toBe('loop-1-r1');
+    // A manual "Run again" increments the counter → a new branch off base, not r1 reused.
+    expect(worktreeKeyFor({ ...loop, runtime: { ...loop.runtime, runSeq: 2 } })).toBe('loop-1-r2');
   });
 
   it('keys a recurring iteration by the monotonic run counter, not runs.length', () => {
