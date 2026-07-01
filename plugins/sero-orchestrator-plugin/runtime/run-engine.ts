@@ -13,7 +13,8 @@ import type { OrchestratorHost } from './host';
 import type { EngineDeps } from './engine-types';
 import { computeReadySteps, hasRunningSteps, validateRuntime } from './readiness';
 import { resolveBranchSkips } from './branching';
-import { applyStepOutcome, recordCompletion } from './outcomes';
+import { enforceRouteContract } from './route-contract';
+import { acceptsCompletion, applyStepOutcome, recordCompletion } from './outcomes';
 import { parkForInput } from './human-input';
 import { notifyOutcome } from './notify-outcome';
 import { applyRecovery } from './recovery-apply';
@@ -238,7 +239,10 @@ export class RunEngine {
     for (let i = 0; i < steps.length; i += 1) {
       const step = steps[i];
       const attempt = attempts[i];
-      const outcome = await this.resolveOutcome(loop, step, attempt);
+      // A "succeeded" step that didn't record a routing variable a later step
+      // branches on becomes needs-revision, so recovery handles it instead of the
+      // branch silently skipping and the loop completing having done nothing.
+      const outcome = enforceRouteContract(loop, step, await this.resolveOutcome(loop, step, attempt));
       const recorded: StepAttempt = { ...attempt, outcome };
       run = { ...run, stepAttempts: [...run.stepAttempts, recorded], observations: [...run.observations, ...recorded.observations] };
       if (recorded.modelFallback) {
@@ -349,7 +353,9 @@ export class RunEngine {
     outcome: StepOutcome,
   ): { loop: Loop; run: LoopRun; completed: boolean } {
     loop = applyStepOutcome(loop, stepId, attempt, outcome, this.host.now());
-    if (!outcome.completion) return { loop, run, completed: false };
+    if (!outcome.completion || !acceptsCompletion(this.host, loop, stepId, outcome.completion)) {
+      return { loop, run, completed: false };
+    }
     const completed = recordCompletion(this.host, loop, stepId, attempt, outcome);
     return {
       loop: completed.loop,

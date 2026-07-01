@@ -23,8 +23,8 @@ describe('Phase 4 — execution + workspace isolation + limits', () => {
     seedActiveLoop(host, oneStepPlan().plan);
     host.modelResponses.push({ response: ok() });
     await engineFor(host).run('loop-1');
-    expect(host.worktreesCreated).toEqual(['loop-1']);
-    expect(host.modelCalls[0].cwd).toBe(`${host.workspacePath}/.sero/worktrees/loop-1`);
+    expect(host.worktreesCreated).toEqual(['loop-1-r1']); // per-run branch (run 1)
+    expect(host.modelCalls[0].cwd).toBe(`${host.workspacePath}/.sero/worktrees/loop-1-r1`);
     expect(host.state.loops[0].runtime.stepStates['step-1'].status).toBe('succeeded');
   });
 
@@ -33,7 +33,7 @@ describe('Phase 4 — execution + workspace isolation + limits', () => {
     seedActiveLoop(host, sequentialPlan().plan);
     host.modelResponses.push({ response: ok() }, { response: ok() });
     await engineFor(host).run('loop-1');
-    expect(host.worktreesCreated).toEqual(['loop-1']); // created once, reused
+    expect(host.worktreesCreated).toEqual(['loop-1-r1']); // created once for the run, reused across steps
   });
 
   it('does not prompt for a dirty root when using a managed worktree', async () => {
@@ -43,7 +43,7 @@ describe('Phase 4 — execution + workspace isolation + limits', () => {
     host.modelResponses.push({ response: ok() });
     await engineFor(host).run('loop-1');
     expect(host.choiceRequests).toHaveLength(0);
-    expect(host.worktreesCreated).toEqual(['loop-1']);
+    expect(host.worktreesCreated).toEqual(['loop-1-r1']);
   });
 
   it('runs a workspace-root loop in the root when clean', async () => {
@@ -65,7 +65,7 @@ describe('Phase 4 — execution + workspace isolation + limits', () => {
     host.modelResponses.push({ response: ok() });
     await engineFor(host).run('loop-1');
     expect(host.choiceRequests).toHaveLength(1);
-    expect(host.modelCalls[0].cwd).toBe(`${host.workspacePath}/.sero/worktrees/loop-1`);
+    expect(host.modelCalls[0].cwd).toBe(`${host.workspacePath}/.sero/worktrees/loop-1-r1`);
   });
 
   it('stash choice runs in the workspace root', async () => {

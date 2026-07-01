@@ -155,9 +155,29 @@ export interface LoopStepDefinition {
 ```
 
 `produces` is advisory for validation/UI; the runtime source of truth is whatever
-the step actually records in `variables`. If a step declares `produces:["route"]`
-but never sets `route`, guards on `route` find no value → not taken → those steps
-skip. No silent coercion.
+the step actually records in `variables`. But a step that declares
+`produces:["route"]`, **succeeds**, and never sets `route` is a contract
+violation, not a route decision — left unchecked, guards on `route` find no value,
+every branch skips, and the loop can *complete having done nothing* (the worst
+failure mode). So the routing-variable contract is **enforced**, defence in depth,
+by [route-contract.ts](../../../../plugins/sero-orchestrator-plugin/runtime/route-contract.ts):
+
+1. **Author** — the producing step's task lists the routing variables it MUST
+   record and the values downstream guards test (`buildStepTask`), and the planner
+   is told to make the judge's *instructions* demand them explicitly.
+2. **Repair** — if a `succeeded` reply omits a guard-relevant produced variable,
+   the same subagent session is re-prompted for it in-session (the executor's
+   outcome repair), while it still has its context.
+3. **Backstop** — if it is still missing, `enforceRouteContract` rewrites the
+   `succeeded` outcome to `needs-revision` (keeping whatever it did record), so
+   the normal recovery path handles it instead of a hollow success.
+
+This applies **only** to a step that *succeeded* and *declared* the variable in
+`produces` while a guard reads it. The legitimate "unset" case — a judge that was
+itself **skipped** on an un-taken outer branch, so its nested routing variable was
+never set — is untouched: its producer never succeeded, so nothing is enforced and
+the inner branch skips for free (see Engine behavior below). A `produces` entry no
+guard reads stays purely informational.
 
 > Open decision to confirm: `produces` is the one small structural addition beyond
 > pure convention. It is what lets the validator check "a guard's variable is

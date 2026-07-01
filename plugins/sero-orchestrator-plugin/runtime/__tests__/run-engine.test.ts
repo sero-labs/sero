@@ -97,6 +97,33 @@ describe('RunEngine', () => {
     expect(loop.runtime.completion?.status).toBe('complete');
   });
 
+  it('ignores an early completion from a non-final step and still runs the planned final step', async () => {
+    const host = createFakeHost();
+    seedActiveLoop(host, sequentialPlan().plan); // a -> b; b is the single sink (finalization step)
+    const executor = fakeExecutor({
+      // 'a' wrongly declares the whole loop done — exactly the deliver-step slip.
+      a: { status: 'succeeded', summary: 'delivered', completion: { status: 'complete', reason: 'looks done' } },
+      b: { status: 'succeeded', summary: 'summary', completion: { status: 'complete', reason: 'finalized' } },
+    });
+    await new RunEngine(host, deps({ executor })).run('loop-1');
+    const loop = loopOf(host);
+    expect(executor.calls).toEqual(['a', 'b']); // the final summary step still ran
+    expect(loop.status).toBe('complete');
+    expect(loop.runtime.completion?.sourceStepId).toBe('b'); // completed at the sink, not at 'a'
+  });
+
+  it('honors an early blocked completion from any step', async () => {
+    const host = createFakeHost();
+    seedActiveLoop(host, sequentialPlan().plan);
+    const executor = fakeExecutor({
+      a: { status: 'succeeded', summary: 'cannot proceed', completion: { status: 'blocked', reason: 'needs a human' } },
+    });
+    await new RunEngine(host, deps({ executor })).run('loop-1');
+    const loop = loopOf(host);
+    expect(executor.calls).toEqual(['a']); // stopped at 'a' — blocking is honored anywhere
+    expect(loop.status).toBe('blocked');
+  });
+
   it('does not complete when all steps succeed without a completion signal', async () => {
     const host = createFakeHost();
     seedActiveLoop(host, oneStepPlan().plan);
@@ -306,5 +333,26 @@ describe('RunEngine — branching', () => {
     expect(loop.runtime.stepStates.a.status).toBe('skipped');
     expect(loop.runtime.stepStates.b.status).toBe('skipped');
     expect(loop.runtime.stepStates.end.status).toBe('succeeded');
+  });
+
+  it('does not silently complete when the judge succeeds but omits its routing variable', async () => {
+    const host = createFakeHost();
+    seedActiveLoop(host, branchPlan);
+    // The judge reports success but records a differently-named variable instead
+    // of `route` — the exact failure that let a loop "complete" doing nothing.
+    const executor = fakeExecutor({
+      judge: { status: 'succeeded', summary: 'classified', variables: { classification: 'x' } },
+      a: SUCCESS,
+      b: SUCCESS,
+      end: SUCCESS,
+    });
+    await new RunEngine(host, deps({ executor, decider: fakeDecider({ decision: 'wait' }) })).run('loop-1');
+    const loop = loopOf(host);
+    // The hollow success became needs-revision and recovery (wait) parked it —
+    // the branch steps never ran and the loop did NOT complete.
+    expect(loop.runtime.stepStates.judge.status).toBe('needs-revision');
+    expect(executor.calls).toEqual(['judge']);
+    expect(loop.status).toBe('active');
+    expect(loop.runs[0].recoveryDecisions).toHaveLength(1);
   });
 });

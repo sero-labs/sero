@@ -6,26 +6,34 @@
  */
 
 import { isModelTier } from '@sero-ai/common';
-import type { Observation, StepAttempt, StepOutcome, UsageSummary } from '../../shared/types';
+import type { Loop, LoopStepDefinition, Observation, StepAttempt, StepOutcome, UsageSummary } from '../../shared/types';
 import { DEFAULT_TOOLS } from '../../shared/constants';
 import type { StepRunInput } from '../engine-types';
 import { artifactPath, storeOutput } from '../artifacts';
 import { extractJson } from '../schema';
 import { resolveStepModel, type ResolvedStepModel } from '../model-resolution';
 import { buildOutcomeRepair, buildStepTask, parseStepOutcome, parseStepOutcomeStrict, STEP_SYSTEM_PROMPT } from './prompt';
+import { formatRouteRepair, missingRouteVariables } from '../route-contract';
 
 /**
- * In-session repair: if the step's reply isn't a valid StepOutcome, the same
- * subagent session is re-prompted (up to 2 follow-ups) for a corrected envelope
- * — far cheaper than spawning a separate evaluator subagent.
+ * In-session repair: if the step's reply isn't a valid StepOutcome — or a
+ * `succeeded` reply omits a routing variable a later step branches on — the same
+ * subagent session is re-prompted (up to 2 follow-ups) for a corrected envelope,
+ * far cheaper than spawning a separate evaluator subagent. Enforcing the routing
+ * contract here catches the omission while the agent still has its context, so a
+ * branch is decided rather than silently skipped.
  */
-const OUTCOME_REPAIR = {
-  maxAttempts: 2,
-  validate: (reply: string): string | null => {
-    const parsed = parseStepOutcomeStrict(extractJson(reply));
-    return parsed.ok ? null : buildOutcomeRepair(parsed.errors);
-  },
-};
+function outcomeRepair(loop: Loop, step: LoopStepDefinition) {
+  return {
+    maxAttempts: 2,
+    validate: (reply: string): string | null => {
+      const parsed = parseStepOutcomeStrict(extractJson(reply));
+      if (!parsed.ok) return buildOutcomeRepair(parsed.errors);
+      const missing = missingRouteVariables(loop, step, parsed.value);
+      return missing.length > 0 ? formatRouteRepair(missing) : null;
+    },
+  };
+}
 
 export interface RunStepOptions {
   platformTools: 'all' | 'readOnly' | 'none';
@@ -100,7 +108,7 @@ export async function runStepAttempt(input: StepRunInput, options: RunStepOption
     disabledTools: ctxOverride?.disabledTools,
     disabledSkills: ctxOverride?.disabledSkills,
     signal,
-    repair: OUTCOME_REPAIR,
+    repair: outcomeRepair(loop, step),
   });
 
   const stored = await storeOutput(host, loop.logPolicy, artifactPath(loop.id, run.id, `${step.id}-a${attemptNumber}.txt`), result.response);

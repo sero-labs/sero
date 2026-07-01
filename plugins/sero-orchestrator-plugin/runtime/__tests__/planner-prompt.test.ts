@@ -37,4 +37,10 @@ describe('PLANNING_SYSTEM_PROMPT', () => {
     expect(PLANNING_SYSTEM_PROMPT).toContain('STEP AGENT');
     expect(PLANNING_SYSTEM_PROMPT).toContain('execution.agent');
   });
+
+  it('steers human approval gates to the durable StepOutcome questions path, not an ask tool', () => {
+    expect(PLANNING_SYSTEM_PROMPT).toContain('HUMAN APPROVAL / INPUT GATES');
+    expect(PLANNING_SYSTEM_PROMPT).toContain('StepOutcome "questions"');
+    expect(PLANNING_SYSTEM_PROMPT).toMatch(/do NOT add an interactive/i);
+  });
 });

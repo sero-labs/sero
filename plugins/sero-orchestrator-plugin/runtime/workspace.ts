@@ -13,17 +13,21 @@
 import type { DirtyWorkspaceDecision, Loop, ResolvedWorkspaceContext } from '../shared/types';
 import type { OrchestratorHost } from './host';
 import type { WorkspaceResolver } from './engine-types';
-import { isRecurring } from './scheduler';
 
 /**
- * Worktree key for a loop. One-shot loops use the loop id. Recurring loops use a
- * per-iteration key so each scheduled run gets its own branch and pull request
- * (and re-arm removes the prior iteration's worktree). The iteration number is
- * the monotonic run counter — NOT `runs.length`, which repeats once run-history
- * pruning caps it and would reuse a worktree key/branch across iterations.
+ * Per-RUN worktree key for a loop. EVERY fresh run — a scheduled iteration or a
+ * manual "Run again"/Restart — gets its own branch off the base, rather than
+ * reusing the previous run's branch. Reuse was the bug: a one-shot loop keyed by
+ * `loop.id` re-created its worktree on the SAME branch, which still held that
+ * run's commits, so a re-run saw the work as "already done", asked to approve
+ * changes already committed, and classified inconsistently. Each run now starts
+ * clean; prior runs' branches and PRs are preserved untouched (and a branch still
+ * embeds the loop id, so PR reconciliation keeps matching them). The iteration
+ * number is the monotonic run counter — NOT `runs.length`, which repeats once
+ * run-history pruning caps it and would reuse a branch across runs.
  */
 export function worktreeKeyFor(loop: Loop): string {
-  return isRecurring(loop) ? `${loop.id}-r${loop.runtime.runSeq ?? loop.runs.length}` : loop.id;
+  return `${loop.id}-r${loop.runtime.runSeq ?? loop.runs.length}`;
 }
 
 const DIRTY_CHOICES = [

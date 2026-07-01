@@ -164,8 +164,13 @@ New loops default to `useManagedWorktree: true`.
 
 If the registered workspace root is clean:
 
-- `useManagedWorktree: true` creates or reuses one managed worktree for the
-  loop and uses that cwd for background-agent filesystem work;
+- `useManagedWorktree: true` creates or reuses one managed worktree **per run**
+  (keyed by the monotonic run counter — `worktreeKeyFor`) and uses that cwd for
+  background-agent filesystem work. Each fresh run — a scheduled iteration or a
+  manual "Run again"/Restart — gets its own branch off the base, so a re-run
+  starts clean instead of reusing the previous run's branch (which still holds
+  its commits); prior runs' branches and PRs are preserved untouched. Within a
+  run the worktree is created once and reused across steps;
 - `useManagedWorktree: false` uses the registered workspace root.
 
 If `useManagedWorktree: true`, Orchestrator does not prompt about dirty
@@ -265,9 +270,23 @@ clear final step always has a way to end. When a plan has several leaf steps no
 single sink can be identified, and completion is left to the authored step
 instructions.
 
-Only a step outcome with `completion.status === "complete"` moves the loop to
-`complete`. A step outcome with `completion.status === "blocked"` moves the loop
-to `blocked` with `runtime.block.kind = "planned-block"`.
+A `complete` signal is honored **only from that finalization step**, enforced
+defence-in-depth (`acceptsCompletion` in
+[outcomes.ts](../../../../plugins/sero-orchestrator-plugin/runtime/outcomes.ts),
+gated by `finalizationStepId`): the task builder tells every non-final step *not*
+to emit a completion, and the engine ignores a `complete` slipped in by a
+non-final step (logging it) so the planned finalization/summary step still runs.
+The model sometimes decides the loop is done one step early (e.g. on the
+deliver/commit step) — without this gate that short-circuits the plan and skips
+the remaining planned work. A `blocked` signal is still honored from **any** step:
+a step that genuinely cannot proceed should stop the loop. When no single sink can
+be identified the gate falls back to accepting completion anywhere, so the loop
+can still end.
+
+Only a step outcome with `completion.status === "complete"` (from the
+finalization step) moves the loop to `complete`. A step outcome with
+`completion.status === "blocked"` moves the loop to `blocked` with
+`runtime.block.kind = "planned-block"`.
 
 If a step outcome includes `variables`, Orchestrator shallow-merges those keys
 into `runtime.variables` after accepting the outcome.
