@@ -10,7 +10,7 @@
  * path (so the coordinator stays small and both behave identically).
  */
 
-import type { AnsweredInput, CreateLoopOptions, Loop } from '../shared/types';
+import type { AnsweredInput, CreateLoopOptions, Loop, SharedLoopDefinition } from '../shared/types';
 import { effectiveDelivery } from '../shared/delivery-types';
 import type { OrchestratorHost } from './host';
 import { planLoop } from './planner';
@@ -25,6 +25,8 @@ export interface PlanningFlowArgs {
   title?: string;
   /** Answered planner clarifications folded into a re-plan. */
   clarifications?: { prompt: string; answer: string }[];
+  /** Catalog installs: the curated definition the planner adapts (spec 14). */
+  baseline?: SharedLoopDefinition;
 }
 
 /** Flattens the loop's answered PLANNER inputs into prompt/answer pairs for a re-plan. */
@@ -58,6 +60,7 @@ export async function runPlanningFlow(host: OrchestratorHost, draft: Loop, args:
     toolCatalog,
     agentCatalog,
     clarifications: args.clarifications,
+    baseline: args.baseline,
   });
 
   if (!outcome.ok && outcome.needsInput) {

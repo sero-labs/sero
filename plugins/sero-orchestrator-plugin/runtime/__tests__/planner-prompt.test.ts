@@ -96,3 +96,29 @@ describe('PLANNING_SYSTEM_PROMPT', () => {
     expect(PLANNING_SYSTEM_PROMPT).toContain('or where results ship (the delivery destination)');
   });
 });
+
+describe('buildPlanningTask catalog baseline (spec 14 adaptation)', () => {
+  it('omits the baseline block for ordinary planning', () => {
+    expect(buildPlanningTask(baseArgs)).not.toContain('ADAPTING AN INSTALLED CATALOG LOOP');
+  });
+
+  it('renders the curated definition and the adapt-not-redesign instruction', () => {
+    const task = buildPlanningTask({
+      ...baseArgs,
+      baseline: {
+        schemaVersion: 1,
+        prompt: 'p',
+        title: 'CI fixer',
+        summary: 's',
+        plan: { schemaVersion: 1, revision: 0, objective: 'fix ci', steps: [] },
+        triggers: [{ type: 'event', eventSource: 'github:ci-failed' }],
+        limits: {} as never,
+        logPolicy: {} as never,
+      },
+    });
+    expect(task).toContain('ADAPTING AN INSTALLED CATALOG LOOP');
+    expect(task).toContain('"CI fixer"');
+    expect(task).toContain('github:ci-failed');
+    expect(task).toContain('clarifyingQuestions');
+  });
+});

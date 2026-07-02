@@ -9,7 +9,7 @@
  */
 
 import type { ContextAgentInfo, ContextToolInfo } from '@sero-ai/common';
-import type { HumanQuestion, LoopDeliverySettings, PlanningResponse } from '../shared/types';
+import type { HumanQuestion, LoopDeliverySettings, PlanningResponse, SharedLoopDefinition } from '../shared/types';
 import type { OrchestratorHost } from './host';
 import { PLANNING_SYSTEM_PROMPT, buildPlanningTask, buildRepairTask } from './planner-prompt';
 import { extractJson, validatePlanningResponse } from './schema';
@@ -29,6 +29,8 @@ export interface PlanRequest {
   agentCatalog?: ContextAgentInfo[];
   /** Answered clarifying questions folded into a re-plan. */
   clarifications?: { prompt: string; answer: string }[];
+  /** Catalog installs: the curated definition the plan adapts (spec 14). */
+  baseline?: SharedLoopDefinition;
   model?: string;
   thinking?: string;
   signal?: AbortSignal;
@@ -84,6 +86,7 @@ export async function planLoop(host: OrchestratorHost, req: PlanRequest): Promis
       toolCatalog: req.toolCatalog,
       clarifications: req.clarifications,
       agentCatalog: req.agentCatalog,
+      baseline: req.baseline,
     }));
   } catch (error) {
     return { ok: false, errors: [`planning model call failed: ${asMessage(error)}`], modelResponses };

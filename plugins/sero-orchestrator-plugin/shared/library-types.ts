@@ -40,6 +40,14 @@ export interface SharedLoopDefinition {
   delivery?: LoopDeliverySettings;
 }
 
+/** Where a library version came from when installed from a catalog (spec 14). */
+export interface CatalogProvenance {
+  repoKey: string;
+  slug: string;
+  /** The catalog entry's own monotonic version this library version mirrors. */
+  catalogVersion: number;
+}
+
 /** One immutable, monotonically numbered version of an entry. */
 export interface LibraryVersion {
   version: number;
@@ -48,7 +56,19 @@ export interface LibraryVersion {
   note?: string;
   /** Provenance only — the workspace this version was saved from. */
   savedFromWorkspaceId?: string;
+  /** Provenance only — set when this version was installed from a catalog. */
+  catalog?: CatalogProvenance;
   createdAt: string;
+}
+
+/**
+ * The entry's latest catalog install, denormalized for lookup ("which entry
+ * owns this repoKey+slug?") and the UI's "installed" marker. The per-version
+ * `catalog` field stays authoritative.
+ */
+export interface CatalogInstallMarker extends CatalogProvenance {
+  /** The library version that catalog version landed as. */
+  libraryVersion: number;
 }
 
 export interface LibraryEntry {
@@ -57,6 +77,7 @@ export interface LibraryEntry {
   name: string;
   summary: string;
   latestVersion: number;
+  catalog?: CatalogInstallMarker;
   createdAt: string;
   updatedAt: string;
 }
@@ -68,6 +89,7 @@ export interface LibraryEntrySummary {
   summary: string;
   latestVersion: number;
   versionCount: number;
+  catalog?: CatalogInstallMarker;
   updatedAt: string;
 }
 

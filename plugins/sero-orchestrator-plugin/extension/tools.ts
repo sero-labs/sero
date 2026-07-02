@@ -49,6 +49,11 @@ export const ORCHESTRATOR_ACTIONS = [
   'library_set_version',
   'library_unlink',
   'library_delete',
+  'catalog_list',
+  'catalog_add_repo',
+  'catalog_remove_repo',
+  'catalog_refresh',
+  'catalog_install',
   'delete',
 ] as const;
 
@@ -85,6 +90,10 @@ export const OrchestratorToolParams = Type.Object({
   note: Type.Optional(Type.String({ description: 'For library_save: an optional one-line "what changed" note on the version' })),
   entryId: Type.Optional(Type.String({ description: 'For library_load/library_delete: the library entry id' })),
   version: Type.Optional(Type.Number({ description: 'For library_load (defaults to latest) or library_set_version (required): the entry version' })),
+  url: Type.Optional(Type.String({ description: 'For catalog_add_repo: the catalog git repo URL (https or git@; private repos use your ambient git credentials)' })),
+  repoKey: Type.Optional(Type.String({ description: 'For catalog_remove_repo/catalog_install (and optionally catalog_refresh): the catalog repo key from catalog_list' })),
+  slug: Type.Optional(Type.String({ description: 'For catalog_install: the catalog entry slug' })),
+  workspaceLoad: Type.Optional(Type.Boolean({ description: 'For catalog_install: also create a draft loop in this workspace (default true; false = library entry only)' })),
 });
 
 export interface OrchestratorToolParamsShape {
@@ -115,6 +124,10 @@ export interface OrchestratorToolParamsShape {
   note?: string;
   entryId?: string;
   version?: number;
+  url?: string;
+  repoKey?: string;
+  slug?: string;
+  workspaceLoad?: boolean;
 }
 
 interface ToolResult {
@@ -276,6 +289,20 @@ export function buildAction(params: OrchestratorToolParamsShape): OrchestratorAc
     case 'library_delete':
       if (!params.entryId) return { error: 'library_delete requires an entryId' };
       return { kind: 'library_delete', entryId: params.entryId };
+    case 'catalog_list':
+      return { kind: 'catalog_list' };
+    case 'catalog_add_repo':
+      if (!params.url) return { error: 'catalog_add_repo requires a url' };
+      return { kind: 'catalog_add_repo', url: params.url };
+    case 'catalog_remove_repo':
+      if (!params.repoKey) return { error: 'catalog_remove_repo requires a repoKey' };
+      return { kind: 'catalog_remove_repo', repoKey: params.repoKey };
+    case 'catalog_refresh':
+      return { kind: 'catalog_refresh', repoKey: params.repoKey };
+    case 'catalog_install':
+      if (!params.repoKey) return { error: 'catalog_install requires a repoKey' };
+      if (!params.slug) return { error: 'catalog_install requires a slug' };
+      return { kind: 'catalog_install', repoKey: params.repoKey, slug: params.slug, workspaceLoad: params.workspaceLoad };
     case 'delete':
       if (!params.loopId) return { error: 'delete requires a loopId' };
       return { kind: 'delete', loopId: params.loopId, deleteBranch: params.deleteBranch };
@@ -324,6 +351,24 @@ function summarize(action: OrchestratorAction, res: OrchestratorActionResult): s
       return `Loop ${action.loopId} unlinked from the library.`;
     case 'library_delete':
       return `Deleted library entry ${action.entryId}.`;
+    case 'catalog_list': {
+      const entries = (res.catalogContents ?? []).reduce((n, c) => n + c.entries.length, 0);
+      return `${res.catalogRepos?.length ?? 0} catalog repo(s), ${entries} entr(ies). Fetch happens on demand — run catalog_refresh to pull.`;
+    }
+    case 'catalog_add_repo':
+      return `Added catalog repo ${action.url}. Run catalog_refresh to fetch it.`;
+    case 'catalog_remove_repo':
+      return `Removed catalog repo ${action.repoKey} (installed loops keep their library copies).`;
+    case 'catalog_refresh': {
+      const failed = (res.catalogRefresh ?? []).filter((r) => r.reason);
+      return failed.length === 0
+        ? `Refreshed ${res.catalogRefresh?.length ?? 0} catalog repo(s).`
+        : `Refreshed with issues: ${failed.map((r) => `${r.key} (${r.stale ? 'showing last-fetched copy' : 'never fetched'}: ${r.reason})`).join('; ')}.`;
+    }
+    case 'catalog_install':
+      return res.loop
+        ? `Installed "${res.loop.title}" as a draft loop ${res.loop.id} — ${res.loop.runtime.pendingInput ? 'it has questions to adapt it to this workspace' : 'review the plan, then activate'}.`
+        : `Installed ${action.repoKey}/${action.slug} into the library.`;
     default:
       return `${action.kind} ok — loop ${res.loop?.id ?? action.loopId} now "${res.loop?.status ?? '?'}".`;
   }

@@ -12,7 +12,7 @@ commit per phase on `feat/orchestrator-living-loops`.
 | Phase | Title | Status | Exit gate |
 | --- | --- | --- | --- |
 | 1 | Catalog store: repos, cache, on-demand fetch | ✅ Done | `host.catalog` works against the official repo and a local fixture git repo; no timers anywhere |
-| 2 | Install: actions, provenance versions, adaptation | ⬜ Not started | `catalog_install` → provenance-linked library version → draft via the existing load path → planner adaptation; reinstall is a no-op |
+| 2 | Install: actions, provenance versions, adaptation | ✅ Done | `catalog_install` → provenance-linked library version → draft via the existing load path → planner adaptation; reinstall is a no-op |
 | 3 | Updates and fail-soft | ⬜ Not started | Refresh appends newer catalog versions; "vN available" lights up with zero new update UI; unreachable/removed repos never break installs |
 | 4 | UI: Catalog tab, repo management, docs | ⬜ Not started | Catalog tab beside My Library with cards/detail/install/badges; repo add-confirm; slash commands; docs-site updated |
 | 5 | Official catalog content: example loops | ⬜ Not started | A simple → very-complex range of curated loops ships in the official catalog, together exercising every major feature |
@@ -26,11 +26,11 @@ Status legend: ✅ Done · 🟡 In progress · ⬜ Not started · ⛔ Blocked ·
 | --- | --- | --- | --- |
 | FR-C1 | Official repo works out of the box; add/remove repos; private repos via ambient git/`gh` auth | 1 (store) / 4 (UI) | 🟡 store done |
 | FR-C2 | Fetch on demand only (tab open / refresh); local cache works offline; no background timers | 1 | ✅ |
-| FR-C3 | Install validates, creates a provenance-linked library entry/version, instantiates a draft — never auto-activates | 2 | ⬜ |
-| FR-C4 | Planner clarify flow adapts installed loops; model-authored, code-validated, no template DSL | 2 | ⬜ |
+| FR-C3 | Install validates, creates a provenance-linked library entry/version, instantiates a draft — never auto-activates | 2 | ✅ |
+| FR-C4 | Planner clarify flow adapts installed loops; model-authored, code-validated, no template DSL | 2 | ✅ |
 | FR-C5 | Newer catalog versions append library versions; updates surface via the existing "vN available" push machinery | 3 | ⬜ |
 | FR-C6 | Verified badge only on official entries; third-party entries show their source repo; add-repo needs one confirmation | 4 | ⬜ |
-| FR-C7 | Missing `requiredTools` at install warn fail-soft; install proceeds, warning rides the draft | 2 | ⬜ |
+| FR-C7 | Missing `requiredTools` at install warn fail-soft; install proceeds, warning rides the draft | 2 | ✅ (cleared if a later re-plan recomputes warnings — noted) |
 | FR-C8 | Removing or failing to reach a repo never breaks installed loops or library entries | 1 (cache) / 3 (verified) | 🟡 cache side done |
 | FR-C9 | Official catalog ships a range of example loops from simple to very complex, together showing off triggers, placement, delivery, guards, per-step config, and human input *(added by Dan, 2026-07-02)* | 5 | ⬜ |
 
@@ -178,45 +178,55 @@ the workspace; reinstall is a no-op; missing tools warn fail-soft.
 
 **Tasks**
 
-- [ ] Pre-work (decision 7): move the grouped action routing out of
-  `coordinator.ts` so it lands well under 500 with `catalog_*` added.
-- [ ] `shared/actions.ts`: `catalog_add_repo { url }`,
+- [x] Pre-work (decision 7): the five `set_*` override cases moved to
+  `runtime/override-actions.ts` (grouped route beside `isLibraryAction`);
+  coordinator.ts now 474 LOC with the catalog route added.
+- [x] `shared/actions.ts`: `catalog_list` (added beyond the spec's four —
+  the UI/commands need a cache-only read), `catalog_add_repo { url }`,
   `catalog_remove_repo { repoKey }`, `catalog_refresh { repoKey? }`,
   `catalog_install { repoKey; slug; workspaceLoad? }` + result fields
-  (`repos?`, installed entry/version/loop ids).
-- [ ] `shared/library-types.ts`: `LibraryVersion.catalog?: { repoKey; slug;
-  catalogVersion }` (additive, `schemaVersion` stays 1).
-- [ ] `shared/catalog.ts` (pure, tested): provenance-aware install
-  computation per decision 4 — locate owning entry, no-op detection,
-  next-version build (wraps `buildLibrarySave` semantics without blind
-  `latest+1`).
-- [ ] `runtime/catalog-actions.ts` (mirrors `library-actions.ts`):
+  (`catalogRepos`, `catalogContents`, `catalogRefresh`).
+- [x] `shared/library-types.ts`: `CatalogProvenance` on
+  `LibraryVersion.catalog?` (authoritative) plus a denormalized
+  `CatalogInstallMarker` (`+ libraryVersion`) on `LibraryEntry.catalog?` /
+  `LibraryEntrySummary.catalog?` — owning-entry lookup and the Phase 4
+  "installed" marker come straight off the watched index. `schemaVersion`
+  stays 1 (all additive).
+- [x] `shared/catalog.ts` `buildCatalogInstall` (pure, tested):
+  reinstall of a same-or-older catalog version resolves to the existing
+  library version with no write; a newer one appends `latestVersion + 1`
+  with provenance; user renames survive; manual saves interleave.
+- [x] `runtime/catalog-actions.ts` (mirrors `library-actions.ts`):
   `isCatalogAction` + handler. `catalog_install`: read entry → validate
-  definition (`validateLoopPlan`; invalid ⇒ error result listing problems,
-  no library write) → provenance version via the pure helper →
-  `host.library.putVersion` → when `workspaceLoad !== false`, instantiate a
-  draft through the existing load path (link set to the entry/version) →
-  requiredTools check → planner adaptation (`runPlanningFlow` on the
-  draft, decision 5; clarifying questions park normally). Add/remove/refresh
-  delegate to `host.catalog` (remove asks nothing here — confirmation is a
-  UI concern, FR-C6).
-- [ ] Tool + commands: `extension/tools.ts` action kinds + params
-  (`url`, `repoKey`, `slug`, `workspaceLoad`) + `buildAction`/`summarize`
-  branches; `/orchestrator catalog_list`, `catalog_install <repoKey>
-  <slug>`, `catalog_add_repo <url>`, `catalog_refresh` in
-  `extension/commands.ts`. Watch `extension/tools.ts` LOC (~349 now); split
-  a params module if it nears 430.
-- [ ] Tool availability: generalize the `availability.ts` set-difference
-  into a shared helper; new `LoopWarning` code `catalog-tool-missing`
-  appended to the installed draft when `CatalogEntryMeta.requiredTools`
-  misses the live catalog (fail-soft when enumeration fails — same
-  discipline as `reconcileDeliveryWarning`).
-- [ ] Tests: install happy path (provenance on the version, draft linked,
-  planner flow invoked); reinstall no-op (same version id, still
-  instantiates when asked); newer catalogVersion appends; invalid
-  definition blocks with errors and writes nothing; missing tools ⇒ warning
-  rides the draft; interleaved manual save then catalog update numbers
-  monotonically.
+  definition + delivery (invalid ⇒ error result, no library write) →
+  provenance version via the pure helper → `host.library.putVersion` →
+  when `workspaceLoad !== false`, `instantiate` a linked draft → planner
+  adaptation → requiredTools warning appended after the flow (re-plan
+  recomputes warnings, so order matters). Add/remove/refresh delegate to
+  `host.catalog` (remove asks nothing here — confirmation is UI, FR-C6).
+- [x] Planner adaptation seam (decision 5, FR-C4): `baseline` rides
+  `PlanningFlowArgs` → `PlanRequest` → `buildPlanningTask`'s new
+  `buildBaselineBlock` ("specialize, don't redesign; re-emit adapted
+  triggers; batch unknowable placeholders into one clarifyingQuestions
+  reply"). The `answer_input` re-plan re-derives the baseline from the
+  linked library version when it carries catalog provenance
+  (`input-actions.ts catalogBaseline`), so answers keep specializing the
+  curated plan.
+- [x] Tool + commands: five action kinds + `url`/`repoKey`/`slug`/
+  `workspaceLoad` params with `buildAction`/`summarize` branches
+  (`extension/tools.ts`, 394 LOC — watch toward 430); `/orchestrator
+  catalog_list|catalog_refresh [repoKey]|catalog_install <repoKey>
+  <slug>|catalog_add_repo <url>|catalog_remove_repo <repoKey>`.
+- [x] Tool availability: `missingTools(host, required)` extracted in
+  `availability.ts` (shared by delivery + catalog); new `LoopWarning` code
+  `catalog-tool-missing`, fail-soft when enumeration fails.
+- [x] Tests (+18): install happy path (provenance, linked draft, baseline
+  block in the planner task, never active); reinstall no-op; newer
+  catalogVersion appends; interleaved manual save keeps numbering
+  monotonic; invalid definition writes nothing; missing-tools warning on/
+  off; clarifying questions park on the draft; workspaceLoad:false;
+  repo action results; `buildCatalogInstall` unit cases; baseline block
+  rendering.
 
 **Exit gate.** Install → adapted draft works through the tool action in
 tests; never auto-activates (no `status: 'active'` anywhere in the path).

@@ -4,6 +4,7 @@
  */
 
 import type { ContextOverrides } from '@sero-ai/common';
+import type { CatalogRepoContents, CatalogRepoRef } from './catalog-types';
 import type {
   InputAnswer,
   LibraryIndex,
@@ -52,6 +53,11 @@ export type OrchestratorAction =
   | { kind: 'library_set_version'; loopId: string; version: number }
   | { kind: 'library_unlink'; loopId: string }
   | { kind: 'library_delete'; entryId: string }
+  | { kind: 'catalog_list' }
+  | { kind: 'catalog_add_repo'; url: string }
+  | { kind: 'catalog_remove_repo'; repoKey: string }
+  | { kind: 'catalog_refresh'; repoKey?: string }
+  | { kind: 'catalog_install'; repoKey: string; slug: string; workspaceLoad?: boolean }
   | { kind: 'delete'; loopId: string; deleteBranch?: boolean };
 
 /** Per-loop result of a workspace-wide reflection sweep. */
@@ -75,4 +81,10 @@ export interface OrchestratorActionResult {
   libraryDir?: string;
   /** Set by `library_list`: a snapshot of the library index (the live data comes from watching the dir). */
   libraryIndex?: LibraryIndex;
+  /** Set by the `catalog_*` reads: configured repos (official first). */
+  catalogRepos?: CatalogRepoRef[];
+  /** Set by `catalog_list`/`catalog_refresh`: each repo's cached contents (fail-soft per entry). */
+  catalogContents?: CatalogRepoContents[];
+  /** Set by `catalog_refresh`: per-repo fetch outcomes (stale ⇒ showing the last-fetched cache). */
+  catalogRefresh?: { key: string; stale: boolean; reason?: string }[];
 }

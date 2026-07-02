@@ -12,6 +12,20 @@ import { effectiveDelivery } from '../../shared/delivery-types';
 import { deliverySpec } from './registry';
 
 /**
+ * Names in `required` that are missing from the live tool catalog. Returns
+ * `undefined` when the catalog itself cannot be listed (fail-soft: callers
+ * leave their warning state untouched on an enumeration hiccup). Shared by the
+ * delivery warning and the catalog install check (spec 14, FR-C7).
+ */
+export async function missingTools(host: OrchestratorHost, required: string[]): Promise<string[] | undefined> {
+  if (required.length === 0) return [];
+  const catalog = await host.listToolCatalog().catch(() => undefined);
+  if (catalog === undefined) return undefined;
+  const available = new Set(catalog.map((t) => t.name));
+  return required.filter((t) => !available.has(t));
+}
+
+/**
  * Re-evaluates the warning: replaces or clears any prior `delivery-tool-missing`
  * entry so it always reflects the current destination + catalog. When the
  * catalog itself cannot be listed, the existing warning state is left as is
@@ -24,10 +38,8 @@ export async function reconcileDeliveryWarning(host: OrchestratorHost, loop: Loo
   if (spec.requiredTools.length === 0) {
     return kept.length === loop.warnings.length ? loop : { ...loop, warnings: kept };
   }
-  const catalog = await host.listToolCatalog().catch(() => undefined);
-  if (catalog === undefined) return loop;
-  const available = new Set(catalog.map((t) => t.name));
-  const missing = spec.requiredTools.filter((t) => !available.has(t));
+  const missing = await missingTools(host, spec.requiredTools);
+  if (missing === undefined) return loop;
   if (missing.length === 0) {
     return kept.length === loop.warnings.length ? loop : { ...loop, warnings: kept };
   }

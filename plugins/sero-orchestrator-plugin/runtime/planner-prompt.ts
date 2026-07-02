@@ -6,6 +6,7 @@
  */
 
 import type { LoopDeliverySettings } from '../shared/delivery-types';
+import type { SharedLoopDefinition } from '../shared/library-types';
 import { DEFAULT_TOOLS } from '../shared/constants';
 import { buildEventSourceCatalogBlock } from './events/source-catalog';
 import { deliverySpec, type DeliveryDestinationSpec } from './delivery/registry';
@@ -163,6 +164,28 @@ ${lines.join('\n')}
 `;
 }
 
+/**
+ * Renders the curated definition an installed catalog loop starts from
+ * (spec 14, FR-C4). The model specializes it to this workspace; code only
+ * validates the response format — no placeholder DSL.
+ */
+export function buildBaselineBlock(baseline: SharedLoopDefinition | undefined): string {
+  if (!baseline) return '';
+  const reference = {
+    title: baseline.title,
+    summary: baseline.summary,
+    plan: baseline.plan,
+    triggers: baseline.triggers,
+    delivery: baseline.delivery,
+  };
+  return `ADAPTING AN INSTALLED CATALOG LOOP. The user installed a curated loop; specialize it to THIS workspace — do not redesign it. Its curated definition is your starting point:
+${JSON.stringify(reference, null, 2)}
+
+Keep the step structure, intent, and any tuned trigger settings (debounce, max fires) unless the goal clearly demands otherwise, and re-emit the triggers (adapted) in "suggestedTriggers". Replace generic placeholders ("your repo", "your team channel") with concrete values. You cannot inspect the workspace from here, so where a placeholder's concrete value is genuinely unknowable, ask for it via clarifyingQuestions — all such questions batched in ONE reply.
+
+`;
+}
+
 export interface PlanningTaskArgs {
   prompt: string;
   useManagedWorktree: boolean;
@@ -171,6 +194,8 @@ export interface PlanningTaskArgs {
   toolCatalog?: PlanningToolInfo[];
   clarifications?: { prompt: string; answer: string }[];
   agentCatalog?: PlanningAgentInfo[];
+  /** Set for catalog installs: the curated definition being adapted. */
+  baseline?: SharedLoopDefinition;
 }
 
 export function buildPlanningTask(args: PlanningTaskArgs): string {
@@ -180,7 +205,7 @@ export function buildPlanningTask(args: PlanningTaskArgs): string {
 Goal:
 ${prompt}
 
-${buildClarificationsBlock(clarifications)}If this goal mentions any cadence or repetition ("every N minutes", "hourly", "each morning", "periodically", "until …") or an event ("when X happens", "whenever …"), the loop is ALREADY triggered automatically — author exactly ONE pass of the work. Do NOT add a step that waits, sleeps, delays, polls on a timer, watches for the event, or repeats/loops the plan; such a step is wrong. Process one item per run (e.g. resolve ONE issue, handle ONE occurrence). You do NOT need to detect or handle the goal's stop condition — that is judged separately after each run.
+${buildBaselineBlock(args.baseline)}${buildClarificationsBlock(clarifications)}If this goal mentions any cadence or repetition ("every N minutes", "hourly", "each morning", "periodically", "until …") or an event ("when X happens", "whenever …"), the loop is ALREADY triggered automatically — author exactly ONE pass of the work. Do NOT add a step that waits, sleeps, delays, polls on a timer, watches for the event, or repeats/loops the plan; such a step is wrong. Process one item per run (e.g. resolve ONE issue, handle ONE occurrence). You do NOT need to detect or handle the goal's stop condition — that is judged separately after each run.
 
 ${buildEventSourceCatalogBlock()}
 

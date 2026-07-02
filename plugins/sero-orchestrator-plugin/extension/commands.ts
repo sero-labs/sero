@@ -31,7 +31,12 @@ const HELP = `Usage:
   /orchestrator library_load <entryId> [version]
   /orchestrator library_set_version <loopId> <version>
   /orchestrator library_unlink <loopId>
-  /orchestrator library_delete <entryId>`;
+  /orchestrator library_delete <entryId>
+  /orchestrator catalog_list
+  /orchestrator catalog_refresh [repoKey]
+  /orchestrator catalog_install <repoKey> <slug>
+  /orchestrator catalog_add_repo <url>
+  /orchestrator catalog_remove_repo <repoKey>`;
 
 /** Parsed command: either tool params, an answer request (resolved separately), or an error. */
 export type ParsedCommand =
@@ -58,7 +63,25 @@ export function parseCommand(args: string): ParsedCommand {
     case 'list':
     case 'reflect_workspace':
     case 'library_list':
+    case 'catalog_list':
       return { action };
+    case 'catalog_refresh':
+      return { action, repoKey: rest[0] };
+    case 'catalog_install': {
+      const [repoKey, slug] = rest;
+      if (!repoKey || !slug) return { error: 'catalog_install requires a repoKey and a slug (see catalog_list)' };
+      return { action, repoKey, slug };
+    }
+    case 'catalog_add_repo': {
+      const [url] = rest;
+      if (!url) return { error: 'catalog_add_repo requires a git repo URL' };
+      return { action, url };
+    }
+    case 'catalog_remove_repo': {
+      const [repoKey] = rest;
+      if (!repoKey) return { error: 'catalog_remove_repo requires a repoKey' };
+      return { action, repoKey };
+    }
     case 'create': {
       if (!remainder) return { error: 'create requires a prompt' };
       // Optional leading destination flag; the prompt is everything after it.
@@ -132,7 +155,7 @@ async function answerViaText(cwd: string | undefined, loopId: string, text: stri
 
 export function registerOrchestratorCommand(pi: ExtensionAPI): void {
   pi.registerCommand('orchestrator', {
-    description: 'Manage Orchestrator loops: list, create, show, activate, disable, enable, run_next, run_again, retry, revise, reflect, reflect_workspace, answer, delete, and the Loop Library (library_list/save/load/set_version/unlink/delete)',
+    description: 'Manage Orchestrator loops: list, create, show, activate, disable, enable, run_next, run_again, retry, revise, reflect, reflect_workspace, answer, delete, the Loop Library (library_list/save/load/set_version/unlink/delete), and the Loop Catalog (catalog_list/refresh/install/add_repo/remove_repo)',
     handler: async (args, ctx) => {
       const parsed = parseCommand(args ?? '');
       if ('error' in parsed) {

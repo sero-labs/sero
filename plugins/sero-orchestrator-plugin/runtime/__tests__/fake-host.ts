@@ -237,6 +237,7 @@ export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
               summary: entry.summary,
               latestVersion: entry.latestVersion,
               versionCount: entry.latestVersion,
+              catalog: entry.catalog,
               updatedAt: entry.updatedAt,
             },
           ],

@@ -10,7 +10,6 @@
  */
 
 import type {
-  ContextOverrides,
   CreateLoopOptions,
   Loop,
   LoopRun,
@@ -23,7 +22,7 @@ import { DEFAULT_STATE } from '../shared/defaults';
 import type { OrchestratorHost } from './host';
 import { buildDraftLoop } from './loop-factory';
 import { activate, disable, enable, type TransitionResult } from './lifecycle';
-import { applyLoopContext, applyLoopDelivery, applyStepAgent, applyStepModel, applyStepTools, planIsActivatable } from './plan-mapping';
+import { planIsActivatable } from './plan-mapping';
 import { validateDeliverySettings } from './schema';
 import { reconcileDeliveryWarning } from './delivery/availability';
 import { runPlanningFlow } from './planning-flow';
@@ -34,6 +33,8 @@ import { applyRecovery } from './recovery-apply';
 import { buildRevisedLoop } from './revise';
 import { handleReflectAction } from './reflect-actions';
 import { handleLibraryAction, isLibraryAction } from './library-actions';
+import { handleCatalogAction, isCatalogAction } from './catalog-actions';
+import { handleOverrideAction, isOverrideAction } from './override-actions';
 import { applyAnswerInput } from './input-actions';
 import { evaluateCronTriggers, isEventArmedOnly, isRecurring, rearmLoop } from './scheduler';
 import { broadcastEvent, drainPendingEvent, type CoordinatorRunSeam } from './event-delivery';
@@ -131,9 +132,12 @@ export class Coordinator {
   }
 
   async requestAction(action: OrchestratorAction): Promise<OrchestratorActionResult> {
-    // Loop Library actions (library_*) are routed as a group, keeping the switch
-    // below focused on per-loop lifecycle.
+    // Library (library_*), catalog (catalog_*), and user-override (set_*)
+    // actions are routed as groups, keeping the switch below focused on
+    // per-loop lifecycle.
     if (isLibraryAction(action)) return handleLibraryAction(this.host, action);
+    if (isCatalogAction(action)) return handleCatalogAction(this.host, action);
+    if (isOverrideAction(action)) return handleOverrideAction(this.host, action);
     switch (action.kind) {
       case 'create':
         return this.create(action.prompt, action.title, action.options);
@@ -159,16 +163,6 @@ export class Coordinator {
         return this.revise(action.loopId, action.prompt);
       case 'choose_recovery':
         return this.chooseRecovery(action.loopId, action.decision);
-      case 'set_step_model':
-        return this.applyOverride(action.loopId, (loop, now) => applyStepModel(loop, action.stepId, action.model, action.thinking, now));
-      case 'set_step_tools':
-        return this.applyOverride(action.loopId, (loop, now) => applyStepTools(loop, action.stepId, action.tools, now));
-      case 'set_step_agent':
-        return this.applyOverride(action.loopId, (loop, now) => applyStepAgent(loop, action.stepId, action.agent, now));
-      case 'set_loop_context':
-        return this.setLoopContext(action.loopId, action.overrides);
-      case 'set_delivery':
-        return this.applyOverride(action.loopId, (loop, now) => applyLoopDelivery(loop, action.delivery, now));
       case 'reflect':
       case 'reflect_workspace':
       case 'choose_suggestion':
@@ -442,24 +436,6 @@ export class Coordinator {
   /** Retry a single blocked/failed step (restart-actions.ts). */
   retryStepAction(loopId: string, stepId: string): Promise<OrchestratorActionResult> {
     return retryStepAction(this.host, this.runSeam(), loopId, stepId);
-  }
-
-  /** Finds a loop, applies a pure { ok, loop } mapping, and persists it. Shared by the override handlers (next run). */
-  private async applyOverride(
-    loopId: string,
-    apply: (loop: Loop, now: string) => { ok: boolean; loop?: Loop; error?: string },
-  ): Promise<OrchestratorActionResult> {
-    const loop = await this.findLoop(loopId);
-    if (!loop) return { ok: false, error: `Loop not found: ${loopId}` };
-    const result = apply(loop, this.host.now());
-    if (!result.ok || !result.loop) return { ok: false, error: result.error };
-    await this.replaceLoop(result.loop);
-    return { ok: true, loop: result.loop };
-  }
-
-  /** Sets/clears the loop's user context override (prompt + skills). User-level only. */
-  setLoopContext(loopId: string, overrides: ContextOverrides | null): Promise<OrchestratorActionResult> {
-    return this.applyOverride(loopId, (loop, now) => ({ ok: true, loop: applyLoopContext(loop, overrides, now) }));
   }
 
   /** Applies a user-supplied recovery decision (manual override). */

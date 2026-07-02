@@ -4,8 +4,9 @@
  * exactly like a library load.
  */
 
-import type { CatalogEntryMeta, CatalogIndex } from './catalog-types';
+import type { CatalogEntry, CatalogEntryMeta, CatalogIndex } from './catalog-types';
 import { isDeliveryDestinationId } from './delivery-types';
+import type { LibraryEntry, LibraryVersion } from './library-types';
 
 /** The baked-in official catalog repo (spec 14). Non-removable. */
 export const OFFICIAL_CATALOG_KEY = 'official';
@@ -70,4 +71,57 @@ export function catalogEntryMetaProblems(value: unknown): string[] {
 
 export function isCatalogEntryMeta(value: unknown): value is CatalogEntryMeta {
   return catalogEntryMetaProblems(value).length === 0;
+}
+
+export interface CatalogInstallPlan {
+  entryId: string;
+  /** The library version this install resolves to (existing on a reinstall). */
+  libraryVersion: number;
+  /** Absent ⇒ reinstall no-op: the catalog version is already in the library. */
+  write?: { entry: LibraryEntry; version: LibraryVersion };
+}
+
+/**
+ * Computes how a catalog entry lands in the library (see spec 14, install flow
+ * step 3). Provenance-aware, not blind latest+1: a reinstall of an
+ * already-installed catalog version is a no-op pointing at the existing
+ * library version; a newer catalog version appends the entry's next library
+ * version carrying `catalog` provenance. Manual saves interleave untouched
+ * (they bump `latestVersion` like always; the entry's `catalog` marker keeps
+ * resolving reinstalls).
+ */
+export function buildCatalogInstall(params: {
+  catalogEntry: CatalogEntry;
+  /** The library entry already owning this (repoKey, slug), or null. */
+  existing: LibraryEntry | null;
+  /** Entry id to mint when `existing` is null. */
+  newEntryId: string;
+  now: string;
+}): CatalogInstallPlan {
+  const { catalogEntry, existing, newEntryId, now } = params;
+  const { meta } = catalogEntry;
+  if (existing?.catalog && existing.catalog.catalogVersion >= meta.version) {
+    return { entryId: existing.id, libraryVersion: existing.catalog.libraryVersion };
+  }
+  const versionNumber = existing ? existing.latestVersion + 1 : 1;
+  const marker = { repoKey: catalogEntry.repoKey, slug: meta.slug, catalogVersion: meta.version, libraryVersion: versionNumber };
+  const entry: LibraryEntry = existing
+    ? { ...existing, summary: meta.description, latestVersion: versionNumber, catalog: marker, updatedAt: now }
+    : {
+        id: newEntryId,
+        name: meta.name,
+        summary: meta.description,
+        latestVersion: versionNumber,
+        catalog: marker,
+        createdAt: now,
+        updatedAt: now,
+      };
+  const version: LibraryVersion = {
+    version: versionNumber,
+    definition: structuredClone(catalogEntry.definition),
+    note: `Installed from catalog: ${meta.name} (catalog v${meta.version})`,
+    catalog: { repoKey: catalogEntry.repoKey, slug: meta.slug, catalogVersion: meta.version },
+    createdAt: now,
+  };
+  return { entryId: entry.id, libraryVersion: versionNumber, write: { entry, version } };
 }

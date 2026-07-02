@@ -157,7 +157,8 @@ export interface LoopWarning {
     | 'agent-unavailable'
     | 'event-chain-depth'
     | 'event-dropped'
-    | 'delivery-tool-missing';
+    | 'delivery-tool-missing'
+    | 'catalog-tool-missing';
   message: string;
   /** The step a runtime warning refers to (model/agent-unavailable), for de-duplication. */
   stepId?: string;
