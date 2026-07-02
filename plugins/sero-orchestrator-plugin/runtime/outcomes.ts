@@ -138,17 +138,18 @@ export function recordCompletion(
   }
 
   const terminalComplete = completion.status === 'complete';
-  // A loop completing for good (final success or a one-off) stops its schedule
-  // too: disable cron/hybrid triggers so it does not fire again.
+  // A loop completing for good (final success or a one-off) stops its triggers
+  // too: disable cron/hybrid/event triggers so nothing fires it again.
   const triggers = terminalComplete
-    ? loop.triggers.map((t) =>
-        t.type === 'cron' || t.type === 'hybrid' ? { ...t, disabled: true, nextFireAt: undefined } : t,
-      )
+    ? loop.triggers.map((t) => (t.type === 'manual' ? t : { ...t, disabled: true, nextFireAt: undefined }))
     : loop.triggers;
   const block =
     completion.status === 'blocked'
       ? { kind: 'planned-block' as const, reason: completion.reason, createdAt: now, sourceStepId: stepId, sourceAttemptId: attempt.id }
       : undefined;
+  // A pendingEvent stashed mid-run lives on DISK, not on this in-memory copy —
+  // the engine's commit() drops it (with an `event-dropped` warning) when the
+  // loop leaves 'active', so nothing stale fires on a later re-activation.
   return {
     loop: {
       ...loop,

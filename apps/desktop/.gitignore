@@ -11,3 +11,4 @@ electron/features/gateway/web-dist/
 release/
 # pnpm deploy bundle handed to electron-builder (scripts/build-release.sh)
 .package-deploy/
+e2e/screenshots/living-loops/

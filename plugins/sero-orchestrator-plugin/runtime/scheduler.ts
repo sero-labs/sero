@@ -47,14 +47,18 @@ export function evaluateCronTriggers(loop: Loop, nowMs: number): { loop: Loop; d
 }
 
 /**
- * A loop is recurring when it has an enabled cron/hybrid trigger still scheduled
- * to fire again (a schedule and a future-or-pending nextFireAt). Once a trigger
- * is exhausted (maxFires clears its nextFireAt), the loop stops being recurring,
- * so the next completion is terminal.
+ * A loop is recurring when something can legitimately fire it again on its own:
+ * an enabled cron/hybrid trigger still scheduled to fire (a schedule and a
+ * pending nextFireAt — an exhausted maxFires clears it), OR an enabled
+ * event/hybrid trigger with a source (the next matching event re-runs it).
+ * Once nothing can fire again, the next completion is terminal.
  */
 export function isRecurring(loop: Loop): boolean {
   return loop.triggers.some(
-    (t) => !t.disabled && (t.type === 'cron' || t.type === 'hybrid') && !!t.schedule && !!t.nextFireAt,
+    (t) =>
+      !t.disabled &&
+      (((t.type === 'cron' || t.type === 'hybrid') && !!t.schedule && !!t.nextFireAt) ||
+        ((t.type === 'event' || t.type === 'hybrid') && !!t.eventSource)),
   );
 }
 

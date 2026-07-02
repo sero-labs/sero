@@ -71,6 +71,18 @@ describe('recurrence helpers', () => {
     expect(isRecurring(withTriggers(base(), [cronTrigger({ nextFireAt: undefined })]))).toBe(false); // exhausted
   });
 
+  it('isRecurring is true for an enabled event trigger — the next event fires it again', () => {
+    const event = (over: Partial<LoopTrigger> = {}): LoopTrigger =>
+      ({ id: 'e', loopId: 'loop-1', workspaceId: 'ws-1', type: 'event', eventSource: 'webhook:deploy', fireCount: 0, ...over });
+    expect(isRecurring(withTriggers(base(), [event()]))).toBe(true);
+    expect(isRecurring(withTriggers(base(), [event({ disabled: true })]))).toBe(false);
+    expect(isRecurring(withTriggers(base(), [event({ eventSource: undefined })]))).toBe(false);
+    // A hybrid whose cron half is exhausted still recurs through its event half.
+    expect(
+      isRecurring(withTriggers(base(), [event({ type: 'hybrid', schedule: '0 * * * *', nextFireAt: undefined })])),
+    ).toBe(true);
+  });
+
   it('rearmLoop resets steps to pending and clears run context + workspace', () => {
     const loop = base();
     const dirty: Loop = {

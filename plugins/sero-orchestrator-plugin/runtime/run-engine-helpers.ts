@@ -3,6 +3,7 @@
  */
 
 import type { Loop, LoopRun } from '../shared/types';
+import type { OrchestratorHost } from './host';
 
 /** Resets every `running` step back to `pending` (used when a run is cancelled). */
 export function resetRunningSteps(
@@ -45,4 +46,27 @@ export function mergeTriggers(disk: Loop['triggers'], memory: Loop['triggers']):
     }
     return trigger;
   });
+}
+
+/**
+ * A loop leaving 'active' can never drain a stashed pendingEvent — drop it
+ * VISIBLY (an `event-dropped` warning) instead of leaving a stale fire to go
+ * off on a later re-activation. No-op while the loop stays active.
+ */
+export function dropStrandedEvent(host: OrchestratorHost, loop: Loop): Loop {
+  const dropped = loop.status !== 'active' ? loop.runtime.pendingEvent : undefined;
+  if (!dropped) return loop;
+  return {
+    ...loop,
+    warnings: [
+      ...loop.warnings,
+      {
+        id: host.newId('warning'),
+        code: 'event-dropped',
+        message: `A "${dropped.source}" event arrived during the final run and was not processed because the loop is now ${loop.status}.`,
+        createdAt: host.now(),
+      },
+    ],
+    runtime: { ...loop.runtime, pendingEvent: undefined },
+  };
 }

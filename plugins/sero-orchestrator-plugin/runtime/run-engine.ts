@@ -25,7 +25,7 @@ import { checkManagementLimits } from './limits';
 import { recordAgentWarning, recordModelWarning } from './run-warnings';
 import { isRecurring } from './scheduler';
 import { toEventFiredBy, toEventObservation } from './event-match';
-import { mergeTriggers, replaceRun, resetRunningSteps } from './run-engine-helpers';
+import { dropStrandedEvent, mergeTriggers, replaceRun, resetRunningSteps } from './run-engine-helpers';
 
 export interface RunResult {
   acquired: boolean;
@@ -469,7 +469,9 @@ export class RunEngine {
    * - `dueAgain` (a folded rerun request) is only ever SET concurrently, so a
    *   set flag on disk wins over the engine's stale false;
    * - `pendingEvent` is coordinator-stashed; the engine only clears the one it
-   *   consumed at run start — a NEWER stash (different id) is preserved.
+   *   consumed at run start — a NEWER stash (different id) is preserved, and a
+   *   stash stranded by the loop leaving 'active' is dropped visibly
+   *   (dropStrandedEvent).
    */
   private async commit(loop: Loop): Promise<Loop> {
     let result = loop;
@@ -492,6 +494,7 @@ export class RunEngine {
       if (current?.status === 'disabled' && loop.status === 'active') {
         result = { ...result, status: 'disabled', runtime: { ...result.runtime, activeRunId: undefined } };
       }
+      result = dropStrandedEvent(this.host, result);
       return { ...state, loops: state.loops.map((l) => (l.id === loop.id ? result : l)) };
     });
     return result;

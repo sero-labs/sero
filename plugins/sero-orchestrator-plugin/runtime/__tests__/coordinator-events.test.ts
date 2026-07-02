@@ -219,3 +219,88 @@ describe('fireEvent broadcast', () => {
     expect(host.state.loops[0].runs.at(-1)?.firedBy?.source).toBe('github:ci-failed');
   });
 });
+
+describe('event loops and completion (found by e2e — an event loop must outlive its runs)', () => {
+  const COMPLETE: StepOutcome = {
+    status: 'succeeded',
+    summary: 'iteration done',
+    completion: { status: 'complete', reason: 'this pass is done' },
+  };
+  const FINAL: StepOutcome = {
+    status: 'succeeded',
+    summary: 'goal met',
+    completion: { status: 'complete', final: true, reason: 'goal met for good' },
+  };
+
+  it('an ordinary completion keeps an event-triggered loop active and firing again', async () => {
+    const host = createFakeHost();
+    host.frozenNow = NOW;
+    seedActiveLoop(host, oneStepPlan().plan);
+    setTriggers(host, 'loop-1', [eventTrigger()]);
+    const c = coordinator(host, { executor: fakeExecutor({ 'step-1': COMPLETE }) });
+
+    await c.fireEvent(ciEvent());
+    expect(host.state.loops[0].status).toBe('active');
+    expect(host.state.loops[0].triggers[0].disabled).toBeFalsy();
+
+    await c.fireEvent(ciEvent({ id: 'evt-2' }));
+    expect(host.state.loops[0].triggers[0].fireCount).toBe(2);
+    expect(host.state.loops[0].runs).toHaveLength(2);
+    expect(host.state.loops[0].status).toBe('active');
+  });
+
+  it('an event stashed mid-run is drained into a fresh run after an ordinary completion', async () => {
+    const host = createFakeHost();
+    host.frozenNow = NOW;
+    seedActiveLoop(host, oneStepPlan().plan);
+    setTriggers(host, 'loop-1', [eventTrigger()]);
+    let midRunFired = false;
+    const c: Coordinator = coordinator(host, {
+      executor: fakeExecutor({
+        'step-1': async () => {
+          if (!midRunFired) {
+            midRunFired = true;
+            await c.fireEvent(ciEvent({ id: 'evt-2', summary: 'arrived mid-run' }));
+          }
+          return COMPLETE;
+        },
+      }),
+    });
+
+    await c.fireEvent(ciEvent());
+
+    const loop = host.state.loops[0];
+    expect(loop.runs).toHaveLength(2); // stash consumed into a fresh pass
+    expect(loop.runs[1].firedBy?.summary).toBe('arrived mid-run');
+    expect(loop.runtime.pendingEvent).toBeUndefined();
+    expect(loop.status).toBe('active');
+  });
+
+  it('a terminal completion disables event triggers and drops a stashed event VISIBLY', async () => {
+    const host = createFakeHost();
+    host.frozenNow = NOW;
+    seedActiveLoop(host, oneStepPlan().plan);
+    setTriggers(host, 'loop-1', [eventTrigger()]);
+    let midRunFired = false;
+    const c: Coordinator = coordinator(host, {
+      executor: fakeExecutor({
+        'step-1': async () => {
+          if (!midRunFired) {
+            midRunFired = true;
+            await c.fireEvent(ciEvent({ id: 'evt-2' }));
+          }
+          return FINAL;
+        },
+      }),
+    });
+
+    await c.fireEvent(ciEvent());
+
+    const loop = host.state.loops[0];
+    expect(loop.status).toBe('complete');
+    expect(loop.runs).toHaveLength(1); // the stash never becomes a run…
+    expect(loop.runtime.pendingEvent).toBeUndefined(); // …and never lingers…
+    expect(loop.warnings.some((w) => w.code === 'event-dropped')).toBe(true); // …but is dropped visibly
+    expect(loop.triggers[0].disabled).toBe(true); // nothing can fire a completed loop
+  });
+});
