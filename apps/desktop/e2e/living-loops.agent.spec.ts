@@ -238,13 +238,12 @@ test('activation starts the webhook listener on demand', async () => {
 test('a webhook POST fires the loop and the run records what fired it', async () => {
   test.setTimeout(600_000);
 
-  // Let the activation pass finish and the loop settle back to active-idle
-  // first, so this covers the clean fire path (event on an idle loop ⇒ fresh
-  // pass). The mid-run stash path is exercised by unit tests.
+  // Event-only loops now ARM at activation instead of burning an eventless
+  // pass (fix from the spec-13 live GitHub e2e: that pass used to ask the user
+  // for the payload and park, stranding the real event in the stash). So there
+  // must be NO run yet — the webhook below starts the first one.
   const runsFile = path.join(stateDir, 'loops', loopId, 'runs', 'index.json');
-  await expect
-    .poll(() => readJson<RunsIndex>(runsFile)?.runs.at(-1)?.status ?? 'pending', { timeout: 240_000, intervals: [3_000] })
-    .toMatch(/completed|blocked|failed/);
+  expect(readJson<RunsIndex>(runsFile)?.runs ?? []).toHaveLength(0);
   await expect
     .poll(() => readJson<OrchestratorIndex>(path.join(stateDir, 'index.json'))?.loops.at(-1)?.status, { timeout: 60_000 })
     .toBe('active');

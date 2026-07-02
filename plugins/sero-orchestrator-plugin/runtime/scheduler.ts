@@ -63,6 +63,18 @@ export function isRecurring(loop: Loop): boolean {
 }
 
 /**
+ * A loop armed PURELY by event triggers has nothing to process until an event
+ * arrives — activating/enabling it must not start an eventless pass (found by
+ * the live GitHub e2e: the no-event pass asked the user for the payload and
+ * parked, stranding the real event in the stash). Cron/hybrid/manual triggers
+ * (or none at all) keep today's run-on-activate behavior.
+ */
+export function isEventArmedOnly(loop: Loop): boolean {
+  const enabled = loop.triggers.filter((t) => !t.disabled);
+  return enabled.length > 0 && enabled.every((t) => t.type === 'event');
+}
+
+/**
  * Resets a loop for a fresh scheduled iteration: all steps back to pending, run
  * context (variables/completion/block/active run) cleared, and the resolved
  * workspace cleared so the next run resolves a clean worktree. The plan, triggers,

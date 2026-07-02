@@ -35,7 +35,7 @@ import { buildRevisedLoop } from './revise';
 import { handleReflectAction } from './reflect-actions';
 import { handleLibraryAction, isLibraryAction } from './library-actions';
 import { applyAnswerInput } from './input-actions';
-import { evaluateCronTriggers, isRecurring, rearmLoop } from './scheduler';
+import { evaluateCronTriggers, isEventArmedOnly, isRecurring, rearmLoop } from './scheduler';
 import { broadcastEvent, drainPendingEvent, type CoordinatorRunSeam } from './event-delivery';
 import { retryLoop, retryStepAction, runAgain } from './restart-actions';
 import { buildLifecycleEvents } from './lifecycle-events';
@@ -308,8 +308,10 @@ export class Coordinator {
   ): Promise<OrchestratorActionResult> {
     const result = await this.mutateLoop(loopId, apply);
     if (!result.ok) return result;
-    // Activating/resuming may make the loop immediately runnable.
-    if (result.loop && result.loop.status === 'active') {
+    // Activating/resuming may make the loop immediately runnable — except a
+    // purely event-armed loop, which waits for its first event instead of
+    // burning an eventless pass (isEventArmedOnly).
+    if (result.loop && result.loop.status === 'active' && !isEventArmedOnly(result.loop)) {
       return this.runNext(result.loop.id, result.loop);
     }
     return result;

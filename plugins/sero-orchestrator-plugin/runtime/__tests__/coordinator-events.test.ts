@@ -304,3 +304,57 @@ describe('event loops and completion (found by e2e — an event loop must outliv
     expect(loop.triggers[0].disabled).toBe(true); // nothing can fire a completed loop
   });
 });
+
+describe('event-only loops arm without an eventless pass (found by the live GitHub e2e)', () => {
+  it('activation arms the loop but starts no run — the first event starts the first run', async () => {
+    const host = createFakeHost();
+    host.frozenNow = NOW;
+    const loop = seedActiveLoop(host, oneStepPlan().plan);
+    loop.status = 'draft';
+    host.state = { ...host.state, loops: [loop] };
+    setTriggers(host, 'loop-1', [eventTrigger()]);
+
+    const c = coordinator(host, { executor: fakeExecutor({ 'step-1': SUCCESS }) });
+    const res = await c.requestAction({ kind: 'activate', loopId: 'loop-1' });
+    expect(res.ok).toBe(true);
+    expect(host.state.loops[0].status).toBe('active');
+    expect(host.state.loops[0].runs).toHaveLength(0); // armed, not run
+
+    // The first event runs it, with the payload in scope from the start.
+    await c.fireEvent(ciEvent());
+    expect(host.state.loops[0].runs).toHaveLength(1);
+    expect(host.state.loops[0].runs[0].firedBy?.source).toBe('github:ci-failed');
+  });
+
+  it('re-enabling an event-only loop also just re-arms it', async () => {
+    const host = createFakeHost();
+    host.frozenNow = NOW;
+    const loop = seedActiveLoop(host, oneStepPlan().plan);
+    loop.status = 'disabled';
+    host.state = { ...host.state, loops: [loop] };
+    setTriggers(host, 'loop-1', [eventTrigger()]);
+
+    await coordinator(host, { executor: fakeExecutor({ 'step-1': SUCCESS }) }).requestAction({ kind: 'enable', loopId: 'loop-1' });
+    expect(host.state.loops[0].status).toBe('active');
+    expect(host.state.loops[0].runs).toHaveLength(0);
+  });
+
+  it('loops with cron, hybrid, manual, or no triggers keep the activation pass', async () => {
+    for (const triggers of [
+      [],
+      [eventTrigger({ type: 'cron', eventSource: undefined, schedule: '0 * * * *', nextFireAt: '2026-06-22T11:00:00.000Z' })],
+      [eventTrigger({ type: 'hybrid', schedule: '0 * * * *', nextFireAt: '2026-06-22T11:00:00.000Z' })],
+      [eventTrigger(), eventTrigger({ id: 'm', type: 'manual', eventSource: undefined })],
+    ]) {
+      const host = createFakeHost();
+      host.frozenNow = NOW;
+      const loop = seedActiveLoop(host, oneStepPlan().plan);
+      loop.status = 'draft';
+      host.state = { ...host.state, loops: [loop] };
+      setTriggers(host, 'loop-1', triggers);
+
+      await coordinator(host, { executor: fakeExecutor({ 'step-1': SUCCESS }) }).requestAction({ kind: 'activate', loopId: 'loop-1' });
+      expect(host.state.loops[0].runs).toHaveLength(1);
+    }
+  });
+});
