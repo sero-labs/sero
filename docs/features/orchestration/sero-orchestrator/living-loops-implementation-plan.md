@@ -277,6 +277,26 @@ are requirements, not tuning.
 
 ---
 
+## Post-completion — end-to-end verification (2026-07-02)
+
+A real-app Playwright spec (`apps/desktop/e2e/living-loops.agent.spec.ts`,
+agent layer; `SERO_E2E_REAL_HOME=1` to run against the developer profile)
+drives the full journey in Sero desktop: plain-English prompt → planner +
+trigger extractor author a `webhook:deploy` event trigger → activate →
+demand-started listener → real `curl` fires the loop → the run records
+`firedBy`, a background agent writes the payload line → disable stops the
+listener, enable restores it → delete. **5/5 passing**; screenshots in
+`apps/desktop/e2e/screenshots/living-loops/` (gitignored).
+
+The e2e found one real bug, fixed in `fix(orchestrator): event loops must
+outlive their runs`: `isRecurring` ignored event triggers, so an event-only
+loop's first ordinary completion was terminal (the loop died after one pass).
+Also closed in that commit: terminal completion now disables event triggers
+alongside cron, and a mid-run `pendingEvent` stranded by the loop leaving
+`active` is dropped with a visible `event-dropped` warning instead of
+lingering as a stale fire. Regression tests in `coordinator-events.test.ts`
+("event loops and completion") and `scheduler.test.ts`.
+
 ## Standing rules for every phase
 
 - `pnpm typecheck` from the repo root before every commit; zero errors.
