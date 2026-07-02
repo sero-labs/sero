@@ -9,7 +9,7 @@
  */
 
 import type { ContextAgentInfo, ContextToolInfo } from '@sero-ai/common';
-import type { HumanQuestion, PlanningResponse } from '../shared/types';
+import type { HumanQuestion, LoopDeliverySettings, PlanningResponse } from '../shared/types';
 import type { OrchestratorHost } from './host';
 import { PLANNING_SYSTEM_PROMPT, buildPlanningTask, buildRepairTask } from './planner-prompt';
 import { extractJson, validatePlanningResponse } from './schema';
@@ -19,8 +19,10 @@ import { parseHumanQuestions } from './human-input';
 export interface PlanRequest {
   prompt: string;
   parentSessionId: string;
-  /** The loop's workspace isolation, so the planner adds the right delivery step. */
+  /** The loop's workspace isolation, so the planner adds the right placement rules. */
   useManagedWorktree: boolean;
+  /** The loop's effective delivery (user-chosen or derived) — the planner authors its steps, never picks it. */
+  delivery: LoopDeliverySettings;
   /** The real tool catalog the planner picks each step's tools from. */
   toolCatalog?: ContextToolInfo[];
   /** The real agent-role catalog the planner may assign each background step to. */
@@ -73,7 +75,14 @@ export async function planLoop(host: OrchestratorHost, req: PlanRequest): Promis
 
   let first: string;
   try {
-    first = await runPlanning(host, req, buildPlanningTask(req.prompt, req.useManagedWorktree, req.toolCatalog, req.clarifications, req.agentCatalog));
+    first = await runPlanning(host, req, buildPlanningTask({
+      prompt: req.prompt,
+      useManagedWorktree: req.useManagedWorktree,
+      delivery: req.delivery,
+      toolCatalog: req.toolCatalog,
+      clarifications: req.clarifications,
+      agentCatalog: req.agentCatalog,
+    }));
   } catch (error) {
     return { ok: false, errors: [`planning model call failed: ${asMessage(error)}`], modelResponses };
   }

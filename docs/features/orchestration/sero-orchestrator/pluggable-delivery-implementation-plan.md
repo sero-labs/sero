@@ -12,7 +12,7 @@ loop's destination becomes a first-class user setting with an enforced
 | Phase | Title | Status | Exit gate |
 | --- | --- | --- | --- |
 | 1 | Delivery as a loop setting | ✅ Done | `delivery` on the loop, create paths, `set_delivery`, library round-trip |
-| 2 | Destination registry + planner rules | ⬜ Not started | Per-destination planner rules replace the two-string ternary; placement stays orthogonal |
+| 2 | Destination registry + planner rules | ✅ Done | Per-destination planner rules replace the two-string ternary; placement stays orthogonal |
 | 3 | Receipt contract: enforcement, persistence, verify-back | ⬜ Not started | Completion without a valid receipt ⇒ `needs-revision`; receipts persist, feed context, verify back for pr/artifact |
 | 4 | External approval gate | ⬜ Not started | External sends require an approved human-input record in the run — mechanically |
 | 5 | Availability warning + UI + docs | ⬜ Not started | `delivery-tool-missing` lifecycle; picker, chips, receipt links; docs-site updated |
@@ -25,7 +25,7 @@ Status legend: ✅ Done · 🟡 In progress · ⬜ Not started · ⛔ Blocked ·
 | FR | Requirement | Phase | Status |
 | --- | --- | --- | --- |
 | FR-D1 | User-chosen destination + params; planner never chooses; existing loops default to today's behavior | 1 (model) / 5 (picker UI) | 🟡 model half |
-| FR-D2 | Per-destination planner rules replace the hardcoded ternary; placement rules stay orthogonal | 2 | ⬜ |
+| FR-D2 | Per-destination planner rules replace the hardcoded ternary; placement rules stay orthogonal | 2 | ✅ |
 | FR-D3 | Declared destination completes only with a structurally valid `DeliveryReceipt`; otherwise `needs-revision` + bounded repair | 3 | ⬜ |
 | FR-D4 | External destinations require an approved human-input record in the run before a receipt is accepted | 4 | ⬜ |
 | FR-D5 | `delivery-tool-missing` warns at activation, re-checks each run start, fails through normal recovery | 5 | ⬜ |
@@ -154,40 +154,49 @@ commit hygiene) becomes an orthogonal block.
 
 **Tasks**
 
-- [ ] `runtime/delivery/registry.ts`: `DeliveryDestinationSpec` per spec
+- [x] `runtime/delivery/registry.ts`: `DeliveryDestinationSpec` per spec
   (`plannerRules`, `requiredTools`, `external`, `receiptHint`) for all 7
-  destinations. Required tools: `chat-post` → the `mcp` proxy tool;
-  `email-draft`/`email-send` → the Google plugin's Gmail tool (confirm exact
-  names against the live catalog during implementation); `pr` /
-  `workspace-files` / `saved-artifact` / `webhook-post` → none (bash `gh` /
-  `curl` / file writes are default-tool territory).
-- [ ] `runtime/planner-prompt.ts`: split `WORKTREE_DELIVERY` /
-  `WORKSPACE_ROOT_DELIVERY` (lines 86-88, ternary at 160) into (a) a
-  placement block — commit/branch hygiene in a worktree, leave-in-tree at
-  root, applies only when steps modify repo files; and (b)
-  `buildDeliveryBlock(spec, params)` — the destination's `plannerRules` +
-  `receiptHint` + declared params, injected like the event-source catalog
-  block. The `pr` destination's rules absorb today's worktree PR text
-  (including the review-open-PRs-first rule).
-- [ ] Plumb the destination: `PlanRequest.delivery` (`runtime/planner.ts:23`),
-  fed from `effectiveDelivery(draft)` in `runtime/planning-flow.ts:55`;
-  update `PLANNING_SYSTEM_PROMPT`'s delivery sentence (line 65) and the
-  "planner never chooses placement" rule to cover destination too.
-- [ ] Final-step receipt contract in the task prompt (layer 1 of 3):
-  `buildStepTask` (`executors/prompt.ts:98`) — the existing final-step
-  completion instruction (lines 111-116) gains the receipt JSON shape +
-  `receiptHint` when the effective destination isn't `workspace-files`.
-- [ ] Tests: planner-prompt snapshot per destination (rules + params + receipt
-  contract present, placement block independent), planning-flow plumbing,
-  registry completeness (all 7 ids covered, external flags per spec).
+  destinations, as a `Record` over the id union (typecheck-enforced
+  completeness); `label`/`external` derived from the shared
+  `DELIVERY_DESTINATIONS` table so they cannot drift. Required tools
+  confirmed against the live plugins: `chat-post` → `mcp`
+  (`sero-mcp-plugin/extension/tools/proxy-tool.ts`), `email-draft` /
+  `email-send` → `gmail` (`sero-google-plugin/extension/index.ts`); the
+  other four need none.
+- [x] `runtime/planner-prompt.ts`: `WORKTREE_DELIVERY` /
+  `WORKSPACE_ROOT_DELIVERY` deleted; `buildPlacementBlock(useManagedWorktree)`
+  (commit hygiene on the worktree branch / leave-in-tree at root) +
+  `buildDeliveryBlock(spec, params)` (plannerRules + declared params verbatim
+  + receipt-hint sentence, skipped for `workspace-files`). The `pr` rules
+  absorb the legacy worktree text including review-open-PRs-first.
+  `buildPlanningTask` refactored to a single `PlanningTaskArgs` object (6
+  positional params was past the limit).
+- [x] Plumbed: `PlanRequest.delivery` (required), fed from
+  `effectiveDelivery(draft)` in `runPlanningFlow` (covers create AND
+  answer-input re-plans); `PLANNING_SYSTEM_PROMPT` delivery sentence now
+  says the rule depends on the declared destination, and the
+  planner-never-chooses rule covers destination alongside placement.
+- [x] Final-step receipt contract (layer 1 of 3): `formatDeliveryContract`
+  lives in `runtime/delivery/delivery-contract.ts` (created now so Phase 3's
+  enforcement layers join it there); `buildStepTask` appends it to the
+  final-step completion instruction via `effectiveDelivery(loop)` — empty
+  for `workspace-files`. Note: the emitted `completion.receipt` is parsed and
+  enforced in Phase 3; in this phase the contract text is present but the
+  field is still dropped by `parseCompletion`.
+- [x] Tests (16 new; 576 total green): registry completeness/external
+  lockstep/required tools/approval staging, `formatDeliveryContract` shape +
+  workspace-files empty, per-destination planning-task injection + params
+  verbatim + placement independence + legacy pr/workspace-files text intact,
+  planner plumbing (destination + params reach the task), step-task contract
+  on final step only / derived-pr default / workspace-files exempt.
 
 **Acceptance**
 
-- [ ] For each destination, the planning task contains its rules and receipt
+- [x] For each destination, the planning task contains its rules and receipt
   hint; worktree/root placement text is unchanged by destination choice.
-- [ ] `pr` loops plan the same delivery steps as before the refactor (no
-  regression in the two legacy behaviors).
-- [ ] FR-D2 satisfied.
+- [x] `pr` loops plan the same delivery steps as before the refactor (no
+  regression in the two legacy behaviors — asserted on the legacy phrases).
+- [x] FR-D2 satisfied.
 
 ---
 

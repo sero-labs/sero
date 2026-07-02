@@ -11,6 +11,7 @@
  */
 
 import type { AnsweredInput, CreateLoopOptions, Loop } from '../shared/types';
+import { effectiveDelivery } from '../shared/delivery-types';
 import type { OrchestratorHost } from './host';
 import { planLoop } from './planner';
 import { extractTriggers } from './trigger-extractor';
@@ -53,6 +54,7 @@ export async function runPlanningFlow(host: OrchestratorHost, draft: Loop, args:
     prompt: args.prompt,
     parentSessionId: draft.runtime.parentSessionId,
     useManagedWorktree: draft.workspace.useManagedWorktree,
+    delivery: effectiveDelivery(draft),
     toolCatalog,
     agentCatalog,
     clarifications: args.clarifications,

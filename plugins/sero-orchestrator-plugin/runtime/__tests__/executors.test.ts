@@ -94,6 +94,39 @@ describe('buildStepTask finalization signal', () => {
   });
 });
 
+describe('buildStepTask delivery receipt contract', () => {
+  it('demands proof of delivery on the final step for a declared destination', () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, oneStepPlan().plan);
+    loop.delivery = { destination: 'chat-post', params: { channel: '#intel' } };
+    const task = buildStepTask(loop, loop.plan.steps[0]);
+    expect(task).toContain('PROOF OF DELIVERY');
+    expect(task).toContain('"destination": "chat-post"');
+  });
+
+  it('uses the derived destination when none was chosen (worktree ⇒ pr)', () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, oneStepPlan().plan); // fixture default: useManagedWorktree true
+    const task = buildStepTask(loop, loop.plan.steps[0]);
+    expect(task).toContain('"destination": "pr"');
+  });
+
+  it('needs no receipt for workspace-files', () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, oneStepPlan().plan);
+    loop.workspace = { ...loop.workspace, useManagedWorktree: false };
+    expect(buildStepTask(loop, loop.plan.steps[0])).not.toContain('PROOF OF DELIVERY');
+  });
+
+  it('puts the contract only on the final step', () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, sequentialPlan().plan); // a -> b; b is the sink
+    loop.delivery = { destination: 'saved-artifact' };
+    expect(buildStepTask(loop, loop.plan.steps.find((s) => s.id === 'a')!)).not.toContain('PROOF OF DELIVERY');
+    expect(buildStepTask(loop, loop.plan.steps.find((s) => s.id === 'b')!)).toContain('PROOF OF DELIVERY');
+  });
+});
+
 describe('buildStepTask open-PR awareness', () => {
   it('renders the open-PR block for a background-agent step when the loop has PRs', () => {
     const host = createFakeHost();

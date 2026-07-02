@@ -12,6 +12,8 @@ import { describeValue, isRecord, type ParseResult } from '../structured-call';
 import { parseHumanQuestions } from '../human-input';
 import { formatRouteContract, routeVariableRequirements } from '../route-contract';
 import { finalizationStepId } from '../readiness';
+import { effectiveDelivery } from '../../shared/delivery-types';
+import { formatDeliveryContract } from '../delivery/delivery-contract';
 
 const STEP_STATUSES: readonly StepOutcome['status'][] = ['succeeded', 'failed', 'blocked', 'skipped', 'needs-revision'];
 
@@ -111,6 +113,7 @@ export function buildStepTask(loop: Loop, step: LoopStepDefinition, run?: LoopRu
   const finalId = finalizationStepId(loop);
   if (finalId === step.id) {
     parts.push('\nThis is the loop\'s FINAL step — nothing runs after it, so the loop only ends if you end it here. After doing the work, judge whether the loop\'s overall objective is now fully met, then include a "completion" object in your StepOutcome: { "status": "complete", "reason": ... } if it is met, or { "status": "blocked", "reason": ... } if it cannot be. Without a completion signal the loop never finishes.');
+    parts.push(formatDeliveryContract(effectiveDelivery(loop)));
   } else if (finalId !== undefined) {
     parts.push('\nThis is NOT the loop\'s final step — do NOT include a "completion" object; a later finalization step decides when the whole loop is done. (If you genuinely cannot proceed, report it with your "status", not a completion.)');
   }

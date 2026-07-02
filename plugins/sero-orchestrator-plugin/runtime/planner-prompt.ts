@@ -5,8 +5,10 @@
  * worktree use — that is a user-level loop setting (D-06).
  */
 
+import type { LoopDeliverySettings } from '../shared/delivery-types';
 import { DEFAULT_TOOLS } from '../shared/constants';
 import { buildEventSourceCatalogBlock } from './events/source-catalog';
+import { deliverySpec, type DeliveryDestinationSpec } from './delivery/registry';
 
 export const PLANNING_SYSTEM_PROMPT = `You are the PLANNER for Sero Orchestrator. You do NOT make any change yourself — a separate background agent will carry out each step you author. Your only job is to turn the user's prompt into a durable step plan. Not having edit/file tools is expected; never refuse or describe the edit instead.
 
@@ -62,7 +64,7 @@ EVENT-DRIVEN LOOPS. If the GOAL asks the work to happen when something occurs ("
 The user describes only the GOAL. You are responsible for the mechanics they should never have to spell out — always add the finalization and delivery steps yourself:
 
 - ALWAYS end the plan with exactly ONE finalization step that nothing else depends on (the single final step every other step ultimately leads to). Its "instructions" must tell the agent to confirm the objective is met and then EMIT THE COMPLETION SIGNAL in its StepOutcome (completion.status "complete", or "blocked" if the objective cannot be met). This is the ONLY way a loop ends — a plan whose last step just "reports" or "summarizes" without emitting completion will run forever. Every plan must be able to complete on its own; the user will not ask it to "mark complete".
-- The DELIVERY rule for this loop is given in the task below (it depends on where the loop runs). Add the delivery step(s) it describes; the user will not ask for delivery either.
+- The DELIVERY rule for this loop is given in the task below (it depends on the loop's declared destination — a user setting). Add the delivery step(s) it describes; the user will not ask for delivery either.
 
 BRANCHING (optional — MOST plans are linear; use this ONLY when the work genuinely forks). Sometimes the right next steps depend on what an earlier step finds — e.g. "if the change is simple, implement directly; if it's hard, plan first", or progressively heavier paths for harder requests. Express that with a judge + guards; never guess the path up front by authoring just one branch.
 - JUDGE STEP. Author a step that decides the route and records it under a variable in its StepOutcome "variables" (e.g. variables: { "route": "complex" }), and list that variable name in the step's "produces". The judge's own "instructions" MUST explicitly tell the agent to record that variable by its EXACT name with one of the route values (e.g. 'Record variables.route as "simple" or "complex".') — a guarded step whose routing variable was never recorded is silently skipped, so the judge must always set it. The judge is a "model" step when it only needs data earlier steps already recorded, or a "background-agent" when it must inspect files to decide (per EXECUTION TYPE).
@@ -79,13 +81,32 @@ Rules:
 - STEP TOOLS. The default tools (bash, read, write, edit, sero-cli) are ALWAYS available to every "background-agent" step — never list them. In "execution.tools" put ONLY the ADDITIONAL tools a step needs beyond the defaults, chosen from the AVAILABLE TOOLS catalog in the task. Be lean: omit "tools" entirely for a pure coding step; add extras (e.g. "web_search", "git_manager") only when the step plainly needs them. Use exact tool names from the catalog. "model" and "active-session" steps take no tools.
 - HUMAN APPROVAL / INPUT GATES. When the goal needs the user to approve or decide something before work proceeds ("ask me before…", "confirm before…", an irreversible or ambiguous choice), do NOT add an interactive "question"/"ask"/confirm tool for it — a background loop step calling such a tool does not durably pause the loop, is not restart-safe, and is not recorded. Asking the user is a BUILT-IN capability: author an ordinary step whose instructions tell the agent to STOP and ask by emitting its question in the StepOutcome "questions" array — the loop then pauses durably until the user answers and the step re-runs with the answer. Keep the gate and the action in SEPARATE steps: the asking step records the decision in a "variables" value (and lists it in "produces"), and the step that acts on it depends on that asking step and is guarded with a "when" on the recorded decision so it only runs once approved.
 - STEP AGENT (optional). For a "background-agent" step you MAY set "execution.agent" to one of the AVAILABLE AGENTS listed in the task — a specialist role whose instructions and default model suit the step. Use the exact agent name. OMIT "execution.agent" to use the default general agent; only assign a role when a listed one clearly fits the step better. "model" and "active-session" steps take no agent.
-- Do NOT decide where the loop runs (worktree vs workspace root) — that is the user's setting, already decided. Just follow the delivery rule given.
+- Do NOT decide where the loop runs (worktree vs workspace root) or where results ship (the delivery destination) — both are user settings, already decided. Just follow the placement and delivery rules given in the task.
 - For any recurring cadence in the goal, follow the RECURRING / SCHEDULED LOOPS rule above: shape the plan as ONE iteration with no wait/repeat steps (the schedule is set up separately).
 - Step ids must be unique and dependsOn must reference existing step ids. The dependency graph must be acyclic.`;
 
-const WORKTREE_DELIVERY = `Delivery rule for this loop: the work runs on its own isolated git branch, so the change must be DELIVERED or it is lost. After the change is made and verified, add a step that commits it on the current branch with a clear message; if the repository has a git remote and the \`gh\` CLI is available, that step should also push the branch and open a pull request describing the change. Then the finalization step emits completion. For a recurring loop, the FIRST step should review any open pull requests listed in its run context and skip work an open PR already covers before implementing.`;
+/**
+ * Placement is orthogonal to delivery (spec 13): this block covers only file
+ * hygiene for where the loop runs; buildDeliveryBlock covers where results ship.
+ */
+export function buildPlacementBlock(useManagedWorktree: boolean): string {
+  return useManagedWorktree
+    ? `Placement: the work runs on its own isolated git branch (a managed worktree), separate from the user's files. When steps modify repo files, keep the work committed on that branch with clear messages — uncommitted changes are lost when the worktree is cleaned up. Never switch branches.`
+    : `Placement: the work runs directly in the user's workspace files (no isolation). When steps modify repo files, leave the changes in the working tree; do not commit unless the goal or the delivery rule asks for it.`;
+}
 
-const WORKSPACE_ROOT_DELIVERY = `Delivery rule for this loop: the work runs directly in the user's workspace files, so no commit or PR is needed — leave the change in the working tree unless the goal explicitly asks to commit. The finalization step just verifies the change and emits completion.`;
+/** The declared destination's rules + params + receipt hint, replacing the old two-string ternary. */
+export function buildDeliveryBlock(spec: DeliveryDestinationSpec, params?: LoopDeliverySettings['params']): string {
+  const paramsBlock =
+    params && Object.keys(params).length > 0
+      ? `\nDeclared delivery params (use these exact values):\n${JSON.stringify(params, null, 2)}`
+      : '';
+  const receipt =
+    spec.id === 'workspace-files'
+      ? ''
+      : `\nThe final step must prove delivery with a receipt whose "ref" is ${spec.receiptHint} — make sure the delivery step's instructions say to record that exact value.`;
+  return `Delivery rule for this loop (destination: ${spec.id} — ${spec.label}): ${spec.plannerRules}${paramsBlock}${receipt}`;
+}
 
 /** Tool catalog entry the planner picks each background-agent step's tools from. */
 export interface PlanningToolInfo {
@@ -141,13 +162,18 @@ ${lines.join('\n')}
 `;
 }
 
-export function buildPlanningTask(
-  prompt: string,
-  useManagedWorktree: boolean,
-  toolCatalog: PlanningToolInfo[] = [],
-  clarifications: { prompt: string; answer: string }[] = [],
-  agentCatalog: PlanningAgentInfo[] = [],
-): string {
+export interface PlanningTaskArgs {
+  prompt: string;
+  useManagedWorktree: boolean;
+  /** The loop's effective delivery — always resolved by the caller (effectiveDelivery), never chosen here. */
+  delivery: LoopDeliverySettings;
+  toolCatalog?: PlanningToolInfo[];
+  clarifications?: { prompt: string; answer: string }[];
+  agentCatalog?: PlanningAgentInfo[];
+}
+
+export function buildPlanningTask(args: PlanningTaskArgs): string {
+  const { prompt, useManagedWorktree, delivery, toolCatalog = [], clarifications = [], agentCatalog = [] } = args;
   return `A background agent will carry out the work below. Author the step plan it should follow — do not perform the work yourself, and do not ask the user to specify mechanics like committing, opening a PR, or marking the loop complete. Add those yourself per the rules.
 
 Goal:
@@ -157,7 +183,9 @@ ${buildClarificationsBlock(clarifications)}If this goal mentions any cadence or 
 
 ${buildEventSourceCatalogBlock()}
 
-${buildToolCatalogBlock(toolCatalog)}${buildAgentCatalogBlock(agentCatalog)}${useManagedWorktree ? WORKTREE_DELIVERY : WORKSPACE_ROOT_DELIVERY}
+${buildToolCatalogBlock(toolCatalog)}${buildAgentCatalogBlock(agentCatalog)}${buildPlacementBlock(useManagedWorktree)}
+
+${buildDeliveryBlock(deliverySpec(delivery.destination), delivery.params)}
 
 Return the PlanningResponse JSON now (one object, top-level "plan", no prose) — or the clarifyingQuestions object if you are genuinely blocked.`;
 }
