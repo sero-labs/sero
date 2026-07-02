@@ -10,7 +10,7 @@ each independently shippable and gated on `pnpm typecheck` + green tests.
 | --- | --- | --- | --- |
 | 1 | Event engine core | ✅ Done | Broadcast `fireEvent` with payloads, filters, conditions, fresh-pass/coalescing semantics |
 | 2 | Source manager + internal loop events | ✅ Done | Demand-driven adapters; loop→loop triggering with cycle guard |
-| 3 | Local adapters: filesystem + webhook | ⬜ Not started | File changes and local webhooks fire loops |
+| 3 | Local adapters: filesystem + webhook | ✅ Done | File changes and local webhooks fire loops |
 | 4 | GitHub adapter | ⬜ Not started | CI/PR/issue events fire loops within the anti-abuse envelope |
 | 5 | Planner authoring + UI + docs | ⬜ Not started | Plain-language prompts produce event triggers; triggers/fired-by/health visible |
 
@@ -26,9 +26,9 @@ Status legend: ✅ Done · 🟡 In progress · ⬜ Not started · ⛔ Blocked ·
 | FR-E4 | Demand-driven sources: no matching active trigger ⇒ zero background activity; in-process re-sync | 2 | ✅ |
 | FR-E5 | GitHub poller: shared per repo, 60s floor, conditional requests, rate-limit backoff, demand-scoped endpoints, restart-safe cursor | 4 | ⬜ |
 | FR-E6 | Internal `loop:*` events at complete/block/question; self-exclusion + chain-depth cap with warning | 2 | ✅ |
-| FR-E7 | Webhook listener loopback-only, per-hook secret, `POST /hooks/<name>` → `webhook:<name>` | 3 | ⬜ |
+| FR-E7 | Webhook listener loopback-only, per-hook secret, `POST /hooks/<name>` → `webhook:<name>` | 3 | ✅ |
 | FR-E8 | Planner authors event/hybrid triggers from the prompt vs. a source catalog; mechanical validation blocks at create | 1 (validation) / 5 (authoring) | 🟡 validation done |
-| FR-E9 | Filesystem source with debounce + default ignores | 3 | ⬜ |
+| FR-E9 | Filesystem source with debounce + default ignores | 3 | ✅ |
 | FR-E10 | Event triggers, fired-by, source health in UI; `eventCondition` round-trips through the library | 1 (round-trip) / 5 (UI) | 🟡 round-trip done |
 
 ---
@@ -140,26 +140,38 @@ external I/O.
 
 **Tasks**
 
-- [ ] `runtime/events/fs-adapter.ts`: recursive watch on the workspace root
-  (or `eventFilter.path` subpaths), debounced batch payload of changed paths,
-  default ignores (`.git`, `.sero`, `node_modules`, managed worktrees dir).
-- [ ] `runtime/events/webhook-adapter.ts`: one `127.0.0.1`-bound HTTP server
+- [x] `runtime/events/fs-adapter.ts`: recursive watch on the workspace root,
+  debounced batch payload (`{ paths, count }`), default ignores (`.git`,
+  `.sero` — which covers managed worktrees — and `node_modules`), plus a
+  filter for the macOS FSEvents root-self artifact. **Deviation from the
+  original task text:** path scoping is NOT done via `eventFilter.path` —
+  the structured filter matches by equality and cannot express "under
+  docs/", so scope conditions belong in `eventCondition` (model-judged),
+  keeping the mechanical filter semantics untouched.
+- [x] `runtime/events/webhook-adapter.ts`: one `127.0.0.1`-bound HTTP server
   for all hooks; `POST /hooks/<name>` fires `webhook:<name>` with the JSON
-  body; optional per-hook shared-secret header; port persisted in adapter
-  state.
-- [ ] Adapter state helper: small per-adapter state file via `host.appState`
-  (webhook port now; GitHub cursors in Phase 4).
-- [ ] Tests: temp-dir watch (debounce window, ignore rules), webhook routing +
-  secret rejection on an ephemeral port, listener absent without webhook
-  subscriptions.
+  body (size-capped, non-object bodies wrapped); optional per-hook
+  shared-secret via the `x-sero-secret` header; the actual port persists in
+  adapter state so hook URLs stay stable, with ephemeral fallback when the
+  persisted port is taken.
+- [x] Adapter state helper (`runtime/events/adapter-state.ts`): one JSON file
+  per namespace under the state dir via the host artifact store (webhook
+  port/secrets now; GitHub cursors in Phase 4). Corrupt state reads as null.
+- [x] Both adapters wired in `runtime/index.ts` with
+  `emit = coordinator.fireEvent`; they run only while a matching active
+  trigger exists (manager demand) and stop when the last subscriber pauses.
+- [x] Tests (`local-adapters.test.ts`): temp-dir watch (debounced batch,
+  ignore rules, stop-on-unsubscribe), webhook routing + secret rejection +
+  404 + port persistence on an ephemeral port, listener closed without
+  subscriptions, adapter-state round-trip.
 
 **Acceptance**
 
-- [ ] Editing a watched file fires the loop once per debounce window; ignored
+- [x] Editing a watched file fires the loop once per debounce window; ignored
   paths never fire.
-- [ ] `curl` to the hook fires the loop with the body as payload; a wrong
+- [x] `curl` to the hook fires the loop with the body as payload; a wrong
   secret is rejected; no listener runs when no webhook trigger is active.
-- [ ] FR-E7 and FR-E9 satisfied.
+- [x] FR-E7 and FR-E9 satisfied.
 
 ---
 
