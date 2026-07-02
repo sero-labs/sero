@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Button, Card, Input } from '@sero-ai/ui';
-import { ArrowLeft, Download, History, Search } from 'lucide-react';
+import { Download, History, Search } from 'lucide-react';
 import { DEFAULT_LIBRARY_INDEX } from '../../shared/defaults';
 import type { LibraryEntrySummary, LibraryIndex } from '../../shared/types';
 import { formatTime } from '../lib/format';
@@ -14,7 +14,8 @@ interface LibraryBrowserProps {
   busy: boolean;
   /** Load a chosen entry version into this workspace as a new draft loop. */
   onLoad: (entryId: string, version?: number) => void;
-  onClose: () => void;
+  /** Pre-filled search (the Catalog tab's "in your library" jump). */
+  initialQuery?: string;
 }
 
 /** Newest-first version numbers for an entry (versions are 1..latest). */
@@ -23,14 +24,15 @@ function versionsOf(entry: LibraryEntrySummary): number[] {
 }
 
 /**
- * The Loop Library: a searchable list of saved loop definitions, shared across
- * all of the profile's workspaces. Load the latest version, or expand an entry
- * to load an older one. The list follows the watched global index.json, so a
- * Save from any workspace shows up here live.
+ * The My Library tab: a searchable list of saved loop definitions, shared
+ * across all of the profile's workspaces. Load the latest version, or expand
+ * an entry to load an older one. The list follows the watched global
+ * index.json, so a Save from any workspace shows up here live. Rendered
+ * inside LibraryView (which owns the header and the Catalog sibling tab).
  */
-export function LibraryBrowser({ libraryDir, busy, onLoad, onClose }: LibraryBrowserProps) {
+export function LibraryBrowser({ libraryDir, busy, onLoad, initialQuery }: LibraryBrowserProps) {
   const index = useWatchedJson<LibraryIndex>(libraryDir ? `${libraryDir}/index.json` : null, DEFAULT_LIBRARY_INDEX);
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(initialQuery ?? '');
   const [shown, setShown] = useState(PAGE);
   const [expanded, setExpanded] = useState<string | null>(null);
 
@@ -45,15 +47,7 @@ export function LibraryBrowser({ libraryDir, busy, onLoad, onClose }: LibraryBro
   const visible = filtered.slice(0, shown);
 
   return (
-    <div className="flex h-full flex-1 flex-col gap-3 overflow-auto p-4">
-      <header className="flex items-center gap-2">
-        <Button size="icon-sm" variant="ghost" onClick={onClose} title="Back">
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <h1 className="text-lg font-semibold">Loop Library</h1>
-        <span className="ml-auto text-xs text-muted-foreground">{index.entries.length} saved loop(s)</span>
-      </header>
-
+    <div className="flex flex-col gap-3">
       <div className="relative">
         <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
         <Input className="pl-7" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search the library…" />

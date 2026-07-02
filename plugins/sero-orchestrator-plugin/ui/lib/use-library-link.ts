@@ -19,6 +19,8 @@ export interface LibraryLinkStatus {
   updateAvailable: boolean;
   diverged: boolean;
   sourceRemoved: boolean;
+  /** True when the entry was installed from a catalog (spec 14) — enables "Update & re-adapt". */
+  fromCatalog: boolean;
   /** Newest-first version numbers (1..latest). */
   versions: number[];
   /** True when the body Library section has something to show (otherwise hide it). */
@@ -62,6 +64,7 @@ export function deriveLibraryLink(
     updateAvailable,
     diverged,
     sourceRemoved,
+    fromCatalog: entry?.catalog !== undefined,
     versions,
     hasActions: updateAvailable || diverged || sourceRemoved || versions.length > 1,
   };

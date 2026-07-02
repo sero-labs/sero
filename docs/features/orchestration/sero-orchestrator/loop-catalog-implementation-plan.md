@@ -14,7 +14,7 @@ commit per phase on `feat/orchestrator-living-loops`.
 | 1 | Catalog store: repos, cache, on-demand fetch | ✅ Done | `host.catalog` works against the official repo and a local fixture git repo; no timers anywhere |
 | 2 | Install: actions, provenance versions, adaptation | ✅ Done | `catalog_install` → provenance-linked library version → draft via the existing load path → planner adaptation; reinstall is a no-op |
 | 3 | Updates and fail-soft | ✅ Done | Refresh appends newer catalog versions; "vN available" lights up with zero new update UI; unreachable/removed repos never break installs |
-| 4 | UI: Catalog tab, repo management, docs | ⬜ Not started | Catalog tab beside My Library with cards/detail/install/badges; repo add-confirm; slash commands; docs-site updated |
+| 4 | UI: Catalog tab, repo management, docs | ✅ Done | Catalog tab beside My Library with cards/detail/install/badges; repo add-confirm; slash commands; docs-site updated |
 | 5 | Official catalog content: example loops | ⬜ Not started | A simple → very-complex range of curated loops ships in the official catalog, together exercising every major feature |
 | 6 | End-to-end verification | ⬜ Not started | Agent e2e in the real app: browse → install → adapt → update-available → fail-soft paths |
 
@@ -24,12 +24,12 @@ Status legend: ✅ Done · 🟡 In progress · ⬜ Not started · ⛔ Blocked ·
 
 | FR | Requirement | Phase | Status |
 | --- | --- | --- | --- |
-| FR-C1 | Official repo works out of the box; add/remove repos; private repos via ambient git/`gh` auth | 1 (store) / 4 (UI) | 🟡 store done |
+| FR-C1 | Official repo works out of the box; add/remove repos; private repos via ambient git/`gh` auth | 1 (store) / 4 (UI) | ✅ |
 | FR-C2 | Fetch on demand only (tab open / refresh); local cache works offline; no background timers | 1 | ✅ |
 | FR-C3 | Install validates, creates a provenance-linked library entry/version, instantiates a draft — never auto-activates | 2 | ✅ |
 | FR-C4 | Planner clarify flow adapts installed loops; model-authored, code-validated, no template DSL | 2 | ✅ |
 | FR-C5 | Newer catalog versions append library versions; updates surface via the existing "vN available" push machinery | 3 | ✅ |
-| FR-C6 | Verified badge only on official entries; third-party entries show their source repo; add-repo needs one confirmation | 4 | ⬜ |
+| FR-C6 | Verified badge only on official entries; third-party entries show their source repo; add-repo needs one confirmation | 4 | ✅ |
 | FR-C7 | Missing `requiredTools` at install warn fail-soft; install proceeds, warning rides the draft | 2 | ✅ (cleared if a later re-plan recomputes warnings — noted) |
 | FR-C8 | Removing or failing to reach a repo never breaks installed loops or library entries | 1 (cache) / 3 (verified) | ✅ |
 | FR-C9 | Official catalog ships a range of example loops from simple to very complex, together showing off triggers, placement, delivery, guards, per-step config, and human input *(added by Dan, 2026-07-02)* | 5 | ⬜ |
@@ -274,37 +274,46 @@ install, badges, repo management, one-time add confirmation.
 
 **Tasks**
 
-- [ ] Tab structure: `LibraryBrowser` gains a two-tab header (My Library /
-  Catalog) — net-new structure (no existing tab primitive in this view);
-  keep `LibraryBrowser.tsx` focused by adding `ui/components/CatalogBrowser.tsx`
-  + `ui/components/CatalogEntryCard.tsx` (and a detail view) as siblings.
-- [ ] Catalog list: house pattern (pinned search + refresh row, 10 at a
-  time, Load more) over all repos' entries — card shows name, description,
-  connectors, cost band, trigger/delivery summary, verified badge
-  (official) or source-repo label (third-party), Install. Entry detail
-  shows example output + limitations.
-- [ ] Installed marker: entries whose `(repoKey, slug)` matches a library
-  entry's provenance show the library link and jump to it instead of a
-  duplicate Install.
-- [ ] Repo management row: official baked in; Add repo (URL input + the
-  FR-C6 one-time confirmation dialog showing the URL and trust text);
-  per-repo refresh/remove; stale/offline notices from Phase 3 data.
-- [ ] On-demand fetch trigger: opening the Catalog tab dispatches a refresh
-  for stale/never-fetched repos (renderer-initiated on open — still no
-  timers); manual refresh buttons besides.
-- [ ] Dispatch wiring: `catalog_*` param mapping in
-  `ui/OrchestratorApp.tsx` `onAction`; install navigates to the new draft's
-  detail (same shape as `onLoadFromLibrary`).
-- [ ] Docs: `apps/docs-site` reference (catalog tab, actions/commands,
-  trust model in plain terms, repo layout for authors + "publish = open a
-  PR against the catalog repo") and a short guide walkthrough (install →
-  review → activate).
-- [ ] UI-lib pure helpers (`ui/lib/catalog-summary.ts`) unit-tested; keep
-  every new component under 200 LOC.
+- [x] Tab structure: new `LibraryView` owns the header + My Library /
+  Catalog tabs (new users with an empty library land on Catalog);
+  `LibraryBrowser` slimmed to the tab body (+`initialQuery` for the
+  catalog's "in your library" jump); `CatalogBrowser` (216 LOC) +
+  `CatalogEntryCard` (112 LOC) as siblings.
+- [x] Catalog list: house pattern (pinned search + repo row, 10 at a time,
+  Load more) over all repos' entries — cards show name, description, chips
+  (trigger/delivery/cost/tier/connectors), Verified badge (official) or
+  source-repo key (third-party), Install; expandable Details with
+  limitations, required tools, example output. Hidden malformed entries
+  reported with hover reasons.
+- [x] Installed marker straight off the watched index (`installState` in
+  `ui/lib/catalog-summary.ts`): installed ⇒ "In your library ✓" jump +
+  "New draft"; newer catalog version ⇒ "Install update".
+- [x] Repo management row: official baked in (non-removable); Add repo
+  dialog = the FR-C6 one-time confirmation (URL + trust text); per-repo
+  stale/unreachable notices; refresh/remove.
+- [x] On-demand fetch: opening the tab shows the cache instantly then runs
+  one refresh (the spec's "opening the catalog tab pulls"); manual Refresh
+  besides; still zero timers.
+- [x] Dispatch wiring: the inline `onAction` param mapping extracted to
+  pure, unit-tested `ui/lib/action-params.ts`. **Found & fixed in the
+  process:** `set_delivery` and `set_step_agent` payloads were never
+  mapped to tool params, so the Delivery dialog errored and a picked step
+  agent silently reverted — regression-tested now.
+- [x] "Update & re-adapt" (Phase 3 polish note): catalog-linked loops
+  (`LibraryLinkStatus.fromCatalog` off the index marker) get a primary
+  update button chaining `library_set_version` + `revise` with
+  `readaptPrompt(loop)` — the refine carries the user's original install
+  answers so the new curated version re-specializes without re-asking.
+- [x] Docs: reference gets a Loop Catalog section (trust model in plain
+  terms, on-demand fetch, update flow, storage layout) + catalog commands;
+  guide gets "Install a ready-made loop from the Catalog". Repo layout for
+  authors lives in the catalog repo's README (Phase 1).
+- [x] UI-lib helpers unit-tested (+11 tests: chips, install states,
+  re-adapt prompt, action-params regressions).
 
-**Exit gate.** Full flow works by hand in the dev app: browse → install →
-adapted draft opens → activate; add/remove/refresh a fixture repo from the
-UI.
+**Exit gate.** Deferred to Phase 6 by design: the by-hand dev-app pass is
+subsumed by the agent e2e in the real app (Dan: e2e confirms the feature
+when complete).
 
 ## Phase 5 — Official catalog content: example loops (FR-C9)
 

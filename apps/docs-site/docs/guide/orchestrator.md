@@ -205,6 +205,17 @@ entry to drop a fresh copy into the current workspace, then review and activate
 it like any new loop. When a newer version is saved from anywhere, a loaded loop
 offers to **Update** to it.
 
+### Install a ready-made loop from the Catalog
+
+Next to My Library sits the **Catalog** tab: curated, proven loops from the
+official Sero catalog (marked **Verified**), plus any catalog repos you add —
+a private company repo works as a team catalog. Press **Install** on an entry
+and the planner adapts it to your workspace, asking first when it needs a
+detail only you know (like which repo to watch). The result is an ordinary
+draft: review the plan, then activate. When the catalog publishes an improved
+version, your installed loop shows the usual "v available" badge with an
+**Update & re-adapt** one-click path.
+
 ## Set up the demo project
 
 The walkthroughs above use a small throwaway project so nothing real is touched.

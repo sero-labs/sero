@@ -54,6 +54,16 @@ Library commands:
 /orchestrator library_unlink <loopId>
 ```
 
+Catalog commands:
+
+```text
+/orchestrator catalog_list
+/orchestrator catalog_refresh [repoKey]
+/orchestrator catalog_install <repoKey> <slug>
+/orchestrator catalog_add_repo <url>
+/orchestrator catalog_remove_repo <repoKey>
+```
+
 ## Step execution types
 
 - `active-session` — runs in the foreground session.
@@ -223,6 +233,37 @@ A profile-shared collection of saved loops, reusable in any workspace.
   tracking versions. Deleting an entry never affects loops already loaded from
   it.
 
+## Loop Catalog
+
+Curated, ready-made loops you install instead of writing from scratch. The
+**Catalog** tab sits beside My Library in the library view.
+
+- **A catalog is a git repository.** The official Sero catalog is built in and
+  shows a **Verified** badge on its entries. You can add more repos with *Add
+  repo* — any public or private git repo with the catalog layout works, using
+  your existing git sign-in. A private company repo is a shared team catalog.
+  Third-party entries show which repo they came from, never the verified badge;
+  adding a repo asks you to confirm once.
+- **Fetching happens only when you look.** Opening the tab (or pressing
+  Refresh) pulls the repos; there are no background timers. Once fetched, the
+  catalog also works offline — if a repo becomes unreachable you keep the last
+  copy, marked as such.
+- **Install lands as a draft you review.** Installing puts the loop in your
+  library (with a link back to its catalog source) and creates a draft in the
+  current workspace. The planner then adapts the loop to your workspace —
+  replacing placeholders like "your repo" with real values, and asking you
+  first where it can't know. Nothing runs until you review and activate, and
+  externally visible sends stay approval-gated.
+- **Updates ride the library.** Refresh turns newer catalog versions into new
+  library versions, so an installed loop shows the normal "v available" badge.
+  **Update & re-adapt** switches to the new version and re-fits it to your
+  workspace in one step; plain **Update** takes it exactly as published.
+- **Nothing breaks when a repo goes away.** Removing a repo (or the repo
+  deleting an entry) never touches installed loops — they own their library
+  copies.
+- If an entry needs a tool you don't have (listed as `requiredTools`), the
+  install still works and the draft carries a warning.
+
 ## State and storage
 
 Per-workspace loop state:
@@ -244,6 +285,14 @@ Shared Loop Library — one copy across every workspace in the profile:
 $SERO_HOME/apps/orchestrator-library/   # ~/.sero-ui/apps/orchestrator-library/
   index.json
   entries/<entryId>/entry.json          # plus one file per saved version
+```
+
+Catalog cache — repo registry plus one local clone per catalog repo:
+
+```text
+$SERO_HOME/apps/orchestrator-catalog/
+  repos.json                            # repos you added (the official one is built in)
+  repos/<repoKey>/                      # shallow git clone, pulled on demand
 ```
 
 Treat this as local workspace and profile metadata. It can include prompts,
