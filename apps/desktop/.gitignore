@@ -12,3 +12,4 @@ release/
 # pnpm deploy bundle handed to electron-builder (scripts/build-release.sh)
 .package-deploy/
 e2e/screenshots/living-loops/
+e2e/screenshots/delivery/

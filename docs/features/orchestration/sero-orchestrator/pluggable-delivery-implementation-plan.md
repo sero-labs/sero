@@ -16,7 +16,7 @@ loop's destination becomes a first-class user setting with an enforced
 | 3 | Receipt contract: enforcement, persistence, verify-back | ✅ Done | Completion without a valid receipt ⇒ `needs-revision`; receipts persist, feed context, verify back for pr/artifact |
 | 4 | External approval gate | ✅ Done | External sends require an open (un-consumed) approved human input — mechanically |
 | 5 | Availability warning + UI + docs | ✅ Done | `delivery-tool-missing` lifecycle; picker, chips, receipt links; docs-site updated |
-| 6 | End-to-end verification | ⬜ Not started | Real-app delivery e2e passes (approval-gated external send + receipt in UI) |
+| 6 | End-to-end verification | ✅ Done | Delivery e2e 5/5 + live GitHub 4/4 (after the arming fix) + living-loops re-verified |
 
 Status legend: ✅ Done · 🟡 In progress · ⬜ Not started · ⛔ Blocked · 🟦 Deferred.
 
@@ -416,35 +416,70 @@ scratch-workspace reuse, screenshots).
 
 **Tasks**
 
-- [ ] `apps/desktop/e2e/delivery.agent.spec.ts`: create a loop with an
-  **external** destination (`webhook-post` to a `127.0.0.1` listener the
-  spec owns — exercises the approval gate with zero external services):
-  plain-English prompt → destination picked in the form → plan contains a
-  `gate: 'approval'` step → run parks with the draft on the input card →
-  approve in the UI → the POST arrives at the listener → receipt recorded
-  in `runs/index.json` + receipt link visible in run history. Also a
-  `saved-artifact` happy path (no approval) asserting verify-back
-  (file exists) and the receipt chip.
-- [ ] Negative path in the same spec: reject the approval → nothing arrives
-  at the listener; run does not complete with a receipt.
-- [ ] Living Loops loose end folded in: a live **gh-authenticated GitHub
-  adapter** pass (the Phase-4 adapter has only ever run against fakes) —
-  gated on `gh auth status` succeeding, skipped otherwise; a real repo
-  event (e.g. a label on a scratch issue) fires the loop. Kept a separate
-  `test.describe` so it can be skipped independently.
-- [ ] Screenshots to `apps/desktop/e2e/screenshots/delivery/` (gitignored);
-  reuse of the existing scratch workspace pattern (the registered
-  "Living Loops e2e" workspace stays as is, per Dan).
-- [ ] Record findings + any product fixes in this file (the Living Loops
-  post-completion section pattern); real bugs get their own
+- [x] `apps/desktop/e2e/delivery.agent.spec.ts` — **PASSED 5/5 (2.5 min,
+  `SERO_E2E_REAL_HOME=1`)**: `saved-artifact` loop completes ONLY with a
+  receipt whose file really exists (verify-back proven in-app) and shows
+  the receipt badge; `webhook-post` loop's plan carries the
+  `gate: 'approval'` step, parks with the draft attached (visible on the
+  input card, zero requests at the spec-owned 127.0.0.1 listener while
+  parked), approval releases EXACTLY one POST, records the receipt
+  (deliveries + consumed approval + history badge). Cleanup deletes the
+  loops via the same `appAgent.invokeTool` seam the UI uses. Scratch
+  workspace "Delivery e2e" registered with the living-loops reuse pattern.
+- [x] Negative path in the same spec: rejecting the approval provably sends
+  nothing — zero listener hits, no receipt, loop never `complete`.
+- [x] One environment finding (not a product bug): the first run failed on
+  `#loop-delivery` because only `apps/desktop` had been rebuilt — the
+  orchestrator plugin UI is its own build; agent e2e runs need `pnpm build`
+  from the repo root, not just the desktop build the e2e script performs.
+- [x] Living Loops loose end folded in:
+  `apps/desktop/e2e/github-live.agent.spec.ts` — **PASSED 4/4 (2.2 min)
+  after the fix below**: a real `gh`-authenticated poll cycle
+  (`lastPolledAt` from a live `gh api` call), then a label added to a real
+  issue fires the loop and the agent writes the issue into `triage.log`.
+  Own spec file, double-gated (`SERO_E2E_GH_LIVE=1` opt-in AND `gh auth
+  status`) because it creates real GitHub activity; uses a private scratch
+  repo `sero-e2e-github-live` that is created once and REUSED (deleting
+  repos needs the `delete_repo` scope most logins lack).
+- [x] Screenshots to `apps/desktop/e2e/screenshots/delivery/` (gitignored);
+  own "Delivery e2e" / "GitHub live e2e" scratch workspaces with the same
+  register-and-reuse pattern (the "Living Loops e2e" workspace untouched,
+  per Dan).
+- [x] Findings + product fix recorded below; the real bug got its own
   `fix(orchestrator):` commit.
 
 **Acceptance**
 
-- [ ] Delivery e2e passes: approval-gated external send lands only after UI
+- [x] Delivery e2e passes: approval-gated external send lands only after UI
   approval, with the receipt visible end to end.
-- [ ] Rejection provably sends nothing.
-- [ ] Live GitHub pass green (or explicitly skipped with the gate noted).
+- [x] Rejection provably sends nothing.
+- [x] Live GitHub pass green (after the arming fix; gates noted in the spec).
+
+### Live-pass findings (the reason Phase 6 exists)
+
+1. **Real bug — eventless activation pass deadlocked event loops**
+   (`fix(orchestrator)` commit). The first live GitHub run failed: tests 1–2
+   passed (trigger authored, real poll cycle ran), but the fired run never
+   appeared. State forensics: activation immediately ran the loop with NO
+   event; the agent, lacking a payload, ASKED THE USER for the event fields
+   ($0.50 of tokens for an unanswerable question) and parked; the REAL event
+   fired mid-run, was correctly stashed — and then stranded, because a stash
+   only drains when the loop next runs and a parked loop doesn't (and
+   `maxFires: 1` had disabled the trigger). Fix: `isEventArmedOnly` — a loop
+   whose enabled triggers are ALL `event`-type ARMS at activate/enable
+   instead of running an eventless pass; the first event starts the first
+   run with its payload in scope. Cron/hybrid/manual/no-trigger loops keep
+   run-on-activate. Living Loops' "if no payload, say no event" prompt
+   gymnastics are now unnecessary; its e2e was updated (no run may exist
+   before the first webhook) and re-verified live.
+2. **Extractor nuance (recorded, not fixed)**: "handle exactly one issue per
+   run" in the prompt led the trigger extractor to author `maxFires: 1` —
+   reading a per-run bound as a lifetime bound — which conflicts with an
+   "ongoing listener" goal. Harmless for the single-fire e2e; worth an
+   extractor-prompt clarification if it recurs.
+3. **Environment note**: agent e2e runs need `pnpm build` from the repo root —
+   the e2e script's own build covers only `apps/desktop`, and a stale
+   orchestrator UI bundle fails selectors for new controls.
 
 ---
 
