@@ -36,6 +36,7 @@ import { applyAnswerInput } from './input-actions';
 import { evaluateCronTriggers, isRecurring, rearmLoop } from './scheduler';
 import { broadcastEvent, drainPendingEvent, type CoordinatorRunSeam } from './event-delivery';
 import { retryLoop, retryStepAction, runAgain } from './restart-actions';
+import { buildLifecycleEvents } from './lifecycle-events';
 import { computeReadySteps, hasRunningSteps } from './readiness';
 import type { PlanRevision, RecoveryDecision } from '../shared/types';
 
@@ -214,6 +215,8 @@ export class Coordinator {
     const draft = buildDraftLoop(this.host, { prompt, title, options });
     const loop = await runPlanningFlow(this.host, draft, { prompt, options, title });
     await this.appendLoop(loop);
+    // A planner clarification parks the new draft — tell followers it asked.
+    this.emitEvents(buildLifecycleEvents(this.host, undefined, loop));
 
     // Activate-after-create only when a valid plan landed (no pending question,
     // no validation block).
@@ -391,7 +394,17 @@ export class Coordinator {
     // iteration — consume the stash now that the loop is idle again.
     await this.drainPendingEvent(loopId);
     const updated = await this.findLoop(loopId);
+    // Internal loop:* events for followers (fire-and-forget). Compared against
+    // the loop as this call found it, so a question raised mid-run emits once.
+    this.emitEvents(buildLifecycleEvents(this.host, loop, updated, run));
     return { ok: true, loop: updated, run };
+  }
+
+  /** Fire-and-forget: lifecycle emissions never delay or fail the action that caused them. */
+  private emitEvents(events: OrchestratorEvent[]): void {
+    for (const event of events) {
+      void this.fireEvent(event).catch((error) => this.host.log(`Lifecycle event ${event.source} failed: ${error}`));
+    }
   }
 
   /** Manual plan revision: ask the LLM for a revised plan, validate, and apply. */

@@ -8,7 +8,7 @@
  * language, the model never re-implements exact matching.
  */
 
-import type { LoopTrigger, Observation, OrchestratorEvent } from '../shared/types';
+import type { EventFiredBy, LoopTrigger, Observation, OrchestratorEvent } from '../shared/types';
 
 /** Fires caused by `loop:*` events beyond this chain depth are dropped (cycle guard). */
 export const EVENT_CHAIN_DEPTH_LIMIT = 5;
@@ -58,6 +58,19 @@ export function codeMatchEventTrigger(
 /** Compact "fired by" summary for a run started by this event. */
 export function describeEvent(event: OrchestratorEvent): string {
   return event.summary ?? event.source;
+}
+
+/**
+ * The run's `firedBy` record for a consumed event. Loop events always carry a
+ * chain depth (defaulting to 0) so the run's own emissions increment it.
+ */
+export function toEventFiredBy(event: OrchestratorEvent): EventFiredBy {
+  return {
+    source: event.source,
+    occurredAt: event.occurredAt,
+    summary: describeEvent(event),
+    chainDepth: event.source.startsWith('loop:') ? (event.chainDepth ?? 0) : event.chainDepth,
+  };
 }
 
 /** The firing event as a run observation: summary + full payload for step context. */

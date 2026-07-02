@@ -32,4 +32,9 @@ export interface EventFiredBy {
   source: string;
   occurredAt: string;
   summary: string;
+  /**
+   * Chain depth of the firing `loop:*` event, so events emitted by THIS run
+   * carry depth + 1 (loop→loop cycle guard). Absent for non-loop sources.
+   */
+  chainDepth?: number;
 }

@@ -24,7 +24,7 @@ import { DEFAULT_RETAIN_DIGESTS } from '../shared/defaults';
 import { checkManagementLimits } from './limits';
 import { recordAgentWarning, recordModelWarning } from './run-warnings';
 import { isRecurring } from './scheduler';
-import { toEventObservation } from './event-match';
+import { toEventFiredBy, toEventObservation } from './event-match';
 import { mergeTriggers, replaceRun, resetRunningSteps } from './run-engine-helpers';
 
 export interface RunResult {
@@ -111,7 +111,7 @@ export class RunEngine {
       id: this.host.newId('run'),
       runNumber: runSeq,
       status: 'running',
-      firedBy: event ? { source: event.source, occurredAt: event.occurredAt, summary: event.summary ?? event.source } : undefined,
+      firedBy: event ? toEventFiredBy(event) : undefined,
       startedStepIds: [],
       stepAttempts: [],
       recoveryDecisions: [],

@@ -9,7 +9,7 @@ each independently shippable and gated on `pnpm typecheck` + green tests.
 | Phase | Title | Status | Exit gate |
 | --- | --- | --- | --- |
 | 1 | Event engine core | ✅ Done | Broadcast `fireEvent` with payloads, filters, conditions, fresh-pass/coalescing semantics |
-| 2 | Source manager + internal loop events | ⬜ Not started | Demand-driven adapters; loop→loop triggering with cycle guard |
+| 2 | Source manager + internal loop events | ✅ Done | Demand-driven adapters; loop→loop triggering with cycle guard |
 | 3 | Local adapters: filesystem + webhook | ⬜ Not started | File changes and local webhooks fire loops |
 | 4 | GitHub adapter | ⬜ Not started | CI/PR/issue events fire loops within the anti-abuse envelope |
 | 5 | Planner authoring + UI + docs | ⬜ Not started | Plain-language prompts produce event triggers; triggers/fired-by/health visible |
@@ -23,9 +23,9 @@ Status legend: ✅ Done · 🟡 In progress · ⬜ Not started · ⛔ Blocked ·
 | FR-E1 | Broadcast `fireEvent(event)`: exact source, debounce, code-matched filter, model-evaluated condition, `maxFires` | 1 | ✅ |
 | FR-E2 | Fresh pass on idle; latest-wins `pendingEvent` coalescing mid-run; `fireCount` always increments | 1 | ✅ |
 | FR-E3 | Payload reaches step context as `Observation(source: "event")`; run records `firedBy` | 1 | ✅ |
-| FR-E4 | Demand-driven sources: no matching active trigger ⇒ zero background activity; in-process re-sync | 2 | ⬜ |
+| FR-E4 | Demand-driven sources: no matching active trigger ⇒ zero background activity; in-process re-sync | 2 | ✅ |
 | FR-E5 | GitHub poller: shared per repo, 60s floor, conditional requests, rate-limit backoff, demand-scoped endpoints, restart-safe cursor | 4 | ⬜ |
-| FR-E6 | Internal `loop:*` events at complete/block/question; self-exclusion + chain-depth cap with warning | 2 | ⬜ |
+| FR-E6 | Internal `loop:*` events at complete/block/question; self-exclusion + chain-depth cap with warning | 2 | ✅ |
 | FR-E7 | Webhook listener loopback-only, per-hook secret, `POST /hooks/<name>` → `webhook:<name>` | 3 | ⬜ |
 | FR-E8 | Planner authors event/hybrid triggers from the prompt vs. a source catalog; mechanical validation blocks at create | 1 (validation) / 5 (authoring) | 🟡 validation done |
 | FR-E9 | Filesystem source with debounce + default ignores | 3 | ⬜ |
@@ -102,29 +102,35 @@ external I/O.
 
 **Tasks**
 
-- [ ] `runtime/events/manager.ts`: `EventSourceManager` — derives
-  `EventSubscription[]` from loop state, calls `adapter.sync()` per namespace;
-  re-synced by an in-process hook after every coordinator mutation (no file
-  watching, no timers); started/disposed in `runtime/index.ts` beside the
-  cron tick.
-- [ ] `runtime/events/types.ts`: `EventSourceAdapter` / `EventSubscription`
-  interfaces from the spec.
-- [ ] Internal emissions: coordinator emits `loop:completed`, `loop:blocked`
-  (finalize paths) and `loop:asked-question` (human-input raise) with loop
-  id/title, run number, and summary payloads.
-- [ ] Cycle guard: a loop's events never match its own triggers; fires caused
-  by `loop:*` events carry `chainDepth + 1`; events at depth ≥ 5 are dropped
-  with a `LoopWarning`.
-- [ ] Tests: demand start/stop (pause last subscriber ⇒ adapter told to stop),
-  emission points, self-exclusion, depth cap warning.
+- [x] `runtime/events/manager.ts`: `EventSourceManager` — derives
+  `EventSubscription[]` from loop state (active loops, enabled event/hybrid
+  triggers with an explicit source), syncs each adapter with its namespace
+  slice only when the demand signature changes. Demand is pushed in-process:
+  `attachDemandSync` taps `host.updateState` so every persisted mutation
+  notifies the manager (no file watching, no timers); started/disposed in
+  `runtime/index.ts` beside the cron tick.
+- [x] `runtime/events/types.ts`: `EventSourceAdapter` / `EventSubscription` /
+  `EmitEvent` interfaces (adapter list empty until Phases 3/4).
+- [x] Internal emissions (`runtime/lifecycle-events.ts`, fire-and-forget from
+  the coordinator): `loop:completed` / `loop:blocked` when a run finalizes
+  with that status, `loop:asked-question` when a step question parks the loop
+  or a planner clarification parks a new draft — payloads carry loop
+  id/title, run number, reason/prompts.
+- [x] Cycle guard: `sourceLoopId` self-exclusion; a run fired by a `loop:*`
+  event records `firedBy.chainDepth` and its emissions carry depth + 1;
+  depth ≥ 5 drops the fire with the `event-chain-depth` warning.
+- [x] Tests: `events-manager.test.ts` (derivation, change-only sync, namespace
+  slices, stop on last unsubscribe, dispose, updateState tap),
+  `lifecycle-events.test.ts` (emission points reach followers,
+  self-exclusion, depth cap).
 
 **Acceptance**
 
-- [ ] With zero active event triggers, no adapter is running.
-- [ ] A follow-up loop fires when its upstream loop completes.
-- [ ] Two mutually-triggering loops stop at the depth cap with a visible
-  warning — no runaway.
-- [ ] FR-E4 and FR-E6 satisfied.
+- [x] With zero active event triggers, no adapter is running.
+- [x] A follow-up loop fires when its upstream loop completes.
+- [x] Two mutually-triggering loops stop at the depth cap with a visible
+  warning — no runaway (6 runs total, then the drop warning).
+- [x] FR-E4 and FR-E6 satisfied.
 
 ---
 
