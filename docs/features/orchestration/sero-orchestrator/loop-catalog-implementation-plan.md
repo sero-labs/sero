@@ -15,7 +15,7 @@ commit per phase on `feat/orchestrator-living-loops`.
 | 2 | Install: actions, provenance versions, adaptation | ✅ Done | `catalog_install` → provenance-linked library version → draft via the existing load path → planner adaptation; reinstall is a no-op |
 | 3 | Updates and fail-soft | ✅ Done | Refresh appends newer catalog versions; "vN available" lights up with zero new update UI; unreachable/removed repos never break installs |
 | 4 | UI: Catalog tab, repo management, docs | ✅ Done | Catalog tab beside My Library with cards/detail/install/badges; repo add-confirm; slash commands; docs-site updated |
-| 5 | Official catalog content: example loops | ⬜ Not started | A simple → very-complex range of curated loops ships in the official catalog, together exercising every major feature |
+| 5 | Official catalog content: example loops | ✅ Done | A simple → very-complex range of curated loops ships in the official catalog, together exercising every major feature |
 | 6 | End-to-end verification | ⬜ Not started | Agent e2e in the real app: browse → install → adapt → update-available → fail-soft paths |
 
 Status legend: ✅ Done · 🟡 In progress · ⬜ Not started · ⛔ Blocked · 🟦 Deferred.
@@ -32,7 +32,7 @@ Status legend: ✅ Done · 🟡 In progress · ⬜ Not started · ⛔ Blocked ·
 | FR-C6 | Verified badge only on official entries; third-party entries show their source repo; add-repo needs one confirmation | 4 | ✅ |
 | FR-C7 | Missing `requiredTools` at install warn fail-soft; install proceeds, warning rides the draft | 2 | ✅ (cleared if a later re-plan recomputes warnings — noted) |
 | FR-C8 | Removing or failing to reach a repo never breaks installed loops or library entries | 1 (cache) / 3 (verified) | ✅ |
-| FR-C9 | Official catalog ships a range of example loops from simple to very complex, together showing off triggers, placement, delivery, guards, per-step config, and human input *(added by Dan, 2026-07-02)* | 5 | ⬜ |
+| FR-C9 | Official catalog ships a range of example loops from simple to very complex, together showing off triggers, placement, delivery, guards, per-step config, and human input *(added by Dan, 2026-07-02)* | 5 | ✅ |
 
 ---
 
@@ -325,41 +325,47 @@ metadata — authored via the product itself (create → refine → save →
 export from the library), not hand-written JSON — validated locally, then
 pushed to the catalog repo.
 
-**Planned lineup** (adjust during authoring; complexity ascending):
+**Shipped lineup** (catalog repo commit `2b5c888`; authored via
+`apps/desktop/e2e/catalog-author.agent.spec.ts` — a gated Playwright
+harness that drives create → tweaks → library_save in the REAL app and
+exports the saved definitions; idempotent, skips already-exported slugs):
 
-- [ ] **Daily note** *(simple)* — one step, cron trigger, workspace-files
-  delivery, LOW model. The "hello world": shows a plan, a schedule, and an
-  artifact appearing.
-- [ ] **Weekly research digest** *(moderate)* — cron, 2–3 dependent steps
-  (gather → synthesize → write), saved-artifact delivery with a stable
-  path, per-step model tiers (LOW gather / MED write), `costBand: medium`.
-- [ ] **Repo hygiene monitor** *(moderate, events)* — filesystem event
-  trigger, guard steps ("nothing to do this pass" legally skips), limits
-  tuned, workspace-files delivery. Shows event triggers + guards +
-  recurring passes that often no-op.
-- [ ] **CI fixer** *(complex)* — `github:ci-failed` event trigger, managed
-  worktree placement, `pr` delivery with verify-back, requiredTools/
-  connectors metadata ("GitHub (gh login)"), step-level tool allowlists.
-- [ ] **Issue triage & report** *(complex, external)* — `github:
-  issue-labelled` trigger, multi-step with a human-input clarify step,
-  webhook-post delivery gated on approval (`gate: 'approval'` pre-final
-  step), attachment-bearing approval question. Shows the full external-send
-  safety story.
-- [ ] **Inbox-to-brief** *(very complex)* — hybrid trigger (cadence +
-  event), email-draft delivery (Gmail connector metadata), context
-  overrides, per-step agent/model/tool picks, human-input mid-plan,
-  limits + log policy tuned, `costBand: high`, honest `limitations` text.
-- [ ] Each entry: `definition.json` (exported real definition),
-  `catalog.json` metadata (all display fields exercised across the set —
-  costBand low/med/high all present, connectors, recommendedTrigger,
-  delivery, modelTier, limitations), `example-output.md` where it helps
-  the card sell the loop.
-- [ ] Validation harness: a script/test that runs every entry in a local
-  checkout of the catalog repo through the real install validation
-  (schema + plan) — run before every content push so shipped content can
-  never rot silently; a network-gated live check rides the Phase 6 e2e.
-- [ ] Authoring doc for future entries (repo layout, metadata fields, the
-  PR-review bar) — lands in the catalog repo's README.
+- [x] **Daily note** *(simple)* — `0 8 * * 1-5` cron, two LOW steps,
+  workspace-files delivery.
+- [x] **Weekly research digest** *(moderate)* — Monday cron, gather (LOW) →
+  write (MED), saved-artifact delivery (`name: weekly-digest`),
+  `costBand: medium`.
+- [x] **Repo hygiene monitor** *(moderate, events)* — `fs:changed` trigger,
+  silent-when-clean passes, workspace-files delivery.
+- [x] **CI fixer** *(complex)* — `github:ci-failed` (+`conclusion: failure`
+  filter), worktree placement, `pr` delivery, planner-authored
+  check-existing-PRs dedup step, per-step tiers, "GitHub (gh login)"
+  connector, `costBand: high`.
+- [x] **Issue triage & report** *(complex, external)* —
+  `github:issue-labelled` with a `label: triage` filter, webhook-post
+  delivery with the planner-authored `gate: 'approval'` step pre-final.
+  Webhook URL deliberately ships unset — the installer's adaptation asks /
+  the Delivery dialog sets it (delivery params are user-level; the planner
+  never touches them). Noted in `limitations`.
+- [x] **Inbox-to-brief** *(very complex)* — hybrid trigger (`30 7 * * *` +
+  `fs:changed` with a plain-language `eventCondition` for requests/),
+  email-draft delivery, `contextOverrides.systemPrompt` carried,
+  `requiredTools: ["gmail"]`, `costBand: high`, honest limitations.
+  (Human-input mid-plan arises at runtime via the normal machinery rather
+  than as a hardcoded step — deviation from the sketch, truer to the
+  product.)
+- [x] Each entry ships `definition.json` (product-authored), curated
+  `catalog.json` (cost bands low/medium/high all present across the set,
+  connectors, recommendedTrigger, delivery, modelTier, limitations), and
+  an `example-output.md`.
+- [x] Validation harness:
+  `runtime/__tests__/catalog-content.test.ts` (gated on
+  `SERO_CATALOG_DIR`) runs every entry through the real install validation
+  (meta format, plan, delivery, trigger sanity incl. no `maxFires`
+  lifetime caps, index↔dirs exact match) — 19 checks green before the
+  push; the live official-repo check rides the Phase 6 e2e.
+- [x] Authoring doc for future entries: the catalog repo's README
+  (Phase 1) covers layout, metadata fields, and publish-by-PR.
 
 **Exit gate.** Every official entry passes the validation harness; each
 installs to a draft in the dev app and reads sensibly after adaptation;
