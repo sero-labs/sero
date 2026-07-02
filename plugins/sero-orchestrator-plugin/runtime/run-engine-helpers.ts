@@ -2,8 +2,35 @@
  * Pure run-engine helpers, split out of run-engine.ts (500-LOC limit).
  */
 
-import type { Loop, LoopRun } from '../shared/types';
+import type { Loop, LoopBlock, LoopRun } from '../shared/types';
 import type { OrchestratorHost } from './host';
+
+/** Blocks the loop on an invalid runtime state. */
+export function blockRuntime(loop: Loop, reason: string, now: string): Loop {
+  return { ...loop, status: 'blocked', runtime: { ...loop.runtime, block: { kind: 'runtime-error', reason, createdAt: now } }, updatedAt: now };
+}
+
+/** Blocks the loop on a tripped management limit. */
+export function blockLimit(loop: Loop, limit: LoopBlock['limit'], reason: string, now: string): Loop {
+  return { ...loop, status: 'blocked', runtime: { ...loop.runtime, block: { kind: 'management-limit', reason, createdAt: now, limit } }, updatedAt: now };
+}
+
+/**
+ * Resets a step to pending (clearing its outcome) when it asks the user. The
+ * attempt count is reset too: asking is a deliberate pause, not a failed work
+ * attempt, so the step keeps a full budget for its re-run after the answer.
+ */
+export function resetStepPending(loop: Loop, stepId: string, now: string): Loop {
+  const prev = loop.runtime.stepStates[stepId];
+  if (!prev) return loop;
+  return {
+    ...loop,
+    runtime: {
+      ...loop.runtime,
+      stepStates: { ...loop.runtime.stepStates, [stepId]: { ...prev, status: 'pending', outcome: undefined, attempts: 0, updatedAt: now } },
+    },
+  };
+}
 
 /** Resets every `running` step back to `pending` (used when a run is cancelled). */
 export function resetRunningSteps(

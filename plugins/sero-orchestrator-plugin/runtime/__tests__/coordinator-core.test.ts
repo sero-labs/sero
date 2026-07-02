@@ -136,7 +136,7 @@ describe('Coordinator set_delivery', () => {
     });
     expect(res.ok).toBe(false);
     expect(res.error).toContain('carrier-pigeon');
-    expect(host.state.loops[0].delivery).toBeUndefined();
+    expect(host.state.loops[0].delivery).toEqual({ destination: 'workspace-files' }); // fixture value, unchanged
   });
 
   it('rejects create options carrying an invalid delivery', async () => {

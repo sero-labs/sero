@@ -19,6 +19,7 @@ import type {
   UsageSummary,
 } from './types';
 import type { LoopAttention } from './attention-types';
+import type { DeliveryReceipt } from './delivery-types';
 import type { EventFiredBy } from './event-types';
 import type { LoopLibraryLink } from './library-types';
 
@@ -86,6 +87,8 @@ export interface LoopRunSummary {
   completionStatus?: CompletionSignal['status'];
   /** The event that started this run (absent for manual/cron runs) — drives the "fired by" chip. */
   firedBy?: EventFiredBy;
+  /** Proof of delivery from this run's completion (spec 13) — drives the receipt link in run history. */
+  delivery?: DeliveryReceipt;
   steps: LoopRunStepSummary[];
   recoveries: { decision: RecoveryDecisionKind; reason: string }[];
   /** Rolled-up token/time totals across this run's attempts (cost when reported). */

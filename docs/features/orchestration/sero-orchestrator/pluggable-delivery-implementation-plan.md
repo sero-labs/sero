@@ -13,7 +13,7 @@ loop's destination becomes a first-class user setting with an enforced
 | --- | --- | --- | --- |
 | 1 | Delivery as a loop setting | ✅ Done | `delivery` on the loop, create paths, `set_delivery`, library round-trip |
 | 2 | Destination registry + planner rules | ✅ Done | Per-destination planner rules replace the two-string ternary; placement stays orthogonal |
-| 3 | Receipt contract: enforcement, persistence, verify-back | ⬜ Not started | Completion without a valid receipt ⇒ `needs-revision`; receipts persist, feed context, verify back for pr/artifact |
+| 3 | Receipt contract: enforcement, persistence, verify-back | ✅ Done | Completion without a valid receipt ⇒ `needs-revision`; receipts persist, feed context, verify back for pr/artifact |
 | 4 | External approval gate | ⬜ Not started | External sends require an approved human-input record in the run — mechanically |
 | 5 | Availability warning + UI + docs | ⬜ Not started | `delivery-tool-missing` lifecycle; picker, chips, receipt links; docs-site updated |
 | 6 | End-to-end verification | ⬜ Not started | Real-app delivery e2e passes (approval-gated external send + receipt in UI) |
@@ -26,11 +26,11 @@ Status legend: ✅ Done · 🟡 In progress · ⬜ Not started · ⛔ Blocked ·
 | --- | --- | --- | --- |
 | FR-D1 | User-chosen destination + params; planner never chooses; existing loops default to today's behavior | 1 (model) / 5 (picker UI) | 🟡 model half |
 | FR-D2 | Per-destination planner rules replace the hardcoded ternary; placement rules stay orthogonal | 2 | ✅ |
-| FR-D3 | Declared destination completes only with a structurally valid `DeliveryReceipt`; otherwise `needs-revision` + bounded repair | 3 | ⬜ |
+| FR-D3 | Declared destination completes only with a structurally valid `DeliveryReceipt`; otherwise `needs-revision` + bounded repair | 3 | ✅ |
 | FR-D4 | External destinations require an approved human-input record in the run before a receipt is accepted | 4 | ⬜ |
 | FR-D5 | `delivery-tool-missing` warns at activation, re-checks each run start, fails through normal recovery | 5 | ⬜ |
-| FR-D6 | Receipts persist on `runtime.deliveries`, feed future run context, render as links, appear in the outcome notification | 3 (data/context/notification) / 5 (UI links) | ⬜ |
-| FR-D7 | `pr` receipts verified against the PR list; `saved-artifact` receipts against file existence | 3 | ⬜ |
+| FR-D6 | Receipts persist on `runtime.deliveries`, feed future run context, render as links, appear in the outcome notification | 3 (data/context/notification) / 5 (UI links) | 🟡 data half |
+| FR-D7 | `pr` receipts verified against the PR list; `saved-artifact` receipts against file existence | 3 | ✅ |
 | FR-D8 | `delivery` round-trips through the Loop Library (optional field, `schemaVersion` stays 1) | 1 | ✅ |
 
 ---
@@ -208,60 +208,61 @@ and are cross-checked where a read API is free.
 
 **Tasks**
 
-- [ ] `StepCompletion.receipt?: DeliveryReceipt`
-  (`shared/recovery-types.ts:49-58`), carried onto `CompletionSignal`
-  (`recovery-types.ts:38-47`); `parseStepOutcome` /
-  `parseStepOutcomeStrict` (`executors/prompt.ts`) pass it through.
-- [ ] `runtime/delivery/delivery-contract.ts` (pure, mirrors
-  `route-contract.ts`): `receiptRequirement(loop, step)` (final step +
-  effective destination ≠ `workspace-files`), structural validation
-  (destination matches the loop's declared destination, non-empty `ref` /
-  `summary`, valid `deliveredAt` — format checks only),
-  `enforceDeliveryContract(loop, step, outcome)` downgrading to
-  `needs-revision`, `formatDeliveryContract` (task-prompt text, used by
-  Phase 2's layer 1) and `formatDeliveryRepair` (repair prompt).
-- [ ] Wire the layers: repair validate in `outcomeRepair`
-  (`executors/common.ts:26-36`) checks the receipt like it checks route
-  variables (same `maxAttempts: 2`); engine backstop call beside
-  `enforceRouteContract` at `run-engine.ts:261`. `run-engine.ts` is at 503
-  LOC — move enough into `run-engine-helpers.ts` (or a new sibling) to land
-  under 500.
-- [ ] Persistence: `LoopRuntimeState.deliveries?: DeliveryReceipt[]`
-  (`shared/types.ts`, beside `pullRequests`), appended in
-  `recordCompletion` (`runtime/outcomes.ts:114`) when the completion is
-  accepted, capped (keep the newest ~20, like digest retention).
-- [ ] Future-run context: `deliveriesContext(loop, step)` in
-  `executors/prompt.ts` mirroring `openPullRequestsContext` ("already
-  shipped — do not re-deliver").
-- [ ] Verify-back (async, engine-side after the structural pass — the pure
-  contract stays pure): `pr` receipt cross-checked against
-  `host.listPullRequests()` (the `run-engine.ts:197` reconcile pattern);
-  `saved-artifact` receipt path checked for existence via
-  `host.runCommand` (`test -f`, management-plane observation — same
-  carve-out as `listPullRequests`). A verify-back failure downgrades the
-  outcome exactly like a missing receipt.
-- [ ] Run summary data: `delivery?` on `LoopRunSummary`
-  (`shared/index-types.ts:80-93`) populated in `toRunSummary`
-  (`runtime/store.ts:64-83`) from the run's completion receipt (rendered in
-  Phase 5).
-- [ ] Outcome notification: `outcomeNotification`
-  (`runtime/notify-outcome.ts:25`) includes the receipt ref/summary on
+- [x] `StepCompletion.receipt?` + `CompletionSignal.receipt?`
+  (`shared/recovery-types.ts`); `parseCompletion`/`parseReceipt` in
+  `executors/prompt.ts` pass a well-formed receipt through and reject a
+  malformed one with a precise repair reason (format only — whether one is
+  REQUIRED is the contract's call).
+- [x] `runtime/delivery/delivery-contract.ts` (pure): `receiptRequirement`
+  (final step + effective destination ≠ workspace-files; a guard-skipped
+  final step never reports, so it is exempt naturally), `deliveryProblems`
+  (missing receipt / destination mismatch / empty ref/summary / unparseable
+  `deliveredAt`; a `blocked` completion needs no receipt — nothing was
+  delivered), `enforceDeliveryContract` + `downgradeDelivery`,
+  `formatDeliveryContract` (layer 1), `formatDeliveryRepair` (layer 2 text).
+- [x] Layers wired: `outcomeRepair` (`executors/common.ts`) validates the
+  receipt after the route check (same `maxAttempts: 2`); engine backstop
+  via `applyDeliveryContract` wrapping `enforceRouteContract` in `runBatch`
+  — and `enforceDeliveryContract` also guards the **accept-step recovery
+  path**, so a recovery decision cannot smuggle in an unproven completion.
+  `run-engine.ts` trimmed 503 → 484 (blockRuntime/blockLimit/
+  resetStepPending moved to `run-engine-helpers.ts`).
+- [x] Persistence: `LoopRuntimeState.deliveries?` APPENDS in
+  `recordCompletion` on both completion paths (recurring-iteration and
+  terminal), capped at the newest 20 (`MAX_DELIVERIES`).
+- [x] Future-run context: `deliveriesContext` (newest 5) in `buildStepTask`,
+  mirroring `openPullRequestsContext` ("do not re-deliver — judge overlap
+  yourself").
+- [x] Verify-back (`runtime/delivery/verify-receipt.ts`): `pr` against a
+  fresh `listPullRequests()` (url match), `saved-artifact` via
+  `runCommand("test -f …")` with relative refs resolved against the loop's
+  resolved cwd (runCommand runs at the workspace ROOT — a worktree file
+  would otherwise never be found). Fail-soft when the observation itself
+  errors (no gh / no shell): the structural contract already passed;
+  verify-back tightens where it can, never adds a failure mode. A
+  verify-back failure downgrades exactly like a missing receipt.
+- [x] `LoopRunSummary.delivery?` populated in `toRunSummary` from
+  `completionSignal.receipt` (rendered in Phase 5).
+- [x] `outcomeNotification` appends "Delivered: <summary> (<ref>)." on
   completion.
-- [ ] Tests: contract downgrade paths (missing / malformed / wrong-destination
-  receipt), repair-then-accept, `workspace-files` exempt, guard-skipped
-  final step exempt, deliveries append + cap, context injection, verify-back
-  pass/fail for pr and saved-artifact, notification content,
-  `toRunSummary` mapping.
+- [x] Tests (22 new; 598 total green): pure contract paths, repair-in-session
+  (layer 2 via the fake host's repair simulation), engine refusal +
+  recovery consult, verified completion end-to-end (deliveries + run
+  summary + notification), verify-back pass/fail/fail-soft for pr and
+  saved-artifact, workspace-files exempt, recurring append + cap-at-20,
+  receipt parse accept/reject, deliveries context injection. Note: seeded
+  fixture loops now carry `delivery: workspace-files` explicitly so
+  completion-machinery tests stay receipt-free; delivery tests override it.
 
 **Acceptance**
 
-- [ ] A final step claiming completion without a valid receipt lands in
+- [x] A final step claiming completion without a valid receipt lands in
   `needs-revision` and routes through normal recovery after bounded repair.
-- [ ] A valid receipt persists on `runtime.deliveries`, appears in the next
+- [x] A valid receipt persists on `runtime.deliveries`, appears in the next
   run's step context, and rides the outcome notification.
-- [ ] A `pr` receipt whose PR isn't in the live list, or a `saved-artifact`
+- [x] A `pr` receipt whose PR isn't in the live list, or a `saved-artifact`
   receipt whose file doesn't exist, is rejected.
-- [ ] FR-D3, FR-D7, and FR-D6 (data/context/notification) satisfied.
+- [x] FR-D3, FR-D7, and FR-D6 (data/context/notification) satisfied.
 
 ---
 

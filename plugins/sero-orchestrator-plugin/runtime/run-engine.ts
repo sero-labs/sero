@@ -8,7 +8,7 @@
  * (engine-types.ts) so this orchestration is testable with fakes.
  */
 
-import type { HumanQuestion, Loop, LoopBlock, LoopRun, LoopStepDefinition, StepAttempt, StepOutcome } from '../shared/types';
+import type { HumanQuestion, Loop, LoopRun, LoopStepDefinition, StepAttempt, StepOutcome } from '../shared/types';
 import type { OrchestratorHost } from './host';
 import type { EngineDeps } from './engine-types';
 import { computeReadySteps, hasRunningSteps, validateRuntime } from './readiness';
@@ -25,7 +25,9 @@ import { checkManagementLimits } from './limits';
 import { recordAgentWarning, recordModelWarning } from './run-warnings';
 import { isRecurring } from './scheduler';
 import { toEventFiredBy, toEventObservation } from './event-match';
-import { dropStrandedEvent, mergeTriggers, replaceRun, resetRunningSteps } from './run-engine-helpers';
+import { blockLimit, blockRuntime, dropStrandedEvent, mergeTriggers, replaceRun, resetRunningSteps, resetStepPending } from './run-engine-helpers';
+import { enforceDeliveryContract } from './delivery/delivery-contract';
+import { applyDeliveryContract } from './delivery/verify-receipt';
 
 export interface RunResult {
   acquired: boolean;
@@ -143,13 +145,13 @@ export class RunEngine {
       }
       const validation = validateRuntime(loop);
       if (!validation.ok) {
-        loop = this.blockRuntime(loop, validation.error ?? 'invalid runtime state');
+        loop = blockRuntime(loop, validation.error ?? 'invalid runtime state', this.host.now());
         run = { ...run, status: 'blocked', block: loop.runtime.block };
         break;
       }
       const limit = checkManagementLimits(loop, run, Date.parse(this.host.now()));
       if (!limit.ok) {
-        loop = this.blockLimit(loop, limit.limit, limit.reason ?? 'management limit reached');
+        loop = blockLimit(loop, limit.limit, limit.reason ?? 'management limit reached', this.host.now());
         run = { ...run, status: 'blocked', block: loop.runtime.block };
         break;
       }
@@ -258,7 +260,12 @@ export class RunEngine {
       // A "succeeded" step that didn't record a routing variable a later step
       // branches on becomes needs-revision, so recovery handles it instead of the
       // branch silently skipping and the loop completing having done nothing.
-      const outcome = enforceRouteContract(loop, step, await this.resolveOutcome(loop, step, attempt));
+      // Likewise a completion claim without valid (and verified) proof of
+      // delivery — the loop cannot "finish" without actually shipping.
+      const outcome = await applyDeliveryContract(
+        this.host, loop, step,
+        enforceRouteContract(loop, step, await this.resolveOutcome(loop, step, attempt)),
+      );
       const recorded: StepAttempt = { ...attempt, outcome };
       run = { ...run, stepAttempts: [...run.stepAttempts, recorded], observations: [...run.observations, ...recorded.observations] };
       if (recorded.modelFallback) {
@@ -271,7 +278,7 @@ export class RunEngine {
       // The step asked the user. Reset it to pending so it re-runs with the answer,
       // and remember to park the loop; do not apply this outcome or run recovery.
       if (outcome.questions && outcome.questions.length > 0) {
-        loop = this.resetStepPending(loop, step.id);
+        loop = resetStepPending(loop, step.id, this.host.now());
         if (!parked) parked = { stepId: step.id, questions: outcome.questions };
         continue;
       }
@@ -305,7 +312,9 @@ export class RunEngine {
         if (decision.decision === 'accept-step' && decision.acceptedOutcome) {
           // The model judged the step actually succeeded; re-apply the corrected
           // outcome exactly like a reported one so its variables and completion flow.
-          const accepted = this.applyOutcome(loop, run, step.id, recorded, decision.acceptedOutcome);
+          // The delivery backstop applies here too: an accepted outcome cannot
+          // smuggle in a completion the receipt contract would have refused.
+          const accepted = this.applyOutcome(loop, run, step.id, recorded, enforceDeliveryContract(loop, step, decision.acceptedOutcome));
           loop = accepted.loop;
           run = accepted.run;
           if (accepted.completed) {
@@ -336,24 +345,6 @@ export class RunEngine {
     }
     loop = await this.commit(loop);
     return { loop, run, stop };
-  }
-
-  /**
-   * Resets a step to pending (clearing its outcome) when it asks the user. The
-   * attempt count is reset too: asking is a deliberate pause, not a failed work
-   * attempt, so the step keeps a full budget for its re-run after the answer.
-   */
-  private resetStepPending(loop: Loop, stepId: string): Loop {
-    const prev = loop.runtime.stepStates[stepId];
-    if (!prev) return loop;
-    const now = this.host.now();
-    return {
-      ...loop,
-      runtime: {
-        ...loop.runtime,
-        stepStates: { ...loop.runtime.stepStates, [stepId]: { ...prev, status: 'pending', outcome: undefined, attempts: 0, updatedAt: now } },
-      },
-    };
   }
 
   /**
@@ -423,16 +414,6 @@ export class RunEngine {
   }
 
   // ── Helpers ───────────────────────────────────────────────
-
-  private blockRuntime(loop: Loop, reason: string): Loop {
-    const now = this.host.now();
-    return { ...loop, status: 'blocked', runtime: { ...loop.runtime, block: { kind: 'runtime-error', reason, createdAt: now } }, updatedAt: now };
-  }
-
-  private blockLimit(loop: Loop, limit: LoopBlock['limit'], reason: string): Loop {
-    const now = this.host.now();
-    return { ...loop, status: 'blocked', runtime: { ...loop.runtime, block: { kind: 'management-limit', reason, createdAt: now, limit } }, updatedAt: now };
-  }
 
   private step(loop: Loop, id: string): LoopStepDefinition {
     const step = loop.plan.steps.find((s) => s.id === id);

@@ -14,14 +14,16 @@ import { extractJson } from '../schema';
 import { resolveStepModel, type ResolvedStepModel } from '../model-resolution';
 import { buildOutcomeRepair, buildStepTask, parseStepOutcome, parseStepOutcomeStrict, STEP_SYSTEM_PROMPT } from './prompt';
 import { formatRouteRepair, missingRouteVariables } from '../route-contract';
+import { deliveryProblems, formatDeliveryRepair, receiptRequirement } from '../delivery/delivery-contract';
 
 /**
  * In-session repair: if the step's reply isn't a valid StepOutcome — or a
- * `succeeded` reply omits a routing variable a later step branches on — the same
- * subagent session is re-prompted (up to 2 follow-ups) for a corrected envelope,
- * far cheaper than spawning a separate evaluator subagent. Enforcing the routing
- * contract here catches the omission while the agent still has its context, so a
- * branch is decided rather than silently skipped.
+ * `succeeded` reply omits a routing variable a later step branches on, or a
+ * completion claim lacks its required delivery receipt — the same subagent
+ * session is re-prompted (up to 2 follow-ups) for a corrected envelope, far
+ * cheaper than spawning a separate evaluator subagent. Enforcing the contracts
+ * here catches the omission while the agent still has its context, so a branch
+ * is decided (and a delivery proven) rather than silently skipped.
  */
 function outcomeRepair(loop: Loop, step: LoopStepDefinition) {
   return {
@@ -30,7 +32,13 @@ function outcomeRepair(loop: Loop, step: LoopStepDefinition) {
       const parsed = parseStepOutcomeStrict(extractJson(reply));
       if (!parsed.ok) return buildOutcomeRepair(parsed.errors);
       const missing = missingRouteVariables(loop, step, parsed.value);
-      return missing.length > 0 ? formatRouteRepair(missing) : null;
+      if (missing.length > 0) return formatRouteRepair(missing);
+      const requirement = receiptRequirement(loop, step);
+      if (requirement) {
+        const problems = deliveryProblems(requirement, parsed.value);
+        if (problems.length > 0) return formatDeliveryRepair(requirement, problems);
+      }
+      return null;
     },
   };
 }

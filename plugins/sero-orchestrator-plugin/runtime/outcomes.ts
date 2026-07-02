@@ -111,6 +111,9 @@ export interface CompletionResult {
  * recurring loop's ordinary `complete`, the iteration is simply done — the loop
  * stays `active` and scheduled, and the next fire runs it again.
  */
+/** Newest receipts kept on runtime.deliveries (they also live in run history). */
+const MAX_DELIVERIES = 20;
+
 export function recordCompletion(
   host: OrchestratorHost,
   loop: Loop,
@@ -127,14 +130,21 @@ export function recordCompletion(
     sourceStepId: stepId,
     sourceAttemptId: attempt.id,
     reason: completion.reason,
+    receipt: completion.receipt,
     createdAt: now,
     modelResponsePath: attempt.outputPath,
   };
 
+  // An accepted receipt APPENDS to the loop's delivery history (unlike the
+  // per-run PR inventory, which is replaced) so future runs see what already
+  // shipped; capped so the loop file stays bounded.
+  const receipt = completion.status === 'complete' ? completion.receipt : undefined;
+  const deliveries = receipt ? [...(loop.runtime.deliveries ?? []), receipt].slice(-MAX_DELIVERIES) : loop.runtime.deliveries;
+
   // Recurring iteration that completed and is not a declared final success:
   // record the run's signal but keep the loop active and scheduled.
   if (completion.status === 'complete' && !final && isRecurring(loop)) {
-    return { loop: { ...loop, updatedAt: now }, signal };
+    return { loop: { ...loop, runtime: { ...loop.runtime, deliveries }, updatedAt: now }, signal };
   }
 
   const terminalComplete = completion.status === 'complete';
@@ -155,7 +165,7 @@ export function recordCompletion(
       ...loop,
       status: terminalComplete ? 'complete' : 'blocked',
       triggers,
-      runtime: { ...loop.runtime, completion: signal, block },
+      runtime: { ...loop.runtime, completion: signal, block, deliveries },
       updatedAt: now,
     },
     signal,

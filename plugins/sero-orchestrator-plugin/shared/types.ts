@@ -8,7 +8,7 @@
  */
 
 import type { AppRuntimePullRequestSummary, ContextOverrides } from '@sero-ai/common';
-import type { LoopDeliverySettings } from './delivery-types';
+import type { DeliveryReceipt, LoopDeliverySettings } from './delivery-types';
 import type { LoopTrigger, LoopTriggerSuggestion } from './trigger-types';
 import type { EventFiredBy, OrchestratorEvent } from './event-types';
 import type { LoopLibraryLink, StepOverride } from './library-types';
@@ -294,6 +294,12 @@ export interface LoopRuntimeState {
    * iteration doesn't redo work an open PR already covers.
    */
   pullRequests?: AppRuntimePullRequestSummary[];
+  /**
+   * Accepted delivery receipts, newest last, appended when a run completes with
+   * proof of delivery (capped — see outcomes.ts). Injected into step context so
+   * a recurring loop knows what it already shipped and doesn't re-deliver.
+   */
+  deliveries?: DeliveryReceipt[];
   /**
    * The latest event that fired while this loop was busy (run in flight or
    * parked on a question) — latest wins, at most one pending fire. Consumed by

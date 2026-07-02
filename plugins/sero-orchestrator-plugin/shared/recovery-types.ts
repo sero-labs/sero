@@ -7,6 +7,7 @@
  */
 
 import type { LoopPlan, LoopStepDefinition, StepOutcome } from './types';
+import type { DeliveryReceipt } from './delivery-types';
 
 // ── Recovery ────────────────────────────────────────────────
 
@@ -42,6 +43,8 @@ export interface CompletionSignal {
   sourceStepId: string;
   sourceAttemptId: string;
   reason: string;
+  /** Proof of delivery from the completing step (spec 13; required when the loop declares a destination). */
+  receipt?: DeliveryReceipt;
   createdAt: string;
   modelResponsePath?: string;
 }
@@ -49,6 +52,8 @@ export interface CompletionSignal {
 export interface StepCompletion {
   status: 'complete' | 'blocked';
   reason: string;
+  /** Proof of delivery (spec 13): the enforced receipt for loops with a declared destination. */
+  receipt?: DeliveryReceipt;
   /**
    * Recurring loops only: set true when the loop's overall success criteria is
    * met, to stop the schedule for good. Omitted/false means "this iteration is

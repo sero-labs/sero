@@ -24,7 +24,9 @@ export interface OutcomeNotification {
  */
 export function outcomeNotification(loop: Loop): OutcomeNotification | null {
   if (loop.status === 'complete') {
-    return { message: `Loop "${loop.title}" finished.`, level: 'info' };
+    const receipt = loop.runtime.completion?.receipt;
+    const delivered = receipt ? ` Delivered: ${receipt.summary} (${receipt.ref}).` : '';
+    return { message: `Loop "${loop.title}" finished.${delivered}`, level: 'info' };
   }
   if (loop.status === 'blocked') {
     const reason = loop.runtime.block?.reason?.trim();

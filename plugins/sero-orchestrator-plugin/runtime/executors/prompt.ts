@@ -12,7 +12,7 @@ import { describeValue, isRecord, type ParseResult } from '../structured-call';
 import { parseHumanQuestions } from '../human-input';
 import { formatRouteContract, routeVariableRequirements } from '../route-contract';
 import { finalizationStepId } from '../readiness';
-import { effectiveDelivery } from '../../shared/delivery-types';
+import { effectiveDelivery, isDeliveryDestinationId, type DeliveryReceipt } from '../../shared/delivery-types';
 import { formatDeliveryContract } from '../delivery/delivery-contract';
 
 const STEP_STATUSES: readonly StepOutcome['status'][] = ['succeeded', 'failed', 'blocked', 'skipped', 'needs-revision'];
@@ -86,6 +86,20 @@ function openPullRequestsContext(loop: Loop, step: LoopStepDefinition): string {
 }
 
 /**
+ * What this loop already shipped in earlier runs (newest last, capped at
+ * persistence). Injected for background-agent steps like the open-PR inventory,
+ * so a recurring loop builds on past deliveries instead of re-sending them —
+ * the model judges overlap; we only feed it the list.
+ */
+function deliveriesContext(loop: Loop, step: LoopStepDefinition): string {
+  if (step.execution.type !== 'background-agent') return '';
+  const deliveries = loop.runtime.deliveries ?? [];
+  if (deliveries.length === 0) return '';
+  const lines = deliveries.slice(-5).map((d) => `- ${d.deliveredAt}: ${d.summary} (${d.destination} — ${d.ref})`);
+  return `\nAlready delivered by this loop in earlier runs (do not re-deliver the same content — judge overlap yourself):\n${lines.join('\n')}`;
+}
+
+/**
  * The event that started this run (Living Loops): what fired and its payload,
  * so the steps act on the concrete occurrence — the failing PR, the changed
  * files — instead of re-discovering it.
@@ -106,6 +120,7 @@ export function buildStepTask(loop: Loop, step: LoopStepDefinition, run?: LoopRu
   parts.push(dependencyContext(loop, step));
   parts.push(variablesContext(loop));
   parts.push(openPullRequestsContext(loop, step));
+  parts.push(deliveriesContext(loop, step));
   parts.push(formatRouteContract(routeVariableRequirements(loop, step)));
   if (step.execution.type === 'model' && step.execution.outputSchema !== undefined) {
     parts.push(`\nReturn output matching this schema (include it in the StepOutcome variables):\n${JSON.stringify(step.execution.outputSchema, null, 2)}`);
@@ -162,7 +177,23 @@ function parseCompletion(raw: unknown, errors: string[]): StepCompletion | undef
   }
   const completion: StepCompletion = { status: raw.status, reason: raw.reason };
   if (raw.final === true) completion.final = true;
+  if (raw.receipt !== undefined) completion.receipt = parseReceipt(raw.receipt, errors);
   return completion;
+}
+
+/** Format-only receipt validation; whether one is REQUIRED is the delivery contract's call. */
+function parseReceipt(raw: unknown, errors: string[]): DeliveryReceipt | undefined {
+  if (
+    !isRecord(raw) ||
+    !isDeliveryDestinationId(raw.destination) ||
+    typeof raw.ref !== 'string' || !raw.ref.trim() ||
+    typeof raw.summary !== 'string' || !raw.summary.trim() ||
+    typeof raw.deliveredAt !== 'string' || !raw.deliveredAt.trim()
+  ) {
+    errors.push('"completion.receipt", if present, must be { "destination": <this loop\'s destination id>, "ref": <non-empty string — where it landed>, "summary": <non-empty string>, "deliveredAt": <ISO 8601 timestamp> }.');
+    return undefined;
+  }
+  return { destination: raw.destination, ref: raw.ref.trim(), summary: raw.summary, deliveredAt: raw.deliveredAt };
 }
 
 /** Fast-path parse of a step's own envelope; undefined when absent or invalid. */
