@@ -338,7 +338,7 @@ export class RunEngine {
     }
     // A step asked the user: park the loop (durable pendingInput) and stop the run.
     if (parked && !stop) {
-      loop = parkForInput(this.host, loop, parked.stepId, parked.questions);
+      loop = parkForInput(this.host, loop, parked.stepId, parked.questions, run.id);
       run = { ...run, status: 'waiting' };
       loop = await this.commit(loop);
       return { loop, run, stop: true };

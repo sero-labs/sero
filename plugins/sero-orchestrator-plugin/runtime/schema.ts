@@ -10,13 +10,14 @@
  */
 
 import type {
+  LoopDeliverySettings,
   LoopPlan,
   LoopStepDefinition,
   PlanningResponse,
   StepExecutionTarget,
 } from '../shared/types';
 import { EVENT_SOURCE_NAMESPACES, isKnownEventSource } from '../shared/constants';
-import { DELIVERY_DESTINATION_IDS, isDeliveryDestinationId } from '../shared/delivery-types';
+import { approvalGateProblems } from './delivery/validate';
 import { isValidCron } from './cron';
 
 export const STEP_EXECUTION_TYPES = ['background-agent', 'active-session', 'model'] as const;
@@ -136,6 +137,10 @@ function validateStepShape(step: unknown, index: number, errors: string[]): step
   }
   if (step.dependsOn !== undefined && (!Array.isArray(step.dependsOn) || step.dependsOn.some((d) => typeof d !== 'string'))) {
     errors.push(`step "${String(step.id)}": dependsOn must be an array of step ids`);
+    ok = false;
+  }
+  if (step.gate !== undefined && step.gate !== 'approval') {
+    errors.push(`step "${String(step.id)}": gate, if present, must be exactly "approval"`);
     ok = false;
   }
   validateExecution(step.execution, String(step.id), errors);
@@ -356,26 +361,9 @@ export function coercePlanningShape(input: unknown): unknown {
 }
 
 // ── Delivery settings ───────────────────────────────────────
-
-/**
- * Structural validation for a loop's delivery setting: a known destination id
- * and a flat scalar params object. Mechanical only — what the params mean is
- * the agent's business at delivery time (see specs/13-pluggable-delivery.md).
- */
-export function validateDeliverySettings(value: unknown): string[] {
-  const errors: string[] = [];
-  if (!isRecord(value)) return ['delivery must be an object { destination, params? }'];
-  if (!isDeliveryDestinationId(value.destination)) {
-    errors.push(`delivery.destination must be one of: ${DELIVERY_DESTINATION_IDS.join(', ')} — got ${JSON.stringify(value.destination)}`);
-  }
-  if (value.params !== undefined) {
-    const flat =
-      isRecord(value.params) &&
-      Object.values(value.params).every((v) => typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean');
-    if (!flat) errors.push('delivery.params must be a flat object of string/number/boolean values');
-  }
-  return errors;
-}
+// Delivery validation lives in delivery/validate.ts (500-LOC limit); re-exported
+// here so callers keep one validation entry point.
+export { approvalGateProblems, validateDeliverySettings } from './delivery/validate';
 
 /** Max length of a natural-language event condition (a sentence, not an essay). */
 const EVENT_CONDITION_MAX_LENGTH = 500;
@@ -436,14 +424,15 @@ function validateSuggestedTriggers(raw: unknown): string[] {
   return errors;
 }
 
-/** Validates raw model output into a PlanningResponse. */
-export function validatePlanningResponse(input: unknown): ValidationResult<PlanningResponse> {
+/** Validates raw model output into a PlanningResponse. `delivery` adds the destination-specific plan-shape rules (approval gate for external sends). */
+export function validatePlanningResponse(input: unknown, delivery?: LoopDeliverySettings): ValidationResult<PlanningResponse> {
   const value = coercePlanningShape(input);
   if (!isRecord(value)) return { ok: false, errors: ['response must be a JSON object'] };
   if (!isRecord(value.plan)) return { ok: false, errors: ['plan is required'] };
 
   const plan = value.plan as Record<string, unknown>;
   const errors = validateLoopPlan(plan as unknown as LoopPlan);
+  if (errors.length === 0 && delivery) errors.push(...approvalGateProblems(plan as unknown as LoopPlan, delivery));
   if (errors.length > 0) return { ok: false, errors };
 
   const triggerErrors = validateSuggestedTriggers(value.suggestedTriggers);

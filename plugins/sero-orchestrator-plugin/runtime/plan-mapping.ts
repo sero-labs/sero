@@ -18,7 +18,8 @@ import type { OrchestratorHost } from './host';
 import { isDefaultTool } from '../shared/constants';
 import { mergeLimits, materializeTriggers } from './loop-factory';
 import { mergeExtractedTriggers, NO_TRIGGERS, type TriggerExtraction } from './trigger-extractor';
-import { validateDeliverySettings, validateLoopPlan } from './schema';
+import { effectiveDelivery } from '../shared/delivery-types';
+import { approvalGateProblems, validateDeliverySettings, validateLoopPlan } from './schema';
 import { mergeStepOverride } from './library-overlay';
 
 /** Initial (pending) runtime state for every step in a plan. */
@@ -232,7 +233,10 @@ export function planIsActivatable(loop: Loop): { ok: boolean; error?: string } {
   if (loop.runtime.block?.kind === 'validation-error') {
     return { ok: false, error: `Plan has validation errors: ${loop.runtime.block.reason}` };
   }
-  const errors = validateLoopPlan(loop.plan);
+  // Re-check the external approval shape too: the destination may have changed
+  // (set_delivery) since planning, and an external plan without a gate step
+  // could never deliver anyway (the receipt gate would refuse every completion).
+  const errors = [...validateLoopPlan(loop.plan), ...approvalGateProblems(loop.plan, effectiveDelivery(loop))];
   if (errors.length > 0) return { ok: false, error: `Plan is invalid: ${errors.join('; ')}` };
   return { ok: true };
 }

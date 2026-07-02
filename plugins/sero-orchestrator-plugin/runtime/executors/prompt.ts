@@ -116,6 +116,11 @@ export function buildStepTask(loop: Loop, step: LoopStepDefinition, run?: LoopRu
   if (loop.plan.globalInstructions) parts.push(`Global instructions: ${loop.plan.globalInstructions}`);
   parts.push(eventContext(run));
   parts.push(`\nStep: ${step.title}\n${step.instructions}`);
+  if (step.gate === 'approval') {
+    parts.push(`\nThis step is an APPROVAL GATE: the user must decide before anything is delivered. Do NOT deliver anything in this step. If the shared notes do not yet contain the user's decision on this exact content, STOP and ask: set "status" to "needs-revision" and emit ONE question of this exact form in your StepOutcome "questions":
+{ "prompt": "<what needs approving, one sentence>", "kind": "approval", "attachment": "<the FULL exact content to be delivered>", "choices": [ { "id": "approve", "label": "Approve" }, { "id": "reject", "label": "Reject" } ] }
+The loop parks until the user decides. When you re-run with their decision in the notes, do NOT ask again — record the decision in your "variables" exactly as your step instructions say, so the guarded steps route on it.`);
+  }
   if (step.expectedOutcome) parts.push(`\nExpected outcome: ${step.expectedOutcome}`);
   parts.push(dependencyContext(loop, step));
   parts.push(variablesContext(loop));

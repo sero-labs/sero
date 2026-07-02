@@ -38,6 +38,21 @@ function parseChoices(raw: unknown): HumanChoice[] | undefined {
 }
 
 /**
+ * An approval question always carries the approve/reject pair with these EXACT
+ * ids — the gate check is `choiceId === 'approve'`, never a label guess. Model
+ * choices are kept only when they already follow that contract; anything else
+ * is replaced by the standard pair (deterministic, no positional guessing).
+ */
+function approvalChoices(parsed: HumanChoice[] | undefined): HumanChoice[] {
+  const ids = new Set((parsed ?? []).map((c) => c.id));
+  if (parsed && ids.has('approve') && ids.has('reject')) return parsed;
+  return [
+    { id: 'approve', label: 'Approve' },
+    { id: 'reject', label: 'Reject' },
+  ];
+}
+
+/**
  * Parses a raw `questions`/`clarifyingQuestions` array from a model reply into
  * HumanQuestion[]. Lenient on content (skips malformed entries, fills positional
  * ids), strict on the overall shape: returns null when nothing usable is present,
@@ -51,8 +66,15 @@ export function parseHumanQuestions(raw: unknown): HumanQuestion[] | null {
       typeof q === 'string' ? q : isRecord(q) && typeof q.prompt === 'string' ? q.prompt : '';
     if (!prompt.trim()) return;
     const id = isRecord(q) && typeof q.id === 'string' && q.id.trim() ? q.id : `q${i + 1}`;
+    const question: HumanQuestion = { id, prompt: prompt.trim() };
     const choices = isRecord(q) ? parseChoices(q.choices) : undefined;
-    out.push(choices ? { id, prompt: prompt.trim(), choices } : { id, prompt: prompt.trim() });
+    if (choices) question.choices = choices;
+    if (isRecord(q) && q.kind === 'approval') {
+      question.kind = 'approval';
+      question.choices = approvalChoices(choices);
+      if (typeof q.attachment === 'string' && q.attachment.trim()) question.attachment = q.attachment;
+    }
+    out.push(question);
   });
   return out.length ? out : null;
 }
@@ -70,9 +92,10 @@ export function parkForInput(
   loop: Loop,
   stepId: string,
   questions: HumanQuestion[],
+  runId?: string,
 ): Loop {
   const now = host.now();
-  const pendingInput: PendingInput = { id: host.newId('input'), source: 'step', stepId, questions, askedAt: now };
+  const pendingInput: PendingInput = { id: host.newId('input'), source: 'step', stepId, runId, questions, askedAt: now };
   notifyAsked(host, loop, questions.length);
   return { ...loop, runtime: { ...loop.runtime, pendingInput }, updatedAt: now };
 }
@@ -167,6 +190,7 @@ export function recordAnswer(
     requestId: pending.id,
     source: pending.source,
     stepId: pending.stepId,
+    runId: pending.runId,
     questions: pending.questions,
     answers,
     answeredAt: now,

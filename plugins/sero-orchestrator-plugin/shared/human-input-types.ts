@@ -20,6 +20,15 @@ export interface HumanChoice {
 export interface HumanQuestion {
   id: string;
   prompt: string;
+  /**
+   * An approval question (spec 13): the user is deciding whether `attachment`
+   * may be delivered externally. Approved iff the recorded answer picks the
+   * choice with id "approve" — parseHumanQuestions guarantees an approval
+   * question always carries the approve/reject choice pair.
+   */
+  kind?: 'approval';
+  /** The exact content being approved (the draft), rendered on the input cards. */
+  attachment?: string;
   choices?: HumanChoice[];
 }
 
@@ -34,6 +43,12 @@ export interface PendingInput {
   source: 'planner' | 'step';
   /** The step that asked (source === 'step'). */
   stepId?: string;
+  /**
+   * The run that parked on this question (source === 'step'). Note: answering
+   * resumes the loop in a NEW run — the parked run ends as `waiting` — so this
+   * links the question to the run that asked, not the run that acts on the answer.
+   */
+  runId?: string;
   questions: HumanQuestion[];
   askedAt: string;
 }
@@ -53,9 +68,17 @@ export interface AnsweredInput {
   requestId: string;
   source: 'planner' | 'step';
   stepId?: string;
+  /** The run that asked (copied from the pending request at answer time). */
+  runId?: string;
   questions: HumanQuestion[];
   answers: InputAnswer[];
   answeredAt: string;
+  /**
+   * Set when a delivered receipt used this approval (spec 13): each external
+   * send consumes the open approvals, so a stale approval can never authorize
+   * a later, unapproved send.
+   */
+  consumedAt?: string;
 }
 
 /**

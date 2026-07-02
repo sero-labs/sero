@@ -25,7 +25,7 @@ export interface DeliveryDestinationSpec {
 }
 
 const EXTERNAL_STAGING =
-  'This is externally visible, so the plan MUST stage it: one step composes the content, a separate step presents that exact content to the user for approval (per HUMAN APPROVAL / INPUT GATES), and the step that actually delivers depends on the approval step and is guarded so it only runs once approved. Never deliver without the recorded approval.';
+  'This is externally visible, so the plan MUST stage it: one step composes the content; a separate step marked "gate": "approval" presents that exact content to the user for approval (per HUMAN APPROVAL / INPUT GATES — it records the decision in a "produces" variable); and the step that actually delivers depends on the gate step and is guarded ("when") so it only runs once approved. The final step must (transitively) depend on the gate step. Never deliver without the recorded approval — an unapproved delivery is refused mechanically. If the user rejects, deliver nothing: route past the send and report honestly (a one-shot loop completes as "blocked").';
 
 const RULES: Record<DeliveryDestinationId, Pick<DeliveryDestinationSpec, 'requiredTools' | 'plannerRules' | 'receiptHint'>> = {
   pr: {

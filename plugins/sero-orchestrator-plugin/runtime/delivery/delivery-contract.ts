@@ -13,9 +13,9 @@
  * Everything here is pure (no host) so it unit-tests directly.
  */
 
-import type { Loop, LoopStepDefinition, StepOutcome } from '../../shared/types';
+import type { AnsweredInput, Loop, LoopStepDefinition, StepOutcome } from '../../shared/types';
 import type { DeliveryReceipt, LoopDeliverySettings } from '../../shared/delivery-types';
-import { effectiveDelivery } from '../../shared/delivery-types';
+import { effectiveDelivery, isExternalDestination } from '../../shared/delivery-types';
 import { finalizationStepId } from '../readiness';
 import { deliverySpec } from './registry';
 
@@ -32,11 +32,40 @@ export function receiptRequirement(loop: Loop, step: LoopStepDefinition): LoopDe
 }
 
 /**
+ * True when this answered input is an OPEN approval: an `approval` question
+ * answered with its `approve` choice, not yet consumed by a delivered receipt.
+ * Structured check only (`choiceId === 'approve'`) — never a text guess.
+ */
+function isOpenApproval(answered: AnsweredInput): boolean {
+  if (answered.consumedAt) return false;
+  return answered.questions.some(
+    (q) => q.kind === 'approval' && answered.answers.some((a) => a.questionId === q.id && a.choiceId === 'approve'),
+  );
+}
+
+/** True when the loop holds an approval that no earlier send has consumed. */
+export function hasOpenApproval(loop: Loop): boolean {
+  return (loop.answeredInputs ?? []).some(isOpenApproval);
+}
+
+/**
+ * Marks every open approval consumed (called when an external receipt is
+ * accepted): one user approval authorizes exactly one send, so a stale
+ * approval can never cover a later, unapproved delivery.
+ */
+export function consumeApprovals(answeredInputs: AnsweredInput[] | undefined, now: string): AnsweredInput[] | undefined {
+  if (!answeredInputs?.some(isOpenApproval)) return answeredInputs;
+  return answeredInputs.map((a) => (isOpenApproval(a) ? { ...a, consumedAt: now } : a));
+}
+
+/**
  * Why this outcome's completion claim fails the delivery contract (empty when
  * it passes, or when nothing is claimed). Format checks only — the receipt
  * content is the model's; code never judges whether the delivery was "good".
+ * For external destinations the claim additionally needs an open user approval
+ * on the loop (FR-D4): the agent cannot talk its way past a missing one.
  */
-export function deliveryProblems(delivery: LoopDeliverySettings, outcome: StepOutcome): string[] {
+export function deliveryProblems(loop: Loop, delivery: LoopDeliverySettings, outcome: StepOutcome): string[] {
   if (outcome.completion?.status !== 'complete') return [];
   const receipt = outcome.completion.receipt;
   if (!receipt) return ['the completion has no "receipt" — completion without proof of delivery is not accepted'];
@@ -48,6 +77,11 @@ export function deliveryProblems(delivery: LoopDeliverySettings, outcome: StepOu
   if (!receipt.summary.trim()) problems.push('the receipt "summary" is empty');
   if (Number.isNaN(Date.parse(receipt.deliveredAt))) {
     problems.push(`the receipt "deliveredAt" ("${receipt.deliveredAt}") is not a valid timestamp`);
+  }
+  if (isExternalDestination(delivery.destination) && !hasOpenApproval(loop)) {
+    problems.push(
+      `"${delivery.destination}" is externally visible and requires the user's approval before delivery — no un-used approval is recorded on this loop. Present the content as an "approval" question (the gate step) and wait for the user`,
+    );
   }
   return problems;
 }
@@ -69,7 +103,7 @@ export function downgradeDelivery(delivery: LoopDeliverySettings, outcome: StepO
 export function enforceDeliveryContract(loop: Loop, step: LoopStepDefinition, outcome: StepOutcome): StepOutcome {
   const requirement = receiptRequirement(loop, step);
   if (!requirement) return outcome;
-  const problems = deliveryProblems(requirement, outcome);
+  const problems = deliveryProblems(loop, requirement, outcome);
   return problems.length === 0 ? outcome : downgradeDelivery(requirement, outcome, problems);
 }
 

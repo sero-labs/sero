@@ -53,18 +53,22 @@ describe('delivery contract (pure)', () => {
   });
 
   it('lists the exact structural problems with a claim', () => {
+    const host = createFakeHost();
+    const loop = seedDeliveryLoop(host);
     const delivery = { destination: 'saved-artifact' as const };
-    expect(deliveryProblems(delivery, { status: 'succeeded', summary: 'no claim' })).toEqual([]);
-    expect(deliveryProblems(delivery, completing())[0]).toContain('no "receipt"');
-    expect(deliveryProblems(delivery, completing({ ...RECEIPT, destination: 'chat-post' }))[0]).toContain('"chat-post"');
-    expect(deliveryProblems(delivery, completing({ ...RECEIPT, deliveredAt: 'yesterday-ish' }))[0]).toContain('not a valid timestamp');
-    expect(deliveryProblems(delivery, completing(RECEIPT))).toEqual([]);
+    expect(deliveryProblems(loop, delivery, { status: 'succeeded', summary: 'no claim' })).toEqual([]);
+    expect(deliveryProblems(loop, delivery, completing())[0]).toContain('no "receipt"');
+    expect(deliveryProblems(loop, delivery, completing({ ...RECEIPT, destination: 'chat-post' }))[0]).toContain('"chat-post"');
+    expect(deliveryProblems(loop, delivery, completing({ ...RECEIPT, deliveredAt: 'yesterday-ish' }))[0]).toContain('not a valid timestamp');
+    expect(deliveryProblems(loop, delivery, completing(RECEIPT))).toEqual([]);
   });
 
   it('does not demand a receipt for a planned block (nothing was delivered)', () => {
+    const host = createFakeHost();
+    const loop = seedDeliveryLoop(host);
     const delivery = { destination: 'saved-artifact' as const };
     const blocked: StepOutcome = { status: 'blocked', summary: 'cannot', completion: { status: 'blocked', reason: 'impossible' } };
-    expect(deliveryProblems(delivery, blocked)).toEqual([]);
+    expect(deliveryProblems(loop, delivery, blocked)).toEqual([]);
   });
 
   it('downgrades an unproven completion to needs-revision, keeping variables', () => {

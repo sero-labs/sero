@@ -15,6 +15,8 @@ import type {
   StepRuntimeState,
 } from '../shared/types';
 import type { OrchestratorHost } from './host';
+import { isExternalDestination } from '../shared/delivery-types';
+import { consumeApprovals } from './delivery/delivery-contract';
 import { finalizationStepId } from './readiness';
 import { isRecurring } from './scheduler';
 
@@ -140,6 +142,10 @@ export function recordCompletion(
   // shipped; capped so the loop file stays bounded.
   const receipt = completion.status === 'complete' ? completion.receipt : undefined;
   const deliveries = receipt ? [...(loop.runtime.deliveries ?? []), receipt].slice(-MAX_DELIVERIES) : loop.runtime.deliveries;
+  // An external send uses up the user's approval: one approval, one delivery.
+  const answeredInputs =
+    receipt && isExternalDestination(receipt.destination) ? consumeApprovals(loop.answeredInputs, now) : loop.answeredInputs;
+  loop = { ...loop, answeredInputs };
 
   // Recurring iteration that completed and is not a declared final success:
   // record the run's signal but keep the loop active and scheduled.

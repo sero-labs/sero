@@ -14,7 +14,7 @@ loop's destination becomes a first-class user setting with an enforced
 | 1 | Delivery as a loop setting | ✅ Done | `delivery` on the loop, create paths, `set_delivery`, library round-trip |
 | 2 | Destination registry + planner rules | ✅ Done | Per-destination planner rules replace the two-string ternary; placement stays orthogonal |
 | 3 | Receipt contract: enforcement, persistence, verify-back | ✅ Done | Completion without a valid receipt ⇒ `needs-revision`; receipts persist, feed context, verify back for pr/artifact |
-| 4 | External approval gate | ⬜ Not started | External sends require an approved human-input record in the run — mechanically |
+| 4 | External approval gate | ✅ Done | External sends require an open (un-consumed) approved human input — mechanically |
 | 5 | Availability warning + UI + docs | ⬜ Not started | `delivery-tool-missing` lifecycle; picker, chips, receipt links; docs-site updated |
 | 6 | End-to-end verification | ⬜ Not started | Real-app delivery e2e passes (approval-gated external send + receipt in UI) |
 
@@ -27,7 +27,7 @@ Status legend: ✅ Done · 🟡 In progress · ⬜ Not started · ⛔ Blocked ·
 | FR-D1 | User-chosen destination + params; planner never chooses; existing loops default to today's behavior | 1 (model) / 5 (picker UI) | 🟡 model half |
 | FR-D2 | Per-destination planner rules replace the hardcoded ternary; placement rules stay orthogonal | 2 | ✅ |
 | FR-D3 | Declared destination completes only with a structurally valid `DeliveryReceipt`; otherwise `needs-revision` + bounded repair | 3 | ✅ |
-| FR-D4 | External destinations require an approved human-input record in the run before a receipt is accepted | 4 | ⬜ |
+| FR-D4 | External destinations require an approved human-input record in the run before a receipt is accepted | 4 | ✅ (open-approval variant — see finding) |
 | FR-D5 | `delivery-tool-missing` warns at activation, re-checks each run start, fails through normal recovery | 5 | ⬜ |
 | FR-D6 | Receipts persist on `runtime.deliveries`, feed future run context, render as links, appear in the outcome notification | 3 (data/context/notification) / 5 (UI links) | 🟡 data half |
 | FR-D7 | `pr` receipts verified against the PR list; `saved-artifact` receipts against file existence | 3 | ✅ |
@@ -55,6 +55,9 @@ implements. Flag now if any should change:
    contains a matching approved input" is currently unanswerable.
    `PendingInput` + `AnsweredInput` gain `runId?` (stamped by `parkForInput`,
    which the run-engine calls with the run in scope at `run-engine.ts:331`).
+   **Superseded in Phase 4**: resume opens a NEW run, so same-run matching is
+   impossible — the gate uses open-approval consumption instead (`consumedAt`
+   on `AnsweredInput`); `runId` still links a question to the asking run.
 3. **Approval is structured, not inferred.** `HumanQuestion` gains
    `kind?: 'approval'` and `attachment?` (the draft body, rendered in the
    input cards). An approval is "approved" iff the recorded answer picks the
@@ -273,54 +276,78 @@ human approval recorded in the run — the durable mechanism is the only path.
 
 **Tasks**
 
-- [ ] Human-input extensions (`shared/human-input-types.ts`):
-  `HumanQuestion.kind?: 'approval'` + `attachment?: string` (the draft);
-  `PendingInput.runId?` + `AnsweredInput.runId?`. `parseHumanQuestions`
-  (`runtime/human-input.ts:46-58`) parses the new fields; `parkForInput`
-  stamps `runId` (run in scope at its `run-engine.ts:331` call site);
-  `recordAnswer` carries it onto the answered record.
-- [ ] Approval step marker: `gate?: 'approval'` on the plan step
-  (`shared/types.ts` step type); `validateStepShape`
-  (`runtime/schema.ts:115-143`) accepts it; `buildStepTask` for a gated step
-  instructs: present the draft as an `approval` question with the draft as
-  `attachment`, do not send in this attempt.
-- [ ] Plan-shape validation: for external destinations, `validateLoopPlan`
-  requires at least one `gate: 'approval'` step that the final step
-  (transitively) depends on — enforced at create/refine and re-checked by
-  `planIsActivatable` (`runtime/plan-mapping.ts:214-222`).
-- [ ] Planner rules: external destinations' `plannerRules` (registry) require
-  the draft → approval-gated step → send shape and explain the `gate` field.
-- [ ] Mechanical backstop in `enforceDeliveryContract`: a receipt for an
-  `external` destination is accepted only if `loop.answeredInputs` contains
-  a record for the current run (`runId === run.id`) whose `approval`
-  question was answered with its approve choice — otherwise
-  `needs-revision`, with a repair/summary message saying approval is
-  missing (the agent cannot talk its way past it).
-- [ ] **Verify run identity across park/resume**: confirm `answer_input` →
-  `runNext` (`coordinator.ts:234-242`) resumes the same `waiting` run (same
-  `run.id`) rather than opening a new one. If a new run is created, match on
-  "answered after this run started AND the gated step is in this run's
-  `startedStepIds`" instead — decide from what the code actually does, and
-  record the finding here.
-- [ ] UI: `InputRequestCard` (and the home-inbox `AttentionInputCard`) render
-  `attachment` as a scrollable draft block under the prompt; approve/reject
-  quick-picks already render via `choices`.
-- [ ] Tests: schema acceptance/rejection of `gate`, external-plan validation
-  (missing approval step blocks), gate backstop (no approval / rejected /
-  approved-in-a-different-run ⇒ downgrade; approved-in-this-run ⇒ accept),
-  `runId` stamping through park → answer → resume, question parse with
-  kind/attachment, card rendering of the attachment.
+- [x] Human-input extensions (`shared/human-input-types.ts`):
+  `HumanQuestion.kind?: 'approval'` + `attachment?: string`;
+  `PendingInput.runId?` + `AnsweredInput.runId?` +
+  `AnsweredInput.consumedAt?` (see the finding below).
+  `parseHumanQuestions` parses kind/attachment and GUARANTEES an approval
+  question carries the `approve`/`reject` choice-id pair: compliant model
+  choices are kept, anything else is replaced by the standard pair — ids
+  are the contract, labels are never guessed, no positional mapping.
+  `parkForInput` stamps `runId` (run in scope at the run-engine call site);
+  `recordAnswer` copies it onto the answered record.
+- [x] Approval step marker: `gate?: 'approval'` on the plan step;
+  `validateStepShape` accepts exactly that value; `buildStepTask` for a
+  gated step injects the gate contract — present the FULL exact content as
+  an `approval` question (`attachment`), never deliver in this step, and on
+  re-run record the decision variable instead of re-asking.
+- [x] Plan-shape validation: `approvalGateProblems(plan, delivery)` requires a
+  pre-final `gate: 'approval'` step the single sink transitively depends on
+  for external destinations — wired into `validatePlanningResponse(…,
+  delivery)` (so the planner's ONE repair pass can fix a missing gate) and
+  re-checked by `planIsActivatable` via `effectiveDelivery(loop)` (covers a
+  post-planning `set_delivery` to an external destination). Note: in a
+  valid single-sink plan every step is an ancestor of the sink, so the
+  ancestor walk only tightens invalid multi-sink shapes (where it falls
+  back to gate-exists; single-sink validation rejects those anyway).
+  Split into `runtime/delivery/validate.ts` (with
+  `validateDeliverySettings`) — `schema.ts` had crossed 500 LOC (now 469);
+  schema re-exports both.
+- [x] Planner rules: `EXTERNAL_STAGING` (registry) now names the `gate:
+  "approval"` field, the produces/when wiring, the final-step dependency,
+  and the rejection behavior ("deliver nothing, complete as blocked");
+  the system prompt's step-shape JSON documents `"gate": "approval"?`.
+- [x] Mechanical backstop: `deliveryProblems` (now `(loop, delivery,
+  outcome)`) refuses an external receipt unless `hasOpenApproval(loop)` —
+  an `approval` question answered with choiceId `approve` and not yet
+  consumed. `recordCompletion` consumes ALL open approvals when an external
+  receipt is accepted (`consumeApprovals`): one approval authorizes exactly
+  one send, so a stale approval can never cover a later unapproved send.
+  Rides the existing 3 layers (repair prompt + engine backstop +
+  accept-step guard) unchanged.
+- [x] **Run-identity finding (recorded per the plan)**: `answer_input` →
+  `runNext` does NOT resume the parked run — the engine mints a NEW run id
+  every `execute()` and the parked run finalizes as `waiting`; the answer
+  lands BETWEEN runs, so neither "runId === current run" nor "answered
+  after this run started" can ever match. The gate therefore uses the
+  open-approval/consumption model above instead of same-run matching;
+  `runId` on pending/answered inputs links a question to the run that
+  ASKED it (history/e2e assertions), not the run that acts on the answer.
+  Verified by test: park in run 1, answer, resume opens run 2 ≠ run 1.
+- [x] UI: `InputRequestCard` and the home-inbox `AttentionQueue` card render
+  `attachment` as a scrollable `<pre>` draft block under the prompt;
+  approve/reject quick-picks render via the existing `choices` path.
+  (No component-level unit tests exist in ui/__tests__ — pure-lib only — so
+  the card rendering is verified by the Phase 6 e2e.)
+- [x] Tests (15 new; 613 total green): approval-question parsing (compliant
+  pair kept, non-compliant replaced, ordinary questions untouched), gate
+  marker accept/reject, external plan-shape validation + planner-response
+  rejection + activation block, gated-step task contract, open/rejected/
+  consumed approval predicates, consumption stamping, engine paths (no
+  approval refused / approved accepted then consumed / rejected never
+  sends / consumed never covers a second send), runId park→answer
+  stamping + new-run-on-resume finding.
 
 **Acceptance**
 
-- [ ] An external-destination plan without an approval step cannot be created
-  or activated.
-- [ ] A send claimed without an approved input in the run downgrades to
-  `needs-revision`; after the user approves (draft visible on the card), the
-  same machinery accepts the receipt.
-- [ ] A rejection leaves nothing sent and the loop parked/recovering — never a
+- [x] An external-destination plan without an approval step cannot be created
+  (planner validation + repair) or activated (`planIsActivatable`).
+- [x] A send claimed without an open approved input downgrades to
+  `needs-revision`; with the approval recorded (draft visible on the card),
+  the same machinery accepts the receipt and consumes the approval.
+- [x] A rejection leaves nothing sent and the loop parked/recovering — never a
   silent send.
-- [ ] FR-D4 satisfied.
+- [x] FR-D4 satisfied (open-approval variant).
 
 ---
 

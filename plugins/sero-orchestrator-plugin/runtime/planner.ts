@@ -45,14 +45,16 @@ type Classified =
   | { kind: 'error'; errors: string[] };
 
 /** Classifies a raw planner reply: clarifying questions, a valid plan, or errors. */
-function classify(text: string): Classified {
+function classify(text: string, delivery: LoopDeliverySettings): Classified {
   const parsed = extractJson(text);
   if (parsed === undefined) return { kind: 'error', errors: ['model response was not valid JSON'] };
   if (isRecord(parsed)) {
     const questions = parseHumanQuestions(parsed.clarifyingQuestions);
     if (questions) return { kind: 'questions', questions };
   }
-  const validated = validatePlanningResponse(parsed);
+  // Destination-aware validation: an external destination's plan must stage the
+  // send behind an approval gate — caught here so the repair pass can fix it.
+  const validated = validatePlanningResponse(parsed, delivery);
   return validated.ok ? { kind: 'plan', response: validated.value } : { kind: 'error', errors: validated.errors };
 }
 
@@ -88,7 +90,7 @@ export async function planLoop(host: OrchestratorHost, req: PlanRequest): Promis
   }
   modelResponses.push(first);
 
-  const firstResult = classify(first);
+  const firstResult = classify(first, req.delivery);
   if (firstResult.kind === 'plan') return { ok: true, response: firstResult.response, modelResponses };
   if (firstResult.kind === 'questions') return { ok: false, needsInput: true, questions: firstResult.questions, modelResponses };
 
@@ -102,7 +104,7 @@ export async function planLoop(host: OrchestratorHost, req: PlanRequest): Promis
   }
   modelResponses.push(repaired);
 
-  const repairedResult = classify(repaired);
+  const repairedResult = classify(repaired, req.delivery);
   if (repairedResult.kind === 'plan') return { ok: true, response: repairedResult.response, modelResponses };
   if (repairedResult.kind === 'questions') return { ok: false, needsInput: true, questions: repairedResult.questions, modelResponses };
   return { ok: false, errors: repairedResult.errors, modelResponses };

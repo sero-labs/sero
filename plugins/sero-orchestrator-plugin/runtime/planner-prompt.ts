@@ -41,6 +41,7 @@ Return ONLY a single JSON object (no prose before or after). The top-level objec
         "expectedOutcome": string?,      // what success looks like
         "dependsOn": string[]?,          // ids of steps that must succeed first
         "produces": string[]?,           // BRANCHING: routing variables this step records (declare before any guard reads them)
+        "gate": "approval"?,             // DELIVERY: marks the approval step required before an externally visible send (see the delivery rule)
         "when": ({ "var": string, "in": (string|number|boolean)[] } | { "var": string, "default": true })?,  // BRANCHING: run this step only when the route matches; omit ⇒ always runs
         "execution": { "type": "background-agent", "model": "LOW"|"MED"|"HIGH", "tools": string[]? }
           | { "type": "model", "model": "LOW"|"MED"|"HIGH", "outputSchema": object? }

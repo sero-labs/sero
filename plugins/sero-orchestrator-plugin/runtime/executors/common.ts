@@ -35,7 +35,7 @@ function outcomeRepair(loop: Loop, step: LoopStepDefinition) {
       if (missing.length > 0) return formatRouteRepair(missing);
       const requirement = receiptRequirement(loop, step);
       if (requirement) {
-        const problems = deliveryProblems(requirement, parsed.value);
+        const problems = deliveryProblems(loop, requirement, parsed.value);
         if (problems.length > 0) return formatDeliveryRepair(requirement, problems);
       }
       return null;

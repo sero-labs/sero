@@ -212,6 +212,12 @@ export interface LoopStepDefinition {
   produces?: string[];
   /** Branch guard. Absent → the step always runs (the main line). */
   when?: StepGuard;
+  /**
+   * Approval gate marker (spec 13): this step presents the exact content to be
+   * delivered as an `approval` question and parks the loop for the user's
+   * decision. Required on a pre-final step for external destinations.
+   */
+  gate?: 'approval';
 }
 
 // ── Execution targets ───────────────────────────────────────
