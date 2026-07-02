@@ -13,14 +13,16 @@
 
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import type { Loop } from '../shared/types';
+import { DELIVERY_DESTINATION_IDS, isDeliveryDestinationId } from '../shared/delivery-types';
 import { executeOrchestratorTool, ORCHESTRATOR_ACTIONS, type OrchestratorToolParamsShape } from './tools';
 
 const HELP = `Usage:
   /orchestrator list
-  /orchestrator create <prompt>
+  /orchestrator create [--deliver <destination>] <prompt>
   /orchestrator show <loopId>
   /orchestrator activate|disable|enable|run_next|run_again|retry|reflect|delete <loopId>
   /orchestrator retry_step <loopId> <stepId>
+  /orchestrator set_delivery <loopId> <destination>
   /orchestrator reflect_workspace
   /orchestrator answer <loopId> <your answer>
   /orchestrator revise <loopId> [request]
@@ -57,9 +59,20 @@ export function parseCommand(args: string): ParsedCommand {
     case 'reflect_workspace':
     case 'library_list':
       return { action };
-    case 'create':
+    case 'create': {
       if (!remainder) return { error: 'create requires a prompt' };
-      return { action, prompt: remainder };
+      // Optional leading destination flag; the prompt is everything after it.
+      const flagged = remainder.match(/^--deliver\s+(\S+)\s+([\s\S]+)$/);
+      if (!flagged) return { action, prompt: remainder };
+      if (!isDeliveryDestinationId(flagged[1])) return { error: `Unknown destination "${flagged[1]}". Destinations: ${DELIVERY_DESTINATION_IDS.join(', ')}` };
+      return { action, prompt: flagged[2], deliveryDestination: flagged[1] };
+    }
+    case 'set_delivery': {
+      const [loopId, destination] = rest;
+      if (!loopId || !destination) return { error: 'set_delivery requires a loopId and a destination' };
+      if (!isDeliveryDestinationId(destination)) return { error: `Unknown destination "${destination}". Destinations: ${DELIVERY_DESTINATION_IDS.join(', ')}` };
+      return { action, loopId, deliveryDestination: destination };
+    }
     case 'library_save': {
       const [loopId, mode, ...noteParts] = rest;
       if (!loopId) return { error: 'library_save requires a loopId' };

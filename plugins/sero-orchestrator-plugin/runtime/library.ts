@@ -38,6 +38,7 @@ export function instantiate(host: OrchestratorHost, def: SharedLoopDefinition, l
     limits: { ...def.limits },
     logPolicy: { ...def.logPolicy },
     contextOverrides: def.contextOverrides ? structuredClone(def.contextOverrides) : undefined,
+    delivery: def.delivery ? structuredClone(def.delivery) : undefined,
     warnings: [],
     runs: [],
     revisions: [],

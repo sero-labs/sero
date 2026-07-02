@@ -7,7 +7,7 @@
  * under `$SERO_HOME/apps/orchestrator-library/`, never in a workspace's loop.json.
  */
 
-import type { ContextOverrides, LoopLimits, LoopPlan, LogPolicy } from './types';
+import type { ContextOverrides, LoopDeliverySettings, LoopLimits, LoopPlan, LogPolicy } from './types';
 
 /** A trigger's portable config — no ids, no fire counters, no loop/workspace binding. */
 export interface SharedTriggerConfig {
@@ -32,6 +32,12 @@ export interface SharedLoopDefinition {
   limits: LoopLimits;
   logPolicy: LogPolicy;
   contextOverrides?: ContextOverrides;
+  /**
+   * The destination kind is definitional ("this loop posts a digest to chat"),
+   * so it travels with the definition; params are copied verbatim and adapted
+   * per workspace on load/install. Optional — schemaVersion stays 1.
+   */
+  delivery?: LoopDeliverySettings;
 }
 
 /** One immutable, monotonically numbered version of an entry. */

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { extractJson, findCycle, validateLoopPlan, validatePlanningResponse } from '../schema';
+import { extractJson, findCycle, validateDeliverySettings, validateLoopPlan, validatePlanningResponse } from '../schema';
 import type { LoopPlan, LoopStepDefinition } from '../../shared/types';
 import { oneStepPlan, parallelPlan, sequentialPlan } from './fixtures';
 
@@ -358,5 +358,26 @@ describe('validateLoopPlan — branching guards', () => {
       expect(byId('simple').when).toEqual({ var: 'route', in: ['simple'] });
       expect(byId('fallback').when).toEqual({ var: 'route', default: true });
     }
+  });
+});
+
+describe('validateDeliverySettings', () => {
+  it('accepts a known destination with flat scalar params', () => {
+    expect(validateDeliverySettings({ destination: 'chat-post', params: { channel: '#intel', pin: true, max: 3 } })).toEqual([]);
+    expect(validateDeliverySettings({ destination: 'pr' })).toEqual([]);
+  });
+
+  it('rejects an unknown destination', () => {
+    const errors = validateDeliverySettings({ destination: 'carrier-pigeon' });
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toContain('carrier-pigeon');
+    expect(errors[0]).toContain('webhook-post');
+  });
+
+  it('rejects non-object settings and non-flat params', () => {
+    expect(validateDeliverySettings('pr')).toHaveLength(1);
+    expect(validateDeliverySettings(null)).toHaveLength(1);
+    expect(validateDeliverySettings({ destination: 'webhook-post', params: { nested: { a: 1 } } })).toHaveLength(1);
+    expect(validateDeliverySettings({ destination: 'webhook-post', params: ['url'] })).toHaveLength(1);
   });
 });

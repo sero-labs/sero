@@ -23,7 +23,8 @@ import { DEFAULT_STATE } from '../shared/defaults';
 import type { OrchestratorHost } from './host';
 import { buildDraftLoop } from './loop-factory';
 import { activate, disable, enable, type TransitionResult } from './lifecycle';
-import { applyLoopContext, applyStepAgent, applyStepModel, applyStepTools, planIsActivatable } from './plan-mapping';
+import { applyLoopContext, applyLoopDelivery, applyStepAgent, applyStepModel, applyStepTools, planIsActivatable } from './plan-mapping';
+import { validateDeliverySettings } from './schema';
 import { runPlanningFlow } from './planning-flow';
 import { RunEngine } from './run-engine';
 import type { EngineDeps } from './engine-types';
@@ -165,6 +166,8 @@ export class Coordinator {
         return this.applyOverride(action.loopId, (loop, now) => applyStepAgent(loop, action.stepId, action.agent, now));
       case 'set_loop_context':
         return this.setLoopContext(action.loopId, action.overrides);
+      case 'set_delivery':
+        return this.applyOverride(action.loopId, (loop, now) => applyLoopDelivery(loop, action.delivery, now));
       case 'reflect':
       case 'reflect_workspace':
       case 'choose_suggestion':
@@ -209,6 +212,10 @@ export class Coordinator {
     options?: CreateLoopOptions,
   ): Promise<OrchestratorActionResult> {
     if (!prompt.trim()) return { ok: false, error: 'A loop prompt is required.' };
+    if (options?.delivery) {
+      const deliveryErrors = validateDeliverySettings(options.delivery);
+      if (deliveryErrors.length > 0) return { ok: false, error: deliveryErrors.join('; ') };
+    }
     // Build the draft first so we have a stable id and parentSessionId for the
     // planning model call, then run the shared planning flow (plan / clarifying
     // questions / blocked draft).

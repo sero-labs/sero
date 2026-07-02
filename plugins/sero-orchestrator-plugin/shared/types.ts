@@ -8,6 +8,8 @@
  */
 
 import type { AppRuntimePullRequestSummary, ContextOverrides } from '@sero-ai/common';
+import type { LoopDeliverySettings } from './delivery-types';
+import type { LoopTrigger, LoopTriggerSuggestion } from './trigger-types';
 import type { EventFiredBy, OrchestratorEvent } from './event-types';
 import type { LoopLibraryLink, StepOverride } from './library-types';
 import type { LogPolicy, UsageSummary } from './usage-types';
@@ -60,6 +62,16 @@ export type {
   LoopAttentionSuggestion,
 } from './attention-types';
 
+// Delivery destination types live in delivery-types.ts (see
+// specs/13-pluggable-delivery.md); re-exported here so './types' imports keep
+// resolving.
+export type {
+  DeliveryDestinationId,
+  LoopDeliverySettings,
+  DeliveryReceipt,
+  DeliveryDestinationInfo,
+} from './delivery-types';
+
 // Loop Library types live in library-types.ts (see specs/08-loop-library.md);
 // re-exported here so existing imports from './types' keep resolving.
 export type {
@@ -111,6 +123,8 @@ export interface Loop {
   summary: string;
   status: LoopStatus;
   workspace: LoopWorkspaceSettings;
+  /** Where results ship (user-chosen, never planner-chosen). Absent ⇒ derived from placement (effectiveDelivery). */
+  delivery?: LoopDeliverySettings;
   plan: LoopPlan;
   runtime: LoopRuntimeState;
   triggers: LoopTrigger[];
@@ -155,16 +169,9 @@ export interface PlanningResponse {
   suggestedLimits?: Partial<LoopLimits>;
 }
 
-export interface LoopTriggerSuggestion {
-  type: 'manual' | 'cron' | 'event' | 'hybrid';
-  schedule?: string;
-  eventSource?: string;
-  eventFilter?: Record<string, unknown>;
-  /** Natural-language condition judged by a model call at fire time (never parsed by code). */
-  eventCondition?: string;
-  debounceMs?: number;
-  maxFires?: number;
-}
+// Trigger shapes live in trigger-types.ts (500-LOC limit); re-exported here so
+// existing imports from './types' keep resolving.
+export type { LoopTrigger, LoopTriggerSuggestion } from './trigger-types';
 
 export interface LoopPlan {
   schemaVersion: 1;
@@ -326,30 +333,6 @@ export interface StepRuntimeState {
   lastAttemptId?: string;
   outcome?: StepOutcome;
   updatedAt: string;
-}
-
-// ── Trigger ─────────────────────────────────────────────────
-
-export interface LoopTrigger {
-  id: string;
-  loopId: string;
-  workspaceId: string;
-  type: 'manual' | 'cron' | 'event' | 'hybrid';
-  schedule?: string;
-  eventSource?: string;
-  /**
-   * Flat field predicates matched in code against the event payload's top-level
-   * fields: strict equality, an array value means "payload value is one of".
-   */
-  eventFilter?: Record<string, unknown>;
-  /** Natural-language condition judged by a model call at fire time (never parsed by code). */
-  eventCondition?: string;
-  debounceMs?: number;
-  maxFires?: number;
-  fireCount: number;
-  lastFireAt?: string;
-  nextFireAt?: string;
-  disabled?: boolean;
 }
 
 // ── Limits ──────────────────────────────────────────────────

@@ -14,10 +14,12 @@ import type {
   ContextOverrides,
   CreateLoopOptions,
   InputAnswer,
+  LoopDeliverySettings,
   OrchestratorAction,
   OrchestratorActionResult,
   RecoveryDecision,
 } from '../shared/types';
+import { DELIVERY_DESTINATION_IDS } from '../shared/delivery-types';
 
 export const ORCHESTRATOR_ACTIONS = [
   'create',
@@ -36,6 +38,7 @@ export const ORCHESTRATOR_ACTIONS = [
   'set_step_tools',
   'set_step_agent',
   'set_loop_context',
+  'set_delivery',
   'reflect',
   'reflect_workspace',
   'choose_suggestion',
@@ -69,6 +72,8 @@ export const OrchestratorToolParams = Type.Object({
   toolsJson: Type.Optional(Type.String({ description: 'For set_step_tools: JSON-encoded array of EXTRA tool names beyond the always-on default tools (e.g. ["web_search","git_manager"]) or "null"/"[]" to use the default tools only' })),
   agent: Type.Optional(Type.String({ description: 'For set_step_agent: a named agent role for the background-agent step; omit/empty to revert the step to the default agent' })),
   contextJson: Type.Optional(Type.String({ description: 'For set_loop_context: JSON-encoded ContextOverrides ({systemPrompt?, disabledTools?, disabledSkills?}) or "null" to clear' })),
+  deliveryDestination: Type.Optional(StringEnum(DELIVERY_DESTINATION_IDS, { description: 'For create/set_delivery: where the loop ships its results (user-chosen; omit on create to derive from placement — worktree ⇒ pr, root ⇒ workspace-files)' })),
+  deliveryParamsJson: Type.Optional(Type.String({ description: 'For create/set_delivery: JSON-encoded flat object of destination params (e.g. {"channel":"#market-intel"} or {"url":"https://…"})' })),
   suggestionId: Type.Optional(Type.String({ description: 'For choose_suggestion: the reflection suggestion id to approve/reject' })),
   decision: Type.Optional(StringEnum(SUGGESTION_DECISIONS, { description: 'For choose_suggestion: approve (apply the proposed plan) or reject' })),
   rejectionReason: Type.Optional(Type.String({ description: 'For choose_suggestion reject: why, so the same idea is not re-proposed' })),
@@ -97,6 +102,8 @@ export interface OrchestratorToolParamsShape {
   toolsJson?: string;
   agent?: string;
   contextJson?: string;
+  deliveryDestination?: (typeof DELIVERY_DESTINATION_IDS)[number];
+  deliveryParamsJson?: string;
   suggestionId?: string;
   decision?: (typeof SUGGESTION_DECISIONS)[number];
   rejectionReason?: string;
@@ -124,6 +131,28 @@ function errorResult(message: string): ToolResult {
   return result(`Error: ${message}`, { ok: false, error: message });
 }
 
+/**
+ * Builds LoopDeliverySettings from the flat deliveryDestination/deliveryParamsJson
+ * params. Structural depth only — full validation happens coordinator-side.
+ */
+function buildDelivery(params: OrchestratorToolParamsShape): LoopDeliverySettings | { error: string } {
+  let parsed: unknown;
+  if (params.deliveryParamsJson !== undefined) {
+    try {
+      parsed = JSON.parse(params.deliveryParamsJson);
+    } catch {
+      return { error: 'deliveryParamsJson is not valid JSON' };
+    }
+    if (parsed !== undefined && (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed))) {
+      return { error: 'deliveryParamsJson must be a JSON object of destination params' };
+    }
+  }
+  return {
+    destination: params.deliveryDestination!,
+    params: parsed as LoopDeliverySettings['params'],
+  };
+}
+
 /** Builds the typed coordinator action from flat tool params. */
 export function buildAction(params: OrchestratorToolParamsShape): OrchestratorAction | { error: string } {
   switch (params.action) {
@@ -136,7 +165,19 @@ export function buildAction(params: OrchestratorToolParamsShape): OrchestratorAc
         if (params.useManagedWorktree !== undefined) options.workspace.useManagedWorktree = params.useManagedWorktree;
         if (params.allowDirtyWorkspaceRoot !== undefined) options.workspace.allowDirtyWorkspaceRoot = params.allowDirtyWorkspaceRoot;
       }
+      if (params.deliveryDestination !== undefined) {
+        const delivery = buildDelivery(params);
+        if ('error' in delivery) return delivery;
+        options.delivery = delivery;
+      }
       return { kind: 'create', prompt: params.prompt, title: params.title, options };
+    }
+    case 'set_delivery': {
+      if (!params.loopId) return { error: 'set_delivery requires a loopId' };
+      if (!params.deliveryDestination) return { error: 'set_delivery requires a deliveryDestination' };
+      const delivery = buildDelivery(params);
+      if ('error' in delivery) return delivery;
+      return { kind: 'set_delivery', loopId: params.loopId, delivery };
     }
     case 'list':
       return { kind: 'list' };
@@ -269,6 +310,8 @@ function summarize(action: OrchestratorAction, res: OrchestratorActionResult): s
       return `Answer recorded for loop ${action.loopId} — ${res.loop?.runtime.pendingInput ? 'more questions are waiting' : `loop now "${res.loop?.status ?? '?'}"`}.`;
     case 'retry_step':
       return `Retried step "${action.stepId}" — loop ${action.loopId} now "${res.loop?.status ?? '?'}".`;
+    case 'set_delivery':
+      return `Loop ${action.loopId} now delivers to "${action.delivery.destination}".`;
     case 'library_save':
       return `Saved loop to the library (now ${res.loop?.libraryLink ? `v${res.loop.libraryLink.version}` : 'linked'}).`;
     case 'library_load':

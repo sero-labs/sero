@@ -81,6 +81,16 @@ describe('instantiate', () => {
     expect(loop.contextOverrides).toEqual({ systemPrompt: 'custom', disabledTools: ['bash'] });
   });
 
+  it('copies the delivery setting, cloned, and leaves it unset when absent', () => {
+    const host = createFakeHost();
+    const def = { ...definition(), delivery: { destination: 'webhook-post' as const, params: { url: 'https://example.test/hook' } } };
+    const loop = instantiate(host, def, LINK);
+
+    expect(loop.delivery).toEqual(def.delivery);
+    expect(loop.delivery).not.toBe(def.delivery);
+    expect(instantiate(host, definition(), LINK).delivery).toBeUndefined();
+  });
+
   it('clones the plan so the loop and the definition do not share state', () => {
     const host = createFakeHost();
     const def = definition();

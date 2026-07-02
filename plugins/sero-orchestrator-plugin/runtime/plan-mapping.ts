@@ -8,6 +8,7 @@ import type {
   ContextOverrides,
   CreateLoopOptions,
   Loop,
+  LoopDeliverySettings,
   LoopPlan,
   LoopWarning,
   PlanningResponse,
@@ -17,7 +18,7 @@ import type { OrchestratorHost } from './host';
 import { isDefaultTool } from '../shared/constants';
 import { mergeLimits, materializeTriggers } from './loop-factory';
 import { mergeExtractedTriggers, NO_TRIGGERS, type TriggerExtraction } from './trigger-extractor';
-import { validateLoopPlan } from './schema';
+import { validateDeliverySettings, validateLoopPlan } from './schema';
 import { mergeStepOverride } from './library-overlay';
 
 /** Initial (pending) runtime state for every step in a plan. */
@@ -209,6 +210,21 @@ export function applyLoopContext(
   if (overrides) next.contextOverrides = overrides;
   else delete next.contextOverrides;
   return next;
+}
+
+/**
+ * Sets the loop's delivery destination + params — a user-level setting, exactly
+ * like worktree placement (the planner never chooses it). Validated
+ * structurally; the next planning pass (create/revise) turns it into steps.
+ */
+export function applyLoopDelivery(
+  loop: Loop,
+  delivery: LoopDeliverySettings,
+  now: string,
+): { ok: boolean; loop?: Loop; error?: string } {
+  const errors = validateDeliverySettings(delivery);
+  if (errors.length > 0) return { ok: false, error: errors.join('; ') };
+  return { ok: true, loop: { ...loop, delivery, updatedAt: now } };
 }
 
 /** True when a loop's plan is structurally valid and not validation-blocked. */

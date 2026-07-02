@@ -16,6 +16,7 @@ import type {
   StepExecutionTarget,
 } from '../shared/types';
 import { EVENT_SOURCE_NAMESPACES, isKnownEventSource } from '../shared/constants';
+import { DELIVERY_DESTINATION_IDS, isDeliveryDestinationId } from '../shared/delivery-types';
 import { isValidCron } from './cron';
 
 export const STEP_EXECUTION_TYPES = ['background-agent', 'active-session', 'model'] as const;
@@ -352,6 +353,28 @@ export function coercePlanningShape(input: unknown): unknown {
       variablesSchema: planObj?.variablesSchema ?? value.variablesSchema,
     },
   };
+}
+
+// ── Delivery settings ───────────────────────────────────────
+
+/**
+ * Structural validation for a loop's delivery setting: a known destination id
+ * and a flat scalar params object. Mechanical only — what the params mean is
+ * the agent's business at delivery time (see specs/13-pluggable-delivery.md).
+ */
+export function validateDeliverySettings(value: unknown): string[] {
+  const errors: string[] = [];
+  if (!isRecord(value)) return ['delivery must be an object { destination, params? }'];
+  if (!isDeliveryDestinationId(value.destination)) {
+    errors.push(`delivery.destination must be one of: ${DELIVERY_DESTINATION_IDS.join(', ')} — got ${JSON.stringify(value.destination)}`);
+  }
+  if (value.params !== undefined) {
+    const flat =
+      isRecord(value.params) &&
+      Object.values(value.params).every((v) => typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean');
+    if (!flat) errors.push('delivery.params must be a flat object of string/number/boolean values');
+  }
+  return errors;
 }
 
 /** Max length of a natural-language event condition (a sentence, not an essay). */

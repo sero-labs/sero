@@ -113,6 +113,15 @@ describe('toSharedDefinition', () => {
     }
   });
 
+  it('round-trips the delivery setting, cloned, and omits it when unset', () => {
+    const delivery = { destination: 'chat-post' as const, params: { channel: '#intel' } };
+    const def = toSharedDefinition(makeLoop({ delivery }));
+    expect(def.delivery).toEqual(delivery);
+    expect(def.delivery).not.toBe(delivery);
+
+    expect(toSharedDefinition(makeLoop()).delivery).toBeUndefined();
+  });
+
   it("embeds the loop's current per-step model/tool picks in the saved plan", () => {
     const def = toSharedDefinition(makeLoop());
     expect(def.plan.steps[0].execution).toMatchObject({ model: 'HIGH', tools: ['grep'] });
