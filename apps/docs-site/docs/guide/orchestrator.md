@@ -54,7 +54,15 @@ Type your goal in plain English:
 
 Leave **Run in a managed worktree** turned on. This runs the loop on its own
 copy of your files (its own branch), so your working files are never touched
-while it works. Click **Generate plan →**.
+while it works.
+
+**Deliver results to** decides where the finished work ships. **Automatic**
+matches the placement — a worktree loop opens a pull request, a workspace-root
+loop leaves the files in place. You can instead pick a saved report file, a
+Gmail draft, or an outward send (email, chat message, webhook). Outward sends
+always show you the exact content first and wait for your approval before
+anything leaves the machine. Leave it on **Automatic** here and click
+**Generate plan →**.
 
 **2. Review the plan.** Sero turns your sentence into steps.
 

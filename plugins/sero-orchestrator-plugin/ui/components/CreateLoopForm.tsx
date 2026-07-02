@@ -1,12 +1,16 @@
 import { useState } from 'react';
-import { Button, Card, Input, Label, Switch, Textarea } from '@sero-ai/ui';
+import { Button, Card, Input, Label, NativeSelect, NativeSelectOption, Switch, Textarea } from '@sero-ai/ui';
 import { Loader2 } from 'lucide-react';
+import type { DeliveryDestinationId, LoopDeliverySettings } from '../../shared/types';
+import { DELIVERY_DESTINATIONS, deliveryDestinationInfo, isDeliveryDestinationId } from '../../shared/delivery-types';
 
 export interface CreateLoopSubmit {
   prompt: string;
   title?: string;
   useManagedWorktree: boolean;
   allowDirtyWorkspaceRoot: boolean;
+  /** Absent = automatic (follows placement: worktree ⇒ PR, root ⇒ workspace files). */
+  delivery?: LoopDeliverySettings;
 }
 
 interface CreateLoopFormProps {
@@ -25,14 +29,25 @@ export function CreateLoopForm({ busy, onSubmit, onCancel }: CreateLoopFormProps
   const [title, setTitle] = useState('');
   const [useManagedWorktree, setUseManagedWorktree] = useState(true);
   const [allowDirtyWorkspaceRoot, setAllowDirtyWorkspaceRoot] = useState(false);
+  const [destination, setDestination] = useState<DeliveryDestinationId | 'auto'>('auto');
+  const [deliveryParams, setDeliveryParams] = useState<Record<string, string>>({});
+
+  const paramHints = destination === 'auto' ? [] : deliveryDestinationInfo(destination).paramHints;
 
   const submit = () => {
     if (!prompt.trim()) return;
+    const params = Object.fromEntries(
+      paramHints.map((h) => [h.key, deliveryParams[h.key]?.trim()]).filter(([, v]) => v),
+    ) as Record<string, string>;
     onSubmit({
       prompt: prompt.trim(),
       title: title.trim() || undefined,
       useManagedWorktree,
       allowDirtyWorkspaceRoot: useManagedWorktree ? false : allowDirtyWorkspaceRoot,
+      delivery:
+        destination === 'auto'
+          ? undefined
+          : { destination, params: Object.keys(params).length ? params : undefined },
     });
   };
 
@@ -67,6 +82,28 @@ export function CreateLoopForm({ busy, onSubmit, onCancel }: CreateLoopFormProps
             <Switch id="loop-allow-dirty" checked={allowDirtyWorkspaceRoot} onCheckedChange={setAllowDirtyWorkspaceRoot} />
           </div>
         )}
+        <div className="flex items-center justify-between gap-3">
+          <Label htmlFor="loop-delivery" className="font-normal">Deliver results to</Label>
+          <NativeSelect
+            id="loop-delivery"
+            className="w-44"
+            value={destination}
+            onChange={(e) => setDestination(isDeliveryDestinationId(e.target.value) ? e.target.value : 'auto')}
+          >
+            <NativeSelectOption value="auto">Automatic</NativeSelectOption>
+            {DELIVERY_DESTINATIONS.map((d) => (
+              <NativeSelectOption key={d.id} value={d.id}>{d.label}</NativeSelectOption>
+            ))}
+          </NativeSelect>
+        </div>
+        {paramHints.map((h) => (
+          <Input
+            key={h.key}
+            value={deliveryParams[h.key] ?? ''}
+            placeholder={h.placeholder}
+            onChange={(e) => setDeliveryParams((p) => ({ ...p, [h.key]: e.target.value }))}
+          />
+        ))}
       </Card>
 
       <div className="flex justify-end gap-2">

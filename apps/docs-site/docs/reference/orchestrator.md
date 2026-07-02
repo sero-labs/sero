@@ -27,6 +27,8 @@ Actions: `create`, `list`, `show`, `activate`, `pause`, `resume`, `stop`,
 
 ```text
 /orchestrator create <prompt>
+/orchestrator create --deliver <destination> <prompt>
+/orchestrator set_delivery <loopId> <destination>
 /orchestrator list
 /orchestrator show <loopId>
 /orchestrator activate <loopId>
@@ -81,6 +83,47 @@ the loop's background steps. Leave the system prompt blank to use Sero's
 default, type to replace it, or clear it to drop the default entirely. The
 orchestrator's per-step result rules always apply on top. Tools are set per step
 in the plan, not here.
+
+## Delivery
+
+Every loop has a **delivery destination** — where its results ship. You choose
+it (at create, or later with the **Delivery** button); the planner authors the
+steps that implement it but never picks it. Without a choice the loop behaves
+as before: worktree loops deliver a pull request, workspace-root loops leave
+files in the working tree.
+
+| Destination | Ships | Needs |
+| --- | --- | --- |
+| Pull request | a commit + PR via `gh` | — |
+| Workspace files | changes left in the working tree | — |
+| Saved report | one file written in the workspace | — |
+| Email draft | a Gmail draft (never sent) | the Google plugin |
+| Send email | a sent email — **approval-gated** | the Google plugin |
+| Chat post | a message to the channel in the params | a connected MCP chat server |
+| Webhook POST | an HTTP POST to the URL in the params | — |
+
+Destination **params** (channel, recipients, URL, report name) are set beside
+the picker and handed to the agent verbatim.
+
+**Receipts.** A loop that declares a destination completes only when its final
+step reports a delivery receipt — what landed and where (PR URL, message link,
+draft id, file path). A completion claim without one is rejected and the step
+revises; PR and saved-report receipts are additionally cross-checked (the PR
+must really be open, the file must really exist). Delivered receipts show on
+the run in history — as a link when the ref is a URL — and in the finish
+notification, and future runs are told what already shipped so a recurring
+loop doesn't re-deliver it.
+
+**External destinations always ask first.** Send email, chat post, and webhook
+POST are visible to other people, so the plan stages them: the loop drafts the
+content, shows it to you on the input card (the full draft, with
+Approve/Reject), and only an approval lets the send happen — enforced
+mechanically, not just prompted. A rejection sends nothing. Each approval
+covers exactly one send; the next iteration asks again with its new content.
+
+If a destination's tool isn't available (say the chat MCP server isn't
+connected), the loop still activates and runs with a warning; the warning
+clears on its own once the tool appears.
 
 ## Plan validation
 

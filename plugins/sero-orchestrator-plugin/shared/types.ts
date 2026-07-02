@@ -151,7 +151,13 @@ export interface Loop {
 
 export interface LoopWarning {
   id: string;
-  code: 'mixed-workspace-targets' | 'model-unavailable' | 'agent-unavailable' | 'event-chain-depth' | 'event-dropped';
+  code:
+    | 'mixed-workspace-targets'
+    | 'model-unavailable'
+    | 'agent-unavailable'
+    | 'event-chain-depth'
+    | 'event-dropped'
+    | 'delivery-tool-missing';
   message: string;
   /** The step a runtime warning refers to (model/agent-unavailable), for de-duplication. */
   stepId?: string;

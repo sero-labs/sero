@@ -14,6 +14,7 @@ import { useLibraryLink } from '../lib/use-library-link';
 import { LoopStatusBadge, NeedsYouBadge } from './StatusBadge';
 import { LoopControls } from './LoopControls';
 import { LoopContextControl } from './LoopContextControl';
+import { LoopDeliveryControl } from './LoopDeliveryControl';
 import { LoopMetaStrip } from './LoopMetaStrip';
 import { LibrarySaveControl } from './LibrarySaveControl';
 import { LibraryLinkBadge } from './LibraryLinkBadge';
@@ -74,6 +75,7 @@ export function LoopDetail({ loop, busy, onAction, stateDir, libraryDir, library
         <div className="flex flex-wrap items-center gap-2 pt-1">
           <LoopControls loop={loop} busy={busy} canReflect={runIndex.runs.length > 0} onAction={onAction} />
           <LoopContextControl loop={loop} onAction={onAction} />
+          <LoopDeliveryControl loop={loop} busy={busy} onAction={onAction} />
           <LibrarySaveControl loop={loop} busy={busy} onAction={onAction} />
         </div>
       </header>

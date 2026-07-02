@@ -28,6 +28,7 @@ import { toEventFiredBy, toEventObservation } from './event-match';
 import { blockLimit, blockRuntime, dropStrandedEvent, mergeTriggers, replaceRun, resetRunningSteps, resetStepPending } from './run-engine-helpers';
 import { enforceDeliveryContract } from './delivery/delivery-contract';
 import { applyDeliveryContract } from './delivery/verify-receipt';
+import { reconcileDeliveryWarning } from './delivery/availability';
 
 export interface RunResult {
   acquired: boolean;
@@ -129,6 +130,8 @@ export class RunEngine {
     };
     loop = await this.commit(loop);
     loop = await this.reconcilePullRequests(loop);
+    // Re-evaluate delivery-tool availability each run start (FR-D5).
+    loop = await this.commit(await reconcileDeliveryWarning(this.host, loop));
 
     let stop = false;
     let deferred: string | undefined;

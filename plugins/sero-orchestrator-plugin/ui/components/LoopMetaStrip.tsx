@@ -6,9 +6,10 @@
  * chip's hover title.
  */
 
-import { Activity, Clock, Coins, FolderGit2, GitBranch, Gauge, Repeat, Zap } from 'lucide-react';
+import { Activity, Clock, Coins, FolderGit2, GitBranch, Gauge, Repeat, Send, Zap } from 'lucide-react';
 import type { GithubSourceHealth, Loop, LoopRunSummary, WebhookSourceHealth } from '../../shared/types';
 import { formatTime } from '../lib/format';
+import { deliveryChip } from '../lib/delivery-summary';
 import { eventTriggerChips, sourceHealthChips } from '../lib/trigger-summary';
 import { formatLoopUsage, summarizeLoopUsage } from '../lib/usage-summary';
 
@@ -51,6 +52,14 @@ export function LoopMetaStrip({
         {!workspace.useManagedWorktree && workspace.allowDirtyWorkspaceRoot ? ' · runs in place' : ''}
         {resolved ? ` · ${resolved.type}` : ''}
       </span>
+      {(() => {
+        const chip = deliveryChip(loop);
+        return (
+          <span className="flex items-center gap-1.5" title={chip.title}>
+            <Send className="h-3.5 w-3.5" /> {chip.label}
+          </span>
+        );
+      })()}
       {scheduled ? (
         <span className="flex items-center gap-1.5">
           <Clock className="h-3.5 w-3.5" />

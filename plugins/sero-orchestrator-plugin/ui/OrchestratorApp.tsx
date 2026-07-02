@@ -134,6 +134,8 @@ export function OrchestratorApp() {
       title: values.title,
       useManagedWorktree: values.useManagedWorktree,
       allowDirtyWorkspaceRoot: values.allowDirtyWorkspaceRoot,
+      deliveryDestination: values.delivery?.destination,
+      deliveryParamsJson: values.delivery?.params ? JSON.stringify(values.delivery.params) : undefined,
       activate: false,
     });
     const details = res?.details as { ok?: boolean; loop?: { id?: string } } | null;

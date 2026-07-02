@@ -25,6 +25,7 @@ import { buildDraftLoop } from './loop-factory';
 import { activate, disable, enable, type TransitionResult } from './lifecycle';
 import { applyLoopContext, applyLoopDelivery, applyStepAgent, applyStepModel, applyStepTools, planIsActivatable } from './plan-mapping';
 import { validateDeliverySettings } from './schema';
+import { reconcileDeliveryWarning } from './delivery/availability';
 import { runPlanningFlow } from './planning-flow';
 import { RunEngine } from './run-engine';
 import type { EngineDeps } from './engine-types';
@@ -254,6 +255,10 @@ export class Coordinator {
     if (!loop) return { ok: false, error: `Loop not found: ${loopId}` };
     const gate = planIsActivatable(loop);
     if (!gate.ok) return { ok: false, error: gate.error };
+    // Surface a missing delivery tool at activation (fail-soft — FR-D5); each
+    // run start re-evaluates, so the warning clears once the tool appears.
+    const checked = await reconcileDeliveryWarning(this.host, loop);
+    if (checked !== loop) await this.replaceLoop(checked);
     return this.transition(loopId, (current) => activate(current, this.host.now()));
   }
 

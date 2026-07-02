@@ -15,7 +15,7 @@ loop's destination becomes a first-class user setting with an enforced
 | 2 | Destination registry + planner rules | ✅ Done | Per-destination planner rules replace the two-string ternary; placement stays orthogonal |
 | 3 | Receipt contract: enforcement, persistence, verify-back | ✅ Done | Completion without a valid receipt ⇒ `needs-revision`; receipts persist, feed context, verify back for pr/artifact |
 | 4 | External approval gate | ✅ Done | External sends require an open (un-consumed) approved human input — mechanically |
-| 5 | Availability warning + UI + docs | ⬜ Not started | `delivery-tool-missing` lifecycle; picker, chips, receipt links; docs-site updated |
+| 5 | Availability warning + UI + docs | ✅ Done | `delivery-tool-missing` lifecycle; picker, chips, receipt links; docs-site updated |
 | 6 | End-to-end verification | ⬜ Not started | Real-app delivery e2e passes (approval-gated external send + receipt in UI) |
 
 Status legend: ✅ Done · 🟡 In progress · ⬜ Not started · ⛔ Blocked · 🟦 Deferred.
@@ -24,12 +24,12 @@ Status legend: ✅ Done · 🟡 In progress · ⬜ Not started · ⛔ Blocked ·
 
 | FR | Requirement | Phase | Status |
 | --- | --- | --- | --- |
-| FR-D1 | User-chosen destination + params; planner never chooses; existing loops default to today's behavior | 1 (model) / 5 (picker UI) | 🟡 model half |
+| FR-D1 | User-chosen destination + params; planner never chooses; existing loops default to today's behavior | 1 (model) / 5 (picker UI) | ✅ |
 | FR-D2 | Per-destination planner rules replace the hardcoded ternary; placement rules stay orthogonal | 2 | ✅ |
 | FR-D3 | Declared destination completes only with a structurally valid `DeliveryReceipt`; otherwise `needs-revision` + bounded repair | 3 | ✅ |
 | FR-D4 | External destinations require an approved human-input record in the run before a receipt is accepted | 4 | ✅ (open-approval variant — see finding) |
-| FR-D5 | `delivery-tool-missing` warns at activation, re-checks each run start, fails through normal recovery | 5 | ⬜ |
-| FR-D6 | Receipts persist on `runtime.deliveries`, feed future run context, render as links, appear in the outcome notification | 3 (data/context/notification) / 5 (UI links) | 🟡 data half |
+| FR-D5 | `delivery-tool-missing` warns at activation, re-checks each run start, fails through normal recovery | 5 | ✅ |
+| FR-D6 | Receipts persist on `runtime.deliveries`, feed future run context, render as links, appear in the outcome notification | 3 (data/context/notification) / 5 (UI links) | ✅ |
 | FR-D7 | `pr` receipts verified against the PR list; `saved-artifact` receipts against file existence | 3 | ✅ |
 | FR-D8 | `delivery` round-trips through the Loop Library (optional field, `schemaVersion` stays 1) | 1 | ✅ |
 
@@ -358,47 +358,52 @@ tools warn without blocking; docs cover the feature.
 
 **Tasks**
 
-- [ ] `delivery-tool-missing` warning: new `LoopWarning` code
-  (`shared/types.ts:140`); recorded when the destination's `requiredTools`
-  aren't all in `host.listToolCatalog()` — checked at activation
-  (`coordinator.ts` activate path) and at each run start; cleared at run
-  start alongside `model-unavailable` (`run-engine.ts:125`) so it
-  re-evaluates every run. Fail-soft: the loop still activates/runs; a step
-  that actually needs the missing tool fails into normal recovery.
-- [ ] Create flow: destination `Select` + per-destination param fields in the
-  Safety/settings card of `CreateLoopForm.tsx` (beside the `#loop-worktree`
-  switch, driven by the shared `DELIVERY_DESTINATIONS` table — 
-  self-explanatory, no sub-labels); submit carries `delivery` through
-  `createLoop` (`OrchestratorApp.tsx:130-142`).
-- [ ] Loop detail: `LoopDeliveryControl` (the `LoopContextControl` pattern) in
-  the controls row of `LoopDetail.tsx:74-78` dispatching `set_delivery`; a
-  destination chip in `LoopMetaStrip.tsx` beside the workspace-isolation
-  chip (params in the hover title), shown on create-review too.
-- [ ] Run history: receipt link in `AttemptHistory.tsx` `RunRow` from
-  `LoopRunSummary.delivery` — external `ref`s (URLs) open via a proper
-  anchor (first outbound link in this UI — verify the shell's
-  `window.open` → external-browser handling), non-URL refs (draft ids,
-  artifact paths) render as text with the summary in the hover title.
-- [ ] Warning surfacing: `delivery-tool-missing` renders wherever
-  `model-unavailable` warnings already render (no new UI).
-- [ ] Docs: `apps/docs-site/docs/reference/orchestrator.md` — Delivery
-  section (destination table, params, receipts, approval gate for external
-  sends, tool-availability behavior);
-  `apps/docs-site/docs/guide/orchestrator.md` — destination examples in the
-  intro flow.
-- [ ] Tests: warning lifecycle (record at activation, re-check + clear per
-  run), UI lib tests for destination chip / receipt link formatting
-  (pure helpers in `ui/lib/`, the `trigger-summary.ts` pattern),
-  create-form submit carries delivery, `set_delivery` dispatch marshalling.
+- [x] `delivery-tool-missing` warning: new `LoopWarning` code;
+  `runtime/delivery/availability.ts` `reconcileDeliveryWarning` re-evaluates
+  it (replace/clear its own code) against `host.listToolCatalog()` — called
+  in `activateLoop` and at each run start after the PR reconcile. Fail-soft
+  twice over: the loop still activates/runs, and a catalog enumeration
+  failure leaves the warning state untouched (no churn).
+- [x] Create flow: "Deliver results to" `NativeSelect` (Automatic + the 7
+  destinations) with per-destination param `Input`s from `paramHints`, in
+  the Safety card beside the worktree switch; `CreateLoopSubmit.delivery`
+  flows through `createLoop` as the tool's `deliveryDestination` /
+  `deliveryParamsJson` params. Automatic = no `delivery` sent (derived).
+- [x] Loop detail: `LoopDeliveryControl` (Dialog: destination select + param
+  fields, active-dot when explicitly set) dispatching `set_delivery` in the
+  controls row; destination chip (Send icon) in `LoopMetaStrip` beside the
+  placement chip — `(auto)` suffix when derived, params in the hover title;
+  create-review shows it via the strip it already renders.
+- [x] Run history: `ReceiptBadge` in `AttemptHistory` from
+  `LoopRunSummary.delivery` — URL refs render as a real `<a target="_blank">`
+  (verified: the shell's `setWindowOpenHandler` routes allowed URLs through
+  `shell.openExternal` and denies the popup, `window-security.ts:46`),
+  non-URL refs (paths, draft ids) render as text; summary + exact ref in
+  the hover title. A `webhook-post` ref ("POST https://… → 200") is
+  deliberately NOT linked (not a pure URL).
+- [x] Warning surfacing: rides the existing generic warnings card in
+  `LoopDetail` — no new UI.
+- [x] Docs: reference gains a Delivery section (destination table with
+  needs-column, params, receipts + verify-back, the always-ask rule for
+  external sends, tool-availability behavior) and the new commands; guide's
+  first walkthrough introduces "Deliver results to" with the
+  automatic-matches-placement rule.
+- [x] Tests (10 new; 623 total green): warning record/clear/no-required-tools/
+  enumeration-fail-soft + engine lifecycle (warns at run start, run still
+  happens, clears when the tool appears), `deliveryChip` (auto vs chosen,
+  params in title) and `receiptDisplay` (URL link, path text, webhook ref
+  not linked) in `ui/__tests__/delivery-summary.test.ts`. Component render
+  and dispatch marshalling are covered by the Phase 6 e2e (ui/__tests__ is
+  pure-lib only).
 
 **Acceptance**
 
-- [ ] A user can pick a destination + params at create, change it later, and
+- [x] A user can pick a destination + params at create, change it later, and
   see it on the loop and in create-review.
-- [ ] A `chat-post` loop activated without the `mcp` tool shows the warning,
-  runs anyway, and the warning clears once the tool appears.
-- [ ] Delivered runs show a clickable/readable receipt in run history.
-- [ ] Docs-site reflects the feature; matrix rows FR-D1, FR-D5, FR-D6 fully
+- [x] A `chat-post` loop activated without the `mcp` tool shows the warning,
+  runs anyway, and the warning clears once the tool appears (engine test).
+- [x] Delivered runs show a clickable/readable receipt in run history.
+- [x] Docs-site reflects the feature; matrix rows FR-D1, FR-D5, FR-D6 fully
   green.
 
 ---
