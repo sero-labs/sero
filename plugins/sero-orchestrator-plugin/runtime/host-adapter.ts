@@ -11,6 +11,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { AppRuntimeContext } from '@sero-ai/common';
 import type { OrchestratorHost } from './host';
+import { createCatalogStore } from './catalog-store';
 import { createLoopStore } from './loop-store';
 import { createLibraryStore } from './library-store';
 
@@ -30,6 +31,7 @@ export function createOrchestratorHost(ctx: AppRuntimeContext): OrchestratorHost
   const stateDir = path.dirname(ctx.stateFilePath);
   const store = createLoopStore(ctx);
   const library = createLibraryStore(ctx);
+  const catalog = createCatalogStore(ctx);
 
   return {
     workspaceId: ctx.workspaceId,
@@ -106,6 +108,8 @@ export function createOrchestratorHost(ctx: AppRuntimeContext): OrchestratorHost
     session: ctx.host.session,
 
     library,
+
+    catalog,
 
     now: () => new Date().toISOString(),
     newId: (prefix) => (prefix ? `${prefix}_${randomUUID()}` : randomUUID()),

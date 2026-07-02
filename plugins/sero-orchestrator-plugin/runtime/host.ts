@@ -19,6 +19,12 @@ import type {
   ExtensionRuntimeMessage,
   SharedAvailableModelGroup,
 } from '@sero-ai/common';
+import type {
+  CatalogEntry,
+  CatalogRefreshResult,
+  CatalogRepoContents,
+  CatalogRepoRef,
+} from '../shared/catalog-types';
 import type { LibraryEntry, LibraryIndex, LibraryVersion, OrchestratorState } from '../shared/types';
 
 export interface ActiveSessionInfo {
@@ -151,6 +157,25 @@ export interface LibraryStore {
   unwatchIndex(): Promise<void>;
 }
 
+/**
+ * Git-repo-backed Loop Catalog store (see specs/14-loop-catalog.md). Clones
+ * live under the profile-global catalog dir; fetches happen only on demand
+ * (no timers, no polling). Implemented in catalog-store.ts; tests fake it.
+ */
+export interface CatalogStore {
+  /** The official ref first, then user-added repos. */
+  listRepos(): Promise<CatalogRepoRef[]>;
+  /** Registers a repo (no fetch yet — that happens on demand). */
+  addRepo(url: string): Promise<CatalogRepoRef>;
+  /** Drops the repo and its cache; never touches installed loops. */
+  removeRepo(key: string): Promise<void>;
+  /** Shallow clone on first call, `git pull` after. Fail-soft to the stale cache. */
+  refresh(key: string): Promise<CatalogRefreshResult>;
+  /** Reads the local cache (never fetches), fail-soft per entry. */
+  readContents(key: string): Promise<CatalogRepoContents>;
+  readEntry(key: string, slug: string): Promise<CatalogEntry | null>;
+}
+
 export interface OrchestratorHost {
   /** Workspace this host (and its coordinator) is scoped to. */
   readonly workspaceId: string;
@@ -222,6 +247,9 @@ export interface OrchestratorHost {
 
   // ── Loop Library (profile-global versioned definition store) ──
   library: LibraryStore;
+
+  // ── Loop Catalog (git-repo-backed curated definitions) ────
+  catalog: CatalogStore;
 
   // ── Deterministic utilities ───────────────────────────────
   /** ISO timestamp. Injectable so tests are deterministic. */

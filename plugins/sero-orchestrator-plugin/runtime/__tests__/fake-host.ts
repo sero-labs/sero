@@ -10,6 +10,8 @@ import type {
   ContextToolInfo,
   SharedAvailableModelGroup,
 } from '@sero-ai/common';
+import { OFFICIAL_CATALOG_KEY, OFFICIAL_CATALOG_URL } from '../../shared/catalog';
+import type { CatalogRepoContents, CatalogRepoRef } from '../../shared/catalog-types';
 import { DEFAULT_LIBRARY_INDEX, DEFAULT_STATE } from '../../shared/defaults';
 import type { LibraryEntry, LibraryIndex, LibraryVersion, OrchestratorState } from '../../shared/types';
 import type {
@@ -77,6 +79,10 @@ export interface FakeHost extends OrchestratorHost {
   libraryVersions: Map<string, LibraryVersion>;
   libraryIndex: LibraryIndex;
   libraryWatching: boolean;
+  /** In-memory Loop Catalog state (git-repo store stand-in). */
+  catalogRepos: CatalogRepoRef[];
+  /** Cached contents by repo key; absent ⇒ never fetched. */
+  catalogContents: Map<string, CatalogRepoContents>;
 }
 
 export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
@@ -112,6 +118,8 @@ export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
     libraryVersions: new Map<string, LibraryVersion>(),
     libraryIndex: structuredClone(DEFAULT_LIBRARY_INDEX),
     libraryWatching: false,
+    catalogRepos: [{ key: OFFICIAL_CATALOG_KEY, url: OFFICIAL_CATALOG_URL, official: true }],
+    catalogContents: new Map<string, CatalogRepoContents>(),
 
     async readState() {
       return structuredClone(this.state);
@@ -249,6 +257,35 @@ export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
       },
       async unwatchIndex() {
         host.libraryWatching = false;
+      },
+    },
+    catalog: {
+      async listRepos() {
+        return structuredClone(host.catalogRepos);
+      },
+      async addRepo(url) {
+        const repo: CatalogRepoRef = { key: `repo-${host.catalogRepos.length}`, url, official: false };
+        host.catalogRepos.push(repo);
+        return structuredClone(repo);
+      },
+      async removeRepo(key) {
+        if (key === OFFICIAL_CATALOG_KEY) throw new Error('the official catalog cannot be removed');
+        host.catalogRepos = host.catalogRepos.filter((r) => r.key !== key);
+        host.catalogContents.delete(key);
+      },
+      async refresh(key) {
+        const contents = host.catalogContents.get(key);
+        return contents ? { root: `/catalog/${key}`, stale: false } : { root: null, stale: false, reason: 'no fake contents' };
+      },
+      async readContents(key) {
+        const repo = host.catalogRepos.find((r) => r.key === key);
+        if (!repo) throw new Error(`unknown catalog repo: ${key}`);
+        const contents = host.catalogContents.get(key);
+        return contents ? structuredClone(contents) : { repo: structuredClone(repo), index: null, entries: [], problems: [] };
+      },
+      async readEntry(key, slug) {
+        const found = host.catalogContents.get(key)?.entries.find((e) => e.meta.slug === slug);
+        return found ? structuredClone(found) : null;
       },
     },
     now() {
