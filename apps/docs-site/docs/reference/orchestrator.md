@@ -118,9 +118,37 @@ the limits still apply before anything runs. A cron loop that became due while
 Sero was closed runs once on next open (missed fires collapse into one catch-up
 run).
 
-The schedule and stop condition are authored in the prompt and changed with
-**Refine**, never through a form. They show read-only in the loop's summary
-line.
+The schedule, events, and stop condition are authored in the prompt and changed
+with **Refine**, never through a form. Write them in plain language — "every
+morning", "when CI fails on my PRs", "whenever docs/ changes" — and Sero
+derives the trigger. They show read-only in the loop's summary line, with the
+event details on hover.
+
+### Event sources
+
+| Source | Fires when |
+| --- | --- |
+| `loop:completed` / `loop:blocked` / `loop:asked-question` | another loop in the workspace finishes, blocks, or asks a question |
+| `fs:changed` | files in the workspace change (one batched event per burst) |
+| `github:pr-opened`, `github:ci-failed`, `github:ci-passed`, `github:issue-labelled`, `github:review-requested`, `github:review-comment` | the matching activity happens on the workspace's GitHub repo |
+| `webhook:<name>` | an external system POSTs JSON to `http://127.0.0.1:<port>/hooks/<name>` |
+
+An event trigger can carry an exact-match filter ("only the `bug` label") and a
+plain-language condition ("only when the failing PR is mine") judged at fire
+time. The event that started a run shows as a chip on that run in the history,
+and its details (source, summary, payload) are given to every step.
+
+Sources only do work while an active loop uses them: the file watcher, webhook
+listener, and GitHub poller all stop when the last subscribing loop is paused.
+A loop finishing can trigger another loop, but chains stop after five hops and
+a loop never triggers itself.
+
+GitHub events are polled through the `gh` CLI using your existing login — no
+tokens are stored. Polling is deliberately gentle: one shared poller per
+workspace, every 2 minutes by default (never faster than 1 minute), using
+conditional requests so unchanged answers are free, and slowing down
+automatically under rate-limit pressure. The loop's summary line shows when
+GitHub was last checked and the local webhook port.
 
 ## Management limits
 

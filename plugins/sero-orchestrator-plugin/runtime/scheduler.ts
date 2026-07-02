@@ -10,7 +10,7 @@
 
 import type { Loop, LoopTrigger } from '../shared/types';
 import type { OrchestratorHost } from './host';
-import type { ScheduleExtraction } from './schedule-extractor';
+import type { TriggerExtraction } from './trigger-extractor';
 import { initStepStates } from './plan-mapping';
 import { isValidCron, nextFireAfter, parseCron } from './cron';
 
@@ -98,42 +98,64 @@ export function reenableSchedule(loop: Loop, now: string): LoopTrigger[] {
 }
 
 /**
- * Re-applies a goal-derived schedule to a loop's EXISTING triggers without
- * resetting run history (used when a refinement changes the goal's cadence): an
- * existing cron/hybrid trigger keeps its fireCount/lastFireAt but adopts the new
- * schedule and re-arms nextFireAt; if the goal newly recurs and no cron trigger
- * exists, one is added. A non-recurring extraction leaves triggers untouched —
- * refine never silently strips a loop's schedule.
+ * Re-applies goal-derived triggers to a loop's EXISTING triggers without
+ * resetting run history (used when a refinement changes the goal's cadence or
+ * events): an existing cron/hybrid trigger keeps its fireCount/lastFireAt but
+ * adopts the new schedule and re-arms nextFireAt; if the goal newly recurs and
+ * no cron trigger exists, one is added; extracted events whose source has no
+ * trigger yet are appended fresh. Nothing is removed — refine never silently
+ * strips a loop's triggers.
  */
-export function reapplySchedule(
+export function reapplyExtractedTriggers(
   host: OrchestratorHost,
   loopId: string,
   triggers: LoopTrigger[],
-  extraction: ScheduleExtraction,
+  extraction: TriggerExtraction,
 ): LoopTrigger[] {
-  if (!extraction.recurring) return triggers;
-  const next = nextFireAfter(extraction.schedule, Date.parse(host.now()));
-  const nextFireAt = next !== null ? new Date(next).toISOString() : undefined;
-  const index = triggers.findIndex((t) => t.type === 'cron' || t.type === 'hybrid');
-  if (index === -1) {
-    return [
-      ...triggers,
-      {
-        id: host.newId('trigger'),
-        loopId,
-        workspaceId: host.workspaceId,
-        type: 'cron',
-        schedule: extraction.schedule,
-        maxFires: extraction.maxFires,
-        fireCount: 0,
-        nextFireAt,
-      },
+  let updated = triggers;
+
+  if (extraction.recurring && extraction.schedule) {
+    const next = nextFireAfter(extraction.schedule, Date.parse(host.now()));
+    const nextFireAt = next !== null ? new Date(next).toISOString() : undefined;
+    const index = updated.findIndex((t) => t.type === 'cron' || t.type === 'hybrid');
+    if (index === -1) {
+      updated = [
+        ...updated,
+        {
+          id: host.newId('trigger'),
+          loopId,
+          workspaceId: host.workspaceId,
+          type: 'cron',
+          schedule: extraction.schedule,
+          maxFires: extraction.maxFires,
+          fireCount: 0,
+          nextFireAt,
+        },
+      ];
+    } else if (updated[index].schedule !== extraction.schedule) {
+      updated = [...updated];
+      updated[index] = { ...updated[index], schedule: extraction.schedule, nextFireAt, disabled: false };
+    }
+  }
+
+  const newEvents = extraction.events.filter(
+    (event) => !updated.some((trigger) => trigger.eventSource === event.eventSource),
+  );
+  if (newEvents.length > 0) {
+    updated = [
+      ...updated,
+      ...newEvents.map(
+        (event): LoopTrigger => ({
+          id: host.newId('trigger'),
+          loopId,
+          workspaceId: host.workspaceId,
+          type: 'event',
+          fireCount: 0,
+          ...event,
+        }),
+      ),
     ];
   }
-  const existing = triggers[index];
-  if (existing.schedule === extraction.schedule) return triggers; // unchanged cadence
-  const updated = [...triggers];
-  updated[index] = { ...existing, schedule: extraction.schedule, nextFireAt, disabled: false };
   return updated;
 }
 

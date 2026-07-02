@@ -31,6 +31,9 @@ export interface GithubAdapterState {
   etags?: Record<string, string>;
   /** Newest-seen item timestamp per event kind (restart-safe cursor). */
   cursors?: Record<string, string>;
+  /** Source-health facts the UI watches (GithubSourceHealth slice). */
+  lastPolledAt?: string;
+  throttledUntil?: string;
 }
 
 export const DEFAULT_INTERVAL_MS = 120_000;
@@ -119,7 +122,15 @@ export function createGithubAdapter(
           }).catch((error) => host.log(`github adapter: emit failed: ${error}`));
         }
       }
-      await writeAdapterState<GithubAdapterState>(host, 'github', { ...state, etags, cursors });
+      const polledAt = host.now();
+      await writeAdapterState<GithubAdapterState>(host, 'github', {
+        ...state,
+        etags,
+        cursors,
+        lastPolledAt: polledAt,
+        throttledUntil:
+          rateLimitedUntilMs > Date.parse(polledAt) ? new Date(rateLimitedUntilMs).toISOString() : undefined,
+      });
       consecutiveFailures = failed ? consecutiveFailures + 1 : 0;
     } catch (error) {
       consecutiveFailures += 1;

@@ -38,3 +38,20 @@ export interface EventFiredBy {
    */
   chainDepth?: number;
 }
+
+/**
+ * The slices of the adapter state files (`events/<namespace>.json` under the
+ * orchestrator state dir) the UI watches for the source-health chips. The
+ * files carry more (ETags, cursors, hook secrets) — the UI reads only these.
+ */
+export interface GithubSourceHealth {
+  /** When the poller last completed a cycle. */
+  lastPolledAt?: string;
+  /** Set while rate-limit pressure or failures have polling slowed down. */
+  throttledUntil?: string;
+}
+
+export interface WebhookSourceHealth {
+  /** The local listener port — hooks POST to http://127.0.0.1:<port>/hooks/<name>. */
+  port?: number;
+}

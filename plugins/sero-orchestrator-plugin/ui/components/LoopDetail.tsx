@@ -1,6 +1,13 @@
 import { Card } from '@sero-ai/ui';
 import { AlertTriangle } from 'lucide-react';
-import type { LibraryIndex, Loop, OrchestratorAction, RunIndex } from '../../shared/types';
+import type {
+  GithubSourceHealth,
+  LibraryIndex,
+  Loop,
+  OrchestratorAction,
+  RunIndex,
+  WebhookSourceHealth,
+} from '../../shared/types';
 import { DEFAULT_RUN_INDEX } from '../../shared/defaults';
 import { useWatchedJson } from '../lib/use-watched-json';
 import { useLibraryLink } from '../lib/use-library-link';
@@ -42,6 +49,10 @@ interface LoopDetailProps {
 export function LoopDetail({ loop, busy, onAction, stateDir, libraryDir, libraryIndex }: LoopDetailProps) {
   const { runtime } = loop;
   const runIndex = useWatchedJson<RunIndex>(`${stateDir}/loops/${loop.id}/runs/index.json`, DEFAULT_RUN_INDEX);
+  // Source health for the meta strip: the event adapters persist these small
+  // state files; the strip shows them only when the loop uses the source.
+  const githubHealth = useWatchedJson<GithubSourceHealth | null>(`${stateDir}/events/github.json`, null);
+  const webhookHealth = useWatchedJson<WebhookSourceHealth | null>(`${stateDir}/events/webhook.json`, null);
   const linkStatus = useLibraryLink(loop, libraryDir, libraryIndex);
   const pendingInput = runtime.pendingInput?.questions.length ?? 0;
   const pendingSuggestions = (loop.suggestions ?? []).filter((s) => s.status === 'pending').length;
@@ -59,7 +70,7 @@ export function LoopDetail({ loop, busy, onAction, stateDir, libraryDir, library
           </div>
         </div>
         <p className="text-sm text-muted-foreground">{loop.summary || loop.prompt}</p>
-        <LoopMetaStrip loop={loop} runs={runIndex.runs} />
+        <LoopMetaStrip loop={loop} runs={runIndex.runs} githubHealth={githubHealth} webhookHealth={webhookHealth} />
         <div className="flex flex-wrap items-center gap-2 pt-1">
           <LoopControls loop={loop} busy={busy} canReflect={runIndex.runs.length > 0} onAction={onAction} />
           <LoopContextControl loop={loop} onAction={onAction} />

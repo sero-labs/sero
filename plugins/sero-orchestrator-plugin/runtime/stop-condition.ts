@@ -6,7 +6,7 @@
  * Why this is separate from the finalization step: asking the finalization *step
  * agent* to also reliably judge "is the whole loop's stop condition met?" is the
  * same juggling-many-concerns failure that made scheduling unreliable in the
- * planner (see schedule-extractor.ts). A focused call with ONE responsibility —
+ * planner (see trigger-extractor.ts). A focused call with ONE responsibility —
  * "has the stop condition been met?" — does not forget. The judgement is the
  * model's job (no heuristic); we only validate the FORMAT it returns and repair.
  *

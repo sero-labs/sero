@@ -6,6 +6,7 @@
  */
 
 import { DEFAULT_TOOLS } from '../shared/constants';
+import { buildEventSourceCatalogBlock } from './events/source-catalog';
 
 export const PLANNING_SYSTEM_PROMPT = `You are the PLANNER for Sero Orchestrator. You do NOT make any change yourself — a separate background agent will carry out each step you author. Your only job is to turn the user's prompt into a durable step plan. Not having edit/file tools is expected; never refuse or describe the edit instead.
 
@@ -47,7 +48,7 @@ Return ONLY a single JSON object (no prose before or after). The top-level objec
       }
     ]
   },
-  "suggestedTriggers": [ { "type": "manual"|"cron"|"event"|"hybrid", "schedule": string?, "eventSource": string?, "maxFires": number? } ]?,
+  "suggestedTriggers": [ { "type": "manual"|"cron"|"event"|"hybrid", "schedule": string?, "eventSource": string?, "eventFilter": object?, "eventCondition": string?, "debounceMs": number?, "maxFires": number? } ]?,
   "suggestedLimits": { "maxAttemptsPerStep": number?, "maxConcurrentSteps": number?, "maxTotalTokens": number? }?
 }
 
@@ -55,6 +56,8 @@ RECURRING / SCHEDULED LOOPS — read this before writing any step. If the GOAL a
 - The plan describes ONE pass of the work. NEVER create a step that waits, sleeps, delays, "waits before the next iteration", polls on a timer, or "repeats"/"loops" the plan. There is no such step — the schedule does that. A plan with a "wait" or "repeat" step is WRONG.
 - Write each step to do ONE pass only. "Resolve one issue and open a PR" is a single run; the schedule fires it again next interval. Do not enumerate or loop over many items inside the plan.
 - STOPPING: just emit ordinary completion ("complete") at the finalization step each run. Whether the loop's overall goal/stop condition ("until there are no open issues", "stop when X") has been met is judged SEPARATELY after each run — you do NOT need to detect it or set any "final" flag. With no stop condition the loop simply recurs until the user disables it.
+
+EVENT-DRIVEN LOOPS. If the GOAL asks the work to happen when something occurs ("when CI fails", "whenever a PR opens", "when files change", "when another loop finishes"), the trigger is likewise set up for you automatically — NEVER add a step that watches, polls, listens, or waits for the event; such a step is wrong. Shape the plan as ONE pass handling a SINGLE occurrence: the firing event's details (source, summary, payload) arrive in the run context as an observation, so steps can read exactly what fired them. You MAY also suggest the trigger yourself in "suggestedTriggers" using an exact source id from the EVENT SOURCES catalog in the task ("type": "event" — or "hybrid" with a cron "schedule" when the goal combines a cadence with an event; optional "eventFilter" for exact matches on the source's listed payload fields, "eventCondition" for a short plain-English test anything exact matching cannot express, "debounceMs" to rate-limit). Never invent a source that is not in the catalog.
 
 The user describes only the GOAL. You are responsible for the mechanics they should never have to spell out — always add the finalization and delivery steps yourself:
 
@@ -150,7 +153,9 @@ export function buildPlanningTask(
 Goal:
 ${prompt}
 
-${buildClarificationsBlock(clarifications)}If this goal mentions any cadence or repetition ("every N minutes", "hourly", "each morning", "periodically", "until …"), the loop is ALREADY scheduled to re-run automatically — author exactly ONE pass of the work. Do NOT add a step that waits, sleeps, delays, polls on a timer, or repeats/loops the plan; such a step is wrong. Process one item per run (e.g. resolve ONE issue). You do NOT need to detect or handle the goal's stop condition — that is judged separately after each run.
+${buildClarificationsBlock(clarifications)}If this goal mentions any cadence or repetition ("every N minutes", "hourly", "each morning", "periodically", "until …") or an event ("when X happens", "whenever …"), the loop is ALREADY triggered automatically — author exactly ONE pass of the work. Do NOT add a step that waits, sleeps, delays, polls on a timer, watches for the event, or repeats/loops the plan; such a step is wrong. Process one item per run (e.g. resolve ONE issue, handle ONE occurrence). You do NOT need to detect or handle the goal's stop condition — that is judged separately after each run.
+
+${buildEventSourceCatalogBlock()}
 
 ${buildToolCatalogBlock(toolCatalog)}${buildAgentCatalogBlock(agentCatalog)}${useManagedWorktree ? WORKTREE_DELIVERY : WORKSPACE_ROOT_DELIVERY}
 

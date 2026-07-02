@@ -2,8 +2,12 @@
 
 Orchestrator runs **loops** — jobs you describe in plain English. You say what
 you want done; Sero works out the steps, runs them, and checks in with you when
-it needs a decision. A loop can run once or on a schedule, and it keeps going
-across restarts until the work is finished.
+it needs a decision. A loop can run once, on a schedule, or when something
+happens — a file changes, CI fails, a PR opens, another loop finishes — and it
+keeps going across restarts until the work is finished. Just describe the
+moment in your prompt ("when CI fails on my PRs, investigate and fix it") and
+Sero wires the trigger; the [event sources](/reference/orchestrator#event-sources)
+are listed in the reference.
 
 You never write the steps yourself. The same machinery can review pull requests,
 triage issues, tidy files, draft summaries, or run any other multi-step task —

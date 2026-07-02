@@ -19,6 +19,7 @@ import type {
   UsageSummary,
 } from './types';
 import type { LoopAttention } from './attention-types';
+import type { EventFiredBy } from './event-types';
 import type { LoopLibraryLink } from './library-types';
 
 /** Step progress for the home overview's active-loop cards (no per-loop read needed). */
@@ -83,6 +84,8 @@ export interface LoopRunSummary {
   startedAt: string;
   endedAt?: string;
   completionStatus?: CompletionSignal['status'];
+  /** The event that started this run (absent for manual/cron runs) — drives the "fired by" chip. */
+  firedBy?: EventFiredBy;
   steps: LoopRunStepSummary[];
   recoveries: { decision: RecoveryDecisionKind; reason: string }[];
   /** Rolled-up token/time totals across this run's attempts (cost when reported). */

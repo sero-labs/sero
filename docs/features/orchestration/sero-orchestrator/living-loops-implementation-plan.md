@@ -12,7 +12,7 @@ each independently shippable and gated on `pnpm typecheck` + green tests.
 | 2 | Source manager + internal loop events | ✅ Done | Demand-driven adapters; loop→loop triggering with cycle guard |
 | 3 | Local adapters: filesystem + webhook | ✅ Done | File changes and local webhooks fire loops |
 | 4 | GitHub adapter | ✅ Done | CI/PR/issue events fire loops within the anti-abuse envelope |
-| 5 | Planner authoring + UI + docs | ⬜ Not started | Plain-language prompts produce event triggers; triggers/fired-by/health visible |
+| 5 | Planner authoring + UI + docs | ✅ Done | Plain-language prompts produce event triggers; triggers/fired-by/health visible |
 
 Status legend: ✅ Done · 🟡 In progress · ⬜ Not started · ⛔ Blocked · 🟦 Deferred.
 
@@ -27,9 +27,9 @@ Status legend: ✅ Done · 🟡 In progress · ⬜ Not started · ⛔ Blocked ·
 | FR-E5 | GitHub poller: shared per repo, 60s floor, conditional requests, rate-limit backoff, demand-scoped endpoints, restart-safe cursor | 4 | ✅ |
 | FR-E6 | Internal `loop:*` events at complete/block/question; self-exclusion + chain-depth cap with warning | 2 | ✅ |
 | FR-E7 | Webhook listener loopback-only, per-hook secret, `POST /hooks/<name>` → `webhook:<name>` | 3 | ✅ |
-| FR-E8 | Planner authors event/hybrid triggers from the prompt vs. a source catalog; mechanical validation blocks at create | 1 (validation) / 5 (authoring) | 🟡 validation done |
+| FR-E8 | Planner authors event/hybrid triggers from the prompt vs. a source catalog; mechanical validation blocks at create | 1 (validation) / 5 (authoring) | ✅ |
 | FR-E9 | Filesystem source with debounce + default ignores | 3 | ✅ |
-| FR-E10 | Event triggers, fired-by, source health in UI; `eventCondition` round-trips through the library | 1 (round-trip) / 5 (UI) | 🟡 round-trip done |
+| FR-E10 | Event triggers, fired-by, source health in UI; `eventCondition` round-trips through the library | 1 (round-trip) / 5 (UI) | ✅ |
 
 ---
 
@@ -228,31 +228,52 @@ are requirements, not tuning.
 
 **Tasks**
 
-- [ ] Generalize `runtime/schedule-extractor.ts` into a trigger extractor: the
-  model maps the prompt onto cron/event/hybrid given an injected catalog of
-  available sources; code validates shape only (no NL parsing in code).
-- [ ] `runtime/planner-prompt.ts`: event-trigger guidance + the source catalog
-  block beside the existing recurring-cadence section.
-- [ ] UI: event triggers rendered on loop detail + create review (source,
-  filter, condition, enable/disable); "fired by" chip on run summaries
-  (`ui/lib/run-summary.ts` + components); one compact source-health row
-  (GitHub last-checked/backing-off, webhook port) — nothing more.
-- [ ] `/orchestrator` command + `orchestrator` tool: create options accept
-  event triggers (already flow through `CreateLoopOptions.triggers`); verify
-  end to end.
-- [ ] Docs: update the orchestrator pages in `apps/docs-site` (triggers,
-  sources, anti-abuse behavior) per the pre-PR docs rule.
-- [ ] Tests: extractor fixtures ("when CI fails on my PRs…", "every morning
-  and when docs/ changes…" ⇒ hybrid), UI lib tests for trigger/fired-by
-  formatting.
+- [x] Generalized `runtime/schedule-extractor.ts` into
+  `runtime/trigger-extractor.ts`: the model maps the prompt onto
+  cron/event/hybrid given the source catalog
+  (`runtime/events/source-catalog.ts` — one shared block for extractor and
+  planner prompts); code validates shape only via the exported
+  `validateEventTriggerFields` (no NL parsing in code). Refine re-derives
+  events too (`reapplyExtractedTriggers`, nothing removed).
+- [x] `runtime/planner-prompt.ts`: EVENT-DRIVEN LOOPS guidance (never author
+  watch/poll/wait steps; one pass per occurrence) + the source catalog block
+  beside the recurring-cadence section; suggestedTriggers shape extended with
+  eventFilter/eventCondition/debounceMs.
+- [x] UI: event-trigger chips on loop detail AND create review (the review
+  stage now renders the same `LoopMetaStrip`); each chip shows the source with
+  filter/condition/debounce/enabled-state in its hover title, disabled state
+  dimmed (`· off`) — display-only, matching the "changed with Refine, never a
+  form" product rule; "fired by" chip (source + chain depth, summary on hover)
+  on run history rows via `firedBy` added to `LoopRunSummary` +
+  `toRunSummary`; one compact source-health row (GitHub last-checked /
+  backing-off from persisted `lastPolledAt`/`throttledUntil`, webhook port) in
+  the meta strip, shown only for sources the loop uses. Pure formatting in
+  `ui/lib/trigger-summary.ts`.
+- [x] `/orchestrator` command + `orchestrator` tool: both paths verified end
+  to end by integration tests — prompt-derived event triggers (extractor →
+  applyPlanningResponse → materializeTriggers) and explicit
+  `CreateLoopOptions.triggers` (which win over extraction). The tool schema
+  deliberately exposes no trigger params: triggers are authored from the
+  prompt (LLM-first, no forms).
+- [x] Docs: `reference/orchestrator.md` Triggers section rewritten (plain-
+  language authoring, event source table, filters/conditions, demand-driven
+  sources, chain cap, GitHub anti-abuse behavior, health line);
+  `guide/orchestrator.md` intro now covers event-driven loops and links the
+  source table.
+- [x] Tests: extractor fixtures ("when CI fails on my PRs…" ⇒ event+condition,
+  "every morning and when docs/ changes…" ⇒ hybrid, invented-source repair,
+  filter/debounce carry, suggestion-key tolerance), merge semantics, UI lib
+  tests for trigger chips / fired-by / source health
+  (`trigger-extractor.test.ts`, `trigger-summary.test.ts`, two new
+  planning-integration cases).
 
 **Acceptance**
 
-- [ ] "When CI fails on a PR I opened, fix it" creates a valid event trigger
-  (source + filter + condition) with no manual JSON.
-- [ ] Triggers, fired-by, and source health are visible and uncluttered.
-- [ ] Docs-site reflects the feature.
-- [ ] FR-E8 and FR-E10 fully satisfied; matrix green.
+- [x] "When CI fails on a PR I opened, fix it" creates a valid event trigger
+  (source + condition) with no manual JSON.
+- [x] Triggers, fired-by, and source health are visible and uncluttered.
+- [x] Docs-site reflects the feature.
+- [x] FR-E8 and FR-E10 fully satisfied; matrix green.
 
 ---
 

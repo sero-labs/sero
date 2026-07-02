@@ -13,7 +13,7 @@
 import type { AnsweredInput, CreateLoopOptions, Loop } from '../shared/types';
 import type { OrchestratorHost } from './host';
 import { planLoop } from './planner';
-import { extractSchedule } from './schedule-extractor';
+import { extractTriggers } from './trigger-extractor';
 import { applyPlanningResponse } from './plan-mapping';
 import { loopArtifactDir } from './artifacts';
 import { parkPlannerQuestions } from './human-input';
@@ -64,15 +64,15 @@ export async function runPlanningFlow(host: OrchestratorHost, draft: Loop, args:
   }
 
   if (outcome.ok) {
-    // A focused, single-purpose schedule call is far more reliable than asking
+    // A focused, single-purpose trigger call is far more reliable than asking
     // the planner to remember a trigger. Run it after planning so it never blocks
     // plan authoring.
-    const schedule = await extractSchedule(host, {
+    const extraction = await extractTriggers(host, {
       prompt: args.prompt,
       parentSessionId: draft.runtime.parentSessionId,
       loopId: draft.id,
     });
-    const loop = applyPlanningResponse(host, draft, outcome.response, args.options, args.title, schedule);
+    const loop = applyPlanningResponse(host, draft, outcome.response, args.options, args.title, extraction);
     host.log(`Loop ${loop.id} planned with ${loop.plan.steps.length} step(s)`);
     return loop;
   }

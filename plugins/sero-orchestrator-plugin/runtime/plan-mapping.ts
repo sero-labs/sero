@@ -16,7 +16,7 @@ import type {
 import type { OrchestratorHost } from './host';
 import { isDefaultTool } from '../shared/constants';
 import { mergeLimits, materializeTriggers } from './loop-factory';
-import { mergeScheduleIntoTriggers, type ScheduleExtraction } from './schedule-extractor';
+import { mergeExtractedTriggers, NO_TRIGGERS, type TriggerExtraction } from './trigger-extractor';
 import { validateLoopPlan } from './schema';
 import { mergeStepOverride } from './library-overlay';
 
@@ -79,9 +79,9 @@ function normalizePlanStepTools(plan: LoopPlan): LoopPlan {
 
 /**
  * Applies a successful PlanningResponse to a draft loop. An explicit
- * `options.triggers` wins; otherwise the dedicated schedule extraction (if the
- * goal recurs) is folded into the planner's suggested triggers so a recurring
- * loop is scheduled even when the planner omitted the trigger itself.
+ * `options.triggers` wins; otherwise the dedicated trigger extraction (cadence
+ * and/or events derived from the goal) is folded into the planner's suggested
+ * triggers so the loop is wired even when the planner omitted the trigger.
  */
 export function applyPlanningResponse(
   host: OrchestratorHost,
@@ -89,11 +89,11 @@ export function applyPlanningResponse(
   response: PlanningResponse,
   options?: CreateLoopOptions,
   userTitle?: string,
-  schedule?: ScheduleExtraction,
+  extraction?: TriggerExtraction,
 ): Loop {
   const now = host.now();
   const suggestions = options?.triggers
-    ?? mergeScheduleIntoTriggers(response.suggestedTriggers, schedule ?? { recurring: false });
+    ?? mergeExtractedTriggers(response.suggestedTriggers, extraction ?? NO_TRIGGERS);
   const triggers = materializeTriggers(host, draft.id, suggestions);
   const limits = mergeLimits(response.suggestedLimits, options?.limits);
   const plan = normalizePlanStepTools(response.plan);

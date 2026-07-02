@@ -88,7 +88,7 @@ export interface OrchestratorState {
 
 // Event types (Living Loops, spec 12) live in event-types.ts (500-LOC limit);
 // re-exported here so existing imports from './types' keep resolving.
-export type { OrchestratorEvent, EventFiredBy } from './event-types';
+export type { OrchestratorEvent, EventFiredBy, GithubSourceHealth, WebhookSourceHealth } from './event-types';
 
 // The watched-index summary types live in index-types.ts (500-LOC limit);
 // re-exported here so existing imports from './types' keep resolving.

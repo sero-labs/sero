@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { Badge, Button, Card } from '@sero-ai/ui';
+import { Zap } from 'lucide-react';
 import type { LoopRunStatus, LoopRunSummary } from '../../shared/types';
 import { formatCost, formatDuration, formatTime, formatTokens } from '../lib/format';
 import { summarizeRun } from '../lib/run-summary';
+import { firedByLabel } from '../lib/trigger-summary';
 
 const PAGE = 5;
 
@@ -40,6 +42,7 @@ const Dash = <span className="text-muted-foreground/40">—</span>;
 function RunRow({ run }: { run: LoopRunSummary }) {
   const wallMs = run.endedAt ? new Date(run.endedAt).getTime() - new Date(run.startedAt).getTime() : undefined;
   const usage = run.usage;
+  const firedBy = firedByLabel(run);
 
   return (
     <div className="flex items-center gap-4 px-3.5 py-3 text-xs">
@@ -47,6 +50,15 @@ function RunRow({ run }: { run: LoopRunSummary }) {
         <div className="flex items-center gap-2">
           <span className="font-medium">Run #{run.runNumber}</span>
           <Badge variant="outline" className={RUN_STATUS_CLASS[run.status]}>{run.status}</Badge>
+          {firedBy && (
+            <Badge
+              variant="outline"
+              className="border-sky-500/40 bg-sky-500/10 text-sky-400"
+              title={run.firedBy?.summary}
+            >
+              <Zap className="mr-1 h-3 w-3" />{firedBy}
+            </Badge>
+          )}
         </div>
         <span className="text-muted-foreground">{formatTime(run.startedAt)} · {summarizeRun(run)}</span>
       </div>

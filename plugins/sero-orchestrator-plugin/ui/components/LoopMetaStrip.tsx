@@ -1,12 +1,15 @@
 /**
  * Compact one-line meta strip for the loop detail (specs/09-ui-redesign.md):
  * workspace isolation · schedule/triggers · run count · operational limits ·
- * lifetime usage / budget — a single muted line of icon+text chips.
+ * lifetime usage / budget · event-source health — a single muted line of
+ * icon+text chips. Event-trigger detail (filter/condition) lives in each
+ * chip's hover title.
  */
 
-import { Clock, Coins, FolderGit2, GitBranch, Gauge, Repeat } from 'lucide-react';
-import type { Loop, LoopRunSummary } from '../../shared/types';
+import { Activity, Clock, Coins, FolderGit2, GitBranch, Gauge, Repeat, Zap } from 'lucide-react';
+import type { GithubSourceHealth, Loop, LoopRunSummary, WebhookSourceHealth } from '../../shared/types';
 import { formatTime } from '../lib/format';
+import { eventTriggerChips, sourceHealthChips } from '../lib/trigger-summary';
 import { formatLoopUsage, summarizeLoopUsage } from '../lib/usage-summary';
 
 /** Operational caps (attempts/concurrency/wall-clock). Token & cost budgets show
@@ -20,10 +23,22 @@ function limitsSummary(loop: Loop): string | null {
   return parts.length ? parts.join(' · ') : null;
 }
 
-export function LoopMetaStrip({ loop, runs = [] }: { loop: Loop; runs?: LoopRunSummary[] }) {
+export function LoopMetaStrip({
+  loop,
+  runs = [],
+  githubHealth = null,
+  webhookHealth = null,
+}: {
+  loop: Loop;
+  runs?: LoopRunSummary[];
+  githubHealth?: GithubSourceHealth | null;
+  webhookHealth?: WebhookSourceHealth | null;
+}) {
   const { workspace } = loop;
   const resolved = loop.runtime.workspace.resolved;
   const scheduled = loop.triggers.find((t) => (t.type === 'cron' || t.type === 'hybrid') && !t.disabled);
+  const eventChips = eventTriggerChips(loop.triggers);
+  const healthChips = sourceHealthChips(loop, githubHealth, webhookHealth);
   const limits = limitsSummary(loop);
   const usage = summarizeLoopUsage(runs, loop.limits);
   const usageText = usage ? formatLoopUsage(usage) : null;
@@ -42,9 +57,23 @@ export function LoopMetaStrip({ loop, runs = [] }: { loop: Loop; runs?: LoopRunS
           {scheduled.schedule ?? scheduled.type}
           <span className="opacity-70">· next {formatTime(scheduled.nextFireAt)}</span>
         </span>
-      ) : (
+      ) : eventChips.length === 0 ? (
         <span className="flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" /> Manual only</span>
-      )}
+      ) : null}
+      {eventChips.map((chip) => (
+        <span
+          key={chip.key}
+          title={chip.title}
+          className={`flex items-center gap-1.5 ${chip.disabled ? 'opacity-50' : ''}`}
+        >
+          <Zap className="h-3.5 w-3.5" /> {chip.label}
+        </span>
+      ))}
+      {healthChips.map((chip) => (
+        <span key={chip.key} className="flex items-center gap-1.5">
+          <Activity className="h-3.5 w-3.5" /> {chip.label}
+        </span>
+      ))}
       {(() => {
         const t = loop.triggers.find((tr) => tr.fireCount > 0);
         const fires = loop.triggers.reduce((n, tr) => n + tr.fireCount, 0);

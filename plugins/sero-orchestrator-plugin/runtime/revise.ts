@@ -11,8 +11,8 @@ import type { OrchestratorHost } from './host';
 import { proposeRevisedPlan } from './llm-decisions';
 import { validateLoopPlan } from './schema';
 import { applyRecovery } from './recovery-apply';
-import { extractSchedule } from './schedule-extractor';
-import { reapplySchedule } from './scheduler';
+import { extractTriggers } from './trigger-extractor';
+import { reapplyExtractedTriggers } from './scheduler';
 
 export interface RevisionOutcome {
   /** The applied, revised loop — caller persists it. */
@@ -52,19 +52,19 @@ export async function buildRevisedLoop(
     return { error: applied.rejection, rejectionReason: applied.rejection };
   }
 
-  // A refinement can change the GOAL itself (its stop condition or cadence).
-  // The goal is the single source the stop-condition evaluator and the schedule
-  // are derived from, so when it changes we update `prompt` (which the evaluator
-  // reads) and re-derive the schedule, preserving existing fire counts.
+  // A refinement can change the GOAL itself (its stop condition, cadence, or
+  // events). The goal is the single source the stop-condition evaluator and the
+  // triggers are derived from, so when it changes we update `prompt` (which the
+  // evaluator reads) and re-derive the triggers, preserving existing fire counts.
   let next = applied.loop;
   const newGoal = proposal.goal?.trim();
   if (newGoal && newGoal !== loop.prompt) {
-    const schedule = await extractSchedule(host, {
+    const extraction = await extractTriggers(host, {
       prompt: newGoal,
       parentSessionId: loop.runtime.parentSessionId,
       loopId: loop.id,
     });
-    next = { ...next, prompt: newGoal, triggers: reapplySchedule(host, loop.id, next.triggers, schedule) };
+    next = { ...next, prompt: newGoal, triggers: reapplyExtractedTriggers(host, loop.id, next.triggers, extraction) };
     host.log(`Loop ${loop.id} goal updated by refinement`);
   }
   return { loop: next };

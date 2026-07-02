@@ -365,28 +365,29 @@ function isPrimitive(value: unknown): boolean {
  * Event-half validation for an event/hybrid trigger: a well-formed source in a
  * known namespace, a flat structured filter (primitives / arrays of primitives),
  * a bounded condition string, and a sane debounce. Mechanical only — what the
- * condition MEANS is the model's business at fire time.
+ * condition MEANS is the model's business at fire time. Shared with the trigger
+ * extractor, which validates the same fields under its own label.
  */
-function validateEventTrigger(trigger: Record<string, unknown>, i: number, errors: string[]): void {
+export function validateEventTriggerFields(trigger: Record<string, unknown>, label: string, errors: string[]): void {
   if (typeof trigger.eventSource !== 'string' || !isKnownEventSource(trigger.eventSource)) {
-    errors.push(`suggestedTriggers[${i}]: a "${String(trigger.type)}" trigger needs an "eventSource" of the form "<namespace>:<kind>" with a known namespace (${EVENT_SOURCE_NAMESPACES.join(', ')}), got ${JSON.stringify(trigger.eventSource)}.`);
+    errors.push(`${label}: an event trigger needs an "eventSource" (aka "source") of the form "<namespace>:<kind>" with a known namespace (${EVENT_SOURCE_NAMESPACES.join(', ')}), got ${JSON.stringify(trigger.eventSource)}.`);
   }
   if (trigger.eventFilter !== undefined) {
     const flat =
       isRecord(trigger.eventFilter) &&
       Object.values(trigger.eventFilter).every((v) => isPrimitive(v) || (Array.isArray(v) && v.every(isPrimitive)));
     if (!flat) {
-      errors.push(`suggestedTriggers[${i}]: "eventFilter" must be a flat object of primitive values (or arrays of primitives, meaning "one of").`);
+      errors.push(`${label}: the "eventFilter" (aka "filter") must be a flat object of primitive values (or arrays of primitives, meaning "one of").`);
     }
   }
   if (trigger.eventCondition !== undefined) {
     const text = trigger.eventCondition;
     if (typeof text !== 'string' || !text.trim() || text.length > EVENT_CONDITION_MAX_LENGTH) {
-      errors.push(`suggestedTriggers[${i}]: "eventCondition" must be a non-empty string of at most ${EVENT_CONDITION_MAX_LENGTH} characters.`);
+      errors.push(`${label}: the condition must be a non-empty string of at most ${EVENT_CONDITION_MAX_LENGTH} characters.`);
     }
   }
   if (trigger.debounceMs !== undefined && (typeof trigger.debounceMs !== 'number' || !Number.isFinite(trigger.debounceMs) || trigger.debounceMs < 0)) {
-    errors.push(`suggestedTriggers[${i}]: "debounceMs" must be a non-negative number.`);
+    errors.push(`${label}: "debounceMs" must be a non-negative number.`);
   }
 }
 
@@ -406,7 +407,7 @@ function validateSuggestedTriggers(raw: unknown): string[] {
       }
     }
     if (trigger.type === 'event' || trigger.type === 'hybrid') {
-      validateEventTrigger(trigger, i, errors);
+      validateEventTriggerFields(trigger, `suggestedTriggers[${i}]`, errors);
     }
   });
   return errors;
