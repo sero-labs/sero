@@ -277,3 +277,138 @@ describe('buildCatalogInstall', () => {
     expect(plan.write?.entry.catalog).toMatchObject({ catalogVersion: 3, libraryVersion: 5 });
   });
 });
+
+describe('catalog_refresh updates (FR-C5)', () => {
+  it('appends a newer catalog version as the next library version so "vN available" lights up', async () => {
+    const host = createFakeHost();
+    seedCatalog(host, entry());
+    scriptPlanning(host);
+    const installed = await install(host);
+
+    seedCatalog(host, entry({ version: 2, description: 'Improved.' }));
+    const res = await handleCatalogAction(host, { kind: 'catalog_refresh' });
+
+    expect(res.ok).toBe(true);
+    expect(res.catalogUpdates).toEqual([
+      expect.objectContaining({ slug: 'daily-note', libraryVersion: 2 }),
+    ]);
+    const index = await host.library.readIndex();
+    expect(index.entries[0]).toMatchObject({ latestVersion: 2 });
+    expect(index.entries[0].catalog).toMatchObject({ catalogVersion: 2, libraryVersion: 2 });
+
+    // The existing renderer derivation is the whole update UI: it reads
+    // "updateAvailable" from latest > linked version on the watched index
+    // (deriveLibraryLink, covered in ui/__tests__/library-link.test.ts).
+    expect(installed.loop?.libraryLink?.version).toBe(1);
+    expect(index.entries[0].latestVersion).toBeGreaterThan(installed.loop!.libraryLink!.version);
+
+    // And the existing switch machinery takes the loop to the new version.
+    const switched = await handleLibraryAction(host, {
+      kind: 'library_set_version',
+      loopId: installed.loop!.id,
+      version: 2,
+    });
+    expect(switched.ok).toBe(true);
+    expect(switched.loop?.libraryLink?.version).toBe(2);
+  });
+
+  it('refresh without a newer version appends nothing', async () => {
+    const host = createFakeHost();
+    seedCatalog(host, entry());
+    scriptPlanning(host);
+    await install(host);
+
+    const res = await handleCatalogAction(host, { kind: 'catalog_refresh' });
+    expect(res.catalogUpdates).toEqual([]);
+    expect((await host.library.readIndex()).entries[0].latestVersion).toBe(1);
+  });
+
+  it('skips an invalid update with its reason and keeps old versions untouched', async () => {
+    const host = createFakeHost();
+    seedCatalog(host, entry());
+    scriptPlanning(host);
+    await install(host);
+
+    seedCatalog(host, entry({ version: 2 }, definition({ plan: { ...oneStepPlan().plan, steps: [] } })));
+    const res = await handleCatalogAction(host, { kind: 'catalog_refresh' });
+
+    expect(res.catalogUpdates?.[0].skipped).toBeTruthy();
+    const index = await host.library.readIndex();
+    expect(index.entries[0]).toMatchObject({ latestVersion: 1 });
+    expect(index.entries[0].catalog).toMatchObject({ catalogVersion: 1 });
+  });
+
+  it('updates entries across multiple repos in one refresh', async () => {
+    const host = createFakeHost();
+    seedCatalog(host, entry());
+    host.catalogRepos.push({ key: 'team', url: 'https://example.com/team.git', official: false });
+    const teamEntry = { ...entry({ slug: 'triage', name: 'Triage' }), repoKey: 'team' };
+    seedCatalog(host, teamEntry);
+    scriptPlanning(host);
+    await install(host);
+    scriptPlanning(host);
+    await install(host, 'triage', 'team');
+
+    seedCatalog(host, entry({ version: 2 }));
+    seedCatalog(host, { ...entry({ slug: 'triage', name: 'Triage', version: 3 }), repoKey: 'team' });
+    const res = await handleCatalogAction(host, { kind: 'catalog_refresh' });
+
+    expect(res.catalogUpdates).toHaveLength(2);
+    const index = await host.library.readIndex();
+    expect(index.entries.map((e) => e.catalog?.catalogVersion).sort()).toEqual([2, 3]);
+  });
+
+  it('never touches uninstalled entries', async () => {
+    const host = createFakeHost();
+    seedCatalog(host, entry({ version: 5 }));
+    const res = await handleCatalogAction(host, { kind: 'catalog_refresh' });
+    expect(res.catalogUpdates).toEqual([]);
+    expect((await host.library.readIndex()).entries).toEqual([]);
+  });
+});
+
+describe('fail-soft (FR-C8)', () => {
+  it('removing a repo leaves the installed loop and its library entry fully working', async () => {
+    const host = createFakeHost();
+    const team = { ...entry({ slug: 'triage' }), repoKey: 'team' };
+    host.catalogRepos.push({ key: 'team', url: 'https://example.com/team.git', official: false });
+    seedCatalog(host, team);
+    scriptPlanning(host);
+    const installed = await install(host, 'triage', 'team');
+
+    const removed = await handleCatalogAction(host, { kind: 'catalog_remove_repo', repoKey: 'team' });
+    expect(removed.ok).toBe(true);
+
+    // Library entry, version, and the draft loop all survive.
+    const index = await host.library.readIndex();
+    expect(index.entries).toHaveLength(1);
+    expect(await host.library.readVersion(index.entries[0].id, 1)).not.toBeNull();
+    expect((await host.readState())?.loops.find((l) => l.id === installed.loop!.id)).toBeTruthy();
+
+    // A later refresh simply has nothing to update for the gone repo.
+    const res = await handleCatalogAction(host, { kind: 'catalog_refresh' });
+    expect(res.ok).toBe(true);
+    expect(res.catalogUpdates).toEqual([]);
+  });
+
+  it('an upstream entry deleted from the catalog leaves the library copy intact on refresh', async () => {
+    const host = createFakeHost();
+    seedCatalog(host, entry());
+    scriptPlanning(host);
+    await install(host);
+
+    // The entry vanishes from the catalog index upstream.
+    host.catalogContents.set(OFFICIAL_CATALOG_KEY, {
+      repo: { key: OFFICIAL_CATALOG_KEY, url: 'https://example.com/catalog.git', official: true },
+      index: { version: 1, name: 'Test catalog', entries: [] },
+      entries: [],
+      problems: [],
+    });
+    const res = await handleCatalogAction(host, { kind: 'catalog_refresh' });
+
+    expect(res.ok).toBe(true);
+    const index = await host.library.readIndex();
+    expect(index.entries).toHaveLength(1);
+    expect(await host.library.readVersion(index.entries[0].id, 1)).not.toBeNull();
+  });
+});

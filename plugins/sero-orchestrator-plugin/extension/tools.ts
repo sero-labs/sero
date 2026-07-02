@@ -361,9 +361,16 @@ function summarize(action: OrchestratorAction, res: OrchestratorActionResult): s
       return `Removed catalog repo ${action.repoKey} (installed loops keep their library copies).`;
     case 'catalog_refresh': {
       const failed = (res.catalogRefresh ?? []).filter((r) => r.reason);
-      return failed.length === 0
-        ? `Refreshed ${res.catalogRefresh?.length ?? 0} catalog repo(s).`
-        : `Refreshed with issues: ${failed.map((r) => `${r.key} (${r.stale ? 'showing last-fetched copy' : 'never fetched'}: ${r.reason})`).join('; ')}.`;
+      const applied = (res.catalogUpdates ?? []).filter((u) => u.libraryVersion !== undefined);
+      const skipped = (res.catalogUpdates ?? []).filter((u) => u.skipped);
+      const parts = [
+        failed.length === 0
+          ? `Refreshed ${res.catalogRefresh?.length ?? 0} catalog repo(s).`
+          : `Refreshed with issues: ${failed.map((r) => `${r.key} (${r.stale ? 'showing last-fetched copy' : 'never fetched'}: ${r.reason})`).join('; ')}.`,
+      ];
+      if (applied.length > 0) parts.push(`${applied.length} installed loop(s) have a new version available.`);
+      if (skipped.length > 0) parts.push(`Skipped invalid update(s): ${skipped.map((u) => `${u.repoKey}/${u.slug}`).join(', ')}.`);
+      return parts.join(' ');
     }
     case 'catalog_install':
       return res.loop

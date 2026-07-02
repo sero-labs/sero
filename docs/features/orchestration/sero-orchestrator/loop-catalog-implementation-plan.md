@@ -13,7 +13,7 @@ commit per phase on `feat/orchestrator-living-loops`.
 | --- | --- | --- | --- |
 | 1 | Catalog store: repos, cache, on-demand fetch | ✅ Done | `host.catalog` works against the official repo and a local fixture git repo; no timers anywhere |
 | 2 | Install: actions, provenance versions, adaptation | ✅ Done | `catalog_install` → provenance-linked library version → draft via the existing load path → planner adaptation; reinstall is a no-op |
-| 3 | Updates and fail-soft | ⬜ Not started | Refresh appends newer catalog versions; "vN available" lights up with zero new update UI; unreachable/removed repos never break installs |
+| 3 | Updates and fail-soft | ✅ Done | Refresh appends newer catalog versions; "vN available" lights up with zero new update UI; unreachable/removed repos never break installs |
 | 4 | UI: Catalog tab, repo management, docs | ⬜ Not started | Catalog tab beside My Library with cards/detail/install/badges; repo add-confirm; slash commands; docs-site updated |
 | 5 | Official catalog content: example loops | ⬜ Not started | A simple → very-complex range of curated loops ships in the official catalog, together exercising every major feature |
 | 6 | End-to-end verification | ⬜ Not started | Agent e2e in the real app: browse → install → adapt → update-available → fail-soft paths |
@@ -28,10 +28,10 @@ Status legend: ✅ Done · 🟡 In progress · ⬜ Not started · ⛔ Blocked ·
 | FR-C2 | Fetch on demand only (tab open / refresh); local cache works offline; no background timers | 1 | ✅ |
 | FR-C3 | Install validates, creates a provenance-linked library entry/version, instantiates a draft — never auto-activates | 2 | ✅ |
 | FR-C4 | Planner clarify flow adapts installed loops; model-authored, code-validated, no template DSL | 2 | ✅ |
-| FR-C5 | Newer catalog versions append library versions; updates surface via the existing "vN available" push machinery | 3 | ⬜ |
+| FR-C5 | Newer catalog versions append library versions; updates surface via the existing "vN available" push machinery | 3 | ✅ |
 | FR-C6 | Verified badge only on official entries; third-party entries show their source repo; add-repo needs one confirmation | 4 | ⬜ |
 | FR-C7 | Missing `requiredTools` at install warn fail-soft; install proceeds, warning rides the draft | 2 | ✅ (cleared if a later re-plan recomputes warnings — noted) |
-| FR-C8 | Removing or failing to reach a repo never breaks installed loops or library entries | 1 (cache) / 3 (verified) | 🟡 cache side done |
+| FR-C8 | Removing or failing to reach a repo never breaks installed loops or library entries | 1 (cache) / 3 (verified) | ✅ |
 | FR-C9 | Official catalog ships a range of example loops from simple to very complex, together showing off triggers, placement, delivery, guards, per-step config, and human input *(added by Dan, 2026-07-02)* | 5 | ⬜ |
 
 ---
@@ -239,24 +239,30 @@ degrades softly.
 
 **Tasks**
 
-- [ ] `catalog_refresh` (one repo or all): after pulling, for each installed
-  entry — library entries owning a `(repoKey, slug)` provenance — whose
-  cached catalog `version` is newer than the newest provenance-carrying
-  library version, validate the new definition and append a library version
-  with provenance (invalid new definition ⇒ skip + surfaced reason, old
-  versions untouched). Linked loops then light "vN available" via the
-  watched index — no new update code.
-- [ ] Confirm the switch path end-to-end for a catalog-updated loop:
-  update/downgrade picker, step-override replay, divergence confirm — all
-  existing (`library_set_version`); add a test proving a catalog-appended
-  version drives `deriveLibraryLink.updateAvailable`.
-- [ ] Fail-soft verification (FR-C8): remove a repo ⇒ installed loops and
-  their library entries untouched, catalog tab entry gone; unreachable repo
-  ⇒ stale cache + notice data; never-fetched repo ⇒ clear offline state in
-  `readIndex` result; deleted upstream entry ⇒ library copy keeps working
-  (it owns its versions).
-- [ ] Tests for all of the above, incl. refresh appending across multiple
-  repos and skip-on-invalid.
+- [x] `catalog_refresh` (one repo or all): after pulling,
+  `appendCatalogUpdates` walks installed entries (the index's `catalog`
+  install markers) and, where the cached catalog `version` is newer,
+  validates the new definition and appends the next library version with
+  provenance via `buildCatalogInstall` (invalid ⇒ skipped with its reason
+  in the new `catalogUpdates` result field, old versions untouched).
+  Linked loops light "vN available" via the watched index — no new update
+  code. Tool summary reports applied/skipped updates.
+- [x] Switch path confirmed by test: a refresh-appended version makes
+  `latestVersion > libraryLink.version` on the watched index (the exact
+  condition `deriveLibraryLink.updateAvailable` reads — derivation itself
+  covered in `ui/__tests__/library-link.test.ts`), and
+  `library_set_version` moves the installed draft onto it. **Phase 4
+  polish note:** after a switch the plan is the new *generic* curated
+  plan; the picker for catalog loops should offer "Update & re-adapt"
+  chaining `library_set_version` + a Refine-style adaptation, since plain
+  switch semantics (FR-L4) deliberately stay deterministic.
+- [x] Fail-soft verified (FR-C8): remove a repo ⇒ installed loop + library
+  entry/version fully working, later refresh has nothing to update;
+  deleted upstream entry ⇒ library copy intact on refresh; unreachable /
+  never-fetched repos already covered by the Phase 1 store tests.
+- [x] Tests (+7): append on newer version, no-op when current, skip-on-
+  invalid with reason, multi-repo refresh, uninstalled entries never
+  touched, remove-repo survival, upstream-deletion survival.
 
 **Exit gate.** A fixture-repo version bump → refresh → "vN available" on
 the linked loop, proven by test; all fail-soft paths tested.

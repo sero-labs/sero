@@ -87,4 +87,6 @@ export interface OrchestratorActionResult {
   catalogContents?: CatalogRepoContents[];
   /** Set by `catalog_refresh`: per-repo fetch outcomes (stale ⇒ showing the last-fetched cache). */
   catalogRefresh?: { key: string; stale: boolean; reason?: string }[];
+  /** Set by `catalog_refresh`: newer catalog versions appended as library versions (or skipped with a reason). */
+  catalogUpdates?: { repoKey: string; slug: string; entryId: string; libraryVersion?: number; skipped?: string }[];
 }

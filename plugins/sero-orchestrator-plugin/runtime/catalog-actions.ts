@@ -12,7 +12,7 @@
  */
 
 import { buildCatalogInstall } from '../shared/catalog';
-import type { CatalogEntry } from '../shared/catalog-types';
+import type { CatalogEntry, CatalogRepoContents } from '../shared/catalog-types';
 import type {
   Loop,
   LoopLibraryLink,
@@ -61,6 +61,51 @@ async function removeRepo(host: OrchestratorHost, repoKey: string): Promise<Orch
   return { ok: true, catalogRepos: await host.catalog.listRepos() };
 }
 
+/** Validation errors for a catalog definition ([] = installable). */
+function definitionErrors(entry: CatalogEntry): string[] {
+  return [
+    ...validateLoopPlan(entry.definition.plan),
+    ...(entry.definition.delivery ? validateDeliverySettings(entry.definition.delivery) : []),
+  ];
+}
+
+/**
+ * FR-C5: after a refresh, every installed entry whose cached catalog version is
+ * newer than its install marker gets the new definition appended as the next
+ * library version (validated first — an invalid update is skipped with its
+ * reason, old versions untouched). Linked loops then surface "vN available"
+ * through the watched library index; no new update machinery.
+ */
+async function appendCatalogUpdates(
+  host: OrchestratorHost,
+  contents: CatalogRepoContents[],
+): Promise<NonNullable<OrchestratorActionResult['catalogUpdates']>> {
+  const index = await host.library.readIndex();
+  const updates: NonNullable<OrchestratorActionResult['catalogUpdates']> = [];
+  for (const repo of contents) {
+    for (const catalogEntry of repo.entries) {
+      const owned = index.entries.find(
+        (e) => e.catalog?.repoKey === catalogEntry.repoKey && e.catalog?.slug === catalogEntry.meta.slug,
+      );
+      if (!owned?.catalog || owned.catalog.catalogVersion >= catalogEntry.meta.version) continue;
+      const base = { repoKey: catalogEntry.repoKey, slug: catalogEntry.meta.slug, entryId: owned.id };
+      const errors = definitionErrors(catalogEntry);
+      if (errors.length > 0) {
+        updates.push({ ...base, skipped: errors.join('; ') });
+        continue;
+      }
+      const existing = await host.library.readEntry(owned.id);
+      if (!existing) continue; // index/entry raced — nothing to break, skip quietly
+      const plan = buildCatalogInstall({ catalogEntry, existing, newEntryId: owned.id, now: host.now() });
+      if (!plan.write) continue;
+      await host.library.putVersion(plan.write.entry, plan.write.version);
+      host.log(`Catalog update: ${base.repoKey}/${base.slug} v${catalogEntry.meta.version} → library ${owned.id} v${plan.libraryVersion}`);
+      updates.push({ ...base, libraryVersion: plan.libraryVersion });
+    }
+  }
+  return updates;
+}
+
 async function refresh(host: OrchestratorHost, repoKey?: string): Promise<OrchestratorActionResult> {
   const repos = await host.catalog.listRepos();
   const targets = repoKey ? repos.filter((r) => r.key === repoKey) : repos;
@@ -71,7 +116,14 @@ async function refresh(host: OrchestratorHost, repoKey?: string): Promise<Orches
     outcomes.push({ key: repo.key, stale: result.stale, reason: result.reason });
   }
   const contents = await Promise.all(repos.map((r) => host.catalog.readContents(r.key)));
-  return { ok: true, catalogRefresh: outcomes, catalogRepos: await host.catalog.listRepos(), catalogContents: contents };
+  const updates = await appendCatalogUpdates(host, contents);
+  return {
+    ok: true,
+    catalogRefresh: outcomes,
+    catalogRepos: await host.catalog.listRepos(),
+    catalogContents: contents,
+    catalogUpdates: updates,
+  };
 }
 
 /** Appends the FR-C7 fail-soft warning when the entry's required tools are missing. */
@@ -99,9 +151,7 @@ async function install(
   // Validate exactly like a library load BEFORE anything is written — a broken
   // catalog entry produces a clear error, never a half-installed library row.
   const definition = catalogEntry.definition;
-  const planErrors = validateLoopPlan(definition.plan);
-  const deliveryErrors = definition.delivery ? validateDeliverySettings(definition.delivery) : [];
-  const errors = [...planErrors, ...deliveryErrors];
+  const errors = definitionErrors(catalogEntry);
   if (errors.length > 0) {
     return { ok: false, error: `This catalog entry's definition is invalid: ${errors.join('; ')}` };
   }
