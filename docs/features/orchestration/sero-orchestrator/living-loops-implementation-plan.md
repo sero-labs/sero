@@ -11,7 +11,7 @@ each independently shippable and gated on `pnpm typecheck` + green tests.
 | 1 | Event engine core | ✅ Done | Broadcast `fireEvent` with payloads, filters, conditions, fresh-pass/coalescing semantics |
 | 2 | Source manager + internal loop events | ✅ Done | Demand-driven adapters; loop→loop triggering with cycle guard |
 | 3 | Local adapters: filesystem + webhook | ✅ Done | File changes and local webhooks fire loops |
-| 4 | GitHub adapter | ⬜ Not started | CI/PR/issue events fire loops within the anti-abuse envelope |
+| 4 | GitHub adapter | ✅ Done | CI/PR/issue events fire loops within the anti-abuse envelope |
 | 5 | Planner authoring + UI + docs | ⬜ Not started | Plain-language prompts produce event triggers; triggers/fired-by/health visible |
 
 Status legend: ✅ Done · 🟡 In progress · ⬜ Not started · ⛔ Blocked · 🟦 Deferred.
@@ -24,7 +24,7 @@ Status legend: ✅ Done · 🟡 In progress · ⬜ Not started · ⛔ Blocked ·
 | FR-E2 | Fresh pass on idle; latest-wins `pendingEvent` coalescing mid-run; `fireCount` always increments | 1 | ✅ |
 | FR-E3 | Payload reaches step context as `Observation(source: "event")`; run records `firedBy` | 1 | ✅ |
 | FR-E4 | Demand-driven sources: no matching active trigger ⇒ zero background activity; in-process re-sync | 2 | ✅ |
-| FR-E5 | GitHub poller: shared per repo, 60s floor, conditional requests, rate-limit backoff, demand-scoped endpoints, restart-safe cursor | 4 | ⬜ |
+| FR-E5 | GitHub poller: shared per repo, 60s floor, conditional requests, rate-limit backoff, demand-scoped endpoints, restart-safe cursor | 4 | ✅ |
 | FR-E6 | Internal `loop:*` events at complete/block/question; self-exclusion + chain-depth cap with warning | 2 | ✅ |
 | FR-E7 | Webhook listener loopback-only, per-hook secret, `POST /hooks/<name>` → `webhook:<name>` | 3 | ✅ |
 | FR-E8 | Planner authors event/hybrid triggers from the prompt vs. a source catalog; mechanical validation blocks at create | 1 (validation) / 5 (authoring) | 🟡 validation done |
@@ -183,31 +183,42 @@ are requirements, not tuning.
 
 **Tasks**
 
-- [ ] Host seam: surface the existing `workspace.runCommand` on
+- [x] Host seam: surface the existing `workspace.runCommand` on
   `OrchestratorHost` (`runtime/host.ts` + one mapping line in
   `runtime/host-adapter.ts`).
-- [ ] `runtime/events/github-adapter.ts`: one poller per workspace repo shared
+- [x] `runtime/events/github-adapter.ts`: one poller per workspace repo shared
   by all subscribers; kinds `pr-opened`, `ci-failed`, `ci-passed`,
-  `issue-labelled`, `review-requested`, `review-comment` via `gh api`.
-- [ ] Anti-abuse mechanics: demand-scoped endpoints (no checks calls without a
-  `ci-*` subscription); 120s default / 60s floor enforced in code; ETag
-  conditional requests; `X-RateLimit-Remaining` threshold ⇒ interval doubling
-  with jitter; exponential backoff on 403/429.
-- [ ] Persisted per-kind cursor (last-seen ids/timestamps) via the adapter
-  state helper; `dedupeKey` set from stable GitHub ids.
-- [ ] Tests against a fake `runCommand` host: endpoint scoping by
-  subscription, floor enforcement, backoff transitions, cursor restart
-  (no replay, no gap), shared-poller dedup across N loops.
+  `issue-labelled`, `review-requested`, `review-comment` via `gh api`
+  (`{owner}/{repo}` placeholders resolved from the workspace remote; endpoint
+  catalog + extraction in `github-kinds.ts`, transport in `github-http.ts`).
+- [x] Anti-abuse mechanics: demand-scoped endpoints (no actions/checks calls
+  without a `ci-*` subscription); 120s default / 60s floor enforced in code;
+  ETag conditional requests; `X-RateLimit-Remaining` threshold ⇒ interval
+  doubling with jitter; exponential backoff (capped at 30 min) on any failed
+  cycle including 403/429.
+- [x] Persisted per-kind cursor (newest-seen item timestamps) + per-endpoint
+  ETags via the adapter state helper (`events/github.json`); `dedupeKey` set
+  from stable GitHub ids; first poll per kind baselines without emitting
+  (subscribing never replays repo history).
+- [x] Tests against a fake `runCommand` host (`github-adapter.test.ts`):
+  endpoint scoping by subscription, floor enforcement, backoff transitions,
+  cursor restart (no replay, no gap), shared-poller dedup across N loops,
+  `gh api --include` output parsing, per-kind extraction.
 
 **Acceptance**
 
-- [ ] The poller exists only while a `github:*` trigger is active; N loops on
+- [x] The poller exists only while a `github:*` trigger is active; N loops on
   one repo cost one poll cycle.
-- [ ] Rate-limit pressure demonstrably slows polling; 304s dominate steady
-  state.
-- [ ] A CI failure fires the loop with PR/check-run payload; an app restart
+- [x] Rate-limit pressure demonstrably slows polling; 304s dominate steady
+  state (stored ETag rides every request).
+- [x] A CI failure fires the loop with workflow/PR payload; an app restart
   neither replays nor misses events.
-- [ ] FR-E5 satisfied.
+- [x] FR-E5 satisfied.
+
+> Note — CI events poll the *workflow runs* list (one endpoint covers both
+> `ci-failed` and `ci-passed`), not the per-ref checks API: repo-wide lists
+> keep demand scoping coarse and cheap, and the payload carries workflow,
+> conclusion, branch, sha, and PR numbers.
 
 ---
 

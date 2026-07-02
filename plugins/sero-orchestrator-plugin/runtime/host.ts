@@ -10,6 +10,7 @@
  */
 
 import type {
+  AppRuntimeCommandResult,
   AppRuntimePullRequestSummary,
   AppRuntimeSubagentRepair,
   ContextAgentInfo,
@@ -204,6 +205,12 @@ export interface OrchestratorHost {
    * match. Fail-soft to `[]` when `gh`/the remote/PRs are absent.
    */
   listPullRequests(): Promise<AppRuntimePullRequestSummary[]>;
+  /**
+   * Runs a shell command at the workspace root. Management-plane observation
+   * only — the GitHub event source's `gh api` polls (spec 12) — never workflow
+   * work; the same carve-out as the dirty preflight and `listPullRequests`.
+   */
+  runCommand(command: string, timeoutMs?: number): Promise<AppRuntimeCommandResult>;
 
   // ── Notifications ─────────────────────────────────────────
   notify(message: string, type?: 'info' | 'warning' | 'error'): void;

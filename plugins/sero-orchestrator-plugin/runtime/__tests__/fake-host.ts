@@ -3,7 +3,13 @@
  * assertions are stable. Grows alongside the real host interface.
  */
 
-import type { AppRuntimePullRequestSummary, ContextAgentInfo, ContextToolInfo, SharedAvailableModelGroup } from '@sero-ai/common';
+import type {
+  AppRuntimeCommandResult,
+  AppRuntimePullRequestSummary,
+  ContextAgentInfo,
+  ContextToolInfo,
+  SharedAvailableModelGroup,
+} from '@sero-ai/common';
 import { DEFAULT_LIBRARY_INDEX, DEFAULT_STATE } from '../../shared/defaults';
 import type { LibraryEntry, LibraryIndex, LibraryVersion, OrchestratorState } from '../../shared/types';
 import type {
@@ -56,6 +62,10 @@ export interface FakeHost extends OrchestratorHost {
   stashes: string[];
   /** Open PRs returned by listPullRequests (empty by default). */
   pullRequests: AppRuntimePullRequestSummary[];
+  /** Scripted runCommand results consumed FIFO (default: exit 0, empty output). */
+  commandResults: AppRuntimeCommandResult[];
+  /** Records every runCommand invocation. */
+  commands: string[];
   /** Active session returned by session.getActiveForWorkspace (null = none). */
   activeSession: ActiveSessionInfo | null;
   /** Turn result delivered to the next onTurnComplete subscriber. */
@@ -93,6 +103,8 @@ export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
     choiceRequests: [],
     stashes: [],
     pullRequests: [],
+    commandResults: [],
+    commands: [],
     activeSession: { sessionId: 'sess-1', workspaceId: options.workspaceId ?? 'ws-1' },
     turnResult: { turnId: 'turn-1', status: 'completed' },
     sessionSends: [],
@@ -157,6 +169,10 @@ export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
     },
     async listPullRequests() {
       return this.pullRequests;
+    },
+    async runCommand(command) {
+      this.commands.push(command);
+      return this.commandResults.shift() ?? { stdout: '', stderr: '', exitCode: 0 };
     },
     notify(message, type) {
       this.notifications.push({ message, type });

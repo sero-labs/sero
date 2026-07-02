@@ -14,6 +14,7 @@ import { llmStopChecker } from './stop-condition';
 import { attachDemandSync, EventSourceManager } from './events/manager';
 import type { EmitEvent, EventSourceAdapter } from './events/types';
 import { createFsAdapter } from './events/fs-adapter';
+import { createGithubAdapter } from './events/github-adapter';
 import { createWebhookAdapter } from './events/webhook-adapter';
 
 /** Coarse scheduler tick — cron triggers are minute-resolution. */
@@ -21,8 +22,8 @@ const TICK_INTERVAL_MS = 60_000;
 
 export function createAppRuntime(ctx: AppRuntimeContext): AppRuntime {
   // Event source adapters do background work ONLY while an active loop
-  // subscribes to their namespace (GitHub joins in Phase 4). Internal loop:*
-  // events are coordinator-emitted, not an adapter.
+  // subscribes to their namespace. Internal loop:* events are
+  // coordinator-emitted, not an adapter.
   const adapters: EventSourceAdapter[] = [];
   const manager = new EventSourceManager(adapters);
   // Every persisted mutation pushes the new state into the manager, so adapter
@@ -30,7 +31,7 @@ export function createAppRuntime(ctx: AppRuntimeContext): AppRuntime {
   const host = attachDemandSync(createOrchestratorHost(ctx), manager);
   const coordinator = new Coordinator(host, createEngineDeps(new LoopLocks(), { stopChecker: llmStopChecker }));
   const emit: EmitEvent = (event) => coordinator.fireEvent(event);
-  adapters.push(createFsAdapter(host, emit), createWebhookAdapter(host, emit));
+  adapters.push(createFsAdapter(host, emit), createWebhookAdapter(host, emit), createGithubAdapter(host, emit));
   let tickTimer: ReturnType<typeof setInterval> | undefined;
 
   return {
