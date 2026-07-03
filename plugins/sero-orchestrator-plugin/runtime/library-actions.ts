@@ -11,10 +11,10 @@ import type { Loop, LoopLibraryLink, OrchestratorAction, OrchestratorActionResul
 import type { OrchestratorHost } from './host';
 import { buildLibrarySave } from '../shared/library';
 import { validateSharedDefinition } from './definition-validation';
-import { instantiate } from './library';
+import { fileDeliveryPlacement, instantiate } from './library';
 import { replayStepOverrides } from './library-overlay';
+import { materializeTriggers } from './loop-factory';
 import { initStepStates } from './plan-mapping';
-import { validateLoopPlan } from './schema';
 
 export type LibraryAction = Extract<OrchestratorAction, { kind: `library_${string}` }>;
 
@@ -114,7 +114,18 @@ async function listLibrary(host: OrchestratorHost): Promise<OrchestratorActionRe
   return { ok: true, libraryDir, libraryIndex };
 }
 
-/** Update (newer) or downgrade (older) a linked loop to a specific library version. */
+/**
+ * Update (newer) or downgrade (older) a linked loop to a specific library
+ * version. The library owns the WHOLE definition, so the switch applies all of
+ * it — plan, prompt, title, summary, triggers, limits, log policy, context
+ * overrides, and delivery — not just the plan (a catalog update may change
+ * cadence, event source, or destination). Deliberately local and preserved:
+ * the loop's identity/history (runs, revisions, insights, answered inputs,
+ * warnings), the workspace placement choice (except the file-delivery rule),
+ * and the step-override overlay, which is replayed onto the new plan.
+ * Triggers are definition-owned: they rematerialize with fresh ids and zeroed
+ * counters, replacing local trigger edits (logged).
+ */
 async function setVersion(
   host: OrchestratorHost,
   action: Extract<LibraryAction, { kind: 'library_set_version' }>,
@@ -127,23 +138,36 @@ async function setVersion(
   const target = await host.library.readVersion(loop.libraryLink.entryId, action.version);
   if (!target) return { ok: false, error: `Library version not found: v${action.version}` };
 
-  // Library owns the plan structure; the local step-override overlay is replayed
-  // so model/tool picks survive the swap. The runtime is re-derived for the new
-  // plan (idle-only, so nothing is mid-flight).
-  const { plan, dropped } = replayStepOverrides(target.definition.plan, loop.stepOverrides);
-  const errors = validateLoopPlan(plan);
-  if (errors.length > 0) return { ok: false, error: `That version's plan is invalid: ${errors.join('; ')}` };
+  // Replay the local step-override overlay onto the target plan, then validate
+  // the definition as it will actually run (overlaid plan + target delivery,
+  // gate shape, and triggers).
+  const def = target.definition;
+  const { plan, dropped } = replayStepOverrides(def.plan, loop.stepOverrides);
+  const errors = validateSharedDefinition({ ...def, plan });
+  if (errors.length > 0) return { ok: false, error: `That version is invalid: ${errors.join('; ')}` };
 
   const now = host.now();
+  const placement = fileDeliveryPlacement(def);
   const next: Loop = {
     ...loop,
+    title: def.title,
+    prompt: def.prompt,
+    summary: def.summary,
     plan,
+    triggers: materializeTriggers(host, loop.id, def.triggers),
+    limits: { ...def.limits },
+    logPolicy: { ...def.logPolicy },
+    contextOverrides: def.contextOverrides ? structuredClone(def.contextOverrides) : undefined,
+    delivery: def.delivery ? structuredClone(def.delivery) : undefined,
+    workspace: placement ? { ...loop.workspace, ...placement } : loop.workspace,
     runtime: { ...loop.runtime, variables: {}, stepStates: initStepStates(plan, now), block: undefined, completion: undefined },
     libraryLink: { ...loop.libraryLink, version: action.version, syncedAt: now },
     updatedAt: now,
   };
   await replaceLoop(host, next);
   if (dropped.length) host.log(`Library switch dropped overrides for missing step(s): ${dropped.join(', ')}`);
+  if (loop.triggers.length > 0) host.log(`Library switch replaced ${loop.triggers.length} trigger(s) with the version's definition triggers`);
+  if (placement && loop.workspace.useManagedWorktree) host.log(`Loop ${loop.id} moved to the workspace root: v${action.version} delivers files`);
   host.log(`Loop ${loop.id} switched to library v${action.version}`);
   return { ok: true, loop: next };
 }

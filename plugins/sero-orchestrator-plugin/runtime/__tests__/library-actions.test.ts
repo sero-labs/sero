@@ -219,6 +219,56 @@ describe('library_set_version', () => {
     expect(res.loop!.plan.steps.find((s) => s.id === 'step-1')!.execution).toMatchObject({ model: 'HIGH' });
   });
 
+  it('applies the full definition — title, prompt, delivery, triggers, limits — not just the plan', async () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, oneStepPlan().plan); // v1: 'Seeded', workspace-files, no triggers
+    await handleLibraryAction(host, { kind: 'library_save', loopId: loop.id, mode: 'new-entry' });
+    // v2 changes far more than the plan: identity, cadence, destination, limits.
+    await host.updateState((s) => ({
+      ...s,
+      loops: s.loops.map((l) =>
+        l.id === loop.id
+          ? {
+              ...l,
+              title: 'Digest v2',
+              prompt: 'write the digest',
+              summary: 'v2 summary',
+              delivery: { destination: 'saved-artifact' as const, params: { name: 'digest' } },
+              triggers: [{ id: 'trig_old', loopId: l.id, workspaceId: l.workspaceId, type: 'cron' as const, schedule: '0 8 * * 1-5', fireCount: 7 }],
+              limits: { ...l.limits, maxAttemptsTotal: 9 },
+            }
+          : l,
+      ),
+    }));
+    await handleLibraryAction(host, { kind: 'library_save', loopId: loop.id, mode: 'new-version' });
+
+    // Down to v1: every definition-owned field reverts, not just the plan.
+    const v1 = await handleLibraryAction(host, { kind: 'library_set_version', loopId: loop.id, version: 1 });
+    expect(v1.ok).toBe(true);
+    expect(v1.loop!.title).toBe('Seeded');
+    expect(v1.loop!.delivery).toEqual({ destination: 'workspace-files' });
+    expect(v1.loop!.triggers).toEqual([]);
+
+    // Force a worktree placement, then go back up to v2: the new cadence and
+    // destination land, triggers rematerialize fresh, and the file-delivering
+    // destination pulls the loop to the workspace root.
+    await host.updateState((s) => ({
+      ...s,
+      loops: s.loops.map((l) => (l.id === loop.id ? { ...l, workspace: { ...l.workspace, useManagedWorktree: true } } : l)),
+    }));
+    const v2 = await handleLibraryAction(host, { kind: 'library_set_version', loopId: loop.id, version: 2 });
+    expect(v2.ok).toBe(true);
+    expect(v2.loop!.title).toBe('Digest v2');
+    expect(v2.loop!.prompt).toBe('write the digest');
+    expect(v2.loop!.summary).toBe('v2 summary');
+    expect(v2.loop!.delivery).toEqual({ destination: 'saved-artifact', params: { name: 'digest' } });
+    expect(v2.loop!.limits.maxAttemptsTotal).toBe(9);
+    expect(v2.loop!.triggers).toHaveLength(1);
+    expect(v2.loop!.triggers[0]).toMatchObject({ type: 'cron', schedule: '0 8 * * 1-5', fireCount: 0 });
+    expect(v2.loop!.triggers[0].id).not.toBe('trig_old'); // minted fresh, counters zeroed
+    expect(v2.loop!.workspace.useManagedWorktree).toBe(false); // saved-artifact delivers files
+  });
+
   it('refuses to switch mid-run', async () => {
     const { host, loopId } = await linkedAtV2();
     await host.updateState((s) => ({

@@ -24,10 +24,20 @@ import { materializeTriggers, mergeWorkspaceSettings } from './loop-factory';
  */
 const FILE_DELIVERY = new Set(['workspace-files', 'saved-artifact']);
 
+/**
+ * The placement override a definition forces: file-delivering definitions run
+ * at the workspace root (see the note above), everything else keeps the
+ * workspace/user choice. Shared with the library version switch, which must
+ * apply the same rule when a version change swaps the delivery.
+ */
+export function fileDeliveryPlacement(def: SharedLoopDefinition): { useManagedWorktree: false } | undefined {
+  const deliversFiles = def.delivery !== undefined && FILE_DELIVERY.has(def.delivery.destination);
+  return deliversFiles ? { useManagedWorktree: false } : undefined;
+}
+
 export function instantiate(host: OrchestratorHost, def: SharedLoopDefinition, link: LoopLibraryLink): Loop {
   const id = host.newId('loop');
   const now = host.now();
-  const deliversFiles = def.delivery !== undefined && FILE_DELIVERY.has(def.delivery.destination);
   return {
     id,
     workspaceId: host.workspaceId,
@@ -35,7 +45,7 @@ export function instantiate(host: OrchestratorHost, def: SharedLoopDefinition, l
     prompt: def.prompt,
     summary: def.summary,
     status: 'draft',
-    workspace: mergeWorkspaceSettings(deliversFiles ? { useManagedWorktree: false } : undefined),
+    workspace: mergeWorkspaceSettings(fileDeliveryPlacement(def)),
     plan: structuredClone(def.plan),
     runtime: {
       parentSessionId: loopParentSessionId(host.workspaceId, id),
