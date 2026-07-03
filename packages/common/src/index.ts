@@ -64,6 +64,7 @@ export type {
   AppRuntimeVerificationResult,
   AppRuntimeVerificationApi,
   AppRuntimeWorktreeCreateResult,
+  AppRuntimeWorktreeCreateOptions,
   AppRuntimeWorktreeRemoveOptions,
   AppRuntimeConflictResolutionContext,
   AppRuntimeWorktreeSyncOptions,

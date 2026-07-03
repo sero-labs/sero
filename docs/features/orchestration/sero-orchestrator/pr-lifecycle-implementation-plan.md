@@ -12,7 +12,7 @@ Branch: `feat/orchestrator-pr-lifecycle`. Spec:
 - [x] **Phase 2 — New GitHub kinds** (FR-P4): `pr-approved` + `main-updated`
       via `repo-events`, `issue-opened` via `issues` (PR entries dropped);
       source catalog entries.
-- [ ] **Phase 3 — Existing-branch worktree host seam** (FR-P2):
+- [x] **Phase 3 — Existing-branch worktree host seam** (FR-P2):
       `createWorktree(key, title, { existingBranch })` through
       packages/common → desktop-core `WorktreeManager` → plugin host;
       removal never deletes the branch.
@@ -35,7 +35,7 @@ Branch: `feat/orchestrator-pr-lifecycle`. Spec:
 | FR | Phase | Status |
 | --- | --- | --- |
 | FR-P1 event-pr resolution, visible block | 4 | pending |
-| FR-P2 existingBranch worktree seam | 3 | pending |
+| FR-P2 existingBranch worktree seam | 3 | done |
 | FR-P3 pending-event FIFO | 1 | done |
 | FR-P4 three new GitHub kinds | 2 | done |
 | FR-P5 updated-PR receipts | 5 | pending |

@@ -56,6 +56,8 @@ export interface FakeHost extends OrchestratorHost {
   choiceResult: ChoiceResult;
   /** Records created/removed worktrees and notifications/choices. */
   worktreesCreated: string[];
+  /** Full createWorktree calls, including the existing-branch option. */
+  worktreeCreates: { loopId: string; existingBranch?: string }[];
   worktreesRemoved: string[];
   /** Full removeWorktree calls, including the options passed. */
   worktreeRemovals: { loopId: string; deleteBranch?: boolean; force?: boolean }[];
@@ -103,6 +105,7 @@ export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
     workspaceStatus: { isGitRepository: true, hasUncommittedChanges: false, summary: 'Clean working tree' },
     choiceResult: { choiceId: null, timedOut: true },
     worktreesCreated: [],
+    worktreeCreates: [],
     worktreesRemoved: [],
     worktreeRemovals: [],
     notifications: [],
@@ -160,9 +163,13 @@ export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
       // Mirror the real host: accept the write ref OR a state-dir-relative path.
       return this.artifacts.get(ref) ?? this.artifacts.get(`artifact://${ref}`) ?? null;
     },
-    async createWorktree(loopId) {
+    async createWorktree(loopId, _title, options) {
       this.worktreesCreated.push(loopId);
-      return { worktreePath: `${this.workspacePath}/.sero/worktrees/${loopId}`, branchName: `orchestrator/${loopId}` };
+      this.worktreeCreates.push({ loopId, existingBranch: options?.existingBranch });
+      return {
+        worktreePath: `${this.workspacePath}/.sero/worktrees/${loopId}`,
+        branchName: options?.existingBranch ?? `orchestrator/${loopId}`,
+      };
     },
     async removeWorktree(loopId, options) {
       this.worktreesRemoved.push(loopId);

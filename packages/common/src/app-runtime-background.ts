@@ -16,6 +16,7 @@ import type { AppRuntimeGitApi } from './app-runtime-git';
 // imports from '@sero-ai/common' (via this module) keep resolving unchanged.
 export type {
   AppRuntimeWorktreeCreateResult,
+  AppRuntimeWorktreeCreateOptions,
   AppRuntimeWorktreeRemoveOptions,
   AppRuntimeConflictResolutionContext,
   AppRuntimeWorktreeSyncOptions,

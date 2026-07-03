@@ -156,8 +156,8 @@ export function createAppRuntimeHost(_target: AppRuntimeTarget): AppRuntimeHost 
       summarizeFailure: summarizeVerificationFailure,
     },
     git: {
-      createWorktree: (workspacePath, cardId, cardTitle) =>
-        worktreeManager.create(workspacePath, cardId, cardTitle),
+      createWorktree: (workspacePath, cardId, cardTitle, options) =>
+        worktreeManager.create(workspacePath, cardId, cardTitle, options),
       removeWorktree: (workspacePath, cardId, options) =>
         worktreeManager.remove(workspacePath, cardId, options),
       getWorkspaceStatus,
