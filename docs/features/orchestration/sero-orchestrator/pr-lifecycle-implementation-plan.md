@@ -16,7 +16,7 @@ Branch: `feat/orchestrator-pr-lifecycle`. Spec:
       `createWorktree(key, title, { existingBranch })` through
       packages/common → desktop-core `WorktreeManager` → plugin host;
       removal never deletes the branch.
-- [ ] **Phase 4 — event-pr branch resolution** (FR-P1):
+- [x] **Phase 4 — event-pr branch resolution** (FR-P1):
       `worktreeBranchSource: 'new' | 'event-pr'`; branch from event payload,
       else PR-number lookup in `listPullRequests()`; unresolvable → visible
       block, no fallback; `deleteBranch` guarded for event-pr worktrees.
@@ -34,7 +34,7 @@ Branch: `feat/orchestrator-pr-lifecycle`. Spec:
 
 | FR | Phase | Status |
 | --- | --- | --- |
-| FR-P1 event-pr resolution, visible block | 4 | pending |
+| FR-P1 event-pr resolution, visible block | 4 | done |
 | FR-P2 existingBranch worktree seam | 3 | done |
 | FR-P3 pending-event FIFO | 1 | done |
 | FR-P4 three new GitHub kinds | 2 | done |
@@ -65,3 +65,10 @@ Branch: `feat/orchestrator-pr-lifecycle`. Spec:
   endpoint carries — the adapter resolves `repos/{owner}/{repo}` once under
   demand and persists it in `events/github.json`; until it resolves the kind
   emits nothing (a failed meta fetch counts as a failed cycle and retries).
+- Phase 4: `worktreeBranchSource` had to join `SharedLoopDefinition` — the
+  spec's catalog loops set it, but workspace settings don't travel in shared
+  definitions; the branch source is definitional (like the delivery kind), so
+  it rides the definition and tracks version switches. Also: the resolver now
+  receives the RUN (the event payload lives in the run's `event` observation,
+  not on `firedBy`), and `needsWorkspace` moved to run-engine-helpers to keep
+  run-engine.ts at 496/500.

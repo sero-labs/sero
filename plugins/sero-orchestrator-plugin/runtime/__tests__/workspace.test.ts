@@ -133,6 +133,72 @@ describe('workspace resolution', () => {
   });
 });
 
+describe('event-pr branch resolution (spec 15, FR-P1)', () => {
+  function eventPrLoop(loop: Loop): Loop {
+    return { ...loop, workspace: { ...loop.workspace, worktreeBranchSource: 'event-pr' as const } };
+  }
+
+  function eventRun(payload: Record<string, unknown>): LoopRun {
+    return {
+      id: 'run-1', runNumber: 1, status: 'running', startedStepIds: [], stepAttempts: [], recoveryDecisions: [],
+      observations: [{ id: 'obs-1', source: 'event', summary: 'fired', data: payload, createdAt: 't' }], startedAt: 't',
+    };
+  }
+
+  it('checks out the branch named directly by the firing event', async () => {
+    const host = createFakeHost();
+    const loop = eventPrLoop(seedActiveLoop(host, oneStepPlan().plan));
+    const result = await resolve(host, loop, eventRun({ branch: 'feat/broken-ci', prNumbers: [12] }));
+    expect(host.worktreeCreates).toEqual([{ loopId: worktreeKeyFor(loop), existingBranch: 'feat/broken-ci' }]);
+    expect(result.workspace?.branchName).toBe('feat/broken-ci');
+    expect(result.workspace?.externalBranch).toBe(true);
+    expect(result.blocked).toBeUndefined();
+  });
+
+  it('resolves a PR number through the open-PR list when the event has no branch', async () => {
+    const host = createFakeHost();
+    host.pullRequests = [{ number: 12, url: 'https://x/pr/12', title: 'Fix', headRefName: 'feat/from-pr-12', updatedAt: 't' }];
+    const loop = eventPrLoop(seedActiveLoop(host, oneStepPlan().plan));
+    const result = await resolve(host, loop, eventRun({ prNumber: 12, author: 'ann' }));
+    expect(result.workspace?.branchName).toBe('feat/from-pr-12');
+  });
+
+  it('blocks visibly when the run was not event-fired — never a fresh-branch fallback', async () => {
+    const host = createFakeHost();
+    const loop = eventPrLoop(seedActiveLoop(host, oneStepPlan().plan));
+    const result = await resolve(host, loop, undefined);
+    expect(result.blocked).toContain('not started by an event');
+    expect(result.workspace).toBeUndefined();
+    expect(host.worktreesCreated).toHaveLength(0);
+  });
+
+  it('blocks when the PR number is not in the open-PR list', async () => {
+    const host = createFakeHost();
+    host.pullRequests = [];
+    const loop = eventPrLoop(seedActiveLoop(host, oneStepPlan().plan));
+    const result = await resolve(host, loop, eventRun({ prNumber: 99 }));
+    expect(result.blocked).toContain('PR #99');
+    expect(host.worktreesCreated).toHaveLength(0);
+  });
+
+  it('blocks when the event names neither branch nor PR number', async () => {
+    const host = createFakeHost();
+    const loop = eventPrLoop(seedActiveLoop(host, oneStepPlan().plan));
+    const result = await resolve(host, loop, eventRun({ count: 3 }));
+    expect(result.blocked).toContain('neither a branch nor a PR number');
+  });
+
+  it('blocks with the checkout error when the branch cannot be checked out', async () => {
+    const host = createFakeHost();
+    host.createWorktree = async () => {
+      throw new Error('Branch "gone" exists neither locally nor on origin');
+    };
+    const loop = eventPrLoop(seedActiveLoop(host, oneStepPlan().plan));
+    const result = await resolve(host, loop, eventRun({ branch: 'gone' }));
+    expect(result.blocked).toContain('exists neither locally nor on origin');
+  });
+});
+
 describe('worktreeKeyFor', () => {
   it('keys a one-shot loop by its run counter so each fresh run gets its own branch (not a reuse of the prior run)', () => {
     const host = createFakeHost();

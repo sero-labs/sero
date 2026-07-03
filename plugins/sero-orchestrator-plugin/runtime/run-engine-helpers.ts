@@ -75,6 +75,12 @@ export function mergeTriggers(disk: Loop['triggers'], memory: Loop['triggers']):
   });
 }
 
+/** True when this batch is about to start background filesystem work with no workspace resolved yet. */
+export function needsWorkspace(loop: Loop, batch: string[]): boolean {
+  if (loop.runtime.workspace.resolved) return false;
+  return batch.some((id) => loop.plan.steps.find((step) => step.id === id)?.execution.type === 'background-agent');
+}
+
 /**
  * A loop leaving 'active' can never drain its pending-event queue — drop it
  * VISIBLY (an `event-dropped` warning) instead of leaving stale fires to go

@@ -45,7 +45,12 @@ export function instantiate(host: OrchestratorHost, def: SharedLoopDefinition, l
     prompt: def.prompt,
     summary: def.summary,
     status: 'draft',
-    workspace: mergeWorkspaceSettings(fileDeliveryPlacement(def)),
+    workspace: mergeWorkspaceSettings({
+      ...fileDeliveryPlacement(def),
+      // Definitional, like delivery (spec 15): the branch source travels with
+      // the definition; absent means the default fresh-branch behavior.
+      worktreeBranchSource: def.worktreeBranchSource,
+    }),
     plan: structuredClone(def.plan),
     runtime: {
       parentSessionId: loopParentSessionId(host.workspaceId, id),

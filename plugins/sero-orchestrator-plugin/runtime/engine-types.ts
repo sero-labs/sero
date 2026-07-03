@@ -50,9 +50,18 @@ export interface OutcomeEvaluator {
   evaluate(input: { host: OrchestratorHost; loop: Loop; step: LoopStepDefinition; attempt: StepAttempt }): Promise<StepOutcome>;
 }
 
-/** Resolves the loop workspace before background filesystem work starts (Phase 4). */
+/**
+ * Resolves the loop workspace before background filesystem work starts.
+ * `run` carries the firing event's observation, which `event-pr` branch
+ * resolution reads (spec 15). `blocked` is a hard stop with a visible reason —
+ * unlike `deferred`, nothing is waited for.
+ */
 export interface WorkspaceResolver {
-  resolve(host: OrchestratorHost, loop: Loop): Promise<{ loop: Loop; workspace?: ResolvedWorkspaceContext; deferred?: string }>;
+  resolve(
+    host: OrchestratorHost,
+    loop: Loop,
+    run?: LoopRun,
+  ): Promise<{ loop: Loop; workspace?: ResolvedWorkspaceContext; deferred?: string; blocked?: string }>;
 }
 
 /**

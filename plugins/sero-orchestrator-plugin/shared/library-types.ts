@@ -38,6 +38,13 @@ export interface SharedLoopDefinition {
    * per workspace on load/install. Optional — schemaVersion stays 1.
    */
   delivery?: LoopDeliverySettings;
+  /**
+   * Definitional like the delivery kind: "this loop works on the PR branch
+   * from its firing event" is what the loop IS (spec 15), while the rest of
+   * the workspace settings stay per-workspace choices. Optional —
+   * schemaVersion stays 1.
+   */
+  worktreeBranchSource?: 'new' | 'event-pr';
 }
 
 /** Where a library version came from when installed from a catalog (spec 14). */

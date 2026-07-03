@@ -202,6 +202,15 @@ describe('Coordinator delete', () => {
     expect(host.worktreeRemovals[0]).toMatchObject({ loopId: 'loop-1', deleteBranch: true });
   });
 
+  it('never deletes an event-pr worktree branch — it belongs to the PR (spec 15)', async () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, oneStepPlan().plan);
+    loop.runtime.workspace.resolved = { ...managedWorktree, branchName: 'feat/someones-pr', externalBranch: true };
+    host.state = { ...host.state, loops: [loop] };
+    await new Coordinator(host).requestAction({ kind: 'delete', loopId: 'loop-1', deleteBranch: true });
+    expect(host.worktreeRemovals[0]).toMatchObject({ loopId: 'loop-1', deleteBranch: undefined });
+  });
+
   it('touches no worktree when none was resolved', async () => {
     const host = createFakeHost();
     seedActiveLoop(host, oneStepPlan().plan);

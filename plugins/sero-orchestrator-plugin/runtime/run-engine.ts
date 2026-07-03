@@ -25,7 +25,7 @@ import { checkManagementLimits } from './limits';
 import { recordAgentWarning, recordModelWarning } from './run-warnings';
 import { isRecurring } from './scheduler';
 import { toEventFiredBy, toEventObservation } from './event-match';
-import { blockLimit, blockRuntime, dropStrandedEvent, mergeTriggers, replaceRun, resetRunningSteps, resetStepPending } from './run-engine-helpers';
+import { blockLimit, blockRuntime, dropStrandedEvent, mergeTriggers, needsWorkspace, replaceRun, resetRunningSteps, resetStepPending } from './run-engine-helpers';
 import { enforceDeliveryContract } from './delivery/delivery-contract';
 import { applyDeliveryContract } from './delivery/verify-receipt';
 import { reconcileDeliveryWarning } from './delivery/availability';
@@ -180,9 +180,15 @@ export class RunEngine {
       const batch = ready.slice(0, loop.limits.maxConcurrentSteps ?? ready.length);
 
       // Resolve the loop workspace lazily, only when a background-agent
-      // filesystem step is about to start (D-06).
-      if (this.needsWorkspace(loop, batch) && this.deps.workspaceResolver) {
-        const resolution = await this.deps.workspaceResolver.resolve(this.host, loop);
+      // filesystem step is about to start (D-06). `run` rides along for
+      // event-pr branch resolution (spec 15).
+      if (needsWorkspace(loop, batch) && this.deps.workspaceResolver) {
+        const resolution = await this.deps.workspaceResolver.resolve(this.host, loop, run);
+        if (resolution.blocked) {
+          loop = await this.commit(blockRuntime(resolution.loop, resolution.blocked, this.host.now()));
+          run = { ...run, status: 'blocked', block: loop.runtime.block };
+          break;
+        }
         loop = await this.commit(resolution.loop);
         if (resolution.deferred) {
           run = { ...run, status: 'waiting' };
@@ -212,10 +218,6 @@ export class RunEngine {
     return this.commit({ ...loop, runtime: { ...loop.runtime, pullRequests: mine } });
   }
 
-  private needsWorkspace(loop: Loop, batch: string[]): boolean {
-    if (loop.runtime.workspace.resolved) return false;
-    return batch.some((id) => this.step(loop, id).execution.type === 'background-agent');
-  }
 
   private async runBatch(
     loop: Loop,
