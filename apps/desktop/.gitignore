@@ -13,3 +13,4 @@ release/
 .package-deploy/
 e2e/screenshots/living-loops/
 e2e/screenshots/delivery/
+e2e/screenshots/catalog/

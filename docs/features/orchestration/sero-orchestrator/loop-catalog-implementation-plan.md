@@ -16,7 +16,7 @@ commit per phase on `feat/orchestrator-living-loops`.
 | 3 | Updates and fail-soft | ✅ Done | Refresh appends newer catalog versions; "vN available" lights up with zero new update UI; unreachable/removed repos never break installs |
 | 4 | UI: Catalog tab, repo management, docs | ✅ Done | Catalog tab beside My Library with cards/detail/install/badges; repo add-confirm; slash commands; docs-site updated |
 | 5 | Official catalog content: example loops | ✅ Done | A simple → very-complex range of curated loops ships in the official catalog, together exercising every major feature |
-| 6 | End-to-end verification | ⬜ Not started | Agent e2e in the real app: browse → install → adapt → update-available → fail-soft paths |
+| 6 | End-to-end verification | ✅ Done | catalog e2e 8/8 in the real app (after the placement fix it found); live official-repo pass produced a real artifact |
 
 Status legend: ✅ Done · 🟡 In progress · ⬜ Not started · ⛔ Blocked · 🟦 Deferred.
 
@@ -395,20 +395,51 @@ cleanup via `window.sero.appAgent.invokeTool`).
 
 **Tasks**
 
-- [ ] `apps/desktop/e2e/catalog.agent.spec.ts`: official entries visible in
-  the Catalog tab out of the box; add a local `file://` fixture repo
-  (confirmation dialog exercised); install a fixture entry → draft appears
-  with provenance link + adapted plan → never active; bump the fixture repo
-  → refresh → "vN available" on the linked loop → switch version; remove
-  the repo → installed loop still opens and runs; invalid fixture entry is
-  hidden with a reason and installing a broken definition blocks with
-  errors.
-- [ ] Live official-repo pass (network-gated like the GitHub live e2e):
-  fetch `sero-labs/orchestrator-catalog`, install-and-activate the simple
-  entry and let it produce its artifact — proves shipped content actually
-  runs.
-- [ ] Real findings get their own `fix(orchestrator):` commits; findings
-  recorded here in a "Live-pass findings" section.
+- [x] `apps/desktop/e2e/catalog.agent.spec.ts` — 8/8 PASSED (1.1m final
+  run): official entries visible with the Verified badge out of the box;
+  local `file://` fixture repo added through the confirmation dialog,
+  origin chip shown, malformed/ghost entries hidden with reasons; install
+  → planner-adapted provenance-linked draft, never active; broken
+  definition blocks with errors and writes nothing; fixture bump → opening
+  the Catalog tab (the on-demand pull) appends library v2, "Update &
+  re-adapt" offered, plain switch lands v2; repo removal leaves the loop
+  and library copy intact.
+- [x] Live official-repo pass: fetched `sero-labs/orchestrator-catalog`,
+  installed + activated Daily note; the run completed and the REAL note
+  (`notes/daily/2026-07-03.md`, content citing the workspace's actual git
+  history) landed at the workspace root — shipped content runs.
+- [x] Findings fixed in their own commits (`7ddd0feba` placement) and
+  recorded below.
+
+**Live-pass findings**
+
+1. **Installed file-delivering loops vanished into worktrees (REAL BUG,
+   fixed).** The live Daily-note pass "completed" perfectly — and wrote its
+   note into `.sero/worktrees/<loop>-r1/notes/daily/…`, a branch no user
+   ever looks at. Cause: definitions deliberately don't carry placement
+   (spec 08), so `instantiate` started every installed loop on the
+   workspace default (managed worktree) even when the definition's
+   *declared* delivery is files-in-the-workspace. Fix (runtime/library.ts):
+   a definition explicitly delivering `workspace-files` / `saved-artifact`
+   instantiates at the workspace root — the reverse of the existing
+   placement⇒delivery derivation, applied at load/install. Deviation from
+   spec 08's "always workspace defaults" recorded here.
+2. **Root placement resurfaces the dirty-workspace choice.** With the
+   placement fix, activating the installed Daily note in a dirty git
+   workspace parks on the "how should this loop run?" question (correct
+   product behavior; on its 30s timeout the default falls back to a
+   managed worktree — which would quietly re-hide the notes). The e2e now
+   commits the workspace pre-activation AND answers the choice itself if
+   it still parks. Watch item for the PR review: whether that timeout
+   default should differ for file-delivering loops.
+3. **Harness lessons:** the update-flow test must navigate back to the
+   Catalog tab (opening it IS the fetch — asserting that replaced a
+   Refresh-button click that didn't exist on the detail view); loop detail
+   has several "Library"-named buttons (use the header button's title);
+   `describe.skipIf` still executes its callback at collection, so the
+   gated content harness keeps file reads behind the gate itself; pipe
+   long runs unbuffered (`--reporter=line`, no `tail`) so progress is
+   visible.
 
 **Exit gate.** e2e green against the real app; findings section filled in.
 

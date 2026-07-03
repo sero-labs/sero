@@ -19,9 +19,11 @@ const CATALOG_DIR = process.env.SERO_CATALOG_DIR;
 
 const readJson = (file: string): unknown => JSON.parse(readFileSync(file, 'utf8'));
 
+// skipIf still EXECUTES this callback at collection time, so all file reads
+// must stay behind the gate themselves.
 describe.skipIf(!CATALOG_DIR)('official catalog content', () => {
-  const root = CATALOG_DIR!;
-  const index = readJson(path.join(root, 'catalog.json'));
+  const root = CATALOG_DIR ?? '';
+  const index = CATALOG_DIR ? readJson(path.join(root, 'catalog.json')) : null;
 
   it('has a valid index that matches the loops/ directory exactly', () => {
     expect(isCatalogIndex(index)).toBe(true);
