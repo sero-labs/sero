@@ -139,6 +139,17 @@ describe('Coordinator set_delivery', () => {
     expect(host.state.loops[0].delivery).toEqual({ destination: 'workspace-files' }); // fixture value, unchanged
   });
 
+  it('rejects a webhook-post delivery without its url', async () => {
+    const host = createFakeHost();
+    seedActiveLoop(host, oneStepPlan().plan);
+    const res = await new Coordinator(host).requestAction({
+      kind: 'set_delivery', loopId: 'loop-1', delivery: { destination: 'webhook-post' },
+    });
+    expect(res.ok).toBe(false);
+    expect(res.error).toContain('"url"');
+    expect(host.state.loops[0].delivery).toEqual({ destination: 'workspace-files' }); // fixture value, unchanged
+  });
+
   it('rejects create options carrying an invalid delivery', async () => {
     const host = createFakeHost();
     const res = await new Coordinator(host).requestAction({

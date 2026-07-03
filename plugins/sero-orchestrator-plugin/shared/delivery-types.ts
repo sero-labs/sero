@@ -48,8 +48,13 @@ export interface DeliveryDestinationInfo {
   label: string;
   /** Externally visible ⇒ the final send is approval-gated (fixed v1 rule). */
   external: boolean;
-  /** Params this destination understands, as UI field hints. */
-  paramHints: { key: string; placeholder: string }[];
+  /**
+   * Params this destination understands, as UI field hints. A `required` param
+   * is one the destination cannot deliver without (a webhook POST has nowhere
+   * to go without its url) — enforced at activation and on delivery edits, but
+   * never on shared definitions, whose values are the user's to supply.
+   */
+  paramHints: { key: string; placeholder: string; required?: boolean }[];
 }
 
 export const DELIVERY_DESTINATIONS: DeliveryDestinationInfo[] = [
@@ -75,7 +80,7 @@ export const DELIVERY_DESTINATIONS: DeliveryDestinationInfo[] = [
     ],
   },
   { id: 'chat-post', label: 'Chat post', external: true, paramHints: [{ key: 'channel', placeholder: '#channel' }] },
-  { id: 'webhook-post', label: 'Webhook POST', external: true, paramHints: [{ key: 'url', placeholder: 'https://…' }] },
+  { id: 'webhook-post', label: 'Webhook POST', external: true, paramHints: [{ key: 'url', placeholder: 'https://…', required: true }] },
 ];
 
 export function isDeliveryDestinationId(value: unknown): value is DeliveryDestinationId {
@@ -89,6 +94,17 @@ export function deliveryDestinationInfo(id: DeliveryDestinationId): DeliveryDest
 /** Externally visible destinations require an approved human input before the send (v1). */
 export function isExternalDestination(id: DeliveryDestinationId): boolean {
   return deliveryDestinationInfo(id).external;
+}
+
+/** Required param keys this delivery is missing (absent or blank). */
+export function missingDeliveryParams(delivery: LoopDeliverySettings): string[] {
+  return deliveryDestinationInfo(delivery.destination)
+    .paramHints.filter((h) => h.required)
+    .map((h) => h.key)
+    .filter((key) => {
+      const value = delivery.params?.[key];
+      return value === undefined || String(value).trim() === '';
+    });
 }
 
 /**

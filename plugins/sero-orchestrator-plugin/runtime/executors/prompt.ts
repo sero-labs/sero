@@ -72,6 +72,20 @@ function variablesContext(loop: Loop): string {
 }
 
 /**
+ * The loop's declared delivery params (webhook url, chat channel, recipients…).
+ * Injected for every step, not just the final one: the step that performs the
+ * send is usually pre-final, and a plan loaded from the library/catalog was
+ * authored before the user supplied these values — its instructions reference
+ * "the declared delivery parameters", so they must actually be in the prompt
+ * or the agent hunts the workspace for values that exist nowhere.
+ */
+function deliveryParamsContext(loop: Loop): string {
+  const delivery = effectiveDelivery(loop);
+  if (!delivery.params || Object.keys(delivery.params).length === 0) return '';
+  return `\nThis loop's declared delivery parameters for "${delivery.destination}" (use these EXACT values when a step delivers):\n${JSON.stringify(delivery.params, null, 2)}`;
+}
+
+/**
  * Inventory of the loop's own open PRs (branch matches the loop id, refreshed at
  * run start). Injected for background-agent steps only — they touch the repo — so
  * a recurring loop doesn't redo work an open PR already covers. The model judges
@@ -124,6 +138,7 @@ The loop parks until the user decides. When you re-run with their decision in th
   if (step.expectedOutcome) parts.push(`\nExpected outcome: ${step.expectedOutcome}`);
   parts.push(dependencyContext(loop, step));
   parts.push(variablesContext(loop));
+  parts.push(deliveryParamsContext(loop));
   parts.push(openPullRequestsContext(loop, step));
   parts.push(deliveriesContext(loop, step));
   parts.push(formatRouteContract(routeVariableRequirements(loop, step)));

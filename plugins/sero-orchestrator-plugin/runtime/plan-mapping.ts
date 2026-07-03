@@ -18,7 +18,7 @@ import type { OrchestratorHost } from './host';
 import { isDefaultTool } from '../shared/constants';
 import { mergeLimits, materializeTriggers } from './loop-factory';
 import { mergeExtractedTriggers, NO_TRIGGERS, type TriggerExtraction } from './trigger-extractor';
-import { effectiveDelivery } from '../shared/delivery-types';
+import { deliveryDestinationInfo, effectiveDelivery, missingDeliveryParams } from '../shared/delivery-types';
 import { approvalGateProblems, validateDeliverySettings, validateLoopPlan } from './schema';
 import { mergeStepOverride } from './library-overlay';
 
@@ -214,6 +214,21 @@ export function applyLoopContext(
 }
 
 /**
+ * Problems for required params the delivery is missing. Shared definitions
+ * legitimately omit these values (a catalog entry cannot know YOUR webhook
+ * url), so this is enforced here — when the user edits the delivery or
+ * activates the loop — never in definition validation. Without it the miss
+ * only surfaces mid-run, when the send step stalls hunting for a value that
+ * exists nowhere.
+ */
+function missingParamProblems(delivery: LoopDeliverySettings): string[] {
+  return missingDeliveryParams(delivery).map(
+    (key) =>
+      `delivering to "${deliveryDestinationInfo(delivery.destination).label}" needs the "${key}" delivery parameter — set it in the loop's Delivery settings`,
+  );
+}
+
+/**
  * Sets the loop's delivery destination + params — a user-level setting, exactly
  * like worktree placement (the planner never chooses it). Validated
  * structurally; the next planning pass (create/revise) turns it into steps.
@@ -224,6 +239,7 @@ export function applyLoopDelivery(
   now: string,
 ): { ok: boolean; loop?: Loop; error?: string } {
   const errors = validateDeliverySettings(delivery);
+  if (errors.length === 0) errors.push(...missingParamProblems(delivery));
   if (errors.length > 0) return { ok: false, error: errors.join('; ') };
   return { ok: true, loop: { ...loop, delivery, updatedAt: now } };
 }
@@ -236,7 +252,14 @@ export function planIsActivatable(loop: Loop): { ok: boolean; error?: string } {
   // Re-check the external approval shape too: the destination may have changed
   // (set_delivery) since planning, and an external plan without a gate step
   // could never deliver anyway (the receipt gate would refuse every completion).
-  const errors = [...validateLoopPlan(loop.plan), ...approvalGateProblems(loop.plan, effectiveDelivery(loop))];
+  // Required delivery params are checked here too: a loop installed from a
+  // shared definition carries the destination but never the user's values.
+  const delivery = effectiveDelivery(loop);
+  const errors = [
+    ...validateLoopPlan(loop.plan),
+    ...approvalGateProblems(loop.plan, delivery),
+    ...missingParamProblems(delivery),
+  ];
   if (errors.length > 0) return { ok: false, error: `Plan is invalid: ${errors.join('; ')}` };
   return { ok: true };
 }

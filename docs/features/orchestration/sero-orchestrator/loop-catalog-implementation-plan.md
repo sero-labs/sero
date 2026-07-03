@@ -496,3 +496,22 @@ Two edge cases from Dan's retest, both fixed:
    check), so a broken `definition.json` returns clean problems instead of
    throwing; `library_load` validates before instantiating and errors out on
    definitions too malformed to instantiate.
+
+### Live-testing finding: required delivery params (2026-07-03)
+
+Dan installed the catalog's "Issue triage & report" (webhook-post) and the
+send step stalled mid-run: it hunted the workspace for a webhook URL, then
+asked for one — the loop had `delivery: { destination: "webhook-post" }` with
+no `url` anywhere. Three gaps, all fixed (FR-D5b):
+
+1. **Nothing collected the URL.** Catalog definitions can't ship it (it's the
+   installing user's), and neither activation nor delivery edits required it.
+   `paramHints` now carry `required`; `webhook-post.url` is required, enforced
+   in `planIsActivatable` and `applyLoopDelivery` with a plain "set it in the
+   loop's Delivery settings" error. Definition validation stays exempt.
+2. **Even a configured URL never reached the step agent.** Only the planner
+   prompt carried declared params; `buildStepTask` now injects them into every
+   step (the send step is usually pre-final), so plans authored before the
+   values existed still find them.
+3. **UI:** required params render "(required)" in the create form and the
+   Delivery dialog.

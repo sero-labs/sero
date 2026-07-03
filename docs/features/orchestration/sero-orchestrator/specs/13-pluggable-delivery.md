@@ -217,6 +217,14 @@ save/load round-trips `delivery`.
 - **FR-D5** Missing destination tools warn at activation, re-check each run
   start (`delivery-tool-missing`), and fail through normal recovery — never a
   silent fallback, never a bespoke block.
+- **FR-D5b** Params a destination cannot deliver without (`webhook-post` →
+  `url`, marked `required` on the shared param hints) block activation and
+  delivery edits with a plain error — unlike tools, a missing value cannot
+  "appear later", so failing soft would only move the failure mid-run. Shared
+  definitions stay exempt: the values are the installing user's, never the
+  author's. Declared params are injected into every step prompt (the send
+  step is usually pre-final), so a library/catalog plan authored before the
+  values existed still finds them.
 - **FR-D6** Receipts persist on `runtime.deliveries`, feed future run context,
   render as links in the run summary, and appear in the outcome notification.
 - **FR-D7** `pr` receipts are verified against the PR reconcile;

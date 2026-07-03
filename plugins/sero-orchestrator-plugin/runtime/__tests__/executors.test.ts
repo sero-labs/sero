@@ -142,6 +142,24 @@ describe('buildStepTask delivery receipt contract', () => {
     expect(buildStepTask(loop, loop.plan.steps.find((s) => s.id === 'a')!)).not.toContain('PROOF OF DELIVERY');
     expect(buildStepTask(loop, loop.plan.steps.find((s) => s.id === 'b')!)).toContain('PROOF OF DELIVERY');
   });
+
+  it('gives every step the declared delivery params — the send step is usually pre-final', () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, sequentialPlan().plan); // a -> b; b is the sink
+    loop.delivery = { destination: 'webhook-post', params: { url: 'https://127.0.0.1:9999/hook' } };
+    for (const id of ['a', 'b']) {
+      const task = buildStepTask(loop, loop.plan.steps.find((s) => s.id === id)!);
+      expect(task).toContain('declared delivery parameters');
+      expect(task).toContain('https://127.0.0.1:9999/hook');
+    }
+  });
+
+  it('renders no delivery-params block when none are declared', () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, oneStepPlan().plan);
+    loop.delivery = { destination: 'saved-artifact' };
+    expect(buildStepTask(loop, loop.plan.steps[0])).not.toContain('declared delivery parameters');
+  });
 });
 
 describe('buildStepTask open-PR awareness', () => {

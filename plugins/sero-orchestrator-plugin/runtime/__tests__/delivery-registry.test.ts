@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Loop } from '../../shared/types';
-import { DELIVERY_DESTINATION_IDS, isExternalDestination } from '../../shared/delivery-types';
+import { DELIVERY_DESTINATION_IDS, isExternalDestination, missingDeliveryParams } from '../../shared/delivery-types';
 import { deliverySpec } from '../delivery/registry';
 import { formatDeliveryContract } from '../delivery/delivery-contract';
 
@@ -34,6 +34,20 @@ describe('delivery registry', () => {
     for (const id of DELIVERY_DESTINATION_IDS.filter(isExternalDestination)) {
       expect(deliverySpec(id).plannerRules).toContain('approval');
       expect(deliverySpec(id).plannerRules).toContain('HUMAN APPROVAL / INPUT GATES');
+    }
+  });
+});
+
+describe('missingDeliveryParams', () => {
+  it('reports the url a webhook-post delivery cannot send without', () => {
+    expect(missingDeliveryParams({ destination: 'webhook-post' })).toEqual(['url']);
+    expect(missingDeliveryParams({ destination: 'webhook-post', params: { url: '   ' } })).toEqual(['url']);
+    expect(missingDeliveryParams({ destination: 'webhook-post', params: { url: 'https://example.test/hook' } })).toEqual([]);
+  });
+
+  it('requires nothing for destinations whose params the agent can resolve', () => {
+    for (const id of DELIVERY_DESTINATION_IDS.filter((d) => d !== 'webhook-post')) {
+      expect(missingDeliveryParams({ destination: id })).toEqual([]);
     }
   });
 });

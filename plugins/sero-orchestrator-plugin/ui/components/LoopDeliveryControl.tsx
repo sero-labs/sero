@@ -81,7 +81,7 @@ export function LoopDeliveryControl({
               <Input
                 key={h.key}
                 value={params[h.key] ?? ''}
-                placeholder={h.placeholder}
+                placeholder={h.required ? `${h.placeholder} (required)` : h.placeholder}
                 onChange={(e) => setParams((p) => ({ ...p, [h.key]: e.target.value }))}
               />
             ))}

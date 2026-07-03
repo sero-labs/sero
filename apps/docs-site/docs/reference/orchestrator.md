@@ -113,7 +113,11 @@ files in the working tree.
 | Webhook POST | an HTTP POST to the URL in the params | — |
 
 Destination **params** (channel, recipients, URL, report name) are set beside
-the picker and handed to the agent verbatim.
+the picker and handed to the agent verbatim. A param the destination cannot
+work without — the webhook URL — is marked required: the loop won't activate
+until you set it, so a run never stalls halfway to ask for it. Loops installed
+from the catalog never include these values (they're yours, not the
+author's) — set them in Delivery before activating.
 
 **Receipts.** A loop that declares a destination completes only when its final
 step reports a delivery receipt — what landed and where (PR URL, message link,

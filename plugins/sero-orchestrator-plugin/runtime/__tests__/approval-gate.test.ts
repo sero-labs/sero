@@ -130,6 +130,19 @@ describe('gate step marker validation', () => {
     expect(gate.error).toContain('gate');
   });
 
+  it('blocks activation of a webhook loop until its url is set — never a mid-run stall', () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, externalPlan());
+    loop.delivery = { destination: 'webhook-post' }; // e.g. installed from the catalog: destination, no user values
+    const gate = planIsActivatable(loop);
+    expect(gate.ok).toBe(false);
+    expect(gate.error).toContain('"url"');
+    expect(gate.error).toContain('Delivery settings');
+
+    loop.delivery = { destination: 'webhook-post', params: { url: 'https://127.0.0.1:9999/hook' } };
+    expect(planIsActivatable(loop).ok).toBe(true);
+  });
+
   it('instructs a gated step to ask via an approval question and never deliver', () => {
     const host = createFakeHost();
     const loop = seedActiveLoop(host, gatedPlan());

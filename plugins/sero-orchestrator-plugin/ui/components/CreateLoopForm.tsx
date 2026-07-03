@@ -100,7 +100,7 @@ export function CreateLoopForm({ busy, onSubmit, onCancel }: CreateLoopFormProps
           <Input
             key={h.key}
             value={deliveryParams[h.key] ?? ''}
-            placeholder={h.placeholder}
+            placeholder={h.required ? `${h.placeholder} (required)` : h.placeholder}
             onChange={(e) => setDeliveryParams((p) => ({ ...p, [h.key]: e.target.value }))}
           />
         ))}
