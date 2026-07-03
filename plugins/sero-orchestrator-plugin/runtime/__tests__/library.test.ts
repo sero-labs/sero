@@ -114,3 +114,21 @@ describe('instantiate', () => {
     ]);
   });
 });
+
+describe('instantiate placement (catalog e2e finding)', () => {
+  it('a file-delivering definition lands at the workspace root, not a hidden worktree', () => {
+    const host = createFakeHost();
+    for (const destination of ['workspace-files', 'saved-artifact'] as const) {
+      const loop = instantiate(host, { ...definition(), delivery: { destination } }, LINK);
+      expect(loop.workspace.useManagedWorktree).toBe(false);
+    }
+  });
+
+  it('other (or absent) deliveries keep the workspace default placement', () => {
+    const host = createFakeHost();
+    expect(instantiate(host, definition(), LINK).workspace.useManagedWorktree).toBe(true);
+    expect(
+      instantiate(host, { ...definition(), delivery: { destination: 'pr' } }, LINK).workspace.useManagedWorktree,
+    ).toBe(true);
+  });
+});
