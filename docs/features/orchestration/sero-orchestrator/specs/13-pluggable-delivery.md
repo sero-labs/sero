@@ -146,13 +146,25 @@ step outcomes:
    claims `complete` **without** a structurally valid receipt → outcome
    downgraded to `needs-revision` with an in-session repair prompt (same
    bounded-repair machinery as route/outcome repair).
-2. **External destinations additionally require an approval record.** The
+2. **External destinations additionally require a named approval token.** The
    planner is instructed to put a human-input approval step (existing 07
    machinery: draft attached, user approves/rejects) before the send. The
-   mechanical backstop: a receipt for an `external` destination is accepted
-   only if the current run contains a matching approved input — otherwise
-   `needs-revision`. The gate cannot be bypassed by an agent that "forgot" to
-   ask (the durable mechanism is the only path).
+   mechanical backstop binds the token, not just its existence: a receipt for
+   an `external` destination is accepted only when its `approvalId` names an
+   open approval that (a) was asked by a step still in the plan with
+   `gate: "approval"`, (b) carries the approved content verbatim as the
+   question's `attachment`, and (c) has not been consumed by an earlier send.
+   Exactly that token is consumed on acceptance (one approval, one send), and
+   changing the delivery destination voids open approvals. The gate cannot be
+   bypassed by an agent that "forgot" to ask, and a stale approval for other
+   content cannot be re-used (the durable mechanism is the only path).
+
+   Scope, stated honestly: this governs what the loop ACCEPTS as a completed
+   delivery. A background-agent step keeps its normal shell, so a physically
+   possible side effect (e.g. a `webhook-post` via curl) cannot be prevented
+   mechanically — an unapproved send is refused completion and lands in
+   recovery, never blessed. True prevention needs runtime-mediated sending,
+   which stays out of scope for v1 (below).
 3. **Verify-back where a read API is free:** for `pr`, the receipt is
    cross-checked against the existing `listPullRequests` reconcile; for
    `saved-artifact`, the artifact path must exist. Other destinations rely on
@@ -198,8 +210,10 @@ save/load round-trips `delivery`.
   `DeliveryReceipt`; a completion claim without one becomes `needs-revision`
   with bounded in-session repair.
 - **FR-D4** External destinations (`email-send`, `chat-post`, `webhook-post`)
-  require an approved human-input record in the run before a receipt is
-  accepted — mechanically enforced, not prompt-only.
+  require the receipt to name (`approvalId`) an open, plan-bound,
+  content-carrying approval token, consumed one-for-one on acceptance —
+  mechanically enforced, not prompt-only. Enforcement scope is completion
+  acceptance, not physical side-effect prevention.
 - **FR-D5** Missing destination tools warn at activation, re-check each run
   start (`delivery-tool-missing`), and fail through normal recovery — never a
   silent fallback, never a bespoke block.

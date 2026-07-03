@@ -90,10 +90,13 @@ describe('delivery contract (pure)', () => {
   });
 
   it('writes a repair prompt naming the problems and the expected shape', () => {
-    const text = formatDeliveryRepair({ destination: 'chat-post' }, ['the completion has no "receipt"']);
+    const host = createFakeHost();
+    const loop = seedDeliveryLoop(host, 'chat-post');
+    const text = formatDeliveryRepair(loop, { destination: 'chat-post' }, ['the completion has no "receipt"']);
     expect(text).toContain('chat-post');
     expect(text).toContain('no "receipt"');
     expect(text).toContain('"deliveredAt"');
+    expect(text).toContain('"approvalId"'); // external skeleton names the token slot
     expect(text).toContain('do not claim completion');
   });
 });

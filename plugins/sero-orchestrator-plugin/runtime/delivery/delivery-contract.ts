@@ -10,6 +10,13 @@
  *  3. the engine backstop refuses the completion (enforceDeliveryContract),
  *     plus an async verify-back where a read API is free (verify-receipt.ts).
  *
+ * Scope of the guarantee, stated honestly: this layer governs what the loop
+ * ACCEPTS as a completed delivery, not what an agent's shell can physically do.
+ * A background-agent step retains normal tools, so e.g. a webhook POST via curl
+ * is not mechanically preventable — an unapproved send is refused completion
+ * (needs-revision → recovery), never blessed. The approval-token binding below
+ * makes that refusal precise: one named token, one send, content on record.
+ *
  * Everything here is pure (no host) so it unit-tests directly.
  */
 
@@ -43,27 +50,70 @@ function isOpenApproval(answered: AnsweredInput): boolean {
   );
 }
 
-/** True when the loop holds an approval that no earlier send has consumed. */
-export function hasOpenApproval(loop: Loop): boolean {
-  return (loop.answeredInputs ?? []).some(isOpenApproval);
+/**
+ * The approval TOKEN that can authorize an external send is an open approval
+ * that additionally BINDS to this loop's plan and content:
+ *  - asked by a step that still exists in the plan with `gate: "approval"`
+ *    (planner questions and ordinary step questions never authorize a send),
+ *  - the approved question carries the approved content verbatim in
+ *    `attachment`, so what the user saw is recorded next to what shipped.
+ * The receipt must NAME the token (`approvalId` = the token's requestId) and
+ * only that token is consumed. What code cannot verify — that the bytes the
+ * agent actually sent equal the attachment — stays the model's contract; the
+ * mechanical guarantee is that no external completion is ACCEPTED without a
+ * bound, single-use, user-granted token.
+ */
+export function approvalTokens(loop: Loop): AnsweredInput[] {
+  const gateSteps = new Set(loop.plan.steps.filter((s) => s.gate === 'approval').map((s) => s.id));
+  return (loop.answeredInputs ?? []).filter(
+    (a) =>
+      !a.consumedAt &&
+      a.source === 'step' &&
+      a.stepId !== undefined &&
+      gateSteps.has(a.stepId) &&
+      a.questions.some(
+        (q) =>
+          q.kind === 'approval' &&
+          typeof q.attachment === 'string' &&
+          q.attachment.trim() !== '' &&
+          a.answers.some((ans) => ans.questionId === q.id && ans.choiceId === 'approve'),
+      ),
+  );
 }
 
 /**
- * Marks every open approval consumed (called when an external receipt is
- * accepted): one user approval authorizes exactly one send, so a stale
- * approval can never cover a later, unapproved delivery.
+ * Marks every open approval consumed. Used when the delivery destination
+ * changes (the user approved content for THAT destination/params, not the new
+ * ones) and as the defensive fallback when a receipt lands without a token id.
  */
-export function consumeApprovals(answeredInputs: AnsweredInput[] | undefined, now: string): AnsweredInput[] | undefined {
+export function voidOpenApprovals(answeredInputs: AnsweredInput[] | undefined, now: string): AnsweredInput[] | undefined {
   if (!answeredInputs?.some(isOpenApproval)) return answeredInputs;
   return answeredInputs.map((a) => (isOpenApproval(a) ? { ...a, consumedAt: now } : a));
+}
+
+/**
+ * Consumes exactly the approval the accepted receipt named (one approval, one
+ * send). A missing id cannot happen past the contract gate; if it somehow
+ * does, every open approval is voided — never none — so a stale approval can
+ * never cover a later, unapproved delivery.
+ */
+export function consumeApproval(
+  answeredInputs: AnsweredInput[] | undefined,
+  approvalId: string | undefined,
+  now: string,
+): AnsweredInput[] | undefined {
+  if (!answeredInputs) return answeredInputs;
+  if (!approvalId) return voidOpenApprovals(answeredInputs, now);
+  return answeredInputs.map((a) => (a.requestId === approvalId && !a.consumedAt ? { ...a, consumedAt: now } : a));
 }
 
 /**
  * Why this outcome's completion claim fails the delivery contract (empty when
  * it passes, or when nothing is claimed). Format checks only — the receipt
  * content is the model's; code never judges whether the delivery was "good".
- * For external destinations the claim additionally needs an open user approval
- * on the loop (FR-D4): the agent cannot talk its way past a missing one.
+ * For external destinations the claim additionally needs `approvalId` naming
+ * an open, plan-bound approval token on the loop (FR-D4): the agent cannot
+ * talk its way past a missing one, and a stale or foreign approval id fails.
  */
 export function deliveryProblems(loop: Loop, delivery: LoopDeliverySettings, outcome: StepOutcome): string[] {
   if (outcome.completion?.status !== 'complete') return [];
@@ -78,10 +128,22 @@ export function deliveryProblems(loop: Loop, delivery: LoopDeliverySettings, out
   if (Number.isNaN(Date.parse(receipt.deliveredAt))) {
     problems.push(`the receipt "deliveredAt" ("${receipt.deliveredAt}") is not a valid timestamp`);
   }
-  if (isExternalDestination(delivery.destination) && !hasOpenApproval(loop)) {
-    problems.push(
-      `"${delivery.destination}" is externally visible and requires the user's approval before delivery — no un-used approval is recorded on this loop. Present the content as an "approval" question (the gate step) and wait for the user`,
-    );
+  if (isExternalDestination(delivery.destination)) {
+    const tokens = approvalTokens(loop);
+    const ids = tokens.map((t) => `"${t.requestId}"`).join(', ');
+    if (tokens.length === 0) {
+      problems.push(
+        `"${delivery.destination}" is externally visible and requires the user's approval before delivery — no un-used approval from a gate step (with the exact content as its "attachment") is recorded on this loop. The gate step must present the content as an "approval" question with the full content in "attachment" and wait for the user`,
+      );
+    } else if (!receipt.approvalId?.trim()) {
+      problems.push(
+        `the receipt has no "approvalId" — an external send must name the user approval that authorized it (open approval token${tokens.length === 1 ? '' : 's'}: ${ids})`,
+      );
+    } else if (!tokens.some((t) => t.requestId === receipt.approvalId)) {
+      problems.push(
+        `the receipt "approvalId" ("${receipt.approvalId}") does not match any open approval token on this loop (open: ${ids}) — only the content the user approved, under its recorded token, may ship`,
+      );
+    }
   }
   return problems;
 }
@@ -108,31 +170,49 @@ export function enforceDeliveryContract(loop: Loop, step: LoopStepDefinition, ou
 }
 
 /**
+ * The authorization block for external destinations: names the open approval
+ * token(s) the receipt must reference, or states plainly that no send is
+ * authorized yet. Shared by the contract (layer 1) and repair (layer 2) prompts.
+ */
+function formatApprovalTokens(loop: Loop, destination: LoopDeliverySettings['destination']): string {
+  if (!isExternalDestination(destination)) return '';
+  const tokens = approvalTokens(loop);
+  if (tokens.length === 0) {
+    return `\nEXTERNAL SEND AUTHORIZATION: no un-used user approval is recorded on this loop, so NOTHING may be delivered externally yet. The gate step must first present the exact content as an "approval" question (full content in "attachment") and the user must approve it. Do not send, and do not claim completion.`;
+  }
+  const list = tokens.map((t) => `- "${t.requestId}"${t.stepId ? ` (asked by step "${t.stepId}")` : ''}`).join('\n');
+  return `\nEXTERNAL SEND AUTHORIZATION: the receipt MUST also carry "approvalId" set to the id of the user approval whose attached content is exactly what you delivered. Open approval token${tokens.length === 1 ? '' : 's'}:\n${list}\nEach token authorizes ONE send of the content the user saw. If what you are delivering differs from the approved attachment, do not send — the gate step must ask again.`;
+}
+
+/**
  * The final-step receipt contract (layer 1): how the step must prove delivery
  * inside its completion signal. Empty for workspace-files — results staying in
  * the tree need no receipt.
  */
-export function formatDeliveryContract(delivery: LoopDeliverySettings): string {
+export function formatDeliveryContract(loop: Loop, delivery: LoopDeliverySettings): string {
   if (delivery.destination === 'workspace-files') return '';
   const spec = deliverySpec(delivery.destination);
+  const external = isExternalDestination(delivery.destination) ? ', "approvalId": "<the approval token id>"' : '';
   return `\nThis loop's declared delivery destination is "${spec.id}" (${spec.label}). Completion requires PROOF OF DELIVERY: when you emit the completion signal, the "completion" object MUST also carry a "receipt":
-"completion": { "status": "complete", "reason": ..., "receipt": { "destination": "${spec.id}", "ref": "<${spec.receiptHint}>", "summary": "one sentence on what was delivered", "deliveredAt": "<ISO 8601 timestamp>" } }
-The "ref" must be the REAL value from the delivery step's actual result — never invent or approximate it. If nothing was actually delivered, do not claim completion; report the true status instead.`;
+"completion": { "status": "complete", "reason": ..., "receipt": { "destination": "${spec.id}", "ref": "<${spec.receiptHint}>", "summary": "one sentence on what was delivered", "deliveredAt": "<ISO 8601 timestamp>"${external} } }
+The "ref" must be the REAL value from the delivery step's actual result — never invent or approximate it. If nothing was actually delivered, do not claim completion; report the true status instead.${formatApprovalTokens(loop, delivery.destination)}`;
 }
 
 /** In-session repair turn (layer 2) when a completion claim failed the delivery contract. */
-export function formatDeliveryRepair(delivery: LoopDeliverySettings, problems: string[]): string {
+export function formatDeliveryRepair(loop: Loop, delivery: LoopDeliverySettings, problems: string[]): string {
   const receipt: DeliveryReceipt = {
     destination: delivery.destination,
     ref: `<${deliverySpec(delivery.destination).receiptHint}>`,
     summary: '<one sentence on what was delivered>',
     deliveredAt: '<ISO 8601 timestamp>',
   };
+  if (isExternalDestination(delivery.destination)) receipt.approvalId = '<the approval token id>';
   return [
     `You claimed the loop is complete, but this loop delivers to "${delivery.destination}" and completion without valid proof of delivery is not accepted:`,
     problems.map((p) => `- ${p}`).join('\n'),
     `\nIf the delivery really happened, add the receipt to your completion using the REAL values from the delivery result:\n"completion": { "status": "complete", "reason": ..., "receipt": ${JSON.stringify(receipt)} }`,
     'If it did NOT happen, do not claim completion — report your true "status" instead.',
+    formatApprovalTokens(loop, delivery.destination),
     '\nDo NOT redo the work or run more tools. Reply with ONLY the corrected StepOutcome JSON in a ```json fence, and nothing after it.',
-  ].join('\n');
+  ].filter(Boolean).join('\n');
 }

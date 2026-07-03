@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { Loop } from '../../shared/types';
 import { DELIVERY_DESTINATION_IDS, isExternalDestination } from '../../shared/delivery-types';
 import { deliverySpec } from '../delivery/registry';
 import { formatDeliveryContract } from '../delivery/delivery-contract';
@@ -38,15 +39,24 @@ describe('delivery registry', () => {
 });
 
 describe('formatDeliveryContract', () => {
+  const bareLoop = { plan: { steps: [] }, answeredInputs: [] } as unknown as Loop;
+
   it('demands a receipt with the destination receipt hint', () => {
-    const text = formatDeliveryContract({ destination: 'chat-post' });
+    const text = formatDeliveryContract(bareLoop, { destination: 'chat-post' });
     expect(text).toContain('PROOF OF DELIVERY');
     expect(text).toContain('"receipt"');
     expect(text).toContain('"destination": "chat-post"');
     expect(text).toContain(deliverySpec('chat-post').receiptHint);
   });
 
+  it('tells an external step with no open approval that nothing may ship yet', () => {
+    const text = formatDeliveryContract(bareLoop, { destination: 'chat-post' });
+    expect(text).toContain('EXTERNAL SEND AUTHORIZATION');
+    expect(text).toContain('NOTHING may be delivered externally yet');
+    expect(text).toContain('"approvalId"');
+  });
+
   it('is empty for workspace-files (no receipt needed)', () => {
-    expect(formatDeliveryContract({ destination: 'workspace-files' })).toBe('');
+    expect(formatDeliveryContract(bareLoop, { destination: 'workspace-files' })).toBe('');
   });
 });

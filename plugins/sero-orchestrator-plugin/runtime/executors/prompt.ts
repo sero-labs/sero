@@ -133,7 +133,7 @@ The loop parks until the user decides. When you re-run with their decision in th
   const finalId = finalizationStepId(loop);
   if (finalId === step.id) {
     parts.push('\nThis is the loop\'s FINAL step — nothing runs after it, so the loop only ends if you end it here. After doing the work, judge whether the loop\'s overall objective is now fully met, then include a "completion" object in your StepOutcome: { "status": "complete", "reason": ... } if it is met, or { "status": "blocked", "reason": ... } if it cannot be. Without a completion signal the loop never finishes.');
-    parts.push(formatDeliveryContract(effectiveDelivery(loop)));
+    parts.push(formatDeliveryContract(loop, effectiveDelivery(loop)));
   } else if (finalId !== undefined) {
     parts.push('\nThis is NOT the loop\'s final step — do NOT include a "completion" object; a later finalization step decides when the whole loop is done. (If you genuinely cannot proceed, report it with your "status", not a completion.)');
   }
@@ -193,12 +193,15 @@ function parseReceipt(raw: unknown, errors: string[]): DeliveryReceipt | undefin
     !isDeliveryDestinationId(raw.destination) ||
     typeof raw.ref !== 'string' || !raw.ref.trim() ||
     typeof raw.summary !== 'string' || !raw.summary.trim() ||
-    typeof raw.deliveredAt !== 'string' || !raw.deliveredAt.trim()
+    typeof raw.deliveredAt !== 'string' || !raw.deliveredAt.trim() ||
+    (raw.approvalId !== undefined && (typeof raw.approvalId !== 'string' || !raw.approvalId.trim()))
   ) {
-    errors.push('"completion.receipt", if present, must be { "destination": <this loop\'s destination id>, "ref": <non-empty string — where it landed>, "summary": <non-empty string>, "deliveredAt": <ISO 8601 timestamp> }.');
+    errors.push('"completion.receipt", if present, must be { "destination": <this loop\'s destination id>, "ref": <non-empty string — where it landed>, "summary": <non-empty string>, "deliveredAt": <ISO 8601 timestamp>, "approvalId": <the approval token id — required for external destinations> }.');
     return undefined;
   }
-  return { destination: raw.destination, ref: raw.ref.trim(), summary: raw.summary, deliveredAt: raw.deliveredAt };
+  const receipt: DeliveryReceipt = { destination: raw.destination, ref: raw.ref.trim(), summary: raw.summary, deliveredAt: raw.deliveredAt };
+  if (typeof raw.approvalId === 'string') receipt.approvalId = raw.approvalId.trim();
+  return receipt;
 }
 
 /** Fast-path parse of a step's own envelope; undefined when absent or invalid. */

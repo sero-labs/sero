@@ -33,6 +33,13 @@ export interface DeliveryReceipt {
   ref: string;
   summary: string;
   deliveredAt: string;
+  /**
+   * The approval token this send used: the `requestId` of the gate-step
+   * approval whose attached content was delivered. REQUIRED for external
+   * destinations (the contract refuses the completion without it); exactly
+   * that token is consumed when the receipt is accepted.
+   */
+  approvalId?: string;
 }
 
 /** Renderer-safe display metadata per destination (the planner/enforcement registry lives runtime-side). */

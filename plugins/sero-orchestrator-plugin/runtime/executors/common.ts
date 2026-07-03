@@ -36,7 +36,7 @@ function outcomeRepair(loop: Loop, step: LoopStepDefinition) {
       const requirement = receiptRequirement(loop, step);
       if (requirement) {
         const problems = deliveryProblems(loop, requirement, parsed.value);
-        if (problems.length > 0) return formatDeliveryRepair(requirement, problems);
+        if (problems.length > 0) return formatDeliveryRepair(loop, requirement, problems);
       }
       return null;
     },

@@ -8,6 +8,7 @@
 
 import type { Loop, OrchestratorAction, OrchestratorActionResult } from '../shared/types';
 import type { OrchestratorHost } from './host';
+import { voidOpenApprovals } from './delivery/delivery-contract';
 import { applyLoopContext, applyLoopDelivery, applyStepAgent, applyStepModel, applyStepTools } from './plan-mapping';
 
 export type OverrideAction = Extract<
@@ -38,8 +39,14 @@ function mapOverride(loop: Loop, action: OverrideAction, now: string): { ok: boo
       return applyStepAgent(loop, action.stepId, action.agent, now);
     case 'set_loop_context':
       return { ok: true, loop: applyLoopContext(loop, action.overrides, now) };
-    case 'set_delivery':
-      return applyLoopDelivery(loop, action.delivery, now);
+    case 'set_delivery': {
+      const result = applyLoopDelivery(loop, action.delivery, now);
+      if (!result.ok || !result.loop) return result;
+      // Changing where (or with what params) the loop delivers voids any open
+      // approval: the user approved content for the OLD destination, and an
+      // approval token must never authorize a send it was not granted for.
+      return { ok: true, loop: { ...result.loop, answeredInputs: voidOpenApprovals(result.loop.answeredInputs, now) } };
+    }
   }
 }
 

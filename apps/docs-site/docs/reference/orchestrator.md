@@ -127,9 +127,12 @@ loop doesn't re-deliver it.
 **External destinations always ask first.** Send email, chat post, and webhook
 POST are visible to other people, so the plan stages them: the loop drafts the
 content, shows it to you on the input card (the full draft, with
-Approve/Reject), and only an approval lets the send happen — enforced
-mechanically, not just prompted. A rejection sends nothing. Each approval
-covers exactly one send; the next iteration asks again with its new content.
+Approve/Reject), and a send only counts as delivered when its proof names
+your recorded approval for that exact content — enforced mechanically, not
+just prompted. A rejection sends nothing. Each approval covers exactly one
+send; the next iteration asks again with its new content. If a step ever
+sends something without approval, the loop refuses to accept it as done and
+flags the run for revision instead.
 
 If a destination's tool isn't available (say the chat MCP server isn't
 connected), the loop still activates and runs with a warning; the warning
