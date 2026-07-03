@@ -75,6 +75,36 @@ describe('validateSharedDefinition', () => {
     expect(validateSharedDefinition(definition())).toEqual([]);
   });
 
+  it('reports a malformed root instead of throwing', () => {
+    expect(validateSharedDefinition(null)[0]).toContain('JSON object');
+    expect(validateSharedDefinition('a string')[0]).toContain('JSON object');
+    expect(validateSharedDefinition(42)[0]).toContain('JSON object');
+  });
+
+  it('reports a missing/malformed plan instead of throwing', () => {
+    const noPlan = { ...definition() } as Record<string, unknown>;
+    delete noPlan.plan;
+    expect(validateSharedDefinition(noPlan).join(' ')).toContain('definition.plan');
+    expect(validateSharedDefinition({ ...definition(), plan: 'later' }).join(' ')).toContain('definition.plan');
+  });
+
+  it('reports malformed triggers instead of throwing', () => {
+    const noTriggers = { ...definition() } as Record<string, unknown>;
+    delete noTriggers.triggers;
+    expect(validateSharedDefinition(noTriggers).join(' ')).toContain('definition.triggers');
+    expect(validateSharedDefinition({ ...definition(), triggers: 'daily' }).join(' ')).toContain('definition.triggers');
+    const nullEntry = validateSharedDefinition({ ...definition(), triggers: [null] });
+    expect(nullEntry.join(' ')).toContain('triggers[0]');
+    expect(nullEntry.join(' ')).toContain('must be an object');
+  });
+
+  it('reports a wrong schemaVersion and a missing prompt/title', () => {
+    const errors = validateSharedDefinition({ ...definition(), schemaVersion: 2, prompt: '', title: undefined });
+    expect(errors.join(' ')).toContain('schemaVersion');
+    expect(errors.join(' ')).toContain('definition.prompt');
+    expect(errors.join(' ')).toContain('definition.title');
+  });
+
   it('reports plan errors', () => {
     const def = definition({ plan: { ...onePlan(), steps: [] } });
     expect(validateSharedDefinition(def).join(' ')).toContain('at least one step');

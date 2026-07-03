@@ -480,3 +480,19 @@ fixed on the branch:
    Used by catalog install/update, `library_load` (invalid ⇒ blocked draft),
    version switch, and the content harness. All six official entries pass
    (verified against a fresh clone).
+
+### Retest follow-up (same day)
+
+Two edge cases from Dan's retest, both fixed:
+
+1. **Stale tokens across version switches** — `library_set_version` now voids
+   open approval tokens on every switch (an approval granted under version N
+   never authorizes a send under N+1, even when the gate step id survives)
+   and refuses while `runtime.pendingInput` is set (an old-plan question must
+   not be answered against a new plan).
+2. **Validator hardened against malformed files** — `validateSharedDefinition`
+   accepts `unknown` and guards the root shape (object root, `schemaVersion`,
+   non-empty prompt/title, plan object, triggers array, per-entry object
+   check), so a broken `definition.json` returns clean problems instead of
+   throwing; `library_load` validates before instantiating and errors out on
+   definitions too malformed to instantiate.

@@ -269,6 +269,48 @@ describe('library_set_version', () => {
     expect(v2.loop!.workspace.useManagedWorktree).toBe(false); // saved-artifact delivers files
   });
 
+  it('voids open approval tokens on a version switch (an old approval never covers new content)', async () => {
+    const { host, loopId } = await linkedAtV2();
+    await host.updateState((s) => ({
+      ...s,
+      loops: s.loops.map((l) =>
+        l.id === loopId
+          ? {
+              ...l,
+              answeredInputs: [{
+                requestId: 'input_old',
+                source: 'step' as const,
+                stepId: 'step-1',
+                questions: [{ id: 'q1', prompt: 'Send?', kind: 'approval' as const, attachment: 'old draft', choices: [{ id: 'approve', label: 'Approve' }, { id: 'reject', label: 'Reject' }] }],
+                answers: [{ questionId: 'q1', choiceId: 'approve' }],
+                answeredAt: 't',
+              }],
+            }
+          : l,
+      ),
+    }));
+
+    const res = await handleLibraryAction(host, { kind: 'library_set_version', loopId, version: 1 });
+
+    expect(res.ok).toBe(true);
+    expect(res.loop!.answeredInputs?.[0].consumedAt).toBeDefined();
+  });
+
+  it('refuses to switch while parked on a pending question', async () => {
+    const { host, loopId } = await linkedAtV2();
+    await host.updateState((s) => ({
+      ...s,
+      loops: s.loops.map((l) =>
+        l.id === loopId
+          ? { ...l, runtime: { ...l.runtime, pendingInput: { id: 'input_p', source: 'step' as const, stepId: 'step-1', questions: [{ id: 'q1', prompt: 'Old-plan question?' }], askedAt: 't' } } }
+          : l,
+      ),
+    }));
+    const res = await handleLibraryAction(host, { kind: 'library_set_version', loopId, version: 1 });
+    expect(res.ok).toBe(false);
+    expect(res.error).toContain('pending question');
+  });
+
   it('refuses to switch mid-run', async () => {
     const { host, loopId } = await linkedAtV2();
     await host.updateState((s) => ({

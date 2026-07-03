@@ -10,6 +10,7 @@
 import type { Loop, LoopLibraryLink, OrchestratorAction, OrchestratorActionResult } from '../shared/types';
 import type { OrchestratorHost } from './host';
 import { buildLibrarySave } from '../shared/library';
+import { voidOpenApprovals } from './delivery/delivery-contract';
 import { validateSharedDefinition } from './definition-validation';
 import { fileDeliveryPlacement, instantiate } from './library';
 import { replayStepOverrides } from './library-overlay';
@@ -88,14 +89,17 @@ async function loadFromLibrary(
   const version = await host.library.readVersion(entry.id, versionNumber);
   if (!version) return { ok: false, error: `Library version not found: ${entry.id} v${versionNumber}` };
 
+  // Re-validate the FULL definition on load (root shape, plan, delivery +
+  // gate shape, triggers): one saved under older rules that no longer
+  // validates becomes a blocked draft carrying the errors (it cannot be
+  // activated), exactly like a create that fails validation. A definition too
+  // malformed to even instantiate (triggers not an array) errors out instead.
+  const errors = validateSharedDefinition(version.definition);
+  if (errors.length > 0 && !Array.isArray(version.definition.triggers)) {
+    return { ok: false, error: `This version's definition is malformed: ${errors.join('; ')}` };
+  }
   const link: LoopLibraryLink = { entryId: entry.id, version: versionNumber, syncedAt: host.now() };
   let loop = instantiate(host, version.definition, link);
-
-  // Re-validate the FULL definition on load (plan, delivery + gate shape,
-  // triggers): one saved under older rules that no longer validates becomes a
-  // blocked draft carrying the errors (it cannot be activated), exactly like a
-  // create that fails validation.
-  const errors = validateSharedDefinition(version.definition);
   if (errors.length > 0) {
     loop = {
       ...loop,
@@ -125,6 +129,12 @@ async function listLibrary(host: OrchestratorHost): Promise<OrchestratorActionRe
  * and the step-override overlay, which is replayed onto the new plan.
  * Triggers are definition-owned: they rematerialize with fresh ids and zeroed
  * counters, replacing local trigger edits (logged).
+ *
+ * Approval hygiene: a switch changes the content pipeline, so OPEN approval
+ * tokens are voided (an approval granted under version N must never authorize
+ * a send under version N+1 — even when the gate step id happens to survive),
+ * and a loop parked on a pending question refuses to switch (answer it first;
+ * an old-plan question must not be answered against a new plan).
  */
 async function setVersion(
   host: OrchestratorHost,
@@ -134,6 +144,7 @@ async function setVersion(
   if (!loop) return { ok: false, error: `Loop not found: ${action.loopId}` };
   if (!loop.libraryLink) return { ok: false, error: 'This loop is not linked to a library entry.' };
   if (loop.runtime.activeRunId) return { ok: false, error: 'Finish or stop the current run before switching versions.' };
+  if (loop.runtime.pendingInput) return { ok: false, error: "Answer the loop's pending question before switching versions." };
 
   const target = await host.library.readVersion(loop.libraryLink.entryId, action.version);
   if (!target) return { ok: false, error: `Library version not found: v${action.version}` };
@@ -160,6 +171,7 @@ async function setVersion(
     contextOverrides: def.contextOverrides ? structuredClone(def.contextOverrides) : undefined,
     delivery: def.delivery ? structuredClone(def.delivery) : undefined,
     workspace: placement ? { ...loop.workspace, ...placement } : loop.workspace,
+    answeredInputs: voidOpenApprovals(loop.answeredInputs, now),
     runtime: { ...loop.runtime, variables: {}, stepStates: initStepStates(plan, now), block: undefined, completion: undefined },
     libraryLink: { ...loop.libraryLink, version: action.version, syncedAt: now },
     updatedAt: now,
