@@ -9,7 +9,7 @@ Branch: `feat/orchestrator-pr-lifecycle`. Spec:
       replaces latest-wins `pendingEvent`; cap 10, dedupe `source#dedupeKey`,
       drop-oldest → `event-queue-overflow` warning; drain oldest-first;
       persisted `pendingEvent` migrates as a one-element queue.
-- [ ] **Phase 2 — New GitHub kinds** (FR-P4): `pr-approved` + `main-updated`
+- [x] **Phase 2 — New GitHub kinds** (FR-P4): `pr-approved` + `main-updated`
       via `repo-events`, `issue-opened` via `issues` (PR entries dropped);
       source catalog entries.
 - [ ] **Phase 3 — Existing-branch worktree host seam** (FR-P2):
@@ -37,7 +37,7 @@ Branch: `feat/orchestrator-pr-lifecycle`. Spec:
 | FR-P1 event-pr resolution, visible block | 4 | pending |
 | FR-P2 existingBranch worktree seam | 3 | pending |
 | FR-P3 pending-event FIFO | 1 | done |
-| FR-P4 three new GitHub kinds | 2 | pending |
+| FR-P4 three new GitHub kinds | 2 | done |
 | FR-P5 updated-PR receipts | 5 | pending |
 | FR-P6 stale-PR hybrid pattern documented | 8 | pending |
 | FR-P7 four catalog entries shipped | 7 | pending |
@@ -61,3 +61,7 @@ Branch: `feat/orchestrator-pr-lifecycle`. Spec:
   caught in review: `rearmLoop` clears `runtime.workspace`, so the prior
   worktree must be captured before the re-arm or it leaks. `run-engine.ts` is
   now 494/500 LOC.
+- Phase 2: `main-updated` needs the repo default branch, which no list
+  endpoint carries — the adapter resolves `repos/{owner}/{repo}` once under
+  demand and persists it in `events/github.json`; until it resolves the kind
+  emits nothing (a failed meta fetch counts as a failed cycle and retries).

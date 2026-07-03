@@ -18,7 +18,10 @@ export type GithubKind =
   | 'ci-passed'
   | 'issue-labelled'
   | 'review-requested'
-  | 'review-comment';
+  | 'review-comment'
+  | 'pr-approved'
+  | 'main-updated'
+  | 'issue-opened';
 
 const ALL_KINDS: readonly string[] = [
   'pr-opened',
@@ -27,6 +30,9 @@ const ALL_KINDS: readonly string[] = [
   'issue-labelled',
   'review-requested',
   'review-comment',
+  'pr-approved',
+  'main-updated',
+  'issue-opened',
 ];
 
 export interface GithubEndpoint {
@@ -57,7 +63,23 @@ export const GITHUB_ENDPOINTS: GithubEndpoint[] = [
     path: 'repos/{owner}/{repo}/pulls/comments?sort=created&direction=desc&per_page=30',
     kinds: ['review-comment'],
   },
+  {
+    id: 'repo-events',
+    path: 'repos/{owner}/{repo}/events?per_page=30',
+    kinds: ['pr-approved', 'main-updated'],
+  },
+  {
+    id: 'issues',
+    path: 'repos/{owner}/{repo}/issues?state=open&sort=created&direction=desc&per_page=30',
+    kinds: ['issue-opened'],
+  },
 ];
+
+/** Facts some extractors need beyond the endpoint body (spec 15). */
+export interface ExtractionContext {
+  /** The repo default branch — `main-updated` emits nothing until it is known. */
+  defaultBranch?: string;
+}
 
 /** The kinds live subscriptions demand; unknown `github:*` sources are reported, not polled. */
 export function demandedKinds(subscriptions: EventSubscription[]): { kinds: Set<GithubKind>; unknown: string[] } {
@@ -130,6 +152,31 @@ interface GhReviewComment {
   html_url?: string;
   user?: GhUser;
   pull_request_url?: string;
+}
+interface GhRepoEvent {
+  id?: string;
+  type?: string;
+  created_at?: string;
+  actor?: GhUser;
+  payload?: {
+    ref?: string;
+    before?: string;
+    head?: string;
+    size?: number;
+    review?: { state?: string; user?: GhUser };
+    pull_request?: { number?: number; title?: string; html_url?: string };
+  };
+}
+interface GhIssue {
+  id?: number;
+  number?: number;
+  title?: string;
+  created_at?: string;
+  html_url?: string;
+  user?: GhUser;
+  labels?: { name?: string }[];
+  /** Present when the "issue" is actually a pull request — the list mixes them. */
+  pull_request?: unknown;
 }
 
 const CI_FAILURE_CONCLUSIONS = new Set(['failure', 'timed_out', 'startup_failure']);
@@ -243,11 +290,73 @@ function reviewCommentCandidates(body: unknown): Candidate[] {
   return candidates;
 }
 
-const CANDIDATE_EXTRACTORS: Record<string, (body: unknown) => Candidate[]> = {
+/** The repo activity feed: one coarse endpoint carrying review approvals and default-branch pushes. */
+function repoEventCandidates(body: unknown, context: ExtractionContext): Candidate[] {
+  const candidates: Candidate[] = [];
+  for (const entry of asArray<GhRepoEvent>(body)) {
+    if (!entry?.created_at || entry.id === undefined) continue;
+    const shared = { occurredAt: entry.created_at, id: String(entry.id) };
+    if (entry.type === 'PullRequestReviewEvent' && entry.payload?.review?.state === 'approved') {
+      const pull = entry.payload.pull_request;
+      const reviewer = entry.payload.review.user?.login ?? entry.actor?.login;
+      candidates.push({
+        ...shared,
+        kind: 'pr-approved',
+        summary: `PR #${pull?.number} approved by ${reviewer ?? 'unknown'}`,
+        payload: { prNumber: pull?.number, prTitle: pull?.title, reviewer, url: pull?.html_url },
+      });
+    } else if (
+      entry.type === 'PushEvent' &&
+      context.defaultBranch !== undefined &&
+      entry.payload?.ref === `refs/heads/${context.defaultBranch}`
+    ) {
+      const commitCount = entry.payload.size ?? 0;
+      candidates.push({
+        ...shared,
+        kind: 'main-updated',
+        summary: `${context.defaultBranch} updated: ${commitCount} commit${commitCount === 1 ? '' : 's'} by ${entry.actor?.login ?? 'unknown'}`,
+        payload: {
+          branch: context.defaultBranch,
+          beforeSha: entry.payload.before,
+          afterSha: entry.payload.head,
+          commitCount,
+          pusher: entry.actor?.login,
+        },
+      });
+    }
+  }
+  return candidates;
+}
+
+function issueCandidates(body: unknown): Candidate[] {
+  const candidates: Candidate[] = [];
+  for (const issue of asArray<GhIssue>(body)) {
+    // The issues list includes pull requests — `issue-opened` never emits for them.
+    if (!issue?.created_at || issue.id === undefined || issue.pull_request) continue;
+    candidates.push({
+      kind: 'issue-opened',
+      occurredAt: issue.created_at,
+      id: String(issue.id),
+      summary: `Issue #${issue.number} opened: ${issue.title ?? ''}`.trim(),
+      payload: {
+        number: issue.number,
+        title: issue.title,
+        author: issue.user?.login,
+        labels: issue.labels?.map((label) => label.name).filter((name) => name !== undefined) ?? [],
+        url: issue.html_url,
+      },
+    });
+  }
+  return candidates;
+}
+
+const CANDIDATE_EXTRACTORS: Record<string, (body: unknown, context: ExtractionContext) => Candidate[]> = {
   pulls: pullCandidates,
   'workflow-runs': workflowRunCandidates,
   'issue-events': issueEventCandidates,
   'review-comments': reviewCommentCandidates,
+  'repo-events': repoEventCandidates,
+  issues: issueCandidates,
 };
 
 /**
@@ -260,8 +369,9 @@ export function extractOccurrences(
   demanded: Set<GithubKind>,
   cursors: Record<string, string>,
   nowIso: string,
+  context: ExtractionContext = {},
 ): { occurrences: GithubOccurrence[]; cursors: Record<string, string> } {
-  const candidates = CANDIDATE_EXTRACTORS[endpoint.id]?.(body) ?? [];
+  const candidates = CANDIDATE_EXTRACTORS[endpoint.id]?.(body, context) ?? [];
   const next = { ...cursors };
   const occurrences: GithubOccurrence[] = [];
   for (const kind of endpoint.kinds) {
