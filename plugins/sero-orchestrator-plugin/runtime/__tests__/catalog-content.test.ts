@@ -13,7 +13,7 @@ import { describe, expect, it } from 'vitest';
 import { catalogEntryMetaProblems, isCatalogIndex } from '../../shared/catalog';
 import type { CatalogEntryMeta, CatalogIndex } from '../../shared/catalog-types';
 import type { SharedLoopDefinition } from '../../shared/types';
-import { validateDeliverySettings, validateLoopPlan } from '../schema';
+import { validateSharedDefinition } from '../definition-validation';
 
 const CATALOG_DIR = process.env.SERO_CATALOG_DIR;
 
@@ -48,8 +48,7 @@ describe.skipIf(!CATALOG_DIR)('official catalog content', () => {
         const definition = readJson(path.join(dir, 'definition.json')) as SharedLoopDefinition;
         expect(definition.schemaVersion).toBe(1);
         expect(definition.prompt.trim()).toBeTruthy();
-        expect(validateLoopPlan(definition.plan)).toEqual([]);
-        if (definition.delivery) expect(validateDeliverySettings(definition.delivery)).toEqual([]);
+        expect(validateSharedDefinition(definition)).toEqual([]);
         // Product-authored definitions carry real triggers, never lifetime caps
         // masquerading as per-run bounds.
         expect(definition.triggers.length).toBeGreaterThan(0);

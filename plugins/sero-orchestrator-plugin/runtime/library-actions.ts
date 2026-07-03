@@ -10,6 +10,7 @@
 import type { Loop, LoopLibraryLink, OrchestratorAction, OrchestratorActionResult } from '../shared/types';
 import type { OrchestratorHost } from './host';
 import { buildLibrarySave } from '../shared/library';
+import { validateSharedDefinition } from './definition-validation';
 import { instantiate } from './library';
 import { replayStepOverrides } from './library-overlay';
 import { initStepStates } from './plan-mapping';
@@ -90,14 +91,15 @@ async function loadFromLibrary(
   const link: LoopLibraryLink = { entryId: entry.id, version: versionNumber, syncedAt: host.now() };
   let loop = instantiate(host, version.definition, link);
 
-  // Re-validate on load: a plan saved under older rules that no longer validates
-  // becomes a blocked draft carrying the errors (it cannot be activated), exactly
-  // like a create that fails validation.
-  const errors = validateLoopPlan(loop.plan);
+  // Re-validate the FULL definition on load (plan, delivery + gate shape,
+  // triggers): one saved under older rules that no longer validates becomes a
+  // blocked draft carrying the errors (it cannot be activated), exactly like a
+  // create that fails validation.
+  const errors = validateSharedDefinition(version.definition);
   if (errors.length > 0) {
     loop = {
       ...loop,
-      summary: 'Loaded plan failed validation.',
+      summary: 'Loaded definition failed validation.',
       runtime: { ...loop.runtime, block: { kind: 'validation-error', reason: errors.join('; '), createdAt: loop.createdAt } },
     };
   }

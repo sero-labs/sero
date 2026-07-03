@@ -377,9 +377,17 @@ function isPrimitive(value: unknown): boolean {
  * known namespace, a flat structured filter (primitives / arrays of primitives),
  * a bounded condition string, and a sane debounce. Mechanical only — what the
  * condition MEANS is the model's business at fire time. Shared with the trigger
- * extractor, which validates the same fields under its own label.
+ * extractor and shared-definition validation, which check the same fields
+ * under their own labels (structural param type so typed configs fit too).
  */
-export function validateEventTriggerFields(trigger: Record<string, unknown>, label: string, errors: string[]): void {
+export interface EventTriggerFields {
+  eventSource?: unknown;
+  eventFilter?: unknown;
+  eventCondition?: unknown;
+  debounceMs?: unknown;
+}
+
+export function validateEventTriggerFields(trigger: EventTriggerFields, label: string, errors: string[]): void {
   if (typeof trigger.eventSource !== 'string' || !isKnownEventSource(trigger.eventSource)) {
     errors.push(`${label}: an event trigger needs an "eventSource" (aka "source") of the form "<namespace>:<kind>" with a known namespace (${EVENT_SOURCE_NAMESPACES.join(', ')}), got ${JSON.stringify(trigger.eventSource)}.`);
   }

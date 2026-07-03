@@ -148,6 +148,19 @@ describe('catalog_install', () => {
     expect(host.modelCalls).toHaveLength(0); // no adaptation attempted
   });
 
+  it('a definition with an invalid trigger is refused before anything is written', async () => {
+    const host = createFakeHost();
+    const badTrigger = definition({ triggers: [{ type: 'cron', schedule: 'whenever feels right' }] });
+    seedCatalog(host, entry({}, badTrigger));
+
+    const res = await install(host);
+
+    expect(res.ok).toBe(false);
+    expect(res.error).toContain('triggers[0]');
+    expect(await host.library.readIndex()).toMatchObject({ entries: [] });
+    expect((await host.readState())?.loops).toEqual([]);
+  });
+
   it('missing required tools warn fail-soft and the warning rides the draft', async () => {
     const host = createFakeHost();
     seedCatalog(host, entry({ requiredTools: ['mcp'] }));

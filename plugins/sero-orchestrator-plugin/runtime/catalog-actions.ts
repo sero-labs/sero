@@ -21,10 +21,10 @@ import type {
   OrchestratorActionResult,
 } from '../shared/types';
 import { missingTools } from './delivery/availability';
+import { validateSharedDefinition } from './definition-validation';
 import type { OrchestratorHost } from './host';
 import { instantiate } from './library';
 import { runPlanningFlow } from './planning-flow';
-import { validateDeliverySettings, validateLoopPlan } from './schema';
 
 export type CatalogAction = Extract<OrchestratorAction, { kind: `catalog_${string}` }>;
 
@@ -61,12 +61,9 @@ async function removeRepo(host: OrchestratorHost, repoKey: string): Promise<Orch
   return { ok: true, catalogRepos: await host.catalog.listRepos() };
 }
 
-/** Validation errors for a catalog definition ([] = installable). */
+/** Validation errors for a catalog definition ([] = installable): full shared-definition rules, triggers included. */
 function definitionErrors(entry: CatalogEntry): string[] {
-  return [
-    ...validateLoopPlan(entry.definition.plan),
-    ...(entry.definition.delivery ? validateDeliverySettings(entry.definition.delivery) : []),
-  ];
+  return validateSharedDefinition(entry.definition);
 }
 
 /**

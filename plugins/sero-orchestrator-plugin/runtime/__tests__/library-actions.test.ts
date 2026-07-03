@@ -149,6 +149,23 @@ describe('library_load', () => {
     expect(res.loop!.runtime.block?.kind).toBe('validation-error');
   });
 
+  it('loads a definition with an invalid trigger as a blocked draft', async () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, oneStepPlan().plan);
+    loop.triggers = [];
+    await handleLibraryAction(host, { kind: 'library_save', loopId: loop.id, mode: 'new-entry' });
+    const entryId = (await host.library.readIndex()).entries[0].id;
+    const saved = (await host.library.readVersion(entryId, 1))!;
+    saved.definition.triggers = [{ type: 'event', eventSource: 'carrier-pigeon:arrived' }];
+    await host.library.putVersion({ id: entryId, name: 'n', summary: '', latestVersion: 1, createdAt: 't', updatedAt: 't' }, { ...saved, version: 2 });
+
+    const res = await handleLibraryAction(host, { kind: 'library_load', entryId, version: 2 });
+
+    expect(res.ok).toBe(true);
+    expect(res.loop!.runtime.block?.kind).toBe('validation-error');
+    expect(res.loop!.runtime.block?.reason).toContain('triggers[0]');
+  });
+
   it('errors for an unknown entry or version', async () => {
     const { host, entryId } = await savedEntry();
     expect((await handleLibraryAction(host, { kind: 'library_load', entryId: 'nope' })).ok).toBe(false);
