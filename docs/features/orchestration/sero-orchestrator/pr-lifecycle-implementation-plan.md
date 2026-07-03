@@ -23,8 +23,10 @@ Branch: `feat/orchestrator-pr-lifecycle`. Spec:
 - [x] **Phase 5 — pr receipt widening** (FR-P5): verify-back accepts an
       update to an existing open PR named by number; pr receipt hint covers
       opened-or-updated; event-pr loops get push-not-open planner rules.
-- [ ] **Phase 6 — UI**: branch source control (event/hybrid loops), queued
-      events count in loop detail, overflow warning chip.
+- [x] **Phase 6 — UI**: branch source switch in the create form, queued
+      events chip in the loop meta strip (count + next summary), "PR branch
+      from event" workspace label; overflow warning renders via the existing
+      generic warning list. `worktreeBranchSource` exposed on the tool.
 - [ ] **Phase 7 — Catalog entries** (FR-P7, FR-P9): `issue-implementer`
       (claim protocol), `ci-fixer`, `review-responder`, `rebase-on-main`;
       content validation + e2e (lost claim race ⇒ skipped, no PR).
