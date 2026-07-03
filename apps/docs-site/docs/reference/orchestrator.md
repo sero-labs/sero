@@ -119,6 +119,15 @@ until you set it, so a run never stalls halfway to ask for it. Loops installed
 from the catalog never include these values (they're yours, not the
 author's) — set them in Delivery before activating.
 
+**Working on an existing pull request.** A loop that reacts to PR events (CI
+failed, review comments) can be set to **work on the PR branch from the firing
+event** — a switch next to the worktree setting when you create it. Instead of
+starting a fresh branch, each run checks out the branch of the PR the event
+points at, so its commits and pushes update that PR directly. The branch
+belongs to the PR: deleting the loop never deletes it. If a run can't tell
+which PR branch to use (for example you ran it manually, with no event), it
+stops with a plain explanation rather than guessing.
+
 **Receipts.** A loop that declares a destination completes only when its final
 step reports a delivery receipt — what landed and where (PR URL, message link,
 draft id, file path). A completion claim without one is rejected and the step
@@ -190,13 +199,25 @@ event details on hover.
 | --- | --- |
 | `loop:completed` / `loop:blocked` / `loop:asked-question` | another loop in the workspace finishes, blocks, or asks a question |
 | `fs:changed` | files in the workspace change (one batched event per burst) |
-| `github:pr-opened`, `github:ci-failed`, `github:ci-passed`, `github:issue-labelled`, `github:review-requested`, `github:review-comment` | the matching activity happens on the workspace's GitHub repo |
+| `github:pr-opened`, `github:ci-failed`, `github:ci-passed`, `github:issue-labelled`, `github:review-requested`, `github:review-comment`, `github:pr-approved`, `github:main-updated`, `github:issue-opened` | the matching activity happens on the workspace's GitHub repo |
 | `webhook:<name>` | an external system POSTs JSON to `http://127.0.0.1:<port>/hooks/<name>` |
 
 An event trigger can carry an exact-match filter ("only the `bug` label") and a
 plain-language condition ("only when the failing PR is mine") judged at fire
 time. The event that started a run shows as a chip on that run in the history,
 and its details (source, summary, payload) are given to every step.
+
+Events that arrive while a run is already going are not lost: they queue (up
+to ten, oldest first) and each one gets its own run when the current one
+finishes. The loop's summary line shows how many are waiting and which is
+next; if the queue ever overflows, the oldest event is dropped with a visible
+warning on the loop.
+
+Some situations have no event because nothing "happens" — a pull request going
+stale is just time passing. Write those as a schedule instead: "every morning,
+list my open pull requests that have had no activity for a week and …". A
+hybrid loop can combine both — a schedule for the sweep plus events for
+instant reaction.
 
 Sources only do work while an active loop uses them: the file watcher, webhook
 listener, and GitHub poller all stop when the last subscribing loop is paused.

@@ -27,11 +27,16 @@ Branch: `feat/orchestrator-pr-lifecycle`. Spec:
       events chip in the loop meta strip (count + next summary), "PR branch
       from event" workspace label; overflow warning renders via the existing
       generic warning list. `worktreeBranchSource` exposed on the tool.
-- [ ] **Phase 7 — Catalog entries** (FR-P7, FR-P9): `issue-implementer`
-      (claim protocol), `ci-fixer`, `review-responder`, `rebase-on-main`;
-      content validation + e2e (lost claim race ⇒ skipped, no PR).
-- [ ] **Phase 8 — Docs** (FR-P6, FR-P8): docs-site reference (branch source,
-      event queue, new sources, stale-PR hybrid pattern).
+- [x] **Phase 7 — Catalog entries** (FR-P7, FR-P9): all four authored via the
+      product harness into the official catalog checkout
+      (`~/Documents/Dev/projects/sero/orchestrator-catalog`, committed, NOT
+      pushed); ci-fixer re-authored as v2 (event-pr, push-not-open); content
+      validation 28/28. REMAINING: the live claim-race e2e (a pre-claimed
+      issue must yield a skipped pass and no PR) — needs the real-repo
+      verification round, same as spec 12's.
+- [x] **Phase 8 — Docs** (FR-P6, FR-P8): docs-site reference covers the PR
+      branch source, the event queue, the three new sources, and the
+      stale-PR schedule pattern.
 
 ## FR matrix
 
@@ -42,10 +47,10 @@ Branch: `feat/orchestrator-pr-lifecycle`. Spec:
 | FR-P3 pending-event FIFO | 1 | done |
 | FR-P4 three new GitHub kinds | 2 | done |
 | FR-P5 updated-PR receipts | 5 | done |
-| FR-P6 stale-PR hybrid pattern documented | 8 | pending |
-| FR-P7 four catalog entries shipped | 7 | pending |
-| FR-P8 docs-site reference updated | 8 | pending |
-| FR-P9 claim protocol e2e-verified | 7 | pending |
+| FR-P6 stale-PR hybrid pattern documented | 8 | done |
+| FR-P7 four catalog entries shipped | 7 | done (catalog repo committed, push pending) |
+| FR-P8 docs-site reference updated | 8 | done |
+| FR-P9 claim protocol e2e-verified | 7 | authored + content-validated; live claim-race e2e pending |
 
 ## Constraints carried in
 
@@ -68,6 +73,14 @@ Branch: `feat/orchestrator-pr-lifecycle`. Spec:
   endpoint carries — the adapter resolves `repos/{owner}/{repo}` once under
   demand and persists it in `events/github.json`; until it resolves the kind
   emits nothing (a failed meta fetch counts as a failed cycle and retries).
+- Phase 7 (open question for Dan): a scan pass that finds NOTHING to do
+  cannot claim completion on a `pr`-destination loop — the delivery contract
+  (rightly) refuses completion without a receipt, so the sanctioned no-op
+  shape is "final step succeeds WITHOUT a completion signal" and the run ends
+  as `waiting`. Mechanically fine (the next fire re-arms regardless), but the
+  run history reads oddly for honest no-ops. If it grates in practice, the
+  fix is a first-class no-delivery completion in the contract — a deliberate
+  contract change, not something to slip in here.
 - Phase 4: `worktreeBranchSource` had to join `SharedLoopDefinition` — the
   spec's catalog loops set it, but workspace settings don't travel in shared
   definitions; the branch source is definitional (like the delivery kind), so
