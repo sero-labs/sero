@@ -451,3 +451,32 @@ Install counts/ratings/telemetry; a publishing pipeline beyond PR-to-repo;
 auto-updating installed entries; cross-profile sync beyond shared git;
 entries that bundle plugins/tools (entries may *require* connectors, never
 install them).
+
+## PR #226 review response (2026-07-03)
+
+Dan's review raised three runtime/safety findings; all three were real and are
+fixed on the branch:
+
+1. **Approval gate too broad** (`bedf3fa5c`) — `hasOpenApproval` accepted any
+   unconsumed approve answer, so a stale approval could authorize a different
+   send, and every open approval was consumed per send. Now the receipt must
+   carry `approvalId` naming an open approval that was asked by a current
+   gate step and records the approved content (`attachment`); exactly that
+   token is consumed, and `set_delivery` voids open approvals. Docs state the
+   scope honestly: the gate governs completion acceptance — a background
+   agent's shell can still physically POST, so an unapproved webhook send is
+   refused completion and lands in recovery, never blessed (true prevention =
+   runtime-mediated sending, out of scope v1).
+2. **Version switch was plan-only** (`eebb6455d`) — `library_set_version` now
+   applies the whole `SharedLoopDefinition` (title/prompt/summary/plan/
+   triggers/limits/logPolicy/contextOverrides/delivery). Explicit local set:
+   history, answered inputs, warnings, placement (except the file-delivery
+   root rule), step-override overlay (replayed). Triggers rematerialize with
+   fresh ids/zeroed counters; event demand resyncs via the state tap.
+3. **Triggers never validated on load/install** (`d60e9cbdd`) — new
+   `runtime/definition-validation.ts`: `validateSharedDefinition` = plan +
+   delivery + external gate shape + every trigger (cron validity, known event
+   source, flat filter, bounded condition, sane debounce, positive maxFires).
+   Used by catalog install/update, `library_load` (invalid ⇒ blocked draft),
+   version switch, and the content harness. All six official entries pass
+   (verified against a fresh clone).
