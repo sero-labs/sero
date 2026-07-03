@@ -133,7 +133,7 @@ describe('fireEvent broadcast', () => {
     expect(run.firedBy).toEqual({ source: 'github:ci-failed', occurredAt: NOW, summary: 'CI failed on PR #42' });
     const observation = run.observations.find((o) => o.source === 'event')!;
     expect(observation.data).toEqual({ pr: 42 });
-    expect(loop.runtime.pendingEvent).toBeUndefined(); // consumed by the run
+    expect(loop.runtime.pendingEvents).toBeUndefined(); // consumed by the run
 
     const task = buildStepTask(loop, loop.plan.steps[0], run);
     expect(task).toContain('fired by an event');
@@ -199,24 +199,56 @@ describe('fireEvent broadcast', () => {
 
     expect(executor.calls).toEqual([]); // nothing ran — the human gate holds
     expect(host.state.loops[0].triggers[0].fireCount).toBe(1);
-    expect(host.state.loops[0].runtime.pendingEvent?.id).toBe('evt-1');
+    expect(host.state.loops[0].runtime.pendingEvents?.[0]?.id).toBe('evt-1');
   });
 
-  it('tick drains a stashed pending event after a restart', async () => {
+  it('tick drains a queued pending event after a restart', async () => {
     const host = createFakeHost();
     host.frozenNow = NOW;
     const loop = seedActiveLoop(host, oneStepPlan().plan);
     host.state = {
       ...host.state,
-      loops: [{ ...loop, triggers: [eventTrigger({ fireCount: 1 })], runtime: { ...loop.runtime, pendingEvent: ciEvent() } }],
+      loops: [{ ...loop, triggers: [eventTrigger({ fireCount: 1 })], runtime: { ...loop.runtime, pendingEvents: [ciEvent()] } }],
     };
     const executor = fakeExecutor({ 'step-1': SUCCESS });
 
     await coordinator(host, { executor }).tick();
 
     expect(executor.calls).toEqual(['step-1']);
-    expect(host.state.loops[0].runtime.pendingEvent).toBeUndefined();
+    expect(host.state.loops[0].runtime.pendingEvents).toBeUndefined();
     expect(host.state.loops[0].runs.at(-1)?.firedBy?.source).toBe('github:ci-failed');
+  });
+
+  it('events fired mid-run queue FIFO and each drains into its own run, oldest first', async () => {
+    const host = createFakeHost();
+    host.frozenNow = NOW;
+    seedActiveLoop(host, oneStepPlan().plan);
+    setTriggers(host, 'loop-1', [eventTrigger()]);
+    // Two DIFFERENT discrete events (CI failed on PR #12 and #14) arrive while
+    // the first run is mid-step — the spec-12 latest-wins stash lost #12.
+    let midRunFired = false;
+    const c: Coordinator = coordinator(host, {
+      executor: fakeExecutor({
+        'step-1': async () => {
+          if (!midRunFired) {
+            midRunFired = true;
+            await c.fireEvent(ciEvent({ id: 'evt-12', summary: 'CI failed on PR #12', payload: { prNumbers: [12] } }));
+            await c.fireEvent(ciEvent({ id: 'evt-14', summary: 'CI failed on PR #14', payload: { prNumbers: [14] } }));
+          }
+          return SUCCESS;
+        },
+      }),
+    });
+
+    await c.fireEvent(ciEvent({ summary: 'CI failed on PR #10' }));
+
+    const loop = host.state.loops[0];
+    expect(loop.runs.map((r) => r.firedBy?.summary)).toEqual([
+      'CI failed on PR #10',
+      'CI failed on PR #12',
+      'CI failed on PR #14',
+    ]);
+    expect(loop.runtime.pendingEvents).toBeUndefined();
   });
 });
 
@@ -270,9 +302,9 @@ describe('event loops and completion (found by e2e — an event loop must outliv
     await c.fireEvent(ciEvent());
 
     const loop = host.state.loops[0];
-    expect(loop.runs).toHaveLength(2); // stash consumed into a fresh pass
+    expect(loop.runs).toHaveLength(2); // queued fire consumed into a fresh pass
     expect(loop.runs[1].firedBy?.summary).toBe('arrived mid-run');
-    expect(loop.runtime.pendingEvent).toBeUndefined();
+    expect(loop.runtime.pendingEvents).toBeUndefined();
     expect(loop.status).toBe('active');
   });
 
@@ -298,8 +330,8 @@ describe('event loops and completion (found by e2e — an event loop must outliv
 
     const loop = host.state.loops[0];
     expect(loop.status).toBe('complete');
-    expect(loop.runs).toHaveLength(1); // the stash never becomes a run…
-    expect(loop.runtime.pendingEvent).toBeUndefined(); // …and never lingers…
+    expect(loop.runs).toHaveLength(1); // the queued fire never becomes a run…
+    expect(loop.runtime.pendingEvents).toBeUndefined(); // …and never lingers…
     expect(loop.warnings.some((w) => w.code === 'event-dropped')).toBe(true); // …but is dropped visibly
     expect(loop.triggers[0].disabled).toBe(true); // nothing can fire a completed loop
   });

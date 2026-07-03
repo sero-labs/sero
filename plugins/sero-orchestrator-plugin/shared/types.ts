@@ -157,6 +157,7 @@ export interface LoopWarning {
     | 'agent-unavailable'
     | 'event-chain-depth'
     | 'event-dropped'
+    | 'event-queue-overflow'
     | 'delivery-tool-missing'
     | 'catalog-tool-missing';
   message: string;
@@ -314,12 +315,13 @@ export interface LoopRuntimeState {
    */
   deliveries?: DeliveryReceipt[];
   /**
-   * The latest event that fired while this loop was busy (run in flight or
-   * parked on a question) — latest wins, at most one pending fire. Consumed by
-   * the next iteration: the engine turns it into the run's `firedBy` + an
-   * `event` observation. Only the coordinator writes this field.
+   * FIFO of event fires awaiting their iteration (queued while a run was in
+   * flight or the loop was parked on a question), oldest first, bounded —
+   * overflow drops the oldest with a visible warning (event-queue.ts). The
+   * engine consumes the HEAD at run start and turns it into the run's
+   * `firedBy` + an `event` observation. Only the coordinator enqueues.
    */
-  pendingEvent?: OrchestratorEvent;
+  pendingEvents?: OrchestratorEvent[];
 }
 
 export interface LoopBlock {

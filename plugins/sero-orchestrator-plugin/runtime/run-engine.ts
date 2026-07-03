@@ -104,12 +104,13 @@ export class RunEngine {
     // Monotonic, never reused — `runs.length` repeats once run-history pruning
     // caps it, which would reuse worktree keys/branch names across iterations.
     const runSeq = (initial.runtime.runSeq ?? initial.runs.length) + 1;
-    // Consume the event this iteration was fired by (Living Loops): it becomes
-    // the run's `firedBy` plus an `event` observation the steps read, and the
-    // stash is cleared. A NEW event stashed while this run is in flight is a
-    // different id and survives `commit`'s preservation for the next iteration.
-    const event = initial.runtime.pendingEvent;
+    // Consume the HEAD of the pending-event queue (Living Loops): it becomes
+    // the run's `firedBy` plus an `event` observation the steps read. Events
+    // queued while this run is in flight have different ids and survive
+    // `commit`'s disk-authoritative merge for the iterations that follow.
+    const event = initial.runtime.pendingEvents?.[0];
     if (event) this.consumedEvents.set(initial.id, event.id);
+    const remainingEvents = initial.runtime.pendingEvents?.slice(1);
     let run: LoopRun = {
       id: this.host.newId('run'),
       runNumber: runSeq,
@@ -126,7 +127,13 @@ export class RunEngine {
       runs: [...initial.runs, run],
       // Drop last run's model/agent-unavailable warnings; this run re-discovers them.
       warnings: initial.warnings.filter((w) => w.code !== 'model-unavailable' && w.code !== 'agent-unavailable'),
-      runtime: { ...initial.runtime, activeRunId: run.id, lastRunAt: now, runSeq, pendingEvent: undefined },
+      runtime: {
+        ...initial.runtime,
+        activeRunId: run.id,
+        lastRunAt: now,
+        runSeq,
+        pendingEvents: remainingEvents?.length ? remainingEvents : undefined,
+      },
     };
     loop = await this.commit(loop);
     loop = await this.reconcilePullRequests(loop);
@@ -452,10 +459,10 @@ export class RunEngine {
    *   trigger write (the terminal-completion disable) is merged on top;
    * - `dueAgain` (a folded rerun request) is only ever SET concurrently, so a
    *   set flag on disk wins over the engine's stale false;
-   * - `pendingEvent` is coordinator-stashed; the engine only clears the one it
-   *   consumed at run start — a NEWER stash (different id) is preserved, and a
-   *   stash stranded by the loop leaving 'active' is dropped visibly
-   *   (dropStrandedEvent).
+   * - `pendingEvents` is coordinator-enqueued; the on-disk queue is
+   *   authoritative (it may have grown mid-run) and the engine only removes
+   *   the head it consumed at run start. A queue stranded by the loop leaving
+   *   'active' is dropped visibly (dropStrandedEvent).
    */
   private async commit(loop: Loop): Promise<Loop> {
     let result = loop;
@@ -464,14 +471,14 @@ export class RunEngine {
       result = loop;
       if (current) {
         const consumedId = this.consumedEvents.get(loop.id);
-        const stashed = current.runtime.pendingEvent;
+        const queued = (current.runtime.pendingEvents ?? []).filter((e) => e.id !== consumedId);
         result = {
           ...result,
           triggers: mergeTriggers(current.triggers, result.triggers),
           runtime: {
             ...result.runtime,
             dueAgain: current.runtime.dueAgain || result.runtime.dueAgain,
-            pendingEvent: stashed && stashed.id !== consumedId ? stashed : result.runtime.pendingEvent,
+            pendingEvents: queued.length ? queued : undefined,
           },
         };
       }

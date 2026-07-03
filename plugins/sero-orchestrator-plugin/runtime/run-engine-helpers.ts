@@ -76,13 +76,15 @@ export function mergeTriggers(disk: Loop['triggers'], memory: Loop['triggers']):
 }
 
 /**
- * A loop leaving 'active' can never drain a stashed pendingEvent — drop it
- * VISIBLY (an `event-dropped` warning) instead of leaving a stale fire to go
+ * A loop leaving 'active' can never drain its pending-event queue — drop it
+ * VISIBLY (an `event-dropped` warning) instead of leaving stale fires to go
  * off on a later re-activation. No-op while the loop stays active.
  */
 export function dropStrandedEvent(host: OrchestratorHost, loop: Loop): Loop {
-  const dropped = loop.status !== 'active' ? loop.runtime.pendingEvent : undefined;
-  if (!dropped) return loop;
+  const stranded = loop.status !== 'active' ? (loop.runtime.pendingEvents ?? []) : [];
+  if (stranded.length === 0) return loop;
+  const sources = [...new Set(stranded.map((e) => e.source))].join(', ');
+  const count = stranded.length === 1 ? 'An event' : `${stranded.length} queued events`;
   return {
     ...loop,
     warnings: [
@@ -90,10 +92,10 @@ export function dropStrandedEvent(host: OrchestratorHost, loop: Loop): Loop {
       {
         id: host.newId('warning'),
         code: 'event-dropped',
-        message: `A "${dropped.source}" event arrived during the final run and was not processed because the loop is now ${loop.status}.`,
+        message: `${count} ("${sources}") arrived during the final run and ${stranded.length === 1 ? 'was' : 'were'} not processed because the loop is now ${loop.status}.`,
         createdAt: host.now(),
       },
     ],
-    runtime: { ...loop.runtime, pendingEvent: undefined },
+    runtime: { ...loop.runtime, pendingEvents: undefined },
   };
 }

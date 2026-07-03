@@ -28,6 +28,7 @@ import type {
   RunIndex,
 } from '../shared/types';
 import { buildIndex, buildRunIndex, composeState, diffRuns, diffState, stripLoopForPersist } from './store';
+import { migrateLegacyPendingEvent } from './event-queue';
 
 export interface LoopStore {
   readState(): Promise<OrchestratorState>;
@@ -83,7 +84,10 @@ export function createLoopStore(ctx: AppRuntimeContext): LoopStore {
   }
 
   /** Reassembles a loop's runs/revisions from their files, migrating legacy inline data. */
-  async function reassembleLoop(loop: Loop): Promise<Loop> {
+  async function reassembleLoop(persisted: Loop): Promise<Loop> {
+    // Pre-queue loops persisted a single `pendingEvent` stash — read it as a
+    // one-element queue (spec 15).
+    const loop = migrateLegacyPendingEvent(persisted);
     const runIndex = await readJson<RunIndex>(runIndexFile(loop.id));
     if (runIndex?.runs) {
       const runs: LoopRun[] = [];

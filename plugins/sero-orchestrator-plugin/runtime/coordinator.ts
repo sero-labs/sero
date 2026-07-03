@@ -80,7 +80,7 @@ export class Coordinator {
     // Restart safety: an event stashed while the loop was busy (or while the
     // app was quitting) still owes the loop a fresh iteration — consume it.
     for (const loop of state.loops) {
-      if (loop.runtime.pendingEvent) await this.drainPendingEvent(loop.id);
+      if (loop.runtime.pendingEvents?.length) await this.drainPendingEvent(loop.id);
     }
   }
 

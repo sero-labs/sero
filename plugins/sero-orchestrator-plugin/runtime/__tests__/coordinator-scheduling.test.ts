@@ -72,7 +72,7 @@ describe('Coordinator scheduling (Phase 7)', () => {
     expect(host.state.loops[0].runtime.stepStates['step-1'].status).toBe('pending');
   });
 
-  it('events during an active run coalesce latest-wins into ONE fresh follow-up iteration', async () => {
+  it('events during an active run queue FIFO into one follow-up iteration EACH', async () => {
     const host = createFakeHost();
     host.frozenNow = NOW;
     seedActiveLoop(host, oneStepPlan().plan);
@@ -83,23 +83,23 @@ describe('Coordinator scheduling (Phase 7)', () => {
     const running = c.runNext('loop-1');
     await Promise.resolve(); // let the run acquire the lock and reach the gate
     await new Promise((r) => setTimeout(r, 0));
-    // Two events arrive while the run holds the lock: both count as fires, the
-    // stash keeps only the latest.
+    // Two DISCRETE events arrive while the run holds the lock: both count as
+    // fires and both queue — the spec-12 latest-wins stash dropped the first.
     await c.fireEvent({ id: 'evt-1', source: 'x', payload: { n: 1 }, occurredAt: NOW });
     await c.fireEvent({ id: 'evt-2', source: 'x', payload: { n: 2 }, occurredAt: NOW });
-    expect(host.state.loops[0].runtime.pendingEvent?.id).toBe('evt-2');
+    expect(host.state.loops[0].runtime.pendingEvents?.map((e) => e.id)).toEqual(['evt-1', 'evt-2']);
     expect(host.state.loops[0].triggers[0].fireCount).toBe(2);
 
     release();
     await running;
-    // Exactly one follow-up iteration, seeded with the latest event; the engine's
-    // mid-run snapshots did not clobber the stash or the fire counters.
-    expect(executor.calls).toEqual(['step-1', 'step-1']);
+    // One follow-up iteration per queued event, oldest first; the engine's
+    // mid-run snapshots did not clobber the queue or the fire counters.
+    expect(executor.calls).toEqual(['step-1', 'step-1', 'step-1']);
     expect(host.state.loops[0].triggers[0].fireCount).toBe(2);
-    expect(host.state.loops[0].runtime.pendingEvent).toBeUndefined();
-    const lastRun = host.state.loops[0].runs.at(-1)!;
-    expect(lastRun.firedBy?.source).toBe('x');
-    expect(lastRun.observations.find((o) => o.source === 'event')?.data).toEqual({ n: 2 });
+    expect(host.state.loops[0].runtime.pendingEvents).toBeUndefined();
+    const [, second, third] = host.state.loops[0].runs;
+    expect(second.observations.find((o) => o.source === 'event')?.data).toEqual({ n: 1 });
+    expect(third.observations.find((o) => o.source === 'event')?.data).toEqual({ n: 2 });
   });
 
   it('a recurring iteration that completes stays active and scheduled (does not finish forever)', async () => {
