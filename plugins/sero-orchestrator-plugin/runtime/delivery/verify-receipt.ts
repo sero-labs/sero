@@ -25,7 +25,14 @@ export async function verifyReceipt(host: OrchestratorHost, loop: Loop, receipt:
     const open = await host.listPullRequests().catch(() => undefined);
     if (open === undefined) return { ok: true };
     const ref = receipt.ref.trim();
-    const matches = open.some((pr) => ref === pr.url || ref.startsWith(`${pr.url}/`) || ref.startsWith(`${pr.url}#`));
+    // URL match covers both a PR this run opened and an existing PR it updated
+    // (spec 15 — same URL); the /pull/<n> number match tolerates a ref whose
+    // URL form differs from the list's (host casing, trailing segments).
+    const refNumber = /\/pull\/(\d+)(?:[/#?]|$)/.exec(ref)?.[1];
+    const matches = open.some(
+      (pr) =>
+        ref === pr.url || ref.startsWith(`${pr.url}/`) || ref.startsWith(`${pr.url}#`) || (refNumber !== undefined && Number(refNumber) === pr.number),
+    );
     return matches ? { ok: true } : { ok: false, reason: `no open pull request matches the receipt ref "${receipt.ref}"` };
   }
   if (receipt.destination === 'saved-artifact') {

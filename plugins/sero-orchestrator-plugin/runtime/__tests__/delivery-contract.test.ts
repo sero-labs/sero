@@ -111,6 +111,15 @@ describe('verifyReceipt', () => {
     expect(missed.ok).toBe(false);
   });
 
+  it('accepts an update to an existing open PR named by number even when the URL form differs (spec 15)', async () => {
+    const host = createFakeHost();
+    const loop = seedDeliveryLoop(host, 'pr');
+    host.pullRequests = [{ number: 12, url: 'https://github.com/o/r/pull/12', title: 't', headRefName: 'feat/someones-pr', updatedAt: 'now' }];
+    expect(await verifyReceipt(host, loop, { ...RECEIPT, destination: 'pr', ref: 'https://www.github.com/o/r/pull/12#issuecomment-1' })).toEqual({ ok: true });
+    const closed = await verifyReceipt(host, loop, { ...RECEIPT, destination: 'pr', ref: 'https://github.com/o/r/pull/13' });
+    expect(closed.ok).toBe(false); // a PR not in the open list still fails
+  });
+
   it('fails soft when the PR list itself cannot be read', async () => {
     const host = createFakeHost();
     const loop = seedDeliveryLoop(host, 'pr');

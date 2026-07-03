@@ -20,8 +20,9 @@ Branch: `feat/orchestrator-pr-lifecycle`. Spec:
       `worktreeBranchSource: 'new' | 'event-pr'`; branch from event payload,
       else PR-number lookup in `listPullRequests()`; unresolvable → visible
       block, no fallback; `deleteBranch` guarded for event-pr worktrees.
-- [ ] **Phase 5 — pr receipt widening** (FR-P5): verify-back accepts an
-      update to an existing open PR named by number.
+- [x] **Phase 5 — pr receipt widening** (FR-P5): verify-back accepts an
+      update to an existing open PR named by number; pr receipt hint covers
+      opened-or-updated; event-pr loops get push-not-open planner rules.
 - [ ] **Phase 6 — UI**: branch source control (event/hybrid loops), queued
       events count in loop detail, overflow warning chip.
 - [ ] **Phase 7 — Catalog entries** (FR-P7, FR-P9): `issue-implementer`
@@ -38,7 +39,7 @@ Branch: `feat/orchestrator-pr-lifecycle`. Spec:
 | FR-P2 existingBranch worktree seam | 3 | done |
 | FR-P3 pending-event FIFO | 1 | done |
 | FR-P4 three new GitHub kinds | 2 | done |
-| FR-P5 updated-PR receipts | 5 | pending |
+| FR-P5 updated-PR receipts | 5 | done |
 | FR-P6 stale-PR hybrid pattern documented | 8 | pending |
 | FR-P7 four catalog entries shipped | 7 | pending |
 | FR-P8 docs-site reference updated | 8 | pending |

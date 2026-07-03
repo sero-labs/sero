@@ -24,6 +24,14 @@ export interface DeliveryDestinationSpec {
   receiptHint: string;
 }
 
+/**
+ * Replaces the `pr` planner rules when the loop works ON an existing PR
+ * (worktreeBranchSource: 'event-pr', spec 15): the workspace is already
+ * checked out at the PR's own branch, so delivery is a push, never a new PR.
+ */
+export const PR_UPDATE_PLANNER_RULES =
+  "This loop responds to an existing pull request: the workspace is checked out at that PR's OWN branch. Deliver by committing the change on the current branch with a clear message and pushing it — the PR updates automatically. NEVER open a new pull request and never switch branches. After pushing, comment on the PR (gh pr comment) describing what changed and why. The FIRST step should read the firing event context plus the PR itself (gh pr view, gh pr diff) to understand what is being responded to.";
+
 const EXTERNAL_STAGING =
   'This is externally visible, so the plan MUST stage it: one step composes the content; a separate step marked "gate": "approval" presents that exact content to the user for approval (per HUMAN APPROVAL / INPUT GATES — it records the decision in a "produces" variable); and the step that actually delivers depends on the gate step and is guarded ("when") so it only runs once approved. The final step must (transitively) depend on the gate step. Never deliver without the recorded approval — an unapproved delivery is refused mechanically. If the user rejects, deliver nothing: route past the send and report honestly (a one-shot loop completes as "blocked").';
 
@@ -32,7 +40,7 @@ const RULES: Record<DeliveryDestinationId, Pick<DeliveryDestinationSpec, 'requir
     requiredTools: [],
     plannerRules:
       'The result must be delivered as a pull request or it is lost. After the change is made and verified, add a step that commits it on the current branch with a clear message; if the repository has a git remote and the `gh` CLI is available, that step should also push the branch and open a pull request describing the change. For a recurring loop, the FIRST step should review any open pull requests listed in its run context and skip work an open PR already covers before implementing.',
-    receiptHint: 'the opened pull request URL',
+    receiptHint: 'the pull request URL (the PR this run opened, or the existing PR it updated)',
   },
   'workspace-files': {
     requiredTools: [],
