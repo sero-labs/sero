@@ -82,6 +82,9 @@ export function seedActiveLoop(host: FakeHost, plan: LoopPlan, id = 'loop-1'): L
     summary: 's',
     status: 'active',
     workspace: { ...DEFAULT_WORKSPACE_SETTINGS },
+    // Receipt-free destination so completion-machinery tests stay focused;
+    // delivery tests override this (or delete it to exercise the derived pr).
+    delivery: { destination: 'workspace-files' },
     plan,
     runtime: {
       parentSessionId: loopParentSessionId(host.workspaceId, id),

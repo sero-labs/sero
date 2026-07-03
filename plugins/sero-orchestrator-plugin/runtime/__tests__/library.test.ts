@@ -81,6 +81,16 @@ describe('instantiate', () => {
     expect(loop.contextOverrides).toEqual({ systemPrompt: 'custom', disabledTools: ['bash'] });
   });
 
+  it('copies the delivery setting, cloned, and leaves it unset when absent', () => {
+    const host = createFakeHost();
+    const def = { ...definition(), delivery: { destination: 'webhook-post' as const, params: { url: 'https://example.test/hook' } } };
+    const loop = instantiate(host, def, LINK);
+
+    expect(loop.delivery).toEqual(def.delivery);
+    expect(loop.delivery).not.toBe(def.delivery);
+    expect(instantiate(host, definition(), LINK).delivery).toBeUndefined();
+  });
+
   it('clones the plan so the loop and the definition do not share state', () => {
     const host = createFakeHost();
     const def = definition();
@@ -102,5 +112,23 @@ describe('instantiate', () => {
     expect(back.triggers).toEqual([
       { type: 'cron', schedule: '0 9 * * *', eventSource: undefined, eventFilter: undefined, debounceMs: undefined, maxFires: 5 },
     ]);
+  });
+});
+
+describe('instantiate placement (catalog e2e finding)', () => {
+  it('a file-delivering definition lands at the workspace root, not a hidden worktree', () => {
+    const host = createFakeHost();
+    for (const destination of ['workspace-files', 'saved-artifact'] as const) {
+      const loop = instantiate(host, { ...definition(), delivery: { destination } }, LINK);
+      expect(loop.workspace.useManagedWorktree).toBe(false);
+    }
+  });
+
+  it('other (or absent) deliveries keep the workspace default placement', () => {
+    const host = createFakeHost();
+    expect(instantiate(host, definition(), LINK).workspace.useManagedWorktree).toBe(true);
+    expect(
+      instantiate(host, { ...definition(), delivery: { destination: 'pr' } }, LINK).workspace.useManagedWorktree,
+    ).toBe(true);
   });
 });

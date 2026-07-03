@@ -54,6 +54,10 @@ restrictions.
 | [08-loop-library.md](08-loop-library.md) | Loop Library: profile-global versioned store of loop definitions, save/load, linked instances, update/downgrade, local step-override overlay |
 | [09-ui-redesign.md](09-ui-redesign.md) | Wireframe-aligned UI: state visual language, cross-loop "Needs you" home inbox (enriched index attention payload), B1 calm detail + live-activity strip, C3 plan spine, guided D1→D2→D3 create flow |
 | [10-release-readiness.md](10-release-readiness.md) | Post-redesign backlog: prioritized gaps to close before/after an initial release (home pagination, completion notifications, context-override verification, UI tests, docs refresh, cost visibility) with acceptance criteria |
+| [11-per-step-agent.md](11-per-step-agent.md) | Per-step subagent: named agent roles on background-agent steps, contract preservation via appendSystemPrompt, agent-unavailable fallback + warning |
+| [12-living-loops.md](12-living-loops.md) | Living Loops: event-driven triggers — broadcast fireEvent with payloads, demand-driven source adapters (internal loop events, filesystem, GitHub polling, local webhook), filter/condition semantics, planner-authored event triggers |
+| [13-pluggable-delivery.md](13-pluggable-delivery.md) | Pluggable delivery: user-chosen destinations (PR, files, artifact, email draft/send, chat, webhook), agent-authored delivery with enforced DeliveryReceipt, approval-gated external sends, destination registry |
+| [14-loop-catalog.md](14-loop-catalog.md) | Loop Catalog: git-repo catalogs (official + user-added/team), on-demand clone cache, install links into library versioning, model-adapted installs, verified badge |
 
 ## Non-Goals
 

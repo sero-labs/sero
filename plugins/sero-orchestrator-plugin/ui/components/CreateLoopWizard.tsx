@@ -16,6 +16,7 @@ import { useWatchedJson } from '../lib/use-watched-json';
 import { deriveCreateStage, type CreateStage as Stage } from '../lib/create-stage';
 import { CreateLoopForm, type CreateLoopSubmit } from './CreateLoopForm';
 import { InputRequestCard } from './InputRequestCard';
+import { LoopMetaStrip } from './LoopMetaStrip';
 import { PlanView } from './PlanView';
 import { RefinePlan } from './RefinePlan';
 
@@ -75,6 +76,7 @@ export function CreateLoopWizard({ busy, stateDir, onCreate, onAction, onOpenLoo
             <Sparkles className="h-4 w-4 text-sky-400" />
             <h2 className="text-sm font-semibold">Here's the plan the AI wrote</h2>
           </div>
+          <LoopMetaStrip loop={loop} />
           {loop.runtime.block && (
             <Card className="border-destructive/50 p-3 text-sm">
               <span className="font-medium text-destructive">Plan generation hit a problem: </span>

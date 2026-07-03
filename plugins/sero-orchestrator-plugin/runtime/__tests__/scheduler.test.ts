@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { evaluateCronTriggers, fireEventTriggers, isRecurring, nextFireAfter, parseCron, rearmLoop } from '../scheduler';
+import { applyEventFires, evaluateCronTriggers, isRecurring, nextFireAfter, parseCron, rearmLoop } from '../scheduler';
 import type { Loop, LoopTrigger } from '../../shared/types';
 import { createFakeHost } from './fake-host';
 import { oneStepPlan, seedActiveLoop } from './fixtures';
@@ -71,6 +71,18 @@ describe('recurrence helpers', () => {
     expect(isRecurring(withTriggers(base(), [cronTrigger({ nextFireAt: undefined })]))).toBe(false); // exhausted
   });
 
+  it('isRecurring is true for an enabled event trigger — the next event fires it again', () => {
+    const event = (over: Partial<LoopTrigger> = {}): LoopTrigger =>
+      ({ id: 'e', loopId: 'loop-1', workspaceId: 'ws-1', type: 'event', eventSource: 'webhook:deploy', fireCount: 0, ...over });
+    expect(isRecurring(withTriggers(base(), [event()]))).toBe(true);
+    expect(isRecurring(withTriggers(base(), [event({ disabled: true })]))).toBe(false);
+    expect(isRecurring(withTriggers(base(), [event({ eventSource: undefined })]))).toBe(false);
+    // A hybrid whose cron half is exhausted still recurs through its event half.
+    expect(
+      isRecurring(withTriggers(base(), [event({ type: 'hybrid', schedule: '0 * * * *', nextFireAt: undefined })])),
+    ).toBe(true);
+  });
+
   it('rearmLoop resets steps to pending and clears run context + workspace', () => {
     const loop = base();
     const dirty: Loop = {
@@ -92,24 +104,29 @@ describe('recurrence helpers', () => {
   });
 });
 
-describe('fireEventTriggers', () => {
-  it('fires a matching event trigger', () => {
+describe('applyEventFires', () => {
+  it('records a fire on the named trigger only', () => {
     const loop = seedActiveLoop(createFakeHost(), oneStepPlan().plan);
-    const trigger: LoopTrigger = { id: 'e', loopId: 'loop-1', workspaceId: 'ws-1', type: 'event', eventSource: 'workspace.change', fireCount: 0 };
-    const result = fireEventTriggers(withTriggers(loop, [trigger]), 'workspace.change', T0);
-    expect(result.due).toBe(true);
-    expect(result.loop.triggers[0].fireCount).toBe(1);
+    const a: LoopTrigger = { id: 'a', loopId: 'loop-1', workspaceId: 'ws-1', type: 'event', eventSource: 'fs:changed', fireCount: 0 };
+    const b: LoopTrigger = { id: 'b', loopId: 'loop-1', workspaceId: 'ws-1', type: 'event', eventSource: 'fs:changed', fireCount: 0 };
+    const result = applyEventFires(withTriggers(loop, [a, b]), ['a'], T0);
+    expect(result.triggers[0].fireCount).toBe(1);
+    expect(result.triggers[0].lastFireAt).toBe(new Date(T0).toISOString());
+    expect(result.triggers[1].fireCount).toBe(0);
   });
 
-  it('respects debounce', () => {
+  it('self-disables at maxFires', () => {
     const loop = seedActiveLoop(createFakeHost(), oneStepPlan().plan);
-    const trigger: LoopTrigger = { id: 'e', loopId: 'loop-1', workspaceId: 'ws-1', type: 'event', eventSource: 'x', debounceMs: 60_000, lastFireAt: new Date(T0 - 1000).toISOString(), fireCount: 1 };
-    expect(fireEventTriggers(withTriggers(loop, [trigger]), 'x', T0).due).toBe(false);
+    const trigger: LoopTrigger = { id: 'e', loopId: 'loop-1', workspaceId: 'ws-1', type: 'event', eventSource: 'fs:changed', fireCount: 2, maxFires: 3 };
+    const result = applyEventFires(withTriggers(loop, [trigger]), ['e'], T0);
+    expect(result.triggers[0].fireCount).toBe(3);
+    expect(result.triggers[0].disabled).toBe(true);
   });
 
-  it('ignores events for a different source', () => {
+  it('is a no-op for an empty fire list', () => {
     const loop = seedActiveLoop(createFakeHost(), oneStepPlan().plan);
-    const trigger: LoopTrigger = { id: 'e', loopId: 'loop-1', workspaceId: 'ws-1', type: 'event', eventSource: 'a', fireCount: 0 };
-    expect(fireEventTriggers(withTriggers(loop, [trigger]), 'b', T0).due).toBe(false);
+    const trigger: LoopTrigger = { id: 'e', loopId: 'loop-1', workspaceId: 'ws-1', type: 'event', eventSource: 'fs:changed', fireCount: 0 };
+    const withTrigger = withTriggers(loop, [trigger]);
+    expect(applyEventFires(withTrigger, [], T0)).toBe(withTrigger);
   });
 });

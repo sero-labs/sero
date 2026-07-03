@@ -63,6 +63,11 @@ function AttentionInputCard({ loop, input, busy, onAction, onOpenLoop }: { loop:
       {input.questions.map((q) => (
         <div key={q.id} className="flex flex-col gap-2">
           <p className="text-sm text-muted-foreground">{q.prompt}</p>
+          {q.attachment && (
+            <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded-md border border-border bg-muted/40 p-2 text-xs">
+              {q.attachment}
+            </pre>
+          )}
           {q.choices && q.choices.length > 0 && (
             <div className="flex flex-wrap gap-2">
               {q.choices.map((c) => (

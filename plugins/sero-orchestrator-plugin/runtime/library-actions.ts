@@ -10,10 +10,12 @@
 import type { Loop, LoopLibraryLink, OrchestratorAction, OrchestratorActionResult } from '../shared/types';
 import type { OrchestratorHost } from './host';
 import { buildLibrarySave } from '../shared/library';
-import { instantiate } from './library';
+import { voidOpenApprovals } from './delivery/delivery-contract';
+import { validateSharedDefinition } from './definition-validation';
+import { fileDeliveryPlacement, instantiate } from './library';
 import { replayStepOverrides } from './library-overlay';
+import { materializeTriggers } from './loop-factory';
 import { initStepStates } from './plan-mapping';
-import { validateLoopPlan } from './schema';
 
 export type LibraryAction = Extract<OrchestratorAction, { kind: `library_${string}` }>;
 
@@ -87,17 +89,21 @@ async function loadFromLibrary(
   const version = await host.library.readVersion(entry.id, versionNumber);
   if (!version) return { ok: false, error: `Library version not found: ${entry.id} v${versionNumber}` };
 
+  // Re-validate the FULL definition on load (root shape, plan, delivery +
+  // gate shape, triggers): one saved under older rules that no longer
+  // validates becomes a blocked draft carrying the errors (it cannot be
+  // activated), exactly like a create that fails validation. A definition too
+  // malformed to even instantiate (triggers not an array) errors out instead.
+  const errors = validateSharedDefinition(version.definition);
+  if (errors.length > 0 && !Array.isArray(version.definition.triggers)) {
+    return { ok: false, error: `This version's definition is malformed: ${errors.join('; ')}` };
+  }
   const link: LoopLibraryLink = { entryId: entry.id, version: versionNumber, syncedAt: host.now() };
   let loop = instantiate(host, version.definition, link);
-
-  // Re-validate on load: a plan saved under older rules that no longer validates
-  // becomes a blocked draft carrying the errors (it cannot be activated), exactly
-  // like a create that fails validation.
-  const errors = validateLoopPlan(loop.plan);
   if (errors.length > 0) {
     loop = {
       ...loop,
-      summary: 'Loaded plan failed validation.',
+      summary: 'Loaded definition failed validation.',
       runtime: { ...loop.runtime, block: { kind: 'validation-error', reason: errors.join('; '), createdAt: loop.createdAt } },
     };
   }
@@ -112,7 +118,24 @@ async function listLibrary(host: OrchestratorHost): Promise<OrchestratorActionRe
   return { ok: true, libraryDir, libraryIndex };
 }
 
-/** Update (newer) or downgrade (older) a linked loop to a specific library version. */
+/**
+ * Update (newer) or downgrade (older) a linked loop to a specific library
+ * version. The library owns the WHOLE definition, so the switch applies all of
+ * it — plan, prompt, title, summary, triggers, limits, log policy, context
+ * overrides, and delivery — not just the plan (a catalog update may change
+ * cadence, event source, or destination). Deliberately local and preserved:
+ * the loop's identity/history (runs, revisions, insights, answered inputs,
+ * warnings), the workspace placement choice (except the file-delivery rule),
+ * and the step-override overlay, which is replayed onto the new plan.
+ * Triggers are definition-owned: they rematerialize with fresh ids and zeroed
+ * counters, replacing local trigger edits (logged).
+ *
+ * Approval hygiene: a switch changes the content pipeline, so OPEN approval
+ * tokens are voided (an approval granted under version N must never authorize
+ * a send under version N+1 — even when the gate step id happens to survive),
+ * and a loop parked on a pending question refuses to switch (answer it first;
+ * an old-plan question must not be answered against a new plan).
+ */
 async function setVersion(
   host: OrchestratorHost,
   action: Extract<LibraryAction, { kind: 'library_set_version' }>,
@@ -121,27 +144,42 @@ async function setVersion(
   if (!loop) return { ok: false, error: `Loop not found: ${action.loopId}` };
   if (!loop.libraryLink) return { ok: false, error: 'This loop is not linked to a library entry.' };
   if (loop.runtime.activeRunId) return { ok: false, error: 'Finish or stop the current run before switching versions.' };
+  if (loop.runtime.pendingInput) return { ok: false, error: "Answer the loop's pending question before switching versions." };
 
   const target = await host.library.readVersion(loop.libraryLink.entryId, action.version);
   if (!target) return { ok: false, error: `Library version not found: v${action.version}` };
 
-  // Library owns the plan structure; the local step-override overlay is replayed
-  // so model/tool picks survive the swap. The runtime is re-derived for the new
-  // plan (idle-only, so nothing is mid-flight).
-  const { plan, dropped } = replayStepOverrides(target.definition.plan, loop.stepOverrides);
-  const errors = validateLoopPlan(plan);
-  if (errors.length > 0) return { ok: false, error: `That version's plan is invalid: ${errors.join('; ')}` };
+  // Replay the local step-override overlay onto the target plan, then validate
+  // the definition as it will actually run (overlaid plan + target delivery,
+  // gate shape, and triggers).
+  const def = target.definition;
+  const { plan, dropped } = replayStepOverrides(def.plan, loop.stepOverrides);
+  const errors = validateSharedDefinition({ ...def, plan });
+  if (errors.length > 0) return { ok: false, error: `That version is invalid: ${errors.join('; ')}` };
 
   const now = host.now();
+  const placement = fileDeliveryPlacement(def);
   const next: Loop = {
     ...loop,
+    title: def.title,
+    prompt: def.prompt,
+    summary: def.summary,
     plan,
+    triggers: materializeTriggers(host, loop.id, def.triggers),
+    limits: { ...def.limits },
+    logPolicy: { ...def.logPolicy },
+    contextOverrides: def.contextOverrides ? structuredClone(def.contextOverrides) : undefined,
+    delivery: def.delivery ? structuredClone(def.delivery) : undefined,
+    workspace: placement ? { ...loop.workspace, ...placement } : loop.workspace,
+    answeredInputs: voidOpenApprovals(loop.answeredInputs, now),
     runtime: { ...loop.runtime, variables: {}, stepStates: initStepStates(plan, now), block: undefined, completion: undefined },
     libraryLink: { ...loop.libraryLink, version: action.version, syncedAt: now },
     updatedAt: now,
   };
   await replaceLoop(host, next);
   if (dropped.length) host.log(`Library switch dropped overrides for missing step(s): ${dropped.join(', ')}`);
+  if (loop.triggers.length > 0) host.log(`Library switch replaced ${loop.triggers.length} trigger(s) with the version's definition triggers`);
+  if (placement && loop.workspace.useManagedWorktree) host.log(`Loop ${loop.id} moved to the workspace root: v${action.version} delivers files`);
   host.log(`Loop ${loop.id} switched to library v${action.version}`);
   return { ok: true, loop: next };
 }

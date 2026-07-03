@@ -66,6 +66,26 @@ describe('toSharedTrigger', () => {
       maxFires: undefined,
     });
   });
+
+  it('round-trips the event half (source, filter, condition, debounce)', () => {
+    expect(
+      toSharedTrigger({
+        ...TRIGGER,
+        type: 'event',
+        schedule: undefined,
+        eventSource: 'github:ci-failed',
+        eventFilter: { repo: 'sero' },
+        eventCondition: 'the failing PR was opened by this loop',
+        debounceMs: 60_000,
+      }),
+    ).toEqual({
+      type: 'event',
+      eventSource: 'github:ci-failed',
+      eventFilter: { repo: 'sero' },
+      eventCondition: 'the failing PR was opened by this loop',
+      debounceMs: 60_000,
+    });
+  });
 });
 
 describe('toSharedDefinition', () => {
@@ -91,6 +111,15 @@ describe('toSharedDefinition', () => {
     for (const banned of ['id', 'workspaceId', 'status', 'runtime', 'runs', 'revisions', 'createdAt', 'updatedAt', 'libraryLink', 'stepOverrides']) {
       expect(keys).not.toContain(banned);
     }
+  });
+
+  it('round-trips the delivery setting, cloned, and omits it when unset', () => {
+    const delivery = { destination: 'chat-post' as const, params: { channel: '#intel' } };
+    const def = toSharedDefinition(makeLoop({ delivery }));
+    expect(def.delivery).toEqual(delivery);
+    expect(def.delivery).not.toBe(delivery);
+
+    expect(toSharedDefinition(makeLoop()).delivery).toBeUndefined();
   });
 
   it("embeds the loop's current per-step model/tool picks in the saved plan", () => {

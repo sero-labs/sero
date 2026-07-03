@@ -7,7 +7,7 @@
  * under `$SERO_HOME/apps/orchestrator-library/`, never in a workspace's loop.json.
  */
 
-import type { ContextOverrides, LoopLimits, LoopPlan, LogPolicy } from './types';
+import type { ContextOverrides, LoopDeliverySettings, LoopLimits, LoopPlan, LogPolicy } from './types';
 
 /** A trigger's portable config — no ids, no fire counters, no loop/workspace binding. */
 export interface SharedTriggerConfig {
@@ -15,6 +15,8 @@ export interface SharedTriggerConfig {
   schedule?: string;
   eventSource?: string;
   eventFilter?: Record<string, unknown>;
+  /** Natural-language condition judged by a model call at fire time (never parsed by code). */
+  eventCondition?: string;
   debounceMs?: number;
   maxFires?: number;
 }
@@ -30,6 +32,20 @@ export interface SharedLoopDefinition {
   limits: LoopLimits;
   logPolicy: LogPolicy;
   contextOverrides?: ContextOverrides;
+  /**
+   * The destination kind is definitional ("this loop posts a digest to chat"),
+   * so it travels with the definition; params are copied verbatim and adapted
+   * per workspace on load/install. Optional — schemaVersion stays 1.
+   */
+  delivery?: LoopDeliverySettings;
+}
+
+/** Where a library version came from when installed from a catalog (spec 14). */
+export interface CatalogProvenance {
+  repoKey: string;
+  slug: string;
+  /** The catalog entry's own monotonic version this library version mirrors. */
+  catalogVersion: number;
 }
 
 /** One immutable, monotonically numbered version of an entry. */
@@ -40,7 +56,19 @@ export interface LibraryVersion {
   note?: string;
   /** Provenance only — the workspace this version was saved from. */
   savedFromWorkspaceId?: string;
+  /** Provenance only — set when this version was installed from a catalog. */
+  catalog?: CatalogProvenance;
   createdAt: string;
+}
+
+/**
+ * The entry's latest catalog install, denormalized for lookup ("which entry
+ * owns this repoKey+slug?") and the UI's "installed" marker. The per-version
+ * `catalog` field stays authoritative.
+ */
+export interface CatalogInstallMarker extends CatalogProvenance {
+  /** The library version that catalog version landed as. */
+  libraryVersion: number;
 }
 
 export interface LibraryEntry {
@@ -49,6 +77,7 @@ export interface LibraryEntry {
   name: string;
   summary: string;
   latestVersion: number;
+  catalog?: CatalogInstallMarker;
   createdAt: string;
   updatedAt: string;
 }
@@ -60,6 +89,7 @@ export interface LibraryEntrySummary {
   summary: string;
   latestVersion: number;
   versionCount: number;
+  catalog?: CatalogInstallMarker;
   updatedAt: string;
 }
 

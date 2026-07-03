@@ -149,6 +149,23 @@ describe('library_load', () => {
     expect(res.loop!.runtime.block?.kind).toBe('validation-error');
   });
 
+  it('loads a definition with an invalid trigger as a blocked draft', async () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, oneStepPlan().plan);
+    loop.triggers = [];
+    await handleLibraryAction(host, { kind: 'library_save', loopId: loop.id, mode: 'new-entry' });
+    const entryId = (await host.library.readIndex()).entries[0].id;
+    const saved = (await host.library.readVersion(entryId, 1))!;
+    saved.definition.triggers = [{ type: 'event', eventSource: 'carrier-pigeon:arrived' }];
+    await host.library.putVersion({ id: entryId, name: 'n', summary: '', latestVersion: 1, createdAt: 't', updatedAt: 't' }, { ...saved, version: 2 });
+
+    const res = await handleLibraryAction(host, { kind: 'library_load', entryId, version: 2 });
+
+    expect(res.ok).toBe(true);
+    expect(res.loop!.runtime.block?.kind).toBe('validation-error');
+    expect(res.loop!.runtime.block?.reason).toContain('triggers[0]');
+  });
+
   it('errors for an unknown entry or version', async () => {
     const { host, entryId } = await savedEntry();
     expect((await handleLibraryAction(host, { kind: 'library_load', entryId: 'nope' })).ok).toBe(false);
@@ -200,6 +217,98 @@ describe('library_set_version', () => {
     expect(res.loop!.libraryLink!.version).toBe(1);
     expect(res.loop!.plan.objective).toBe('Do one thing'); // v1's plan
     expect(res.loop!.plan.steps.find((s) => s.id === 'step-1')!.execution).toMatchObject({ model: 'HIGH' });
+  });
+
+  it('applies the full definition — title, prompt, delivery, triggers, limits — not just the plan', async () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, oneStepPlan().plan); // v1: 'Seeded', workspace-files, no triggers
+    await handleLibraryAction(host, { kind: 'library_save', loopId: loop.id, mode: 'new-entry' });
+    // v2 changes far more than the plan: identity, cadence, destination, limits.
+    await host.updateState((s) => ({
+      ...s,
+      loops: s.loops.map((l) =>
+        l.id === loop.id
+          ? {
+              ...l,
+              title: 'Digest v2',
+              prompt: 'write the digest',
+              summary: 'v2 summary',
+              delivery: { destination: 'saved-artifact' as const, params: { name: 'digest' } },
+              triggers: [{ id: 'trig_old', loopId: l.id, workspaceId: l.workspaceId, type: 'cron' as const, schedule: '0 8 * * 1-5', fireCount: 7 }],
+              limits: { ...l.limits, maxAttemptsTotal: 9 },
+            }
+          : l,
+      ),
+    }));
+    await handleLibraryAction(host, { kind: 'library_save', loopId: loop.id, mode: 'new-version' });
+
+    // Down to v1: every definition-owned field reverts, not just the plan.
+    const v1 = await handleLibraryAction(host, { kind: 'library_set_version', loopId: loop.id, version: 1 });
+    expect(v1.ok).toBe(true);
+    expect(v1.loop!.title).toBe('Seeded');
+    expect(v1.loop!.delivery).toEqual({ destination: 'workspace-files' });
+    expect(v1.loop!.triggers).toEqual([]);
+
+    // Force a worktree placement, then go back up to v2: the new cadence and
+    // destination land, triggers rematerialize fresh, and the file-delivering
+    // destination pulls the loop to the workspace root.
+    await host.updateState((s) => ({
+      ...s,
+      loops: s.loops.map((l) => (l.id === loop.id ? { ...l, workspace: { ...l.workspace, useManagedWorktree: true } } : l)),
+    }));
+    const v2 = await handleLibraryAction(host, { kind: 'library_set_version', loopId: loop.id, version: 2 });
+    expect(v2.ok).toBe(true);
+    expect(v2.loop!.title).toBe('Digest v2');
+    expect(v2.loop!.prompt).toBe('write the digest');
+    expect(v2.loop!.summary).toBe('v2 summary');
+    expect(v2.loop!.delivery).toEqual({ destination: 'saved-artifact', params: { name: 'digest' } });
+    expect(v2.loop!.limits.maxAttemptsTotal).toBe(9);
+    expect(v2.loop!.triggers).toHaveLength(1);
+    expect(v2.loop!.triggers[0]).toMatchObject({ type: 'cron', schedule: '0 8 * * 1-5', fireCount: 0 });
+    expect(v2.loop!.triggers[0].id).not.toBe('trig_old'); // minted fresh, counters zeroed
+    expect(v2.loop!.workspace.useManagedWorktree).toBe(false); // saved-artifact delivers files
+  });
+
+  it('voids open approval tokens on a version switch (an old approval never covers new content)', async () => {
+    const { host, loopId } = await linkedAtV2();
+    await host.updateState((s) => ({
+      ...s,
+      loops: s.loops.map((l) =>
+        l.id === loopId
+          ? {
+              ...l,
+              answeredInputs: [{
+                requestId: 'input_old',
+                source: 'step' as const,
+                stepId: 'step-1',
+                questions: [{ id: 'q1', prompt: 'Send?', kind: 'approval' as const, attachment: 'old draft', choices: [{ id: 'approve', label: 'Approve' }, { id: 'reject', label: 'Reject' }] }],
+                answers: [{ questionId: 'q1', choiceId: 'approve' }],
+                answeredAt: 't',
+              }],
+            }
+          : l,
+      ),
+    }));
+
+    const res = await handleLibraryAction(host, { kind: 'library_set_version', loopId, version: 1 });
+
+    expect(res.ok).toBe(true);
+    expect(res.loop!.answeredInputs?.[0].consumedAt).toBeDefined();
+  });
+
+  it('refuses to switch while parked on a pending question', async () => {
+    const { host, loopId } = await linkedAtV2();
+    await host.updateState((s) => ({
+      ...s,
+      loops: s.loops.map((l) =>
+        l.id === loopId
+          ? { ...l, runtime: { ...l.runtime, pendingInput: { id: 'input_p', source: 'step' as const, stepId: 'step-1', questions: [{ id: 'q1', prompt: 'Old-plan question?' }], askedAt: 't' } } }
+          : l,
+      ),
+    }));
+    const res = await handleLibraryAction(host, { kind: 'library_set_version', loopId, version: 1 });
+    expect(res.ok).toBe(false);
+    expect(res.error).toContain('pending question');
   });
 
   it('refuses to switch mid-run', async () => {

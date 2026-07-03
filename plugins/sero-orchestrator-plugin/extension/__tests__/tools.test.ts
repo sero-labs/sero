@@ -74,6 +74,37 @@ describe('buildAction', () => {
     });
   });
 
+  it('folds a delivery destination + params into the create options', () => {
+    const action = buildAction({ action: 'create', prompt: 'hi', deliveryDestination: 'chat-post', deliveryParamsJson: '{"channel":"#intel"}' });
+    expect(action).toEqual({
+      kind: 'create',
+      prompt: 'hi',
+      title: undefined,
+      options: { delivery: { destination: 'chat-post', params: { channel: '#intel' } } },
+    });
+  });
+
+  it('builds set_delivery from destination + params', () => {
+    expect(buildAction({ action: 'set_delivery', loopId: 'l1', deliveryDestination: 'saved-artifact' })).toEqual({
+      kind: 'set_delivery', loopId: 'l1', delivery: { destination: 'saved-artifact', params: undefined },
+    });
+    expect(buildAction({ action: 'set_delivery', loopId: 'l1' })).toEqual({
+      error: 'set_delivery requires a deliveryDestination',
+    });
+    expect(buildAction({ action: 'set_delivery', deliveryDestination: 'pr' })).toEqual({
+      error: 'set_delivery requires a loopId',
+    });
+  });
+
+  it('rejects malformed delivery params', () => {
+    expect(buildAction({ action: 'set_delivery', loopId: 'l1', deliveryDestination: 'webhook-post', deliveryParamsJson: '{bad' })).toEqual({
+      error: 'deliveryParamsJson is not valid JSON',
+    });
+    expect(buildAction({ action: 'set_delivery', loopId: 'l1', deliveryDestination: 'webhook-post', deliveryParamsJson: '["url"]' })).toEqual({
+      error: 'deliveryParamsJson must be a JSON object of destination params',
+    });
+  });
+
   it('parses a set_step_tools allowlist from JSON', () => {
     expect(buildAction({ action: 'set_step_tools', loopId: 'l1', stepId: 's1', toolsJson: '["bash","web_search"]' })).toEqual({
       kind: 'set_step_tools', loopId: 'l1', stepId: 's1', tools: ['bash', 'web_search'],
@@ -131,6 +162,21 @@ describe('parseCommand', () => {
 
   it('parses lifecycle actions with a loopId', () => {
     expect(parseCommand('activate loop_0001')).toEqual({ action: 'activate', loopId: 'loop_0001' });
+  });
+
+  it('parses a create --deliver flag ahead of the prompt', () => {
+    expect(parseCommand('create --deliver chat-post post a digest every morning')).toEqual({
+      action: 'create', prompt: 'post a digest every morning', deliveryDestination: 'chat-post',
+    });
+    expect(parseCommand('create --deliver carrier-pigeon do it')).toMatchObject({ error: expect.stringContaining('carrier-pigeon') });
+  });
+
+  it('parses set_delivery with a loopId and destination', () => {
+    expect(parseCommand('set_delivery loop_0001 saved-artifact')).toEqual({
+      action: 'set_delivery', loopId: 'loop_0001', deliveryDestination: 'saved-artifact',
+    });
+    expect(parseCommand('set_delivery loop_0001 nope')).toMatchObject({ error: expect.stringContaining('nope') });
+    expect(parseCommand('set_delivery loop_0001')).toMatchObject({ error: expect.stringContaining('set_delivery') });
   });
 
   it('returns help on unknown action', () => {

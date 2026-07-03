@@ -30,6 +30,7 @@ function toEntrySummary(entry: LibraryEntry): LibraryEntrySummary {
     summary: entry.summary,
     latestVersion: entry.latestVersion,
     versionCount: entry.latestVersion,
+    catalog: entry.catalog,
     updatedAt: entry.updatedAt,
   };
 }

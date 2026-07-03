@@ -41,7 +41,7 @@ describe('Coordinator.revise (manual)', () => {
     host.state = { ...host.state, loops: [loop] };
     // 1) revise returns a NEW goal + plan; 2) the dedicated schedule call derives the new cadence.
     host.modelResponses.push({ response: JSON.stringify({ goal: 'every 10 minutes, do the thing; stop when done', plan: oneStepPlan().plan }) });
-    host.modelResponses.push({ response: JSON.stringify({ recurring: true, schedule: '*/10 * * * *' }) });
+    host.modelResponses.push({ response: JSON.stringify({ recurring: true, schedule: '*/10 * * * *', events: [] }) });
 
     const res = await new Coordinator(host).revise('loop-1', 'run every 10 minutes instead');
     expect(res.ok).toBe(true);

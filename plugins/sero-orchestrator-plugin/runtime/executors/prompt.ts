@@ -6,12 +6,14 @@
  * the engine falls back to an LLM evaluator (Phase 5) or a mechanical status.
  */
 
-import type { Loop, LoopStepDefinition, StepCompletion, StepOutcome } from '../../shared/types';
+import type { Loop, LoopRun, LoopStepDefinition, StepCompletion, StepOutcome } from '../../shared/types';
 import { extractJson } from '../schema';
 import { describeValue, isRecord, type ParseResult } from '../structured-call';
 import { parseHumanQuestions } from '../human-input';
 import { formatRouteContract, routeVariableRequirements } from '../route-contract';
 import { finalizationStepId } from '../readiness';
+import { effectiveDelivery, isDeliveryDestinationId, type DeliveryReceipt } from '../../shared/delivery-types';
+import { formatDeliveryContract } from '../delivery/delivery-contract';
 
 const STEP_STATUSES: readonly StepOutcome['status'][] = ['succeeded', 'failed', 'blocked', 'skipped', 'needs-revision'];
 
@@ -70,6 +72,20 @@ function variablesContext(loop: Loop): string {
 }
 
 /**
+ * The loop's declared delivery params (webhook url, chat channel, recipients…).
+ * Injected for every step, not just the final one: the step that performs the
+ * send is usually pre-final, and a plan loaded from the library/catalog was
+ * authored before the user supplied these values — its instructions reference
+ * "the declared delivery parameters", so they must actually be in the prompt
+ * or the agent hunts the workspace for values that exist nowhere.
+ */
+function deliveryParamsContext(loop: Loop): string {
+  const delivery = effectiveDelivery(loop);
+  if (!delivery.params || Object.keys(delivery.params).length === 0) return '';
+  return `\nThis loop's declared delivery parameters for "${delivery.destination}" (use these EXACT values when a step delivers):\n${JSON.stringify(delivery.params, null, 2)}`;
+}
+
+/**
  * Inventory of the loop's own open PRs (branch matches the loop id, refreshed at
  * run start). Injected for background-agent steps only — they touch the repo — so
  * a recurring loop doesn't redo work an open PR already covers. The model judges
@@ -83,14 +99,48 @@ function openPullRequestsContext(loop: Loop, step: LoopStepDefinition): string {
   return `\nOpen pull requests already raised by this loop (do not duplicate work an open PR already covers — judge coverage yourself):\n${lines.join('\n')}`;
 }
 
-export function buildStepTask(loop: Loop, step: LoopStepDefinition): string {
+/**
+ * What this loop already shipped in earlier runs (newest last, capped at
+ * persistence). Injected for background-agent steps like the open-PR inventory,
+ * so a recurring loop builds on past deliveries instead of re-sending them —
+ * the model judges overlap; we only feed it the list.
+ */
+function deliveriesContext(loop: Loop, step: LoopStepDefinition): string {
+  if (step.execution.type !== 'background-agent') return '';
+  const deliveries = loop.runtime.deliveries ?? [];
+  if (deliveries.length === 0) return '';
+  const lines = deliveries.slice(-5).map((d) => `- ${d.deliveredAt}: ${d.summary} (${d.destination} — ${d.ref})`);
+  return `\nAlready delivered by this loop in earlier runs (do not re-deliver the same content — judge overlap yourself):\n${lines.join('\n')}`;
+}
+
+/**
+ * The event that started this run (Living Loops): what fired and its payload,
+ * so the steps act on the concrete occurrence — the failing PR, the changed
+ * files — instead of re-discovering it.
+ */
+function eventContext(run?: LoopRun): string {
+  if (!run?.firedBy) return '';
+  const observation = run.observations.find((o) => o.source === 'event');
+  const payload = observation?.data ? `\nEvent payload:\n${JSON.stringify(observation.data, null, 2)}` : '';
+  return `\nThis iteration was fired by an event — ${run.firedBy.source} at ${run.firedBy.occurredAt}: ${run.firedBy.summary}.${payload}`;
+}
+
+export function buildStepTask(loop: Loop, step: LoopStepDefinition, run?: LoopRun): string {
   const parts = [`Loop objective: ${loop.plan.objective}`];
   if (loop.plan.globalInstructions) parts.push(`Global instructions: ${loop.plan.globalInstructions}`);
+  parts.push(eventContext(run));
   parts.push(`\nStep: ${step.title}\n${step.instructions}`);
+  if (step.gate === 'approval') {
+    parts.push(`\nThis step is an APPROVAL GATE: the user must decide before anything is delivered. Do NOT deliver anything in this step. If the shared notes do not yet contain the user's decision on this exact content, STOP and ask: set "status" to "needs-revision" and emit ONE question of this exact form in your StepOutcome "questions":
+{ "prompt": "<what needs approving, one sentence>", "kind": "approval", "attachment": "<the FULL exact content to be delivered>", "choices": [ { "id": "approve", "label": "Approve" }, { "id": "reject", "label": "Reject" } ] }
+The loop parks until the user decides. When you re-run with their decision in the notes, do NOT ask again — record the decision in your "variables" exactly as your step instructions say, so the guarded steps route on it.`);
+  }
   if (step.expectedOutcome) parts.push(`\nExpected outcome: ${step.expectedOutcome}`);
   parts.push(dependencyContext(loop, step));
   parts.push(variablesContext(loop));
+  parts.push(deliveryParamsContext(loop));
   parts.push(openPullRequestsContext(loop, step));
+  parts.push(deliveriesContext(loop, step));
   parts.push(formatRouteContract(routeVariableRequirements(loop, step)));
   if (step.execution.type === 'model' && step.execution.outputSchema !== undefined) {
     parts.push(`\nReturn output matching this schema (include it in the StepOutcome variables):\n${JSON.stringify(step.execution.outputSchema, null, 2)}`);
@@ -98,6 +148,7 @@ export function buildStepTask(loop: Loop, step: LoopStepDefinition): string {
   const finalId = finalizationStepId(loop);
   if (finalId === step.id) {
     parts.push('\nThis is the loop\'s FINAL step — nothing runs after it, so the loop only ends if you end it here. After doing the work, judge whether the loop\'s overall objective is now fully met, then include a "completion" object in your StepOutcome: { "status": "complete", "reason": ... } if it is met, or { "status": "blocked", "reason": ... } if it cannot be. Without a completion signal the loop never finishes.');
+    parts.push(formatDeliveryContract(loop, effectiveDelivery(loop)));
   } else if (finalId !== undefined) {
     parts.push('\nThis is NOT the loop\'s final step — do NOT include a "completion" object; a later finalization step decides when the whole loop is done. (If you genuinely cannot proceed, report it with your "status", not a completion.)');
   }
@@ -146,7 +197,26 @@ function parseCompletion(raw: unknown, errors: string[]): StepCompletion | undef
   }
   const completion: StepCompletion = { status: raw.status, reason: raw.reason };
   if (raw.final === true) completion.final = true;
+  if (raw.receipt !== undefined) completion.receipt = parseReceipt(raw.receipt, errors);
   return completion;
+}
+
+/** Format-only receipt validation; whether one is REQUIRED is the delivery contract's call. */
+function parseReceipt(raw: unknown, errors: string[]): DeliveryReceipt | undefined {
+  if (
+    !isRecord(raw) ||
+    !isDeliveryDestinationId(raw.destination) ||
+    typeof raw.ref !== 'string' || !raw.ref.trim() ||
+    typeof raw.summary !== 'string' || !raw.summary.trim() ||
+    typeof raw.deliveredAt !== 'string' || !raw.deliveredAt.trim() ||
+    (raw.approvalId !== undefined && (typeof raw.approvalId !== 'string' || !raw.approvalId.trim()))
+  ) {
+    errors.push('"completion.receipt", if present, must be { "destination": <this loop\'s destination id>, "ref": <non-empty string — where it landed>, "summary": <non-empty string>, "deliveredAt": <ISO 8601 timestamp>, "approvalId": <the approval token id — required for external destinations> }.');
+    return undefined;
+  }
+  const receipt: DeliveryReceipt = { destination: raw.destination, ref: raw.ref.trim(), summary: raw.summary, deliveredAt: raw.deliveredAt };
+  if (typeof raw.approvalId === 'string') receipt.approvalId = raw.approvalId.trim();
+  return receipt;
 }
 
 /** Fast-path parse of a step's own envelope; undefined when absent or invalid. */

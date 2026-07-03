@@ -58,6 +58,7 @@ export function materializeTriggers(
       schedule: s.schedule,
       eventSource: s.eventSource,
       eventFilter: s.eventFilter,
+      eventCondition: s.eventCondition,
       debounceMs: s.debounceMs,
       maxFires: s.maxFires,
       fireCount: 0,
@@ -87,6 +88,9 @@ export function buildDraftLoop(host: OrchestratorHost, args: BuildDraftArgs): Lo
     summary: args.summary ?? '',
     status: 'draft',
     workspace: mergeWorkspaceSettings(args.options?.workspace),
+    // Absent unless the user chose one — the effective destination is then
+    // derived from placement (effectiveDelivery), tracking placement changes.
+    delivery: args.options?.delivery,
     plan: args.plan ?? emptyPlan(),
     runtime: {
       parentSessionId: loopParentSessionId(host.workspaceId, id),

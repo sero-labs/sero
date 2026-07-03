@@ -117,6 +117,56 @@ describe('Coordinator set_loop_context', () => {
   });
 });
 
+describe('Coordinator set_delivery', () => {
+  it('stores the delivery setting on the loop', async () => {
+    const host = createFakeHost();
+    seedActiveLoop(host, oneStepPlan().plan);
+    const delivery = { destination: 'chat-post' as const, params: { channel: '#intel' } };
+    const res = await new Coordinator(host).requestAction({ kind: 'set_delivery', loopId: 'loop-1', delivery });
+    expect(res.ok).toBe(true);
+    expect(res.loop?.delivery).toEqual(delivery);
+    expect(host.state.loops[0].delivery).toEqual(delivery);
+  });
+
+  it('rejects an unknown destination', async () => {
+    const host = createFakeHost();
+    seedActiveLoop(host, oneStepPlan().plan);
+    const res = await new Coordinator(host).requestAction({
+      kind: 'set_delivery', loopId: 'loop-1', delivery: { destination: 'carrier-pigeon' as never },
+    });
+    expect(res.ok).toBe(false);
+    expect(res.error).toContain('carrier-pigeon');
+    expect(host.state.loops[0].delivery).toEqual({ destination: 'workspace-files' }); // fixture value, unchanged
+  });
+
+  it('rejects a webhook-post delivery without its url', async () => {
+    const host = createFakeHost();
+    seedActiveLoop(host, oneStepPlan().plan);
+    const res = await new Coordinator(host).requestAction({
+      kind: 'set_delivery', loopId: 'loop-1', delivery: { destination: 'webhook-post' },
+    });
+    expect(res.ok).toBe(false);
+    expect(res.error).toContain('"url"');
+    expect(host.state.loops[0].delivery).toEqual({ destination: 'workspace-files' }); // fixture value, unchanged
+  });
+
+  it('rejects create options carrying an invalid delivery', async () => {
+    const host = createFakeHost();
+    const res = await new Coordinator(host).requestAction({
+      kind: 'create', prompt: 'do it', options: { delivery: { destination: 'nope' as never } },
+    });
+    expect(res.ok).toBe(false);
+    expect(res.error).toContain('nope');
+    expect(host.state.loops).toHaveLength(0);
+  });
+
+  it('errors for an unknown loop', async () => {
+    const host = createFakeHost();
+    const res = await new Coordinator(host).requestAction({ kind: 'set_delivery', loopId: 'nope', delivery: { destination: 'pr' } });
+    expect(res.ok).toBe(false);
+  });
+});
+
 describe('Coordinator delete', () => {
   const managedWorktree: ResolvedWorkspaceContext = {
     id: 'ws', type: 'managed-worktree', workspaceRoot: '/root',

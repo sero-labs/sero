@@ -59,6 +59,22 @@ describe('parseStepOutcomeStrict', () => {
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.value.completion?.status).toBe('complete');
   });
+
+  it('carries a well-formed delivery receipt through the completion', () => {
+    const receipt = { destination: 'chat-post', ref: 'https://chat/p/1', summary: 'posted', deliveredAt: '2026-01-01T00:00:00Z' };
+    const result = parseStepOutcomeStrict({ status: 'succeeded', summary: 'x', completion: { status: 'complete', reason: 'done', receipt } });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value.completion?.receipt).toEqual(receipt);
+  });
+
+  it('rejects a malformed receipt with a precise reason', () => {
+    const result = parseStepOutcomeStrict({
+      status: 'succeeded', summary: 'x',
+      completion: { status: 'complete', reason: 'done', receipt: { destination: 'carrier-pigeon', ref: '' } },
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.errors[0]).toContain('"completion.receipt"');
+  });
 });
 
 describe('buildStepTask finalization signal', () => {
@@ -94,6 +110,58 @@ describe('buildStepTask finalization signal', () => {
   });
 });
 
+describe('buildStepTask delivery receipt contract', () => {
+  it('demands proof of delivery on the final step for a declared destination', () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, oneStepPlan().plan);
+    loop.delivery = { destination: 'chat-post', params: { channel: '#intel' } };
+    const task = buildStepTask(loop, loop.plan.steps[0]);
+    expect(task).toContain('PROOF OF DELIVERY');
+    expect(task).toContain('"destination": "chat-post"');
+  });
+
+  it('uses the derived destination when none was chosen (worktree ⇒ pr)', () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, oneStepPlan().plan); // useManagedWorktree true
+    delete loop.delivery; // undecided loop: destination derives from placement
+    const task = buildStepTask(loop, loop.plan.steps[0]);
+    expect(task).toContain('"destination": "pr"');
+  });
+
+  it('needs no receipt for workspace-files', () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, oneStepPlan().plan);
+    loop.workspace = { ...loop.workspace, useManagedWorktree: false };
+    expect(buildStepTask(loop, loop.plan.steps[0])).not.toContain('PROOF OF DELIVERY');
+  });
+
+  it('puts the contract only on the final step', () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, sequentialPlan().plan); // a -> b; b is the sink
+    loop.delivery = { destination: 'saved-artifact' };
+    expect(buildStepTask(loop, loop.plan.steps.find((s) => s.id === 'a')!)).not.toContain('PROOF OF DELIVERY');
+    expect(buildStepTask(loop, loop.plan.steps.find((s) => s.id === 'b')!)).toContain('PROOF OF DELIVERY');
+  });
+
+  it('gives every step the declared delivery params — the send step is usually pre-final', () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, sequentialPlan().plan); // a -> b; b is the sink
+    loop.delivery = { destination: 'webhook-post', params: { url: 'https://127.0.0.1:9999/hook' } };
+    for (const id of ['a', 'b']) {
+      const task = buildStepTask(loop, loop.plan.steps.find((s) => s.id === id)!);
+      expect(task).toContain('declared delivery parameters');
+      expect(task).toContain('https://127.0.0.1:9999/hook');
+    }
+  });
+
+  it('renders no delivery-params block when none are declared', () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, oneStepPlan().plan);
+    loop.delivery = { destination: 'saved-artifact' };
+    expect(buildStepTask(loop, loop.plan.steps[0])).not.toContain('declared delivery parameters');
+  });
+});
+
 describe('buildStepTask open-PR awareness', () => {
   it('renders the open-PR block for a background-agent step when the loop has PRs', () => {
     const host = createFakeHost();
@@ -110,6 +178,26 @@ describe('buildStepTask open-PR awareness', () => {
     const host = createFakeHost();
     const loop = seedActiveLoop(host, oneStepPlan().plan);
     expect(buildStepTask(loop, loop.plan.steps[0])).not.toContain('Open pull requests already raised');
+  });
+});
+
+describe('buildStepTask past-deliveries awareness', () => {
+  it('lists what earlier runs already shipped so a recurring loop does not re-deliver', () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, oneStepPlan().plan);
+    loop.runtime.deliveries = [
+      { destination: 'chat-post', ref: 'https://chat/p/1', summary: 'Posted Monday digest', deliveredAt: '2026-01-01T08:00:00Z' },
+    ];
+    const task = buildStepTask(loop, loop.plan.steps[0]);
+    expect(task).toContain('Already delivered by this loop in earlier runs');
+    expect(task).toContain('Posted Monday digest');
+    expect(task).toContain('https://chat/p/1');
+  });
+
+  it('omits the block when nothing was delivered yet', () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, oneStepPlan().plan);
+    expect(buildStepTask(loop, loop.plan.steps[0])).not.toContain('Already delivered');
   });
 });
 
@@ -142,6 +230,20 @@ describe('backgroundAgentExecutor', () => {
     const attempt = await backgroundAgentExecutor.run(inputFor(host, loop, 'step-1'));
     expect(attempt.status).toBe('failed');
     expect(attempt.error).toBe('agent crashed');
+  });
+
+  it('repairs a completion claim that lacks its delivery receipt in-session (layer 2)', async () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, oneStepPlan().plan);
+    loop.delivery = { destination: 'chat-post' };
+    const receipt = { destination: 'chat-post' as const, ref: 'https://chat/p/9', summary: 'posted', deliveredAt: '2026-01-01T00:00:00Z' };
+    // First reply claims completion without proof; the simulated in-session
+    // repair consumes the corrected reply carrying the receipt.
+    host.modelResponses.push({ response: outcome({ status: 'succeeded', summary: 'done', completion: { status: 'complete', reason: 'met' } }) });
+    host.modelResponses.push({ response: outcome({ status: 'succeeded', summary: 'done', completion: { status: 'complete', reason: 'met', receipt } }) });
+
+    const attempt = await backgroundAgentExecutor.run(inputFor(host, loop, 'step-1'));
+    expect(attempt.outcome?.completion?.receipt).toEqual(receipt);
   });
 
   it('applies the loop context override to the subagent run', async () => {

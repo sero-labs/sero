@@ -69,6 +69,8 @@ export function toRunSummary(run: LoopRun): RunIndex['runs'][number] {
     startedAt: run.startedAt,
     endedAt: run.endedAt,
     completionStatus: run.completionSignal?.status,
+    firedBy: run.firedBy,
+    delivery: run.completionSignal?.receipt,
     steps: run.stepAttempts.map((a) => ({
       stepId: a.stepId,
       attemptNumber: a.attemptNumber,

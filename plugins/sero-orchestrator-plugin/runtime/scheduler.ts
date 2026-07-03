@@ -10,7 +10,7 @@
 
 import type { Loop, LoopTrigger } from '../shared/types';
 import type { OrchestratorHost } from './host';
-import type { ScheduleExtraction } from './schedule-extractor';
+import type { TriggerExtraction } from './trigger-extractor';
 import { initStepStates } from './plan-mapping';
 import { isValidCron, nextFireAfter, parseCron } from './cron';
 
@@ -47,15 +47,31 @@ export function evaluateCronTriggers(loop: Loop, nowMs: number): { loop: Loop; d
 }
 
 /**
- * A loop is recurring when it has an enabled cron/hybrid trigger still scheduled
- * to fire again (a schedule and a future-or-pending nextFireAt). Once a trigger
- * is exhausted (maxFires clears its nextFireAt), the loop stops being recurring,
- * so the next completion is terminal.
+ * A loop is recurring when something can legitimately fire it again on its own:
+ * an enabled cron/hybrid trigger still scheduled to fire (a schedule and a
+ * pending nextFireAt — an exhausted maxFires clears it), OR an enabled
+ * event/hybrid trigger with a source (the next matching event re-runs it).
+ * Once nothing can fire again, the next completion is terminal.
  */
 export function isRecurring(loop: Loop): boolean {
   return loop.triggers.some(
-    (t) => !t.disabled && (t.type === 'cron' || t.type === 'hybrid') && !!t.schedule && !!t.nextFireAt,
+    (t) =>
+      !t.disabled &&
+      (((t.type === 'cron' || t.type === 'hybrid') && !!t.schedule && !!t.nextFireAt) ||
+        ((t.type === 'event' || t.type === 'hybrid') && !!t.eventSource)),
   );
+}
+
+/**
+ * A loop armed PURELY by event triggers has nothing to process until an event
+ * arrives — activating/enabling it must not start an eventless pass (found by
+ * the live GitHub e2e: the no-event pass asked the user for the payload and
+ * parked, stranding the real event in the stash). Cron/hybrid/manual triggers
+ * (or none at all) keep today's run-on-activate behavior.
+ */
+export function isEventArmedOnly(loop: Loop): boolean {
+  const enabled = loop.triggers.filter((t) => !t.disabled);
+  return enabled.length > 0 && enabled.every((t) => t.type === 'event');
 }
 
 /**
@@ -98,57 +114,76 @@ export function reenableSchedule(loop: Loop, now: string): LoopTrigger[] {
 }
 
 /**
- * Re-applies a goal-derived schedule to a loop's EXISTING triggers without
- * resetting run history (used when a refinement changes the goal's cadence): an
- * existing cron/hybrid trigger keeps its fireCount/lastFireAt but adopts the new
- * schedule and re-arms nextFireAt; if the goal newly recurs and no cron trigger
- * exists, one is added. A non-recurring extraction leaves triggers untouched —
- * refine never silently strips a loop's schedule.
+ * Re-applies goal-derived triggers to a loop's EXISTING triggers without
+ * resetting run history (used when a refinement changes the goal's cadence or
+ * events): an existing cron/hybrid trigger keeps its fireCount/lastFireAt but
+ * adopts the new schedule and re-arms nextFireAt; if the goal newly recurs and
+ * no cron trigger exists, one is added; extracted events whose source has no
+ * trigger yet are appended fresh. Nothing is removed — refine never silently
+ * strips a loop's triggers.
  */
-export function reapplySchedule(
+export function reapplyExtractedTriggers(
   host: OrchestratorHost,
   loopId: string,
   triggers: LoopTrigger[],
-  extraction: ScheduleExtraction,
+  extraction: TriggerExtraction,
 ): LoopTrigger[] {
-  if (!extraction.recurring) return triggers;
-  const next = nextFireAfter(extraction.schedule, Date.parse(host.now()));
-  const nextFireAt = next !== null ? new Date(next).toISOString() : undefined;
-  const index = triggers.findIndex((t) => t.type === 'cron' || t.type === 'hybrid');
-  if (index === -1) {
-    return [
-      ...triggers,
-      {
-        id: host.newId('trigger'),
-        loopId,
-        workspaceId: host.workspaceId,
-        type: 'cron',
-        schedule: extraction.schedule,
-        maxFires: extraction.maxFires,
-        fireCount: 0,
-        nextFireAt,
-      },
+  let updated = triggers;
+
+  if (extraction.recurring && extraction.schedule) {
+    const next = nextFireAfter(extraction.schedule, Date.parse(host.now()));
+    const nextFireAt = next !== null ? new Date(next).toISOString() : undefined;
+    const index = updated.findIndex((t) => t.type === 'cron' || t.type === 'hybrid');
+    if (index === -1) {
+      updated = [
+        ...updated,
+        {
+          id: host.newId('trigger'),
+          loopId,
+          workspaceId: host.workspaceId,
+          type: 'cron',
+          schedule: extraction.schedule,
+          maxFires: extraction.maxFires,
+          fireCount: 0,
+          nextFireAt,
+        },
+      ];
+    } else if (updated[index].schedule !== extraction.schedule) {
+      updated = [...updated];
+      updated[index] = { ...updated[index], schedule: extraction.schedule, nextFireAt, disabled: false };
+    }
+  }
+
+  const newEvents = extraction.events.filter(
+    (event) => !updated.some((trigger) => trigger.eventSource === event.eventSource),
+  );
+  if (newEvents.length > 0) {
+    updated = [
+      ...updated,
+      ...newEvents.map(
+        (event): LoopTrigger => ({
+          id: host.newId('trigger'),
+          loopId,
+          workspaceId: host.workspaceId,
+          type: 'event',
+          fireCount: 0,
+          ...event,
+        }),
+      ),
     ];
   }
-  const existing = triggers[index];
-  if (existing.schedule === extraction.schedule) return triggers; // unchanged cadence
-  const updated = [...triggers];
-  updated[index] = { ...existing, schedule: extraction.schedule, nextFireAt, disabled: false };
   return updated;
 }
 
-/** Marks event/hybrid triggers due for an event, respecting debounce + maxFires. */
-export function fireEventTriggers(loop: Loop, eventSource: string, nowMs: number): { loop: Loop; due: boolean } {
-  let due = false;
-  const triggers = loop.triggers.map((trigger) => {
-    if (trigger.disabled) return trigger;
-    if (trigger.type !== 'event' && trigger.type !== 'hybrid') return trigger;
-    if (trigger.eventSource && trigger.eventSource !== eventSource) return trigger;
-    if (trigger.debounceMs && trigger.lastFireAt && nowMs - Date.parse(trigger.lastFireAt) < trigger.debounceMs) {
-      return trigger;
-    }
-    due = true;
-    return fire(trigger, nowMs, trigger.nextFireAt);
-  });
-  return { loop: { ...loop, triggers }, due };
+/**
+ * Records event fires on the named triggers: bumps fireCount/lastFireAt and
+ * self-disables at maxFires via `fire()`. WHICH triggers fire is decided by the
+ * caller (code match in event-match.ts + the model-judged condition); this only
+ * applies the bookkeeping.
+ */
+export function applyEventFires(loop: Loop, triggerIds: string[], nowMs: number): Loop {
+  if (triggerIds.length === 0) return loop;
+  const ids = new Set(triggerIds);
+  const triggers = loop.triggers.map((trigger) => (ids.has(trigger.id) ? fire(trigger, nowMs, trigger.nextFireAt) : trigger));
+  return { ...loop, triggers };
 }

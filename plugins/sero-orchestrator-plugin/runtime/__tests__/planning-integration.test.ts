@@ -38,7 +38,7 @@ describe('Coordinator — planning integration (Phase 2)', () => {
     // Planner returns a plain plan with NO suggestedTriggers (the failure mode);
     // the dedicated schedule call supplies the cron.
     host.modelResponses.push({ response: planJson(oneStepPlan()) });
-    host.modelResponses.push({ response: JSON.stringify({ recurring: true, schedule: '*/10 * * * *' }) });
+    host.modelResponses.push({ response: JSON.stringify({ recurring: true, schedule: '*/10 * * * *', events: [] }) });
     const res = await new Coordinator(host).requestAction({
       kind: 'create',
       prompt: 'every 10 minutes, check GitHub issues and open a PR',
@@ -50,10 +50,48 @@ describe('Coordinator — planning integration (Phase 2)', () => {
     expect(triggers[0].nextFireAt).toBeTruthy();
   });
 
+  it('wires an event trigger end to end when the extractor derives one from the goal', async () => {
+    const host = createFakeHost();
+    host.modelResponses.push({ response: planJson(oneStepPlan()) });
+    host.modelResponses.push({
+      response: JSON.stringify({
+        recurring: false,
+        schedule: null,
+        events: [{ source: 'github:ci-failed', condition: 'the failing run belongs to one of my PRs' }],
+      }),
+    });
+    const res = await new Coordinator(host).requestAction({
+      kind: 'create',
+      prompt: 'when CI fails on my PRs, investigate and push a fix',
+    });
+    const triggers = res.loop?.triggers ?? [];
+    expect(triggers).toHaveLength(1);
+    expect(triggers[0].type).toBe('event');
+    expect(triggers[0].eventSource).toBe('github:ci-failed');
+    expect(triggers[0].eventCondition).toBe('the failing run belongs to one of my PRs');
+  });
+
+  it('materializes explicit event triggers passed via create options (tool path)', async () => {
+    const host = createFakeHost();
+    host.modelResponses.push({ response: planJson(oneStepPlan()) });
+    const res = await new Coordinator(host).requestAction({
+      kind: 'create',
+      prompt: 'react to deploy pings',
+      options: {
+        triggers: [{ type: 'event', eventSource: 'webhook:deploy', eventFilter: { env: 'prod' } }],
+      },
+    });
+    const triggers = res.loop?.triggers ?? [];
+    expect(triggers).toHaveLength(1);
+    expect(triggers[0].type).toBe('event');
+    expect(triggers[0].eventSource).toBe('webhook:deploy');
+    expect(triggers[0].eventFilter).toEqual({ env: 'prod' });
+  });
+
   it('leaves a one-off loop manual when the extractor says not recurring', async () => {
     const host = createFakeHost();
     host.modelResponses.push({ response: planJson(oneStepPlan()) });
-    host.modelResponses.push({ response: JSON.stringify({ recurring: false }) });
+    host.modelResponses.push({ response: JSON.stringify({ recurring: false, schedule: null, events: [] }) });
     const res = await new Coordinator(host).requestAction({ kind: 'create', prompt: 'fix the off-by-one bug' });
     expect(res.loop?.triggers ?? []).toHaveLength(0);
   });

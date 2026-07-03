@@ -2,8 +2,12 @@
 
 Orchestrator runs **loops** — jobs you describe in plain English. You say what
 you want done; Sero works out the steps, runs them, and checks in with you when
-it needs a decision. A loop can run once or on a schedule, and it keeps going
-across restarts until the work is finished.
+it needs a decision. A loop can run once, on a schedule, or when something
+happens — a file changes, CI fails, a PR opens, another loop finishes — and it
+keeps going across restarts until the work is finished. Just describe the
+moment in your prompt ("when CI fails on my PRs, investigate and fix it") and
+Sero wires the trigger; the [event sources](/reference/orchestrator#event-sources)
+are listed in the reference.
 
 You never write the steps yourself. The same machinery can review pull requests,
 triage issues, tidy files, draft summaries, or run any other multi-step task —
@@ -50,7 +54,15 @@ Type your goal in plain English:
 
 Leave **Run in a managed worktree** turned on. This runs the loop on its own
 copy of your files (its own branch), so your working files are never touched
-while it works. Click **Generate plan →**.
+while it works.
+
+**Deliver results to** decides where the finished work ships. **Automatic**
+matches the placement — a worktree loop opens a pull request, a workspace-root
+loop leaves the files in place. You can instead pick a saved report file, a
+Gmail draft, or an outward send (email, chat message, webhook). Outward sends
+always show you the exact content first and wait for your approval before
+anything leaves the machine. Leave it on **Automatic** here and click
+**Generate plan →**.
 
 **2. Review the plan.** Sero turns your sentence into steps.
 
@@ -192,6 +204,17 @@ Click **Library** in the panel header to browse what you've saved. **Load** an
 entry to drop a fresh copy into the current workspace, then review and activate
 it like any new loop. When a newer version is saved from anywhere, a loaded loop
 offers to **Update** to it.
+
+### Install a ready-made loop from the Catalog
+
+Next to My Library sits the **Catalog** tab: curated, proven loops from the
+official Sero catalog (marked **Verified**), plus any catalog repos you add —
+a private company repo works as a team catalog. Press **Install** on an entry
+and the planner adapts it to your workspace, asking first when it needs a
+detail only you know (like which repo to watch). The result is an ordinary
+draft: review the plan, then activate. When the catalog publishes an improved
+version, your installed loop shows the usual "v available" badge with an
+**Update & re-adapt** one-click path.
 
 ## Set up the demo project
 

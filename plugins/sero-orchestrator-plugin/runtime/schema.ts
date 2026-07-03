@@ -10,11 +10,14 @@
  */
 
 import type {
+  LoopDeliverySettings,
   LoopPlan,
   LoopStepDefinition,
   PlanningResponse,
   StepExecutionTarget,
 } from '../shared/types';
+import { EVENT_SOURCE_NAMESPACES, isKnownEventSource } from '../shared/constants';
+import { approvalGateProblems } from './delivery/validate';
 import { isValidCron } from './cron';
 
 export const STEP_EXECUTION_TYPES = ['background-agent', 'active-session', 'model'] as const;
@@ -134,6 +137,10 @@ function validateStepShape(step: unknown, index: number, errors: string[]): step
   }
   if (step.dependsOn !== undefined && (!Array.isArray(step.dependsOn) || step.dependsOn.some((d) => typeof d !== 'string'))) {
     errors.push(`step "${String(step.id)}": dependsOn must be an array of step ids`);
+    ok = false;
+  }
+  if (step.gate !== undefined && step.gate !== 'approval') {
+    errors.push(`step "${String(step.id)}": gate, if present, must be exactly "approval"`);
     ok = false;
   }
   validateExecution(step.execution, String(step.id), errors);
@@ -353,27 +360,87 @@ export function coercePlanningShape(input: unknown): unknown {
   };
 }
 
-/** A cron/hybrid trigger must carry a valid 5-field cron schedule, else it never fires. */
+// ── Delivery settings ───────────────────────────────────────
+// Delivery validation lives in delivery/validate.ts (500-LOC limit); re-exported
+// here so callers keep one validation entry point.
+export { approvalGateProblems, validateDeliverySettings } from './delivery/validate';
+
+/** Max length of a natural-language event condition (a sentence, not an essay). */
+const EVENT_CONDITION_MAX_LENGTH = 500;
+
+function isPrimitive(value: unknown): boolean {
+  return typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean' || value === null;
+}
+
+/**
+ * Event-half validation for an event/hybrid trigger: a well-formed source in a
+ * known namespace, a flat structured filter (primitives / arrays of primitives),
+ * a bounded condition string, and a sane debounce. Mechanical only — what the
+ * condition MEANS is the model's business at fire time. Shared with the trigger
+ * extractor and shared-definition validation, which check the same fields
+ * under their own labels (structural param type so typed configs fit too).
+ */
+export interface EventTriggerFields {
+  eventSource?: unknown;
+  eventFilter?: unknown;
+  eventCondition?: unknown;
+  debounceMs?: unknown;
+}
+
+export function validateEventTriggerFields(trigger: EventTriggerFields, label: string, errors: string[]): void {
+  if (typeof trigger.eventSource !== 'string' || !isKnownEventSource(trigger.eventSource)) {
+    errors.push(`${label}: an event trigger needs an "eventSource" (aka "source") of the form "<namespace>:<kind>" with a known namespace (${EVENT_SOURCE_NAMESPACES.join(', ')}), got ${JSON.stringify(trigger.eventSource)}.`);
+  }
+  if (trigger.eventFilter !== undefined) {
+    const flat =
+      isRecord(trigger.eventFilter) &&
+      Object.values(trigger.eventFilter).every((v) => isPrimitive(v) || (Array.isArray(v) && v.every(isPrimitive)));
+    if (!flat) {
+      errors.push(`${label}: the "eventFilter" (aka "filter") must be a flat object of primitive values (or arrays of primitives, meaning "one of").`);
+    }
+  }
+  if (trigger.eventCondition !== undefined) {
+    const text = trigger.eventCondition;
+    if (typeof text !== 'string' || !text.trim() || text.length > EVENT_CONDITION_MAX_LENGTH) {
+      errors.push(`${label}: the condition must be a non-empty string of at most ${EVENT_CONDITION_MAX_LENGTH} characters.`);
+    }
+  }
+  if (trigger.debounceMs !== undefined && (typeof trigger.debounceMs !== 'number' || !Number.isFinite(trigger.debounceMs) || trigger.debounceMs < 0)) {
+    errors.push(`${label}: "debounceMs" must be a non-negative number.`);
+  }
+}
+
+/**
+ * A cron/hybrid trigger must carry a valid 5-field cron schedule, and an
+ * event/hybrid trigger a valid event half — else it never fires (or fires on
+ * everything).
+ */
 function validateSuggestedTriggers(raw: unknown): string[] {
   if (!Array.isArray(raw)) return [];
   const errors: string[] = [];
   raw.forEach((trigger, i) => {
-    if (!isRecord(trigger) || (trigger.type !== 'cron' && trigger.type !== 'hybrid')) return;
-    if (typeof trigger.schedule !== 'string' || !isValidCron(trigger.schedule)) {
-      errors.push(`suggestedTriggers[${i}]: a "${String(trigger.type)}" trigger needs a valid 5-field cron "schedule" (minute hour day-of-month month day-of-week), got ${JSON.stringify(trigger.schedule)}.`);
+    if (!isRecord(trigger)) return;
+    if (trigger.type === 'cron' || trigger.type === 'hybrid') {
+      if (typeof trigger.schedule !== 'string' || !isValidCron(trigger.schedule)) {
+        errors.push(`suggestedTriggers[${i}]: a "${String(trigger.type)}" trigger needs a valid 5-field cron "schedule" (minute hour day-of-month month day-of-week), got ${JSON.stringify(trigger.schedule)}.`);
+      }
+    }
+    if (trigger.type === 'event' || trigger.type === 'hybrid') {
+      validateEventTriggerFields(trigger, `suggestedTriggers[${i}]`, errors);
     }
   });
   return errors;
 }
 
-/** Validates raw model output into a PlanningResponse. */
-export function validatePlanningResponse(input: unknown): ValidationResult<PlanningResponse> {
+/** Validates raw model output into a PlanningResponse. `delivery` adds the destination-specific plan-shape rules (approval gate for external sends). */
+export function validatePlanningResponse(input: unknown, delivery?: LoopDeliverySettings): ValidationResult<PlanningResponse> {
   const value = coercePlanningShape(input);
   if (!isRecord(value)) return { ok: false, errors: ['response must be a JSON object'] };
   if (!isRecord(value.plan)) return { ok: false, errors: ['plan is required'] };
 
   const plan = value.plan as Record<string, unknown>;
   const errors = validateLoopPlan(plan as unknown as LoopPlan);
+  if (errors.length === 0 && delivery) errors.push(...approvalGateProblems(plan as unknown as LoopPlan, delivery));
   if (errors.length > 0) return { ok: false, errors };
 
   const triggerErrors = validateSuggestedTriggers(value.suggestedTriggers);

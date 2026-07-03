@@ -8,10 +8,21 @@
  * the planner with the answers folded in.
  */
 
-import type { InputAnswer, Loop, OrchestratorAction } from '../shared/types';
+import type { InputAnswer, Loop, OrchestratorAction, SharedLoopDefinition } from '../shared/types';
 import type { OrchestratorHost } from './host';
 import { recordAnswer, validateAnswers } from './human-input';
 import { plannerClarifications, runPlanningFlow } from './planning-flow';
+
+/**
+ * A draft installed from a catalog re-plans against its curated definition
+ * (spec 14 adaptation), so answers specialize the curated plan instead of
+ * replanning from the bare prompt. Absent for ordinary loops.
+ */
+async function catalogBaseline(host: OrchestratorHost, loop: Loop): Promise<SharedLoopDefinition | undefined> {
+  if (!loop.libraryLink) return undefined;
+  const version = await host.library.readVersion(loop.libraryLink.entryId, loop.libraryLink.version);
+  return version?.catalog ? version.definition : undefined;
+}
 
 export interface AnswerInputResult {
   ok: boolean;
@@ -49,6 +60,7 @@ export async function applyAnswerInput(host: OrchestratorHost, action: AnswerInp
       prompt: recorded.prompt,
       title: recorded.title === 'Untitled loop' ? undefined : recorded.title,
       clarifications: plannerClarifications(recorded),
+      baseline: await catalogBaseline(host, recorded),
     });
     return { ok: true, loop: replanned, resume: false };
   }

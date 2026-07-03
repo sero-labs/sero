@@ -1,4 +1,4 @@
-import { use, useEffect, useMemo, useState } from 'react';
+import { use, useCallback, useEffect, useMemo, useState } from 'react';
 import { AppContext, useAppTools } from '@sero-ai/app-runtime';
 import { Button } from '@sero-ai/ui';
 import { Home, Infinity as InfinityIcon, Library, Plus, Sparkles } from 'lucide-react';
@@ -6,10 +6,11 @@ import { DEFAULT_INDEX, DEFAULT_LIBRARY_INDEX } from '../shared/defaults';
 import type { LibraryIndex, Loop, OrchestratorAction, OrchestratorIndex } from '../shared/types';
 import { LoopList } from './components/LoopList';
 import { LoopDetail } from './components/LoopDetail';
-import { LibraryBrowser } from './components/LibraryBrowser';
+import { LibraryView } from './components/LibraryView';
 import { HomeView } from './components/HomeView';
 import { CreateLoopWizard } from './components/CreateLoopWizard';
 import type { CreateLoopSubmit } from './components/CreateLoopForm';
+import { actionToParams } from './lib/action-params';
 import { useWatchedJson } from './lib/use-watched-json';
 import './styles.css';
 
@@ -56,56 +57,37 @@ export function OrchestratorApp() {
     return () => { active = false; };
   }, [run]);
 
-  const dispatch = async (params: Record<string, unknown>) => {
-    setBusy(true);
-    setError(null);
-    try {
-      const res = await run('orchestrator', params);
-      const details = res.details as { ok?: boolean; error?: string } | null;
-      if (details && details.ok === false) setError(details.error ?? 'Action failed.');
-      return res;
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-      return null;
-    } finally {
-      setBusy(false);
-    }
-  };
+  const dispatch = useCallback(
+    async (params: Record<string, unknown>) => {
+      setBusy(true);
+      setError(null);
+      try {
+        const res = await run('orchestrator', params);
+        const details = res.details as { ok?: boolean; error?: string } | null;
+        if (details && details.ok === false) setError(details.error ?? 'Action failed.');
+        return res;
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e));
+        return null;
+      } finally {
+        setBusy(false);
+      }
+    },
+    [run],
+  );
+
+  // The Catalog tab drives itself through tool calls; it only needs the details.
+  const detailsDispatch = useCallback(
+    async (params: Record<string, unknown>) => {
+      const res = await dispatch(params);
+      return (res?.details as Record<string, unknown> | undefined) ?? null;
+    },
+    [dispatch],
+  );
 
   const onAction = async (action: OrchestratorAction) => {
     if (action.kind === 'create' || action.kind === 'list') return;
-    const params: Record<string, unknown> = { action: action.kind };
-    if ('loopId' in action) params.loopId = action.loopId;
-    if (action.kind === 'choose_suggestion') {
-      params.suggestionId = action.suggestionId;
-      params.decision = action.decision;
-      if (action.rejectionReason !== undefined) params.rejectionReason = action.rejectionReason;
-    }
-    if (action.kind === 'answer_input') {
-      params.requestId = action.requestId;
-      params.answersJson = JSON.stringify(action.answers);
-    }
-    if (action.kind === 'revise' && action.prompt) params.prompt = action.prompt;
-    if (action.kind === 'retry_step') params.stepId = action.stepId;
-    if (action.kind === 'delete') params.deleteBranch = action.deleteBranch;
-    if (action.kind === 'set_step_model') {
-      params.stepId = action.stepId;
-      if (action.model !== undefined) params.model = action.model;
-      if (action.thinking !== undefined) params.thinking = action.thinking;
-    }
-    if (action.kind === 'set_step_tools') {
-      params.stepId = action.stepId;
-      params.toolsJson = JSON.stringify(action.tools ?? null);
-    }
-    if (action.kind === 'set_loop_context') params.contextJson = JSON.stringify(action.overrides);
-    if (action.kind === 'library_save') {
-      params.mode = action.mode;
-      if (action.name !== undefined) params.name = action.name;
-      if (action.note !== undefined) params.note = action.note;
-    }
-    if (action.kind === 'library_set_version') params.version = action.version;
-    if (action.kind === 'library_delete') params.entryId = action.entryId;
-    const res = await dispatch(params);
+    const res = await dispatch(actionToParams(action));
     if (action.kind === 'delete') {
       const details = res?.details as { ok?: boolean } | null;
       if (details?.ok !== false) setView({ mode: 'home' });
@@ -134,6 +116,8 @@ export function OrchestratorApp() {
       title: values.title,
       useManagedWorktree: values.useManagedWorktree,
       allowDirtyWorkspaceRoot: values.allowDirtyWorkspaceRoot,
+      deliveryDestination: values.delivery?.destination,
+      deliveryParamsJson: values.delivery?.params ? JSON.stringify(values.delivery.params) : undefined,
       activate: false,
     });
     const details = res?.details as { ok?: boolean; loop?: { id?: string } } | null;
@@ -194,7 +178,15 @@ export function OrchestratorApp() {
           <CreateLoopWizard busy={busy} stateDir={stateDir} onCreate={createLoop} onAction={onAction} onOpenLoop={openLoop} onCancel={() => setView({ mode: 'home' })} />
         )}
         {view.mode === 'library' && (
-          <LibraryBrowser libraryDir={libraryDir} busy={busy} onLoad={onLoadFromLibrary} onClose={() => setView({ mode: 'home' })} />
+          <LibraryView
+            libraryDir={libraryDir}
+            libraryIndex={libraryIndex}
+            busy={busy}
+            onLoad={onLoadFromLibrary}
+            onOpenLoop={openLoop}
+            dispatch={detailsDispatch}
+            onClose={() => setView({ mode: 'home' })}
+          />
         )}
         {view.mode === 'detail' && (
           <>

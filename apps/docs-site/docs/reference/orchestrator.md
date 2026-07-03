@@ -27,6 +27,8 @@ Actions: `create`, `list`, `show`, `activate`, `pause`, `resume`, `stop`,
 
 ```text
 /orchestrator create <prompt>
+/orchestrator create --deliver <destination> <prompt>
+/orchestrator set_delivery <loopId> <destination>
 /orchestrator list
 /orchestrator show <loopId>
 /orchestrator activate <loopId>
@@ -50,6 +52,16 @@ Library commands:
 /orchestrator library_load <entryId> [version]
 /orchestrator library_set_version <loopId> <version>
 /orchestrator library_unlink <loopId>
+```
+
+Catalog commands:
+
+```text
+/orchestrator catalog_list
+/orchestrator catalog_refresh [repoKey]
+/orchestrator catalog_install <repoKey> <slug>
+/orchestrator catalog_add_repo <url>
+/orchestrator catalog_remove_repo <repoKey>
 ```
 
 ## Step execution types
@@ -81,6 +93,54 @@ the loop's background steps. Leave the system prompt blank to use Sero's
 default, type to replace it, or clear it to drop the default entirely. The
 orchestrator's per-step result rules always apply on top. Tools are set per step
 in the plan, not here.
+
+## Delivery
+
+Every loop has a **delivery destination** — where its results ship. You choose
+it (at create, or later with the **Delivery** button); the planner authors the
+steps that implement it but never picks it. Without a choice the loop behaves
+as before: worktree loops deliver a pull request, workspace-root loops leave
+files in the working tree.
+
+| Destination | Ships | Needs |
+| --- | --- | --- |
+| Pull request | a commit + PR via `gh` | — |
+| Workspace files | changes left in the working tree | — |
+| Saved report | one file written in the workspace | — |
+| Email draft | a Gmail draft (never sent) | the Google plugin |
+| Send email | a sent email — **approval-gated** | the Google plugin |
+| Chat post | a message to the channel in the params | a connected MCP chat server |
+| Webhook POST | an HTTP POST to the URL in the params | — |
+
+Destination **params** (channel, recipients, URL, report name) are set beside
+the picker and handed to the agent verbatim. A param the destination cannot
+work without — the webhook URL — is marked required: the loop won't activate
+until you set it, so a run never stalls halfway to ask for it. Loops installed
+from the catalog never include these values (they're yours, not the
+author's) — set them in Delivery before activating.
+
+**Receipts.** A loop that declares a destination completes only when its final
+step reports a delivery receipt — what landed and where (PR URL, message link,
+draft id, file path). A completion claim without one is rejected and the step
+revises; PR and saved-report receipts are additionally cross-checked (the PR
+must really be open, the file must really exist). Delivered receipts show on
+the run in history — as a link when the ref is a URL — and in the finish
+notification, and future runs are told what already shipped so a recurring
+loop doesn't re-deliver it.
+
+**External destinations always ask first.** Send email, chat post, and webhook
+POST are visible to other people, so the plan stages them: the loop drafts the
+content, shows it to you on the input card (the full draft, with
+Approve/Reject), and a send only counts as delivered when its proof names
+your recorded approval for that exact content — enforced mechanically, not
+just prompted. A rejection sends nothing. Each approval covers exactly one
+send; the next iteration asks again with its new content. If a step ever
+sends something without approval, the loop refuses to accept it as done and
+flags the run for revision instead.
+
+If a destination's tool isn't available (say the chat MCP server isn't
+connected), the loop still activates and runs with a warning; the warning
+clears on its own once the tool appears.
 
 ## Plan validation
 
@@ -118,9 +178,37 @@ the limits still apply before anything runs. A cron loop that became due while
 Sero was closed runs once on next open (missed fires collapse into one catch-up
 run).
 
-The schedule and stop condition are authored in the prompt and changed with
-**Refine**, never through a form. They show read-only in the loop's summary
-line.
+The schedule, events, and stop condition are authored in the prompt and changed
+with **Refine**, never through a form. Write them in plain language — "every
+morning", "when CI fails on my PRs", "whenever docs/ changes" — and Sero
+derives the trigger. They show read-only in the loop's summary line, with the
+event details on hover.
+
+### Event sources
+
+| Source | Fires when |
+| --- | --- |
+| `loop:completed` / `loop:blocked` / `loop:asked-question` | another loop in the workspace finishes, blocks, or asks a question |
+| `fs:changed` | files in the workspace change (one batched event per burst) |
+| `github:pr-opened`, `github:ci-failed`, `github:ci-passed`, `github:issue-labelled`, `github:review-requested`, `github:review-comment` | the matching activity happens on the workspace's GitHub repo |
+| `webhook:<name>` | an external system POSTs JSON to `http://127.0.0.1:<port>/hooks/<name>` |
+
+An event trigger can carry an exact-match filter ("only the `bug` label") and a
+plain-language condition ("only when the failing PR is mine") judged at fire
+time. The event that started a run shows as a chip on that run in the history,
+and its details (source, summary, payload) are given to every step.
+
+Sources only do work while an active loop uses them: the file watcher, webhook
+listener, and GitHub poller all stop when the last subscribing loop is paused.
+A loop finishing can trigger another loop, but chains stop after five hops and
+a loop never triggers itself.
+
+GitHub events are polled through the `gh` CLI using your existing login — no
+tokens are stored. Polling is deliberately gentle: one shared poller per
+workspace, every 2 minutes by default (never faster than 1 minute), using
+conditional requests so unchanged answers are free, and slowing down
+automatically under rate-limit pressure. The loop's summary line shows when
+GitHub was last checked and the local webhook port.
 
 ## Management limits
 
@@ -152,6 +240,37 @@ A profile-shared collection of saved loops, reusable in any workspace.
   tracking versions. Deleting an entry never affects loops already loaded from
   it.
 
+## Loop Catalog
+
+Curated, ready-made loops you install instead of writing from scratch. The
+**Catalog** tab sits beside My Library in the library view.
+
+- **A catalog is a git repository.** The official Sero catalog is built in and
+  shows a **Verified** badge on its entries. You can add more repos with *Add
+  repo* — any public or private git repo with the catalog layout works, using
+  your existing git sign-in. A private company repo is a shared team catalog.
+  Third-party entries show which repo they came from, never the verified badge;
+  adding a repo asks you to confirm once.
+- **Fetching happens only when you look.** Opening the tab (or pressing
+  Refresh) pulls the repos; there are no background timers. Once fetched, the
+  catalog also works offline — if a repo becomes unreachable you keep the last
+  copy, marked as such.
+- **Install lands as a draft you review.** Installing puts the loop in your
+  library (with a link back to its catalog source) and creates a draft in the
+  current workspace. The planner then adapts the loop to your workspace —
+  replacing placeholders like "your repo" with real values, and asking you
+  first where it can't know. Nothing runs until you review and activate, and
+  externally visible sends stay approval-gated.
+- **Updates ride the library.** Refresh turns newer catalog versions into new
+  library versions, so an installed loop shows the normal "v available" badge.
+  **Update & re-adapt** switches to the new version and re-fits it to your
+  workspace in one step; plain **Update** takes it exactly as published.
+- **Nothing breaks when a repo goes away.** Removing a repo (or the repo
+  deleting an entry) never touches installed loops — they own their library
+  copies.
+- If an entry needs a tool you don't have (listed as `requiredTools`), the
+  install still works and the draft carries a warning.
+
 ## State and storage
 
 Per-workspace loop state:
@@ -173,6 +292,14 @@ Shared Loop Library — one copy across every workspace in the profile:
 $SERO_HOME/apps/orchestrator-library/   # ~/.sero-ui/apps/orchestrator-library/
   index.json
   entries/<entryId>/entry.json          # plus one file per saved version
+```
+
+Catalog cache — repo registry plus one local clone per catalog repo:
+
+```text
+$SERO_HOME/apps/orchestrator-catalog/
+  repos.json                            # repos you added (the official one is built in)
+  repos/<repoKey>/                      # shallow git clone, pulled on demand
 ```
 
 Treat this as local workspace and profile metadata. It can include prompts,

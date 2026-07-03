@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { extractJson, findCycle, validateLoopPlan, validatePlanningResponse } from '../schema';
+import { extractJson, findCycle, validateDeliverySettings, validateLoopPlan, validatePlanningResponse } from '../schema';
 import type { LoopPlan, LoopStepDefinition } from '../../shared/types';
 import { oneStepPlan, parallelPlan, sequentialPlan } from './fixtures';
 
@@ -223,6 +223,69 @@ describe('validatePlanningResponse', () => {
     expect(result.ok).toBe(true);
   });
 
+  it('accepts a valid event trigger (known source, flat filter, bounded condition)', () => {
+    const result = validatePlanningResponse({
+      plan: { objective: 'o', steps: [{ id: 's1', title: 'S', instructions: 'go', execution: { type: 'background-agent' } }] },
+      suggestedTriggers: [
+        {
+          type: 'event',
+          eventSource: 'github:ci-failed',
+          eventFilter: { repo: 'sero', branch: ['main', 'dev'] },
+          eventCondition: 'the failing PR was opened by this loop',
+          debounceMs: 60_000,
+        },
+      ],
+    });
+    expect(result.ok).toBe(true);
+  });
+
+  it('rejects an event trigger without a known namespaced eventSource', () => {
+    const base = { plan: { objective: 'o', steps: [{ id: 's1', title: 'S', instructions: 'go', execution: { type: 'background-agent' } }] } };
+    const missing = validatePlanningResponse({ ...base, suggestedTriggers: [{ type: 'event' }] });
+    expect(missing.ok).toBe(false);
+    if (!missing.ok) expect(missing.errors.some((e) => e.includes('eventSource'))).toBe(true);
+
+    const unknown = validatePlanningResponse({ ...base, suggestedTriggers: [{ type: 'event', eventSource: 'jira:ticket-changed' }] });
+    expect(unknown.ok).toBe(false);
+
+    const malformed = validatePlanningResponse({ ...base, suggestedTriggers: [{ type: 'event', eventSource: 'no-namespace' }] });
+    expect(malformed.ok).toBe(false);
+  });
+
+  it('rejects a non-flat eventFilter, an oversized condition, and a negative debounce', () => {
+    const base = { plan: { objective: 'o', steps: [{ id: 's1', title: 'S', instructions: 'go', execution: { type: 'background-agent' } }] } };
+    const nested = validatePlanningResponse({
+      ...base,
+      suggestedTriggers: [{ type: 'event', eventSource: 'fs:changed', eventFilter: { nested: { deep: true } } }],
+    });
+    expect(nested.ok).toBe(false);
+    if (!nested.ok) expect(nested.errors.some((e) => e.includes('eventFilter'))).toBe(true);
+
+    const oversized = validatePlanningResponse({
+      ...base,
+      suggestedTriggers: [{ type: 'event', eventSource: 'fs:changed', eventCondition: 'x'.repeat(501) }],
+    });
+    expect(oversized.ok).toBe(false);
+
+    const negative = validatePlanningResponse({
+      ...base,
+      suggestedTriggers: [{ type: 'event', eventSource: 'fs:changed', debounceMs: -5 }],
+    });
+    expect(negative.ok).toBe(false);
+  });
+
+  it('a hybrid trigger needs BOTH a valid cron half and a valid event half', () => {
+    const base = { plan: { objective: 'o', steps: [{ id: 's1', title: 'S', instructions: 'go', execution: { type: 'background-agent' } }] } };
+    const ok = validatePlanningResponse({
+      ...base,
+      suggestedTriggers: [{ type: 'hybrid', schedule: '0 8 * * *', eventSource: 'github:pr-opened' }],
+    });
+    expect(ok.ok).toBe(true);
+
+    const noEvent = validatePlanningResponse({ ...base, suggestedTriggers: [{ type: 'hybrid', schedule: '0 8 * * *' }] });
+    expect(noEvent.ok).toBe(false);
+  });
+
   it('defaults a missing title rather than failing a sound plan', () => {
     const result = validatePlanningResponse({
       plan: { objective: 'o', steps: [{ id: 's1', title: 'S1', instructions: 'go', execution: { type: 'model' } }] },
@@ -295,5 +358,26 @@ describe('validateLoopPlan — branching guards', () => {
       expect(byId('simple').when).toEqual({ var: 'route', in: ['simple'] });
       expect(byId('fallback').when).toEqual({ var: 'route', default: true });
     }
+  });
+});
+
+describe('validateDeliverySettings', () => {
+  it('accepts a known destination with flat scalar params', () => {
+    expect(validateDeliverySettings({ destination: 'chat-post', params: { channel: '#intel', pin: true, max: 3 } })).toEqual([]);
+    expect(validateDeliverySettings({ destination: 'pr' })).toEqual([]);
+  });
+
+  it('rejects an unknown destination', () => {
+    const errors = validateDeliverySettings({ destination: 'carrier-pigeon' });
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toContain('carrier-pigeon');
+    expect(errors[0]).toContain('webhook-post');
+  });
+
+  it('rejects non-object settings and non-flat params', () => {
+    expect(validateDeliverySettings('pr')).toHaveLength(1);
+    expect(validateDeliverySettings(null)).toHaveLength(1);
+    expect(validateDeliverySettings({ destination: 'webhook-post', params: { nested: { a: 1 } } })).toHaveLength(1);
+    expect(validateDeliverySettings({ destination: 'webhook-post', params: ['url'] })).toHaveLength(1);
   });
 });

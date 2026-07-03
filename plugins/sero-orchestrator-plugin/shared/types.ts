@@ -8,6 +8,9 @@
  */
 
 import type { AppRuntimePullRequestSummary, ContextOverrides } from '@sero-ai/common';
+import type { DeliveryReceipt, LoopDeliverySettings } from './delivery-types';
+import type { LoopTrigger, LoopTriggerSuggestion } from './trigger-types';
+import type { EventFiredBy, OrchestratorEvent } from './event-types';
 import type { LoopLibraryLink, StepOverride } from './library-types';
 import type { LogPolicy, UsageSummary } from './usage-types';
 import type { LoopWorkspaceRuntime, LoopWorkspaceSettings, ResolvedWorkspaceContext } from './workspace-types';
@@ -59,6 +62,16 @@ export type {
   LoopAttentionSuggestion,
 } from './attention-types';
 
+// Delivery destination types live in delivery-types.ts (see
+// specs/13-pluggable-delivery.md); re-exported here so './types' imports keep
+// resolving.
+export type {
+  DeliveryDestinationId,
+  LoopDeliverySettings,
+  DeliveryReceipt,
+  DeliveryDestinationInfo,
+} from './delivery-types';
+
 // Loop Library types live in library-types.ts (see specs/08-loop-library.md);
 // re-exported here so existing imports from './types' keep resolving.
 export type {
@@ -77,7 +90,17 @@ export type {
 export interface OrchestratorState {
   version: 1;
   loops: Loop[];
+  /**
+   * Ring of recently delivered event keys (`source#dedupeKey`), so a source
+   * adapter restart never re-fires an event it already delivered. Only events
+   * that carry a `dedupeKey` are recorded. Oldest entries fall off.
+   */
+  recentEventKeys?: string[];
 }
+
+// Event types (Living Loops, spec 12) live in event-types.ts (500-LOC limit);
+// re-exported here so existing imports from './types' keep resolving.
+export type { OrchestratorEvent, EventFiredBy, GithubSourceHealth, WebhookSourceHealth } from './event-types';
 
 // The watched-index summary types live in index-types.ts (500-LOC limit);
 // re-exported here so existing imports from './types' keep resolving.
@@ -100,6 +123,8 @@ export interface Loop {
   summary: string;
   status: LoopStatus;
   workspace: LoopWorkspaceSettings;
+  /** Where results ship (user-chosen, never planner-chosen). Absent ⇒ derived from placement (effectiveDelivery). */
+  delivery?: LoopDeliverySettings;
   plan: LoopPlan;
   runtime: LoopRuntimeState;
   triggers: LoopTrigger[];
@@ -126,7 +151,14 @@ export interface Loop {
 
 export interface LoopWarning {
   id: string;
-  code: 'mixed-workspace-targets' | 'model-unavailable' | 'agent-unavailable';
+  code:
+    | 'mixed-workspace-targets'
+    | 'model-unavailable'
+    | 'agent-unavailable'
+    | 'event-chain-depth'
+    | 'event-dropped'
+    | 'delivery-tool-missing'
+    | 'catalog-tool-missing';
   message: string;
   /** The step a runtime warning refers to (model/agent-unavailable), for de-duplication. */
   stepId?: string;
@@ -144,14 +176,9 @@ export interface PlanningResponse {
   suggestedLimits?: Partial<LoopLimits>;
 }
 
-export interface LoopTriggerSuggestion {
-  type: 'manual' | 'cron' | 'event' | 'hybrid';
-  schedule?: string;
-  eventSource?: string;
-  eventFilter?: Record<string, unknown>;
-  debounceMs?: number;
-  maxFires?: number;
-}
+// Trigger shapes live in trigger-types.ts (500-LOC limit); re-exported here so
+// existing imports from './types' keep resolving.
+export type { LoopTrigger, LoopTriggerSuggestion } from './trigger-types';
 
 export interface LoopPlan {
   schemaVersion: 1;
@@ -192,6 +219,12 @@ export interface LoopStepDefinition {
   produces?: string[];
   /** Branch guard. Absent → the step always runs (the main line). */
   when?: StepGuard;
+  /**
+   * Approval gate marker (spec 13): this step presents the exact content to be
+   * delivered as an `approval` question and parks the loop for the user's
+   * decision. Required on a pre-final step for external destinations.
+   */
+  gate?: 'approval';
 }
 
 // ── Execution targets ───────────────────────────────────────
@@ -274,6 +307,19 @@ export interface LoopRuntimeState {
    * iteration doesn't redo work an open PR already covers.
    */
   pullRequests?: AppRuntimePullRequestSummary[];
+  /**
+   * Accepted delivery receipts, newest last, appended when a run completes with
+   * proof of delivery (capped — see outcomes.ts). Injected into step context so
+   * a recurring loop knows what it already shipped and doesn't re-deliver.
+   */
+  deliveries?: DeliveryReceipt[];
+  /**
+   * The latest event that fired while this loop was busy (run in flight or
+   * parked on a question) — latest wins, at most one pending fire. Consumed by
+   * the next iteration: the engine turns it into the run's `firedBy` + an
+   * `event` observation. Only the coordinator writes this field.
+   */
+  pendingEvent?: OrchestratorEvent;
 }
 
 export interface LoopBlock {
@@ -308,24 +354,6 @@ export interface StepRuntimeState {
   updatedAt: string;
 }
 
-// ── Trigger ─────────────────────────────────────────────────
-
-export interface LoopTrigger {
-  id: string;
-  loopId: string;
-  workspaceId: string;
-  type: 'manual' | 'cron' | 'event' | 'hybrid';
-  schedule?: string;
-  eventSource?: string;
-  eventFilter?: Record<string, unknown>;
-  debounceMs?: number;
-  maxFires?: number;
-  fireCount: number;
-  lastFireAt?: string;
-  nextFireAt?: string;
-  disabled?: boolean;
-}
-
 // ── Limits ──────────────────────────────────────────────────
 
 export interface LoopLimits {
@@ -353,6 +381,8 @@ export interface LoopRun {
   runNumber: number;
   status: LoopRunStatus;
   triggerId?: string;
+  /** Set when this run was started by an event fire (Living Loops). */
+  firedBy?: EventFiredBy;
   startedStepIds: string[];
   stepAttempts: StepAttempt[];
   recoveryDecisions: RecoveryDecision[];
@@ -364,37 +394,9 @@ export interface LoopRun {
   block?: LoopBlock;
 }
 
-/**
- * Compact per-run summary stored in `loops/<id>/runs/index.json`. Full runs live
- * one-per-file (`runs/<runId>.json`) so a loop's frequent run writes never bloat
- * loop.json; the UI reads this lightweight index to render run history without
- * loading every run file.
- */
-export interface LoopRunStepSummary {
-  stepId: string;
-  attemptNumber: number;
-  executionType: StepExecutionTarget['type'];
-  status: StepAttemptStatus;
-  outcomeStatus?: StepOutcome['status'];
-}
-
-export interface LoopRunSummary {
-  id: string;
-  runNumber: number;
-  status: LoopRunStatus;
-  startedAt: string;
-  endedAt?: string;
-  completionStatus?: CompletionSignal['status'];
-  steps: LoopRunStepSummary[];
-  recoveries: { decision: RecoveryDecisionKind; reason: string }[];
-  /** Rolled-up token/time totals across this run's attempts (cost when reported). */
-  usage?: UsageSummary;
-}
-
-export interface RunIndex {
-  version: 1;
-  runs: LoopRunSummary[];
-}
+// The per-run summary index types (runs/index.json) live in index-types.ts
+// (500-LOC limit); re-exported here so imports from './types' keep resolving.
+export type { LoopRunStepSummary, LoopRunSummary, RunIndex } from './index-types';
 
 export type StepAttemptStatus =
   | 'running'

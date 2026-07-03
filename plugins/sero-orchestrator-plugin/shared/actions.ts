@@ -4,10 +4,12 @@
  */
 
 import type { ContextOverrides } from '@sero-ai/common';
+import type { CatalogRepoContents, CatalogRepoRef } from './catalog-types';
 import type {
   InputAnswer,
   LibraryIndex,
   Loop,
+  LoopDeliverySettings,
   LoopLimits,
   LoopRun,
   LoopTriggerSuggestion,
@@ -20,6 +22,7 @@ export interface CreateLoopOptions {
   triggers?: LoopTriggerSuggestion[];
   limits?: Partial<LoopLimits>;
   workspace?: Partial<LoopWorkspaceSettings>;
+  delivery?: LoopDeliverySettings;
 }
 
 export type OrchestratorAction =
@@ -39,6 +42,7 @@ export type OrchestratorAction =
   | { kind: 'set_step_tools'; loopId: string; stepId: string; tools?: string[] }
   | { kind: 'set_step_agent'; loopId: string; stepId: string; agent?: string }
   | { kind: 'set_loop_context'; loopId: string; overrides: ContextOverrides | null }
+  | { kind: 'set_delivery'; loopId: string; delivery: LoopDeliverySettings }
   | { kind: 'reflect'; loopId: string }
   | { kind: 'reflect_workspace' }
   | { kind: 'choose_suggestion'; loopId: string; suggestionId: string; decision: 'approve' | 'reject'; rejectionReason?: string }
@@ -49,6 +53,11 @@ export type OrchestratorAction =
   | { kind: 'library_set_version'; loopId: string; version: number }
   | { kind: 'library_unlink'; loopId: string }
   | { kind: 'library_delete'; entryId: string }
+  | { kind: 'catalog_list' }
+  | { kind: 'catalog_add_repo'; url: string }
+  | { kind: 'catalog_remove_repo'; repoKey: string }
+  | { kind: 'catalog_refresh'; repoKey?: string }
+  | { kind: 'catalog_install'; repoKey: string; slug: string; workspaceLoad?: boolean }
   | { kind: 'delete'; loopId: string; deleteBranch?: boolean };
 
 /** Per-loop result of a workspace-wide reflection sweep. */
@@ -72,4 +81,12 @@ export interface OrchestratorActionResult {
   libraryDir?: string;
   /** Set by `library_list`: a snapshot of the library index (the live data comes from watching the dir). */
   libraryIndex?: LibraryIndex;
+  /** Set by the `catalog_*` reads: configured repos (official first). */
+  catalogRepos?: CatalogRepoRef[];
+  /** Set by `catalog_list`/`catalog_refresh`: each repo's cached contents (fail-soft per entry). */
+  catalogContents?: CatalogRepoContents[];
+  /** Set by `catalog_refresh`: per-repo fetch outcomes (stale ⇒ showing the last-fetched cache). */
+  catalogRefresh?: { key: string; stale: boolean; reason?: string }[];
+  /** Set by `catalog_refresh`: newer catalog versions appended as library versions (or skipped with a reason). */
+  catalogUpdates?: { repoKey: string; slug: string; entryId: string; libraryVersion?: number; skipped?: string }[];
 }

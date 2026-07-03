@@ -8,8 +8,19 @@
  * specs/09-ui-redesign.md). Type-only imports keep the re-export cycle harmless.
  */
 
-import type { LoopStatus } from './types';
+import type {
+  CompletionSignal,
+  LoopRunStatus,
+  LoopStatus,
+  RecoveryDecisionKind,
+  StepAttemptStatus,
+  StepExecutionTarget,
+  StepOutcome,
+  UsageSummary,
+} from './types';
 import type { LoopAttention } from './attention-types';
+import type { DeliveryReceipt } from './delivery-types';
+import type { EventFiredBy } from './event-types';
 import type { LoopLibraryLink } from './library-types';
 
 /** Step progress for the home overview's active-loop cards (no per-loop read needed). */
@@ -51,4 +62,40 @@ export interface LoopSummary {
 export interface OrchestratorIndex {
   version: 1;
   loops: LoopSummary[];
+}
+
+/**
+ * Compact per-run summary stored in `loops/<id>/runs/index.json`. Full runs live
+ * one-per-file (`runs/<runId>.json`) so a loop's frequent run writes never bloat
+ * loop.json; the UI reads this lightweight index to render run history without
+ * loading every run file.
+ */
+export interface LoopRunStepSummary {
+  stepId: string;
+  attemptNumber: number;
+  executionType: StepExecutionTarget['type'];
+  status: StepAttemptStatus;
+  outcomeStatus?: StepOutcome['status'];
+}
+
+export interface LoopRunSummary {
+  id: string;
+  runNumber: number;
+  status: LoopRunStatus;
+  startedAt: string;
+  endedAt?: string;
+  completionStatus?: CompletionSignal['status'];
+  /** The event that started this run (absent for manual/cron runs) — drives the "fired by" chip. */
+  firedBy?: EventFiredBy;
+  /** Proof of delivery from this run's completion (spec 13) — drives the receipt link in run history. */
+  delivery?: DeliveryReceipt;
+  steps: LoopRunStepSummary[];
+  recoveries: { decision: RecoveryDecisionKind; reason: string }[];
+  /** Rolled-up token/time totals across this run's attempts (cost when reported). */
+  usage?: UsageSummary;
+}
+
+export interface RunIndex {
+  version: 1;
+  runs: LoopRunSummary[];
 }

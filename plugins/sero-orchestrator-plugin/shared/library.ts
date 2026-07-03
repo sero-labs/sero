@@ -22,6 +22,7 @@ export function toSharedTrigger(trigger: LoopTrigger): SharedTriggerConfig {
     schedule: trigger.schedule,
     eventSource: trigger.eventSource,
     eventFilter: trigger.eventFilter,
+    eventCondition: trigger.eventCondition,
     debounceMs: trigger.debounceMs,
     maxFires: trigger.maxFires,
   };
@@ -44,6 +45,7 @@ export function toSharedDefinition(loop: Loop): SharedLoopDefinition {
     limits: { ...loop.limits },
     logPolicy: { ...loop.logPolicy },
     contextOverrides: loop.contextOverrides ? structuredClone(loop.contextOverrides) : undefined,
+    delivery: loop.delivery ? structuredClone(loop.delivery) : undefined,
   };
 }
 

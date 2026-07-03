@@ -14,10 +14,12 @@ import type {
   ContextOverrides,
   CreateLoopOptions,
   InputAnswer,
+  LoopDeliverySettings,
   OrchestratorAction,
   OrchestratorActionResult,
   RecoveryDecision,
 } from '../shared/types';
+import { DELIVERY_DESTINATION_IDS } from '../shared/delivery-types';
 
 export const ORCHESTRATOR_ACTIONS = [
   'create',
@@ -36,6 +38,7 @@ export const ORCHESTRATOR_ACTIONS = [
   'set_step_tools',
   'set_step_agent',
   'set_loop_context',
+  'set_delivery',
   'reflect',
   'reflect_workspace',
   'choose_suggestion',
@@ -46,6 +49,11 @@ export const ORCHESTRATOR_ACTIONS = [
   'library_set_version',
   'library_unlink',
   'library_delete',
+  'catalog_list',
+  'catalog_add_repo',
+  'catalog_remove_repo',
+  'catalog_refresh',
+  'catalog_install',
   'delete',
 ] as const;
 
@@ -69,6 +77,8 @@ export const OrchestratorToolParams = Type.Object({
   toolsJson: Type.Optional(Type.String({ description: 'For set_step_tools: JSON-encoded array of EXTRA tool names beyond the always-on default tools (e.g. ["web_search","git_manager"]) or "null"/"[]" to use the default tools only' })),
   agent: Type.Optional(Type.String({ description: 'For set_step_agent: a named agent role for the background-agent step; omit/empty to revert the step to the default agent' })),
   contextJson: Type.Optional(Type.String({ description: 'For set_loop_context: JSON-encoded ContextOverrides ({systemPrompt?, disabledTools?, disabledSkills?}) or "null" to clear' })),
+  deliveryDestination: Type.Optional(StringEnum(DELIVERY_DESTINATION_IDS, { description: 'For create/set_delivery: where the loop ships its results (user-chosen; omit on create to derive from placement — worktree ⇒ pr, root ⇒ workspace-files)' })),
+  deliveryParamsJson: Type.Optional(Type.String({ description: 'For create/set_delivery: JSON-encoded flat object of destination params (e.g. {"channel":"#market-intel"} or {"url":"https://…"})' })),
   suggestionId: Type.Optional(Type.String({ description: 'For choose_suggestion: the reflection suggestion id to approve/reject' })),
   decision: Type.Optional(StringEnum(SUGGESTION_DECISIONS, { description: 'For choose_suggestion: approve (apply the proposed plan) or reject' })),
   rejectionReason: Type.Optional(Type.String({ description: 'For choose_suggestion reject: why, so the same idea is not re-proposed' })),
@@ -80,6 +90,10 @@ export const OrchestratorToolParams = Type.Object({
   note: Type.Optional(Type.String({ description: 'For library_save: an optional one-line "what changed" note on the version' })),
   entryId: Type.Optional(Type.String({ description: 'For library_load/library_delete: the library entry id' })),
   version: Type.Optional(Type.Number({ description: 'For library_load (defaults to latest) or library_set_version (required): the entry version' })),
+  url: Type.Optional(Type.String({ description: 'For catalog_add_repo: the catalog git repo URL (https or git@; private repos use your ambient git credentials)' })),
+  repoKey: Type.Optional(Type.String({ description: 'For catalog_remove_repo/catalog_install (and optionally catalog_refresh): the catalog repo key from catalog_list' })),
+  slug: Type.Optional(Type.String({ description: 'For catalog_install: the catalog entry slug' })),
+  workspaceLoad: Type.Optional(Type.Boolean({ description: 'For catalog_install: also create a draft loop in this workspace (default true; false = library entry only)' })),
 });
 
 export interface OrchestratorToolParamsShape {
@@ -97,6 +111,8 @@ export interface OrchestratorToolParamsShape {
   toolsJson?: string;
   agent?: string;
   contextJson?: string;
+  deliveryDestination?: (typeof DELIVERY_DESTINATION_IDS)[number];
+  deliveryParamsJson?: string;
   suggestionId?: string;
   decision?: (typeof SUGGESTION_DECISIONS)[number];
   rejectionReason?: string;
@@ -108,6 +124,10 @@ export interface OrchestratorToolParamsShape {
   note?: string;
   entryId?: string;
   version?: number;
+  url?: string;
+  repoKey?: string;
+  slug?: string;
+  workspaceLoad?: boolean;
 }
 
 interface ToolResult {
@@ -124,6 +144,28 @@ function errorResult(message: string): ToolResult {
   return result(`Error: ${message}`, { ok: false, error: message });
 }
 
+/**
+ * Builds LoopDeliverySettings from the flat deliveryDestination/deliveryParamsJson
+ * params. Structural depth only — full validation happens coordinator-side.
+ */
+function buildDelivery(params: OrchestratorToolParamsShape): LoopDeliverySettings | { error: string } {
+  let parsed: unknown;
+  if (params.deliveryParamsJson !== undefined) {
+    try {
+      parsed = JSON.parse(params.deliveryParamsJson);
+    } catch {
+      return { error: 'deliveryParamsJson is not valid JSON' };
+    }
+    if (parsed !== undefined && (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed))) {
+      return { error: 'deliveryParamsJson must be a JSON object of destination params' };
+    }
+  }
+  return {
+    destination: params.deliveryDestination!,
+    params: parsed as LoopDeliverySettings['params'],
+  };
+}
+
 /** Builds the typed coordinator action from flat tool params. */
 export function buildAction(params: OrchestratorToolParamsShape): OrchestratorAction | { error: string } {
   switch (params.action) {
@@ -136,7 +178,19 @@ export function buildAction(params: OrchestratorToolParamsShape): OrchestratorAc
         if (params.useManagedWorktree !== undefined) options.workspace.useManagedWorktree = params.useManagedWorktree;
         if (params.allowDirtyWorkspaceRoot !== undefined) options.workspace.allowDirtyWorkspaceRoot = params.allowDirtyWorkspaceRoot;
       }
+      if (params.deliveryDestination !== undefined) {
+        const delivery = buildDelivery(params);
+        if ('error' in delivery) return delivery;
+        options.delivery = delivery;
+      }
       return { kind: 'create', prompt: params.prompt, title: params.title, options };
+    }
+    case 'set_delivery': {
+      if (!params.loopId) return { error: 'set_delivery requires a loopId' };
+      if (!params.deliveryDestination) return { error: 'set_delivery requires a deliveryDestination' };
+      const delivery = buildDelivery(params);
+      if ('error' in delivery) return delivery;
+      return { kind: 'set_delivery', loopId: params.loopId, delivery };
     }
     case 'list':
       return { kind: 'list' };
@@ -235,6 +289,20 @@ export function buildAction(params: OrchestratorToolParamsShape): OrchestratorAc
     case 'library_delete':
       if (!params.entryId) return { error: 'library_delete requires an entryId' };
       return { kind: 'library_delete', entryId: params.entryId };
+    case 'catalog_list':
+      return { kind: 'catalog_list' };
+    case 'catalog_add_repo':
+      if (!params.url) return { error: 'catalog_add_repo requires a url' };
+      return { kind: 'catalog_add_repo', url: params.url };
+    case 'catalog_remove_repo':
+      if (!params.repoKey) return { error: 'catalog_remove_repo requires a repoKey' };
+      return { kind: 'catalog_remove_repo', repoKey: params.repoKey };
+    case 'catalog_refresh':
+      return { kind: 'catalog_refresh', repoKey: params.repoKey };
+    case 'catalog_install':
+      if (!params.repoKey) return { error: 'catalog_install requires a repoKey' };
+      if (!params.slug) return { error: 'catalog_install requires a slug' };
+      return { kind: 'catalog_install', repoKey: params.repoKey, slug: params.slug, workspaceLoad: params.workspaceLoad };
     case 'delete':
       if (!params.loopId) return { error: 'delete requires a loopId' };
       return { kind: 'delete', loopId: params.loopId, deleteBranch: params.deleteBranch };
@@ -269,6 +337,8 @@ function summarize(action: OrchestratorAction, res: OrchestratorActionResult): s
       return `Answer recorded for loop ${action.loopId} — ${res.loop?.runtime.pendingInput ? 'more questions are waiting' : `loop now "${res.loop?.status ?? '?'}"`}.`;
     case 'retry_step':
       return `Retried step "${action.stepId}" — loop ${action.loopId} now "${res.loop?.status ?? '?'}".`;
+    case 'set_delivery':
+      return `Loop ${action.loopId} now delivers to "${action.delivery.destination}".`;
     case 'library_save':
       return `Saved loop to the library (now ${res.loop?.libraryLink ? `v${res.loop.libraryLink.version}` : 'linked'}).`;
     case 'library_load':
@@ -281,6 +351,31 @@ function summarize(action: OrchestratorAction, res: OrchestratorActionResult): s
       return `Loop ${action.loopId} unlinked from the library.`;
     case 'library_delete':
       return `Deleted library entry ${action.entryId}.`;
+    case 'catalog_list': {
+      const entries = (res.catalogContents ?? []).reduce((n, c) => n + c.entries.length, 0);
+      return `${res.catalogRepos?.length ?? 0} catalog repo(s), ${entries} entr(ies). Fetch happens on demand — run catalog_refresh to pull.`;
+    }
+    case 'catalog_add_repo':
+      return `Added catalog repo ${action.url}. Run catalog_refresh to fetch it.`;
+    case 'catalog_remove_repo':
+      return `Removed catalog repo ${action.repoKey} (installed loops keep their library copies).`;
+    case 'catalog_refresh': {
+      const failed = (res.catalogRefresh ?? []).filter((r) => r.reason);
+      const applied = (res.catalogUpdates ?? []).filter((u) => u.libraryVersion !== undefined);
+      const skipped = (res.catalogUpdates ?? []).filter((u) => u.skipped);
+      const parts = [
+        failed.length === 0
+          ? `Refreshed ${res.catalogRefresh?.length ?? 0} catalog repo(s).`
+          : `Refreshed with issues: ${failed.map((r) => `${r.key} (${r.stale ? 'showing last-fetched copy' : 'never fetched'}: ${r.reason})`).join('; ')}.`,
+      ];
+      if (applied.length > 0) parts.push(`${applied.length} installed loop(s) have a new version available.`);
+      if (skipped.length > 0) parts.push(`Skipped invalid update(s): ${skipped.map((u) => `${u.repoKey}/${u.slug}`).join(', ')}.`);
+      return parts.join(' ');
+    }
+    case 'catalog_install':
+      return res.loop
+        ? `Installed "${res.loop.title}" as a draft loop ${res.loop.id} — ${res.loop.runtime.pendingInput ? 'it has questions to adapt it to this workspace' : 'review the plan, then activate'}.`
+        : `Installed ${action.repoKey}/${action.slug} into the library.`;
     default:
       return `${action.kind} ok — loop ${res.loop?.id ?? action.loopId} now "${res.loop?.status ?? '?'}".`;
   }

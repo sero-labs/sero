@@ -15,6 +15,8 @@ import type {
   StepRuntimeState,
 } from '../shared/types';
 import type { OrchestratorHost } from './host';
+import { isExternalDestination } from '../shared/delivery-types';
+import { consumeApproval } from './delivery/delivery-contract';
 import { finalizationStepId } from './readiness';
 import { isRecurring } from './scheduler';
 
@@ -111,6 +113,9 @@ export interface CompletionResult {
  * recurring loop's ordinary `complete`, the iteration is simply done — the loop
  * stays `active` and scheduled, and the next fire runs it again.
  */
+/** Newest receipts kept on runtime.deliveries (they also live in run history). */
+const MAX_DELIVERIES = 20;
+
 export function recordCompletion(
   host: OrchestratorHost,
   loop: Loop,
@@ -127,34 +132,46 @@ export function recordCompletion(
     sourceStepId: stepId,
     sourceAttemptId: attempt.id,
     reason: completion.reason,
+    receipt: completion.receipt,
     createdAt: now,
     modelResponsePath: attempt.outputPath,
   };
 
+  // An accepted receipt APPENDS to the loop's delivery history (unlike the
+  // per-run PR inventory, which is replaced) so future runs see what already
+  // shipped; capped so the loop file stays bounded.
+  const receipt = completion.status === 'complete' ? completion.receipt : undefined;
+  const deliveries = receipt ? [...(loop.runtime.deliveries ?? []), receipt].slice(-MAX_DELIVERIES) : loop.runtime.deliveries;
+  // An external send uses up the ONE approval token the receipt named.
+  const answeredInputs =
+    receipt && isExternalDestination(receipt.destination) ? consumeApproval(loop.answeredInputs, receipt.approvalId, now) : loop.answeredInputs;
+  loop = { ...loop, answeredInputs };
+
   // Recurring iteration that completed and is not a declared final success:
   // record the run's signal but keep the loop active and scheduled.
   if (completion.status === 'complete' && !final && isRecurring(loop)) {
-    return { loop: { ...loop, updatedAt: now }, signal };
+    return { loop: { ...loop, runtime: { ...loop.runtime, deliveries }, updatedAt: now }, signal };
   }
 
   const terminalComplete = completion.status === 'complete';
-  // A loop completing for good (final success or a one-off) stops its schedule
-  // too: disable cron/hybrid triggers so it does not fire again.
+  // A loop completing for good (final success or a one-off) stops its triggers
+  // too: disable cron/hybrid/event triggers so nothing fires it again.
   const triggers = terminalComplete
-    ? loop.triggers.map((t) =>
-        t.type === 'cron' || t.type === 'hybrid' ? { ...t, disabled: true, nextFireAt: undefined } : t,
-      )
+    ? loop.triggers.map((t) => (t.type === 'manual' ? t : { ...t, disabled: true, nextFireAt: undefined }))
     : loop.triggers;
   const block =
     completion.status === 'blocked'
       ? { kind: 'planned-block' as const, reason: completion.reason, createdAt: now, sourceStepId: stepId, sourceAttemptId: attempt.id }
       : undefined;
+  // A pendingEvent stashed mid-run lives on DISK, not on this in-memory copy —
+  // the engine's commit() drops it (with an `event-dropped` warning) when the
+  // loop leaves 'active', so nothing stale fires on a later re-activation.
   return {
     loop: {
       ...loop,
       status: terminalComplete ? 'complete' : 'blocked',
       triggers,
-      runtime: { ...loop.runtime, completion: signal, block },
+      runtime: { ...loop.runtime, completion: signal, block, deliveries },
       updatedAt: now,
     },
     signal,

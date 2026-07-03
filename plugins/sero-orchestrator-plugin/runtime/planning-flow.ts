@@ -10,10 +10,11 @@
  * path (so the coordinator stays small and both behave identically).
  */
 
-import type { AnsweredInput, CreateLoopOptions, Loop } from '../shared/types';
+import type { AnsweredInput, CreateLoopOptions, Loop, SharedLoopDefinition } from '../shared/types';
+import { effectiveDelivery } from '../shared/delivery-types';
 import type { OrchestratorHost } from './host';
 import { planLoop } from './planner';
-import { extractSchedule } from './schedule-extractor';
+import { extractTriggers } from './trigger-extractor';
 import { applyPlanningResponse } from './plan-mapping';
 import { loopArtifactDir } from './artifacts';
 import { parkPlannerQuestions } from './human-input';
@@ -24,6 +25,8 @@ export interface PlanningFlowArgs {
   title?: string;
   /** Answered planner clarifications folded into a re-plan. */
   clarifications?: { prompt: string; answer: string }[];
+  /** Catalog installs: the curated definition the planner adapts (spec 14). */
+  baseline?: SharedLoopDefinition;
 }
 
 /** Flattens the loop's answered PLANNER inputs into prompt/answer pairs for a re-plan. */
@@ -53,9 +56,11 @@ export async function runPlanningFlow(host: OrchestratorHost, draft: Loop, args:
     prompt: args.prompt,
     parentSessionId: draft.runtime.parentSessionId,
     useManagedWorktree: draft.workspace.useManagedWorktree,
+    delivery: effectiveDelivery(draft),
     toolCatalog,
     agentCatalog,
     clarifications: args.clarifications,
+    baseline: args.baseline,
   });
 
   if (!outcome.ok && outcome.needsInput) {
@@ -64,15 +69,15 @@ export async function runPlanningFlow(host: OrchestratorHost, draft: Loop, args:
   }
 
   if (outcome.ok) {
-    // A focused, single-purpose schedule call is far more reliable than asking
+    // A focused, single-purpose trigger call is far more reliable than asking
     // the planner to remember a trigger. Run it after planning so it never blocks
     // plan authoring.
-    const schedule = await extractSchedule(host, {
+    const extraction = await extractTriggers(host, {
       prompt: args.prompt,
       parentSessionId: draft.runtime.parentSessionId,
       loopId: draft.id,
     });
-    const loop = applyPlanningResponse(host, draft, outcome.response, args.options, args.title, schedule);
+    const loop = applyPlanningResponse(host, draft, outcome.response, args.options, args.title, extraction);
     host.log(`Loop ${loop.id} planned with ${loop.plan.steps.length} step(s)`);
     return loop;
   }

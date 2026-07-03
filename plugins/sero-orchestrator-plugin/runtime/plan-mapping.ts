@@ -8,6 +8,7 @@ import type {
   ContextOverrides,
   CreateLoopOptions,
   Loop,
+  LoopDeliverySettings,
   LoopPlan,
   LoopWarning,
   PlanningResponse,
@@ -16,8 +17,9 @@ import type {
 import type { OrchestratorHost } from './host';
 import { isDefaultTool } from '../shared/constants';
 import { mergeLimits, materializeTriggers } from './loop-factory';
-import { mergeScheduleIntoTriggers, type ScheduleExtraction } from './schedule-extractor';
-import { validateLoopPlan } from './schema';
+import { mergeExtractedTriggers, NO_TRIGGERS, type TriggerExtraction } from './trigger-extractor';
+import { deliveryDestinationInfo, effectiveDelivery, missingDeliveryParams } from '../shared/delivery-types';
+import { approvalGateProblems, validateDeliverySettings, validateLoopPlan } from './schema';
 import { mergeStepOverride } from './library-overlay';
 
 /** Initial (pending) runtime state for every step in a plan. */
@@ -79,9 +81,9 @@ function normalizePlanStepTools(plan: LoopPlan): LoopPlan {
 
 /**
  * Applies a successful PlanningResponse to a draft loop. An explicit
- * `options.triggers` wins; otherwise the dedicated schedule extraction (if the
- * goal recurs) is folded into the planner's suggested triggers so a recurring
- * loop is scheduled even when the planner omitted the trigger itself.
+ * `options.triggers` wins; otherwise the dedicated trigger extraction (cadence
+ * and/or events derived from the goal) is folded into the planner's suggested
+ * triggers so the loop is wired even when the planner omitted the trigger.
  */
 export function applyPlanningResponse(
   host: OrchestratorHost,
@@ -89,11 +91,11 @@ export function applyPlanningResponse(
   response: PlanningResponse,
   options?: CreateLoopOptions,
   userTitle?: string,
-  schedule?: ScheduleExtraction,
+  extraction?: TriggerExtraction,
 ): Loop {
   const now = host.now();
   const suggestions = options?.triggers
-    ?? mergeScheduleIntoTriggers(response.suggestedTriggers, schedule ?? { recurring: false });
+    ?? mergeExtractedTriggers(response.suggestedTriggers, extraction ?? NO_TRIGGERS);
   const triggers = materializeTriggers(host, draft.id, suggestions);
   const limits = mergeLimits(response.suggestedLimits, options?.limits);
   const plan = normalizePlanStepTools(response.plan);
@@ -211,12 +213,53 @@ export function applyLoopContext(
   return next;
 }
 
+/**
+ * Problems for required params the delivery is missing. Shared definitions
+ * legitimately omit these values (a catalog entry cannot know YOUR webhook
+ * url), so this is enforced here — when the user edits the delivery or
+ * activates the loop — never in definition validation. Without it the miss
+ * only surfaces mid-run, when the send step stalls hunting for a value that
+ * exists nowhere.
+ */
+function missingParamProblems(delivery: LoopDeliverySettings): string[] {
+  return missingDeliveryParams(delivery).map(
+    (key) =>
+      `delivering to "${deliveryDestinationInfo(delivery.destination).label}" needs the "${key}" delivery parameter — set it in the loop's Delivery settings`,
+  );
+}
+
+/**
+ * Sets the loop's delivery destination + params — a user-level setting, exactly
+ * like worktree placement (the planner never chooses it). Validated
+ * structurally; the next planning pass (create/revise) turns it into steps.
+ */
+export function applyLoopDelivery(
+  loop: Loop,
+  delivery: LoopDeliverySettings,
+  now: string,
+): { ok: boolean; loop?: Loop; error?: string } {
+  const errors = validateDeliverySettings(delivery);
+  if (errors.length === 0) errors.push(...missingParamProblems(delivery));
+  if (errors.length > 0) return { ok: false, error: errors.join('; ') };
+  return { ok: true, loop: { ...loop, delivery, updatedAt: now } };
+}
+
 /** True when a loop's plan is structurally valid and not validation-blocked. */
 export function planIsActivatable(loop: Loop): { ok: boolean; error?: string } {
   if (loop.runtime.block?.kind === 'validation-error') {
     return { ok: false, error: `Plan has validation errors: ${loop.runtime.block.reason}` };
   }
-  const errors = validateLoopPlan(loop.plan);
+  // Re-check the external approval shape too: the destination may have changed
+  // (set_delivery) since planning, and an external plan without a gate step
+  // could never deliver anyway (the receipt gate would refuse every completion).
+  // Required delivery params are checked here too: a loop installed from a
+  // shared definition carries the destination but never the user's values.
+  const delivery = effectiveDelivery(loop);
+  const errors = [
+    ...validateLoopPlan(loop.plan),
+    ...approvalGateProblems(loop.plan, delivery),
+    ...missingParamProblems(delivery),
+  ];
   if (errors.length > 0) return { ok: false, error: `Plan is invalid: ${errors.join('; ')}` };
   return { ok: true };
 }

@@ -1,8 +1,11 @@
 import { useState } from 'react';
 import { Badge, Button, Card } from '@sero-ai/ui';
+import { Send, Zap } from 'lucide-react';
 import type { LoopRunStatus, LoopRunSummary } from '../../shared/types';
 import { formatCost, formatDuration, formatTime, formatTokens } from '../lib/format';
+import { receiptDisplay } from '../lib/delivery-summary';
 import { summarizeRun } from '../lib/run-summary';
+import { firedByLabel } from '../lib/trigger-summary';
 
 const PAGE = 5;
 
@@ -40,6 +43,7 @@ const Dash = <span className="text-muted-foreground/40">—</span>;
 function RunRow({ run }: { run: LoopRunSummary }) {
   const wallMs = run.endedAt ? new Date(run.endedAt).getTime() - new Date(run.startedAt).getTime() : undefined;
   const usage = run.usage;
+  const firedBy = firedByLabel(run);
 
   return (
     <div className="flex items-center gap-4 px-3.5 py-3 text-xs">
@@ -47,6 +51,16 @@ function RunRow({ run }: { run: LoopRunSummary }) {
         <div className="flex items-center gap-2">
           <span className="font-medium">Run #{run.runNumber}</span>
           <Badge variant="outline" className={RUN_STATUS_CLASS[run.status]}>{run.status}</Badge>
+          {firedBy && (
+            <Badge
+              variant="outline"
+              className="border-sky-500/40 bg-sky-500/10 text-sky-400"
+              title={run.firedBy?.summary}
+            >
+              <Zap className="mr-1 h-3 w-3" />{firedBy}
+            </Badge>
+          )}
+          {run.delivery && <ReceiptBadge receipt={run.delivery} />}
         </div>
         <span className="text-muted-foreground">{formatTime(run.startedAt)} · {summarizeRun(run)}</span>
       </div>
@@ -54,6 +68,23 @@ function RunRow({ run }: { run: LoopRunSummary }) {
       <span className={`${COL.tokens} text-right tabular-nums text-foreground/90`}>{usage?.totalTokens !== undefined ? formatTokens(usage.totalTokens) : Dash}</span>
       <span className={`${COL.cost} text-right tabular-nums text-foreground/90`}>{usage?.costUsd !== undefined ? formatCost(usage.costUsd) : Dash}</span>
     </div>
+  );
+}
+
+/** The run's proof of delivery: a link when the ref is a URL, plain text otherwise. */
+function ReceiptBadge({ receipt }: { receipt: NonNullable<LoopRunSummary['delivery']> }) {
+  const display = receiptDisplay(receipt);
+  const badge = (
+    <Badge variant="outline" className="border-violet-500/40 bg-violet-500/10 text-violet-400" title={display.title}>
+      <Send className="mr-1 h-3 w-3" />{display.label}
+    </Badge>
+  );
+  // target=_blank routes through the shell's window-open handler, which opens
+  // allowed URLs in the external browser and denies the popup.
+  return display.href ? (
+    <a href={display.href} target="_blank" rel="noreferrer">{badge}</a>
+  ) : (
+    badge
   );
 }
 
