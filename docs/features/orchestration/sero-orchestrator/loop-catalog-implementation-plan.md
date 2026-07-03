@@ -367,6 +367,21 @@ exports the saved definitions; idempotent, skips already-exported slugs):
 - [x] Authoring doc for future entries: the catalog repo's README
   (Phase 1) covers layout, metadata fields, and publish-by-PR.
 
+**Content finding (Dan, review of the shipped set).** As authored,
+`repo-hygiene-monitor` was too hot: a 1s trigger debounce meant a full
+3-step pass per save-burst all day, plus one echo pass after each real one
+(its own HYGIENE.md append re-fires `fs:changed`). Fixed in catalog commit
+`1fcf8ac`: 15-minute debounce (an editing session collapses to one pass)
+and an `eventCondition` that drops own-output echoes for the cost of one
+small fire-time judgement; `inbox-to-brief`'s fs arm cooled 30s → 10min.
+Curation bar recorded for future entries: **every `fs:changed` entry must
+state its worst-case fire rate, and defaults must assume an actively-edited
+workspace.** Deeper product note (not built — would be rails): scoped
+`fs:changed` conditions cost one model judgement per event batch even when
+they skip; if catalog usage makes that add up, consider a mechanical
+pre-filter option on the trigger itself, decided in the LLM-authoring
+layer, never hardcoded.
+
 **Exit gate.** Every official entry passes the validation harness; each
 installs to a draft in the dev app and reads sensibly after adaptation;
 content pushed to `sero-labs/orchestrator-catalog`.
