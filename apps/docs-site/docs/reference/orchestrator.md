@@ -124,9 +124,11 @@ failed, review comments) can be set to **work on the PR branch from the firing
 event** — a switch next to the worktree setting when you create it. Instead of
 starting a fresh branch, each run checks out the branch of the PR the event
 points at, so its commits and pushes update that PR directly. The branch
-belongs to the PR: deleting the loop never deletes it. If a run can't tell
-which PR branch to use (for example you ran it manually, with no event), it
-stops with a plain explanation rather than guessing.
+belongs to the PR: deleting the loop never deletes it. Only a firing event
+that points at a pull request can name the branch (CI results, PR opened,
+approvals, review comments); any other start — a schedule, a manual run, or a
+repo-wide event like "main updated" — stops with a plain explanation rather
+than guessing.
 
 **Receipts.** A loop that declares a destination completes only when its final
 step reports a delivery receipt — what landed and where (PR URL, message link,

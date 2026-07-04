@@ -138,9 +138,10 @@ describe('event-pr branch resolution (spec 15, FR-P1)', () => {
     return { ...loop, workspace: { ...loop.workspace, worktreeBranchSource: 'event-pr' as const } };
   }
 
-  function eventRun(payload: Record<string, unknown>): LoopRun {
+  function eventRun(payload: Record<string, unknown>, source = 'github:ci-failed'): LoopRun {
     return {
       id: 'run-1', runNumber: 1, status: 'running', startedStepIds: [], stepAttempts: [], recoveryDecisions: [],
+      firedBy: { source, occurredAt: 't', summary: 'fired' },
       observations: [{ id: 'obs-1', source: 'event', summary: 'fired', data: payload, createdAt: 't' }], startedAt: 't',
     };
   }
@@ -186,6 +187,35 @@ describe('event-pr branch resolution (spec 15, FR-P1)', () => {
     const loop = eventPrLoop(seedActiveLoop(host, oneStepPlan().plan));
     const result = await resolve(host, loop, eventRun({ count: 3 }));
     expect(result.blocked).toContain('neither a branch nor a PR number');
+  });
+
+  it('blocks a non-PR event even though its payload carries a branch field (main-updated names the DEFAULT branch)', async () => {
+    const host = createFakeHost();
+    const loop = eventPrLoop(seedActiveLoop(host, oneStepPlan().plan));
+    const result = await resolve(host, loop, eventRun({ branch: 'main', afterSha: 'abc123' }, 'github:main-updated'));
+    expect(result.blocked).toContain('not scoped to a pull request');
+    expect(result.workspace).toBeUndefined();
+    expect(host.worktreesCreated).toHaveLength(0);
+  });
+
+  it('a PR-number event never trusts a generic branch field — resolution goes through the open-PR list', async () => {
+    const host = createFakeHost();
+    host.pullRequests = [{ number: 7, url: 'https://x/pr/7', title: 'Fix', headRefName: 'feat/real-head', updatedAt: 't' }];
+    const loop = eventPrLoop(seedActiveLoop(host, oneStepPlan().plan));
+    const result = await resolve(host, loop, eventRun({ branch: 'main', prNumber: 7 }, 'github:pr-approved'));
+    expect(result.workspace?.branchName).toBe('feat/real-head');
+  });
+
+  it('blocks with a distinct reason when the open-PR list cannot be read (not "PR not open")', async () => {
+    const host = createFakeHost();
+    host.listPullRequests = async () => {
+      throw new Error('gh exited 4: network unreachable');
+    };
+    const loop = eventPrLoop(seedActiveLoop(host, oneStepPlan().plan));
+    const result = await resolve(host, loop, eventRun({ prNumber: 12 }));
+    expect(result.blocked).toContain('Could not read the open pull-request list');
+    expect(result.blocked).toContain('gh exited 4');
+    expect(host.worktreesCreated).toHaveLength(0);
   });
 
   it('blocks with the checkout error when the branch cannot be checked out', async () => {

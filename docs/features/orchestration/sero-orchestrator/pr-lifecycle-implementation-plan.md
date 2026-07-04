@@ -81,6 +81,16 @@ Branch: `feat/orchestrator-pr-lifecycle`. Spec:
   run history reads oddly for honest no-ops. If it grates in practice, the
   fix is a first-class no-delivery completion in the contract — a deliberate
   contract change, not something to slip in here.
+- Post-review (PR #227): event-pr resolution is now SOURCE-aware. The original
+  resolver took any `payload.branch` at face value, but `github:main-updated`
+  carries `branch: <default branch>` — pairing it with `event-pr` would have
+  checked out main as the "PR branch" and the update planner rules push the
+  current branch. Only PR-scoped GitHub events resolve now: `ci-failed`,
+  `ci-passed`, `pr-opened` may use `payload.branch` (their branch IS the PR
+  head ref); `pr-approved`, `review-comment`, `review-requested` must go
+  through the PR-number lookup; every other source blocks visibly. A failed
+  `listPullRequests()` call is also its own block reason now, no longer
+  indistinguishable from "PR not open".
 - Phase 4: `worktreeBranchSource` had to join `SharedLoopDefinition` — the
   spec's catalog loops set it, but workspace settings don't travel in shared
   definitions; the branch source is definitional (like the delivery kind), so

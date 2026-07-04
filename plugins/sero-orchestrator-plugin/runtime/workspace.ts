@@ -47,24 +47,47 @@ export interface ResolveResult {
 }
 
 /**
+ * Which firing events can name a PR branch, and how. Resolution is
+ * source-aware because a generic `payload.branch` read is unsafe: the
+ * `github:main-updated` payload carries `branch: <default branch>`, so a bare
+ * field read would check out main as the "PR branch" and the event-pr planner
+ * rules would then push straight to it. Only PR-scoped GitHub events resolve —
+ * through the field that genuinely carries the PR head ref for that source.
+ */
+const PR_HEAD_BRANCH_SOURCES = new Set(['github:ci-failed', 'github:ci-passed', 'github:pr-opened']);
+const PR_NUMBER_SOURCES = new Set(['github:pr-approved', 'github:review-comment', 'github:review-requested']);
+
+/**
  * The PR branch an `event-pr` run works on, from the run's firing-event
- * observation: payload `branch` directly, else `prNumber`/`number` looked up
- * in the open-PR list. Deterministic field reads — the payload shapes are our
- * own adapters' (github-kinds.ts), never guessed.
+ * observation. PR-head-branch sources use payload `branch` directly; other
+ * PR-scoped sources resolve `prNumber`/`number` through the open-PR list.
+ * Deterministic field reads — the payload shapes are our own adapters'
+ * (github-kinds.ts), never guessed.
  */
 async function eventPrBranch(host: OrchestratorHost, run: LoopRun | undefined): Promise<string | { error: string }> {
+  const source = run?.firedBy?.source;
   const payload = run?.observations.find((o) => o.source === 'event')?.data as
     | { branch?: unknown; prNumber?: unknown; number?: unknown }
     | undefined;
-  if (!payload) {
+  if (!source || !payload) {
     return { error: 'This loop works on the PR branch named by its firing event, but this run was not started by an event.' };
   }
-  if (typeof payload.branch === 'string' && payload.branch.length > 0) return payload.branch;
+  if (!PR_HEAD_BRANCH_SOURCES.has(source) && !PR_NUMBER_SOURCES.has(source)) {
+    return { error: `The firing event (${source}) is not scoped to a pull request, so there is no PR branch to work on.` };
+  }
+  if (PR_HEAD_BRANCH_SOURCES.has(source) && typeof payload.branch === 'string' && payload.branch.length > 0) {
+    return payload.branch;
+  }
   const prNumber = typeof payload.prNumber === 'number' ? payload.prNumber : typeof payload.number === 'number' ? payload.number : undefined;
   if (prNumber === undefined) {
     return { error: 'The firing event names neither a branch nor a PR number, so there is no PR branch to work on.' };
   }
-  const open = await host.listPullRequests().catch(() => []);
+  const open = await host
+    .listPullRequests()
+    .catch((cause: unknown) => (cause instanceof Error ? cause.message : String(cause)));
+  if (typeof open === 'string') {
+    return { error: `Could not read the open pull-request list to resolve PR #${prNumber}: ${open}` };
+  }
   const pr = open.find((candidate) => candidate.number === prNumber);
   if (!pr) return { error: `PR #${prNumber} from the firing event is not in the open-PR list — it may be closed or merged.` };
   return pr.headRefName;
