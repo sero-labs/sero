@@ -21,6 +21,8 @@ export interface PlanRequest {
   parentSessionId: string;
   /** The loop's workspace isolation, so the planner adds the right placement rules. */
   useManagedWorktree: boolean;
+  /** 'event-pr' swaps the pr delivery rules to push-to-the-PR's-own-branch (spec 15). */
+  worktreeBranchSource?: 'new' | 'event-pr';
   /** The loop's effective delivery (user-chosen or derived) — the planner authors its steps, never picks it. */
   delivery: LoopDeliverySettings;
   /** The real tool catalog the planner picks each step's tools from. */
@@ -82,6 +84,7 @@ export async function planLoop(host: OrchestratorHost, req: PlanRequest): Promis
     first = await runPlanning(host, req, buildPlanningTask({
       prompt: req.prompt,
       useManagedWorktree: req.useManagedWorktree,
+      worktreeBranchSource: req.worktreeBranchSource,
       delivery: req.delivery,
       toolCatalog: req.toolCatalog,
       clarifications: req.clarifications,

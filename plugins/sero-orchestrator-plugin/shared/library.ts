@@ -46,6 +46,7 @@ export function toSharedDefinition(loop: Loop): SharedLoopDefinition {
     logPolicy: { ...loop.logPolicy },
     contextOverrides: loop.contextOverrides ? structuredClone(loop.contextOverrides) : undefined,
     delivery: loop.delivery ? structuredClone(loop.delivery) : undefined,
+    worktreeBranchSource: loop.workspace.worktreeBranchSource,
   };
 }
 

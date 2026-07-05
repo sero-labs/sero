@@ -217,8 +217,13 @@ export interface OrchestratorHost {
   readArtifact(ref: string): Promise<string | null>;
 
   // ── Workspace isolation (user-selected placement) ─────────
-  /** Creates or reuses one managed worktree for a loop. */
-  createWorktree(loopId: string, title: string): Promise<WorktreeHandle>;
+  /**
+   * Creates or reuses one managed worktree for a loop. With `existingBranch`
+   * the worktree checks out that branch (fetched from origin when only
+   * remote) instead of minting a new one — PR-lifecycle work lands on the
+   * PR's own branch, and removal never deletes it.
+   */
+  createWorktree(loopId: string, title: string, options?: { existingBranch?: string }): Promise<WorktreeHandle>;
   removeWorktree(loopId: string, options?: { deleteBranch?: boolean; force?: boolean }): Promise<void>;
   /** Workspace-root dirty preflight (workspace-root mode only). */
   getWorkspaceStatus(): Promise<WorkspaceStatus>;

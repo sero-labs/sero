@@ -9,6 +9,8 @@ export interface CreateLoopSubmit {
   title?: string;
   useManagedWorktree: boolean;
   allowDirtyWorkspaceRoot: boolean;
+  /** 'event-pr' = the worktree checks out the PR branch named by the firing event. */
+  worktreeBranchSource?: 'new' | 'event-pr';
   /** Absent = automatic (follows placement: worktree ⇒ PR, root ⇒ workspace files). */
   delivery?: LoopDeliverySettings;
 }
@@ -29,6 +31,7 @@ export function CreateLoopForm({ busy, onSubmit, onCancel }: CreateLoopFormProps
   const [title, setTitle] = useState('');
   const [useManagedWorktree, setUseManagedWorktree] = useState(true);
   const [allowDirtyWorkspaceRoot, setAllowDirtyWorkspaceRoot] = useState(false);
+  const [eventPrBranch, setEventPrBranch] = useState(false);
   const [destination, setDestination] = useState<DeliveryDestinationId | 'auto'>('auto');
   const [deliveryParams, setDeliveryParams] = useState<Record<string, string>>({});
 
@@ -44,6 +47,7 @@ export function CreateLoopForm({ busy, onSubmit, onCancel }: CreateLoopFormProps
       title: title.trim() || undefined,
       useManagedWorktree,
       allowDirtyWorkspaceRoot: useManagedWorktree ? false : allowDirtyWorkspaceRoot,
+      worktreeBranchSource: useManagedWorktree && eventPrBranch ? 'event-pr' : undefined,
       delivery:
         destination === 'auto'
           ? undefined
@@ -80,6 +84,12 @@ export function CreateLoopForm({ busy, onSubmit, onCancel }: CreateLoopFormProps
           <div className="flex items-center justify-between gap-3">
             <Label htmlFor="loop-allow-dirty" className="font-normal">Run here even with uncommitted changes</Label>
             <Switch id="loop-allow-dirty" checked={allowDirtyWorkspaceRoot} onCheckedChange={setAllowDirtyWorkspaceRoot} />
+          </div>
+        )}
+        {useManagedWorktree && (
+          <div className="flex items-center justify-between gap-3">
+            <Label htmlFor="loop-event-pr" className="font-normal">Work on the PR branch from the firing event</Label>
+            <Switch id="loop-event-pr" checked={eventPrBranch} onCheckedChange={setEventPrBranch} />
           </div>
         )}
         <div className="flex items-center justify-between gap-3">

@@ -6,9 +6,11 @@
  *
  * Delivery semantics: matching per trigger is exact source, structured filter,
  * and debounce in code, then the optional natural-language condition as a model
- * call (last, so the code checks bound the model-call volume). A due idle loop
- * starts a fresh iteration seeded with the event; a busy loop stashes it
- * latest-wins for the iteration that follows. Every fire increments fireCount.
+ * call (last, so the code checks bound the model-call volume). Every accepted
+ * fire is APPENDED to the loop's pending-event FIFO (spec 15 — the spec-12
+ * latest-wins stash silently dropped discrete per-PR events); an idle loop
+ * additionally starts a fresh pass, and the engine consumes the queue HEAD at
+ * run start. Every fire increments fireCount.
  */
 
 import type { Loop, LoopWarning, OrchestratorActionResult, OrchestratorEvent } from '../shared/types';
@@ -16,6 +18,7 @@ import type { OrchestratorHost } from './host';
 import { applyEventFires, rearmLoop } from './scheduler';
 import { codeMatchEventTrigger, EVENT_CHAIN_DEPTH_LIMIT, RECENT_EVENT_KEYS_LIMIT } from './event-match';
 import { evaluateEventCondition } from './event-condition';
+import { enqueuePendingEvent } from './event-queue';
 
 /** The coordinator internals event delivery needs — nothing else mutates runs. */
 export interface CoordinatorRunSeam {
@@ -64,10 +67,11 @@ export async function broadcastEvent(
 }
 
 /**
- * Consumes a stashed pending event once the loop is idle: clears the stash and
- * runs a fresh event pass seeded with it. Each drained pass goes back through
- * runNext, so a NEW event arriving during that pass stashes again and drains in
- * turn — the chain ends when no new event arrived.
+ * Starts the next queued iteration once the loop is idle. The queue rides in
+ * `runtime.pendingEvents` through the re-arm; the engine consumes the HEAD at
+ * run start. Each drained pass goes back through runNext, so events arriving
+ * during a pass queue behind and drain in turn — the chain ends when the
+ * queue is empty.
  */
 export async function drainPendingEvent(
   host: OrchestratorHost,
@@ -75,12 +79,9 @@ export async function drainPendingEvent(
   loopId: string,
 ): Promise<void> {
   const loop = await seam.findLoop(loopId);
-  if (!loop || loop.status !== 'active' || !loop.runtime.pendingEvent) return;
+  if (!loop || loop.status !== 'active' || !loop.runtime.pendingEvents?.length) return;
   if (loop.runtime.activeRunId || seam.isRunning(loopId) || loop.runtime.pendingInput) return;
-  const event = loop.runtime.pendingEvent;
-  const cleared: Loop = { ...loop, runtime: { ...loop.runtime, pendingEvent: undefined } };
-  await seam.replaceLoop(cleared);
-  await runEventPass(host, seam, cleared, event);
+  await runEventPass(host, seam, loopId);
 }
 
 /** Restart-safe dedupe: an event carrying a dedupeKey is delivered at most once. */
@@ -121,10 +122,10 @@ async function recordChainDepthWarning(
 }
 
 /**
- * Records the fires and either starts a fresh pass (idle) or stashes the event
- * latest-wins (run in flight / parked on a question). The code match is
- * re-checked inside the state update — the condition calls above take time, and
- * another event may have debounced or exhausted a trigger meanwhile.
+ * Records the fires and appends the event to the loop's pending FIFO; an idle
+ * loop additionally starts the next pass. The code match is re-checked inside
+ * the state update — the condition calls above take time, and another event
+ * may have debounced or exhausted a trigger meanwhile.
  */
 async function deliverEventFire(
   host: OrchestratorHost,
@@ -134,7 +135,7 @@ async function deliverEventFire(
   event: OrchestratorEvent,
 ): Promise<void> {
   const wanted = new Set(triggerIds);
-  let fired: Loop | undefined;
+  let fired = false;
   let busy = false;
   await host.updateState((state) => {
     const index = state.loops.findIndex((l) => l.id === loopId);
@@ -147,34 +148,37 @@ async function deliverEventFire(
       .map((t) => t.id);
     if (firing.length === 0) return state;
     busy = Boolean(current.runtime.activeRunId) || seam.isRunning(loopId) || Boolean(current.runtime.pendingInput);
-    let next = applyEventFires(current, firing, nowMs);
-    if (busy) next = { ...next, runtime: { ...next.runtime, pendingEvent: event } };
-    fired = next;
+    const next = enqueuePendingEvent(host, applyEventFires(current, firing, nowMs), event);
+    fired = true;
     const loops = [...state.loops];
     loops[index] = next;
     return { ...state, loops };
   });
   if (!fired || busy) return;
-  await runEventPass(host, seam, fired, event);
+  await runEventPass(host, seam, loopId);
 }
 
 /**
- * Starts a fresh event-fired iteration (cron semantics): drops the previous
- * iteration's worktree, re-arms the plan, and seeds the firing event — the
- * engine consumes it into the run's `firedBy` and an `event` observation.
+ * Starts the next event-fired iteration (cron semantics): drops the previous
+ * iteration's worktree and re-arms the plan. The re-arm reads the CURRENT
+ * on-disk loop inside updateState — never a caller-held copy — so an event
+ * enqueued concurrently is never overwritten. The queued events survive the
+ * re-arm; the engine consumes the head into the run's `firedBy` and an
+ * `event` observation.
  */
-async function runEventPass(
-  host: OrchestratorHost,
-  seam: CoordinatorRunSeam,
-  loop: Loop,
-  event: OrchestratorEvent,
-): Promise<void> {
-  const prior = loop.runtime.workspace.resolved;
+async function runEventPass(host: OrchestratorHost, seam: CoordinatorRunSeam, loopId: string): Promise<void> {
+  let rearmed: Loop | undefined;
+  let prior: Loop['runtime']['workspace']['resolved'];
+  await host.updateState((state) => {
+    const current = state.loops.find((l) => l.id === loopId);
+    if (!current || current.status !== 'active') return state;
+    prior = current.runtime.workspace.resolved; // captured pre-rearm: rearmLoop clears workspace
+    rearmed = rearmLoop(current, host.now());
+    return { ...state, loops: state.loops.map((l) => (l.id === loopId ? rearmed! : l)) };
+  });
+  if (!rearmed) return;
   if (prior?.type === 'managed-worktree') {
-    await host.removeWorktree(prior.worktreeKey ?? loop.id, { force: true });
+    await host.removeWorktree(prior.worktreeKey ?? loopId, { force: true });
   }
-  const rearmed = rearmLoop(loop, host.now());
-  const seeded: Loop = { ...rearmed, runtime: { ...rearmed.runtime, pendingEvent: event } };
-  await seam.replaceLoop(seeded);
-  await seam.runNext(loop.id, seeded);
+  await seam.runNext(loopId, rearmed);
 }

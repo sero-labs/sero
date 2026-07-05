@@ -107,6 +107,9 @@ export class WorktreeManager {
    *
    * Creates a new branch and checks it out in an isolated directory.
    * The worktree shares the `.git` object store with the main repo.
+   * With `existingBranch`, checks out that branch (fetching it from origin
+   * when it only exists remotely) instead of minting a new one — never
+   * delete such a worktree's branch on removal, it belongs to a PR.
    *
    * @returns The absolute path to the worktree directory
    */
@@ -114,7 +117,11 @@ export class WorktreeManager {
     workspacePath: string,
     cardId: string,
     cardTitle: string,
+    options?: { existingBranch?: string },
   ): Promise<{ worktreePath: string; branchName: string; greenfield: boolean }> {
+    if (options?.existingBranch) {
+      return this.createAtExistingBranch(workspacePath, cardId, options.existingBranch);
+    }
     // Ensure the workspace is a valid git repo with at least one commit
     const greenfield = await ensureGitReady(workspacePath);
 
@@ -160,6 +167,61 @@ export class WorktreeManager {
 
     console.log(`[worktree] Created worktree for card-${cardId} at ${worktreePath} (branch: ${branchName})${greenfield ? ' [greenfield]' : ''}`);
     return { worktreePath, branchName, greenfield };
+  }
+
+  /**
+   * Check an EXISTING branch out into a worktree (PR-lifecycle work: commits
+   * must land on the PR's own branch). The branch is fetched from origin
+   * first so a PR pushed from elsewhere is present and current; a local-only
+   * branch (no remote) is used as-is.
+   */
+  private async createAtExistingBranch(
+    workspacePath: string,
+    cardId: string,
+    branchName: string,
+  ): Promise<{ worktreePath: string; branchName: string; greenfield: boolean }> {
+    // Branch names come from event payloads — refuse anything git itself
+    // would refuse rather than passing surprising tokens to the CLI.
+    if (branchName.startsWith('-') || !/^[^\s~^:?*[\\]+$/.test(branchName) || branchName.includes('..')) {
+      throw new Error(`Invalid branch name "${branchName}"`);
+    }
+    const worktreePath = this.getPath(workspacePath, cardId);
+    await fs.mkdir(path.dirname(worktreePath), { recursive: true });
+
+    // Best-effort: a local-only branch or an offline repo still resolves below.
+    try {
+      await execFileAsync('git', ['fetch', 'origin', branchName], { cwd: workspacePath, timeout: 60_000 });
+    } catch {
+      console.log(`[worktree] fetch origin ${branchName} failed — trying local refs`);
+    }
+
+    const hasRef = async (ref: string): Promise<boolean> => {
+      try {
+        await execFileAsync('git', ['rev-parse', '--verify', '--quiet', ref], { cwd: workspacePath, timeout: 5_000 });
+        return true;
+      } catch {
+        return false;
+      }
+    };
+
+    const addArgs = (await hasRef(`refs/heads/${branchName}`))
+      ? ['worktree', 'add', worktreePath, branchName]
+      : (await hasRef(`refs/remotes/origin/${branchName}`))
+        ? ['worktree', 'add', '--track', '-b', branchName, worktreePath, `origin/${branchName}`]
+        : null;
+    if (!addArgs) {
+      throw new Error(`Branch "${branchName}" exists neither locally nor on origin`);
+    }
+    try {
+      await execFileAsync('git', addArgs, { cwd: workspacePath, timeout: 30_000 });
+    } catch (err: unknown) {
+      const stderr = err && typeof err === 'object' && 'stderr' in err ? String((err as { stderr: unknown }).stderr) : '';
+      const message = err instanceof Error ? err.message : String(err);
+      throw new Error(`Failed to check out branch "${branchName}" for card ${cardId}: ${stderr || message}`);
+    }
+
+    console.log(`[worktree] Created worktree for card-${cardId} at ${worktreePath} (existing branch: ${branchName})`);
+    return { worktreePath, branchName, greenfield: false };
   }
 
   /**

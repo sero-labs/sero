@@ -59,6 +59,7 @@ export const ORCHESTRATOR_ACTIONS = [
 
 const SUGGESTION_DECISIONS = ['approve', 'reject'] as const;
 const LIBRARY_SAVE_MODES = ['new-version', 'new-entry'] as const;
+const WORKTREE_BRANCH_SOURCES = ['new', 'event-pr'] as const;
 
 export const OrchestratorToolParams = Type.Object({
   action: StringEnum(ORCHESTRATOR_ACTIONS, {
@@ -70,6 +71,7 @@ export const OrchestratorToolParams = Type.Object({
   activate: Type.Optional(Type.Boolean({ description: 'Activate the loop immediately after create' })),
   useManagedWorktree: Type.Optional(Type.Boolean({ description: 'Workspace isolation for create (default true)' })),
   allowDirtyWorkspaceRoot: Type.Optional(Type.Boolean({ description: 'For create in workspace-root mode (useManagedWorktree false): run in place even when the workspace is dirty, skipping the dirty preflight (default false)' })),
+  worktreeBranchSource: Type.Optional(StringEnum(WORKTREE_BRANCH_SOURCES, { description: 'For create with a managed worktree: "event-pr" checks out the PR branch named by the firing event instead of minting a new branch (PR-lifecycle loops); default "new"' })),
   decisionJson: Type.Optional(Type.String({ description: 'JSON-encoded RecoveryDecision for choose_recovery' })),
   stepId: Type.Optional(Type.String({ description: 'Target step id (required for set_step_model/set_step_tools)' })),
   model: Type.Optional(Type.String({ description: 'For set_step_model: a tier ("LOW"/"MED"/"HIGH") or a "provider/modelId"; omit to revert the step to the default' })),
@@ -104,6 +106,7 @@ export interface OrchestratorToolParamsShape {
   activate?: boolean;
   useManagedWorktree?: boolean;
   allowDirtyWorkspaceRoot?: boolean;
+  worktreeBranchSource?: (typeof WORKTREE_BRANCH_SOURCES)[number];
   decisionJson?: string;
   stepId?: string;
   model?: string;
@@ -173,10 +176,11 @@ export function buildAction(params: OrchestratorToolParamsShape): OrchestratorAc
       if (!params.prompt) return { error: 'create requires a prompt' };
       const options: CreateLoopOptions = {};
       if (params.activate !== undefined) options.activate = params.activate;
-      if (params.useManagedWorktree !== undefined || params.allowDirtyWorkspaceRoot !== undefined) {
+      if (params.useManagedWorktree !== undefined || params.allowDirtyWorkspaceRoot !== undefined || params.worktreeBranchSource !== undefined) {
         options.workspace = {};
         if (params.useManagedWorktree !== undefined) options.workspace.useManagedWorktree = params.useManagedWorktree;
         if (params.allowDirtyWorkspaceRoot !== undefined) options.workspace.allowDirtyWorkspaceRoot = params.allowDirtyWorkspaceRoot;
+        if (params.worktreeBranchSource !== undefined) options.workspace.worktreeBranchSource = params.worktreeBranchSource;
       }
       if (params.deliveryDestination !== undefined) {
         const delivery = buildDelivery(params);

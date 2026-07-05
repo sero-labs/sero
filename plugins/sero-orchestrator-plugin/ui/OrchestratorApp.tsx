@@ -116,6 +116,7 @@ export function OrchestratorApp() {
       title: values.title,
       useManagedWorktree: values.useManagedWorktree,
       allowDirtyWorkspaceRoot: values.allowDirtyWorkspaceRoot,
+      worktreeBranchSource: values.worktreeBranchSource,
       deliveryDestination: values.delivery?.destination,
       deliveryParamsJson: values.delivery?.params ? JSON.stringify(values.delivery.params) : undefined,
       activate: false,

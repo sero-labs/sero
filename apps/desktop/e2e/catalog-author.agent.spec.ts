@@ -99,9 +99,35 @@ const RECIPES: Recipe[] = [
     slug: 'ci-fixer',
     name: 'CI fixer',
     prompt:
-      'Whenever a CI run fails in this repository, investigate that failed run: read the failure logs, find the cause, make the smallest fix that addresses it, and verify the fix by running the checks that failed. Open a pull request with the fix.',
-    create: { useManagedWorktree: true, deliveryDestination: 'pr' },
+      "Whenever a CI run fails on a pull request branch in this repository, fix that failure: read the failed run's logs with gh, find the root cause, make the smallest fix that addresses it, run the checks that failed to confirm they now pass, and push the fix so the pull request updates. Only act when the failing branch belongs to an open pull request that I authored or that Sero created; ignore failures on other branches.",
+    create: { useManagedWorktree: true, worktreeBranchSource: 'event-pr', deliveryDestination: 'pr' },
     wantTrigger: (t) => t.some((x) => x.eventSource === 'github:ci-failed' && !x.maxFires),
+  },
+  {
+    slug: 'review-responder',
+    name: 'Review responder',
+    prompt:
+      'Whenever a review comment is posted on one of my open pull requests by someone other than me, respond to that review: read the full review thread and the pull request diff, work through every unaddressed comment — apply the requested change when it is right, answer it when it is a question, or explain briefly why you disagree — verify the project still passes its checks after any changes, push, and reply to each comment on the pull request with what was done. Comments that arrive close together should be handled as one batch.',
+    create: { useManagedWorktree: true, worktreeBranchSource: 'event-pr', deliveryDestination: 'pr' },
+    wantTrigger: (t) => t.some((x) => x.eventSource === 'github:review-comment' && !x.maxFires),
+  },
+  {
+    slug: 'rebase-on-main',
+    name: 'Rebase on main',
+    prompt:
+      'Whenever the main branch of this repository is updated, bring my open pull requests up to date: list the open pull requests that I authored or that Sero created, and for each one that is behind main, rebase it onto the latest main (or merge main in when rebasing is unsafe), resolve conflicts only when the resolution is obvious, run the project checks, and push the updated branch. Leave any pull request whose conflicts are not clearly resolvable untouched and describe the conflict in a comment on that pull request instead. Wait at least fifteen minutes after the last main update before starting so a burst of pushes is handled once.',
+    create: { useManagedWorktree: true, deliveryDestination: 'pr' },
+    wantTrigger: (t) => t.some((x) => x.eventSource === 'github:main-updated' && !x.maxFires),
+  },
+  {
+    slug: 'issue-implementer',
+    name: 'Issue implementer',
+    prompt:
+      'Every two hours, and whenever a new issue is opened in this repository, work the issue backlog. First scan: list open unassigned issues and exclude any that already have an open pull request linked, a human assignee, or a recent Sero claim comment (a "Sero started work on this issue" marker posted within the last day — older markers with no linked pull request count as expired). Judge the remaining candidates on clarity, size, risk, and value, and pick the single best one — or, if none is suitable, finish the pass reporting that plainly without claiming completion of any delivery. Before writing any code, claim the chosen issue: assign it to me and post the comment "Sero started work on this issue" with the current time; then re-read the issue, and if someone else is now also assigned or posted an earlier active claim, remove my assignment and finish the pass as skipped. Once the claim is verified, decide the approach: implement directly when the issue is small and clear; write a short implementation plan first when it is substantial; when it is too vague, post concrete clarifying questions on the issue, remove my assignment, and finish the pass; when it needs a product decision or is too large for one change, comment why with a suggested breakdown, remove my assignment, and finish the pass. When implementing: make the change, add or update tests and documentation where they apply, run the project checks, and open a pull request whose description includes "Closes #<issue number>"; then comment the pull request link on the issue. Handle exactly one issue per pass and never merge pull requests.',
+    create: { useManagedWorktree: true, deliveryDestination: 'pr' },
+    wantTrigger: (t) =>
+      t.some((x) => (x.type === 'cron' || x.type === 'hybrid') && !!x.schedule && !x.maxFires) &&
+      t.some((x) => x.eventSource === 'github:issue-opened' && !x.maxFires),
   },
   {
     slug: 'issue-triage-report',

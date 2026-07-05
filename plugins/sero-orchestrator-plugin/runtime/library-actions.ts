@@ -170,7 +170,9 @@ async function setVersion(
     logPolicy: { ...def.logPolicy },
     contextOverrides: def.contextOverrides ? structuredClone(def.contextOverrides) : undefined,
     delivery: def.delivery ? structuredClone(def.delivery) : undefined,
-    workspace: placement ? { ...loop.workspace, ...placement } : loop.workspace,
+    // Placement stays the workspace/user choice, but the branch source is
+    // definitional (spec 15) and tracks the version like delivery does.
+    workspace: { ...loop.workspace, ...placement, worktreeBranchSource: def.worktreeBranchSource },
     answeredInputs: voidOpenApprovals(loop.answeredInputs, now),
     runtime: { ...loop.runtime, variables: {}, stepStates: initStepStates(plan, now), block: undefined, completion: undefined },
     libraryLink: { ...loop.libraryLink, version: action.version, syncedAt: now },

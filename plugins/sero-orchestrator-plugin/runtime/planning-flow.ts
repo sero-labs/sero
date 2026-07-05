@@ -56,6 +56,7 @@ export async function runPlanningFlow(host: OrchestratorHost, draft: Loop, args:
     prompt: args.prompt,
     parentSessionId: draft.runtime.parentSessionId,
     useManagedWorktree: draft.workspace.useManagedWorktree,
+    worktreeBranchSource: draft.workspace.worktreeBranchSource,
     delivery: effectiveDelivery(draft),
     toolCatalog,
     agentCatalog,

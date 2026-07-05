@@ -9,7 +9,7 @@ import type { LoopDeliverySettings } from '../shared/delivery-types';
 import type { SharedLoopDefinition } from '../shared/library-types';
 import { DEFAULT_TOOLS } from '../shared/constants';
 import { buildEventSourceCatalogBlock } from './events/source-catalog';
-import { deliverySpec, type DeliveryDestinationSpec } from './delivery/registry';
+import { deliverySpec, PR_UPDATE_PLANNER_RULES, type DeliveryDestinationSpec } from './delivery/registry';
 
 export const PLANNING_SYSTEM_PROMPT = `You are the PLANNER for Sero Orchestrator. You do NOT make any change yourself — a separate background agent will carry out each step you author. Your only job is to turn the user's prompt into a durable step plan. Not having edit/file tools is expected; never refuse or describe the edit instead.
 
@@ -189,6 +189,8 @@ Keep the step structure, intent, and any tuned trigger settings (debounce, max f
 export interface PlanningTaskArgs {
   prompt: string;
   useManagedWorktree: boolean;
+  /** 'event-pr' swaps the pr delivery rules to push-to-the-PR's-own-branch (spec 15). */
+  worktreeBranchSource?: 'new' | 'event-pr';
   /** The loop's effective delivery — always resolved by the caller (effectiveDelivery), never chosen here. */
   delivery: LoopDeliverySettings;
   toolCatalog?: PlanningToolInfo[];
@@ -200,6 +202,9 @@ export interface PlanningTaskArgs {
 
 export function buildPlanningTask(args: PlanningTaskArgs): string {
   const { prompt, useManagedWorktree, delivery, toolCatalog = [], clarifications = [], agentCatalog = [] } = args;
+  const spec = deliverySpec(delivery.destination);
+  const effectiveSpec =
+    spec.id === 'pr' && args.worktreeBranchSource === 'event-pr' ? { ...spec, plannerRules: PR_UPDATE_PLANNER_RULES } : spec;
   return `A background agent will carry out the work below. Author the step plan it should follow — do not perform the work yourself, and do not ask the user to specify mechanics like committing, opening a PR, or marking the loop complete. Add those yourself per the rules.
 
 Goal:
@@ -211,7 +216,7 @@ ${buildEventSourceCatalogBlock()}
 
 ${buildToolCatalogBlock(toolCatalog)}${buildAgentCatalogBlock(agentCatalog)}${buildPlacementBlock(useManagedWorktree)}
 
-${buildDeliveryBlock(deliverySpec(delivery.destination), delivery.params)}
+${buildDeliveryBlock(effectiveSpec, delivery.params)}
 
 Return the PlanningResponse JSON now (one object, top-level "plan", no prose) — or the clarifyingQuestions object if you are genuinely blocked.`;
 }

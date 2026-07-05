@@ -80,7 +80,7 @@ export class Coordinator {
     // Restart safety: an event stashed while the loop was busy (or while the
     // app was quitting) still owes the loop a fresh iteration — consume it.
     for (const loop of state.loops) {
-      if (loop.runtime.pendingEvent) await this.drainPendingEvent(loop.id);
+      if (loop.runtime.pendingEvents?.length) await this.drainPendingEvent(loop.id);
     }
   }
 
@@ -274,7 +274,12 @@ export class Coordinator {
     if (!loop) return { ok: false, error: `Loop not found: ${loopId}` };
     const resolved = loop.runtime.workspace.resolved;
     if (resolved?.type === 'managed-worktree') {
-      await this.host.removeWorktree(resolved.worktreeKey ?? loopId, { force: true, deleteBranch });
+      // An event-pr worktree's branch belongs to a PR, never to this loop —
+      // deleteBranch must not reach it (spec 15, FR-P2).
+      await this.host.removeWorktree(resolved.worktreeKey ?? loopId, {
+        force: true,
+        deleteBranch: resolved.externalBranch ? undefined : deleteBranch,
+      });
     }
     await this.host.updateState((state) => ({
       ...state,

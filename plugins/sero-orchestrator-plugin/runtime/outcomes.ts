@@ -163,9 +163,9 @@ export function recordCompletion(
     completion.status === 'blocked'
       ? { kind: 'planned-block' as const, reason: completion.reason, createdAt: now, sourceStepId: stepId, sourceAttemptId: attempt.id }
       : undefined;
-  // A pendingEvent stashed mid-run lives on DISK, not on this in-memory copy —
-  // the engine's commit() drops it (with an `event-dropped` warning) when the
-  // loop leaves 'active', so nothing stale fires on a later re-activation.
+  // Events queued mid-run live on DISK, not on this in-memory copy — the
+  // engine's commit() drops the queue (with an `event-dropped` warning) when
+  // the loop leaves 'active', so nothing stale fires on a later re-activation.
   return {
     loop: {
       ...loop,

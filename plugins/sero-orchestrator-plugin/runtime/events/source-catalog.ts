@@ -69,6 +69,21 @@ export const EVENT_SOURCE_CATALOG: EventSourceInfo[] = [
     filterFields: 'prNumber, author, path',
   },
   {
+    source: 'github:pr-approved',
+    description: 'a pull request review was submitted approving the PR',
+    filterFields: 'prNumber, prTitle, reviewer',
+  },
+  {
+    source: 'github:main-updated',
+    description: 'commits were pushed to the repo default branch',
+    filterFields: 'branch, pusher, commitCount',
+  },
+  {
+    source: 'github:issue-opened',
+    description: 'an issue was opened on the workspace repo (never fires for pull requests)',
+    filterFields: 'number, title, author, labels',
+  },
+  {
     source: 'webhook:<name>',
     description:
       'an external system POSTed JSON to the local hook endpoint /hooks/<name> — invent a short kebab-case name for <name> (e.g. webhook:deploy); the JSON body is the payload',

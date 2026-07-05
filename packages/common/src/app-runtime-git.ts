@@ -85,11 +85,21 @@ export interface AppRuntimeDirtyWorkspaceStashResult {
   stashRef: string | null;
 }
 
+export interface AppRuntimeWorktreeCreateOptions {
+  /**
+   * Check out this existing branch (fetched from origin when only remote)
+   * instead of minting a new one — for work that must land on a PR's own
+   * branch. Removal of such a worktree must never delete the branch.
+   */
+  existingBranch?: string;
+}
+
 export interface AppRuntimeGitApi {
   createWorktree(
     workspacePath: string,
     cardId: string,
     cardTitle: string,
+    options?: AppRuntimeWorktreeCreateOptions,
   ): Promise<AppRuntimeWorktreeCreateResult>;
   removeWorktree(
     workspacePath: string,

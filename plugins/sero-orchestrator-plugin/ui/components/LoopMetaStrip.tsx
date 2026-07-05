@@ -6,7 +6,7 @@
  * chip's hover title.
  */
 
-import { Activity, Clock, Coins, FolderGit2, GitBranch, Gauge, Repeat, Send, Zap } from 'lucide-react';
+import { Activity, Clock, Coins, FolderGit2, GitBranch, Gauge, Inbox, Repeat, Send, Zap } from 'lucide-react';
 import type { GithubSourceHealth, Loop, LoopRunSummary, WebhookSourceHealth } from '../../shared/types';
 import { formatTime } from '../lib/format';
 import { deliveryChip } from '../lib/delivery-summary';
@@ -49,6 +49,7 @@ export function LoopMetaStrip({
       <span className="flex items-center gap-1.5">
         {workspace.useManagedWorktree ? <GitBranch className="h-3.5 w-3.5" /> : <FolderGit2 className="h-3.5 w-3.5" />}
         {workspace.useManagedWorktree ? 'Managed worktree' : 'Workspace root'}
+        {workspace.useManagedWorktree && workspace.worktreeBranchSource === 'event-pr' ? ' · PR branch from event' : ''}
         {!workspace.useManagedWorktree && workspace.allowDirtyWorkspaceRoot ? ' · runs in place' : ''}
         {resolved ? ` · ${resolved.type}` : ''}
       </span>
@@ -83,6 +84,16 @@ export function LoopMetaStrip({
           <Activity className="h-3.5 w-3.5" /> {chip.label}
         </span>
       ))}
+      {(loop.runtime.pendingEvents?.length ?? 0) > 0 && (
+        <span
+          className="flex items-center gap-1.5"
+          title={loop.runtime.pendingEvents!.map((e) => e.summary ?? e.source).join('\n')}
+        >
+          <Inbox className="h-3.5 w-3.5" />
+          {loop.runtime.pendingEvents!.length} event{loop.runtime.pendingEvents!.length === 1 ? '' : 's'} queued · next:{' '}
+          {loop.runtime.pendingEvents![0].summary ?? loop.runtime.pendingEvents![0].source}
+        </span>
+      )}
       {(() => {
         const t = loop.triggers.find((tr) => tr.fireCount > 0);
         const fires = loop.triggers.reduce((n, tr) => n + tr.fireCount, 0);

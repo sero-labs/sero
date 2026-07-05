@@ -70,6 +70,18 @@ describe('buildPlanningTask placement + delivery', () => {
     expect(buildPlanningTask(baseArgs)).not.toContain('Declared delivery params');
   });
 
+  it("swaps the pr rules to push-to-the-PR's-branch for event-pr loops (spec 15)", () => {
+    const updating = buildPlanningTask({ ...baseArgs, worktreeBranchSource: 'event-pr' });
+    expect(updating).toContain("checked out at that PR's OWN branch");
+    expect(updating).toContain('NEVER open a new pull request');
+    expect(updating).toContain(deliverySpec('pr').receiptHint); // receipt contract unchanged
+
+    // Only the pr destination is affected, and only under event-pr.
+    expect(buildPlanningTask(baseArgs)).not.toContain('NEVER open a new pull request');
+    const chat = buildPlanningTask({ ...baseArgs, worktreeBranchSource: 'event-pr', delivery: { destination: 'chat-post' } });
+    expect(chat).toContain(deliverySpec('chat-post').plannerRules);
+  });
+
   it('keeps the two legacy behaviors intact (pr commit/PR, workspace-files leave-in-tree)', () => {
     const pr = buildPlanningTask(baseArgs);
     expect(pr).toContain('pull request');

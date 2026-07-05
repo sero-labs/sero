@@ -31,6 +31,8 @@ export interface GithubAdapterState {
   etags?: Record<string, string>;
   /** Newest-seen item timestamp per event kind (restart-safe cursor). */
   cursors?: Record<string, string>;
+  /** Repo default branch, resolved once on demand for `main-updated` (spec 15). */
+  defaultBranch?: string;
   /** Source-health facts the UI watches (GithubSourceHealth slice). */
   lastPolledAt?: string;
   throttledUntil?: string;
@@ -93,6 +95,20 @@ export function createGithubAdapter(
       const etags = { ...state.etags };
       let cursors = { ...state.cursors };
       let failed = false;
+      // `main-updated` needs the repo default branch: resolved once (one cheap
+      // call, only under demand) and persisted; until it resolves, the kind
+      // emits nothing and the fetch retries next cycle.
+      let defaultBranch = state.defaultBranch;
+      if (kinds.has('main-updated') && defaultBranch === undefined) {
+        const meta = await runGhApi(host, 'repos/{owner}/{repo}');
+        const repo = meta.body as { default_branch?: string } | undefined;
+        if (meta.status >= 200 && meta.status < 300 && repo?.default_branch) {
+          defaultBranch = repo.default_branch;
+        } else {
+          failed = true;
+          host.log(`github adapter: could not resolve the default branch (HTTP ${meta.status}) — main-updated waits`);
+        }
+      }
       for (const endpoint of endpointsForKinds(kinds)) {
         const response = await runGhApi(host, endpoint.path, etags[endpoint.id]);
         if (response.rateLimitRemaining !== undefined && response.rateLimitRemaining < RATE_LIMIT_THRESHOLD) {
@@ -109,7 +125,7 @@ export function createGithubAdapter(
           continue;
         }
         if (response.etag) etags[endpoint.id] = response.etag;
-        const extracted = extractOccurrences(endpoint, response.body, kinds, cursors, host.now());
+        const extracted = extractOccurrences(endpoint, response.body, kinds, cursors, host.now(), { defaultBranch });
         cursors = extracted.cursors;
         for (const occurrence of extracted.occurrences) {
           await emit({
@@ -127,6 +143,7 @@ export function createGithubAdapter(
         ...state,
         etags,
         cursors,
+        defaultBranch,
         lastPolledAt: polledAt,
         throttledUntil:
           rateLimitedUntilMs > Date.parse(polledAt) ? new Date(rateLimitedUntilMs).toISOString() : undefined,

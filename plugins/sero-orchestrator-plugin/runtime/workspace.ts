@@ -10,7 +10,7 @@
  * Resolution runs only when background-agent filesystem work is about to start.
  */
 
-import type { DirtyWorkspaceDecision, Loop, ResolvedWorkspaceContext } from '../shared/types';
+import type { DirtyWorkspaceDecision, Loop, LoopRun, ResolvedWorkspaceContext } from '../shared/types';
 import type { OrchestratorHost } from './host';
 import type { WorkspaceResolver } from './engine-types';
 
@@ -42,6 +42,79 @@ export interface ResolveResult {
   loop: Loop;
   workspace?: ResolvedWorkspaceContext;
   deferred?: string;
+  /** Hard stop with a visible reason (event-pr branch unresolvable, FR-P1). */
+  blocked?: string;
+}
+
+/**
+ * Which firing events can name a PR branch, and how. Resolution is
+ * source-aware because a generic `payload.branch` read is unsafe: the
+ * `github:main-updated` payload carries `branch: <default branch>`, so a bare
+ * field read would check out main as the "PR branch" and the event-pr planner
+ * rules would then push straight to it. Only PR-scoped GitHub events resolve —
+ * through the field that genuinely carries the PR head ref for that source.
+ */
+const PR_HEAD_BRANCH_SOURCES = new Set(['github:ci-failed', 'github:ci-passed', 'github:pr-opened']);
+const PR_NUMBER_SOURCES = new Set(['github:pr-approved', 'github:review-comment', 'github:review-requested']);
+
+/**
+ * The PR branch an `event-pr` run works on, from the run's firing-event
+ * observation. PR-head-branch sources use payload `branch` directly; other
+ * PR-scoped sources resolve `prNumber`/`number` through the open-PR list.
+ * Deterministic field reads — the payload shapes are our own adapters'
+ * (github-kinds.ts), never guessed.
+ */
+async function eventPrBranch(host: OrchestratorHost, run: LoopRun | undefined): Promise<string | { error: string }> {
+  const source = run?.firedBy?.source;
+  const payload = run?.observations.find((o) => o.source === 'event')?.data as
+    | { branch?: unknown; prNumber?: unknown; number?: unknown }
+    | undefined;
+  if (!source || !payload) {
+    return { error: 'This loop works on the PR branch named by its firing event, but this run was not started by an event.' };
+  }
+  if (!PR_HEAD_BRANCH_SOURCES.has(source) && !PR_NUMBER_SOURCES.has(source)) {
+    return { error: `The firing event (${source}) is not scoped to a pull request, so there is no PR branch to work on.` };
+  }
+  if (PR_HEAD_BRANCH_SOURCES.has(source) && typeof payload.branch === 'string' && payload.branch.length > 0) {
+    return payload.branch;
+  }
+  const prNumber = typeof payload.prNumber === 'number' ? payload.prNumber : typeof payload.number === 'number' ? payload.number : undefined;
+  if (prNumber === undefined) {
+    return { error: 'The firing event names neither a branch nor a PR number, so there is no PR branch to work on.' };
+  }
+  const open = await host
+    .listPullRequests()
+    .catch((cause: unknown) => (cause instanceof Error ? cause.message : String(cause)));
+  if (typeof open === 'string') {
+    return { error: `Could not read the open pull-request list to resolve PR #${prNumber}: ${open}` };
+  }
+  const pr = open.find((candidate) => candidate.number === prNumber);
+  if (!pr) return { error: `PR #${prNumber} from the firing event is not in the open-PR list — it may be closed or merged.` };
+  return pr.headRefName;
+}
+
+/** Managed worktree checked out at the PR's own branch (spec 15, FR-P1). */
+async function resolveEventPrWorktree(host: OrchestratorHost, loop: Loop, run: LoopRun | undefined): Promise<ResolveResult> {
+  const branch = await eventPrBranch(host, run);
+  if (typeof branch !== 'string') return { loop, blocked: branch.error };
+  const worktreeKey = worktreeKeyFor(loop);
+  const handle = await host
+    .createWorktree(worktreeKey, loop.title, { existingBranch: branch })
+    .catch((error: unknown) => ({ error: error instanceof Error ? error.message : String(error) }));
+  if ('error' in handle) return { loop, blocked: `Could not check out branch "${branch}": ${handle.error}` };
+  const resolved: ResolvedWorkspaceContext = {
+    id: host.newId('ws'),
+    type: 'managed-worktree',
+    workspaceRoot: host.workspacePath,
+    cwd: handle.worktreePath,
+    worktreePath: handle.worktreePath,
+    branchName: handle.branchName,
+    worktreeKey,
+    externalBranch: true,
+    resolvedBy: 'create-option',
+    createdAt: host.now(),
+  };
+  return { loop: withResolved(loop, resolved), workspace: resolved };
 }
 
 async function resolveManagedWorktree(
@@ -95,13 +168,16 @@ function withResolved(loop: Loop, resolved: ResolvedWorkspaceContext, decision?:
 /** The default resolver used by the runtime. */
 export const workspaceResolver: WorkspaceResolver = { resolve };
 
-export async function resolve(host: OrchestratorHost, loop: Loop): Promise<ResolveResult> {
+export async function resolve(host: OrchestratorHost, loop: Loop, run?: LoopRun): Promise<ResolveResult> {
   // Reuse an already-resolved workspace for the loop's lifetime.
   if (loop.runtime.workspace.resolved) {
     return { loop, workspace: loop.runtime.workspace.resolved };
   }
 
   if (loop.workspace.useManagedWorktree) {
+    if (loop.workspace.worktreeBranchSource === 'event-pr') {
+      return resolveEventPrWorktree(host, loop, run);
+    }
     const resolved = await resolveManagedWorktree(host, loop, 'create-option');
     return { loop: withResolved(loop, resolved), workspace: resolved };
   }

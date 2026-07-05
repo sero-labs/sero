@@ -25,7 +25,7 @@ import { checkManagementLimits } from './limits';
 import { recordAgentWarning, recordModelWarning } from './run-warnings';
 import { isRecurring } from './scheduler';
 import { toEventFiredBy, toEventObservation } from './event-match';
-import { blockLimit, blockRuntime, dropStrandedEvent, mergeTriggers, replaceRun, resetRunningSteps, resetStepPending } from './run-engine-helpers';
+import { blockLimit, blockRuntime, dropStrandedEvent, mergeTriggers, needsWorkspace, replaceRun, resetRunningSteps, resetStepPending } from './run-engine-helpers';
 import { enforceDeliveryContract } from './delivery/delivery-contract';
 import { applyDeliveryContract } from './delivery/verify-receipt';
 import { reconcileDeliveryWarning } from './delivery/availability';
@@ -104,12 +104,13 @@ export class RunEngine {
     // Monotonic, never reused — `runs.length` repeats once run-history pruning
     // caps it, which would reuse worktree keys/branch names across iterations.
     const runSeq = (initial.runtime.runSeq ?? initial.runs.length) + 1;
-    // Consume the event this iteration was fired by (Living Loops): it becomes
-    // the run's `firedBy` plus an `event` observation the steps read, and the
-    // stash is cleared. A NEW event stashed while this run is in flight is a
-    // different id and survives `commit`'s preservation for the next iteration.
-    const event = initial.runtime.pendingEvent;
+    // Consume the HEAD of the pending-event queue (Living Loops): it becomes
+    // the run's `firedBy` plus an `event` observation the steps read. Events
+    // queued while this run is in flight have different ids and survive
+    // `commit`'s disk-authoritative merge for the iterations that follow.
+    const event = initial.runtime.pendingEvents?.[0];
     if (event) this.consumedEvents.set(initial.id, event.id);
+    const remainingEvents = initial.runtime.pendingEvents?.slice(1);
     let run: LoopRun = {
       id: this.host.newId('run'),
       runNumber: runSeq,
@@ -126,7 +127,13 @@ export class RunEngine {
       runs: [...initial.runs, run],
       // Drop last run's model/agent-unavailable warnings; this run re-discovers them.
       warnings: initial.warnings.filter((w) => w.code !== 'model-unavailable' && w.code !== 'agent-unavailable'),
-      runtime: { ...initial.runtime, activeRunId: run.id, lastRunAt: now, runSeq, pendingEvent: undefined },
+      runtime: {
+        ...initial.runtime,
+        activeRunId: run.id,
+        lastRunAt: now,
+        runSeq,
+        pendingEvents: remainingEvents?.length ? remainingEvents : undefined,
+      },
     };
     loop = await this.commit(loop);
     loop = await this.reconcilePullRequests(loop);
@@ -173,9 +180,15 @@ export class RunEngine {
       const batch = ready.slice(0, loop.limits.maxConcurrentSteps ?? ready.length);
 
       // Resolve the loop workspace lazily, only when a background-agent
-      // filesystem step is about to start (D-06).
-      if (this.needsWorkspace(loop, batch) && this.deps.workspaceResolver) {
-        const resolution = await this.deps.workspaceResolver.resolve(this.host, loop);
+      // filesystem step is about to start (D-06). `run` rides along for
+      // event-pr branch resolution (spec 15).
+      if (needsWorkspace(loop, batch) && this.deps.workspaceResolver) {
+        const resolution = await this.deps.workspaceResolver.resolve(this.host, loop, run);
+        if (resolution.blocked) {
+          loop = await this.commit(blockRuntime(resolution.loop, resolution.blocked, this.host.now()));
+          run = { ...run, status: 'blocked', block: loop.runtime.block };
+          break;
+        }
         loop = await this.commit(resolution.loop);
         if (resolution.deferred) {
           run = { ...run, status: 'waiting' };
@@ -205,10 +218,6 @@ export class RunEngine {
     return this.commit({ ...loop, runtime: { ...loop.runtime, pullRequests: mine } });
   }
 
-  private needsWorkspace(loop: Loop, batch: string[]): boolean {
-    if (loop.runtime.workspace.resolved) return false;
-    return batch.some((id) => this.step(loop, id).execution.type === 'background-agent');
-  }
 
   private async runBatch(
     loop: Loop,
@@ -452,10 +461,10 @@ export class RunEngine {
    *   trigger write (the terminal-completion disable) is merged on top;
    * - `dueAgain` (a folded rerun request) is only ever SET concurrently, so a
    *   set flag on disk wins over the engine's stale false;
-   * - `pendingEvent` is coordinator-stashed; the engine only clears the one it
-   *   consumed at run start — a NEWER stash (different id) is preserved, and a
-   *   stash stranded by the loop leaving 'active' is dropped visibly
-   *   (dropStrandedEvent).
+   * - `pendingEvents` is coordinator-enqueued; the on-disk queue is
+   *   authoritative (it may have grown mid-run) and the engine only removes
+   *   the head it consumed at run start. A queue stranded by the loop leaving
+   *   'active' is dropped visibly (dropStrandedEvent).
    */
   private async commit(loop: Loop): Promise<Loop> {
     let result = loop;
@@ -464,14 +473,14 @@ export class RunEngine {
       result = loop;
       if (current) {
         const consumedId = this.consumedEvents.get(loop.id);
-        const stashed = current.runtime.pendingEvent;
+        const queued = (current.runtime.pendingEvents ?? []).filter((e) => e.id !== consumedId);
         result = {
           ...result,
           triggers: mergeTriggers(current.triggers, result.triggers),
           runtime: {
             ...result.runtime,
             dueAgain: current.runtime.dueAgain || result.runtime.dueAgain,
-            pendingEvent: stashed && stashed.id !== consumedId ? stashed : result.runtime.pendingEvent,
+            pendingEvents: queued.length ? queued : undefined,
           },
         };
       }

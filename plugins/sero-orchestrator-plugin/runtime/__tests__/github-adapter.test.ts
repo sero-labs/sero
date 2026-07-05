@@ -269,4 +269,86 @@ describe('occurrence extraction per kind', () => {
     expect(result.occurrences).toHaveLength(1);
     expect(result.occurrences[0].payload).toMatchObject({ prNumber: 12, author: 'dan', excerpt: 'nit: rename' });
   });
+
+  it('splits the repo activity feed into pr-approved and default-branch main-updated (spec 15)', () => {
+    const repoEventsEndpoint = GITHUB_ENDPOINTS.find((endpoint) => endpoint.id === 'repo-events')!;
+    const body = [
+      {
+        id: '101', type: 'PullRequestReviewEvent', created_at: '2026-03-02T00:00:00Z', actor: { login: 'reviewer' },
+        payload: { review: { state: 'approved', user: { login: 'reviewer' } }, pull_request: { number: 9, title: 'Fix', html_url: 'https://x/pr/9' } },
+      },
+      {
+        id: '102', type: 'PullRequestReviewEvent', created_at: '2026-03-02T01:00:00Z',
+        payload: { review: { state: 'changes_requested' }, pull_request: { number: 9 } }, // not an approval
+      },
+      {
+        id: '103', type: 'PushEvent', created_at: '2026-03-02T02:00:00Z', actor: { login: 'dan' },
+        payload: { ref: 'refs/heads/main', before: 'aaa', head: 'bbb', size: 2 },
+      },
+      {
+        id: '104', type: 'PushEvent', created_at: '2026-03-02T03:00:00Z', actor: { login: 'dan' },
+        payload: { ref: 'refs/heads/feature', before: 'ccc', head: 'ddd', size: 1 }, // not the default branch
+      },
+    ];
+    const known = { 'pr-approved': '2026-03-01T00:00:00Z', 'main-updated': '2026-03-01T00:00:00Z' };
+    const result = extractOccurrences(
+      repoEventsEndpoint, body, new Set(['pr-approved', 'main-updated']), known, '2026-03-03T00:00:00Z', { defaultBranch: 'main' },
+    );
+    expect(result.occurrences.map((o) => o.kind)).toEqual(['pr-approved', 'main-updated']);
+    expect(result.occurrences[0].payload).toMatchObject({ prNumber: 9, reviewer: 'reviewer', url: 'https://x/pr/9' });
+    expect(result.occurrences[1].payload).toEqual({ branch: 'main', beforeSha: 'aaa', afterSha: 'bbb', commitCount: 2, pusher: 'dan' });
+
+    // Without the default branch resolved, main-updated stays silent (never guesses).
+    const withoutBranch = extractOccurrences(
+      repoEventsEndpoint, body, new Set(['main-updated']), known, '2026-03-03T00:00:00Z', {},
+    );
+    expect(withoutBranch.occurrences).toEqual([]);
+  });
+
+  it('emits issue-opened for real issues only — the issues list mixes in pull requests', () => {
+    const issuesEndpoint = GITHUB_ENDPOINTS.find((endpoint) => endpoint.id === 'issues')!;
+    const body = [
+      { id: 61, number: 61, title: 'A PR in disguise', created_at: '2026-03-02T01:00:00Z', user: { login: 'dan' }, pull_request: { url: 'x' } },
+      { id: 60, number: 60, title: 'Real bug', created_at: '2026-03-02T00:00:00Z', user: { login: 'ann' }, labels: [{ name: 'bug' }], html_url: 'https://x/i/60' },
+    ];
+    const result = extractOccurrences(
+      issuesEndpoint, body, new Set(['issue-opened']), { 'issue-opened': '2026-03-01T00:00:00Z' }, '2026-03-03T00:00:00Z',
+    );
+    expect(result.occurrences).toHaveLength(1);
+    expect(result.occurrences[0].payload).toEqual({ number: 60, title: 'Real bug', author: 'ann', labels: ['bug'], url: 'https://x/i/60' });
+  });
+});
+
+describe('default-branch resolution (spec 15)', () => {
+  it('fetches the repo meta once under main-updated demand, persists it, and passes it to extraction', async () => {
+    const host = createFakeHost();
+    const { adapter, events } = makeAdapter(host, [subscription('loop-1', 'main-updated')]);
+
+    // Poll 1: repo meta + baseline of the feed.
+    host.commandResults.push(ghOk({ default_branch: 'trunk' }), ghOk([]));
+    await adapter.pollOnce();
+    expect(host.commands[0]).toMatch(/repos\/\{owner\}\/\{repo\}[^/]/);
+    const state = await readAdapterState<GithubAdapterState>(host, 'github');
+    expect(state?.defaultBranch).toBe('trunk');
+
+    // Poll 2: no meta re-fetch; a trunk push now fires.
+    host.commandResults.push(
+      ghOk([{ id: '7', type: 'PushEvent', created_at: '2026-03-02T00:00:00Z', actor: { login: 'dan' }, payload: { ref: 'refs/heads/trunk', size: 1 } }]),
+    );
+    await adapter.pollOnce();
+    expect(host.commands).toHaveLength(3); // 2 from poll 1, 1 from poll 2
+    expect(events).toHaveLength(1);
+    expect(events[0].source).toBe('github:main-updated');
+    expect(events[0].payload).toMatchObject({ branch: 'trunk', pusher: 'dan' });
+  });
+
+  it('a failed meta fetch counts as a failed cycle and main-updated stays silent', async () => {
+    const host = createFakeHost();
+    const { adapter, events } = makeAdapter(host, [subscription('loop-1', 'main-updated')]);
+    host.commandResults.push(ghError(500), ghOk([]));
+    await adapter.pollOnce();
+    expect(adapter.debug().consecutiveFailures).toBe(1);
+    expect(events).toEqual([]);
+    expect(host.logs.some((line) => line.includes('could not resolve the default branch'))).toBe(true);
+  });
 });
