@@ -1,11 +1,10 @@
 /**
- * Proof-of-concept: record the real Sero window using Sero's OWN enhanced
- * recorder (sero app record) via IPC — configurable fps, full-window capture,
- * quality, and an out-of-repo output path. Proves the pipeline for building
- * automated demo videos. Not a polished demo.
+ * Proof-of-concept for the demo-capture pipeline: fixed window framing, burned-in
+ * captions, Sero's own full-window recorder, and a YouTube-ready 1080p encode
+ * written outside the repo. Short flow (open a few apps) so captions/framing/fps
+ * can be validated without a full demo run.
  *
- *   SERO_E2E_REAL_HOME=1 SERO_DEMO_OUT=~/Movies/sero-demos \
- *     npx playwright test e2e/demo-record-smoke.agent.spec.ts --project=agent
+ *   SERO_E2E_REAL_HOME=1 npx playwright test e2e/demo-record-smoke.agent.spec.ts --project=agent
  */
 
 import fs from 'node:fs';
@@ -14,62 +13,45 @@ import path from 'node:path';
 import { test, expect, type ElectronApplication, type Page } from '@playwright/test';
 import { closeSeroApp, launchSeroApp } from './helpers';
 import { waitForShell } from './helpers/workflow';
+import { caption, installCaptionOverlay, setDemoWindow, startDemoRecording, stopDemoRecording } from './helpers/demo';
 
 const REAL_HOME = process.env.SERO_E2E_REAL_HOME === '1';
-// Default output is OUTSIDE the repo (~/Movies/sero-demos); override with SERO_DEMO_OUT.
-const OUT_DIR = process.env.SERO_DEMO_OUT
-  ? process.env.SERO_DEMO_OUT.replace(/^~/, os.homedir())
-  : path.join(os.homedir(), 'Movies', 'sero-demos');
 
 let app: ElectronApplication;
 let page: Page;
 
 test.skip(!REAL_HOME, 'needs SERO_E2E_REAL_HOME=1');
 
-test('Sero records its own window to a high-quality MP4 outside the repo', async () => {
+test('captures a captioned, fixed-frame 1080p demo clip outside the repo', async () => {
   test.setTimeout(180_000);
-  fs.mkdirSync(OUT_DIR, { recursive: true });
-  const outPath = path.join(OUT_DIR, 'smoke-fullwindow.mp4');
-  fs.rmSync(outPath, { force: true });
 
   ({ app, page } = await launchSeroApp({
     seroHome: path.join(os.homedir(), '.sero-ui'),
     runtime: 'host',
     env: {},
-    slowMo: 200,
+    slowMo: 150,
   }));
   await waitForShell(page);
+  await setDemoWindow(app, 1280, 800);
+  await installCaptionOverlay(page);
 
-  // Start Sero's own recorder: 15 fps, whole window, near-lossless quality.
-  const started = await page.evaluate(
-    (opts) => window.sero.appControl.recordStart(opts),
-    { fps: 15, fullWindow: true, crf: 20 },
-  );
-  expect(started, 'recorder must start').toBe(true);
+  expect(await startDemoRecording(page, { fps: 15, crf: 20 })).toBe(true);
 
-  // Drive some visible activity so the clip has motion.
-  await page.waitForTimeout(1_500);
+  await caption(page, 'Sero is a workspace where AI agents come to work', 2_000);
   await page.evaluate(() => window.__appControl?.openApp('orchestrator')).catch(() => {});
-  await page.waitForTimeout(2_500);
+  await caption(page, 'Durable loops run real workflows on a schedule', 2_500);
   await page.evaluate(() => window.__appControl?.openApp('git')).catch(() => {});
-  await page.waitForTimeout(2_500);
+  await caption(page, 'Source control, terminal, browser — one place', 2_500);
   await page.evaluate(() => window.__appControl?.openApp('memory')).catch(() => {});
-  await page.waitForTimeout(2_500);
+  await caption(page, 'And it remembers your projects across sessions', 2_500);
 
-  // Stop and encode straight to the out-of-repo path.
-  const result = await page.evaluate(
-    (dest) => window.sero.appControl.recordStop({ outputPath: dest }),
-    outPath,
-  );
-  expect(result, 'recordStop must return a result').toBeTruthy();
-  expect(result!.isVideo, 'must be a real MP4 (ffmpeg present)').toBe(true);
-  expect(result!.frameCount, 'high-fps capture should yield many frames').toBeGreaterThan(30);
-
+  const out = await stopDemoRecording(page, 'smoke-demo');
   await closeSeroApp(app);
 
-  expect(fs.existsSync(outPath), `video at ${outPath}`).toBe(true);
-  const bytes = fs.statSync(outPath).size;
+  expect(out, 'a 1080p MP4 must be produced').toBeTruthy();
+  expect(fs.existsSync(out!.youtube)).toBe(true);
+  const fps = out!.frameCount / (out!.durationMs / 1000);
   // eslint-disable-next-line no-console
-  console.log(`\n\n=== DEMO VIDEO: ${outPath} (${bytes} bytes, ${result!.frameCount} frames, ${Math.round(result!.durationMs / 1000)}s) ===\n`);
-  expect(bytes).toBeGreaterThan(50_000);
+  console.log(`\n\n=== DEMO: ${out!.youtube}\n    raw: ${out!.raw}\n    ${out!.frameCount} frames over ${Math.round(out!.durationMs / 1000)}s (~${fps.toFixed(1)} fps) ===\n`);
+  expect(fs.statSync(out!.youtube).size).toBeGreaterThan(50_000);
 });
