@@ -1,0 +1,164 @@
+{
+  "schemaVersion": 1,
+  "prompt": "On a schedule, check this repository for a newly published release that has no launch pack yet (there is no release/tag event source in the orchestrator yet, so this loop polls; run it manually right after tagging for an instant pack). For a new release, gather the facts — the tag, commits since the previous release, and merged pull requests in that range — and produce a launch pack of marketing DRAFTS under docs/marketing/launch-packs/<tag>/: human release notes, an X thread, a Hacker News draft with an explicit post/do-not-post recommendation, and per-subreddit Reddit variants with genuinely different angles. Everything is a draft file for the maintainer to review and publish by hand. The loop never posts, sends, comments, or publishes anywhere, and it never edits the GitHub release itself — GitHub and git access is strictly read-only.",
+  "title": "Release launch pack",
+  "summary": "One pass polls for an unprocessed published release; when one exists it gathers the tag, commit, and merged-PR facts, then drafts release notes, an X thread, an HN draft with a post/do-not-post verdict, and per-subreddit Reddit variants under docs/marketing/launch-packs/<tag>/ — drafts only, nothing is posted or sent, and the GitHub release is never edited.",
+  "plan": {
+    "schemaVersion": 1,
+    "revision": 0,
+    "objective": "For each newly published release, produce a complete launch pack of draft marketing files under docs/marketing/launch-packs/<tag>/ without posting, sending, or modifying anything outside the workspace.",
+    "steps": [
+      {
+        "id": "detect-release",
+        "title": "Detect an unprocessed published release",
+        "instructions": "Read-only check for a new release. Using only read/list operations (gh release list, gh release view, or gh api GET requests), list this repository's published releases — ignore draft releases entirely (this repo's CI creates releases as drafts that a human publishes later; a draft is not announceable). From the release names, tags, and assets, judge which releases are actual product releases (the packaged desktop app) versus supporting artifacts (browser packs, runtime images, and similar) — GitHub's 'Latest' marker may point at a supporting artifact, so do not blindly take the newest release. Take the newest published PRODUCT release tag. If the directory docs/marketing/launch-packs/<tag>/ already exists in the workspace, that release has already been processed. Record variables.release_status as \"new\" when that tag has no launch pack directory yet, otherwise \"none\". When new, record variables.release_tag as the exact tag and variables.previous_tag as the tag of the product release published immediately before it (record \"\" if this is the first). If the repository has no published product releases at all, record release_status \"none\" and say so plainly. Never create, edit, or delete anything on GitHub in this step.",
+        "expectedOutcome": "Either one unprocessed release tag is identified, or the pass is marked as having nothing to do.",
+        "produces": [
+          "release_status",
+          "release_tag",
+          "previous_tag"
+        ],
+        "execution": {
+          "type": "background-agent",
+          "model": "MED"
+        }
+      },
+      {
+        "id": "gather-release-facts",
+        "title": "Gather commits, merged PRs, and change facts",
+        "instructions": "Read-only fact gathering for the new release. Collect: (1) the commit list between previous_tag and release_tag via git log (or the full history when previous_tag is empty), (2) the pull requests merged in that range via gh (read-only search/list), (3) any notes body already on the GitHub release via gh release view. From these, record in the StepOutcome a structured fact sheet: user-facing changes grouped by theme, notable fixes, breaking changes and anything a user must do to upgrade, the single most demoable change (the proof-moment candidate), and an honest judgement of the release's weight — major user-facing release, routine improvement release, or maintenance-only. Every fact must be traceable to a commit, PR, or release note; do not invent changes. Never run any mutating git or gh command.",
+        "expectedOutcome": "A sourced, honest fact sheet of what this release actually changed and how significant it is.",
+        "dependsOn": [
+          "detect-release"
+        ],
+        "when": {
+          "var": "release_status",
+          "in": [
+            "new"
+          ]
+        },
+        "execution": {
+          "type": "background-agent",
+          "model": "HIGH",
+          "tools": [
+            "grep",
+            "find",
+            "ls"
+          ]
+        }
+      },
+      {
+        "id": "write-release-notes",
+        "title": "Draft human release notes",
+        "instructions": "Write docs/marketing/launch-packs/<release_tag>/release-notes.md (create the directory). Structure: a one-paragraph plain-English summary of what this release means for users; what changed, grouped by theme with the most important changes first; why each theme matters (outcomes, not implementation details); fixes worth mentioning; and an explicit 'Upgrading' section covering breaking changes and required actions (state plainly when there are none). Ground every line in the gathered facts. Tone: clear, concrete, no hype, no jargon walls. Open the file with an HTML comment: '<!-- DRAFT — for the maintainer to review and paste into the GitHub release by hand. This loop never edits the release itself. -->'. Do not run gh release edit or any other mutating command.",
+        "expectedOutcome": "release-notes.md exists as an honest, paste-ready draft of the release notes.",
+        "dependsOn": [
+          "gather-release-facts"
+        ],
+        "when": {
+          "var": "release_status",
+          "in": [
+            "new"
+          ]
+        },
+        "execution": {
+          "type": "background-agent",
+          "model": "HIGH"
+        }
+      },
+      {
+        "id": "write-x-thread",
+        "title": "Draft the X thread",
+        "instructions": "Write docs/marketing/launch-packs/<release_tag>/x-thread.md as a numbered thread following the growth-strategy post format: (1) a strong hook, (2) one sentence of context, (3) a [VIDEO] placeholder with a one-line note on what the clip should show (use the proof-moment candidate from the fact sheet), (4) exactly three concrete product claims, each tied to a real change in THIS release, (5) the GitHub repo link, (6) a low-pressure star ask ('if this direction sounds useful, starring the repo genuinely helps more developers find it' — never begging). Hook rules: a provocative hook such as 'Your agents are trapped in chat boxes. Sero lets them out.' is allowed ONLY when the very next line carries concrete proof from this release; when the release is routine, use the grounded alternative 'Stop chatting with agents. Put them to work.' or a plain factual hook instead. Never use the 'trapped in chat boxes' line when the thread addresses Pi, Claude Code, Cursor, or Codex users — they work with agents daily and the claim reads false to them; for those audiences use grounded, proof-first wording. Every claim must be checkable against the fact sheet. Open the file with '<!-- DRAFT — nothing is posted by this loop; the maintainer publishes by hand. -->'.",
+        "expectedOutcome": "x-thread.md exists with a hook, context, video slot, three release-grounded claims, link, and a low-pressure star ask.",
+        "dependsOn": [
+          "write-release-notes"
+        ],
+        "when": {
+          "var": "release_status",
+          "in": [
+            "new"
+          ]
+        },
+        "execution": {
+          "type": "background-agent",
+          "model": "HIGH"
+        }
+      },
+      {
+        "id": "write-hn-draft",
+        "title": "Draft the Hacker News post with a post/do-not-post verdict",
+        "instructions": "Write docs/marketing/launch-packs/<release_tag>/hn-draft.md. FIRST judge whether this release merits a Hacker News post at all: only a launch-worthy release qualifies — a major new user-facing capability, a first packaged beta, or a genuinely demoable proof moment; routine or maintenance releases do not. Open the file (after the '<!-- DRAFT — never posted by this loop. -->' comment) with an explicit verdict line: 'Recommendation: post to HN' or 'Recommendation: do NOT post this release to HN', followed by one sentence of honest reasoning. Then write the draft either way so the maintainer can overrule. Title rules: plain and descriptive; the 'Show HN: Sero, a local-first workspace where AI agents come to work' style is reserved for launch-worthy releases; a routine release gets a plain factual title; never a provocative marketing hook and never 'trapped in chat boxes' in a title. Body: what Sero is in plain words, what this release actually adds, honest beta caveats (what is rough, what is missing), a clear install path, a link to the architecture docs, and no overclaiming — every claim must be checkable against the fact sheet. Close with a short list of the sceptical questions HN is likely to ask and honest answers the founder can use in comments.",
+        "expectedOutcome": "hn-draft.md exists with an explicit post/do-not-post verdict, an honest title and body, and prepared answers for sceptical questions.",
+        "dependsOn": [
+          "write-x-thread"
+        ],
+        "when": {
+          "var": "release_status",
+          "in": [
+            "new"
+          ]
+        },
+        "execution": {
+          "type": "background-agent",
+          "model": "HIGH"
+        }
+      },
+      {
+        "id": "write-reddit-variants",
+        "title": "Draft per-subreddit Reddit variants",
+        "instructions": "Write docs/marketing/launch-packs/<release_tag>/reddit-variants.md with three genuinely different posts — different angles and different bodies, not one post copy-pasted: (1) r/LocalLLaMA — lead with local model support and the local-first, model-provider-choice angle; this is a sceptical audience, so use grounded wording, pair every strong claim with a concrete checkable detail from the release, and use no marketing hooks; (2) r/selfhosted — lead with local control and the non-SaaS posture: what runs on the user's machine, what never leaves it, and what this release changes about that; (3) r/electronjs — lead with the Electron desktop architecture and plugin UI as an engineering story (plugin system, module federation, how the release's changes were built). All three titles must be plain and descriptive; never use 'trapped in chat boxes' in any title or anywhere in these posts — these audiences respond to proof, not provocation. Open the file with '<!-- DRAFT — nothing is posted by this loop; the maintainer publishes by hand, one subreddit at a time. -->'.",
+        "expectedOutcome": "reddit-variants.md exists with three distinct, audience-matched draft posts and plain titles.",
+        "dependsOn": [
+          "write-hn-draft"
+        ],
+        "when": {
+          "var": "release_status",
+          "in": [
+            "new"
+          ]
+        },
+        "execution": {
+          "type": "background-agent",
+          "model": "HIGH"
+        }
+      },
+      {
+        "id": "finalize",
+        "title": "Verify drafts-only and finalize the pass",
+        "instructions": "Confirm this pass met its objective. If release_status was \"none\", report plainly that no unprocessed release was found and that no files were written — do not claim a launch pack was delivered. If a pack was written, verify all four files exist under docs/marketing/launch-packs/<release_tag>/ (release-notes.md, x-thread.md, hn-draft.md, reddit-variants.md), confirm each opens with its DRAFT marker, and confirm nothing was posted, sent, commented, or edited on GitHub or anywhere else during this run. Record a delivery receipt with ref set to the exact launch pack directory path. Then EMIT THE COMPLETION SIGNAL in the StepOutcome: completion.status \"complete\" when the pass was handled as intended (including the nothing-to-do case), or \"blocked\" if the objective could not be met due to an unresolved blocker.",
+        "expectedOutcome": "The run ends with a clear final status: a verified drafts-only launch pack, or an honest nothing-to-do report.",
+        "dependsOn": [
+          "detect-release",
+          "write-reddit-variants"
+        ],
+        "execution": {
+          "type": "background-agent",
+          "model": "LOW"
+        }
+      }
+    ],
+    "globalInstructions": "DRAFTS ONLY: the only permitted side effect of this loop is writing draft files under docs/marketing/launch-packs/<tag>/ in the workspace. Never post, publish, send, comment, or upload anything to GitHub, X, Hacker News, Reddit, or any other platform. Never edit the GitHub release — release notes are a draft file the maintainer pastes by hand. GitHub and git access is strictly read-only: gh list/view/search and gh api GET only; git log/diff/show only; never gh release create/edit/delete, never gh pr/issue comment, never git commit or push. Do not commit the drafts; leave them in the working tree for the maintainer to review. This is one pass of a scheduled loop: do not wait, sleep, poll, or repeat. Use British English in the drafts."
+  },
+  "triggers": [
+    {
+      "type": "cron",
+      "schedule": "0 */6 * * *"
+    }
+  ],
+  "limits": {
+    "maxAttemptsPerStep": 2,
+    "maxAttemptsTotal": 50,
+    "maxConcurrentSteps": 1,
+    "maxWallClockMs": 1800000
+  },
+  "logPolicy": {
+    "retainRuns": 20,
+    "retainArtifacts": true,
+    "maxInlineOutputBytes": 8000,
+    "retainDigests": 50
+  },
+  "delivery": {
+    "destination": "workspace-files"
+  }
+}

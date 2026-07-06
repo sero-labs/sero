@@ -1,0 +1,14 @@
+{
+  "slug": "github-star-dashboard",
+  "name": "GitHub star dashboard",
+  "description": "Collects GitHub traction metrics for sero-labs/sero every day with read-only gh api calls — stars, forks, watchers, open issues/PRs, release downloads, and the 14-day traffic window — keeps a durable history under docs/marketing/metrics/, and maintains the docs/marketing/dashboard.md trend dashboard plus the weekly docs/marketing/metrics-log.md row. Writes workspace files only.",
+  "version": 1,
+  "connectors": [
+    "GitHub CLI (gh) logged in; push access to sero-labs/sero for traffic data"
+  ],
+  "recommendedTrigger": "daily at 07:30 UTC (cron 30 7 * * *)",
+  "delivery": "workspace-files",
+  "costBand": "low",
+  "modelTier": "MED",
+  "limitations": "Traffic views/clones/referrers/paths need push access to the repo and GitHub discards them after 14 days — days the loop does not run cannot be backfilled, and the newest day's counts are partial until GitHub finalises them. Star/fork history only reaches back as far as the loop's own snapshots, so 7/30-day deltas show n/a until enough history accumulates."
+}

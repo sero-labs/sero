@@ -1,0 +1,114 @@
+{
+  "schemaVersion": 1,
+  "prompt": "Whenever a pull request is merged into this repository's default branch, judge whether the change contains a genuinely demoable proof moment for developers who use coding agents. Read the merged PR's diff, description, and linked issues. Most merged PRs are not demoable — internal refactors, type fixes, plumbing, tests, and docs almost never are — and concluding there is nothing to show is a correct outcome. Only when a change truly passes the proof bar (a viewer would think \"that is not just a chat UI\", \"the agent can actually see the app\", or \"the workspace extends itself\") write one draft file for that PR under docs/marketing/proof-moments/ containing the proof-moment description, a draft X post, and a 60-second demo script. Drafts only: never post, comment, or send anything anywhere — markdown files in the workspace are the only output.",
+  "title": "Proof moment miner",
+  "summary": "Handle one debounced default-branch update: resolve which pull requests the push merged, judge each against the proof-moment bar for developers who use coding agents, write one draft file per genuinely demoable PR under docs/marketing/proof-moments/ (drafts only, nothing posted anywhere), then emit completion.",
+  "plan": {
+    "schemaVersion": 1,
+    "revision": 0,
+    "objective": "For one github:main-updated event, identify the pull requests it merged, judge honestly which (if any) contain a demoable proof moment for developers who use coding agents, and produce one reviewable draft file per demoable PR — description, X post draft, and 60-second demo script — under docs/marketing/proof-moments/, with no external side effects of any kind.",
+    "steps": [
+      {
+        "id": "resolve-merged-prs",
+        "title": "Resolve which PRs this push merged",
+        "instructions": "Read the firing github:main-updated event payload from the run context (branch, beforeSha, afterSha, commitCount, pusher). Using READ-ONLY gh and git commands, resolve which pull requests were merged into the default branch by this push: fetch the latest default branch, list the commits in the beforeSha..afterSha range (gh api repos/{owner}/{repo}/compare/{beforeSha}...{afterSha} or git log beforeSha..afterSha after fetching), and map commits to their merged PRs (gh api repos/{owner}/{repo}/commits/{sha}/pulls, or gh pr list --state merged --limit 20 cross-checked by merge commit SHA). Because the trigger is debounced, a batch of merges may be behind one event — also check recently merged PRs (gh pr list --state merged) whose merge commits fall in or just before the range. Exclude any PR that already has a draft file under docs/marketing/proof-moments/ (files are named pr-<number>-*.md): those were already processed by an earlier run. A push with no associated merged PR (a direct push) yields no candidates — that is normal, not an error. Record variables.merged_prs as an array of objects { number, title, url, author, mergedAt } and variables.has_candidates as true when the array is non-empty, else false. When has_candidates is false, also record variables.has_demoable as false so downstream branching always has a value. Change no files in this step.",
+        "expectedOutcome": "The exact set of not-yet-processed pull requests merged by this push is recorded, or the run is cleanly marked as having no candidates.",
+        "produces": [
+          "merged_prs",
+          "has_candidates",
+          "has_demoable"
+        ],
+        "execution": {
+          "type": "background-agent",
+          "model": "MED",
+          "tools": [
+            "git_manager"
+          ]
+        }
+      },
+      {
+        "id": "judge-demoability",
+        "title": "Judge each merged PR against the proof bar",
+        "instructions": "For each PR in variables.merged_prs, read it fully with READ-ONLY commands: gh pr view <number> --json title,body,author,labels,files, gh pr diff <number>, and any linked issues referenced in the PR body (gh issue view). Then judge whether the change contains a proof moment for the target audience: developers who already use coding agents (Claude Code, Codex CLI, Cursor and similar) and are deciding whether Sero is worth a look. THE PROOF BAR — the change must be showable on screen in about 60 seconds and make that viewer genuinely think at least one of: (1) \"that is not just a chat UI\", (2) \"the agent can actually see the app\", (3) \"the workspace extends itself\". Apply the bar strictly. Internal refactors, type-safety fixes, test changes, CI and build plumbing, dependency bumps, documentation, and small bug fixes are almost never demoable, however large the diff. A change is only demoable when a viewer can SEE it doing something: visible UI, an agent acting across surfaces (browser, terminal, files, plugins, memory, durable loops), or the workspace extending itself with a new plugin or loop. Most merged PRs must be judged NOT demoable. Concluding \"nothing here\" is a correct, complete outcome for this loop — never stretch a weak idea into a forced post, and never invent a demo the shipped code cannot actually perform today. For every PR record a verdict with a one-line reason; for each demoable PR additionally record the specific on-screen moment that clears the bar and which of the three bar statements it hits. Record variables.verdicts (all PRs), variables.demoable_prs (the demoable subset with their bar statements and on-screen moments), and variables.has_demoable as true only when demoable_prs is non-empty. Change no files in this step.",
+        "expectedOutcome": "Every candidate PR has an honest demoable/not-demoable verdict with a reason, and the demoable subset carries the concrete on-screen moment that justifies it.",
+        "dependsOn": [
+          "resolve-merged-prs"
+        ],
+        "when": {
+          "var": "has_candidates",
+          "in": [
+            true
+          ]
+        },
+        "produces": [
+          "verdicts",
+          "demoable_prs",
+          "has_demoable"
+        ],
+        "execution": {
+          "type": "background-agent",
+          "model": "HIGH"
+        }
+      },
+      {
+        "id": "write-proof-moment-drafts",
+        "title": "Write one draft file per demoable PR",
+        "instructions": "For each PR in variables.demoable_prs, write exactly one markdown file at docs/marketing/proof-moments/pr-<number>-<short-slug>.md (create the directory if needed; never overwrite an existing file for the same PR number). Each file must contain three sections. (1) \"Proof moment\" — a short description of the demoable moment: what the viewer sees on screen, which of the three proof-bar statements it hits and why, and a link to the PR. (2) \"Draft X post\" — following the campaign post format exactly, in this order: a strong one-line hook; one sentence of context; a [video] placeholder line for the demo clip; three concrete product claims, each specific and verifiable from what THIS PR actually shipped (no vague adjectives, no overclaiming, nothing the code cannot do today); the GitHub link https://github.com/sero-labs/sero; and a low-pressure star ask in the spirit of \"If a local-first workplace for AI agents sounds useful, starring the repo genuinely helps more developers find it.\" (3) \"60-second demo script\" — a numbered shot list covering roughly 60 seconds: for each shot, what is on screen, what the agent or user does, and roughly how long it runs, ending with a closing frame; every shot must be recordable in the real product as shipped, with no mock-ups or staged results. LANGUAGE RULES for all copy: write for developers who already use coding agents; never use the phrase \"trapped in chat boxes\" — when that idea is needed, use \"outgrown the chat box\" or a grounded statement of what real software work involves (browser state, terminals, files, Git, memory, plugins, long-running workflows); claim only what the PR shipped. These files are DRAFTS for a human to review, record, and post later: do not post, schedule, or send anything, and write no files outside docs/marketing/proof-moments/. Record variables.draft_files as the list of workspace-relative file paths written.",
+        "expectedOutcome": "Each demoable PR has one self-contained draft file under docs/marketing/proof-moments/ that a human could take straight to recording and posting.",
+        "dependsOn": [
+          "judge-demoability"
+        ],
+        "when": {
+          "var": "has_demoable",
+          "in": [
+            true
+          ]
+        },
+        "produces": [
+          "draft_files"
+        ],
+        "execution": {
+          "type": "background-agent",
+          "model": "HIGH"
+        }
+      },
+      {
+        "id": "finalize",
+        "title": "Verify drafts-only side effects and finalize",
+        "instructions": "Confirm the objective is met for this single event: merged PRs were resolved, every candidate received an honest verdict, and each demoable PR has exactly one draft file under docs/marketing/proof-moments/. Then verify the side-effect contract by inspecting the working tree (git status): the ONLY changes this run made are new markdown files under docs/marketing/proof-moments/ — nothing was posted, commented, pushed, or sent anywhere, and no other file changed. If any other change or external action is discovered, report it plainly instead of completing quietly. If variables.has_candidates is false or variables.has_demoable is false, that is a SUCCESSFUL run: state plainly that no demoable change was found and why, with the verdicts when available, and confirm nothing was written. Record a delivery receipt with destination workspace-files and ref set to the first path in variables.draft_files, or an empty string with an explicit no-op summary when no draft was written. Then EMIT THE COMPLETION SIGNAL in the StepOutcome: completion.status \"complete\", or \"blocked\" with the reason if the PRs could not be read (for example the gh CLI is not signed in).",
+        "expectedOutcome": "The run is marked complete with a receipt for the drafts written (or an explicit honest no-op), or blocked with a clear reason.",
+        "dependsOn": [
+          "write-proof-moment-drafts"
+        ],
+        "execution": {
+          "type": "background-agent",
+          "model": "LOW"
+        }
+      }
+    ],
+    "globalInstructions": "This is one pass for one debounced github:main-updated event. Do not wait, poll, or watch for more merges. HARD RULE — drafts only: this loop must never post, comment, send, push, or schedule anything anywhere; gh and git are used strictly read-only, and the only permitted side effect is creating markdown files under docs/marketing/proof-moments/ in the workspace. The target audience for every draft is developers who already use coding agents. Never use the phrase \"trapped in chat boxes\"; prefer \"outgrown the chat box\" or a grounded variant. No hollow output: a run that judges every merged PR not demoable and writes nothing is a successful run — forcing a weak post idea is a failure. Use British English in all draft copy."
+  },
+  "triggers": [
+    {
+      "type": "event",
+      "eventSource": "github:main-updated",
+      "eventCondition": "skip when the push was clearly automated housekeeping (a bot pusher or the loop's own output files); otherwise proceed — the run itself determines whether any pull request was merged",
+      "debounceMs": 900000
+    }
+  ],
+  "limits": {
+    "maxAttemptsPerStep": 2,
+    "maxAttemptsTotal": 50,
+    "maxConcurrentSteps": 1,
+    "maxWallClockMs": 1800000
+  },
+  "logPolicy": {
+    "retainRuns": 20,
+    "retainArtifacts": true,
+    "maxInlineOutputBytes": 8000,
+    "retainDigests": 50
+  },
+  "delivery": {
+    "destination": "workspace-files"
+  }
+}

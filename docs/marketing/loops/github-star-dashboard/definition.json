@@ -1,0 +1,100 @@
+{
+  "schemaVersion": 1,
+  "prompt": "Every morning, collect GitHub traction metrics for sero-labs/sero using only read-only gh api calls: stars, forks, watchers, open issues, open PRs, release download counts, and the 14-day traffic data (views, clones, referrers, paths). Store the raw numbers durably in the workspace so history is never lost (GitHub discards traffic data after 14 days), rebuild the marketing dashboard at docs/marketing/dashboard.md with current numbers and trends, and append the weekly row to docs/marketing/metrics-log.md when one is due. Never post, send, or write anything outside the workspace — the only side effect is markdown/JSON files under docs/marketing/.",
+  "title": "GitHub star dashboard",
+  "summary": "One scheduled daily pass: read repo, community, release, and 14-day traffic metrics for sero-labs/sero via read-only gh api calls, append the raw snapshot to the workspace metrics history, rebuild docs/marketing/dashboard.md with headline numbers and trends, append the weekly docs/marketing/metrics-log.md row when due, then finalise. Writes workspace files only — no posts, sends, or pushes.",
+  "plan": {
+    "schemaVersion": 1,
+    "revision": 0,
+    "objective": "Capture today's GitHub traction snapshot for sero-labs/sero with read-only gh api calls, persist it to the durable metrics history under docs/marketing/metrics/, regenerate the docs/marketing/dashboard.md trend dashboard, and append a weekly row to docs/marketing/metrics-log.md only when one is due — changing nothing outside the workspace.",
+    "steps": [
+      {
+        "id": "collect-and-store-snapshot",
+        "title": "Collect today's metrics and persist the raw snapshot",
+        "instructions": "Collect today's GitHub metrics for the repository sero-labs/sero using ONLY read-only `gh api` GET requests. HARD RULE: never run any command that creates, edits, comments, posts, or deletes anything on GitHub or any other external service. Commands to run: (1) `gh api repos/sero-labs/sero` — take stargazers_count (stars), forks_count (forks), subscribers_count (watchers). (2) `gh api 'search/issues?q=repo:sero-labs/sero+is:issue+is:open' --jq .total_count` (open issues) and `gh api 'search/issues?q=repo:sero-labs/sero+is:pr+is:open' --jq .total_count` (open PRs) — do not use open_issues_count from the repo payload, it mixes issues and PRs. (3) `gh api repos/sero-labs/sero/releases --paginate` — for each release record tag_name, published_at, and the sum of assets[].download_count; also compute the total downloads across all releases. (4) Traffic, which needs push access — if any of these return HTTP 403, record trafficAvailable=false and continue with the rest: `gh api repos/sero-labs/sero/traffic/views` and `gh api repos/sero-labs/sero/traffic/clones` (each returns count, uniques, and a daily breakdown covering up to the last 14 days), `gh api repos/sero-labs/sero/traffic/popular/referrers`, `gh api repos/sero-labs/sero/traffic/popular/paths`. Then persist the raw data inside the workspace: (a) Append exactly one JSON line to docs/marketing/metrics/history.jsonl (create the directory and file if missing; never rewrite or reorder existing lines) with this shape: {\"date\":\"YYYY-MM-DD\",\"capturedAt\":\"<ISO timestamp>\",\"stars\":n,\"forks\":n,\"watchers\":n,\"openIssues\":n,\"openPrs\":n,\"releaseDownloadsTotal\":n,\"releases\":[{\"tag\":\"…\",\"publishedAt\":\"…\",\"downloads\":n}],\"traffic\":{\"available\":bool,\"views\":{\"count\":n,\"uniques\":n},\"clones\":{\"count\":n,\"uniques\":n},\"referrers\":[{\"referrer\":\"…\",\"count\":n,\"uniques\":n}],\"paths\":[{\"path\":\"…\",\"count\":n,\"uniques\":n}]}} — use null for traffic fields that were unavailable. If history.jsonl already has a line for today's date, replace only that line with the fresh snapshot instead of appending a duplicate. (b) Merge the per-day traffic buckets into docs/marketing/metrics/traffic-days.json (create as {} if missing): a single JSON object keyed by YYYY-MM-DD date, each value {\"views\":n,\"uniqueVisitors\":n,\"clones\":n,\"uniqueCloners\":n}; for dates already present overwrite with the newly fetched numbers (GitHub finalises recent days late, so the latest fetch is authoritative) and never delete keys older than the current 14-day window — this file is the durable store for data GitHub discards. Record in the StepOutcome variables: snapshotDate (YYYY-MM-DD), stars, forks, watchers, openIssues, openPrs, releaseDownloadsTotal, uniqueVisitors14d (traffic views uniques, or null), uniqueCloners14d (or null), topReferrers (a single string, up to the top three as \"name (n uniques)\" comma-separated, or \"n/a\"), and trafficAvailable (true/false). If `gh` is not authenticated or the basic repo call fails, record what failed clearly and mark the step failed.",
+        "expectedOutcome": "Today's snapshot line exists in docs/marketing/metrics/history.jsonl, traffic-days.json holds the merged daily traffic history, and the headline numbers are recorded as variables.",
+        "produces": [
+          "snapshotDate",
+          "stars",
+          "forks",
+          "watchers",
+          "openIssues",
+          "openPrs",
+          "releaseDownloadsTotal",
+          "uniqueVisitors14d",
+          "uniqueCloners14d",
+          "topReferrers",
+          "trafficAvailable"
+        ],
+        "execution": {
+          "type": "background-agent",
+          "model": "MED"
+        }
+      },
+      {
+        "id": "update-dashboard",
+        "title": "Rebuild the marketing dashboard",
+        "instructions": "Regenerate docs/marketing/dashboard.md in full from the durable stores docs/marketing/metrics/history.jsonl and docs/marketing/metrics/traffic-days.json (the dashboard is a derived view — rewriting it is safe because all history lives in the metrics/ files, which this step must NOT modify). Structure: (1) Title \"# Sero Growth Dashboard\" and one line: \"Generated by the github-star-dashboard loop on <snapshotDate>. Do not edit by hand — history lives in docs/marketing/metrics/.\" (2) \"## Today\" — a table with Stars, Forks, Watchers, Open issues, Open PRs, Release downloads (total), Unique visitors (14d), Unique cloners (14d); use \"n/a\" where traffic was unavailable. (3) \"## Trends\" — deltas for stars, forks, watchers, and release downloads versus the closest history.jsonl snapshots from about 7 and about 30 days ago, shown as +n/−n; write \"n/a\" when history does not reach back that far. (4) \"## Daily traffic (last 14 days)\" — one row per date from traffic-days.json, newest first, columns Date, Views, Unique visitors, Clones, Unique cloners, plus a Stars column taken from the same-date history.jsonl snapshot when one exists (blank otherwise). (5) \"## Release downloads\" — one row per release tag with published date and download count, from today's history.jsonl line. (6) \"## Top referrers (current 14-day window)\" and \"## Top paths (current 14-day window)\" — tables from today's snapshot, or a one-line \"Traffic data unavailable (needs push access)\" note when trafficAvailable is false. (7) \"## Coverage\" — a short honest note listing any dates in the last 14 days with no snapshot in history.jsonl, so gaps in the record are visible. Keep the whole file plain markdown, no HTML.",
+        "expectedOutcome": "docs/marketing/dashboard.md is regenerated with today's numbers, 7/30-day deltas, the 14-day traffic table, release downloads, referrers/paths, and an honest coverage note.",
+        "dependsOn": [
+          "collect-and-store-snapshot"
+        ],
+        "execution": {
+          "type": "background-agent",
+          "model": "MED"
+        }
+      },
+      {
+        "id": "update-weekly-log",
+        "title": "Append the weekly metrics-log row when due",
+        "instructions": "Maintain the weekly snapshot table in docs/marketing/metrics-log.md. If the file does not exist, create it with exactly this structure: an H1 \"# Sero Growth Metrics Log\", the intro lines \"Weekly snapshots until the `github-star-dashboard` loop takes over (Phase 2), then loop-generated.\" and \"GitHub traffic/referrer data expires after 14 days — never skip a week.\", the snapshot table header \"| Date | Stars | Forks | Watchers | Release downloads | Unique visitors (14d) | Top referrers | Notes |\" with its divider row, then an H2 \"## Post-event deltas\" section with the line \"Capture within 48h of every published post or launch.\" and the table header \"| Date | Event | Star delta (48h) | Traffic delta | Notes |\" with its divider row. A weekly row is due when the snapshot table has no data rows yet, or when the newest row's Date is 7 or more days before snapshotDate. When due, append one row to the FIRST table only, using the variables from the collect step: Date=snapshotDate, Stars, Forks, Watchers, Release downloads=releaseDownloadsTotal, Unique visitors (14d)=uniqueVisitors14d or \"n/a\", Top referrers=topReferrers, Notes=\"auto (github-star-dashboard loop)\". Never modify or delete existing rows, never reorder the file, and never touch the Post-event deltas table beyond creating its empty header when the file is first created. Record variables.weeklyRowAdded as true or false.",
+        "expectedOutcome": "docs/marketing/metrics-log.md exists with the standard structure and gained exactly one new weekly row if one was due, with all existing content preserved.",
+        "dependsOn": [
+          "update-dashboard"
+        ],
+        "produces": [
+          "weeklyRowAdded"
+        ],
+        "execution": {
+          "type": "background-agent",
+          "model": "LOW"
+        }
+      },
+      {
+        "id": "finalize",
+        "title": "Verify outputs and emit completion",
+        "instructions": "Confirm the objective is met: docs/marketing/metrics/history.jsonl contains exactly one line for snapshotDate; docs/marketing/metrics/traffic-days.json is valid JSON (and gained/refreshed daily buckets when trafficAvailable is true); docs/marketing/dashboard.md was regenerated and names snapshotDate; docs/marketing/metrics-log.md has the standard structure and gained a weekly row only if one was due. Confirm the run's only side effects are files under docs/marketing/ — nothing was posted, sent, committed, or pushed. Then EMIT THE COMPLETION SIGNAL in the StepOutcome with completion.status \"complete\" and a short summary of the headline numbers and whether a weekly row was added. If collection failed (gh not authenticated, repo unreadable) or any output file could not be written, emit completion.status \"blocked\" with the reason.",
+        "expectedOutcome": "The daily metrics pass is verified complete, or clearly blocked with a reason.",
+        "dependsOn": [
+          "update-weekly-log"
+        ],
+        "execution": {
+          "type": "background-agent",
+          "model": "LOW"
+        }
+      }
+    ],
+    "globalInstructions": "This is one daily scheduled pass — do not wait, poll, schedule, or repeat. HARD RULE: GitHub access is read-only; use only `gh api` GET requests and never create, edit, comment, post, send, or push anything on GitHub or any other external service. The only permitted side effects are files under docs/marketing/ in the workspace. Do not commit and do not open a PR. Traffic endpoints need push access and GitHub discards traffic data after 14 days — capture whatever is available every run and degrade gracefully (record n/a) when it is not. Use British English."
+  },
+  "triggers": [
+    {
+      "type": "cron",
+      "schedule": "30 7 * * *"
+    }
+  ],
+  "limits": {
+    "maxAttemptsPerStep": 2,
+    "maxAttemptsTotal": 50,
+    "maxConcurrentSteps": 1,
+    "maxWallClockMs": 1800000
+  },
+  "logPolicy": {
+    "retainRuns": 20,
+    "retainArtifacts": true,
+    "maxInlineOutputBytes": 8000,
+    "retainDigests": 50
+  },
+  "delivery": {
+    "destination": "workspace-files"
+  }
+}

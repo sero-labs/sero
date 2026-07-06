@@ -1,6 +1,6 @@
 # Sero Growth Strategy — Implementation Plan
 
-Status: not started
+Status: in progress (P1 + P2 batches dispatched 2026-07-06)
 Strategy: [sero-growth-strategy.md](sero-growth-strategy.md)
 Plan date: 2026-07-06
 Targets: 1,000 GitHub stars + 100 successful first runs
@@ -17,8 +17,8 @@ Targets: 1,000 GitHub stars + 100 successful first runs
 
 | Phase | Name | Deliverable | Status | Done / Total |
 | --- | --- | --- | --- | --- |
-| 1 | Conversion hardening | All public surfaces convert | Not started | 0 / 8 |
-| 2 | Campaign engine | 5 growth loops producing drafts | Not started | 0 / 6 |
+| 1 | Conversion hardening | All public surfaces convert | Tasks complete | 8 / 8 |
+| 2 | Campaign engine | 5 growth loops producing drafts | In progress | 5 / 6 |
 | 3 | Demo production | 6 proof demos recorded | Not started | 0 / 5 |
 | 4 | Proof series + community | Flagship post live, builders open | Not started | 0 / 6 |
 | 5 | HN launch | Front-page-ready Show HN shipped | Not started | 0 / 5 |
@@ -35,14 +35,14 @@ Weekly metrics snapshot (stars, first runs, traffic) lives in the `github-star-d
 
 ### Tasks
 
-- [ ] **1.1** (Agent→Dan, P1) GitHub repo About: description, website URL, topics — draft exact values, apply via `gh api` after approval.
-- [ ] **1.2** (Agent→Dan, P1) Social preview: produce the image ("Sero / Where AI agents come to work", dark, phoenix mark, UI strip). Dan uploads via GitHub settings UI.
-- [ ] **1.3** (Agent→Dan, P1) README rewrite: new positioning intro, top CTA block (watch demo / download / star / quick start), trust & privacy section (incl. code-signed builds), placeholder slot for flagship demo GIF.
-- [ ] **1.4** (Agent→Dan, P1) Quick start: 10-minute path stating model requirements up front (hosted API key or local OpenAI-compatible server — Ollama/LM Studio/vLLM presets) and approximate flagship-workflow cost.
-- [ ] **1.5** (Agent→Dan, P1) Homepage (`apps/homepage`): new hero ("Stop chatting with agents. Put them to work."), single release-status statement with named platforms, local-first trust statement, "get beta updates" email capture.
-- [ ] **1.6** (Agent→Dan, P1) Repo hygiene: LICENSE visible, CONTRIBUTING.md, issue templates, CI badge in README.
-- [ ] **1.7** (Agent→Dan, P1) Release clarity: audit latest release naming/assets so Sero Desktop is unmistakable; propose renames if needed.
-- [ ] **1.8** (Agent, P1) Start GitHub traffic/referrer snapshots (14-day retention): capture now via `gh api`, store first data point in [metrics-log.md](metrics-log.md), repeat weekly until the dashboard loop takes over.
+- [x] **1.1** (Agent→Dan, P1) GitHub repo About: description, website URL, topics — draft exact values, apply via `gh api` after approval. *(Approved & applied 2026-07-06 — description, website, and 12 topics live; verified via API.)*
+- [x] **1.2** (Agent→Dan, P1) Social preview: produce the image ("Sero / Where AI agents come to work", dark, phoenix mark, UI strip). Dan uploads via GitHub settings UI. *(Done 2026-07-06 — image approved and uploaded by Dan.)*
+- [x] **1.3** (Agent→Dan, P1) README rewrite: new positioning intro, top CTA block (watch demo / download / star / quick start), trust & privacy section (incl. code-signed builds), placeholder slot for flagship demo GIF. *(Approved 2026-07-06 — in working tree; signing claim scoped to macOS per release audit.)*
+- [x] **1.4** (Agent→Dan, P1) Quick start: 10-minute path stating model requirements up front (hosted API key or local OpenAI-compatible server — Ollama/LM Studio/vLLM presets) and approximate flagship-workflow cost. *(Approved with revisions 2026-07-06 — cost section removed per Dan; placed as condensed README block + full docs-site page at /guide/quick-start.)*
+- [x] **1.5** (Agent→Dan, P1) Homepage (`apps/homepage`): new hero ("Stop chatting with agents. Put them to work."), single release-status statement with named platforms, local-first trust statement, "get beta updates" email capture. *(Approved 2026-07-06 — in working tree, build passes; deploy + email backend choice pending, see drafts/outstanding-questions.md.)*
+- [x] **1.6** (Agent→Dan, P1) Repo hygiene: LICENSE visible, CONTRIBUTING.md, issue templates, CI badge in README. *(Approved 2026-07-06 — most hygiene pre-existed; template updates in tree; blank issues kept enabled per Dan.)*
+- [x] **1.7** (Agent→Dan, P1) Release clarity: audit latest release naming/assets so Sero Desktop is unmistakable; propose renames if needed. *(Approved & applied 2026-07-06 — Latest badge moved to Sero Desktop v0.4.0-beta.0, internal artifacts marked pre-release with Internal: prefixes; release.yml now auto-titles/auto-latests and prepends a platforms/download header.)*
+- [x] **1.8** (Agent, P1) Start GitHub traffic/referrer snapshots (14-day retention): capture now via `gh api`, store first data point in [metrics-log.md](metrics-log.md), repeat weekly until the dashboard loop takes over. *(Done 2026-07-06 — first snapshot captured: 16 stars, 17 unique visitors/14d, raw referrer data preserved.)*
 
 All eight tasks are independent — dispatch P1 as one parallel batch of subagents, then review the outputs together.
 
@@ -65,11 +65,11 @@ Runs in parallel with Phase 1. Each loop is an independent build — dispatch P2
 
 ### Tasks
 
-- [ ] **2.1** (Agent, P2) `github-star-dashboard` — daily; stars/forks/watchers/downloads/traffic → markdown dashboard. Takes over the manual snapshots from task 1.8.
-- [ ] **2.2** (Agent, P2) `proof-moment-miner` — on merged PR; most demoable change → post idea + demo script.
-- [ ] **2.3** (Agent, P2) `demo-script-generator` — manual trigger; feature → 60-second shot list.
-- [ ] **2.4** (Agent, P2) `release-launch-pack` — on release tag; release notes + X thread + HN draft + Reddit variants (drafts only).
-- [ ] **2.5** (Agent, P2) `community-digest` — weekly; Discord/issues/PRs → community update draft.
+- [x] **2.1** (Agent, P2) `github-star-dashboard` — daily; stars/forks/watchers/downloads/traffic → markdown dashboard. Takes over the manual snapshots from task 1.8. *(Done 2026-07-06 — authored at docs/marketing/loops/github-star-dashboard/, validated with the plugin's install-time validators; first real run happens in 2.6.)*
+- [x] **2.2** (Agent, P2) `proof-moment-miner` — on merged PR; most demoable change → post idea + demo script. *(Done 2026-07-06 — authored at docs/marketing/loops/proof-moment-miner/; no pr-merged event kind exists, so it triggers on github:main-updated and resolves merged PRs from the push range; validated incl. the real vitest install harness.)*
+- [x] **2.3** (Agent, P2) `demo-script-generator` — manual trigger; feature → 60-second shot list. *(Done 2026-07-06 — authored at docs/marketing/loops/demo-script-generator/, validated; feature input via inbox file or parked human question since manual triggers carry no payload.)*
+- [x] **2.4** (Agent, P2) `release-launch-pack` — on release tag; release notes + X thread + HN draft + Reddit variants (drafts only). *(Done 2026-07-06 — authored at docs/marketing/loops/release-launch-pack/; no release/tag event kind exists in the orchestrator, so it cron-polls every 6h with per-tag idempotence; validated.)*
+- [x] **2.5** (Agent, P2) `community-digest` — weekly; Discord/issues/PRs → community update draft. *(Done 2026-07-06 — authored at docs/marketing/loops/community-digest/; GitHub-only sources since Sero can't read Discord — manual paste-in slot at docs/marketing/community-inbox.md; validated.)*
 - [ ] **2.6** (Agent) Run all five against real repo state; file the outputs; fix what's weak. (After 2.1–2.5.)
 
 ### Acceptance criteria

@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 1,
+  "prompt": "Every Monday at 9am, gather what happened in the sero-labs/sero community over the past week — issues, pull requests, discussions, releases, and any manually collected Discord highlights — and write one honest weekly community update draft under docs/marketing/community-digests/. Never post anything anywhere; the draft file is the only output.",
+  "title": "Community digest",
+  "summary": "One scheduled weekly pass: collect the past week's GitHub activity for sero-labs/sero using read-only gh commands, read the manual community inbox file for Discord highlights, draft a plain-English weekly community update (what shipped, notable issues and PRs, contributor mentions, what feedback is wanted), save it as one dated draft file in the workspace, then finalize with a delivery receipt pointing at that file. Nothing is ever posted or sent.",
+  "plan": {
+    "schemaVersion": 1,
+    "revision": 0,
+    "objective": "Produce one weekly community update draft file under docs/marketing/community-digests/ covering the past week of sero-labs/sero activity (GitHub issues, PRs, discussions, releases, plus any manually provided Discord highlights), written so it can be published nearly as-is as a Discord post and a GitHub Discussion. The draft file is the run's only side effect — nothing is posted, commented, or sent anywhere.",
+    "steps": [
+      {
+        "id": "collect-github-activity",
+        "title": "Collect the past week's GitHub activity",
+        "instructions": "Compute the date 7 days ago (YYYY-MM-DD). Using ONLY read-only gh commands, gather sero-labs/sero activity since that date: (1) merged and newly opened pull requests — `gh pr list --repo sero-labs/sero --state merged --search 'merged:>=<date>' --json number,title,author,mergedAt` and the same for open PRs created this week; (2) issues opened or closed this week — `gh issue list --repo sero-labs/sero --state all --search 'created:>=<date>'` and `--search 'closed:>=<date>'` with `--json number,title,author,state,createdAt,closedAt`; (3) discussions updated this week via the GraphQL API — `gh api graphql` querying repository(owner:\"sero-labs\", name:\"sero\") discussions(first:20, orderBy:{field:UPDATED_AT, direction:DESC}) with title, author, updatedAt, url — then keep only those updated in the window; (4) releases published this week — `gh release list --repo sero-labs/sero`. ALLOWED COMMANDS: only `gh` reads (`gh api` GET/GraphQL queries, `gh pr list/view`, `gh issue list/view`, `gh release list/view`). FORBIDDEN: any gh command that writes — no comment, edit, create, close, label, review, or GraphQL mutation. Note external (non-maintainer) contributors by name where visible. Record in the StepOutcome: a structured summary of each category, external contributor names, and an honest note when a category is empty. If `gh` is not authenticated, record exactly what failed and continue with whatever is readable.",
+        "expectedOutcome": "A structured, honest summary of the past week's sero-labs/sero issues, PRs, discussions, and releases, gathered with read-only commands only.",
+        "execution": {
+          "type": "background-agent",
+          "model": "LOW"
+        }
+      },
+      {
+        "id": "read-community-inbox",
+        "title": "Read manual Discord highlights from the community inbox",
+        "instructions": "Sero has no integration that can read Discord channels, so Discord input is manual: read docs/marketing/community-inbox.md if it exists. It is a paste-in slot where the maintainer drops Discord highlights (questions, feedback, notable messages) during the week. Record any highlights found in the StepOutcome. If the file is missing or has no entries beyond its instructions, record honestly that there is no Discord input this week. Read only — do not modify or clear the inbox file.",
+        "expectedOutcome": "Any manually collected Discord highlights are captured, or the absence of Discord input is recorded honestly.",
+        "dependsOn": [
+          "collect-github-activity"
+        ],
+        "execution": {
+          "type": "background-agent",
+          "model": "LOW"
+        }
+      },
+      {
+        "id": "draft-digest",
+        "title": "Write the weekly community update draft",
+        "instructions": "Compute the ISO week id with `date +%G-%V` (e.g. 2026-28) and write the draft to docs/marketing/community-digests/<yyyy-ww>.md, creating the directory if needed. If this week's file already exists, overwrite it. Write a weekly builder log the maintainer can publish nearly as-is as a Discord post and a GitHub Discussion. Structure: a one-line week summary; 'What shipped' (merged PRs and releases, plainly described); 'Notable issues and discussions'; 'Thanks' (name external contributors — only people who actually did something this week); 'From Discord' only if the inbox had highlights; and end with ONE specific feedback ask tied to something concrete from this week (a feedback ask, not a marketing ask — e.g. 'does X feel useful or too much surface?', never 'check us out' or a star ask). Copy rules: simple honest sentences, no hype, no superlatives, no invented enthusiasm, no padding. If the week was quiet, say 'quiet week' plainly, list the little that happened, and keep it short rather than inflating. Do not fabricate activity, contributors, or quotes; use only what the previous steps recorded. Write the file into the workspace only — do not post, comment, or send it anywhere, and do not commit.",
+        "expectedOutcome": "One dated draft file exists under docs/marketing/community-digests/ containing an honest, publishable weekly community update with a single concrete feedback ask.",
+        "dependsOn": [
+          "read-community-inbox"
+        ],
+        "execution": {
+          "type": "background-agent",
+          "model": "MED"
+        }
+      },
+      {
+        "id": "finalize",
+        "title": "Verify the draft and finalize the run",
+        "instructions": "Verify docs/marketing/community-digests/ contains this week's dated draft file and that its content matches what the earlier steps actually found (no invented activity, quiet weeks stated plainly, exactly one feedback ask). Confirm nothing was posted or sent anywhere — the draft file is the run's only side effect. Then EMIT THE COMPLETION SIGNAL in the StepOutcome with completion.status 'complete' and a delivery receipt whose ref is the exact draft file path. If the draft could not be written or verified, emit completion.status 'blocked' with the reason.",
+        "expectedOutcome": "The run ends complete with a workspace-files receipt pointing at the week's draft file, or blocked with a clear reason.",
+        "dependsOn": [
+          "draft-digest"
+        ],
+        "execution": {
+          "type": "background-agent",
+          "model": "LOW"
+        }
+      }
+    ],
+    "globalInstructions": "This is one run of a weekly Monday 9am loop — do not wait, sleep, poll, or schedule anything. DRAFTS ONLY: never post, comment, send, or publish anywhere (not Discord, not GitHub, not email, not webhooks); the only permitted side effect is the draft digest file in the workspace. All GitHub access is read-only gh commands. Do not commit changes. Use plain, honest language throughout; if the week was quiet, say so — never inflate."
+  },
+  "triggers": [
+    {
+      "type": "cron",
+      "schedule": "0 9 * * 1"
+    }
+  ],
+  "limits": {
+    "maxAttemptsPerStep": 2,
+    "maxAttemptsTotal": 50,
+    "maxConcurrentSteps": 1,
+    "maxWallClockMs": 1800000
+  },
+  "logPolicy": {
+    "retainRuns": 20,
+    "retainArtifacts": true,
+    "maxInlineOutputBytes": 8000,
+    "retainDigests": 50
+  },
+  "delivery": {
+    "destination": "workspace-files"
+  }
+}

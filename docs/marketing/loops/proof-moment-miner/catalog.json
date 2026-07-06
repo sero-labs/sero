@@ -1,0 +1,14 @@
+{
+  "slug": "proof-moment-miner",
+  "name": "Proof moment miner",
+  "description": "When pull requests merge into your default branch, it reads each merged PR — diff, description, linked issues — and judges whether the change is genuinely demoable to developers who use coding agents. When one clears the proof bar it drafts a file under docs/marketing/proof-moments/ with the proof-moment description, a draft X post, and a 60-second demo script. Most merges produce nothing, by design. Drafts only: it never posts anywhere.",
+  "version": 1,
+  "connectors": [
+    "GitHub (gh login)"
+  ],
+  "recommendedTrigger": "fires on github:main-updated (default-branch pushes, 15-minute batch)",
+  "delivery": "workspace-files",
+  "costBand": "medium",
+  "modelTier": "HIGH",
+  "limitations": "There is no direct merged-PR event kind, so it watches default-branch pushes (github:main-updated) and resolves the merged PRs from each push; direct pushes without a PR are ignored. Needs the gh CLI signed in. Output is markdown drafts inside the workspace only — a human reviews, records the demo, and posts."
+}
