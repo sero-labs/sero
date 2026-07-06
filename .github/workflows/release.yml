@@ -257,6 +257,31 @@ jobs:
           git show "$RELEASE_TAG:CHANGELOG.md" > "$RUNNER_TEMP/release-changelog.md"
           node scripts/extract-changelog-release-notes.mjs "$RELEASE_TAG" release-notes.md "$RUNNER_TEMP/release-changelog.md"
 
+      - name: Prepend release notes header
+        run: |
+          set -euo pipefail
+          release_version="${RELEASE_TAG#v}"
+          cat > release-notes-header.md <<EOF
+          **Sero Desktop beta for macOS (Apple Silicon), Windows (x64), and Linux (x64 / arm64).**
+
+          | Platform | Download |
+          | --- | --- |
+          | macOS (Apple Silicon) — signed & notarized | \`Sero-${release_version}-macos-arm64.dmg\` |
+          | Windows 10/11 (x64) | \`Sero-${release_version}-windows-x64-setup.exe\` |
+          | Linux Debian/Ubuntu (x64) | \`Sero-${release_version}-linux-x64.deb\` |
+          | Linux Debian/Ubuntu (arm64) | \`Sero-${release_version}-linux-arm64.deb\` |
+
+          New to Sero? Start with the [10-minute quick start](https://github.com/sero-labs/sero#quick-start). You need a model: a hosted API key, or a local OpenAI-compatible server (Ollama, LM Studio, vLLM).
+
+          The \`.yml\`, \`.blockmap\`, and macOS \`.zip\` files below are auto-update metadata — you don't need them.
+
+          ---
+
+          EOF
+          cat release-notes-header.md release-notes.md > release-notes-with-header.md
+          mv release-notes-with-header.md release-notes.md
+          rm release-notes-header.md
+
       - uses: actions/download-artifact@v8
         with:
           pattern: desktop-release-*
@@ -286,16 +311,16 @@ jobs:
           fi
 
           draft_args=()
-          create_args=(--verify-tag --title "$RELEASE_TAG" --notes-file release-notes.md)
+          create_args=(--verify-tag --title "Sero Desktop $RELEASE_TAG" --notes-file release-notes.md --latest)
           if [[ "$RELEASE_DRAFT" == "true" ]]; then
             draft_args=(--draft)
             create_args+=(--draft)
           else
-            draft_args=(--draft=false)
+            draft_args=(--draft=false --latest)
           fi
 
           if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --title "$RELEASE_TAG" --notes-file release-notes.md "${draft_args[@]}"
+            gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --title "Sero Desktop $RELEASE_TAG" --notes-file release-notes.md "${draft_args[@]}"
           else
             gh release create "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" "${create_args[@]}"
           fi
