@@ -57,18 +57,26 @@ body:
     id: platform
     attributes:
       label: Platform
-      description: Supported alpha target is macOS on Apple Silicon.
+      description: Supported beta targets are macOS Apple Silicon, Linux x64/arm64, and Windows x64.
       placeholder: macOS 26 / Apple Silicon
     validations:
       required: true
   - type: input
     id: version
     attributes:
-      label: Version or commit
-      description: Tag, branch, or commit SHA if known.
+      label: Sero version or commit
+      description: Release tag, branch, or commit SHA if known.
       placeholder: main @ abc1234
+  - type: input
+    id: model-provider
+    attributes:
+      label: Model provider
+      description: Which model/provider were you using (if the bug involves the agent)?
+      placeholder: e.g. Anthropic Claude, OpenAI, local OpenAI-compatible server
   - type: textarea
     id: logs
     attributes:
       label: Logs, screenshots, or extra context
-      description: Redact secrets and private local paths before pasting anything.
+      description: >-
+        Logs live in `~/.sero-ui/logs/`. Redact secrets and private local paths
+        before pasting anything.

@@ -1,5 +1,5 @@
 name: Support question
-description: Ask for setup help or troubleshooting guidance for the current OSS alpha.
+description: Ask for setup help or troubleshooting guidance for the current public beta.
 title: "support: "
 labels:
   - question
@@ -52,4 +52,6 @@ body:
     id: context
     attributes:
       label: Extra context
-      description: Logs and screenshots are welcome if they are redacted.
+      description: >-
+        Logs and screenshots are welcome if they are redacted. Logs live in
+        `~/.sero-ui/logs/`.
