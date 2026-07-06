@@ -18,7 +18,7 @@ Targets: 1,000 GitHub stars + 100 successful first runs
 | Phase | Name | Deliverable | Status | Done / Total |
 | --- | --- | --- | --- | --- |
 | 1 | Conversion hardening | All public surfaces convert | Tasks complete | 8 / 8 |
-| 2 | Campaign engine | 5 growth loops producing drafts | Tasks complete (live event fire pending Dan) | 6 / 6 |
+| 2 | Campaign engine | 5 growth loops producing drafts | Complete (incl. live event fire verified) | 6 / 6 |
 | 3 | Demo production | 6 proof demos recorded | In progress (agent tasks done; 3.3/3.4 are Dan recordings) | 2 / 5 |
 | 4 | Proof series + community | Flagship post live, builders open | Not started | 0 / 6 |
 | 5 | HN launch | Front-page-ready Show HN shipped | Not started | 0 / 5 |
@@ -74,7 +74,7 @@ Runs in parallel with Phase 1. Each loop is an independent build — dispatch P2
 
 ### Acceptance criteria
 
-- [x] Each loop runs end-to-end from its trigger and produces its artifact. *(Cron loops fired through the scheduler's fresh-pass path on activation; manual loop fired via activation + run_again; miner fired via its manual backlog pass — its live github:main-updated fire is written (`SERO_E2E_GH_LIVE=1`) and awaits Dan's sign-off on the main-merge that produces the event.)*
+- [x] Each loop runs end-to-end from its trigger and produces its artifact. *(Cron loops fired through the scheduler's fresh-pass path on activation; manual loop fired via activation + run_again; miner fired via its manual backlog pass AND — 2026-07-06 — for real on a live `github:main-updated` event: Dan merged docs-only PR #230, Sero's poller detected the push within ~60s, the miner ran and completed, and PR #230 landed in the verdict ledger as not-demoable. Harness: `apps/desktop/e2e/miner-live-fire.agent.spec.ts`, green.)*
 - [x] No loop posts, sends, or writes anywhere public — drafts and reports only, verified by inspection of each loop's steps. *(Also enforced at runtime: the miner's own finalize audit blocked a run over unexpected git-status noise until the harness was fixed.)*
 - [x] `github-star-dashboard` has produced a dashboard with real numbers, including the traffic snapshot. *(docs/marketing/dashboard.md — 16 stars, 26 desktop-beta downloads, 116 views/17 uniques 14d, referrers/paths, durable history under docs/marketing/metrics/.)*
 - [x] At least one `proof-moment-miner` output is good enough that Dan would actually post it. *(4 drafts from the real backlog run: PRs 218, 224, 226, 227 — pr-227 (PR lifecycle) and pr-226 (living loops) are the strongest.)*

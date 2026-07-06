@@ -13,14 +13,15 @@ content lives here.
    quick start (irrelevant). The strategy doc still lists "quick start states
    approximate flagship cost" as a launch-readiness gate; update the strategy
    to match, or keep a one-line cost mention somewhere else?
-3. **Live github:main-updated fire for proof-moment-miner** — the only way to
-   produce the real event is a push to main. Proposed (verified safe):
-   cherry-pick `docs/marketing/community-inbox.md` from the campaign branch
-   into a tiny docs-only PR and squash-merge it — `deploy.yml` is
-   path-filtered to `apps/homepage/**`, `apps/docs-site/**`, and
-   `pnpm-lock.yaml`, so a docs-only merge cannot deploy anything; only
-   `test.yml` CI runs. The e2e test exists behind `SERO_E2E_GH_LIVE=1`
-   (`apps/desktop/e2e/marketing-loops.agent.spec.ts`). Approve or park?
+3. ~~**Live github:main-updated fire for proof-moment-miner**~~ **DONE
+   2026-07-06.** Dan merged docs-only PR #230 (`community-inbox.md`) into main;
+   Sero's poller detected the push within ~60s, the miner fired on the real
+   `github:main-updated` event, ran, and completed, with PR #230 recorded in
+   the verdict ledger (not-demoable, correct for a docs-only change). Harness:
+   `apps/desktop/e2e/miner-live-fire.agent.spec.ts` (focused, reuses the
+   already-installed loop; the human does the merge, the test never merges).
+   Note: main has branch protection, so the merge is a human/UI action, not an
+   automated `gh pr merge` — that is the right shape and stays that way.
 4. ~~**Demo 4 / trust copy: PR delivery has no pre-send approval gate**~~
    **RESOLVED 2026-07-06 (Dan):** approval is the typical/intended path and
    most demos should show it, but no-approval is a valid choice where the
