@@ -49,6 +49,14 @@ export interface LaunchOptions {
    * main-process global for in-test assertions.
    */
   mockRelaunch?: boolean;
+  /**
+   * Record the whole Electron window to a video in this directory (Playwright
+   * `recordVideo`). Flushed on `closeSeroApp`; path via `page.video()?.path()`.
+   * Defaults to the SERO_E2E_RECORD_VIDEO env var. Off unless set.
+   */
+  recordVideoDir?: string;
+  /** Slow every Playwright action by this many ms (smoother demo footage). */
+  slowMo?: number;
 }
 
 /**
@@ -104,12 +112,21 @@ export async function launchSeroApp(
   delete env.ELECTRON_RUN_AS_NODE;
   restoreWindowsProfileEnv(env);
 
+  // Opt-in demo/video recording: set SERO_E2E_RECORD_VIDEO=<dir> to capture the
+  // whole Electron window to a video (flushed on app.close(); path via
+  // page.video()). Off by default, so normal test runs are unaffected.
+  // SERO_E2E_SLOWMO=<ms> paces every action for smoother footage.
+  const recordVideoDir = options.recordVideoDir ?? process.env.SERO_E2E_RECORD_VIDEO;
+  const slowMo = options.slowMo ?? (process.env.SERO_E2E_SLOWMO ? Number(process.env.SERO_E2E_SLOWMO) : undefined);
+
   let app: ElectronApplication;
   try {
     app = await electron.launch({
       args: [mainEntry],
       cwd: desktopRoot,
       env,
+    ...(slowMo ? { slowMo } : {}),
+    ...(recordVideoDir ? { recordVideo: { dir: recordVideoDir, size: { width: 1600, height: 1000 } } } : {}),
     });
   } catch (error) {
     ownedHome?.cleanup();
