@@ -2,5 +2,12 @@
 	"$schema": "node_modules/wrangler/config-schema.json",
 	"name": "sero-homepage",
 	"compatibility_date": "2026-04-29",
-	"pages_build_output_dir": "./dist"
+	"pages_build_output_dir": "./dist",
+	"kv_namespaces": [
+		{
+			"binding": "BETA_SUBSCRIBERS",
+			"id": "f80698122fd645b68f06c7ec1dd65efa",
+			"remote": true
+		}
+	]
 }

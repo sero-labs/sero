@@ -1,19 +1,18 @@
 ---
 import SectionHead from "./SectionHead.astro";
-import { site } from "../content/copy";
+import { beta } from "../content/copy";
 
 const receipt = `$ sero --version
-sero/0.x  pi-coding-agent  electron  react-19
-source beta  macOS/Linux/Windows  local runtimes`;
+sero/0.4.x-beta  pi-coding-agent  electron  react-19
+public beta  macOS/Windows/Linux  packaged + source`;
 ---
 <section class="section" id="beta">
 	<SectionHead idx="06" label="honest_beta" />
 	<div class="cols">
 		<h2 class="h2">early, useful, built in public.</h2>
 		<div>
-			<p class="prose">
-				{site.description} Source-only OSS beta; runtime and plugin contracts will evolve.
-			</p>
+			<p class="prose">{beta.statement}</p>
+			<p class="prose">{beta.caveat}</p>
 			<pre class="receipt">{receipt}</pre>
 		</div>
 	</div>

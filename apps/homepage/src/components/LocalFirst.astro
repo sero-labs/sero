@@ -1,0 +1,18 @@
+---
+import SectionHead from "./SectionHead.astro";
+import { trust } from "../content/copy";
+---
+<section class="section" id="local-first">
+	<SectionHead idx="07" label="local_first" />
+	<div class="cols">
+		<h2 class="h2">{trust.headline.toLowerCase()}</h2>
+		<ul class="trust">
+			{trust.rows.map((row) => (
+				<li>
+					<span class="trust__label">{row.label.toLowerCase()}</span>
+					<p class="trust__body">{row.body}</p>
+				</li>
+			))}
+		</ul>
+	</div>
+</section>

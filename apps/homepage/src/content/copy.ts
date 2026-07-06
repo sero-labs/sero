@@ -23,9 +23,9 @@ export const site = {
 	url: "https://sero-ai.dev",
 	docs: "https://docs.sero-ai.dev",
 	github: "https://github.com/sero-labs/sero",
-	tagline: "An agent you can make your own.",
+	tagline: "Where AI agents come to work.",
 	description:
-		"A local-first desktop workspace for macOS, Linux, and Windows — bringing coding agents, tools, memory, apps together as your work changes.",
+		"Sero is a local-first desktop workspace where AI agents can see, act, remember, automate, and extend themselves across your software life.",
 };
 
 export const links = {
@@ -34,6 +34,10 @@ export const links = {
 	pluginDocs: `${site.docs}/guide/plugins-and-apps`,
 	github: site.github,
 	releases: `${site.github}/releases`,
+	// NOTE: /releases/latest currently resolves to the browser-pack release on
+	// GitHub. Move the "Latest" flag to the newest desktop build
+	// (gh release edit vX.Y.Z --latest) so this CTA lands on the app download.
+	download: `${site.github}/releases/latest`,
 	license: `${site.github}/blob/main/LICENSE`,
 };
 
@@ -62,13 +66,17 @@ export const navLinks = [
 ];
 
 export const hero = {
-	eyebrow: "Sero · source beta · local-first",
-	headline: "Build the agent only you need.",
+	eyebrow: "Sero · open-source public beta · local-first",
+	headline: "Stop chatting with agents. Put them to work.",
+	headlineLines: ["Stop chatting with agents.", "Put them to work."],
 	sub: site.description,
 	support:
 		"Start with Pi's proven agent loop, then add Sero's desktop shell for coding, research, plugins, memory, secure environments, and day-to-day tasks.",
-	primary: { label: "Read setup requirements", href: links.install },
-	secondary: { label: "See how Sero grows", href: "#loop" },
+	primary: { label: "Download the beta", href: links.download },
+	secondary: { label: "Star on GitHub", href: links.github },
+	// Demo CTA — hidden until the demo video is recorded. Set ready: true and
+	// point href at the video (or a #demo section) to render it.
+	demo: { label: "Watch the demo", href: "#demo", ready: false },
 };
 
 export const problem = {
@@ -230,16 +238,58 @@ export const builtins = [
 	{ name: "Admin", desc: "Edit agents, skills, prompts, plugins, sessions.", img: images.adminAgents },
 ];
 
+export const beta = {
+	statement:
+		"Sero is an open-source public beta. Packaged desktop builds are available for macOS (Apple Silicon), Linux (x64 and arm64), and Windows (x64), and developers can also run from source.",
+	caveat: "Early and useful. Runtime and plugin contracts will still evolve.",
+};
+
+export const trust = {
+	headline: "Local-first, with visible control.",
+	rows: [
+		{
+			label: "Runs locally",
+			body: "The app, your files, terminals, browser sessions, memory, and plugin state live on your machine.",
+		},
+		{
+			label: "Leaves the machine",
+			body: "Only the model calls you configure — a hosted provider, or a local model server (Ollama, LM Studio, vLLM) so nothing leaves at all.",
+		},
+		{
+			label: "Keys",
+			body: "API keys stay in local config on your machine. There is no Sero cloud.",
+		},
+		{
+			label: "Approvals",
+			body: "Plugin installs, loop activation, and destructive actions go through visible approval points.",
+		},
+		{
+			label: "Builds",
+			body: "macOS desktop builds are code-signed and notarized.",
+		},
+	],
+};
+
+export const updates = {
+	headline: "Get beta updates.",
+	sub: "New releases and proof demos, straight to your inbox.",
+	placeholder: "you@example.com",
+	button: "Subscribe",
+	success: "You're on the list.",
+	notLive: "Sign-up isn't live yet — star the repo to follow releases.",
+	invalid: "Enter a valid email address.",
+};
+
 export const cta = {
 	headline: "Make Sero yours.",
 	sub: "Start with a solid agent workspace. Add what you need as you go.",
-	primary: { label: "Read setup requirements", href: links.install },
-	secondary: { label: "Read plugin docs", href: links.pluginDocs },
+	primary: { label: "Download the beta", href: links.download },
+	secondary: { label: "Read setup requirements", href: links.install },
 	tertiary: { label: "View source", href: links.github },
 };
 
 export const footer = {
-	tagline: "source beta · macOS · Linux · Windows · local-first",
+	tagline: "open-source public beta · macOS · Windows · Linux · local-first",
 	bottomLeft: "",
 	bottomRight: "© sero",
 	links: [

@@ -1,0 +1,68 @@
+---
+import SectionHead from "./SectionHead.astro";
+import { updates } from "../content/copy";
+---
+<section class="section" id="updates">
+	<SectionHead idx="08" label="beta_updates" />
+	<div class="cols">
+		<h2 class="h2">{updates.headline.toLowerCase()}</h2>
+		<div>
+			<p class="prose">{updates.sub}</p>
+			<form
+				class="subscribe"
+				method="post"
+				action="/api/subscribe"
+				novalidate
+				data-msg-success={updates.success}
+				data-msg-not-live={updates.notLive}
+				data-msg-invalid={updates.invalid}
+			>
+				<input
+					class="subscribe__input"
+					type="email"
+					name="email"
+					required
+					autocomplete="email"
+					placeholder={updates.placeholder}
+					aria-label="Email address"
+				/>
+				<button class="btn btn--primary" type="submit">{updates.button}</button>
+			</form>
+			<p class="subscribe__msg" data-subscribe-msg hidden></p>
+		</div>
+	</div>
+</section>
+
+<script>
+	const form = document.querySelector<HTMLFormElement>("form.subscribe");
+	const msg = document.querySelector<HTMLParagraphElement>("[data-subscribe-msg]");
+
+	function show(text: string, isError: boolean) {
+		if (!msg) return;
+		msg.textContent = text;
+		msg.classList.toggle("subscribe__msg--err", isError);
+		msg.hidden = false;
+	}
+
+	form?.addEventListener("submit", async (event) => {
+		event.preventDefault();
+		const input = form.elements.namedItem("email") as HTMLInputElement;
+		const email = input.value.trim();
+		if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+			show(form.dataset.msgInvalid ?? "", true);
+			input.focus();
+			return;
+		}
+		const response = await fetch(form.action, {
+			method: "POST",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({ email }),
+		}).catch(() => null);
+		if (response?.ok) {
+			show(form.dataset.msgSuccess ?? "", false);
+			form.reset();
+		} else {
+			show(form.dataset.msgNotLive ?? "", true);
+		}
+	});
+</script>
