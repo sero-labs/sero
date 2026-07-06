@@ -29,6 +29,30 @@ content lives here.
    activation consent + isolated worktree + never-merges + the PR itself as
    the review surface. OK to run with that framing?
 
+## Flagship dry-run findings from task 3.2 (for Dan — decide before recording 3.3)
+
+The dry-run (`apps/desktop/e2e/flagship-dryrun.agent.spec.ts`) proves the core:
+one prompt → a valid `sero.app` release-checklist plugin in ~3 min, repeatably.
+Two things must be decided before recording the flagship demo:
+
+1. **`workspace:*` deps block local install.** The agent's plugin declared
+   `@sero-ai/common` etc. as `workspace:*`; `window.sero.plugins.install()`
+   refuses it ("unsupported dependency spec … must publish a standalone
+   npm-installable repo with resolved versions and vendored workspace
+   packages"). So a self-built plugin that imports the shared Sero UI/runtime
+   packages builds but won't mount from a workspace outside the monorepo.
+   Decision needed: prompt the agent to keep the demo plugin dependency-light
+   (plain React, no `@sero-ai/*`), record the mount from a monorepo-style
+   workspace, or add a vendoring step. Full write-up:
+   docs/marketing/demo-scripts/flagship-reproduction.md.
+2. **No approval beat in a default session.** The build turn raised zero
+   user-feedback prompts — the workspace was already attached and commands
+   weren't gated. The strategy wants a visible "human approves" moment, so the
+   recording must deliberately hit a gate (permission mode that gates
+   writes/commands, or an action needing folder-attach). Confirm the approval
+   card is on screen before recording; don't imply a gate the default flow
+   skips.
+
 ## Orchestrator findings from task 2.6 (for Dan — product, not campaign)
 
 Found while running the five loops through the real runtime; none block the
