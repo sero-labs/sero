@@ -7,6 +7,7 @@ If you need the exact platform or runtime support contract, use [Support Scope](
 ## First run
 
 - [Start Here](/guide/overview) — learn what Sero is, who the public beta is for, and what to read next.
+- [Try Sero in 10 Minutes](/guide/quick-start) — go from download to your first working agent session.
 - [Get Sero Running](/guide/getting-started) — follow the first-run tutorial to install the packaged beta or use the source-build path for development.
 - [Installation / Requirements](/guide/installation-requirements) — check supported install paths, local prerequisites, and setup requirements.
 

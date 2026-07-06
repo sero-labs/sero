@@ -42,7 +42,7 @@ If your LM Studio server uses a different port, update the base URL before testi
 
 1. Open the model management surface from Settings/Admin or the model manager.
 2. Open **Local models**.
-3. Click **Add Local Provider**.
+3. Click **Add Provider**.
 4. Choose **LM Studio** in Quick Setup.
 5. Click **Test connection**.
 6. Click **Fetch from server** to import model IDs from LM Studio's `/models` endpoint.
