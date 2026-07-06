@@ -42,6 +42,7 @@ export function buildContentSecurityPolicy(
   const extensionSrc = ['sero-ext:'];
   const devHttpSrc = isDevelopment ? LOOPBACK_HTTP_SRC : [];
   const devConnectSrc = isDevelopment ? [...LOOPBACK_HTTP_SRC, ...LOOPBACK_WS_SRC] : [];
+  const devMonacoConnectSrc = isDevelopment ? ['https://cdn.jsdelivr.net'] : [];
   const prodLoopbackSrc = isDevelopment ? [] : LOOPBACK_HTTP_SRC;
 
   // -- script-src --
@@ -67,6 +68,7 @@ export function buildContentSecurityPolicy(
   const connectSrc = [
     "'self'",
     'blob:',
+    ...devMonacoConnectSrc,    // Monaco sourcemaps in development
     ...devConnectSrc,          // Vite HMR + dev servers
     ...prodLoopbackSrc,        // In-plugin loopback viewers/auth rails in production
     ...extensionSrc,           // Federated extension manifests/assets
