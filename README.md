@@ -10,8 +10,13 @@
 </p>
 
 <p align="center">
-  <strong>Escape the Terminal</strong><br />
-  A local-first, agent-first desktop workspace for macOS, Linux, and Windows.
+  <strong>Sero is where AI agents come to work.</strong><br />
+  A local-first desktop workspace where agents can see, act, remember,
+  automate, and extend themselves across your software life.
+</p>
+
+<p align="center">
+  <a href="https://github.com/sero-labs/sero/actions/workflows/test.yml"><img src="https://github.com/sero-labs/sero/actions/workflows/test.yml/badge.svg" alt="Test status" /></a>
 </p>
 
 <p align="center">
@@ -25,138 +30,101 @@
 
 ---
 
+Agents need more than a prompt box: browser state, terminal output, files,
+memory, plugins, and long-running workflows. Sero puts those surfaces in one
+desktop app. The agent can run your project, look at it in a built-in browser,
+work in real terminals, remember the project between sessions, build its own
+plugins, and run durable Orchestrator loops that keep working after the chat
+ends — all locally, on your machine.
+
+If you already use coding agents and wish they had a real workspace, Sero is
+for you.
+
+<!-- FLAGSHIP DEMO GIF: docs/marketing plan task 3.5 -->
+> **Demo coming this week** — a 90-second clip of Sero building, reviewing,
+> and running one of its own plugins.
+
+<p align="center">
+  <a href="#demo"><strong>Watch the demo</strong></a>
+  · <a href="https://github.com/sero-labs/sero/releases/latest"><strong>Download the beta</strong></a>
+  · <a href="https://github.com/sero-labs/sero"><strong>Star the repo</strong></a>
+  · <a href="#quick-start"><strong>Read the quick start</strong></a>
+</p>
+
+## Status
+
+Sero is an open-source public beta. Packaged desktop builds are available for
+macOS (Apple Silicon), Linux (x64 and arm64), and Windows (x64), and developers
+can also run from source.
+
+Downloads are on [GitHub Releases](https://github.com/sero-labs/sero/releases/latest).
+The maintainer-validated baseline is macOS on Apple Silicon; macOS Intel and
+Windows arm64 are not packaged. For the exact support contract, see
+[Support Scope](./apps/docs-site/docs/reference/support-scope.md).
+
+## Demo
+
+<!-- FLAGSHIP DEMO GIF: docs/marketing plan task 3.5 -->
+
+The flagship demo is being recorded now: Sero receives a request, builds itself
+a plugin, the human reviews and approves it, and the new UI runs inside the
+workspace. Until it lands, the [screenshots](#screenshots) below show the
+current beta.
+
+## Quick start
+
+Download the beta for your platform, connect a model (hosted API key, or a
+local OpenAI-compatible server such as Ollama, LM Studio, or vLLM), and run
+your first workflow — about 10 minutes end to end.
+
+> **Before you start: you need a model.** Sero doesn't bundle one. Bring a
+> hosted API key (Anthropic, OpenAI, Google, OpenRouter, and more) or a local
+> OpenAI-compatible server — one-click presets for **Ollama**, **LM Studio**,
+> and **vLLM**.
+
+1. **Download** the [latest release](https://github.com/sero-labs/sero/releases/latest) for macOS (Apple Silicon), Windows (x64), or Linux (x64/arm64).
+2. **Install and open** — the macOS build is signed and notarized, so it launches without warnings.
+3. **Connect a model** — paste your API key during setup, or add a local server with an Ollama, LM Studio, or vLLM preset.
+4. **Open a project** — point a workspace at any project folder (a git repo is ideal).
+5. **Run your first workflow** — try *"Look at this repo and tell me how it's structured."* and watch the agent work with real project context.
+
+Full walkthrough with troubleshooting:
+[10-minute quick start](https://docs.sero-ai.dev/guide/quick-start). Developers
+can also [run from source](#run-from-source-for-development).
+
 ## What is Sero?
 
-Sero is a **personal agent OS** built directly on the
-[Pi](https://github.com/badlogic/pi) coding agent.
-
-Pi gives you the minimal, stable agent loop. Sero adds the always-on desktop
-shell: visual browser, runtime isolation, persistent project memory,
-self-building plugins, and one unified workspace.
-
-Put simply: Sero is where agent-assisted software work happens when the agent
-needs more than a terminal.
-
-## Features
+Sero is built directly on [Pi](https://github.com/badlogic/pi), the open-source
+coding agent. Pi gives you the minimal, stable agent loop. Sero adds the
+always-on desktop workplace around it:
 
 - **Unified desktop shell** — chat, terminals, previews, plugins, files,
   browser flows, and full workspace context in one place.
 - **Built-in visual browser** — run your dev server or app inside Sero so the
   agent can inspect pages, capture screenshots/video, and reason about what is
   actually on screen.
-- **Self-building plugins** — use the loop Sero is designed for: ask for a
-  workflow, build the plugin, use it immediately, then improve it with the agent.
-- **Runtime-backed workspaces** — Apple Container, Docker, and host runtimes
-  let Sero run projects locally while preserving a shared workspace model.
+- **Self-building plugins** — ask for a workflow, let the agent build the
+  plugin, review it, use it immediately, then improve it with the agent.
+- **Durable Orchestrator loops** — long-running agent workflows with step
+  plans, failure recovery, and visible approval points. Loops keep working
+  after the chat ends.
+- **Persistent project memory** — project-level context carries across agent
+  sessions instead of starting from scratch every time.
+- **Runtime-backed workspaces** — Apple Container, Docker/Podman, and host
+  runtimes run projects locally while preserving a shared workspace model.
 - **Plugin-first Pi support** — plugins can expose Pi tools, slash commands,
   React UI, widgets, background jobs, and provider integrations.
-- **Persistent project memory** — project-level context can carry across agent
-  sessions instead of starting from scratch every time.
 
-Technical rationale:
+Modern agent workflows scatter across your editor, terminal, browser,
+MCP/tools, local scripts, dashboards, plugin UIs, and long-running agent
+context. Sero pulls those pieces into one local, agent-native workspace where
+UI, tools, runtime state, and project context work together.
 
-Modern agent workflows often scatter across your editor, terminal, browser,
-MCP/tools, local scripts, dashboards, plugin UIs, and long-running agent context.
-Sero's goal is to pull those pieces into one local, agent-native workspace where
-UI, tools, runtime state, and project context can work together.
+Sero is not a replacement for Claude Code, Cursor, Codex, or Pi — it is the
+workspace those workflows grow into when the agent needs more than a terminal.
 
-In practical terms, Sero is exploring:
-
-- **Agent-native app composition** — plugins can bring their own UI, tools,
-  commands, and background behavior instead of being limited to chat text.
-- **Less context switching** — project files, terminals, previews, browser flows,
-  VCS, and agent sessions live in one shell.
-- **Local-first control** — workspace state, logs, auth, and runtime integration
-  are designed to stay on your machine unless you opt into external services.
-- **A proving ground for Pi-powered extensions** — Sero is built around Pi
-  primitives rather than wrapping an agent in a conventional desktop UI.
-
-Public links:
-
-- Website: <https://sero-ai.dev/>
-- Docs: <https://docs.sero-ai.dev/>
-
-Sero is built on [Pi](https://github.com/earendil-works/pi-mono), the
-open-source coding agent platform. The current pinned Pi SDK baseline is
-**0.78.0** (`@earendil-works/pi-*` packages in `pnpm-workspace.yaml`).
-
-## What Sero is not
-
-Sero is intentionally not trying to be everything at once:
-
-- It is **not** a replacement for your editor, terminal, browser, or Git client.
-  It aims to coordinate them around agent workflows, not fully subsume every
-  expert tool.
-- It is **not** a general-purpose low-code app builder or consumer automation
-  product.
-- It is **not** a hosted agent platform, SaaS IDE, or cloud execution service.
-  The default direction is local-first desktop software.
-- It is **not** API-stable yet. Plugin, runtime, and Extension API surfaces are
-  still expected to change during beta.
-- It is **not** polished end-user software today. The current beta is for
-  early adopters, contributors, and people interested in the direction.
-
-## Beta status
-
-Sero is available as a public beta desktop release for macOS Apple Silicon,
-Linux x64/arm64, and Windows x64. Download the packaged installer for your
-platform from [GitHub Releases](https://github.com/sero-labs/sero/releases), or
-build from source if you are developing Sero.
-
-Current release posture:
-
-- **Supported packaged targets:** macOS Apple Silicon, Linux x64/arm64, and Windows x64
-- **Unsupported targets:** macOS Intel/x64 and Windows arm64
-- **Maintainer-validated baseline:** macOS on Apple Silicon
-- **Distribution:** packaged beta installers are published through GitHub Releases; developers and contributors can still build from source
-- **Runtime options:** Host by default on supported targets, plus explicit Apple Container or Docker/Podman where supported
-- **Stability:** plugin/runtime contracts may change during beta
-- **Updates/support:** updates are manual unless release notes say otherwise; support is best effort
-- **UX polish:** rough and actively changing; layout, flows, and accessibility
-  need refinement
-- **Theming:** CSS/theme support is patchy and will be normalized as the shell
-  and plugin contracts mature
-- **Spotify / Widevine:** Sero uses stock Electron and does not ship Castlabs,
-  Widevine/VMP signing, or DRM-dependent Spotify playback support.
-
-Sero does **not** currently promise stable internal APIs, a support SLA,
-auto-update for every beta release, or full feature parity without containers.
-Platform and runtime capabilities vary by OS. For the current beta support
-contract, see [`Support Scope`](./apps/docs-site/docs/reference/support-scope.md).
-
-## Why Sero?
-
-Modern agent workflows often sprawl across a terminal, browser, editor, chat UI,
-local scripts, MCP tools, dashboards, and half a dozen plugin surfaces. Sero is
-an attempt to bring those pieces into one coherent desktop shell.
-
-Key ideas:
-
-- **Keep the loop together** — code, chat, terminal, visual inspection, plugins,
-  and supporting tools share context.
-- **Let the agent see the product** — browser and screenshot workflows make UI
-  work less blind than text-only coding loops.
-- **Make extension a normal workflow** — Sero treats new tools and plugin UIs as
-  things you can build with the agent, not separate platform projects.
-- **Stay local-first** — project files, app state, logs, memory, and runtime
-  state stay on your machine unless you explicitly connect external services.
-- **Use Pi directly** — sessions, tools, skills, prompts, and extensions are
-  built around Pi primitives.
-
-## Highlights
-
-- Electron + React desktop shell for agent-assisted development
-- Integrated Pi-backed chat sessions
-- Explorer workspace with editor, terminal, visual browser, preview, and VCS
-  surfaces
-- Workspace model with per-workspace runtime control
-- Apple Container and Docker/Podman-backed workspace execution, with explicit Host mode where supported
-- Built-in plugin architecture for UI apps, tools, commands, widgets, and
-  background behavior
-- Persistent memory system for project context across sessions
-- Local plugin development flow for running plugin checkouts directly
-- Prompt/eval and desktop test infrastructure for safer iteration
-- Public docs site source under `apps/docs-site/`
+The current pinned Pi SDK baseline is **0.78.0** (`@earendil-works/pi-*`
+packages in `pnpm-workspace.yaml`).
 
 ## Screenshots
 
@@ -166,8 +134,6 @@ Captured from the current beta on macOS Apple Silicon.
 
 ![Desktop shell overview](./apps/docs-site/docs/assets/images/explorer.jpg)
 
-**Screenshots**
-
 ![Explorer browser](./apps/docs-site/docs/assets/images/explorer-browser.jpg)
 
 ![App Discovery](./apps/docs-site/docs/assets/images/app-discovery.jpg)
@@ -176,24 +142,96 @@ Captured from the current beta on macOS Apple Silicon.
 
 ![Image Generation](./apps/docs-site/docs/assets/images/imagegen.jpg)
 
+## Trust and privacy
 
-## Quick start
+Sero gives agents real working surfaces — terminal, files, browser, plugins,
+memory, loops — with local-first control and visible approval points. Short
+answers to the obvious questions:
 
-### Install the beta
+- **What runs locally?** Everything: the app, your workspaces, agent sessions,
+  memory, plugin state, and logs all live in a local profile directory on your
+  machine.
+- **What leaves the machine?** Model API calls (your prompts and workspace
+  context go to the provider you configure — or stay fully local with an
+  OpenAI-compatible server like Ollama, LM Studio, or vLLM). Optional
+  integrations such as GitHub, plugin installs, Discord, and Tailscale only
+  talk out when you enable them. Remote control via the gateway is **off by
+  default**. There is no telemetry backend collecting your sessions.
+- **Where are keys stored?** In local files under your profile
+  (`<SERO_HOME>/agent/`), never synced anywhere by Sero. Treat the profile
+  directory as sensitive — see
+  [Security & Privacy](./apps/docs-site/docs/reference/security-privacy.md).
+- **What can agents read and write?** Workspace files and tools you give them.
+  A permission gate prompts on dangerous shell patterns (recursive deletes,
+  `sudo`, disk writes, and similar), but Sero does not prompt on every action —
+  it is a power-user tool, and the docs say plainly what is and is not gated.
+- **Can plugins run arbitrary code?** Yes — plugins are real software (Pi
+  extension code plus optional UI). Review plugins before installing them, the
+  same way you review a dependency.
+- **Are loops auto-approved?** No. Loops are created as plans you review and
+  explicitly activate. Outward side effects (email, chat messages, webhooks)
+  show you the exact content and wait for approval. Loops that hit a decision
+  point stop and ask.
+- **How do I inspect, pause, or stop things?** Every session and loop is
+  visible in the UI; loops block and wait rather than pushing through, and the
+  built-in Admin surface exposes sessions, config, and logs.
 
-Most users should download the current packaged beta installer for their
-platform from [GitHub Releases](https://github.com/sero-labs/sero/releases).
-Use Support Scope for exact supported targets and artifact types; GitHub
-Releases has the current filenames.
+macOS builds are code-signed with a Developer ID certificate and notarized by
+Apple. Windows and Linux builds are not yet signed during the beta — Windows
+will show a SmartScreen prompt on first launch.
 
-For the exact beta support contract, see
-[`Support Scope`](./apps/docs-site/docs/reference/support-scope.md).
+Full details: [`SECURITY.md`](./SECURITY.md),
+[Security & Privacy reference](./apps/docs-site/docs/reference/security-privacy.md),
+and [`docs/security/gateway.md`](./docs/security/gateway.md). When sharing
+logs, screenshots, or repro steps, redact tokens, private local paths, and
+auth files.
 
-### Run from source for development
+## What Sero is not
 
-Developers and contributors can still run Sero from source. You need Node.js 22,
+Sero is intentionally not trying to be everything at once:
+
+- It is **not** a replacement for your editor, terminal, browser, or Git client.
+  It coordinates them around agent workflows, not fully subsumes every expert
+  tool.
+- It is **not** a general-purpose low-code app builder or consumer automation
+  product.
+- It is **not** a hosted agent platform, SaaS IDE, or cloud execution service.
+  The default direction is local-first desktop software.
+- It is **not** API-stable yet. Plugin, runtime, and Extension API surfaces are
+  still expected to change during beta.
+- It is **not** polished end-user software today. The current beta is for
+  early adopters, contributors, and people interested in the direction.
+
+## Beta details
+
+Current release posture:
+
+- **Packaged targets:** macOS (Apple Silicon), Linux (x64 and arm64), Windows (x64)
+- **Unsupported targets:** macOS Intel/x64 and Windows arm64
+- **Maintainer-validated baseline:** macOS on Apple Silicon
+- **Distribution:** packaged beta installers on GitHub Releases; developers and
+  contributors can build from source
+- **Runtime options:** Host by default on supported targets, plus explicit
+  Apple Container or Docker/Podman where supported
+- **Stability:** plugin/runtime contracts may change during beta
+- **Updates/support:** updates are manual unless release notes say otherwise;
+  support is best effort
+- **UX polish:** rough and actively changing; layout, flows, and accessibility
+  need refinement
+- **Theming:** CSS/theme support is patchy and will be normalized as the shell
+  and plugin contracts mature
+- **Spotify / Widevine:** Sero uses stock Electron and does not ship Castlabs,
+  Widevine/VMP signing, or DRM-dependent Spotify playback support.
+
+Sero does **not** currently promise stable internal APIs, a support SLA,
+auto-update for every beta release, or full feature parity without containers.
+Platform and runtime capabilities vary by OS. See
+[Support Scope](./apps/docs-site/docs/reference/support-scope.md).
+
+## Run from source for development
+
+Developers and contributors can run Sero from source. You need Node.js 22,
 pnpm 10, Git, and a platform covered by Support Scope.
-
 
 ```bash
 pnpm install
@@ -232,6 +270,18 @@ pnpm test
 pnpm test:ci
 pnpm eval:snapshot
 ```
+
+Notes:
+
+- `pnpm install` runs native-module repair hooks for `node-pty` and
+  `better-sqlite3`.
+- `pnpm test` currently runs the desktop Vitest suite.
+- `pnpm test:ci` mirrors the beta PR gate: typecheck, build, desktop tests, and
+  desktop CI e2e.
+- Explicit Host mode is available where supported for reduced-capability
+  non-container workflows; see Support Scope for platform details.
+- If native terminal support breaks, see
+  [`docs/node-pty-setup.md`](./docs/node-pty-setup.md).
 
 ### Prepare a release changelog and tag
 
@@ -275,18 +325,6 @@ Examples from current tag `v0.1.1-beta`:
 - `pnpm release:beta` creates a beta tag such as `v0.1.2-beta.0`.
 - `pnpm release:stable` creates the stable tag `v0.1.1`.
 
-Notes:
-
-- `pnpm install` runs native-module repair hooks for `node-pty` and
-  `better-sqlite3`.
-- `pnpm test` currently runs the desktop Vitest suite.
-- `pnpm test:ci` mirrors the beta PR gate: typecheck, build, desktop tests, and
-  desktop CI e2e.
-- Explicit Host mode is available where supported for reduced-capability
-  non-container workflows; see Support Scope for platform details.
-- If native terminal support breaks, see
-  [`docs/node-pty-setup.md`](./docs/node-pty-setup.md).
-
 ## Repository layout
 
 ```text
@@ -303,8 +341,8 @@ sero/
 
 ## Documentation
 
-The public docs site is available at <https://docs.sero-ai.dev/>. The source for
-that site lives in [`apps/docs-site/`](./apps/docs-site/).
+The public docs site is at <https://docs.sero-ai.dev/>. Source lives in
+[`apps/docs-site/`](./apps/docs-site/).
 
 Start here:
 
@@ -312,6 +350,8 @@ Start here:
   — product overview
 - [`apps/docs-site/docs/guide/getting-started.md`](./apps/docs-site/docs/guide/getting-started.md)
   — first-run guide
+- [`apps/docs-site/docs/guide/orchestrator.md`](./apps/docs-site/docs/guide/orchestrator.md)
+  — durable Orchestrator loops
 - [`apps/docs-site/docs/reference/support-scope.md`](./apps/docs-site/docs/reference/support-scope.md)
   — current beta support matrix
 - [`apps/docs-site/docs/reference/environment-doctor.md`](./apps/docs-site/docs/reference/environment-doctor.md)
@@ -342,28 +382,15 @@ Sero supports built-in and external plugins. A plugin can provide:
 - Optional runtime/background behavior
 - Optional model/provider metadata
 
-**External plugin disclaimer:** the current external plugins are beta-era experiments.
-They exist to prove out the plugin system, Pi tool bridging, Module Federation
-loading, and local development workflow. Treat them as experiments, not
-production-quality apps. More realistic real-world apps are planned as the beta
-hardens.
+**External plugin disclaimer:** the current external plugins are beta-era
+experiments. They exist to prove out the plugin system, Pi tool bridging,
+Module Federation loading, and local development workflow. Treat them as
+experiments, not production-quality apps. More realistic real-world apps are
+planned as the beta hardens.
 
 See [`docs/plugins/guide.md`](./docs/plugins/guide.md) and
 [`docs/plugins/quickstart.md`](./docs/plugins/quickstart.md) for packaging,
 installation, and local development workflows.
-
-## Security and privacy
-
-Sero is local-first, but it still manages local auth state, logs, runtime
-artifacts, optional provider credentials, and optional remote/gateway features.
-Please review:
-
-- [`SECURITY.md`](./SECURITY.md)
-- [`docs/security/gateway.md`](./docs/security/gateway.md)
-- [`apps/docs-site/docs/reference/security-privacy.md`](./apps/docs-site/docs/reference/security-privacy.md)
-
-When sharing logs, screenshots, issues, or repro steps, redact tokens, private
-local paths, auth files, and other sensitive information.
 
 ## Contributing
 
