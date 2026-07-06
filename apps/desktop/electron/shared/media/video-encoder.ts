@@ -15,6 +15,8 @@ interface EncodeOptions {
   frames: Array<{ timestamp: number; base64: string }>;
   /** Target FPS (default: 2). */
   fps?: number;
+  /** x264 constant-rate-factor (0–51, lower = higher quality). Default 23. */
+  crf?: number;
   /** Output path. Defaults to /tmp/sero-recordings/video-<ts>.mp4. */
   outputPath?: string;
 }
@@ -96,7 +98,7 @@ async function writeFramesFallback(opts: {
  * H.264 encoding, then cleans up the temp frames.
  */
 export async function encodeFramesToMp4(opts: EncodeOptions): Promise<EncodeResult> {
-  const { frames, fps = 2 } = opts;
+  const { frames, fps = 2, crf = 23 } = opts;
   if (frames.length === 0) {
     throw new Error('No frames to encode');
   }
@@ -134,7 +136,7 @@ export async function encodeFramesToMp4(opts: EncodeOptions): Promise<EncodeResu
         '-vf', 'pad=ceil(iw/2)*2:ceil(ih/2)*2',
         '-c:v', 'libx264',
         '-preset', 'fast',
-        '-crf', '23',
+        '-crf', String(crf),
         '-pix_fmt', 'yuv420p',
         '-movflags', '+faststart',
         outputPath,

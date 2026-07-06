@@ -16,6 +16,7 @@ import type {
   AppPanelRect,
   AppRecordingStatus,
   AppRecordingResult,
+  AppRecordingOptions,
 } from '@/types/ipc';
 import { appControlHostService } from '@electron/features/apps/app-control/host-service';
 
@@ -72,13 +73,19 @@ export function registerAppControlHandlers(): void {
     },
   );
 
-  ipcMain.handle(IpcChannels.appControl.recordStart, async (): Promise<boolean> => {
-    return appControlHostService.recordStart();
-  });
+  ipcMain.handle(
+    IpcChannels.appControl.recordStart,
+    async (_event, options?: AppRecordingOptions): Promise<boolean> => {
+      return appControlHostService.recordStart(options);
+    },
+  );
 
-  ipcMain.handle(IpcChannels.appControl.recordStop, async (): Promise<AppRecordingResult | null> => {
-    return appControlHostService.recordStop();
-  });
+  ipcMain.handle(
+    IpcChannels.appControl.recordStop,
+    async (_event, options?: { outputPath?: string }): Promise<AppRecordingResult | null> => {
+      return appControlHostService.recordStop(options);
+    },
+  );
 
   ipcMain.handle(IpcChannels.appControl.recordStatus, async (): Promise<AppRecordingStatus> => {
     return appControlHostService.recordStatus();

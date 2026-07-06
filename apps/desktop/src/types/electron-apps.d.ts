@@ -12,6 +12,7 @@ import type {
   AppPanelRect,
   AppRecordingResult,
   AppRecordingStatus,
+  AppRecordingOptions,
 } from './ipc';
 import type {
   AppToolResult,
@@ -96,10 +97,10 @@ interface SeroAppControlAPI {
   interact(params: AppInteractionParams): Promise<AppInteractionResult>;
   /** Get the app panel's bounding rect for screenshot targeting. */
   getAppRect(): Promise<AppPanelRect | null>;
-  /** Start recording the app panel. */
-  recordStart(): Promise<boolean>;
-  /** Stop recording. Returns result with MP4 path or null. */
-  recordStop(): Promise<AppRecordingResult | null>;
+  /** Start recording. Options set frame rate, full-window capture, and quality. */
+  recordStart(options?: AppRecordingOptions): Promise<boolean>;
+  /** Stop recording. Returns result with MP4 path or null. `outputPath` writes the video there. */
+  recordStop(options?: { outputPath?: string }): Promise<AppRecordingResult | null>;
   /** Get current recording status. */
   recordStatus(): Promise<AppRecordingStatus>;
 }

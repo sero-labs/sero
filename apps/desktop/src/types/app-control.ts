@@ -162,6 +162,26 @@ export interface AppPanelRect {
   height: number;
 }
 
+/** Options for starting a recording. */
+export interface AppRecordingOptions {
+  /**
+   * Capture frame rate in frames per second. Default 2 (a light screencast).
+   * Raise for smoother demo footage (~12–15 is smooth for UI motion). The
+   * effective rate is capped by how fast the window can be captured.
+   */
+  fps?: number;
+  /**
+   * Capture the whole app window (chrome, sidebar, panels) instead of just the
+   * active app-panel region. Use for demos of the full product.
+   */
+  fullWindow?: boolean;
+  /**
+   * x264 constant-rate-factor quality (0–51, lower = higher quality/larger).
+   * Default 23. Use ~18 for near-lossless demo/export quality.
+   */
+  crf?: number;
+}
+
 /** Recording status info. */
 export interface AppRecordingStatus {
   recording: boolean;

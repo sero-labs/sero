@@ -3,12 +3,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => {
   const executeJavaScript = vi.fn();
   const captureRegion = vi.fn();
+  const captureFullWindow = vi.fn();
   const encodeFramesToMp4 = vi.fn();
   const capturePage = vi.fn();
 
   return {
     executeJavaScript,
     captureRegion,
+    captureFullWindow,
     encodeFramesToMp4,
     capturePage,
     fakeWindow: {
@@ -33,6 +35,7 @@ vi.mock('@electron/features/browser/view-manager', () => ({
 
 vi.mock('@electron/shared/media/capture', () => ({
   captureRegion: mocks.captureRegion,
+  captureFullWindow: mocks.captureFullWindow,
 }));
 
 vi.mock('@electron/shared/media/video-encoder', () => ({
@@ -190,6 +193,33 @@ describe('appControlHostService', () => {
         expect.objectContaining({ base64: 'browser-base64' }),
       ],
       fps: 2,
+      crf: 23,
+      outputPath: undefined,
     });
+  });
+
+  it('full-window recording captures the whole window and honours crf + output path', async () => {
+    // recordStart's renderer marker resolves true; no browser tab present.
+    mocks.executeJavaScript.mockResolvedValue(true);
+    mocks.captureFullWindow.mockResolvedValue('window-base64');
+    mocks.encodeFramesToMp4.mockResolvedValue({
+      path: '/out/demo.mp4',
+      isVideo: true,
+      durationMs: 1000,
+      frameCount: 1,
+    });
+
+    const { appControlHostService } = await import('@electron/features/apps/app-control/host-service');
+    await expect(
+      appControlHostService.recordStart({ fps: 15, fullWindow: true, crf: 18 }),
+    ).resolves.toBe(true);
+    await appControlHostService.recordStop({ outputPath: '/out/demo.mp4' });
+
+    // Full-window path used, never the app-panel region.
+    expect(mocks.captureFullWindow).toHaveBeenCalled();
+    expect(mocks.captureRegion).not.toHaveBeenCalled();
+    expect(mocks.encodeFramesToMp4).toHaveBeenCalledWith(
+      expect.objectContaining({ crf: 18, outputPath: '/out/demo.mp4' }),
+    );
   });
 });

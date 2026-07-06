@@ -1,6 +1,6 @@
 import { BrowserWindow } from 'electron';
 import { browserViewManager } from '@electron/features/browser/view-manager';
-import { captureRegion } from '@electron/shared/media/capture';
+import { captureFullWindow, captureRegion } from '@electron/shared/media/capture';
 import { encodeFramesToMp4 } from '@electron/shared/media/video-encoder';
 import type {
   AppControlEntry,
@@ -8,12 +8,15 @@ import type {
   AppInteractionParams,
   AppInteractionResult,
   AppPanelRect,
+  AppRecordingOptions,
   AppRecordingResult,
   AppRecordingStatus,
 } from '@/types/ipc';
 
 const INTERACTION_SETTLE_MS = 200;
-const RECORDING_FRAME_INTERVAL_MS = 500;
+const DEFAULT_RECORDING_FPS = 2;
+const MAX_RECORDING_FPS = 30;
+const DEFAULT_RECORDING_CRF = 23;
 const APP_OPEN_READY_TIMEOUT_MS = 1_500;
 const APP_OPEN_READY_POLL_MS = 50;
 
@@ -26,7 +29,11 @@ interface RecordingState {
   active: boolean;
   startedAt: string | null;
   frames: RecordingFrame[];
-  interval: ReturnType<typeof setInterval> | null;
+  /** Set false to stop the self-rescheduling capture loop. */
+  looping: boolean;
+  fps: number;
+  fullWindow: boolean;
+  crf: number;
 }
 
 interface OpenAndWaitOptions {
@@ -45,7 +52,10 @@ const recordingState: RecordingState = {
   active: false,
   startedAt: null,
   frames: [],
-  interval: null,
+  looping: false,
+  fps: DEFAULT_RECORDING_FPS,
+  fullWindow: false,
+  crf: DEFAULT_RECORDING_CRF,
 };
 
 function sleep(ms: number): Promise<void> {
@@ -112,13 +122,45 @@ function finiteRect(rect: AppPanelRect): boolean {
 
 async function captureRecordingFrame(): Promise<void> {
   try {
-    const capture = await appControlHostService.captureVisibleApp();
-    if (capture?.base64) {
-      recordingState.frames.push({ timestamp: Date.now(), base64: capture.base64 });
+    let base64: string | null = null;
+    if (recordingState.fullWindow) {
+      const win = getMainWindow();
+      base64 = win ? await captureFullWindow(win) : null;
+    } else {
+      base64 = (await appControlHostService.captureVisibleApp())?.base64 ?? null;
     }
+    if (base64) recordingState.frames.push({ timestamp: Date.now(), base64 });
   } catch {
     // Skip frame capture failures during recording.
   }
+}
+
+/**
+ * Self-rescheduling capture loop. Unlike setInterval, it awaits each frame
+ * before scheduling the next, so slow captures never pile up — the real frame
+ * rate simply drops toward what the window can sustain (recorded in the frame
+ * timestamps, which the encoder uses to keep playback real-time).
+ */
+async function runRecordingLoop(): Promise<void> {
+  const intervalMs = Math.round(1000 / recordingState.fps);
+  // The first frame was already captured by recordStart, so wait the interval
+  // before each subsequent capture (deducting the previous capture's cost).
+  let last = Date.now();
+  while (recordingState.looping) {
+    const wait = intervalMs - (Date.now() - last);
+    if (wait > 0) await sleep(wait);
+    if (!recordingState.looping) break;
+    last = Date.now();
+    await captureRecordingFrame();
+  }
+}
+
+/** Playback FPS that makes the frames span their real wall-clock duration. */
+function effectiveFps(frames: RecordingFrame[], fallback: number): number {
+  if (frames.length < 2) return fallback;
+  const spanSec = (frames[frames.length - 1]!.timestamp - frames[0]!.timestamp) / 1000;
+  if (spanSec <= 0) return fallback;
+  return Math.min(MAX_RECORDING_FPS, Math.max(1, (frames.length - 1) / spanSec));
 }
 
 export const appControlHostService = {
@@ -263,7 +305,7 @@ export const appControlHostService = {
     );
   },
 
-  async recordStart(): Promise<boolean> {
+  async recordStart(options: AppRecordingOptions = {}): Promise<boolean> {
     if (recordingState.active) return false;
     const started = await execRenderer<boolean>('window.__appControl?.recordStart() ?? false');
     if (!started) return false;
@@ -271,30 +313,36 @@ export const appControlHostService = {
     recordingState.active = true;
     recordingState.startedAt = new Date().toISOString();
     recordingState.frames = [];
+    recordingState.fps = Math.min(MAX_RECORDING_FPS, Math.max(1, options.fps ?? DEFAULT_RECORDING_FPS));
+    recordingState.fullWindow = options.fullWindow ?? false;
+    recordingState.crf = options.crf ?? DEFAULT_RECORDING_CRF;
+    recordingState.looping = true;
     await captureRecordingFrame();
-    recordingState.interval = setInterval(() => {
-      void captureRecordingFrame();
-    }, RECORDING_FRAME_INTERVAL_MS);
+    void runRecordingLoop();
     return true;
   },
 
-  async recordStop(): Promise<AppRecordingResult | null> {
+  async recordStop(options: { outputPath?: string } = {}): Promise<AppRecordingResult | null> {
     if (!recordingState.active) return null;
-    if (recordingState.interval) {
-      clearInterval(recordingState.interval);
-      recordingState.interval = null;
-    }
+    recordingState.looping = false;
     await captureRecordingFrame();
     await execRenderer<boolean>('window.__appControl?.recordStop() ?? false');
 
     const frames = [...recordingState.frames];
+    const crf = recordingState.crf;
+    const fallbackFps = recordingState.fps;
     recordingState.active = false;
     recordingState.startedAt = null;
     recordingState.frames = [];
     if (frames.length === 0) return null;
 
     try {
-      const result = await encodeFramesToMp4({ frames, fps: 2 });
+      const result = await encodeFramesToMp4({
+        frames,
+        fps: effectiveFps(frames, fallbackFps),
+        crf,
+        outputPath: options.outputPath,
+      });
       return {
         path: result.path,
         isVideo: result.isVideo,
