@@ -12,11 +12,17 @@ The project already has a strong technical base: a local-first desktop shell, vi
 
 The recommended positioning is:
 
-> Sero is the local-first desktop cockpit where coding agents can see your app, run your repo, remember the project, and build their own tools.
+> Sero is where AI agents come to work.
+
+The supporting explanation is:
+
+> Sero is a local-first desktop workspace where agents can see, act, remember, automate, and extend themselves across your software life.
+
+This is stronger than a feature-list pitch because it makes Sero feel like a place where agents operate, not a wrapper around a single project or repository.
 
 The campaign should not try to market Sero as another generic AI workspace or personal assistant. The sharper wedge is:
 
-> OpenClaw is the personal assistant. Sero is the agent workbench.
+> OpenClaw is the personal assistant. Sero is where AI agents come to work.
 
 The first major public push should be built around a single proof moment:
 
@@ -46,7 +52,7 @@ Sero's public growth should be based on repeatedly showing moments that make peo
 - That is not just a chat UI.
 - The agent can actually see the product.
 - The workspace can extend itself.
-- This is what terminal agents feel like once they have a real desktop cockpit.
+- This is what agent software feels like when it has a real place to work.
 
 The campaign should therefore prioritise short, visual, repeatable demos over broad claims.
 
@@ -60,7 +66,7 @@ The GitHub repo should have a clear About description, website, and topics.
 
 Suggested description:
 
-> Local-first desktop cockpit for coding agents: chat, terminal, browser, memory, plugins, runtimes, and long-running loops in one workspace.
+> Local-first desktop workspace for AI agents: browser, terminal, memory, plugins, runtimes, and durable loops.
 
 Suggested topics:
 
@@ -84,7 +90,7 @@ Create a custom GitHub social preview image.
 Suggested copy:
 
 > Sero  
-> The local-first desktop cockpit for coding agents
+> Where AI agents come to work
 
 Design direction:
 
@@ -124,12 +130,14 @@ Suggested top CTA block:
 
 ### 5. Homepage message alignment
 
-The homepage should match the current release posture.
+The homepage should match the current release posture and the new positioning.
 
 Avoid mixed signals such as:
 
 - packaged beta in README
 - source-only beta on homepage
+- language that makes Sero sound like a single-repo wrapper
+- generic wording such as "AI personal workspace" without a sharper hook
 
 Use one clear status statement.
 
@@ -141,19 +149,87 @@ Suggested wording:
 
 ### Main category
 
-Sero is an agent workbench.
+Sero is an AI agent workplace.
+
+This should feel broader than a project wrapper and more concrete than a generic assistant. Sero is the place where agent workflows live across projects, tools, browsers, terminals, plugins, project memory, automation, release work, research, and maintenance.
+
+### Flagship tagline
+
+> Sero is where AI agents come to work.
+
+### Homepage hero
+
+Hero headline:
+
+> Stop chatting with agents. Put them to work.
+
+Hero subheading:
+
+> Sero is a local-first desktop workspace where AI agents can see, act, remember, automate, and extend themselves across your software life.
+
+Primary CTA:
+
+> Download the beta
+
+Secondary CTAs:
+
+> Watch the demo  
+> Star on GitHub
+
+### GitHub description
+
+Use this in the GitHub repository About box:
+
+> Local-first desktop workspace for AI agents: browser, terminal, memory, plugins, runtimes, and durable loops.
+
+### GitHub social preview
+
+Use this copy on the social card:
+
+> Sero  
+> Where AI agents come to work
+
+The image should sell the idea of an agent workplace, not just a code editor. It should show Sero as an environment with multiple surfaces: chat, browser, terminal, plugins, memory, and automation.
+
+### Launch hook
+
+Use this as the social and launch campaign hook:
+
+> Your agents are trapped in chat boxes. Sero lets them out.
+
+Alternative launch hook:
+
+> Stop chatting with agents. Put them to work.
 
 ### One-line pitch
 
-> Sero is a local-first desktop cockpit for coding agents.
+> Sero is the local-first desktop workplace for AI agents.
 
 ### Slightly longer pitch
 
-> Sero brings chat, terminal, browser, previews, files, plugins, project memory, runtimes, and long-running agent loops into one local-first workspace.
+> Sero brings agents, browsers, terminals, previews, plugins, memory, runtimes, and long-running workflows into one local-first desktop workspace.
 
 ### Founder-style pitch
 
-> Terminal agents are powerful, but real software work is not just terminal text. It spans code, browser state, screenshots, local services, Git, memory, tools, and long-running workflows. Sero gives coding agents a desktop cockpit for that whole loop.
+> Terminal agents are powerful, but real software work is not just terminal text. It spans code, browser state, screenshots, local services, Git, memory, tools, plugins, and recurring workflows. Sero gives agents a real place to work.
+
+### Positioning rules
+
+Do:
+
+- Make Sero feel like a place where agents work.
+- Lead with outcomes and proof moments.
+- Use broad but concrete language: workplace, workspace, agents, loops, memory, browser, plugins.
+- Show the agent acting across surfaces, not just editing a repo.
+- Emphasise local-first control without making the message sound defensive.
+
+Do not:
+
+- Lead with a list of features.
+- Overuse "desktop cockpit" as the core pitch.
+- Make Sero sound like a wrapper around one repo.
+- Make Sero sound like a generic personal assistant.
+- Compare directly to OpenClaw unless the comparison clarifies categories.
 
 ### Comparison positioning
 
@@ -163,7 +239,7 @@ Do not lead with competitor comparisons, but use them when needed.
 - OpenHands: cloud or app coding agent environment.
 - Cursor: AI editor.
 - Claude Code or Codex CLI: terminal coding agent.
-- Sero: local-first desktop cockpit and workbench for coding agents.
+- Sero: the local-first workplace where AI agents come to work.
 
 ## Viral angle
 
@@ -342,7 +418,7 @@ Stop posting generic AI news unless it directly supports Sero's positioning.
 Content pillars:
 
 1. Sero proof demos.
-2. Local-first agent workflows.
+2. AI agent workplace workflows.
 3. Visual browser and agent feedback loops.
 4. Orchestrator loops.
 5. Plugin ecosystem.
@@ -358,11 +434,11 @@ Daily X rhythm:
 Example X post:
 
 ```text
-Terminal coding agents are powerful, but real software work is not just terminal text.
+Your agents are trapped in chat boxes.
 
-It is browser state, screenshots, local services, files, Git, logs, memory, and tools.
+Real software work is browser state, screenshots, local services, files, Git, logs, memory, plugins, and long-running workflows.
 
-That is why I am building Sero: a local-first desktop cockpit for coding agents.
+That is why I am building Sero: the place where AI agents come to work.
 
 Demo below.
 ```
@@ -372,7 +448,7 @@ Example star ask:
 ```text
 Sero is still tiny as an OSS project, but I think this direction matters.
 
-If a local-first agent workbench sounds useful, starring the repo genuinely helps more developers find it.
+If a local-first workplace for AI agents sounds useful, starring the repo genuinely helps more developers find it.
 ```
 
 ### Discord
@@ -402,9 +478,9 @@ Do not post to HN until the flagship demo, README, release clarity, and homepage
 
 Possible titles:
 
-- Show HN: Sero, a local-first desktop cockpit for coding agents
-- Show HN: I built an open-source agent workspace that can extend itself
-- Sero: an open-source desktop workbench for coding agents
+- Show HN: Sero, a local-first workspace where AI agents come to work
+- Show HN: I built an open-source AI workspace that can extend itself
+- Sero: an open-source desktop workplace for AI agents
 
 HN launch checklist:
 
@@ -423,7 +499,7 @@ Potential communities:
 
 - `r/LocalLLaMA`: local-first and model-provider angle.
 - `r/selfhosted`: local control and non-SaaS posture.
-- `r/programming`: agent workbench and developer tooling.
+- `r/programming`: agent workplace and developer tooling.
 - `r/opensource`: contributor and ecosystem story.
 - `r/electronjs`: Electron desktop architecture and plugin UI.
 
@@ -435,7 +511,7 @@ Target smaller AI engineering newsletters before major outlets.
 
 Pitch angle:
 
-> Sero is an open-source local-first desktop workbench for coding agents. The interesting bit is that it can build and use its own plugins and durable loops.
+> Sero is an open-source local-first desktop workplace for AI agents. The interesting bit is that it can build and use its own plugins and durable loops.
 
 Include:
 
@@ -513,13 +589,13 @@ These are safest because they produce drafts and reports rather than public acti
 
 ### Launch title
 
-> Sero: an open-source desktop cockpit for coding agents
+> Sero: where AI agents come to work
 
 ### Launch story
 
-1. Terminal agents are powerful, but blind and scattered.
-2. Real software work spans code, terminal, browser, previews, Git, memory, tools, and long-running workflows.
-3. Sero puts that loop in one local-first desktop workspace.
+1. Agents are powerful, but most of them are trapped in chat boxes or terminals.
+2. Real software work spans code, terminal, browser, previews, Git, memory, tools, plugins, and long-running workflows.
+3. Sero gives agents a real local-first workspace where those surfaces live together.
 4. The twist: Sero can extend itself with plugins and durable loops.
 5. It is early, but packaged beta builds are available for supported platforms.
 
@@ -571,14 +647,16 @@ North star metric after 1,000 stars:
 - Stop relying on Discord as the main discovery channel.
 - Stop making OpenClaw the central comparison.
 - Stop sending people to surfaces that contradict each other on release status.
+- Stop using language that implies Sero is just a single project or repo wrapper.
 
 ## Immediate action plan
 
 ### Day 1
 
 - Update GitHub repo description, website, and topics.
-- Create social preview image.
+- Create social preview image with "Where AI agents come to work".
 - Fix homepage release-status wording.
+- Replace homepage hero with the new positioning.
 - Check release naming and latest release clarity.
 
 ### Day 2
@@ -586,6 +664,7 @@ North star metric after 1,000 stars:
 - Record flagship demo: Sero builds itself a plugin or loop.
 - Add demo GIF or video link to README.
 - Add quick-start CTA near top of README.
+- Update README intro to use the new positioning.
 
 ### Days 3 to 7
 
@@ -615,7 +694,7 @@ North star metric after 1,000 stars:
 
 The proposed campaign is built around this positioning:
 
-> Sero should become known as the self-extending, local-first agent cockpit for serious software work.
+> Sero should become known as the place where AI agents come to work.
 
 If this is accepted, the next planning step should be to produce:
 
