@@ -1,30 +1,45 @@
-// UI-side helpers: immutable graph/settings/direction recipes, capture sizing,
-// palette preview.
+// UI-side state recipes (all piece writes bump `revision` — the build-report
+// handshake key), capture sizing, and small helpers.
 
 import {
-  normalizeGraph,
   normalizeLoomState,
+  normalizePiece,
   structuredCloneState,
-  type LoomGraph,
+  type BuildReport,
+  type LoomPiece,
   type LoomSettings,
   type LoomState,
-  type Palette,
-  type Vec3,
+  type ParamValue,
 } from '../../shared/types';
 
-type Updater = (updater: (prev: LoomState) => LoomState) => void;
+export type Updater = (updater: (prev: LoomState) => LoomState) => void;
 
-export function updateGraph(updateState: Updater, recipe: (g: LoomGraph) => void): void {
+export function setPiece(updateState: Updater, piece: LoomPiece): void {
   updateState((prev) => {
     const s = normalizeLoomState(prev);
-    const draft = structuredCloneState(s.graph);
-    recipe(draft);
-    return { ...s, graph: normalizeGraph(draft) };
+    return { ...s, piece: normalizePiece(piece), revision: s.revision + 1 };
   });
 }
 
-export function setGraph(updateState: Updater, graph: LoomGraph): void {
-  updateState((prev) => ({ ...normalizeLoomState(prev), graph: normalizeGraph(graph) }));
+export function setParamValues(updateState: Updater, values: Record<string, ParamValue>): void {
+  updateState((prev) => {
+    const s = normalizeLoomState(prev);
+    const piece = normalizePiece({ ...s.piece, paramValues: { ...s.piece.paramValues, ...values } });
+    return { ...s, piece, revision: s.revision + 1 };
+  });
+}
+
+export function writeBuild(updateState: Updater, build: BuildReport): void {
+  updateState((prev) => ({ ...normalizeLoomState(prev), build }));
+}
+
+export function writeSeeError(updateState: Updater, id: string, error: string): void {
+  updateState((prev) => {
+    const s = normalizeLoomState(prev);
+    const next = { ...s, seeResult: { id, paths: [], error } };
+    if (next.seeRequest?.id === id) delete next.seeRequest;
+    return next;
+  });
 }
 
 export function updateSettings(updateState: Updater, recipe: (s: LoomSettings) => void): void {
@@ -32,12 +47,37 @@ export function updateSettings(updateState: Updater, recipe: (s: LoomSettings) =
     const s = normalizeLoomState(prev);
     const draft = structuredCloneState(s.settings);
     recipe(draft);
-    return { ...s, settings: { ...s.settings, ...draft } };
+    return { ...s, settings: draft };
   });
 }
 
 export function setDirection(updateState: Updater, guidance: string): void {
   updateState((prev) => ({ ...normalizeLoomState(prev), direction: { guidance } }));
+}
+
+export function savePreset(updateState: Updater, name: string, thumbnail?: string): void {
+  updateState((prev) => {
+    const s = normalizeLoomState(prev);
+    const id = `piece-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e4).toString(36)}`;
+    const preset = { id, name, createdAt: Date.now(), piece: structuredCloneState(s.piece), ...(thumbnail ? { thumbnail } : {}) };
+    return { ...s, presets: [...s.presets, preset] };
+  });
+}
+
+export function loadPreset(updateState: Updater, id: string): void {
+  updateState((prev) => {
+    const s = normalizeLoomState(prev);
+    const p = s.presets.find((x) => x.id === id);
+    if (!p?.piece) return s;
+    return { ...s, piece: normalizePiece(structuredCloneState(p.piece)), revision: s.revision + 1 };
+  });
+}
+
+export function deletePreset(updateState: Updater, id: string): void {
+  updateState((prev) => {
+    const s = normalizeLoomState(prev);
+    return { ...s, presets: s.presets.filter((x) => x.id !== id) };
+  });
 }
 
 export interface Dims {
@@ -66,21 +106,30 @@ export function captureDims(settings: LoomSettings): Dims {
   }
 }
 
-function clamp01(n: number): number {
-  return Math.min(1, Math.max(0, n));
+/** Trailing-edge debounce for high-frequency control writes (slider/pad drags). */
+export function debounced<A extends unknown[]>(ms: number, fn: (...args: A) => void): (...args: A) => void {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  return (...args: A) => {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => {
+      timer = null;
+      fn(...args);
+    }, ms);
+  };
 }
 
-export function evalPalette(p: Palette, t: number): Vec3 {
-  const ch = (i: number): number => clamp01(p.a[i] + p.b[i] * Math.cos(2 * Math.PI * (p.c[i] * t + p.d[i])));
-  return [ch(0), ch(1), ch(2)];
+const hex = (c: number): string =>
+  Math.round(Math.min(1, Math.max(0, c)) * 255)
+    .toString(16)
+    .padStart(2, '0');
+
+export function rgbToHex([r, g, b]: [number, number, number]): string {
+  return `#${hex(r)}${hex(g)}${hex(b)}`;
 }
 
-export function paletteGradientCss(p: Palette, stops = 24): string {
-  const parts: string[] = [];
-  for (let i = 0; i <= stops; i++) {
-    const t = i / stops;
-    const [r, g, b] = evalPalette(p, t);
-    parts.push(`rgb(${(r * 255) | 0},${(g * 255) | 0},${(b * 255) | 0}) ${(t * 100) | 0}%`);
-  }
-  return `linear-gradient(90deg, ${parts.join(', ')})`;
+export function hexToRgb(value: string): [number, number, number] {
+  const m = /^#?([0-9a-f]{6})$/i.exec(value.trim());
+  if (!m) return [0.5, 0.5, 0.5];
+  const n = parseInt(m[1], 16);
+  return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
 }

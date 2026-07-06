@@ -1,11 +1,12 @@
 {
   "name": "@sero-ai/plugin-loom",
-  "version": "0.1.0",
-  "description": "Loom — WebGPU generative art studio for Sero. Agent-driven, smoothly morphing GPU art with wallpaper capture.",
+  "version": "0.2.0",
+  "description": "Loom — generative art studio for Sero. The agent authors real GLSL shaders, looks at its own output, and refines. Wallpaper capture included.",
   "keywords": ["pi-package", "sero-plugin"],
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "test": "vitest run",
     "typecheck": "tsc --noEmit -p ui/tsconfig.json && tsc --noEmit -p extension/tsconfig.json"
   },
   "pi": {
@@ -21,17 +22,16 @@
       "stateFile": ".sero/apps/loom/state.json",
       "ui": "./dist/ui/remoteEntry.js",
       "component": "LoomApp",
-      "devPort": 5197
+      "devPort": 5199
     },
     "plugin": {
       "category": "creative",
       "tags": [
         "generative",
         "art",
-        "webgpu",
         "shaders",
-        "particles",
-        "raymarching",
+        "glsl",
+        "agent",
         "wallpaper"
       ],
       "minSeroVersion": "0.1.0",
@@ -58,10 +58,10 @@
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "catalog:",
+    "lucide-react": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
     "tailwindcss": "catalog:",
-    "three": "^0.184.0",
     "typescript": "catalog:",
     "vite": "catalog:",
     "vitest": "catalog:"

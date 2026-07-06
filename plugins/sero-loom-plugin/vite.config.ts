@@ -33,9 +33,9 @@ export default defineConfig({
   ],
   server: {
     // Must match `sero.app.devPort` in package.json.
-    port: 5197,
+    port: 5199,
     strictPort: true,
-    origin: 'http://localhost:5197',
+    origin: 'http://localhost:5199',
   },
   optimizeDeps: {
     exclude: ['@sero-ai/app-runtime'],
