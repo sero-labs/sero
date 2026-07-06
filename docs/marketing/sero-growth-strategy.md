@@ -226,7 +226,7 @@ Trust requirements before broad launch:
 - Homepage includes a plain local-first statement.
 - Public copy states that packaged desktop builds are code-signed.
 - Public copy positions Sero as a power-user tool and points at the existing in-product warnings and documentation, rather than pretending the power surfaces do not exist.
-- Demo videos show approval points for plugin installation, loop activation, external posting, and destructive actions.
+- Demo videos show approval points for plugin installation, loop activation, external posting, and destructive actions. A visible Approve/Reject gate is the typical, intended path and most demos should show one — but some workflows deliberately omit it where a different review surface makes it unnecessary (e.g. PR-lifecycle loops push to the pull request's own branch, never merge, and you review the PR itself). That no-approval choice is valid; for those demos tell the honest control story (activation consent, isolated worktree, never-merges, review-on-PR) instead of staging a gate the product does not show.
 - Growth and social loops produce drafts by default. They do not post automatically.
 - Beta caveats are visible and specific.
 

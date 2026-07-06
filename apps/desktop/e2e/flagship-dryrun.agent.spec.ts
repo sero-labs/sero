@@ -31,16 +31,23 @@ const REPO_SLUG = 'sero-labs/sero';
 const WS_NAME = 'flagship-dryrun-e2e';
 
 const FLAGSHIP_PROMPT = [
-  'Build me a release-checklist plugin for this workspace and get it working inside Sero.',
+  'Build me a release-checklist plugin and get it working inside Sero.',
   'What I want: a small Sero plugin with a UI panel called "Release Checklist" that produces a',
   'release readiness report for this repository. The report must cover, with real values from',
   'this repo: the latest release tag and commits on the default branch since it, whether the',
   'working tree is clean, open pull requests against the default branch, and anything that looks',
   'release-blocking in the open issues. Add one "Generate report" action in the panel that writes',
   'the report to release-readiness.md in the workspace root and shows it in the panel.',
-  'Build the plugin inside this workspace, make sure it typechecks and builds, and then take it',
-  'all the way to running inside Sero so I can open the panel — tell me exactly what you did to',
-  'get it mounted. Do not commit, push, or post anything.',
+  'IMPORTANT — build it as a STANDALONE, installable Sero plugin, exactly like the community',
+  'plugin examples (a self-contained package with a Pi extension and a module-federation web UI),',
+  'so it can be installed from its local folder through the plugin manager. Hard rules for that to',
+  'work: put it in a fresh top-level folder OUTSIDE any existing package (e.g. ./release-checklist-plugin,',
+  'not under plugins/); use only published, versioned dependencies — NEVER a "workspace:*" spec;',
+  'put the Pi packages (@earendil-works/pi-ai, @earendil-works/pi-coding-agent, @earendil-works/pi-tui)',
+  'in peerDependencies with version ranges and @sero-ai/app-runtime as a normal versioned devDependency;',
+  'do NOT import @sero-ai/ui — build the panel in plain React with tailwind and a local cn() helper',
+  '(clsx + tailwind-merge), just like the community examples. Make sure it typechecks and builds',
+  '(dist/ui/remoteEntry.js), then tell me exactly what you did. Do not commit, push, or post anything.',
 ].join(' ');
 
 let app: ElectronApplication;

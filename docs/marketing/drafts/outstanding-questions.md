@@ -21,13 +21,14 @@ content lives here.
    `pnpm-lock.yaml`, so a docs-only merge cannot deploy anything; only
    `test.yml` CI runs. The e2e test exists behind `SERO_E2E_GH_LIVE=1`
    (`apps/desktop/e2e/marketing-loops.agent.spec.ts`). Approve or park?
-4. **Demo 4 / trust copy: PR delivery has no pre-send approval gate** — in
-   `shared/delivery-types.ts` the `pr` destination is `external: false`, so
-   pushes/comments to a PR are NOT staged behind an approval question (only
-   email-send, chat-post, webhook-post are). The strategy's "demo videos show
-   approval points" line needs this nuance: for PR loops the honest story is
-   activation consent + isolated worktree + never-merges + the PR itself as
-   the review surface. OK to run with that framing?
+4. ~~**Demo 4 / trust copy: PR delivery has no pre-send approval gate**~~
+   **RESOLVED 2026-07-06 (Dan):** approval is the typical/intended path and
+   most demos should show it, but no-approval is a valid choice where the
+   workflow intends it. Applied to `sero-growth-strategy.md` (trust
+   requirements) and `demo-scripts/pr-lifecycle.md` (caveats): PR-lifecycle
+   demos tell the honest control story (activation consent + isolated worktree
+   + never-merges + review-on-PR) rather than staging a gate the product does
+   not show.
 
 ## Flagship dry-run findings from task 3.2 (for Dan — decide before recording 3.3)
 
@@ -35,15 +36,12 @@ The dry-run (`apps/desktop/e2e/flagship-dryrun.agent.spec.ts`) proves the core:
 one prompt → a valid `sero.app` release-checklist plugin in ~3 min, repeatably.
 Two things must be decided before recording the flagship demo:
 
-1. **`workspace:*` deps block local install.** The agent's plugin declared
-   `@sero-ai/common` etc. as `workspace:*`; `window.sero.plugins.install()`
-   refuses it ("unsupported dependency spec … must publish a standalone
-   npm-installable repo with resolved versions and vendored workspace
-   packages"). So a self-built plugin that imports the shared Sero UI/runtime
-   packages builds but won't mount from a workspace outside the monorepo.
-   Decision needed: prompt the agent to keep the demo plugin dependency-light
-   (plain React, no `@sero-ai/*`), record the mount from a monorepo-style
-   workspace, or add a vendoring step. Full write-up:
+1. ~~**`workspace:*` deps block local install.**~~ **RESOLVED 2026-07-06
+   (Dan's suggestion).** Prompting the agent to build a standalone external
+   plugin like the community examples (`sero-calc-plugin` pattern — published
+   dep versions only, plain-React UI, no `@sero-ai/*`/`workspace:*` links)
+   fixed it: the re-run built → installed from local → mounted → generated the
+   real report, fully green. The demo ask now includes that phrasing. Write-up:
    docs/marketing/demo-scripts/flagship-reproduction.md.
 2. **No approval beat in a default session.** The build turn raised zero
    user-feedback prompts — the workspace was already attached and commands

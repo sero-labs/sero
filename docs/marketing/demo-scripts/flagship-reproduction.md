@@ -17,62 +17,59 @@ the dry-run harness `apps/desktop/e2e/flagship-dryrun.agent.spec.ts`.
 
 Ask Sero, in the workspace chat:
 
-> Build me a release-checklist plugin for this workspace and get it working
-> inside Sero. It needs a UI panel called "Release Checklist" that produces a
-> release readiness report for this repository — latest release tag and commits
-> since it, whether the working tree is clean, open pull requests, and any
-> release-blocking open issues — with a "Generate report" action that writes
-> release-readiness.md and shows it in the panel.
+> Build me a release-checklist plugin and get it working inside Sero. It needs
+> a UI panel called "Release Checklist" that produces a release readiness report
+> for this repository — latest release tag and commits since it, whether the
+> working tree is clean, open pull requests, and any release-blocking open
+> issues — with a "Generate report" action that writes release-readiness.md and
+> shows it in the panel. Build it as a standalone, installable Sero plugin like
+> the community plugin examples (self-contained package, plain-React UI, only
+> published dependency versions — no monorepo workspace links), so it installs
+> from its local folder through the plugin manager.
 
-## What happens (proven repeatable)
+That last sentence matters — see constraint 1 below. Without it the agent
+mimics the monorepo's own plugins and produces something that won't install.
+
+## What happens (proven repeatable, full run green)
 
 1. **Sero builds the plugin from the one prompt.** In the dry-run this took
-   about **3 minutes** and produced a complete, valid `sero.app` package at
-   `plugins/sero-release-checklist-plugin/` — `package.json` with a `sero.app`
-   id, the extension, the UI panel, and a build script. This is the core proof
-   moment and it is reliably repeatable.
-2. **The review beat.** The agent stops for approval when it needs to change
-   the workspace — attaching the new plugin folder to the workspace roots, and
-   any gated command (build/typecheck) — showing the exact action before it
-   runs. These pauses are the visible "human approves" beats the strategy asks
-   for. Keep them in frame.
-3. **Mounting it inside Sero.** A plugin sitting in the workspace's `plugins/`
-   folder is not auto-discovered; you mount it by installing it from its local
-   path through the plugin manager (App Store dialog → install the local
-   package). That install builds the plugin and registers it, after which the
-   **Release Checklist** panel opens like any other app.
-4. **The result.** Open the panel and run **Generate report**; it writes
-   `release-readiness.md` with real repo facts (latest tag `v0.4.0-beta.0`,
-   commits since, working-tree state, open PRs, blocking issues).
+   about **7 minutes** and produced a complete, standalone, installable
+   `sero.app` package at `release-checklist-plugin/` — `package.json` with a
+   `sero.app` id, the Pi extension, the module-federation UI panel, a build
+   script, and only published dependency versions (no monorepo links).
+2. **Mounting it inside Sero.** Install the plugin from its local folder through
+   the plugin manager (App Store dialog → install the local package). That
+   install builds it and registers it — verified green: it appears in the app
+   list as `release-checklist` and the **Release Checklist** panel opens like
+   any other app.
+3. **The result.** Run **Generate report** in the panel; it writes
+   `release-readiness.md` with real repo facts — verified output: latest tag
+   `v0.4.0-beta.0`, 174 commits since, working-tree state, open PRs, and
+   release-blocking issues.
 
-## Two constraints to clear before recording (flagged to Dan)
+## Two things to set up for the recording
 
-**1. `workspace:*` dependencies block the local install.** The plugin the agent
-built declared `@sero-ai/common` (and other `@sero-ai/*`) as `workspace:*`, and
-the plugin manager rejected the install outright:
+**1. Build it standalone — resolved.** The first dry-run had the agent mimic the
+monorepo's own plugins and declare `@sero-ai/* = workspace:*` deps, which the
+plugin manager refuses on local install ("unsupported dependency spec …
+workspace:*"). Adding "build it as a standalone, installable plugin like the
+community examples — published versions only, plain-React UI, no workspace
+links" to the prompt fixed it completely: the second dry-run built, installed,
+mounted, and generated the report end-to-end. So keep that phrasing in the demo
+ask. Reference pattern: the community `sero-calc-plugin` (Pi extension + plain
+React UI with a local `cn()` helper, `@sero-ai/app-runtime` as a normal
+versioned dep, Pi packages as peer deps).
 
-> Invalid plugin source package: unsupported dependency spec
-> `dependencies.@sero-ai/common=workspace:*`. Git/local source installs must
-> publish a standalone npm-installable repo with resolved versions and vendored
-> workspace packages.
-
-So an agent-built plugin that imports the shared Sero UI/runtime packages can be
-*built* but not *installed from local* as-is. The agent reliably produces a
-valid `sero.app` package; making an arbitrary self-built plugin *run live* is
-the piece to confirm on the demo setup. Options: prompt the agent to keep the
-plugin dependency-light (no `@sero-ai/*` imports, plain React), record the mount
-from a monorepo-style workspace where the packages resolve, or add a
-vendor/resolve step. Pick the demo environment before 3.3 so the "runs inside
-Sero" beat is real, not staged.
-
-**2. The approval beats are not automatic in a default session.** In the
-dry-run the build turn completed with **zero** user-feedback prompts — the agent
-worked in the already-attached workspace and its commands were not gated, so no
-approval card appeared. The strategy's "human approves" beat needs the demo run
-to actually hit a gate: run the session in a permission mode that gates writes
-or commands, or have the agent perform an action that requires attaching a
-folder / running a flagged command. Confirm the approval card shows on camera
-before recording — do not imply an approval step the default flow skips.
+**2. The approval beat is not automatic in a default session.** In the dry-run
+the build turn completed with **zero** approval prompts — the agent worked in
+the already-attached workspace and its commands were not gated, so no approval
+card appeared. A visible approval is the typical, intended path and this demo
+should show one, so set the recording up to actually hit a gate: run the session
+in a permission mode that gates writes/commands, or have the agent perform an
+action that requires attaching a folder or running a flagged command. Confirm
+the approval card is on camera before recording — do not imply a gate the
+default flow skips. (Where a workflow intentionally has no gate, that is a valid
+choice — tell the honest control story instead; see the strategy's trust notes.)
 
 ## Timing note for the recording
 
