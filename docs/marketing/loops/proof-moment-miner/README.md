@@ -10,8 +10,12 @@ planned `sero-growth-catalog` repo.
 
 When pull requests merge into the repository's default branch, the loop:
 
-1. Resolves which PRs the push merged (read-only `gh` / `git`), skipping any
-   PR that already has a draft file.
+1. Resolves which PRs the push merged (read-only `gh` / `git`), and always
+   adds a catch-up scan of the 10 most recently merged PRs, skipping any PR
+   already recorded in the `docs/marketing/proof-moments/judged.jsonl`
+   verdict ledger. The catch-up covers debounced batches, merges that happen
+   while the loop is off, and manual runs (which carry no event payload and
+   simply mine the backlog).
 2. Reads each PR's diff, description, and linked issues, and judges it
    against the campaign's proof bar for developers who use coding agents:
    would a viewer think *"that is not just a chat UI"*, *"the agent can
@@ -43,7 +47,9 @@ for the default branch.
 ## Outputs
 
 - Markdown draft files under `docs/marketing/proof-moments/`, one per
-  demoable PR. Nothing else.
+  demoable PR.
+- One appended line per judged PR in `docs/marketing/proof-moments/judged.jsonl`
+  (the ledger that stops re-judging). Nothing else.
 
 ## No external side effects
 

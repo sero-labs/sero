@@ -72,6 +72,7 @@
         "instructions": "Write docs/marketing/launch-packs/<release_tag>/x-thread.md as a numbered thread following the growth-strategy post format: (1) a strong hook, (2) one sentence of context, (3) a [VIDEO] placeholder with a one-line note on what the clip should show (use the proof-moment candidate from the fact sheet), (4) exactly three concrete product claims, each tied to a real change in THIS release, (5) the GitHub repo link, (6) a low-pressure star ask ('if this direction sounds useful, starring the repo genuinely helps more developers find it' — never begging). Hook rules: a provocative hook such as 'Your agents are trapped in chat boxes. Sero lets them out.' is allowed ONLY when the very next line carries concrete proof from this release; when the release is routine, use the grounded alternative 'Stop chatting with agents. Put them to work.' or a plain factual hook instead. Never use the 'trapped in chat boxes' line when the thread addresses Pi, Claude Code, Cursor, or Codex users — they work with agents daily and the claim reads false to them; for those audiences use grounded, proof-first wording. Every claim must be checkable against the fact sheet. Open the file with '<!-- DRAFT — nothing is posted by this loop; the maintainer publishes by hand. -->'.",
         "expectedOutcome": "x-thread.md exists with a hook, context, video slot, three release-grounded claims, link, and a low-pressure star ask.",
         "dependsOn": [
+          "gather-release-facts",
           "write-release-notes"
         ],
         "when": {
@@ -91,6 +92,7 @@
         "instructions": "Write docs/marketing/launch-packs/<release_tag>/hn-draft.md. FIRST judge whether this release merits a Hacker News post at all: only a launch-worthy release qualifies — a major new user-facing capability, a first packaged beta, or a genuinely demoable proof moment; routine or maintenance releases do not. Open the file (after the '<!-- DRAFT — never posted by this loop. -->' comment) with an explicit verdict line: 'Recommendation: post to HN' or 'Recommendation: do NOT post this release to HN', followed by one sentence of honest reasoning. Then write the draft either way so the maintainer can overrule. Title rules: plain and descriptive; the 'Show HN: Sero, a local-first workspace where AI agents come to work' style is reserved for launch-worthy releases; a routine release gets a plain factual title; never a provocative marketing hook and never 'trapped in chat boxes' in a title. Body: what Sero is in plain words, what this release actually adds, honest beta caveats (what is rough, what is missing), a clear install path, a link to the architecture docs, and no overclaiming — every claim must be checkable against the fact sheet. Close with a short list of the sceptical questions HN is likely to ask and honest answers the founder can use in comments.",
         "expectedOutcome": "hn-draft.md exists with an explicit post/do-not-post verdict, an honest title and body, and prepared answers for sceptical questions.",
         "dependsOn": [
+          "gather-release-facts",
           "write-x-thread"
         ],
         "when": {
@@ -110,6 +112,7 @@
         "instructions": "Write docs/marketing/launch-packs/<release_tag>/reddit-variants.md with three genuinely different posts — different angles and different bodies, not one post copy-pasted: (1) r/LocalLLaMA — lead with local model support and the local-first, model-provider-choice angle; this is a sceptical audience, so use grounded wording, pair every strong claim with a concrete checkable detail from the release, and use no marketing hooks; (2) r/selfhosted — lead with local control and the non-SaaS posture: what runs on the user's machine, what never leaves it, and what this release changes about that; (3) r/electronjs — lead with the Electron desktop architecture and plugin UI as an engineering story (plugin system, module federation, how the release's changes were built). All three titles must be plain and descriptive; never use 'trapped in chat boxes' in any title or anywhere in these posts — these audiences respond to proof, not provocation. Open the file with '<!-- DRAFT — nothing is posted by this loop; the maintainer publishes by hand, one subreddit at a time. -->'.",
         "expectedOutcome": "reddit-variants.md exists with three distinct, audience-matched draft posts and plain titles.",
         "dependsOn": [
+          "gather-release-facts",
           "write-hn-draft"
         ],
         "when": {

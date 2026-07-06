@@ -13,6 +13,51 @@ content lives here.
    quick start (irrelevant). The strategy doc still lists "quick start states
    approximate flagship cost" as a launch-readiness gate; update the strategy
    to match, or keep a one-line cost mention somewhere else?
+3. **Live github:main-updated fire for proof-moment-miner** — the only way to
+   produce the real event is a push to main. Proposed (verified safe):
+   cherry-pick `docs/marketing/community-inbox.md` from the campaign branch
+   into a tiny docs-only PR and squash-merge it — `deploy.yml` is
+   path-filtered to `apps/homepage/**`, `apps/docs-site/**`, and
+   `pnpm-lock.yaml`, so a docs-only merge cannot deploy anything; only
+   `test.yml` CI runs. The e2e test exists behind `SERO_E2E_GH_LIVE=1`
+   (`apps/desktop/e2e/marketing-loops.agent.spec.ts`). Approve or park?
+4. **Demo 4 / trust copy: PR delivery has no pre-send approval gate** — in
+   `shared/delivery-types.ts` the `pr` destination is `external: false`, so
+   pushes/comments to a PR are NOT staged behind an approval question (only
+   email-send, chat-post, webhook-post are). The strategy's "demo videos show
+   approval points" line needs this nuance: for PR loops the honest story is
+   activation consent + isolated worktree + never-merges + the PR itself as
+   the review surface. OK to run with that framing?
+
+## Orchestrator findings from task 2.6 (for Dan — product, not campaign)
+
+Found while running the five loops through the real runtime; none block the
+campaign, all reproduce in `marketing-loops.agent.spec.ts`:
+
+- **Dirty-workspace preflight strands workspace-files deliveries.** The
+  stash/run-here/worktree choice is a 30s notification that defaults to a
+  managed worktree on timeout (`resolvedBy: "dirty-workspace-timeout"`). For a
+  workspace-files-delivery loop the run then writes its deliverables into a
+  transient worktree (and can't see uncommitted state from earlier runs — the
+  demo-script loop's second run couldn't find the inbox entries). Suggestion:
+  workspace-files loops should default to run-in-place, or park a real
+  pendingInput question instead of a timeout notification.
+- **`<workspace>/.sero/` is not gitignored.** In a git workspace the
+  orchestrator's own state churn shows up in `git status`; the miner's
+  drafts-only audit honestly blocked a run over it. Suggestion: the host
+  should append `.sero/` to the workspace's `.git/info/exclude` when it
+  creates the state dir.
+- **Step context only flows along `dependsOn` edges (plus loop variables).**
+  The digest's collect step found 4 merged PRs, but the draft step (which
+  depended only on the inbox step) wrote "quiet week", and finalize then
+  "verified" it — a hollow-verification variant of the no-hollow-success
+  class. Loop authors must declare data edges explicitly; consider a planner
+  validation (warn when a step's instructions reference another step's
+  results without a dependsOn edge) or injecting all completed steps'
+  summaries into later prompts.
+- **Known gaps reconfirmed:** no release-tag or pr-merged event kinds
+  (launch-pack polls on cron; miner resolves merged PRs from push ranges +
+  a backlog scan), and read-only behaviour is prompt-enforced only.
 
 ## Resolved 2026-07-06 (Dan's decisions, executed)
 

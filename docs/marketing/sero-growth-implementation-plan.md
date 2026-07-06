@@ -18,8 +18,8 @@ Targets: 1,000 GitHub stars + 100 successful first runs
 | Phase | Name | Deliverable | Status | Done / Total |
 | --- | --- | --- | --- | --- |
 | 1 | Conversion hardening | All public surfaces convert | Tasks complete | 8 / 8 |
-| 2 | Campaign engine | 5 growth loops producing drafts | In progress | 5 / 6 |
-| 3 | Demo production | 6 proof demos recorded | Not started | 0 / 5 |
+| 2 | Campaign engine | 5 growth loops producing drafts | Tasks complete (live event fire pending Dan) | 6 / 6 |
+| 3 | Demo production | 6 proof demos recorded | In progress | 1 / 5 |
 | 4 | Proof series + community | Flagship post live, builders open | Not started | 0 / 6 |
 | 5 | HN launch | Front-page-ready Show HN shipped | Not started | 0 / 5 |
 | 6 | Borrowed distribution | 8-week sustained reach | Not started | 0 / 5 |
@@ -70,15 +70,15 @@ Runs in parallel with Phase 1. Each loop is an independent build — dispatch P2
 - [x] **2.3** (Agent, P2) `demo-script-generator` — manual trigger; feature → 60-second shot list. *(Done 2026-07-06 — authored at docs/marketing/loops/demo-script-generator/, validated; feature input via inbox file or parked human question since manual triggers carry no payload.)*
 - [x] **2.4** (Agent, P2) `release-launch-pack` — on release tag; release notes + X thread + HN draft + Reddit variants (drafts only). *(Done 2026-07-06 — authored at docs/marketing/loops/release-launch-pack/; no release/tag event kind exists in the orchestrator, so it cron-polls every 6h with per-tag idempotence; validated.)*
 - [x] **2.5** (Agent, P2) `community-digest` — weekly; Discord/issues/PRs → community update draft. *(Done 2026-07-06 — authored at docs/marketing/loops/community-digest/; GitHub-only sources since Sero can't read Discord — manual paste-in slot at docs/marketing/community-inbox.md; validated.)*
-- [ ] **2.6** (Agent) Run all five against real repo state; file the outputs; fix what's weak. (After 2.1–2.5.)
+- [x] **2.6** (Agent) Run all five against real repo state; file the outputs; fix what's weak. (After 2.1–2.5.) *(Done 2026-07-06 — all five loops ran end-to-end through the REAL orchestrator via `apps/desktop/e2e/marketing-loops.agent.spec.ts` (catalog install with planner adaptation → activate → real fires → artifact verification) against a clone of sero-labs/sero; 7/8 tests green, outputs filed under docs/marketing/. Weak spots fixed and re-run: miner gained a catch-up backlog scan + judged.jsonl verdict ledger, digest/launch-pack gained missing dependsOn data edges. The miner's live github:main-updated fire is scripted but gated on Dan approving a docs-only PR merge to main — see outstanding questions. Orchestrator findings logged there too.)*
 
 ### Acceptance criteria
 
-- [ ] Each loop runs end-to-end from its trigger and produces its artifact.
-- [ ] No loop posts, sends, or writes anywhere public — drafts and reports only, verified by inspection of each loop's steps.
-- [ ] `github-star-dashboard` has produced a dashboard with real numbers, including the traffic snapshot.
-- [ ] At least one `proof-moment-miner` output is good enough that Dan would actually post it.
-- [ ] Loops live as local drafts, not in the official catalog (per strategy: no `sero-growth-catalog` repo until launch surfaces are strong).
+- [x] Each loop runs end-to-end from its trigger and produces its artifact. *(Cron loops fired through the scheduler's fresh-pass path on activation; manual loop fired via activation + run_again; miner fired via its manual backlog pass — its live github:main-updated fire is written (`SERO_E2E_GH_LIVE=1`) and awaits Dan's sign-off on the main-merge that produces the event.)*
+- [x] No loop posts, sends, or writes anywhere public — drafts and reports only, verified by inspection of each loop's steps. *(Also enforced at runtime: the miner's own finalize audit blocked a run over unexpected git-status noise until the harness was fixed.)*
+- [x] `github-star-dashboard` has produced a dashboard with real numbers, including the traffic snapshot. *(docs/marketing/dashboard.md — 16 stars, 26 desktop-beta downloads, 116 views/17 uniques 14d, referrers/paths, durable history under docs/marketing/metrics/.)*
+- [x] At least one `proof-moment-miner` output is good enough that Dan would actually post it. *(4 drafts from the real backlog run: PRs 218, 224, 226, 227 — pr-227 (PR lifecycle) and pr-226 (living loops) are the strongest.)*
+- [x] Loops live as local drafts, not in the official catalog (per strategy: no `sero-growth-catalog` repo until launch surfaces are strong). *(Installed from a local file:// catalog into the scratch workspace only; all left disabled/complete there.)*
 
 ---
 
@@ -91,7 +91,7 @@ Depends on Phase 1 copy approval (demos must show the shipped positioning) and b
 
 ### Tasks
 
-- [ ] **3.1** (Agent, P3) Scripts + shot lists for all six demos (use `demo-script-generator` where it helps): 1 self-built plugin, 2 agent sees the app, 3 durable loop, 4 PR lifecycle, 5 project memory, 6 zero-to-first-workflow.
+- [x] **3.1** (Agent, P3) Scripts + shot lists for all six demos (use `demo-script-generator` where it helps): 1 self-built plugin, 2 agent sees the app, 3 durable loop, 4 PR lifecycle, 5 project memory, 6 zero-to-first-workflow. *(Done 2026-07-06 — all six at docs/marketing/demo-scripts/: demos 1 and 3 generated by the real demo-script-generator loop runs, demos 2/4/5/6 agent-drafted; every scene grounded in shipped UI with honest caveats. Note for 3.3/3.4: the PR-delivery destination has NO pre-send approval popup — demo 4's honesty beat is worktree isolation + never-merges + review-on-PR, not a staged approval dialog.)*
 - [ ] **3.2** (Agent, P3) Dry-run the flagship workflow (Sero builds a release-checklist plugin, reviewed and approved) until repeatable; document the exact reproduction steps.
 - [ ] **3.3** (Dan) Record flagship demo — approval points visible on screen; if timelapsed, real duration labelled.
 - [ ] **3.4** (Dan) Record demo 6 — signed build download → model connect → first workflow, honest elapsed time.
