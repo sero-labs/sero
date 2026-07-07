@@ -48,6 +48,29 @@ Files changed: `apps/docs-site/docs/reference/plugin-author-quick-path.md`,
   enough to wire the UI→tool call intentionally.
 - The production `base: './'` rule was explicit.
 
+## Example ladder fixed (2026-07-07)
+
+Reviewing the examples surfaced a bigger gap than a single doc line: the page
+that pointed builders at the "full features" example sent them to **Notes**,
+which **cannot be installed externally** (it uses `workspace:*` + `@sero-ai/ui`).
+So the docs' own comprehensive reference contradicted the dependency rule above.
+
+Fix: a purpose-built comprehensive external example, **`sero-logbook-plugin`**, a
+dev worklog with a streak that exercises *every* plugin surface (extension + CLI
+bridge, `pi.prompts`, `pi.skills`, background runtime, all UI hooks, static +
+dynamic widget, Module Federation) on published deps only. Built with the
+`sero-plugin` skill; verified standalone (install, typecheck, build, 11 tests all
+green). The docs now point the comprehensive example at Logbook and relabel Notes
+as the in-repo monorepo pattern. The example ladder is now:
+
+- **Daily Quote** — minimal external starter (UI + extension).
+- **Logbook** — comprehensive external example (every surface).
+- **Notes** — in-repo built-in pattern only (not externally installable).
+
+Handoff (in [drafts/outstanding-questions.md](drafts/outstanding-questions.md)):
+Dan creates/pushes `sero-labs/sero-logbook-plugin`, and a macOS-host pass mounts
+it live in Sero to confirm UI/widget/runtime load.
+
 ## Recommended follow-ups (do not block task 4.5)
 
 Deeper doc work, larger than a gap fix — worth doing before a heavy builder

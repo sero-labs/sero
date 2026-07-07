@@ -32,8 +32,8 @@ Start with the smallest example that matches your plugin shape:
 
 | Goal | Start here |
 | --- | --- |
-| UI + extension, fastest path | [Plugin Quickstart](/reference/plugin-quickstart) |
-| UI + extension + background runtime/widgets | [Plugin End-to-End Example](/reference/plugin-end-to-end-example) |
+| UI + extension, fastest path | [Plugin Quickstart](/reference/plugin-quickstart) — the external [Daily Quote](https://github.com/sero-labs/sero-daily-quote-plugin) plugin |
+| Every surface (runtime, prompts, skills, widgets) | [Plugin End-to-End Example](/reference/plugin-end-to-end-example) — the external [Logbook](https://github.com/sero-labs/sero-logbook-plugin) plugin |
 | Existing Pi extension to convert | repo source docs under `docs/plugins/` |
 
 In this checkout, useful in-repo references include:
@@ -103,11 +103,12 @@ the Sero repo. Two rules keep it installable:
   `workspace:*` resolves only inside the Sero monorepo, so any external install
   fails on it. Copy the starter's exact version ranges (for example
   `"@sero-ai/app-runtime": "^0.1.3"` and the pi packages as `peerDependencies`).
-- **Do not depend on `@sero-ai/ui`.** It is Sero's internal design-system
-  library with a large dependency surface, meant for the host, not for federated
-  plugin remotes. Build your UI with plain React (the starter also uses
-  Tailwind) and rely on the host's shared React singleton through Module
-  Federation.
+- **Prefer plain React for the UI.** The external examples (Daily Quote,
+  Kanban, Logbook) build their UI with plain React + Tailwind rather than
+  `@sero-ai/ui`, Sero's host design-system library. `@sero-ai/ui` is published
+  and can be used, but it is a large dependency you rarely need — reach for it
+  only if you specifically want Sero's components, and rely on the host's shared
+  React singleton through Module Federation either way.
 
 From the `@sero-ai` family, an external plugin normally needs only
 `@sero-ai/app-runtime` (the renderer bridge). Use `@sero-ai/common` only for

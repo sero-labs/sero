@@ -47,6 +47,28 @@ sign-off:
    way: ship a `pnpm-lock.yaml`, or switch the documented commands to npm. (Docs
    now say "either works, match the lockfile" as a stopgap.)
 
+**New comprehensive external example — `sero-logbook-plugin` (needs Dan).**
+The docs' old "full features" example (Notes) can't be installed externally, so
+a purpose-built one was created: **Logbook**, a dev worklog with a streak that
+exercises *every* plugin surface (extension + CLI bridge, `pi.prompts`,
+`pi.skills`, background runtime, all UI hooks, static + dynamic widget, MF) on
+published deps only. Built with the `sero-plugin` skill; verified standalone
+(install, typecheck, build, 11 tests all green). It lives locally at
+`plugins/sero-logbook-plugin` as its own git repo with an initial commit.
+Handoff items:
+
+1. **Create and push `sero-labs/sero-logbook-plugin`** (public). The docs-site
+   changes point at that URL; they go live only when the docs deploy from `main`,
+   so the repo needs to exist by then.
+2. **Live in-app mount not yet done.** Build + typecheck are green; mounting it
+   in a running Sero (Admin → Local Plugin Development) still needs a macOS-host
+   pass to confirm the UI/widget/runtime actually load.
+3. **Skill vs. reality inconsistency (`sero-plugin` skill).** The skill's step 8
+   says "Import UI components from `@sero-ai/ui`", but every external example
+   (Daily Quote, Kanban, Signal Desk, Logbook) uses plain React + Tailwind and
+   avoids `@sero-ai/ui`. The skill reads as in-repo-first; worth a note that
+   external plugins prefer plain React. (Docs already say this.)
+
 Deeper doc follow-ups (larger than a gap fix; do **not** block opening the
 builder challenge in 4.5, but worth doing before a heavy builder push):
 
