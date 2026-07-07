@@ -109,6 +109,54 @@ export async function stopDemoRecording(
   return { raw, youtube, frameCount: result.frameCount, durationMs: result.durationMs };
 }
 
+/** Stop recording and write the raw MP4 only (no encode). For multi-segment demos. */
+export async function stopRecordingRaw(
+  page: Page,
+  outputPath: string,
+): Promise<{ frameCount: number; durationMs: number } | null> {
+  fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+  const result = await page.evaluate((dest) => window.sero.appControl.recordStop({ outputPath: dest }), outputPath);
+  return result?.isVideo ? { frameCount: result.frameCount, durationMs: result.durationMs } : null;
+}
+
+/** A solid title card with centered text (transition between segments). */
+export async function titleCard(text: string, seconds: number, output: string): Promise<void> {
+  const font = '/System/Library/Fonts/Supplemental/Arial.ttf';
+  const safe = text.replace(/'/g, "’").replace(/:/g, '\\:');
+  await execFileAsync('ffmpeg', [
+    '-y', '-f', 'lavfi', '-i', `color=c=0x0a0a0c:s=1920x1200:d=${seconds}:r=30`,
+    '-vf', `drawtext=fontfile=${font}:text='${safe}':fontcolor=white:fontsize=52:x=(w-text_w)/2:y=(h-text_h)/2`,
+    '-c:v', 'libx264', '-preset', 'fast', '-crf', '20', '-pix_fmt', 'yuv420p', output,
+  ]);
+}
+
+/** Normalise clips to a common format, concatenate in order, and encode 1080p. */
+export async function concatDemo(parts: string[], output: string): Promise<void> {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sero-demo-concat-'));
+  try {
+    const normalised: string[] = [];
+    for (let i = 0; i < parts.length; i++) {
+      const norm = path.join(tmpDir, `n-${String(i).padStart(3, '0')}.mp4`);
+      await execFileAsync('ffmpeg', [
+        '-y', '-i', parts[i]!,
+        '-vf', 'scale=-2:1080:flags=lanczos,setsar=1', '-r', '30',
+        '-an', '-c:v', 'libx264', '-preset', 'fast', '-crf', '20', '-pix_fmt', 'yuv420p', norm,
+      ]);
+      normalised.push(norm);
+    }
+    const listFile = path.join(tmpDir, 'list.txt');
+    fs.writeFileSync(listFile, normalised.map((p) => `file '${p}'`).join('\n'));
+    const joined = path.join(tmpDir, 'joined.mp4');
+    await execFileAsync('ffmpeg', ['-y', '-f', 'concat', '-safe', '0', '-i', listFile, '-c', 'copy', joined]);
+    await execFileAsync('ffmpeg', [
+      '-y', '-i', joined, '-c:v', 'libx264', '-preset', 'slow', '-crf', '19', '-pix_fmt', 'yuv420p',
+      '-movflags', '+faststart', output,
+    ]);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+}
+
 /** Scale any clip to a YouTube-ready 1080p H.264 MP4. */
 export async function encodeYouTube(input: string, output: string): Promise<void> {
   await execFileAsync('ffmpeg', [

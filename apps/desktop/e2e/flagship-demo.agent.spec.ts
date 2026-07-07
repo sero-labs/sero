@@ -21,14 +21,15 @@ import { closeSeroApp, launchSeroApp } from './helpers';
 import { waitForShell } from './helpers/workflow';
 import { createOpenAgentSession, promptAndCollectEvents, assistantTextFromEvents } from './helpers/agent';
 import {
-  assembleDemo,
   caption,
   clearCaption,
+  concatDemo,
   demoOutDir,
   installCaptionOverlay,
   setDemoWindow,
   startDemoRecording,
-  stopDemoRecording,
+  stopRecordingRaw,
+  titleCard,
 } from './helpers/demo';
 
 const REAL_HOME = process.env.SERO_E2E_REAL_HOME === '1';
@@ -50,12 +51,6 @@ let app: ElectronApplication;
 let page: Page;
 let wsDir: string;
 let sessionId: string;
-let recStart = 0;
-const markers: Record<string, number> = {};
-
-function mark(name: string): void {
-  markers[name] = (Date.now() - recStart) / 1000;
-}
 
 function git(cwd: string, args: string[]): string {
   return execFileSync('git', ['-C', cwd, '-c', 'user.email=e2e@sero.test', '-c', 'user.name=sero-e2e', ...args], {
@@ -139,57 +134,74 @@ test('records the flagship "Sero builds itself a plugin" demo', async () => {
   const fixture = await createOpenAgentSession(page, wsDir, 'Flagship demo');
   sessionId = fixture.session.id;
 
-  expect(await startDemoRecording(page, { fps: 15, crf: 20 })).toBe(true);
-  recStart = Date.now();
-
-  await caption(page, 'I asked my AI workspace to build a feature for itself.', 3_500);
-  await caption(page, 'Build a release-checklist plugin — and get it running inside Sero.', 3_000);
-
-  // The build: real agent run (minutes). Time-lapsed in the final cut.
-  mark('buildStart');
-  await caption(page, 'Sero writes the plugin: a Pi extension, a React panel, a build.');
-  const reply = await drivenTurn(FLAGSHIP_PROMPT, 3_000_000);
-  mark('buildEnd');
-
-  const pluginDir = newPluginDir();
-  expect(pluginDir, 'the agent must produce a sero.app plugin package').toBeTruthy();
-  const appId: string = JSON.parse(fs.readFileSync(path.join(pluginDir!, 'package.json'), 'utf8')).sero.app.id;
-
-  await caption(page, 'I review what it built, then install it.', 3_000);
-  mark('installStart');
-  const installed = await page.evaluate((src) => window.sero.plugins.install(src), pluginDir!);
-  expect((installed as { id?: string })?.id, 'plugin must install from its local folder').toBeTruthy();
-  mark('installEnd');
-
-  await caption(page, 'It mounts inside Sero like any other app.', 2_500);
-  const opened = await page.evaluate((id) => Boolean(window.__appControl?.openApp(id)), appId);
-  expect(opened).toBe(true);
-  await expect(page.locator(`[data-app="${appId}"]`).first()).toBeVisible({ timeout: 30_000 });
-  await page.waitForTimeout(2_500);
-
-  await caption(page, 'And it produces a real release readiness report.', 2_500);
-  const panel = page.locator(`[data-app="${appId}"]`).first();
-  await panel.getByRole('button', { name: /generate/i }).click({ timeout: 10_000 }).catch(() => {});
-  await expect.poll(() => fs.existsSync(path.join(wsDir, 'release-readiness.md')), { timeout: 90_000 }).toBe(true);
-  await page.waitForTimeout(3_500);
-
-  await caption(page, 'Sero extended itself — reviewed, installed, running.', 4_000);
-  await clearCaption(page);
-  await page.waitForTimeout(1_000);
-  mark('end');
-
-  const out = await stopDemoRecording(page, 'flagship');
-  expect(out, 'raw recording + 1080p encode must be produced').toBeTruthy();
   const dir = demoOutDir();
-  fs.writeFileSync(path.join(dir, 'flagship-markers.json'), JSON.stringify({ markers, raw: out!.raw, reply: reply.slice(0, 500) }, null, 2));
+  const seg1 = path.join(dir, 'flagship-seg1-ask.mp4');
+  const card = path.join(dir, 'flagship-card.mp4');
+  const seg2 = path.join(dir, 'flagship-seg2-payoff.mp4');
+  let buildOk = false;
+  let reply = '';
 
-  await closeSeroApp(app);
+  // ── Kick off the real build turn in the background; the approval pump runs
+  //    inside drivenTurn. We record only its first ~30s (segment 1), let it
+  //    finish OFF-camera, then record the reliable payoff (segment 2).
+  const build = (async () => {
+    reply = await drivenTurn(FLAGSHIP_PROMPT, 3_000_000);
+    if (!newPluginDir()) {
+      reply = await drivenTurn(
+        'Finish the standalone, installable release-checklist plugin in this workspace (self-contained package, plain-React UI, published dependency versions only — no workspace links) so it builds and can be installed from its local folder. Do not commit or push.',
+        1_800_000,
+      );
+    }
+  })();
 
-  // Paced cut: time-lapse the build 12×, keep the rest real-time.
-  const paced = path.join(dir, 'flagship-demo.mp4');
-  await assembleDemo(out!.raw, paced, [{ start: markers.buildStart!, end: markers.buildEnd!, speed: 12 }]);
+  try {
+    // ── SEGMENT 1: the ask + the real build starting (~32s) ──────────────
+    expect(await startDemoRecording(page, { fps: 15, crf: 20 })).toBe(true);
+    await caption(page, 'I asked my AI workspace to build a feature for itself.', 4_000);
+    await caption(page, 'Build a release-checklist plugin — and run it inside Sero.', 4_000);
+    await caption(page, 'Sero plans it, then starts writing the plugin — live.', 3_000);
+    // Let real activity show (chat streams, files appear in the tree).
+    await page.waitForTimeout(18_000);
+    await caption(page, 'Building the full plugin…  ⏩ sped up', 3_000);
+    await stopRecordingRaw(page, seg1);
 
+    // ── Build finishes off-camera (this is the long, boring part) ────────
+    await build;
+    const pluginDir = newPluginDir();
+    expect(pluginDir, 'the agent must produce a sero.app plugin package').toBeTruthy();
+    const appId: string = JSON.parse(fs.readFileSync(path.join(pluginDir!, 'package.json'), 'utf8')).sero.app.id;
+
+    // ── SEGMENT 2: the reliable payoff — install → mount → report (~40s) ──
+    expect(await startDemoRecording(page, { fps: 15, crf: 20 })).toBe(true);
+    await caption(page, 'Sero finished. I review what it built, then install it.', 3_500);
+    const installed = await page.evaluate((src) => window.sero.plugins.install(src), pluginDir!);
+    expect(Boolean((installed as { id?: string })?.id), 'plugin installs from its local folder').toBe(true);
+
+    await caption(page, 'It mounts inside Sero like any other app.', 3_000);
+    expect(await page.evaluate((id) => Boolean(window.__appControl?.openApp(id)), appId)).toBe(true);
+    await page.locator(`[data-app="${appId}"]`).first().waitFor({ state: 'visible', timeout: 30_000 });
+    await page.waitForTimeout(3_000);
+
+    await caption(page, 'And it produces a real release readiness report.', 3_000);
+    await page.locator(`[data-app="${appId}"]`).first().getByRole('button', { name: /generate/i }).click({ timeout: 10_000 }).catch(() => {});
+    await expect.poll(() => fs.existsSync(path.join(wsDir, 'release-readiness.md')), { timeout: 90_000 }).toBe(true);
+    buildOk = true;
+    await page.waitForTimeout(4_000);
+    await caption(page, 'Sero extended itself — reviewed, installed, running.', 4_500);
+    await clearCaption(page);
+    await page.waitForTimeout(1_200);
+    await stopRecordingRaw(page, seg2);
+  } finally {
+    fs.writeFileSync(path.join(dir, 'flagship-markers.json'), JSON.stringify({ buildOk, seg1, seg2, reply: reply.slice(0, 500) }, null, 2));
+    await closeSeroApp(app).catch(() => {});
+  }
+
+  // ── Assemble: seg1 + a "sped up" build card + seg2 → 1080p YouTube MP4 ──
+  expect(buildOk, 'the full flagship flow (build → install → report) must complete').toBe(true);
+  await titleCard('Sero builds the full plugin — sped up', 2.5, card);
+  const finalPath = path.join(dir, 'flagship-demo.mp4');
+  await concatDemo([seg1, card, seg2], finalPath);
   // eslint-disable-next-line no-console
-  console.log(`\n\n=== FLAGSHIP DEMO\n    paced (build 12×): ${paced}\n    full 1080p:        ${out!.youtube}\n    raw:               ${out!.raw}\n    build took ${Math.round((markers.buildEnd! - markers.buildStart!))}s of real time ===\n`);
-  expect(fs.existsSync(paced)).toBe(true);
+  console.log(`\n\n=== FLAGSHIP DEMO: ${finalPath}\n    segments: ${seg1} | ${seg2} ===\n`);
+  expect(fs.existsSync(finalPath)).toBe(true);
 });
