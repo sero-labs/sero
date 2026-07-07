@@ -31,6 +31,32 @@ content lives here.
    + never-merges + review-on-PR) rather than staging a gate the product does
    not show.
 
+## Plugin guide verification findings from task 4.3 (for Dan)
+
+Full report: [plugin-guide-verification.md](../plugin-guide-verification.md). The
+guide is now buildable from published docs alone — a fresh-eyes builder shipped a
+working plugin and six doc gaps became fixes in `apps/docs-site`. Two items need
+Dan because they touch the **external** starter repo
+(`sero-labs/sero-daily-quote-plugin`), which the campaign never changes without
+sign-off:
+
+1. **Starter `typecheck` only checks the UI.** `tsc --noEmit -p ui/tsconfig.json`
+   passes even if the extension is broken. Suggest changing the starter script to
+   typecheck both `ui/tsconfig.json` and `extension/tsconfig.json`.
+2. **Starter ships `package-lock.json` but docs say `pnpm install`.** Align one
+   way: ship a `pnpm-lock.yaml`, or switch the documented commands to npm. (Docs
+   now say "either works, match the lockfile" as a stopgap.)
+
+Deeper doc follow-ups (larger than a gap fix; do **not** block opening the
+builder challenge in 4.5, but worth doing before a heavy builder push):
+
+- Document the `useAppTools().run` return/error contract (resolved value, error
+  behaviour, whether tool `details` reaches the UI).
+- Add a fuller Pi extension authoring reference — `execute` arguments,
+  `renderCall`/`renderResult`, session lifecycle events, parameter schema — or a
+  clear link to Pi's own docs. Much of this is upstream Pi surface, so linking is
+  probably better than duplicating.
+
 ## Flagship dry-run findings from task 3.2 (for Dan — decide before recording 3.3)
 
 The dry-run (`apps/desktop/e2e/flagship-dryrun.agent.spec.ts`) proves the core:

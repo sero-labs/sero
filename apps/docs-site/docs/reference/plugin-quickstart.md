@@ -51,6 +51,10 @@ pnpm dev
 pnpm typecheck
 ```
 
+npm works too — use whichever matches the lockfile the starter ships. Make sure
+`typecheck` covers **both** the UI and the extension `tsconfig`; a script that
+only checks `ui/tsconfig.json` can pass while the extension is broken.
+
 ## What success looks like
 
 A good first plugin has:

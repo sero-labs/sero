@@ -20,7 +20,7 @@ Targets: 1,000 GitHub stars + 100 successful first runs
 | 1 | Conversion hardening | All public surfaces convert | Tasks complete | 8 / 8 |
 | 2 | Campaign engine | 5 growth loops producing drafts | Complete (incl. live event fire verified) | 6 / 6 |
 | 3 | Demo production | 6 proof demos recorded | In progress (agent tasks done; 3.3/3.4 are Dan recordings) | 2 / 5 |
-| 4 | Proof series + community | Flagship post live, builders open | Not started | 0 / 6 |
+| 4 | Proof series + community | Flagship post live, builders open | In progress (plugin guide verified; posts blocked on Dan's recording) | 1 / 6 |
 | 5 | HN launch | Front-page-ready Show HN shipped | Not started | 0 / 5 |
 | 6 | Borrowed distribution | 8-week sustained reach | Not started | 0 / 5 |
 
@@ -117,7 +117,7 @@ Depends on Phase 3 flagship demo. Loops from Phase 2 draft the content; Dan appr
 
 - [ ] **4.1** (Agent→Dan) Flagship X post + thread (strategy post format: hook, context, video, three concrete claims, link, low-pressure star ask).
 - [ ] **4.2** (Agent→Dan) Cut flagship into 3–4 follow-up posts; schedule at a sustainable pace.
-- [ ] **4.3** (Agent, P4) Verify the plugin developer guide by building a small plugin **from the docs alone** — no repo spelunking. Every gap found becomes a docs fix. This gates 4.5.
+- [x] **4.3** (Agent, P4) Verify the plugin developer guide by building a small plugin **from the docs alone** — no repo spelunking. Every gap found becomes a docs fix. This gates 4.5. *(Done 2026-07-07 — a fresh-eyes builder blind to the Sero repo shipped a working `sero-scratchpad-plugin` from the published docs + starter alone; independently re-verified install/typecheck/build green. Six doc gaps found and fixed in `apps/docs-site` (plugin-author-quick-path, plugin-quickstart, app-runtime): external dependency contract (no `workspace:*` / no `@sero-ai/ui`), the load-bearing vite/MF config fields, extension↔UI shared-state resolution by scope, package-manager clarity, typecheck-both, and a "run it in Sero" step. Report: `docs/marketing/plugin-guide-verification.md`. Two external-starter-repo fixes + two deeper doc follow-ups parked for Dan in outstanding-questions.md.)*
 - [ ] **4.4** (Agent→Dan, P4) Pi community feedback post — complement framing only ("outgrown", never "trapped"), with a concrete feedback ask.
 - [ ] **4.5** (Agent→Dan) Open `Sero 100 Early Builders` discussion; create `good first plugin`, `good first loop`, `demo wanted`, `docs wanted` labels; open the "first 25 Sero loops" roadmap issue. (After 4.3 passes.)
 - [ ] **4.6** (Agent→Dan) First weekly builder log (drafted by `community-digest`); establish the weekly cadence.

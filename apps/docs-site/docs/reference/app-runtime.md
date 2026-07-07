@@ -24,11 +24,15 @@
 
 Use `useAppState()` for plugin UI state that should persist with Sero's profile/workspace model. Do **not** use `localStorage` or `sessionStorage` for durable plugin state.
 
-Current public storage model:
+`sero.app.scope` decides which path is used (`stateFile` is a hint, not an
+override):
 
 - global app state: `<SERO_HOME>/apps/<app-id>/state.json`
 - workspace app state: `<workspace>/.sero/apps/<app-id>/state.json`
 
+If your Pi extension reads or writes the same state, it must resolve this same
+file by scope — see the resolution snippet in
+[Plugin Author Quick Path](/reference/plugin-author-quick-path#file-backed-state).
 See [State and Folders](/reference/state-and-folders) for the broader storage map.
 
 ## Minimal example
