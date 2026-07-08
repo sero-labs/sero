@@ -10,6 +10,18 @@
 /** Title bar height in DIP. */
 export const CHROME_BAR_HEIGHT = 40;
 
+const MACOS_TRAFFIC_LIGHT_DIAMETER = 12;
+const MACOS_TRAFFIC_LIGHT_X = 12;
+const MACOS_TRAFFIC_LIGHT_Y_CORRECTION = -3;
+
+export function getMacTrafficLightPosition() {
+  return {
+    x: MACOS_TRAFFIC_LIGHT_X,
+    y: Math.round((CHROME_BAR_HEIGHT - MACOS_TRAFFIC_LIGHT_DIAMETER) / 2)
+      + MACOS_TRAFFIC_LIGHT_Y_CORRECTION,
+  };
+}
+
 /** Default window background — matches dark `--bg-base`. */
 export const CHROME_BACKGROUND_COLOR = '#0a0a0b';
 

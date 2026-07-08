@@ -37,6 +37,7 @@ import {
   CHROME_BACKGROUND_COLOR,
   CHROME_BAR_HEIGHT,
   CHROME_OVERLAY_SYMBOL_COLOR,
+  getMacTrafficLightPosition,
 } from './chrome';
 import { disposeAllAgentSessions } from './ipc/agent/core/agent';
 import { workspaceManager } from './features/workspace/manager';
@@ -170,13 +171,9 @@ function ensureBuiltinPackages(): void {
  */
 function platformFrameOptions(): Electron.BrowserWindowConstructorOptions {
   if (process.platform === 'darwin') {
-    const trafficLightDiameter = 12;
     return {
       titleBarStyle: 'hiddenInset',
-      trafficLightPosition: {
-        x: 12,
-        y: Math.round((CHROME_BAR_HEIGHT - trafficLightDiameter) / 2),
-      },
+      trafficLightPosition: getMacTrafficLightPosition(),
     };
   }
   if (process.platform === 'win32') {
