@@ -16,7 +16,7 @@ import {
   DialogTitle,
 } from '@sero-ai/ui/components/ui/dialog';
 import { useAppStore } from '@/stores/app';
-import { MAX_CHROME_SHORTCUTS, normaliseChromeShortcutsForApps } from '@/stores/app/shared';
+import { isChromeShortcutsFull } from '@/stores/app/shared';
 import { useThemeStore } from '@/stores/theme';
 import { getAppIcon } from '@/lib/app-icons';
 import { openApp } from '@/lib/open-app';
@@ -41,9 +41,7 @@ export function CommandMenu() {
   const apps = useAppStore((s) => s.apps);
   const activeApp = useAppStore((s) => s.activeApp);
   const activePinned = useAppStore((s) => s.isChromeShortcut(s.activeApp));
-  const shortcutsFull = useAppStore(
-    (s) => normaliseChromeShortcutsForApps(s.chromeShortcuts, s.apps).length >= MAX_CHROME_SHORTCUTS,
-  );
+  const shortcutsFull = useAppStore((s) => isChromeShortcutsFull(s.chromeShortcuts, s.apps));
   const toggleChromeShortcut = useAppStore((s) => s.toggleChromeShortcut);
   const toggleMode = useThemeStore((s) => s.toggleMode);
   const activePresetId = useThemeStore((s) => s.activePresetId);

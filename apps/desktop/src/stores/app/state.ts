@@ -12,7 +12,6 @@ import {
   BUILTIN_APPS,
   DEFAULT_FAVOURITE_APP_IDS,
   MAX_CHROME_SHORTCUTS,
-  areStringArraysEqual,
   defaultChromeShortcuts,
   isAppEntrySupported,
   isManifestHostSupported,
@@ -173,16 +172,15 @@ export const useAppStore = create<AppState>((set, get) => ({
     const app = apps.find((candidate) => candidate.id === appId);
     if (!app || !isAppEntrySupported(app)) return;
 
-    const current = normaliseChromeShortcutsForApps(chromeShortcuts, apps);
-    const next = current.includes(appId)
-      ? current.filter((id) => id !== appId)
-      : [...current, appId];
-    if (next.length > MAX_CHROME_SHORTCUTS) {
-      if (!areStringArraysEqual(current, chromeShortcuts)) {
-        set({ chromeShortcuts: current });
-        persistLayout({ chromeShortcuts: current });
-      }
-      return;
+    // Add/remove only this id. Preserve pins whose app isn't loaded yet (e.g.
+    // during startup discovery) — filtering the whole list here would drop
+    // them permanently. The cap counts only currently-valid shortcuts.
+    let next: string[];
+    if (chromeShortcuts.includes(appId)) {
+      next = chromeShortcuts.filter((id) => id !== appId);
+    } else {
+      if (normaliseChromeShortcutsForApps(chromeShortcuts, apps).length >= MAX_CHROME_SHORTCUTS) return;
+      next = [...chromeShortcuts, appId];
     }
 
     set({ chromeShortcuts: next });

@@ -86,6 +86,11 @@ export function normaliseChromeShortcutsForApps(shortcuts: string[], apps: AppEn
   });
 }
 
+/** True when the pin cap is reached (counting only currently-valid shortcuts). */
+export function isChromeShortcutsFull(shortcuts: string[], apps: AppEntry[]): boolean {
+  return normaliseChromeShortcutsForApps(shortcuts, apps).length >= MAX_CHROME_SHORTCUTS;
+}
+
 export function getDiscoveredApps(apps: AppEntry[]): AppEntry[] {
   return apps.filter((app) => !app.builtin);
 }

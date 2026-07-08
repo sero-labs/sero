@@ -20,7 +20,6 @@ import { BookmarksBar } from './BookmarksBar';
 import { BrowserTabs } from './BrowserTabs';
 import { BrowserToolbar } from './BrowserToolbar';
 import { ScreenshotOverlay } from './ScreenshotOverlay';
-import { toBrowserViewBounds } from './browser-view-bounds';
 import {
   useActiveBrowserTabId,
   useBrowserStore,
@@ -73,7 +72,6 @@ export function BrowserPanel({ workspaceId }: BrowserPanelProps) {
   const reload = useBrowserStore((s) => s.reload);
   const stop = useBrowserStore((s) => s.stop);
   const sharePageWithChat = useBrowserStore((s) => s.sharePageWithChat);
-  const zoomFactor = useZoomStore((s) => s.factor);
   const lightboxOpen = useLightbox((s) => s.open);
 
   const viewportRef = useRef<HTMLDivElement | null>(null);
@@ -191,21 +189,35 @@ export function BrowserPanel({ workspaceId }: BrowserPanelProps) {
         void window.sero.browser.hideAll();
         return;
       }
+      // Send raw CSS-pixel bounds. The main process converts to DIP once at
+      // the boundary (multiplying by the page zoom factor) — see
+      // electron/ipc/apps/browser.ts. Multiplying here too would square it.
       const rect = el.getBoundingClientRect();
-      const bounds = toBrowserViewBounds(rect, zoomFactor);
-      if (bounds.width === 0 || bounds.height === 0) return;
-      void window.sero.browser.setBounds(bounds);
+      const width = Math.max(0, Math.round(rect.width));
+      const height = Math.max(0, Math.round(rect.height));
+      if (width === 0 || height === 0) return;
+      void window.sero.browser.setBounds({
+        x: Math.round(rect.left),
+        y: Math.round(rect.top),
+        width,
+        height,
+      });
     };
 
     sync();
     const observer = new ResizeObserver(sync);
     observer.observe(el);
     window.addEventListener('resize', sync);
+    // Page zoom shifts the placeholder's screen rect (the counter-zoomed
+    // chrome changes height) and changes the main-process DIP conversion, so
+    // re-sync on zoom — without rebuilding the observer on every step.
+    const unsubscribeZoom = useZoomStore.subscribe(sync);
     return () => {
       observer.disconnect();
       window.removeEventListener('resize', sync);
+      unsubscribeZoom();
     };
-  }, [activeTabId, capture, lightboxOpen, rendererOverlay.open, zoomFactor]);
+  }, [activeTabId, capture, lightboxOpen, rendererOverlay.open]);
 
   const startCapture = useCallback(async () => {
     if (!activeTab) return;

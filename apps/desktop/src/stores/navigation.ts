@@ -31,9 +31,6 @@ interface NavigationState {
   index: number;
   /** Record a navigation. Drops forward entries; caps at HISTORY_LIMIT. */
   push: (entry: NavEntry) => void;
-  /** Move the cursor back/forward. Returns the entry to activate, or null at the edge. */
-  back: () => NavEntry | null;
-  forward: () => NavEntry | null;
 }
 
 export const useNavigationStore = create<NavigationState>((set, get) => ({
@@ -48,20 +45,6 @@ export const useNavigationStore = create<NavigationState>((set, get) => ({
     const next = [...entries.slice(0, index + 1), entry];
     if (next.length > HISTORY_LIMIT) next.shift();
     set({ entries: next, index: next.length - 1 });
-  },
-
-  back: () => {
-    const { entries, index } = get();
-    if (index <= 0) return null;
-    set({ index: index - 1 });
-    return entries[index - 1];
-  },
-
-  forward: () => {
-    const { entries, index } = get();
-    if (index >= entries.length - 1) return null;
-    set({ index: index + 1 });
-    return entries[index + 1];
   },
 }));
 

@@ -1,6 +1,6 @@
 import { useUserFeedbackStore } from '@/stores/user-feedback-store';
 import { useAppStore } from '@/stores/app';
-import { isManifestHostSupported } from '@/stores/app/shared';
+import { isAppEntrySupported } from '@/stores/app/shared';
 import {
   findNavigationTarget,
   useNavigationStore,
@@ -23,7 +23,7 @@ export function openApp(appId: string): void {
 
 function canActivate(appId: string): boolean {
   const entry = useAppStore.getState().apps.find((app) => app.id === appId);
-  return entry !== undefined && (entry.builtin || isManifestHostSupported(entry.manifest));
+  return entry !== undefined && isAppEntrySupported(entry);
 }
 
 function navigate(direction: NavigationDirection): void {

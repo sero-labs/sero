@@ -15,6 +15,7 @@ import {
   normaliseChromeShortcutsForApps,
   type AppEntry,
 } from './shared';
+import { useNavigationStore } from '@/stores/navigation';
 import { useAppStore } from './state';
 
 function reconcileDiscoveredApps(discovered: AppEntry[]): void {
@@ -46,6 +47,9 @@ function reconcileDiscoveredApps(discovered: AppEntry[]): void {
 
   if (nextActiveApp !== activeApp) {
     persistLayout({ activeApp: nextActiveApp });
+    // The active app vanished (unsupported/uninstalled); record the fallback
+    // so navigation history's cursor tracks what's actually on screen.
+    useNavigationStore.getState().push({ appId: nextActiveApp });
   }
 
   if (!areStringArraysEqual(nextFavouriteApps, favouriteApps)) {
