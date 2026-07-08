@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef } from 'react';
+import { createDebouncedFn } from '@sero-ai/common';
 
-interface DebouncedCallback<Args extends unknown[]> {
-  (...args: Args): void;
-  cancel: () => void;
-}
+// The plain (non-hook) factory lives in @sero-ai/common so plugins and stores
+// share one implementation. Re-exported here for existing import sites.
+export { createDebouncedFn };
 
 /**
  * Returns a stable callback that debounces invocations by `delay` ms.
@@ -26,26 +26,5 @@ export function useDebouncedCallback<Args extends unknown[]>(
 
   useEffect(() => () => debounced.cancel(), [debounced]);
 
-  return debounced;
-}
-
-/**
- * Non-hook debounce factory for use in stores / plain modules.
- * Returns a debounced wrapper that coalesces rapid calls.
- */
-export function createDebouncedFn<Args extends unknown[]>(
-  fn: (...args: Args) => void,
-  delay: number,
-): DebouncedCallback<Args> {
-  let timer: ReturnType<typeof setTimeout> | null = null;
-  const debounced = (...args: Args) => {
-    if (timer) clearTimeout(timer);
-    timer = setTimeout(() => fn(...args), delay);
-  };
-  debounced.cancel = () => {
-    if (!timer) return;
-    clearTimeout(timer);
-    timer = null;
-  };
   return debounced;
 }
