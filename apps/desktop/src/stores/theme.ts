@@ -164,7 +164,6 @@ function applyMode(mode: 'light' | 'dark'): void {
 // don't follow CSS — re-send the current chrome colors on theme change.
 // The rAF lets the just-applied CSS variables resolve first.
 function syncTitleBarOverlay(): void {
-  if (window.sero.platform !== 'win32') return;
   requestAnimationFrame(() => {
     const styles = getComputedStyle(document.documentElement);
     const color = styles.getPropertyValue('--bg-base').trim();
@@ -174,11 +173,24 @@ function syncTitleBarOverlay(): void {
   });
 }
 
-useThemeStore.subscribe((state, prev) => {
-  if (state.effectiveMode !== prev.effectiveMode || state.activePreset !== prev.activePreset) {
-    syncTitleBarOverlay();
-  }
-});
+/**
+ * Keep the Windows overlay colors in sync with the theme. Call once on
+ * startup (App.tsx). The `ready` transition covers initial hydration —
+ * mode/preset changes fire before their CSS variables are applied, so a
+ * sync on those alone would read stale colors on first launch.
+ */
+export function listenForTitleBarOverlaySync(): () => void {
+  if (window.sero.platform !== 'win32') return () => {};
+  return useThemeStore.subscribe((state, prev) => {
+    if (
+      state.ready !== prev.ready ||
+      state.effectiveMode !== prev.effectiveMode ||
+      state.activePreset !== prev.activePreset
+    ) {
+      syncTitleBarOverlay();
+    }
+  });
+}
 
 // ── Hydration ────────────────────────────────────────────────
 

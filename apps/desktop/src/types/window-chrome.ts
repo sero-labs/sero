@@ -23,5 +23,4 @@ export interface SeroWindowAPI {
   onZoomCommand(callback: (command: ZoomCommand) => void): () => void;
   /** Apply a page zoom factor via webFrame. */
   setZoomFactor(factor: number): void;
-  getZoomFactor(): number;
 }

@@ -16,8 +16,8 @@ import { persistLayout } from '@/lib/persist-layout';
 import type { ZoomCommand } from '@/types/window-chrome';
 
 export const ZOOM_STEPS = [0.5, 0.67, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2];
-const MIN_ZOOM = ZOOM_STEPS[0];
-const MAX_ZOOM = ZOOM_STEPS[ZOOM_STEPS.length - 1];
+export const MIN_ZOOM = ZOOM_STEPS[0];
+export const MAX_ZOOM = ZOOM_STEPS[ZOOM_STEPS.length - 1];
 
 function clampZoom(factor: number): number {
   return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, factor));
@@ -40,6 +40,7 @@ export const useZoomStore = create<ZoomState>((set, get) => ({
   factor: 1,
   setFactor: (factor) => {
     const next = clampZoom(factor);
+    if (next === get().factor) return;
     applyZoom(next);
     set({ factor: next });
     persistLayout({ zoomFactor: next });

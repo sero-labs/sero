@@ -34,8 +34,21 @@ export function TitleBar() {
   const toggleChat = useAppStore((s) => s.toggleChatPanel);
   const platform = window.sero.platform;
 
+  // macOS and Windows handle drag-region double-click natively; the
+  // frameless Linux window needs it wired up.
+  const handleDoubleClick =
+    platform === 'linux'
+      ? (e: React.MouseEvent) => {
+          if ((e.target as HTMLElement).closest('.no-drag')) return;
+          void window.sero.window.toggleMaximize();
+        }
+      : undefined;
+
   return (
-    <header className="title-bar drag-region chrome-zoom-invariant flex h-10 shrink-0 items-center border-b border-[var(--border-default)] bg-[var(--bg-base)]">
+    <header
+      onDoubleClick={handleDoubleClick}
+      className="title-bar drag-region chrome-zoom-invariant flex h-10 shrink-0 items-center border-b border-[var(--border-default)] bg-[var(--bg-base)]"
+    >
       {/* ── Platform window-control area (left) ──────────────── */}
       {platform === 'darwin' ? (
         <div style={{ width: MACOS_TRAFFIC_LIGHT_WIDTH }} className="shrink-0" />
@@ -57,7 +70,7 @@ export function TitleBar() {
               <PanelLeft className="size-4" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent side="bottom">Toggle sidebar</TooltipContent>
+          <TooltipContent side="bottom" className="chrome-zoom-invariant">Toggle sidebar</TooltipContent>
         </Tooltip>
 
         <NavButtons />
@@ -96,7 +109,7 @@ export function TitleBar() {
               <PanelRight className="size-4" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent side="bottom">Toggle agent</TooltipContent>
+          <TooltipContent side="bottom" className="chrome-zoom-invariant">Toggle agent</TooltipContent>
         </Tooltip>
       </div>
 

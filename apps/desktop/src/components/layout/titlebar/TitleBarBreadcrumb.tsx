@@ -2,6 +2,7 @@ import { Button } from '@sero-ai/ui/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@sero-ai/ui/components/ui/tooltip';
 import { Star } from 'lucide-react';
 import { useAppStore } from '@/stores/app';
+import { MAX_CHROME_SHORTCUTS } from '@/stores/app/shared';
 import { useActiveWorkspace } from '@/stores/workspace';
 import { getAppIcon } from '@/lib/app-icons';
 
@@ -9,13 +10,19 @@ import { getAppIcon } from '@/lib/app-icons';
 export function TitleBarBreadcrumb() {
   const activeApp = useAppStore((s) => s.activeApp);
   const apps = useAppStore((s) => s.apps);
-  const pinned = useAppStore((s) => s.chromeShortcuts.includes(s.activeApp));
+  const pinned = useAppStore((s) => s.isChromeShortcut(s.activeApp));
+  const atCap = useAppStore((s) => s.chromeShortcuts.length >= MAX_CHROME_SHORTCUTS);
   const toggleChromeShortcut = useAppStore((s) => s.toggleChromeShortcut);
   const activeWorkspace = useActiveWorkspace();
 
   const entry = apps.find((app) => app.id === activeApp);
   const Icon = getAppIcon(entry?.icon);
   const appLabel = entry?.label ?? 'Sero';
+  const pinLabel = pinned
+    ? 'Unpin from shortcuts'
+    : atCap
+      ? `Shortcut limit reached (${MAX_CHROME_SHORTCUTS}) — unpin one first`
+      : 'Pin to shortcuts';
 
   return (
     <div className="no-drag flex min-w-0 items-center gap-1.5">
@@ -32,19 +39,18 @@ export function TitleBarBreadcrumb() {
             variant="ghost"
             size="icon-xs"
             onClick={() => toggleChromeShortcut(activeApp)}
-            aria-label={pinned ? 'Unpin from shortcuts' : 'Pin to shortcuts'}
+            aria-label={pinLabel}
+            aria-disabled={!pinned && atCap}
             className={
               pinned
                 ? 'text-[var(--brand-primary)] hover:text-[var(--brand-primary)]'
-                : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
+                : `text-[var(--text-muted)] hover:text-[var(--text-secondary)] ${!pinned && atCap ? 'opacity-40' : ''}`
             }
           >
             <Star className={`size-3.5 ${pinned ? 'fill-current' : ''}`} />
           </Button>
         </TooltipTrigger>
-        <TooltipContent side="bottom">
-          {pinned ? 'Unpin from shortcuts' : 'Pin to shortcuts'}
-        </TooltipContent>
+        <TooltipContent side="bottom" className="chrome-zoom-invariant">{pinLabel}</TooltipContent>
       </Tooltip>
     </div>
   );

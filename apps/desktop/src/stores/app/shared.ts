@@ -36,21 +36,27 @@ export function manifestToEntry(manifest: SeroAppManifest): AppEntry {
   };
 }
 
-export function normaliseFavouriteApps(favouriteApps: string[] | undefined): string[] {
-  if (favouriteApps === undefined) return [...DEFAULT_FAVOURITE_APP_IDS];
-
+function dedupeIds(ids: string[], options: { exclude?: Set<string>; max?: number } = {}): string[] {
   const seen = new Set<string>();
   const next: string[] = [];
-  for (const id of favouriteApps) {
+  for (const id of ids) {
     const normalized = id.trim();
-    if (!normalized) continue;
-    if (BUILTIN_APP_IDS.has(normalized)) continue;
-    if (seen.has(normalized)) continue;
+    if (!normalized || seen.has(normalized) || options.exclude?.has(normalized)) continue;
     seen.add(normalized);
     next.push(normalized);
+    if (options.max !== undefined && next.length >= options.max) break;
   }
-
   return next;
+}
+
+export function normaliseFavouriteApps(favouriteApps: string[] | undefined): string[] {
+  if (favouriteApps === undefined) return [...DEFAULT_FAVOURITE_APP_IDS];
+  return dedupeIds(favouriteApps, { exclude: BUILTIN_APP_IDS });
+}
+
+/** Default chrome shortcuts: seeded from the sidebar favourites. */
+export function defaultChromeShortcuts(favouriteApps: readonly string[]): string[] {
+  return ['dashboard', ...favouriteApps];
 }
 
 /**
@@ -62,17 +68,9 @@ export function normaliseChromeShortcuts(
   shortcuts: string[] | undefined,
   favouriteApps: string[],
 ): string[] {
-  const source = shortcuts ?? ['dashboard', ...favouriteApps];
-  const seen = new Set<string>();
-  const next: string[] = [];
-  for (const id of source) {
-    const normalized = id.trim();
-    if (!normalized || seen.has(normalized)) continue;
-    seen.add(normalized);
-    next.push(normalized);
-    if (next.length >= MAX_CHROME_SHORTCUTS) break;
-  }
-  return next;
+  return dedupeIds(shortcuts ?? defaultChromeShortcuts(favouriteApps), {
+    max: MAX_CHROME_SHORTCUTS,
+  });
 }
 
 export function getDiscoveredApps(apps: AppEntry[]): AppEntry[] {

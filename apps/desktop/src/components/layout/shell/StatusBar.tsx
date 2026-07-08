@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { FolderOpen, Bug, Sun, Moon, Monitor, GitBranch, Palette } from 'lucide-react';
 import { useAppStore } from '@/stores/app';
 import { useThemeStore } from '@/stores/theme';
-import { useZoomStore } from '@/stores/zoom';
+import { MAX_ZOOM, MIN_ZOOM, useZoomStore } from '@/stores/zoom';
 import { useActiveWorkspace } from '@/stores/workspace';
 import { DevServerIndicator } from '@/components/layout/DevServerPanel';
 import { useWorkspaceVcs, useVcsStore } from '@/stores/vcs';
@@ -149,9 +149,10 @@ function ZoomControl() {
     <div className="flex items-center">
       <button type="button"
         onClick={zoomOut}
+        disabled={factor <= MIN_ZOOM}
         title="Zoom out (⌘−)"
         aria-label="Zoom out"
-        className="rounded px-1 hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)] transition-colors"
+        className="rounded px-1 hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)] transition-colors disabled:opacity-40 disabled:hover:bg-transparent"
       >
         −
       </button>
@@ -164,9 +165,10 @@ function ZoomControl() {
       </button>
       <button type="button"
         onClick={zoomIn}
+        disabled={factor >= MAX_ZOOM}
         title="Zoom in (⌘+)"
         aria-label="Zoom in"
-        className="rounded px-1 hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)] transition-colors"
+        className="rounded px-1 hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)] transition-colors disabled:opacity-40 disabled:hover:bg-transparent"
       >
         +
       </button>

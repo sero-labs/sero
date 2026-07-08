@@ -43,7 +43,7 @@ export function ShortcutChips() {
                 )}
               </button>
             </TooltipTrigger>
-            <TooltipContent side="bottom">{entry.label}</TooltipContent>
+            <TooltipContent side="bottom" className="chrome-zoom-invariant">{entry.label}</TooltipContent>
           </Tooltip>
         );
       })}

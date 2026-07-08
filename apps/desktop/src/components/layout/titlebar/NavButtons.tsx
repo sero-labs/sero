@@ -62,7 +62,7 @@ function NavButton({
           {children}
         </Button>
       </TooltipTrigger>
-      <TooltipContent side="bottom">{label}</TooltipContent>
+      <TooltipContent side="bottom" className="chrome-zoom-invariant">{label}</TooltipContent>
     </Tooltip>
   );
 }

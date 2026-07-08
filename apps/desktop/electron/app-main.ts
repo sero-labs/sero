@@ -170,10 +170,13 @@ function ensureBuiltinPackages(): void {
  */
 function platformFrameOptions(): Electron.BrowserWindowConstructorOptions {
   if (process.platform === 'darwin') {
+    const trafficLightDiameter = 12;
     return {
       titleBarStyle: 'hiddenInset',
-      // Centered in the CHROME_BAR_HEIGHT title bar.
-      trafficLightPosition: { x: 12, y: 14 },
+      trafficLightPosition: {
+        x: 12,
+        y: Math.round((CHROME_BAR_HEIGHT - trafficLightDiameter) / 2),
+      },
     };
   }
   if (process.platform === 'win32') {

@@ -12,6 +12,7 @@ import {
   BUILTIN_APPS,
   DEFAULT_FAVOURITE_APP_IDS,
   MAX_CHROME_SHORTCUTS,
+  defaultChromeShortcuts,
   isManifestHostSupported,
   type AppEntry,
   type Theme,
@@ -163,7 +164,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   isFavourite: (appId) => get().favouriteApps.includes(appId),
 
   // Chrome shortcuts — hydrated from layout (seeded from favourites on first run)
-  chromeShortcuts: ['dashboard', ...DEFAULT_FAVOURITE_APP_IDS],
+  chromeShortcuts: defaultChromeShortcuts(DEFAULT_FAVOURITE_APP_IDS),
   toggleChromeShortcut: (appId) => {
     const current = get().chromeShortcuts;
     const next = current.includes(appId)

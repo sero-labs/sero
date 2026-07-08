@@ -16,6 +16,7 @@ import {
   DialogTitle,
 } from '@sero-ai/ui/components/ui/dialog';
 import { useAppStore } from '@/stores/app';
+import { MAX_CHROME_SHORTCUTS } from '@/stores/app/shared';
 import { useThemeStore } from '@/stores/theme';
 import { getAppIcon } from '@/lib/app-icons';
 import { openApp } from '@/lib/open-app';
@@ -39,7 +40,8 @@ export function CommandMenu() {
   const [doctorOpen, setDoctorOpen] = useState(false);
   const apps = useAppStore((s) => s.apps);
   const activeApp = useAppStore((s) => s.activeApp);
-  const activePinned = useAppStore((s) => s.chromeShortcuts.includes(s.activeApp));
+  const activePinned = useAppStore((s) => s.isChromeShortcut(s.activeApp));
+  const shortcutsFull = useAppStore((s) => s.chromeShortcuts.length >= MAX_CHROME_SHORTCUTS);
   const toggleChromeShortcut = useAppStore((s) => s.toggleChromeShortcut);
   const toggleMode = useThemeStore((s) => s.toggleMode);
   const activePresetId = useThemeStore((s) => s.activePresetId);
@@ -115,13 +117,20 @@ export function CommandMenu() {
             })}
             <CommandItem
               value="Pin Unpin Current App Shortcut"
+              disabled={!activePinned && shortcutsFull}
               onSelect={() => {
                 toggleChromeShortcut(activeApp);
                 setOpen(false);
               }}
             >
               <Star className="size-4 shrink-0" />
-              <span>{activePinned ? 'Unpin Current App from Shortcuts' : 'Pin Current App to Shortcuts'}</span>
+              <span>
+                {activePinned
+                  ? 'Unpin Current App from Shortcuts'
+                  : shortcutsFull
+                    ? 'Pin Current App (shortcuts full)'
+                    : 'Pin Current App to Shortcuts'}
+              </span>
             </CommandItem>
           </CommandGroup>
           <CommandGroup heading="Diagnostics">

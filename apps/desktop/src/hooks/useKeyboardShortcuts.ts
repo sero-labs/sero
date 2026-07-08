@@ -14,6 +14,12 @@ import { navigateBack, navigateForward } from '@/lib/open-app';
  * ⌘[ / ⌘] — Navigate back / forward
  * Mouse buttons 4/5 — Navigate back / forward
  */
+function isBrowserPanelActive(): boolean {
+  if (useAppStore.getState().activeApp !== 'explorer') return false;
+  const workspaceId = useWorkspaceStore.getState().activeWorkspaceId ?? 'global';
+  return useExplorerStore.getState().get(workspaceId).activePanel === 'browser';
+}
+
 export function useKeyboardShortcuts() {
   const toggleMainSidebar = useAppStore((s) => s.toggleMainSidebar);
   const toggleChatPanel = useAppStore((s) => s.toggleChatPanel);
@@ -35,13 +41,15 @@ export function useKeyboardShortcuts() {
           toggleChatPanel();
           break;
         case '[':
+        case ']': {
+          // The in-app browser owns ⌘[/⌘] for page history while its
+          // panel is active (useBrowserShortcuts).
+          if (isBrowserPanelActive()) return;
           e.preventDefault();
-          navigateBack();
+          if (e.key === '[') navigateBack();
+          else navigateForward();
           break;
-        case ']':
-          e.preventDefault();
-          navigateForward();
-          break;
+        }
         case 'n': {
           // Only handle ⌘N when the Explorer workspace is the active app,
           // so it doesn't hijack shortcuts inside other apps.

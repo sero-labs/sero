@@ -21,5 +21,4 @@ export const windowBridge = {
   },
   // Zoom applies in-process via webFrame — no main-process round trip.
   setZoomFactor: (factor: number): void => webFrame.setZoomFactor(factor),
-  getZoomFactor: (): number => webFrame.getZoomFactor(),
 };

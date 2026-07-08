@@ -12,7 +12,7 @@ import { MainSidebar } from '@/components/layout/shell/MainSidebar';
 import { StatusBar } from '@/components/layout/shell/StatusBar';
 import { ChatPanel } from '@/components/layout/shell/ChatPanel';
 import { useAppStore, listenForNewApps } from '@/stores/app';
-import { listenForSystemThemeChanges } from '@/stores/theme';
+import { listenForSystemThemeChanges, listenForTitleBarOverlaySync } from '@/stores/theme';
 import { listenForZoomCommands } from '@/stores/zoom';
 import { useProfileStore, loadProfiles } from '@/stores/profiles';
 import { ProfileSetup } from '@/components/profiles/ProfileSetup';
@@ -110,7 +110,8 @@ export function App() {
     const unsub = listenForNewApps();
     const unsubTheme = listenForSystemThemeChanges();
     const unsubZoom = listenForZoomCommands();
-    return () => { unsub(); unsubTheme(); unsubZoom(); };
+    const unsubOverlay = listenForTitleBarOverlaySync();
+    return () => { unsub(); unsubTheme(); unsubZoom(); unsubOverlay(); };
   }, []);
 
   // Subscribe to dev server events from main process
