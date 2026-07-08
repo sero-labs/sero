@@ -29,6 +29,7 @@ describe('content security policy', () => {
     }
     expect(csp).toContain('http://localhost:*');
     expect(csp).toContain('http://127.0.0.1:*');
+    expect(csp).toContain('https://cdn.jsdelivr.net');
     expect(csp).not.toContain('[::1]');
     expect(csp).not.toContain('frame-src http:');
     expect(csp).not.toContain('frame-src https:');
@@ -43,6 +44,7 @@ describe('content security policy', () => {
     expect(csp).toContain('http://127.0.0.1:*');
     expect(csp).toContain('ws://localhost:*');
     expect(csp).toContain('ws://127.0.0.1:*');
+    expect(csp).toContain("connect-src 'self' blob: https://cdn.jsdelivr.net http://localhost:*");
     expect(csp).not.toContain('[::1]');
     expect(csp).toContain("frame-src 'self' blob: http: https: sero-ext:");
     expect(csp).toContain("child-src 'self' blob: http: https: sero-ext:");

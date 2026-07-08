@@ -6,6 +6,9 @@
  * Keep this package limited to generic Sero platform contracts.
  */
 
+export { createDebouncedFn } from './debounce';
+export type { DebouncedFn } from './debounce';
+
 export {
   SERO_HOST_CAPABILITIES,
 } from './plugins';
