@@ -288,7 +288,7 @@ export function BrowserPanel({ workspaceId }: BrowserPanelProps) {
         report. The div itself stays blank, it only exists to reserve space
         and give the ResizeObserver something to track.
       */}
-      <div ref={viewportRef} className="relative min-h-0 flex-1 overflow-hidden">
+      <div ref={viewportRef} data-testid="browser-viewport" className="relative min-h-0 flex-1 overflow-hidden">
         {rendererOverlay.open && rendererOverlay.pngBase64 ? (
           <img
             src={`data:image/png;base64,${rendererOverlay.pngBase64}`}
