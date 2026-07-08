@@ -37,11 +37,14 @@ void main() {
 }`;
 
 const RES_STEPS = [1, 0.75, 0.5, 0.35, 0.25] as const;
-const INITIAL_PIECE_SCALE = 0.5;
+/** New pieces start here (RES_STEPS[2] = 0.5) so an expensive shader can't stall on first frame. */
+const INITIAL_PIECE_IDX = 2;
 const PERF_WINDOW_FRAMES = 18;
 const DOWNGRADE_FRAME_SECONDS = 1 / 28;
 const UPGRADE_FRAME_SECONDS = 1 / 52;
 const LIVE_FRAME_MIN_MS = 1000 / 60;
+/** Warm-up frames for feedback pieces before an offscreen capture/see readout. */
+const FEEDBACK_WARMUP_FRAMES = 48;
 
 export type SetPieceResult = { status: 'ok' } | { status: 'error'; errors: BuildError[] };
 
@@ -83,9 +86,14 @@ export class LoomRuntime {
 
   private baseW = 2;
   private baseH = 2;
-  private resScale = 1;
+  private resIdx = 0;
   private dts: number[] = [];
   private goodWindows = 0;
+  private fpsEma = 0;
+
+  private get resScale(): number {
+    return RES_STEPS[this.resIdx];
+  }
 
   private mouse = { x: 0.5, y: 0.5, clickX: 0.5, clickY: 0.5, down: false, clicked: false };
   private paramCur = new Map<string, number[]>();
@@ -221,10 +229,9 @@ export class LoomRuntime {
     this.set?.resize(this.baseW, this.baseH);
   }
 
+  /** Smoothed live frame rate — independent of the watchdog window, so it is never momentarily empty. */
   fps(): number {
-    if (this.dts.length === 0) return 0;
-    const avg = this.dts.reduce((a, b) => a + b, 0) / this.dts.length;
-    return avg > 0 ? 1 / avg : 0;
+    return this.fpsEma;
   }
 
   /** Swap to a new piece (compile + cross-fade) or retarget params when only values changed. */
@@ -249,7 +256,7 @@ export class LoomRuntime {
       this.set.dispose();
     }
     this.set = outcome.set;
-    this.resScale = Math.min(this.resScale, INITIAL_PIECE_SCALE);
+    this.resIdx = Math.max(this.resIdx, INITIAL_PIECE_IDX);
     this.dts = [];
     this.goodWindows = 0;
     this.applyResScale();
@@ -302,6 +309,7 @@ export class LoomRuntime {
     if (now - this.nextLiveFrameAt > LIVE_FRAME_MIN_MS) this.nextLiveFrameAt = now + LIVE_FRAME_MIN_MS;
     const dt = Math.min(0.1, Math.max(0.0001, (now - this.lastTick) / 1000));
     this.lastTick = now;
+    this.fpsEma = this.fpsEma > 0 ? this.fpsEma * 0.9 + (1 / dt) * 0.1 : 1 / dt;
     this.watchdog(dt);
 
     if (!this.paused) this.time += dt * this.speed;
@@ -326,13 +334,14 @@ export class LoomRuntime {
     if (this.dts.length < PERF_WINDOW_FRAMES) return;
     const avg = this.dts.reduce((a, b) => a + b, 0) / this.dts.length;
     this.dts = [];
-    const idx = RES_STEPS.indexOf(this.resScale as (typeof RES_STEPS)[number]);
-    if (avg > DOWNGRADE_FRAME_SECONDS && idx < RES_STEPS.length - 1) {
-      this.resScale = RES_STEPS[idx + 1];
+    // Track the ladder by position, never by matching a float value — the
+    // current scale is always a valid RES_STEPS index by construction.
+    if (avg > DOWNGRADE_FRAME_SECONDS && this.resIdx < RES_STEPS.length - 1) {
+      this.resIdx += 1;
       this.goodWindows = 0;
       this.applyResScale();
-    } else if (avg < UPGRADE_FRAME_SECONDS && idx > 0 && ++this.goodWindows >= 4) {
-      this.resScale = RES_STEPS[idx - 1];
+    } else if (avg < UPGRADE_FRAME_SECONDS && this.resIdx > 0 && ++this.goodWindows >= 4) {
+      this.resIdx -= 1;
       this.goodWindows = 0;
       this.applyResScale();
     }
@@ -404,62 +413,70 @@ export class LoomRuntime {
   }
 
   /**
-   * Render one frame offscreen at the target resolution/aspect (recomposed, not
-   * stretched) and return a PNG data URL. Feedback pieces get warm-up frames.
+   * Render frames of the current piece into a THROWAWAY ProgramSet — never the
+   * live one — so wallpaper captures and the agent's `loom_see` neither resize
+   * nor advance the on-screen animation. Feedback pieces are warmed up from a
+   * clean state; extra frames are spaced in simulated time to show motion.
    */
-  capture(width: number, height: number): string {
+  private renderPieceFrames(
+    width: number,
+    height: number,
+    count: number,
+    spacingSeconds: number,
+    type: 'image/png' | 'image/jpeg',
+    quality?: number,
+  ): string[] {
     const gl = this.gl;
     if (!gl || !this.set) throw new Error('Renderer is not ready');
-    this.set.resize(width, height);
-    const warmup = this.set.hasFeedback ? 36 : 0;
-    let t = this.time - warmup / 30;
-    for (let i = 0; i < warmup; i++) {
-      t += 1 / 30;
-      this.set.renderFrame({ ...this.frameEnv(1 / 30), time: t, frame: i });
-    }
-    this.set.renderFrame({ ...this.frameEnv(1 / 60), time: this.time });
-    const image = this.set.latestImage;
-    if (!image) throw new Error('No image pass output');
-
-    const capTarget = createTarget(gl, width, height, false);
-    this.blitTo(capTarget.fbo, width, height, image, 1);
-    const dataUrl = this.readTargetToDataUrl(capTarget, 'image/png');
-    deleteTarget(gl, capTarget);
-    this.set.resize(this.baseW, this.baseH);
-    return dataUrl;
-  }
-
-  /**
-   * Capture small frames for the agent's eyes without disturbing the live
-   * buffers' size: renders at current resolution, downsampled into `width`.
-   * Time between frames is simulated (no real waiting).
-   */
-  seeFrames(width: number, frames: number, spacingSeconds: number): string[] {
-    const gl = this.gl;
-    if (!gl || !this.set) throw new Error('Renderer is not ready');
-    const aspect = this.canvas.height / Math.max(1, this.canvas.width);
-    const height = Math.max(16, Math.round(width * aspect));
+    const outcome = ProgramSet.compile(gl, this.set.piece, this.floatTargets);
+    if (!outcome.ok) throw new Error('The current piece did not compile');
+    const set = outcome.set;
     const capTarget = createTarget(gl, width, height, false);
     const urls: string[] = [];
-    let t = this.time;
-    for (let i = 0; i < frames; i++) {
-      if (i > 0) {
-        const steps = Math.min(48, Math.max(1, Math.round(spacingSeconds * 12)));
-        const stepDt = spacingSeconds / steps;
-        for (let s = 0; s < steps; s++) {
-          t += stepDt;
-          this.set.renderFrame({ ...this.frameEnv(stepDt), time: t, frame: this.frame++ });
-        }
-      } else {
-        this.set.renderFrame({ ...this.frameEnv(1 / 60), time: t });
+    try {
+      set.resize(width, height);
+      const warmup = set.hasFeedback ? FEEDBACK_WARMUP_FRAMES : 0;
+      let frame = 0;
+      let t = this.time - warmup / 30;
+      for (let i = 0; i < warmup; i++) {
+        t += 1 / 30;
+        set.renderFrame({ ...this.frameEnv(1 / 30), time: t, frame: frame++ });
       }
-      const image = this.set.latestImage;
-      if (!image) break;
-      this.blitTo(capTarget.fbo, width, height, image, 1);
-      urls.push(this.readTargetToDataUrl(capTarget, 'image/jpeg', 0.85));
+      for (let i = 0; i < count; i++) {
+        if (i > 0) {
+          const steps = Math.min(48, Math.max(1, Math.round(spacingSeconds * 12)));
+          const stepDt = spacingSeconds / steps;
+          for (let s = 0; s < steps; s++) {
+            t += stepDt;
+            set.renderFrame({ ...this.frameEnv(stepDt), time: t, frame: frame++ });
+          }
+        } else {
+          set.renderFrame({ ...this.frameEnv(1 / 60), time: t, frame: frame++ });
+        }
+        const image = set.latestImage;
+        if (!image) break;
+        this.blitTo(capTarget.fbo, width, height, image, 1);
+        urls.push(this.readTargetToDataUrl(capTarget, type, quality));
+      }
+    } finally {
+      deleteTarget(gl, capTarget);
+      set.dispose();
     }
-    deleteTarget(gl, capTarget);
     return urls;
+  }
+
+  /** Offscreen wallpaper render at the target resolution/aspect (recomposed, not stretched) → PNG data URL. */
+  capture(width: number, height: number): string {
+    const [url] = this.renderPieceFrames(width, height, 1, 0, 'image/png');
+    if (!url) throw new Error('No image pass output');
+    return url;
+  }
+
+  /** Small frames for the agent's eyes (JPEG data URLs), spaced in simulated time to judge motion. */
+  seeFrames(width: number, frames: number, spacingSeconds: number): string[] {
+    const aspect = this.canvas.height / Math.max(1, this.canvas.width);
+    const height = Math.max(16, Math.round(width * aspect));
+    return this.renderPieceFrames(width, height, frames, spacingSeconds, 'image/jpeg', 0.85);
   }
 
   dispose(): void {

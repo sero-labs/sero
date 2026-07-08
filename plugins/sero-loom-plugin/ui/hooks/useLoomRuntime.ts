@@ -73,19 +73,26 @@ export function useLoomRuntime(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Compile / retarget on every piece revision; report the outcome (and a
-  // settled fps reading shortly after, so the agent can judge cost).
+  // Apply the piece to the runtime on every change (param-value tweens included),
+  // but only publish a BuildReport when the revision actually advances — a real
+  // compose. Param-value tweens re-run this effect with the same revision and
+  // must not rewrite the report, so they can't race the compose handshake or
+  // spam redundant build writes.
+  const lastBuiltRevision = useRef(-1);
   useEffect(() => {
     const runtime = runtimeRef.current;
     if (!runtime) return;
     const result = runtime.setPiece(opts.piece);
-    const report: BuildReport = {
-      revision: opts.revision,
-      status: result.status,
-      errors: result.status === 'error' ? result.errors : [],
-    };
+    if (opts.revision === lastBuiltRevision.current && result.status === 'ok') return;
+    lastBuiltRevision.current = opts.revision;
+    if (result.status === 'error') {
+      cbRef.current.onBuild({ revision: opts.revision, status: 'error', errors: result.errors });
+      return;
+    }
+    // Report the successful build, then a settled fps reading shortly after so
+    // the agent can reason about GPU cost.
+    const report: BuildReport = { revision: opts.revision, status: 'ok', errors: [] };
     cbRef.current.onBuild(report);
-    if (result.status !== 'ok') return;
     const timer = setTimeout(() => {
       const fps = Math.round(runtimeRef.current?.fps() ?? 0);
       if (fps > 0) cbRef.current.onBuild({ ...report, fps });

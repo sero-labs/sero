@@ -39,6 +39,7 @@ import {
 } from './state-io';
 
 const BUILD_WAIT_MS = 6_000;
+const FPS_SETTLE_WAIT_MS = 2_500;
 const SEE_WAIT_MS = 25_000;
 
 type Content = { type: 'text'; text: string } | { type: 'image'; data: string; mimeType: string };
@@ -131,7 +132,18 @@ export default function (pi: ExtensionAPI) {
       s.piece = next(s);
       s.revision += 1;
     });
-    const built = await waitForState(statePath, (s) => s.build?.revision === state.revision, BUILD_WAIT_MS);
+    let built = await waitForState(statePath, (s) => s.build?.revision === state.revision, BUILD_WAIT_MS);
+    // The first build write carries no fps (it settles ~1.5s later at the same
+    // revision). Wait a bounded moment so the agent sees the frame cost it is
+    // told to reason about; fall back to the fps-less report if none arrives.
+    if (built?.build?.status === 'ok' && built.build.fps === undefined) {
+      const withFps = await waitForState(
+        statePath,
+        (s) => s.build?.revision === state.revision && s.build.fps !== undefined,
+        FPS_SETTLE_WAIT_MS,
+      );
+      if (withFps) built = withFps;
+    }
     return `${summarize(state.piece)}\n${buildText(built?.build, state.revision)}`;
   };
 

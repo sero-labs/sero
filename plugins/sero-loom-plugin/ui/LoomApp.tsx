@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 import { useAI, useAppState, useAppTools } from '@sero-ai/app-runtime';
+import { createDebouncedFn } from '@sero-ai/common';
 
 import {
   DEFAULT_LOOM_STATE,
@@ -20,7 +21,6 @@ import { SettingsPanel } from './components/SettingsPanel';
 import { useLoomRuntime } from './hooks/useLoomRuntime';
 import {
   captureDims,
-  debounced,
   deletePreset,
   loadPreset,
   savePreset,
@@ -131,14 +131,15 @@ export function LoomApp() {
   pendingRef.current = pendingParams;
   const flushParams = useMemo(
     () =>
-      debounced(200, () => {
+      createDebouncedFn(() => {
         const values = pendingRef.current;
         if (Object.keys(values).length === 0) return;
         setParamValues(updateState, values);
         setPendingParams({});
-      }),
+      }, 200),
     [updateState],
   );
+  useEffect(() => () => flushParams.cancel(), [flushParams]);
   const onParam = useCallback(
     (name: string, value: ParamValue) => {
       setPendingParams((prev) => ({ ...prev, [name]: value }));

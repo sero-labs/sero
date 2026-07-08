@@ -83,6 +83,24 @@ describe('normalizePiece', () => {
     });
     expect(p.passes[0].inputs).toEqual([{ channel: 0, source: 'self' }]);
   });
+
+  it('drops channel bindings that reference an absent pass', () => {
+    const p = normalizePiece({
+      passes: [
+        { id: 'A', code: 'a', inputs: [{ channel: 0, source: 'self' }, { channel: 1, source: 'C' }] },
+        { id: 'image', code: 'x', inputs: [{ channel: 0, source: 'A' }, { channel: 1, source: 'B' }] },
+      ],
+    });
+    // 'self' and the present 'A' survive; the dangling 'C'/'B' bindings are removed.
+    expect(p.passes[0].inputs).toEqual([{ channel: 0, source: 'self' }]);
+    expect(p.passes[1].inputs).toEqual([{ channel: 0, source: 'A' }]);
+  });
+
+  it('always emits a defined common block (even empty) so the UI merge cannot inject one', () => {
+    const p = normalizePiece({ passes: [{ id: 'image', code: 'x' }] });
+    expect(p.common).toBe('');
+    expect(Object.prototype.hasOwnProperty.call(p, 'common')).toBe(true);
+  });
 });
 
 describe('compileKey', () => {
@@ -126,6 +144,16 @@ describe('assemblePassSource / mapErrorLog', () => {
       { line: 2, message: "'vec4' : constructor error" },
       { line: 1, message: "(in common) 'helper' : redefinition" },
       { line: null, message: 'prelude problem' },
+    ]);
+  });
+
+  it('maps errors on the auto-appended mainImage wrapper to no author line', () => {
+    const a = assemblePassSource(piece, piece.passes[0]);
+    // The wrapper `void main() { mainImage(...) }` sits one line past codeEnd —
+    // a wrong mainImage signature reports here and must not point past the code.
+    const log = `ERROR: 0:${a.codeEnd + 1}: 'mainImage' : no matching overloaded function`;
+    expect(mapErrorLog(log, a)).toEqual([
+      { line: null, message: "'mainImage' : no matching overloaded function" },
     ]);
   });
 });

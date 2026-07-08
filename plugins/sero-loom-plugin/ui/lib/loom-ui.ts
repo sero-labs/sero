@@ -22,10 +22,14 @@ export function setPiece(updateState: Updater, piece: LoomPiece): void {
 }
 
 export function setParamValues(updateState: Updater, values: Record<string, ParamValue>): void {
+  // Param VALUE changes tween as uniforms and never recompile, so they must NOT
+  // bump `revision` — that key is the compile/build-report handshake. Bumping it
+  // on slider drags spammed build writes and let a stale UI write false-match a
+  // concurrent agent compose (reporting success while discarding the new piece).
   updateState((prev) => {
     const s = normalizeLoomState(prev);
     const piece = normalizePiece({ ...s.piece, paramValues: { ...s.piece.paramValues, ...values } });
-    return { ...s, piece, revision: s.revision + 1 };
+    return { ...s, piece };
   });
 }
 
@@ -107,18 +111,6 @@ export function captureDims(settings: LoomSettings): Dims {
         h: Math.round((globalThis.screen?.height || 1080) * dpr),
       };
   }
-}
-
-/** Trailing-edge debounce for high-frequency control writes (slider/pad drags). */
-export function debounced<A extends unknown[]>(ms: number, fn: (...args: A) => void): (...args: A) => void {
-  let timer: ReturnType<typeof setTimeout> | null = null;
-  return (...args: A) => {
-    if (timer) clearTimeout(timer);
-    timer = setTimeout(() => {
-      timer = null;
-      fn(...args);
-    }, ms);
-  };
 }
 
 const hex = (c: number): string =>

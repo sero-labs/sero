@@ -194,6 +194,17 @@ export function normalizePiece(input: unknown): LoomPiece {
   }
   const passes = [...buffers, image].slice(-PIECE_LIMITS.maxPasses);
 
+  // Drop channel bindings that reference a pass this piece doesn't declare: they
+  // compile fine but leave the sampler unbound (silent black), so normalize them
+  // away rather than keep a dangling reference.
+  const presentIds = new Set<PassId>(passes.map((p) => p.id));
+  for (const p of passes) {
+    if (!p.inputs) continue;
+    const kept = p.inputs.filter((b) => b.source === 'self' || presentIds.has(b.source));
+    if (kept.length > 0) p.inputs = kept;
+    else delete p.inputs;
+  }
+
   const params: PieceParam[] = [];
   const paramNames = new Set<string>();
   if (Array.isArray(v.params)) {
@@ -210,16 +221,18 @@ export function normalizePiece(input: unknown): LoomPiece {
   const paramValues: Record<string, ParamValue> = {};
   for (const p of params) paramValues[p.name] = normalizeParamValue(p, rawValues[p.name]);
 
-  const piece: LoomPiece = {
+  // Always emit `common` (even ''): the field must be defined so the UI's
+  // default-merge (useAppState) can't treat an absent common as "missing" and
+  // inject the default piece's common block into an unrelated piece.
+  const common = typeof v.common === 'string' ? v.common.slice(0, PIECE_LIMITS.maxCommonLength) : '';
+  return {
     title: str(v.title, 'Untitled', 120),
     idea: str(v.idea, '', 2000),
+    common,
     passes,
     params,
     paramValues,
   };
-  const common = typeof v.common === 'string' ? v.common.slice(0, PIECE_LIMITS.maxCommonLength) : '';
-  if (common) piece.common = common;
-  return piece;
 }
 
 /**

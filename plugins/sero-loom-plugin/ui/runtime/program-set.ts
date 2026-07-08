@@ -129,12 +129,18 @@ export class ProgramSet {
       gl.uniform1f(p.loc.iTimeDelta, env.timeDelta);
       gl.uniform1i(p.loc.iFrame, env.frame);
       const m = env.mouse;
+      // Shadertoy iMouse.zw carry the click position with a sign that encodes
+      // button-down / clicked-this-frame. Bias the magnitude off zero so the
+      // sign survives a click at the exact left/bottom edge (coord 0), where
+      // `iMouse.z > 0.0` would otherwise read as button-up.
+      const clickX = Math.max(0.5, m.clickX * target.width);
+      const clickY = Math.max(0.5, m.clickY * target.height);
       gl.uniform4f(
         p.loc.iMouse,
         m.x * target.width,
         m.y * target.height,
-        (m.down ? 1 : -1) * m.clickX * target.width,
-        (m.clicked ? 1 : -1) * m.clickY * target.height,
+        (m.down ? 1 : -1) * clickX,
+        (m.clicked ? 1 : -1) * clickY,
       );
       for (const param of this.piece.params) {
         const loc = p.loc.params.get(param.name);
@@ -170,8 +176,17 @@ export class ProgramSet {
     return image.ping[1 - image.write];
   }
 
+  /**
+   * True only for genuine feedback: a pass sampling its own previous frame
+   * ('self'), or a pass reading a pass that renders later in the chain (a
+   * forward reference resolved from the previous frame). A pure feed-forward
+   * multi-pass chain has no feedback and needs no warm-up.
+   */
   get hasFeedback(): boolean {
-    return this.piece.passes.some((p) => p.id !== 'image' || (p.inputs ?? []).some((b) => b.source === 'self'));
+    const order = new Map<PassId, number>(this.piece.passes.map((p, i) => [p.id, i]));
+    return this.piece.passes.some((p, i) =>
+      (p.inputs ?? []).some((b) => b.source === 'self' || (order.get(b.source) ?? -1) >= i),
+    );
   }
 
   dispose(): void {

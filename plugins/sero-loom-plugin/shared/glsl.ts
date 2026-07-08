@@ -29,6 +29,8 @@ export interface AssembledPass {
   commonStart: number;
   /** 1-indexed line in `source` where the pass's own code starts. */
   codeStart: number;
+  /** 1-indexed line in `source` where the pass's own code ends (before the wrapper). */
+  codeEnd: number;
 }
 
 const countLines = (s: string): number => s.split('\n').length;
@@ -56,6 +58,7 @@ export function assemblePassSource(piece: LoomPiece, pass: LoomPass): AssembledP
   const preludeLines = countLines(prelude);
   const commonStart = common ? preludeLines + 1 : 0;
   const codeStart = preludeLines + (common ? countLines(common) : 0) + 1;
+  const codeEnd = codeStart + countLines(pass.code) - 1;
 
   const source = [
     prelude,
@@ -64,7 +67,7 @@ export function assemblePassSource(piece: LoomPiece, pass: LoomPass): AssembledP
     'void main() { mainImage(loom_fragColor, gl_FragCoord.xy); }',
   ].join('\n');
 
-  return { source, commonStart, codeStart };
+  return { source, commonStart, codeStart, codeEnd };
 }
 
 export interface MappedError {
@@ -92,7 +95,11 @@ export function mapErrorLog(log: string, assembled: AssembledPass): MappedError[
     }
     const srcLine = Number(m[1]);
     const message = m[2].trim();
-    if (srcLine >= assembled.codeStart) {
+    if (srcLine > assembled.codeEnd) {
+      // The auto-appended `void main() { mainImage(...) }` wrapper — e.g. a
+      // missing/mistyped mainImage. There is no author line to point at.
+      out.push({ line: null, message });
+    } else if (srcLine >= assembled.codeStart) {
       out.push({ line: srcLine - assembled.codeStart + 1, message });
     } else if (assembled.commonStart > 0 && srcLine >= assembled.commonStart) {
       out.push({ line: srcLine - assembled.commonStart + 1, message: `(in common) ${message}` });
