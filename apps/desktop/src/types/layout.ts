@@ -52,6 +52,10 @@ export interface LayoutState {
   activeWorkspaceId?: string | null;
   /** Last active app tab. */
   activeApp?: string;
+  /** App ids pinned as shortcut chips in the title bar. */
+  chromeShortcuts?: string[];
+  /** Page zoom factor (chrome bars counter-scale and stay constant). */
+  zoomFactor?: number;
   /** Last active session ID. */
   activeSessionId?: string | null;
   /** Favourite model keys ("provider/modelId"). */

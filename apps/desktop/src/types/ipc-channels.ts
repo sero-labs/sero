@@ -72,6 +72,22 @@ export const IpcChannels = {
     /** Save all user context editor presets to disk. */
     save: 'sero:context-presets:save',
   },
+  window: {
+    /** Minimize the window (custom window controls on Linux). */
+    minimize: 'sero:window:minimize',
+    /** Toggle maximize/restore (custom window controls on Linux). */
+    toggleMaximize: 'sero:window:toggle-maximize',
+    /** Close the window (custom window controls on Linux). */
+    close: 'sero:window:close',
+    /** Query current maximize state. */
+    isMaximized: 'sero:window:is-maximized',
+    /** Main → renderer: maximize state changed. */
+    maximizedChanged: 'sero:window:maximized-changed',
+    /** Re-sync the Windows title-bar overlay colors after a theme change. */
+    setOverlayColors: 'sero:window:set-overlay-colors',
+    /** Main → renderer: zoom command from the application menu ('in' | 'out' | 'reset'). */
+    zoomCommand: 'sero:window:zoom-command',
+  },
   shell: {
     /** Open a path in the native file explorer. */
     showItemInFolder: 'sero:shell:show-item-in-folder',

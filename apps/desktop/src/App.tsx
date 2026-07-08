@@ -13,6 +13,7 @@ import { StatusBar } from '@/components/layout/shell/StatusBar';
 import { ChatPanel } from '@/components/layout/shell/ChatPanel';
 import { useAppStore, listenForNewApps } from '@/stores/app';
 import { listenForSystemThemeChanges } from '@/stores/theme';
+import { listenForZoomCommands } from '@/stores/zoom';
 import { useProfileStore, loadProfiles } from '@/stores/profiles';
 import { ProfileSetup } from '@/components/profiles/ProfileSetup';
 import { OnboardingWizard } from '@/components/profiles/OnboardingWizard';
@@ -108,7 +109,8 @@ export function App() {
     void hydrateShellState();
     const unsub = listenForNewApps();
     const unsubTheme = listenForSystemThemeChanges();
-    return () => { unsub(); unsubTheme(); };
+    const unsubZoom = listenForZoomCommands();
+    return () => { unsub(); unsubTheme(); unsubZoom(); };
   }, []);
 
   // Subscribe to dev server events from main process

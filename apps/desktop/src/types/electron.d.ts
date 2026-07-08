@@ -81,6 +81,7 @@ import type {
 } from './ipc';
 import type { SeroDoctorAPI } from './electron-doctor';
 import type { SeroUpdaterAPI } from './electron-updater';
+import type { SeroWindowAPI } from './window-chrome';
 
 interface SeroSessionsAPI {
   /** List sessions. Optionally filter by workspace ID. */
@@ -411,6 +412,7 @@ interface SeroPluginsAPI {
 export interface SeroAPI {
   platform: string;
   arch: string;
+  window: SeroWindowAPI;
   shell: SeroShellAPI;
   profiles: SeroProfilesAPI;
   contextPresets: SeroContextPresetsAPI;

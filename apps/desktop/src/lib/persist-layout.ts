@@ -24,6 +24,7 @@ import { useModelPreferences } from '@/stores/model-preferences';
 import { useDashboardStore } from '@/stores/dashboard';
 import { useBrowserStore } from '@/stores/browser';
 import { useExplorerStore } from '@/stores/explorer';
+import { useZoomStore } from '@/stores/zoom';
 
 // Re-export the canonical type so callers don't need a second import.
 export type { LayoutState };
@@ -49,6 +50,8 @@ function buildLayoutState(partial: Partial<LayoutState>): LayoutState {
       ? partial.activeWorkspaceId
       : ws.activeWorkspaceId,
     activeApp: partial.activeApp ?? app.activeApp,
+    chromeShortcuts: partial.chromeShortcuts ?? app.chromeShortcuts,
+    zoomFactor: partial.zoomFactor ?? useZoomStore.getState().factor,
     activeSessionId: partial.activeSessionId !== undefined
       ? partial.activeSessionId
       : sess.activeSessionId,

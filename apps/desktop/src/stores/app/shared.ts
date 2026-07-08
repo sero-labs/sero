@@ -23,6 +23,7 @@ export const BUILTIN_APPS: AppEntry[] = [
 
 export const BUILTIN_APP_IDS = new Set(BUILTIN_APPS.map((app) => app.id));
 export const DEFAULT_FAVOURITE_APP_IDS = ['admin', 'cron', 'git'] as const;
+export const MAX_CHROME_SHORTCUTS = 8;
 
 /** Map a SeroAppManifest → AppEntry. */
 export function manifestToEntry(manifest: SeroAppManifest): AppEntry {
@@ -49,6 +50,28 @@ export function normaliseFavouriteApps(favouriteApps: string[] | undefined): str
     next.push(normalized);
   }
 
+  return next;
+}
+
+/**
+ * Normalise persisted chrome shortcuts. First run (no persisted key) seeds
+ * from the sidebar favourites so existing users start with familiar pins.
+ * Unlike sidebar favourites, built-in apps can be pinned too.
+ */
+export function normaliseChromeShortcuts(
+  shortcuts: string[] | undefined,
+  favouriteApps: string[],
+): string[] {
+  const source = shortcuts ?? ['dashboard', ...favouriteApps];
+  const seen = new Set<string>();
+  const next: string[] = [];
+  for (const id of source) {
+    const normalized = id.trim();
+    if (!normalized || seen.has(normalized)) continue;
+    seen.add(normalized);
+    next.push(normalized);
+    if (next.length >= MAX_CHROME_SHORTCUTS) break;
+  }
   return next;
 }
 

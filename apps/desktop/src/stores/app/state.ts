@@ -6,10 +6,12 @@ import {
   refreshTransientRemote,
 } from '@/lib/federation-registry';
 import { useThemeStore } from '@/stores/theme';
+import { useNavigationStore } from '@/stores/navigation';
 import {
   BUILTIN_APP_IDS,
   BUILTIN_APPS,
   DEFAULT_FAVOURITE_APP_IDS,
+  MAX_CHROME_SHORTCUTS,
   isManifestHostSupported,
   type AppEntry,
   type Theme,
@@ -51,11 +53,17 @@ export interface AppState {
   toggleFavourite: (appId: string) => void;
   isFavourite: (appId: string) => boolean;
 
+  // Chrome shortcuts (apps pinned as chips in the title bar)
+  chromeShortcuts: string[];
+  toggleChromeShortcut: (appId: string) => void;
+  isChromeShortcut: (appId: string) => boolean;
+
   // Active app
   activeApp: string;
   /** The app currently being preloaded before activation. */
   pendingApp: string | null;
-  setActiveApp: (app: string) => void;
+  /** Pass `skipHistory` when re-activating an app from navigation history. */
+  setActiveApp: (app: string, options?: { skipHistory?: boolean }) => void;
   reloadApp: (appId: string) => void;
 
   // Theme
@@ -154,10 +162,24 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
   isFavourite: (appId) => get().favouriteApps.includes(appId),
 
+  // Chrome shortcuts — hydrated from layout (seeded from favourites on first run)
+  chromeShortcuts: ['dashboard', ...DEFAULT_FAVOURITE_APP_IDS],
+  toggleChromeShortcut: (appId) => {
+    const current = get().chromeShortcuts;
+    const next = current.includes(appId)
+      ? current.filter((id) => id !== appId)
+      : [...current, appId];
+    if (next.length > MAX_CHROME_SHORTCUTS) return;
+
+    set({ chromeShortcuts: next });
+    persistLayout({ chromeShortcuts: next });
+  },
+  isChromeShortcut: (appId) => get().chromeShortcuts.includes(appId),
+
   // Active app (hydrated from layout file on startup)
   activeApp: 'dashboard',
   pendingApp: null,
-  setActiveApp: (app) => {
+  setActiveApp: (app, options) => {
     const { activeApp, pendingApp, apps } = get();
 
     if (app === activeApp) {
@@ -191,6 +213,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (!entry.builtin && !isManifestHostSupported(entry.manifest)) {
       console.warn(`[app-store] Ignoring unsupported plugin app: ${app}`);
       return;
+    }
+
+    if (!options?.skipHistory) {
+      useNavigationStore.getState().push({ appId: app });
     }
 
     if (entry.manifest?.component) {

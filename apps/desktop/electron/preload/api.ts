@@ -1,4 +1,5 @@
 import { userFeedbackBridge } from './platform/user-feedback';
+import { windowBridge } from './platform/window';
 import {
   clipboardBridge,
   feedbackBridge,
@@ -49,6 +50,7 @@ import { updaterBridge } from './updater';
 export const seroPreloadApi = {
   platform: process.platform,
   arch: process.arch,
+  window: windowBridge,
   shell: shellBridge,
   profiles: profilesBridge,
   workspace: workspaceBridge,

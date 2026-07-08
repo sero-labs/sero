@@ -3,6 +3,7 @@ import { useAppStore } from '@/stores/app';
 import { useBrowserStore } from '@/stores/browser';
 import { useExplorerStore } from '@/stores/explorer';
 import { useWorkspaceStore } from '@/stores/workspace';
+import { navigateBack, navigateForward } from '@/lib/open-app';
 
 /**
  * Global keyboard shortcuts.
@@ -10,6 +11,8 @@ import { useWorkspaceStore } from '@/stores/workspace';
  * ⌘B — Toggle main sidebar
  * ⌘L — Toggle chat panel
  * ⌘N — New browser tab (opens the Browser panel if not already active)
+ * ⌘[ / ⌘] — Navigate back / forward
+ * Mouse buttons 4/5 — Navigate back / forward
  */
 export function useKeyboardShortcuts() {
   const toggleMainSidebar = useAppStore((s) => s.toggleMainSidebar);
@@ -31,6 +34,14 @@ export function useKeyboardShortcuts() {
           e.preventDefault();
           toggleChatPanel();
           break;
+        case '[':
+          e.preventDefault();
+          navigateBack();
+          break;
+        case ']':
+          e.preventDefault();
+          navigateForward();
+          break;
         case 'n': {
           // Only handle ⌘N when the Explorer workspace is the active app,
           // so it doesn't hijack shortcuts inside other apps.
@@ -47,7 +58,19 @@ export function useKeyboardShortcuts() {
       }
     };
 
+    // Side mouse buttons (back = 3, forward = 4), like a browser.
+    const mouseHandler = (e: MouseEvent) => {
+      if (e.button !== 3 && e.button !== 4) return;
+      e.preventDefault();
+      if (e.button === 3) navigateBack();
+      else navigateForward();
+    };
+
     window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
+    window.addEventListener('mouseup', mouseHandler);
+    return () => {
+      window.removeEventListener('keydown', handler);
+      window.removeEventListener('mouseup', mouseHandler);
+    };
   }, [toggleMainSidebar, toggleChatPanel]);
 }

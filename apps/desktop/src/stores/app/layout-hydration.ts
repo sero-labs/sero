@@ -5,7 +5,9 @@ import { hydrateThemeStore, useThemeStore } from '@/stores/theme';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { useBrowserStore } from '@/stores/browser';
 import { useExplorerStore } from '@/stores/explorer';
-import { normaliseFavouriteApps } from './shared';
+import { seedNavigationHistory } from '@/stores/navigation';
+import { hydrateZoom } from '@/stores/zoom';
+import { normaliseChromeShortcuts, normaliseFavouriteApps } from './shared';
 import type { AppState } from './state';
 import { useAppStore } from './state';
 
@@ -14,10 +16,12 @@ export async function loadLayout(): Promise<void> {
   try {
     const state = await window.sero.layout.load();
     if (state) {
+      const favouriteApps = normaliseFavouriteApps(state.favouriteApps);
       const update: Partial<AppState> & { layoutReady: true } = {
         mainSidebarOpen: state.mainSidebarOpen,
         chatPanelOpen: state.chatPanelOpen,
-        favouriteApps: normaliseFavouriteApps(state.favouriteApps),
+        favouriteApps,
+        chromeShortcuts: normaliseChromeShortcuts(state.chromeShortcuts, favouriteApps),
         layoutReady: true,
       };
 
@@ -52,6 +56,8 @@ export async function loadLayout(): Promise<void> {
       }
 
       useAppStore.setState(update);
+      seedNavigationHistory(update.activeApp ?? useAppStore.getState().activeApp);
+      hydrateZoom(state.zoomFactor);
 
       // Hydrate active workspace into workspace store
       if (state.activeWorkspaceId !== undefined) {
@@ -92,4 +98,5 @@ export async function loadLayout(): Promise<void> {
   }
 
   useAppStore.setState({ layoutReady: true });
+  seedNavigationHistory(useAppStore.getState().activeApp);
 }

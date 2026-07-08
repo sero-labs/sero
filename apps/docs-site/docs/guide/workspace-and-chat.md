@@ -66,17 +66,38 @@ The desktop shell has a few stable regions:
 ![Sero desktop shell regions](../assets/generated/img2.jpg)
 
 
-- **Title bar** — window controls, current app context, and shell actions.
+- **Title bar** — window controls, back/forward navigation, current app
+  context, pinned app shortcuts, and shell actions.
 - **Main sidebar** — app switching plus workspace and session navigation.
 - **Active app area** — the central surface for Dashboard, Explorer, and other
   app UIs.
 - **Global chat panel** — the right-side Pi-backed agent conversation for the
   focused session.
-- **Status bar** — current workspace/runtime state and related status.
+- **Status bar** — current workspace/runtime state, related status, and zoom.
 
 The sidebar and chat panel can be collapsed. Use `Ctrl+B` to hide or show the
 main sidebar, and use `Ctrl+L` to hide or show the chat panel. Panel sizes and
 open/closed state are restored between launches for the active profile.
+
+The title bar and status bar stay a fixed size on screen no matter how far you
+zoom the app content in or out.
+
+### Back and forward
+
+Use the back and forward buttons in the title bar, or `⌘[` / `⌘]` (`Ctrl+[` /
+`Ctrl+]` on other platforms), to move through recently visited apps.
+
+### Pinned shortcuts
+
+Star an app from the title bar breadcrumb to pin it as an icon shortcut in the
+title bar, up to 8 at a time. Click the star again, or use the command menu,
+to unpin it.
+
+### Zoom
+
+Use `⌘+` / `⌘-` / `⌘0` (`Ctrl+` equivalents elsewhere) or the zoom control in
+the status bar to zoom the active app in, out, or back to 100%. The title bar
+and status bar stay the same physical size at any zoom level.
 
 ## Apps: Dashboard and Explorer
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Monitor, Palette, Pencil, Smartphone, Stethoscope } from 'lucide-react';
+import { Monitor, Palette, Pencil, Smartphone, Star, Stethoscope } from 'lucide-react';
 import {
   CommandDialog,
   CommandEmpty,
@@ -38,6 +38,9 @@ export function CommandMenu() {
   const [connectDeviceOpen, setConnectDeviceOpen] = useState(false);
   const [doctorOpen, setDoctorOpen] = useState(false);
   const apps = useAppStore((s) => s.apps);
+  const activeApp = useAppStore((s) => s.activeApp);
+  const activePinned = useAppStore((s) => s.chromeShortcuts.includes(s.activeApp));
+  const toggleChromeShortcut = useAppStore((s) => s.toggleChromeShortcut);
   const toggleMode = useThemeStore((s) => s.toggleMode);
   const activePresetId = useThemeStore((s) => s.activePresetId);
 
@@ -110,6 +113,16 @@ export function CommandMenu() {
                 </CommandItem>
               );
             })}
+            <CommandItem
+              value="Pin Unpin Current App Shortcut"
+              onSelect={() => {
+                toggleChromeShortcut(activeApp);
+                setOpen(false);
+              }}
+            >
+              <Star className="size-4 shrink-0" />
+              <span>{activePinned ? 'Unpin Current App from Shortcuts' : 'Pin Current App to Shortcuts'}</span>
+            </CommandItem>
           </CommandGroup>
           <CommandGroup heading="Diagnostics">
             <CommandItem value="Environment Doctor Diagnostics" onSelect={handleOpenDoctor}>

@@ -2,35 +2,49 @@ import { Button } from '@sero-ai/ui/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@sero-ai/ui/components/ui/tooltip';
 import { PanelLeft, PanelRight } from 'lucide-react';
 import { useAppStore } from '@/stores/app';
-import { useActiveWorkspace } from '@/stores/workspace';
 import { ProfileSwitcher } from '@/components/profiles/ProfileSwitcher';
 import { GitTitleBarControls } from '@/components/layout/titlebar/git/GitTitleBarControls';
+import { NavButtons } from '@/components/layout/titlebar/NavButtons';
+import { ShortcutChips } from '@/components/layout/titlebar/ShortcutChips';
+import { TitleBarBreadcrumb } from '@/components/layout/titlebar/TitleBarBreadcrumb';
+import { WindowControls } from '@/components/layout/titlebar/WindowControls';
 import { UpdateIndicator } from '@/components/layout/shell/UpdateIndicator';
 
 /**
- * TitleBar, macOS-style custom title bar.
+ * TitleBar — one custom chrome for every platform.
  *
- * The entire bar is a drag region. Interactive elements opt out with `no-drag`.
- * Left: traffic-light spacer → sidebar toggle → active app name.
- * Right: placeholder for global actions.
+ * The bar is a drag region; interactive clusters opt out with `no-drag`.
+ * Only the window-control corner differs per platform: macOS native
+ * traffic lights (left), Windows native overlay buttons (right), Linux
+ * custom controls (right). `chrome-zoom-invariant` keeps the bar at a
+ * constant physical size at every zoom level.
+ *
+ * Layout: window controls → sidebar toggle → back/forward → breadcrumb
+ * → shortcut chips (center) → global actions → window controls.
  */
+
+/** Width reserved for macOS traffic lights (trafficLightPosition x=12 + 3 lights). */
+const MACOS_TRAFFIC_LIGHT_WIDTH = 78;
+
+/** Width of the native Windows overlay buttons (3 × 46px). */
+const WINDOWS_OVERLAY_WIDTH = 138;
+
 export function TitleBar() {
   const toggleSidebar = useAppStore((s) => s.toggleMainSidebar);
   const toggleChat = useAppStore((s) => s.toggleChatPanel);
-  const activeApp = useAppStore((s) => s.activeApp);
-  const activeWorkspace = useActiveWorkspace();
-
-  const appsList = useAppStore((s) => s.apps);
-  const appLabel = appsList.find((a: { id: string; label: string }) => a.id === activeApp)?.label ?? 'Sero';
-  const titleText = activeWorkspace?.name ? `${appLabel}, ${activeWorkspace.name}` : appLabel;
+  const platform = window.sero.platform;
 
   return (
-    <header className="title-bar drag-region flex h-10 shrink-0 items-center border-b border-[var(--border-default)] bg-[var(--bg-base)]">
-      {/* ── Traffic-light spacer (macOS) ─────────────────────── */}
-      <div className="flex w-[78px] shrink-0" />
+    <header className="title-bar drag-region chrome-zoom-invariant flex h-10 shrink-0 items-center border-b border-[var(--border-default)] bg-[var(--bg-base)]">
+      {/* ── Platform window-control area (left) ──────────────── */}
+      {platform === 'darwin' ? (
+        <div style={{ width: MACOS_TRAFFIC_LIGHT_WIDTH }} className="shrink-0" />
+      ) : (
+        <div className="w-2 shrink-0" />
+      )}
 
-      {/* ── Sidebar toggle + app title ───────────────────────── */}
-      <div className="no-drag flex items-center gap-1.5">
+      {/* ── Sidebar toggle + navigation + breadcrumb ─────────── */}
+      <div className="no-drag flex items-center gap-0.5">
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
@@ -46,12 +60,16 @@ export function TitleBar() {
           <TooltipContent side="bottom">Toggle sidebar</TooltipContent>
         </Tooltip>
 
-        <span className="truncate text-xs font-medium text-[var(--text-secondary)]" style={{ maxWidth: '50vw' }}>
-          {titleText}
-        </span>
+        <NavButtons />
       </div>
 
-      {/* ── Spacer (draggable) ────────────────────────────────── */}
+      <div className="ml-1.5 min-w-0">
+        <TitleBarBreadcrumb />
+      </div>
+
+      {/* ── Shortcut chips, centered between draggable spacers ── */}
+      <div className="flex-1" />
+      <ShortcutChips />
       <div className="flex-1" />
 
       {/* ── Right-side actions ────────────────────────────────── */}
@@ -81,6 +99,12 @@ export function TitleBar() {
           <TooltipContent side="bottom">Toggle agent</TooltipContent>
         </Tooltip>
       </div>
+
+      {/* ── Platform window-control area (right) ─────────────── */}
+      {platform === 'win32' && (
+        <div style={{ width: WINDOWS_OVERLAY_WIDTH }} className="shrink-0" />
+      )}
+      {platform === 'linux' && <WindowControls />}
     </header>
   );
 }

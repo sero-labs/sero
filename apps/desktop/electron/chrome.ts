@@ -1,0 +1,17 @@
+/**
+ * Shared application-chrome constants for the main process.
+ *
+ * The renderer counter-scales the chrome bars by the page zoom factor
+ * (`--zoom-factor` in global.css), so these heights are physical (DIP)
+ * sizes that hold at every zoom level. Keep in sync with the `h-10`
+ * title bar and `h-6` status bar in the renderer.
+ */
+
+/** Title bar height in DIP. */
+export const CHROME_BAR_HEIGHT = 40;
+
+/** Default window background — matches dark `--bg-base`. */
+export const CHROME_BACKGROUND_COLOR = '#0a0a0b';
+
+/** Default Windows title-bar overlay symbol color — matches dark `--text-secondary`. */
+export const CHROME_OVERLAY_SYMBOL_COLOR = '#a1a1aa';

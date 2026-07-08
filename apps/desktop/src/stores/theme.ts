@@ -159,6 +159,27 @@ function applyMode(mode: 'light' | 'dark'): void {
   }
 }
 
+// ── Windows title-bar overlay sync ───────────────────────────
+// The native overlay buttons (min/max/close) are drawn by Windows and
+// don't follow CSS — re-send the current chrome colors on theme change.
+// The rAF lets the just-applied CSS variables resolve first.
+function syncTitleBarOverlay(): void {
+  if (window.sero.platform !== 'win32') return;
+  requestAnimationFrame(() => {
+    const styles = getComputedStyle(document.documentElement);
+    const color = styles.getPropertyValue('--bg-base').trim();
+    const symbolColor = styles.getPropertyValue('--text-secondary').trim();
+    if (!color || !symbolColor) return;
+    void window.sero.window.setOverlayColors({ color, symbolColor });
+  });
+}
+
+useThemeStore.subscribe((state, prev) => {
+  if (state.effectiveMode !== prev.effectiveMode || state.activePreset !== prev.activePreset) {
+    syncTitleBarOverlay();
+  }
+});
+
 // ── Hydration ────────────────────────────────────────────────
 
 /**
