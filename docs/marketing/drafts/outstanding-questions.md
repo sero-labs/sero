@@ -31,6 +31,26 @@ content lives here.
    + never-merges + review-on-PR) rather than staging a gate the product does
    not show.
 
+## Early Builders launch — task 4.5 (for Dan to create)
+
+Draft ready: [community/early-builders.md](../community/early-builders.md). All
+three pieces are Agent→Dan — the copy and `gh` commands are written; Dan creates
+them on GitHub. Gate 4.3 passed. Create in this order:
+
+1. **Four labels** — `good first plugin`, `good first loop`, `demo wanted`,
+   `docs wanted` (colors + `gh label create` commands in the draft). Verified
+   none exist yet; `docs wanted` is kept distinct from the existing
+   `documentation` label.
+2. **Roadmap issue** — "Help us build the first 25 Sero loops" (25 scoped,
+   drafts-only loop ideas + a claim mechanism). Uses the `good first loop` label;
+   pin it.
+3. **Discussion** — "Sero 100 Early Builders" in Announcements, pinned. Links the
+   roadmap issue (`[#ISSUE]`) and `sero-labs/sero-logbook-plugin` — so that repo
+   should exist first (handoff below), or drop that one bullet when posting.
+
+Publishing note: 4.6 (the first builder log) lands best right after this opens
+the Early Builders space.
+
 ## Plugin guide verification findings from task 4.3 (for Dan)
 
 Full report: [plugin-guide-verification.md](../plugin-guide-verification.md). The
