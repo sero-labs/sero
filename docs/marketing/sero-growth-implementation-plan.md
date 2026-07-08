@@ -21,7 +21,7 @@ Targets: 1,000 GitHub stars + 100 successful first runs
 | 2 | Campaign engine | 5 growth loops producing drafts | Complete (incl. live event fire verified) | 6 / 6 |
 | 3 | Demo production | 6 proof demos recorded | In progress (agent tasks done; 3.3/3.4 are Dan recordings) | 2 / 5 |
 | 4 | Proof series + community | Flagship post live, builders open | In progress (plugin guide verified; 4.4/4.5/4.6 drafts ready, awaiting Dan to publish/create) | 1 / 6 |
-| 5 | HN launch | Front-page-ready Show HN shipped | Not started | 0 / 5 |
+| 5 | HN launch | Front-page-ready Show HN shipped | In progress (gate audit done; Show HN + security FAQ drafted; launch blocked on Dan recording 3.3 + an external tester) | 1 / 5 |
 | 6 | Borrowed distribution | 8-week sustained reach | Not started | 0 / 5 |
 
 Weekly metrics snapshot (stars, first runs, traffic) lives in the `github-star-dashboard` loop output once Phase 2 lands; until then, capture manually in [metrics-log.md](metrics-log.md).
@@ -139,9 +139,9 @@ Depends on Phase 3 flagship demo. Loops from Phase 2 draft the content; Dan appr
 
 ### Tasks
 
-- [ ] **5.1** (Agent→Dan, P5) Show HN post: title "Show HN: Sero, a local-first desktop workspace for AI agents", body with demo, install path, honest beta caveats, architecture links.
-- [ ] **5.2** (Agent→Dan, P5) Security FAQ: pre-written answers to the obvious objections (self-extending workspace, terminal/file access) grounded in power-user positioning, signed builds, approval points, existing in-product warnings and docs.
-- [ ] **5.3** (Agent, P5) Gate audit — verify every hard gate below with evidence, not assertion.
+- [ ] **5.1** (Agent→Dan, P5) Show HN post: title "Show HN: Sero, a local-first desktop workspace for AI agents", body with demo, install path, honest beta caveats, architecture links. *(Draft ready 2026-07-08 — `docs/marketing/hn-launch/show-hn.md`: plain descriptive title, honest founder-voice body (self-extending twist, local-first, beta caveats, model requirement), `[demo link]` slot fills once 3.3 is recorded, posting notes for Dan. Awaiting green gate audit + Dan to post.)*
+- [ ] **5.2** (Agent→Dan, P5) Security FAQ: pre-written answers to the obvious objections (self-extending workspace, terminal/file access) grounded in power-user positioning, signed builds, approval points, existing in-product warnings and docs. *(Draft ready 2026-07-08 — `docs/marketing/hn-launch/security-faq.md`: answer bank for the HN thread grounded in the README trust section + evidence-based signing facts; concedes real gaps (Windows/Linux unsigned, no plugin sandbox, unstable APIs) honestly. Awaiting Dan to approve.)*
+- [x] **5.3** (Agent, P5) Gate audit — verify every hard gate below with evidence, not assertion. *(Done 2026-07-08 — `docs/marketing/hn-launch/gate-audit.md`: every hard gate audited with evidence, not assertion. 1 green (README/homepage release status verbatim-match), 3 amber, 2 red. The board reduces to two blockers — an external tester doing a timed install run (gates 2/6, part of 1) and Dan recording the flagship demo (gate 4, feeds 7). Re-run before 5.4.)*
 - [ ] **5.4** (Dan) Pick the day, post, and be in the comments all day (agents draft reply suggestions live; Dan decides what to say).
 - [ ] **5.5** (Agent) Post-launch capture: star delta, traffic, download counts, first-run signals into metrics-log.md within 48h.
 

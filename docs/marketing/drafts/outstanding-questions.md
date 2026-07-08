@@ -51,6 +51,26 @@ them on GitHub. Gate 4.3 passed. Create in this order:
 Publishing note: 4.6 (the first builder log) lands best right after this opens
 the Early Builders space.
 
+## HN launch prep — Phase 5 (for Dan)
+
+Drafts ready under [hn-launch/](../hn-launch/): the Show HN post (5.1), the
+security FAQ answer bank (5.2), and the gate audit (5.3). **Do not post until the
+gate audit is fully green** (5.4 is Dan-only, present in comments all day).
+
+The gate audit ([hn-launch/gate-audit.md](../hn-launch/gate-audit.md)) reduces
+the launch to two blockers, neither agent-executable:
+
+1. **An external tester does a timed install + quick-start run** (ideally on
+   Windows or Linux) — clears the "external tester" gate, gives the evidence for
+   "works on every named platform" and "≤10-minute quick start". This has been
+   open since Phase 1 and is the single most load-bearing gap.
+2. **Dan records the flagship demo (3.3)** — clears "flagship repeatable", feeds
+   the `[demo link]` in the Show HN body and the held-back-demo gate.
+
+Also: approve the 5.2 FAQ, deploy the homepage so the release-status match is
+true in public (not just in source), and designate the held-back demo (3.5)
+after recording.
+
 ## Plugin guide verification findings from task 4.3 (for Dan)
 
 Full report: [plugin-guide-verification.md](../plugin-guide-verification.md). The
