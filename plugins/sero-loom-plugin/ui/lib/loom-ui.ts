@@ -52,7 +52,10 @@ export function updateSettings(updateState: Updater, recipe: (s: LoomSettings) =
 }
 
 export function setDirection(updateState: Updater, guidance: string): void {
-  updateState((prev) => ({ ...normalizeLoomState(prev), direction: { guidance } }));
+  updateState((prev) => {
+    const s = normalizeLoomState(prev);
+    return s.direction.guidance === guidance ? prev : { ...s, direction: { guidance } };
+  });
 }
 
 export function savePreset(updateState: Updater, name: string, thumbnail?: string): void {

@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { memo, useState } from 'react';
+import { Button } from '@sero-ai/ui/components/ui/button';
 
 import type { LoomPiece, ParamValue } from '../../shared/types';
 import { ColorField, PanelCard, Slider, ToggleField, XYPad } from './primitives';
@@ -7,18 +8,26 @@ import { ColorField, PanelCard, Slider, ToggleField, XYPad } from './primitives'
  * The piece's own control surface: exactly the params the artist (agent)
  * declared for this artwork, plus the persistent creative direction.
  */
-export function ControlsPanel({
+export const ControlsPanel = memo(function ControlsPanel({
   piece,
   direction,
   onParam,
-  onDirection,
+  onApplyDirection,
+  applyingDirection,
 }: {
   piece: LoomPiece;
   direction: string;
   onParam: (name: string, value: ParamValue) => void;
-  onDirection: (guidance: string) => void;
+  onApplyDirection: (guidance: string) => void | Promise<void>;
+  applyingDirection: boolean;
 }) {
   const [draftDirection, setDraftDirection] = useState<string | null>(null);
+  const currentDirection = draftDirection ?? direction;
+
+  const applyDirection = () => {
+    onApplyDirection(currentDirection.trim());
+    setDraftDirection(null);
+  };
 
   return (
     <PanelCard title={piece.title || 'Untitled'}>
@@ -78,17 +87,16 @@ export function ControlsPanel({
       <div className="mt-1 flex flex-col gap-1.5 border-t border-border/60 pt-3">
         <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Creative direction</span>
         <textarea
-          value={draftDirection ?? direction}
+          value={currentDirection}
           onChange={(e) => setDraftDirection(e.target.value)}
-          onBlur={() => {
-            if (draftDirection !== null && draftDirection !== direction) onDirection(draftDirection);
-            setDraftDirection(null);
-          }}
-          placeholder="Standing orders Loom honors on every piece…"
+          placeholder="E.g. always dark, minimal, slow, no neon…"
           rows={2}
           className="resize-none rounded-md border border-input bg-background/60 px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-ring"
         />
+        <Button size="sm" variant="outline" onClick={applyDirection} disabled={applyingDirection || (!currentDirection.trim() && !direction.trim())}>
+          {applyingDirection ? 'Applying…' : 'Apply to piece'}
+        </Button>
       </div>
     </PanelCard>
   );
-}
+});

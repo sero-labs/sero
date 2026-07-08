@@ -3,8 +3,8 @@
 Loom is a global Sero plugin where the **Sero agent is the artist**. A piece of
 art is real multi-pass GLSL (Shadertoy conventions) authored by the agent. The
 agent composes, **looks at its own output** (`loom_see` returns rendered frames
-as images), critiques, and refines — and each piece declares its own small set
-of controls, so the UI is designed by the artist that made the artwork.
+as images), and optionally refines — each piece declares its own small set of
+controls, so the UI is designed by the artist that made the artwork.
 
 See [`SPEC.md`](./SPEC.md) for the full functional spec (v3).
 
@@ -22,8 +22,10 @@ A piece = `{ title, idea, common?, passes, params, paramValues }`:
 
 There is no GLSL linting or aesthetic clamping — the compiler is the validator.
 Safety is run mechanics: compile errors return to the agent verbatim (the
-last-good piece keeps rendering), a frame-time watchdog scales resolution down
-for heavy shaders, and a piece that kills the GPU context twice is reverted.
+last-good piece keeps rendering), new pieces start at a conservative render
+scale, buffer passes default to half-res, a frame-time watchdog scales
+resolution down for heavy shaders, live rendering is capped at 60fps to keep CPU
+use reasonable, and a piece that kills the GPU context twice is reverted.
 
 ## Surfaces
 
@@ -39,7 +41,7 @@ for heavy shaders, and a piece that kills the GPU context twice is reverted.
     spacing) and they return as image content.
   - `loom_direction` / `loom_preset` / `loom_capture` — standing orders,
     gallery, and wallpaper PNG export (+ sidecar piece JSON).
-  - `/loom` prompt template — the studio process (compose → see → refine).
+  - `/loom` prompt template — the studio process (compose → see → optional refine).
 
 Both handshakes are push-based (`fs.watch` on the state file, no polling): only
 the UI has a GL context, so tools write a request + `revision` and wait for the

@@ -108,7 +108,7 @@ interface LoomPass {
   id: PassId;                  // buffer passes render to ping-pong float targets
   code: string;                // GLSL ES 3.00 fragment source with mainImage(...)
   inputs?: ChannelBinding[];   // what iChannel0..3 sample
-  scale?: number;              // render-target scale relative to canvas (0.25..1, default 1)
+  scale?: number;              // render-target scale relative to canvas (0.25..1; buffers default 0.5)
 }
 
 interface ChannelBinding {
@@ -186,9 +186,10 @@ directly.
 
 ### 4.3 Run mechanics (the safety layer)
 
-- **Watchdog:** rolling frame-time monitor. Sustained slow frames → step the
-  internal resolution scale down (1 → 0.75 → 0.5); recovery steps back up.
-  The scale is reported in `BuildReport.fps` context so the agent knows.
+- **Watchdog:** live rendering is capped at 60fps. New pieces start at half
+  internal resolution. A rolling frame-time monitor steps slow pieces down
+  (1 → 0.75 → 0.5 → 0.35 → 0.25) and recovers upward only after sustained fast
+  frames.
 - **Context loss:** `webglcontextlost/restored` → rebuild from state; if the
   same piece kills the context twice, mark it `status:'error'` with a
   "GPU-hostile piece" message and stay on last-good.
@@ -272,16 +273,15 @@ Same shape, larger payload kept out of `state.json`:
 
 1. **Always `loom_get` first**; honor the persistent `direction` on every
    change; build on what's there unless asked for something new.
-2. **Compose → look → refine.** After every `loom_compose`, call `loom_see`
-   (2 frames a few seconds apart to judge motion). Critique against the brief:
-   composition, palette, motion, banding/artefacts. Refine until you'd hang it
-   on a wall — typically 2–3 rounds. Compile errors in the compose result get
-   fixed immediately.
+2. **Compose → look → optional refine.** Compose one strong first draft quickly,
+   fix compile errors, then call `loom_see` once (1 frame by default, 2 only
+   when motion is central). Refine only for obvious mismatch, blank output,
+   broken composition, or harsh artefacts.
 3. **Surprise me = invention, not dice.** Pick a concept the gallery doesn't
    have yet (the template carries a technique lexicon as *inspiration, never
    rails*: fbm & domain warping, voronoi, raymarched SDFs, curl-noise flows,
-   reaction-diffusion, feedback trails, kaleidoscopes, palettes). Optionally
-   draft 2–3 distinct concepts, look at each, keep the best.
+   reaction-diffusion, feedback trails, kaleidoscopes, palettes). Pick one brave
+   direction instead of drafting multiple concepts first.
 4. **Design the controls** (§5): 3–6 params in the piece's own vocabulary.
    Always set `title` and `idea`.
 5. Offer to `loom_direction set` when the user states a lasting preference;
@@ -306,9 +306,9 @@ components, semantic Tailwind colors only).
   `iMouse`. After a few idle seconds all chrome fades; any pointer/keyboard
   activity brings it back. An explicit **ambient mode** hides everything.
 - **Prompt bar** (bottom-center, floating): free text → `useAI().prompt(...)`.
-  Shows a minimal status line while the agent works ("composing… · looking… ·
-  refining…" driven by the streamed response/tool activity), and the agent's
-  one-line description when done.
+  Shows a prominent generating indicator while the agent works, keeps chrome
+  visible during generation, and shows the agent's one-line description when
+  done.
 - **Icon rail** (right edge, slim): opens floating panels —
   - **Controls** — the current piece's generated params (§5) + title/idea.
   - **Gallery** — thumbnail grid (stored preset thumbnails), click to load
@@ -386,7 +386,7 @@ Unchanged from v2 except the dependency story:
 | Risk | Mitigation |
 |------|------------|
 | Agent writes GLSL that doesn't compile | Expected and cheap: exact errors return in the same `loom_compose` call; last-good keeps rendering; the loop self-heals. |
-| Piece compiles but looks bad | The `loom_see` critique loop is mandated by the prompt template; quality bar lives there. |
+| Piece compiles but looks bad | The prompt requires one `loom_see` pass and a quick refinement when the first draft is clearly off. |
 | GPU-hostile shader (infinite-ish loops, huge cost) | Watchdog resolution scaling; context-loss recovery; two-strike revert to last-good. Never static code analysis. |
 | Build/see round-trips when UI is closed | Tools time out gracefully with actionable text; state writes always land. |
 | `fs.watch` reliability for the handshake | Same watcher tech the UI sync already relies on; timeout fallback bounds the damage to "check loom_get later". |
@@ -428,8 +428,8 @@ Unchanged from v2 except the dependency story:
 
 - Opening Loom shows an animating default piece; chrome auto-hides.
 - "Stormy ocean at dusk" in the prompt bar produces a piece that visibly
-  matches the description; the agent demonstrably looked (`loom_see`) and
-  refined at least once when the first draft was off.
+  matches the description; the agent demonstrably looked (`loom_see`) and only
+  refined when the first draft was clearly off.
 - A piece with a deliberate GLSL error keeps the previous art on screen and
   returns the exact compile error to the agent, which fixes it in the next
   `loom_compose`.

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 
 import type { BuildReport, LoomPiece } from '../../shared/types';
@@ -10,7 +10,7 @@ type Tab = 'common' | string;
  * Power-user surface: the piece's actual GLSL, per pass, with the build report
  * inline. Apply goes through the same compile path the agent uses.
  */
-export function CodePanel({
+export const CodePanel = memo(function CodePanel({
   piece,
   build,
   onApply,
@@ -94,4 +94,4 @@ export function CodePanel({
       />
     </PanelCard>
   );
-}
+});

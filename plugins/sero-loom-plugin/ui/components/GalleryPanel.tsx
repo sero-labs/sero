@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { Trash2 } from 'lucide-react';
 
 import type { LoomPreset } from '../../shared/types';
 import { PanelCard } from './primitives';
 
-export function GalleryPanel({
+export const GalleryPanel = memo(function GalleryPanel({
   presets,
   onSave,
   onLoad,
@@ -94,4 +94,4 @@ export function GalleryPanel({
       )}
     </PanelCard>
   );
-}
+});

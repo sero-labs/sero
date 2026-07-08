@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Camera, Code2, Images, Moon, Pause, Play, Settings2, SlidersHorizontal, type LucideIcon } from 'lucide-react';
 
 export type PanelId = 'controls' | 'gallery' | 'code' | 'settings';
@@ -37,7 +38,7 @@ function RailButton({
   );
 }
 
-export function IconRail({
+export const IconRail = memo(function IconRail({
   active,
   onToggle,
   paused,
@@ -72,4 +73,4 @@ export function IconRail({
       <RailButton icon={Moon} title="Ambient mode (Esc to exit)" onClick={onAmbient} />
     </div>
   );
-}
+});

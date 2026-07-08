@@ -1,9 +1,11 @@
+import { memo } from 'react';
+
 import type { CaptureResolution, LoomSettings } from '../../shared/types';
 import { PanelCard, Slider, ToggleField } from './primitives';
 
 const RESOLUTIONS: CaptureResolution[] = ['display', '1080p', '1440p', '4k', 'custom'];
 
-export function SettingsPanel({
+export const SettingsPanel = memo(function SettingsPanel({
   settings,
   onChange,
 }: {
@@ -62,4 +64,4 @@ export function SettingsPanel({
       </div>
     </PanelCard>
   );
-}
+});

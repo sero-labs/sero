@@ -41,6 +41,8 @@ export interface FrameEnv {
 
 export type CompileOutcome = { ok: true; set: ProgramSet } | { ok: false; errors: BuildError[] };
 
+const DEFAULT_BUFFER_SCALE = 0.5;
+
 export class ProgramSet {
   private constructor(
     private readonly gl: WebGL2RenderingContext,
@@ -95,7 +97,7 @@ export class ProgramSet {
   resize(width: number, height: number): void {
     const { gl } = this;
     for (const p of this.passes) {
-      const scale = p.pass.scale ?? 1;
+      const scale = p.pass.id === 'image' ? 1 : (p.pass.scale ?? DEFAULT_BUFFER_SCALE);
       const w = Math.max(1, Math.round(width * scale));
       const h = Math.max(1, Math.round(height * scale));
       if (p.ping && p.ping[0].width === w && p.ping[0].height === h) continue;

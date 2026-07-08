@@ -62,7 +62,7 @@ function buildText(build: BuildReport | undefined, revision: number): string {
   }
   if (build.status === 'ok') {
     const fps = build.fps ? ` at ~${build.fps} fps` : '';
-    return `Build OK${fps}. Now call loom_see to look at it before calling it done.`;
+    return `Build OK${fps}. Call loom_see once before the final note.`;
   }
   const lines = build.errors.slice(0, 12).map((e) => `  • [${e.pass}${e.line !== null ? `:${e.line}` : ''}] ${e.message}`);
   return `Build FAILED — the previous piece is still on screen. Fix and re-compose:\n${lines.join('\n')}`;
@@ -158,7 +158,7 @@ export default function (pi: ExtensionAPI) {
     name: 'loom_compose',
     label: 'Loom: compose',
     description:
-      'Author the art as real GLSL (Shadertoy conventions: mainImage, iTime, iResolution, iMouse, iChannel0-3; multi-pass A-D + image with ping-pong feedback). Pass a full `piece` or a `patch`. Declare 3-6 params (slider/color/toggle/xy) bound as u_<name> uniforms — param value changes tween live without recompiling. Returns the compile result: fix any errors immediately, then loom_see the result.',
+      'Author GPU-light live art as real GLSL (Shadertoy conventions: mainImage, iTime, iResolution, iMouse, iChannel0-3; multi-pass A-D + image with ping-pong feedback). Prefer one image pass, or one 0.5-scale buffer pass at most for first drafts. Pass a full `piece` or a `patch`. Declare 3-6 params (slider/color/toggle/xy) bound as u_<name> uniforms — param value changes tween live without recompiling. Returns the compile result: fix any errors immediately, then loom_see once.',
     parameters: ComposeParams,
     async execute(_id, params, _signal, _onUpdate, ctx) {
       if (params.piece === undefined && params.patch === undefined) {
@@ -176,7 +176,7 @@ export default function (pi: ExtensionAPI) {
     name: 'loom_see',
     label: 'Loom: see',
     description:
-      'Look at the current piece: the Loom UI renders 1-3 frames (spaced in simulated time to judge motion) and they come back as images. Use after every compose — critique composition, palette, motion, and artefacts against the brief, then refine.',
+      'Look at the current piece: the Loom UI renders 1-3 frames (spaced in simulated time to judge motion) and they come back as images. Use after the first successful compose; refine only for obvious mismatch, blank output, broken composition, or harsh artefacts.',
     parameters: SeeParams,
     async execute(_id, params, _signal, _onUpdate, ctx) {
       const cwd = cwdFrom(ctx);
@@ -333,7 +333,7 @@ export default function (pi: ExtensionAPI) {
       pi.sendUserMessage(
         'Invent a brand new Loom piece — a concept the gallery does not have yet. ' +
           'Read the current state with loom_get, compose it as GLSL with loom_compose, ' +
-          'then look at it with loom_see and refine until it is genuinely good.',
+          'then look once with loom_see and make at most one quick refinement unless it is clearly broken.',
       );
     },
   });

@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { KeyboardEvent } from 'react';
 import { useAI, useAppState, useAppTools } from '@sero-ai/app-runtime';
 
 import {
   DEFAULT_LOOM_STATE,
   normalizeLoomState,
   type LoomPreset,
+  type LoomPiece,
+  type LoomSettings,
   type LoomState,
   type ParamValue,
 } from '../shared/types';
@@ -31,6 +34,7 @@ import {
 import './styles.css';
 
 const IDLE_HIDE_MS = 4000;
+const WAKE_THROTTLE_MS = 250;
 
 function downloadDataUrl(dataUrl: string, filename: string): void {
   const a = document.createElement('a');
@@ -43,7 +47,7 @@ function downloadDataUrl(dataUrl: string, filename: string): void {
 
 export function LoomApp() {
   const [rawState, updateState] = useAppState<LoomState>(DEFAULT_LOOM_STATE);
-  const state = normalizeLoomState(rawState);
+  const state = useMemo(() => normalizeLoomState(rawState), [rawState]);
 
   const ai = useAI();
   const tools = useAppTools();
@@ -52,10 +56,13 @@ export function LoomApp() {
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   // Referentially stable piece so the compile effect only fires on real change.
-  const pieceKey = JSON.stringify(state.piece);
+  const pieceKey = useMemo(() => JSON.stringify(state.piece), [state.piece]);
   const piece = useMemo(() => state.piece, [pieceKey]);
 
   const [capturing, setCapturing] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [applyingDirection, setApplyingDirection] = useState(false);
+  const [promptStatus, setPromptStatus] = useState('');
   const [toast, setToast] = useState('');
 
   const { ready, error, capture, seeFrames } = useLoomRuntime(canvasRef, containerRef, {
@@ -76,11 +83,20 @@ export function LoomApp() {
   const [ambient, setAmbient] = useState(false);
   const [idle, setIdle] = useState(false);
   const idleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const idleRef = useRef(false);
+  const lastWakeRef = useRef(-Infinity);
 
   const wake = useCallback(() => {
+    const now = performance.now();
+    if (!idleRef.current && now - lastWakeRef.current < WAKE_THROTTLE_MS) return;
+    lastWakeRef.current = now;
+    idleRef.current = false;
     setIdle(false);
     if (idleTimer.current) clearTimeout(idleTimer.current);
-    idleTimer.current = setTimeout(() => setIdle(true), IDLE_HIDE_MS);
+    idleTimer.current = setTimeout(() => {
+      idleRef.current = true;
+      setIdle(true);
+    }, IDLE_HIDE_MS);
   }, []);
   useEffect(() => {
     wake();
@@ -88,8 +104,26 @@ export function LoomApp() {
       if (idleTimer.current) clearTimeout(idleTimer.current);
     };
   }, [wake]);
+  const onPromptBusyChange = useCallback(
+    (busy: boolean) => {
+      setGenerating(busy);
+      wake();
+    },
+    [wake],
+  );
 
-  const chromeVisible = !ambient && (!idle || panel !== null);
+  const chromeVisible = !ambient && (!idle || panel !== null || generating);
+  const onTogglePanel = useCallback((id: PanelId) => setPanel((p) => (p === id ? null : id)), []);
+  const onTogglePause = useCallback(() => updateSettings(updateState, (s) => { s.paused = !s.paused; }), [updateState]);
+  const onAmbient = useCallback(() => setAmbient(true), []);
+  const onCanvasDoubleClick = useCallback(() => setAmbient((v) => !v), []);
+  const onKeyDown = useCallback(
+    (e: KeyboardEvent<HTMLDivElement>) => {
+      wake();
+      if (e.key === 'Escape') setAmbient(false);
+    },
+    [wake],
+  );
 
   // ── Params (optimistic local echo + debounced state write) ────
   const [pendingParams, setPendingParams] = useState<Record<string, ParamValue>>({});
@@ -112,6 +146,10 @@ export function LoomApp() {
     },
     [flushParams],
   );
+  const onLoadPreset = useCallback((id: string) => loadPreset(updateState, id), [updateState]);
+  const onDeletePreset = useCallback((id: string) => deletePreset(updateState, id), [updateState]);
+  const onApplyCode = useCallback((next: LoomPiece) => setPiece(updateState, next), [updateState]);
+  const onSettingsChange = useCallback((recipe: (s: LoomSettings) => void) => updateSettings(updateState, recipe), [updateState]);
   const displayPiece = useMemo(
     () => (Object.keys(pendingParams).length === 0 ? piece : { ...piece, paramValues: { ...piece.paramValues, ...pendingParams } }),
     [piece, pendingParams],
@@ -161,6 +199,7 @@ export function LoomApp() {
       setCapturing(false);
     }
   }, [capture, capturing, ready, state.piece.title, state.settings, tools]);
+  const onCaptureClick = useCallback(() => void onCapture(), [onCapture]);
 
   // ── Gallery actions ───────────────────────────────────────────
   const onSave = useCallback(
@@ -182,10 +221,42 @@ export function LoomApp() {
         `Riff on the saved Loom piece "${preset.name}" (id ${preset.id}): load it with loom_preset` +
           `${preset.piece ? '' : ' (it is legacy — recreate its look as GLSL from the returned graph JSON)'}, ` +
           'then compose a fresh variation that keeps its essence but pushes somewhere new. ' +
-          'Fix any compile errors, then loom_see and refine. Reply with one short sentence.',
+          'Fix any compile errors, then loom_see once and refine only if it is clearly broken. Reply with one short sentence.',
       );
     },
     [ai],
+  );
+
+  const onApplyDirection = useCallback(
+    async (guidance: string) => {
+      const trimmed = guidance.trim();
+      setDirection(updateState, trimmed);
+      if (!trimmed) {
+        setPromptStatus('Creative direction cleared.');
+        return;
+      }
+      if (applyingDirection) return;
+
+      setApplyingDirection(true);
+      setGenerating(true);
+      setPromptStatus('Applying creative direction…');
+      wake();
+      try {
+        const reply = await ai.prompt(
+          `Apply this persistent Loom creative direction to the current piece now: ${JSON.stringify(trimmed)}. ` +
+            'Call loom_get first, then update the current GLSL with loom_compose. ' +
+            'Keep it GPU-light, fix compile errors, call loom_see once, and reply with one short sentence.',
+        );
+        setPromptStatus(reply.trim().slice(0, 200) || 'Creative direction applied.');
+      } catch (err) {
+        setPromptStatus(err instanceof Error ? err.message : 'Failed to apply creative direction');
+      } finally {
+        setApplyingDirection(false);
+        setGenerating(false);
+        wake();
+      }
+    },
+    [ai, applyingDirection, updateState, wake],
   );
 
   return (
@@ -193,13 +264,10 @@ export function LoomApp() {
       ref={containerRef}
       tabIndex={0}
       onPointerMove={wake}
-      onKeyDown={(e) => {
-        wake();
-        if (e.key === 'Escape') setAmbient(false);
-      }}
+      onKeyDown={onKeyDown}
       className="relative size-full overflow-hidden bg-background text-foreground outline-none"
     >
-      <canvas ref={canvasRef} onDoubleClick={() => setAmbient((v) => !v)} className="block size-full" />
+      <canvas ref={canvasRef} onDoubleClick={onCanvasDoubleClick} className="block size-full" />
 
       {(!ready || error) && (
         <div className="absolute inset-0 flex items-center justify-center p-6 text-center">
@@ -220,18 +288,24 @@ export function LoomApp() {
         className={`pointer-events-none absolute inset-0 transition-opacity duration-500 ${chromeVisible ? 'opacity-100' : 'opacity-0'}`}
       >
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2">
-          <PromptBar ai={ai} />
+          <PromptBar
+            ai={ai}
+            direction={state.direction.guidance}
+            externalBusy={applyingDirection}
+            externalStatus={promptStatus}
+            onBusyChange={onPromptBusyChange}
+          />
         </div>
 
         <div className="absolute right-3 top-1/2 -translate-y-1/2">
           <IconRail
             active={panel}
-            onToggle={(id) => setPanel((p) => (p === id ? null : id))}
+            onToggle={onTogglePanel}
             paused={state.settings.paused}
-            onTogglePause={() => updateSettings(updateState, (s) => { s.paused = !s.paused; })}
-            onCapture={() => void onCapture()}
+            onTogglePause={onTogglePause}
+            onCapture={onCaptureClick}
             capturing={capturing}
-            onAmbient={() => setAmbient(true)}
+            onAmbient={onAmbient}
             buildError={state.build?.status === 'error'}
           />
         </div>
@@ -243,21 +317,22 @@ export function LoomApp() {
                 piece={displayPiece}
                 direction={state.direction.guidance}
                 onParam={onParam}
-                onDirection={(g) => setDirection(updateState, g)}
+                onApplyDirection={onApplyDirection}
+                applyingDirection={applyingDirection}
               />
             )}
             {panel === 'gallery' && (
               <GalleryPanel
                 presets={state.presets}
                 onSave={onSave}
-                onLoad={(id) => loadPreset(updateState, id)}
-                onDelete={(id) => deletePreset(updateState, id)}
+                onLoad={onLoadPreset}
+                onDelete={onDeletePreset}
                 onFork={onFork}
               />
             )}
-            {panel === 'code' && <CodePanel piece={piece} build={state.build} onApply={(p) => setPiece(updateState, p)} />}
+            {panel === 'code' && <CodePanel piece={piece} build={state.build} onApply={onApplyCode} />}
             {panel === 'settings' && (
-              <SettingsPanel settings={state.settings} onChange={(recipe) => updateSettings(updateState, recipe)} />
+              <SettingsPanel settings={state.settings} onChange={onSettingsChange} />
             )}
           </div>
         )}

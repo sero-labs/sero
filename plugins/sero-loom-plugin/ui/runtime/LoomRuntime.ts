@@ -36,7 +36,12 @@ void main() {
   outColor = vec4(mix(prev, next, uFade), 1.0);
 }`;
 
-const RES_STEPS = [1, 0.75, 0.5] as const;
+const RES_STEPS = [1, 0.75, 0.5, 0.35, 0.25] as const;
+const INITIAL_PIECE_SCALE = 0.5;
+const PERF_WINDOW_FRAMES = 18;
+const DOWNGRADE_FRAME_SECONDS = 1 / 28;
+const UPGRADE_FRAME_SECONDS = 1 / 52;
+const LIVE_FRAME_MIN_MS = 1000 / 60;
 
 export type SetPieceResult = { status: 'ok' } | { status: 'error'; errors: BuildError[] };
 
@@ -69,6 +74,7 @@ export class LoomRuntime {
   private running = false;
   private disposed = false;
   private lastTick = 0;
+  private nextLiveFrameAt = 0;
   private time = 0;
   private frame = 0;
   private speed = 1;
@@ -101,6 +107,7 @@ export class LoomRuntime {
     this.buildBlit();
     this.attachListeners();
     this.lastTick = performance.now();
+    this.nextLiveFrameAt = 0;
     this.running = true;
     this.raf = requestAnimationFrame(this.tick);
   }
@@ -182,6 +189,7 @@ export class LoomRuntime {
       }
     }
     this.lastTick = performance.now();
+    this.nextLiveFrameAt = 0;
     this.running = true;
     this.raf = requestAnimationFrame(this.tick);
   }
@@ -201,7 +209,7 @@ export class LoomRuntime {
   }
 
   resize(cssWidth: number, cssHeight: number): void {
-    const dpr = Math.min(globalThis.devicePixelRatio || 1, 2);
+    const dpr = Math.min(globalThis.devicePixelRatio || 1, 1.5);
     this.canvas.width = Math.max(2, Math.round(cssWidth * dpr));
     this.canvas.height = Math.max(2, Math.round(cssHeight * dpr));
     this.applyResScale();
@@ -241,7 +249,10 @@ export class LoomRuntime {
       this.set.dispose();
     }
     this.set = outcome.set;
-    this.set.resize(this.baseW, this.baseH);
+    this.resScale = Math.min(this.resScale, INITIAL_PIECE_SCALE);
+    this.dts = [];
+    this.goodWindows = 0;
+    this.applyResScale();
     this.frame = 0;
     this.fadeStart = performance.now();
     this.fadeMs = this.fadeTarget ? transition : 0;
@@ -282,6 +293,13 @@ export class LoomRuntime {
   private tick = (): void => {
     if (!this.running || this.disposed) return;
     const now = performance.now();
+    if (this.nextLiveFrameAt === 0) this.nextLiveFrameAt = now;
+    if (now + 0.5 < this.nextLiveFrameAt) {
+      this.raf = requestAnimationFrame(this.tick);
+      return;
+    }
+    this.nextLiveFrameAt += LIVE_FRAME_MIN_MS;
+    if (now - this.nextLiveFrameAt > LIVE_FRAME_MIN_MS) this.nextLiveFrameAt = now + LIVE_FRAME_MIN_MS;
     const dt = Math.min(0.1, Math.max(0.0001, (now - this.lastTick) / 1000));
     this.lastTick = now;
     this.watchdog(dt);
@@ -305,15 +323,15 @@ export class LoomRuntime {
 
   private watchdog(dt: number): void {
     this.dts.push(dt);
-    if (this.dts.length < 48) return;
+    if (this.dts.length < PERF_WINDOW_FRAMES) return;
     const avg = this.dts.reduce((a, b) => a + b, 0) / this.dts.length;
     this.dts = [];
     const idx = RES_STEPS.indexOf(this.resScale as (typeof RES_STEPS)[number]);
-    if (avg > 0.05 && idx < RES_STEPS.length - 1) {
+    if (avg > DOWNGRADE_FRAME_SECONDS && idx < RES_STEPS.length - 1) {
       this.resScale = RES_STEPS[idx + 1];
       this.goodWindows = 0;
       this.applyResScale();
-    } else if (avg < 0.022 && idx > 0 && ++this.goodWindows >= 4) {
+    } else if (avg < UPGRADE_FRAME_SECONDS && idx > 0 && ++this.goodWindows >= 4) {
       this.resScale = RES_STEPS[idx - 1];
       this.goodWindows = 0;
       this.applyResScale();
@@ -426,7 +444,7 @@ export class LoomRuntime {
     let t = this.time;
     for (let i = 0; i < frames; i++) {
       if (i > 0) {
-        const steps = Math.min(240, Math.max(1, Math.round(spacingSeconds * 60)));
+        const steps = Math.min(48, Math.max(1, Math.round(spacingSeconds * 12)));
         const stepDt = spacingSeconds / steps;
         for (let s = 0; s < steps; s++) {
           t += stepDt;
