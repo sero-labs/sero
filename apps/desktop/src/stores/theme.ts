@@ -159,6 +159,39 @@ function applyMode(mode: 'light' | 'dark'): void {
   }
 }
 
+// ── Windows title-bar overlay sync ───────────────────────────
+// The native overlay buttons (min/max/close) are drawn by Windows and
+// don't follow CSS — re-send the current chrome colors on theme change.
+// The rAF lets the just-applied CSS variables resolve first.
+function syncTitleBarOverlay(): void {
+  requestAnimationFrame(() => {
+    const styles = getComputedStyle(document.documentElement);
+    const color = styles.getPropertyValue('--bg-base').trim();
+    const symbolColor = styles.getPropertyValue('--text-secondary').trim();
+    if (!color || !symbolColor) return;
+    void window.sero.window.setOverlayColors({ color, symbolColor });
+  });
+}
+
+/**
+ * Keep the Windows overlay colors in sync with the theme. Call once on
+ * startup (App.tsx). The `ready` transition covers initial hydration —
+ * mode/preset changes fire before their CSS variables are applied, so a
+ * sync on those alone would read stale colors on first launch.
+ */
+export function listenForTitleBarOverlaySync(): () => void {
+  if (window.sero.platform !== 'win32') return () => {};
+  return useThemeStore.subscribe((state, prev) => {
+    if (
+      state.ready !== prev.ready ||
+      state.effectiveMode !== prev.effectiveMode ||
+      state.activePreset !== prev.activePreset
+    ) {
+      syncTitleBarOverlay();
+    }
+  });
+}
+
 // ── Hydration ────────────────────────────────────────────────
 
 /**

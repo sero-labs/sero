@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { FolderOpen, Bug, Sun, Moon, Monitor, GitBranch, Palette } from 'lucide-react';
 import { useAppStore } from '@/stores/app';
 import { useThemeStore } from '@/stores/theme';
+import { MAX_ZOOM, MIN_ZOOM, useZoomStore } from '@/stores/zoom';
 import { useActiveWorkspace } from '@/stores/workspace';
 import { DevServerIndicator } from '@/components/layout/DevServerPanel';
 import { useWorkspaceVcs, useVcsStore } from '@/stores/vcs';
@@ -11,7 +12,7 @@ import type { Bookmark } from '@sero-ai/common';
  * StatusBar, bottom bar showing workspace info (à la VSCode).
  *
  * Left side: active workspace name + path.
- * Right side: debug toggle, active agent count, version, theme.
+ * Right side: debug toggle, active agent count, zoom, version, theme.
  */
 export function StatusBar() {
   const theme = useAppStore((s) => s.theme);
@@ -21,7 +22,7 @@ export function StatusBar() {
   const vcsState = useWorkspaceVcs(activeWorkspace?.id ?? null);
 
   return (
-    <footer className="flex h-6 shrink-0 items-center justify-between border-t border-[var(--border-default)] bg-[var(--bg-base)] px-3 text-sm text-[var(--text-muted)]">
+    <footer className="chrome-zoom-invariant flex h-6 shrink-0 items-center justify-between border-t border-[var(--border-default)] bg-[var(--bg-base)] px-3 text-sm text-[var(--text-muted)]">
       {/* ── Left ──────────────────────────────────────────────── */}
       <div className="flex items-center gap-3">
         {activeWorkspace && (
@@ -50,6 +51,7 @@ export function StatusBar() {
           activePushBookmark={vcsState?.activePushBookmark ?? null}
           bookmarks={vcsState?.bookmarks ?? []}
         />
+        <ZoomControl />
         <span>Sero v0.1.0</span>
         <button type="button"
           onClick={toggleMode}
@@ -131,6 +133,45 @@ function ActivePushBranchPicker({
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Zoom control ──────────────────────────────────────────────
+
+function ZoomControl() {
+  const factor = useZoomStore((s) => s.factor);
+  const zoomIn = useZoomStore((s) => s.zoomIn);
+  const zoomOut = useZoomStore((s) => s.zoomOut);
+  const resetZoom = useZoomStore((s) => s.resetZoom);
+
+  return (
+    <div className="flex items-center">
+      <button type="button"
+        onClick={zoomOut}
+        disabled={factor <= MIN_ZOOM}
+        title="Zoom out (⌘−)"
+        aria-label="Zoom out"
+        className="rounded px-1 hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)] transition-colors disabled:opacity-40 disabled:hover:bg-transparent"
+      >
+        −
+      </button>
+      <button type="button"
+        onClick={resetZoom}
+        title="Reset zoom (⌘0)"
+        className="min-w-[42px] rounded px-1 text-center text-xs tabular-nums hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)] transition-colors"
+      >
+        {Math.round(factor * 100)}%
+      </button>
+      <button type="button"
+        onClick={zoomIn}
+        disabled={factor >= MAX_ZOOM}
+        title="Zoom in (⌘+)"
+        aria-label="Zoom in"
+        className="rounded px-1 hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)] transition-colors disabled:opacity-40 disabled:hover:bg-transparent"
+      >
+        +
+      </button>
     </div>
   );
 }

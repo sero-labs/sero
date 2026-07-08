@@ -25,6 +25,7 @@ import {
   useBrowserStore,
   useWorkspaceBrowserTabs,
 } from '@/stores/browser';
+import { useZoomStore } from '@/stores/zoom';
 import { useBrowserShortcuts } from '@/hooks/useBrowserShortcuts';
 import { useAppStore } from '@/stores/app';
 import { useComposerAttachmentQueue } from '@/stores/composer-attachments';
@@ -188,6 +189,9 @@ export function BrowserPanel({ workspaceId }: BrowserPanelProps) {
         void window.sero.browser.hideAll();
         return;
       }
+      // Send raw CSS-pixel bounds. The main process converts to DIP once at
+      // the boundary (multiplying by the page zoom factor) — see
+      // electron/ipc/apps/browser.ts. Multiplying here too would square it.
       const rect = el.getBoundingClientRect();
       const width = Math.max(0, Math.round(rect.width));
       const height = Math.max(0, Math.round(rect.height));
@@ -204,9 +208,14 @@ export function BrowserPanel({ workspaceId }: BrowserPanelProps) {
     const observer = new ResizeObserver(sync);
     observer.observe(el);
     window.addEventListener('resize', sync);
+    // Page zoom shifts the placeholder's screen rect (the counter-zoomed
+    // chrome changes height) and changes the main-process DIP conversion, so
+    // re-sync on zoom — without rebuilding the observer on every step.
+    const unsubscribeZoom = useZoomStore.subscribe(sync);
     return () => {
       observer.disconnect();
       window.removeEventListener('resize', sync);
+      unsubscribeZoom();
     };
   }, [activeTabId, capture, lightboxOpen, rendererOverlay.open]);
 
@@ -279,7 +288,7 @@ export function BrowserPanel({ workspaceId }: BrowserPanelProps) {
         report. The div itself stays blank, it only exists to reserve space
         and give the ResizeObserver something to track.
       */}
-      <div ref={viewportRef} className="relative min-h-0 flex-1 overflow-hidden">
+      <div ref={viewportRef} data-testid="browser-viewport" className="relative min-h-0 flex-1 overflow-hidden">
         {rendererOverlay.open && rendererOverlay.pngBase64 ? (
           <img
             src={`data:image/png;base64,${rendererOverlay.pngBase64}`}

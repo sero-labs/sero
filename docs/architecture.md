@@ -4,7 +4,7 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  TitleBar (⊞ toggle … Explorer — Workspace / Session … ⊟ chat)│
+│ TitleBar: [win ctrl] ⊞ ◀▶ Explorer·Workspace★  [chips]  ⟳ git profile ⌘K ⊟  [win ctrl] │
 ├──────────┬──────────────────────────────┬─┬─────────────────┤
 │  Main    │                              │║│                 │
 │  Sidebar │     Active App               │║│  Chat Panel     │
@@ -12,13 +12,35 @@
 │  + wksp  │                              │║│                 │
 │    tree) │                              │║│                 │
 ├──────────┴──────────────────────────────┴─┴─────────────────┤
-│  StatusBar (workspace · path · agents active)                │
+│  StatusBar (workspace · path · agents active · zoom)         │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-The shell is always present: TitleBar, StatusBar. The MainSidebar (left) and
-ChatPanel (right) are independently collapsible via toggle buttons in the
-TitleBar.
+The shell is always present: TitleBar (40px), StatusBar (24px). The
+MainSidebar (left) and ChatPanel (right) are independently collapsible via
+toggle buttons in the TitleBar.
+
+Both bars render at a constant physical size regardless of app zoom: they
+carry the `chrome-zoom-invariant` class, which counter-scales against the
+`--zoom-factor` CSS variable (`apps/desktop/src/styles/global.css`) set by
+`useZoomStore` (`src/stores/zoom.ts`). Only the active app content scales
+with `⌘+` / `⌘-` / `⌘0` (accelerators in the View menu,
+`electron/features/updater/menu.ts`); a zoom control (− % +) lives in the
+StatusBar. Zoom factor persists as `zoomFactor` in `layout.json`.
+
+### Window frame
+
+The native window frame differs per platform (`apps/desktop/electron/app-main.ts`,
+constants in `electron/chrome.ts`):
+
+- **macOS** — `titleBarStyle: 'hiddenInset'`, native traffic lights; the
+  TitleBar reserves a 78px spacer on the left.
+- **Windows** — `titleBarStyle: 'hidden'` with a native `titleBarOverlay`
+  (height 40px); the TitleBar reserves a 138px spacer on the right for the
+  overlay buttons.
+- **Linux** — `frame: false`; the TitleBar renders custom window controls
+  (`src/components/layout/titlebar/WindowControls.tsx`) on the right, driven
+  by the `sero:window:*` IPC channels exposed as `window.sero.window`.
 
 The active app and ChatPanel sit inside a `ResizablePanelGroup` in `App.tsx`.
 When the chat is collapsed, the panel group is replaced with a plain flex
@@ -100,11 +122,18 @@ src/
 
   components/
     layout/
-      TitleBar.tsx           Drag region, sidebar toggle, workspace/session breadcrumb
-      MainSidebar.tsx        Apps list + WorkspaceTree
-      WorkspaceTree.tsx      Workspace → session tree view with active indicators
-      ChatPanel.tsx          Agent chat (ai-elements), multi-agent aware
-      StatusBar.tsx          Workspace info, active agent count
+      shell/
+        TitleBar.tsx          Drag region, platform window-control area, composes titlebar/*
+        MainSidebar.tsx       Apps list + WorkspaceTree
+        ChatPanel.tsx         Agent chat (ai-elements), multi-agent aware
+        StatusBar.tsx         Workspace info, active agent count, zoom control
+      titlebar/
+        WindowControls.tsx    Linux custom minimize/maximize/close (sero:window:* IPC)
+        NavButtons.tsx        Back/forward buttons, bound to navigation.ts
+        TitleBarBreadcrumb.tsx App icon + name · workspace, pin/unpin star
+        ShortcutChips.tsx     Pinned-app icon chips, centered in the bar
+      workspace/
+        WorkspaceTree.tsx     Workspace → session tree view with active indicators
 
     apps/explorer/
       ExplorerWorkspace.tsx    Self-contained explorer app (no ProjectBar)
@@ -115,37 +144,71 @@ src/
     ui/                      shadcn/ui primitives (57 components)
 
   stores/
-    app.ts                   Shell-level Zustand store
+    app.ts                   Shell-level Zustand store (barrel over stores/app/)
     workspace.ts             Workspace registry + composite environment
     sessions.ts              Sessions grouped by workspace
     agent.ts                 Multi-session agent pool
+    navigation.ts            Back/forward app history (useNavigationStore)
+    zoom.ts                  Page zoom + zoom-invariant chrome (useZoomStore)
 
   hooks/
     useSessionAgent.ts       Bridges session selection → agent lifecycle
+    useKeyboardShortcuts.ts  ⌘[ / ⌘] navigation, mouse buttons 4/5, other shell shortcuts
+
+  lib/
+    open-app.ts              setActiveApp, navigateBack/navigateForward helpers
 
 electron/
   main.ts                    Electron main process + workspace init
-  preload.ts                 Preload script (window.sero)
+  app-main.ts                BrowserWindow creation; per-platform frame/titleBarStyle
+  chrome.ts                  Shared chrome constants (bar height, colors)
+  preload.ts                 Preload script (window.sero, incl. window.sero.window)
   workspace.ts               WorkspaceManager (registry + config + composite env)
   sero-extension.ts          Inline PI extension factory (composite prompt, @ws:, commands)
   env.ts                     .env loader
+  features/updater/menu.ts   Application menu — View menu zoom accelerators (⌘+/⌘-/⌘0)
   ipc/
     index.ts                 IPC handler registry
     workspace.ts             Workspace IPC handlers + native folder picker
     sessions.ts              Session IPC handlers (workspace-scoped)
     agent.ts                 AgentPool — multiple simultaneous AgentSessions
+    platform/system/window.ts  sero:window:* handlers (minimize/maximize/close, overlay colors)
 ```
 
 ## State Management
 
 ### Shell (Zustand: `src/stores/app.ts`)
 
-| State             | Type             | Description                           |
-| ----------------- | ---------------- | ------------------------------------- |
-| `mainSidebarOpen` | `boolean`        | MainSidebar visibility                |
-| `chatPanelOpen`   | `boolean`        | ChatPanel visibility                  |
-| `activeApp`       | `AppId`          | Which app is mounted in the main area |
-| `theme`           | `'dark'|'light'` | Theme, synced to `<html>` class       |
+| State              | Type             | Description                                              |
+| ------------------ | ---------------- | --------------------------------------------------------- |
+| `mainSidebarOpen`  | `boolean`        | MainSidebar visibility                                    |
+| `chatPanelOpen`    | `boolean`        | ChatPanel visibility                                      |
+| `activeApp`        | `AppId`          | Which app is mounted in the main area                     |
+| `theme`            | `'dark'|'light'` | Theme, synced to `<html>` class                            |
+| `favouriteApps`    | `string[]`       | Apps pinned in the MainSidebar                             |
+| `chromeShortcuts`  | `string[]`       | Apps pinned as icon chips in the TitleBar (max 8, first run seeds from `dashboard` + `favouriteApps`) |
+
+### Navigation (Zustand: `src/stores/navigation.ts`)
+
+| State     | Type          | Description                                                |
+| --------- | ------------- | ------------------------------------------------------------ |
+| `entries` | `NavEntry[]`  | Capped 50-entry history of visited apps (session-only)       |
+| `index`   | `number`      | Cursor into `entries`                                         |
+
+`push`/`back`/`forward` back the TitleBar's back/forward buttons
+(`src/components/layout/titlebar/NavButtons.tsx`), the `⌘[` / `⌘]`
+shortcuts, and mouse buttons 4/5 (`src/hooks/useKeyboardShortcuts.ts`).
+`setActiveApp(app, { skipHistory? })` in `src/lib/open-app.ts` pushes new
+entries; history-driven navigation passes `skipHistory: true`.
+
+### Zoom (Zustand: `src/stores/zoom.ts`)
+
+| State    | Type     | Persisted             | Description                          |
+| -------- | -------- | ---------------------- | ------------------------------------- |
+| `factor` | `number` | `zoomFactor` (layout.json) | Page zoom applied via `webFrame.setZoomFactor` |
+
+Driven by the View menu's `⌘+` / `⌘-` / `⌘0` accelerators
+(`electron/features/updater/menu.ts`) and the StatusBar zoom control.
 
 ### Workspaces (Zustand: `src/stores/workspace.ts`)
 

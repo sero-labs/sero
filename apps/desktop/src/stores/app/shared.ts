@@ -14,6 +14,10 @@ export function isManifestHostSupported(manifest: SeroAppManifest | null): boole
   return manifest?.hostCompatibility?.supported !== false;
 }
 
+export function isAppEntrySupported(app: AppEntry): boolean {
+  return app.builtin || isManifestHostSupported(app.manifest);
+}
+
 export type Theme = 'dark' | 'light';
 
 export const BUILTIN_APPS: AppEntry[] = [
@@ -23,6 +27,7 @@ export const BUILTIN_APPS: AppEntry[] = [
 
 export const BUILTIN_APP_IDS = new Set(BUILTIN_APPS.map((app) => app.id));
 export const DEFAULT_FAVOURITE_APP_IDS = ['admin', 'cron', 'git'] as const;
+export const MAX_CHROME_SHORTCUTS = 8;
 
 /** Map a SeroAppManifest → AppEntry. */
 export function manifestToEntry(manifest: SeroAppManifest): AppEntry {
@@ -35,21 +40,55 @@ export function manifestToEntry(manifest: SeroAppManifest): AppEntry {
   };
 }
 
-export function normaliseFavouriteApps(favouriteApps: string[] | undefined): string[] {
-  if (favouriteApps === undefined) return [...DEFAULT_FAVOURITE_APP_IDS];
-
+function dedupeIds(ids: string[], options: { exclude?: Set<string>; max?: number } = {}): string[] {
   const seen = new Set<string>();
   const next: string[] = [];
-  for (const id of favouriteApps) {
+  for (const id of ids) {
     const normalized = id.trim();
-    if (!normalized) continue;
-    if (BUILTIN_APP_IDS.has(normalized)) continue;
-    if (seen.has(normalized)) continue;
+    if (!normalized || seen.has(normalized) || options.exclude?.has(normalized)) continue;
     seen.add(normalized);
     next.push(normalized);
+    if (options.max !== undefined && next.length >= options.max) break;
   }
-
   return next;
+}
+
+export function normaliseFavouriteApps(favouriteApps: string[] | undefined): string[] {
+  if (favouriteApps === undefined) return [...DEFAULT_FAVOURITE_APP_IDS];
+  return dedupeIds(favouriteApps, { exclude: BUILTIN_APP_IDS });
+}
+
+/** Default chrome shortcuts: seeded from the sidebar favourites. */
+export function defaultChromeShortcuts(favouriteApps: readonly string[]): string[] {
+  return ['dashboard', ...favouriteApps];
+}
+
+/**
+ * Normalise persisted chrome shortcuts. First run (no persisted key) seeds
+ * from the sidebar favourites so existing users start with familiar pins.
+ * Unlike sidebar favourites, built-in apps can be pinned too.
+ */
+export function normaliseChromeShortcuts(
+  shortcuts: string[] | undefined,
+  favouriteApps: string[],
+): string[] {
+  return dedupeIds(shortcuts ?? defaultChromeShortcuts(favouriteApps), {
+    max: MAX_CHROME_SHORTCUTS,
+  });
+}
+
+export function normaliseChromeShortcutsForApps(shortcuts: string[], apps: AppEntry[]): string[] {
+  const supportedIds = new Set(
+    apps.filter(isAppEntrySupported).map((app) => app.id),
+  );
+  return dedupeIds(shortcuts.filter((id) => supportedIds.has(id)), {
+    max: MAX_CHROME_SHORTCUTS,
+  });
+}
+
+/** True when the pin cap is reached (counting only currently-valid shortcuts). */
+export function isChromeShortcutsFull(shortcuts: string[], apps: AppEntry[]): boolean {
+  return normaliseChromeShortcutsForApps(shortcuts, apps).length >= MAX_CHROME_SHORTCUTS;
 }
 
 export function getDiscoveredApps(apps: AppEntry[]): AppEntry[] {
@@ -61,7 +100,7 @@ export function getSidebarApps(apps: AppEntry[], favouriteApps: string[]): AppEn
   const discoveredById = new Map<string, AppEntry>();
 
   for (const app of apps) {
-    if (app.builtin || !isManifestHostSupported(app.manifest)) continue;
+    if (app.builtin || !isAppEntrySupported(app)) continue;
     discoveredById.set(app.id, app);
   }
 

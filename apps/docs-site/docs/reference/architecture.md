@@ -49,7 +49,8 @@ The shell centers around:
 
 ```text
 ┌──────────────────────────────────────────────────────────────┐
-│ Title bar: app context, command menu, shell actions           │
+│ Title bar: window controls, back/forward, app context,        │
+│ pinned shortcuts, command menu, shell actions                 │
 ├──────────────┬──────────────────────────────┬────────────────┤
 │ Main sidebar │ Active app area              │ Global chat    │
 │              │                              │ panel          │
@@ -57,9 +58,12 @@ The shell centers around:
 │ Workspaces   │ Plugin UI                    │ session        │
 │ Sessions     │                              │                │
 ├──────────────┴──────────────────────────────┴────────────────┤
-│ Status bar: workspace/runtime/session state                   │
+│ Status bar: workspace/runtime/session state, zoom control     │
 └──────────────────────────────────────────────────────────────┘
 ```
+
+The title bar and status bar stay a fixed physical size at any zoom level;
+only the active app area scales.
 
 ![Sero shell with sidebar, active Explorer app, and agent chat panel](../assets/images/explorer-view.jpg)
 

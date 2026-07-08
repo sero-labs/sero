@@ -17,6 +17,7 @@ import { registerWebAppHandlers } from './apps/web-app';
 import { registerBrowserHandlers } from './apps/browser';
 import { registerVoiceHandlers } from './agent/handlers/voice';
 import { registerShellHandlers } from './platform/system/shell';
+import { registerWindowHandlers } from './platform/system/window';
 import { registerAppStateHandlers } from './apps/app-state';
 import { registerAppsHandlers } from './apps/apps';
 import { registerAuthHandlers } from './platform/auth/auth';
@@ -63,6 +64,7 @@ export function registerAllIpcHandlers(): void {
   registerBrowserHandlers();
   registerVoiceHandlers();
   registerShellHandlers();
+  registerWindowHandlers();
   registerAppStateHandlers();
   registerAppsHandlers();
   registerAuthHandlers();

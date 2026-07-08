@@ -74,7 +74,8 @@ export const useUserFeedbackStore = create<UserFeedbackState>((set, get) => {
     if (!shouldExitFeedbackApp) return;
     if (!appStore.apps.some((app) => app.id === returnApp)) return;
 
-    appStore.setActiveApp(returnApp);
+    // System-driven redirect, not user navigation — keep it out of history.
+    appStore.setActiveApp(returnApp, { skipHistory: true });
   };
 
   const clearPending = (id: string) => {
@@ -118,7 +119,7 @@ export const useUserFeedbackStore = create<UserFeedbackState>((set, get) => {
       if (returnTarget !== USER_FEEDBACK_APP_ID) {
         set({ returnApp: returnTarget });
       }
-      appStore.setActiveApp(USER_FEEDBACK_APP_ID);
+      appStore.setActiveApp(USER_FEEDBACK_APP_ID, { skipHistory: true });
     },
 
     async answer(id, answers) {

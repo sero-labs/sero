@@ -33,6 +33,7 @@ import {
   handlePluginChange,
   listenForNewApps,
   useAppStore,
+  type AppEntry,
 } from './app';
 
 function createManifest(
@@ -147,6 +148,34 @@ describe('discoverAndRegisterApps', () => {
 
     expect(useAppStore.getState().activeApp).toBe('dashboard');
     expect(useAppStore.getState().favouriteApps).toEqual(['notes']);
+  });
+
+  it('drops missing and unsupported chrome shortcuts when discovered apps change', async () => {
+    discover.mockResolvedValue([
+      createManifest('notes', 'NotesApp', 4102),
+      createManifest('future-plugin', 'FuturePluginApp', 4103, {
+        isPlugin: true,
+        hostCompatibility: {
+          supported: false,
+          hostVersion: '0.1.0',
+          issues: [{
+            kind: 'minSeroVersion',
+            message: 'Requires Sero 9.9.9 or newer.',
+            expected: '9.9.9',
+            actual: '0.1.0',
+          }],
+        },
+      }),
+    ]);
+
+    useAppStore.setState({
+      ...useAppStore.getState(),
+      chromeShortcuts: ['dashboard', 'notes', 'future-plugin', 'missing'],
+    });
+
+    await discoverAndRegisterApps();
+
+    expect(useAppStore.getState().chromeShortcuts).toEqual(['dashboard', 'notes']);
   });
 
   it('falls back to dashboard and drops missing favourites when discovered apps change', async () => {
@@ -373,5 +402,36 @@ describe('discoverAndRegisterApps', () => {
 
     expect(federationMocks.invalidateRemote).toHaveBeenCalledWith('todo');
     expect(useAppStore.getState().apps.some((app) => app.id === 'todo')).toBe(false);
+  });
+});
+
+describe('toggleChromeShortcut', () => {
+  const initialState = useAppStore.getState();
+
+  function entry(id: string, builtin = false): AppEntry {
+    return { id, label: id, icon: 'Box', builtin, manifest: null };
+  }
+
+  beforeEach(() => {
+    (window as Window & { sero: any }).sero = {
+      layout: { save: vi.fn().mockResolvedValue(undefined) },
+    };
+  });
+
+  afterEach(() => {
+    useAppStore.setState(initialState, true);
+  });
+
+  it('preserves pins whose app is not loaded yet when toggling', () => {
+    // 'notes' is pinned but not yet in `apps` (startup discovery window).
+    useAppStore.setState({
+      ...initialState,
+      apps: [entry('dashboard', true), entry('todo')],
+      chromeShortcuts: ['notes'],
+    }, true);
+
+    useAppStore.getState().toggleChromeShortcut('todo');
+
+    expect(useAppStore.getState().chromeShortcuts).toEqual(['notes', 'todo']);
   });
 });

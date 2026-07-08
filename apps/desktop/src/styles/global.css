@@ -20,13 +20,22 @@
   }
 }
 
-/* ── Drag region (macOS title bar) ──────────────────────────── */
+/* ── Drag region (custom title bar) ─────────────────────────── */
 .drag-region {
   -webkit-app-region: drag;
 }
 
 .no-drag {
   -webkit-app-region: no-drag;
+}
+
+/* ── Zoom-invariant chrome ──────────────────────────────────── */
+/* The zoom store mirrors the page zoom factor into --zoom-factor.
+   Counter-zooming the title/status bars keeps them at a constant
+   physical size, aligned with the native window controls (macOS
+   traffic lights, Windows overlay buttons) at every zoom level. */
+.chrome-zoom-invariant {
+  zoom: calc(1 / var(--zoom-factor, 1));
 }
 
 /* ── react-grid-layout overrides ────────────────────────────── */
