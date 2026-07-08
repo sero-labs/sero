@@ -17,6 +17,13 @@ export interface NavEntry {
   viewId?: string;
 }
 
+export type NavigationDirection = -1 | 1;
+
+export interface NavigationTarget {
+  entry: NavEntry;
+  index: number;
+}
+
 const HISTORY_LIMIT = 50;
 
 interface NavigationState {
@@ -57,6 +64,19 @@ export const useNavigationStore = create<NavigationState>((set, get) => ({
     return entries[index + 1];
   },
 }));
+
+export function findNavigationTarget(
+  entries: NavEntry[],
+  index: number,
+  direction: NavigationDirection,
+  canUse: (entry: NavEntry) => boolean,
+): NavigationTarget | null {
+  for (let cursor = index + direction; cursor >= 0 && cursor < entries.length; cursor += direction) {
+    const entry = entries[cursor];
+    if (entry && canUse(entry)) return { entry, index: cursor };
+  }
+  return null;
+}
 
 /** Seed history with the app restored on startup. Call once after layout hydration. */
 export function seedNavigationHistory(appId: string): void {

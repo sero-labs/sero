@@ -1,5 +1,6 @@
 import { Tooltip, TooltipContent, TooltipTrigger } from '@sero-ai/ui/components/ui/tooltip';
-import { useAppStore } from '@/stores/app';
+import { useAppStore, type AppEntry } from '@/stores/app';
+import { isAppEntrySupported } from '@/stores/app/shared';
 import { getAppIcon } from '@/lib/app-icons';
 import { openApp } from '@/lib/open-app';
 
@@ -15,7 +16,7 @@ export function ShortcutChips() {
 
   const entries = shortcuts
     .map((id) => apps.find((app) => app.id === id))
-    .filter((entry) => entry !== undefined);
+    .filter((entry): entry is AppEntry => entry !== undefined && isAppEntrySupported(entry));
 
   if (entries.length === 0) return null;
 

@@ -12,13 +12,19 @@ import {
   getPriorityPreloadApps,
   isManifestHostSupported,
   manifestToEntry,
+  normaliseChromeShortcutsForApps,
   type AppEntry,
 } from './shared';
 import { useAppStore } from './state';
 
 function reconcileDiscoveredApps(discovered: AppEntry[]): void {
   const nextApps = [...BUILTIN_APPS, ...discovered];
-  const { activeApp, pendingApp, favouriteApps } = useAppStore.getState();
+  const {
+    activeApp,
+    pendingApp,
+    favouriteApps,
+    chromeShortcuts,
+  } = useAppStore.getState();
   const validIds = new Set(
     nextApps
       .filter((app) => app.builtin || isManifestHostSupported(app.manifest))
@@ -28,12 +34,14 @@ function reconcileDiscoveredApps(discovered: AppEntry[]): void {
   const nextActiveApp = validIds.has(activeApp) ? activeApp : 'dashboard';
   const nextPendingApp = pendingApp && validIds.has(pendingApp) ? pendingApp : null;
   const nextFavouriteApps = favouriteApps.filter((id) => validIds.has(id) && !BUILTIN_APP_IDS.has(id));
+  const nextChromeShortcuts = normaliseChromeShortcutsForApps(chromeShortcuts, nextApps);
 
   useAppStore.setState({
     apps: nextApps,
     activeApp: nextActiveApp,
     pendingApp: nextPendingApp,
     favouriteApps: nextFavouriteApps,
+    chromeShortcuts: nextChromeShortcuts,
   });
 
   if (nextActiveApp !== activeApp) {
@@ -42,6 +50,10 @@ function reconcileDiscoveredApps(discovered: AppEntry[]): void {
 
   if (!areStringArraysEqual(nextFavouriteApps, favouriteApps)) {
     persistLayout({ favouriteApps: nextFavouriteApps });
+  }
+
+  if (!areStringArraysEqual(nextChromeShortcuts, chromeShortcuts)) {
+    persistLayout({ chromeShortcuts: nextChromeShortcuts });
   }
 }
 

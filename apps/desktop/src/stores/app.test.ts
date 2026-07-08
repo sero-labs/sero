@@ -149,6 +149,34 @@ describe('discoverAndRegisterApps', () => {
     expect(useAppStore.getState().favouriteApps).toEqual(['notes']);
   });
 
+  it('drops missing and unsupported chrome shortcuts when discovered apps change', async () => {
+    discover.mockResolvedValue([
+      createManifest('notes', 'NotesApp', 4102),
+      createManifest('future-plugin', 'FuturePluginApp', 4103, {
+        isPlugin: true,
+        hostCompatibility: {
+          supported: false,
+          hostVersion: '0.1.0',
+          issues: [{
+            kind: 'minSeroVersion',
+            message: 'Requires Sero 9.9.9 or newer.',
+            expected: '9.9.9',
+            actual: '0.1.0',
+          }],
+        },
+      }),
+    ]);
+
+    useAppStore.setState({
+      ...useAppStore.getState(),
+      chromeShortcuts: ['dashboard', 'notes', 'future-plugin', 'missing'],
+    });
+
+    await discoverAndRegisterApps();
+
+    expect(useAppStore.getState().chromeShortcuts).toEqual(['dashboard', 'notes']);
+  });
+
   it('falls back to dashboard and drops missing favourites when discovered apps change', async () => {
     discover.mockResolvedValue([
       createManifest('notes', 'NotesApp', 4102),

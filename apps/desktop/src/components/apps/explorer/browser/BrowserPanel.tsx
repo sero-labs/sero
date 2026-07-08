@@ -20,11 +20,13 @@ import { BookmarksBar } from './BookmarksBar';
 import { BrowserTabs } from './BrowserTabs';
 import { BrowserToolbar } from './BrowserToolbar';
 import { ScreenshotOverlay } from './ScreenshotOverlay';
+import { toBrowserViewBounds } from './browser-view-bounds';
 import {
   useActiveBrowserTabId,
   useBrowserStore,
   useWorkspaceBrowserTabs,
 } from '@/stores/browser';
+import { useZoomStore } from '@/stores/zoom';
 import { useBrowserShortcuts } from '@/hooks/useBrowserShortcuts';
 import { useAppStore } from '@/stores/app';
 import { useComposerAttachmentQueue } from '@/stores/composer-attachments';
@@ -71,6 +73,7 @@ export function BrowserPanel({ workspaceId }: BrowserPanelProps) {
   const reload = useBrowserStore((s) => s.reload);
   const stop = useBrowserStore((s) => s.stop);
   const sharePageWithChat = useBrowserStore((s) => s.sharePageWithChat);
+  const zoomFactor = useZoomStore((s) => s.factor);
   const lightboxOpen = useLightbox((s) => s.open);
 
   const viewportRef = useRef<HTMLDivElement | null>(null);
@@ -189,15 +192,9 @@ export function BrowserPanel({ workspaceId }: BrowserPanelProps) {
         return;
       }
       const rect = el.getBoundingClientRect();
-      const width = Math.max(0, Math.round(rect.width));
-      const height = Math.max(0, Math.round(rect.height));
-      if (width === 0 || height === 0) return;
-      void window.sero.browser.setBounds({
-        x: Math.round(rect.left),
-        y: Math.round(rect.top),
-        width,
-        height,
-      });
+      const bounds = toBrowserViewBounds(rect, zoomFactor);
+      if (bounds.width === 0 || bounds.height === 0) return;
+      void window.sero.browser.setBounds(bounds);
     };
 
     sync();
@@ -208,7 +205,7 @@ export function BrowserPanel({ workspaceId }: BrowserPanelProps) {
       observer.disconnect();
       window.removeEventListener('resize', sync);
     };
-  }, [activeTabId, capture, lightboxOpen, rendererOverlay.open]);
+  }, [activeTabId, capture, lightboxOpen, rendererOverlay.open, zoomFactor]);
 
   const startCapture = useCallback(async () => {
     if (!activeTab) return;

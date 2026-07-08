@@ -2,7 +2,7 @@ import { Button } from '@sero-ai/ui/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@sero-ai/ui/components/ui/tooltip';
 import { Star } from 'lucide-react';
 import { useAppStore } from '@/stores/app';
-import { MAX_CHROME_SHORTCUTS } from '@/stores/app/shared';
+import { MAX_CHROME_SHORTCUTS, normaliseChromeShortcutsForApps } from '@/stores/app/shared';
 import { useActiveWorkspace } from '@/stores/workspace';
 import { getAppIcon } from '@/lib/app-icons';
 
@@ -11,7 +11,9 @@ export function TitleBarBreadcrumb() {
   const activeApp = useAppStore((s) => s.activeApp);
   const apps = useAppStore((s) => s.apps);
   const pinned = useAppStore((s) => s.isChromeShortcut(s.activeApp));
-  const atCap = useAppStore((s) => s.chromeShortcuts.length >= MAX_CHROME_SHORTCUTS);
+  const atCap = useAppStore(
+    (s) => normaliseChromeShortcutsForApps(s.chromeShortcuts, s.apps).length >= MAX_CHROME_SHORTCUTS,
+  );
   const toggleChromeShortcut = useAppStore((s) => s.toggleChromeShortcut);
   const activeWorkspace = useActiveWorkspace();
 

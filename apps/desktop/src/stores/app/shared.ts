@@ -14,6 +14,10 @@ export function isManifestHostSupported(manifest: SeroAppManifest | null): boole
   return manifest?.hostCompatibility?.supported !== false;
 }
 
+export function isAppEntrySupported(app: AppEntry): boolean {
+  return app.builtin || isManifestHostSupported(app.manifest);
+}
+
 export type Theme = 'dark' | 'light';
 
 export const BUILTIN_APPS: AppEntry[] = [
@@ -73,6 +77,15 @@ export function normaliseChromeShortcuts(
   });
 }
 
+export function normaliseChromeShortcutsForApps(shortcuts: string[], apps: AppEntry[]): string[] {
+  const supportedIds = new Set(
+    apps.filter(isAppEntrySupported).map((app) => app.id),
+  );
+  return dedupeIds(shortcuts.filter((id) => supportedIds.has(id)), {
+    max: MAX_CHROME_SHORTCUTS,
+  });
+}
+
 export function getDiscoveredApps(apps: AppEntry[]): AppEntry[] {
   return apps.filter((app) => !app.builtin);
 }
@@ -82,7 +95,7 @@ export function getSidebarApps(apps: AppEntry[], favouriteApps: string[]): AppEn
   const discoveredById = new Map<string, AppEntry>();
 
   for (const app of apps) {
-    if (app.builtin || !isManifestHostSupported(app.manifest)) continue;
+    if (app.builtin || !isAppEntrySupported(app)) continue;
     discoveredById.set(app.id, app);
   }
 

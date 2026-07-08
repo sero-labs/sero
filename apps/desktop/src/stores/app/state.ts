@@ -12,8 +12,11 @@ import {
   BUILTIN_APPS,
   DEFAULT_FAVOURITE_APP_IDS,
   MAX_CHROME_SHORTCUTS,
+  areStringArraysEqual,
   defaultChromeShortcuts,
+  isAppEntrySupported,
   isManifestHostSupported,
+  normaliseChromeShortcutsForApps,
   type AppEntry,
   type Theme,
 } from './shared';
@@ -166,11 +169,21 @@ export const useAppStore = create<AppState>((set, get) => ({
   // Chrome shortcuts — hydrated from layout (seeded from favourites on first run)
   chromeShortcuts: defaultChromeShortcuts(DEFAULT_FAVOURITE_APP_IDS),
   toggleChromeShortcut: (appId) => {
-    const current = get().chromeShortcuts;
+    const { apps, chromeShortcuts } = get();
+    const app = apps.find((candidate) => candidate.id === appId);
+    if (!app || !isAppEntrySupported(app)) return;
+
+    const current = normaliseChromeShortcutsForApps(chromeShortcuts, apps);
     const next = current.includes(appId)
       ? current.filter((id) => id !== appId)
       : [...current, appId];
-    if (next.length > MAX_CHROME_SHORTCUTS) return;
+    if (next.length > MAX_CHROME_SHORTCUTS) {
+      if (!areStringArraysEqual(current, chromeShortcuts)) {
+        set({ chromeShortcuts: current });
+        persistLayout({ chromeShortcuts: current });
+      }
+      return;
+    }
 
     set({ chromeShortcuts: next });
     persistLayout({ chromeShortcuts: next });
