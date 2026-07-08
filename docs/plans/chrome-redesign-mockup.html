@@ -1,0 +1,775 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sero Chrome Redesign — Interactive Mockup</title>
+<style>
+  /* ── Page tokens (Sero palette, viewer-theme aware) ─────────────── */
+  :root {
+    --pg-bg: #f4f5f7;
+    --pg-surface: #ffffff;
+    --pg-elevated: #eaecf0;
+    --pg-border: #d4d8e0;
+    --pg-border-strong: #bcc1cc;
+    --pg-text: #0f1117;
+    --pg-text-2: #3b4252;
+    --pg-text-3: #6b7280;
+    --pg-accent: #059669;
+    --pg-accent-soft: rgba(5, 150, 105, 0.12);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --pg-bg: #0a0a0b;
+      --pg-surface: #111113;
+      --pg-elevated: #18181b;
+      --pg-border: #27272a;
+      --pg-border-strong: #3f3f46;
+      --pg-text: #fafafa;
+      --pg-text-2: #a1a1aa;
+      --pg-text-3: #71717a;
+      --pg-accent: #34d399;
+      --pg-accent-soft: rgba(52, 211, 153, 0.14);
+    }
+  }
+  :root[data-theme="light"] {
+    --pg-bg: #f4f5f7;
+    --pg-surface: #ffffff;
+    --pg-elevated: #eaecf0;
+    --pg-border: #d4d8e0;
+    --pg-border-strong: #bcc1cc;
+    --pg-text: #0f1117;
+    --pg-text-2: #3b4252;
+    --pg-text-3: #6b7280;
+    --pg-accent: #059669;
+    --pg-accent-soft: rgba(5, 150, 105, 0.12);
+  }
+  :root[data-theme="dark"] {
+    --pg-bg: #0a0a0b;
+    --pg-surface: #111113;
+    --pg-elevated: #18181b;
+    --pg-border: #27272a;
+    --pg-border-strong: #3f3f46;
+    --pg-text: #fafafa;
+    --pg-text-2: #a1a1aa;
+    --pg-text-3: #71717a;
+    --pg-accent: #34d399;
+    --pg-accent-soft: rgba(52, 211, 153, 0.14);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--pg-bg);
+    color: var(--pg-text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-size: 15px;
+    line-height: 1.55;
+    padding: 40px 24px 72px;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; }
+  kbd {
+    font-family: ui-monospace, "JetBrains Mono", SFMono-Regular, Menlo, monospace;
+    font-size: 0.78em;
+    background: var(--pg-elevated);
+    border: 1px solid var(--pg-border);
+    border-bottom-width: 2px;
+    border-radius: 4px;
+    padding: 1px 5px;
+  }
+
+  /* ── Page header ────────────────────────────────────────────────── */
+  .eyebrow {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--pg-accent); margin: 0 0 6px;
+  }
+  h1 {
+    font-size: 27px; font-weight: 650; letter-spacing: -0.01em;
+    margin: 0 0 8px; text-wrap: balance;
+  }
+  .lede { color: var(--pg-text-2); max-width: 62ch; margin: 0 0 28px; }
+
+  /* ── Control strip ──────────────────────────────────────────────── */
+  .controls {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 20px;
+    margin-bottom: 14px;
+  }
+  .control-group { display: flex; align-items: center; gap: 8px; }
+  .control-label { font-size: 12px; font-weight: 600; color: var(--pg-text-3); }
+  .seg {
+    display: inline-flex; background: var(--pg-elevated);
+    border: 1px solid var(--pg-border); border-radius: 7px; padding: 2px;
+  }
+  .seg button {
+    appearance: none; border: 0; background: transparent; color: var(--pg-text-2);
+    font: inherit; font-size: 12.5px; font-weight: 550; padding: 4px 12px;
+    border-radius: 5px; cursor: pointer;
+  }
+  .seg button[aria-pressed="true"] {
+    background: var(--pg-surface); color: var(--pg-text);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.18);
+  }
+  .seg button:focus-visible, .toggle:focus-visible {
+    outline: 2px solid var(--pg-accent); outline-offset: 1px;
+  }
+  .toggle {
+    appearance: none; font: inherit; font-size: 12.5px; font-weight: 550;
+    color: var(--pg-text-2); background: var(--pg-elevated);
+    border: 1px solid var(--pg-border); border-radius: 7px;
+    padding: 5px 12px; cursor: pointer;
+  }
+  .toggle[aria-pressed="true"] {
+    color: var(--pg-accent); border-color: var(--pg-accent);
+    background: var(--pg-accent-soft);
+  }
+  .try-hint { font-size: 12.5px; color: var(--pg-text-3); }
+
+  /* ══ Mock window ═════════════════════════════════════════════════ */
+  .window {
+    /* Sero tokens, dark (app default) */
+    --w-base: #0a0a0b; --w-surface: #111113; --w-elevated: #18181b;
+    --w-overlay: #1f1f23; --w-border: #3f3f46; --w-border-subtle: #27272a;
+    --w-text: #fafafa; --w-text-2: #a1a1aa; --w-text-3: #71717a;
+    --w-brand: #34d399; --w-brand-soft: rgba(52, 211, 153, 0.12);
+    --w-danger: #ef4444;
+    --chrome-h: 40px; --status-h: 24px;
+
+    position: relative;
+    background: var(--w-base); color: var(--w-text);
+    border: 1px solid var(--pg-border-strong); border-radius: 10px;
+    box-shadow: 0 24px 60px -24px rgba(0,0,0,0.5);
+    height: 560px; overflow: hidden;
+    font-size: 13px;
+  }
+  .window.light {
+    --w-base: #ffffff; --w-surface: #f4f5f7; --w-elevated: #eaecf0;
+    --w-overlay: #dde0e6; --w-border: #bcc1cc; --w-border-subtle: #d4d8e0;
+    --w-text: #0f1117; --w-text-2: #3b4252; --w-text-3: #6b7280;
+    --w-brand: #059669; --w-brand-soft: rgba(5, 150, 105, 0.10);
+    --w-danger: #dc2626;
+  }
+  .window svg { display: block; }
+
+  /* ── Header (title bar) ── */
+  .tb {
+    display: flex; align-items: center; gap: 6px;
+    height: var(--chrome-h); flex-shrink: 0;
+    background: var(--w-base);
+    border-bottom: 1px solid var(--w-border-subtle);
+    padding: 0 0 0 10px;
+    position: relative;
+    user-select: none;
+  }
+  .window[data-platform="mac"] .tb { padding-left: 0; }
+
+  .traffic { display: none; align-items: center; gap: 8px; padding: 0 14px 0 12px; }
+  .window[data-platform="mac"] .traffic { display: flex; }
+  .traffic i { width: 12px; height: 12px; border-radius: 50%; }
+  .traffic i:nth-child(1) { background: #ff5f57; }
+  .traffic i:nth-child(2) { background: #febc2e; }
+  .traffic i:nth-child(3) { background: #28c840; }
+
+  .tb-btn {
+    appearance: none; border: 0; background: transparent; color: var(--w-text-2);
+    width: 28px; height: 28px; border-radius: 6px; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+    flex-shrink: 0; padding: 0;
+  }
+  .tb-btn:hover { background: var(--w-elevated); color: var(--w-text); }
+  .tb-btn:disabled { opacity: 0.35; cursor: default; }
+  .tb-btn:disabled:hover { background: transparent; color: var(--w-text-2); }
+  .tb-btn:focus-visible { outline: 2px solid var(--w-brand); outline-offset: -2px; }
+
+  .nav-cluster { display: flex; align-items: center; gap: 2px; position: relative; }
+
+  .crumb {
+    display: flex; align-items: center; gap: 7px;
+    margin-left: 6px; padding: 4px 4px 4px 8px; border-radius: 6px;
+    min-width: 0; position: relative;
+  }
+  .crumb .app-ico { color: var(--w-brand); flex-shrink: 0; }
+  .crumb-label { font-weight: 550; white-space: nowrap; }
+  .crumb-ws { color: var(--w-text-3); white-space: nowrap; }
+  .pin-btn { width: 24px; height: 24px; border-radius: 5px; color: var(--w-text-3); }
+  .pin-btn.pinned { color: var(--w-brand); }
+
+  .chips {
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    gap: 4px; min-width: 0; height: 100%; position: relative;
+  }
+  .chip {
+    appearance: none; border: 0; cursor: pointer; padding: 0;
+    width: 30px; height: 28px; border-radius: 6px;
+    background: transparent; color: var(--w-text-2);
+    display: inline-flex; align-items: center; justify-content: center;
+    position: relative;
+  }
+  .chip:hover { background: var(--w-elevated); color: var(--w-text); }
+  .chip:focus-visible { outline: 2px solid var(--w-brand); outline-offset: -2px; }
+  .chip.active { background: var(--w-elevated); color: var(--w-brand); }
+  .chip.active::after {
+    content: ""; position: absolute; left: 9px; right: 9px; bottom: -1px;
+    height: 2px; border-radius: 2px; background: var(--w-brand);
+  }
+
+  .right-cluster { display: flex; align-items: center; gap: 4px; padding-right: 8px; position: relative; }
+  .window[data-platform="windows"] .right-cluster,
+  .window[data-platform="linux"] .right-cluster { padding-right: 4px; }
+  .ship-pill {
+    appearance: none; cursor: pointer;
+    display: none; align-items: center; gap: 6px;
+    font: inherit; font-size: 12px; font-weight: 550;
+    color: var(--w-brand); background: var(--w-brand-soft);
+    border: 1px solid transparent; border-radius: 999px;
+    padding: 3px 11px; margin-right: 4px;
+  }
+  .window[data-app="git"] .ship-pill { display: inline-flex; }
+  .kbd-hint {
+    font-family: ui-monospace, "JetBrains Mono", Menlo, monospace;
+    font-size: 11px; color: var(--w-text-3);
+    border: 1px solid var(--w-border-subtle); border-radius: 5px;
+    padding: 2px 6px; margin: 0 4px;
+  }
+  .tb-sep { width: 1px; height: 16px; background: var(--w-border-subtle); margin: 0 4px; }
+
+  /* Native-style window controls (Windows) / custom (Linux) */
+  .win-controls { display: none; align-items: stretch; height: var(--chrome-h); margin-left: 4px; }
+  .window[data-platform="windows"] .win-controls { display: flex; }
+  .win-controls button {
+    appearance: none; border: 0; background: transparent; color: var(--w-text-2);
+    width: 46px; cursor: pointer; display: inline-flex;
+    align-items: center; justify-content: center; padding: 0;
+  }
+  .win-controls button:hover { background: var(--w-elevated); color: var(--w-text); }
+  .win-controls button.close:hover { background: #c42b1c; color: #ffffff; }
+
+  .linux-controls { display: none; align-items: center; gap: 2px; padding-right: 6px; margin-left: 2px; }
+  .window[data-platform="linux"] .linux-controls { display: flex; }
+  .linux-controls .tb-btn.close:hover { background: var(--w-danger); color: #ffffff; }
+
+  /* ── Body: sidebar / content / chat ── */
+  .win-body {
+    display: flex; align-items: stretch;
+    height: calc(100% - var(--chrome-h) - var(--status-h));
+  }
+  .sidebar {
+    width: 208px; flex-shrink: 0;
+    background: var(--w-surface);
+    border-right: 1px solid var(--w-border-subtle);
+    padding: 10px 8px; overflow: hidden;
+  }
+  .window.sidebar-closed .sidebar { display: none; }
+  .side-head {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--w-text-3);
+    padding: 2px 8px 6px;
+  }
+  .side-item {
+    appearance: none; border: 0; background: transparent; font: inherit;
+    display: flex; align-items: center; gap: 9px; width: 100%;
+    color: var(--w-text-2); padding: 5px 8px; border-radius: 6px;
+    cursor: pointer; font-size: 13px; text-align: left;
+  }
+  .side-item:hover { background: var(--w-elevated); color: var(--w-text); }
+  .side-item:focus-visible { outline: 2px solid var(--w-brand); outline-offset: -2px; }
+  .side-item.active { background: var(--w-elevated); color: var(--w-text); }
+  .side-item.active svg { color: var(--w-brand); }
+  .side-sep { height: 1px; background: var(--w-border-subtle); margin: 10px 4px; }
+  .tree-line {
+    display: flex; align-items: center; gap: 7px;
+    color: var(--w-text-3); font-size: 12.5px; padding: 4px 8px;
+  }
+  .tree-line.session { padding-left: 26px; }
+  .tree-line .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--w-brand); flex-shrink: 0; }
+
+  .content { flex: 1; min-width: 0; overflow: hidden; background: var(--w-base); position: relative; }
+  .content-zoom { zoom: var(--content-zoom, 1); padding: 26px 30px; height: 100%; overflow: auto; }
+  .content h2 {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 19px; font-weight: 600; margin: 0 0 4px;
+  }
+  .content h2 svg { color: var(--w-brand); }
+  .content .sub { color: var(--w-text-3); font-size: 12.5px; margin: 0 0 20px; }
+  .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; }
+  .card {
+    background: var(--w-surface); border: 1px solid var(--w-border-subtle);
+    border-radius: 8px; padding: 12px 14px;
+  }
+  .card b { display: block; font-size: 12.5px; font-weight: 600; margin-bottom: 6px; }
+  .skel { height: 7px; border-radius: 4px; background: var(--w-elevated); margin-top: 6px; }
+  .skel.w60 { width: 60%; }
+  .skel.w80 { width: 80%; }
+  .zoom-note {
+    margin-top: 20px; font-size: 12px; color: var(--w-text-3);
+    border-left: 2px solid var(--w-border); padding-left: 10px; max-width: 52ch;
+  }
+
+  .chat {
+    width: 250px; flex-shrink: 0; display: none; flex-direction: column;
+    background: var(--w-surface); border-left: 1px solid var(--w-border-subtle);
+  }
+  .window.chat-open .chat { display: flex; }
+  .chat-head {
+    font-size: 12px; font-weight: 600; color: var(--w-text-2);
+    padding: 10px 12px; border-bottom: 1px solid var(--w-border-subtle);
+    display: flex; align-items: center; gap: 7px;
+  }
+  .chat-head .badge {
+    font-size: 10.5px; font-weight: 600; color: var(--w-brand);
+    background: var(--w-brand-soft); border-radius: 999px; padding: 1px 8px;
+  }
+  .chat-msgs { flex: 1; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+  .msg { border-radius: 8px; padding: 8px 10px; font-size: 12px; max-width: 92%; }
+  .msg.user { align-self: flex-end; background: var(--w-elevated); color: var(--w-text); }
+  .msg.agent { align-self: flex-start; background: var(--w-surface); border: 1px solid var(--w-border-subtle); color: var(--w-text-2); }
+  .chat-input {
+    margin: 10px; border: 1px solid var(--w-border); border-radius: 8px;
+    color: var(--w-text-3); font-size: 12px; padding: 8px 10px;
+  }
+
+  /* ── Footer (status bar) ── */
+  .sb {
+    display: flex; align-items: center; justify-content: space-between;
+    height: var(--status-h); flex-shrink: 0;
+    background: var(--w-base); border-top: 1px solid var(--w-border-subtle);
+    padding: 0 10px; font-size: 11.5px; color: var(--w-text-3);
+    position: relative;
+  }
+  .sb-side { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .sb-item { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+  .sb-item.path { font-family: ui-monospace, "JetBrains Mono", Menlo, monospace; font-size: 10.5px; }
+  .sb-btn {
+    appearance: none; border: 0; background: transparent; color: var(--w-text-3);
+    font: inherit; font-size: 11.5px; cursor: pointer; border-radius: 4px;
+    padding: 1px 5px; display: inline-flex; align-items: center; gap: 5px;
+  }
+  .sb-btn:hover { background: var(--w-elevated); color: var(--w-text); }
+  .sb-btn:focus-visible { outline: 2px solid var(--w-brand); outline-offset: -1px; }
+  .zoom-ctl { display: inline-flex; align-items: center; gap: 1px; position: relative; }
+  .zoom-ctl .pct { min-width: 40px; text-align: center; font-variant-numeric: tabular-nums; }
+
+  /* ── Annotations ── */
+  .anno {
+    display: none;
+    position: absolute; z-index: 5;
+    width: 19px; height: 19px; border-radius: 50%;
+    background: var(--pg-accent); color: #ffffff;
+    font-size: 11px; font-weight: 700; line-height: 19px; text-align: center;
+    box-shadow: 0 0 0 3px var(--pg-accent-soft);
+    pointer-events: none;
+  }
+  .annotated .anno { display: block; }
+  .window[data-platform="windows"] .anno[data-anno="1"],
+  .window[data-platform="linux"] .anno[data-anno="1"] { left: auto; right: 24px; }
+  .legend { display: none; margin: 14px 2px 0; }
+  .annotated-page .legend { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 6px 20px; }
+  .legend li { display: flex; gap: 9px; font-size: 12.5px; color: var(--pg-text-2); list-style: none; }
+  .legend .n {
+    flex-shrink: 0; width: 17px; height: 17px; border-radius: 50%;
+    background: var(--pg-accent); color: #fff; font-size: 10.5px; font-weight: 700;
+    line-height: 17px; text-align: center; margin-top: 2px;
+  }
+  ul.legend { padding: 0; margin: 14px 2px 0; }
+
+  /* ── Notes section ── */
+  .notes { margin-top: 44px; }
+  .notes h2 { font-size: 17px; font-weight: 650; margin: 0 0 14px; }
+  .note-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+  .note {
+    background: var(--pg-surface); border: 1px solid var(--pg-border);
+    border-radius: 10px; padding: 16px 18px;
+  }
+  .note h3 {
+    font-size: 13.5px; font-weight: 600; margin: 0 0 6px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .note h3 svg { color: var(--pg-accent); flex-shrink: 0; }
+  .note p { font-size: 13px; color: var(--pg-text-2); margin: 0; }
+  .note p + p { margin-top: 6px; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .chip, .tb-btn, .side-item, .sb-btn { transition: background-color 120ms, color 120ms; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <p class="eyebrow">Sero · Design proposal</p>
+  <h1>Application chrome redesign</h1>
+  <p class="lede">
+    One chrome for macOS, Windows and Linux — a 40&hairsp;px header and 24&hairsp;px footer
+    (same 64&hairsp;px budget as today) that stays pixel-aligned at any zoom level, with
+    back/next navigation and pinnable shortcuts to apps and views.
+  </p>
+
+  <div class="controls">
+    <div class="control-group">
+      <span class="control-label">Platform</span>
+      <div class="seg" id="platform-seg" role="group" aria-label="Platform">
+        <button data-platform="mac" aria-pressed="true">macOS</button>
+        <button data-platform="windows" aria-pressed="false">Windows</button>
+        <button data-platform="linux" aria-pressed="false">Linux</button>
+      </div>
+    </div>
+    <div class="control-group">
+      <button class="toggle" id="anno-toggle" aria-pressed="true">Annotations</button>
+    </div>
+    <span class="try-hint">Try it: click apps in the sidebar, then ◀ ▶ · pin views with the star · zoom from the footer</span>
+  </div>
+
+  <!-- ══ Mock window ══ -->
+  <div class="window annotated" id="win" data-platform="mac" data-app="dashboard">
+
+    <!-- Header -->
+    <header class="tb">
+      <div class="traffic" title="Native macOS traffic lights"><i></i><i></i><i></i></div>
+      <span class="anno" style="top: 32px; left: 34px;" data-anno="1">1</span>
+
+      <button class="tb-btn" id="sidebar-toggle" title="Toggle sidebar">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="9" y1="4" x2="9" y2="20"/></svg>
+      </button>
+
+      <div class="nav-cluster">
+        <span class="anno" style="top: 30px; left: 24px;" data-anno="2">2</span>
+        <button class="tb-btn" id="nav-back" title="Back" disabled>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <button class="tb-btn" id="nav-fwd" title="Forward" disabled>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+        </button>
+      </div>
+
+      <div class="crumb">
+        <span class="anno" style="top: 30px; left: 52px;" data-anno="3">3</span>
+        <span class="app-ico" id="crumb-icon"></span>
+        <span class="crumb-label" id="crumb-label">Dashboard</span>
+        <span class="crumb-ws">· sero</span>
+        <button class="tb-btn pin-btn" id="pin-btn" title="Pin this view to shortcuts">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 2l3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z"/></svg>
+        </button>
+      </div>
+
+      <div class="chips" id="chips">
+        <span class="anno" style="top: 30px; left: calc(50% - 10px);" data-anno="4">4</span>
+      </div>
+
+      <div class="right-cluster">
+        <span class="anno" style="top: 30px; left: -4px;" data-anno="5">5</span>
+        <button class="ship-pill" title="Contextual app action (Git)">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+          Ship
+        </button>
+        <span class="kbd-hint">⌘K</span>
+        <button class="tb-btn" title="Profile">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg>
+        </button>
+        <span class="tb-sep"></span>
+        <button class="tb-btn" id="chat-toggle" title="Toggle chat panel">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="15" y1="4" x2="15" y2="20"/></svg>
+        </button>
+      </div>
+
+      <div class="win-controls">
+        <button title="Minimize"><svg width="11" height="11" viewBox="0 0 12 12" stroke="currentColor" stroke-width="1.1"><line x1="1" y1="6" x2="11" y2="6"/></svg></button>
+        <button title="Maximize"><svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.1"><rect x="1.5" y="1.5" width="9" height="9"/></svg></button>
+        <button class="close" title="Close"><svg width="11" height="11" viewBox="0 0 12 12" stroke="currentColor" stroke-width="1.1"><line x1="1" y1="1" x2="11" y2="11"/><line x1="11" y1="1" x2="1" y2="11"/></svg></button>
+      </div>
+      <div class="linux-controls">
+        <button class="tb-btn" title="Minimize"><svg width="12" height="12" viewBox="0 0 12 12" stroke="currentColor" stroke-width="1.4"><line x1="2" y1="6" x2="10" y2="6"/></svg></button>
+        <button class="tb-btn" title="Maximize"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="2" width="8" height="8" rx="1"/></svg></button>
+        <button class="tb-btn close" title="Close"><svg width="12" height="12" viewBox="0 0 12 12" stroke="currentColor" stroke-width="1.4"><line x1="2" y1="2" x2="10" y2="10"/><line x1="10" y1="2" x2="2" y2="10"/></svg></button>
+      </div>
+    </header>
+
+    <!-- Body -->
+    <div class="win-body">
+      <aside class="sidebar">
+        <div class="side-head">Apps</div>
+        <div id="side-apps"></div>
+        <div class="side-sep"></div>
+        <div class="side-head">Workspaces</div>
+        <div class="tree-line">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+          sero
+        </div>
+        <div class="tree-line session"><span class="dot"></span> chrome redesign</div>
+        <div class="tree-line session" style="padding-left: 26px;">plugin API docs</div>
+      </aside>
+
+      <main class="content">
+        <div class="content-zoom" id="content"></div>
+      </main>
+
+      <aside class="chat">
+        <div class="chat-head">Chat <span class="badge">sero</span></div>
+        <div class="chat-msgs">
+          <div class="msg user">Summarise today's cron runs</div>
+          <div class="msg agent">3 jobs ran. Backup finished in 41s, the other two were no-ops.</div>
+        </div>
+        <div class="chat-input">Message the agent…</div>
+      </aside>
+    </div>
+
+    <!-- Footer -->
+    <footer class="sb">
+      <div class="sb-side">
+        <span class="sb-item">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+          sero
+        </span>
+        <span class="sb-item path">~/Dev/projects/sero</span>
+      </div>
+      <div class="sb-side">
+        <span class="sb-item">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.6"/><circle cx="6" cy="18" r="2.6"/><circle cx="18" cy="12" r="2.6"/><path d="M6 8.6v6.8M8.6 6.9 15.4 11"/></svg>
+          main
+        </span>
+        <span class="zoom-ctl">
+          <span class="anno" style="top: -14px; left: 46px;" data-anno="6">6</span>
+          <button class="sb-btn" id="zoom-out" title="Zoom out (⌘−)">−</button>
+          <button class="sb-btn pct" id="zoom-pct" title="Reset zoom (⌘0)">100%</button>
+          <button class="sb-btn" id="zoom-in" title="Zoom in (⌘+)">+</button>
+        </span>
+        <span class="sb-item">v0.2.0</span>
+        <button class="sb-btn" id="theme-btn" title="Toggle app theme">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+        </button>
+      </div>
+      <span class="anno" style="top: 3px; left: calc(50% - 10px);" data-anno="7">7</span>
+    </footer>
+  </div>
+
+  <ul class="legend" id="legend">
+    <li><span class="n">1</span><span class="t">Window controls per platform: native traffic lights (macOS), native overlay buttons (Windows), Sero-drawn buttons (Linux). Everything else is identical.</span></li>
+    <li><span class="n">2</span><span class="t">Back / Next across apps and views. Also <kbd>⌘[</kbd> <kbd>⌘]</kbd> and mouse buttons 4/5.</span></li>
+    <li><span class="n">3</span><span class="t">Breadcrumb: active app · workspace. The star pins the current view as a shortcut.</span></li>
+    <li><span class="n">4</span><span class="t">Shortcuts: one-click jumps to pinned apps/views. Work even with the sidebar closed.</span></li>
+    <li><span class="n">5</span><span class="t">Contextual app actions (e.g. Git “Ship”) appear only for the active app.</span></li>
+    <li><span class="n">6</span><span class="t">Zoom control. Content zooms; the chrome keeps its physical size, so native controls stay aligned.</span></li>
+    <li><span class="n">7</span><span class="t">Footer stays 24&hairsp;px; header stays 40&hairsp;px — the same 64&hairsp;px chrome budget as today.</span></li>
+  </ul>
+
+  <!-- ══ Notes ══ -->
+  <section class="notes">
+    <h2>How it works</h2>
+    <div class="note-grid">
+      <div class="note">
+        <h3>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><line x1="2" y1="9" x2="22" y2="9"/></svg>
+          One chrome, three platforms
+        </h3>
+        <p>The header is fully custom-drawn, so it looks the same everywhere. Only the window-control corner differs: macOS keeps its native traffic lights, Windows uses the native title-bar overlay (min/max/close + snap layouts), and on Linux Sero draws its own buttons in the same style as the rest of the bar.</p>
+        <p>The hardcoded 78&hairsp;px macOS spacer goes away — the reserved area comes from the platform at runtime.</p>
+      </div>
+      <div class="note">
+        <h3>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3M11 8v6M8 11h6"/></svg>
+          Zoom that never breaks the frame
+        </h3>
+        <p>Sero gets real zoom (<kbd>⌘+</kbd> <kbd>⌘−</kbd> <kbd>⌘0</kbd>, persisted per profile). Only the app content scales — the chrome is sized in counter-scaled units, so it always renders at exactly 40 / 24 physical pixels.</p>
+        <p>That keeps the native traffic lights and Windows overlay buttons perfectly aligned at every zoom level, and zooming never shrinks your workspace.</p>
+      </div>
+      <div class="note">
+        <h3>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12H8"/></svg>
+          Back / Next navigation
+        </h3>
+        <p>Every app (and later, views inside apps) is a history entry. Go back and forward like a browser — buttons, <kbd>⌘[</kbd> / <kbd>⌘]</kbd>, or side mouse buttons. History is per-window and capped at 50 entries.</p>
+      </div>
+      <div class="note">
+        <h3>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 2l3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z"/></svg>
+          Shortcuts in the chrome
+        </h3>
+        <p>Star any view to pin it as an icon in the header — a one-click jump that works even with the sidebar collapsed. Shortcuts are separate from sidebar favourites, persist per profile, and show up in <kbd>⌘K</kbd> too. Overflow past 8 collapses into a menu.</p>
+      </div>
+      <div class="note">
+        <h3>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v18M3 8h18M3 16h18M16 3v18"/></svg>
+          Thin by design
+        </h3>
+        <p>Header 40&hairsp;px + footer 24&hairsp;px = 64&hairsp;px — exactly today's budget. New functionality lives in existing dead space (the flexible drag area), not in extra rows. And because the chrome is zoom-invariant, that budget holds at 200% zoom.</p>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* App catalogue — icons are simple lucide-style strokes */
+  const STROKE = 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
+  function icon(paths, size) {
+    return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 24 24" ' + STROKE + '>' + paths + '</svg>';
+  }
+  const APPS = {
+    dashboard: { label: 'Dashboard', paths: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>' },
+    explorer:  { label: 'Explorer',  paths: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>' },
+    git:       { label: 'Git',       paths: '<circle cx="6" cy="6" r="2.6"/><circle cx="6" cy="18" r="2.6"/><circle cx="18" cy="12" r="2.6"/><path d="M6 8.6v6.8M8.6 6.9 15.4 11"/>' },
+    cron:      { label: 'Cron',      paths: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/>' },
+    admin:     { label: 'Admin',     paths: '<line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="17" x2="20" y2="17"/><circle cx="9" cy="7" r="2.4" fill="var(--w-base)"/><circle cx="15" cy="17" r="2.4" fill="var(--w-base)"/>' },
+    memory:    { label: 'Memory',    paths: '<ellipse cx="12" cy="5.5" rx="8" ry="2.8"/><path d="M4 5.5v13c0 1.5 3.6 2.8 8 2.8s8-1.3 8-2.8v-13M4 12c0 1.5 3.6 2.8 8 2.8s8-1.3 8-2.8"/>' },
+    browser:   { label: 'Browser',   paths: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.5 4 5.6 4 9s-1.4 6.5-4 9c-2.6-2.5-4-5.6-4-9s1.4-6.5 4-9z"/>' },
+  };
+  const CONTENT_BLURB = {
+    dashboard: 'Your day at a glance — sessions, jobs, recent activity.',
+    explorer:  'Files, search and source control for the active workspace.',
+    git:       'Branches, staged changes and the Ship flow.',
+    cron:      'Background jobs and reminders.',
+    admin:     'Config editor, log viewer, session browser.',
+    memory:    'Persistent memory and daily logs.',
+    browser:   'In-app web browsing with its own tab history.',
+  };
+
+  /* ── State ── */
+  const state = {
+    history: ['dashboard'],
+    index: 0,
+    pinned: ['dashboard', 'git', 'cron'],
+    zoom: 1,
+  };
+  const ZOOM_STEPS = [0.5, 0.67, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2];
+  const win = document.getElementById('win');
+  const $ = (id) => document.getElementById(id);
+
+  const activeApp = () => state.history[state.index];
+
+  /* ── Rendering ── */
+  function renderSidebar() {
+    $('side-apps').innerHTML = Object.keys(APPS).map((id) =>
+      '<button class="side-item' + (id === activeApp() ? ' active' : '') + '" data-app="' + id + '">' +
+      icon(APPS[id].paths, 14) + APPS[id].label + '</button>'
+    ).join('');
+  }
+  function renderCrumb() {
+    const id = activeApp();
+    $('crumb-icon').innerHTML = icon(APPS[id].paths, 14);
+    $('crumb-label').textContent = APPS[id].label;
+    const pinned = state.pinned.includes(id);
+    const pin = $('pin-btn');
+    pin.classList.toggle('pinned', pinned);
+    pin.title = pinned ? 'Unpin from shortcuts' : 'Pin this view to shortcuts';
+    pin.querySelector('svg').setAttribute('fill', pinned ? 'currentColor' : 'none');
+  }
+  function renderChips() {
+    const anno = $('chips').querySelector('.anno');
+    $('chips').innerHTML = state.pinned.map((id) =>
+      '<button class="chip' + (id === activeApp() ? ' active' : '') + '" data-app="' + id + '" title="' + APPS[id].label + '">' +
+      icon(APPS[id].paths, 14) + '</button>'
+    ).join('');
+    $('chips').appendChild(anno);
+  }
+  function renderNavButtons() {
+    $('nav-back').disabled = state.index === 0;
+    $('nav-fwd').disabled = state.index === state.history.length - 1;
+    $('nav-back').title = state.index > 0 ? 'Back to ' + APPS[state.history[state.index - 1]].label : 'Back';
+    $('nav-fwd').title = state.index < state.history.length - 1 ? 'Forward to ' + APPS[state.history[state.index + 1]].label : 'Forward';
+  }
+  function renderContent() {
+    const id = activeApp();
+    const cards = [1, 2, 3, 4].map((n) =>
+      '<div class="card"><b>' + APPS[id].label + ' item ' + n + '</b>' +
+      '<div class="skel w80"></div><div class="skel w60"></div><div class="skel"></div></div>'
+    ).join('');
+    $('content').innerHTML =
+      '<h2>' + icon(APPS[id].paths, 18) + APPS[id].label + '</h2>' +
+      '<p class="sub">' + CONTENT_BLURB[id] + '</p>' +
+      '<div class="card-grid">' + cards + '</div>' +
+      '<p class="zoom-note">Zoom demo: use − / + in the footer. This content area scales; the header and footer above and below it do not.</p>';
+  }
+  function renderZoom() {
+    $('content').style.setProperty('--content-zoom', state.zoom);
+    $('zoom-pct').textContent = Math.round(state.zoom * 100) + '%';
+  }
+  function renderAll() {
+    win.dataset.app = activeApp();
+    renderSidebar();
+    renderCrumb();
+    renderChips();
+    renderNavButtons();
+    renderContent();
+  }
+
+  /* ── Navigation ── */
+  function navigate(id) {
+    if (id === activeApp()) return;
+    state.history = state.history.slice(0, state.index + 1);
+    state.history.push(id);
+    if (state.history.length > 50) state.history.shift();
+    state.index = state.history.length - 1;
+    renderAll();
+  }
+  function go(delta) {
+    const next = state.index + delta;
+    if (next < 0 || next >= state.history.length) return;
+    state.index = next;
+    renderAll();
+  }
+
+  /* ── Events ── */
+  document.addEventListener('click', (e) => {
+    const appBtn = e.target.closest('[data-app]');
+    if (appBtn && (appBtn.classList.contains('side-item') || appBtn.classList.contains('chip'))) {
+      navigate(appBtn.dataset.app);
+    }
+  });
+  $('nav-back').addEventListener('click', () => go(-1));
+  $('nav-fwd').addEventListener('click', () => go(1));
+  $('pin-btn').addEventListener('click', () => {
+    const id = activeApp();
+    const i = state.pinned.indexOf(id);
+    if (i >= 0) state.pinned.splice(i, 1);
+    else if (state.pinned.length < 8) state.pinned.push(id);
+    renderCrumb();
+    renderChips();
+  });
+  $('sidebar-toggle').addEventListener('click', () => win.classList.toggle('sidebar-closed'));
+  $('chat-toggle').addEventListener('click', () => win.classList.toggle('chat-open'));
+  $('theme-btn').addEventListener('click', () => win.classList.toggle('light'));
+
+  function setZoom(z) {
+    state.zoom = z;
+    renderZoom();
+  }
+  $('zoom-in').addEventListener('click', () => {
+    const next = ZOOM_STEPS.find((s) => s > state.zoom + 0.001);
+    if (next) setZoom(next);
+  });
+  $('zoom-out').addEventListener('click', () => {
+    const lower = ZOOM_STEPS.filter((s) => s < state.zoom - 0.001);
+    if (lower.length) setZoom(lower[lower.length - 1]);
+  });
+  $('zoom-pct').addEventListener('click', () => setZoom(1));
+
+  document.addEventListener('keydown', (e) => {
+    if (e.altKey && e.key === 'ArrowLeft') { go(-1); e.preventDefault(); }
+    if (e.altKey && e.key === 'ArrowRight') { go(1); e.preventDefault(); }
+  });
+
+  /* Platform switcher */
+  $('platform-seg').addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-platform]');
+    if (!btn) return;
+    win.dataset.platform = btn.dataset.platform;
+    for (const b of $('platform-seg').children) {
+      b.setAttribute('aria-pressed', String(b === btn));
+    }
+  });
+
+  /* Annotations */
+  $('anno-toggle').addEventListener('click', () => {
+    const on = win.classList.toggle('annotated');
+    document.body.classList.toggle('annotated-page', on);
+    $('anno-toggle').setAttribute('aria-pressed', String(on));
+  });
+  document.body.classList.add('annotated-page');
+
+  renderAll();
+  renderZoom();
+})();
+</script>
+
+</body>
+</html>
