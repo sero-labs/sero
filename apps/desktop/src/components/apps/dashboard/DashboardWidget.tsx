@@ -1,9 +1,8 @@
 /**
  * DashboardWidget, wrapper around a mounted widget on the dashboard grid.
  *
- * Provides a header with the widget name, app icon, and action buttons
- * (open full app, remove). The content area renders the federated widget
- * component via WidgetMount.
+ * Provides a drag handle, widget metadata, app launch affordance, and remove
+ * action while keeping the mounted app widget isolated inside the card body.
  */
 
 import type { CSSProperties, ReactNode, Ref } from 'react';
@@ -40,42 +39,47 @@ export function DashboardWidget({ widget, manifest, widgetMeta, style, className
     <div
       ref={ref}
       style={style}
-      className={`${className ?? ''} flex flex-col overflow-hidden rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)]`}
+      className={`${className ?? ''} sero-dashboard-widget group`}
       {...rest}
     >
-      {/* ── Header ── */}
-      <div className="widget-drag-handle flex cursor-grab items-center gap-1.5 border-b border-[var(--border-default)] px-3 py-1.5 active:cursor-grabbing">
-        <GripVertical className="size-3 shrink-0 text-[var(--text-muted)]" />
-        <AppIcon className="size-3.5 shrink-0 text-[var(--text-muted)]" />
-        <span className="min-w-0 flex-1 truncate text-xs font-medium text-[var(--text-secondary)]">
-          {widgetName}
-        </span>
-        {canOpenApp && (
+      <div className="widget-drag-handle sero-dashboard-widget-header">
+        <GripVertical className="sero-dashboard-widget-grip size-3.5 shrink-0" />
+        <div className="sero-dashboard-widget-icon-shell">
+          <AppIcon className="size-3.5 shrink-0" />
+        </div>
+        <div className="sero-dashboard-widget-title-lockup">
+          <span>{widgetName}</span>
+          <small>{appName}</small>
+        </div>
+        <div className="sero-dashboard-widget-actions">
+          {canOpenApp && (
+            <Button
+              type="button"
+              size="icon-xs"
+              variant="ghost"
+              className="sero-dashboard-widget-action"
+              aria-label={`Open ${appName}`}
+              title={`Open ${appName}`}
+              onClick={() => openApp(widget.appId)}
+            >
+              <Maximize2 className="size-3" />
+            </Button>
+          )}
           <Button
             type="button"
             size="icon-xs"
             variant="ghost"
-            aria-label={`Open ${appName}`}
-            title={`Open ${appName}`}
-            onClick={() => openApp(widget.appId)}
+            className="sero-dashboard-widget-action"
+            aria-label="Remove widget"
+            title="Remove widget"
+            onClick={() => removeWidget(widget.instanceId)}
           >
-            <Maximize2 className="size-3" />
+            <X className="size-3" />
           </Button>
-        )}
-        <Button
-          type="button"
-          size="icon-xs"
-          variant="ghost"
-          aria-label="Remove widget"
-          title="Remove widget"
-          onClick={() => removeWidget(widget.instanceId)}
-        >
-          <X className="size-3" />
-        </Button>
+        </div>
       </div>
 
-      {/* ── Content ── */}
-      <div className="min-h-0 flex-1 overflow-auto">
+      <div className="sero-dashboard-widget-body">
         {manifest ? (
           <WidgetMount widget={widget} manifest={manifest} widgetMeta={widgetMeta} />
         ) : (
@@ -85,7 +89,6 @@ export function DashboardWidget({ widget, manifest, widgetMeta, style, className
         )}
       </div>
 
-      {/* react-grid-layout resize handle (injected as children) */}
       {children}
     </div>
   );
