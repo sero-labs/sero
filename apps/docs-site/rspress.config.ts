@@ -86,6 +86,7 @@ const selectedPlugins = [
   { text: 'Plan Mode', link: '/plugins/plan-mode' },
   { text: 'Spotify (Legacy)', link: '/plugins/spotify' },
   { text: 'ImageGen', link: '/plugins/imagegen' },
+  { text: 'Loom', link: '/plugins/loom' },
   { text: 'Starling Bank', link: '/plugins/starling' },
   { text: 'Weight Tracker', link: '/plugins/weight-tracker' }
 ];

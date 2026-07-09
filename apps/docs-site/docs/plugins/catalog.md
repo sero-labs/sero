@@ -36,6 +36,7 @@ Built-in plugins may appear in app discovery or favorites, but they are not thir
 | Plan Mode | `@sero-ai/plugin-plan-mode` | [Docs](/plugins/plan-mode) | Read-only planning and execution tracking. |
 | Spotify (legacy) | `@sero-ai/plugin-spotify` | [Docs](/plugins/spotify) | Unsupported on current stock-Electron builds; DRM playback required legacy Castlabs/Widevine support. |
 | ImageGen | `@sero-ai/plugin-imagegen` | [Docs](/plugins/imagegen) | Gemini-powered image generation; verify storage before sharing outputs. |
+| Loom | `@sero-ai/plugin-loom` | [Docs](/plugins/loom) | Agent-directed generative-art studio for GLSL shaders, live controls, gallery pieces, and wallpaper capture. |
 | Starling Bank | `@sero-ai/plugin-starling` | [Docs](/plugins/starling) | Banking data; use fake/demo examples in support. |
 | Weight | `@sero-ai/plugin-weight-tracker` | [Docs](/plugins/weight-tracker) | Personal health data; use fake/demo examples. |
 

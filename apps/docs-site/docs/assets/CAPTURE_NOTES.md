@@ -27,6 +27,8 @@ This file tracks screenshot and media hygiene for the public docs site. Use it b
 | `plugins/google-oauth-redacted.png` | Google plugin | OAuth/connect state | 1440×900 target | fake account/redacted identity | omitted this pass; avoid real account capture |
 | `plugins/starling-demo-redacted.png` | Starling plugin | bank plugin demo data | 1440×900 target | fake/demo banking only | omitted this pass; do not capture real banking data |
 | `plugins/weight-demo-redacted.png` | Weight Tracker plugin | demo weight data | 1440×900 target | fake/demo health data only | omitted this pass; do not capture personal health data |
+| `plugins/loom-studio.png` | Loom | full-canvas generated artwork | 1224×720 cropped capture | default synthetic artwork only; host chrome and profile details removed | captured 2026-07-09 |
+| `plugins/loom-controls.png` | Loom | generated artwork with agent-defined Controls panel, prompt bar, and rail | 1224×720 cropped capture | default synthetic artwork only; host chrome and profile details removed | captured 2026-07-09 |
 
 ## Stable asset directories
 
@@ -42,4 +44,4 @@ This file tracks screenshot and media hygiene for the public docs site. Use it b
 
 ## Current omissions
 
-No new screenshots or recordings were captured in this pass. The docs continue to use existing beta-era screenshots under `assets/images/` and top-level legacy images where already present. Missing captures are explicit above so future passes can replace them with stable, redacted assets.
+Loom now has two cropped, redacted plugin captures. The docs continue to use existing beta-era screenshots under `assets/images/` and top-level legacy images where already present. Missing captures are explicit above so future passes can replace them with stable, redacted assets.
