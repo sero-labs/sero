@@ -7,8 +7,8 @@
  */
 
 import { useMemo, useCallback, useState } from 'react';
-import type { ComponentType } from 'react';
 import { Activity, LayoutDashboard, Plus, Settings2, Sparkles } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { GridLayout } from 'react-grid-layout';
 import type { Layout, LayoutItem } from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
@@ -29,7 +29,7 @@ type DashboardNavItem = {
   label: string;
   description: string;
   meta: string;
-  icon: ComponentType<{ className?: string }>;
+  icon: LucideIcon;
 };
 
 const DASHBOARD_NAV_ITEMS: DashboardNavItem[] = [
