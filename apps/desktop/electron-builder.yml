@@ -76,8 +76,12 @@ mac:
 # ── Linux ─────────────────────────────────────────────────────
 linux:
   maintainer: Sero Labs <hello@sero.ai>
+  # deb is built manually with dpkg-deb (see build-linux-deb.mjs) because
+  # electron-builder's deb/rpm path uses fpm, which is x64-only and cannot run
+  # on the native arm64 release runner. AppImage uses appimagetool instead of
+  # fpm, so electron-builder builds it directly for both architectures.
   target:
-    - deb
+    - AppImage
   category: Development
   artifactName: "${productName}-${version}-linux-${arch}.${ext}"
 

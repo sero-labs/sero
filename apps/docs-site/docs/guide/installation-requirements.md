@@ -9,7 +9,7 @@ Most beta users should download the packaged desktop installer for their platfor
 Supported packaged beta artifacts are:
 
 - macOS Apple Silicon: DMG installer
-- Linux x64/arm64: Debian package (`.deb`)
+- Linux x64/arm64: Debian package (`.deb`) for Debian/Ubuntu, or AppImage (`.AppImage`) for any distribution
 - Windows x64: setup EXE installer
 
 Developers and contributors can still build from source on supported targets. Use the source path when you are modifying Sero, testing a branch, or contributing a fix.

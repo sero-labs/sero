@@ -89,7 +89,7 @@ electron_builder_arch_flag() {
 artifact_patterns() {
   case "$1" in
     mac) echo "release/*.dmg release/*.zip" ;;
-    linux) echo "release/*.deb" ;;
+    linux) echo "release/*.deb release/*.AppImage" ;;
     win) echo "release/*.exe release/*.zip" ;;
   esac
 }
@@ -334,16 +334,22 @@ BUILDER_ARGS=(
   --publish never
   "$BUILDER_FLAG"
 )
-# Linux releases are Debian packages built with dpkg-deb after electron-builder
-# creates the unpacked app directory. This keeps maintainer scripts consistent
-# across architectures and avoids electron-builder's bundled fpm helper, which
-# is x64-only and cannot run on native arm64 runners.
+# Linux .deb packages are built with dpkg-deb after electron-builder creates the
+# unpacked app directory. This keeps maintainer scripts consistent across
+# architectures and avoids electron-builder's bundled fpm helper, which is
+# x64-only and cannot run on native arm64 runners. The AppImage target does not
+# use fpm (it packages with appimagetool), so electron-builder builds it directly
+# for both architectures — its distributable pass also emits the linux-unpacked
+# directory that build-linux-deb.mjs consumes afterwards.
 MANUAL_DEB=false
 if [ "$TARGET" = "linux" ]; then
   MANUAL_DEB=true
 fi
 BUILDER_ARGS+=("$BUILDER_ARCH_FLAG")
-if [ "$DIR_BUILD" = true ] || [ "$MANUAL_DEB" = true ]; then
+# Only build an unpacked directory when explicitly requested (--dir). Linux
+# release builds run electron-builder's normal distributable pass so the AppImage
+# target is produced; the unpacked directory it also writes feeds the manual deb.
+if [ "$DIR_BUILD" = true ]; then
   BUILDER_ARGS+=(--dir)
 fi
 printf '▸ electron-builder args:'
