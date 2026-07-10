@@ -1,36 +1,67 @@
 /**
  * Dashboard board styling — design tokens + react-grid-layout overrides.
  *
- * The board uses canvas/tile contrast instead of card borders: the canvas
- * sits slightly below the tile surface, so the minimal gaps between the
- * sharp-edged tiles read as seams rather than gutters. All widget chrome
- * (title strip, actions, resize bracket) is hover-revealed.
+ * Glass board: tiles are translucent, backdrop-blurred surfaces with
+ * luminous hairline borders, floating over a canvas with ambient accent
+ * glow. Gaps stay minimal and edges sharp, so the glow bleeding through
+ * the seams separates tiles. All widget chrome (title strip, actions,
+ * resize bracket) is hover-revealed.
  *
  * Dark is the primary design target; light values mirror the same
- * relationships (tiles lifted off a slightly recessed canvas).
+ * relationships (frosted white glass over a soft tinted canvas).
  */
 
 .sero-dashboard {
-  --dash-canvas: #e6e8ed;
-  --dash-tile: #ffffff;
-  --dash-tile-hover: #fbfbfd;
-  --dash-seam: #d7dae0;
-  --dash-seam-strong: #b4b9c4;
-  --dash-chrome-scrim: rgba(255, 255, 255, 0.94);
+  --dash-canvas-base: #e9eaef;
+  --dash-glow-a: color-mix(in srgb, var(--accent-primary) 16%, transparent);
+  --dash-glow-b: color-mix(in srgb, var(--brand-primary) 12%, transparent);
+  --dash-tile: rgba(255, 255, 255, 0.52);
+  --dash-tile-hover: rgba(255, 255, 255, 0.68);
+  --dash-seam: rgba(15, 17, 23, 0.1);
+  --dash-seam-strong: rgba(15, 17, 23, 0.22);
+  --dash-rim: rgba(255, 255, 255, 0.6);
+  --dash-chrome-scrim: rgba(255, 255, 255, 0.75);
   --dash-accent: var(--accent-primary);
-  --dash-accent-soft: color-mix(in srgb, var(--accent-primary) 10%, transparent);
-  --dash-lift-shadow: 0 12px 32px rgba(15, 17, 23, 0.16);
+  --dash-accent-soft: color-mix(in srgb, var(--accent-primary) 12%, transparent);
+  --dash-lift-shadow: 0 16px 40px rgba(15, 17, 23, 0.22);
 }
 
 .dark .sero-dashboard {
-  --dash-canvas: #060607;
-  --dash-tile: #121215;
-  --dash-tile-hover: #17171b;
-  --dash-seam: #1f1f24;
-  --dash-seam-strong: #35353e;
-  --dash-chrome-scrim: rgba(5, 5, 7, 0.9);
-  --dash-accent-soft: color-mix(in srgb, var(--accent-primary) 16%, transparent);
-  --dash-lift-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+  --dash-canvas-base: #060608;
+  --dash-glow-a: color-mix(in srgb, var(--accent-primary) 48%, transparent);
+  --dash-glow-b: color-mix(in srgb, var(--brand-primary) 30%, transparent);
+  --dash-tile: rgba(255, 255, 255, 0.06);
+  --dash-tile-hover: rgba(255, 255, 255, 0.09);
+  --dash-seam: rgba(255, 255, 255, 0.08);
+  --dash-seam-strong: rgba(255, 255, 255, 0.18);
+  --dash-rim: rgba(255, 255, 255, 0.08);
+  --dash-chrome-scrim: rgba(8, 8, 12, 0.6);
+  --dash-accent-soft: color-mix(in srgb, var(--accent-primary) 18%, transparent);
+  --dash-lift-shadow: 0 16px 48px rgba(0, 0, 0, 0.65);
+}
+
+/* ── Canvas ──────────────────────────────────────────────────────
+   Ambient accent glow the glass tiles pick up. */
+.sero-dashboard {
+  background:
+    radial-gradient(90% 70% at 85% -10%, var(--dash-glow-a), transparent 60%),
+    radial-gradient(80% 60% at -10% 110%, var(--dash-glow-b), transparent 60%),
+    var(--dash-canvas-base);
+}
+
+/* ── Glass tile surface ──────────────────────────────────────────
+   Applied to the DashboardWidget root (= the .react-grid-item). */
+.sero-dashboard .dash-tile {
+  background: var(--dash-tile);
+  border: 1px solid var(--dash-seam);
+  backdrop-filter: blur(24px) saturate(140%);
+  box-shadow: inset 0 1px 0 var(--dash-rim);
+  transition: background-color 150ms ease, border-color 150ms ease;
+}
+
+.sero-dashboard .dash-tile:hover {
+  background: var(--dash-tile-hover);
+  border-color: var(--dash-seam-strong);
 }
 
 /* ── Drag/resize target preview ──────────────────────────────────
@@ -46,7 +77,7 @@
 .sero-dashboard .react-grid-item.react-draggable-dragging,
 .sero-dashboard .react-grid-item.resizing {
   border-color: var(--dash-seam-strong);
-  box-shadow: var(--dash-lift-shadow);
+  box-shadow: inset 0 1px 0 var(--dash-rim), var(--dash-lift-shadow);
 }
 
 /* ── Resize bracket ──────────────────────────────────────────────
@@ -74,10 +105,13 @@
 }
 
 /* ── Hover chrome ────────────────────────────────────────────────
-   Title strip overlaying the top edge of a tile. Revealed on hover
-   or keyboard focus; doubles as the drag handle. */
+   Frosted title strip overlaying the top edge of a tile. Revealed on
+   hover or keyboard focus; doubles as the drag handle. The mask fades
+   both the scrim and its blur toward the bottom. */
 .sero-dashboard .dash-widget-chrome {
-  background: linear-gradient(to bottom, var(--dash-chrome-scrim) 60%, transparent);
+  background: var(--dash-chrome-scrim);
+  backdrop-filter: blur(12px);
+  mask-image: linear-gradient(to bottom, black 62%, transparent);
   opacity: 0;
   transition: opacity 120ms ease;
 }

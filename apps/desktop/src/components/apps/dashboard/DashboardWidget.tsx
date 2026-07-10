@@ -42,7 +42,7 @@ export function DashboardWidget({ widget, manifest, widgetMeta, style, className
     <div
       ref={ref}
       style={style}
-      className={`${className ?? ''} relative flex flex-col overflow-hidden border border-[var(--dash-seam)] bg-[var(--dash-tile)] transition-colors duration-150 hover:border-[var(--dash-seam-strong)] hover:bg-[var(--dash-tile-hover)]`}
+      className={`${className ?? ''} dash-tile relative flex flex-col overflow-hidden`}
       {...rest}
     >
       {/* ── Content ── */}
