@@ -213,6 +213,7 @@ jobs:
           path: |
             apps/desktop/release/*.blockmap
             apps/desktop/release/*.deb
+            apps/desktop/release/*.AppImage
             apps/desktop/release/*.dmg
             apps/desktop/release/*.exe
             apps/desktop/release/*.yml

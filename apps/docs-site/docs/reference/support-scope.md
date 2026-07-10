@@ -8,7 +8,7 @@ This page is the canonical public support matrix for the Sero public beta deskto
 | --- | --- | --- |
 | Release status | Public beta | Packaged desktop installers are available for supported beta targets. |
 | Packaged desktop targets | Supported | macOS Apple Silicon, Linux x64/arm64, and Windows x64 |
-| Installer artifacts | Supported where published | macOS DMG, Linux DEB, and Windows setup EXE; see [GitHub Releases](https://github.com/sero-labs/sero/releases) for exact current filenames. |
+| Installer artifacts | Supported where published | macOS DMG, Linux DEB and AppImage, and Windows setup EXE; see [GitHub Releases](https://github.com/sero-labs/sero/releases) for exact current filenames. |
 | Source builds | Supported for developers | Developers and contributors can still build from source on supported targets. |
 | Current maintainer-validated baseline | Validated | macOS `26.3`, `arm64`, Node `22.22.0`, pnpm `10.11.0` |
 | Default workspace runtime | Supported / recommended | Host is the default on supported Host platforms. |
@@ -36,7 +36,7 @@ If you are unsure which runtime to choose, use the default Host runtime. Select 
 Most beta users should download the packaged desktop artifact for their platform from [GitHub Releases](https://github.com/sero-labs/sero/releases):
 
 - macOS Apple Silicon: DMG installer
-- Linux x64/arm64: Debian package (`.deb`)
+- Linux x64/arm64: Debian package (`.deb`) for Debian/Ubuntu, or AppImage (`.AppImage`) for any distribution
 - Windows x64: setup EXE installer
 
 GitHub Releases is the source of truth for exact current artifact names. Public docs intentionally avoid hardcoding versioned filenames.
