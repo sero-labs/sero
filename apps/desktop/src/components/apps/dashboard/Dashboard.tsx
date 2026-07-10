@@ -10,6 +10,7 @@ import { useMemo, useCallback } from 'react';
 import { GridLayout } from 'react-grid-layout';
 import type { Layout, LayoutItem } from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
+import './dashboard.css';
 
 import { useAppStore } from '@/stores/app';
 import { useDashboardStore, getAvailableWidgets } from '@/stores/dashboard';
@@ -77,24 +78,27 @@ export function Dashboard() {
   return (
     <div
       ref={containerRef}
-      className="flex h-full flex-col overflow-auto bg-[var(--bg-base)]"
+      className="sero-dashboard flex h-full flex-col overflow-auto bg-[var(--dash-canvas)]"
     >
-      {/* ── Header ── */}
-      <div className="flex items-center justify-between px-6 pb-2 pt-4">
-        <h1 className="text-lg font-semibold text-[var(--text-primary)]">Dashboard</h1>
+      {/* ── Toolbar ── */}
+      <div className="flex items-center justify-between border-b border-[var(--dash-seam)] px-4 py-2">
+        <h1 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">
+          Dashboard
+        </h1>
         <AddWidgetDialog availableWidgets={availableWidgets} />
       </div>
 
       {/* ── Grid ── */}
       {hasWidgets && width > 0 ? (
-        <div className="flex-1 px-2">
+        <div className="flex-1">
           <GridLayout
             layout={gridLayout}
-            width={width - 16}
+            width={width}
             gridConfig={{
               cols: 6,
               rowHeight: 120,
-              margin: [16, 16] as const,
+              margin: [3, 3] as const,
+              containerPadding: [3, 3] as const,
             }}
             dragConfig={{
               enabled: true,
@@ -134,16 +138,18 @@ export function Dashboard() {
 
 function EmptyState({ availableWidgets }: { availableWidgets: AvailableWidget[] }) {
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-4">
-      <div className="text-center">
-        <p className="text-sm text-[var(--text-secondary)]">
-          Your dashboard is empty
-        </p>
-        <p className="mt-1 text-xs text-[var(--text-muted)]">
-          Add widgets from your apps to see them here
-        </p>
+    <div className="flex flex-1 items-center justify-center p-6">
+      <div className="flex flex-col items-center gap-4 border border-dashed border-[var(--dash-seam-strong)] px-16 py-12">
+        <div className="text-center">
+          <p className="text-sm text-[var(--text-secondary)]">
+            Your dashboard is empty
+          </p>
+          <p className="mt-1 text-xs text-[var(--text-muted)]">
+            Add widgets from your apps to see them here
+          </p>
+        </div>
+        <AddWidgetDialog availableWidgets={availableWidgets} />
       </div>
-      <AddWidgetDialog availableWidgets={availableWidgets} />
     </div>
   );
 }

@@ -1,0 +1,89 @@
+/**
+ * Dashboard board styling — design tokens + react-grid-layout overrides.
+ *
+ * The board uses canvas/tile contrast instead of card borders: the canvas
+ * sits slightly below the tile surface, so the minimal gaps between the
+ * sharp-edged tiles read as seams rather than gutters. All widget chrome
+ * (title strip, actions, resize bracket) is hover-revealed.
+ *
+ * Dark is the primary design target; light values mirror the same
+ * relationships (tiles lifted off a slightly recessed canvas).
+ */
+
+.sero-dashboard {
+  --dash-canvas: #e6e8ed;
+  --dash-tile: #ffffff;
+  --dash-tile-hover: #fbfbfd;
+  --dash-seam: #d7dae0;
+  --dash-seam-strong: #b4b9c4;
+  --dash-chrome-scrim: rgba(255, 255, 255, 0.94);
+  --dash-accent: var(--accent-primary);
+  --dash-accent-soft: color-mix(in srgb, var(--accent-primary) 10%, transparent);
+  --dash-lift-shadow: 0 12px 32px rgba(15, 17, 23, 0.16);
+}
+
+.dark .sero-dashboard {
+  --dash-canvas: #060607;
+  --dash-tile: #121215;
+  --dash-tile-hover: #17171b;
+  --dash-seam: #1f1f24;
+  --dash-seam-strong: #35353e;
+  --dash-chrome-scrim: rgba(5, 5, 7, 0.9);
+  --dash-accent-soft: color-mix(in srgb, var(--accent-primary) 16%, transparent);
+  --dash-lift-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+}
+
+/* ── Drag/resize target preview ──────────────────────────────────
+   Sharp accent-tinted rectangle marking where the tile will land. */
+.sero-dashboard .react-grid-item.react-grid-placeholder {
+  background: var(--dash-accent-soft);
+  border: 1px solid var(--dash-accent);
+  border-radius: 0;
+  opacity: 1;
+}
+
+/* Lift the tile being dragged or resized above the board. */
+.sero-dashboard .react-grid-item.react-draggable-dragging,
+.sero-dashboard .react-grid-item.resizing {
+  border-color: var(--dash-seam-strong);
+  box-shadow: var(--dash-lift-shadow);
+}
+
+/* ── Resize bracket ──────────────────────────────────────────────
+   Replaces the default diagonal-lines handle with a corner bracket
+   that appears only while hovering the tile. */
+.sero-dashboard .react-grid-item > .react-resizable-handle {
+  width: 24px;
+  height: 24px;
+  z-index: 20;
+  transition: opacity 120ms ease;
+}
+
+.sero-dashboard .react-grid-item > .react-resizable-handle::after {
+  right: 5px;
+  bottom: 5px;
+  width: 9px;
+  height: 9px;
+  border-right: 2px solid var(--text-muted);
+  border-bottom: 2px solid var(--text-muted);
+}
+
+.sero-dashboard .react-grid-item > .react-resizable-handle:hover::after,
+.sero-dashboard .react-grid-item.resizing > .react-resizable-handle::after {
+  border-color: var(--dash-accent);
+}
+
+/* ── Hover chrome ────────────────────────────────────────────────
+   Title strip overlaying the top edge of a tile. Revealed on hover
+   or keyboard focus; doubles as the drag handle. */
+.sero-dashboard .dash-widget-chrome {
+  background: linear-gradient(to bottom, var(--dash-chrome-scrim) 60%, transparent);
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.sero-dashboard .react-grid-item:hover .dash-widget-chrome,
+.sero-dashboard .react-grid-item:focus-within .dash-widget-chrome,
+.sero-dashboard .react-grid-item.react-draggable-dragging .dash-widget-chrome {
+  opacity: 1;
+}

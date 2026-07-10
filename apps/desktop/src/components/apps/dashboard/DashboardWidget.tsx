@@ -1,9 +1,11 @@
 /**
  * DashboardWidget, wrapper around a mounted widget on the dashboard grid.
  *
- * Provides a header with the widget name, app icon, and action buttons
- * (open full app, remove). The content area renders the federated widget
- * component via WidgetMount.
+ * Content-first tile: the federated widget fills the whole surface. All
+ * chrome (name, open-app / remove actions, drag grip) lives in a slim
+ * strip overlaying the top edge, revealed on hover or keyboard focus.
+ * The strip doubles as the drag handle; visibility is driven by the
+ * `.dash-widget-chrome` rules in dashboard.css.
  */
 
 import type { CSSProperties, ReactNode, Ref } from 'react';
@@ -40,14 +42,25 @@ export function DashboardWidget({ widget, manifest, widgetMeta, style, className
     <div
       ref={ref}
       style={style}
-      className={`${className ?? ''} flex flex-col overflow-hidden rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)]`}
+      className={`${className ?? ''} relative flex flex-col overflow-hidden border border-[var(--dash-seam)] bg-[var(--dash-tile)] transition-colors duration-150 hover:border-[var(--dash-seam-strong)] hover:bg-[var(--dash-tile-hover)]`}
       {...rest}
     >
-      {/* ── Header ── */}
-      <div className="widget-drag-handle flex cursor-grab items-center gap-1.5 border-b border-[var(--border-default)] px-3 py-1.5 active:cursor-grabbing">
+      {/* ── Content ── */}
+      <div className="min-h-0 flex-1 overflow-auto">
+        {manifest ? (
+          <WidgetMount widget={widget} manifest={manifest} widgetMeta={widgetMeta} />
+        ) : (
+          <div className="flex h-full items-center justify-center text-xs text-[var(--text-muted)]">
+            App not found: {widget.appId}
+          </div>
+        )}
+      </div>
+
+      {/* ── Hover chrome / drag handle ── */}
+      <div className="dash-widget-chrome widget-drag-handle absolute inset-x-0 top-0 z-10 flex h-9 cursor-grab items-center gap-1.5 px-2.5 pb-1 active:cursor-grabbing">
         <GripVertical className="size-3 shrink-0 text-[var(--text-muted)]" />
         <AppIcon className="size-3.5 shrink-0 text-[var(--text-muted)]" />
-        <span className="min-w-0 flex-1 truncate text-xs font-medium text-[var(--text-secondary)]">
+        <span className="min-w-0 flex-1 truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
           {widgetName}
         </span>
         {canOpenApp && (
@@ -55,6 +68,7 @@ export function DashboardWidget({ widget, manifest, widgetMeta, style, className
             type="button"
             size="icon-xs"
             variant="ghost"
+            className="rounded-none"
             aria-label={`Open ${appName}`}
             title={`Open ${appName}`}
             onClick={() => openApp(widget.appId)}
@@ -66,23 +80,13 @@ export function DashboardWidget({ widget, manifest, widgetMeta, style, className
           type="button"
           size="icon-xs"
           variant="ghost"
+          className="rounded-none"
           aria-label="Remove widget"
           title="Remove widget"
           onClick={() => removeWidget(widget.instanceId)}
         >
           <X className="size-3" />
         </Button>
-      </div>
-
-      {/* ── Content ── */}
-      <div className="min-h-0 flex-1 overflow-auto">
-        {manifest ? (
-          <WidgetMount widget={widget} manifest={manifest} widgetMeta={widgetMeta} />
-        ) : (
-          <div className="flex h-full items-center justify-center text-xs text-[var(--text-muted)]">
-            App not found: {widget.appId}
-          </div>
-        )}
       </div>
 
       {/* react-grid-layout resize handle (injected as children) */}

@@ -60,7 +60,7 @@ export function AddWidgetDialog({ availableWidgets }: AddWidgetDialogProps) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button type="button" size="sm" variant="outline" className="gap-1.5">
+        <Button type="button" size="sm" variant="outline" className="gap-1.5 rounded-none">
           <Plus className="size-3.5" />
           Add Widget
         </Button>
