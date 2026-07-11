@@ -120,12 +120,12 @@ It should work inside widgets and full plugin views.
 A compact horizontal or vertical divider built from the existing `Separator`
 primitive.
 
-#### `CollapsibleWidget`
+#### `CollapsibleWidget` (deferred)
 
-An internal content wrapper that can collapse optional widget details. It must
-not duplicate the dashboard's title bar, open action, remove action or drag
-handle. Collapse state remains controlled by the plugin unless a later host
-contract explicitly provides it.
+Deferred until the host provides a collapse contract. Collapse is host chrome,
+so shipping a plugin-controlled collapse now would create a second model the
+host later contradicts. When added, it must not duplicate the dashboard's title
+bar, open action, remove action or drag handle.
 
 ### Typography and media
 
@@ -210,7 +210,7 @@ shows a clear gap.
 Use the existing skeleton primitive and provide small compositions for common
 metric, list and activity loading layouts.
 
-### Actions and filters
+### Actions
 
 #### `Button`
 
@@ -221,16 +221,17 @@ Use the existing button primitive as the standard text-action component.
 A small icon-only button built on `Button`, with a required accessible label and
 widget-appropriate sizing.
 
-#### `DateRangePicker`
-
-A controlled date-range input composed from the existing calendar, popover and
-button primitives. It should support optional presets, minimum and maximum
-dates, and a compact trigger. Plugins continue to own filtering, locale and
-persistence behaviour.
+A date-range filter is intentionally out of scope for the dashboard set. A
+calendar-and-popover control is a full-view interactive component rather than
+compact dashboard presentation, so it belongs in general `@sero-ai/ui` if
+needed, not here.
 
 ### API rules
 
 - Export all supported components from the `@sero-ai/ui` package root.
+- Add any new subpath export (such as the catalogue) to both the dev `exports`
+  map and the `publishConfig.exports` map in `packages/ui/package.json`, or it
+  breaks when the package is published.
 - Reuse existing primitives instead of creating dashboard-prefixed copies.
 - Accept `children` and `className` where normal React composition benefits from
   them.
@@ -344,17 +345,25 @@ Normal widget code should continue importing React components from
 `@sero-ai/ui`. The metadata export exists for discovery tools, documentation and
 agent workflows; it is not involved in rendering.
 
-Generate these readable views from the typed catalogue:
+For the initial release, keep the typed `catalog.ts` and the skill and docs-site
+catalogue views hand-maintained and reviewed in PR. While the component APIs are
+still settling, drift validation against a moving surface is churn, so the
+readable views are written by hand and kept in step through normal review.
+
+The two readable views to keep in step are:
 
 - `packages/templates/skills/sero-dashboard-ui/references/component-catalog.md`
 - the dashboard component catalogue page in `apps/docs-site`
 
-The generated catalogue should group components by category and show the name,
-purpose, when to use it, stability and a concise example. Detailed props remain
-canonical in the exported TypeScript types and component source rather than
-being copied into the catalogue.
+Each should group components by category and show the name, purpose, when to use
+it, stability and a concise example. Detailed props remain canonical in the
+exported TypeScript types and component source rather than being copied into the
+catalogue.
 
-Add validation that fails when:
+#### Follow-up: generation and validation (deferred)
+
+Once the component set stabilises, generate the readable views from the typed
+catalogue and add validation that fails when:
 
 - a catalogue entry does not correspond to a public package export;
 - a public dashboard component is missing from the catalogue;
@@ -362,7 +371,7 @@ Add validation that fails when:
 - generated Markdown is out of date.
 
 This keeps discovery fast for authors and the agent without maintaining a
-separate hand-written component inventory.
+separate hand-written inventory once the surface has stopped moving.
 
 ## Responsive behaviour
 
@@ -372,7 +381,8 @@ Use normal CSS and container queries rather than introducing a JavaScript
 viewport contract. Shared components should provide sensible compact defaults,
 while plugins remain responsible for choosing which data to show at each size.
 
-Review widgets at these representative grid sizes:
+Review widgets at these representative grid sizes. These are review targets for
+checking legibility and layout, not a hard limit on how large a widget may be:
 
 | Size | Grid area | Purpose |
 |---|---:|---|
@@ -411,7 +421,7 @@ The skill should instruct the agent to:
 6. Review minimum, standard and wide sizes.
 7. Use semantic theme tokens rather than hard-coded colours.
 8. Consider contributing a pattern to `@sero-ai/ui` only when it is reusable.
-9. Refactor at least two real consumers when adding a new shared component.
+9. Demonstrate any new shared component in at least one showcase widget.
 
 The skill should explicitly avoid:
 
@@ -441,76 +451,211 @@ Documentation should cover:
 - common loading, empty and error presentations; and
 - how to contribute a reusable component to the UI package.
 
-Generate the docs-site catalogue and skill reference from the typed package
-catalogue so all discovery surfaces describe the same release.
+Keep the docs-site catalogue and skill reference in step with the typed package
+catalogue so all discovery surfaces describe the same release. Generating them
+from the typed catalogue is a deferred follow-up (see the catalogue section).
 
 ## Implementation plan
 
-### Phase 1: audit existing widgets
+Work proceeds in five phases. Each phase lists its goal, a task checklist and
+acceptance criteria. A phase is done only when every acceptance box under it is
+ticked; do not start the next phase until the current one passes its gate.
+Update the checkboxes and the progress tracker as work lands so the current
+state is visible at a glance.
 
-- Review the Cron, Web and template Notes widgets.
-- Review representative internal and external plugin views.
-- Identify repeated layout, typography, metric, status, list, filter and
-  runtime-state patterns.
-- Confirm the initial component APIs against at least two real consumers where
-  possible.
+Phases are ordered to prove the biggest risks first: external styling in Phase
+1, then breadth in Phase 2, then real-widget validation in Phase 3.
 
-### Phase 2: add shared components
+### Progress tracker
 
-- Add the dashboard component directory to `@sero-ai/ui`.
-- Add the layout, typography, data-display, state, action and filter components
-  defined in the initial component set.
-- Build components from existing primitives and design tokens instead of
-  duplicating them.
-- Export stable components from the package root.
-- Add the typed component catalogue and its stable metadata subpath.
-- Generate the skill and docs-site catalogue views from the same metadata.
-- Add focused component tests for variants, accessibility contracts and state
-  selection.
-- Add catalogue/export consistency and generated-file checks.
-- Keep each source file below 500 lines.
-- Typecheck and build the UI package.
+| Phase | Title | Status |
+|---|---|:--:|
+| 1 | Audit, showcase design, style spike | ☐ |
+| 2 | Build shared components | ☐ |
+| 3 | Prove the set with showcase widgets | ☐ |
+| 4 | Verify external consumption | ☐ |
+| 5 | Guidance, skill and docs | ☐ |
 
-### Phase 3: use the components in real widgets
+Status key: ☐ not started · ◐ in progress · ☑ done. Mark a phase ☑ only after
+its acceptance criteria all pass.
 
-- Refactor `CronWidget` to use shared statuses, sections and states.
-- Refactor `WebWidget` to use shared metrics and compact lists.
-- Update the template Notes widget as the canonical minimal example.
-- Do not mechanically rewrite unrelated plugins.
+### Phase 1: audit, showcase design, style spike
+
+**Goal:** record what to avoid, decide the showcase widgets that will prove the
+set, and de-risk external styling before building any breadth. The existing
+widgets are the problem this work fixes, not the design source; the component
+set is design-led.
+
+**Tasks**
+
+- [ ] Review the Cron, Web and template Notes widgets and record what to avoid
+      (inconsistent spacing, ad-hoc colours, hand-rolled layout) in this doc or
+      a linked note — as an anti-pattern list, not patterns to copy.
+- [ ] Decide the 3 showcase widgets that will demonstrate the set, and map
+      each planned component to at least one showcase that uses it, so every
+      component group is exercised.
+- [ ] Build one throwaway composite (for example `Metric`) and consume it from
+      a packed external plugin (packed `@sero-ai/ui`, not a desktop-internal
+      source path).
+
+**Acceptance criteria**
+
+- [ ] The anti-pattern list exists and is referenced from this plan.
+- [ ] Every component in the initial set maps to a showcase widget that will use
+      it; any component with no consumer is cut or justified.
+- [ ] The spike composite renders in the packed external plugin with correct
+      styles via `@sero-ai/ui/styles/plugin.css` and the Tailwind `@source`
+      path — confirmed visually, not just built.
+- [ ] If the spike reveals the styling mechanism does not deliver cleanly, the
+      blocker is written up and resolved before Phase 2 begins.
+
+### Phase 2: build shared components
+
+**Goal:** add the design-led component set to `@sero-ai/ui`, built from existing
+primitives and tokens, exported and tested.
+
+**Tasks**
+
+- [ ] Add the `packages/ui/src/components/dashboard/` directory.
+- [ ] Build each component in the matrix below from existing primitives and
+      design tokens (no dashboard-prefixed copies of primitives).
+- [ ] Export every stable component from the package root.
+- [ ] Add the typed `catalog.ts` and its metadata subpath, registering the
+      subpath in both `exports` and `publishConfig.exports`.
+- [ ] Write the hand-maintained skill and docs-site catalogue views (generation
+      is a deferred follow-up).
+- [ ] Add focused tests for variants, accessibility contracts and state
+      selection.
+
+**Component build matrix** — tick each column as it lands:
+
+| Component | Built | Exported | Tested | In catalogue |
+|---|:--:|:--:|:--:|:--:|
+| `WidgetContent` | ☐ | ☐ | ☐ | ☐ |
+| `Stack` | ☐ | ☐ | ☐ | ☐ |
+| `Inline` | ☐ | ☐ | ☐ | ☐ |
+| `Grid` | ☐ | ☐ | ☐ | ☐ |
+| `Section` | ☐ | ☐ | ☐ | ☐ |
+| `Divider` | ☐ | ☐ | ☐ | ☐ |
+| `Text` | ☐ | ☐ | ☐ | ☐ |
+| `Heading` | ☐ | ☐ | ☐ | ☐ |
+| `Icon` | ☐ | ☐ | ☐ | ☐ |
+| `Metric` / `MetricGroup` / `MetricCard` | ☐ | ☐ | ☐ | ☐ |
+| `Status` | ☐ | ☐ | ☐ | ☐ |
+| `KeyValue` / `KeyValueList` | ☐ | ☐ | ☐ | ☐ |
+| `ItemList` / `ItemListItem` | ☐ | ☐ | ☐ | ☐ |
+| `ActivityList` / `ActivityListItem` | ☐ | ☐ | ☐ | ☐ |
+| `ProgressRing` | ☐ | ☐ | ☐ | ☐ |
+| `StaleIndicator` | ☐ | ☐ | ☐ | ☐ |
+| `DataBoundary` | ☐ | ☐ | ☐ | ☐ |
+| `EmptyState` | ☐ | ☐ | ☐ | ☐ |
+| Skeleton patterns | ☐ | ☐ | ☐ | ☐ |
+| `IconButton` | ☐ | ☐ | ☐ | ☐ |
+
+`Badge`, `Alert` and `Button` are reused primitives, listed in the catalogue but
+not rebuilt here.
+
+**Acceptance criteria**
+
+- [ ] Every matrix row is fully ticked, or explicitly deferred with a reason.
+- [ ] Each stable component is importable from the `@sero-ai/ui` root.
+- [ ] The catalogue subpath resolves in both dev and published resolution
+      (present in `exports` and `publishConfig.exports`).
+- [ ] No shared component imports plugin state, plugin actions or domain types.
+- [ ] Every touched source file is under 500 lines.
+- [ ] `pnpm typecheck` and the UI package build both pass.
+
+### Phase 3: prove the set with showcase widgets
+
+**Goal:** validate the component set and its APIs by building the showcase
+widgets, then adopt the components in the existing widgets as a secondary win.
+
+**Tasks**
+
+- [ ] Build the showcase widgets decided in Phase 1, using only shared
+      components for presentation.
+- [ ] Refactor `CronWidget` and `WebWidget` onto the shared components,
+      removing their hand-rolled styling.
+- [ ] Update the template Notes widget as the canonical minimal example.
+- [ ] Feed any API friction found here back into the Phase 2 components.
+
+**Acceptance criteria**
+
+- [ ] Each showcase widget renders correctly at 1×1, 2×2 and 3×2 and in light
+      and dark themes, with long labels, empty data and keyboard focus checked.
+- [ ] Cron, Web and Notes widgets contain no ad-hoc presentation styling that a
+      shared component already covers.
+- [ ] Any component whose API had to change during adoption is re-exported and
+      its catalogue entry updated.
+- [ ] No unrelated plugin was mechanically rewritten.
 
 ### Phase 4: verify external consumption
 
-- Test the components from an external plugin using a published or packed
-  `@sero-ai/ui` build rather than a desktop-internal source path.
-- Confirm component styles are included through
-  `@sero-ai/ui/styles/plugin.css`.
-- Confirm production Module Federation bundles render correctly.
-- Publish the additions through a normal semantic version update.
+**Goal:** confirm the components work for a real external plugin from a packaged
+build, then release.
 
-### Phase 5: add guidance
+**Tasks**
 
-- Create and validate the `sero-dashboard-ui` skill template.
-- Link it from the existing `sero-plugin` skill.
-- Update plugin documentation and examples.
-- Update the docs site before release.
+- [ ] Consume the full set from an external plugin using a packed or published
+      `@sero-ai/ui` build, not a desktop-internal source path.
+- [ ] Verify production Module Federation bundles render the components.
+- [ ] Publish the additions through a normal semantic version bump.
 
-## Validation
+**Acceptance criteria**
 
-The implementation is complete when:
+- [ ] The external plugin renders every component group with correct styles via
+      `@sero-ai/ui/styles/plugin.css`.
+- [ ] Production MF bundles render correctly (no missing-style or dual-React
+      regressions).
+- [ ] The `@sero-ai/ui` version bump is published and the changelog notes the
+      new components.
 
-- Dashboard persistence and mounting remain unchanged.
-- Cron, Web and template Notes widgets share common presentation components.
-- An external plugin can consume the components from a packaged
-  `@sero-ai/ui` release.
-- Widgets work at their minimum, standard and wide sizes.
-- Components work in both dashboard widgets and full plugin views.
-- Shared components contain no plugin-specific state or domain types.
-- The initial layout, typography, data-display, runtime-state, action and filter
-  component groups are exported and documented.
-- Plugin authors and the agent can discover every supported component through
-  the generated catalogue.
-- Catalogue validation catches missing exports, missing entries, broken related
-  links and stale generated documentation.
-- The new skill can guide the agent to build a consistent widget without
-  copying a large raw styling recipe.
-- `pnpm typecheck` passes from the monorepo root.
+### Phase 5: guidance, skill and docs
+
+**Goal:** make the components discoverable and give the agent a repeatable way
+to build consistent widgets.
+
+**Tasks**
+
+- [ ] Create and validate the `sero-dashboard-ui` skill template with the
+      `skill-creator` template.
+- [ ] Link the new skill from the existing `sero-plugin` skill.
+- [ ] Update `sero-plugin/references/api-and-widgets.md`, the Notes example and
+      the relevant `apps/docs-site` pages.
+- [ ] Keep the hand-maintained catalogue views in step with the shipped set.
+
+**Acceptance criteria**
+
+- [ ] The skill triggers on dashboard-widget requests and guides the agent to a
+      consistent widget without copying a large raw styling recipe.
+- [ ] The docs-site catalogue and skill reference list exactly the shipped
+      component set.
+- [ ] Documentation covers imports, plugin stylesheet setup, the shared vs
+      plugin-local boundary, size and overflow conventions, and loading / empty
+      / error presentations.
+
+## Release acceptance
+
+The work is complete when all phase gates pass and:
+
+- [ ] Dashboard persistence and mounting are unchanged.
+- [ ] Cron, Web and template Notes widgets share common presentation components.
+- [ ] An external plugin consumes the components from a packaged `@sero-ai/ui`
+      release.
+- [ ] Components work in both dashboard widgets and full plugin views, at
+      minimum, standard and wide sizes.
+- [ ] Shared components contain no plugin-specific state or domain types.
+- [ ] The layout, typography, data-display, runtime-state and action component
+      groups are exported and documented.
+- [ ] Plugin authors and the agent can discover every supported component
+      through the hand-maintained catalogue.
+- [ ] `pnpm typecheck` passes from the monorepo root.
+
+### Deferred follow-ups
+
+Tracked here so they are not lost, but explicitly out of scope for this release:
+
+- [ ] Generate the catalogue views from the typed catalogue and add drift
+      validation (missing exports, missing entries, broken related links, stale
+      Markdown).
+- [ ] `CollapsibleWidget`, once the host provides a collapse contract.
