@@ -280,6 +280,12 @@ Verify:
 | `plugins/sero-cron-plugin/` | Background jobs, command-oriented plugins |
 | `../plugins/sero-kanban-plugin/` | External plugin with background runtime + tool-driven UI + widgets |
 
+## Related skills
+
+- **`sero-dashboard-ui`** (`../sero-dashboard-ui/SKILL.md`) — building or
+  redesigning dashboard widgets and compact plugin views with the shared
+  `@sero-ai/ui` dashboard components. Read it whenever a plugin has a widget.
+
 ## Related docs
 
 - `docs/plugins/guide.md` — packaging and distributing installable plugins

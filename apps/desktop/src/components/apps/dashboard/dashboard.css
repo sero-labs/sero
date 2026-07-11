@@ -1,0 +1,102 @@
+/**
+ * Dashboard board styling — react-grid-layout overrides + host chrome.
+ *
+ * The frosted-board look (canvas glow + translucent tile surface) lives
+ * in the shared `@sero-ai/ui/styles/glass-board.css` (`.glass-canvas` +
+ * `.glass-tile`), imported by `Dashboard.tsx`, so the styleguide preview
+ * renders on the same board. This file keeps only what is specific to the
+ * live board: the `--dash-*` chrome tokens (derived from the canonical
+ * `--glass-*` language), react-grid placeholder/resize/drag treatments and
+ * the hover-revealed widget chrome.
+ *
+ * Dark is the primary design target; light values mirror the same
+ * relationships.
+ */
+
+.sero-dashboard {
+  --dash-seam: var(--glass-border);
+  --dash-seam-strong: rgba(15, 17, 23, 0.22);
+  --dash-chrome-scrim: rgba(255, 255, 255, 0.75);
+  --dash-accent: var(--accent-primary);
+  --dash-accent-soft: color-mix(in srgb, var(--accent-primary) 12%, transparent);
+  --dash-lift-shadow: 0 16px 40px rgba(15, 17, 23, 0.22);
+}
+
+.dark .sero-dashboard {
+  --dash-seam-strong: rgba(255, 255, 255, 0.18);
+  --dash-chrome-scrim: rgba(8, 8, 12, 0.6);
+  --dash-accent-soft: color-mix(in srgb, var(--accent-primary) 18%, transparent);
+  --dash-lift-shadow: 0 16px 48px rgba(0, 0, 0, 0.65);
+}
+
+/* ── Drag/resize target preview ──────────────────────────────────
+   Sharp accent-tinted rectangle marking where the tile will land. */
+.sero-dashboard .react-grid-item.react-grid-placeholder {
+  background: var(--dash-accent-soft);
+  border: 1px solid var(--dash-accent);
+  border-radius: 0;
+  opacity: 1;
+}
+
+/* Lift the tile being dragged or resized above the board. */
+.sero-dashboard .react-grid-item.react-draggable-dragging,
+.sero-dashboard .react-grid-item.resizing {
+  border-color: var(--dash-seam-strong);
+  box-shadow: inset 0 1px 0 var(--glass-rim), var(--dash-lift-shadow);
+}
+
+/* ── Resize bracket ──────────────────────────────────────────────
+   Replaces the default diagonal-lines handle with a corner bracket
+   that appears only while hovering the tile. */
+.sero-dashboard .react-grid-item > .react-resizable-handle {
+  width: 24px;
+  height: 24px;
+  z-index: 20;
+  transition: opacity 120ms ease;
+}
+
+.sero-dashboard .react-grid-item > .react-resizable-handle::after {
+  right: 5px;
+  bottom: 5px;
+  width: 9px;
+  height: 9px;
+  border-right: 2px solid var(--text-muted);
+  border-bottom: 2px solid var(--text-muted);
+}
+
+.sero-dashboard .react-grid-item > .react-resizable-handle:hover::after,
+.sero-dashboard .react-grid-item.resizing > .react-resizable-handle::after {
+  border-color: var(--dash-accent);
+}
+
+/* ── Hover controls ──────────────────────────────────────────────
+   A small pill of controls (drag grip, open, remove) in the top-right
+   corner, revealed on hover or keyboard focus on a frosted backing.
+
+   The overlay is pointer-events:none and the pill is pointer-events:none
+   until revealed, so nothing here intercepts interaction with the widget
+   beneath it — the tile stays fully interactive until you actually reach
+   for a control. Only the grip drags; the top edge no longer does. */
+.sero-dashboard .dash-widget-chrome {
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.sero-dashboard .dash-widget-actions {
+  pointer-events: none;
+  background: var(--dash-chrome-scrim);
+  backdrop-filter: blur(12px);
+  border-radius: 6px;
+}
+
+.sero-dashboard .react-grid-item:hover .dash-widget-chrome,
+.sero-dashboard .react-grid-item:focus-within .dash-widget-chrome,
+.sero-dashboard .react-grid-item.react-draggable-dragging .dash-widget-chrome {
+  opacity: 1;
+}
+
+.sero-dashboard .react-grid-item:hover .dash-widget-actions,
+.sero-dashboard .react-grid-item:focus-within .dash-widget-actions,
+.sero-dashboard .react-grid-item.react-draggable-dragging .dash-widget-actions {
+  pointer-events: auto;
+}

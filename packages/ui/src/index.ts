@@ -131,6 +131,13 @@ export * from "./components/ai-elements/voice-selector-accent";
 export * from "./components/ai-elements/voice-selector";
 export * from "./components/ai-elements/web-preview";
 
+// ── Dashboard Components ──
+// Compact presentation components for dashboard widgets and full plugin views.
+// The discovery catalogue is plain data at "@sero-ai/ui/dashboard-catalog.json";
+// its entry type is re-exported here for callers that type the parsed JSON.
+export * from "./components/dashboard";
+export type { DashboardComponentCatalogEntry } from "./components/dashboard/catalog";
+
 // ── Model Selection Components ──
 export * from "./components/model-selection/available-model-picker";
 export * from "./components/model-selection/model-warning-list";

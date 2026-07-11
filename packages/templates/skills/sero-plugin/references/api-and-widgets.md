@@ -245,11 +245,25 @@ federation({
 
 ### Widget component template
 
+Compose the widget from the shared **dashboard components** in `@sero-ai/ui`
+rather than re-declaring layout, spacing and colours. See the
+[`sero-dashboard-ui`](../../sero-dashboard-ui/SKILL.md) skill for the full
+component catalogue and patterns.
+
 ```tsx
 // ui/widgets/MyAppWidget.tsx
 
-import { useMemo } from 'react';
 import { useAppState } from '@sero-ai/app-runtime';
+import {
+  EmptyState,
+  Inline,
+  ItemList,
+  ItemListItem,
+  Stack,
+  Text,
+  WidgetContent,
+} from '@sero-ai/ui';
+import { Inbox } from 'lucide-react';
 import type { MyAppState } from '../../shared/types';
 import { DEFAULT_STATE } from '../../shared/types';
 import '../styles.css';
@@ -259,30 +273,27 @@ export function MyAppWidget() {
   const count = state.items.length;
 
   return (
-    <div className="flex h-full flex-col gap-2 p-3">
-      <div className="flex items-center gap-2">
-        <span className="text-lg font-bold tabular-nums text-[var(--text-primary)]">
-          {count}
-        </span>
-        <span className="text-xs text-[var(--text-muted)]">items</span>
-      </div>
+    <WidgetContent>
+      {/* `fill` makes the top Stack fill height so the scroll region can bound. */}
+      <Stack gap="sm" fill>
+        <Inline gap="xs" align="baseline">
+          <Text variant="numeric" className="text-lg">{count}</Text>
+          <Text variant="muted">items</Text>
+        </Inline>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-auto">
-        {state.items.slice(0, 5).map((item) => (
-          <div
-            key={item.id}
-            className="truncate rounded-md bg-[var(--bg-elevated)] px-2 py-1 text-xs text-[var(--text-primary)]"
-          >
-            {item.title}
-          </div>
-        ))}
-        {count > 5 && (
-          <span className="text-[10px] text-[var(--text-muted)]">
-            +{count - 5} more
-          </span>
+        {count === 0 ? (
+          <EmptyState icon={Inbox} title="No items yet" />
+        ) : (
+          <Stack gap="none" scroll>
+            <ItemList overflowCount={Math.max(0, count - 5)}>
+              {state.items.slice(0, 5).map((item) => (
+                <ItemListItem key={item.id} primary={item.title} />
+              ))}
+            </ItemList>
+          </Stack>
         )}
-      </div>
-    </div>
+      </Stack>
+    </WidgetContent>
   );
 }
 
@@ -292,11 +303,10 @@ export default MyAppWidget;
 Widget conventions:
 - Both named and default exports required
 - Import `../styles.css` (or a shared plugin stylesheet) when the widget is exposed directly via Module Federation
-- Fill `h-full` — wrapper provides container with header/resize handle
-- Use `p-3` padding (no built-in padding)
-- Keep compact — `text-xs` / `text-[10px]` for details, `text-lg` for headlines
-- Add `overflow-auto` on scrollable areas, `min-h-0` on flex children
-- Limit to top 3-5 items with "+N more" overflow
+- Wrap the widget in `WidgetContent` — it fills height and adds standard padding + a container-query boundary (no manual `h-full`/`p-3`)
+- Prefer shared dashboard components (`Stack`, `Inline`, `Text`, `Metric`, `Status`, `ItemList`, `ActivityList`, `EmptyState`, …) over hand-rolled layout, arbitrary font sizes and hex colours
+- Use `<Stack scroll>` for scrollable areas; pass `overflowCount` for "+N more"
+- Keep domain state and behaviour in the plugin; the shared components are presentation only
 
 ### Dynamic widgets (runtime)
 
@@ -416,14 +426,21 @@ function resolveStatePath(cwd: string): string {
 
 ### Component imports
 
+Prefer the barrel export from the package root:
+
 ```tsx
-import { Button } from '@sero-ai/ui/components/ui/button';
-import { Card } from '@sero-ai/ui/components/ui/card';
-import { Badge } from '@sero-ai/ui/components/ui/badge';
-import { cn } from '@sero-ai/ui/lib/utils';
+import { Button, Card, Badge, cn } from '@sero-ai/ui';
 ```
 
-Common components: Button, Card, Badge, Separator, ScrollArea, Checkbox.
+Common primitives: Button, Card, Badge, Separator, ScrollArea, Checkbox.
+
+**Dashboard components** — for compact widget and plugin-view presentation, use
+the shared dashboard set (also from `@sero-ai/ui`): `WidgetContent`, `Stack`,
+`Inline`, `Grid`, `Section`, `Text`, `Heading`, `Metric`, `Status`, `ItemList`,
+`ActivityList`, `ProgressRing`, `DataBoundary`, `EmptyState`, `IconButton`, and
+more. Discover the full set via `@sero-ai/ui/dashboard-catalog.json` or the
+[`sero-dashboard-ui`](../../sero-dashboard-ui/SKILL.md) skill. Reach for these
+before hand-rolling layout or picking arbitrary font sizes and colours.
 
 ### Tailwind semantic colors
 

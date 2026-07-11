@@ -78,9 +78,16 @@ Open the full app when you need rich editing, long lists, detailed settings, or 
 | Layout looks wrong | Resize the window, drag/resize widgets again, or restart from the same profile. |
 | Widget shows stale data | Open the owning app or refresh the relevant plugin/runtime state. |
 
+## Building a widget
+
+Plugin authors build widgets from the shared `@sero-ai/ui` dashboard components,
+which give one consistent look for spacing, typography, status colours and
+overflow. See [Dashboard Components](/reference/dashboard-components).
+
 ## Related docs
 
 - [Workspace and Chat](/guide/workspace-and-chat)
 - [Plugins and Apps](/guide/plugins-and-apps)
 - [App Store, Favorites, and Installed Plugins](/guide/app-store-favorites)
+- [Dashboard Components](/reference/dashboard-components)
 - [State and Folders](/reference/state-and-folders)

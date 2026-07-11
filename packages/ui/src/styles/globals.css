@@ -179,6 +179,27 @@
   --sidebar-accent-foreground: var(--text-primary);
   --sidebar-border: var(--border-subtle);
   --sidebar-ring: var(--border-focus);
+
+  /* ── Glass (dashboard) ────────────────────────────────────
+     Canonical translucent surface language for the glass
+     dashboard. The host `dashboard.css` derives its `--dash-*`
+     tokens from these, and the `.glass` scope below remaps the
+     component-facing `--surface-*` tokens to them. Light =
+     frosted white; dark values live in the `.dark` block. */
+  --glass-tile: rgba(255, 255, 255, 0.52); /* base tile (host) */
+  --glass-surface: rgba(255, 255, 255, 0.62); /* raised card */
+  --glass-surface-flat: rgba(255, 255, 255, 0.40); /* flat row */
+  --glass-border: rgba(15, 17, 23, 0.10);
+  --glass-rim: rgba(255, 255, 255, 0.60);
+  --glass-hover: rgba(255, 255, 255, 0.72);
+
+  /* Component-facing surface tokens. Default to the solid design
+     tokens so components look unchanged outside the `.glass`
+     scope; the scope flips them to the glass values above. */
+  --surface-raised: var(--bg-surface);
+  --surface-flat: var(--bg-elevated);
+  --surface-line: var(--border-subtle);
+  --surface-rim: transparent;
 }
 
 /* ── Scrollbars ─────────────────────────────────────────────── */
@@ -421,6 +442,44 @@
   --sidebar-accent-foreground: var(--text-primary);
   --sidebar-border: var(--border-subtle);
   --sidebar-ring: var(--border-focus);
+
+  /* ── Glass (dashboard) — dark: low-opacity white over the dark
+       canvas glow. `--surface-*` defaults stay solid; the `.glass`
+       scope flips them (values shared across themes via the vars). */
+  --glass-tile: rgba(255, 255, 255, 0.06);
+  --glass-surface: rgba(255, 255, 255, 0.09);
+  --glass-surface-flat: rgba(255, 255, 255, 0.05);
+  --glass-border: rgba(255, 255, 255, 0.12);
+  --glass-rim: rgba(255, 255, 255, 0.08);
+  --glass-hover: rgba(255, 255, 255, 0.13);
+}
+
+/* ── Glass scope ─────────────────────────────────────────────────
+   Subtree-local class applied by `WidgetContent` (default on). It
+   remaps the component-facing surface tokens and the container/border
+   shadcn bridge tokens to the translucent glass values, so dashboard
+   components read as part of the frosted tile. Interactive controls
+   (`--input`) and portalled surfaces (`--popover`, rendered at
+   document.body outside this scope) stay solid for legibility. No
+   `backdrop-filter` here — the host tile provides the single blur. */
+.glass {
+  /* component surface tokens */
+  --surface-raised: var(--glass-surface);
+  --surface-flat: var(--glass-surface-flat);
+  --surface-line: var(--glass-border);
+  --surface-rim: var(--glass-rim);
+
+  /* containers + borders for primitives used inside widgets */
+  --card: var(--glass-surface);
+  --secondary: var(--glass-surface-flat);
+  --muted: var(--glass-surface-flat);
+  --accent: var(--glass-surface-flat);
+  --border: var(--glass-border);
+
+  /* keep interactive controls + portalled surfaces solid */
+  --input: var(--border-subtle);
+  --popover: var(--bg-elevated);
+  --ring: var(--border-focus);
 }
 
 html {
