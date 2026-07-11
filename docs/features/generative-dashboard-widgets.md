@@ -13,16 +13,23 @@ Assistant UI should provide:
 - The Pi runtime integration for conversation, streaming, tools and approvals
 - The constrained generative UI renderer
 
-Plugins should primarily contribute typed data sources, actions and optional templates rather than arbitrary widget React components.
+The declarative widget system is an additional authoring model, not a replacement for the existing module federation model. Plugin authors must remain free to provide fully self-contained React widgets when they need complete ownership of rendering, state, styling and behaviour.
 
-The Sero agent should also be able to author reusable declarative components ad hoc. These components are composed from trusted shadcn-backed Sero primitives, installed into a component registry and then referenced by widgets through `$type`.
+Sero therefore supports two first-class widget models:
+
+1. Declarative widgets rendered by the Sero host from curated `$type` components
+2. Federated component widgets implemented and owned entirely by the plugin
+
+A plugin may use either model or expose widgets using both models. The dashboard should present them consistently to users while preserving the distinct ownership and trust boundaries of each approach.
+
+The Sero agent should also be able to author reusable declarative components ad hoc. These components are composed from trusted shadcn-backed Sero primitives, installed into a component registry and then referenced by declarative widgets through `$type`.
 
 The complete target architecture is:
 
 ```text
 Pi agent
    │
-   ├─ authors widget definitions
+   ├─ authors declarative widget definitions
    └─ authors reusable component definitions
           │
           ▼
@@ -44,16 +51,24 @@ component library      and Action Runtime
                   ▼
        DashboardDefinitionRenderer
                   │
-          ┌───────┴────────┐
-          ▼                ▼
-     Dashboard Grid   Component & Widget Studio
+                  ▼
+             Dashboard Grid
+                  ▲
+                  │
+       Federated Widget Renderer
+                  ▲
+                  │
+       Plugin-owned React widgets
+
+Component & Widget Studio manages declarative definitions and can also
+surface metadata and diagnostics for federated widgets where available.
 ```
 
 ## Goals
 
 The feature should provide:
 
-- Consistent dashboard design across internal, external and locally-authored widgets
+- Consistent dashboard design for authors who choose the declarative model
 - Safe agent generation without arbitrary markup or executable code
 - Reusable ad-hoc components that become new `$type` values
 - Typed data and action contracts
@@ -63,18 +78,73 @@ The feature should provide:
 - Revision history, migrations and repair workflows
 - A practical non-chat interface for browsing, testing and managing definitions
 - Efficient shared subscriptions for high-frequency and real-time data
+- Continued support for fully self-contained, plugin-owned federated widgets
+- Freedom for each plugin author to select the appropriate ownership model
+- The ability for one plugin to offer both declarative and federated widgets
 
-## Problem with the current widget model
+## Two first-class widget authoring models
 
-The current dashboard mounts plugin-owned React components through module federation. Each widget therefore controls its own layout, spacing, typography, colours, responsiveness, empty states, accessibility, actions and data formatting.
+The dashboard must treat declarative and federated widgets as complementary approaches rather than stages in a forced migration.
 
-This makes consistency dependent on every internal and external plugin author following the same conventions. It also makes safe agent-generated widgets difficult because the current unit of extension is executable React code.
+### Declarative widgets
 
-The existing federated widget mechanism should remain available during migration, but declarative definitions should become the preferred path.
+Declarative widgets are best suited when the author wants:
+
+- Consistent Sero styling and responsive behaviour
+- Agent-assisted creation and editing
+- A constrained and inspectable definition format
+- Host-managed loading, error, stale and permission states
+- Automatically generated settings forms
+- Reusable curated components
+- Typed host-managed data bindings and actions
+- Easy versioning, previewing, validation and repair
+
+The Sero host owns rendering and runtime orchestration. The plugin or user supplies data sources, actions, templates and definitions.
+
+### Federated component widgets
+
+Federated widgets are best suited when the author wants:
+
+- Full ownership of React rendering and component structure
+- Custom styling or visual behaviour outside the curated vocabulary
+- Complex interactions, local state or specialist rendering
+- Canvas, WebGL, advanced charts, virtualisation or unusual layout systems
+- Direct use of plugin-specific libraries
+- An independently developed and released UI surface
+- Complete control over loading, empty, error and action experiences
+
+The plugin owns the widget implementation. Sero owns only the dashboard shell, placement, sizing, lifecycle boundary and shared application context that it explicitly exposes.
+
+### Selection principles
+
+Neither model should be described as universally preferred or more legitimate.
+
+The declarative model should be recommended for widgets that fit its capabilities because it offers stronger consistency and agent authoring. The federated model should remain fully supported for widgets where self-contained ownership is valuable or the declarative vocabulary is restrictive.
+
+A plugin may start with either model. Moving between models is optional and should be treated as an author decision rather than a platform migration requirement.
+
+The Add Widget interface should clearly identify the widget model, for example:
+
+```text
+Scheduler Summary       Declarative
+Advanced Order Book     Plugin Component
+```
+
+Users should not need to understand the technical implementation to use either widget, but developers and administrators should be able to inspect its source, trust level and ownership model.
+
+## Trade-offs of the current widget model
+
+The current dashboard mounts plugin-owned React components through module federation. Each federated widget controls its own layout, spacing, typography, colours, responsiveness, empty states, accessibility, actions and data formatting.
+
+This is valuable when the plugin author wants a fully self-contained ownership model. It also means that visual consistency, safe agent authoring and host-level validation cannot be guaranteed by Sero.
+
+The declarative approach addresses those trade-offs without removing the flexibility of federated widgets.
+
+The existing module federation widget mechanism is not deprecated by this feature and must not be removed as part of its implementation.
 
 ## Role of assistant-ui
 
-Assistant UI should be used for two separate responsibilities.
+Assistant UI should be used for two separate responsibilities within the declarative widget model.
 
 ### Pi runtime integration
 
@@ -114,9 +184,13 @@ The model emits a recursive JSON tree using `$type`.
 
 Assistant UI renders that tree, but Sero owns and versions the persisted definition.
 
+assistant-ui is not required to render federated component widgets. Those continue to use the existing module federation and `AppProvider` mounting path.
+
 ## Architectural boundary
 
-The model must not generate the following as part of routine widget or component authoring:
+The restrictions in this section apply to the declarative and agent-authoring path. They do not prohibit a trusted federated plugin from implementing its own React widget.
+
+The model must not generate the following as part of routine declarative widget or component authoring:
 
 - JSX
 - Arbitrary React components
@@ -127,7 +201,7 @@ The model must not generate the following as part of routine widget or component
 - Plugin action implementations
 - Arbitrary callbacks or expressions
 
-The normal authoring path should generate only:
+The normal declarative authoring path should generate only:
 
 1. Curated view trees
 2. Property references
@@ -135,6 +209,8 @@ The normal authoring path should generate only:
 4. Configuration references
 5. Bounded value and collection expressions
 6. References to allowlisted actions
+
+A plugin author who intentionally chooses the federated model may implement arbitrary React code within the existing plugin security and trust model. Agent-generated code-backed widgets or component packs remain a separate higher-trust workflow and must not be silently installed through declarative authoring.
 
 ## Serializable schema format
 
@@ -212,7 +288,7 @@ The same schema representation should drive:
 
 Unknown properties should be rejected by default.
 
-## Dashboard widget definition
+## Declarative dashboard widget definition
 
 ```ts
 interface DashboardWidgetDefinition {
@@ -260,6 +336,8 @@ type GenerativeValue =
 
 ## Separate view, data, configuration and behaviour
 
+This section defines the host-managed declarative widget model. Federated widgets may manage these responsibilities internally.
+
 ### View
 
 The model should choose from semantic Sero components rather than unrestricted raw markup.
@@ -305,7 +383,7 @@ Do not expose unrestricted `className`, `style`, `html` or arbitrary component n
 
 ### Data
 
-Widgets bind to live plugin or host data.
+Declarative widgets bind to live plugin or host data.
 
 ```json
 {
@@ -317,7 +395,7 @@ Widgets bind to live plugin or host data.
 }
 ```
 
-Plugins expose typed data sources.
+Plugins may expose typed data sources for declarative widgets even when the same plugin also contains federated widgets.
 
 ```ts
 interface PluginWidgetDataSource<T> {
@@ -332,9 +410,11 @@ interface PluginWidgetDataSource<T> {
 
 Plugin-owned data sources can use Zod directly because they are code contributions. Agent-authored schemas should use the serialisable Sero schema format.
 
+A federated widget may use these shared data-source APIs, its existing `AppProvider` context or its own internal data integration, subject to plugin permissions.
+
 ### Configuration
 
-A widget definition should be reusable across multiple instances. Per-instance values belong in widget configuration, not separate definitions.
+A declarative widget definition should be reusable across multiple instances. Per-instance values belong in widget configuration, not separate definitions.
 
 ```json
 {
@@ -346,7 +426,7 @@ A widget definition should be reusable across multiple instances. Per-instance v
 ```
 
 ```ts
-interface DashboardWidgetInstance {
+interface DeclarativeDashboardWidgetInstance {
   instanceId: string;
   definitionId: string;
   definitionRevision: number;
@@ -354,7 +434,7 @@ interface DashboardWidgetInstance {
 }
 ```
 
-Sero should automatically generate the widget settings interface from `configSchema`.
+Sero should automatically generate the declarative widget settings interface from `configSchema`.
 
 Configuration can cover values such as:
 
@@ -366,7 +446,7 @@ Configuration can cover values such as:
 - List limits
 - User-selected filters
 
-Secrets must never be stored directly in widget definitions or instance configuration. They should be referenced through the host credential store.
+Secrets must never be stored directly in declarative widget definitions or instance configuration. They should be referenced through the host credential store.
 
 ```json
 {
@@ -376,9 +456,11 @@ Secrets must never be stored directly in widget definitions or instance configur
 
 The secret value must not be shown to the model or persisted with the widget.
 
+Federated widgets may expose their own settings UI. Sero may later define an optional common settings contract, but the declarative settings schema must not become mandatory for federated widgets.
+
 ### Behaviour
 
-Actions reference allowlisted plugin or host commands.
+Declarative widget actions reference allowlisted plugin or host commands.
 
 ```json
 {
@@ -427,9 +509,11 @@ The host action runtime should consistently handle:
 - Data-source invalidation
 - Duplicate invocation protection
 
-## Standard widget data lifecycle
+Federated widgets may use the host action registry or implement their own behaviour within the existing plugin permission model.
 
-Every data-driven widget should use a standard status envelope.
+## Standard declarative widget data lifecycle
+
+Every data-driven declarative widget should use a standard status envelope.
 
 ```ts
 interface WidgetDataSnapshot<T> {
@@ -477,9 +561,11 @@ A `DataBoundary` primitive should provide the default presentation while still a
 
 assistant-ui streaming props concern incomplete model output during generation. They do not replace this ongoing live-data lifecycle.
 
+Federated widgets retain ownership of their own internal data lifecycle UI unless they voluntarily adopt shared Sero primitives or contracts.
+
 ## Bounded value and collection expressions
 
-Simple `$bind` and `$format` operations are insufficient for real widgets, but arbitrary JavaScript expressions would undermine safety and portability.
+Simple `$bind` and `$format` operations are insufficient for real declarative widgets, but arbitrary JavaScript expressions would undermine safety and portability.
 
 Sero should provide a small declarative expression language.
 
@@ -556,7 +642,7 @@ For example, a user can ask:
 
 The agent should inspect the available primitives, propose a declarative component definition, preview it with sample data and install it after approval.
 
-Once installed, the component becomes available through `$type`:
+Once installed, the component becomes available to declarative widgets through `$type`:
 
 ```json
 {
@@ -570,6 +656,8 @@ Once installed, the component becomes available through `$type`:
   }
 }
 ```
+
+These generated `$type` components do not restrict federated widgets. A federated widget can continue to use its own React components and may optionally consume curated Sero components where technically appropriate.
 
 ### Declarative component definition
 
@@ -670,19 +758,19 @@ A `StockTicker` definition could be composed from existing trusted components:
 
 ### `$prop`, `$bind` and `$config`
 
-`$bind` resolves plugin or host data inside a widget definition.
+`$bind` resolves plugin or host data inside a declarative widget definition.
 
 ```json
 { "$bind": "market.apple.price" }
 ```
 
-`$config` resolves per-instance widget configuration.
+`$config` resolves per-instance declarative widget configuration.
 
 ```json
 { "$config": "symbol" }
 ```
 
-`$prop` resolves a property passed into a reusable component.
+`$prop` resolves a property passed into a reusable declarative component.
 
 ```json
 { "$prop": "price" }
@@ -693,7 +781,7 @@ The data flow is:
 ```text
 Plugin data ── $bind ──┐
                        ▼
-Instance config ─ $config ─ Widget definition
+Instance config ─ $config ─ Declarative widget definition
                               │ component props
                               ▼
                        Reusable component
@@ -704,7 +792,7 @@ Instance config ─ $config ─ Widget definition
 
 ## Component definition registry
 
-Sero should persist reusable components independently of widgets.
+Sero should persist reusable declarative components independently of widgets.
 
 ```ts
 interface GenerativeComponentRecord {
@@ -728,7 +816,9 @@ Approved component packs
 Available $type vocabulary
 ```
 
-Internal widgets, plugin widgets and agent-generated widgets all consume the same resulting vocabulary.
+Built-in declarative widgets, plugin declarative widgets and agent-generated widgets all consume the same resulting vocabulary.
+
+Federated widgets are registered and loaded separately. They do not need to appear in the `$type` vocabulary.
 
 ## Dynamic assistant-ui library integration
 
@@ -758,6 +848,8 @@ atomically swap the active library
 
 Definitions generated against a previous capability snapshot must be revalidated before installation.
 
+This dynamic lifecycle affects only the declarative renderer. It must not reload, rebuild or otherwise disrupt mounted federated widgets.
+
 ## Component authoring workflow
 
 The agent should receive a component-authoring toolkit.
@@ -786,15 +878,17 @@ The workflow is:
 7. The user accepts, edits or rejects the proposal.
 8. `install_component_definition` persists it.
 9. The component registry and assistant toolkit are rebuilt atomically.
-10. The new type becomes available to future widget generation.
+10. The new type becomes available to future declarative widget generation.
 
 Component previews and installed components must use the same renderer.
 
-## Two-tier component model
+## Two-tier declarative component model
+
+This component-tier distinction concerns components exposed through the declarative `$type` vocabulary. It is separate from the choice between declarative and federated widgets.
 
 ### Tier 1: declarative composites
 
-This is the default and preferred mechanism.
+This is the default and preferred mechanism for extending the curated vocabulary.
 
 - JSON-based
 - Composed from existing trusted `$type` components
@@ -803,11 +897,11 @@ This is the default and preferred mechanism.
 - Safe for ad-hoc agent authoring
 - Automatically inherits Sero styling
 
-Most dashboard components should use this tier.
+Most curated dashboard components should use this tier.
 
-### Tier 2: code-backed components
+### Tier 2: code-backed curated components
 
-Some advanced components may require custom React code, canvas rendering, virtualisation or specialised interactions.
+Some curated components may require custom React code, canvas rendering, virtualisation or specialised interactions while still being exposed to declarative widgets as an approved `$type`.
 
 ```ts
 type GenerativeComponentSource =
@@ -822,13 +916,15 @@ type GenerativeComponentSource =
     };
 ```
 
-Code-backed components must be treated as trusted component packs. They require a stronger review and installation process because they are executable code.
+Code-backed curated components must be treated as trusted component packs. They require a stronger review and installation process because they are executable code.
 
 Routine ad-hoc component authoring must not silently fall back to generated React code.
 
+A fully self-contained federated widget is not the same as a Tier 2 curated component. A federated widget is a complete dashboard widget owned by a plugin, while a Tier 2 component extends the `$type` vocabulary for declarative definitions.
+
 ## Namespacing
 
-Canonical type identifiers should be namespaced to prevent collisions.
+Canonical declarative component type identifiers should be namespaced to prevent collisions.
 
 Examples:
 
@@ -850,11 +946,13 @@ Internally, this resolves to a canonical identifier and revision such as:
 local:StockTicker@3
 ```
 
-Plugin-provided components should generally use explicit namespaces.
+Plugin-provided declarative components should generally use explicit namespaces.
+
+Federated widget identifiers continue to use the existing app and widget manifest identity model and do not need to share the `$type` namespace.
 
 ## Versioning, dependencies and migrations
 
-Widgets should not change unpredictably when a reusable component is edited.
+Declarative widgets should not change unpredictably when a reusable component is edited.
 
 ```ts
 interface ComponentDependency {
@@ -863,7 +961,7 @@ interface ComponentDependency {
 }
 ```
 
-Definitions should support:
+Declarative definitions should support:
 
 - Pinned revisions
 - Explicit upgrades
@@ -893,13 +991,15 @@ interface DefinitionMigration {
 }
 ```
 
-Sero must run migrations before loading definitions created by older releases and retain the original value until migration succeeds.
+Sero must run migrations before loading declarative definitions created by older releases and retain the original value until migration succeeds.
+
+Federated widget compatibility continues to follow the plugin manifest, module federation and app-runtime compatibility contracts. It should not be coupled to declarative definition schema versions.
 
 ## Missing dependency and repair behaviour
 
-Definitions should not be deleted automatically when a dependency becomes unavailable.
+Declarative definitions should not be deleted automatically when a dependency becomes unavailable.
 
-A widget should enter a degraded state when:
+A declarative widget should enter a degraded state when:
 
 - Its plugin is uninstalled or disabled
 - A data source is renamed or removed
@@ -933,9 +1033,11 @@ const repairToolkit = {
 
 Repairs should produce a preview and require approval when they materially change behaviour.
 
+Federated widgets should continue to use the existing missing-plugin and mount-failure states. Sero may offer shared diagnostics, but it cannot automatically rewrite or repair plugin-owned React code.
+
 ## Responsive and size-aware rendering
 
-Grid constraints alone do not make a widget responsive. The renderer should expose a semantic viewport context.
+Grid constraints alone do not make a declarative widget responsive. The renderer should expose a semantic viewport context.
 
 ```ts
 interface WidgetViewport {
@@ -976,7 +1078,7 @@ Individual components may also expose semantic responsive variants.
 }
 ```
 
-Authoring previews should include:
+Declarative authoring previews should include:
 
 - Minimum size
 - Default size
@@ -984,11 +1086,13 @@ Authoring previews should include:
 - Narrow edge case
 - Short edge case
 
-A definition that is unusable at its declared minimum size should fail validation or emit a warning requiring acknowledgement.
+A declarative definition that is unusable at its declared minimum size should fail validation or emit a warning requiring acknowledgement.
+
+Federated widgets receive the available container dimensions and remain responsible for their own responsive implementation. Sero should not impose the declarative responsive grammar on them.
 
 ## Shared widget data runtime
 
-A separate subscription per widget instance would waste resources and perform poorly for real-time data.
+A separate subscription per declarative widget instance would waste resources and perform poorly for real-time data.
 
 Sero should own a shared data runtime:
 
@@ -1013,7 +1117,7 @@ The runtime should provide:
 - Per-widget error isolation
 - Render-time and update-rate measurement
 
-A widget should declare its preferred update policy, but the host enforces limits.
+A declarative widget should declare its preferred update policy, but the host enforces limits.
 
 ```ts
 interface WidgetUpdatePolicy {
@@ -1026,9 +1130,11 @@ interface WidgetUpdatePolicy {
 
 This is particularly important for market-data widgets.
 
+Federated widgets may opt into the shared runtime but are not required to use it. Plugin authors may manage their own subscriptions where full ownership is intentional, subject to platform resource and permission limits.
+
 ## Locale and formatting context
 
-Formatting should not rely on implicit machine defaults.
+Declarative formatting should not rely on implicit machine defaults.
 
 ```ts
 interface WidgetFormatContext {
@@ -1062,9 +1168,11 @@ The formatting layer should cover:
 - Large-number abbreviations
 - Negative-number conventions
 
+Federated widgets should receive locale and time-zone context through the app runtime where possible, but may implement their own formatting.
+
 ## Capability discovery
 
-The full component, data-source and action vocabulary should not be included in every model turn.
+The full declarative component, data-source and action vocabulary should not be included in every model turn.
 
 The agent should use progressive discovery.
 
@@ -1115,20 +1223,45 @@ interface CapabilitySnapshot {
 
 Proposals should record the snapshot they targeted. Installation revalidates against the current registries.
 
+Federated widget manifests should also expose searchable metadata for the Add Widget interface, but they are not part of the assistant's declarative `$type` capability snapshot unless the plugin separately contributes declarative components or templates.
+
 ## Plugin contribution model
+
+A plugin may contribute any combination of declarative capabilities and federated widgets.
 
 ```ts
 interface PluginDashboardContribution {
-  dataSources: PluginWidgetDataSource[];
-  actions: PluginWidgetAction[];
+  federatedWidgets?: WidgetManifest[];
+  dataSources?: PluginWidgetDataSource[];
+  actions?: PluginWidgetAction[];
   templates?: DashboardWidgetTemplate[];
   components?: GenerativeComponentDefinition[];
 }
 ```
 
+Examples of valid plugin strategies:
+
+```text
+Plugin A
+  └─ Federated widgets only
+
+Plugin B
+  ├─ Typed data sources
+  ├─ Typed actions
+  └─ Declarative widget templates
+
+Plugin C
+  ├─ Federated advanced widget
+  ├─ Declarative summary widgets
+  ├─ Typed data sources shared by both
+  └─ Declarative component definitions
+```
+
 Plugin-provided declarative components use the same contract as local agent-authored components.
 
-External plugins should not add arbitrary executable renderers to the global vocabulary by default. Code-backed component packs require explicit host-level approval.
+External plugins should not add arbitrary executable renderers to the global `$type` vocabulary by default. Code-backed curated component packs require explicit host-level approval.
+
+This restriction does not prevent an external plugin from exposing a complete federated widget through the existing module federation path.
 
 ## Pi and assistant-ui integration
 
@@ -1150,7 +1283,7 @@ Recommended transport strategy:
 - Begin with local HTTP/SSE because it follows the official example closely
 - Consider Electron IPC later if it provides a concrete benefit
 
-The agent receives dashboard, component, discovery and repair tools.
+The agent receives declarative dashboard, component, discovery and repair tools.
 
 ```ts
 const dashboardToolkit = {
@@ -1162,9 +1295,13 @@ const dashboardToolkit = {
 };
 ```
 
+These tools author and manage declarative definitions. They do not rewrite or replace federated plugin widgets.
+
+A future trusted development workflow may allow the Sero coding agent to create or modify a federated widget's source files, but that is ordinary plugin development and is outside the declarative authoring contract described here.
+
 ## Preview before persistence
 
-Widget workflow:
+Declarative widget workflow:
 
 1. Search and inspect relevant plugin data, actions and components.
 2. Propose a widget definition against a capability snapshot.
@@ -1175,7 +1312,7 @@ Widget workflow:
 7. Revalidate against current registries.
 8. Persist the approved definition and add an instance to the grid.
 
-Component workflow follows the same proposal, validation, preview and approval pattern.
+Declarative component workflow follows the same proposal, validation, preview and approval pattern.
 
 The preview and installed result must use the same rendering path.
 
@@ -1187,6 +1324,8 @@ The preview and installed result must use the same rendering path.
 />
 ```
 
+Federated widget previews, when offered, should mount the real federated component in a controlled preview container. They should not be converted into declarative definitions merely for previewing.
+
 ## Component and Widget Studio
 
 Chat should not be the only way to manage generated artefacts.
@@ -1194,28 +1333,33 @@ Chat should not be the only way to manage generated artefacts.
 Sero should provide a Component and Widget Studio that allows users and plugin authors to:
 
 - Browse and search available `$type` components
-- Browse widget definitions and instances
-- Inspect properties, bindings, actions and dependencies
-- Preview all revisions
+- Browse declarative widget definitions and instances
+- Browse federated widget metadata
+- Clearly distinguish declarative and federated ownership models
+- Inspect declarative properties, bindings, actions and dependencies
+- Preview all declarative revisions
 - Preview normal, loading, refreshing, empty, stale, error and unavailable states
 - Resize previews interactively
 - Test light and dark appearance
-- Edit per-instance configuration
-- Duplicate and modify a definition
-- Ask Sero to modify the selected definition
-- Compare revisions
-- View dependency graphs
-- See which widgets depend on a component
+- Edit per-instance declarative configuration
+- Duplicate and modify a declarative definition
+- Ask Sero to modify the selected declarative definition
+- Compare declarative revisions
+- View declarative dependency graphs
+- See which widgets depend on a curated component
 - Enable, disable or uninstall local components
-- Roll back revisions
-- Repair broken bindings and dependencies
-- Export and import definitions
+- Roll back declarative revisions
+- Repair broken declarative bindings and dependencies
+- Export and import declarative definitions
+- Open the owning plugin or source location for a federated widget where available
 
 A minimal Studio should exist before broad agent authoring is enabled. Otherwise, generated artefacts will be difficult to inspect, organise and repair outside their original conversation.
 
+The Studio must not imply that federated widgets are legacy or second-class. It should present the ownership model as an implementation characteristic and expose the management actions appropriate to each type.
+
 ## Fixtures, testing and diagnostics
 
-Components and widgets should carry preview fixtures.
+Declarative components and widgets should carry preview fixtures.
 
 ```ts
 interface ComponentFixture {
@@ -1227,7 +1371,7 @@ interface ComponentFixture {
 }
 ```
 
-Validation and CI tooling should cover:
+Declarative validation and CI tooling should cover:
 
 - Schema validation
 - Binding validation
@@ -1243,14 +1387,34 @@ Validation and CI tooling should cover:
 
 The Studio should surface diagnostics with paths back to the relevant node, property, binding or dependency.
 
+Federated widgets should continue to use normal component, integration and plugin testing. Sero may provide an optional federated widget test harness for sizing, context, theme and lifecycle testing, but it should not require federated widgets to adopt declarative fixtures.
+
 ## Persistence model
 
+The dashboard should persist a discriminated union that supports both widget models.
+
 ```ts
-interface DashboardWidgetInstance {
+type DashboardWidgetInstance =
+  | DeclarativeDashboardWidgetInstance
+  | FederatedDashboardWidgetInstance;
+
+interface DeclarativeDashboardWidgetInstance {
+  kind: "definition";
   instanceId: string;
   definitionId: string;
   definitionRevision: number;
   config: Record<string, JsonValue>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface FederatedDashboardWidgetInstance {
+  kind: "component";
+  instanceId: string;
+  appId: string;
+  widgetId: string;
+  component: string;
+  config?: Record<string, JsonValue>;
   createdAt: string;
   updatedAt: string;
 }
@@ -1265,26 +1429,31 @@ interface DashboardWidgetDefinitionRecord {
 }
 ```
 
-Definitions, instances, component definitions and layouts should be stored separately.
+Declarative definitions, component definitions, widget instances and layouts should be stored separately.
 
 This supports:
 
-- Multiple instances of one widget definition
+- Declarative and federated widgets in the same dashboard
+- Multiple instances of one declarative widget definition
 - Per-instance configuration
-- Component and widget revision history
+- Declarative component and widget revision history
 - Rollback
 - Provenance
-- Explicit upgrades
+- Explicit declarative upgrades
 - Stable dashboard layout during edits
 
-## Compatibility and migration
+Federated widget identity should remain compatible with the existing app manifest and module federation model.
 
-Federated component widgets should remain supported during migration.
+## Coexistence and renderer selection
+
+The implementation should preserve both renderer paths as permanent supported capabilities.
 
 ```ts
 type DashboardWidgetKind =
   | {
       kind: "component";
+      appId: string;
+      widgetId: string;
       component: string;
     }
   | {
@@ -1294,13 +1463,38 @@ type DashboardWidgetKind =
     };
 ```
 
-`WidgetMount` should dispatch to either the legacy federated renderer or the new definition renderer.
+`WidgetMount` should dispatch to either the federated renderer or the declarative definition renderer.
 
-The Cron widget should be the first proof of concept.
+```tsx
+switch (widget.kind) {
+  case "component":
+    return <FederatedWidgetMount widget={widget} />;
+
+  case "definition":
+    return <DefinitionWidgetMount widget={widget} />;
+}
+```
+
+Both renderers should share the dashboard shell capabilities that make sense at the host level:
+
+- Grid placement
+- Dragging and resizing
+- Persistence
+- Widget chrome
+- Remove and open-app actions
+- Theme and app context
+- Error isolation
+- Visibility and lifecycle notifications
+
+They should not be forced to share internal rendering, state or data contracts.
+
+The Cron widget can be recreated declaratively as a proof of concept and comparison exercise. The existing federated Cron widget does not need to be deleted or treated as deprecated. Keeping both temporarily may be useful for validating trade-offs.
+
+No phase of this feature should make module federation widgets unavailable or require existing plugin authors to rewrite them.
 
 ## Validation pipeline
 
-Every widget or component definition should pass through:
+Every declarative widget or component definition should pass through:
 
 ```text
 JSON parsing
@@ -1353,21 +1547,25 @@ maxCollectionOperations: 10
 
 Unknown properties should be rejected rather than silently ignored.
 
+Federated widgets are validated through the existing plugin manifest, module federation, permissions and runtime loading contracts. They are not subject to the declarative tree validation pipeline.
+
 ## Implementation strategy
 
 ### Phase 0: validate the foundations
 
+- Confirm declarative and federated widgets as permanent first-class models
 - Choose and document the serialisable Sero schema format
 - Implement `compileToZod`
 - Prove dynamic assistant-ui library and toolkit reconstruction
 - Decide whether composites use per-type renderers or one generic registry-backed renderer
 - Define `$bind`, `$config`, `$prop`, formatting, condition and collection grammars
-- Define standard data and action lifecycle envelopes
+- Define standard declarative data and action lifecycle envelopes
 - Define semantic viewport sizes and responsive behaviour
 - Define capability snapshots and progressive discovery
 - Define schema migration infrastructure
+- Confirm that declarative registry updates do not disrupt federated widgets
 
-### Phase 1: prove the widget contract
+### Phase 1: prove the declarative widget contract
 
 - Add assistant-ui Pi runtime to Sero's assistant surface
 - Add `@assistant-ui/react-generative-ui`
@@ -1377,7 +1575,8 @@ Unknown properties should be rejected rather than silently ignored.
 - Add per-instance configuration and automatic settings forms
 - Add standard data-state components and `DataBoundary`
 - Add size-aware rendering and multi-size previews
-- Recreate the Cron widget manually as a definition
+- Recreate the Cron widget declaratively as a proof of concept
+- Keep the existing federated renderer and widgets operational
 
 ### Phase 2: introduce plugin data and actions
 
@@ -1388,8 +1587,8 @@ Unknown properties should be rejected rather than silently ignored.
 - Add action registration, confirmation, idempotency and feedback
 - Add locale and formatting context
 - Add unavailable, permission and missing-plugin states
-- Convert Cron to live plugin data
-- Compare the definition-driven widget against the current React widget
+- Convert the declarative Cron proof of concept to live plugin data
+- Compare the declarative and federated Cron implementations without requiring either to replace the other
 
 ### Phase 3: add reusable declarative components
 
@@ -1406,35 +1605,49 @@ Unknown properties should be rejected rather than silently ignored.
 
 - Build the initial Component and Widget Studio
 - Add registry browsing and search
-- Add responsive and runtime-state previews
-- Add revision comparison and rollback
+- Show declarative and federated widget types clearly
+- Add responsive and runtime-state previews for declarative widgets
+- Add revision comparison and rollback for declarative definitions
 - Add dependency graphs
 - Add import and export
-- Add broken-widget repair workflows
+- Add broken declarative widget repair workflows
+- Add federated widget metadata, source ownership and mount diagnostics
 
 ### Phase 5: agent widget and component authoring
 
-- Expose widget, component, data and action discovery to Pi
-- Add widget and component proposal tools
+- Expose declarative widget, component, data and action discovery to Pi
+- Add declarative widget and component proposal tools
 - Add capability-snapshot tracking
 - Render previews through assistant-ui
 - Require explicit acceptance before installation
 - Persist provenance and revision history
 - Add agent-assisted repairs and upgrades
+- Do not allow these tools to silently replace federated widget instances
 
 ### Phase 6: broader plugin ecosystem
 
-- Publish author SDKs and schemas
-- Add widget and component validation tooling
+- Publish author SDKs and schemas for both widget models
+- Document how authors choose between declarative and federated widgets
+- Add declarative widget and component validation tooling
 - Generate vocabulary documentation from serialisable schemas
 - Support plugin-provided declarative components
 - Add visual regression and accessibility tooling
-- Add trusted code-backed component packs only where declarative composition is insufficient
+- Add an optional federated widget test harness
+- Add trusted code-backed curated component packs only where declarative composition is insufficient
+- Continue supporting existing module federation widgets without a forced migration deadline
 
 ## Agreed direction
 
-Sero owns a versioned declarative dashboard and reusable component language. Assistant UI supplies the allowlisted generative renderer and Pi interaction layer. Plugins supply typed data, actions, templates and optional declarative components.
+Sero supports two permanent, first-class widget ownership models.
+
+Declarative widgets use a versioned Sero language, curated components, assistant-ui rendering and host-managed data, action and lifecycle contracts. They are optimised for consistency, safety, inspectability and agent authoring.
+
+Federated widgets remain fully self-contained plugin-owned React components delivered through module federation. They are optimised for flexibility, specialist UI requirements and independent ownership.
+
+Plugins may supply typed data, actions, templates and declarative components, federated widgets, or any combination of these.
 
 The Sero agent may create new reusable `$type` components ad hoc, but by default those components must be declarative composites of already trusted Sero primitives.
 
-The feature is not complete when a definition can merely render. A production-ready widget must also support configuration, responsive sizing, standard runtime states, safe actions, shared subscriptions, migration, repair and practical management outside chat.
+The declarative feature is not complete when a definition can merely render. A production-ready declarative widget must also support configuration, responsive sizing, standard runtime states, safe actions, shared subscriptions, migration, repair and practical management outside chat.
+
+The feature must not remove, deprecate or implicitly demote the existing module federation widget model. Choice of widget model belongs to the plugin or widget author.
