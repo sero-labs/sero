@@ -2,58 +2,47 @@
 
 ## Status
 
-Proposed architecture and implementation strategy.
+Agreed architecture and implementation strategy.
 
 ## Summary
 
-Sero should own a versioned, declarative dashboard widget language. Assistant UI should provide the allowlisted generative UI renderer and Pi interaction layer. Plugins should supply typed data and actions rather than arbitrary widget markup.
+Sero should own a versioned declarative UI language for dashboard widgets and reusable curated components.
 
-The target architecture is:
+Assistant UI should provide:
+
+- The Pi runtime integration for conversation, streaming, tools and approvals
+- The constrained generative UI renderer
+
+Plugins should primarily contribute typed data sources, actions and optional templates rather than arbitrary widget React components.
+
+The Sero agent should also be able to author reusable declarative components ad hoc. These components can be composed from trusted shadcn-backed Sero primitives, installed into a component registry and then referenced by widgets through `$type`.
 
 ```text
 Pi agent
    │
-   │ calls propose_dashboard_widget
-   ▼
-Sero widget authoring tool
+   ├─ authors widget definitions
+   └─ authors reusable component definitions
+          │
+          ▼
+Sero authoring and validation layer
    │
-   ├─ validates widget metadata
-   ├─ validates bindings and actions
-   ├─ validates assistant-ui JSON UI tree
-   └─ returns preview
+   ├─ Widget Definition Registry
+   ├─ Component Definition Registry
+   ├─ Data Source Registry
+   └─ Action Registry
           │
           ▼
-assistant-ui generative UI renderer
-          │
-     user/agent accepts
-          ▼
-persisted DashboardWidgetDefinition
+Dynamic assistant-ui component library
           │
           ▼
-DashboardWidgetRenderer
-          │
-          ├─ resolves plugin data bindings
-          ├─ dispatches permitted plugin actions
-          └─ renders curated Sero components
+DashboardDefinitionRenderer
 ```
 
 ## Problem with the current widget model
 
-The existing dashboard mounts plugin-owned React components through module federation. Each widget therefore controls its own:
+The current dashboard mounts plugin-owned React components through module federation. Each widget therefore controls its own layout, spacing, typography, colours, responsiveness, empty states, accessibility, actions and data formatting.
 
-- Layout
-- Spacing
-- Colours
-- Typography
-- Responsiveness
-- Empty states
-- Accessibility
-- Action behaviour
-- Data formatting
-
-This makes consistency dependent on every internal and external plugin author implementing the same design conventions correctly.
-
-The current Cron widget is representative. It owns its Tailwind classes, inline colours, status presentation, rows, relative-time formatting and empty state. This is flexible, but it makes consistent design, validation and safe agent generation difficult.
+This makes consistency dependent on every internal and external plugin author following the same conventions. It also makes safe agent-generated widgets difficult because the current unit of extension is executable React code.
 
 ## Role of assistant-ui
 
@@ -70,73 +59,60 @@ The Pi integration should provide:
 - Agent lifecycle
 - Human-in-the-loop interactions
 
-The `with-pi` example demonstrates the runtime and transport integration. This is separate from the durable dashboard widget format.
+The `with-pi` example demonstrates the runtime and transport integration. It should not define Sero's durable dashboard storage format.
 
 ### Curated generative UI
 
 `@assistant-ui/react-generative-ui` should provide the constrained renderer and schema mechanism.
 
-It allows Sero to define a component library where every allowed component has:
+Sero defines an allowlisted component library. Each component has:
 
-- A stable component name
-- A description for the model
+- A stable type name
+- A model-facing description
 - A Zod property schema
 - A React render function
 
-The model emits a recursive JSON tree using `$type` to select components from that allowlist.
-
-Example:
+The model emits a recursive JSON tree using `$type`.
 
 ```json
 {
-  "$type": "WidgetStack",
-  "children": [
-    {
-      "$type": "StatusSummary",
-      "label": "Scheduler active",
-      "tone": "positive"
-    },
-    {
-      "$type": "ItemList",
-      "title": "Scheduled jobs",
-      "items": {
-        "$bind": "cron.enabledJobs"
-      }
-    }
-  ]
+  "$type": "Metric",
+  "label": "Active jobs",
+  "value": {
+    "$bind": "cron.enabledJobCount"
+  }
 }
 ```
 
-Assistant UI should not own Sero's persisted dashboard model. Sero should define and version that contract independently.
+Assistant UI renders that tree, but Sero owns and versions the persisted definition.
 
 ## Architectural boundary
 
-The model must not generate:
+The model must not generate the following as part of routine widget or component authoring:
 
 - JSX
-- React components
+- Arbitrary React components
 - Tailwind classes
 - CSS values
 - Arbitrary HTML
 - Executable JavaScript
 - Plugin action implementations
 
-It should only generate three constrained things:
+The normal authoring path should generate only:
 
-1. A curated view tree
-2. Data bindings
-3. References to allowlisted actions
+1. Curated view trees
+2. Property references
+3. Data bindings
+4. References to allowlisted actions
 
 ## Dashboard widget definition
-
-A durable widget definition should be owned by Sero.
 
 ```ts
 interface DashboardWidgetDefinition {
   schemaVersion: 1;
 
   id: string;
-  pluginId: string;
+  pluginId?: string;
   name: string;
   description?: string;
 
@@ -148,42 +124,52 @@ interface DashboardWidgetDefinition {
 
   dataSources: WidgetDataBinding[];
   actions?: WidgetActionBinding[];
+  componentDependencies?: ComponentDependency[];
 
   view: GenerativeUINode;
 }
 ```
 
-The UI tree should contain only curated component nodes and serialisable values.
-
 ```ts
 interface GenerativeUINode {
-  $type: CuratedComponentName;
+  $type: string;
   children?: GenerativeUINode[] | string;
-  [property: string]: JsonValue | BindingExpression | ActionReference;
+  [property: string]:
+    | JsonValue
+    | BindingExpression
+    | PropertyExpression
+    | ActionReference
+    | GenerativeUINode
+    | GenerativeUINode[];
 }
 ```
-
-This keeps the persisted format stable even if assistant-ui, Pi or the underlying React components change.
 
 ## Separate view, data and behaviour
 
 ### View
 
-The model should choose from a curated vocabulary of semantic dashboard components.
+The model should choose from semantic Sero components rather than unrestricted raw markup.
 
-Prefer semantic components such as:
+Initial examples:
 
+- `Stack`
+- `Inline`
+- `Grid`
+- `Section`
+- `Text`
+- `Heading`
 - `Metric`
 - `Status`
+- `Badge`
 - `ItemList`
 - `ActivityList`
 - `EmptyState`
+- `Alert`
+- `Button`
 
-rather than unrestricted combinations of raw `Card`, `div`, `span` and CSS classes.
+These components may internally use shadcn primitives and Sero design tokens.
 
-Internally, these components can use shadcn primitives and Sero design tokens.
-
-Basic layout primitives can still be exposed, but only with tightly constrained properties.
+Basic layout primitives must expose constrained properties only.
 
 ```ts
 Stack: {
@@ -194,20 +180,11 @@ Stack: {
 }
 ```
 
-Do not expose unrestricted properties such as:
-
-```ts
-className: z.string()
-style: z.record(z.any())
-html: z.string()
-component: z.string()
-```
+Do not expose unrestricted `className`, `style`, `html` or arbitrary component names.
 
 ### Data
 
-The view definition must bind to live plugin data rather than embedding snapshots.
-
-Example:
+Widgets bind to live plugin data.
 
 ```json
 {
@@ -219,7 +196,7 @@ Example:
 }
 ```
 
-Plugins should expose typed widget data sources.
+Plugins expose typed data sources.
 
 ```ts
 interface PluginWidgetDataSource<T> {
@@ -229,33 +206,23 @@ interface PluginWidgetDataSource<T> {
 }
 ```
 
-Example registration:
-
-```ts
-{
-  id: "cron.dashboard",
-  schema: CronDashboardDataSchema,
-  subscribe: ...
-}
-```
-
-The host resolves bindings against a validated data object. The model never writes subscription code.
-
-Initially, binding syntax should remain deliberately small.
+The binding language should remain deliberately small.
 
 ```ts
 type BindingExpression =
   | { $bind: string }
-  | { $format: "relativeTime"; value: BindingExpression }
-  | { $format: "number"; value: BindingExpression }
-  | { $format: "dateTime"; value: BindingExpression };
+  | { $format: "relativeTime"; value: BindingExpression | PropertyExpression }
+  | { $format: "number"; value: BindingExpression | PropertyExpression }
+  | { $format: "dateTime"; value: BindingExpression | PropertyExpression }
+  | { $format: "currency"; value: BindingExpression | PropertyExpression }
+  | { $format: "percentage"; value: BindingExpression | PropertyExpression; showSign?: boolean };
 ```
 
-A general expression language should be avoided until there is a proven need for one.
+Avoid a general-purpose expression language until there is a demonstrated need.
 
 ### Behaviour
 
-Actions should reference allowlisted plugin commands.
+Actions reference allowlisted plugin or host commands.
 
 ```json
 {
@@ -267,8 +234,6 @@ Actions should reference allowlisted plugin commands.
 }
 ```
 
-Plugins should register actions separately.
-
 ```ts
 interface PluginWidgetAction<TInput> {
   id: string;
@@ -279,43 +244,299 @@ interface PluginWidgetAction<TInput> {
 }
 ```
 
-A generated definition may reference an action, but it must never contain the action implementation.
+## Reusable component authoring
+
+The Sero agent should be able to create reusable curated components without creating a plugin.
+
+For example, a user can ask:
+
+> Create a reusable `StockTicker` component.
+
+The agent should inspect the available primitives, propose a declarative component definition, preview it with sample data and install it after approval.
+
+Once installed, the component becomes available through `$type`:
+
+```json
+{
+  "$type": "StockTicker",
+  "symbol": "AAPL",
+  "price": {
+    "$bind": "market.apple.price"
+  },
+  "changePercent": {
+    "$bind": "market.apple.changePercent"
+  }
+}
+```
+
+### Declarative component definition
+
+```ts
+interface GenerativeComponentDefinition {
+  schemaVersion: 1;
+
+  id: string;
+  typeName: string;
+  name: string;
+  description: string;
+
+  origin: "builtin" | "agent" | "user" | "plugin" | "component-pack";
+  revision: number;
+
+  properties: ComponentPropertyDefinition[];
+  dependencies: ComponentDependency[];
+  view: GenerativeUINode;
+
+  createdAt: string;
+  updatedAt: string;
+}
+```
+
+A `StockTicker` definition could be composed from existing trusted components:
+
+```json
+{
+  "schemaVersion": 1,
+  "id": "local-stock-ticker",
+  "typeName": "StockTicker",
+  "name": "Stock ticker",
+  "description": "Displays a stock symbol, price and price movement",
+  "properties": [
+    { "name": "symbol", "type": "string", "required": true },
+    { "name": "price", "type": "number", "required": true },
+    { "name": "changePercent", "type": "number", "required": true }
+  ],
+  "dependencies": ["sero:Inline", "sero:Stack", "sero:Text", "sero:Status"],
+  "view": {
+    "$type": "Inline",
+    "justify": "between",
+    "children": [
+      {
+        "$type": "Stack",
+        "gap": "none",
+        "children": [
+          {
+            "$type": "Text",
+            "variant": "label",
+            "children": { "$prop": "symbol" }
+          },
+          {
+            "$type": "Text",
+            "variant": "strong",
+            "children": {
+              "$format": "currency",
+              "value": { "$prop": "price" }
+            }
+          }
+        ]
+      },
+      {
+        "$type": "Status",
+        "label": {
+          "$format": "percentage",
+          "value": { "$prop": "changePercent" },
+          "showSign": true
+        }
+      }
+    ]
+  }
+}
+```
+
+### `$prop` and `$bind`
+
+`$bind` resolves plugin or host data inside a widget definition.
+
+```json
+{ "$bind": "market.apple.price" }
+```
+
+`$prop` resolves a property passed into a reusable component.
+
+```json
+{ "$prop": "price" }
+```
+
+The data flow is:
+
+```text
+Plugin data
+   ↓ $bind
+Widget definition
+   ↓ component props
+Reusable component
+   ↓ $prop
+Trusted primitive
+```
+
+```ts
+type PropertyExpression = {
+  $prop: string;
+};
+```
+
+## Component definition registry
+
+Sero should persist reusable components independently of widgets.
+
+```ts
+interface GenerativeComponentRecord {
+  definition: GenerativeComponentDefinition;
+  enabled: boolean;
+  trust: "system" | "trusted" | "local";
+}
+```
+
+At runtime, the available assistant-ui component library is assembled from:
+
+```text
+Built-in Sero primitives
+        +
+Installed declarative components
+        +
+Approved component packs
+        =
+Available $type vocabulary
+```
+
+Internal widgets, plugin widgets and agent-generated widgets all consume the same resulting vocabulary.
+
+## Component authoring workflow
+
+The agent should receive a component-authoring toolkit.
+
+```ts
+const componentToolkit = {
+  inspect_component_primitives,
+  inspect_component_definition,
+  propose_component_definition,
+  update_component_proposal,
+  install_component_definition,
+  uninstall_component_definition,
+};
+```
+
+The workflow is:
+
+1. The user asks Sero to create a reusable component.
+2. The agent calls `inspect_component_primitives`.
+3. Sero returns available component schemas and authoring constraints.
+4. The agent calls `propose_component_definition`.
+5. Sero validates the property schema and component tree.
+6. Sero renders the component with generated sample data.
+7. The user accepts, edits or rejects the proposal.
+8. `install_component_definition` persists it.
+9. The new type becomes available to future widget generation.
+
+Component previews and installed components must use the same renderer.
+
+## Two-tier component model
+
+### Tier 1: declarative composites
+
+This is the default and preferred mechanism.
+
+- JSON-based
+- Composed from existing trusted `$type` components
+- Immediately installable
+- Serializable and versionable
+- Safe for ad-hoc agent authoring
+- Automatically inherits Sero styling
+
+Most dashboard components should use this tier.
+
+### Tier 2: code-backed components
+
+Some advanced components may require custom React code, canvas rendering, virtualisation or specialised interactions.
+
+```ts
+type GenerativeComponentSource =
+  | {
+      kind: "composite";
+      definition: GenerativeComponentDefinition;
+    }
+  | {
+      kind: "code";
+      packageId: string;
+      exportName: string;
+    };
+```
+
+Code-backed components must be treated as trusted component packs. They require a stronger review and installation process because they are executable code.
+
+Routine ad-hoc component authoring must not silently fall back to generated React code.
+
+## Namespacing
+
+Canonical type identifiers should be namespaced to prevent collisions.
+
+Examples:
+
+```text
+sero:Metric
+local:StockTicker
+plugin.market-data:OrderBookSummary
+```
+
+The authoring UI may allow concise names where resolution is unambiguous:
+
+```json
+{ "$type": "StockTicker" }
+```
+
+Internally, this resolves to a canonical identifier and revision such as:
+
+```text
+local:StockTicker@3
+```
+
+Plugin-provided components should generally use explicit namespaces.
+
+## Versioning and dependencies
+
+Widgets should not change unpredictably when a reusable component is edited.
+
+```ts
+interface ComponentDependency {
+  type: string;
+  revision: number;
+}
+```
+
+Definitions should support:
+
+- Pinned revisions
+- Explicit upgrades
+- Optional follow-latest behaviour for compatible revisions
+- Revision history
+- Rollback
+
+Pinned revisions should be the default for agent-generated widgets.
+
+Composite dependencies must be validated for:
+
+- Missing types
+- Circular references
+- Excessive nesting
+- Incompatible revisions
+- Disabled or untrusted dependencies
 
 ## Plugin contribution model
-
-Plugins should stop contributing the complete widget view by default. Instead, a plugin should contribute typed capabilities.
 
 ```ts
 interface PluginDashboardContribution {
   dataSources: PluginWidgetDataSource[];
   actions: PluginWidgetAction[];
   templates?: DashboardWidgetTemplate[];
+  components?: GenerativeComponentDefinition[];
 }
 ```
 
-A template is an optional pre-authored definition using exactly the same contract as an agent-generated widget.
+Plugin-provided declarative components use the same contract as local agent-authored components.
 
-This means the following all use one renderer and validation pipeline:
-
-- Built-in Sero widgets
-- Internal plugin widgets
-- External plugin widgets
-- Plugin templates
-- Agent-generated widgets
-
-External plugins should not add arbitrary React renderers to the global component library by default. Otherwise, the consistency and safety boundary is lost.
-
-Trusted component packs may be introduced later, for example:
-
-```ts
-componentPacks: ["sero-core", "sero-charts"]
-```
-
-These should be installed and approved at the host level rather than silently supplied by individual plugins.
+External plugins should not add arbitrary executable renderers to the global vocabulary by default. Code-backed component packs require explicit host-level approval.
 
 ## Pi and assistant-ui integration
-
-The logical runtime should be:
 
 ```text
 Sero renderer process
@@ -330,14 +551,12 @@ Sero main process
 Pi agent session
 ```
 
-The official Pi example uses HTTP/SSE and an in-process Node supervisor. For Electron, Sero can preserve that logical contract while adapting the transport.
+Recommended transport strategy:
 
-Recommended approach:
+- Begin with local HTTP/SSE because it follows the official example closely
+- Consider Electron IPC later if it provides a concrete benefit
 
-- Start with local HTTP/SSE because it follows the official example closely
-- Consider an Electron IPC transport later if there is a clear benefit
-
-The agent should receive a dashboard toolkit such as:
+The agent receives both dashboard and component authoring tools.
 
 ```ts
 const dashboardToolkit = {
@@ -349,57 +568,32 @@ const dashboardToolkit = {
 };
 ```
 
-`propose_dashboard_widget` should accept a complete Sero definition and return validation diagnostics and a preview reference.
-
-```ts
-{
-  valid: boolean;
-  definition?: DashboardWidgetDefinition;
-  diagnostics: WidgetDiagnostic[];
-  previewId?: string;
-}
-```
-
-Assistant UI should render the proposal inside the conversation using the same curated library as the dashboard.
-
 ## Preview before persistence
 
-The preferred workflow is:
+Widget workflow:
 
-1. The user asks Sero to create a dashboard widget.
-2. The agent calls `inspect_dashboard_capabilities(pluginId)`.
-3. The tool returns available data paths, actions and supported UI components.
-4. The agent calls `propose_dashboard_widget`.
-5. Sero validates and displays a real preview through assistant-ui.
-6. The user accepts, edits through conversation or rejects it.
-7. `install_dashboard_widget` persists the validated definition and adds it to the dashboard grid.
+1. Inspect available plugin data, actions and components.
+2. Propose a widget definition.
+3. Validate it.
+4. Preview it through assistant-ui.
+5. Accept, revise or reject it.
+6. Persist the approved definition and add an instance to the grid.
 
-The preview and installed widget must use the same rendering component.
+Component workflow follows the same proposal, validation, preview and approval pattern.
+
+The preview and installed result must use the same rendering path.
 
 ```tsx
-<DashboardDefinitionRenderer
-  definition={definition}
-  context={context}
-/>
+<DashboardDefinitionRenderer definition={definition} context={context} />
 ```
 
-This prevents differences between the assistant preview and the installed dashboard result.
-
-## Persist definitions separately from instances
-
-Dashboard placement and widget definitions should be stored separately.
+## Persistence model
 
 ```ts
 interface DashboardWidgetInstance {
   instanceId: string;
   definitionId: string;
-  pluginId: string;
   config?: Record<string, JsonValue>;
-}
-
-interface DashboardState {
-  instances: DashboardWidgetInstance[];
-  layouts: LayoutItem[];
 }
 
 interface DashboardWidgetDefinitionRecord {
@@ -412,22 +606,20 @@ interface DashboardWidgetDefinitionRecord {
 }
 ```
 
-This allows:
+Definitions, instances, component definitions and layouts should be stored separately.
 
-- Multiple instances of one definition
-- Revision history
+This supports:
+
+- Multiple instances of one widget definition
+- Component and widget revision history
 - Rollback
-- Template upgrades
-- Agent edits without modifying layout
-- Provenance and trust indicators
-
-A widget instance should not duplicate the full generated tree unless per-instance editing is explicitly required.
+- Provenance
+- Explicit upgrades
+- Stable dashboard layout during edits
 
 ## Compatibility and migration
 
-Federated component widgets should not be removed immediately.
-
-Support both widget renderer modes during migration.
+Federated component widgets should remain supported during migration.
 
 ```ts
 type DashboardWidgetKind =
@@ -441,75 +633,30 @@ type DashboardWidgetKind =
     };
 ```
 
-`WidgetMount` can then dispatch to the correct renderer.
+`WidgetMount` should dispatch to either the legacy federated renderer or the new definition renderer.
 
-```tsx
-switch (widget.kind) {
-  case "component":
-    return <FederatedWidgetMount ... />;
-
-  case "definition":
-    return <DefinitionWidgetMount ... />;
-}
-```
-
-This provides a safe migration path and allows the Cron widget to be used as the first proof of concept.
-
-## Initial curated vocabulary
-
-The first version should remain deliberately narrow.
-
-### Layout
-
-- `Stack`
-- `Inline`
-- `Grid`
-- `Section`
-- `Divider`
-
-### Content
-
-- `Text`
-- `Heading`
-- `Icon`
-- `Badge`
-- `Status`
-- `Metric`
-- `KeyValue`
-
-### Collections
-
-- `ItemList`
-- `Item`
-- `ActivityList`
-
-### States
-
-- `EmptyState`
-- `Alert`
-- `Skeleton`
-
-### Actions
-
-- `Button`
-- `IconButton`
-
-Charts, tables, tabs, forms and arbitrary conditional rendering should be deferred until the core data binding and action model is proven.
+The Cron widget should be the first proof of concept.
 
 ## Validation pipeline
 
-Every definition should pass through the following validation stages:
+Every widget or component definition should pass through:
 
 ```text
 JSON parsing
   ↓
-top-level widget schema
+top-level definition schema
   ↓
-assistant-ui component tree schema
+component property schema validation
   ↓
-binding-path validation against plugin data schema
+assistant-ui component tree validation
   ↓
-action-reference validation against plugin action registry
+$prop validation against component properties
+  ↓
+$bind validation against data-source schemas
+  ↓
+$action validation against action registries
+  ↓
+dependency and cycle validation
   ↓
 complexity and depth limits
   ↓
@@ -525,141 +672,68 @@ maxTreeDepth: 8
 maxNodes: 100
 maxTextLength: 2_000
 maxListItems: 50
+maxComponentDependencies: 25
 ```
 
 Unknown properties should be rejected rather than silently ignored.
 
-## Example Cron definition
-
-The existing Cron widget could eventually be represented approximately as follows.
-
-```json
-{
-  "schemaVersion": 1,
-  "id": "cron-overview",
-  "pluginId": "sero-cron-plugin",
-  "name": "Scheduler",
-  "size": {
-    "default": { "w": 2, "h": 2 },
-    "min": { "w": 1, "h": 1 }
-  },
-  "dataSources": [
-    {
-      "id": "cron",
-      "source": "cron.dashboard"
-    }
-  ],
-  "view": {
-    "$type": "Stack",
-    "gap": "sm",
-    "children": [
-      {
-        "$type": "Inline",
-        "justify": "between",
-        "children": [
-          {
-            "$type": "Status",
-            "label": {
-              "$bind": "cron.schedulerLabel"
-            },
-            "tone": {
-              "$bind": "cron.schedulerTone"
-            }
-          },
-          {
-            "$type": "Inline",
-            "gap": "sm",
-            "children": [
-              {
-                "$type": "Metric",
-                "label": "jobs",
-                "value": {
-                  "$bind": "cron.enabledJobCount"
-                },
-                "appearance": "compact"
-              },
-              {
-                "$type": "Metric",
-                "label": "reminders",
-                "value": {
-                  "$bind": "cron.activeReminderCount"
-                },
-                "appearance": "compact"
-              }
-            ]
-          }
-        ]
-      },
-      {
-        "$type": "ItemList",
-        "title": "Scheduled jobs",
-        "items": {
-          "$bind": "cron.jobs"
-        },
-        "itemTemplate": "scheduled-job",
-        "limit": 3
-      },
-      {
-        "$type": "ItemList",
-        "title": "Reminders",
-        "items": {
-          "$bind": "cron.reminders"
-        },
-        "itemTemplate": "reminder",
-        "limit": 3
-      }
-    ]
-  }
-}
-```
-
-For the first version, repeated collections should use predefined semantic `itemTemplate` values rather than arbitrary loops and per-item expression logic.
-
 ## Implementation strategy
 
-### Phase 1: prove the contract
+### Phase 1: prove the widget contract
 
 - Add assistant-ui Pi runtime to Sero's assistant surface
 - Add `@assistant-ui/react-generative-ui`
-- Define a small Sero-owned component vocabulary
+- Define a small Sero-owned primitive vocabulary
 - Define `DashboardWidgetDefinition`
 - Implement static JSON definition rendering
-- Do not add agent generation yet
 - Recreate the Cron widget manually as a definition
 
-### Phase 2: introduce plugin data and action contracts
+### Phase 2: introduce plugin data and actions
 
 - Add plugin data-source registration
-- Add validated binding resolution
+- Add validated `$bind` resolution
 - Add action registration and confirmation policies
 - Convert Cron to live plugin data
 - Compare the definition-driven widget against the current React widget
 
-### Phase 3: agent authoring
+### Phase 3: add reusable declarative components
 
-- Expose component, data and action capabilities to Pi
-- Add proposal and preview tools
+- Define `GenerativeComponentDefinition`
+- Add the Component Definition Registry
+- Implement `$prop` resolution
+- Assemble the runtime assistant-ui vocabulary dynamically
+- Add dependency, cycle and revision validation
+- Manually define and install a `StockTicker` proof of concept
+
+### Phase 4: agent widget and component authoring
+
+- Expose widget, component, data and action capabilities to Pi
+- Add widget and component proposal tools
 - Render previews through assistant-ui
 - Require explicit acceptance before installation
-- Persist provenance and definition revisions
+- Persist provenance and revision history
 
-### Phase 4: broader plugin ecosystem
+### Phase 5: broader plugin ecosystem
 
-- Publish an author SDK and schemas
-- Add a template validation CLI
-- Generate component documentation from the Zod library
-- Add trusted component packs only where the core vocabulary is insufficient
+- Publish author SDKs and schemas
+- Add widget and component validation tooling
+- Generate vocabulary documentation from Zod schemas
+- Support plugin-provided declarative components
+- Add trusted code-backed component packs only where declarative composition is insufficient
 
 ## Agreed direction
 
-Sero owns a versioned declarative dashboard language. Assistant UI supplies the allowlisted generative renderer and Pi interaction layer. Plugins supply typed data and actions, not arbitrary widget markup.
+Sero owns a versioned declarative dashboard and reusable component language. Assistant UI supplies the allowlisted generative renderer and Pi interaction layer. Plugins supply typed data, actions, templates and optional declarative components.
+
+The Sero agent may create new reusable `$type` components ad hoc, but by default those components must be declarative composites of already trusted Sero primitives.
 
 This provides:
 
 - Consistent visual design
 - Safe agent-generated widgets
-- A common contract for internal and external plugins
+- Ad-hoc reusable component authoring
+- A common contract for internal, external and local components
 - Typed data and action boundaries
 - Preview and approval before persistence
-- Versioning and migration
-- A gradual transition from existing federated React widgets
+- Component namespacing and versioning
+- A gradual migration from federated React widgets
