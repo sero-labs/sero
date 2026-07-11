@@ -1,6 +1,6 @@
 {
   "name": "@sero-ai/ui",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Shared UI components, AI elements, and design tokens for the Sero platform",
   "type": "module",
   "main": "./src/index.ts",
@@ -19,7 +19,8 @@
     "build": "tsup && tsup --config tsup.reference.config.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "smoke": "node scripts/smoke-dist.mjs"
+    "smoke": "node scripts/smoke-dist.mjs",
+    "prepublishOnly": "node scripts/ensure-pnpm-publish.mjs && pnpm build && pnpm smoke"
   },
   "publishConfig": {
     "main": "./dist/index.js",
