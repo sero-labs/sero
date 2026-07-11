@@ -1,5 +1,24 @@
 # @sero-ai/ui changelog
 
+## 0.4.1
+
+### Fixed
+
+- **Publishes built `dist/` again.** 0.4.0 was accidentally published with its
+  raw TypeScript source (a bare `npm publish`, which ignores the `publishConfig`
+  dist overrides). 0.4.1 ships the compiled JS and `.d.ts` — and a
+  `prepublishOnly` guard now fails fast if the package is published with
+  anything other than `pnpm`.
+- **Public entrypoints resolve under Node ESM, not just bundlers.** The
+  catalogue is plain data at `@sero-ai/ui/dashboard-catalog.json` (was a `.ts`
+  re-export that failed to resolve under Node); `DashboardComponentCatalogEntry`
+  is re-exported from the package root. The `reference` entry is bundled into a
+  single self-contained module (was a directory import that failed under Node).
+  `pnpm smoke` checks the built artifact so this can't silently regress.
+- **`Status` bare dots** carry a visually-hidden tone label (overridable via
+  `aria-label`) so assistive tech announces their state instead of an empty
+  live region.
+
 ## 0.4.0
 
 ### Added
@@ -16,10 +35,9 @@
     `ListSkeleton`, `ActivitySkeleton`
   - Actions: `IconButton`
   - Shared `Tone` vocabulary and `Gap` spacing scale
-- **Dashboard component catalogue** metadata, shipped as plain data at a new
-  stable subpath `@sero-ai/ui/dashboard-catalog.json` for discovery tooling and
-  agent workflows (read the file directly). The entry type
-  `DashboardComponentCatalogEntry` is re-exported from the package root.
+- **Dashboard component catalogue** metadata on a stable subpath for discovery
+  tooling and agent workflows. (Moved to a `dashboard-catalog.json` file in
+  0.4.1.)
 - `Badge` gained semantic status tones: `success`, `warning`, `info`.
 - **Glass styling for dashboard widgets.** A `.glass` token scope (canonical
   `--glass-*` tokens, light + dark) makes the dashboard components render as
@@ -34,17 +52,7 @@
 - **Reference widgets** on a new subpath `@sero-ai/ui/reference` — `StarterExample`,
   `SchedulerExample`, `ResourceExample`, `ActivityExample`: pure-static, glass-styled
   worked examples, importable to preview or copy-paste. (Replaces the removed
-  `sero-showcase-plugin`.) Bundled into a single self-contained module so the
-  entrypoint resolves under Node ESM as well as bundlers.
-- `Status` bare dots now carry a visually-hidden tone label (overridable via
-  `aria-label`) so assistive tech announces their state instead of an empty
-  region.
-
-### Packaging
-
-- The `reference` entry is bundled and `dashboard-catalog` ships as JSON, so both
-  new public entrypoints resolve under raw Node ESM (the rest of the package
-  stays bundler-resolved). `pnpm smoke` checks the built artifact.
+  `sero-showcase-plugin`.)
 
 See `docs/features/dashboard-ui/dashboard-widgets-plan.md` and
 `glass-restyle-spec.md` for the design and authoring guidance.
