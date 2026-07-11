@@ -60,6 +60,7 @@ const referenceRuntime = [
 const referenceAuthors = [
   { text: 'Plugins', link: '/reference/plugins' },
   { text: 'App Runtime', link: '/reference/app-runtime' },
+  { text: 'Dashboard Components', link: '/reference/dashboard-components' },
   { text: 'Plugin Author Quick Path', link: '/reference/plugin-author-quick-path' },
   { text: 'Plugin Quickstart', link: '/reference/plugin-quickstart' },
   { text: 'Plugin End-to-End Example', link: '/reference/plugin-end-to-end-example' }

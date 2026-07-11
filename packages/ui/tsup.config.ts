@@ -2,8 +2,12 @@ import { defineConfig } from "tsup";
 import { cpSync } from "node:fs";
 
 export default defineConfig({
-  // Tells tsup to grab everything in your src directory
-  entry: ["src/**/*.{ts,tsx}"],
+  // Tells tsup to grab everything in your src directory, except tests.
+  entry: [
+    "src/**/*.{ts,tsx}",
+    "!src/**/*.test.{ts,tsx}",
+    "!src/**/__tests__/**",
+  ],
   format: ["esm", "cjs"],
   dts: true,
   clean: true,

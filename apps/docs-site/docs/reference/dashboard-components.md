@@ -1,0 +1,131 @@
+# Dashboard Components
+
+`@sero-ai/ui` ships a set of shared **dashboard components** for building compact
+dashboard widgets and data-dense plugin views. They give widgets one visual
+foundation — consistent spacing, typography, semantic status colours and
+overflow behaviour — without every plugin re-declaring layout and colours.
+
+Import everything from the package root:
+
+```tsx
+import { WidgetContent, Stack, Metric, Status, ItemList } from '@sero-ai/ui';
+```
+
+Detailed props are canonical in the exported TypeScript types. The
+machine-readable catalogue is available for tooling from a stable subpath:
+
+```ts
+import { dashboardComponentCatalog } from '@sero-ai/ui/dashboard-catalog';
+```
+
+Worked, glass-styled example widgets ship on their own subpath — import them to
+preview, or copy one as a starting point:
+
+```ts
+import { StarterExample, SchedulerExample } from '@sero-ai/ui/reference';
+```
+
+`kind`: _primitive_ = existing `@sero-ai/ui` primitive recommended for widgets;
+_composite_ = a dashboard component. All are **stable** unless noted.
+
+## Layout
+
+| Component | Kind | Purpose | Use when |
+|---|---|---|---|
+| `WidgetContent` | composite | Full-height widget frame with padding + container-query boundary | Outermost element of a widget |
+| `Stack` | composite | Vertical layout: gap, alignment, optional scroll | Primary top-to-bottom flow |
+| `Inline` | composite | Horizontal layout: gap, align, wrap, justify | A row, e.g. header + action |
+| `Grid` | composite | Responsive grid with bounded columns | Metric / summary layouts |
+| `Section` | composite | Compact section: heading, description, action | Group content under a label |
+| `Divider` | composite | Compact divider on `Separator` | Separate sections |
+
+## Typography
+
+| Component | Kind | Purpose | Use when |
+|---|---|---|---|
+| `Text` | composite | Semantic variants (body/label/supporting/muted/numeric) + truncation | Any text |
+| `Heading` | composite | Compact heading levels/sizes, correct HTML semantics | Titles |
+| `Icon` | composite | Icon wrapper for size, tone, accessibility | Render an icon consistently |
+
+## Data display
+
+| Component | Kind | Purpose | Use when |
+|---|---|---|---|
+| `Metric` / `MetricCard` / `MetricGroup` | composite | Label + value, contained card, responsive group | Numbers and summaries |
+| `Status` | composite | Semantic dot / label / pill | Health / state indicator |
+| `Badge` | primitive | Counts, tags (gained success/warning/info tones) | A count or tag |
+| `KeyValue` / `KeyValueList` | composite | Aligned label/value metadata | Config, totals, metadata |
+| `ItemList` / `ItemListItem` | composite | Compact rows with media/text/metadata + overflow | Entity lists |
+| `ActivityList` / `ActivityListItem` | composite | Chronological events + overflow | Time-ordered activity |
+| `ProgressRing` | composite | Accessible circular gauge, no charting dep | A bounded value / rate |
+| `StaleIndicator` | composite | "Data may be stale" hint + optional refresh | Data can lag its source |
+
+## Runtime states & feedback
+
+| Component | Kind | Purpose | Use when |
+|---|---|---|---|
+| `DataBoundary` | composite | Selects presentation for loading/ready/empty/stale/error | Switch by data state |
+| `EmptyState` | composite | Compact empty state | Nothing to show yet |
+| `Alert` | primitive | Inline warning / error | Persistent inline message |
+| `MetricSkeleton` / `ListSkeleton` / `ActivitySkeleton` | composite | Loading placeholders | `loading` fallbacks |
+| `Skeleton` | primitive | Bespoke loading shapes | Prebuilt patterns don't fit |
+
+## Actions
+
+| Component | Kind | Purpose | Use when |
+|---|---|---|---|
+| `Button` | primitive | Standard text action | A labelled action |
+| `IconButton` | composite | Icon-only button, required accessible label | Compact action (refresh, dismiss) |
+
+## Boundary: shared vs plugin-local
+
+Shared dashboard components are **presentation only** — they hold no plugin
+state, actions or domain types. Keep domain-specific components and types in the
+plugin. Add a component to `@sero-ai/ui` only when the pattern is reused across
+more than one widget or plugin.
+
+## Sizes and overflow
+
+Widgets stay legible at their declared minimum and default sizes using CSS and
+container queries. Provide compact defaults; let the plugin choose which data to
+show at each size. Use `Stack`'s `scroll` and the list components' `overflowCount`
+for "+N more" rather than hand-rolling overflow.
+
+## Loading, empty and error
+
+Wire runtime states through `DataBoundary`, with a skeleton pattern for loading,
+`EmptyState` for empty, and `Alert` for error. The boundary selects presentation;
+the plugin owns fetching and retry.
+
+## Glass styling
+
+The dashboard is a frosted glass board. `WidgetContent` applies the glass token
+scope automatically, so these components render as translucent surfaces — raised
+cards, flat rows — that read as part of the tile. You write nothing extra; there
+are no glass classes to add and no `backdrop-filter` to set (the host tile
+provides the single blur).
+
+For a full plugin view that should stay solid rather than glass, opt out with
+`<WidgetContent glass={false}>`. Form controls and portalled menus stay solid
+inside glass regardless, so inputs and dropdowns remain readable.
+
+## Styling setup
+
+An external plugin's `ui/styles.css` must import the shared stylesheet and scan
+its own files:
+
+```css
+@import "@sero-ai/ui/styles/plugin.css";
+@source "./**/*.{ts,tsx}";
+```
+
+`plugin.css` already scans the dashboard components, so their utility classes are
+emitted for you. Import `../styles.css` from every directly-exposed Module
+Federation entry.
+
+## Contributing a reusable component
+
+When a pattern proves useful in more than one widget or plugin, add it under
+`packages/ui/src/components/dashboard/`, build it from existing primitives and
+design tokens, export it from the package root, add a `catalog.ts` entry, and
+keep this page and the `sero-dashboard-ui` skill catalogue in step.

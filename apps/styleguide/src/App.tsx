@@ -33,6 +33,7 @@ import {
   Terminal,
 } from 'lucide-react';
 import { STYLEGUIDE_THEMES } from './themes';
+import { DashboardFixture } from './DashboardFixture';
 
 type Mode = 'light' | 'dark';
 
@@ -74,6 +75,7 @@ export function App() {
             <ComponentFixture />
             <ChatFixture />
             <PluginFixture />
+            <DashboardFixture />
           </div>
         </div>
       </div>

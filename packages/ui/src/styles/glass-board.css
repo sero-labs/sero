@@ -1,0 +1,43 @@
+/**
+ * Shared glass board — the frosted-board look, framework-agnostic.
+ *
+ * `.glass-canvas` paints the ambient accent-glow backdrop; `.glass-tile`
+ * is a translucent, backdrop-blurred surface with a luminous hairline rim.
+ * The desktop dashboard and the styleguide preview both consume this file
+ * so widgets render on an identical board.
+ *
+ * Depends on the canonical `--glass-*` tokens in globals.css. Dark is the
+ * primary target; light mirrors the same relationships (frosted white
+ * glass over a soft tinted canvas).
+ */
+
+/* ── Canvas ──────────────────────────────────────────────────────
+   Ambient accent glow the glass tiles pick up. */
+.glass-canvas {
+  --glass-canvas-base: #e9eaef;
+  --glass-glow-a: color-mix(in srgb, var(--accent-primary) 16%, transparent);
+  --glass-glow-b: color-mix(in srgb, var(--brand-primary) 12%, transparent);
+  background:
+    radial-gradient(90% 70% at 85% -10%, var(--glass-glow-a), transparent 60%),
+    radial-gradient(80% 60% at -10% 110%, var(--glass-glow-b), transparent 60%),
+    var(--glass-canvas-base);
+}
+
+.dark .glass-canvas {
+  --glass-canvas-base: #060608;
+  --glass-glow-a: color-mix(in srgb, var(--accent-primary) 48%, transparent);
+  --glass-glow-b: color-mix(in srgb, var(--brand-primary) 30%, transparent);
+}
+
+/* ── Glass tile surface ──────────────────────────────────────────
+   Translucent, blurred surface floating over the canvas. The surface is
+   static on hover — the tile is content, not a button, so pointing at it
+   must not change it. (`--glass-hover` is still used for row hover *inside*
+   widgets.) The transition covers the drag/resize state changes only. */
+.glass-tile {
+  background: var(--glass-tile);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(24px) saturate(140%);
+  box-shadow: inset 0 1px 0 var(--glass-rim);
+  transition: background-color 150ms ease, border-color 150ms ease;
+}

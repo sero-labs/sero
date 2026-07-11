@@ -10,6 +10,7 @@ import { useMemo, useCallback } from 'react';
 import { GridLayout } from 'react-grid-layout';
 import type { Layout, LayoutItem } from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
+import '@sero-ai/ui/styles/glass-board.css';
 import './dashboard.css';
 
 import { useAppStore } from '@/stores/app';
@@ -78,7 +79,7 @@ export function Dashboard() {
   return (
     <div
       ref={containerRef}
-      className="sero-dashboard flex h-full flex-col overflow-auto bg-[var(--dash-canvas)]"
+      className="sero-dashboard glass-canvas flex h-full flex-col overflow-auto"
     >
       {/* ── Toolbar ── */}
       <div className="flex items-center justify-between border-b border-[var(--dash-seam)] px-4 py-2">

@@ -1,4 +1,5 @@
 @import "@sero-ai/ui/styles/globals.css";
+@import "@sero-ai/ui/styles/glass-board.css";
 
 @source "./**/*.{ts,tsx}";
 

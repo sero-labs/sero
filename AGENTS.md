@@ -133,4 +133,4 @@ If you change `apps/desktop/images/Dockerfile.sero-node` or container-installed 
 
 ## File Size Rules (CRITICAL)
 
-**Never exceed 500 LOC in any source file** (docs excluded). If a file grows beyond 500 lines, **refactor immediately** — split into smaller modules, extract helpers to `utils/` or `lib/`, break components into sub-components, or move types to dedicated `types.ts` files. Always check line count of every touched file before marking a task complete.
+**Never exceed 500 LOC in any source file** (docs/css excluded). If a file grows beyond 500 lines, **refactor immediately** — split into smaller modules, extract helpers to `utils/` or `lib/`, break components into sub-components, or move types to dedicated `types.ts` files. Always check line count of every touched file before marking a task complete.

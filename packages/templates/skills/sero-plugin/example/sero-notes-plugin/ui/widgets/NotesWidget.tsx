@@ -1,4 +1,14 @@
 import { useAppState } from '@sero-ai/app-runtime';
+import {
+  EmptyState,
+  Inline,
+  ItemList,
+  ItemListItem,
+  Stack,
+  Text,
+  WidgetContent,
+} from '@sero-ai/ui';
+import { CheckCircle2 } from 'lucide-react';
 
 import type { NotesState } from '../../shared/types';
 import { DEFAULT_STATE, normalizeNotesState } from '../../shared/types';
@@ -6,41 +16,36 @@ import { DEFAULT_STATE, normalizeNotesState } from '../../shared/types';
 // remotes ship their own CSS assets.
 import '../styles.css';
 
+// Canonical minimal widget: presentation is composed entirely from @sero-ai/ui
+// dashboard components. The plugin owns only data (which notes are open).
 export function NotesWidget() {
   const [state] = useAppState<NotesState>(DEFAULT_STATE);
   const currentState = normalizeNotesState(state);
   const open = currentState.notes.filter((n) => !n.done);
 
   return (
-    <div className="flex h-full flex-col gap-2 p-3">
-      <div className="flex items-baseline gap-2">
-        <span className="text-lg font-bold tabular-nums text-foreground">
-          {open.length}
-        </span>
-        <span className="text-xs text-muted-foreground">
-          open / {currentState.notes.length} total
-        </span>
-      </div>
+    <WidgetContent>
+      <Stack gap="sm" fill>
+        <Inline gap="xs" align="baseline">
+          <Text variant="numeric" className="text-lg">
+            {open.length}
+          </Text>
+          <Text variant="muted">open / {currentState.notes.length} total</Text>
+        </Inline>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-auto">
-        {open.slice(0, 5).map((note) => (
-          <div
-            key={note.id}
-            className="truncate rounded-md bg-secondary px-2 py-1 text-xs text-foreground"
-          >
-            {note.title}
-          </div>
-        ))}
-        {open.length > 5 && (
-          <span className="text-[10px] text-muted-foreground">
-            +{open.length - 5} more
-          </span>
+        {open.length === 0 ? (
+          <EmptyState icon={CheckCircle2} title="All done" />
+        ) : (
+          <Stack gap="none" scroll>
+            <ItemList overflowCount={Math.max(0, open.length - 5)}>
+              {open.slice(0, 5).map((note) => (
+                <ItemListItem key={note.id} primary={note.title} />
+              ))}
+            </ItemList>
+          </Stack>
         )}
-        {open.length === 0 && (
-          <span className="text-xs text-muted-foreground">All done.</span>
-        )}
-      </div>
-    </div>
+      </Stack>
+    </WidgetContent>
   );
 }
 

@@ -1,25 +1,21 @@
 /**
- * Dashboard board styling — design tokens + react-grid-layout overrides.
+ * Dashboard board styling — react-grid-layout overrides + host chrome.
  *
- * Glass board: tiles are translucent, backdrop-blurred surfaces with
- * luminous hairline borders, floating over a canvas with ambient accent
- * glow. Gaps stay minimal and edges sharp, so the glow bleeding through
- * the seams separates tiles. All widget chrome (title strip, actions,
- * resize bracket) is hover-revealed.
+ * The frosted-board look (canvas glow + translucent tile surface) lives
+ * in the shared `@sero-ai/ui/styles/glass-board.css` (`.glass-canvas` +
+ * `.glass-tile`), imported by `Dashboard.tsx`, so the styleguide preview
+ * renders on the same board. This file keeps only what is specific to the
+ * live board: the `--dash-*` chrome tokens (derived from the canonical
+ * `--glass-*` language), react-grid placeholder/resize/drag treatments and
+ * the hover-revealed widget chrome.
  *
  * Dark is the primary design target; light values mirror the same
- * relationships (frosted white glass over a soft tinted canvas).
+ * relationships.
  */
 
 .sero-dashboard {
-  --dash-canvas-base: #e9eaef;
-  --dash-glow-a: color-mix(in srgb, var(--accent-primary) 16%, transparent);
-  --dash-glow-b: color-mix(in srgb, var(--brand-primary) 12%, transparent);
-  --dash-tile: rgba(255, 255, 255, 0.52);
-  --dash-tile-hover: rgba(255, 255, 255, 0.68);
-  --dash-seam: rgba(15, 17, 23, 0.1);
+  --dash-seam: var(--glass-border);
   --dash-seam-strong: rgba(15, 17, 23, 0.22);
-  --dash-rim: rgba(255, 255, 255, 0.6);
   --dash-chrome-scrim: rgba(255, 255, 255, 0.75);
   --dash-accent: var(--accent-primary);
   --dash-accent-soft: color-mix(in srgb, var(--accent-primary) 12%, transparent);
@@ -27,41 +23,10 @@
 }
 
 .dark .sero-dashboard {
-  --dash-canvas-base: #060608;
-  --dash-glow-a: color-mix(in srgb, var(--accent-primary) 48%, transparent);
-  --dash-glow-b: color-mix(in srgb, var(--brand-primary) 30%, transparent);
-  --dash-tile: rgba(255, 255, 255, 0.06);
-  --dash-tile-hover: rgba(255, 255, 255, 0.09);
-  --dash-seam: rgba(255, 255, 255, 0.08);
   --dash-seam-strong: rgba(255, 255, 255, 0.18);
-  --dash-rim: rgba(255, 255, 255, 0.08);
   --dash-chrome-scrim: rgba(8, 8, 12, 0.6);
   --dash-accent-soft: color-mix(in srgb, var(--accent-primary) 18%, transparent);
   --dash-lift-shadow: 0 16px 48px rgba(0, 0, 0, 0.65);
-}
-
-/* ── Canvas ──────────────────────────────────────────────────────
-   Ambient accent glow the glass tiles pick up. */
-.sero-dashboard {
-  background:
-    radial-gradient(90% 70% at 85% -10%, var(--dash-glow-a), transparent 60%),
-    radial-gradient(80% 60% at -10% 110%, var(--dash-glow-b), transparent 60%),
-    var(--dash-canvas-base);
-}
-
-/* ── Glass tile surface ──────────────────────────────────────────
-   Applied to the DashboardWidget root (= the .react-grid-item). */
-.sero-dashboard .dash-tile {
-  background: var(--dash-tile);
-  border: 1px solid var(--dash-seam);
-  backdrop-filter: blur(24px) saturate(140%);
-  box-shadow: inset 0 1px 0 var(--dash-rim);
-  transition: background-color 150ms ease, border-color 150ms ease;
-}
-
-.sero-dashboard .dash-tile:hover {
-  background: var(--dash-tile-hover);
-  border-color: var(--dash-seam-strong);
 }
 
 /* ── Drag/resize target preview ──────────────────────────────────
@@ -77,7 +42,7 @@
 .sero-dashboard .react-grid-item.react-draggable-dragging,
 .sero-dashboard .react-grid-item.resizing {
   border-color: var(--dash-seam-strong);
-  box-shadow: inset 0 1px 0 var(--dash-rim), var(--dash-lift-shadow);
+  box-shadow: inset 0 1px 0 var(--glass-rim), var(--dash-lift-shadow);
 }
 
 /* ── Resize bracket ──────────────────────────────────────────────
@@ -104,20 +69,34 @@
   border-color: var(--dash-accent);
 }
 
-/* ── Hover chrome ────────────────────────────────────────────────
-   Frosted title strip overlaying the top edge of a tile. Revealed on
-   hover or keyboard focus; doubles as the drag handle. The mask fades
-   both the scrim and its blur toward the bottom. */
+/* ── Hover controls ──────────────────────────────────────────────
+   A small pill of controls (drag grip, open, remove) in the top-right
+   corner, revealed on hover or keyboard focus on a frosted backing.
+
+   The overlay is pointer-events:none and the pill is pointer-events:none
+   until revealed, so nothing here intercepts interaction with the widget
+   beneath it — the tile stays fully interactive until you actually reach
+   for a control. Only the grip drags; the top edge no longer does. */
 .sero-dashboard .dash-widget-chrome {
-  background: var(--dash-chrome-scrim);
-  backdrop-filter: blur(12px);
-  mask-image: linear-gradient(to bottom, black 62%, transparent);
   opacity: 0;
   transition: opacity 120ms ease;
+}
+
+.sero-dashboard .dash-widget-actions {
+  pointer-events: none;
+  background: var(--dash-chrome-scrim);
+  backdrop-filter: blur(12px);
+  border-radius: 6px;
 }
 
 .sero-dashboard .react-grid-item:hover .dash-widget-chrome,
 .sero-dashboard .react-grid-item:focus-within .dash-widget-chrome,
 .sero-dashboard .react-grid-item.react-draggable-dragging .dash-widget-chrome {
   opacity: 1;
+}
+
+.sero-dashboard .react-grid-item:hover .dash-widget-actions,
+.sero-dashboard .react-grid-item:focus-within .dash-widget-actions,
+.sero-dashboard .react-grid-item.react-draggable-dragging .dash-widget-actions {
+  pointer-events: auto;
 }
