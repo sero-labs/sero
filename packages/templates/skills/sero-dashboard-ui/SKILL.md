@@ -24,10 +24,10 @@ and grid placement. The widget owns its data and what it shows at each size.
    its `minSize` / `defaultSize` / `maxSize` in the plugin manifest. Decide what
    must stay legible at 1×1 and what extra detail 2×2 / 3×2 can add.
 2. **Read the catalogue before writing bespoke presentation.** See
-   [references/component-catalog.md](./references/component-catalog.md), or import
-   the machine-readable list from `@sero-ai/ui/dashboard-catalog`. Then read the
-   exported TypeScript types of the components you pick — the props are canonical
-   in the source, not copied here.
+   [references/component-catalog.md](./references/component-catalog.md), or read
+   the machine-readable list at `@sero-ai/ui/dashboard-catalog.json` (plain data,
+   read it directly). Then read the exported TypeScript types of the components
+   you pick — the props are canonical in the source, not copied here.
 3. **Compose shared components where they fit.** Wrap in `WidgetContent`; use
    `Stack` / `Inline` / `Grid` for layout, `Text` / `Heading` for type,
    `Metric` / `Status` / `ItemList` / `ActivityList` / `ProgressRing` for data,
@@ -50,7 +50,10 @@ and grid placement. The widget owns its data and what it shows at each size.
    in the plugin.
 9. **Demonstrate any new shared component** in a reference widget under
    `packages/ui/src/components/reference/` (exported from `@sero-ai/ui/reference`
-   and previewed in `apps/styleguide`).
+   and previewed in `apps/styleguide`), and add its entry to
+   `packages/ui/src/components/dashboard/catalog.json` plus the readable
+   [component-catalog.md](./references/component-catalog.md). The catalogue test
+   fails if a barrel component is missing from the JSON, so the JSON stays honest.
 
 ## Glass styling
 
@@ -91,10 +94,11 @@ import {
 } from '@sero-ai/ui';
 ```
 
-The discovery catalogue (metadata, not components) is a separate subpath:
+The discovery catalogue (metadata, not components) is plain JSON — read it
+directly rather than importing it:
 
-```ts
-import { dashboardComponentCatalog } from '@sero-ai/ui/dashboard-catalog';
+```
+@sero-ai/ui/dashboard-catalog.json
 ```
 
 Worked, glass-styled example widgets — importable to preview, or copy-pasteable

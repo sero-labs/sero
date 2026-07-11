@@ -94,10 +94,27 @@ describe("accessibility contracts", () => {
     expect(html).toContain('type="button"');
   });
 
-  it("a bare Status dot is announced as a status", () => {
+  it("a bare Status dot exposes its tone as announceable text", () => {
     const html = renderToStaticMarkup(<Status tone="success" />);
     expect(html).toContain('role="status"');
-    expect(html).toContain('data-tone="success"');
+    // Not an empty live region: assistive tech gets a text alternative.
+    expect(html).toContain('class="sr-only">Success<');
+  });
+
+  it("a bare Status dot honours a caller aria-label instead of the tone", () => {
+    const html = renderToStaticMarkup(
+      <Status tone="success" aria-label="Backup succeeded" />,
+    );
+    expect(html).toContain('aria-label="Backup succeeded"');
+    // The caller supplied the name, so no generic fallback is added.
+    expect(html).not.toContain("sr-only");
+  });
+
+  it("a labelled Status uses its visible text and adds no fallback", () => {
+    const html = renderToStaticMarkup(<Status tone="neutral">Idle</Status>);
+    expect(html).toContain("Idle");
+    expect(html).not.toContain('role="status"');
+    expect(html).not.toContain("sr-only");
   });
 
   it("EmptyState renders its title and message", () => {

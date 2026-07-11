@@ -8,7 +8,7 @@
 import * as React from "react";
 
 import { cn } from "../../lib/utils";
-import { toneColor, toneDot, tonePill, type Tone } from "./tone";
+import { toneColor, toneDot, toneLabel, tonePill, type Tone } from "./tone";
 
 export interface StatusProps extends React.ComponentProps<"span"> {
   tone?: Tone;
@@ -28,6 +28,16 @@ function Status({
   ...props
 }: StatusProps) {
   const hasLabel = children != null && children !== "";
+  const hasAccessibleName =
+    props["aria-label"] != null || props["aria-labelledby"] != null;
+
+  // A bare indicator (no visible children) is otherwise silent to assistive
+  // tech. Give it a text alternative — the caller's aria-label if provided,
+  // else the generic tone name — so its state is announced, not an empty region.
+  const hiddenLabel =
+    !hasLabel && !hasAccessibleName ? (
+      <span className="sr-only">{toneLabel[tone]}</span>
+    ) : null;
 
   if (variant === "pill") {
     return (
@@ -43,6 +53,7 @@ function Status({
       >
         <span className={cn("size-1.5 shrink-0 rounded-full", toneDot[tone])} />
         {children}
+        {hiddenLabel}
       </span>
     );
   }
@@ -51,7 +62,8 @@ function Status({
     <span
       data-slot="status"
       data-tone={tone}
-      // A bare dot carries no text, so surface the tone to assistive tech.
+      // A bare dot carries no visible text, so expose its state to assistive
+      // tech via role="status" plus the hidden label below.
       role={hasLabel ? undefined : "status"}
       className={cn(
         "inline-flex items-center gap-1.5 text-xs font-medium text-[var(--text-secondary)]",
@@ -68,6 +80,7 @@ function Status({
         )}
       />
       {children}
+      {hiddenLabel}
     </span>
   );
 }

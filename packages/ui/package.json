@@ -7,7 +7,7 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./dashboard-catalog": "./src/dashboard-catalog.ts",
+    "./dashboard-catalog.json": "./src/components/dashboard/catalog.json",
     "./reference": "./src/reference.ts",
     "./theme": "./src/theme/index.ts",
     "./theme/*": "./src/theme/*",
@@ -16,9 +16,10 @@
     "./*": "./src/*"
   },
   "scripts": {
-    "build": "tsup",
+    "build": "tsup && tsup --config tsup.reference.config.ts",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "smoke": "node scripts/smoke-dist.mjs"
   },
   "publishConfig": {
     "main": "./dist/index.js",
@@ -30,11 +31,7 @@
         "import": "./dist/index.js",
         "require": "./dist/index.cjs"
       },
-      "./dashboard-catalog": {
-        "types": "./dist/dashboard-catalog.d.ts",
-        "import": "./dist/dashboard-catalog.js",
-        "require": "./dist/dashboard-catalog.cjs"
-      },
+      "./dashboard-catalog.json": "./dist/components/dashboard/catalog.json",
       "./reference": {
         "types": "./dist/reference.d.ts",
         "import": "./dist/reference.js",

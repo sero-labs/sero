@@ -1,9 +1,14 @@
-// Catalogue integrity — keeps the typed catalogue honest against the exports.
+// Catalogue integrity — keeps the JSON catalogue honest against the exports.
 
 import { describe, expect, it } from "vitest";
 
-import { dashboardComponentCatalog } from "../catalog";
+import type { DashboardComponentCatalogEntry } from "../catalog";
+import catalogJson from "../catalog.json";
 import * as dashboard from "../index";
+
+// The JSON is the source of truth. JSON imports widen literal unions to
+// `string`, so assert the authored entry shape for the checks below.
+const dashboardComponentCatalog = catalogJson as DashboardComponentCatalogEntry[];
 
 // Reused primitives live in other component folders, not the dashboard barrel.
 const REUSED_PRIMITIVES = new Set(["Badge", "Alert", "Button", "Skeleton"]);

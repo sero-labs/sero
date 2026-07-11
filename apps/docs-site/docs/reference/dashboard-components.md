@@ -12,10 +12,11 @@ import { WidgetContent, Stack, Metric, Status, ItemList } from '@sero-ai/ui';
 ```
 
 Detailed props are canonical in the exported TypeScript types. The
-machine-readable catalogue is available for tooling from a stable subpath:
+machine-readable catalogue (the data behind the tables below) ships as plain
+JSON at a stable subpath — read it directly:
 
-```ts
-import { dashboardComponentCatalog } from '@sero-ai/ui/dashboard-catalog';
+```
+@sero-ai/ui/dashboard-catalog.json
 ```
 
 Worked, glass-styled example widgets ship on their own subpath — import them to

@@ -1,8 +1,8 @@
 // @sero-ai/ui dashboard components — shared compact presentation for widgets
 // and full plugin views. Import from the package root: `@sero-ai/ui`.
 //
-// The component catalogue (metadata for discovery tooling) is exported
-// separately from `@sero-ai/ui/dashboard-catalog`, not from here.
+// The component catalogue (metadata for discovery tooling) is plain data at
+// `@sero-ai/ui/dashboard-catalog.json`, not exported from here.
 
 export * from "./tone";
 export * from "./spacing";

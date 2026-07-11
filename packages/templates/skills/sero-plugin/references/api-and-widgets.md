@@ -438,7 +438,7 @@ Common primitives: Button, Card, Badge, Separator, ScrollArea, Checkbox.
 the shared dashboard set (also from `@sero-ai/ui`): `WidgetContent`, `Stack`,
 `Inline`, `Grid`, `Section`, `Text`, `Heading`, `Metric`, `Status`, `ItemList`,
 `ActivityList`, `ProgressRing`, `DataBoundary`, `EmptyState`, `IconButton`, and
-more. Discover the full set via `@sero-ai/ui/dashboard-catalog` or the
+more. Discover the full set via `@sero-ai/ui/dashboard-catalog.json` or the
 [`sero-dashboard-ui`](../../sero-dashboard-ui/SKILL.md) skill. Reach for these
 before hand-rolling layout or picking arbitrary font sizes and colours.
 

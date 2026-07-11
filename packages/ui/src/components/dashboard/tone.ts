@@ -25,6 +25,19 @@ export const toneDot: Record<Tone, string> = {
   info: "bg-[var(--status-info)]",
 };
 
+/**
+ * Default accessible name for a tone, used as the text alternative when a
+ * status indicator carries no visible label. Generic by design — callers with
+ * a domain-specific meaning should pass their own `aria-label`.
+ */
+export const toneLabel: Record<Tone, string> = {
+  neutral: "Neutral",
+  success: "Success",
+  warning: "Warning",
+  error: "Error",
+  info: "Info",
+};
+
 /** Muted tinted background + matching text for a tone (pills, chips). */
 export const tonePill: Record<Tone, string> = {
   neutral: "bg-[var(--surface-flat)] text-[var(--text-secondary)]",
