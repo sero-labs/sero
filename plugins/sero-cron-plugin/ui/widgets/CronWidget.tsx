@@ -11,8 +11,12 @@ import { useAppState } from '@sero-ai/app-runtime';
 import {
   ActivityList,
   ActivityListItem,
+  DataBoundary,
+  Divider,
   EmptyState,
   Inline,
+  Metric,
+  MetricCard,
   Section,
   Stack,
   Status,
@@ -20,7 +24,7 @@ import {
   WidgetContent,
   type Tone,
 } from '@sero-ai/ui';
-import { CalendarClock } from 'lucide-react';
+import { BellRing, CalendarClock } from 'lucide-react';
 import type { CronState, CronJob, Reminder } from '../../shared/types';
 import { DEFAULT_CRON_STATE } from '../../shared/types';
 import '../styles.css';
@@ -60,6 +64,13 @@ function reminderTime(reminder: Reminder): string {
   return '';
 }
 
+/** Tone for the success-rate gauge: healthy · degraded · failing. */
+function rateTone(rate: number): Tone {
+  if (rate >= 90) return 'success';
+  if (rate >= 70) return 'warning';
+  return 'error';
+}
+
 // ── Component ────────────────────────────────────────────────────
 
 export function CronWidget() {
@@ -81,6 +92,10 @@ export function CronWidget() {
   const recentResults = state.lastRunResults.slice(-3).reverse();
   const isEmpty = enabledJobs.length === 0 && activeReminders.length === 0;
 
+  const totalRuns = state.lastRunResults.length;
+  const okRuns = state.lastRunResults.filter((r) => r.ok).length;
+  const successRate = totalRuns > 0 ? Math.round((okRuns / totalRuns) * 100) : null;
+
   return (
     <WidgetContent>
       <Stack gap="sm" fill>
@@ -88,15 +103,30 @@ export function CronWidget() {
           <Status tone={state.schedulerActive ? 'success' : 'neutral'} pulse={state.schedulerActive}>
             {state.schedulerActive ? 'Scheduler active' : 'Scheduler paused'}
           </Status>
-          <Inline gap="sm">
-            <Text variant="muted">{enabledJobs.length} jobs</Text>
-            <Text variant="muted">{activeReminders.length} reminders</Text>
-          </Inline>
+          {successRate !== null && (
+            <Status
+              tone={rateTone(successRate)}
+              variant="pill"
+              title={`${okRuns} of ${totalRuns} runs succeeded`}
+            >
+              {successRate}% OK
+            </Status>
+          )}
         </Inline>
 
-        {isEmpty ? (
-          <EmptyState icon={CalendarClock} title="No scheduled tasks" />
-        ) : (
+        <Inline gap="sm" wrap>
+          <MetricCard className="flex-1">
+            <Metric label="Jobs" value={enabledJobs.length} icon={CalendarClock} />
+          </MetricCard>
+          <MetricCard className="flex-1">
+            <Metric label="Reminders" value={activeReminders.length} icon={BellRing} />
+          </MetricCard>
+        </Inline>
+
+        <DataBoundary
+          state={isEmpty ? 'empty' : 'ready'}
+          empty={<EmptyState icon={CalendarClock} title="No scheduled tasks" />}
+        >
           <Stack gap="sm" scroll>
             {enabledJobs.length > 0 && (
               <Section heading="Scheduled jobs" gap="xs">
@@ -129,19 +159,22 @@ export function CronWidget() {
             )}
 
             {recentResults.length > 0 && (
-              <Inline gap="xs" align="center" className="mt-auto">
-                <Text variant="muted">Recent</Text>
-                {recentResults.map((r, i) => (
-                  <Status
-                    key={i}
-                    tone={r.ok ? 'success' : 'error'}
-                    title={`${r.jobName}: ${r.ok ? 'OK' : r.error ?? 'Failed'}`}
-                  />
-                ))}
-              </Inline>
+              <div className="mt-auto hidden @sm/widget:block">
+                <Divider spacing="sm" />
+                <Inline gap="xs" align="center">
+                  <Text variant="muted">Recent</Text>
+                  {recentResults.map((r, i) => (
+                    <Status
+                      key={i}
+                      tone={r.ok ? 'success' : 'error'}
+                      title={`${r.jobName}: ${r.ok ? 'OK' : r.error ?? 'Failed'}`}
+                    />
+                  ))}
+                </Inline>
+              </div>
             )}
           </Stack>
-        )}
+        </DataBoundary>
       </Stack>
     </WidgetContent>
   );

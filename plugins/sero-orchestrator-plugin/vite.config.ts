@@ -25,6 +25,8 @@ export default defineConfig({
         manifest: true,
         exposes: {
           './OrchestratorApp': './ui/OrchestratorApp.tsx',
+          './LoopsWidget': './ui/widgets/LoopsWidget.tsx',
+          './AttentionWidget': './ui/widgets/AttentionWidget.tsx',
         },
         shared: {
           react: { singleton: true },

@@ -1,0 +1,110 @@
+/**
+ * AttentionWidget — the cross-loop "Needs you" inbox for the dashboard.
+ *
+ * Every question a loop is parked on and every improvement suggestion waiting
+ * for approve/reject, resolved from the watched index alone. Loops only move
+ * when these are answered, so this is the one orchestrator signal that always
+ * deserves a glance. Composed from the shared @sero-ai/ui dashboard set.
+ */
+
+import type { ComponentType } from 'react';
+import {
+  ActivityList,
+  ActivityListItem,
+  DataBoundary,
+  EmptyState,
+  Inline,
+  Stack,
+  Status,
+  WidgetContent,
+  type Tone,
+} from '@sero-ai/ui';
+import { CheckCircle2, MessageCircleQuestion, ShieldQuestion, Sparkles } from 'lucide-react';
+import type { LoopSummary } from '../../shared/types';
+import { useOrchestratorIndex } from '../lib/use-orchestrator-index';
+import '../styles.css';
+
+/** How many items the inbox peeks before "+N more". */
+const SHOWN = 5;
+
+interface AttentionRow {
+  key: string;
+  icon: ComponentType<{ className?: string }>;
+  tone: Tone;
+  label: string;
+  loopTitle: string;
+}
+
+/** Flatten a loop's attention payload into inbox rows (questions, then suggestions). */
+function rowsFor(loop: LoopSummary): AttentionRow[] {
+  const rows: AttentionRow[] = [];
+  const input = loop.attention?.input;
+  if (input) {
+    for (const q of input.questions) {
+      rows.push({
+        key: `${loop.id}:${input.requestId}:${q.id}`,
+        icon: q.kind === 'approval' ? ShieldQuestion : MessageCircleQuestion,
+        tone: 'warning',
+        label: q.prompt,
+        loopTitle: loop.title,
+      });
+    }
+  }
+  const suggestions = loop.attention?.suggestions ?? [];
+  if (suggestions.length === 1) {
+    rows.push({
+      key: `${loop.id}:${suggestions[0].id}`,
+      icon: Sparkles,
+      tone: 'info',
+      label: suggestions[0].rationale,
+      loopTitle: loop.title,
+    });
+  } else if (suggestions.length > 1) {
+    rows.push({
+      key: `${loop.id}:suggestions`,
+      icon: Sparkles,
+      tone: 'info',
+      label: `${suggestions.length} improvement suggestions`,
+      loopTitle: loop.title,
+    });
+  }
+  return rows;
+}
+
+export function AttentionWidget() {
+  const { loops } = useOrchestratorIndex();
+  const rows = loops.flatMap(rowsFor);
+
+  return (
+    <WidgetContent>
+      <Stack gap="sm" fill>
+        <Inline justify="between" align="center">
+          <Status tone={rows.length > 0 ? 'warning' : 'success'} pulse={rows.length > 0}>
+            {rows.length > 0 ? `${rows.length} waiting on you` : 'All clear'}
+          </Status>
+        </Inline>
+
+        <DataBoundary
+          state={rows.length === 0 ? 'empty' : 'ready'}
+          empty={<EmptyState icon={CheckCircle2} title="Nothing needs you" />}
+        >
+          <Stack gap="none" scroll>
+            <ActivityList overflowCount={Math.max(0, rows.length - SHOWN)}>
+              {rows.slice(0, SHOWN).map((row) => (
+                <ActivityListItem
+                  key={row.key}
+                  icon={row.icon}
+                  tone={row.tone}
+                  label={<span title={row.label}>{row.label}</span>}
+                  detail={row.loopTitle}
+                />
+              ))}
+            </ActivityList>
+          </Stack>
+        </DataBoundary>
+      </Stack>
+    </WidgetContent>
+  );
+}
+
+export default AttentionWidget;

@@ -221,6 +221,17 @@
   background: var(--text-muted);
 }
 
+/* Keep dashboard scroll content clear of the scrollbar so it never sits on top
+   of content (e.g. right-aligned timestamps in widget lists). `scrollbar-gutter`
+   reserves space on platforms that honour it; the right padding is the fallback
+   for macOS overlay scrollbars, where the bar floats over content and the gutter
+   is ignored. Scoped to real scroll containers via `.overflow-auto`. */
+[data-slot="widget-content"].overflow-auto,
+[data-slot="stack"].overflow-auto {
+  scrollbar-gutter: stable;
+  padding-inline-end: 0.5rem;
+}
+
 /* ── Selection ──────────────────────────────────────────────── */
 ::selection {
   background: var(--accent-muted);
