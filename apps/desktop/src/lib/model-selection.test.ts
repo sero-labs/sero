@@ -19,7 +19,7 @@ const groups: SharedAvailableModelGroup[] = [
         modelId: 'claude-sonnet-4',
         name: 'Claude Sonnet 4',
         reasoning: true,
-        availableThinkingLevels: ['off', 'minimal', 'low', 'medium', 'high', 'xhigh'],
+        availableThinkingLevels: ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'],
       },
       {
         provider: 'anthropic',
@@ -47,13 +47,14 @@ const groups: SharedAvailableModelGroup[] = [
 
 describe('model-selection shared contracts', () => {
   it('derives available thinking levels from explicit model metadata and reasoning defaults', () => {
-    expect(getAvailableThinkingLevels(groups[0].models[0])).toEqual(['off', 'minimal', 'low', 'medium', 'high', 'xhigh']);
+    expect(getAvailableThinkingLevels(groups[0].models[0])).toEqual(['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max']);
     expect(getAvailableThinkingLevels(groups[0].models[1])).toEqual(['off']);
     expect(getAvailableThinkingLevels(groups[1].models[0])).toEqual(['off', 'low', 'medium']);
   });
 
   it('falls back to the nearest supported thinking level', () => {
     expect(resolveSupportedThinkingLevel(groups[1].models[0], 'xhigh')).toBe('medium');
+    expect(resolveSupportedThinkingLevel(groups[0].models[0], 'max')).toBe('max');
     expect(resolveSupportedThinkingLevel(groups[0].models[1], 'high')).toBe('off');
   });
 

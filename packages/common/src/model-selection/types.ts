@@ -8,7 +8,7 @@ import type { ThinkingLevel } from '@earendil-works/pi-agent-core';
 
 export type { ThinkingLevel };
 
-export const THINKING_LEVELS = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh'] as const satisfies readonly ThinkingLevel[];
+export const THINKING_LEVELS = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'] as const satisfies readonly ThinkingLevel[];
 
 export const THINKING_LABELS: Record<ThinkingLevel, string> = {
   off: 'Off',
@@ -16,7 +16,8 @@ export const THINKING_LABELS: Record<ThinkingLevel, string> = {
   low: 'Low',
   medium: 'Med',
   high: 'High',
-  xhigh: 'Max',
+  xhigh: 'Extra High',
+  max: 'Max',
 };
 
 export const MODEL_TIERS = ['LOW', 'MED', 'HIGH'] as const;

@@ -12,6 +12,8 @@
     "./gemini-search.ts",
     "./gemini-search-config.ts",
     "./gemini-search-format.ts",
+    "./isolated-completion.ts",
+    "./summary-review.ts",
     "./video-extract.ts",
     "./video-config.ts",
     "./video-gemini-files.ts",

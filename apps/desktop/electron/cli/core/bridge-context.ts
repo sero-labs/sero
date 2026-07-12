@@ -37,11 +37,13 @@ function resolveSessionEntry(
 function createFallbackExtensionContext(cwd: string): ExtensionContext {
   return {
     ui: createSeroUIContext(),
+    mode: 'rpc',
     hasUI: true,
     cwd,
     sessionManager: SessionManager.inMemory(cwd),
     modelRegistry: FALLBACK_MODEL_REGISTRY,
     model: undefined,
+    isProjectTrusted: () => false,
     isIdle: () => true,
     signal: undefined,
     abort: () => {},
@@ -67,11 +69,13 @@ function createSessionBackedExtensionContext(
 
   return {
     ui: createSeroUIContext(),
+    mode: 'rpc',
     hasUI: true,
     cwd,
     sessionManager: entry.session.sessionManager,
     modelRegistry: entry.session.modelRegistry,
     model: entry.session.model,
+    isProjectTrusted: () => entry.session.settingsManager.isProjectTrusted(),
     isIdle: () => !entry.session.isStreaming,
     signal: entry.session.agent.signal,
     abort: () => {
@@ -134,6 +138,9 @@ export function buildCommandContext(
   const baseContext = buildToolContext(ctx);
   return {
     ...baseContext,
+    getSystemPromptOptions: () => {
+      throw new Error(`/${commandName} cannot inspect system prompt options without a live session command context.`);
+    },
     waitForIdle: createUnavailableCommandAction(commandName, 'wait for the agent to become idle'),
     newSession: createUnavailableCommandAction(commandName, 'start a new session'),
     fork: createUnavailableCommandAction(commandName, 'fork the current session'),

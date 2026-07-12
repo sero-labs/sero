@@ -57,6 +57,7 @@ const SERO_UI_THEME_COLORS: Record<ThemeColor, string> = {
   thinkingMedium: '#f59e0b',
   thinkingHigh: '#f97316',
   thinkingXhigh: '#ef4444',
+  thinkingMax: '#dc2626',
   bashMode: '#22c55e',
 };
 

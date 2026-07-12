@@ -21,6 +21,7 @@
     "typebox": "catalog:"
   },
   "peerDependencies": {
+    "@earendil-works/pi-agent-core": "catalog:peer",
     "@earendil-works/pi-ai": "catalog:peer",
     "@earendil-works/pi-coding-agent": "catalog:peer",
     "@earendil-works/pi-tui": "catalog:peer",

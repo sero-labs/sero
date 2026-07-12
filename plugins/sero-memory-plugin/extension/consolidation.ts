@@ -2,7 +2,6 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 
 import type { ExtensionContext } from '@earendil-works/pi-coding-agent';
-import { complete, type Message } from '@earendil-works/pi-ai';
 
 import { format } from 'date-fns';
 import {
@@ -35,6 +34,7 @@ import {
   type DailyLogCandidate,
 } from './consolidation-helpers';
 import { runQmdUpdateNow } from './qmd';
+import { runIsolatedCompletion } from './isolated-completion';
 
 export type ConsolidationTrigger = 'manual' | 'cron' | 'auto';
 
@@ -49,14 +49,6 @@ export interface ConsolidationSummary {
 
 const CONSOLIDATED_MARKER_REGEX = /<!--\s*consolidated:\s*[^>]+-->/i;
 
-function buildMessages(prompt: string): Message[] {
-  return [{
-    role: 'user',
-    content: [{ type: 'text', text: prompt }],
-    timestamp: Date.now(),
-  }];
-}
-
 async function completeConsolidationPrompt(
   ctx: ExtensionContext,
   prompt: string,
@@ -65,31 +57,20 @@ async function completeConsolidationPrompt(
   if (!ctx.model) {
     throw new Error('Memory consolidation requires an active model.');
   }
-
   const auth = await ctx.modelRegistry.getApiKeyAndHeaders(ctx.model);
   if (!auth.ok || !auth.apiKey) {
     throw new Error('No API key available for the active model.');
   }
-  const { apiKey, headers } = auth;
 
-  const response = await complete(
-    ctx.model,
-    {
-      systemPrompt: [
-        'You curate durable long-term markdown memory from noisy work logs.',
-        'Only keep facts that remain useful after the session ends.',
-        'Output only structured memory lines and nothing else.',
-      ].join('\n'),
-      messages: buildMessages(prompt),
-    },
-    { apiKey, headers, reasoningEffort: trigger === 'manual' ? 'medium' : 'low' },
-  );
-
-  return response.content
-    .filter((part): part is { type: 'text'; text: string } => part.type === 'text')
-    .map((part) => part.text)
-    .join('\n')
-    .trim();
+  return runIsolatedCompletion(ctx, prompt, {
+    systemPrompt: [
+      'You curate durable long-term markdown memory from noisy work logs.',
+      'Only keep facts that remain useful after the session ends.',
+      'Output only structured memory lines and nothing else.',
+    ].join('\n'),
+    thinkingLevel: trigger === 'manual' ? 'medium' : 'low',
+    signal: ctx.signal,
+  });
 }
 
 async function loadStructuredMemory(root: string): Promise<MemoryEntry[]> {

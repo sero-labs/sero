@@ -157,11 +157,13 @@ export function buildDirectCliExtensionContext(
 ): ExtensionContext {
   return {
     cwd,
+    mode: 'rpc',
     hasUI: true,
     ui: createSeroUIContext(),
     sessionManager: entry.session.sessionManager,
     modelRegistry: entry.session.modelRegistry,
     model: entry.session.model,
+    isProjectTrusted: () => entry.session.settingsManager.isProjectTrusted(),
     isIdle: () => true,
     signal: entry.session.agent.signal,
     abort: () => {

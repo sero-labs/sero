@@ -35,10 +35,10 @@ catalog:
   "@types/node": "^22.19.11"
 
   # Pi SDK
-  "@earendil-works/pi-agent-core": "0.78.0"
-  "@earendil-works/pi-ai": "0.78.0"
-  "@earendil-works/pi-coding-agent": "0.78.0"
-  "@earendil-works/pi-tui": "0.78.0"
+  "@earendil-works/pi-agent-core": "0.80.6"
+  "@earendil-works/pi-ai": "0.80.6"
+  "@earendil-works/pi-coding-agent": "0.80.6"
+  "@earendil-works/pi-tui": "0.80.6"
 
   # Zod (peer of @earendil-works/pi-* transitives: openai, @anthropic-ai/sdk, zod-to-json-schema)
   zod: "^4.3.6"
@@ -55,10 +55,10 @@ catalog:
 # Use "catalog:peer" in peerDependencies.
 catalogs:
   peer:
-    "@earendil-works/pi-agent-core": ">=0.78.0"
-    "@earendil-works/pi-ai": ">=0.78.0"
-    "@earendil-works/pi-coding-agent": ">=0.78.0"
-    "@earendil-works/pi-tui": ">=0.78.0"
+    "@earendil-works/pi-agent-core": ">=0.80.6"
+    "@earendil-works/pi-ai": ">=0.80.6"
+    "@earendil-works/pi-coding-agent": ">=0.80.6"
+    "@earendil-works/pi-tui": ">=0.80.6"
     # Mirror the strict catalog above. See the comment there for why these
     # MUST stay aligned.
     react: "^19.2.4"

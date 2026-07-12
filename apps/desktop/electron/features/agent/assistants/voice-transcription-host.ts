@@ -6,8 +6,6 @@
  * by web-remote) can share the same behaviour.
  */
 
-import { getEnvApiKey } from '@earendil-works/pi-ai';
-
 import type {
   VoiceTranscriptionResult,
   VoiceTranscriptionStatus,
@@ -24,7 +22,7 @@ export interface ResolvedOpenAiKeys {
 }
 
 export async function resolveOpenAiApiKeys(): Promise<ResolvedOpenAiKeys> {
-  const envKey = getEnvApiKey('openai')?.trim() ?? process.env.OPENAI_API_KEY?.trim() ?? '';
+  const envKey = process.env.OPENAI_API_KEY?.trim() ?? '';
 
   try {
     const infra = await ensureInfra();
