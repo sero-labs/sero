@@ -165,7 +165,7 @@ CLI (`bridgeTools: ["usage"]` → `sero usage …`):
 |---|---|---|
 | `refresh` | `force?: boolean` | Run a scan and rewrite `state.json`. If a scan is already running, return its status instead of starting another (module-level singleton guard, same pattern as the cron scheduler singleton). Returns a one-line summary (files scanned, files reused from cache, duration, totals). |
 | `summary` | `period?` (`today` default) | Text summary of totals + top providers for the agent/CLI. |
-| `sessions` | `period?`, `limit?` (default 20) | Top sessions by cost for the period — for agent/CLI drill-down beyond the top-N stored in state. |
+| `sessions` | `period?`, `limit?` (default 20, max 50) | Top sessions by cost for the period, served from the top-50 stored in state. |
 | `config` | `refreshIntervalMinutes?` | Read/update settings stored in state (`0` = manual only). |
 
 Keep tool output concise (it lands in agent context). No `pi.registerCommand`
@@ -313,11 +313,11 @@ Layout, top to bottom (reference: the two design screenshots — TUI table and
    `hourly`, 00–23 with empty hours rendered as gaps), week/all-time views
    show per-day bars (from `daily`).
 5. **By Provider · Model table** — the core table. One row group per provider
-   (sorted by cost desc): provider header row with aggregate values, model
-   rows beneath, subtotal row when a provider has > 1 model (matches
-   screenshot 2). Columns: `Provider/Model · Sessions · Msgs · Cost · Tokens ·
-   ↑In · ↓Out · Cache`. Providers collapsible (default expanded); dim the
-   ↑In/↓Out/Cache columns (`text-muted-foreground`).
+   (sorted by cost desc): provider header row carrying the aggregate values,
+   model rows beneath (no separate subtotal row — the header row already
+   shows the aggregates). Columns: `Provider/Model · Sessions · Msgs · Cost ·
+   Tokens · ↑In · ↓Out · Cache`. Providers collapsible (default expanded);
+   dim the ↑In/↓Out/Cache columns (`text-muted-foreground`).
 6. **Sessions section** (the optional per-session breakdown) — table of
    `topSessions` for the active period: Label, Workspace (basename of `cwd`),
    Msgs, Tokens, Cost, Last active (relative). Sortable by cost (default),
@@ -365,23 +365,30 @@ buttons. Widget participates in auto-refresh via the shared hook (3.3).
 plugins/sero-usage-plugin/
 ├── package.json
 ├── vite.config.ts
-├── shared/
-│   └── types.ts              # UsageState + DEFAULT_STATE (§3.5)
+├── vitest.config.ts
+├── shared/                   # imported by extension AND UI
+│   ├── types.ts              # UsageState + DEFAULT_STATE + normalize (§3.5)
+│   ├── period.ts             # period boundaries, dateKey (§2.5)
+│   ├── format.ts             # display formatting rules (§4.3)
+│   └── __tests__/
 ├── extension/
-│   ├── index.ts              # entry: registers tool, wires singleton
-│   ├── tools.ts              # `usage` tool actions (§3.2)
-│   ├── scan.ts               # file discovery, streaming parse, dedup (§2)
-│   ├── aggregate.ts          # periods, daily buckets, provider/model/session rollups
+│   ├── index.ts              # entry: registers the tool
+│   ├── tools.ts              # `usage` tool actions + CLI surface (§3.2)
+│   ├── refresh.ts            # scan → aggregate → state, in-flight singleton
+│   ├── scan.ts               # file discovery, streaming parse (§2)
+│   ├── aggregate.ts          # dedup, periods, daily/hourly buckets, rollups
 │   ├── scan-cache.ts         # per-file fingerprint cache (§3.4)
-│   ├── state-io.ts           # resolve state path, atomic read/write
+│   ├── state-io.ts           # Sero-only path resolution, atomic writes
+│   ├── __tests__/
 │   └── tsconfig.json
 └── ui/
     ├── UsageApp.tsx
     ├── components/           # StatTiles, ActivityHeatmap, TrendChart,
     │                         # ProviderTable, SessionsTable
     ├── widgets/UsageWidget.tsx
-    ├── lib/format.ts
-    ├── lib/useAutoRefresh.ts
+    ├── lib/useAutoRefresh.ts # staleness-driven refresh (§3.3)
+    ├── lib/trend.ts          # metric selection + provider ranking
+    ├── lib/host.ts           # reveal-in-folder shell bridge
     ├── styles.css            # imports @sero-ai/ui/styles/plugin.css + @source
     ├── index.html
     ├── vite-env.d.ts
