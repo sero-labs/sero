@@ -52,6 +52,7 @@ pkill -f "vite"; pkill -f "electron"
 
 - **`@sero-ai/app-runtime`** — React hooks (`useAppState`, `useAppInfo`, `useAgentPrompt`) + `AppProvider` for federated plugin modules
 - **`@sero-ai/common`** — shared renderer-safe types/utilities. Prefer moving neutral cross-package code here (no Electron/Node-only dependencies).
+- **`@sero-ai/extension-runtime`** — shared Node/runtime helpers for plugin **extensions** (e.g. `runIsolatedCompletion`). Import as a `workspace:*` devDependency; the plugin builder bundles it inline and keeps the Pi SDK peers external. Use this (not `@sero-ai/common`) for extension code that needs the Pi coding-agent runtime.
 - **`@sero-ai/ui`** - shared ui components 
 
 **Tool installs are machine-shared, NEVER per-profile.** When a plugin or

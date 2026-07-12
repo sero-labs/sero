@@ -23,7 +23,7 @@ import { nowTimestamp } from './memory-format';
 import { runQmdUpdateNow, clearUpdateTimer } from './qmd';
 import { error, errorDetails, info } from './logger';
 import { exportTranscriptForSession } from './session-transcripts';
-import { runIsolatedCompletion } from './isolated-completion';
+import { runIsolatedCompletion } from '@sero-ai/extension-runtime';
 
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
@@ -219,7 +219,11 @@ export function registerSessionLifecycle(pi: ExtensionAPI): void {
               }
               promptLines.push('', '<conversation>', truncated, '</conversation>');
 
-              const summaryText = await runIsolatedCompletion(ctx, promptLines.join('\n'), {
+              const summaryText = await runIsolatedCompletion({
+                cwd: ctx.cwd,
+                model: ctx.model,
+                modelRegistry: ctx.modelRegistry,
+                prompt: promptLines.join('\n'),
                 systemPrompt: SUMMARY_SYSTEM_PROMPT,
                 thinkingLevel: 'low',
                 signal: ctx.signal,

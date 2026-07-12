@@ -29,6 +29,7 @@
   },
   "devDependencies": {
     "@sero-ai/common": "workspace:*",
+    "@sero-ai/extension-runtime": "workspace:*",
     "@types/node": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"

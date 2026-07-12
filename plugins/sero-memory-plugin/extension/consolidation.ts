@@ -34,7 +34,7 @@ import {
   type DailyLogCandidate,
 } from './consolidation-helpers';
 import { runQmdUpdateNow } from './qmd';
-import { runIsolatedCompletion } from './isolated-completion';
+import { runIsolatedCompletion } from '@sero-ai/extension-runtime';
 
 export type ConsolidationTrigger = 'manual' | 'cron' | 'auto';
 
@@ -62,7 +62,11 @@ async function completeConsolidationPrompt(
     throw new Error('No API key available for the active model.');
   }
 
-  return runIsolatedCompletion(ctx, prompt, {
+  return runIsolatedCompletion({
+    cwd: ctx.cwd,
+    model: ctx.model,
+    modelRegistry: ctx.modelRegistry,
+    prompt,
     systemPrompt: [
       'You curate durable long-term markdown memory from noisy work logs.',
       'Only keep facts that remain useful after the session ends.',

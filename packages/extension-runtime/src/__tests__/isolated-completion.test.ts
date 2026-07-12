@@ -35,16 +35,14 @@ describe('runIsolatedCompletion', () => {
     const model = modelRegistry.find('alibaba-coding-plan-test', 'custom-model');
     expect(model).toBeDefined();
 
-    const result = await runIsolatedCompletion(
-      {
-        cwd: process.cwd(),
-        model,
-        modelRegistry,
-        signal: undefined,
-      },
-      'Summarize this.',
-      { systemPrompt: 'Return text only.', thinkingLevel: 'low' },
-    );
+    const result = await runIsolatedCompletion({
+      cwd: process.cwd(),
+      model: model!,
+      modelRegistry,
+      prompt: 'Summarize this.',
+      systemPrompt: 'Return text only.',
+      thinkingLevel: 'low',
+    });
 
     expect(result).toBe('custom provider response');
     expect(faux.getPendingResponseCount()).toBe(0);

@@ -8,10 +8,7 @@
     "skipLibCheck": true,
     "noEmit": true,
     "types": ["node"],
-    "lib": ["ES2023"],
-    "paths": {
-      "@sero-ai/common": ["./common/src/index.ts"],
-      "@sero-ai/extension-runtime": ["./extension-runtime/src/index.ts"]
-    }
-  }
+    "lib": ["ES2023"]
+  },
+  "include": ["src/**/*"]
 }

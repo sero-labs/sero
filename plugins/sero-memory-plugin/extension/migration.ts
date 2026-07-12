@@ -26,7 +26,7 @@ import {
   stripManagedFileMetadata,
 } from './memory-format';
 import { error, errorDetails, info } from './logger';
-import { runIsolatedCompletion } from './isolated-completion';
+import { runIsolatedCompletion } from '@sero-ai/extension-runtime';
 
 const MEMORY_BACKUP_SUFFIX = '.pre-v2-backup';
 
@@ -54,7 +54,11 @@ async function completeMarkdown(
   if (!ctx.model) return null;
   const auth = await ctx.modelRegistry.getApiKeyAndHeaders(ctx.model);
   if (!auth.ok || !auth.apiKey) return null;
-  const text = await runIsolatedCompletion(ctx, prompt, {
+  const text = await runIsolatedCompletion({
+    cwd: ctx.cwd,
+    model: ctx.model,
+    modelRegistry: ctx.modelRegistry,
+    prompt,
     systemPrompt,
     thinkingLevel: 'low',
     signal: ctx.signal,
