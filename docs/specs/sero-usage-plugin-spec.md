@@ -115,8 +115,11 @@ keep them, and state them in the UI footnote:
   toward a period's session count if it contributed ≥ 1 message to it.
 - **Daily buckets** (for the heatmap and trend chart): one bucket per local
   calendar day for the last 365 days, each holding
-  `{ date, cost, tokens, input, output, messages }` using the formulas above.
-  Days with no activity may be omitted from state (the UI fills gaps).
+  `{ date, cost, tokens, input, output, messages }` using the formulas above,
+  plus a per-provider split (`byProvider`) so the trend chart can stack by
+  provider. Days with no activity may be omitted from state (the UI fills gaps).
+- **Hourly buckets**: the same shape per local hour (0–23) of the current day,
+  recomputed on every refresh — backing the Today tab's trend chart.
 - Messages with missing/unparseable timestamps count toward All Time only and
   are excluded from time-sensitive views.
 
@@ -224,6 +227,7 @@ interface UsageState {
   lastScan: { files: number; reused: number; durationMs: number } | null;
   periods: Record<'today' | 'thisWeek' | 'lastWeek' | 'allTime', PeriodStats>;
   daily: DailyBucket[];                                  // ≤ 365 entries, ascending date
+  hourly: HourlyBucket[];                                // current day only, ≤ 24 entries
 }
 
 interface TokenBreakdown { total: number; input: number; output: number; cacheRead: number; cacheWrite: number }
@@ -249,11 +253,24 @@ interface SessionStats {
   id: string;
   label: string;            // session_info name, else first user message (truncated ~80 chars), else id
   cwd: string;              // workspace path, for display
+  path: string;             // absolute session .jsonl path — for reveal-in-folder
   messages: number; cost: number; tokens: TokenBreakdown;
   firstActivity: number; lastActivity: number;           // epoch ms
 }
 
-interface DailyBucket { date: string /* YYYY-MM-DD local */; cost: number; tokens: number; input: number; output: number; messages: number }
+interface ProviderSlice { cost: number; tokens: number; messages: number }
+
+interface DailyBucket {
+  date: string;             // YYYY-MM-DD local
+  cost: number; tokens: number; input: number; output: number; messages: number;
+  byProvider: Record<string, ProviderSlice>;             // for the stacked trend chart
+}
+
+interface HourlyBucket {
+  hour: number;             // 0–23, local, current day
+  cost: number; tokens: number; messages: number;
+  byProvider: Record<string, ProviderSlice>;
+}
 ```
 
 State path: Sero resolves global app state to `SERO_HOME/apps/usage/state.json`;
@@ -290,10 +307,11 @@ Layout, top to bottom (reference: the two design screenshots — TUI table and
    muted surface token. Cell tooltip: date + formatted value. Legend
    `less → more` + "max N/day". Today is the rightmost column. Always renders
    the full trailing year regardless of period tab (it is a global view).
-4. **Cost/usage trend chart** — stacked bar chart of the selected metric per
-   day, split by provider (top 5 providers + "other"), via `ChartContainer`.
-   X-range follows the active period (Today → hourly buckets are **not**
-   required; hide the chart for Today, show it for week/all-time views).
+4. **Cost/usage trend chart** — stacked bar chart of the selected metric,
+   split by provider (top 5 providers + "other"), via `ChartContainer`.
+   X-range follows the active period: **Today shows per-hour bars** (from
+   `hourly`, 00–23 with empty hours rendered as gaps), week/all-time views
+   show per-day bars (from `daily`).
 5. **By Provider · Model table** — the core table. One row group per provider
    (sorted by cost desc): provider header row with aggregate values, model
    rows beneath, subtotal row when a provider has > 1 model (matches
@@ -304,7 +322,10 @@ Layout, top to bottom (reference: the two design screenshots — TUI table and
    `topSessions` for the active period: Label, Workspace (basename of `cwd`),
    Msgs, Tokens, Cost, Last active (relative). Sortable by cost (default),
    tokens, last active. Capped at the stored top 50 with a muted footer note
-   when more sessions exist.
+   when more sessions exist. Each row has a reveal-in-folder action
+   (`IconButton`, `folder-open`) calling
+   `window.sero.shell.showItemInFolder(session.path)` — the same generic host
+   bridge the status bar uses for the workspace/profile folder.
 7. **Footnote** — muted, single line:
    `Tokens = Input + Output + CacheWrite · ↑In = Input + CacheWrite · costs are approximate, based on local session data.`
 
@@ -335,17 +356,6 @@ buttons. Widget participates in auto-refresh via the shared hook (3.3).
 | Tokens | `-` when 0; raw under 1 000; `1.2k` under 10 000; `123k` under 1 M; `1.4M` under 10 M; `284M` above |
 | Counts | `-` when 0; else locale-formatted (`4,148`) |
 | Relative time | `just now / N min ago / N h ago / date` |
-
-### 4.4 Insights view (phase 2, optional)
-
-The original extension ships cost-attribution heuristics worth porting later
-as an "Insights" tab: share of cost while ≥ 4 sessions ran in parallel
-(±2 min window), at > 150k context, from > 100k-token uncached prompts, from
-sessions active ≥ 8 h, and from the top-5 sessions. Each is a card:
-`%` + headline + one-line advice, weighted by cost, hidden under 1 %.
-Not required for v1 — the state already carries enough raw material except
-per-message windows, so phase 2 would extend the scanner. Keep out of scope
-until the core ships.
 
 ---
 
@@ -445,7 +455,9 @@ appear in the Plugin Manager.
 - No provider billing-API integration — local session data only.
 - No per-workspace scope, no cross-profile aggregation.
 - No background runtime / headless refresh while Sero is closed.
-- No insights tab (phase 2, §4.4), no CSV export.
+- No insights/cost-attribution heuristics (the original extension's Insights
+  view is intentionally dropped, not deferred).
+- No CSV export.
 
 ## 8. Verification checklist
 
@@ -466,10 +478,12 @@ appear in the Plugin Manager.
    period bucketing, dedup fingerprinting, token formulas, formatting rules,
    cache reuse/invalidation, top-session ranking.
 
-## 9. Open questions
+## 9. Resolved decisions
 
-- Should the Today tab get an hourly trend chart instead of hiding the trend?
-  (v1 hides it; cheap to add later from message timestamps if wanted.)
-- Insights tab (§4.4): port in phase 2, or drop?
-- Should `topSessions` deep-link to the session browser (Admin app) when a
-  session still exists? Needs a host seam check — not assumed in v1.
+- **Today tab trend chart**: shows per-hour stacked bars (not hidden) — see
+  §2.5 hourly buckets and §4.1 item 4.
+- **Insights view**: dropped entirely, not deferred — see non-goals.
+- **Session drill-down**: each sessions-table row reveals the session's
+  `.jsonl` in the file manager via `window.sero.shell.showItemInFolder`
+  (existing generic host bridge; no new seam needed). Opening the session in
+  the Admin session browser remains out of scope.
