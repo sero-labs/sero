@@ -39,7 +39,7 @@ following the `sero-plugin` and `sero-dashboard-ui` skills.
 | Display name | `Usage` |
 | Icon (Lucide) | `chart-column` |
 | Scope | `global` |
-| State file (Pi CLI fallback) | `.sero/apps/usage/state.json` |
+| State file (manifest field) | `.sero/apps/usage/state.json` |
 | Dev port | `5189` (unique; checked against existing plugins) |
 | Tool | `usage` (CLI-bridged → `sero usage …`) |
 
@@ -55,12 +55,11 @@ Session transcripts are `.jsonl` files under the profile's agent directory:
 ${PI_CODING_AGENT_DIR}/sessions/**/*.jsonl
 ```
 
-Resolution order (extension must be Pi-CLI safe):
-
-1. `process.env.PI_CODING_AGENT_DIR` — Sero always sets this to the active
-   profile's agent dir (`SERO_HOME/agent`), so aggregation is per profile with
-   zero extra work.
-2. Fallback `~/.pi/agent` when the env var is unset (plain Pi CLI).
+Resolution: `process.env.PI_CODING_AGENT_DIR` only. Sero always sets it to the
+active profile's agent dir (`SERO_HOME/agent`), so aggregation is per profile
+with zero extra work. This is a Sero-only built-in plugin — there is **no
+`~/.pi/agent` fallback**; if the env var is somehow unset, the `refresh` action
+returns an explicit error instead of scanning standalone Pi CLI sessions.
 
 Scan is **recursive** (session files may be nested in subdirectories) and
 **read-only** — the plugin never writes into the sessions tree.
@@ -138,7 +137,9 @@ keep them, and state them in the UI footnote:
 Three parts, no background runtime:
 
 1. **Pi extension** (`extension/`) — owns all scanning/aggregation. Registers
-   the `usage` tool (CLI-bridged). Pi-CLI safe: no Sero imports.
+   the `usage` tool (CLI-bridged). Follows standard extension boundaries (no
+   Sero/desktop imports), but is Sero-only in practice — it resolves
+   everything from Sero-provided env vars and is never run in the plain Pi CLI.
 2. **Web UI** (`ui/`) — reads `state.json` via `useAppState`, triggers
    refreshes via `useAppTools().run('usage', { action: 'refresh' })`.
 3. **Dashboard widget** (`ui/widgets/`) — compact summary from the same state.
@@ -256,8 +257,10 @@ interface DailyBucket { date: string /* YYYY-MM-DD local */; cost: number; token
 ```
 
 State path: Sero resolves global app state to `SERO_HOME/apps/usage/state.json`;
-the extension resolves the same via `process.env.SERO_HOME`, falling back to
-`<cwd>/.sero/apps/usage/state.json` for Pi CLI. Atomic writes only.
+the extension resolves the same via `process.env.SERO_HOME` (always set by
+Sero — error if absent, no cwd fallback). Atomic writes only. The manifest
+`stateFile` field is still declared because the app-manifest schema requires
+it, but it is never used as a runtime fallback.
 
 ---
 
@@ -391,7 +394,7 @@ that reason.
       "name": "Usage",
       "icon": "chart-column",
       "scope": "global",
-      "stateFile": ".sero/apps/usage/state.json",   // Pi CLI fallback
+      "stateFile": ".sero/apps/usage/state.json",   // required by manifest schema; unused at runtime
       "ui": "./dist/ui/remoteEntry.js",
       "component": "UsageApp",
       "devPort": 5189,
