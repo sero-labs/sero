@@ -17,7 +17,7 @@ export interface SummaryMeta {
 	edited?: boolean;
 }
 
-export type SummaryGenerationContext = Pick<ExtensionContext, "cwd" | "model" | "modelRegistry">;
+export type SummaryGenerationContext = Pick<ExtensionContext, "cwd" | "modelRegistry">;
 
 function estimateTokens(text: string): number {
 	const trimmed = text.trim();

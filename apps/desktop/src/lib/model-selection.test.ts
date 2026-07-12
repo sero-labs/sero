@@ -52,6 +52,18 @@ describe('model-selection shared contracts', () => {
     expect(getAvailableThinkingLevels(groups[1].models[0])).toEqual(['off', 'low', 'medium']);
   });
 
+  it('infers the top thinking level from supportsXhigh/supportsMax when no explicit list is given', () => {
+    const base = { provider: 'p', modelId: 'm', name: 'M', reasoning: true };
+    expect(getAvailableThinkingLevels(base)).toEqual(['off', 'minimal', 'low', 'medium', 'high']);
+    expect(getAvailableThinkingLevels({ ...base, supportsXhigh: true })).toEqual([
+      'off', 'minimal', 'low', 'medium', 'high', 'xhigh',
+    ]);
+    expect(getAvailableThinkingLevels({ ...base, supportsXhigh: true, supportsMax: true })).toEqual([
+      'off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max',
+    ]);
+    expect(resolveSupportedThinkingLevel({ ...base, supportsXhigh: true, supportsMax: true }, 'max')).toBe('max');
+  });
+
   it('falls back to the nearest supported thinking level', () => {
     expect(resolveSupportedThinkingLevel(groups[1].models[0], 'xhigh')).toBe('medium');
     expect(resolveSupportedThinkingLevel(groups[0].models[0], 'max')).toBe('max');

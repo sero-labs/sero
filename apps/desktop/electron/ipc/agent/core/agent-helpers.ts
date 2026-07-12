@@ -87,10 +87,12 @@ export function buildModelState(entry: Pick<PoolEntryRef, 'session'>): SessionMo
       reasoning: activeModel?.reasoning ?? false,
       availableThinkingLevels,
       supportsXhigh: availableThinkingLevels.includes('xhigh'),
+      supportsMax: availableThinkingLevels.includes('max'),
     },
     thinkingLevel: activeModel ? session.thinkingLevel : 'off',
     availableThinkingLevels,
     supportsXhigh: availableThinkingLevels.includes('xhigh'),
+    supportsMax: availableThinkingLevels.includes('max'),
     availableModels,
   };
 }

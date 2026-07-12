@@ -115,6 +115,7 @@ export interface ModelInfo {
   reasoning: boolean;
   availableThinkingLevels?: ThinkingLevel[];
   supportsXhigh?: boolean;
+  supportsMax?: boolean;
 }
 
 /** Current model + thinking level for a session. */
@@ -123,6 +124,7 @@ export interface SessionModelState {
   thinkingLevel: ThinkingLevel;
   availableThinkingLevels: ThinkingLevel[];
   supportsXhigh: boolean;
+  supportsMax: boolean;
   /** All models with auth, grouped by provider display name. */
   availableModels: AvailableModelGroup[];
 }

@@ -113,6 +113,7 @@ export interface ModelInfoIPC {
   reasoning: boolean;
   availableThinkingLevels?: ThinkingLevel[];
   supportsXhigh?: boolean;
+  supportsMax?: boolean;
 }
 
 export interface AvailableModelGroupIPC {

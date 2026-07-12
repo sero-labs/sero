@@ -15,7 +15,7 @@ interface IsolatedCompletionOptions {
 
 type IsolatedCompletionContext = Pick<
   ExtensionContext,
-  'cwd' | 'model' | 'modelRegistry' | 'signal'
+  'cwd' | 'model' | 'modelRegistry'
 >;
 
 export async function runIsolatedCompletion(

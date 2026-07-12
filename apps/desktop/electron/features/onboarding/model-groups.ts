@@ -34,6 +34,7 @@ export function buildOnboardingAvailableModelGroups(
         reasoning: model.reasoning,
         availableThinkingLevels,
         supportsXhigh: availableThinkingLevels.includes('xhigh'),
+        supportsMax: availableThinkingLevels.includes('max'),
       };
     }),
   }));

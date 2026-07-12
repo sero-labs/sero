@@ -30,6 +30,7 @@ export interface SharedModelInfo {
   reasoning: boolean;
   availableThinkingLevels?: ThinkingLevel[];
   supportsXhigh?: boolean;
+  supportsMax?: boolean;
 }
 
 export interface SharedAvailableModelGroup<TModel extends SharedModelInfo = SharedModelInfo> {
