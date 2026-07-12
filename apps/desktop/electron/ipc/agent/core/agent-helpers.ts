@@ -32,7 +32,7 @@ export {
 // ── Validation ───────────────────────────────────────────────
 
 const VALID_THINKING_LEVELS: readonly ThinkingLevel[] = [
-  'off', 'minimal', 'low', 'medium', 'high', 'xhigh',
+  'off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max',
 ];
 
 export function validateThinkingLevel(level: string): ThinkingLevel {

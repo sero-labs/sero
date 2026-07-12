@@ -19,7 +19,7 @@
     "access": "public"
   },
   "dependencies": {
-    "@earendil-works/pi-agent-core": "0.78.0"
+    "@earendil-works/pi-agent-core": "0.80.6"
   },
   "devDependencies": {
     "typescript": "^5.9.3"

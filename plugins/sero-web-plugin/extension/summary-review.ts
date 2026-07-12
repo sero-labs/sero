@@ -1,5 +1,6 @@
-import { complete, getModel, type Message, type Model } from "@earendil-works/pi-ai";
+import type { Api, Model } from "@earendil-works/pi-ai";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { runIsolatedCompletion } from "./isolated-completion.js";
 import type { QueryResultData } from "./storage.js";
 
 const PREFERRED_SUMMARY_MODELS = [
@@ -16,7 +17,7 @@ export interface SummaryMeta {
 	edited?: boolean;
 }
 
-export type SummaryGenerationContext = Pick<ExtensionContext, "model" | "modelRegistry">;
+export type SummaryGenerationContext = Pick<ExtensionContext, "cwd" | "model" | "modelRegistry">;
 
 function estimateTokens(text: string): number {
 	const trimmed = text.trim();
@@ -180,7 +181,7 @@ export function buildDeterministicSummary(results: QueryResultData[]): { summary
 async function resolveSummaryModel(
 	ctx: SummaryGenerationContext,
 	modelOverride?: string,
-): Promise<{ model: Model; apiKey: string }> {
+): Promise<Model<Api>> {
 	const normalizedOverride = typeof modelOverride === "string" ? modelOverride.trim() : "";
 	if (normalizedOverride.length > 0) {
 		const slashIndex = normalizedOverride.indexOf("/");
@@ -197,31 +198,17 @@ async function resolveSummaryModel(
 		if (!selectedAuth.ok || !selectedAuth.apiKey) {
 			throw new Error(`No API key available for summary model ${normalizedOverride}`);
 		}
-		return { model: selectedModel, apiKey: selectedAuth.apiKey };
+		return selectedModel;
 	}
 
 	for (const { provider, id } of PREFERRED_SUMMARY_MODELS) {
-		const model = getModel(provider, id);
+		const model = ctx.modelRegistry.find(provider, id);
 		if (!model) continue;
 		const auth = await ctx.modelRegistry.getApiKeyAndHeaders(model);
-		if (auth.ok && auth.apiKey) return { model, apiKey: auth.apiKey };
+		if (auth.ok && auth.apiKey) return model;
 	}
 
 	throw new Error(`No API key available for summary models: ${PREFERRED_SUMMARY_MODELS.map(c => `${c.provider}/${c.id}`).join(", ")}`);
-}
-
-function getTextFromContentPart(part: unknown): string {
-	if (!part || typeof part !== "object") return "";
-	const value = part as Record<string, unknown>;
-	if (typeof value.text === "string") return value.text;
-	if (typeof value.refusal === "string") return value.refusal;
-	return "";
-}
-
-function getContentPartType(part: unknown): string {
-	if (!part || typeof part !== "object") return "unknown";
-	const value = part as Record<string, unknown>;
-	return typeof value.type === "string" ? value.type : "unknown";
 }
 
 export async function generateSummaryDraft(
@@ -236,31 +223,18 @@ export async function generateSummaryDraft(
 	}
 
 	const startedAt = Date.now();
-	const { model, apiKey } = await resolveSummaryModel(ctx, modelOverride);
+	const model = await resolveSummaryModel(ctx, modelOverride);
 	const prompt = buildSummaryPrompt(results, feedback);
-
-	const userMessage: Message = {
-		role: "user",
-		content: [{ type: "text", text: prompt }],
-		timestamp: Date.now(),
-	};
-
-	const response = await complete(model, { messages: [userMessage] }, { apiKey, signal });
-	if (response.stopReason === "aborted") {
-		throw new Error("Aborted");
-	}
-
-	const contentParts = Array.isArray(response.content) ? response.content : [];
-	const summary = contentParts
-		.map(part => getTextFromContentPart(part))
-		.filter(text => text.trim().length > 0)
-		.join("\n")
-		.trim();
+	const summary = await runIsolatedCompletion({
+		cwd: ctx.cwd,
+		model,
+		modelRegistry: ctx.modelRegistry,
+		prompt,
+		signal,
+	});
 
 	if (summary.length === 0) {
-		const partTypes = contentParts.map(part => getContentPartType(part));
-		const typesLabel = partTypes.length > 0 ? partTypes.join(", ") : "none";
-		throw new Error(`Summary model returned empty response (content parts: ${typesLabel})`);
+		throw new Error("Summary model returned empty response");
 	}
 
 	return {

@@ -1,5 +1,4 @@
 import type { ExtensionContext } from '@earendil-works/pi-coding-agent';
-import { complete, type Message } from '@earendil-works/pi-ai';
 
 import { promises as fs } from 'node:fs';
 
@@ -27,6 +26,7 @@ import {
   stripManagedFileMetadata,
 } from './memory-format';
 import { error, errorDetails, info } from './logger';
+import { runIsolatedCompletion } from './isolated-completion';
 
 const MEMORY_BACKUP_SUFFIX = '.pre-v2-backup';
 
@@ -54,25 +54,11 @@ async function completeMarkdown(
   if (!ctx.model) return null;
   const auth = await ctx.modelRegistry.getApiKeyAndHeaders(ctx.model);
   if (!auth.ok || !auth.apiKey) return null;
-  const { apiKey, headers } = auth;
-
-  const messages: Message[] = [{
-    role: 'user',
-    content: [{ type: 'text', text: prompt }],
-    timestamp: Date.now(),
-  }];
-
-  const response = await complete(
-    ctx.model,
-    { systemPrompt, messages },
-    { apiKey, headers, reasoningEffort: 'low' },
-  );
-
-  const text = response.content
-    .filter((part): part is { type: 'text'; text: string } => part.type === 'text')
-    .map((part) => part.text)
-    .join('\n')
-    .trim();
+  const text = await runIsolatedCompletion(ctx, prompt, {
+    systemPrompt,
+    thinkingLevel: 'low',
+    signal: ctx.signal,
+  });
 
   return text || null;
 }

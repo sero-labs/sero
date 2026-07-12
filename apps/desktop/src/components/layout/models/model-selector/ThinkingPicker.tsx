@@ -43,7 +43,7 @@ export function ThinkingPicker({
             background:
               disabled || current === 'off'
                 ? 'var(--bg-elevated)'
-                : current === 'xhigh'
+                : current === 'max'
                   ? 'linear-gradient(135deg, #f59e0b33, #ef444433)'
                   : 'linear-gradient(135deg, #6366f133, #8b5cf633)',
           }}
@@ -54,7 +54,7 @@ export function ThinkingPicker({
             onClick={() => onSelect(level)}
             className={`relative z-10 flex-1 rounded-md p-1 text-[11px] font-medium transition-colors duration-150 ${
               current === level && !disabled
-                ? level === 'xhigh'
+                ? level === 'max'
                   ? 'text-status-warning'
                   : level === 'off'
                     ? 'text-[var(--text-secondary)]'

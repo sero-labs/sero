@@ -203,9 +203,9 @@ export function registerSeroBuiltinCommands(
 
   // ── /thinking [level] ──────────────────────────────────────
   pi.registerCommand('thinking', {
-    description: 'Set thinking level (off, minimal, low, medium, high, xhigh)',
+    description: 'Set thinking level (off, minimal, low, medium, high, xhigh, max)',
     handler: async (args) => {
-      const LEVELS = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh'] as const;
+      const LEVELS = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'] as const;
       type Level = typeof LEVELS[number];
 
       const input = args?.trim()?.toLowerCase();

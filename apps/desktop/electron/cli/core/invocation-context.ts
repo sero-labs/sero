@@ -67,10 +67,12 @@ export function bridgeToolUpdate(
 export function extractAgentContext(ctx: ExtensionContext): BridgedAgentContext {
   return {
     ui: ctx.ui,
+    mode: ctx.mode,
     hasUI: ctx.hasUI,
     sessionManager: ctx.sessionManager,
     modelRegistry: ctx.modelRegistry,
     model: ctx.model,
+    isProjectTrusted: () => ctx.isProjectTrusted(),
     isIdle: () => ctx.isIdle(),
     signal: ctx.signal,
     abort: () => ctx.abort(),

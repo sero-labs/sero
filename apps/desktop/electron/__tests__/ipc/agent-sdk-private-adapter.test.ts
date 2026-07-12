@@ -62,7 +62,7 @@ describe('agent SDK private adapter', () => {
 
     expect(session.agent.state.systemPrompt).toBe('Updated prompt');
     expect(consoleWarn).toHaveBeenCalledWith(
-      expect.stringContaining('pi-coding-agent@0.78.0'),
+      expect.stringContaining('pi-coding-agent@0.80.6'),
     );
   });
 
@@ -87,11 +87,11 @@ describe('agent SDK private adapter', () => {
     rewriteSessionManagerFile(toAgentSession(session));
 
     expect(consoleWarn).toHaveBeenCalledWith(
-      expect.stringContaining('pi-coding-agent@0.78.0'),
+      expect.stringContaining('pi-coding-agent@0.80.6'),
     );
   });
 
-  it('matches private prompt/rewrite shapes on the Pi 0.78.0 AgentSession runtime', async () => {
+  it('matches private prompt/rewrite shapes on the Pi 0.80.6 AgentSession runtime', async () => {
     const tempDir = await mkdtemp(join(tmpdir(), 'sero-pi-adapter-'));
     try {
       const { session } = await createAgentSession({

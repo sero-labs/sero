@@ -11,7 +11,6 @@
  */
 
 import type { ExtensionAPI, SessionMessageEntry } from '@earendil-works/pi-coding-agent';
-import { complete, type Message } from '@earendil-works/pi-ai';
 import { convertToLlm, serializeConversation } from '@earendil-works/pi-coding-agent';
 
 import {
@@ -24,6 +23,7 @@ import { nowTimestamp } from './memory-format';
 import { runQmdUpdateNow, clearUpdateTimer } from './qmd';
 import { error, errorDetails, info } from './logger';
 import { exportTranscriptForSession } from './session-transcripts';
+import { runIsolatedCompletion } from './isolated-completion';
 
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
@@ -195,7 +195,6 @@ export function registerSessionLifecycle(pi: ExtensionAPI): void {
         try {
           const auth = await ctx.modelRegistry.getApiKeyAndHeaders(ctx.model);
           if (auth.ok && auth.apiKey) {
-            const { apiKey, headers } = auth;
             const llmMessages = convertToLlm(messages);
             const conversationText = serializeConversation(llmMessages);
             const { text: truncated, truncated: wasTruncated } = truncateText(
@@ -220,23 +219,11 @@ export function registerSessionLifecycle(pi: ExtensionAPI): void {
               }
               promptLines.push('', '<conversation>', truncated, '</conversation>');
 
-              const summaryMessages: Message[] = [{
-                role: 'user',
-                content: [{ type: 'text', text: promptLines.join('\n') }],
-                timestamp: Date.now(),
-              }];
-
-              const response = await complete(
-                ctx.model,
-                { systemPrompt: SUMMARY_SYSTEM_PROMPT, messages: summaryMessages },
-                { apiKey, headers, reasoningEffort: 'low' },
-              );
-
-              const summaryText = response.content
-                .filter((c): c is { type: 'text'; text: string } => c.type === 'text')
-                .map((c) => c.text)
-                .join('\n')
-                .trim();
+              const summaryText = await runIsolatedCompletion(ctx, promptLines.join('\n'), {
+                systemPrompt: SUMMARY_SYSTEM_PROMPT,
+                thinkingLevel: 'low',
+                signal: ctx.signal,
+              });
 
               const summary = summaryText || buildSummaryFallback('Summary was empty');
               await appendToDaily(buildSessionSummaryEntry(summary, sessionId, nowTimestamp()));
