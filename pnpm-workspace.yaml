@@ -9,6 +9,21 @@ onlyBuiltDependencies:
   - node-pty
   - sharp
 
+# ── Supply-chain: release-age cooldown ─────────────────────────
+# Don't install a registry version until it's been public for this long, so a
+# compromised freshly-published release (e.g. the Shai-Hulud npm worm) ages out
+# and gets pulled before it can reach us. 2880 minutes = 48 hours.
+#
+# This gates the installed dependency tree only. It does NOT cover tools run via
+# `npx <pkg>@latest` or GitHub Actions that fetch their own tool (e.g. the React
+# Doctor action) — those bypass the workspace install.
+#
+# Tradeoff: legitimate urgent patches are also delayed 48h. To take one sooner,
+# add the exact package (optionally version-scoped) to minimumReleaseAgeExclude,
+# e.g. "some-pkg@1.2.3".
+minimumReleaseAge: 2880
+minimumReleaseAgeExclude: []
+
 # ── Default catalog ────────────────────────────────────────────
 # Single source of truth for shared dependency versions.
 # Use "catalog:" in any package.json to reference these.

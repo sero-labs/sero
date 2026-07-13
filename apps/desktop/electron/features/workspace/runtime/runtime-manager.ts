@@ -234,7 +234,14 @@ export class RuntimeManager {
           workspaceId,
           hostWorkspacePath,
           workspaceManager: this.dependencies.workspaceManager,
-          ensureSeroCliBridge: this.dependencies.ensureHostSeroCliBridge,
+          // Read the starter lazily so a backend cached before
+          // setHostSeroCliBridgeStarter() runs still resolves it once set,
+          // rather than snapshotting `undefined` and reporting the bridge failed.
+          ensureSeroCliBridge: () => {
+            const starter = this.dependencies.ensureHostSeroCliBridge;
+            if (!starter) throw new Error('Sero CLI bridge starter is not configured.');
+            return starter();
+          },
         });
       case 'apple-container':
         return new AppleContainerBackend({
