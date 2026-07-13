@@ -19,6 +19,10 @@ export interface IsolatedCompletionRequest {
   signal?: AbortSignal;
 }
 
+function throwIfAborted(signal?: AbortSignal): void {
+  if (signal?.aborted) throw new Error('Aborted');
+}
+
 /**
  * Run a single, tool-free completion in a short-lived isolated AgentSession.
  *
@@ -29,7 +33,7 @@ export interface IsolatedCompletionRequest {
  * recursing. The session is always disposed, on success, failure, and abort.
  */
 export async function runIsolatedCompletion(request: IsolatedCompletionRequest): Promise<string> {
-  if (request.signal?.aborted) throw new Error('Aborted');
+  throwIfAborted(request.signal);
 
   const agentDir = getAgentDir();
   const resourceLoader = new DefaultResourceLoader({
@@ -41,8 +45,10 @@ export async function runIsolatedCompletion(request: IsolatedCompletionRequest):
     noThemes: true,
     noContextFiles: true,
     systemPrompt: request.systemPrompt,
+    appendSystemPrompt: [],
   });
   await resourceLoader.reload();
+  throwIfAborted(request.signal);
 
   const { session } = await createAgentSession({
     cwd: request.cwd,
@@ -60,8 +66,9 @@ export async function runIsolatedCompletion(request: IsolatedCompletionRequest):
   request.signal?.addEventListener('abort', abort, { once: true });
 
   try {
+    throwIfAborted(request.signal);
     await session.prompt(request.prompt);
-    if (request.signal?.aborted) throw new Error('Aborted');
+    throwIfAborted(request.signal);
     const assistant = [...session.messages].reverse().find((message) => message.role === 'assistant');
     if (!assistant || assistant.role !== 'assistant') return '';
     return assistant.content
