@@ -25,8 +25,16 @@ export interface OrchestratorScheduleSummary {
   /** ISO timestamp of the next scheduled fire (absent when paused or exhausted). */
   nextFireAt?: string;
   lastFireAt?: string;
-  /** True when the schedule is paused (the loop itself may still be active). */
-  disabled?: boolean;
+  /**
+   * True when the user paused the cron schedule (resumable). A hybrid trigger
+   * still fires on its events while paused — only the schedule is stopped.
+   */
+  paused?: boolean;
+  /**
+   * True when the trigger hit its declared run limit (maxFires) — it will not
+   * fire again and can't be resumed; the loop must be restarted in Orchestrator.
+   */
+  exhausted?: boolean;
 }
 
 /** The subset of a loop-index entry that external surfaces rely on. */

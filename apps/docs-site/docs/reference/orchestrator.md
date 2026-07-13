@@ -198,7 +198,8 @@ read-only in the loop's summary line, with the event details on hover.
 The cron schedule is the one exception: the Scheduler app's **Loops** tab lists
 every scheduled loop in the workspace and can edit or pause the schedule
 directly (the `set_schedule` action). Only the schedule is editable there — the
-loop itself is still managed in Orchestrator.
+loop itself is still managed in Orchestrator. Pausing a hybrid loop's schedule
+stops only its scheduled runs; it keeps firing on its events.
 
 ### Event sources
 

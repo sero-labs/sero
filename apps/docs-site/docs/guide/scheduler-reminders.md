@@ -73,8 +73,13 @@ schedule. Loops are created and managed in the Orchestrator app — this tab is 
 window into them:
 
 - **Edit schedule** changes the loop's cron schedule (evaluated in UTC).
-- **Pause / Resume** stops or re-arms the schedule without touching the loop.
+- **Pause / Resume** stops or re-arms only the schedule. A loop that also runs
+  on events (shown with an **Events** badge) keeps firing on those events while
+  its schedule is paused.
 - **Open in Orchestrator** jumps to the loop's details.
+
+A schedule that has reached its run limit shows **Run limit reached** and can no
+longer be edited or resumed — restart the loop in Orchestrator to run it again.
 
 Loop schedules are fired by Orchestrator, not by the cron scheduler — they run
 even when the scheduler here is stopped.

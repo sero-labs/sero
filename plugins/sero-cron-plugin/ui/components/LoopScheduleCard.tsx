@@ -29,9 +29,12 @@ const STATUS_BADGE: Record<ScheduledLoopRow['status'], { label: string; classNam
 
 export function LoopScheduleCard({ row, onEditSchedule, onTogglePaused, onOpenLoop }: LoopScheduleCardProps) {
   const status = STATUS_BADGE[row.status];
+  // A schedule can only be edited/paused while it can still fire: not exhausted,
+  // and on a loop that is still running (complete/disabled loops restart in Orchestrator).
+  const canManage = !row.exhausted && row.status !== 'complete' && row.status !== 'disabled';
 
   return (
-    <Card className={cn('gap-0 py-0 shadow-none transition-colors', row.scheduleDisabled && 'opacity-50')}>
+    <Card className={cn('gap-0 py-0 shadow-none transition-colors', (row.scheduleDisabled || row.exhausted) && 'opacity-50')}>
       <div className="px-4 py-3">
         {/* Header row: title + badges */}
         <div className="mb-2 flex items-center gap-2">
@@ -39,10 +42,16 @@ export function LoopScheduleCard({ row, onEditSchedule, onTogglePaused, onOpenLo
           <Badge variant="outline" className={cn('text-[10px]', status.className)}>
             {status.label}
           </Badge>
-          {row.scheduleDisabled && (
-            <Badge variant="secondary" className="text-[10px]">
-              Schedule paused
+          {row.exhausted ? (
+            <Badge variant="secondary" className="text-[10px]" title="This schedule reached its run limit and won't fire again">
+              Run limit reached
             </Badge>
+          ) : (
+            row.scheduleDisabled && canManage && (
+              <Badge variant="secondary" className="text-[10px]">
+                Schedule paused
+              </Badge>
+            )
           )}
           {row.firesOnEvents && (
             <Badge variant="outline" className="border-primary/30 text-[10px] text-primary" title="This loop also runs when its events fire">
@@ -59,28 +68,36 @@ export function LoopScheduleCard({ row, onEditSchedule, onTogglePaused, onOpenLo
 
         {/* Next / last fire */}
         <p className="mb-3 text-xs text-muted-foreground">
-          {row.nextFireAt ? `Next run ${formatFireTime(row.nextFireAt)}` : 'No run scheduled'}
+          {row.exhausted
+            ? 'Reached its run limit'
+            : row.nextFireAt
+              ? `Next run ${formatFireTime(row.nextFireAt)}`
+              : 'No run scheduled'}
           {row.lastFireAt ? ` · Last run ${formatFireTime(row.lastFireAt)}` : ''}
         </p>
 
-        {/* Actions */}
+        {/* Actions — a spent schedule (exhausted, or a complete/disabled loop) can't be edited or resumed; restart the loop in Orchestrator */}
         <div className="flex items-center gap-1.5">
-          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => onEditSchedule(row)}>
-            Edit schedule
-          </Button>
-          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => onTogglePaused(row)}>
-            {row.scheduleDisabled ? (
-              <>
-                <Play className="size-3.5" />
-                Resume
-              </>
-            ) : (
-              <>
-                <Pause className="size-3.5" />
-                Pause
-              </>
-            )}
-          </Button>
+          {canManage && (
+            <>
+              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => onEditSchedule(row)}>
+                Edit schedule
+              </Button>
+              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => onTogglePaused(row)}>
+                {row.scheduleDisabled ? (
+                  <>
+                    <Play className="size-3.5" />
+                    Resume
+                  </>
+                ) : (
+                  <>
+                    <Pause className="size-3.5" />
+                    Pause
+                  </>
+                )}
+              </Button>
+            </>
+          )}
           <div className="flex-1" />
           <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => onOpenLoop(row.loopId)}>
             <ExternalLink className="size-3.5" />

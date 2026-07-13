@@ -20,6 +20,7 @@ import type {
   RunIndex,
 } from '../shared/types';
 import { aggregateUsage } from '../shared/usage';
+import { isExhausted } from './scheduler';
 
 /** Step progress for the home overview, derived from the plan + step states. */
 function toProgress(loop: Loop): LoopProgress | undefined {
@@ -67,7 +68,8 @@ function toSchedules(loop: Loop): OrchestratorScheduleSummary[] | undefined {
       schedule: t.schedule,
       nextFireAt: t.nextFireAt,
       lastFireAt: t.lastFireAt,
-      disabled: t.disabled,
+      paused: t.scheduleDisabled || undefined,
+      exhausted: isExhausted(t) || undefined,
     });
   }
   return schedules.length > 0 ? schedules : undefined;

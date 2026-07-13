@@ -32,7 +32,16 @@ const index: OrchestratorIndexView = {
       status: 'disabled',
       updatedAt: '2026-07-01T09:00:00.000Z',
       schedules: [
-        { triggerId: 'trig-3', type: 'hybrid', schedule: '0 8 * * 1', disabled: true },
+        { triggerId: 'trig-3', type: 'hybrid', schedule: '0 8 * * 1', paused: true },
+      ],
+    },
+    {
+      id: 'loop-4',
+      title: 'One-shot rollout',
+      status: 'active',
+      updatedAt: '2026-07-01T09:00:00.000Z',
+      schedules: [
+        { triggerId: 'trig-4', type: 'cron', schedule: '0 6 * * *', exhausted: true },
       ],
     },
   ],
@@ -51,20 +60,26 @@ describe('orchestratorIndexPath', () => {
 describe('scheduledLoopRows', () => {
   it('flattens only loops that carry schedules', () => {
     const rows = scheduledLoopRows(index);
-    expect(rows.map((r) => r.loopId)).toEqual(['loop-1', 'loop-3']);
+    expect(rows.map((r) => r.loopId)).toEqual(['loop-1', 'loop-3', 'loop-4']);
     expect(rows[0]).toMatchObject({
       triggerId: 'trig-1',
       title: 'Daily digest',
       schedule: '0 9 * * *',
       firesOnEvents: false,
       scheduleDisabled: false,
+      exhausted: false,
       nextFireAt: '2026-07-02T09:00:00.000Z',
     });
   });
 
   it('marks hybrid triggers as event-driven and carries the paused state', () => {
     const row = scheduledLoopRows(index)[1];
-    expect(row).toMatchObject({ triggerId: 'trig-3', firesOnEvents: true, scheduleDisabled: true, status: 'disabled' });
+    expect(row).toMatchObject({ triggerId: 'trig-3', firesOnEvents: true, scheduleDisabled: true, exhausted: false, status: 'disabled' });
+  });
+
+  it('carries the exhausted state for triggers past their run limit', () => {
+    const row = scheduledLoopRows(index)[2];
+    expect(row).toMatchObject({ triggerId: 'trig-4', exhausted: true, scheduleDisabled: false });
   });
 
   it('is empty for a missing index', () => {

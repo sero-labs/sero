@@ -359,7 +359,7 @@ function summarize(action: OrchestratorAction, res: OrchestratorActionResult): s
       return `Loop ${action.loopId} now delivers to "${action.delivery.destination}".`;
     case 'set_schedule': {
       const trigger = res.loop?.triggers.find((t) => t.id === action.triggerId);
-      return `Loop ${action.loopId} schedule is now "${trigger?.schedule}"${trigger?.disabled ? ' (paused)' : ''} — next fire ${trigger?.nextFireAt ?? 'n/a'}.`;
+      return `Loop ${action.loopId} schedule is now "${trigger?.schedule}"${trigger?.scheduleDisabled ? ' (paused)' : ''} — next fire ${trigger?.nextFireAt ?? 'n/a'}.`;
     }
     case 'library_save':
       return `Saved loop to the library (now ${res.loop?.libraryLink ? `v${res.loop.libraryLink.version}` : 'linked'}).`;

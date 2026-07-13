@@ -24,8 +24,10 @@ export interface ScheduledLoopRow {
   firesOnEvents: boolean;
   nextFireAt?: string;
   lastFireAt?: string;
-  /** The schedule itself is paused (trigger disabled). */
+  /** The user paused the cron schedule (resumable); events still fire on hybrid triggers. */
   scheduleDisabled: boolean;
+  /** The trigger hit its run limit (maxFires) — done for good, not resumable. */
+  exhausted: boolean;
 }
 
 /** Absolute path of the Orchestrator's loop index, or null without a workspace. */
@@ -46,7 +48,8 @@ export function scheduledLoopRows(index: OrchestratorIndexView | null): Schedule
       firesOnEvents: schedule.type === 'hybrid',
       nextFireAt: schedule.nextFireAt,
       lastFireAt: schedule.lastFireAt,
-      scheduleDisabled: schedule.disabled === true,
+      scheduleDisabled: schedule.paused === true,
+      exhausted: schedule.exhausted === true,
     })),
   );
 }
