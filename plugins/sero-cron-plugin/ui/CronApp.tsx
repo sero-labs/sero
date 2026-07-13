@@ -1,14 +1,16 @@
 /**
  * CronApp, Sero web UI for the cron scheduler extension.
  *
- * Tabs: Jobs | Reminders | History
+ * Tabs: Jobs | Reminders | Loops | History
  *
  * Uses useAppState to read/write the same state.json the Pi extension
- * writes. Changes from either direction are reflected instantly.
+ * writes. Changes from either direction are reflected instantly. The Loops
+ * tab follows the Orchestrator's watched loop index for the active workspace.
  */
 
 import { useState, useCallback, useMemo } from 'react';
-import { useAppState, useAgentPrompt } from '@sero-ai/app-runtime';
+import { useAppState, useAgentPrompt, useAppInfo } from '@sero-ai/app-runtime';
+import type { OrchestratorIndexView } from '@sero-ai/common';
 import { Card } from '@sero-ai/ui/components/ui/card';
 import type { CronState, CronJob, Reminder, NotificationSettings } from '../shared/types';
 import { DEFAULT_CRON_STATE, DEFAULT_NOTIFICATION_SETTINGS } from '../shared/types';
@@ -23,25 +25,40 @@ import { CronAppHeader } from './components/CronAppHeader';
 import { CronTabs } from './components/CronTabs';
 import { JobForm } from './components/JobForm';
 import { JobsTab } from './components/JobsTab';
+import { LoopScheduleForm } from './components/LoopScheduleForm';
+import { LoopsTab } from './components/LoopsTab';
 import { ReminderForm } from './components/ReminderForm';
 import { ReminderList } from './components/ReminderList';
 import { RunHistory } from './components/RunHistory';
 import { SchedulerBar } from './components/SchedulerBar';
+import { openOrchestrator, setLoopSchedule } from './lib/orchestrator-bridge';
+import { orchestratorIndexPath, scheduledLoopRows, type ScheduledLoopRow } from './lib/orchestrator-loops';
+import { useWatchedJson } from './lib/use-watched-json';
 import './styles.css';
 
-type Tab = 'jobs' | 'reminders' | 'history';
+type Tab = 'jobs' | 'reminders' | 'loops' | 'history';
 
 const EMPTY_REMINDERS: Reminder[] = [];
 
 export function CronApp() {
   const [state, updateState] = useAppState<CronState>(DEFAULT_CRON_STATE);
   const prompt = useAgentPrompt();
+  const { workspaceId, workspacePath } = useAppInfo();
 
   const [showJobForm, setShowJobForm] = useState(false);
   const [editingJob, setEditingJob] = useState<CronJob | null>(null);
   const [showReminderForm, setShowReminderForm] = useState(false);
   const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
+  const [editingLoopRow, setEditingLoopRow] = useState<ScheduledLoopRow | null>(null);
+  const [loopError, setLoopError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>('reminders');
+
+  // Scheduled Orchestrator loops (per-workspace, watched from its loop index)
+  const orchestratorIndex = useWatchedJson<OrchestratorIndexView | null>(
+    orchestratorIndexPath(workspacePath),
+    null,
+  );
+  const loopRows = useMemo(() => scheduledLoopRows(orchestratorIndex), [orchestratorIndex]);
 
   // Ensure reminders array exists (migration)
   const reminders = state.reminders ?? EMPTY_REMINDERS;
@@ -180,6 +197,30 @@ export function CronApp() {
     });
   }, [updateState]);
 
+  // ── Scheduled loops (Orchestrator) ───────────────────────
+
+  const handleSaveLoopSchedule = useCallback(
+    (row: ScheduledLoopRow, schedule: string) =>
+      setLoopSchedule(workspaceId, { loopId: row.loopId, triggerId: row.triggerId, schedule }),
+    [workspaceId],
+  );
+
+  const handleToggleLoopPaused = useCallback(
+    async (row: ScheduledLoopRow) => {
+      setLoopError(null);
+      const error = await setLoopSchedule(workspaceId, {
+        loopId: row.loopId,
+        triggerId: row.triggerId,
+        scheduleDisabled: !row.scheduleDisabled,
+      });
+      if (error) setLoopError(error);
+    },
+    [workspaceId],
+  );
+
+  const handleOpenLoop = useCallback((loopId: string) => { void openOrchestrator(loopId); }, []);
+  const handleOpenOrchestrator = useCallback(() => { void openOrchestrator(); }, []);
+
   // ── History ───────────────────────────────────────────────
 
   const handleClearHistory = useCallback(() => {
@@ -195,6 +236,7 @@ export function CronApp() {
         historyCount={state.lastRunResults.length}
         onAddReminder={handleAddReminder}
         onAddJob={handleAddJob}
+        onOpenOrchestrator={handleOpenOrchestrator}
         onClearHistory={handleClearHistory}
       />
 
@@ -218,6 +260,7 @@ export function CronApp() {
         activeTab={activeTab}
         totalJobs={stats.totalJobs}
         totalReminders={stats.totalReminders}
+        totalLoops={loopRows.length}
         historyCount={state.lastRunResults.length}
         onSelect={setActiveTab}
       />
@@ -246,6 +289,18 @@ export function CronApp() {
             onAdd={handleAddJob}
           />
         )}
+        {activeTab === 'loops' && (
+          <LoopsTab
+            rows={loopRows}
+            hasWorkspace={!!workspacePath}
+            error={loopError}
+            onDismissError={() => setLoopError(null)}
+            onEditSchedule={setEditingLoopRow}
+            onTogglePaused={handleToggleLoopPaused}
+            onOpenLoop={handleOpenLoop}
+            onOpenOrchestrator={handleOpenOrchestrator}
+          />
+        )}
         {activeTab === 'history' && (
           <Card className="gap-0 py-0 shadow-none">
             <RunHistory results={state.lastRunResults} />
@@ -265,6 +320,11 @@ export function CronApp() {
         onClose={() => setShowReminderForm(false)}
         onSave={handleSaveReminder}
         editingReminder={editingReminder}
+      />
+      <LoopScheduleForm
+        row={editingLoopRow}
+        onClose={() => setEditingLoopRow(null)}
+        onSave={handleSaveLoopSchedule}
       />
     </div>
   );

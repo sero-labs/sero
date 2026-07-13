@@ -8,6 +8,7 @@
  * specs/09-ui-redesign.md). Type-only imports keep the re-export cycle harmless.
  */
 
+import type { OrchestratorScheduledLoopView, OrchestratorScheduleSummary } from '@sero-ai/common';
 import type {
   CompletionSignal,
   LoopRunStatus,
@@ -33,13 +34,20 @@ export interface LoopProgress {
   running: boolean;
 }
 
-/** Lightweight per-loop entry for the watched index (drives the loop list + home). */
-export interface LoopSummary {
+/**
+ * Lightweight per-loop entry for the watched index (drives the loop list + home).
+ * Extends the cross-plugin view contract (@sero-ai/common orchestrator-contract)
+ * that external surfaces like the Scheduler app read, so drifting from it fails
+ * typecheck here.
+ */
+export interface LoopSummary extends OrchestratorScheduledLoopView {
   id: string;
   title: string;
   status: LoopStatus;
   summary: string;
   prompt: string;
+  /** Cron/hybrid trigger schedules — lets external surfaces list scheduled loops from the index alone. */
+  schedules?: OrchestratorScheduleSummary[];
   /** Count of pending reflection suggestions — drives the loop-list badge. */
   pendingSuggestions?: number;
   /** Count of open questions the loop is waiting on — drives the input badge. */

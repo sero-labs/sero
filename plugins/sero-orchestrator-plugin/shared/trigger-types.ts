@@ -35,5 +35,15 @@ export interface LoopTrigger {
   fireCount: number;
   lastFireAt?: string;
   nextFireAt?: string;
+  /**
+   * Fully off — nothing fires this trigger (loop disabled/complete, or maxFires
+   * exhausted). Blocks BOTH the cron schedule and event matching.
+   */
   disabled?: boolean;
+  /**
+   * Only the cron schedule is paused (user action, e.g. from the Scheduler app).
+   * A hybrid trigger paused this way keeps firing on its events — unlike
+   * `disabled`, this never touches event matching.
+   */
+  scheduleDisabled?: boolean;
 }

@@ -33,6 +33,21 @@ describe('actionToParams', () => {
     });
   });
 
+  it('maps set_schedule (schedule edits also arrive from the Scheduler app)', () => {
+    expect(actionToParams({ kind: 'set_schedule', loopId: 'l1', triggerId: 't1', schedule: '0 9 * * *' })).toEqual({
+      action: 'set_schedule',
+      loopId: 'l1',
+      triggerId: 't1',
+      schedule: '0 9 * * *',
+    });
+    expect(actionToParams({ kind: 'set_schedule', loopId: 'l1', triggerId: 't1', disabled: true })).toEqual({
+      action: 'set_schedule',
+      loopId: 'l1',
+      triggerId: 't1',
+      scheduleDisabled: true,
+    });
+  });
+
   it('maps the catalog actions', () => {
     expect(actionToParams({ kind: 'catalog_install', repoKey: 'official', slug: 'ci-fixer' })).toEqual({
       action: 'catalog_install',

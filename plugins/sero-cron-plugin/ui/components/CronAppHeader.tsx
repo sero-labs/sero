@@ -1,13 +1,14 @@
-import { Clock3, Plus } from 'lucide-react';
+import { Clock3, ExternalLink, Plus } from 'lucide-react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 
-type CronAppTab = 'jobs' | 'reminders' | 'history';
+type CronAppTab = 'jobs' | 'reminders' | 'loops' | 'history';
 
 interface CronAppHeaderProps {
   activeTab: CronAppTab;
   historyCount: number;
   onAddReminder: () => void;
   onAddJob: () => void;
+  onOpenOrchestrator: () => void;
   onClearHistory: () => void;
 }
 
@@ -16,6 +17,7 @@ export function CronAppHeader({
   historyCount,
   onAddReminder,
   onAddJob,
+  onOpenOrchestrator,
   onClearHistory,
 }: CronAppHeaderProps) {
   return (
@@ -37,6 +39,12 @@ export function CronAppHeader({
           <Button size="sm" onClick={onAddJob}>
             <Plus className="size-3.5" />
             Job
+          </Button>
+        )}
+        {activeTab === 'loops' && (
+          <Button size="sm" variant="ghost" onClick={onOpenOrchestrator}>
+            <ExternalLink className="size-3.5" />
+            Orchestrator
           </Button>
         )}
         {activeTab === 'history' && historyCount > 0 && (

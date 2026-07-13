@@ -43,6 +43,11 @@ export interface SeroAppAgentBridge {
   ): Promise<AppToolResult>;
 }
 
+export interface SeroAppControlBridge {
+  /** Switch the shell to the app with this id. False when the app is unknown. */
+  open(appId: string): Promise<boolean>;
+}
+
 export interface SeroGitAppBridge {
   run(workspaceId: string, params: GitManagerRequest): Promise<GitActionResult>;
 }
@@ -88,6 +93,7 @@ export interface SeroContextPresetsBridge {
 export interface SeroBridge {
   appState: SeroWindowAppStateBridge;
   appAgent: SeroAppAgentBridge;
+  appControl?: SeroAppControlBridge;
   gitApp?: SeroGitAppBridge;
   webApp?: SeroWebAppBridge;
   editor?: SeroEditorBridge;

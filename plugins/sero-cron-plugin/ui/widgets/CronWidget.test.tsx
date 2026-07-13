@@ -90,8 +90,8 @@ describe('CronWidget', () => {
     });
 
     expect(container.textContent).toContain('Scheduler active');
-    expect(container.textContent).toContain('1 jobs');
-    expect(container.textContent).toContain('1 reminders');
+    expect(container.textContent).toContain('Jobs1');
+    expect(container.textContent).toContain('Reminders1');
     expect(container.textContent).toContain('Daily report');
     expect(container.textContent).toContain('Stretch');
   });

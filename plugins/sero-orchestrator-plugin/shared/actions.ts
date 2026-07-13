@@ -43,6 +43,7 @@ export type OrchestratorAction =
   | { kind: 'set_step_agent'; loopId: string; stepId: string; agent?: string }
   | { kind: 'set_loop_context'; loopId: string; overrides: ContextOverrides | null }
   | { kind: 'set_delivery'; loopId: string; delivery: LoopDeliverySettings }
+  | { kind: 'set_schedule'; loopId: string; triggerId: string; schedule?: string; disabled?: boolean }
   | { kind: 'reflect'; loopId: string }
   | { kind: 'reflect_workspace' }
   | { kind: 'choose_suggestion'; loopId: string; suggestionId: string; decision: 'approve' | 'reject'; rejectionReason?: string }

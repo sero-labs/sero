@@ -49,9 +49,9 @@ You can use Scheduler from a few surfaces:
   checking status.
 - **Agent tools** — `current_time`, `cron`, and `reminder`.
 
-The app's main tabs are **Jobs**, **Reminders**, and **History**. The app defaults
-to the Reminders view and includes a top status area for scheduler state,
-autostart, and notification settings.
+The app's main tabs are **Jobs**, **Reminders**, **Loops**, and **History**. The
+app defaults to the Reminders view and includes a top status area for scheduler
+state, autostart, and notification settings.
 
 The widget can show whether the scheduler is active or paused, counts for jobs
 and reminders, a few upcoming items, and recent job-result dots. Treat widget
@@ -65,6 +65,24 @@ The editor view is where schedule, prompt, model, and missed-run behavior become
 explicit. Review these fields carefully before enabling a job.
 
 ![Cron jobs editor](../assets/images/cron-jobs-editor.jpg)
+
+## Scheduled Orchestrator loops
+
+The **Loops** tab lists the active workspace's Orchestrator loops that run on a
+schedule. Loops are created and managed in the Orchestrator app — this tab is a
+window into them:
+
+- **Edit schedule** changes the loop's cron schedule (evaluated in UTC).
+- **Pause / Resume** stops or re-arms only the schedule. A loop that also runs
+  on events (shown with an **Events** badge) keeps firing on those events while
+  its schedule is paused.
+- **Open in Orchestrator** jumps to the loop's details.
+
+A schedule that has reached its run limit shows **Run limit reached** and can no
+longer be edited or resumed — restart the loop in Orchestrator to run it again.
+
+Loop schedules are fired by Orchestrator, not by the cron scheduler — they run
+even when the scheduler here is stopped.
 
 ## Start, stop, and check status with `/cron`
 

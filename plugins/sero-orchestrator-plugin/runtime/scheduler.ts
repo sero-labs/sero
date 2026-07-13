@@ -35,7 +35,7 @@ function fire(trigger: LoopTrigger, nowMs: number, nextFireAt?: string): LoopTri
 export function evaluateCronTriggers(loop: Loop, nowMs: number): { loop: Loop; due: boolean } {
   let due = false;
   const triggers = loop.triggers.map((trigger) => {
-    if (trigger.disabled) return trigger;
+    if (trigger.disabled || trigger.scheduleDisabled) return trigger;
     if (trigger.type !== 'cron' && trigger.type !== 'hybrid') return trigger;
     if (!trigger.schedule || !trigger.nextFireAt) return trigger;
     if (Date.parse(trigger.nextFireAt) > nowMs) return trigger;
@@ -111,6 +111,57 @@ export function reenableSchedule(loop: Loop, now: string): LoopTrigger[] {
     }
     return t;
   });
+}
+
+/** True once a trigger has fired its declared maxFires — it will never fire again. */
+export function isExhausted(trigger: LoopTrigger): boolean {
+  return trigger.maxFires !== undefined && trigger.fireCount >= trigger.maxFires;
+}
+
+/**
+ * Direct user edit of one cron/hybrid trigger's schedule (set_schedule action —
+ * e.g. from the Scheduler app): validates the cron expression, applies the new
+ * schedule and/or paused state, and re-arms nextFireAt from now (cleared while
+ * paused). The paused state maps to `scheduleDisabled`, not `disabled`, so a
+ * hybrid trigger paused here keeps firing on its events — only its cron schedule
+ * pauses. Event triggers have no schedule and are rejected; a trigger that is
+ * fully off (loop complete/disabled, or maxFires exhausted) can't be re-armed
+ * from here and is rejected — the loop must be restarted in Orchestrator.
+ */
+export function applyScheduleOverride(
+  loop: Loop,
+  triggerId: string,
+  override: { schedule?: string; disabled?: boolean },
+  now: string,
+): { ok: boolean; loop?: Loop; error?: string } {
+  const index = loop.triggers.findIndex((t) => t.id === triggerId);
+  if (index === -1) return { ok: false, error: `Trigger not found: ${triggerId}` };
+  const trigger = loop.triggers[index];
+  if (trigger.type !== 'cron' && trigger.type !== 'hybrid') {
+    return { ok: false, error: `Trigger ${triggerId} is "${trigger.type}" — only cron/hybrid triggers have a schedule.` };
+  }
+  if (trigger.disabled) {
+    const why = isExhausted(trigger)
+      ? `has reached its run limit (${trigger.fireCount}/${trigger.maxFires})`
+      : 'belongs to a loop that is complete or turned off';
+    return { ok: false, error: `Trigger ${triggerId} ${why} — restart or re-enable the loop in Orchestrator to run it again.` };
+  }
+  const schedule = override.schedule ?? trigger.schedule;
+  if (!schedule) return { ok: false, error: 'A cron schedule is required.' };
+  if (!isValidCron(schedule)) {
+    return { ok: false, error: `Invalid cron schedule: "${schedule}" (5 fields: minute hour day-of-month month day-of-week, UTC).` };
+  }
+  const scheduleDisabled = override.disabled ?? trigger.scheduleDisabled ?? false;
+  // The trigger is live (guarded above), so arm the next fire unless it's paused.
+  const next = scheduleDisabled ? null : nextFireAfter(schedule, Date.parse(now));
+  const triggers = [...loop.triggers];
+  triggers[index] = {
+    ...trigger,
+    schedule,
+    scheduleDisabled,
+    nextFireAt: next !== null ? new Date(next).toISOString() : undefined,
+  };
+  return { ok: true, loop: { ...loop, triggers, updatedAt: now } };
 }
 
 /**

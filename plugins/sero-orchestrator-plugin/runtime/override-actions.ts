@@ -1,19 +1,20 @@
 /**
  * Coordinator-facing handlers for the user-override actions (`set_step_model`,
- * `set_step_tools`, `set_step_agent`, `set_loop_context`, `set_delivery`).
- * Kept out of coordinator.ts (500-LOC limit); the coordinator delegates the
- * whole group here. Each is a pure per-loop mapping applied and persisted —
- * overrides take effect on the next run.
+ * `set_step_tools`, `set_step_agent`, `set_loop_context`, `set_delivery`,
+ * `set_schedule`). Kept out of coordinator.ts (500-LOC limit); the coordinator
+ * delegates the whole group here. Each is a pure per-loop mapping applied and
+ * persisted — overrides take effect on the next run.
  */
 
 import type { Loop, OrchestratorAction, OrchestratorActionResult } from '../shared/types';
 import type { OrchestratorHost } from './host';
 import { voidOpenApprovals } from './delivery/delivery-contract';
 import { applyLoopContext, applyLoopDelivery, applyStepAgent, applyStepModel, applyStepTools } from './plan-mapping';
+import { applyScheduleOverride } from './scheduler';
 
 export type OverrideAction = Extract<
   OrchestratorAction,
-  { kind: 'set_step_model' | 'set_step_tools' | 'set_step_agent' | 'set_loop_context' | 'set_delivery' }
+  { kind: 'set_step_model' | 'set_step_tools' | 'set_step_agent' | 'set_loop_context' | 'set_delivery' | 'set_schedule' }
 >;
 
 const OVERRIDE_KINDS: ReadonlySet<string> = new Set([
@@ -22,6 +23,7 @@ const OVERRIDE_KINDS: ReadonlySet<string> = new Set([
   'set_step_agent',
   'set_loop_context',
   'set_delivery',
+  'set_schedule',
 ]);
 
 /** True for every override action — lets the coordinator route them in one line. */
@@ -39,6 +41,8 @@ function mapOverride(loop: Loop, action: OverrideAction, now: string): { ok: boo
       return applyStepAgent(loop, action.stepId, action.agent, now);
     case 'set_loop_context':
       return { ok: true, loop: applyLoopContext(loop, action.overrides, now) };
+    case 'set_schedule':
+      return applyScheduleOverride(loop, action.triggerId, { schedule: action.schedule, disabled: action.disabled }, now);
     case 'set_delivery': {
       const result = applyLoopDelivery(loop, action.delivery, now);
       if (!result.ok || !result.loop) return result;

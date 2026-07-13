@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyEventFires, evaluateCronTriggers, isRecurring, nextFireAfter, parseCron, rearmLoop } from '../scheduler';
+import { applyEventFires, applyScheduleOverride, evaluateCronTriggers, isRecurring, nextFireAfter, parseCron, rearmLoop } from '../scheduler';
 import type { Loop, LoopTrigger } from '../../shared/types';
 import { createFakeHost } from './fake-host';
 import { oneStepPlan, seedActiveLoop } from './fixtures';
@@ -128,5 +128,56 @@ describe('applyEventFires', () => {
     const trigger: LoopTrigger = { id: 'e', loopId: 'loop-1', workspaceId: 'ws-1', type: 'event', eventSource: 'fs:changed', fireCount: 0 };
     const withTrigger = withTriggers(loop, [trigger]);
     expect(applyEventFires(withTrigger, [], T0)).toBe(withTrigger);
+  });
+});
+
+describe('applyScheduleOverride', () => {
+  const NOW = '2026-06-22T10:00:00.000Z';
+  const base = () => seedActiveLoop(createFakeHost(), oneStepPlan().plan);
+
+  it('applies a new schedule and re-arms nextFireAt from now', () => {
+    const loop = withTriggers(base(), [cronTrigger({ schedule: '0 * * * *', nextFireAt: '2026-06-22T11:00:00.000Z' })]);
+    const result = applyScheduleOverride(loop, 't', { schedule: '0 9 * * *' }, NOW);
+    expect(result.ok).toBe(true);
+    expect(result.loop?.triggers[0].schedule).toBe('0 9 * * *');
+    expect(result.loop?.triggers[0].nextFireAt).toBe('2026-06-23T09:00:00.000Z');
+    expect(result.loop?.updatedAt).toBe(NOW);
+  });
+
+  it('pauses only the schedule (scheduleDisabled, not disabled) and resumes it', () => {
+    const loop = withTriggers(base(), [cronTrigger({ type: 'hybrid', eventSource: 'fs:changed', schedule: '0 * * * *', nextFireAt: '2026-06-22T11:00:00.000Z' })]);
+    const paused = applyScheduleOverride(loop, 't', { disabled: true }, NOW);
+    expect(paused.loop?.triggers[0].scheduleDisabled).toBe(true);
+    // A hybrid trigger stays fully enabled so its events keep firing.
+    expect(paused.loop?.triggers[0].disabled).toBeUndefined();
+    expect(paused.loop?.triggers[0].nextFireAt).toBeUndefined();
+
+    const resumed = applyScheduleOverride(paused.loop!, 't', { disabled: false }, NOW);
+    expect(resumed.loop?.triggers[0].scheduleDisabled).toBe(false);
+    expect(resumed.loop?.triggers[0].nextFireAt).toBe('2026-06-22T11:00:00.000Z');
+  });
+
+  it('does not stop a paused hybrid from firing on its events', () => {
+    const loop = withTriggers(base(), [cronTrigger({ type: 'hybrid', eventSource: 'fs:changed', schedule: '0 * * * *' })]);
+    const paused = applyScheduleOverride(loop, 't', { disabled: true }, NOW).loop!;
+    // event matching only rejects fully-disabled triggers, so the paused schedule leaves events live.
+    expect(paused.triggers[0].disabled).toBeUndefined();
+    expect(isRecurring(paused)).toBe(true);
+  });
+
+  it('rejects an invalid cron expression, an unknown trigger, and an event trigger', () => {
+    const loop = withTriggers(base(), [
+      cronTrigger(),
+      { id: 'e', loopId: 'loop-1', workspaceId: 'ws-1', type: 'event', eventSource: 'fs:changed', fireCount: 0 },
+    ]);
+    expect(applyScheduleOverride(loop, 't', { schedule: 'not a cron' }, NOW).ok).toBe(false);
+    expect(applyScheduleOverride(loop, 'missing', { schedule: '0 9 * * *' }, NOW).ok).toBe(false);
+    expect(applyScheduleOverride(loop, 'e', { schedule: '0 9 * * *' }, NOW).ok).toBe(false);
+  });
+
+  it('rejects editing or resuming an exhausted trigger (past its run limit)', () => {
+    const loop = withTriggers(base(), [cronTrigger({ schedule: '0 * * * *', maxFires: 3, fireCount: 3, disabled: true })]);
+    expect(applyScheduleOverride(loop, 't', { schedule: '0 9 * * *' }, NOW).ok).toBe(false);
+    expect(applyScheduleOverride(loop, 't', { disabled: false }, NOW).ok).toBe(false);
   });
 });

@@ -56,6 +56,24 @@ function renderButton({
 vi.mock('@sero-ai/app-runtime', () => ({
   useAppState: () => useAppStateMock(),
   useAgentPrompt: () => promptMock,
+  useAppInfo: () => ({ appId: 'cron', workspaceId: 'ws-1', workspacePath: '/workspace' }),
+}));
+
+vi.mock('./lib/use-watched-json', () => ({
+  useWatchedJson: (_path: string | null, fallback: unknown) => fallback,
+}));
+
+vi.mock('./lib/orchestrator-bridge', () => ({
+  openOrchestrator: vi.fn(),
+  setLoopSchedule: vi.fn(),
+}));
+
+vi.mock('./components/LoopsTab', () => ({
+  LoopsTab: () => null,
+}));
+
+vi.mock('./components/LoopScheduleForm', () => ({
+  LoopScheduleForm: () => null,
 }));
 
 vi.mock('@sero-ai/ui/components/ui/button', () => ({
