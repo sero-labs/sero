@@ -144,7 +144,7 @@ export function ChangeDetail({ workspaceId, entry, onOpenDiff }: Props) {
               }}
               className={cn(
                 'h-5 flex-1 rounded border border-[var(--border-subtle)] bg-[var(--bg-base)]',
-                'px-1.5 text-[11px] text-[var(--text-primary)]',
+                'px-1.5 text-sm text-[var(--text-primary)]',
                 'outline-none focus:border-[var(--border-focus)]',
               )}
             />
@@ -158,7 +158,7 @@ export function ChangeDetail({ workspaceId, entry, onOpenDiff }: Props) {
         ) : (
           <>
             <span className={cn(
-              'flex-1 text-[11px]',
+              'flex-1 text-sm',
               entry.description === '(no description)' ? 'text-[var(--text-muted)]/40 italic' : 'text-[var(--text-secondary)]',
             )}>
               {entry.description}
@@ -177,7 +177,7 @@ export function ChangeDetail({ workspaceId, entry, onOpenDiff }: Props) {
       </div>
 
       {/* Meta */}
-      <div className="mb-2 flex items-center gap-3 text-[10px] text-[var(--text-muted)]/50">
+      <div className="mb-2 flex items-center gap-3 text-sm text-[var(--text-muted)]/50">
         <span>{entry.author || entry.email}</span>
         <span className="font-mono">{entry.commitId.slice(0, 8)}</span>
         {entry.empty && <span className="italic">empty</span>}
@@ -185,13 +185,13 @@ export function ChangeDetail({ workspaceId, entry, onOpenDiff }: Props) {
 
       {/* File list */}
       {loading ? (
-        <div className="py-1 text-[10px] text-[var(--text-muted)]/40">Loading files…</div>
+        <div className="py-1 text-sm text-[var(--text-muted)]/40">Loading files…</div>
       ) : fileLoadError ? (
-        <div className="rounded border border-status-warning-subtle bg-status-warning-muted px-2 py-1 text-[10px] text-status-warning">
+        <div className="rounded border border-status-warning-subtle bg-status-warning-muted px-2 py-1 text-sm text-status-warning">
           Failed to load changed files: {fileLoadError}
         </div>
       ) : files.length === 0 ? (
-        <div className="py-1 text-[10px] text-[var(--text-muted)]/40">No file changes</div>
+        <div className="py-1 text-sm text-[var(--text-muted)]/40">No file changes</div>
       ) : (
         <div className="mb-2 space-y-px">
           {files.map((f, i) => (
@@ -206,11 +206,11 @@ export function ChangeDetail({ workspaceId, entry, onOpenDiff }: Props) {
                 'transition-colors duration-75 hover:bg-[var(--bg-elevated)]',
               )}
             >
-              <span className={cn('w-3 shrink-0 text-center text-[10px] font-bold', statusColor(f.status))}>
+              <span className={cn('w-3 shrink-0 text-center text-sm font-bold', statusColor(f.status))}>
                 {statusCode(f.status)}
               </span>
               <FileText className="size-3 shrink-0 text-[var(--text-muted)]/30" />
-              <span className="min-w-0 truncate text-[10px] text-[var(--text-secondary)]">
+              <span className="min-w-0 truncate text-sm text-[var(--text-secondary)]">
                 {f.path}
               </span>
             </motion.button>
@@ -273,7 +273,7 @@ export function ChangeDetail({ workspaceId, entry, onOpenDiff }: Props) {
             placeholder="feature/my-branch"
             className={cn(
               'h-5 flex-1 rounded border border-[var(--border-subtle)] bg-[var(--bg-base)]',
-              'px-1.5 text-[11px] text-[var(--text-primary)]',
+              'px-1.5 text-sm text-[var(--text-primary)]',
               'outline-none focus:border-[var(--border-focus)]',
             )}
           />
@@ -299,7 +299,7 @@ export function ChangeDetail({ workspaceId, entry, onOpenDiff }: Props) {
       {pushNotice && (
         <div
           className={cn(
-            'mt-2 rounded px-2 py-1 text-[10px]',
+            'mt-2 rounded px-2 py-1 text-sm',
             pushNotice.error
               ? 'bg-status-error-muted text-status-error'
               : 'bg-status-success-muted text-status-success',
@@ -331,7 +331,7 @@ function DetailAction({
       disabled={disabled}
       title={label}
       className={cn(
-        'flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px]',
+        'flex items-center gap-1 rounded px-1.5 py-0.5 text-sm',
         'transition-colors duration-100',
         'disabled:opacity-40',
         danger

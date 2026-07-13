@@ -197,7 +197,7 @@ export function PullRequestSection({
     >
       {!loadingState && prState && !hasEligibleSourceBranch ? (
         <div className="px-2 pb-2">
-          <div className="rounded border border-[var(--border-subtle)] bg-[var(--bg-elevated)]/35 p-2 text-[10px] text-[var(--text-muted)]">
+          <div className="rounded border border-[var(--border-subtle)] bg-[var(--bg-elevated)]/35 p-2 text-sm text-[var(--text-muted)]">
             Pull request creation is disabled until a non-default branch exists.
             Create and push a feature branch first.
           </div>
@@ -213,7 +213,7 @@ export function PullRequestSection({
             disabled={loadingState || generating || creating}
           />
           <div className="space-y-1">
-            <label htmlFor="pull-request-target-branch" className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]/60">
+            <label htmlFor="pull-request-target-branch" className="text-sm uppercase tracking-wide text-[var(--text-muted)]/60">
               Target
             </label>
             <div className="flex items-center gap-1 rounded border border-[var(--border-subtle)] bg-[var(--bg-base)] px-1.5">
@@ -225,7 +225,7 @@ export function PullRequestSection({
                 value={targetBranch}
                 onChange={(e) => setTargetBranch(e.target.value)}
                 placeholder={prState?.defaultBaseBranch ?? 'main'}
-                className="h-6 min-w-0 flex-1 bg-transparent text-[11px] text-[var(--text-primary)] outline-none"
+                className="h-6 min-w-0 flex-1 bg-transparent text-sm text-[var(--text-primary)] outline-none"
               />
             </div>
             <datalist id={listId}>
@@ -238,7 +238,7 @@ export function PullRequestSection({
 
         <div
           className={cn(
-            'rounded border px-2 py-1 text-[10px]',
+            'rounded border px-2 py-1 text-sm',
             blockingReason
               ? 'border-status-warning-subtle bg-status-warning-muted text-status-warning'
               : 'border-[var(--border-subtle)] bg-[var(--bg-elevated)]/50 text-[var(--text-muted)]',
@@ -273,7 +273,7 @@ export function PullRequestSection({
           placeholder="PR title"
           className={cn(
             'h-7 w-full rounded border border-[var(--border-subtle)] bg-[var(--bg-base)] px-2',
-            'text-[11px] text-[var(--text-primary)] outline-none focus:border-[var(--border-focus)]',
+            'text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-focus)]',
           )}
         />
 
@@ -284,7 +284,7 @@ export function PullRequestSection({
           rows={6}
           className={cn(
             'w-full resize-y rounded border border-[var(--border-subtle)] bg-[var(--bg-base)] px-2 py-1.5',
-            'text-[11px] text-[var(--text-primary)] outline-none focus:border-[var(--border-focus)]',
+            'text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-focus)]',
           )}
         />
 
@@ -293,7 +293,7 @@ export function PullRequestSection({
             onClick={() => void handleGenerateDraft()}
             disabled={generating || creating || !sourceBranch.trim()}
             className={cn(
-              'flex h-7 items-center gap-1 rounded px-2 text-[11px] font-medium',
+              'flex h-7 items-center gap-1 rounded px-2 text-sm font-medium',
               'bg-[var(--bg-elevated)] text-[var(--text-secondary)]',
               'hover:bg-[var(--bg-muted)] hover:text-[var(--text-primary)]',
               'transition-colors disabled:opacity-40',
@@ -306,7 +306,7 @@ export function PullRequestSection({
             onClick={() => void handleCreatePr()}
             disabled={!canCreate}
             className={cn(
-              'flex h-7 items-center gap-1 rounded px-2.5 text-[11px] font-semibold',
+              'flex h-7 items-center gap-1 rounded px-2.5 text-sm font-semibold',
               'bg-status-info-border text-status-info ring-1 ring-status-info-subtle',
               'hover:bg-status-info-subtle hover:text-status-info',
               'transition-colors disabled:opacity-40',
@@ -320,7 +320,7 @@ export function PullRequestSection({
         {createFeedback && (
           <div
             className={cn(
-              'rounded px-2 py-1 text-[10px]',
+              'rounded px-2 py-1 text-sm',
               createFeedback.error ? 'bg-status-error-muted text-status-error' : 'bg-status-success-muted text-status-success',
             )}
           >
@@ -353,7 +353,7 @@ function LabeledSelect({
 }) {
   return (
     <div className="space-y-1">
-      <label className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]/60">
+      <label className="text-sm uppercase tracking-wide text-[var(--text-muted)]/60">
         {label}
       </label>
       <select aria-label={label}
@@ -362,7 +362,7 @@ function LabeledSelect({
         disabled={disabled}
         className={cn(
           'h-6 w-full rounded border border-[var(--border-subtle)] bg-[var(--bg-base)] px-1.5',
-          'text-[11px] text-[var(--text-primary)] outline-none focus:border-[var(--border-focus)]',
+          'text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-focus)]',
           'disabled:opacity-40',
         )}
       >

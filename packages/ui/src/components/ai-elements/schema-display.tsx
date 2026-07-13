@@ -174,7 +174,7 @@ export const SchemaDisplayPath = ({
 
   return (
     <span
-      className={cn("font-mono text-sm", className)}
+      className={cn("font-mono text-base", className)}
       // biome-ignore lint/security/noDangerouslySetInnerHtml: "needed for parameter highlighting"
       // oxlint-disable-next-line eslint-plugin-react(no-danger)
       dangerouslySetInnerHTML={{ __html: children ?? highlightedPath }}
@@ -196,7 +196,7 @@ export const SchemaDisplayDescription = ({
   return (
     <p
       className={cn(
-        "border-b px-4 py-3 text-muted-foreground text-sm",
+        "border-b px-4 py-3 text-muted-foreground text-base",
         className
       )}
       {...props}
@@ -231,7 +231,7 @@ export const SchemaDisplayParameters = ({
     <Collapsible className={cn(className)} defaultOpen {...props}>
       <CollapsibleTrigger className="group flex w-full items-center gap-2 px-4 py-3 text-left transition-colors hover:bg-muted/50">
         <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-90" />
-        <span className="font-medium text-sm">Parameters</span>
+        <span className="font-medium text-base">Parameters</span>
         <Badge className="ml-auto text-xs" variant="secondary">
           {parameters?.length}
         </Badge>
@@ -262,7 +262,7 @@ export const SchemaDisplayParameter = ({
 }: SchemaDisplayParameterProps) => (
   <div className={cn("px-4 py-3 pl-10", className)} {...props}>
     <div className="flex items-center gap-2">
-      <span className="font-mono text-sm">{name}</span>
+      <span className="font-mono text-base">{name}</span>
       <Badge className="text-xs" variant="outline">
         {type}
       </Badge>
@@ -281,7 +281,7 @@ export const SchemaDisplayParameter = ({
       )}
     </div>
     {description && (
-      <p className="mt-1 text-muted-foreground text-sm">{description}</p>
+      <p className="mt-1 text-muted-foreground text-base">{description}</p>
     )}
   </div>
 );
@@ -299,7 +299,7 @@ export const SchemaDisplayRequest = ({
     <Collapsible className={cn(className)} defaultOpen {...props}>
       <CollapsibleTrigger className="group flex w-full items-center gap-2 px-4 py-3 text-left transition-colors hover:bg-muted/50">
         <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-90" />
-        <span className="font-medium text-sm">Request Body</span>
+        <span className="font-medium text-base">Request Body</span>
       </CollapsibleTrigger>
       <CollapsibleContent>
         <div className="border-t">
@@ -326,7 +326,7 @@ export const SchemaDisplayResponse = ({
     <Collapsible className={cn(className)} defaultOpen {...props}>
       <CollapsibleTrigger className="group flex w-full items-center gap-2 px-4 py-3 text-left transition-colors hover:bg-muted/50">
         <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-90" />
-        <span className="font-medium text-sm">Response</span>
+        <span className="font-medium text-base">Response</span>
       </CollapsibleTrigger>
       <CollapsibleContent>
         <div className="border-t">
@@ -382,7 +382,7 @@ export const SchemaDisplayProperty = ({
           style={{ paddingLeft }}
         >
           <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-90" />
-          <span className="font-mono text-sm">{name}</span>
+          <span className="font-mono text-base">{name}</span>
           <Badge className="text-xs" variant="outline">
             {type}
           </Badge>
@@ -397,7 +397,7 @@ export const SchemaDisplayProperty = ({
         </CollapsibleTrigger>
         {description && (
           <p
-            className="pb-2 text-muted-foreground text-sm"
+            className="pb-2 text-muted-foreground text-base"
             style={{ paddingLeft: paddingLeft + 24 }}
           >
             {description}
@@ -434,7 +434,7 @@ export const SchemaDisplayProperty = ({
       <div className="flex items-center gap-2">
         {/* Spacer for alignment */}
         <span className="size-4" />
-        <span className="font-mono text-sm">{name}</span>
+        <span className="font-mono text-base">{name}</span>
         <Badge className="text-xs" variant="outline">
           {type}
         </Badge>
@@ -448,7 +448,7 @@ export const SchemaDisplayProperty = ({
         )}
       </div>
       {description && (
-        <p className="mt-1 pl-6 text-muted-foreground text-sm">{description}</p>
+        <p className="mt-1 pl-6 text-muted-foreground text-base">{description}</p>
       )}
     </div>
   );
@@ -463,7 +463,7 @@ export const SchemaDisplayExample = ({
 }: SchemaDisplayExampleProps) => (
   <pre
     className={cn(
-      "mx-4 mb-4 overflow-auto rounded-md bg-muted p-4 font-mono text-sm",
+      "mx-4 mb-4 overflow-auto rounded-md bg-muted p-4 font-mono text-base",
       className
     )}
     {...props}

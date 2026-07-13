@@ -40,7 +40,7 @@ export function TypographyTab({ typography, onChange }: TypographyTabProps) {
           step={1}
           onChange={(v) => onChange('fontSizeBase', v)}
         />
-        <p className="text-[11px] text-[var(--text-muted)]">
+        <p className="text-sm text-[var(--text-muted)]">
           Controls the root <code className="font-mono text-[var(--accent-code)]">font-size</code> on{' '}
           <code className="font-mono text-[var(--accent-code)]">&lt;html&gt;</code>. All relative sizes scale from this.
         </p>

@@ -22,7 +22,7 @@ export function GitShipActionPill({
       onClick={onClick}
       disabled={disabled || busy}
       className={cn(
-        'inline-flex h-8 items-center gap-1.5 rounded-lg border px-3 text-[11px] font-medium transition-colors',
+        'inline-flex h-8 items-center gap-1.5 rounded-lg border px-3 text-sm font-medium transition-colors',
         emphasis
           ? 'border-[var(--accent-primary)]/25 bg-[var(--accent-muted)] text-[var(--accent-primary)] hover:bg-[var(--accent-primary)]/15'
           : 'border-[var(--border-subtle)] bg-[var(--bg-base)] text-[var(--text-secondary)] hover:bg-[var(--bg-muted)]',

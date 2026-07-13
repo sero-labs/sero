@@ -44,7 +44,7 @@ export function SubagentOutput({ response, error, isFailed }: SubagentOutputProp
       {/* Content */}
       <pre
         className={cn(
-          'max-h-48 overflow-auto rounded-md p-2 text-[10px] leading-relaxed whitespace-pre-wrap break-words',
+          'max-h-48 overflow-auto rounded-md p-2 text-sm leading-relaxed whitespace-pre-wrap break-words',
           isFailed
             ? 'bg-status-error-muted text-status-error'
             : 'bg-[var(--bg-base)] text-[var(--text-secondary)]',

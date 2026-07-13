@@ -69,7 +69,7 @@ const ArtifactCard = memo(function ArtifactCard({
       </div>
       <div className="px-2 py-1.5">
         <p className="text-xs font-medium truncate">{artifact.title}</p>
-        <p className="text-[10px] text-muted-foreground">
+        <p className="text-sm text-muted-foreground">
           {new Date(artifact.timestamp).toLocaleString()}
         </p>
       </div>
@@ -134,7 +134,7 @@ function Lightbox({
           </div>
         )}
         <div className="mt-3 text-center">
-          <p className="text-white text-sm font-medium">{artifact.title}</p>
+          <p className="text-white text-base font-medium">{artifact.title}</p>
           <p className="text-white/60 text-xs">
             {index + 1} of {artifacts.length} &middot;{' '}
             {new Date(artifact.timestamp).toLocaleString()}
@@ -169,7 +169,7 @@ export function ArtifactGallery({ artifacts, onLoadArtifact }: ArtifactGalleryPr
       <div className="flex items-center justify-center h-full text-muted-foreground">
         <div className="text-center">
           <ImageIcon className="size-8 mx-auto mb-2 opacity-50" />
-          <p className="text-sm">No artifacts yet</p>
+          <p className="text-base">No artifacts yet</p>
         </div>
       </div>
     );

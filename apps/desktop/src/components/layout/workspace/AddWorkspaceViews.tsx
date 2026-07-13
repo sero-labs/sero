@@ -15,14 +15,14 @@ export function PickView({
     <div className="flex flex-col py-1">
       <button type="button"
         onClick={onCreateNew}
-        className="flex items-center gap-2.5 px-3 py-2 text-left text-sm text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]"
+        className="flex items-center gap-2.5 px-3 py-2 text-left text-base text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]"
       >
         <FolderPlus className="size-3.5 text-[var(--text-muted)]" />
         Create New
       </button>
       <button type="button"
         onClick={onImportExisting}
-        className="flex items-center gap-2.5 px-3 py-2 text-left text-sm text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]"
+        className="flex items-center gap-2.5 px-3 py-2 text-left text-base text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]"
       >
         <FolderInput className="size-3.5 text-[var(--text-muted)]" />
         Import Existing

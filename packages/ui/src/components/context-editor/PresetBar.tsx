@@ -39,7 +39,7 @@ export function PresetBar({
   return (
     <>
       <div className="flex items-center gap-2">
-        <span className="text-[11px] font-medium text-[var(--text-muted)]">
+        <span className="text-sm font-medium text-[var(--text-muted)]">
           Preset:
         </span>
         <Select value={activePresetId ?? ''} onValueChange={onPresetChange}>
@@ -68,7 +68,7 @@ export function PresetBar({
         {!showSaveInput && (
           <button type="button"
             onClick={onShowSave}
-            className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]"
+            className="flex items-center gap-1 rounded-md px-2 py-1 text-sm text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]"
           >
             <Save className="size-3" />
             Save as
@@ -78,7 +78,7 @@ export function PresetBar({
         {hasOverrides && (
           <button type="button"
             onClick={onReset}
-            className="ml-auto flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]"
+            className="ml-auto flex items-center gap-1 rounded-md px-2 py-1 text-sm text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]"
           >
             <RotateCcw className="size-3" />
             Reset

@@ -48,14 +48,14 @@ export function SuggestionsInbox({ loop, busy, onAction }: SuggestionsInboxProps
         <Card key={s.id} className="flex flex-col gap-2 p-3">
           <div className="flex items-center gap-2">
             <Lightbulb className="h-4 w-4 text-amber-500" />
-            <Badge variant="outline" className="text-[10px] uppercase tracking-wide">{s.confidence} confidence</Badge>
+            <Badge variant="outline" className="text-sm uppercase tracking-wide">{s.confidence} confidence</Badge>
           </div>
-          <p className="text-sm">{s.rationale}</p>
+          <p className="text-base">{s.rationale}</p>
           {s.changedStepIds.length > 0 && (
             <div className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
               <span>Changes:</span>
               {s.changedStepIds.map((id) => (
-                <code key={id} className="rounded bg-muted px-1.5 py-0.5 text-[11px]">{id}</code>
+                <code key={id} className="rounded bg-muted px-1.5 py-0.5 text-sm">{id}</code>
               ))}
             </div>
           )}

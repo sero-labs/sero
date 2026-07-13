@@ -30,13 +30,13 @@ export const SessionList = memo(function SessionList({
   return (
     <div className="flex w-56 flex-col border-r border-border/30">
       <div className="flex items-center justify-between px-3 py-2">
-        <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/50">
+        <p className="text-sm font-medium uppercase tracking-wider text-muted-foreground/50">
           Sessions ({sessions.length})
         </p>
         <Button
           variant="ghost"
           size="sm"
-          className="h-5 px-1.5 text-[10px] text-muted-foreground/40 hover:text-foreground"
+          className="h-5 px-1.5 text-sm text-muted-foreground/40 hover:text-foreground"
           onClick={onReload}
         >
           <RefreshCw className="size-3" />
@@ -45,7 +45,7 @@ export const SessionList = memo(function SessionList({
 
       {loading ? (
         <div className="flex items-center justify-center py-8">
-          <span className="admin-loading text-[10px] text-muted-foreground/40">Loading…</span>
+          <span className="admin-loading text-sm text-muted-foreground/40">Loading…</span>
         </div>
       ) : (
         <ScrollArea className="min-h-0 flex-1">
@@ -61,21 +61,21 @@ export const SessionList = memo(function SessionList({
             >
               <div className="flex items-center justify-between gap-1.5">
                 <span className={cn(
-                  'font-mono text-[10px]',
+                  'font-mono text-sm',
                   s.sessionId === selectedId ? 'text-foreground' : 'text-foreground/70',
                 )}>
                   {s.sessionId.slice(0, 8)}...
                 </span>
-                <span className="text-[9px] text-muted-foreground/30">
+                <span className="text-xs text-muted-foreground/30">
                   {s.messageCount} msgs
                 </span>
               </div>
               {s.name && (
-                <p className="mt-0.5 truncate text-[10px] text-foreground/50">
+                <p className="mt-0.5 truncate text-sm text-foreground/50">
                   {s.name.length > 50 ? s.name.slice(0, 50) + '...' : s.name}
                 </p>
               )}
-              <p className="mt-0.5 text-[10px] text-muted-foreground/40">
+              <p className="mt-0.5 text-sm text-muted-foreground/40">
                 {s.dateLabel}
               </p>
             </button>

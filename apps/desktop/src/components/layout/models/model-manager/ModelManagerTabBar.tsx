@@ -45,7 +45,7 @@ export const ModelManagerTabBar = memo(function ModelManagerTabBar({
               <Icon className="size-3.5" />
               {tab.label}
               {counts[tab.id] > 0 ? (
-                <span className="rounded-full bg-[var(--bg-muted)] px-1.5 py-px text-[10px] font-semibold text-[var(--text-muted)]">
+                <span className="rounded-full bg-[var(--bg-muted)] px-1.5 py-px text-sm font-semibold text-[var(--text-muted)]">
                   {counts[tab.id]}
                 </span>
               ) : null}

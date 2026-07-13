@@ -52,18 +52,18 @@ export function JobCard({
       <div className="px-4 py-3">
         {/* Header row: name + badges */}
         <div className="mb-2 flex items-center gap-2">
-          <span className="text-sm font-semibold text-foreground">
+          <span className="text-base font-semibold text-foreground">
             {job.name}
           </span>
 
           {job.disabled ? (
-            <Badge variant="secondary" className="text-[10px]">
+            <Badge variant="secondary" className="text-sm">
               Paused
             </Badge>
           ) : (
             <Badge
               variant="outline"
-              className="border-emerald-500/30 text-[10px] text-emerald-500"
+              className="border-emerald-500/30 text-sm text-emerald-500"
             >
               Active
             </Badge>
@@ -72,7 +72,7 @@ export function JobCard({
           {job.channel !== 'cron' && (
             <Badge
               variant="outline"
-              className="border-primary/30 text-[10px] text-primary"
+              className="border-primary/30 text-sm text-primary"
             >
               {job.channel}
             </Badge>
@@ -81,7 +81,7 @@ export function JobCard({
           {job.model && (
             <Badge
               variant="outline"
-              className="border-amber-500/30 text-[10px] font-mono text-amber-500"
+              className="border-amber-500/30 text-sm font-mono text-amber-500"
             >
               {job.model}
             </Badge>
@@ -90,7 +90,7 @@ export function JobCard({
           {job.runIfMissed && (
             <Badge
               variant="outline"
-              className="border-blue-500/30 text-[10px] text-blue-500"
+              className="border-blue-500/30 text-sm text-blue-500"
               title="This job will run on startup if missed since midnight"
             >
               Recover

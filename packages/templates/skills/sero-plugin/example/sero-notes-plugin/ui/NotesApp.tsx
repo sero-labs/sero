@@ -184,7 +184,7 @@ export function NotesApp() {
     <div className="mx-auto flex size-full max-w-2xl flex-col gap-4 overflow-hidden bg-background p-5 text-foreground">
       <header className="flex items-end justify-between gap-3 border-b border-border pb-3">
         <div className="min-w-0">
-          <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+          <p className="text-sm font-medium uppercase tracking-[0.2em] text-muted-foreground">
             Sero plugin example
           </p>
           <h1 className="mt-0.5 text-lg font-semibold tracking-tight">Notes Lab</h1>
@@ -194,7 +194,7 @@ export function NotesApp() {
             <span className="font-medium text-foreground">{openCount}</span> open
             {doneCount > 0 && <span className="ml-1 opacity-70">· {doneCount} done</span>}
           </span>
-          <span className="hidden sm:inline truncate font-mono text-[11px] opacity-70">
+          <span className="hidden sm:inline truncate font-mono text-sm opacity-70">
             {appId} @ {workspaceName}
           </span>
         </div>
@@ -214,7 +214,7 @@ export function NotesApp() {
           onChange={(e) => setTitle(e.target.value)}
           placeholder="Add a note..."
           aria-label="Add a note"
-          className="h-9 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+          className="h-9 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-base text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
         />
         <Button size="sm" type="submit" variant="default" disabled={!title.trim()}>
           Add
@@ -237,7 +237,7 @@ export function NotesApp() {
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border">
         {total === 0 ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-1 px-6 py-10 text-center">
-            <p className="text-sm font-medium">No notes yet</p>
+            <p className="text-base font-medium">No notes yet</p>
             <p className="max-w-xs text-xs leading-relaxed text-muted-foreground">
               Add one above, or use the sparkle button to generate one with AI.
             </p>
@@ -257,7 +257,7 @@ export function NotesApp() {
                   className="size-4 shrink-0 rounded border-input"
                 />
                 <span
-                  className={`min-w-0 flex-1 truncate text-sm ${
+                  className={`min-w-0 flex-1 truncate text-base ${
                     note.done
                       ? 'text-muted-foreground line-through'
                       : 'text-foreground'
@@ -265,7 +265,7 @@ export function NotesApp() {
                 >
                   {note.title}
                 </span>
-                <span className="font-mono text-[10px] text-muted-foreground/70 tabular-nums">
+                <span className="font-mono text-sm text-muted-foreground/70 tabular-nums">
                   #{note.id}
                 </span>
                 <Button
@@ -286,7 +286,7 @@ export function NotesApp() {
 
       <section className="shrink-0 space-y-2">
         <div className="flex items-center justify-between">
-          <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+          <p className="text-sm font-medium uppercase tracking-[0.18em] text-muted-foreground">
             Capability demos
           </p>
           {hasResult && (
@@ -296,7 +296,7 @@ export function NotesApp() {
                 setToolResult('');
                 setToolError('');
               }}
-              className="text-[10px] uppercase tracking-wider text-muted-foreground hover:text-foreground"
+              className="text-sm uppercase tracking-wider text-muted-foreground hover:text-foreground"
             >
               Clear
             </button>
@@ -317,7 +317,7 @@ export function NotesApp() {
         </div>
         {hasResult && (
           <pre
-            className={`max-h-32 overflow-auto rounded-md border border-border bg-secondary/20 p-2 font-mono text-[11px] leading-relaxed ${
+            className={`max-h-32 overflow-auto rounded-md border border-border bg-secondary/20 p-2 font-mono text-sm leading-relaxed ${
               toolError ? 'text-destructive' : 'text-muted-foreground'
             }`}
           >

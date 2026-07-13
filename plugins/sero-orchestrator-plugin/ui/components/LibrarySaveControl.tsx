@@ -52,7 +52,7 @@ export function LibrarySaveControl({
       <Button size="sm" variant="outline" disabled={busy} onClick={() => setOpen(true)} title="Save this loop to the Library">
         <BookmarkPlus className="mr-1 h-3.5 w-3.5" />
         Library
-        {linked && <span className="ml-1 text-[10px] font-medium">v{linked.version}</span>}
+        {linked && <span className="ml-1 text-sm font-medium">v{linked.version}</span>}
       </Button>
 
       <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>

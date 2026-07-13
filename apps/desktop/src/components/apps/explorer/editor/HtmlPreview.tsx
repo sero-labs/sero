@@ -54,7 +54,7 @@ export function HtmlPreview({ content, filePath }: Props) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 text-[var(--text-muted)]">
         <Loader2 className="size-6 animate-spin" />
-        <p className="text-sm">Loading preview…</p>
+        <p className="text-base">Loading preview…</p>
       </div>
     );
   }

@@ -42,15 +42,15 @@ export const LocalPluginDevelopmentSection = memo(function LocalPluginDevelopmen
             </div>
             <div className="min-w-0 space-y-1">
               <div className="flex flex-wrap items-center gap-2">
-                <h3 className="text-sm font-semibold text-[var(--text-primary)]">Local Plugin Development</h3>
+                <h3 className="text-base font-semibold text-[var(--text-primary)]">Local Plugin Development</h3>
                 <Badge
                   variant="outline"
-                  className="border-status-info-border bg-status-info-muted text-[10px] text-status-info"
+                  className="border-status-info-border bg-status-info-muted text-sm text-status-info"
                 >
                   Profile scoped
                 </Badge>
               </div>
-              <p className="max-w-3xl text-[11px] leading-5 text-[var(--text-muted)]">
+              <p className="max-w-3xl text-sm leading-5 text-[var(--text-muted)]">
                 Run a local plugin checkout directly for the active profile. Dev sessions do not
                 create installed plugins, and attaching the folder to a workspace is optional when
                 you want it visible in Explorer.
@@ -60,7 +60,7 @@ export const LocalPluginDevelopmentSection = memo(function LocalPluginDevelopmen
           <div className="flex items-center gap-2">
             <Badge
               variant="outline"
-              className="border-status-info-border bg-status-info-muted text-[10px] text-status-info"
+              className="border-status-info-border bg-status-info-muted text-sm text-status-info"
             >
               {countLabel}
             </Badge>
@@ -86,7 +86,7 @@ export const LocalPluginDevelopmentSection = memo(function LocalPluginDevelopmen
 
       <div className="space-y-4 p-4">
         <div className="rounded-xl border border-status-info-border bg-status-info-muted/40 px-3.5 py-3">
-          <p className="text-[11px] leading-5 text-[var(--text-secondary)]">
+          <p className="text-sm leading-5 text-[var(--text-secondary)]">
             These sessions are saved per profile and use the source checkout directly. Use the{' '}
             <span className="font-medium text-[var(--text-primary)]">Attached folders</span>{' '}
             section below only when you also want the checkout mounted into the current workspace
@@ -95,7 +95,7 @@ export const LocalPluginDevelopmentSection = memo(function LocalPluginDevelopmen
         </div>
 
         {error ? (
-          <div className="rounded-xl border border-status-error-border bg-status-error-faint px-3 py-2.5 text-[11px] text-status-error">
+          <div className="rounded-xl border border-status-error-border bg-status-error-faint px-3 py-2.5 text-sm text-status-error">
             {error}
           </div>
         ) : null}
@@ -141,8 +141,8 @@ function EmptyState() {
       <div className="flex size-14 items-center justify-center rounded-2xl border border-status-info-border bg-status-info-muted text-status-info">
         <Code2 className="size-6" />
       </div>
-      <p className="mt-4 text-sm font-medium text-[var(--text-primary)]">No local development sessions yet</p>
-      <p className="mt-2 max-w-md text-[11px] leading-5 text-[var(--text-muted)]">
+      <p className="mt-4 text-base font-medium text-[var(--text-primary)]">No local development sessions yet</p>
+      <p className="mt-2 max-w-md text-sm leading-5 text-[var(--text-muted)]">
         Choose a local plugin checkout to create a profile-scoped dev session. Sero will validate
         it before activation and will not turn it into an installed plugin.
       </p>

@@ -46,11 +46,11 @@ export function SkillEditor({
   return (
     <form onSubmit={handleSave} className="flex flex-1 flex-col min-h-0">
       <div className="flex items-center gap-2 border-b border-border px-4 py-2">
-        <span className="flex-1 text-sm font-medium text-foreground truncate">
+        <span className="flex-1 text-base font-medium text-foreground truncate">
           {isNew ? 'New Skill' : data.name}
         </span>
         {source && source !== 'user' && (
-          <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+          <span className="rounded bg-muted px-1.5 py-0.5 text-sm text-muted-foreground">
             {source}
           </span>
         )}
@@ -104,7 +104,7 @@ export function SkillEditor({
         <div className="flex items-center justify-between border-b border-border/50 px-4 py-2.5">
           <div className="space-y-0.5">
             <p className="text-xs font-medium text-foreground/85">Model Visibility</p>
-            <p className="text-[10px] text-muted-foreground/60">
+            <p className="text-sm text-muted-foreground/60">
               {lockedHidden
                 ? 'This skill requires explicit invocation'
                 : visibleToModel
@@ -133,7 +133,7 @@ export function SkillEditor({
           placeholder="# My Skill&#10;&#10;Instructions for the agent when this skill is active..."
           className={cn(
             'flex-1 min-h-0 resize-none rounded-md border border-input bg-background',
-            'px-3 py-2 text-sm text-foreground font-mono leading-relaxed',
+            'px-3 py-2 text-base text-foreground font-mono leading-relaxed',
             'placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring',
           )}
         />
@@ -144,7 +144,7 @@ export function SkillEditor({
 
 const fieldClass = cn(
   'w-full rounded-md border border-input bg-background',
-  'px-2.5 py-1.5 text-sm text-foreground',
+  'px-2.5 py-1.5 text-base text-foreground',
   'placeholder:text-muted-foreground',
   'focus:outline-none focus:ring-1 focus:ring-ring',
 );

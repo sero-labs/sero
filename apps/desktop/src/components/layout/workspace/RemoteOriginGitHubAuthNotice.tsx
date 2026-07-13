@@ -32,7 +32,7 @@ export function RemoteOriginGitHubAuthNotice({
       )}
     >
       <div className="space-y-1">
-        <p className="text-sm font-medium text-[var(--text-primary)]">GitHub connection required</p>
+        <p className="text-base font-medium text-[var(--text-primary)]">GitHub connection required</p>
         <p className="text-xs leading-relaxed text-[var(--text-secondary)]">
           Connect GitHub to create this repository without leaving this form.
         </p>

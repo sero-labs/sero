@@ -43,7 +43,7 @@ export function MainSidebar() {
         {/* ── Apps ──────────────────────────────────────────────── */}
         <div className="flex flex-col gap-0.5 p-2">
           <div className="flex items-center justify-between px-2 pb-1">
-            <span className="text-sm font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+            <span className="text-base font-semibold uppercase tracking-wider text-[var(--text-muted)]">
               Apps
             </span>
             <Button
@@ -131,7 +131,7 @@ function AppItem({
     <button type="button"
       onClick={onClick}
       className={cn(
-        'group flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors',
+        'group flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-base transition-colors',
         active
           ? 'bg-[var(--bg-elevated)] text-[var(--text-primary)]'
           : 'text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]',

@@ -42,7 +42,7 @@ export function PromptEditor({ data, isNew, saving, onSave, onDelete, onChange }
     <form onSubmit={handleSave} className="flex flex-1 flex-col min-h-0">
       {/* ── Header bar ─────────────────────────────────── */}
       <div className="flex items-center gap-2 border-b border-border px-4 py-2">
-        <span className="flex-1 text-sm font-medium text-foreground truncate">
+        <span className="flex-1 text-base font-medium text-foreground truncate">
           {isNew ? 'New Prompt Template' : `/${data.name}`}
         </span>
         {canDelete && (
@@ -93,7 +93,7 @@ export function PromptEditor({ data, isNew, saving, onSave, onDelete, onChange }
 
       {/* ── Help bar ───────────────────────────────────── */}
       <div className="border-b border-border/50 bg-muted/30 px-4 py-1.5">
-        <p className="text-[10px] text-muted-foreground">
+        <p className="text-sm text-muted-foreground">
           Use <code className="rounded bg-muted px-1">$1</code>,{' '}
           <code className="rounded bg-muted px-1">$2</code> for positional args,{' '}
           <code className="rounded bg-muted px-1">$@</code> for all args.{' '}
@@ -113,7 +113,7 @@ export function PromptEditor({ data, isNew, saving, onSave, onDelete, onChange }
           placeholder="Review the staged changes (`git diff --cached`). Focus on:&#10;&#10;- Bugs and logic errors&#10;- Security issues&#10;- Error handling gaps"
           className={cn(
             'flex-1 min-h-0 resize-none rounded-md border border-input bg-background',
-            'px-3 py-2 text-sm text-foreground font-mono leading-relaxed',
+            'px-3 py-2 text-base text-foreground font-mono leading-relaxed',
             'placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring',
           )}
         />
@@ -126,7 +126,7 @@ export function PromptEditor({ data, isNew, saving, onSave, onDelete, onChange }
 
 const fieldClass = cn(
   'w-full rounded-md border border-input bg-background',
-  'px-2.5 py-1.5 text-sm text-foreground',
+  'px-2.5 py-1.5 text-base text-foreground',
   'placeholder:text-muted-foreground',
   'focus:outline-none focus:ring-1 focus:ring-ring',
 );

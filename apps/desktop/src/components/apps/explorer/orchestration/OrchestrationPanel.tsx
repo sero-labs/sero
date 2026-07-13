@@ -108,13 +108,13 @@ export function OrchestrationPanel({ workspaceId }: OrchestrationPanelProps) {
 function Header({ showClear, onClear }: { showClear: boolean; onClear: () => void }) {
   return (
     <div className="flex h-7 shrink-0 items-center justify-between px-4">
-      <span className="text-[11px] font-medium uppercase tracking-wider text-[var(--text-muted)]">
+      <span className="text-sm font-medium uppercase tracking-wider text-[var(--text-muted)]">
         Orchestration
       </span>
       {showClear && (
         <button type="button"
           onClick={onClear}
-          className="flex items-center gap-1 text-[10px] text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)]"
+          className="flex items-center gap-1 text-sm text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)]"
           title="Clear completed runs"
         >
           <X className="size-3" />

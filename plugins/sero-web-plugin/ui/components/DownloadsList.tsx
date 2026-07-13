@@ -38,7 +38,7 @@ export function DownloadsList() {
     return (
       <div className="flex flex-1 flex-col items-center justify-center py-16">
         <Download className="mb-2 size-5 text-muted-foreground/40" />
-        <p className="text-sm text-muted-foreground">No downloads yet</p>
+        <p className="text-base text-muted-foreground">No downloads yet</p>
         <p className="mt-1 text-xs text-muted-foreground/60">
           Saved PDFs and other extracted files will appear here
         </p>
@@ -95,14 +95,14 @@ function DownloadRow({ download, workspaceId, onDelete }: DownloadRowProps) {
         <div className="min-w-0 flex-1">
           <div className="flex items-start gap-2">
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-foreground">
+              <p className="truncate text-base font-medium text-foreground">
                 {truncate(download.title || download.sourceUrl, 80)}
               </p>
               <a
                 href={download.sourceUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-0.5 inline-flex items-center gap-1 text-[11px] text-blue-400/70 transition-colors hover:text-blue-400"
+                className="mt-0.5 inline-flex items-center gap-1 text-sm text-blue-400/70 transition-colors hover:text-blue-400"
               >
                 <ExternalLink className="size-2.5" />
                 <span className="truncate">{truncate(download.sourceUrl, 90)}</span>
@@ -112,7 +112,7 @@ function DownloadRow({ download, workspaceId, onDelete }: DownloadRowProps) {
             <StatusBadge download={download} />
           </div>
 
-          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground/70">
+          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground/70">
             {!isCompleted && <span>{download.phase}</span>}
             <span>Updated {relativeTime(download.updatedAt)}</span>
             {download.speedText && <span>{download.speedText}</span>}
@@ -128,20 +128,20 @@ function DownloadRow({ download, workspaceId, onDelete }: DownloadRowProps) {
                   style={{ width: `${progressPct}%` }}
                 />
               </div>
-              <div className="mt-1 text-[10px] text-muted-foreground/60">
+              <div className="mt-1 text-sm text-muted-foreground/60">
                 {progressPct.toFixed(progressPct >= 10 ? 0 : 1)}%
               </div>
             </div>
           )}
 
           {displayPath && (
-            <div className="mt-2 break-all font-mono text-[11px] text-muted-foreground/75">
+            <div className="mt-2 break-all font-mono text-sm text-muted-foreground/75">
               {displayPath}
             </div>
           )}
 
           {download.error && (
-            <p className="mt-2 text-[11px] leading-relaxed text-destructive">
+            <p className="mt-2 text-sm leading-relaxed text-destructive">
               {download.error}
             </p>
           )}
@@ -150,7 +150,7 @@ function DownloadRow({ download, workspaceId, onDelete }: DownloadRowProps) {
             <Button
               variant="outline"
               size="sm"
-              className="h-7 gap-1.5 text-[11px]"
+              className="h-7 gap-1.5 text-sm"
               disabled={!download.relativePath || download.status !== 'completed'}
               onClick={() => { void openDownload(); }}
             >
@@ -160,7 +160,7 @@ function DownloadRow({ download, workspaceId, onDelete }: DownloadRowProps) {
             <Button
               variant="outline"
               size="sm"
-              className="h-7 gap-1.5 text-[11px]"
+              className="h-7 gap-1.5 text-sm"
               disabled={!download.absolutePath}
               onClick={() => { void revealDownload(); }}
             >
@@ -170,7 +170,7 @@ function DownloadRow({ download, workspaceId, onDelete }: DownloadRowProps) {
             <Button
               variant="ghost"
               size="sm"
-              className="h-7 gap-1.5 text-[11px] text-muted-foreground hover:text-destructive"
+              className="h-7 gap-1.5 text-sm text-muted-foreground hover:text-destructive"
               disabled={isActive}
               onClick={onDelete}
             >
@@ -214,7 +214,7 @@ function StatusBadge({ download }: { download: WebDownload }) {
       : 'border-primary/20 bg-primary/10 text-primary';
 
   return (
-    <Badge variant="outline" className={`shrink-0 px-1.5 py-0 text-[10px] leading-4 ${className}`}>
+    <Badge variant="outline" className={`shrink-0 px-1.5 py-0 text-sm leading-4 ${className}`}>
       {label}
     </Badge>
   );

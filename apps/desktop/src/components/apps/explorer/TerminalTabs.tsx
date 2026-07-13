@@ -42,7 +42,7 @@ export function TerminalTabs({ workspaceId }: TerminalTabsProps) {
   return (
     <div className="flex min-h-8 shrink-0 flex-col border-b border-[var(--border-default)] bg-[var(--bg-surface)]">
       {showHostFallbackNotice && (
-        <div className="border-b border-status-warning-border bg-status-warning-faint px-2 py-1 text-[11px] text-[var(--status-warning-text)]">
+        <div className="border-b border-status-warning-border bg-status-warning-faint px-2 py-1 text-sm text-[var(--status-warning-text)]">
           Containers are unavailable for this workspace right now. New terminals will open on your Mac until the workspace container is back.
         </div>
       )}
@@ -64,7 +64,7 @@ export function TerminalTabs({ workspaceId }: TerminalTabsProps) {
             {tab.runtime === 'host' && (
               <span
                 title={tab.fallbackReason}
-                className="rounded bg-status-warning-faint px-1 py-0.5 text-[10px] font-medium text-[var(--status-warning-text)]"
+                className="rounded bg-status-warning-faint px-1 py-0.5 text-sm font-medium text-[var(--status-warning-text)]"
               >
                 Host
               </span>

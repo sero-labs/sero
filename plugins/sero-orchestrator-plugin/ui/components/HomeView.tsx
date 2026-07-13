@@ -73,7 +73,7 @@ export function HomeView({ loops, busy, onAction, onOpenLoop, onNew }: HomeViewP
           )}
         </div>
         {query.trim() && filtered.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No loops match your search.</p>
+          <p className="text-base text-muted-foreground">No loops match your search.</p>
         ) : (
           <LoopsOverview loops={filtered} onOpenLoop={onOpenLoop} />
         )}

@@ -342,7 +342,7 @@ export function VoiceTranscriptionControl({
           sideOffset={8}
           className="w-[280px] border-[var(--border-default)] bg-[var(--bg-surface)] p-2"
         >
-          <div className="px-1 pb-2 pt-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+          <div className="px-1 pb-2 pt-1 text-sm font-semibold uppercase tracking-wider text-[var(--text-muted)]">
             Recording Input
           </div>
 

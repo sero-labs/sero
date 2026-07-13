@@ -105,7 +105,7 @@ export function McpViewerPane({ viewer }: { viewer: McpViewerState }) {
 
 function PanePlaceholder({ message }: { message: string }) {
   return (
-    <div className="flex min-h-[320px] items-center justify-center rounded-lg border border-dashed border-border bg-background/60 p-6 text-center text-sm text-muted-foreground">
+    <div className="flex min-h-[320px] items-center justify-center rounded-lg border border-dashed border-border bg-background/60 p-6 text-center text-base text-muted-foreground">
       <div className="max-w-md">{message}</div>
     </div>
   );

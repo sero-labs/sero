@@ -55,7 +55,7 @@ export function ProviderListView({
                   }
                   onOAuthLogin(provider.id);
                 }}
-                className="group flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm transition-colors hover:bg-accent"
+                className="group flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-base transition-colors hover:bg-accent"
               >
                 <div className="flex items-center gap-2.5">
                   <LogIn className="size-4 text-muted-foreground transition-colors group-hover:text-foreground" />
@@ -85,7 +85,7 @@ export function ProviderListView({
             {sortProvidersByPreference(apiKeyProviders, preferredProviderId).map((provider) => (
               <div
                 key={provider.id}
-                className="group flex w-full items-center justify-between rounded-md px-3 py-2 text-sm transition-colors hover:bg-accent"
+                className="group flex w-full items-center justify-between rounded-md px-3 py-2 text-base transition-colors hover:bg-accent"
               >
                 <button type="button"
                   onClick={() => {
@@ -140,7 +140,7 @@ export function ProviderListView({
   const savedProviders = getSavedCredentialProviders(oauthProviders, apiKeyProviders);
   if (savedProviders.length === 0) {
     return (
-      <p className="py-4 text-center text-sm text-muted-foreground">
+      <p className="py-4 text-center text-base text-muted-foreground">
         No providers with saved credentials.
       </p>
     );
@@ -152,7 +152,7 @@ export function ProviderListView({
         <button type="button"
           key={provider.id}
           onClick={() => onLogout(provider.id)}
-          className="group flex w-full items-center justify-between rounded-md px-3 py-2.5 text-left text-sm transition-colors hover:bg-accent"
+          className="group flex w-full items-center justify-between rounded-md px-3 py-2.5 text-left text-base transition-colors hover:bg-accent"
         >
           <div className="flex items-center gap-2.5">
             <LogOut className="size-4 text-muted-foreground transition-colors group-hover:text-destructive" />
@@ -203,7 +203,7 @@ function AnthropicWarningBanner({
 
 function PreferredProviderBadge() {
   return (
-    <span className="rounded-full border border-status-warning/30 px-1.5 py-0.5 text-[10px] text-status-warning">
+    <span className="rounded-full border border-status-warning/30 px-1.5 py-0.5 text-sm text-status-warning">
       reconnect
     </span>
   );

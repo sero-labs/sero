@@ -300,7 +300,7 @@ export function AppStoreDialog({
 function EmptyState({ message }: { message: string }) {
   return (
     <div className="rounded-lg border border-dashed border-[var(--border-default)] p-6 text-center">
-      <p className="text-sm text-[var(--text-secondary)]">{message}</p>
+      <p className="text-base text-[var(--text-secondary)]">{message}</p>
     </div>
   );
 }

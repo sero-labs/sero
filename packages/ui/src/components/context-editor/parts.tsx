@@ -94,7 +94,7 @@ export function ContextSection({
         </span>
 
         {count !== undefined && (
-          <span className="text-[11px] text-[var(--text-muted)]">
+          <span className="text-sm text-[var(--text-muted)]">
             ({count})
           </span>
         )}
@@ -102,7 +102,7 @@ export function ContextSection({
         {badge && (
           <span
             className={cn(
-              'ml-auto rounded-full px-2 py-0.5 text-[10px] font-medium',
+              'ml-auto rounded-full px-2 py-0.5 text-sm font-medium',
               badgeClass[badgeVariant],
             )}
           >
@@ -154,13 +154,13 @@ export function ToggleRow({
     >
       <div className="min-w-0 flex-1">
         <div className={cn(
-          'text-[11px] font-medium',
+          'text-sm font-medium',
           enabled ? 'text-[var(--text-secondary)]' : 'text-[var(--text-muted)]',
         )}>
           {name}
         </div>
         {description && (
-          <div className="mt-0.5 text-[10px] leading-snug text-[var(--text-muted)]/60">
+          <div className="mt-0.5 text-sm leading-snug text-[var(--text-muted)]/60">
             {description}
           </div>
         )}
@@ -202,13 +202,13 @@ export function SavePresetInput({
       <button type="button"
         onClick={() => name.trim() && onSave(name.trim())}
         disabled={!name.trim()}
-        className="rounded-md bg-[var(--accent-primary)] px-2 py-1 text-[11px] font-medium text-white disabled:opacity-50"
+        className="rounded-md bg-[var(--accent-primary)] px-2 py-1 text-sm font-medium text-white disabled:opacity-50"
       >
         Save
       </button>
       <button type="button"
         onClick={onCancel}
-        className="text-[11px] text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
+        className="text-sm text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
       >
         Cancel
       </button>

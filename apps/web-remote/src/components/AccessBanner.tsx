@@ -25,7 +25,7 @@ export function AccessBanner() {
       <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2">
         <AlertCircle className="mt-0.5 size-4 shrink-0 text-destructive" />
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium text-foreground">{error.title}</p>
+          <p className="text-base font-medium text-foreground">{error.title}</p>
           <p className="text-xs text-muted-foreground">{error.detail}</p>
         </div>
         <Button

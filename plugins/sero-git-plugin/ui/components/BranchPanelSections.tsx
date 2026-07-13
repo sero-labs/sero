@@ -20,13 +20,13 @@ export function Section({
     <div className="border-b border-[var(--g-border)]">
       <button type="button"
         onClick={onToggle}
-        className="flex w-full items-center justify-between px-3 py-2 text-[10px] font-semibold tracking-wider text-[var(--g-dim)] transition-colors hover:text-[var(--g-muted)]"
+        className="flex w-full items-center justify-between px-3 py-2 text-sm font-semibold tracking-wider text-[var(--g-dim)] transition-colors hover:text-[var(--g-muted)]"
       >
         <div className="flex items-center gap-1.5">
           <ChevronIcon open={open} />
           {title}
         </div>
-        <span className="rounded bg-[var(--g-elevated)] px-1.5 py-0.5 text-[9px] text-[var(--g-dim)]">
+        <span className="rounded bg-[var(--g-elevated)] px-1.5 py-0.5 text-xs text-[var(--g-dim)]">
           {count}
         </span>
       </button>
@@ -68,11 +68,11 @@ export function CreateBranchForm({
         onKeyDown={handleKeyDown}
         placeholder="feature/my-branch"
         className="w-full rounded-md border border-[var(--g-border)] bg-[var(--g-elevated)] px-2.5 py-1.5
-          text-[11px] text-[var(--g-text)] outline-none transition-colors git-mono
+          text-sm text-[var(--g-text)] outline-none transition-colors git-mono
           placeholder-[var(--g-dim)] focus:border-[var(--g-accent)]"
       />
       {branchNameExists && (
-        <p className="text-[10px] text-[var(--g-red)]">
+        <p className="text-sm text-[var(--g-red)]">
           A branch with that name already exists.
         </p>
       )}
@@ -80,14 +80,14 @@ export function CreateBranchForm({
         <button type="button"
           onClick={onSubmit}
           disabled={!value.trim() || branchNameExists}
-          className="rounded-md bg-[var(--g-accent)] px-2 py-1 text-[10px] font-medium text-white
+          className="rounded-md bg-[var(--g-accent)] px-2 py-1 text-sm font-medium text-white
             transition-opacity hover:opacity-90 disabled:cursor-default disabled:opacity-30"
         >
           Create
         </button>
         <button type="button"
           onClick={onCancel}
-          className="rounded-md border border-[var(--g-border)] px-2 py-1 text-[10px] text-[var(--g-muted)]
+          className="rounded-md border border-[var(--g-border)] px-2 py-1 text-sm text-[var(--g-muted)]
             transition-colors hover:border-[var(--g-border-bright)] hover:text-[var(--g-text)]"
         >
           Cancel
@@ -107,7 +107,7 @@ export function SectionActionButton({
   return (
     <button type="button"
       onClick={onClick}
-      className="flex w-full items-center gap-2 px-3 py-1.5 text-[11px] text-[var(--g-dim)]
+      className="flex w-full items-center gap-2 px-3 py-1.5 text-sm text-[var(--g-dim)]
         transition-colors hover:bg-[var(--g-hover)] hover:text-[var(--g-accent)]"
     >
       <PlusIcon />
@@ -131,9 +131,9 @@ export function RemoteBranchGroup({
     <div className="border-t border-[var(--g-border)] first:border-t-0">
       <div className="flex items-center gap-2 px-3 py-1.5">
         <CloudIcon />
-        <span className="truncate text-[11px] text-[var(--g-muted)]">{name}</span>
+        <span className="truncate text-sm text-[var(--g-muted)]">{name}</span>
         {host && (
-          <span className="ml-auto truncate text-[10px] text-[var(--g-dim)]">{host}</span>
+          <span className="ml-auto truncate text-sm text-[var(--g-dim)]">{host}</span>
         )}
       </div>
       <div className="pb-1">

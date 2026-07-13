@@ -193,7 +193,7 @@ export function SessionNode({
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-6 px-2 text-sm"
+                className="h-6 px-2 text-base"
                 onClick={(e) => { e.stopPropagation(); setConfirmOpen(false); }}
               >
                 Cancel
@@ -201,7 +201,7 @@ export function SessionNode({
               <Button
                 variant="destructive"
                 size="sm"
-                className="h-6 px-2 text-sm"
+                className="h-6 px-2 text-base"
                 onClick={(e) => { e.stopPropagation(); handleDelete(); }}
               >
                 Delete

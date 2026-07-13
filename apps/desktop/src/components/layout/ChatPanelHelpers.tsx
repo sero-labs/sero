@@ -45,8 +45,9 @@ export function ContextEditorMenuItem({
         e.preventDefault();
         if (sessionId) openEditor(sessionId);
       }}
+      className='text-sm'
     >
-      <Settings2 className="mr-2 size-4" />
+      <Settings2 className="size-4" />
       Session context
       {showOverrideIndicator && (
         <span className="ml-auto size-1.5 rounded-full bg-[var(--accent-primary)]" />
@@ -198,7 +199,7 @@ export function CollaborationToggle({ disabled }: { disabled: boolean }) {
               return { bottom: window.innerHeight - rect.top + 4, right: window.innerWidth - rect.right };
             })()}
           >
-            <div className="mb-2 text-[10px] font-medium uppercase tracking-wider text-[var(--text-muted)]">
+            <div className="mb-2 text-sm font-medium uppercase tracking-wider text-[var(--text-muted)]">
               Strategy
             </div>
 
@@ -218,7 +219,7 @@ export function CollaborationToggle({ disabled }: { disabled: boolean }) {
                   <Icon className="size-3.5 shrink-0" />
                   <div className="min-w-0">
                     <div className="font-medium">{option.label}</div>
-                    <div className="text-[10px] text-[var(--text-muted)]">{option.description}</div>
+                    <div className="text-sm text-[var(--text-muted)]">{option.description}</div>
                   </div>
                   {strategy === option.value && (
                     <div className="ml-auto size-1.5 rounded-full bg-[var(--collab-primary)]" />
@@ -230,11 +231,11 @@ export function CollaborationToggle({ disabled }: { disabled: boolean }) {
             {/* Debate config (only when debate is selected) */}
             {strategy === 'debate' && debateConfig && (
               <div className="mt-2 border-t border-[var(--border-default)] pt-2">
-                <div className="mb-1.5 text-[10px] font-medium uppercase tracking-wider text-[var(--text-muted)]">
+                <div className="mb-1.5 text-sm font-medium uppercase tracking-wider text-[var(--text-muted)]">
                   Debate Settings
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <label className="flex items-center justify-between text-[11px] text-[var(--text-secondary)]">
+                  <label className="flex items-center justify-between text-sm text-[var(--text-secondary)]">
                     <span>Max rounds</span>
                     <input aria-label="Max collaboration rounds"
                       type="number"
@@ -242,10 +243,10 @@ export function CollaborationToggle({ disabled }: { disabled: boolean }) {
                       max={5}
                       value={debateConfig.maxRounds}
                       onChange={(e) => handleRoundsChange(parseInt(e.target.value, 10))}
-                      className="w-12 rounded border border-[var(--border-default)] bg-[var(--bg-elevated)] px-1.5 py-0.5 text-center text-[11px] text-[var(--text-primary)]"
+                      className="w-12 rounded border border-[var(--border-default)] bg-[var(--bg-elevated)] px-1.5 py-0.5 text-center text-sm text-[var(--text-primary)]"
                     />
                   </label>
-                  <label className="flex items-center justify-between text-[11px] text-[var(--text-secondary)]">
+                  <label className="flex items-center justify-between text-sm text-[var(--text-secondary)]">
                     <span>Time limit (sec)</span>
                     <input aria-label="Collaboration time limit in seconds"
                       type="number"
@@ -254,7 +255,7 @@ export function CollaborationToggle({ disabled }: { disabled: boolean }) {
                       step={30}
                       value={debateConfig.timeLimitSec}
                       onChange={(e) => handleTimeLimitChange(parseInt(e.target.value, 10))}
-                      className="w-12 rounded border border-[var(--border-default)] bg-[var(--bg-elevated)] px-1.5 py-0.5 text-center text-[11px] text-[var(--text-primary)]"
+                      className="w-12 rounded border border-[var(--border-default)] bg-[var(--bg-elevated)] px-1.5 py-0.5 text-center text-sm text-[var(--text-primary)]"
                     />
                   </label>
                 </div>

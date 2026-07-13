@@ -90,13 +90,13 @@ export function ActivityHeatmap({ daily, metric }: { daily: DailyBucket[]; metri
     <div className="flex flex-col gap-2 overflow-x-auto">
       <div className="flex w-max gap-[3px] pl-8">
         {model.monthLabels.map((label, i) => (
-          <div key={i} className="w-[10px] text-[9px] leading-3 text-muted-foreground">
+          <div key={i} className="w-[10px] text-xs leading-3 text-muted-foreground">
             {label && <span className="absolute">{label}</span>}
           </div>
         ))}
       </div>
       <div className="flex w-max gap-1.5">
-        <div className="grid w-6 grid-rows-7 gap-[3px] text-[9px] leading-[10px] text-muted-foreground">
+        <div className="grid w-6 grid-rows-7 gap-[3px] text-xs leading-[10px] text-muted-foreground">
           {['Mon', '', 'Wed', '', 'Fri', '', ''].map((label, i) => (
             <span key={i} className="h-[10px]">
               {label}
@@ -124,17 +124,17 @@ export function ActivityHeatmap({ daily, metric }: { daily: DailyBucket[]; metri
       </div>
       <Inline gap="sm" align="center" className="pl-8">
         <Inline gap="xs" align="center">
-          <Text variant="muted" className="text-[10px]">
+          <Text variant="muted" className="text-sm">
             less
           </Text>
           {LEVEL_MIX.map((_, level) => (
             <div key={level} className="size-[10px] rounded-[2px] bg-secondary/60" style={cellStyle(level)} />
           ))}
-          <Text variant="muted" className="text-[10px]">
+          <Text variant="muted" className="text-sm">
             more
           </Text>
         </Inline>
-        <Text variant="muted" className="text-[10px]">
+        <Text variant="muted" className="text-sm">
           max {formatMetricValue(model.max, metric)}/day · today is the rightmost column
         </Text>
       </Inline>

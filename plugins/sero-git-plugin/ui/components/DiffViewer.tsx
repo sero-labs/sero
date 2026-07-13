@@ -76,17 +76,17 @@ function DiffShell({
           <div className="min-w-0">
             <div className="truncate text-xs text-[var(--g-text)] git-mono">{path}</div>
             {diff.oldPath && diff.oldPath !== path && (
-              <div className="truncate text-[10px] text-[var(--g-dim)] git-mono">
+              <div className="truncate text-sm text-[var(--g-dim)] git-mono">
                 {diff.oldPath} → {path}
               </div>
             )}
           </div>
           <div className="ml-2 flex items-center gap-1.5">
             {diff.additions > 0 && (
-              <span className="text-[10px] text-[var(--g-green)] font-medium">+{diff.additions}</span>
+              <span className="text-sm text-[var(--g-green)] font-medium">+{diff.additions}</span>
             )}
             {diff.deletions > 0 && (
-              <span className="text-[10px] text-[var(--g-red)] font-medium">-{diff.deletions}</span>
+              <span className="text-sm text-[var(--g-red)] font-medium">-{diff.deletions}</span>
             )}
           </div>
         </div>
@@ -112,13 +112,13 @@ function HunkView({ hunk, index }: { hunk: DiffHunk; index: number }) {
   return (
     <div>
       {/* Hunk header */}
-      <div className="diff-hunk px-3 py-1 text-[10px] git-mono select-none border-b border-[var(--g-border)]">
+      <div className="diff-hunk px-3 py-1 text-sm git-mono select-none border-b border-[var(--g-border)]">
         @@ -{hunk.oldStart},{hunk.oldCount} +{hunk.newStart},{hunk.newCount} @@
         {index > 0 && <span className="ml-2 text-[var(--g-dim)]">Hunk #{index + 1}</span>}
       </div>
 
       {/* Lines */}
-      <div className="font-[var(--g-mono)] text-[11px] leading-[1.6]">
+      <div className="font-[var(--g-mono)] text-sm leading-[1.6]">
         {hunk.lines.map((line) => (
           <LineView key={`${line.oldLineNo ?? ''}-${line.newLineNo ?? ''}-${line.type}-${line.content}`} line={line} />
         ))}
@@ -137,11 +137,11 @@ function LineView({ line }: { line: DiffLine }) {
   return (
     <div className={`flex ${bgClass} hover:brightness-110`}>
       {/* Old line number */}
-      <span className="w-10 shrink-0 text-right pr-1 text-[10px] text-[var(--g-dim)] select-none git-mono opacity-50">
+      <span className="w-10 shrink-0 text-right pr-1 text-sm text-[var(--g-dim)] select-none git-mono opacity-50">
         {line.oldLineNo ?? ''}
       </span>
       {/* New line number */}
-      <span className="w-10 shrink-0 text-right pr-2 text-[10px] text-[var(--g-dim)] select-none git-mono opacity-50">
+      <span className="w-10 shrink-0 text-right pr-2 text-sm text-[var(--g-dim)] select-none git-mono opacity-50">
         {line.newLineNo ?? ''}
       </span>
       {/* Prefix */}

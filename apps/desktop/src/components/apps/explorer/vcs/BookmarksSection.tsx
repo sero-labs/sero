@@ -133,7 +133,7 @@ export function BookmarksSection({
                   placeholder="feature/my-branch"
                   className={cn(
                     'h-5 flex-1 rounded border border-[var(--border-subtle)] bg-[var(--bg-base)]',
-                    'px-1.5 text-[11px] text-[var(--text-primary)]',
+                    'px-1.5 text-sm text-[var(--text-primary)]',
                     'outline-none focus:border-[var(--border-focus)]',
                   )}
                 />
@@ -156,7 +156,7 @@ export function BookmarksSection({
 
         {/* Branch list */}
         {bookmarks.length === 0 ? (
-          <div className="px-3 py-1.5 text-[11px] text-[var(--text-muted)]/60">
+          <div className="px-3 py-1.5 text-sm text-[var(--text-muted)]/60">
             No branches
           </div>
         ) : (
@@ -181,7 +181,7 @@ export function BookmarksSection({
               initial={{ opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 4 }}
-              className="mx-3 mt-1 rounded bg-[var(--bg-elevated)] px-2 py-1 text-[10px] text-[var(--text-muted)]"
+              className="mx-3 mt-1 rounded bg-[var(--bg-elevated)] px-2 py-1 text-sm text-[var(--text-muted)]"
             >
               {toastMsg}
             </motion.div>
@@ -225,15 +225,15 @@ function BookmarkRow({
       )}
     >
       <GitBranch className="size-3 shrink-0 text-[var(--text-muted)]" />
-      <span className="min-w-0 flex-1 truncate text-[11px] font-medium text-[var(--text-secondary)]">
+      <span className="min-w-0 flex-1 truncate text-sm font-medium text-[var(--text-secondary)]">
         {bookmark.name}
       </span>
       {isActive && (
-        <span className="rounded-sm border border-status-info-subtle bg-status-info-muted px-1 py-px text-[9px] text-status-info">
+        <span className="rounded-sm border border-status-info-subtle bg-status-info-muted px-1 py-px text-xs text-status-info">
           active
         </span>
       )}
-      <span className="shrink-0 font-mono text-[10px] text-[var(--text-muted)]/50">
+      <span className="shrink-0 font-mono text-sm text-[var(--text-muted)]/50">
         {bookmark.changeId.slice(0, 8)}
       </span>
 
@@ -245,7 +245,7 @@ function BookmarkRow({
         <ArrowUpCircle className="size-3 shrink-0 text-status-warning" />
       )}
       {!hasRemote && hasRemotes && (
-        <span className="text-[9px] text-[var(--text-muted)]/40">local</span>
+        <span className="text-xs text-[var(--text-muted)]/40">local</span>
       )}
 
       {/* Hover actions */}

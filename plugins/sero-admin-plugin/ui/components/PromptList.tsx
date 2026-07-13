@@ -20,7 +20,7 @@ export function PromptList({ prompts, selected, onSelect }: PromptListProps) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center p-4">
         <p className="text-xs text-muted-foreground">No prompt templates found</p>
-        <p className="mt-1 text-[10px] text-muted-foreground/60">
+        <p className="mt-1 text-sm text-muted-foreground/60">
           Click + to create one
         </p>
       </div>
@@ -40,15 +40,15 @@ export function PromptList({ prompts, selected, onSelect }: PromptListProps) {
           )}
         >
           <div className="flex min-w-0 items-center gap-1.5">
-            <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+            <span className="min-w-0 flex-1 truncate text-base font-medium text-foreground">
               /{prompt.name}
             </span>
           </div>
-          <p className="text-[11px] leading-snug text-muted-foreground break-words">
+          <p className="text-sm leading-snug text-muted-foreground break-words">
             {prompt.description || 'No description'}
           </p>
           {prompt.relativePath.includes('/') && (
-            <p className="text-[10px] text-muted-foreground/50 break-words">
+            <p className="text-sm text-muted-foreground/50 break-words">
               {prompt.relativePath}
             </p>
           )}

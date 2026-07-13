@@ -71,7 +71,7 @@ const ModelManagerItem = memo(function ModelManagerItem({
         {model.reasoning && (
           <Sparkles className="size-3 shrink-0 text-status-warning/60" />
         )}
-        <span className="hidden truncate text-[10px] text-[var(--text-muted)] group-hover:inline">
+        <span className="hidden truncate text-sm text-[var(--text-muted)] group-hover:inline">
           {providerName}
         </span>
       </div>

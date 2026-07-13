@@ -45,7 +45,7 @@ export function DoctorPanel({ safeMode = false }: Props) {
   return (
     <div className="p-4 max-w-3xl mx-auto">
       {safeMode && (
-        <div className="mb-4 rounded border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm">
+        <div className="mb-4 rounded border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-base">
           <strong className="font-semibold">Recovery mode</strong>, Sero is not
           running normally. Some checks (workspace, providers) are skipped.
         </div>
@@ -58,7 +58,7 @@ export function DoctorPanel({ safeMode = false }: Props) {
             type="button"
             disabled={runState.running}
             onClick={() => runQuick()}
-            className="rounded border border-border px-3 py-1 text-sm hover:bg-accent disabled:opacity-50"
+            className="rounded border border-border px-3 py-1 text-base hover:bg-accent disabled:opacity-50"
           >
             Quick
           </button>
@@ -66,7 +66,7 @@ export function DoctorPanel({ safeMode = false }: Props) {
             type="button"
             disabled={runState.running}
             onClick={() => run()}
-            className="rounded border border-border px-3 py-1 text-sm hover:bg-accent disabled:opacity-50"
+            className="rounded border border-border px-3 py-1 text-base hover:bg-accent disabled:opacity-50"
           >
             Re-run
           </button>
@@ -74,7 +74,7 @@ export function DoctorPanel({ safeMode = false }: Props) {
             type="button"
             disabled={!report || runState.running}
             onClick={() => exportReport()}
-            className="rounded border border-border px-3 py-1 text-sm hover:bg-accent disabled:opacity-50"
+            className="rounded border border-border px-3 py-1 text-base hover:bg-accent disabled:opacity-50"
           >
             Export
           </button>
@@ -82,7 +82,7 @@ export function DoctorPanel({ safeMode = false }: Props) {
             type="button"
             disabled={!report || runState.running}
             onClick={() => copyReport('json')}
-            className="rounded border border-border px-3 py-1 text-sm hover:bg-accent disabled:opacity-50"
+            className="rounded border border-border px-3 py-1 text-base hover:bg-accent disabled:opacity-50"
           >
             Copy JSON
           </button>
@@ -90,19 +90,19 @@ export function DoctorPanel({ safeMode = false }: Props) {
       </header>
 
       {error && (
-        <div className="mb-3 rounded border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-sm">
+        <div className="mb-3 rounded border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-base">
           {error}
         </div>
       )}
 
       {runState.running && (
-        <div className="mb-3 text-sm text-muted-foreground">
+        <div className="mb-3 text-base text-muted-foreground">
           Running diagnostics… ({runState.inFlight} checks complete)
         </div>
       )}
 
       {!report && !runState.running && (
-        <div className="rounded border border-dashed border-border p-4 text-sm text-muted-foreground">
+        <div className="rounded border border-dashed border-border p-4 text-base text-muted-foreground">
           Press <strong>Re-run</strong> or <strong>Quick</strong> to gather
           diagnostics.
         </div>

@@ -39,7 +39,7 @@ export function ToolFileLinks({
               event.stopPropagation();
               requestOpenFile(workspaceId, editorPath);
             }}
-            className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-[var(--accent-primary)]/40 bg-[var(--accent-primary)]/10 px-2 py-1 text-left text-[11px] font-medium text-[var(--accent-primary)] underline-offset-2 transition-colors hover:bg-[var(--accent-primary)]/15 hover:underline"
+            className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-[var(--accent-primary)]/40 bg-[var(--accent-primary)]/10 px-2 py-1 text-left text-sm font-medium text-[var(--accent-primary)] underline-offset-2 transition-colors hover:bg-[var(--accent-primary)]/15 hover:underline"
             title={`Open ${filePath} in editor`}
           >
             <ImageIcon className="size-3 shrink-0" />

@@ -47,11 +47,11 @@ export function VcsSection({
           >
             <ChevronRight className="size-3 text-[var(--text-muted)]" />
           </motion.div>
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+          <span className="text-sm font-semibold uppercase tracking-wider text-[var(--text-muted)]">
             {title}
           </span>
           {count !== undefined && count > 0 && (
-            <span className="ml-0.5 rounded-full bg-[var(--bg-muted)] px-1.5 text-[10px] font-medium text-[var(--text-muted)]">
+            <span className="ml-0.5 rounded-full bg-[var(--bg-muted)] px-1.5 text-sm font-medium text-[var(--text-muted)]">
               {count}
             </span>
           )}

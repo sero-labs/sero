@@ -24,7 +24,7 @@ export function AttentionQueue({ loops, busy, onAction, onOpenLoop }: AttentionQ
   const suggestions = loops.flatMap((l) => (l.attention?.suggestions ?? []).map((s) => ({ loop: l, suggestion: s })));
 
   if (inputs.length === 0 && suggestions.length === 0) {
-    return <p className="text-sm text-muted-foreground">Nothing needs you right now.</p>;
+    return <p className="text-base text-muted-foreground">Nothing needs you right now.</p>;
   }
 
   return (
@@ -55,14 +55,14 @@ function AttentionInputCard({ loop, input, busy, onAction, onOpenLoop }: { loop:
   return (
     <Card className="flex flex-col gap-2 border-amber-500/30 bg-amber-500/[0.06] p-3">
       <div className="flex items-center gap-2">
-        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-amber-500/20 text-[11px] font-bold text-amber-400">?</span>
-        <span className="text-sm font-semibold text-amber-400">{fromPlanner ? 'Planner needs answers' : 'Waiting on your answer'}</span>
+        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-amber-500/20 text-sm font-bold text-amber-400">?</span>
+        <span className="text-base font-semibold text-amber-400">{fromPlanner ? 'Planner needs answers' : 'Waiting on your answer'}</span>
         <span className="ml-auto"><OpenLink title="Open" onClick={() => onOpenLoop(loop.id)} /></span>
       </div>
-      <span className="text-sm font-medium">{loop.title}</span>
+      <span className="text-base font-medium">{loop.title}</span>
       {input.questions.map((q) => (
         <div key={q.id} className="flex flex-col gap-2">
-          <p className="text-sm text-muted-foreground">{q.prompt}</p>
+          <p className="text-base text-muted-foreground">{q.prompt}</p>
           {q.attachment && (
             <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded-md border border-border bg-muted/40 p-2 text-xs">
               {q.attachment}
@@ -81,7 +81,7 @@ function AttentionInputCard({ loop, input, busy, onAction, onOpenLoop }: { loop:
             value={draft[q.id]?.text ?? ''}
             onChange={(e) => setDraft((d) => withText(d, q.id, e.target.value))}
             placeholder={q.choices?.length ? 'Or type your own answer…' : 'Type your answer…'}
-            className="min-h-12 text-sm"
+            className="min-h-12 text-base"
           />
         </div>
       ))}
@@ -107,15 +107,15 @@ function AttentionSuggestionCard({ loop, suggestion, busy, onAction, onOpenLoop 
     <Card className="flex flex-col gap-2 border-sky-500/30 bg-sky-500/[0.06] p-3">
       <div className="flex items-center gap-2">
         <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-sky-500/20 text-sky-400"><Sparkles className="h-3 w-3" /></span>
-        <span className="text-sm font-semibold text-sky-400">Suggested improvement</span>
-        <span className="ml-auto text-[10px] uppercase tracking-wide text-muted-foreground">conf. {CONFIDENCE_LABEL[suggestion.confidence]}</span>
+        <span className="text-base font-semibold text-sky-400">Suggested improvement</span>
+        <span className="ml-auto text-sm uppercase tracking-wide text-muted-foreground">conf. {CONFIDENCE_LABEL[suggestion.confidence]}</span>
       </div>
-      <span className="text-sm font-medium">{loop.title}</span>
-      <p className="text-sm text-muted-foreground">{suggestion.rationale}</p>
+      <span className="text-base font-medium">{loop.title}</span>
+      <p className="text-base text-muted-foreground">{suggestion.rationale}</p>
       <span className="text-xs text-muted-foreground">Changes {suggestion.changedStepCount} step(s).</span>
       {rejecting ? (
         <div className="flex flex-col gap-2">
-          <Textarea value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Why reject? (helps future suggestions)" className="min-h-11 text-sm" />
+          <Textarea value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Why reject? (helps future suggestions)" className="min-h-11 text-base" />
           <div className="flex justify-end gap-2">
             <Button size="sm" variant="ghost" disabled={busy} onClick={() => setRejecting(false)}>Cancel</Button>
             <Button size="sm" variant="outline" disabled={busy} onClick={() => onAction({ kind: 'choose_suggestion', loopId: loop.id, suggestionId: suggestion.id, decision: 'reject', rejectionReason: reason.trim() || undefined })}>

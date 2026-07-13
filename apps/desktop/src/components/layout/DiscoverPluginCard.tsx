@@ -76,11 +76,11 @@ export function DiscoverPluginCard({
 
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <span className="truncate text-sm font-medium text-[var(--text-primary)]">
+            <span className="truncate text-base font-medium text-[var(--text-primary)]">
               {plugin.displayName}
             </span>
             {plugin.version ? (
-              <span className="shrink-0 text-[11px] text-[var(--text-muted)]">
+              <span className="shrink-0 text-sm text-[var(--text-muted)]">
                 v{plugin.version}
               </span>
             ) : null}
@@ -101,7 +101,7 @@ export function DiscoverPluginCard({
           {plugin.stars > 0 ? (
             <Badge
               variant="outline"
-              className="gap-1 border-[var(--border-default)] text-[11px] text-[var(--text-muted)]"
+              className="gap-1 border-[var(--border-default)] text-sm text-[var(--text-muted)]"
             >
               <Star className="size-3" />
               {plugin.stars}
@@ -110,7 +110,7 @@ export function DiscoverPluginCard({
           {plugin.npmPackage ? (
             <Badge
               variant="outline"
-              className="gap-1 border-status-error-border bg-status-error-muted text-[11px] text-status-error"
+              className="gap-1 border-status-error-border bg-status-error-muted text-sm text-status-error"
             >
               <Package className="size-3" />
               npm
@@ -119,7 +119,7 @@ export function DiscoverPluginCard({
           {plugin.githubUrl ? (
             <Badge
               variant="outline"
-              className="gap-1 border-[var(--border-default)] text-[11px] text-[var(--text-muted)]"
+              className="gap-1 border-[var(--border-default)] text-sm text-[var(--text-muted)]"
             >
               <Github className="size-3" />
               GitHub

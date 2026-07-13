@@ -225,8 +225,8 @@ export function GitRemotePublishSection({
     <section className="space-y-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)]/35 p-3">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-[12px] font-semibold text-[var(--text-primary)]">Publish</h3>
-          <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
+          <h3 className="text-base font-semibold text-[var(--text-primary)]">Publish</h3>
+          <p className="mt-0.5 text-sm text-[var(--text-muted)]">
             Add an origin so this workspace can push and open PRs.
           </p>
         </div>
@@ -251,10 +251,10 @@ export function GitRemotePublishSection({
             )}
           >
             <div className="space-y-1">
-              <p className="text-[11px] font-medium text-[var(--text-primary)]">
+              <p className="text-sm font-medium text-[var(--text-primary)]">
                 {authRequired ? 'GitHub connection required' : 'GitHub connection'}
               </p>
-              <p className="text-[11px] leading-relaxed text-[var(--text-secondary)]">
+              <p className="text-sm leading-relaxed text-[var(--text-secondary)]">
                 {githubNoticeDescription}
               </p>
             </div>
@@ -280,7 +280,7 @@ export function GitRemotePublishSection({
             ) : null}
           </div>
 
-          <label htmlFor="publish-repo-name" className="space-y-1 text-[10px] uppercase tracking-[0.16em] text-[var(--text-muted)]">
+          <label htmlFor="publish-repo-name" className="space-y-1 text-sm uppercase tracking-[0.16em] text-[var(--text-muted)]">
             <span>Repository name</span>
             <Input
               id="publish-repo-name"
@@ -288,7 +288,7 @@ export function GitRemotePublishSection({
               onChange={(event) => setName(event.target.value)}
               placeholder="my-project"
               disabled={action === 'github'}
-              className="h-8 text-[11px]"
+              className="h-8 text-sm"
             />
           </label>
 
@@ -310,7 +310,7 @@ export function GitRemotePublishSection({
           <Button
             onClick={() => void handleCreateGitHub()}
             disabled={!name.trim() || action !== null}
-            className="h-8 w-full rounded-lg bg-[var(--accent-primary)] text-[11px] font-semibold text-[var(--text-inverse)] hover:bg-[var(--accent-hover)]"
+            className="h-8 w-full rounded-lg bg-[var(--accent-primary)] text-sm font-semibold text-[var(--text-inverse)] hover:bg-[var(--accent-hover)]"
           >
             {action === 'github' ? <Loader2 className="mr-1 size-3.5 animate-spin" /> : <Rocket className="mr-1 size-3.5" />}
             Create repo + publish
@@ -318,11 +318,11 @@ export function GitRemotePublishSection({
         </div>
       ) : (
         <div className="space-y-3">
-          <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-base)] px-3 py-2 text-[11px] leading-relaxed text-[var(--text-muted)]">
+          <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-base)] px-3 py-2 text-sm leading-relaxed text-[var(--text-muted)]">
             Point <span className="font-medium text-[var(--text-primary)]">origin</span> at an existing GitHub or Git remote.
           </div>
 
-          <label htmlFor="publish-remote-url" className="space-y-1 text-[10px] uppercase tracking-[0.16em] text-[var(--text-muted)]">
+          <label htmlFor="publish-remote-url" className="space-y-1 text-sm uppercase tracking-[0.16em] text-[var(--text-muted)]">
             <span>Remote URL</span>
             <Input
               id="publish-remote-url"
@@ -330,14 +330,14 @@ export function GitRemotePublishSection({
               onChange={(event) => setRemoteUrl(event.target.value)}
               placeholder="https://github.com/you/repo.git"
               disabled={action === 'existing'}
-              className="h-8 text-[11px]"
+              className="h-8 text-sm"
             />
           </label>
 
           <Button
             onClick={() => void handleConnectExisting()}
             disabled={!remoteUrl.trim() || action !== null}
-            className="h-8 w-full rounded-lg bg-[var(--accent-primary)] text-[11px] font-semibold text-[var(--text-inverse)] hover:bg-[var(--accent-hover)]"
+            className="h-8 w-full rounded-lg bg-[var(--accent-primary)] text-sm font-semibold text-[var(--text-inverse)] hover:bg-[var(--accent-hover)]"
           >
             {action === 'existing' ? <Loader2 className="mr-1 size-3.5 animate-spin" /> : <Link2 className="mr-1 size-3.5" />}
             Connect origin
@@ -347,7 +347,7 @@ export function GitRemotePublishSection({
 
       {feedback && (
         <div className={cn(
-          'rounded-xl border px-3 py-2 text-[11px] leading-relaxed',
+          'rounded-xl border px-3 py-2 text-sm leading-relaxed',
           feedback.tone === 'success' && 'border-status-success-border bg-status-success-faint text-status-success',
           feedback.tone === 'error' && 'border-status-error-border bg-status-error-faint text-status-error',
           feedback.tone === 'info' && 'border-status-info-border bg-status-info-faint text-status-info',
@@ -382,7 +382,7 @@ function ModeButton({
     <button type="button"
       onClick={onClick}
       className={cn(
-        'inline-flex h-7 items-center gap-1.5 rounded-full px-2.5 text-[10px] font-medium transition-colors',
+        'inline-flex h-7 items-center gap-1.5 rounded-full px-2.5 text-sm font-medium transition-colors',
         active
           ? 'bg-[var(--bg-elevated)] text-[var(--text-primary)]'
           : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]',
@@ -408,7 +408,7 @@ function VisibilityButton({
     <button type="button"
       onClick={onClick}
       className={cn(
-        'flex h-8 items-center justify-center gap-1.5 rounded-lg border text-[11px] font-medium transition-colors',
+        'flex h-8 items-center justify-center gap-1.5 rounded-lg border text-sm font-medium transition-colors',
         active
           ? 'border-[var(--accent-primary)]/30 bg-[var(--accent-muted)] text-[var(--accent-primary)]'
           : 'border-[var(--border-subtle)] bg-[var(--bg-base)] text-[var(--text-secondary)] hover:bg-[var(--bg-muted)]',

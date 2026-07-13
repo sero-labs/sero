@@ -182,29 +182,29 @@ export function GitPullRequestComposer({
   return (
     <section className="space-y-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)]/35 p-3">
       <div className="flex items-center justify-between">
-        <h3 className="text-[12px] font-semibold text-[var(--text-primary)]">Pull request</h3>
-        <span className="text-[10px] text-[var(--text-muted)]">
+        <h3 className="text-base font-semibold text-[var(--text-primary)]">Pull request</h3>
+        <span className="text-sm text-[var(--text-muted)]">
           {preview?.changedFiles ? `${preview.changedFiles} files` : 'Draft lane'}
         </span>
       </div>
 
       {!hasRemote ? (
-        <p className="text-[11px] leading-relaxed text-[var(--text-muted)]">
+        <p className="text-sm leading-relaxed text-[var(--text-muted)]">
           Publish this repository first. Once an origin exists, the PR composer appears here automatically.
         </p>
       ) : !prState ? (
-        <div className="flex items-center gap-2 text-[11px] text-[var(--text-muted)]">
+        <div className="flex items-center gap-2 text-sm text-[var(--text-muted)]">
           <Loader2 className="size-3.5 animate-spin" /> Preparing branch targets…
         </div>
       ) : (
         <>
           <div className="grid grid-cols-2 gap-2">
-            <label className="space-y-1 text-[10px] uppercase tracking-[0.16em] text-[var(--text-muted)]">
+            <label className="space-y-1 text-sm uppercase tracking-[0.16em] text-[var(--text-muted)]">
               <span>Source</span>
               <select aria-label="Source branch"
                 value={sourceBranch}
                 onChange={(event) => setSourceBranch(event.target.value)}
-                className="h-8 w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-base)] px-2 text-[11px] text-[var(--text-primary)] outline-none"
+                className="h-8 w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-base)] px-2 text-sm text-[var(--text-primary)] outline-none"
               >
                 <option value="">Select branch</option>
                 {prState.sourceBranches.map((branch) => (
@@ -212,12 +212,12 @@ export function GitPullRequestComposer({
                 ))}
               </select>
             </label>
-            <label className="space-y-1 text-[10px] uppercase tracking-[0.16em] text-[var(--text-muted)]">
+            <label className="space-y-1 text-sm uppercase tracking-[0.16em] text-[var(--text-muted)]">
               <span>Target</span>
               <select aria-label="Target branch"
                 value={targetBranch}
                 onChange={(event) => setTargetBranch(event.target.value)}
-                className="h-8 w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-base)] px-2 text-[11px] text-[var(--text-primary)] outline-none"
+                className="h-8 w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-base)] px-2 text-sm text-[var(--text-primary)] outline-none"
               >
                 {prState.targetBranches.map((branch) => (
                   <option key={branch} value={branch}>{branch}</option>
@@ -228,7 +228,7 @@ export function GitPullRequestComposer({
 
           <div
             className={cn(
-              'rounded-lg border px-2.5 py-2 text-[10px] leading-relaxed',
+              'rounded-lg border px-2.5 py-2 text-sm leading-relaxed',
               preview?.blockingReason
                 ? 'border-status-warning-border bg-status-warning-faint text-status-warning'
                 : 'border-[var(--border-subtle)] bg-[var(--bg-base)] text-[var(--text-muted)]',
@@ -258,14 +258,14 @@ export function GitPullRequestComposer({
             value={title}
             onChange={(event) => setTitle(event.target.value)}
             placeholder="Polish the PR title"
-            className="h-8 w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-base)] px-3 text-[11px] text-[var(--text-primary)] outline-none"
+            className="h-8 w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-base)] px-3 text-sm text-[var(--text-primary)] outline-none"
           />
           <textarea aria-label="Pull request description"
             value={body}
             onChange={(event) => setBody(event.target.value)}
             rows={4}
             placeholder="Explain what changed and what reviewers should focus on"
-            className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-base)] px-3 py-2 text-[11px] text-[var(--text-primary)] outline-none"
+            className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-base)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none"
           />
 
           <div className="flex items-center gap-2">
@@ -273,7 +273,7 @@ export function GitPullRequestComposer({
               variant="ghost"
               onClick={() => void handleGenerateDraft()}
               disabled={!sourceBranch.trim() || action === 'draft' || action === 'pr'}
-              className="h-8 rounded-lg border border-[var(--border-subtle)] px-3 text-[11px] text-[var(--text-secondary)] hover:bg-[var(--bg-muted)]"
+              className="h-8 rounded-lg border border-[var(--border-subtle)] px-3 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-muted)]"
             >
               {action === 'draft' ? <Loader2 className="mr-1 size-3.5 animate-spin" /> : <Sparkles className="mr-1 size-3.5" />}
               Draft with AI
@@ -281,7 +281,7 @@ export function GitPullRequestComposer({
             <Button
               onClick={() => void handleCreatePr()}
               disabled={createDisabled}
-              className="h-8 rounded-lg bg-[var(--accent-primary)] px-3 text-[11px] font-semibold text-[var(--text-inverse)] hover:bg-[var(--accent-hover)]"
+              className="h-8 rounded-lg bg-[var(--accent-primary)] px-3 text-sm font-semibold text-[var(--text-inverse)] hover:bg-[var(--accent-hover)]"
             >
               {action === 'pr' ? <Loader2 className="mr-1 size-3.5 animate-spin" /> : <Github className="mr-1 size-3.5" />}
               Create PR
@@ -292,7 +292,7 @@ export function GitPullRequestComposer({
 
       {feedback && (
         <div className={cn(
-          'rounded-xl border px-3 py-2 text-[11px] leading-relaxed',
+          'rounded-xl border px-3 py-2 text-sm leading-relaxed',
           feedback.tone === 'success' && 'border-status-success-border bg-status-success-faint text-status-success',
           feedback.tone === 'error' && 'border-status-error-border bg-status-error-faint text-status-error',
           feedback.tone === 'info' && 'border-status-info-border bg-status-info-faint text-status-info',

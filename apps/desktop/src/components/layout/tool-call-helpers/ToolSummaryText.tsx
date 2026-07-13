@@ -38,7 +38,7 @@ export function ToolSummaryText({
     <span
       onClick={handleClick}
       className={cn(
-        'min-w-0 truncate text-[11px] text-[var(--text-secondary)]',
+        'min-w-0 truncate text-[var(--text-secondary)]',
         isFilePath &&
           workspaceId &&
           'cursor-pointer underline decoration-dotted decoration-[var(--text-muted)]/60 underline-offset-2 hover:text-[var(--text-primary)] hover:decoration-[var(--accent-primary)]',

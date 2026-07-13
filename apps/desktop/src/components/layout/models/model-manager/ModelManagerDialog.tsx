@@ -57,10 +57,10 @@ export function ModelManagerDialog({ open, onOpenChange }: ModelManagerDialogPro
 
         <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-4 pb-3 pt-4">
           <div>
-            <h2 className="text-sm font-semibold text-[var(--text-primary)]">
+            <h2 className="text-base font-semibold text-[var(--text-primary)]">
               Model Manager
             </h2>
-            <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
+            <p className="mt-0.5 text-sm text-[var(--text-muted)]">
               Manage favourites and visibility for {counts.all} models
             </p>
           </div>
@@ -111,7 +111,7 @@ export function ModelManagerDialog({ open, onOpenChange }: ModelManagerDialogPro
               <div className="flex items-center justify-end gap-1 border-b border-[var(--border-subtle)] px-4 py-1.5">
                 <button type="button"
                   onClick={handleHideAll}
-                  className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]"
+                  className="flex items-center gap-1 rounded-md px-2 py-1 text-sm font-medium text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]"
                 >
                   <EyeOff className="size-3" />
                   {filter ? 'Hide matches' : 'Hide all'}
@@ -119,7 +119,7 @@ export function ModelManagerDialog({ open, onOpenChange }: ModelManagerDialogPro
                 {hasFavouritesInView ? (
                   <button type="button"
                     onClick={handleHideAllIncludingFavourites}
-                    className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]"
+                    className="flex items-center gap-1 rounded-md px-2 py-1 text-sm font-medium text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]"
                   >
                     <EyeOff className="size-3" />
                     {filter ? 'incl. favourites' : 'Hide all incl. favourites'}
@@ -131,7 +131,7 @@ export function ModelManagerDialog({ open, onOpenChange }: ModelManagerDialogPro
               <div className="flex items-center justify-end border-b border-[var(--border-subtle)] px-4 py-1.5">
                 <button type="button"
                   onClick={handleShowAll}
-                  className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]"
+                  className="flex items-center gap-1 rounded-md px-2 py-1 text-sm font-medium text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]"
                 >
                   <Eye className="size-3" />
                   Show all

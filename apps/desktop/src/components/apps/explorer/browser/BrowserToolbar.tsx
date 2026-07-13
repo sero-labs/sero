@@ -94,7 +94,7 @@ export function BrowserToolbar({
         spellCheck={false}
         autoComplete="off"
         className={cn(
-          'mx-1 h-6 flex-1 rounded bg-[var(--bg-base)] px-2 text-xs',
+          'mx-1 h-6 flex-1 rounded bg-[var(--bg-base)] px-2 text-sm',
           'border border-[var(--border-subtle)] text-[var(--text-primary)]',
           'placeholder:text-[var(--text-muted)]',
           'focus:border-[var(--border-default)] focus:outline-none',

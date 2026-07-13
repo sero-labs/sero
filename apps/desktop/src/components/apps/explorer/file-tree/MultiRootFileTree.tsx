@@ -101,7 +101,7 @@ const RootSection = memo(function RootSection({
       )}
       data-root-id={root.id}
     >
-      <div className="group flex h-7 shrink-0 items-center gap-1 pr-2 text-[11px] font-medium uppercase tracking-wider text-[var(--text-muted)]">
+      <div className="group flex h-7 shrink-0 items-center gap-1 pr-2 text-sm font-medium uppercase tracking-wider text-[var(--text-muted)]">
         <button
           type="button"
           onClick={toggle}
@@ -117,7 +117,7 @@ const RootSection = memo(function RootSection({
           <span className="flex-1 truncate text-left">{root.name}</span>
         </button>
         {isAttachedFolder && (
-          <span className="rounded bg-[var(--bg-elevated)] px-1 py-px text-[9px] font-normal normal-case tracking-normal text-[var(--text-muted)]">
+          <span className="rounded bg-[var(--bg-elevated)] px-1 py-px text-xs font-normal normal-case tracking-normal text-[var(--text-muted)]">
             attached
           </span>
         )}

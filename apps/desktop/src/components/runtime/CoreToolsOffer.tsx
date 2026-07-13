@@ -97,7 +97,7 @@ export function CoreToolsOffer({ reason, className, autoInstall = false }: CoreT
 
   return (
     <div className={cn(
-      'rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)]/60 p-3 text-sm text-[var(--text-secondary)]',
+      'rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)]/60 p-3 text-base text-[var(--text-secondary)]',
       className,
     )}
     >

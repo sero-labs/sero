@@ -101,7 +101,7 @@ function PermissionGateCard({ question }: { question: UserFeedbackPendingQuestio
 
       {/* Command display */}
       <div className="border-t border-status-warning-border px-3 pt-2.5 pb-2">
-        <code className="block whitespace-pre-wrap break-all rounded-md border border-status-error-border bg-status-error-muted px-2.5 py-1.5 font-mono text-[12px] leading-relaxed text-status-error">
+        <code className="block whitespace-pre-wrap break-all rounded-md border border-status-error-border bg-status-error-muted px-2.5 py-1.5 font-mono text-base leading-relaxed text-status-error">
           {command}
         </code>
       </div>
@@ -124,7 +124,7 @@ function PermissionGateCard({ question }: { question: UserFeedbackPendingQuestio
         >
           Block
         </Button>
-        <span className="ml-auto text-[10px] text-[var(--text-muted)]">
+        <span className="ml-auto text-sm text-[var(--text-muted)]">
           Esc to block
         </span>
       </div>
@@ -204,7 +204,7 @@ function QuestionCardInner({ question }: { question: UserFeedbackPendingQuestion
 
       {/* Question content */}
       <div className="border-t border-[var(--border-subtle)] px-3 pt-2.5 pb-1">
-        <p className="text-sm text-[var(--text-primary)]">{q.prompt}</p>
+        <p className="text-base text-[var(--text-primary)]">{q.prompt}</p>
       </div>
 
       {/* Options */}
@@ -218,13 +218,13 @@ function QuestionCardInner({ question }: { question: UserFeedbackPendingQuestion
               'hover:bg-[var(--bg-elevated)]/80',
             )}
           >
-            <span className="mt-px text-[11px] font-medium text-[var(--text-muted)]">
+            <span className="mt-px text-sm font-medium text-[var(--text-muted)]">
               {i + 1}.
             </span>
             <div className="min-w-0 flex-1">
-              <span className="text-[13px] text-[var(--text-primary)]">{opt.label}</span>
+              <span className="text-base text-[var(--text-primary)]">{opt.label}</span>
               {opt.description && (
-                <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">{opt.description}</p>
+                <p className="mt-0.5 text-sm text-[var(--text-muted)]">{opt.description}</p>
               )}
             </div>
           </button>
@@ -237,7 +237,7 @@ function QuestionCardInner({ question }: { question: UserFeedbackPendingQuestion
             className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left hover:bg-[var(--bg-elevated)]/80"
           >
             <Pencil className="size-3 text-[var(--text-muted)]" />
-            <span className="text-[13px] text-[var(--text-muted)]">Type something…</span>
+            <span className="text-base text-[var(--text-muted)]">Type something…</span>
           </button>
         )}
 
@@ -257,7 +257,7 @@ function QuestionCardInner({ question }: { question: UserFeedbackPendingQuestion
                 }
               }}
               placeholder="Type your answer…"
-              className="flex-1 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-base)] px-2.5 py-1 text-[13px] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-1 focus:ring-status-info-border"
+              className="flex-1 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-base)] px-2.5 py-1 text-base text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-1 focus:ring-status-info-border"
             />
             <Button
               size="sm"

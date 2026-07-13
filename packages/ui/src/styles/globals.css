@@ -116,7 +116,7 @@
   /* Typography (themeable) */
   --font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', Menlo, monospace;
-  --font-size-base: 14px;
+  --font-size-base: 13px;
 
   /* Spacing */
   --space-xs: 4px;
@@ -132,7 +132,7 @@
 
   /* Sero font sizes (legacy — use Tailwind text-* for new components) */
   --sero-text-xs: 12px;
-  --sero-text-sm: 13px;
+  --sero-text-base: 13px;
   --sero-text-base: 14px;
   --sero-text-lg: 15px;
   --sero-text-xl: 16px;
@@ -236,6 +236,12 @@
 }
 
 @theme inline {
+  --text-xs: 0.7857rem;              /* 11px / 14px */
+  --text-xs--line-height: 1rem;       /* 14px / 14px */
+  
+  --text-sm: 0.8571rem;              /* 12px / 14px */
+  --text-sm--line-height: 1.1429rem; /* 16px / 14px */
+
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -483,7 +489,7 @@
 }
 
 html {
-  font-size: var(--font-size-base, 14px);
+  font-size: var(--font-size-base, 13px);
   font-family: var(--font-sans);
 }
 

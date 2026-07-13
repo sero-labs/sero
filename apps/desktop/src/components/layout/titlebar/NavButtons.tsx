@@ -31,14 +31,14 @@ export function NavButtons() {
         disabled={!backTarget}
         onClick={navigateBack}
       >
-        <ChevronLeft className="size-4" />
+        <ChevronLeft className="size-5" />
       </NavButton>
       <NavButton
         label={forwardLabel ? `Forward to ${forwardLabel}` : 'Forward'}
         disabled={!forwardTarget}
         onClick={navigateForward}
       >
-        <ChevronRight className="size-4" />
+        <ChevronRight className="size-5" />
       </NavButton>
     </>
   );

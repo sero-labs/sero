@@ -163,8 +163,8 @@ function AuthBrowserPlaceholder({
   return (
     <div className={cn('flex size-full items-center justify-center rounded-xl border border-dashed border-border bg-muted/20 p-6 text-center', className)}>
       <div className="max-w-md space-y-2">
-        <div className="text-sm font-medium text-foreground">Embedded auth browser</div>
-        <p className="text-sm text-muted-foreground">{message}</p>
+        <div className="text-base font-medium text-foreground">Embedded auth browser</div>
+        <p className="text-base text-muted-foreground">{message}</p>
       </div>
     </div>
   );

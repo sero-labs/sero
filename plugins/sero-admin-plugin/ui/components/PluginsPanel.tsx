@@ -26,8 +26,8 @@ export const PluginsPanel = memo(function PluginsPanel() {
               <PlugZap className="size-4" />
             </div>
             <div className="min-w-0 space-y-1">
-              <h2 className="text-sm font-semibold text-[var(--text-primary)]">Plugins</h2>
-              <p className="max-w-3xl text-[11px] leading-5 text-[var(--text-muted)]">
+              <h2 className="text-base font-semibold text-[var(--text-primary)]">Plugins</h2>
+              <p className="max-w-3xl text-sm leading-5 text-[var(--text-muted)]">
                 Manage packaged plugin installs, local plugin development sessions for this profile,
                 and Attached folders when you want local source trees visible in Explorer without
                 changing plugin activation.
@@ -38,19 +38,19 @@ export const PluginsPanel = memo(function PluginsPanel() {
           <div className="flex flex-wrap gap-2">
             <Badge
               variant="outline"
-              className="border-[var(--banner-primary-border)] bg-[var(--banner-primary-muted)] text-[10px] text-[var(--banner-primary)]"
+              className="border-[var(--banner-primary-border)] bg-[var(--banner-primary-muted)] text-sm text-[var(--banner-primary)]"
             >
               {installed.plugins.length} installed
             </Badge>
             <Badge
               variant="outline"
-              className="border-status-info-border bg-status-info-muted text-[10px] text-status-info"
+              className="border-status-info-border bg-status-info-muted text-sm text-status-info"
             >
               {devSessions.sessions.length} local sessions
             </Badge>
             <Badge
               variant="outline"
-              className="border-[var(--collab-primary-border)] bg-[var(--collab-primary-muted)] text-[10px] text-[var(--collab-primary)]"
+              className="border-[var(--collab-primary-border)] bg-[var(--collab-primary-muted)] text-sm text-[var(--collab-primary)]"
             >
               {attached.attachedFolders.length} attached folders
             </Badge>

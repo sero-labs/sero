@@ -121,7 +121,7 @@ export function BranchPanel({
             />
           ))}
           {remoteGroups.length === 0 && (
-            <div className="px-3 py-2 text-[11px] text-[var(--g-dim)]">No remote branches</div>
+            <div className="px-3 py-2 text-sm text-[var(--g-dim)]">No remote branches</div>
           )}
         </Section>
 

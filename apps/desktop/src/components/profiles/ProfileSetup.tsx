@@ -29,7 +29,7 @@ export function ProfileSetup() {
         {/* ── Branding ─────────────────────────────────────── */}
         <div className="flex flex-col items-center gap-3">
           <img src={seroLogoDarkUrl} alt="Sero" className="h-16 w-auto" draggable={false} />
-          <p className="max-w-xs text-center text-sm text-[var(--text-muted)]">
+          <p className="max-w-xs text-center text-base text-[var(--text-muted)]">
             Create a profile to get started. Each profile has its own
             workspaces, sessions, and settings.
           </p>

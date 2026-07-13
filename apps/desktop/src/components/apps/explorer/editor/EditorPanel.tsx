@@ -31,7 +31,7 @@ function EmptyEditorState() {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-2 text-[var(--text-muted)]">
       <FileCode2 className="size-10 opacity-40" />
-      <p className="text-sm font-medium text-[var(--text-secondary)]">No file open</p>
+      <p className="text-base font-medium text-[var(--text-secondary)]">No file open</p>
       <p className="max-w-[260px] text-center text-xs leading-relaxed">
         Select a file from the explorer or let your agent create one
       </p>
@@ -150,7 +150,7 @@ export function EditorPanel({
         }
       />
       {statusNotice ? (
-        <div className="border-b border-status-warning-border bg-status-warning-faint px-3 py-2 text-[11px] text-[var(--status-warning-text)]">
+        <div className="border-b border-status-warning-border bg-status-warning-faint px-3 py-2 text-sm text-[var(--status-warning-text)]">
           {statusNotice}
         </div>
       ) : null}

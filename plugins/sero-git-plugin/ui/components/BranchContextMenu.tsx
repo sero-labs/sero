@@ -37,11 +37,11 @@ export function BranchContextMenu({
         <div className="w-full">{children}</div>
       </ContextMenuTrigger>
       <ContextMenuContent className="w-56">
-        <div className="px-3 py-1.5 text-[10px] uppercase tracking-wider text-[var(--g-dim)] git-mono">
+        <div className="px-3 py-1.5 text-sm uppercase tracking-wider text-[var(--g-dim)] git-mono">
           {branch.name}
         </div>
         {branch.checkedOutIn && (
-          <div className="px-3 pb-1.5 text-[10px] text-[var(--g-dim)] git-mono">
+          <div className="px-3 pb-1.5 text-sm text-[var(--g-dim)] git-mono">
             {branch.checkedOutIn}
           </div>
         )}

@@ -110,12 +110,12 @@ function ToolActivityFeed({ activity }: { activity: SubagentToolActivity[] }) {
           ) : (
             <span className="size-1.5 shrink-0 rounded-full bg-status-success" />
           )}
-          <span className="shrink-0 text-[10px]"><ToolIcon name={item.toolName} /></span>
-          <span className="shrink-0 text-[10px] font-medium text-[var(--text-muted)]">
+          <span className="shrink-0 text-sm"><ToolIcon name={item.toolName} /></span>
+          <span className="shrink-0 text-sm font-medium text-[var(--text-muted)]">
             {item.toolName}
           </span>
           {item.argsSummary && (
-            <span className="min-w-0 flex-1 truncate text-[10px] text-[var(--text-secondary)]/70">
+            <span className="min-w-0 flex-1 truncate text-sm text-[var(--text-secondary)]/70">
               {item.argsSummary}
             </span>
           )}
@@ -144,7 +144,7 @@ function LiveOutputPreview({ text }: { text: string }) {
   return (
     <pre
       ref={ref}
-      className="mt-1 max-h-32 overflow-y-auto rounded bg-[var(--bg-base)] p-1.5 text-[10px] leading-relaxed text-[var(--text-secondary)]/80 whitespace-pre-wrap break-words"
+      className="mt-1 max-h-32 overflow-y-auto rounded bg-[var(--bg-base)] p-1.5 text-sm leading-relaxed text-[var(--text-secondary)]/80 whitespace-pre-wrap break-words"
     >
       {preview}
       <span className="animate-pulse text-status-info">█</span>
@@ -213,13 +213,13 @@ export function SubagentCard({ entry }: SubagentCardProps) {
           {entry.agentName}
         </span>
         {entry.chainStep !== undefined && (
-          <span className="text-[10px] text-[var(--text-muted)]">
+          <span className="text-sm text-[var(--text-muted)]">
             [Step {entry.chainStep + 1}]
           </span>
         )}
         <div className="flex-1" />
         {/* Stats inline */}
-        <div className="flex items-center gap-1.5 text-[10px] text-[var(--text-muted)]">
+        <div className="flex items-center gap-1.5 text-sm text-[var(--text-muted)]">
           {entry.model && (
             <span className="hidden sm:inline">{entry.model}</span>
           )}
@@ -249,7 +249,7 @@ export function SubagentCard({ entry }: SubagentCardProps) {
       </div>
 
       {/* ── Task preview ───────────────────────────────── */}
-      <p className="px-3 pb-1 text-[11px] text-[var(--text-muted)] truncate leading-tight">
+      <p className="px-3 pb-1 text-sm text-[var(--text-muted)] truncate leading-tight">
         {entry.taskPreview}
       </p>
 
@@ -264,7 +264,7 @@ export function SubagentCard({ entry }: SubagentCardProps) {
       {mayBeStalled && (
         <div className="flex items-center gap-1.5 border-t border-status-warning-border bg-status-warning-faint px-3 py-1">
           <AlertCircle className="size-3 shrink-0 text-status-warning" />
-          <span className="text-[10px] text-status-warning">
+          <span className="text-sm text-status-warning">
             Tool may be stalled, stop or wait for auto-timeout
           </span>
         </div>
@@ -276,7 +276,7 @@ export function SubagentCard({ entry }: SubagentCardProps) {
         {hasLiveOutput && (
           <button type="button"
             onClick={() => setShowLiveOutput(!showLiveOutput)}
-            className="text-[10px] text-status-info hover:brightness-125 transition-colors"
+            className="text-sm text-status-info hover:brightness-125 transition-colors"
           >
             {showLiveOutput ? '▲ Hide live' : '▼ Live output'}
           </button>
@@ -286,7 +286,7 @@ export function SubagentCard({ entry }: SubagentCardProps) {
         {hasOutput && !isRunning && (
           <button type="button"
             onClick={() => setExpanded(!expanded)}
-            className="text-[10px] text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors"
+            className="text-sm text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors"
           >
             {expanded ? '▲ Hide' : isFailed ? '▼ Error' : '▼ Output'}
           </button>

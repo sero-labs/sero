@@ -48,7 +48,7 @@ const FileTreeItem = memo(function FileTreeItem({
       <button type="button"
         onClick={handleClick}
         className={cn(
-          'w-full text-left flex items-center gap-1.5 py-1 px-2 text-sm',
+          'w-full text-left flex items-center gap-1.5 py-1 px-2 text-base',
           'hover:bg-accent/50 rounded transition-colors',
           isActive && 'bg-accent text-accent-foreground',
           !isActive && 'text-muted-foreground',

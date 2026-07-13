@@ -203,10 +203,10 @@ export function ToolCallProgress({ tool }: { tool: ChatToolCallMessage }) {
 
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm font-medium text-[var(--text-primary)]">
+            <span className="text-base font-medium text-[var(--text-primary)]">
               {model.title}
             </span>
-            <span className="inline-flex items-center gap-1 rounded-full bg-status-info-subtle px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-status-info">
+            <span className="inline-flex items-center gap-1 rounded-full bg-status-info-subtle px-2 py-0.5 text-sm font-medium uppercase tracking-wide text-status-info">
               <Loader2 className="size-2.5 animate-spin" />
               Live
             </span>
@@ -232,7 +232,7 @@ export function ToolCallProgress({ tool }: { tool: ChatToolCallMessage }) {
             {model.badges.map((badge) => (
               <span
                 key={badge}
-                className="rounded-full border border-status-info-border bg-status-info-subtle px-2 py-0.5 text-[10px] text-status-info"
+                className="rounded-full border border-status-info-border bg-status-info-subtle px-2 py-0.5 text-sm text-status-info"
               >
                 {badge}
               </span>
@@ -240,7 +240,7 @@ export function ToolCallProgress({ tool }: { tool: ChatToolCallMessage }) {
           </div>
 
           {showRawText && (
-            <div className="mt-2 flex items-start gap-1.5 text-[11px] text-[var(--text-muted)]">
+            <div className="mt-2 flex items-start gap-1.5 text-sm text-[var(--text-muted)]">
               <TimerReset className="mt-0.5 size-3 shrink-0" />
               <span className="break-words">{model.rawText}</span>
             </div>

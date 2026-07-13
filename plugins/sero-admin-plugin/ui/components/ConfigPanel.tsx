@@ -59,7 +59,7 @@ const ConfigSidebar = memo(function ConfigSidebar({
   return (
     <div className="flex w-56 flex-col border-r border-border/30">
       <div className="px-3 py-2">
-        <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/50">
+        <p className="text-sm font-medium uppercase tracking-wider text-muted-foreground/50">
           Config Files
         </p>
       </div>
@@ -107,7 +107,7 @@ const ConfigFileItem = memo(function ConfigFileItem({
         {config.sensitive && (
           <Badge
             variant="outline"
-            className="h-4 rounded border-amber-500/20 bg-amber-500/5 px-1 text-[9px] text-amber-400"
+            className="h-4 rounded border-amber-500/20 bg-amber-500/5 px-1 text-xs text-amber-400"
           >
             sensitive
           </Badge>
@@ -115,13 +115,13 @@ const ConfigFileItem = memo(function ConfigFileItem({
         {config.readOnly && (
           <Badge
             variant="outline"
-            className="h-4 rounded border-muted-foreground/20 px-1 text-[9px] text-muted-foreground"
+            className="h-4 rounded border-muted-foreground/20 px-1 text-xs text-muted-foreground"
           >
             read-only
           </Badge>
         )}
       </div>
-      <p className="mt-0.5 text-[10px] leading-tight text-muted-foreground/60">
+      <p className="mt-0.5 text-sm leading-tight text-muted-foreground/60">
         {config.description}
       </p>
     </button>
@@ -161,8 +161,8 @@ function SensitiveAuthGate({
         </svg>
       </div>
       <div className="text-center">
-        <p className="text-sm font-medium text-foreground/80">{label}</p>
-        <p className="mt-1 text-[11px] text-muted-foreground/60">
+        <p className="text-base font-medium text-foreground/80">{label}</p>
+        <p className="mt-1 text-sm text-muted-foreground/60">
           This file contains sensitive data (API keys, tokens).
         </p>
       </div>
@@ -268,7 +268,7 @@ function ConfigEditor({
             {configFile?.label ?? configKey}
           </span>
           {isSensitive && (
-            <span className="inline-flex items-center gap-1 text-[10px] text-amber-400/70">
+            <span className="inline-flex items-center gap-1 text-sm text-amber-400/70">
               <TriangleAlert className="size-3" />
               Contains sensitive data
             </span>
@@ -279,7 +279,7 @@ function ConfigEditor({
             <Button
               variant="ghost"
               size="sm"
-              className="h-6 px-2 text-[11px] text-amber-400/70"
+              className="h-6 px-2 text-sm text-amber-400/70"
               onClick={() => setSensitiveUnlocked(false)}
             >
               Lock
@@ -290,7 +290,7 @@ function ConfigEditor({
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-6 px-2 text-[11px] text-muted-foreground"
+                className="h-6 px-2 text-sm text-muted-foreground"
                 onClick={handleReset}
               >
                 Reset
@@ -298,7 +298,7 @@ function ConfigEditor({
               <Button
                 variant="default"
                 size="sm"
-                className="h-6 bg-primary px-2.5 text-[11px] hover:bg-primary/90"
+                className="h-6 bg-primary px-2.5 text-sm hover:bg-primary/90"
                 onClick={handleSave}
                 disabled={!!parseError || saving || isReadOnly}
               >
@@ -309,7 +309,7 @@ function ConfigEditor({
           <Button
             variant="ghost"
             size="sm"
-            className="h-6 px-2 text-[11px] text-muted-foreground"
+            className="h-6 px-2 text-sm text-muted-foreground"
             onClick={handleReload}
           >
             Reload
@@ -320,7 +320,7 @@ function ConfigEditor({
       {/* Error bar */}
       {(error || parseError) && (
         <div className="border-b border-destructive/20 bg-destructive/5 px-4 py-1.5">
-          <p className="text-[11px] text-destructive">{error || parseError}</p>
+          <p className="text-sm text-destructive">{error || parseError}</p>
         </div>
       )}
 
@@ -352,7 +352,7 @@ function ConfigEditor({
               spellCheck={false}
               className={cn(
                 'admin-editor w-full min-h-full resize-none bg-transparent',
-                'px-4 py-3 text-[12px] leading-[1.6] text-foreground/90',
+                'px-4 py-3 text-base leading-[1.6] text-foreground/90',
                 isReadOnly && 'opacity-60 cursor-default',
               )}
               // fieldSizing: 'content' is Chromium-only (Chrome 123+), fine for Electron

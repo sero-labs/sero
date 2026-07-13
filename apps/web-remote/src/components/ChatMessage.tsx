@@ -87,7 +87,7 @@ export const ChatMessageComponent = memo(function ChatMessageComponent({
         {message.text && (
           <div
             className={cn(
-              'rounded-lg px-3 py-2 text-sm',
+              'rounded-lg px-3 py-2 text-base',
               isUser
                 ? 'bg-primary text-primary-foreground inline-block text-left'
                 : 'bg-card border border-border',

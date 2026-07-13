@@ -35,7 +35,7 @@ function SpecialistCard({ output }: { output: CollaborationSpecialistOutput }) {
         ) : (
           <span
             className={cn(
-              'ml-auto inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] tabular-nums',
+              'ml-auto inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-sm tabular-nums',
               visual.surface,
               visual.border,
               visual.color,
@@ -78,7 +78,7 @@ export function CollaborationDetails() {
       <button
         type="button"
         onClick={() => setExpanded((value) => !value)}
-        className="flex items-center gap-2 self-start rounded-md border border-[var(--collab-primary-border)] bg-[var(--collab-primary-subtle)] px-2.5 py-1.5 text-[11px] font-medium text-[var(--collab-primary)] transition-colors hover:bg-[var(--collab-primary-muted)]"
+        className="flex items-center gap-2 self-start rounded-md border border-[var(--collab-primary-border)] bg-[var(--collab-primary-subtle)] px-2.5 py-1.5 text-sm font-medium text-[var(--collab-primary)] transition-colors hover:bg-[var(--collab-primary-muted)]"
       >
         <Users className="size-3.5" />
         {expanded ? 'Hide' : 'Show'} specialist outputs

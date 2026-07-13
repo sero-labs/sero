@@ -28,7 +28,7 @@ export function LiveActivityStrip({ loop, runIndex }: LiveActivityStripProps) {
   const usage = activeRun?.usage;
 
   return (
-    <Card className="flex flex-wrap items-center gap-x-4 gap-y-1 border-emerald-500/30 bg-emerald-500/5 p-3 text-sm">
+    <Card className="flex flex-wrap items-center gap-x-4 gap-y-1 border-emerald-500/30 bg-emerald-500/5 p-3 text-base">
       <span className="flex items-center gap-2 font-medium text-emerald-400">
         <span className="relative flex h-2 w-2">
           <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500/70" />

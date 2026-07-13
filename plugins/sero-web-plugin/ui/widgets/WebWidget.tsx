@@ -165,7 +165,7 @@ function TabTrigger({ value, label, count }: { value: TabKey; label: string; cou
   return (
     <TabsTrigger value={value}>
       <span className="truncate">{label}</span>
-      <span className="text-[10px] tabular-nums opacity-60">{count}</span>
+      <span className="text-sm tabular-nums opacity-60">{count}</span>
     </TabsTrigger>
   );
 }

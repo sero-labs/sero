@@ -157,7 +157,7 @@ export function AgentEditor({ data, isNew, saving, onSave, onDelete, onChange }:
   return (
     <form onSubmit={handleSave} className="flex min-h-0 flex-1 flex-col">
       <div className="flex items-center gap-2 border-b border-border px-4 py-2">
-        <span className="flex-1 truncate text-sm font-medium text-foreground">
+        <span className="flex-1 truncate text-base font-medium text-foreground">
           {isNew ? 'New Agent' : data.name}
         </span>
         {!isNew && (
@@ -293,7 +293,7 @@ export function AgentEditor({ data, isNew, saving, onSave, onDelete, onChange }:
           placeholder="You are a specialist agent that..."
           className={cn(
             'flex-1 min-h-0 resize-none rounded-md border border-input bg-background',
-            'px-3 py-2 font-mono text-sm leading-relaxed text-foreground',
+            'px-3 py-2 font-mono text-base leading-relaxed text-foreground',
             'placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring',
           )}
         />
@@ -304,7 +304,7 @@ export function AgentEditor({ data, isNew, saving, onSave, onDelete, onChange }:
 
 const fieldClass = cn(
   'w-full rounded-md border border-input bg-background',
-  'px-2.5 py-1.5 text-sm text-foreground',
+  'px-2.5 py-1.5 text-base text-foreground',
   'placeholder:text-muted-foreground',
   'focus:outline-none focus:ring-1 focus:ring-ring',
 );

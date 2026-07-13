@@ -53,7 +53,7 @@ export const SandboxHeader = ({
   >
     <div className="flex items-center gap-2">
       <Code className="size-4 text-muted-foreground" />
-      <span className="font-medium text-sm">{title}</span>
+      <span className="font-medium text-base">{title}</span>
       {getStatusBadge(state)}
     </div>
     <ChevronDownIcon className="size-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
@@ -116,7 +116,7 @@ export const SandboxTabsTrigger = ({
 }: SandboxTabsTriggerProps) => (
   <TabsTrigger
     className={cn(
-      "rounded-none border-0 border-transparent border-b-2 px-4 py-2 font-medium text-muted-foreground text-sm transition-colors data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none",
+      "rounded-none border-0 border-transparent border-b-2 px-4 py-2 font-medium text-muted-foreground text-base transition-colors data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none",
       className
     )}
     {...props}
@@ -129,5 +129,5 @@ export const SandboxTabContent = ({
   className,
   ...props
 }: SandboxTabContentProps) => (
-  <TabsContent className={cn("mt-0 text-sm", className)} {...props} />
+  <TabsContent className={cn("mt-0 text-base", className)} {...props} />
 );

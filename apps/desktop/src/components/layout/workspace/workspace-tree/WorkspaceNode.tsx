@@ -142,7 +142,7 @@ export function WorkspaceNode({ workspace, sessions }: WorkspaceNodeProps) {
         <ContainerIndicator workspaceId={workspace.id} containerEnabled={workspace.container} />
         {mountCount > 0 && (
           <span
-            className="flex size-3.5 items-center justify-center rounded-full bg-[var(--bg-base)] text-[8px] font-bold text-[var(--text-muted)]"
+            className="flex size-3.5 items-center justify-center rounded-full bg-[var(--bg-base)] text-xs font-bold text-[var(--text-muted)]"
             title={`${mountCount} mount${mountCount > 1 ? 's' : ''}`}
           >
             {mountCount}

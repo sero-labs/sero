@@ -111,7 +111,7 @@ export function McpServerCrudPanel({
             <div className="mb-4 flex items-center justify-between gap-3">
               <div>
                 <div className="font-medium text-foreground">{title}</div>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-base text-muted-foreground">
                   Use a local command for stdio, or a URL for HTTP/SSE. Advanced options stay available after save.
                 </p>
               </div>
@@ -140,7 +140,7 @@ export function McpServerCrudPanel({
             </div>
 
             {!draft.originalServerName && (
-              <div className="mb-4 flex flex-wrap items-center gap-2 text-sm">
+              <div className="mb-4 flex flex-wrap items-center gap-2 text-base">
                 <span className="text-muted-foreground">Start with</span>
                 {QUICK_PRESETS.map((preset) => (
                   <Button key={preset.label} type="button" variant="outline" size="sm" onClick={() => beginDraft({ ...preset.draft })}>
@@ -210,7 +210,7 @@ export function McpServerCrudPanel({
               )}
             </div>
 
-            <div className="mt-4 flex flex-wrap gap-4 text-sm text-muted-foreground">
+            <div className="mt-4 flex flex-wrap gap-4 text-base text-muted-foreground">
               <Toggle label="Enabled" checked={draft.enabled} onChange={(checked) => setDraft({ ...draft, enabled: checked })} />
               <Toggle label="Expose resources" checked={draft.exposeResources} onChange={(checked) => setDraft({ ...draft, exposeResources: checked })} />
               <Toggle label="Debug stderr" checked={draft.debug} onChange={(checked) => setDraft({ ...draft, debug: checked })} />
@@ -308,7 +308,7 @@ export function McpServerCrudPanel({
 function EmptyServerSkeleton() {
   return (
     <div className="rounded-lg border border-dashed border-border/70 bg-muted/15 p-4" aria-label="No current MCP servers">
-      <div className="mb-3 text-sm font-medium text-muted-foreground">No current MCP servers</div>
+      <div className="mb-3 text-base font-medium text-muted-foreground">No current MCP servers</div>
       <div className="space-y-2" aria-hidden="true">
         <div className="rounded-lg border border-border/60 bg-background/30 p-3">
           <div className="flex items-start justify-between gap-4">
@@ -334,7 +334,7 @@ function EmptyServerSkeleton() {
 
 function Field({ label, className, children }: { label: string; className?: string; children: ReactNode }) {
   return (
-    <label className={cn('space-y-2 text-sm text-muted-foreground', className)}>
+    <label className={cn('space-y-2 text-base text-muted-foreground', className)}>
       <span className="block font-medium text-foreground">{label}</span>
       {children}
     </label>

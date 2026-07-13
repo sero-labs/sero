@@ -70,7 +70,7 @@ export function LoopDetail({ loop, busy, onAction, stateDir, libraryDir, library
             <LoopStatusBadge status={loop.status} />
           </div>
         </div>
-        <p className="text-sm text-muted-foreground">{loop.summary || loop.prompt}</p>
+        <p className="text-base text-muted-foreground">{loop.summary || loop.prompt}</p>
         <LoopMetaStrip loop={loop} runs={runIndex.runs} githubHealth={githubHealth} webhookHealth={webhookHealth} />
         <div className="flex flex-wrap items-center gap-2 pt-1">
           <LoopControls loop={loop} busy={busy} canReflect={runIndex.runs.length > 0} onAction={onAction} />
@@ -86,7 +86,7 @@ export function LoopDetail({ loop, busy, onAction, stateDir, libraryDir, library
       <SuggestionsInbox loop={loop} busy={busy} onAction={onAction} />
 
       {loop.warnings.length > 0 && (
-        <Card className="flex flex-col gap-1 border-amber-500/40 p-3 text-sm">
+        <Card className="flex flex-col gap-1 border-amber-500/40 p-3 text-base">
           {loop.warnings.map((w) => (
             <div key={w.id} className="flex items-start gap-2">
               <AlertTriangle className="mt-0.5 h-4 w-4 text-amber-500" />
@@ -99,7 +99,7 @@ export function LoopDetail({ loop, busy, onAction, stateDir, libraryDir, library
       <BlockNotice loop={loop} />
 
       {runtime.completion && (
-        <Card className="border-emerald-500/40 p-3 text-sm">
+        <Card className="border-emerald-500/40 p-3 text-base">
           <span className="font-medium">Completion ({runtime.completion.status}): </span>
           {runtime.completion.reason}
         </Card>
@@ -135,7 +135,7 @@ function BlockNotice({ loop }: { loop: Loop }) {
   if (!block) return null;
   const blockedStep = block.sourceStepId ? loop.plan.steps.find((s) => s.id === block.sourceStepId) : undefined;
   return (
-    <Card className="border-destructive/50 p-3 text-sm">
+    <Card className="border-destructive/50 p-3 text-base">
       {blockedStep ? (
         <span>
           <span className="font-medium text-destructive">Blocked at “{blockedStep.title}”. </span>

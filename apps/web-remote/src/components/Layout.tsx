@@ -159,7 +159,7 @@ export function Layout() {
         <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
           <SheetContent side="left" className="w-72 p-0" showCloseButton={false}>
             <SheetHeader className="px-3 py-2 border-b border-border">
-              <SheetTitle className="text-sm">Workspaces</SheetTitle>
+              <SheetTitle className="text-base">Workspaces</SheetTitle>
             </SheetHeader>
             <div className="flex-1 overflow-hidden">
               <WorkspacePicker onSessionSelect={() => setSidebarOpen(false)} />
@@ -180,7 +180,7 @@ export function Layout() {
             showCloseButton={false}
           >
             <SheetHeader className="px-3 py-2 border-b border-border">
-              <SheetTitle className="text-sm">
+              <SheetTitle className="text-base">
                 {rightPanel === 'files'
                   ? 'Files'
                   : rightPanel === 'artifacts'

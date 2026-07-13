@@ -112,7 +112,7 @@ export function WorkspaceReferencesMenu({ workspace }: { workspace: WorkspaceInf
               <button type="button"
                 key={ws.id}
                 onClick={() => addReference(workspace.id, ws.id)}
-                className="flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]"
+                className="flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-base text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]"
               >
                 <Plus className="size-3 shrink-0 text-[var(--text-muted)]" />
                 <span className="truncate">{ws.name}</span>
@@ -144,7 +144,7 @@ export function WorkspaceReferencesMenu({ workspace }: { workspace: WorkspaceInf
         <div className="border-t border-[var(--border-subtle)] p-1">
           <button type="button"
             onClick={handleBrowseMount}
-            className="flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]"
+            className="flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-base text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]"
           >
             <FolderOpen className="size-3 shrink-0 text-[var(--text-muted)]" />
             <span>Browse…</span>
@@ -168,12 +168,12 @@ function MountList({
       {items.map((item) => (
         <div
           key={item.key}
-          className="group flex items-center justify-between rounded-md px-2 py-1 text-sm hover:bg-[var(--bg-elevated)]"
+          className="group flex items-center justify-between rounded-md px-2 py-1 text-base hover:bg-[var(--bg-elevated)]"
         >
           <div className="min-w-0 flex-1">
             <span className="block truncate text-[var(--text-secondary)]">{item.label}</span>
             {item.sublabel && (
-              <span className="block truncate text-[10px] text-[var(--text-muted)]">{item.sublabel}</span>
+              <span className="block truncate text-sm text-[var(--text-muted)]">{item.sublabel}</span>
             )}
           </div>
           <IconAction

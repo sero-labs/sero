@@ -81,7 +81,7 @@ export function ReminderList({
               key={f.key}
               onClick={() => setFilter(f.key)}
               className={cn(
-                'flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors',
+                'flex items-center gap-1 rounded-full border px-2.5 py-1 text-sm font-medium transition-colors',
                 filter === f.key
                   ? 'border-primary bg-primary/10 text-primary'
                   : 'border-border text-muted-foreground hover:bg-secondary hover:text-foreground',
@@ -90,7 +90,7 @@ export function ReminderList({
               {f.label}
               <Badge
                 variant="secondary"
-                className="ml-0.5 h-4 min-w-[16px] px-1 text-[10px]"
+                className="ml-0.5 h-4 min-w-[16px] px-1 text-sm"
               >
                 {count}
               </Badge>

@@ -235,7 +235,7 @@ function Section({
         <div className="flex items-center justify-between gap-2">
           <div className="flex min-w-0 flex-col gap-0.5">
             {heading && (
-              <h3 className="truncate text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+              <h3 className="truncate text-sm font-semibold uppercase tracking-wider text-[var(--text-muted)]">
                 {heading}
               </h3>
             )}

@@ -42,7 +42,7 @@ export function WorkingCopySection({ workspaceId, status, currentChangeId, onOpe
       count={fileCount}
       badge={
         currentChangeId ? (
-          <span className="ml-1 font-mono text-[10px] text-[var(--text-muted)]/60">
+          <span className="ml-1 font-mono text-sm text-[var(--text-muted)]/60">
             @{currentChangeId.slice(0, 8)}
           </span>
         ) : null
@@ -69,17 +69,17 @@ export function WorkingCopySection({ workspaceId, status, currentChangeId, onOpe
                   'hover:bg-[var(--bg-elevated)]/80',
                 )}
               >
-                <span className={cn('w-3 shrink-0 text-center text-[11px] font-bold', statusColor(f.status))}>
+                <span className={cn('w-3 shrink-0 text-center text-sm font-bold', statusColor(f.status))}>
                   {statusCode(f.status)}
                 </span>
-                <span className="min-w-0 truncate text-[11px] text-[var(--text-secondary)]">
+                <span className="min-w-0 truncate text-sm text-[var(--text-secondary)]">
                   {f.path}
                 </span>
               </motion.button>
             ))}
           </div>
         ) : (
-          <div className="px-2 py-1.5 text-[11px] text-[var(--text-muted)]/60">
+          <div className="px-2 py-1.5 text-sm text-[var(--text-muted)]/60">
             No working copy changes
           </div>
         )}
@@ -98,7 +98,7 @@ export function WorkingCopySection({ workspaceId, status, currentChangeId, onOpe
             placeholder="Description (optional)"
             className={cn(
               'h-6 flex-1 rounded border border-[var(--border-subtle)] bg-[var(--bg-base)]',
-              'px-2 text-[11px] text-[var(--text-primary)] placeholder:text-[var(--text-muted)]/40',
+              'px-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)]/40',
               'outline-none transition-colors focus:border-[var(--border-focus)]',
             )}
           />
@@ -107,7 +107,7 @@ export function WorkingCopySection({ workspaceId, status, currentChangeId, onOpe
             disabled={creating}
             title="Create commit"
             className={cn(
-              'flex h-6 items-center gap-1 rounded px-2 text-[11px] font-medium',
+              'flex h-6 items-center gap-1 rounded px-2 text-sm font-medium',
               'bg-[var(--bg-elevated)] text-[var(--text-secondary)]',
               'transition-all duration-150',
               'hover:bg-[var(--bg-muted)] hover:text-[var(--text-primary)]',

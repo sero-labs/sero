@@ -106,7 +106,7 @@ export function SessionsTable({ sessions }: { sessions: SessionStats[] }) {
         </Table>
       </div>
       {sessions.length >= 50 && (
-        <Text variant="muted" className="text-[11px]">
+        <Text variant="muted" className="text-sm">
           Showing the top 50 sessions by cost for this period.
         </Text>
       )}

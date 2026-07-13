@@ -47,11 +47,11 @@ const ProviderRow = memo(function ProviderRow({
           <Server className="size-3.5 shrink-0 text-[var(--text-muted)]" />
           <div className="flex min-w-0 flex-1 flex-col">
             <span className="truncate text-xs font-medium text-[var(--text-primary)]">{name}</span>
-            <span className="truncate text-[10px] text-[var(--text-muted)]">
+            <span className="truncate text-sm text-[var(--text-muted)]">
               {config.baseUrl ?? 'Override-only provider'}
             </span>
           </div>
-          <span className="shrink-0 rounded-full bg-[var(--bg-muted)] px-1.5 py-px text-[10px] font-semibold text-[var(--text-muted)]">
+          <span className="shrink-0 rounded-full bg-[var(--bg-muted)] px-1.5 py-px text-sm font-semibold text-[var(--text-muted)]">
             {models.length} {models.length === 1 ? 'model' : 'models'}
           </span>
           <motion.div animate={{ rotate: expanded ? 90 : 0 }} transition={{ duration: 0.15 }}>
@@ -95,7 +95,7 @@ const ProviderRow = memo(function ProviderRow({
                   <div className="size-1.5 rounded-full bg-[var(--border-default)]" />
                   <span className="text-xs text-[var(--text-secondary)]">{m.name ?? m.id}</span>
                   {m.reasoning && (
-                    <span className="text-[10px] text-status-warning">reasoning</span>
+                    <span className="text-sm text-status-warning">reasoning</span>
                   )}
                 </div>
               ))}
@@ -180,7 +180,7 @@ export function LocalModelsPanel({ localModels }: LocalModelsPanelProps) {
     <div className="flex flex-col gap-3 p-3">
       {/* Header + Add button */}
       <div className="flex items-center justify-between gap-3">
-        <p className="text-[11px] text-[var(--text-muted)]">
+        <p className="text-sm text-[var(--text-muted)]">
           {providerNames.length === 0
             ? 'Add a local LLM server to use models from Ollama, LM Studio, vLLM, or any OpenAI-compatible endpoint.'
             : `${providerNames.length} local ${providerNames.length === 1 ? 'provider' : 'providers'} configured`}
@@ -188,7 +188,7 @@ export function LocalModelsPanel({ localModels }: LocalModelsPanelProps) {
         <button type="button"
           onClick={() => setView('add')}
           className="flex h-7 shrink-0 items-center gap-1.5 rounded-md border border-[var(--border-subtle)]
-            px-2.5 text-[11px] font-medium text-[var(--text-secondary)]
+            px-2.5 text-sm font-medium text-[var(--text-secondary)]
             transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]"
         >
           <Plus className="size-3" />
@@ -215,7 +215,7 @@ export function LocalModelsPanel({ localModels }: LocalModelsPanelProps) {
                 onRemove={handleRemove}
               />
               {confirmRemove === name && (
-                <p className="mt-1 text-center text-[10px] text-status-error">
+                <p className="mt-1 text-center text-sm text-status-error">
                   Click remove again to confirm
                 </p>
               )}
@@ -233,7 +233,7 @@ function ErrorState({ error, onRetry }: { error: string; onRetry: () => Promise<
       <div className="rounded-lg bg-status-error/10 px-3 py-2 text-xs text-status-error">
         {error}
       </div>
-      <p className="text-[11px] text-[var(--text-muted)]">
+      <p className="text-sm text-[var(--text-muted)]">
         Fix the invalid models.json entry before adding or editing providers here.
       </p>
       <button type="button"
@@ -255,7 +255,7 @@ function EmptyState({ onAdd }: { onAdd: () => void }) {
       <Server className="size-8 text-[var(--text-muted)]/40" />
       <div className="text-center">
         <p className="text-xs font-medium text-[var(--text-secondary)]">No local providers</p>
-        <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
+        <p className="mt-0.5 text-sm text-[var(--text-muted)]">
           Connect Ollama, LM Studio, vLLM, or any OpenAI-compatible server
         </p>
       </div>

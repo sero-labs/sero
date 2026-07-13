@@ -70,7 +70,7 @@ export const CommitMessage = ({
   children,
   ...props
 }: CommitMessageProps) => (
-  <span className={cn("font-medium text-sm", className)} {...props}>
+  <span className={cn("font-medium text-base", className)} {...props}>
     {children}
   </span>
 );
@@ -291,7 +291,7 @@ export const CommitFile = ({
 }: CommitFileProps) => (
   <div
     className={cn(
-      "flex items-center justify-between gap-2 rounded px-2 py-1 text-sm hover:bg-muted/50",
+      "flex items-center justify-between gap-2 rounded px-2 py-1 text-base hover:bg-muted/50",
       className
     )}
     {...props}

@@ -45,7 +45,7 @@ export const Header = memo(function Header({ profileName, activeSection }: Heade
           </svg>
         </div>
         <div className="flex items-center gap-2">
-          <h1 className="text-sm font-semibold text-foreground">Admin</h1>
+          <h1 className="text-base font-semibold text-foreground">Admin</h1>
           <span className="text-xs text-muted-foreground/50">·</span>
           <span className="text-xs text-muted-foreground/70">{SECTION_LABELS[activeSection]}</span>
         </div>
@@ -54,7 +54,7 @@ export const Header = memo(function Header({ profileName, activeSection }: Heade
         <Badge
           variant="outline"
           className={cn(
-            'h-5 rounded-md border-primary/20 px-2 text-[10px] font-medium',
+            'h-5 rounded-md border-primary/20 px-2 text-sm font-medium',
             'bg-primary/5 text-primary',
           )}
         >

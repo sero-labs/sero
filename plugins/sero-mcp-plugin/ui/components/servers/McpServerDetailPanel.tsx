@@ -112,7 +112,7 @@ export function McpServerDetailPanel({ server }: { server: McpServerSnapshot }) 
                           <div className="min-w-0 space-y-1">
                             <div className="font-medium text-foreground">{tool.name}</div>
                             <div className="break-all text-xs text-muted-foreground">{tool.resourceUri}</div>
-                            {tool.description && <p className="text-sm text-muted-foreground">{tool.description}</p>}
+                            {tool.description && <p className="text-base text-muted-foreground">{tool.description}</p>}
                           </div>
                           <Button
                             type="button"
@@ -148,7 +148,7 @@ function EmptyState({ title, body }: { title: string; body: string }) {
   return (
     <div className="rounded-lg border border-dashed border-border bg-background/40 p-4">
       <div className="font-medium text-foreground">{title}</div>
-      <p className="mt-1 text-sm text-muted-foreground">{body}</p>
+      <p className="mt-1 text-base text-muted-foreground">{body}</p>
     </div>
   );
 }

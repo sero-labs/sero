@@ -271,7 +271,7 @@ function GitActionNotice({
         </div>
         <div className="min-w-0 flex-1">
           <div className="text-xs font-semibold text-[var(--g-text)]">{notice.title}</div>
-          <div className="mt-0.5 text-[11px] leading-relaxed text-[var(--g-muted)]">
+          <div className="mt-0.5 text-sm leading-relaxed text-[var(--g-muted)]">
             {notice.message}
           </div>
         </div>
@@ -302,7 +302,7 @@ function WorkspaceLoadingState({ workspacePath }: { workspacePath: string }) {
           </svg>
         </div>
         <h2 className="text-base font-medium text-[var(--g-text)]">Loading repository</h2>
-        <p className="mt-2 text-sm leading-relaxed text-[var(--g-muted)]">
+        <p className="mt-2 text-base leading-relaxed text-[var(--g-muted)]">
           Syncing Git state for <span className="git-mono text-[var(--g-text)]">{workspacePath}</span>.
         </p>
       </div>
@@ -323,7 +323,7 @@ function EmptyRepoState({ workspacePath }: { workspacePath: string }) {
           </svg>
         </div>
         <h2 className="text-base font-medium text-[var(--g-text)]">Not a Git repository</h2>
-        <p className="mt-2 text-sm leading-relaxed text-[var(--g-muted)]">
+        <p className="mt-2 text-base leading-relaxed text-[var(--g-muted)]">
           <span className="git-mono text-[var(--g-text)]">{workspacePath}</span> does not contain a Git repository.
         </p>
       </div>

@@ -10,7 +10,7 @@ import { X, FileText } from 'lucide-react';
 
 function CodePreview({ content, language }: { content: string; language?: string }) {
   return (
-    <pre className="p-4 text-sm font-mono overflow-auto h-full">
+    <pre className="p-4 text-base font-mono overflow-auto h-full">
       <code className={language ? `language-${language}` : ''}>
         {content}
       </code>
@@ -82,7 +82,7 @@ export function FilePreview() {
       <div className="flex items-center justify-center h-full text-muted-foreground">
         <div className="text-center">
           <FileText className="size-8 mx-auto mb-2 opacity-50" />
-          <p className="text-sm">Select a file to preview</p>
+          <p className="text-base">Select a file to preview</p>
         </div>
       </div>
     );

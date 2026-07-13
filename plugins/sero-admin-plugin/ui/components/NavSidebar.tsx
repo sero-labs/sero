@@ -52,7 +52,7 @@ export const NavSidebar = memo(function NavSidebar({ active, onSelect }: NavSide
     <nav className="flex w-[160px] shrink-0 flex-col border-r border-border/30 bg-background">
       {NAV_GROUPS.map((group) => (
         <div key={group.title}>
-          <p className="px-3 pt-4 pb-1.5 text-[11px] font-bold uppercase tracking-wider text-brand-secondary">
+          <p className="px-3 pt-4 pb-1.5 text-sm font-bold uppercase tracking-wider text-brand-secondary">
             {group.title}
           </p>
           {group.items.map((item) => (
@@ -60,7 +60,7 @@ export const NavSidebar = memo(function NavSidebar({ active, onSelect }: NavSide
               key={item.id}
               onClick={() => onSelect(item.id)}
               className={cn(
-                'admin-nav-item flex w-full items-center px-3 py-1.5 text-xs transition-colors duration-150',
+                'admin-nav-item flex w-full items-center px-3 py-1.5 text-sm transition-colors duration-150',
                 'hover:bg-secondary/50 hover:text-foreground',
                 active === item.id
                   ? 'border-l-2 border-l-primary bg-secondary text-foreground font-medium'

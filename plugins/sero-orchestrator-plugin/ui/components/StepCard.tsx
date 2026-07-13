@@ -61,7 +61,7 @@ export function StepCard({ step, number, showNumber = true, state, groups, toolC
         </div>
         <div className="flex shrink-0 items-center gap-2">
           {state && <StepStatusPill status={state.status} />}
-          <Badge variant="outline" className="text-[10px] font-normal text-muted-foreground">{step.execution.type}</Badge>
+          <Badge variant="outline" className="text-sm font-normal text-muted-foreground">{step.execution.type}</Badge>
           {canTune && (
             <Button
               size="xs"
@@ -81,8 +81,8 @@ export function StepCard({ step, number, showNumber = true, state, groups, toolC
 
       {(step.produces?.length || step.when) && (
         <div className="flex flex-wrap items-center gap-1">
-          {step.produces?.length ? <Badge variant="outline" className="text-[10px] font-normal">decides {step.produces.join(', ')}</Badge> : null}
-          {step.when ? <Badge variant="outline" className="text-[10px] font-normal">{guardLabel(step.when)}</Badge> : null}
+          {step.produces?.length ? <Badge variant="outline" className="text-sm font-normal">decides {step.produces.join(', ')}</Badge> : null}
+          {step.when ? <Badge variant="outline" className="text-sm font-normal">{guardLabel(step.when)}</Badge> : null}
         </div>
       )}
 
@@ -92,13 +92,13 @@ export function StepCard({ step, number, showNumber = true, state, groups, toolC
         <dl className="mt-1 flex flex-col gap-1.5 border-t border-border/60 pt-2.5 text-xs">
           {step.expectedOutcome && (
             <div className="flex gap-5">
-              <dt className="w-16 shrink-0 text-[10px] font-semibold uppercase tracking-wide text-foreground">Expected</dt>
+              <dt className="w-16 shrink-0 text-sm font-semibold uppercase tracking-wide text-foreground">Expected</dt>
               <dd className="text-muted-foreground">{step.expectedOutcome}</dd>
             </div>
           )}
           {state?.outcome && (
             <div className="flex gap-5">
-              <dt className="w-16 shrink-0 text-[10px] font-semibold uppercase tracking-wide text-foreground">Outcome</dt>
+              <dt className="w-16 shrink-0 text-sm font-semibold uppercase tracking-wide text-foreground">Outcome</dt>
               <dd className={isProblem ? 'text-destructive' : 'text-muted-foreground'}>
                 {state.outcome.summary}
                 {state.attempts > 0 && <span> · {state.attempts} attempt(s)</span>}

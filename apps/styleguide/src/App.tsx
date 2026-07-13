@@ -102,7 +102,7 @@ function Header({ activeTheme, mode, onModeChange, onThemeChange, themeId }: Hea
         <h1 className="text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
           Theme tokens under product pressure.
         </h1>
-        <p className="mt-2 max-w-[70ch] text-sm leading-6 text-muted-foreground">
+        <p className="mt-2 max-w-[70ch] text-base leading-6 text-muted-foreground">
           This app isolates the Sero token contract so brand, status, code, and
           surface colours can be tested before touching desktop, web remote, or plugins.
         </p>
@@ -113,7 +113,7 @@ function Header({ activeTheme, mode, onModeChange, onThemeChange, themeId }: Hea
           id="theme-select"
           value={themeId}
           onChange={(event) => onThemeChange(event.currentTarget.value)}
-          className="h-9 rounded-md border border-input bg-background px-3 text-sm outline-none focus:border-ring"
+          className="h-9 rounded-md border border-input bg-background px-3 text-base outline-none focus:border-ring"
         >
           {STYLEGUIDE_THEMES.map((theme) => (
             <option key={theme.id} value={theme.id}>{theme.name}</option>
@@ -147,7 +147,7 @@ function TokenPanel() {
           {tokenRows.map(([token, label, className]) => (
             <div key={token} className="flex items-center justify-between gap-3 rounded-xl border border-border bg-background p-3">
               <div>
-                <p className="text-sm font-medium">{label}</p>
+                <p className="text-base font-medium">{label}</p>
                 <code className="text-xs text-muted-foreground">{token}</code>
               </div>
               <div className={`h-10 w-24 rounded-lg ${className}`} />
@@ -161,7 +161,7 @@ function TokenPanel() {
           <CardTitle>Semantic checks</CardTitle>
           <CardDescription>The diagnostic theme should make misuse obvious.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-2 text-sm">
+        <CardContent className="space-y-2 text-base">
           <CheckLine label="Primary action" className="text-brand-primary" />
           <CheckLine label="Section accent" className="text-brand-secondary" />
           <CheckLine label="Successful run" className="text-status-success" />
@@ -198,13 +198,13 @@ function ShellFixture() {
       <CardContent>
         <div className="grid min-h-96 overflow-hidden rounded-2xl border border-border bg-background md:grid-cols-[170px_1fr]">
           <nav className="border-r border-border bg-card p-3">
-            <p className="mb-3 px-2 text-[11px] font-bold uppercase tracking-wider text-brand-secondary">Apps</p>
+            <p className="mb-3 px-2 text-sm font-bold uppercase tracking-wider text-brand-secondary">Apps</p>
             <div className="space-y-1">
               {nav.map(([label, Icon, active]) => (
                 <button
                   key={label}
                   type="button"
-                  className={`flex w-full items-center gap-2 rounded-lg px-2 py-2 text-sm transition-colors ${
+                  className={`flex w-full items-center gap-2 rounded-lg px-2 py-2 text-base transition-colors ${
                     active ? 'bg-brand-primary-faint text-brand-primary ring-1 ring-brand-primary-border' : 'text-muted-foreground hover:bg-accent hover:text-foreground'
                   }`}
                 >
@@ -217,10 +217,10 @@ function ShellFixture() {
           <section className="flex flex-col">
             <div className="flex items-center justify-between border-b border-border px-4 py-3">
               <div>
-                <p className="text-sm font-medium">RemoteDevServers</p>
+                <p className="text-base font-medium">RemoteDevServers</p>
                 <p className="text-xs text-muted-foreground">Theme-safe workspace shell</p>
               </div>
-              <div className="flex items-center gap-3 text-sm">
+              <div className="flex items-center gap-3 text-base">
                 <span className="inline-flex items-center gap-1 text-status-success"><Gauge className="size-4" /> 32%</span>
                 <span className="inline-flex items-center gap-1 text-brand-primary"><Coins className="size-4" /> $0.0070</span>
               </div>
@@ -241,7 +241,7 @@ function ShellFixture() {
 function SurfaceCard({ className, title }: { className: string; title: string }) {
   return (
     <div className={`rounded-xl border border-border p-4 ${className}`}>
-      <p className="text-sm font-medium">{title}</p>
+      <p className="text-base font-medium">{title}</p>
       <p className="mt-1 text-xs text-muted-foreground">Surface contrast and border visibility.</p>
     </div>
   );
@@ -320,7 +320,7 @@ function Message({ from, text }: { from: 'agent' | 'user'; text: string }) {
   return (
     <div className={`flex gap-3 ${isUser ? 'justify-end' : 'justify-start'}`}>
       {!isUser && <Avatar icon={<Bot className="size-4" />} className="bg-brand-secondary-faint text-brand-secondary" />}
-      <p className={`max-w-[75%] rounded-2xl px-3 py-2 text-sm leading-6 ${isUser ? 'bg-primary text-primary-foreground' : 'bg-card text-foreground'}`}>
+      <p className={`max-w-[75%] rounded-2xl px-3 py-2 text-base leading-6 ${isUser ? 'bg-primary text-primary-foreground' : 'bg-card text-foreground'}`}>
         {text}
       </p>
     </div>
@@ -343,7 +343,7 @@ function PluginFixture() {
           <nav className="border-r border-border bg-card p-3">
             {['Resources', 'Config', 'System'].map((label, index) => (
               <div key={label} className="mb-4">
-                <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-brand-secondary">{label}</p>
+                <p className="mb-1.5 text-sm font-bold uppercase tracking-wider text-brand-secondary">{label}</p>
                 <button type="button" className={`w-full rounded-md px-2 py-1.5 text-left text-xs ${index === 1 ? 'border-l-2 border-l-primary bg-secondary text-foreground' : 'text-muted-foreground hover:bg-secondary/50'}`}>
                   {index === 0 ? 'Agents' : index === 1 ? 'Settings' : 'Logs'}
                 </button>
@@ -353,7 +353,7 @@ function PluginFixture() {
           <section className="p-4">
             <div className="mb-4 flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium">Plugin health</p>
+                <p className="text-base font-medium">Plugin health</p>
                 <p className="text-xs text-muted-foreground">Status tones are not brand tones.</p>
               </div>
               <Badge variant="outline" className="border-status-success/20 bg-status-success/10 text-status-success">
@@ -383,7 +383,7 @@ function PluginRow({ icon, title, tone }: { icon: ReactNode; title: string; tone
     <div className={`flex items-center gap-3 rounded-xl border p-3 ${toneClass}`}>
       {icon}
       <div>
-        <p className="text-sm font-medium">{title}</p>
+        <p className="text-base font-medium">{title}</p>
         <p className="text-xs text-muted-foreground">Uses a named semantic tone.</p>
       </div>
     </div>

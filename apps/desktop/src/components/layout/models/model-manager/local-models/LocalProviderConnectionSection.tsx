@@ -62,7 +62,7 @@ export function LocalProviderConnectionSection({
             }}
             disabled={!baseUrl.trim() || connectionStatus === 'testing'}
             className="flex h-8 items-center gap-1.5 rounded-md border border-[var(--border-subtle)]
-              px-2.5 text-[11px] font-medium text-[var(--text-secondary)]
+              px-2.5 text-sm font-medium text-[var(--text-secondary)]
               transition-colors hover:bg-[var(--bg-elevated)] disabled:opacity-40"
           >
             {connectionStatus === 'testing' ? (
@@ -76,7 +76,7 @@ export function LocalProviderConnectionSection({
           </button>
         </div>
         {connectionError && (
-          <p className="mt-1 text-[10px] text-status-error">{connectionError}</p>
+          <p className="mt-1 text-sm text-status-error">{connectionError}</p>
         )}
       </LocalProviderField>
 

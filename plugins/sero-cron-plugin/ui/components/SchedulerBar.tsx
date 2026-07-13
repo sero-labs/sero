@@ -48,7 +48,7 @@ export function SchedulerBar({
               : 'bg-muted-foreground/40',
           )}
         />
-        <span className="text-sm font-medium text-foreground">
+        <span className="text-base font-medium text-foreground">
           {active ? 'Scheduler Active' : 'Scheduler Inactive'}
         </span>
       </div>
@@ -97,7 +97,7 @@ export function SchedulerBar({
 
       {/* Autostart toggle */}
       <label htmlFor="scheduler-autostart" className="flex items-center gap-1.5">
-        <span className="text-[11px] text-muted-foreground">Autostart</span>
+        <span className="text-sm text-muted-foreground">Autostart</span>
         <Switch
           id="scheduler-autostart"
           checked={autostart}

@@ -68,7 +68,7 @@ export function SingleToolCall({
         </motion.div>
 
         {toolStatusDot(tool.state)}
-        <span className="shrink-0 text-[11px] font-medium text-[var(--text-secondary)]">
+        <span className="shrink-0 text-sm font-medium text-[var(--text-secondary)]">
           {effectiveToolName}
         </span>
         {summary ? (
@@ -80,7 +80,7 @@ export function SingleToolCall({
           />
         ) : null}
         {progressModel ? (
-          <span className="rounded-full bg-status-info-subtle px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-status-info">
+          <span className="rounded-full bg-status-info-subtle px-1.5 py-0.5 text-sm font-medium uppercase tracking-wide text-status-info">
             Live
           </span>
         ) : null}
@@ -143,7 +143,7 @@ export function SingleToolCall({
                         event.stopPropagation();
                         setShowDetails(true);
                       }}
-                      className="text-[11px] text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)]"
+                      className="text-sm text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)]"
                     >
                       Show full details
                     </button>
@@ -160,7 +160,7 @@ export function SingleToolCall({
                         event.stopPropagation();
                         setShowDetails(false);
                       }}
-                      className="text-[11px] text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)]"
+                      className="text-sm text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)]"
                     >
                       Collapse details
                     </button>

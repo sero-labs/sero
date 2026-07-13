@@ -87,7 +87,7 @@ class AppErrorBoundary extends Component<AppErrorBoundaryProps, AppErrorBoundary
 function AppPlaceholder({ name, reason }: { name: string; reason: string }) {
   return (
     <div className="flex size-full flex-col items-center justify-center bg-[var(--bg-base)]">
-      <span className="text-sm font-medium text-[var(--text-secondary)]">
+      <span className="text-base font-medium text-[var(--text-secondary)]">
         {name}
       </span>
       <span className="mt-1 text-xs text-[var(--text-muted)]">{reason}</span>
@@ -99,7 +99,7 @@ function AppLoading({ name }: { name: string }) {
   return (
     <div className="flex size-full flex-col items-center justify-center gap-3 bg-[var(--bg-base)]">
       <Spinner className="size-5 text-status-success" />
-      <span className="text-sm text-[var(--text-muted)]">
+      <span className="text-base text-[var(--text-muted)]">
         Loading {name}
       </span>
     </div>

@@ -77,7 +77,7 @@ export function ActivityBar({
                   <span className="absolute left-0 top-1.5 bottom-1.5 w-[2px] rounded-r bg-status-success" />
                 )}
                 {showBadge && (
-                  <span className="absolute -right-0.5 -top-0.5 flex size-3.5 items-center justify-center rounded-full bg-status-info text-[8px] font-bold text-white">
+                  <span className="absolute -right-0.5 -top-0.5 flex size-3.5 items-center justify-center rounded-full bg-status-info text-xs font-bold text-white">
                     {runningCount > 9 ? '9+' : runningCount}
                   </span>
                 )}

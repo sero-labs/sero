@@ -151,7 +151,7 @@ export const TestResultsDuration = ({
   }
 
   return (
-    <span className={cn("text-muted-foreground text-sm", className)} {...props}>
+    <span className={cn("text-muted-foreground text-base", className)} {...props}>
       {children ?? formatDuration(summary.duration)}
     </span>
   );
@@ -263,7 +263,7 @@ export const TestSuiteName = ({
     >
       <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-90" />
       <TestStatusIcon status={status} />
-      <span className="font-medium text-sm">{children ?? name}</span>
+      <span className="font-medium text-base">{children ?? name}</span>
     </CollapsibleTrigger>
   );
 };
@@ -353,7 +353,7 @@ export const Test = ({
   return (
     <TestContext.Provider value={contextValue}>
       <div
-        className={cn("flex items-center gap-2 px-4 py-2 text-sm", className)}
+        className={cn("flex items-center gap-2 px-4 py-2 text-base", className)}
         {...props}
       >
         {children ?? (
@@ -469,7 +469,7 @@ export const TestErrorMessage = ({
 }: TestErrorMessageProps) => (
   <p
     className={cn(
-      "font-medium text-red-700 text-sm dark:text-red-400",
+      "font-medium text-red-700 text-base dark:text-red-400",
       className
     )}
     {...props}

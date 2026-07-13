@@ -26,10 +26,10 @@ export function ToolLine({
       initial={{ opacity: 0, y: -4 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.15, delay: index * 0.03 }}
-      className="flex items-center gap-2 px-3 py-1"
+      className="flex items-center gap-2 px-3 py-1 text-xs"
     >
       {toolStatusDot(tool.state)}
-      <span className="shrink-0 text-[11px] font-medium text-[var(--text-muted)]">
+      <span className="shrink-0 font-medium text-[var(--text-muted)]">
         {effectiveToolName}
       </span>
       {summary ? (

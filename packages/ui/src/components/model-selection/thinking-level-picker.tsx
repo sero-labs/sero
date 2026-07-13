@@ -39,7 +39,7 @@ export function ThinkingLevelPicker({
             disabled={disabled || !isAvailable}
             onClick={() => onChange(level)}
             className={cn(
-              'rounded-md px-2 py-1.5 text-[11px] font-medium transition-colors',
+              'rounded-md px-2 py-1.5 text-sm font-medium transition-colors',
               isActive
                 ? 'bg-background text-foreground shadow-sm'
                 : 'text-muted-foreground hover:bg-background/70 hover:text-foreground',

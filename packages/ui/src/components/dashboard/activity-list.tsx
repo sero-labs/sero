@@ -53,7 +53,7 @@ function ActivityListItem({
             {label}
           </span>
           {timestamp && (
-            <span className="shrink-0 text-[11px] tabular-nums text-[var(--text-muted)]">
+            <span className="shrink-0 text-sm tabular-nums text-[var(--text-muted)]">
               {timestamp}
             </span>
           )}
@@ -88,7 +88,7 @@ function ActivityList({
     >
       {children}
       {overflowCount > 0 && (
-        <li className="pl-5 pt-0.5 text-[11px] text-[var(--text-muted)]">
+        <li className="pl-5 pt-0.5 text-sm text-[var(--text-muted)]">
           +{overflowCount} more
         </li>
       )}

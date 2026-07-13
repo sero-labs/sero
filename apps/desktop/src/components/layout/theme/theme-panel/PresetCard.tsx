@@ -35,7 +35,7 @@ export function PresetCard({ preset, isActive, onSelect, onDelete, onEdit }: Pre
         aria-label={`Select ${preset.name} theme`}
       />
 
-      <span className="text-sm font-medium text-[var(--text-primary)] truncate w-full">
+      <span className="text-base font-medium text-[var(--text-primary)] truncate w-full">
         {preset.name}
       </span>
       {preset.description && (
@@ -52,12 +52,12 @@ export function PresetCard({ preset, isActive, onSelect, onDelete, onEdit }: Pre
       {/* Badges */}
       <div className="flex items-center gap-1 mt-1">
         {preset.builtin && (
-          <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--bg-elevated)] text-[var(--text-muted)]">
+          <span className="text-sm px-1.5 py-0.5 rounded bg-[var(--bg-elevated)] text-[var(--text-muted)]">
             Built-in
           </span>
         )}
         {isActive && (
-          <span className="text-[10px] px-1.5 py-0.5 rounded bg-status-success-muted text-status-success">
+          <span className="text-sm px-1.5 py-0.5 rounded bg-status-success-muted text-status-success">
             Active
           </span>
         )}

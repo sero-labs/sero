@@ -65,12 +65,12 @@ export function StepToolsControl({ step, catalog, onChange }: StepToolsControlPr
               <Lock className="h-3.5 w-3.5 text-muted-foreground" />
               <span className="min-w-0">
                 <span className="block text-xs font-medium">Default tools</span>
-                <span className="block text-[11px] text-muted-foreground">'bash', 'read', 'write', 'edit', etc.</span>
+                <span className="block text-sm text-muted-foreground">'bash', 'read', 'write', 'edit', etc.</span>
               </span>
             </div>
 
             {optionalItems.length > 0 && (
-              <div className="px-2 pb-1 pt-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+              <div className="px-2 pb-1 pt-2 text-sm font-medium uppercase tracking-wide text-muted-foreground">
                 Add as needed
               </div>
             )}
@@ -84,7 +84,7 @@ export function StepToolsControl({ step, catalog, onChange }: StepToolsControlPr
                 <span className="min-w-0">
                   <span className="block text-xs font-medium">{tool.name}</span>
                   {tool.description && (
-                    <span className="block truncate text-[11px] text-muted-foreground">{tool.description}</span>
+                    <span className="block truncate text-sm text-muted-foreground">{tool.description}</span>
                   )}
                 </span>
               </label>

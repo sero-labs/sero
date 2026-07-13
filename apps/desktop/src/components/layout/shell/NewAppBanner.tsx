@@ -17,7 +17,7 @@ export function NewAppBanner() {
         <strong>{pendingNewApp}</strong> app created, restart Sero to load it
       </span>
       <span className="text-[var(--banner-primary)]/50">
-        (stop dev server, then <code className="rounded bg-[var(--banner-primary-subtle)] px-1 py-0.5 font-mono text-[11px]">bash scripts/dev.sh</code>)
+        (stop dev server, then <code className="rounded bg-[var(--banner-primary-subtle)] px-1 py-0.5 font-mono text-sm">bash scripts/dev.sh</code>)
       </span>
     </div>
   );

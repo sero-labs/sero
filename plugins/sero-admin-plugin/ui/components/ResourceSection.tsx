@@ -44,7 +44,7 @@ export function ResourceSection({
 
         {loading ? (
           <div className="flex flex-1 items-center justify-center">
-            <span className="admin-loading text-xs text-muted-foreground">Loading…</span>
+            <span className="admin-loading text- text-muted-foreground">Loading…</span>
           </div>
         ) : (
           list
@@ -76,7 +76,7 @@ function EmptyState({ label, onNew }: { label: string; onNew: () => void }) {
           <path d="M14 2v4a2 2 0 0 0 2 2h4" />
         </svg>
       </div>
-      <p className="text-sm text-muted-foreground">
+      <p className="text-base text-muted-foreground">
         Select a {label.toLowerCase()} to edit, or create a new one
       </p>
       <Button variant="secondary" size="sm" onClick={onNew}>

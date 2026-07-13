@@ -127,7 +127,7 @@ export function DevServerPreview({ tabPath }: Props) {
         >
           <ExternalLink className="size-3.5" />
         </button>
-        <span className="text-[10px] text-[var(--text-muted)] tabular-nums">
+        <span className="text-sm text-[var(--text-muted)] tabular-nums">
           {displayHost}
         </span>
       </div>
@@ -147,14 +147,14 @@ export function DevServerPreview({ tabPath }: Props) {
         <div className="flex flex-1 items-center justify-center p-6">
           <div className="max-w-lg rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] p-5 text-center">
             <AlertTriangle className="mx-auto mb-3 size-6 text-amber-500" />
-            <h3 className="mb-2 text-sm font-medium text-[var(--text-primary)]">Open this URL in your browser</h3>
-            <p className="mb-4 text-sm text-[var(--text-muted)]">
+            <h3 className="mb-2 text-base font-medium text-[var(--text-primary)]">Open this URL in your browser</h3>
+            <p className="mb-4 text-base text-[var(--text-muted)]">
               The preview pane only embeds local dev servers such as localhost, .local hosts, and private/container IPs.
               External URLs like Tailscale links can trigger frame-navigation security errors inside Electron.
             </p>
             <button type="button"
               onClick={handleOpenExternal}
-              className="inline-flex items-center gap-2 rounded-md border border-[var(--border)] bg-[var(--bg-base)] px-3 py-2 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-hover)]"
+              className="inline-flex items-center gap-2 rounded-md border border-[var(--border)] bg-[var(--bg-base)] px-3 py-2 text-base text-[var(--text-primary)] hover:bg-[var(--bg-hover)]"
             >
               <ExternalLink className="size-4" />
               Open {displayHost}

@@ -42,7 +42,7 @@ export function ExplorerSidebar({ activePanel, workspaceId, fileTreeProps, onOpe
       {/* ── Header (hidden for git/orchestration, they have their own) ── */}
       {activePanel !== 'git' && activePanel !== 'orchestration' && (
         <div className="flex h-7 shrink-0 items-center px-4">
-          <span className="text-[11px] font-medium uppercase tracking-wider text-[var(--text-muted)]">
+          <span className="text-sm font-medium uppercase tracking-wider text-[var(--text-muted)]">
             {title}
           </span>
         </div>

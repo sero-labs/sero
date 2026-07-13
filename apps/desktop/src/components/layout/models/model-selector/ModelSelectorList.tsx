@@ -34,7 +34,7 @@ const ModelItem = memo(function ModelItem({
         )}
       </div>
       <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
-        <span className="truncate text-xs font-medium">{model.name}</span>
+        <span className="truncate text-sm font-medium">{model.name}</span>
         {model.reasoning ? (
           <Sparkles className="size-3 shrink-0 text-status-warning/60" />
         ) : null}
@@ -60,7 +60,7 @@ const ProviderSection = memo(function ProviderSection({
     <div className="py-1">
       <div className="flex items-center gap-2 px-3 pb-1 pt-2">
         <img src={group.logo} alt={group.displayName} className="size-3.5 rounded-sm dark:invert" />
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+        <span className="text-sm font-semibold uppercase tracking-wider text-[var(--text-muted)]">
           {group.displayName}
         </span>
       </div>
@@ -102,7 +102,7 @@ export function ModelSelectorList({
 }) {
   if (allGroups.length === 0) {
     return (
-      <div className="px-3 py-4 text-center text-xs text-[var(--text-muted)]">
+      <div className="px-3 py-4 text-center text-sm text-[var(--text-muted)]">
         No models available. Run{' '}
         <code className="rounded bg-[var(--bg-muted)] px-1 font-mono">pi auth</code> to add a
         provider.
@@ -112,7 +112,7 @@ export function ModelSelectorList({
 
   if (totalFiltered === 0 && favourites.length === 0) {
     return (
-      <div className="px-3 py-4 text-center text-xs text-[var(--text-muted)]">
+      <div className="px-3 py-4 text-center text-sm text-[var(--text-muted)]">
         No models matching <span className="text-[var(--text-secondary)]">"{filter}"</span>
       </div>
     );
@@ -124,7 +124,7 @@ export function ModelSelectorList({
         <div className="py-1">
           <div className="flex items-center gap-2 px-3 pb-1 pt-2">
             <Star className="size-3 text-amber-400" fill="currentColor" />
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+            <span className="text-sm font-semibold uppercase tracking-wider text-[var(--text-muted)]">
               Favourites
             </span>
           </div>

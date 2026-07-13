@@ -65,7 +65,7 @@ function ItemListItem({
         )}
       </ItemContent>
       {trailing && (
-        <span className="shrink-0 text-[11px] tabular-nums text-[var(--text-muted)]">
+        <span className="shrink-0 text-sm tabular-nums text-[var(--text-muted)]">
           {trailing}
         </span>
       )}
@@ -95,7 +95,7 @@ function ItemList({
     >
       {children}
       {overflowCount > 0 && (
-        <span className="px-2 text-[11px] text-[var(--text-muted)]">
+        <span className="px-2 text-sm text-[var(--text-muted)]">
           +{overflowCount} more
         </span>
       )}

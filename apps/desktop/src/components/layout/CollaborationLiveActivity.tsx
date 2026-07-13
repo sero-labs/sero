@@ -54,12 +54,12 @@ export function CollaborationLiveActivity({
       {preview && (
         <div className={cn('overflow-hidden rounded-xl border bg-[var(--bg-base)]/70', borderClass)}>
           <div className="flex items-center gap-2 px-3 py-2">
-            <span className={cn('text-[9px] font-semibold uppercase tracking-[0.14em]', accentClass)}>
+            <span className={cn('text-xs font-semibold uppercase tracking-[0.14em]', accentClass)}>
               Live output
             </span>
-            <span className={cn('text-[10px] animate-pulse', accentClass)}>█</span>
+            <span className={cn('text-sm animate-pulse', accentClass)}>█</span>
           </div>
-          <pre className="max-h-32 overflow-y-auto whitespace-pre-wrap break-words px-3 pb-3 text-[10px] leading-relaxed text-[var(--text-secondary)]/85">
+          <pre className="max-h-32 overflow-y-auto whitespace-pre-wrap break-words px-3 pb-3 text-sm leading-relaxed text-[var(--text-secondary)]/85">
             {preview}
           </pre>
         </div>
@@ -68,7 +68,7 @@ export function CollaborationLiveActivity({
       {currentToolActivity && (
         <div className={cn('overflow-hidden rounded-xl border bg-[var(--bg-base)]/55', borderClass)}>
           <div className="px-3 py-2">
-            <span className={cn('text-[9px] font-semibold uppercase tracking-[0.14em]', accentClass)}>
+            <span className={cn('text-xs font-semibold uppercase tracking-[0.14em]', accentClass)}>
               Tool activity
             </span>
           </div>
@@ -83,10 +83,10 @@ export function CollaborationLiveActivity({
                 )}
               />
               <ToolIcon name={currentToolActivity.toolName} />
-              <span className="shrink-0 text-[10px] font-medium text-[var(--text-secondary)]/80">
+              <span className="shrink-0 text-sm font-medium text-[var(--text-secondary)]/80">
                 {currentToolActivity.toolName}
               </span>
-              <span className="min-w-0 truncate text-[10px] text-[var(--text-muted)]">
+              <span className="min-w-0 truncate text-sm text-[var(--text-muted)]">
                 {currentToolActivity.argsSummary}
               </span>
             </div>

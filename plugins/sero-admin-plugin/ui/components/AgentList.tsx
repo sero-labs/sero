@@ -35,7 +35,7 @@ export function AgentList({ agents, selected, onSelect }: AgentListProps) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center p-4">
         <p className="text-xs text-muted-foreground">No agents found</p>
-        <p className="mt-1 text-[10px] text-muted-foreground/60">
+        <p className="mt-1 text-sm text-muted-foreground/60">
           Click + to create one
         </p>
       </div>
@@ -55,14 +55,14 @@ export function AgentList({ agents, selected, onSelect }: AgentListProps) {
           )}
         >
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-foreground truncate">
+            <span className="text-base font-medium text-foreground truncate">
               {agent.name}
             </span>
             {agent.thinking && (
               <Badge
                 variant="secondary"
                 className={cn(
-                  'px-1 py-0 text-[9px] leading-tight',
+                  'px-1 py-0 text-xs leading-tight',
                   THINKING_COLORS[agent.thinking] ?? '',
                 )}
               >
@@ -70,10 +70,10 @@ export function AgentList({ agents, selected, onSelect }: AgentListProps) {
               </Badge>
             )}
           </div>
-          <p className="text-[11px] text-muted-foreground truncate leading-snug">
+          <p className="text-sm text-muted-foreground truncate leading-snug">
             {agent.description || 'No description'}
           </p>
-          <span className="text-[10px] text-muted-foreground/60">
+          <span className="text-sm text-muted-foreground/60">
             {modelShort(agent.model)}
           </span>
         </button>

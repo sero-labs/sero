@@ -61,7 +61,7 @@ export function WorkspacePicker({ onSessionSelect }: WorkspacePickerProps) {
           value={activeWorkspaceId ?? ''}
           onValueChange={setActiveWorkspace}
         >
-          <SelectTrigger className="w-full mt-1 h-8 text-sm">
+          <SelectTrigger className="w-full mt-1 h-8 text-base">
             <SelectValue placeholder="Select workspace" />
           </SelectTrigger>
           <SelectContent>
@@ -109,7 +109,7 @@ export function WorkspacePicker({ onSessionSelect }: WorkspacePickerProps) {
                 key={session.id}
                 onClick={() => handleSessionClick(session.id)}
                 className={cn(
-                  'w-full text-left px-2 py-1.5 rounded-md text-sm transition-colors',
+                  'w-full text-left px-2 py-1.5 rounded-md text-base transition-colors',
                   'flex items-center gap-2',
                   session.id === activeSessionId
                     ? 'bg-accent text-accent-foreground'

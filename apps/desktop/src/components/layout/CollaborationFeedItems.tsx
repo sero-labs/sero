@@ -28,10 +28,10 @@ export function PendingQueryBubble({ text }: { text: string }) {
       className="flex justify-end px-2"
     >
       <div className="max-w-[92%] rounded-2xl rounded-tr-md border border-[var(--border-default)] bg-[var(--bg-elevated)] px-3 py-2 shadow-sm">
-        <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+        <div className="mb-1 text-sm font-semibold uppercase tracking-wide text-[var(--text-muted)]">
           Your query
         </div>
-        <p className="whitespace-pre-wrap break-words text-[11px] leading-relaxed text-[var(--text-primary)]">
+        <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-[var(--text-primary)]">
           {text}
         </p>
       </div>
@@ -87,7 +87,7 @@ export function TypingBubble({
       >
         <CollaborationRoleBadge role={role} pulse />
         <div className={cn('flex min-w-0 max-w-[26rem] flex-col gap-1', isRightAligned && 'items-end')}>
-          <span className={cn('px-1 text-[10px] font-semibold', visual.color)}>
+          <span className={cn('px-1 text-sm font-semibold', visual.color)}>
             {visual.label}
           </span>
           <div
@@ -98,7 +98,7 @@ export function TypingBubble({
               visual.border,
             )}
           >
-            <span className={cn('text-[11px] italic', visual.color)}>
+            <span className={cn('text-sm italic', visual.color)}>
               {visual.statusVerb}
             </span>
             <TypingDots colorClass={visual.color} />
@@ -153,12 +153,12 @@ export function MessageBubble({
         <CollaborationRoleBadge role={role} />
         <div className={cn('flex min-w-0 max-w-[26rem] flex-col gap-1', isRightAligned && 'items-end')}>
           <div className="flex items-center gap-2">
-            <span className={cn('text-[10px] font-semibold', visual.color)}>
+            <span className={cn('text-sm font-semibold', visual.color)}>
               {visual.label}
             </span>
             <span
               className={cn(
-                'inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[9px] tabular-nums',
+                'inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-xs tabular-nums',
                 visual.surface,
                 visual.border,
                 visual.color,
@@ -175,7 +175,7 @@ export function MessageBubble({
           </div>
           <div
             className={cn(
-              'rounded-2xl border px-3 py-2 text-[11px] leading-relaxed text-[var(--text-secondary)] shadow-sm',
+              'rounded-2xl border px-3 py-2 text-sm leading-relaxed text-[var(--text-secondary)] shadow-sm',
               isRightAligned ? 'rounded-tr-md' : 'rounded-tl-md',
               isError
                 ? 'border-destructive/20 bg-destructive/5'
@@ -187,7 +187,7 @@ export function MessageBubble({
               <button
                 type="button"
                 onClick={() => setExpanded((value) => !value)}
-                className={cn('mt-1 text-[10px] font-medium hover:underline', visual.color)}
+                className={cn('mt-1 text-sm font-medium hover:underline', visual.color)}
               >
                 {expanded ? 'Show less' : 'Read more'}
               </button>
@@ -225,7 +225,7 @@ export function DebateRoundBubble({
       className="mx-2 flex flex-col gap-2 rounded-xl border border-status-warning-border bg-status-warning-faint p-3 shadow-sm"
     >
       <div className="flex items-center gap-2">
-        <div className="flex items-center gap-1.5 rounded-full border border-status-warning-border bg-status-warning-subtle px-2 py-1 text-[10px] font-semibold text-status-warning">
+        <div className="flex items-center gap-1.5 rounded-full border border-status-warning-border bg-status-warning-subtle px-2 py-1 text-sm font-semibold text-status-warning">
           <Swords className="size-3" />
           Round {round}
         </div>
@@ -234,11 +234,11 @@ export function DebateRoundBubble({
           <Zap className="size-3 text-status-warning" />
           <CollaborationRoleBadge role={defender} size="sm" />
         </div>
-        <span className="ml-auto text-[9px] tabular-nums text-[var(--text-muted)]">
+        <span className="ml-auto text-xs tabular-nums text-[var(--text-muted)]">
           {duration}
         </span>
       </div>
-      <p className="text-[11px] leading-relaxed text-[var(--text-secondary)]">
+      <p className="text-sm leading-relaxed text-[var(--text-secondary)]">
         {summary}
       </p>
     </motion.div>
@@ -271,7 +271,7 @@ export function PhaseBanner({ phase }: { phase: string }) {
         >
           <Icon className="size-2.5" />
         </div>
-        <span className={cn('text-[9px] font-semibold uppercase tracking-wider', config.color)}>
+        <span className={cn('text-xs font-semibold uppercase tracking-wider', config.color)}>
           {config.label}
         </span>
       </div>
@@ -294,7 +294,7 @@ export function ElapsedTimer() {
   const secs = elapsed % 60;
 
   return (
-    <span className="ml-auto flex items-center gap-1 text-[10px] tabular-nums text-[var(--text-muted)]">
+    <span className="ml-auto flex items-center gap-1 text-sm tabular-nums text-[var(--text-muted)]">
       <span className="size-1.5 rounded-full bg-status-success animate-pulse" />
       {mins > 0 ? `${mins}m ${secs}s` : `${secs}s`}
     </span>
@@ -332,7 +332,7 @@ export function OnlineRoster({ activeRoles }: { activeRoles: Set<CollaborationRo
           >
             <CollaborationRoleBadge role={role} size="sm" />
             {isActive && (
-              <span className={cn('text-[9px] font-medium', visual.color)}>
+              <span className={cn('text-xs font-medium', visual.color)}>
                 {visual.label}
               </span>
             )}

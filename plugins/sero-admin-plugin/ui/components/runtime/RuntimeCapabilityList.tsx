@@ -74,40 +74,40 @@ export function RuntimeCapabilityList({ row }: RuntimeCapabilityListProps) {
       <div className="grid gap-2 md:grid-cols-3">
         <div className="rounded-md border border-border/40 bg-background/35 px-2.5 py-2">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[11px] font-medium text-foreground/85">Managed core tools</span>
+            <span className="text-sm font-medium text-foreground/85">Managed core tools</span>
             <Badge variant={stateTone(coreReady, row.capabilityState.installState.coreTools)}>
               {coreReady ? 'ready' : row.capabilityState.installState.coreTools}
             </Badge>
           </div>
-          <p className="mt-1 text-[11px] text-muted-foreground/75">{coreToolsDetail(row)}</p>
+          <p className="mt-1 text-sm text-muted-foreground/75">{coreToolsDetail(row)}</p>
         </div>
 
         <div className="rounded-md border border-border/40 bg-background/35 px-2.5 py-2">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[11px] font-medium text-foreground/85">Browser automation</span>
+            <span className="text-sm font-medium text-foreground/85">Browser automation</span>
             <Badge variant={stateTone(browserReady, row.capabilityState.installState.browserAutomation)}>
               {browserReady ? 'ready' : row.capabilityState.installState.browserAutomation}
             </Badge>
           </div>
-          <p className="mt-1 text-[11px] text-muted-foreground/75">{browserDetail(row)}</p>
+          <p className="mt-1 text-sm text-muted-foreground/75">{browserDetail(row)}</p>
         </div>
 
         <div className="rounded-md border border-border/40 bg-background/35 px-2.5 py-2">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[11px] font-medium text-foreground/85">Native builds</span>
+            <span className="text-sm font-medium text-foreground/85">Native builds</span>
             <Badge variant={nativeReady ? 'secondary' : 'outline'}>
               {row.capabilityState.installState.nativeBuildTools}
             </Badge>
           </div>
-          <p className="mt-1 text-[11px] text-muted-foreground/75">{nativeBuildDetail(row)}</p>
+          <p className="mt-1 text-sm text-muted-foreground/75">{nativeBuildDetail(row)}</p>
         </div>
       </div>
 
       <div className="space-y-1">
-        <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
+        <p className="text-sm font-medium uppercase tracking-wider text-muted-foreground/60">
           Capability availability
         </p>
-        <ul className="space-y-1 text-[11px] text-muted-foreground/75">
+        <ul className="space-y-1 text-sm text-muted-foreground/75">
           {row.capabilityAudit.map((entry) => (
             <li key={entry.key} className="flex flex-wrap items-start gap-1.5">
               <span className="font-medium text-foreground/80">{entry.label}:</span>

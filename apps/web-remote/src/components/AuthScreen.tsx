@@ -50,11 +50,11 @@ export function AuthScreen({ mode, statusMessage }: AuthScreenProps) {
             </div>
             <div>
               <h2 className="text-lg font-semibold text-foreground">{title}</h2>
-              <p className="text-sm text-muted-foreground">{description}</p>
+              <p className="text-base text-muted-foreground">{description}</p>
             </div>
           </div>
 
-          <p className="rounded-lg border border-border bg-muted px-3 py-2 text-sm text-muted-foreground">
+          <p className="rounded-lg border border-border bg-muted px-3 py-2 text-base text-muted-foreground">
             {statusMessage ?? 'Trying to restore your previous connection now.'}
           </p>
 
@@ -80,7 +80,7 @@ export function AuthScreen({ mode, statusMessage }: AuthScreenProps) {
           </div>
           <div>
             <h2 className="text-lg font-semibold text-foreground">Connect to Sero</h2>
-            <p className="text-sm text-muted-foreground">Enter your gateway auth token</p>
+            <p className="text-base text-muted-foreground">Enter your gateway auth token</p>
           </div>
         </div>
 
@@ -94,10 +94,10 @@ export function AuthScreen({ mode, statusMessage }: AuthScreenProps) {
           />
 
           {authError && (
-            <p className="text-sm text-destructive">{authError}</p>
+            <p className="text-base text-destructive">{authError}</p>
           )}
           {!authError && statusMessage && (
-            <p className="text-sm text-muted-foreground">{statusMessage}</p>
+            <p className="text-base text-muted-foreground">{statusMessage}</p>
           )}
 
           <Button

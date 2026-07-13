@@ -45,7 +45,7 @@ function GlassTile({
       >
         <div className="min-h-0 flex-1 overflow-auto">{children}</div>
       </div>
-      <figcaption className="text-[11px] text-muted-foreground">{label}</figcaption>
+      <figcaption className="text-sm text-muted-foreground">{label}</figcaption>
     </figure>
   );
 }

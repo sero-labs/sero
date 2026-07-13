@@ -27,7 +27,7 @@ function CenteredStatusHeader({
       </div>
       <div className="max-w-sm space-y-1.5">
         <DialogTitle className="text-lg font-semibold text-[var(--text-primary)]">{title}</DialogTitle>
-        <DialogDescription className="text-sm leading-6 text-[var(--text-secondary)]">
+        <DialogDescription className="text-base leading-6 text-[var(--text-secondary)]">
           {description}
         </DialogDescription>
       </div>
@@ -78,7 +78,7 @@ export function AuthScreen({
         </div>
         <div>
           <DialogTitle className="text-lg font-semibold text-[var(--text-primary)]">Connect a provider</DialogTitle>
-          <DialogDescription className="text-sm text-[var(--text-secondary)]">
+          <DialogDescription className="text-base text-[var(--text-secondary)]">
             Sero needs a working model before it can start your welcome session.
           </DialogDescription>
         </div>
@@ -97,7 +97,7 @@ export function AuthScreen({
             {actionableProviders.map((provider) => (
               <div key={provider.providerId} className="flex items-start justify-between gap-3 rounded-md border border-[var(--border-default)] bg-[var(--bg-base)] px-3 py-2">
                 <div className="min-w-0">
-                  <p className="text-sm font-medium text-[var(--text-primary)]">{provider.displayName}</p>
+                  <p className="text-base font-medium text-[var(--text-primary)]">{provider.displayName}</p>
                   <p className="text-xs text-[var(--text-secondary)]">{provider.message}</p>
                 </div>
                 <Button variant="outline" size="sm" onClick={() => onReconnectProvider(provider.providerId)}>

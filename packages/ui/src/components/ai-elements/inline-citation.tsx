@@ -261,13 +261,13 @@ export const InlineCitationSource = ({
 }: InlineCitationSourceProps) => (
   <div className={cn("space-y-1", className)} {...props}>
     {title && (
-      <h4 className="truncate font-medium text-sm leading-tight">{title}</h4>
+      <h4 className="truncate font-medium text-base leading-tight">{title}</h4>
     )}
     {url && (
       <p className="truncate break-all text-muted-foreground text-xs">{url}</p>
     )}
     {description && (
-      <p className="line-clamp-3 text-muted-foreground text-sm leading-relaxed">
+      <p className="line-clamp-3 text-muted-foreground text-base leading-relaxed">
         {description}
       </p>
     )}
@@ -284,7 +284,7 @@ export const InlineCitationQuote = ({
 }: InlineCitationQuoteProps) => (
   <blockquote
     className={cn(
-      "border-muted border-l-2 pl-3 text-muted-foreground text-sm italic",
+      "border-muted border-l-2 pl-3 text-muted-foreground text-base italic",
       className
     )}
     {...props}

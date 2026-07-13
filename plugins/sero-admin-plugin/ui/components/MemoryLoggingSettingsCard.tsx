@@ -125,7 +125,7 @@ function NumberField({
 }) {
   return (
     <div className="space-y-1.5">
-      <Label htmlFor={id} className="text-[11px] font-medium text-foreground/80">{label}</Label>
+      <Label htmlFor={id} className="text-sm font-medium text-foreground/80">{label}</Label>
       <Input
         id={id}
         type="number"
@@ -139,7 +139,7 @@ function NumberField({
         }}
         className="h-8 text-xs"
       />
-      <p className="text-[11px] text-muted-foreground/65">{hint}</p>
+      <p className="text-sm text-muted-foreground/65">{hint}</p>
     </div>
   );
 }
@@ -172,7 +172,7 @@ export function MemoryLoggingSettingsCard({
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <CardTitle className="text-sm">Memory log policy</CardTitle>
+            <CardTitle className="text-base">Memory log policy</CardTitle>
             <CardDescription className="mt-1 text-xs">
               Convenience controls for <code>sero.memory.logging</code> in <code>settings.json</code>.
             </CardDescription>
@@ -182,7 +182,7 @@ export function MemoryLoggingSettingsCard({
               <Button
                 variant="outline"
                 size="sm"
-                className="h-7 px-2 text-[11px]"
+                className="h-7 px-2 text-sm"
                 onClick={() => void revealLogFolder()}
               >
                 Open log folder
@@ -191,7 +191,7 @@ export function MemoryLoggingSettingsCard({
             <Button
               variant="ghost"
               size="sm"
-              className="h-7 px-2 text-[11px]"
+              className="h-7 px-2 text-sm"
               disabled={disabled || values === null}
               onClick={() => applyUpdate(DEFAULTS)}
             >
@@ -202,14 +202,14 @@ export function MemoryLoggingSettingsCard({
       </CardHeader>
       <CardContent className="space-y-4 pt-0">
         {values === null ? (
-          <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-[11px] text-amber-400">
+          <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-sm text-amber-400">
             Fix JSON errors in <code>settings.json</code> to use the structured memory logging controls.
           </div>
         ) : (
           <>
             <div className="grid gap-4 lg:grid-cols-[240px_minmax(0,1fr)]">
               <div className="space-y-1.5">
-                <Label htmlFor="memory-log-preset" className="text-[11px] font-medium text-foreground/80">
+                <Label htmlFor="memory-log-preset" className="text-sm font-medium text-foreground/80">
                   Preset
                 </Label>
                 <Select onValueChange={(value) => applyPreset(value as MemoryLogPreset)}>
@@ -222,7 +222,7 @@ export function MemoryLoggingSettingsCard({
                     <SelectItem value="verbose-retention">Verbose retention</SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-[11px] text-muted-foreground/65">
+                <p className="text-sm text-muted-foreground/65">
                   Quick presets for low disk usage, balanced defaults, or longer retained history.
                 </p>
               </div>
@@ -263,7 +263,7 @@ export function MemoryLoggingSettingsCard({
               </div>
             </div>
 
-            <div className="rounded-lg border border-border/40 bg-secondary/20 px-3 py-2 text-[11px] text-muted-foreground/75">
+            <div className="rounded-lg border border-border/40 bg-secondary/20 px-3 py-2 text-sm text-muted-foreground/75">
               Logs are written to <code>~/.sero-ui/debug/memory/YYYY-MM-DD.log</code> with per-day rotation.
               {logDirPath ? (
                 <span> Current profile path: <code>{logDirPath}</code>.</span>

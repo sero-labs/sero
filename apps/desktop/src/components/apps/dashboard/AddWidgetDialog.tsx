@@ -60,7 +60,7 @@ export function AddWidgetDialog({ availableWidgets }: AddWidgetDialogProps) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button type="button" size="sm" variant="outline" className="gap-1.5 rounded-none">
+        <Button type="button" size="xs" variant="outline" className="gap-1.5 rounded-none">
           <Plus className="size-3.5" />
           Add Widget
         </Button>
@@ -74,7 +74,7 @@ export function AddWidgetDialog({ availableWidgets }: AddWidgetDialogProps) {
           placeholder="Search widgets..."
           value={search}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
-          className="mb-3"
+          className="mb-3 text-sm"
           autoFocus
         />
 
@@ -107,7 +107,7 @@ export function AddWidgetDialog({ availableWidgets }: AddWidgetDialogProps) {
                       onClick={() => handleAdd(w)}
                     >
                       <div className="flex-1">
-                        <div className="text-sm font-medium text-[var(--text-primary)]">
+                        <div className="text-base font-medium text-[var(--text-primary)]">
                           {w.manifest.name}
                         </div>
                         {w.manifest.description && (

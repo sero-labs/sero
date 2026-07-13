@@ -83,7 +83,7 @@ export const FileTree = ({
     <FileTreeContext.Provider value={contextValue}>
       <div
         className={cn(
-          "rounded-lg border bg-background font-mono text-sm",
+          "rounded-lg border bg-background font-mono text-base",
           className
         )}
         role="tree"

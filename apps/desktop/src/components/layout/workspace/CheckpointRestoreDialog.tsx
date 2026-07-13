@@ -70,11 +70,11 @@ export function CheckpointRestoreDialog({
         </DialogHeader>
 
         <div className="space-y-3">
-          <p className="text-sm text-[var(--text-muted)]">
+          <p className="text-base text-[var(--text-muted)]">
             This restores the workspace to the state before this prompt and puts the prompt text back in the composer.
           </p>
 
-          <div className="flex items-center gap-2 text-sm text-[var(--text-primary)]">
+          <div className="flex items-center gap-2 text-base text-[var(--text-primary)]">
             <Checkbox checked disabled />
             <span>Files that will be undone:</span>
           </div>
@@ -95,7 +95,7 @@ export function CheckpointRestoreDialog({
           ) : (
             <div className="max-h-52 space-y-2 overflow-y-auto rounded border border-[var(--border-subtle)] p-2">
               {files.map((file) => (
-                <div key={file.path} className="flex items-center justify-between text-sm">
+                <div key={file.path} className="flex items-center justify-between text-base">
                   <span className="truncate text-[var(--text-primary)]">{file.path}</span>
                   <span className="shrink-0 font-mono text-xs">
                     <span className="text-status-success">+{file.additions}</span>

@@ -34,7 +34,7 @@ export function NeedsYouBadge({ kind, count, className = '' }: { kind: 'input' |
   return (
     <span
       title={title}
-      className={`inline-flex h-4 min-w-4 items-center justify-center gap-0.5 rounded-full border px-1 text-[10px] font-semibold ${s.badge} ${className}`}
+      className={`inline-flex h-4 min-w-4 items-center justify-center gap-0.5 rounded-full border px-1 text-sm font-semibold ${s.badge} ${className}`}
     >
       <span aria-hidden>{s.glyph}</span>
       {count}

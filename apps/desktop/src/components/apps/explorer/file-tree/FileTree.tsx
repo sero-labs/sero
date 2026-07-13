@@ -33,7 +33,7 @@ export function FileTree(props: FileTreeProps) {
               className="hover:bg-white/[0.06] data-[selected=true]:bg-white/[0.10]"
             >
               <TreeItemLabel className="!px-1.5 !py-[3px]">
-                <span className="flex min-w-0 items-center gap-1.5 text-[13px]">
+                <span className="flex min-w-0 items-center gap-1.5 text-base">
                   {!item.isFolder() && (
                     <FileIcon
                       extension={item.getItemData()?.fileExtension}
@@ -45,7 +45,7 @@ export function FileTree(props: FileTreeProps) {
                     <Input
                       {...item.getRenameInputProps()}
                       autoFocus
-                      className="-my-0.5 h-5 px-1 text-[13px]"
+                      className="-my-0.5 h-5 px-1 text-base"
                     />
                   ) : (
                     <span

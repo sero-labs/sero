@@ -29,7 +29,7 @@ function GitHubAuthStateFrame({
           {icon}
         </div>
         <div className="min-w-0 space-y-1">
-          <p className="text-sm font-medium text-[var(--text-primary)]">{title}</p>
+          <p className="text-base font-medium text-[var(--text-primary)]">{title}</p>
           <p className="text-xs leading-relaxed text-[var(--text-secondary)]">{description}</p>
         </div>
       </div>

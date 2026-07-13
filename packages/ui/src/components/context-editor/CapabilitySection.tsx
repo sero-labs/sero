@@ -53,7 +53,7 @@ export function CapabilitySection<TItem extends ContextToolInfo | ContextSkillIn
       <div className="space-y-1">
         {items.length > 0 && (
           <div className="mb-1 flex items-center justify-between rounded-md border-b border-border/20 px-2 pb-2">
-            <span className="text-[11px] font-medium text-[var(--text-secondary)]">
+            <span className="text-sm font-medium text-[var(--text-secondary)]">
               {includeAllLabel}
             </span>
             <Switch
@@ -75,7 +75,7 @@ export function CapabilitySection<TItem extends ContextToolInfo | ContextSkillIn
         ))}
 
         {items.length === 0 && (
-          <span className="text-[11px] italic text-[var(--text-muted)]">
+          <span className="text-sm italic text-[var(--text-muted)]">
             {emptyLabel}
           </span>
         )}

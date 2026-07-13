@@ -126,7 +126,7 @@ export function ModelPicker({ value, onChange, className }: ModelPickerProps) {
         type="button"
         onClick={() => setOpen(!open)}
         className={cn(
-          'flex w-full items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground transition-colors',
+          'flex w-full items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-base text-foreground transition-colors',
           'hover:bg-secondary/50 focus:outline-none focus:ring-1 focus:ring-ring',
           open && 'ring-1 ring-ring',
         )}
@@ -261,7 +261,7 @@ function ProviderGroup({
           alt={group.displayName}
           className="size-3.5 rounded-sm dark:invert"
         />
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+        <span className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
           {group.displayName}
         </span>
       </div>
@@ -281,7 +281,7 @@ function ProviderGroup({
                   : 'text-muted-foreground hover:bg-secondary/60 hover:text-foreground',
               )}
             >
-              <span className="size-3.5 text-center text-[11px]">
+              <span className="size-3.5 text-center text-sm">
                 {isSelected ? (
                   <Check className="size-3 text-emerald-500" />
                 ) : (

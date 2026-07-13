@@ -257,7 +257,7 @@ export function BrowserPanel({ workspaceId }: BrowserPanelProps) {
     return (
       <div className="flex size-full flex-col items-center justify-center gap-3 bg-[var(--bg-base)]">
         <Globe className="size-10 text-[var(--text-muted)] opacity-40" />
-        <div className="text-sm text-[var(--text-muted)]">No browser tabs open in this workspace</div>
+        <div className="text-base text-[var(--text-muted)]">No browser tabs open in this workspace</div>
         <Button
           variant="outline"
           size="sm"

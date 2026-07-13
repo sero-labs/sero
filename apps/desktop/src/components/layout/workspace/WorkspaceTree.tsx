@@ -73,7 +73,7 @@ export function WorkspaceTree() {
       ) : null}
 
       <div className="flex items-center justify-between px-2 pb-1">
-        <span className="text-sm font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+        <span className="text-base font-semibold uppercase tracking-wider text-[var(--text-muted)]">
           Workspaces
         </span>
         <div className="flex items-center gap-0.5">
@@ -92,7 +92,7 @@ export function WorkspaceTree() {
         ))}
 
         {openWorkspaces.length === 0 && (
-          <span className="px-2 py-4 text-center text-sm text-[var(--text-muted)]">
+          <span className="px-2 py-4 text-center text-base text-[var(--text-muted)]">
             No workspaces open
           </span>
         )}

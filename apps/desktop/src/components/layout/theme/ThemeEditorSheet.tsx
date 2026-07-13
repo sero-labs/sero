@@ -73,7 +73,7 @@ export function ThemeEditorSheet({
       >
         <SheetHeader className="shrink-0 flex flex-row items-center justify-between border-b border-[var(--border-subtle)] px-4 py-3">
           <div>
-            <SheetTitle className="text-sm">Theme Editor</SheetTitle>
+            <SheetTitle className="text-base">Theme Editor</SheetTitle>
             <SheetDescription className="sr-only">
               Create or edit a theme preset with live preview
             </SheetDescription>
@@ -82,7 +82,7 @@ export function ThemeEditorSheet({
             <button
               type="button"
               onClick={handleNewTheme}
-              className="rounded px-2 py-1 text-[11px] font-medium text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]"
+              className="rounded px-2 py-1 text-sm font-medium text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]"
             >
               + New
             </button>

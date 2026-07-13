@@ -107,7 +107,7 @@ export const TerminalTitle = ({
   ...props
 }: TerminalTitleProps) => (
   <div
-    className={cn("flex items-center gap-2 text-sm text-zinc-400", className)}
+    className={cn("flex items-center gap-2 text-base text-zinc-400", className)}
     {...props}
   >
     <TerminalIcon className="size-4" />
@@ -258,7 +258,7 @@ export const TerminalContent = ({
   return (
     <div
       className={cn(
-        "max-h-96 overflow-auto p-4 font-mono text-sm leading-relaxed",
+        "max-h-96 overflow-auto p-4 font-mono text-base leading-relaxed",
         className
       )}
       ref={containerRef}

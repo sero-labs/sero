@@ -37,7 +37,7 @@ export function StagingArea({ fileChanges, onAction, onSelectFile }: StagingArea
   if (fileChanges.length === 0) {
     return (
       <div className="border-t border-[var(--g-border)] bg-[var(--g-surface)] px-4 py-3">
-        <div className="flex items-center gap-2 text-[11px] text-[var(--g-dim)]">
+        <div className="flex items-center gap-2 text-sm text-[var(--g-dim)]">
           <CheckIcon />
           <span>Working tree clean</span>
         </div>
@@ -137,13 +137,13 @@ function ChangeColumn({ title, count, className = '', action, children }: Change
   return (
     <div className={`flex min-h-0 flex-1 flex-col overflow-hidden ${className}`.trim()}>
       <div className="shrink-0 flex items-center justify-between px-3 py-1.5 border-b border-[var(--g-border)] bg-[var(--g-bg)]">
-        <span className="text-[10px] font-semibold tracking-wider text-[var(--g-dim)]">
+        <span className="text-sm font-semibold tracking-wider text-[var(--g-dim)]">
           {title} ({count})
         </span>
         {action && (
           <button type="button"
             onClick={action.onClick}
-            className={`text-[10px] transition-colors cursor-pointer ${actionClassName}`}
+            className={`text-sm transition-colors cursor-pointer ${actionClassName}`}
           >
             {action.label}
           </button>
@@ -183,7 +183,7 @@ function ChangeRow({
     <div className="flex items-center gap-1.5 px-2 py-1 hover:bg-[var(--g-hover)] group">
       <button type="button"
         onClick={onToggle}
-        className="size-5 rounded flex items-center justify-center text-[10px] font-bold
+        className="size-5 rounded flex items-center justify-center text-sm font-bold
           border border-[var(--g-border)] text-[var(--g-muted)]
           hover:border-[var(--g-accent)] hover:text-[var(--g-accent)]
           transition-colors cursor-pointer shrink-0"
@@ -198,8 +198,8 @@ function ChangeRow({
           className="size-1.5 rounded-full shrink-0"
           style={{ background: statusColor }}
         />
-        <span className="text-[10px] text-[var(--g-dim)] git-mono truncate">{dir}</span>
-        <span className="text-[11px] text-[var(--g-text)] git-mono truncate">{fileName}</span>
+        <span className="text-sm text-[var(--g-dim)] git-mono truncate">{dir}</span>
+        <span className="text-sm text-[var(--g-text)] git-mono truncate">{fileName}</span>
       </div>
     </div>
   );

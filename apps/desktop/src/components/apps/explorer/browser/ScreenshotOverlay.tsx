@@ -161,7 +161,7 @@ export function ScreenshotOverlay({
       </div>
 
       <div className="pointer-events-none absolute left-1/2 top-3 -translate-x-1/2">
-        <div className="pointer-events-auto flex items-center gap-2 rounded-full bg-[var(--bg-elevated)] px-3 py-1.5 text-[11px] text-[var(--text-secondary)] shadow-lg ring-1 ring-[var(--border-default)]">
+        <div className="pointer-events-auto flex items-center gap-2 rounded-full bg-[var(--bg-elevated)] px-3 py-1.5 text-sm text-[var(--text-secondary)] shadow-lg ring-1 ring-[var(--border-default)]">
           <span>Drag to select an area · Esc to cancel</span>
           <button type="button"
             onClick={confirm}

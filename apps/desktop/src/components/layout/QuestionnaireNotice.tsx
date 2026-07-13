@@ -209,12 +209,12 @@ export function QuestionnaireNotice({ tools, sessionLabel = null }: Props) {
               {label}
             </span>
             {count > 0 ? (
-              <span className="shrink-0 rounded-full bg-[var(--bg-surface)] px-1.5 py-0.5 text-[10px] text-[var(--text-muted)]">
+              <span className="shrink-0 rounded-full bg-[var(--bg-surface)] px-1.5 py-0.5 text-sm text-[var(--text-muted)]">
                 {count}
               </span>
             ) : null}
           </div>
-          <p className="truncate text-[11px] text-[var(--text-secondary)]">{secondary}</p>
+          <p className="truncate text-sm text-[var(--text-secondary)]">{secondary}</p>
         </div>
 
         {clickable && pending ? (

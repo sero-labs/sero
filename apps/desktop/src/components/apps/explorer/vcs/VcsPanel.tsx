@@ -48,7 +48,7 @@ export function VcsPanel({ workspaceId, onOpenDiff }: VcsPanelProps) {
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
       {/* ── Header ────────────────────────────────────────── */}
       <div className="flex h-7 shrink-0 items-center justify-between px-3">
-        <span className="text-[11px] font-medium uppercase tracking-wider text-[var(--text-muted)]">
+        <span className="text-sm font-medium uppercase tracking-wider text-[var(--text-muted)]">
           Source Control
         </span>
         <div className="flex items-center gap-0.5">
@@ -79,7 +79,7 @@ export function VcsPanel({ workspaceId, onOpenDiff }: VcsPanelProps) {
             transition={{ duration: 0.15 }}
             className="overflow-hidden"
           >
-            <div className="mx-2 mb-1 rounded border border-status-error-border bg-status-error-faint px-2 py-1 text-[11px] text-status-error">
+            <div className="mx-2 mb-1 rounded border border-status-error-border bg-status-error-faint px-2 py-1 text-sm text-status-error">
               {ws.error}
             </div>
           </motion.div>

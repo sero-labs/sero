@@ -65,7 +65,7 @@ export function LoopList({ loops, libraryIndex = DEFAULT_LIBRARY_INDEX, selected
             key={loop.id}
             type="button"
             onClick={() => onSelect(loop.id)}
-            className={`flex flex-col gap-1 rounded-md border p-2 text-left text-sm transition-colors ${
+            className={`flex flex-col gap-1 rounded-md border p-2 text-left text-base transition-colors ${
               selectedId === loop.id ? 'border-primary bg-accent' : 'border-transparent hover:bg-accent/50'
             }`}
           >

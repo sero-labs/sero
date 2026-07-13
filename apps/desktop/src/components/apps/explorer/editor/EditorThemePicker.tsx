@@ -102,7 +102,7 @@ export function EditorThemePicker() {
 
 function GroupHeader({ label }: { label: string }) {
   return (
-    <div className="px-2 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+    <div className="px-2 pb-1 pt-2 text-sm font-semibold uppercase tracking-wider text-[var(--text-muted)]">
       {label}
     </div>
   );

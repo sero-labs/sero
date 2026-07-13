@@ -67,9 +67,9 @@ export function LibraryBrowser({ libraryDir, busy, onLoad, initialQuery }: Libra
               <Card key={entry.id} className="flex flex-col gap-2 p-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <div className="truncate text-sm font-medium">{entry.name}</div>
+                    <div className="truncate text-base font-medium">{entry.name}</div>
                     {entry.summary && <div className="truncate text-xs text-muted-foreground">{entry.summary}</div>}
-                    <div className="mt-1 text-[11px] text-muted-foreground">
+                    <div className="mt-1 text-sm text-muted-foreground">
                       v{entry.latestVersion} · {entry.versionCount} version(s) · updated {formatTime(entry.updatedAt)}
                     </div>
                   </div>

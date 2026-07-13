@@ -57,7 +57,7 @@ export function GraphifyApp() {
       </header>
 
       {state.provisioning.status === 'failed' && (
-        <Card className="border-destructive p-3 text-sm">{state.provisioning.error}</Card>
+        <Card className="border-destructive p-3 text-base">{state.provisioning.error}</Card>
       )}
 
       <Card className="p-3">
@@ -81,7 +81,7 @@ export function GraphifyApp() {
 
       <div className="flex flex-col gap-2">
         {workspaces.length === 0 && (
-          <p className="text-sm text-muted-foreground">No workspaces discovered yet — the background runtime populates this list on startup.</p>
+          <p className="text-base text-muted-foreground">No workspaces discovered yet — the background runtime populates this list on startup.</p>
         )}
         {workspaces.map((entry) => (
           <Card key={entry.workspaceId} className="flex flex-row items-center justify-between p-3">

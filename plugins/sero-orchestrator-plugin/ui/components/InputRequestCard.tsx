@@ -37,10 +37,10 @@ export function InputRequestCard({ loop, busy, onAction }: InputRequestCardProps
     <Card className="flex flex-col gap-3 border-primary/40 p-3">
       <div className="flex items-center gap-2">
         <MessageCircleQuestion className="h-4 w-4 text-primary" />
-        <h2 className="text-sm font-semibold">
+        <h2 className="text-base font-semibold">
           {fromPlanner ? 'The planner needs a few answers first' : 'Needs your input'}
         </h2>
-        <Badge variant="outline" className="text-[10px]">
+        <Badge variant="outline" className="text-sm">
           {pending.questions.length} question{pending.questions.length === 1 ? '' : 's'}
         </Badge>
       </div>
@@ -48,11 +48,11 @@ export function InputRequestCard({ loop, busy, onAction }: InputRequestCardProps
       {pending.questions.map((q, i) => (
         <div key={q.id} className="flex flex-col gap-2 border-t border-border pt-2 first:border-t-0 first:pt-0">
           {pending.questions.length > 1 && (
-            <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
+            <span className="text-sm uppercase tracking-wide text-muted-foreground">
               Question {i + 1} of {pending.questions.length}
             </span>
           )}
-          <p className="text-sm">{q.prompt}</p>
+          <p className="text-base">{q.prompt}</p>
           {q.attachment && (
             <pre className="max-h-56 overflow-auto whitespace-pre-wrap rounded-md border border-border bg-muted/40 p-2 text-xs">
               {q.attachment}
@@ -77,13 +77,13 @@ export function InputRequestCard({ loop, busy, onAction }: InputRequestCardProps
             value={draft[q.id]?.text ?? ''}
             onChange={(e) => setText(q.id, e.target.value)}
             placeholder={q.choices?.length ? 'Or type your own answer…' : 'Type your answer…'}
-            className="min-h-[56px] text-sm"
+            className="min-h-[56px] text-base"
           />
         </div>
       ))}
 
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[11px] text-muted-foreground">
+        <span className="text-sm text-muted-foreground">
           {fromPlanner
             ? 'Your answers go back to the planner to build the plan.'
             : 'The step runs again with your answer. The loop waits until you answer.'}

@@ -1,3 +1,4 @@
+import { Checkbox } from '@sero-ai/ui/components/ui/checkbox';
 import { LocalProviderField } from './LocalProviderField';
 
 interface LocalProviderCompatSectionProps {
@@ -17,20 +18,16 @@ export function LocalProviderCompatSection({
     <LocalProviderField label="Compatibility">
       <div className="flex flex-col gap-2">
         <label className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
-          <input aria-label="Checkbox input"
-            type="checkbox"
+          <Checkbox
             checked={supportsDeveloperRole}
-            onChange={(event) => onSupportsDeveloperRoleChange(event.target.checked)}
-            className="rounded"
+            onCheckedChange={(checked) => onSupportsDeveloperRoleChange(checked === true)}
           />
           Supports developer role
         </label>
         <label className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
-          <input aria-label="Checkbox input"
-            type="checkbox"
+          <Checkbox
             checked={supportsReasoningEffort}
-            onChange={(event) => onSupportsReasoningEffortChange(event.target.checked)}
-            className="rounded"
+            onCheckedChange={(checked) => onSupportsReasoningEffortChange(checked === true)}
           />
           Supports reasoning effort
         </label>

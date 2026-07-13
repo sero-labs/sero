@@ -67,7 +67,7 @@ function Metric({
     >
       <div className="flex items-center gap-1.5">
         {icon && <Icon icon={icon} size="sm" />}
-        <span className="truncate text-[11px] font-medium uppercase tracking-wide text-[var(--text-muted)]">
+        <span className="truncate text-sm font-medium uppercase tracking-wide text-[var(--text-muted)]">
           {label}
         </span>
       </div>

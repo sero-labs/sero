@@ -122,7 +122,7 @@ function QuestionRow({
       {/* Number badge */}
       <span
         className={cn(
-          'mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full text-[10px] font-medium',
+          'mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full text-sm font-medium',
           hasValue
             ? 'bg-emerald-500/15 text-emerald-400'
             : 'bg-[var(--bg-elevated)] text-[var(--text-muted)]',
@@ -133,7 +133,7 @@ function QuestionRow({
 
       {/* Question + input */}
       <div className="min-w-0 flex-1">
-        <p className="mb-1.5 text-sm text-[var(--text-primary)]">{question.prompt}</p>
+        <p className="mb-1.5 text-base text-[var(--text-primary)]">{question.prompt}</p>
         <textarea aria-label="Type your answer"
           ref={ref}
           value={value}
@@ -141,7 +141,7 @@ function QuestionRow({
           placeholder="Type your answer..."
           rows={1}
           className={cn(
-            'w-full resize-none rounded-md border px-2.5 py-1.5 text-sm',
+            'w-full resize-none rounded-md border px-2.5 py-1.5 text-base',
             'border-[var(--border-default)] bg-[var(--bg-surface)] text-[var(--text-primary)]',
             'placeholder:text-[var(--text-muted)]',
             'focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/40',

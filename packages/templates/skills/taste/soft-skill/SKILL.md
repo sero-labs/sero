@@ -49,7 +49,7 @@ Never place a premium card, image, or container flatly on the background. They m
 
 ### C. Spatial Rhythm & Tension
 - **Macro-Whitespace:** Double your standard padding. Use `py-24` to `py-40` for sections. Allow the design to breathe heavily.
-- **Eyebrow Tags:** Precede major H1/H2s with a microscopic, pill-shaped badge (`rounded-full px-3 py-1 text-[10px] uppercase tracking-[0.2em] font-medium`).
+- **Eyebrow Tags:** Precede major H1/H2s with a microscopic, pill-shaped badge (`rounded-full px-3 py-1 text-sm uppercase tracking-[0.2em] font-medium`).
 
 ## 5. MOTION CHOREOGRAPHY (FLUID DYNAMICS)
 Never use default transitions. All motion must simulate real-world mass and spring physics. Use custom cubic-beziers (e.g., `transition-all duration-700 ease-[cubic-bezier(0.32,0.72,0,1)]`).

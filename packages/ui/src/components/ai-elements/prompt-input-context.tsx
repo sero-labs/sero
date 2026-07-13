@@ -245,8 +245,9 @@ export const PromptInputActionAddAttachments = ({
   );
 
   return (
-    <DropdownMenuItem {...props} onSelect={handleSelect}>
-      <ImageIcon className="mr-2 size-4" /> {label}
+    <DropdownMenuItem {...props} onSelect={handleSelect} className="text-sm">
+      <ImageIcon className="size-4" />
+      {label}
     </DropdownMenuItem>
   );
 };

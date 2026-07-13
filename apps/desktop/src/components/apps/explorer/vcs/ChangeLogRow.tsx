@@ -21,7 +21,7 @@ interface Props {
 
 function ChangeGlyph({ entry }: { entry: ChangeEntry }) {
   if (entry.isWorkingCopy) {
-    return <span className="text-[11px] font-bold text-status-info">@</span>;
+    return <span className="text-sm font-bold text-status-info">@</span>;
   }
   if (entry.immutable) {
     return <CheckCircle2 className="size-3 text-status-success" />;
@@ -59,7 +59,7 @@ export const ChangeLogRow = memo(function ChangeLogRow({ entry, index, isExpande
       {/* Change ID */}
       <span
         className={cn(
-          'shrink-0 font-mono text-[10px]',
+          'shrink-0 font-mono text-sm',
           entry.isWorkingCopy
             ? 'text-status-info/80'
             : 'text-[var(--text-muted)]/50',
@@ -69,14 +69,14 @@ export const ChangeLogRow = memo(function ChangeLogRow({ entry, index, isExpande
       </span>
 
       {/* Age */}
-      <span className="w-6 shrink-0 text-right text-[10px] text-[var(--text-muted)]/40">
+      <span className="w-6 shrink-0 text-right text-sm text-[var(--text-muted)]/40">
         {age}
       </span>
 
       {/* Description */}
       <span
         className={cn(
-          'min-w-0 flex-1 truncate text-[11px]',
+          'min-w-0 flex-1 truncate text-sm',
           entry.isWorkingCopy
             ? 'text-[var(--text-primary)]'
             : entry.description === '(no description)'
@@ -94,7 +94,7 @@ export const ChangeLogRow = memo(function ChangeLogRow({ entry, index, isExpande
             <span
               key={bm}
               className={cn(
-                'rounded-sm px-1 py-px text-[9px] font-medium leading-tight',
+                'rounded-sm px-1 py-px text-xs font-medium leading-tight',
                 'bg-status-info-muted text-status-info',
                 'border border-status-info-subtle',
               )}
@@ -103,7 +103,7 @@ export const ChangeLogRow = memo(function ChangeLogRow({ entry, index, isExpande
             </span>
           ))}
           {entry.bookmarks.length > 2 && (
-            <span className="text-[9px] text-[var(--text-muted)]/40">
+            <span className="text-xs text-[var(--text-muted)]/40">
               +{entry.bookmarks.length - 2}
             </span>
           )}
@@ -112,7 +112,7 @@ export const ChangeLogRow = memo(function ChangeLogRow({ entry, index, isExpande
 
       {/* Conflict indicator */}
       {entry.conflict && (
-        <span className="shrink-0 text-[9px] font-bold text-status-error">CONFLICT</span>
+        <span className="shrink-0 text-xs font-bold text-status-error">CONFLICT</span>
       )}
     </motion.button>
   );

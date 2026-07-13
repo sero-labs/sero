@@ -36,7 +36,7 @@ export function LayoutTab({
           <h3 className="text-xs font-semibold text-[var(--text-primary)]">
             Spacing
           </h3>
-          <p className="text-[11px] text-[var(--text-muted)] mt-0.5">
+          <p className="text-sm text-[var(--text-muted)] mt-0.5">
             Base spacing unit, controls padding, margins, and gaps.
             Tailwind&apos;s <code className="font-mono text-[var(--accent-code)]">p-3</code> equals
             this value.
@@ -59,7 +59,7 @@ export function LayoutTab({
           <h3 className="text-xs font-semibold text-[var(--text-primary)]">
             Border radius
           </h3>
-          <p className="text-[11px] text-[var(--text-muted)] mt-0.5">
+          <p className="text-sm text-[var(--text-muted)] mt-0.5">
             Base roundness, <code className="font-mono text-[var(--accent-code)]">rounded-lg</code> uses
             this value. Smaller sizes are derived automatically.
           </p>
@@ -98,7 +98,7 @@ function SpacingPreview({ base }: { base: number }) {
             className="bg-[var(--accent-primary)] rounded-sm opacity-50"
             style={{ width: `${s.mult}px`, height: `${s.mult}px` }}
           />
-          <span className="text-[9px] text-[var(--text-muted)] font-mono">
+          <span className="text-xs text-[var(--text-muted)] font-mono">
             {s.label}
           </span>
         </div>
@@ -122,7 +122,7 @@ function RadiusPreview({ base }: { base: number }) {
             className="size-10 border-2 border-[var(--accent-primary)] opacity-50"
             style={{ borderRadius: `${s.value}px` }}
           />
-          <span className="text-[9px] text-[var(--text-muted)] font-mono">
+          <span className="text-xs text-[var(--text-muted)] font-mono">
             {s.label}
           </span>
         </div>

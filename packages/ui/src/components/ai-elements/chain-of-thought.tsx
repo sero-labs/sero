@@ -81,7 +81,7 @@ export const ChainOfThoughtHeader = memo(
       <Collapsible onOpenChange={setIsOpen} open={isOpen}>
         <CollapsibleTrigger
           className={cn(
-            "flex w-full items-center gap-2 text-muted-foreground text-sm transition-colors hover:text-foreground",
+            "flex w-full items-center gap-2 text-muted-foreground text-base transition-colors hover:text-foreground",
             className
           )}
           {...props}
@@ -127,7 +127,7 @@ export const ChainOfThoughtStep = memo(
   }: ChainOfThoughtStepProps) => (
     <div
       className={cn(
-        "flex gap-2 text-sm",
+        "flex gap-2 text-base",
         stepStatusStyles[status],
         "fade-in-0 slide-in-from-top-2 animate-in",
         className

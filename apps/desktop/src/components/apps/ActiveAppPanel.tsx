@@ -33,7 +33,7 @@ export function ActiveAppPanel({ app }: ActiveAppPanelProps) {
   } else {
     content = (
       <div className="flex h-full items-center justify-center bg-[var(--bg-base)]">
-        <span className="text-sm capitalize text-[var(--text-muted)]">
+        <span className="text-base capitalize text-[var(--text-muted)]">
           {app} app, coming soon
         </span>
       </div>

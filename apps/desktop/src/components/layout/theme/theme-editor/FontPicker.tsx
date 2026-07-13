@@ -65,7 +65,7 @@ export function FontPicker({ label, value, presets, onChange }: FontPickerProps)
               key={p.label}
               type="button"
               onClick={() => handlePick(p.value)}
-              className={`px-2.5 py-1.5 text-left text-[13px] transition-colors ${
+              className={`px-2.5 py-1.5 text-left text-base transition-colors ${
                 active
                   ? 'bg-[var(--accent-primary)]/15 text-[var(--text-primary)]'
                   : 'text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]'
@@ -80,7 +80,7 @@ export function FontPicker({ label, value, presets, onChange }: FontPickerProps)
         <button
           type="button"
           onClick={handleCustomToggle}
-          className={`px-2.5 py-1.5 text-left text-[13px] transition-colors ${
+          className={`px-2.5 py-1.5 text-left text-base transition-colors ${
             showCustom
               ? 'bg-[var(--accent-primary)]/15 text-[var(--text-primary)]'
               : 'text-[var(--text-muted)] hover:bg-[var(--bg-elevated)]'

@@ -59,7 +59,7 @@ export function SystemPromptSection({
     >
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <span className="text-[10px] text-[var(--text-muted)]">
+          <span className="text-sm text-[var(--text-muted)]">
             {systemPrompt === null
               ? c.defaultHint
               : systemPrompt === ''
@@ -69,7 +69,7 @@ export function SystemPromptSection({
           {systemPrompt !== null && (
             <button type="button"
               onClick={() => onSystemPromptChange(null)}
-              className="text-[10px] text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)]"
+              className="text-sm text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)]"
             >
               Reset to default
             </button>
@@ -78,10 +78,10 @@ export function SystemPromptSection({
         <textarea aria-label="System prompt"
           value={displayedPrompt}
           onChange={(event) => onSystemPromptChange(event.target.value)}
-          className="h-80 w-full resize-y rounded-md border border-border/30 bg-[var(--bg-base)] p-2 font-mono text-[11px] text-[var(--text-secondary)] placeholder:text-[var(--text-muted)] outline-none focus:border-[var(--accent-primary)]"
+          className="h-80 w-full resize-y rounded-md border border-border/30 bg-[var(--bg-base)] p-2 font-mono text-sm text-[var(--text-secondary)] placeholder:text-[var(--text-muted)] outline-none focus:border-[var(--accent-primary)]"
           placeholder={c.placeholder}
         />
-        <p className="text-[10px] text-[var(--text-muted)]">{c.footnote}</p>
+        <p className="text-sm text-[var(--text-muted)]">{c.footnote}</p>
       </div>
     </ContextSection>
   );

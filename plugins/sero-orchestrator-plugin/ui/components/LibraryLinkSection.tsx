@@ -32,7 +32,7 @@ export function LibraryLinkSection({ loop, status, busy, onAction }: LibraryLink
   };
 
   return (
-    <Card className="flex flex-col gap-2 p-3 text-sm">
+    <Card className="flex flex-col gap-2 p-3 text-base">
       {sourceRemoved && (
         <span className="text-xs text-amber-400">The library entry this loop came from was removed. It stays on its current plan.</span>
       )}

@@ -29,7 +29,7 @@ export function QuestionnaireReviewStep({
 
   return (
     <div>
-      <p className="mb-1 text-sm font-medium text-foreground">Review your answers</p>
+      <p className="mb-1 text-base font-medium text-foreground">Review your answers</p>
       <p
         className={cn(
           'mb-4 text-xs',
@@ -59,7 +59,7 @@ export function QuestionnaireReviewStep({
                   <p className="text-xs font-medium text-muted-foreground">
                     {question.label}
                   </p>
-                  <p className="mt-0.5 text-sm text-foreground">{question.prompt}</p>
+                  <p className="mt-0.5 text-base text-foreground">{question.prompt}</p>
                 </div>
                 <button type="button"
                   onClick={() => onGoToStep(index)}
@@ -74,7 +74,7 @@ export function QuestionnaireReviewStep({
                 </button>
               </div>
               {questionAnswers.length > 0 ? (
-                <div className="mt-2 space-y-1 text-sm text-emerald-700 dark:text-emerald-400">
+                <div className="mt-2 space-y-1 text-base text-emerald-700 dark:text-emerald-400">
                   {questionAnswers.map((answer, answerIndex) => (
                     <p key={`${question.id}-${answer.value}-${answerIndex}`}>
                       {formatQuestionnaireAnswerLabel(answer)}

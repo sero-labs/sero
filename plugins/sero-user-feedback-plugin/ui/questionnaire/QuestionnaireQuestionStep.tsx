@@ -70,7 +70,7 @@ function QuestionBlock({
 
   return (
     <div>
-      <p className="mb-1 text-sm font-medium text-foreground">{question.prompt}</p>
+      <p className="mb-1 text-base font-medium text-foreground">{question.prompt}</p>
       {question.multiSelect && (
         <p className="mb-4 text-xs text-muted-foreground">
           Select one or more options, then continue.
@@ -95,7 +95,7 @@ function QuestionBlock({
               >
                 <span
                   className={cn(
-                    'mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border text-[10px] font-medium',
+                    'mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border text-sm font-medium',
                     question.multiSelect && 'rounded-[4px]',
                     isSelected
                       ? 'border-emerald-500 text-emerald-400'
@@ -105,7 +105,7 @@ function QuestionBlock({
                   {question.multiSelect ? (isSelected ? <Check className="size-3" /> : null) : index + 1}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <span className="text-sm text-foreground">{option.label}</span>
+                  <span className="text-base text-foreground">{option.label}</span>
                   {option.description && (
                     <p className="mt-0.5 text-xs text-muted-foreground">
                       {option.description}
@@ -138,7 +138,7 @@ function QuestionBlock({
                 <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">
                   Custom answer
                 </p>
-                <p className="mt-0.5 text-sm text-foreground">{customAnswer.label}</p>
+                <p className="mt-0.5 text-base text-foreground">{customAnswer.label}</p>
               </div>
               <div className="flex gap-2">
                 <Button size="sm" variant="ghost" onClick={openCustom}>
@@ -159,10 +159,10 @@ function QuestionBlock({
             onClick={openCustom}
             className="flex w-full items-center gap-3 rounded-md border border-transparent px-3 py-2.5 text-left hover:border-border hover:bg-secondary"
           >
-            <span className="flex size-5 shrink-0 items-center justify-center rounded-full border border-[var(--border)] text-[10px] text-muted-foreground">
+            <span className="flex size-5 shrink-0 items-center justify-center rounded-full border border-[var(--border)] text-sm text-muted-foreground">
               <Pencil className="size-3" />
             </span>
-            <span className="text-sm text-muted-foreground">Type something…</span>
+            <span className="text-base text-muted-foreground">Type something…</span>
           </button>
         )}
 
@@ -177,7 +177,7 @@ function QuestionBlock({
                 if (event.key === 'Escape') closeCustom();
               }}
               placeholder="Type your answer…"
-              className="flex-1 rounded-md border border-input bg-background px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+              className="flex-1 rounded-md border border-input bg-background px-3 py-1.5 text-base text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
             />
             <Button size="sm" onClick={submitCustom} disabled={!customText.trim()}>
               Submit

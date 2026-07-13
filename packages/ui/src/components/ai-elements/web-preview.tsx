@@ -173,7 +173,7 @@ export const WebPreviewUrl = ({
 
   return (
     <Input
-      className="h-8 flex-1 text-sm"
+      className="h-8 flex-1 text-base"
       onChange={onChange ?? handleChange}
       onKeyDown={handleKeyDown}
       placeholder="Enter URL..."
@@ -227,7 +227,7 @@ export const WebPreviewConsole = ({
 
   return (
     <Collapsible
-      className={cn("border-t bg-muted/50 font-mono text-sm", className)}
+      className={cn("border-t bg-muted/50 font-mono text-base", className)}
       onOpenChange={setConsoleOpen}
       open={consoleOpen}
       {...props}

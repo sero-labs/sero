@@ -78,7 +78,7 @@ export function CollaborationActivityPanel() {
           <div className="text-xs font-semibold text-[var(--text-primary)]">
             {roomLabel}
           </div>
-          <div className="truncate text-[10px] text-[var(--text-muted)]">
+          <div className="truncate text-sm text-[var(--text-muted)]">
             {roomSubtitle}
           </div>
         </div>
@@ -134,7 +134,7 @@ export function CollaborationActivityPanel() {
       {status === 'error' && (
         <div className="flex items-center gap-1.5 border-t border-destructive/20 bg-destructive/5 px-3 py-2">
           <XCircle className="size-3 text-destructive" />
-          <span className="text-[10px] text-destructive">
+          <span className="text-sm text-destructive">
             Connection lost, an error occurred
           </span>
         </div>

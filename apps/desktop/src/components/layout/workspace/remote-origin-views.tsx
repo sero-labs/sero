@@ -71,7 +71,7 @@ export function ChooseView({
           <Plus className="size-4 text-[var(--text-secondary)]" />
         </div>
         <div className="flex flex-col">
-          <span className="text-sm font-medium text-[var(--text-primary)]">Create new on GitHub</span>
+          <span className="text-base font-medium text-[var(--text-primary)]">Create new on GitHub</span>
           <span className="text-xs text-[var(--text-muted)]">Create a repository and set it as origin</span>
         </div>
       </button>
@@ -83,7 +83,7 @@ export function ChooseView({
           <LinkIcon className="size-4 text-[var(--text-secondary)]" />
         </div>
         <div className="flex flex-col">
-          <span className="text-sm font-medium text-[var(--text-primary)]">Connect existing repository</span>
+          <span className="text-base font-medium text-[var(--text-primary)]">Connect existing repository</span>
           <span className="text-xs text-[var(--text-muted)]">Import files when the workspace is empty</span>
         </div>
       </button>
@@ -225,7 +225,7 @@ export function CreateGitHubView({
       <BackButton onClick={onBack} />
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="repo-name" className="text-sm font-medium text-[var(--text-secondary)]">
+        <Label htmlFor="repo-name" className="text-base font-medium text-[var(--text-secondary)]">
           Repository name
         </Label>
         <Input
@@ -238,7 +238,7 @@ export function CreateGitHubView({
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="repo-desc" className="text-sm font-medium text-[var(--text-secondary)]">
+        <Label htmlFor="repo-desc" className="text-base font-medium text-[var(--text-secondary)]">
           Description
           <span className="ml-1 text-xs text-[var(--text-muted)]">(optional)</span>
         </Label>
@@ -252,7 +252,7 @@ export function CreateGitHubView({
       </div>
 
       <div className="flex flex-col gap-2">
-        <Label className="text-sm font-medium text-[var(--text-secondary)]">Visibility</Label>
+        <Label className="text-base font-medium text-[var(--text-secondary)]">Visibility</Label>
         <div className="flex gap-2">
           <VisibilityButton
             active={visibility === 'private'}
@@ -346,7 +346,7 @@ export function ConnectExistingView({
       <BackButton onClick={onBack} />
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="remote-url" className="text-sm font-medium text-[var(--text-secondary)]">
+        <Label htmlFor="remote-url" className="text-base font-medium text-[var(--text-secondary)]">
           Remote URL
         </Label>
         <Input
@@ -398,7 +398,7 @@ export function ConnectedView({
       <div className="flex items-start gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-3">
         <GitBranch className="mt-0.5 size-4 shrink-0 text-[var(--brand-primary)]" />
         <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <span className="text-sm font-medium text-[var(--text-primary)]">
+          <span className="text-base font-medium text-[var(--text-primary)]">
             {displayOriginUrl(origin.url)}
           </span>
           <span className="truncate text-xs text-[var(--text-muted)]" title={origin.url}>
@@ -476,7 +476,7 @@ function VisibilityButton({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`flex flex-1 items-center justify-center gap-1.5 rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
+      className={`flex flex-1 items-center justify-center gap-1.5 rounded-md border px-3 py-2 text-base font-medium transition-colors ${
         active
           ? 'border-status-info-subtle bg-status-info-muted text-[var(--text-primary)]'
           : 'border-[var(--border-subtle)] text-[var(--text-muted)] hover:border-[var(--border-default)]'

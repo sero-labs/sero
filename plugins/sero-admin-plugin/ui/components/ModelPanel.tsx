@@ -9,7 +9,7 @@ import {
 } from '@sero-ai/common';
 import { AvailableModelPicker } from '@sero-ai/ui/components/model-selection/available-model-picker';
 import { ModelWarningList } from '@sero-ai/ui/components/model-selection/model-warning-list';
-import { ThinkingLevelPicker } from '@sero-ai/ui/components/model-selection/thinking-level-picker';
+import { ThinkingPicker } from '@sero-ai/ui/components/model-selection/thinking-picker';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { ScrollArea } from '@sero-ai/ui/components/ui/scroll-area';
 import {
@@ -178,15 +178,15 @@ export function ModelPanel() {
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      <div className="flex items-start justify-between gap-3 border-b border-border/30 px-4 py-3">
-        <div>
-          <h2 className="text-sm font-semibold text-foreground">Model</h2>
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border/30 px-4 py-3">
+        <div className="min-w-0">
+          <h2 className="text-base font-semibold text-foreground">Model</h2>
           <p className="mt-1 text-xs text-muted-foreground/70">
             Configure the global LOW / MED / HIGH model tiers
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          {error ? <span className="text-[11px] text-destructive">{error}</span> : null}
+        <div className="ml-auto flex shrink-0 items-center gap-2">
+          {error ? <span className="text-sm text-destructive">{error}</span> : null}
           <Button variant="ghost" size="sm" disabled={!hasChanges || saving} onClick={() => setDraft(toDraft(saved))}>
             Reset
           </Button>
@@ -206,15 +206,15 @@ export function ModelPanel() {
 
           <ModelWarningList warnings={warnings} />
 
-          <div className="grid gap-4 xl:grid-cols-3">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,24rem),1fr))] gap-4">
             {TIERS.map((tier) => {
               const entry = draft.tiers[tier.key];
               const model = findSelectedModel(groups, entry);
               const value = entry ? modelKey(entry.provider, entry.modelId) : '';
 
               return (
-                <div key={tier.key} className="rounded-xl border border-border/40 bg-background/60 p-4">
-                  <p className="text-sm font-medium text-foreground">{tier.label}</p>
+                <div key={tier.key} className="min-w-0 rounded-xl border border-border/40 bg-background/60 p-4">
+                  <p className="text-base font-medium text-foreground">{tier.label}</p>
                   <p className="mt-1 text-xs text-muted-foreground/70">{tier.description}</p>
 
                   <AvailableModelPicker
@@ -227,12 +227,11 @@ export function ModelPanel() {
                     allowClear
                   />
 
-                  <ThinkingLevelPicker
-                    className="mt-3"
-                    value={getModelTierThinkingLevel(entry, model?.reasoning ? 'high' : 'off')}
-                    availableLevels={model ? getAvailableThinkingLevels(model) : undefined}
-                    disabled={!model}
-                    onChange={(thinkingLevel) => handleThinkingChange(tier.key, thinkingLevel)}
+                  <ThinkingPicker
+                    available={model ? getAvailableThinkingLevels(model) : []}
+                    current={getModelTierThinkingLevel(entry, model?.reasoning ? 'high' : 'off')}
+                    disabled={!model || !model.reasoning}
+                    onSelect={(thinkingLevel) => handleThinkingChange(tier.key, thinkingLevel)}
                   />
                 </div>
               );

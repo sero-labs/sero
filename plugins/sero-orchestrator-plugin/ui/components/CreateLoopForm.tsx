@@ -59,7 +59,7 @@ export function CreateLoopForm({ busy, onSubmit, onCancel }: CreateLoopFormProps
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
         <h2 className="text-base font-semibold">Describe what you want done</h2>
-        <p className="text-sm text-muted-foreground">The AI writes the plan. Include any schedule.</p>
+        <p className="text-base text-muted-foreground">The AI writes the plan. Include any schedule.</p>
       </div>
       <Textarea
         autoFocus
@@ -67,7 +67,7 @@ export function CreateLoopForm({ busy, onSubmit, onCancel }: CreateLoopFormProps
         onChange={(e) => setPrompt(e.target.value)}
         placeholder='e.g. "Every 10 minutes, check GitHub issues and open a PR for anything unassigned."'
         rows={4}
-        className="text-sm"
+        className="text-base"
       />
       <div className="flex flex-col gap-1">
         <Label htmlFor="loop-title">Title (optional)</Label>

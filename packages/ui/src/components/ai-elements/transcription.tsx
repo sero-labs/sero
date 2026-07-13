@@ -60,7 +60,7 @@ export const Transcription = ({
     <TranscriptionContext.Provider value={contextValue}>
       <div
         className={cn(
-          "flex flex-wrap gap-1 text-sm leading-relaxed",
+          "flex flex-wrap gap-1 text-base leading-relaxed",
           className
         )}
         data-slot="transcription"

@@ -44,7 +44,7 @@ const ToolCallItem = memo(function ToolCallItem({ tc }: { tc: ToolCall }) {
           )}
           {statusIcon}
           <Wrench className="size-3 shrink-0" />
-          <span className="font-mono truncate">{tc.toolName}</span>
+          <span className="font-mono text-xs truncate">{tc.toolName}</span>
         </CollapsibleTrigger>
 
         {/* Tool result images, always visible, click to open lightbox */}
@@ -113,7 +113,7 @@ export const ToolCallDisplay = memo(function ToolCallDisplay({
         <span>
           {toolCalls.length} tool call{toolCalls.length > 1 ? 's' : ''}
         </span>
-        <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+        <Badge variant="secondary" className="text-sm px-1.5 py-0">
           {summary}
         </Badge>
       </div>

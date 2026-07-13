@@ -94,7 +94,7 @@ function ViewerPlaceholder({ body, compact = false }: { body: string; compact?: 
   return (
     <div
       className={cn(
-        'flex items-center justify-center rounded-lg border border-dashed border-border bg-background/60 p-6 text-center text-sm text-muted-foreground',
+        'flex items-center justify-center rounded-lg border border-dashed border-border bg-background/60 p-6 text-center text-base text-muted-foreground',
         compact ? 'min-h-[180px]' : 'min-h-[280px]',
       )}
     >

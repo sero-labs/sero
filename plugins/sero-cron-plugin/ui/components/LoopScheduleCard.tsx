@@ -38,23 +38,23 @@ export function LoopScheduleCard({ row, onEditSchedule, onTogglePaused, onOpenLo
       <div className="px-4 py-3">
         {/* Header row: title + badges */}
         <div className="mb-2 flex items-center gap-2">
-          <span className="text-sm font-semibold text-foreground">{row.title}</span>
-          <Badge variant="outline" className={cn('text-[10px]', status.className)}>
+          <span className="text-base font-semibold text-foreground">{row.title}</span>
+          <Badge variant="outline" className={cn('text-sm', status.className)}>
             {status.label}
           </Badge>
           {row.exhausted ? (
-            <Badge variant="secondary" className="text-[10px]" title="This schedule reached its run limit and won't fire again">
+            <Badge variant="secondary" className="text-sm" title="This schedule reached its run limit and won't fire again">
               Run limit reached
             </Badge>
           ) : (
             row.scheduleDisabled && canManage && (
-              <Badge variant="secondary" className="text-[10px]">
+              <Badge variant="secondary" className="text-sm">
                 Schedule paused
               </Badge>
             )
           )}
           {row.firesOnEvents && (
-            <Badge variant="outline" className="border-primary/30 text-[10px] text-primary" title="This loop also runs when its events fire">
+            <Badge variant="outline" className="border-primary/30 text-sm text-primary" title="This loop also runs when its events fire">
               Events
             </Badge>
           )}

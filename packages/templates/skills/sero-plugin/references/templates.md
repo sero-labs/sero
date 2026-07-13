@@ -783,7 +783,7 @@ export function MyApp() {
           value={newTitle}
           onChange={(e) => setNewTitle(e.target.value)}
           placeholder="Add an item..."
-          className="flex-1 rounded-md border border-input bg-background px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+          className="flex-1 rounded-md border border-input bg-background px-3 py-1.5 text-base text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
         />
         <Button size="sm" disabled={!newTitle.trim()}>
           Add
@@ -793,7 +793,7 @@ export function MyApp() {
       <Card className="flex-1 gap-0 overflow-hidden py-0 shadow-none">
         {state.items.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16">
-            <p className="text-sm text-muted-foreground">No items yet</p>
+            <p className="text-base text-muted-foreground">No items yet</p>
           </div>
         ) : (
           <div className="flex-1 overflow-y-auto">
@@ -802,7 +802,7 @@ export function MyApp() {
                 key={item.id}
                 className="group flex items-center gap-3 border-b px-4 py-2.5 last:border-b-0 hover:bg-secondary"
               >
-                <span className="flex-1 text-sm text-foreground">
+                <span className="flex-1 text-base text-foreground">
                   {item.title}
                 </span>
                 <Button

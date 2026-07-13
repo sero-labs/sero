@@ -80,7 +80,7 @@ export function UsageApp() {
           </Tabs>
           <Inline gap="sm" align="center">
             {state.lastRefreshedAt !== null && (
-              <Text variant="muted" className="text-[11px]">
+              <Text variant="muted" className="text-sm">
                 updated {formatRelativeTime(state.lastRefreshedAt)}
               </Text>
             )}
@@ -176,7 +176,7 @@ export function UsageApp() {
               </Section>
             )}
 
-            <Text variant="muted" className="text-[11px]">
+            <Text variant="muted" className="text-sm">
               Tokens = Input + Output + CacheWrite · ↑ In = Input + CacheWrite · costs are approximate,
               based on local session data.
             </Text>

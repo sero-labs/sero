@@ -124,7 +124,7 @@ export function ReminderForm({
   }, [canSave, title, notes, channel, type, fireAt, schedule, recoverIfMissed, editingReminder, onSave, onClose]);
 
   const inputCls =
-    'w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring';
+    'w-full rounded-md border border-input bg-background px-3 py-2 text-base text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring';
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
@@ -234,14 +234,14 @@ export function ReminderForm({
                 className={cn(inputCls, 'font-mono')}
               />
               {scheduleError ? (
-                <p className="mt-1 text-[11px] text-destructive">{scheduleError}</p>
+                <p className="mt-1 text-sm text-destructive">{scheduleError}</p>
               ) : schedule.trim() ? (
-                <p className="mt-1 inline-flex items-center gap-1 text-[11px] text-emerald-500">
+                <p className="mt-1 inline-flex items-center gap-1 text-sm text-emerald-500">
                   <Check className="size-3" />
                   {cronToHuman(schedule.trim())}
                 </p>
               ) : (
-                <p className="mt-1 text-[11px] text-muted-foreground">
+                <p className="mt-1 text-sm text-muted-foreground">
                   min hour dom month dow
                 </p>
               )}
@@ -253,7 +253,7 @@ export function ReminderForm({
                     type="button"
                     onClick={() => setSchedule(p.value)}
                     className={cn(
-                      'rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground',
+                      'rounded-full border border-border px-2 py-0.5 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground',
                       schedule === p.value && 'border-primary bg-primary/10 text-primary',
                     )}
                   >
@@ -276,7 +276,7 @@ export function ReminderForm({
               <span className="text-xs font-medium text-foreground">
                 Recover if missed
               </span>
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-sm text-muted-foreground">
                 Show notification on startup if this reminder was missed while Sero was closed
               </p>
             </div>
@@ -292,7 +292,7 @@ export function ReminderForm({
                 <Monitor className="size-3.5" />
                 Desktop notification
               </div>
-              <p className="mt-1 text-[11px] text-muted-foreground">
+              <p className="mt-1 text-sm text-muted-foreground">
                 Email delivery is not supported yet. Saving this reminder will use the desktop notification path.
               </p>
             </div>

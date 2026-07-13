@@ -80,7 +80,7 @@ function WarningBanner({
                 <button type="button"
                   key={provider.providerId}
                   onClick={() => onReconnectProvider(provider.providerId)}
-                  className="rounded-full border border-[var(--border-default)] bg-[var(--bg-surface)] px-2.5 py-1 text-[10px] font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--bg-elevated)]"
+                  className="rounded-full border border-[var(--border-default)] bg-[var(--bg-surface)] px-2.5 py-1 text-sm font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--bg-elevated)]"
                 >
                   Reconnect {provider.displayName}
                 </button>
@@ -150,7 +150,7 @@ export function OnboardingSetupScreen({
           </div>
           <div>
             <DialogTitle className="text-lg font-semibold text-[var(--text-primary)]">Install host dependencies</DialogTitle>
-            <DialogDescription className="text-sm text-[var(--text-secondary)]">
+            <DialogDescription className="text-base text-[var(--text-secondary)]">
               Sero checks core development tools during setup. Browser support is optional unless you need screenshots, recordings, or web tasks.
             </DialogDescription>
           </div>
@@ -190,7 +190,7 @@ export function OnboardingSetupScreen({
           </div>
           <div>
             <DialogTitle className="text-lg font-semibold text-[var(--text-primary)]">{GITHUB_STEP_CONFIG.title}</DialogTitle>
-            <DialogDescription className="text-sm text-[var(--text-secondary)]">
+            <DialogDescription className="text-base text-[var(--text-secondary)]">
               {GITHUB_STEP_CONFIG.description}
             </DialogDescription>
           </div>
@@ -234,7 +234,7 @@ export function OnboardingSetupScreen({
         </div>
         <div>
           <DialogTitle className="text-lg font-semibold text-[var(--text-primary)]">Choose your defaults</DialogTitle>
-          <DialogDescription className="text-sm text-[var(--text-secondary)]">
+          <DialogDescription className="text-base text-[var(--text-secondary)]">
             Pick the LOW / MED / HIGH models and the thinking level each tier should use by default.
           </DialogDescription>
         </div>
@@ -255,7 +255,7 @@ export function OnboardingSetupScreen({
             <div key={tier.key} className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-elevated)]/40 px-4 py-3">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-sm font-medium text-[var(--text-primary)]">{tier.label}</p>
+                  <p className="text-base font-medium text-[var(--text-primary)]">{tier.label}</p>
                   <p className="text-xs text-[var(--text-secondary)]">{tier.description}</p>
                 </div>
               </div>

@@ -57,7 +57,7 @@ export function McpServerToolRunnerPanel({
         )}
 
         {toolRunner.tools.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-border bg-background/40 p-4 text-sm text-muted-foreground">
+          <div className="rounded-lg border border-dashed border-border bg-background/40 p-4 text-base text-muted-foreground">
             No cached tools are available for this server yet. Connect or reconnect the server to refresh MCP tool metadata.
           </div>
         ) : (
@@ -77,7 +77,7 @@ export function McpServerToolRunnerPanel({
                   </NativeSelectOption>
                 ))}
               </NativeSelect>
-              {selectedTool?.description && <p className="text-sm text-muted-foreground">{selectedTool.description}</p>}
+              {selectedTool?.description && <p className="text-base text-muted-foreground">{selectedTool.description}</p>}
             </div>
 
             <div className="grid gap-4 lg:grid-cols-2">

@@ -66,11 +66,11 @@ export function AppStoreCard({
 
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <span className="truncate text-sm font-medium text-[var(--text-primary)]">
+            <span className="truncate text-base font-medium text-[var(--text-primary)]">
               {entry.label}
             </span>
             {manifest.version ? (
-              <span className="shrink-0 text-[11px] text-[var(--text-muted)]">
+              <span className="shrink-0 text-sm text-[var(--text-muted)]">
                 v{manifest.version}
               </span>
             ) : null}
@@ -111,7 +111,7 @@ export function AppStoreCard({
         {category ? (
           <Badge
             variant="outline"
-            className="text-[11px] capitalize border-status-success-border bg-status-success-muted text-status-success"
+            className="text-sm capitalize border-status-success-border bg-status-success-muted text-status-success"
           >
             {formatLabel(category)}
           </Badge>
@@ -119,7 +119,7 @@ export function AppStoreCard({
         {unsupportedReason ? (
           <Badge
             variant="outline"
-            className="text-[11px] border-status-error-border bg-status-error-muted text-status-error"
+            className="text-sm border-status-error-border bg-status-error-muted text-status-error"
           >
             Unsupported host
           </Badge>

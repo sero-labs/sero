@@ -53,7 +53,7 @@ export function BookmarksBar({ workspaceId, onNavigate }: BookmarksBarProps) {
 
   if (bookmarks.length === 0) {
     return (
-      <div className="flex h-7 shrink-0 items-center gap-1.5 border-b border-[var(--border-subtle)] bg-[var(--bg-base)] px-2 text-[11px] text-[var(--text-muted)]">
+      <div className="flex h-7 shrink-0 items-center gap-1.5 border-b border-[var(--border-subtle)] bg-[var(--bg-base)] px-2 text-sm text-[var(--text-muted)]">
         <Star className="size-3" />
         <span>No bookmarks yet, press ⌘B on any page to save it here.</span>
       </div>
@@ -78,7 +78,7 @@ export function BookmarksBar({ workspaceId, onNavigate }: BookmarksBarProps) {
             }}
             onContextMenu={(e) => { void handleBookmarkContextMenu(e, bm); }}
             className={cn(
-              'flex h-5 shrink-0 items-center gap-1.5 rounded px-1.5 text-[11px]',
+              'flex h-5 shrink-0 items-center gap-1.5 rounded px-1.5 text-sm',
               'text-[var(--text-muted)] transition-colors',
               'hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]',
             )}

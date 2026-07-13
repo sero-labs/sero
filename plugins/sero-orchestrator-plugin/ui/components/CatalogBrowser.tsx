@@ -186,7 +186,7 @@ export function CatalogBrowser({ busy, libraryIndex, dispatch, onOpenLoop, onSho
       )}
       {hiddenCount > 0 && (
         <p
-          className="px-1 text-[11px] text-muted-foreground"
+          className="px-1 text-sm text-muted-foreground"
           title={contents.flatMap((c) => c.problems.map((p) => `${c.repo.key}/${p.slug}: ${p.reason}`)).join('\n')}
         >
           {hiddenCount} entr(ies) hidden — malformed in their catalog repo (hover for reasons).

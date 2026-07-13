@@ -37,15 +37,15 @@ export const AttachedFoldersSection = memo(function AttachedFoldersSection({
             </div>
             <div className="min-w-0 space-y-1">
               <div className="flex flex-wrap items-center gap-2">
-                <h3 className="text-sm font-semibold text-[var(--text-primary)]">Attached folders</h3>
+                <h3 className="text-base font-semibold text-[var(--text-primary)]">Attached folders</h3>
                 <Badge
                   variant="outline"
-                  className="border-[var(--collab-primary-border)] bg-[var(--collab-primary-muted)] text-[10px] text-[var(--collab-primary)]"
+                  className="border-[var(--collab-primary-border)] bg-[var(--collab-primary-muted)] text-sm text-[var(--collab-primary)]"
                 >
                   Workspace scoped
                 </Badge>
               </div>
-              <p className="max-w-3xl text-[11px] leading-5 text-[var(--text-muted)]">
+              <p className="max-w-3xl text-sm leading-5 text-[var(--text-muted)]">
                 Attach folders when you want a source tree visible in Explorer and bind-mounted into
                 the current workspace container. Attachment is for visibility and editing only,it
                 does not activate a plugin or start local development.
@@ -55,7 +55,7 @@ export const AttachedFoldersSection = memo(function AttachedFoldersSection({
           <div className="flex items-center gap-2">
             <Badge
               variant="outline"
-              className="border-[var(--collab-primary-border)] bg-[var(--collab-primary-muted)] text-[10px] text-[var(--collab-primary)]"
+              className="border-[var(--collab-primary-border)] bg-[var(--collab-primary-muted)] text-sm text-[var(--collab-primary)]"
             >
               {countLabel}
             </Badge>
@@ -75,13 +75,13 @@ export const AttachedFoldersSection = memo(function AttachedFoldersSection({
 
       <div className="space-y-4 p-4">
         {error ? (
-          <div className="rounded-xl border border-status-error-border bg-status-error-faint px-3 py-2.5 text-[11px] text-status-error">
+          <div className="rounded-xl border border-status-error-border bg-status-error-faint px-3 py-2.5 text-sm text-status-error">
             {error}
           </div>
         ) : null}
 
         {!workspaceId ? (
-          <div className="rounded-2xl border border-dashed border-[var(--border-default)] bg-[var(--bg-base)] px-4 py-6 text-center text-[11px] leading-5 text-[var(--text-muted)]">
+          <div className="rounded-2xl border border-dashed border-[var(--border-default)] bg-[var(--bg-base)] px-4 py-6 text-center text-sm leading-5 text-[var(--text-muted)]">
             Open a workspace to attach folders for Explorer visibility and agent editing.
           </div>
         ) : loading ? (
@@ -89,7 +89,7 @@ export const AttachedFoldersSection = memo(function AttachedFoldersSection({
             Loading attached folders…
           </div>
         ) : folders.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-[var(--border-default)] bg-[var(--bg-base)] px-4 py-6 text-center text-[11px] leading-5 text-[var(--text-muted)]">
+          <div className="rounded-2xl border border-dashed border-[var(--border-default)] bg-[var(--bg-base)] px-4 py-6 text-center text-sm leading-5 text-[var(--text-muted)]">
             No attached folders for this workspace.
           </div>
         ) : (
@@ -104,18 +104,18 @@ export const AttachedFoldersSection = memo(function AttachedFoldersSection({
                     <span className="truncate text-xs font-medium text-[var(--text-primary)]">{folder.name}</span>
                     <Badge
                       variant="outline"
-                      className="h-5 border-[var(--collab-primary-border)] bg-[var(--collab-primary-muted)] px-1.5 text-[9px] text-[var(--collab-primary)]"
+                      className="h-5 border-[var(--collab-primary-border)] bg-[var(--collab-primary-muted)] px-1.5 text-xs text-[var(--collab-primary)]"
                     >
                       attached
                     </Badge>
                   </div>
-                  <p className="truncate font-mono text-[10px] text-[var(--text-muted)]">{folder.path}</p>
+                  <p className="truncate font-mono text-sm text-[var(--text-muted)]">{folder.path}</p>
                 </div>
                 <div className="flex shrink-0 gap-1">
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-7 border-[var(--border-subtle)] px-2 text-[10px] text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]"
+                    className="h-7 border-[var(--border-subtle)] px-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]"
                     onClick={() => {
                       void onReveal(folder.path);
                     }}
@@ -125,7 +125,7 @@ export const AttachedFoldersSection = memo(function AttachedFoldersSection({
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-7 border-status-error-border bg-status-error-muted px-2 text-[10px] text-status-error hover:bg-status-error-subtle"
+                    className="h-7 border-status-error-border bg-status-error-muted px-2 text-sm text-status-error hover:bg-status-error-subtle"
                     onClick={() => {
                       void onDetach(folder.id);
                     }}

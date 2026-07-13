@@ -190,20 +190,20 @@ export function RuntimePickerMenu({ workspace }: { workspace: WorkspaceInfo }) {
                     {runtimeIcon(option.backend)}
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="flex max-w-full flex-wrap items-center gap-1 text-sm font-medium text-[var(--text-primary)]">
+                    <span className="flex max-w-full flex-wrap items-center gap-1 text-base font-medium text-[var(--text-primary)]">
                       {option.name}
                       {pending ? (
-                        <span className="rounded bg-[var(--bg-base)] px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-status-info">
+                        <span className="rounded bg-[var(--bg-base)] px-1.5 py-0.5 text-sm uppercase tracking-wide text-status-info">
                           Switching
                         </span>
                       ) : null}
                       {option.recommended ? (
-                        <span className="rounded bg-status-success-faint px-1 py-0.5 text-[10px] uppercase tracking-wide text-[var(--brand-primary)]">
+                        <span className="rounded bg-status-success-faint px-1 py-0.5 text-sm uppercase tracking-wide text-[var(--brand-primary)]">
                           Default
                         </span>
                       ) : null}
                       {option.optional ? (
-                        <span className="rounded bg-[var(--bg-base)] px-1 py-0.5 text-[10px] uppercase tracking-wide text-[var(--text-muted)]">
+                        <span className="rounded bg-[var(--bg-base)] px-1 py-0.5 text-sm uppercase tracking-wide text-[var(--text-muted)]">
                           Optional
                         </span>
                       ) : null}

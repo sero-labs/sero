@@ -58,14 +58,14 @@ export function CreateLoopWizard({ busy, stateDir, onCreate, onAction, onOpenLoo
       {stage === 'describe' && <CreateLoopForm busy={busy} onSubmit={create} onCancel={onCancel} />}
 
       {stage === 'planning' && (
-        <Card className="flex items-center gap-2 p-4 text-sm text-muted-foreground">
+        <Card className="flex items-center gap-2 p-4 text-base text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" /> The AI is writing the plan…
         </Card>
       )}
 
       {stage === 'clarify' && loop && (
         <div className="flex flex-col gap-3">
-          <p className="text-sm text-muted-foreground">Answer these so the AI can build the plan.</p>
+          <p className="text-base text-muted-foreground">Answer these so the AI can build the plan.</p>
           <InputRequestCard loop={loop} busy={busy} onAction={onAction} />
         </div>
       )}
@@ -74,11 +74,11 @@ export function CreateLoopWizard({ busy, stateDir, onCreate, onAction, onOpenLoo
         <div className="flex flex-col gap-4">
           <div className="flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-sky-400" />
-            <h2 className="text-sm font-semibold">Here's the plan the AI wrote</h2>
+            <h2 className="text-base font-semibold">Here's the plan the AI wrote</h2>
           </div>
           <LoopMetaStrip loop={loop} />
           {loop.runtime.block && (
-            <Card className="border-destructive/50 p-3 text-sm">
+            <Card className="border-destructive/50 p-3 text-base">
               <span className="font-medium text-destructive">Plan generation hit a problem: </span>
               {loop.runtime.block.reason} — refine below, or cancel and try a clearer prompt.
             </Card>

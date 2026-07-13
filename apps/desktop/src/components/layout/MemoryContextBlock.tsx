@@ -50,7 +50,7 @@ export function MemoryContextBlock({ context }: { context: string }) {
         </span>
 
         {!expanded && preview && (
-          <span className="min-w-0 truncate text-[11px] text-[var(--text-muted)]/60">
+          <span className="min-w-0 truncate text-sm text-[var(--text-muted)]/60">
             {preview}
           </span>
         )}
@@ -70,7 +70,7 @@ export function MemoryContextBlock({ context }: { context: string }) {
               <pre
                 className={cn(
                   'max-h-[300px] overflow-y-auto whitespace-pre-wrap px-3 py-2',
-                  'font-mono text-[11px] leading-relaxed text-[var(--text-muted)]',
+                  'font-mono text-sm leading-relaxed text-[var(--text-muted)]',
                   'scrollbar-thin scrollbar-thumb-[var(--border-subtle)]',
                 )}
               >

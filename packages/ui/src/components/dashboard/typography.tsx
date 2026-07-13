@@ -2,7 +2,7 @@
 //
 // Text, Heading and Icon give one type scale and one icon treatment so
 // equivalent text and icons render identically across widgets, replacing the
-// scattered `text-[9px]`/`text-[10px]` and per-widget muted colours.
+// scattered `text-xs`/`text-sm` and per-widget muted colours.
 
 import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
@@ -15,13 +15,13 @@ import { toneColor, type Tone } from "./tone";
 const textVariants = cva("min-w-0", {
   variants: {
     variant: {
-      body: "text-sm text-[var(--text-primary)]",
+      body: "text-base text-[var(--text-primary)]",
       label:
-        "text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)]",
+        "text-sm font-semibold uppercase tracking-wider text-[var(--text-muted)]",
       supporting: "text-xs text-[var(--text-secondary)]",
       muted: "text-xs text-[var(--text-muted)]",
       numeric:
-        "text-sm font-semibold tabular-nums text-[var(--text-primary)]",
+        "text-base font-semibold tabular-nums text-[var(--text-primary)]",
     },
   },
   defaultVariants: { variant: "body" },
@@ -72,7 +72,7 @@ function Text({
 
 const headingSize = {
   sm: "text-xs font-semibold",
-  md: "text-sm font-semibold",
+  md: "text-base font-semibold",
   lg: "text-base font-semibold",
 } as const;
 

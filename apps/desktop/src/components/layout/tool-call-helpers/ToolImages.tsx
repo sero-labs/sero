@@ -69,14 +69,14 @@ export function ToolImages({
               isOpenablePath ? (
                 <button type="button"
                   onClick={() => handlePathClick(image.filePath!)}
-                  className="truncate rounded bg-[var(--bg-elevated)] px-2 py-1 text-left font-mono text-[10px] text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]"
+                  className="truncate rounded bg-[var(--bg-elevated)] px-2 py-1 text-left font-mono text-sm text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]"
                   title={`Open ${image.filePath} in editor`}
                 >
                   {image.filePath}
                 </button>
               ) : (
                 <div
-                  className="truncate rounded bg-[var(--bg-elevated)] px-2 py-1 font-mono text-[10px] text-[var(--text-secondary)]"
+                  className="truncate rounded bg-[var(--bg-elevated)] px-2 py-1 font-mono text-sm text-[var(--text-secondary)]"
                   title={image.filePath}
                 >
                   {image.filePath}

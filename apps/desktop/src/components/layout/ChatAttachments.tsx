@@ -32,7 +32,7 @@ export function PromptAttachmentsBar() {
   return (
     <div className="flex flex-col gap-1 px-1 pb-1">
       {count > 1 && (
-        <div className="flex items-center justify-between px-1 text-[10px] uppercase tracking-wider text-[var(--text-muted)]">
+        <div className="flex items-center justify-between px-1 text-sm uppercase tracking-wider text-[var(--text-muted)]">
           <span>{count} attachments</span>
           <button
             type="button"

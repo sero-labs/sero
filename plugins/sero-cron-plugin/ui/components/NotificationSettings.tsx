@@ -70,7 +70,7 @@ export function NotificationSettings({
           {/* Sound picker */}
           {effective.soundEnabled && (
             <div className="space-y-1.5">
-              <span className="text-[11px] text-muted-foreground">Sound</span>
+              <span className="text-sm text-muted-foreground">Sound</span>
               <div className="grid grid-cols-2 gap-1">
                 {NOTIFICATION_SOUNDS.map((sound) => (
                   <button type="button"

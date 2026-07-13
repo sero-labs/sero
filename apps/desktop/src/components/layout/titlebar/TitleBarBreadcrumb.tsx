@@ -27,7 +27,7 @@ export function TitleBarBreadcrumb() {
   return (
     <div className="no-drag flex min-w-0 items-center gap-1.5">
       <Icon className="size-3.5 shrink-0 text-[var(--brand-primary)]" />
-      <span className="truncate text-xs font-medium text-[var(--text-secondary)]" style={{ maxWidth: '30vw' }}>
+      <span className="truncate text-sm font-medium text-[var(--text-secondary)]" style={{ maxWidth: '30vw' }}>
         {appLabel}
         {activeWorkspace?.name && (
           <span className="text-[var(--text-muted)]"> · {activeWorkspace.name}</span>

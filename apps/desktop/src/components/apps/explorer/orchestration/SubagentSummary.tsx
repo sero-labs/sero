@@ -57,7 +57,7 @@ export function SubagentSummary({ workspaceId }: SubagentSummaryProps) {
 
   return (
     <div className="shrink-0 border-t border-[var(--border-subtle)] px-3 py-1.5">
-      <span className="text-[10px] text-[var(--text-muted)]">
+      <span className="text-sm text-[var(--text-muted)]">
         {parts.join(' · ')}
       </span>
     </div>

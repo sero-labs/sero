@@ -56,7 +56,7 @@ export function CommitDetail({
             {commit.refs.map((ref) => (
               <span
                 key={ref.name}
-                className="rounded px-1.5 py-0.5 text-[9px] font-medium git-mono"
+                className="rounded px-1.5 py-0.5 text-xs font-medium git-mono"
                 style={{
                   background: ref.type === 'tag' ? 'rgba(251,191,36,0.12)' : 'rgba(129,140,248,0.12)',
                   color: ref.type === 'tag' ? '#fbbf24' : '#818cf8',
@@ -67,30 +67,30 @@ export function CommitDetail({
               </span>
             ))}
           </div>
-          <p className="text-sm font-medium leading-snug text-[var(--g-text)]">{commit.subject}</p>
-          <div className="mt-2 flex items-center gap-3 text-[11px] text-[var(--g-muted)]">
+          <p className="text-base font-medium leading-snug text-[var(--g-text)]">{commit.subject}</p>
+          <div className="mt-2 flex items-center gap-3 text-sm text-[var(--g-muted)]">
             <span className="font-medium text-[var(--g-text)]">{commit.authorName}</span>
             <span>{date.toLocaleDateString()} {date.toLocaleTimeString()}</span>
           </div>
           {confirmCherryPick && (
             <div className="mt-3 rounded-md border border-[var(--g-yellow)]/25 bg-[var(--g-bg)] px-3 py-2">
-              <div className="text-[11px] font-medium text-[var(--g-text)]">
+              <div className="text-sm font-medium text-[var(--g-text)]">
                 Your working tree has uncommitted changes.
               </div>
-              <div className="mt-1 text-[10px] leading-relaxed text-[var(--g-muted)]">
+              <div className="mt-1 text-sm leading-relaxed text-[var(--g-muted)]">
                 Auto-stash your current changes before cherry-picking this commit. If the cherry-pick conflicts,
                 the error toast will include next-step guidance.
               </div>
               <div className="mt-2 flex items-center gap-2">
                 <button type="button"
                   onClick={handleAutoStashCherryPick}
-                  className="rounded border border-[var(--g-border)] px-2 py-1 text-[10px] text-[var(--g-text)] transition-colors hover:border-[var(--g-border-bright)] hover:bg-[var(--g-elevated)]"
+                  className="rounded border border-[var(--g-border)] px-2 py-1 text-sm text-[var(--g-text)] transition-colors hover:border-[var(--g-border-bright)] hover:bg-[var(--g-elevated)]"
                 >
                   Auto-stash + cherry-pick
                 </button>
                 <button type="button"
                   onClick={() => setConfirmCherryPick(false)}
-                  className="rounded px-2 py-1 text-[10px] text-[var(--g-dim)] transition-colors hover:text-[var(--g-text)]"
+                  className="rounded px-2 py-1 text-sm text-[var(--g-dim)] transition-colors hover:text-[var(--g-text)]"
                 >
                   Cancel
                 </button>
@@ -101,7 +101,7 @@ export function CommitDetail({
         <div className="ml-4 flex shrink-0 items-center gap-2">
           <button type="button"
             onClick={handleCherryPick}
-            className="rounded border border-[var(--g-border)] px-2 py-1 text-[10px] text-[var(--g-muted)]
+            className="rounded border border-[var(--g-border)] px-2 py-1 text-sm text-[var(--g-muted)]
               transition-colors hover:bg-[var(--g-elevated)] hover:text-[var(--g-text)]"
           >
             {hasWorkingTreeChanges ? 'Cherry-pick…' : 'Cherry-pick'}
@@ -120,11 +120,11 @@ export function CommitDetail({
 
       <div className="max-h-48 overflow-y-auto git-scrollbar">
         <div className="flex items-center gap-3 border-b border-[var(--g-border)] bg-[var(--g-bg)] px-4 py-2">
-          <span className="text-[11px] text-[var(--g-muted)]">
+          <span className="text-sm text-[var(--g-muted)]">
             {diffs.length} file{diffs.length !== 1 ? 's' : ''} changed
           </span>
-          {totalAdd > 0 && <span className="text-[11px] text-[var(--g-green)]">+{totalAdd}</span>}
-          {totalDel > 0 && <span className="text-[11px] text-[var(--g-red)]">-{totalDel}</span>}
+          {totalAdd > 0 && <span className="text-sm text-[var(--g-green)]">+{totalAdd}</span>}
+          {totalDel > 0 && <span className="text-sm text-[var(--g-red)]">-{totalDel}</span>}
           <StatBar additions={totalAdd} deletions={totalDel} />
         </div>
 
@@ -160,18 +160,18 @@ function FileRow({ diff, onClick }: { diff: FileDiff; onClick: () => void }) {
       className="flex cursor-pointer items-center gap-2 border-b border-[var(--g-border)] px-4 py-1.5 hover:bg-[var(--g-hover)] last:border-b-0"
     >
       <span
-        className="flex size-4 shrink-0 items-center justify-center rounded text-[9px] font-bold"
+        className="flex size-4 shrink-0 items-center justify-center rounded text-xs font-bold"
         style={{ background: `${statusColor}18`, color: statusColor }}
       >
         {statusLabel}
       </span>
       <div className="min-w-0 flex-1">
-        <div className="truncate text-[11px] text-[var(--g-text)] git-mono">{primaryLabel}</div>
-        <div className="truncate text-[10px] text-[var(--g-dim)] git-mono">{secondaryLabel}</div>
+        <div className="truncate text-sm text-[var(--g-text)] git-mono">{primaryLabel}</div>
+        <div className="truncate text-sm text-[var(--g-dim)] git-mono">{secondaryLabel}</div>
       </div>
       <div className="ml-auto flex shrink-0 items-center gap-1.5">
-        {diff.additions > 0 && <span className="text-[10px] text-[var(--g-green)]">+{diff.additions}</span>}
-        {diff.deletions > 0 && <span className="text-[10px] text-[var(--g-red)]">-{diff.deletions}</span>}
+        {diff.additions > 0 && <span className="text-sm text-[var(--g-green)]">+{diff.additions}</span>}
+        {diff.deletions > 0 && <span className="text-sm text-[var(--g-red)]">-{diff.deletions}</span>}
       </div>
     </div>
   );

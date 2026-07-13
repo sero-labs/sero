@@ -133,7 +133,7 @@ export function AutocompleteListboxHeader({
   return (
     <div
       className={cn(
-        'sticky top-0 z-10 bg-[var(--bg-surface)] px-2 py-1.5 text-sm font-semibold uppercase tracking-wider text-[var(--text-muted)]',
+        'sticky top-0 z-10 bg-[var(--bg-surface)] px-2 py-1.5 text-base font-semibold uppercase tracking-wider text-[var(--text-muted)]',
         className,
       )}
       {...props}
@@ -158,7 +158,7 @@ export function AutocompleteListboxOption({
       role="option"
       aria-selected={selected}
       className={cn(
-        'flex cursor-pointer items-center gap-2 px-2 py-1.5 text-sm',
+        'flex cursor-pointer items-center gap-2 px-2 py-1.5 text-base',
         selected
           ? 'bg-accent text-accent-foreground'
           : 'text-[var(--text-primary)] hover:bg-accent/50',

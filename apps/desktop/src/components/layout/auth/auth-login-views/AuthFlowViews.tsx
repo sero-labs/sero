@@ -21,7 +21,7 @@ export function AuthenticatingView({
 }) {
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2 text-sm">
+      <div className="flex items-center gap-2 text-base">
         <Loader2 className="size-4 animate-spin text-muted-foreground" />
         <span>Waiting for browser authentication…</span>
       </div>
@@ -35,7 +35,7 @@ export function AuthenticatingView({
             href={authUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1.5 break-all text-sm text-primary hover:underline"
+            className="flex items-center gap-1.5 break-all text-base text-primary hover:underline"
           >
             <ExternalLink className="size-3.5 shrink-0" />
             Open login page
@@ -61,7 +61,7 @@ export function AuthenticatingView({
 export function WaitingView({ message, onCancel }: { message: string; onCancel: () => void }) {
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2 text-sm">
+      <div className="flex items-center gap-2 text-base">
         <Loader2 className="size-4 animate-spin text-muted-foreground" />
         <span>{message}</span>
       </div>
@@ -91,7 +91,7 @@ export function PromptView({
 }) {
   return (
     <div className="space-y-3">
-      <p className="text-sm">{message}</p>
+      <p className="text-base">{message}</p>
       <Input
         ref={inputRef}
         value={value}
@@ -101,7 +101,7 @@ export function PromptView({
           if (event.key === 'Escape') onCancel();
         }}
         placeholder={placeholder}
-        className="font-mono text-sm"
+        className="font-mono text-base"
       />
       <div className="flex gap-2">
         <Button size="sm" onClick={onSubmit} disabled={!value.trim()} className="flex-1">
@@ -128,7 +128,7 @@ export function SelectView({
 }) {
   return (
     <div className="space-y-3">
-      <p className="text-sm">{message}</p>
+      <p className="text-base">{message}</p>
       <div className="space-y-2">
         {options.map((option) => (
           <Button
@@ -168,7 +168,7 @@ export function ApiKeyEntryView({
 
   return (
     <div className="space-y-3">
-      <p className="text-sm">
+      <p className="text-base">
         Enter API key for <span className="font-medium">{providerName}</span>:
       </p>
       <div className="relative">
@@ -182,7 +182,7 @@ export function ApiKeyEntryView({
             if (event.key === 'Escape') onCancel();
           }}
           placeholder="sk-..."
-          className="pr-9 font-mono text-sm"
+          className="pr-9 font-mono text-base"
           autoComplete="off"
           spellCheck={false}
         />
@@ -219,7 +219,7 @@ export function ResultView({
   const isSuccess = type === 'success';
   return (
     <div className="space-y-3">
-      <div className="flex items-start gap-2 text-sm">
+      <div className="flex items-start gap-2 text-base">
         {isSuccess ? (
           <CheckCircle className="mt-0.5 size-4 shrink-0 text-status-success" />
         ) : (

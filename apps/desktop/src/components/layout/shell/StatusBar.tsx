@@ -22,7 +22,7 @@ export function StatusBar() {
   const vcsState = useWorkspaceVcs(activeWorkspace?.id ?? null);
 
   return (
-    <footer className="chrome-zoom-invariant flex h-6 shrink-0 items-center justify-between border-t border-[var(--border-default)] bg-[var(--bg-base)] px-3 text-sm text-[var(--text-muted)]">
+    <footer className="chrome-zoom-invariant flex h-6 shrink-0 items-center justify-between border-t border-[var(--border-default)] bg-[var(--bg-base)] px-3 text-base text-[var(--text-muted)]">
       {/* ── Left ──────────────────────────────────────────────── */}
       <div className="flex items-center gap-3">
         {activeWorkspace && (

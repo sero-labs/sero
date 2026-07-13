@@ -41,7 +41,7 @@ export const AgentHeader = memo(
     >
       <div className="flex items-center gap-2">
         <BotIcon className="size-4 text-muted-foreground" />
-        <span className="font-medium text-sm">{name}</span>
+        <span className="font-medium text-base">{name}</span>
         {model && (
           <Badge className="font-mono text-xs" variant="secondary">
             {model}
@@ -67,10 +67,10 @@ export type AgentInstructionsProps = ComponentProps<"div"> & {
 export const AgentInstructions = memo(
   ({ className, children, ...props }: AgentInstructionsProps) => (
     <div className={cn("space-y-2", className)} {...props}>
-      <span className="font-medium text-muted-foreground text-sm">
+      <span className="font-medium text-muted-foreground text-base">
         Instructions
       </span>
-      <div className="rounded-md bg-muted/50 p-3 text-muted-foreground text-sm">
+      <div className="rounded-md bg-muted/50 p-3 text-muted-foreground text-base">
         <p>{children}</p>
       </div>
     </div>
@@ -81,7 +81,7 @@ export type AgentToolsProps = ComponentProps<typeof Accordion>;
 
 export const AgentTools = memo(({ className, ...props }: AgentToolsProps) => (
   <div className={cn("space-y-2", className)}>
-    <span className="font-medium text-muted-foreground text-sm">Tools</span>
+    <span className="font-medium text-muted-foreground text-base">Tools</span>
     <Accordion className="rounded-md border" {...props} />
   </div>
 ));
@@ -103,7 +103,7 @@ export const AgentTool = memo(
         value={value}
         {...props}
       >
-        <AccordionTrigger className="px-3 py-2 text-sm hover:no-underline">
+        <AccordionTrigger className="px-3 py-2 text-base hover:no-underline">
           {tool.description ?? "No description"}
         </AccordionTrigger>
         <AccordionContent className="px-3 pb-3">
@@ -123,7 +123,7 @@ export type AgentOutputProps = ComponentProps<"div"> & {
 export const AgentOutput = memo(
   ({ className, schema, ...props }: AgentOutputProps) => (
     <div className={cn("space-y-2", className)} {...props}>
-      <span className="font-medium text-muted-foreground text-sm">
+      <span className="font-medium text-muted-foreground text-base">
         Output Schema
       </span>
       <div className="rounded-md bg-muted/50">

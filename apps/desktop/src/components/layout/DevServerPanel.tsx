@@ -49,7 +49,7 @@ function StatusDot({ status }: { status: DevServer['status'] }) {
 function FrameworkBadge({ framework }: { framework?: string }) {
   if (!framework) return null;
   return (
-    <span className="rounded-sm bg-[var(--bg-elevated)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--text-muted)]">
+    <span className="rounded-sm bg-[var(--bg-elevated)] px-1.5 py-0.5 text-sm font-medium text-[var(--text-muted)]">
       {framework}
     </span>
   );
@@ -106,12 +106,12 @@ function ServerRow({ server }: { server: DevServer }) {
           </span>
           <FrameworkBadge framework={server.framework} />
           {server.scope === 'card-preview' && (
-            <span className="rounded-sm bg-sky-500/10 px-1.5 py-0.5 text-[10px] font-medium text-sky-300">
+            <span className="rounded-sm bg-sky-500/10 px-1.5 py-0.5 text-sm font-medium text-sky-300">
               Preview{server.cardId ? ` #${server.cardId}` : ''}
             </span>
           )}
         </div>
-        <div className="flex items-center gap-1 text-[10px] text-[var(--text-muted)]">
+        <div className="flex items-center gap-1 text-sm text-[var(--text-muted)]">
           <span>:{server.port}</span>
           <span className="text-[var(--text-muted)]/50">·</span>
           <button type="button"
@@ -233,7 +233,7 @@ export const DevServerIndicator = memo(function DevServerIndicator() {
             <span className="text-xs font-medium text-[var(--text-primary)]">
               Dev Servers
             </span>
-            <span className="text-[10px] text-[var(--text-muted)]">
+            <span className="text-sm text-[var(--text-muted)]">
               ({runningCount} running)
             </span>
           </div>

@@ -69,7 +69,7 @@ function RunResultRow({
         <span className="font-medium text-foreground">{r.jobName}</span>
 
         {/* Duration */}
-        <Badge variant="secondary" className="text-[10px]">
+        <Badge variant="secondary" className="text-sm">
           {formatDuration(r.durationMs)}
         </Badge>
 
@@ -95,7 +95,7 @@ function RunResultRow({
             variant="ghost"
             size="sm"
             onClick={() => setExpanded(!expanded)}
-            className="h-6 px-2 text-[11px] text-muted-foreground hover:text-foreground"
+            className="h-6 px-2 text-sm text-muted-foreground hover:text-foreground"
           >
             {expanded ? '▾ Hide' : '▸ Output'}
           </Button>
@@ -111,12 +111,12 @@ function RunResultRow({
       {expanded && hasExpandable && (
         <div className="mt-2 rounded-md border border-border bg-muted/30 p-3">
           {hasOutput && (
-            <pre className="whitespace-pre-wrap break-words text-[11px] leading-relaxed text-foreground/80">
+            <pre className="whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground/80">
               {r.output}
             </pre>
           )}
           {hasError && (
-            <pre className="mt-1 whitespace-pre-wrap break-words text-[11px] leading-relaxed text-destructive">
+            <pre className="mt-1 whitespace-pre-wrap break-words text-sm leading-relaxed text-destructive">
               {r.error}
             </pre>
           )}

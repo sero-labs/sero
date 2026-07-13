@@ -124,7 +124,7 @@ function IdleState() {
       </div>
       <div className="text-center">
         <h2 className="text-lg font-semibold text-foreground">User Feedback</h2>
-        <p className="mt-2 max-w-sm text-sm text-muted-foreground">
+        <p className="mt-2 max-w-sm text-base text-muted-foreground">
           When the agent needs your input, a form will appear here.
           Single questions appear directly in the chat panel.
         </p>

@@ -151,7 +151,7 @@ export function ConnectDeviceDialog({ open, onOpenChange }: Props) {
 
               {/* ── Login URL + copy ─────────────────────────── */}
               <div className="w-full space-y-2">
-                <div className="max-h-16 overflow-y-auto rounded-lg border border-border bg-muted px-3 py-2 text-[11px] leading-relaxed text-muted-foreground break-all">
+                <div className="max-h-16 overflow-y-auto rounded-lg border border-border bg-muted px-3 py-2 text-sm leading-relaxed text-muted-foreground break-all">
                   {data.loginUrl}
                 </div>
                 <Button
@@ -194,7 +194,7 @@ export function ConnectDeviceDialog({ open, onOpenChange }: Props) {
           {/* ── Error state ────────────────────────────────── */}
           {phase === 'error' && (
             <div className="flex h-[272px] w-[272px] flex-col items-center justify-center gap-3 rounded-xl border border-destructive/30 bg-destructive/5 p-6 text-center">
-              <p className="text-sm text-destructive">{error}</p>
+              <p className="text-base text-destructive">{error}</p>
               <Button variant="outline" size="sm" onClick={generate}>
                 Retry
               </Button>
@@ -202,7 +202,7 @@ export function ConnectDeviceDialog({ open, onOpenChange }: Props) {
           )}
 
           {/* ── Footer instructions ────────────────────────── */}
-          <p className="text-center text-[11px] leading-relaxed text-muted-foreground/70">
+          <p className="text-center text-sm leading-relaxed text-muted-foreground/70">
             Or paste the URL in your phone's browser.
             <br />
             The token auto-saves on the device and keeps profile-wide workspace access until it expires or you create a new pairing.

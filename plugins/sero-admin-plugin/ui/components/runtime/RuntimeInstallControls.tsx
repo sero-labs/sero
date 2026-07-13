@@ -98,7 +98,7 @@ export function RuntimeInstallControls({ disabled = false, onChanged }: RuntimeI
     && (browserStatus.state !== 'failed' || browserRetryable);
 
   return (
-    <div className="rounded-lg border border-border/40 bg-secondary/20 px-3 py-2 text-[11px]">
+    <div className="rounded-lg border border-border/40 bg-secondary/20 px-3 py-2 text-sm">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <span className="font-medium text-foreground/85">Managed host installs</span>
@@ -111,22 +111,22 @@ export function RuntimeInstallControls({ disabled = false, onChanged }: RuntimeI
         </div>
         <div className="flex flex-wrap gap-2">
           {showCoreInstall ? (
-            <Button size="sm" variant="outline" className="h-7 px-2 text-[11px]" disabled={disabled || busy !== null} onClick={installCore}>
+            <Button size="sm" variant="outline" className="h-7 px-2 text-sm" disabled={disabled || busy !== null} onClick={installCore}>
               {busy === 'core' ? 'Installing…' : coreStatus.state === 'failed' ? 'Retry core tools' : 'Install core tools'}
             </Button>
           ) : null}
           {coreStatus?.state === 'installing' ? (
-            <Button size="sm" variant="outline" className="h-7 px-2 text-[11px]" disabled>
+            <Button size="sm" variant="outline" className="h-7 px-2 text-sm" disabled>
               Installing…
             </Button>
           ) : null}
           {showBrowserInstall ? (
-            <Button size="sm" variant="outline" className="h-7 px-2 text-[11px]" disabled={disabled || busy !== null} onClick={installBrowser}>
+            <Button size="sm" variant="outline" className="h-7 px-2 text-sm" disabled={disabled || busy !== null} onClick={installBrowser}>
               {busy === 'browser' ? 'Installing…' : browserStatus.state === 'failed' ? 'Retry browser pack' : 'Install browser pack'}
             </Button>
           ) : null}
           {browserStatus?.state === 'ready' ? (
-            <Button size="sm" variant="ghost" className="h-7 px-2 text-[11px]" disabled={disabled || busy !== null} onClick={uninstallBrowser}>
+            <Button size="sm" variant="ghost" className="h-7 px-2 text-sm" disabled={disabled || busy !== null} onClick={uninstallBrowser}>
               {busy === 'uninstall-browser' ? 'Uninstalling…' : 'Uninstall browser pack'}
             </Button>
           ) : null}

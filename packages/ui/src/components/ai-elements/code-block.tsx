@@ -276,14 +276,14 @@ const CodeBlockBody = memo(
     return (
       <pre
         className={cn(
-          "dark:!bg-[var(--shiki-dark-bg)] dark:!text-[var(--shiki-dark)] m-0 p-4 text-sm",
+          "dark:!bg-[var(--shiki-dark-bg)] dark:!text-[var(--shiki-dark)] m-0 p-4 text-base",
           className
         )}
         style={preStyle}
       >
         <code
           className={cn(
-            "font-mono text-sm",
+            "font-mono",
             showLineNumbers && "[counter-increment:line_0] [counter-reset:line]"
           )}
         >
@@ -380,10 +380,12 @@ export const CodeBlockContent = ({
   code,
   language,
   showLineNumbers = false,
+  className
 }: {
   code: string;
   language: BundledLanguage;
   showLineNumbers?: boolean;
+  className?: string
 }) => {
   // Memoized raw tokens for immediate display
   const rawTokens = useMemo(() => createRawTokens(code), [code]);
@@ -413,7 +415,7 @@ export const CodeBlockContent = ({
 
   return (
     <div className="relative overflow-auto">
-      <CodeBlockBody showLineNumbers={showLineNumbers} tokenized={tokenized} />
+      <CodeBlockBody showLineNumbers={showLineNumbers} tokenized={tokenized} className={className} />
     </div>
   );
 };
@@ -436,6 +438,7 @@ export const CodeBlock = ({
           code={code}
           language={language}
           showLineNumbers={showLineNumbers}
+          className={className}
         />
       </CodeBlockContainer>
     </CodeBlockContext.Provider>

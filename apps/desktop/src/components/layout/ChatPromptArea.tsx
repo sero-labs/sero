@@ -139,7 +139,7 @@ export const ChatPromptArea = memo(function ChatPromptArea({
                 {messageQueue.queue.map((msg) => (
                   <span
                     key={msg.id}
-                    className="inline-flex items-center gap-1 rounded-full bg-status-info-muted px-2 py-0.5 text-[11px] text-status-info"
+                    className="inline-flex items-center gap-1 rounded-full bg-status-info-muted px-2 py-0.5 text-sm text-status-info"
                   >
                     <span className="max-w-[150px] truncate">{msg.text}</span>
                     <button type="button"
@@ -208,7 +208,7 @@ export const ChatPromptArea = memo(function ChatPromptArea({
                 <button
                   type="button"
                   onClick={() => sessionId && abort(sessionId)}
-                  className="flex items-center gap-1.5 rounded-md bg-destructive/10 px-2.5 py-1 font-medium text-sm text-destructive hover:bg-destructive/20 transition-colors"
+                  className="flex items-center gap-1.5 rounded-md bg-destructive/10 px-2.5 py-1 font-medium text-base text-destructive hover:bg-destructive/20 transition-colors"
                 >
                   <Loader2 className="size-3.5 animate-spin" />
                   Stop

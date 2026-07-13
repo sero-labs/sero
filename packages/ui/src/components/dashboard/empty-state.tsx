@@ -53,7 +53,7 @@ function EmptyState({
             <Icon icon={icon} size="md" className="text-current" />
           </EmptyMedia>
         )}
-        <EmptyTitle className="text-sm font-medium text-[var(--text-primary)]">
+        <EmptyTitle className="text-base font-medium text-[var(--text-primary)]">
           {title}
         </EmptyTitle>
         {message && (

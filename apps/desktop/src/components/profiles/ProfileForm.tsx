@@ -8,6 +8,7 @@
 
 import { useEffect, useState } from 'react';
 import { Button } from '@sero-ai/ui/components/ui/button';
+import { Checkbox } from '@sero-ai/ui/components/ui/checkbox';
 import { Input } from '@sero-ai/ui/components/ui/input';
 import { Folder, Loader2 } from 'lucide-react';
 
@@ -86,7 +87,7 @@ export function ProfileForm({
       <div className="flex flex-col gap-1.5">
         <label
           htmlFor="profile-name"
-          className="text-xs font-medium text-[var(--text-secondary)]"
+          className="text-sm font-medium text-[var(--text-secondary)]"
         >
           Profile Name
         </label>
@@ -101,13 +102,13 @@ export function ProfileForm({
             onClearOperationError?.();
           }}
           disabled={isLoading}
-          className="bg-[var(--bg-surface)] text-[var(--text-primary)]"
+          className="bg-[var(--bg-surface)] text-sm text-[var(--text-primary)]"
         />
       </div>
 
       {/* Storage Location */}
       <div className="flex flex-col gap-1.5">
-        <div className="text-xs font-medium text-[var(--text-secondary)]">
+        <div className="text-sm font-medium text-[var(--text-secondary)]">
           Storage Location
           <span className="ml-1 font-normal text-[var(--text-muted)]">(optional)</span>
         </div>
@@ -139,7 +140,7 @@ export function ProfileForm({
             </Button>
           )}
         </div>
-        <p className="text-[10px] text-[var(--text-muted)]">
+        <p className="text-xs text-[var(--text-muted)]">
           Each profile stores its own workspaces, sessions, settings, and credentials.
         </p>
       </div>
@@ -147,21 +148,20 @@ export function ProfileForm({
       {/* Copy Credentials */}
       {hasAuthSource && (
         <label className="flex cursor-pointer items-center gap-2.5 rounded-md border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-2.5">
-          <input aria-label="Checkbox input"
-            type="checkbox"
+          <Checkbox
             checked={copyAuth}
-            onChange={(e) => {
-              setCopyAuth(e.target.checked);
+            onCheckedChange={(checked) => {
+              setCopyAuth(checked === true);
               onClearOperationError?.();
             }}
             disabled={isLoading}
-            className="size-3.5 accent-[var(--accent-primary)]"
+            className="size-3.5"
           />
           <div>
-            <span className="text-xs text-[var(--text-secondary)]">
+            <span className="text-sm text-[var(--text-secondary)]">
               Copy credentials and model preferences from current profile
             </span>
-            <p className="text-[10px] text-[var(--text-muted)]">
+            <p className="text-xs text-[var(--text-muted)]">
               Copies API keys, OAuth tokens, env-backed credentials, local model config, gateway access, and model preferences.
             </p>
           </div>

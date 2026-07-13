@@ -23,7 +23,7 @@ export function ProviderBadge({ provider, className }: ProviderBadgeProps) {
     <Badge
       variant="outline"
       className={cn(
-        'px-1.5 py-0 text-[10px] font-medium leading-4 border',
+        'px-1.5 py-0 text-sm font-medium leading-4 border',
         colors,
         className,
       )}

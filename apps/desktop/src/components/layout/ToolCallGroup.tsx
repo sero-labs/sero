@@ -264,7 +264,7 @@ export const ToolCallGroup = memo(function ToolCallGroup({
                         setManualExpanded(true);
                         setShowDetails(true);
                       }}
-                      className="text-[11px] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+                      className="text-sm text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
                     >
                       Show full details
                     </button>
@@ -283,7 +283,7 @@ export const ToolCallGroup = memo(function ToolCallGroup({
                         e.stopPropagation();
                         setShowDetails(false);
                       }}
-                      className="text-[11px] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+                      className="text-sm text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
                     >
                       Collapse details
                     </button>

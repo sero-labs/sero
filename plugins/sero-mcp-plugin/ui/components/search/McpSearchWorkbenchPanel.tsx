@@ -108,7 +108,7 @@ export function McpSearchWorkbenchPanel({
           <EmptyState body={search.summaryText ?? `No MCP tools or resources matched "${search.lastQuery}".`} />
         ) : (
           <div className="space-y-3">
-            {search.summaryText && <p className="text-sm text-muted-foreground">{search.summaryText}</p>}
+            {search.summaryText && <p className="text-base text-muted-foreground">{search.summaryText}</p>}
             {search.results.map((match) => {
               const isSelectedServer = selectedServerName === match.serverName;
               return (
@@ -125,7 +125,7 @@ export function McpSearchWorkbenchPanel({
                         {match.kind === 'resource' && match.uri && <div className="break-all text-xs text-muted-foreground">{match.uri}</div>}
                         {match.kind === 'tool' && match.uiResourceUri && <div className="break-all text-xs text-muted-foreground">UI resource: {match.uiResourceUri}</div>}
                       </div>
-                      {match.description && <p className="text-sm text-muted-foreground">{match.description}</p>}
+                      {match.description && <p className="text-base text-muted-foreground">{match.description}</p>}
                     </div>
                     <div className="flex flex-wrap gap-2">
                       <Button
@@ -151,7 +151,7 @@ export function McpSearchWorkbenchPanel({
 
 function EmptyState({ body }: { body: string }) {
   return (
-    <div className="rounded-lg border border-dashed border-border bg-background/40 p-4 text-sm text-muted-foreground">
+    <div className="rounded-lg border border-dashed border-border bg-background/40 p-4 text-base text-muted-foreground">
       {body}
     </div>
   );

@@ -104,8 +104,8 @@ export const InstalledPluginsSection = memo(function InstalledPluginsSection({
               <PackagePlus className="size-4" />
             </div>
             <div className="min-w-0 space-y-1">
-              <h3 className="text-sm font-semibold text-[var(--text-primary)]">Installed Plugins</h3>
-              <p className="max-w-3xl text-[11px] leading-5 text-[var(--text-muted)]">
+              <h3 className="text-base font-semibold text-[var(--text-primary)]">Installed Plugins</h3>
+              <p className="max-w-3xl text-sm leading-5 text-[var(--text-muted)]">
                 Managed plugin installs for this profile. Use installs for packaged releases from npm,
                 git, or a built local bundle,local development sessions stay separate below.
               </p>
@@ -113,7 +113,7 @@ export const InstalledPluginsSection = memo(function InstalledPluginsSection({
           </div>
           <Badge
             variant="outline"
-            className="border-[var(--banner-primary-border)] bg-[var(--banner-primary-muted)] text-[10px] text-[var(--banner-primary)]"
+            className="border-[var(--banner-primary-border)] bg-[var(--banner-primary-muted)] text-sm text-[var(--banner-primary)]"
           >
             {countLabel}
           </Badge>
@@ -125,7 +125,7 @@ export const InstalledPluginsSection = memo(function InstalledPluginsSection({
           <div className="flex size-7 items-center justify-center rounded-lg border border-status-info-border bg-status-info-muted text-status-info">
             <PackagePlus className="size-3.5" />
           </div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">
+          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">
             Install from source
           </p>
         </div>
@@ -141,7 +141,7 @@ export const InstalledPluginsSection = memo(function InstalledPluginsSection({
             <div className="flex-1 space-y-1.5">
               <label
                 htmlFor="plugin-install-source"
-                className="block text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]"
+                className="block text-sm font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]"
               >
                 Package / git URL / local dist path
               </label>
@@ -181,14 +181,14 @@ export const InstalledPluginsSection = memo(function InstalledPluginsSection({
 
           <div className="overflow-x-auto rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-base)]">
             <div className="flex min-w-max items-center gap-1.5 p-2.5">
-              <p className="shrink-0 pr-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+              <p className="shrink-0 pr-1 text-sm font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">
                 Examples
               </p>
               {INSTALL_EXAMPLES.map((example) => (
                 <div
                   key={example.label}
                   className={cn(
-                    'inline-flex h-6 shrink-0 items-center rounded-full border px-2.5 text-[10px] leading-none',
+                    'inline-flex h-6 shrink-0 items-center rounded-full border px-2.5 text-sm leading-none',
                     'border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-[var(--text-secondary)]',
                   )}
                 >
@@ -201,7 +201,7 @@ export const InstalledPluginsSection = memo(function InstalledPluginsSection({
         </form>
 
         {error ? (
-          <div className="rounded-xl border border-status-error-border bg-status-error-faint px-3 py-2.5 text-[11px] text-status-error">
+          <div className="rounded-xl border border-status-error-border bg-status-error-faint px-3 py-2.5 text-sm text-status-error">
             {error}
           </div>
         ) : null}
@@ -257,7 +257,7 @@ function InstalledPluginCard({
           <div className="flex items-center gap-3">
             <div
               className={cn(
-                'flex size-10 shrink-0 items-center justify-center rounded-xl border text-[10px] font-semibold uppercase tracking-[0.18em]',
+                'flex size-10 shrink-0 items-center justify-center rounded-xl border text-sm font-semibold uppercase tracking-[0.18em]',
                 accent.icon,
               )}
             >
@@ -265,33 +265,33 @@ function InstalledPluginCard({
             </div>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <h4 className="truncate text-sm font-semibold text-[var(--text-primary)]">{plugin.name}</h4>
+                <h4 className="truncate text-base font-semibold text-[var(--text-primary)]">{plugin.name}</h4>
                 {plugin.hasUI ? (
                   <Badge
                     variant="outline"
-                    className="h-5 border-status-info-border bg-status-info-muted px-1.5 text-[9px] text-status-info"
+                    className="h-5 border-status-info-border bg-status-info-muted px-1.5 text-xs text-status-info"
                   >
                     UI
                   </Badge>
                 ) : (
                   <Badge
                     variant="outline"
-                    className="h-5 border-[var(--border-subtle)] bg-[var(--bg-base)] px-1.5 text-[9px] text-[var(--text-muted)]"
+                    className="h-5 border-[var(--border-subtle)] bg-[var(--bg-base)] px-1.5 text-xs text-[var(--text-muted)]"
                   >
                     Tool-only
                   </Badge>
                 )}
               </div>
-              <p className="truncate text-[11px] text-[var(--text-muted)]">{plugin.id}</p>
+              <p className="truncate text-sm text-[var(--text-muted)]">{plugin.id}</p>
             </div>
           </div>
         </div>
-        <Badge variant="outline" className={cn('text-[9px] uppercase tracking-[0.18em]', accent.badge)}>
+        <Badge variant="outline" className={cn('text-xs uppercase tracking-[0.18em]', accent.badge)}>
           {plugin.category}
         </Badge>
       </div>
 
-      <p className="mt-4 min-h-[3.5rem] text-[11px] leading-5 text-[var(--text-secondary)]">
+      <p className="mt-4 min-h-[3.5rem] text-sm leading-5 text-[var(--text-secondary)]">
         {plugin.description ?? 'No description provided.'}
       </p>
 
@@ -299,14 +299,14 @@ function InstalledPluginCard({
         {(plugin.tags.length > 0 ? plugin.tags : ['untagged']).map((tag) => (
           <span
             key={`${plugin.id}-${tag}`}
-            className="inline-flex h-7 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3 text-[9px] uppercase tracking-wide leading-none text-[var(--text-muted)]"
+            className="inline-flex h-7 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3 text-xs uppercase tracking-wide leading-none text-[var(--text-muted)]"
           >
             {tag}
           </span>
         ))}
       </div>
 
-      <dl className="mt-4 space-y-2 border-t border-[var(--border-subtle)] pt-4 text-[10px] text-[var(--text-muted)]">
+      <dl className="mt-4 space-y-2 border-t border-[var(--border-subtle)] pt-4 text-sm text-[var(--text-muted)]">
         <div className="flex items-start justify-between gap-3">
           <dt className="uppercase tracking-[0.18em]">Version</dt>
           <dd className="font-mono text-[var(--text-primary)]/80">{plugin.version ?? 'unknown'}</dd>
@@ -315,7 +315,7 @@ function InstalledPluginCard({
           <dt className="uppercase tracking-[0.18em]">Location</dt>
           <dd
             title={plugin.source}
-            className="truncate rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2.5 py-2 font-mono text-[10px] text-[var(--text-secondary)]"
+            className="truncate rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2.5 py-2 font-mono text-sm text-[var(--text-secondary)]"
           >
             {plugin.source}
           </dd>
@@ -326,7 +326,7 @@ function InstalledPluginCard({
         <Button
           variant="outline"
           size="sm"
-          className="h-8 flex-1 border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[11px] text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]"
+          className="h-8 flex-1 border-[var(--border-subtle)] bg-[var(--bg-surface)] text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]"
           onClick={onReveal}
         >
           <FolderOpen className="size-3.5 text-[var(--banner-primary)]" />
@@ -354,8 +354,8 @@ function InstalledPluginsEmptyState() {
       <div className="flex size-14 items-center justify-center rounded-2xl border border-[var(--banner-primary-border)] bg-[var(--banner-primary-muted)] text-[var(--banner-primary)]">
         <PackagePlus className="size-6" />
       </div>
-      <p className="mt-4 text-sm font-medium text-[var(--text-primary)]">No installed plugins yet</p>
-      <p className="mt-2 max-w-md text-[11px] leading-5 text-[var(--text-muted)]">
+      <p className="mt-4 text-base font-medium text-[var(--text-primary)]">No installed plugins yet</p>
+      <p className="mt-2 max-w-md text-sm leading-5 text-[var(--text-muted)]">
         Install an optional Sero app from npm, git, or a local build bundle. Installed plugins
         appear in the sidebar immediately and remain distinct from local development sessions.
       </p>

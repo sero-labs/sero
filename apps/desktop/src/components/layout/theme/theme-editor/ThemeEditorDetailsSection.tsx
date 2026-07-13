@@ -18,7 +18,7 @@ export function ThemeEditorDetailsSection({
         value={draft.name}
         onChange={(event) => onNameChange(event.target.value)}
         placeholder="Theme name..."
-        className="rounded border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2 py-1.5 text-sm font-medium text-[var(--text-primary)] outline-none focus:border-[var(--border-focus)]"
+        className="rounded border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2 py-1.5 text-base font-medium text-[var(--text-primary)] outline-none focus:border-[var(--border-focus)]"
       />
       <input aria-label="Theme description"
         type="text"

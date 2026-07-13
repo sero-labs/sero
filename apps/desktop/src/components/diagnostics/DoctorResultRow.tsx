@@ -43,7 +43,7 @@ export function DoctorResultRow({ result, onCopyFix }: Props) {
         <span className={`mt-0.5 font-mono ${STATUS_COLOUR[result.status]}`}>
           {STATUS_GLYPH[result.status]}
         </span>
-        <span className="flex-1 text-sm">{result.message}</span>
+        <span className="flex-1 text-base">{result.message}</span>
         <span className="text-xs text-muted-foreground tabular-nums">
           {result.durationMs}ms
         </span>

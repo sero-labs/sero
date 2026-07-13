@@ -150,12 +150,12 @@ export function SessionBadge({ sessionId }: SessionBadgeProps) {
           title="Session info"
         >
           <Gauge className="size-3.5" />
-          <span className={`text-sm tabular-nums ${healthColor}`}>
+          <span className={`text-base tabular-nums ${healthColor}`}>
             {hasContextData ? `${Math.round(percent)}%` : '—'}
           </span>
           <span className="text-[var(--text-muted)]">·</span>
           <Coins className="size-3.5" />
-          <span className="text-sm tabular-nums text-brand-primary">
+          <span className="text-base tabular-nums text-brand-primary">
             {fmtCost(cost)}
           </span>
         </button>
@@ -164,10 +164,10 @@ export function SessionBadge({ sessionId }: SessionBadgeProps) {
         side="bottom"
         align="end"
         sideOffset={4}
-        className="text-sm w-64 space-y-3 bg-[var(--bg-elevated)] p-3"
+        className="text-base w-64 space-y-3 bg-[var(--bg-elevated)] p-3"
       >
         {/* ── Context section ──────────────────────────────── */}
-        <div className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+        <div className="text-sm font-semibold uppercase tracking-wider text-[var(--text-muted)]">
           Context Usage
         </div>
 
@@ -186,7 +186,7 @@ export function SessionBadge({ sessionId }: SessionBadgeProps) {
 
         {/* ── Usage / cost section ─────────────────────────── */}
         <div className="border-t border-[var(--border-subtle)] pt-2">
-          <div className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-3">
+          <div className="text-sm font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-3">
             Token Usage
           </div>
           <div className="space-y-1">
@@ -273,7 +273,7 @@ function CompactSection({
 }: CompactSectionProps) {
   return (
     <div className="border-t border-[var(--border-subtle)] pt-2 space-y-2">
-      <div className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-3">
+      <div className="text-sm font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-3">
         Session
       </div>
       <input

@@ -29,7 +29,7 @@ const COL = { time: 'w-12', tokens: 'w-16', cost: 'w-16' } as const;
 
 function StatsHeader() {
   return (
-    <div className="flex items-center gap-4 bg-muted/20 px-3.5 py-1.5 text-[10px] uppercase tracking-wide text-muted-foreground/60">
+    <div className="flex items-center gap-4 bg-muted/20 px-3.5 py-1.5 text-sm uppercase tracking-wide text-muted-foreground/60">
       <span className="min-w-0 flex-1" />
       <span className={`${COL.time} text-right`}>Time</span>
       <span className={`${COL.tokens} text-right`}>Tokens</span>
@@ -92,7 +92,7 @@ function ReceiptBadge({ receipt }: { receipt: NonNullable<LoopRunSummary['delive
 export function AttemptHistory({ runs }: AttemptHistoryProps) {
   const [shown, setShown] = useState(PAGE);
   if (runs.length === 0) {
-    return <Card className="p-3 text-sm text-muted-foreground">No runs yet.</Card>;
+    return <Card className="p-3 text-base text-muted-foreground">No runs yet.</Card>;
   }
   const ordered = [...runs].reverse();
   const visible = ordered.slice(0, shown);

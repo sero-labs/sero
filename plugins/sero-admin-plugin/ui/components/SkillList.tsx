@@ -20,8 +20,8 @@ export function SkillList({ skills, selected, onSelect }: SkillListProps) {
   if (skills.length === 0) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center p-4">
-        <p className="text-xs text-muted-foreground">No skills found</p>
-        <p className="mt-1 text-[10px] text-muted-foreground/60">
+        <p className="text-sm text-muted-foreground">No skills found</p>
+        <p className="mt-1 text-sm text-muted-foreground/60">
           Click + to create one
         </p>
       </div>
@@ -41,16 +41,16 @@ export function SkillList({ skills, selected, onSelect }: SkillListProps) {
           )}
         >
           <div className="flex min-w-0 items-center gap-1.5">
-            <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+            <span className="min-w-0 flex-1 truncate text-base font-medium text-foreground">
               {skill.name}
             </span>
             {skill.source !== 'user' && (
-              <span className="shrink-0 rounded bg-muted px-1 py-px text-[9px] text-muted-foreground">
+              <span className="shrink-0 rounded bg-muted px-1 py-px text-xs text-muted-foreground">
                 {skill.source}
               </span>
             )}
           </div>
-          <p className="w-full truncate text-[11px] leading-snug text-muted-foreground">
+          <p className="w-full truncate text-sm leading-snug text-muted-foreground">
             {skill.description || 'No description'}
           </p>
         </button>

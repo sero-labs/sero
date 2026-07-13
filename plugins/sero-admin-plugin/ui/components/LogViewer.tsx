@@ -103,11 +103,11 @@ const LogSidebar = memo(function LogSidebar({
   return (
     <div className="flex w-56 flex-col border-r border-border/30">
       <div className="flex items-center gap-2 px-3 py-2">
-        <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/50">
+        <p className="text-sm font-medium uppercase tracking-wider text-muted-foreground/50">
           Log Files
         </p>
         {discovering && (
-          <span className="admin-loading text-[9px] text-muted-foreground/30">...</span>
+          <span className="admin-loading text-xs text-muted-foreground/30">...</span>
         )}
       </div>
       <ScrollArea className="min-h-0 flex-1">
@@ -127,7 +127,7 @@ const LogSidebar = memo(function LogSidebar({
             )}>
               {log.label}
             </span>
-            <p className="mt-0.5 font-mono text-[10px] text-muted-foreground/40">
+            <p className="mt-0.5 font-mono text-sm text-muted-foreground/40">
               {log.path}
             </p>
           </button>
@@ -224,14 +224,14 @@ function LogContent({ log }: { log: LogEntry }) {
       <div className="flex items-center justify-between border-b border-border/30 px-4 py-2">
         <div className="flex items-center gap-2">
           <span className="text-xs font-medium text-foreground/80">{log.label}</span>
-          <span className="font-mono text-[10px] text-muted-foreground/40">{log.path}</span>
+          <span className="font-mono text-sm text-muted-foreground/40">{log.path}</span>
         </div>
         <div className="flex items-center gap-1.5">
           <Button
             variant="ghost"
             size="sm"
             className={cn(
-              'h-6 px-2 text-[11px]',
+              'h-6 px-2 text-sm',
               autoRefresh ? 'text-primary' : 'text-muted-foreground',
             )}
             onClick={() => setAutoRefresh(!autoRefresh)}
@@ -242,7 +242,7 @@ function LogContent({ log }: { log: LogEntry }) {
           <Button
             variant="ghost"
             size="sm"
-            className="h-6 px-2 text-[11px] text-muted-foreground"
+            className="h-6 px-2 text-sm text-muted-foreground"
             onClick={loadLog}
           >
             Refresh
@@ -250,7 +250,7 @@ function LogContent({ log }: { log: LogEntry }) {
           <Button
             variant="ghost"
             size="sm"
-            className="h-6 px-2 text-[11px] text-muted-foreground"
+            className="h-6 px-2 text-sm text-muted-foreground"
             onClick={handleReveal}
           >
             Reveal
@@ -261,14 +261,14 @@ function LogContent({ log }: { log: LogEntry }) {
       {/* Error */}
       {error && (
         <div className="border-b border-destructive/20 bg-destructive/5 px-4 py-1.5">
-          <p className="text-[11px] text-destructive">{error}</p>
+          <p className="text-sm text-destructive">{error}</p>
         </div>
       )}
 
       {/* Truncation notice */}
       {lineOffset > 0 && (
         <div className="border-b border-amber-500/20 bg-amber-500/5 px-4 py-1">
-          <p className="text-[10px] text-amber-400/70">
+          <p className="text-sm text-amber-400/70">
             Showing last {MAX_DISPLAY_LINES.toLocaleString()} of {totalLines.toLocaleString()} lines
           </p>
         </div>
@@ -276,7 +276,7 @@ function LogContent({ log }: { log: LogEntry }) {
 
       {/* Log lines */}
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">
-        <div className="px-4 py-2 font-mono text-[11px] leading-[1.6]">
+        <div className="px-4 py-2 font-mono text-sm leading-[1.6]">
           {lines.length === 0 ? (
             <p className="italic text-muted-foreground/40">Empty log</p>
           ) : (
@@ -301,7 +301,7 @@ function LogContent({ log }: { log: LogEntry }) {
 
       {/* Footer */}
       <div className="border-t border-border/30 px-4 py-1.5">
-        <p className="text-[10px] text-muted-foreground/40">
+        <p className="text-sm text-muted-foreground/40">
           {totalLines} lines
           {autoRefresh && (
             <span className="ml-2 inline-flex items-center gap-1 text-primary/50">

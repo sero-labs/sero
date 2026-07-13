@@ -68,11 +68,11 @@ function SortableEditorTab({ tab, isActive, onSelect, onClose, onCloseOthers, on
         >
           <FileIcon fileName={fileName} extension={fileName.split('.').pop()?.toLowerCase()} className="size-3.5 shrink-0 text-[var(--text-muted)]" />
           <span className={cn('font-normal', isActive && 'font-medium')}>{fileName}</span>
-          {tab.dirty && <span className="text-[9px] text-[var(--accent-primary)] ml-0.5 shrink-0">●</span>}
+          {tab.dirty && <span className="text-xs text-[var(--accent-primary)] ml-0.5 shrink-0">●</span>}
           <button type="button"
             className={cn(
               'flex items-center justify-center size-4 border-none bg-transparent',
-              'text-[var(--text-muted)] text-sm leading-none cursor-pointer rounded-sm',
+              'text-[var(--text-muted)] text-base leading-none cursor-pointer rounded-sm',
               'ml-0.5 opacity-0 transition-opacity shrink-0',
               'group-hover:opacity-60 hover:!opacity-100 hover:bg-[var(--bg-muted)] hover:text-[var(--text-primary)]',
               (isActive) && 'opacity-60',

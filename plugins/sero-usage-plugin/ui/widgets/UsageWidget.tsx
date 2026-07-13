@@ -153,7 +153,7 @@ export function UsageWidget() {
 
         <div className="hidden min-h-10 flex-1 flex-col justify-end gap-1 @[240px]:flex">
           <Sparkline daily={state.daily} />
-          <Text variant="muted" className="text-[10px] uppercase tracking-wide">
+          <Text variant="muted" className="text-sm uppercase tracking-wide">
             Tokens · last {SPARKLINE_DAYS} days
           </Text>
         </div>

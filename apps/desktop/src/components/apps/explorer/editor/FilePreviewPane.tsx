@@ -131,7 +131,7 @@ function BinaryFilePreview({ workspaceId, filePath, spec }: BinaryFilePreviewPro
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 text-[var(--text-muted)]">
         <Loader2 className="size-6 animate-spin" />
-        <p className="text-sm">Loading {spec.kind}...</p>
+        <p className="text-base">Loading {spec.kind}...</p>
       </div>
     );
   }
@@ -140,7 +140,7 @@ function BinaryFilePreview({ workspaceId, filePath, spec }: BinaryFilePreviewPro
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 text-[var(--text-muted)]">
         <AlertCircle className="size-6 text-destructive" />
-        <p className="text-sm">Failed to load {spec.kind}</p>
+        <p className="text-base">Failed to load {spec.kind}</p>
         {error && <p className="text-xs opacity-60">{error}</p>}
       </div>
     );

@@ -16,7 +16,7 @@ export function ContainerRuntimeNotice({
   }
 
   return (
-    <div className="rounded-xl border border-status-warning/25 bg-status-warning/6 p-3 text-sm text-[var(--text-secondary)]">
+    <div className="rounded-xl border border-status-warning/25 bg-status-warning/6 p-3 text-base text-[var(--text-secondary)]">
       <div className="flex items-start gap-3">
         <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-[var(--bg-elevated)]">
           <TriangleAlert className="size-4 text-status-warning" />

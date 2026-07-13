@@ -67,10 +67,10 @@ export function ProfileSwitcher() {
           <Button
             variant="ghost"
             size="sm"
-            className="no-drag flex h-6 items-center gap-1.5 rounded-md px-2 text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
+            className="no-drag flex h-6 items-center gap-1.5 rounded-md px-2 text-sm text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
             disabled={isLoading}
           >
-            <User className="size-3" />
+            <User className="size-3.5" />
             <span className="max-w-[120px] truncate">{displayName}</span>
           </Button>
         </PopoverTrigger>
@@ -83,7 +83,7 @@ export function ProfileSwitcher() {
         >
           <div className="flex flex-col">
             <div className="px-2 py-1.5">
-              <p className="text-[10px] font-medium uppercase tracking-wider text-[var(--text-muted)]">
+              <p className="text-sm font-medium uppercase tracking-wider text-[var(--text-muted)]">
                 Profiles
               </p>
             </div>
@@ -117,7 +117,7 @@ export function ProfileSwitcher() {
             <div className="my-1 h-px bg-[var(--border-default)]" />
 
             {error && (
-              <p className="px-2 py-1 text-[11px] text-status-error">{error}</p>
+              <p className="px-2 py-1 text-sm text-status-error">{error}</p>
             )}
 
             <button type="button"
@@ -128,7 +128,7 @@ export function ProfileSwitcher() {
               }}
               className="flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]"
             >
-              <Plus className="size-3" />
+              <Plus className="size-3.5" />
               <span>New Profile</span>
             </button>
           </div>

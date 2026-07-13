@@ -35,15 +35,15 @@ export function BranchRow({
         }`}
     >
       <BranchIcon active={isCurrent} />
-      <span className="min-w-0 flex-1 truncate git-mono text-[11px]">{label}</span>
+      <span className="min-w-0 flex-1 truncate git-mono text-sm">{label}</span>
       <div className="flex shrink-0 items-center gap-1">
         {checkedOutElsewhere && (
-          <span className="rounded bg-[var(--g-elevated)] px-1 py-0.5 text-[8px] uppercase tracking-wider text-[var(--g-dim)]">
+          <span className="rounded bg-[var(--g-elevated)] px-1 py-0.5 text-xs uppercase tracking-wider text-[var(--g-dim)]">
             WT
           </span>
         )}
         {(branch.ahead > 0 || branch.behind > 0) && (
-          <div className="flex items-center gap-1 text-[9px]">
+          <div className="flex items-center gap-1 text-xs">
             {branch.ahead > 0 && <span className="text-[var(--g-green)]">+{branch.ahead}</span>}
             {branch.behind > 0 && <span className="text-[var(--g-red)]">-{branch.behind}</span>}
           </div>
@@ -72,13 +72,13 @@ export function StashRow({
         <div className="flex items-center gap-1 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100">
           <button type="button"
             onClick={onApply}
-            className="rounded border border-[var(--g-border)] px-1.5 py-0.5 text-[9px] text-[var(--g-muted)] transition-colors hover:border-[var(--g-border-bright)] hover:text-[var(--g-text)]"
+            className="rounded border border-[var(--g-border)] px-1.5 py-0.5 text-xs text-[var(--g-muted)] transition-colors hover:border-[var(--g-border-bright)] hover:text-[var(--g-text)]"
           >
             Apply
           </button>
           <button type="button"
             onClick={onPop}
-            className={`rounded border px-1.5 py-0.5 text-[9px] transition-colors ${confirmPop
+            className={`rounded border px-1.5 py-0.5 text-xs transition-colors ${confirmPop
               ? 'border-[var(--g-red)] text-[var(--g-red)] hover:bg-[var(--g-red)]/10'
               : 'border-[var(--g-border)] text-[var(--g-muted)] hover:border-[var(--g-border-bright)] hover:text-[var(--g-text)]'
             }`}
@@ -87,7 +87,7 @@ export function StashRow({
           </button>
         </div>
       </div>
-      <div className="mt-1 flex items-center justify-between text-[10px] text-[var(--g-dim)]">
+      <div className="mt-1 flex items-center justify-between text-sm text-[var(--g-dim)]">
         <span className="git-mono">{`stash@{${stash.index}}`}</span>
         {stash.date && <span>{formatRelativeDate(stash.date)}</span>}
       </div>

@@ -22,7 +22,7 @@ export function GitHubAuthOutcomeNote({
   return (
     <div
       className={cn(
-        'flex items-center justify-between gap-2 rounded border px-2 py-1 text-[10px]',
+        'flex items-center justify-between gap-2 rounded border px-2 py-1 text-sm',
         isError
           ? 'border-status-error-border bg-status-error-muted/70 text-status-error'
           : 'border-[var(--border-subtle)] bg-[var(--bg-elevated)]/20 text-[var(--text-muted)]',
@@ -34,7 +34,7 @@ export function GitHubAuthOutcomeNote({
         type="button"
         onClick={onRetry}
         className={cn(
-          'inline-flex shrink-0 items-center gap-1 text-[10px] font-medium transition-colors',
+          'inline-flex shrink-0 items-center gap-1 text-sm font-medium transition-colors',
           isError ? 'hover:text-status-error/80' : 'hover:text-[var(--text-primary)]',
         )}
       >

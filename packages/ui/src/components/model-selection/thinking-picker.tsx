@@ -1,6 +1,7 @@
 import { Brain } from 'lucide-react';
 import { motion } from 'motion/react';
 import { THINKING_LABELS, THINKING_LEVELS, type ThinkingLevel } from '@sero-ai/common';
+import { cn } from '../../lib/utils';
 
 // Compact labels so all seven segments stay on a single line and share the same
 // height — "Extra High" is the only label that would otherwise wrap.
@@ -9,17 +10,21 @@ const COMPACT_LABELS: Record<ThinkingLevel, string> = {
   xhigh: 'X-High',
 };
 
+interface ThinkingPickerProps {
+  available: readonly string[];
+  current: string;
+  disabled: boolean;
+  onSelect: (level: string) => void;
+  className?: string;
+}
+
 export function ThinkingPicker({
   available,
   current,
   disabled,
   onSelect,
-}: {
-  available: string[];
-  current: string;
-  disabled: boolean;
-  onSelect: (level: string) => void;
-}) {
+  className
+}: ThinkingPickerProps) {
   const levels = disabled
     ? THINKING_LEVELS
     : THINKING_LEVELS.filter((level) => level === 'off' || available.includes(level));
@@ -32,13 +37,13 @@ export function ThinkingPicker({
 
   return (
     <div
-      className={`flex flex-col gap-2 border-t border-[var(--border-subtle)] px-3 py-3 transition-opacity duration-150 ${
+      className={cn(`flex flex-col gap-2 border-[var(--border-subtle)] px-3 py-3 transition-opacity duration-150 ${
         disabled ? 'pointer-events-none opacity-40' : ''
-      }`}
+      }`, className)}
     >
       <div className="flex items-center gap-1.5">
         <Brain className="size-3 text-[var(--text-muted)]" />
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+        <span className="text-sm font-semibold uppercase tracking-wider text-[var(--text-muted)]">
           Thinking
         </span>
       </div>
@@ -73,7 +78,7 @@ export function ThinkingPicker({
               type="button"
               key={level}
               onClick={() => onSelect(level)}
-              className={`relative z-10 flex flex-1 items-center justify-center whitespace-nowrap rounded-md py-1.5 text-[11px] font-medium leading-none transition-colors duration-150 ${textClass}`}
+              className={`relative z-10 flex flex-1 items-center justify-center whitespace-nowrap rounded-md py-1.5 text-sm font-medium leading-none transition-colors duration-150 ${textClass}`}
             >
               {COMPACT_LABELS[level]}
             </button>

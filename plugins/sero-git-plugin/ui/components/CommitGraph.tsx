@@ -35,7 +35,7 @@ export function CommitGraph({ commits, selectedHash, onSelectCommit }: CommitGra
 
   if (commits.length === 0) {
     return (
-      <div className="flex-1 flex items-center justify-center text-[var(--g-dim)] text-sm">
+      <div className="flex-1 flex items-center justify-center text-[var(--g-dim)] text-base">
         No commits to display
       </div>
     );
@@ -88,7 +88,7 @@ export function CommitGraph({ commits, selectedHash, onSelectCommit }: CommitGra
                 </span>
 
                 {/* Hash */}
-                <span className="git-mono text-[10px] text-[var(--g-dim)] shrink-0 ml-2">
+                <span className="git-mono text-sm text-[var(--g-dim)] shrink-0 ml-2">
                   {node.commit.shortHash}
                 </span>
 
@@ -96,7 +96,7 @@ export function CommitGraph({ commits, selectedHash, onSelectCommit }: CommitGra
                 <AuthorAvatar name={node.commit.authorName} email={node.commit.authorEmail} />
 
                 {/* Date */}
-                <span className="text-[10px] text-[var(--g-dim)] shrink-0 tabular-nums ml-1 w-16 text-right">
+                <span className="text-sm text-[var(--g-dim)] shrink-0 tabular-nums ml-1 w-16 text-right">
                   {formatRelativeDate(node.commit.authorDate)}
                 </span>
               </div>
@@ -211,7 +211,7 @@ function RefBadge({ name, type, color }: { name: string; type: string; color: st
 
   return (
     <span
-      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-medium git-mono whitespace-nowrap"
+      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium git-mono whitespace-nowrap"
       style={{ background: bgColor, color: textColor, border: `1px solid ${borderColor}` }}
     >
       {isTag && <TagIcon />}
@@ -255,7 +255,7 @@ function AuthorAvatar({ name, email }: { name: string; email: string }) {
 
   return (
     <div
-      className="size-5 rounded-full flex items-center justify-center text-[7px] font-bold shrink-0 ml-2"
+      className="size-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ml-2"
       style={{ background: `hsl(${hue}, 50%, 25%)`, color: `hsl(${hue}, 70%, 75%)` }}
       title={`${name} <${email}>`}
     >

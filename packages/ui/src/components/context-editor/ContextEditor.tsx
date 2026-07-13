@@ -81,7 +81,7 @@ export function ContextEditor({
         showCloseButton
       >
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-sm">
+          <DialogTitle className="flex items-center gap-2 text-base">
             <Settings2 className="size-4 text-[var(--text-muted)]" />
             {title}
           </DialogTitle>
@@ -113,7 +113,7 @@ export function ContextEditor({
         {applyError && (
           <div className="flex items-start gap-2 rounded-md border border-status-error-border bg-status-error-muted px-3 py-2">
             <AlertCircle className="mt-0.5 size-3.5 shrink-0 text-status-error" />
-            <span className="text-[11px] text-status-error">{applyError}</span>
+            <span className="text-sm text-status-error">{applyError}</span>
           </div>
         )}
 

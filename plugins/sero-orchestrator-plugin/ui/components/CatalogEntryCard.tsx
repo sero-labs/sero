@@ -31,13 +31,13 @@ export function CatalogEntryCard({ entry, official, state, busy, onInstall, onSh
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-1.5">
-            <span className="truncate text-sm font-medium">{meta.name}</span>
+            <span className="truncate text-base font-medium">{meta.name}</span>
             {official ? (
-              <span className="flex shrink-0 items-center gap-0.5 text-[11px] text-primary" title="From the official Sero catalog, reviewed by the Sero team">
+              <span className="flex shrink-0 items-center gap-0.5 text-sm text-primary" title="From the official Sero catalog, reviewed by the Sero team">
                 <BadgeCheck className="h-3.5 w-3.5" /> Verified
               </span>
             ) : (
-              <span className="shrink-0 rounded bg-muted px-1 text-[11px] text-muted-foreground" title="From a catalog repo you added">
+              <span className="shrink-0 rounded bg-muted px-1 text-sm text-muted-foreground" title="From a catalog repo you added">
                 {entry.repoKey}
               </span>
             )}
@@ -45,7 +45,7 @@ export function CatalogEntryCard({ entry, official, state, busy, onInstall, onSh
           <div className="text-xs text-muted-foreground">{meta.description}</div>
           <div className="mt-1 flex flex-wrap gap-1">
             {entryChips(meta).map((chip) => (
-              <span key={chip.label} title={chip.title} className="rounded bg-accent/60 px-1.5 py-0.5 text-[11px]">
+              <span key={chip.label} title={chip.title} className="rounded bg-accent/60 px-1.5 py-0.5 text-sm">
                 {chip.label}
               </span>
             ))}
@@ -61,7 +61,7 @@ export function CatalogEntryCard({ entry, official, state, busy, onInstall, onSh
             <>
               <button
                 type="button"
-                className="text-[11px] text-primary underline-offset-2 hover:underline"
+                className="text-sm text-primary underline-offset-2 hover:underline"
                 onClick={() => onShowInLibrary(state.entryName)}
                 title="Already in your library — view it there"
               >
@@ -79,7 +79,7 @@ export function CatalogEntryCard({ entry, official, state, busy, onInstall, onSh
               </Button>
               <button
                 type="button"
-                className="text-[11px] text-muted-foreground underline-offset-2 hover:underline"
+                className="text-sm text-muted-foreground underline-offset-2 hover:underline"
                 onClick={() => onShowInLibrary(state.entryName)}
               >
                 v{state.installedCatalogVersion} in your library
@@ -91,7 +91,7 @@ export function CatalogEntryCard({ entry, official, state, busy, onInstall, onSh
 
       {hasDetail && (
         <div className="border-t border-border pt-1.5">
-          <button type="button" className="flex items-center gap-1 text-[11px] text-muted-foreground" onClick={() => setOpen(!open)}>
+          <button type="button" className="flex items-center gap-1 text-sm text-muted-foreground" onClick={() => setOpen(!open)}>
             {open ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />} Details
           </button>
           {open && (
@@ -101,7 +101,7 @@ export function CatalogEntryCard({ entry, official, state, busy, onInstall, onSh
                 <p className="text-muted-foreground">Needs tools: {meta.requiredTools.join(', ')}</p>
               )}
               {entry.exampleOutput && (
-                <pre className="max-h-56 overflow-auto rounded bg-muted/60 p-2 text-[11px] leading-snug">{entry.exampleOutput}</pre>
+                <pre className="max-h-56 overflow-auto rounded bg-muted/60 p-2 text-sm leading-snug">{entry.exampleOutput}</pre>
               )}
             </div>
           )}

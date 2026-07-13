@@ -79,7 +79,7 @@ export function BookmarkList() {
       {(state.bookmarks?.length ?? 0) === 0 ? (
         <div className="flex flex-1 flex-col items-center justify-center py-16">
           <BookmarkIcon className="mb-2 size-5 text-muted-foreground/40" />
-          <p className="text-sm text-muted-foreground">No bookmarks yet</p>
+          <p className="text-base text-muted-foreground">No bookmarks yet</p>
           <p className="mt-1 text-xs text-muted-foreground/60">
             Save URLs here or ask the agent to bookmark a page
           </p>
@@ -112,7 +112,7 @@ interface AddBookmarkFormProps {
 
 function AddBookmarkForm(props: AddBookmarkFormProps) {
   const inputClass =
-    'w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring';
+    'w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-base text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring';
 
   return (
     <form onSubmit={(e) => { e.preventDefault(); void props.onSubmit(); }} className="flex flex-col gap-2">
@@ -152,7 +152,7 @@ function BookmarkRow({ bookmark, onRemove }: BookmarkRowProps) {
 
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         {/* Title, full, wrapping */}
-        <span className="text-sm font-medium text-foreground leading-snug break-words">
+        <span className="text-base font-medium text-foreground leading-snug break-words">
           {bookmark.title}
         </span>
 
@@ -162,7 +162,7 @@ function BookmarkRow({ bookmark, onRemove }: BookmarkRowProps) {
             href={bookmark.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="group/link flex items-center gap-1 text-[11px] text-emerald-400/70 hover:text-emerald-400 transition-colors"
+            className="group/link flex items-center gap-1 text-sm text-emerald-400/70 hover:text-emerald-400 transition-colors"
             title="Open in browser"
           >
             <ExternalLink className="size-2.5 shrink-0" />
@@ -171,7 +171,7 @@ function BookmarkRow({ bookmark, onRemove }: BookmarkRowProps) {
           <button
             type="button"
             onClick={fetchPage}
-            className="flex items-center gap-1 text-[11px] text-muted-foreground/50 hover:text-primary transition-colors"
+            className="flex items-center gap-1 text-sm text-muted-foreground/50 hover:text-primary transition-colors"
             title="Fetch and summarise via agent"
           >
             <ArrowRight className="size-2.5" />
@@ -180,12 +180,12 @@ function BookmarkRow({ bookmark, onRemove }: BookmarkRowProps) {
         </div>
 
         {/* Timestamp */}
-        <span className="text-[10px] text-muted-foreground/40">
+        <span className="text-sm text-muted-foreground/40">
           {relativeTime(bookmark.createdAt)}
         </span>
 
         {bookmark.description && (
-          <p className="text-[11px] leading-relaxed text-muted-foreground/70">
+          <p className="text-sm leading-relaxed text-muted-foreground/70">
             {bookmark.description}
           </p>
         )}
@@ -196,7 +196,7 @@ function BookmarkRow({ bookmark, onRemove }: BookmarkRowProps) {
               <Badge
                 key={tag}
                 variant="outline"
-                className="px-1.5 py-0 text-[10px] leading-4 border-emerald-500/20 text-emerald-400/70 bg-emerald-500/5"
+                className="px-1.5 py-0 text-sm leading-4 border-emerald-500/20 text-emerald-400/70 bg-emerald-500/5"
               >
                 <Tag className="mr-0.5 size-2" />
                 {tag}

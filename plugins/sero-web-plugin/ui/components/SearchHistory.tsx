@@ -24,7 +24,7 @@ export function SearchHistory({ entries }: SearchHistoryProps) {
   if (entries.length === 0) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center py-16">
-        <p className="text-sm text-muted-foreground">No searches yet</p>
+        <p className="text-base text-muted-foreground">No searches yet</p>
         <p className="mt-1 text-xs text-muted-foreground/60">
           Ask the agent to search the web
         </p>
@@ -39,7 +39,7 @@ export function SearchHistory({ entries }: SearchHistoryProps) {
         <Button
           variant="ghost"
           size="sm"
-          className="h-6 gap-1.5 px-2 text-[11px] text-muted-foreground hover:text-destructive"
+          className="h-6 gap-1.5 px-2 text-sm text-muted-foreground hover:text-destructive"
           onClick={clearAll}
         >
           <Trash2 className="size-3" />

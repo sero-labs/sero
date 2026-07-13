@@ -99,6 +99,7 @@ export function WorkspaceSnapshotMenuItem({ disabled }: { disabled?: boolean }) 
         void insert();
       }}
       disabled={disabled}
+      className="text-sm"
     >
       <FolderTree className="size-4" />
       Insert workspace snapshot

@@ -64,7 +64,7 @@ export function RemotesSection({ workspaceId, remotes }: Props) {
             >
               <div className="space-y-1.5 px-3 py-2 border-b border-[var(--border-subtle)]/30">
                 <div className="flex items-center gap-1.5">
-                  <label htmlFor="remote-name-input" className="w-10 text-[10px] text-[var(--text-muted)]">Name</label>
+                  <label htmlFor="remote-name-input" className="w-10 text-sm text-[var(--text-muted)]">Name</label>
                   <input
                     id="remote-name-input"
                     autoFocus
@@ -72,13 +72,13 @@ export function RemotesSection({ workspaceId, remotes }: Props) {
                     onChange={(e) => setName(e.target.value)}
                     className={cn(
                       'h-5 flex-1 rounded border border-[var(--border-subtle)] bg-[var(--bg-base)]',
-                      'px-1.5 text-[11px] text-[var(--text-primary)]',
+                      'px-1.5 text-sm text-[var(--text-primary)]',
                       'outline-none focus:border-[var(--border-focus)]',
                     )}
                   />
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <label htmlFor="remote-url-input" className="w-10 text-[10px] text-[var(--text-muted)]">URL</label>
+                  <label htmlFor="remote-url-input" className="w-10 text-sm text-[var(--text-muted)]">URL</label>
                   <input
                     id="remote-url-input"
                     value={url}
@@ -87,7 +87,7 @@ export function RemotesSection({ workspaceId, remotes }: Props) {
                     placeholder="git@github.com:user/repo.git"
                     className={cn(
                       'h-5 flex-1 rounded border border-[var(--border-subtle)] bg-[var(--bg-base)]',
-                      'px-1.5 text-[11px] text-[var(--text-primary)] placeholder:text-[var(--text-muted)]/30',
+                      'px-1.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)]/30',
                       'outline-none focus:border-[var(--border-focus)]',
                     )}
                   />
@@ -96,7 +96,7 @@ export function RemotesSection({ workspaceId, remotes }: Props) {
                   <button type="button"
                     onClick={handleAdd}
                     className={cn(
-                      'flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium',
+                      'flex items-center gap-1 rounded px-2 py-0.5 text-sm font-medium',
                       'bg-status-success-muted text-status-success hover:bg-status-success-subtle',
                       'transition-colors',
                     )}
@@ -105,7 +105,7 @@ export function RemotesSection({ workspaceId, remotes }: Props) {
                   </button>
                   <button type="button"
                     onClick={() => setShowAdd(false)}
-                    className="flex items-center gap-1 rounded px-2 py-0.5 text-[10px] text-[var(--text-muted)] hover:bg-[var(--bg-elevated)]"
+                    className="flex items-center gap-1 rounded px-2 py-0.5 text-sm text-[var(--text-muted)] hover:bg-[var(--bg-elevated)]"
                   >
                     <X className="size-3" /> Cancel
                   </button>
@@ -117,7 +117,7 @@ export function RemotesSection({ workspaceId, remotes }: Props) {
 
         {/* Remote list */}
         {remotes.length === 0 && !showAdd ? (
-          <div className="px-3 py-1.5 text-[11px] text-[var(--text-muted)]/60">
+          <div className="px-3 py-1.5 text-sm text-[var(--text-muted)]/60">
             No remotes configured
           </div>
         ) : (
@@ -133,10 +133,10 @@ export function RemotesSection({ workspaceId, remotes }: Props) {
               )}
             >
               <Globe className="size-3 shrink-0 text-[var(--text-muted)]/60" />
-              <span className="shrink-0 text-[11px] font-medium text-[var(--text-secondary)]">
+              <span className="shrink-0 text-sm font-medium text-[var(--text-secondary)]">
                 {remote.name}
               </span>
-              <span className="min-w-0 flex-1 truncate text-[10px] text-[var(--text-muted)]/40">
+              <span className="min-w-0 flex-1 truncate text-sm text-[var(--text-muted)]/40">
                 {remote.url}
               </span>
               <button type="button"

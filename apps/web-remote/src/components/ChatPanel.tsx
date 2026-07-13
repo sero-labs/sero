@@ -296,7 +296,7 @@ export function ChatPanel() {
             rows={1}
             className={cn(
               'flex-1 bg-background border border-input rounded-lg px-3 py-2.5',
-              'text-sm text-foreground placeholder:text-muted-foreground',
+              'text-base text-foreground placeholder:text-muted-foreground',
               'focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent',
               'resize-none min-h-[42px] max-h-[120px]',
               'disabled:opacity-50',

@@ -100,7 +100,7 @@ export const EnvironmentVariablesTitle = ({
   children,
   ...props
 }: EnvironmentVariablesTitleProps) => (
-  <h3 className={cn("font-medium text-sm", className)} {...props}>
+  <h3 className={cn("font-medium text-base", className)} {...props}>
     {children ?? "Environment Variables"}
   </h3>
 );
@@ -209,7 +209,7 @@ export const EnvironmentVariableName = ({
   const { name } = use(EnvironmentVariableContext);
 
   return (
-    <span className={cn("font-mono text-sm", className)} {...props}>
+    <span className={cn("font-mono text-base", className)} {...props}>
       {children ?? name}
     </span>
   );
@@ -232,7 +232,7 @@ export const EnvironmentVariableValue = ({
   return (
     <span
       className={cn(
-        "font-mono text-muted-foreground text-sm",
+        "font-mono text-muted-foreground text-base",
         !showValues && "select-none",
         className
       )}

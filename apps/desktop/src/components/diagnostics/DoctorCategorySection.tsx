@@ -22,7 +22,7 @@ export function DoctorCategorySection({ category, results, onCopyFix }: Props) {
   if (results.length === 0) return null;
   return (
     <section className="mb-4">
-      <h3 className="text-sm font-semibold mb-1">{LABELS[category]}</h3>
+      <h3 className="text-base font-semibold mb-1">{LABELS[category]}</h3>
       <ul className="rounded border border-border/50 bg-card px-3">
         {results.map((result) => (
           <DoctorResultRow

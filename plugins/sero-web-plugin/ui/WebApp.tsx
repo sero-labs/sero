@@ -36,7 +36,7 @@ export function WebApp() {
       <div className="shrink-0 border-b border-border px-4 py-3">
         <div className="flex items-center gap-2.5">
           <Globe className="size-4 text-muted-foreground" />
-          <h1 className="text-sm font-semibold text-foreground">Web Access</h1>
+          <h1 className="text-base font-semibold text-foreground">Web Access</h1>
         </div>
 
         {/* Stats row */}
@@ -109,7 +109,7 @@ function TabButton({ label, icon, active, count, onClick }: TabButtonProps) {
       {label}
       {count > 0 && (
         <span className={cn(
-          'rounded-full px-1.5 py-0 text-[10px] leading-4 tabular-nums',
+          'rounded-full px-1.5 py-0 text-sm leading-4 tabular-nums',
           active ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground',
         )}>
           {count}

@@ -39,7 +39,7 @@ export function LocalProviderModelsSection({
           }}
           disabled={!baseUrl.trim() || fetchingModels}
           className="flex h-7 items-center gap-1.5 self-start rounded-md border
-            border-[var(--border-subtle)] px-2.5 text-[11px] font-medium
+            border-[var(--border-subtle)] px-2.5 text-sm font-medium
             text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-elevated)]
             disabled:opacity-40"
         >
@@ -67,7 +67,7 @@ export function LocalProviderModelsSection({
                 </span>
                 <button type="button"
                   onClick={() => onRemoveModel(model.id)}
-                  className="text-[10px] text-[var(--text-muted)] opacity-0
+                  className="text-sm text-[var(--text-muted)] opacity-0
                     transition-opacity group-hover:opacity-100 hover:text-status-error"
                 >
                   Remove
@@ -91,7 +91,7 @@ export function LocalProviderModelsSection({
             onClick={onAddModel}
             disabled={!newModelId.trim()}
             className="flex h-7 items-center gap-1 rounded-md border border-[var(--border-subtle)]
-              px-2 text-[11px] font-medium text-[var(--text-secondary)]
+              px-2 text-sm font-medium text-[var(--text-secondary)]
               transition-colors hover:bg-[var(--bg-elevated)] disabled:opacity-40"
           >
             <Plus className="size-3" />

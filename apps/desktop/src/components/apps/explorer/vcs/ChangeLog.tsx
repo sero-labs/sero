@@ -40,7 +40,7 @@ export function ChangeLog({ workspaceId, entries, hasMore, onOpenDiff }: Props) 
     <VcsSection title="Commits" count={entries.length} defaultOpen>
       <div className="pb-1">
         {entries.length === 0 ? (
-          <div className="px-3 py-2 text-[11px] text-[var(--text-muted)]/60">
+          <div className="px-3 py-2 text-sm text-[var(--text-muted)]/60">
             No commits yet
           </div>
         ) : (
@@ -81,7 +81,7 @@ export function ChangeLog({ workspaceId, entries, hasMore, onOpenDiff }: Props) 
             whileTap={{ scale: 0.98 }}
             className={cn(
               'mx-3 mt-1 flex w-[calc(100%-1.5rem)] items-center justify-center gap-1.5',
-              'rounded py-1 text-[11px] text-[var(--text-muted)]',
+              'rounded py-1 text-sm text-[var(--text-muted)]',
               'transition-colors duration-150',
               'hover:bg-[var(--bg-elevated)]/60 hover:text-[var(--text-secondary)]',
               'disabled:opacity-40',

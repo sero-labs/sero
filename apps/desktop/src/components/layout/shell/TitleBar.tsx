@@ -95,7 +95,7 @@ export function TitleBar() {
 
         <div className="mx-1 h-4 w-px bg-[var(--border-default)]" />
 
-        <span className="text-sm text-[var(--text-muted)]">⌘K</span>
+        <span className="text-base text-[var(--text-muted)]">⌘K</span>
 
         <Tooltip>
           <TooltipTrigger asChild>

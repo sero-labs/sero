@@ -130,7 +130,7 @@ export function FileReferenceMenu({
             />
             {dir && (
               <span
-                className="ml-auto shrink-0 truncate text-[10px] text-[var(--text-muted)]/60"
+                className="ml-auto shrink-0 truncate text-sm text-[var(--text-muted)]/60"
                 style={{ maxWidth: '40%' }}
               >
                 {dir}

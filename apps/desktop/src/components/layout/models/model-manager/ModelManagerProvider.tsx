@@ -56,12 +56,12 @@ const ModelManagerProvider = memo(function ModelManagerProvider({
             alt={group.displayName}
             className="size-3.5 rounded-sm dark:invert"
           />
-          <span className={`text-[11px] font-semibold uppercase tracking-wider ${
+          <span className={`text-sm font-semibold uppercase tracking-wider ${
             isProviderHidden ? 'text-[var(--text-muted)]' : 'text-[var(--text-secondary)]'
           }`}>
             {group.displayName}
           </span>
-          <span className="text-[10px] text-[var(--text-muted)]">
+          <span className="text-sm text-[var(--text-muted)]">
             {models.length}
           </span>
         </button>

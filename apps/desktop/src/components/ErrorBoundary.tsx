@@ -153,7 +153,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
           <div className="flex items-start gap-3">
             <AlertTriangle className="mt-0.5 size-5 shrink-0 text-[var(--text-danger)]" />
             <div className="min-w-0">
-              <h3 className="text-sm font-medium text-[var(--text-default)]">
+              <h3 className="text-base font-medium text-[var(--text-default)]">
                 {isChunkError
                   ? 'Stale module detected'
                   : region
@@ -168,7 +168,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             </div>
           </div>
 
-          <pre className="max-h-40 overflow-auto rounded-md bg-[var(--bg-inset)] p-3 text-[11px] leading-relaxed text-[var(--text-muted)]">
+          <pre className="max-h-40 overflow-auto rounded-md bg-[var(--bg-inset)] p-3 text-sm leading-relaxed text-[var(--text-muted)]">
             {error.name}: {error.message}
             {error.stack && (
               <>

@@ -19,7 +19,7 @@ avoid**, not a design source to copy.
    `#22c55e`, `#6b7280`, `#dc2626`, `#8b5cf6`, `#f59e0b` and a raw `boxShadow`
    glow. These bypass the semantic status tokens and break theming. → `Status`,
    `ActivityListItem` markers must use `--status-*` tokens.
-2. **Ad-hoc arbitrary font sizes.** `text-[9px]`, `text-[10px]`, `text-[11px]`
+2. **Ad-hoc arbitrary font sizes.** `text-xs`, `text-sm`, `text-sm`
    appear across all three widgets with no shared scale, so equivalent text
    renders at different sizes in different widgets. → `Text`/`Heading` provide one
    scale.

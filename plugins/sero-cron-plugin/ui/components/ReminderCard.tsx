@@ -58,7 +58,7 @@ export function ReminderCard({
         <div className="px-4 py-3">
           {/* Header: title + badges */}
           <div className="mb-2 flex items-center gap-2">
-            <span className="text-sm font-semibold text-foreground">
+            <span className="text-base font-semibold text-foreground">
               {reminder.title}
             </span>
             <StatusBadge status={reminder.status} />
@@ -66,14 +66,14 @@ export function ReminderCard({
             {reminder.recoverIfMissed && (
               <Badge
                 variant="outline"
-                className="border-blue-500/30 text-[10px] text-blue-500"
+                className="border-blue-500/30 text-sm text-blue-500"
                 title="Notification will be shown on startup if missed"
               >
                 Recover
               </Badge>
             )}
             {reminder.channel === 'email' && (
-              <Badge variant="outline" className="inline-flex items-center gap-1 border-amber-500/30 text-[10px] text-amber-500">
+              <Badge variant="outline" className="inline-flex items-center gap-1 border-amber-500/30 text-sm text-amber-500">
                 <Mail className="size-3" />
                 legacy email
               </Badge>
@@ -112,7 +112,7 @@ export function ReminderCard({
           )}
 
           {/* Next fire info */}
-          <p className="mb-3 text-[11px] text-muted-foreground">
+          <p className="mb-3 text-sm text-muted-foreground">
             {nextFireDescription(reminder)}
             {reminder.lastFiredAt && (
               <> · Last fired: {formatDateTime(reminder.lastFiredAt)}</>
@@ -212,28 +212,28 @@ function StatusBadge({ status }: { status: Reminder['status'] }) {
   switch (status) {
     case 'active':
       return (
-        <Badge variant="outline" className="inline-flex items-center gap-1 border-emerald-500/30 text-[10px] text-emerald-500">
+        <Badge variant="outline" className="inline-flex items-center gap-1 border-emerald-500/30 text-sm text-emerald-500">
           <Bell className="size-3" />
           Active
         </Badge>
       );
     case 'snoozed':
       return (
-        <Badge variant="outline" className="inline-flex items-center gap-1 border-amber-500/30 text-[10px] text-amber-500">
+        <Badge variant="outline" className="inline-flex items-center gap-1 border-amber-500/30 text-sm text-amber-500">
           <Pause className="size-3" />
           Snoozed
         </Badge>
       );
     case 'completed':
       return (
-        <Badge variant="secondary" className="inline-flex items-center gap-1 text-[10px]">
+        <Badge variant="secondary" className="inline-flex items-center gap-1 text-sm">
           <CheckCircle2 className="size-3" />
           Done
         </Badge>
       );
     case 'disabled':
       return (
-        <Badge variant="secondary" className="inline-flex items-center gap-1 text-[10px]">
+        <Badge variant="secondary" className="inline-flex items-center gap-1 text-sm">
           <Pause className="size-3" />
           Paused
         </Badge>
@@ -246,14 +246,14 @@ function StatusBadge({ status }: { status: Reminder['status'] }) {
 function TypeBadge({ type }: { type: Reminder['type'] }) {
   if (type === 'recurring') {
     return (
-      <Badge variant="outline" className="inline-flex items-center gap-1 border-primary/30 text-[10px] text-primary">
+      <Badge variant="outline" className="inline-flex items-center gap-1 border-primary/30 text-sm text-primary">
         <RefreshCw className="size-3" />
         Recurring
       </Badge>
     );
   }
   return (
-    <Badge variant="outline" className="border-muted-foreground/30 text-[10px] text-muted-foreground">
+    <Badge variant="outline" className="border-muted-foreground/30 text-sm text-muted-foreground">
       Once
     </Badge>
   );

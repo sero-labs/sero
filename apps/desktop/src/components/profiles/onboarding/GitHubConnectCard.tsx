@@ -49,8 +49,8 @@ export function GitHubConnectCard({
         <div className="min-w-0 flex-1 space-y-3">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <p className="text-sm font-medium text-[var(--text-primary)]">Connect GitHub</p>
-              <span className="rounded-full border border-status-warning/25 bg-status-warning/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-status-warning">
+              <p className="text-base font-medium text-[var(--text-primary)]">Connect GitHub</p>
+              <span className="rounded-full border border-status-warning/25 bg-status-warning/10 px-2 py-0.5 text-sm font-medium uppercase tracking-wide text-status-warning">
                 Recommended
               </span>
             </div>
@@ -76,7 +76,7 @@ export function GitHubConnectCard({
             />
           ) : null}
 
-          <p className="text-[11px] text-[var(--text-muted)]">
+          <p className="text-sm text-[var(--text-muted)]">
             {connected
               ? "GitHub is ready. Continue to memory setup when you're ready."
               : 'Optional for onboarding, but helpful if you work with repositories.'}

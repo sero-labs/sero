@@ -82,13 +82,13 @@ export function McpServerAuthPanel({
         )}
 
         {activeSession ? (
-          <div className="rounded-lg border border-border bg-background/60 p-4 text-sm text-muted-foreground">
+          <div className="rounded-lg border border-border bg-background/60 p-4 text-base text-muted-foreground">
             {authPaneActive
               ? 'The provider sign-in flow is open in the viewer pane. Complete it there and Sero will finish the loopback callback automatically.'
               : 'An authentication session is active for this server. Open the auth browser in the viewer pane to continue the sign-in flow.'}
           </div>
         ) : !authError && server.authStatus !== 'authenticated' ? (
-          <div className="rounded-lg border border-dashed border-border bg-background/40 p-4 text-sm text-muted-foreground">
+          <div className="rounded-lg border border-dashed border-border bg-background/40 p-4 text-base text-muted-foreground">
             Start authentication to open the provider sign-in flow in the viewer pane. When the provider redirects back to the loopback callback, Sero will complete the exchange automatically.
           </div>
         ) : null}

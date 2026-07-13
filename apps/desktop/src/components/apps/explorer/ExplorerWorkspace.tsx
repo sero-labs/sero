@@ -236,7 +236,7 @@ export function ExplorerWorkspace() {
                     <>
                       {/* Diff mode: show a minimal tab bar with close action */}
                       <div className="flex h-8 shrink-0 items-center border-b border-[var(--border-subtle)] bg-[var(--bg-base)] px-2">
-                        <span className="text-[11px] text-[var(--text-muted)]">
+                        <span className="text-sm text-[var(--text-muted)]">
                           Diff: {diffState.fromRev.slice(0, 8)} → {diffState.toRev.slice(0, 8)}
                           {diffState.initialPath &&
                             `, ${diffState.initialPath.split('/').pop()}`}
@@ -244,7 +244,7 @@ export function ExplorerWorkspace() {
                         <span className="flex-1" />
                         <button type="button"
                           onClick={closeDiff}
-                          className="flex size-5 items-center justify-center rounded text-sm text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]"
+                          className="flex size-5 items-center justify-center rounded text-base text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]"
                           title="Close diff"
                         >
                           ×

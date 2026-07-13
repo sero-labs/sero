@@ -29,7 +29,7 @@ export function LoopsOverview({ loops, onOpenLoop }: { loops: LoopSummary[]; onO
   }, [loops]);
 
   if (loops.length === 0) {
-    return <p className="text-sm text-muted-foreground">No loops yet. Create one to get started.</p>;
+    return <p className="text-base text-muted-foreground">No loops yet. Create one to get started.</p>;
   }
 
   return (
@@ -76,7 +76,7 @@ function LoopCard({ loop, onOpen }: { loop: LoopSummary; onOpen: (loopId: string
     >
       <div className="flex items-center gap-2">
         <StatusDot status={loop.status} />
-        <span className="truncate text-sm font-medium">{loop.title}</span>
+        <span className="truncate text-base font-medium">{loop.title}</span>
         <div className="ml-auto flex shrink-0 items-center gap-1.5">
           <NeedsYouBadge kind="input" count={loop.pendingInput ?? 0} />
           <NeedsYouBadge kind="suggestions" count={loop.pendingSuggestions ?? 0} />
@@ -97,11 +97,11 @@ function CardStatusLine({ loop }: { loop: LoopSummary }) {
         <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
           <div className="h-full rounded-full bg-emerald-500 transition-[width]" style={{ width: `${(status.done / status.total) * 100}%` }} />
         </div>
-        <span className="text-[11px] text-emerald-400/90">step {status.current} / {status.total}</span>
+        <span className="text-sm text-emerald-400/90">step {status.current} / {status.total}</span>
       </div>
     );
   }
   const rel = status.showRelativeTime ? formatRelative(loop.updatedAt) : '';
   const text = rel ? `${status.text} · ${rel}` : status.text;
-  return <span className={`mt-auto text-[11px] ${status.tone === 'blocked' ? 'text-amber-400' : 'text-muted-foreground'}`}>{text}</span>;
+  return <span className={`mt-auto text-sm ${status.tone === 'blocked' ? 'text-amber-400' : 'text-muted-foreground'}`}>{text}</span>;
 }

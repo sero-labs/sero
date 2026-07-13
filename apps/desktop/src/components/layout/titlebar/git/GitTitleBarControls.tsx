@@ -120,7 +120,7 @@ export function GitTitleBarControls() {
           <button type="button"
             disabled={disabled}
             className={cn(
-              'inline-flex h-7 items-center gap-2.5 rounded-lg border px-3.5 text-[11px] font-semibold transition-colors',
+              'inline-flex h-7 items-center gap-2.5 rounded-lg border px-3.5 text-sm font-semibold transition-colors',
               'border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-[var(--text-primary)]',
               'hover:bg-[var(--bg-overlay)]',
               'disabled:cursor-not-allowed disabled:opacity-50',
@@ -131,7 +131,7 @@ export function GitTitleBarControls() {
             <span>{shipLabel}</span>
             <span
               className={cn(
-                'rounded-full border px-2.5 py-0.5 text-[10px] font-medium tracking-normal',
+                'rounded-full border px-2.5 py-0.5 text-sm font-medium tracking-normal',
                 statusTone,
               )}
             >

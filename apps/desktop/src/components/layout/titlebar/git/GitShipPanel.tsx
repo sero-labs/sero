@@ -120,18 +120,18 @@ export function GitShipPanel({
   return (
     <div className="w-[420px] overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-base)] shadow-2xl shadow-black/25">
       <div className="border-b border-[var(--border-subtle)] bg-[var(--bg-surface)] px-4 py-3">
-        <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[var(--text-muted)]">
+        <div className="text-sm font-semibold uppercase tracking-[0.24em] text-[var(--text-muted)]">
           Ship deck
         </div>
-        <div className="mt-1 flex items-center gap-2 text-sm font-semibold text-[var(--text-primary)]">
+        <div className="mt-1 flex items-center gap-2 text-base font-semibold text-[var(--text-primary)]">
           <GitBranch className="size-4 text-[var(--accent-primary)]" />
           <span className="truncate">{gitState.repoName || workspaceName}</span>
-          <span className="rounded-full border border-[var(--border-subtle)] bg-[var(--bg-muted)]/40 px-2 py-0.5 text-[10px] font-medium text-[var(--text-muted)]">
+          <span className="rounded-full border border-[var(--border-subtle)] bg-[var(--bg-muted)]/40 px-2 py-0.5 text-sm font-medium text-[var(--text-muted)]">
             {branchLabel}
           </span>
         </div>
-        <p className="mt-1 text-[11px] leading-relaxed text-[var(--text-muted)]">{heroText}</p>
-        <div className="mt-2 flex items-center gap-2 text-[10px] text-[var(--text-muted)]">
+        <p className="mt-1 text-sm leading-relaxed text-[var(--text-muted)]">{heroText}</p>
+        <div className="mt-2 flex items-center gap-2 text-sm text-[var(--text-muted)]">
           <span>{formatGitRefreshTime(gitState.lastRefresh)}</span>
           <span>•</span>
           <span>{stagedCount} staged</span>
@@ -145,10 +145,10 @@ export function GitShipPanel({
       <div className="space-y-4 p-4">
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <h3 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+            <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">
               Quick sync
             </h3>
-            <span className="text-[10px] text-[var(--text-muted)]">
+            <span className="text-sm text-[var(--text-muted)]">
               {gitState.syncMode === 'watch' ? 'Live refresh active' : 'Manual refresh only'}
             </span>
           </div>
@@ -180,8 +180,8 @@ export function GitShipPanel({
 
         <section className="space-y-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)]/35 p-3">
           <div className="flex items-center justify-between">
-            <h3 className="text-[12px] font-semibold text-[var(--text-primary)]">Commit</h3>
-            <span className="text-[10px] text-[var(--text-muted)]">
+            <h3 className="text-base font-semibold text-[var(--text-primary)]">Commit</h3>
+            <span className="text-sm text-[var(--text-muted)]">
               {canCommitStaged || canCommitAll ? 'Ready' : 'Clean'}
             </span>
           </div>
@@ -196,14 +196,14 @@ export function GitShipPanel({
               }
             }}
             placeholder="feat: describe the change you are shipping"
-            className="h-9 w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-base)] px-3 text-[12px] text-[var(--text-primary)] outline-none transition-colors focus:border-[var(--border-focus)]"
+            className="h-9 w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-base)] px-3 text-base text-[var(--text-primary)] outline-none transition-colors focus:border-[var(--border-focus)]"
           />
 
           <div className="flex items-center gap-2">
             <Button
               onClick={() => void handleCommit(canCommitStaged ? 'staged' : 'all')}
               disabled={action === 'commit' || (!canCommitStaged && !canCommitAll)}
-              className="h-8 rounded-lg bg-[var(--accent-primary)] px-3 text-[11px] font-semibold text-[var(--text-inverse)] hover:bg-[var(--accent-hover)]"
+              className="h-8 rounded-lg bg-[var(--accent-primary)] px-3 text-sm font-semibold text-[var(--text-inverse)] hover:bg-[var(--accent-hover)]"
             >
               {action === 'commit' ? <Loader2 className="mr-1 size-3.5 animate-spin" /> : <Check className="mr-1 size-3.5" />}
               {canCommitStaged ? `Commit ${stagedCount} staged` : 'Stage all + commit'}
@@ -213,7 +213,7 @@ export function GitShipPanel({
                 variant="ghost"
                 onClick={() => void handleCommit('all')}
                 disabled={action === 'commit'}
-                className="h-8 rounded-lg border border-[var(--border-subtle)] px-3 text-[11px] text-[var(--text-secondary)] hover:bg-[var(--bg-muted)]"
+                className="h-8 rounded-lg border border-[var(--border-subtle)] px-3 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-muted)]"
               >
                 All in
               </Button>
@@ -238,7 +238,7 @@ export function GitShipPanel({
 
         {feedback && (
           <div className={cn(
-            'rounded-xl border px-3 py-2 text-[11px] leading-relaxed',
+            'rounded-xl border px-3 py-2 text-sm leading-relaxed',
             feedback.tone === 'success'
               ? 'border-status-success-border bg-status-success-faint text-status-success'
               : 'border-status-error-border bg-status-error-faint text-status-error',

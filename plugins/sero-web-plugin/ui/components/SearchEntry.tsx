@@ -53,7 +53,7 @@ export function SearchEntry({ entry }: SearchEntryProps) {
         </div>
 
         <div className="flex min-w-0 flex-1 items-center gap-2">
-          <span className="truncate text-sm font-medium text-foreground">
+          <span className="truncate text-base font-medium text-foreground">
             {summaryParts[0] || 'Untitled'}
           </span>
           {summaryParts[1] && (
@@ -69,7 +69,7 @@ export function SearchEntry({ entry }: SearchEntryProps) {
           )}
         </div>
 
-        <span className="shrink-0 text-[11px] text-muted-foreground">
+        <span className="shrink-0 text-sm text-muted-foreground">
           {relativeTime(entry.timestamp)}
         </span>
         <ChevronDown className={cn(
@@ -100,11 +100,11 @@ function SourceLink({ title, url, domain }: { title: string; url: string; domain
       className="group/link flex items-center gap-1.5 rounded-sm px-1 py-0.5 -mx-1 hover:bg-blue-500/8 transition-colors"
     >
       <ExternalLink className="size-2.5 shrink-0 text-blue-400/50 group-hover/link:text-blue-400 transition-colors" />
-      <span className="truncate text-[11px] text-blue-400/80 group-hover/link:text-blue-400 transition-colors">
+      <span className="truncate text-sm text-blue-400/80 group-hover/link:text-blue-400 transition-colors">
         {title || domain}
       </span>
       {title && (
-        <span className="shrink-0 text-[10px] text-muted-foreground/40">
+        <span className="shrink-0 text-sm text-muted-foreground/40">
           {domain}
         </span>
       )}
@@ -125,11 +125,11 @@ function SearchQueryDetails({ queries }: { queries: QueryInfo[] }) {
           </div>
 
           {q.error && (
-            <span className="text-[11px] text-destructive">{q.error}</span>
+            <span className="text-sm text-destructive">{q.error}</span>
           )}
 
           {q.answer && (
-            <p className="rounded-md bg-card/50 px-2.5 py-2 text-[11px] leading-relaxed text-muted-foreground border border-border/30">
+            <p className="rounded-md bg-card/50 px-2.5 py-2 text-sm leading-relaxed text-muted-foreground border border-border/30">
               {truncate(q.answer, 300)}
             </p>
           )}
@@ -140,7 +140,7 @@ function SearchQueryDetails({ queries }: { queries: QueryInfo[] }) {
                 <SourceLink key={s.url} title={s.title} url={s.url} domain={extractDomain(s.url)} />
               ))}
               {q.sources.length > 8 && (
-                <span className="text-[10px] text-muted-foreground/40 pl-5">
+                <span className="text-sm text-muted-foreground/40 pl-5">
                   +{q.sources.length - 8} more
                 </span>
               )}
@@ -166,17 +166,17 @@ function FetchUrlDetails({ urls }: { urls: UrlInfo[] }) {
             className="group/link flex min-w-0 flex-1 items-center gap-1.5 rounded-sm px-1 py-0.5 -mx-1 hover:bg-amber-500/8 transition-colors"
           >
             <ExternalLink className="size-2.5 shrink-0 text-amber-400/50 group-hover/link:text-amber-400 transition-colors" />
-            <span className="truncate text-[11px] text-amber-400/80 group-hover/link:text-amber-400 transition-colors">
+            <span className="truncate text-sm text-amber-400/80 group-hover/link:text-amber-400 transition-colors">
               {u.title || extractDomain(u.url)}
             </span>
-            <span className="shrink-0 text-[10px] text-muted-foreground/40">
+            <span className="shrink-0 text-sm text-muted-foreground/40">
               {extractDomain(u.url)}
             </span>
           </a>
           {u.error ? (
-            <span className="shrink-0 text-[10px] text-destructive">{truncate(u.error, 30)}</span>
+            <span className="shrink-0 text-sm text-destructive">{truncate(u.error, 30)}</span>
           ) : (
-            <span className="shrink-0 text-[10px] text-muted-foreground/50">{formatChars(u.charCount)}</span>
+            <span className="shrink-0 text-sm text-muted-foreground/50">{formatChars(u.charCount)}</span>
           )}
         </div>
       ))}

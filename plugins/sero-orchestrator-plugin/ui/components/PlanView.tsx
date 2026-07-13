@@ -44,7 +44,7 @@ export function PlanView({ loop, onAction }: PlanViewProps) {
 
   if (plan.steps.length === 0) {
     return (
-      <Card className="p-3 text-sm text-muted-foreground">
+      <Card className="p-3 text-base text-muted-foreground">
         No plan generated yet. Creating a loop asks the model to author the steps for your prompt.
       </Card>
     );
@@ -74,7 +74,7 @@ export function PlanView({ loop, onAction }: PlanViewProps) {
   return (
     <div className="flex flex-col gap-2">
       {plan.objective && (
-        <p className="text-sm text-muted-foreground">
+        <p className="text-base text-muted-foreground">
           <span className="font-medium text-foreground">Objective: </span>{plan.objective}
         </p>
       )}
@@ -112,7 +112,7 @@ function SpineRow({ marker, isLast, children }: { marker: string; isLast: boolea
   return (
     <div className="flex gap-3">
       <div className="flex flex-col items-center">
-        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-border bg-card text-[11px] tabular-nums text-muted-foreground">
+        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-border bg-card text-sm tabular-nums text-muted-foreground">
           {marker}
         </span>
         {!isLast && <span className="w-px flex-1 bg-border" />}

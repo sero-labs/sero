@@ -102,7 +102,7 @@ export function AvailableModelPicker<
           role="button"
           tabIndex={disabled ? -1 : 0}
           className={cn(
-            'flex w-full items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-left text-sm transition-colors',
+            'flex w-full items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-left text-base transition-colors',
             'hover:bg-secondary/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
             disabled && 'cursor-not-allowed opacity-50',
             className,
@@ -122,13 +122,13 @@ export function AvailableModelPicker<
                     <Sparkles className="size-3 shrink-0 text-amber-500/70" />
                   ) : null}
                 </div>
-                <div className="truncate text-[11px] text-muted-foreground">
+                <div className="truncate text-sm text-muted-foreground">
                   {selected.group.displayName}
                 </div>
               </div>
             </>
           ) : selected.fallbackLabel ? (
-            <span className="min-w-0 flex-1 truncate font-mono text-xs text-muted-foreground">
+            <span className="min-w-0 flex-1 truncate font-mono text-sm text-muted-foreground">
               {selected.fallbackLabel}
             </span>
           ) : (
@@ -169,11 +169,11 @@ export function AvailableModelPicker<
 
         <div className="max-h-[280px] overflow-y-auto py-1">
           {groups.length === 0 ? (
-            <div className="px-3 py-4 text-center text-xs text-muted-foreground">
+            <div className="px-3 py-4 text-center text-sm text-muted-foreground">
               {noModelsLabel}
             </div>
           ) : totalResults === 0 ? (
-            <div className="px-3 py-4 text-center text-xs text-muted-foreground">
+            <div className="px-3 py-4 text-center text-sm text-muted-foreground">
               {emptyLabel}
             </div>
           ) : (
@@ -186,7 +186,7 @@ export function AvailableModelPicker<
                     alt={group.displayName}
                     className="size-3.5 shrink-0 rounded-sm dark:invert"
                   />
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  <span className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
                     {group.displayName}
                   </span>
                 </div>
@@ -200,7 +200,7 @@ export function AvailableModelPicker<
                         type="button"
                         onClick={() => handleSelect(model.provider, model.modelId)}
                         className={cn(
-                          'flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-xs transition-colors',
+                          'flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-sm transition-colors',
                           isSelected
                             ? 'bg-secondary text-foreground'
                             : 'text-muted-foreground hover:bg-secondary/60 hover:text-foreground',

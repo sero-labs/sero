@@ -29,7 +29,7 @@ export function Header({ state, onAction }: HeaderProps) {
             <circle cx="8" cy="13" r="2" stroke="currentColor" strokeWidth="1.5" fill="none" />
             <path d="M4 6V10L8 11M12 6V10L8 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
           </svg>
-          <h1 className="text-sm font-semibold text-[var(--g-text)] tracking-tight">
+          <h1 className="text-base font-semibold text-[var(--g-text)] tracking-tight">
             {repoName || 'Git'}
           </h1>
         </div>
@@ -40,7 +40,7 @@ export function Header({ state, onAction }: HeaderProps) {
               {currentBranch}
             </span>
             {branch && (branch.ahead > 0 || branch.behind > 0) && (
-              <span className="text-[10px] text-[var(--g-muted)] ml-0.5">
+              <span className="text-sm text-[var(--g-muted)] ml-0.5">
                 {branch.ahead > 0 && <span className="text-[var(--g-green)]">+{branch.ahead}</span>}
                 {branch.ahead > 0 && branch.behind > 0 && ' '}
                 {branch.behind > 0 && <span className="text-[var(--g-red)]">-{branch.behind}</span>}
@@ -48,7 +48,7 @@ export function Header({ state, onAction }: HeaderProps) {
             )}
           </div>
         )}
-        <div className="flex items-center gap-2 text-[11px] text-[var(--g-dim)]">
+        <div className="flex items-center gap-2 text-sm text-[var(--g-dim)]">
           {commitCount > 0 && <span>{commitCount} commits</span>}
           {(staged > 0 || unstaged > 0) && (
             <>
@@ -69,10 +69,10 @@ export function Header({ state, onAction }: HeaderProps) {
           <span
             className={`size-1.5 rounded-full ${syncTone.dot} ${state.syncMode === 'watch' && !state.error ? 'animate-pulse' : ''}`}
           />
-          <span className={`text-[10px] font-semibold uppercase tracking-[0.18em] ${syncTone.text}`}>
+          <span className={`text-sm font-semibold uppercase tracking-[0.18em] ${syncTone.text}`}>
             {syncLabel}
           </span>
-          <span className="text-[10px] text-[var(--g-dim)]">{refreshedAt}</span>
+          <span className="text-sm text-[var(--g-dim)]">{refreshedAt}</span>
         </div>
 
         <div className="w-px h-4 bg-[var(--g-border)]" />
@@ -93,7 +93,7 @@ function ActionBtn({ label, icon, onClick }: { label: string; icon: string; onCl
     <button type="button"
       onClick={onClick}
       title={label}
-      className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium rounded-md
+      className="flex items-center gap-1.5 px-2.5 py-1.5 text-sm font-medium rounded-md
         text-[var(--g-muted)] border border-[var(--g-border)]
         hover:text-[var(--g-text)] hover:bg-[var(--g-elevated)] hover:border-[var(--g-border-bright)]
         transition-all duration-150 cursor-pointer"

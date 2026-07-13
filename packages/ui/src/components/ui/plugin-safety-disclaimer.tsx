@@ -10,7 +10,7 @@ export function PluginSafetyDisclaimer({ className }: PluginSafetyDisclaimerProp
     <div
       role="note"
       className={cn(
-        'flex shrink-0 items-start gap-2 border-t border-status-warning-border bg-status-warning-faint px-4 py-2.5 text-[11px] leading-5 text-[var(--text-secondary)]',
+        'flex shrink-0 items-start gap-2 border-t border-status-warning-border bg-status-warning-faint px-4 py-2.5 text-sm leading-5 text-[var(--text-secondary)]',
         className,
       )}
     >

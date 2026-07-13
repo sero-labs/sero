@@ -107,23 +107,23 @@ export const PluginDevSessionCard = memo(function PluginDevSessionCard({
           </div>
           <div className="min-w-0 space-y-1">
             <div className="flex flex-wrap items-center gap-2">
-              <h4 className="truncate text-sm font-semibold text-[var(--text-primary)]">{displayName}</h4>
-              <Badge variant="outline" className={cn('text-[9px] uppercase tracking-[0.18em]', status.badge)}>
+              <h4 className="truncate text-base font-semibold text-[var(--text-primary)]">{displayName}</h4>
+              <Badge variant="outline" className={cn('text-xs uppercase tracking-[0.18em]', status.badge)}>
                 {status.label}
               </Badge>
-              <Badge variant="outline" className={cn('text-[9px] uppercase tracking-[0.18em]', uiMode.badge)}>
+              <Badge variant="outline" className={cn('text-xs uppercase tracking-[0.18em]', uiMode.badge)}>
                 {uiMode.label}
               </Badge>
             </div>
-            <p className="text-[11px] leading-5 text-[var(--text-secondary)]">{status.description}</p>
+            <p className="text-sm leading-5 text-[var(--text-secondary)]">{status.description}</p>
           </div>
         </div>
       </div>
 
-      <dl className="mt-4 space-y-3 text-[10px] text-[var(--text-muted)]">
+      <dl className="mt-4 space-y-3 text-sm text-[var(--text-muted)]">
         <div className="space-y-1">
           <dt className="uppercase tracking-[0.18em]">App ID</dt>
-          <dd className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-base)] px-2.5 py-2 font-mono text-[10px] text-[var(--text-secondary)]">
+          <dd className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-base)] px-2.5 py-2 font-mono text-sm text-[var(--text-secondary)]">
             {session.appId ?? 'Awaiting a valid plugin manifest'}
           </dd>
         </div>
@@ -132,7 +132,7 @@ export const PluginDevSessionCard = memo(function PluginDevSessionCard({
           <dt className="uppercase tracking-[0.18em]">Source folder</dt>
           <dd
             title={session.sourcePath}
-            className="truncate rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-base)] px-2.5 py-2 font-mono text-[10px] text-[var(--text-secondary)]"
+            className="truncate rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-base)] px-2.5 py-2 font-mono text-sm text-[var(--text-secondary)]"
           >
             {session.sourcePath}
           </dd>
@@ -143,7 +143,7 @@ export const PluginDevSessionCard = memo(function PluginDevSessionCard({
             <dt className="uppercase tracking-[0.18em]">Remote entry override</dt>
             <dd
               title={session.remoteEntryOverride}
-              className="truncate rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-base)] px-2.5 py-2 font-mono text-[10px] text-[var(--text-secondary)]"
+              className="truncate rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-base)] px-2.5 py-2 font-mono text-sm text-[var(--text-secondary)]"
             >
               {session.remoteEntryOverride}
             </dd>
@@ -153,19 +153,19 @@ export const PluginDevSessionCard = memo(function PluginDevSessionCard({
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-base)] px-3 py-2.5">
             <dt className="uppercase tracking-[0.18em]">UI mode</dt>
-            <dd className="mt-1 text-[11px] leading-5 text-[var(--text-secondary)]">{uiMode.description}</dd>
+            <dd className="mt-1 text-sm leading-5 text-[var(--text-secondary)]">{uiMode.description}</dd>
           </div>
           <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-base)] px-3 py-2.5">
             <dt className="uppercase tracking-[0.18em]">Updated</dt>
-            <dd className="mt-1 text-[11px] leading-5 text-[var(--text-secondary)]">{formatUpdatedAt(session.updatedAt)}</dd>
+            <dd className="mt-1 text-sm leading-5 text-[var(--text-secondary)]">{formatUpdatedAt(session.updatedAt)}</dd>
           </div>
         </div>
       </dl>
 
       {session.lastError ? (
         <div className="mt-4 rounded-xl border border-status-error-border bg-status-error-faint p-3">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-status-error">Last error</p>
-          <p className="mt-1 text-[11px] leading-5 text-status-error">{session.lastError}</p>
+          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-status-error">Last error</p>
+          <p className="mt-1 text-sm leading-5 text-status-error">{session.lastError}</p>
         </div>
       ) : null}
 
@@ -174,7 +174,7 @@ export const PluginDevSessionCard = memo(function PluginDevSessionCard({
           variant="outline"
           size="sm"
           disabled={refreshing || stopping}
-          className="h-8 border-status-info-border bg-status-info-muted text-[11px] text-status-info hover:bg-status-info-subtle"
+          className="h-8 border-status-info-border bg-status-info-muted text-sm text-status-info hover:bg-status-info-subtle"
           onClick={onRefresh}
         >
           {refreshing ? <Loader2 className="size-3.5 animate-spin" /> : <RefreshCw className="size-3.5" />}
@@ -184,7 +184,7 @@ export const PluginDevSessionCard = memo(function PluginDevSessionCard({
           variant="outline"
           size="sm"
           disabled={stopping}
-          className="h-8 border-[var(--border-subtle)] bg-[var(--bg-base)] text-[11px] text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]"
+          className="h-8 border-[var(--border-subtle)] bg-[var(--bg-base)] text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]"
           onClick={onReveal}
         >
           <FolderOpen className="size-3.5 text-[var(--banner-primary)]" />
@@ -194,7 +194,7 @@ export const PluginDevSessionCard = memo(function PluginDevSessionCard({
           variant="outline"
           size="sm"
           disabled={refreshing || stopping}
-          className="h-8 border-status-error-border bg-status-error-muted text-[11px] text-status-error hover:bg-status-error-subtle"
+          className="h-8 border-status-error-border bg-status-error-muted text-sm text-status-error hover:bg-status-error-subtle"
           onClick={onStop}
         >
           {stopping ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}

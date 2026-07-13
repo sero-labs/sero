@@ -31,7 +31,7 @@ function StaleIndicator({
     <div
       data-slot="stale-indicator"
       className={cn(
-        "flex items-center gap-1.5 text-[11px] text-[var(--text-muted)]",
+        "flex items-center gap-1.5 text-sm text-[var(--text-muted)]",
         className,
       )}
       {...props}

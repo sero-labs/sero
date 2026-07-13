@@ -52,13 +52,13 @@ export function LocalProviderForm({
         >
           <ArrowLeft className="size-4" />
         </button>
-        <h3 className="text-sm font-semibold text-[var(--text-primary)]">
+        <h3 className="text-base font-semibold text-[var(--text-primary)]">
           {state.isEditing ? 'Edit Provider' : 'Add Local Provider'}
         </h3>
       </div>
 
       {state.showsAdvancedNotice && (
-        <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-3 py-2 text-[11px] text-[var(--text-muted)]">
+        <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-3 py-2 text-sm text-[var(--text-muted)]">
           Advanced models.json fields are preserved on save, but they still need to be edited directly in the file.
         </div>
       )}
