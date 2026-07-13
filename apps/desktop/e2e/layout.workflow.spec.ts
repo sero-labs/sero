@@ -1,5 +1,5 @@
 import { test, expect, type ElectronApplication, type Page } from '@playwright/test';
-import { launchSeroApp, layout } from './helpers';
+import { E2E_DATA_ROOT, launchSeroApp, layout } from './helpers';
 import fs from 'fs';
 import path from 'path';
 
@@ -10,7 +10,7 @@ import path from 'path';
  * for the main sidebar, chat panel, and ExplorerWorkspace terminal.
  */
 
-const SERO_TEST_HOME = path.resolve(__dirname, '../.sero-layout-test');
+const SERO_TEST_HOME = path.join(E2E_DATA_ROOT, 'layout-test');
 const LAYOUT_FILE = path.join(SERO_TEST_HOME, 'agent', 'layout.json');
 
 // ── Helpers ─────────────────────────────────────────────────────

@@ -1,12 +1,6 @@
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
-
-// NOTE: Seeded profiles/registry.json is only consulted when the app boots
-// WITHOUT SERO_HOME_OVERRIDE. Today's launcher uses SERO_HOME_OVERRIDE for
-// isolation; profile-switch tests in Phase 2 will need the launcher's
-// `seedMode: 'registry'` option (see app launcher extension in Task 5).
 
 export interface TempSeroHome {
   path: string;
@@ -14,10 +8,23 @@ export interface TempSeroHome {
   cleanup: () => void;
 }
 
+const DESKTOP_ROOT = path.resolve(__dirname, '../..');
+export const E2E_DATA_ROOT = path.join(DESKTOP_ROOT, '.sero-e2e');
+const LEGACY_E2E_DATA_ROOTS = [
+  path.join(DESKTOP_ROOT, '.sero-test-data'),
+  path.join(DESKTOP_ROOT, '.sero-layout-test'),
+];
+
+export function cleanupE2eDataRoot(): void {
+  fs.rmSync(E2E_DATA_ROOT, { recursive: true, force: true });
+  for (const legacyRoot of LEGACY_E2E_DATA_ROOTS) {
+    fs.rmSync(legacyRoot, { recursive: true, force: true });
+  }
+}
+
 export function createTempSeroHome(): TempSeroHome {
-  const baseDir = process.platform === 'win32' ? path.join(os.homedir(), '.sero-e2e') : os.tmpdir();
-  fs.mkdirSync(baseDir, { recursive: true });
-  const dir = fs.mkdtempSync(path.join(baseDir, 'sero-e2e-'));
+  fs.mkdirSync(E2E_DATA_ROOT, { recursive: true });
+  const dir = fs.mkdtempSync(path.join(E2E_DATA_ROOT, 'home-'));
   const handle: TempSeroHome = {
     path: dir,
     activeProfileId: null,
@@ -44,14 +51,21 @@ export function seedProfile(home: TempSeroHome, opts: SeedProfileOpts): SeededPr
   const profileRoot = path.join(home.path, 'profiles', id);
   fs.mkdirSync(path.join(profileRoot, 'agent'), { recursive: true });
 
-  const registryPath = path.join(home.path, 'profiles', 'registry.json');
+  const registryPath = path.join(home.path, 'profiles.json');
   const existing = readJsonIfExists(registryPath, {
+    version: 1,
     activeProfileId: null as string | null,
-    profiles: [] as Array<{ id: string; name: string; path: string }>,
+    profiles: [] as Array<{ id: string; name: string; path: string; createdAt: string; onboarded: boolean }>,
   });
-  existing.profiles.push({ id, name: opts.name, path: profileRoot });
+  existing.profiles.push({
+    id,
+    name: opts.name,
+    path: profileRoot,
+    createdAt: new Date().toISOString(),
+    onboarded: true,
+  });
   existing.activeProfileId = id;
-  fs.writeFileSync(registryPath, JSON.stringify(existing, null, 2));
+  fs.writeFileSync(registryPath, JSON.stringify(existing, null, 2) + '\n');
 
   home.activeProfileId = id;
   return { id, name: opts.name, path: profileRoot };
@@ -75,7 +89,7 @@ export function seedWorkspace(home: TempSeroHome, opts: SeedWorkspaceOpts): Seed
     throw new Error('seedWorkspace requires seedProfile first');
   }
   const id = opts.id ?? randomUUID();
-  const wsFile = path.join(home.path, 'profiles', home.activeProfileId, 'workspaces.json');
+  const wsFile = path.join(home.path, 'profiles', home.activeProfileId, 'agent', 'workspaces.json');
   const existing = readJsonIfExists(wsFile, {
     workspaces: [] as Array<{
       id: string;

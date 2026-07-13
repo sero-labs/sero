@@ -23,6 +23,7 @@ import { defineConfig } from '@playwright/test';
 export default defineConfig({
   testDir: './e2e',
   testMatch: '**/*.spec.ts',
+  globalSetup: './e2e/global-setup.ts',
 
   /* Fail the build on CI if you accidentally left test.only in source. */
   forbidOnly: !!process.env.CI,

@@ -4,9 +4,11 @@ import type { ChildProcess } from 'node:child_process';
 import path from 'path';
 import type { RuntimeBackend } from './runtime';
 import { currentRuntimeFromEnv, runtimeAvailableOn } from './runtime';
+import { createTempSeroHome, type TempSeroHome } from './seroHome';
 
 const MAIN_PROCESS_EVAL_RETRIES = 5;
 const MAIN_PROCESS_EVAL_RETRY_DELAY_MS = 200;
+const ownedHomes = new WeakMap<ElectronApplication, TempSeroHome>();
 
 /**
  * Options for launching the Sero Electron app in tests.
@@ -73,7 +75,8 @@ export async function launchSeroApp(
     );
   }
 
-  const seroHome = options.seroHome ?? path.join(desktopRoot, '.sero-test-data');
+  let ownedHome: TempSeroHome | null = null;
+  const seroHome = options.seroHome ?? (ownedHome = createTempSeroHome()).path;
 
   if (options.seed) {
     await options.seed(seroHome);
@@ -97,42 +100,61 @@ export async function launchSeroApp(
   Object.assign(env, options.env);
   restoreWindowsProfileEnv(env);
 
-  const app = await electron.launch({
-    args: [mainEntry],
-    cwd: desktopRoot,
-    env,
-  });
-
-  const page = await app.firstWindow();
-  await page.waitForLoadState('domcontentloaded');
-
-  if (options.mockRelaunch) {
-    await app.evaluate(({ app: electronApp }) => {
-      const calls: Array<{ method: 'relaunch' | 'exit'; args: unknown[] }> = [];
-      (globalThis as Record<string, unknown>).__seroRelaunchCalls = calls;
-      const originalRelaunch = electronApp.relaunch.bind(electronApp);
-      const originalExit = electronApp.exit.bind(electronApp);
-      electronApp.relaunch = ((...args: unknown[]) => {
-        calls.push({ method: 'relaunch', args });
-      }) as typeof electronApp.relaunch;
-      electronApp.exit = ((...args: unknown[]) => {
-        calls.push({ method: 'exit', args });
-      }) as typeof electronApp.exit;
-      void originalRelaunch;
-      void originalExit;
+  let app: ElectronApplication;
+  try {
+    app = await electron.launch({
+      args: [mainEntry],
+      cwd: desktopRoot,
+      env,
     });
+  } catch (error) {
+    ownedHome?.cleanup();
+    throw error;
+  }
+
+  if (ownedHome) ownedHomes.set(app, ownedHome);
+
+  let page: Page;
+  try {
+    page = await app.firstWindow();
+    await page.waitForLoadState('domcontentloaded');
+
+    if (options.mockRelaunch) {
+      await app.evaluate(({ app: electronApp }) => {
+        const calls: Array<{ method: 'relaunch' | 'exit'; args: unknown[] }> = [];
+        (globalThis as Record<string, unknown>).__seroRelaunchCalls = calls;
+        const originalRelaunch = electronApp.relaunch.bind(electronApp);
+        const originalExit = electronApp.exit.bind(electronApp);
+        electronApp.relaunch = ((...args: unknown[]) => {
+          calls.push({ method: 'relaunch', args });
+        }) as typeof electronApp.relaunch;
+        electronApp.exit = ((...args: unknown[]) => {
+          calls.push({ method: 'exit', args });
+        }) as typeof electronApp.exit;
+        void originalRelaunch;
+        void originalExit;
+      });
+    }
+  } catch (error) {
+    await closeSeroApp(app).catch(() => undefined);
+    throw error;
   }
 
   return { app, page };
 }
 
 export async function closeSeroApp(app: ElectronApplication, timeoutMs = 5_000): Promise<void> {
-  const child = app.process();
-  const closeSettled = await withTimeout(app.close(), timeoutMs);
-  if (closeSettled) return;
+  try {
+    const child = app.process();
+    const closeSettled = await withTimeout(app.close(), timeoutMs);
+    if (closeSettled) return;
 
-  await killProcessTree(child);
-  await waitForProcessExit(child, timeoutMs);
+    await killProcessTree(child);
+    await waitForProcessExit(child, timeoutMs);
+  } finally {
+    ownedHomes.get(app)?.cleanup();
+    ownedHomes.delete(app);
+  }
 }
 
 async function withTimeout(promise: Promise<unknown>, timeoutMs: number): Promise<boolean> {

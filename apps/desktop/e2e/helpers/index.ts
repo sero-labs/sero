@@ -3,6 +3,8 @@ export type { LaunchOptions } from './electron-app';
 export { layout, sidebar, chat, vcs, workspace, fileTree } from './selectors';
 export {
   createTempSeroHome,
+  cleanupE2eDataRoot,
+  E2E_DATA_ROOT,
   seedProfile,
   seedWorkspace,
   type TempSeroHome,
