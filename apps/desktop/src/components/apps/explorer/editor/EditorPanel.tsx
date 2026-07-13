@@ -6,9 +6,8 @@
  * Tab/file state is managed by the parent ExplorerWorkspace.
  */
 
-import { useMemo, useRef, type KeyboardEvent } from 'react';
+import { lazy, Suspense, useMemo, useRef, type KeyboardEvent } from 'react';
 import { FileCode2 } from 'lucide-react';
-import Editor from '@monaco-editor/react';
 import { EditorTabBar, type EditorTab } from './EditorTabBar';
 import { DevServerPreview, isDevServerTab } from './DevServerPreview';
 import { FilePreviewPane } from './FilePreviewPane';
@@ -26,6 +25,8 @@ import { useMonacoNavigation } from './useMonacoNavigation';
 import { useLsp } from '@/lsp/use-lsp';
 import { useAppStore } from '@/stores/app';
 import { useThemeStore } from '@/stores/theme';
+
+const Editor = lazy(() => import('@monaco-editor/react'));
 
 function EmptyEditorState() {
   return (
@@ -166,31 +167,33 @@ export function EditorPanel({
               spec={previewSpec}
             />
           ) : (
-            <Editor
-              height="100%"
-              language={documentState.language}
-              path={activeTab}
-              value={documentState.content}
-              onChange={documentState.handleChange}
-              beforeMount={monacoState.handleBeforeMount}
-              onMount={monacoState.handleEditorMount}
-              theme={monacoThemeName}
-              options={{
-                fontSize: 13,
-                fontFamily: "var(--font-mono, 'JetBrains Mono', 'SF Mono', monospace)",
-                minimap: { enabled: false },
-                lineNumbers: 'on',
-                scrollBeyondLastLine: false,
-                wordWrap: 'on',
-                tabSize: 2,
-                padding: { top: 8 },
-                renderLineHighlight: 'gutter',
-                smoothScrolling: true,
-                cursorBlinking: 'smooth',
-                cursorSmoothCaretAnimation: 'on',
-                bracketPairColorization: { enabled: true },
-              }}
-            />
+            <Suspense fallback={<div className="flex h-full items-center justify-center text-sm text-[var(--text-muted)]">Loading editor…</div>}>
+              <Editor
+                height="100%"
+                language={documentState.language}
+                path={activeTab}
+                value={documentState.content}
+                onChange={documentState.handleChange}
+                beforeMount={monacoState.handleBeforeMount}
+                onMount={monacoState.handleEditorMount}
+                theme={monacoThemeName}
+                options={{
+                  fontSize: 13,
+                  fontFamily: "var(--font-mono, 'JetBrains Mono', 'SF Mono', monospace)",
+                  minimap: { enabled: false },
+                  lineNumbers: 'on',
+                  scrollBeyondLastLine: false,
+                  wordWrap: 'on',
+                  tabSize: 2,
+                  padding: { top: 8 },
+                  renderLineHighlight: 'gutter',
+                  smoothScrolling: true,
+                  cursorBlinking: 'smooth',
+                  cursorSmoothCaretAnimation: 'on',
+                  bracketPairColorization: { enabled: true },
+                }}
+              />
+            </Suspense>
           )
         ) : (
           <EmptyEditorState />

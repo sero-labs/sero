@@ -10,9 +10,8 @@
  * on a live widget.
  */
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { lazy, Suspense, useEffect, useState, useCallback, useRef } from 'react';
 import type { RefObject } from 'react';
-import { DiffEditor } from '@monaco-editor/react';
 import type { editor as MonacoEditor } from 'monaco-editor';
 import { AnimatePresence, motion } from 'motion/react';
 import {
@@ -27,6 +26,11 @@ import { useThemeStore } from '@/stores/theme';
 import { registerCustomEditorThemes, resolveMonacoThemeName } from './monaco-themes';
 import type { FileDiffEntry } from '@sero-ai/common';
 import { statusCode, statusColor, basename, langFromPath } from '@/components/apps/explorer/vcs/vcs-utils';
+
+const DiffEditor = lazy(async () => {
+  const { DiffEditor: MonacoDiffEditor } = await import('@monaco-editor/react');
+  return { default: MonacoDiffEditor };
+});
 
 export interface DiffTabState {
   type: 'diff';
@@ -229,26 +233,28 @@ function DiffFileView({
   }
 
   return (
-    <DiffEditor
-      original={left}
-      modified={right}
-      language={language}
-      theme={theme}
-      beforeMount={registerCustomEditorThemes}
-      onMount={handleDiffMount}
-      keepCurrentOriginalModel
-      keepCurrentModifiedModel
-      options={{
-        readOnly: true,
-        renderSideBySide: sideBySide,
-        minimap: { enabled: true },
-        scrollBeyondLastLine: false,
-        fontSize: 12,
-        lineNumbers: 'on',
-        renderOverviewRuler: true,
-        diffWordWrap: 'on',
-      }}
-    />
+    <Suspense fallback={<div className="flex h-full items-center justify-center"><Loader2 className="size-4 animate-spin text-[var(--text-muted)]" /></div>}>
+      <DiffEditor
+        original={left}
+        modified={right}
+        language={language}
+        theme={theme}
+        beforeMount={registerCustomEditorThemes}
+        onMount={handleDiffMount}
+        keepCurrentOriginalModel
+        keepCurrentModifiedModel
+        options={{
+          readOnly: true,
+          renderSideBySide: sideBySide,
+          minimap: { enabled: true },
+          scrollBeyondLastLine: false,
+          fontSize: 12,
+          lineNumbers: 'on',
+          renderOverviewRuler: true,
+          diffWordWrap: 'on',
+        }}
+      />
+    </Suspense>
   );
 }
 

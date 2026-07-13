@@ -260,6 +260,15 @@ export function VoiceTranscriptionControl({
   const visible = phase !== 'disabled';
   const micDisabled = phase === 'starting' || phase === 'processing' || (disabled && phase !== 'recording');
   const selectorDisabled = disabled || phase === 'starting' || phase === 'recording' || phase === 'processing';
+  const micLabel = phase === 'recording'
+    ? 'Stop voice recording'
+    : phase === 'starting'
+      ? 'Starting microphone'
+      : phase === 'processing'
+        ? 'Transcribing voice message'
+        : phase === 'error'
+          ? 'Retry voice recording'
+          : 'Record voice message';
 
   const micTooltip = useMemo(() => {
     if (phase === 'recording') {
@@ -288,6 +297,7 @@ export function VoiceTranscriptionControl({
             type="button"
             onClick={onToggle}
             disabled={micDisabled}
+            aria-label={micLabel}
             className={cn(
               'relative rounded-md p-1.5 transition-all duration-150',
               phase === 'recording' && 'bg-[var(--voice-recording-muted)] text-[var(--voice-recording)] shadow-[0_0_0_2px_var(--voice-recording-muted)]',
@@ -321,6 +331,7 @@ export function VoiceTranscriptionControl({
               <button
                 type="button"
                 disabled={selectorDisabled}
+                aria-label={`Select recording input. Current: ${selectedDeviceLabel}`}
                 className={cn(
                   'rounded-md p-1.5 text-[var(--text-muted)] transition-all duration-150 hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]',
                   selectorDisabled && 'cursor-not-allowed opacity-50',
