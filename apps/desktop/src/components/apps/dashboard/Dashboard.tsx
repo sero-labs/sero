@@ -6,9 +6,9 @@
  * Layout is persisted to layout.json.
  */
 
-import { useMemo, useCallback } from 'react';
+import { memo, useMemo, useCallback } from 'react';
 import { GridLayout } from 'react-grid-layout';
-import type { Layout, LayoutItem } from 'react-grid-layout';
+import type { Layout, LayoutItem, GridLayoutProps } from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
 import '@sero-ai/ui/styles/glass-board.css';
 import './dashboard.css';
@@ -21,9 +21,32 @@ import { AddWidgetDialog } from './AddWidgetDialog';
 import { useGridWidth } from './useGridWidth';
 import { useRuntimeWidgets } from './useRuntimeWidgets';
 
+// ── Grid configuration ───────────────────────────────────────────
+// Hoisted to module scope: GridLayout derives per-item geometry from these
+// objects, so passing fresh literals on every render forces the whole grid
+// (and every widget wrapper) to re-render whenever Dashboard renders.
+
+const GRID_CONFIG: GridLayoutProps['gridConfig'] = {
+  cols: 6,
+  rowHeight: 120,
+  margin: [3, 3],
+  containerPadding: [3, 3],
+};
+
+const DRAG_CONFIG: GridLayoutProps['dragConfig'] = {
+  enabled: true,
+  handle: '.widget-drag-handle',
+};
+
+const RESIZE_CONFIG: GridLayoutProps['resizeConfig'] = {
+  enabled: true,
+};
+
 // ── Component ────────────────────────────────────────────────────
 
-export function Dashboard() {
+// Memoised: takes no props, so shell re-renders (panel toggles, app
+// preloads, …) never cascade into the widget grid.
+export const Dashboard = memo(function Dashboard() {
   const apps = useAppStore((s) => s.apps);
   const widgets = useDashboardStore((s) => s.widgets);
   const layouts = useDashboardStore((s) => s.layouts);
@@ -74,6 +97,27 @@ export function Dashboard() {
     persistLayouts();
   }, [persistLayouts]);
 
+  // Stable child elements — a fresh array of elements each render would
+  // force GridLayout to reconcile every grid item on every render.
+  const gridChildren = useMemo(
+    () =>
+      widgets.map((widget) => {
+        const appEntry = manifestMap.get(widget.appId);
+        const manifest = appEntry?.manifest ?? null;
+        const meta = widgetMetaMap.get(`${widget.appId}:${widget.widgetId}`) ?? null;
+
+        return (
+          <DashboardWidget
+            key={widget.instanceId}
+            widget={widget}
+            manifest={manifest}
+            widgetMeta={meta}
+          />
+        );
+      }),
+    [widgets, manifestMap, widgetMetaMap],
+  );
+
   const hasWidgets = widgets.length > 0;
 
   return (
@@ -95,37 +139,14 @@ export function Dashboard() {
           <GridLayout
             layout={gridLayout}
             width={width}
-            gridConfig={{
-              cols: 6,
-              rowHeight: 120,
-              margin: [3, 3] as const,
-              containerPadding: [3, 3] as const,
-            }}
-            dragConfig={{
-              enabled: true,
-              handle: '.widget-drag-handle',
-            }}
-            resizeConfig={{
-              enabled: true,
-            }}
+            gridConfig={GRID_CONFIG}
+            dragConfig={DRAG_CONFIG}
+            resizeConfig={RESIZE_CONFIG}
             onLayoutChange={handleLayoutChange}
             onDragStop={handleInteractionStop}
             onResizeStop={handleInteractionStop}
           >
-            {widgets.map((widget) => {
-              const appEntry = manifestMap.get(widget.appId);
-              const manifest = appEntry?.manifest ?? null;
-              const meta = widgetMetaMap.get(`${widget.appId}:${widget.widgetId}`) ?? null;
-
-              return (
-                <DashboardWidget
-                  key={widget.instanceId}
-                  widget={widget}
-                  manifest={manifest}
-                  widgetMeta={meta}
-                />
-              );
-            })}
+            {gridChildren}
           </GridLayout>
         </div>
       ) : (
@@ -133,7 +154,7 @@ export function Dashboard() {
       )}
     </div>
   );
-}
+});
 
 // ── Empty state ──────────────────────────────────────────────────
 
