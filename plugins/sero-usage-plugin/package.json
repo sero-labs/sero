@@ -1,0 +1,87 @@
+{
+  "name": "@sero-ai/plugin-usage",
+  "version": "0.1.0",
+  "description": "AI usage and cost analytics for Sero - aggregated per profile from local session data",
+  "keywords": [
+    "pi-package"
+  ],
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "test": "pnpm exec vitest run",
+    "test:watch": "pnpm exec vitest",
+    "typecheck": "tsc --noEmit -p ui/tsconfig.json && tsc --noEmit -p extension/tsconfig.json"
+  },
+  "pi": {
+    "extensions": [
+      "./extension/index.ts"
+    ]
+  },
+  "sero": {
+    "app": {
+      "id": "usage",
+      "name": "Usage",
+      "icon": "chart-column",
+      "scope": "global",
+      "stateFile": ".sero/apps/usage/state.json",
+      "ui": "./dist/ui/remoteEntry.js",
+      "component": "UsageApp",
+      "devPort": 5189,
+      "widgets": [
+        {
+          "id": "usage-summary",
+          "name": "Usage",
+          "component": "UsageWidget",
+          "description": "AI usage and cost summary",
+          "defaultSize": { "w": 2, "h": 2 },
+          "minSize": { "w": 1, "h": 1 },
+          "maxSize": { "w": 4, "h": 3 }
+        }
+      ]
+    },
+    "plugin": {
+      "category": "productivity",
+      "tags": [
+        "usage",
+        "cost",
+        "tokens",
+        "analytics"
+      ],
+      "minSeroVersion": "0.1.0",
+      "requiredHostCapabilities": [
+        "appAgent.invokeTool",
+        "tool.cli"
+      ],
+      "bridgeTools": [
+        "usage"
+      ]
+    }
+  },
+  "dependencies": {
+    "typebox": "catalog:"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "catalog:peer",
+    "@earendil-works/pi-coding-agent": "catalog:peer",
+    "@earendil-works/pi-tui": "catalog:peer",
+    "zod": "catalog:peer"
+  },
+  "devDependencies": {
+    "@module-federation/vite": "catalog:",
+    "@sero-ai/app-runtime": "workspace:*",
+    "@sero-ai/ui": "workspace:*",
+    "@tailwindcss/vite": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "lucide-react": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "recharts": "3.9.2",
+    "tailwindcss": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}
