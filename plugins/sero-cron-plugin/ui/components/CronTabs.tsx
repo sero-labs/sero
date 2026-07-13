@@ -1,9 +1,10 @@
-type CronAppTab = 'jobs' | 'reminders' | 'history';
+type CronAppTab = 'jobs' | 'reminders' | 'loops' | 'history';
 
 interface CronTabsProps {
   activeTab: CronAppTab;
   totalJobs: number;
   totalReminders: number;
+  totalLoops: number;
   historyCount: number;
   onSelect: (tab: CronAppTab) => void;
 }
@@ -18,6 +19,10 @@ const TAB_LABELS: Array<{ key: CronAppTab; label: (counts: Omit<CronTabsProps, '
     label: ({ totalJobs }) => `Jobs (${totalJobs})`,
   },
   {
+    key: 'loops',
+    label: ({ totalLoops }) => `Loops (${totalLoops})`,
+  },
+  {
     key: 'history',
     label: ({ historyCount }) => `History (${historyCount})`,
   },
@@ -27,10 +32,11 @@ export function CronTabs({
   activeTab,
   totalJobs,
   totalReminders,
+  totalLoops,
   historyCount,
   onSelect,
 }: CronTabsProps) {
-  const counts = { totalJobs, totalReminders, historyCount };
+  const counts = { totalJobs, totalReminders, totalLoops, historyCount };
 
   return (
     <div className="mb-3 flex gap-1 border-b border-border">

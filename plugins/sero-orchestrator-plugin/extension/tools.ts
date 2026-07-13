@@ -39,6 +39,7 @@ export const ORCHESTRATOR_ACTIONS = [
   'set_step_agent',
   'set_loop_context',
   'set_delivery',
+  'set_schedule',
   'reflect',
   'reflect_workspace',
   'choose_suggestion',
@@ -79,6 +80,9 @@ export const OrchestratorToolParams = Type.Object({
   toolsJson: Type.Optional(Type.String({ description: 'For set_step_tools: JSON-encoded array of EXTRA tool names beyond the always-on default tools (e.g. ["web_search","git_manager"]) or "null"/"[]" to use the default tools only' })),
   agent: Type.Optional(Type.String({ description: 'For set_step_agent: a named agent role for the background-agent step; omit/empty to revert the step to the default agent' })),
   contextJson: Type.Optional(Type.String({ description: 'For set_loop_context: JSON-encoded ContextOverrides ({systemPrompt?, disabledTools?, disabledSkills?}) or "null" to clear' })),
+  triggerId: Type.Optional(Type.String({ description: 'For set_schedule: the cron/hybrid trigger id (loop.triggers[].id)' })),
+  schedule: Type.Optional(Type.String({ description: 'For set_schedule: the new 5-field cron expression (minute hour dom month dow, UTC); omit to keep the current one' })),
+  scheduleDisabled: Type.Optional(Type.Boolean({ description: 'For set_schedule: pause (true) or resume (false) the trigger\'s schedule; omit to keep the current state' })),
   deliveryDestination: Type.Optional(StringEnum(DELIVERY_DESTINATION_IDS, { description: 'For create/set_delivery: where the loop ships its results (user-chosen; omit on create to derive from placement — worktree ⇒ pr, root ⇒ workspace-files)' })),
   deliveryParamsJson: Type.Optional(Type.String({ description: 'For create/set_delivery: JSON-encoded flat object of destination params (e.g. {"channel":"#market-intel"} or {"url":"https://…"})' })),
   suggestionId: Type.Optional(Type.String({ description: 'For choose_suggestion: the reflection suggestion id to approve/reject' })),
@@ -114,6 +118,9 @@ export interface OrchestratorToolParamsShape {
   toolsJson?: string;
   agent?: string;
   contextJson?: string;
+  triggerId?: string;
+  schedule?: string;
+  scheduleDisabled?: boolean;
   deliveryDestination?: (typeof DELIVERY_DESTINATION_IDS)[number];
   deliveryParamsJson?: string;
   suggestionId?: string;
@@ -251,6 +258,13 @@ export function buildAction(params: OrchestratorToolParamsShape): OrchestratorAc
       }
       return { kind: 'set_loop_context', loopId: params.loopId, overrides };
     }
+    case 'set_schedule':
+      if (!params.loopId) return { error: 'set_schedule requires a loopId' };
+      if (!params.triggerId) return { error: 'set_schedule requires a triggerId' };
+      if (params.schedule === undefined && params.scheduleDisabled === undefined) {
+        return { error: 'set_schedule requires a schedule and/or scheduleDisabled' };
+      }
+      return { kind: 'set_schedule', loopId: params.loopId, triggerId: params.triggerId, schedule: params.schedule, disabled: params.scheduleDisabled };
     case 'reflect_workspace':
       return { kind: 'reflect_workspace' };
     case 'choose_suggestion': {
@@ -343,6 +357,10 @@ function summarize(action: OrchestratorAction, res: OrchestratorActionResult): s
       return `Retried step "${action.stepId}" — loop ${action.loopId} now "${res.loop?.status ?? '?'}".`;
     case 'set_delivery':
       return `Loop ${action.loopId} now delivers to "${action.delivery.destination}".`;
+    case 'set_schedule': {
+      const trigger = res.loop?.triggers.find((t) => t.id === action.triggerId);
+      return `Loop ${action.loopId} schedule is now "${trigger?.schedule}"${trigger?.disabled ? ' (paused)' : ''} — next fire ${trigger?.nextFireAt ?? 'n/a'}.`;
+    }
     case 'library_save':
       return `Saved loop to the library (now ${res.loop?.libraryLink ? `v${res.loop.libraryLink.version}` : 'linked'}).`;
     case 'library_load':

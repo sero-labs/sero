@@ -96,6 +96,24 @@ describe('buildAction', () => {
     });
   });
 
+  it('builds set_schedule from triggerId + schedule/scheduleDisabled', () => {
+    expect(buildAction({ action: 'set_schedule', loopId: 'l1', triggerId: 't1', schedule: '0 9 * * *' })).toEqual({
+      kind: 'set_schedule', loopId: 'l1', triggerId: 't1', schedule: '0 9 * * *', disabled: undefined,
+    });
+    expect(buildAction({ action: 'set_schedule', loopId: 'l1', triggerId: 't1', scheduleDisabled: true })).toEqual({
+      kind: 'set_schedule', loopId: 'l1', triggerId: 't1', schedule: undefined, disabled: true,
+    });
+    expect(buildAction({ action: 'set_schedule', triggerId: 't1', schedule: '0 9 * * *' })).toEqual({
+      error: 'set_schedule requires a loopId',
+    });
+    expect(buildAction({ action: 'set_schedule', loopId: 'l1', schedule: '0 9 * * *' })).toEqual({
+      error: 'set_schedule requires a triggerId',
+    });
+    expect(buildAction({ action: 'set_schedule', loopId: 'l1', triggerId: 't1' })).toEqual({
+      error: 'set_schedule requires a schedule and/or scheduleDisabled',
+    });
+  });
+
   it('rejects malformed delivery params', () => {
     expect(buildAction({ action: 'set_delivery', loopId: 'l1', deliveryDestination: 'webhook-post', deliveryParamsJson: '{bad' })).toEqual({
       error: 'deliveryParamsJson is not valid JSON',

@@ -8,6 +8,7 @@
  * unchanged loop's file is never rewritten when another loop changes.
  */
 
+import type { OrchestratorScheduleSummary } from '@sero-ai/common';
 import type {
   Loop,
   LoopAttention,
@@ -49,6 +50,27 @@ function toAttention(loop: Loop): LoopAttention | undefined {
     }));
   if (!input && suggestions.length === 0) return undefined;
   return { input, suggestions: suggestions.length ? suggestions : undefined };
+}
+
+/**
+ * The loop's cron/hybrid schedules embedded in its summary, so external surfaces
+ * (the Scheduler app) can list scheduled loops from the watched index alone.
+ * Undefined when the loop has no schedule, keeping the index small.
+ */
+function toSchedules(loop: Loop): OrchestratorScheduleSummary[] | undefined {
+  const schedules: OrchestratorScheduleSummary[] = [];
+  for (const t of loop.triggers) {
+    if ((t.type !== 'cron' && t.type !== 'hybrid') || !t.schedule) continue;
+    schedules.push({
+      triggerId: t.id,
+      type: t.type,
+      schedule: t.schedule,
+      nextFireAt: t.nextFireAt,
+      lastFireAt: t.lastFireAt,
+      disabled: t.disabled,
+    });
+  }
+  return schedules.length > 0 ? schedules : undefined;
 }
 
 /**
@@ -124,6 +146,7 @@ export function toSummary(loop: Loop): LoopSummary {
     pendingInput: pendingInput || undefined,
     progress: toProgress(loop),
     attention: toAttention(loop),
+    schedules: toSchedules(loop),
     libraryLink: loop.libraryLink,
     createdAt: loop.createdAt,
     updatedAt: loop.updatedAt,

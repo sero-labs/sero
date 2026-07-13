@@ -249,6 +249,18 @@ export type {
   CronState,
 } from './cron-contract';
 
+export {
+  ORCHESTRATOR_APP_ID,
+  ORCHESTRATOR_INDEX_FILE,
+} from './orchestrator-contract';
+export type {
+  OrchestratorLoopStatus,
+  OrchestratorScheduleSummary,
+  OrchestratorScheduledLoopView,
+  OrchestratorIndexView,
+  OrchestratorSetScheduleParams,
+} from './orchestrator-contract';
+
 export type {
   PluginDevSessionStatus,
   PluginDevSessionUiMode,

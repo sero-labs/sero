@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useAppTools } from '@sero-ai/app-runtime';
+import { consumeAppLaunchParams, useAppTools } from '@sero-ai/app-runtime';
 import { Button } from '@sero-ai/ui';
 import { Home, Infinity as InfinityIcon, Library, Plus, Sparkles } from 'lucide-react';
 import { DEFAULT_LIBRARY_INDEX } from '../shared/defaults';
@@ -17,6 +17,23 @@ import './styles.css';
 
 type View = { mode: 'home' } | { mode: 'detail'; loopId: string | null } | { mode: 'create' } | { mode: 'library' };
 
+/** Launch params another app can hand to `openSeroApp('orchestrator', { loopId })`. */
+interface OrchestratorLaunchParams extends Record<string, unknown> {
+  loopId?: string;
+}
+
+/** Initial view: a loop deep-link from another app lands on that loop's detail. */
+function initialView(): View {
+  const params = consumeAppLaunchParams<OrchestratorLaunchParams>('orchestrator');
+  return typeof params?.loopId === 'string' ? { mode: 'detail', loopId: params.loopId } : { mode: 'home' };
+}
+
+/** Directory of a file path, tolerant of either separator (renderer has no node:path). */
+function dirOf(filePath: string): string {
+  const i = Math.max(filePath.lastIndexOf('/'), filePath.lastIndexOf('\\'));
+  return i >= 0 ? filePath.slice(0, i) : '';
+}
+
 /**
  * Orchestrator panel. The home view (default) is a cross-loop "Needs you" inbox +
  * loops overview; selecting a loop opens the list+detail surface. All mutations
@@ -27,7 +44,7 @@ type View = { mode: 'home' } | { mode: 'detail'; loopId: string | null } | { mod
 export function OrchestratorApp() {
   const stateDir = useStateDir();
   const { run } = useAppTools();
-  const [view, setView] = useState<View>({ mode: 'home' });
+  const [view, setView] = useState<View>(initialView);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reflectSummary, setReflectSummary] = useState<string | null>(null);

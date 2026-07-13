@@ -20,8 +20,9 @@ React UI is Sero-only.
   accessible via the 🔔 button in the scheduler bar.
 - **Job completion notifications** — desktop notification when any cron job
   finishes (✅ success or ❌ failure with duration).
-- **Visual dashboard** — three tabs (Reminders, Jobs, History) for managing
-  everything. Live cron expression validation with human-readable previews.
+- **Visual dashboard** — four tabs (Reminders, Jobs, Loops, History) for
+  managing everything. Live cron expression validation with human-readable
+  previews.
 - **Run output capture** — agent responses from cron job runs are saved and
   viewable in the History tab. Latest result auto-expands; older results
   show an inline preview with a toggle to expand.
@@ -54,12 +55,13 @@ React UI is Sero-only.
 
 ### Opening the app
 
-Click **Cron** (🕐) in the Sero sidebar. The dashboard has three tabs:
+Click **Cron** (🕐) in the Sero sidebar. The dashboard has four tabs:
 
 | Tab | What it shows |
 |-----|---------------|
 | **Reminders** | All reminders with status filters, snooze, and management |
 | **Jobs** | Configured cron jobs with status, schedule, and actions |
+| **Loops** | The workspace's scheduled Orchestrator loops — edit/pause their schedule or jump to the loop |
 | **History** | Recent cron job execution results with expandable output |
 
 ---
@@ -403,7 +405,7 @@ plugins/sero-cron-plugin/
 │       ├── session-runner.test.ts  # Concurrency, cleanup, re-entrancy, timeout
 │       └── scheduler.test.ts      # Tick execution, callbacks, running-set mgmt
 └── ui/
-    ├── CronApp.tsx              # Root — tabs (Reminders, Jobs, History)
+    ├── CronApp.tsx              # Root — tabs (Reminders, Jobs, Loops, History)
     ├── components/
     │   ├── SchedulerBar.tsx     # Status + notification settings + start/stop
     │   ├── NotificationSettings.tsx # Sound toggle + sound picker popover

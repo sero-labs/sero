@@ -152,3 +152,29 @@ describe('run-split helpers', () => {
     expect(diff.indexChanged).toBe(true);
   });
 });
+
+describe('schedule summaries (cross-plugin index view)', () => {
+  it('embeds cron/hybrid triggers with a schedule and skips event/manual triggers', () => {
+    const host = createFakeHost();
+    const base = seedActiveLoop(host, oneStepPlan().plan, 'loop-a');
+    const loop: Loop = {
+      ...base,
+      triggers: [
+        { id: 'tc', loopId: 'loop-a', workspaceId: 'ws-1', type: 'cron', schedule: '0 9 * * *', fireCount: 2, nextFireAt: 'n', lastFireAt: 'l' },
+        { id: 'th', loopId: 'loop-a', workspaceId: 'ws-1', type: 'hybrid', schedule: '0 8 * * 1', fireCount: 0, disabled: true },
+        { id: 'te', loopId: 'loop-a', workspaceId: 'ws-1', type: 'event', eventSource: 'fs:changed', fireCount: 0 },
+        { id: 'tm', loopId: 'loop-a', workspaceId: 'ws-1', type: 'manual', fireCount: 0 },
+      ],
+    };
+    expect(toSummary(loop).schedules).toEqual([
+      { triggerId: 'tc', type: 'cron', schedule: '0 9 * * *', nextFireAt: 'n', lastFireAt: 'l', disabled: undefined },
+      { triggerId: 'th', type: 'hybrid', schedule: '0 8 * * 1', nextFireAt: undefined, lastFireAt: undefined, disabled: true },
+    ]);
+  });
+
+  it('omits schedules entirely for unscheduled loops (index stays small)', () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, oneStepPlan().plan, 'loop-a');
+    expect(toSummary(loop).schedules).toBeUndefined();
+  });
+});

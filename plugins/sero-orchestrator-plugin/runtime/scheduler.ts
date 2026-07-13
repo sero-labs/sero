@@ -114,6 +114,41 @@ export function reenableSchedule(loop: Loop, now: string): LoopTrigger[] {
 }
 
 /**
+ * Direct user edit of one cron/hybrid trigger's schedule (set_schedule action —
+ * e.g. from the Scheduler app): validates the cron expression, applies the new
+ * schedule and/or paused state, and re-arms nextFireAt from now (cleared while
+ * paused). Event triggers have no schedule and are rejected.
+ */
+export function applyScheduleOverride(
+  loop: Loop,
+  triggerId: string,
+  override: { schedule?: string; disabled?: boolean },
+  now: string,
+): { ok: boolean; loop?: Loop; error?: string } {
+  const index = loop.triggers.findIndex((t) => t.id === triggerId);
+  if (index === -1) return { ok: false, error: `Trigger not found: ${triggerId}` };
+  const trigger = loop.triggers[index];
+  if (trigger.type !== 'cron' && trigger.type !== 'hybrid') {
+    return { ok: false, error: `Trigger ${triggerId} is "${trigger.type}" — only cron/hybrid triggers have a schedule.` };
+  }
+  const schedule = override.schedule ?? trigger.schedule;
+  if (!schedule) return { ok: false, error: 'A cron schedule is required.' };
+  if (!isValidCron(schedule)) {
+    return { ok: false, error: `Invalid cron schedule: "${schedule}" (5 fields: minute hour day-of-month month day-of-week, UTC).` };
+  }
+  const disabled = override.disabled ?? trigger.disabled ?? false;
+  const next = disabled ? null : nextFireAfter(schedule, Date.parse(now));
+  const triggers = [...loop.triggers];
+  triggers[index] = {
+    ...trigger,
+    schedule,
+    disabled,
+    nextFireAt: next !== null ? new Date(next).toISOString() : undefined,
+  };
+  return { ok: true, loop: { ...loop, triggers, updatedAt: now } };
+}
+
+/**
  * Re-applies goal-derived triggers to a loop's EXISTING triggers without
  * resetting run history (used when a refinement changes the goal's cadence or
  * events): an existing cron/hybrid trigger keeps its fireCount/lastFireAt but

@@ -49,6 +49,11 @@ export function actionToParams(action: OrchestratorAction): Record<string, unkno
       params.deliveryDestination = action.delivery.destination;
       if (action.delivery.params) params.deliveryParamsJson = JSON.stringify(action.delivery.params);
       break;
+    case 'set_schedule':
+      params.triggerId = action.triggerId;
+      if (action.schedule !== undefined) params.schedule = action.schedule;
+      if (action.disabled !== undefined) params.scheduleDisabled = action.disabled;
+      break;
     case 'library_save':
       params.mode = action.mode;
       if (action.name !== undefined) params.name = action.name;

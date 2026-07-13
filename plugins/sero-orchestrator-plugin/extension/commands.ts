@@ -23,6 +23,7 @@ const HELP = `Usage:
   /orchestrator activate|disable|enable|run_next|run_again|retry|reflect|delete <loopId>
   /orchestrator retry_step <loopId> <stepId>
   /orchestrator set_delivery <loopId> <destination>
+  /orchestrator set_schedule <loopId> <triggerId> <cron schedule (UTC)>
   /orchestrator reflect_workspace
   /orchestrator answer <loopId> <your answer>
   /orchestrator revise <loopId> [request]
@@ -95,6 +96,14 @@ export function parseCommand(args: string): ParsedCommand {
       if (!loopId || !destination) return { error: 'set_delivery requires a loopId and a destination' };
       if (!isDeliveryDestinationId(destination)) return { error: `Unknown destination "${destination}". Destinations: ${DELIVERY_DESTINATION_IDS.join(', ')}` };
       return { action, loopId, deliveryDestination: destination };
+    }
+    case 'set_schedule': {
+      const [loopId, triggerId, ...scheduleParts] = rest;
+      const schedule = scheduleParts.join(' ').trim();
+      if (!loopId || !triggerId || !schedule) {
+        return { error: 'set_schedule requires a loopId, a triggerId, and a cron schedule: /orchestrator set_schedule <loopId> <triggerId> <min hour dom month dow>' };
+      }
+      return { action, loopId, triggerId, schedule };
     }
     case 'library_save': {
       const [loopId, mode, ...noteParts] = rest;

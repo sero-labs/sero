@@ -29,6 +29,7 @@ Actions: `create`, `list`, `show`, `activate`, `pause`, `resume`, `stop`,
 /orchestrator create <prompt>
 /orchestrator create --deliver <destination> <prompt>
 /orchestrator set_delivery <loopId> <destination>
+/orchestrator set_schedule <loopId> <triggerId> <cron schedule (UTC)>
 /orchestrator list
 /orchestrator show <loopId>
 /orchestrator activate <loopId>
@@ -190,10 +191,14 @@ Sero was closed runs once on next open (missed fires collapse into one catch-up
 run).
 
 The schedule, events, and stop condition are authored in the prompt and changed
-with **Refine**, never through a form. Write them in plain language — "every
-morning", "when CI fails on my PRs", "whenever docs/ changes" — and Sero
-derives the trigger. They show read-only in the loop's summary line, with the
-event details on hover.
+with **Refine**. Write them in plain language — "every morning", "when CI fails
+on my PRs", "whenever docs/ changes" — and Sero derives the trigger. They show
+read-only in the loop's summary line, with the event details on hover.
+
+The cron schedule is the one exception: the Scheduler app's **Loops** tab lists
+every scheduled loop in the workspace and can edit or pause the schedule
+directly (the `set_schedule` action). Only the schedule is editable there — the
+loop itself is still managed in Orchestrator.
 
 ### Event sources
 
