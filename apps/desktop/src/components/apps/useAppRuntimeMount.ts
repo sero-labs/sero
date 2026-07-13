@@ -84,12 +84,15 @@ interface AppRuntimeMountResult {
 export function useAppRuntimeMount(manifest: SeroAppManifest): AppRuntimeMountResult {
   const activeWorkspaceId = useWorkspaceStore((state) => state.activeWorkspaceId);
   const workspacesReady = useWorkspaceStore((state) => state.workspacesReady);
-  const workspaces = useWorkspaceStore((state) => state.workspaces);
+  // Select the resolved path (a string) rather than the workspaces array:
+  // the array is replaced wholesale on unrelated updates (expand/collapse,
+  // reloads), which would re-render every mounted app and widget.
+  const workspacePath = useWorkspaceStore(
+    (state) => state.workspaces.find((entry) => entry.id === state.activeWorkspaceId)?.path ?? '',
+  );
   const effectiveMode = useThemeStore((state) => state.effectiveMode);
   const activePresetId = useThemeStore((state) => state.activePresetId);
 
-  const workspace = workspaces.find((entry) => entry.id === activeWorkspaceId);
-  const workspacePath = workspace?.path ?? '';
   const isGlobal = manifest.scope === 'global';
 
   // Prompt function injected into context — ensures a session exists,

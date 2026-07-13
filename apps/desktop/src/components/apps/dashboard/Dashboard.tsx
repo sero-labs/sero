@@ -6,9 +6,9 @@
  * Layout is persisted to layout.json.
  */
 
-import { useMemo, useCallback } from 'react';
+import { memo, useMemo, useCallback } from 'react';
 import { GridLayout } from 'react-grid-layout';
-import type { Layout, LayoutItem } from 'react-grid-layout';
+import type { Layout, LayoutItem, GridLayoutProps } from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
 import '@sero-ai/ui/styles/glass-board.css';
 import './dashboard.css';
@@ -21,9 +21,37 @@ import { AddWidgetDialog } from './AddWidgetDialog';
 import { useGridWidth } from './useGridWidth';
 import { useRuntimeWidgets } from './useRuntimeWidgets';
 
+// ── Grid configuration ───────────────────────────────────────────
+// Hoisted to module scope for a stable identity across renders. GridLayout
+// memoises its derived grid/drag/resize config on these prop identities, so
+// fresh literals would invalidate those memos (and re-fire the dependent
+// effects) on every render. This does not stop GridLayout rendering — the
+// memo() boundary below is what does that — it only avoids redundant internal
+// recompute when the dashboard genuinely re-renders.
+
+const GRID_CONFIG: GridLayoutProps['gridConfig'] = {
+  cols: 6,
+  rowHeight: 120,
+  margin: [3, 3],
+  containerPadding: [3, 3],
+};
+
+const DRAG_CONFIG: GridLayoutProps['dragConfig'] = {
+  enabled: true,
+  handle: '.widget-drag-handle',
+};
+
+const RESIZE_CONFIG: GridLayoutProps['resizeConfig'] = {
+  enabled: true,
+};
+
 // ── Component ────────────────────────────────────────────────────
 
-export function Dashboard() {
+// Primary render guard: Dashboard takes no props, so this memo() boundary
+// stops shell re-renders (panel toggles, app preloads, …) from cascading into
+// GridLayout and every mounted widget. Widgets still re-render only when their
+// own subscribed state changes.
+export const Dashboard = memo(function Dashboard() {
   const apps = useAppStore((s) => s.apps);
   const widgets = useDashboardStore((s) => s.widgets);
   const layouts = useDashboardStore((s) => s.layouts);
@@ -74,6 +102,29 @@ export function Dashboard() {
     persistLayouts();
   }, [persistLayouts]);
 
+  // Referentially stable children so GridLayout's children-diff effect doesn't
+  // re-run on each render. Note: GridLayout re-maps and re-renders its GridItem
+  // wrappers whenever it itself renders, so this does NOT prevent grid-item
+  // reconciliation — the memo() boundary above is the real guard.
+  const gridChildren = useMemo(
+    () =>
+      widgets.map((widget) => {
+        const appEntry = manifestMap.get(widget.appId);
+        const manifest = appEntry?.manifest ?? null;
+        const meta = widgetMetaMap.get(`${widget.appId}:${widget.widgetId}`) ?? null;
+
+        return (
+          <DashboardWidget
+            key={widget.instanceId}
+            widget={widget}
+            manifest={manifest}
+            widgetMeta={meta}
+          />
+        );
+      }),
+    [widgets, manifestMap, widgetMetaMap],
+  );
+
   const hasWidgets = widgets.length > 0;
 
   return (
@@ -95,37 +146,14 @@ export function Dashboard() {
           <GridLayout
             layout={gridLayout}
             width={width}
-            gridConfig={{
-              cols: 6,
-              rowHeight: 120,
-              margin: [3, 3] as const,
-              containerPadding: [3, 3] as const,
-            }}
-            dragConfig={{
-              enabled: true,
-              handle: '.widget-drag-handle',
-            }}
-            resizeConfig={{
-              enabled: true,
-            }}
+            gridConfig={GRID_CONFIG}
+            dragConfig={DRAG_CONFIG}
+            resizeConfig={RESIZE_CONFIG}
             onLayoutChange={handleLayoutChange}
             onDragStop={handleInteractionStop}
             onResizeStop={handleInteractionStop}
           >
-            {widgets.map((widget) => {
-              const appEntry = manifestMap.get(widget.appId);
-              const manifest = appEntry?.manifest ?? null;
-              const meta = widgetMetaMap.get(`${widget.appId}:${widget.widgetId}`) ?? null;
-
-              return (
-                <DashboardWidget
-                  key={widget.instanceId}
-                  widget={widget}
-                  manifest={manifest}
-                  widgetMeta={meta}
-                />
-              );
-            })}
+            {gridChildren}
           </GridLayout>
         </div>
       ) : (
@@ -133,7 +161,7 @@ export function Dashboard() {
       )}
     </div>
   );
-}
+});
 
 // ── Empty state ──────────────────────────────────────────────────
 
