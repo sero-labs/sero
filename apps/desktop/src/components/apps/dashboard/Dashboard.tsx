@@ -22,9 +22,12 @@ import { useGridWidth } from './useGridWidth';
 import { useRuntimeWidgets } from './useRuntimeWidgets';
 
 // ── Grid configuration ───────────────────────────────────────────
-// Hoisted to module scope: GridLayout derives per-item geometry from these
-// objects, so passing fresh literals on every render forces the whole grid
-// (and every widget wrapper) to re-render whenever Dashboard renders.
+// Hoisted to module scope for a stable identity across renders. GridLayout
+// memoises its derived grid/drag/resize config on these prop identities, so
+// fresh literals would invalidate those memos (and re-fire the dependent
+// effects) on every render. This does not stop GridLayout rendering — the
+// memo() boundary below is what does that — it only avoids redundant internal
+// recompute when the dashboard genuinely re-renders.
 
 const GRID_CONFIG: GridLayoutProps['gridConfig'] = {
   cols: 6,
@@ -44,8 +47,10 @@ const RESIZE_CONFIG: GridLayoutProps['resizeConfig'] = {
 
 // ── Component ────────────────────────────────────────────────────
 
-// Memoised: takes no props, so shell re-renders (panel toggles, app
-// preloads, …) never cascade into the widget grid.
+// Primary render guard: Dashboard takes no props, so this memo() boundary
+// stops shell re-renders (panel toggles, app preloads, …) from cascading into
+// GridLayout and every mounted widget. Widgets still re-render only when their
+// own subscribed state changes.
 export const Dashboard = memo(function Dashboard() {
   const apps = useAppStore((s) => s.apps);
   const widgets = useDashboardStore((s) => s.widgets);
@@ -97,8 +102,10 @@ export const Dashboard = memo(function Dashboard() {
     persistLayouts();
   }, [persistLayouts]);
 
-  // Stable child elements — a fresh array of elements each render would
-  // force GridLayout to reconcile every grid item on every render.
+  // Referentially stable children so GridLayout's children-diff effect doesn't
+  // re-run on each render. Note: GridLayout re-maps and re-renders its GridItem
+  // wrappers whenever it itself renders, so this does NOT prevent grid-item
+  // reconciliation — the memo() boundary above is the real guard.
   const gridChildren = useMemo(
     () =>
       widgets.map((widget) => {
