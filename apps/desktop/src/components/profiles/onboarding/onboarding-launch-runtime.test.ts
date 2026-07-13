@@ -24,6 +24,7 @@ function createSessionModelState(provider: string, modelId: string): SessionMode
     thinkingLevel: 'high',
     availableThinkingLevels: ['off', 'low', 'medium', 'high'],
     supportsXhigh: false,
+    supportsMax: false,
     availableModels: [
       {
         provider,

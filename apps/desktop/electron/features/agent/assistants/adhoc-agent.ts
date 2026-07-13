@@ -1,8 +1,8 @@
-import { createAgentSession, SettingsManager, SessionManager } from '@earendil-works/pi-coding-agent';
+import type { SettingsManager } from '@earendil-works/pi-coding-agent';
 import type { ThinkingLevel } from '@earendil-works/pi-agent-core';
 import type { Api, Model } from '@earendil-works/pi-ai';
+import { runIsolatedCompletion } from '@sero-ai/extension-runtime';
 
-import { SERO_AGENT_DIR } from '@electron/platform/env';
 import { ensureInfra } from '@electron/shared/infra/shared-infra';
 import { getModelTiers } from '@electron/shared/settings/model-tiers';
 
@@ -40,46 +40,39 @@ export async function runAdhocAgent(
     infra.model,
   );
 
-  const { session } = await createAgentSession({
-    cwd: workspacePath,
-    agentDir: SERO_AGENT_DIR,
-    model: selectedModel.model,
-    thinkingLevel,
-    authStorage: infra.authStorage,
-    modelRegistry: infra.modelRegistry,
-    noTools: 'all',
-    sessionManager: SessionManager.inMemory(workspacePath),
-    settingsManager: infra.settingsManager,
-  });
-
-  let text = '';
-  const unsub = session.subscribe((event) => {
-    if (event.type !== 'message_update') return;
-    const ame = event.assistantMessageEvent;
-    if (ame.type === 'text_delta') text += ame.delta;
-  });
-
+  // Dispatch through the shared isolated-completion helper so adhoc jobs run in
+  // a session with no extensions/skills/context/APPEND_SYSTEM.md — the same
+  // isolation the memory and web background jobs use. This keeps a project's
+  // prompt files from contaminating generated output and stops session-lifecycle
+  // hooks from firing on dispose.
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ADHOC_TIMEOUT_MS);
   try {
-    await Promise.race([
-      session.prompt(prompt),
-      new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('Adhoc agent timed out')), ADHOC_TIMEOUT_MS),
-      ),
-    ]);
+    const text = await runIsolatedCompletion({
+      cwd: workspacePath,
+      model: selectedModel.model,
+      modelRegistry: infra.modelRegistry,
+      prompt,
+      thinkingLevel,
+      signal: controller.signal,
+    });
+    return {
+      text,
+      model: `${selectedModel.provider}/${selectedModel.modelId}`,
+    };
+  } catch (error) {
+    if (controller.signal.aborted) {
+      throw new Error('Adhoc agent timed out');
+    }
+    throw error;
   } finally {
-    unsub();
-    session.dispose();
+    clearTimeout(timer);
   }
-
-  return {
-    text: text.trim(),
-    model: `${selectedModel.provider}/${selectedModel.modelId}`,
-  };
 }
 
 function selectFastModel(
   available: Model<Api>[],
-  settingsManager: ReturnType<typeof SettingsManager.create>,
+  settingsManager: SettingsManager,
   fallback: Model<Api> | null,
 ): SelectedModel {
   // 1. Try user's LOW tier model

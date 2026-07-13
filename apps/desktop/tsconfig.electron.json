@@ -21,6 +21,7 @@
       "@plugins/*": ["../../plugins/*"],
       "@packages/*": ["../../packages/*"],
       "@sero-ai/common": ["../../packages/common/src/index.ts"],
+      "@sero-ai/extension-runtime": ["../../packages/extension-runtime/src/index.ts"],
       "@sero-ai/ui": ["../../packages/ui/src/index.ts"],
       "@sero-ai/ui/*": ["../../packages/ui/src/*"],
       // Pi exports this subpath, but moduleResolution:node still needs this mapping.

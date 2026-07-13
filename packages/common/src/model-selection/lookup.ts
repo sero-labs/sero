@@ -155,6 +155,9 @@ export function getAvailableThinkingLevels(model: SharedModelInfo): ThinkingLeve
   if (model.supportsXhigh === true) {
     inferred.push('xhigh');
   }
+  if (model.supportsMax === true) {
+    inferred.push('max');
+  }
   return inferred;
 }
 

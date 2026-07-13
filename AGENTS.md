@@ -52,6 +52,7 @@ pkill -f "vite"; pkill -f "electron"
 
 - **`@sero-ai/app-runtime`** — React hooks (`useAppState`, `useAppInfo`, `useAgentPrompt`) + `AppProvider` for federated plugin modules
 - **`@sero-ai/common`** — shared renderer-safe types/utilities. Prefer moving neutral cross-package code here (no Electron/Node-only dependencies).
+- **`@sero-ai/extension-runtime`** — shared Node/runtime helpers for isolated background agent work (e.g. `runIsolatedCompletion`), used by both plugin **extensions** and the desktop **host** (e.g. adhoc PR-draft generation). Runs completions in a session with no extensions/skills/context/`APPEND_SYSTEM.md`, so background jobs can't be contaminated by a project's prompt files or trigger session-lifecycle hooks. The bundler (plugins and electron) inlines it and keeps the Pi SDK peers external. Use this (not `@sero-ai/common`) for code that needs the Pi coding-agent runtime.
 - **`@sero-ai/ui`** - shared ui components 
 
 **Tool installs are machine-shared, NEVER per-profile.** When a plugin or
@@ -117,7 +118,6 @@ If you change `apps/desktop/images/Dockerfile.sero-node` or container-installed 
 - Never commit local Pi scratch/planning files under `.pi/` (especially `.pi/plans/`); the directory is gitignored and should remain local-only.
 - Use Conventional Commit messages
 - Ensure good type safety in source files when conducting PR reviews
-- Don't push to remote git branch automatically unless asked specifically or asked to create a PR
 - Avoid duplicating types that already exist in Pi SDK libraries. Import the canonical Pi types instead so upstream changes fail at typecheck time rather than becoming runtime mismatches.
 - Do not delete relevant comments
 - Prefer `useDebouncedCallback` / `createDebouncedFn` from `src/hooks/useDebouncedCallback.ts` over hand-rolled `setTimeout` debounce patterns

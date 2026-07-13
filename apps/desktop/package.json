@@ -55,6 +55,7 @@
     "@earendil-works/pi-ai": "catalog:",
     "@earendil-works/pi-coding-agent": "catalog:",
     "@sero-ai/common": "workspace:*",
+    "@sero-ai/extension-runtime": "workspace:*",
     "ansi-styles": "4.3.0",
     "chalk": "4.1.2",
     "cli-highlight": "2.1.11",
