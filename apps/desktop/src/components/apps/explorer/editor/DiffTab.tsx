@@ -10,7 +10,7 @@
  * on a live widget.
  */
 
-import { lazy, Suspense, useEffect, useState, useCallback, useRef } from 'react';
+import { lazy, useEffect, useState, useCallback, useRef } from 'react';
 import type { RefObject } from 'react';
 import type { editor as MonacoEditor } from 'monaco-editor';
 import { AnimatePresence, motion } from 'motion/react';
@@ -24,6 +24,7 @@ import { cn } from '@sero-ai/ui/lib/utils';
 import { useAppStore } from '@/stores/app';
 import { useThemeStore } from '@/stores/theme';
 import { registerCustomEditorThemes, resolveMonacoThemeName } from './monaco-themes';
+import { EditorSuspense } from './EditorSuspense';
 import type { FileDiffEntry } from '@sero-ai/common';
 import { statusCode, statusColor, basename, langFromPath } from '@/components/apps/explorer/vcs/vcs-utils';
 
@@ -233,7 +234,7 @@ function DiffFileView({
   }
 
   return (
-    <Suspense fallback={<div className="flex h-full items-center justify-center"><Loader2 className="size-4 animate-spin text-[var(--text-muted)]" /></div>}>
+    <EditorSuspense>
       <DiffEditor
         original={left}
         modified={right}
@@ -254,7 +255,7 @@ function DiffFileView({
           diffWordWrap: 'on',
         }}
       />
-    </Suspense>
+    </EditorSuspense>
   );
 }
 

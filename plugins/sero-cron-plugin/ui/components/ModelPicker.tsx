@@ -6,7 +6,7 @@
  * as a "provider/modelId" string matching the `pi --model` flag format.
  */
 
-import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import { useState, useMemo, useRef, useEffect, useCallback, useId } from 'react';
 import { Check, Settings2, Sparkles, X } from 'lucide-react';
 import {
   useAvailableModels,
@@ -71,6 +71,7 @@ export function ModelPicker({ value, onChange, className }: ModelPickerProps) {
   const [filter, setFilter] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const listboxId = useId();
 
   // Resolve current selection
   const resolved = useMemo(() => findModel(groups, value), [groups, value]);
@@ -132,7 +133,9 @@ export function ModelPicker({ value, onChange, className }: ModelPickerProps) {
         <button
           type="button"
           onClick={() => setOpen(!open)}
+          aria-haspopup="listbox"
           aria-expanded={open}
+          aria-controls={open ? listboxId : undefined}
           className="flex min-w-0 flex-1 items-center gap-2 px-3 py-2 focus:outline-none"
         >
           {resolved ? (
@@ -191,7 +194,7 @@ export function ModelPicker({ value, onChange, className }: ModelPickerProps) {
           />
 
           {/* Model list */}
-          <div className="max-h-[240px] overflow-y-auto py-1">
+          <div id={listboxId} role="listbox" className="max-h-[240px] overflow-y-auto py-1">
             {loading ? (
               <div className="px-3 py-4 text-center text-xs text-muted-foreground">
                 Loading models…
@@ -270,7 +273,7 @@ function ProviderGroup({
           {group.displayName}
         </span>
       </div>
-      <div className="px-1">
+      <div role="group" aria-label={group.displayName} className="px-1">
         {group.models.map((model) => {
           const modelStr = toModelString(model);
           const isSelected = selectedValue === modelStr || selectedValue === model.modelId;
@@ -278,6 +281,8 @@ function ProviderGroup({
             <button
               key={modelStr}
               type="button"
+              role="option"
+              aria-selected={isSelected}
               onClick={() => onSelect(model)}
               className={cn(
                 'flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors',

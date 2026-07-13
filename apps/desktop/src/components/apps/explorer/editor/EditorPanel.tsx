@@ -6,10 +6,11 @@
  * Tab/file state is managed by the parent ExplorerWorkspace.
  */
 
-import { lazy, Suspense, useMemo, useRef, type KeyboardEvent } from 'react';
+import { lazy, useMemo, useRef, type KeyboardEvent } from 'react';
 import { FileCode2 } from 'lucide-react';
 import { EditorTabBar, type EditorTab } from './EditorTabBar';
 import { DevServerPreview, isDevServerTab } from './DevServerPreview';
+import { EditorSuspense } from './EditorSuspense';
 import { FilePreviewPane } from './FilePreviewPane';
 import { getFilePreviewSpec } from './file-preview-registry';
 import { ViewModeToggle } from './ViewModeToggle';
@@ -167,7 +168,7 @@ export function EditorPanel({
               spec={previewSpec}
             />
           ) : (
-            <Suspense fallback={<div className="flex h-full items-center justify-center text-sm text-[var(--text-muted)]">Loading editor…</div>}>
+            <EditorSuspense>
               <Editor
                 height="100%"
                 language={documentState.language}
@@ -193,7 +194,7 @@ export function EditorPanel({
                   bracketPairColorization: { enabled: true },
                 }}
               />
-            </Suspense>
+            </EditorSuspense>
           )
         ) : (
           <EmptyEditorState />
