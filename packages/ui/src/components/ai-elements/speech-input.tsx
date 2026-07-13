@@ -101,6 +101,7 @@ export const SpeechInput = ({
   const [isRecognitionReady, setIsRecognitionReady] = useState(false);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const mediaRecorderCleanupRef = useRef<(() => void) | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const onTranscriptionChangeRef = useRef<
@@ -184,6 +185,7 @@ export const SpeechInput = ({
       if (mediaRecorderRef.current?.state === "recording") {
         mediaRecorderRef.current.stop();
       }
+      mediaRecorderCleanupRef.current?.();
       if (streamRef.current) {
         for (const track of streamRef.current.getTracks()) {
           track.stop();
@@ -216,6 +218,7 @@ export const SpeechInput = ({
           track.stop();
         }
         streamRef.current = null;
+        cleanupMediaRecorder();
 
         const audioBlob = new Blob(audioChunksRef.current, {
           type: "audio/webm",
@@ -242,6 +245,19 @@ export const SpeechInput = ({
           track.stop();
         }
         streamRef.current = null;
+        cleanupMediaRecorder();
+      };
+
+      const cleanupMediaRecorder = () => {
+        mediaRecorder.removeEventListener("dataavailable", handleDataAvailable);
+        mediaRecorder.removeEventListener("stop", handleStop);
+        mediaRecorder.removeEventListener("error", handleError);
+        if (mediaRecorderRef.current === mediaRecorder) {
+          mediaRecorderRef.current = null;
+        }
+        if (mediaRecorderCleanupRef.current === cleanupMediaRecorder) {
+          mediaRecorderCleanupRef.current = null;
+        }
       };
 
       mediaRecorder.addEventListener("dataavailable", handleDataAvailable);
@@ -249,6 +265,7 @@ export const SpeechInput = ({
       mediaRecorder.addEventListener("error", handleError);
 
       mediaRecorderRef.current = mediaRecorder;
+      mediaRecorderCleanupRef.current = cleanupMediaRecorder;
       mediaRecorder.start();
       setIsListening(true);
     } catch {
