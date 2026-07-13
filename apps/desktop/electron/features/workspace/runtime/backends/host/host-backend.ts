@@ -50,7 +50,6 @@ import { HostDevServerManager } from './host-dev-server-manager';
 import { runHostDoctorChecks } from './host-doctor';
 import { createHostProcessAdapter } from './process/factory';
 import { createHostProcessEnv } from './host-env';
-import { ensureHostSeroCliBridge } from '@electron/cli/host-bridge/server';
 
 const execFileAsync = promisify(execFile);
 
@@ -66,6 +65,7 @@ export interface HostBackendOptions {
   hostWorkspacePath: string;
   workspaceManager?: Pick<WorkspaceManager, 'getRoots'>;
   substrate?: HostRuntimeSubstrate;
+  ensureSeroCliBridge?: () => Promise<void>;
 }
 
 interface HostPathResolution {
@@ -84,6 +84,7 @@ export class HostBackend implements RuntimeBackend {
 
   private readonly terminals = new TerminalManager(() => 'host');
   private readonly workspaceManager?: Pick<WorkspaceManager, 'getRoots'>;
+  private readonly ensureSeroCliBridge?: () => Promise<void>;
   private readonly substrate: HostRuntimeSubstrate;
   private readonly devServers: HostDevServerManager;
 
@@ -91,6 +92,7 @@ export class HostBackend implements RuntimeBackend {
     this.workspaceId = options.workspaceId;
     this.hostWorkspacePath = options.hostWorkspacePath;
     this.workspaceManager = options.workspaceManager;
+    this.ensureSeroCliBridge = options.ensureSeroCliBridge;
     this.substrate = options.substrate ?? createHostSubstrate(options.hostWorkspacePath);
     this.devServers = new HostDevServerManager({
       workspaceId: this.workspaceId,
@@ -104,7 +106,7 @@ export class HostBackend implements RuntimeBackend {
   }
 
   async health(): Promise<RuntimeHealth> {
-    const bridgeStatus = await checkSeroCliBridgeReadiness();
+    const bridgeStatus = await checkSeroCliBridgeReadiness(this.ensureSeroCliBridge);
     const checks = await runHostDoctorChecks({
       platform: this.substrate.platform,
       workspacePath: this.hostWorkspacePath,
@@ -472,9 +474,12 @@ function subscribe<T>(callbacks: Set<(value: T) => void>, cb: (value: T) => void
   return () => callbacks.delete(cb);
 }
 
-async function checkSeroCliBridgeReadiness(): Promise<{ state: 'ready' | 'failed'; message?: string }> {
+async function checkSeroCliBridgeReadiness(
+  ensureBridge: (() => Promise<void>) | undefined,
+): Promise<{ state: 'ready' | 'failed'; message?: string }> {
   try {
-    await ensureHostSeroCliBridge();
+    if (!ensureBridge) throw new Error('Sero CLI bridge starter is not configured.');
+    await ensureBridge();
     return { state: 'ready' };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

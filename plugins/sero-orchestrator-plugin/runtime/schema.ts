@@ -177,6 +177,7 @@ function validateBranching(step: Record<string, unknown>, errors: string[]): voi
 /** A guard's routing variable must be produced by a dependency-ancestor step. */
 function validateGuardSources(steps: LoopStepDefinition[], errors: string[]): void {
   const byId = new Map(steps.map((s) => [s.id, s]));
+  const producedByStep = new Map(steps.map((step) => [step.id, new Set(step.produces ?? [])]));
   const ancestorsOf = (startId: string): Set<string> => {
     const seen = new Set<string>();
     const stack = [...(byId.get(startId)?.dependsOn ?? [])];
@@ -190,7 +191,9 @@ function validateGuardSources(steps: LoopStepDefinition[], errors: string[]): vo
   };
   for (const step of steps) {
     if (!step.when) continue;
-    const produced = [...ancestorsOf(step.id)].some((a) => (byId.get(a)?.produces ?? []).includes(step.when!.var));
+    const produced = [...ancestorsOf(step.id)].some((ancestorId) =>
+      producedByStep.get(ancestorId)?.has(step.when!.var),
+    );
     if (!produced) {
       errors.push(`step "${step.id}": guard variable "${step.when.var}" is not produced by any upstream step (a dependency-ancestor must list it in "produces")`);
     }

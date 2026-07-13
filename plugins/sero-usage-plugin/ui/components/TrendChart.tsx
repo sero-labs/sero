@@ -78,6 +78,7 @@ function buildRows(
     metric,
   );
   const top = ranked.slice(0, TOP_PROVIDERS);
+  const topProviders = new Set(top);
   const hasOther = ranked.length > TOP_PROVIDERS;
 
   const rows = buckets.map((bucket) => {
@@ -85,7 +86,7 @@ function buildRows(
     for (const provider of top) row[providerKey(provider)] = 0;
     if (hasOther) row[OTHER_KEY] = 0;
     for (const [provider, slice] of Object.entries(bucket.byProvider)) {
-      const key = top.includes(provider) ? providerKey(provider) : OTHER_KEY;
+      const key = topProviders.has(provider) ? providerKey(provider) : OTHER_KEY;
       row[key] = ((row[key] as number) ?? 0) + metricOfSlice(slice, metric);
     }
     return row;

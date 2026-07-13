@@ -73,6 +73,7 @@ export const InstalledPluginsSection = memo(function InstalledPluginsSection({
   const [pickingLocalInstall, setPickingLocalInstall] = useState(false);
 
   const countLabel = plugins.length === 1 ? '1 installed plugin' : `${plugins.length} installed plugins`;
+  const uninstallingPluginIds = new Set(uninstallingIds);
 
   const handleInstall = async () => {
     const installed = await onInstall(installSource);
@@ -221,7 +222,7 @@ export const InstalledPluginsSection = memo(function InstalledPluginsSection({
               <InstalledPluginCard
                 key={plugin.id}
                 plugin={plugin}
-                uninstalling={uninstallingIds.includes(plugin.id)}
+                uninstalling={uninstallingPluginIds.has(plugin.id)}
                 onReveal={() => {
                   void onReveal(plugin.packagePath);
                 }}

@@ -42,10 +42,11 @@ export function handleList(deps: ActionDeps): string {
   }
 
   const running = scheduler?.getRunningNames() ?? [];
+  const runningNames = new Set(running);
   const lines = state.jobs.map((j) => {
     const status = j.disabled
       ? '⏸ disabled'
-      : running.includes(j.name)
+      : runningNames.has(j.name)
         ? '🔄 running'
         : '✅ active';
     const ch = j.channel !== 'cron' ? ` [${j.channel}]` : '';

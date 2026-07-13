@@ -11,6 +11,7 @@ export interface RuntimeManagerDependencies {
   workspaceManager: WorkspaceManager;
   containerManager: ContainerManager;
   resolveBackend?: (workspaceId: string) => Promise<RuntimeBackendId> | RuntimeBackendId;
+  ensureHostSeroCliBridge?: () => Promise<void>;
 }
 
 export class RuntimeManager {
@@ -22,6 +23,10 @@ export class RuntimeManager {
   private legacyDevServerUnsubscribe: (() => void) | undefined;
 
   constructor(private readonly dependencies: RuntimeManagerDependencies) {}
+
+  setHostSeroCliBridgeStarter(starter: () => Promise<void>): void {
+    this.dependencies.ensureHostSeroCliBridge = starter;
+  }
 
   async getRuntime(workspaceId: string): Promise<RuntimeBackend> {
     const backendId = await this.resolveBackendId(workspaceId);
@@ -229,6 +234,7 @@ export class RuntimeManager {
           workspaceId,
           hostWorkspacePath,
           workspaceManager: this.dependencies.workspaceManager,
+          ensureSeroCliBridge: this.dependencies.ensureHostSeroCliBridge,
         });
       case 'apple-container':
         return new AppleContainerBackend({

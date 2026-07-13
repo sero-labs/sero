@@ -49,6 +49,11 @@ function buildSearchText(app: AppEntry): string {
     .toLowerCase();
 }
 
+function appMatchesQuery(app: AppEntry, query: string): boolean {
+  const searchText = buildSearchText(app);
+  return searchText.includes(query);
+}
+
 export function AppStoreDialog({
   open,
   onOpenChange,
@@ -77,7 +82,7 @@ export function AppStoreDialog({
   const filteredApps = apps
     .filter((app) => {
       if (!query) return true;
-      return buildSearchText(app).includes(query);
+      return appMatchesQuery(app, query);
     })
     .slice()
     .sort((a, b) => {

@@ -48,6 +48,7 @@ import { ensureBundledPiDocs, ensureDefaultAgents, ensureDefaultSkills, ensureDe
 import { handleProfileRegistryRecovery } from './features/profile/recovery';
 import {
   appRuntimeManager,
+  containerManager,
   ensureInfra,
   fileWatcherManager,
   gatewayServer,
@@ -66,7 +67,12 @@ import {
   getDefaultModelFallbackChain,
 } from './shared/settings/model-fallback-chain';
 import { getDefaultMemoryLoggingSettings, ensureConfiguredMemoryLoggingSettings } from './shared/settings/memory-logging-settings';
-import { ensureHostSeroCliBridge } from './cli/host-bridge/server';
+import {
+  ensureHostSeroCliBridge,
+  type HostSeroCliBridgeDependencies,
+} from './cli/host-bridge/server';
+import { getCliRegistry } from './cli';
+import { executeCliArgv } from './cli/core/batch-executor';
 import { initUpdater } from './features/updater/updater';
 import { installApplicationMenu } from './features/updater/menu';
 import { getPackageSource, removeStaleBuiltinPackages } from './platform/protocols/builtin-package-settings';
@@ -289,7 +295,14 @@ app.whenReady().then(async () => {
 
   registerAllIpcHandlers();
 
-  await ensureHostSeroCliBridge().catch((err: unknown) => {
+  const hostSeroCliBridgeDependencies: HostSeroCliBridgeDependencies = {
+    workspaceManager,
+    containerManager,
+    executeArgv: (argv, context) => executeCliArgv(getCliRegistry(), argv, context),
+  };
+  const startHostSeroCliBridge = () => ensureHostSeroCliBridge(hostSeroCliBridgeDependencies);
+  runtimeManager.setHostSeroCliBridgeStarter(startHostSeroCliBridge);
+  await startHostSeroCliBridge().catch((err: unknown) => {
     console.error('[sero] Failed to start host Sero CLI bridge:', err);
   });
 

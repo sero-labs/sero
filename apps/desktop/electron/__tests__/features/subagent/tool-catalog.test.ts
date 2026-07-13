@@ -12,7 +12,7 @@ vi.mock('@earendil-works/pi-coding-agent', () => ({
   createAgentSession: vi.fn(),
   SessionManager: { inMemory: vi.fn() },
 }));
-vi.mock('@electron/shared/infra/shared-infra', () => ({ ensureInfra: vi.fn() }));
+vi.mock('@electron/shared/infra/ai-infra', () => ({ ensureAiInfra: vi.fn() }));
 vi.mock('@electron/features/workspace/manager', () => ({ workspaceManager: {} }));
 vi.mock('@electron/features/subagent/runtime/resource-loader', () => ({
   createSubagentResourceLoader: vi.fn(),

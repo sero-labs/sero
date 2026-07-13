@@ -118,6 +118,7 @@ describe('runtime backend contract skeleton', () => {
       } as unknown as WorkspaceManager,
       containerManager: {} as ContainerManager,
       resolveBackend,
+      ensureHostSeroCliBridge: async () => undefined,
     });
 
     const first = await manager.getRuntime('workspace-a');

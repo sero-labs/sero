@@ -28,14 +28,15 @@ export function WorkspaceReferencesMenu({ workspace }: { workspace: WorkspaceInf
   const removeReference = useWorkspaceStore((s) => s.removeReference);
   const addMount = useWorkspaceStore((s) => s.addMount);
   const removeMount = useWorkspaceStore((s) => s.removeMount);
+  const referencedWorkspaceIds = new Set(workspace.references);
 
   // Workspaces available to add as references (not self, not already referenced)
   const available = allWorkspaces.filter(
-    (w) => w.id !== workspace.id && !workspace.references.includes(w.id),
+    (w) => w.id !== workspace.id && !referencedWorkspaceIds.has(w.id),
   );
 
   const referenced = allWorkspaces.filter((w) =>
-    workspace.references.includes(w.id),
+    referencedWorkspaceIds.has(w.id),
   );
 
   const handleBrowseMount = async (e: React.MouseEvent) => {

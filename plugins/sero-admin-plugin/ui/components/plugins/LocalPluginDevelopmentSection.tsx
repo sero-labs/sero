@@ -31,6 +31,8 @@ export const LocalPluginDevelopmentSection = memo(function LocalPluginDevelopmen
   onReveal,
 }: LocalPluginDevelopmentSectionProps) {
   const countLabel = sessions.length === 1 ? '1 session' : `${sessions.length} sessions`;
+  const refreshingSessionIds = new Set(refreshingIds);
+  const stoppingSessionIds = new Set(stoppingIds);
 
   return (
     <section className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-[0_20px_60px_-42px_rgba(0,0,0,0.7)]">
@@ -115,8 +117,8 @@ export const LocalPluginDevelopmentSection = memo(function LocalPluginDevelopmen
               <PluginDevSessionCard
                 key={session.sessionId}
                 session={session}
-                refreshing={refreshingIds.includes(session.sessionId)}
-                stopping={stoppingIds.includes(session.sessionId)}
+                refreshing={refreshingSessionIds.has(session.sessionId)}
+                stopping={stoppingSessionIds.has(session.sessionId)}
                 onRefresh={() => {
                   void onRefresh(session.sessionId);
                 }}

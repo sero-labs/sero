@@ -20,7 +20,7 @@ export function resolveAppTarget(apps: AppControlEntry[], query: string): AppCon
   const normalizedQuery = normalizeAppQuery(query);
   if (!normalizedQuery) return null;
 
-  const exactMatch = apps.find((app) => appKeys(app).includes(normalizedQuery));
+  const exactMatch = apps.find((app) => appKeys(app).some((key) => key === normalizedQuery));
   if (exactMatch) return exactMatch;
 
   const prefixMatches = apps.filter((app) => appKeys(app).some((key) => key.startsWith(normalizedQuery)));

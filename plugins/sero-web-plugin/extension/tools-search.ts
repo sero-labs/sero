@@ -68,6 +68,7 @@ export function registerWebSearchTool(pi: ExtensionAPI, deps: ToolDeps) {
 
 			const searchResults: QueryResultData[] = [];
 			const allUrls: string[] = [];
+			const knownUrls = new Set<string>();
 			const allInlineContent: ExtractedContent[] = [];
 
 			for (let i = 0; i < queryList.length; i++) {
@@ -86,7 +87,11 @@ export function registerWebSearchTool(pi: ExtensionAPI, deps: ToolDeps) {
 						signal,
 					});
 					searchResults.push({ query, answer, results, error: null, provider });
-					for (const r of results) { if (!allUrls.includes(r.url)) allUrls.push(r.url); }
+					for (const r of results) {
+						if (knownUrls.has(r.url)) continue;
+						knownUrls.add(r.url);
+						allUrls.push(r.url);
+					}
 					if (inlineContent) allInlineContent.push(...inlineContent);
 				} catch (err) {
 					const message = err instanceof Error ? err.message : String(err);

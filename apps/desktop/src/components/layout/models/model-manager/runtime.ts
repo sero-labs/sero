@@ -72,8 +72,9 @@ export function buildManagerCounts(
   localProviderCount: number,
 ): Record<ManagerTab, number> {
   const hiddenSet = new Set(preferences.hiddenModels);
+  const hiddenProviders = new Set(preferences.hiddenProviders);
   for (const group of groups) {
-    if (!preferences.hiddenProviders.includes(group.provider)) continue;
+    if (!hiddenProviders.has(group.provider)) continue;
     for (const model of group.models) {
       hiddenSet.add(modelKey(model.provider, model.modelId));
     }

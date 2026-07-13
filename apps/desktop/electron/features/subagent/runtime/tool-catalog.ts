@@ -19,7 +19,7 @@ import {
   type ToolInfo,
 } from '@earendil-works/pi-coding-agent';
 import type { ContextToolInfo } from '@sero-ai/common';
-import { ensureInfra } from '@electron/shared/infra/shared-infra';
+import { ensureAiInfra } from '@electron/shared/infra/ai-infra';
 import { workspaceManager } from '@electron/features/workspace/manager';
 import { SERO_AGENT_DIR, SERO_HOME } from '@electron/platform/env';
 import { createSubagentResourceLoader } from './resource-loader';
@@ -107,7 +107,7 @@ export async function warmSubagentToolCatalog(): Promise<void> {
   warmed = true;
   let session: Awaited<ReturnType<typeof createAgentSession>>['session'] | null = null;
   try {
-    const infra = await ensureInfra();
+    const infra = ensureAiInfra();
     const loader = createSubagentResourceLoader({
       cwd: SERO_AGENT_DIR,
       workspaceManager,
