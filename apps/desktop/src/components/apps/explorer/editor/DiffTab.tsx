@@ -111,11 +111,11 @@ export function DiffTab({ state }: Props) {
         <AnimatePresence>
           {navOpen && files.length > 1 && (
             <motion.div
-              initial={{ width: 0, opacity: 0 }}
-              animate={{ width: 180, opacity: 1 }}
-              exit={{ width: 0, opacity: 0 }}
+              initial={{ x: -16, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: -16, opacity: 0 }}
               transition={{ duration: 0.15 }}
-              className="overflow-hidden border-r border-[var(--border-subtle)]"
+              className="w-[180px] shrink-0 overflow-hidden border-r border-[var(--border-subtle)]"
             >
               <div className="h-full w-[180px] overflow-y-auto py-1">
                 {files.map((f) => (

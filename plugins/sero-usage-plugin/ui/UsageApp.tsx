@@ -58,7 +58,7 @@ export function UsageApp() {
   const hasAnyData = state.periods.allTime.totals.messages > 0;
   const dataState = state.lastRefreshedAt === null ? 'loading' : hasAnyData ? 'ready' : 'empty';
 
-  const setInterval = (minutes: number) => {
+  const updateRefreshInterval = (minutes: number) => {
     updateState((prev) => ({
       ...normalizeUsageState(prev),
       settings: { refreshIntervalMinutes: minutes },
@@ -86,7 +86,7 @@ export function UsageApp() {
             )}
             <Select
               value={String(state.settings.refreshIntervalMinutes)}
-              onValueChange={(value) => setInterval(Number(value))}
+              onValueChange={(value) => updateRefreshInterval(Number(value))}
             >
               <SelectTrigger size="sm" className="w-24" aria-label="Auto-refresh interval">
                 <SelectValue />

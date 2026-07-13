@@ -75,4 +75,18 @@ export const GIT_STYLES = `
     50% { opacity: 1; }
   }
   .git-loading { animation: git-pulse 1.5s ease-in-out infinite; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .git-root,
+    .git-root::before,
+    .git-root::after,
+    .git-root *,
+    .git-root *::before,
+    .git-root *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      scroll-behavior: auto !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
 `;
