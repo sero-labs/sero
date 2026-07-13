@@ -21,6 +21,7 @@ const shared = {
   format: 'esm',
   bundle: true,
   sourcemap: true,
+  sourcesContent: false,
   external: ['electron', 'node-pty', 'esbuild', '@earendil-works/*', 'typebox', '@google/genai', 'ws', 'discord.js'],
   outdir: 'dist/electron',
   logLevel: 'info',

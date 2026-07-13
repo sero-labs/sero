@@ -9,7 +9,11 @@ import { getCliRegistry, resetCliRegistryForTests } from '@electron/cli';
 import { installCliSessionBridge } from '@electron/cli/bridges/session-bridge';
 import { CliRegistry, executeCliArgv } from '@electron/cli/core';
 import type { CliCommandContext } from '@electron/cli/core';
-import { ensureHostSeroCliBridge, stopHostSeroCliBridgeForTests } from '@electron/cli/host-bridge/server';
+import {
+  ensureHostSeroCliBridge,
+  stopHostSeroCliBridgeForTests,
+  type HostSeroCliBridgeDependencies,
+} from '@electron/cli/host-bridge/server';
 import {
   addSeroCliEnv,
   clearSeroCliBridgeStateForTests,
@@ -19,16 +23,21 @@ import {
   setSeroCliBridgeConnection,
 } from '@electron/cli/host-bridge/state';
 
-vi.mock('@electron/shared/infra/shared-infra', () => ({
-  containerManager: {},
+const TEST_BRIDGE_DEPENDENCIES: HostSeroCliBridgeDependencies = {
+  containerManager: {} as HostSeroCliBridgeDependencies['containerManager'],
   workspaceManager: {
     getPath: (workspaceId: string) => workspaceId === 'ws-1' ? '/tmp/ws-1' : workspaceId === 'ws-2' ? '/tmp/ws-2' : null,
     list: async () => [
       { id: 'ws-1', path: '/tmp/ws-1' },
       { id: 'ws-2', path: '/tmp/ws-2' },
     ],
-  },
-}));
+  } as HostSeroCliBridgeDependencies['workspaceManager'],
+  executeArgv: (argv, context) => executeCliArgv(getCliRegistry(), argv, context),
+};
+
+function startTestBridge(): Promise<void> {
+  return ensureHostSeroCliBridge(TEST_BRIDGE_DEPENDENCIES);
+}
 
 async function postBridge(endpoint: string, token: string | null, body: Record<string, unknown>): Promise<Response> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -155,7 +164,7 @@ describe('host Sero CLI bridge', () => {
   });
 
   it('rejects missing and unknown bearer tokens', async () => {
-    await ensureHostSeroCliBridge();
+    await startTestBridge();
     const endpoint = addSeroCliEnv({}, { workspaceId: 'ws-1' }).SERO_CLI_ENDPOINT;
     expect(endpoint).toEqual(expect.any(String));
 
@@ -174,7 +183,7 @@ describe('host Sero CLI bridge', () => {
       summary: 'Replay test',
       execute: async () => ({ output: 'ok', exitCode: 0 }),
     });
-    await ensureHostSeroCliBridge();
+    await startTestBridge();
     const env = addSeroCliEnv({}, { workspaceId: 'ws-1' });
 
     const first = await postBridge(env.SERO_CLI_ENDPOINT ?? '', env.SERO_CLI_TOKEN ?? '', {
@@ -198,7 +207,7 @@ describe('host Sero CLI bridge', () => {
       summary: 'Terminal token test',
       execute: async () => ({ output: 'ok', exitCode: 0 }),
     });
-    await ensureHostSeroCliBridge();
+    await startTestBridge();
     const env = addSeroCliEnv({}, { workspaceId: 'ws-1', tokenMode: 'reusable' });
 
     const first = await postBridge(env.SERO_CLI_ENDPOINT ?? '', env.SERO_CLI_TOKEN ?? '', {
@@ -226,7 +235,7 @@ describe('host Sero CLI bridge', () => {
         exitCode: 0,
       }),
     });
-    await ensureHostSeroCliBridge();
+    await startTestBridge();
     const env = addSeroCliEnv({}, { workspaceId: 'ws-1', sessionId: 's-1' });
 
     const response = await postBridge(env.SERO_CLI_ENDPOINT ?? '', env.SERO_CLI_TOKEN ?? '', {
@@ -242,7 +251,7 @@ describe('host Sero CLI bridge', () => {
 
   it('rejects stale or cross-workspace session-scoped bridge tokens', async () => {
     installTestSessionBridge({ 's-other': 'ws-2' });
-    await ensureHostSeroCliBridge();
+    await startTestBridge();
 
     const staleEnv = addSeroCliEnv({}, { workspaceId: 'ws-1', sessionId: 's-stale' });
     const stale = await postBridge(staleEnv.SERO_CLI_ENDPOINT ?? '', staleEnv.SERO_CLI_TOKEN ?? '', {
@@ -265,7 +274,7 @@ describe('host Sero CLI bridge', () => {
       summary: 'Print cwd',
       execute: async (_args, context) => ({ output: context.cwd, exitCode: 0 }),
     });
-    await ensureHostSeroCliBridge();
+    await startTestBridge();
     const env = addSeroCliEnv({}, { workspaceId: 'ws-1' });
 
     const response = await postBridge(env.SERO_CLI_ENDPOINT ?? '', env.SERO_CLI_TOKEN ?? '', {

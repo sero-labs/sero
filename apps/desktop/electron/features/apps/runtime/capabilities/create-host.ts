@@ -48,7 +48,7 @@ import {
   isToolName,
   type HostToolResolver,
 } from '@electron/features/workspace/runtime/toolchains/host-tool-resolver';
-import { ensureInfra } from '@electron/shared/infra/shared-infra';
+import { ensureAiInfra } from '@electron/shared/infra/ai-infra';
 import { buildAvailableModelGroups } from '@electron/ipc/agent/core/model-groups';
 import { validateRuntimeCustomTools } from './custom-tools';
 import { getProviderApiKey } from './provider-credentials';
@@ -218,7 +218,7 @@ export function createAppRuntimeHost(_target: AppRuntimeTarget): AppRuntimeHost 
     },
     models: {
       list: async () => {
-        const { modelRegistry } = await ensureInfra();
+        const { modelRegistry } = ensureAiInfra();
         // Reload auth so newly-added (or removed) provider keys are reflected.
         modelRegistry.authStorage.reload();
         return buildAvailableModelGroups(modelRegistry.getAvailable());

@@ -76,8 +76,9 @@ export function hasRunningSteps(loop: Loop): boolean {
  * one). Validation funnels every plan to a single sink, so this is normally set.
  */
 export function finalizationStepId(loop: Loop): string | undefined {
+  const dependedOn = new Set(loop.plan.steps.flatMap((step) => step.dependsOn ?? []));
   const sinks = loop.plan.steps.filter(
-    (step) => !loop.plan.steps.some((s) => (s.dependsOn ?? []).includes(step.id)),
+    (step) => !dependedOn.has(step.id),
   );
   return sinks.length === 1 ? sinks[0].id : undefined;
 }

@@ -9,25 +9,25 @@ import type { WorkspaceInfo } from '@/types/ipc';
  * Score a message against a workspace's metadata.
  * Returns a numeric score — higher = better match.
  */
-function scoreWorkspace(ws: WorkspaceInfo, lower: string): number {
+function scoreWorkspace(ws: WorkspaceInfo, messageText: string): number {
   let score = 0;
 
   // Check name
-  if (lower.includes(ws.name.toLowerCase())) score += 3;
+  if (messageText.includes(ws.name.toLowerCase())) score += 3;
 
   // Check ID
-  if (lower.includes(ws.id)) score += 2;
+  if (messageText.includes(ws.id)) score += 2;
 
   // Check tags
   for (const tag of ws.tags ?? []) {
-    if (tag !== 'default' && lower.includes(tag.toLowerCase())) score += 2;
+    if (tag !== 'default' && messageText.includes(tag.toLowerCase())) score += 2;
   }
 
   // Check context hints
   for (const hint of ws.contextHints ?? []) {
     const words = hint.toLowerCase().split(/\s+/).filter((w) => w.length > 3);
     for (const word of words) {
-      if (lower.includes(word)) score += 1;
+      if (messageText.includes(word)) score += 1;
     }
   }
 
@@ -35,7 +35,7 @@ function scoreWorkspace(ws: WorkspaceInfo, lower: string): number {
   if (ws.description) {
     const words = ws.description.toLowerCase().split(/\s+/).filter((w) => w.length > 3);
     for (const word of words) {
-      if (lower.includes(word)) score += 1;
+      if (messageText.includes(word)) score += 1;
     }
   }
 
@@ -51,7 +51,7 @@ export function inferWorkspaceFromMessage(
   message: string,
   openWorkspaces: WorkspaceInfo[],
 ): string {
-  const lower = message.toLowerCase();
+  const messageText = message.toLowerCase();
 
   let bestId = 'global';
   let bestScore = 0;
@@ -60,7 +60,7 @@ export function inferWorkspaceFromMessage(
     // Skip global in scoring — it's the default fallback already
     if (ws.id === 'global') continue;
 
-    const score = scoreWorkspace(ws, lower);
+    const score = scoreWorkspace(ws, messageText);
     if (score > bestScore) {
       bestScore = score;
       bestId = ws.id;

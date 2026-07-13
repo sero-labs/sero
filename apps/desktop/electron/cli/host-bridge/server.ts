@@ -1,12 +1,9 @@
 import http from 'http';
 import path from 'path';
 
-import { getCliRegistry } from '@electron/cli';
-import { executeCliArgv } from '@electron/cli/core';
 import { getCliSessionBridge } from '@electron/cli/bridges/session-bridge';
 import { buildSessionRuntime } from '@electron/cli/core/invocation-context';
 import type { CliCommandContext, CliInvocation } from '@electron/cli/core/types';
-import { containerManager, workspaceManager } from '@electron/shared/infra/shared-infra';
 import {
   clearSeroCliBridgeStateForTests,
   ensureSeroCliShim,
@@ -24,12 +21,28 @@ interface BridgeRequestBody {
   sessionId?: string | null;
 }
 
+export interface HostSeroCliBridgeDependencies {
+  workspaceManager: CliCommandContext['workspaceManager'];
+  containerManager: CliCommandContext['containerManager'];
+  executeArgv: (
+    argv: string[],
+    context: CliCommandContext,
+  ) => Promise<{ output: string; exitCode: number }>;
+}
+
 let serverPromise: Promise<void> | null = null;
 let server: http.Server | null = null;
+let bridgeDependencies: HostSeroCliBridgeDependencies | null = null;
 
-export function ensureHostSeroCliBridge(): Promise<void> {
+export function ensureHostSeroCliBridge(
+  dependencies?: HostSeroCliBridgeDependencies,
+): Promise<void> {
+  if (dependencies) bridgeDependencies = dependencies;
   if (getSeroCliBridgeConnection()) return Promise.resolve();
   if (serverPromise) return serverPromise;
+  if (!bridgeDependencies) {
+    return Promise.reject(new Error('Sero CLI bridge dependencies are not configured.'));
+  }
   serverPromise = startBridge().catch((error: unknown) => {
     server?.close();
     server = null;
@@ -64,6 +77,7 @@ export async function stopHostSeroCliBridgeForTests(): Promise<void> {
   const current = server;
   server = null;
   serverPromise = null;
+  bridgeDependencies = null;
   clearSeroCliBridgeStateForTests();
   if (!current) return;
   await new Promise<void>((resolve) => current.close(() => resolve()));
@@ -77,8 +91,13 @@ async function handleRequest(
     sendJson(res, 404, { output: 'Not found', exitCode: 1 });
     return;
   }
+  const dependencies = bridgeDependencies;
+  if (!dependencies) {
+    sendJson(res, 503, { output: 'Sero CLI bridge is not configured', exitCode: 1 });
+    return;
+  }
   const scope = authenticateBridgeRequest(req.headers.authorization);
-  const workspacePath = scope ? workspaceManager.getPath(scope.workspaceId) : null;
+  const workspacePath = scope ? dependencies.workspaceManager.getPath(scope.workspaceId) : null;
   if (!scope || !workspacePath) {
     sendJson(res, 401, { output: 'Unauthorized', exitCode: 1 });
     return;
@@ -102,11 +121,11 @@ async function handleRequest(
       workspaceId,
       cwd,
       invocation,
-      workspaceManager,
-      containerManager,
+      workspaceManager: dependencies.workspaceManager,
+      containerManager: dependencies.containerManager,
       sessionRuntime: buildSessionRuntime({ workspaceId, invocation }),
     };
-    const result = await executeCliArgv(getCliRegistry(), body.argv, context);
+    const result = await dependencies.executeArgv(body.argv, context);
     sendJson(res, 200, { output: result.output, exitCode: result.exitCode });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

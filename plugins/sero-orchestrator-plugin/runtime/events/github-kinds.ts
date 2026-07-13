@@ -23,7 +23,7 @@ export type GithubKind =
   | 'main-updated'
   | 'issue-opened';
 
-const ALL_KINDS: readonly string[] = [
+const ALL_KINDS = new Set<GithubKind>([
   'pr-opened',
   'ci-failed',
   'ci-passed',
@@ -33,7 +33,7 @@ const ALL_KINDS: readonly string[] = [
   'pr-approved',
   'main-updated',
   'issue-opened',
-];
+]);
 
 export interface GithubEndpoint {
   id: string;
@@ -85,10 +85,14 @@ export interface ExtractionContext {
 export function demandedKinds(subscriptions: EventSubscription[]): { kinds: Set<GithubKind>; unknown: string[] } {
   const kinds = new Set<GithubKind>();
   const unknown: string[] = [];
+  const unknownSources = new Set<string>();
   for (const subscription of subscriptions) {
-    const kind = subscription.eventSource.slice('github:'.length);
-    if (ALL_KINDS.includes(kind)) kinds.add(kind as GithubKind);
-    else if (!unknown.includes(subscription.eventSource)) unknown.push(subscription.eventSource);
+    const kind = subscription.eventSource.slice('github:'.length) as GithubKind;
+    if (ALL_KINDS.has(kind)) kinds.add(kind);
+    else if (!unknownSources.has(subscription.eventSource)) {
+      unknownSources.add(subscription.eventSource);
+      unknown.push(subscription.eventSource);
+    }
   }
   return { kinds, unknown };
 }

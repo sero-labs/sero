@@ -42,9 +42,14 @@ export function routeVariableRequirements(loop: Loop, step: LoopStepDefinition):
     const guards = loop.plan.steps.filter((s) => s.when?.var === name);
     if (guards.length === 0) continue; // declared but no guard reads it → advisory only
     const allowed: (string | number | boolean)[] = [];
+    const allowedValues = new Set<string | number | boolean>();
     let hasDefault = false;
     for (const g of guards) {
-      for (const v of g.when!.in ?? []) if (!allowed.includes(v)) allowed.push(v);
+      for (const value of g.when!.in ?? []) {
+        if (allowedValues.has(value)) continue;
+        allowedValues.add(value);
+        allowed.push(value);
+      }
       if (g.when!.default) hasDefault = true;
     }
     requirements.push({ name, allowed, hasDefault });

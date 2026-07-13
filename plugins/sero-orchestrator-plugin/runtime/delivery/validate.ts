@@ -42,7 +42,8 @@ export function validateDeliverySettings(value: unknown): string[] {
 export function approvalGateProblems(plan: LoopPlan, delivery: LoopDeliverySettings): string[] {
   if (!isExternalDestination(delivery.destination)) return [];
   const need = `destination "${delivery.destination}" is externally visible: the plan must contain a pre-final step with "gate": "approval" that presents the exact content for the user's decision, and the final step must (transitively) depend on it`;
-  const sinks = plan.steps.filter((step) => !plan.steps.some((s) => (s.dependsOn ?? []).includes(step.id)));
+  const dependedOn = new Set(plan.steps.flatMap((step) => step.dependsOn ?? []));
+  const sinks = plan.steps.filter((step) => !dependedOn.has(step.id));
   if (sinks.length !== 1) {
     return plan.steps.some((s) => s.gate === 'approval') ? [] : [need];
   }

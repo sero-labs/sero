@@ -1,3 +1,14 @@
+// jsdom has no ResizeObserver, but Radix UI components (used in dialogs, selects,
+// tooltips) call it on mount. Polyfill globally so component tests don't crash;
+// harmless in the node environment where nothing constructs it.
+if (typeof globalThis.ResizeObserver === 'undefined') {
+  globalThis.ResizeObserver = class ResizeObserver {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };
+}
+
 const QUIET_PATTERNS = [
   /^\[github-auth\]/,
   /^\[memory\]/,
