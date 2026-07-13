@@ -29,8 +29,8 @@ export function migrateLegacyProfileUserData(
       cpSync(legacyPath, targetPath, { recursive: true });
       rmSync(legacyPath, { recursive: true, force: true });
       console.log('[sero:profile] Copied Chromium user data to', targetPath);
-    } catch {
-      console.warn('[sero:profile] Failed to move legacy Chromium user data:', error);
+    } catch (copyError) {
+      console.warn('[sero:profile] Failed to move legacy Chromium user data:', copyError);
     }
   }
 }
