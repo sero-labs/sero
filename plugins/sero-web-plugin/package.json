@@ -80,7 +80,6 @@
     "@module-federation/vite": "catalog:",
     "@sero-ai/app-runtime": "workspace:@sero-ai/app-runtime@*",
     "@sero-ai/common": "workspace:*",
-    "@sero-ai/extension-runtime": "workspace:*",
     "@sero-ai/ui": "workspace:*",
     "@tailwindcss/vite": "catalog:",
     "@types/node": "catalog:",

@@ -1201,9 +1201,6 @@ importers:
       '@sero-ai/common':
         specifier: workspace:*
         version: link:../../packages/common
-      '@sero-ai/extension-runtime':
-        specifier: workspace:*
-        version: link:../../packages/extension-runtime
       '@sero-ai/ui':
         specifier: workspace:*
         version: link:../../packages/ui
