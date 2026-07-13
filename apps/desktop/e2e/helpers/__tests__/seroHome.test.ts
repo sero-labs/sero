@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import {
+  E2E_DATA_ROOT,
+  cleanupE2eDataRoot,
   createTempSeroHome,
   seedProfile,
   seedWorkspace,
@@ -22,8 +24,17 @@ describe('seroHome helper', () => {
     const home = createTempSeroHome();
     created.push(home);
     expect(fs.existsSync(home.path)).toBe(true);
-    expect(home.path).toMatch(/sero-e2e-/);
+    expect(home.path.startsWith(E2E_DATA_ROOT)).toBe(true);
     expect(fs.readdirSync(home.path)).toEqual([]);
+  });
+
+  it('cleanupE2eDataRoot removes the shared e2e root', () => {
+    const home = createTempSeroHome();
+    fs.writeFileSync(path.join(home.path, 'marker.txt'), 'x');
+
+    cleanupE2eDataRoot();
+
+    expect(fs.existsSync(E2E_DATA_ROOT)).toBe(false);
   });
 
   it('two consecutive calls produce distinct directories', () => {
@@ -46,12 +57,12 @@ describe('seroHome helper', () => {
     expect(() => home.cleanup()).not.toThrow();
   });
 
-  it('seedProfile writes profiles/registry.json and a default profile dir', () => {
+  it('seedProfile writes profiles.json and a default profile dir', () => {
     const home = createTempSeroHome();
     created.push(home);
     const profile = seedProfile(home, { name: 'Test' });
     const registry = JSON.parse(
-      fs.readFileSync(path.join(home.path, 'profiles', 'registry.json'), 'utf8'),
+      fs.readFileSync(path.join(home.path, 'profiles.json'), 'utf8'),
     );
     expect(registry.activeProfileId).toBe(profile.id);
     expect(registry.profiles).toHaveLength(1);
@@ -66,7 +77,7 @@ describe('seroHome helper', () => {
     const wsPath = path.join(home.path, 'sample-repo');
     fs.mkdirSync(wsPath, { recursive: true });
     const ws = seedWorkspace(home, { path: wsPath, name: 'sample' });
-    const wsFile = path.join(home.path, 'profiles', home.activeProfileId!, 'workspaces.json');
+    const wsFile = path.join(home.path, 'profiles', home.activeProfileId!, 'agent', 'workspaces.json');
     const wsJson = JSON.parse(fs.readFileSync(wsFile, 'utf8'));
     expect(wsJson.workspaces).toHaveLength(1);
     expect(wsJson.workspaces[0].id).toBe(ws.id);

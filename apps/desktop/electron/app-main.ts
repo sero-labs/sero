@@ -23,14 +23,21 @@ import type { SettingsPackageSource } from '../src/types/ipc';
 // Set userData path BEFORE app.whenReady() so Chromium initialises with the
 // correct directory. This isolates cookies, localStorage, caches, and
 // session data between profiles.
+//
+// userData always lives under SERO_HOME so it tracks the active profile.
+// When there is no active profile yet (fresh install / pre-onboarding) there
+// is no legacy data worth preserving, so migration is intentionally skipped
+// and Chromium simply starts fresh in the SERO_HOME location.
+const profileUserData = profileUserDataPath(SERO_HOME);
 if (ACTIVE_PROFILE_ID) {
-  const profileUserData = path.join(
-    app.getPath('userData'),
-    'profiles',
-    ACTIVE_PROFILE_ID,
+  const defaultUserDataPath = app.getPath('userData');
+  migrateLegacyProfileUserData(
+    legacyProfileUserDataPath(defaultUserDataPath, ACTIVE_PROFILE_ID),
+    profileUserData,
   );
-  app.setPath('userData', profileUserData);
 }
+mkdirSync(profileUserData, { recursive: true });
+app.setPath('userData', profileUserData);
 import { registerAllIpcHandlers } from './ipc';
 import { forwardWindowStateEvents } from './ipc/platform/system/window';
 import {
@@ -76,6 +83,11 @@ import { executeCliArgv } from './cli/core/batch-executor';
 import { initUpdater } from './features/updater/updater';
 import { installApplicationMenu } from './features/updater/menu';
 import { getPackageSource, removeStaleBuiltinPackages } from './platform/protocols/builtin-package-settings';
+import {
+  legacyProfileUserDataPath,
+  migrateLegacyProfileUserData,
+  profileUserDataPath,
+} from './platform/profile-user-data';
 
 let mainWindow: BrowserWindow | null = null;
 let isGracefullyShuttingDown = false;

@@ -27,6 +27,7 @@ Profiles are practical local separation, not cryptographic isolation. Someone wh
 | Profile-local environment variables | `<SERO_HOME>/agent/.env` |
 | Model/provider settings | `<SERO_HOME>/agent/settings.json`, `<SERO_HOME>/agent/models.json` |
 | Layout and UI state | `<SERO_HOME>/agent/layout.json` |
+| Chromium browser data | `<SERO_HOME>/chromium-user-data/` |
 | Skills, prompts, and agents | `<SERO_HOME>/agent/skills/`, `<SERO_HOME>/agent/prompts/`, `<SERO_HOME>/agent/agents/` |
 | Workspaces and global memory files | `<SERO_HOME>/workspaces/` |
 | App state | `<SERO_HOME>/apps/` and workspace `.sero/apps/` folders |
@@ -79,7 +80,7 @@ Current behavior:
 
 - Sero will not delete the only profile.
 - Sero will not delete the active profile; switch to another profile first.
-- Profile deletion removes the registry entry only. It does **not** delete the profile files from disk.
+- Profile deletion removes the registry entry only. It does **not** delete the profile files from disk, including Chromium browser data.
 
 If you want to remove the data too, first back up anything important, then delete the profile folder manually from your operating system.
 
