@@ -5,9 +5,19 @@ import type { OrchestratorIndex } from '../../shared/types';
 import { useWatchedJson } from './use-watched-json';
 
 /** Directory of a file path, tolerant of either separator (renderer has no node:path). */
-function dirOf(filePath: string): string {
+export function dirOf(filePath: string): string {
   const i = Math.max(filePath.lastIndexOf('/'), filePath.lastIndexOf('\\'));
   return i >= 0 ? filePath.slice(0, i) : '';
+}
+
+/**
+ * The current workspace's orchestrator state directory (parent of state.json),
+ * where index.json and loops/<id>/loop.json live. Empty when no workspace is
+ * mounted. The single source for both the app view and the dashboard widgets.
+ */
+export function useStateDir(): string {
+  const ctx = use(AppContext);
+  return useMemo(() => dirOf(ctx?.stateFilePath ?? ''), [ctx?.stateFilePath]);
 }
 
 /**
@@ -16,7 +26,6 @@ function dirOf(filePath: string): string {
  * update live without reading any loop file.
  */
 export function useOrchestratorIndex(): OrchestratorIndex {
-  const ctx = use(AppContext);
-  const stateDir = useMemo(() => dirOf(ctx?.stateFilePath ?? ''), [ctx?.stateFilePath]);
+  const stateDir = useStateDir();
   return useWatchedJson<OrchestratorIndex>(stateDir ? `${stateDir}/index.json` : null, DEFAULT_INDEX);
 }

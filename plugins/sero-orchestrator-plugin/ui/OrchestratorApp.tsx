@@ -1,9 +1,9 @@
-import { use, useCallback, useEffect, useMemo, useState } from 'react';
-import { AppContext, useAppTools } from '@sero-ai/app-runtime';
+import { useCallback, useEffect, useState } from 'react';
+import { useAppTools } from '@sero-ai/app-runtime';
 import { Button } from '@sero-ai/ui';
 import { Home, Infinity as InfinityIcon, Library, Plus, Sparkles } from 'lucide-react';
-import { DEFAULT_INDEX, DEFAULT_LIBRARY_INDEX } from '../shared/defaults';
-import type { LibraryIndex, Loop, OrchestratorAction, OrchestratorIndex } from '../shared/types';
+import { DEFAULT_LIBRARY_INDEX } from '../shared/defaults';
+import type { LibraryIndex, Loop, OrchestratorAction } from '../shared/types';
 import { LoopList } from './components/LoopList';
 import { LoopDetail } from './components/LoopDetail';
 import { LibraryView } from './components/LibraryView';
@@ -11,16 +11,11 @@ import { HomeView } from './components/HomeView';
 import { CreateLoopWizard } from './components/CreateLoopWizard';
 import type { CreateLoopSubmit } from './components/CreateLoopForm';
 import { actionToParams } from './lib/action-params';
+import { useOrchestratorIndex, useStateDir } from './lib/use-orchestrator-index';
 import { useWatchedJson } from './lib/use-watched-json';
 import './styles.css';
 
 type View = { mode: 'home' } | { mode: 'detail'; loopId: string | null } | { mode: 'create' } | { mode: 'library' };
-
-/** Directory of a file path, tolerant of either separator (renderer has no node:path). */
-function dirOf(filePath: string): string {
-  const i = Math.max(filePath.lastIndexOf('/'), filePath.lastIndexOf('\\'));
-  return i >= 0 ? filePath.slice(0, i) : '';
-}
 
 /**
  * Orchestrator panel. The home view (default) is a cross-loop "Needs you" inbox +
@@ -30,8 +25,7 @@ function dirOf(filePath: string): string {
  * payload); the open loop follows its own `loops/<id>/loop.json`.
  */
 export function OrchestratorApp() {
-  const ctx = use(AppContext);
-  const stateDir = useMemo(() => dirOf(ctx?.stateFilePath ?? ''), [ctx?.stateFilePath]);
+  const stateDir = useStateDir();
   const { run } = useAppTools();
   const [view, setView] = useState<View>({ mode: 'home' });
   const [busy, setBusy] = useState(false);
@@ -39,7 +33,7 @@ export function OrchestratorApp() {
   const [reflectSummary, setReflectSummary] = useState<string | null>(null);
   const [libraryDir, setLibraryDir] = useState<string | null>(null);
 
-  const index = useWatchedJson<OrchestratorIndex>(stateDir ? `${stateDir}/index.json` : null, DEFAULT_INDEX);
+  const index = useOrchestratorIndex();
   const selectedId = view.mode === 'detail' ? view.loopId : null;
   const loopPath = selectedId && stateDir ? `${stateDir}/loops/${selectedId}/loop.json` : null;
   const selected = useWatchedJson<Loop | null>(loopPath, null);

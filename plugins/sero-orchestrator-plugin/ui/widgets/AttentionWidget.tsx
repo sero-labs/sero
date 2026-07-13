@@ -74,13 +74,20 @@ function rowsFor(loop: LoopSummary): AttentionRow[] {
 export function AttentionWidget() {
   const { loops } = useOrchestratorIndex();
   const rows = loops.flatMap(rowsFor);
+  // Count the real pending items, not the displayed rows — multiple suggestions
+  // on one loop collapse into a single row, so `rows.length` would undercount.
+  // This matches LoopsWidget's "Needs you" metric (pendingInput + suggestions).
+  const pending = loops.reduce(
+    (n, l) => n + (l.attention?.input?.questions.length ?? 0) + (l.attention?.suggestions?.length ?? 0),
+    0,
+  );
 
   return (
     <WidgetContent>
       <Stack gap="sm" fill>
         <Inline justify="between" align="center">
-          <Status tone={rows.length > 0 ? 'warning' : 'success'} pulse={rows.length > 0}>
-            {rows.length > 0 ? `${rows.length} waiting on you` : 'All clear'}
+          <Status tone={pending > 0 ? 'warning' : 'success'} pulse={pending > 0}>
+            {pending > 0 ? `${pending} waiting on you` : 'All clear'}
           </Status>
         </Inline>
 

@@ -19,10 +19,10 @@ import {
   Text,
   WidgetContent,
 } from '@sero-ai/ui';
+import { relativeTime } from '@sero-ai/common';
 import { GitBranch, GitCommitHorizontal } from 'lucide-react';
 import type { GitAppState } from '../../shared/types';
 import { DEFAULT_GIT_STATE, normalizeGitState } from '../../shared/types';
-import { relativeTime } from '../lib/format';
 import '../styles.css';
 
 /** How many commits the feed peeks before "+N more". */
